@@ -67,8 +67,9 @@ if (threads) {
     // take, some straddle an edge
     // with stored lakes (a Fill in a sealed pocket under the ground, one in the open cave) and a removal's drained
     // tiles: the settle's stop once only sealed basins change, the pocket stored as it began, and the settle on from
-    // the water once the removal took its water (Fill and Remove unfed water on maps with caves)
-    const cut = (lakes = false, drain = false): StackSettle => {
+    // the water once the removal took its water (Fill and Remove unfed water on maps with caves); and the pocket's
+    // lake stored on half of it, so its water runs over the rest and is stored levelled (stack_level.rs)
+    const cut = (lakes = false, drain = false, moves = false): StackSettle => {
         const W = 48, H = 48;
         const mask = new Uint32Array(W * H);
         for (let y = 0; y < H; y++)
@@ -91,7 +92,7 @@ if (threads) {
             }
         }
         const tiles: number[] = [];
-        for (let y = 40; y <= 44; y++) for (let x = 42; x <= 45; x++) tiles.push(y * W + x);
+        for (let y = 40; y <= (moves ? 42 : 44); y++) for (let x = 42; x <= 45; x++) tiles.push(y * W + x);
         const cave: number[] = [];
         for (let y = 20; y <= 22; y++) for (let x = 15; x <= 17; x++) cave.push(y * W + x);
         const retained = lakes
@@ -133,7 +134,7 @@ if (threads) {
         while (!s) s = run.advance(1e6);
         return s;
     };
-    const cases: { name: string; settle: () => StackSettle }[] = [...stackFixtures.map(f => ({ name: f.name, settle: () => settleFixture(f) })), { name: 'emitters cut by the strips', settle: () => cut() }, { name: 'stored lakes', settle: () => cut(true) }, { name: 'stored lakes and a removal', settle: () => cut(true, true) }, { name: 'a shelf at 5 under filling water', settle: shelf(5) }, { name: 'a shelf at 6 under filling water', settle: shelf(6) }];
+    const cases: { name: string; settle: () => StackSettle }[] = [...stackFixtures.map(f => ({ name: f.name, settle: () => settleFixture(f) })), { name: 'emitters cut by the strips', settle: () => cut() }, { name: 'stored lakes', settle: () => cut(true) }, { name: 'stored lakes and a removal', settle: () => cut(true, true) }, { name: 'a shelf at 5 under filling water', settle: shelf(5) }, { name: 'a shelf at 6 under filling water', settle: shelf(6) }, { name: 'a stored lake whose water moves', settle: () => cut(true, false, true) }];
     let ran = 0;
     for (const c of cases) {
         const one = withoutParallelWater(c.settle);

@@ -365,6 +365,23 @@ arch, overhangs up to 3; 70–100 up to 22, 5–12 (overhanging cliffs, arches, 
 multi-level valleys, water through mountains). Cave starts only from 70. Every level has a way up without stairs
 (ramps, tunnels, ledges, bridges), except the planned rewards, which need player stairs.
 
+**Built so far** (D488, step 4 part 1; `docs/progress/3d-generation.md`): three forms, grown on the finished map where its
+land offers them and kept only where every check still holds, each an intention with its own check, and only above the
+theme's default Verticality (a map with caves has no Fill or Remove unfed water in the editor yet, so the ordinary map
+stays as it was until it does):
+
+| Verticality | A spring cave feeding the river | An overhang sheltering the start | An arch over a gorge |
+|---|---|---|---|
+| 0 | none | none | none |
+| 1–34 | one, on 25% + Verticality% of maps | one, on 20% + Verticality% | none |
+| 35–49 | one | one | one, more often in Canyon and Highlands |
+| 50–74 | up to two | one | one (two at 70+ on most maps) |
+| 75–100 | up to three | one | up to two |
+
+The cave and the overhang are worn below the surface (the land seen from above is unchanged); an arch's deck is new ground
+over its gorge, so a map that looks for one shows its first look when it is done (D348), and none is grown above 128².
+Their water is the stacked engine's on every column (D120).
+
 ---
 
 ## 6. Theme presets
@@ -735,7 +752,7 @@ where the land's own processes make them. The builder's limits still fix what a 
   holding (pieces of 10+, each column reached from its own level, the start's ruin distance + 4). Their storeys are
   their own (`params.storeys`), their scrap comes out of the map's budget (at most half of it), and each carries its
   line in a player's words (`params.story.say`, read back by `ruinStories` for the Showcase's mystery and late-game
-  project beats). A plugged tunnel to buried water waits for caves in generation (D488 (1)); objects may stand in them (D491).
+  project beats). The 3D forms grow after them and never take a ruin's tile (`gen/forms3d.ts` `growOn`), so no ruin stands in a cave mouth or on an arch span. A plugged tunnel to buried water is still to come (D488 (1), D491).
 
 ### 9.10 Achievable ranges by map size
 
@@ -909,7 +926,7 @@ tokens; `Levels` at least the terrain's floor count); `file.metadata` (all 8 key
 | `terrain.max_height`, `terrain.top_layer_free` | surface ≤ 22 and voxel layer 22 empty (D172 (1), DGM Probe run 20260925-tall); above 16 the check notes that the in-game map editor edits only up to level 16 |
 | `terrain.supported` | no voxel more than 3 sideways steps from support (0 on heightfields); with stacked terrain, every run not starting at z = 0 checked: no voxel the game's load rule would delete |
 | `terrain.single_floor` | one floor per tile (the water model's scope). An imported map's row only: a generated map has no such row |
-| `terrain.edge_wall` | No edge walls (D151, extending D111): a tile is walled when its outer two tiles stand 2+ levels above the highest of the next three; an edge is walled when 60% of its tiles are. Principle class. (Real places as converted: 89–99% of their most walled edge; official maps at most 38%; generated 128² at most 36%.) Not applicable under 10 tiles a side. |
+| `terrain.edge_wall` | No edge walls (D151, extending D111): a tile is walled when its outer two tiles stand 2+ levels above the highest of the next three; an edge is walled when 60% of its tiles are. Principle class. (The landscape survey's sealed border: 89–99% of its most walled edge; official maps at most 38%; generated 128² at most 36%; Real places, built from the unsealed land, under 50%, where lips stand beside the inflows by an edge.) Not applicable under 10 tiles a side. |
 | `terrain.dropped` | A generated map's row only, there when the build says what its support pass removed (D121): 0 blocks of ground. Design class: it blocks in `generate` and warns on a generated map being edited. The build's rule pass (`terrain/support.ts` `supportPass`, step 7) gives the count (`BuildResult.dropped`, absent when none: a heightfield drops nothing and is not worked out); the generator's checks and the editor's pass it (`ValidateOptions.dropped`) |
 | `plants.clearance` | every plant has its blocks' height in air above its floor (3 levels for a pine or an oak, 2 for a birch or a succulent, 1 for a blueberry bush; `terrain/clearance.ts`): the game removes one that has not. Load class. Such a plant is counted here and not in `entities.placement` |
 | `entities.templates`, `.enums`, `.components`, `.ids` | only common templates (§5.7); Orientation ∈ {Cw0, Cw90, Cw180, Cw270}, exact case; RuinModels + Yielder:Ruin on ruins, WaterSource (+WaterDepthStrengthModifier on seeps), UnstableCore on cores; unique lowercase GUIDs |
@@ -1208,7 +1225,9 @@ must respect:
   the preview (D69): level ground for single objects, dry and off rivers (weirs and plugs go across them), free of other
   objects and the start. Under a roof (a cave's floor, the ground under a ledge, a roof's top: the placement's `z`) the
   game's own rule decides instead, block by block (D491, `features/objects.ts` `standProblem`, the same rule as
-  `entities.placement`). The bridge waits (§5.7).
+  `entities.placement`), and never in the cells another object holds (`doc/ops.ts` `levelProblems`: "a water source
+  stands there"). On a map with caves a spring's sources go through the same rule, its cells free of the map's objects
+  (`features/build.ts`: one the game would not keep is left out of its row). The bridge waits (§5.7).
 - `carve` kinds (D118: tunnel, arch, skyBridge, cave, ledgePath, overhang, undergroundRiver): built only by their
   builders, which keep the support rule by construction (the build's rule pass drops 0 voxels); floors are run tops.
 - `start` (position, orientation, bench radius, player 0–3, default 0, reserved for Timber Together, D5): a flat 3×3

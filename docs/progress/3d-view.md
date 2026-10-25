@@ -299,12 +299,19 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   up the cliff and round the roof's top are gone, the outline lies on the floor. Until step 3, Up 1,
   Down 1, Flatten, Cut down, Fill up and Delete → Ground are refused on a cave column with one line
   (`src/core/doc/ops.ts`: "has a cave or overhang: shape its top with a brush"), so nothing acts on the roof while
-  the floor is drawn selected; Up 1's hover preview still paints the floor (the page's follow-up). Other overlay layers on a level-named tile (a drawing preview, a problem mark) show only on its run.
+  the floor is drawn selected; hovering those actions tints nothing and says the core's reason, and the roof over a floor selected by level is outside the brushes' working area (`renderer.overlayBelowTop`), as it is drawn. Other overlay layers on a level-named tile (a drawing preview, a problem mark) show only on its run.
 - **What is drawn where the pointer aims (D484):** the hovered tile lights only the top of the run seen (`hover.w` in
   the terrain shader), and the Select tool's ring lies on the top of the run nearest the hit's level in a column with
   terrain above terrain (`groundNear`, `aimedHeights`). The editing tools (brushes and forces) aim at the tile's top,
   as on dev, until step 3: their cursor, ring and band are drawn where the stroke will actually change the ground, since
   a cursor on a cave floor whose stroke would raise the roof breaks what you see is what you get. Everywhere else, as before.
+  On a wall below a tile's top (a cliff's face, a cave's mouth seen from low down: the editing pick lands on the wall of
+  the tile whose top the stroke changes) the brush and its stroke lie where the ray meets that wall, following the
+  level plane of that point (`brushes.ts` `aimAt`); they once lay where the ray crossed the tile's top level, in front of
+  the wall toward the camera, tiles from the pointer, a target's plane then a pale veil across the view
+  (`tests/e2e/brushOnWall.spec.ts`; before and after in `docs/sheets/caves-brush-camera.jpg`). Over water, the water's
+  surface is taken only where the ray meets it before the ground (`pickSurface`): a roof over a cave's water keeps its
+  own hit, where a force's cursor and the zoom once went to the water's level beyond it, under the rock.
 - **Under a layer cut:** the pick treats voxels at or above the cut as air and the cut as a top, and the Wand's
   `hasTop` applies the same cut (`hasTopAt`: a plain tile counts as min(height, cut)), so a click on the cut plateau
   takes the whole flat the cut shows. With caves the drawing now agrees (part 6).
@@ -349,18 +356,60 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   the shelf kept the bed's colour meant to be seen through water, in its gorge's shade. The terrain now counts a top as
   under water only where the water's surface is drawn (`soilOf`: the surface the tile data's water byte gives at or
   below the cut's 0.05, as the water's shader cuts it), so ground whose water the cut took away is a top like any other,
-  with or without caves on the map; without a cut nothing changes. The cap (where solid rock crosses the cut) was a
+  with or without caves on the map; without a cut nothing changes. Water deeper than three levels (a dammed
+  reservoir, an imported map's) has the water byte in whole levels (`light.ts` `waterByte`: 178 + K, its surface at most
+  K + 0.05 over the top and more than K − 0.95), so whether the cut takes its surface away is known exactly however
+  deep it is; the byte was linear to 4.23 levels and saturated, so a deeper bed under a cut drew dark with no water
+  over it (`fix/cut-deep-water`). The cap (where solid rock crosses the cut) was a
   grey-brown close to the stone tops, its hatch blurring flat at editing distance: it is now a cool slate darker than
   the tops round it (`palette.ts` `CUT_CAP`), drawn over the ground's own colour (no veins through it) and lit by the
   unsliced top's light, softened, with diagonal stripes three a tile close up; farther out every other stripe fades
   as they close in, so they stay about seven pixels apart and never blur to flat. The overlays go on it as on any top.
-  `tests/e2e/cutaway.spec.ts`: a pond's shelf cut at its level draws as the same shelf dry (it fails on dev by 38
-  levels). Captures: `docs/sheets/cut-level-ground.jpg` (dev against the branch, Canyon's shelf and Hollows at cut 7,
+  `tests/e2e/cutaway.spec.ts`: a pond's shelf cut at its level, and ground at 2 under a reservoir six levels deep cut
+  at 7, draw as the same ground dry (each failed before its fix by 38 levels). Captures: `docs/sheets/cut-level-ground.jpg` (dev against the branch, Canyon's shelf and Hollows at cut 7,
   Standard and High, 1920×1080 dark and 1280×800 light).
 - **Falls short:** water, objects, falls and the drought line are cut as before: what stands above the cut is not drawn
   (each water column stands at its own level since part 4). Water whose surface stands above the cut is not drawn even
   where its floor lies below the cut, so that floor shows as ground, not as a bed under water.
   `tests/e2e/cutaway.spec.ts` compiles and draws the branch on a hand-made cave in CI.
+
+## The camera keeps out of the rock (`fix/caves-brush-camera`)
+
+- **What:** the orbit camera sits on an arm from the point it looks at; where the arm's end would be inside solid
+  ground (a cliff behind a low camera, the rock round a cave), it is drawn in along the arm to the nearest place in the
+  air toward that point (`cameraClamp.ts` `armReach`, read by `placeCamera`); close to a point under a roof (a cave's
+  floor, a tunnel, under an arch; within 24 tiles, `CAVE_NEAR`) it stays in that point's air, drawn in to where the arm
+  first meets rock, so turning round in a cave never puts the camera outside behind its wall. The eye keeps 0.8 of a
+  tile from rock, more than the near plane's corners reach; where nothing on the arm has that room (a narrow tunnel),
+  0.25 or 0.12, with the near plane brought in to match (`nearFor`). Only drawn: the view's distance is kept, so the
+  camera springs back out once the rock no longer holds it. A zoom in starts from where the camera is drawn and stops
+  short of the ground under the pointer (`framing.ts` `zoomStep`, `zoomStopShort`, 1.6 tiles), so a zoom into a mouth
+  ends in its air; a zoom out starts from the view's own distance, so it carries the camera out of the rock that held it
+  as far as on dev. Under a layer cut, the rock left is what counts.
+- **The same where nothing holds it:** where the eye is clear (and, under a roof, the arm too), the camera is exactly
+  where its view puts it: a map without terrain above terrain is drawn as before wherever the camera stayed above the
+  ground. Cost: a ball test of up to 27 voxels; a short walk along the arm only under a roof or while the rock holds
+  the camera; worked out once per view and terrain (every change to the terrain is a new source), so a frame and its
+  picks share it.
+- **Tests:** `cameraClamp.test.ts` on hand-made terrain (a cave, an arch, a pillar, an overhang, a tunnel two tiles
+  wide): the eye is never in a solid voxel nor nearer one than its least room after random orbits, pans and zooms
+  (composed as `zoom` composes them); a zoom toward the cave's mouth ends in its air; orbited inside, the camera stays
+  in the cave and the tunnel, its near plane inside its room; where the eye is clear and the target not under a roof,
+  the camera is where its view puts it (a rough heightfield and the cave world, 3,000 views each); zoomed out while the
+  rock holds it (in the cave, and a low camera with a canyon's cliff behind it), it goes as far out as on dev and comes
+  out of the rock; on a generated
+  canyon (96², seed 7), looking flat (tilt 0.18 to 0.35) at the foot of steep walls and orbited, panned and zoomed, the
+  eye stays above the ground under it by the room it keeps (`setView` clamps only the tilt; the clamp holds the eye's
+  height on every map, not only out of cave rock).
+- **Captures:** `docs/sheets/caves-brush-camera.jpg` (dev against this branch, real Chrome, High: Raise hovered in a
+  Hollows mouth at 1280×800 light; turned inside a Pressure arch after a zoom, and a low orbit beside a Hollows cliff,
+  at 1920×1080 dark: dev draws both from inside the rock).
+- **Falls short:** being drawn in and springing back out each happen in one frame: a camera held in by rock springs
+  back at once when its place leaves the rock on the far side (tilted up through a thin roof, turned past a wall's end;
+  a low orbit by a plain cliff can jump many tiles in one small turn). Easing it would draw the rock in between, so it
+  is not eased. Looking
+  at a point on a tunnel's floor, turned low toward a wall two tiles off, the arm has no room at all, and the camera
+  keeps its place outside, beyond the wall.
 
 ## Items 7 and 8: caves that read (built, `feature/3d-view-caves-read`)
 
@@ -508,6 +557,42 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   4,000 rays aimed into the block from above: 28.3 µs reading the voxels, 3.8 µs looked up (2.9 µs on the plain map).
 - **Falls short:** the other readers of the 23-byte columns (the water layers, Standard's shadow rock, the run soil)
   still follow a roof's top only when the worker's columns come, as before.
+
+## The hollow under the cursor (D488, D487; `feature/hollow-under-pointer`)
+
+- **Why:** at an editing pitch a cave or a tunnel under a plateau is invisible unless the Caves layer or a cut is on,
+  and the layer marks whole roof tops, not where the air is or how much roof is left. Since D487 the brushes shape a
+  roof's top run, so a map maker painting on a plateau needs to see the hollow under the brush.
+- **What:** `src/render3d/hollow.ts`. While an editing cursor is over ground with air right under its top run, the
+  air's footprint is laid on the roof's top inside the cursor's reach: a fill in the Caves layer's violet (170 90
+  220), stronger the thinner the roof (`roofTone`: alpha 0.5 at one block, as low as a stroke can take it, then 0.37,
+  0.27, 0.19 and a quiet 0.13 from five blocks), a little fainter toward the reach's edge, and a thin light-violet
+  outline over a dark edge (the brush ring's) where the hollow ends. Air only between lower runs does not count: the
+  top run is what the pointer is over and what a brush shapes. The reach (`renderer.ts` `layHollow`): the brush's disc
+  (Select's ring too, counting a roof only where the ring lies on it, `aim`), else a force's or the shelf's ring (a
+  force's marker: 1.5 tiles), else the square a tile round the Block tool's blocks, aimed at their lowest layer (blocks
+  added on a cave's floor do not mark the roof over them). Under a layer cut it reads the cut masks, so a roof cut
+  thinner reads thinner and a cave cut open shows nothing. Drawn over the brush's disc so the violet reads the same
+  under every brush's tint, under a target's plane.
+- **Cost:** a map with no column that is not plain never builds the marks; the setters raise one flag and the frame
+  returns at its first test. On a cave map the footprint is worked out once a frame the cursor moved (a mask lookup a
+  tile): measured once in Node (information), a 256² map all roofs, radius 6 0.011 ms, radius 24 0.067 ms.
+- **Tried:** A, the footprint on the roof's top (built); B, an x-ray of the footprint at the cave's ceiling, drawn
+  through the rock. B gives depth by parallax, but at an editing pitch it lands off the tiles a stroke would change
+  (toward the camera by the roof's thickness), so it reads as "somewhere under here"; A says which tiles and, by its
+  tone, how thin.
+- **Tests:** `tests/unit/hollow.test.ts` (the roof of a column, the footprint in a disc and a square, the aim, a cut,
+  the tone, the Block tool's reach); `tests/e2e/cutaway.spec.ts` draws it under a brush on the hand-made cave in both
+  looks with no shader error (9 tiles, 12 outline pieces), never makes it on a plain map, and draws it for a hollow dug
+  after opening until it is filled.
+- **Captures:** `docs/sheets/hollow-under-pointer.jpg` (`tools/capture-hollow.ts`, real Chrome on the RTX 2070 SUPER):
+  Hollows and Pressure with the Raise brush over a roof's edge, Craterize's ring and the Block tool there; a tunnel dug
+  with the Block tool into a cliff of Canyon 128 seed 7, the Lower brush over it; the same map with no caves, nothing
+  drawn; Standard and High, 1920×1080 dark and 1280×800 light. "Before" is the same frame with the marks hidden (they
+  are all this change draws).
+- **Falls short:** the tone says thin or thick, not a number of blocks; a big force's ring over a cave map marks a lot
+  of violet (all of it ground the force leaves as it is, D487). Under water on a roof the marks lie on the ground,
+  seen through the water as the brush's own disc is.
 
 ## The rest of the step (next parts)
 

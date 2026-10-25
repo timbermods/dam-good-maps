@@ -27,8 +27,8 @@ function opened(id: string, asPlace: boolean) {
 
 describe("a real place's check summary", () => {
   it("a place under the starting-logs floor is not 'all pass': the floor is a warning", () => {
-    const { s, groups } = opened("near-aso-caldera", true);
-    expect(s.meta.place).toBe("near-aso-caldera");
+    const { s, groups } = opened("near-glencoe", true);
+    expect(s.meta.place).toBe("near-glencoe");
     expect(groups.warnings.map((c) => c.id)).toContain("start.wood_floor");
     expect(groups.existing).toEqual([]);
     // (the difficulty's own wood target is information on a place)
@@ -76,7 +76,7 @@ describe("a real place's check summary", () => {
   });
 
   it("the same file opened as a plain import lists its own problems apart (D3)", () => {
-    const { groups } = opened("near-aso-caldera", false);
+    const { groups } = opened("near-glencoe", false);
     expect(groups.existing.map((c) => c.id)).toContain("start.wood_floor");
     expect(groups.warnings).toEqual([]);
   });

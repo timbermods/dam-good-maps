@@ -87,6 +87,15 @@ export class OverlayRuns {
     this.uniform.value = any ? this.tex : this.placeholder;
   }
 
+  /** Whether the selection names a run of tile `i` below the column's top (`height`): the overlay is on that run, and the
+   *  top (a cave's roof) is drawn as the land outside the selection, so a brush must not take it as inside. */
+  namesBelowTop(src: TerrainSource | null, i: number, height: number): boolean {
+    const l = this.levels?.[i];
+    if (!l || !src || !src.columns.has(i)) return false;
+    const r = runHolding(columnMask(src, i), l - 1);
+    return !!r && r.top !== height;
+  }
+
   dispose(): void {
     this.tex?.dispose();
     this.tex = null;

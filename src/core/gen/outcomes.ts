@@ -8,21 +8,38 @@ import { signatureOf, type Signature } from "../analysis/signature";
 import { waterStory, type WaterStory } from "../analysis/story";
 import type { Feature } from "../features/schema";
 import { KYLERS, type IntentionId } from "../land/intentions";
+import type { FormId } from "../land/forms3d";
 import type { ThemeId } from "../spec/mapspec";
+import { seenWater, type StackSettle } from "../sim/stackWater";
 import * as portable from "../math/portable";
+import { mapShape } from "../land/shape";
+
+/** The sides a promise's lines are judged against (D357, D488's unusual shapes). On a map that is not
+ *  long, the short side every way, as always. On a long map its water runs the length: a line along the
+ *  course (a canyon's walled stretch, and its share of the course) is judged against the long side, and a
+ *  share of the land (cliffs) against the side of a square map of the same area. Judged against the short
+ *  side, the lines rose as the strip narrowed: a 48×256 Canyon walled for 119 and 155 tiles, or a
+ *  Highlands of tall benches, missed its promise. A width across the river (River Valley's valley) stays
+ *  the short side, all the strip has room for. */
+export function promiseSides(W: number, H: number): { across: number; course: number; area: number } {
+  const side = Math.min(W, H);
+  const long = mapShape(W, H).long;
+  return { across: side, course: long ? Math.max(W, H) : side, area: long ? portable.sqrt(W * H) : side };
+}
 
 /** Each theme's promise (D273 (2)) as a line on its signature's measures, and in words: `text` the
  *  promise, `words` what a version that keeps it has (gen/versions.ts `versionNote`), `noun` the
  *  land's word in a map's name (gen/names.ts `landNoun`). Any makes no promise. The lines sit where
  *  the theme's maps part from the others' (M9b's measures, docs/progress/m9b.md). */
-export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; words: string; noun: string; holds: (s: Signature, side: number) => boolean }> = {
-  // (a floor 20% of the side at 128², growing with the square root of the side, as the floor does)
-  riverValley: { text: "a main river through a broad valley", words: "its broad valley", noun: "Valley", holds: (s, side) => s.valley * side >= 0.2 * 128 * portable.sqrt(side / 128) },
+export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; words: string; noun: string; holds: (s: Signature, W: number, H: number) => boolean }> = {
+  // (a floor 20% of the side at 128², growing with the square root of the side, as the floor does;
+  // the valley's width is read across the river, so across a long map too)
+  riverValley: { text: "a main river through a broad valley", words: "its broad valley", noun: "Valley", holds: (s, W, H) => s.valley * promiseSides(W, H).across >= 0.2 * 128 * portable.sqrt(promiseSides(W, H).across / 128) },
   // (a gorge is carved to the rivers' own size, not the map's: its line grows as the square root
   // of the side, as the floors do; its share of a longer course falls the same way)
-  canyon: { text: "a river cut deep between cliffs for a real stretch", words: "its canyon", noun: "Gorge", holds: (s, side) => s.canyon >= Math.max(16, 0.16 * 128 * portable.sqrt(side / 128)) && s.canyonShare >= 0.2 * portable.sqrt(128 / side) },
+  canyon: { text: "a river cut deep between cliffs for a real stretch", words: "its canyon", noun: "Gorge", holds: (s, W, H) => { const side = promiseSides(W, H).course; return s.canyon >= Math.max(16, 0.16 * 128 * portable.sqrt(side / 128)) && s.canyonShare >= 0.2 * portable.sqrt(128 / side); } },
   // (cliffs are lines: their share of the land falls as the map grows, as the square root of its side)
-  highlands: { text: "high, rugged ground with plateaus and valleys among it", words: "its highlands", noun: "Heights", holds: (s, side) => s.high >= 0.6 && s.plateaus >= 3 && s.cliffs >= 0.1 * portable.sqrt(128 / side) },
+  highlands: { text: "high, rugged ground with plateaus and valleys among it", words: "its highlands", noun: "Heights", holds: (s, W, H) => s.high >= 0.6 && s.plateaus >= 3 && s.cliffs >= 0.1 * portable.sqrt(128 / promiseSides(W, H).area) },
   // (a big lake: a twelfth of the map or more. At 4% a wide river reach passed with no lake to see,
   // 0.8.3's 128² seed 15 at 4.8%; Lake Basin's lakes stand at 10% of the map and more, 96² to 256²)
   lakeBasin: { text: "big lakes that dominate the water", words: "its big lakes", noun: "Lakelands", holds: (s) => s.lakeShare >= 0.55 && s.bigLake >= 0.08 },
@@ -32,9 +49,9 @@ export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; words: st
 
 export interface OutcomeInput {
   spec: { theme: ThemeId; size: { x: number; y: number } };
-  built: { W: number; H: number; heights: Uint8Array; water: Float64Array; contamination: Float64Array };
+  built: { W: number; H: number; heights: Uint8Array; water: Float64Array; contamination: Float64Array; settle?: { stack?: StackSettle } };
   features: readonly Feature[];
-  intentions: readonly { id: IntentionId; ok: boolean }[];
+  intentions: readonly { id: IntentionId | FormId; ok: boolean }[];
   /** The water as its rivers were planned (the land screens), not settled: lakes read as planned. */
   planned?: boolean;
 }
@@ -45,7 +62,7 @@ export interface Outcomes {
   /** The theme's promise kept (always for Any). */
   promise: boolean;
   /** The standout intention: the first of the map's that emerged (Kyler's own first), or null. */
-  standout: IntentionId | null;
+  standout: IntentionId | FormId | null;
   /** All three held. */
   met: boolean;
   /** How many of the three held, for the best candidate when none holds all three. */
@@ -55,12 +72,14 @@ export interface Outcomes {
 
 export function outcomesOf(r: OutcomeInput): Outcomes {
   const { W, H } = r.built;
-  const story = waterStory(W, H, r.built.water, r.features, r.built.contamination);
-  const signature = signatureOf(W, H, r.built.heights, r.built.water, r.features, !r.planned);
+  // (on terrain above terrain, the water seen through the roofs: a cave's stream, a river under an arch)
+  const seen = seenWater(r.built);
+  const story = waterStory(W, H, seen.depth, r.features, seen.contamination);
+  const signature = signatureOf(W, H, r.built.heights, seen.depth, r.features, !r.planned);
   const theme = r.spec.theme;
-  const promise = theme === "any" ? true : PROMISES[theme].holds(signature, Math.min(W, H));
+  const promise = theme === "any" ? true : PROMISES[theme].holds(signature, W, H);
   const emerged = r.intentions.filter((x) => x.ok).map((x) => x.id);
-  const standout = emerged.find((id) => KYLERS.has(id)) ?? emerged[0] ?? null;
+  const standout = emerged.find((id) => KYLERS.has(id as IntentionId)) ?? emerged[0] ?? null;
   const score = (story.readable ? 1 : 0) + (promise ? 1 : 0) + (standout ? 1 : 0);
   const summary = [story.readable ? "water reads" : `water: ${story.why.join("; ")}`, theme === "any" ? "" : promise ? "promise kept" : `no ${PROMISES[theme].text}`, standout ? `standout: ${standout}` : "no standout"].filter(Boolean).join(" | ");
   return { story, signature, promise, standout, met: score === 3, score, summary };

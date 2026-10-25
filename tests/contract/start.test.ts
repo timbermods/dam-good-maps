@@ -400,3 +400,48 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     expect(check(s, { bushesWithin20: 26 })["start.food"].ok).toBe(false);
   });
 });
+
+describe("the oaks fix plants only where oaks live", () => {
+  const oaksOf = (s: Scene) => {
+    const fix = check(s)["start.wood"].fix ?? [];
+    return { fix, tiles: fix.map((o) => o.params as { x: number; y: number }) };
+  };
+  /** A scene whose only water is a small pond `px` tiles east, so little ground is moist near the start. */
+  const pondScene = (px: number): Scene => {
+    const s = scene();
+    s.depth.fill(0);
+    for (let y = 0; y < H; y++) for (let x = 34; x <= 36; x++) s.heights[y * W + x] = 5;
+    for (let y = 23; y <= 24; y++)
+      for (let x = px; x <= px + 1; x++) {
+        s.heights[y * W + x] = 4;
+        s.depth[y * W + x] = 0.6;
+      }
+    return s;
+  };
+
+  it("on moist ground, a grove that follows it: not a ring round the start", () => {
+    const s = scene();
+    const m = moist(s);
+    const { fix, tiles } = oaksOf(s);
+    expect(fix).toHaveLength(25);
+    expect(fix[0].label).toBe("Plant 25 oaks for the starting logs");
+    expect(tiles.every((p) => m[p.y * W + p.x] === 1)).toBe(true);
+    // (not all one distance from the start, as a ring is)
+    const far = tiles.map((p) => Math.max(Math.abs(p.x - START.x), Math.abs(p.y - START.y)));
+    expect(Math.max(...far) - Math.min(...far)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("with little moist ground it plants the oaks that fit, never on dry ground, and says how many fit", () => {
+    const s = pondScene(34);
+    const m = moist(s);
+    const { fix, tiles } = oaksOf(s);
+    expect(fix.length).toBeGreaterThan(0);
+    expect(fix.length).toBeLessThan(25);
+    expect(tiles.every((p) => m[p.y * W + p.x] === 1)).toBe(true);
+    expect(fix[0].label).toBe(`Plant ${fix.length} oaks, all the moist ground holds (25 needed)`);
+  });
+
+  it("with no moist ground near the start there is no oak fix", () => {
+    expect(oaksOf(pondScene(42)).fix).toHaveLength(0);
+  });
+});

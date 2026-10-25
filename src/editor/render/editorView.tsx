@@ -17,6 +17,7 @@ import { ForceFloor } from "../TopBar";
 import { WaterBar } from "../WaterBar";
 import { surfaceWater } from "../../render3d/model";
 import { coreNotes } from "../../core/sim/coreMoment";
+import { hazardDays } from "../../core/sim/weather";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
@@ -72,7 +73,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               {ed.compareVeil()}
               {ed.compareFlipped ? null : startHintTag()}
               {topBar(ed, props)}
-              {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} coreNotes={weather ? coreNotes(info.features, info.spec?.designedFor ?? "normal", weather, ed.weatherTarget ?? ed.weatherDay) : []} /> : null}
+              {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} length={weather ? hazardDays(info.spec?.designedFor ?? "normal", weather) : null} coreNotes={weather ? coreNotes(info.features, info.spec?.designedFor ?? "normal", weather, ed.weatherTarget ?? ed.weatherDay) : []} /> : null}
               {/* the objects: the picked one's window directly above the list, the list never moving */}
               <div class="objects-dock">
                 <ObjectWindow panel={ed.unleashRow() ? null : (ed.shelfRow() ?? ed.pickedRow())} />

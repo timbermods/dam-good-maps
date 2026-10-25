@@ -8,7 +8,7 @@
 // 256², the numbers item 29 asks for (information, never a failure).
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -21,7 +21,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 async function openTopDown(page: Page, size: number) {
   await page.goto("about:blank");
   await openEditor(page, `s=4242&z=${size}&d=n&t=highlands`);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await idle(page);
 }
 

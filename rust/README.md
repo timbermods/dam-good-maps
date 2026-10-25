@@ -12,8 +12,8 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
   instances of the same module, one per thread, each on a strip of the map (`water_strip`, `water_sync`, `water_seep`;
   `Sim::new_strip`, `Sim::sync_rows`). Each tile's four neighbours and flows sit together (`[u32; 4]`, `[f64; 4]`) and
   `sync_rows` skips the wet-list rebuild when no halo tile turned wet or dry (#288; no SIMD). `water-batch` is the native binary batch jobs run. The same crate
-  holds the stacked-column water for terrain above terrain (D448; `columns`, `stack`, `stack_prefill`, `stack_engine`,
-  `stack_memory`), ported from #71's reference, whose one-column path is today's water unchanged. `stack_*` exports
+  holds the stacked-column water for terrain above terrain (D448; `columns`, `stack`, `stack_prefill`, `stack_level`
+  (a sealed basin's water at rest), `stack_engine`, `stack_memory`), ported from #71's reference, whose one-column path is today's water unchanged. `stack_*` exports
   take Rust-owned typed arrays, one call per operation (the interface is in `investigation/rust-stacked/INTEGRATION.md`
   on PR #255; the core's binding is `src/core/sim/stackWater.ts`). The multi-core settle
   (`src/core/sim/stackParallel.ts`) runs one instance per thread on a strip of the map, handing rows over as blocks

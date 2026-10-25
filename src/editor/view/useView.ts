@@ -6,7 +6,7 @@ import { footprintTiles, type Orientation } from "../../core/format/footprints";
 import { ORIENTATION_NAMES, type EntityView } from "../../render3d/model";
 import type { TileHit } from "../../render3d";
 import type { WaterLayers } from "../../worker/session";
-import { entitiesByTile, startStatus, type TileContext } from "../features";
+import { entitiesByTile, startDragStatus, type TileContext } from "../features";
 import { LAYER_COLORS, type LayerKind } from "../panels";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, targetSource, type SourceSpot } from "../sourceSpots";
 import { BAD, STATUS_COLOR, WARN, DRAWING, DRAWING_BAND, GOOD, HOVERED, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, type OverlayLayer } from "../tools";
@@ -164,7 +164,7 @@ export function useView(ed: Ed): ViewSlice {
       if (e.templates[e.template[k]] !== "StartingLocation") continue;
       const o = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
       const [cx, cy] = cornerToCentre(e.x[k], e.y[k], o);
-      return { x: cx, y: cy, orientation: o, feature: null, owner: e.owners[e.owner[k]] };
+      return { x: cx, y: cy, orientation: o, feature: null, owner: null };
     }
     return null;
   }, [info.features, info.version]);
@@ -187,7 +187,7 @@ export function useView(ed: Ed): ViewSlice {
     }
     if (picked) layers.push({ tiles: [picked.y * info.W + picked.x], color: SELECTED });
     if (pickedObject) layers.push({ tiles: footprintTiles(pickedObject.template, { template: pickedObject.template, x: pickedObject.x, y: pickedObject.y, z: 0, orientation: pickedObject.orientation, flipped: pickedObject.flipped }).filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: SELECTED, outline: true });
-    if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: STATUS_COLOR[startStatus(startDrag.check)] });
+    if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: STATUS_COLOR[startDragStatus(startDrag)] });
     if (hoverObject && !sourceDrag) layers.push({ tiles: hoverObject, color: HOVERED, outline: true });
     // the source being changed is clearly marked: the one the pointer is on, the one picked (D361, item 6)
     if (targeted !== null && targetSpot.current && !sourceDrag) layers.push({ tiles: targetSpot.current.tiles, color: HOVERED, outline: true });

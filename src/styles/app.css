@@ -17,8 +17,15 @@
   --warn: light-dark(#9a6a10, #f0c86a);
   --code: light-dark(rgba(42, 33, 24, 0.08), rgba(236, 227, 207, 0.09));
   --map-bg: light-dark(#e9dfc8, #1d261e);
+  /* the well an object's picture sits on: none in light, a pale one in dark, where the pictures of dark things (Pine,
+     Oak, Aquifer) would vanish into the panel */
+  --pic-well: light-dark(transparent, #e3dac3);
   --overlay: light-dark(rgba(255, 250, 240, 0.94), rgba(36, 49, 38, 0.95));
   --sh-ink: 58, 38, 16;
+  /* how much wider than Segoe UI the system font is on the tight labels (the cells' share, and the shelf's, which has no
+     slack), 1 where it is not (src/ui/fontFit.ts) */
+  --wide-font: 1;
+  --wide-font-full: 1;
   /* Depth: three elevations, each three stacked shadows in a warm walnut ink, never grey. 1: a single control over the
      map (every place that says --shadow). 2: a plate (the bar, its settings, the shelf and its object window, the
      panels, the legend). 3: what opens over everything (menus, the checks list, dialogs). The header's falls on the

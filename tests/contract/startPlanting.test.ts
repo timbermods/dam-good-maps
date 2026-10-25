@@ -79,7 +79,7 @@ describe("the start's own planting on generated maps (PLAN §20 D252)", () => {
   });
 
   // Was an expected failure from Islands round 6 (0.8.7: a mean lean of 0.442 on these sixteen starts, two Any maps
-  // that roll a sea layout leaning less); since 0.8.10 (ruins placed with meaning, whose fields the other resources
+  // that roll a sea layout leaning less); since 0.10.1 (ruins placed with meaning, whose fields the other resources
   // keep off) the starts lean over the 0.45 again, so `fails` came off (D148). Its seeds and bar are unchanged.
   it("no two starts get the same ring: the planting leans to a side instead of surrounding the start", () => {
     // (the even planting it replaced: a mean lean of 0.36 on these starts, every yard planted up to

@@ -8,8 +8,9 @@ const LOW = [122, 150, 84]; // grass on the valley floor
 const HIGH = [196, 178, 140]; // dry rock on the heights
 const WATER = [64, 128, 200];
 
-/** RGB per tile (3 bytes per tile, row-major, y north = row index). */
-export function shadeTiles(heights: Uint8Array, W: number, H: number, water?: ArrayLike<number> | null): Uint8Array {
+/** The land's colours with no water, per tile (r, g, b, unrounded): the height ramp and the hillshade, which only the
+ *  land changes. `shadeTiles` and `shadeRgba` put the water on it; the minimap keeps it while only the water moves. */
+export function groundShade(heights: Uint8Array, W: number, H: number): Float64Array {
   let lo = 255;
   let hi = 0;
   for (let i = 0; i < heights.length; i++) {
@@ -17,7 +18,7 @@ export function shadeTiles(heights: Uint8Array, W: number, H: number, water?: Ar
     if (heights[i] > hi) hi = heights[i];
   }
   const span = Math.max(1, hi - lo);
-  const out = new Uint8Array(W * H * 3);
+  const out = new Float64Array(W * H * 3);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -33,9 +34,46 @@ export function shadeTiles(heights: Uint8Array, W: number, H: number, water?: Ar
       let light = 1 - 0.18 * (gx - gy);
       if (light < 0.55) light = 0.55;
       if (light > 1.25) light = 1.25;
-      let r = (LOW[0] * (1 - t) + HIGH[0] * t) * light;
-      let g = (LOW[1] * (1 - t) + HIGH[1] * t) * light;
-      let b = (LOW[2] * (1 - t) + HIGH[2] * t) * light;
+      out[i * 3] = (LOW[0] * (1 - t) + HIGH[0] * t) * light;
+      out[i * 3 + 1] = (LOW[1] * (1 - t) + HIGH[1] * t) * light;
+      out[i * 3 + 2] = (LOW[2] * (1 - t) + HIGH[2] * t) * light;
+    }
+  }
+  return out;
+}
+
+/** RGB per tile (3 bytes per tile, row-major, y north = row index). */
+export function shadeTiles(heights: Uint8Array, W: number, H: number, water?: ArrayLike<number> | null): Uint8Array {
+  const ground = groundShade(heights, W, H);
+  const out = new Uint8Array(W * H * 3);
+  for (let i = 0; i < W * H; i++) {
+    let r = ground[i * 3];
+    let g = ground[i * 3 + 1];
+    let b = ground[i * 3 + 2];
+    if (water && water[i] > 0.05) {
+      const d = Math.min(water[i], 3) / 3;
+      const k = 0.35 + 0.4 * d;
+      r = r * (1 - k) + WATER[0] * k;
+      g = g * (1 - k) + WATER[1] * k;
+      b = b * (1 - k) + WATER[2] * k;
+    }
+    out[i * 3] = clamp255(r);
+    out[i * 3 + 1] = clamp255(g);
+    out[i * 3 + 2] = clamp255(b);
+  }
+  return out;
+}
+
+/** The same colours as `shadeTiles` (the same arithmetic, kept beside it), straight into an image's RGBA pixels, one a
+ *  tile, north at the top, from the ground's colours (`groundShade`): the minimap's water pass. */
+export function shadeRgba(ground: Float64Array, W: number, H: number, water: ArrayLike<number> | null, out: Uint8ClampedArray): void {
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const o = ((H - 1 - y) * W + x) * 4;
+      let r = ground[i * 3];
+      let g = ground[i * 3 + 1];
+      let b = ground[i * 3 + 2];
       if (water && water[i] > 0.05) {
         const d = Math.min(water[i], 3) / 3;
         const k = 0.35 + 0.4 * d;
@@ -43,12 +81,11 @@ export function shadeTiles(heights: Uint8Array, W: number, H: number, water?: Ar
         g = g * (1 - k) + WATER[1] * k;
         b = b * (1 - k) + WATER[2] * k;
       }
-      out[i * 3] = clamp255(r);
-      out[i * 3 + 1] = clamp255(g);
-      out[i * 3 + 2] = clamp255(b);
+      out[o] = clamp255(r);
+      out[o + 1] = clamp255(g);
+      out[o + 2] = clamp255(b);
+      out[o + 3] = 255;
     }
-  }
-  return out;
 }
 
 function clamp255(v: number): number {

@@ -7,7 +7,7 @@
 // back at once. (Esc and undo at every moment of a force at work are forceEsc.test's.)
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -23,7 +23,7 @@ const noteWords = (page: Page) => page.evaluate(() => document.querySelector(".s
 
 async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
   await openEditor(page, hash);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
 }
 
 /** Dry ground far from the start where the map (not a bar over it) takes the pointer, with 14 tiles

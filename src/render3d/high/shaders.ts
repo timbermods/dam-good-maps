@@ -238,12 +238,13 @@ export function terrainHooks(): ShaderHooks {
         // ground's own colour, before contamination's veins are, so the veins keep all their strength (D334)
         if (hlDry > 0.5) {
           vec4 season = texture2D(hlSeasonMask, (floor(gTile) + 0.5) / hlSeasonSize);
+          // (its patterns read for every pixel, outside the branch on the tile's mask: their mipmaps need every pixel of a quad)
+          float wear = vnoise(gTile * 0.61 + vec2(7.7, 19.3));
+          float splits = cracks(gTile * 1.41 + 29.3).x;
+          float blades = smoothstep(0.69, 0.86, vnoise(gTile * vec2(29.1, 8.7) + vec2(4.7, 9.2)));
           if (season.r > 0.5) {
-            float wear = vnoise(gTile * 0.61 + vec2(7.7, 19.3));
-            float splits = cracks(gTile * 1.41 + 29.3).x;
             vec3 earth = mix(vec3(0.48, 0.455, 0.415), vec3(0.61, 0.575, 0.50), wear);
             earth *= 1.0 - splits * 0.25 * detail;
-            float blades = smoothstep(0.69, 0.86, vnoise(gTile * vec2(29.1, 8.7) + vec2(4.7, 9.2)));
             earth = mix(earth, vec3(0.67, 0.62, 0.43), season.a * (0.22 + blades * 0.35));
             c = mix(c, earth, 0.66 * (1.0 - bad * 0.5));
           }
@@ -258,15 +259,16 @@ export function terrainHooks(): ShaderHooks {
         // the grade's saturation and warm balance spare dry earth, which the game draws a muted
         // brown-mauve from above (D346)
         if (hlGrade > 0.5) c = mix(dot(c, vec3(0.2126, 0.7152, 0.0722)) * vec3(0.97, 1.0, 1.05), c, mix(${g(DRY_EARTH_GRADE)}, 1.0, moist));`,
-    // the poisoned bed (#38): under polluted water, the ground's own contamination shows through
+    // the poisoned bed (#38): under polluted water, the ground's own contamination shows through. (The ground
+    // without its water is groundColor's own groundDry, never a second groundColor here: in this branch, which
+    // pixels next to each other may or may not take, its derivatives and its patterns' mipmaps would read
+    // undefined values, and the bed's veins changed from one frame to the next)
     groundTop: /* glsl */ `
           if (hlWater > 0.5 && d0.a > 0.002 && soil.w > 0.0 && clev > 0.0) {
             float polluted = texture2D(hlFlow, g / hlFlowSize).b * soil.w;
             if (polluted > 0.0) {
-              float poisonGlow;
-              vec3 poisoned = groundColor(vec4(soil.xyz, 0.0), g, detail, clev, poisonGlow);
-              ground = mix(ground, poisoned, polluted);
-              glow = mix(glow, poisonGlow, polluted);
+              ground = mix(ground, groundDry, polluted);
+              glow = mix(glow, groundDryGlow, polluted);
             }
           }`,
     // rock (#65's strata, D334's stone): olive stones of unequal size and slope, soft mortar between them
