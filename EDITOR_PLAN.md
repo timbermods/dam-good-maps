@@ -1300,7 +1300,9 @@ checks dot counts; every other row is information under Good to know, worded as 
     or a held Drought or Badtide day it starts from the map's own water. It is only shown: the kept map's water is settled
     anew. Moving water (a stroke's, a force's, the water's journey after an edit)
     is drawn again only where it moved visibly since it was drawn, a whole moment at a time: a few workers mesh those chunks on one water
-    (`updateWaterSoon`, `waterMesher.ts`) and the page draws them together, never a mix of moments; a force's water and
+    (`updateWaterSoon`, `waterMesher.ts`) and the page draws them together, never a mix of moments; water put in place
+    (the journey's last frame, an edit's answer) is meshed there too, every chunk it changed drawn exactly a frame or two
+    on, and where the page is cross-origin isolated the workers read one copy of the water on shared memory; a force's water and
     the journey are shown averaged over their last dozen ticks, so a thin sheet's waves never strobe at the many times
     the game's pace they play at (on its own thread where no worker starts), and High's occlusion round the brush's changes is redone a millisecond or
     two a frame, so painting and turning the view keep the display's rate. On release, the stroke's operation carries that water on into
