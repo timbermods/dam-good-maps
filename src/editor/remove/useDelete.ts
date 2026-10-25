@@ -20,6 +20,20 @@ export interface DeleteSlice {
   deleteCalls: { current: { deleteHere: (tiles: number[]) => boolean; deleteSelection: () => void } };
 }
 
+/** The run top of tile `i` at `level` among a map's run tops (`SoilView.runs`: tiles ascending, each tile's runs from the
+ *  bottom), or -1. */
+function runIndexOf(tile: Int32Array, level: Uint8Array, i: number, at: number): number {
+  let lo = 0;
+  let hi = tile.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (tile[mid] < i) lo = mid + 1;
+    else hi = mid;
+  }
+  for (; lo < tile.length && tile[lo] === i; lo++) if (level[lo] === at) return lo;
+  return -1;
+}
+
 export function useDelete(ed: Ed): DeleteSlice {
   const { api, info, mirror, renderer, setMessage, selection, feel, run, flashNote } = ed;
 
@@ -43,6 +57,18 @@ export function useDelete(ed: Ed): DeleteSlice {
       soil: (i) => {
         const soil = m.daySoil ?? m.soil;
         return soil ? (soil.contamination[i] > 0 ? "contaminated" : soil.moisture[i] > 0 ? "moist" : "dry") : null;
+      },
+      // a cave's floor or a ledge under an overhang: that run top's own soil and the water standing on it (the roof's
+      // are the tile's)
+      runTop: (i, level) => {
+        const runs = (m.daySoil ?? m.soil)?.runs;
+        if (!runs) return null;
+        const r = runIndexOf(runs.tile, runs.level, i, level);
+        if (r < 0) return null;
+        const w = m.waterView;
+        let water: { depth: number; contamination: number } | null = null;
+        for (let k = 0; k < w.count; k++) if (w.tile[k] === i && w.depth[k] > 0.001 && Math.abs(w.floor[k] - level) < 0.01) water = { depth: w.depth[k], contamination: w.contamination[k] };
+        return { soil: runs.contamination[r] > 0 ? "contaminated" : runs.moisture[r] > 0 ? "moist" : "dry", water };
       },
       objects: (i) =>
         (at.get(i) ?? []).map((k): TileObject => {

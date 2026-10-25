@@ -907,7 +907,7 @@
   border-radius: 6px;
   background: transparent;
   box-shadow: none;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem / var(--wide-font-full));
   line-height: 1.2;
   text-align: left;
 }
@@ -1168,7 +1168,7 @@
   padding: 0;
   /* (a word is never wider than its cell: 0.8rem in a cell of 76px, and a cell's own share below that, so a tool added
      to the bar, which narrows every cell, shrinks the words with it instead of spilling them) */
-  font-size: min(0.8rem, calc(var(--cell) * 0.209));
+  font-size: calc(min(0.8rem, calc(var(--cell) * 0.209)) / var(--wide-font));
   line-height: 1.1;
   letter-spacing: -0.015em;
   white-space: nowrap;
@@ -1238,9 +1238,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: calc(6px / var(--wide-font));
   height: 16px;
-  font-size: 13px;
+  font-size: calc(13px / var(--wide-font));
   line-height: 16px;
   white-space: nowrap;
 }
@@ -1256,11 +1256,11 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(6px / var(--wide-font));
 }
 
 .set-value {
-  font-size: 13px;
+  font-size: calc(13px / var(--wide-font));
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -1269,12 +1269,12 @@
 /* Auto: one small word in the same place on every control that has it, lit while the land decides */
 .set-auto {
   height: 16px;
-  padding: 0 6px;
+  padding: 0 calc(6px / var(--wide-font));
   border: 1px solid var(--rule);
   border-radius: 8px;
   background: transparent;
   box-shadow: none;
-  font-size: 11px;
+  font-size: calc(11px / var(--wide-font));
   line-height: 14px;
   color: color-mix(in srgb, var(--ink) 84%, transparent);
 }
@@ -1390,7 +1390,7 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  font-size: 13px;
+  font-size: calc(13px / var(--wide-font));
   white-space: nowrap;
   color: var(--ink);
 }
@@ -1416,7 +1416,7 @@
   width: 100%;
   height: 100%;
   padding: 0 2px;
-  font-size: 13px;
+  font-size: calc(13px / var(--wide-font));
   white-space: nowrap;
 }
 
@@ -1425,12 +1425,12 @@
 @media (max-width: 1380px) {
   .tool-settings .set-seg button,
   .tool-settings .set-button {
-    font-size: 12px;
+    font-size: calc(12px / var(--wide-font));
     padding: 0 1px;
   }
 
   .tool-settings .set-label {
-    font-size: 12px;
+    font-size: calc(12px / var(--wide-font));
   }
 }
 
@@ -1474,7 +1474,7 @@
   max-width: 100%;
   overflow: clip;
   text-overflow: ellipsis;
-  font-size: 14px;
+  font-size: calc(14px / var(--wide-font));
   color: var(--ink);
   white-space: nowrap;
 }
@@ -2090,9 +2090,10 @@
   gap: 10px;
 }
 
-/* (whole pixels: the label, a box that holds 4294967295 and no more, then Keep) */
+/* (whole pixels: the label, a box that holds 4294967295 and no more, then Keep; the label's 30px grows where the font is
+   wider than Segoe UI's, taking the room from the name box) */
 .sheet-top .set.plate.line.seed {
-  grid-template-columns: 30px 92px 54px;
+  grid-template-columns: minmax(30px, max-content) 92px 54px;
 }
 
 .sheet-top .seed .set-toggle {
@@ -2838,7 +2839,7 @@
 }
 
 
-/* the weather day stepper after Badtide (Kyler, 2026-10-04): ◀ Day 7 ▶, its label two digits wide ("Day 99…") so the
+/* the weather day stepper after Badtide (Kyler, 2026-10-04): ◀ Day 7 of 9 ▶, its label two digits wide ("Day 99 of 30") so the
    row never changes shape; greyed, "Day –", with neither Drought nor Badtide on */
 .editor-view .water-bar > .day-stepper {
   gap: 0;
@@ -2860,13 +2861,13 @@
 }
 
 .day-stepper .day-label {
-  width: 62px;
+  width: 56px;
   text-align: center;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.water-bar:has(.day-step:disabled + .day-label + .day-step:disabled) .day-label {
+.water-bar:has(.day-step:disabled + .day-label + .day-length + .day-step:disabled) .day-label {
   opacity: 0.45;
 }
 
@@ -3008,6 +3009,21 @@
 
 .day-stepper .day-words {
   position: relative;
+}
+
+/* the hazard's length beside the day, quiet ("Day 3 of 9"); "of 30" wide, so the row never changes shape */
+.day-stepper .day-length {
+  width: 36px;
+  padding-left: 3px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* (the day's words sit against the length) */
+.day-stepper .day-label {
+  justify-content: safe flex-end;
+  padding-right: 2px;
 }
 
 /* a typed day (Kyler, 2026-10-04): the field fills the day box exactly, its words where the box's were */
@@ -3428,7 +3444,7 @@ body:has(.checks-list) .show-key {
 
   .tool-bar button.icon-button .icon-word,
   .tool-settings button.icon-button .icon-word {
-    font-size: calc(0.8rem + 1px);
+    font-size: calc((0.8rem + 1px) / var(--wide-font));
   }
 
   /* (two rows of 60px, 4px apart, and the plate's padding: still never a third) */
@@ -3438,22 +3454,22 @@ body:has(.checks-list) .show-key {
 
   .set-head {
     height: 17px;
-    font-size: 14px;
+    font-size: calc(14px / var(--wide-font));
     line-height: 17px;
   }
 
   .set-value {
-    font-size: 14px;
+    font-size: calc(14px / var(--wide-font));
   }
 
   .set-auto {
     height: 17px;
-    font-size: 12px;
+    font-size: calc(12px / var(--wide-font));
     line-height: 15px;
   }
 
   .tool-settings button {
-    font-size: 14px;
+    font-size: calc(14px / var(--wide-font));
   }
 
   /* the header: every control 44px (Undo and Redo 44px squares), the words 1px larger */
@@ -3513,7 +3529,7 @@ body:has(.checks-list) .show-key {
 
   .objects-menu .shelf-item {
     height: 34px;
-    font-size: calc(0.85rem + 1px);
+    font-size: calc((0.85rem + 1px) / var(--wide-font-full));
   }
 
   .objects-menu .shelf-item img,

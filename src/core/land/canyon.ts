@@ -19,13 +19,17 @@ import type { Genome } from "./genome";
 import { randomPart } from "./genome";
 import { stream } from "../math/rng";
 import { smallness } from "./highlands";
+import { mapShape } from "./shape";
 import * as portable from "../math/portable";
 
 export function shapeCanyon(g: Genome, W: number, H: number, seed: number, attempt: number): void {
   if (g.theme !== "canyon") return;
-  const k = smallness(W, H);
   const side = Math.min(W, H);
   const areaK = (W * H) / (128 * 128);
+  // (D488: a long map is as small as a square map of its area, `smallness`, so from 64 wide it stands as a
+  // plateau with its gorge down the length; a thinner strip keeps its narrow side's: there the plateau's
+  // gorge left no start on the strip, most lands drawn again, and a map that ran out of them kept a creek)
+  const k = mapShape(W, H).long && side < 64 ? 1 : smallness(W, H);
   // the 96² round: few springs, the incision a level deeper on a small map
   g.hydro.springs = Math.min(g.hydro.springs, Math.round(2 * Math.max(1, portable.sqrt(areaK))));
   g.hydro.incise += k;

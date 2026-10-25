@@ -28,7 +28,7 @@ const PIT: EditOp = { op: "sculpt", params: { mode: "lower", cells: [[26, 56, 58
 describe("an imported map with caves or overhangs", () => {
   it("unedited, exports its own file byte for byte and keeps its own water", () => {
     const s = MapSession.importMap(T3, "T3.timber");
-    expect(s.notices).toEqual(["This map has caves or overhangs. The tools leave them as they are."]);
+    expect(s.notices).toEqual(["This map has caves or overhangs. Brushes shape only their tops; the Block tool and Erode can change the rest."]);
     expect(s.built.waterModel.stacked).toBeTruthy();
     expect(s.built.waterFromFile).toBe(true);
     // (the file as the app normalizes it on import is what it gives back)

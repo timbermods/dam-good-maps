@@ -8,34 +8,45 @@ import type { BuildResult } from "../features/build";
 import { inBench } from "../features/raster/terrain";
 import { BUILDERS } from "../features/setpieces";
 import { entityTiles } from "../features/edits";
-import { makesRoomForStart, startFitProblem } from "./startFit";
+import { startFitExtras, startFitProblem, startFitWarnings, takenTiles, type StartFitExtra } from "./startFit";
 import { startEntranceTile, startMiddleTile, type Orientation } from "../format/footprints";
-import type { StartFeature } from "../features/schema";
+import type { Feature, StartFeature } from "../features/schema";
 import type { EditOp } from "./ops";
 import type { ApplyResult, MapSession } from "./session";
 import type { ForceResultParams } from "../forces/op";
 
+/** The tiles other objects cover (every one's whole footprint, what the checks read) and the generation's
+ *  objects that keep a distance from the start: prepared once for the many questions a search asks. */
+export interface StartGround {
+  taken: Uint8Array;
+  extras: StartFitExtra[];
+}
+
+export function startGroundOf(b: BuildResult, features: readonly Feature[], ignoreOwner: string | null): StartGround {
+  const taken = takenTiles(b.W, b.H, function* () { for (const e of b.entities) yield { template: e.template, owner: e.owner, raw: e.raw, tiles: () => entityTiles(e) }; }(), ignoreOwner);
+  return { taken, extras: startFitExtras(features, b.W, b.H) };
+}
+
 /** Whether the start's district center can stand with its middle at (x, y) facing `o`: its 3×3 and
- *  the tile at its door dry and on the map, clear of rivers, pieces and objects. `flat` also asks
- *  for level ground (an imported map, which has no bench to level it). Returns why not, or null. */
-export function startProblem(b: BuildResult, x: number, y: number, o: Orientation, flat: boolean, ignoreOwner: string | null, pieces: Uint8Array | null = null): string | null {
+ *  the tile at its door dry and on the map, clear of rivers, pieces and the whole footprint of every
+ *  object (startFit.ts, the one rule the page's preview shares). `flat` also asks for level ground (an
+ *  imported map, which has no bench to level it). `ground` is `startGroundOf`, made once for many
+ *  questions; `strict` also turns what the checks would flag, though it fits (the generation's objects out of
+ *  their distance band from the start), into a reason. Returns why not, or null. */
+export function startProblem(b: BuildResult, x: number, y: number, o: Orientation, flat: boolean, ignoreOwner: string | null, pieces: Uint8Array | null = null, ground?: StartGround, strict = false): string | null {
   const { W } = b;
   const corner = cornerFor(x, y, o);
   const door = startEntranceTile(corner[0], corner[1], o);
   const level = b.heights[y * W + x];
-  // (every other object's whole footprint, not only its anchor: what the checks read)
-  const objects = new Uint8Array(W * b.H);
-  for (const e of b.entities) {
-    if (e.owner === ignoreOwner || makesRoomForStart(e.template, !!e.raw)) continue;
-    for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < b.H) objects[ty * W + tx] = 1;
-  }
-  return startFitProblem(
-    { W, H: b.H, river: (i) => !!b.channel[i], depth: (i) => b.water[i], taken: (i) => !!objects[i] },
+  const g = ground ?? startGroundOf(b, [], ignoreOwner);
+  const why = startFitProblem(
+    { W, H: b.H, river: (i) => !!b.channel[i], depth: (i) => b.water[i], taken: (i) => !!g.taken[i] },
     x,
     y,
     door,
     { flat: flat ? (i) => b.heights[i] === level : undefined, extra: pieces ? (i) => (pieces[i] ? "on a set piece" : null) : undefined },
   );
+  return why ?? (strict ? (startFitWarnings(g.extras, W, b.H, x, y)[0] ?? null) : null);
 }
 
 /** Tiles the set pieces of a document hold (their bodies and channels). */
@@ -69,7 +80,13 @@ export function cornerFor(x: number, y: number, o: Orientation): [number, number
  *  level already, its bench's disc too (a start a force carries, D257: the force's land stays as it
  *  made it, D368 (9)). `allowed`: the tiles the start, its door and its bench may stand on (a working
  *  area's inside, the ground at or below the layer's cut). */
-export function moveStartNear(s: MapSession, fromX: number, fromY: number, level = false, allowed?: (i: number) => boolean): EditOp[] | null {
+export function moveStartNear(s: MapSession, fromX: number, fromY: number, level = false, allowed?: (i: number) => boolean, carry = false): EditOp[] | null {
+  // (a spot the checks would flag for the generation's objects out of their band is no fix; a force's carry takes
+  // the nearest where it stands well, band or no, when there is none better)
+  return nearestSpot(s, fromX, fromY, level, allowed, true) ?? (carry ? nearestSpot(s, fromX, fromY, level, allowed, false) : null);
+}
+
+function nearestSpot(s: MapSession, fromX: number, fromY: number, level: boolean, allowed: ((i: number) => boolean) | undefined, strict: boolean): EditOp[] | null {
   const b = s.built;
   const { W, H } = b;
   const feat = s.features.find((f): f is StartFeature => f.kind === "start");
@@ -77,6 +94,7 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number, level
   if (!feat && !ent) return null;
   const o: Orientation = feat ? feat.params.orientation : ent!.orientation;
   const pieces = pieceTiles(s);
+  const ground = startGroundOf(b, s.features, feat ? feat.id : null);
   for (let r = 1; r <= 24; r++) {
     const ring: [number, number][] = [];
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) ring.push([fromX + dx, fromY + dy]);
@@ -90,12 +108,12 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number, level
         let ok = true;
         for (let yy = y - 2; yy <= y + 2 && ok; yy++) for (let xx = x - 2; xx <= x + 2 && ok; xx++) if (b.water[yy * W + xx] > 0.05 || b.channel[yy * W + xx]) ok = false;
         for (let yy = y - rr; yy <= y + rr && ok; yy++) for (let xx = x - rr; xx <= x + rr && ok; xx++) if (pieces[yy * W + xx]) ok = false;
-        if (!ok || startProblem(b, x, y, o, level, feat.id, pieces)) continue;
+        if (!ok || startProblem(b, x, y, o, level, feat.id, pieces, ground, strict)) continue;
         const benchLevel = Math.max(1, b.heights[y * W + x]);
         if ((level || allowed) && !benchFits(b, x, y, o, rr, level ? benchLevel : null, allowed)) continue;
         return [...startClears(s, x, y, o), { op: "updateFeature", params: { id: feat.id, patch: { params: { position: [x, y], benchLevel, bank: null } } } }];
       }
-      if (startProblem(b, x, y, o, true, ent!.owner, pieces)) continue;
+      if (startProblem(b, x, y, o, true, null, pieces, ground, strict)) continue;
       if (allowed && !benchFits(b, x, y, o, 0, null, allowed)) continue;
       const [cx, cy] = cornerFor(x, y, o);
       return [{ op: "moveEntity", params: { id: ent!.id, x: cx, y: cy } }];
@@ -158,7 +176,7 @@ export function startBrokenBy(s: MapSession, changed: ReadonlySet<number>): bool
   const tiles = [door[1] * W + door[0]];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + x + dx);
   if (!tiles.some((i) => changed.has(i))) return false;
-  const why = startProblem(b, x, y, o, true, feat ? feat.id : ent!.owner, pieceTiles(s));
+  const why = startProblem(b, x, y, o, true, feat ? feat.id : null, pieceTiles(s));
   return why !== null && why !== "under water";
 }
 
@@ -187,7 +205,7 @@ export function startCarry(s: MapSession, params: ForceResultParams, limits: { i
   const inside = limits.inside ?? null;
   const cut = limits.cut ?? null;
   const allowed = inside || cut !== null ? (i: number) => (!inside || inside[i] > 0) && (cut === null || b.heights[i] <= cut) : undefined;
-  const ops = moveStartNear(s, at[0], at[1], true, allowed);
+  const ops = moveStartNear(s, at[0], at[1], true, allowed, true);
   if (!ops) return null;
   const cleared = ops.flatMap((o) => (o.op === "deleteEntities" ? o.params.entities : []));
   const removed = [...params.removed, ...cleared.filter((id) => !params.removed.includes(id))];
@@ -216,7 +234,7 @@ export function applySelection(s: MapSession, ops: EditOp[], label: string, tile
   if (!r.ok) return r;
   if (startBrokenBy(s, new Set(tiles))) {
     const at = startMiddle(s);
-    const carry = at ? moveStartNear(s, at[0], at[1], true) : null;
+    const carry = at ? moveStartNear(s, at[0], at[1], true, undefined, true) : null;
     if (carry) {
       s.undo();
       const again = s.applyAll([...ops, ...carry], "user", label);

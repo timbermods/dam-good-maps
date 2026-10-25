@@ -1982,13 +1982,14 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
 }
 
 /** Move a placed object (a mine site, a relic, a geothermal field, a natural dam, a blockage) by (dx, dy)
- *  tiles, its ground levelled as a placement's is: one step (D345, B7). */
-export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate {
+ *  tiles, its ground levelled as a placement's is: one step (D345, B7). `z`: the level it lands on under
+ *  a roof (D491, `planMoveEntity`). */
+export function moveObjectBy(id: string, dx: number, dy: number, z?: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return changed(s, false, [blocked], t0);
-  const p = planMoveEntity(s, id, dx, dy);
+  const p = planMoveEntity(s, id, dx, dy, z);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
   return changed(s, r.ok, r.errors, t0);
@@ -2024,7 +2025,7 @@ export function footprintCheck(req: ToolRequest): { tiles: number[]; problem: st
 // ------------------------------------------------------------------------------ the water layers
 
 /** The editor's water layers (EDITOR_PLAN §3 view buttons, D287): badwater and the soil it spoils,
- *  and the tiles with caves or overhangs, which the tools leave as they are. Per-tile codes, for the page's
+ *  and the tiles with caves or overhangs, whose tops the brushes shape. Per-tile codes, for the page's
  *  overlay texture. (No moisture or drought layer: the land shows moisture, and the water bar's
  *  Drought shows a drought day by day.) */
 export interface WaterLayers {
@@ -2032,7 +2033,7 @@ export interface WaterLayers {
   H: number;
   /** 1 badwater, 2 soil its contamination spoils. */
   badwater: Uint8Array;
-  /** An imported map's tiles with a cave or an overhang: the tools leave them as they are. */
+  /** An imported map's tiles with a cave or an overhang: the brushes shape only their tops. */
   roofed: Int32Array;
   /** Why the water checks are approximate on this map (null: they are not). */
   approximate: string | null;
