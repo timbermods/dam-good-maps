@@ -182,6 +182,14 @@ are recorded in M9A and [the earlier STATUS](archive/status-2026-10-01.md) "Prob
   summary, measured on the prototype before the start and edge rules were merged.
 - A first look at 0.15 s (128²) and 0.6 s (256²), the whole map at 1.3 s and 5.7 s (Node); a slow tail when attempts fail
   (Islands seed 2 at 256²: 41 s). REPORT-v2 §7.
+- **First-attempt rate, River Valley 128², seeds 1–100** (the nightly's batches on dev's tip): 99% before M9a; 59% from M9a
+  (#56, 0.7.0, 2026-09-28); 47% from M9b (#70, D333 (2): a land the land stage refuses before its settle is drawn again and
+  counts as an attempt); 43% from River Valley round 2 (#346, 0.8.5: the default trunk enters from an edge and crosses half
+  the map, else the land has no rivers and is drawn again, 2 → 86 such lands in 100 maps), unchanged on every tip since
+  (2026-10-07 to 10-25). Canyon 6%, Highlands 5%, Islands 16%, Any 29%, Delta 34%, Lake Basin 83%; 100% final in all.
+  On seeds 1–30 (2026-10-25) a land-stage refusal costs about 0.7–1 s (a fresh field) against 3–18 s for the attempt that
+  passes; failed attempts are a quarter of Generate's time, the "no rivers" redraws a tenth. The rate is information
+  (D115, D145); Generate's time, against D278's targets, is what players feel.
 - The outcomes M9b is judged by are Kyler's eye against [PERFECT](PERFECT.md) (D252, D273); the measures are information.
 - **Mechanics** (180 generated maps, generator 0.6.0): nearest badwater or spoiled soil 15.4–24.2 tiles away on every map;
   Canyon has no clean retained water within 40 tiles after a nine-day drought; the largest joint bin holds 20–30% of Canyon,
