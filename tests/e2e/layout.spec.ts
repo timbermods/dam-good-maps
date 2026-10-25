@@ -500,6 +500,11 @@ for (const scheme of ["light", "dark"] as const) {
   for (const [w, h] of NET_SIZES) {
     test(`no visible text is clipped at ${w}×${h}, ${scheme}: at rest, a tool, a force, Select's rows, the menus, the shelf and the panels`, async ({ page }) => {
       test.setTimeout(300_000);
+      // (the net covers what a GPU shows, the Look menu among it: a browser that draws in software, as CI's does, has no
+      // Look button, so the page is told it has a GPU; the Standard look stays held by the config's storage)
+      await page.addInitScript(() => {
+        (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true };
+      });
       await page.emulateMedia({ colorScheme: scheme });
       await page.setViewportSize({ width: w, height: h });
       await openEditor(page);

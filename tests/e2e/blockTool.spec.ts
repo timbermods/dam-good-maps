@@ -16,6 +16,11 @@ const edits = (page: Page) => page.evaluate(() => window.dgmEditor!.info().edits
 const height = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), [x, y]);
 const block = (page: Page) => page.evaluate(() => window.dgmEditor!.block());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
+/** How long an edit (or its undo) may take to land on the page after the press. On a GPU, tens of milliseconds; CI draws
+ *  in software on a runner its two test pages share, and the traces of dev's failures show the page's thread held 1.5 to 4
+ *  seconds at a time while the last edit's water and soil are drawn, the edit landing 4 to 7 seconds after its click (the
+ *  test's own process starved alongside). The preview's bound (`click`); what is asserted is unchanged. */
+const LANDS = { timeout: 15_000 };
 
 /** The screen point of the middle of a block's face: the block at (x, y, layer) and which side. */
 async function face(page: Page, x: number, y: number, layer: number, side: Side) {
@@ -80,7 +85,7 @@ async function click(page: Page, x: number, y: number, layer: number, side: Side
   await page.mouse.down();
   await page.mouse.up();
   if (shift) await page.keyboard.up("Shift");
-  await expect.poll(() => edits(page)).toBe(before + 1);
+  await expect.poll(() => edits(page), LANDS).toBe(before + 1);
   await idle(page);
 }
 
@@ -175,14 +180,14 @@ test("a click adds a block onto the face, Shift removes it, a drag paints a plan
   expect(await edits(page)).toBe(before);
   expect(await height(page, px + 1, py)).toBe(h);
   await page.mouse.up();
-  await expect.poll(() => edits(page)).toBe(before + 1);
+  await expect.poll(() => edits(page), LANDS).toBe(before + 1);
   await idle(page);
   for (let i = -2; i <= 3; i++) expect(await height(page, px + i, py), `x ${px + i}`).toBe(h + 1);
   expect(await height(page, px + 4, py)).toBe(h);
   expect(await height(page, px - 3, py)).toBe(h);
   // one undo takes the whole drag back
   await page.keyboard.press("z");
-  await expect.poll(() => edits(page)).toBe(before);
+  await expect.poll(() => edits(page), LANDS).toBe(before);
   for (let i = -2; i <= 3; i++) expect(await height(page, px + i, py), `x ${px + i} after undo`).toBe(h);
 
   // Esc in the middle of a drag applies nothing
@@ -222,7 +227,7 @@ test("a drag out over air chains: each block goes where it touches the last, the
   const shown = (await block(page)).preview!.added;
   expect(shown.every((c) => c[0] === px + 1 && c[1] === py)).toBe(true);
   await page.mouse.up();
-  await expect.poll(() => edits(page)).toBe(before + 1);
+  await expect.poll(() => edits(page), LANDS).toBe(before + 1);
   await idle(page);
   // what was drawn is what stands: the column beside the pillar rose to its top
   expect(await height(page, px + 1, py)).toBe(Math.max(...shown.map((c) => c[2])) + 1);
@@ -337,7 +342,7 @@ test("on an imported cave map a Shift-click removes blocks from a cave wall: the
   expect(await height(page, 14, 17)).toBe(8);
   expect(await page.evaluate((i) => window.dgm3d!.renderer.hasTop(i, 3), tile(14, 17)), "the wall's column has a floor at layer 3 now").toBe(true);
   await page.keyboard.press("z");
-  await expect.poll(() => edits(page)).toBe(before);
+  await expect.poll(() => edits(page), LANDS).toBe(before);
   expect(await page.evaluate((i) => window.dgm3d!.renderer.hasTop(i, 3), tile(14, 17))).toBe(false);
 });
 
@@ -413,7 +418,7 @@ test("under a layer cut a click takes what is below the cut and leaves the hidde
   await page.mouse.down();
   await page.mouse.up();
   await page.keyboard.up("Shift");
-  await expect.poll(() => edits(page)).toBe(before + 1);
+  await expect.poll(() => edits(page), LANDS).toBe(before + 1);
   // (the block the cut hides is still there: one of its faces is open to a remove)
   const stands = await page.evaluate(async () => {
     for (const side of ["+x", "-x", "+y", "-y", "+z", "-z"] as const) {
