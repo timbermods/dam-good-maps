@@ -136,6 +136,8 @@ export class WaterMesher {
   /** Forget the batch out (the renderer meshed its chunks itself). */
   clear(): void {
     this.batch = null;
+    // (a forgotten batch may still be read by its workers: the next goes in a block of its own)
+    this.block.forget();
   }
 
   private fail(why: string): void {
