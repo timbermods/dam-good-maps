@@ -223,3 +223,65 @@ test("the wheel zooms toward the pointer: the ground under it stays under it, in
   expect((await view(page)).target).toEqual(t0);
   expect(errors).toEqual([]);
 });
+
+test("the Top-down toggle keeps the spot at the centre, the zoom and the turn, both ways; Reset view still frames the whole map (D492)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+
+  /** The tile the canvas's middle pixel sees, and how many pixels ten tiles across the screen's width span there. */
+  const look = () =>
+    page.evaluate(async () => {
+      // (two frames: what the pointer sees is read from the frame drawn)
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+      const r = window.dgm3d!.renderer;
+      const v = r.getView();
+      const box = document.querySelector("canvas")!.getBoundingClientRect();
+      const cx = box.left + box.width / 2;
+      const cy = box.top + box.height / 2;
+      const hit = r.pickSurface(cx, cy, r.pickSeen(cx, cy));
+      const p = hit!.point;
+      // (ten tiles to the screen's right, on the ground at the point seen)
+      const a = r.project(p[0], p[1], p[2]);
+      const e = r.project(p[0] + Math.cos(v.yaw) * 10, p[1], p[2] - Math.sin(v.yaw) * 10);
+      return { tile: [hit!.x, hit!.y], per10: Math.hypot(e.x - a.x, e.y - a.y), view: v };
+    });
+
+  // zoom in on one spot away from the framing, and pan off the target's height (a drag leaves it where it was)
+  const box = (await page.locator("canvas").first().boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.62, box.y + box.height * 0.45);
+  for (let k = 0; k < 6; k++) {
+    await page.mouse.wheel(0, -120);
+    await page.waitForTimeout(40);
+  }
+  await page.evaluate(() => window.dgm3d!.renderer.panPixels(120, 90));
+  const angled = await look();
+  const toggle = page.getByRole("button", { name: "Top-down" });
+  await toggle.click();
+  const top = await look();
+  expect(top.view.mode).toBe("top");
+  expect(top.view.yaw, "the turn stays").toBe(angled.view.yaw);
+  expect(top.tile, "the same ground at the centre").toEqual(angled.tile);
+  expect(Math.abs(top.per10 / angled.per10 - 1), "the zoom stays").toBeLessThan(0.02);
+
+  await toggle.click();
+  const back = await look();
+  expect(back.view.mode).toBe("orbit");
+  expect(back.view.yaw).toBe(angled.view.yaw);
+  expect(back.view.pitch).toBe(angled.view.pitch);
+  expect(back.tile).toEqual(angled.tile);
+  expect(Math.abs(back.per10 / angled.per10 - 1)).toBeLessThan(0.02);
+
+  // Reset view still frames the whole map, centred, in either view: zoomed in again first, so a Reset that did nothing fails
+  for (const mode of ["orbit", "top"] as const) {
+    if (mode === "top") await toggle.click();
+    await page.evaluate(() => window.dgm3d!.renderer.setView({ distance: 40 }));
+    await page.getByRole("button", { name: "Reset view" }).click();
+    const r = await look();
+    expect(r.view.mode).toBe(mode);
+    expect(r.view.distance, `${mode}: reset zooms back out`).toBeGreaterThan(150);
+    if (mode === "top") expect(r.view.yaw, "a top-down reset is north up").toBe(0);
+  }
+  expect(errors).toEqual([]);
+});

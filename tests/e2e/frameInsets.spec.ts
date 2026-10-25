@@ -1,5 +1,5 @@
 // The camera's framing keeps clear of the page's controls (insets, PLAN §20 D345 B1, D265): the page
-// says which edges of the canvas its controls cover (CSS pixels); Reset view, a view switched and a new
+// says which edges of the canvas its controls cover (CSS pixels); Reset view, a map opened in a mode and a new
 // map frame the whole map, centred, in what is left. Setting them never moves the camera by itself (a
 // panel opening or closing leaves the view as it is). None set (the default), framing is as before;
 // a negative or non-number inset is refused with its reason, nothing changed.
@@ -103,7 +103,7 @@ test("framing keeps the map clear of the page's controls; setting them never mov
   const insets = { top: 60, left: 360, bottom: 140, right: 20 };
   expect(await page.evaluate((i) => window.dgm3d!.renderer.setFrameInsets(i), insets)).toBeNull();
   expect(await page.evaluate(() => window.dgm3d!.renderer.getView())).toEqual(before);
-  // Reset view and a view switched frame the whole map in what the controls leave, centred there
+  // Reset view and a map opened in a mode (setMode; the Top-down toggle keeps the view, D492) frame the whole map in what the controls leave, centred there
   for (const step of ["reset", "top-down", "orbit"]) {
     await page.evaluate((s) => {
       const r = window.dgm3d!.renderer;

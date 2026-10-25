@@ -11,6 +11,8 @@ import { withSize, withStoredName, type StoreResult, type YourMapEntry, type You
 export interface Snapshot {
   entry: YourMapEntry;
   project: Uint8Array;
+  /** The map's name stored in `project`, given by whoever made the file (D443): the entry takes it. */
+  name?: string | null;
 }
 
 export interface SaverOptions {
@@ -94,7 +96,7 @@ export class YourMapsSaver {
           const s = await p.take();
           if ((this.epochs.get(id) ?? 0) !== epoch) return;
           if (s.entry.id !== id) throw new Error("snapshot belongs to another map");
-          r = await this.store.put(withSize(withStoredName(s.entry, s.project), s.project), s.project, s.entry.storageVersion ?? null);
+          r = await this.store.put(withSize(withStoredName(s.entry, s.name), s.project), s.project, s.entry.storageVersion ?? null);
           if (r.ok && r.storageVersion) {
             s.entry.storageVersion = r.storageVersion;
           }

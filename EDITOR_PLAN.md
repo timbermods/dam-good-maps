@@ -104,7 +104,8 @@ place of its bottom rule.
   settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
   Custom, its width and height typed, each 4 to 512; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses; Generate on a side under the theme's least (48, Islands 64)
-  says so in one line, "Canyon needs at least 48 tiles a side to generate", and the open map stays). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
+  says so in one line, "Canyon needs at least 48 tiles a side to generate", as a note over the map (no dialog dims it,
+  and a map that fails its checks says "No valid map" the same way), and the open map stays). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
   bar of four shares), **Difficulty** (Starting wood, Max walk to water, Starting berries, Start area, No ruins
   within) and "On this map" (Mine sites, Ruins, Berry bushes, **Trees**, Water sources: counted from the map's own
   objects as they are now, edits included, so an opened file or a real place is counted as the generator's maps are;
@@ -120,7 +121,9 @@ place of its bottom rule.
   an island's contour rings one after another (the lowest in the water's colour; 0.5 s apart, 1.8 s each, then they hold
   and fade together on a 6 s cycle); both move only while waiting and not under reduced motion (`FirstLook.tsx`);
   **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
-  open map back as it was. The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
+  open map back as it was. **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
+  the attempt under way and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
+  quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
   A real place has one name everywhere, the one in its file ("Near Crater Lake"). Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
   without asking: edits never replay onto new land (D336), and the map it replaces, if edited, is in Your maps.
@@ -145,9 +148,10 @@ place of its bottom rule.
   is an ordinary project on the same land with the History's first steps replayed on it (`MapSession.versionProject`, the
   stored map built so it reopens byte for byte, D455); no new file format, and the map it came from is untouched. Its meta
   says where it came from (`meta.parent`: map, step label, step count), so Your maps shows "<map> · step N" small under the
-  size (`core/library/keptVersions.ts`, `tests/contract/keptVersions.test.ts`). **Compare**: Your maps' right-click
-  **Compare with the open map** (the same size only; greyed with the reason for another size) reads the other map once, settled, in a worker of its own; a note
-  "Comparing with <name>" with **Stop** shows over the map, and holding **B** (or the note's button) flips the land, objects and
+  size (`core/library/keptVersions.ts`, `tests/contract/keptVersions.test.ts`). **Compare**: Your maps' heading-row
+  **Compare** (Ctrl+click the other version; greyed with the reason when none is selected or it is another size) or the right-click
+  **Compare with the open map** (the same size only) reads the other map once, settled, in a worker of its own; a note
+  "Comparing with <name>" with **Stop** shows over the map, and holding **B** (or the note's button) flips (B with nothing chosen says how to choose one, a note that goes by itself) the land, objects and
   water to the other map at the same camera, a name chip over the map while it is on show; anything that redraws the open map (an edit, an undo, a force, a peer) puts it back and ends the flip, the minimap follows the flip, and letting go puts the open map back; Compare shows the surface only on an import with caves or overhangs
   (`editor/compare/useCompare.tsx`). Captures `docs/design/showcase-versions-*`.
 - **The address** is always the open map's share link (its spec, D7; a link carries no edits): copying it shares the
@@ -185,12 +189,13 @@ place of its bottom rule.
     hovering says "9 tiles, lasts about 12 days" and marks the hollow, or in a few words why not: "Raise the Level to
     fill", "It would spill off the map", D394) and **Remove unfed water** (the pools no
     source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo
-    step, both the core's (`planFill`, `unfedWater`); Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
+    step, both the core's (`planFill`, `unfedWater`), greyed with `aria-disabled` while nothing is selected, and the words they
+    left in the row go when the selection closes or changes; Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
     the selection's bounding rectangle (any shape of selection; `useSelect.tsx`, the worker's `cropPlanAt` and `cropTo`).
     Greyed (`aria-disabled`, so the hover still speaks) with nothing selected ("Select an area to crop") and whenever the
     core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut): hovering or focusing it says
     "Can't crop this" and puts the core's one-line reason, word for word, on the message line; pressing it says the reason
-    again, never clamped. Enabled, hovering says "32 × 24", adding "; cuts 3 objects" when the edge
+    again, never clamped (with nothing selected the row's words are the one place it says so, and no note repeats it). Enabled, hovering says "32 × 24", adding "; cuts 3 objects" when the edge
     cuts any (the row's words take the three cells beside the shapes, and no words are ever cut off). The map is then
     another size, so the page opens the session's map again (`onResized`, `App.tsx` `resized`): the old editor shuts and sends
     the worker nothing more, what it had queued reaches the worker first, and the new editor opens from the worker's map
@@ -267,7 +272,12 @@ place of its bottom rule.
     roofs, keeps the ground under every object: three levels down, and down to the map's bottom under the objects
     the game keeps only there (`rust/forces/src/erode.rs`). Only a stroke with nothing left to shape, or, as a last
     guard no tool reaches, an edit that would still lose such an object, is refused with one line. A feature edit clears an object at a level
-    when the game's rule no longer holds it on the ground after the edit. The start stays on open ground. A move under a roof keeps its level unless it names another. Strokes paint a roof's
+    when the game's rule no longer holds it on the ground after the edit. The start stays on open ground. A move under a roof keeps its level unless it names another. **The page aims where the
+    player points:** the shelf, a source, a dragged object and the start take the ground the pointer sees (the voxel
+    pick: a cave's floor through its mouth or under the layer cut, the ground under a ledge) and name that run's level
+    in the placement (`editor/shelf/aim.ts`; a cut's cap names its run's real top; the tile's top names none); the
+    ghost stands there and its words are the core's answer ("the start needs open ground", "not on a roof or a
+    ledge"). A drag out of a cave lands on the tile's top. Strokes paint a roof's
     top like any ground. A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
@@ -321,11 +331,11 @@ place of its bottom rule.
   **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
   forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
   volume stays in view): a three-column grid
-  310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the
-  whole map, centred in the map area** (D345, B1), clear of the page's controls: the page tells the renderer how
+  310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **A new map and Reset view frame the
+  whole map, centred in the map area** (D345, B1; the Top-down toggle keeps the spot at the centre, the zoom and the turn, D492), clear of the page's controls: the page tells the renderer how
   far the top row (the Show row, the water row, the camera group), the minimap, the bar with its settings and the objects list with a
   picked object's window reach into the view
-  (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a view switched
+  (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a map opened in a mode
   and a new map frame within what is left; setting them, or the panel opening or closing, never moves the camera
   by itself (D265). A map at least three times longer than wide opens turned along the view, so it fills the width
   (Reset view returns to that turn); a map under 64 a side is framed with its objects, the start building included
@@ -455,7 +465,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   riding one running; the others' water flows on from the final land). Under Clear, Carve and Glaciate take what
   they reach themselves, as their head or ice arrives; the other forces' sources are cleared by the core
   (`core/forces/clear.ts`). The operation keeps the choice and each cleared source with its step, so undo brings
-  them back. Where the row shows the choice is the page's.
+  them back. Where the row shows the choice is the page's. A force that removed sources says so as it is kept, a note
+  above the bar with the count and **Undo** ("Cleared 12 sources. Set Sources to Ride to keep them."), which goes as soon as any other step lands so Undo only ever takes back that force; the count is the
+  core's (`keep.ts` `sourcesRemovedBy`, `forceStop`'s `sourcesRemoved`), never worked out in the page.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
   default, up to the height ceiling: one setting shared by all the forces, kept with the editor preferences, never
   Auto (a rule, not a flavour), with **Default** back to 1. Where a force would go deeper it runs shallower there,
@@ -526,7 +538,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `where.path`, kept by Try another; a carve drawn uphill is shown the way it was drawn, D344 A5). **Power** (creek to
   catastrophe), **Size** (width; depth follows Power and the width). Wander and walls come from the land and the seed,
   with natural variation (bends wider and deeper on the outside); a cut-off bend becomes an oxbow lake sealed by
-  sediment. Behind More: **Canyon depth**, **River depth** (D321, item 17: how deep its water may be, 1 up to the
+  sediment. Behind More: **Canyon depth** (a cap, not a target: the row reads "at most N", since the Floor and the land's height stop the cut
+  sooner), **River depth** (D321, item 17: how deep its water may be, 1 up to the
   height ceiling or **Off**, 2 unless set; where the water would pool deeper over the cut ground the bed is raised
   under the pool's spill level) and **Banks** (item 18, Auto: 0 to 10 tiles of flat land each side of the river
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
@@ -627,9 +640,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   rock that wore least comes back as ragged remnants wherever a roof would hang; where no face can wear, the dry ground
   at the pointer is scoured into a shallow hollow (D356), never below the water beside it and never under water. Its
   result writes runs (the operation's `runs`), so any map gains caves. **The page:** Erode is the last button of the
-  forces row (after Glaciate), key Shift+8, tooltip "Wear caves and arches"; its row is Power, Size (Auto) and Try
-  another on row 1 and the Floor on row 2 (no choice of its own, and no Sources: it never wears a source's tile, so it
-  keeps the default); a click acts where it lands, a drawn sweep as a band Size wide, the ring at the cursor (D258).
+  forces row (after Glaciate), key Shift+8, tooltip "Wear caves and arches"; its row is Power and Size (Auto) on row 1
+  with "The land decides the form" across the rest of it, the Floor and Try another on row 2 (no choice of its own, and no Sources: it never wears a source's tile, so it
+  keeps the default; the Floor runs on over Sources' place, and Try another stays where every force has it; every edge on the bar's cells); a click acts where it lands, a drawn sweep as a band Size wide, the ring at the cursor (D258).
   Playback feeds each frame's `columns` (the tiles whose voxels changed) into the renderer with the others the map
   holds (`editor/forces/columns.ts`); Esc, Ctrl+Z or Try another mid-run puts the map's own back. Sounds
   (`public/sounds/juice-2`, three CC0 Freesound recordings from `investigation/erode`): a grinding wear held under the
@@ -788,7 +801,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
   (a cave's floor), the roof over it dimmed as the land outside; the actions still take the tiles.
   The brushes' and forces' cursors, rings and bands stay on the tile's top, where their stroke changes the ground,
-  until they work on runs (step 3); hover and Select show the run seen.
+  until they work on runs (step 3); hover and Select show the run seen. Over a roof (air under a tile's top run: a
+  cave, a tunnel, an overhang) every editing cursor (a brush's disc, a force's or the shelf's ring, the Block tool's
+  blocks, Select's ring on the roof) also shows the hollow under it, within its reach: the air's footprint laid on
+  the roof's top in the Caves layer's violet, stronger the thinner the roof (one block: as low as a brush can take
+  it), outlined where the hollow ends (D488; `render3d/hollow.ts`). Nothing is drawn on a map without caves.
   **Ctrl+click** on the land only takes that level as the Level number (D361, item 7).
   **The row** (D323, item 6): the marking modes are icons; **Whole map**; **Raise** and **Lower** move the
   selection one level per click (Up and Down arrow keys too); a **Level** number (to the map's ceiling) starts at
@@ -892,7 +909,7 @@ Make a valley, drop a source, and there's a river.
 - **Drought and Badtide, day by day** (D267, D268; held, not played, D133 as amended by the page): clicking one
   shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
   holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
-  **◀ Day N ▶** (and ← →) steps from Day 0 to past the default length; a double-click takes a typed day. Each
+  **◀ Day N of L ▶** (and ← →; L is the hazard's length for the map's difficulty, a drought of 9 days) steps from Day 0 to past the default length; a double-click takes a typed day. Each
   hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
   game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
   badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any

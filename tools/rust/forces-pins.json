@@ -67,5 +67,11 @@
   "erode 64 2": "862ee8fa81718ffd60e0a26a64aa3e9c1cf8048afab49845de709ae50985c741",
   "erode 64 3": "7832affe7d5f43554a85bec7af69d6bb4701f89702be3e1fb428ddfe95af4d46",
   "erode 64 odd 0": "24e61c399a4024b9c37787bfb7a644d71dc2433d0cf94c22dcee6cd8d2bc8db9",
-  "erode 64 odd 1": "3d545d06b279ff93be9ed09d51d4eb8ea27e4eb6d0bd0b15f150cd61a99bb259"
+  "erode 64 odd 1": "3d545d06b279ff93be9ed09d51d4eb8ea27e4eb6d0bd0b15f150cd61a99bb259",
+  "quake 64 short lift 0": "9526c09bad47aa41d7ba041c2c46bc53f848081631a823366cc7f3b549a01c9d",
+  "quake 64 short lift 60": "630b7058a9d14048ca7b8036005205d52dc8109d2861e5eb74f1cad6ff119fa3",
+  "quake 64 short lift 100": "7c7c7b517dc9e9366be011c3a218e3d18945f65f926ca3568db7389ccaa0bae8",
+  "quake 64 short slide 0": "ad5d30c087df47055e59ea776a43e0cca036c887a3fd3d582ca70ec0b2186ba8",
+  "quake 64 short slide 60": "e07f4d9d02f5a7b0628628bd86e96a8eb6d3ffe0eeb86d3fbeb12e3dfafc85a1",
+  "quake 64 short slide 100": "79c8500b020bd6688955e77178df9525ed0e633a22ad3b54d5b79400a2f7e39b"
 }

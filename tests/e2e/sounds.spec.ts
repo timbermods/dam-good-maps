@@ -5,7 +5,7 @@
 
 import { readdirSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -29,7 +29,7 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   await expect(page.locator('input[aria-label="Sound volume"]')).toHaveValue("0.54");
 
   // the first gestures (the view from above, Raise, a click on the land): the edit is there at once
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const at: [number, number] = [start[0] < i.W / 2 ? Math.round(i.W * 0.75) : Math.round(i.W * 0.25), Math.round(i.H / 2)];

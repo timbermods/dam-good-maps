@@ -11,14 +11,14 @@ const check = (blocking: number, warnings: number): ExportCheck => ({ blocking: 
 
 describe("the quiet dot", () => {
   it("is grey while checking, green when all is well, amber with a count otherwise", () => {
-    expect(dotOf({ check: null, instant: [], busy: false, progress: null, flowing: null }).tone).toBe("wait");
-    expect(dotOf({ check: check(0, 0), instant: [], busy: false, progress: null, flowing: null })).toEqual({ tone: "ok", words: "Ready to play", count: 0 });
-    expect(dotOf({ check: check(1, 1), instant: [], busy: false, progress: null, flowing: null })).toEqual({ tone: "warn", words: "2 things to look at", count: 2 });
+    expect(dotOf({ check: null, instant: [], busy: false, progress: null, flowing: false }).tone).toBe("wait");
+    expect(dotOf({ check: check(0, 0), instant: [], busy: false, progress: null, flowing: false })).toEqual({ tone: "ok", words: "Ready to play", count: 0 });
+    expect(dotOf({ check: check(1, 1), instant: [], busy: false, progress: null, flowing: false })).toEqual({ tone: "warn", words: "2 things to look at", count: 2 });
     // work showing beats the count: while the check runs the dot waits, the count kept; once work ends the tone shows
-    expect(dotOf({ check: null, instant: [item("start.entrance")], busy: true, progress: null, flowing: null })).toEqual({ tone: "wait", words: "Checking the map", count: 1 });
-    expect(dotOf({ check: null, instant: [item("start.entrance")], busy: false, progress: null, flowing: null })).toEqual({ tone: "warn", words: "1 thing to look at", count: 1 });
+    expect(dotOf({ check: null, instant: [item("start.entrance")], busy: true, progress: null, flowing: false })).toEqual({ tone: "wait", words: "Checking the map", count: 1 });
+    expect(dotOf({ check: null, instant: [item("start.entrance")], busy: false, progress: null, flowing: false })).toEqual({ tone: "warn", words: "1 thing to look at", count: 1 });
     // the water playing into place after an edit: the one water status (Kyler, 2026-10-04)
-    expect(dotOf({ check: check(0, 0), instant: [], busy: false, progress: null, flowing: 0.4 })).toEqual({ tone: "wait", words: "Settling…", count: 0 });
+    expect(dotOf({ check: check(0, 0), instant: [], busy: false, progress: null, flowing: true })).toEqual({ tone: "wait", words: "Settling…", count: 0 });
   });
 });
 
