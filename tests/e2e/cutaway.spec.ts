@@ -161,13 +161,15 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
 
 test("a cave dug after a plain map opened is opened by the cut and lit as a cave, and a map that loses its last goes back to the plain program", async ({ page }) => {
   // (a Block dig or an Erode cave on a generated map: the renderer learns of its first column with air under a roof from a
-  // terrain update, not from opening the map, and the cut must open into it all the same, what you see is what you get)
+  // terrain update, not from opening the map, and the cut must open into it all the same, what you see is what you get.
+  // Where the browser compiles in the background the branch's programs are compiled first and the switch is made when
+  // they are ready (programs.ts, D453): no frame after the dig compiles one)
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
-  const out = await page.evaluate(() => {
+  const out = await page.evaluate(async () => {
     type R = import("../../src/render3d").MapRenderer;
     const shown = window.dgm3d!.renderer;
     const Make = shown.constructor as new (c: HTMLCanvasElement) => R;
@@ -180,8 +182,19 @@ test("a cave dug after a plain map opened is opened by the cut and lit as a cave
     const r = new Make(c);
     r.setLookChoice("standard", false);
     type Mat = { defines: Record<string, number> };
-    const internals = r as unknown as { std: { terrain: Mat; object: Mat }; uniforms: { caveSize: { value: { x: number } } } };
+    const internals = r as unknown as { std: { terrain: Mat; object: Mat }; uniforms: { caveSize: { value: { x: number } } }; programs: { background: boolean }; gl: { info: { programs: unknown[] } } };
     const state = () => ({ cutaway: internals.std.terrain.defines.CUTAWAY ?? 0, caves: "CAVES" in internals.std.object.defines, volume: internals.uniforms.caveSize.value.x > 0 });
+    /** Frames until the branches asked for are drawn: the programs any of them compiled. */
+    let compiledInFrames = 0;
+    const settle = async () => {
+      for (let k = 0; k < 600; k++) {
+        const before = internals.gl.info.programs.length;
+        r.renderNow();
+        compiledInFrames += internals.gl.info.programs.length - before;
+        if (r.programsSettled) return;
+        await new Promise((done) => setTimeout(done, 20));
+      }
+    };
     // a plain 12² map at level 8, opened with no columns, cut at 3
     const W = 12;
     const heights = new Uint8Array(W * W).fill(8);
@@ -205,7 +218,7 @@ test("a cave dug after a plain map opened is opened by the cut and lit as a cave
       for (const z of [0, 1, 5, 6, 7]) voxels[k * 23 + z] = 1;
     });
     r.updateTerrain(heights.slice(), { tiles: Int32Array.from(tiles), voxels } as unknown as Parameters<R["updateTerrain"]>[1]);
-    r.renderNow();
+    await settle();
     const dug = state();
     // the hollow dug, uncut: under the brush
     r.setSlice(null);
@@ -213,12 +226,13 @@ test("a cave dug after a plain map opened is opened by the cut and lit as a cave
     const dugHollow = r.hollowDrawn.tiles;
     // filled in again: no column left
     r.updateTerrain(heights.slice(), { tiles: new Int32Array(0), voxels: new Uint8Array(0) } as unknown as Parameters<R["updateTerrain"]>[1]);
-    r.renderNow();
+    await settle();
     const filled = state();
     const filledHollow = r.hollowDrawn.tiles;
+    const background = internals.programs.background;
     r.dispose();
     host.remove();
-    return { opened, dug, filled, plainMarks, dugHollow, filledHollow };
+    return { opened, dug, filled, plainMarks, dugHollow, filledHollow, background, compiledInFrames };
   });
   expect(out.opened, "a plain map: the plain program").toEqual({ cutaway: 0, caves: false, volume: false });
   expect(out.dug, "its first hollow: the cutaway, the light volume and the roofed objects' branch").toEqual({ cutaway: 1, caves: true, volume: true });
@@ -226,6 +240,79 @@ test("a cave dug after a plain map opened is opened by the cut and lit as a cave
   expect(out.plainMarks, "a brush on the plain map: no hollow's marks made").toBe(false);
   expect(out.dugHollow, "the dug hollow under the brush").toBe(9);
   expect(out.filledHollow, "filled again: none").toBe(0);
+  if (out.background) expect(out.compiledInFrames, "programs compiled by the frames after the dig and the fill").toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test("where programs compile ahead, a switch to High and a hollow dug right after it are drawn at once: no frame with the old program (D453)", async ({ page }) => {
+  // (Standard compiles High's programs in every state a dig can bring, programs.ts: the switch is made at once, and the
+  // dig's branches are switched on before the next frame, so no frame draws a lid over the new hollow. Where
+  // the browser draws in software nothing is compiled ahead: nothing to check there)
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const out = await page.evaluate(async () => {
+    type R = import("../../src/render3d").MapRenderer;
+    const shown = window.dgm3d!.renderer;
+    const Make = shown.constructor as new (c: HTMLCanvasElement) => R;
+    const host = document.createElement("div");
+    host.style.cssText = "position:fixed;left:0;top:0;width:640px;height:480px;opacity:0;pointer-events:none";
+    const c = document.createElement("canvas");
+    c.style.cssText = "width:100%;height:100%;display:block";
+    host.append(c);
+    document.body.append(host);
+    const r = new Make(c);
+    type Mat = { defines: Record<string, number> };
+    const internals = r as unknown as { drawsInSoftware: boolean; programs: { background: boolean }; terrainMat: Mat; objectMat: Mat; gl: { info: { programs: unknown[] } } };
+    try {
+      if (internals.drawsInSoftware || !internals.programs.background || !r.canHigh) return null;
+      r.setLookChoice("standard", false);
+      const W = 12;
+      const heights = new Uint8Array(W * W).fill(8);
+      const none = { count: 0, tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0) };
+      const entities = { count: 1, templates: ["Pine"], owners: [], template: Uint16Array.from([0]), x: Int16Array.from([2]), y: Int16Array.from([2]), z: Int16Array.from([8]), orientation: new Uint8Array(1), flags: new Uint8Array(1), owner: new Uint16Array(1), variant: new Uint8Array(1), strength: new Float32Array(1), ids: ["pine"] };
+      const soil = { moisture: new Uint8Array(W * W), contamination: new Uint8Array(W * W) };
+      r.setMap({ W, H: W, heights, columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, water: none, entities, soil } as unknown as Parameters<R["setMap"]>[0]);
+      r.renderNow();
+      // (the programs compiled ahead, waited for)
+      for (let k = 0; k < 3000 && !r.programsWarm; k++) await new Promise((done) => setTimeout(done, 20));
+      const warm = r.programsWarm;
+      r.setLookChoice("high", false);
+      const lookAtOnce = r.look;
+      r.setSlice(3);
+      r.renderNow();
+      // a 3 × 3 hollow dug under the cut
+      const tiles: number[] = [];
+      for (let y = 4; y < 7; y++) for (let x = 4; x < 7; x++) tiles.push(y * W + x);
+      const voxels = new Uint8Array(tiles.length * 23);
+      tiles.forEach((_, k) => {
+        for (const z of [0, 1, 5, 6, 7]) voxels[k * 23 + z] = 1;
+      });
+      r.updateTerrain(heights.slice(), { tiles: Int32Array.from(tiles), voxels } as unknown as Parameters<R["updateTerrain"]>[1]);
+      // (before the next frame: the switch is made once the update's defines are all set)
+      await new Promise<void>((done) => queueMicrotask(done));
+      const atOnce = { cutaway: internals.terrainMat.defines.CUTAWAY ?? 0, caves: "CAVES" in internals.objectMat.defines };
+      let compiled = 0;
+      for (let k = 0; k < 10; k++) {
+        const before = internals.gl.info.programs.length;
+        r.renderNow();
+        compiled += internals.gl.info.programs.length - before;
+        await new Promise((done) => setTimeout(done, 20));
+      }
+      return { warm, lookAtOnce, atOnce, compiled, settled: r.programsSettled };
+    } finally {
+      r.dispose();
+      host.remove();
+    }
+  });
+  test.skip(out === null, "the browser draws in software or can't compile in the background: nothing is compiled ahead");
+  expect(out!.warm, "the programs compiled ahead got ready").toBe(true);
+  expect(out!.lookAtOnce, "the switch to High made at once").toBe("high");
+  expect(out!.atOnce, "the dig's branches switched on before the next frame").toEqual({ cutaway: 1, caves: true });
+  expect(out!.compiled, "programs compiled by the frames after the dig").toBe(0);
+  expect(out!.settled).toBe(true);
   expect(errors).toEqual([]);
 });
 

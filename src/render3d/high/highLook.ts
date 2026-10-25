@@ -52,6 +52,37 @@ export interface HighMaterials {
   sky: ShaderMaterial;
 }
 
+/** The look's materials as its shaders make them, before their uniforms are the look's own: the look builds its own
+ *  from these, and the renderer compiles a copy of them in the background before it first switches to the look
+ *  (programs.ts), so the switch finds their programs ready. `object`, `vegetation`, `landmark` and `slope` draw
+ *  instanced objects. */
+export type HighLookMaterials = HighMaterials & { vegetation: ShaderMaterial; landmark: ShaderMaterial; slope: ShaderMaterial };
+
+export function highLookMaterials(u: SceneUniforms): HighLookMaterials {
+  return {
+    terrain: terrainMaterial(u, 0, 1, false, terrainHooks()),
+    water: waterMaterial(u, false, waterHooks()),
+    fall: fallMaterial(u, false, fallHooks()),
+    object: objectMaterial(u, false, objectHooks()),
+    sky: skyMaterial(skyHooks()),
+    vegetation: objectMaterial(u, false, vegetationHooks(slots.length)),
+    landmark: objectMaterial(u, false, landmarkHooks()),
+    slope: objectMaterial(u, false, slopeHooks()),
+  };
+}
+
+/** The materials of what can stand under a roof (objects of every kind, falls and water): the ones that read the light
+ *  volume on a map with terrain above terrain (the renderer's `CAVES`). */
+export function roofedOf(m: HighLookMaterials): ShaderMaterial[] {
+  return [m.object, m.fall, m.water, m.vegetation, m.landmark, m.slope];
+}
+
+/** The materials that read the run tops' own soil on a map with run tops below a tile's top (the renderer's
+ *  `RUN_SOIL`): the terrain's floors and the slopes standing on them. */
+export function runSoilOf(m: HighLookMaterials): ShaderMaterial[] {
+  return [m.terrain, m.slope];
+}
+
 /** The time between redraws of the sun's depth map while the land keeps changing (a brush). */
 const SHADOW_EVERY = 100;
 /** How long a frame may spend redoing the occlusion round a brush's changes (AmbientField.catchUp). */
@@ -124,20 +155,15 @@ export class HighLook {
       m.uniforms = { ...m.uniforms, ...high, ...extra };
       return m;
     };
-    this.materials = {
-      terrain: own(terrainMaterial(u, 0, 1, false, terrainHooks())),
-      water: own(waterMaterial(u, false, waterHooks())),
-      fall: own(fallMaterial(u, false, fallHooks())),
-      object: own(objectMaterial(u, false, objectHooks())),
-      sky: own(skyMaterial(skyHooks())),
-    };
-    this.vegetation = own(objectMaterial(u, false, vegetationHooks(slots.length)), {
+    const m = highLookMaterials(u);
+    this.materials = { terrain: own(m.terrain), water: own(m.water), fall: own(m.fall), object: own(m.object), sky: own(m.sky) };
+    this.vegetation = own(m.vegetation, {
       vegPalette: { value: slots.map((k) => hexColour(paletteDefaults[k])) },
       vegTime: this.vegTime,
       vegSway: this.vegSway,
     });
-    this.landmark = own(objectMaterial(u, false, landmarkHooks()));
-    this.slope = own(objectMaterial(u, false, slopeHooks()));
+    this.landmark = own(m.landmark);
+    this.slope = own(m.slope);
     this.mist = new Mist(u.time);
     host.scene.add(this.mist.group);
     this.apply();
@@ -433,16 +459,19 @@ export class HighLook {
     }
   }
 
-  /** The materials of what can stand under a roof (objects of every kind, falls and water): the ones that read the light
-   *  volume on a map with terrain above terrain (the renderer's `CAVES`). */
-  roofedMaterials(): ShaderMaterial[] {
-    return [this.materials.object, this.materials.fall, this.materials.water, this.vegetation, this.landmark, this.slope];
+  /** The look's materials by name. */
+  named(): HighLookMaterials {
+    return { ...this.materials, vegetation: this.vegetation, landmark: this.landmark, slope: this.slope };
   }
 
-  /** The materials that read the run tops' own soil on a map with run tops below a tile's top (the renderer's
-   *  `RUN_SOIL`): the terrain's floors and the slopes standing on them. */
+  /** The look's materials of what can stand under a roof (`roofedOf`). */
+  roofedMaterials(): ShaderMaterial[] {
+    return roofedOf(this.named());
+  }
+
+  /** The look's materials that read the run tops' own soil (`runSoilOf`). */
   runSoilMaterials(): ShaderMaterial[] {
-    return [this.materials.terrain, this.slope];
+    return runSoilOf(this.named());
   }
 
   private allMaterials(): ShaderMaterial[] {

@@ -388,7 +388,7 @@ export function Header(p: HeaderProps) {
       <div class="editor-title">
         <TitleName name={p.name} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
-          {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}
+          {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed}${p.info.spec.variation ? ` · ${p.info.spec.variation}` : ""} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">

@@ -101,3 +101,38 @@ test("hovering a lake in the Drought view says the day it dries, or that it last
   await expect(readout).not.toContainText(words);
   expect(errors).toEqual([]);
 });
+
+test("hovering a lake in the Badtide view says the day it turns bad (D133)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await topDown(page);
+  const lake = await page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    const wet = (x: number, y: number) => m.surface.depth[y * m.W + x] > 0.5;
+    const out: [number, number][] = [];
+    for (let y = 4; y < m.H - 4; y++)
+      for (let x = 4; x < m.W - 4; x++) {
+        let all = true;
+        for (let dy = -2; dy <= 2 && all; dy++) for (let dx = -2; dx <= 2; dx++) if (!wet(x + dx, y + dy)) all = false;
+        if (all) out.push([x, y]);
+      }
+    return out;
+  });
+  expect(lake.length).toBeGreaterThan(0);
+  const readout = page.locator(".readout");
+  await page.getByRole("button", { name: "Badtide", exact: true }).click();
+  await expect(page.locator(".day-words")).toHaveText("Day 8", { timeout: 60_000 });
+  // (the water's first bad day, somewhere on the lake: the badtide reaches a clean lake)
+  let said = "";
+  for (const spot of [lake[0], lake[Math.floor(lake.length / 2)], lake[lake.length - 1]]) {
+    const p = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), spot);
+    await page.mouse.move(p.x + 4, p.y);
+    await page.mouse.move(p.x, p.y, { steps: 2 });
+    await expect(readout).toContainText("ater");
+    said += `${await readout.textContent()} `;
+  }
+  expect(said).toMatch(/Turns bad on day [1-9]\d*/);
+  expect(errors).toEqual([]);
+});

@@ -7,7 +7,8 @@ import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
-const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label);
+// (each step's label, less the sources a force's Sources: Clear took, D474: contract/forceClearSources checks that part)
+const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label.replace(/, (a source|\d+ sources) cleared/, ""));
 const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 /** The map as the worker holds it: its surface, and the tiles that have rock over a hollow. */
@@ -88,20 +89,17 @@ test("a click wears the land there, kept as one step; one Ctrl+Z restores the ma
   const n0 = (await labels(page)).length;
   const at = await high(page);
   const p = await client(page, at[0], at[1]);
-  // (the showing's steps, as the page sees them: it plays out over many, never all at once)
-  await page.evaluate(() => {
-    const seen = new Set<number>();
-    (window as unknown as { dgmSteps: Set<number> }).dgmSteps = seen;
-    const id = setInterval(() => {
-      const f = window.dgmEditor!.force();
-      if (f) seen.add(f.steps);
-      else if (seen.size) clearInterval(id);
-    }, 20);
-  });
   await page.mouse.click(p.x, p.y);
   await expect.poll(() => status(page)).not.toBeNull();
   await settled(page);
-  expect(await page.evaluate(() => (window as unknown as { dgmSteps: Set<number> }).dgmSteps.size), "more than one step shown during the run").toBeGreaterThan(3);
+  // (D356: it plays out over many steps, never all at once. How many of them a machine draws is its own luck: the player
+  // skips steps when its frames run late, by design, and forceDriver.test holds every frame in order on a fake clock. So
+  // what is checked is the player's own record of the showing: many steps planned, and the land final only after the
+  // time the showing was planned to take)
+  const t = (await page.evaluate(() => window.dgmEditor!.forceTiming()))!;
+  expect(t.total, "the showing has many steps").toBeGreaterThan(3);
+  expect(t.show, "and takes time").toBeGreaterThanOrEqual(450);
+  expect(t.final - t.worked, "its land is final only after the showing").toBeGreaterThanOrEqual(t.show - 50);
   const worn = await land(page);
   expect(worn.hollow.length > 0 || worn.heights.some((h, i) => h !== before.heights[i]), "the map changed").toBe(true);
   expect((await labels(page)).length).toBe(n0 + 1);

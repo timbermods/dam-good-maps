@@ -683,6 +683,13 @@ After the view (D280 (3)).
 
 Once M9b has settled (D280 (4)).
 
+**Part 1 built** (D488, `feature/3d-generation`; [docs/progress/3d-generation.md](docs/progress/3d-generation.md)): a
+spring cave feeding the river, an overhang sheltering the start, an arch over a gorge, as intentions grown on the finished
+map (`src/core/land/forms3d.ts`, `src/core/gen/forms3d.ts`), each kept only where every check, intention and outcome still
+holds and its own check confirms it, above the theme's default Verticality only until Fill and Remove unfed water have
+their rules for caves; generated caves' water is the stacked engine's. Next: those rules (then forms
+at the default too), the remaining processes below, and the probe batch.
+
 **Delivers**
 1. **3D features as intentions**, under Kyler's three principles (D138: outcomes, failure allowed,
    many realizations) — "a natural arch", "a cave with a spring in it", "an overhang shading the
@@ -767,9 +774,11 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    **Built (the hover's data):** each held drought day's `weather` event carries `firstDry` (an `Int16Array` per tile: 0
    for water that lasts every day worked out so far, or no water on Day 0; else the first day it holds none) and
    `firstDryThrough` (the last day it covers, at least the day sent), for "Dry on day 6" and "Lasts the drought" (D133).
-   `core/sim/droughtLine.ts` `DryDays` reads it from the days the run keeps, one pass per day, "dry" as the view and the
-   line read it (no depth over `WATER_BODY`, seen from above on caves); `tests/contract/droughtFirstDry.test.ts`. The
-   page's hover line is the page session's.
+   Each held badtide day carries `firstBad` and `firstBadThrough` the same way: 0 for no badwater on any day so far, or
+   badwater already on Day 0; else the first day the tile holds badwater (water with contamination at 0.05 or more,
+   where the hover's "badwater" begins). `core/sim/firstDays.ts` `DryDays` and `BadDays` read them from the days the run
+   keeps, one pass per day, "dry" as the view and the line read it (no depth over `WATER_BODY`), both seen from above on
+   caves; `tests/contract/weatherFirstDays.test.ts`. The page's hover lines are the page session's.
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
