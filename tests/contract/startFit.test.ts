@@ -8,7 +8,9 @@ import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { moveStartNear, startGroundOf, startMiddle, startProblem } from "../../src/core/doc/start";
 import type { Feature } from "../../src/core/features/schema";
-import { makesRoomForStart, startFitExtras, startFitProblem, startFitWarnings, takenTiles, type StartFitGround } from "../../src/core/doc/startFit";
+import { makesRoomForStart, standingFeatures, startFitExtras, startFitProblem, startFitWarnings, takenTiles, type StartFitGround } from "../../src/core/doc/startFit";
+import { EVERY_KIND, planRemove } from "../../src/core/doc/remove";
+import { EXTRA_BANDS } from "../../src/core/validate/playability";
 import { moveEdit, planStart } from "../../src/core/doc/tools";
 import { objectTiles } from "../../src/core/features/objects";
 import type { MapObjectFeature, StartFeature } from "../../src/core/features/schema";
@@ -186,6 +188,45 @@ describe("the fit rule and the checks agree on a generated map", () => {
       const feat = s.features.find((g): g is StartFeature => g.kind === "start")!;
       expect(startProblem(s.built, pos[0], pos[1], feat.params.orientation, false, feat.id, null, startGroundOf(s.built, s.features, feat.id), true)).toBeNull();
     }
+  });
+});
+
+describe("Clear everything on a generated map", () => {
+  it("leaves no distance flag behind: the checks and the start's preview measure only the objects that stand, before and after a start is placed", () => {
+    const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 128, y: 128 } }));
+    const s = MapSession.fromGenerated(r, r.file);
+    const { x: W, y: H } = s.size;
+    const owners = () => new Set(s.built.entities.map((e) => e.owner));
+    // on the map as generated every relic, mine site, field, belt and core stands: the checks read every feature
+    const banded = s.features.filter((f) => f.kind === "mapObject" && f.params.kind in EXTRA_BANDS);
+    expect(banded.length).toBeGreaterThan(0);
+    expect(standingFeatures(s.features, owners())).toBe(s.features);
+    const p = planRemove(s, Array.from({ length: W * H }, (_, i) => i), EVERY_KIND, "Clear everything");
+    expect(p.ok).toBe(true);
+    if (!p.ok) return;
+    expect(s.applyAll(p.ops, "user", p.label).ok).toBe(true);
+    expect(s.features.some((f) => f.kind === "start")).toBe(false);
+    // (the features stay in the document, their objects gone)
+    expect(s.features.filter((f) => f.kind === "mapObject" && f.params.kind in EXTRA_BANDS).length).toBe(banded.length);
+    expect(startFitExtras(s.features, W, H, owners())).toEqual([]);
+    const flag = () => s.validate().report.checks.find((c) => c.id === "extras.placement");
+    expect(flag()?.ok, flag()?.message).not.toBe(false);
+    // a spot the removed objects' bands would have flagged: the start's preview says "Place here" there, and placed
+    // there the checks raise no distance flag
+    const stale = startFitExtras(s.features, W, H);
+    let spot: [number, number] | null = null;
+    for (let y = 4; y < H - 4 && !spot; y += 3)
+      for (let x = 4; x < W - 4 && !spot; x += 3) if (!startProblem(s.built, x, y, "Cw0", false, null) && startFitWarnings(stale, W, H, x, y).length) spot = [x, y];
+    expect(spot).not.toBeNull();
+    const [x, y] = spot!;
+    expect(startProblem(s.built, x, y, "Cw0", false, null, null, startGroundOf(s.built, s.features, null), true)).toBeNull();
+    const placed = planStart(s, x, y, undefined, () => crypto.randomUUID());
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const applied = s.applyAll(placed.ops, "user", placed.label);
+    expect(applied.ok, applied.errors.join("; ")).toBe(true);
+    expect(startMiddle(s)).toEqual([x, y]);
+    expect(flag()?.ok, flag()?.message).toBe(true);
   });
 });
 

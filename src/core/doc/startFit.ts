@@ -86,12 +86,20 @@ export interface StartFitExtra {
 
 /** The generation's objects that keep a distance from the start, from a document's features: what the check
  *  `extras.placement` measures (an object the player placed is not asked). `standing`: the owners of the objects that
- *  stand on the map now; a feature whose objects were removed (Clear everything, a delete) or left off a lock is no
- *  longer measured, as the check measures the objects themselves. */
+ *  stand on the map now; a feature whose objects were removed (Clear everything, a delete, a force) is no longer
+ *  on the map and is not measured, as the checks leave it out (`standingFeatures`). */
 export function startFitExtras(features: readonly Feature[], W: number, H: number, standing?: ReadonlySet<string>): StartFitExtra[] {
   const out: StartFitExtra[] = [];
-  for (const f of features) if (f.kind === "mapObject" && f.origin === "generated" && f.params.kind in EXTRA_BANDS && (!standing || standing.has(f.id))) out.push({ kind: f.params.kind, tiles: objectTiles(f, W, H) });
+  for (const f of standing ? standingFeatures(features, standing) : features) if (f.kind === "mapObject" && f.origin === "generated" && f.params.kind in EXTRA_BANDS) out.push({ kind: f.params.kind, tiles: objectTiles(f, W, H) });
   return out;
+}
+
+/** A document's features as the checks read them: a map object with a distance band (`EXTRA_BANDS`) whose objects no
+ *  longer stand (`standing`: the owners of the objects on the map; Clear everything, a delete or a force took them)
+ *  is left out, so `extras.placement` never measures an object that is not on the map. */
+export function standingFeatures(features: readonly Feature[], standing: ReadonlySet<string>): readonly Feature[] {
+  const gone = (f: Feature) => f.kind === "mapObject" && f.params.kind in EXTRA_BANDS && !standing.has(f.id);
+  return features.some(gone) ? features.filter((f) => !gone(f)) : features;
 }
 
 /** The owners of the objects standing in a map's entity list (the build's `entities` or the page's columns). */

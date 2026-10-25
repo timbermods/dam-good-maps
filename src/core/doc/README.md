@@ -31,7 +31,9 @@ The map document and its edit engine: a generation plus an ordered log of edit o
   preview all call it; they skip the start by its template or its feature's id, never by owner (an import's objects
   are all owned by `import`). `startFitWarnings` is what the checks would flag where it still fits (the generation's relics,
   geothermal fields, mine sites, thorn belts and unstable cores out of their distance band, `extras.placement`): the start
-  is amber there, and the start's own fix (`moveStartNear`) never moves it to such a spot.
+  is amber there, and the start's own fix (`moveStartNear`) never moves it to such a spot. Only the objects that stand
+  are measured (`standingFeatures`): a map-object feature stays in the document after Clear everything, a delete or a
+  force takes its objects, and `MapSession.validate`, `startGroundOf` and the page's previews all leave it out.
 - `plantSoil.ts` `dyingTiles`: where a plant would die for its soil (the page's "dry ground: these will die" ring).
 - `waterFix.ts` `waterFix`: the operations that would fix the start's water checks after edits (a spring by the start,
   D330), as one step; its places are `water/springSites.ts` `springCandidates`, the generator's rule too. Only its test calls
