@@ -53,6 +53,7 @@ import {
   ColorManagement,
 } from "three";
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
+import { blockReach, hollowFootprint, HollowMarks, roofOf, type HollowReach } from "./hollow";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import type { Voxels } from "./wear";
@@ -557,6 +558,7 @@ export class MapRenderer {
     this.uniforms.slice.value = v;
     this.droughtLayer?.setHidden(level !== null);
     this.blockCells?.setCut(level === null ? null : v);
+    this.hollowStale = true;
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
   }
@@ -1649,6 +1651,7 @@ export class MapRenderer {
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
     this.settleObjects();
+    this.hollowStale = true;
     // (the game's rule: a layer above everything the map could hide shows the whole world)
     if (this.slice !== null && this.slice > this.topHiding()) this.setSlice(null);
     if (!rect) return 0;
@@ -2036,6 +2039,8 @@ export class MapRenderer {
     m.heights = heights;
     this.heightStats = null;
     m.source = { ...m.source, heights };
+    // (the hollow under the cursor follows the roof's new top)
+    this.hollowStale = true;
     // (drawn at the next frame, with every other change before it: flushTerrain)
     const p = this.pendingLand;
     this.pendingLand = p ? { x0: Math.min(p.x0, rect.x0), y0: Math.min(p.y0, rect.y0), x1: Math.max(p.x1, rect.x1), y1: Math.max(p.y1, rect.y1) } : { ...rect };
@@ -2613,6 +2618,8 @@ export class MapRenderer {
    *  (amber), as `blockFalls` lists them; null puts it away. Blocks at or above the layer cut are not drawn. */
   showBlocks(preview: BlockPreview | null): void {
     const any = !!preview && (preview.added.length > 0 || preview.removed.length > 0 || preview.falls.length > 0);
+    this.blockReach = any ? blockReach([...preview.added, ...preview.removed]) : null;
+    this.hollowStale = true;
     if (!any && !this.blockCells) return;
     this.blockCells ??= new BlockCells(this.scene);
     if (this.blockCells.set(any ? preview : null, this.slice)) this.requestRender();
@@ -2635,7 +2642,47 @@ export class MapRenderer {
     }
     // (laid on the ground once a frame, however many times the pointer moved: renderNow)
     this.cursorStale = true;
+    this.hollowStale = true;
     this.requestRender();
+  }
+
+  private hollow: HollowMarks | null = null;
+  /** The cursor, its reach or the ground under it changed since the hollow under it was drawn. */
+  private hollowStale = false;
+  /** The Block tool's reach: round the blocks its preview shows. */
+  private blockReach: HollowReach | null = null;
+
+  /** The hollow under the cursor (hollow.ts; D488): on a map with terrain above terrain, the air under the roof within
+   *  the cursor's reach (the brush's, else a force's or the shelf's ring, else the Block tool's blocks), drawn on the
+   *  roof's top. A map without any column that is not plain stops at the first test. */
+  private layHollow(): void {
+    this.hollowStale = false;
+    const m = this.map;
+    if (!m || (m.source.columns.size === 0 && !this.hollow)) return;
+    const b = this.brushCursorState;
+    const f = this.forceRingState;
+    const reach: HollowReach | null = m.source.columns.size === 0 ? null
+      : b ? { x: b.x, y: b.y, radius: b.radius, square: b.square, aim: b.run ? this.aim : null }
+      : f ? { x: f.x, y: f.y, radius: f.marker ? 1.5 : Math.max(1, f.r) }
+      : this.blockReach;
+    const src = m.source;
+    const keep = cutKeep(this.slice);
+    const masks = src.masks;
+    const listed = masks ? (i: number) => masks[i] !== 0 : (i: number) => src.columns.has(i);
+    const maskAt = (i: number) => columnMask(src, i) & keep;
+    const tiles = reach ? hollowFootprint(m.W, m.H, listed, maskAt, reach) : null;
+    if (!tiles?.length && !this.hollow) return;
+    (this.hollow ??= new HollowMarks(this.scene)).set(tiles, reach, (x, y) => {
+      if (x < 0 || y < 0 || x >= m.W || y >= m.H) return false;
+      const i = y * m.W + x;
+      return listed(i) && roofOf(maskAt(i)) !== null;
+    });
+    this.requestRender();
+  }
+
+  /** The hollow drawn under the cursor now (tests): the tiles filled and the outline's pieces. */
+  get hollowDrawn(): { tiles: number; edges: number } {
+    return this.hollow?.drawn ?? { tiles: 0, edges: 0 };
   }
 
   /** A force's size at the cursor (D312, D321 item 13): one calm ring on the water's surface over
@@ -2645,6 +2692,11 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return;
     this.forceRingState = s;
+    // (the hollow under the ring follows it, on a map with terrain above terrain)
+    if (m.source.columns.size || this.hollow) {
+      this.hollowStale = true;
+      this.requestRender();
+    }
     if (!this.ring) {
       if (!s) return;
       this.ring = new ForceRing(this.scene);
@@ -2986,6 +3038,7 @@ export class MapRenderer {
       this.cursorStale = false;
       this.cursor.set(this.brushCursorState, this.cursorHeights(), this.map.W, this.map.H);
     }
+    if (this.hollowStale) this.layHollow();
     // a stroke's water still to draw: a few milliseconds of it a frame (updateWaterSoon)
     if (this.waterQueue.size || this.waterReady) {
       this.drainWater(WATER_MESH_BUDGET_MS);
@@ -3567,6 +3620,7 @@ export class MapRenderer {
     this.mesherOwn?.dispose();
     this.cursor?.dispose();
     this.ring?.dispose();
+    this.hollow?.dispose();
     this.effects?.dispose();
     this.blockGhost?.dispose();
     this.blockCells?.dispose();
