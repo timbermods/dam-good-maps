@@ -51,8 +51,7 @@ siblings on the same land, the better one is kept. A search given `tries` makes 
 
 Per candidate on the dedicated machine, with other builders running (PR #504): about 11 s at 128² (River Valley)
 and 48 s at 128² under heavy load (Canyon); about 127 s at 256² (Highlands). So a few minutes makes 10–20 candidates
-at 128² and 2–4 at 256². In the samples the first-drought choice is the rarest beat, and the vista and the landmark
-are the commonest on rugged themes.
+at 128² and 2–4 at 256².
 
 Beats met on 14 maps (every theme, seeds 1 and 2, 128², after the follow-ups of PR #504's review): vista 9, drought 5
 (4 before: separate bodies of water, now places to pump with a real choice), valley 8, project 11, landmark 8,
