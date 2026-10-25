@@ -2039,6 +2039,8 @@ export class MapRenderer {
     m.heights = heights;
     this.heightStats = null;
     m.source = { ...m.source, heights };
+    // (the hollow under the cursor follows the roof's new top)
+    this.hollowStale = true;
     // (drawn at the next frame, with every other change before it: flushTerrain)
     const p = this.pendingLand;
     this.pendingLand = p ? { x0: Math.min(p.x0, rect.x0), y0: Math.min(p.y0, rect.y0), x1: Math.max(p.x1, rect.x1), y1: Math.max(p.y1, rect.y1) } : { ...rect };
@@ -2690,8 +2692,11 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return;
     this.forceRingState = s;
-    this.hollowStale = true;
-    this.requestRender();
+    // (the hollow under the ring follows it, on a map with terrain above terrain)
+    if (m.source.columns.size || this.hollow) {
+      this.hollowStale = true;
+      this.requestRender();
+    }
     if (!this.ring) {
       if (!s) return;
       this.ring = new ForceRing(this.scene);
