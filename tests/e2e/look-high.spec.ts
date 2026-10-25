@@ -8,7 +8,7 @@
 // (software frames are slow) until a test reports them slow.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, waitForEditor } from "./open";
+import { openEditor, waitForEditor, topDown } from "./open";
 
 // the automatic choice, not the Standard look the other tests hold (playwright.config.ts)
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -307,7 +307,7 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   expect(await look(page)).toBe("high");
   await page.keyboard.press("Shift+Digit3");
   await page.getByRole("group", { name: "Erupt options" }).getByRole("slider", { name: "Power" }).fill("70");

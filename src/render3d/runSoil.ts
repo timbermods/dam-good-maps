@@ -17,7 +17,7 @@
 // Pure TypeScript.
 
 import { soilNibbles } from "./light";
-import { LAYERS, WET, type RunSoilView, type WaterView } from "./model";
+import { LAYERS, WET, type RunSoilView, type SoilView, type WaterView } from "./model";
 
 /** Levels in the texture: a run top below its tile's top is at most level 22. */
 export const RUN_LEVELS = LAYERS;
@@ -151,4 +151,31 @@ export function runSoilAt(r: RunSoil | null, x: number, y: number, z: number): {
   const g = r.data[cell * 2 + 1];
   if (!g) return null;
   return { soil: r.data[cell * 2], wet: g === RUN_WET };
+}
+
+/** Each list of run tops' cells (level·N + tile) to its run, built once a list (the worker sends a fresh one with
+ *  each soil). */
+const runIndexes = new WeakMap<RunSoilView, Map<number, number>>();
+
+/** The soil an object standing at level `z` of tile (x, y) reads (3D view, objects under a roof; D491 lets them stand
+ *  in caves): the run top's own where one is at that level below the tile's top (a cave's floor, a ledge under an
+ *  overhang), else the tile's top, as before. Null off the map or without a soil. A ruin's ivy follows it
+ *  (entities3d.ts); the High slope's grass reads the same from the run texture (high/shaders.ts `slopeHooks`). */
+export function objectSoilAt(soil: SoilView | null, W: number, x: number, y: number, z: number): { moisture: number; contamination: number } | null {
+  if (!soil || W <= 0 || x < 0 || y < 0 || x >= W) return null;
+  const N = soil.moisture.length;
+  const i = y * W + x;
+  if (i >= N) return null;
+  const runs = soil.runs;
+  if (runs?.tile.length) {
+    let index = runIndexes.get(runs);
+    if (!index) {
+      index = new Map();
+      for (let r = 0; r < runs.tile.length; r++) index.set(runs.level[r] * N + runs.tile[r], r);
+      runIndexes.set(runs, index);
+    }
+    const r = index.get(z * N + i);
+    if (r !== undefined) return { moisture: runs.moisture[r], contamination: runs.contamination[r] };
+  }
+  return { moisture: soil.moisture[i], contamination: soil.contamination[i] };
 }

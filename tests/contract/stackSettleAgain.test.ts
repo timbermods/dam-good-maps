@@ -27,7 +27,7 @@ function cold(s: MapSession): CanonicalWater {
 const bytes = (a: ArrayBufferView) => Buffer.from(a.buffer, a.byteOffset, a.byteLength);
 
 function expectSame(a: StackSettle, b: StackSettle): void {
-  for (const k of ["count", "floor", "ceil", "depth", "overflow", "contamination", "sat", "reach"] as const) expect(bytes(a[k]!).equals(bytes(b[k]!)), k).toBe(true);
+  for (const k of ["count", "floor", "ceil", "depth", "overflow", "contamination", "sat", "reach", "flows"] as const) expect(bytes(a[k]!).equals(bytes(b[k]!)), k).toBe(true);
   for (const k of ["ids", "depth", "overflow", "contamination"] as const) expect(bytes(a.start![k]).equals(bytes(b.start![k])), `start ${k}`).toBe(true);
   expect([a.L, a.settled, a.ticks]).toEqual([b.L, b.settled, b.ticks]);
 }

@@ -3,7 +3,7 @@
 // TypeScript with no three.js: the worker builds views, the renderer and the editor read them.
 //
 // Coordinates: tile (x, y) with x east and y north, as in the game. The renderer's world space is
-// X = x, Y = height, Z = −y, so north is −Z and the top-down view has north up.
+// X = x, Y = height, Z = −y, so north is −Z and the top-down view has north up until it is turned.
 
 import { contaminationByte, moistureByte } from "./palette";
 
@@ -59,7 +59,9 @@ export interface WaterView {
   /** Badwater share, 0–1. */
   contamination: Float32Array;
   /** The settle's own outflows of each column (four a column, the simulation's order −y, −x, +y, +x;
-   *  current.ts); missing where the worker had none (still water, falls estimated). Only drawn. */
+   *  current.ts), each column its own: a cave's water under a wet roof its own, never its roof's (the file's
+   *  per column, the stacked settle's, stackWater.ts `columnFlows`). Missing where the worker has none for
+   *  every column (still water, falls estimated). Only drawn. */
   outflow?: Float32Array;
 }
 

@@ -20,6 +20,7 @@ import { ColumnTerrain } from "../terrain/runs";
 import { isDelayed, mapObjects, specifiedStrength, waterModel, type MapObject } from "./model";
 import { rustWater } from "./rustWater";
 import { STACK_CHECK_TICKS, stackThreads, type StackThreads } from "./stackParallel";
+import { drainColumns, heightLimits, keptColumnSeeds, type StackGraph } from "./stackFed";
 import { sameRetained, type RetainedWater, type StackedTerrain, type WaterModel } from "./water";
 
 interface Exports {
@@ -64,11 +65,14 @@ export const STACK_FIELD = {
   rowsOut: 21,
   rowsIn: 22,
   reach: 23,
+  emitting: 24,
+  allowed: 25,
 } as const;
 
 /** The engine's operations: `build` (a: 0 the game's rules, 1 the port's; b: 1 the stacked rules even on
  *  an open field, a strip of a map with caves); `run` (a ticks, b scale); `prefill`; `settleBegin` (a: the
- *  most days; an open field takes 6, today's settle); `advance` (a: a tick budget, so a caller can show
+ *  most days; an open field takes 6, today's settle; b: 1 on from the water as written, not pre-filled,
+ *  stacked only); `advance` (a: a tick budget, so a caller can show
  *  progress); `accept` (after writing state); `saturation`; `exportRows` (rows a..b as a block, `rowsOut`);
  *  `elsewhere` (a settle's water after a ticks run elsewhere, written whole: its checks run here); `inbox`
  *  (room for a block of a numbers, `rowsIn`); `importRows` (the block in `rowsIn` as rows a..b). The last
@@ -80,7 +84,7 @@ export const STACK_OP = { build: 0, run: 1, prefill: 2, settleBegin: 3, advance:
  *  ticks. */
 export const STACK_INFO = { ticks: 0, stacked: 1, settle: 2, steadyTicks: 3, maxTicks: 4 } as const;
 
-const TYPES = [Uint32Array, Float64Array, Float64Array, Uint8Array, Int16Array, Int16Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Uint32Array, Int32Array, Uint8Array, Int32Array, Float64Array, Uint8Array, Uint8Array, Int16Array, Int16Array, Uint8Array, Float64Array, Float64Array, Uint8Array] as const;
+const TYPES = [Uint32Array, Float64Array, Float64Array, Uint8Array, Int16Array, Int16Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Uint32Array, Int32Array, Uint8Array, Int32Array, Float64Array, Uint8Array, Uint8Array, Int16Array, Int16Array, Uint8Array, Float64Array, Float64Array, Uint8Array, Uint8Array, Uint8Array] as const;
 
 export type StackView = Uint8Array | Int16Array | Uint32Array | Int32Array | Float64Array;
 
@@ -182,18 +186,53 @@ export function stackObjectRows(objects: readonly MapObject[]): Float64Array {
   return Float64Array.from(rows);
 }
 
-/** What a map with caves or overhangs refuses for now, one plain line each (D280, Kyler 2026-10-07):
- *  each waits for its rule for water in caves. Whether a map is one is `cavesOf`. Drought, Badtide and
- *  the drought line have theirs (`StackRun`, #391). */
-export const CAVE_REFUSALS = {
-  fill: "Fill isn't worked out for maps with caves yet",
-  removeUnfed: "Removing unfed water isn't worked out for maps with caves yet",
-} as const;
-
 /** Whether a map's water is that of a map with caves or overhangs (some tile not one plain run from the
- *  bottom, `stackedModel`): the one predicate for what such a map still refuses (`CAVE_REFUSALS`). */
+ *  bottom, `stackedModel`): its water is the stacked engine's, every column of it, and Fill and Remove unfed
+ *  water ask their questions of every column (stackFed.ts). */
 export function cavesOf(model: Pick<WaterModel, "stacked">): boolean {
   return !!model.stacked;
+}
+
+/** The stacked engine's geometry of a map with caves or overhangs (stackFed.ts `StackGraph`), the same object for
+ *  the same terrain and objects. */
+const graphs = new WeakMap<StackedTerrain, StackGraph>();
+export function stackGraph(model: Pick<WaterModel, "W" | "H" | "stacked">): StackGraph {
+  const t = model.stacked;
+  if (!t) throw new Error("The map has no caves or overhangs.");
+  let g = graphs.get(t);
+  if (!g) {
+    const m = new StackWater(model.W, model.H, t.objects.length / 8, 0);
+    try {
+      (m.view(STACK_FIELD.masks) as Uint32Array).set(t.mask);
+      (m.view(STACK_FIELD.objects) as Float64Array).set(t.objects);
+      m.op(STACK_OP.build, 0, 1);
+      g = graphOf(m, model.W, model.H, t.objects);
+    } finally {
+      m.close();
+    }
+    graphs.set(t, g);
+  }
+  return g;
+}
+
+function graphOf(m: StackWater, W: number, H: number, objects: ArrayLike<number>): StackGraph {
+  const count = m.copy(STACK_FIELD.count) as Uint8Array;
+  let L = 1;
+  for (let i = 0; i < count.length; i++) if (count[i] > L) L = count[i];
+  return {
+    W,
+    H,
+    N: W * H,
+    L,
+    count,
+    floor: m.copy(STACK_FIELD.floor) as Int16Array,
+    ceil: m.copy(STACK_FIELD.ceil) as Int16Array,
+    start: m.copy(STACK_FIELD.graphStart) as Uint32Array,
+    target: m.copy(STACK_FIELD.graphTarget) as Int32Array,
+    allowed: m.copy(STACK_FIELD.allowed) as Uint8Array,
+    emitting: m.copy(STACK_FIELD.emitting) as Uint8Array,
+    limit: heightLimits(W, H, objects),
+  };
 }
 
 /** A settle on stacked columns: geometry and water per column id (slot·N + tile). */
@@ -215,12 +254,35 @@ export interface StackSettle {
   sat: Uint8Array;
   settled: boolean;
   ticks: number;
+  /** The check at which only sealed basins still changed, their evaporation (D222, D413): the settle stopped
+   *  there, the water settled. */
+  steadyTicks?: number;
   /** A canonical settle's only (`canonicalStackRun`, `settledAgain`): 1 on every column that was wet at
    *  some substep of the settle (rust/water/src/stack.rs `wet_ever`), per column id. */
   reach?: Uint8Array;
   /** A canonical settle's only: the pre-fill it started from, its columns with any water, pressure or
    *  badwater share (ids ascending). */
   start?: StackStart;
+  /** A canonical settle's only: each column's outflows at its end (`columnFlows`), four a column id. Only drawn
+   *  (the 3D view's moving water and falls), never written to a file or read by the water. */
+  flows?: Float32Array;
+}
+
+/** Each column's outflows, four a column id (slot·N + tile; the simulation's order −y, −x, +y, +x): the momentum of
+ *  its flows each way summed (rust/water/src/stack.rs `out`, one a pair of columns that overlap, laid out by `start`
+ *  and `dir`), the rate the file stores per column (`ColumnOutflows`) and the heightfield's `WaterSim.out` per tile.
+ *  On an open field (today's simulation) the momentum is already four a tile. From `m` as it stands: its momentum is
+ *  current only where it ran the ticks itself (not after ticks run elsewhere, stackParallel.ts gathers those). */
+export function columnFlows(m: StackWater, stacked: boolean): Float32Array {
+  if (!stacked) return Float32Array.from(m.view(STACK_FIELD.momentum) as Float64Array);
+  const start = m.view(STACK_FIELD.graphStart) as Uint32Array;
+  const dir = m.view(STACK_FIELD.graphDirection) as Uint8Array;
+  const out = m.view(STACK_FIELD.momentum) as Float64Array;
+  const size = start.length - 1;
+  // (summed in doubles and rounded once, as the threaded settle gathers them: the same bytes on any number of threads)
+  const flows = new Float64Array(size * 4);
+  for (let c = 0; c < size; c++) for (let e = start[c]; e < start[c + 1]; e++) flows[c * 4 + dir[e]] += out[e];
+  return Float32Array.from(flows);
 }
 
 /** A pre-fill, sparse: the columns where depth, pressure or contamination is not 0. */
@@ -249,6 +311,9 @@ function startOf(m: StackWater): StackStart {
 /** The days a stacked canonical settle may take (#71's, which the probe's test maps were played
  *  with); an open field's is today's 6. */
 export const STACK_SETTLE_DAYS = 4;
+/** The days the water may take to settle on once a removal took the unfed water it drained (prefill.ts
+ *  `DRAIN_DAYS`, the heightfield's). */
+export const STACK_DRAIN_DAYS = 4;
 
 /** A water model with its terrain above terrain: `model` (the map from above, sim/model.ts) with the
  *  terrain's masks and the objects' rows when some tile is not one plain run from the bottom; the
@@ -275,7 +340,7 @@ const MAX_ADVANCE = 10_000_000;
  *  ticks until the water stands still or the days run out. `advance` runs at most the ticks it is
  *  given and returns the settle once it is done; `ticks` over `maxTicks` is how far it is, for a
  *  caller to show. `retained` is water sealed basins keep (water.ts `RetainedWater`). */
-export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retained: readonly RetainedWater[] = []): { advance(ticks: number): StackSettle | null; readonly ticks: number; readonly maxTicks: number } {
+export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retained: readonly RetainedWater[] = [], drained: readonly number[] = []): { advance(ticks: number): StackSettle | null; readonly ticks: number; readonly maxTicks: number } {
   const kept = retainedRows(retained);
   const m = new StackWater(W, H, t.objects.length / 8, kept.length / 4);
   let done: StackSettle | null = null;
@@ -287,6 +352,11 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
   // counts the ticks the threads ran since the settle's last check
   let threads: StackThreads | null | undefined;
   let since = 0;
+  // a removal's drained tiles (Remove unfed water, D387 (2)): once the water has settled, the unfed water on them is
+  // taken and the water settles on from there, at most STACK_DRAIN_DAYS (as prefill.ts `canonicalRun` does on a
+  // heightfield); `base` is the tick that second settle began at
+  let drainNext = drained.length > 0;
+  let base = 0;
   try {
     (m.view(STACK_FIELD.masks) as Uint32Array).set(t.mask);
     (m.view(STACK_FIELD.objects) as Float64Array).set(t.objects);
@@ -304,7 +374,9 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
     advance(budget: number): StackSettle | null {
       if (done) return done;
       try {
-        if (threads === undefined) threads = stacked && m.info(STACK_INFO.settle) === 0 && maxTicks % STACK_CHECK_TICKS === 0 ? stackThreads(m, W, H, t.mask, t.objects)?.watch(run) ?? null : null;
+        // (a settle that takes a removal's water runs on one thread: it settles on from the whole engine's state,
+        // its flows' momentum and seeps included, which the strips don't hand back)
+        if (threads === undefined) threads = stacked && !drained.length && m.info(STACK_INFO.settle) === 0 && maxTicks % STACK_CHECK_TICKS === 0 ? stackThreads(m, W, H, t.mask, t.objects)?.watch(run) ?? null : null;
         let left = Math.max(0, Math.min(MAX_ADVANCE, Math.floor(budget)));
         while (threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
           const n = Math.min(left, STACK_CHECK_TICKS - since);
@@ -328,14 +400,25 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
         if (!threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
           m.op(STACK_OP.advance, left);
           ticks = m.info(STACK_INFO.ticks);
-          maxTicks = Math.max(maxTicks, m.info(STACK_INFO.maxTicks));
+          maxTicks = Math.max(maxTicks, base + m.info(STACK_INFO.maxTicks));
         }
         if (m.info(STACK_INFO.settle) === 0) return null;
         // (where the water went: this thread's own columns, and the strips' when they ran it)
         const reach = stacked ? (m.copy(STACK_FIELD.reach) as Uint8Array) : undefined;
         if (reach) threads?.reach(reach);
+        // (each column's outflows: the strips' own rows' when they ran the last ticks, else this engine's)
+        const flows = threads ? threads.flows() : columnFlows(m, stacked);
         threads?.free();
         threads = null;
+        if (drainNext) {
+          drainNext = false;
+          if (drainSettled(m, W, H, t, retained, drained)) {
+            m.op(STACK_OP.settleBegin, STACK_DRAIN_DAYS, 1);
+            base = m.info(STACK_INFO.ticks);
+            maxTicks = base + Math.max(1, m.info(STACK_INFO.maxTicks));
+            return null;
+          }
+        }
         m.op(STACK_OP.saturation);
         const count = m.copy(STACK_FIELD.count) as Uint8Array;
         let L = 1;
@@ -354,8 +437,12 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
           sat: m.copy(STACK_FIELD.saturation) as Uint8Array,
           settled: m.info(STACK_INFO.settle) === 1,
           ticks: m.info(STACK_INFO.ticks),
-          ...(reach && start ? { reach, start } : {}),
+          // (a settle that took a removal's water ran on from another start: `settledAgain` never stands for it)
+          ...(reach && start && !drained.length ? { reach, start } : {}),
+          flows,
         };
+        const steady = m.info(STACK_INFO.steadyTicks);
+        if (steady >= 0) done.steadyTicks = steady;
         ticks = done.ticks;
         m.close();
         return done;
@@ -375,11 +462,29 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
   return run;
 }
 
-/** Retained water as the engine takes it: (tile, floor, depth, contamination) rows, one a tile. */
+/** The settled water in `m` with the unfed water on the drained tiles taken (stackFed.ts `drainColumns`: no running
+ *  source and no stored lake kept reaches it), written back for the water to settle on; whether any was taken. */
+function drainSettled(m: StackWater, W: number, H: number, t: StackedTerrain, retained: readonly RetainedWater[], drained: readonly number[]): boolean {
+  const g = graphOf(m, W, H, t.objects);
+  const water = {
+    depth: (m.view(STACK_FIELD.depth) as Float64Array).slice(),
+    overflow: (m.view(STACK_FIELD.overflow) as Float64Array).slice(),
+    contamination: (m.view(STACK_FIELD.contamination) as Float64Array).slice(),
+    momentum: (m.view(STACK_FIELD.momentum) as Float64Array).slice(),
+  };
+  if (!drainColumns(g, water, drained, keptColumnSeeds(g, retained, drained))) return false;
+  (m.view(STACK_FIELD.depth) as Float64Array).set(water.depth);
+  (m.view(STACK_FIELD.overflow) as Float64Array).set(water.overflow);
+  (m.view(STACK_FIELD.contamination) as Float64Array).set(water.contamination);
+  (m.view(STACK_FIELD.momentum) as Float64Array).set(water.momentum);
+  return true;
+}
+
+/** Retained water as the engine takes it: (tile, floor, depth, contamination) rows, one a column. */
 function retainedRows(retained: readonly RetainedWater[]): number[] {
-  // (a tile two lakes hold keeps the later one's water, as the pre-fill would leave it: the engine
-  // takes at most one entry a tile)
-  const last = new Map<number, number[]>();
+  // (a column two lakes hold keeps the later one's water, as the pre-fill would leave it: each entry names
+  // its column by its tile and floor, stackFed.ts `retainedColumn`)
+  const last = new Map<string, number[]>();
   for (const r of retained)
     for (let k = 0; k < r.tiles.length; k++) {
       const f = r.floor[k];
@@ -387,8 +492,9 @@ function retainedRows(retained: readonly RetainedWater[]): number[] {
       const c = r.contamination[k];
       // (water outside the water's levels, a file from a taller, modded game, is left out, as its objects are)
       if (!(f >= 0 && d >= 0 && f + d <= OPEN_CEILING && c >= 0 && c <= 1)) continue;
-      last.delete(r.tiles[k]);
-      last.set(r.tiles[k], [r.tiles[k], f, d, c]);
+      const key = r.tiles[k] + ":" + f;
+      last.delete(key);
+      last.set(key, [r.tiles[k], f, d, c]);
     }
   const kept: number[] = [];
   for (const row of last.values()) kept.push(...row);
@@ -498,6 +604,10 @@ export function settledAgain(prev: StackSettle, prevModel: WaterModel, next: Wat
     const start = startOf(m);
     // the old run's water on the tiles left as they were; the pre-fill's (dry) on the changed ones
     const reach = new Uint8Array(L * N);
+    // (and its outflows: the old run's momentum on the columns it wet, whose flows the edit never reached, none on the
+    // changed tiles, which stay dry)
+    const pf = prev.flows;
+    const flows = pf ? new Float32Array(L * N * 4) : undefined;
     for (let i = 0; i < N; i++) {
       if (changed[i]) continue;
       for (let q = 0; q < count[i]; q++) {
@@ -506,6 +616,7 @@ export function settledAgain(prev: StackSettle, prevModel: WaterModel, next: Wat
         o[k] = prev.overflow[k];
         c[k] = prev.contamination[k];
         reach[k] = prev.reach[k];
+        if (flows && pf) flows.set(pf.subarray(k * 4, k * 4 + 4), k * 4);
       }
     }
     m.op(STACK_OP.accept);
@@ -524,8 +635,10 @@ export function settledAgain(prev: StackSettle, prevModel: WaterModel, next: Wat
       sat: m.copy(STACK_FIELD.saturation) as Uint8Array,
       settled: prev.settled,
       ticks: prev.ticks,
+      ...(prev.steadyTicks !== undefined ? { steadyTicks: prev.steadyTicks } : {}),
       reach,
       start,
+      ...(flows ? { flows } : {}),
     };
     return done;
   } finally {

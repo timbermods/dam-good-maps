@@ -14,8 +14,8 @@ export interface ShelfHost {
   H: number;
   /** The pointer is over tile (x, y), or off the map: show the ghost there. */
   hover(hit: TileHit | null, ev: PointerEvent): void;
-  /** A click on tile (x, y): place it. */
-  place(x: number, y: number): void;
+  /** A click on tile (x, y): place it, on the ground the voxel pick hit there (`hit`: a cave's floor, D491). */
+  place(x: number, y: number, hit: TileHit | null): void;
   /** Trees and bushes: the tiles a drag paints round a point (x, y), or null for anything else. */
   paintAround(x: number, y: number): number[] | null;
   /** The tiles a drag has painted so far (null: none, the drag is over). */
@@ -24,9 +24,11 @@ export interface ShelfHost {
   plant(tiles: number[]): void;
 }
 
-/** The shelf's pointer tool: hover shows the ghost, a click places, a drag paints (trees, bushes). */
+/** The shelf's pointer tool: hover shows the ghost, a click places, a drag paints (trees, bushes). It aims at the
+ *  ground the player sees (the voxel pick): a cave's floor through its mouth or under the level cut (D491). */
 export function shelfTool(host: ShelfHost): PointerTool {
   let down: [number, number] | null = null;
+  let downHit: TileHit | null = null;
   let painted: Set<number> | null = null;
   let last: [number, number] | null = null;
   const paint = (x: number, y: number) => {
@@ -40,6 +42,7 @@ export function shelfTool(host: ShelfHost): PointerTool {
       if (ev.button !== 0) return false;
       if (!hit) return true;
       down = [hit.x, hit.y];
+      downHit = hit;
       last = [hit.x, hit.y];
       painted = host.paintAround(hit.x + 0.5, hit.y + 0.5) ? new Set() : null;
       return true;
@@ -58,17 +61,20 @@ export function shelfTool(host: ShelfHost): PointerTool {
     up(hit) {
       const d = down;
       const p = painted;
+      const at0 = downHit;
       down = null;
+      downHit = null;
       painted = null;
       last = null;
       host.painting(null);
       if (!d) return;
       if (p && p.size) return host.plant([...p]);
-      const at = hit ? [hit.x, hit.y] : d;
-      host.place(at[0], at[1]);
+      if (hit) host.place(hit.x, hit.y, hit);
+      else host.place(d[0], d[1], at0);
     },
     cancel() {
       down = null;
+      downHit = null;
       painted = null;
       last = null;
       host.painting(null);
@@ -76,5 +82,6 @@ export function shelfTool(host: ShelfHost): PointerTool {
     hover(hit, ev) {
       host.hover(hit, ev);
     },
+    voxel: true,
   };
 }

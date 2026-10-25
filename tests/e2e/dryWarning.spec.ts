@@ -3,7 +3,7 @@
 // with no note. Painting stays allowed.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 /** A tile whose surroundings (radius 3) are all dry land with the given soil (moist or dry), nearest the middle. */
 async function groundOf(page: Page, moist: boolean): Promise<[number, number] | null> {
@@ -29,7 +29,7 @@ async function groundOf(page: Page, moist: boolean): Promise<[number, number] | 
 
 test("a held tree's ring turns amber with a note over dry ground, and is plain over moist ground", async ({ page }) => {
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const dry = await groundOf(page, false);
   const moist = await groundOf(page, true);
   expect(dry).not.toBeNull();

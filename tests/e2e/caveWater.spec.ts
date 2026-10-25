@@ -1,13 +1,12 @@
 // A map with caves or overhangs, through the page (3D Foundations, stage 6; D120, D280): after an edit its
 // water settles in the background, the dot saying so, and shows when done, the caves' water with it; the
-// layer is "Caves and overhangs"; what has no rule for water in caves yet is refused with its one line; and Drought
-// and Badtide run on every column (#391).
+// layer is "Caves and overhangs"; Fill and Remove unfed water ask every column, a refusal showing the core's one line;
+// and Drought and Badtide run on every column (#391).
 // The map is T3 of the probe's test maps (tools/terrain3d-maps.ts), built here: never an official map's bytes.
 
 import { expect, test, type Page } from "@playwright/test";
 import { readTimber } from "../../src/core/format/timber";
 import { storedWater, surfaceOf } from "../../src/core/format/world";
-import { CAVE_REFUSALS } from "../../src/core/sim/stackWater";
 import { build, t3CaveWater } from "../../tools/terrain3d-maps";
 import { openEditor, waitForEditor } from "./open";
 
@@ -18,20 +17,20 @@ const depthAt = (page: Page, x: number, y: number) =>
     return m.surface.depth[b * m.W + a] || 0;
   }, [x, y] as [number, number]);
 
-test("a map with caves: an edit's water settles in the background and shows when done, Fill and Remove unfed water are refused with their lines, and Drought and Badtide show their last days", async ({ page }) => {
+test("a map with caves: an edit's water settles in the background and shows when done, Fill and Remove unfed water answer on every column, and Drought and Badtide show their last days", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   const bytes = build(t3CaveWater()).bytes;
   await page.getByLabel("Open a map or a project").setInputFiles({ name: "T3 caves.timber", mimeType: "application/zip", buffer: Buffer.from(bytes) });
   await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
   await waitForEditor(page);
-  expect(await page.evaluate(() => window.dgmEditor!.info().notices)).toEqual(["This map has caves or overhangs. The tools leave them as they are."]);
+  expect(await page.evaluate(() => window.dgmEditor!.info().notices)).toEqual(["This map has caves or overhangs. Brushes shape only their tops; the Block tool and Erode can change the rest."]);
 
   // the layer: its toggle, there from the start on a map with caves, and its words
   const layer = page.getByRole("checkbox", { name: "Caves and overhangs" });
   await expect(layer).toBeVisible();
   await layer.click();
-  await expect(page.getByText("Caves or overhangs, which the tools leave as they are")).toBeVisible();
+  await expect(page.getByText("Caves or overhangs: the brushes shape only their tops")).toBeVisible();
   await layer.click();
 
   // the map's checks have run once (their settle is the opened map's own)
@@ -64,12 +63,13 @@ test("a map with caves: an edit's water settles in the background and shows when
   for (let k = 0; k < stored.tile.length; k++) if (stored.floor[k] < top[stored.tile[k]] && stored.depth[k] > 0.05) cave++;
   expect(cave).toBeGreaterThan(50);
 
-  // refused, each with its line: Fill and Remove unfed water as operations (the page shows the reason)
+  // Fill and Remove unfed water as operations, measured on every column: here a Fill that would leave the map and a
+  // removal where no unfed water stands, each refused with the core's one line (the page shows the reason)
   const i = 30 * 64 + 5;
   await page.evaluate((t) => window.dgmEditor!.edit({ op: "fillHollow", params: { at: [5, 30], level: 9, lake: { tiles: [t], floor: [8], depth: [1], contamination: [0] } } }, "Fill"), i);
-  await expect(page.getByText(CAVE_REFUSALS.fill)).toBeVisible();
+  await expect(page.getByText("at level 9 the water would spill off the map at (0, 30): the hollow doesn't hold it")).toBeVisible();
   await page.evaluate((t) => window.dgmEditor!.edit({ op: "removeUnfedWater", params: { tiles: [t], pools: 1 } }, "Remove unfed water"), i);
-  await expect(page.getByText(CAVE_REFUSALS.removeUnfed)).toBeVisible();
+  await expect(page.getByText("no unfed water stands there")).toBeVisible();
   // Drought and Badtide run on every column (#391): each shows its last day and holds it; the pit's water drains in the
   // drought; clicking again brings the map's own water back
   const before = await depthAt(page, 57, 26);

@@ -23,13 +23,15 @@ export interface WaterBarProps {
   coreNotes?: CoreNote[];
   /** Show a typed day (0 to 99). */
   onDay(day: number): void;
+  /** The hazard's length in days for the map's difficulty (a drought of 9 days), said beside the day. */
+  length?: number | null;
 }
 
 /** The days the box takes typed. */
 const DAY_MAX = 99;
 
 
-export function WaterBar({ weather, onWeather, day, target, counting, onStep, onDay, coreNotes = [] }: WaterBarProps) {
+export function WaterBar({ weather, onWeather, day, target, counting, onStep, onDay, coreNotes = [], length = null }: WaterBarProps) {
   const shown = target ?? day;
   /** The day being typed into the box (Kyler, 2026-10-04: a double-click on it while a hazard is shown), or null. */
   const [typing, setTypingState] = useState<string | null>(null);
@@ -77,10 +79,10 @@ export function WaterBar({ weather, onWeather, day, target, counting, onStep, on
   }, []);
   return (
     <div ref={bar} class="map-bar water-bar" role="toolbar" aria-label="Water time">
-      <button type="button" class="icon-button" aria-pressed={weather === "drought"} title={weather === "drought" ? "Back to the map's own water" : "Hold a drought's last day: the sources stop"} onClick={() => onWeather("drought")}>
+      <button type="button" class="icon-button" aria-pressed={weather === "drought"} {...tip(weather === "drought" ? "Back to the map's own water" : "Show a drought's last day: the sources stop")} onClick={() => onWeather("drought")}>
         <span class="icon-word">Drought</span>
       </button>
-      <button type="button" class="icon-button" aria-pressed={weather === "badtide"} title={weather === "badtide" ? "Back to the map's own water" : "Hold a badtide's last day: clean sources turn bad"} onClick={() => onWeather("badtide")}>
+      <button type="button" class="icon-button" aria-pressed={weather === "badtide"} {...tip(weather === "badtide" ? "Back to the map's own water" : "Show a badtide's last day: clean sources turn bad")} onClick={() => onWeather("badtide")}>
         <span class="icon-word">Badtide</span>
       </button>
       {/* the day held (Kyler, 2026-10-04): ◀ back to Day 0 (the map's own water), ▶ on past the default length;
@@ -122,6 +124,10 @@ export function WaterBar({ weather, onWeather, day, target, counting, onStep, on
           ) : (
             <span class="day-words">{!weather || shown === null ? "Day –" : `Day ${shown}`}</span>
           )}
+        </span>
+        {/* the hazard's length, quiet beside the day ("Day 3 of 9": a drought that lasts nine days); its room kept while none is on */}
+        <span class="day-length" aria-hidden={!weather || !length}>
+          {weather && length ? `of ${length}` : ""}
         </span>
         <button type="button" class="day-step" aria-label="Day on" disabled={!weather} {...tip("A day on", "→")} onClick={() => onStep(1)}>
           ▶
