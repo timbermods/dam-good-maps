@@ -86,8 +86,10 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   anything new starts. About three heavy local runs at once across both sessions (builds, Playwright, Rust), each said
   on #236; the rest goes to CI. **Memory is the machine's limit:** locally, run the typecheck and only the tests a change
   touches, and let the PR's CI run the full quick suite. Off CI, vitest runs at most three workers and Playwright two
-  (`DGM_TEST_WORKERS`, `DGM_E2E_WORKERS` override). Each checkout serves its e2e build on its own port, so no worktree
-  tests another's build. One dev server per builder, stopped when done.
+  (`DGM_TEST_WORKERS`, `DGM_E2E_WORKERS` override). Each checkout serves its e2e build on its own port and builds it
+  afresh for each run, so no worktree tests another's build. `DGM_E2E_REUSE=1` reuses the server already up, and only
+  your own checkout's. If a run says its port is taken, stop the stale `vite preview` or set `DGM_E2E_PORT`. One dev
+  server per builder, stopped when done.
 - **Resuming:** after every merge, the merging session's #236 post says what merged and what's next; each session posts
   where it is when it finishes a piece of work, so "Resume from #236" restarts any of them. When usage is nearly gone: docs true, everything pushed, processes stopped, a #236 post with resume
   steps, one line to Kyler.

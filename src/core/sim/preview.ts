@@ -232,6 +232,7 @@ export function staleWater(from: WarmState, next: WaterModel): CanonicalWater {
   const prev = from.water;
   const depth = prev.depth.slice();
   const contamination = prev.contamination.slice();
+  // (on a map with caves or overhangs the lakes and removals are placed on their columns, features/build.ts)
   if (from.model.W === next.W && from.model.H === next.H) {
     const a = from.model.floor;
     const b = next.floor;
@@ -241,7 +242,7 @@ export function staleWater(from: WarmState, next: WaterModel): CanonicalWater {
       depth[i] = surface > b[i] ? surface - b[i] : 0;
     }
     // a lake the edit stored (a Fill) shows at once, and the unfed water a removal drained goes
-    const lakes = newLakeTiles(from.model, next);
+    const lakes = next.stacked ? null : newLakeTiles(from.model, next);
     if (lakes) {
       const start = prefill(next);
       for (let i = 0; i < N; i++) {
@@ -250,7 +251,7 @@ export function staleWater(from: WarmState, next: WaterModel): CanonicalWater {
         contamination[i] = start.contamination[i];
       }
     }
-    drainUnfed(next, depth, contamination);
+    if (!next.stacked) drainUnfed(next, depth, contamination);
   }
   return {
     settled: false,

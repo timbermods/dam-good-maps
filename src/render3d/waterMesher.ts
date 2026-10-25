@@ -1,5 +1,5 @@
-// Water that moves (a stroke's, a force's, the water's journey after an edit) meshed in workers
-// (waterMesh.worker.ts), so the view keeps the display's rate while it flows: meshing a chunk costs a
+// Water that moves (a stroke's, a force's, the water's journey after an edit), and water put in place, meshed in
+// workers (waterMesh.worker.ts), so the view keeps the display's rate while it flows: meshing a chunk costs a
 // couple of milliseconds, and moving water changes a dozen or more chunks many times a second. A batch
 // is one moment of the water: all the chunks it changed, meshed on that one water (split over a few
 // workers) and handed back whole, so the renderer draws them together, never a mix of moments
@@ -10,6 +10,7 @@
 
 import type { MapView, SurfaceWater, WaterView } from "./model";
 import type { WaterMeshData } from "./waterMesh";
+import { SharedBlock } from "./shared";
 
 /** The water a chunk is meshed on: the arrays meshWaterChunk reads (its one layer on a heightfield, `plainLayers`). */
 export type MesherWater = Pick<SurfaceWater, "surface" | "floor" | "depth" | "contamination" | "top" | "outflow">;
@@ -41,6 +42,9 @@ export class WaterMesher {
   private nextId = 1;
   /** The batch out: its water's version, its chunks, the parts still to come back, what came back. */
   private batch: { id: number; version: number; keys: string[]; parts: number; chunks: Map<string, WaterMeshData>; failed: string[] } | null = null;
+  /** The shared memory a batch's water goes to the workers in (shared.ts): one batch out at a time, and the answer
+   *  of one forgotten (`clear`) is never drawn, so the next batch may reuse it. */
+  private readonly block = new SharedBlock();
 
   constructor(
     /** A batch meshed: every chunk it asked for, on the water of `version`. */
@@ -92,9 +96,17 @@ export class WaterMesher {
     this.batch = { id, version, keys, parts: parts.filter((p) => p.length).length, chunks: new Map(), failed: [] };
     // (a worker keeps the columns it was last sent, by their version: they go again only when that changed)
     const known = layered && { ...layered, columns: { key: layered.columns.key, tiles: new Int32Array(0), voxels: new Uint8Array(0) } };
-    const water: MesherWater = { surface: sw.surface, floor: sw.floor, depth: sw.depth, contamination: sw.contamination, top: sw.top, outflow: sw.outflow };
+    let water: MesherWater = { surface: sw.surface, floor: sw.floor, depth: sw.depth, contamination: sw.contamination, top: sw.top, outflow: sw.outflow };
+    // (one copy on shared memory where the page can share it, the same for every worker, in the block the last batch
+    // was read from; else each worker gets its own copy as it is posted. Copies either way: the page keeps changing
+    // its heights, and a stroke its water's floor, in place)
+    const shared = this.block.copies([heights, sw.surface, sw.floor, sw.depth, sw.contamination, sw.top, sw.outflow ?? new Float32Array(0)] as const);
+    if (shared) {
+      const [h, surface, floor, depth, contamination, top, outflow] = shared;
+      heights = h;
+      water = { surface, floor, depth, contamination, top, outflow: sw.outflow ? outflow : null };
+    }
     try {
-      // (copies: the page keeps changing its heights in place)
       parts.forEach((p, j) => {
         if (!p.length) return;
         const fresh = layered && this.columnsKey[j] !== layered.columns.key;
@@ -124,6 +136,8 @@ export class WaterMesher {
   /** Forget the batch out (the renderer meshed its chunks itself). */
   clear(): void {
     this.batch = null;
+    // (a forgotten batch may still be read by its workers: the next goes in a block of its own)
+    this.block.forget();
   }
 
   private fail(why: string): void {

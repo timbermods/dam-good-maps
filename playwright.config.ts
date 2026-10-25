@@ -2,14 +2,16 @@ import { defineConfig } from "@playwright/test";
 
 // The e2e tests run against the production build, served under the same base as GitHub Pages.
 // Locally they use the installed Chrome (channel "chrome"); CI installs Playwright's Chromium.
-// CI serves them on 4173. Off CI each checkout gets its own port from its folder's path, because the
-// server is reused when one is up: on a shared port, one worktree's tests would run against another's
-// build. DGM_E2E_PORT overrides it.
+// CI serves them on 4173. Off CI each checkout gets its own port from its folder's path (DGM_E2E_PORT
+// overrides it), and builds its own server for each run: a server already up on the port is reused
+// only with DGM_E2E_REUSE=1. With some 90 worktrees two paths can share a port, and a reused server
+// could be another worktree's old build (2026-10-25); without reuse, a taken port fails the run at
+// once, saying so.
 // The build is made in the "e2e" mode, which shows what the preview shows (the forces, before
 // their release: src/editor/release.ts); a second build, as the public site is built, is served
 // beside it under public-build/ for the checks of what the public site hides.
 const channel = process.env.PW_CHANNEL ?? (process.env.CI ? undefined : "chrome");
-const checkoutPort = () => 4174 + ([...process.cwd().toLowerCase()].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 800);
+const checkoutPort = () => 4174 + ([...process.cwd().toLowerCase()].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 5000);
 const port = Number(process.env.DGM_E2E_PORT ?? (process.env.CI ? 4173 : checkoutPort()));
 
 export default defineConfig({
@@ -31,8 +33,9 @@ export default defineConfig({
   webServer: {
     command: `npx vite build --mode e2e && npx vite build --base /dam-good-maps/public-build/ --outDir dist/public-build && npx vite preview --port ${port} --strictPort`,
     url: `http://localhost:${port}/dam-good-maps/`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
+    reuseExistingServer: !process.env.CI && process.env.DGM_E2E_REUSE === "1",
+    // the two builds take minutes on a loaded machine
+    timeout: process.env.CI ? 180_000 : 600_000,
     env: { DGM_BASE: "/dam-good-maps/" },
   },
 });

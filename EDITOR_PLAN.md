@@ -77,7 +77,21 @@ place of its bottom rule.
   Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
-  under Surprise me, greyed on an opened map; Reset settings on its "On this map" line.
+  under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. **Showcase…** (D488 (2)) sits in
+  the empty place at the foot of "On this map", under Reset settings (the panel no taller): it opens Showcase mode's sheet
+  over the two columns of settings (they stay where they are under it; **Settings** or Esc closes it). The sheet
+  holds **Search for** (2, 5 or 15 minutes, 5 the first time, then what was last chosen in this browser), one button
+  (**Start search**; **Stop** while it runs, which ends it after the map in hand; **Search more** once it has ended on
+  the same settings, which goes on from the next variation and keeps the best three of both), a line saying how many
+  maps are made and the time left, a hairline filling with the time gone, and three cards in fixed places, best first:
+  each map's top-down picture (Your maps' thumbnail), its name, how many of the arc's six beats it has ("4 of 6
+  beats"), each beat met (a tick) or not (a ring) by its label, the core's words for its two strongest beats, and
+  **Open**, which works once the search has ended and opens the pick through the normal open path (the camera moves
+  only as any opened map's does, D265). The card of the map on show has the mint edge and its Open greyed. The search
+  uses the settings and the seed in the box (an opened file rolls a seed, as Generate does) and runs in its own worker
+  (`createShowcase`), so the editor never slows and the search goes on with the sheet or the panel closed; if it ends
+  out of view, a note says so with **Show them**. The code: `src/editor/generator/Showcase.tsx`, `showcaseModel.ts`,
+  `src/ui/useShowcase.ts`.
 - **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
   the map or moves the camera): every setting at once, nothing scrolling, each on one line in the bar's control
   language (a slider with its value, or a segmented choice; no dropdowns). A title block: the **Name** for the next
@@ -766,7 +780,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   level; on water, that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at
   the click), **Circle** (drag from the centre) and **Brush** (paint the selection at the brushes' size); Shift adds
   and Alt subtracts. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
-  under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles.
+  under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles. A
+  Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
+  (a cave's floor), the roof over it dimmed as the land outside; the actions still take the tiles.
   The brushes' and forces' cursors, rings and bands stay on the tile's top, where their stroke changes the ground,
   until they work on runs (step 3); hover and Select show the run seen.
   **Ctrl+click** on the land only takes that level as the Level number (D361, item 7).
@@ -1009,6 +1025,8 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
 (the versions, checkpoint 2).
 
 **As built today:**
+- **Showcase mode** (D488 (2); §3) searches for minutes, only when asked, without a dialog: the editor stays in hand
+  while it runs, and its three picks open only on **Open**.
 - **While a map is made** (Generate, Surprise me, Another like this) a dialog over the editor says what the generator
   is doing, in one line, with **Cancel**: nothing else can be clicked or started. Cancel ends the work (the
   generator's worker) and the open map comes back exactly as it was, from its project saved just before.
@@ -1271,8 +1289,8 @@ checks dot counts; every other row is information under Good to know, worded as 
     same engine from the water the map shows (its file's own while unedited): the sources stop or turn bad by
     the game's rules, every column drains and evaporates, and each day's soil is worked out per run top
     (`sim/weather.ts` `HazardRun`, `sim/stackWater.ts` `StackRun`; #391). On a map with no caves the stacked
-    weather is the heightfield's, bit for bit. Fill and Remove unfed water are refused there with one plain
-    line each until each has its rule for water in caves (`sim/stackWater.ts` `cavesOf` decides which maps).
+    weather is the heightfield's, bit for bit. Fill and Remove unfed water work there on every water column
+    (below, "Remove unfed water and Fill"; `sim/stackWater.ts` `cavesOf` decides which maps).
     The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
     leave as they are (D40): what lies under a roof is never edited, the brushes shaping only a column's top
     run (D280 (3), D487). Ground the Block tool digs and Erode hollows counts with them, on any map; once
@@ -1299,6 +1317,27 @@ checks dot counts; every other row is information under Good to know, worded as 
     takes the lakes before it; a later Fill keeps its water). A Fill is written at exactly its level: the settle
     stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it. If an
     edit later widens its hollow below its level, its water is stored levelled into the wider hollow.
+    **On a map with caves or overhangs** both ask every water column, on the stacked engine's own geometry
+    (`sim/stackFed.ts`; `sim/stackWater.ts` `stackGraph`: its columns, the edges between overlapping columns of
+    neighbouring tiles, the map's edge, the direction limiters, the columns a running emitter gives water into).
+    Fed water is reached along those edges by the same rule (`fedColumns`), so a cave pool no source feeds is
+    unfed, a spring cave's pool or a siphon under pressure fed. A removal names tiles as on a heightfield and takes
+    the unfed water of every column of them, never a fed river over a cave pool: a pool with a tile in the
+    selection goes whole, and so does every unfed pool on a tile it shares (a pool on a roof over a cave pool), so
+    nothing is taken by halves; once the stacked settle has passed, that water is taken and the water settles on
+    from it (`canonicalStackRun`, at most `STACK_DRAIN_DAYS`). A Fill is measured from one water column at (x, y)
+    (`planFill`'s `floor`, stored as the operation's `floor`: a cave's floor under its roof; by default the
+    tile's highest column whose ground is below the level): every column joined to it whose ground is below the
+    level stands at that level, a column whose roof is lower full, under the pressure of the water above it, as
+    the game holds it; refused when the water would leave the map, or when no column of the hollow is open up to
+    the level ("the hollow is closed above at level 6: fill it to 6 or lower"). Its lake has one entry a column,
+    ascending by tile and then floor, each naming its column by its floor (the engine's `retained_column`: the
+    tile's column with that floor, else its top one), so it is kept in the cave. The stacked settle stores a
+    sealed basin that only dried as it began (D413), so a Fill there too is written at exactly its level, and
+    the water the game loads stays as it is: the lake only evaporates, nothing spills
+    (`tests/contract/caveWaterEdits.test.ts`). An imported map's own unfed water is kept on every column, a pool
+    in a cave included (D457; `stackFed.ts` `unfedOwnWater`). While the canonical settle runs, the carried-over
+    water shows a Fill and takes a removal's water at once, on their columns (`keptOnStack`).
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source
     removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,
@@ -1331,7 +1370,9 @@ checks dot counts; every other row is information under Good to know, worded as 
     or a held Drought or Badtide day it starts from the map's own water. It is only shown: the kept map's water is settled
     anew. Moving water (a stroke's, a force's, the water's journey after an edit)
     is drawn again only where it moved visibly since it was drawn, a whole moment at a time: a few workers mesh those chunks on one water
-    (`updateWaterSoon`, `waterMesher.ts`) and the page draws them together, never a mix of moments; a force's water and
+    (`updateWaterSoon`, `waterMesher.ts`) and the page draws them together, never a mix of moments; water put in place
+    (the journey's last frame, an edit's answer) is meshed there too, every chunk it changed drawn exactly a frame or two
+    on, and where the page is cross-origin isolated the workers read one copy of the water on shared memory; a force's water and
     the journey are shown averaged over their last dozen ticks, so a thin sheet's waves never strobe at the many times
     the game's pace they play at (on its own thread where no worker starts), and High's occlusion round the brush's changes is redone a millisecond or
     two a frame, so painting and turning the view keep the display's rate. On release, the stroke's operation carries that water on into

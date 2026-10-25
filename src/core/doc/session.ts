@@ -39,7 +39,7 @@ import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
 import { stackedSoil } from "../sim/soil";
-import { storedStack } from "../sim/stackWater";
+import { storedStack, type StackSettle } from "../sim/stackWater";
 import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
@@ -944,11 +944,13 @@ export class MapSession {
   }
 
   /** The map's water model and the water it shows now, one depth per tile (an unedited import's own
-   *  water while it keeps it, `showsStoredWater`; else the build's): what Remove unfed water and
-   *  Fill measure and are checked against (doc/water.ts). */
-  waterNow(): { model: WaterModel; depth: Float64Array } {
+   *  water while it keeps it, `showsStoredWater`; else the build's), and on a map with caves or
+   *  overhangs every column of it (`stack`): what Remove unfed water and Fill measure and are checked
+   *  against (doc/waterEdits.ts). */
+  waterNow(): { model: WaterModel; depth: Float64Array; stack?: StackSettle } {
     const own = this.showsStoredWater ? this.baseStuff().layer.water : undefined;
-    return { model: this.cur.waterModel, depth: own?.depth ?? this.cur.water };
+    const stack = (own ?? this.cur.settle).stack;
+    return { model: this.cur.waterModel, depth: own?.depth ?? this.cur.water, ...(stack ? { stack } : {}) };
   }
 
   /** The water the map shows now, which a Drought or a Badtide starts from (sim/weather.ts `HazardRun`):

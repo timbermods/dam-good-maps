@@ -1,9 +1,11 @@
 // The branches for terrain above terrain (3D view, parts 6, 3 and 4, items 7 and 8; D207): the level-slice cutaway,
 // the soil per run top, and objects, falls and water lit by the air under a roof are compiled only on a map with
 // terrain above terrain, which no other spec opens. A 12² map with a roofed block, its cave's floor with its own soil,
-// a tree and a pool on it and a puddle on its roof, cut through its cave, draws in Standard and in High with no shader
-// error and with the terrain on screen; the falls' program is compiled with the branch too. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec
+// a tree, a slope, a ruin and a pool on it and a puddle on its roof, cut through its cave, draws in Standard and in High
+// with no shader error and with the terrain on screen, the ruin overgrown by its floor's soil (High's slope reads it
+// too); the falls' program is compiled with the branch too. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec
 // does, so the High look's programs are checked there too.)
+// A pond on a shelf cut at the shelf's level: the shelf is drawn as the same shelf dry.
 
 import { expect, test } from "@playwright/test";
 import { openEditor } from "./open";
@@ -55,8 +57,9 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
         depth: Float32Array.from([...pool.map(() => 0.8), 0.3]),
         contamination: Float32Array.from([...pool.map((i) => (i % W === 4 ? 1 : 0)), 0]),
       };
-      // (a pine on the cave's floor, under the roof: the objects' branch)
-      const entities = { count: 1, templates: ["Pine"], owners: [], template: new Uint16Array(1), x: new Int16Array([5]), y: new Int16Array([5]), z: new Int16Array([2]), orientation: new Uint8Array(1), flags: new Uint8Array(1), owner: new Uint16Array(1), variant: new Uint8Array(1), strength: new Float32Array(1), ids: ["pine"] };
+      // (a pine, a slope and a ruin on the cave's floor, under the roof: the objects' branch, and the slope's and the
+      // ruin's soil, the floor's own)
+      const entities = { count: 3, templates: ["Pine", "Slope", "RuinColumnH2"], owners: [], template: Uint16Array.from([0, 1, 2]), x: Int16Array.from([5, 4, 6]), y: Int16Array.from([5, 5, 5]), z: Int16Array.from([2, 2, 2]), orientation: new Uint8Array(3), flags: new Uint8Array(3), owner: new Uint16Array(3), variant: new Uint8Array(3), strength: new Float32Array(3), ids: ["pine", "slope", "ruin"] };
       // (the soil per run top: the cave's floor at level 2 moist, its west row contaminated, under a dry roof)
       const runs = { tile: Int32Array.from(tiles), level: new Uint8Array(tiles.length).fill(2), moisture: new Uint8Array(tiles.length).fill(200), contamination: Uint8Array.from(tiles, (i) => (i % W === 4 ? 255 : 0)) };
       const soil = { moisture: new Uint8Array(W * W), contamination: new Uint8Array(W * W), runs };
@@ -71,7 +74,8 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
         std: { terrain: Mat; object: Mat; fall: Mat; water: Mat };
         water: Map<string, object>;
         layers: { layers: unknown[] } | null;
-        high: { roofedMaterials(): Mat[]; materials: { fall: Mat } } | null;
+        high: { roofedMaterials(): Mat[]; runSoilMaterials(): Mat[]; materials: { fall: Mat } } | null;
+        objects: Obj & { children: { name: string }[] };
         scene: Obj;
         persp: object;
         gl: { info: { programs: { name: string; diagnostics?: { runnable: boolean } }[] | null }; getContext(): WebGL2RenderingContext; render(s: Obj, c: object): void };
@@ -81,7 +85,8 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
       const g = internals.gl.getContext();
       const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
       g.readPixels(0, 0, g.drawingBufferWidth, g.drawingBufferHeight, g.RGBA, g.UNSIGNED_BYTE, px);
-      // the terrain on screen: pixels in the middle of the view that are not the sky's pale blue
+      // the terrain on screen: pixels in the middle of the view that are not the sky's pale blue (at least 59 levels
+      // more blue than red) or its white clouds; the cut's cap is a dark cool slate, a little more blue than red
       let ground = 0;
       let seen = 0;
       const w = g.drawingBufferWidth;
@@ -90,7 +95,8 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
         for (let x = Math.floor(w * 0.3); x < w * 0.7; x += 2) {
           const o = (y * w + x) * 4;
           seen++;
-          if (px[o] >= px[o + 2] || px[o + 1] > px[o + 2] + 10) ground++;
+          const slate = px[o + 2] < px[o] + 30 && px[o] + px[o + 1] + px[o + 2] < 450;
+          if (px[o] >= px[o + 2] || px[o + 1] > px[o + 2] + 10 || slate) ground++;
         }
       // (no fall on this map: the falls' programs, the look's own, drawn once on a mesh of their own, after the frame is read)
       let mesh: Obj | null = null;
@@ -118,7 +124,9 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
         r.renderNow();
         lite = { LITE: t.defines.LITE, broken: (internals.gl.info.programs ?? []).filter((p) => p.diagnostics && !p.diagnostics.runnable).map((p) => p.name) };
       }
-      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, runSoil: internals.std.terrain.defines.RUN_SOIL, roofed, waterLayers, waterChunks: internals.water.size, slice: r.slice, ground: ground / seen, broken, lite };
+      const slopeSoil = (internals.high?.runSoilMaterials() ?? []).every((m) => m.defines.RUN_SOIL === 1);
+      const ivy = internals.objects.children.some((o) => /^scaffold\..*\.ivy$/.test(o.name));
+      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, runSoil: internals.std.terrain.defines.RUN_SOIL, slopeSoil, ivy, roofed, waterLayers, waterChunks: internals.water.size, slice: r.slice, ground: ground / seen, broken, lite };
       r.dispose();
       host.remove();
       return result;
@@ -126,6 +134,8 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
     expect(out.look, look).toBe(look);
     expect(out.cutaway, look).toBe(1);
     expect(out.runSoil, `${look}: the soil per run top's branch`).toBe(1);
+    expect(out.slopeSoil, `${look}: High's slopes on the soil per run top's branch too`).toBe(true);
+    expect(out.ivy, `${look}: the ruin on the moist floor under a dry roof is overgrown`).toBe(true);
     expect(out.roofed, `${look}: the roofed objects', falls' and water's branch`).toBe(true);
     expect(out.waterLayers, `${look}: the cave's pool and the roof's puddle in layers of their own`).toBe(2);
     expect(out.waterChunks, `${look}: the water drawn`).toBe(1);
@@ -191,5 +201,63 @@ test("a cave dug after a plain map opened is opened by the cut and lit as a cave
   expect(out.opened, "a plain map: the plain program").toEqual({ cutaway: 0, caves: false, volume: false });
   expect(out.dug, "its first hollow: the cutaway, the light volume and the roofed objects' branch").toEqual({ cutaway: 1, caves: true, volume: true });
   expect(out.filled, "its last hollow filled: the plain program again").toEqual({ cutaway: 0, caves: false, volume: false });
+  expect(errors).toEqual([]);
+});
+
+test("ground at the cut whose water the cut takes away is drawn as a top like any other, not as a dark bed", async ({ page }) => {
+  // (a pond on a shelf at level 6, cut at 6: the water stands above the cut and is not drawn, and the shelf is a top at the
+  // cut; it was drawn in the bed's colour meant to be seen through water, a near-black slab in a shaded gorge)
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const out = await page.evaluate(() => {
+    type R = import("../../src/render3d").MapRenderer;
+    const shown = window.dgm3d!.renderer;
+    const Make = shown.constructor as new (c: HTMLCanvasElement) => R;
+    const host = document.createElement("div");
+    host.style.cssText = "position:fixed;left:0;top:0;width:640px;height:480px;opacity:0;pointer-events:none";
+    const c = document.createElement("canvas");
+    c.style.cssText = "width:100%;height:100%;display:block";
+    host.append(c);
+    document.body.append(host);
+    const r = new Make(c);
+    r.setLookChoice("standard", false);
+    const W = 12;
+    const heights = new Uint8Array(W * W).fill(6);
+    const pond: number[] = [];
+    for (let y = 2; y < 10; y++) for (let x = 2; x < 10; x++) pond.push(y * W + x);
+    const entities = { count: 0, templates: [], owners: [], template: new Uint16Array(0), x: new Int16Array(0), y: new Int16Array(0), z: new Int16Array(0), orientation: new Uint8Array(0), flags: new Uint8Array(0), owner: new Uint16Array(0), variant: new Uint8Array(0), strength: new Float32Array(0), ids: [] };
+    const soil = { moisture: new Uint8Array(W * W), contamination: new Uint8Array(W * W) };
+    const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+    /** The mean colour of the middle of the view (the pond's middle), the map drawn with or without its water, cut at 6. */
+    const middle = (wet: boolean): number[] => {
+      const water = wet
+        ? { count: pond.length, tile: Int32Array.from(pond), floor: new Float32Array(pond.length).fill(6), depth: new Float32Array(pond.length).fill(0.6), contamination: new Float32Array(pond.length) }
+        : { count: 0, tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0) };
+      r.setMap({ W, H: W, heights: heights.slice(), columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, water, entities, soil } as unknown as Parameters<R["setMap"]>[0]);
+      r.setSlice(6);
+      r.setClock(12.5);
+      r.resetView();
+      r.renderNow();
+      const w = g.drawingBufferWidth;
+      const h = g.drawingBufferHeight;
+      const bw = Math.floor(w * 0.08);
+      const bh = Math.floor(h * 0.08);
+      const px = new Uint8Array(bw * bh * 4);
+      g.readPixels(Math.floor((w - bw) / 2), Math.floor((h - bh) / 2), bw, bh, g.RGBA, g.UNSIGNED_BYTE, px);
+      const sum = [0, 0, 0];
+      for (let k = 0; k < bw * bh; k++) for (let ch = 0; ch < 3; ch++) sum[ch] += px[k * 4 + ch];
+      return sum.map((v) => v / (bw * bh));
+    };
+    const dry = middle(false);
+    const cut = middle(true);
+    r.dispose();
+    host.remove();
+    return { dry, cut };
+  });
+  const diff = Math.max(...out.cut.map((v, ch) => Math.abs(v - out.dry[ch])));
+  expect(diff, `the shelf under its cut-away pond ${out.cut.map(Math.round)} against the same shelf dry ${out.dry.map(Math.round)}`).toBeLessThan(3);
   expect(errors).toEqual([]);
 });
