@@ -81,7 +81,7 @@ export interface EditorBinding {
 }
 
 /** What the controller uses of the client (the tests give it a stand-in). */
-export type ClientLike = Pick<CollabClient, "on" | "startHosting" | "join" | "leave" | "plan" | "resync" | "announceNewMap" | "cancelNewMap" | "newMap" | "presence">;
+export type ClientLike = Pick<CollabClient, "on" | "startHosting" | "join" | "leave" | "abandon" | "plan" | "resync" | "announceNewMap" | "cancelNewMap" | "newMap" | "presence">;
 
 export interface TogetherDeps {
   /** The generator worker's collaboration API as it is now. */
@@ -366,7 +366,8 @@ export class Together {
       try {
         // (a worker that was replaced never answers: Leave does not wait for it for long. One that is only busy finishes
         // the leave after this, and the session is kept all the same)
-        await Promise.race([c.leave(), new Promise((resolve) => setTimeout(resolve, LEAVE_WAIT_MS))]);
+        const answered = await Promise.race([c.leave().then(() => true), new Promise<boolean>((resolve) => setTimeout(() => resolve(false), LEAVE_WAIT_MS))]);
+        if (!answered) c.abandon();
       } catch {
         // (already gone)
       }

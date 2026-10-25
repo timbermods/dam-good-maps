@@ -61,6 +61,8 @@ declare global {
       /** The open map is kept in Your maps as it stands now: nothing waiting to be saved, and its stored row at the
        *  map's `version` (a test waits on it before leaving the page, never on a fixed time). */
       kept?(version: number): boolean;
+      /** A shared session's new map is going into the session's worker (a test presses Cancel in that window). */
+      committing?(): boolean;
       /** The e2e build only: true while a test (window.__dgmForceFail, a count) wants the next map to fail its checks. */
       forceFail?(): boolean;
     };
@@ -71,6 +73,7 @@ let shown: GenerateResponse | null = null;
 let made = 0;
 /** Whether the open map is kept as it stands (the page sets it; a test hook). */
 let keptNow: (version: number) => boolean = () => false;
+let committingNow: () => boolean = () => false;
 window.dgm = {
   async generate(fragment: string) {
     const d = decodeSpecFragment(fragment);
@@ -79,6 +82,7 @@ window.dgm = {
     return { sha256: r.sha256, bytes: r.timber.length, passed: r.passed, ms: r.ms, ticks: r.facts.settle.ticks };
   },
   kept: (version: number) => keptNow(version),
+  committing: () => committingNow(),
   ...(import.meta.env.MODE === "e2e"
     ? {
         forceFail() {
@@ -251,6 +255,10 @@ export function App() {
   );
   /** The worker that makes a map for the host while a session is on (the session lives in the open map's worker, which must stay). */
   const sharedGen = useRef<ReturnType<typeof createBackground> | null>(null);
+  /** The host's new map is going into the session's worker and the guest is being sent it: from there it cannot be taken back
+   *  (a Cancel then would leave the host's editor, its worker and the guest on three different maps), so Cancel waits it out. */
+  const committing = useRef(false);
+  committingNow = () => committing.current;
   /** The open map's land and water as the editor shows it, for Your maps' picture. */
   const picture = useRef<(() => MapPicture | null) | null>(null);
   const nameRef = useRef("");
@@ -871,6 +879,7 @@ export function App() {
       // session's guest is sent the map, so both players get the final name)
       const typed = nextNameRef.current?.trim();
       let named = false;
+      if (shared) committing.current = true;
       const fresh = await replacing(async () => {
         const opened = await (shared ? generator.openProject(r.project) : generator.refine());
         if (!typed) return opened;
@@ -901,6 +910,7 @@ export function App() {
       return null;
     } finally {
       maker?.stop();
+      if (maker) committing.current = false;
       if (sharedGen.current === maker) sharedGen.current = null;
       if (id === runId.current) {
         discardAllowed.current = false;
@@ -913,7 +923,7 @@ export function App() {
   /** Cancel a map being made: the generator's work stops at once (its worker ends), and the map that was open comes
    *  back exactly as it was, its edits and history with it, the view where it was, in a new worker. */
   async function cancelMaking() {
-    if (cancelling.current) return;
+    if (cancelling.current || committing.current) return;
     cancelling.current = true;
     runId.current++;
     stopBackground();
@@ -1082,9 +1092,10 @@ export function App() {
         if (run_ !== runId.current) return;
         maker.stop();
         load = () => generator.openProject(built.bytes);
+        committing.current = true;
       }
       const data = await replacing(load, shared);
-      if (run_ !== runId.current) return;
+      if (run_ !== runId.current && !shared) return;
       enterEditor(data, { kind: "place" }, id);
       back.current = null;
       setMaking(null);
@@ -1101,6 +1112,7 @@ export function App() {
       }
     } finally {
       maker?.stop();
+      if (maker) committing.current = false;
       if (sharedGen.current === maker) sharedGen.current = null;
       if (run_ === runId.current) {
         discardAllowed.current = false;

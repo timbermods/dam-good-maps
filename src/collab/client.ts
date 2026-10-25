@@ -233,6 +233,14 @@ export class CollabClient extends Emitter<ClientEvents> {
     this.sessionId = null;
   }
 
+  /** Let go of the connection without waiting for the worker (it never answered): the other player sees a drop. */
+  abandon(): void {
+    this.closeTransport();
+    this.role = null;
+    this.begun = false;
+    this.sessionId = null;
+  }
+
   private closeTransport(): void {
     const t = this.transport;
     this.transport = null;

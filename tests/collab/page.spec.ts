@@ -111,8 +111,14 @@ async function connect(host: Peer, guest: Peer, names: [string, string]) {
     await gp.getByLabel("Your name").fill(names[1]);
     await gp.getByLabel("Room code to join").fill(code);
     await gp.getByRole("button", { name: "Join", exact: true }).click();
-    await expect(together(guest.page)).toHaveAttribute("aria-label", `Together with ${names[0]}`, { timeout: 90_000 });
-    await expect(together(host.page)).toHaveAttribute("aria-label", `Together with ${names[1]}`, { timeout: 90_000 });
+    // (a join that does not happen says why: both panels' words)
+    try {
+      await expect(together(guest.page)).toHaveAttribute("aria-label", `Together with ${names[0]}`, { timeout: 90_000 });
+      await expect(together(host.page)).toHaveAttribute("aria-label", `Together with ${names[1]}`, { timeout: 90_000 });
+    } catch (e) {
+      console.log("GUEST PANEL:", await panel(guest.page).innerText().catch(() => "(none)"), "| HOST PANEL:", await panel(host.page).innerText().catch(() => "(none)"));
+      throw e;
+    }
   } };
 }
 

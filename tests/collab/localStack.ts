@@ -161,6 +161,9 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
       realm: "dgm.local",
       debugLevel: "OFF",
     });
+    // node-turn's Refresh reads `defaultLifetime` and `maxAllocateTimeout`, which it never sets: the first refresh (about 10 minutes in) would
+    // delete the allocation and end every session. The real relay keeps an allocation alive for as long as it is refreshed.
+    Object.assign(turn, { defaultLifetime: 600, maxAllocateTimeout: 3600 });
     turn.start();
     // (a relay that is stopped and started again has new sockets)
     const seen = new WeakSet<object>();

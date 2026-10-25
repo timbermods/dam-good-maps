@@ -187,6 +187,39 @@ test("the host opens a real place and cancels: the session stays whole and both 
   await sameLand();
 });
 
+test("Cancel pressed while the session's worker opens the built place is waited out: the host's editor, its worker and the guest keep one map", async () => {
+  const [h, g] = [host!.page, guest!.page];
+  const before = (await info(h)).name;
+  await h.locator("header.editor-bar").getByRole("button", { name: "Real places", exact: true }).click();
+  const tile = h.getByRole("region", { name: "Real places" }).getByTitle(`Open ${BIG.name}`, { exact: true });
+  await tile.scrollIntoViewIfNeeded();
+  await tile.click();
+  await expect(dialog(h).getByRole("status")).toHaveText(/^Opening /, { timeout: 10_000 });
+  // the session's worker kept busy (the place is built in a worker of its own), so the open waits behind this work and the window
+  // between the built place and the open map is wide
+  let busy = true;
+  const flood = (async () => {
+    while (busy) await Promise.all([1, 2, 3].map(() => h.evaluate(async () => void (await window.dgmEditor!.worker.project(9)))));
+  })();
+  await h.waitForFunction(() => window.dgm!.committing!(), null, { timeout: 240_000 });
+  await dialog(h).getByRole("button", { name: "Cancel" }).click();
+  busy = false;
+  await flood;
+  await expect(dialog(h)).toHaveCount(0, { timeout: 240_000 });
+  // one map on both sides: the place, opened (Cancel in that step does nothing)
+  await expect.poll(async () => (await info(h)).name, { timeout: 120_000 }).not.toBe(before);
+  await expect.poll(async () => (await info(g)).name, { timeout: 120_000 }).toBe((await info(h)).name);
+  await sameLand();
+  // and the host's next stroke reaches the guest's map, which is the host's
+  await h.getByRole("button", { name: "Reset view" }).click();
+  await h.waitForTimeout(700);
+  const was = await land(g);
+  await h.keyboard.press("2");
+  await stroke(h, [30, 30], [40, 30]);
+  await expect.poll(() => land(g), { timeout: 60_000 }).not.toBe(was);
+  await sameLand();
+});
+
 test("the host types a name and Generates in the session: the host and the guest get that name", async () => {
   const [h, g] = [host!.page, guest!.page];
   const oldLand = await land(h);

@@ -141,6 +141,8 @@ export class PresenceChannel {
         this.strokeEnd = false;
       }
     }
+    // (a cursor taken off the map goes reliably: the cursor stays until then, and a lost packet would leave it stuck)
+    if (msg.cursor === null) reliable = true;
     this.o.send(encode(msg), reliable);
     return this.wanted !== null || this.strokeDirty;
   }
@@ -160,7 +162,7 @@ export class PresenceChannel {
     if (!ordered) {
       if (m.n <= this.inN) return null;
       this.inN = m.n;
-    }
+    } else if (m.n > this.inN) this.inN = m.n;
     const who: Role = this.o.role === "host" ? "guest" : "host";
     const name = this.o.otherName() || (who === "host" ? "Host" : "Guest");
     const colour = PLAYER_COLOURS[who];
