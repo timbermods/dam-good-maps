@@ -251,9 +251,10 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   the runs again. Test: `tests/unit/overlayRuns.test.ts`. Captures: `docs/sheets/selection-at-level.jpg` (Hollows,
   a Wand click on the cave floor at (46, 139), level 3, 149 tiles; from the mouth, from above and under a cut at 5;
   Standard and High; 1920×1080 dark and 1280×800 light; real Chrome; dev against this branch): dev's yellow strips
-  up the cliff and round the roof's top are gone, the outline lies on the floor. Known limits until step 3: Up 1,
-  Down 1, Flatten, Cut down, Fill up and Delete act on the selected tiles' tops (the roof over a cave floor), not on
-  the floor drawn; other overlay layers on a level-named tile (a drawing preview, a problem mark) show only on its run.
+  up the cliff and round the roof's top are gone, the outline lies on the floor. Until step 3, Up 1,
+  Down 1, Flatten, Cut down, Fill up and Delete → Ground are refused on a cave column with one line
+  (`src/core/doc/ops.ts`: "has a cave or overhang: shape its top with a brush"), so nothing acts on the roof while
+  the floor is drawn selected; Up 1's hover preview still paints the floor (the page's follow-up). Other overlay layers on a level-named tile (a drawing preview, a problem mark) show only on its run.
 - **What is drawn where the pointer aims (D484):** the hovered tile lights only the top of the run seen (`hover.w` in
   the terrain shader), and the Select tool's ring lies on the top of the run nearest the hit's level in a column with
   terrain above terrain (`groundNear`, `aimedHeights`). The editing tools (brushes and forces) aim at the tile's top,
