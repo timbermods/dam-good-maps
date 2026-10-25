@@ -406,10 +406,12 @@ export class MapSession {
     return e ? { model: e.model, water: e.water } : null;
   }
 
-  /** The canonical settle of the current map's water, in slices (`advance`), for `adoptWater`. */
+  /** The canonical settle of the current map's water, in slices (`advance`), for `adoptWater`. On a
+   *  map with caves an edit that left the water provably as it was settles at once (`lastSettled`,
+   *  sim/stackWater.ts `settledAgain`). */
   canonicalRun(): { model: WaterModel; advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
     const model = this.cur.waterModel;
-    const run = canonicalRun(model);
+    const run = canonicalRun(model, {}, this.lastSettled());
     return { model, advance: (t) => run.advance(t), get ticks() { return run.ticks; }, get maxTicks() { return run.maxTicks; } };
   }
 

@@ -11,6 +11,7 @@ import { outlineBounds, type OpParams } from "../core/doc/ops";
 import { movePatch as corePatch } from "../core/doc/tools";
 import { OBJECT_NAMES as OBJECT_KIND_NAMES, objectTiles } from "../core/features/objects";
 import { DEAD, FLIPPED, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "../render3d/model";
+import { makesRoomForStart, startFitProblem } from "../core/doc/startFit";
 import { walkRegions } from "../core/analysis/regions";
 import { pumpShoreDistance, reachAt, walkDistance } from "../core/analysis/walk";
 import { noWood, type WoodBySpecies, type WoodSpecies } from "../core/analysis/wood";
@@ -619,24 +620,35 @@ function startLinks(c: TileContext): [number, number][] {
   return links;
 }
 
-/** Why the district center cannot stand at (x, y) with its door at `door` (null: it can): the quick
- *  part of `checkStartAt`, without the walks. The ground never stops it (D328): a generated start's
- *  bench, or an opened map's cut footprint, levels it. */
-export function startProblemAt(c: TileContext, x: number, y: number, door: [number, number], bench: { level: number } | null, self: string | null): string | null {
-  const { W, H } = c;
-  const tiles: number[] = [];
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + (x + dx));
-  // (uneven ground doesn't stop it: an opened map's start levels its own footprint and door, D328)
-  for (const i of [...tiles, door[1] * W + door[0]]) {
-    const tx = i % W;
-    const ty = Math.floor(i / W);
-    if (tx < 1 || ty < 1 || tx > W - 2 || ty > H - 2 || i < 0) return "too close to the map edge";
-    if (c.index && c.index.river[i] >= 0) return "in a river";
-    if (c.water.depth[i] > 0.05) return "under water";
-    const here = c.entitiesAt.get(i);
-    if (here?.some((k) => c.entities.owners[c.entities.owner[k]] !== self && !PLACED_AFTER_SLOPES.test(c.entities.templates[c.entities.template[k]]))) return "on an object";
+/** The tiles other objects' whole footprints hold that the start cannot share (core/doc/startFit.ts), made once for the
+ *  objects on show: `entitiesAt` is made anew whenever they change, so it keys the copy. */
+const startTakenOf = new WeakMap<Map<number, number[]>, Map<string | null, Uint8Array>>();
+function startTaken(c: TileContext, self: string | null): Uint8Array {
+  let byOwner = startTakenOf.get(c.entitiesAt);
+  if (!byOwner) startTakenOf.set(c.entitiesAt, (byOwner = new Map()));
+  let taken = byOwner.get(self);
+  if (taken) return taken;
+  taken = new Uint8Array(c.W * c.H);
+  const e = c.entities;
+  for (let k = 0; k < e.count; k++) {
+    const t = e.templates[e.template[k]];
+    const owner = e.owners[e.owner[k]];
+    if (owner === self || !FOOTPRINTS[t] || makesRoomForStart(t, owner === "import")) continue;
+    const p = { template: t, x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 };
+    for (const [tx, ty] of footprintTiles(t, p)) if (tx >= 0 && ty >= 0 && tx < c.W && ty < c.H) taken[ty * c.W + tx] = 1;
   }
-  return null;
+  byOwner.set(self, taken);
+  return taken;
+}
+
+/** Why the district center cannot stand at (x, y) with its door at `door` (null: it can): the quick
+ *  part of `checkStartAt`, without the walks. It is the core's one rule (core/doc/startFit.ts, which the
+ *  checks' "Start overlapping another object" and the shelf's move read too) on the objects the page
+ *  shows. The ground never stops it (D328): a generated start's bench, or an opened map's cut
+ *  footprint, levels it. */
+export function startProblemAt(c: TileContext, x: number, y: number, door: [number, number], bench: { level: number } | null, self: string | null): string | null {
+  const taken = startTaken(c, self);
+  return startFitProblem({ W: c.W, H: c.H, river: (i) => !!c.index && c.index.river[i] >= 0, depth: (i) => c.water.depth[i], taken: (i) => !!taken[i] }, x, y, door);
 }
 
 /** The start's footprint and the three start requirements at (x, y), from what the page shows

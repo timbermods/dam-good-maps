@@ -60,10 +60,10 @@ import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blo
 import { DroughtLineLayer } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
-import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect, type ShadowRock } from "./light";
+import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
-import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { RunSoil, runSoilOn } from "./runSoil";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomTargetToward } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
@@ -409,7 +409,7 @@ export class MapRenderer {
   private cursor: BrushCursor | null = null;
   private ring: ForceRing | null = null;
   /** A force's ring as last shown (tests). */
-  forceRingState: { x: number; y: number; r: number; marker?: boolean } | null = null;
+  forceRingState: { x: number; y: number; r: number; marker?: boolean; warn?: boolean } | null = null;
   /** The sun's shadows wait while a brush paints when they cannot be redone round it. */
   private shadowsStale = false;
   private shadowChanged = false;
@@ -444,6 +444,7 @@ export class MapRenderer {
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
     this.patterns = drawPatterns(this.gl);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
+    this.edgeRows = new RowUploads(this.gl, () => this.edges);
     this.lightRows = new RowUploads(this.gl, () => this.lightTex);
     this.caveRows = new BoxUploads(this.gl, () => this.caveTex);
     this.runRows = new BoxUploads(this.gl, () => this.runTex);
@@ -1274,6 +1275,7 @@ export class MapRenderer {
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
     this.tileRows.clear();
+    this.edgeRows.clear();
     this.lightRows.clear();
     // (its programs kept until the next map's first frame has compiled its own to them)
     this.retiredMotion?.dispose();
@@ -1550,16 +1552,21 @@ export class MapRenderer {
     this.uniforms.caveTop.value = this.cave.highest;
   }
 
-  /** The terrain shader's tile data again (heights, soil, sky, water). */
+  /** The terrain shader's tile data up to the water and soil the map has now (heights, soil, sky, water): only the tiles whose
+   *  bytes differ are rewritten and sent to the GPU, the same bytes as baking the whole map (`tileData`). */
   private bakeTiles(): void {
     const m = this.map;
     if (!m || !this.tileTex) return;
-    tileData(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles);
-    this.tileTex.needsUpdate = true;
-    if (this.edges) {
-      contaminationEdges(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array);
-      this.edges.needsUpdate = true;
-    }
+    const c = tileDataChanges(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles);
+    for (const r of c.rows) this.tileRows.touch(r.x0, r.y, r.x1, r.y);
+    this.redoEdges(c.edgeRows);
+  }
+
+  /** The contamination outline round the runs of tiles whose wet or contaminated state changed, to the GPU with the next frame. */
+  private redoEdges(spans: readonly TileSpan[]): void {
+    const m = this.map;
+    if (!m || !this.edges) return;
+    for (const r of redoContaminationEdges(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array, spans)) this.edgeRows.touch(r.x0, r.y, r.x1, r.y);
   }
 
   private readonly entityModels = new EntityGeometryCache();
@@ -1643,10 +1650,10 @@ export class MapRenderer {
     if (this.tileTex) {
       tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       this.tileRows.touch(rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
-      // (the contamination outline reads the tile data)
+      // (the contamination outline reads the tile data, a tile further)
       if (this.edges) {
-        contaminationEdges(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array);
-        this.edges.needsUpdate = true;
+        contaminationEdgesRect(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array, rect.x0 - r - 1, rect.y0 - r - 1, rect.x1 + r + 1, rect.y1 + r + 1);
+        this.edgeRows.touch(rect.x0 - r - 1, rect.y0 - r - 1, rect.x1 + r + 1, rect.y1 + r + 1);
       }
     }
     if (this.tops && this.lightTex && this.casters !== undefined) {
@@ -1724,6 +1731,8 @@ export class MapRenderer {
 
   /** The tile data's and the shadow map's changed rows, to the GPU with the next frame (R1). */
   private readonly tileRows: RowUploads;
+  /** The contamination outline's changed rows. */
+  private readonly edgeRows: RowUploads;
   private readonly lightRows: RowUploads;
   private readonly caveRows: BoxUploads;
   private readonly runRows: BoxUploads;
@@ -1861,6 +1870,17 @@ export class MapRenderer {
     if (!this.tileTex) return;
     tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+    this.edgesAround(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+  }
+
+  /** The contamination outline round a box whose tile data was just rewritten in place: `bakeTiles` compares the tile
+   *  bytes, so it would find these already current and leave the outline as it was. The outline reads a tile's
+   *  neighbours: one more all round. */
+  private edgesAround(x0: number, y0: number, x1: number, y1: number): void {
+    const m = this.map;
+    if (!m || !this.edges) return;
+    contaminationEdgesRect(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array, x0 - 1, y0 - 1, x1 + 1, y1 + 1);
+    this.edgeRows.touch(x0 - 1, y0 - 1, x1 + 1, y1 + 1);
   }
 
   /** New soil (moisture and contamination follow the water): the ground's colours. */
@@ -1947,6 +1967,25 @@ export class MapRenderer {
     this.onMapChange?.();
   }
 
+  /** The Heights colours span the map's lowest and highest level as it stands now (the legend's Low and High say the
+   *  same). Set when a map opens, and again a moment after the land changes. Returns the lowest and highest level. */
+  fitHeightRange(): readonly [number, number] | null {
+    const m = this.map;
+    if (!m) return null;
+    let lo = 255;
+    let hi = 0;
+    for (const h of m.heights) {
+      if (h < lo) lo = h;
+      if (h > hi) hi = h;
+    }
+    const v = this.terrainMat.uniforms.heightRange.value as Vector2;
+    if (v.x !== lo || v.y !== hi) {
+      v.set(lo, hi);
+      this.requestRender();
+    }
+    return [lo, hi];
+  }
+
   /** Heights changed inside `rect` only (a brush painting): remesh the chunks there, and the sky
    *  and tile data round it; the sun's shadows wait for `refreshShadows` (they reach far). The
    *  cheap path, fit for every frame: about a millisecond for a large brush at 256². */
@@ -1960,6 +1999,8 @@ export class MapRenderer {
     const p = this.pendingLand;
     this.pendingLand = p ? { x0: Math.min(p.x0, rect.x0), y0: Math.min(p.y0, rect.y0), x1: Math.max(p.x1, rect.x1), y1: Math.max(p.y1, rect.y1) } : { ...rect };
     this.requestRender();
+    // (the legend reads the land again once the strokes stop)
+    this.onMapChange?.();
     return dirtyChunks(m.W, m.H, rect).length;
   }
 
@@ -1991,6 +2032,7 @@ export class MapRenderer {
     if (this.tileTex) {
       for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.tileRows.touch(row.x0, row.y, row.x1, row.y);
+      for (const row of c.rows) this.edgesAround(row.x0, row.y, row.x1, row.y);
     }
     if (m.water.count) {
       if (this.layered) this.layeredWaterNear(c.rect);
@@ -2558,7 +2600,7 @@ export class MapRenderer {
   /** A force's size at the cursor (D312, D321 item 13): one calm ring on the water's surface over
    *  water, on the ground elsewhere; `marker`, only a small dot where the cursor is (D368 (2)); null
    *  hides it. */
-  setForceRing(s: { x: number; y: number; r: number; marker?: boolean } | null): void {
+  setForceRing(s: { x: number; y: number; r: number; marker?: boolean; warn?: boolean } | null): void {
     const m = this.map;
     if (!m) return;
     this.forceRingState = s;
@@ -2913,6 +2955,7 @@ export class MapRenderer {
     this.high?.beforeRender(cam, this.canvas.clientHeight || 1, this.uniforms.time.value);
     this.waterMotion?.beforeRender(this.canvas.clientWidth || 1, this.canvas.clientHeight || 1, this.gl.getPixelRatio());
     this.tileRows.flush();
+    this.edgeRows.flush();
     this.lightRows.flush();
     this.caveRows.flush();
     this.runRows.flush();

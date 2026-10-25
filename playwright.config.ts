@@ -15,6 +15,8 @@ export default defineConfig({
   fullyParallel: false,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
     baseURL: `http://localhost:${port}/dam-good-maps/`,
     channel,
     // the Standard look, held: the tests of the look check Standard's colours, and a GPU would
