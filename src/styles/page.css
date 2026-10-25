@@ -1120,9 +1120,16 @@
   pointer-events: none;
 }
 
+/* (the map area is the container the bar's width is read from, not the window: a scrollbar or a side panel can't make the bar overflow) */
+@supports (width: 1cqi) {
+  .editor-map-area {
+    container-type: inline-size;
+  }
+}
+
 @supports (width: round(down, 10px, 1px)) {
   .editor-view {
-    --dock-w: calc(var(--cell-count) * clamp(var(--cell-min), round(down, calc((100vw - 390px - var(--bar-chrome)) / var(--cell-count)), 1px), var(--cell-max)) + var(--bar-chrome));
+    --dock-w: calc(var(--cell-count) * clamp(var(--cell-min), round(down, calc((100cqw - 390px - var(--bar-chrome)) / var(--cell-count)), 1px), var(--cell-max)) + var(--bar-chrome));
   }
 
   .tool-dock {
@@ -2106,6 +2113,18 @@
   grid-template-columns: minmax(30px, max-content) 92px 54px;
 }
 
+.sheet-top .set.plate.line.seed.with-variation {
+  grid-template-columns: 30px 92px max-content 54px;
+}
+
+.seed-variation {
+  padding: 0 2px 0 1px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
 .sheet-top .seed .set-toggle {
   padding: 0;
 }
@@ -2434,6 +2453,13 @@
   box-shadow: 0 0 0 2px var(--panel);
   cursor: ew-resize;
   touch-action: none;
+}
+
+/* (the handle is 4px to look at and 16px wide to take: a press a few pixels off still has it) */
+.mix-edge::before {
+  content: "";
+  position: absolute;
+  inset: -3px -6px;
 }
 
 .mix-words {
@@ -3203,7 +3229,7 @@
 }
 
 .shortcut-groups > section {
-  padding-bottom: 12px;
+  padding-bottom: 8px;
 }
 
 .shortcut-groups h3 {

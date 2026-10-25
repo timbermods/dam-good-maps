@@ -134,12 +134,20 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
 
 /** The seed: a real text field (it takes a caret), then Keep, a toggle whose word sits centred in it. */
 function SeedSetting(p: SettingsProps) {
+  // a sibling (Another like this) is its seed plus a variation: the number is shown beside the seed, so a seed copied by
+  // hand is known not to be the whole address
+  const variation = p.blank ? 0 : (p.spec.variation ?? 0);
   return (
-    <div class="set plate line seed" {...tip(HINT.seed)}>
+    <div class={`set plate line seed${variation ? " with-variation" : ""}`} {...tip(HINT.seed)}>
       <label class="set-label" for="seed">
         Seed
       </label>
       <input id="seed" class="set-text" value={p.blank ? "" : p.seedText} placeholder={p.blank ? DASH : undefined} maxLength={24} autoComplete="off" spellcheck={false} onInput={(e) => p.onSeed((e.target as HTMLInputElement).value)} />
+      {variation ? (
+        <span class="seed-variation" {...tip("The variation Another like this made")}>
+          · {variation}
+        </span>
+      ) : null}
       <button type="button" class="set-toggle" aria-pressed={p.seedPinned} {...tip(p.seedPinned ? "Generate makes this map again" : "Keep this seed for the next Generate")} onClick={() => (p.seedPinned ? p.onUnpinSeed() : p.onPinSeed())}>
         Keep
       </button>
@@ -156,21 +164,27 @@ export const BIG_SIDE_TIP = "Timberborn's own editor can't open maps over 256 a 
  *  in its own place, so nothing moves. */
 function SizeSetting(p: { W: number; H: number; preset: SizePreset | "custom"; onSize(size: { x: number; y: number }): void }) {
   const { W, H } = p;
+  // Custom opens at the map's own size and stays lit by this state, since a square map's size also reads as a preset
+  const [custom, setCustom] = useState(false);
+  const isCustom = custom || p.preset === "custom";
   return (
     <div class="set plate line choice size-line" {...tip(HINT.size)}>
       <span class="set-label">Size</span>
       <div class="set-seg" role="group" aria-label="Size">
         {(Object.keys(SIZE_PRESETS) as SizePreset[]).map((k) => (
-          <button type="button" key={k} aria-pressed={p.preset === k} {...tip(`Size: ${SIZE_PRESETS[k]} × ${SIZE_PRESETS[k]}`)} onClick={() => p.onSize({ x: SIZE_PRESETS[k], y: SIZE_PRESETS[k] })}>
+          <button type="button" key={k} aria-pressed={!isCustom && p.preset === k} {...tip(`Size: ${SIZE_PRESETS[k]} × ${SIZE_PRESETS[k]}`)} onClick={() => {
+              setCustom(false);
+              p.onSize({ x: SIZE_PRESETS[k], y: SIZE_PRESETS[k] });
+            }}>
             {SIZE_PRESETS[k]}
           </button>
         ))}
-        {p.preset === "custom" ? (
+        {isCustom ? (
           <span class="seg-custom" aria-pressed="true">
             <SizeNumbers W={W} H={H} onSize={p.onSize} />
           </span>
         ) : (
-          <button type="button" aria-pressed={false} {...tip("Your own width and height")} onClick={() => p.onSize({ x: W, y: H === W ? Math.max(MIN_SIDE, W - 16) : H })}>
+          <button type="button" aria-pressed={false} {...tip("Your own width and height")} onClick={() => setCustom(true)}>
             Custom
           </button>
         )}
