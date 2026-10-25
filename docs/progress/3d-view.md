@@ -226,7 +226,7 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   rays each aimed at cave tiles, checked against every exposed face intersected one by one: none differ.
 - **Pick time (Node, this machine, measured once, information):** 256² River Delta, 4,000 camera rays: 7.3 µs the
   heightfield picker, 9.5 µs the voxel walk; with a 100 × 100 block of cave columns under the rays, 115 µs (the
-  mask is rebuilt from its 23 bytes at each cell; a mask array from the worker, seam 1 above, would make it a lookup).
+  mask was rebuilt from its 23 bytes at each cell; a lookup since item 1, below).
 - **Captures:** `docs/sheets/3d-view-picking.jpg` (official map with caves, a cave floor through its mouth and a
   ledge under an overhang; dev against this branch; Standard and High; 1920×1080 dark and 1280×800 light; real
   Chrome on the RTX 2070 SUPER): dev's hover highlight and drag land on the wall or roof in front, this branch's (Select) on the floor. The editing
@@ -369,15 +369,46 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   (tests). Capture (valid add, valid remove, refused remove, and the dark look, 1920×1080 frames):
   `docs/sheets/block-tool-preview.jpg`.
 
+## Item 1: the masks from the worker (built, `feature/3d-view-worker-masks`)
+
+- **What:** the worker sends each listed column's mask (`ColumnTerrain`'s, bit z: voxel z solid) with its voxels, and
+  `mesh.ts` `columnMask` looks a column up instead of rebuilding it from 23 bytes at each look. Every reader of
+  `columnMask` (the mesher, the light volume, picking, the hover, the Wand's `hasTopAt`, Select's ring, the cutaway's
+  checks) gets the lookup without change. The renderer spreads the masks over the map once per columns message
+  (`model.ts` `columnMasks`: a listed tile's mask, 0 on a plain tile, `TerrainSource.masks`). A map without terrain
+  above terrain has no masks at all, and its columns are its heights, as before.
+- **The contract change** (`src/worker/session.ts`, the view messages): `MapView["columns"]` gains an optional
+  `masks: Uint32Array`, one per listed tile in `tiles`' order, set by `columnsOf` (the view, an edit's columns, Block,
+  Erode's end) and by a force's frames (Erode's changed tiles); it is in `viewBuffers`. It is empty on a heightfield. Nothing else
+  changes: `tiles` and `voxels` stay for their other readers (the water layers, the shadow rock, the run soil, the
+  water mesh workers, which are not sent the masks). The page's `mergeColumns` (a force's frames onto the map's
+  columns) carries the masks when both sets have them. A view without masks (made by hand) has them worked out from
+  its voxels, once.
+- **Strokes on the page:** the page paints a stroke into the heights in place before the worker answers. The lookup
+  ends a listed column's top run at its tile's height (`terrain/runs.ts` `reshapeTop`, the build's own rule in
+  `terrainUnder`), so a stroke on a roof or a ledge reshapes the top run as the worker's columns will have it, and a
+  plain column follows its height. The worker's own heights give the masks exactly as sent (`reshapeTop` on a column whose top is its height
+  changes nothing). Before, the mesh, the light and picking kept a roof's old top until the worker's columns came.
+  Erode's frames, Block digs, a cave dug after opening (`syncCaves`) and a refused stroke's heights coming back all go
+  through `updateTerrain`, which takes the masks with the columns.
+- **Equivalence:** the equivalence tests pass unchanged (meshEquivalence, caveLight, pickTerrain, cutaway, runSoil,
+  waterLayers, pickCut, blockAim). `tests/contract/workerMasks.test.ts` opens the hand-made cave map through the worker
+  and checks its masks against the voxels' mask, opened and after four edits: a roof raised, a roof cut down to its floor, the ledge
+  raised, and a Block dig into the cliff. After each stroke, the masks as they stood, looked up at the new heights, equal the worker's new columns on every
+  tile (the page's stroke). On that map and on random caves (96 × 80, across chunk edges), lookups and voxels give the same
+  meshes byte for byte, chunk by chunk, the same light volume bytes and the same picks (3,000 rays).
+- **Pick time (Node, this machine, measured once, information):** 256² Delta with a 100 × 100 block of cave columns,
+  4,000 rays aimed into the block from above: 28.3 µs reading the voxels, 3.8 µs looked up (2.9 µs on the plain map).
+- **Falls short:** the other readers of the 23-byte columns (the water layers, Standard's shadow rock, the run soil)
+  still follow a roof's top only when the worker's columns come, as before.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
 
-1. **The masks from the worker.** Today the renderer gets heights plus a 23-byte column per tile that is not plain
-   (`MapView.columns`) and the mesher derives a chunk's masks from them (`columnMask`). The worker could send
-   `ColumnTerrain`'s masks (one `Uint32` per tile) instead; that is a change to `src/worker/session.ts`'s view
-   messages (the milestone's and the renderer's contract) and makes `columnMask` a lookup.
-2. **Light in 3D:** done (part 2, above). The volume reads `columnMask` too, so item 1 makes its build a lookup.
+1. **The masks from the worker (built, item 1 above):** the view's columns carry `ColumnTerrain`'s masks, and
+   `columnMask` is a lookup that follows the page's strokes.
+2. **Light in 3D:** done (part 2, above). The volume reads `columnMask`, a lookup since item 1.
 3. **Soil and the Map look per run top (built, part 3 above):** a run texture (3.0 MB at 256²) gives each run top
    below its tile's top its own soil, moisture, contamination and water.
 4. **Water per column (built, part 4 above):** every water column drawn on its own floor under its ceiling, seeing the
