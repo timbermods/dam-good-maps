@@ -281,11 +281,14 @@
 
 .your-maps li {
   display: flex;
+  /* (a grid item's minimum is its content's: without this a nowrap line widens its tile past the column) */
+  min-width: 0;
 }
 
 .your-maps li > .ym-tile {
   flex: 1;
   width: auto;
+  min-width: 0;
 }
 
 .ym-size {
@@ -696,7 +699,8 @@
 .legend-panel.in-column img.swatch.pic {
   height: var(--legend-row);
   object-fit: contain;
-  border-radius: 0;
+  border-radius: 3px;
+  background: var(--pic-well);
   box-shadow: none;
 }
 
@@ -911,6 +915,14 @@
   flex: none;
   width: 28px;
   height: 28px;
+}
+
+/* (in dark each picture sits on a pale rounded well, the row's size unchanged) */
+.objects-menu .shelf-item img,
+.gen-otm li img {
+  box-sizing: border-box;
+  background: var(--pic-well);
+  border-radius: 6px;
 }
 
 .objects-menu .shelf-item .shelf-word {
@@ -3361,9 +3373,9 @@ body:has(.checks-list) .show-key {
   display: inline-grid;
 }
 
-/* the left group (Map Generator, Real places, Your maps): the height was their line's and the padding */
+/* the left group (Map Generator, Real places, Your maps): the right group's 40px, on whole pixels, so their edges meet */
 .editor-bar .new-map {
-  min-height: 38.5px;
+  min-height: 40px;
 }
 
 /* the bar's cells and the settings' cells (icon above word) are left as they are: the pair is already centred on its ink to

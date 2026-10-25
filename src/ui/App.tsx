@@ -744,8 +744,11 @@ export function App() {
       setMaking("making");
     }
     performance.mark("dgm:generate");
+    // (the open map's keeping comes first: a stop there is the dialog's, a refusal of the settings after it is a note)
+    let holding = over && !!entry.current && tries === 0;
     try {
-      if (over && entry.current && tries === 0 && !(await holdBack(id, "generating another"))) return null;
+      if (holding && !(await holdBack(id, "generating another"))) return null;
+      holding = false;
       setProgress({ attempt: 0, stage: "land", land: null });
       // (a seed typed as a word names the saved file, D345 B10)
       const word = seedText.trim();
@@ -770,7 +773,9 @@ export function App() {
         // the open map stays, and the seed box says its seed again, not the one that failed
         if (session?.kind === "generated" && session.spec) setSeedText(String(session.spec.seed));
         if (session) {
-          setMaking({ failed });
+          // (one line in the notes, the open map staying as it was; no dialog dims it)
+          setMaking(null);
+          setError(failed);
           return null;
         }
         setError(failed);
@@ -813,8 +818,12 @@ export function App() {
       return r;
     } catch (e) {
       if (id !== runId.current) return null;
-      if (over) setMaking({ failed: words(e) });
-      else setError(words(e));
+      if (over && holding) setMaking({ failed: words(e) });
+      else {
+        // (a refusal over an open map is one line in the notes, the map staying: no dialog dims it)
+        if (over) setMaking(null);
+        setError(words(e));
+      }
       return null;
     } finally {
       if (id === runId.current) {
