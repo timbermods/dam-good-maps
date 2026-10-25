@@ -3,6 +3,7 @@
 
 import type { VersionParent } from "../../core/doc/document";
 import type { SettingsProps } from "./hints";
+import type { ShowcaseModel } from "./showcaseModel";
 
 /** A map of Your maps: its picture, name and dimensions. */
 export interface YourMapRow {
@@ -48,4 +49,6 @@ export interface GeneratorModel extends SettingsProps {
   name: string;
   nextName: string | null;
   onNextName(name: string | null): void;
+  /** Showcase mode (D488 (2)): the search for maps with an arc, its sheet and its cards. */
+  showcase: ShowcaseModel;
 }

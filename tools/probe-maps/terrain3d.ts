@@ -14,7 +14,9 @@
 // - pillars-roof-stroke: a Lower brush stroke on a cave's roof, cut to its lowest layer;
 // - hollows-block-dig: a Block tool dig, 3 × 3, into a cave wall beside the cave's water;
 // - erode-cave: a generated map (Highlands, seed 21, 128²) with an Erode cave worn into a cliff's foot;
-// - hollows-unedited: the control, Hollows imported and exported unedited (its world byte for byte the file's).
+// - hollows-unedited: the control, Hollows imported and exported unedited (its world byte for byte the file's);
+// - hollows-cave-source, hollows-cave-ruin: objects in caves (D491), a water source on a cave's floor and a
+//   RuinColumnH3 under a roof, placed through the editor's core.
 // The official maps are not in the repository: they are read from DGM_OFFICIAL_MAPS, `.scratch/official` (here or in
 // the main checkout) or investigation/raw/builtin; where they are missing the writer says so in one line and leaves
 // those maps out.
@@ -24,6 +26,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
 import { gen3d } from "../../investigation/terrain3d/proto/gen3d";
+import { planEntity } from "../../src/core/doc/placing";
 import { MapSession } from "../../src/core/doc/session";
 import type { BlockSide } from "../../src/core/doc/blockTool";
 import { ERODE_DEFAULTS } from "../../src/core/forces/erode";
@@ -36,6 +39,7 @@ import { encodeWorld, GAME_VERSION } from "../../src/core/format/world";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { stackableTops, unsupportedVoxels } from "../../src/core/terrain/support";
+import { validateMap } from "../../src/core/validate/checks";
 import { build, checkPlacements, CLEARANCE, t3CaveWater, t4Soil, t5Plants, t6HeightsFrom, t7Sink, type Terrain3dMap } from "../terrain3d-maps";
 import { repoFile, type BuiltMap, type GroupWriter } from "./group";
 
@@ -322,11 +326,59 @@ function unedited(log?: Log): BuiltMap | null {
   return out;
 }
 
-const EDITS: ((log?: Log) => BuiltMap | null)[] = [(l) => plainEdit("Hollows", l), (l) => plainEdit("Canyon", l), roofStroke, blockDig, erodeCave, unedited];
+/** hollows-cave-source, hollows-cave-ruin (D491): objects in caves, placed as the editor places them (planEntity, the
+ *  placeEntity operation with the level it stands on under a roof) and exported. A water source on a cave's floor
+ *  (it fills its cave in the stacked engine's settle) and a RuinColumnH3 under a roof. Both validators' export profile
+ *  must accept the edit: no check fails that does not fail on unedited Hollows (an official map fails some of the
+ *  generator's play checks, such as start.wood), and entities.placement passes. The TypeScript one here,
+ *  `python prototype/validate.py <file> --profile export --json` by hand. */
+function caveObject(id: string, req: { template: string; x: number; y: number; z: number; roof: number }, log?: Log): BuiltMap | null {
+  const m = official("Hollows", id, log);
+  if (!m) return null;
+  const s = MapSession.importMap(m.bytes, m.file);
+  const failing = (bytes: Uint8Array) => {
+    const v = validateMap(readTimber(bytes), { profile: "export" });
+    return v.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false);
+  };
+  const before = new Set(failing(s.exportTimber().bytes).map((c) => c.id));
+  const { x: W } = s.size;
+  const runs = s.terrain.runs(req.y * W + req.x);
+  // (the run its object stands on, the roof's top above it)
+  if (runs.at(-1) !== req.roof || !runs.some((t, k) => k % 2 === 1 && t === req.z && t !== req.roof)) throw new Error(`${id}: (${req.x}, ${req.y}) has runs ${runs.join(",")}, not a floor at ${req.z} under a roof up to ${req.roof}`);
+  const entityId = id === "hollows-cave-source" ? "00000000-0000-4000-8000-00000000d491" : "00000000-0000-4000-8000-00000000d492";
+  const plan = planEntity(s, { template: req.template, x: req.x, y: req.y, z: req.z, orientation: "Cw0" }, entityId);
+  if (!plan.ok) throw new Error(`${id}: the editor refuses it: ${plan.errors[0]}`);
+  const r = s.applyBatch(plan.ops);
+  if (!r.ok) throw new Error(`${id}: ${r.errors[0]}`);
+  const placed = s.built.entities.find((e) => e.id === entityId);
+  if (!placed || placed.z !== req.z) throw new Error(`${id}: the ${req.template} stands at ${placed?.z} after the edit, not ${req.z}`);
+  // (a source settles the water on every column; a ruin changes no water, so the export keeps the file's own)
+  if (req.template === "WaterSource" && !s.built.settle.stack) throw new Error(`${id}: the edited map has no water on stacked columns`);
+  const bad = failing(s.exportTimber().bytes).filter((c) => !before.has(c.id) || c.id === "entities.placement");
+  if (bad.length) throw new Error(`${id}: the export profile refuses the edit: ${bad.map((c) => `${c.id}: ${c.message}`).join(" | ")}`);
+  const name = req.template === "WaterSource" ? "a water source" : `a ${req.template}`;
+  log?.(`${id}: ${name} at (${req.x}, ${req.y}) on the floor at ${req.z} under a roof up to ${req.roof} (runs ${runs.join(",")}); the export profile fails nothing unedited Hollows passes (${[...before].join(", ")} fail on both)`);
+  return exported(
+    s,
+    {
+      id,
+      title: `Hollows, ${name} in a cave (D491)`,
+      tests: `The official map Hollows imported, ${name} placed through the editor's core on the floor at layer ${req.z} under a roof up to ${req.roof} at (${req.x}, ${req.y}), exported: the game keeps it at its tile and level${req.template === "WaterSource" ? ", and the source fills its cave as the stacked engine settles it" : ""}. ${WATER_TESTS}`,
+      focus: [{ id: "object", x: req.x, y: req.y, z: req.z, side: true }],
+    },
+    log,
+  );
+}
+
+const EDITS: ((log?: Log) => BuiltMap | null)[] = [(l) => plainEdit("Hollows", l), (l) => plainEdit("Canyon", l), roofStroke, blockDig, erodeCave,
+  unedited,
+  (l) => caveObject("hollows-cave-source", { template: "WaterSource", x: 78, y: 6, z: 1, roof: 7 }, l),
+  (l) => caveObject("hollows-cave-ruin", { template: "RuinColumnH3", x: 180, y: 9, z: 1, roof: 8 }, l),
+];
 
 export const TERRAIN3D_WRITER: GroupWriter = {
   group: "Terrain 3D",
-  ids: ["t3-cave-water", "t4-soil", "t5-plants", "t6-heights", "t7-sink", "hollows-edited", "canyon-edited", "pillars-roof-stroke", "hollows-block-dig", "erode-cave", "hollows-unedited"],
+  ids: ["t3-cave-water", "t4-soil", "t5-plants", "t6-heights", "t7-sink", "hollows-edited", "canyon-edited", "pillars-roof-stroke", "hollows-block-dig", "erode-cave", "hollows-unedited", "hollows-cave-source", "hollows-cave-ruin"],
   tool: "tools/probe-3d.ts",
   folder: "terrain3d-2",
   env: "DGM_PROBE_TERRAIN3D",

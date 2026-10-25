@@ -260,7 +260,7 @@ const api = {
   cropPlanAt: (r: { x: number; y: number; w: number; h: number }) => ed.cropPlanAt(r),
   cropTo: (r: { x: number; y: number; w: number; h: number }) => sendUpdate(ed.cropTo(r)),
   fillAt: (x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)),
-  moveObjectBy: (id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)),
+  moveObjectBy: (id: string, dx: number, dy: number, z?: number) => sendUpdate(ed.moveObjectBy(id, dx, dy, z)),
   clearEverything: () => sendUpdate(ed.clearEverything()),
   /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
   applySelection: (ops: EditOp[], label: string, tiles: number[]) => sendUpdate(ed.applySelection(ops, label, tiles)),

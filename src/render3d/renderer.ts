@@ -53,6 +53,7 @@ import {
   ColorManagement,
 } from "three";
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
+import { blockReach, hollowFootprint, HollowMarks, roofOf, type HollowReach } from "./hollow";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import type { Voxels } from "./wear";
@@ -65,9 +66,11 @@ import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { RunSoil, runSoilOn } from "./runSoil";
-import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomTargetToward } from "./framing";
+import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
+import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
+import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
@@ -306,6 +309,8 @@ export class MapRenderer {
   private objectGround: Uint8Array | null = null;
   private objectsMoved = false;
   private overlay: DataTexture | null = null;
+  /** The overlay on one run per tile (overlayRuns.ts), made when a selection first names one. */
+  private runsOverlay: OverlayRuns | null = null;
   private marks: DataTexture | null = null;
   /** Where the contamination outline runs (**Markers**): `contaminationEdges` of the tile data. */
   private edges: DataTexture | null = null;
@@ -387,7 +392,9 @@ export class MapRenderer {
   private recording = false;
   tool: PointerTool | null = null;
   onView: ((v: ViewState) => void) | null = null;
-  onHover: ((hit: TileHit | null) => void) | null = null;
+  /** The pointer moved: the editing pick, and on a tile with a cave or an overhang the ground seen (the voxel pick: a
+   *  cave's floor through its mouth), which the hover readout names. */
+  onHover: ((hit: TileHit | null, seen?: TileHit | null) => void) | null = null;
   /** A left click (a press and release without dragging) on the map. */
   onClick: ((hit: TileHit | null, ev: PointerEvent) => void) | null = null;
   /** Before the tool and the camera: something under the pointer that a left-drag moves (a water
@@ -553,6 +560,7 @@ export class MapRenderer {
     this.uniforms.slice.value = v;
     this.droughtLayer?.setHidden(level !== null);
     this.blockCells?.setCut(level === null ? null : v);
+    this.hollowStale = true;
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
   }
@@ -1171,7 +1179,8 @@ export class MapRenderer {
     const falls = this.fallCount();
     this.skirt = this.buildSkirt(W, H, lo);
     if (!this.software && !this.still) {
-      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender());
+      // (with water per column, the bake gives the water below each tile's surface its own current: caveCurrent.ts)
+      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender(), () => (this.map && this.layered ? { view: this.map.water, columns: this.columnsSent } : null));
       this.waterMotion.setHigh(this.lookNow !== "standard");
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
@@ -1259,6 +1268,7 @@ export class MapRenderer {
       this.objects = null;
     }
     this.overlay?.dispose();
+    this.runsOverlay?.dispose();
     this.marks?.dispose();
     this.edges?.dispose();
     this.sites?.dispose();
@@ -1637,11 +1647,13 @@ export class MapRenderer {
       m.source = { ...m.source, columns: columnMap(columns), masks: columnMasks(m.W * m.H, columns) };
       this.columnsSent = { tiles: columns.tiles, voxels: columns.voxels, key: ++this.columnsKey };
       this.syncCaves();
+      this.runsOverlay?.refresh(m.source);
     }
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
     this.settleObjects();
+    this.hollowStale = true;
     // (the game's rule: a layer above everything the map could hide shows the whole world)
     if (this.slice !== null && this.slice > this.topHiding()) this.setSlice(null);
     if (!rect) return 0;
@@ -2029,6 +2041,8 @@ export class MapRenderer {
     m.heights = heights;
     this.heightStats = null;
     m.source = { ...m.source, heights };
+    // (the hollow under the cursor follows the roof's new top)
+    this.hollowStale = true;
     // (drawn at the next frame, with every other change before it: flushTerrain)
     const p = this.pendingLand;
     this.pendingLand = p ? { x0: Math.min(p.x0, rect.x0), y0: Math.min(p.y0, rect.y0), x1: Math.max(p.x1, rect.x1), y1: Math.max(p.y1, rect.y1) } : { ...rect };
@@ -2606,6 +2620,8 @@ export class MapRenderer {
    *  (amber), as `blockFalls` lists them; null puts it away. Blocks at or above the layer cut are not drawn. */
   showBlocks(preview: BlockPreview | null): void {
     const any = !!preview && (preview.added.length > 0 || preview.removed.length > 0 || preview.falls.length > 0);
+    this.blockReach = any ? blockReach([...preview.added, ...preview.removed]) : null;
+    this.hollowStale = true;
     if (!any && !this.blockCells) return;
     this.blockCells ??= new BlockCells(this.scene);
     if (this.blockCells.set(any ? preview : null, this.slice)) this.requestRender();
@@ -2628,7 +2644,47 @@ export class MapRenderer {
     }
     // (laid on the ground once a frame, however many times the pointer moved: renderNow)
     this.cursorStale = true;
+    this.hollowStale = true;
     this.requestRender();
+  }
+
+  private hollow: HollowMarks | null = null;
+  /** The cursor, its reach or the ground under it changed since the hollow under it was drawn. */
+  private hollowStale = false;
+  /** The Block tool's reach: round the blocks its preview shows. */
+  private blockReach: HollowReach | null = null;
+
+  /** The hollow under the cursor (hollow.ts; D488): on a map with terrain above terrain, the air under the roof within
+   *  the cursor's reach (the brush's, else a force's or the shelf's ring, else the Block tool's blocks), drawn on the
+   *  roof's top. A map without any column that is not plain stops at the first test. */
+  private layHollow(): void {
+    this.hollowStale = false;
+    const m = this.map;
+    if (!m || (m.source.columns.size === 0 && !this.hollow)) return;
+    const b = this.brushCursorState;
+    const f = this.forceRingState;
+    const reach: HollowReach | null = m.source.columns.size === 0 ? null
+      : b ? { x: b.x, y: b.y, radius: b.radius, square: b.square, aim: b.run ? this.aim : null }
+      : f ? { x: f.x, y: f.y, radius: f.marker ? 1.5 : Math.max(1, f.r) }
+      : this.blockReach;
+    const src = m.source;
+    const keep = cutKeep(this.slice);
+    const masks = src.masks;
+    const listed = masks ? (i: number) => masks[i] !== 0 : (i: number) => src.columns.has(i);
+    const maskAt = (i: number) => columnMask(src, i) & keep;
+    const tiles = reach ? hollowFootprint(m.W, m.H, listed, maskAt, reach) : null;
+    if (!tiles?.length && !this.hollow) return;
+    (this.hollow ??= new HollowMarks(this.scene)).set(tiles, reach, (x, y) => {
+      if (x < 0 || y < 0 || x >= m.W || y >= m.H) return false;
+      const i = y * m.W + x;
+      return listed(i) && roofOf(maskAt(i)) !== null;
+    });
+    this.requestRender();
+  }
+
+  /** The hollow drawn under the cursor now (tests): the tiles filled and the outline's pieces. */
+  get hollowDrawn(): { tiles: number; edges: number } {
+    return this.hollow?.drawn ?? { tiles: 0, edges: 0 };
   }
 
   /** A force's size at the cursor (D312, D321 item 13): one calm ring on the water's surface over
@@ -2638,6 +2694,11 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return;
     this.forceRingState = s;
+    // (the hollow under the ring follows it, on a map with terrain above terrain)
+    if (m.source.columns.size || this.hollow) {
+      this.hollowStale = true;
+      this.requestRender();
+    }
     if (!this.ring) {
       if (!s) return;
       this.ring = new ForceRing(this.scene);
@@ -2718,6 +2779,17 @@ export class MapRenderer {
     for (let i = 0; i < marks.length && !any; i += 4) any = marks[i] | marks[i + 1];
     this.uniforms.hatching.value = any ? 1 : 0;
     this.marks.needsUpdate = true;
+    this.requestRender();
+  }
+
+  /** The ground the overlay is on, per tile (overlayRuns.ts): `levels` (level + 1 a tile, 0 none; null: none) the
+   *  level a selection was taken at on a run (the Wand on a cave's floor). In a column with terrain above terrain the
+   *  overlay is drawn on that run, and `rest` (RGBA bytes, the land outside the selection) on the rest of the column;
+   *  elsewhere the overlay covers the whole column, as before. Set before `commitOverlay`. */
+  setOverlayRuns(levels: Uint8Array | null, rest: readonly [number, number, number, number]): void {
+    if (!levels && !this.runsOverlay) return;
+    this.uniforms.overlayRest.value.set(rest[0] / 255, rest[1] / 255, rest[2] / 255, rest[3] / 255);
+    (this.runsOverlay ??= new OverlayRuns(this.uniforms.overlayRuns)).set(this.map?.source ?? null, levels);
     this.requestRender();
   }
 
@@ -2933,9 +3005,11 @@ export class MapRenderer {
       // (now, not at the next frame's render: `project` and `rayAt` read the camera as the view is now)
       this.ortho.updateMatrixWorld();
     } else {
-      const cp = Math.cos(v.pitch);
       this.persp.aspect = aspect;
-      this.persp.position.set(tx + Math.sin(v.yaw) * cp * v.distance, ty + Math.sin(v.pitch) * v.distance, tz + Math.cos(v.yaw) * cp * v.distance);
+      // (drawn in along its arm where the rock would hold it, the near plane inside the room it has: cameraClamp.ts)
+      const held = this.reach();
+      this.persp.position.set(...orbitEye(v.target, v.yaw, v.pitch, held.reach));
+      this.persp.near = nearFor(held.room);
       this.persp.up.set(0, 1, 0);
       this.persp.lookAt(tx, ty, tz);
       this.persp.far = v.distance * 4 + 1000;
@@ -2966,6 +3040,7 @@ export class MapRenderer {
       this.cursorStale = false;
       this.cursor.set(this.brushCursorState, this.cursorHeights(), this.map.W, this.map.H);
     }
+    if (this.hollowStale) this.layHollow();
     // a stroke's water still to draw: a few milliseconds of it a frame (updateWaterSoon)
     if (this.waterQueue.size || this.waterReady) {
       this.drainWater(WATER_MESH_BUDGET_MS);
@@ -3021,6 +3096,33 @@ export class MapRenderer {
     this.governor?.hold(performance.now());
     if (this.framePending) this.frameMap();
     this.requestRender();
+  }
+
+  /** How far along its arm the orbit camera is drawn: its distance, or nearer where its eye would be in rock (under a
+   *  layer cut, of the terrain shown). */
+  private reach(): { reach: number; room: number } {
+    const v = this.view;
+    const m = this.map;
+    if (!m || v.mode !== "orbit") return { reach: v.distance, room: CAMERA_CLEARANCE };
+    const src = m.source;
+    // (once per view and terrain: a frame and its picks share it; every change to the terrain is a new source)
+    const c = this.reachKept;
+    const [tx, ty, tz] = v.target;
+    if (c && c.src === src && c.slice === this.slice && c.yaw === v.yaw && c.pitch === v.pitch && c.distance === v.distance && c.tx === tx && c.ty === ty && c.tz === tz) return c.held;
+    const keep = cutKeep(this.slice);
+    const held = armReach(v.target, v.yaw, v.pitch, v.distance, m.W, m.H, (i) => columnMask(src, i) & keep);
+    this.reachKept = { src, slice: this.slice, yaw: v.yaw, pitch: v.pitch, distance: v.distance, tx, ty, tz, held };
+    return held;
+  }
+
+  /** The last `reach` worked out, and what it was for. */
+  private reachKept: { src: TerrainSource; slice: number | null; yaw: number; pitch: number; distance: number; tx: number; ty: number; tz: number; held: { reach: number; room: number } } | null = null;
+
+  /** The camera's eye as drawn (tests). */
+  eye(): [number, number, number] {
+    this.placeCamera();
+    const p = this.camera().position;
+    return [p.x, p.y, p.z];
   }
 
   // -------------------------------------------------------------------------------- picking
@@ -3111,7 +3213,11 @@ export class MapRenderer {
     if (!hit || !m || this.slice !== null) return hit;
     const i = hit.y * m.W + hit.x;
     if (!(m.surface.depth[i] > 0.05)) return hit;
-    const p = pickPlane(this.rayAt(clientX, clientY), m.surface.surface[i]);
+    const ray = this.rayAt(clientX, clientY);
+    const level = m.surface.surface[i];
+    // (only where the ray meets the water before the ground: a roof over a cave's water keeps its own hit)
+    if (ray.direction[1] < 0 && (level - ray.origin[1]) / ray.direction[1] > hit.t + 1e-6) return hit;
+    const p = pickPlane(ray, level);
     if (!p || p.x < 0 || p.y < 0 || p.x >= m.W || p.y >= m.H) return hit;
     return { x: p.x, y: p.y, point: p.point, face: "top", t: hit.t };
   }
@@ -3224,10 +3330,11 @@ export class MapRenderer {
       // (the highlight and the Select tool show the ground seen; everything else, the tile's top)
       const m = this.map;
       const seen = this.pickSeen(ev.clientX, ev.clientY);
-      this.setHoverTile(seen ? seen.x : null, seen?.y ?? 0, seen && m?.source.columns.has(seen.y * m.W + seen.x) ? (seen.level ?? -1) : -1);
+      const seenCave = seen && m?.source.columns.has(seen.y * m.W + seen.x) ? seen : null;
+      this.setHoverTile(seen ? seen.x : null, seen?.y ?? 0, seenCave ? (seen!.level ?? -1) : -1);
       const t = this.tool;
       t?.hover?.(t.voxel ? seen : t.surface ? this.pickSurface(ev.clientX, ev.clientY, hit) : hit, ev);
-      this.onHover?.(hit);
+      this.onHover?.(hit, seenCave);
     });
     const end = (e: Event) => {
       const ev = e as PointerEvent;
@@ -3348,23 +3455,20 @@ export class MapRenderer {
 
   /** Zoom by `factor` (below 1 in). Given a point on the screen (CSS client coordinates: the wheel's pointer), about the
    *  ground under it, which stays under it: the target moves toward that point by the distance's ratio. Over the sky or
-   *  off the map, about the ground at the map's mean height, else about the screen's centre. At the zoom's limit nothing moves. */
+   *  off the map, about the ground at the map's mean height, else about the screen's centre. At the zoom's limit nothing moves.
+   *  In, the camera stops short of the ground under the pointer (`zoomStopShort`), so a zoom into a cave's mouth ends in
+   *  its air; a camera the rock holds nearer than its distance (cameraClamp.ts) zooms from where it is drawn. */
   zoom(factor: number, clientX?: number, clientY?: number): void {
     const m = this.map;
-    const { min, max } = m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 };
-    const from = this.view.distance;
-    // (a framing wider than the limit, the whole map in a wide window, is not snapped to it by the first turn)
-    const distance = Math.min(Math.max(max, from), Math.max(min, from * factor));
-    if (distance === from) return;
-    const hit = m && clientX !== undefined && clientY !== undefined ? this.zoomPoint(clientX, clientY) : null;
-    if (!m || !hit) {
-      this.setView({ distance });
-      return;
-    }
-    // (the top-down view looks straight down: its height is not part of what the pointer sees)
-    const target = zoomTargetToward(this.view.target, hit.point, from, distance, { W: m.W, H: m.H, maxY: hit.maxY });
-    if (this.view.mode === "top") target[1] = this.view.target[1];
-    this.setView({ distance, target });
+    const step = zoomStep(
+      this.view,
+      factor,
+      this.reach().reach,
+      () => (m && clientX !== undefined && clientY !== undefined ? this.zoomPoint(clientX, clientY) : null),
+      m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 },
+      { W: m?.W ?? 0, H: m?.H ?? 0 },
+    );
+    if (step) this.setView(step);
   }
 
   /** The ground point to zoom about under a point on the screen: what the pointer sees (the terrain or the cut, the
@@ -3519,6 +3623,7 @@ export class MapRenderer {
     this.mesherOwn?.dispose();
     this.cursor?.dispose();
     this.ring?.dispose();
+    this.hollow?.dispose();
     this.effects?.dispose();
     this.blockGhost?.dispose();
     this.blockCells?.dispose();

@@ -54,22 +54,12 @@ export function withSize(entry: YourMapEntry, project: Uint8Array): YourMapEntry
   return size ? { ...entry, size } : entry;
 }
 
-/** A project file's stored map name, read without rebuilding the map; null if unreadable or absent. */
-export function projectName(project: Uint8Array): string | null {
-  try {
-    const text = strFromU8(project[0] === 0x1f && project[1] === 0x8b ? gunzipSync(project) : project);
-    const name = (JSON.parse(text) as { meta?: { name?: unknown } }).meta?.name;
-    return typeof name === "string" && name.trim() ? name : null;
-  } catch {
-    return null;
-  }
-}
-
 /** The entry named as its project file's stored name says (D443): a rename in the editor reaches
- *  Your maps on the next save (the same entry if the names agree). */
-export function withStoredName(entry: YourMapEntry, project: Uint8Array): YourMapEntry {
-  const name = projectName(project);
-  return name && name !== entry.name ? { ...entry, name } : entry;
+ *  Your maps on the next save (the same entry if the names agree, or with no stored name). The name comes with the
+ *  project from where it was made (the worker's `project()`), never read back out of the file: a 256² project
+ *  is megabytes of JSON to unzip. */
+export function withStoredName(entry: YourMapEntry, name: string | null | undefined): YourMapEntry {
+  return name && name.trim() && name !== entry.name ? { ...entry, name } : entry;
 }
 
 /** A save that could not be kept: storage is full (say so plainly), or there is no browser storage

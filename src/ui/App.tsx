@@ -40,8 +40,9 @@ import { thumbnailPixels } from "../core/render/thumb";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
-import { FirstLook, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
+import { FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
+import { useShowcase } from "./useShowcase";
 
 /** The generator and the open map's worker; Cancel ends it and the open map comes back in a new one. */
 let gen = createGeneratorWorker();
@@ -362,14 +363,19 @@ export function App() {
     // edits already made go in first, and its version is the worker's)
     const of = entry.current!;
     await pendingEdits.current?.();
+    // (the picture in a task of its own, never stacked on the edit or the water that just went in)
+    await new Promise((go) => setTimeout(go));
     const pic = picture.current?.();
     const thumbnail = (pic && thumbnailUrl(pic)) ?? of.thumbnail;
     const p = await generator.project(6);
     // (what the page changed on the entry while this waited, an edited-since mark among it, is kept: the entry as it is now)
     const now = entry.current?.id === of.id ? entry.current : of;
-    const e = { ...now, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail };
+    // (its name and size from the worker and the page, so the save never unzips the project to read them)
+    const info = infoRef.current;
+    const size = now.size ?? (info ? { w: info.W, h: info.H } : undefined);
+    const e = { ...now, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail, ...(size ? { size } : {}) };
     if (entry.current?.id === of.id) entry.current = e;
-    return { entry: e, project: p.bytes };
+    return { entry: e, project: p.bytes, name: p.name };
   }
 
   /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. */
@@ -775,8 +781,11 @@ export function App() {
       setMaking("making");
     }
     performance.mark("dgm:generate");
+    // (the open map's keeping comes first: a stop there is the dialog's, a refusal of the settings after it is a note)
+    let holding = over && !!entry.current && tries === 0;
     try {
-      if (over && entry.current && tries === 0 && !(await holdBack(id, "generating another"))) return null;
+      if (holding && !(await holdBack(id, "generating another"))) return null;
+      holding = false;
       setProgress({ attempt: 0, stage: "land", land: null });
       // (a seed typed as a word names the saved file, D345 B10)
       const word = seedText.trim();
@@ -801,7 +810,9 @@ export function App() {
         // the open map stays, and the seed box says its seed again, not the one that failed
         if (session?.kind === "generated" && session.spec) setSeedText(String(session.spec.seed));
         if (session) {
-          setMaking({ failed });
+          // (one line in the notes, the open map staying as it was; no dialog dims it)
+          setMaking(null);
+          setError(failed);
           return null;
         }
         setError(failed);
@@ -844,8 +855,12 @@ export function App() {
       return r;
     } catch (e) {
       if (id !== runId.current) return null;
-      if (over) setMaking({ failed: words(e) });
-      else setError(words(e));
+      if (over && holding) setMaking({ failed: words(e) });
+      else {
+        // (a refusal over an open map is one line in the notes, the map staying: no dialog dims it)
+        if (over) setMaking(null);
+        setError(words(e));
+      }
       return null;
     } finally {
       if (id === runId.current) {
@@ -1042,6 +1057,30 @@ export function App() {
     guard(() => void readFile(file).then((b) => openBytes(b, file.name)), `Opening ${file.name}`);
   }
 
+  /** Showcase mode (D488 (2)): its search runs in a worker of its own; a pick opens as a version found in the
+   *  background does (`openVersion`, the normal open path). */
+  const showcase = useShowcase({
+    spec,
+    takeSpec: () => {
+      // (an opened file has no seed of its own: one is rolled, shown in the box, as Generate does)
+      if (!blank) return spec;
+      const seed = randomSeed();
+      setBlank(false);
+      setSeedText(String(seed));
+      setSeedPinned(false);
+      return { ...spec, seed };
+    },
+    panelOpen: panel === "generator",
+    showPanel: () => setPanel("generator"),
+    openPick: (p) =>
+      guard(
+        () =>
+          void openVersion(p.response).catch((e) => setError(words(e))),
+        "Opening a showcase map",
+      ),
+    shownSpec: session?.kind === "generated" ? (session.spec ?? null) : null,
+  });
+
   // ---------------------------------------------------------------------------------- render
 
   const drawer: GeneratorModel = {
@@ -1091,6 +1130,7 @@ export function App() {
     name,
     nextName,
     onNextName: setNextName,
+    showcase: showcase.model,
   };
 
   // the confirm dialog: focus on Cancel, or on its yes when it says so (a delete: Enter confirms), or on Download project
@@ -1131,6 +1171,7 @@ export function App() {
         <p id="making-words" role="status">
           {typeof making === "object" ? making.failed : making === "back" ? "Opening your map…" : (makingWords ?? stageText(progress))}
         </p>
+        {typeof making === "object" ? null : <MakingCount progress={making === "making" && !makingWords ? progress : null} />}
         {typeof making === "object" ? null : <MakingWater />}
         <footer>
           {typeof making === "object" ? (
@@ -1188,10 +1229,22 @@ export function App() {
   ) : version ? (
     <p class="error floating quiet" role="status">
       {version.note}
+      {" "}
       <button type="button" class="linkish" title="Open the version that was found" onClick={() => void openVersion(version.response)}>
         Open it
       </button>
       <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={() => setVersion(null)}>
+        ×
+      </button>
+    </p>
+  ) : showcase.notice ? (
+    <p class="error floating quiet" role="status">
+      {showcase.notice.text}
+      {" "}
+      <button type="button" class="linkish" title="Show the maps the search found" onClick={showcase.notice.show}>
+        Show them
+      </button>
+      <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={showcase.notice.dismiss}>
         ×
       </button>
     </p>
@@ -1234,6 +1287,7 @@ export function App() {
               <p id="making-words" role="status">
                 {stuck ? error : words}
               </p>
+              {stuck ? null : <MakingCount progress={opening ? null : progress} />}
               {stuck ? null : <MakingWater />}
               {stuck ? (
                 <footer>

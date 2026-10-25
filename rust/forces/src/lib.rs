@@ -467,6 +467,11 @@ fn emitter(t: &str) -> bool {
             | "BadtideDrain"
     )
 }
+/// Objects the game keeps only on ground that reaches the map's bottom (its `ContinuousTerrainConstraint`;
+/// features/objects.ts `ON_BOTTOM_RUN`, rust/checks `continuous`): the water objects and these two.
+fn on_bottom_run(t: &str) -> bool {
+    emitter(t) || matches!(t, "GeothermalField" | "UndergroundRuins")
+}
 fn plant(t: &str) -> bool {
     matches!(t, "Pine" | "Birch" | "Oak" | "Succulent" | "BlueberryBush")
 }
@@ -9372,6 +9377,10 @@ struct Motion {
     dx: f64,
     dy: f64,
     end: f64,
+    /// How far along the line's own direction the tile lies past the drawn line's first or last end (0 beside the
+    /// line, and beside a bend, where `end` is only the nearest segment's overshoot): with the distance across
+    /// it, how far the tile is from the line, its ends included.
+    past: f64,
     dz: f64,
 }
 struct Fault {
@@ -9381,6 +9390,10 @@ struct Fault {
     segments: Vec<FSeg>,
     length: f64,
     reach: f64,
+    /// How far the quake reaches past the drawn line (tiles), set by Power. The ground it changes lies
+    /// within twice this of the line, its ends included (or 1.3 times the line's length, whichever is
+    /// wider), not the 40-odd tiles the old shaking ring did.
+    margin: f64,
     lift: f64,
     slide: f64,
     heading: Point,
@@ -9390,6 +9403,7 @@ impl Fault {
     fn new(s0: &Settings, intent: &Intent) -> Self {
         let path = intent.path.clone();
         let reach = 14.0 + n(s0, "power") * 0.5;
+        let margin = 2.0 + round(n(s0, "power") * 0.06);
         let lift = 1.0 + round(n(s0, "power") * 0.075);
         let slide = 2.0 + round(n(s0, "power") * 0.18);
         let mut raw = vec![];
@@ -9529,8 +9543,10 @@ impl Fault {
             segments,
             length: len,
             reach,
+            margin,
             lift,
-            slide,
+            // a short line slides ground no further than its own length in whole tiles (at least 2): the quake's line is its length
+            slide: min(slide, max(length.floor(), 2.0)),
             heading,
             directions,
         }
@@ -9543,9 +9559,11 @@ impl Fault {
             dx: 1.0,
             dy: 0.0,
             end: 0.0,
+            past: 0.0,
             dz: 0.0,
         };
-        for s in &self.segments {
+        let last = self.segments.len() - 1;
+        for (k, s) in self.segments.iter().enumerate() {
             let rx = x - s.a.x;
             let ry = y - s.a.y;
             let t = rx * s.dx + ry * s.dy;
@@ -9561,6 +9579,13 @@ impl Fault {
                     dx: s.dx,
                     dy: s.dy,
                     end: (t - u).abs(),
+                    past: if k == 0 && t < 0.0 {
+                        -t
+                    } else if k == last && t > s.length {
+                        t - s.length
+                    } else {
+                        0.0
+                    },
                     dz: 0.0,
                 };
             }
@@ -9573,8 +9598,12 @@ impl Fault {
         let side = if f.d >= 0.0 { 1.0 } else { -1.0 };
         let dist = f.d.abs();
         if s(s0, "mode") == "slide" {
-            let reach = max(max(self.reach, self.length * 1.3), self.slide + 12.0);
-            let envelope = (1.0 - smooth((dist - reach) / 12.0))
+            // The block is the drawn line and a margin (set by Power) past its ends and sides, or a
+            // block 1.3 times the line's length across: the quake's line is its length.
+            let reach = max(self.margin, self.length * 1.3);
+            // (the tile's distance from the drawn line, past its ends too)
+            let away = hypot(dist, f.past);
+            let envelope = (1.0 - smooth((away - reach) / (self.margin * 0.5)))
                 * (1.0 - smooth((f.end - self.slide - 8.0) / 12.0));
             let weight = if s(s0, "scarp") == "stepped" {
                 (envelope * 3.0).ceil() / 3.0
@@ -9610,8 +9639,9 @@ impl Fault {
             f.dy = dy;
             return f;
         }
-        let block_reach = max(self.reach, self.length * 1.3);
-        let envelope = (1.0 - smooth((dist - block_reach * 0.8) / (block_reach * 0.2)))
+        let block_reach = max(self.margin * 2.0, self.length * 1.3);
+        let away = hypot(dist, f.past);
+        let envelope = (1.0 - smooth((away - block_reach * 0.8) / (block_reach * 0.2)))
             * (1.0 - smooth(f.end / max(8.0, self.reach * 0.6)));
         let step = if s(s0, "scarp") == "stepped" {
             min(1.0, ((dist / 3.0).floor() + 1.0) / 3.0)
