@@ -314,7 +314,10 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   wide): the eye is never in a solid voxel nor nearer one than its least room after random orbits, pans and zooms
   (composed as `zoom` composes them); a zoom toward the cave's mouth ends in its air; orbited inside, the camera stays
   in the cave and the tunnel, its near plane inside its room; where the eye is clear and the target not under a roof,
-  the camera is where its view puts it (a rough heightfield and the cave world, 3,000 views each).
+  the camera is where its view puts it (a rough heightfield and the cave world, 3,000 views each); on a generated
+  canyon (96², seed 7), looking flat (tilt 0.18 to 0.35) at the foot of steep walls and orbited, panned and zoomed, the
+  eye stays above the ground under it by the room it keeps (`setView` clamps only the tilt; the clamp holds the eye's
+  height on every map, not only out of cave rock).
 - **Captures:** `docs/sheets/caves-brush-camera.jpg` (dev against this branch, real Chrome, High: Raise hovered in a
   Hollows mouth at 1280×800 light; turned inside a Pressure arch after a zoom, and a low orbit beside a Hollows cliff,
   at 1920×1080 dark: dev draws both from inside the rock).

@@ -6,6 +6,9 @@
 import { describe, expect, it } from "vitest";
 import { armReach, CAMERA_ROOMS, clearAt, nearFor, orbitEye, roofed } from "../../src/render3d/cameraClamp";
 import { zoomLimits, zoomStopShort, zoomTargetToward, ZOOM_NEAREST } from "../../src/render3d/framing";
+import { generate } from "../../src/core/gen/generate";
+import { makeSpec } from "../../src/core/spec/mapspec";
+import { columnMask, type TerrainSource } from "../../src/render3d/mesh";
 import { pickTerrain, type Ray } from "../../src/render3d/pick";
 
 type V = [number, number, number];
@@ -196,5 +199,59 @@ describe("the camera keeps out of the rock", () => {
         const k = Math.tan((20 * Math.PI) / 180);
         expect(near * Math.hypot(1, k, k * 3)).toBeLessThan(held.room);
       }
+  });
+
+  it("on a generated canyon, at a flat angle among steep walls, the eye stays above the ground under it, orbited, panned and zoomed", () => {
+    // (a plain map: setView clamps only the tilt, so a low camera beside a wall came down into the ground or under it)
+    const { W: CW, H: CH, heights } = generate(makeSpec({ seed: 7, theme: "canyon", size: { x: 96, y: 96 } })).built;
+    const src: TerrainSource = { W: CW, H: CH, heights, columns: new Map() };
+    const mask = (i: number) => columnMask(src, i);
+    const at = (x: number, y: number) => heights[Math.min(CH - 1, Math.max(0, y)) * CW + Math.min(CW - 1, Math.max(0, x))];
+    // ground at the foot of steep walls: a tile with one 4 or more levels higher within 3 tiles
+    const feet: number[] = [];
+    for (let y = 3; y < CH - 3; y++)
+      for (let x = 3; x < CW - 3; x++) {
+        const h = at(x, y);
+        let wall = false;
+        for (let dy = -3; dy <= 3 && !wall; dy++) for (let dx = -3; dx <= 3 && !wall; dx++) wall = at(x + dx, y + dy) - h >= 4;
+        if (wall) feet.push(y * CW + x);
+      }
+    expect(feet.length).toBeGreaterThan(200);
+    const r = rng(23);
+    let held = 0;
+    let views = 0;
+    for (let k = 0; k < 300; k++) {
+      const i = feet[Math.floor(r() * feet.length)];
+      let v: View = { target: [(i % CW) + 0.5, heights[i] + r() * 1.5, -(Math.floor(i / CW) + 0.5)], yaw: r() * Math.PI * 2, pitch: 0.18 + r() * 0.15, distance: 6 + r() * 30 };
+      for (let step = 0; step < 12; step++) {
+        const what = r();
+        if (what < 0.4) v = { ...v, yaw: v.yaw + (r() - 0.5) * 1.2, pitch: Math.min(0.35, Math.max(0.18, v.pitch + (r() - 0.5) * 0.1)) };
+        else if (what < 0.6) v = { ...v, target: [Math.min(CW, Math.max(0, v.target[0] + (r() - 0.5) * 6)), v.target[1], Math.min(0, Math.max(-CH, v.target[2] + (r() - 0.5) * 6))] };
+        else {
+          // a turn of the wheel about what the pointer sees, as the renderer's zoom does it
+          const hold = armReach(v.target, v.yaw, v.pitch, v.distance, CW, CH, mask).reach;
+          const from = hold < v.distance ? Math.max(6, hold) : v.distance;
+          const eye = orbitEye(v.target, v.yaw, v.pitch, from);
+          const hit = pickTerrain(rayAt(eye, v.target, (r() - 0.5) * 1.6, (r() - 0.5) * 1.6), CW, CH, mask);
+          let distance = Math.max(6, from * (r() < 0.7 ? 0.787 : 1.27));
+          if (hit) {
+            distance = zoomStopShort(from, distance, Math.hypot(...eye.map((c, n) => c - hit.point[n])));
+            v = { ...v, distance, target: zoomTargetToward(v.target, hit.point, from, distance, { W: CW, H: CH, maxY: 23 }) };
+          } else v = { ...v, distance };
+        }
+        const held1 = armReach(v.target, v.yaw, v.pitch, v.distance, CW, CH, mask);
+        const eye = orbitEye(v.target, v.yaw, v.pitch, held1.reach);
+        const gx = Math.floor(eye[0]);
+        const gy = Math.floor(-eye[2]);
+        const ground = gx >= 0 && gy >= 0 && gx < CW && gy < CH ? heights[gy * CW + gx] : 0;
+        // above the ground under it, by the room it keeps (the whole clearance, wherever the arm has it)
+        expect(eye[1] - ground, `view ${k} step ${step}: eye ${eye.join(", ")} over ground ${ground}`).toBeGreaterThanOrEqual(held1.room * 0.999);
+        expect(clearAt(eye, CW, CH, mask, held1.room * 0.999)).toBe(true);
+        if (held1.reach < v.distance) held++;
+        views++;
+      }
+    }
+    // (most of these low views among walls have the ground or a wall in the camera's way: the clamp is what holds them)
+    expect(held).toBeGreaterThan(views / 10);
   });
 });
