@@ -18,9 +18,26 @@
   --code: light-dark(rgba(42, 33, 24, 0.08), rgba(236, 227, 207, 0.09));
   --map-bg: light-dark(#e9dfc8, #1d261e);
   --overlay: light-dark(rgba(255, 250, 240, 0.94), rgba(36, 49, 38, 0.95));
-  --shadow-color: light-dark(rgba(42, 33, 24, 0.18), rgba(0, 0, 0, 0.45));
-  --shadow-blur: 10px;
-  --shadow: 0 2px var(--shadow-blur) var(--shadow-color);
+  --sh-ink: 58, 38, 16;
+  /* Depth: three elevations, each three stacked shadows in a warm walnut ink, never grey. 1: a single control over the
+     map (every place that says --shadow). 2: a plate (the bar, its settings, the shelf and its object window, the
+     panels, the legend). 3: what opens over everything (menus, the checks list, dialogs). The header's falls on the
+     map below it, in place of a rule. The plates stay solid: no translucency, no blur. */
+  --shadow-1: 0 0.5px 1px rgba(var(--sh-ink), 0.16), 0 2px 6px -1px rgba(var(--sh-ink), 0.16),
+    0 8px 18px -6px rgba(var(--sh-ink), 0.24);
+  --shadow-2: 0 1px 2px rgba(var(--sh-ink), 0.14), 0 8px 20px -6px rgba(var(--sh-ink), 0.22),
+    0 24px 50px -16px rgba(var(--sh-ink), 0.34);
+  --shadow-3: 0 1px 2px rgba(var(--sh-ink), 0.16), 0 12px 28px -8px rgba(var(--sh-ink), 0.26),
+    0 32px 64px -20px rgba(var(--sh-ink), 0.4);
+  --shadow-header: 0 1px 0 rgba(var(--sh-ink), 0.08), 0 4px 12px -4px rgba(var(--sh-ink), 0.22),
+    0 14px 30px -14px rgba(var(--sh-ink), 0.26);
+  /* a lit top edge on raised plates, felt more than seen (it shows in dark only) */
+  --edge-lit: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --shadow: var(--shadow-1);
+
+  /* the water's own colour in the interface (between waterPalette's shallow and teal), for the waiting states */
+  --water-ui: light-dark(#2f8794, #63bcc6);
+  --water-ui-soft: color-mix(in srgb, var(--water-ui) 38%, transparent);
 
   /* Motion: the curves and durations every transition takes (movement inside prefers-reduced-motion: no-preference,
      fades of opacity and colour outside it; never ease-in on the interface, never transition: all) */
@@ -30,10 +47,20 @@
   --dur-fade: 600ms;
 }
 
-/* (a shadow's blur is a length, not a colour, so light-dark() can't hold it: the dark scheme's is 2px wider) */
+/* (a shadow's ink is a list of numbers, not a colour, so light-dark() can't hold it: the dark scheme sets its own) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --shadow-blur: 12px;
+    --sh-ink: 10, 7, 3;
+    --shadow-1: 0 0.5px 1px rgba(var(--sh-ink), 0.4), 0 2px 6px -1px rgba(var(--sh-ink), 0.3),
+      0 6px 16px -6px rgba(var(--sh-ink), 0.38);
+    --shadow-2: 0 1px 2px rgba(var(--sh-ink), 0.3), 0 6px 16px -4px rgba(var(--sh-ink), 0.34),
+      0 20px 44px -14px rgba(var(--sh-ink), 0.5);
+    --shadow-3: 0 1px 2px rgba(var(--sh-ink), 0.34), 0 10px 26px -6px rgba(var(--sh-ink), 0.42),
+      0 30px 64px -18px rgba(var(--sh-ink), 0.58);
+    --shadow-header: 0 1px 0 rgba(var(--sh-ink), 0.3), 0 4px 12px -4px rgba(var(--sh-ink), 0.34),
+      0 14px 30px -14px rgba(var(--sh-ink), 0.4);
+    --edge-lit: inset 0 1px 0 rgba(255, 244, 222, 0.06);
+    --water-ui-soft: color-mix(in srgb, var(--water-ui) 34%, transparent);
   }
 }
 
