@@ -14,12 +14,11 @@
 // with its land as it was kept (document.ts).
 
 import { CEILING } from "../format/world";
-import { FOOTPRINTS, ORIENTATIONS, type Orientation, worldBlocks } from "../format/footprints";
+import { FOOTPRINTS, ORIENTATIONS, type Orientation } from "../format/footprints";
 import { hasDefaults, type PlaceEntityParams } from "../features/edits";
 import { checkChannel } from "../features/route";
 import { checkSetPiece } from "../features/setpieces";
-import { BUILT_OBJECTS, fitProblems, isLine, OBJECT_NAMES, objectTiles, rasterizeObjects } from "../features/objects";
-import { itemName, withArticle } from "./labels";
+import { BUILT_OBJECTS, fitProblems, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
 import { optionProblems } from "./objectOps";
 import { paintParamProblems, type PaintParams } from "./paintParams";
 import { plainOf, type JsonValue } from "../format/json";
@@ -477,10 +476,10 @@ export interface OpContext {
   /** The ground voxel by voxel (bit z of `masks[i]`: voxel z of tile i is solid): a map object feature
    *  that names its level under a roof is checked against it (D491, objects.ts `fitProblems`). */
   masks?: ArrayLike<number> | null;
-  /** The template of an object on the map, other than feature `owner`'s, holding any of `cells` (a
-   *  source, a plant, another object), or null: a map object feature placed at a level under a roof
-   *  never stands in another's cells (D491). */
-  objectAt?: (cells: readonly { x: number; y: number; z: number }[], owner: string) => string | null;
+  /** The cells the objects standing hold, level by level, but those of the feature `owner` builds and
+   *  the resources (which make room): a map object feature at a level does not overlap them (D491,
+   *  placing.ts `objectCells`). */
+  objectCells?: (owner: string) => (x: number, y: number, z: number) => string | null;
   /** The ground the Block tool works on and the cells of the objects standing on it (a block
    *  operation is checked against them; the session gives them for one). */
   blocks?: { terrain: ColumnTerrain; ground: BlockGround };
@@ -612,17 +611,8 @@ function levelProblems(f: Feature, ctx: OpContext): string[] {
   const pl = f.params.placement;
   const name = OBJECT_NAMES[f.params.kind].toLowerCase();
   if (!ctx.masks || !ctx.heights) return [`the ${name}'s level can't be checked without the map's ground`];
-  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks }, pl);
-  if (why.length) return [`the ${name} can't stand at level ${pl.z} there: ${why[0]}`];
-  // (nor in the cells another object holds: a spring's source on a cave's floor, a plant, a relic)
-  if (ctx.objectAt) {
-    const cells = rasterizeObjects(f, ctx.W, ctx.H, Uint8Array.from(ctx.heights)).flatMap((e) =>
-      worldBlocks(FOOTPRINTS[e.template], { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation ?? "Cw0", flipped: !!e.flipped }).map((c) => ({ x: c.x, y: c.y, z: c.z })),
-    );
-    const other = ctx.objectAt(cells, f.id);
-    if (other) return [`the ${name} can't stand at level ${pl.z} there: ${other === "StartingLocation" ? "the district center stands there" : `${withArticle(itemName(other))} stands there`}`];
-  }
-  return [];
+  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks, taken: ctx.objectCells?.(f.id) ?? null }, pl);
+  return why.length ? [`the ${name} can't stand at level ${pl.z} there: ${why[0]}`] : [];
 }
 
 /** Why an operation cannot be applied now (empty when it can). */

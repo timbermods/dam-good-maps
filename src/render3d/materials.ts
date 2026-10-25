@@ -69,7 +69,7 @@ import {
 import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
-import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_STEPS, type TileSpan } from "./light";
+import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { CAVE_SKY_FLOOR, LIGHT_LEVELS, type CaveLight } from "./caveLight";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 
@@ -137,6 +137,11 @@ export interface SceneUniforms {
    *  `RUN_SOIL` branch is compiled (a map with terrain above terrain); elsewhere the light volume's
    *  placeholder, never read. */
   runTex: { value: Data3DTexture };
+  /** The current and rough water of the water below each tile's surface water (caveCurrent.ts): RGBA a cell from level
+   *  `caveFlowLevels.x`, `caveFlowLevels.y` levels (0: none, the flow texture everywhere), read only where the water's
+   *  `CAVES` branch is compiled. */
+  caveFlowTex: { value: Data3DTexture };
+  caveFlowLevels: { value: Vector2 };
   /** The overlay on one run per tile (overlayRuns.ts: a selection taken on a cave's floor), RGBA a tile; read only on a
    *  map with terrain above terrain (the terrain's `CUTAWAY`, the water's `CAVES`), the placeholder elsewhere. */
   overlayRuns: { value: DataTexture };
@@ -176,9 +181,30 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     caveSize: { value: new Vector3(0, 0, 0) },
     caveTop: { value: 0 },
     runTex: { value: noCave },
+    caveFlowTex: { value: noCaveCurrent() },
+    caveFlowLevels: { value: new Vector2(0, 0) },
     overlayRuns: { value: overlayTexture(1, 1) },
     overlayRest: { value: new Vector4(0, 0, 0, 0) },
   };
+}
+
+let noCaveFlow: Data3DTexture | null = null;
+/** The cave current's placeholder (one still cell), shared: never read while `caveFlowLevels.y` is 0. */
+export function noCaveCurrent(): Data3DTexture {
+  return (noCaveFlow ??= caveCurrentTexture(new Uint8Array([128, 128, 0, 0]), 1, 1, 1));
+}
+
+/** The current of the water below each tile's surface water as a 3D texture (caveCurrent.ts), filtered across tiles
+ *  as the flow texture is (the shader samples a level's middle, so levels never blend). */
+export function caveCurrentTexture(data: Uint8Array, W: number, H: number, levels: number): Data3DTexture {
+  const t = new Data3DTexture(data, W, H, levels);
+  t.format = RGBAFormat;
+  t.type = UnsignedByteType;
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearFilter;
+  t.unpackAlignment = 1;
+  t.needsUpdate = true;
+  return t;
 }
 
 /** The soil per run top as a 3D texture (runSoil.ts): read cell by cell (`texelFetch`), never filtered. */
@@ -606,6 +632,25 @@ const CAVE_POINT = /* glsl */ `
       }
       #endif`;
 
+/** Water below its tile's surface water (a cave's under a wet roof; only on a map with terrain above terrain, `CAVES`):
+ *  its own column's current and rough water from the cave current's volume (caveCurrent.ts), at the level it stands
+ *  in, filtered across tiles at that level. `waterOwnFlow` holds it for the fragment (RG the current as the flow
+ *  texture packs it, B the rough water, A 1), A 0 where the flow texture stands (each tile's surface water). */
+const CAVE_FLOW = /* glsl */ `
+      #ifdef CAVES
+      uniform highp sampler3D caveFlowTex;
+      uniform vec2 caveFlowLevels;
+      vec4 waterOwnFlow = vec4(0.0);
+      vec4 ownFlowAt(vec3 world) {
+        if (caveFlowLevels.y < 0.5) return vec4(0.0);
+        vec3 q = vec3(world.x, -world.z, world.y - caveFlowLevels.x);
+        vec3 cell = floor(q);
+        if (any(lessThan(cell, vec3(0.0))) || any(greaterThanEqual(cell, vec3(mapSize, caveFlowLevels.y)))) return vec4(0.0);
+        if (texelFetch(caveFlowTex, ivec3(cell), 0).a < 0.5) return vec4(0.0);
+        return vec4(textureLod(caveFlowTex, vec3(q.xy / mapSize, (cell.z + 0.5) / caveFlowLevels.y), 0.0).rgb, 1.0);
+      }
+      #endif`;
+
 /** Shared GLSL: the scene's uniforms, the patterns, the baked shadow, the light and the finish. */
 const common = (h?: ShaderHooks) => /* glsl */ `
   uniform vec3 sunDir;
@@ -901,7 +946,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       vec4 soilOf(vec4 d) {
         float g = floor(d.g * 255.0 + 0.5);
         float m = floor(g / 16.0);
-        float surface = heightOf(d) + (d.a * 255.0 - 1.0) / ${f(WATER_BYTE_STEPS)};
+        // (the water byte, light.ts waterByte: steps of a sixtieth to three levels deep, whole levels deeper)
+        float wb = floor(d.a * 255.0 + 0.5);
+        float surface = heightOf(d) + (wb <= ${f(WATER_BYTE_FINE)} ? (wb - 1.0) / ${f(WATER_BYTE_STEPS)} : wb - ${f(WATER_BYTE_FINE - 3)});
         return vec4(m, g - m * 16.0, d.a > 0.002 && surface <= slice + 0.05 ? 1.0 : 0.0, d.b);
       }
       #ifdef RUN_SOIL
@@ -1381,7 +1428,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       varying vec3 vNormal;
       varying vec3 vWorld;
       ${common(h)}
-      ${WATER_GLSL}${hook(h, "waterDecl")}${CAVE_POINT}
+      ${WATER_GLSL}${CAVE_FLOW}${hook(h, "waterDecl")}${CAVE_POINT}
       #ifdef CAVES
       ${OVERLAY_RUN}
       #endif
@@ -1412,8 +1459,11 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // (just inside it), from the light volume: x the sky, y the sun, z 1 under a roof
         float waterRoofed = 0.0;
         #ifdef CAVES
-          vec3 cave = caveAirAt(vWorld - n * (n.y > 0.5 ? min(0.01, max(depth, 0.0) * 0.5) : 0.005));
+          vec3 inWater = vWorld - n * (n.y > 0.5 ? min(0.01, max(depth, 0.0) * 0.5) : 0.005);
+          vec3 cave = caveAirAt(inWater);
           waterRoofed = cave.z;
+          // (water below its tile's surface water: its own column's current, not the water's seen from above)
+          waterOwnFlow = ownFlowAt(inWater);
         #endif
         float t = time;
         // the badwater share, blended between tiles by the mesh: the water turns from clean water to
@@ -1458,6 +1508,9 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             // seen to start again; still water draws them where they are, as always
             float fn;
             vec2 drift = waterCurrent(g) * 0.65;
+            #ifdef CAVES
+              if (waterOwnFlow.a > 0.5) drift = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5 * 0.65;
+            #endif
             if (dot(drift, drift) < 1e-6 || (${hook(h, "waterOwnSurface", "false")})) flowingAt(g, t, bad, fine, fn, pale, bubbles);
             else {
               float phase = fract(t / 12.0);

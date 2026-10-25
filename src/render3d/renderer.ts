@@ -65,7 +65,8 @@ import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { RunSoil, runSoilOn } from "./runSoil";
-import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomTargetToward } from "./framing";
+import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
+import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
 import { OverlayRuns } from "./overlayRuns";
@@ -1174,7 +1175,8 @@ export class MapRenderer {
     const falls = this.fallCount();
     this.skirt = this.buildSkirt(W, H, lo);
     if (!this.software && !this.still) {
-      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender());
+      // (with water per column, the bake gives the water below each tile's surface its own current: caveCurrent.ts)
+      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender(), () => (this.map && this.layered ? { view: this.map.water, columns: this.columnsSent } : null));
       this.waterMotion.setHigh(this.lookNow !== "standard");
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
@@ -2949,9 +2951,11 @@ export class MapRenderer {
       // (now, not at the next frame's render: `project` and `rayAt` read the camera as the view is now)
       this.ortho.updateMatrixWorld();
     } else {
-      const cp = Math.cos(v.pitch);
       this.persp.aspect = aspect;
-      this.persp.position.set(tx + Math.sin(v.yaw) * cp * v.distance, ty + Math.sin(v.pitch) * v.distance, tz + Math.cos(v.yaw) * cp * v.distance);
+      // (drawn in along its arm where the rock would hold it, the near plane inside the room it has: cameraClamp.ts)
+      const held = this.reach();
+      this.persp.position.set(...orbitEye(v.target, v.yaw, v.pitch, held.reach));
+      this.persp.near = nearFor(held.room);
       this.persp.up.set(0, 1, 0);
       this.persp.lookAt(tx, ty, tz);
       this.persp.far = v.distance * 4 + 1000;
@@ -3037,6 +3041,33 @@ export class MapRenderer {
     this.governor?.hold(performance.now());
     if (this.framePending) this.frameMap();
     this.requestRender();
+  }
+
+  /** How far along its arm the orbit camera is drawn: its distance, or nearer where its eye would be in rock (under a
+   *  layer cut, of the terrain shown). */
+  private reach(): { reach: number; room: number } {
+    const v = this.view;
+    const m = this.map;
+    if (!m || v.mode !== "orbit") return { reach: v.distance, room: CAMERA_CLEARANCE };
+    const src = m.source;
+    // (once per view and terrain: a frame and its picks share it; every change to the terrain is a new source)
+    const c = this.reachKept;
+    const [tx, ty, tz] = v.target;
+    if (c && c.src === src && c.slice === this.slice && c.yaw === v.yaw && c.pitch === v.pitch && c.distance === v.distance && c.tx === tx && c.ty === ty && c.tz === tz) return c.held;
+    const keep = cutKeep(this.slice);
+    const held = armReach(v.target, v.yaw, v.pitch, v.distance, m.W, m.H, (i) => columnMask(src, i) & keep);
+    this.reachKept = { src, slice: this.slice, yaw: v.yaw, pitch: v.pitch, distance: v.distance, tx, ty, tz, held };
+    return held;
+  }
+
+  /** The last `reach` worked out, and what it was for. */
+  private reachKept: { src: TerrainSource; slice: number | null; yaw: number; pitch: number; distance: number; tx: number; ty: number; tz: number; held: { reach: number; room: number } } | null = null;
+
+  /** The camera's eye as drawn (tests). */
+  eye(): [number, number, number] {
+    this.placeCamera();
+    const p = this.camera().position;
+    return [p.x, p.y, p.z];
   }
 
   // -------------------------------------------------------------------------------- picking
@@ -3127,7 +3158,11 @@ export class MapRenderer {
     if (!hit || !m || this.slice !== null) return hit;
     const i = hit.y * m.W + hit.x;
     if (!(m.surface.depth[i] > 0.05)) return hit;
-    const p = pickPlane(this.rayAt(clientX, clientY), m.surface.surface[i]);
+    const ray = this.rayAt(clientX, clientY);
+    const level = m.surface.surface[i];
+    // (only where the ray meets the water before the ground: a roof over a cave's water keeps its own hit)
+    if (ray.direction[1] < 0 && (level - ray.origin[1]) / ray.direction[1] > hit.t + 1e-6) return hit;
+    const p = pickPlane(ray, level);
     if (!p || p.x < 0 || p.y < 0 || p.x >= m.W || p.y >= m.H) return hit;
     return { x: p.x, y: p.y, point: p.point, face: "top", t: hit.t };
   }
@@ -3364,23 +3399,20 @@ export class MapRenderer {
 
   /** Zoom by `factor` (below 1 in). Given a point on the screen (CSS client coordinates: the wheel's pointer), about the
    *  ground under it, which stays under it: the target moves toward that point by the distance's ratio. Over the sky or
-   *  off the map, about the ground at the map's mean height, else about the screen's centre. At the zoom's limit nothing moves. */
+   *  off the map, about the ground at the map's mean height, else about the screen's centre. At the zoom's limit nothing moves.
+   *  In, the camera stops short of the ground under the pointer (`zoomStopShort`), so a zoom into a cave's mouth ends in
+   *  its air; a camera the rock holds nearer than its distance (cameraClamp.ts) zooms from where it is drawn. */
   zoom(factor: number, clientX?: number, clientY?: number): void {
     const m = this.map;
-    const { min, max } = m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 };
-    const from = this.view.distance;
-    // (a framing wider than the limit, the whole map in a wide window, is not snapped to it by the first turn)
-    const distance = Math.min(Math.max(max, from), Math.max(min, from * factor));
-    if (distance === from) return;
-    const hit = m && clientX !== undefined && clientY !== undefined ? this.zoomPoint(clientX, clientY) : null;
-    if (!m || !hit) {
-      this.setView({ distance });
-      return;
-    }
-    // (the top-down view looks straight down: its height is not part of what the pointer sees)
-    const target = zoomTargetToward(this.view.target, hit.point, from, distance, { W: m.W, H: m.H, maxY: hit.maxY });
-    if (this.view.mode === "top") target[1] = this.view.target[1];
-    this.setView({ distance, target });
+    const step = zoomStep(
+      this.view,
+      factor,
+      this.reach().reach,
+      () => (m && clientX !== undefined && clientY !== undefined ? this.zoomPoint(clientX, clientY) : null),
+      m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 },
+      { W: m?.W ?? 0, H: m?.H ?? 0 },
+    );
+    if (step) this.setView(step);
   }
 
   /** The ground point to zoom about under a point on the screen: what the pointer sees (the terrain or the cut, the
