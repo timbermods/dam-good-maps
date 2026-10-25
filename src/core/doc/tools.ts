@@ -14,6 +14,7 @@ import { fitProblems, isLine, OBJECT_NAMES, objectTiles, openPart, standProblem 
 import type { MapSession } from "./session";
 import { levelFootprint, levelProblem } from "./placing";
 import { cornerFor, startClears, startGroundOf, startMiddle, startProblem } from "./start";
+import { START_OPEN_GROUND, startOverRoof } from "./startFit";
 import { startEntranceTile, type Orientation } from "../format/footprints";
 import { withArticle } from "./labels";
 
@@ -235,14 +236,36 @@ function movePlan(s: MapSession, id: string, dx: number, dy: number): PlannedEdi
  *  feature of a generated map, or an imported map's own StartingLocation, its footprint and door
  *  levelled as a placement's (D328). With no start (it was deleted, D323 item 44) it places one, as the
  *  shelf's Start does: a generated map a start feature with its small bench, an opened map an entity
- *  on its own ground; `newId` names it. The step's operations and label, or why not. */
-export function planStart(s: MapSession, x: number, y: number, orientation: Orientation | undefined, newId: () => string): { ok: true; ops: EditOp[]; label: string } | { ok: false; errors: string[] } {
+ *  on its own ground; `newId` names it. `z`: the level it stands on under a roof (D491: a cave's floor,
+ *  the ground under a ledge, as the page's pick found it), where it levels nothing and has no bench and
+ *  the game's rule decides (startFit.ts `startRoofProblem`); the ground's top at its middle, it stands
+ *  on the top; omitted, a start under a roof keeps its level and any other stands on the top. A start
+ *  without a level is refused where a cave or an overhang is (`START_OPEN_GROUND`), never put on the
+ *  roof's top. The step's operations and label, or why not. */
+export function planStart(s: MapSession, x: number, y: number, orientation: Orientation | undefined, newId: () => string, z?: number): { ok: true; ops: EditOp[]; label: string } | { ok: false; errors: string[] } {
+  const { x: W, y: H } = s.size;
+  const top = x >= 0 && y >= 0 && x < W && y < H ? s.built.heights[y * W + x] : -1;
   const f = s.features.find((g) => g.kind === "start");
+  const ent = s.built.entities.find((g) => g.template === "StartingLocation");
+  const was = f && f.kind === "start" ? f.params.z : ent && ent.x >= 0 && ent.y >= 0 && ent.x < W && ent.y < H && ent.z < s.built.heights[ent.y * W + ent.x] ? ent.z : undefined;
+  const given = z ?? was;
+  const lands = given === top ? undefined : given;
+  const o0 = orientation ?? (f && f.kind === "start" ? f.params.orientation : (ent?.orientation ?? "Cw0"));
+  if (lands === undefined && top >= 0 && startOverRoof(s.standGround(), x, y, o0)) return fail(START_OPEN_GROUND);
+  if (lands !== undefined) return planStartUnder(s, x, y, o0, lands, newId);
   // (an imported start has no feature: every imported object is owned by "import", so it is skipped by its template, not its owner;
   // the one fit rule the shelf's preview shares, startFit.ts: never on another object's footprint, in a river, under water or at the edge)
-  const own = s.built.entities.find((g) => g.template === "StartingLocation");
-  const why = startProblem(s.built, x, y, orientation ?? (f && f.kind === "start" ? f.params.orientation : (own?.orientation ?? "Cw0")), false, f ? f.id : null, null, startGroundOf(s.built, [], f ? f.id : null));
+  const why = startProblem(s.built, x, y, o0, false, f ? f.id : null, null, startGroundOf(s.built, [], f ? f.id : null));
   if (why) return fail(`the start can't stand there: ${why}`);
+  if (f && f.kind === "start" && f.params.z !== undefined) {
+    // (out from under a roof onto the top: a move there, its bench again)
+    const at = startMiddle(s)!;
+    const turns = o0 !== f.params.orientation;
+    const r = moveEdit(s, f.id, x - at[0], y - at[1]);
+    if (!r.ok) return fail(...r.errors);
+    const ops = r.ops.map((op): EditOp => (op.op === "updateFeature" && op.params.id === f.id ? { op: "updateFeature", params: { id: f.id, patch: { params: { ...(op.params.patch.params as object), z: null, ...(turns ? { orientation: o0 } : {}) } } } } : op));
+    return { ok: true, ops, label: turns ? "Move and turn the start" : "Move the start" };
+  }
   if (f && f.kind === "start") {
     const at = startMiddle(s)!;
     const moves = x !== at[0] || y !== at[1];
@@ -268,6 +291,35 @@ export function planStart(s: MapSession, x: number, y: number, orientation: Orie
   const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set([e.id]), [door[1] * s.size.x + door[0]]);
   const move: EditOp = { op: "moveEntity", params: { id: e.id, x: cx, y: cy, ...(o !== e.orientation ? { orientation: o } : {}) } };
   return { ok: true, ops: [...level, move], label: o !== e.orientation ? "Move and turn the start" : "Move the start" };
+}
+
+/** The start under a roof at level `z` (D491): a generated map's start feature with that level and no bench, or an
+ *  opened map's StartingLocation at it, placed when the map has none; nothing is levelled and the generation's plants
+ *  and ruin columns on its floor go in the same step (D368 (10)). The game's rule, wholly under the roof, is checked
+ *  when the step applies (ops.ts, placing.ts: startFit.ts `startRoofProblem`). */
+function planStartUnder(s: MapSession, x: number, y: number, o: Orientation, z: number, newId: () => string): { ok: true; ops: EditOp[]; label: string } | { ok: false; errors: string[] } {
+  const f = s.features.find((g) => g.kind === "start");
+  const clears = startClears(s, x, y, o, z);
+  if (f && f.kind === "start") {
+    const at = startMiddle(s)!;
+    const moves = x !== at[0] || y !== at[1] || f.params.z !== z;
+    const turns = o !== f.params.orientation;
+    if (!moves && !turns) return fail("the start stands there already");
+    const patch = { params: { position: [x, y], bank: null, z, ...(turns ? { orientation: o } : {}) } };
+    return { ok: true, ops: [...clears, { op: "updateFeature", params: { id: f.id, patch } }], label: moves && turns ? "Move and turn the start" : moves ? "Move the start" : "Turn the start" };
+  }
+  const [cx, cy] = cornerFor(x, y, o);
+  const e = s.built.entities.find((g) => g.template === "StartingLocation");
+  if (e) {
+    const move: EditOp = { op: "moveEntity", params: { id: e.id, x: cx, y: cy, z, ...(o !== e.orientation ? { orientation: o } : {}) } };
+    return { ok: true, ops: [move], label: o !== e.orientation ? "Move and turn the start" : "Move the start" };
+  }
+  if (s.mode !== "import") {
+    const benchLevel = Math.max(1, Math.min(22, s.built.heights[y * s.size.x + x]));
+    const feature = { id: newId(), kind: "start", origin: "user", role: "start/main", locked: false, params: { position: [x, y], orientation: o, benchRadius: 2, benchLevel, player: 0, z } } as unknown as Feature;
+    return { ok: true, ops: [...clears, { op: "addFeature", params: { feature } }], label: "Place the start" };
+  }
+  return { ok: true, ops: [{ op: "placeEntity", params: { id: newId(), template: "StartingLocation", x: cx, y: cy, z, orientation: o, components: {} } }], label: "Place the start" };
 }
 
 /** The Start from the shelf on a map that has none (D323 item 44): a generated map gets a start

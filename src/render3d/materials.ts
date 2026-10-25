@@ -990,15 +990,24 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float t = clamp((z - heightRange.x) / max(1.0, heightRange.y - heightRange.x), 0.0, 1.0);
         return mix(${glColor(HEIGHT_RAMP.low)}, ${glColor(HEIGHT_RAMP.high)}, t);
       }
-      /** Contamination's veins at ground point p and contamination level lvl (0–1), as in the game
+      /** Contamination's veins at field point q and contamination level lvl (0–1), as in the game
        *  (D334): sparse, irregular orange-red fissures, the edges of a coarse jittered cell field
        *  (about a tile and a half across), some edges dropped, the kept ones thick main cracks or
        *  thinner branches. Returns the stroke (x) and its narrower glowing core (y), antialiased;
        *  none at zero contamination. World-anchored, so the veins never reseed as the level changes.
        *  (Kyler tunes the few junctions that widen abruptly on real maps: the two smoothsteps on
-       *  importance set which edges are kept and how wide.) */
-      vec2 veinsOf(vec2 p, float lvl) {
-        vec2 q = p * 0.67 + vec2(vnoise(p * 2.7 + 5.0), vnoise(p * 3.1 + 23.0)) * 0.15;
+       *  importance set which edges are kept and how wide.) The field's point q (veinPoint) and the
+       *  antialiasing width aa (veinAA) come from the caller, worked out before its branch on the soil:
+       *  derivatives (fwidth, a mipmapped pattern's level) need every pixel of a quad, and a pixel that
+       *  skips the branch would leave its neighbours an undefined value, a vein's edge that changes from
+       *  frame to frame. */
+      vec2 veinPoint(vec2 p) {
+        return p * 0.67 + vec2(vnoise(p * 2.7 + 5.0), vnoise(p * 3.1 + 23.0)) * 0.15;
+      }
+      float veinAA(vec2 q) {
+        return max(0.001, max(fwidth(q.x), fwidth(q.y)) * 0.55);
+      }
+      vec2 veinsOf(vec2 q, float aa, float lvl) {
         vec2 cell = floor(q), f = fract(q);
         float first = 9.0, second = 9.0, id1 = 0.0, id2 = 0.0;
         for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
@@ -1014,14 +1023,17 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float importance = fract(sin((id1 + id2) * 173.71) * 31741.13);
         float present = smoothstep(0.42, 0.47, importance);
         float width = mix(${f(CT.width[0])}, ${f(CT.width[1])}, smoothstep(0.54, 0.84, importance)) * mix(${f(CT.widthByLevel[0])}, ${f(CT.widthByLevel[1])}, lvl);
-        float aa = max(0.001, max(fwidth(q.x), fwidth(q.y)) * 0.55);
         float distance = (second - first) * 0.5;
         float rim = 1.0 - smoothstep(width, width + aa, distance);
         float core = 1.0 - smoothstep(width * 0.14, width * 0.48 + aa, distance);
         return vec2(rim, core) * present * smoothstep(0.0, ${f(CT.onset)}, lvl);
       }
+      /** The last groundColor's ground and glow as they are with no water on it (its soil's under-water flag clear). */
+      vec3 groundDry;
+      float groundDryGlow;
       /** The ground's colour from its soil (moist, moisture level, contaminated, under water) and
-       *  its contamination level (0–1), and in glow the light of the contamination's veins. */
+       *  its contamination level (0–1), and in glow the light of the contamination's veins; groundDry, the same
+       *  without the water. */
       vec3 groundColor(vec4 s, vec2 g, float detail, float clev, out float glow) {
         #if LITE
           // (no patterns: contamination tints the ground a little, rust on earth, dark red on grass)
@@ -1079,8 +1091,15 @@ ${hook(h, "groundStart")}        // (the patterns are read through a broad warp,
         float lvl = clamp(clev, 0.0, 1.0);
         // contamination: a layer over the ground, as in the game (palette.ts's CONTAMINATION says
         // the same, for the tests): orange-red veins over either soil, its own colour between them
+        // (the veins' point and antialiasing width for every pixel, before the branch: veinsOf)
         vec2 vein = vec2(0.0);
-        if (bad > 0.0 && wet < 1.0) vein = veinsOf(g, lvl) * bad * (1.0 - wet);
+        vec2 veinQ = veinPoint(g);
+        float veinWidth = veinAA(veinQ);
+        if (bad > 0.0${h?.groundTop ? "" : " && wet < 1.0"}) vein = veinsOf(veinQ, veinWidth, lvl) * bad;
+        // the ground as it is with no water on it (the High look's poisoned bed shows it through polluted water)
+        groundDry = mix(c, ${glColor(CT.vein)}, vein.x * ${f(CT.cover)});
+        groundDryGlow = vein.y * mix(${f(CT.glow[0])}, ${f(CT.glow[1])}, lvl);
+        vein *= 1.0 - wet;
         c = mix(c, ${glColor(CT.vein)}, vein.x * ${f(CT.cover)});
         // (the glow is added after the light: the veins' cores, narrower than their strokes)
         glow = vein.y * mix(${f(CT.glow[0])}, ${f(CT.glow[1])}, lvl);

@@ -226,6 +226,10 @@ export interface StartParams {
   /** Timber Together colonies are numbered from 0 (PLAN §20, D5). Vanilla maps have one start
    *  with player 0, and the writer never writes the player. */
   player: number;
+  /** The level it stands on under a roof (a cave's floor, the ground under a ledge), below the ground's top at its
+   *  middle (D491): its 3×3 stands wholly under the roof, levels nothing and has no bench (`benchLevel` is then
+   *  only kept). Omitted, it stands on the top with its bench. */
+  z?: number;
 }
 
 export type RiverFeature = Base<"river", RiverParams>;
