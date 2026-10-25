@@ -89,6 +89,8 @@ pub struct Extra {
     pub generated: bool,
     pub tiles: Vec<(i64, i64)>,
     pub core_radius: f64,
+    /// The level it stands on under a roof (D491; a cave's floor, the ground under a ledge), or -1: the top.
+    pub z: f64,
 }
 
 pub struct Features {
@@ -379,7 +381,8 @@ pub fn read(inputs: &[&[u8]]) -> Result<Map, Bad> {
                 for _ in 0..nt {
                     tiles.push((r.int()?, r.int()?));
                 }
-                extras.push(Extra { kind, generated, tiles, core_radius: r.f64()? });
+                let core_radius = r.f64()?;
+                extras.push(Extra { kind, generated, tiles, core_radius, z: r.f64()? });
             }
             Some(Features { lakes, basins, extras })
         } else {

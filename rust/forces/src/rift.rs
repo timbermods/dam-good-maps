@@ -30,6 +30,21 @@ pub(super) fn result(map:Map,records:Records)->Plan {
         raw_objects:vec![],raw_fallen:vec![],step_objects:vec![],closure_objects:vec![],closure_fallen:vec![],literal_objects:vec![],
         before:None,before_objects:vec![],before_fallen:vec![]}
 }
+// An object of more than one tile rides its ground whole (D368 (10)): where the force would move its
+// tiles by different amounts, it leaves them as they were, so none is left on air or in rock (a relic
+// across a rift's wall, say). Sources and seeps follow D474's rule, the start is the editor's (D257).
+pub(super) fn keep_footprints(before:&Map,map:&mut Map) {
+    for k in 0..map.entities.len() {
+        let e=&map.entities[k];
+        if e.sx*e.sy<=1.0 || emitter(&e.template) || plant(&e.template) || e.template.as_ref()=="StartingLocation" {continue;}
+        let tiles=map.footprint(e,0);
+        let dz=|m:&Map,i:usize| m.heights[i] as i32-before.heights[i] as i32;
+        let Some(&first)=tiles.first() else {continue};
+        let d0=dz(map,first);
+        if tiles.iter().all(|&i|dz(map,i)==d0) {continue;}
+        for i in tiles {map.heights[i]=before.heights[i];map.lava[i]=before.lava[i];}
+    }
+}
 // Vertical transport, never topple trees or create objects. Opaque metadata stays attached by numeric slot.
 pub(super) fn ride(before:&Map,map:&mut Map) {
     for e in &mut map.entities {
@@ -88,6 +103,7 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
         }
     }
     if stats[0]==0.0 {map.error=29;}
+    keep_footprints(before,&mut map);
     ride(before,&mut map);
     result(map,Records::Rift(Box::new(RiftRecords{fault,arrival,stats})))
 }

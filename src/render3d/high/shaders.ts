@@ -26,6 +26,7 @@
 
 import { WATER } from "../palette";
 import { BADWATER as B, HIGH_WATER_GLSL } from "../waterPalette";
+import { RUN_LEVELS } from "../runSoil";
 
 /** How much of its colour dry earth keeps under High's grade, the rest a slightly cool grey (D346: the game's
  *  earth, greyer and cooler from above). */
@@ -606,11 +607,27 @@ export function landmarkHooks(): ShaderHooks {
   };
 }
 
-/** Slopes (#67 stage 3): the ramp in natural materials, soil, stone and grass where moist. */
+/** Slopes (#67 stage 3): the ramp in natural materials, soil, stone and grass where moist. A slope on a run top below
+ *  its tile's top (a cave's floor, a ledge under an overhang) takes that run's soil from the run texture, as
+ *  runSoil.ts `objectSoilAt` gives it (only on a map with them, the renderer's `RUN_SOIL`; every other map draws
+ *  slopes with the same program as before). */
 export function slopeHooks(): ShaderHooks {
+  const landmark = landmarkHooks();
   return {
-    ...landmarkHooks(),
-    decl: landmarkHooks().decl + /* glsl */ `
+    ...landmark,
+    objectVertexDecl: landmark.objectVertexDecl + /* glsl */ `
+      #ifdef RUN_SOIL
+      varying vec3 hlFoot;
+      #endif`,
+    objectVertex: landmark.objectVertex + /* glsl */ `        #ifdef RUN_SOIL
+        hlFoot = m[3].xyz;
+        #endif
+`,
+    decl: landmark.decl + /* glsl */ `
+  #ifdef RUN_SOIL
+  uniform highp sampler3D runTex;
+  varying vec3 hlFoot;
+  #endif
   vec3 hlSlopeColour(vec3 n) {
     vec2 g = vec2(vWorld.x, -vWorld.z);
     float grain = vnoise(g * 5.7), earthPatch = vnoise(g * 0.8 + 13.1);
@@ -618,6 +635,14 @@ export function slopeHooks(): ShaderHooks {
     if (n.y > 0.5) {
       color = mix(vec3(0.39, 0.38, 0.37), vec3(0.47, 0.43, 0.36), earthPatch) * (0.90 + 0.16 * grain);
       float packed = floor(texture2D(tileTex, (floor(g) + 0.5) / mapSize).g * 255.0 + 0.5);
+      #ifdef RUN_SOIL
+        // standing on a run top below its tile's top: that run's soil (its tile and level the slope's own)
+        vec3 foot = vec3(floor(hlFoot.x), floor(-hlFoot.z), floor(hlFoot.y + 0.5));
+        if (all(greaterThanEqual(foot, vec3(0.0))) && all(lessThan(foot, vec3(mapSize, ${g(RUN_LEVELS)})))) {
+          vec2 run = floor(texelFetch(runTex, ivec3(foot), 0).rg * 255.0 + 0.5);
+          if (run.y > 0.5) packed = run.x;
+        }
+      #endif
       float moist = step(1.0, floor(packed / 16.0));
       float grass = smoothstep(0.66, 0.96, hlLocal.z + 0.5 + (grain - 0.5) * 0.15) * moist;
       color = mix(color, mix(vec3(0.5, 0.655, 0.32), vec3(0.48, 0.635, 0.3), earthPatch) * (0.87 + 0.14 * grain), grass);

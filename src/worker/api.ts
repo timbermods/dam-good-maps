@@ -164,6 +164,12 @@ export async function runFindVersion(from: { spec: MapSpec; intentions: string[]
   const t0 = performance.now();
   const r = findVersion(from).result;
   if (!r) return null;
+  return responseOfResult(r, Math.round(performance.now() - t0));
+}
+
+/** The page's view of a map generated off the page's own worker (a version found, a showcase pick),
+ *  with its project file, so the page opens it at once. */
+export async function responseOfResult(r: GenerateResult, ms: number): Promise<GenerateResponse> {
   return responseOf({
     spec: r.spec,
     features: r.features,
@@ -172,7 +178,7 @@ export async function runFindVersion(from: { spec: MapSpec; intentions: string[]
     passed: r.report.passed,
     analysis: r.analysis,
     attempts: r.attempts,
-    ms: Math.round(performance.now() - t0),
+    ms,
     timber: r.bytes,
     project: encodeProject(generatedDocument(r)),
     ...(r.name ? { name: r.name } : {}),

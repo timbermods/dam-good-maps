@@ -19,6 +19,7 @@ import type { SurfaceWater } from "./model";
 import type { CaveCurrent } from "./caveCurrent";
 import { DT, STEPS, type MotionShapes } from "./motionShapes";
 import { outflowGrid } from "./current";
+import { sharedCopies } from "./shared";
 import type { Baker } from "./high/fields";
 import type { LayeredWater } from "./high/bake";
 import { surfaceContamination, type RoughCounts } from "./high/flow";
@@ -271,13 +272,24 @@ export class WaterMotion {
     this.pending = null;
     const id = ++this.latest;
     const sw = p.surface;
-    // (copies for the worker: the view keeps its own)
+    // (the outflows four a tile: the worker works out the current from them)
+    let out = outflowGrid(this.W, this.H, sw);
     // (with water per column, its view and columns too, and the surface's columns: the worker deals the layers)
     const layered = this.layered();
-    const copy: SurfaceWater = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), top: layered ? sw.top.slice() : new Int32Array(0), outflow: null, lower: [] };
-    const heights = p.heights.slice();
-    // (the outflows four a tile: the worker works out the current from them)
-    const out = outflowGrid(this.W, this.H, sw);
+    // (copies for the worker, the view keeps its own: on shared memory where the page can share it, so posting them
+    // copies nothing more, shared.ts)
+    const shared = sharedCopies([sw.surface, sw.floor, sw.depth, sw.contamination, p.heights, out ?? new Float32Array(0), layered ? sw.top : new Int32Array(0)] as const);
+    let copy: SurfaceWater;
+    let heights: Uint8Array;
+    if (shared) {
+      const [surface, floor, depth, contamination, h, o, top] = shared;
+      copy = { surface, floor, depth, contamination, top, outflow: null, lower: [] };
+      heights = h;
+      if (out) out = o;
+    } else {
+      copy = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), top: layered ? sw.top.slice() : new Int32Array(0), outflow: null, lower: [] };
+      heights = p.heights.slice();
+    }
     void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights, sw: copy, out, ...(layered ? { layered } : {}) }).then((r) => {
       if (id !== this.latest || r.kind !== "flow" || this.disposed) return;
       this.done = id;
