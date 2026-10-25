@@ -3,7 +3,7 @@
 // selection start over on it) as one undo step, and Ctrl+Z brings the full map back.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, setWaterSpeed } from "./open";
+import { openEditor, setWaterSpeed, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -25,7 +25,7 @@ async function box(page: Page, from: [number, number], to: [number, number]) {
 
 test("Crop makes the map the selected rectangle, as one undo step that Ctrl+Z takes back (D340)", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await setWaterSpeed(page, "instant");
   const row = page.getByRole("group", { name: "Selection" });
   const crop = row.getByRole("button", { name: "Crop", exact: true });
@@ -79,6 +79,48 @@ test("Crop makes the map the selected rectangle, as one undo step that Ctrl+Z ta
   expect((await info(page)).history.filter((h) => h.applied).length).toBe(steps);
 });
 
+test("Crop's reason shows on the message line even when the core's answer comes after the pointer is on the button", async ({ page }) => {
+  // (the answer comes a moment after each selection; here the worker is slow with it, as a busy machine's is, so the pointer is
+  // on the button first: the reason must appear when the answer comes, never be lost because it came second)
+  await page.addInitScript(() => {
+    const post = Worker.prototype.postMessage;
+    Worker.prototype.postMessage = function (this: Worker, m: unknown, ...rest: never[]) {
+      if ((m as { path?: string[] } | null)?.path?.join(".") === "cropPlanAt") return void setTimeout(() => (post as (...a: unknown[]) => void).call(this, m, ...rest), 1000);
+      return (post as (...a: unknown[]) => void).call(this, m, ...rest);
+    } as never;
+  });
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  await page.getByRole("button", { name: "Top-down" }).click();
+  const row = page.getByRole("group", { name: "Selection" });
+  const crop = row.getByRole("button", { name: "Crop", exact: true });
+  await row.getByRole("button", { name: "Whole map" }).click();
+  await crop.hover();
+  await expect(row.getByRole("status")).toHaveText("Checking the selection");
+  await expect(page.locator(".editor-message")).toContainText("The selection is the whole map: nothing to crop");
+  await expect(row.getByRole("status")).toHaveText("Can't crop this");
+  await page.mouse.move(5, 5);
+  await expect(page.locator(".editor-message")).toHaveCount(0);
+});
+
+test("Crop's reason leaves with its button: a brush put in hand under the pointer, and later answers say nothing of Crop", async ({ page }) => {
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  await page.getByRole("button", { name: "Top-down" }).click();
+  const row = page.getByRole("group", { name: "Selection" });
+  await row.getByRole("button", { name: "Whole map" }).click();
+  await row.getByRole("button", { name: "Crop", exact: true }).hover();
+  await expect(page.locator(".editor-message")).toContainText("The selection is the whole map: nothing to crop");
+  // Raise comes by its key, the Selection row goes with the pointer still where Crop was
+  await page.keyboard.press("2");
+  await expect(row).toHaveCount(0);
+  await expect(page.locator(".editor-message")).toHaveCount(0);
+  // a later answer of the core's (a new selection) puts nothing of Crop on the message line
+  await page.keyboard.press("1");
+  await row.getByRole("button", { name: "Whole map" }).click();
+  await page.keyboard.press("2");
+  await page.evaluate(() => window.dgmEditor!.idle());
+  await expect(page.locator(".editor-message")).toHaveCount(0);
+});
+
 /** A box round the start, 32 × 24, kept clear of the map's edge. */
 async function startBox(page: Page): Promise<[[number, number], [number, number]]> {
   const start = await page.evaluate(() => {
@@ -96,7 +138,7 @@ async function startBox(page: Page): Promise<[[number, number], [number, number]
 
 test("Ctrl+Z held across a crop leaves the page and the worker agreeing on the steps and on Undo", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await setWaterSpeed(page, "instant");
   const row = page.getByRole("group", { name: "Selection" });
   // three edits, then a crop
@@ -131,7 +173,7 @@ test("Ctrl+Z held across a crop leaves the page and the worker agreeing on the s
 
 test("a crop keeps the view: History open, top-down, the overlay and See-through; a held drought is stopped", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await setWaterSpeed(page, "instant");
   await page.getByRole("button", { name: "History", exact: true }).click();
   await page.getByRole("checkbox", { name: "See-through" }).check();

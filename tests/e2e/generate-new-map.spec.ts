@@ -6,13 +6,13 @@
 // opens it again.
 
 import { expect, test } from "@playwright/test";
-import { centreOn, generateButton, openDrawer, openEditor, openYourMaps, pick } from "./open";
+import { centreOn, generateButton, openDrawer, openEditor, openYourMaps, pick, topDown } from "./open";
 
 test("Generate on an edited map makes a new map that no edit touches, and the edited map stays in Your maps (D336)", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
 
   // one edit: a Lower stroke
   const at: [number, number] = [70, 12];

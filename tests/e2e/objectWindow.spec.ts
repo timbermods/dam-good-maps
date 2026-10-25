@@ -4,7 +4,7 @@
 // the Badwater caption shows its colours as swatches.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -18,7 +18,7 @@ const applied = async (page: Page) => (await info(page)).history.filter((h) => h
 
 test("the object window has sliders with their values and segmented choices, never a dropdown", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const shelf = page.getByRole("navigation", { name: "Place" });
   const none = (name: string) => page.getByRole("group", { name }).locator("select");
 
@@ -80,7 +80,7 @@ test("the object window has sliders with their values and segmented choices, nev
 
 test("trees, bushes and thorns have Size and Density, a tree an Age, and none a Turn; a drag follows them", async ({ page }) => {
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const shelf = page.getByRole("navigation", { name: "Place" });
   const names = async (what: string) => page.getByRole("group", { name: what }).locator(".ow-name").allTextContents();
 
@@ -181,7 +181,7 @@ test("the Badwater caption shows its colours as swatches, not their names", asyn
 
 test("trees, bushes and thorns take the one key habit: { } its Size, [ ] and F+scroll its Density, F and the mouse its Size", async ({ page }) => {
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Pine", exact: true }).click();
   const win = page.getByRole("group", { name: "Pine options" });
   const value = (n: number) => win.locator(".ow-value").nth(n);

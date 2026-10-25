@@ -40,6 +40,7 @@ The map document and its edit engine: a generation plus an ordered log of edit o
   it today (the page's fix waits on #92).
 - `droughtLine.ts` `mapDroughtLine`: the open map's drought line (D133; `sim/droughtLine.ts`) from the Drought view's last day.
 - `crop.ts`: Crop map to selection (D340): the rectangle's refusals (`cropRectProblem`), what the edge cuts (`cropObjects`, `planCrop`) and the cropped file (`cropFile`). The session makes the cropped map the document's next generation (`MapDocument.prior` holds the one before): one undo step, the full map back exactly.
+- `description.ts`: the map's description, written by the `setDescription` operation: its limit (`MAX_DESCRIPTION`), its refusals (`descriptionProblem`) and a real place's credits (`placeCredits`). `MapSession.description()` answers it; a generated map's own words are `gen/pack.ts` `description` and `gen/names.ts` `mapSays`.
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
 
 **Tests**: `tests/contract/` (document, ops, bake, import, projects, storedMap, views, sourcesUnderEdits, editor, waterEdits; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.

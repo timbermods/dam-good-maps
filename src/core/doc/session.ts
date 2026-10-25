@@ -17,7 +17,7 @@
 //   state, never an approximate replay. An undo that would cross the save point before the
 //   comparison is in does the comparison first, right there.
 
-import { isTall, surfaceOf, withTallNote } from "../format/world";
+import { generatedTallSentence, isTall, surfaceOf, TALL_NOTE, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
 import { buildMap, groundDropped, masksOf, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
@@ -49,7 +49,8 @@ import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import { FOOTPRINTS, worldBlocks, type Orientation, type Placement } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
-import { builtWater, fileName as timberFileName, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
+import { builtWater, description as generatedText, fileName as timberFileName, NO_SOURCES_NOTE, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
+import { placeCredits } from "./description";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
 import { runsToTiles, type Runs } from "../math/grid";
 import { thumbnailJpeg } from "../render/shade";
@@ -168,6 +169,15 @@ export interface HistoryItem {
   orphaned?: string;
 }
 
+/** A map's description for the page (`MapSession.description`). */
+export interface MapDescription {
+  text: string;
+  written: boolean;
+  /** What follows the text in the file whatever is written, one paragraph each: the no-badwater or no-sources note,
+   *  the tall note and a real place's credits. Shown, not edited. */
+  kept: string | null;
+}
+
 export interface ApplyResult {
   ok: boolean;
   errors: string[];
@@ -284,7 +294,7 @@ export class MapSession {
       this.cur = buildMap(this.input(), { water: "defer", initialWater: { model: modelOf({ W, H, heights: layer.heights, entities: layer.entities }), water: layer.water! } });
     } else this.cur = built ?? stored ?? buildMap(this.input());
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
-      this.notices.push("This map has caves or overhangs. The tools leave them as they are.");
+      this.notices.push("This map has caves or overhangs. Brushes shape only their tops; the Block tool and Erode can change the rest.");
     }
     // the log is the history of an opened document: its operations undo step by step (D456)
     this.undoStack = stepsOf(this.log);
@@ -310,7 +320,7 @@ export class MapSession {
     // (the generation's slopes the build checked: the same list as this session's, bound to it)
     const slopeList = list && slopes && JSON.stringify(list) === JSON.stringify(slopes) ? slopes : list;
     b.cache = { ...b.cache, base: input.base ?? null, field: input.field ?? null, locked: input.locked ?? null, terrain: { ...b.cache.terrain, slopeList } };
-    const dropped = groundDropped(input.base?.terrain ?? null, b.heights, b.entities, masksOf(b.cache.terrain), b.W, b.H);
+    const dropped = groundDropped(input.base?.terrain ?? input.field?.caves ?? null, b.heights, b.entities, masksOf(b.cache.terrain), b.W, b.H);
     if (dropped) b.dropped = dropped;
     return b;
   }
@@ -495,13 +505,17 @@ export class MapSession {
     const before = this.undoStack;
     let keep = 0;
     while (keep < log.length && keep < this.log.length && sameOp(this.log[keep], log[keep])) keep++;
+    // (a log that differs only by the description's operations leaves the map as it stands: nothing to build)
+    let builds = false;
     for (let k = this.log.length - 1; k >= keep; k--) {
+      builds ||= this.log[k].op !== "setDescription";
       invertOp(this.st, this.log[k]);
       if (isCrop(this.log[k])) this.leaveCrop();
     }
     this.log.length = keep;
     for (let k = keep; k < log.length; k++) {
       const copy = clone(log[k]) as AppliedOp;
+      builds ||= copy.op !== "setDescription";
       applyOp(this.st, copy);
       this.log.push(copy);
       // (the map as it stands before the crop, then the crop)
@@ -518,7 +532,7 @@ export class MapSession {
     while (shared < before.length && shared < this.undoStack.length && sameItems(before[shared].ops, this.undoStack[shared].ops)) shared++;
     this.redoStack = [];
     for (const k of [...this.snaps.keys()]) if (k > shared) this.snaps.delete(k);
-    this.cur = this.rebuilt();
+    if (builds) this.cur = this.rebuilt();
   }
 
   /** Take one step out of the log, or put it back where it stood (collaborative editing's undo and
@@ -624,6 +638,7 @@ export class MapSession {
     // (M9b, D278 (1b): the map's own name and how it plays)
     if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
     if (r.description) doc.meta.premise = r.description;
+    if (r.says?.length) doc.meta.says = [...r.says];
     return new MapSession(doc, r.built);
   }
 
@@ -686,7 +701,7 @@ export class MapSession {
     let t = this.terrains.get(b);
     if (!t) {
       const { x: W, y: H } = this.size;
-      t = terrainUnder(this.mode === "live" ? null : this.baseStuff().terrain.terrain, b.heights, masksOf(b.cache.terrain), W, H);
+      t = terrainUnder(this.caveBase(b), b.heights, masksOf(b.cache.terrain), W, H);
       this.terrains.set(b, t);
     }
     return t;
@@ -696,7 +711,13 @@ export class MapSession {
    *  caves and overhangs, or ground the Block tool dug. A heightfield drops nothing, and none of the
    *  support rule's work is done on one. */
   private layered(b: BuildResult): boolean {
-    return (this.mode !== "live" && this.baseStuff().terrain.columns.size > 0) || layeredMasks(masksOf(b.cache.terrain));
+    return (this.mode !== "live" ? this.baseStuff().terrain.columns.size > 0 : !!b.cache.field?.caves) || layeredMasks(masksOf(b.cache.terrain));
+  }
+
+  /** The terrain a build's surface reshapes when it is not a heightfield: an imported (or frozen) map's
+   *  base, or a generated map's field with the 3D forms the generation grew (D488); null otherwise. */
+  private caveBase(b: BuildResult): ColumnTerrain | null {
+    return this.mode === "live" ? (b.cache.field?.caves ?? null) : this.baseStuff().terrain.terrain;
   }
 
   /** The ground as it stands, voxel by voxel, for the placement rule under a roof (D491, features/objects.ts
@@ -712,7 +733,8 @@ export class MapSession {
   plainAt(i: number): boolean {
     const m = masksOf(this.cur.cache.terrain).get(i);
     if (m !== undefined) return isPlainMask(m);
-    return this.mode === "live" || this.baseStuff().terrain.terrain.isPlain(i);
+    const caves = this.caveBase(this.cur);
+    return !caves || caves.isPlain(i);
   }
 
   /** The map's voxel columns that are not one plain run (tile index → its 23 voxels) as they stand,
@@ -848,7 +870,7 @@ export class MapSession {
     const { x: W, y: H } = this.size;
     const tops = this.topsOf(this.cur.entities);
     const after = entities ? stackableTops(W, H, entities) : tops;
-    const base = this.mode === "live" ? null : this.baseStuff().terrain.terrain;
+    const base = this.caveBase(this.cur);
     const ground = masks ? new ColumnTerrain(W, H, masks) : terrainUnder(base, heights, masksOf(this.cur.cache.terrain), W, H);
     return newFalls(this.terrainOf(this.cur), ground, tops, after);
   }
@@ -962,7 +984,7 @@ export class MapSession {
   }
 
   /** The tiles with a cave, tunnel or overhang (an imported map's, and the ground the Block tool
-   *  dug), which the tools leave as they are but for the brushes, which shape their top runs (D487;
+   *  dug), whose top runs the brushes shape and the rest only the Block tool and Erode change (D487;
    *  the "Caves and overhangs" layer marks them). An import's are simulated with the rest of its
    *  water (D120). Empty for a heightfield map. */
   get roofedTiles(): ReadonlySet<number> {
@@ -1255,6 +1277,7 @@ export class MapSession {
       if (f.falls.length) return { ok: false, errors: [fallsReason(f.falls.length)], applied: [], dirty: null };
     }
     if (op.op === "crop") return this.applyCrop(op, origin, label);
+    if (op.op === "setDescription") return this.applyDescription(op, origin, label);
     const before = this.cur;
     const mark = this.mark();
     const seq = this.seqNext;
@@ -1338,13 +1361,13 @@ export class MapSession {
           invertOp(this.st, a);
           this.log.pop();
         }
-        if (done.length) this.cur = this.rebuilt();
+        if (done.some((a) => a.op !== "setDescription")) this.cur = this.rebuilt();
         this.seqNext = seq;
         return { ok: false, errors, applied: [], dirty: null };
       }
       done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined));
-      // later operations of the group may refer to what earlier ones made
-      this.cur = this.rebuilt();
+      // later operations of the group may refer to what earlier ones made (a description makes nothing)
+      if (op.op !== "setDescription") this.cur = this.rebuilt();
     }
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
@@ -1373,6 +1396,15 @@ export class MapSession {
     this.cur = this.freshBuild();
     this.snapshot();
     return { ok: true, errors: [], applied: [applied], dirty: null, removedObjects: objects.crossing.length };
+  }
+
+  /** A description written or taken away: a step on the history like any other, but it changes nothing on the
+   *  map, so nothing is built and the map's picture, water and checks stay as they are. */
+  private applyDescription(op: EditOp & { op: "setDescription" }, origin: OpOrigin, label?: string): ApplyResult {
+    const applied = this.applyChecked(op, origin, label);
+    this.pushHistory({ kind: "ops", ops: [applied] });
+    this.snapshot();
+    return { ok: true, errors: [], applied: [applied], dirty: { terrain: null, region: null, water: false, entities: false, objects: null } };
   }
 
   /** The generation a crop makes of the map as it stands: its settled water (a file always gets the canonical
@@ -1872,13 +1904,73 @@ export class MapSession {
    *  imported one is its normalized file with the edits: unedited, it is the same file, byte for
    *  byte (PLAN §19.6). */
   exportFile(built: BuildResult = this.cur, opts: { thumbnail?: boolean } = {}): TimberFile {
+    const file = this.exportFileBase(built, opts);
+    const written = this.st.description;
+    if (written === null || !file.metadata) return file;
+    // the description its player wrote, whole, with what must follow it (`keptParts`)
+    const parts = [written, ...this.keptParts(built).filter((p) => !written.includes(p))];
+    return { ...file, metadata: { ...file.metadata, MapDescription: parts.join("\n\n") } };
+  }
+
+  /** What every description of the map carries after the player's words, whatever they write: that it has no
+   *  badwater (D200, D213) or no water sources (D330), that its land rises above 16 (D172), and a real place's
+   *  credits (the data providers' required notices). Each is a paragraph. */
+  private keptParts(built: BuildResult): string[] {
+    const spec = this.effectiveSpec(built);
+    const notes = spec ? (spec.settings.water.sources === "none" ? [NO_SOURCES_NOTE] : spec.settings.hazards.badwater === "off" ? [NO_BADWATER_NOTE] : []) : this.badwaterRemoved(built) ? [NO_BADWATER_NOTE] : [];
+    const credits = this.mode === "live" ? null : placeCredits(this.baseText());
+    // (a generated map says its tall land in its own words, as its file does; an opened one in the editor's note)
+    let top = 0;
+    for (let i = 0; i < built.heights.length; i++) if (built.heights[i] > top) top = built.heights[i];
+    const tall = isTall(built.heights) ? [this.mode === "live" ? generatedTallSentence(top) : TALL_NOTE] : [];
+    return [...notes, ...tall, ...(credits ? [credits] : [])];
+  }
+
+  /** The description the map was opened with: its file's. */
+  private baseText(): string {
+    const text = this.baseStuff().file.metadata?.MapDescription;
+    return typeof text === "string" ? text : "";
+  }
+
+  /** The map's description, for the page (the operation `setDescription` writes it). `text` is what its player
+   *  wrote, or else the generated one (a generated map's, from its theme, size and what it shows; an opened
+   *  file's own, without what follows it); `written` says which. `kept` is what follows the text in the file
+   *  whatever is written (`keptParts`), shown but not edited (null when nothing does). */
+  description(built: BuildResult = this.cur): MapDescription {
+    const parts = this.keptParts(built);
+    const kept = parts.length ? parts.join("\n\n") : null;
+    const written = this.st.description;
+    if (written !== null) return { text: written, written: true, kept };
+    let text: string;
+    if (this.mode === "live") text = generatedText(this.effectiveSpec(built)!, built, this.gen.meta.says);
+    else {
+      const base = this.baseText();
+      const credits = placeCredits(base);
+      text = this.notedText(credits ? base.slice(0, base.length - credits.length).trimEnd() : base, built);
+    }
+    // (the generated words say those notes already: the field shows the words alone, and `kept` the notes)
+    text = withTallNote(text, false);
+    for (const p of parts) text = text.replace(p, "");
+    return { text: text.replace(/ {2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim(), written: false, kept };
+  }
+
+  /** An opened file's description with the notes the map earns: that it has no badwater (D213), and that its land
+   *  rises above 16 (D172). */
+  private notedText(text: string, built: BuildResult): string {
+    if (this.badwaterRemoved(built)) text = text ? `${text}\n\n${NO_BADWATER_NOTE}` : NO_BADWATER_NOTE;
+    let top = 0;
+    for (let i = 0; i < built.heights.length; i++) if (built.heights[i] > top) top = built.heights[i];
+    return withTallNote(text, isTall(built.heights), top);
+  }
+
+  private exportFileBase(built: BuildResult, opts: { thumbnail?: boolean }): TimberFile {
     // without a thumbnail (checks read only its size): a blank one, not drawn
     const blank = opts.thumbnail === false ? blankThumbnail() : undefined;
     // (a generated map's description follows its land already: pack.ts notes land above 16, D244)
     if (this.mode === "live") {
       // (ground the Block tool or Erode hollowed is written as it stands, with its water on every column
       // and its soil on every run: gen/pack.ts `stackedWorld`, #435)
-      return toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
+      return toTimberFile(this.effectiveSpec(built)!, built, { ...(blank ? { thumbnail: blank } : {}), ...(this.gen.meta.says?.length ? { says: this.gen.meta.says } : {}) });
     }
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
@@ -2100,7 +2192,9 @@ export function generatedField(f: FieldData, W: number, H: number, except: reado
     for (const i of runsToTiles(runs, W)) m[i] = 1;
     return m;
   };
-  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}), ...(f.dry ? { dry: { moist: mask(f.dry.moist), poisoned: mask(f.dry.poisoned) } } : {}) };
+  // (the 3D forms the generation grew, D488: the field's runs)
+  const caves = f.runs.length ? ColumnTerrain.fromData(f, W, H) : null;
+  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}), ...(f.dry ? { dry: { moist: mask(f.dry.moist), poisoned: mask(f.dry.poisoned) } } : {}), ...(caves ? { caves } : {}) };
 }
 
 export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {
@@ -2166,6 +2260,8 @@ export function labelOf(op: AppliedOp): string {
       return op.params.pools ? `Remove unfed water from ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
     case "fillHollow":
       return "Fill a hollow";
+    case "setDescription":
+      return op.params.text === "" ? "Clear the description" : "Write the description";
     case "crop":
       return `Crop to ${op.params.w}×${op.params.h}`;
     case "blocks":

@@ -306,6 +306,40 @@ describe("saving safely", () => {
     expect(order).toEqual([1, 2]);
   });
 
+  it("a flush returns only once a later save its timer queued behind the write it waited on is written too: the map replaced is saved before the next is opened", async () => {
+    const order: string[] = [];
+    const release: (() => void)[] = [];
+    const store: Pick<YourMapsStore, "put"> = {
+      put: (e) =>
+        new Promise((resolve) => {
+          order.push(`start ${e.revision}`);
+          release.push(() => {
+            order.push(`end ${e.revision}`);
+            resolve({ ok: true });
+          });
+        }),
+    };
+    const c = clock();
+    const saver = new YourMapsSaver(store, { delay: 1000, ...c });
+    saver.changed("a", () => ({ entry: entry("a", 1, { revision: 1 }), project: bytes(1) }));
+    let done = false;
+    const barrier = saver.flush().then(() => (done = true));
+    await settle();
+    // a change while the first write runs: its timer fires and claims it, queued behind the write
+    saver.changed("a", () => ({ entry: entry("a", 2, { revision: 2 }), project: bytes(2) }));
+    c.advance(1000);
+    await settle();
+    release[0]();
+    await settle();
+    await settle();
+    expect(order).toEqual(["start 1", "end 1", "start 2"]);
+    expect(done).toBe(false);
+    release[1]();
+    await barrier;
+    expect(order).toEqual(["start 1", "end 1", "start 2", "end 2"]);
+    expect(saver.busy()).toBe(false);
+  });
+
   it("discarding a deleted map drops its queued save", async () => {
     const puts: number[] = [];
     const c = clock();
