@@ -1,8 +1,9 @@
 // The branches for terrain above terrain (3D view, parts 6, 3 and 4, items 7 and 8; D207): the level-slice cutaway,
 // the soil per run top, and objects, falls and water lit by the air under a roof are compiled only on a map with
 // terrain above terrain, which no other spec opens. A 12² map with a roofed block, its cave's floor with its own soil,
-// a tree and a pool on it and a puddle on its roof, cut through its cave, draws in Standard and in High with no shader
-// error and with the terrain on screen; the falls' program is compiled with the branch too. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec
+// a tree, a slope, a ruin and a pool on it and a puddle on its roof, cut through its cave, draws in Standard and in High
+// with no shader error and with the terrain on screen, the ruin overgrown by its floor's soil (High's slope reads it
+// too); the falls' program is compiled with the branch too. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec
 // does, so the High look's programs are checked there too.)
 
 import { expect, test } from "@playwright/test";

@@ -130,9 +130,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   3 over its badwater floors; before and after; Standard and High; 1920×1080 dark and 1280×800 light): before,
   the river's banks under the roof are dry earth and Pressure's soaked floors clean; after, grass along the river
   and veins on the soaked floors.
-- **Falls short:** objects in caves still read their tile's top soil (a ruin's ivy, plants' looks; item 7). CI's
-  browser test checks the branch compiles and draws (`cutaway.spec.ts`, the light look's program too), not its
-  colours.
+- **Falls short:** CI's browser test checks the branch compiles and draws (`cutaway.spec.ts`, the light look's
+  program too), not its colours. (Objects on run tops read their run's soil since "Objects on their run top's soil".)
 
 ## Part 4: water per column (built, `feature/3d-view-water-columns`)
 
@@ -307,7 +306,7 @@ Standard's shadow before a cave (item 8).
   mouth, as in open air, the cave's least deep in; the sun the open air's at a mouth, fading going in to the volume's
   (High: its soft shadow of the real meshes, `ShaderHooks.roofedSun`), as the ground's does at the roof line. The branch is compiled only on a map with air under a roof (`CAVES`, the renderer's
   `setCaveBranch`, on the objects' and falls' materials of both looks); every other map draws them with the same
-  program as before. Objects still take their tile's top soil (a ruin's ivy, plants' looks).
+  program as before. Their looks by soil follow the run top they stand on (below, "Objects on their run top's soil").
 - **Standard's baked shadow from the voxels (item 8):** on a map with terrain above terrain the sweep (`light.ts`
   `shadowTopsInto`) carries each tile's rock from the map's floor as it carries a plain tile's height, and the runs
   above air are added along each sample's ray, lowered as the sweep lowers a height (`shadowRock`, `voxelTops`): of
@@ -337,8 +336,7 @@ Standard's shadow before a cave (item 8).
   (47,59); Pressure's tunnel and the mouth at (238,161); before and after, Standard and High, 1920×1080 dark, and the
   tunnels at 1280×800 light).
 - **Falls short:** deep interiors are murky by choice, and stone
-  in shade is dark in both looks (an open cliff in shade is as dark); objects' looks by soil under roofs are their
-  tile top's.
+  in shade is dark in both looks (an open cliff in shade is as dark).
 - **Known limits:** the shadow map keeps one top a sample, so a cliff face inside an overhang's shadow can show lit
   above a lit gap below it (the ground itself is right).
 - **A cave made after the map opened** (a Block dig or an Erode cave on a plain map; the usability pass's finding):
@@ -346,6 +344,39 @@ Standard's shadow before a cave (item 8).
   under a roof switches on the cutaway's branch, builds the light volume whole (once, about as long as a map with
   caves takes to open) and the roofed objects' branch, and the last one filled switches them off again. The cut opens
   into a hollow dug under it as it does on an imported cave map (`tests/e2e/cutaway.spec.ts`, its second test).
+
+## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
+
+D491 lets objects stand in caves, so an object's looks by soil follow the ground it stands on, not its tile's top.
+- **What:** `runSoil.ts` `objectSoilAt(soil, W, x, y, z)`: the soil an object at level z of a tile reads, its run
+  top's own where one is at that level below the tile's top (`SoilView.runs`), else the tile's top as before. What
+  reads it: a ruin's ivy (`entities3d.ts` `buildEntities`, both looks; the light look's ruins have none), so a ruin on
+  a soaked cave floor under a dry roof is overgrown and one on the dry roof bare; and High's slopes, whose grass reads
+  the run texture at the slope's own tile and level (`high/shaders.ts` `slopeHooks`, the same rule as `runSoilAt`),
+  only where `RUN_SOIL` is compiled (`highLook.ts` `runSoilMaterials`, switched with the terrain's). The renderer hands
+  a soil without runs (the page's soil growing toward the worker's) the last runs drawn, as the terrain keeps them.
+  Nothing else in the objects reads soil: trees, bushes, sources and the ghosts take their colours from their models
+  and flags, Standard's slopes have no grass, and withering (the Weather view's dead plants) is the core's and isn't
+  worked out on maps with caves yet (`session.ts`, `stackedMap`).
+- **Equivalence:** a map without run tops below a top has no `runs`: `objectSoilAt` gives the tile's top (the same
+  bytes as before) and `RUN_SOIL` is not defined, so every material compiles the program it did; checked by hashing
+  every Standard, light and High material's sources with the `RUN_SOIL` branches taken out, dev's and this branch's,
+  all equal (the Standard and light ones are unchanged byte for byte). Frames before and after, real Chrome headed,
+  River Valley 128 seed 4242, Standard and High, the whole map and a ruin close up, 1920×1080: the ruin 0 pixels
+  differ in both looks; the whole map 36 (Standard) and 10 (High), each by one step in one channel, on the moving
+  water.
+- **Tests:** `runSoil.test.ts`: on the hand-made cave with water, a tile whose floor is moist under a dry roof: an
+  object on the floor reads the floor's run top (`objectSoilAt`, and the run texture holds the same for the slope's
+  shader), one on the roof the top's; a ruin on the floor has ivy at its foot, the same ruin on the roof none; without
+  the runs, the top's. `cutaway.spec.ts` puts a slope and a ruin on the cave's floor: High's slope takes the branch,
+  no shader error in either look, and the ruin is overgrown.
+- **Captures:** `docs/sheets/3d-view-objects-run-soil.jpg`: a hand-made cave (a spring's stream across its floor out
+  through a tunnel, three ruins, bushes, birches and a slope on the moist floor under the dry roof), cut at 7,
+  Standard and High, dark and light, before and after, and High close up: before, the ruins bare and High's slope
+  grey; after, ivy at the ruins' feet and grass on the slope.
+- **Falls short:** ivy is chosen when the objects are built, so it follows a new soil on the next objects' build, as
+  on open ground. Plants under roofs have no soil look of their own to follow until withering runs on maps with caves
+  (the core's).
 
 ## Block tool's rendering (D488; `feature/block-tool-render`)
 
