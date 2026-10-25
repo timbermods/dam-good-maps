@@ -145,7 +145,7 @@ export function useReady(ed: Ed): ReadySlice {
       // a mode's water (D322): the map's own, never a drought's or a badtide's shown now
       water: () => (weatherRef.current ? surfaceWater(infoRef.current.W, infoRef.current.H, mirror.current.mapWater).surface : (mirror.current.water?.surface ?? null)),
       // the working area (D254, D259): the open selection
-      area: () => ed.workingArea(),
+      area: () => ed.workingArea(true),
       ring: (at, stroke) => clearGlow(at, stroke),
       select: (hit, ev) => {
         // Ctrl+drag: a rectangle (the Select tool opens with it)
@@ -206,7 +206,12 @@ export function useReady(ed: Ed): ReadySlice {
     r.onSlice = (level) => setSliceLevel(level);
     r.onMarkers = (on) => setMarkersOn(on);
     setMarkersOn(r.markers);
-    r.grab = (hit, ev) => grabSource(hit, ev) ?? ed.startCalls.current.grabStart(hit) ?? ed.grabObjectRef.current(hit);
+    // (a press takes what the pointer sees: an object on a cave's floor through its mouth, D491; on open ground the
+    // seen ground is the tile's top)
+    r.grab = (top, ev) => {
+      const hit = r.pickSeen(ev.clientX, ev.clientY) ?? top;
+      return grabSource(hit, ev) ?? ed.startCalls.current.grabStart(hit) ?? ed.grabObjectRef.current(hit);
+    };
     r.onWheel = (ev, hit) => wheelHabit(ev) || wheelSource(ev, hit);
     // a click with no tool out: a water or badwater source is picked, its strength and its water to
     // change (the water answers live); anything else puts it down

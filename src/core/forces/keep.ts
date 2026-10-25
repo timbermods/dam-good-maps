@@ -6,7 +6,8 @@
 // the sources it cleared (D474).
 
 import { areaDepth } from "../features/raster/brush";
-import { clearable, clears, SOURCES_DEFAULT, type ClearedSource } from "./clear";
+import type { EntitySpec } from "../format/entities";
+import { CLEARABLE, clearable, clears, SOURCES_DEFAULT, type ClearedSource } from "./clear";
 import { carveForceParams } from "./carve/result";
 import type { DepositRun } from "./deposit";
 import type { ErodeRun } from "./erode";
@@ -119,6 +120,17 @@ export function keptForceParams(input: KeptForceInput): { ok: true; params: Forc
     if (params.felled) params.felled = params.felled.filter((m) => here.has(m.id));
   }
   return { ok: true, params: withSources(params, before, request.settings.sources, input) };
+}
+
+/** How many water and badwater sources and seeps a kept force took with Sources set to Clear (D474): the ones Clear took
+ *  and the ones the force took itself (`removed`: Carve and Glaciate as they reach them, a Quake slide with the ground it moves), counted against the objects the
+ *  force started from; none with Ride. The editor says it after a force. */
+export function sourcesRemovedBy(p: ForceResultParams, before: { entities: readonly EntitySpec[] }): number {
+  if (!clears(p.settings.sources)) return 0;
+  const gone = new Set([...p.removed, ...(p.cleared ?? []).map((c) => c.id)]);
+  let n = 0;
+  for (const e of before.entities) if (gone.has(e.id) && CLEARABLE.has(e.template)) n++;
+  return n;
 }
 
 /** A kept force's Sources choice (D474) in its record (none given: Clear), and with Clear the sources

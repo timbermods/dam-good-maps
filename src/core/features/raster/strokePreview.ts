@@ -101,6 +101,8 @@ export class StrokePreview {
     this.start = heights.slice();
     this.last = heights.slice();
     this.pre = state.pre.slice();
+    // (held ground within its floor and ceiling, as the build sets it where the stroke reaches, D491)
+    for (const [i, lo, hi] of state.hold ?? []) if (i >= 0 && i < this.pre.length) this.pre[i] = Math.min(Math.max(this.pre[i], lo), hi);
     // (a target's stroke too, D322: exact, as a precise one was)
     this.precise = brushHard(settings);
     this.protect = this.precise || settings.sources === "keep" ? state.protect.slice() : state.protect;

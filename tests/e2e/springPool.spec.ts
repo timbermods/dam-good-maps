@@ -3,7 +3,7 @@
 // pool, in the same undo step as the switch. And the shelf's Badwater source shows green there.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -14,7 +14,7 @@ test("a clean source on uneven ground switched to badwater cuts its own spring p
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   // the middle of a 3 × 3 of dry, uneven ground with nothing on it, where the map takes the pointer
   const spot = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;

@@ -132,7 +132,7 @@ function Help(p: { onClose(): void }) {
           <li>Middle-drag turns the view, right-drag moves it, scroll zooms toward the pointer.</li>
           <li>Drag on the map to paint with the tool in hand.</li>
           <li>
-            Select an area first, and the brushes and forces stay inside it. With a brush in hand, Ctrl+drag marks one.
+            Select an area first, and the brushes and forces stay inside it. A brush in hand can mark one too.
           </li>
           <li>
             <strong>Undo</strong> and <strong>Redo</strong> are at the top right. <strong>History</strong> lists every step.

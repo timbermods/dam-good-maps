@@ -118,7 +118,10 @@ describe("a stroke's water after a force (D244's measurements)", () => {
     expect(at).not.toBeNull();
     const times: number[] = [];
     ed.listen((e) => {
-      if (e.kind === "water" && e.draft) times.push(performance.now());
+      // (the pacing's own timestamp: when the frame arrives also holds its building time, and a loaded
+      // machine's delivery jitter, so two frames sent 150 ms apart can arrive 136 ms apart; a frame from
+      // any other path carries none and counts at its arrival)
+      if (e.kind === "water" && e.draft) times.push(e.at ?? performance.now());
     });
     const h = ed.terrainNow().heights;
     const [x0, y0] = at!;

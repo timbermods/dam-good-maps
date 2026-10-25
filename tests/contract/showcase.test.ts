@@ -48,13 +48,15 @@ describe("Showcase mode (D488 (2))", () => {
     expect(b.valley.met).toBe(false);
     // the second: a district behind debris (a valley behind a gate) and an 11-level mesa in view
     expect(c.valley.met).toBe(true);
-    expect(c.valley.say).toMatch(/^A second district site 39 tiles out/);
+    expect(c.valley.say).toMatch(/^A wide, level second district site 39 tiles out/);
     // the debris counts once: in the valley, which has nothing else, not again as a mystery
     expect(c.mystery.met).toBe(false);
-    expect(c.drought.say).toMatch(/^Water 8 tiles' walk from the start holds through the first drought/);
+    // its nearest water holds and a farther one runs dry: no choice to face, some of the beat only
+    expect(c.drought.met).toBe(false);
+    expect(c.drought.strength).toBe(0.4);
     expect(c.landmark.say).toMatch(/^An 11-level mesa stands 18 tiles south of the start/);
-    // the best three, best first: the second sibling, the asked map, the first sibling
-    expect(res.best.map((p) => p.index)).toEqual([2, 0, 1]);
+    // the best three, best first: the asked map (its drought's choice), the second sibling, the first
+    expect(res.best.map((p) => p.index)).toEqual([0, 2, 1]);
     expect(res.best[0].note).toMatch(/^\d of 6 beats\. /);
     // a budget spent at once still makes one map, the asked map's own
     const once = await showcaseSearch(spec, { budgetMs: 0 });

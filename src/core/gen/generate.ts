@@ -85,9 +85,9 @@ import { planWeir } from "./weir";
 import { planPlug } from "./plug";
 import { badwaterBudget } from "../resources/badwater";
 import { finalChecks, foundIntention, settlerView, type IntentionResult } from "./intentions";
-import { toTimberFile } from "./pack";
-import { outcomesOf, PROMISES, type Outcomes } from "./outcomes";
-import { mapWords, type PlayFacts } from "./names";
+import { description, toTimberFile } from "./pack";
+import { outcomesOf, PROMISES, promiseSides, type Outcomes } from "./outcomes";
+import { mapSays, mapWords, type PlayFacts } from "./names";
 import { nearStartTargets, planResources } from "./resources";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
 import { ruinColumns } from "../resources/baseline";
@@ -230,6 +230,8 @@ export interface GenerateResult {
   /** Its name, and a line on how it plays (D278 (1b); gen/names.ts). */
   name?: string;
   description?: string;
+  /** What the map shows, as its description says it (names.ts `mapSays`); absent when no intention emerged. */
+  says?: string[];
   /** Milliseconds from the call: the first look (land and planned water), the first settled
    *  water, the finished map, and when each failed attempt ended (`failed`, in `failures`' order).
    *  Information only: nothing depends on them, and they are never part of the record. */
@@ -383,6 +385,9 @@ export function landScreen(W: number, H: number): number {
   const N = W * H;
   return N <= 128 * 128 ? 6 : N <= 192 * 192 ? 4 : 3;
 }
+/** Hidden lands of a long Lake Basin map at most drawn again because its settled water left the basin dry
+ *  (D488): each costs a settle. */
+const DRY_BASIN_REDRAWS = 4;
 /** How far round a start that failed the next attempt on the same land keeps off, from 128² up;
  *  less on smaller maps, as the distance bands shrink (`bandScale`): at 96² a disc of 16 took a
  *  tenth of the map a start, and three failed starts left a shown land no place for one (D363's
@@ -525,7 +530,7 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
   // (shown-land attempts in a row whose start found no place: the same settled water each time)
   let noStart = 0;
   // (lands drawn again before one is shown because their planned water misses an outcome)
-  const screened = { count: 0 };
+  const screened: { count: number; dry?: number } = { count: 0 };
   for (let attempt = 0; attempt < max; attempt++) {
     if (committed && land) {
       const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, committed, screened);
@@ -1502,7 +1507,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   return { h, hy, keep, ramps, blocked };
 }
 
-function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: GenerateOptions, t0: number, from: LandStage | null = null, screened: { count: number } = { count: Infinity }): Attempt {
+function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: GenerateOptions, t0: number, from: LandStage | null = null, screened: { count: number; dry?: number } = { count: Infinity }): Attempt {
   const g = land.g;
   const spec = specFor(specIn, g, attempt);
   // the spec the result carries: the player's, with the attempt accepted (the genome's tree species
@@ -1845,8 +1850,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         // or its own walled stretch is twice the promise's line; a main clipping a corner unwalled
         // left a creek and a lake to carry the gorge, Canyon 128² seed 27, Kyler's look at #261)
         const main = hy.rivers.find((r) => r.role === "river/main");
-        const gorged = W < 128 || (!!main && (mainCourse(main, W, H, !g.hydro.noInflows) >= 0.75 * Math.min(W, H) || walledRun(main, W, H, hLand, est).best >= 2 * Math.max(16, 0.16 * 128 * portable.sqrt(Math.min(W, H) / 128))));
-        const keeps = PROMISES[shown.theme].holds(po.signature, Math.min(W, H)) && gorged;
+        // (D488: on a long map too, whatever its width, the gorge is the main river's down the length: a
+        // thin strip's canyon was let through on a creek walled for 31 tiles, with 2% of the map wet)
+        const long = mapShape(W, H).long;
+        const course = promiseSides(W, H).course;
+        const gorged = (W < 128 && !long) || (!!main && (mainCourse(main, W, H, !g.hydro.noInflows) >= 0.75 * course || walledRun(main, W, H, hLand, est).best >= 2 * Math.max(16, 0.16 * 128 * portable.sqrt(course / 128))));
+        const keeps = PROMISES[shown.theme].holds(po.signature, W, H) && gorged;
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
           // A rejected Canyon course can be incised on the same shaped field.
@@ -1909,7 +1918,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const water = shown.theme === "lakeBasin" ? held : est;
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water, contamination: new Float64Array(N) }, features: rivers, intentions: [], planned: true });
         info.planned = { promise: po.promise, water: po.story.readable };
-        const keeps = shown.theme === "any" || PROMISES[shown.theme].holds(po.signature, Math.min(W, H));
+        const keeps = shown.theme === "any" || PROMISES[shown.theme].holds(po.signature, W, H);
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
           return fail(!keeps ? "promise (planned)" : "water story (planned)", null, false);
@@ -2413,6 +2422,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     b1 = build([...rivers, ...bad.features], "resources");
     if (!b1.settle.settled) return unsettled(b1);
   }
+  // (D488: a long Lake Basin's lake on the settled water, while its land is still hidden (a thin map, 128²
+  // and under): a basin its rivers leave dry, or a lake drained to a pool, passed on the plan's held lakes
+  // and showed an empty lake bed, 48×256 seeds 6, 9 and 11 at 5–8% water. Its land is drawn again, a few
+  // times at most)
+  if (shown.theme === "lakeBasin" && !lastAttempt && landStage && !landStage.shown && mapShape(W, H).long && (screened.dry ?? 0) < DRY_BASIN_REDRAWS) {
+    const po = outcomesOf({ spec: shown, built: { W, H, heights: b1.heights, water: b1.water, contamination: b1.contamination }, features: rivers, intentions: [] });
+    if (!PROMISES.lakeBasin.holds(po.signature, W, H)) {
+      screened.dry = (screened.dry ?? 0) + 1;
+      // (no stage: the land is let go, as one drawn again before it was shown; on a later attempt on it,
+      // stuck, which lets it go too)
+      return { ...fail("a dry basin", b1, false), stage: null, stuck: !!from };
+    }
+  }
   // ---- the start on the settled water, clear of the hollows and, where it can be, beyond the
   //      badwater distance from their water and soil (start.badwater: a target the settler aims for)
   const badWithin = spec.settings.start.rules.badwaterWithin;
@@ -2893,6 +2915,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the build keeps the field as the processes made it (a changed tile would mean the land was
   // not what was planned: never plan again on it)
   const same = sameBytes(built.heights, h);
+  // what the map shows is written into its description
+  const says = mapSays(intentions);
+  if (says.length && file.metadata) file = { ...file, metadata: { ...file.metadata, MapDescription: description(spec, built, says) } };
   const bytes = passed ? writeTimber(file) : new Uint8Array();
   return {
     passed,
@@ -2913,6 +2938,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       failures: [],
       field: fieldData(fieldOf(), W),
       intentions,
+      ...(says.length ? { says } : {}),
       info,
       timings: { firstLook, firstWater, final: Math.round(performance.now() - t0) },
     },
@@ -2937,7 +2963,7 @@ export function withoutSources(r: GenerateResult): Pick<GenerateResult, "built" 
   for (let k = 0; k + 1 < (fd.ramps ?? []).length; k += 2) ramps.push([fd.ramps![k], fd.ramps![k + 1]]);
   const field: GeneratedField = { heights: terrainColumns(fd, N).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), dry: { moist, poisoned } };
   const built = buildMap({ W, H, seed: r.spec.seed, features: r.features, field });
-  const file = toTimberFile(r.spec, built);
+  const file = toTimberFile(r.spec, built, r.says ? { says: r.says } : {});
   const v = validateMap(file, { profile: "generate", spec: r.spec, features: r.features, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0 });
   return { built, file, bytes: v.report.passed ? writeTimber(file) : new Uint8Array(), report: v.report, analysis: v.analysis, field: fieldData(field, W) };
 }
@@ -2977,8 +3003,8 @@ export function validateBuilt(spec: MapSpec, features: readonly Feature[], built
 
 /** Rebuild a saved generation's map: the same pure path the generator's download takes (PLAN
  *  §19.7), from its field and features, so the bytes are identical. */
-export function rebuild(spec: MapSpec, features: Feature[], field: GeneratedField | null = null): { built: BuildResult; bytes: Uint8Array; report: ValidationReport } {
+export function rebuild(spec: MapSpec, features: Feature[], field: GeneratedField | null = null, says: readonly string[] = []): { built: BuildResult; bytes: Uint8Array; report: ValidationReport } {
   const built = buildMap({ W: spec.size.x, H: spec.size.y, seed: spec.seed, features, ...(field ? { field } : {}) });
-  const file = toTimberFile(spec, built);
+  const file = toTimberFile(spec, built, says.length ? { says } : {});
   return { built, bytes: writeTimber(file), report: validateBuilt(spec, features, built, file).report };
 }
