@@ -3,11 +3,12 @@
 // described here, on the map that holds it, and with the ground it stands on.
 
 import { describe, expect, it } from "vitest";
-import { describeObject, describeTile, describeTileOf, tileWords, type TileFacts } from "../../src/core/doc/describeTile";
+import { describeObject, describeTile, describeTileOf, groundWords, runIndexAt, tileWords, type TileFacts } from "../../src/core/doc/describeTile";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { footprintTiles, ORIENTATIONS } from "../../src/core/format/footprints";
 import { makeSpec } from "../../src/core/spec/mapspec";
+import { build, t3CaveWater } from "../../tools/terrain3d-maps";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
@@ -112,6 +113,58 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
     expect(tileWords(describeTile(facts, 1, 1))).toBe("Slope · Water 0.6 deep, bed level 4");
     expect(tileWords(describeTile(facts, 2, 1))).toBe("Badwater 2.0 deep, bed level 4");
     expect(tileWords(describeTile(facts, 1, 2))).toBe("Pine, grown; Ruin, 2 levels, 30 scrap metal · Height 4, moist soil");
+  });
+
+  it("pointing at a cave's floor under a roof names the floor: its level, its soil, never the roof's (a run top below the tile's top)", () => {
+    // a tile whose roof tops at 13 over a floor topping at 3: the roof is dry soil, the floor moist, and water stands on a lower ledge
+    const facts: TileFacts = {
+      W: 4,
+      H: 4,
+      height: () => 13,
+      water: () => null,
+      soil: () => "dry",
+      objects: () => [],
+      runTop: (i, level) => (i !== 5 ? null : level === 3 ? { soil: "moist", water: null } : level === 1 ? { soil: null, water: { depth: 0.5, contamination: 0 } } : null),
+    };
+    expect(tileWords(describeTile(facts, 1, 1))).toBe("Height 13, dry soil");
+    expect(tileWords(describeTile(facts, 1, 1, 13))).toBe("Height 13, dry soil");
+    expect(tileWords(describeTile(facts, 1, 1, 3))).toBe("Height 3, moist soil");
+    expect(tileWords(describeTile(facts, 1, 1, 1))).toBe("Water 0.5 deep, bed level 1");
+    // a level the map says nothing of is named, with no soil claimed
+    expect(tileWords(describeTile(facts, 1, 1, 7))).toBe("Height 7");
+    expect(describeTile(facts, 1, 1, 3)!.ground).toMatchObject({ height: 3, soil: "moist", water: null });
+    // runs are counted from the bottom, the empty one under air first
+    expect(runIndexAt([1, 1, 0, 0, 1, 1, 0], 2)).toBe(0);
+    expect(runIndexAt([1, 1, 0, 0, 1, 1, 0], 6)).toBe(1);
+    expect(runIndexAt([0, 1, 1, 0], 0)).toBe(0);
+    expect(runIndexAt([0, 1, 1, 0], 3)).toBe(1);
+    expect(runIndexAt([1, 1, 0, 0, 1, 1, 0], 4)).toBe(-1);
+  });
+
+  it("on an imported map with caves, a floor under a roof reads its own level, not the roof's", () => {
+    const s = MapSession.importMap(build(t3CaveWater()).bytes, "T3.timber");
+    const W = s.size.x;
+    let found = 0;
+    for (const [i, v] of s.columns) {
+      const top = s.built.heights[i];
+      // each run top below the tile's top
+      for (let z = 0; z < v.length - 1; z++) {
+        if (!(v[z] && !v[z + 1]) || z + 1 >= top) continue;
+        const level = z + 1;
+        const x = i % W;
+        const y = (i - x) / W;
+        const d = describeTileOf(s, x, y, level)!;
+        expect(d.ground.height, `tile ${x},${y} level ${level}`).toBe(level);
+        expect(d.ground.height).not.toBe(top);
+        // the soil is the floor's own, as the readout words it
+        expect(groundWords(d.ground)).toMatch(new RegExp(`^(Height ${level}(, (moist|dry|contaminated) soil)?|(Water|Badwater) [\d.]+ deep, bed level ${level}.*)$`));
+        // the tile asked without a level, or at its top, is the roof as before
+        expect(describeTileOf(s, x, y)!.ground.height).toBe(top);
+        expect(describeTileOf(s, x, y, top)!.ground).toEqual(describeTileOf(s, x, y)!.ground);
+        found++;
+      }
+    }
+    expect(found).toBeGreaterThan(0);
   });
 
   it("the description follows the water: re-asking after the water under a tile changes gives the new depth, with nothing else to refresh", async () => {

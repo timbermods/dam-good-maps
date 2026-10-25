@@ -25,13 +25,13 @@ test("a map with caves: an edit's water settles in the background and shows when
   await page.getByLabel("Open a map or a project").setInputFiles({ name: "T3 caves.timber", mimeType: "application/zip", buffer: Buffer.from(bytes) });
   await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
   await waitForEditor(page);
-  expect(await page.evaluate(() => window.dgmEditor!.info().notices)).toEqual(["This map has caves or overhangs. The tools leave them as they are."]);
+  expect(await page.evaluate(() => window.dgmEditor!.info().notices)).toEqual(["This map has caves or overhangs. Brushes shape only their tops; the Block tool and Erode can change the rest."]);
 
   // the layer: its toggle, there from the start on a map with caves, and its words
   const layer = page.getByRole("checkbox", { name: "Caves and overhangs" });
   await expect(layer).toBeVisible();
   await layer.click();
-  await expect(page.getByText("Caves or overhangs, which the tools leave as they are")).toBeVisible();
+  await expect(page.getByText("Caves or overhangs: the brushes shape only their tops")).toBeVisible();
   await layer.click();
 
   // the map's checks have run once (their settle is the opened map's own)

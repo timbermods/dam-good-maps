@@ -1998,7 +1998,7 @@ export function footprintCheck(req: ToolRequest): { tiles: number[]; problem: st
 // ------------------------------------------------------------------------------ the water layers
 
 /** The editor's water layers (EDITOR_PLAN §3 view buttons, D287): badwater and the soil it spoils,
- *  and the tiles with caves or overhangs, which the tools leave as they are. Per-tile codes, for the page's
+ *  and the tiles with caves or overhangs, whose tops the brushes shape. Per-tile codes, for the page's
  *  overlay texture. (No moisture or drought layer: the land shows moisture, and the water bar's
  *  Drought shows a drought day by day.) */
 export interface WaterLayers {
@@ -2006,7 +2006,7 @@ export interface WaterLayers {
   H: number;
   /** 1 badwater, 2 soil its contamination spoils. */
   badwater: Uint8Array;
-  /** An imported map's tiles with a cave or an overhang: the tools leave them as they are. */
+  /** An imported map's tiles with a cave or an overhang: the brushes shape only their tops. */
   roofed: Int32Array;
   /** Why the water checks are approximate on this map (null: they are not). */
   approximate: string | null;

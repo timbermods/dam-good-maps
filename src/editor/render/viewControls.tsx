@@ -86,8 +86,8 @@ export function hoverHandler(ed: Ed) {
   } = ed;
 
   return (hit: TileHit | null) => {
-    ed.lastHover.current = hit ? { x: hit.x, y: hit.y } : null;
-    setHover(hit ? tileWords(describeTileFacts(pageTileFacts(), hit.x, hit.y)) : null);
+    ed.lastHover.current = hit ? { x: hit.x, y: hit.y, level: hit.level } : null;
+    setHover(hit ? tileWords(describeTileFacts(pageTileFacts(), hit.x, hit.y, hit.level)) : null);
     hoverSources(hit);
     // the source the pointer targets, whatever tool is picked (D249)
     const t = hit ? targetAt(hit.x, hit.y) : null;

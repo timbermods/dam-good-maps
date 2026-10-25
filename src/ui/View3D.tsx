@@ -235,7 +235,7 @@ export function View3D(props: View3DProps) {
     r.onHover = (hit) => {
       onHover.current?.(hit);
       if (!props.legendInCorner) return;
-      const k = hit ? `X ${hit.x} · Y ${hit.y} · Z ${r.heightAt(hit.x, hit.y)}` : "";
+      const k = hit ? `X ${hit.x} · Y ${hit.y} · Z ${hit.level ?? r.heightAt(hit.x, hit.y)}` : "";
       if (k === coordsRef.current) return;
       coordsRef.current = k;
       const el = coordsEl.current;
