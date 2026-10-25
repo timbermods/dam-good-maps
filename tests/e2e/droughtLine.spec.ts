@@ -2,7 +2,7 @@
 // worker has it, is put away while a Drought day is held and at the next edit, and comes back for the new map's version.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, topDown } from "./open";
+import { expectReady, openEditor, topDown } from "./open";
 
 const showing = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.droughtLineShowing);
 
@@ -49,6 +49,8 @@ test("hovering a lake in the Drought view says the day it dries, or that it last
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
   await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  // (the map's own water is the canonical settle's, which the Day 0 of both views is)
+  await expectReady(page);
   await topDown(page);
   // (a lake: a tile and its eight neighbours all hold water on Day 0; and a dry stretch of ground)
   const spots = await page.evaluate(() => {
@@ -107,6 +109,8 @@ test("hovering a lake in the Badtide view says the day it turns bad (D133)", asy
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
   await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  // (the map's own water is the canonical settle's, which the Day 0 of both views is)
+  await expectReady(page);
   await topDown(page);
   const lake = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
@@ -116,7 +120,8 @@ test("hovering a lake in the Badtide view says the day it turns bad (D133)", asy
       for (let x = 4; x < m.W - 4; x++) {
         let all = true;
         for (let dy = -2; dy <= 2 && all; dy++) for (let dx = -2; dx <= 2; dx++) if (!wet(x + dx, y + dy)) all = false;
-        if (all) out.push([x, y]);
+        // (not badwater on Day 0, which is under 5% bad: water already bad then says nothing)
+        if (all && m.surface.contamination[y * m.W + x] < 0.05) out.push([x, y]);
       }
     return out;
   });
@@ -124,15 +129,20 @@ test("hovering a lake in the Badtide view says the day it turns bad (D133)", asy
   const readout = page.locator(".readout");
   await page.getByRole("button", { name: "Badtide", exact: true }).click();
   await expect(page.locator(".day-words")).toHaveText("Day 8", { timeout: 60_000 });
-  // (the water's first bad day, somewhere on the lake: the badtide reaches a clean lake)
-  let said = "";
-  for (const spot of [lake[0], lake[Math.floor(lake.length / 2)], lake[lake.length - 1]]) {
+  // (the lake's water that was not bad on Day 0 and is badwater on the last day: each says the day it turned bad)
+  const turnedTiles = () =>
+    page.evaluate((tiles) => {
+      const m = window.dgm3d!.renderer.mapState()!;
+      return tiles.filter(([x, y]) => m.surface.depth[y * m.W + x] > 0.01 && m.surface.contamination[y * m.W + x] >= 0.05);
+    }, lake);
+  // (the day box says the day asked for at once; the day's water comes when it is worked out)
+  await expect.poll(async () => (await turnedTiles()).length, { timeout: 60_000 }).toBeGreaterThan(0);
+  const turned = await turnedTiles();
+  for (const spot of [turned[0], turned[Math.floor(turned.length / 2)], turned[turned.length - 1]]) {
     const p = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), spot);
     await page.mouse.move(p.x + 4, p.y);
     await page.mouse.move(p.x, p.y, { steps: 2 });
-    await expect(readout).toContainText("ater");
-    said += `${await readout.textContent()} `;
+    await expect(readout).toContainText(/Turns bad on day [1-9]\d*/);
   }
-  expect(said).toMatch(/Turns bad on day [1-9]\d*/);
   expect(errors).toEqual([]);
 });
