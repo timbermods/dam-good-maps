@@ -48,7 +48,7 @@ describe("Showcase mode (D488 (2))", () => {
     expect(b.valley.met).toBe(false);
     // the second: a district behind debris (a valley behind a gate) and an 11-level mesa in view
     expect(c.valley.met).toBe(true);
-    expect(c.valley.say).toMatch(/^A second district site 39 tiles out/);
+    expect(c.valley.say).toMatch(/^A wide, level second district site 39 tiles out/);
     // the debris counts once: in the valley, which has nothing else, not again as a mystery
     expect(c.mystery.met).toBe(false);
     expect(c.drought.say).toMatch(/^Water 8 tiles' walk from the start holds through the first drought/);

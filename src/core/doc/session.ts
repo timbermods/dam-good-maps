@@ -17,7 +17,7 @@
 //   state, never an approximate replay. An undo that would cross the save point before the
 //   comparison is in does the comparison first, right there.
 
-import { isTall, surfaceOf, TALL_NOTE, withTallNote } from "../format/world";
+import { generatedTallSentence, isTall, surfaceOf, TALL_NOTE, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
 import { buildMap, groundDropped, masksOf, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
@@ -1873,7 +1873,11 @@ export class MapSession {
     const spec = this.effectiveSpec(built);
     const notes = spec ? (spec.settings.water.sources === "none" ? [NO_SOURCES_NOTE] : spec.settings.hazards.badwater === "off" ? [NO_BADWATER_NOTE] : []) : this.badwaterRemoved(built) ? [NO_BADWATER_NOTE] : [];
     const credits = this.mode === "live" ? null : placeCredits(this.baseText());
-    return [...notes, ...(isTall(built.heights) ? [TALL_NOTE] : []), ...(credits ? [credits] : [])];
+    // (a generated map says its tall land in its own words, as its file does; an opened one in the editor's note)
+    let top = 0;
+    for (let i = 0; i < built.heights.length; i++) if (built.heights[i] > top) top = built.heights[i];
+    const tall = isTall(built.heights) ? [this.mode === "live" ? generatedTallSentence(top) : TALL_NOTE] : [];
+    return [...notes, ...tall, ...(credits ? [credits] : [])];
   }
 
   /** The description the map was opened with: its file's. */
