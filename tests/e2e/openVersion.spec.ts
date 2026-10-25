@@ -23,7 +23,7 @@ test("Open it keeps the map it replaces in Your maps, and the note names what th
   // the note, found by the background search
   const found = page.locator("p.floating", { hasText: "A version with" });
   await expect(found).toBeVisible({ timeout: 400_000 });
-  const said = (await found.innerText()).replace(/\s*Open it\s*×\s*$/, "");
+  const said = (await found.innerText()).replace(/\.?\s*Open it\s*×\s*$/, "");
   expect(said).toMatch(/^A version with .+ is ready$/);
   // (what it adds, not the theme's name as if the map lacked it)
   expect(said).not.toMatch(/its canyon/);

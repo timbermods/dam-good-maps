@@ -8,12 +8,13 @@
 // 256², the numbers item 29 asks for (information, never a failure).
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
-const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label);
+// (each step's label, less the sources a force's Sources: Clear took, D474: contract/forceClearSources checks that part)
+const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label.replace(/, (a source|\d+ sources) cleared/, ""));
 const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
 const timing = (page: Page) => page.evaluate(() => window.dgmEditor!.forceTiming());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
@@ -21,7 +22,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 async function openTopDown(page: Page, size: number) {
   await page.goto("about:blank");
   await openEditor(page, `s=4242&z=${size}&d=n&t=highlands`);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await idle(page);
 }
 

@@ -237,6 +237,17 @@ button.linkish {
     font-size: 0.9rem;
   }
 
+  /* the three buttons are always two rows, whatever the font: Download across, then Save and Refine side by side
+     (Save's words wrap inside its button rather than the row breaking into three) */
+  .place-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .place-actions > :first-child {
+    grid-column: 1 / -1;
+  }
+
   .filters {
     gap: 10px;
   }

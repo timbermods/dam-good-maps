@@ -4,7 +4,7 @@
 //
 // - Water objects (the two sources, the seeps, an aquifer, the badtide drain): a strength, which the game only caps
 //   from above (8 for each tile the object emits into: 72 for a badwater source, 32 for a seep), so a negative
-//   strength is a sink; and a start delay ("Starts: at once", or `days` days into cycle `cycles`), for every water
+//   strength drains; and a start delay ("Starts: at once", or `days` days into cycle `cycles`), for every water
 //   object but an aquifer.
 // - An unstable core: its radius (0 to 5) and its cycle and countdown.
 // - A reserve: the good it holds (one of its kind's) and how much (up to its capacity).
@@ -18,7 +18,7 @@ import { itemName } from "./labels";
 
 /** The options an object carries; what an object has none of is left out. */
 export interface ObjectOptions {
-  /** A water object's strength, in blocks a second (a sink below 0). */
+  /** A water object's strength, in blocks a second (a drain below 0). */
   strength?: number;
   /** A water object's start delay. */
   timed?: Timed;
@@ -233,7 +233,7 @@ export function delayWords(t: Timed): string {
 /** A sentence for a change of options (the history's label): what the player set. */
 export function describeChange(template: string, before: ObjectOptions, after: ObjectOptions): string {
   const name = itemName(template).replace(/^./, (c) => c.toUpperCase());
-  if (after.strength !== undefined && after.strength !== before.strength) return `${name}: ${after.strength < 0 ? `sink ${-after.strength}` : after.strength} water/s`;
+  if (after.strength !== undefined && after.strength !== before.strength) return `${name}: ${after.strength < 0 ? `drains ${-after.strength}` : after.strength} water/s`;
   if (after.timed && (after.timed.enabled !== before.timed?.enabled || after.timed.cycles !== before.timed?.cycles || after.timed.days !== before.timed?.days)) return `${name}: ${after.timed.enabled ? delayWords(after.timed) : "starts at once"}`;
   if (after.radius !== undefined && after.radius !== before.radius) return `${name}: radius ${after.radius}`;
   if ((after.cycles !== undefined && after.cycles !== before.cycles) || (after.days !== undefined && after.days !== before.days)) return `${name}: goes off in cycle ${after.cycles}`;
@@ -255,7 +255,7 @@ export interface MarkerNote {
 }
 
 /** The labels Markers shows on the water objects, cores and reserves: a plain question the page draws
- *  (D337, D338, D342). A plain source has none but for a delay or a sink. */
+ *  (D337, D338, D342). A plain source has none but for a delay or a drain. */
 export function markerNotes(entities: readonly { id: string; template: string; x: number; y: number; z: number; orientation: Orientation; flipped: boolean; raw?: JsonObject; before?: JsonObject; components: JsonObject }[]): MarkerNote[] {
   const out: MarkerNote[] = [];
   for (const e of entities) {
@@ -271,7 +271,7 @@ export function markerNotes(entities: readonly { id: string; template: string; x
       if (plain && strength >= 0 && !o.timed?.enabled) continue;
       const kind = e.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().replace(/^./, (c) => c.toUpperCase());
       words.push(plain ? "" : kind);
-      words.push(strength < 0 ? `sink ${-strength} ${bad}/s` : `${strength} ${bad}/s`);
+      words.push(strength < 0 ? `drains ${-strength} ${bad}/s` : `${strength} ${bad}/s`);
       if (spec.needsDrill) words.push("no water until a powered drill stands on it");
       if (spec.activeIn) words.push("only in a badtide");
       if (o.timed?.enabled) words.push(delayWords(o.timed));

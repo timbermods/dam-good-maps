@@ -78,6 +78,11 @@ describe("labels read 'Verb the thing', with articles and plurals", () => {
     expect(f("quake", { mode: "slide" })).toBe("Quake: slide");
     expect(f("carve", { dry: false })).toBe("Carve a river");
     expect(f("erupt", { mode: "fissure" })).toBe("Erupt a fissure");
+    // (its Sources: Clear took some, D474: said as a brush's Clear sources says it)
+    const cleared = (n: number) => forceLabel({ verb: "quake", settings: { mode: "lift" }, where: {}, cleared: Array.from({ length: n }, (_, k) => ({ id: `s${k}`, step: 0 })) } as never);
+    expect(cleared(1)).toBe("Quake: lift, a source cleared");
+    expect(cleared(3)).toBe("Quake: lift, 3 sources cleared");
+    expect(forceLabel({ verb: "carve", settings: { dry: false }, where: {}, replaces: 0, cleared: [{ id: "s", step: 2 }] } as never)).toBe("Try another path, a source cleared");
   });
 });
 

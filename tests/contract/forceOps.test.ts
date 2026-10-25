@@ -81,12 +81,12 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
     const at = farFromStart(s.built);
     const fault = faultAway(s.built);
     const cases: [string, ed.ForceRequest, RegExp][] = [
-      ["Craterize, Strike", { verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 45 }, origin: at, cut: null }, /^Craterize$/],
-      ["Craterize, Aim", { verb: "craterize", settings: { ...CRATER_DEFAULTS, mode: "aim", power: 45, rays: true }, origin: at, end: [at[0] + (at[0] < W / 2 ? 20 : -20), at[1]], cut: null }, /^Craterize$/],
-      ["Erupt, Vent", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 45 }, origin: at, cut: null }, /^Erupt$/],
-      ["Erupt, Fissure", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, mode: "fissure", power: 45 }, origin: at, path: [{ x: at[0] - 10, y: at[1] }, { x: at[0] + 12, y: at[1] + 3 }], cut: null }, /^Erupt a fissure$/],
-      ["Quake, Lift", { verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60 }, ...fault, cut: null }, /^Quake: lift$/],
-      ["Quake, Slide", { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 60 }, ...fault, cut: null }, /^Quake: slide$/],
+      ["Craterize, Strike", { verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 45 }, origin: at, cut: null }, /^Craterize(, (a source|\d+ sources) cleared)?$/],
+      ["Craterize, Aim", { verb: "craterize", settings: { ...CRATER_DEFAULTS, mode: "aim", power: 45, rays: true }, origin: at, end: [at[0] + (at[0] < W / 2 ? 20 : -20), at[1]], cut: null }, /^Craterize(, (a source|\d+ sources) cleared)?$/],
+      ["Erupt, Vent", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 45 }, origin: at, cut: null }, /^Erupt(, (a source|\d+ sources) cleared)?$/],
+      ["Erupt, Fissure", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, mode: "fissure", power: 45 }, origin: at, path: [{ x: at[0] - 10, y: at[1] }, { x: at[0] + 12, y: at[1] + 3 }], cut: null }, /^Erupt a fissure(, (a source|\d+ sources) cleared)?$/],
+      ["Quake, Lift", { verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60 }, ...fault, cut: null }, /^Quake: lift(, (a source|\d+ sources) cleared)?$/],
+      ["Quake, Slide", { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 60 }, ...fault, cut: null }, /^Quake: slide(, (a source|\d+ sources) cleared)?$/],
     ];
     for (const [name, req, label] of cases) {
       const n0 = history().length;
@@ -147,7 +147,8 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
     expect(more).toBeGreaterThan(20);
     expect(ed.forceStop().kept).toBe(true);
     expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(long));
-    expect(lastOp().label).toBe("Quake: lift");
+    // (its default Sources: Clear takes what its ground carries off, and the label says so, D474)
+    expect(lastOp().label).toMatch(/^Quake: lift(, (a source|\d+ sources) cleared)?$/);
     ed.settleWater();
   });
 

@@ -49,7 +49,7 @@ function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
 
 function eventBuffers(e: ed.EditorEvent): Transferable[] {
   if (e.kind === "instant" || e.kind === "withered") return [];
-  if (e.kind === "weather") return e.water ? (viewBuffers({ water: e.water }) as Transferable[]) : [];
+  if (e.kind === "weather") return [...(e.water ? (viewBuffers({ water: e.water }) as Transferable[]) : []), ...[e.firstDry, e.firstBad].flatMap((a) => (a ? [a.buffer as ArrayBuffer] : []))];
   return viewBuffers(e.kind === "water" ? { water: e.water } : e.view) as Transferable[];
 }
 
@@ -260,7 +260,7 @@ const api = {
   cropPlanAt: (r: { x: number; y: number; w: number; h: number }) => ed.cropPlanAt(r),
   cropTo: (r: { x: number; y: number; w: number; h: number }) => sendUpdate(ed.cropTo(r)),
   fillAt: (x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)),
-  moveObjectBy: (id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)),
+  moveObjectBy: (id: string, dx: number, dy: number, z?: number) => sendUpdate(ed.moveObjectBy(id, dx, dy, z)),
   clearEverything: () => sendUpdate(ed.clearEverything()),
   /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
   applySelection: (ops: EditOp[], label: string, tiles: number[]) => sendUpdate(ed.applySelection(ops, label, tiles)),

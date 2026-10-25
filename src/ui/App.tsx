@@ -16,6 +16,7 @@ import { cleanMapName } from "../core/doc/document";
 import { openYourMaps } from "../platform/yourMaps";
 import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
 import { compareProblem } from "../core/library/keptVersions";
+import { numberedName } from "./versionName";
 import { surfaceWater, type MapView } from "../render3d/model";
 import { YourMapsSaver } from "../core/library/saver";
 import {
@@ -40,8 +41,9 @@ import { thumbnailPixels } from "../core/render/thumb";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
-import { FirstLook, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
+import { FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
+import { useShowcase } from "./useShowcase";
 
 /** The generator and the open map's worker; Cancel ends it and the open map comes back in a new one. */
 let gen = createGeneratorWorker();
@@ -352,12 +354,17 @@ export function App() {
     // edits already made go in first, and its version is the worker's)
     const of = entry.current!;
     await pendingEdits.current?.();
+    // (the picture in a task of its own, never stacked on the edit or the water that just went in)
+    await new Promise((go) => setTimeout(go));
     const pic = picture.current?.();
     const thumbnail = (pic && thumbnailUrl(pic)) ?? of.thumbnail;
     const p = await generator.project(6);
-    const e = { ...of, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail };
+    // (its name and size from the worker and the page, so the save never unzips the project to read them)
+    const info = infoRef.current;
+    const size = of.size ?? (info ? { w: info.W, h: info.H } : undefined);
+    const e = { ...of, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail, ...(size ? { size } : {}) };
     if (entry.current?.id === of.id) entry.current = e;
-    return { entry: e, project: p.bytes };
+    return { entry: e, project: p.bytes, name: p.name };
   }
 
   /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. */
@@ -506,6 +513,7 @@ export function App() {
   /** History's Keep this version and Branch from here (src/core/library/keptVersions.ts): the open map as it stood at History
    *  step `k`, kept in Your maps as a map of its own, named for the map and the step and remembering where it came from.
    *  A branch is opened too, with its History through that step; a kept version leaves the open map where it is. */
+  const keepStore = useRef<Promise<void>>(Promise.resolve());
   async function keepStep(k: number, branch: boolean) {
     const open = entry.current;
     if (!open) return;
@@ -517,8 +525,8 @@ export function App() {
       let bytes = v.bytes;
       let picture = v.picture;
       if (!v.stored || !picture) {
-        // (the open map has no settled build of that step: it is built in a worker of its own, the editor never waits)
-        setNote(`Keeping ${v.name}…`);
+        // (the open map has no settled build of that step: it is built in a worker of its own, the editor never waits; its name is chosen once it is built, as it is stored, so the note names none)
+        setNote(`Keeping that version…`);
         const bg = createBackground();
         try {
           await bg.api.openVersion(bytes);
@@ -531,14 +539,23 @@ export function App() {
         }
       }
       const now = new Date().toISOString();
-      const e: YourMapEntry = { id: newId(), name: v.name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: picture ? thumbnailUrl(picture) : null, revision: 1, savedToTimberborn: null, bytes: bytes.length, size: v.size, parent: v.parent };
-      const r = await yourMaps.put(e, bytes, null);
+      // (a version's name is given, never asked: chosen as the map is stored, when Your maps already holds it it is numbered, as
+      // saved files are; the build above takes a while, and one kept or branched meanwhile must be seen. One at a time here, so two
+      // finishing together don't both see the name free)
+      const stored = keepStore.current.then(async () => {
+        const name = numberedName(v.name, (await yourMaps.list().catch(() => maps)).map((m) => m.name));
+        const e: YourMapEntry = { id: newId(), name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: picture ? thumbnailUrl(picture) : null, revision: 1, savedToTimberborn: null, bytes: bytes.length, size: v.size, parent: v.parent };
+        return { e, r: await yourMaps.put(e, bytes, null) };
+      });
+      keepStore.current = stored.then(() => undefined, () => undefined);
+      const { e, r } = await stored;
+      const name = e.name;
       const problem = storeProblem(r);
       if (problem) return setError(problem);
       const list = await yourMaps.list().catch(() => [e, ...maps]);
       setMaps(list);
       if (branch) guard(() => void openMap(e.id, list), "Branching");
-      else setNote(`Kept as ${v.name}`);
+      else setNote(`Kept as ${name}`);
     } catch (err) {
       setError(`That version was not kept: ${words(err)}`);
     }
@@ -759,8 +776,11 @@ export function App() {
       setMaking("making");
     }
     performance.mark("dgm:generate");
+    // (the open map's keeping comes first: a stop there is the dialog's, a refusal of the settings after it is a note)
+    let holding = over && !!entry.current && tries === 0;
     try {
-      if (over && entry.current && tries === 0 && !(await holdBack(id, "generating another"))) return null;
+      if (holding && !(await holdBack(id, "generating another"))) return null;
+      holding = false;
       setProgress({ attempt: 0, stage: "land", land: null });
       // (a seed typed as a word names the saved file, D345 B10)
       const word = seedText.trim();
@@ -785,7 +805,9 @@ export function App() {
         // the open map stays, and the seed box says its seed again, not the one that failed
         if (session?.kind === "generated" && session.spec) setSeedText(String(session.spec.seed));
         if (session) {
-          setMaking({ failed });
+          // (one line in the notes, the open map staying as it was; no dialog dims it)
+          setMaking(null);
+          setError(failed);
           return null;
         }
         setError(failed);
@@ -828,8 +850,12 @@ export function App() {
       return r;
     } catch (e) {
       if (id !== runId.current) return null;
-      if (over) setMaking({ failed: words(e) });
-      else setError(words(e));
+      if (over && holding) setMaking({ failed: words(e) });
+      else {
+        // (a refusal over an open map is one line in the notes, the map staying: no dialog dims it)
+        if (over) setMaking(null);
+        setError(words(e));
+      }
       return null;
     } finally {
       if (id === runId.current) {
@@ -1026,6 +1052,30 @@ export function App() {
     guard(() => void readFile(file).then((b) => openBytes(b, file.name)), `Opening ${file.name}`);
   }
 
+  /** Showcase mode (D488 (2)): its search runs in a worker of its own; a pick opens as a version found in the
+   *  background does (`openVersion`, the normal open path). */
+  const showcase = useShowcase({
+    spec,
+    takeSpec: () => {
+      // (an opened file has no seed of its own: one is rolled, shown in the box, as Generate does)
+      if (!blank) return spec;
+      const seed = randomSeed();
+      setBlank(false);
+      setSeedText(String(seed));
+      setSeedPinned(false);
+      return { ...spec, seed };
+    },
+    panelOpen: panel === "generator",
+    showPanel: () => setPanel("generator"),
+    openPick: (p) =>
+      guard(
+        () =>
+          void openVersion(p.response).catch((e) => setError(words(e))),
+        "Opening a showcase map",
+      ),
+    shownSpec: session?.kind === "generated" ? (session.spec ?? null) : null,
+  });
+
   // ---------------------------------------------------------------------------------- render
 
   const drawer: GeneratorModel = {
@@ -1075,6 +1125,7 @@ export function App() {
     name,
     nextName,
     onNextName: setNextName,
+    showcase: showcase.model,
   };
 
   // the confirm dialog: focus on Cancel, or on its yes when it says so (a delete: Enter confirms), or on Download project
@@ -1115,6 +1166,7 @@ export function App() {
         <p id="making-words" role="status">
           {typeof making === "object" ? making.failed : making === "back" ? "Opening your map…" : (makingWords ?? stageText(progress))}
         </p>
+        {typeof making === "object" ? null : <MakingCount progress={making === "making" && !makingWords ? progress : null} />}
         {typeof making === "object" ? null : <MakingWater />}
         <footer>
           {typeof making === "object" ? (
@@ -1171,11 +1223,23 @@ export function App() {
     </p>
   ) : version ? (
     <p class="error floating quiet" role="status">
-      {version.note}
+      {/* (the note has no full stop of its own; the space keeps the words and the button apart where the dock lays them out as text) */}
+      {version.note}.{" "}
       <button type="button" class="linkish" title="Open the version that was found" onClick={() => void openVersion(version.response, true)}>
         Open it
       </button>
       <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={() => setVersion(null)}>
+        ×
+      </button>
+    </p>
+  ) : showcase.notice ? (
+    <p class="error floating quiet" role="status">
+      {showcase.notice.text}
+      {" "}
+      <button type="button" class="linkish" title="Show the maps the search found" onClick={showcase.notice.show}>
+        Show them
+      </button>
+      <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={showcase.notice.dismiss}>
         ×
       </button>
     </p>
@@ -1218,6 +1282,7 @@ export function App() {
               <p id="making-words" role="status">
                 {stuck ? error : words}
               </p>
+              {stuck ? null : <MakingCount progress={opening ? null : progress} />}
               {stuck ? null : <MakingWater />}
               {stuck ? (
                 <footer>
@@ -1234,6 +1299,7 @@ export function App() {
       </>
     );
   }
+
 
   return (
     <>

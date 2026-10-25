@@ -38,6 +38,8 @@ export interface BlockSlice {
   blockCancel: () => boolean;
   /** What the tool shows now (tests). */
   blockState: () => { held: boolean; dragging: boolean; settings: BlockSettings; preview: BlockFalls | null; note: string | null };
+  /** Resolves once the preview has answered all it was asked (tests). */
+  blockAnswered: () => Promise<void>;
 }
 
 export function useBlockTool(ed: Ed): BlockSlice {
@@ -74,7 +76,11 @@ export function useBlockTool(ed: Ed): BlockSlice {
   const keyOf = paramsKey;
   /** The preview: the operation asked about last, the question on its way (its operation, and the map's version its face
    *  was picked on), the next to ask (and that version), the answer (and that version). */
-  const pv = useRef<{ key: string; inFlight: boolean; flight: string; at: number; queued: BlocksParams | null; queuedSeen: number; result: { key: string; f: BlockFalls; version: number } | null; note: string | null }>({ key: "", inFlight: false, flight: "", at: -1, queued: null, queuedSeen: -1, result: null, note: null });
+  const pv = useRef<{ key: string; inFlight: boolean; flight: string; at: number; queued: BlocksParams | null; queuedSeen: number; result: { key: string; f: BlockFalls; version: number } | null; note: string | null; answer: Promise<unknown> | null }>({ key: "", inFlight: false, flight: "", at: -1, queued: null, queuedSeen: -1, result: null, note: null, answer: null });
+  /** The face asked about again a moment after the map changed (its timer, 0: none), and the map's version that was last
+   *  looked at for it (the tests' `blockAnswered` waits for both). */
+  const repick = useRef(0);
+  const repickSeen = useRef(-1);
   const sizing = useRef<{ from: number; stop(): void } | null>(null);
 
   function clearShown() {
@@ -156,7 +162,9 @@ export function useBlockTool(ed: Ed): BlockSlice {
     s.at = seen;
     s.flight = key;
     try {
-      const f = await api.blockFalls(p);
+      const asked = api.blockFalls(p);
+      s.answer = asked.catch(() => undefined);
+      const f = await asked;
       // (an answer for a question since changed, or a map since edited, is dropped)
       if (key === s.key && version === infoRef.current.version && blockRef.current) {
         s.result = { key, f, version: seen };
@@ -299,6 +307,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
   // the map changed (an edit, an undo, a redo): the face under the pointer is asked about again
   useEffect(() => {
     if (!block) return;
+    repickSeen.current = info.version;
     const s = pv.current;
     // (the page draws the new version a moment after it has it: a question about a face picked on it, answered or on its
     // way and still wanted, is about the map as it is, and stays; a tool put away and picked up again asks afresh)
@@ -306,6 +315,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
     s.key = "";
     s.result = null;
     const id = window.setTimeout(() => {
+      repick.current = 0;
       const r = renderer.current;
       const l = last.current;
       if (!r || !blockRef.current || drag.current || sizing.current || !r.canvas.matches(":hover")) return;
@@ -313,7 +323,11 @@ export function useBlockTool(ed: Ed): BlockSlice {
       l.seen = infoRef.current.version;
       refresh();
     }, 90);
-    return () => window.clearTimeout(id);
+    repick.current = id;
+    return () => {
+      window.clearTimeout(id);
+      repick.current = 0;
+    };
   }, [info.version, block]);
 
   // the camera moves under a still pointer (the wheel, the keys): the face under it is another, so the preview asks again
@@ -430,7 +444,22 @@ export function useBlockTool(ed: Ed): BlockSlice {
   }
   useEffect(() => () => sizing.current?.stop(), []);
 
+  /** Resolves once the preview has answered all it was asked (tests): the pointer moves sent before it handled (the page
+   *  takes them at its next frame), the map's last change looked at, and no question on its way or about to be asked. */
+  async function blockAnswered(): Promise<void> {
+    const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+    for (;;) {
+      await frame();
+      const s = pv.current;
+      const caughtUp = !blockRef.current || repickSeen.current === infoRef.current.version;
+      if (caughtUp && !repick.current && !s.inFlight && !s.queued) return;
+      if (s.inFlight && s.answer) await s.answer;
+      // (the effect that looks at the map's change runs after the page draws it: a moment, then look again)
+      else await new Promise<void>((r) => setTimeout(r, 20));
+    }
+  }
+
   const blockState = () => ({ held: blockRef.current, dragging: !!drag.current, settings: settingsRef.current, preview: pv.current.result?.f ?? null, note: pv.current.note });
 
-  return { block, blockRef, blockSettings, blockFlip, blockNote, setBlockSettings, pickBlock, blockStep, startBlockSize, endBlockSize, blockCancel, blockState };
+  return { block, blockRef, blockSettings, blockFlip, blockNote, setBlockSettings, pickBlock, blockStep, startBlockSize, endBlockSize, blockCancel, blockState, blockAnswered };
 }

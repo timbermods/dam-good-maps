@@ -69,13 +69,13 @@ describe.each([
   it("features survive a JSON round trip and rebuild to the same bytes", () => {
     const features = JSON.parse(JSON.stringify(r.features)) as Feature[];
     expect(features).toEqual(r.features);
-    expect(sha(rebuild(r.spec, features, generatedField(r.field!, size, size)).bytes)).toBe(sha(r.bytes));
+    expect(sha(rebuild(r.spec, features, generatedField(r.field!, size, size), r.says).bytes)).toBe(sha(r.bytes));
   });
 
   it("the project file rebuilds the .timber byte for byte", () => {
     const doc = decodeProject(encodeProject(generatedDocument(r)));
     expect(doc.spec).toEqual(r.spec);
-    expect(sha(rebuild(doc.spec!, doc.features, generatedField(doc.field!, size, size)).bytes)).toBe(sha(r.bytes));
+    expect(sha(rebuild(doc.spec!, doc.features, generatedField(doc.field!, size, size), doc.meta.says).bytes)).toBe(sha(r.bytes));
     expect(sha(encodeProject(generatedDocument(r)))).toBe(sha(encodeProject(generatedDocument(r))));
   });
 

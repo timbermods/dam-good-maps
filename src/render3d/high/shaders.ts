@@ -238,12 +238,13 @@ export function terrainHooks(): ShaderHooks {
         // ground's own colour, before contamination's veins are, so the veins keep all their strength (D334)
         if (hlDry > 0.5) {
           vec4 season = texture2D(hlSeasonMask, (floor(gTile) + 0.5) / hlSeasonSize);
+          // (its patterns read for every pixel, outside the branch on the tile's mask: their mipmaps need every pixel of a quad)
+          float wear = vnoise(gTile * 0.61 + vec2(7.7, 19.3));
+          float splits = cracks(gTile * 1.41 + 29.3).x;
+          float blades = smoothstep(0.69, 0.86, vnoise(gTile * vec2(29.1, 8.7) + vec2(4.7, 9.2)));
           if (season.r > 0.5) {
-            float wear = vnoise(gTile * 0.61 + vec2(7.7, 19.3));
-            float splits = cracks(gTile * 1.41 + 29.3).x;
             vec3 earth = mix(vec3(0.48, 0.455, 0.415), vec3(0.61, 0.575, 0.50), wear);
             earth *= 1.0 - splits * 0.25 * detail;
-            float blades = smoothstep(0.69, 0.86, vnoise(gTile * vec2(29.1, 8.7) + vec2(4.7, 9.2)));
             earth = mix(earth, vec3(0.67, 0.62, 0.43), season.a * (0.22 + blades * 0.35));
             c = mix(c, earth, 0.66 * (1.0 - bad * 0.5));
           }
@@ -258,15 +259,16 @@ export function terrainHooks(): ShaderHooks {
         // the grade's saturation and warm balance spare dry earth, which the game draws a muted
         // brown-mauve from above (D346)
         if (hlGrade > 0.5) c = mix(dot(c, vec3(0.2126, 0.7152, 0.0722)) * vec3(0.97, 1.0, 1.05), c, mix(${g(DRY_EARTH_GRADE)}, 1.0, moist));`,
-    // the poisoned bed (#38): under polluted water, the ground's own contamination shows through
+    // the poisoned bed (#38): under polluted water, the ground's own contamination shows through. (The ground
+    // without its water is groundColor's own groundDry, never a second groundColor here: in this branch, which
+    // pixels next to each other may or may not take, its derivatives and its patterns' mipmaps would read
+    // undefined values, and the bed's veins changed from one frame to the next)
     groundTop: /* glsl */ `
           if (hlWater > 0.5 && d0.a > 0.002 && soil.w > 0.0 && clev > 0.0) {
             float polluted = texture2D(hlFlow, g / hlFlowSize).b * soil.w;
             if (polluted > 0.0) {
-              float poisonGlow;
-              vec3 poisoned = groundColor(vec4(soil.xyz, 0.0), g, detail, clev, poisonGlow);
-              ground = mix(ground, poisoned, polluted);
-              glow = mix(glow, poisonGlow, polluted);
+              ground = mix(ground, groundDry, polluted);
+              glow = mix(glow, groundDryGlow, polluted);
             }
           }`,
     // rock (#65's strata, D334's stone): olive stones of unequal size and slope, soft mortar between them
@@ -362,6 +364,10 @@ ${HIGH_WATER_GLSL}
     vec3 badCrest = mix(vec3(0.035, 0.023, 0.018) + vec3(0.008, 0.006, 0.004) * low, vec3(0.009, 0.007, 0.004) + vec3(0.0008, 0.0006, 0.0004) * low, smoothstep(0.25, 1.0, contamination));
     streakColour = body + mix(streakColour - cleanBody, badCrest, contamination);
     vec2 velocity = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
+    #ifdef CAVES
+      // (water below its tile's surface water: its own column's current, materials.ts ownFlowAt)
+      if (waterOwnFlow.a > 0.5) velocity = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
+    #endif
     float speed = smoothstep(0.02, 1.2, length(velocity));
     vec2 drift = velocity * 0.65 + vec2(0.018, -0.012) * (1.0 - speed);
     float phase = fract(t / 12.0), second = fract(t / 12.0 + 0.5);
@@ -387,6 +393,9 @@ ${HIGH_WATER_GLSL}
     float ribbons = mix(smoothstep(0.49, 0.72, vnoise(flowA * vec2(1.7, 0.7))), smoothstep(0.49, 0.72, vnoise(flowB * vec2(1.7, 0.7))), blend);
     float broad = mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend);
     float rough = texture2D(hlRough, g / hlFlowSize).r * hlRiver;
+    #ifdef CAVES
+      if (waterOwnFlow.a > 0.5) rough = waterOwnFlow.b * hlRiver;
+    #endif
     float highlights = (network * (0.18 + broad * 0.72) + ribbons * (0.16 + rough * 0.43)) * (0.35 + broad * 0.80);
     float rollA = vnoise(p * 0.70) * 0.50 + vnoise((p + direction * 1.7) * 0.70) * 0.30 + vnoise(p * 1.3 + 47.0) * 0.20;
     float rollB = vnoise(p2 * 0.70) * 0.50 + vnoise((p2 + direction * 1.7) * 0.70) * 0.30 + vnoise(p2 * 1.3 + 47.0) * 0.20;
@@ -462,6 +471,12 @@ export function waterHooks(): ShaderHooks {
             if (hlRiver > 0.5) {
               float strength = texture2D(hlRough, g / hlFlowSize).r;
               vec2 vel = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
+              #ifdef CAVES
+                if (waterOwnFlow.a > 0.5) {
+                  strength = waterOwnFlow.b;
+                  vel = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
+                }
+              #endif
               if (strength > 0.005) hlFoam = max(hlFoam, strength * 0.68 * smoothstep(0.40, 0.78, detailNoise(g * 1.71 - vel * hlT * 0.23)));
             }
             hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0) * 0.30;

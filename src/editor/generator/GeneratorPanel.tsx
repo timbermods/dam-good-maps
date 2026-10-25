@@ -2,7 +2,8 @@
 // closed by Map Generator in the header; opening it never resizes the map. It ends above the bar and its settings,
 // vertically centred in the room between them and the header, and shows every setting at once, nothing scrolling: a
 // title block (the next map's Name, Generate and Surprise me; Theme; Seed and Size), then the five groups in two columns
-// (Terrain, Water and Hazards; Resources, Difficulty and what is on the map), each setting on one line.
+// (Terrain, Water and Hazards; Resources, Difficulty and what is on the map), each setting on one line. Showcase… at the
+// foot of the second column opens Showcase mode's sheet over the two columns (Showcase.tsx).
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
@@ -11,6 +12,7 @@ import { tip } from "../../ui/Tooltip";
 import { fitsHeaderTwoLines, limitName } from "../nameFit";
 import { genFields, GROUPS, onThisMap, type GroupName } from "./fields";
 import type { GeneratorModel } from "./model";
+import { ShowcaseButton, ShowcaseSheet } from "./Showcase";
 
 /** Each group's picture, drawn as the bar's tools are (a 1.8 stroke). */
 const GROUP_ICONS: Record<GroupName, JSX.Element> = {
@@ -134,6 +136,18 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
     </section>
   );
   const counts = onThisMap(held);
+  const sc = m.showcase;
+  // (closing the sheet gives the focus back to the button that opened it, when the sheet had it)
+  const opener = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(sc.open);
+  useEffect(() => {
+    // (a short window scrolls the panel: the sheet opens from the panel's foot, so its head is brought into view)
+    const cols = root.current?.querySelector<HTMLElement>(".sheet-cols");
+    if (sc.open && !wasOpen.current && root.current && cols) root.current.scrollTop = Math.min(root.current.scrollTop, cols.offsetTop);
+    const at = document.activeElement;
+    if (wasOpen.current && !sc.open && (!at || at === document.body || root.current?.contains(at))) opener.current?.focus({ preventScroll: true });
+    wasOpen.current = sc.open;
+  }, [sc.open]);
   return (
     <aside ref={root} class={`gen${m.blank ? " blank" : ""}`} aria-label="Map Generator">
       <form
@@ -151,7 +165,7 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
             <NameField name={m.name} next={m.nextName} onNext={m.onNextName} />
             {f.seed}
           </div>
-          <button type="submit" class="primary sheet-act" disabled={m.busy} {...tip(m.changed ? "Make a new map from the changed settings" : "Make a new map", "Enter")}>
+          <button type="submit" class="primary sheet-act" disabled={m.busy} {...tip(m.changed ? "Make a map from the settings as changed" : "Make a map from the settings shown", "Enter")}>
             Generate
           </button>
           <div>{f.theme}</div>
@@ -160,11 +174,11 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
           </button>
           <div>{f.size}</div>
           {/* Another like this in Reset settings' place (Kyler, 2026-10-06): generated maps only, greyed on an opened one */}
-          <button type="button" class="ghost sheet-act" disabled={m.busy || !m.canAnother} {...tip(m.canAnother ? "A new map like this one, on different land" : "Only for a generated map")} onClick={m.onAnother}>
+          <button type="button" class="ghost sheet-act" disabled={m.busy || !m.canAnother} {...tip(m.canAnother ? "The open map's own settings, on new land" : "Only for a generated map")} onClick={m.onAnother}>
             Another like this
           </button>
         </div>
-        <div class="sheet-cols">
+        <div class={`sheet-cols${sc.open ? " covered" : ""}`}>
           <div class="sheet-col">
             {group("Terrain")}
             {group("Water")}
@@ -195,7 +209,10 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
                 })}
               </ul>
             </section>
+            {/* in the list's empty place at the column's foot, under Reset settings (the panel no taller) */}
+            <ShowcaseButton m={sc} refEl={opener} />
           </div>
+          {sc.open ? <ShowcaseSheet m={sc} /> : null}
         </div>
       </form>
       <div class={`gen-more${more ? " on" : ""}`} aria-hidden="true" />

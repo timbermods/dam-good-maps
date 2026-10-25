@@ -20,6 +20,7 @@ import { checkChannel } from "../features/route";
 import { checkSetPiece } from "../features/setpieces";
 import { BUILT_OBJECTS, fitProblems, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
 import { optionProblems } from "./objectOps";
+import { descriptionProblem } from "./description";
 import { paintParamProblems, type PaintParams } from "./paintParams";
 import { plainOf, type JsonValue } from "../format/json";
 import { mergeGame } from "../features/edits";
@@ -87,6 +88,10 @@ export interface OpParams {
    *  drag (terrain/blocks.ts). Refused, never clamped, when a cell is off the map or the layers or on
    *  an object, and when the result would leave ground the game drops. */
   blocks: BlocksParams;
+  /** The map's description, written by its player (doc/description.ts): the text the game shows with the
+   *  map. Empty text takes it away and the generated one is used again. It changes nothing on the map, so
+   *  it builds nothing. */
+  setDescription: { text: string };
 }
 
 export type { CropParams };
@@ -128,6 +133,8 @@ export interface UndoData {
   before?: Feature;
   /** Where the feature was (delete, reorder) or went (add). */
   index?: number;
+  /** The description written before a `setDescription` (null: none). */
+  description?: string | null;
 }
 
 interface Applied {
@@ -167,10 +174,12 @@ export interface DocState {
   /** Remove unfed water and Fill, in log order (the build makes the water model's stored water of
    *  them and the forces' oxbow lakes, by `seq`). */
   waterEdits: WaterOp[];
+  /** The description its player wrote (`setDescription`), or null: the generated one stands. */
+  description: string | null;
 }
 
 export function emptyState(features: readonly Feature[]): DocState {
-  return { features: clone(features as Feature[]), sculpts: [], slopeEdits: [], entityEdits: [], waterEdits: [] };
+  return { features: clone(features as Feature[]), sculpts: [], slopeEdits: [], entityEdits: [], waterEdits: [], description: null };
 }
 
 // ----------------------------------------------------------------------------------- dependencies
@@ -339,6 +348,10 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     case "crop":
       // (the session starts the cropped map's next generation; the state of this one is left as it is)
       return;
+    case "setDescription":
+      op.undo = { description: state.description };
+      state.description = op.params.text === "" ? null : op.params.text;
+      return;
     default:
       throw new Error(`${(op as { op: string }).op} is not a log operation`);
   }
@@ -426,6 +439,9 @@ export function invertOp(state: DocState, op: AppliedOp): void {
       return;
     case "crop":
       return;
+    case "setDescription":
+      state.description = op.undo!.description ?? null;
+      return;
     default:
       throw new Error(`${(op as { op: string }).op} is not a log operation`);
   }
@@ -476,6 +492,10 @@ export interface OpContext {
   /** The ground voxel by voxel (bit z of `masks[i]`: voxel z of tile i is solid): a map object feature
    *  that names its level under a roof is checked against it (D491, objects.ts `fitProblems`). */
   masks?: ArrayLike<number> | null;
+  /** The cells the objects standing hold, level by level, but those of the feature `owner` builds and
+   *  the resources (which make room): a map object feature at a level does not overlap them (D491,
+   *  placing.ts `objectCells`). */
+  objectCells?: (owner: string) => (x: number, y: number, z: number) => string | null;
   /** The ground the Block tool works on and the cells of the objects standing on it (a block
    *  operation is checked against them; the session gives them for one). */
   blocks?: { terrain: ColumnTerrain; ground: BlockGround };
@@ -607,7 +627,7 @@ function levelProblems(f: Feature, ctx: OpContext): string[] {
   const pl = f.params.placement;
   const name = OBJECT_NAMES[f.params.kind].toLowerCase();
   if (!ctx.masks || !ctx.heights) return [`the ${name}'s level can't be checked without the map's ground`];
-  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks }, pl);
+  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks, taken: ctx.objectCells?.(f.id) ?? null }, pl);
   return why.length ? [`the ${name} can't stand at level ${pl.z} there: ${why[0]}`] : [];
 }
 
@@ -760,6 +780,10 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         if (missing.length) return [`${template} needs the components ${missing.join(", ")}`];
       }
       return optionProblems(template, components);
+    }
+    case "setDescription": {
+      const why = descriptionProblem(op.params.text, state.description);
+      return why ? [why] : [];
     }
     case "pinSlope":
       return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];
