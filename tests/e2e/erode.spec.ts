@@ -3,7 +3,7 @@
 // shown, and one Ctrl+Z takes all of it back.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -45,7 +45,7 @@ async function high(page: Page): Promise<[number, number]> {
 
 test("Erode's row is Power, Size (Auto), the Floor and Try another, Try another ready once one is kept", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await expect(page.getByRole("group", { name: "Forces" }).getByRole("button", { name: "Erode (Shift+8)" })).toBeVisible();
   await page.keyboard.press("Shift+Digit8");
   const row = page.getByRole("group", { name: "Erode options" });
@@ -66,7 +66,7 @@ test("Erode's row is Power, Size (Auto), the Floor and Try another, Try another 
 
 test("a click wears the land there, kept as one step; one Ctrl+Z restores the map exactly", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await page.keyboard.press("Shift+Digit8");
   const row = page.getByRole("group", { name: "Erode options" });
   // a strong one, so there is something to see wherever the click lands
@@ -103,7 +103,7 @@ test("a click wears the land there, kept as one step; one Ctrl+Z restores the ma
 
 test("Try another and Tab between rolls: the view holds exactly the shown roll's hollows, none of another's", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await page.keyboard.press("Shift+Digit8");
   const row = page.getByRole("group", { name: "Erode options" });
   await row.getByRole("slider", { name: "Power" }).focus();

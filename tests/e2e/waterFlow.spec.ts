@@ -5,7 +5,7 @@
 // at the map's water again.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const wet = (page: Page) =>
@@ -47,7 +47,7 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const bar = page.getByRole("toolbar", { name: "Water time" });
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
   const i = await page.evaluate(() => window.dgmEditor!.info());

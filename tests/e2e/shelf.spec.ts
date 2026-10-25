@@ -7,7 +7,7 @@
 // the start stays. There is no Remove tool. (ROADMAP M7's object checks, through the shelf.)
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -15,7 +15,7 @@ const labels = async (page: Page) => (await info(page)).history.filter((h) => h.
 
 async function openTopDown(page: Page, hash: string) {
   await openEditor(page, hash);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
 }
 
 async function client(page: Page, x: number, y: number) {

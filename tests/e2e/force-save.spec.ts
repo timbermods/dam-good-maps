@@ -2,7 +2,7 @@
 // project, Save to Timberborn and Download .timber keep a running force first, so the file holds the land shown.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const land = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
 
@@ -33,7 +33,7 @@ test("Download project and Download .timber keep a paused force, and the file re
   for (const choice of ["Download project", "Download .timber"]) {
     await openEditor(page, "s=4242&z=256&d=n&t=highlands");
     await watchFiles(page);
-    await page.getByRole("button", { name: "Top-down", exact: true }).click();
+    await topDown(page);
     // (Slow forces: a Fast force ends as soon as its land is final, sooner than a slow machine's Space can pause it)
     const slow = page.getByRole("button", { name: "Slow forces", exact: true });
     if ((await slow.getAttribute("aria-pressed")) !== "true") await slow.click();

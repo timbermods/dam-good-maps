@@ -2765,7 +2765,7 @@ export class MapRenderer {
       const along = v.mode === "orbit" ? Math.hypot(cam[0] - p[0], cam[1] - p[1], cam[2] - p[2]) : v.distance;
       v = { ...v, target: [p[0], p[1], p[2]], distance: along };
     }
-    this.setView(viewAfterModeSwitch(v, mode));
+    this.setView(viewAfterModeSwitch(v, mode, this.map ? zoomLimits(this.map.W, this.map.H) : { min: 6, max: 768 }));
   }
 
   private glideFrameTo = 0;
@@ -3325,7 +3325,7 @@ export class MapRenderer {
       const now = performance.now();
       const h = this.held;
       // (cameraGlide.ts: eased in and out, a screen's height in about 1.4 s, Shift 2.5 times that)
-      const s = glideStep(this.glide, wanted(h, this.view.mode === "orbit"), (now - this.glideAt) / 1000);
+      const s = glideStep(this.glide, wanted(h, true), (now - this.glideAt) / 1000);
       this.glideAt = now;
       this.glide = s.glide;
       if (s.moving) {
