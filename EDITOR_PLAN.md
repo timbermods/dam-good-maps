@@ -263,8 +263,13 @@ place of its bottom rule.
     roofs, keeps the ground under every object: three levels down, and down to the map's bottom under the objects
     the game keeps only there (`rust/forces/src/erode.rs`). Only a stroke with nothing left to shape, or, as a last
     guard no tool reaches, an edit that would still lose such an object, is refused with one line. A feature edit clears an object at a level
-    when the game's rule no longer holds it on the ground after the edit. The start stays on open ground. A move under a roof keeps its level unless it names another. Strokes paint a roof's
-    top like any ground. A generated
+    when the game's rule no longer holds it on the ground after the edit. The start stands on open ground, or at a
+    level wholly under a roof, where the game keeps it: its 3×3×5 in air on level ground and ground at its door
+    (`core/doc/startFit.ts` `startRoofProblem`; `planStart`'s `z`, a start feature's `z`), with no bench and nothing
+    levelled; without a level it is refused where a cave or an overhang is, never put on the roof's top. A move under a roof keeps its level unless it names another. Strokes paint a roof's
+    top like any ground, or under a roof the level each tile names (`paintObjects` `levels`; `paint.ts` `paintLevels`
+    gives them from the pick's level), each object held to the game's rule there and a tile that can't hold one left
+    empty. A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
   - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one

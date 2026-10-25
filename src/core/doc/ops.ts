@@ -20,11 +20,12 @@ import { checkChannel } from "../features/route";
 import { checkSetPiece } from "../features/setpieces";
 import { BUILT_OBJECTS, fitProblems, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
 import { optionProblems } from "./objectOps";
-import { paintParamProblems, type PaintParams } from "./paintParams";
+import { paintLevelProblems, paintParamProblems, type PaintParams } from "./paintParams";
 import { plainOf, type JsonValue } from "../format/json";
 import { mergeGame } from "../features/edits";
 import { REQUIRED } from "../validate/checks";
-import type { Feature, FeatureKind } from "../features/schema";
+import type { Feature, FeatureKind, StartFeature } from "../features/schema";
+import { makesRoomForStart, START_OPEN_GROUND, startOverRoof, startRoofProblem } from "./startFit";
 import type { Runs } from "../math/grid";
 import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
@@ -607,12 +608,34 @@ function featureGeometryProblems(f: Feature, W: number, H: number): string[] {
 /** Why a map object feature that names its level (`placement.z`, under a roof) can't stand there, in one
  *  line: the game's rule on the map's ground and wholly under the roof (D491, objects.ts `fitProblems`). */
 function levelProblems(f: Feature, ctx: OpContext): string[] {
+  if (f.kind === "start") return startLevelProblems(f, ctx);
   if (f.kind !== "mapObject" || f.params.placement.z === undefined) return [];
   const pl = f.params.placement;
   const name = OBJECT_NAMES[f.params.kind].toLowerCase();
   if (!ctx.masks || !ctx.heights) return [`the ${name}'s level can't be checked without the map's ground`];
   const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks, taken: ctx.objectCells?.(f.id) ?? null }, pl);
   return why.length ? [`the ${name} can't stand at level ${pl.z} there: ${why[0]}`] : [];
+}
+
+/** Why a start feature can't stand where it is, in one line (D491): with a level (`z`), the game's rule wholly under the
+ *  roof (startFit.ts `startRoofProblem`); without one, open ground, never a cave or an overhang, where its bench would
+ *  shape a roof (`START_OPEN_GROUND`). The generation's plants and ruin columns make room for it. */
+function startLevelProblems(f: StartFeature, ctx: OpContext): string[] {
+  const { W, H } = ctx;
+  const [x, y] = f.params.position;
+  const z = f.params.z;
+  if (!ctx.masks || !ctx.heights) return z === undefined ? [] : ["the start's level can't be checked without the map's ground"];
+  const g = { W, H, heights: ctx.heights, mask: ctx.masks };
+  if (z === undefined) return startOverRoof(g, x, y, f.params.orientation) ? [START_OPEN_GROUND] : [];
+  const cells = ctx.objectCells?.(f.id);
+  const taken = cells
+    ? (cx: number, cy: number, cz: number) => {
+        const t = cells(cx, cy, cz);
+        return t && !makesRoomForStart(t, false) ? t : null;
+      }
+    : undefined;
+  const why = startRoofProblem(g, x, y, f.params.orientation, z, taken);
+  return why ? [`the start can't stand at level ${z} there: ${why}`] : [];
 }
 
 /** Why an operation cannot be applied now (empty when it can). */
@@ -771,7 +794,13 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at (${op.params.x}, ${op.params.y})`];
     case "paintObjects": {
       const errors = runsProblems(op.params.area, W, H, "the stroke's area");
-      return errors.length ? errors : paintParamProblems(op.params);
+      if (errors.length) return errors;
+      for (const l of op.params.levels ?? []) {
+        const e = runsProblems(l.area, W, H, `the tiles at level ${l.z}`);
+        if (e.length) return e;
+      }
+      const bad = paintParamProblems(op.params);
+      return bad.length ? bad : paintLevelProblems(op.params, W);
     }
     case "crop": {
       const why = cropRectProblem(op.params, W, H);

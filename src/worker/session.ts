@@ -19,7 +19,7 @@ import { applySelection as applySelectionStep, startCarry } from "../core/doc/st
 import { ForceRolls } from "../core/forces/rolls";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
-import { planPaintObjects } from "../core/doc/paint";
+import { paintLevels, planPaintObjects } from "../core/doc/paint";
 import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
@@ -1859,10 +1859,15 @@ export function plantAt(template: string, tiles: readonly number[]): SessionUpda
 }
 
 /** A stroke of trees, bushes or thorns from the shelf (D235): the core's `paintObjects` plan, with its density and age, as
- *  one step (core/doc/paint.ts). The tiles it planted, for the page's pop. */
-export function paintAt(params: PaintParams): SessionUpdate & { planted: number[] } {
+ *  one step (core/doc/paint.ts). `z`: the level the pick found under a roof (D491), which gives the stroke's tiles their
+ *  levels when the params name none (`paintLevels`). The tiles it planted, for the page's pop. */
+export function paintAt(params: PaintParams, z?: number): SessionUpdate & { planted: number[] } {
   const t0 = performance.now();
   const s = need();
+  if (z !== undefined && !params.levels) {
+    const levels = paintLevels(s, params.area, z);
+    if (levels.length) params = { ...params, levels };
+  }
   const plan = planPaintObjects(s, params);
   if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
   const r = s.applyBatch(plan.ops, "user", plan.label);
@@ -1996,13 +2001,13 @@ export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate 
 
 /** Move the map's start so its middle is at (x, y): the start feature of a generated map, or an
  *  imported map's own StartingLocation; with none, the shelf's Start places one (core/doc/tools.ts
- *  `planStart`). */
-export function moveStartTo(x: number, y: number, orientation?: Orientation): SessionUpdate {
+ *  `planStart`). `z`: the level under a roof it stands on (D491), as the pick found it. */
+export function moveStartTo(x: number, y: number, orientation?: Orientation, z?: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return changed(s, false, [blocked], t0);
-  const p = planStart(s, x, y, orientation, () => crypto.randomUUID());
+  const p = planStart(s, x, y, orientation, () => crypto.randomUUID(), z);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
   return changed(s, r.ok, r.errors, t0);

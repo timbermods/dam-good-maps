@@ -8,7 +8,8 @@ import type { BuildResult } from "../features/build";
 import { inBench } from "../features/raster/terrain";
 import { BUILDERS } from "../features/setpieces";
 import { entityTiles } from "../features/edits";
-import { makesRoomForStart, startFitProblem } from "./startFit";
+import { makesRoomForStart, startFitProblem, startRoofProblem } from "./startFit";
+import { objectCells } from "./placing";
 import { startEntranceTile, startMiddleTile, type Orientation } from "../format/footprints";
 import type { StartFeature } from "../features/schema";
 import type { EditOp } from "./ops";
@@ -93,7 +94,8 @@ export function moveStartNear(s: MapSession, fromX: number, fromY: number, level
         if (!ok || startProblem(b, x, y, o, level, feat.id, pieces)) continue;
         const benchLevel = Math.max(1, b.heights[y * W + x]);
         if ((level || allowed) && !benchFits(b, x, y, o, rr, level ? benchLevel : null, allowed)) continue;
-        return [...startClears(s, x, y, o), { op: "updateFeature", params: { id: feat.id, patch: { params: { position: [x, y], benchLevel, bank: null } } } }];
+        // (a start under a roof comes out onto the top, D491)
+        return [...startClears(s, x, y, o), { op: "updateFeature", params: { id: feat.id, patch: { params: { position: [x, y], benchLevel, bank: null, ...(feat.params.z !== undefined ? { z: null } : {}) } } } }];
       }
       if (startProblem(b, x, y, o, true, ent!.owner, pieces)) continue;
       if (allowed && !benchFits(b, x, y, o, 0, null, allowed)) continue;
@@ -128,9 +130,10 @@ function benchFits(b: BuildResult, x: number, y: number, o: Orientation, r: numb
 /** The generation's trees, bushes and ruin columns under a start moved to (x, y) (its footprint and
  *  its entrance), removed in the step that puts the start there: without the removal the build
  *  would only keep them aside while the start stands on them, and moving it on would bring them
- *  back (D368 (10): only the player places objects). Empty for a map that keeps no generation's
- *  record. */
-export function startClears(s: MapSession, x: number, y: number, o: Orientation): EditOp[] {
+ *  back (D368 (10): only the player places objects). `z`: the level a start under a roof stands on
+ *  (D491): only what grows on that floor goes, never what stands on the roof's top above it. Empty for
+ *  a map that keeps no generation's record. */
+export function startClears(s: MapSession, x: number, y: number, o: Orientation, z?: number): EditOp[] {
   const kept = s.generatedResources();
   if (!kept) return [];
   const { W } = s.built;
@@ -139,7 +142,7 @@ export function startClears(s: MapSession, x: number, y: number, o: Orientation)
   const [cx, cy] = cornerFor(x, y, o);
   const door = startEntranceTile(cx, cy, o);
   under.add(door[1] * W + door[0]);
-  const ids = s.built.entities.filter((e) => kept.has(e.owner) && under.has(e.y * W + e.x)).map((e) => e.id);
+  const ids = s.built.entities.filter((e) => kept.has(e.owner) && under.has(e.y * W + e.x) && (z === undefined || e.z === z)).map((e) => e.id);
   return ids.length ? [{ op: "deleteEntities", params: { entities: ids } }] : [];
 }
 
@@ -158,6 +161,13 @@ export function startBrokenBy(s: MapSession, changed: ReadonlySet<number>): bool
   const tiles = [door[1] * W + door[0]];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + x + dx);
   if (!tiles.some((i) => changed.has(i))) return false;
+  // (under a roof, the game's rule at its level: the tools shape only the roof's top, D487, D491)
+  const z = feat ? feat.params.z : ent!.z < b.heights[ent!.y * W + ent!.x] ? ent!.z : undefined;
+  if (z !== undefined) {
+    const own = feat ? feat.id : ent!.owner;
+    const cells = objectCells(b.entities, W, b.H, (e) => e.owner === own || makesRoomForStart(e.template, !!e.raw));
+    return startRoofProblem({ ...s.standGround(), heights: b.heights }, x, y, o, z, cells) !== null;
+  }
   const why = startProblem(b, x, y, o, true, feat ? feat.id : ent!.owner, pieceTiles(s));
   return why !== null && why !== "under water";
 }

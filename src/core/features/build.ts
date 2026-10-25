@@ -632,8 +632,8 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   //    (a river read back from the field marks its channel on the field's ground)
   for (const f of input.features) if (f.kind === "lake" && live(f) && !carved(f)) rasterizeLake(f, t);
   for (const f of input.features) if (f.kind === "river" && live(f)) (carved(f) ? markRiverChannel : rasterizeRiver)(f, t);
-  // 5. the start bench (and, later, object pads)
-  for (const f of input.features) if (f.kind === "start" && live(f)) rasterizeBench(f, t);
+  // 5. the start bench (and, later, object pads); a start under a roof has none (D491)
+  for (const f of input.features) if (f.kind === "start" && live(f) && f.params.z === undefined) rasterizeBench(f, t);
   // 6. sculpt edits and brush strokes, in order (on an import's caves and overhangs a brush shapes
   //    the top run only, never below one layer over the roof's underside, D280 (3)). The
   //    generation's slopes are checked after the features and after each edit: one an edit's ground
@@ -760,7 +760,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   let startInfo: BuildResult["start"];
   if (start) {
     const [cx, cy] = start.params.position;
-    startInfo = { x: cx, y: cy, z: heights[cy * W + cx], feature: start.id };
+    startInfo = { x: cx, y: cy, z: start.params.z ?? heights[cy * W + cx], feature: start.id };
     for (let y = cy - START_CLEAR_RADIUS; y <= cy + START_CLEAR_RADIUS; y++)
       for (let x = cx - START_CLEAR_RADIUS; x <= cx + START_CLEAR_RADIUS; x++)
         if (x >= 0 && x < W && y >= 0 && y < H) reserved[y * W + x] = 1;
@@ -1322,7 +1322,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     const [cx, cy] = start.params.position;
     const o = start.params.orientation;
     const [x, y] = coordinatesForMinCorner(3, 3, cx - 1, cy - 1, o);
-    entities.push(startingLocation({ id: entityId(start.id, "StartingLocation", 0), owner: start.id, x, y, z: heights[cy * W + cx], orientation: o, player: start.params.player }));
+    // (under a roof, at its level: a cave's floor, the ground under a ledge, D491)
+    entities.push(startingLocation({ id: entityId(start.id, "StartingLocation", 0), owner: start.id, x, y, z: start.params.z ?? heights[cy * W + cx], orientation: o, player: start.params.player }));
   }
 
   // 13. the second pass of entity edits, on what only exists now

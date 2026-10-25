@@ -268,7 +268,8 @@
         "benchRadius": { "type": "integer", "minimum": 2, "maximum": 12 },
         "benchLevel": { "type": "integer", "minimum": 1, "maximum": 22 },
         "bank": { "$ref": "#/$defs/point" },
-        "player": { "type": "integer", "minimum": 0, "maximum": 3 }
+        "player": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "z": { "description": "The level it stands on under a roof (a cave floor, the ground under a ledge), below the ground's top at its middle: its 3x3 wholly under the roof, no bench; omitted, the top with its bench (D491).", "type": "integer", "minimum": 0, "maximum": 22 }
       }
     }
   }
