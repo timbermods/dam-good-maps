@@ -329,16 +329,20 @@ async function main() {
     for (const look of LOOKS)
       for (const [size, viewport, scheme] of sizes) {
         if (!SIZES.includes(size)) continue;
-        const context = await browser.newContext({ viewport, deviceScaleFactor: 1, colorScheme: scheme });
-        await context.addInitScript(`try { localStorage.setItem('dgm.look', '${look}'); } catch {}`);
-        await context.addInitScript("window.__name = (f) => f");
-        const page = await context.newPage();
-        page.on("pageerror", (e) => errors.push(String(e)));
-        page.on("console", (m) => m.type() === "error" && errors.push(m.text().slice(0, 300)));
-        if (want("erode") && size === "1920") await erode(page, look, size, shots);
-        if (want("dig") || want("overhang") || want("tool")) await cliffEdits(page, look, size, shots);
-        if (want("hollows")) await hollows(page, look, size, shots);
-        await context.close();
+        // (each scene in a context of its own: the page reopens an address on the project it last edited there)
+        const scene = async (run: (page: Page) => Promise<void>) => {
+          const context = await browser.newContext({ viewport, deviceScaleFactor: 1, colorScheme: scheme });
+          await context.addInitScript(`try { localStorage.setItem('dgm.look', '${look}'); } catch {}`);
+          await context.addInitScript("window.__name = (f) => f");
+          const page = await context.newPage();
+          page.on("pageerror", (e) => errors.push(String(e)));
+          page.on("console", (m) => m.type() === "error" && errors.push(m.text().slice(0, 300)));
+          await run(page);
+          await context.close();
+        };
+        if (want("erode") && size === "1920") await scene((page) => erode(page, look, size, shots));
+        if (want("dig") || want("overhang") || want("tool")) await scene((page) => cliffEdits(page, look, size, shots));
+        if (want("hollows")) await scene((page) => hollows(page, look, size, shots));
       }
     const page = await browser.newPage();
     await sheet(page, shots);
