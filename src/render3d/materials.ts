@@ -66,10 +66,10 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
-import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, type TileSpan } from "./light";
+import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { CAVE_SKY_FLOOR, LIGHT_LEVELS, type CaveLight } from "./caveLight";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 
@@ -137,6 +137,16 @@ export interface SceneUniforms {
    *  `RUN_SOIL` branch is compiled (a map with terrain above terrain); elsewhere the light volume's
    *  placeholder, never read. */
   runTex: { value: Data3DTexture };
+  /** The current and rough water of the water below each tile's surface water (caveCurrent.ts): RGBA a cell from level
+   *  `caveFlowLevels.x`, `caveFlowLevels.y` levels (0: none, the flow texture everywhere), read only where the water's
+   *  `CAVES` branch is compiled. */
+  caveFlowTex: { value: Data3DTexture };
+  caveFlowLevels: { value: Vector2 };
+  /** The overlay on one run per tile (overlayRuns.ts: a selection taken on a cave's floor), RGBA a tile; read only on a
+   *  map with terrain above terrain (the terrain's `CUTAWAY`, the water's `CAVES`), the placeholder elsewhere. */
+  overlayRuns: { value: DataTexture };
+  /** What the rest of such a tile's column takes instead of its overlay (the land outside the selection), 0–1. */
+  overlayRest: { value: Vector4 };
 }
 
 export function sceneUniforms(W: number, H: number, tile: DataTexture, light: DataTexture, overlay: DataTexture, marks: DataTexture, edges: DataTexture = overlayTexture(1, 1), sites: DataTexture = overlayTexture(1, 1)): SceneUniforms {
@@ -171,7 +181,30 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     caveSize: { value: new Vector3(0, 0, 0) },
     caveTop: { value: 0 },
     runTex: { value: noCave },
+    caveFlowTex: { value: noCaveCurrent() },
+    caveFlowLevels: { value: new Vector2(0, 0) },
+    overlayRuns: { value: overlayTexture(1, 1) },
+    overlayRest: { value: new Vector4(0, 0, 0, 0) },
   };
+}
+
+let noCaveFlow: Data3DTexture | null = null;
+/** The cave current's placeholder (one still cell), shared: never read while `caveFlowLevels.y` is 0. */
+export function noCaveCurrent(): Data3DTexture {
+  return (noCaveFlow ??= caveCurrentTexture(new Uint8Array([128, 128, 0, 0]), 1, 1, 1));
+}
+
+/** The current of the water below each tile's surface water as a 3D texture (caveCurrent.ts), filtered across tiles
+ *  as the flow texture is (the shader samples a level's middle, so levels never blend). */
+export function caveCurrentTexture(data: Uint8Array, W: number, H: number, levels: number): Data3DTexture {
+  const t = new Data3DTexture(data, W, H, levels);
+  t.format = RGBAFormat;
+  t.type = UnsignedByteType;
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearFilter;
+  t.unpackAlignment = 1;
+  t.needsUpdate = true;
+  return t;
 }
 
 /** The soil per run top as a 3D texture (runSoil.ts): read cell by cell (`texelFetch`), never filtered. */
@@ -559,6 +592,22 @@ const CAVE_AIR = /* glsl */ `vec4 tileAt(vec2 t) {
       }
 `;
 
+/** Shared GLSL: the overlay on one run (overlayRuns.ts), on a map with terrain above terrain only. */
+const OVERLAY_RUN = /* glsl */ `uniform sampler2D overlayRuns;
+      uniform vec4 overlayRest;
+      /** The overlay o of tile t at height y, where the overlay names one run of the tile (a selection taken on a
+       *  cave's floor, a ledge under an overhang): o on that run's top (or the cut capping it) and walls (face 1 a
+       *  top, 0 a wall, -1 an underside) and on the water over it (face 2), overlayRest on the rest of the column. */
+      vec4 overlayOnRun(vec4 o, vec2 t, float y, float face) {
+        vec4 r = floor(texture2D(overlayRuns, (t + 0.5) / mapSize) * 255.0 + 0.5);
+        if (r.x < 0.5) return o;
+        bool on = face > 1.5 ? y > r.y - 0.05 && y < r.w + 0.05
+          : face > 0.5 ? y > min(r.z + 1.0, r.y) - 0.01 && y < r.y + 0.01
+          : face > -0.5 && y > r.z - 0.01 && y < r.y + 0.01;
+        return on ? o : overlayRest;
+      }
+`;
+
 /** Objects and falls under a roof (3D view, item 7; only on a map with terrain above terrain, `CAVES`): the light of
  *  the air a point stands in, from the light volume, as the ground round it takes it. x the sky, y the sun (0–1), z 1
  *  where that air is under a roof; elsewhere z is 0 and the open air's light stands. */
@@ -580,6 +629,25 @@ const CAVE_POINT = /* glsl */ `
        *  whole sky), a cave's least deep in. */
       float roofedSky(float sky) {
         return mix(1.0, ${f(CAVE_SKY_FLOOR)}, roofedDeep(sky));
+      }
+      #endif`;
+
+/** Water below its tile's surface water (a cave's under a wet roof; only on a map with terrain above terrain, `CAVES`):
+ *  its own column's current and rough water from the cave current's volume (caveCurrent.ts), at the level it stands
+ *  in, filtered across tiles at that level. `waterOwnFlow` holds it for the fragment (RG the current as the flow
+ *  texture packs it, B the rough water, A 1), A 0 where the flow texture stands (each tile's surface water). */
+const CAVE_FLOW = /* glsl */ `
+      #ifdef CAVES
+      uniform highp sampler3D caveFlowTex;
+      uniform vec2 caveFlowLevels;
+      vec4 waterOwnFlow = vec4(0.0);
+      vec4 ownFlowAt(vec3 world) {
+        if (caveFlowLevels.y < 0.5) return vec4(0.0);
+        vec3 q = vec3(world.x, -world.z, world.y - caveFlowLevels.x);
+        vec3 cell = floor(q);
+        if (any(lessThan(cell, vec3(0.0))) || any(greaterThanEqual(cell, vec3(mapSize, caveFlowLevels.y)))) return vec4(0.0);
+        if (texelFetch(caveFlowTex, ivec3(cell), 0).a < 0.5) return vec4(0.0);
+        return vec4(textureLod(caveFlowTex, vec3(q.xy / mapSize, (cell.z + 0.5) / caveFlowLevels.y), 0.0).rgb, 1.0);
       }
       #endif`;
 
@@ -745,6 +813,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       centroid varying vec3 vWorld;
       varying vec3 vNormal;
       ${common(h)}
+      #if CUTAWAY
+      ${OVERLAY_RUN}
+      #endif
       ${CAVE_AIR}      /** The light of the air a face looks into, half a cell along its normal (caveLight.ts, whose
        *  caveSample does the same): x the sky, y the sun (0–1), z 1 where that air is under a roof. In
        *  open air, in rock (the slice's cut), outside the map and on a map without roofs z is 0, and
@@ -869,11 +940,16 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float f = vnoise(g * 5.3 + 3.0);
         return mix(${glColor(JUICE.ashDark)}, ${glColor(JUICE.ashPale)}, smoothstep(0.22, 0.78, b)) * (0.9 + 0.2 * f);
       }
-      /** moisture level (0–15), contamination (0–15), under water (0/1), sky (0–1) */
+      /** moisture level (0–15), contamination (0–15), under water (0/1), sky (0–1). Under water only where the water's
+       *  surface is drawn: a layer cut takes away the water standing above it (the water's shader), and the ground that
+       *  water covered is then a top like any other, not a bed seen through water. */
       vec4 soilOf(vec4 d) {
         float g = floor(d.g * 255.0 + 0.5);
         float m = floor(g / 16.0);
-        return vec4(m, g - m * 16.0, d.a > 0.002 ? 1.0 : 0.0, d.b);
+        // (the water byte, light.ts waterByte: steps of a sixtieth to three levels deep, whole levels deeper)
+        float wb = floor(d.a * 255.0 + 0.5);
+        float surface = heightOf(d) + (wb <= ${f(WATER_BYTE_FINE)} ? (wb - 1.0) / ${f(WATER_BYTE_STEPS)} : wb - ${f(WATER_BYTE_FINE - 3)});
+        return vec4(m, g - m * 16.0, d.a > 0.002 && surface <= slice + 0.05 ? 1.0 : 0.0, d.b);
       }
       #ifdef RUN_SOIL
         // the soil of the run tops below each tile's top (runSoil.ts; only on a map with terrain above terrain)
@@ -1011,6 +1087,9 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           bool cutGone = slice < 90.0 && abs(n.y) > 0.5 && abs(vWorld.y - slice) < 0.001 && slice >= 1.0 && roofedAir(vec3(tile, slice - 1.0));
         #endif
         float detail = 1.0 - smoothstep(0.04, 0.16, fwidth(g.x));
+        // (the cut's hatch: its lines' coordinate and how far it moves a pixel, taken outside any branch)
+        float capU = (g.x + g.y) * 3.0;
+        float capPx = max(fwidth(capU), 0.0001);
         float glow = 0.0;
         vec3 c;
         vec3 light;
@@ -1206,7 +1285,32 @@ ${hook(h, "wall")}          float py = fwidth(y);
         c *= light;
         // the glowing cracks of contaminated ground shine in shadow too
         c += ${glColor(GROUND.contaminatedGlow)} * glow * ${f(CT.glowAdd)};${hook(h, "lit")}
+        // the slice's cut (D207): the tops of columns taller than the layer (with terrain above terrain, only the cap
+        // where solid rock crosses the cut, not a cave's floor below it) are a section through rock, not ground: a cool
+        // slate, darker than the tops round it, with a diagonal hatch. Close up three lines a tile; farther out every
+        // other line fades away as the lines close in, so they stay some seven pixels apart and the cut never blurs
+        // into a flat colour like the ground's. Its light is the unsliced top's, softened. (The overlays go on it as on
+        // any top.)
+        bool capped = n.y > 0.5 && slice < 90.0 && h0 > slice + 0.5
+        #if CUTAWAY
+          && abs(vWorld.y - slice) < 0.001 && !roofedAir(vec3(tile, slice))
+        #endif
+        ;
+        if (capped) {
+          float lv = max(0.0, log2(capPx * 7.0));
+          float p0 = exp2(floor(lv));
+          float l0 = 1.0 - smoothstep(0.25 - 0.75 * capPx / p0, 0.25 + 0.75 * capPx / p0, abs(fract(capU / p0 + 0.5) - 0.5));
+          float p1 = p0 * 2.0;
+          float l1 = 1.0 - smoothstep(0.25 - 0.75 * capPx / p1, 0.25 + 0.75 * capPx / p1, abs(fract(capU / p1 + 0.5) - 0.5));
+          float line = mix(l0, l1, smoothstep(0.15, 0.85, fract(lv)));
+          float lum = clamp(dot(light, vec3(0.299, 0.587, 0.114)), 0.0, 1.3);
+          c = mix(${glColor(CUT_CAP.base)}, ${glColor(CUT_CAP.line)}, line) * (0.72 + 0.28 * lum);
+        }
         vec4 o = texture2D(overlay, (tile + 0.5) / mapSize);
+        #if CUTAWAY
+          // (a selection taken on a run is drawn on that run, the rest of the column as the land outside it)
+          o = overlayOnRun(o, tile, vWorld.y, n.y > 0.5 ? 1.0 : n.y < -0.5 ? -1.0 : 0.0);
+        #endif
         if (o.a < 0.998) c = mix(c, o.rgb * (0.8 + 0.2 * min(light.g, 1.0)), o.a);
         else c = mix(c, o.rgb, (n.y > 0.5 ? float(LITE) : 0.5) * markers);
         if (n.y > 0.5) {
@@ -1252,18 +1356,8 @@ ${hook(h, "wall")}          float py = fwidth(y);
           }
         }
         if (n.y > 0.5) {
-          // the slice's cut: the tops of columns taller than the layer, darker, with a fine hatch (with terrain
-          // above terrain, only the cap where solid rock crosses the cut, not a cave's floor below it)
-          if (slice < 90.0 && h0 > slice + 0.5
-          #if CUTAWAY
-            && abs(vWorld.y - slice) < 0.001 && !roofedAir(vec3(tile, slice))
-          #endif
-          ) {
-            float hs = step(0.5, fract((g.x + g.y) * 3.0));
-            c = mix(c, vec3(0.5, 0.47, 0.43), 0.6) * (0.86 + 0.14 * hs);
-          }
-          // level lines: a thin dark line on each tile edge where the ground steps down
-          else if (levelLines > 0.5) {
+          // level lines: a thin dark line on each tile edge where the ground steps down (not on the cut)
+          if (!capped && levelLines > 0.5) {
             vec2 fo = fract(g);
             float e = 9.0;
             if (heightOf(tileAt(tile + vec2(1.0, 0.0))) < h0) e = min(e, 1.0 - fo.x);
@@ -1334,7 +1428,10 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       varying vec3 vNormal;
       varying vec3 vWorld;
       ${common(h)}
-      ${WATER_GLSL}${hook(h, "waterDecl")}${CAVE_POINT}
+      ${WATER_GLSL}${CAVE_FLOW}${hook(h, "waterDecl")}${CAVE_POINT}
+      #ifdef CAVES
+      ${OVERLAY_RUN}
+      #endif
       /** The slope of the ripples (gentle, moving) at q. */
       vec2 ripple(vec2 q, float t) {
         float a1 = q.x * 1.3 + q.y * 0.35 + t * 1.1;
@@ -1362,8 +1459,11 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // (just inside it), from the light volume: x the sky, y the sun, z 1 under a roof
         float waterRoofed = 0.0;
         #ifdef CAVES
-          vec3 cave = caveAirAt(vWorld - n * (n.y > 0.5 ? min(0.01, max(depth, 0.0) * 0.5) : 0.005));
+          vec3 inWater = vWorld - n * (n.y > 0.5 ? min(0.01, max(depth, 0.0) * 0.5) : 0.005);
+          vec3 cave = caveAirAt(inWater);
           waterRoofed = cave.z;
+          // (water below its tile's surface water: its own column's current, not the water's seen from above)
+          waterOwnFlow = ownFlowAt(inWater);
         #endif
         float t = time;
         // the badwater share, blended between tiles by the mesh: the water turns from clean water to
@@ -1408,6 +1508,9 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             // seen to start again; still water draws them where they are, as always
             float fn;
             vec2 drift = waterCurrent(g) * 0.65;
+            #ifdef CAVES
+              if (waterOwnFlow.a > 0.5) drift = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5 * 0.65;
+            #endif
             if (dot(drift, drift) < 1e-6 || (${hook(h, "waterOwnSurface", "false")})) flowingAt(g, t, bad, fine, fn, pale, bubbles);
             else {
               float phase = fract(t / 12.0);
@@ -1527,6 +1630,9 @@ ${hook(h, "water")}        #ifdef CAVES
         }
         if (n.y > 0.5) {
           vec4 o = texture2D(overlay, (floor(g) + 0.5) / mapSize);
+          #ifdef CAVES
+            o = overlayOnRun(o, floor(g), vWorld.y, 2.0);
+          #endif
           float oa = o.a < 0.998 ? o.a : o.a * markers * float(LITE);
           c = mix(c, o.rgb, oa * 0.85);
           alpha = mix(alpha, 1.0, oa * 0.6);

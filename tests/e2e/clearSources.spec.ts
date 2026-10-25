@@ -3,7 +3,7 @@
 // water drains away (D260).
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 import { startHintUp, toolInHand, toolPutAway } from "./helpers";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -45,7 +45,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await openEditor(page, "s=35&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   // (the water at its normal pace: the stroke's own water flows while it is painted, D197)
 
   // flat, dry, empty ground far from the start and from water

@@ -4,7 +4,7 @@
 // mismatch warning never fires.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as const);
@@ -12,7 +12,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 test("strokes painted back to back end with the page's land the worker's, byte for byte (#410)", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
   await openEditor(page, "s=4242&z=128&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   // Raise, then Lower, Flatten and Smooth, each stroke pressed the moment the last is let go
   const keys = ["2", "3", "4", "5", "2", "3"];
   for (let k = 0; k < keys.length; k++) {

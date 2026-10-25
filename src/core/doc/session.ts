@@ -26,7 +26,7 @@ import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { objectHolds, standProblem, type StandGround } from "../features/objects";
-import { byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
+import { brushBounds, byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
@@ -44,7 +44,7 @@ import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
-import { stackedSimulationSingletons, storedOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
+import { stackedSimulationSingletons, storedColumnOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import type { Orientation, Placement } from "../format/footprints";
@@ -60,7 +60,7 @@ import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
 import { cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
-import { entityProblem } from "./placing";
+import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
 import { versionName } from "../library/keptVersions";
@@ -238,7 +238,7 @@ export class MapSession {
   private resourcesCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, Set<number>> | null; tiles: Map<string, Set<number>> | null } | null = null;
   private springsCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, KeptSource[]> | null; rows: Map<string, KeptSource[]> | null } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
-  private storedOutflowsCache: { key: BaseMap; out: Float64Array | null } | null = null;
+  private storedOutflowsCache: { key: BaseMap; out: Float32Array | null } | null = null;
   private storedSoilCache: { key: BaseMap; soil: ReturnType<typeof storedSoilRuns> } | null = null;
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
@@ -294,7 +294,7 @@ export class MapSession {
       this.cur = buildMap(this.input(), { water: "defer", initialWater: { model: modelOf({ W, H, heights: layer.heights, entities: layer.entities }), water: layer.water! } });
     } else this.cur = built ?? stored ?? buildMap(this.input());
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
-      this.notices.push("This map has caves or overhangs. The tools leave them as they are.");
+      this.notices.push("This map has caves or overhangs. Brushes shape only their tops; the Block tool and Erode can change the rest.");
     }
     // the log is the history of an opened document: its operations undo step by step (D456)
     this.undoStack = stepsOf(this.log);
@@ -772,10 +772,27 @@ export class MapSession {
   private holdsCache: { key: BuildResult; holds: [number, number, number][] } | null = null;
 
   /** A stroke or a sculpt with the ground that holds objects set under a roof (D491): it keeps those
-   *  tiles within their floor and ceiling and shapes the rest as normal, never refused for them (D270). */
+   *  tiles within their floor and ceiling and shapes the rest as normal, never refused for them (D270).
+   *  Only the held tiles in its reach, and one tile round it (the integrity pass reads each tile's
+   *  neighbours), go in the operation: the build keeps those, and only those, from the integrity pass,
+   *  so a stroke never moves held ground elsewhere on the map, and the page's preview, which keeps every
+   *  held tile, agrees inside the only ground the stroke changes. */
   private withHold(op: EditOp): EditOp {
     if ((op.op !== "brush" && op.op !== "sculpt") || op.params.hold) return op;
-    const hold = this.holds();
+    const all = this.holds();
+    if (!all.length) return op;
+    const { x: W, y: H } = this.size;
+    let box: { x0: number; y0: number; x1: number; y1: number } | null = null;
+    if (op.op === "brush") box = brushBounds(op.params, W, H);
+    else
+      for (const [y, a, b] of op.params.cells)
+        box = box ? { x0: Math.min(box.x0, a), y0: Math.min(box.y0, y), x1: Math.max(box.x1, b), y1: Math.max(box.y1, y) } : { x0: a, y0: y, x1: b, y1: y };
+    if (!box) return op;
+    const hold = all.filter(([i]) => {
+      const x = i % W;
+      const y = Math.floor(i / W);
+      return x >= box.x0 - 1 && x <= box.x1 + 1 && y >= box.y0 - 1 && y <= box.y1 + 1;
+    });
     if (!hold.length) return op;
     return { ...op, params: { ...op.params, hold: hold.map((h) => [...h] as [number, number, number]) } } as EditOp;
   }
@@ -800,7 +817,8 @@ export class MapSession {
   /** The first object the map as it stands would lose that it kept as `before`, in one line, or null
    *  (D491): an object on a tile with a cave or an overhang that the game's rule held on `before`'s ground
    *  and no longer holds (inside the ground or floating: the game removes it on load). Nothing on open
-   *  ground (its objects ride it), and nothing on a heightfield. */
+   *  ground (its objects ride it), and nothing on a heightfield. A last guard: the strokes and sculpts hold
+   *  that ground, the forces run round it, and Erode keeps the ground under every object (D270). */
   private lostSince(before: BuildResult): string | null {
     const now = this.cur;
     if (!this.layered(before) && !this.layered(now)) return null;
@@ -959,7 +977,7 @@ export class MapSession {
   }
 
   /** The tiles with a cave, tunnel or overhang (an imported map's, and the ground the Block tool
-   *  dug), which the tools leave as they are but for the brushes, which shape their top runs (D487;
+   *  dug), whose top runs the brushes shape and the rest only the Block tool and Erode change (D487;
    *  the "Caves and overhangs" layer marks them). An import's are simulated with the rest of its
    *  water (D120). Empty for a heightfield map. */
   get roofedTiles(): ReadonlySet<number> {
@@ -1041,10 +1059,11 @@ export class MapSession {
     return this.storedWaterCache.water;
   }
 
-  /** The outflows the base file stores (its surface water's), for the 3D view's moving water. */
-  storedOutflows(): Float64Array | null {
+  /** The outflows the base file stores of every column `storedWater` lists (four an entry, each column its own), for
+   *  the 3D view's moving water and falls. */
+  storedColumnOutflows(): Float32Array | null {
     const b = this.baseStuff();
-    if (this.storedOutflowsCache?.key !== this.gen.base) this.storedOutflowsCache = { key: this.gen.base, out: storedOutflows(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
+    if (this.storedOutflowsCache?.key !== this.gen.base) this.storedOutflowsCache = { key: this.gen.base, out: storedColumnOutflows(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
     return this.storedOutflowsCache.out;
   }
 
@@ -1223,6 +1242,10 @@ export class MapSession {
       water: this.waterNow(),
       heights: this.cur.heights,
       masks: this.standGround().mask,
+      objectCells: (owner) => {
+        const skip = resourceOwners(this);
+        return objectCells(this.cur.entities, this.size.x, this.size.y, (e) => e.owner === owner || skip.has(e.owner));
+      },
       startObjects,
       cropObjects: (r) => (cropObjects(this.cur.entities, r).cutStart ? START_CUT : null),
       placement: (p) => {
@@ -1297,7 +1320,12 @@ export class MapSession {
     const step = this.stepSince(mark);
     if (!step || !this.takeBack(step)) return null;
     this.seqNext = seq;
-    return ops.map((o) => (o.op === "brush" ? { ...o, params: { ...o.params, rigid: [...(o.params.rigid ?? []), ...rects] } } : o));
+    // (its hold is worked out again with the pieces in its reach)
+    return ops.map((o) => {
+      if (o.op !== "brush") return o;
+      const { hold: _hold, ...params } = o.params;
+      return { ...o, params: { ...params, rigid: [...(o.params.rigid ?? []), ...rects] } };
+    });
   }
 
   private riding = false;

@@ -26,34 +26,12 @@ import { FIRST_DROUGHT_DAYS, generate, type GenerateResult } from "./generate";
 import { finalCtx } from "./intentions";
 import { compass } from "./names";
 import { siblingSpec } from "./versions";
+import { BEATS, type Arc, type Beat } from "./showcaseBeats";
 
-export const BEATS = ["vista", "drought", "valley", "project", "landmark", "mystery"] as const;
-export type BeatId = (typeof BEATS)[number];
-
-/** Each beat in a few words (the page's labels). */
-export const BEAT_NAMES: Record<BeatId, string> = {
-  vista: "An opening vista",
-  drought: "A first-drought choice",
-  valley: "A valley behind a gate",
-  project: "A late-game project",
-  landmark: "A landmark in view",
-  mystery: "A mystery",
-};
-
-export interface Beat {
-  met: boolean;
-  /** How strongly the map has it, 0–1 (a beat not met may still show some of it). */
-  strength: number;
-  /** What the map shows, in a player's words, with its own numbers (when met). */
-  say?: string;
-}
-
-export type Arc = Record<BeatId, Beat>;
+export { BEATS, BEAT_NAMES, type Arc, type Beat, type BeatId } from "./showcaseBeats";
 
 const clamp01 = (v: number) => (v <= 0 ? 0 : v >= 1 ? 1 : v);
 const levels = (n: number) => `${Math.round(n)}-level`;
-const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six"];
-const words = (n: number) => NUMBER_WORDS[n] ?? String(n);
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** "a" or "an" before a number said aloud (an 8, an 11, an 18, an 80, an 800). */
 const an = (n: number) => {
@@ -129,7 +107,9 @@ export interface PumpPlace {
  *  others, whichever water they are on (a river and the pool it runs through are one body of water but
  *  two choices), and whether each holds through the first drought (`kept`: the water left after
  *  `FIRST_DROUGHT_DAYS`, as the generator reads the start's water). The places that hold are spread
- *  first, then those that dry, so the nearest of each kind is always among them. */
+ *  first, then those that dry: the nearest holding place is always among them, while a drying place
+ *  within `WATERS_APART` of a holding one is the same place to a player (the stretch running into
+ *  the pool that holds) and is left out. */
 export function pumpPlaces(c: FinalCtx, kept: ArrayLike<number>): PumpPlace[] {
   const { W, H, h, D, C } = c;
   const all: PumpPlace[] = [];
@@ -251,19 +231,18 @@ function vistaBeat(c: FinalCtx, view: View, forms: readonly StandingForm[], sayF
   return { met, strength, ...(met ? { say: `The opening view takes in ${list}.` } : {}) };
 }
 
-/** The first drought's choice: places to pump near the start, some running dry in the first drought
- *  and some holding (`pumpPlaces`). Strongest when the nearest water is the one that runs dry: the
- *  easy pump is the trap, and the colony that pumps the farther water, or stores some, is ready. */
+/** The first drought's choice (`pumpPlaces`): the nearest water runs dry in the first drought and
+ *  water further off holds. The easy pump is the trap; the colony that pumps the farther water, or
+ *  stores some, is ready. When the nearest water is the one that holds, the colony's obvious pump is
+ *  the safe one and there is no choice to face: some of the beat (0.4), not met. */
 function droughtBeat(c: FinalCtx, kept: ArrayLike<number>): Beat {
   const places = pumpPlaces(c, kept);
   const holds = places.filter((p) => p.holds);
   const dries = places.filter((p) => !p.holds);
   if (!holds.length || !dries.length) return { met: false, strength: holds.length ? 0.25 : 0 };
-  const trap = dries[0].walk < holds[0].walk;
-  const strength = 0.55 + (trap ? 0.3 : 0) + 0.15 * clamp01((places.length - 2) / 3);
-  const say = trap
-    ? `The nearest water, ${Math.round(dries[0].walk)} tiles' walk from the start, runs low in the first drought; water ${Math.round(holds[0].walk)} tiles' walk away holds.`
-    : `Water ${Math.round(holds[0].walk)} tiles' walk from the start holds through the first drought; the water ${Math.round(dries[0].walk)} tiles' walk away runs low.`;
+  if (!(dries[0].walk < holds[0].walk)) return { met: false, strength: 0.4 };
+  const strength = 0.7 + 0.3 * clamp01((places.length - 2) / 3);
+  const say = `The nearest water, ${Math.round(dries[0].walk)} tiles' walk from the start, runs low in the first drought; water ${Math.round(holds[0].walk)} tiles' walk away holds.`;
   return { met: true, strength, say };
 }
 
@@ -302,19 +281,21 @@ function strongest(): { take(s: number, line: string): void; beat(): Beat } {
 function projectBeat(c: FinalCtx, r: GenerateResult, plug: Shared): Beat {
   const scale = (c.W * c.H) / 16384;
   const best = strongest();
-  // a natural narrows a dam of 4–14 tiles closes, holding a large reservoir (a dam of a tile or two
-  // across a lake's outlet is an early fix, not a project)
+  // a natural narrows a dam of 4–14 tiles closes, holding a real reservoir: 2,500 blocks or more at
+  // 128² (a dam of a tile or two across a lake's outlet is an early fix, and most sites hold
+  // 1,000–1,600 blocks: a pond, not a project), strongest at 6,000
   const sites = (r.analysis?.damSites ?? []).filter((d) => d.length >= 4 && d.length <= 14);
   let dam = sites[0] ?? null;
   for (const d of sites) if (d.volume > dam!.volume) dam = d;
-  if (dam && dam.volume >= 1000 * scale) {
+  if (dam && dam.volume >= 2500 * scale) {
     const d = Math.round(portable.sqrt((dam.x - c.start.x) * (dam.x - c.start.x) + (dam.y - c.start.y) * (dam.y - c.start.y)));
     const held = String(Math.round(dam.volume / 100) * 100).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    best.take(0.5 + 0.5 * clamp01((dam.volume - 1000 * scale) / (3000 * scale)), `${capital(an(dam.length))} ${dam.length}-tile dam across a narrows ${d} tiles ${compass(c.start.x, c.start.y, dam.x, dam.y)} of the start would hold ${held} water.`);
+    best.take(0.5 + 0.5 * clamp01((dam.volume - 2500 * scale) / (3500 * scale)), `${capital(an(dam.length))} ${dam.length}-tile dam across a narrows ${d} tiles ${compass(c.start.x, c.start.y, dam.x, dam.y)} of the start would hold ${held} water.`);
   }
   if (plug) best.take(0.85, plug.say);
   const high = checkIntention("high-lake", c);
-  if (high.ok && high.say) best.take(0.75, high.say);
+  // (a high lake spilling over a fall is a project's place more than a project: the weaker claim)
+  if (high.ok && high.say) best.take(0.6, high.say);
   return best.beat();
 }
 

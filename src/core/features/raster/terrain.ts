@@ -449,8 +449,13 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     const pads = s.params.tool === "naturalize" && s.params.weathers ? t.starts() : [];
     const open = s.params.tool !== "naturalize" ? () => true : s.params.weathers ? (i: number) => !padTile(pads, i % W, Math.floor(i / W)) : (i: number) => !t.protectedMask[i];
     applyBrush(s.params, heights, W, t.H, keep && !floor ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i), floor);
-    // (the ground holding objects under a roof stays as the stroke left it: the integrity pass leaves it, D491)
-    for (const [i] of s.params.hold ?? []) if (i >= 0 && i < heights.length && t.inRegion(i)) t.protectedMask[i] = 1;
+    // (the ground holding objects under a roof, D491: within its floor and ceiling, which the map as shown
+    // holds, though the integrity pass had moved it there, and the integrity pass leaves it)
+    for (const [i, lo, hi] of s.params.hold ?? [])
+      if (i >= 0 && i < heights.length && t.inRegion(i)) {
+        heights[i] = Math.min(Math.max(heights[i], lo), hi);
+        t.protectedMask[i] = 1;
+      }
     // a precise or target stroke's tiles stay as it left them: the integrity pass leaves them out (a
     // one-tile pit stays a pit, D193, D322)
     if (was) for (let y = b.y0; y <= b.y1; y++) for (let x: number = b.x0; x <= b.x1; x++) {
@@ -472,6 +477,8 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
       const h = heights[i];
       if (h > h0) heights[i] = Math.min(h, Math.max(h0, hi));
       else if (h < h0) heights[i] = Math.max(h, Math.min(h0, lo));
+      // (held ground the integrity pass had moved into its floor and ceiling stays there)
+      heights[i] = Math.min(Math.max(heights[i], lo), hi);
       t.protectedMask[i] = 1;
     }
     return;

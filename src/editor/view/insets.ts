@@ -2,7 +2,7 @@
 // water row and the camera group), the Show column and the bottom-left group (its minimap the widest), the bar with
 // the held tool's settings, and the objects list with a picked object's window, each as far as it reaches into the
 // view, plus a small gap. The renderer keeps them for its next framing (Reset view, a
-// view switched, a new map); setting them never moves the camera (D265).
+// map opened in a mode, a new map; the Top-down toggle keeps the view, D492); setting them never moves the camera (D265).
 
 import { useEffect } from "preact/hooks";
 import type { FrameInsets, MapRenderer } from "../../render3d";

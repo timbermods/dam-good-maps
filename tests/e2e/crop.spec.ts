@@ -3,7 +3,7 @@
 // selection start over on it) as one undo step, and Ctrl+Z brings the full map back.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, setWaterSpeed } from "./open";
+import { openEditor, setWaterSpeed, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -25,7 +25,7 @@ async function box(page: Page, from: [number, number], to: [number, number]) {
 
 test("Crop makes the map the selected rectangle, as one undo step that Ctrl+Z takes back (D340)", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await setWaterSpeed(page, "instant");
   const row = page.getByRole("group", { name: "Selection" });
   const crop = row.getByRole("button", { name: "Crop", exact: true });
@@ -96,7 +96,7 @@ async function startBox(page: Page): Promise<[[number, number], [number, number]
 
 test("Ctrl+Z held across a crop leaves the page and the worker agreeing on the steps and on Undo", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await setWaterSpeed(page, "instant");
   const row = page.getByRole("group", { name: "Selection" });
   // three edits, then a crop
@@ -131,7 +131,7 @@ test("Ctrl+Z held across a crop leaves the page and the worker agreeing on the s
 
 test("a crop keeps the view: History open, top-down, the overlay and See-through; a held drought is stopped", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await setWaterSpeed(page, "instant");
   await page.getByRole("button", { name: "History", exact: true }).click();
   await page.getByRole("checkbox", { name: "See-through" }).check();

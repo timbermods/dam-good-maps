@@ -135,7 +135,7 @@ function lockstep(make: () => MapSession, setup: Blocks | ((s: MapSession) => Ed
     expect(settledHash(fast), `${what}, the settled hash`).toBe(settledHash(cold));
     const sa = fast.built.settle.stack!;
     const sc = cold.built.settle.stack!;
-    for (const k of ["count", "floor", "ceil", "depth", "overflow", "contamination", "sat", "reach"] as const) {
+    for (const k of ["count", "floor", "ceil", "depth", "overflow", "contamination", "sat", "reach", "flows"] as const) {
       // (a settle that took a removal's water keeps no reach)
       const [x, y] = [sa[k], sc[k]];
       expect(x && y ? bytes(x).equals(bytes(y)) : x === y, `${what}, ${k}`).toBe(true);

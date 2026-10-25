@@ -12,7 +12,7 @@ import { MapSession } from "../../src/core/doc/session";
 import { CarvePlay } from "../../src/core/forces/carve/play";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
-import { DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
+import { DepositRun, DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
 import { ERODE_DEFAULTS } from "../../src/core/forces/erode";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
@@ -172,6 +172,31 @@ describe("objects of several tiles ride their ground whole (D368 (10))", () => {
           if (request.verb !== "deposit") expect(s.built.entities.length).toBe(placed);
         }
       }
+  });
+
+  it("a Deposit's numbers count the ground as it leaves it, the relics' footprints kept", () => {
+    const before = forceMapOfSession(relicMap());
+    let kept = 0;
+    for (const [x, y] of [[12, 13], [17, 18], [27, 8]] as [number, number][])
+      for (const a of [0, 0.7, 1.6])
+        for (const power of [40, 60, 80]) {
+          const path = [-8, 0, 8].map((d) => ({ x: Math.max(1, Math.min(38, x + d * Math.cos(a))), y: Math.max(1, Math.min(38, y + d * Math.sin(a))) }));
+          const r = new DepositRun(before, { ...DEPOSIT_DEFAULTS, power, size: 10, seed: power }, { path }).finishAll();
+          const { stats, raw } = r.plan0;
+          let changed = 0;
+          let eroded = 0;
+          let deposited = 0;
+          for (let i = 0; i < raw.heights.length; i++) {
+            const dz = raw.heights[i] - before.heights[i];
+            if (dz) changed++;
+            if (dz > 0) deposited += dz;
+            else eroded -= dz;
+          }
+          expect([stats.changed, stats.eroded, stats.deposited, stats.balance], `${x}, ${y}, ${a}, ${power}`).toEqual([changed, eroded, deposited, deposited - eroded]);
+          if (deposited !== eroded) kept++;
+        }
+    // (somewhere a relic's footprint kept as it was took back what the Deposit took or laid there)
+    expect(kept).toBeGreaterThan(0);
   });
 
   it("the placement check's fix sets a relic left on uneven ground on level ground, and keeps it", () => {
