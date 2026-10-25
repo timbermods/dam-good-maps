@@ -409,6 +409,10 @@ export class ForceDriver {
           this.host.error(String(e instanceof Error ? e.message : e));
         }
         if (f.done) {
+          // (paused while its last steps were on their way: it holds on its final land, still at work, until Space lets
+          // it go; a save, Esc or a new gesture keeps it at once, undo takes it back)
+          while (st.paused && token === this.token && this.status === st) await this.clock.sleep(80);
+          if (token !== this.token || this.status !== st) return;
           if (this.timing) this.timing.final = Math.round(this.clock.now() - t0);
           await this.stop();
           return;

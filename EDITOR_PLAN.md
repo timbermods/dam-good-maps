@@ -1008,7 +1008,8 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   selection, else the ground's top level (D288, D323); Ctrl+A selects the whole map. In Select, **Ctrl+click** on
   the land only takes its level (D361) and **Shift+scroll** dials the Level number (D345, B8), whether or not a
   selection is open.
-- While a force runs, Space pauses it, Ctrl+Z (or Z) takes it back, and Esc skips it to its end (a painted Lift
+- While a force runs, Space pauses it (a pause that comes as its last steps arrive holds it on its final land, still
+  at work, until Space again), Ctrl+Z (or Z) takes it back, and Esc skips it to its end (a painted Lift
   still drawn: Esc cancels it; D344, A4); the other keys wait, C among them. Right after Try another, **Tab** and
   **Shift+Tab** show the force's next and previous rolls (§4, D488), with the focus on the map or the bar. A river's or a fault's line is drawn
   freehand with the mouse (D321). Slow forces is a view-bar toggle with no key.
