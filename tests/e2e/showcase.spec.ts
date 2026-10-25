@@ -22,10 +22,10 @@ test("Showcase: start a search, see a card, stop, open a pick", async ({ page })
   await pick(sheet, "Search for", "2 min");
 
   // a worker that never loads (its file gone after a deploy) stops the search in one line, and the next search starts
-  // a fresh one
+  // a fresh one (here the file is back)
   await page.route(/showcase\.worker/, (r) => r.abort());
   await sheet.getByRole("button", { name: "Start search" }).click();
-  await expect(sheet.getByRole("status")).toHaveText("The search stopped: its worker ended. Start search tries again.", { timeout: 30_000 });
+  await expect(sheet.getByRole("status")).toHaveText("The search stopped: its worker could not run. Reload the page to search again.", { timeout: 30_000 });
   await page.unroute(/showcase\.worker/);
 
   await sheet.getByRole("button", { name: "Start search" }).click();

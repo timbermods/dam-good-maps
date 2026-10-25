@@ -930,9 +930,9 @@ API, every pinned hash, and every role and accessible name the tests use.
   columns from the hairline down, the columns hidden but in place: a head line ("SHOWCASE" as a group heading, **Settings**
   at the stack's width, back to the settings), one muted line, **Search for** and the search's button on one line, the progress
   line and a 2px hairline that fills with the time gone (its movement only without reduced motion), then three cards
-  134px tall, 8px apart: the picture 112px, the name in 14px bold with "N of 6 beats" and a 72px **Open**, the six
-  beats in three columns at 12px (met: the ink and an accent tick; not: muted with a ring), then up to three lines of
-  the core's words. An empty place is a dashed card. A card fades in (no movement). It fits at 1920×1080 and
+  138px tall, 8px apart: the picture's place 200×112 (16:9: the hero picture once drawn, the thumbnail contained in it
+  before), the name in 14px bold with "N of 6 beats" and a 72px **Open**, the six beats in two columns at 12px (met:
+  the ink and an accent tick; not: muted with a ring), then the strongest beat's words in up to two lines. An empty place is a dashed card. A card fades in (no movement). It fits at 1920×1080 and
   2560×1440 with nothing scrolling; at 1280×720 the panel scrolls inside itself as it already does, and opening the
   sheet brings its head into view.
 - **Versions** (`docs/design/showcase-versions-*.jpg`, light and dark at 1280, 1920 and 2560): History's rows keep their
