@@ -6,7 +6,9 @@
 import type { BlocksParams } from "../../src/core/doc/blockTool";
 import { MapSession } from "../../src/core/doc/session";
 import { writeTimber, type TimberFile } from "../../src/core/format/timber";
-import { emptySimulationSingletons, GAME_VERSION, LAYERS, voxelsFromHeights } from "../../src/core/format/world";
+import { emptySimulationSingletons, GAME_VERSION, LAYERS, stackedSimulationSingletons, voxelsFromHeights } from "../../src/core/format/world";
+import { waterColumns, type VoxelMasks } from "../../src/core/sim/columns";
+import { columnSaturation, soil3d, type Soil3d } from "../../src/core/sim/soil3d";
 
 export const CAVE_W = 40;
 export const CAVE_H = 40;
@@ -91,4 +93,40 @@ export function levelPatch(s: MapSession): { x: number; y: number; h: number } {
       if (ok) return { x, y, h };
     }
   throw new Error("no patch");
+}
+
+/** A tunnel at the bottom of the plateau (inclusive tiles). */
+export const TUNNEL = { x0: 5, y0: 30, x1: 7, y1: 32 };
+
+/** The cave map with water in the cave (clean on its east, badwater on its west) and the game's soil for it,
+ *  stored as the game saves a map with caves (per water column and per run top). */
+export function wetCave(): { bytes: Uint8Array; soil: Soil3d } {
+  const W = CAVE_W;
+  const H = CAVE_H;
+  const voxels = caveVoxels();
+  const N = W * H;
+  // and a tunnel at the very bottom (air at z 0–1 under the ground), with water in it: its columns start with the
+  // game's empty run, so a tile's top is its second slot
+  for (let y = TUNNEL.y0; y <= TUNNEL.y1; y++) for (let x = TUNNEL.x0; x <= TUNNEL.x1; x++) for (let z = 0; z < 2; z++) voxels[z * N + y * W + x] = 0;
+  const mask = new Uint32Array(N);
+  for (let z = 0; z < 23; z++) for (let i = 0; i < N; i++) if (voxels[z * N + i]) mask[i] |= 1 << z;
+  const masks: VoxelMasks = { W, H, mask };
+  const cols = waterColumns(masks, []);
+  const depth = new Float64Array(cols.L * N);
+  const contamination = new Float64Array(cols.L * N);
+  for (let y = CAVE.y0; y <= CAVE.y1; y++)
+    for (let x = CAVE.x0; x <= CAVE.x0 + 2; x++) {
+      const i = y * W + x;
+      for (let k = 0; k < cols.count[i]; k++)
+        if (cols.floor[k * N + i] === CAVE.air[0]) {
+          depth[k * N + i] = 1.2;
+          contamination[k * N + i] = x === CAVE.x0 ? 1 : 0;
+        }
+    }
+  for (let y = TUNNEL.y0; y <= TUNNEL.y1; y++) for (let x = TUNNEL.x0; x <= TUNNEL.x1; x++) depth[y * W + x] = 1.2;
+  const sat = columnSaturation(cols, depth);
+  const soil = soil3d(masks, cols, { depth, contamination, sat });
+  const file = caveFile(voxels);
+  file.world.singletons = stackedSimulationSingletons(W, H, { cols, depth, overflow: new Float64Array(depth.length), contamination, sat, runs: soil.runs, moisture: soil.moisture, soilContamination: soil.contamination });
+  return { bytes: writeTimber(file), soil };
 }

@@ -4,7 +4,7 @@
 // settler's first guess, on water the hydrology only planned, keeps the fast approximation
 // (sim/moisture.ts, sim/contamination.ts).
 
-import { heightMasks, waterColumns, type VoxelMasks, type WaterColumns } from "./columns";
+import { heightMasks, waterColumns, type TerrainColumns, type VoxelMasks, type WaterColumns } from "./columns";
 import { columnSaturation, soil3d, soilBarrierCells, type Soil3d } from "./soil3d";
 import type { MapObject } from "./model";
 import type { StackSettle } from "./stackWater";
@@ -69,4 +69,42 @@ export function topRuns(soil: Soil3d, values: Float64Array): Float64Array {
   const out = new Float64Array(N);
   for (let i = 0; i < N; i++) out[i] = values[(count[i] - 1) * N + i];
   return out;
+}
+
+/** A map's water columns and its soil per run when its water is on stacked columns that fit its ground (`stack`, a
+ *  settle of `t` and `objects`, or water carried over to them), else null. */
+export function stackSoilOf(t: VoxelMasks, stack: StackSettle, objects: readonly MapObject[]): { cols: WaterColumns; soil: Soil3d } | null {
+  const cols = waterColumns(t, objects);
+  if (cols.L !== stack.L || cols.count.some((c, i) => c !== stack.count[i])) return null;
+  return { cols, soil: stackedSoil(t, cols, stack, objects) };
+}
+
+/** The soil and the water on one run top: what a plant standing there lives or dies on (D235, D491). */
+export interface RunGround {
+  moisture: number;
+  contamination: number;
+  /** The water standing on the run top, blocks deep (0: none). */
+  depth: number;
+}
+
+/** The slot of tile `i`'s run whose top is level `z` (where an object standing on it is), or -1 when it has none. */
+export function runSlotAt(runs: TerrainColumns, i: number, z: number): number {
+  for (let s = 0; s < runs.count[i]; s++) if (runs.ceil[s * runs.N + i] === z) return s;
+  return -1;
+}
+
+/** The ground on tile `i`'s run top at level `z`, under a roof as on top (a cave's floor, the ground under a ledge), of a
+ *  map's soil per run and its water on stacked columns: the run's moisture and contamination, and the water of the
+ *  column whose floor is the run's top (the game's `TryGetColumnWithFloorAtHeight`). Null where no run's top is `z`. */
+export function runGround(soil: Soil3d, stack: Pick<StackSettle, "W" | "H" | "count" | "floor" | "depth">, i: number, z: number): RunGround | null {
+  const s = runSlotAt(soil.runs, i, z);
+  if (s < 0) return null;
+  const N = soil.runs.N;
+  let depth = 0;
+  for (let q = 0; q < stack.count[i]; q++)
+    if (stack.floor[q * N + i] === z) {
+      depth = stack.depth[q * N + i];
+      break;
+    }
+  return { moisture: soil.moisture[s * N + i], contamination: soil.contamination[s * N + i], depth };
 }

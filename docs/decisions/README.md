@@ -87,6 +87,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D493: The opening shot: the start turned so the game's first camera frames the landmark
 - D480: The water story's reach counts the main water
 - D476: Badwater joins the main water
 - D471: Every setting makes a map
