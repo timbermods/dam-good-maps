@@ -21,7 +21,7 @@ import { GHOST_OK, coordinatesAt } from "../tools";
 import { NO_START_HERE, type StartHere } from "../start/startHere";
 import type { Ed } from "../ed";
 import type { TileHit } from "../../render3d";
-import { aimOf, columnMaskAt } from "./aim";
+import { aimOf, startRoofed } from "./aim";
 
 export interface ShelfSlice {
   pointerWords: { current: PointerWords | null };
@@ -119,7 +119,9 @@ export function useShelf(ed: Ed): ShelfSlice {
     const item = shelfRef.current;
     const r = renderer.current;
     if (!item || !r) return;
-    const level = aim ? aim.level : shelfTile.current?.[0] === x && shelfTile.current[1] === y ? shelfLevel.current : undefined;
+    // (what is painted stands on the tile's top: the `paintObjects` operation names no level yet, so a plant's ghost
+    // stays where the stroke plants it)
+    const level = item.paint ? undefined : aim ? aim.level : shelfTile.current?.[0] === x && shelfTile.current[1] === y ? shelfLevel.current : undefined;
     const aimedBefore = shelfLevel.current;
     shelfTile.current = [x, y];
     shelfLevel.current = level;
@@ -140,7 +142,7 @@ export function useShelf(ed: Ed): ShelfSlice {
       const job = ++shelfStartJob.current;
       const spot = spotOf(item, x, y, level);
       // (on a cave or an overhang the core answers, once a spot: the start stays on open ground, D491)
-      const roofed = level !== undefined || tiles.some((i) => columnMaskAt(ed.columnsRef.current, i) !== undefined);
+      const roofed = level !== undefined || startRoofed(ed.columnsRef.current, W, info.H, x, y);
       const roof = roofed && startRoof.current?.spot === spot && startRoof.current.version === info.version ? startRoof.current.problem : null;
       const problem = startProblemAt(ctx(), x, y, door, bench, s.owner) ?? roof;
       shownFit.current = { spot, problem };
@@ -229,9 +231,11 @@ export function useShelf(ed: Ed): ShelfSlice {
   /** A click with an object from the shelf: placed there, one step (the start moves there), with
    *  its pop; where it doesn't fit, the reason beside the pointer and nothing else. `level`: the
    *  level aimed at (a cave's floor, D491), which the placement names. */
-  function placeShelf(x: number, y: number, level?: number) {
+  function placeShelf(x: number, y: number, aimed?: number) {
     const item = shelfRef.current;
     if (!item) return;
+    // (a plant stands on the tile's top, where its ghost shows: see shelfHover)
+    const level = item.paint ? undefined : aimed;
     // (refused: the reason is beside the pointer already, once; a check of another spot (the tile the pointer was
     // over before, its own check still in flight) or left from the object held before is not this one's: the core
     // checks the placement itself)
@@ -255,7 +259,7 @@ export function useShelf(ed: Ed): ShelfSlice {
         );
       // (on a cave or an overhang the core's rule answers first, its check perhaps still on its way: the start stays
       // on open ground, D491)
-      const roofed = level !== undefined || startTiles(x, y).some((i) => columnMaskAt(ed.columnsRef.current, i) !== undefined);
+      const roofed = level !== undefined || startRoofed(ed.columnsRef.current, info.W, info.H, x, y);
       if (!roofed) return move();
       void api.footprintCheck({ tool: "entity", template: "StartingLocation", x: cx, y: cy, orientation: o, ...(level !== undefined ? { z: level } : {}) }).then((f) => (f.problem ? shelfWord(f.problem) : move()));
       return;

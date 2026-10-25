@@ -10,7 +10,7 @@ import { checkStartAt, sameStartCheck, startStatus, type StartCheck } from "../f
 import { GHOST_OK } from "../tools";
 import { quietWord } from "../shelfItems";
 import type { Ed } from "../ed";
-import { aimOf, columnMaskAt } from "../shelf/aim";
+import { aimOf, startRoofed } from "../shelf/aim";
 
 export interface StartSlice {
   startReach: { check: StartCheck; fading: boolean } | null;
@@ -87,11 +87,7 @@ export function useStart(ed: Ed): StartSlice {
   function roofProblem(x: number, y: number, level: number | undefined): Promise<string | null> | null {
     const s = startHere;
     if (!s) return null;
-    const W = info.W;
-    let roofed = level !== undefined;
-    for (let dy = -1; dy <= 1 && !roofed; dy++)
-      for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < info.H && columnMaskAt(ed.columnsRef.current, (y + dy) * W + x + dx) !== undefined) roofed = true;
-    if (!roofed) return null;
+    if (level === undefined && !startRoofed(ed.columnsRef.current, info.W, info.H, x, y)) return null;
     const [cx, cy] = cornerFor(x, y, s.orientation);
     return api.footprintCheck({ tool: "entity", template: "StartingLocation", x: cx, y: cy, orientation: s.orientation, ...(level !== undefined ? { z: level } : {}) }).then((f) => f.problem);
   }

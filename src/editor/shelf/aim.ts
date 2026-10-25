@@ -55,3 +55,11 @@ export function aimOf(hit: TileHit | null, W: number, heights: ArrayLike<number>
   const i = hit.y * W + hit.x;
   return aimedLevel(hit, heights[i], columnMaskAt(columns, i));
 }
+
+/** Whether the start's 3 × 3 tiles round its middle (x, y) touch a cave or an overhang (a tile listed in `columns`):
+ *  there the core's rule answers (D491: the start stays on open ground), not the page's own check. */
+export function startRoofed(columns: MapView["columns"], W: number, H: number, x: number, y: number): boolean {
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H && columnMaskAt(columns, (y + dy) * W + x + dx) !== undefined) return true;
+  return false;
+}

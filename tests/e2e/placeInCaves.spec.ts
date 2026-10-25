@@ -1,7 +1,7 @@
 // Objects go where the pointer aims, in caves and under overhangs (D491): the shelf aims at the ground seen (the voxel
 // pick), names the level of a cave's floor in the placement, and the core decides. A water source, a seep and a relic
 // on a tunnel's floor through its mouth and under the layer cut stand there, the ghost and its words saying so first;
-// the start is kept on open ground with the core's one line; a picked relic drags along the floor and out of the cave;
+// the start is kept on open ground with the core's one line; a picked relic drags along the floor;
 // the water flows from the cave and the export carries the objects at the floor's level.
 // The map is built here (a valley at 3, a plateau at 8 with a tunnel and a chamber under it): never an official map.
 
