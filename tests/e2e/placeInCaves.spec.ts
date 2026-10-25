@@ -1,7 +1,7 @@
 // Objects go where the pointer aims, in caves and under overhangs (D491): the shelf aims at the ground seen (the voxel
 // pick), names the level of a cave's floor in the placement, and the core decides. A water source, a seep and a relic
 // on a tunnel's floor through its mouth and under the layer cut stand there, the ghost and its words saying so first;
-// the start is kept on open ground with the core's one line; a picked relic drags along the floor;
+// the start is refused under a roof too low for it with the core's one line (#553); a picked relic drags along the floor;
 // the water flows from the cave and the export carries the objects at the floor's level.
 // The map is built here (a valley at 3, a plateau at 8 with a tunnel and a chamber under it): never an official map.
 
@@ -89,7 +89,7 @@ async function hover(page: Page, p: { x: number; y: number }, words: string): Pr
   await expect(page.locator(".shape-note")).toHaveText(words);
 }
 
-test("objects go where the pointer aims: on a cave's floor through its mouth and under the layer cut, the start kept on open ground, a relic dragged along the floor; the water flows from the cave and the file carries them at its level", async ({ page }) => {
+test("objects go where the pointer aims: on a cave's floor through its mouth and under the layer cut, the start refused under a roof too low for it, a relic dragged along the floor; the water flows from the cave and the file carries them at its level", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 860 });
@@ -118,10 +118,11 @@ test("objects go where the pointer aims: on a cave's floor through its mouth and
     }
   }
 
-  // the start stays on open ground (D491): refused on the floor with the core's line, and a click there moves nothing
+  // the start may stand under a roof only with room for it (D491, #553): the chamber's air is too low for it, so
+  // the floor refuses it with the core's line, and a click there moves nothing
   await shelf.getByRole("button", { name: "Start", exact: true }).click();
   const floor = await seen(page, 24, 22, FLOOR);
-  await hover(page, floor, "the start needs open ground");
+  await hover(page, floor, "not enough room under the roof here: the start needs 5");
   const before = await applied(page);
   await page.mouse.click(floor.x, floor.y);
   await idle(page);

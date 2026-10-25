@@ -23,6 +23,15 @@ pub const FARMLAND_NEAR: f64 = 100.0;
 pub const MINES_WANTED: f64 = 2.0;
 pub const FLOOD_MARGIN: i64 = 2;
 
+/// The moisture, water depth and contamination a plant on tile `i` lives on: on a map with caves or overhangs the run
+/// top it stands on (the host's `run_soil`: the game keeps one soil value per run top, D491), else its tile's. The one
+/// reading `plants.survive` and the start's food and wood counts share.
+fn soil_under(o: &Entity, i: usize, mo: &[f64], d: &[f64], sc: &[f64]) -> (f64, f64, f64) {
+    match o.run_soil {
+        Some([m, c, dd]) => (m, dd, c),
+        None => (mo[i], d[i], sc[i]),
+    }
+}
 fn is_tree(t: &str) -> bool {
     matches!(t, "Pine" | "Birch" | "Oak")
 }
@@ -804,7 +813,10 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
     ]);
 
     // starting food and wood
-    let survives = |i: usize| mo[i] > 0.0 && !(d[i] > 0.0) && !(sc[i] > 0.0);
+    let survives = |o: &Entity, i: usize| {
+        let (m, dd, c) = soil_under(o, i, &mo, d, &sc);
+        m > 0.0 && !(dd > 0.0) && !(c > 0.0)
+    };
     let mut bushes = 0.0;
     let mut trees = 0.0;
     let mut wood = 0.0;
@@ -850,7 +862,7 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
         if !tree && woody {
             continue;
         }
-        if o.dead || !survives(i) {
+        if o.dead || !survives(o, i) {
             continue;
         }
         if tree {
@@ -985,10 +997,11 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
             continue;
         }
         let i = (o.y * wi + o.x) as usize;
+        let (moist, depth, soil) = soil_under(o, i, &mo, d, &sc);
         let bad = if is_tree(&o.template) || o.template == "BlueberryBush" {
-            mo[i] <= 0.0 || d[i] > 0.0 || sc[i] > 0.0
+            moist <= 0.0 || depth > 0.0 || soil > 0.0
         } else if o.template == "Succulent" {
-            mo[i] > 0.0
+            moist > 0.0
         } else {
             false
         };

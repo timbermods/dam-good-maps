@@ -19,7 +19,7 @@ import { applySelection as applySelectionStep, startCarry } from "../core/doc/st
 import { ForceRolls } from "../core/forces/rolls";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
-import { paintLevels, planPaintObjects } from "../core/doc/paint";
+import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
 import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
@@ -2049,6 +2049,18 @@ export function moveObjectBy(id: string, dx: number, dy: number, z?: number): Se
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
   return changed(s, r.ok, r.errors, t0);
+}
+
+/** Whether a stroke of trees, bushes or succulents would plant on soil that kills them (D235's amber ring, "dry ground:
+ *  these will die"): the core's rule (core/doc/paint.ts `paintDying`), under a roof at the level the pick found (`z`,
+ *  D491), the run top each tile paints at. */
+export function paintDryAt(params: PaintParams, z?: number): boolean {
+  const s = need();
+  if (z !== undefined && !params.levels) {
+    const levels = paintLevels(s, params.area, z);
+    if (levels.length) params = { ...params, levels };
+  }
+  return paintDying(s, params).length > 0;
 }
 
 /** Move the map's start so its middle is at (x, y): the start feature of a generated map, or an

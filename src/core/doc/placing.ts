@@ -6,7 +6,7 @@
 import { entityTiles } from "../features/edits";
 import { isPickable, openPart, standProblem } from "../features/objects";
 import { floorBesideWater, platformLevel } from "../features/footprintLevel";
-import { FOOTPRINTS, startMiddleTile, worldBlocks, type Orientation } from "../format/footprints";
+import { FOOTPRINTS, startEntranceTile, startMiddleTile, worldBlocks, type Orientation } from "../format/footprints";
 import { FLUIDS } from "../data/parity";
 import type { EntitySpec } from "../format/entities";
 import { placeComponents } from "./objectOps";
@@ -50,7 +50,7 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
   const { x: W, y: H } = s.size;
   const b = s.built;
   if (p.x < 0 || p.y < 0 || p.x >= W || p.y >= H) return "it is off the map";
-  if (underRoof(s, p)) return roofProblem(s, p, ignore);
+  if (underRoof(s, p) && !startTurnsInPlace(s, p, ignore)) return roofProblem(s, p, ignore);
   const z = b.heights[p.y * W + p.x];
   const skip = resourceOwners(s);
   // a resource's own entity moves after the resources are placed: they do not make room for it
@@ -87,6 +87,21 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
     }
   }
   return level ? levelProblem(s, p) : null;
+}
+
+/** Whether `p` is the map's start without a level (`ignore`, an opened map's StartingLocation on the ground's top) turned
+ *  where it stands, its new door on plain ground: only a move or a placement checks its 3×3 for a cave, so a tunnel dug
+ *  under it later never holds it fast; the tile at its new door, which it levels, is checked (D491). */
+function startTurnsInPlace(s: MapSession, p: { template: string; x: number; y: number; z?: number; orientation: Orientation }, ignore: string | null): boolean {
+  if (p.template !== "StartingLocation" || p.z !== undefined || !ignore) return false;
+  const was = s.built.entities.find((e) => e.id === ignore);
+  if (!was || was.template !== "StartingLocation") return false;
+  const { x: W, y: H } = s.size;
+  const [ax, ay] = startMiddleTile(was);
+  const [bx, by] = startMiddleTile(p);
+  if (ax !== bx || ay !== by || ax < 0 || ay < 0 || ax >= W || ay >= H || was.z < s.built.heights[ay * W + ax]) return false;
+  const [dx, dy] = startEntranceTile(p.x, p.y, p.orientation);
+  return dx < 0 || dy < 0 || dx >= W || dy >= H || s.plainAt(dy * W + dx);
 }
 
 /** Whether a placement stands under a roof (D491): at a given level (`z`: a cave's floor, the ground

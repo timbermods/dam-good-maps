@@ -251,7 +251,14 @@ export function planStart(s: MapSession, x: number, y: number, orientation: Orie
   const given = z ?? was;
   const lands = given === top ? undefined : given;
   const o0 = orientation ?? (f && f.kind === "start" ? f.params.orientation : (ent?.orientation ?? "Cw0"));
-  if (lands === undefined && top >= 0 && startOverRoof(s.standGround(), x, y, o0)) return fail(START_OPEN_GROUND);
+  // (only a move or a placement checks the ground for a cave, so a tunnel dug under a start later never holds it fast:
+  // turned in place, a start feature's bench, the same 5×5 whichever way it faces, shapes the ground it shaped before,
+  // and an opened map's start, its 3×3 where it stood, levels only its new door's tile)
+  const at = f || ent ? startMiddle(s) : null;
+  const inPlace = !!at && at[0] === x && at[1] === y && lands === was;
+  const turns = o0 !== (f && f.kind === "start" ? f.params.orientation : ent?.orientation);
+  const ground = !inPlace ? "all" : turns && !f ? "door" : "none";
+  if (lands === undefined && top >= 0 && ground !== "none" && startOverRoof(s.standGround(), x, y, o0, ground === "door")) return fail(START_OPEN_GROUND);
   if (lands !== undefined) return planStartUnder(s, x, y, o0, lands, newId);
   // (an imported start has no feature: every imported object is owned by "import", so it is skipped by its template, not its owner;
   // the one fit rule the shelf's preview shares, startFit.ts: never on another object's footprint, in a river, under water or at the edge)

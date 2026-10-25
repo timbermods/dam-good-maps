@@ -75,7 +75,7 @@ export const PLACES_SHORT_OF_WOOD = new Set([
   "near-bandiagara", "near-bardenas-reales", "near-blue-mountains-jamison", "near-blyde-river-canyon",
   "near-brahmaputra-near-majuli", "near-capitol-reef", "near-chilean-aysen-fjord", "near-chocolate-hills",
   "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-copper-canyon",
-  "near-crater-lake", "near-danube-delta", "near-death-valley", "near-dinaric-karst-plitvice",
+  "near-danube-delta", "near-death-valley", "near-dinaric-karst-plitvice",
   "near-drakensberg-amphitheatre", "near-english-lake-district", "near-ennedi-plateau",
   "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe",
   "near-godavari-delta", "near-goosenecks-san-juan", "near-grand-canyon-colorado",
@@ -119,31 +119,13 @@ export const PLACES_START_WITHOUT_FED_WATER = new Set([
 /** Plants that die (D385): the conversion planted these places' trees and bushes on ground the
  *  pre-fill's puddles kept moist (water from nowhere, see above); with that water gone, some stand on
  *  dry soil, which `plants.survive` flags (a playability check: it warns in the export profile).
- *  With the edges open (D151) the water the sealed border held drained too, so every place has some.
- *  Real places 2 plants them by the settled water and empties the list. */
+ *  With the edges open (D151) the water the sealed border held drained too. Such plants now move to
+ *  moist ground close by or go (#523, tools/lib/placePlants.ts); on these places the start's wood
+ *  needs dying trees by it, which stay (a dead tree keeps its logs) where too little moist ground
+ *  near the start takes oaks. Real places 2 plants them by the settled water and empties the list. */
 export const PLACES_PLANTS_ON_DRY_SOIL = new Set([
-  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-aso-caldera",
-  "near-atacama-fan", "near-badlands-national-park", "near-bandiagara", "near-bardenas-reales",
-  "near-blue-mountains-jamison", "near-blyde-river-canyon", "near-brahmaputra-near-majuli",
-  "near-bungle-bungle", "near-capitol-reef", "near-chilean-aysen-fjord", "near-chocolate-hills",
-  "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-copper-canyon",
-  "near-crater-lake", "near-danube-delta", "near-death-valley", "near-deccan-plateau",
-  "near-dinaric-karst-plitvice", "near-drakensberg-amphitheatre", "near-drumheller",
-  "near-english-lake-district", "near-ennedi-plateau", "near-ethiopian-highlands", "near-finnish-saimaa",
-  "near-fish-river-canyon", "near-geirangerfjord", "near-glencoe", "near-godavari-delta",
-  "near-goosenecks-san-juan", "near-grand-canyon-colorado", "near-gullfoss", "near-iguazu-falls",
-  "near-ilulissat-icefjord", "near-kaieteur-falls", "near-katherine-gorge", "near-kenai-aialik-bay",
-  "near-kinabatangan-river", "near-lake-toba", "near-lauterbrunnen", "near-lena-delta",
-  "near-li-river-yangshuo", "near-lofoten", "near-lower-mississippi-oxbows", "near-mamore-river",
-  "near-milford-sound", "near-monument-valley", "near-mount-etna", "near-mount-fuji", "near-mount-mayon",
-  "near-mount-roraima", "near-mount-taranaki", "near-na-pali-coast", "near-ngorongoro",
-  "near-niagara-escarpment-hamilton", "near-niagara-falls", "near-painted-desert", "near-paricutin",
-  "near-phong-nha", "near-rhine-and-moselle", "near-roaring-river-fan", "near-sete-cidades",
-  "near-skeidara-outwash", "near-tagliamento-river", "near-taklimakan-kunlun-fan", "near-tara-gorge",
-  "near-thousand-islands-saint-lawrence", "near-tibetan-plateau", "near-tiger-leaping-gorge",
-  "near-todgha-gorge", "near-toklat-river", "near-torres-del-paine", "near-tsingy-bemaraha",
-  "near-twelve-apostles", "near-uvac-river", "near-verdon-gorge", "near-victoria-falls",
-  "near-waimakariri-river", "near-western-ghats-mahabaleshwar", "near-yosemite-valley",
+  "near-bungle-bungle", "near-chocolate-hills", "near-dinaric-karst-plitvice", "near-lake-toba",
+  "near-mount-taranaki", "near-phong-nha", "near-rhine-and-moselle", "near-tsingy-bemaraha",
 ]);
 
 /** Berries at the start (D385): these places' starting berry bushes stood on the same puddles'
