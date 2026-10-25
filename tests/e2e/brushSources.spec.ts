@@ -39,6 +39,10 @@ async function hold(page: Page, x: number, y: number) {
 }
 
 test("brushes and sources (D249, D322): they ride the ground; Keep holds them; Clear takes them with the stroke; Delete removes the one targeted", async ({ page }) => {
+  // (three held strokes of fourteen moves each: on a GPU, seconds; CI draws in software on a runner its two test pages
+  // share, where each move holds the page's thread about two seconds (the traces of dev's failures), so the test takes
+  // two and a half to over three minutes there, past the default three. Nothing it waits on or asserts changes.)
+  test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   // (taller than the default: the tools, the forces and the options are rows over the map, D323 item 9, and a

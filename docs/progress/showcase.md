@@ -30,13 +30,13 @@ Each is `{ met, strength 0–1, say }`, one small function, so a better measure 
   frame, `openingView`). Met with two of them and strength 0.6.
 - **A first-drought choice:** the places to pump within 30 tiles' walk of the start, 8 tiles apart or more on
   whatever water (a river and the pool it runs through are two choices; `pumpPlaces`), each read on the water left
-  after the generator's first drought (3 days). Met when some run dry and some hold; strongest when the nearest is
-  the one that runs dry.
+  after the generator's first drought (3 days). Met when the nearest runs dry and water further off holds (the easy
+  pump is the trap); when the nearest holds there is no choice to face (0.4, not met).
 - **A valley behind a gate:** the intentions' hidden valley, farmland past a gorge or a district behind debris, or
   level farmland reached the long way round (1.8 times its distance on foot, 15–70 tiles off).
-- **A late-game project:** a natural narrows a dam of 4–14 tiles closes over 1,000 blocks of water (at 128²;
-  the checks' dam sites within 60 tiles), a ruined dam across the narrows (0.8, `ruinStories`), a plug holding back a
-  lake, or a high lake.
+- **A late-game project:** a natural narrows a dam of 4–14 tiles closes over 2,500 blocks of water (at 128²,
+  strongest at 6,000; the checks' dam sites within 60 tiles), a plug holding back a lake, a ruined dam across the
+  narrows (0.6, `ruinStories`), or a high lake (0.6, the weaker claim).
 - **A landmark in the colony's view:** a standing form 8 levels or more over its ring (`analysis/vertical.ts`
   `standingForms`), within 50 tiles of the start, its ground or its top in the opening frame.
 - **A mystery:** a relic on a pinnacle, a cave (terrain above terrain), a plugged lake, a drowned village (0.7,
@@ -55,6 +55,6 @@ Per candidate on the dedicated machine, with other builders running (PR #504): a
 and 48 s at 128² under heavy load (Canyon); about 127 s at 256² (Highlands). So a few minutes makes 10–20 candidates
 at 128² and 2–4 at 256².
 
-Beats met on 14 maps (every theme, seeds 1 and 2, 128², after the follow-ups of PR #504's review): vista 9, drought 5
-(4 before: separate bodies of water, now places to pump with a real choice), valley 8, project 11, landmark 8,
+Beats met on 14 maps (every theme, seeds 1 and 2, 128²): vista 9, drought 2 (5 before PR #516's review: met now only
+when the nearest water runs dry), valley 8, project 6 (11 before: a reservoir of 2,500 blocks, not 1,000), landmark 8,
 mystery 3.

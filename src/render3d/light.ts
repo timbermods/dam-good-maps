@@ -419,13 +419,16 @@ export function litFraction(z: number, topHigh: number, topLow: number): number 
   return Math.max(0, Math.min(1, (z - topHigh) / span));
 }
 
+/** The water byte's steps a level of depth (`waterByte`; the terrain shader reads the depth back from it). */
+export const WATER_BYTE_STEPS = 60;
+
 /** Water over a tile's top as a byte: 0 dry, else 1 + depth × 60 (to 255). */
 export function waterByte(sw: SurfaceWater | null, heights: Uint8Array, i: number): number {
   if (!sw) return 0;
   const s = sw.surface[i];
   if (!(s === s)) return 0;
   if (sw.floor[i] < heights[i] - 0.01) return 0; // water in a cave under the top
-  return Math.min(255, 1 + Math.round(sw.depth[i] * 60));
+  return Math.min(255, 1 + Math.round(sw.depth[i] * WATER_BYTE_STEPS));
 }
 
 /** Soil bytes as the tile data's two nibbles: moisture (levels 1–15, 0 dry) above contamination

@@ -52,9 +52,12 @@ describe("Showcase mode (D488 (2))", () => {
     // the debris counts once: in the valley, which has nothing else, not again as a mystery; the mystery
     // is the drowned village in the lake's shallows (ruins placed with meaning, generator 0.8.10)
     expect(c.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 57 tiles south-west of the start/);
-    expect(c.drought.say).toMatch(/^Water 8 tiles' walk from the start holds through the first drought/);
+    // its nearest water holds and a farther one runs dry: no choice to face, some of the beat only
+    expect(c.drought.met).toBe(false);
+    expect(c.drought.strength).toBe(0.4);
     expect(c.landmark.say).toMatch(/^An 11-level mesa stands 18 tiles south of the start/);
-    // the best three, best first: the second sibling, the asked map, the first sibling
+    // the best three, best first: the second sibling (its drowned village a mystery, since 0.8.10), the asked map
+    // (its drought's choice), the first
     expect(res.best.map((p) => p.index)).toEqual([2, 0, 1]);
     expect(res.best[0].note).toMatch(/^\d of 6 beats\. /);
     // a budget spent at once still makes one map, the asked map's own
