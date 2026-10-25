@@ -47,7 +47,7 @@ import { writeTimber, type TimberFile } from "../format/timber";
 import { stackedSimulationSingletons, storedColumnOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
-import type { Orientation, Placement } from "../format/footprints";
+import { FOOTPRINTS, worldBlocks, type Orientation, type Placement } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
 import { builtWater, description as generatedText, fileName as timberFileName, NO_SOURCES_NOTE, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
 import { placeCredits } from "./description";
@@ -1466,6 +1466,9 @@ export class MapSession {
     const ids = new Set<string>();
     const taken = new Set<number>();
     for (const e of this.cur.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) taken.add(y * W + x);
+    // (under a roof, at a level: the check holds it to the game's rule against the map's objects cell by cell, D491; within
+    // the batch its cells are kept apart here)
+    const cells = new Set<number>();
     for (const op of ops) {
       if (op.op !== "placeEntity") return fail("a placement batch only takes placeEntity operations");
       const errors = this.check(op);
@@ -1474,6 +1477,14 @@ export class MapSession {
       ids.add(op.params.id);
       const p = op.params;
       const e = placedEntity(p, p.z ?? this.cur.heights[p.y * W + p.x]);
+      if (p.z !== undefined) {
+        for (const c of worldBlocks(FOOTPRINTS[p.template], { template: p.template, x: p.x, y: p.y, z: p.z, orientation: p.orientation, flipped: !!p.flipped })) {
+          const k = (c.z * H + c.y) * W + c.x;
+          if (cells.has(k)) return fail("another object stands in the placement's footprint");
+          cells.add(k);
+        }
+        continue;
+      }
       for (const [x, y] of entityTiles(e)) {
         const i = y * W + x;
         if (taken.has(i)) return fail("another object stands in the placement's footprint");

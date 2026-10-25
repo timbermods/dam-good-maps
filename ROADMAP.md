@@ -505,7 +505,7 @@ the gallery grown to about 150 places. Kyler sees a contact sheet of the whole g
 
 **Meanwhile (D421, amended by D445, done):** the gallery shows every place; the 24 whose start reaches no fed water (the recorded
 `start.water` fault, `src/core/places/place.ts`) carry the card note "No reachable water" until round 2's water floor fixes them.
-Plants on dry soil wait for round 2 (#523); a start short of berries gets the bushes the `start.food` check's own fix plants (24 places; 8 still fall short, as on dev). **Open edges (D151, done):** every place is built from the survey's
+Plants on soil that kills them (#523) move to moist ground within 4 tiles where they live, or go (15,832 dying plants on 85 places: 6,484 moved, 8,928 gone, 96 oaks planted by starts for the logs lost); on 8 places whose start has too little moist ground for its wood, the dying trees nearest the start stay (420; a dead tree keeps its logs) until round 2 plants by the settled water. A start short of berries gets the bushes the `start.food` check's own fix plants (24 places; 8 still fall short, as on dev). **Open edges (D151, done):** every place is built from the survey's
 unsealed land, so none has an edge wall: the edge runs on past the map as the generator's does, with a short lip beside a source
 the survey put by the edge; a start the opened rivers flood, or that reaches no fed water, moves to the best spot its land offers
 (20 moved, D245), and a start that had water on the sealed land and has none on the open land gets a spring by it (11 places,
@@ -774,9 +774,11 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    **Built (the hover's data):** each held drought day's `weather` event carries `firstDry` (an `Int16Array` per tile: 0
    for water that lasts every day worked out so far, or no water on Day 0; else the first day it holds none) and
    `firstDryThrough` (the last day it covers, at least the day sent), for "Dry on day 6" and "Lasts the drought" (D133).
-   `core/sim/droughtLine.ts` `DryDays` reads it from the days the run keeps, one pass per day, "dry" as the view and the
-   line read it (no depth over `WATER_BODY`, seen from above on caves); `tests/contract/droughtFirstDry.test.ts`. The
-   page's hover line is the page session's.
+   Each held badtide day carries `firstBad` and `firstBadThrough` the same way: 0 for no badwater on any day so far, or
+   badwater already on Day 0; else the first day the tile holds badwater (water with contamination at 0.05 or more,
+   where the hover's "badwater" begins). `core/sim/firstDays.ts` `DryDays` and `BadDays` read them from the days the run
+   keeps, one pass per day, "dry" as the view and the line read it (no depth over `WATER_BODY`), both seen from above on
+   caves; `tests/contract/weatherFirstDays.test.ts`. The page's hover lines are the page session's.
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
