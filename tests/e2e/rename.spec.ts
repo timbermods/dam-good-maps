@@ -98,3 +98,48 @@ test("keys typed straight after the click on the title all reach the field", asy
   await expect(page.getByLabel("Map name")).toHaveValue("Beaver Bend");
   await page.keyboard.press("Escape");
 });
+
+test("the description is written under the name where it is renamed: saved through the core with its own undo step, refused in the core's words, cleared by emptying it", async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const info = () => page.evaluate(() => window.dgmEditor!.info());
+  const desc = page.getByLabel("Map description");
+  const open = () => page.locator(".editor-title h1 button.title-button").click();
+
+  // (a map with none written: the field is empty, its placeholder plain)
+  await open();
+  await expect(desc).toHaveValue("");
+  await expect(desc).toHaveAttribute("placeholder", "Describe the map");
+  // (moving from the name to the description keeps both open: nothing is saved until focus leaves the title)
+  await desc.click();
+  await expect(page.getByLabel("Map name")).toHaveCount(1);
+  await desc.fill("A quiet valley for a first colony.");
+  await desc.press("Enter");
+  await expect(desc).toHaveCount(0);
+  await expect.poll(async () => (await info()).descriptionWritten).toBe(true);
+  expect((await info()).description).toBe("A quiet valley for a first colony.");
+  expect((await info()).history.map((h) => h.label)).toContain("Write the description");
+
+  // (reopened, the field shows what was written; one too long is refused in the core's words and the field stays)
+  await open();
+  await expect(desc).toHaveValue("A quiet valley for a first colony.");
+  await desc.fill("x".repeat(601));
+  await desc.press("Enter");
+  await expect(page.getByRole("alert").filter({ hasText: "A description holds up to 600 characters; this one has 601" })).toBeVisible();
+  await expect(desc).toHaveCount(1);
+  expect((await info()).description).toBe("A quiet valley for a first colony.");
+
+  // (emptied, the player's text is taken away: the generated one is used again)
+  await desc.fill("");
+  await desc.press("Enter");
+  await expect(desc).toHaveCount(0);
+  await expect.poll(async () => (await info()).descriptionWritten).toBe(false);
+
+  // (Esc puts it back as it was)
+  await open();
+  await desc.fill("Not kept");
+  await desc.press("Escape");
+  await expect(desc).toHaveCount(0);
+  expect((await info()).descriptionWritten).toBe(false);
+});
