@@ -7,7 +7,8 @@ import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
-const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label);
+// (each step's label, less the sources a force's Sources: Clear took, D474: contract/forceClearSources checks that part)
+const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label.replace(/, (a source|\d+ sources) cleared/, ""));
 const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 /** The map as the worker holds it: its surface, and the tiles that have rock over a hollow. */
