@@ -73,6 +73,11 @@ pub struct Stack {
     flipped: Vec<usize>,
     near: Vec<usize>,
     ring: Vec<usize>,
+    /// 1 on every column that has been wet at the start or the end of any substep since this map was built
+    /// (or its state written, `set_state`): with the active list's rule (the wet columns, their neighbours and
+    /// the sources), where the run can have read or written. Read only; it changes no result. A settle's
+    /// reach (stackWater.ts `StackSettle.reach`): an edit far from it leaves that settle as it was.
+    pub wet_ever: Vec<u8>,
 }
 /// Finite and not below 0 (NaN is neither).
 fn finite_amount(v: f64) -> bool {
@@ -235,6 +240,7 @@ impl Stack {
             flipped: Vec::new(),
             near: Vec::new(),
             ring: Vec::new(),
+            wet_ever: vec![0; size],
         };
         let mut limited = vec![false; n];
         for &key in stack.cols.height_limit.keys() {
@@ -249,6 +255,10 @@ impl Stack {
         }
         stack.edge_rule = rule;
         stack
+    }
+    /// Per edge, 1 when the flow rules let water take it (`dir_allowed`: the direction limiters), else 0.
+    pub fn edges_allowed(&self) -> Vec<u8> {
+        self.edge_rule.iter().map(|r| r & 1).collect()
     }
     pub fn validate_state(&self) -> Result<(), Refusal> {
         let size = self.cols.n * self.cols.levels;
@@ -432,6 +442,7 @@ impl Stack {
         self.d.copy_from_slice(&s.depth);
         self.o.copy_from_slice(&s.overflow);
         self.c.copy_from_slice(&s.contamination);
+        self.wet_ever.fill(0);
         self.sync_state()
     }
     pub fn read_params(&mut self) -> Result<(), Refusal> {
@@ -706,6 +717,9 @@ impl Stack {
         }
         self.build_active();
         for &c in &self.wet {
+            self.wet_ever[c] = 1;
+        }
+        for &c in &self.wet {
             let fc = self.cols.floor[c] as f64;
             let dc = self.d[c];
             let oc = self.o[c];
@@ -913,6 +927,7 @@ impl Stack {
         for &c in &self.active {
             if self.d[c] + self.o[c] > 0.0 {
                 self.wet.push(c);
+                self.wet_ever[c] = 1;
             }
         }
     }

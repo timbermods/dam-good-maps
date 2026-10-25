@@ -467,6 +467,11 @@ fn emitter(t: &str) -> bool {
             | "BadtideDrain"
     )
 }
+/// Objects the game keeps only on ground that reaches the map's bottom (its `ContinuousTerrainConstraint`;
+/// features/objects.ts `ON_BOTTOM_RUN`, rust/checks `continuous`): the water objects and these two.
+fn on_bottom_run(t: &str) -> bool {
+    emitter(t) || matches!(t, "GeothermalField" | "UndergroundRuins")
+}
 fn plant(t: &str) -> bool {
     matches!(t, "Pine" | "Birch" | "Oak" | "Succulent" | "BlueberryBush")
 }
@@ -9540,7 +9545,8 @@ impl Fault {
             reach,
             margin,
             lift,
-            slide,
+            // a short line slides ground no further than its own length in whole tiles (at least 2): the quake's line is its length
+            slide: min(slide, max(length.floor(), 2.0)),
             heading,
             directions,
         }
@@ -9594,7 +9600,7 @@ impl Fault {
         if s(s0, "mode") == "slide" {
             // The block is the drawn line and a margin (set by Power) past its ends and sides, or a
             // block 1.3 times the line's length across: the quake's line is its length.
-            let reach = max(self.margin * 2.0, self.length * 1.3);
+            let reach = max(self.margin, self.length * 1.3);
             // (the tile's distance from the drawn line, past its ends too)
             let away = hypot(dist, f.past);
             let envelope = (1.0 - smooth((away - reach) / (self.margin * 0.5)))

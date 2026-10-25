@@ -190,6 +190,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   `batch -- --group <name>` writes its maps first (`Tall maps` and `Sizes` have one; `Parity` on `feature/parity`; `Terrain
   3D` needs one when it merges; if its run is refused, leave the batch for Kyler).
   `batch -- --companion` checks the companion mod in the game (`mods/companion`, `investigation/probe/README.md` "Companion mode"): `--dry-run` prints the plan, then the same command with `--reference` and the code, like any batch.
+  `batch -- winner.timber --factions folktails,ironteeth --cycles 10 --keep-mods` plays a map to cycle 10 on both factions (D488 (2), Showcase mode's winner): 185 game days of the hardest weather Normal's rules allow, the same every run, with a table per map and faction in `summary.md`, a row per cycle (the start's water a pump reaches, the map's water and soil against the model, the farmland and food by the start, the real time); about 68 minutes for a 128² map on both factions, 148 at 256² (`investigation/probe/README.md`, "Run it"). Needs DGM Probe 0.3.2 for the time per cycle.
   Results go to `C:\dgm-probe\`, never Documents. The runner restores his settings, logs and player data, moves what the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`).
 - **Merging** (D341, amended by D489 and D490): a change merges into `dev` once a fresh reviewer agent that
@@ -200,7 +201,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   release. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D492**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
+  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D495**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual
   work from before/after captures (with greyscale and colour-blindness sheets).

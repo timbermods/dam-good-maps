@@ -22,7 +22,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It hands out
-  decision numbers (**next free: D492**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF. Since 2026-10-15 trivial and simple work goes to Haiku sub-agents at high effort wherever they can do it (Kyler).
+  decision numbers (**next free: D495**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF. Since 2026-10-15 trivial and simple work goes to Haiku sub-agents at high effort wherever they can do it (Kyler).
 - **The planning session** (Opus 5.5, high; worktree `DamGoodMaps-planning`; since 2026-10-14) coordinates: it merges
   every "ready to merge" posted on #236, releases to `main`, settles cross-session questions, and sends Kyler only the
   design questions his decisions don't settle.
@@ -114,6 +114,7 @@ isn't set.
 Run on the dedicated machine without asking (D218); anywhere else only with Kyler's yes in chat (D117). Each batch and its
 results are recorded here. Earlier batches: [archive/status-2026-10-01.md](archive/status-2026-10-01.md), "Probe batches".
 
+- **Objects in caves, D491** (2026-10-25, D218; #490): Hollows edited through the core and exported (`hollows-cave-source`, a water source on a cave's floor at (78, 6, 1) under a roof up to 7; `hollows-cave-ruin`, a RuinColumnH3 at (180, 9, 1) under a roof up to 8; written by the Terrain 3D writer, both validators' export profile failing only what unedited Hollows fails), `--keep-mods`, on the game's new **1.1.2.8** (Unity 6000.5.11): a smoke run (`20261025-0917-smoke`: passed) and `20261025-1008-batch`. **All passed:** 2381 of 2381 objects at their tile and level on both maps (none dropped or moved); water at the load and after 1 and 1.18 days 100% of 4117 wet columns within 0.1, the 988 roofed ones included, IoU 1.000, 23 of 23 pressurised columns matching, largest difference 0.005 (source) and 0.013 (ruin); the source adds about 10 units to its cave as the stacked engine predicts (that cave already holds water in the official file). On 1.1.2.8, two of four launches hung at engine start (no heartbeat in 300 s; the runner's next launch played). Still to do for 1.1.2.8: the starting-logs floor and `investigation/decompiled/`.
 - **The `3d-foundations-done` gate** (2026-10-15, D218; `docs/progress/3d-foundations.md`, "RESULTS"): a smoke run (`20261015-0947-smoke`: passed) and `20261015-1011-batch`, six cave edits as the app exports them (Hollows and Canyon edited, a roof stroke on Pillars, a Block dig in Hollows, an Erode cave on a generated map, unedited Hollows as the control), `--keep-mods`. **All passed:** water at the load and after a day 100% of wet columns within 0.1, roofed ones included (largest difference 0.033), soil per run 100%, nothing dropped. The gate is green.
 - **Terrain 3D on 1.1.2.7** (2026-10-08, Kyler's yes in chat; #361, closed): a smoke run (`20261008-0857-smoke`, the M8 preview: passed) and
   the batch (`20261008-0859-batch`, T3–T7, with `--keep-mods`). **T7, the sink under a roof, passed:** 100% of 209 wet columns

@@ -283,16 +283,24 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         fixed[i] = keep.get(i).copied().unwrap_or(0) != 0 || area_depth.get(i).copied().unwrap_or(255) == 0;
         edge[i] = fixed[i] || x == 0 || y == 0 || x + 1 == w || y + 1 == h || wet[i] != 0;
     }
-    // the ground every object stands on (a ledge's under a cave's roof too), three levels down
+    // the ground every object stands on (a ledge's under a cave's roof too), three levels down, and
+    // down to the map's bottom under an object the game keeps only on ground that reaches it (a ruin
+    // or a geothermal field on a cave's floor, features/objects.ts `ON_BOTTOM_RUN`; the water objects'
+    // columns are never worn): no wear leaves an object the game would remove (D270, D491)
     let mut held_up = vec![0u32; n];
+    // (an object of more than one tile: its ground is never scoured, so it never stands half on air, D368 (10))
+    let mut whole = vec![false; n];
     for e in &before.entities {
         let ez = max(0.0, e.z) as usize;
+        let rigid = e.sx * e.sy > 1.0 && !plant(&e.template) && e.template.as_ref() != "StartingLocation";
         for j in before.footprint(e, 0) {
+            whole[j] |= rigid;
             if emitter(&e.template) {
                 fixed[j] = true;
                 edge[j] = true;
             }
-            for z in ez.saturating_sub(3)..ez.min(Z) {
+            let from = if on_bottom_run(&e.template) { 0 } else { ez.saturating_sub(3) };
+            for z in from..ez.min(Z) {
                 held_up[j] |= 1 << z;
             }
         }
@@ -635,7 +643,7 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         for &i in &tiles {
             let d = dist[i];
             let ragged = r * (0.7 + 0.45 * noise3(seed, (i % w) as f64, (i / w) as f64, 0.0, 2.7, 0x7a));
-            if fixed[i] || !plain(orig[i]) || (d > ragged && d > 0.75) {
+            if fixed[i] || whole[i] || !plain(orig[i]) || (d > ragged && d > 0.75) {
                 continue;
             }
             // (water and the ground that holds it stay: no wet tile scoured, none below the water beside)
@@ -963,6 +971,34 @@ mod tests {
         let through = (0..h).any(|y| (2..12).any(|z| (t[y * w + 20] >> z) & 1 == 0 && (t[y * w + 21] >> z) & 1 == 0));
         assert!(through, "the fin did not open through");
         assert!(unsupported(&t, w, h).iter().all(|&u| u == 0));
+    }
+
+    #[test]
+    fn an_object_the_game_keeps_only_on_ground_to_the_bottom_keeps_it() {
+        // a cliff at level 14 east of x = 20 over ground at level 1, a cave in its foot (air at z 6–8 on
+        // x 20–22, y 18–22) and one object on the cave's floor at (21, 20), level 6
+        let (w, h) = (40, 40);
+        let n = w * h;
+        let heights: Vec<u8> = (0..n).map(|i| if i % w < 20 { 1 } else { 14 }).collect();
+        let masks: Vec<u32> = (0..n)
+            .map(|i| {
+                let (x, y) = (i % w, i / w);
+                let m = mask(heights[i]);
+                if (20..=22).contains(&x) && (18..=22).contains(&y) { m & !(0b111 << 6) } else { m }
+            })
+            .collect();
+        let at = 20 * w + 21;
+        let worn_under = |template: &str| -> u32 {
+            let mut m = map_of(w, h, heights.clone(), vec![0.0; 23], masks.clone());
+            m.entities = vec![Entity::from(&json!({"id":"a","template":template,"x":21.0,"y":20.0,"z":6.0,"orientation":"Cw0"}), &json!({}), 0)];
+            let p = run(&m, &settings(20.0, 1.0), &click(19.5, 20.5));
+            !final_masks(&m, &p)[at] & mask(6)
+        };
+        // (a relic holds three levels down, held up from beside: the wear reaches under them)
+        assert_ne!(worn_under("SmallRelic") & mask(3), 0, "the wear never reached under the floor");
+        // a ruin keeps its ground down to the map's bottom, as the game needs it
+        assert_eq!(worn_under("UndergroundRuins"), 0);
+        assert_eq!(worn_under("GeothermalField"), 0);
     }
 
     #[test]

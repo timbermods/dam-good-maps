@@ -419,13 +419,27 @@ export function litFraction(z: number, topHigh: number, topLow: number): number 
   return Math.max(0, Math.min(1, (z - topHigh) / span));
 }
 
-/** Water over a tile's top as a byte: 0 dry, else 1 + depth × 60 (to 255). */
+/** The water byte's steps a level of depth to three levels deep (`waterByte`; the terrain shader reads the depth back
+ *  from it). */
+export const WATER_BYTE_STEPS = 60;
+/** The water byte's last value in steps (three levels deep); above it, a byte is whole levels (`waterByte`). */
+export const WATER_BYTE_FINE = 1 + 3 * WATER_BYTE_STEPS;
+
+/** Water over a tile's top as a byte: 0 dry; to three levels deep 1 + depth × 60 rounded up; deeper (a dammed reservoir, an
+ *  imported map's) 178 + K, its surface at most K + 0.05 over the top and more than K − 0.95 (K from 4 to 77). So the
+ *  terrain shader knows exactly whether a layer cut takes the water's surface away (the water's shader cuts it at the
+ *  cut's 0.05), however deep the water: `soilOf`. */
 export function waterByte(sw: SurfaceWater | null, heights: Uint8Array, i: number): number {
   if (!sw) return 0;
   const s = sw.surface[i];
   if (!(s === s)) return 0;
   if (sw.floor[i] < heights[i] - 0.01) return 0; // water in a cave under the top
-  return Math.min(255, 1 + Math.round(sw.depth[i] * 60));
+  const depth = sw.depth[i];
+  // (rounded up, a hair's tolerance for the product's own rounding: a surface more than 0.05 over the cut, which 3/60
+  // is exactly, never reads as at or under it)
+  const fine = 1 + Math.ceil(depth * WATER_BYTE_STEPS - 1e-9);
+  if (fine <= WATER_BYTE_FINE) return fine;
+  return Math.min(255, Math.max(WATER_BYTE_FINE, WATER_BYTE_FINE - 3 + Math.ceil(depth - 0.05)));
 }
 
 /** Soil bytes as the tile data's two nibbles: moisture (levels 1–15, 0 dry) above contamination

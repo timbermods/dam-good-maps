@@ -399,8 +399,9 @@ const dist = (ax: number, ay: number, bx: number, by: number): number => portabl
  *    crater's diameter (2223-2224);
  *  - Erupt: lava lobes run up to 2.36 radii for Heavy flows, 1.42 for Light (erupt.ts lavaLobes), and are
  *    up to 4.84 × max(0.7, radius / 22) wide;
- *  - Quake: lift moves ground out to max(reach, 1.3 × the fault's length) from it, slide to
- *    max(reach, 1.3 × length, slide + 12) + 12, then a slide's travel on (9346, 9530, 9567; quake.ts);
+ *  - Quake: lift moves ground out to max(2 × margin, 1.3 × the fault's length) from it, slide to
+ *    max(margin, 1.3 × length) + margin / 2, then a slide's travel on (a short line's no further than its length;
+ *    quake.ts `quakeExtent`, `Fault` in rust/forces);
  *  - an aimed Carve stays within the drawn path's length + 20.25 of its end (3262, 4226), a half-width of 0.72 × 24
  *    either side (4848) and its banks, 1.8 × banks + 14;
  *  - an aimed Glaciate drawn through points stays by its line within 1.12 × its Size (5992) and a margin for

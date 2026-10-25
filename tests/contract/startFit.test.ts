@@ -11,7 +11,9 @@ import { makesRoomForStart, startFitProblem, startFitWarnings, takenTiles, type 
 import { moveEdit, planStart } from "../../src/core/doc/tools";
 import { objectTiles } from "../../src/core/features/objects";
 import type { MapObjectFeature, StartFeature } from "../../src/core/features/schema";
+import { entityTiles } from "../../src/core/features/edits";
 import { footprintTiles } from "../../src/core/format/footprints";
+import { writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { writeTimber } from "../../src/core/format/timber";
@@ -67,6 +69,34 @@ describe("startFitWarnings", () => {
     expect(startFitWarnings(extras, W, W, 254, 100)[0]).toMatch(/^Geothermal field 1\d\d tiles from the start, wanted 30–120$/);
     // a smaller map scales the scaled bands (side ÷ 128)
     expect(startFitWarnings([{ kind: "geothermal", tiles: [[10, 30]] }], 64, 64, 20, 30)).toEqual(["Geothermal field 9 tiles from the start, wanted 15–60"]);
+  });
+});
+
+describe("an imported map's start", () => {
+  it("is refused on a geothermal field, a mine site, a relic or thorns, though every imported object is owned by \"import\" (the start is skipped by its template, not its owner)", () => {
+    const g = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 128, y: 128 } }));
+    const s = MapSession.importMap(writeTimber(g.file), "valley.timber");
+    const start = s.built.entities.find((e) => e.template === "StartingLocation")!;
+    expect(start.owner).toBe("import");
+    const objects = s.built.entities.filter((e) => /^(GeothermalField|UndergroundRuins|SmallRelic|MediumRelic|Thorns)$/.test(e.template));
+    expect(objects.length).toBeGreaterThan(0);
+    let refused = 0;
+    for (const e of objects) {
+      const [x, y] = entityTiles(e)[0];
+      if (x < 3 || y < 3 || x > 124 || y > 124) continue;
+      const plan = planStart(s, x, y, undefined, () => "x");
+      expect(plan.ok, `${e.template} at ${x},${y}`).toBe(false);
+      refused++;
+    }
+    expect(refused).toBeGreaterThan(0);
+    // and the search for the nearest good spot never lands on one
+    const at = startMiddle(s)!;
+    const ops = moveStartNear(s, at[0], at[1]);
+    if (ops) {
+      const move = ops.find((o) => o.op === "moveEntity") as { params: { x: number; y: number } };
+      const ground = startGroundOf(s.built, s.features, null);
+      expect(startProblem(s.built, move.params.x + 1, move.params.y + 1, start.orientation, true, null, null, ground)).toBeNull();
+    }
   });
 });
 

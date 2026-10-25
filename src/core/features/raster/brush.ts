@@ -155,6 +155,11 @@ export interface BrushParams {
   /** Tiles the stroke leaves as they are, as runs [y, x0, x1] (a hold never digs out from under the
    *  start or the objects standing there, D193). */
   keep?: [number, number, number][];
+  /** The ground that holds objects set under a roof (D491, objects.ts `objectHolds`): [tile, low, high],
+   *  the lowest and highest each tile's surface may go. The stroke keeps each within them and shapes the
+   *  rest as normal; a natural weathering and the pieces that ride leave them as they are. The session
+   *  adds it to a stroke over such ground, and the page's preview applies the same. */
+  hold?: [number, number, number][];
   /** Pieces that ride the stroke's ground whole and level (D249: a 3 × 3 badwater source), as
    *  rectangles [x0, y0, x1, y1]: once the stroke is applied, each one's tiles take the level of its
    *  middle tile. */
@@ -561,6 +566,9 @@ export class BrushStroke {
   /** Ground mode (D322): the lowest each bank tile may go (0 elsewhere), with a roof's floor; null
    *  without a bank or a roof. */
   private readonly low: Uint8Array | null;
+  /** The highest each held tile may go (D491; 255 elsewhere), and the held tiles; null without a hold. */
+  private readonly high: Uint8Array | null = null;
+  private readonly held: Uint8Array | null = null;
   /** The lowest each tile's surface may go (a roof's, D280 (3)); null on a heightfield. */
   private readonly floor: Uint8Array | null;
   /** Tiles the middle of the brush has passed over (the first pass moves them a whole level). */
@@ -643,6 +651,20 @@ export class BrushStroke {
     if (floor) {
       low ??= new Uint8Array(W * H);
       for (let i = 0; i < floor.length; i++) if (floor[i] > low[i]) low[i] = floor[i];
+    }
+    // (the ground holding objects set under a roof, D491: a floor and a ceiling per tile)
+    if (settings.hold?.length) {
+      const high = new Uint8Array(W * H).fill(255);
+      const held = new Uint8Array(W * H);
+      low ??= new Uint8Array(W * H);
+      for (const [i, a, b] of settings.hold) {
+        if (!(i >= 0 && i < W * H)) continue;
+        held[i] = 1;
+        if (a > low[i]) low[i] = a;
+        if (b < high[i]) high[i] = b;
+      }
+      this.high = high;
+      this.held = held;
     }
     this.floor = floor;
     this.low = low;
@@ -787,7 +809,8 @@ export class BrushStroke {
   /** The pieces that ride the stroke whole take the level of their middle tile (D249), once its
    *  dabs are all in. Returns the rectangle of tiles that changed, or null. */
   level(rigid: readonly (readonly [number, number, number, number])[]): Rect | null {
-    return levelRigid(rigid, this.heights, this.W, this.H, this.write, this.floor);
+    const held = this.held;
+    return levelRigid(rigid, this.heights, this.W, this.H, held ? (i) => !held[i] && this.write(i) : this.write, this.floor);
   }
 
   /** Rule 3: one dab's weathering. The intensity from all the pressure gathered so far, on the dab's
@@ -831,7 +854,7 @@ export class BrushStroke {
     if (cx1 < 0) return null;
     const box = boxAround(cx0, cy0, cx1, cy1, WEATHER_MARGIN, W, H)!;
     const known = (this.writable ??= new Uint8Array(W * H));
-    const write = this.write;
+    const write = this.unheld();
     const may = (i: number) => (known[i] ? known[i] === 1 : (known[i] = write(i) ? 1 : 2) === 1);
     // where the water stood: the stroke's own record, or the page's water
     if (!this.limits) {
@@ -932,7 +955,7 @@ export class BrushStroke {
     }
     // (which tiles it may change never changes during a stroke: asked once a tile)
     const known = (this.writable ??= new Uint8Array(W * H));
-    const write = this.write;
+    const write = this.unheld();
     const may = (i: number) => (known[i] ? known[i] === 1 : (known[i] = write(i) ? 1 : 2) === 1);
     // where the water stood: the stroke's own record, or the page's water, recorded as it is used
     let shore = this.settings.shore ?? null;
@@ -978,6 +1001,13 @@ export class BrushStroke {
 
   /** Smooth and naturalize: a tile moves a level for each level of pressure it gathers, toward
    *  what its neighbours are now. */
+  /** The tiles a natural weathering may change: the stroke's, but the held ones (D491). */
+  private unheld(): (i: number) => boolean {
+    const held = this.held;
+    const write = this.write;
+    return held ? (i) => !held[i] && write(i) : write;
+  }
+
   private stepTile(i: number): void {
     const { W, H, heights } = this;
     while (this.acc[i] >= LEVEL) {
@@ -989,7 +1019,7 @@ export class BrushStroke {
       // (the working area's feathered edge: a tile moves at most its steps inside the area)
       const was = this.start ? this.start[i] : h;
       const room = this.inside ? this.inside[i] : 255;
-      const up = h < was + room;
+      const up = h < was + room && !(this.high && h + 1 > this.high[i]);
       // (ground mode, D322: a bank tile never below its water's surface)
       const down = h > was - room && !(this.low && h - 1 < this.low[i]);
       if (this.settings.tool === "smooth") {
@@ -1100,6 +1130,8 @@ export class BrushStroke {
         }
         // ground mode (D322): a bank tile never below its water's surface
         if (low && h < h0) h = Math.max(h, Math.min(h0, low[i]));
+        // (the ground holding an object under a roof: never above its ceiling, D491)
+        if (this.high && h > h0) h = Math.min(h, Math.max(h0, this.high[i]));
         heights[i] = h;
       }
     }
@@ -1212,6 +1244,7 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (p.shape === "area" && (p.precise || p.pressure !== undefined || p.levels !== undefined || p.channel)) return ["an area has no pressure, precise levels or channel"];
   if (p.pressure !== undefined && (p.pressure.length !== p.dabs.length / 2 || !p.pressure.every((v) => Number.isInteger(v) && v >= 1 && v <= 255))) return ["a stroke's pressures are one whole number from 1 to 255 for each dab"];
   if (p.levels !== undefined && (!p.precise || p.levels.length !== p.dabs.length / 2 || !p.levels.every((v) => Number.isInteger(v) && v >= 1 && v <= BRUSH_MAX_LEVEL))) return [`a precise stroke's levels are one whole number from 1 to ${BRUSH_MAX_LEVEL} for each dab`];
+  if (p.hold !== undefined && !(Array.isArray(p.hold) && p.hold.length <= 262144 && p.hold.every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[0] >= 0 && r[0] < W * H && r[1] >= 0 && r[1] <= r[2] && r[2] <= 255))) return ["a stroke's hold is [tile, low, high] for tiles on the map, low no higher than high"];
   if (p.stop !== undefined && (!Number.isInteger(p.stop) || p.stop < 0 || p.stop > BRUSH_MAX_LEVEL)) return [`a stroke stops at a level from 0 to ${BRUSH_MAX_LEVEL}`];
   if (p.steps !== undefined && (p.tool !== "flatten" || !Number.isInteger(p.steps) || p.steps < 2 || p.steps > 8)) return ["flatten's steps are 2 to 8 levels apart"];
   if (p.walkable !== undefined && (p.tool !== "smooth" || typeof p.walkable !== "boolean")) return ["only smooth makes the ground walkable"];

@@ -76,6 +76,7 @@
         "levels": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 22 } },
         "stop": { "type": "integer", "minimum": 0, "maximum": 22 },
         "keep": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "hold": { "description": "The ground holding objects set under a roof (D491): [tile, low, high], the lowest and highest each tile's surface may go; the session adds it.", "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } } },
         "area": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "rigid": { "type": "array", "maxItems": 4096, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer", "minimum": 0 } } },
         "steps": { "type": "integer", "minimum": 2, "maximum": 8 },
@@ -129,7 +130,8 @@
         "amount": { "type": "integer", "minimum": 1, "maximum": 22 },
         "level": { "type": "integer", "minimum": 0, "maximum": 22 },
         "step": { "type": "integer", "minimum": 2, "maximum": 8 },
-        "exact": { "type": "boolean" }
+        "exact": { "type": "boolean" },
+        "hold": { "description": "The ground holding objects set under a roof (D491): [tile, low, high], the lowest and highest each tile's surface may go; the session adds it.", "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } } }
       }
     },
     "forceResult": {
@@ -268,6 +270,7 @@
         "y": { "$ref": "#/$defs/coordinate" },
         "orientation": { "$ref": "#/$defs/orientation" },
         "flipped": { "type": "boolean" },
+        "z": { "description": "The level it stands on under a roof (a cave floor, the ground under a ledge); omitted, the ground's top (D491).", "type": "integer", "minimum": 0, "maximum": 22 },
         "components": { "$ref": "#/$defs/objectComponents" }
       }
     },
@@ -279,6 +282,7 @@
         "id": { "$ref": "#/$defs/guid" },
         "x": { "$ref": "#/$defs/coordinate" },
         "y": { "$ref": "#/$defs/coordinate" },
+        "z": { "description": "The level it lands on under a roof; omitted, the ground's top (D491).", "type": "integer", "minimum": 0, "maximum": 22 },
         "orientation": { "$ref": "#/$defs/orientation" }
       }
     },
@@ -313,7 +317,7 @@
       }
     },
     "removeUnfedWater": {
-      "description": "Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, stored literally as the tiles of the bodies of unfed water it takes (indices y·W + x, ascending; a body with a tile in the selection goes whole). Once the map's water settles, the unfed water on those tiles is taken away and the water settles on from there; water a source feeds is never taken. The engine checks that none of the tiles holds fed water now.",
+      "description": "Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, stored literally as the tiles of the bodies of unfed water it takes (indices y·W + x, ascending; a body with a tile in the selection goes whole, and on a map with caves so does every body on a tile it shares). Once the map's water settles, the unfed water on those tiles is taken away, on every water column of them, and the water settles on from there; water a source feeds is never taken. The engine checks that each tile holds unfed water now.",
       "type": "object",
       "additionalProperties": false,
       "required": ["tiles"],
@@ -324,13 +328,14 @@
       }
     },
     "fillHollow": {
-      "description": "Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source: where it was asked, the level, and the hollow's water stored literally as a carve stores its sealed oxbow lake's (D216): the tiles (ascending), their floors, the depths to the level, clean. Every settle starts the hollow from it and the game's rules evaporate it. The engine checks the hollow, measured on the map now, holds water at that level and is the one stored.",
+      "description": "Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source: where it was asked, the level, and the hollow's water stored literally as a carve stores its sealed oxbow lake's (D216): the tiles (ascending), their floors, the depths to the level, clean; on a map with caves or overhangs one entry a water column, ascending by tile and then floor, and 'floor' the floor of the column at 'at' it was measured from (a cave's under its roof). Every settle starts the hollow from it and the game's rules evaporate it. The engine checks the hollow, measured on the map now, holds water at that level and is the one stored.",
       "type": "object",
       "additionalProperties": false,
       "required": ["at", "level", "lake"],
       "properties": {
         "at": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
         "level": { "type": "number", "exclusiveMinimum": 0, "maximum": 64 },
+        "floor": { "type": "integer", "minimum": 0, "maximum": 33 },
         "lake": {
           "type": "object",
           "additionalProperties": false,

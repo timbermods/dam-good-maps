@@ -10,7 +10,7 @@ import type { Runs } from "../math/grid";
 import { clone } from "../spec/mergepatch";
 import { patchFeature, type EditOp, type OpParams } from "./ops";
 import { entityTiles } from "../features/edits";
-import { isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
+import { fitProblems, isLine, OBJECT_NAMES, objectTiles, openPart, standProblem } from "../features/objects";
 import type { MapSession } from "./session";
 import { levelFootprint, levelProblem } from "./placing";
 import { cornerFor, startClears, startGroundOf, startMiddle, startProblem } from "./start";
@@ -85,6 +85,9 @@ export function objectsOnNewGround(s: MapSession, ops: readonly EditOp[], edited
   const out: EditOp[] = [];
   const report: string[] = [];
   const hit = (tiles: readonly (readonly [number, number])[]) => tiles.some(([x, y]) => x >= 0 && y >= 0 && x < W && y < H && (changed[y * W + x] || body[y * W + x]));
+  // the ground after the edit, voxel by voxel, for what stands under a roof (made once, when needed)
+  let afterMask: Uint32Array | null = null;
+  const afterGround = () => ({ W, H, mask: (afterMask ??= s.terrain.withSurface(after.heights).mask) });
   // map object features: their objects stand on the ground wherever it is, so they move with it
   const objectIds = new Set<string>();
   for (const f of feats) {
@@ -102,11 +105,17 @@ export function objectsOnNewGround(s: MapSession, ops: readonly EditOp[], edited
       const i = y * W + x;
       if (body[i] && kind !== "weir" && kind !== "plug") why = "the new feature covers its ground";
       else if (after.channel[i] && kind !== "weir" && kind !== "plug") why = "a river runs through its ground";
-      else if (!isLine(kind)) {
+      else if (!isLine(kind) && f.params.placement.z === undefined) {
         if (level < 0) level = after.heights[i];
         else if (after.heights[i] !== level) why = "its ground is no longer level";
       }
       if (why) break;
+    }
+    // one at a level under a roof: the game's rule on the ground after the edit (D491)
+    const pl = f.params.placement;
+    if (!why && pl.z !== undefined) {
+      const left = fitProblems(kind, tiles, { W, H, heights: after.heights, masks: afterGround().mask }, pl);
+      if (left.length) why = left[0];
     }
     if (why) {
       out.push({ op: "deleteFeature", params: { id: f.id } });
@@ -134,6 +143,12 @@ export function objectsOnNewGround(s: MapSession, ops: readonly EditOp[], edited
     if (!GROUND_OBJECTS.has(e.template) || objectIds.has(e.owner)) continue;
     const tiles = entityTiles(e);
     if (!hit(tiles)) continue;
+    // an object under a roof (its level below the ground's top): it goes when the ground after the edit
+    // no longer holds it by the game's rule, or leaves part of it in the open (D491)
+    if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && e.z < after.heights[e.y * W + e.x]) {
+      if (standProblem(e.template, e, afterGround()) || openPart(tiles, e.z, { W, H, heights: after.heights })) gone.push(e.id);
+      continue;
+    }
     if (tiles.some(([x, y]) => x < 0 || y < 0 || x >= W || y >= H || after.heights[y * W + x] !== e.z || body[y * W + x])) gone.push(e.id);
   }
   if (gone.length) {
@@ -223,7 +238,8 @@ function movePlan(s: MapSession, id: string, dx: number, dy: number): PlannedEdi
  *  on its own ground; `newId` names it. The step's operations and label, or why not. */
 export function planStart(s: MapSession, x: number, y: number, orientation: Orientation | undefined, newId: () => string): { ok: true; ops: EditOp[]; label: string } | { ok: false; errors: string[] } {
   const f = s.features.find((g) => g.kind === "start");
-  // (the one fit rule the shelf's preview shares, startFit.ts: never on another object's footprint, in a river, under water or at the edge)
+  // (an imported start has no feature: every imported object is owned by "import", so it is skipped by its template, not its owner;
+  // the one fit rule the shelf's preview shares, startFit.ts: never on another object's footprint, in a river, under water or at the edge)
   const own = s.built.entities.find((g) => g.template === "StartingLocation");
   const why = startProblem(s.built, x, y, orientation ?? (f && f.kind === "start" ? f.params.orientation : (own?.orientation ?? "Cw0")), false, f ? f.id : null, null, startGroundOf(s.built, [], f ? f.id : null));
   if (why) return fail(`the start can't stand there: ${why}`);

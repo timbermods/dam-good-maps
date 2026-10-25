@@ -36,6 +36,11 @@ pub struct Session {
     terrain_count: Vec<u8>,
     terrain_floor: Vec<i16>,
     terrain_ceil: Vec<i16>,
+    /// Per column id, 1 where a running emitter (strength above 0) gives water; per edge, 1 where the flow
+    /// rules let water take it (the direction limiters): what the core's questions about fed water and
+    /// hollows walk (src/core/sim/stackFed.ts).
+    emitting: Vec<u8>,
+    allowed: Vec<u8>,
 }
 fn integer(v: f64, lo: f64, hi: f64) -> bool {
     v.is_finite() && v >= lo && v <= hi && v.trunc() == v
@@ -46,7 +51,7 @@ impl Session {
             .checked_mul(h)
             .filter(|&n| w > 0 && h > 0 && n <= 1_048_576)
             .ok_or("Water map dimensions are invalid.")?;
-        if objects > 131_072 || retained > n {
+        if objects > 131_072 || retained > n * 17 {
             return Err("Water input counts are invalid.");
         }
         Ok(Self {
@@ -71,6 +76,8 @@ impl Session {
             terrain_count: Vec::new(),
             terrain_floor: Vec::new(),
             terrain_ceil: Vec::new(),
+            emitting: Vec::new(),
+            allowed: Vec::new(),
         })
     }
     /// The engine, once built.
@@ -144,23 +151,34 @@ impl Session {
         self.terrain_floor = terrain.floor;
         self.terrain_ceil = terrain.ceil;
         self.sat = vec![0; wc.n * wc.levels];
+        self.emitting = vec![0; wc.n * wc.levels];
+        for em in &engine.model.emitters {
+            if em.strength > 0.0 {
+                for &c in &em.cols {
+                    self.emitting[c as usize] = 1;
+                }
+            }
+        }
         if let Flow::Stacked(s) = &engine.flow {
             self.start = s.start.clone();
             self.target = s.target.clone();
             self.dir = s.dir.clone();
             self.rev = s.rev.clone();
+            self.allowed = s.edges_allowed();
         } else {
             self.start.clear();
             self.target.clear();
             self.dir.clear();
             self.rev.clear();
+            self.allowed.clear();
         }
         self.engine = Some(engine);
         self.trusted = true;
         Ok(())
     }
     /// 0 build (a 0 game, 1 port; b 1 the stacked rules even on an open field: a strip of a map with caves);
-    /// 1 run (a ticks, b scale); 2 prefill; 3 canonical begin (a maxDays; flat must be 6); 4 advance (a tick
+    /// 1 run (a ticks, b scale); 2 prefill; 3 canonical begin (a maxDays; flat must be 6; b 1: on from the state as
+    /// written, stacked only, the pre-fill skipped); 4 advance (a tick
     /// budget); 5 accept edited state; 6 saturation; 7 rows a..b as a block (field 21, stacked); 8 the
     /// settle's water after `a` ticks run elsewhere (the strips of the multi-core settle), written whole: the
     /// settle's checks as if it had run them here (stacked); 9 make room for a block of `a` numbers (field
@@ -193,10 +211,13 @@ impl Session {
                 e.prefill()?;
             }
             3 => {
-                if b != 0.0 {
+                if b == 1.0 {
+                    e.settle_from_state(a)?;
+                } else if b == 0.0 {
+                    e.start_settle(a)?;
+                } else {
                     return Err("Water settle arguments are invalid.");
                 }
-                e.start_settle(a)?;
             }
             4 => {
                 if !integer(a, 0.0, 10_000_000.0) || b != 0.0 {
@@ -261,6 +282,8 @@ impl Session {
     /// 17 terrain count u8, 18 terrain floor i16, 19 terrain top i16 (read-only).
     /// 20 drained mask u8, writable before build (flat maps, D387).
     /// 21 the block of rows op 7 handed out f64 (a copy); 22 the block op 10 takes f64 (sized by op 9).
+    /// 23 the columns wet at any substep's start or end since the state was last set u8 (stacked; read only).
+    /// 24 emitting u8 per column (a running emitter gives water there), 25 allowed u8 per edge (read-only).
     /// A view of the state (6..10, 15) makes the next run check the whole state again.
     /// Lengths are element counts, never byte counts. Flat momentum remains four per tile.
     pub fn field(&mut self, which: u32) -> Option<(*mut u8, usize)> {
@@ -288,6 +311,12 @@ impl Session {
             17 => view!(self.terrain_count),
             18 => view!(self.terrain_floor),
             19 => view!(self.terrain_ceil),
+            23 => match &mut self.engine.as_mut()?.flow {
+                Flow::Stacked(s) => view!(s.wet_ever),
+                Flow::Flat(_) => None,
+            },
+            24 => view!(self.emitting),
+            25 => view!(self.allowed),
             6..=10 | 15 => {
                 self.trusted = false;
                 let e = self.engine.as_mut()?;

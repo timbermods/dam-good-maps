@@ -643,8 +643,8 @@ test("Select's row: Fill water pours into the hollow under the selection up to t
   await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
   const row = page.getByRole("group", { name: "Selection" });
   // nothing selected: both greyed
-  await expect(row.getByRole("button", { name: "Fill water" })).toBeDisabled();
-  await expect(row.getByRole("button", { name: "Remove unfed water" })).toBeDisabled();
+  await expect(row.getByRole("button", { name: "Fill water" })).toHaveAttribute("aria-disabled", "true");
+  await expect(row.getByRole("button", { name: "Remove unfed water" })).toHaveAttribute("aria-disabled", "true");
   // a hollow: a 3 × 3 pit dug one level into flat, dry ground with Down 1, the selection kept; Fill pours into it up to the ground's level
   const [x, y] = (await openGround(page, 2))[0];
   // (hovering Fill water before the Level is set: a few words, no coordinates, and nothing spilling over the cells beside it)

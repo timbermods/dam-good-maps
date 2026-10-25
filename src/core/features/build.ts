@@ -23,7 +23,8 @@ import { gameSoil, stackedSoil, topRuns, type Soil } from "../sim/soil";
 import { fedTiles } from "../sim/fed";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { waterColumns } from "../sim/columns";
-import { stackedModel, staleStack } from "../sim/stackWater";
+import { stackedModel, staleStack, stackGraph } from "../sim/stackWater";
+import { keptOnStack, unfedOwnWater } from "../sim/stackFed";
 import { previewSettle, staleWater } from "../sim/preview";
 import { composeKept, sameKeptWater, type KeptWater, type RetainedWater, type WaterModel } from "../sim/water";
 import { isForce } from "../forces/op";
@@ -1140,9 +1141,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   }
   const keptWater = composeKept(kept);
   if (keptWater.retained) model.retained = keptWater.retained;
-  // (Remove unfed water has no rule for water in caves yet: the operation is refused there, ops.ts,
-  // and one stored by an older project takes nothing)
-  if (keptWater.drained && !model.stacked) model.drained = keptWater.drained;
+  if (keptWater.drained) model.drained = keptWater.drained;
   const emitters = JSON.stringify(model.emitters);
   const resourceFeatures = resourceOrder(features).filter(live);
   // an imported map keeps its file's water until its terrain or water objects change
@@ -1165,7 +1164,14 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
           // terrain above terrain has no warm-started preview: the last water is carried over, every
           // column of it, and the canonical settle follows in the background (sim/stackWater.ts)
           settle = staleWater({ model: settleEntry!.model, water: settleEntry!.water }, model);
-          settle.stack = staleStack(settleEntry!.water.stack, cols, settle.depth, settle.contamination);
+          const st = (settle.stack = staleStack(settleEntry!.water.stack, cols, settle.depth, settle.contamination));
+          // the lakes an edit stored show at once, and the unfed water a removal drained goes, on every column
+          if ((model.retained?.length || model.drained?.length) && keptOnStack(stackGraph(model), st, model.retained, model.drained))
+            for (let i = 0; i < N; i++) {
+              const c = (st.count[i] - 1) * N + i;
+              settle.depth[i] = st.count[i] ? st.depth[c] : 0;
+              settle.contamination[i] = st.count[i] ? st.contamination[c] : 0;
+            }
           delete settle.out;
           carried = true;
         } else if (opts.water === "defer" && warm) {
@@ -1175,7 +1181,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
           carried = true;
         } else if (preview && warm) settle = previewSettle({ model: settleEntry!.model, water: settleEntry!.water }, model);
         else {
-          settle = canonicalSettle(model);
+          // (the last canonical settle may stand for this one on a map with caves: sim/stackWater.ts `settledAgain`)
+          settle = canonicalSettle(model, {}, settleEntry);
           opts.settleCache?.set(model, settle);
         }
       }
@@ -1332,7 +1339,16 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    (a plant the Block tool left on the top of its run, under a block built over it, stands there, not on the
   //    surface: each operation's `stands`, the latest first to last, where the ground still holds it)
   const stood = new Map<string, number>();
-  for (const sc of input.sculpts ?? []) if (isBlocks(sc.params) && sc.params.stands) for (const [id, z] of sc.params.stands) stood.set(id, z);
+  // (an object moved after the operation stands where its move put it)
+  const movedAt = new Map<string, number>();
+  for (const ed of input.entityEdits ?? []) if (ed.op === "moveEntity") movedAt.set(ed.params.id, Math.max(movedAt.get(ed.params.id) ?? -Infinity, ed.seq));
+  for (const sc of input.sculpts ?? []) {
+    if (!isBlocks(sc.params) || !sc.params.stands) continue;
+    for (const [id, z] of sc.params.stands) {
+      if ((movedAt.get(id) ?? -Infinity) > (sc.seq ?? Infinity)) stood.delete(id);
+      else stood.set(id, z);
+    }
+  }
   if (stood.size) {
     const dug = masksOf(terrain);
     finalEntities = finalEntities.map((e) => {
@@ -1534,7 +1550,8 @@ function sameModelAsBase(base: BaseLayer, model: WaterModel, W: number, H: numbe
 }
 
 /** An imported map's own standing water that no running source of its file feeds (sim/fed.ts), as a
- *  stored lake on the file's ground (D457), or null when it has none. */
+ *  stored lake on the file's ground (D457), or null when it has none; on a map with caves or overhangs,
+ *  on every column of it (sim/stackFed.ts `unfedOwnWater`: a pool in a cave is kept in the cave). */
 const importedWaters = new WeakMap<BaseLayer, RetainedWater | null>();
 function importedWater(base: BaseLayer, W: number, H: number): RetainedWater | null {
   if (importedWaters.has(base)) return importedWaters.get(base)!;
@@ -1542,6 +1559,11 @@ function importedWater(base: BaseLayer, W: number, H: number): RetainedWater | n
   const w = base.water;
   if (w) {
     const m = baseModelOf(base, W, H).model;
+    if (m.stacked && w.stack) {
+      out = unfedOwnWater(stackGraph(m), w.stack);
+      importedWaters.set(base, out);
+      return out;
+    }
     const fed = fedTiles(m, w.depth);
     const tiles: number[] = [];
     for (let i = 0; i < W * H; i++) if (w.depth[i] > 0 && !fed[i]) tiles.push(i);

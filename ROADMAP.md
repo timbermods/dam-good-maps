@@ -791,7 +791,8 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
 3. **On every import** (#391): Drought, Badtide and the drought line run on a map with caves or overhangs too, on the
    stacked-column engine (`sim/stackWater.ts` `StackRun`, the same sources-stop, badwater and evaporation rules on every
    water column), from the water the map shows (an unedited import's own); each day's soil per run top. On a map with no caves the stacked weather is
-   the heightfield's, bit for bit. Only Fill and Remove unfed water are still refused on such maps (`cavesOf`).
+   the heightfield's, bit for bit. Fill and Remove unfed water work there too, on every water column
+   (`sim/stackFed.ts`; EDITOR_PLAN.md, "Checks and water", "Remove unfed water and Fill").
    Probe, when one is next worth asking for (D483): an edited cave import as the app exports it, played through a drought
    (the PR, #391's, says what it plays and checks).
 

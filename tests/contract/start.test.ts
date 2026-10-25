@@ -438,7 +438,7 @@ describe("the oaks fix plants only where oaks live", () => {
     expect(fix.length).toBeGreaterThan(0);
     expect(fix.length).toBeLessThan(25);
     expect(tiles.every((p) => m[p.y * W + p.x] === 1)).toBe(true);
-    expect(fix[0].label).toBe(`Plant ${fix.length} oaks on the moist ground, which holds only ${fix.length} of the 25 the logs need`);
+    expect(fix[0].label).toBe(`Plant ${fix.length} oaks, all the moist ground holds (25 needed)`);
   });
 
   it("with no moist ground near the start there is no oak fix", () => {

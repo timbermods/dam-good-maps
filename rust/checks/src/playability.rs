@@ -1305,13 +1305,15 @@ fn check_extras(p: &Playable, hgt: &[u8], w: usize, h: usize, sd: &[f64], c: &mu
         // one line: "Geothermal field on uneven ground · X 105 · Y 7 · Z 11" (the object's first tile)
         let line = |wrong: &str| -> String {
             let (x, y) = if !on.is_empty() { on[0] } else { (0.max(e.tiles[0].0), 0.max(e.tiles[0].1)) };
-            let z = if x >= 0 && y >= 0 && x < wi && y < hi { hgt[(y * wi + x) as usize] as i64 } else { 0 };
+            let z = if e.z >= 0.0 { e.z as i64 } else if x >= 0 && y >= 0 && x < wi && y < hi { hgt[(y * wi + x) as usize] as i64 } else { 0 };
             format!("{} {} · {}", name, wrong, place_of(x, y, z))
         };
         let mut problem = String::new();
         if on.len() < e.tiles.len() {
             problem = line("off the map");
-        } else if band.flat {
+        } else if band.flat && e.z < 0.0 {
+            // (under a roof the ground's top and its water are not the object's: the game's own rule,
+            // entities.placement, decides where it stands, as objects.ts fitProblems does, D491)
             if on.is_empty() {
                 return Err("A map object covers no tiles".into());
             }
@@ -1523,7 +1525,7 @@ fn start_planting(w: usize, h: usize, objects: &[&Entity], blocked: &[u8], wet: 
         let k = out_t.len();
         let plural = if k > 1 { "s" } else { "" };
         if (k as f64) < oaks {
-            relabel(&mut out_t, format!("Plant {} oak{} on the moist ground, which holds only {} of the {} the logs need", k, plural, k, num(oaks)));
+            relabel(&mut out_t, format!("Plant {} oak{}, all the moist ground holds ({} needed)", k, plural, num(oaks)));
         } else {
             relabel(&mut out_t, format!("Plant {} oak{} for the starting logs", k, plural));
         }
