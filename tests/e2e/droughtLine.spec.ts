@@ -2,7 +2,7 @@
 // worker has it, is put away while a Drought day is held and at the next edit, and comes back for the new map's version.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const showing = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.droughtLineShowing);
 
@@ -41,5 +41,61 @@ test("the drought line shows, goes while a day is held and at an edit, and comes
   await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[4, 4, 4]], level: 15 } } as never, "Raise a tile"));
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().version)).toBeGreaterThan(v0);
   await expect.poll(() => showing(page), { timeout: 60_000 }).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test("hovering a lake in the Drought view says the day it dries, or that it lasts; off the view it says nothing of the sort (D133)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await topDown(page);
+  // (a lake: a tile and its eight neighbours all hold water on Day 0; and a dry stretch of ground)
+  const spots = await page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    const wet = (x: number, y: number) => m.surface.depth[y * m.W + x] > 0.5;
+    const lake: [number, number][] = [];
+    let land: [number, number] | null = null;
+    for (let y = 4; y < m.H - 4; y++)
+      for (let x = 4; x < m.W - 4; x++) {
+        let all = true;
+        let none = true;
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) (wet(x + dx, y + dy) ? (none = false) : (all = false));
+        if (all) lake.push([x, y]);
+        if (none && !land && m.surface.depth[y * m.W + x] === 0) land = [x, y];
+      }
+    return { lake, land };
+  });
+  expect(spots.lake.length).toBeGreaterThan(0);
+  expect(spots.land).not.toBeNull();
+  const readout = page.locator(".readout");
+  const hover = async ([x, y]: [number, number]) => {
+    const p = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y]);
+    await page.mouse.move(p.x + 4, p.y);
+    await page.mouse.move(p.x, p.y, { steps: 2 });
+  };
+  const words = /Dry on day [1-9]\d*|Lasts the drought/;
+
+  // the map's own view: the readout says nothing of the drought
+  await hover(spots.lake[0]);
+  await expect(readout).toContainText("Water");
+  await expect(readout).not.toContainText(words);
+
+  // the Drought view held on its last day: the days are all worked out, so every lake tile says one or the other
+  await page.getByRole("button", { name: "Drought", exact: true }).click();
+  await expect(page.locator(".day-words")).toHaveText("Day 9", { timeout: 60_000 });
+  const mid = spots.lake[Math.floor(spots.lake.length / 2)];
+  for (const spot of [spots.lake[0], mid, spots.lake[spots.lake.length - 1]]) {
+    await hover(spot);
+    await expect(readout).toContainText(words, { timeout: 30_000 });
+  }
+  // dry ground says nothing
+  await hover(spots.land!);
+  await expect(readout).not.toContainText(words);
+
+  // back to the map's own water: the words go
+  await hover(spots.lake[0]);
+  await page.getByRole("button", { name: "Drought", exact: true }).click();
+  await expect(readout).not.toContainText(words);
   expect(errors).toEqual([]);
 });

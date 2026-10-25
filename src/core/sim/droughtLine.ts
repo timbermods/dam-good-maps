@@ -241,3 +241,16 @@ export class DryDays {
       }
   }
 }
+
+/**
+ * The Drought view's hover words for one tile (D133): "Dry on day 6" for water that goes on day 6, "Lasts the drought"
+ * for water that holds through every day of the drought, else null (a tile with no water on Day 0 says nothing, and
+ * neither does water whose fate is not worked out yet). `firstDry` and `through` are `DryDays`' (the days worked out
+ * so far), `days` the drought's length, `wetOnDay0` whether the tile holds water on Day 0. A 0 in `firstDry` only
+ * means "lasts" once the days are worked out to the drought's end; before that it says nothing.
+ */
+export function dryWords(firstDry: ArrayLike<number>, through: number, days: number, i: number, wetOnDay0: boolean): string | null {
+  const day = firstDry[i];
+  if (day > 0) return `Dry on day ${day}`;
+  return wetOnDay0 && through >= days ? "Lasts the drought" : null;
+}
