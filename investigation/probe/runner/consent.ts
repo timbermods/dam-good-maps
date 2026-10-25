@@ -11,7 +11,8 @@ import { createInterface } from 'node:readline';
 import { probePaths } from './paths';
 
 export interface PlanSummary {
-  maps: { id: string; title: string; checks: string[]; days: number }[];
+  /** `weather`: a long play's cycles (`--cycles`), in the plan and so in its code. */
+  maps: { id: string; title: string; checks: string[]; days: number; weather?: string }[];
   /** The maps the runner wrote for this plan with their groups' writers (writers.ts): the code covers these bytes. */
   written?: { group: string; dir: string; files: { file: string; size: [number, number]; bytes: number; sha256: string; status: 'written' | 'current' }[] }[];
   estimateMinutes: number;
@@ -41,7 +42,10 @@ export function describe(plan: PlanSummary): string {
       : `This run LAUNCHES TIMBERBORN through Steam. Only the DGM Probe mod is on during the run: your other mods are switched off and your settings are put back exactly afterwards.`,
     plan.companion ? `Companion check: ${plan.maps.length} launch${plan.maps.length === 1 ? '' : 'es'}, about ${plan.estimateMinutes} minutes.` : `${plan.kind === 'smoke' ? 'Smoke run' : 'Full batch'}: ${plan.maps.length} map${plan.maps.length === 1 ? '' : 's'}, about ${plan.estimateMinutes} minutes.`,
   ];
-  for (const m of plan.maps) lines.push(`  - ${m.title}${plan.companion ? '' : ` (${m.days} game days)`}: ${m.checks.join(', ') || 'screenshots and records only'}`);
+  for (const m of plan.maps) {
+    lines.push(`  - ${m.title}${plan.companion ? '' : ` (${m.days} game days)`}: ${m.checks.join(', ') || 'screenshots and records only'}`);
+    if (m.weather) lines.push(`      weather, cycle by cycle (days): ${m.weather}`);
+  }
   for (const g of plan.written ?? []) {
     const n = g.files.filter((f) => f.status === 'written').length;
     lines.push(

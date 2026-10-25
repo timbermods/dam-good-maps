@@ -488,7 +488,7 @@ button[aria-pressed="true"] {
   padding: 16px;
   border-radius: 10px;
   background: var(--panel);
-  box-shadow: var(--shadow);
+  box-shadow: var(--edge-lit), var(--shadow-3);
 }
 
 .dialog footer {

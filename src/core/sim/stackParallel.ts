@@ -67,6 +67,9 @@ interface StackJob {
   /** Where the columns the strips have wet start (L·W·H, 1 for wet; stack.rs `wet_ever`), each strip's own
    *  rows written by that strip: the settle's reach (stackWater.ts `StackSettle.reach`). */
   reachAt: number;
+  /** Where each column's outflows start (4·L·W·H; stackWater.ts `columnFlows`), each strip's own rows written by that
+   *  strip at the end of each run: exact there, as their water is. */
+  flowsAt: number;
   /** The shared memory's length. It starts with the whole map's depth, pressure and contamination (slot by
    *  slot, L·W·H each): the pre-fill's, then each run's end. */
   length: number;
@@ -172,6 +175,24 @@ class StackStrip {
     const at = this.job.reachAt + this.lo * W;
     for (let s = 0; s < reach.length / n; s++)
       for (let i = (y0 - this.lo) * W; i < (y1 - this.lo) * W; i++) if (reach[s * n + i]) this.f[at + s * N + i] = 1;
+    // and its own columns' outflows, from the block's momentum (slot by slot and row by row, each row's count first):
+    // each column's flows summed by their way (stackWater.ts `columnFlows`)
+    const start = this.m.view(STACK_FIELD.graphStart) as Uint32Array;
+    const dir = this.m.view(STACK_FIELD.graphDirection) as Uint8Array;
+    const flowsAt = this.job.flowsAt;
+    let p = 3 + 4 * levels * k;
+    for (let s = 0; s < levels; s++)
+      for (let r = y0 - this.lo; r < y1 - this.lo; r++) {
+        const len = v[p++];
+        const a = start[s * n + r * W];
+        for (let x = 0; x < W; x++) {
+          const c = s * n + r * W + x;
+          const g = flowsAt + 4 * (s * N + (r + this.lo) * W + x);
+          this.f[g] = this.f[g + 1] = this.f[g + 2] = this.f[g + 3] = 0;
+          for (let e = start[c]; e < start[c + 1]; e++) this.f[g + dir[e]] += v[p + e - a];
+        }
+        p += len;
+      }
     return barrier(ctl, T, dead);
   }
 
@@ -296,8 +317,10 @@ export function stackThreads(whole: StackWater, W: number, H: number, mask: Uint
     }
   const reachAt = at;
   at += L * N;
+  const flowsAt = at;
+  at += 4 * L * N;
   while (live.length >= MOST_LIVE) live[0].free();
-  const job: StackJob = { W, H, L, mask, objects, strips, down, up, reachAt, length: at };
+  const job: StackJob = { W, H, L, mask, objects, strips, down, up, reachAt, flowsAt, length: at };
   const f = new Float64Array(new SharedArrayBuffer(8 * job.length));
   const fields = [STACK_FIELD.depth, STACK_FIELD.overflow, STACK_FIELD.contamination];
   for (let q = 0; q < 3; q++) f.set((whole.view(fields[q]) as Float64Array).subarray(0, L * N), q * L * N);
@@ -367,6 +390,12 @@ export class StackThreads {
     const n = this.job.L * this.job.W * this.job.H;
     const at = this.job.reachAt;
     for (let k = 0; k < n && k < into.length; k++) if (this.f[at + k]) into[k] = 1;
+  }
+
+  /** Each column's outflows after the last run (4·L·W·H; stackWater.ts `columnFlows`), from the strips' own rows. */
+  flows(): Float32Array {
+    const at = this.job.flowsAt;
+    return Float32Array.from(this.f.subarray(at, at + 4 * this.job.L * this.job.W * this.job.H));
   }
 
   free(): void {

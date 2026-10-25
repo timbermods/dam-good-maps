@@ -130,9 +130,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   3 over its badwater floors; before and after; Standard and High; 1920×1080 dark and 1280×800 light): before,
   the river's banks under the roof are dry earth and Pressure's soaked floors clean; after, grass along the river
   and veins on the soaked floors.
-- **Falls short:** objects in caves still read their tile's top soil (a ruin's ivy, plants' looks; item 7). CI's
-  browser test checks the branch compiles and draws (`cutaway.spec.ts`, the light look's program too), not its
-  colours.
+- **Falls short:** CI's browser test checks the branch compiles and draws (`cutaway.spec.ts`, the light look's
+  program too), not its colours. (Objects on run tops read their run's soil since "Objects on their run top's soil".)
 
 ## Part 4: water per column (built, `feature/3d-view-water-columns`)
 
@@ -150,9 +149,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   water under a roof), then each other column into the first layer whose gaps agree with what it sees within
   `LAYER_REACH` (4 tiles: a fall's lips, their pools and the badwater blend round them; checked against a reach of 12,
   the same quads and falls on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
-  `plainLayers(heights, sw)` is the one layer of a map without caves. A cave column's outflows are not in the view
-  (its outflows are each tile's open column's), so its falls estimate their flow from its depth, as a fall without
-  outflows always has (`falls.ts`), once a column on what it sees beside it.
+  `plainLayers(heights, sw)` is the one layer of a map without caves. Every column's falls pour its own outflow
+  (part 4b); a view without outflows estimates them from the depth, as a fall without outflows always has (`falls.ts`).
 - **Where it runs:** only where a column needs a layer of its own (`needsLayers`: water under a roof, or open water
   beside a roof that sees under it). A map with an arch or an overhang and no such water draws its water as a
   heightfield's, its moving water meshed in the workers as on dev. With layers, a new water view (a journey's frame, a
@@ -172,7 +170,7 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   in, the sun the open air's at a mouth fading to the volume's going in. High's water under a roof takes its own
   column's badwater share, not the share of the water seen from above there.
 - **No contract change:** the worker's water view (`src/worker/session.ts`) is as it was; the renderer works out each
-  column's ceiling from the columns it already has.
+  column's ceiling from the columns it already has. (Part 4b makes its outflows each column's own.)
 - **Equivalence:** `tests/unit/waterLayers.test.ts` keeps the mesher as it was (`tests/fixtures/heightfieldWaterMesher.ts`)
   and meshes seven generated maps (all six themes and Any, 96², 128² and 256², falls included) both ways, and through
   the per-column path forced (every tile given as a column of one plain run): positions, depth and badwater, foam
@@ -196,10 +194,56 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 - **Captures:** `docs/sheets/3d-view-water-columns.jpg` (Hollows: its river's cave through a mouth, and cut at 6 over the
   river where dev's falls from the roof came through; Pressure: a badwater tunnel's mouth, and cut at 2 over its
   tunnels; before and after, Standard and High, 1920×1080 dark, and the cuts at 1280×800 light).
-- **Falls short:** moving water's current and High's rough water read a texture per tile (the water seen from above),
-  so a cave's water under a wet roof flows as the roof's does; a cave column's falls estimate their flow. The cut still
-  drops what stands above it, water included. `tests/e2e/cutaway.spec.ts` compiles and draws the water's branch on a
+- **Falls short:** the cut still drops what stands above it, water included. (Water under a wet roof flowing as its
+  roof's, and a cave column's falls estimating their flow: built, part 4b.) `tests/e2e/cutaway.spec.ts` compiles and draws the water's branch on a
   hand-made cave with a pool and a puddle on its roof in CI.
+
+## Part 4b: water under water flows by its own column (built, `feature/3d-view-cave-current`)
+
+- **The outflows, each column its own** (the worker's view, `WaterView.outflow`, the same field, four a column): an
+  unedited import's are the file's per column (`ColumnOutflows` at each column's own slot: `storedColumnOutflows` in
+  `world.ts`, `MapSession.storedColumnOutflows`), no longer each tile's surface water's copied to every column under it;
+  an edited map with caves now has them at all (dev sent none, so its water was still): the stacked settle's
+  (`StackSettle.flows`, `stackWater.ts` `columnFlows`: the engine's momentum per pair of columns, summed by its way, the
+  quantity the heightfield's `WaterSim.out` is), gathered from each strip's own rows on the multi-core settle
+  (`stackParallel.ts`; on one thread and on four the same bytes, every fixture of `tools/rust/stack-identity.ts`, which
+  now compares them), and carried by `settledAgain` on the tiles an edit left (`stackSettleAgain*.test.ts` compare them
+  with a settle from cold). A view has every column's own outflows or none (a weather day under caves: the stacked
+  engine's water in flight has none). On a map without terrain above terrain nothing changes: one column a tile, the
+  same values. The estimate `waterLayers` made for a cave column's outflows is gone; its falls pour its own.
+- **The current under water** (`src/render3d/caveCurrent.ts`): where a column stands below its tile's surface water,
+  the bake worker deals the water into its layers (`waterLayers`), works out each such layer's current from its own
+  columns' outflows (`currentOf`, each face against the column it meets at its level) and its rough water from its own
+  surface (`roughWater`, over the tiles within 8 of those columns), and writes them into a volume by level (RGBA a cell,
+  only the levels such columns stand in: RG the current as the flow texture packs it, B the rough water, A 255 in their
+  cells; each tile's surface water fills its cells too with the flow texture's own values, so a river reads one current
+  across the line where its roof turns dry). The water shader (both looks, `materials.ts` `ownFlowAt`, under `CAVES`)
+  reads the cell it stands in (`texelFetch`), and where A says so takes the volume's current, filtered across tiles at
+  its level, for the moving surface and High's light and rough water (`shaders.ts`); everywhere else the flow texture,
+  as before. `motion.ts` keeps the texture (`caveFlowTex`, `caveFlowLevels`), rewritten in place; renderer.ts only
+  hands it the water per column at a bake.
+- **Equivalence:** a map with no column below its tile's surface water builds no volume (`caveCurrent` null), and the
+  shader's new lines are all under `CAVES`, so a map without terrain above terrain compiles the same program; the
+  water's outflows there are the same numbers. `tests/unit/waterLayers.test.ts` (generated maps meshed through the
+  heightfield mesher and the per-column path, byte for byte; the official maps, local) and the outflow tests
+  (`current.test.ts`, `outflows.test.ts`, `fallOutflow.test.ts`) pass unchanged.
+- **On caves** (`tests/contract/caveCurrent.test.ts`): a tunnel flowing east under a trench on the hill's top flowing
+  west. As an import with its water stored: every column's outflows are its own; the bake's flow texture moves the
+  trench west, the volume moves the tunnel east at its own level; the tunnel's fall at its step pours its column's 0.4,
+  not an estimate. Edited (sources at each head, the stacked settle): the view's outflows are the settle's per column,
+  the tunnel's east, the trench's west, and the current as drawn follows.
+- **Official maps** (local, measured once): Hollows has 14 tiles of water under water (its river under the badwater on
+  its roof at 66,124): dev moved all 14 with the roof's current, 13 of them against the river's own; Pressure has 8
+  (5 moving, now by their own); Pillars and Nomads none (no volume). Real Chrome on the RTX 2070 SUPER, both looks, no
+  shader error. The bake's extra work where there is water under water: dealing the layers once more, in the bake
+  worker (Hollows about 16 ms in Node, Pressure 25–160 ms on a loaded machine); none elsewhere. Memory: 4 bytes a cell
+  over the levels such water stands in (one level on Hollows and Pressure: 0.1 and 0.3 MB).
+- **Captures:** `docs/sheets/3d-view-cave-current.jpg` (Hollows cut at 5 over the river in its cave, dev against this
+  branch, Standard and High, 1920×1080 dark; the arrows an overlay of the current each tile's surface moves by).
+- **Falls short:** the foam threads, wakes and seams and the Flow view's streaks are the surface water's only (motion
+  shapes): water under water has none. A weather day under caves has no outflows (its water is still, as before). The
+  export still writes a map with caves' outflows as "0" (3D Foundations, `3d-foundations.md`: the game rebuilds the flow from
+  rest); the settle now has them per column, should a later stage write them.
 
 ## Part 5: 3D picking and selections (built, `feature/3d-view-picking`)
 
@@ -226,19 +270,36 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   rays each aimed at cave tiles, checked against every exposed face intersected one by one: none differ.
 - **Pick time (Node, this machine, measured once, information):** 256² River Delta, 4,000 camera rays: 7.3 µs the
   heightfield picker, 9.5 µs the voxel walk; with a 100 × 100 block of cave columns under the rays, 115 µs (the
-  mask is rebuilt from its 23 bytes at each cell; a mask array from the worker, seam 1 above, would make it a lookup).
+  mask was rebuilt from its 23 bytes at each cell; a lookup since item 1, below).
 - **Captures:** `docs/sheets/3d-view-picking.jpg` (official map with caves, a cave floor through its mouth and a
   ledge under an overhang; dev against this branch; Standard and High; 1920×1080 dark and 1280×800 light; real
   Chrome on the RTX 2070 SUPER): dev's hover highlight and drag land on the wall or roof in front, this branch's (Select) on the floor. The editing
   tools' cursors are not in the sheet: they stay where dev's are.
-  The selection's tint still covers the whole tile (roof, walls and floor), since the overlay is per tile.
+  The selection's tint then still covered the whole tile (roof, walls and floor), since the overlay is per tile; it
+  is now drawn on the run it names (below).
 - **The Select tool in 3D:** a selection is still a set of tiles (`Selection`, a mask). What a run adds:
   Ctrl+click takes the level of the ground hit (a cave's floor, not the roof's height) as the Level number, and the
   Wand takes the ground joined to the click at that level, a run's top under an overhang too (`levelTiles`, the
   view's `hasTop`). The Alt+click layer pick cuts at the level hit. A run is not named in the selection or the
   operations yet; the brushes and Select's actions still work on the heightfield's top until step 3 (D280 (3)) moves
-  them onto runs. Proposed when they do: the selection keeps its tile mask and gains an optional level per tile
-  (`Selection.levels`), set from the hit's `level`.
+  them onto runs.
+- **A selection is drawn on the ground it names** (`fix/selection-at-level`): the Wand on land keeps the tile mask
+  (the operations' input, unchanged) and names the level it took in each tile (`Selection.levels`, level + 1 a tile;
+  null for every other selection: Rectangle, Circle, Freehand, Brush, the Wand on water, Whole map). Added tiles take
+  their own level or none; tiles taken out lose theirs. The page hands the levels to the renderer
+  (`setOverlayRuns(levels, LOCKED)`), which finds in each column with terrain above terrain the run holding that
+  level (`overlayRuns.ts` `runHolding`: the run topped at it, or one a layer cut at it caps; its bottom and the
+  underside above it) and writes them to a per-tile texture. The terrain shader (`overlayOnRun`, compiled only under
+  `CUTAWAY`) draws the tile's overlay on that run's top and walls, and the water's (only under `CAVES`) on the water
+  over it; the rest of the column (the roof over a cave, its walls and underside) takes the land outside's dimming.
+  A plain column, and every plain map, draws exactly as before (same program). The columns changing (an edit) finds
+  the runs again. Test: `tests/unit/overlayRuns.test.ts`. Captures: `docs/sheets/selection-at-level.jpg` (Hollows,
+  a Wand click on the cave floor at (46, 139), level 3, 149 tiles; from the mouth, from above and under a cut at 5;
+  Standard and High; 1920×1080 dark and 1280×800 light; real Chrome; dev against this branch): dev's yellow strips
+  up the cliff and round the roof's top are gone, the outline lies on the floor. Until step 3, Up 1,
+  Down 1, Flatten, Cut down, Fill up and Delete → Ground are refused on a cave column with one line
+  (`src/core/doc/ops.ts`: "has a cave or overhang: shape its top with a brush"), so nothing acts on the roof while
+  the floor is drawn selected; Up 1's hover preview still paints the floor (the page's follow-up). Other overlay layers on a level-named tile (a drawing preview, a problem mark) show only on its run.
 - **What is drawn where the pointer aims (D484):** the hovered tile lights only the top of the run seen (`hover.w` in
   the terrain shader), and the Select tool's ring lies on the top of the run nearest the hit's level in a column with
   terrain above terrain (`groundNear`, `aimedHeights`). The editing tools (brushes and forces) aim at the tile's top,
@@ -283,8 +344,22 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   branch, Standard and High, 1920×1080 dark, and Hollows at 8 at 1280×800 light): dev's hatched lid over the
   river's cave and over Pressure's tunnels, here the caves open with their water, walls and floors in their own
   light.
+- **Ground at the cut, and the cap that reads (`fix/cut-level-ground`):** a top lying exactly at the cut under water
+  (a pond's shelf, Canyon 128 seed 7's at 7) was drawn near-black: the cut takes away the water standing above it, and
+  the shelf kept the bed's colour meant to be seen through water, in its gorge's shade. The terrain now counts a top as
+  under water only where the water's surface is drawn (`soilOf`: the surface the tile data's water byte gives at or
+  below the cut's 0.05, as the water's shader cuts it), so ground whose water the cut took away is a top like any other,
+  with or without caves on the map; without a cut nothing changes. The cap (where solid rock crosses the cut) was a
+  grey-brown close to the stone tops, its hatch blurring flat at editing distance: it is now a cool slate darker than
+  the tops round it (`palette.ts` `CUT_CAP`), drawn over the ground's own colour (no veins through it) and lit by the
+  unsliced top's light, softened, with diagonal stripes three a tile close up; farther out every other stripe fades
+  as they close in, so they stay about seven pixels apart and never blur to flat. The overlays go on it as on any top.
+  `tests/e2e/cutaway.spec.ts`: a pond's shelf cut at its level draws as the same shelf dry (it fails on dev by 38
+  levels). Captures: `docs/sheets/cut-level-ground.jpg` (dev against the branch, Canyon's shelf and Hollows at cut 7,
+  Standard and High, 1920×1080 dark and 1280×800 light).
 - **Falls short:** water, objects, falls and the drought line are cut as before: what stands above the cut is not drawn
-  (each water column stands at its own level since part 4).
+  (each water column stands at its own level since part 4). Water whose surface stands above the cut is not drawn even
+  where its floor lies below the cut, so that floor shows as ground, not as a bed under water.
   `tests/e2e/cutaway.spec.ts` compiles and draws the branch on a hand-made cave in CI.
 
 ## Items 7 and 8: caves that read (built, `feature/3d-view-caves-read`)
@@ -307,7 +382,7 @@ Standard's shadow before a cave (item 8).
   mouth, as in open air, the cave's least deep in; the sun the open air's at a mouth, fading going in to the volume's
   (High: its soft shadow of the real meshes, `ShaderHooks.roofedSun`), as the ground's does at the roof line. The branch is compiled only on a map with air under a roof (`CAVES`, the renderer's
   `setCaveBranch`, on the objects' and falls' materials of both looks); every other map draws them with the same
-  program as before. Objects still take their tile's top soil (a ruin's ivy, plants' looks).
+  program as before. Their looks by soil follow the run top they stand on (below, "Objects on their run top's soil").
 - **Standard's baked shadow from the voxels (item 8):** on a map with terrain above terrain the sweep (`light.ts`
   `shadowTopsInto`) carries each tile's rock from the map's floor as it carries a plain tile's height, and the runs
   above air are added along each sample's ray, lowered as the sweep lowers a height (`shadowRock`, `voxelTops`): of
@@ -337,8 +412,7 @@ Standard's shadow before a cave (item 8).
   (47,59); Pressure's tunnel and the mouth at (238,161); before and after, Standard and High, 1920×1080 dark, and the
   tunnels at 1280×800 light).
 - **Falls short:** deep interiors are murky by choice, and stone
-  in shade is dark in both looks (an open cliff in shade is as dark); objects' looks by soil under roofs are their
-  tile top's.
+  in shade is dark in both looks (an open cliff in shade is as dark).
 - **Known limits:** the shadow map keeps one top a sample, so a cliff face inside an overhang's shadow can show lit
   above a lit gap below it (the ground itself is right).
 - **A cave made after the map opened** (a Block dig or an Erode cave on a plain map; the usability pass's finding):
@@ -346,6 +420,39 @@ Standard's shadow before a cave (item 8).
   under a roof switches on the cutaway's branch, builds the light volume whole (once, about as long as a map with
   caves takes to open) and the roofed objects' branch, and the last one filled switches them off again. The cut opens
   into a hollow dug under it as it does on an imported cave map (`tests/e2e/cutaway.spec.ts`, its second test).
+
+## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
+
+D491 lets objects stand in caves, so an object's looks by soil follow the ground it stands on, not its tile's top.
+- **What:** `runSoil.ts` `objectSoilAt(soil, W, x, y, z)`: the soil an object at level z of a tile reads, its run
+  top's own where one is at that level below the tile's top (`SoilView.runs`), else the tile's top as before. What
+  reads it: a ruin's ivy (`entities3d.ts` `buildEntities`, both looks; the light look's ruins have none), so a ruin on
+  a soaked cave floor under a dry roof is overgrown and one on the dry roof bare; and High's slopes, whose grass reads
+  the run texture at the slope's own tile and level (`high/shaders.ts` `slopeHooks`, the same rule as `runSoilAt`),
+  only where `RUN_SOIL` is compiled (`highLook.ts` `runSoilMaterials`, switched with the terrain's). The renderer hands
+  a soil without runs (the page's soil growing toward the worker's) the last runs drawn, as the terrain keeps them.
+  Nothing else in the objects reads soil: trees, bushes, sources and the ghosts take their colours from their models
+  and flags, Standard's slopes have no grass, and withering (the Weather view's dead plants) is the core's and isn't
+  worked out on maps with caves yet (`session.ts`, `stackedMap`).
+- **Equivalence:** a map without run tops below a top has no `runs`: `objectSoilAt` gives the tile's top (the same
+  bytes as before) and `RUN_SOIL` is not defined, so every material compiles the program it did; checked by hashing
+  every Standard, light and High material's sources with the `RUN_SOIL` branches taken out, dev's and this branch's,
+  all equal (the Standard and light ones are unchanged byte for byte). Frames before and after, real Chrome headed,
+  River Valley 128 seed 4242, Standard and High, the whole map and a ruin close up, 1920×1080: the ruin 0 pixels
+  differ in both looks; the whole map 36 (Standard) and 10 (High), each by one step in one channel, on the moving
+  water.
+- **Tests:** `runSoil.test.ts`: on the hand-made cave with water, a tile whose floor is moist under a dry roof: an
+  object on the floor reads the floor's run top (`objectSoilAt`, and the run texture holds the same for the slope's
+  shader), one on the roof the top's; a ruin on the floor has ivy at its foot, the same ruin on the roof none; without
+  the runs, the top's. `cutaway.spec.ts` puts a slope and a ruin on the cave's floor: High's slope takes the branch,
+  no shader error in either look, and the ruin is overgrown.
+- **Captures:** `docs/sheets/3d-view-objects-run-soil.jpg`: a hand-made cave (a spring's stream across its floor out
+  through a tunnel, three ruins, bushes, birches and a slope on the moist floor under the dry roof), cut at 7,
+  Standard and High, dark and light, before and after, and High close up: before, the ruins bare and High's slope
+  grey; after, ivy at the ruins' feet and grass on the slope.
+- **Falls short:** ivy is chosen when the objects are built, so it follows a new soil on the next objects' build, as
+  on open ground. Plants under roofs have no soil look of their own to follow until withering runs on maps with caves
+  (the core's).
 
 ## Block tool's rendering (D488; `feature/block-tool-render`)
 
@@ -369,15 +476,46 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   (tests). Capture (valid add, valid remove, refused remove, and the dark look, 1920×1080 frames):
   `docs/sheets/block-tool-preview.jpg`.
 
+## Item 1: the masks from the worker (built, `feature/3d-view-worker-masks`)
+
+- **What:** the worker sends each listed column's mask (`ColumnTerrain`'s, bit z: voxel z solid) with its voxels, and
+  `mesh.ts` `columnMask` looks a column up instead of rebuilding it from 23 bytes at each look. Every reader of
+  `columnMask` (the mesher, the light volume, picking, the hover, the Wand's `hasTopAt`, Select's ring, the cutaway's
+  checks) gets the lookup without change. The renderer spreads the masks over the map once per columns message
+  (`model.ts` `columnMasks`: a listed tile's mask, 0 on a plain tile, `TerrainSource.masks`). A map without terrain
+  above terrain has no masks at all, and its columns are its heights, as before.
+- **The contract change** (`src/worker/session.ts`, the view messages): `MapView["columns"]` gains an optional
+  `masks: Uint32Array`, one per listed tile in `tiles`' order, set by `columnsOf` (the view, an edit's columns, Block,
+  Erode's end) and by a force's frames (Erode's changed tiles); it is in `viewBuffers`. It is empty on a heightfield. Nothing else
+  changes: `tiles` and `voxels` stay for their other readers (the water layers, the shadow rock, the run soil, the
+  water mesh workers, which are not sent the masks). The page's `mergeColumns` (a force's frames onto the map's
+  columns) carries the masks when both sets have them. A view without masks (made by hand) has them worked out from
+  its voxels, once.
+- **Strokes on the page:** the page paints a stroke into the heights in place before the worker answers. The lookup
+  ends a listed column's top run at its tile's height (`terrain/runs.ts` `reshapeTop`, the build's own rule in
+  `terrainUnder`), so a stroke on a roof or a ledge reshapes the top run as the worker's columns will have it, and a
+  plain column follows its height. The worker's own heights give the masks exactly as sent (`reshapeTop` on a column whose top is its height
+  changes nothing). Before, the mesh, the light and picking kept a roof's old top until the worker's columns came.
+  Erode's frames, Block digs, a cave dug after opening (`syncCaves`) and a refused stroke's heights coming back all go
+  through `updateTerrain`, which takes the masks with the columns.
+- **Equivalence:** the equivalence tests pass unchanged (meshEquivalence, caveLight, pickTerrain, cutaway, runSoil,
+  waterLayers, pickCut, blockAim). `tests/contract/workerMasks.test.ts` opens the hand-made cave map through the worker
+  and checks its masks against the voxels' mask, opened and after four edits: a roof raised, a roof cut down to its floor, the ledge
+  raised, and a Block dig into the cliff. After each stroke, the masks as they stood, looked up at the new heights, equal the worker's new columns on every
+  tile (the page's stroke). On that map and on random caves (96 × 80, across chunk edges), lookups and voxels give the same
+  meshes byte for byte, chunk by chunk, the same light volume bytes and the same picks (3,000 rays).
+- **Pick time (Node, this machine, measured once, information):** 256² Delta with a 100 × 100 block of cave columns,
+  4,000 rays aimed into the block from above: 28.3 µs reading the voxels, 3.8 µs looked up (2.9 µs on the plain map).
+- **Falls short:** the other readers of the 23-byte columns (the water layers, Standard's shadow rock, the run soil)
+  still follow a roof's top only when the worker's columns come, as before.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
 
-1. **The masks from the worker.** Today the renderer gets heights plus a 23-byte column per tile that is not plain
-   (`MapView.columns`) and the mesher derives a chunk's masks from them (`columnMask`). The worker could send
-   `ColumnTerrain`'s masks (one `Uint32` per tile) instead; that is a change to `src/worker/session.ts`'s view
-   messages (the milestone's and the renderer's contract) and makes `columnMask` a lookup.
-2. **Light in 3D:** done (part 2, above). The volume reads `columnMask` too, so item 1 makes its build a lookup.
+1. **The masks from the worker (built, item 1 above):** the view's columns carry `ColumnTerrain`'s masks, and
+   `columnMask` is a lookup that follows the page's strokes.
+2. **Light in 3D:** done (part 2, above). The volume reads `columnMask`, a lookup since item 1.
 3. **Soil and the Map look per run top (built, part 3 above):** a run texture (3.0 MB at 256²) gives each run top
    below its tile's top its own soil, moisture, contamination and water.
 4. **Water per column (built, part 4 above):** every water column drawn on its own floor under its ceiling, seeing the
@@ -388,7 +526,7 @@ Each reads the same column masks the mesher reads. The seams:
    the cut, lit from the unsliced terrain (D207).
 7. **Kyler's notes at approval (built, items 7 and 8 and part 4 above):** the stone on ceilings and at corners,
    cave interiors tuned on real maps, objects, slopes and falls inside caves, water under roofs in the cave's light and
-   falls between a cave's own levels. Moving water's current under a roof is still the tile's (part 4, "Falls short").
+   falls between a cave's own levels. Water under water flows by its own column (part 4b).
 8. **Standard's open ground before a cave (built, items 7 and 8 above):** the baked shadow is cast from the voxels on
    maps with terrain above terrain.
 

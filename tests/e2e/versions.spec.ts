@@ -217,3 +217,28 @@ test("Keep this version numbers a name Your maps already holds, as saved files a
   const yours = await openYourMaps(page);
   for (const n of ["", " (2)", " (3)"]) await expect(yours.locator("li", { hasText: `${name} — Raise a tile${n}` })).toHaveCount(n ? 1 : 3);
 });
+
+test("two versions kept or branched within moments of each other get different names", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const name = (await info(page)).name;
+  await edit(page, [[40, 40, 44]], "Raise a tile");
+  await idle(page);
+  await history(page).click();
+  const first = page.getByRole("complementary", { name: "History" }).locator(".hist-item").nth(1);
+  await first.hover();
+  // (the build of a step takes seconds and the name is chosen when the map is stored, so a second Keep, and a Branch, begun
+  // before the first is stored are numbered too)
+  await first.getByRole("button", { name: "Keep this version" }).click();
+  await first.getByRole("button", { name: "Keep this version" }).click();
+  await first.getByRole("button", { name: "Keep this version" }).click();
+  await expect.poll(async () => (await info(page)).name, { timeout: 120_000 }).toBe(name);
+  await history(page).click();
+  const yours = await openYourMaps(page);
+  for (const n of ["", " (2)", " (3)"]) await expect(yours.locator("li", { hasText: `${name} — Raise a tile${n}` })).toHaveCount(n ? 1 : 3, { timeout: 120_000 });
+  const titles = await yours.locator("li .ym-name").allTextContents();
+  const versions = titles.filter((t) => t.startsWith(`${name} — Raise a tile`));
+  expect(new Set(versions).size).toBe(versions.length);
+  expect(versions).toHaveLength(3);
+});

@@ -68,10 +68,11 @@ import { RunSoil, runSoilOn } from "./runSoil";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomTargetToward } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
-import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
+import { OverlayRuns } from "./overlayRuns";
+import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
-import { changedWaterChunks, drawnWater, drewChunk, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
+import { drawnWater, drewChunk, exactWaterChunks, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
@@ -306,6 +307,8 @@ export class MapRenderer {
   private objectGround: Uint8Array | null = null;
   private objectsMoved = false;
   private overlay: DataTexture | null = null;
+  /** The overlay on one run per tile (overlayRuns.ts), made when a selection first names one. */
+  private runsOverlay: OverlayRuns | null = null;
   private marks: DataTexture | null = null;
   /** Where the contamination outline runs (**Markers**): `contaminationEdges` of the tile data. */
   private edges: DataTexture | null = null;
@@ -584,10 +587,11 @@ export class MapRenderer {
     }
   }
 
-  /** Whether the terrain's shaders read the run tops' own soil (runSoil.ts): only on a map with run tops below a
-   *  tile's top, so every other map draws with the same program as before (the define is not there at all). */
+  /** Whether the terrain's shaders (and High's slopes standing on a floor) read the run tops' own soil (runSoil.ts):
+   *  only on a map with run tops below a tile's top, so every other map draws with the same program as before (the
+   *  define is not there at all). */
   private setRunSoilBranch(on: boolean): void {
-    for (const mat of [this.std.terrain, this.high?.materials.terrain]) {
+    for (const mat of [this.std.terrain, ...(this.high?.runSoilMaterials() ?? [])]) {
       if (!mat || ("RUN_SOIL" in mat.defines) === on) continue;
       if (on) mat.defines.RUN_SOIL = 1;
       else delete mat.defines.RUN_SOIL;
@@ -1103,6 +1107,7 @@ export class MapRenderer {
     const t0 = performance.now();
     this.clearMap();
     this.waterQueue.clear();
+    this.waterExact = false;
     // (the last map's water still with the worker is never drawn on this one)
     this.waterVersion++;
     this.waterFloor = this.waterVersion;
@@ -1112,8 +1117,8 @@ export class MapRenderer {
     const { W, H, heights } = v;
     this.waterShown = drawnWater(W * H);
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
-    const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), cutout: mineCutout(v.entities, W, H) };
-    this.columnsSent = { ...v.columns, key: ++this.columnsKey };
+    const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), masks: columnMasks(W * H, v.columns), cutout: mineCutout(v.entities, W, H) };
+    this.columnsSent = { tiles: v.columns.tiles, voxels: v.columns.voxels, key: ++this.columnsKey };
     const surface = surfaceWater(W, H, v.water);
     const sky = skyVisibility(W, H, heights);
     const soil = v.soil ?? null;
@@ -1169,7 +1174,8 @@ export class MapRenderer {
     const falls = this.fallCount();
     this.skirt = this.buildSkirt(W, H, lo);
     if (!this.software && !this.still) {
-      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender());
+      // (with water per column, the bake gives the water below each tile's surface its own current: caveCurrent.ts)
+      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender(), () => (this.map && this.layered ? { view: this.map.water, columns: this.columnsSent } : null));
       this.waterMotion.setHigh(this.lookNow !== "standard");
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
@@ -1257,6 +1263,7 @@ export class MapRenderer {
       this.objects = null;
     }
     this.overlay?.dispose();
+    this.runsOverlay?.dispose();
     this.marks?.dispose();
     this.edges?.dispose();
     this.sites?.dispose();
@@ -1577,7 +1584,9 @@ export class MapRenderer {
       this.scene.remove(this.objects);
       disposeGroup(this.objects);
     }
-    const { group, instances } = buildEntities(e, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software, this.entityModels);
+    // (a ruin under a roof reads its run top's soil: a soil without runs keeps the last drawn, as the terrain does)
+    const soil = this.map?.soil && !this.map.soil.runs && this.runsShown ? { ...this.map.soil, runs: this.runsShown } : (this.map?.soil ?? null);
+    const { group, instances } = buildEntities(e, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels);
     this.objectsMoved = false;
     // (a highlight belonged to the objects as they were)
     this.lit = [];
@@ -1630,9 +1639,10 @@ export class MapRenderer {
     this.heightStats = null;
     m.source = { ...m.source, heights };
     if (columns) {
-      m.source = { ...m.source, columns: columnMap(columns) };
-      this.columnsSent = { ...columns, key: ++this.columnsKey };
+      m.source = { ...m.source, columns: columnMap(columns), masks: columnMasks(m.W * m.H, columns) };
+      this.columnsSent = { tiles: columns.tiles, voxels: columns.voxels, key: ++this.columnsKey };
       this.syncCaves();
+      this.runsOverlay?.refresh(m.source);
     }
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
     this.objectGround = heights.slice();
@@ -1685,8 +1695,11 @@ export class MapRenderer {
     return surface;
   }
 
-  /** New water: remesh the chunks whose water changed (with water per column, in the workers, a frame or two on). */
-  updateWater(water: WaterView): number {
+  /** New water: remesh the chunks whose water changed, in the water mesh workers where they run, drawn a frame or
+   *  two on (meshing them here cost the page tens of milliseconds each time water was put in place). `now`: on a
+   *  heightfield, meshed here and drawn with the next frame, for water that must show with the land put in with it
+   *  (a version flipped to). */
+  updateWater(water: WaterView, now = false): number {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
@@ -1697,20 +1710,27 @@ export class MapRenderer {
     this.waterVersion++;
     const layered = this.layered;
     // (with water per column, the chunks within reach of a column that changed, or all of them where the water
-    // turns to or from it)
-    const changed = layered || before.layered ? (layered && before.layered ? changedColumnChunks(m.W, m.H, before.water, water) : this.allWaterChunks()) : changedWaterChunks(m.W, m.H, before.surface, surface, 0, 0);
-    // (every chunk drawn on water that differs from this at all: moving water drawn within a hair of
-    // itself is drawn exactly now; and a stroke's chunks still waiting, or with the worker)
-    if (!layered) for (const key of waterMovedChunks(m.W, m.H, this.waterShown, surface, { level: 0, share: 0 })) changed.add(key);
-    // (water per column is dealt and meshed in the workers where they run, as a journey's frame is: dealing it here
-    // would cost the page a frame for each)
-    if (layered && this.mesher) for (const key of changed) this.waterQueue.add(key);
-    else {
+    // turns to or from it; on a heightfield every chunk drawn on water that differs from this at all, so moving water
+    // drawn within a hair of itself is drawn exactly now, and every chunk the water changed in since the last)
+    const changed = layered || before.layered ? (layered && before.layered ? changedColumnChunks(m.W, m.H, before.water, water) : this.allWaterChunks()) : exactWaterChunks(m.W, m.H, this.waterShown, before.surface, surface);
+    const mesher = now && !layered ? null : this.mesher;
+    if (mesher) {
+      // (dealt and meshed in the workers, as a journey's frame is, and drawn whole when they come back; on a
+      // heightfield a stroke's chunks still waiting, or with the workers, go again on this water, all of them drawn)
+      for (const key of changed) this.waterQueue.add(key);
+      if (!layered) {
+        for (const key of this.waterReady?.chunks.keys() ?? []) this.waterQueue.add(key);
+        for (const key of mesher.asked) this.waterQueue.add(key);
+        this.waterExact = true;
+      }
+      this.requestRender();
+    } else {
       for (const key of this.waterQueue) changed.add(key);
       for (const key of this.waterReady?.chunks.keys() ?? []) changed.add(key);
       for (const key of this.mesherOwn?.asked ?? []) changed.add(key);
       this.waterQueue.clear();
       this.waterReady = null;
+      this.waterExact = false;
       this.mesherOwn?.clear();
       for (const key of changed) {
         const [cx, cy] = key.split(",").map(Number);
@@ -1747,20 +1767,29 @@ export class MapRenderer {
   private readonly drawnWater = new Map<string, number>();
   /** The water each tile's chunk was drawn with (moving water is drawn again only where it moved). */
   private waterShown: DrawnWater = drawnWater(0);
-  /** The water the batch out was sent with. */
+  /** The water the batch out was sent with, and whether it was water put in place (`waterExact`). */
   private waterSent: SurfaceWater | null = null;
+  private exactSent = false;
   /** A batch the water workers meshed (one moment of the water, all its chunks), waiting for a frame
    *  to draw it whole. */
-  private waterReady: { version: number; chunks: Map<string, WaterMeshData> } | null = null;
+  private waterReady: { version: number; chunks: Map<string, WaterMeshData>; exact: boolean } | null = null;
   /** The worker a stroke's water is meshed in (waterMesher.ts), made with the first stroke's water. */
   private mesherOwn: WaterMesher | null = null;
+  /** The chunks waiting are water put in place (`updateWater`): sent whole, none left out for being within a hair
+   *  of what is drawn, until moving water comes again. */
+  private waterExact = false;
+
+  /** Every water chunk is drawn on the water the map holds: none waits to be sent or with the workers. */
+  get waterDrawn(): boolean {
+    return !this.waterQueue.size && !this.waterReady && !this.mesherOwn?.busy;
+  }
 
   /** A stroke's water or a frame of the water's journey (live editing, D197): the map's water now (the hover,
    *  picking and the brush's clear water read it at once), and its changed chunks meshed a few milliseconds' worth
    *  a frame, nearest the view's middle first, with the ground's tile data under them, in the water mesh workers
    *  where they run. While a stroke is painted the water can move all over the map (a lake still filling after a
    *  force): meshing every changed chunk in the frame it came cost the page a frame each time (D244's
-   *  measurements). An `updateWater` meshes whatever still waits. With water per column, the chunks within reach of
+   *  measurements). An `updateWater` has whatever still waits drawn exactly on its water. With water per column, the chunks within reach of
    *  the columns that changed, dealt and meshed in the workers on the view itself. */
   updateWaterSoon(water: WaterView): number {
     const m = this.map;
@@ -1778,6 +1807,8 @@ export class MapRenderer {
     // the chunks within reach of a column that changed)
     const changed = layered || before.layered ? (layered && before.layered ? changedColumnChunks(m.W, m.H, before.water, water) : this.allWaterChunks()) : waterMovedChunks(m.W, m.H, this.waterShown, surface, MOVED_WATER);
     for (const key of changed) this.waterQueue.add(key);
+    // (moving again: what waits is drawn where it moved visibly)
+    this.waterExact = false;
     this.waterMotion?.waterChanged(m.heights, surface);
     this.updateClearAround();
     this.requestRender();
@@ -1797,11 +1828,13 @@ export class MapRenderer {
       (version, chunks) => {
         // (the last map's: dropped)
         if (version < this.waterFloor) return;
-        this.waterReady = { version, chunks };
+        this.waterReady = { version, chunks, exact: this.exactSent };
         this.requestRender();
       },
       (keys) => {
         for (const k of keys) this.waterQueue.add(k);
+        // (a failed batch of water put in place goes again exactly, none left out for being within a hair of it)
+        if (this.exactSent) this.waterExact = true;
         this.requestRender();
       },
     );
@@ -1822,21 +1855,26 @@ export class MapRenderer {
     const r = this.waterReady;
     const sent = this.waterSent;
     this.waterReady = null;
-    if (r && sent)
+    if (r && sent) {
       for (const [k, data] of r.chunks) {
         if (r.version <= (this.drawnWater.get(k) ?? -1)) continue;
         const [cx, cy] = k.split(",").map(Number);
         this.drawWater(k, data, r.version, sent);
         this.waterTiles(m, cx, cy);
       }
+      // (water put in place, drawn: the High look's mist and rings follow its falls)
+      if (r.exact) this.high?.fallsChanged();
+    }
     if (!this.waterQueue.size) return;
     if (this.mesherOwn?.busy) return;
-    // (the chunks still away from the water now, against what is drawn: those just drawn may need nothing)
+    // (the chunks still away from the water now, against what is drawn: those just drawn may need nothing; water put
+    // in place is drawn whole. Only the chunks waiting are looked at, never the whole map)
     const layered = this.layered;
-    if (!layered) {
-      const moved = waterMovedChunks(m.W, m.H, this.waterShown, m.surface, MOVED_WATER);
-      for (const k of this.waterQueue) if (!moved.has(k)) this.waterQueue.delete(k);
-    }
+    if (!layered && !this.waterExact)
+      for (const k of this.waterQueue) {
+        const [cx, cy] = k.split(",").map(Number);
+        if (!waterMovedChunk(m.W, m.H, this.waterShown, m.surface, MOVED_WATER, cx, cy)) this.waterQueue.delete(k);
+      }
     if (!this.waterQueue.size) return;
     const tx = this.view.target[0] / CHUNK;
     const ty = -this.view.target[2] / CHUNK;
@@ -1850,8 +1888,10 @@ export class MapRenderer {
     if (mesher) {
       if (mesher.busy) return;
       this.waterSent = m.surface;
+      this.exactSent = this.waterExact;
       mesher.mesh(this.waterVersion, m.W, m.H, m.heights, m.surface, nearest.map((c) => c.k), layered ? { view: m.water, columns: this.columnsSent } : undefined);
       this.waterQueue.clear();
+      this.waterExact = false;
       return;
     }
     const t0 = performance.now();
@@ -2684,6 +2724,17 @@ export class MapRenderer {
     for (let i = 0; i < marks.length && !any; i += 4) any = marks[i] | marks[i + 1];
     this.uniforms.hatching.value = any ? 1 : 0;
     this.marks.needsUpdate = true;
+    this.requestRender();
+  }
+
+  /** The ground the overlay is on, per tile (overlayRuns.ts): `levels` (level + 1 a tile, 0 none; null: none) the
+   *  level a selection was taken at on a run (the Wand on a cave's floor). In a column with terrain above terrain the
+   *  overlay is drawn on that run, and `rest` (RGBA bytes, the land outside the selection) on the rest of the column;
+   *  elsewhere the overlay covers the whole column, as before. Set before `commitOverlay`. */
+  setOverlayRuns(levels: Uint8Array | null, rest: readonly [number, number, number, number]): void {
+    if (!levels && !this.runsOverlay) return;
+    this.uniforms.overlayRest.value.set(rest[0] / 255, rest[1] / 255, rest[2] / 255, rest[3] / 255);
+    (this.runsOverlay ??= new OverlayRuns(this.uniforms.overlayRuns)).set(this.map?.source ?? null, levels);
     this.requestRender();
   }
 

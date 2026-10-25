@@ -47,22 +47,52 @@ once, and only for the plan it was printed for.
     on every run). `C:\dgm-probe\terrain3d\` keeps the files runs `terrain3d-20260927` and `-20260929` played (T1
     and T2 there are still what dev writes). With them, the cave edits players get, each made through the app's core
     and exported: Hollows and Canyon edited, a roof stroke on Pillars, a Block tool dig in Hollows, an Erode cave on a
-    generated map, and unedited Hollows as the control (the official maps from `DGM_OFFICIAL_MAPS`, `.scratch/official`
-    or `investigation/raw/builtin`; left out where missing). Play with `--keep-mods`; play only the maps that changed
+    generated map, unedited Hollows as the control, and objects in caves in Hollows (D491: `hollows-cave-source`, a
+    water source on a cave's floor, and `hollows-cave-ruin`, a RuinColumnH3 under a roof, placed through the editor's
+    core; the export profile may fail only what unedited Hollows fails) (the official maps from `DGM_OFFICIAL_MAPS`,
+    `.scratch/official` or `investigation/raw/builtin`; left out where missing). Play with `--keep-mods`; play only the maps that changed
     with `--only` (D483).
 - The ceiling maps (land raised up to 22 in the editor, PLAN §20 D244): make them with
   `npx tsx tools/probe-ceiling.ts` (it writes `C:\dgm-probe\ceiling\`: tall maps edited in the editor's own
   worker with its limit raised to 22, each checked by both validators' export profile), then play them as the
   group `Ceiling`, with `--keep-mods`.
 - Any `.timber` paths on the command line are added as games of their own, with a Normal drought (3 temperate days,
-  a 3-day drought, 6.5 days in all), played on Folktails. Two options change that, for these maps only, and are kept in
+  a 3-day drought, 6.5 days in all), played on Folktails. Three options change that, for these maps only, and are kept in
   the plan so `--compare-only` judges the same games:
   - `--factions folktails,ironteeth` (either or both): one game per faction, the second with the id suffix `-it`.
   - `--badtide`: 3 more temperate days and a 3-day badtide after the drought, then calm (12.5 days), judged day by day
     against the cycle model (`cal-timeline`; "not measurable" on maps the model cannot run, such as roofed water).
 
-  Pick the games with `--only` (their ids are `map-<file name>`), or the whole catalog is planned too:
-  `batch -- a.timber --only map-a,map-a-it --factions folktails,ironteeth --badtide --keep-mods`.
+  - `--cycles N` (1–30; D488 (2): Showcase mode's winner played to cycle 10 on both factions): a long play, N full
+    cycles of the hardest weather Normal's rules allow, the same every run (`longPlaySchedule` in `runner/catalog.ts`):
+    each temperate stretch the shortest the game draws (13 days) and each hazard the longest its handicap allows at that
+    occurrence; droughts through cycle 4 (the game allows no badtide before cycle 5), then badtide, drought, badtide,
+    drought, drought (three badtides in cycles 5–10, near the game's 40% chance, in an order the game can roll). For 10
+    cycles: droughts of 3, 5, 6 and 7 days, a 1-day badtide, an 8-day drought, a 3-day badtide, two 9-day droughts and
+    a 4-day badtide, 185 game days. A fixed worst roll rather than the game's own random one, because it answers "does
+    this map play well to cycle 10" for every roll at once: a map that keeps its water through it keeps it through any,
+    both factions and every rerun get the same weather (so their numbers compare), and the cycle model plays exactly it.
+    - Played at the probe's speed (99, lowered by the mod only if frames pass 2.5 s). The plan prints the weather and
+      estimates about 10 real seconds a game day at 128² and 23 at 256² (measured on the 12.5-day batches): about 68
+      minutes for a 128² map on both factions, about 148 at 256². The whole map is recorded at each hazard's start,
+      first day and end (not daily), with screenshots only at each hazard's end.
+    - Its checks (`runner/cycles.ts`), beside the generic ones: `cycles-water` (the whole map's water, wet tiles and
+      moist tiles within 5% of the model at every checkpoint), `cycles-start-water` (clean water a pump reaches within
+      the start's walk, `start.water` on each checkpoint's water, and the start's water left, within 10% of its volume
+      of the model; recorded without the model), `cycles-land` (moist farmland, living berry bushes and trees within 20
+      tiles' walk, against the start's rules; recorded) and `cycles-shots`.
+    - The run's `summary.md` has a table per map and faction, a row per cycle: the weather as played, the fewest pump
+      tiles through the hazard, the start's water left at its end, the farmland at its start and end, the bushes and
+      trees at the cycle's end, the largest game–model gaps, and the real minutes the cycle took (DGM Probe 0.3.2
+      records each snapshot's real time).
+    - The probe plays no colony, so its beavers die of thirst around day 8 on every map (the game-over box it closes):
+      the colony's survival is read from what the map gives it, not from beaver counts.
+    - The model runs once for both factions (the same file and weather). Without `--only` or `--group` only the given
+      maps are planned. It refuses with `--badtide`, or with no map named.
+
+  Pick the games with `--only` (their ids are `map-<file name>`), or the whole catalog is planned too (except with
+  `--cycles`): `batch -- a.timber --only map-a,map-a-it --factions folktails,ironteeth --badtide --keep-mods`, or
+  `batch -- winner.timber --factions folktails,ironteeth --cycles 10 --keep-mods`.
 - `--compare-only <run id>`: redo the verdicts and the contact sheet of a finished run. Add
   `--compare-to <name>` to write them to `results\<name>\` and `sheet\<name>.html` instead, leaving the run's
   own verdicts, summary and sheet as they were; it refuses when this checkout builds other maps than the run
@@ -182,4 +212,5 @@ The runner removes it after every run. If a run was cut short:
   `sizes.ts`).
 - `runner/`: the runner (TypeScript): `batch.ts` (the command), `catalog.ts` (the games and their checks), `writers.ts`,
   `jobs.ts`, `companion.ts` (the companion mode), `launch.ts` (Steam launch and watchdog), `compare.ts` (the verdicts), `model.ts` (the cycle
-  model), `safety.ts` (snapshot and restore), `mods.ts`, `consent.ts`, `sheet.ts`, `summary.ts`, `test.ts`.
+  model), `cycles.ts` (a long play's records and checks), `safety.ts` (snapshot and restore), `mods.ts`, `consent.ts`, `sheet.ts`,
+  `summary.ts`, `test.ts` and `test-cycles.ts` (both run by `npm test`).

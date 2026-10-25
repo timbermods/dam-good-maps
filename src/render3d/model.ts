@@ -59,7 +59,9 @@ export interface WaterView {
   /** Badwater share, 0–1. */
   contamination: Float32Array;
   /** The settle's own outflows of each column (four a column, the simulation's order −y, −x, +y, +x;
-   *  current.ts); missing where the worker had none (still water, falls estimated). Only drawn. */
+   *  current.ts), each column its own: a cave's water under a wet roof its own, never its roof's (the file's
+   *  per column, the stacked settle's, stackWater.ts `columnFlows`). Missing where the worker has none for
+   *  every column (still water, falls estimated). Only drawn. */
   outflow?: Float32Array;
 }
 
@@ -114,8 +116,11 @@ export interface MapView {
   H: number;
   /** Surface height per tile: the first free layer above the top solid voxel. */
   heights: Uint8Array;
-  /** Columns with caves or overhangs: their tile indices and 23 voxels each (1 = solid). */
-  columns: { tiles: Int32Array; voxels: Uint8Array };
+  /** Columns with caves or overhangs: their tile indices and 23 voxels each (1 = solid), and each one's mask
+   *  (`ColumnTerrain`'s, bit z set: voxel z solid; one Uint32 a listed tile, in `tiles`' order), what the
+   *  renderer looks a column up in (`columnMasks`). The worker always sends `masks`; without them (a view made
+   *  by hand) the renderer works them out from `voxels`, once. */
+  columns: { tiles: Int32Array; voxels: Uint8Array; masks?: Uint32Array };
   water: WaterView;
   entities: EntityView;
   /** The soil the ground's colour shows (Map look, D86). Without it the ground reads as dry. */
@@ -142,7 +147,7 @@ export function emptyWater(): WaterView {
 }
 
 export function emptyColumns(): MapView["columns"] {
-  return { tiles: new Int32Array(0), voxels: new Uint8Array(0) };
+  return { tiles: new Int32Array(0), voxels: new Uint8Array(0), masks: new Uint32Array(0) };
 }
 
 /** A heightfield's settled water (depth per tile over the surface) as a water view. */
@@ -220,6 +225,24 @@ export function columnMap(c: MapView["columns"]): Map<number, Uint8Array> {
   const m = new Map<number, Uint8Array>();
   for (let k = 0; k < c.tiles.length; k++) m.set(c.tiles[k], c.voxels.subarray(k * LAYERS, (k + 1) * LAYERS));
   return m;
+}
+
+/** The columns' masks over the whole map (N tiles), what `mesh.ts` `columnMask` looks a column up in: a listed
+ *  tile's mask (the view's own `masks`, else worked out from its voxels), 0 on every other tile (one plain run,
+ *  drawn from its height). Undefined when no column is listed (a map without terrain above terrain: nothing to
+ *  look up). */
+export function columnMasks(N: number, c: MapView["columns"]): Uint32Array | undefined {
+  const n = c.tiles.length;
+  if (!n) return undefined;
+  const out = new Uint32Array(N);
+  const given = c.masks && c.masks.length === n ? c.masks : null;
+  for (let k = 0; k < n; k++) {
+    let m = 0;
+    if (given) m = given[k];
+    else for (let z = 0, o = k * LAYERS; z < LAYERS; z++) if (c.voxels[o + z]) m |= 1 << z;
+    out[c.tiles[k]] = m;
+  }
+  return out;
 }
 
 export interface EntityInput {
@@ -301,6 +324,7 @@ export function viewBuffers(v: Partial<MapView> & { terrain?: { pre: Uint8Array;
   if (v.columns) {
     add(v.columns.tiles);
     add(v.columns.voxels);
+    add(v.columns.masks);
   }
   if (v.water) for (const a of [v.water.tile, v.water.floor, v.water.depth, v.water.contamination, v.water.outflow]) add(a);
   if (v.soil) for (const a of [v.soil.moisture, v.soil.contamination, v.soil.runs?.tile, v.soil.runs?.level, v.soil.runs?.moisture, v.soil.runs?.contamination]) add(a);

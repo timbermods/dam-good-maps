@@ -3,6 +3,7 @@
 import { writeFileSync } from 'node:fs';
 import { type GameVerdicts, Loaded, logProblems } from './compare';
 import type { Prepared } from './jobs';
+import { cycleMarkdown } from './cycles';
 
 const esc = (s: string) => s.replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
@@ -26,6 +27,12 @@ export function writeSummary(file: string, runId: string, prepared: Prepared[], 
     for (const v of verdicts.filter((x) => x.group === g))
       for (const x of v.checks) out.push(`| ${esc(v.title)} | ${x.id} | ${x.verdict} | ${esc(x.detail)} |`);
     out.push('');
+  }
+  // a long play (`--cycles`): one table per map and faction, a row per cycle
+  const long = verdicts.filter((v) => v.cycles);
+  if (long.length) {
+    out.push(`## Cycle by cycle`, '', "Each hazard's start, first day and end, as the game played them. Pump tiles: clean water a pump reaches within the start's walk (start.water) at the hazard's checkpoint with the fewest. Start's water: the water left in the bodies start.water counts at the load. Farmland: moist, dry, clean land within 20 tiles' walk. Real min: the real time from the previous cycle's end. The probe plays no colony (its beavers die of thirst around day 8 on every map), so the colony's survival is read from these, not from its beavers.", '');
+    for (const v of long) out.push(...cycleMarkdown(v.title, v.cycles!));
   }
   // the maps with frame times (the Sizes group): one row each, to read the practical limits from
   const perf = prepared.filter((p) => loaded.get(p.game.id)?.result?.perf?.phases?.length);
