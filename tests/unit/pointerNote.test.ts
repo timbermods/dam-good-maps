@@ -48,6 +48,15 @@ describe("a note beside the pointer", () => {
     for (const b of [shelf, settings, message, panel]) expect(hits(at, b), `under ${JSON.stringify(b)}`).toBe(false);
     expect(inside(at)).toBe(true);
   });
+  it("searches the whole free view when no side near the pointer is clear, taking the clear spot nearest it", () => {
+    // (the nearest room is farther than any of the sides tried: 600 px off)
+    const wide: Box = { x0: 0, y0: 0, x1: 2400, y1: 1080 };
+    const wall: Box = { x0: 0, y0: 0, x1: 1500, y1: 1080 };
+    const at = placeNote(null, { x: 900, y: 540 }, note, wide, [wall]);
+    expect(at.x).toBeGreaterThanOrEqual(1500);
+    expect(at.x).toBeLessThan(1520);
+    expect(at.x + note.w <= wide.x1 && at.y >= 0 && at.y + note.h <= wide.y1).toBe(true);
+  });
   it("covers a control as little as it can when every side is covered", () => {
     const wall: Box = { x0: 0, y0: 0, x1: 1600, y1: 900 };
     const at = placeNote(null, { x: 800, y: 450 }, note, view, [wall]);

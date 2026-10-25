@@ -21,6 +21,7 @@ export const OBSTRUCTIONS = [
   ".view3d-controls",
   ".view3d-corner",
   ".view3d-legend",
+  ".legend-stack > *",
   ".minimap",
   ".objects-dock",
   ".dock-notes > *",
@@ -33,6 +34,8 @@ const FROM_CONTROL = 4;
 const FROM_EDGE = 4;
 /** The offsets tried, nearest first, when the pointer's own corners are covered. */
 const FARTHER = [40, 70, 110, 160];
+/** The step of the search over the whole free view, when no corner or side is clear. */
+const SCAN = 8;
 
 const area = (a: Box, b: Box) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
 
@@ -66,13 +69,29 @@ export function placeNote(want: { x: number; y: number } | null, pointer: { x: n
   const inner = { x0: bounds.x0 + FROM_EDGE, y0: bounds.y0 + FROM_EDGE, x1: bounds.x1 - FROM_EDGE, y1: bounds.y1 - FROM_EDGE };
   let best = wishes[0];
   let least = Infinity;
-  for (const p of wishes) {
+  // (the part outside the free view counts as covered, as the part under a control does)
+  const costAt = (p: { x: number; y: number }) => {
     const at = { x0: p.x, y0: p.y, x1: p.x + w, y1: p.y + h };
-    // (the part outside the free view counts as covered, as the part under a control does)
-    const cost = w * h - area(at, inner) + inflated.reduce((sum, b) => sum + area(at, b), 0);
+    return w * h - area(at, inner) + inflated.reduce((sum, b) => sum + area(at, b), 0);
+  };
+  for (const p of wishes) {
+    const cost = costAt(p);
     if (cost === 0) return p;
     if (cost < least) [best, least] = [p, cost];
   }
+  // (no wish is clear: every spot of the free view, the clear one nearest the pointer, so a note near the foot of a
+  // narrow gap goes wherever there is room, however far)
+  let nearest = Infinity;
+  let clear: { x: number; y: number } | null = null;
+  for (let y = inner.y0; y + h <= inner.y1; y += SCAN) {
+    for (let x = inner.x0; x + w <= inner.x1; x += SCAN) {
+      const d = Math.hypot(x + w / 2 - pointer.x, y + h / 2 - pointer.y);
+      if (d >= nearest) continue;
+      const p = { x, y };
+      if (costAt(p) === 0) [clear, nearest] = [p, d];
+    }
+  }
+  if (clear) return clear;
   return { x: Math.max(inner.x0, Math.min(inner.x1 - w, best.x)), y: Math.max(inner.y0, Math.min(inner.y1 - h, best.y)) };
 }
 

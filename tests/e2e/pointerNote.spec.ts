@@ -5,7 +5,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { toolInHand } from "./helpers";
-import { openEditor } from "./open";
+import { openEditor, openLegend } from "./open";
 
 type Rect = { left: number; top: number; right: number; bottom: number };
 
@@ -93,7 +93,7 @@ async function expectFree(page: Page, note: string) {
   expect(n.top, "inside the view, top").toBeGreaterThanOrEqual(view.top);
   expect(n.right, "inside the view, right").toBeLessThanOrEqual(view.right);
   expect(n.bottom, "inside the view, bottom").toBeLessThanOrEqual(view.bottom);
-  for (const s of [".objects-dock", ".map-bar", ".view3d-controls", ".view3d-corner", ".minimap", ".dock-notes > *"]) {
+  for (const s of [".objects-dock", ".map-bar", ".view3d-controls", ".view3d-corner", ".minimap", ".dock-notes > *", ".legend-stack > *"]) {
     const els = await page.evaluate((q) => [...document.querySelectorAll(q)].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0).map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom })), s);
     for (const b of els) expect(meets(n, b), `the note runs under ${s}`).toBe(false);
   }
@@ -123,6 +123,7 @@ test("the Block tool's refusal beside the Items shelf and above the bar stays in
 
   const shelf = await rect(page, ".objects-dock");
   const view = await rect(page, ".editor-view .view3d");
+  const toolbar = await rect(page, ".tool-bar");
   const outside = { x: spot.x + 12, y: spot.y };
   // the pointer a little left of the shelf, then a little above the bar (and the page's own message over it, once the
   // first refusal has put it up), then in the corner between them
@@ -130,6 +131,8 @@ test("the Block tool's refusal beside the Items shelf and above the bar stays in
     ["beside the shelf", () => shelf.left - 24, () => 400],
     ["above the bar", () => 700, async () => (await dockTop(page)) - 22],
     ["in the corner of both", () => shelf.left - 24, async () => (await dockTop(page)) - 22],
+    // (the gap between the bar's end and the shelf, at its foot: every corner of the pointer is covered)
+    ["at the foot of the gap", () => (toolbar.right + shelf.left) / 2, () => view.bottom - 24],
   ] as const) {
     const at = { x: x(), y: await y() };
     await bringTo(page, outside.x, outside.y, spot.h, at.x, at.y);
@@ -140,9 +143,10 @@ test("the Block tool's refusal beside the Items shelf and above the bar stays in
     const note = page.locator(".shape-note.error");
     await expect(note, name).toContainText("outside the selection");
     await expectFree(page, ".shape-note.error");
-    // (it flipped to the pointer's other side, still beside it)
+    // (it flipped to the pointer's other side, still beside it; at the foot of the gap there is no room near it, and the
+    // note goes to the nearest free spot of the view, however far)
     const n = await rect(page, ".shape-note.error");
-    expect(Math.abs((n.left + n.right) / 2 - at.x) < 400 && n.top < at.y + 80 && n.bottom > at.y - 80, `${name}: still beside the pointer`).toBe(true);
+    if (name !== "at the foot of the gap") expect(Math.abs((n.left + n.right) / 2 - at.x) < 400 && n.top < at.y + 80 && n.bottom > at.y - 80, `${name}: still beside the pointer`).toBe(true);
     expect(n.right).toBeLessThanOrEqual(view.right);
   }
 });
@@ -165,6 +169,32 @@ test("a shelf object's \"Place here\" flips from under the shelf and the bar", a
     await page.mouse.move(at.x, at.y);
     const note = page.locator(".shape-note");
     await expect(note).toBeVisible();
+    await expectFree(page, ".shape-note");
+  }
+});
+
+test("with the Legend open, a note beside the pointer keeps off its panel", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await putHintsAway(page);
+  const spot = await dryTile(page);
+  const legend = await openLegend(page);
+  await page.getByRole("button", { name: /^Pine/ }).click();
+  await toolInHand(page);
+  const panel = await legend.evaluate((e) => {
+    const r = e.getBoundingClientRect();
+    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+  });
+  // the pointer a little left of the panel, inside its height, then under it, then just right of it
+  for (const at of [
+    { x: panel.left - 24, y: (panel.top + panel.bottom) / 2 },
+    { x: (panel.left + panel.right) / 2, y: panel.bottom + 24 },
+    { x: panel.right + 24, y: (panel.top + panel.bottom) / 2 },
+  ]) {
+    await bringTo(page, spot.x, spot.y, spot.h, at.x, at.y);
+    await page.mouse.move(at.x - 3, at.y - 3);
+    await page.mouse.move(at.x, at.y);
+    await expect(page.locator(".shape-note")).toBeVisible();
     await expectFree(page, ".shape-note");
   }
 });
