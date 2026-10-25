@@ -272,7 +272,10 @@ place of its bottom rule.
     when the game's rule no longer holds it on the ground after the edit. The start stands on open ground, or at a
     level wholly under a roof, where the game keeps it: its 3×3×5 in air on level ground and ground at its door
     (`core/doc/startFit.ts` `startRoofProblem`; `planStart`'s `z`, a start feature's `z`), with no bench and nothing
-    levelled; without a level it is refused where a cave or an overhang is, never put on the roof's top. A move under a roof keeps its level unless it names another. Strokes paint a roof's
+    levelled; without a level it is refused where a cave or an overhang is, never put on the roof's top. Only a move or
+    a placement checks its ground: locked, renamed or turned in place, a start a tunnel was dug under later stays (a
+    start feature's bench is the same 5×5 whichever way it faces; an opened map's start, its 3×3 where it stood,
+    checks only its new door's tile, which it levels; under a roof only its new door). A move under a roof keeps its level unless it names another. Strokes paint a roof's
     top like any ground, or under a roof the level each tile names (`paintObjects` `levels`; `paint.ts` `paintLevels`
     gives them from the pick's level), each object held to the game's rule there and a tile that can't hold one left
     empty. A generated
@@ -284,7 +287,9 @@ place of its bottom rule.
     (`ShelfItem.paint`, `worker paintAt`); dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
     allows it (a ruin stroke paints a ruin field with varied heights and mixed models), filling gaps up to the
     density, never stacking; trees and bushes on dry ground tint the brush amber with "dry ground: these will die"
-    (still allowed); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
+    (still allowed; `core/doc/plantSoil.ts`, the rule `plants.survive` applies; under a roof the run top each tile
+    paints at, its own moisture, contamination and water, never its roof's: `paint.ts` `paintDying`, `worker
+    paintDryAt`, and the check reads each plant on a map with caves by its run top too); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
     places exactly one; each stroke is one undo step, and Select and Delete clear them (D288). Unique landmarks
     stay single-placement: the start, the mine site, relics and geothermal fields.
   - **The game's map-editor objects** (D337–D339): Water Seep and Badwater Seep, Aquifer and Ancient Aquifer Drill

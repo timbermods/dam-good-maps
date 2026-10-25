@@ -34,7 +34,8 @@ The map document and its edit engine: a generation plus an ordered log of edit o
   is amber there, and the start's own fix (`moveStartNear`) never moves it to such a spot. Under a roof, at a level,
   `startRoofProblem` is the game's rule (D491: its 3×3×5 in air on level ground, ground at its door, wholly under the
   roof); a start without a level is refused where a cave or an overhang is (`START_OPEN_GROUND`, `startOverRoof`).
-- `plantSoil.ts` `dyingTiles`: where a plant would die for its soil (the page's "dry ground: these will die" ring).
+- `plantSoil.ts` `dyingTiles`: where a plant would die for its soil (the page's "dry ground: these will die" ring);
+  under a roof, the run top it stands on (`MapSession.runGrounds`, `paint.ts` `paintDying` for a stroke's levels).
 - `waterFix.ts` `waterFix`: the operations that would fix the start's water checks after edits (a spring by the start,
   D330), as one step; its places are `water/springSites.ts` `springCandidates`, the generator's rule too. Only its test calls
   it today (the page's fix waits on #92).

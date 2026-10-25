@@ -964,10 +964,15 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
             continue;
         }
         let i = (o.y * wi + o.x) as usize;
+        // (on a map with caves or overhangs, the run top it stands on: the game keeps one soil value per run top, D491)
+        let (moist, depth, soil) = match o.run_soil {
+            Some([m, c, dd]) => (m, dd, c),
+            None => (mo[i], d[i], sc[i]),
+        };
         let bad = if is_tree(&o.template) || o.template == "BlueberryBush" {
-            mo[i] <= 0.0 || d[i] > 0.0 || sc[i] > 0.0
+            moist <= 0.0 || depth > 0.0 || soil > 0.0
         } else if o.template == "Succulent" {
-            mo[i] > 0.0
+            moist > 0.0
         } else {
             false
         };

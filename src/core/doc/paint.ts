@@ -12,6 +12,7 @@ import type { EditOp, OpOrigin } from "./ops";
 import { paintLabel, paintOps } from "./paintOps";
 import type { PaintLevel, PaintParams } from "./paintParams";
 import { objectCells, waterDepth } from "./placing";
+import { dyingTiles } from "./plantSoil";
 
 /** The templates a plant kind counts as already there: painting over them fills the gaps up to the density. */
 const SAME: Record<string, readonly string[]> = { trees: [], bushes: ["BlueberryBush"], succulents: ["Succulent"], woods: ["Pine", "Birch", "Oak"] };
@@ -67,6 +68,29 @@ function levelMap(s: MapSession, p: PaintParams): Map<number, number> {
   const out = new Map<number, number>();
   for (const l of p.levels ?? []) for (const i of runsToTiles(l.area, W)) if (l.z !== s.built.heights[i]) out.set(i, l.z);
   return out;
+}
+
+/** The plant a stroke of `p.kind` is judged by for its soil (trees, bushes and succulents die on different ground; mixed
+ *  woods' trees all live on the same), or null for ruins and thorns. */
+function soilTemplate(p: PaintParams): string | null {
+  if (p.kind === "trees") return p.template ?? null;
+  if (p.kind === "woods") return "Pine";
+  if (p.kind === "bushes") return "BlueberryBush";
+  if (p.kind === "succulents") return "Succulent";
+  return null;
+}
+
+/** The tiles of a stroke where its plants would die (D235's warning, "dry ground: these will die"; the stroke still
+ *  paints): on top the build's moisture, contamination and water, under a roof (`p.levels`) the run top each tile paints
+ *  at (D491, plantSoil.ts `dyingTiles`), the rule `plants.survive` applies. Empty for ruins and thorns. */
+export function paintDying(s: MapSession, p: PaintParams): number[] {
+  const template = soilTemplate(p);
+  if (!template) return [];
+  const { x: W, y: H } = s.size;
+  const region = runsToTiles(p.area, W).filter((i) => i >= 0 && i < W * H);
+  const levels = levelMap(s, p);
+  const b = s.built;
+  return dyingTiles(template, region, { moisture: b.moisture, contamination: b.soilContamination, depth: waterDepth(s), runs: levels.size ? s.runGrounds() : null }, levels);
 }
 
 export type PaintPlan = { ok: true; plan: PlannedObject[]; ops: EditOp[]; label: string } | { ok: false; errors: string[] };

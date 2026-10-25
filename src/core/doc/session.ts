@@ -38,7 +38,7 @@ import { clusterSaturation } from "../sim/moisture";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
-import { stackedSoil } from "../sim/soil";
+import { runGround, runSlotAt, stackSoilOf, type RunGround, type stackedSoil } from "../sim/soil";
 import { storedStack, type StackSettle } from "../sim/stackWater";
 import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
@@ -1088,14 +1088,34 @@ export class MapSession {
     if (this.caveSoils.has(built)) return this.caveSoils.get(built)!;
     const stack = built.settle.stack;
     let out: { cols: ReturnType<typeof waterColumns>; soil: ReturnType<typeof stackedSoil> } | null = null;
-    if (stack) {
-      const terrain = this.terrainOf(built);
-      const objects = built.entities.map(toMapObject);
-      const cols = waterColumns(terrain, objects);
-      if (cols.L === stack.L && cols.count.every((c, i) => c === stack.count[i])) out = { cols, soil: stackedSoil(terrain, cols, stack, objects) };
-    }
+    if (stack) out = stackSoilOf(this.terrainOf(built), stack, built.entities.map(toMapObject));
     this.caveSoils.set(built, out);
     return out;
+  }
+
+  /** The soil and the water on each run top as the map stands (D235, D491): what a plant standing at level z of tile i
+   *  lives or dies on, under a roof as on top (`RunGround`; null where no run's top is z). The settled soil per run, or,
+   *  while the file's own water stands, the soil and the water the file stores. Null where the map has no water on
+   *  stacked columns (a heightfield's ground is one run a tile: the build's `moisture`). */
+  runGrounds(built: BuildResult = this.cur): ((i: number, z: number) => RunGround | null) | null {
+    if (built.waterFromFile) {
+      const { x: W, y: H } = this.size;
+      const N = W * H;
+      const runs = runColumns(this.terrainOf(built));
+      const stored = this.storedSoilRuns();
+      if (!stored.moisture.slots || !stored.contamination.slots) return null;
+      const w = storedWater(this.openedFile().world.singletons, W, H);
+      const wet = new Map<number, number>();
+      for (let k = 0; k < w.tile.length; k++) if (w.floor[k] >= 0) wet.set(w.floor[k] * N + w.tile[k], w.depth[k]);
+      return (i, z) => {
+        const s = runSlotAt(runs, i, z);
+        if (s < 0 || s >= stored.moisture.slots || s >= stored.contamination.slots) return null;
+        return { moisture: stored.moisture.values[s * N + i], contamination: stored.contamination.values[s * N + i], depth: wet.get(z * N + i) ?? 0 };
+      };
+    }
+    const cs = this.caveSoilOf(built);
+    const stack = built.settle.stack;
+    return cs && stack ? (i, z) => runGround(cs.soil, stack, i, z) : null;
   }
 
   /** The document as it stands, for the project file and autosave. */
