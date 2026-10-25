@@ -4,7 +4,7 @@
 // widest, `VISTA_ZOOM`; `--zoom opening` for the game's very first frame), with the game camera's 35°
 // field of view, at 16:9. Only the 3D canvas is captured.
 //
-//   npx tsx tools/capture-opening.ts --maps highlands:1,canyon:4 [--size 128] [--zoom vista|opening] [--dir docs/sheets/opening] [--quality 82]
+//   npx tsx tools/capture-opening.ts --maps highlands:1,canyon:4 [--size 128] [--zoom vista,opening] [--dir docs/sheets/opening] [--quality 82]
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -23,7 +23,7 @@ const MAPS = arg("maps", "highlands:1").split(",").map((m) => {
   return { theme, seed: Number(seed) };
 });
 const SIZE = Number(arg("size", "128"));
-const ZOOM = arg("zoom", "vista");
+const ZOOMS = arg("zoom", "vista").split(",");
 const DIR = arg("dir", ".scratch/opening");
 const QUALITY = Number(arg("quality", "82"));
 const PORT = 4193;
@@ -56,24 +56,35 @@ async function main(): Promise<void> {
       }
       const orientation = ORIENTATIONS[st.o];
       const [mx, my] = startMiddleTile({ x: st.x, y: st.y, orientation });
-      const cam = openingCamera({ x: mx, y: my, z: st.z, orientation }, ZOOM === "opening" ? undefined : VISTA_ZOOM);
-      // (the renderer's world: x, height, −y; its yaw turns the other way from the game's horizontal angle)
-      const view = { mode: "orbit", yaw: -((st.o * 90 + 35) * Math.PI) / 180, pitch: (60 * Math.PI) / 180, distance: cam.distance, target: [cam.target[0], cam.target[2], -cam.target[1]] };
-      await page.evaluate((v) => {
-        const r = window.dgm3d!.renderer as unknown as { persp: { fov: number; updateProjectionMatrix(): void }; setView(v: unknown): void; setClock?: (t: number | null) => void };
-        r.persp.fov = 35;
-        r.persp.updateProjectionMatrix();
-        r.setClock?.(6);
-        r.setView(v);
-      }, view);
-      await page.waitForTimeout(2500);
-      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
-      // the canvas's middle at 16:9 (its height kept: the field of view is vertical)
-      const box = (await page.locator("canvas").first().boundingBox())!;
-      const w = Math.min(box.width, (box.height * 16) / 9);
-      const file = join(DIR, `${m.theme}-${SIZE}-${m.seed}-${ZOOM}.jpg`);
-      writeFileSync(file, await page.screenshot({ type: "jpeg", quality: QUALITY, clip: { x: box.x + (box.width - w) / 2, y: box.y, width: w, height: box.height } }));
-      console.log(`${file}  start ${mx},${my} z${st.z} ${orientation}`);
+      // only the 3D view: every other element hidden (the largest canvas is the view)
+      await page.evaluate(() => {
+        const cs = [...document.querySelectorAll("canvas")];
+        const big = cs.reduce((m, c) => (c.clientWidth * c.clientHeight > m.clientWidth * m.clientHeight ? c : m), cs[0]);
+        big.setAttribute("data-opening-view", "");
+        const st = document.createElement("style");
+        st.textContent = "body * { visibility: hidden !important } [data-opening-view] { visibility: visible !important }";
+        document.head.append(st);
+      });
+      for (const ZOOM of ZOOMS) {
+        const cam = openingCamera({ x: mx, y: my, z: st.z, orientation }, ZOOM === "opening" ? undefined : VISTA_ZOOM);
+        // (the renderer's world: x, height, −y; its yaw turns the other way from the game's horizontal angle)
+        const view = { mode: "orbit", yaw: -((st.o * 90 + 35) * Math.PI) / 180, pitch: (60 * Math.PI) / 180, distance: cam.distance, target: [cam.target[0], cam.target[2], -cam.target[1]] };
+        await page.evaluate((v) => {
+          const r = window.dgm3d!.renderer as unknown as { persp: { fov: number; updateProjectionMatrix(): void }; setView(v: unknown): void; setClock?: (t: number | null) => void };
+          r.persp.fov = 35;
+          r.persp.updateProjectionMatrix();
+          r.setClock?.(6);
+          r.setView(v);
+        }, view);
+        await page.waitForTimeout(2500);
+        await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
+        // the canvas's middle at 16:9 (its height kept: the field of view is vertical)
+        const box = (await page.locator("[data-opening-view]").boundingBox())!;
+        const w = Math.min(box.width, (box.height * 16) / 9);
+        const file = join(DIR, `${m.theme}-${SIZE}-${m.seed}-${ZOOM}.jpg`);
+        writeFileSync(file, await page.screenshot({ type: "jpeg", quality: QUALITY, clip: { x: box.x + (box.width - w) / 2, y: box.y, width: w, height: box.height } }));
+        console.log(`${file}  start ${mx},${my} z${st.z} ${orientation}`);
+      }
     }
   } finally {
     await browser.close();

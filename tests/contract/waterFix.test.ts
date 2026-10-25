@@ -15,7 +15,9 @@ const failing = (s: MapSession) =>
     .map((c) => c.id);
 
 describe("the automatic water fix (D330)", () => {
-  const r = generate(decodeSpecFragment("s=5&t=riverValley&z=96")!.spec);
+  // (seed 6 since the opening shot, 0.8.10, D493, D148: seed 5's start moved west, where no spring the
+  // rule tries brings its water back)
+  const r = generate(decodeSpecFragment("s=6&t=riverValley&z=96")!.spec);
 
   it("has nothing to fix on a map whose water checks pass", () => {
     expect(waterFix(MapSession.fromGenerated(r, r.file))).toBeNull();
