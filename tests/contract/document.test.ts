@@ -155,11 +155,12 @@ describe("project files (PLAN §19.6)", () => {
 
   it("format-1 project files (the M1 and M2 downloads) open and rebuild their map", () => {
     // a format-1 file stored its spec, features and heights; its land is rebuilt from those heights.
-    // A map with natural ramps needs the field's slope targets, which format 1 never held (M1 and
-    // M2 maps had none), so the stand-in is a map without them
+    // A map with natural ramps needs the field's slope targets, and one with 3D forms the field's runs
+    // (D488), which format 1 never held (M1 and M2 maps had neither), so the stand-in is a map without them
     let m = r;
-    for (let seed = 34; m.field?.ramps && seed < 60; seed++) m = generate(makeSpec({ seed, size: { x: 96, y: 96 } }));
+    for (let seed = 34; (m.field?.ramps || m.field?.runs.length) && seed < 60; seed++) m = generate(makeSpec({ seed, size: { x: 96, y: 96 } }));
     expect(m.field?.ramps).toBeUndefined();
+    expect(m.field?.runs).toEqual([]);
     const v1 = {
       formatVersion: 1,
       app: "dam-good-maps",

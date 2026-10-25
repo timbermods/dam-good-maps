@@ -46,9 +46,10 @@ export interface Placed {
   tiles: number[];
 }
 
-function take(g: ResourceGround, f: Feature, i: number, out: Placed, kept: KeptTiles | null = null): boolean {
+function take(g: ResourceGround, f: Feature, i: number, out: Placed, kept: KeptTiles | null = null, wading = false): boolean {
   if (kept && !kept.has(i)) return false;
-  if ((kept ? (g.before ?? g.occupied)[i] : g.occupied[i]) || (!kept && g.water[i] > 0) || g.channel?.[i]) return false;
+  // (a ruin field with a story may stand in water: ruins hold no water and never die, D111, D488 (2))
+  if ((kept ? (g.before ?? g.occupied)[i] : g.occupied[i]) || (!kept && !wading && g.water[i] > 0) || g.channel?.[i]) return false;
   if (g.locked && g.locked[i] && f.origin === "generated") return false;
   g.occupied[i] = 1;
   out.tiles.push(i);
@@ -201,9 +202,12 @@ function rasterizeRuins(f: RuinFieldFeature, g: ResourceGround, kept: KeptTiles 
   if (f.params.layout) {
     // the official maps' look (resources/baseline.ts)
     const c = ruinColumns(tiles, W, stream(g.seed, f.id, "heights"), f.params.layout.tallness);
+    // (a story's own storeys, gen/ruinStories.ts, while they still match the area)
+    const storeys = f.params.storeys?.length === tiles.length ? f.params.storeys : c.storeys;
+    const wading = !!f.params.story;
     tiles.forEach((i, k) => {
-      if (cleared?.has(i) || !take(g, f, i, out, kept)) return;
-      const h = c.storeys[k];
+      if (cleared?.has(i) || !take(g, f, i, out, kept, wading)) return;
+      const h = Math.max(1, Math.min(8, Math.round(storeys[k])));
       out.entities.push(ruin({ id: entityId(f.id, `RuinColumnH${h}`, i), owner: f.id, x: i % W, y: (i - (i % W)) / W, z: g.heights[i], height: h, variant: c.variants[k], orientation: c.orientations[k] }));
     });
     return out;

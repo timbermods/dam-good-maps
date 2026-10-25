@@ -17,6 +17,7 @@ import * as portable from "../math/portable";
 import type { Rect } from "../features/target";
 import type { RetainedWater } from "../sim/water";
 import { forceSettingsProblems } from "./settings";
+import { clearedLabel } from "../doc/labels";
 import type { ClearedSource, SourcesRule } from "./clear";
 
 export { forceSettingsProblems };
@@ -271,8 +272,13 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
   return [];
 }
 
-/** The history's word for a force (Try another's, a carve's own). */
+/** The history's word for a force (Try another's, a carve's own), with the sources its Sources: Clear
+ *  took (D474): "Quake: lift, 3 sources cleared". */
 export function forceLabel(p: ForceResultParams): string {
+  return clearedLabel(forceVerbLabel(p), p.cleared?.length ?? 0);
+}
+
+function forceVerbLabel(p: ForceResultParams): string {
   if (p.replaces !== undefined) return p.verb === "carve" ? (p.where.source ? "Try another course" : "Try another path") : "Try another";
   switch (p.verb) {
     case "carve":

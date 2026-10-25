@@ -26,7 +26,7 @@ import { growthOf } from "../analysis/wood";
 import { generatedThemeOf } from "../gen/pack";
 import { isDelayed, mapObjects, specifiedStrength } from "../sim/model";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
-import { seenThroughRoofs, worldWaterModel, type StackSettle } from "../sim/stackWater";
+import { seenFloor, seenThroughRoofs, worldWaterModel, type StackSettle } from "../sim/stackWater";
 import { runGround, stackSoilOf, type RunGround } from "../sim/soil";
 import { ColumnTerrain } from "../terrain/runs";
 import type { WaterModel } from "../sim/water";
@@ -336,7 +336,13 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
       m.f64(r.contamination);
       m.f64(r.depth);
     }
-    inputs[FLOOR] = f64Bytes(model.floor);
+    // (on terrain above terrain, the water seen through the roofs on its own floor, D488: a cave's pool,
+    // a river under an arch)
+    // (a generated map's only: its caves are the generator's forms and the Block tool's, whose water the
+    // checks then read on its own floor; an imported map keeps the surface's floor, as its rows were
+    // pinned against the official maps)
+    const external = opts.external ?? opts.profile === "import";
+    inputs[FLOOR] = f64Bytes(water.stack?.stacked && !external ? seenFloor(water.stack, model.floor) : model.floor);
     inputs[DAM] = f64Bytes(model.dam);
     const seen = water.stack?.stacked ? seenThroughRoofs(water.stack) : water;
     inputs[DEPTH] = f64Bytes(seen.depth);
