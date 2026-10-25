@@ -1,6 +1,6 @@
 // "Open it" on the note that a better version of the map is ready (D329): the version replaces the map on screen, and that
 // map cannot be made again (its seed now makes the version), so Your maps keeps it as it stood and says so (D234, D336).
-// The note says what the version adds in words that hold for every theme, not "its canyon" on a map that is a Canyon.
+// The note says only what the version was measured to add ("a longer canyon"), not "its canyon" on a map that is a Canyon.
 
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor, openYourMaps } from "./open";
@@ -27,7 +27,7 @@ test("Open it keeps the map it replaces in Your maps, and the note names what th
   expect(said).toMatch(/^A version with .+ is ready$/);
   // (what it adds, not the theme's name as if the map lacked it)
   expect(said).not.toMatch(/its canyon/);
-  expect(said).toContain("a deeper canyon");
+  expect(said).toContain("a longer canyon");
 
   await found.getByRole("button", { name: "Open it" }).click();
   await expect(page.locator("p.floating", { hasText: "The map before it is in Your maps." })).toBeVisible({ timeout: 60_000 });

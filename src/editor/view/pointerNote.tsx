@@ -15,18 +15,31 @@ export interface Box {
 }
 
 /** What is not the free view: the controls laid over the map, found by their classes. */
-export const OBSTRUCTIONS = [".gen", ".map-bar", ".view3d-controls", ".view3d-corner", ".minimap", ".objects-dock", ".dock-notes > *"];
+export const OBSTRUCTIONS = [
+  ".gen",
+  ".map-bar",
+  ".view3d-controls",
+  ".view3d-corner",
+  ".view3d-legend",
+  ".minimap",
+  ".objects-dock",
+  ".dock-notes > *",
+  ".bottom-left-stack > *",
+];
 
 /** The distance a note keeps from the pointer, and the least it keeps from a control. */
 const FROM_POINTER = 16;
 const FROM_CONTROL = 4;
 const FROM_EDGE = 4;
+/** The offsets tried, nearest first, when the pointer's own corners are covered. */
+const FARTHER = [40, 70, 110, 160];
 
 const area = (a: Box, b: Box) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
 
 /** Where a note of `note`'s size goes: its first wish when that is clear of every control and inside `bounds`, else the
- *  pointer's other sides in turn (below left, above right, above left), else the one that is covered least, pushed back
- *  inside `bounds`. Returns the note's top left. */
+ *  pointer's other corners in turn (below left, above right, above left), else beside and above or below it, then the
+ *  same sides farther off, else the one that is covered least, pushed back inside `bounds`. Returns the note's top
+ *  left. */
 export function placeNote(want: { x: number; y: number } | null, pointer: { x: number; y: number }, note: { w: number; h: number }, bounds: Box, avoid: readonly Box[]): { x: number; y: number } {
   const { w, h } = note;
   const wishes = [
@@ -35,6 +48,19 @@ export function placeNote(want: { x: number; y: number } | null, pointer: { x: n
     { x: pointer.x - FROM_POINTER - w, y: pointer.y + FROM_POINTER },
     { x: pointer.x + FROM_POINTER, y: pointer.y - FROM_POINTER - h },
     { x: pointer.x - FROM_POINTER - w, y: pointer.y - FROM_POINTER - h },
+    // (no corner is clear: centred on the pointer's sides, then every corner and side farther off)
+    { x: pointer.x + FROM_POINTER, y: pointer.y - h / 2 },
+    { x: pointer.x - FROM_POINTER - w, y: pointer.y - h / 2 },
+    { x: pointer.x - w / 2, y: pointer.y + FROM_POINTER },
+    { x: pointer.x - w / 2, y: pointer.y - FROM_POINTER - h },
+    ...FARTHER.flatMap((d) => [
+      { x: pointer.x + d, y: pointer.y + d },
+      { x: pointer.x - d - w, y: pointer.y + d },
+      { x: pointer.x + d, y: pointer.y - d - h },
+      { x: pointer.x - d - w, y: pointer.y - d - h },
+      { x: pointer.x - w / 2, y: pointer.y + d },
+      { x: pointer.x - w / 2, y: pointer.y - d - h },
+    ]),
   ];
   const inflated = avoid.map((b) => ({ x0: b.x0 - FROM_CONTROL, y0: b.y0 - FROM_CONTROL, x1: b.x1 + FROM_CONTROL, y1: b.y1 + FROM_CONTROL }));
   const inner = { x0: bounds.x0 + FROM_EDGE, y0: bounds.y0 + FROM_EDGE, x1: bounds.x1 - FROM_EDGE, y1: bounds.y1 - FROM_EDGE };

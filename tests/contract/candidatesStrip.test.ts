@@ -9,7 +9,7 @@ import { candidateId, EMPTY_STRIP, nextVariation, strip, stripShown, type Candid
 
 const spec = makeSpec({ seed: 7, theme: "islands", size: { x: 128, y: 128 } });
 const sib = (variation: number): CandidateMap => ({ spec: { ...spec, variation } as MapSpec, name: `v${variation}`, premise: "", W: 4, H: 4, heights: new Uint8Array(16), water: null });
-const offer = { misses: { promise: true, water: false, standout: false }, note: "A version with more islands is ready" };
+const offer = { misses: { promise: true, water: false, standout: false }, note: "A version that keeps its theme's promise is ready" };
 
 describe("the strip", () => {
   it("shows only for a generated map, and is empty at first", () => {
@@ -31,7 +31,7 @@ describe("the strip", () => {
       ["version", "v2"],
       ["sibling", "v5"],
     ]);
-    expect(s.notice).toBe("A version with more islands is ready");
+    expect(s.notice).toBe("A version that keeps its theme's promise is ready");
     expect(strip(s, { type: "noticeSeen" }).notice).toBe(null);
   });
 

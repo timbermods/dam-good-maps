@@ -104,6 +104,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("the Block tool's refusal beside the Items shelf and above the bar stays in the free view", async ({ page }) => {
+  // (1920: the width at which the corner between the Block settings and the shelf left the note half under the settings row)
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
   await putHintsAway(page);
   const spot = await dryTile(page);

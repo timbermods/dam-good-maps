@@ -703,13 +703,14 @@ export function App() {
   }
 
   /** A version found in the background opens in the editor: its project file, the same map. */
-  async function openVersion(r: GenerateResponse) {
+  async function openVersion(r: GenerateResponse, fromNote = false) {
     setVersion(null);
     stopBackground();
-    // (D234, D336: a map that is replaced and not kept is simply gone, but this one cannot be made again: its seed
-    // now makes the version. So Your maps keeps it as it stands, as it keeps an edited map a Generate replaces)
+    // (D234, D336: a map that is replaced and not kept is simply gone, but the one the note's own Open it replaces
+    // cannot be made again: its seed now makes the version. So Your maps keeps that one as it stands, as it keeps an
+    // edited map a Generate replaces. Another like this, which shows a version kept quietly, keeps nothing)
     let keepsOld = false;
-    if (entry.current && !kept.current) {
+    if (fromNote && entry.current && !kept.current) {
       const was = await snapshot();
       saver.changed(was.entry.id, () => ({ entry: was.entry, project: was.project }));
       kept.current = true;
@@ -1171,7 +1172,7 @@ export function App() {
   ) : version ? (
     <p class="error floating quiet" role="status">
       {version.note}
-      <button type="button" class="linkish" title="Open the version that was found" onClick={() => void openVersion(version.response)}>
+      <button type="button" class="linkish" title="Open the version that was found" onClick={() => void openVersion(version.response, true)}>
         Open it
       </button>
       <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={() => setVersion(null)}>

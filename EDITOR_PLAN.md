@@ -109,7 +109,7 @@ place of its bottom rule.
 - **Your maps** (D234, D330; with nothing kept it shows one dashed tile where the first map will land, and "No maps kept yet"
   beside it): a map is kept in this browser from its first edit (an operation applied) or rename,
   whatever its kind, and stays kept even if every edit is undone; camera bookmarks alone don't keep it, and an
-  unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says what it adds in plain words that hold for every theme ("A version with a deeper canyon is ready"). Kept maps are saved quietly
+  unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
   after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
   thumbnail, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A

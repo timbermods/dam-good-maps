@@ -40,6 +40,14 @@ describe("a note beside the pointer", () => {
   it("never leaves the view, whatever the pointer does", () => {
     for (const x of [0, 5, 800, 1595, 1600]) for (const y of [0, 5, 450, 895, 900]) expect(inside(placeNote(null, { x, y }, note, view, []))).toBe(true);
   });
+  it("tries the sides farther off before it settles on a covered spot (the corner between the settings, a message and the shelf)", () => {
+    // (the bar's settings row below, the shelf on the right, and a message over the map above the settings row)
+    const settings: Box = { x0: 204, y0: 702, x1: 1396, y1: 890 };
+    const message: Box = { x0: 700, y0: 600, x1: 1390, y1: 698 };
+    const at = placeNote(null, { x: 1386, y: 690 }, note, view, [shelf, settings, message, panel]);
+    for (const b of [shelf, settings, message, panel]) expect(hits(at, b), `under ${JSON.stringify(b)}`).toBe(false);
+    expect(inside(at)).toBe(true);
+  });
   it("covers a control as little as it can when every side is covered", () => {
     const wall: Box = { x0: 0, y0: 0, x1: 1600, y1: 900 };
     const at = placeNote(null, { x: 800, y: 450 }, note, view, [wall]);

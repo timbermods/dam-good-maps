@@ -45,10 +45,14 @@ export function notifies(m: Misses): boolean {
 }
 
 export function versionNote(theme: ThemeId, m: Misses): string {
+  // (only what the check measured: a canyon's length is one measure, "a longer canyon"; where it measures several
+  // (a valley's breadth and depth, a sea's islands and main body, ...) the line says the promise is kept, true for
+  // every theme; outcomes.ts `PROMISES`)
+  const promise = m.promise && theme !== "any";
+  const words = promise ? PROMISES[theme].words : null;
+  if (promise && !words) return `A version that keeps its theme's promise${m.water ? " and has clearer water" : ""} is ready`;
   const parts: string[] = [];
-  // (what the version adds that the map missed, in plain words that hold for every theme: "A version with a deeper
-  // canyon is ready"; outcomes.ts `PROMISES`)
-  if (m.promise && theme !== "any") parts.push(PROMISES[theme].words);
+  if (words) parts.push(words);
   if (m.water) parts.push(parts.length ? "clearer water" : "water you can follow");
   return `A version with ${parts.join(" and ") || "all it promises"} is ready`;
 }

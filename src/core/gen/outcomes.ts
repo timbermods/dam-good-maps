@@ -12,22 +12,23 @@ import type { ThemeId } from "../spec/mapspec";
 import * as portable from "../math/portable";
 
 /** Each theme's promise (D273 (2)) as a line on its signature's measures, and in words: `text` the
- *  promise, `words` what a version that keeps it has (gen/versions.ts `versionNote`), `noun` the
+ *  promise, `words` what a version that keeps it has, only where the check measures one thing (a canyon's length;
+ *  null where it measures several, gen/versions.ts `versionNote`), `noun` the
  *  land's word in a map's name (gen/names.ts `landNoun`). Any makes no promise. The lines sit where
  *  the theme's maps part from the others' (M9b's measures, docs/progress/m9b.md). */
-export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; words: string; noun: string; holds: (s: Signature, side: number) => boolean }> = {
+export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; words: string | null; noun: string; holds: (s: Signature, side: number) => boolean }> = {
   // (a floor 20% of the side at 128², growing with the square root of the side, as the floor does)
-  riverValley: { text: "a main river through a broad valley", words: "a broader valley", noun: "Valley", holds: (s, side) => s.valley * side >= 0.2 * 128 * portable.sqrt(side / 128) },
+  riverValley: { text: "a main river through a broad valley", words: null, noun: "Valley", holds: (s, side) => s.valley * side >= 0.2 * 128 * portable.sqrt(side / 128) },
   // (a gorge is carved to the rivers' own size, not the map's: its line grows as the square root
   // of the side, as the floors do; its share of a longer course falls the same way)
-  canyon: { text: "a river cut deep between cliffs for a real stretch", words: "a deeper canyon", noun: "Gorge", holds: (s, side) => s.canyon >= Math.max(16, 0.16 * 128 * portable.sqrt(side / 128)) && s.canyonShare >= 0.2 * portable.sqrt(128 / side) },
+  canyon: { text: "a river cut deep between cliffs for a real stretch", words: "a longer canyon", noun: "Gorge", holds: (s, side) => s.canyon >= Math.max(16, 0.16 * 128 * portable.sqrt(side / 128)) && s.canyonShare >= 0.2 * portable.sqrt(128 / side) },
   // (cliffs are lines: their share of the land falls as the map grows, as the square root of its side)
-  highlands: { text: "high, rugged ground with plateaus and valleys among it", words: "higher, more rugged ground", noun: "Heights", holds: (s, side) => s.high >= 0.6 && s.plateaus >= 3 && s.cliffs >= 0.1 * portable.sqrt(128 / side) },
+  highlands: { text: "high, rugged ground with plateaus and valleys among it", words: null, noun: "Heights", holds: (s, side) => s.high >= 0.6 && s.plateaus >= 3 && s.cliffs >= 0.1 * portable.sqrt(128 / side) },
   // (a big lake: a twelfth of the map or more. At 4% a wide river reach passed with no lake to see,
   // 0.8.3's 128² seed 15 at 4.8%; Lake Basin's lakes stand at 10% of the map and more, 96² to 256²)
-  lakeBasin: { text: "big lakes that dominate the water", words: "bigger lakes", noun: "Lakelands", holds: (s) => s.lakeShare >= 0.55 && s.bigLake >= 0.08 },
-  delta: { text: "a river splitting into several channels as it reaches low ground", words: "more channels in its delta", noun: "Delta", holds: (s) => s.mouths >= 3 },
-  islands: { text: "land broken by water into islands", words: "more islands", noun: "Isles", holds: (s) => s.islands >= 3 && s.mainBody >= 0.25 && s.apart >= 0.05 },
+  lakeBasin: { text: "big lakes that dominate the water", words: null, noun: "Lakelands", holds: (s) => s.lakeShare >= 0.55 && s.bigLake >= 0.08 },
+  delta: { text: "a river splitting into several channels as it reaches low ground", words: null, noun: "Delta", holds: (s) => s.mouths >= 3 },
+  islands: { text: "land broken by water into islands", words: null, noun: "Isles", holds: (s) => s.islands >= 3 && s.mainBody >= 0.25 && s.apart >= 0.05 },
 };
 
 export interface OutcomeInput {
