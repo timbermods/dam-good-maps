@@ -85,9 +85,9 @@ import { planWeir } from "./weir";
 import { planPlug } from "./plug";
 import { badwaterBudget } from "../resources/badwater";
 import { finalChecks, foundIntention, settlerView, type IntentionResult } from "./intentions";
-import { toTimberFile } from "./pack";
+import { description, toTimberFile } from "./pack";
 import { outcomesOf, PROMISES, promiseSides, type Outcomes } from "./outcomes";
-import { mapWords, type PlayFacts } from "./names";
+import { mapSays, mapWords, type PlayFacts } from "./names";
 import { nearStartTargets, planResources } from "./resources";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
 import { ruinColumns } from "../resources/baseline";
@@ -230,6 +230,8 @@ export interface GenerateResult {
   /** Its name, and a line on how it plays (D278 (1b); gen/names.ts). */
   name?: string;
   description?: string;
+  /** What the map shows, as its description says it (names.ts `mapSays`); absent when no intention emerged. */
+  says?: string[];
   /** Milliseconds from the call: the first look (land and planned water), the first settled
    *  water, the finished map, and when each failed attempt ended (`failed`, in `failures`' order).
    *  Information only: nothing depends on them, and they are never part of the record. */
@@ -2913,6 +2915,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the build keeps the field as the processes made it (a changed tile would mean the land was
   // not what was planned: never plan again on it)
   const same = sameBytes(built.heights, h);
+  // what the map shows is written into its description
+  const says = mapSays(intentions);
+  if (says.length && file.metadata) file = { ...file, metadata: { ...file.metadata, MapDescription: description(spec, built, says) } };
   const bytes = passed ? writeTimber(file) : new Uint8Array();
   return {
     passed,
@@ -2933,6 +2938,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       failures: [],
       field: fieldData(fieldOf(), W),
       intentions,
+      ...(says.length ? { says } : {}),
       info,
       timings: { firstLook, firstWater, final: Math.round(performance.now() - t0) },
     },
@@ -2957,7 +2963,7 @@ export function withoutSources(r: GenerateResult): Pick<GenerateResult, "built" 
   for (let k = 0; k + 1 < (fd.ramps ?? []).length; k += 2) ramps.push([fd.ramps![k], fd.ramps![k + 1]]);
   const field: GeneratedField = { heights: terrainColumns(fd, N).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), dry: { moist, poisoned } };
   const built = buildMap({ W, H, seed: r.spec.seed, features: r.features, field });
-  const file = toTimberFile(r.spec, built);
+  const file = toTimberFile(r.spec, built, r.says ? { says: r.says } : {});
   const v = validateMap(file, { profile: "generate", spec: r.spec, features: r.features, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0 });
   return { built, file, bytes: v.report.passed ? writeTimber(file) : new Uint8Array(), report: v.report, analysis: v.analysis, field: fieldData(field, W) };
 }
@@ -2997,8 +3003,8 @@ export function validateBuilt(spec: MapSpec, features: readonly Feature[], built
 
 /** Rebuild a saved generation's map: the same pure path the generator's download takes (PLAN
  *  §19.7), from its field and features, so the bytes are identical. */
-export function rebuild(spec: MapSpec, features: Feature[], field: GeneratedField | null = null): { built: BuildResult; bytes: Uint8Array; report: ValidationReport } {
+export function rebuild(spec: MapSpec, features: Feature[], field: GeneratedField | null = null, says: readonly string[] = []): { built: BuildResult; bytes: Uint8Array; report: ValidationReport } {
   const built = buildMap({ W: spec.size.x, H: spec.size.y, seed: spec.seed, features, ...(field ? { field } : {}) });
-  const file = toTimberFile(spec, built);
+  const file = toTimberFile(spec, built, says.length ? { says } : {});
   return { built, bytes: writeTimber(file), report: validateBuilt(spec, features, built, file).report };
 }

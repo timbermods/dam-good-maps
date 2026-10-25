@@ -45,8 +45,9 @@ import * as ed from "../../src/worker/session";
  *  `4e304804…` from M9a's first slice; `b358b4f8…` from
  *  resources like the official maps, #43, generator 0.6.2 (0.6.3's badwater branch was merged into
  *  M9a before its release); `e4f2f72c…` from the start and edge
- *  rules, #44, and `5118b6a6…` from M8 until then). */
-const LIVE_SHA = "68451be7b8d41bd828e12a8bf8f3788cd20dce499c9cddde4e1d77a592ec8cc7";
+ *  rules, #44, and `5118b6a6…` from M8 until then); `68451be7…` before the description was rewritten in a player's words
+ *  (the same map, a new description; D382). */
+const LIVE_SHA = "7f7c867775553dc755179c7f338cf5ebefb46d2374717d1149f4552cfaec283e";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

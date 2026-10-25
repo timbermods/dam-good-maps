@@ -10,7 +10,7 @@
 import FORBIDDEN from "../data/forbiddenNames.json" with { type: "json" };
 import type { Signature } from "../analysis/signature";
 import type { IntentionId } from "../land/intentions";
-import { INTENTION_TEXT } from "../land/intentions";
+import { INTENTION_TEXT, KYLERS } from "../land/intentions";
 import type { SeaLayout } from "../land/genome";
 import { hash32 } from "../math/hash";
 import { PROMISES } from "./outcomes";
@@ -150,4 +150,13 @@ export function mapWords(o: { seed: number; theme: ThemeId; standout: IntentionI
   // (the standout in the map's own numbers where its check gave them, else in general words)
   const sentence = o.standout ? (o.say ?? INTENTION_TEXT[o.standout]) : "";
   return { name, description: [sentence, playHint(o.facts)].filter(Boolean).join(" ") };
+}
+
+/** What the map shows, for its description: the lines of the intentions that emerged on it, the standout's
+ *  first (in the map's own numbers where its check gave them, else in general words), at most two. */
+export function mapSays(intentions: readonly { id: IntentionId; ok: boolean; say?: string }[]): string[] {
+  const emerged = intentions.filter((x) => x.ok);
+  const first = emerged.find((x) => KYLERS.has(x.id)) ?? emerged[0];
+  if (!first) return [];
+  return [first, ...emerged.filter((x) => x !== first)].slice(0, 2).map((x) => x.say ?? INTENTION_TEXT[x.id]);
 }

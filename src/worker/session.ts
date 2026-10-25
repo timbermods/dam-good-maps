@@ -88,6 +88,12 @@ export interface SessionInfo {
   notices: string[];
   importReport: ImportReport | null;
   timberName: string;
+  /** The map's description, the text the game shows with it (the `setDescription` operation writes it):
+   *  the player's, or the generated one (`descriptionWritten` says which). `descriptionKept`: what follows it in the file
+   *  whatever is written (the no-badwater or no-sources note, the tall note, a real place's credits), shown but not edited. */
+  description: string;
+  descriptionWritten: boolean;
+  descriptionKept: string | null;
   /** Bumped on every change (the page's autosave and checks key on it). */
   version: number;
   /** Changes only when the features do (the page keeps its copy, and its index, meanwhile). */
@@ -194,6 +200,11 @@ function featuresKeyOf(features: readonly Feature[]): string {
   return featuresMemo.key;
 }
 
+function descriptionInfo(s: MapSession) {
+  const d = s.description();
+  return { description: d.text, descriptionWritten: d.written, descriptionKept: d.kept };
+}
+
 export function sessionInfo(s: MapSession = need()): SessionInfo {
   const { x: W, y: H } = s.size;
   const history = s.history();
@@ -213,6 +224,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     notices: [...s.notices],
     importReport: s.meta.source?.report ?? null,
     timberName: s.exportTimberName(),
+    ...descriptionInfo(s),
     featuresKey: featuresKeyOf(s.features),
     views: s.views,
     forceAgain: againVerb(s),

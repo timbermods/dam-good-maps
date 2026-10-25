@@ -47,6 +47,9 @@ export interface DocMeta {
   appVersion?: string;
   /** A seed typed as a word: the saved file is named with it (D345, B10); the spec holds its number. */
   seedWord?: string;
+  /** What the generator says the map shows (names.ts `mapSays`): the lines of its description until its player
+   *  writes one. */
+  says?: string[];
   /** The name the generator gave the map (M9b, D278 (1b)): until the player renames it (D443), the map
    *  is saved under its theme and seed (D345, B10). */
   generatedName?: string;
@@ -168,11 +171,12 @@ export function toDocument(spec: MapSpec, features: Feature[], built: BuildResul
 }
 
 /** The document of a map the generator just made, with its field (format 3). */
-export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null; seedWord?: string; name?: string; description?: string }): MapDocument {
-  const doc = toDocument(r.spec, r.features, r.built, r.file ?? toTimberFile(r.spec, r.built), r.field ?? null, r.seedWord);
+export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null; seedWord?: string; name?: string; description?: string; says?: readonly string[] }): MapDocument {
+  const doc = toDocument(r.spec, r.features, r.built, r.file ?? toTimberFile(r.spec, r.built, r.says?.length ? { says: r.says } : {}), r.field ?? null, r.seedWord);
   // (M9b, D278 (1b): a generated map keeps its own name and how it plays)
   if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
   if (r.description) doc.meta.premise = r.description;
+  if (r.says?.length) doc.meta.says = [...r.says];
   return doc;
 }
 
