@@ -270,7 +270,12 @@ place of its bottom rule.
     roofs, keeps the ground under every object: three levels down, and down to the map's bottom under the objects
     the game keeps only there (`rust/forces/src/erode.rs`). Only a stroke with nothing left to shape, or, as a last
     guard no tool reaches, an edit that would still lose such an object, is refused with one line. A feature edit clears an object at a level
-    when the game's rule no longer holds it on the ground after the edit. The start stays on open ground. A move under a roof keeps its level unless it names another. Strokes paint a roof's
+    when the game's rule no longer holds it on the ground after the edit. The start stays on open ground. A move under a roof keeps its level unless it names another. **The page aims where the
+    player points:** the shelf, a source, a dragged object and the start take the ground the pointer sees (the voxel
+    pick: a cave's floor through its mouth or under the layer cut, the ground under a ledge) and name that run's level
+    in the placement (`editor/shelf/aim.ts`; a cut's cap names its run's real top; the tile's top names none); the
+    ghost stands there and its words are the core's answer ("the start needs open ground", "not on a roof or a
+    ledge"). A drag out of a cave lands on the tile's top. Strokes paint a roof's
     top like any ground. A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
