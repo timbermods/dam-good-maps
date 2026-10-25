@@ -5,27 +5,12 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
-import { arcOf, openingFrame, openingView, showcaseSearch, type ShowcaseCandidate } from "../../src/core/gen/showcase";
+import { arcOf, showcaseSearch, type ShowcaseCandidate } from "../../src/core/gen/showcase";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 describe("Showcase mode (D488 (2))", () => {
-  it("the opening camera looks the start's orientation + 35° clockwise from north", () => {
-    // Cw0 looks a little east of north (+y is north): ground 20 tiles that way is framed, 20 behind is not
-    const f = openingFrame(96, 96, { x: 48, y: 48 }, "Cw0");
-    expect(f[(48 + 16) * 96 + 48 + 11]).toBe(1);
-    expect(f[(48 - 16) * 96 + 48 - 11]).toBe(0);
-    // Cw180 looks the other way
-    const g = openingFrame(96, 96, { x: 48, y: 48 }, "Cw180");
-    expect(g[(48 - 16) * 96 + 48 - 11]).toBe(1);
-    expect(g[(48 + 16) * 96 + 48 + 11]).toBe(0);
-    // a 12-level spire standing just short of the near edge shows its top in the picture
-    const view = openingView({ x: 48, y: 48 }, "Cw0");
-    expect(view(48 - 9, 48 - 13)).toBe(false);
-    expect(view(48 - 9, 48 - 13, 12)).toBe(true);
-  });
-
   it("measures each sibling's arc, keeps the best three in order, and a pick's link regenerates it", async () => {
     const spec = makeSpec({ seed: 2, theme: "lakeBasin", size: { x: 96, y: 96 } });
     const seen: ShowcaseCandidate[] = [];
@@ -36,10 +21,11 @@ describe("Showcase mode (D488 (2))", () => {
     expect(seen.map((c) => c.spec.variation)).toEqual([undefined, 1, 2]);
     expect(seen.every((c) => c.passed && c.arc)).toBe(true);
     const [a, b, c] = seen.map((s) => s.arc!);
-    // the asked map: a wide opening view and an 8-level butte in it, 31 tiles east
-    expect(a.vista.met).toBe(true);
+    // the asked map: an 8-level butte 34 tiles east in the opening camera pulled back (D493), but too
+    // little in the game's first frame round the start to call a vista
+    expect(a.vista.met).toBe(false);
     expect(a.landmark.met).toBe(true);
-    expect(a.landmark.say).toMatch(/^An 8-level butte stands 31 tiles east of the start/);
+    expect(a.landmark.say).toMatch(/^An 8-level butte stands 34 tiles east of the start, in the opening view\.$/);
     // and the first drought's choice: the river by the start runs low, the pool a little further holds
     expect(a.drought.met).toBe(true);
     expect(a.drought.say).toMatch(/^The nearest water, 5 tiles' walk from the start, runs low in the first drought; water 7 tiles' walk away holds.$/);
@@ -55,9 +41,12 @@ describe("Showcase mode (D488 (2))", () => {
     // its nearest water holds and a farther one runs dry: no choice to face, some of the beat only
     expect(c.drought.met).toBe(false);
     expect(c.drought.strength).toBe(0.4);
-    expect(c.landmark.say).toMatch(/^An 11-level mesa stands 18 tiles south of the start/);
+    expect(c.landmark.say).toMatch(/^An 11-level mesa stands 29 tiles south of the start/);
+    // and its first frame: 12 levels of relief, open water, a 3-level fall and the mesa
+    expect(c.vista.met).toBe(true);
+    expect(c.vista.say).toBe("The opening view takes in 12 levels of relief, open water, a 3-level fall and the mesa.");
     // the best three, best first: the second sibling (its drowned village a mystery, since 0.10.1; its start
-    // turned to its relief, open water, a fall and the mesa, D493: 5.75 to the asked map's 4.65), the asked
+    // turned to its relief, open water, a fall and the mesa, D493: 5.74 to the asked map's 3.60), the asked
     // map (its drought's choice), the first
     expect(res.best.map((p) => p.index)).toEqual([2, 0, 1]);
     expect(res.best[0].note).toMatch(/^\d of 6 beats\. /);
