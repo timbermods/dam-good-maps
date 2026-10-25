@@ -480,6 +480,11 @@ Standard's shadow before a cave (item 8).
     drought line's; then the other look's in every state too (in Standard the High look's, from a copy of its
     materials, its mist and the sun's depth map included; in High Standard's). Leaving High keeps its programs in every
     state, so a switch back and a dig right after are drawn at once.
+  - **A switch's program first:** the browser compiles what it is sent in turn, so the programs compiled ahead are
+    sent two at a time (`WARM_IN_FLIGHT`), and none while a switch waits for its own, whose compile is sent at once: a
+    dig's program never waits behind the warm-up's queue (`tests/unit/programs.test.ts`). The map's picture waits for
+    the branches its map asks for (up to 20 s, the page's thread free, then drawn with a warning), never drawn without
+    its caves' look unsaid.
   - **The program the frame asks for:** each is compiled with every kind of object that draws its material (a fall's
     template has no position or normal, the objects are instanced), or a stand-in of that kind, and the branches always
     come in one order (`withDefine`). `tests/e2e/cutaway.spec.ts` checks that a switch to High and a dig right after
