@@ -54,11 +54,11 @@ jobs:
       - name: Long property runs, the settings batch and every setting's extremes (D471)
         run: npm run test:heavy
 
-  # Real places' data matches a fresh build. Its own job: the build searches each place's start spots
-  # and springs (D245, tools/real-places.ts), each a full build and settle, about 1 h 45 min in all.
+  # Real places' data matches a fresh build. Its own job, beside the heavy tests: the build searches
+  # each place's start spots and springs (D245, tools/real-places.ts), about 25 min on a runner.
   places:
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
