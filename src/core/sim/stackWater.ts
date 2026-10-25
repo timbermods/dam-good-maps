@@ -221,6 +221,25 @@ export interface StackSettle {
   /** A canonical settle's only: the pre-fill it started from, its columns with any water, pressure or
    *  badwater share (ids ascending). */
   start?: StackStart;
+  /** A canonical settle's only: each column's outflows at its end (`columnFlows`), four a column id. Only drawn
+   *  (the 3D view's moving water and falls), never written to a file or read by the water. */
+  flows?: Float32Array;
+}
+
+/** Each column's outflows, four a column id (slot·N + tile; the simulation's order −y, −x, +y, +x): the momentum of
+ *  its flows each way summed (rust/water/src/stack.rs `out`, one a pair of columns that overlap, laid out by `start`
+ *  and `dir`), the rate the file stores per column (`ColumnOutflows`) and the heightfield's `WaterSim.out` per tile.
+ *  On an open field (today's simulation) the momentum is already four a tile. From `m` as it stands: its momentum is
+ *  current only where it ran the ticks itself (not after ticks run elsewhere, stackParallel.ts gathers those). */
+export function columnFlows(m: StackWater, stacked: boolean): Float32Array {
+  if (!stacked) return Float32Array.from(m.view(STACK_FIELD.momentum) as Float64Array);
+  const start = m.view(STACK_FIELD.graphStart) as Uint32Array;
+  const dir = m.view(STACK_FIELD.graphDirection) as Uint8Array;
+  const out = m.view(STACK_FIELD.momentum) as Float64Array;
+  const size = start.length - 1;
+  const flows = new Float32Array(size * 4);
+  for (let c = 0; c < size; c++) for (let e = start[c]; e < start[c + 1]; e++) flows[c * 4 + dir[e]] += out[e];
+  return flows;
 }
 
 /** A pre-fill, sparse: the columns where depth, pressure or contamination is not 0. */
@@ -334,6 +353,8 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
         // (where the water went: this thread's own columns, and the strips' when they ran it)
         const reach = stacked ? (m.copy(STACK_FIELD.reach) as Uint8Array) : undefined;
         if (reach) threads?.reach(reach);
+        // (each column's outflows: the strips' own rows' when they ran the last ticks, else this engine's)
+        const flows = threads ? threads.flows() : columnFlows(m, stacked);
         threads?.free();
         threads = null;
         m.op(STACK_OP.saturation);
@@ -355,6 +376,7 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
           settled: m.info(STACK_INFO.settle) === 1,
           ticks: m.info(STACK_INFO.ticks),
           ...(reach && start ? { reach, start } : {}),
+          flows,
         };
         ticks = done.ticks;
         m.close();
@@ -498,6 +520,10 @@ export function settledAgain(prev: StackSettle, prevModel: WaterModel, next: Wat
     const start = startOf(m);
     // the old run's water on the tiles left as they were; the pre-fill's (dry) on the changed ones
     const reach = new Uint8Array(L * N);
+    // (and its outflows: the old run's momentum on the columns it wet, whose flows the edit never reached, none on the
+    // changed tiles, which stay dry)
+    const pf = prev.flows;
+    const flows = pf ? new Float32Array(L * N * 4) : undefined;
     for (let i = 0; i < N; i++) {
       if (changed[i]) continue;
       for (let q = 0; q < count[i]; q++) {
@@ -506,6 +532,7 @@ export function settledAgain(prev: StackSettle, prevModel: WaterModel, next: Wat
         o[k] = prev.overflow[k];
         c[k] = prev.contamination[k];
         reach[k] = prev.reach[k];
+        if (flows && pf) flows.set(pf.subarray(k * 4, k * 4 + 4), k * 4);
       }
     }
     m.op(STACK_OP.accept);
@@ -526,6 +553,7 @@ export function settledAgain(prev: StackSettle, prevModel: WaterModel, next: Wat
       ticks: prev.ticks,
       reach,
       start,
+      ...(flows ? { flows } : {}),
     };
     return done;
   } finally {

@@ -130,7 +130,7 @@ function lockstep(make: () => MapSession, setup: Blocks, edits: number, seed: nu
     expect(settledHash(fast), `${what}, the settled hash`).toBe(settledHash(cold));
     const sa = fast.built.settle.stack!;
     const sc = cold.built.settle.stack!;
-    for (const k of ["count", "floor", "ceil", "depth", "overflow", "contamination", "sat", "reach"] as const) expect(bytes(sa[k]!).equals(bytes(sc[k]!)), `${what}, ${k}`).toBe(true);
+    for (const k of ["count", "floor", "ceil", "depth", "overflow", "contamination", "sat", "reach", "flows"] as const) expect(bytes(sa[k]!).equals(bytes(sc[k]!)), `${what}, ${k}`).toBe(true);
     expect([sa.settled, sa.ticks]).toEqual([sc.settled, sc.ticks]);
   }
   return flag.hits - hits;

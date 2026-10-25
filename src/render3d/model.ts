@@ -59,7 +59,9 @@ export interface WaterView {
   /** Badwater share, 0–1. */
   contamination: Float32Array;
   /** The settle's own outflows of each column (four a column, the simulation's order −y, −x, +y, +x;
-   *  current.ts); missing where the worker had none (still water, falls estimated). Only drawn. */
+   *  current.ts), each column its own: a cave's water under a wet roof its own, never its roof's (the file's
+   *  per column, the stacked settle's, stackWater.ts `columnFlows`). Missing where the worker has none for
+   *  every column (still water, falls estimated). Only drawn. */
   outflow?: Float32Array;
 }
 

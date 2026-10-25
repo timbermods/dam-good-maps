@@ -60,8 +60,8 @@ const threads = at >= 0 ? Number(process.argv[at + 1]) : 0;
 if (threads) {
     installNodeThreads(threads);
     await nodeThreadsReady(threads);
-    // (the reach too, where the water went: the strips gather it from their own rows, D453's settle at once)
-    const bytes = (s: StackSettle) => Buffer.concat([s.depth, s.overflow, s.contamination, s.sat, ...(s.reach ? [s.reach] : [])].map(a => Buffer.from(a.buffer, a.byteOffset, a.byteLength)));
+    // (the reach too, where the water went, and each column's outflows: the strips gather both from their own rows, D453's settle at once and the 3D view's moving water)
+    const bytes = (s: StackSettle) => Buffer.concat([s.depth, s.overflow, s.contamination, s.sat, ...(s.reach ? [s.reach] : []), ...(s.flows ? [s.flows] : [])].map(a => Buffer.from(a.buffer, a.byteOffset, a.byteLength)));
     // and a map whose strips' edges cut every kind of emitter (3×3 bad sources, clean and bad seeps, aquifers,
     // drains): one every three rows from top to bottom, under a roof and in the open, so whatever rows the strips
     // take, some straddle an edge
@@ -96,7 +96,7 @@ if (threads) {
         const one = withoutParallelWater(c.settle);
         const before = stackParallelStats.ticks;
         const many = c.settle();
-        if (!bytes(one).equals(bytes(many)) || one.settled !== many.settled || one.ticks !== many.ticks || !one.reach !== !many.reach)
+        if (!bytes(one).equals(bytes(many)) || one.settled !== many.settled || one.ticks !== many.ticks || !one.reach !== !many.reach || !one.flows !== !many.flows)
             throw Error(c.name + ' differs on ' + threads + ' threads');
         if (stackParallelStats.ticks > before) ran++;
         console.log('PASS ' + c.name + ' canonical settle on one thread = on ' + threads + (stackParallelStats.ticks > before ? '' : ' (one thread: an open field)') + '; ' + many.ticks + ' ticks');
