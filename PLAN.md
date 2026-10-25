@@ -365,6 +365,23 @@ arch, overhangs up to 3; 70–100 up to 22, 5–12 (overhanging cliffs, arches, 
 multi-level valleys, water through mountains). Cave starts only from 70. Every level has a way up without stairs
 (ramps, tunnels, ledges, bridges), except the planned rewards, which need player stairs.
 
+**Built so far** (D488, step 4 part 1; `docs/progress/3d-generation.md`): three forms, grown on the finished map where its
+land offers them and kept only where every check still holds, each an intention with its own check, and only above the
+theme's default Verticality (a map with caves has no Fill or Remove unfed water in the editor yet, so the ordinary map
+stays as it was until it does):
+
+| Verticality | A spring cave feeding the river | An overhang sheltering the start | An arch over a gorge |
+|---|---|---|---|
+| 0 | none | none | none |
+| 1–34 | one, on 25% + Verticality% of maps | one, on 20% + Verticality% | none |
+| 35–49 | one | one | one, more often in Canyon and Highlands |
+| 50–74 | up to two | one | one (two at 70+ on most maps) |
+| 75–100 | up to three | one | up to two |
+
+The cave and the overhang are worn below the surface (the land seen from above is unchanged); an arch's deck is new ground
+over its gorge, so a map that looks for one shows its first look when it is done (D348), and none is grown above 128².
+Their water is the stacked engine's on every column (D120).
+
 ---
 
 ## 6. Theme presets
@@ -1197,7 +1214,9 @@ must respect:
   the preview (D69): level ground for single objects, dry and off rivers (weirs and plugs go across them), free of other
   objects and the start. Under a roof (a cave's floor, the ground under a ledge, a roof's top: the placement's `z`) the
   game's own rule decides instead, block by block (D491, `features/objects.ts` `standProblem`, the same rule as
-  `entities.placement`). The bridge waits (§5.7).
+  `entities.placement`), and never in the cells another object holds (`doc/ops.ts` `levelProblems`: "a water source
+  stands there"). On a map with caves a spring's sources go through the same rule, its cells free of the map's objects
+  (`features/build.ts`: one the game would not keep is left out of its row). The bridge waits (§5.7).
 - `carve` kinds (D118: tunnel, arch, skyBridge, cave, ledgePath, overhang, undergroundRiver): built only by their
   builders, which keep the support rule by construction (the build's rule pass drops 0 voxels); floors are run tops.
 - `start` (position, orientation, bench radius, player 0–3, default 0, reserved for Timber Together, D5): a flat 3×3

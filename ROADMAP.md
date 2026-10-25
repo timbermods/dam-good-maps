@@ -683,6 +683,13 @@ After the view (D280 (3)).
 
 Once M9b has settled (D280 (4)).
 
+**Part 1 built** (D488, `feature/3d-generation`; [docs/progress/3d-generation.md](docs/progress/3d-generation.md)): a
+spring cave feeding the river, an overhang sheltering the start, an arch over a gorge, as intentions grown on the finished
+map (`src/core/land/forms3d.ts`, `src/core/gen/forms3d.ts`), each kept only where every check, intention and outcome still
+holds and its own check confirms it, above the theme's default Verticality only until Fill and Remove unfed water have
+their rules for caves; generated caves' water is the stacked engine's. Next: those rules (then forms
+at the default too), the remaining processes below, and the probe batch.
+
 **Delivers**
 1. **3D features as intentions**, under Kyler's three principles (D138: outcomes, failure allowed,
    many realizations) — "a natural arch", "a cave with a spring in it", "an overhang shading the
