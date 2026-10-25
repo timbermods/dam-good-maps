@@ -550,6 +550,15 @@ for (const scheme of ["light", "dark"] as const) {
       for (const panel of ["Map Generator", "Your maps", "History"]) {
         await header.getByRole("button", { name: panel, exact: true }).click();
         await look(panel);
+        if (panel === "Map Generator") {
+          // Showcase mode's sheet over the settings (D488 (2)), Esc closing it
+          const gen = page.locator('aside[aria-label="Map Generator"]');
+          await gen.getByRole("button", { name: "Showcase…" }).click();
+          await expect(gen.getByRole("region", { name: "Showcase" })).toBeVisible();
+          await look("the Showcase sheet");
+          await page.keyboard.press("Escape");
+          await expect(gen.getByRole("region", { name: "Showcase" })).toBeHidden();
+        }
         await header.getByRole("button", { name: panel, exact: true }).click();
       }
       expect(bad, "text wider than its box").toEqual([]);
