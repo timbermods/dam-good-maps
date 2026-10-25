@@ -13,7 +13,7 @@ import { entityTiles } from "../features/edits";
 import { fitProblems, isLine, OBJECT_NAMES, objectTiles, openPart, standProblem } from "../features/objects";
 import type { MapSession } from "./session";
 import { levelFootprint, levelProblem } from "./placing";
-import { cornerFor, startClears, startMiddle } from "./start";
+import { cornerFor, startClears, startGroundOf, startMiddle, startProblem } from "./start";
 import { START_OPEN_GROUND, startOverRoof } from "./startFit";
 import { startEntranceTile, type Orientation } from "../format/footprints";
 import { withArticle } from "./labels";
@@ -253,6 +253,10 @@ export function planStart(s: MapSession, x: number, y: number, orientation: Orie
   const o0 = orientation ?? (f && f.kind === "start" ? f.params.orientation : (ent?.orientation ?? "Cw0"));
   if (lands === undefined && top >= 0 && startOverRoof(s.standGround(), x, y, o0)) return fail(START_OPEN_GROUND);
   if (lands !== undefined) return planStartUnder(s, x, y, o0, lands, newId);
+  // (an imported start has no feature: every imported object is owned by "import", so it is skipped by its template, not its owner;
+  // the one fit rule the shelf's preview shares, startFit.ts: never on another object's footprint, in a river, under water or at the edge)
+  const why = startProblem(s.built, x, y, o0, false, f ? f.id : null, null, startGroundOf(s.built, [], f ? f.id : null));
+  if (why) return fail(`the start can't stand there: ${why}`);
   if (f && f.kind === "start" && f.params.z !== undefined) {
     // (out from under a roof onto the top: a move there, its bench again)
     const at = startMiddle(s)!;

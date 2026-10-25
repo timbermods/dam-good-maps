@@ -14,10 +14,14 @@
 // reaches the hydrology's cutting flow (1.2), none is incised, the water stands at its benches'
 // level and the land is not high over it. Full at 96², tapering to nothing at 128².
 import type { Genome } from "./genome";
+import { mapShape } from "./shape";
+import * as portable from "../math/portable";
 
-/** How far below 128² the map is: 0 at 128² and up, 1 at 96² and under. */
+/** How far below 128² the map is: 0 at 128² and up, 1 at 96² and under. A long map is as small as a
+ *  square map of its area (D488): judged by its narrow side, a 48×256 strip, a 128² map's area, had none
+ *  of Canyon's gorge or Highlands' tall benches, and read as River Valley with a fat river. */
 export function smallness(W: number, H: number): number {
-  const side = Math.min(W, H);
+  const side = mapShape(W, H).long ? portable.sqrt(W * H) : Math.min(W, H);
   return Math.min(1, Math.max(0, (128 - side) / 32));
 }
 

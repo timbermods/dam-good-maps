@@ -115,8 +115,8 @@ function roofProblem(s: MapSession, p: { template: string; x: number; y: number;
   if (p.template === "StartingLocation") {
     if (p.z === undefined) return START_OPEN_GROUND;
     const [mx, my] = startMiddleTile({ x: p.x, y: p.y, orientation: p.orientation });
-    const own = ignore ? b.entities.find((e) => e.id === ignore)?.owner : undefined;
-    const cells = objectCells(b.entities, W, H, (e) => e.id === ignore || (own !== undefined && e.owner === own) || makesRoomForStart(e.template, !!e.raw));
+    // (its own object by its id or its template, never its owner: an import's objects are all owned by "import")
+    const cells = objectCells(b.entities, W, H, (e) => e.id === ignore || makesRoomForStart(e.template, !!e.raw));
     return startRoofProblem({ ...s.standGround(), heights: b.heights }, mx, my, p.orientation, p.z, cells);
   }
   const top = b.heights[p.y * W + p.x];

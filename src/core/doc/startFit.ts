@@ -5,9 +5,15 @@
 // and the page's hover preview both call this, each handing it the objects' tiles from the map they hold, so
 // the preview never says yes where the checks say no. Under a roof `startRoofProblem` is the rule: the game's, at the
 // start's level (D491).
+//
+// Beyond the refusals, `startFitWarnings` says what the checks would flag with the start there, though it fits: the
+// generation's relics, geothermal fields, mine sites, thorn belts and unstable cores keep their distance band from
+// the start (`extras.placement`).
 
+import type { Feature, MapObjectKind } from "../features/schema";
+import { objectTiles, OBJECT_NAMES, openPart, standProblem, type StandGround } from "../features/objects";
 import { coordinatesForMinCorner, startEntranceTile, type Orientation } from "../format/footprints";
-import { openPart, standProblem, type StandGround } from "../features/objects";
+import { bandScale, EXTRA_BANDS } from "../validate/playability";
 
 /** Objects a generated map's resources place and then make room for the start: the start takes their ground (D368 (10)). */
 const MAKES_ROOM = /^(Pine|Birch|Oak|Succulent|BlueberryBush|RuinColumnH\d)$/;
@@ -16,6 +22,27 @@ const MAKES_ROOM = /^(Pine|Birch|Oak|Succulent|BlueberryBush|RuinColumnH\d)$/;
  *  ruin column (`raw`: from an imported file, which keeps its own objects). The start itself never counts. */
 export function makesRoomForStart(template: string, raw: boolean): boolean {
   return template === "StartingLocation" || (!raw && MAKES_ROOM.test(template));
+}
+
+/** An object as `takenTiles` reads it: its template, who placed it, whether it was read from a file, and its footprint's tiles
+ *  (asked only of the objects that keep the start away). */
+export interface StartFitObject {
+  template: string;
+  owner?: string;
+  raw?: unknown;
+  tiles: () => Iterable<readonly [number, number]>;
+}
+
+/** The tiles other objects' whole footprints cover, on a W × H map (index y·W + x, 1 where covered): every object but
+ *  the start's own feature's (`ignoreOwner`) and those that make room for it. The one list the core's `startProblem`
+ *  and the page's preview both hand `startFitProblem` as `taken`. */
+export function takenTiles(W: number, H: number, objects: Iterable<StartFitObject>, ignoreOwner: string | null): Uint8Array {
+  const out = new Uint8Array(W * H);
+  for (const e of objects) {
+    if ((ignoreOwner !== null && e.owner === ignoreOwner) || makesRoomForStart(e.template, !!e.raw)) continue;
+    for (const [x, y] of e.tiles()) if (x >= 0 && y >= 0 && x < W && y < H) out[y * W + x] = 1;
+  }
+  return out;
 }
 
 /** What the rule reads of a map, tile by tile (index y·W + x). */
@@ -49,6 +76,50 @@ export function startFitProblem(g: StartFitGround, x: number, y: number, door: r
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------------- what the checks flag
+
+/** A map object the generation placed that keeps a distance from the start (validate/playability.ts
+ *  `EXTRA_BANDS`: relics, geothermal fields, mine sites, thorn belts, unstable cores), with the tiles it covers. */
+export interface StartFitExtra {
+  kind: MapObjectKind;
+  tiles: readonly (readonly [number, number])[];
+}
+
+/** The generation's objects that keep a distance from the start, from a document's features: what the check
+ *  `extras.placement` measures (an object the player placed is not asked). */
+export function startFitExtras(features: readonly Feature[], W: number, H: number): StartFitExtra[] {
+  const out: StartFitExtra[] = [];
+  for (const f of features) if (f.kind === "mapObject" && f.origin === "generated" && f.params.kind in EXTRA_BANDS) out.push({ kind: f.params.kind, tiles: objectTiles(f, W, H) });
+  return out;
+}
+
+/** What the checks would flag with the district center's middle at (x, y), though it fits (`startFitProblem`
+ *  null): each generated object out of its distance band from the start, in the check's own words and
+ *  distance (the chamfer distance, 1 and √2 a step, from the start's 3×3 to the object's nearest tile; the
+ *  bands scale on maps under 128²). The start is amber there, and "Move the start here" is not for it (D361). */
+export function startFitWarnings(extras: readonly StartFitExtra[], W: number, H: number, x: number, y: number): string[] {
+  const scale = bandScale(W, H);
+  const out: string[] = [];
+  for (const e of extras) {
+    const band = EXTRA_BANDS[e.kind];
+    const lo = band.scaled ? band.lo * scale : band.lo;
+    const hi = band.scaled ? band.hi * scale : band.hi;
+    let near = Infinity;
+    for (const [tx, ty] of e.tiles) {
+      if (tx < 0 || ty < 0 || tx >= W || ty >= H) continue;
+      const ax = Math.max(Math.abs(tx - x) - 1, 0);
+      const ay = Math.max(Math.abs(ty - y) - 1, 0);
+      const d = Math.SQRT2 * Math.min(ax, ay) + Math.abs(ax - ay);
+      if (d < near) near = d;
+    }
+    if (near === Infinity || (near >= lo && near <= hi)) continue;
+    out.push(`${OBJECT_NAMES[e.kind]} ${Math.round(near)} tiles from the start, wanted ${Math.round(lo)}${hi < Infinity ? `–${Math.round(hi)}` : "+"}`);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------- under a roof (D491)
 
 /** Why a start without a level does not stand where a cave or an overhang is: it stands on open ground, its bench and its
  *  levelling there, or at a level wholly under a roof (`startRoofProblem`). */

@@ -624,10 +624,10 @@ export function ErodeRow(p: RowProps<ErodeUi, ErodeSettings>) {
       groups={[
         { key: "power", row: 1, at: 1, span: 3, node: power("erode", u.power, (v) => set({ power: v }), "How deep the rock wears") },
         { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide it wears", sz, String(sz), ERODE_SIZE_MIN, ERODE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
-        // (no choice of its own, and no Sources: it never wears a source's tile; so Try another takes the row's end and the
-        // Floor the second row, and both rows stay full)
-        { key: "again", row: 1, at: 7, span: 7, node: again(p, "Another erosion, same land") },
-        { key: "floor", row: 2, at: 1, span: 13, node: <FloorSetting /> },
+        // (no choice of its own, and no Sources: it never wears a source's tile; so the Floor runs on over Sources' place and
+        // Try another stays where every force has it, the end of the second row)
+        { key: "floor", row: 2, at: 1, span: 11, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another erosion, same land") },
       ]}
     />
   );

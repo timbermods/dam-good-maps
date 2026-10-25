@@ -98,7 +98,7 @@ export interface SessionSlice {
   waterTick: number;
   /** Changes when a held weather day's water is put on the map (the minimap draws it). */
   heldTick: number;
-  flowing: number | null;
+  flowing: boolean;
   markersOn: boolean;
   setMarkersOn: Dispatch<StateUpdater<boolean>>;
   /** The Show row's Markers toggle, as its click does it (the 3D view puts it here): M's way to it. */
@@ -295,8 +295,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [waterLayers, setLayers] = useState<WaterLayers | null>(null);
   const [waterTick, setWaterTick] = useState(0);
   const [heldTick, setHeldTick] = useState(0);
-  /** The water is flowing into an edit's new shape (how far it has come, 0–1), or null. */
-  const [flowing, setFlowing] = useState<number | null>(null);
+  /** The water is flowing into an edit's new shape (the dot says "Settling…"): set as a journey starts and ends, never
+   *  per frame, so the editor isn't drawn again for every frame of the water's journey. */
+  const [flowing, setFlowing] = useState(false);
   /** **Markers** is on (every source shows its marker then, D196). */
   const [markersOn, setMarkersOn] = useState(false);
   const markersToggle = useRef<(() => void) | null>(null);
@@ -347,7 +348,6 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   };
   /** Feedback for an action at tile (x, y). */
   const feel = (kind: Parameters<Juice["play"]>[0], x: number, y: number, size = 1, soft = false, what?: string) => juice.current?.play(kind, x, y, size, soft, what);
-  const [, setPlayerTick] = useState(0);
   /** A hazard playing (a drought or a badtide to watch), or null. */
   const [weather, setWeatherState] = useState<Hazard | null>(null);
   const weatherRef = useRef<Hazard | null>(null);
@@ -424,10 +424,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     // (the journey's frames mesh a few chunks a frame too; its last, the settled water, at once; a held weather day
     // stays on screen meanwhile)
     show: (f) => showWater(f.water, !f.final),
-    changed: () => {
-      setPlayerTick((n) => n + 1);
-      setFlowing(player.current!.progress);
-    },
+    changed: () => setFlowing(player.current!.progress !== null),
   });
   // what the worker says about the water, and the bar that reads it (waterJourney.ts, D345 B14)
   const applyViewRef = useRef<(v: ViewUpdate) => void>(() => undefined);

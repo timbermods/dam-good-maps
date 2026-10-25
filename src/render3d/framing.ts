@@ -1,6 +1,7 @@
 // How the camera frames a map of any size (D357, custom map sizes): the opening turn, the zoom limits and what a
 // small map's framing must hold beyond its ground. Pure, so the headless tests can check them at 4x4 and 512x512.
 
+import { orbitEye } from "./cameraClamp";
 import type { EntityView } from "./model";
 
 /** The game's default camera: turned 30 degrees east of north (Map look, D86). */
@@ -49,6 +50,48 @@ export function zoomTargetToward(
   const r = newDistance / oldDistance;
   const at = (k: number) => hit[k] + (target[k] - hit[k]) * r;
   return [Math.min(bounds.W, Math.max(0, at(0))), Math.min(bounds.maxY, Math.max(0, at(1))), Math.min(0, Math.max(-bounds.H, at(2)))];
+}
+
+/** The nearest a zoom in brings the camera's eye to the ground under the pointer, in tiles: twice the clearance it keeps
+ *  from rock (cameraClamp.ts), so the zoom stops short of the surface and never pushes the eye into it. */
+export const ZOOM_NEAREST = 1.6;
+
+/** The distance a zoom in about a point goes to (`to`, from `from`), stopping short of that point: the eye, `gap` from
+ *  it now, comes no nearer to it than `nearest` (the eye scales toward it by the distance's ratio, as
+ *  `zoomTargetToward` moves the target). A zoom out, or one already that near, keeps `to` and `from`. Pure. */
+export function zoomStopShort(from: number, to: number, gap: number, nearest = ZOOM_NEAREST): number {
+  if (!(to < from) || !(gap > 0)) return to;
+  return Math.max(to, from * Math.min(1, nearest / gap));
+}
+
+/** One step of the wheel (or + and -) by `factor` (below 1 in), about `hit()`, the ground under the pointer (null: about
+ *  the screen's centre): the view's new distance and target, or null where nothing moves (the zoom's limit). `held` is
+ *  where the rock holds the camera along its arm (cameraClamp.ts `armReach`; the view's distance where nothing holds
+ *  it). A zoom in starts from where the camera is drawn (else the first turns in would do nothing until the distance
+ *  came down to it) and stops short of the ground under the pointer; a zoom out starts from the view's own distance, so
+ *  it carries the camera's place on out of the rock that held it, as far as it would go without rock. Pure: the
+ *  renderer's `zoom` is this. */
+export function zoomStep(
+  view: { mode: "orbit" | "top"; target: readonly [number, number, number]; yaw: number; pitch: number; distance: number },
+  factor: number,
+  held: number,
+  hit: () => { point: readonly [number, number, number]; maxY: number } | null,
+  limits: { min: number; max: number },
+  bounds: { W: number; H: number },
+): { distance: number; target: [number, number, number] } | null {
+  const from = factor < 1 && held < view.distance ? Math.max(limits.min, held) : view.distance;
+  // (a framing wider than the limit, the whole map in a wide window, is not snapped to it by the first turn)
+  let distance = Math.min(Math.max(limits.max, from), Math.max(limits.min, from * factor));
+  if (distance === from) return null;
+  const at = hit();
+  // in, it stops short of the ground under the pointer
+  if (at && view.mode === "orbit") distance = zoomStopShort(from, distance, Math.hypot(...orbitEye(view.target, view.yaw, view.pitch, from).map((c, k) => c - at.point[k])));
+  if (distance === from) return null;
+  if (!at) return { distance, target: [view.target[0], view.target[1], view.target[2]] };
+  const target = zoomTargetToward(view.target, at.point, from, distance, { W: bounds.W, H: bounds.H, maxY: at.maxY });
+  // (the top-down view looks straight down: its height is not part of what the pointer sees)
+  if (view.mode === "top") target[1] = view.target[1];
+  return { distance, target };
 }
 
 /** Whether a point of the ground plane is on the map (with a margin of a few tiles): a pointer that misses the terrain
