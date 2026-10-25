@@ -90,7 +90,11 @@ place of its bottom rule.
   only as any opened map's does, D265). The card of the map on show has the mint edge and its Open greyed. The search
   uses the settings and the seed in the box (an opened file rolls a seed, as Generate does) and runs in its own worker
   (`createShowcase`), so the editor never slows and the search goes on with the sheet or the panel closed; if it ends
-  out of view, a note says so with **Show them**. The code: `src/editor/generator/Showcase.tsx`, `showcaseModel.ts`,
+  out of view, a note says so with **Show them**. A worker that fails (its file gone after a deploy, a crash) is
+  dropped: one line says "The search stopped: its worker ended. Start search tries again.", and the next search starts a
+  fresh one; after a search that stopped on an error only the cards that can still open stay. A map on land a card
+  already shows never takes a second card. The focus stays in the sheet through Stop and Open (the greyed buttons are
+  `aria-disabled`), so Esc still closes it. The code: `src/editor/generator/Showcase.tsx`, `showcaseModel.ts`,
   `src/ui/useShowcase.ts`.
 - **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
   the map or moves the camera): every setting at once, nothing scrolling, each on one line in the bar's control

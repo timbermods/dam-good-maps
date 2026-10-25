@@ -1182,6 +1182,7 @@ export function App() {
   ) : version ? (
     <p class="error floating quiet" role="status">
       {version.note}
+      {" "}
       <button type="button" class="linkish" title="Open the version that was found" onClick={() => void openVersion(version.response)}>
         Open it
       </button>
@@ -1192,6 +1193,7 @@ export function App() {
   ) : showcase.notice ? (
     <p class="error floating quiet" role="status">
       {showcase.notice.text}
+      {" "}
       <button type="button" class="linkish" title="Show the maps the search found" onClick={showcase.notice.show}>
         Show them
       </button>
