@@ -721,7 +721,13 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   line, "12 blocks of ground would fall: nothing would hold them up", and the page's stroke can show that ground
   while it is painted (`StrokePreview.falls`). The same refusal covers every edit on such a map: a force's result, a
   removed object that held ground. The forces stay on heightfield ground: on a map with caves they leave the caves'
-  tiles as they are, as before. On a map without caves nothing changes, byte for byte.
+  tiles, and the ground that holds up their roofs (the ground beside them, `terrain/support.ts` `roofHolders`, and an
+  object whose top holds one with its tiles, `objectRoofHolders`), as they are (D487), so a force runs round a cave and
+  nothing it leaves falls (Erode works under roofs and holds them itself). A force's point
+  on a cave or on that ground is refused at once, naming the place ("A force leaves caves and overhangs as they are:
+  there is one at X 17 · Y 17"), and on such a map a force is worked out before it plays, with the objects it leaves: one that would still leave
+  ground falling is refused then, naming the place ("2 blocks of ground would fall at X 32 · Y 19: …"; `forces/start.ts`
+  `fallsBeforePlay`), never shown and then taken back. On a map without caves nothing changes, byte for byte.
 - **Ground, Water and Both** (D322, item 2): every brush's mode. **Ground** changes only dry tiles and never lowers
   a tile beside water below that water's surface; **Water** changes only the wet tiles (those drawn as water); **Both**
   (default) changes everything. Which tiles are wet is fixed when a stroke starts, from the map's own water (never a
