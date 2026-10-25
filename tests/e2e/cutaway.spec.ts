@@ -3,8 +3,9 @@
 // terrain above terrain, which no other spec opens. A 12² map with a roofed block, its cave's floor with its own soil,
 // a tree, a slope, a ruin and a pool on it and a puddle on its roof, cut through its cave, draws in Standard and in High
 // with no shader error and with the terrain on screen, the ruin overgrown by its floor's soil (High's slope reads it
-// too); the falls' program is compiled with the branch too. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec
-// does, so the High look's programs are checked there too.)
+// too); the falls' program is compiled with the branch too, and a brush over the roof draws the hollow under it
+// (hollow.ts), which a plain map never makes. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec does,
+// so the High look's programs are checked there too.)
 // A pond on a shelf cut at the shelf's level, and a reservoir deeper than the water byte's fine range cut below its
 // surface: the ground is drawn as the same ground dry.
 
@@ -127,7 +128,15 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
       }
       const slopeSoil = (internals.high?.runSoilMaterials() ?? []).every((m) => m.defines.RUN_SOIL === 1);
       const ivy = internals.objects.children.some((o) => /^scaffold\..*\.ivy$/.test(o.name));
-      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, runSoil: internals.std.terrain.defines.RUN_SOIL, slopeSoil, ivy, roofed, waterLayers, waterChunks: internals.water.size, slice: r.slice, ground: ground / seen, broken, lite };
+      // the hollow under a brush over the roof (hollow.ts), uncut: the cave's 3 × 3 footprint, outlined all round, drawn
+      // with no shader error
+      const slice = r.slice;
+      r.setSlice(null);
+      r.setBrushCursor({ x: 5.5, y: 5.5, radius: 3, tool: "lower", level: null });
+      r.renderNow();
+      const hollow = r.hollowDrawn;
+      const hollowBroken = (internals.gl.info.programs ?? []).filter((p) => p.diagnostics && !p.diagnostics.runnable).map((p) => p.name);
+      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, runSoil: internals.std.terrain.defines.RUN_SOIL, slopeSoil, ivy, roofed, waterLayers, waterChunks: internals.water.size, slice, ground: ground / seen, broken, lite, hollow, hollowBroken };
       r.dispose();
       host.remove();
       return result;
@@ -144,6 +153,8 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
     expect(out.broken, look).toEqual([]);
     if (look === "standard") expect(out.lite, "the light look's program with both branches").toEqual({ LITE: 1, broken: [] });
     expect(out.ground, `${look}: the terrain draws`).toBeGreaterThan(0.5);
+    expect(out.hollow, `${look}: the hollow under the brush`).toEqual({ tiles: 9, edges: 12 });
+    expect(out.hollowBroken, look).toEqual([]);
   }
   expect(errors).toEqual([]);
 });
@@ -181,6 +192,11 @@ test("a cave dug after a plain map opened is opened by the cut and lit as a cave
     r.setSlice(3);
     r.renderNow();
     const opened = state();
+    // (a brush over it: a plain map never makes the hollow's marks)
+    const marks = () => (r as unknown as { hollow: object | null }).hollow !== null;
+    r.setBrushCursor({ x: 5.5, y: 5.5, radius: 3, tool: "lower", level: null });
+    r.renderNow();
+    const plainMarks = marks();
     // a 3 × 3 hollow dug under the cut: rock at 0–1, air at 2–4, the ground above at 5–7
     const tiles: number[] = [];
     for (let y = 4; y < 7; y++) for (let x = 4; x < 7; x++) tiles.push(y * W + x);
@@ -191,17 +207,25 @@ test("a cave dug after a plain map opened is opened by the cut and lit as a cave
     r.updateTerrain(heights.slice(), { tiles: Int32Array.from(tiles), voxels } as unknown as Parameters<R["updateTerrain"]>[1]);
     r.renderNow();
     const dug = state();
+    // the hollow dug, uncut: under the brush
+    r.setSlice(null);
+    r.renderNow();
+    const dugHollow = r.hollowDrawn.tiles;
     // filled in again: no column left
     r.updateTerrain(heights.slice(), { tiles: new Int32Array(0), voxels: new Uint8Array(0) } as unknown as Parameters<R["updateTerrain"]>[1]);
     r.renderNow();
     const filled = state();
+    const filledHollow = r.hollowDrawn.tiles;
     r.dispose();
     host.remove();
-    return { opened, dug, filled };
+    return { opened, dug, filled, plainMarks, dugHollow, filledHollow };
   });
   expect(out.opened, "a plain map: the plain program").toEqual({ cutaway: 0, caves: false, volume: false });
   expect(out.dug, "its first hollow: the cutaway, the light volume and the roofed objects' branch").toEqual({ cutaway: 1, caves: true, volume: true });
   expect(out.filled, "its last hollow filled: the plain program again").toEqual({ cutaway: 0, caves: false, volume: false });
+  expect(out.plainMarks, "a brush on the plain map: no hollow's marks made").toBe(false);
+  expect(out.dugHollow, "the dug hollow under the brush").toBe(9);
+  expect(out.filledHollow, "filled again: none").toBe(0);
   expect(errors).toEqual([]);
 });
 

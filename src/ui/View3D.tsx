@@ -27,7 +27,7 @@ export interface View3DProps {
   view: MapView;
   label: string;
   onReady?(r: MapRenderer, stats: BuildStats): void;
-  onHover?(hit: TileHit | null): void;
+  onHover?(hit: TileHit | null, seen?: TileHit | null): void;
   hoverText?: string | null;
   /** More legend lines for what the page draws on the map (a dam site, say; `markers` for the
    *  lines that show only with **Markers** on), with the tiles they mark. */
@@ -232,10 +232,11 @@ export function View3D(props: View3DProps) {
     r.setMarkers(markers);
     // the Flow view as the player left it (D353; off by default), where the editor has its switch
     if (props.togglesInButtons && (flow || again)) r.setFlow(flow);
-    r.onHover = (hit) => {
-      onHover.current?.(hit);
+    r.onHover = (hit, seen) => {
+      onHover.current?.(hit, seen);
       if (!props.legendInCorner) return;
-      const k = hit ? `X ${hit.x} · Y ${hit.y} · Z ${r.heightAt(hit.x, hit.y)}` : "";
+      const at = seen ?? hit;
+      const k = at ? `X ${at.x} · Y ${at.y} · Z ${seen?.level ?? r.heightAt(at.x, at.y)}` : "";
       if (k === coordsRef.current) return;
       coordsRef.current = k;
       const el = coordsEl.current;
