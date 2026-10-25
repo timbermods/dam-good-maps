@@ -8,7 +8,7 @@ import { createShowcase } from "../platform";
 import type { MapSpec } from "../core/spec/mapspec";
 import { thumbnailPixels } from "../core/render/thumb";
 import type { ShowcaseMessage, ShowcasePickView, ShowcasePreview } from "../worker/showcaseApi";
-import { SHOWCASE_DEFAULT_MINUTES, SHOWCASE_IDLE, SHOWCASE_MINUTES, searchKey, showcaseStart, showcaseStep, type ShowcaseModel, type ShowcaseState } from "../editor/generator/showcaseModel";
+import { SHOWCASE_DEFAULT_MINUTES, SHOWCASE_IDLE, SHOWCASE_MINUTES, searchKey, showcaseStart, showcaseStep, stoppedWords, type ShowcaseModel, type ShowcaseState } from "../editor/generator/showcaseModel";
 
 const MINUTES_KEY = "dgm.showcaseMinutes";
 
@@ -54,7 +54,6 @@ export function useShowcase(host: ShowcaseHost): { model: ShowcaseModel; notice:
   const [state, setState] = useState<ShowcaseState>(SHOWCASE_IDLE);
   const [minutes, setMinutes] = useState(savedMinutes);
   const [open, setOpen] = useState(false);
-  const [now, setNow] = useState(() => performance.now());
   const [pictures, setPictures] = useState<Record<number, string>>({});
   /** A search ended while its sheet was out of view: the note says so until it is seen. */
   const [unseen, setUnseen] = useState(false);
@@ -63,13 +62,12 @@ export function useShowcase(host: ShowcaseHost): { model: ShowcaseModel; notice:
   const inViewRef = useRef(inView);
   inViewRef.current = inView;
 
-  const picture = (variation: number, p: ShowcasePreview | { heights: Uint8Array; water: Float32Array | Uint8Array; W: number; H: number }) => {
-    setPictures((all) => {
-      if (all[variation]) return all;
+  // (each picture is drawn in a task of its own, after the message's: a candidate's arrival stays one short task)
+  const picture = (variation: number, p: ShowcasePreview | { heights: Uint8Array; water: Float32Array | Uint8Array; W: number; H: number }) =>
+    setTimeout(() => {
       const url = pictureOf(p);
-      return url ? { ...all, [variation]: url } : all;
-    });
-  };
+      if (url) setPictures((all) => (all[variation] ? all : { ...all, [variation]: url }));
+    }, 0);
 
   const hear = (m: ShowcaseMessage) => {
     if (m.kind === "candidate" && m.preview) picture(m.candidate.variation, m.preview);
@@ -77,17 +75,16 @@ export function useShowcase(host: ShowcaseHost): { model: ShowcaseModel; notice:
       for (const p of m.best) picture(p.variation, { heights: p.response.heights, water: p.response.water, W: p.response.W, H: p.response.H });
       if (!inViewRef.current) setUnseen(true);
     }
-    if (m.kind === "error" && !inViewRef.current) setUnseen(true);
+    if (m.kind === "error") {
+      // (a worker that failed, or never loaded, is dropped: the next search starts a fresh one)
+      worker.current?.terminate();
+      worker.current = null;
+      if (!inViewRef.current) setUnseen(true);
+    }
     setState((st) => showcaseStep(st, m));
   };
 
-  // the clock, once a second while the search runs (its time left)
   const running = state.status === "searching" || state.status === "stopping";
-  useEffect(() => {
-    if (!running) return;
-    const t = setInterval(() => setNow(performance.now()), 1000);
-    return () => clearInterval(t);
-  }, [running]);
 
   useEffect(() => {
     if (inView) setUnseen(false);
@@ -100,7 +97,6 @@ export function useShowcase(host: ShowcaseHost): { model: ShowcaseModel; notice:
     const t = performance.now();
     const { state: next, from } = showcaseStart(state, host.takeSpec(), minutes * 60_000, t);
     if (next.kept.length === 0) setPictures({});
-    setNow(t);
     setState(next);
     setUnseen(false);
     worker.current ??= createShowcase(hear);
@@ -118,7 +114,6 @@ export function useShowcase(host: ShowcaseHost): { model: ShowcaseModel; notice:
   const done = state.status === "done" || state.status === "error";
   const model: ShowcaseModel = {
     state,
-    now,
     minutes,
     onMinutes: (m) => {
       setMinutes(m);
@@ -141,7 +136,7 @@ export function useShowcase(host: ShowcaseHost): { model: ShowcaseModel; notice:
   const notice =
     unseen && !inView
       ? {
-          text: state.status === "error" ? `The showcase search stopped: ${state.error}` : n ? `The showcase search is done: ${n === 1 ? "one map" : n === 2 ? "two maps" : "three maps"} to look at.` : "The showcase search is done: no map passed every check.",
+          text: state.status === "error" ? stoppedWords(state, "The showcase search") : n ? `The showcase search is done: ${n === 1 ? "one map" : n === 2 ? "two maps" : "three maps"} to look at.` : "The showcase search is done: no map passed every check.",
           show: () => {
             setOpen(true);
             host.showPanel();

@@ -174,6 +174,8 @@ export function quietWord(problem: string): string {
   if (/inside the ground|not level|would float|level ground/.test(p)) return "needs level ground";
   if (/district center/.test(p)) return "the start stands there";
   if (/off the map|does not fit on the map|map edge/.test(p)) return "too near the edge";
+  if (/start needs open ground/.test(p)) return "the start needs open ground";
+  if (/goes down to the bottom of the map/.test(p)) return "not on a roof or a ledge";
   if (/cave|overhang/.test(p)) return "a cave is there";
   if (/water is in the way/.test(p)) return "water is in the way";
   if (/under water|in a river/.test(p)) return "under water";

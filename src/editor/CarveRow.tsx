@@ -229,8 +229,9 @@ export function CarveRow(p: CarveRowProps) {
           node: (
             <NumberSetting
               label="Canyon depth"
-              title="How deep the canyon cuts"
+              title="The most the canyon may cut, less where the land or Floor stops it"
               value={depth}
+              words={`at most ${depth}`}
               min={DEPTH_MIN}
               max={DEPTH_MAX}
               step={1}

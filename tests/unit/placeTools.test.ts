@@ -48,6 +48,19 @@ describe("the shelf's pointer tool", () => {
     // the right button is the camera's
     expect(drag.down(hit(1, 1), ev(2))).toBe(false);
   });
+
+  it("aims at the ground seen (the voxel pick: a cave's floor, D491) and hands the click its hit", () => {
+    const placed: (TileHit | null)[] = [];
+    const t = shelfTool({ W, H: W, hover: () => undefined, place: (_x, _y, h) => placed.push(h), paintAround: () => null, painting: () => undefined, plant: () => undefined });
+    expect(t.voxel).toBe(true);
+    const floor = { x: 3, y: 4, level: 3 } as TileHit;
+    t.down(floor, ev());
+    t.up(floor, ev());
+    // (released off the map: the pressed tile's hit)
+    t.down(floor, ev());
+    t.up(null, ev());
+    expect(placed).toEqual([floor, floor]);
+  });
 });
 
 describe("the shelf's objects (D212, D226)", () => {
@@ -82,6 +95,9 @@ describe("the shelf's quiet words (D184)", () => {
     expect(quietWord("a mine site stands there")).toBe("a mine site is there");
     expect(quietWord("too close to the map edge")).toBe("too near the edge");
     expect(quietWord("under water")).toBe("under water");
+    // (under a roof, the core's lines, D491)
+    expect(quietWord("the start needs open ground: there is a cave or overhang there")).toBe("the start needs open ground");
+    expect(quietWord("the game keeps a water source only on ground that goes down to the bottom of the map, not on a roof or a ledge")).toBe("not on a roof or a ledge");
   });
 });
 

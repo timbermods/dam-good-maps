@@ -9,7 +9,7 @@ export const ELEVATION_SOURCE_URL = "https://registry.opendata.aws/terrain-tiles
 
 /** What was changed to make a playable map (ATTRIBUTION.md, "Changes"), in plain words. */
 export const CHANGES =
-  "The heights were resampled, cropped and fitted to 16 levels, and the edges sealed. Water sources, trees, bushes and ruins were added, and the water settled.";
+  "The heights were resampled, cropped, fitted to 16 levels and eased at the map's edges. Water sources, trees, bushes and ruins were added, and the water settled.";
 
 export const NOT_ENDORSED = "The data providers do not endorse these maps.";
 

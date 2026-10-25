@@ -4,7 +4,7 @@
 // however quickly the notches come.
 
 import { expect, test, type Page } from "@playwright/test";
-import { centreOn, openEditor } from "./open";
+import { centreOn, openEditor, topDown } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
@@ -45,7 +45,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
   // follow the land; seed 4 since D385, D148: seed 9's land changed when its water from nowhere went, and
   // kept room for only one of the two rows)
   await openEditor(page, "s=4&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await page.waitForTimeout(500);
   const found = await spots(page);
   expect(found.length).toBe(2);
