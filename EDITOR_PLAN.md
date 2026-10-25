@@ -106,7 +106,8 @@ place of its bottom rule.
   settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
   Custom, its width and height typed, each 4 to 512; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses; Generate on a side under the theme's least (48, Islands 64)
-  says so in one line, "Canyon needs at least 48 tiles a side to generate", and the open map stays). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
+  says so in one line, "Canyon needs at least 48 tiles a side to generate", as a note over the map (no dialog dims it,
+  and a map that fails its checks says "No valid map" the same way), and the open map stays). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
   bar of four shares), **Difficulty** (Starting wood, Max walk to water, Starting berries, Start area, No ruins
   within) and "On this map" (Mine sites, Ruins, Berry bushes, **Trees**, Water sources: counted from the map's own
   objects as they are now, edits included, so an opened file or a real place is counted as the generator's maps are;
@@ -187,12 +188,13 @@ place of its bottom rule.
     hovering says "9 tiles, lasts about 12 days" and marks the hollow, or in a few words why not: "Raise the Level to
     fill", "It would spill off the map", D394) and **Remove unfed water** (the pools no
     source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo
-    step, both the core's (`planFill`, `unfedWater`); Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
+    step, both the core's (`planFill`, `unfedWater`), greyed with `aria-disabled` while nothing is selected, and the words they
+    left in the row go when the selection closes or changes; Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
     the selection's bounding rectangle (any shape of selection; `useSelect.tsx`, the worker's `cropPlanAt` and `cropTo`).
     Greyed (`aria-disabled`, so the hover still speaks) with nothing selected ("Select an area to crop") and whenever the
     core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut): hovering or focusing it says
     "Can't crop this" and puts the core's one-line reason, word for word, on the message line; pressing it says the reason
-    again, never clamped. Enabled, hovering says "32 × 24", adding "; cuts 3 objects" when the edge
+    again, never clamped (with nothing selected the row's words are the one place it says so, and no note repeats it). Enabled, hovering says "32 × 24", adding "; cuts 3 objects" when the edge
     cuts any (the row's words take the three cells beside the shapes, and no words are ever cut off). The map is then
     another size, so the page opens the session's map again (`onResized`, `App.tsx` `resized`): the old editor shuts and sends
     the worker nothing more, what it had queued reaches the worker first, and the new editor opens from the worker's map
@@ -629,9 +631,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   rock that wore least comes back as ragged remnants wherever a roof would hang; where no face can wear, the dry ground
   at the pointer is scoured into a shallow hollow (D356), never below the water beside it and never under water. Its
   result writes runs (the operation's `runs`), so any map gains caves. **The page:** Erode is the last button of the
-  forces row (after Glaciate), key Shift+8, tooltip "Wear caves and arches"; its row is Power, Size (Auto) and Try
-  another on row 1 and the Floor on row 2 (no choice of its own, and no Sources: it never wears a source's tile, so it
-  keeps the default); a click acts where it lands, a drawn sweep as a band Size wide, the ring at the cursor (D258).
+  forces row (after Glaciate), key Shift+8, tooltip "Wear caves and arches"; its row is Power and Size (Auto) on row 1,
+  the Floor and Try another on row 2 (no choice of its own, and no Sources: it never wears a source's tile, so it
+  keeps the default; the Floor runs on over Sources' place, and Try another stays where every force has it); a click acts where it lands, a drawn sweep as a band Size wide, the ring at the cursor (D258).
   Playback feeds each frame's `columns` (the tiles whose voxels changed) into the renderer with the others the map
   holds (`editor/forces/columns.ts`); Esc, Ctrl+Z or Try another mid-run puts the map's own back. Sounds
   (`public/sounds/juice-2`, three CC0 Freesound recordings from `investigation/erode`): a grinding wear held under the
@@ -970,7 +972,10 @@ weaker hardware rather than stutter. (The full list is in the archive.)
 ## 7. Controls
 
 Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms toward the pointer
-(the ground under it stays under it; over the sky or off the map, and for + and -, about the screen's centre),
+(the ground under it stays under it, and a zoom in stops short of it, so a zoom into a cave's mouth ends in its air;
+over the sky or off the map, and for + and -, about the screen's centre). The camera never goes into the rock: where
+its place would be in solid ground, it is drawn in toward what it looks at, to the nearest place in the air, and close
+to a point under a roof (in a cave, under an arch) it stays in that point's air (`render3d/cameraClamp.ts`),
 Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
 T toggles clear water. The tools go by their place in the bar (Kyler, 2026-10-06), matched on the key's code so any
 keyboard layout works: 1 Select, 2 to 6 Raise, Lower, Flatten, Smooth and Naturalize; Shift+1 to Shift+8 Carve,
