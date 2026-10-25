@@ -9,7 +9,7 @@ import { surfaceWater, type MapView, type SoilView, type WaterView } from "../..
 import type { MapRenderer } from "../../render3d";
 import type { GeneratorApi } from "../../worker/generator.worker";
 import type { CheckItem, CheckProgress, DroughtLineNews, EntityInfo, ExportCheck, SessionInfo, SessionUpdate, ViewUpdate, WaterLayers } from "../../worker/session";
-import { FeatureIndex, type StartCheck, type StartStatus } from "../features";
+import { FeatureIndex, type StartCheck, type StartDrag, type StartStatus } from "../features";
 import { plain, type LayerKind } from "../panels";
 import { DEFAULT_SHELF_OPTIONS, type ShelfItem, type ShelfOptions } from "../shelfItems";
 import { Juice, loadSound, type SoundSettings } from "../juice";
@@ -38,6 +38,9 @@ export interface EditorNote {
   kind: "error" | "info";
   text: string;
   keep?: boolean;
+  /** One thing the note offers to do (an info note: Undo, after a force cleared sources). It is for the step the history stood
+   *  at (`step`, the steps applied) and goes the moment another step lands, so it only ever takes back that step. */
+  action?: { label: string; tip: string; step: number; run: () => void };
 }
 
 export interface SessionSlice {
@@ -77,8 +80,8 @@ export interface SessionSlice {
   painted: number[] | null;
   setIcons: Dispatch<StateUpdater<Record<string, string>>>;
   icons: Record<string, string>;
-  startDrag: { x: number; y: number; check: StartCheck } | null;
-  setStartDrag: Dispatch<StateUpdater<{ x: number; y: number; check: StartCheck } | null>>;
+  startDrag: StartDrag | null;
+  setStartDrag: Dispatch<StateUpdater<StartDrag | null>>;
   setBusy: Dispatch<StateUpdater<number>>;
   busy: number;
   setMessage: Dispatch<StateUpdater<EditorNote | null>>;
@@ -255,9 +258,12 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [painted, setPainted] = useState<number[] | null>(null);
   /** The shelf's icons, drawn by the view once it is ready. */
   const [icons, setIcons] = useState<Record<string, string>>({});
-  const [startDrag, setStartDrag] = useState<{ x: number; y: number; check: StartCheck } | null>(null);
+  const [startDrag, setStartDrag] = useState<StartDrag | null>(null);
   const [busy, setBusy] = useState(0);
   const [message, setMessage] = useState<EditorNote | null>(null);
+  // a note that offers to take a step back goes when the history moves on (a stroke, another force, an undo or a redo)
+  const stepsApplied = info.history.filter((h) => h.applied).length;
+  useEffect(() => setMessage((m) => (m?.action && m.action.step !== stepsApplied ? null : m)), [stepsApplied]);
   const [hover, setHover] = useState<string | null>(null);
   /** The tile under the pointer, and the readout said again for it when the water shown changes under a still
    *  pointer (a weather day landing). */

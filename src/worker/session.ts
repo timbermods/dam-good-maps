@@ -63,7 +63,7 @@ import type { ForceResultParams, Verb } from "../core/forces/op";
 import { geology } from "../core/forces/random";
 import { modelOf, QuakeRun, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { againRequest, autoPicked, fallsBeforePlay, fullForceMapOf, lavaOf, nextForceSeed, planForce, type AnyForceSettings, type ForcePoint, type ForceRequest } from "../core/forces/start";
-import { keptForceParams } from "../core/forces/keep";
+import { keptForceParams, sourcesRemovedBy } from "../core/forces/keep";
 import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
@@ -1982,13 +1982,14 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
 }
 
 /** Move a placed object (a mine site, a relic, a geothermal field, a natural dam, a blockage) by (dx, dy)
- *  tiles, its ground levelled as a placement's is: one step (D345, B7). */
-export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate {
+ *  tiles, its ground levelled as a placement's is: one step (D345, B7). `z`: the level it lands on under
+ *  a roof (D491, `planMoveEntity`). */
+export function moveObjectBy(id: string, dx: number, dy: number, z?: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return changed(s, false, [blocked], t0);
-  const p = planMoveEntity(s, id, dx, dy);
+  const p = planMoveEntity(s, id, dx, dy, z);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
   return changed(s, r.ok, r.errors, t0);
@@ -3034,7 +3035,7 @@ export function forceCancel(gesture?: number): ForceTakenBack {
 
 /** Keep the force (Stop, or it ended by itself; a painted Lift let go): what it has done, as one
  *  operation and one undo step. The water it shows flows on into the map's settled water. */
-export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
+export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; sourcesRemoved?: number } {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
@@ -3092,7 +3093,9 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   handoff = null;
   // the page shows the force's water: the map's water flows on from it, not from the water before
   if (u.view.water && !s.showsStoredWater) u.view.water = waterFromDepth(s.built.heights, water.water.depth, water.water.contamination);
-  return { ...u, kept: true };
+  // (the sources it removed: the page says how many, with Undo)
+  const sourcesRemoved = sourcesRemovedBy(params, f.before);
+  return { ...u, kept: true, ...(sourcesRemoved ? { sourcesRemoved } : {}) };
 }
 
 /** A force that broke the start's own ground (carved it, buried it, moved it: off level ground, on
