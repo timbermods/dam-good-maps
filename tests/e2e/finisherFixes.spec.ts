@@ -39,19 +39,28 @@ const flatSpot = (page: Page, size: number, start: number, skip: number[][] = []
     [size, start, skip] as const,
   );
 
-/** Pick `item` from the shelf and click it down with its corner at `(x, y)`, once the page says it fits there. */
-async function place(page: Page, item: string, x: number, y: number) {
-  const before = await applied(page);
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: item, exact: true }).click();
-  const p = await client(page, x + 1, y + 1);
-  await page.mouse.move(p.x + 5, p.y);
-  await page.mouse.move(p.x, p.y, { steps: 3 });
-  await expect.poll(() => page.evaluate(() => window.dgmEditor!.fit()?.problem ?? "none")).toBe("none");
-  await page.mouse.click(p.x, p.y);
-  await expect.poll(() => applied(page)).toBe(before + 1);
-  await idle(page);
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await page.keyboard.press("Escape");
+/** Pick `item` from the shelf and click it down on a flat spot of `size` tiles clear of the `taken` ones (a spot with an object on it, a
+ *  relic or a ruin, is passed over), once the page says it fits there; the spot is added to `taken`. */
+async function place(page: Page, item: string, taken: number[][], size = 5): Promise<[number, number]> {
+  for (let tries = 0; tries < 8; tries++) {
+    const at = (await flatSpot(page, size, 8, taken))!;
+    taken.push(at);
+    const before = await applied(page);
+    await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: item, exact: true }).click();
+    const p = await client(page, at[0] + 1, at[1] + 1);
+    await page.mouse.move(p.x + 5, p.y);
+    await page.mouse.move(p.x, p.y, { steps: 3 });
+    await page.waitForTimeout(500);
+    if ((await page.evaluate(() => window.dgmEditor!.fit()?.problem ?? "none")) === "none") {
+      await page.mouse.click(p.x, p.y);
+      await expect.poll(() => applied(page)).toBe(before + 1);
+      await idle(page);
+    }
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press("Escape");
+    if ((await applied(page)) === before + 1) return at;
+  }
+  throw new Error(`no room for ${item}`);
 }
 
 test("the checks' Show marks the tiles the problem names, and Esc takes the marks off", async ({ page }) => {
@@ -102,6 +111,17 @@ test("the checks' Show marks the tiles the problem names, and Esc takes the mark
   await expect.poll(async () => (await marked(page)).length).toBe(count);
   expect(await page.evaluate(() => window.dgm3d!.renderer.highlighted)).toBe(true);
 
+  // a camera drag (the right button) and the wheel leave them; there is no timer
+  const view = await page.evaluate(() => window.dgm3d!.renderer.getView());
+  await page.mouse.move(800, 450);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.move(860, 470, { steps: 5 });
+  await page.mouse.up({ button: "right" });
+  await page.mouse.wheel(0, -200);
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => window.dgm3d!.renderer.getView())).not.toEqual(view);
+  expect((await marked(page)).length).toBe(count);
+
   // Esc, with the focus on the map, takes them off
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press("Escape");
@@ -116,12 +136,7 @@ test("Markers labels the seeps, aquifers, drains and reserves, with a warning on
   await page.getByRole("button", { name: "Top-down" }).click();
   await idle(page);
   const taken: number[][] = [];
-  for (const item of ["Badwater seep", "Aquifer", "Reserve pile"]) {
-    const at = (await flatSpot(page, 5, 8, taken))!;
-    expect(at, item).not.toBeNull();
-    taken.push(at);
-    await place(page, item, at[0], at[1]);
-  }
+  for (const item of ["Badwater seep", "Aquifer", "Reserve pile"]) await place(page, item, taken);
   // off: the objects are there, their labels are not
   const labels = page.locator(".source-marker");
   await expect(labels.filter({ hasText: /Aquifer|Badwater seep|Reserve pile/ })).toHaveCount(0);
@@ -138,14 +153,41 @@ test("Markers labels the seeps, aquifers, drains and reserves, with a warning on
   await expect(labels.filter({ hasText: /Aquifer|Badwater seep|Reserve pile/ })).toHaveCount(0);
 });
 
+test("Markers' notes never stand on one another, however crowded, and a crowd speaks as one label", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  await page.getByRole("button", { name: "Top-down" }).click();
+  await idle(page);
+  const taken: number[][] = [];
+  for (const item of ["Water seep", "Badwater seep", "Aquifer", "Badtide drain", "Reserve pile"]) await place(page, item, taken);
+  await page.getByRole("checkbox", { name: "Markers", exact: true }).check();
+  const overlaps = () =>
+    page.locator(".source-marker").evaluateAll((els) => {
+      const rs = els.map((e) => e.getBoundingClientRect());
+      let n = 0;
+      for (let a = 0; a < rs.length; a++) for (let b = a + 1; b < rs.length; b++) if (rs[a].left < rs[b].right && rs[b].left < rs[a].right && rs[a].top < rs[b].bottom && rs[b].top < rs[a].bottom) n++;
+      return n;
+    });
+  // zoomed right out and in (the wheel), top-down and in 3D
+  for (const mode of ["top", "3d"]) {
+    if (mode === "3d") await page.getByRole("button", { name: "Top-down" }).click();
+    for (const delta of [800, -400, -400, -400]) {
+      await page.mouse.move(800, 450);
+      await page.mouse.wheel(0, delta);
+      await page.waitForTimeout(700);
+      expect(await overlaps(), `${mode} after ${delta}`).toBe(0);
+    }
+  }
+});
+
 test("a seep's strength label shows whole, even drained, beside the ×", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1280, height: 720 });
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   await idle(page);
-  const at = (await flatSpot(page, 4, 10))!;
-  await place(page, "Water seep", at[0], at[1]);
+  const at = await place(page, "Water seep", [], 4);
   const p = await client(page, at[0] + 1, at[1] + 1);
   await page.mouse.click(p.x, p.y);
   const win = page.locator(".object-window");

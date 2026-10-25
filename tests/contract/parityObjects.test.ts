@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { blastInfo, explosionAfter } from "../../src/core/doc/blast";
+import { checkItem } from "../../src/core/doc/checkItems";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { paintGround, planPaintObjects } from "../../src/core/doc/paint";
@@ -13,7 +14,7 @@ import { planEntity } from "../../src/core/doc/placing";
 import { defaultOptions, markerNotes, optionProblems, placeComponents, setOptionsOp } from "../../src/core/doc/objectOps";
 import type { EditOp } from "../../src/core/doc/ops";
 import { entityJson } from "../../src/core/format/entities";
-import { FOOTPRINTS, type Orientation } from "../../src/core/format/footprints";
+import { FOOTPRINTS, footprintTiles, type Orientation } from "../../src/core/format/footprints";
 import { stringify, type JsonObject } from "../../src/core/format/json";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
@@ -473,5 +474,22 @@ describe("parity through today's core (D342, D425)", () => {
     if (s.built.entities.some((e) => e.id === core.id)) expect(explosionAfter(s, core.id).entities.filter((e) => !ids.has(e.id))).toEqual([]);
     const reopened = MapSession.open(decodeProject(s.project()));
     expect(reopened.built.entities.filter((e) => !ids.has(e.id))).toEqual([]);
+  });
+});
+
+describe("a check that names an object lets Show mark the whole of it (D330)", () => {
+  it("an aquifer's item carries its whole footprint", () => {
+    const s = open();
+    const [x, y] = flatten(s, 5);
+    const r = place(s, "Aquifer", x + 1, y + 1, placeComponents("Aquifer", { strength: 1 }));
+    expect(r.errors).toEqual([]);
+    const e = find(s, r.id);
+    const item = checkItem(s, { id: "entities.placement", class: "load", severity: "error", ok: false, message: "an object", where: { entities: [r.id] } });
+    const tiles = item.where!.tiles!;
+    const whole = footprintTiles("Aquifer", { template: "Aquifer", x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: !!e.flipped });
+    expect(whole.length).toBeGreaterThan(1);
+    expect(tiles).toHaveLength(whole.length);
+    expect(tiles[0]).toEqual(whole[0]);
+    expect(new Set(tiles.map(([a, b]) => `${a},${b}`))).toEqual(new Set(whole.map(([a, b]) => `${a},${b}`)));
   });
 });

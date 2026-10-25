@@ -138,6 +138,9 @@ function noteCurrent(id: string, link: string): void {
   }
 }
 
+/** A History's steps as one key (their sequence numbers): the same steps applied is the same map. */
+const stepsOf = (steps: readonly { seq?: number; label: string }[]) => steps.map((h) => h.seq ?? h.label).join(",");
+
 /** A row of Your maps: the name and the map's dimensions. */
 const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size, thumbnail: e.thumbnail, ...(e.parent ? { parent: e.parent } : {}), ...(e.editedSince ? { editedSince: true } : {}) });
 
@@ -246,6 +249,9 @@ export function App() {
   const kept = useRef(false);
   /** The open map's version when it opened: a later one is an operation applied, an edit. */
   const openedVersion = useRef(0);
+  /** The History steps a kept version was kept with (their sequence numbers, as opened): the map stands at its kept state while
+   *  exactly these are applied, edited since when not (null: not a kept version, or its steps are not all in the History). */
+  const keptSteps = useRef<string | null>(null);
   /** The open map is a kept version and has been told, once since it opened, that its first edit changes the kept copy. */
   const keptTold = useRef(false);
   /** The branch Branch from here has just opened for editing: no warning, it is the copy to try an idea on (D234 (3)). */
@@ -359,7 +365,9 @@ export function App() {
     const pic = picture.current?.();
     const thumbnail = (pic && thumbnailUrl(pic)) ?? of.thumbnail;
     const p = await generator.project(6);
-    const e = { ...of, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail };
+    // (what the page changed on the entry while this waited, an edited-since mark among it, is kept: the entry as it is now)
+    const now = entry.current?.id === of.id ? entry.current : of;
+    const e = { ...now, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail };
     if (entry.current?.id === of.id) entry.current = e;
     return { entry: e, project: p.bytes };
   }
@@ -408,6 +416,7 @@ export function App() {
     kept.current = !isNew && origin.kept !== false;
     openedVersion.current = data.info.version;
     keptTold.current = false;
+    keptSteps.current = e.parent && data.info.history.length >= e.parent.steps ? stepsOf(data.info.history.slice(0, e.parent.steps)) : null;
     if (!isNew) refresh();
   }
 
@@ -446,13 +455,20 @@ export function App() {
       kept.current = true;
     }
     // a kept version opened and edited: the kept copy itself changes, so it says so, once, and its card says it was edited
+    // (and not once an undo has brought it back to the steps it was kept with)
     const open = entry.current;
-    if (open.parent && info.version !== openedVersion.current) {
-      if (!open.editedSince) entry.current = { ...open, editedSince: true };
-      const branched = branchedId.current === open.id;
-      if (branched) branchedId.current = null;
-      if (!keptTold.current && !branched) setNote("Editing your kept version. Undo puts it back; History's Branch from here keeps a copy.");
-      keptTold.current = true;
+    if (open.parent) {
+      const edited = keptSteps.current !== null ? stepsOf(info.history.filter((h) => h.applied)) !== keptSteps.current : info.version !== openedVersion.current;
+      if (edited) {
+        if (!open.editedSince) entry.current = { ...open, editedSince: true };
+        const branched = branchedId.current === open.id;
+        if (branched) branchedId.current = null;
+        if (!keptTold.current && !branched) setNote("Editing your kept version. Undo puts it back; History's Branch from here keeps a copy.");
+        keptTold.current = true;
+      } else if (open.editedSince && keptSteps.current !== null) {
+        const { editedSince: _was, ...rest } = open;
+        entry.current = rest;
+      }
     }
     saver.changed(entry.current.id, snapshot);
   }

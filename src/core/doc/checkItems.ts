@@ -9,6 +9,7 @@ import type { Validation } from "../validate/checks";
 import type { EditOp } from "./ops";
 import { entityProblem, levelFootprint } from "./placing";
 import { moveStartNear, startMiddle } from "./start";
+import { FOOTPRINTS, footprintTiles, type Orientation } from "../format/footprints";
 import type { MapSession } from "./session";
 
 export interface CheckItem {
@@ -88,10 +89,18 @@ export function checkItem(s: MapSession, c: CheckResult): CheckItem {
   if (where?.entities?.length && !where.tiles?.length) {
     const want = new Set(where.entities.slice(0, 50));
     const tiles: [number, number][] = [];
-    for (const e of s.built.entities) if (want.has(e.id)) tiles.push([e.x, e.y]);
+    for (const e of s.built.entities) if (want.has(e.id)) tiles.push(...entityShown(e));
     if (tiles.length) where = { ...where, tiles };
   }
   return { id: c.id, class: c.class, message: rowWords(c.id, c.message), ...(where ? { where } : {}), ...(fix ? { fix } : {}) };
+}
+
+/** The tiles an object stands on, for Show to mark it whole (the first is where the camera goes; its Coordinates tile when the
+ *  game has no footprint for it, which can lie off the object). */
+function entityShown(e: { template: string; x: number; y: number; z: number; orientation: Orientation; flipped?: boolean }): [number, number][] {
+  if (!FOOTPRINTS[e.template]) return [[e.x, e.y]];
+  const tiles = footprintTiles(e.template, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: !!e.flipped });
+  return tiles.length ? tiles : [[e.x, e.y]];
 }
 
 /** A row's words as the editor lists them, the same on every map: the two berry rows count by the same
@@ -159,7 +168,11 @@ function berriesTogether(items: CheckItem[]): CheckItem[] {
 export function checkRows(s: MapSession, c: CheckResult, region: TileRect | null = null): CheckItem[] {
   const item = checkItem(s, c);
   const at = new Map<string, [number, number]>();
-  for (const e of s.built.entities) at.set(e.id, [e.x, e.y]);
+  const whole = new Map<string, [number, number][]>();
+  for (const e of s.built.entities) {
+    at.set(e.id, [e.x, e.y]);
+    whole.set(e.id, entityShown(e));
+  }
   const lines = item.message.split("\n");
   let rows: CheckItem[];
   if (lines.length < 2) rows = [item];
@@ -171,7 +184,9 @@ export function checkRows(s: MapSession, c: CheckResult, region: TileRect | null
     rows = lines.map((message, k): CheckItem => {
       const pt = tiles?.length ? tiles[k] : ids?.[k] ? at.get(ids[k]) : undefined;
       const text = k === lines.length - 1 ? message + more : message;
-      return { id: item.id, class: item.class, message: text, ...(pt ? { where: { tiles: [pt], ...(!tiles?.length && ids?.[k] ? { entities: [ids[k]] } : {}) } } : {}) };
+      // (an object's row marks its whole footprint, its Coordinates tile first)
+      const shown = pt && !tiles?.length && ids?.[k] ? whole.get(ids[k]) : undefined;
+      return { id: item.id, class: item.class, message: text, ...(pt ? { where: { tiles: shown ?? [pt], ...(!tiles?.length && ids?.[k] ? { entities: [ids[k]] } : {}) } } : {}) };
     });
     if (item.fix) rows[0].fix = item.fix;
   }

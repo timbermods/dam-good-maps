@@ -130,7 +130,8 @@ place of its bottom rule.
   size (`core/library/keptVersions.ts`, `tests/contract/keptVersions.test.ts`). **Editing a kept version** changes that
   version (it is an ordinary project; Branch from here is the copy to try an idea on): the first edit after it is opened
   says so once, over the map ("Editing your kept version. Undo puts it back; History's Branch from here keeps a copy."; not
-  for the branch just made), and its card then reads "Edited since step N · <map>" (`editedSince` on its Your maps entry).
+  for the branch just made), and its card then reads "Edited since step N · <map>" (`editedSince` on its Your maps entry) until an undo brings back the
+  steps it was kept with.
   **Compare**: Your maps' right-click
   **Compare with the open map** (the same size only; greyed with the reason for another size) reads the other map once, settled, in a worker of its own; a note
   "Comparing with <name>" with **Stop** shows over the map, and holding **B** (or the note's button) flips the land, objects and
@@ -362,8 +363,8 @@ place of its bottom rule.
   picker needs the click's user activation, which lapses in seconds, long before a big map is built.
 - **Checks:** a quiet dot, green or amber, with its words. Clicking it lists the problems, each with Fix and Show,
   highlighted on the map. Never a pop-up. **Show** takes the camera to the problem as before and marks every tile the check
-  names with the page's highlight (the legend's: a blue tint, brighter at the edge) until Esc, a press on the map, another
-  Show or a few seconds (`editor/view/useViewSync.ts`).
+  names with the page's highlight (the legend's: a blue tint, brighter at the edge), an object's whole footprint, until Esc, a
+  left press on the map or another Show; a camera move (right or middle drag, the wheel) leaves them (`editor/view/useViewSync.ts`).
 - **No notices strip** (Kyler, 2026-10-03, amending D213): nothing under the map changes the page's size. The quiet
   dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, and lists an opened
   file's import flags with their fixes (counted).
@@ -837,7 +838,8 @@ Make a valley, drop a source, and there's a river.
   even underwater (a subtle upwelling shows through the water); with a source picked or hovering near one, a clear
   marker with its strength; Markers shows every source (D196), and the seeps, aquifers, drains, cores and reserves with the
   core's `markerNotes` (D337: "Aquifer · 1 water/s · no water until a powered drill stands on it" drawn as a warning; the
-  worker works them out, `MarkerNote`, and `labelLayout.ts` places them beside the sources' labels, never merged). **Sources are easy to hit** (D249): with any tool
+  worker works them out, `MarkerNote`, and `labelLayout.ts` places them beside the sources' labels; notes too crowded for
+  their spots merge into "N objects nearby", and one with no room is not drawn). **Sources are easy to hit** (D249): with any tool
   picked, the pointer over water or bare ground within about two tiles of a source targets it (a direct hit on
   another object wins; the nearest source wins); Delete or Backspace removes it, one undo step. **A badwater source
   cuts its own spring pool** (D290, generalised to every object by D328): it is 3 × 3 and needs level ground, so

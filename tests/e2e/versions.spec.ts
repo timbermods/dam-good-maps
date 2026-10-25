@@ -236,6 +236,13 @@ test("editing a kept version says so once, and its card in Your maps says it was
   const again = await openYourMaps(page);
   await expect(again.locator("li", { hasText: keptName }).locator(".ym-from")).toHaveText(`Edited since step 1 · ${name}`, { timeout: 30_000 });
   await expect(again.locator("li", { hasText: keptName }).locator(".ym-from")).toHaveAttribute("title", `From ${name}, step 1, edited since`);
+
+  // undone back to the steps it was kept with, it is not edited since
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press("Control+z");
+  await page.keyboard.press("Control+z");
+  await expect.poll(async () => (await info(page)).history.filter((h) => h.applied).length).toBe(1);
+  await expect(again.locator("li", { hasText: keptName }).locator(".ym-from")).toHaveText(`${name} · step 1`, { timeout: 30_000 });
 });
 
 test("Branch from here opens its copy for editing without the kept version's warning", async ({ page }) => {
