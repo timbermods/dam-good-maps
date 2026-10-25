@@ -284,7 +284,7 @@ export class MapSession {
       this.cur = buildMap(this.input(), { water: "defer", initialWater: { model: modelOf({ W, H, heights: layer.heights, entities: layer.entities }), water: layer.water! } });
     } else this.cur = built ?? stored ?? buildMap(this.input());
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
-      this.notices.push("This map has caves or overhangs. The tools leave them as they are.");
+      this.notices.push("This map has caves or overhangs. Brushes shape only their tops; the Block tool and Erode can change the rest.");
     }
     // the log is the history of an opened document: its operations undo step by step (D456)
     this.undoStack = stepsOf(this.log);
@@ -962,7 +962,7 @@ export class MapSession {
   }
 
   /** The tiles with a cave, tunnel or overhang (an imported map's, and the ground the Block tool
-   *  dug), which the tools leave as they are but for the brushes, which shape their top runs (D487;
+   *  dug), whose top runs the brushes shape and the rest only the Block tool and Erode change (D487;
    *  the "Caves and overhangs" layer marks them). An import's are simulated with the rest of its
    *  water (D120). Empty for a heightfield map. */
   get roofedTiles(): ReadonlySet<number> {

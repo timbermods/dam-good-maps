@@ -3,7 +3,7 @@
 // (an object on its door) shows the problem at once, with a one-click fix.
 
 import { expect, test, type Page } from "@playwright/test";
-import { centreOn, openEditor } from "./open";
+import { centreOn, openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -13,7 +13,7 @@ test("the start: its footprint and what is nearby while it is dragged; on the sh
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await openEditor(page, "s=77&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const W = (await info(page)).W;
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number]; orientation: string });
 

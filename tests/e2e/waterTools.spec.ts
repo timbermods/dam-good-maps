@@ -5,7 +5,7 @@
 // back); with Ctrl, Flatten picks the level under the pointer, on water the bed.
 
 import { expect, test, type Page } from "@playwright/test";
-import { centreOn, openEditor } from "./open";
+import { centreOn, openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -60,7 +60,7 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   // stretch of flat, dry, empty ground 7 wide away from its start, and the test places two sources;
   // on 0.7.0's 4242 the river where the stroke starts has water on both sides of the line)
   await openEditor(page, "s=2&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   let i = await info(page);
   const W = i.W;
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;

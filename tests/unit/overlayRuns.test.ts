@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { rectTilesBetween, selectTool, Selection, type SelectHost, type SelectMode } from "../../src/editor/select";
 import { columnMask, type TerrainSource } from "../../src/render3d/mesh";
 import { LAYERS } from "../../src/render3d/model";
-import { overlayRunBytes, runHolding } from "../../src/render3d/overlayRuns";
+import { OverlayRuns, overlayRunBytes, runHolding } from "../../src/render3d/overlayRuns";
 import { hasTopAt, pickTerrain } from "../../src/render3d/pick";
 
 const W = 8;
@@ -119,5 +119,23 @@ describe("the Wand on a cave's floor names its level", () => {
     sel.apply([5], "set", 3);
     sel.clear();
     expect(sel.levels).toBeNull();
+  });
+});
+
+describe("the roof over a floor selected by level is outside the brushes' area", () => {
+  const levels = new Uint8Array(W * H);
+  levels[1 * W + 3] = 3 + 1; // the cave's floor
+  levels[2 * W + 3] = 9 + 1; // the roof
+  levels[0 * W + 3] = 3 + 1; // open ground at y = 0 (a plain run: nothing is below its top)
+  const runs = new OverlayRuns({ value: null as never });
+  runs.set(null, levels);
+
+  it("a tile whose named run lies under its top is dimmed, so the brushes leave it out", () => {
+    expect(runs.namesBelowTop(src, 1 * W + 3, src.heights[1 * W + 3])).toBe(true);
+  });
+  it("the roof named, a plain column and a tile naming nothing stay inside", () => {
+    expect(runs.namesBelowTop(src, 2 * W + 3, src.heights[2 * W + 3])).toBe(false);
+    expect(runs.namesBelowTop(src, 0 * W + 3, src.heights[0 * W + 3])).toBe(false);
+    expect(runs.namesBelowTop(src, 1 * W + 4, src.heights[1 * W + 4])).toBe(false);
   });
 });
