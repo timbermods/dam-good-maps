@@ -73,6 +73,9 @@ test("the 3D view draws a map's falls, and they follow the water", async ({ page
     return r.updateWater({ count: keep.length, tile: Int32Array.from(keep, (k) => w.tile[k]), floor: Float32Array.from(keep, (k) => w.floor[k]), depth: Float32Array.from(keep, (k) => w.depth[k]), contamination: Float32Array.from(keep, (k) => w.contamination[k]) });
   }, lip!.tile);
   expect(changed).toBeGreaterThan(0);
+  // (the water's chunks are meshed in the workers and drawn a frame or two on)
+  const waterDrawn = () => page.waitForFunction(() => window.dgm3d!.renderer.waterDrawn);
+  await waterDrawn();
   expect(await falls()).toBeLessThanOrEqual(before - lip!.falls);
   expect(await drawn()).toBe(0);
 
@@ -81,6 +84,7 @@ test("the 3D view draws a map's falls, and they follow the water", async ({ page
     const r = window.dgm3d!.renderer as unknown as { updateWater(w: unknown): number };
     r.updateWater((window as unknown as { __water: unknown }).__water);
   });
+  await waterDrawn();
   expect(await falls()).toBe(before);
   expect(await drawn()).toBe(0);
   expect(errors).toEqual([]);
