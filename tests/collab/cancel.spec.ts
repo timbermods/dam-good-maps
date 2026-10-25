@@ -190,7 +190,9 @@ test("the host opens a real place and cancels: the session stays whole and both 
 test("Cancel pressed while the session's worker opens the built place is waited out: the host's editor, its worker and the guest keep one map", async () => {
   const [h, g] = [host!.page, guest!.page];
   const before = (await info(h)).name;
-  await h.locator("header.editor-bar").getByRole("button", { name: "Real places", exact: true }).click();
+  // (the gallery may be open still from the step before: the header's button toggles it)
+  const places = h.locator("header.editor-bar").getByRole("button", { name: "Real places", exact: true });
+  if ((await places.getAttribute("aria-pressed")) !== "true") await places.click();
   const tile = h.getByRole("region", { name: "Real places" }).getByTitle(`Open ${BIG.name}`, { exact: true });
   await tile.scrollIntoViewIfNeeded();
   await tile.click();
