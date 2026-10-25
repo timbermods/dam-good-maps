@@ -57,6 +57,18 @@ test("Erode's row is Power, Size (Auto), the Floor and Try another, Try another 
   await expect(row.getByRole("button", { name: "More" })).toHaveCount(0);
   const again = row.getByRole("button", { name: "Try another" });
   await expect(again).toBeDisabled();
+  // Try another is always in its place (EDITOR_PLAN §3): the second row's end, level with the Floor and under the bar's last cell
+  {
+    const [floor, try1, last, power] = await Promise.all([
+      row.getByRole("slider", { name: "Floor" }).boundingBox(),
+      again.boundingBox(),
+      page.getByRole("group", { name: "Forces" }).getByRole("button", { name: /^Erode/ }).boundingBox(),
+      row.getByRole("slider", { name: "Power" }).boundingBox(),
+    ]);
+    expect(try1!.y).toBeGreaterThan(power!.y + power!.height);
+    expect(Math.abs(try1!.y + try1!.height / 2 - (floor!.y + floor!.height / 2))).toBeLessThan(20);
+    expect(Math.abs(try1!.x + try1!.width - (last!.x + last!.width))).toBeLessThanOrEqual(1);
+  }
   const at = await high(page);
   const p = await client(page, at[0], at[1]);
   await page.mouse.click(p.x, p.y);

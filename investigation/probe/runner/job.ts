@@ -175,6 +175,8 @@ export interface MapSnapshot {
   momentId: string;
   day: GameDay;
   tick: number;
+  /** Real seconds from starting the map to this record (from mod 0.3.2; a long play's time per cycle). */
+  realSeconds?: number;
   weather: string;
   width: number;
   height: number;

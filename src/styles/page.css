@@ -5,6 +5,11 @@
    reaches either side group (the header measures how far they reach: --side-l, --side-r) */
 .editor-bar {
   position: relative;
+  /* lifted above the map (under the dialogs' 10, over the panels' 8): its shadow falls on the land below it, in place
+     of a rule */
+  z-index: 9;
+  border-bottom-color: transparent;
+  box-shadow: var(--shadow-header);
   flex-wrap: nowrap;
   justify-content: space-between;
   gap: 10px;
@@ -276,11 +281,14 @@
 
 .your-maps li {
   display: flex;
+  /* (a grid item's minimum is its content's: without this a nowrap line widens its tile past the column) */
+  min-width: 0;
 }
 
 .your-maps li > .ym-tile {
   flex: 1;
   width: auto;
+  min-width: 0;
 }
 
 .ym-size {
@@ -593,7 +601,7 @@
   padding: 8px 10px;
   border-radius: 8px;
   background: var(--panel);
-  box-shadow: var(--shadow);
+  box-shadow: var(--edge-lit), var(--shadow-2);
   font-size: 0.8rem;
 }
 
@@ -649,7 +657,7 @@
   padding: 6px 8px;
   border-radius: 8px;
   background: var(--panel);
-  box-shadow: var(--shadow);
+  box-shadow: var(--edge-lit), var(--shadow-2);
   font-size: 0.8rem;
 }
 
@@ -691,7 +699,8 @@
 .legend-panel.in-column img.swatch.pic {
   height: var(--legend-row);
   object-fit: contain;
-  border-radius: 0;
+  border-radius: 3px;
+  background: var(--pic-well);
   box-shadow: none;
 }
 
@@ -875,7 +884,7 @@
   border: 1px solid var(--rule);
   border-radius: 8px;
   background: var(--panel);
-  box-shadow: var(--shadow);
+  box-shadow: var(--edge-lit), var(--shadow-2);
 }
 
 .objects-menu .shelf-grid {
@@ -896,7 +905,7 @@
   border-radius: 6px;
   background: transparent;
   box-shadow: none;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem / var(--wide-font-full));
   line-height: 1.2;
   text-align: left;
 }
@@ -906,6 +915,14 @@
   flex: none;
   width: 28px;
   height: 28px;
+}
+
+/* (in dark each picture sits on a pale rounded well, the row's size unchanged) */
+.objects-menu .shelf-item img,
+.gen-otm li img {
+  box-sizing: border-box;
+  background: var(--pic-well);
+  border-radius: 6px;
 }
 
 .objects-menu .shelf-item .shelf-word {
@@ -1149,7 +1166,7 @@
   padding: 0;
   /* (a word is never wider than its cell: 0.8rem in a cell of 76px, and a cell's own share below that, so a tool added
      to the bar, which narrows every cell, shrinks the words with it instead of spilling them) */
-  font-size: min(0.8rem, calc(var(--cell) * 0.209));
+  font-size: calc(min(0.8rem, calc(var(--cell) * 0.209)) / var(--wide-font));
   line-height: 1.1;
   letter-spacing: -0.015em;
   white-space: nowrap;
@@ -1219,9 +1236,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: calc(6px / var(--wide-font));
   height: 16px;
-  font-size: 13px;
+  font-size: calc(13px / var(--wide-font));
   line-height: 16px;
   white-space: nowrap;
 }
@@ -1237,11 +1254,11 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(6px / var(--wide-font));
 }
 
 .set-value {
-  font-size: 13px;
+  font-size: calc(13px / var(--wide-font));
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -1250,12 +1267,12 @@
 /* Auto: one small word in the same place on every control that has it, lit while the land decides */
 .set-auto {
   height: 16px;
-  padding: 0 6px;
+  padding: 0 calc(6px / var(--wide-font));
   border: 1px solid var(--rule);
   border-radius: 8px;
   background: transparent;
   box-shadow: none;
-  font-size: 11px;
+  font-size: calc(11px / var(--wide-font));
   line-height: 14px;
   color: color-mix(in srgb, var(--ink) 84%, transparent);
 }
@@ -1371,7 +1388,7 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  font-size: 13px;
+  font-size: calc(13px / var(--wide-font));
   white-space: nowrap;
   color: var(--ink);
 }
@@ -1397,7 +1414,7 @@
   width: 100%;
   height: 100%;
   padding: 0 2px;
-  font-size: 13px;
+  font-size: calc(13px / var(--wide-font));
   white-space: nowrap;
 }
 
@@ -1406,12 +1423,12 @@
 @media (max-width: 1380px) {
   .tool-settings .set-seg button,
   .tool-settings .set-button {
-    font-size: 12px;
+    font-size: calc(12px / var(--wide-font));
     padding: 0 1px;
   }
 
   .tool-settings .set-label {
-    font-size: 12px;
+    font-size: calc(12px / var(--wide-font));
   }
 }
 
@@ -1455,7 +1472,7 @@
   max-width: 100%;
   overflow: clip;
   text-overflow: ellipsis;
-  font-size: 14px;
+  font-size: calc(14px / var(--wide-font));
   color: var(--ink);
   white-space: nowrap;
 }
@@ -1623,11 +1640,19 @@
   z-index: 21;
 }
 
+/* the land's square: half the window's height. Centred, it and the card under it (16px, then 85px) may reach the bar; where
+   they would come within 60px of it (a window about 800px tall or less), both lift together by the difference, so they
+   sit centred between the header and the bar (the bar and shelf take the last 72px) */
+:root {
+  --land: min(512px, 50vh);
+  --land-lift: max(0px, calc(50vh + 33px + var(--land) / 2 + 101px - (100vh - 72px - 60px)));
+}
+
 /* before any map: the frame is still, so nothing is dimmed, and the dialog sits under the land's first look, not across it */
 .loading-frame + .making-backdrop {
   background: none;
   place-items: start center;
-  padding-top: calc(50vh + 33px + min(256px, 25vh) + 16px);
+  padding-top: calc(50vh + 33px + var(--land) / 2 + 16px - var(--land-lift));
 }
 
 .making-dialog {
@@ -1639,6 +1664,7 @@
   margin: 0;
   min-height: 1.45em;
   font-weight: 600;
+  letter-spacing: 0.005em;
   white-space: nowrap;
   overflow: clip;
   text-overflow: ellipsis;
@@ -1646,6 +1672,209 @@
 
 .making-dialog[role="alertdialog"] p {
   white-space: normal;
+}
+
+/* ---- waiting states (Kyler, 2026-10-15): a little water in the card, contour rings on the empty land, a dashed tile in
+   an empty Your maps. They are still pictures by default and move only where motion is welcome (no-preference), and only
+   while the wait lasts: each is unmounted when it ends, so nothing repaints after. */
+
+/* the card: its words, a stretch of water, Cancel. One height for every stage (the words stay on one line) */
+.making-dialog {
+  padding: 20px 16px 16px;
+}
+
+.making-dialog footer {
+  margin-top: 12px;
+}
+
+/* the water: the near surface in the water's colour with a faint body under it, a fainter, longer far line behind it, so
+   it reads as a current and not a spinner; the ends and the foot fade into the card */
+.making-water {
+  position: relative;
+  height: 16px;
+  margin: 10px 28px 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent), linear-gradient(180deg, #000 55%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent), linear-gradient(180deg, #000 55%, transparent);
+  mask-composite: intersect;
+}
+
+.making-water::before,
+.making-water > span {
+  content: "";
+  position: absolute;
+  inset: 0;
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-position: 0 0;
+  mask-position: 0 0;
+}
+
+/* the far line: 112px waves, 1.1px */
+.making-water::before {
+  background: var(--water-ui-soft);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='16'%3E%3Cpath d='M0 6 C28 3.6 28 3.6 56 6 S84 8.4 112 6' fill='none' stroke='%23000' stroke-width='1.1' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='16'%3E%3Cpath d='M0 6 C28 3.6 28 3.6 56 6 S84 8.4 112 6' fill='none' stroke='%23000' stroke-width='1.1' stroke-linecap='round'/%3E%3C/svg%3E");
+  -webkit-mask-size: 112px 16px;
+  mask-size: 112px 16px;
+}
+
+/* the near surface: 64px waves, 1.6px, its body under it at 14% */
+.making-water > span {
+  background: var(--water-ui);
+  transform-origin: 50% 8px;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='16'%3E%3Cpath d='M0 8 C16 4.6 16 4.6 32 8 S48 11.4 64 8 V16 H0Z' fill='%23000' fill-opacity='0.14'/%3E%3Cpath d='M0 8 C16 4.6 16 4.6 32 8 S48 11.4 64 8' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='16'%3E%3Cpath d='M0 8 C16 4.6 16 4.6 32 8 S48 11.4 64 8 V16 H0Z' fill='%23000' fill-opacity='0.14'/%3E%3Cpath d='M0 8 C16 4.6 16 4.6 32 8 S48 11.4 64 8' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  -webkit-mask-size: 64px 16px;
+  mask-size: 64px 16px;
+}
+
+/* the land's square before its picture arrives: an island's contour rings, the lowest in the water's colour. Each draws
+   itself 0.5 s after the last and takes 1.8 s; all hold, then fade together; 6 s a cycle */
+.loading-frame .first-look-empty {
+  position: relative;
+  overflow: hidden;
+}
+
+.first-look-empty .contours {
+  position: absolute;
+  inset: 8%;
+  width: 84%;
+  height: 84%;
+  color: color-mix(in srgb, var(--ink) 28%, transparent);
+}
+
+.first-look-empty .contours path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.45;
+  stroke-linejoin: round;
+  /* (a gap longer than the ring and an offset just past it: a ring not yet started leaves no speck at its start) */
+  stroke-dasharray: 1 2;
+}
+
+.first-look-empty .contours path:first-child {
+  stroke: var(--water-ui);
+  stroke-width: 0.6;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .making-water::before {
+    animation: making-flow-far 14s linear infinite;
+  }
+
+  /* 6.4 s a wave (64px at 10px/s); it eases between full and two-thirds height over 7 s, as water settling */
+  .making-water > span {
+    animation: making-flow-near 6.4s linear infinite, making-settle 7s ease-in-out infinite alternate;
+  }
+
+  .first-look-empty .contours {
+    animation: contour-fade 6s linear infinite;
+  }
+
+  .first-look-empty .contours path {
+    stroke-dashoffset: 1.01;
+    animation: 6s linear infinite;
+  }
+
+  .first-look-empty .contours path:nth-child(1) { animation-name: contour-draw-1; }
+  .first-look-empty .contours path:nth-child(2) { animation-name: contour-draw-2; }
+  .first-look-empty .contours path:nth-child(3) { animation-name: contour-draw-3; }
+  .first-look-empty .contours path:nth-child(4) { animation-name: contour-draw-4; }
+  .first-look-empty .contours path:nth-child(5) { animation-name: contour-draw-5; }
+}
+
+@keyframes making-flow-near {
+  to {
+    -webkit-mask-position: 64px 0;
+    mask-position: 64px 0;
+  }
+}
+
+@keyframes making-flow-far {
+  to {
+    -webkit-mask-position: 112px 0;
+    mask-position: 112px 0;
+  }
+}
+
+@keyframes making-settle {
+  from { transform: scaleY(1); }
+  to { transform: scaleY(0.66); }
+}
+
+/* the rings hold, then the whole drawing fades (78%-92% of the cycle) and starts again */
+@keyframes contour-fade {
+  0%, 78% { opacity: 1; }
+  92%, 100% { opacity: 0; }
+}
+
+/* ring n starts 0.5 s (8.33%) after the one below it and takes 1.8 s (30%) */
+@keyframes contour-draw-1 {
+  0% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  30%, 100% { stroke-dashoffset: 0; }
+}
+
+@keyframes contour-draw-2 {
+  0%, 8.33% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  38.33%, 100% { stroke-dashoffset: 0; }
+}
+
+@keyframes contour-draw-3 {
+  0%, 16.67% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  46.67%, 100% { stroke-dashoffset: 0; }
+}
+
+@keyframes contour-draw-4 {
+  0%, 25% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  55%, 100% { stroke-dashoffset: 0; }
+}
+
+@keyframes contour-draw-5 {
+  0%, 33.33% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  63.33%, 100% { stroke-dashoffset: 0; }
+}
+
+/* Your maps with nothing kept: one dashed tile where the first map will land, the words beside it */
+.maps-panel .ym-empty {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-items: center;
+}
+
+.ym-empty .ym-ghost {
+  aspect-ratio: 1 / 1.16;
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed color-mix(in srgb, var(--ink) 26%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  color: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+
+.ym-empty .ym-ghost svg {
+  width: 28px;
+  height: 28px;
+}
+
+.ym-empty p {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 0 0 8px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.ym-empty p strong {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.ym-empty p span {
+  color: var(--muted);
 }
 
 /* a map's name in Your maps renamed in place: the name's own size and font, a quiet ground behind it */
@@ -1821,7 +2050,7 @@
   background: var(--panel);
   border: 1px solid var(--rule);
   border-radius: 10px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--edge-lit), var(--shadow-2);
 }
 
 
@@ -1855,9 +2084,10 @@
   gap: 10px;
 }
 
-/* (whole pixels: the label, a box that holds 4294967295 and no more, then Keep) */
+/* (whole pixels: the label, a box that holds 4294967295 and no more, then Keep; the label's 30px grows where the font is
+   wider than Segoe UI's, taking the room from the name box) */
 .sheet-top .set.plate.line.seed {
-  grid-template-columns: 30px 92px 54px;
+  grid-template-columns: minmax(30px, max-content) 92px 54px;
 }
 
 .sheet-top .seed .set-toggle {
@@ -2247,6 +2477,242 @@
   height: 20px;
 }
 
+/* ---- Showcase mode (D488 (2)): Showcase… in the empty place at the foot of On this map's list, under Reset settings
+   (the panel no taller); its sheet over the two columns, which stay where they are beneath it */
+.sheet-col + .sheet-col {
+  position: relative;
+}
+
+.sheet-col > .showcase-open {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 150px;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-cols {
+  position: relative;
+}
+
+.sheet-cols.covered > .sheet-col {
+  visibility: hidden;
+}
+
+.showcase {
+  position: absolute;
+  inset: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  background: var(--panel);
+}
+
+.showcase-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--line);
+}
+
+.showcase-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.showcase-head h3 svg {
+  color: var(--muted);
+}
+
+.showcase-head > .sheet-act,
+.showcase-run > .sheet-act {
+  width: 150px;
+  height: var(--line);
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.showcase-lede,
+.showcase-status {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.showcase-status {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* the time allowed, then the search's one button, at the stack's width and right edge */
+.showcase-run {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  column-gap: 10px;
+  align-items: center;
+  --lab: 80px;
+}
+
+/* the time gone, as a hairline filling (no number a player can't use) */
+.showcase-bar {
+  position: relative;
+  height: 2px;
+  border-radius: 1px;
+  overflow: clip;
+  background: var(--rule);
+}
+
+.showcase-bar i {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .showcase-bar.on i {
+    transition: transform 1s linear;
+  }
+}
+
+/* three cards in fixed places, best first: the map's picture, then its name, beats and what it shows */
+.sc-cards {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sc-card {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  column-gap: 10px;
+  height: 134px;
+  padding: 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  transition: opacity var(--dur-fade) var(--ease-out);
+}
+
+/* a card arrives with a fade (never a move) */
+@starting-style {
+  .sc-card:not(.empty) {
+    opacity: 0;
+  }
+}
+
+.sc-card.on-show {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.sc-card.empty {
+  border-style: dashed;
+}
+
+.sc-pic {
+  display: block;
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: var(--code);
+}
+
+.sc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sc-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 24px;
+}
+
+.sc-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.sc-score {
+  flex: none;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-open {
+  flex: none;
+  width: 72px;
+  height: 24px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.sc-beats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px 8px;
+}
+
+.sc-beats li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 16px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.sc-beats li svg {
+  flex: none;
+}
+
+.sc-beats li.met {
+  color: var(--ink);
+}
+
+.sc-beats li.met svg {
+  color: var(--accent);
+}
+
+.sc-says {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--ink) 84%, transparent);
+  text-wrap: pretty;
+}
+
 /* ---- Your maps: in the generator's place, four to a row; more maps than it holds scroll inside it */
 .maps-panel {
   /* the generator's own box, so switching between the two never changes the panel's shape */
@@ -2367,7 +2833,7 @@
 }
 
 
-/* the weather day stepper after Badtide (Kyler, 2026-10-04): ◀ Day 7 ▶, its label two digits wide ("Day 99…") so the
+/* the weather day stepper after Badtide (Kyler, 2026-10-04): ◀ Day 7 of 9 ▶, its label two digits wide ("Day 99 of 30") so the
    row never changes shape; greyed, "Day –", with neither Drought nor Badtide on */
 .editor-view .water-bar > .day-stepper {
   gap: 0;
@@ -2389,13 +2855,13 @@
 }
 
 .day-stepper .day-label {
-  width: 62px;
+  width: 56px;
   text-align: center;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.water-bar:has(.day-step:disabled + .day-label + .day-step:disabled) .day-label {
+.water-bar:has(.day-step:disabled + .day-label + .day-length + .day-step:disabled) .day-label {
   opacity: 0.45;
 }
 
@@ -2537,6 +3003,21 @@
 
 .day-stepper .day-words {
   position: relative;
+}
+
+/* the hazard's length beside the day, quiet ("Day 3 of 9"); "of 30" wide, so the row never changes shape */
+.day-stepper .day-length {
+  width: 36px;
+  padding-left: 3px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* (the day's words sit against the length) */
+.day-stepper .day-label {
+  justify-content: safe flex-end;
+  padding-right: 2px;
 }
 
 /* a typed day (Kyler, 2026-10-04): the field fills the day box exactly, its words where the box's were */
@@ -2841,6 +3322,11 @@ body:has(.checks-list) .show-key {
   min-height: 0;
 }
 
+/* (the card under it is lifted by the same, in its padding above) */
+.loading-frame:has(+ .making-backdrop:not(.stuck)) .first-look {
+  translate: 0 calc(-1 * var(--land-lift));
+}
+
 /* the land's square before its picture arrives (and for a place, which never sends one): quiet, so the dialog under it is
    never left low under empty space */
 .loading-frame .first-look-empty {
@@ -2850,7 +3336,7 @@ body:has(.checks-list) .show-key {
 }
 
 .loading-frame .first-look-map {
-  width: min(512px, 50vh);
+  width: var(--land);
 }
 
 /* a failed first map has no land above it: its dialog stays in the middle */
@@ -2903,9 +3389,9 @@ body:has(.checks-list) .show-key {
   display: inline-grid;
 }
 
-/* the left group (Map Generator, Real places, Your maps): the height was their line's and the padding */
+/* the left group (Map Generator, Real places, Your maps): the right group's 40px, on whole pixels, so their edges meet */
 .editor-bar .new-map {
-  min-height: 38.5px;
+  min-height: 40px;
 }
 
 /* the bar's cells and the settings' cells (icon above word) are left as they are: the pair is already centred on its ink to
@@ -2952,7 +3438,7 @@ body:has(.checks-list) .show-key {
 
   .tool-bar button.icon-button .icon-word,
   .tool-settings button.icon-button .icon-word {
-    font-size: calc(0.8rem + 1px);
+    font-size: calc((0.8rem + 1px) / var(--wide-font));
   }
 
   /* (two rows of 60px, 4px apart, and the plate's padding: still never a third) */
@@ -2962,22 +3448,22 @@ body:has(.checks-list) .show-key {
 
   .set-head {
     height: 17px;
-    font-size: 14px;
+    font-size: calc(14px / var(--wide-font));
     line-height: 17px;
   }
 
   .set-value {
-    font-size: 14px;
+    font-size: calc(14px / var(--wide-font));
   }
 
   .set-auto {
     height: 17px;
-    font-size: 12px;
+    font-size: calc(12px / var(--wide-font));
     line-height: 15px;
   }
 
   .tool-settings button {
-    font-size: 14px;
+    font-size: calc(14px / var(--wide-font));
   }
 
   /* the header: every control 44px (Undo and Redo 44px squares), the words 1px larger */
@@ -3032,7 +3518,7 @@ body:has(.checks-list) .show-key {
 
   .objects-menu .shelf-item {
     height: 34px;
-    font-size: calc(0.85rem + 1px);
+    font-size: calc((0.85rem + 1px) / var(--wide-font-full));
   }
 
   .objects-menu .shelf-item img,

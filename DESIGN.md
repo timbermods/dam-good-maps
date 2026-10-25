@@ -176,7 +176,7 @@ One height (38px) and one gap (6px) for every plate outside the panel; everythin
   of two columns: the level control (132px) and the compass (38px) in the corner; Slow forces under the level
   control, Sound under the compass.
 - **The shelf** hangs under the cluster, 180px wide (so the longest name clears the scrollbar's room): one object per line, a 28px picture then its name,
-  in five groups (the sources, the water objects, the plants, the landmarks, the core and reserves) divided by hairlines drawn in the gap above each group's first row, with no extra height; the Items title stays at the top while the list scrolls, and the list keeps its scrollbar's room (thin, kept even when nothing scrolls). The view draws each picture to fill its tile. With every 1.x object (26 rows) the
+  in five groups (the sources, the water objects, the plants, the landmarks, the core and reserves) divided by hairlines drawn in the gap above each group's first row, with no extra height; the Items title stays at the top while the list scrolls, and the list keeps its scrollbar's room (thin, kept even when nothing scrolls). The view draws each picture to fill its tile; in dark each sits on a pale rounded well (`--pic-well`, none in light), here, in the legend's object lines and in the generator's "On this map", so the pictures of dark things (Pine, Oak, Aquifer) never vanish into the panel. The loading frame's shelf keeps the same room limit and inner scroll (`useFrameDockRoom`), and the shelf's pictures are kept in this browser, so a reload's frame shows them. With every 1.x object (26 rows) the
   whole list fits at 1920×1080 with nothing held; with an object's window above it, or in a shorter window, it scrolls
   inside itself, names kept, and the picked row is scrolled into view
   ([captures](docs/design/showcase-shelf-list-1920-light.jpg), [with a window](docs/design/showcase-shelf-reserve-1280-dark.jpg)).
@@ -923,6 +923,18 @@ API, every pinned hash, and every role and accessible name the tests use.
   tooltip), never "Level lines", so it is not mistaken for **Lines** (a line at every level). The open Legend stays centred under its
   toggle (Kyler, 2026-10-04) and keeps Ground height's Low and High under its line; the minimap draws a held
   Drought or Badtide day's water.
+- **Showcase mode** (D488 (2); EDITOR_PLAN §3): **Showcase…** is a 20px ghost button, the stack's 150px and right edge, in
+  the empty place at the foot of "On this map" (the list holds five, so its last row's right half is free); the panel
+  stays 692px. Design choice: the title block's three rows have no room for a fourth button, and a row of its own would
+  make the panel scroll at 1920×1080, which Kyler ruled out for Reset settings (2026-10-06). Its sheet lies over the two
+  columns from the hairline down, the columns hidden but in place: a head line ("SHOWCASE" as a group heading, **Settings**
+  at the stack's width, back to the settings), one muted line, **Search for** and the search's button on one line, the progress
+  line and a 2px hairline that fills with the time gone (its movement only without reduced motion), then three cards
+  134px tall, 8px apart: the picture 112px, the name in 14px bold with "N of 6 beats" and a 72px **Open**, the six
+  beats in three columns at 12px (met: the ink and an accent tick; not: muted with a ring), then up to three lines of
+  the core's words. An empty place is a dashed card. A card fades in (no movement). It fits at 1920×1080 and
+  2560×1440 with nothing scrolling; at 1280×720 the panel scrolls inside itself as it already does, and opening the
+  sheet brings its head into view.
 - **Versions** (`docs/design/showcase-versions-*.jpg`, light and dark at 1280, 1920 and 2560): History's rows keep their
   look; on the row pointed at, focused or current, two ghost buttons sit at its right, **Keep this version** and **Branch from
   here**, the row leaving them room on every row so nothing moves. Your maps' tile of a kept version carries one quiet line

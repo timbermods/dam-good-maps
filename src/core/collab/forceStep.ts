@@ -18,7 +18,7 @@ import { keptForceParams } from "../forces/keep";
 import type { ForceResultParams } from "../forces/op";
 import { geology } from "../forces/random";
 import { QuakeRun } from "../forces/runs";
-import { fullForceMapOf, lavaOf, planForce, type ForceRequest } from "../forces/start";
+import { fallsBeforePlay, fullForceMapOf, lavaOf, planForce, type ForceRequest } from "../forces/start";
 import type { FullForceMap } from "../forces/force";
 import { murmur3 } from "../math/hash";
 import { fallenPoses, stable } from "./mapState";
@@ -76,6 +76,11 @@ export function planKeptForce(s: MapSession, g: ForceGesture): Planned {
       play = new CarvePlay(plan.carve, req.verb === "carve" && req.shownFrom === "end");
       play.plan();
     } else if (!plan.staged!.done && !(plan.staged instanceof QuakeRun && plan.staged.painting)) plan.staged!.finishAll();
+    // (ground it would still leave falling: refused naming the place, as the author's preview is, D487)
+    if (s.columns.size) {
+      const why = fallsBeforePlay(plan, play, base.W, base.H, (h, m, e) => s.forceFalls(h, m, e));
+      if (why) return { ok: false, reason: why };
+    }
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : String(e) };
   }

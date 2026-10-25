@@ -248,7 +248,9 @@ namespace DGMProbe
                     try
                     {
                         string file = $"{Probe.SafeName(_map.Id)}-{Probe.SafeName(m.Id)}.snapshot.json.gz";
-                        Probe.WriteGzipJson(Path.Combine(Probe.ResultsDir, file), _recorder.Snapshot(m.Id, day, _ticks, _weather.CurrentWeather()));
+                        MapSnapshot snapshot = _recorder.Snapshot(m.Id, day, _ticks, _weather.CurrentWeather());
+                        snapshot.RealSeconds = Time.realtimeSinceStartup - _startReal;
+                        Probe.WriteGzipJson(Path.Combine(Probe.ResultsDir, file), snapshot);
                         _result.Snapshots.Add(file);
                     }
                     catch (Exception e)

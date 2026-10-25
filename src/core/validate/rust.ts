@@ -278,6 +278,8 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
           m.f64(y);
         }
         m.f64((f.params as { core?: { radius?: number } }).core?.radius ?? 2);
+        // (the level it stands on under a roof, D491; -1: the top)
+        m.f64(f.params.placement.z ?? -1);
       }
     }
     // the map's own water as wet tiles, which the approximate-water rule compares the settle with (read only

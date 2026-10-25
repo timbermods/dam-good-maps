@@ -9,6 +9,7 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { ShaderMaterial } from "three";
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { toMapObject } from "../../src/core/features/build";
@@ -20,10 +21,11 @@ import { waterColumns, type VoxelMasks } from "../../src/core/sim/columns";
 import { columnSaturation, soil3d, type Soil3d } from "../../src/core/sim/soil3d";
 import { stackedSoil } from "../../src/core/sim/soil";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { buildEntities } from "../../src/render3d/entities3d";
 import { soilNibbles } from "../../src/render3d/light";
-import { WET, type MapView } from "../../src/render3d/model";
+import { entityView, WET, type MapView } from "../../src/render3d/model";
 import { contaminationByte, moistureByte } from "../../src/render3d/palette";
-import { RunSoil, runSoilAt, runSoilOn } from "../../src/render3d/runSoil";
+import { objectSoilAt, RunSoil, runSoilAt, runSoilOn } from "../../src/render3d/runSoil";
 import { apply, collabOpen, collabSession, openTimber, settleWater } from "../../src/worker/session";
 import { CAVE, CAVE_H as H, CAVE_W as W, caveFile, caveVoxels } from "./caveMap";
 
@@ -166,6 +168,33 @@ describe("soil per run top (3D view, part 3)", () => {
     const y = (runs.tile[0] - x) / W;
     expect(rs.refresh(fewer, view.water)).toEqual({ x0: x, y0: y, x1: x, y1: y });
     expect(runSoilAt(rs, x, y, runs.level[0])).toBeNull();
+  });
+
+  it("an object on a cave's floor reads that floor's soil, not its roof's (a ruin's ivy; a slope's grass reads the same)", () => {
+    const { bytes } = wetCave();
+    const { view } = openTimber(bytes, "cave.timber");
+    const soil = view.soil!;
+    const runs = soil.runs!;
+    // a cave tile whose floor (level 3, with its water's soil) is moist under a dry roof (the tile's top, level 8)
+    const z = CAVE.air[0];
+    let at: [number, number] | null = null;
+    for (let y = CAVE.y0; y <= CAVE.y1 && !at; y++)
+      for (let x = CAVE.x0; x <= CAVE.x1 && !at; x++) if (objectSoilAt(soil, W, x, y, z)!.moisture > 0 && soil.moisture[y * W + x] === 0) at = [x, y];
+    expect(at, "a moist cave floor under a dry roof").not.toBeNull();
+    const [x, y] = at!;
+    const i = y * W + x;
+    // the rule: on the floor, its run top's own soil; on the roof (the tile's top), the top's, as before
+    const r = [...runs.tile.keys()].find((k) => runs.tile[k] === i && runs.level[k] === z)!;
+    expect(objectSoilAt(soil, W, x, y, z)).toEqual({ moisture: runs.moisture[r], contamination: runs.contamination[r] });
+    expect(objectSoilAt(soil, W, x, y, 8)).toEqual({ moisture: 0, contamination: soil.contamination[i] });
+    // the run texture holds the same there, which the High slope's shader reads at its own tile and level
+    expect(runSoilAt(RunSoil.build(W, H, runs, view.water), x, y, z)!.soil).toBe(soilNibbles(runs.moisture[r], runs.contamination[r]));
+    // a ruin two storeys high on the floor (under the roof) is overgrown; the same ruin on the roof is bare
+    const ruin = (level: number) => buildEntities(entityView([{ template: "RuinColumnH2", x, y, z: level, orientation: "Cw0", owner: "import" }]), new ShaderMaterial(), soil, W).group.children.map((c) => c.name);
+    expect(ruin(z).filter((n) => /\.ivy$/.test(n)), "the ruin on the moist floor: ivy at its foot").toHaveLength(1);
+    expect(ruin(8).filter((n) => /\.ivy/.test(n)), "the ruin on the dry roof: none").toEqual([]);
+    // without the runs (every map without terrain above terrain): the tile's top, as before
+    expect(objectSoilAt({ moisture: soil.moisture, contamination: soil.contamination }, W, x, y, z)).toEqual({ moisture: 0, contamination: soil.contamination[i] });
   });
 
   const maps: [ThemeId, number, number][] = [

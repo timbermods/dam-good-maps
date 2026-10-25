@@ -162,13 +162,15 @@ describe("the canonical settle's two paths (3D Foundations, stage 5)", () => {
     expect(r.depth).toEqual(whole.depth);
   });
 
-  it("refuses what it has no rule for, in one line", () => {
+  it("a removal's drained tiles take only unfed water: on T3, whose every column a source feeds, the settle is the same", () => {
     const m = t3CaveWater();
     const { W, H } = m.scene;
     const objects = m.scene.entities.map(toMapObject);
     const terrain = new ColumnTerrain(W, H, m.scene.mask);
     const model = stackedModel(waterModel(W, H, terrain.heights(), objects), terrain, objects);
-    expect(() => canonicalSettle({ ...model, drained: [5] })).toThrow(/isn't worked out for maps with caves yet/);
+    // the spring cave's pool and the siphon's basin B, fed through the cave and the U under pressure
+    const drained = [9 * W + 9, 24 * W + 48];
+    expect(canonicalSettle({ ...model, drained }).stack!.depth).toEqual(canonicalSettle(model).stack!.depth);
   });
 });
 

@@ -898,7 +898,7 @@ tokens; `Levels` at least the terrain's floor count); `file.metadata` (all 8 key
 | `terrain.max_height`, `terrain.top_layer_free` | surface ≤ 22 and voxel layer 22 empty (D172 (1), DGM Probe run 20260925-tall); above 16 the check notes that the in-game map editor edits only up to level 16 |
 | `terrain.supported` | no voxel more than 3 sideways steps from support (0 on heightfields); with stacked terrain, every run not starting at z = 0 checked: no voxel the game's load rule would delete |
 | `terrain.single_floor` | one floor per tile (the water model's scope). An imported map's row only: a generated map has no such row |
-| `terrain.edge_wall` | No edge walls (D151, extending D111): a tile is walled when its outer two tiles stand 2+ levels above the highest of the next three; an edge is walled when 60% of its tiles are. Principle class. (Real places as converted: 89–99% of their most walled edge; official maps at most 38%; generated 128² at most 36%.) Not applicable under 10 tiles a side. |
+| `terrain.edge_wall` | No edge walls (D151, extending D111): a tile is walled when its outer two tiles stand 2+ levels above the highest of the next three; an edge is walled when 60% of its tiles are. Principle class. (The landscape survey's sealed border: 89–99% of its most walled edge; official maps at most 38%; generated 128² at most 36%; Real places, built from the unsealed land, under 50%, where lips stand beside the inflows by an edge.) Not applicable under 10 tiles a side. |
 | `terrain.dropped` | A generated map's row only, there when the build says what its support pass removed (D121): 0 blocks of ground. Design class: it blocks in `generate` and warns on a generated map being edited. The build's rule pass (`terrain/support.ts` `supportPass`, step 7) gives the count (`BuildResult.dropped`, absent when none: a heightfield drops nothing and is not worked out); the generator's checks and the editor's pass it (`ValidateOptions.dropped`) |
 | `plants.clearance` | every plant has its blocks' height in air above its floor (3 levels for a pine or an oak, 2 for a birch or a succulent, 1 for a blueberry bush; `terrain/clearance.ts`): the game removes one that has not. Load class. Such a plant is counted here and not in `entities.placement` |
 | `entities.templates`, `.enums`, `.components`, `.ids` | only common templates (§5.7); Orientation ∈ {Cw0, Cw90, Cw180, Cw270}, exact case; RuinModels + Yielder:Ruin on ruins, WaterSource (+WaterDepthStrengthModifier on seeps), UnstableCore on cores; unique lowercase GUIDs |
@@ -1195,7 +1195,9 @@ must respect:
 - `mapObject` (mineSite, relic small / medium / large, geothermal, thornBelt, weir, plug, bridge, unstableCore): the
   footprint, OccupyAllBelow and first-column rules (§11.2), with one placement rule for the generator, the tools and
   the preview (D69): level ground for single objects, dry and off rivers (weirs and plugs go across them), free of other
-  objects, caves and the start. The bridge waits (§5.7).
+  objects and the start. Under a roof (a cave's floor, the ground under a ledge, a roof's top: the placement's `z`) the
+  game's own rule decides instead, block by block (D491, `features/objects.ts` `standProblem`, the same rule as
+  `entities.placement`). The bridge waits (§5.7).
 - `carve` kinds (D118: tunnel, arch, skyBridge, cave, ledgePath, overhang, undergroundRiver): built only by their
   builders, which keep the support rule by construction (the build's rule pass drops 0 voxels); floors are run tops.
 - `start` (position, orientation, bench radius, player 0–3, default 0, reserved for Timber Together, D5): a flat 3×3

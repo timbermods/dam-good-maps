@@ -31,6 +31,10 @@ export interface TerrainState {
   /** The lowest each tile's surface may go (one above a roof's underside, terrain/runs.ts
    *  `topFloors`; 0 elsewhere); absent on a heightfield. */
   floor?: Uint8Array | null;
+  /** The ground holding objects set under a roof (D491, objects.ts `objectHolds`): [tile, low, high].
+   *  A stroke keeps each tile within them (the session adds it to the operation), and `protect` holds
+   *  these tiles, as the build's integrity pass leaves them. Absent where there is none. */
+  hold?: [number, number, number][] | null;
   /** The terrain's masks of the `columns` tiles as they stand (bit z: voxel z solid), in their order,
    *  and the cells holding the tops of objects that hold ground (support.ts `stackableTops`): what
    *  `StrokePreview.falls` reads. Absent on a heightfield. */
@@ -97,6 +101,8 @@ export class StrokePreview {
     this.start = heights.slice();
     this.last = heights.slice();
     this.pre = state.pre.slice();
+    // (held ground within its floor and ceiling, as the build sets it where the stroke reaches, D491)
+    for (const [i, lo, hi] of state.hold ?? []) if (i >= 0 && i < this.pre.length) this.pre[i] = Math.min(Math.max(this.pre[i], lo), hi);
     // (a target's stroke too, D322: exact, as a precise one was)
     this.precise = brushHard(settings);
     this.protect = this.precise || settings.sources === "keep" ? state.protect.slice() : state.protect;
@@ -116,7 +122,7 @@ export class StrokePreview {
     const depth = fresh && state.water ? state.water : undefined;
     const shown = this.start;
     // (a roof's top no lower than one above its underside, as build step 6 shapes it, D280 (3))
-    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
+    this.stroke = new BrushStroke(state.hold?.length && !settings.hold ? { ...settings, hold: state.hold } : settings, this.pre, W, H, (i) => !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
       water,
       floor: state.floor ?? null,
       ...(depth ? { depth, shown, moisture: state.moisture ?? null, record: (shore, pools, moist) => Object.assign(record, { shore, pools, ...(moist ? { moist } : {}) }) } : {}),

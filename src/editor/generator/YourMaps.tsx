@@ -3,7 +3,7 @@
 // row, its name and size under it, newest first, the open map marked; a click opens one; a right-click gives Download
 // .timber file, Rename (in place) and Delete (asked once). More maps than the panel holds scroll inside it.
 // Several maps are selected as on a desktop (Kyler, 2026-10-05): Ctrl-click toggles one, Shift-click a range from the
-// last one clicked, neither opening a map; Rename and Delete on the heading row act on the selection, and the Delete
+// last one clicked, neither opening a map; Compare, Rename and Delete on the heading row act on the selection, and the Delete
 // key deletes it (or the map under the pointer) while the pointer is over the panel or a tile has the focus.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
@@ -11,6 +11,7 @@ import type { GeneratorModel } from "./model";
 import { tip } from "../../ui/Tooltip";
 import { compareProblem, parentFull, parentLine } from "../../core/library/keptVersions";
 import { limitName } from "../nameFit";
+import { COMPARE_KEY } from "../compare/useCompare";
 
 export function YourMaps({ model: m }: { model: GeneratorModel }) {
   // the right-click menu, and the map whose name is being renamed in place
@@ -53,6 +54,11 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
     setRenaming(chosen[0]);
   };
   const remove = () => chosen.length && m.onDeleteMaps(chosen);
+  // Compare: the one other version selected (or, with the open map selected too, the other of the two)
+  const others = chosen.filter((id) => id !== m.current);
+  const versus = others.length === 1 && chosen.length <= 2 ? others[0] : null;
+  const versusProblem = versus ? compareProblem(m.openSize, m.maps.find((e) => e.id === versus)?.size) : null;
+  const compare = () => versus && !versusProblem && m.onCompareMap(versus);
   // the Delete key: the selected maps, or the map under the pointer, while the pointer is over Your maps or a tile has
   // the focus (over the land it keeps everything it does there)
   const latest = useRef({ chosen, deleteMaps: m.onDeleteMaps, renaming });
@@ -130,6 +136,15 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
         <div class="ym-head">
           <h2 class="ym-title">Your maps</h2>
           <span class="ym-acts">
+            <button
+              type="button"
+              class="ghost ym-act"
+              disabled={!versus || !!versusProblem}
+              {...tip(versusProblem ?? (versus ? "Compare it with the open map" : "Select another version to compare with the open map"), versus && !versusProblem ? `${COMPARE_KEY} flips to it` : "Ctrl+click selects it")}
+              onClick={compare}
+            >
+              Compare
+            </button>
             <button type="button" class="ghost ym-act" disabled={chosen.length !== 1} {...tip("Rename the selected map")} onClick={rename}>
               Rename
             </button>
@@ -183,6 +198,23 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
             );
           })}
         </ul>
+        {/* nothing kept yet (a map is kept once it is edited, D234): one dashed tile where the first map will land */}
+        {m.maps.length === 0 ? (
+          <div class="ym-empty">
+            <span class="ym-ghost" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7.5" height="7.5" rx="1" />
+                <rect x="13.5" y="3" width="7.5" height="7.5" rx="1" />
+                <rect x="3" y="13.5" width="7.5" height="7.5" rx="1" />
+                <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1" />
+              </svg>
+            </span>
+            <p>
+              <strong>No maps kept yet</strong>
+              <span>Change a map and it's kept here, in this browser.</span>
+            </p>
+          </div>
+        ) : null}
       </section>
       {menu ? <MapMenu at={menu} onClose={() => setMenu(null)} items={menuItems(menu.id)} /> : null}
     </aside>

@@ -56,6 +56,7 @@ import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32Buf
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
 import { DEAD, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, WATER } from "./palette";
+import { objectSoilAt } from "./runSoil";
 
 type Rgb = readonly [number, number, number];
 
@@ -1373,7 +1374,7 @@ const GROW_START: Grow = [14, 0, 3];
 const TREES = new Set(["Pine", "Birch", "Oak"]);
 
 /** Build the objects of a map view as a group of instanced meshes; with the soil (and the map's
- *  width), ruins on moist ground are overgrown. `lite`: the light look's models (software
+ *  width), ruins on moist ground are overgrown (a ruin under a roof by its own run top's soil). `lite`: the light look's models (software
  *  rendering). */
 export function buildEntities(v: EntityView, material: ShaderMaterial, soil: SoilView | null = null, W = 0, lite = false, models?: EntityGeometryCache): { group: Group; instances: number } {
   const batches = new Map<string, Batch>();
@@ -1418,9 +1419,10 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     }
     if (key === "ruin") {
       // a storey per level, turned as the column is (`ruinTurn`); where the column stands on moist
-      // ground (the soil the ground's colour shows), ivy over about half its storeys (`ruinIvy`)
+      // ground (the soil the ground's colour shows: under a roof, its own run top's, `objectSoilAt`), ivy
+      // over about half its storeys (`ruinIvy`)
       const n = Number(template.slice(-1));
-      const moist = !!soil && W > 0 && x >= 0 && y >= 0 && y * W + x < soil.moisture.length && soil.moisture[y * W + x] > 0;
+      const moist = (objectSoilAt(soil, W, x, y, z)?.moisture ?? 0) > 0;
       const angle = ruinTurn(x, y) * (Math.PI / 2);
       ruinStoreys(x, y, n, v.variant?.[k] ?? NO_VARIANT).forEach(({ variant, kind }, lv) => {
         const green = moist ? ruinIvy(x, y, n, lv) : IVY_NONE;

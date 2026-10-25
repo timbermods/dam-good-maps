@@ -370,7 +370,9 @@ export function rasterizeBench(f: StartFeature, t: BuildTarget): void {
 
 /** A sculpt edit (cells with a mode) or a brush stroke (dabs with a brush, raster/brush.ts). */
 export interface SculptEdit {
-  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean } | BrushParams | ForceResultParams | BlocksParams;
+  /** Its place in the operation log (a session's; absent where order is not needed). */
+  seq?: number;
+  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean; hold?: [number, number, number][] } | BrushParams | ForceResultParams | BlocksParams;
 }
 
 function isBrush(p: SculptEdit["params"]): p is BrushParams {
@@ -447,6 +449,13 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     const pads = s.params.tool === "naturalize" && s.params.weathers ? t.starts() : [];
     const open = s.params.tool !== "naturalize" ? () => true : s.params.weathers ? (i: number) => !padTile(pads, i % W, Math.floor(i / W)) : (i: number) => !t.protectedMask[i];
     applyBrush(s.params, heights, W, t.H, keep && !floor ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i), floor);
+    // (the ground holding objects under a roof, D491: within its floor and ceiling, which the map as shown
+    // holds, though the integrity pass had moved it there, and the integrity pass leaves it)
+    for (const [i, lo, hi] of s.params.hold ?? [])
+      if (i >= 0 && i < heights.length && t.inRegion(i)) {
+        heights[i] = Math.min(Math.max(heights[i], lo), hi);
+        t.protectedMask[i] = 1;
+      }
     // a precise or target stroke's tiles stay as it left them: the integrity pass leaves them out (a
     // one-tile pit stays a pit, D193, D322)
     if (was) for (let y = b.y0; y <= b.y1; y++) for (let x: number = b.x0; x <= b.x1; x++) {
@@ -456,6 +465,24 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     return;
   }
   const p = s.params;
+  // (the ground holding objects under a roof, D491: each held tile ends within its floor and ceiling,
+  // and the integrity pass leaves it)
+  if (p.hold?.length) {
+    const was = new Map<number, number>();
+    for (const [i] of p.hold) if (i >= 0 && i < heights.length) was.set(i, heights[i]);
+    applySculpt({ params: { ...p, hold: undefined } }, t, keep, shown, floor);
+    for (const [i, lo, hi] of p.hold) {
+      if (!was.has(i) || !t.inRegion(i)) continue;
+      const h0 = was.get(i)!;
+      const h = heights[i];
+      if (h > h0) heights[i] = Math.min(h, Math.max(h0, hi));
+      else if (h < h0) heights[i] = Math.max(h, Math.min(h0, lo));
+      // (held ground the integrity pass had moved into its floor and ceiling stays there)
+      heights[i] = Math.min(Math.max(heights[i], lo), hi);
+      t.protectedMask[i] = 1;
+    }
+    return;
+  }
   if (p.mode === "smooth") {
     // the median of each cell's 3×3 neighbours inside the brush, read before the brush applies
     const inBrush = new Map<number, number>();

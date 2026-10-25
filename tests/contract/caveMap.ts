@@ -71,3 +71,24 @@ export function hillside(s: MapSession, rise = 3): { x: number; y: number; z: nu
   if (!h) throw new Error("no hillside");
   return h;
 }
+
+/** A dry, level 3 × 3 patch of ground and its ring, nothing on or near it, well above the water and away from the
+ *  edge: a pit can be dug there, two deep, with a hollow under the ground east of it (`pitAndFill` in the tests). */
+export function levelPatch(s: MapSession): { x: number; y: number; h: number } {
+  const b = s.built;
+  const W = b.W;
+  const near = new Set<number>();
+  for (const e of b.entities) for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) near.add((e.y + dy) * W + e.x + dx);
+  for (let y = 8; y < b.H - 8; y++)
+    for (let x = 8; x < W - 8; x++) {
+      const h = b.heights[y * W + x];
+      let ok = h >= 6;
+      for (let dy = -2; dy <= 2 && ok; dy++)
+        for (let dx = -2; dx <= 4 && ok; dx++) {
+          const i = (y + dy) * W + x + dx;
+          if (b.heights[i] !== h || b.water[i] > 0 || b.channel[i] || near.has(i)) ok = false;
+        }
+      if (ok) return { x, y, h };
+    }
+  throw new Error("no patch");
+}
