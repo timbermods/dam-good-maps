@@ -3,7 +3,7 @@
 // nothing where it is not known, nothing on a tile without water or with badwater from Day 0.
 
 import { expect, it } from "vitest";
-import { BadDays, badWords, DryDays, dryWords } from "../../src/core/sim/firstDays";
+import { BadDays, badWords, DryDays, dryWords, heldWords, type HeldFirstDays } from "../../src/core/sim/firstDays";
 
 const firstDry = Int16Array.from([0, 6, 0, 2, 0]);
 /** The run's Day 0 water (`DryDays.wet0`): tiles 0 to 3 hold water, tile 4 none. */
@@ -61,4 +61,21 @@ it("water that goes after the drought's last day lasts the drought; a tile with 
   expect(dryWords(Int16Array.from([0, 6, 0, 12, 4]), 12, 9, 1, wet0)).toBe("Dry on day 6");
   expect(dryWords(Int16Array.from([0, 6, 0, 12, 4]), 12, 9, 2, wet0)).toBeNull();
   expect(dryWords(Int16Array.from([0, 6, 0, 12, 4]), 12, 9, 4, wet0)).toBeNull();
+});
+
+it("days worked out on an older map say nothing; the map's own days, and only the hazard on screen, say their words", () => {
+  const drought: HeldFirstDays = { hazard: "drought", version: 4, first: Int16Array.from([0, 6]), wet0: Uint8Array.from([1, 1]), through: 9, days: 9 };
+  const badtide: HeldFirstDays = { hazard: "badtide", version: 4, first: Int16Array.from([0, 3]), wet0: null, through: 8, days: 8 };
+  // the days' own map
+  expect(heldWords(drought, "drought", 4, 0)).toBe("Lasts the drought");
+  expect(heldWords(drought, "drought", 4, 1)).toBe("Dry on day 6");
+  expect(heldWords(badtide, "badtide", 4, 1)).toBe("Turns bad on day 3");
+  // an edit while the view is held: the map is version 5, the days are version 4's
+  expect(heldWords(drought, "drought", 5, 0)).toBeNull();
+  expect(heldWords(drought, "drought", 5, 1)).toBeNull();
+  expect(heldWords(badtide, "badtide", 5, 1)).toBeNull();
+  // the other hazard on screen, or none, or no days yet
+  expect(heldWords(drought, "badtide", 4, 1)).toBeNull();
+  expect(heldWords(drought, null, 4, 1)).toBeNull();
+  expect(heldWords(null, "drought", 4, 1)).toBeNull();
 });

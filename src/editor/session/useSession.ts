@@ -20,7 +20,7 @@ import { Selection, type SelectMode } from "../select";
 import { WaterJourney } from "../waterJourney";
 import { WaterPlayer } from "../waterPlayer";
 import { hazardDays, type Hazard } from "../../core/sim/weather";
-import { badWords, dryWords } from "../../core/sim/firstDays";
+import { heldWords, type HeldFirstDays } from "../../core/sim/firstDays";
 import { describeTile as describeTileFacts, tileWords } from "../../core/doc/describeTile";
 import type { TerrainState } from "../../core/features/raster/strokePreview";
 import { DEFAULT_OPTIONS, type Rgba, type ToolOptions } from "../tools";
@@ -172,7 +172,7 @@ export interface SessionSlice {
    *  dries or turns bad. */
   hoverWordsAt: (x: number, y: number, level?: number) => string;
   /** A held hazard day's first dry or first bad days per tile (core/sim/firstDays.ts, from the worker), or null. */
-  firstNews: { current: { hazard: Hazard; version: number; first: Int16Array; wet0: Uint8Array | null; through: number; days: number } | null };
+  firstNews: { current: HeldFirstDays | null };
   /** Work out both weather hazards' days once Kyler has been idle a moment with the water settled (the worker stops
    *  the moment he acts). */
   idlePrep: () => void;
@@ -276,19 +276,19 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const lastHover = useRef<{ x: number; y: number; level?: number } | null>(null);
   /** The held hazard's first dry or first bad day per tile (D133's hover), set with each day the worker sends, put away
    *  with the view. */
-  const firstNews = useRef<{ hazard: Hazard; version: number; first: Int16Array; wet0: Uint8Array | null; through: number; days: number } | null>(null);
+  const firstNews = useRef<HeldFirstDays | null>(null);
   /** The readout for a tile: the core's words, and while the Drought or Badtide view is on, the day its water goes or
    *  turns bad ("Dry on day 6", "Lasts the drought", "Turns bad on day 4"). A cave's floor or a ledge under a roof is
    *  not the water seen from above: no words there. */
   const hoverWordsAt = (x: number, y: number, level?: number): string => {
     const words = tileWords(describeTileFacts(ed.pageTileFacts(), x, y, level));
     const n = firstNews.current;
-    // (an edit while the view is held: the old map's days say nothing until the edited map's come)
-    if (!n || weatherRef.current !== n.hazard || n.version !== infoRef.current.version || x < 0 || y < 0 || x >= infoRef.current.W || y >= infoRef.current.H) return words;
+    if (!n || x < 0 || y < 0 || x >= infoRef.current.W || y >= infoRef.current.H) return words;
     const i = y * infoRef.current.W + x;
     const m = mirror.current;
     if (level !== undefined && level < m.heights[i]) return words;
-    const when = n.hazard === "drought" ? (n.wet0 ? dryWords(n.first, n.through, n.days, i, n.wet0) : null) : badWords(n.first, i);
+    // (an edit while the view is held: the old map's days say nothing until the edited map's come)
+    const when = heldWords(n, weatherRef.current, infoRef.current.version, i);
     return when ? `${words} · ${when}` : words;
   };
   const rehover = () => {
