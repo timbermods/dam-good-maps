@@ -136,7 +136,7 @@ place of its bottom rule.
   unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
   after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
-  thumbnail, drawn when the page is idle and encoded off the GPU, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
+  thumbnail, made in a worker of its own when the page is idle, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
   right-click on one, open or not, offers **Download .timber**, **Rename** (in place; a typed name stops at what fits the tile's two
   lines) and **Delete** (asked
   once; the open map gives way to the next one, or a new map when none is left). Several are selected as on a
