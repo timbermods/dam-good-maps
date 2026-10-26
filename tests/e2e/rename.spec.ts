@@ -123,6 +123,7 @@ test("Rename in Your maps acts on the open map: its tile is selected by a click,
   await expect(page.locator(".editor-title h1")).toHaveText("Otter Bend");
   await expect(yours.locator(".ym-tile[aria-current] .ym-name")).toHaveText("Otter Bend");
   await expect.poll(() => page.evaluate(async () => (await window.dgmEditor!.worker.sessionInfo())?.name)).toBe("Otter Bend");
+});
 
 test("the description is written under the name where it is renamed: saved through the core with its own undo step, refused in the core's words, cleared by emptying it", async ({ page }) => {
   test.setTimeout(240_000);
