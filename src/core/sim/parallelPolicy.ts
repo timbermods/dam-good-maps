@@ -34,12 +34,14 @@ export function meshWorkersFor(cores: number): number {
 }
 
 /** The most threads the water may use on a machine of `cores`, its coordinator's own included. A flood keeps the
- *  page's thread, the water mesh workers and the flow bake busy at the same time as the water's strips, so each
- *  keeps a core of its own: with all of them competing for the same cores, the page's thread lost 60 to 300 ms
- *  at a time with nothing of its own to run (#581's profile). Never below 1; the water's bytes are the same
- *  whatever the count (parallel.ts). */
+ *  page's thread, the water mesh workers and the flow bake busy at the same time as the water's strips, so on a
+ *  machine with room each keeps a core of its own: with all of them competing for the same cores, the page's
+ *  thread lost 60 to 300 ms at a time with nothing of its own to run (#581's profile). A small machine (4 to 6
+ *  threads) keeps the water's 3 threads all the same: on one thread its settle is about 2.5 times slower (#590's
+ *  review), more than the page gains. Never below 1; the water's bytes are the same whatever the count
+ *  (parallel.ts). */
 export function waterThreadBudget(cores: number): number {
-  return Math.max(1, Math.min(MAX_THREADS, cores - meshWorkersFor(cores) - 2));
+  return Math.max(1, Math.min(MAX_THREADS, Math.max(Math.min(3, cores - 1), cores - meshWorkersFor(cores) - 2)));
 }
 
 /** Whether this thread can run the water on several: a worker on a cross-origin isolated page in Chromium or

@@ -225,7 +225,8 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   on several single-threaded instances of the Rust water's Wasm over a `SharedArrayBuffer` (`src/core/sim/parallel.ts`),
   byte-identical to one thread. Threads only where they help: 256² and up in Chromium and Firefox (Firefox's speed is
   not re-timed, D440, D441), about 8 threads at 256² and up to 16 at 512², within a budget that leaves the page's
-  thread, the water mesh workers and the flow bake a core each (`waterThreadBudget`: 7 threads of 12, 4 of 8);
+  thread, the water mesh workers and the flow bake a core each (`waterThreadBudget`: 7 threads of 12, 4 of 8, and 3
+  on a machine of 4 to 6, where one thread would settle about 2.5 times slower);
   single-core at 128² and in WebKit. Its gate, the native `exp` and `hypot` calls made portable, is met (D401's guard). Costs: one
   first-visit reload through the one service worker (`public/sw.js`, D397; until hosting sends the headers itself; moving
   to Cloudflare Workers with Static Assets becomes worth doing then) and about 35 MiB at 512².

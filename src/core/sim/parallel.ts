@@ -14,7 +14,7 @@
 // (`installParallelWater`: the editor's generator worker, with helpers the page starts) on a cross-origin isolated page (the service worker,
 // public/sw.js) in Chromium and Firefox, for maps of 256² and more (about 8 threads at 256², up to 16 at 512²)
 // with enough water to share, within the machine's budget (`waterThreadBudget`: the page's thread, the water mesh
-// workers and the flow bake keep a core each, 7 threads of 12). Everywhere else, and whenever it can't, WaterSim runs the single thread, and the
+// workers and the flow bake keep a core each, 7 threads of 12; a machine of 4 to 6 threads keeps 3). Everywhere else, and whenever it can't, WaterSim runs the single thread, and the
 // two hand over to each other between runs at any time with the same result. Node and the tools stay
 // single-threaded (the identity check installs a pool to compare).
 
@@ -357,7 +357,8 @@ class Pool {
     private readonly spawn: () => HelperPort,
     readonly forced: number | null,
   ) {
-    // the page's own thread, the water's mesh workers and the flow bake keep a core each (waterThreadBudget)
+    // the page's own thread, the water's mesh workers and the flow bake keep a core each where there is room
+    // (waterThreadBudget)
     this.cap = forced ?? waterThreadBudget(machineThreads());
   }
 

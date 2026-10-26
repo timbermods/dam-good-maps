@@ -45,8 +45,8 @@ export function createGeneratorWorker(): { api: Remote<GeneratorApi>; stop(): vo
 }
 
 /** The multi-core water's helpers for the editor's worker, each reached through a port (none where it doesn't
- *  run: a page not cross-origin isolated, WebKit, a machine whose budget leaves the water fewer than three threads,
- *  waterThreadBudget). The worker starts more for bigger maps, within the same budget. */
+ *  run: a page not cross-origin isolated, WebKit, fewer than four cores; waterThreadBudget sizes them). The worker
+ *  starts more for bigger maps, within the same budget. */
 function waterHelpers(): { worker: Worker; port: MessagePort }[] {
   if (!parallelWaterSupported(true)) return [];
   const count = Math.min(threadsFor(256 * 256), waterThreadBudget(machineThreads())) - 1;
