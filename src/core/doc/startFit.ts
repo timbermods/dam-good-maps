@@ -3,14 +3,17 @@
 // footprint and not only the tile an object is anchored on, which is what the checks read ("Start overlapping
 // another object", "Start entrance blocked"). The core's `startProblem` (the shelf's move, the forces, the fixes)
 // and the page's hover preview both call this, each handing it the objects' tiles from the map they hold, so
-// the preview never says yes where the checks say no.
+// the preview never says yes where the checks say no. Under a roof `startRoofProblem` is the rule: the game's, at the
+// start's level (D491).
 //
 // Beyond the refusals, `startFitWarnings` says what the checks would flag with the start there, though it fits: the
 // generation's relics, geothermal fields, mine sites, thorn belts and unstable cores keep their distance band from
 // the start (`extras.placement`).
 
 import type { Feature, MapObjectKind } from "../features/schema";
-import { objectTiles, OBJECT_NAMES } from "../features/objects";
+import { objectTiles, OBJECT_NAMES, OBJECT_TEMPLATE, openPart, standProblem, type StandGround } from "../features/objects";
+import { coordinatesForMinCorner, FOOTPRINTS, startEntranceTile, type Orientation } from "../format/footprints";
+import { runsToTiles, tilesToRuns } from "../math/grid";
 import { bandScale, EXTRA_BANDS } from "../validate/playability";
 
 /** Objects a generated map's resources place and then make room for the start: the start takes their ground (D368 (10)). */
@@ -84,11 +87,87 @@ export interface StartFitExtra {
   tiles: readonly (readonly [number, number])[];
 }
 
+/** An object standing on the map, as `standingFeatures` reads it: the feature that owns it, its Coordinates and its turn
+ *  (`standingOf` from the build's entities, `standingOfView` from the page's columns). */
+export interface StandingObject {
+  owner: string;
+  x: number;
+  y: number;
+  orientation: Orientation;
+}
+
 /** The generation's objects that keep a distance from the start, from a document's features: what the check
- *  `extras.placement` measures (an object the player placed is not asked). */
-export function startFitExtras(features: readonly Feature[], W: number, H: number): StartFitExtra[] {
+ *  `extras.placement` measures (an object the player placed is not asked). `standing`: the objects on the map now,
+ *  which place each feature where its objects stand (`standingFeatures`); without it, where the features say. */
+export function startFitExtras(features: readonly Feature[], W: number, H: number, standing?: readonly StandingObject[]): StartFitExtra[] {
   const out: StartFitExtra[] = [];
-  for (const f of features) if (f.kind === "mapObject" && f.origin === "generated" && f.params.kind in EXTRA_BANDS) out.push({ kind: f.params.kind, tiles: objectTiles(f, W, H) });
+  for (const f of standing ? standingFeatures(features, standing, W, H) : features) if (f.kind === "mapObject" && f.origin === "generated" && f.params.kind in EXTRA_BANDS) out.push({ kind: f.params.kind, tiles: objectTiles(f, W, H) });
+  return out;
+}
+
+/** A document's features as the checks read them: each map object with a distance band (`EXTRA_BANDS`) where its objects
+ *  stand now. A feature keeps its first placement after a drag moves its object and its whole area after a delete takes
+ *  part of a belt, and stays after Clear everything, a delete or a force takes every object; so a single object's
+ *  placement moves to its object, a belt's area becomes the tiles whose thorns stand, and a feature with nothing standing
+ *  is left out. `extras.placement` and the start's preview never measure an object where it is not. The same array when
+ *  nothing differs (a map as generated). */
+export function standingFeatures(features: readonly Feature[], standing: readonly StandingObject[], W: number, H: number): readonly Feature[] {
+  if (!features.some((f) => f.kind === "mapObject" && f.params.kind in EXTRA_BANDS)) return features;
+  const byOwner = new Map<string, StandingObject[]>();
+  for (const o of standing) {
+    const list = byOwner.get(o.owner);
+    if (list) list.push(o);
+    else byOwner.set(o.owner, [o]);
+  }
+  let changed = false;
+  const out: Feature[] = [];
+  for (const f of features) {
+    if (f.kind !== "mapObject" || !(f.params.kind in EXTRA_BANDS)) {
+      out.push(f);
+      continue;
+    }
+    const mine = byOwner.get(f.id);
+    if (!mine) {
+      changed = true;
+      continue;
+    }
+    const pl = f.params.placement;
+    if ("area" in pl) {
+      const now = [...new Set(mine.filter((o) => o.x >= 0 && o.y >= 0 && o.x < W && o.y < H).map((o) => o.y * W + o.x))].sort((a, b) => a - b);
+      const was = runsToTiles(pl.area, W).filter((i) => i >= 0 && i < W * H);
+      if (now.length === was.length && now.every((i, k) => i === was[k])) out.push(f);
+      else {
+        changed = true;
+        out.push({ ...f, params: { ...f.params, placement: { ...pl, area: tilesToRuns(now, W) } } });
+      }
+      continue;
+    }
+    // (the placement names the footprint's minimum corner; the object stands at its Coordinates)
+    const o = mine[0];
+    const size = FOOTPRINTS[OBJECT_TEMPLATE[f.params.kind]].size;
+    const [ox, oy] = coordinatesForMinCorner(size[0], size[1], 0, 0, o.orientation);
+    const x = o.x - ox;
+    const y = o.y - oy;
+    if (x === pl.x && y === pl.y && o.orientation === pl.orientation) out.push(f);
+    else {
+      changed = true;
+      out.push({ ...f, params: { ...f.params, placement: { ...pl, x, y, orientation: o.orientation } } });
+    }
+  }
+  return changed ? out : features;
+}
+
+/** The objects standing in a build's entity list. */
+export function standingOf(entities: readonly { owner: string; x: number; y: number; orientation: Orientation }[]): StandingObject[] {
+  return entities.map((e) => ({ owner: e.owner, x: e.x, y: e.y, orientation: e.orientation }));
+}
+
+const TURNS: readonly Orientation[] = ["Cw0", "Cw90", "Cw180", "Cw270"];
+
+/** The objects standing in the page's entity columns (orientation 0–3: Cw0 to Cw270). */
+export function standingOfView(e: { count: number; owner: ArrayLike<number>; owners: readonly string[]; x: ArrayLike<number>; y: ArrayLike<number>; orientation: ArrayLike<number> }): StandingObject[] {
+  const out: StandingObject[] = [];
+  for (let k = 0; k < e.count; k++) out.push({ owner: e.owners[e.owner[k]], x: e.x[k], y: e.y[k], orientation: TURNS[e.orientation[k] & 3] });
   return out;
 }
 
@@ -115,4 +194,62 @@ export function startFitWarnings(extras: readonly StartFitExtra[], W: number, H:
     out.push(`${OBJECT_NAMES[e.kind]} ${Math.round(near)} tiles from the start, wanted ${Math.round(lo)}${hi < Infinity ? `–${Math.round(hi)}` : "+"}`);
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------------- under a roof (D491)
+
+/** Why a start without a level does not stand where a cave or an overhang is: it stands on open ground, its bench and its
+ *  levelling there, or at a level wholly under a roof (`startRoofProblem`). */
+export const START_OPEN_GROUND = "the start needs open ground: there is a cave or overhang there";
+
+/** Whether the start's 3×3 or the tile at its door, with its middle at (x, y) facing `o`, has a cave or an overhang
+ *  (a column that is not one plain run from the bottom). `doorOnly`: the door's tile alone (a start turned in place
+ *  keeps its 3×3 on the ground it stood on). */
+export function startOverRoof(g: StandGround, x: number, y: number, o: Orientation, doorOnly = false): boolean {
+  const [cx, cy] = coordinatesForMinCorner(3, 3, x - 1, y - 1, o);
+  const door = startEntranceTile(cx, cy, o);
+  const tiles: [number, number][] = [door];
+  if (!doorOnly) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push([x + dx, y + dy]);
+  for (const [tx, ty] of tiles) {
+    if (tx < 0 || ty < 0 || tx >= g.W || ty >= g.H) continue;
+    const m = g.mask[ty * g.W + tx];
+    if ((m & (m + 1)) !== 0) return true;
+  }
+  return false;
+}
+
+/** The ground the rule reads under a roof: the ground voxel by voxel and the top of each tile. */
+export interface StartRoofGround extends StandGround {
+  heights: ArrayLike<number>;
+}
+
+/** Why the district center cannot stand under a roof (a cave's floor, the ground under a ledge) with its middle at (x, y),
+ *  facing `o`, at level `z`, or null when it can (D491). Timberborn keeps a start wherever its 3×3×5 is air on level
+ *  ground and the tile at its door is ground at its level that nothing blocks: nothing looks for the sky
+ *  (`StartingBuildingPlacementValidator` reads only the entrance; `StartingBuildingSpawner` builds the district center at
+ *  the StartingLocation's own placement; investigation/terrain3d/GAME_RULES.md §5). The editor asks one thing more, as of
+ *  every object with a level: its 3×3 stands wholly under the roof, so no brush or force reaches its ground (D491).
+ *  Nothing is levelled there and it has no bench. `taken(x, y, z)` names another object holding a cell, if any.
+ *  `doorOnly`: turned in place, its 3×3 keeps the ground it stood on and only its new door is checked. */
+export function startRoofProblem(g: StartRoofGround, x: number, y: number, o: Orientation, z: number, taken?: (x: number, y: number, z: number) => string | null, doorOnly = false): string | null {
+  const { W, H, heights, mask } = g;
+  const [cx, cy] = coordinatesForMinCorner(3, 3, x - 1, y - 1, o);
+  const door = startEntranceTile(cx, cy, o);
+  const foot: [number, number][] = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) foot.push([x + dx, y + dy]);
+  for (const [tx, ty] of [...foot, door]) if (tx < 1 || ty < 1 || tx > W - 2 || ty > H - 2) return "too close to the map edge";
+  if (!doorOnly) {
+    const top = heights[y * W + x];
+    if (z >= top) return `level ${z} is not under a roof here: the ground's top is ${top}, where the start stands without a level`;
+    if (openPart(foot, z, g)) return "part of the start would stand in the open: under a roof it stands wholly under it";
+    const why = standProblem("StartingLocation", { x: cx, y: cy, z, orientation: o }, g, taken);
+    if (why) return why;
+  }
+  const solid = (i: number, l: number) => l < 0 || (l < 23 && ((mask[i] >>> l) & 1) === 1);
+  const d = door[1] * W + door[0];
+  if (solid(d, z)) return "its door would open onto rock";
+  if (!solid(d, z - 1)) return "there is no ground at its door: the tile in front of it needs ground at its level";
+  const other = taken?.(door[0], door[1], z) ?? taken?.(door[0], door[1], z + 1);
+  if (other) return "something stands in front of its door";
+  return null;
 }

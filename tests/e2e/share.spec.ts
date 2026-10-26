@@ -87,6 +87,8 @@ test("a size typed in the drawer survives the page re-drawing before it is commi
   await expectReady(page);
   const drawer = await openDrawer(page);
   await pick(drawer, "Size", "Custom");
+  await expect(page.locator("#size-x")).toHaveValue("96");
+  await expect(page.locator("#size-y")).toHaveValue("96");
   const water = await openSection(page, "Water");
   const field = page.locator("#size-x");
   // (typed, not yet committed: the field commits on Tab; anything the page re-draws meanwhile, as the opened map
@@ -97,5 +99,6 @@ test("a size typed in the drawer survives the page re-drawing before it is commi
   await expect(field).toHaveValue("48");
   await field.press("Tab");
   await expect(field).toHaveValue("48");
-  await expect(page.locator("#size-y")).toHaveValue("80");
+  // (Custom opens at the map's own size, 96 by 96; it used to take 16 off the height)
+  await expect(page.locator("#size-y")).toHaveValue("96");
 });

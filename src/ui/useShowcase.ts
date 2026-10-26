@@ -8,7 +8,7 @@ import { createShowcase } from "../platform";
 import type { MapSpec } from "../core/spec/mapspec";
 import { thumbnailPixels } from "../core/render/thumb";
 import type { ShowcaseMessage, ShowcasePickView, ShowcasePreview } from "../worker/showcaseApi";
-import { SHOWCASE_DEFAULT_MINUTES, SHOWCASE_IDLE, SHOWCASE_MINUTES, searchKey, showcaseStart, showcaseStep, type ShowcaseModel, type ShowcaseState } from "../editor/generator/showcaseModel";
+import { SHOWCASE_DEFAULT_MINUTES, SHOWCASE_IDLE, SHOWCASE_MINUTES, searchKey, showcaseStart, showcaseStep, stoppedWords, type ShowcaseModel, type ShowcaseState } from "../editor/generator/showcaseModel";
 
 const MINUTES_KEY = "dgm.showcaseMinutes";
 
@@ -136,7 +136,7 @@ export function useShowcase(host: ShowcaseHost): { model: ShowcaseModel; notice:
   const notice =
     unseen && !inView
       ? {
-          text: state.status === "error" ? `The showcase search stopped: ${state.error}` : n ? `The showcase search is done: ${n === 1 ? "one map" : n === 2 ? "two maps" : "three maps"} to look at.` : "The showcase search is done: no map passed every check.",
+          text: state.status === "error" ? stoppedWords(state, "The showcase search") : n ? `The showcase search is done: ${n === 1 ? "one map" : n === 2 ? "two maps" : "three maps"} to look at.` : "The showcase search is done: no map passed every check.",
           show: () => {
             setOpen(true);
             host.showPanel();

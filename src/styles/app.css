@@ -22,6 +22,14 @@
   --pic-well: light-dark(transparent, #e3dac3);
   --overlay: light-dark(rgba(255, 250, 240, 0.94), rgba(36, 49, 38, 0.95));
   --sh-ink: 58, 38, 16;
+  /* how much wider than Segoe UI the system font is on the tight labels (the cells' share, and the shelf's, which has no
+     slack), 1 where it is not (src/ui/fontFit.ts) */
+  --wide-font: 1;
+  --wide-font-full: 1;
+  /* the smallest a label is scaled down to: 10px, a pixel under the page's smallest text (Auto's 11px), so Carve's
+     row still fits at 1280 and 1366 under a Verdana-wide font (at 10.5px, Auto beside "Canyon depth" grew and squeezed
+     it to an ellipsis); a label already smaller is left as it is */
+  --text-floor: 10px;
   /* Depth: three elevations, each three stacked shadows in a warm walnut ink, never grey. 1: a single control over the
      map (every place that says --shadow). 2: a plate (the bar, its settings, the shelf and its object window, the
      panels, the legend). 3: what opens over everything (menus, the checks list, dialogs). The header's falls on the

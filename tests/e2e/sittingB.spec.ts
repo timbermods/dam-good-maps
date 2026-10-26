@@ -63,8 +63,9 @@ test("B1 and B3: the map is centred in every view, in what the controls leave of
       return { dx: (Math.min(...xs) + Math.max(...xs)) / 2 - (c.left + c.width / 2), dy: (Math.min(...ys) + Math.max(...ys)) / 2 - (c.top + c.height / 2), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys), cw: c.width, ch: c.height };
     });
   for (const step of ["the default view", "top-down", "reset"]) {
+    // (D492: the Top-down toggle keeps the view, so the framing in top-down is Reset view's, pressed after it)
     if (step === "top-down") await page.getByRole("button", { name: "Top-down" }).click();
-    if (step === "reset") {
+    if (step === "reset" || step === "top-down") {
       await page.mouse.move(700, 500);
       await page.mouse.down({ button: "right" });
       await page.mouse.move(500, 300, { steps: 4 });

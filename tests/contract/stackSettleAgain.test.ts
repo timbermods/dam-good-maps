@@ -10,7 +10,8 @@ import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { generate } from "../../src/core/gen/generate";
 import { canonicalRun, type CanonicalWater } from "../../src/core/sim/prefill";
-import { REACH_MARGIN, settledAgain, type StackSettle } from "../../src/core/sim/stackWater";
+import type { WaterModel } from "../../src/core/sim/water";
+import { canonicalStackRun, REACH_MARGIN, settledAgain, type StackSettle } from "../../src/core/sim/stackWater";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { caveSession, dig, hillsides } from "./caveMap";
 
@@ -120,4 +121,59 @@ describe("a map with caves settles again at once when an edit leaves its water a
     st.depth[c] = was;
     expect(settledHash(s)).toBe(hash);
   });
+});
+
+// A stored lake whose rim was dug, on a long map (the engine review of #534's repro): the water is stored levelled at
+// rest across dry ground the run never reached, so an edit in that ground changes the settle without touching the
+// run's own water. It settles in full, and what the build keeps is the cold settle's (D453).
+describe("a stored lake levelled across ground beyond the run's reach", () => {
+  const W = 64;
+  const H = 12;
+  const N = W * H;
+  /** Rock to 10 with the boxes (x0, x1, y0, y1, z0, z1) cut out (inclusive), as the engine's own tests carve. */
+  function carve(cuts: readonly number[][]): Uint32Array {
+    const mask = new Uint32Array(N).fill((1 << 10) - 1);
+    for (const [x0, x1, y0, y1, z0, z1] of cuts) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) mask[y * W + x] &= ~(1 << z);
+    return mask;
+  }
+  // the lake (floor 2, 3.5 deep, to 5.5) behind a rim dug to 3, a pit on 0 and a long shelf on 2 beyond
+  const cuts = [[1, 4, 4, 7, 2, 5], [5, 5, 4, 7, 3, 5], [6, 9, 4, 7, 0, 5], [10, 58, 1, 10, 2, 5]];
+  const tiles: number[] = [];
+  for (let y = 4; y <= 7; y++) for (let x = 1; x <= 4; x++) tiles.push(y * W + x);
+  const retained = [{ tiles, floor: tiles.map(() => 2), depth: tiles.map(() => 3.5), contamination: tiles.map(() => 0) }];
+  const model = (mask: Uint32Array) => ({ W, H, retained, stacked: { mask, objects: new Float64Array(0) } }) as unknown as WaterModel;
+  const settle = (mask: Uint32Array): StackSettle => {
+    const run = canonicalStackRun(W, H, { mask, objects: new Float64Array(0) }, retained);
+    let s = run.advance(1e6);
+    while (!s) s = run.advance(1e6);
+    return s;
+  };
+
+  it("an edit far from the run's water, inside the levelled ground, settles in full: the cold settle", () => {
+    const a = carve(cuts);
+    const was = settle(a);
+    // the run wets only the near end of the shelf; the stored water stands over all of it
+    const far = 5 * W + 55;
+    expect(was.depth.some((d, k) => d > 0 && k % N === far)).toBe(true);
+    expect(fromReach(was, 55, 5)).toBe(0);
+    // a column dug inside the arena, 32 tiles from the run's water
+    const b = carve(cuts);
+    b[far] &= ~0b11;
+    expect(settledAgain(was, model(a), model(b))).toBeNull();
+    const cold = settle(b);
+    expectSame(cold, settle(b));
+    // (the dug column took water the old settle held, so the old one would have been wrong)
+    expect(bytes(cold.depth).equals(bytes(was.depth))).toBe(false);
+  }, 60000);
+
+  it("the levelled water carries none of the run's momentum: no current is drawn on still water", () => {
+    const s = settle(carve(cuts));
+    let wet = 0;
+    for (let k = 0; k < s.depth.length; k++) {
+      if (s.depth[k] <= 0) continue;
+      wet++;
+      for (let d = 0; d < 4; d++) expect(s.flows![k * 4 + d], `column ${k} way ${d}`).toBe(0);
+    }
+    expect(wet).toBeGreaterThan(100);
+  }, 60000);
 });

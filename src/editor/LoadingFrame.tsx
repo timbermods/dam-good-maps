@@ -39,6 +39,7 @@ export function LoadingFrame(p: LoadingFrameProps) {
         info={{ kind: "import", W: 0, H: 0 } as SessionInfo}
         name={p.name}
         onRename={() => Promise.resolve(null)}
+        onDescribe={() => Promise.resolve(null)}
         saveState={p.subtitle}
         canUndo={false}
         canRedo={false}

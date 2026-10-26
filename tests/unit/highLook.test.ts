@@ -70,6 +70,16 @@ describe("the High look's shaders", () => {
     expect(s).toMatch(/if \(hlShadows < 0\.5\) lit = bakedSunLit\(g, z\)/);
   });
 
+  it("draw the poisoned bed from the ground groundColor already worked out, never a second groundColor inside its branch (derivatives and mipmaps there are undefined, and the bed's veins flickered)", () => {
+    const top = terrainHooks().groundTop!;
+    expect(top).not.toContain("groundColor(");
+    expect(top).toContain("ground = mix(ground, groundDry, polluted);");
+    expect(top).toContain("glow = mix(glow, groundDryGlow, polluted);");
+    // (High works the veins out under water too, for the bed; Standard, which has no bed, does not)
+    const s = terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader;
+    expect(s).toContain("if (bad > 0.0) vein = veinsOf(veinQ, veinWidth, lvl) * bad;");
+  });
+
   it("follow Timberborn's references (D334): exposure 1.00, and badwater's own cues, pink highlights moving with the current, slow bubbles and red contact at rock", () => {
     // exposure 1.00 (from 1.22), with no grass-only hold-down beside it
     expect(GRADE_GLSL).toContain("if (hlTone > 0.5) c = hlShoulder(c);");

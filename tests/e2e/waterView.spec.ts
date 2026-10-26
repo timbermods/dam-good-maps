@@ -7,7 +7,7 @@
 // the source; the water flows on a stroke while it is painted, and its speed is the player's.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -43,7 +43,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   // (at 5% of its river on 0.8.3's maps, D476, D148: a spring river now joins seed 8's above 10% of its
   // path, so from there two source groups feed the spot; above it one does)
   await openEditor(page, "s=8&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const i = await info(page);
   const W = i.W;
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;

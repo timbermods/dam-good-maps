@@ -6,8 +6,8 @@ import type { EditOp } from "./ops";
 import { plantLabel } from "./labels";
 
 /** The operations that place a plan. `newId` gives each object its Id (a random GUID, stored so replays give
- *  the same ones). */
-export function paintOps(plan: readonly PlannedObject[], W: number, newId: () => string): EditOp[] {
+ *  the same ones). `levels`: the level a tile's object stands on under a roof (D491), its `z`. */
+export function paintOps(plan: readonly PlannedObject[], W: number, newId: () => string, levels: ReadonlyMap<number, number> = new Map()): EditOp[] {
   return plan.map((p): EditOp => ({
     op: "placeEntity",
     params: {
@@ -15,6 +15,7 @@ export function paintOps(plan: readonly PlannedObject[], W: number, newId: () =>
       template: p.template,
       x: p.tile % W,
       y: Math.floor(p.tile / W),
+      ...(levels.has(p.tile) ? { z: levels.get(p.tile)! } : {}),
       orientation: p.orientation,
       ...(p.flipped ? { flipped: true } : {}),
       ...(p.components ? { components: p.components } : {}),

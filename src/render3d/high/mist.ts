@@ -197,6 +197,11 @@ export class Mist {
     this.stats = { mist: seeds.length, rings: rs.length / 6 };
   }
 
+  /** Its materials: the mist's (drawn as points) and the rings' (a mesh), neither with a normal. */
+  materials(): { mist: ShaderMaterial; rings: ShaderMaterial } {
+    return { mist: this.mistMat, rings: this.ringMat };
+  }
+
   show(mist: boolean, rings: boolean): void {
     for (const c of this.group.children) c.visible = c.name === "mist" ? mist : rings;
   }

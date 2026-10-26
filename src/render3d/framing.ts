@@ -115,3 +115,26 @@ export function objectOutline(W: number, H: number, e: EntityView | null): numbe
   }
   return pts;
 }
+
+/** The perspective camera's vertical field of view (degrees), and the top-down camera's half-height as a fraction of the
+ *  view's distance: together they say how far apart the two views' zoom scales sit. */
+export const PERSP_FOV_DEG = 40;
+export const ORTHO_HALF_PER_DISTANCE = 0.42;
+
+/** The distance that shows the same ground scale at the middle of the view in the other mode (D492): the angled view
+ *  at `distance` spans 2 * distance * tan(fov / 2) of ground across the canvas's height at its centre (across its
+ *  width, whatever the tilt); the top-down view spans 2 * 0.42 * distance. Pure, and its own inverse going back. */
+export function distanceForMode(distance: number, to: "orbit" | "top"): number {
+  const k = (2 * Math.tan((PERSP_FOV_DEG * Math.PI) / 360)) / (2 * ORTHO_HALF_PER_DISTANCE);
+  return to === "top" ? distance * k : distance / k;
+}
+
+/** The view after switching mode, keeping the point at the centre and the zoom (D492): only the tilt changes, the target,
+ *  the turn and the pitch stay and the distance is converted so the ground scale at the centre stays. The distance is held
+ *  to the zoom's limits `limits`, so it is never nearer than the wheel goes (a camera inside a cliff has no distance), but a
+ *  distance already past the farthest limit (a wide framing) is not snapped in. */
+export function viewAfterModeSwitch<V extends { mode: "orbit" | "top"; distance: number }>(view: V, mode: "orbit" | "top", limits: { min: number; max: number }): V {
+  if (view.mode === mode) return view;
+  const distance = Math.min(Math.max(limits.max, view.distance), Math.max(limits.min, distanceForMode(view.distance, mode)));
+  return { ...view, mode, distance };
+}

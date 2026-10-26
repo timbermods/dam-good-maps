@@ -31,13 +31,21 @@ The map document and its edit engine: a generation plus an ordered log of edit o
   preview all call it; they skip the start by its template or its feature's id, never by owner (an import's objects
   are all owned by `import`). `startFitWarnings` is what the checks would flag where it still fits (the generation's relics,
   geothermal fields, mine sites, thorn belts and unstable cores out of their distance band, `extras.placement`): the start
-  is amber there, and the start's own fix (`moveStartNear`) never moves it to such a spot.
-- `plantSoil.ts` `dyingTiles`: where a plant would die for its soil (the page's "dry ground: these will die" ring).
+  is amber there, and the start's own fix (`moveStartNear`) never moves it to such a spot. Under a roof, at a level,
+  `startRoofProblem` is the game's rule (D491: its 3×3×5 in air on level ground, ground at its door, wholly under the
+  roof); a start without a level is refused where a cave or an overhang is (`START_OPEN_GROUND`, `startOverRoof`).
+  The objects are measured where they stand (`standingFeatures`): a map-object feature stays in the document after
+  Clear everything, a delete or a force takes its objects, and keeps its first placement after a drag moves them, so
+  `MapSession.validate`, `startGroundOf`, the page's previews and a terrain edit's objects pass (`objectsOnNewGround`)
+  read each from its standing objects instead.
+- `plantSoil.ts` `dyingTiles`: where a plant would die for its soil (the page's "dry ground: these will die" ring);
+  under a roof, the run top it stands on (`MapSession.runGrounds`, `paint.ts` `paintDying` for a stroke's levels).
 - `waterFix.ts` `waterFix`: the operations that would fix the start's water checks after edits (a spring by the start,
   D330), as one step; its places are `water/springSites.ts` `springCandidates`, the generator's rule too. Only its test calls
   it today (the page's fix waits on #92).
 - `droughtLine.ts` `mapDroughtLine`: the open map's drought line (D133; `sim/droughtLine.ts`) from the Drought view's last day.
 - `crop.ts`: Crop map to selection (D340): the rectangle's refusals (`cropRectProblem`), what the edge cuts (`cropObjects`, `planCrop`) and the cropped file (`cropFile`). The session makes the cropped map the document's next generation (`MapDocument.prior` holds the one before): one undo step, the full map back exactly.
+- `description.ts`: the map's description, written by the `setDescription` operation: its limit (`MAX_DESCRIPTION`), its refusals (`descriptionProblem`) and a real place's credits (`placeCredits`). `MapSession.description()` answers it; a generated map's own words are `gen/pack.ts` `description` and `gen/names.ts` `mapSays`.
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
 
 **Tests**: `tests/contract/` (document, ops, bake, import, projects, storedMap, views, sourcesUnderEdits, editor, waterEdits; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.

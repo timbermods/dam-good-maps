@@ -6,7 +6,7 @@
 import { entityTiles } from "../features/edits";
 import { isPickable, openPart, standProblem } from "../features/objects";
 import { floorBesideWater, platformLevel } from "../features/footprintLevel";
-import { FOOTPRINTS, worldBlocks, type Orientation } from "../format/footprints";
+import { FOOTPRINTS, startEntranceTile, startMiddleTile, worldBlocks, type Orientation } from "../format/footprints";
 import { FLUIDS } from "../data/parity";
 import type { EntitySpec } from "../format/entities";
 import { placeComponents } from "./objectOps";
@@ -14,6 +14,7 @@ import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import type { EditOp } from "./ops";
 import { itemName, placeLabel, plantLabel, withArticle } from "./labels";
 import type { MapSession } from "./session";
+import { makesRoomForStart, START_OPEN_GROUND, startRoofProblem } from "./startFit";
 
 const fail = (...errors: string[]): { ok: false; errors: string[] } => ({ ok: false, errors });
 
@@ -49,7 +50,7 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
   const { x: W, y: H } = s.size;
   const b = s.built;
   if (p.x < 0 || p.y < 0 || p.x >= W || p.y >= H) return "it is off the map";
-  if (underRoof(s, p)) return roofProblem(s, p, ignore);
+  if (underRoof(s, p) && !startTurnsInPlace(s, p, ignore)) return roofProblem(s, p, ignore);
   const z = b.heights[p.y * W + p.x];
   const skip = resourceOwners(s);
   // a resource's own entity moves after the resources are placed: they do not make room for it
@@ -88,6 +89,21 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
   return level ? levelProblem(s, p) : null;
 }
 
+/** Whether `p` is the map's start without a level (`ignore`, an opened map's StartingLocation on the ground's top) turned
+ *  where it stands, its new door on plain ground: only a move or a placement checks its 3×3 for a cave, so a tunnel dug
+ *  under it later never holds it fast; the tile at its new door, which it levels, is checked (D491). */
+function startTurnsInPlace(s: MapSession, p: { template: string; x: number; y: number; z?: number; orientation: Orientation }, ignore: string | null): boolean {
+  if (p.template !== "StartingLocation" || p.z !== undefined || !ignore) return false;
+  const was = s.built.entities.find((e) => e.id === ignore);
+  if (!was || was.template !== "StartingLocation") return false;
+  const { x: W, y: H } = s.size;
+  const [ax, ay] = startMiddleTile(was);
+  const [bx, by] = startMiddleTile(p);
+  if (ax !== bx || ay !== by || ax < 0 || ay < 0 || ax >= W || ay >= H || was.z < s.built.heights[ay * W + ax]) return false;
+  const [dx, dy] = startEntranceTile(p.x, p.y, p.orientation);
+  return dx < 0 || dy < 0 || dx >= W || dy >= H || s.plainAt(dy * W + dx);
+}
+
 /** Whether a placement stands under a roof (D491): at a given level (`z`: a cave's floor, the ground
  *  under a ledge), or with any of its tiles not one plain run from the bottom (a roof's top, the edge of
  *  an overhang). Such a placement levels nothing: the brushes alone shape a roof's top (D487). */
@@ -109,10 +125,17 @@ export function underRoof(s: MapSession, p: { template?: string; x: number; y: n
 function roofProblem(s: MapSession, p: { template: string; x: number; y: number; z?: number; orientation: Orientation; flipped?: boolean }, ignore: string | null): string | null {
   const { x: W, y: H } = s.size;
   const b = s.built;
+  // the start: on open ground (its door and bench are levelled there), or at a level wholly under a roof, where the
+  // game's rule decides (startFit.ts `startRoofProblem`); the generation's plants and ruin columns make room for it
+  if (p.template === "StartingLocation") {
+    if (p.z === undefined) return START_OPEN_GROUND;
+    const [mx, my] = startMiddleTile({ x: p.x, y: p.y, orientation: p.orientation });
+    // (its own object by its id or its template, never its owner: an import's objects are all owned by "import")
+    const cells = objectCells(b.entities, W, H, (e) => e.id === ignore || makesRoomForStart(e.template, !!e.raw));
+    return startRoofProblem({ ...s.standGround(), heights: b.heights }, mx, my, p.orientation, p.z, cells);
+  }
   const top = b.heights[p.y * W + p.x];
   if (p.z !== undefined && p.z >= top) return `level ${p.z} is not under a roof here: the ground's top is ${top}, where it stands without a level`;
-  // the start stands on open ground, as it always has (its door and bench are levelled there)
-  if (p.template === "StartingLocation") return "the start needs open ground: there is a cave or overhang there";
   const fp = FOOTPRINTS[p.template];
   if (p.z !== undefined) {
     const tiles = worldBlocks(fp, { template: p.template, x: p.x, y: p.y, z: 0, orientation: p.orientation, flipped: !!p.flipped }).map((c) => [c.x, c.y] as const);

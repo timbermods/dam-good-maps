@@ -11,6 +11,7 @@ import { plain } from "../words";
 import { loadBlock, saveBlock } from "../prefs/blockPrefs";
 import type { Ed } from "../ed";
 import { blockAim, type BlockAim } from "../../render3d/pick";
+import { freeView } from "../view/pointerNote";
 import { blockLabel, blockParams, clampSize, modeFor, noteSpot, paramsKey, plantsWords, PlaneSweep, sizeFromPointer, type BlockSettings, type ScreenBox } from "./blockTool";
 import { showBlocks } from "./view";
 
@@ -24,7 +25,7 @@ export interface BlockSlice {
   /** Why the click under the pointer is refused, or the plants it would take or lift, beside the blocks it would
    *  change (kept apart from the size flash, so neither clears the other); x and y as the shape note's; `ok` when
    *  the click would be taken (the plants' words). */
-  blockNote: { text: string; x: number; y: number; ok?: boolean } | null;
+  blockNote: { text: string; x: number; y: number; pointer: { x: number; y: number }; own: boolean; ok?: boolean } | null;
   setBlockSettings: (s: BlockSettings, save?: boolean) => void;
   /** Pick the tool up or put it away (every other tool goes back when it is picked). */
   pickBlock: (on: boolean) => void;
@@ -37,6 +38,8 @@ export interface BlockSlice {
   blockCancel: () => boolean;
   /** What the tool shows now (tests). */
   blockState: () => { held: boolean; dragging: boolean; settings: BlockSettings; preview: BlockFalls | null; note: string | null };
+  /** Resolves once the preview has answered all it was asked (tests). */
+  blockAnswered: () => Promise<void>;
 }
 
 export function useBlockTool(ed: Ed): BlockSlice {
@@ -47,7 +50,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
   blockRef.current = block;
   const [blockSettings, setSettingsState] = useState<BlockSettings>(loadBlock);
   const [blockFlip, setFlip] = useState(false);
-  const [blockNote, setBlockNote] = useState<{ text: string; x: number; y: number; ok?: boolean } | null>(null);
+  const [blockNote, setBlockNote] = useState<{ text: string; x: number; y: number; pointer: { x: number; y: number }; own: boolean; ok?: boolean } | null>(null);
   const settingsRef = useRef(blockSettings);
   settingsRef.current = blockSettings;
   const setBlockSettings = (s: BlockSettings, save = true) => {
@@ -73,7 +76,11 @@ export function useBlockTool(ed: Ed): BlockSlice {
   const keyOf = paramsKey;
   /** The preview: the operation asked about last, the question on its way (its operation, and the map's version its face
    *  was picked on), the next to ask (and that version), the answer (and that version). */
-  const pv = useRef<{ key: string; inFlight: boolean; flight: string; at: number; queued: BlocksParams | null; queuedSeen: number; result: { key: string; f: BlockFalls; version: number } | null; note: string | null }>({ key: "", inFlight: false, flight: "", at: -1, queued: null, queuedSeen: -1, result: null, note: null });
+  const pv = useRef<{ key: string; inFlight: boolean; flight: string; at: number; queued: BlocksParams | null; queuedSeen: number; result: { key: string; f: BlockFalls; version: number } | null; note: string | null; answer: Promise<unknown> | null }>({ key: "", inFlight: false, flight: "", at: -1, queued: null, queuedSeen: -1, result: null, note: null, answer: null });
+  /** The face asked about again a moment after the map changed (its timer, 0: none), and the map's version that was last
+   *  looked at for it (the tests' `blockAnswered` waits for both). */
+  const repick = useRef(0);
+  const repickSeen = useRef(-1);
   const sizing = useRef<{ from: number; stop(): void } | null>(null);
 
   function clearShown() {
@@ -107,11 +114,14 @@ export function useBlockTool(ed: Ed): BlockSlice {
     pv.current.note = reason ? plain(reason) : null;
     if (!reason) return setBlockNote(null);
     const c = renderer.current?.canvas;
-    // (the note's own size, about: two lines at most; its left and top are what the page places it by, less 16px each;
-    // below the pointer's own words, which show a size beside it for a moment)
-    const at = { x: pointerAt.current.x, y: pointerAt.current.y + 32 };
-    const spot = c ? noteSpot(box, at, { w: c.clientWidth, h: c.clientHeight }, { w: 300, h: 52 }) : { x: at.x + 16, y: at.y + 16 };
-    setBlockNote({ text: plain(reason), x: spot.x - 16, y: spot.y - 16, ok });
+    // (the note's own size, about: two lines at most; below the pointer's own words, which show a size beside it for a
+    // moment; clear of the panels, the shelf and the bars, and the page moves it again if it still runs under one)
+    const pointer = { ...pointerAt.current };
+    const at = { x: pointer.x, y: pointer.y + 32 };
+    const free = c?.parentElement ? freeView(c.parentElement) : null;
+    const spot = c ? noteSpot(box, at, { w: c.clientWidth, h: c.clientHeight }, { w: 300, h: 52 }, 10, free?.avoid) : { x: at.x + 16, y: at.y + 16 };
+    // (with blocks drawn, the spot is the tool's own, clear of them; the page does not move it to another side it had)
+    setBlockNote({ text: plain(reason), x: spot.x, y: spot.y, pointer, own: !!box, ok });
   }
 
   /** Show an answer: the blocks on the map and, when the click would be refused, why. */
@@ -152,7 +162,9 @@ export function useBlockTool(ed: Ed): BlockSlice {
     s.at = seen;
     s.flight = key;
     try {
-      const f = await api.blockFalls(p);
+      const asked = api.blockFalls(p);
+      s.answer = asked.catch(() => undefined);
+      const f = await asked;
       // (an answer for a question since changed, or a map since edited, is dropped)
       if (key === s.key && version === infoRef.current.version && blockRef.current) {
         s.result = { key, f, version: seen };
@@ -279,6 +291,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
     }
     // (the preview is cleared as the edit goes: the new blocks stand where it was)
     ask(null);
+    renderer.current?.blockEditSent();
     void run(
       () => api.apply({ op: "blocks", params }, "user", blockLabel(mode)),
       (u) => {
@@ -289,12 +302,13 @@ export function useBlockTool(ed: Ed): BlockSlice {
         const c = list[Math.floor(list.length / 2)] ?? sweep.at[0];
         feel(mode === "add" ? "raise" : "lower", c[0], c[1], params.size);
       },
-    );
+    ).finally(() => renderer.current?.blockEditSent(false));
   }
 
   // the map changed (an edit, an undo, a redo): the face under the pointer is asked about again
   useEffect(() => {
     if (!block) return;
+    repickSeen.current = info.version;
     const s = pv.current;
     // (the page draws the new version a moment after it has it: a question about a face picked on it, answered or on its
     // way and still wanted, is about the map as it is, and stays; a tool put away and picked up again asks afresh)
@@ -302,6 +316,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
     s.key = "";
     s.result = null;
     const id = window.setTimeout(() => {
+      repick.current = 0;
       const r = renderer.current;
       const l = last.current;
       if (!r || !blockRef.current || drag.current || sizing.current || !r.canvas.matches(":hover")) return;
@@ -309,7 +324,11 @@ export function useBlockTool(ed: Ed): BlockSlice {
       l.seen = infoRef.current.version;
       refresh();
     }, 90);
-    return () => window.clearTimeout(id);
+    repick.current = id;
+    return () => {
+      window.clearTimeout(id);
+      repick.current = 0;
+    };
   }, [info.version, block]);
 
   // the camera moves under a still pointer (the wheel, the keys): the face under it is another, so the preview asks again
@@ -426,7 +445,22 @@ export function useBlockTool(ed: Ed): BlockSlice {
   }
   useEffect(() => () => sizing.current?.stop(), []);
 
+  /** Resolves once the preview has answered all it was asked (tests): the pointer moves sent before it handled (the page
+   *  takes them at its next frame), the map's last change looked at, and no question on its way or about to be asked. */
+  async function blockAnswered(): Promise<void> {
+    const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+    for (;;) {
+      await frame();
+      const s = pv.current;
+      const caughtUp = !blockRef.current || repickSeen.current === infoRef.current.version;
+      if (caughtUp && !repick.current && !s.inFlight && !s.queued) return;
+      if (s.inFlight && s.answer) await s.answer;
+      // (the effect that looks at the map's change runs after the page draws it: a moment, then look again)
+      else await new Promise<void>((r) => setTimeout(r, 20));
+    }
+  }
+
   const blockState = () => ({ held: blockRef.current, dragging: !!drag.current, settings: settingsRef.current, preview: pv.current.result?.f ?? null, note: pv.current.note });
 
-  return { block, blockRef, blockSettings, blockFlip, blockNote, setBlockSettings, pickBlock, blockStep, startBlockSize, endBlockSize, blockCancel, blockState };
+  return { block, blockRef, blockSettings, blockFlip, blockNote, setBlockSettings, pickBlock, blockStep, startBlockSize, endBlockSize, blockCancel, blockState, blockAnswered };
 }

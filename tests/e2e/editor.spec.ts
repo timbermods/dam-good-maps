@@ -4,7 +4,7 @@
 // and the open map brought back on the next visit.
 
 import { expect, test, type Page } from "@playwright/test";
-import { centreOn, generateButton, openEditor, openFileMenu, openSection, openYourMaps, pick, waitForEditor } from "./open";
+import { centreOn, generateButton, openEditor, openFileMenu, openSection, openYourMaps, pick, waitForEditor, topDown } from "./open";
 import { toolInHand, toolPutAway } from "./helpers";
 
 async function drag(page: Page, from: [number, number], to: [number, number]) {
@@ -35,7 +35,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await openEditor(page, "s=4263&z=96&d=n&t=riverValley");
   await expect(page.getByRole("heading", { name: (await info(page)).name })).toBeVisible();
   expect((await page.evaluate(() => window.dgm3d!.renderer.info())).triangles).toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
 
   // the player's own edits: a stroke of the Lower brush, and a water source (the brush kit and the
   // water, D182, D184)
@@ -180,7 +180,7 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   // (seed 84 for 0.8.5's maps, D148: seed 77's river now has its middle by the map's edge, where the click
   // lands on no tile)
   await openEditor(page, "s=84&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   // a click on the start picks nothing (it is dragged, or picked on the shelf), and nothing is
   // listed: the generator's features are its plan, not objects (D184)
   const start = (await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] };
@@ -211,7 +211,7 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
 
 test("the next visit, with no link in the address, opens the map left open, with its edits", async ({ page }) => {
   await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await page.getByRole("button", { name: "Lower brush (3)" }).click();
   await drag(page, [30, 40], [34, 40]);
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });

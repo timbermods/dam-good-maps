@@ -5,6 +5,7 @@ import { View3D } from "../../ui/View3D";
 import { HistoryPanel, StartIndicators } from "../panels";
 import { LEGEND_TEMPLATES } from "../shelfItems";
 import { measureInsets } from "../view/insets";
+import { PointerNote } from "../view/pointerNote";
 import { mapCounts } from "../features";
 import { GeneratorPanel } from "../generator/GeneratorPanel";
 import { YourMaps } from "../generator/YourMaps";
@@ -17,6 +18,7 @@ import { ForceFloor } from "../TopBar";
 import { WaterBar } from "../WaterBar";
 import { surfaceWater } from "../../render3d/model";
 import { coreNotes } from "../../core/sim/coreMoment";
+import { hazardDays } from "../../core/sim/weather";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
@@ -72,7 +74,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               {ed.compareVeil()}
               {ed.compareFlipped ? null : startHintTag()}
               {topBar(ed, props)}
-              {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} coreNotes={weather ? coreNotes(info.features, info.spec?.designedFor ?? "normal", weather, ed.weatherTarget ?? ed.weatherDay) : []} /> : null}
+              {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} length={weather ? hazardDays(info.spec?.designedFor ?? "normal", weather) : null} coreNotes={weather ? coreNotes(info.features, info.spec?.designedFor ?? "normal", weather, ed.weatherTarget ?? ed.weatherDay) : []} /> : null}
               {/* the objects: the picked one's window directly above the list, the list never moving */}
               <div class="objects-dock">
                 <ObjectWindow panel={ed.unleashRow() ? null : (ed.shelfRow() ?? ed.pickedRow())} />
@@ -87,14 +89,14 @@ export function editorView(ed: Ed, props: EditorProps) {
                 stamp={`${info.version}:${waterTick}:${weather ?? ""}:${heldTick}:${ed.compareFlipped ? "other" : ""}`}
               />
               {shapeNote ? (
-                <div class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} role="status" style={{ left: `${shapeNote.x + 16}px`, top: `${shapeNote.y + 16}px` }}>
+                <PointerNote class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} x={shapeNote.x + 16} y={shapeNote.y + 16} pointer={shapeNote}>
                   {shapeNote.text}
-                </div>
+                </PointerNote>
               ) : null}
               {blockNote ? (
-                <div class={`map-note shape-note${blockNote.ok ? " warn" : " error"}`} role="status" style={{ left: `${blockNote.x + 16}px`, top: `${blockNote.y + 16}px` }}>
+                <PointerNote class={`map-note shape-note${blockNote.ok ? " warn" : " error"}`} x={blockNote.x} y={blockNote.y} pointer={blockNote.pointer} own={blockNote.own}>
                   {blockNote.text}
-                </div>
+                </PointerNote>
               ) : null}
               {startDrag ? (
                 <StartIndicators check={startDrag.check} rules={needs.rules} />
