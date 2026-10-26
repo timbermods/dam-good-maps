@@ -5,7 +5,9 @@
 // first, in the background (`KHR_parallel_shader_compile`: the program's compile and link are sent, and whether it is
 // done is asked without waiting for it), and the material takes its new defines only once the program is ready; the
 // frames until then draw with the program it has. The programs an edit could need next are compiled the same way,
-// unasked, once a map is drawn (`warm`), so the switch finds them ready and is made at once.
+// unasked, once a map is drawn (`warm`), so the switch finds them ready and is made at once. Those are sent a few at a
+// time, and none while a switch waits for its own: the browser compiles what it was sent in turn, so a switch's
+// program never waits behind a queue of ones nobody needs yet.
 //
 // A material keeps every program it has drawn or been compiled with (three.js holds them in the material's own map
 // until it is disposed), so switching back is free, and a warmed program stays warm for the material's life.
@@ -63,6 +65,15 @@ export interface ProgramsHost {
 }
 
 const POLL_MS = 16;
+/** How many programs compiled ahead are sent to the browser at once. */
+export const WARM_IN_FLIGHT = 2;
+
+/** A program to compile ahead: its entry once its compile is sent. */
+interface Job {
+  mat: ShaderMaterial;
+  defines: Defines;
+  entry: Entry | null;
+}
 
 export class Programs {
   /** Whether programs compile in the background here: without it a compile is waited for at its first frame whatever
@@ -71,8 +82,11 @@ export class Programs {
   private entries = new WeakMap<ShaderMaterial, Map<string, Entry>>();
   /** The defines each material is to take once their program is ready. */
   private wanted = new Map<ShaderMaterial, Defines>();
-  /** Warmed programs still compiling, and who waits for them. */
-  private waiters: { entries: Entry[]; done: () => void }[] = [];
+  /** The programs to compile ahead not sent yet, those sent and still compiling, and who waits for which. */
+  private queue: Job[] = [];
+  private inFlight = new Set<Entry>();
+  /** Who waits for which programs; `now`: one the page waits on (a switch of the look), ahead of the queue. */
+  private waiters: { jobs: Job[]; done: () => void; now: boolean }[] = [];
   private watched = new WeakSet<ShaderMaterial>();
   private timer = 0;
   private disposed = false;
@@ -109,21 +123,41 @@ export class Programs {
     else this.soon();
   }
 
-  /** Compile these materials' programs with these defines in the background, without drawing with them: resolved
-   *  when all are ready. */
+  /** Compile these materials' programs with these defines in the background, without drawing with them, behind every
+   *  switch waiting for its own (`WARM_IN_FLIGHT` sent at a time): resolved when all are ready. */
   warm(list: [ShaderMaterial, Defines][]): Promise<void> {
-    if (!this.background || this.disposed) return Promise.resolve();
-    const entries: Entry[] = [];
-    for (const [mat, defines] of list) {
+    if (!this.background || this.disposed || !list.length) return Promise.resolve();
+    const jobs: Job[] = list.map(([mat, defines]) => {
       this.watch(mat);
-      const e = this.compile(mat, ordered(defines));
-      if (!e.ready) entries.push(e);
-    }
-    if (!entries.length) return Promise.resolve();
-    return new Promise((done) => {
-      this.waiters.push({ entries, done });
-      this.poll();
+      const d = ordered(defines);
+      // (one sent already, or compiled: waited for where it is, never queued again)
+      return { mat, defines: d, entry: this.known(mat).get(signature(d)) ?? null };
     });
+    this.queue.push(...jobs.filter((j) => !j.entry));
+    return this.wait(jobs, false);
+  }
+
+  /** Compile these materials' programs now, ahead of the queue, which waits until they are ready (a switch of the
+   *  look the page waits on): resolved when they are. */
+  now(list: [ShaderMaterial, Defines][]): Promise<void> {
+    if (!this.background || this.disposed || !list.length) return Promise.resolve();
+    const jobs: Job[] = list.map(([mat, defines]) => {
+      this.watch(mat);
+      return { mat, defines: ordered(defines), entry: this.compile(mat, ordered(defines)) };
+    });
+    return this.wait(jobs, true);
+  }
+
+  private wait(jobs: Job[], now: boolean): Promise<void> {
+    return new Promise((done) => {
+      this.waiters.push({ jobs, done, now });
+      this.soon();
+    });
+  }
+
+  /** The programs to compile ahead not sent to the browser yet (the tests read it). */
+  get queued(): number {
+    return this.queue.length;
   }
 
   /** Whether these materials' programs with these defines are compiled (their compiles sent if they were not). */
@@ -146,6 +180,8 @@ export class Programs {
     this.disposed = true;
     clearTimeout(this.timer);
     this.wanted.clear();
+    this.queue = [];
+    this.inFlight.clear();
     this.waiters = [];
   }
 
@@ -160,8 +196,9 @@ export class Programs {
     this.watched.add(mat);
     // (a disposed material's programs go with it: never asked after again)
     mat.addEventListener("dispose", () => {
-      const gone = new Set(this.entries.get(mat)?.values() ?? []);
-      for (const w of this.waiters) w.entries = w.entries.filter((e) => !gone.has(e));
+      for (const e of this.entries.get(mat)?.values() ?? []) this.inFlight.delete(e);
+      this.queue = this.queue.filter((j) => j.mat !== mat);
+      for (const w of this.waiters) w.jobs = w.jobs.filter((j) => j.mat !== mat);
       this.entries.delete(mat);
       this.wanted.delete(mat);
     });
@@ -215,15 +252,15 @@ export class Programs {
   /** Send the switches' compiles and make each whose program is ready before the next frame (a microtask, so a switch
    *  made of several defines set one after another compiles only where it ends), then ask after the rest. */
   private soon(): void {
-    if (this.queued || this.disposed) return;
-    this.queued = true;
+    if (this.microtask || this.disposed) return;
+    this.microtask = true;
     queueMicrotask(() => {
-      this.queued = false;
+      this.microtask = false;
       if (!this.disposed) this.tick();
     });
   }
 
-  private queued = false;
+  private microtask = false;
 
   /** Ask after the compiles still running a frame's length apart. */
   private poll(): void {
@@ -234,7 +271,8 @@ export class Programs {
     }, POLL_MS);
   }
 
-  /** Make each switch whose program is ready (its compile sent if it was not) and tell those waiting for warmed ones. */
+  /** Make each switch whose program is ready (its compile sent at once if it was not), send the next programs to
+   *  compile ahead while no switch waits, and tell those waiting for them. */
   private tick(): void {
     let made = false;
     for (const [mat, want] of [...this.wanted]) {
@@ -243,11 +281,19 @@ export class Programs {
         made = true;
       }
     }
-    for (const w of this.waiters) w.entries = w.entries.filter((e) => !this.isReady(e));
-    const done = this.waiters.filter((w) => !w.entries.length);
-    this.waiters = this.waiters.filter((w) => w.entries.length);
+    for (const e of [...this.inFlight]) if (this.isReady(e)) this.inFlight.delete(e);
+    // (a switch waiting for its program has the browser to itself: nothing more is sent ahead of it)
+    const ready = (w: { jobs: Job[] }) => w.jobs.every((j) => j.entry && this.isReady(j.entry));
+    const urgent = this.waiters.some((w) => w.now && !ready(w));
+    while (!this.wanted.size && !urgent && this.inFlight.size < WARM_IN_FLIGHT && this.queue.length) {
+      const job = this.queue.shift()!;
+      job.entry = this.compile(job.mat, job.defines);
+      if (!this.isReady(job.entry)) this.inFlight.add(job.entry);
+    }
+    const done = this.waiters.filter(ready);
+    this.waiters = this.waiters.filter((w) => !ready(w));
     if (made) this.host.changed();
     for (const w of done) w.done();
-    if (this.wanted.size || this.waiters.length) this.poll();
+    if (this.wanted.size || this.inFlight.size || this.queue.length || this.waiters.length) this.poll();
   }
 }

@@ -275,13 +275,21 @@ place of its bottom rule.
     roofs, keeps the ground under every object: three levels down, and down to the map's bottom under the objects
     the game keeps only there (`rust/forces/src/erode.rs`). Only a stroke with nothing left to shape, or, as a last
     guard no tool reaches, an edit that would still lose such an object, is refused with one line. A feature edit clears an object at a level
-    when the game's rule no longer holds it on the ground after the edit. The start stays on open ground. A move under a roof keeps its level unless it names another. **The page aims where the
+    when the game's rule no longer holds it on the ground after the edit. The start stands on open ground, or at a
+    level wholly under a roof, where the game keeps it: its 3×3×5 in air on level ground and ground at its door
+    (`core/doc/startFit.ts` `startRoofProblem`; `planStart`'s `z`, a start feature's `z`), with no bench and nothing
+    levelled; without a level it is refused where a cave or an overhang is, never put on the roof's top. Only a move or
+    a placement checks its ground: locked, renamed or turned in place, a start a tunnel was dug under later stays (a
+    start feature's bench is the same 5×5 whichever way it faces; an opened map's start, its 3×3 where it stood,
+    checks only its new door's tile, which it levels; under a roof only its new door). A move under a roof keeps its level unless it names another. **The page aims where the
     player points:** the shelf, a source, a dragged object and the start take the ground the pointer sees (the voxel
     pick: a cave's floor through its mouth or under the layer cut, the ground under a ledge) and name that run's level
     in the placement (`editor/shelf/aim.ts`; a cut's cap names its run's real top; the tile's top names none); the
     ghost stands there and its words are the core's answer ("the start needs open ground", "not on a roof or a
     ledge"). A drag out of a cave lands on the tile's top. Strokes paint a roof's
-    top like any ground. A generated
+    top like any ground, or under a roof the level each tile names (`paintObjects` `levels`; `paint.ts` `paintLevels`
+    gives them from the pick's level), each object held to the game's rule there and a tile that can't hold one left
+    empty. A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
   - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one
@@ -290,7 +298,10 @@ place of its bottom rule.
     (`ShelfItem.paint`, `worker paintAt`); dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
     allows it (a ruin stroke paints a ruin field with varied heights and mixed models), filling gaps up to the
     density, never stacking; trees and bushes on dry ground tint the brush amber with "dry ground: these will die"
-    (still allowed); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
+    (still allowed; `core/doc/plantSoil.ts`, the rule `plants.survive` applies; on a map with caves or overhangs the
+    run top each tile paints at, under a roof or on top, its own moisture, contamination and water, never a cave's
+    seen through its roof: `paint.ts` `paintDying`, `worker paintDryAt`; the checks read each plant there by its run
+    top too, `plants.survive` and the start's food and wood alike); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
     places exactly one; each stroke is one undo step, and Select and Delete clear them (D288). Unique landmarks
     stay single-placement: the start, the mine site, relics and geothermal fields.
   - **The game's map-editor objects** (D337–D339): Water Seep and Badwater Seep, Aquifer and Ancient Aquifer Drill
@@ -1298,6 +1309,8 @@ checks dot counts; every other row is information under Good to know, worded as 
   the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
   or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
   game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. A
+  generated map's storied ruins (a ruined dam across the narrows, a drowned village; PLAN §9.7, D488 (2)) are ruin
+  fields like any other in the editor, keeping their columns' storeys and their line (`params.story`). A
   generated spring's row of sources is kept as the generation placed it (`BuildInput.generatedSprings`, from the
   stored map): the same sources, count and ids, whatever an edit does round it (a Quake carrying the start off
   ground the row could have grown onto adds no source); each stands on the ground as it is now (D447, D314). What

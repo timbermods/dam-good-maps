@@ -420,7 +420,20 @@
         "area": { "$ref": "#/$defs/runs" },
         "density": { "type": "number", "minimum": 0.05, "maximum": 1 },
         "age": { "enum": ["grown", "mixed"] },
-        "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
+        "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "levels": {
+          "description": "Under a roof (D491): groups of the stroke's tiles and the level each paints at (a cave floor, the ground under a ledge, as the pick found it); a tile in none, or at its top, paints the ground's top. Each object stands by the game's rule at its level; a tile that can't hold one gets none, never one on the roof's top.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["z", "area"],
+            "properties": {
+              "z": { "type": "integer", "minimum": 0, "maximum": 22 },
+              "area": { "$ref": "#/$defs/runs" }
+            }
+          }
+        }
       }
     }
   }

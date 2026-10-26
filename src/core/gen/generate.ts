@@ -91,8 +91,9 @@ import { description, toTimberFile } from "./pack";
 import { outcomesOf, PROMISES, promiseSides, type Outcomes } from "./outcomes";
 import { mapSays, mapWords, type PlayFacts } from "./names";
 import { nearStartTargets, planResources } from "./resources";
+import { planRuinStories } from "./ruinStories";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
-import { ruinColumns } from "../resources/baseline";
+import { resourceBudget, ruinColumns } from "../resources/baseline";
 import { tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
 import type { SetPieceFeature } from "../features/schema";
@@ -2915,6 +2916,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       layout.push(piece);
       risePlan = plan;
     }
+  }
+  // ---- ruins placed with meaning (D488 (2)): a ruined dam across the natural narrows, a drowned
+  //      village in a lake's shallows, where the land offers them; their scrap counts toward the
+  //      map's budget, and the other resources keep off them
+  {
+    const stories = planRuinStories({ spec, base, features: layout, keepOff, scrapLeft: resourceBudget(W, H, spec.settings.resources, seed).scrap - scrapPlaced, clear: nearStartTargets(spec).ruinsClear, attempt });
+    rise.push(...stories.fields);
+    scrapPlaced += stories.scrap;
+    for (const i of stories.taken) keepOff[i] = 1;
   }
   opts.onProgress?.({ attempt, stage: "resources" });
   const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, base, 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1 }, sites)];
