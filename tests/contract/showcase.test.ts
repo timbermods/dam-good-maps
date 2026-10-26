@@ -49,14 +49,17 @@ describe("Showcase mode (D488 (2))", () => {
     // the second: a district behind debris (a valley behind a gate) and an 11-level mesa in view
     expect(c.valley.met).toBe(true);
     expect(c.valley.say).toMatch(/^A wide, level second district site 39 tiles out/);
-    // the debris counts once: in the valley, which has nothing else, not again as a mystery
-    expect(c.mystery.met).toBe(false);
+    // the debris counts once: in the valley, which has nothing else, not again as a mystery; the mystery
+    // is the drowned village in the lake's shallows (ruins placed with meaning, generator 0.10.1)
+    expect(c.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 57 tiles south-west of the start/);
     // its nearest water holds and a farther one runs dry: no choice to face, some of the beat only
     expect(c.drought.met).toBe(false);
     expect(c.drought.strength).toBe(0.4);
     expect(c.landmark.say).toMatch(/^An 11-level mesa stands 18 tiles south of the start/);
-    // the best three, best first: the asked map (its drought's choice), the second sibling, the first
-    expect(res.best.map((p) => p.index)).toEqual([0, 2, 1]);
+    // the best three, best first: the second sibling (its drowned village a mystery, since 0.10.1; its start
+    // turned to its relief, open water, a fall and the mesa, D493: 5.75 to the asked map's 4.65), the asked
+    // map (its drought's choice), the first
+    expect(res.best.map((p) => p.index)).toEqual([2, 0, 1]);
     expect(res.best[0].note).toMatch(/^\d of 6 beats\. /);
     // a budget spent at once still makes one map, the asked map's own
     const once = await showcaseSearch(spec, { budgetMs: 0 });

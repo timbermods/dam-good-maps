@@ -19,7 +19,7 @@ import { applySelection as applySelectionStep, startCarry } from "../core/doc/st
 import { ForceRolls } from "../core/forces/rolls";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
-import { planPaintObjects } from "../core/doc/paint";
+import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
 import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
@@ -1528,6 +1528,13 @@ export function collabAnswer(ok: boolean, errors: string[]): SessionUpdate {
   return { ok, errors, info: sessionInfo(need()), view: {}, ms: 0, instant: null, waterSettled: true, routed: true };
 }
 
+/** A stroke's params with the levels the pick found under a roof (`z`, D491) when they name none (`paintLevels`). */
+function withLevels(params: PaintParams, z?: number): PaintParams {
+  if (z === undefined || params.levels) return params;
+  const levels = paintLevels(need(), params.area, z);
+  return levels.length ? { ...params, levels } : params;
+}
+
 /** The operations an edit would apply, planned on the open map without applying them: the shared session orders them instead
  *  (worker/collabEdit.ts). Each is the planner the direct edit uses, so a shared edit is the same edit. */
 export const planned = {
@@ -1535,10 +1542,10 @@ export const planned = {
   tool: (req: ToolRequest, id: string): ToolPlan => planTool(req, id),
   plant: (template: string, tiles: readonly number[]) => planPlant(need(), template, tiles, () => crypto.randomUUID()),
   remove: (tiles: readonly number[], kinds: readonly RemoveKind[], label?: string) => planRemove(need(), tiles, kinds, label),
-  paint: (params: PaintParams) => planPaintObjects(need(), params),
+  paint: (params: PaintParams, z?: number) => planPaintObjects(need(), withLevels(params, z)),
   strokeClearing: (op: EditOp, label: string, tiles: readonly number[]) => planStrokeClearing(need(), op, label, tiles),
   move: (id: string, dx: number, dy: number, z?: number) => planMoveEntity(need(), id, dx, dy, z),
-  start: (x: number, y: number, orientation?: Orientation) => planStart(need(), x, y, orientation, () => crypto.randomUUID()),
+  start: (x: number, y: number, orientation?: Orientation, z?: number) => planStart(need(), x, y, orientation, () => crypto.randomUUID(), z),
   /** Why a new ramped stroke is refused (core/doc/strokes.ts), or null. */
   stroke: (op: EditOp) => newRampedStroke(op),
   /** Remove unfed water and Fill: the one operation each would apply, or why none. */
@@ -1939,13 +1946,14 @@ export function plantAt(template: string, tiles: readonly number[]): SessionUpda
 }
 
 /** A stroke of trees, bushes or thorns from the shelf (D235): the core's `paintObjects` plan, with its density and age, as
- *  one step (core/doc/paint.ts). The tiles it planted, for the page's pop. */
-export function paintAt(params: PaintParams): SessionUpdate & { planted: number[] } {
+ *  one step (core/doc/paint.ts). `z`: the level the pick found under a roof (D491), which gives the stroke's tiles their
+ *  levels when the params name none (`paintLevels`). The tiles it planted, for the page's pop. */
+export function paintAt(params: PaintParams, z?: number): SessionUpdate & { planted: number[] } {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return { ...changed(s, false, [blocked], t0), planted: [] };
-  const plan = planPaintObjects(s, params);
+  const plan = planPaintObjects(s, withLevels(params, z));
   if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
   const r = s.applyBatch(plan.ops, "user", plan.label);
   return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.plan.map((o) => o.tile) : [] };
@@ -2077,15 +2085,22 @@ export function moveObjectBy(id: string, dx: number, dy: number, z?: number): Se
   return changed(s, r.ok, r.errors, t0);
 }
 
+/** Whether a stroke of trees, bushes or succulents would plant on soil that kills them (D235's amber ring, "dry ground:
+ *  these will die"): the core's rule (core/doc/paint.ts `paintDying`), under a roof at the level the pick found (`z`,
+ *  D491), the run top each tile paints at. */
+export function paintDryAt(params: PaintParams, z?: number): boolean {
+  return paintDying(need(), withLevels(params, z)).length > 0;
+}
+
 /** Move the map's start so its middle is at (x, y): the start feature of a generated map, or an
  *  imported map's own StartingLocation; with none, the shelf's Start places one (core/doc/tools.ts
- *  `planStart`). */
-export function moveStartTo(x: number, y: number, orientation?: Orientation): SessionUpdate {
+ *  `planStart`). `z`: the level under a roof it stands on (D491), as the pick found it. */
+export function moveStartTo(x: number, y: number, orientation?: Orientation, z?: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return changed(s, false, [blocked], t0);
-  const p = planStart(s, x, y, orientation, () => crypto.randomUUID());
+  const p = planStart(s, x, y, orientation, () => crypto.randomUUID(), z);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
   return changed(s, r.ok, r.errors, t0);

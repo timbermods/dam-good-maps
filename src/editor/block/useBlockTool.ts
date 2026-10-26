@@ -287,6 +287,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
     }
     // (the preview is cleared as the edit goes: the new blocks stand where it was)
     ask(null);
+    renderer.current?.blockEditSent();
     void run(
       () => api.apply({ op: "blocks", params }, "user", blockLabel(mode)),
       (u) => {

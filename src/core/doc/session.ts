@@ -38,7 +38,8 @@ import { clusterSaturation } from "../sim/moisture";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
-import { stackedSoil } from "../sim/soil";
+import { runGround, stackedSoil, stackSoilOf, type RunGround } from "../sim/soil";
+import type { Soil3d } from "../sim/soil3d";
 import { storedStack, type StackSettle } from "../sim/stackWater";
 import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
@@ -47,7 +48,7 @@ import { writeTimber, type TimberFile } from "../format/timber";
 import { stackedSimulationSingletons, storedColumnOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
-import type { Orientation, Placement } from "../format/footprints";
+import { FOOTPRINTS, worldBlocks, type Orientation, type Placement } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
 import { builtWater, description as generatedText, fileName as timberFileName, NO_SOURCES_NOTE, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
 import { placeCredits } from "./description";
@@ -1110,15 +1111,39 @@ export class MapSession {
     if (this.caveSoils.has(built)) return this.caveSoils.get(built)!;
     const stack = built.settle.stack;
     let out: { cols: ReturnType<typeof waterColumns>; soil: ReturnType<typeof stackedSoil> } | null = null;
-    if (stack) {
-      const terrain = this.terrainOf(built);
-      const objects = built.entities.map(toMapObject);
-      const cols = waterColumns(terrain, objects);
-      if (cols.L === stack.L && cols.count.every((c, i) => c === stack.count[i])) out = { cols, soil: stackedSoil(terrain, cols, stack, objects) };
-    }
+    if (stack) out = stackSoilOf(this.terrainOf(built), stack, built.entities.map(toMapObject));
     this.caveSoils.set(built, out);
     return out;
   }
+
+  /** The soil and the water on each run top as the map stands (D235, D491): what a plant standing at level z of tile i
+   *  lives or dies on, under a roof as on top (`RunGround`; null where no run's top is z). The game's soil rule on the
+   *  map's water on stacked columns (sim/soil.ts `stackedSoil`, as the checks read it, validate/rust.ts): the settle's,
+   *  or, while the file's own water stands, that water's. Null on a map without caves or overhangs (one run a tile:
+   *  the build's `moisture`) or water on its stacked columns. */
+  runGrounds(built: BuildResult = this.cur): ((i: number, z: number) => RunGround | null) | null {
+    let r = this.runSoils.get(built);
+    if (r === undefined) {
+      r = null;
+      if (this.layered(built)) {
+        if (built.waterFromFile) {
+          const terrain = this.terrainOf(built);
+          const objects = built.entities.map(toMapObject);
+          const cols = waterColumns(terrain, objects);
+          const stack = storedStack(cols, storedWater(this.openedFile().world.singletons, this.size.x, this.size.y));
+          r = { soil: stackedSoil(terrain, cols, stack, objects), stack };
+        } else {
+          const cs = this.caveSoilOf(built);
+          if (cs && built.settle.stack) r = { soil: cs.soil, stack: built.settle.stack };
+        }
+      }
+      this.runSoils.set(built, r);
+    }
+    const got = r;
+    return got ? (i, z) => runGround(got.soil, got.stack, i, z) : null;
+  }
+
+  private readonly runSoils = new WeakMap<BuildResult, { soil: Soil3d; stack: StackSettle } | null>();
 
   /** The document as it stands, for the project file and autosave. */
   get document(): MapDocument {
@@ -1461,6 +1486,9 @@ export class MapSession {
     const ids = new Set<string>();
     const taken = new Set<number>();
     for (const e of this.cur.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) taken.add(y * W + x);
+    // (under a roof, at a level: the check holds it to the game's rule against the map's objects cell by cell, D491; within
+    // the batch its cells are kept apart here)
+    const cells = new Set<number>();
     for (const op of ops) {
       if (op.op !== "placeEntity") return fail("a placement batch only takes placeEntity operations");
       const errors = this.check(op);
@@ -1469,6 +1497,14 @@ export class MapSession {
       ids.add(op.params.id);
       const p = op.params;
       const e = placedEntity(p, p.z ?? this.cur.heights[p.y * W + p.x]);
+      if (p.z !== undefined) {
+        for (const c of worldBlocks(FOOTPRINTS[p.template], { template: p.template, x: p.x, y: p.y, z: p.z, orientation: p.orientation, flipped: !!p.flipped })) {
+          const k = (c.z * H + c.y) * W + c.x;
+          if (cells.has(k)) return fail("another object stands in the placement's footprint");
+          cells.add(k);
+        }
+        continue;
+      }
       for (const [x, y] of entityTiles(e)) {
         const i = y * W + x;
         if (taken.has(i)) return fail("another object stands in the placement's footprint");

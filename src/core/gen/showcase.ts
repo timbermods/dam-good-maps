@@ -25,6 +25,7 @@ import { droughtStorage } from "../sim/drought";
 import { FIRST_DROUGHT_DAYS, generate, type GenerateResult } from "./generate";
 import { finalCtx } from "./intentions";
 import { compass } from "./names";
+import { ruinStories } from "./ruinStories";
 import { siblingSpec } from "./versions";
 import { BEATS, type Arc, type Beat } from "./showcaseBeats";
 
@@ -293,6 +294,9 @@ function projectBeat(c: FinalCtx, r: GenerateResult, plug: Shared): Beat {
     best.take(0.5 + 0.5 * clamp01((dam.volume - 2500 * scale) / (3500 * scale)), `${capital(an(dam.length))} ${dam.length}-tile dam across a narrows ${d} tiles ${compass(c.start.x, c.start.y, dam.x, dam.y)} of the start would hold ${held} water.`);
   }
   if (plug) best.take(0.85, plug.say);
+  // a ruined dam across the narrows, waiting to be rebuilt (ruins placed with meaning, gen/ruinStories.ts):
+  // its ruins name the project even where its reservoir is modest, but a big reservoir is the stronger claim
+  for (const s of ruinStories(r.features, c.W)) if (s.kind === "dam") best.take(0.6, s.say);
   const high = checkIntention("high-lake", c);
   // (a high lake spilling over a fall is a project's place more than a project: the weaker claim)
   if (high.ok && high.say) best.take(0.6, high.say);
@@ -336,6 +340,8 @@ function mysteryBeat(c: FinalCtx, r: GenerateResult, plug: Shared, district: Sha
     if (caves >= 6) best.take(0.9, `A cave opens under the land, ${caves} tiles of it.`);
   }
   if (plug) best.take(0.8, plug.say);
+  // a drowned village standing in the water (ruins placed with meaning, gen/ruinStories.ts)
+  for (const s of ruinStories(r.features, c.W)) if (s.kind === "village") best.take(0.7, s.say);
   if (district) best.take(0.6, district.say);
   let ruins = 0;
   for (const o of c.objects) if (/^RuinColumnH\d$/.test(o.template) && o.x >= 0 && o.y >= 0 && o.x < c.W && o.y < c.H && !Number.isFinite(c.walk[o.y * c.W + o.x])) ruins++;

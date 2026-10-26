@@ -315,13 +315,21 @@ place of its bottom rule.
     roofs, keeps the ground under every object: three levels down, and down to the map's bottom under the objects
     the game keeps only there (`rust/forces/src/erode.rs`). Only a stroke with nothing left to shape, or, as a last
     guard no tool reaches, an edit that would still lose such an object, is refused with one line. A feature edit clears an object at a level
-    when the game's rule no longer holds it on the ground after the edit. The start stays on open ground. A move under a roof keeps its level unless it names another. **The page aims where the
+    when the game's rule no longer holds it on the ground after the edit. The start stands on open ground, or at a
+    level wholly under a roof, where the game keeps it: its 3×3×5 in air on level ground and ground at its door
+    (`core/doc/startFit.ts` `startRoofProblem`; `planStart`'s `z`, a start feature's `z`), with no bench and nothing
+    levelled; without a level it is refused where a cave or an overhang is, never put on the roof's top. Only a move or
+    a placement checks its ground: locked, renamed or turned in place, a start a tunnel was dug under later stays (a
+    start feature's bench is the same 5×5 whichever way it faces; an opened map's start, its 3×3 where it stood,
+    checks only its new door's tile, which it levels; under a roof only its new door). A move under a roof keeps its level unless it names another. **The page aims where the
     player points:** the shelf, a source, a dragged object and the start take the ground the pointer sees (the voxel
     pick: a cave's floor through its mouth or under the layer cut, the ground under a ledge) and name that run's level
     in the placement (`editor/shelf/aim.ts`; a cut's cap names its run's real top; the tile's top names none); the
     ghost stands there and its words are the core's answer ("the start needs open ground", "not on a roof or a
     ledge"). A drag out of a cave lands on the tile's top. Strokes paint a roof's
-    top like any ground. A generated
+    top like any ground, or under a roof the level each tile names (`paintObjects` `levels`; `paint.ts` `paintLevels`
+    gives them from the pick's level), each object held to the game's rule there and a tile that can't hold one left
+    empty. A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
   - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one
@@ -330,7 +338,10 @@ place of its bottom rule.
     (`ShelfItem.paint`, `worker paintAt`); dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
     allows it (a ruin stroke paints a ruin field with varied heights and mixed models), filling gaps up to the
     density, never stacking; trees and bushes on dry ground tint the brush amber with "dry ground: these will die"
-    (still allowed); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
+    (still allowed; `core/doc/plantSoil.ts`, the rule `plants.survive` applies; on a map with caves or overhangs the
+    run top each tile paints at, under a roof or on top, its own moisture, contamination and water, never a cave's
+    seen through its roof: `paint.ts` `paintDying`, `worker paintDryAt`; the checks read each plant there by its run
+    top too, `plants.survive` and the start's food and wood alike); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
     places exactly one; each stroke is one undo step, and Select and Delete clear them (D288). Unique landmarks
     stay single-placement: the start, the mine site, relics and geothermal fields.
   - **The game's map-editor objects** (D337–D339): Water Seep and Badwater Seep, Aquifer and Ancient Aquifer Drill
@@ -693,7 +704,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   walls' stone ground pale, drifts out of the opening from the rock that went in each stage, more where more went,
   settling and fading; a few small stones a stage drop from where the rock went, bounce once on the ground below the
   opening, rest a moment and fade; a faint stir of dust at the face as it rumbles. Visual only, gone about two
-  seconds after its land is final, the same in Standard and High, off with reduced motion and in software.
+  seconds after its land is final, the same in Standard and High, off with reduced motion and in software. What it
+  wore glows red on the faces it opened, fading a second after its last frame, as the Block tool's edits do.
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
@@ -727,7 +739,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   while its preview is drawn. The level slice cuts the preview as it cuts the map, so a cave can be worked from inside. *Settings* (on the bar's 14 cells, two rows): **Size** 1 to 8
   (F and the mouse, or { and }; kept), **Shape** Square or Round, **Action** Add or Remove; remembered between visits. Its
   land's answer is the brushes' (dust and the stone's thud, `juice`); the blocks' own pop-in and crumble are the
-  renderer's, to come.
+  renderer's, to come. Once an edit lands, what it changed glows a moment (D488, `render3d/editGlow.ts`): the faces it
+  opened, outlined, white for blocks added, red for the hollow a removal left, fading in about a second (still, then
+  gone, with reduced motion).
 
 ### The brushes and precision tools
 
@@ -849,7 +863,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   cave, a tunnel, an overhang) every editing cursor (a brush's disc, a force's or the shelf's ring, the Block tool's
   blocks, Select's ring on the roof) also shows the hollow under it, within its reach: the air's footprint laid on
   the roof's top in the Caves layer's violet, stronger the thinner the roof (one block: as low as a brush can take
-  it), outlined where the hollow ends (D488; `render3d/hollow.ts`). Nothing is drawn on a map without caves.
+  it), outlined where the hollow ends (D488; `render3d/hollow.ts`). Nothing is drawn on a map without caves. Every
+  edit that changes terrain above terrain (a Block dig or overhang, an Erode cave, a stroke or a Select action on a
+  roof's top, their undo) glows a moment on the faces it opened, white where blocks were added, red in the hollow
+  left (`render3d/editGlow.ts`); on plain ground only the Block tool's and Erode's do, since a brush's land shows as
+  it is painted and the other forces have their moments.
   **Ctrl+click** on the land only takes that level as the Level number (D361, item 7).
   **The row** (D323, item 6): the marking modes are icons; **Whole map**; **Raise** and **Lower** move the
   selection one level per click (Up and Down arrow keys too); a **Level** number (to the map's ceiling) starts at
@@ -1007,6 +1025,15 @@ Two looks (Map look 2, D147, D242, D250, D284):
   dead (`core/sim/withering.ts`, given to the page with the held day). On a held drought day, High also draws pale dusty
   dry ground with straw where grass stood and a faint heat shimmer over it; on a held badtide day, a slightly sickly sky
   (each its own effect, `high/seasons.ts`). Day 0 and Standard show the map as it is.
+
+In both looks (the light look too) thin water reads thin (D154's see-through shallows carried down to a film;
+`WATER_FILM` in `render3d/waterPalette.ts`): a sheet a tenth of a level deep or less (a seep's film, a flood's leading
+edge, the wet ground round a source) is mostly see-through, with its ripples' sheen, and its ground is seen as through
+a coloured filter: the ground's own detail in the water's hue (clean water's lighter teal, badwater's crimson, mixed
+water along D154's blend through the warm midpoint), so the hue stays the water's at any depth. One smooth curve on
+the water's own depth builds it to the body's opacity and the bed's colour by a quarter of a level deep, and water
+that deep or deeper is drawn as before. A badwater film stays murkier than clean water as thin; a film's shore keeps
+a faint edge, not a pond's foam line.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
 threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks
@@ -1338,6 +1365,8 @@ checks dot counts; every other row is information under Good to know, worded as 
   the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
   or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
   game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. A
+  generated map's storied ruins (a ruined dam across the narrows, a drowned village; PLAN §9.7, D488 (2)) are ruin
+  fields like any other in the editor, keeping their columns' storeys and their line (`params.story`). A
   generated spring's row of sources is kept as the generation placed it (`BuildInput.generatedSprings`, from the
   stored map): the same sources, count and ids, whatever an edit does round it (a Quake carrying the start off
   ground the row could have grown onto adds no source); each stands on the ground as it is now (D447, D314). What

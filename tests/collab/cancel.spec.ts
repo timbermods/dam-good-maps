@@ -203,13 +203,27 @@ test("Cancel is off while the session's worker opens the built place, and Esc do
   const flood = (async () => {
     while (busy) await Promise.all([1, 2, 3].map(() => h.evaluate(async () => void (await window.dgmEditor!.worker.project(9)))));
   })();
-  await h.waitForFunction(() => window.dgm!.committing!(), null, { timeout: 240_000 });
+  // (the step is checked inside the page, in the first frame where it is true, and Esc is sent in that same frame: it lasts
+  // seconds, but the round trips between Playwright's queries can be longer)
+  const step = await h.waitForFunction(
+    () => {
+      if (!window.dgm!.committing!()) return null;
+      const dlg = document.querySelector(".making-dialog");
+      const cancel = [...(dlg?.querySelectorAll("button") ?? [])].find((b) => b.textContent?.trim() === "Cancel") as HTMLButtonElement | undefined;
+      const seen = {
+        disabled: cancel?.disabled ?? null,
+        title: cancel?.getAttribute("title") ?? cancel?.getAttribute("data-tip-held") ?? null,
+        words: dlg?.querySelector("#making-words")?.textContent ?? null,
+        keys: cancel?.getAttribute("data-keys") ?? null,
+      };
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      return seen;
+    },
+    null,
+    { timeout: 240_000, polling: "raf" },
+  );
   // in that step Cancel is off and says so, and the words say the map is opening (D351); Esc does nothing
-  const cancel = dialog(h).getByRole("button", { name: "Cancel" });
-  await expect(cancel).toBeDisabled();
-  await expect(cancel).toHaveAttribute("title", "The map is opening");
-  await expect(dialog(h).getByRole("status")).toHaveText("Opening the map…");
-  await h.keyboard.press("Escape");
+  expect(await step.jsonValue()).toEqual({ disabled: true, title: "The map is opening", words: "Opening the map…", keys: null });
   busy = false;
   await flood;
   await expect(dialog(h)).toHaveCount(0, { timeout: 240_000 });
@@ -233,17 +247,26 @@ test("the host types a name and Generates in the session: the host and the guest
   const drawer = await openDrawer(h);
   await drawer.getByRole("button", { name: "Keep", exact: true }).click();
   await h.locator("#map-name").fill("Shared Valley");
+  // (the drawer takes the open map's settings, and the place just opened is 256 a side: a small map keeps this step quick)
+  await drawer.getByRole("group", { name: "Size" }).getByRole("button", { name: "96", exact: true }).click();
   await generateButton(h).click();
-  await expect.poll(async () => (await land(h)) !== oldLand, { timeout: 180_000 }).toBe(true);
-  try {
-    await sameLand();
-  } catch (e) {
+  // (on a miss, both panels and the session's state, to tell a dropped link from a stalled worker)
+  const report = async (e: unknown): Promise<never> => {
+    const state = (page: Page) => page.evaluate(() => window.dgmEditor!.worker.collab.state()).catch(() => "(none)");
+    const text = (page: Page) => panel(page).innerText().catch(() => "(closed)");
     const [hi, gi] = [await info(h), await info(g)];
     console.log("HOST", hi.name, hi.W, hi.version, "GUEST", gi.name, gi.W, gi.version, "| guest message:", await message(g).allInnerTexts(), "| host message:", await message(h).allInnerTexts());
+    console.log("HOST PANEL:", await text(h), "| GUEST PANEL:", await text(g), "| HOST STATE:", JSON.stringify(await state(h)), "| GUEST STATE:", JSON.stringify(await state(g)));
     throw e;
+  };
+  try {
+    await expect.poll(async () => (await land(h)) !== oldLand, { timeout: 120_000 }).toBe(true);
+    await sameLand();
+    await expect.poll(async () => (await info(h)).name, { timeout: 30_000 }).toBe("Shared Valley");
+    await expect.poll(async () => (await info(g)).name, { timeout: 60_000 }).toBe("Shared Valley");
+  } catch (e) {
+    await report(e);
   }
-  await expect.poll(async () => (await info(h)).name, { timeout: 30_000 }).toBe("Shared Valley");
-  await expect.poll(async () => (await info(g)).name, { timeout: 60_000 }).toBe("Shared Valley");
 });
 
 test("Leave answers at once after the host's cancelled and renamed maps", async () => {

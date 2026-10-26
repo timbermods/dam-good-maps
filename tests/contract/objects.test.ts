@@ -80,8 +80,9 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   // 2, whose Lake Basin has none on D333's maps, D148; Islands seed 1 since badwater joins the main
   // water, D476, D148: its seed 3 leaves the thorn belt out; Canyon seed 1 for every kind since the Canyon
   // and Highlands height round, 0.8.8, D148: on its seed 3 the two belts planned would cut the start's
-  // walkable land from 2,274 tiles to 1,134, so the walk rule leaves both out; seed 3 itself stays below)
-  const everyObject = (theme: ThemeId, seed = theme === "islands" || theme === "canyon" ? 1 : 3, thorns = true) => {
+  // walkable land from 2,274 tiles to 1,134, so the walk rule leaves both out; seed 3 itself stays below;
+  // Islands seed 6 since the opening shot, 0.10.2, D493, D148: its seeds 1–5 leave the thorn belt out)
+  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 6 : theme === "canyon" ? 1 : 3, thorns = true) => {
     const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
@@ -166,9 +167,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // have one (generator 0.8.0; re-seeded for M9b's maps, for batch 5's, for D333's and for
     // D348–D360's, and for M9b's small starts and speed rounds, which left islands 1 and 4, highlands 4 and any 6 without a rise; canyon 4 for canyon 3, which 0.8.1's maps left without one, D148; river valley 8 for river valley 2, which River Valley round 2's maps, 0.8.5, leave without one;
     // canyon 1, 5 and 18 for highlands 2 and 7 and canyon 4 since the Canyon and Highlands height round, 0.8.8,
-    // D148: no Highlands seed to 20 holds a rise on its tall terraces, and of Canyon's only these three)
+    // D148: no Highlands seed to 20 holds a rise on its tall terraces, and of Canyon's only these three;
+    // any 6 for canyon 5 since the opening shot, 0.10.2, D493, D148: of Canyon's seeds to 20 only 1 and 18
+    // hold one now)
     let seen = 0;
-    for (const [theme, seed] of [["canyon", 1], ["canyon", 5], ["riverValley", 8], ["canyon", 18]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["canyon", 1], ["any", 6], ["riverValley", 8], ["canyon", 18]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;

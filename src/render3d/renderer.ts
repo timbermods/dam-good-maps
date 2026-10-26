@@ -64,6 +64,7 @@ import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import type { Voxels } from "./wear";
 import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
+import { EditGlow, editedCells, type EditCells } from "./editGlow";
 import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
@@ -99,6 +100,9 @@ import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
 import { focusLost } from "./focusLost";
 
 ColorManagement.enabled = false;
+
+/** How long after the Block tool sends an edit its land may come and still glow as its own (a refused one sends none). */
+const BLOCK_EDIT_MS = 4000;
 
 /** How long after a map is drawn the programs an edit could need start compiling in the background (scheduleWarm). */
 const WARM_AFTER_MS = 500;
@@ -372,6 +376,8 @@ export class MapRenderer {
   private high: HighLook | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
+  /** Where nothing moves (software, or held still): the flow texture made here, with the badwater share alone. */
+  private stillFlow: DataTexture | null = null;
   /** A still view (the constructor's `still`). */
   private readonly still: boolean;
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
@@ -616,6 +622,8 @@ export class MapRenderer {
     this.uniforms.slice.value = v;
     this.droughtLayer?.setHidden(level !== null);
     this.blockCells?.setCut(level === null ? null : v);
+    // (what an edit just changed was drawn under the cut it had)
+    this.editGlow?.clear();
     this.hollowStale = true;
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
@@ -783,7 +791,7 @@ export class MapRenderer {
     this.lookWaiting = tier;
     if (!this.lookWarming) {
       this.lookWarming = true;
-      void this.programs.warm(list).then(() => {
+      void this.programs.now(list).then(() => {
         this.lookWarming = false;
         const t = this.lookWaiting;
         if (t && !this.disposed) this.applyLook(t);
@@ -1393,7 +1401,7 @@ export class MapRenderer {
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
       this.waterMotion.waterChanged(heights, surface, true);
-    } else if (this.still) u.flowTex.value = stillFlowTexture(W, H, surface);
+    } else this.flowChanged(heights, surface);
     this.high?.setMap(W, H, heights, surface, v.entities);
     this.governor?.hold(performance.now());
     const instances = this.setEntitiesInner(v.entities);
@@ -1415,6 +1423,20 @@ export class MapRenderer {
     this.pageOverlay = null;
     this.onMapChange?.();
     return this.lastBuild;
+  }
+
+  /** The water changed: its current and badwater share in the flow texture (motion.ts); where nothing moves (the
+   *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
+   *  WATER_FILM). */
+  private flowChanged(heights: Uint8Array, surface: SurfaceWater): void {
+    if (this.waterMotion) {
+      this.waterMotion.waterChanged(heights, surface);
+      return;
+    }
+    if (!this.map) return;
+    this.stillFlow?.dispose();
+    this.stillFlow = stillFlowTexture(this.map.W, this.map.H, surface);
+    this.uniforms.flowTex.value = this.stillFlow;
   }
 
   /** The map as drawn (read only): the legend reads what is on it. */
@@ -1462,6 +1484,7 @@ export class MapRenderer {
     this.witheredCount = 0;
     this.season = null;
     this.droughtLayer?.clear();
+    this.editGlow?.clear();
     clearTimeout(this.casterTimer);
     if (this.skirt) this.dropMesh(this.skirt);
     this.skirt = null;
@@ -1834,14 +1857,18 @@ export class MapRenderer {
 
   /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed.
    *  `columns`: a map with caves or overhangs, its columns as they stand when an edit reshaped a
-   *  roof's top (D280 (3)); those tiles are drawn from them. */
-  updateTerrain(heights: Uint8Array, columns?: MapView["columns"]): number {
+   *  roof's top (D280 (3)); those tiles are drawn from them. `glow: false`: not an edit (Compare's flip to another
+   *  version and back), so nothing glows (editGlow.ts). */
+  updateTerrain(heights: Uint8Array, columns?: MapView["columns"], opts: { glow?: boolean } = {}): number {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
     let rect = changedRect(m.W, m.H, m.heights, heights);
     // (a roof the page's own stroke already drew the heights of: its columns changed all the same)
     if (columns) rect = grownRect(rect, columnsChanged(m.source.columns, columnMap(columns), m.W));
+    // (what the edit changed in 3D, from the columns drawn before and the update's: editGlow.ts)
+    const masks = columns ? columnMasks(m.W * m.H, columns) : m.source.masks;
+    const edited = rect && opts.glow !== false ? editedCells(m.W, m.H, { heights: m.heights, masks: m.source.masks }, { heights, masks }, this.blockEdit(), rect) : null;
     if (rect) this.droughtLayer?.retire();
     // (the water on the land that changed rides it, whichever came first: `rideLand`)
     if (rect && this.drawnLand) {
@@ -1853,7 +1880,7 @@ export class MapRenderer {
     this.heightStats = null;
     m.source = { ...m.source, heights };
     if (columns) {
-      m.source = { ...m.source, columns: columnMap(columns), masks: columnMasks(m.W * m.H, columns) };
+      m.source = { ...m.source, columns: columnMap(columns), masks };
       this.columnsSent = { tiles: columns.tiles, voxels: columns.voxels, key: ++this.columnsKey };
       this.syncCaves();
       this.runsOverlay?.refresh(m.source);
@@ -1863,6 +1890,7 @@ export class MapRenderer {
     this.drawnLand = heights.slice();
     this.settleObjects();
     this.hollowStale = true;
+    if (edited) this.glowEdits(edited);
     // (the game's rule: a layer above everything the map could hide shows the whole world)
     if (this.slice !== null && this.slice > this.topHiding()) this.setSlice(null);
     if (!rect) return 0;
@@ -1892,7 +1920,7 @@ export class MapRenderer {
       if (this.layered) this.layeredWaterNear(rect);
       else for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 })) this.meshWater(cx, cy);
       this.high?.waterChanged(m.surface);
-      this.waterMotion?.waterChanged(heights, m.surface);
+      this.flowChanged(heights, m.surface);
     }
     this.high?.terrainChanged(heights, rect);
     this.requestRender();
@@ -1958,7 +1986,7 @@ export class MapRenderer {
     // (the water standing on a cave's floor: its run top's cell)
     if (this.runSoil) this.syncRunSoil();
     this.high?.waterChanged(surface);
-    this.waterMotion?.waterChanged(m.heights, surface);
+    this.flowChanged(m.heights, surface);
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
@@ -2024,7 +2052,7 @@ export class MapRenderer {
     for (const key of changed) this.waterQueue.add(key);
     // (moving again: what waits is drawn where it moved visibly)
     this.waterExact = false;
-    this.waterMotion?.waterChanged(m.heights, surface);
+    this.flowChanged(m.heights, surface);
     this.updateClearAround();
     this.requestRender();
     this.onMapChange?.();
@@ -2280,9 +2308,11 @@ export class MapRenderer {
     const drawn = this.drawnLand;
     for (let y = c.rect.y0; y <= c.rect.y1; y++)
       for (let i = y * m.W + c.rect.x0, end = y * m.W + c.rect.x1; i <= end; i++) if (heights[i] !== drawn[i]) landBefore[i] = drawn[i];
+    // (Erode's frames paint its plain ground here, its hollows under roofs in updateTerrain: both glow)
+    if (this.eroding) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
     if (m.water.count && rideLand(m.W, m.surface, drawn, heights, c.rect)) {
       this.rodeLand(c.rect);
-      this.waterMotion?.waterChanged(heights, m.surface);
+      this.flowChanged(heights, m.surface);
     }
     for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
     for (const row of c.rows) skyVisibilityRect(m.W, m.H, heights, m.sky, row.x0, row.y, row.x1, row.y);
@@ -2554,6 +2584,8 @@ export class MapRenderer {
    *  effects play on their own clocks. A new force's first moment, a carve's included, skips the last
    *  one's to its end (D378). Not with reduced motion, not in software. */
   setForceMoment(m: ForceMoment): void {
+    // (Erode at work: what it wears glows, on plain ground too, with or without its moment's effects)
+    this.eroding = m.verb === "erode";
     if (!this.juicy) return;
     const fresh = m.verb === "carve" ? this.forceFx?.set(m) : this.forceFxOf().set(m);
     // (a new force: an earlier eruption's heat never shows again; only this force's own, given with
@@ -2571,6 +2603,7 @@ export class MapRenderer {
 
   /** The force was kept: its tails play out (dust settling, lava cooling). */
   forceDone(): void {
+    this.eroding = false;
     this.forceFx?.finish();
     // (its lava cools on; the next force's first moment puts its heat away)
     this.heatOfThisForce = false;
@@ -2578,6 +2611,7 @@ export class MapRenderer {
 
   /** Esc, undo: a force's effects and its heat go at once. */
   clearForce(): void {
+    this.eroding = false;
     this.forceFx?.clear();
     this.setHeat(null);
     this.heatOfThisForce = false;
@@ -2834,6 +2868,41 @@ export class MapRenderer {
     if (!any && !this.blockCells) return;
     this.blockCells ??= new BlockCells(this.scene);
     if (this.blockCells.set(any ? preview : null, this.slice)) this.requestRender();
+  }
+
+  /** Erode is at work (its moment's cues come with its frames). */
+  private eroding = false;
+
+  /** When the Block tool last sent an edit (`blockEditSent`); -Infinity once its land came. */
+  private blockSentAt = -Infinity;
+
+  /** The Block tool sent a `blocks` operation: the land that comes next is its own, and glows on plain ground too (a
+   *  brush paints its land as it goes and a force has its own moment, D197, D240, so neither is doubled). */
+  blockEditSent(): void {
+    this.blockSentAt = performance.now();
+  }
+
+  /** The land coming now is the Block tool's edit (sent a moment ago, its land not come yet): taken once. */
+  private blockEdit(): boolean {
+    const yes = performance.now() - this.blockSentAt < BLOCK_EDIT_MS;
+    this.blockSentAt = -Infinity;
+    return yes;
+  }
+
+  private editGlow: EditGlow | null = null;
+
+  /** What an edit just changed in 3D glows a moment (editGlow.ts; D488, D335's colours): a still glow with reduced
+   *  motion. Nothing is made until an edit changes a cell, and nothing runs once it has faded. */
+  private glowEdits(cells: EditCells): void {
+    const m = this.map;
+    if (!m || (!cells.added.length && !cells.removed.length)) return;
+    const src = m.source;
+    (this.editGlow ??= new EditGlow(this.scene, () => this.requestRender())).show(cells, m.W, m.H, (x, y) => columnMask(src, y * m.W + x), this.slice, this.reducedMotion);
+  }
+
+  /** What the edit glow shows now (tests): its faces of each kind and its strength, 0 once faded. */
+  get editGlowDrawn(): { added: number; removed: number; fade: number } {
+    return this.editGlow?.drawn ?? { added: 0, removed: 0, fade: 0 };
   }
 
   /** The blocks of the Block tool's preview drawn now, by kind (tests). */
@@ -3876,6 +3945,7 @@ export class MapRenderer {
     this.effects?.dispose();
     this.blockGhost?.dispose();
     this.blockCells?.dispose();
+    this.editGlow?.dispose();
     this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();

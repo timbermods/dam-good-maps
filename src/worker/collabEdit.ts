@@ -62,8 +62,8 @@ export const collabEditApi = {
   },
 
   /** A stroke of trees, bushes or thorns from the shelf: the core's plan, ordered as one step. */
-  async paintAt(params: PaintParams): Promise<Answer & { planted: number[] }> {
-    const p = ed.planned.paint(params);
+  async paintAt(params: PaintParams, z?: number): Promise<Answer & { planted: number[] }> {
+    const p = ed.planned.paint(params, z);
     const a = await edit(p);
     return { ...a, planted: a.ok && p.ok ? p.plan.map((o) => o.tile) : [] };
   },
@@ -96,8 +96,8 @@ export const collabEditApi = {
     return edit(ed.planned.move(id, dx, dy, z));
   },
 
-  async moveStartTo(x: number, y: number, orientation?: Parameters<typeof ed.planned.start>[2]): Promise<Answer> {
-    return edit(ed.planned.start(x, y, orientation));
+  async moveStartTo(x: number, y: number, orientation?: Parameters<typeof ed.planned.start>[2], z?: number): Promise<Answer> {
+    return edit(ed.planned.start(x, y, orientation, z));
   },
 
   /** A Select action: one step, the start carried if its ground broke (the host works out the tiles it changed). */
