@@ -20,7 +20,8 @@ const SY = [0, 0, 1, -1];
 /** The view's flow over every fall's lip on a generated map against the settle's own outflow. */
 function checkLips(theme: ThemeId, seed: number): void {
   const W = 128;
-  const r = generate(makeSpec({ seed, theme, size: { x: W, y: W } }));
+  // (the heightfield's falls: the map without its 3D forms, D488, whose water under a roof is the stacked engine's)
+  const r = generate(makeSpec({ seed, theme, size: { x: W, y: W } }), { forms: false });
   const b = r.built;
   const out = b.settle.out!;
   // (the view carries the settle's outflows from the water worker since D353, as the page draws it)
@@ -51,7 +52,7 @@ function checkLips(theme: ThemeId, seed: number): void {
 describe("the flow over a fall's lip", () => {
   it.each([
     ["canyon", 3],
-    ["highlands", 6], // (highlands 5 since D333, D148: highlands 2 kept 18 lips; seed 4 since M9b's small starts, generation speed and open groves: seed 5 is below; seed 6 since 3D forms at the default Verticality, D488: seed 4 has a cave and an arch, whose water is the stacked engine's, not this heightfield view's)
+    ["highlands", 4], // (highlands 5 since D333, D148: highlands 2 kept 18 lips; seed 4 since M9b's small starts, generation speed and open groves: seed 5 is below)
     ["lakeBasin", 5], // (seed 5 since M9b, D148: seed 3 is below)
   ] as [ThemeId, number][])("%s %i: is the simulation's own outflow over that side", (theme, seed) => checkLips(theme, seed));
   // The seeds that caught the view's estimate (Kyler, 2026-10-02), kept: with the settle's outflows

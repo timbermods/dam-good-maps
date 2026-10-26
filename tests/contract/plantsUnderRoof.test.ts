@@ -97,7 +97,8 @@ describe("plants under a roof: their run top's soil, for the warning and the che
   }
 
   it("the check: a bush in a moist hollow under a dry hillside lives, one on the hillside's top dies, as the warning says", () => {
-    const r = generate(makeSpec({ seed: 5, theme: "riverValley", size: { x: 64, y: 64 } }));
+    // (the hollows are this test's own: the map without its 3D forms, D488, so none stands where one is dug)
+    const r = generate(makeSpec({ seed: 5, theme: "riverValley", size: { x: 64, y: 64 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const M = s.size.x;
     // hollows dug at the feet of hillsides on moist ground, each a roof over it, the hillside's top dry
