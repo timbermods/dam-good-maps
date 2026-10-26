@@ -2,7 +2,6 @@
 // map does as the pointer moves over it.
 
 import type { TileHit } from "../../render3d";
-import { describeTile as describeTileFacts, tileWords } from "../../core/doc/describeTile";
 import { tip } from "../../ui/Tooltip";
 import { ShowRow } from "../../ui/View3D";
 import { LAYER_NAMES, LayerLegend, type LayerKind } from "../panels";
@@ -81,7 +80,7 @@ export function cornerButtons(ed: Ed) {
 /** What the pointer over the map does: the words for the tile, the sources near it, what it would pick up. */
 export function hoverHandler(ed: Ed) {
   const {
-    renderer, setHover, pageTileFacts, hoverSources, targetAt, targetSpot, setTargeted, brushToolRef, shelfRef, toolRef,
+    renderer, setHover, hoverSources, targetAt, targetSpot, setTargeted, brushToolRef, shelfRef, toolRef,
     startHere, selection, objectUnder, objectTiles, setHoverObject, hoverStart
   } = ed;
 
@@ -89,7 +88,7 @@ export function hoverHandler(ed: Ed) {
     // (on a tile with a cave or an overhang the readout names the ground seen, a cave's floor, not the roof)
     const read = seen ?? hit;
     ed.lastHover.current = read ? { x: read.x, y: read.y, level: seen?.level } : null;
-    setHover(read ? tileWords(describeTileFacts(pageTileFacts(), read.x, read.y, seen?.level)) : null);
+    setHover(read ? ed.hoverWordsAt(read.x, read.y, seen?.level) : null);
     hoverSources(hit);
     // the source the pointer targets, whatever tool is picked (D249)
     const t = hit ? targetAt(hit.x, hit.y) : null;

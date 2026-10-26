@@ -5,6 +5,7 @@
 // (`stackWater.ts` `surfaceWater`), as the drought line reads it.
 
 import { PUMP_CLEAN, WATER_BODY } from "../analysis/walk";
+import type { Hazard } from "./weather";
 
 /** The latest day an `Int16Array` can name; a tile first dry or bad later reads this day. */
 export const LAST_DAY = 32767;
@@ -34,6 +35,9 @@ export interface FirstDays {
 export class DryDays implements FirstDays {
   readonly first: Int16Array;
   through = 0;
+  /** The tiles holding water on Day 0 (as this run reads it, never changed): a 0 in `first` over one of them is water that
+   *  lasts, over any other no water at all (`dryWords`). */
+  readonly wet0: Uint8Array;
   /** The tiles holding water on Day 0 and on every day seen since. */
   private readonly wet: Uint8Array;
 
@@ -41,8 +45,9 @@ export class DryDays implements FirstDays {
   constructor(day0: DayWater) {
     const N = day0.depth.length;
     this.first = new Int16Array(N);
-    this.wet = new Uint8Array(N);
-    for (let i = 0; i < N; i++) if (day0.depth[i] > WATER_BODY) this.wet[i] = 1;
+    this.wet0 = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (day0.depth[i] > WATER_BODY) this.wet0[i] = 1;
+    this.wet = this.wet0.slice();
   }
 
   see(w: DayWater): void {
@@ -54,6 +59,55 @@ export class DryDays implements FirstDays {
         first[i] = day;
       }
   }
+}
+
+/**
+ * The Drought view's hover words for one tile (D133): "Dry on day 6" for water that goes on day 6, "Lasts the drought"
+ * for water that holds through every day of the drought, else null (a tile with no water on Day 0 says nothing, and
+ * neither does water whose fate is not worked out yet). `first` and `through` are `DryDays`' (the days worked out so
+ * far), `days` the drought's length, `wet0` the run's own Day 0 water (`DryDays.wet0`, as the run reads it: never the
+ * page's). Water that goes after the drought's last day lasts the drought. A 0 in `first` only means "lasts" once the days
+ * are worked out to the drought's end; before that it says nothing.
+ */
+export function dryWords(first: ArrayLike<number>, through: number, days: number, i: number, wet0: ArrayLike<number>): string | null {
+  if (!wet0[i]) return null;
+  const day = first[i];
+  if (day > days) return "Lasts the drought";
+  if (day > 0) return `Dry on day ${day}`;
+  return through >= days ? "Lasts the drought" : null;
+}
+
+/**
+ * The Badtide view's hover words for one tile (D133): "Turns bad on day 4" for water that first holds badwater on day 4
+ * (the hover's own "badwater" shows only from 95% bad, so the words say "turns bad"), else null: a 0 in `first` is
+ * water that stays clean, water already bad on Day 0 or a day not worked out yet, and none of them is said.
+ */
+export function badWords(first: ArrayLike<number>, i: number): string | null {
+  const day = first[i];
+  return day > 0 ? `Turns bad on day ${day}` : null;
+}
+
+/** The first days the worker sent with a held hazard day, as the page keeps them. */
+export interface HeldFirstDays {
+  hazard: Hazard;
+  /** The map's version the days were worked out on. */
+  version: number;
+  first: ArrayLike<number>;
+  /** The run's Day 0 water (a drought's only). */
+  wet0: ArrayLike<number> | null;
+  through: number;
+  days: number;
+}
+
+/**
+ * The hover words for tile `i` of the held view (D133): the Drought's or the Badtide's, or null. `shown` is the hazard
+ * on screen and `version` the map's now: days worked out on an older map (an edit while the view is held) or for the
+ * other hazard say nothing, until the edited map's own days come.
+ */
+export function heldWords(news: HeldFirstDays | null, shown: Hazard | null, version: number, i: number): string | null {
+  if (!news || shown !== news.hazard || news.version !== version) return null;
+  if (news.hazard === "drought") return news.wet0 ? dryWords(news.first, news.through, news.days, i, news.wet0) : null;
+  return badWords(news.first, i);
 }
 
 /** Whether a tile's water is badwater as the Badtide view and the hover read it: water there (depth over `WATER_BODY`)
