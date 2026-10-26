@@ -119,8 +119,9 @@ const STATES: BranchState[] = [
   { cut: false, caves: false, soil: false },
 ];
 
-/** Run this when the page is idle (at once where the browser can't say). */
-function whenIdle(fn: (deadline?: IdleDeadline) => void): void {
+/** Run this when the page is idle, with what the idle period has left (at once where the browser can't say); the
+ *  warm-up's slices. Small jobs of their own go through idle.ts's `whenIdle`. */
+function onIdle(fn: (deadline?: IdleDeadline) => void): void {
   if (typeof requestIdleCallback === "function") requestIdleCallback(fn, { timeout: 2000 });
   else window.setTimeout(() => fn(), 0);
 }
@@ -704,13 +705,13 @@ export class MapRenderer {
         // (a few at a time: each sends its compile and returns)
         do sent.push(this.programs.warm([list.shift()!]));
         while (list.length && deadline && deadline.timeRemaining() > 8);
-        if (list.length) whenIdle(step);
+        if (list.length) onIdle(step);
         else
           void Promise.all(sent).then(() => {
             if (run === this.warmRun) this.warmPending = false;
           });
       };
-      whenIdle(step);
+      onIdle(step);
     }, after);
   }
 
