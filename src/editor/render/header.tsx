@@ -6,6 +6,7 @@ import { ChecksDot, Header } from "../Header";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { Together } from "../collab/Together";
+import { plain } from "../panels";
 
 export function header(ed: Ed, props: EditorProps) {
   const {
@@ -14,6 +15,20 @@ export function header(ed: Ed, props: EditorProps) {
   } = ed;
   // (in a shared session Undo and Redo take back only this player's own actions: the session says when there is one)
   const shared = !!collab && collab.phase !== "alone";
+
+  /** The description written beside the name: the setDescription operation, one undo step; null when stored, else the core's one-line reason. */
+  const describe = (text: string) =>
+    new Promise<string | null>((done) => {
+      let answer: string | null = "The map is busy: try again in a moment";
+      void run(
+        () => api.apply({ op: "setDescription", params: { text } } as never, "user", text ? "Write the description" : "Clear the description"),
+        (u) => {
+          answer = u.ok ? null : plain(u.errors[0] ?? "That description was not kept");
+          // (said under the name, not twice)
+          if (!u.ok) ed.setMessage(null);
+        },
+      ).then(() => done(answer));
+    });
 
   return (
     <Header
@@ -40,6 +55,7 @@ export function header(ed: Ed, props: EditorProps) {
       name={props.name}
       onRename={props.onRename}
       renameLocked={collab?.role === "guest" && (collab.phase === "live" || collab.phase === "paused") ? "The host names the shared map" : undefined}
+      onDescribe={describe}
       drawerOpen={props.drawerOpen}
       onDrawer={() => props.onDrawer(!props.drawerOpen)}
       mapsOpen={props.mapsOpen}

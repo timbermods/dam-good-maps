@@ -5,6 +5,7 @@ import { View3D } from "../../ui/View3D";
 import { HistoryPanel, StartIndicators } from "../panels";
 import { LEGEND_TEMPLATES } from "../shelfItems";
 import { measureInsets } from "../view/insets";
+import { PointerNote } from "../view/pointerNote";
 import { mapCounts } from "../features";
 import { GeneratorPanel } from "../generator/GeneratorPanel";
 import { YourMaps } from "../generator/YourMaps";
@@ -89,14 +90,14 @@ export function editorView(ed: Ed, props: EditorProps) {
                 stamp={`${info.version}:${waterTick}:${weather ?? ""}:${heldTick}:${ed.compareFlipped ? "other" : ""}`}
               />
               {shapeNote ? (
-                <div class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} role="status" style={{ left: `${shapeNote.x + 16}px`, top: `${shapeNote.y + 16}px` }}>
+                <PointerNote class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} x={shapeNote.x + 16} y={shapeNote.y + 16} pointer={shapeNote}>
                   {shapeNote.text}
-                </div>
+                </PointerNote>
               ) : null}
               {blockNote ? (
-                <div class={`map-note shape-note${blockNote.ok ? " warn" : " error"}`} role="status" style={{ left: `${blockNote.x + 16}px`, top: `${blockNote.y + 16}px` }}>
+                <PointerNote class={`map-note shape-note${blockNote.ok ? " warn" : " error"}`} x={blockNote.x} y={blockNote.y} pointer={blockNote.pointer} own={blockNote.own}>
                   {blockNote.text}
-                </div>
+                </PointerNote>
               ) : null}
               {startDrag ? (
                 <StartIndicators check={startDrag.check} rules={needs.rules} />

@@ -691,6 +691,8 @@ export type EditorEvent =
 export interface DryNews {
   firstDry?: Int16Array;
   firstDryThrough?: number;
+  /** Per tile, 1 where the run's own Day 0 holds water (`DryDays.wet0`): a 0 in `firstDry` is water that lasts only there. */
+  firstDryWet0?: Uint8Array;
 }
 
 /** A badtide's day also says when each tile's water turns bad (D133; core/sim/firstDays.ts `BadDays`): `firstBad`, per
@@ -1070,7 +1072,7 @@ function seenWater(s: MapSession, w: { depth: Float64Array; contamination: Float
 function firstsNews(run: WeatherRun): DryNews & BadNews {
   const first = run.firsts.first.slice();
   const through = run.firsts.through;
-  return run.hazard === "drought" ? { firstDry: first, firstDryThrough: through } : { firstBad: first, firstBadThrough: through };
+  return run.firsts instanceof DryDays ? { firstDry: first, firstDryThrough: through, firstDryWet0: run.firsts.wet0.slice() } : { firstBad: first, firstBadThrough: through };
 }
 
 /** Show day `day` (null: the hazard's default last day) of a drought or a badtide: at once when it is kept, or after
