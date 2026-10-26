@@ -302,7 +302,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
         const c = list[Math.floor(list.length / 2)] ?? sweep.at[0];
         feel(mode === "add" ? "raise" : "lower", c[0], c[1], params.size);
       },
-    );
+    ).finally(() => renderer.current?.blockEditSent(false));
   }
 
   // the map changed (an edit, an undo, a redo): the face under the pointer is asked about again
