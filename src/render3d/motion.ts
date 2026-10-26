@@ -167,9 +167,9 @@ function streakMaterial(u: SceneUniforms, viewport: { value: Vector2 }, dpr: { v
   });
 }
 
-/** A still view's flow texture (`MapRenderer`'s `still`): no current (RG 128), and the contamination
- *  smoothed as the bake smooths it (B), made at once on this thread, so the water's badwater share shows
- *  without the moving water. */
+/** A still view's flow texture built whole from one water: no current (RG 128), and the contamination
+ *  smoothed as the bake smooths it (B). The renderer keeps its own where nothing moves (stillFlow.ts), which
+ *  equals this one once the water stops; this is its reference. */
 export function stillFlowTexture(W: number, H: number, sw: SurfaceWater): DataTexture {
   const t = texture(W, H, [128, 128, 0, 255]);
   const f = t.image.data as Uint8Array;
