@@ -11,6 +11,7 @@
 import type { MapView, SurfaceWater, WaterView } from "./model";
 import type { WaterMeshData } from "./waterMesh";
 import { SharedBlock } from "./shared";
+import { machineThreads, meshWorkersFor } from "../core/sim/parallelPolicy";
 
 /** The water a chunk is meshed on: the arrays meshWaterChunk reads (its one layer on a heightfield, `plainLayers`). */
 export type MesherWater = Pick<SurfaceWater, "surface" | "floor" | "depth" | "contamination" | "top" | "outflow">;
@@ -29,10 +30,10 @@ function warnOnce(why: string): void {
   console.warn(`The renderer's water worker failed (${why}); moving water is meshed on the page's thread.`);
 }
 
-/** Workers for the water's meshes: a few, never more than a quarter of the machine's threads. */
+/** Workers for the water's meshes: a few, never more than a quarter of the machine's threads (the water's own
+ *  threads leave them a core each, waterThreadBudget). */
 function poolSize(): number {
-  const n = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
-  return Math.max(1, Math.min(3, Math.floor(n / 4)));
+  return meshWorkersFor(machineThreads());
 }
 
 export class WaterMesher {

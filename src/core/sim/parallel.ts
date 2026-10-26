@@ -13,11 +13,12 @@
 // Where it runs (#130's approved shape): only where it helps, in a worker that installed a pool
 // (`installParallelWater`: the editor's generator worker, with helpers the page starts) on a cross-origin isolated page (the service worker,
 // public/sw.js) in Chromium and Firefox, for maps of 256² and more (about 8 threads at 256², up to 16 at 512²)
-// with enough water to share. Everywhere else, and whenever it can't, WaterSim runs the single thread, and the
+// with enough water to share, within the machine's budget (`waterThreadBudget`: the page's thread, the water mesh
+// workers and the flow bake keep a core each, 7 threads of 12). Everywhere else, and whenever it can't, WaterSim runs the single thread, and the
 // two hand over to each other between runs at any time with the same result. Node and the tools stay
 // single-threaded (the identity check installs a pool to compare).
 
-import { parallelWaterSupported, threadsFor } from "./parallelPolicy";
+import { machineThreads, parallelWaterSupported, threadsFor, waterThreadBudget } from "./parallelPolicy";
 import { RustStrip, rustWater, sameBits, type RustModel, type RustRules } from "./rustWater";
 import { stackStripHelper, type StackMessage } from "./stackParallel";
 
@@ -356,9 +357,8 @@ class Pool {
     private readonly spawn: () => HelperPort,
     readonly forced: number | null,
   ) {
-    const cores = typeof navigator !== "undefined" && navigator.hardwareConcurrency ? navigator.hardwareConcurrency : 4;
-    // the page's own thread keeps a core when it can
-    this.cap = forced ?? Math.max(1, Math.min(MAX_THREADS, cores - 1));
+    // the page's own thread, the water's mesh workers and the flow bake keep a core each (waterThreadBudget)
+    this.cap = forced ?? waterThreadBudget(machineThreads());
   }
 
   /** Starts helpers until there are `count` (never more than the cap allows); when a helper can't be started,

@@ -21,6 +21,27 @@ export function stackThreadsFor(n: number): number {
   return t;
 }
 
+/** The machine's threads (4 where the browser doesn't say). */
+export function machineThreads(): number {
+  const n = typeof navigator !== "undefined" ? navigator.hardwareConcurrency : 0;
+  return n > 0 ? n : 4;
+}
+
+/** The renderer's water mesh workers on a machine of `cores` threads (render3d/waterMesher.ts): a few, never more
+ *  than a quarter of them. */
+export function meshWorkersFor(cores: number): number {
+  return Math.max(1, Math.min(3, Math.floor(cores / 4)));
+}
+
+/** The most threads the water may use on a machine of `cores`, its coordinator's own included. A flood keeps the
+ *  page's thread, the water mesh workers and the flow bake busy at the same time as the water's strips, so each
+ *  keeps a core of its own: with all of them competing for the same cores, the page's thread lost 60 to 300 ms
+ *  at a time with nothing of its own to run (#581's profile). Never below 1; the water's bytes are the same
+ *  whatever the count (parallel.ts). */
+export function waterThreadBudget(cores: number): number {
+  return Math.max(1, Math.min(MAX_THREADS, cores - meshWorkersFor(cores) - 2));
+}
+
 /** Whether this thread can run the water on several: a worker on a cross-origin isolated page in Chromium or
  *  Firefox (WebKit stays on one thread, #130). `page`: whether the page's own thread may start helpers for its
  *  worker (it can't wait for them itself). */

@@ -7,7 +7,7 @@ import { transfer, wrap, type Remote } from "comlink";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { ShowcaseMessage, ShowcaseRequest } from "../worker/showcaseApi";
 import type { MapSpec } from "../core/spec/mapspec";
-import { parallelWaterSupported, threadsFor } from "../core/sim/parallelPolicy";
+import { machineThreads, parallelWaterSupported, threadsFor, waterThreadBudget } from "../core/sim/parallelPolicy";
 
 /** workers: module URLs on the website (the artifact build will inline them as blobs). The
  *  generator and the editor's map run in one worker; the editor's checks run in a second one, on
@@ -45,10 +45,11 @@ export function createGeneratorWorker(): { api: Remote<GeneratorApi>; stop(): vo
 }
 
 /** The multi-core water's helpers for the editor's worker, each reached through a port (none where it doesn't
- *  run: a page not cross-origin isolated, WebKit, fewer than four cores). The worker starts more for bigger maps. */
+ *  run: a page not cross-origin isolated, WebKit, a machine whose budget leaves the water fewer than three threads,
+ *  waterThreadBudget). The worker starts more for bigger maps, within the same budget. */
 function waterHelpers(): { worker: Worker; port: MessagePort }[] {
   if (!parallelWaterSupported(true)) return [];
-  const count = Math.min(threadsFor(256 * 256), (navigator.hardwareConcurrency || 4) - 1) - 1;
+  const count = Math.min(threadsFor(256 * 256), waterThreadBudget(machineThreads())) - 1;
   if (count < 2) return [];
   const helpers: { worker: Worker; port: MessagePort }[] = [];
   try {
