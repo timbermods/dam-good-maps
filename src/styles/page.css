@@ -267,16 +267,30 @@
   text-overflow: ellipsis;
 }
 
-/* a kept version's parent under the size: one quiet line, ellipsized; the tiles of a row share their height */
+/* a kept version's parent under the size: one quiet line; the tiles of a row share their height. The parent's name gives
+   way (an ellipsis) and "· step N" stays whole: the step is what tells the versions of one map apart (its tooltip is the
+   whole line) */
 .ym-from {
-  display: block;
+  display: flex;
+  align-items: baseline;
   min-width: 0;
   overflow: clip;
   color: var(--muted);
   font-size: 0.75rem;
   line-height: 16px;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ym-from-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ym-from-step {
+  flex: none;
+  white-space: pre;
 }
 
 .your-maps li {
@@ -3170,6 +3184,21 @@
   line-height: 17px;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+/* a kept version's name too long for its two lines: its map's name cut in the first line, its step whole in the second
+   (cut at its end only when the step alone is longer than a line) */
+.your-maps .ym-name.split {
+  display: flex;
+  flex-direction: column;
+}
+
+.your-maps .ym-name.split > * {
+  flex: none;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .your-maps .ym-size {

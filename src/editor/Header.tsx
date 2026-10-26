@@ -11,6 +11,7 @@ import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
 import { useMenuPresence } from "../ui/menuPresence";
+import { cleanMapName } from "../core/doc/document";
 import { fitsHeaderTwoLines, limitName, linesIn } from "./nameFit";
 import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
@@ -148,6 +149,9 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
  *  blank name is refused in the core's own words. */
 function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void }) {
   const [text, setText] = useState<string | null>(null);
+  /** The name just saved, shown until the core's answer brings it as `p.name`: the core runs in a worker that may be busy,
+   *  and the title never waits for it. */
+  const [pending, setPending] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const timer = useRef(0);
   // (focus is taken in the same task as the click that opens the field, so no key typed straight after it is lost)
@@ -183,20 +187,27 @@ function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRenam
       setText(null);
       return say(null);
     }
-    const problem = await p.onRename(text);
-    if (!problem) {
-      setText(null);
-      return say(null);
+    // a name the core will refuse (a blank one) is refused here with its own words, at once: Enter keeps the field open
+    // with them; leaving puts the name back and says why
+    const clean = cleanMapName(text);
+    if (!clean.ok) {
+      if (leaving) setText(null);
+      return say(clean.reason, leaving);
     }
-    // refused: Enter keeps the field open with the core's words; leaving puts the name back and says why
-    if (leaving) setText(null);
-    say(problem, leaving);
+    // the name is stored data the core accepts: the field gives way to the title now, which shows it and fits it in the
+    // same frame (the title once stayed a field, drawn for what was typed, for as long as the worker took to answer)
+    setPending(clean.name);
+    setText(null);
+    say(null);
+    const problem = await p.onRename(text);
+    setPending(null);
+    if (problem) say(problem, true);
   };
   if (text === null)
     return (
       <h1>
-        <button type="button" class="title-button" title={p.clipped ? p.name : "Rename"} onClick={() => setText(p.name)}>
-          {p.name}
+        <button type="button" class="title-button" title={p.clipped ? (pending ?? p.name) : "Rename"} onClick={() => setText(pending ?? p.name)}>
+          {pending ?? p.name}
         </button>
       </h1>
     );
@@ -290,7 +301,8 @@ export function Header(p: HeaderProps) {
   // the name ellipsizes, down to about 80px
   const bar = useRef<HTMLElement>(null);
   const fit = useRef<() => void>(() => undefined);
-  useEffect(() => {
+  // (laid out in the commit itself, before the browser draws: the title is never drawn at a fit that is a draw behind)
+  useLayoutEffect(() => {
     const el = bar.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const note = () => {
@@ -339,7 +351,7 @@ export function Header(p: HeaderProps) {
     el.querySelectorAll(".new-map, .editor-actions").forEach((g) => watch.observe(g));
     return () => watch.disconnect();
   }, []);
-  useEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H]);
+  useLayoutEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H]);
   useEffect(() => {
     if (!menu) return;
     const off = (e: PointerEvent) => {
