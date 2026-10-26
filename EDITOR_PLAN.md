@@ -289,7 +289,7 @@ place of its bottom rule.
     ledge"). The start is the same: its shelf click and its drag name the level aimed at (`moveStartTo`'s `z`), its
     ghost and words are `footprintCheck` at that level ("not enough room under the roof here: the start needs 5",
     "its door would open onto rock"; the page's own open-ground check is left out there), and a drop on a tile's top
-    names that top, which brings a start out from under a roof. A drag out of a cave lands on the tile's top. Strokes
+    names that top, which brings a start out from under a roof. Under a roof its panel (dragged, or hovered once placed) shows the core's verdict alone with one line, "Under a roof: its walks to water, wood and berries are not measured", and no figures: the page's walks read the roof's top, not the floor (`roofStartCheck`). A drag out of a cave lands on the tile's top. Strokes
     paint a roof's top like any ground; a stroke begun on a cave's floor or under an overhang paints at that floor
     (`paintAt(params, z)` with the level of the tile it began on; the core fills `paintObjects` `levels` by
     `paint.ts` `paintLevels`), each object held to the game's rule there, and the ring's word and the stroke's refusal

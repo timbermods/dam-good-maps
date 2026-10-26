@@ -6,7 +6,7 @@ import { startEntranceTile } from "../../core/format/footprints";
 import type { Point } from "../../core/features/schema";
 import { ORIENTATION_NAMES } from "../../render3d/model";
 import type { PointerTool, TileHit } from "../../render3d";
-import { checkStartAt, sameStartCheck, startDragStatus, type StartCheck, type StartDrag } from "../features";
+import { checkStartAt, roofStartCheck, sameStartCheck, startDragStatus, type StartCheck, type StartDrag } from "../features";
 import { startFitExtras, startFitWarnings, type StartFitExtra } from "../../core/doc/startFit";
 import { GHOST_OK } from "../tools";
 import { quietWord } from "../shelfItems";
@@ -50,9 +50,8 @@ export function useStart(ed: Ed): StartSlice {
       const bank = moved ? undefined : f.params.bank;
       bench = { level, radius: f.params.benchRadius, ...(bank ? { bank } : {}) };
     }
-    const check = checkStartAt(ctx(), x, y, door, bench, s.owner, needs);
-    // (the page's own check reads the roof's top, not the floor aimed at: the core's line follows, below)
-    if (level !== undefined) check.problem = null;
+    // (the page's own check and walks read the roof's top, not the floor aimed at: no figures, the core's line follows, below)
+    const check = level !== undefined ? roofStartCheck(info.W, x, y, door, null) : checkStartAt(ctx(), x, y, door, bench, s.owner, needs);
     // (it fits but the checks would flag the spot: amber with the first warning, as the shelf's preview shows it)
     let warning: string | null = null;
     if (!check.problem) {
@@ -80,13 +79,20 @@ export function useStart(ed: Ed): StartSlice {
     clearTimeout(reachFade.current);
     const s = startHere;
     const m = mirror.current;
-    if (!s || !m.water) return;
+    // (under a roof the core's verdict needs no water, the walks do)
+    if (!s || (!m.water && s.z === undefined)) return;
     if (!reachCache.current || reachCache.current.version !== info.version) {
       const [cx, cy] = cornerFor(s.x, s.y, s.orientation);
       const door = startEntranceTile(cx, cy, s.orientation);
       const f = s.feature ? info.features.find((g) => g.id === s.feature) : undefined;
       const bench = f && f.kind === "start" ? { level: f.params.benchLevel, radius: f.params.benchRadius, ...(f.params.bank ? { bank: f.params.bank } : {}) } : null;
-      reachCache.current = { version: info.version, check: startWorkerApi().check({ W: info.W, H: info.H, heights: m.heights, water: m.water, entities: m.entities, river: indexed?.river ?? null, x: s.x, y: s.y, door, bench, self: s.owner, needs }) };
+      // (under a roof the core's verdict alone, at its level, with no figures: D491)
+      if (s.z !== undefined) {
+        const z = s.z;
+        reachCache.current = { version: info.version, check: api.footprintCheck({ tool: "entity", template: "StartingLocation", x: cx, y: cy, orientation: s.orientation, z }).then((fit) => roofStartCheck(info.W, s.x, s.y, door, fit.problem)) };
+      } else {
+        reachCache.current = { version: info.version, check: startWorkerApi().check({ W: info.W, H: info.H, heights: m.heights, water: m.water!, entities: m.entities, river: indexed?.river ?? null, x: s.x, y: s.y, door, bench, self: s.owner, needs }) };
+      }
     }
     const v = info.version;
     void reachCache.current.check.then((check) => {

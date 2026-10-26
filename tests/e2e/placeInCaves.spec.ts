@@ -35,10 +35,14 @@ function startMap(): Uint8Array {
   s.box(32, 4, 43, 12, FLOOR, 5, false);
   s.box(32, 16, 43, 28, FLOOR, 7, false);
   s.start(37, 37, 11);
+  // pines on the roof over chamber A, 8 levels above its floor: no figure of the start's may count them
+  for (let x = 19; x <= 28; x += 3) for (let y = 15; y <= 28; y += 3) s.plant(`roof-${x}-${y}`, "Pine", x, y, 11);
   return build({ id: "start-paint-levels", title: "Start and paint levels", tests: "", scene: s, days: 1, snapshots: [], checks: [], focus: [], samples: [], water: "none" }).bytes;
 }
 const of = (page: Page, template: string) => objects(page).then((o) => o.filter((g) => g.startsWith(`${template} `)));
 const levels = (list: string[]) => list.map((g) => Number(g.split(",")[2]));
+/** The pines standing below the plateau's top (the painted ones; the map's own stand on the roof at 11). */
+const floorPines = (page: Page) => of(page, "Pine").then((o) => o.filter((g) => levels([g])[0] < 11));
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const objects = (page: Page) =>
@@ -206,6 +210,44 @@ test("the start and painted pines go where you aim under a roof: the start lands
   await idle(page);
   await expect.poll(async () => levels(await start())).toEqual([11]);
 
+  // the start dragged onto the floor: the figures are not measured under a roof (the pines on the roof do not count), the
+  // core's verdict gives the colour, and it lands at the floor's level
+  const grab = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const q = r.project(37.5, 5, -37.5);
+    const box = r.canvas.getBoundingClientRect();
+    return { x: q.x + box.left, y: q.y + box.top };
+  });
+  const floorA = await seen(page, 23, 21, FLOOR);
+  await page.mouse.move(grab.x, grab.y);
+  await page.mouse.down();
+  await page.mouse.move(floorA.x, floorA.y, { steps: 12 });
+  await expect(page.locator(".start-indicators")).toContainText("Under a roof");
+  await expect(page.locator(".start-indicators")).toContainText("The district center fits here");
+  await expect(page.locator(".start-indicators")).not.toContainText("Starting wood");
+  await expect(page.locator(".start-indicators [data-status]")).toHaveAttribute("data-status", "ok");
+  await page.mouse.up();
+  await idle(page);
+  await expect.poll(async () => levels(await start())).toEqual([FLOOR]);
+  // hovering the start placed there: still the core's verdict, never "on an object" from the roof's pines
+  // (the start stands on tiles 23–25 × 21–23: its middle is where the pointer is)
+  const onIt = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const q = r.project(24.5, 3.5, -22.5);
+    const box = r.canvas.getBoundingClientRect();
+    return { x: q.x + box.left, y: q.y + box.top };
+  });
+  await page.mouse.move(onIt.x + 150, onIt.y + 150);
+  await page.mouse.move(onIt.x, onIt.y, { steps: 6 });
+  const reach = page.locator(".start-reach .start-indicators");
+  await expect(reach).toContainText("Under a roof");
+  await expect(reach).toContainText("The district center fits here");
+  await expect(reach).not.toContainText("Does not fit");
+  await expect(reach).not.toContainText("Starting wood");
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(async () => levels(await start())).toEqual([11]);
+
   // into the chamber with 4 levels of air: refused with the core's line, and the start stays
   await shelf.getByRole("button", { name: "Start", exact: true }).click();
   const low = await seen(page, 37, 22, FLOOR);
@@ -226,10 +268,10 @@ test("the start and painted pines go where you aim under a roof: the start lands
   await page.mouse.move(b.x, b.y, { steps: 8 });
   await page.mouse.up();
   await idle(page);
-  await expect.poll(async () => (await of(page, "Pine")).length).toBeGreaterThan(0);
-  expect(new Set(levels(await of(page, "Pine")))).toEqual(new Set([FLOOR]));
+  await expect.poll(async () => (await floorPines(page)).length).toBeGreaterThan(0);
+  expect(new Set(levels(await floorPines(page)))).toEqual(new Set([FLOOR]));
   await page.keyboard.press("Escape");
-  const planted = (await of(page, "Pine")).length;
+  const planted = (await floorPines(page)).length;
 
   // a drag on the floor with 2 levels of air: refused with the core's line, nothing planted
   await shelf.getByRole("button", { name: "Pine", exact: true }).click();
@@ -241,6 +283,6 @@ test("the start and painted pines go where you aim under a roof: the start lands
   await page.mouse.up();
   await idle(page);
   await expect(page.getByRole("alert")).toContainText("the pine needs 3");
-  expect((await of(page, "Pine")).length).toBe(planted);
+  expect((await floorPines(page)).length).toBe(planted);
   expect(errors).toEqual([]);
 });
