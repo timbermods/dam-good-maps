@@ -161,13 +161,14 @@ export interface ScreenBox {
 
 /** Where the note that says why a click is refused goes: clear of the blocks it describes (their screen box), so it never
  *  covers them. Below the box, else to its right, its left or above, the first that fits the canvas; across, as near the
- *  pointer as the canvas allows. Without a box (nothing to draw) it sits below and right of the pointer. Returns the
- *  note's top left. */
-export function noteSpot(box: ScreenBox | null, pointer: { x: number; y: number }, canvas: { w: number; h: number }, note: { w: number; h: number }, gap = 10): { x: number; y: number } {
+ *  pointer as the canvas allows. Without a box (nothing to draw) it sits below and right of the pointer. A side that
+ *  would run under one of the `avoid` boxes (the page's panels, shelf and bars) is passed over. Returns the note's top left. */
+export function noteSpot(box: ScreenBox | null, pointer: { x: number; y: number }, canvas: { w: number; h: number }, note: { w: number; h: number }, gap = 10, avoid: readonly ScreenBox[] = []): { x: number; y: number } {
   const clampX = (x: number) => Math.max(gap, Math.min(canvas.w - note.w - gap, x));
   const clampY = (y: number) => Math.max(gap, Math.min(canvas.h - note.h - gap, y));
   if (!box) return { x: clampX(pointer.x + 16), y: clampY(pointer.y + 16) };
-  const fits = (x: number, y: number) => x >= gap && y >= gap && x + note.w <= canvas.w - gap && y + note.h <= canvas.h - gap;
+  const clear = (x: number, y: number) => avoid.every((b) => x + note.w <= b.x0 - 4 || x >= b.x1 + 4 || y + note.h <= b.y0 - 4 || y >= b.y1 + 4);
+  const fits = (x: number, y: number) => x >= gap && y >= gap && x + note.w <= canvas.w - gap && y + note.h <= canvas.h - gap && clear(x, y);
   const across = clampX(pointer.x - note.w / 2);
   const along = clampY(pointer.y - note.h / 2);
   const options: [number, number][] = [

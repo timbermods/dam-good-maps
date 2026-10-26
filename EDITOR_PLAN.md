@@ -66,7 +66,7 @@ place of its bottom rule.
   browser can't keep the map, that line says so); it never reaches either side: where the room is short the second
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
   font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443),
-  Esc cancels, and a blank name is refused in the core's words, said in the second line. A typed name stops at what
+  Esc cancels, and a blank name is refused in the core's words, said in the second line. While the name is edited a small card hangs under it with the map's description ("Describe the map" while none is written; Enter saves, Shift+Enter is a line break, Esc cancels; the `setDescription` operation, one undo step, refused in the core's words in the card; empty takes the player's text away; what the file adds after it shows under the field); focus moving between the name and the card saves nothing until it leaves the title. A typed name stops at what
   fits two lines (13px, where the header's room is narrowest, at 1280 wide) where the fonts allow, never below 30
   characters: a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines with an
   ellipsis and the full name in its tooltip. On the right **History**
@@ -135,7 +135,7 @@ place of its bottom rule.
   beside it): a map is kept in this browser from its first edit (an operation applied) or rename,
   whatever its kind, and stays kept even if every edit is undone (the first time in a browser a quiet note says so: "Kept in Your maps,
   in this browser", remembered in `dgm.keptNote`); camera bookmarks alone don't keep it, and an
-  unedited map is never written (Cancel during a Generate brings it back from memory). Kept maps are saved quietly
+  unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
   after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
   thumbnail, never cropped), its name and size under it, newest first, the open map marked, a click opening one (a click on the open
@@ -240,7 +240,7 @@ place of its bottom rule.
   - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't (the start
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
-    about it changed, D361), with **one label** beside the pointer (D323, item 32): the reason where it doesn't
+    about it changed, D361), with **one label** beside the pointer (D323, item 32; every such note, a force's, a shelf object's, Select's count and the Block tool's refusal, stays in the free view between the panels, the Items shelf and the bars, and takes the pointer's other corners and sides where its first spot would run under one; with none of those clear it takes the clear spot of the free view nearest the pointer, keeping the place it has among spots within 24 px of the nearest so that it does not trade between two strips as the pointer moves: `view/pointerNote.tsx`): the reason where it doesn't
     fit, "Move the start here" for the start where it does (amber with the first warning instead where it fits but the checks would flag it, core `startFitWarnings`), "Place here" for the rest. Click to place, R to
     rotate; **Esc or a right-click puts a picked object away** (a right-drag is still the camera).
   - **Drag an object out of the shelf** (D323, item 11): the ghost follows the pointer, letting go over the map
@@ -949,7 +949,7 @@ Make a valley, drop a source, and there's a river.
   shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
   holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
   **◀ Day N of L ▶** (and ← →; L is the hazard's length for the map's difficulty, a drought of 9 days) steps from Day 0 to past the default length (then it reads "Day 10 past 9", never "of 9"); a double-click takes a typed day. Each
-  hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
+  hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. **Hovering water in the Drought view says when it dries** (D133): the readout adds "Dry on day 6" to the tile's words, or "Lasts the drought" once the days are worked out to the drought's end (before that, water that has not yet gone says nothing rather than guess); ground that holds no water on Day 0 says nothing. In the Badtide view the readout adds "Turns bad on day 4" the same way (`firstBad`, `BadDays`, `badWords`; the hover's own "badwater" shows only from 95% bad), and says nothing for water that stays clean, water bad from Day 0 or days not yet worked out. The days come from the worker with each day (`firstDry` and `firstBad` per tile, `core/sim/firstDays.ts` `DryDays` and `BadDays`, a drought's also `firstDryWet0`, the run's own Day 0 water; the words `dryWords` and `badWords`, said by `heldWords` only for the map the days were worked out on, so after an edit while the view is held the hover says nothing until the edited map's days come); the page only looks up the tile. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
   game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
   badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. Each runs from the
