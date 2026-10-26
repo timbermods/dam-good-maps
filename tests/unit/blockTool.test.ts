@@ -147,6 +147,16 @@ describe("the refusal's note stays clear of the blocks it describes", () => {
   it("without a box sits below and right of the pointer", () => {
     expect(noteSpot(null, { x: 100, y: 100 }, canvas, note)).toEqual({ x: 116, y: 116 });
   });
+  it("passes over a side that would run under the shelf, a bar or a panel", () => {
+    // (the blocks reach the foot of the free view, so the note goes beside them; the shelf is on their right)
+    const box = { x0: 1000, y0: 300, x1: 1300, y1: 690 };
+    const shelf = { x0: 1310, y0: 165, x1: 1900, y1: 990 };
+    const bar = { x0: 0, y0: 700, x1: 1900, y1: 990 };
+    const n = noteSpot(box, { x: 1150, y: 600 }, canvas, note, 10, [shelf, bar]);
+    expect(overlaps(n, shelf)).toBe(false);
+    expect(overlaps(n, bar)).toBe(false);
+    expect(overlaps(n, box)).toBe(false);
+  });
 });
 
 describe("what the page sends the core", () => {
