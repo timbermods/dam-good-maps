@@ -134,7 +134,8 @@ with many other sessions' runs, three lanes at once, so times are high):
   Maps with a form kept, and the forms kept (caves / overhangs / arches): River Valley (20) 16 / 28 / 0 of 100 maps;
   Canyon (40) 6 of 10 maps, 5 / 0 / 2; Highlands (45) 9 of 10, 7 / 0 / 4; Any (25) 7 of 10, 5 / 2 / 0; Delta (10) 2 /
   0 / 0; Lake Basin (10) and Islands (20) none (their drawn forms found no place or were dropped). Median time a map
-  10–31 s by theme on this loaded machine.
+  10–31 s by theme on this loaded machine. Rerun on dev with #527 and #515 merged: River Valley 100 of 100 final, 16 / 27 / 0,
+  100 of 100 round trips, 0 blocks dropped.
 - Time: at Verticality 80, 12 maps (Canyon, Highlands, River Valley, Any, seeds 1–3) took a median of 14.7 s against
   dev's 7.9 s on the same loaded machine: a map with forms is built and checked once or twice more, each time with the
   stacked engine's settle. Under 3 s at 128² is not met, by dev either on this machine.
@@ -153,6 +154,9 @@ big arch from above and straight down): `docs/sheets/3d-generation-1-natural.jpg
   with caves (D280 (3); a force leaves a cave or an overhang as it is): on the default maps that now has them, a wide
   stroke across one is refused rather than shaped round it. Holding a form's rock as a stroke holds the ground under an
   object (D491) would let it through; the hover's footprint check does not foresee the falls either.
+- A map with caves has no live water after an edit (`worker/session.ts` `kickWater`: the background check's settle puts
+  it in place, D280): the default maps that now grow a form lose the water flowing as an edit is made, a live stacked
+  water is the step that brings it back.
 - Overhangs are rare: most starts stand on open ground with no cliff in reach. Steering the settler toward a cliff when
   the map looks for one would change maps that then find none, so it waits for a round where that is allowed.
 - No arch above 128² (its first look is not held there); a land-stage arch on the planned water would bring them back.
