@@ -2,7 +2,7 @@
 // strip"): for generated maps only, and otherwise empty. The first candidate that passes is the map,
 // shown at once and never swapped. If it missed an outcome that matters, M9b's background search
 // looks on; the first version meeting all three goes into the strip, with a short notification only
-// where the miss is relevant ("A version with its sea is ready"). More makes further siblings in the
+// where the miss is relevant ("A version that keeps its theme's promise is ready"). More makes further siblings in the
 // background; they appear as they finish. A click opens one; the shown map never swaps by itself.
 //
 // The input is M9b's candidate API (src/worker/api.ts and src/core/gen/versions.ts on
