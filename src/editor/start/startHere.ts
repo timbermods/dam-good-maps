@@ -12,6 +12,8 @@ export interface StartHere {
   /** Whose objects the fit check leaves out: the start feature's id, or null for an imported start (every imported
    *  object is owned by "import", so the start is left out by what it is, not by owner). */
   owner: string | null;
+  /** The level it stands at under a roof (below its middle tile's top, D491); absent on the ground's top. */
+  z?: number;
 }
 
 /** Where a map without a start would put one: facing as a new start does. */
