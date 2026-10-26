@@ -91,7 +91,8 @@ import { Mist } from "./high/mist";
 import { Programs, withDefine, type Defines } from "./programs";
 import { isPlant } from "./high/forest";
 import { pageBaker, type Baker } from "./high/fields";
-import { stillFlowTexture, WaterMotion } from "./motion";
+import { WaterMotion } from "./motion";
+import { StillFlow } from "./stillFlow";
 import { BoxUploads, RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
 import { EntityGeometryCache } from "./entityGeometry";
@@ -376,8 +377,8 @@ export class MapRenderer {
   private high: HighLook | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
-  /** Where nothing moves (software, or held still): the flow texture made here, with the badwater share alone. */
-  private stillFlow: DataTexture | null = null;
+  /** Where nothing moves (software, or held still): the flow texture kept here, with the badwater share alone. */
+  private stillFlow: StillFlow | null = null;
   /** A still view (the constructor's `still`). */
   private readonly still: boolean;
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
@@ -509,6 +510,7 @@ export class MapRenderer {
     this.lightRows = new RowUploads(this.gl, () => this.lightTex);
     this.caveRows = new BoxUploads(this.gl, () => this.caveTex);
     this.runRows = new BoxUploads(this.gl, () => this.runTex);
+    this.stillRows = new RowUploads(this.gl, () => this.stillFlow?.texture ?? null);
     this.noCave = this.uniforms.caveTex.value;
     this.uniforms.patternTex.value = this.patterns.texture;
     this.terrainMat = terrainMaterial(this.uniforms, 0, 1, this.software);
@@ -1401,7 +1403,13 @@ export class MapRenderer {
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
       this.waterMotion.waterChanged(heights, surface, true);
-    } else this.flowChanged(heights, surface);
+    } else {
+      const baker = this.baker;
+      const job = (w: number, h: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">) => baker.run({ kind: "share", W: w, H: h, sw }).then((r) => (r.kind === "share" ? r.share : Promise.reject(new Error("not a share"))));
+      this.stillFlow = new StillFlow(W, H, job, (x0, y0, x1, y1) => this.stillRows.touch(x0, y0, x1, y1), () => this.requestRender());
+      this.stillFlow.start(surface);
+      u.flowTex.value = this.stillFlow.texture;
+    }
     this.high?.setMap(W, H, heights, surface, v.entities);
     this.governor?.hold(performance.now());
     const instances = this.setEntitiesInner(v.entities);
@@ -1429,14 +1437,8 @@ export class MapRenderer {
    *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
    *  WATER_FILM). */
   private flowChanged(heights: Uint8Array, surface: SurfaceWater): void {
-    if (this.waterMotion) {
-      this.waterMotion.waterChanged(heights, surface);
-      return;
-    }
-    if (!this.map) return;
-    this.stillFlow?.dispose();
-    this.stillFlow = stillFlowTexture(this.map.W, this.map.H, surface);
-    this.uniforms.flowTex.value = this.stillFlow;
+    if (this.waterMotion) this.waterMotion.waterChanged(heights, surface);
+    else this.stillFlow?.update(surface);
   }
 
   /** The map as drawn (read only): the legend reads what is on it. */
@@ -1515,6 +1517,9 @@ export class MapRenderer {
     this.caveTex = null;
     this.cave = null;
     this.caveRows.clear();
+    this.stillFlow?.dispose();
+    this.stillFlow = null;
+    this.stillRows.clear();
     this.dropRunSoil();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
@@ -1999,6 +2004,7 @@ export class MapRenderer {
   private readonly lightRows: RowUploads;
   private readonly caveRows: BoxUploads;
   private readonly runRows: BoxUploads;
+  private readonly stillRows: RowUploads;
 
   /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
   private readonly waterQueue = new Set<string>();
@@ -3380,6 +3386,7 @@ export class MapRenderer {
     this.lightRows.flush();
     this.caveRows.flush();
     this.runRows.flush();
+    this.stillRows.flush();
     this.gl.render(this.scene, cam);
     this.endCost(cost, t0);
     this.endGpuTimer(q);
