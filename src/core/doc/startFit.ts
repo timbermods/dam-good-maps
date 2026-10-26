@@ -11,8 +11,9 @@
 // the start (`extras.placement`).
 
 import type { Feature, MapObjectKind } from "../features/schema";
-import { objectTiles, OBJECT_NAMES, openPart, standProblem, type StandGround } from "../features/objects";
-import { coordinatesForMinCorner, startEntranceTile, type Orientation } from "../format/footprints";
+import { objectTiles, OBJECT_NAMES, OBJECT_TEMPLATE, openPart, standProblem, type StandGround } from "../features/objects";
+import { coordinatesForMinCorner, FOOTPRINTS, startEntranceTile, type Orientation } from "../format/footprints";
+import { runsToTiles, tilesToRuns } from "../math/grid";
 import { bandScale, EXTRA_BANDS } from "../validate/playability";
 
 /** Objects a generated map's resources place and then make room for the start: the start takes their ground (D368 (10)). */
@@ -86,11 +87,87 @@ export interface StartFitExtra {
   tiles: readonly (readonly [number, number])[];
 }
 
+/** An object standing on the map, as `standingFeatures` reads it: the feature that owns it, its Coordinates and its turn
+ *  (`standingOf` from the build's entities, `standingOfView` from the page's columns). */
+export interface StandingObject {
+  owner: string;
+  x: number;
+  y: number;
+  orientation: Orientation;
+}
+
 /** The generation's objects that keep a distance from the start, from a document's features: what the check
- *  `extras.placement` measures (an object the player placed is not asked). */
-export function startFitExtras(features: readonly Feature[], W: number, H: number): StartFitExtra[] {
+ *  `extras.placement` measures (an object the player placed is not asked). `standing`: the objects on the map now,
+ *  which place each feature where its objects stand (`standingFeatures`); without it, where the features say. */
+export function startFitExtras(features: readonly Feature[], W: number, H: number, standing?: readonly StandingObject[]): StartFitExtra[] {
   const out: StartFitExtra[] = [];
-  for (const f of features) if (f.kind === "mapObject" && f.origin === "generated" && f.params.kind in EXTRA_BANDS) out.push({ kind: f.params.kind, tiles: objectTiles(f, W, H) });
+  for (const f of standing ? standingFeatures(features, standing, W, H) : features) if (f.kind === "mapObject" && f.origin === "generated" && f.params.kind in EXTRA_BANDS) out.push({ kind: f.params.kind, tiles: objectTiles(f, W, H) });
+  return out;
+}
+
+/** A document's features as the checks read them: each map object with a distance band (`EXTRA_BANDS`) where its objects
+ *  stand now. A feature keeps its first placement after a drag moves its object and its whole area after a delete takes
+ *  part of a belt, and stays after Clear everything, a delete or a force takes every object; so a single object's
+ *  placement moves to its object, a belt's area becomes the tiles whose thorns stand, and a feature with nothing standing
+ *  is left out. `extras.placement` and the start's preview never measure an object where it is not. The same array when
+ *  nothing differs (a map as generated). */
+export function standingFeatures(features: readonly Feature[], standing: readonly StandingObject[], W: number, H: number): readonly Feature[] {
+  if (!features.some((f) => f.kind === "mapObject" && f.params.kind in EXTRA_BANDS)) return features;
+  const byOwner = new Map<string, StandingObject[]>();
+  for (const o of standing) {
+    const list = byOwner.get(o.owner);
+    if (list) list.push(o);
+    else byOwner.set(o.owner, [o]);
+  }
+  let changed = false;
+  const out: Feature[] = [];
+  for (const f of features) {
+    if (f.kind !== "mapObject" || !(f.params.kind in EXTRA_BANDS)) {
+      out.push(f);
+      continue;
+    }
+    const mine = byOwner.get(f.id);
+    if (!mine) {
+      changed = true;
+      continue;
+    }
+    const pl = f.params.placement;
+    if ("area" in pl) {
+      const now = [...new Set(mine.filter((o) => o.x >= 0 && o.y >= 0 && o.x < W && o.y < H).map((o) => o.y * W + o.x))].sort((a, b) => a - b);
+      const was = runsToTiles(pl.area, W).filter((i) => i >= 0 && i < W * H);
+      if (now.length === was.length && now.every((i, k) => i === was[k])) out.push(f);
+      else {
+        changed = true;
+        out.push({ ...f, params: { ...f.params, placement: { ...pl, area: tilesToRuns(now, W) } } });
+      }
+      continue;
+    }
+    // (the placement names the footprint's minimum corner; the object stands at its Coordinates)
+    const o = mine[0];
+    const size = FOOTPRINTS[OBJECT_TEMPLATE[f.params.kind]].size;
+    const [ox, oy] = coordinatesForMinCorner(size[0], size[1], 0, 0, o.orientation);
+    const x = o.x - ox;
+    const y = o.y - oy;
+    if (x === pl.x && y === pl.y && o.orientation === pl.orientation) out.push(f);
+    else {
+      changed = true;
+      out.push({ ...f, params: { ...f.params, placement: { ...pl, x, y, orientation: o.orientation } } });
+    }
+  }
+  return changed ? out : features;
+}
+
+/** The objects standing in a build's entity list. */
+export function standingOf(entities: readonly { owner: string; x: number; y: number; orientation: Orientation }[]): StandingObject[] {
+  return entities.map((e) => ({ owner: e.owner, x: e.x, y: e.y, orientation: e.orientation }));
+}
+
+const TURNS: readonly Orientation[] = ["Cw0", "Cw90", "Cw180", "Cw270"];
+
+/** The objects standing in the page's entity columns (orientation 0–3: Cw0 to Cw270). */
+export function standingOfView(e: { count: number; owner: ArrayLike<number>; owners: readonly string[]; x: ArrayLike<number>; y: ArrayLike<number>; orientation: ArrayLike<number> }): StandingObject[] {
+  const out: StandingObject[] = [];
+  for (let k = 0; k < e.count; k++) out.push({ owner: e.owners[e.owner[k]], x: e.x[k], y: e.y[k], orientation: TURNS[e.orientation[k] & 3] });
   return out;
 }
 

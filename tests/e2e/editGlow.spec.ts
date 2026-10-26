@@ -140,3 +140,56 @@ test("the Block tool's own click glows on plain ground; a plain edit with it in 
   const back = await glowOver(page, 1500);
   expect([flipped, back], "a Compare flip and back glow nothing").toEqual([0, 0]);
 });
+
+test("a Block edit the core refuses leaves nothing behind: a plain edit landing a moment later glows nothing", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  const { x, y, h } = await flatSpot(page);
+  // a 2 × 2 working area (Select's rectangle), then the Block tool at Size 1
+  const corner = (tx: number, ty: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [tx, ty] as const);
+  const a = await corner(x, y);
+  const b = await corner(x + 1, y + 1);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBe(4);
+  await page.evaluate(([x, y, h]) => window.dgm3d!.renderer.setView({ target: [x + 3, h, -(y + 3)], distance: 20, yaw: 0.5, pitch: 0.7 }), [x, y, h] as const);
+  await page.keyboard.press("7");
+  await toolInHand(page);
+  for (let k = 0; k < 8; k++) await page.keyboard.press("{");
+  // count the edits the Block tool sends (a click pressed the moment the pointer arrives goes before its preview, and
+  // the core refuses it: outside the selection)
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer as unknown as { blockEditSent(sent?: boolean): void; __sent?: number };
+    const sent = r.blockEditSent.bind(r);
+    r.__sent = 0;
+    r.blockEditSent = (s = true) => {
+      if (s) r.__sent!++;
+      sent(s);
+    };
+  });
+  const before = await edits(page);
+  for (let tries = 0; tries < 6; tries++) {
+    const p = await page.evaluate(([x, y, h]) => {
+      const r = window.dgm3d!.renderer;
+      const q = r.project(x + 0.5, h, -(y + 0.5));
+      const c = r.canvas.getBoundingClientRect();
+      return { x: q.x + c.left, y: q.y + c.top };
+    }, [x + 4, y + 4 + tries % 2, h] as const);
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.down();
+    await page.mouse.up();
+    await idle(page);
+    if (await page.evaluate(() => (window.dgm3d!.renderer as unknown as { __sent: number }).__sent > 0)) break;
+    await page.mouse.move(4, 400);
+  }
+  expect(await page.evaluate(() => (window.dgm3d!.renderer as unknown as { __sent: number }).__sent), "a Block edit sent to the core").toBeGreaterThan(0);
+  expect(await edits(page), "and refused").toBe(before);
+  // a plain edit applied by the worker within the moment the Block tool's land could have come: nothing glows
+  await page.evaluate(([x, y, h]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[y + 4, x + 2, x + 3]], level: h + 2 } } as never, "Raise"), [x, y, h] as const);
+  const [most] = await Promise.all([glowOver(page, 2000), idle(page)]);
+  expect(await edits(page)).toBe(before + 1);
+  expect(most, "the refused Block edit's stamp is gone").toBe(0);
+});

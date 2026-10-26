@@ -2879,13 +2879,14 @@ export class MapRenderer {
   /** Erode is at work (its moment's cues come with its frames). */
   private eroding = false;
 
-  /** When the Block tool last sent an edit (`blockEditSent`); -Infinity once its land came. */
+  /** When the Block tool last sent an edit (`blockEditSent`); -Infinity once its land came or its answer did. */
   private blockSentAt = -Infinity;
 
   /** The Block tool sent a `blocks` operation: the land that comes next is its own, and glows on plain ground too (a
-   *  brush paints its land as it goes and a force has its own moment, D197, D240, so neither is doubled). */
-  blockEditSent(): void {
-    this.blockSentAt = performance.now();
+   *  brush paints its land as it goes and a force has its own moment, D197, D240, so neither is doubled). `false`: its
+   *  answer came (taken, refused or failed), so no land coming after is its own. */
+  blockEditSent(sent = true): void {
+    this.blockSentAt = sent ? performance.now() : -Infinity;
   }
 
   /** The land coming now is the Block tool's edit (sent a moment ago, its land not come yet): taken once. */

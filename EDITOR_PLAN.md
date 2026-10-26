@@ -66,7 +66,7 @@ place of its bottom rule.
   browser can't keep the map, that line says so); it never reaches either side: where the room is short the second
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
   font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443),
-  Esc cancels, and a blank name is refused in the core's words, said in the second line. A typed name stops at what
+  Esc cancels, and a blank name is refused in the core's words, said in the second line. While the name is edited a small card hangs under it with the map's description ("Describe the map" while none is written; Enter saves, Shift+Enter is a line break, Esc cancels; the `setDescription` operation, one undo step, refused in the core's words in the card; empty takes the player's text away; what the file adds after it shows under the field); focus moving between the name and the card saves nothing until it leaves the title. A typed name stops at what
   fits two lines (13px, where the header's room is narrowest, at 1280 wide) where the fonts allow, never below 30
   characters: a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines with an
   ellipsis and the full name in its tooltip. On the right **History**
@@ -133,7 +133,7 @@ place of its bottom rule.
 - **Your maps** (D234, D330; with nothing kept it shows one dashed tile where the first map will land, and "No maps kept yet"
   beside it): a map is kept in this browser from its first edit (an operation applied) or rename,
   whatever its kind, and stays kept even if every edit is undone; camera bookmarks alone don't keep it, and an
-  unedited map is never written (Cancel during a Generate brings it back from memory). Kept maps are saved quietly
+  unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
   after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
   thumbnail, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
@@ -237,7 +237,7 @@ place of its bottom rule.
   - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't (the start
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
-    about it changed, D361), with **one label** beside the pointer (D323, item 32): the reason where it doesn't
+    about it changed, D361), with **one label** beside the pointer (D323, item 32; every such note, a force's, a shelf object's, Select's count and the Block tool's refusal, stays in the free view between the panels, the Items shelf and the bars, and takes the pointer's other corners and sides where its first spot would run under one; with none of those clear it takes the clear spot of the free view nearest the pointer, keeping the place it has among spots within 24 px of the nearest so that it does not trade between two strips as the pointer moves: `view/pointerNote.tsx`): the reason where it doesn't
     fit, "Move the start here" for the start where it does (amber with the first warning instead where it fits but the checks would flag it, core `startFitWarnings`), "Place here" for the rest. Click to place, R to
     rotate; **Esc or a right-click puts a picked object away** (a right-drag is still the camera).
   - **Drag an object out of the shelf** (D323, item 11): the ghost follows the pointer, letting go over the map
