@@ -68,7 +68,7 @@ import { versionName } from "../library/keptVersions";
 import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
 import { itemName, placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
-import { standingFeatures } from "./startFit";
+import { standingFeatures, standingOf } from "./startFit";
 import {
   applyOp,
   emptyState,
@@ -2098,8 +2098,8 @@ export class MapSession {
       dropped: live ? (this.cur.dropped ?? 0) : undefined,
       spec: this.effectiveSpec(),
       designedFor: this.gen.meta.designedFor,
-      // (a map object whose objects were removed is no longer measured, startFit.ts)
-      features: standingFeatures(this.st.features, new Set(this.cur.entities.map((e) => e.owner))),
+      // (each map object where its objects stand now: moved, partly or wholly removed, startFit.ts)
+      features: standingFeatures(this.st.features, standingOf(this.cur.entities), this.cur.W, this.cur.H),
       water: opts.water ?? (live ? { model: this.cur.waterModel, settled: this.cur.settle } : undefined),
       loadOnly: opts.loadOnly,
       // an edited import's approximate-water rule compares the settle with the water it was opened with

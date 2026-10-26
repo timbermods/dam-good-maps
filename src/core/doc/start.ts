@@ -8,7 +8,7 @@ import type { BuildResult } from "../features/build";
 import { inBench } from "../features/raster/terrain";
 import { BUILDERS } from "../features/setpieces";
 import { entityTiles } from "../features/edits";
-import { makesRoomForStart, startFitExtras, startFitProblem, startFitWarnings, startRoofProblem, takenTiles, type StartFitExtra } from "./startFit";
+import { makesRoomForStart, standingOf, startFitExtras, startFitProblem, startFitWarnings, startRoofProblem, takenTiles, type StartFitExtra } from "./startFit";
 import { objectCells } from "./placing";
 import { startEntranceTile, startMiddleTile, type Orientation } from "../format/footprints";
 import type { Feature, StartFeature } from "../features/schema";
@@ -25,7 +25,7 @@ export interface StartGround {
 
 export function startGroundOf(b: BuildResult, features: readonly Feature[], ignoreOwner: string | null): StartGround {
   const taken = takenTiles(b.W, b.H, function* () { for (const e of b.entities) yield { template: e.template, owner: e.owner, raw: e.raw, tiles: () => entityTiles(e) }; }(), ignoreOwner);
-  return { taken, extras: startFitExtras(features, b.W, b.H, new Set(b.entities.map((e) => e.owner))) };
+  return { taken, extras: startFitExtras(features, b.W, b.H, standingOf(b.entities)) };
 }
 
 /** Whether the start's district center can stand with its middle at (x, y) facing `o`: its 3×3 and
