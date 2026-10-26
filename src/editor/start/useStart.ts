@@ -7,7 +7,7 @@ import type { Point } from "../../core/features/schema";
 import { ORIENTATION_NAMES } from "../../render3d/model";
 import type { PointerTool, TileHit } from "../../render3d";
 import { checkStartAt, roofStartCheck, sameStartCheck, startDragStatus, type StartCheck, type StartDrag } from "../features";
-import { startFitExtras, startFitWarnings, type StartFitExtra } from "../../core/doc/startFit";
+import { standingOfView, startFitExtras, startFitWarnings, type StartFitExtra } from "../../core/doc/startFit";
 import { GHOST_OK } from "../tools";
 import { quietWord } from "../shelfItems";
 import type { Ed } from "../ed";
@@ -55,7 +55,7 @@ export function useStart(ed: Ed): StartSlice {
     // (it fits but the checks would flag the spot: amber with the first warning, as the shelf's preview shows it)
     let warning: string | null = null;
     if (!check.problem) {
-      if (fitExtras.current?.version !== info.version) fitExtras.current = { version: info.version, extras: startFitExtras(info.features, info.W, info.H) };
+      if (fitExtras.current?.version !== info.version) fitExtras.current = { version: info.version, extras: startFitExtras(info.features, info.W, info.H, standingOfView(ctx().entities)) };
       warning = startFitWarnings(fitExtras.current.extras, info.W, info.H, x, y)[0] ?? null;
     }
     return { x, y, check, warning };

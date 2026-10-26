@@ -13,7 +13,7 @@ import type { EditorProps } from "../Editor";
 export const COMPARE_KEY = "B";
 
 /** What the key says when no version is chosen to compare with. */
-export const COMPARE_NONE = "To compare, select a version in Your maps and press Compare.";
+export const COMPARE_NONE = "To compare, Ctrl+click a version in Your maps, then press Compare.";
 
 export interface CompareSlice {
   /** The other version is on show now. */
@@ -66,7 +66,7 @@ export function useCompare(ed: Ed, props: EditorProps): CompareSlice {
       const m = mirror.current;
       // (a held weather day's soil is what the open map shows then)
       const v = on ? { heights: compare.view.heights, water: compare.view.water, entities: compare.view.entities, soil: compare.view.soil } : { heights: m.heights, water: m.waterView, entities: m.entities, soil: m.daySoil ?? m.soil };
-      r.updateTerrain(v.heights);
+      r.updateTerrain(v.heights, undefined, { glow: false });
       // (the water with its land in the same frame: a flip compares the two at a glance)
       r.updateWater(v.water, true);
       r.updateEntities(v.entities);

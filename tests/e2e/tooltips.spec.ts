@@ -233,7 +233,7 @@ test("every control in the map generator's panel, in each settings section opene
   };
   await check("the editor with the drawer closed");
   // the title renames in place: its button, then its field (Esc puts the name back)
-  await expect(page.locator(".editor-title h1 button.title-button")).toHaveAttribute("title", "Rename");
+  await expect(page.locator(".editor-title h1 button.title-button")).toHaveAttribute("title", "Rename and describe the map");
   await page.locator(".editor-title h1 button.title-button").click();
   await expect(page.getByLabel("Map name")).toBeFocused();
   await check("the title being renamed");

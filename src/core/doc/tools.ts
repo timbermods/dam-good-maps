@@ -14,7 +14,7 @@ import { fitProblems, isLine, OBJECT_NAMES, objectTiles, openPart, standProblem 
 import type { MapSession } from "./session";
 import { levelFootprint, levelProblem } from "./placing";
 import { cornerFor, startClears, startGroundOf, startMiddle, startProblem } from "./start";
-import { START_OPEN_GROUND, startOverRoof } from "./startFit";
+import { standingFeatures, standingOf, START_OPEN_GROUND, startOverRoof } from "./startFit";
 import { startEntranceTile, type Orientation } from "../format/footprints";
 import { withArticle } from "./labels";
 
@@ -89,12 +89,18 @@ export function objectsOnNewGround(s: MapSession, ops: readonly EditOp[], edited
   // the ground after the edit, voxel by voxel, for what stands under a roof (made once, when needed)
   let afterMask: Uint32Array | null = null;
   const afterGround = () => ({ W, H, mask: (afterMask ??= s.terrain.withSurface(after.heights).mask) });
-  // map object features: their objects stand on the ground wherever it is, so they move with it
+  // map object features: their objects stand on the ground wherever it is, so they move with it; each is read where its
+  // objects stand (a dragged relic at its new spot, a belt where its thorns are left), and one with nothing standing is
+  // not asked (startFit.ts `standingFeatures`)
   const objectIds = new Set<string>();
-  for (const f of feats) {
-    if (f.kind !== "mapObject") continue;
-    objectIds.add(f.id);
-    if (edited.has(f.id)) continue;
+  const standing = new Map<string, Feature>();
+  for (const g of standingFeatures(feats, standingOf(before.entities), W, H)) standing.set(g.id, g);
+  for (const fe of feats) {
+    if (fe.kind !== "mapObject") continue;
+    objectIds.add(fe.id);
+    if (edited.has(fe.id)) continue;
+    const f = standing.get(fe.id);
+    if (!f || f.kind !== "mapObject") continue;
     const tiles = objectTiles(f, W, H);
     if (!hit(tiles)) continue;
     const kind = f.params.kind;
