@@ -44,7 +44,8 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
       return setSelected(new Set(m.maps.slice(a, b + 1).map((e) => e.id)));
     }
     anchor.current = id;
-    setSelected(new Set());
+    // (the map open now has nothing to open: the click selects it, so Rename and Delete on the heading row reach it)
+    setSelected(here ? new Set([id]) : new Set());
     if (!here) m.onOpenMap(id);
   };
   const chosen = m.maps.filter((e) => selected.has(e.id)).map((e) => e.id);

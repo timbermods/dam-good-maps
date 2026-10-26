@@ -4,7 +4,7 @@
 // stays. The renamed map downloads as dgm-<name>.timber.
 
 import { expect, test, type Locator } from "@playwright/test";
-import { expectReady, openEditor, openFileMenu } from "./open";
+import { expectReady, openEditor, openFileMenu, openYourMaps } from "./open";
 
 test("the title renames the map in place: Enter saves with no undo step, a blank name is refused, Esc cancels, nothing moves", async ({ page }) => {
   test.setTimeout(240_000);
@@ -97,4 +97,30 @@ test("keys typed straight after the click on the title all reach the field", asy
   await page.keyboard.type("Beaver Bend");
   await expect(page.getByLabel("Map name")).toHaveValue("Beaver Bend");
   await page.keyboard.press("Escape");
+});
+
+test("Rename in Your maps acts on the open map: its tile is selected by a click, and the title and the tile both take the new name", async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 44]], level: 15 } } as never, "Raise a tile"));
+  await page.waitForFunction((v) => window.dgm!.kept!(v), (await page.evaluate(() => window.dgmEditor!.info())).version, { timeout: 60_000, polling: 200 });
+
+  const yours = await openYourMaps(page);
+  const tile = yours.locator(".ym-tile[aria-current]");
+  const rename = yours.getByRole("button", { name: "Rename", exact: true });
+  await expect(rename).toBeDisabled();
+  // a click on the map open now has nothing to open: it selects, and Rename reaches it
+  await tile.click();
+  await expect(rename).toBeEnabled();
+  await rename.click();
+  const field = page.getByLabel("Map name");
+  await expect(field).toBeFocused();
+  // (the field has the name selected: typing replaces it)
+  await page.keyboard.type("Otter Bend");
+  await page.keyboard.press("Enter");
+  await expect(field).toHaveCount(0);
+  await expect(page.locator(".editor-title h1")).toHaveText("Otter Bend");
+  await expect(yours.locator(".ym-tile[aria-current] .ym-name")).toHaveText("Otter Bend");
+  await expect.poll(() => page.evaluate(async () => (await window.dgmEditor!.worker.sessionInfo())?.name)).toBe("Otter Bend");
 });

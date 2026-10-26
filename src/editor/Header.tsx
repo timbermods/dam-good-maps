@@ -412,7 +412,7 @@ export function Header(p: HeaderProps) {
         </button>
         {p.look}
         <div class="menu-wrap" ref={wrap}>
-          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
+          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and find Help" onClick={() => setMenu(!menu)}>
             <span class="label">File</span>
           </button>
           {fileMenu.mounted ? (

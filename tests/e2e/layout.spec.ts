@@ -112,7 +112,7 @@ const same = (a: number, b: number, what: string, within = 0.6) => expect(Math.a
 async function openEditor(page: Page) {
   await page.goto("./#s=4242&z=96&d=n&t=riverValley");
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
-  await page.locator(".map-note button").first().click().catch(() => undefined);
+  await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
   // the checks done: the dot's words, and with them the header's right group, hold still from here
   await expect(page.locator(".checks-dot .dot-words > :first-child")).toHaveText("Ready to play", { timeout: 120_000 });
 }
@@ -637,7 +637,7 @@ for (const [w, h] of [[1280, 800], [1920, 1080]] as [number, number][]) {
     const header = page.locator("header.editor-bar");
     const bar = page.locator(".tool-bar");
     await look("the first hints");
-    await page.locator(".map-note button").first().click().catch(() => undefined);
+    await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
     for (const tool of ["Rift", "Carve"]) {
       await bar.getByRole("button", { name: new RegExp(`^${tool}`) }).click();
       await look(`${tool} picked`);

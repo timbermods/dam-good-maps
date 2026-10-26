@@ -162,6 +162,9 @@ function thumbnailUrl(m: MapPicture): string | null {
  *  new map of a kind. */
 type Origin = { entry: YourMapEntry; kept?: boolean } | { kind: YourMapEntry["kind"] };
 
+/** Set once the first-keep note has been shown in this browser. */
+const KEPT_NOTE_KEY = "dgm.keptNote";
+
 interface Confirm {
   text: string;
   yes: string;
@@ -246,6 +249,29 @@ export function App() {
   /** The open map is kept in Your maps (D330, Kyler, 2026-10-05): from its first edit or rename on, or opened from it.
    *  An unedited map is never written there; Cancel brings it back from memory. Once kept, it stays kept. */
   const kept = useRef(false);
+  /** The note on show (a ref beside the state: a quiet note never replaces another one). */
+  const noteRef = useRef<string | null>(null);
+  noteRef.current = note;
+  const noteTimer = useRef(0);
+  /** A quiet note that goes by itself after a few seconds (a later note, or the player's ×, ends it sooner). */
+  function sayBriefly(text: string) {
+    setNote(text);
+    window.clearTimeout(noteTimer.current);
+    noteTimer.current = window.setTimeout(() => setNote((n) => (n === text ? null : n)), 8000);
+  }
+  /** The open map becomes kept in Your maps (its first edit or rename, or a name typed for it). The first time in this
+   *  browser, a quiet note says so: nothing else ever tells a player their work is kept. */
+  function keepNow() {
+    if (kept.current) return;
+    kept.current = true;
+    try {
+      if (localStorage.getItem(KEPT_NOTE_KEY)) return;
+      localStorage.setItem(KEPT_NOTE_KEY, "1");
+    } catch {
+      // (no storage: the note shows each time it would have been the first)
+    }
+    if (!noteRef.current) sayBriefly("Kept in Your maps, in this browser");
+  }
   /** The open map's version when it opened: a later one is an operation applied, an edit. */
   const openedVersion = useRef(0);
   /** Set while the open map is being replaced: the editor's last changes then belong to the map leaving. */
@@ -370,13 +396,17 @@ export function App() {
   /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. */
   async function replacing<T>(load: () => Promise<T>): Promise<T> {
     setReplacingMap(true);
+    // (a kept map leaving: where it went is said once the new one is in)
+    const leaving = kept.current ? nameRef.current : null;
     try {
       // (the edits already made finish on the map leaving, and its save is registered before it is flushed)
       await pendingEdits.current?.();
       await saver.flush();
       if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download the project before replacing it.");
       switching.current = true;
-      return await load();
+      const opened = await load();
+      if (leaving) sayBriefly(`${leaving} is in Your maps`);
+      return opened;
     } finally {
       switching.current = false;
       discardAllowed.current = false;
@@ -445,7 +475,7 @@ export function App() {
     // (not kept yet: only an operation applied makes it so; camera bookmarks alone don't)
     if (!kept.current) {
       if (info.version === openedVersion.current) return;
-      kept.current = true;
+      keepNow();
     }
     saver.changed(entry.current.id, snapshot);
   }
@@ -460,7 +490,7 @@ export function App() {
     setName(result.name);
     setSession(info);
     // (a rename keeps the map in Your maps, as an edit does)
-    kept.current = true;
+    keepNow();
     if (entry.current) saver.changed(entry.current.id, snapshot);
     return null;
   }
@@ -825,7 +855,7 @@ export function App() {
       enterEditor(fresh, { kind: "generated" });
       // (a name given keeps the map in Your maps, as a rename does)
       if (named) {
-        kept.current = true;
+        keepNow();
         saver.changed(entry.current!.id, snapshot);
       }
       performance.mark("dgm:opened");
