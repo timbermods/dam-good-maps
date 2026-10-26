@@ -273,11 +273,18 @@ test("ground that would fall is shown before the press is let go, and the click 
   const px = x + 2;
   const py = y + 4;
   await look(page, x + 5, py, h);
-  // a pillar of four, then a shelf out from its top, a block at a time: each is held by the one before, three sideways
-  for (let k = 0; k < 4; k++) await click(page, px, py, h - 1 + k, "+z");
-  expect(await height(page, px, py)).toBe(h + 4);
+  // a pillar of four, then a shelf out from its top, a block at a time: each is held by the one before, three sideways.
+  // (Built with the operation a click makes, one per block, through the editor's own edit path: the clicks themselves
+  // are the tests above. On CI's software drawing each click's hover, preview and edit cost three or four frames of
+  // 2 to 7 s, and seven of them took this test past its three minutes (run 40241046321: 21 to 29 s a click).)
+  const add = (at: [number, number, number], side: "+x" | "+z") =>
+    page.evaluate(([at, side]) => window.dgmEditor!.edit({ op: "blocks", params: { mode: "add", side, at: [at], size: 1 } }, "Add blocks"), [at, side] as const);
   const top = h + 3;
-  for (let k = 0; k < 3; k++) await click(page, px + k, py, top, "+x");
+  const built = await edits(page);
+  for (let k = 0; k < 4; k++) await add([px, py, h - 1 + k], "+z");
+  for (let k = 0; k < 3; k++) await add([px + k, py, top], "+x");
+  expect(await settledEdits(page), "each block taken, one step each").toBe(built + 7);
+  expect(await height(page, px, py)).toBe(h + 4);
   // the fourth would hang more than 3 sideways from the pillar: the press shows what would fall and why
   const before = await edits(page);
   const a = await face(page, px + 3, py, top, "+x");
