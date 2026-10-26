@@ -42,9 +42,15 @@ export function heroYaw(e: EntityView): number {
   return DEFAULT_YAW;
 }
 
-/** Whether the picture can be drawn here: a GPU (not software rendering) with WebGL 2. */
+/** Whether the picture can be drawn here: a GPU (not software rendering) with WebGL 2 (asked of a throwaway
+ *  context once a page: each costs the page's thread tens of milliseconds). */
 export function canDrawHero(): boolean {
   if (softwareRendering() && !window.dgmLookTest?.gpu) return false;
+  return (webgl2 ??= hasWebgl2());
+}
+let webgl2: boolean | undefined;
+
+function hasWebgl2(): boolean {
   try {
     const c = document.createElement("canvas");
     const g = c.getContext("webgl2");

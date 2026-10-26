@@ -7,8 +7,7 @@ export class EntityGeometryCache {
   private readonly models = new Map<string, BufferGeometry>();
 
   geometry(key: string, build: () => BufferGeometry): BufferGeometry {
-    let model = this.models.get(key);
-    if (!model) this.models.set(key, (model = build()));
+    const model = this.model(key, build);
     const g = new BufferGeometry();
     for (const [name, value] of Object.entries(model.attributes)) {
       const a = value as BufferAttribute;
@@ -21,6 +20,18 @@ export class EntityGeometryCache {
     g.boundingSphere = model.boundingSphere?.clone() ?? null;
     g.boundingBox = model.boundingBox?.clone() ?? null;
     return g;
+  }
+
+  /** Whether the model of `key` is made. */
+  has(key: string): boolean {
+    return this.models.has(key);
+  }
+
+  /** The model of `key` itself (made with `build` if it isn't yet): its attributes are shared, never drawn. */
+  model(key: string, build: () => BufferGeometry): BufferGeometry {
+    let model = this.models.get(key);
+    if (!model) this.models.set(key, (model = build()));
+    return model;
   }
 
   /** This renderer is gone: release the model data as well. */
