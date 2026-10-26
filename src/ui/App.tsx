@@ -823,8 +823,9 @@ export function App() {
         }
       }
       enterEditor(fresh, { kind: "generated" });
-      // (a name given keeps the map in Your maps, as a rename does)
+      // (a name given keeps the map in Your maps, as a rename does; the box is empty again, for the map after this one)
       if (named) {
+        setNextName(null);
         kept.current = true;
         saver.changed(entry.current!.id, snapshot);
       }

@@ -2365,6 +2365,13 @@
   text-overflow: ellipsis;
 }
 
+/* (the open map's name, in grey, until a name for the next map is typed) */
+.gen-name .set-text::placeholder {
+  color: var(--muted);
+  font-weight: 400;
+  opacity: 1;
+}
+
 /* an opened file has no generator settings: they read "–", their controls quiet until one is set */
 .gen.blank .set-range,
 .gen.blank .species-mix .mix-bar {
@@ -3014,6 +3021,134 @@
 
 .gen > .gen-more.on {
   opacity: 1;
+}
+
+/* ---- the generator's shapes (panelFit.ts): two columns 640px wide where the window is tall; three columns wider and
+   shorter where it is not, and every row tighter in a short window. The band's layout sets the width and the room (the hints
+   stand aside while the panel is open, so the room is the whole of what lies above the bar). */
+.gen.gen-panel {
+  width: var(--gen-w, 640px);
+  max-height: var(--gen-max, var(--panel-max, none));
+}
+
+.editor.gen-open .tool-dock > .first-run {
+  visibility: hidden;
+}
+
+.gen-panel.c3 .sheet-cols {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gen-panel.c3 .sheet {
+  --line: 26px;
+}
+
+/* each column's names one width (the longest label of the groups it holds) */
+.gen-panel.c3 .sheet-col {
+  --lab: 112px;
+}
+
+.gen-panel.c3 .sheet-col + .sheet-col {
+  --lab: 112px;
+}
+
+.gen-panel.c3 .sheet-col:last-child {
+  --lab: 136px;
+}
+
+/* the tighter rows: one line height for every setting and the title block's rows */
+.gen-panel.tight .sheet {
+  --line: 24px;
+  gap: 6px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.gen-panel.tight .sheet-top {
+  gap: 2px 10px;
+}
+
+.gen-panel.tight .sheet-cols {
+  padding-top: 6px;
+}
+
+.gen-panel.tight .sheet-col {
+  gap: 4px;
+}
+
+.gen-panel.tight .gen-group {
+  gap: 1px;
+}
+
+.gen-panel.tight .gen-group h3 {
+  height: 16px;
+}
+
+.gen-panel.tight .gen-otm h3 {
+  height: 16px;
+  margin-bottom: 1px;
+  line-height: 16px;
+}
+
+.gen-panel.tight .gen-otm li {
+  height: 18px;
+}
+
+.gen-panel.tight .gen-otm ul {
+  gap: 0 10px;
+}
+
+/* Showcase's sheet where the settings are not tall: it takes the room it needs, the settings gone from under it (in two
+   tall columns it lies over them, which stay where they are) */
+.gen-panel:is(.c3, .tight) .sheet-cols.covered > .sheet-col {
+  display: none;
+}
+
+.gen-panel:is(.c3, .tight) .showcase {
+  grid-column: 1 / -1;
+  position: static;
+  padding-top: 8px;
+}
+
+/* three columns wide: the three cards side by side, each its picture over its words */
+.gen-panel.c3 .sc-cards {
+  flex-direction: row;
+  gap: 10px;
+}
+
+.gen-panel.c3 .sc-card {
+  flex: 1 1 0;
+  min-width: 0;
+  height: auto;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  align-content: start;
+  row-gap: 6px;
+}
+
+.gen-panel.c3 .sc-pic {
+  width: 100%;
+  height: 92px;
+}
+
+.gen-panel.c3 .sc-top {
+  flex-wrap: wrap;
+  height: auto;
+  gap: 2px 10px;
+}
+
+.gen-panel.c3 .sc-name {
+  flex: 1 1 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gen-panel.c3 .sc-score {
+  margin-right: auto;
+}
+
+.gen-panel.c3 .sc-card.empty {
+  min-height: 160px;
 }
 
 .maps-panel,

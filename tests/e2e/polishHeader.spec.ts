@@ -169,7 +169,7 @@ test("the checks' list closes the Legend while it is open, never lying over it, 
   }
 });
 
-test("the generator's Name field stops at the same two lines as Rename, deleting in it is never limited, and Enter leaves the open map's title alone", async ({ page }) => {
+test("the generator's Name field stops at the same two lines as Rename, deleting in it is never limited, and the open map's title is left alone while the name waits", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   await openDrawer(page);
@@ -182,9 +182,8 @@ test("the generator's Name field stops at the same two lines as Rename, deleting
   await page.keyboard.press("Home");
   await page.keyboard.press("Delete");
   await expect(field).toHaveValue(kept.slice(1));
-  // Enter keeps the typed name for the next map: the open map's title is not renamed
+  // the typed name waits for the next map: the open map's title is not renamed (Enter would make that map, generatorFit.spec.ts)
   const was = await page.locator(".editor-title .title-button").innerText();
-  await page.keyboard.press("Enter");
   await expect(field).toHaveValue(kept.slice(1));
   await expect(page.locator(".editor-title .title-button")).toHaveText(was);
 });
