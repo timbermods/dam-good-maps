@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { placeNote, type Box } from "../../src/editor/view/pointerNote";
+import { placeNoteReference } from "./pointerNoteReference";
 
 const view: Box = { x0: 0, y0: 0, x1: 1600, y1: 900 };
 // (the Items shelf down the right edge, a bar across the foot, the panel at the left)
@@ -157,5 +158,116 @@ describe("a note beside the pointer", () => {
     const wall: Box = { x0: 0, y0: 0, x1: 1600, y1: 900 };
     const at = placeNote(null, { x: 800, y: 450 }, note, view, [wall]);
     expect(inside(at)).toBe(true);
+  });
+});
+
+// The placement was made fast (D453): the scan finds the nearest clear spot without trying every spot. It must answer exactly as
+// the full scan did (tests/unit/pointerNoteReference.ts), whatever the scene.
+describe("the fast scan answers as the full one did", () => {
+  /** A seeded random stream, so a failure can be run again. */
+  const stream = (seed: number) => () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const sizes = [{ w: 1280, h: 720 }, { w: 1920, h: 1080 }, { w: 2560, h: 1440 }];
+
+  /** A scene like the page's: a shelf down the right, bars along the foot, a panel, a few more boxes, and sometimes one around the pointer. */
+  function scene(rand: () => number, W: number, H: number, pointer: { x: number; y: number }) {
+    const int = (a: number, b: number) => Math.floor(a + rand() * (b - a));
+    const boxes: Box[] = [
+      { x0: W - 190, y0: 100, x1: W - 10, y1: H - 10 },
+      { x0: 194, y0: H - 200, x1: W - 200, y1: H - 10 },
+      { x0: 10, y0: 56, x1: int(300, 700), y1: int(200, 500) },
+    ];
+    for (let k = int(1, 8); k > 0; k--) {
+      const x0 = int(0, W - 60);
+      const y0 = int(0, H - 40);
+      boxes.push({ x0, y0, x1: x0 + int(40, 700), y1: y0 + int(20, 300) });
+    }
+    if (rand() < 0.5) {
+      const r = int(30, 260);
+      boxes.push({ x0: pointer.x - r, y0: pointer.y - r * (0.3 + rand()), x1: pointer.x + r, y1: pointer.y + r * (0.3 + rand()) });
+    }
+    return boxes;
+  }
+
+  it("returns the same spot over many random scenes, sizes, pointers and kept places", () => {
+    const rand = stream(2026);
+    let cases = 0;
+    let scans = 0;
+    for (const { w: W, h: H } of sizes) {
+      for (let n = 0; n < 160; n++) {
+        const pointer = { x: Math.floor(rand() * W * 2) / 2, y: Math.floor(rand() * H * 2) / 2 };
+        const boxes = scene(rand, W, H, pointer);
+        // (sizes as the page measures them, in sixty-fourths of a pixel; now and then not, to hold the float sums to the same answer too)
+        const fine = rand() < 0.85;
+        const small = { w: fine ? Math.floor(rand() * 280 * 64 + 80 * 64) / 64 : 80 + rand() * 280, h: fine ? Math.floor(rand() * 40 * 64 + 22 * 64) / 64 : 22 + rand() * 40 };
+        const previous = rand() < 0.5 ? { dx: Math.floor((rand() - 0.5) * 600), dy: Math.floor((rand() - 0.5) * 400) } : null;
+        const want = rand() < 0.5 ? { x: pointer.x + 16, y: pointer.y + 16 } : null;
+        const view: Box = { x0: 0, y0: 0, x1: W, y1: H };
+        const same = placeNote(want, pointer, small, view, boxes, previous);
+        const was = placeNoteReference(want, pointer, small, view, boxes, previous);
+        expect(same, `${W}×${H} case ${n}`).toEqual(was);
+        cases++;
+        // (the scan ran when the answer is none of the spots beside the pointer)
+        if (was.x !== pointer.x + 16 && was.x !== pointer.x - 16 - small.w && was.x !== pointer.x - small.w / 2) scans++;
+      }
+    }
+    expect(cases).toBe(480);
+    expect(scans, "the scan was the answer in many of them").toBeGreaterThan(60);
+  });
+
+  it("returns the same spot at every pointer position along the real scenes' sweeps", () => {
+    const rand = stream(7);
+    const shelf1280: Box = { x0: 1090, y0: 165, x1: 1270, y1: 710 };
+    const scene1280: Box[] = [{ x0: 0, y0: 0, x1: 1280, y1: 130 }, shelf1280, { x0: 194, y0: 522, x1: 1086, y1: 642 }, { x0: 194, y0: 648, x1: 1086, y1: 710 }, { x0: 381, y0: 437, x1: 898, y1: 478 }];
+    const big1920: Box = { x0: 0, y0: 0, x1: 1920, y1: 1080 };
+    const scene1920: Box[] = [{ x0: 1730, y0: 165, x1: 1910, y1: 1070 }, { x0: 204, y0: 892, x1: 1716, y1: 1070 }, { x0: 560, y0: 830, x1: 1380, y1: 880 }, { x0: 10, y0: 56, x1: 650, y1: 400 }];
+    let last: { dx: number; dy: number } | null = null;
+    for (let y = 330; y <= 560; y += 1) {
+      const pointer = { x: 1086, y };
+      const small = { w: 211.28125, h: 30.390625 };
+      const at = placeNote({ x: pointer.x + 16, y: pointer.y + 16 }, pointer, small, { x0: 0, y0: 0, x1: 1280, y1: 720 }, scene1280, last);
+      expect(at, `1280 sweep at ${y}`).toEqual(placeNoteReference({ x: pointer.x + 16, y: pointer.y + 16 }, pointer, small, { x0: 0, y0: 0, x1: 1280, y1: 720 }, scene1280, last));
+      last = { dx: at.x - pointer.x, dy: at.y - pointer.y };
+    }
+    last = null;
+    for (const x of [1643, 1500, 1200]) {
+      for (let y = 1060; y >= 560; y -= 5) {
+        const pointer = { x: x + (rand() < 0.5 ? 0.5 : 0), y };
+        const at = placeNote(null, pointer, { w: 300, h: 40 }, big1920, scene1920, last);
+        expect(at, `1920 walk at ${x},${y}`).toEqual(placeNoteReference(null, pointer, { w: 300, h: 40 }, big1920, scene1920, last));
+        last = { dx: at.x - pointer.x, dy: at.y - pointer.y };
+      }
+    }
+  });
+
+  it("is a fraction of the time of the full scan where the scan has to run (2560 × 1440)", () => {
+    const rand = stream(11);
+    const W = 2560;
+    const H = 1440;
+    const view: Box = { x0: 0, y0: 0, x1: W, y1: H };
+    const cases: { pointer: { x: number; y: number }; boxes: Box[] }[] = [];
+    for (let n = 0; n < 40; n++) {
+      const pointer = { x: 300 + Math.floor(rand() * 1900), y: 200 + Math.floor(rand() * 1000) };
+      // (a box around the pointer: no spot beside it is clear, so the scan runs)
+      const r = 120 + Math.floor(rand() * 200);
+      cases.push({ pointer, boxes: [...scene(rand, W, H, pointer), { x0: pointer.x - r, y0: pointer.y - 60, x1: pointer.x + r, y1: pointer.y + 60 }] });
+    }
+    const time = (place: typeof placeNote) => {
+      let best = Infinity;
+      for (let round = 0; round < 3; round++) {
+        const t0 = performance.now();
+        for (const c of cases) place(null, c.pointer, { w: 211.28125, h: 30.390625 }, view, c.boxes, { dx: -100, dy: 80 });
+        best = Math.min(best, (performance.now() - t0) / cases.length);
+      }
+      return best;
+    };
+    const fast = time(placeNote);
+    const full = time(placeNoteReference);
+    // (the numbers: about 12 ms a placement before on a quiet machine, a fraction of one now; held loosely, to hold on a loaded one)
+    expect(fast, `${fast.toFixed(2)} ms against ${full.toFixed(2)} ms`).toBeLessThan(full / 3);
   });
 });
