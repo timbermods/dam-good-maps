@@ -73,10 +73,21 @@ function tributaries(r: RiverFeature, all: readonly RiverFeature[], W: number, H
     const x = Math.min(W - 1, Math.max(0, Math.round(px)));
     const y = Math.min(H - 1, Math.max(0, Math.round(py)));
     // the flow it brings includes its own tributaries'
-    const inner = tributaries(t, all, W, H, pathField(t.params.path, W, H)).reduce((a, j) => a + j.flow, 0);
-    out.push({ at: f.s[y * W + x], flow: t.params.flow + inner });
+    out.push({ at: f.s[y * W + x], flow: t.params.flow + innerFlow(t, all) });
   }
   return out;
+}
+
+/** The flow the rivers that join `r` bring, theirs included, summed as `tributaries` lists them (only
+ *  their flows: where they join is not read). */
+function innerFlow(r: RiverFeature, all: readonly RiverFeature[]): number {
+  let sum = 0;
+  for (const t of all) {
+    const exit = t.params.exit;
+    if (!("river" in exit) || exit.river !== r.id) continue;
+    sum = sum + (t.params.flow + innerFlow(t, all));
+  }
+  return sum;
 }
 
 function weirAt(h: Uint8Array, W: number, H: number, water: Uint8Array, r: RiverFeature, f: PathField, reach: number, byS: readonly number[][], at: number, flow: number, nearArm: Uint8Array): { tiles: number[]; pool: number[] } | null {
