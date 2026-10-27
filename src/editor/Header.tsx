@@ -157,6 +157,8 @@ function TitleName(p: {
   onRename(name: string): Promise<string | null>;
   onDescribe(text: string): Promise<string | null>;
   onProblem(problem: string | null): void;
+  /** Why the name can't be changed here (a guest's: the host names the shared map), when it can't. */
+  locked?: string;
 }) {
   const [text, setText] = useState<string | null>(null);
   /** The description being written beside the name (a second line under it while the name is edited), and what it was. */
@@ -231,7 +233,7 @@ function TitleName(p: {
   if (text === null)
     return (
       <h1>
-        <button type="button" class="title-button" title={p.clipped ? p.name : "Rename and describe the map"} onClick={() => open(p.name)}>
+        <button type="button" class={`title-button${p.locked ? " locked" : ""}`} title={p.locked ?? (p.clipped ? p.name : "Rename and describe the map")} aria-disabled={p.locked ? true : undefined} onClick={() => (p.locked ? undefined : open(p.name))}>
           {p.name}
         </button>
       </h1>
@@ -322,6 +324,8 @@ export interface HeaderProps {
   name: string;
   /** Rename through the core (D443): null when stored, else the core's reason. */
   onRename(name: string): Promise<string | null>;
+  /** Why the name can't be changed here (a guest's: the host names the shared map), when it can't. */
+  renameLocked?: string;
   /** Write the map's description through the core (the setDescription operation): null when stored, else the core's reason. */
   onDescribe(text: string): Promise<string | null>;
   /** Why this browser isn't keeping the map, when it isn't; else empty. */
@@ -354,6 +358,8 @@ export interface HeaderProps {
   onPlaces(): void;
   /** The look's menu (High or Standard, D284), beside More. */
   look?: ComponentChildren;
+  /** Together: edit this map with someone else (a quiet button and its panel), before File. */
+  together?: ComponentChildren;
 }
 
 export function Header(p: HeaderProps) {
@@ -468,7 +474,7 @@ export function Header(p: HeaderProps) {
         <span class="label">Your maps</span>
       </button>
       <div class="editor-title">
-        <TitleName name={p.name} described={p.info.descriptionWritten ? p.info.description : ""} kept={p.info.descriptionKept} onDescribe={p.onDescribe} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} />
+        <TitleName name={p.name} described={p.info.descriptionWritten ? p.info.description : ""} kept={p.info.descriptionKept} onDescribe={p.onDescribe} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} locked={p.renameLocked} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
           {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed}${p.info.spec.variation ? ` · ${p.info.spec.variation}` : ""} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>
@@ -493,6 +499,7 @@ export function Header(p: HeaderProps) {
           <span class="label">{saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}</span>
         </button>
         {p.look}
+        {p.together}
         <div class="menu-wrap" ref={wrap}>
           <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
             <span class="label">File</span>

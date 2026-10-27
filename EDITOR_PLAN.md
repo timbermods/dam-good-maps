@@ -73,7 +73,8 @@ place of its bottom rule.
   (its panel open while pressed), Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone; its tooltip "What to fix before
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
-  (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
+  (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
+  button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…,
   Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
@@ -124,7 +125,7 @@ place of its bottom rule.
   an island's contour rings one after another (the lowest in the water's colour; 0.5 s apart, 1.8 s each, then they hold
   and fade together on a 6 s cycle); both move only while waiting and not under reduced motion (`FirstLook.tsx`);
   **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
-  open map back as it was. **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
+  open map back as it was; in a Together session, once the new map is built and being put into the session's worker (the last step before it opens), Cancel is off ("The map is opening"), Esc does nothing and the words read "Opening the map…". **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
   the attempt under way and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
   quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
   A real place has one name everywhere, the one in its file ("Near Crater Lake"). Every map is made for Normal until the core drops difficulty
@@ -136,7 +137,7 @@ place of its bottom rule.
   unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
   after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
-  thumbnail, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
+  thumbnail, made in a worker of its own when the page is idle, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
   right-click on one, open or not, offers **Download .timber**, **Rename** (in place; a typed name stops at what fits the tile's two
   lines) and **Delete** (asked
   once; the open map gives way to the next one, or a new map when none is left). Several are selected as on a
@@ -146,6 +147,45 @@ place of its bottom rule.
   greyed otherwise with the reason in Compare's tooltip; Delete asks once ("Delete 7 maps?"), focus on
   Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
   the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
+- **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
+  room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
+  (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide, and below about 1,340px wide the Look button reads just "Look" to make room; tooltip "Edit this
+  map with someone else"), opens a small panel under it. **Alone:** the player's name (a field, kept in this browser,
+  "Player" by default), **Invite** (makes a room code and shows it large with **Copy** and "Waiting for them to
+  join…", **Cancel** takes it back), and a code field with **Join**. **Live:** the two players, each with their colour
+  swatch, **Go to <name>** (the camera glides to where they are looking; never automatic, brief §6) and **Leave**.
+  **Paused** (the other left or the connection dropped, brief §7): "<name> has left. Waiting to reconnect."; the map
+  stays on screen, read-only (an edit is refused with that line), and **Save to Timberborn** still works;
+  **Invite again** (the host) makes a new code that carries on the same session, the guest types the new code under
+  **Join again**. The button wears the other player's colour dot while a session is live (hollow while they are
+  away). The colours are the session's (`PLAYER_COLOURS`, tokens `--collab-host` and `--collab-guest`, DESIGN.md).
+  A guest cannot rename the map (the host names the shared map: the title's tooltip says so) or open another one.
+  - **How edits route.** The page's controller `Together` (`src/collab/together.ts`, one object for the page's life,
+    beside the editor, which remounts for each map) owns the `CollabClient`. From **Invite** on, the worker sends every
+    edit through the session instead of applying it: `generator.worker.ts` hands each edit function (`apply`,
+    `applyAll`, `applyTool`, `plantAt`, `removeAt`, `moveObjectBy`, `moveStartTo`, `applySelection`, `strokeClearing`,
+    `undo`, `redo`, the forces) to `worker/collabEdit.ts` while `collabActive()`. It plans the operations with the same
+    planner the direct edit uses (`session.planned`), orders them with `submit` and answers with the session's verdict
+    (a plain line when refused). The answer carries no map news (`SessionUpdate.routed`): the map changes by the
+    session's own `update` event, which the editor takes as an edit's answer after the edits already on their way
+    (`editor/collab/useCollab.tsx`). Every call site of the editor is unchanged; nothing in `src/editor` routes an edit.
+    Undo and Redo are the session's per-player ones (only the player's own actions; the header's buttons follow the
+    session's `plan`); History's jump is refused in a session. A force is ordered as a gesture when it is kept, so it has
+    no play-out on this side yet (part 6b), and Try another is not available.
+  - **Notes** are the page's usual note line (`editor-message`): a refusal with its reason ("Reaches into Ada's
+    area", an undo's "… is on top of this", "<name> has left. Waiting to reconnect."), a water note for the player's own
+    claim with a **See it** button, "<name> is opening a new map", and a desync or "Collaboration is unavailable right
+    now" said plainly (in the panel too). Editing alone is unaffected when the relay or the function is down.
+  - **Presence** (§6, minimal in 6a): the other player's cursor is a small arrow in their colour with their name and
+    the tool they hold, over the map (`collab-presence`, drawn with the 3D view's projection like the sources'
+    markers); it goes a second and a half after their last packet. The player's own cursor tile, held tool and camera
+    are sent while the session is live (the session sends at most 15 a second). Their stroke before release and the force
+    playing out come in 6b; so do the claims tools.
+  - **The whole map is the host's alone** (§9): Generate, Surprise me, Another like this, a real place, a file or a map of
+    Your maps, done by the host, tells the guest first ("<name> is opening a new map") and sends the new map once it is
+    open; the host makes a new map in a worker of its own while a session is on, so Cancel never ends it. The guest's
+    own attempts say so quietly. **Your maps** keeps the session on both sides (a `keep` event: at a pause, when someone
+    leaves, and the old map when the host opens another).
 - **Versions** (fearless iteration; D336, D455, D456, D342): in **History**, a row pointed at, focused or current shows
   **Keep this version** and **Branch from here**. Keep saves the map as it stood at that step (undone steps included) into
   Your maps as "<map name> — <step label>" in one click, never asking (numbered "(2)", "(3)" when Your maps already holds the name, as saved files are; Rename is in Your maps); the History panel opens with the step the map is at in view; Branch does the same, named the same way, and opens the copy, its History through that step. A version
@@ -1165,7 +1205,7 @@ flags them if they reappear anywhere else (D188).
 - Multiplayer starts, for now. Timberborn 1.1 keeps exactly one StartingLocation per map. Fair multi-colony maps for
   Kyler's Timber Together mod are a later goal (`PLAN.md` §20, D5): the spec and feature schema keep room for them
   (`MapSpec.colonies`, `start.player`), and the editor's data model must not assume a single start forever.
-- Accounts and server-side storage. Real-time collaborative editing is planned peer to peer, with no server (`docs/COLLAB-BRIEF.md`, D349, D362); nothing of it is built before its milestone.
+- Accounts and server-side storage. Real-time collaborative editing runs through a managed relay and a small room-code function that carries no map data and keeps nothing once the two are connected (`docs/COLLAB-BRIEF.md`, D349, D362, D431, D486); see "Together" in §3.
 
 ## The map document
 
@@ -1511,7 +1551,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   adapter in `src/platform/claude/`.
 - **The editor's code** (`src/editor/`, its `README.md`): `Editor.tsx` is a thin shell that builds a bag afresh each
   render and calls one hook per feature, in a fixed order, each in its feature folder (`session/`, `paint/`, `view/`,
-  `sources/`, `start/`, `shelf/`, `remove/`, `forces/`, `rows/`, `selection/`, `keyboard/`, `testHook/`, `save/`);
+  `sources/`, `start/`, `shelf/`, `remove/`, `forces/`, `rows/`, `selection/`, `keyboard/`, `testHook/`, `save/`,
+  `collab/`);
   the markup is plain functions in `render/`, and what the viewer last used is in `prefs/`. New behaviour goes in the
   slice it belongs to; the `README.md` says how slices reach each other.
 - The operations engine and feature rasterization are headless and fully testable without the UI. Determinism: the
@@ -1529,7 +1570,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     into a small render target), and the ghost under the pointer is the object's own model, tinted green or red; a
     source the pointer targets glows (D249).
   - The minimap (D205): the Real places top-down picture (`core/render/shade.ts`, one pixel a tile), drawn again when
-    the page is idle after an edit or its water settles, never per frame. Camera bookmarks (D205): kept per slot in the
+    the page is idle after an edit or its water settles, never per frame, shading only the tiles the water moved on. Camera bookmarks (D205): kept per slot in the
     document's meta (`views`), never an edit, taken by the autosave; a glide eases there in about half a second (at
     once with reduced motion). The game's layers (D196, D207) are one uniform that cuts the world above a level
     (terrain vertices clamped to it, the cut tops lying on it, hatched; water and objects above it not drawn; picking
