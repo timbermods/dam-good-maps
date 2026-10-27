@@ -11,6 +11,7 @@ import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
 import { useMenuPresence } from "../ui/menuPresence";
+import { cleanMapName } from "../core/doc/document";
 import { fitsHeaderTwoLines, limitName, linesIn } from "./nameFit";
 import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
@@ -161,6 +162,9 @@ function TitleName(p: {
   locked?: string;
 }) {
   const [text, setText] = useState<string | null>(null);
+  /** The name just saved, shown until the core's answer brings it as `p.name`: the core runs in a worker that may be busy,
+   *  and the title never waits for it. */
+  const [pending, setPending] = useState<string | null>(null);
   /** The description being written beside the name (a second line under it while the name is edited), and what it was. */
   const [desc, setDesc] = useState("");
   const [descProblem, setDescProblem] = useState<string | null>(null);
@@ -209,9 +213,28 @@ function TitleName(p: {
       closing.current = false;
     }
   };
+  /** The latest save that sent a rename: only its answer clears the pending name, so an earlier answer never shows a name
+   *  the player has since replaced. */
+  const latest = useRef(0);
   const saveText = async (text: string, leaving: boolean) => {
     // (the name and the description are saved apart: each is refused in the core's own words)
-    const nameProblem = text.trim() === p.name ? null : await p.onRename(text);
+    // (against the name the title shows: a name typed back while a rename is still on its way is a change too)
+    const changed = text.trim() !== (pending ?? p.name);
+    // a name the core will refuse (a blank one) is refused here at once, in the core's own words
+    const clean = cleanMapName(text);
+    const nameProblem = changed && !clean.ok ? clean.reason : null;
+    // the rename goes to the core now and is never waited for by the title: the core runs in a worker that may be busy
+    const mine = changed && clean.ok ? ++latest.current : 0;
+    const sent = mine ? p.onRename(text) : null;
+    const answered = async () => {
+      let problem: string | null = null;
+      try {
+        problem = await sent;
+      } finally {
+        if (latest.current === mine) setPending(null);
+      }
+      if (problem) say(problem, true);
+    };
     let said: string | null = null;
     if (desc !== was.current) {
       said = await p.onDescribe(desc);
@@ -220,21 +243,27 @@ function TitleName(p: {
     setDescProblem(said);
     // a description the core refused is never thrown away: the card stays open with its text and the core's reason, even
     // when focus has left the title (D342: refused with a one-line reason, never silently)
-    if (said) return say(nameProblem, false);
-    const problem = nameProblem;
-    if (!problem) {
-      setText(null);
-      return say(null);
+    if (said) {
+      if (sent) void answered();
+      return say(nameProblem, false);
     }
     // refused: Enter keeps the fields open with the core's words; leaving puts the name back and says why
-    if (leaving) setText(null);
-    say(nameProblem, leaving);
+    if (nameProblem) {
+      if (leaving) setText(null);
+      return say(nameProblem, leaving);
+    }
+    // the name is stored data the core accepts: the field gives way to the title now, which shows it and fits it in the
+    // same frame (the title once stayed a field, drawn for what was typed, for as long as the worker took to answer)
+    if (clean.ok && sent) setPending(clean.name);
+    setText(null);
+    say(null);
+    if (sent) void answered();
   };
   if (text === null)
     return (
       <h1>
-        <button type="button" class={`title-button${p.locked ? " locked" : ""}`} title={p.locked ?? (p.clipped ? p.name : "Rename and describe the map")} aria-disabled={p.locked ? true : undefined} onClick={() => (p.locked ? undefined : open(p.name))}>
-          {p.name}
+        <button type="button" class={`title-button${p.locked ? " locked" : ""}`} title={p.locked ?? (p.clipped ? (pending ?? p.name) : "Rename and describe the map")} aria-disabled={p.locked ? true : undefined} onClick={() => (p.locked ? undefined : open(pending ?? p.name))}>
+          {pending ?? p.name}
         </button>
       </h1>
     );
@@ -378,7 +407,8 @@ export function Header(p: HeaderProps) {
   // the name ellipsizes, down to about 80px
   const bar = useRef<HTMLElement>(null);
   const fit = useRef<() => void>(() => undefined);
-  useEffect(() => {
+  // (laid out in the commit itself, before the browser draws: the title is never drawn at a fit that is a draw behind)
+  useLayoutEffect(() => {
     const el = bar.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const note = () => {
@@ -427,7 +457,7 @@ export function Header(p: HeaderProps) {
     el.querySelectorAll(".new-map, .editor-actions").forEach((g) => watch.observe(g));
     return () => watch.disconnect();
   }, []);
-  useEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H]);
+  useLayoutEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H]);
   useEffect(() => {
     if (!menu) return;
     const off = (e: PointerEvent) => {

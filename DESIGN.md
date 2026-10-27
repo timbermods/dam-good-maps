@@ -311,9 +311,10 @@ than the room above the water bar. Where this section says otherwise, the verdic
   map, the toolbars, the minimap, the readout, the right column). The palette shows four tools to a row, each with
   its picture and name. Nothing overlaps at any window size.
 - **The header:** the button is **Maps**. The map's title is renamed in place: a click turns it into a field at
-  exactly its place, size and font; Enter or leaving saves through the core (`MapSession.setName`), Esc cancels; a
+  exactly its place, size and font; Enter or leaving saves through the core (`MapSession.setName`; the field gives way to the fitted title at once,
+  not when the worker answers), Esc cancels; a
   blank name is refused in the core's words, said in the title's second line; a rename is never an undo step
-  (D443). Its tooltip is "Rename". The second line reads "Seed 4242 · 128×128". There is no name field in the
+  (D443). Its tooltip is "Rename and describe the map". The second line reads "Seed 4242 · 128×128". There is no name field in the
   drawer.
 - **The Maps drawer,** top to bottom: Generate and Surprise me pinned at the top; under them, scrolling as one
   panel: what is on the map (picture, number, name; no description); Theme and Seed; Size; the sections Terrain,
@@ -944,8 +945,11 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **Versions** (`docs/design/showcase-versions-*.jpg`, light and dark at 1280, 1920 and 2560): History's rows keep their
   look; on the row pointed at, focused or current, two ghost buttons sit at its right, **Keep this version** and **Branch from
   here**, the row leaving them room on every row so nothing moves. Your maps' tile of a kept version carries one quiet line
-  under its size, "<parent> · step N" (12px, muted, ellipsized, its tooltip "From <parent>, step N"); the tiles of a row share
-  their height. Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
+  under its size, "<parent> · step N" (12px, muted; the parent's name gives way with an ellipsis and "· step N" always stays
+  whole; its tooltip "From <parent>, step N"); the tiles of a row share their height. A name that two lines cannot hold is
+  cut so the step is kept: a kept version's "<map> — <step>" shows the map's name cut in the first line and "— <step>" in the
+  second, and any name cut at all carries it as its tooltip (the whole name; past 60 characters the end of the map's name is
+  left out and the step kept). Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
   <name>" holds the flip, **Stop** ends it), and while the key is held a name chip sits under the header's top row, centred.
 
 ## Together (collaborative editing, part 6a; D486, `docs/COLLAB-BRIEF.md`)
