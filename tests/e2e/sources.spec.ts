@@ -12,26 +12,45 @@ const ID = (k: number) => `00000000-0000-4000-8000-00000000000${k}`;
 /** The number in some words ("0.5 of 1.25 water/s": the first, this source's). */
 const first = (t: string | null) => Number(/([\d.]+)/.exec(t ?? "")?.[1] ?? NaN);
 
-/** Two dry, level spots away from the start and every object, each with room for a row of three. */
-async function spots(page: Page): Promise<[number, number][]> {
+/** Two dry, level spots away from the start, the sources and each other, each with room for a row of three, and
+ *  the objects standing round them (trees, ruins, thorns: nothing that makes or holds water) to clear, fewest first: the generator's
+ *  maps no longer promise ground 7 tiles from every object (0.10.2's seed 4 has none; D148). */
+async function spots(page: Page): Promise<{ at: [number, number][]; clear: string[] }> {
   return page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
+    const e = m.entities;
     const st = (window.dgmEditor!.info().features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
-    const out: [number, number][] = [];
     const onMap = (x: number, y: number) => {
       const p = window.dgmEditor!.tileToClient(x, y);
       return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
     };
-    for (let y = 16; y < m.H - 16 && out.length < 2; y++)
-      for (let x = 16; x < m.W - 16 && out.length < 2; x++) {
-        if (Math.hypot(x - st[0], y - st[1]) < 16 || out.some(([a, b]) => Math.hypot(a - x, b - y) < 14)) continue;
+    const water = (k: number) => /Source|Seep|Aquifer|Drill|Drain|Dam|Blockage/.test(e.templates[e.template[k]]);
+    const cands: { x: number; y: number; clear: string[] }[] = [];
+    for (let y = 16; y < m.H - 16; y++)
+      for (let x = 16; x < m.W - 16; x++) {
+        if (Math.hypot(x - st[0], y - st[1]) < 16) continue;
         const h0 = m.heights[y * m.W + x];
         let ok = onMap(x, y) && onMap(x + 2, y);
         for (let dy = -3; dy <= 3 && ok; dy++) for (let dx = -3; dx <= 5 && ok; dx++) if (m.heights[(y + dy) * m.W + x + dx] !== h0 || m.surface.depth[(y + dy) * m.W + x + dx] > 0) ok = false;
-        for (let k = 0; k < m.entities.count && ok; k++) if (Math.abs(m.entities.x[k] - x) <= 7 && Math.abs(m.entities.y[k] - y) <= 7) ok = false;
-        if (ok) out.push([x, y]);
+        const clear: string[] = [];
+        for (let k = 0; k < e.count && ok; k++) {
+          const d = Math.max(Math.abs(e.x[k] - x), Math.abs(e.y[k] - y));
+          if (water(k) && d <= 14) ok = false;
+          else if (d <= 7) clear.push(e.ids[k]);
+        }
+        if (ok && clear.every((id) => id)) cands.push({ x, y, clear });
       }
-    return out;
+    // (a stable sort: fewest to clear, then nearest the top left, as the search ran before)
+    cands.sort((a, b) => a.clear.length - b.clear.length);
+    const at: [number, number][] = [];
+    const clear: string[] = [];
+    for (const c of cands) {
+      if (at.length === 2) break;
+      if (at.some(([a, b]) => Math.hypot(a - c.x, b - c.y) < 14)) continue;
+      at.push([c.x, c.y]);
+      clear.push(...c.clear);
+    }
+    return { at, clear };
   });
 }
 
@@ -47,8 +66,9 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
   await openEditor(page, "s=4&z=96&d=n&t=riverValley");
   await topDown(page);
   await page.waitForTimeout(500);
-  const found = await spots(page);
+  const { at: found, clear } = await spots(page);
   expect(found.length).toBe(2);
+  if (clear.length) await page.evaluate((ids) => window.dgmEditor!.edit({ op: "deleteEntities", params: { entities: ids } } as never, "Delete"), clear);
   const [[ax, ay], [rx, ry]] = found;
   const place = (id: string, x: number, y: number) =>
     page.evaluate(

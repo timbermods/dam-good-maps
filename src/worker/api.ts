@@ -62,7 +62,7 @@ export interface GenerateResponse {
   /** The intentions a generated map was steered toward (Another like this keeps them, D278). */
   intentions: string[];
   /** D329: the outcomes a generated map missed, when a background search for a version meeting
-   *  them all is worth starting, and the note that version gets ("A version with its sea is ready"),
+   *  them all is worth starting, and the note that version gets ("A version that keeps its theme's promise is ready"),
    *  or null when it is kept quietly (D333 (5): only a missed theme promise notifies). */
   version?: { misses: Misses; note: string | null } | null;
 }

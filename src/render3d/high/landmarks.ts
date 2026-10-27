@@ -9,6 +9,7 @@
 
 import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, TorusGeometry, Vector3, type Group, type ShaderMaterial } from "three";
 import type { EntityView } from "../model";
+import { whenIdle } from "../idle";
 import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, START, THORNS, type Rgb } from "../palette";
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
@@ -284,9 +285,10 @@ export function landmarkKind(template: string): string | undefined {
 }
 
 const models = new Map<string, BufferGeometry>();
-/** A landmark's geometry, made once (the ones built on today's models, per model). */
+/** A landmark's geometry, made once (the ones built on today's models, per model: today's batch, whatever object it
+ *  draws first). */
 function geometryFor(name: string, batch: string, base: BufferGeometry): BufferGeometry {
-  const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `${name}|${batch}`;
+  const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
   let g = models.get(key);
   if (!g) {
     if (name === "StartingLocation") g = district();
@@ -305,17 +307,38 @@ export interface Replacement {
   /** Today's batch it replaces, hidden while the landmarks show. */
   old: InstancedMesh;
   fresh: InstancedMesh;
+  /** The instances of `old` it draws, in order. */
+  slots: number[];
 }
 
 /** The landmarks for the objects the renderer built (`group`, from entities3d.ts buildEntities), as
- *  new batches beside today's; `slopes` draws the slopes' ramps. */
-export function buildLandmarks(group: Group, e: EntityView, material: ShaderMaterial, slopes: ShaderMaterial): Replacement[] {
+ *  new batches beside today's; `slopes` draws the slopes' ramps. `kept`: landmarks of batches the renderer kept as
+ *  they were (buildEntities' reuse), kept with them, their objects as the batch's are now. */
+export function buildLandmarks(group: Group, e: EntityView, material: ShaderMaterial, slopes: ShaderMaterial, kept: readonly Replacement[] = []): Replacement[] {
   const out: Replacement[] = [];
   const m = new Matrix4();
+  const keep = new Map<InstancedMesh, Replacement[]>();
+  for (const r of kept) keep.set(r.old, [...(keep.get(r.old) ?? []), r]);
   for (const child of [...group.children]) {
     const old = child as InstancedMesh;
     const objects = old.userData.objects as Int32Array | undefined;
     if (!old.isInstancedMesh || !objects?.length || old.name.startsWith("high.")) continue;
+    const same = keep.get(old);
+    if (same) {
+      const follows = old.userData.follows as Int32Array | undefined;
+      const ty0 = old.userData.ty0 as Float32Array | undefined;
+      for (const r of same) {
+        r.fresh.userData.objects = Int32Array.from(r.slots, (i) => objects[i]);
+        // (the heights the batch now settles to, as its own: `buildEntities` renewed them)
+        if (follows && ty0 && r.fresh.userData.follows) {
+          r.fresh.userData.follows = Int32Array.from(r.slots, (i) => follows[i]);
+          r.fresh.userData.ty0 = Float32Array.from(r.slots, (i) => ty0[i]);
+        }
+        out.push(r);
+      }
+      keep.delete(old);
+      continue;
+    }
     // the slope's arrow and the start's entrance keep their exact size
     if (old.name === "Slope.mark" || old.name === "start.entrance") continue;
     const first = e.templates[e.template[objects[0]]];
@@ -334,15 +357,23 @@ export function buildLandmarks(group: Group, e: EntityView, material: ShaderMate
       const colours = new Float32Array(slots.length * 3);
       const follows = old.userData.follows as Int32Array | undefined;
       const ty0 = old.userData.ty0 as Float32Array | undefined;
-      slots.forEach((i, j) => {
-        old.getMatrixAt(i, m);
-        fresh.setMatrixAt(j, m);
-        if (grow) grows.set([grow.getX(i), grow.getY(i), grow.getZ(i)], j * 3);
-        else grows.set([0, 0, 1], j * 3);
-        // (debris carries its own colours)
-        if (tint && name !== "NaturalDam" && name !== "Blockage") colours.set([tint.getX(i), tint.getY(i), tint.getZ(i)], j * 3);
-        else colours.set([1, 1, 1], j * 3);
-      });
+      // (debris carries its own colours)
+      const tinted = !!tint && name !== "NaturalDam" && name !== "Blockage";
+      if (slots.length === objects.length && grow) {
+        // (every instance of today's batch, in order: its arrays as they are)
+        fresh.instanceMatrix.array.set(old.instanceMatrix.array.subarray(0, slots.length * 16));
+        grows.set(grow.array.subarray(0, slots.length * 3) as Float32Array);
+        if (tinted) colours.set(tint.array.subarray(0, slots.length * 3) as Float32Array);
+        else colours.fill(1);
+      } else
+        slots.forEach((i, j) => {
+          old.getMatrixAt(i, m);
+          fresh.setMatrixAt(j, m);
+          if (grow) grows.set([grow.getX(i), grow.getY(i), grow.getZ(i)], j * 3);
+          else grows.set([0, 0, 1], j * 3);
+          if (tinted) colours.set([tint.getX(i), tint.getY(i), tint.getZ(i)], j * 3);
+          else colours.set([1, 1, 1], j * 3);
+        });
       g.setAttribute("grow", new InstancedBufferAttribute(grows, 3));
       fresh.instanceColor = new InstancedBufferAttribute(colours, 3);
       fresh.instanceMatrix.needsUpdate = true;
@@ -353,10 +384,18 @@ export function buildLandmarks(group: Group, e: EntityView, material: ShaderMate
         fresh.userData.follows = Int32Array.from(slots, (i) => follows[i]);
         fresh.userData.ty0 = Float32Array.from(slots, (i) => ty0[i]);
       }
-      out.push({ old, fresh });
+      out.push({ old, fresh, slots });
     }
   }
+  // (kept for a batch that is no longer drawn: put away)
+  disposeLandmarks([...keep.values()].flat());
   return out;
+}
+
+/** Make ahead the landmark of a ruin's scaffold batch `batch` drawn with the model `base` (entities3d.ts `modelsAhead`):
+ *  nothing for a batch the look leaves as it is. */
+export function landmarkAhead(batch: string, base: BufferGeometry): void {
+  if (batch.startsWith("scaffold.")) geometryFor("", batch, base);
 }
 
 /** Put a set of replacements away. */
@@ -364,7 +403,10 @@ export function disposeLandmarks(r: readonly Replacement[]): void {
   for (const { old, fresh } of r) {
     old.visible = true;
     fresh.removeFromParent();
-    fresh.geometry.dispose();
-    fresh.dispose();
+    // (its GPU buffers let go when the page has a moment: each one put away searches all the renderer's state)
+    whenIdle(() => {
+      fresh.geometry.dispose();
+      fresh.dispose();
+    });
   }
 }

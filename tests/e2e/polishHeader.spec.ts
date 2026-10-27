@@ -50,6 +50,8 @@ test("Rename stops at two lines, as Your maps' does: a paste keeps what fits, a 
   await page.keyboard.type("W");
   await expect(field).toHaveValue(full);
   await page.keyboard.press("Enter");
+  // (the field is gone: the name is shown, not its hidden copy inside the open field)
+  await expect(field).toHaveCount(0);
   const button = page.locator(".editor-title .title-button");
   await expect(button).toHaveText(full.trim());
   // the name takes two lines at most (the 13px lines at 1280), never overflows, and the header keeps its height
@@ -216,5 +218,5 @@ test("a name the room cannot hold in two lines is shown clamped to two with an e
   await button.click();
   await field.fill("Quiet Valley");
   await page.keyboard.press("Enter");
-  await expect.poll(() => tip(button)).toBe("Rename");
+  await expect.poll(() => tip(button)).toBe("Rename and describe the map");
 });
