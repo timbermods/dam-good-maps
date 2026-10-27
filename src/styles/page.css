@@ -92,7 +92,8 @@
 
 .editor-title.two-lines.small h1,
 .editor-title.two-lines.small .title-button {
-  font-size: 13px;
+  /* (13px, taken back like the labels where the page's font is wider than Segoe UI: nameFit.ts smallTitlePx sets the same) */
+  font-size: max(min(13px, var(--text-floor)), calc(13px / var(--wide-font)));
   line-height: 16px;
 }
 
@@ -3584,8 +3585,9 @@
 }
 
 /* Narrower than 1,400px the button is the icon alone, square like Undo and Redo (40px), the other player's dot a badge on its
-   corner; narrower than 1,340px the Look button says just "Look" (its menu shows the current look), so the longest map name
-   still fits two lines at 1280. */
+   corner; narrower than 1,340px the Look button says just "Look" (its menu shows the current look) and Together's button is
+   gone from the header (File's entry below), so the longest map name still fits two lines at 1280, where there is no Look
+   button at all (software drawing) and the page's font is wider. */
 @media (max-width: 1399px) {
   .together-label {
     display: none;
@@ -3614,6 +3616,44 @@
   .look-state {
     display: none;
   }
+
+  /* the header is full: Together's button leaves it for File's Together… entry, and File wears the other player's dot while a
+     session is live. The panel stays Together's, hung from the group's right edge (the wrap draws no box of its own, so no
+     gap is left where the button was). */
+  .together-wrap {
+    display: contents;
+  }
+
+  .editor-actions {
+    position: relative;
+  }
+
+  .editor-actions > .together-wrap > .together-button {
+    display: none;
+  }
+}
+
+@media (min-width: 1340px) {
+  .menu-together,
+  .file-together-dot {
+    display: none;
+  }
+}
+
+.file-button {
+  position: relative;
+}
+
+.file-together-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  box-shadow: 0 0 0 2px var(--panel);
+}
+
+.file-together-dot.paused {
+  background: var(--panel);
+  box-shadow: inset 0 0 0 2px var(--who), 0 0 0 1px var(--panel);
 }
 
 .together-panel {

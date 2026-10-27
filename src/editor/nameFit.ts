@@ -20,8 +20,17 @@ export function linesIn(text: string, width: number, measure: (t: string) => num
   return lines;
 }
 
-/** Whether a name fits the two lines the header keeps for it where its room is narrowest: 13px, between the two groups
- *  at 1280 wide (DESIGN: every name Rename allows fits two lines there). True when the header is not on the page. */
+/** The size of the title on two small lines, in px: 13, scaled down like the labels where the page's font is wider than
+ *  Segoe UI (`--wide-font`, src/ui/fontFit.ts), never under the text floor; page.css sets the same size. */
+export function smallTitlePx(): number {
+  const root = getComputedStyle(document.documentElement);
+  const wide = parseFloat(root.getPropertyValue("--wide-font")) || 1;
+  const floor = parseFloat(root.getPropertyValue("--text-floor")) || 10;
+  return Math.max(Math.min(13, floor), 13 / wide);
+}
+
+/** Whether a name fits the two lines the header keeps for it where its room is narrowest: the small title size, between the
+ *  two groups at 1280 wide (DESIGN: every name Rename allows fits two lines there). True when the header is not on the page. */
 export function fitsHeaderTwoLines(name: string): boolean {
   const bar = document.querySelector<HTMLElement>("header.editor-bar");
   if (!bar) return true;
@@ -30,7 +39,7 @@ export function fitsHeaderTwoLines(name: string): boolean {
   const pen = document.createElement("canvas").getContext("2d");
   if (!pen) return true;
   const cs = getComputedStyle(bar.querySelector(".editor-title .title-button") ?? bar);
-  pen.font = `${cs.fontStyle} ${cs.fontWeight} 13px ${cs.fontFamily}`;
+  pen.font = `${cs.fontStyle} ${cs.fontWeight} ${smallTitlePx()}px ${cs.fontFamily}`;
   return linesIn(name, room, (t) => Math.ceil(pen.measureText(t).width) + 1) <= 2;
 }
 
