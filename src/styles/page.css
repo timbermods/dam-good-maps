@@ -3186,6 +3186,11 @@
   height: 92px;
 }
 
+/* (the tight shape's room is the filled sheet's: the pictures a little shorter, whole width) */
+.gen-panel.c3.tight .sc-pic {
+  height: 78px;
+}
+
 .gen-panel.c3 .sc-top {
   flex-wrap: wrap;
   height: auto;
