@@ -27,9 +27,9 @@ export interface ClientEvents extends PeerEventMap {
   /** The host's Invite: a short single-use code, good for `expiresInMs` (counted here). */
   code: { code: string; expiresInMs: number };
   /** The map changed (an entry applied, the water settled): take it as an edit's answer. */
-  update: SessionUpdate;
+  update: { type: "update"; update: SessionUpdate };
   /** A whole other map is open: a guest's copy of the host's map, or after a rejoin. Take it as an opened map. */
-  open: SessionOpen;
+  open: { type: "open"; open: SessionOpen };
   /** The relay or the room-code function is down, or this site has no function address yet: collaboration is unavailable;
    *  editing alone is unaffected. `message` is a sentence for the player. */
   unavailable: { message: string };
@@ -227,6 +227,14 @@ export class CollabClient extends Emitter<ClientEvents> {
   /** Leave on purpose: the other player sees it at once; the session is kept in Your maps (a `keep` event). */
   async leave(): Promise<void> {
     await this.worker.leave();
+    this.closeTransport();
+    this.role = null;
+    this.begun = false;
+    this.sessionId = null;
+  }
+
+  /** Let go of the connection without waiting for the worker (it never answered): the other player sees a drop. */
+  abandon(): void {
     this.closeTransport();
     this.role = null;
     this.begun = false;
