@@ -175,11 +175,22 @@ export function inBasin(p: Part | undefined, x: number, y: number, W: number, H:
 }
 
 /** A long map's sea basin (D357, the shapes audit of 2026-10-24): its half-length and half-width as shares of the
- *  map's. Drawn one and a half sides across and stretched by the map's length, it overran the map, and the lip
- *  framed the sea down both long sides and across the far end; drawn this size, its noise (0.55–1.45 of its
- *  radius) carries the coast from the lip to a good way inside, in bays and headlands. */
-const LONG_SEA_ALONG = 0.95;
-const LONG_SEA_ACROSS = 1;
+ *  map's, each drawn in its range, so no two long seas are the same oval. Drawn one and a half sides across and
+ *  stretched by the map's length, it overran the map, and the lip framed the sea down both long sides and across
+ *  the far end; drawn this size, its noise (0.55–1.45 of its radius) carries the coast from the lip to a good way
+ *  inside, in bays and headlands. Centred and alike on every map, it stood in a ring of land (the review of #603). */
+const LONG_SEA = {
+  along: [0.9, 1.05],
+  across: [0.88, 1.02],
+  /** Its middle moved toward the far end, and to one side or the other, as shares of the map's length and width. */
+  toFar: [0.02, 0.12],
+  aside: [-0.07, 0.07],
+} as const;
+/** Islands' on a long map: shorter and further from its mainland, so the mainland's end keeps a start's badwater
+ *  distance from the sea (the sea takes the badwater, D476) with its own clean water, and the sea often runs on past
+ *  the far end. Drawn as long as Any's, the start's end was a strip by the sea, and most starts failed
+ *  start.badwater, settle after settle. */
+const LONG_ISLANDS_SEA = { ...LONG_SEA, along: [0.76, 0.92], toFar: [0.08, 0.17] } as const;
 
 /** The six themes the generator knows, without "Any". */
 export type Leaning = Exclude<ThemeId, "any">;
@@ -849,16 +860,21 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   const thin = g.theme === "islands";
   // (D357: on a long map the sea's basin runs its length, as long as the map is long, as wide as it is)
   const axisTurn = form.alongX ? 0 : 0.25;
-  // (the shapes audit: an open sea on a long map is drawn inside it, in the map's middle, its coast its own; known
-  // here so the mainland and the islands are placed against it)
+  // (the shapes audit: an open sea on a long map is drawn inside it, its coast its own, its length, width and place
+  // its own draws (`LONG_SEA`): off the mainland toward the far end, which it often reaches, and to one side or the
+  // other; placed once the mainland is (below), so the mainland and the islands are placed against it)
   const inside = form.long && !g.seaRing;
-  const basin: Part | undefined = inside
-    ? (() => {
-        const a = 0.5 * LONG_SEA_ALONG * (Math.max(W, H) - 1) * shrink;
-        const b = 0.5 * LONG_SEA_ACROSS * (side - 1) * shrink;
-        return { kind: "basin", at: [0.5, 0.5], size: portable.sqrt(a * b), height: 0, turn: axisTurn, extra: a / b, soft: 0, shape: "sea", coast, thinLip: thin, inside: true };
-      })()
-    : undefined;
+  const vary = inside ? [rng.float(), rng.float(), rng.float(), rng.float()] : [];
+  let basin: Part | undefined;
+  const placeBasin = (toFar: number) => {
+    const span = (k: number, [lo, hi]: readonly [number, number]) => lo + (hi - lo) * vary[k];
+    const sea = thin ? LONG_ISLANDS_SEA : LONG_SEA;
+    const a = 0.5 * span(0, sea.along) * (Math.max(W, H) - 1) * shrink;
+    const b = 0.5 * span(1, sea.across) * (side - 1) * shrink;
+    const along = 0.5 + toFar * span(2, sea.toFar);
+    const across = 0.5 + span(3, sea.aside);
+    basin = { kind: "basin", at: form.alongX ? [along, across] : [across, along], size: portable.sqrt(a * b), height: 0, turn: axisTurn, extra: a / b, soft: 0, shape: "sea", coast, thinLip: thin, inside: true };
+  };
   // (the sea as the field will draw it, on average: past the lip and the mainland, and in the basin on a long map)
   const seaAt = (x: number, y: number) => rimKeep(coast, x, y, W, H, lobes, thin) >= 0.5 && inBasin(basin, x, y, W, H);
   const sea = (at: [number, number], R: number, depth: number, turn: number, aspect: number) => {
@@ -946,6 +962,8 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     const s0 = endMain ? (form.alongX ? 1 : 0) + 2 * (drawnSide & 1) : drawnSide;
     main.push(s0);
     if (endMain) main.push((s0 + (drawnSide & 2 ? 1 : 3)) % 4);
+    // (Islands' far end is the one past its mainland; Any's sea maps', either)
+    if (inside) placeBasin(endMain ? (s0 === (form.alongX ? 3 : 0) ? 1 : -1) : vary[2] < 0.5 ? 1 : -1);
     else if (layout !== "edge" && layout !== "central" && rng.float() < 0.45) main.push((s0 + 1) % 4);
     const endReach = endMain ? Math.max(1, form.ratio / 2) : 1;
     // (three or four a side, of reach from a tenth of the side to a third, so the coast bends in deep
@@ -1095,7 +1113,9 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
         for (let k = 0; k < count; k++) {
           const t = k / (count - 1);
           const along = low ? a0 + t * length : L - 1 - (a0 + t * length);
-          const across = (0.5 + 0.12 * off) * (side - 1) + sway * sinDet(TWO_PI * (waves * t + phase));
+          // (in a sea drawn inside the map, about its middle)
+          const mid0 = basin ? basin.at[form.alongX ? 1 : 0] + 0.05 * off : 0.5 + 0.12 * off;
+          const across = mid0 * (side - 1) + sway * sinDet(TWO_PI * (waves * t + phase));
           const mid = 1 - Math.abs(t - 0.5) * 0.9;
           const asp = 1 + 1.2 * rng.float();
           const size = Math.min((inside ? 0.2 : 0.26) * side * portable.sqrt(asp), ((spacing - strait()) / (2.2 * portable.sqrt(asp))) * (0.65 + 0.35 * mid) * (0.7 + 0.3 * rng.float())) / isleK;

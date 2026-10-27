@@ -2512,6 +2512,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       return { ...fail("a drained sea (settled)", b1, false), stage: null, stuck: !!from };
     }
   }
+  // (and then shown, above 128² as any land is at the land stage, D405: the sea proved, the land is the map, and
+  // D471's bounds on a shown land apply)
+  if (seaProved && landStage && !landStage.shown && N > SHOW_PROVED_MOST) {
+    landStage.shown = true;
+    firstLook = Math.round(performance.now() - t0);
+    landStage.firstLook = firstLook;
+    opts.onLand?.({ attempt, heights: landStage.hLand, water: hy.water });
+  }
   // (D488: a long Lake Basin's lake on the settled water, while its land is still hidden (a thin map, 128²
   // and under): a basin its rivers leave dry, or a lake drained to a pool, passed on the plan's held lakes
   // and showed an empty lake bed, 48×256 seeds 6, 9 and 11 at 5–8% water. Its land is drawn again, a few
