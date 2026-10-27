@@ -1,5 +1,5 @@
 // A map with caves or overhangs, through the page (3D Foundations, stage 6; D120, D280): after an edit its
-// water settles in the background, the dot saying so, and shows when done, the caves' water with it; the
+// water flows live and the canonical settle follows in the background, the dot saying so, the caves' water with it; the
 // layer is "Caves and overhangs"; Fill and Remove unfed water ask every column, a refusal showing the core's one line;
 // and Drought and Badtide run on every column (#391).
 // The map is T3 of the probe's test maps (tools/terrain3d-maps.ts), built here: never an official map's bytes.
@@ -45,14 +45,30 @@ test("a map with caves: an edit's water settles in the background and shows when
     new MutationObserver(note).observe(el, { attributes: true, childList: true, subtree: true, characterData: true });
   });
 
-  // an edit: a pit beside the channel that basin B spills through (y 24–25 at level 6); dry until the settle
+  // an edit: a pit beside the channel that basin B spills through (y 24–25 at level 6), dry before it
   expect(await depthAt(page, 57, 26)).toBe(0);
+  // (when the water the page shows first reaches the pit, and when the canonical settle is in place)
+  await page.evaluate(() => {
+    const w = window as unknown as { pitWet: number | null; pitSettled: number | null };
+    w.pitWet = w.pitSettled = null;
+    const r = window.dgm3d!.renderer;
+    let pending = false;
+    const id = setInterval(() => {
+      const m = r.mapState()!;
+      if (w.pitWet === null && (m.surface.depth[26 * m.W + 57] || 0) > 0.05) w.pitWet = performance.now();
+      if (window.dgmEditor!.info().waterPending) pending = true;
+      else if (pending && w.pitSettled === null) w.pitSettled = performance.now();
+      if (w.pitWet !== null && w.pitSettled !== null) clearInterval(id);
+    }, 20);
+  });
   await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "lower", cells: [[26, 56, 58]], amount: 2 } }, "Lower"));
   await idle(page);
-  expect(await page.evaluate(() => window.dgmEditor!.info().waterPending)).toBe(true);
-  // the settle runs in the background, the dot saying so, and then the water is there
+  // the water flows into it live, as on a plain map (D99, D197), and the canonical settle runs in the background,
+  // the dot saying so, and replaces it
   await expect.poll(() => depthAt(page, 57, 26), { timeout: 60_000 }).toBeGreaterThan(0.1);
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().waterPending), { timeout: 60_000 }).toBe(false);
+  const pit = await page.evaluate(() => window as unknown as { pitWet: number; pitSettled: number });
+  expect(pit.pitWet, "the pit's water shows before the canonical settle is in place").toBeLessThan(pit.pitSettled);
   expect(await page.evaluate(() => (window as unknown as { dotSeen: string[] }).dotSeen.some((s) => /Settling/.test(s)))).toBe(true);
   // the file it exports holds the caves' water, simulated: wet columns under the plateau's top
   const file = await page.evaluate(async () => Array.from((await window.dgmEditor!.worker.exportTimber(true)).bytes));

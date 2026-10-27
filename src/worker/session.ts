@@ -2883,7 +2883,8 @@ function startForceWater(f: NonNullable<typeof force>, flowing: WarmState | null
   forceWater = null;
   const token = ++forceWaterToken;
   const p = f.play;
-  // (a map with caves or overhangs has no live water: it settles in the background once the force is kept)
+  // (a map with caves or overhangs: no force water while it plays; once the force is kept its water flows live,
+  // `kickStack`)
   if (f.session.built.waterModel.stacked) return;
   if (p ? p.run.settings.dry : !f.staged) return;
   const m = p ? p.map : f.staged!.map;
