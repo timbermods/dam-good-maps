@@ -46,3 +46,70 @@ describe("force object model data can be reused without sharing mutable batch st
     disposeGroup(a);disposeGroup(b);models.dispose();material.dispose();
   });
 });
+
+describe("a rebuild keeps the batches it would build as they are drawn", () => {
+  const at = (id: string, template: string, x: number, y: number, extra: Record<string, unknown> = {}) => ({ id, template, x, y, z: 2, owner: "a", orientation: "Cw0", ...extra });
+  const before = [at("p1", "Pine", 3, 3), at("p2", "Pine", 5, 3), at("o1", "Oak", 7, 7), at("r1", "RuinColumnH3", 9, 9), at("s1", "WaterSource", 12, 12, { strength: 2 })];
+  it("keeps the unchanged batches (their objects renumbered), builds the changed, and draws what a fresh build draws", () => {
+    const models = new EntityGeometryCache();
+    const material = new ShaderMaterial();
+    const v1 = entityView(before);
+    const g1 = buildEntities(v1, material, null, 32, false, models).group;
+    const kept = new Map(g1.children.map((c) => [c.name, c]));
+    // a source placed first in the list: every other object's number moves
+    const v2 = entityView([at("s2", "WaterSource", 20, 4, { strength: 3 }), ...before]);
+    const g2 = buildEntities(v2, material, null, 32, false, models, { group: g1, entities: v1 }).group;
+    const fresh = buildEntities(v2, material, null, 32, false, models).group;
+    expect(g2.children.map((c) => c.name)).toEqual(fresh.children.map((c) => c.name));
+    for (let i = 0; i < fresh.children.length; i++) {
+      const a = fresh.children[i] as InstancedMesh;
+      const b = g2.children[i] as InstancedMesh;
+      expect(b === kept.get(b.name)).toBe(b.name !== "WaterSource");
+      expect(Array.from(b.instanceMatrix.array)).toEqual(Array.from(a.instanceMatrix.array));
+      expect(Array.from(b.instanceColor!.array)).toEqual(Array.from(a.instanceColor!.array));
+      expect(Array.from(b.geometry.getAttribute("grow").array)).toEqual(Array.from(a.geometry.getAttribute("grow").array));
+      expect(b.userData).toEqual(a.userData);
+    }
+    disposeGroup(g2);
+    disposeGroup(g1);
+    disposeGroup(fresh);
+    models.dispose();
+    material.dispose();
+  });
+  it("a batch kept after ground a stroke painted settles to the new land, as a fresh build does", () => {
+    const material = new ShaderMaterial();
+    const trees = [at("p1", "Pine", 3, 3), at("p2", "Pine", 5, 3)];
+    const v1 = entityView(trees);
+    const g1 = buildEntities(v1, material, null, 32).group;
+    const pines = g1.children.find((c) => c.name === "Pine") as InstancedMesh;
+    // a stroke raises the first pine's tile by one: the page moves it there (renderer `followGround`)
+    const ty0 = pines.userData.ty0 as Float32Array;
+    pines.instanceMatrix.array[13] = ty0[0] + 1;
+    // the worker's objects on that land come while the stroke's land is held: the batch is kept, as it stands
+    const v2 = entityView([{ ...trees[0], z: 3 }, trees[1]]);
+    const g2 = buildEntities(v2, material, null, 32, false, undefined, { group: g1, entities: v1 }).group;
+    const kept = g2.children.find((c) => c.name === "Pine") as InstancedMesh;
+    expect(kept).toBe(pines);
+    // a later stroke, then settling (renderer `settleObjects`): each stands at its batch's own height
+    const a = kept.instanceMatrix.array;
+    (kept.userData.ty0 as Float32Array).forEach((y, i) => (a[i * 16 + 13] = y));
+    const fresh = buildEntities(v2, material, null, 32).group.children.find((c) => c.name === "Pine") as InstancedMesh;
+    expect(Array.from(kept.userData.ty0 as Float32Array)).toEqual(Array.from(fresh.userData.ty0 as Float32Array));
+    expect(Array.from(a)).toEqual(Array.from(fresh.instanceMatrix.array));
+    material.dispose();
+  });
+  it("builds again a batch drawn otherwise than it would be built (a highlight)", () => {
+    const material = new ShaderMaterial();
+    const v1 = entityView(before);
+    const g1 = buildEntities(v1, material, null, 32).group;
+    const pines = g1.children.find((c) => c.name === "Pine") as InstancedMesh;
+    pines.instanceColor!.array[0] *= 1.6;
+    const oaks = g1.children.find((c) => c.name === "Oak");
+    const g2 = buildEntities(v1, material, null, 32, false, undefined, { group: g1, entities: v1 }).group;
+    const again = g2.children.find((c) => c.name === "Pine") as InstancedMesh;
+    expect(again).not.toBe(pines);
+    expect(again.instanceColor!.array[0]).not.toBe(pines.instanceColor!.array[0]);
+    expect(g2.children.find((c) => c.name === "Oak")).toBe(oaks);
+    material.dispose();
+  });
+});

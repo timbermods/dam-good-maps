@@ -158,13 +158,14 @@ export function useView(ed: Ed): ViewSlice {
   const startHereRef = useRef<StartHere | null>(null);
   const startHere = useMemo((): StartHere | null => {
     const f = info.features.find((g) => g.kind === "start");
-    if (f && f.kind === "start") return { x: f.params.position[0], y: f.params.position[1], orientation: f.params.orientation, feature: f.id, owner: f.id };
+    if (f && f.kind === "start") return { x: f.params.position[0], y: f.params.position[1], orientation: f.params.orientation, feature: f.id, owner: f.id, ...(f.params.z !== undefined ? { z: f.params.z } : {}) };
     const e = mirror.current.entities;
     for (let k = 0; k < e.count; k++) {
       if (e.templates[e.template[k]] !== "StartingLocation") continue;
       const o = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
       const [cx, cy] = cornerToCentre(e.x[k], e.y[k], o);
-      return { x: cx, y: cy, orientation: o, feature: null, owner: null };
+      const top = cx >= 0 && cy >= 0 && cx < info.W && cy < info.H ? mirror.current.heights[cy * info.W + cx] : 0;
+      return { x: cx, y: cy, orientation: o, feature: null, owner: null, ...(e.z[k] < top ? { z: e.z[k] } : {}) };
     }
     return null;
   }, [info.features, info.version]);

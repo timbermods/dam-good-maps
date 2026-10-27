@@ -142,6 +142,15 @@ export function bakeFlow(W: number, H: number, heights: Uint8Array, sw: SurfaceW
   return { flow, rough, counts: r.counts };
 }
 
+/** The smoothed contamination alone, a byte a tile (the flow texture's B, as `bakeFlow` packs it): where nothing
+ *  moves (stillFlow.ts). */
+export function shareBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">): Uint8Array {
+  const cont = surfaceContamination(W, H, sw);
+  const out = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) out[i] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);
+  return out;
+}
+
 /** On a map with water per column (waterLayers.ts): the view (each column's own outflows) and the map's columns, with
  *  their version; the job's surface water then carries its `top`. */
 export interface LayeredWater {
@@ -155,10 +164,12 @@ let columnsKept: { key: number; map: Map<number, Uint8Array> } | null = null;
 /** A job for the worker, and its answer. */
 export type BakeJob =
   | { id: number; kind: "ambient"; W: number; H: number; heights: Uint8Array; canopies: Canopies }
-  | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null; layered?: LayeredWater };
+  | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null; layered?: LayeredWater }
+  | { id: number; kind: "share"; W: number; H: number; sw: Pick<SurfaceWater, "surface" | "depth" | "contamination"> };
 export type BakeResult =
   | { id: number; kind: "ambient"; data: Uint8Array; cover: Float32Array; ms: number }
-  | { id: number; kind: "flow"; flow: Uint8Array; rough: Uint8Array; counts: RoughCounts; shapes: MotionShapes; cave: CaveCurrent | null; ms: number };
+  | { id: number; kind: "flow"; flow: Uint8Array; rough: Uint8Array; counts: RoughCounts; shapes: MotionShapes; cave: CaveCurrent | null; ms: number }
+  | { id: number; kind: "share"; share: Uint8Array; ms: number };
 /** What the worker sends back: the answer, or why the job failed. */
 export type BakeReply = BakeResult | { id: number; kind: "error"; error: string };
 
@@ -168,6 +179,7 @@ export function runBake(job: BakeJob): BakeResult {
     const { data, cover } = bakeAmbient(job.W, job.H, job.heights, job.canopies);
     return { id: job.id, kind: "ambient", data, cover, ms: performance.now() - t0 };
   }
+  if (job.kind === "share") return { id: job.id, kind: "share", share: shareBytes(job.W, job.H, job.sw), ms: performance.now() - t0 };
   // the current from the outflows (current.ts), here rather than on the page's thread
   const current = job.out ? currentOf(job.W, job.H, job.out, job.sw.depth) : new Float32Array(job.W * job.H * 2);
   const { flow, rough, counts } = bakeFlow(job.W, job.H, job.heights, job.sw, current);
