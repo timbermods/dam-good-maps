@@ -291,9 +291,12 @@ export function useBlockTool(ed: Ed): BlockSlice {
     }
     // (the preview is cleared as the edit goes: the new blocks stand where it was)
     ask(null);
-    renderer.current?.blockEditSent();
     void run(
-      () => api.apply({ op: "blocks", params }, "user", blockLabel(mode)),
+      () => {
+        // (said as it goes, after any edit queued before it has landed: the land its answer brings is its own)
+        renderer.current?.blockEditSent();
+        return api.apply({ op: "blocks", params }, "user", blockLabel(mode));
+      },
       (u) => {
         if (!u.ok) return refresh();
         ed.firstDoneRef.current("paint");
