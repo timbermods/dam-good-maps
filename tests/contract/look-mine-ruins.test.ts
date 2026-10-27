@@ -18,7 +18,7 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
- *  0.10.3 makes it (3D forms at the default Verticality, D488: this map looks for a spring cave and drops it, so its
+ *  0.10.3 makes it (#579: 3D forms stay above the default Verticality, the overhang worn, D488: this map looks for none, so its
  *  land and water are as 0.10.2 made them, only the version, D148); `efb789ad…` before it, as generator
  *  0.10.2 made it (the opening shot, D493: the start turned so the game's first camera frames the best view, a
  *  landmark first; D148); `6b7d4326…` before it, as generator 0.10.1 made it (ruins placed with meaning, D488 (2): a
