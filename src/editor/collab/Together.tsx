@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { Together as TogetherController, TogetherState } from "../../collab/together";
 import type { Role } from "../../core/collab";
 import { tip } from "../../ui/Tooltip";
+import { OPEN_TOGETHER } from "./togetherOpen";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
@@ -102,6 +103,12 @@ export function Together(p: { controller: TogetherController; state: TogetherSta
       window.removeEventListener("keydown", key);
     };
   }, [open]);
+  // (File's Together… entry, where the header has no room for this button: it opens the same panel)
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener(OPEN_TOGETHER, show);
+    return () => window.removeEventListener(OPEN_TOGETHER, show);
+  }, []);
   // (an Invite just made: the panel shows its code)
   useEffect(() => {
     if (s.phase === "inviting" || s.problem) setOpen(true);

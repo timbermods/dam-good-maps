@@ -959,8 +959,11 @@ go to Kyler as design direction).
 
 - **One quiet button, before File** in the header's right group: a 1.8px people icon (the other icons' stroke) and the word
   Together, a plain button like History: never lit (Save to Timberborn stays the only lit control). Below about 1,400px it is the icon alone, 40px square like Undo and Redo, and below about
-  1,340px the Look button reads just **Look** (its menu shows the current look) so the longest name still fits two lines at
-  1280. While a session is live the button wears the other
+  1,340px the Look button reads just **Look** (its menu shows the current look) and the button leaves the header: **Together…**
+  is an entry in File's menu (tooltip "Edit this map with someone else"; it opens the same panel, which hangs under the right
+  group's edge) and File wears the other player's dot, so the longest name still fits two lines at 1280 where the page's font
+  is wider than Segoe UI and there is no Look button. The two-line small title (13px) is scaled down like the labels where the
+  font is wider (`--wide-font`, never under the text floor). While a session is live the button wears the other
   player's colour as a 10px dot (hollow while they are away; a badge on the icon's corner when it is icon-only), and its accessible name says who ("Together with Bo").
   Tooltip: "Edit this map with someone else".
 - **The panel** opens under the button, right-aligned, in the checks list's and the menus' panel style (the panel colour, the

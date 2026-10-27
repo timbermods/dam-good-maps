@@ -64,6 +64,7 @@ export function header(ed: Ed, props: EditorProps) {
       onPlaces={() => props.onPlaces(!props.placesOpen)}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
       together={together && collab ? <Together controller={together} state={collab} /> : null}
+      togetherEntry={together && collab ? { role: collab.other?.role ?? "guest", paused: collab.phase === "paused", other: !!collab.other && collab.phase !== "alone" && collab.phase !== "inviting" && collab.phase !== "joining" } : null}
     />
   );
 }
