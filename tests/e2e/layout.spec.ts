@@ -404,6 +404,119 @@ test("the fullest legend fits at 1920×1080 under Legend, without scrolling", as
   expect(m.top + fullest, `the fullest legend (${clean} lines, the heading and ${marked} markers' lines) ends on the map's foot margin or higher`).toBeLessThanOrEqual(m.minimap.bottom + 0.5);
 });
 
+/** The map's name (Kyler, 2026-10-05, A+B): the longest generated one and one at Rename's limit, kept to at least
+ *  30 characters whatever the fonts (what fits two lines of the header's room where they allow), shown in full in at
+ *  most two lines, clear of both groups, the bar's other pieces where they were. */
+async function nameFits(page: Page, w: number, h: number) {
+  const header = page.locator("header.editor-bar");
+  const actions = await header.locator(".editor-actions").boundingBox();
+  for (const typed of ["Twin Channel Island Chain", "Where the Long Winding River Meets Again And Again"]) {
+    await header.locator(".editor-title .title-button").click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(typed);
+    const name = (await header.getByLabel("Map name").inputValue()).trim();
+    expect(name.length, `${typed}: at least the floor is kept`).toBeGreaterThanOrEqual(Math.min(typed.length, 30));
+    await page.keyboard.press("Enter");
+    await expect(header.locator(".editor-title .title-button")).toHaveText(name);
+    await settle(page, w, h);
+    const button = header.locator(".editor-title .title-button");
+    // (at most two lines of its line height, never wider than its box)
+    expect(
+      await button.evaluate((e) => {
+        const cs = getComputedStyle(e);
+        const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
+        return e.scrollWidth <= e.clientWidth + 0.5 && e.getBoundingClientRect().height <= 2 * line + 0.5;
+      }),
+      `${name} in full`,
+    ).toBe(true);
+    const bs = await boxes(page, [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions"]);
+    for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlaps(bs[i], bs[j]), `${name}: ${bs[i].name} overlaps ${bs[j].name}`).toBe(false);
+    expect(await header.locator(".editor-actions").boundingBox(), `${name}: the right group stays put`).toEqual(actions);
+  }
+}
+
+// The same when the core answers a rename late (D341: the title's fit must not depend on timing). The map's name is kept
+// by the core, in a worker that may be busy with the water or the checks; the title once stayed the field it was typed in,
+// drawn for what was typed, until the worker answered, and a header measured in that time (a loaded CI machine, 2026-10-25)
+// found the long name on one line cut at the title's edge. Here the worker's answer to every rename is held back 800ms.
+/** Holds back, for `ms`, the worker's answer to every rename the page sends (a call to the worker is a Comlink message whose
+ *  path ends with the function's name); `window.__held` counts the renames held. Set before the page opens. */
+async function holdRenames(page: Page) {
+  await page.addInitScript(() => {
+    const post = Worker.prototype.postMessage;
+    const held = window as unknown as { __holdRename: number; __held: number };
+    held.__holdRename = 0;
+    held.__held = 0;
+    Worker.prototype.postMessage = function (this: Worker, message: { path?: string[] }, ...rest: unknown[]) {
+      if (held.__holdRename && message?.path?.at(-1) === "setName") {
+        held.__held++;
+        setTimeout(() => (post as (...a: unknown[]) => void).call(this, message, ...rest), held.__holdRename);
+        return;
+      }
+      return (post as (...a: unknown[]) => void).call(this, message, ...rest);
+    } as typeof Worker.prototype.postMessage;
+  });
+}
+const holdFor = (page: Page, ms: number) => page.evaluate((ms) => ((window as unknown as { __holdRename: number }).__holdRename = ms), ms);
+
+for (const [w, h] of [[1366, 768], [1300, 900]] as [number, number][]) {
+  test(`at ${w}×${h}: the header's name is fitted at once, however late the core answers its rename`, async ({ page }) => {
+    test.setTimeout(300_000);
+    await holdRenames(page);
+    await page.setViewportSize({ width: w, height: h });
+    await openEditor(page);
+    await holdFor(page, 800);
+    await nameFits(page, w, h);
+    expect(await page.evaluate(() => (window as unknown as { __held: number }).__held), "the renames were held back").toBeGreaterThan(0);
+  });
+}
+
+test("two renames in a row while the core answers late: the title ends on the second name and never shows the first again", async ({ page }) => {
+  test.setTimeout(300_000);
+  await holdRenames(page);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await openEditor(page);
+  await holdFor(page, 800);
+  const title = page.locator("header.editor-bar .editor-title .title-button");
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { __seen: string[] }).__seen = seen;
+    setInterval(() => seen.push(document.querySelector(".editor-title .title-button")?.textContent ?? ""), 20);
+  });
+  for (const typed of ["Typo Nmae", "Right Name"]) {
+    await title.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(typed);
+    await page.keyboard.press("Enter");
+  }
+  // (both answers have come: the second held 800ms)
+  await page.waitForTimeout(2500);
+  const seen = await page.evaluate(() => (window as unknown as { __seen: string[] }).__seen);
+  const right = seen.indexOf("Right Name");
+  expect(right, "the second name is shown").toBeGreaterThanOrEqual(0);
+  expect(seen.slice(right).filter((t) => t !== "Right Name"), "after the second name shows, nothing else does").toEqual([]);
+  await expect(title).toHaveText("Right Name");
+});
+
+test("a rename typed back to the old name while the first is still on its way is sent, never lost", async ({ page }) => {
+  test.setTimeout(300_000);
+  await holdRenames(page);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await openEditor(page);
+  await holdFor(page, 800);
+  const title = page.locator("header.editor-bar .editor-title .title-button");
+  const first = ((await title.textContent()) ?? "").trim();
+  for (const typed of ["Typo Nmae", first]) {
+    await title.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(typed);
+    await page.keyboard.press("Enter");
+  }
+  // (both answers have come: each held 800ms)
+  await page.waitForTimeout(2500);
+  await expect(title).toHaveText(first);
+});
+
 // Nothing overlaps at any size (Kyler, 2026-10-04: the layout adjusts itself): at sizes the page isn't drawn for, the
 // band lays itself out (the water row on a second line when it can't fit), and the panels and the legend take the
 // room they have, scrolling inside only when it's short.
@@ -424,33 +537,7 @@ for (const [w, h] of [[1400, 900], [1300, 900], [1366, 768], [1280, 800]] as [nu
       }
       if (panel) await header.getByRole("button", { name: panel, exact: true }).click();
     }
-    // the map's name (Kyler, 2026-10-05, A+B): the longest generated one and one at Rename's limit, kept to at least
-    // 30 characters whatever the fonts (what fits two lines of the header's room where they allow), shown in at most
-    // two lines, clear of both groups, the bar's other pieces where they were
-    const actions = await header.locator(".editor-actions").boundingBox();
-    for (const typed of ["Twin Channel Island Chain", "Where the Long Winding River Meets Again And Again"]) {
-      await header.locator(".editor-title .title-button").click();
-      await page.keyboard.press("Control+A");
-      await page.keyboard.type(typed);
-      const name = (await header.getByLabel("Map name").inputValue()).trim();
-      expect(name.length, `${typed}: at least the floor is kept`).toBeGreaterThanOrEqual(Math.min(typed.length, 30));
-      await page.keyboard.press("Enter");
-      await expect(header.locator(".editor-title .title-button")).toHaveText(name);
-      await settle(page, w, h);
-      const button = header.locator(".editor-title .title-button");
-      // (at most two lines of its line height, never wider than its box)
-      expect(
-        await button.evaluate((e) => {
-          const cs = getComputedStyle(e);
-          const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
-          return e.scrollWidth <= e.clientWidth + 0.5 && e.getBoundingClientRect().height <= 2 * line + 0.5;
-        }),
-        `${name} in full`,
-      ).toBe(true);
-      const bs = await boxes(page, [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions"]);
-      for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlaps(bs[i], bs[j]), `${name}: ${bs[i].name} overlaps ${bs[j].name}`).toBe(false);
-      expect(await header.locator(".editor-actions").boundingBox(), `${name}: the right group stays put`).toEqual(actions);
-    }
+    await nameFits(page, w, h);
   });
 }
 

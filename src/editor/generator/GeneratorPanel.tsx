@@ -1,9 +1,10 @@
-// The map generator (Kyler's pick, A, the sheet, 2026-10-04): one 640px panel over the map at the left, opened and
-// closed by Map Generator in the header; opening it never resizes the map. It ends above the bar and its settings,
-// vertically centred in the room between them and the header, and shows every setting at once, nothing scrolling: a
-// title block (the next map's Name, Generate and Surprise me; Theme; Seed and Size), then the five groups in two columns
-// (Terrain, Water and Hazards; Resources, Difficulty and what is on the map), each setting on one line. Showcase… at the
-// foot of the second column opens Showcase mode's sheet over the two columns (Showcase.tsx).
+// The map generator (Kyler's pick, A, the sheet, 2026-10-04): one panel over the map at the left, opened and closed by
+// Map Generator in the header; opening it never resizes the map. It ends above the bar and its settings and shows every
+// setting at once, nothing scrolling: a title block (the next map's Name and Seed, Generate; Theme and Surprise me; Size
+// and Another like this), then the five groups in columns (Terrain, Water and Hazards; Resources, Difficulty and what is
+// on the map), each setting on one line. Showcase… at the foot of the last column opens Showcase mode's sheet over the
+// columns (Showcase.tsx). Two columns 640px wide where the window is tall; three wider, and tighter in a short window,
+// where it is not (panelFit.ts). Enter anywhere in it generates; Esc closes it.
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
@@ -12,6 +13,7 @@ import { tip } from "../../ui/Tooltip";
 import { fitsHeaderTwoLines, limitName } from "../nameFit";
 import { genFields, GROUPS, onThisMap, type GroupName } from "./fields";
 import type { GeneratorModel } from "./model";
+import { usePanelShape } from "./panelFit";
 import { ShowcaseButton, ShowcaseSheet } from "./Showcase";
 
 /** Each group's picture, drawn as the bar's tools are (a 1.8 stroke). */
@@ -53,17 +55,14 @@ const GROUP_TIPS: Record<GroupName, string> = {
   Difficulty: "What the start must have in reach",
 };
 
-/** The name for the next map: the field shows the open map's name until something is typed, and what is typed names the
- *  map Generate makes next (Enter or leaving the field keeps it; Esc, or a name left blank or unchanged, drops it). The
- *  open map is never renamed here: the title does that (D443). One line, a box about 24 letters wide (Kyler, 2026-10-04:
- *  no map's name needs more); a longer name scrolls in it. */
+/** The name for the next map: the field starts empty, the open map's name in grey in it, and what is typed names the map
+ *  Generate makes next (Enter generates it; a name left blank is no name). The open map is never renamed here: the title
+ *  does that (D443). One line, a box about 24 letters wide (Kyler, 2026-10-04: no map's name needs more); a longer name
+ *  scrolls in it. */
 function NameField(p: { name: string; next: string | null; onNext(name: string | null): void }) {
-  const text = p.next ?? p.name;
-  const settle = () => {
-    if (p.next !== null && (!p.next.trim() || p.next.trim() === p.name)) p.onNext(null);
-  };
+  const text = p.next ?? "";
   return (
-    <div class="set plate line gen-name" {...tip("Name for the next map")}>
+    <div class="set plate line gen-name" {...tip("Names the next map")}>
       <label class="set-label" for="map-name">
         Name
       </label>
@@ -71,22 +70,13 @@ function NameField(p: { name: string; next: string | null; onNext(name: string |
         id="map-name"
         class="set-text"
         value={text}
+        placeholder={p.name}
         maxLength={80}
         spellcheck={false}
         autoComplete="off"
-        onInput={(e) => p.onNext(limitName(e.target as HTMLInputElement, text, fitsHeaderTwoLines))}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            // (Enter keeps the name here; it never makes a new map)
-            e.preventDefault();
-            (e.target as HTMLInputElement).blur();
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            e.stopPropagation();
-            p.onNext(null);
-          }
+        onInput={(e) => {
+          p.onNext(limitName(e.target as HTMLInputElement, text, fitsHeaderTwoLines) || null);
         }}
-        onBlur={settle}
       />
     </div>
   );
@@ -98,10 +88,16 @@ export interface GeneratorPanelProps {
   counts: MapCounts;
   /** Each object's picture, once the view can draw it (what is on the map). */
   icon(template: string): string | null;
+  /** Close the panel (Esc). */
+  onClose(): void;
 }
 
-export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelProps) {
+export function GeneratorPanel({ model: m, counts: held, icon, onClose }: GeneratorPanelProps) {
   const f = genFields(m);
+  const shape = usePanelShape();
+  // (the keys and the buttons read the model of the moment they are pressed: a size typed a moment ago has reached it)
+  const latest = useRef({ m, onClose });
+  latest.current = { m, onClose };
   // a short window cuts the panel and it scrolls inside itself: a soft fade at its foot says more lies below, and goes
   // once the foot is reached
   const root = useRef<HTMLElement>(null);
@@ -120,6 +116,34 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
       watch.disconnect();
     };
   }, []);
+  // Esc closes the panel, and only the panel: with the focus in it, on the button that opened it, or on nothing (a held
+  // brush stays in hand; a field, a menu or a dialog elsewhere keeps its own Esc, and so does the Showcase sheet, which
+  // closes itself first). Heard before the editor's own keys, which would put the brush away too.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const at = e.target as HTMLElement | null;
+      const mine = !at || at === document.body || !!root.current?.contains(at) || !!at.closest?.("header.editor-bar .new-map");
+      if (!mine || document.querySelector(".dialog-backdrop") || at?.closest?.(".showcase, [role=\"dialog\"], [role=\"menu\"]")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      latest.current.onClose();
+    };
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, []);
+  // Enter anywhere in the panel generates (a field, a slider, a button: Space presses a button, Enter never does). What is
+  // typed in the field being left counts first: leaving it commits it, and Generate runs once the page has taken it.
+  const generateKey = (e: KeyboardEvent) => {
+    if (e.key !== "Enter" || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+    if ((e.target as HTMLElement).closest(".showcase")) return;
+    e.preventDefault();
+    const at = document.activeElement;
+    if (at instanceof HTMLInputElement && at.type === "text") at.blur();
+    window.setTimeout(() => {
+      if (!latest.current.m.busy) latest.current.m.onGenerate();
+    }, 0);
+  };
   const group = (name: GroupName) => (
     <section class="gen-group" aria-label={name} key={name}>
       <h3 {...tip(GROUP_TIPS[name])}>
@@ -149,7 +173,7 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
     wasOpen.current = sc.open;
   }, [sc.open]);
   return (
-    <aside ref={root} class={`gen${m.blank ? " blank" : ""}`} aria-label="Map Generator">
+    <aside ref={root} class={`gen gen-panel c${shape.cols}${shape.tight ? " tight" : ""}${m.blank ? " blank" : ""}`} aria-label="Map Generator" onKeyDown={generateKey}>
       <form
         class="sheet"
         aria-label="Settings"
@@ -181,12 +205,18 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
         <div class={`sheet-cols${sc.open ? " covered" : ""}`}>
           <div class="sheet-col">
             {group("Terrain")}
-            {group("Water")}
+            {shape.cols === 2 ? group("Water") : null}
             {group("Hazards")}
           </div>
+          {shape.cols === 3 ? (
+            <div class="sheet-col">
+              {group("Water")}
+              {group("Difficulty")}
+            </div>
+          ) : null}
           <div class="sheet-col">
             {group("Resources")}
-            {group("Difficulty")}
+            {shape.cols === 2 ? group("Difficulty") : null}
             <section class="gen-otm" aria-labelledby="gen-otm-head">
               {/* its heading's line holds Reset settings at the right (Kyler, 2026-10-06): the panel no taller */}
               <div class="gen-otm-head">

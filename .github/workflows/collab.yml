@@ -18,6 +18,9 @@ on:
       - "src/worker/collab.ts"
       - "src/worker/session.ts"
       - "src/worker/generator.worker.ts"
+      - "src/worker/collabEdit.ts"
+      - "src/editor/collab/**"
+      - "src/ui/App.tsx"
       - "tests/collab/**"
       - "tests/unit/collab*.test.ts"
       - "playwright.collab.config.ts"
@@ -31,6 +34,9 @@ on:
       - "src/worker/collab.ts"
       - "src/worker/session.ts"
       - "src/worker/generator.worker.ts"
+      - "src/worker/collabEdit.ts"
+      - "src/editor/collab/**"
+      - "src/ui/App.tsx"
       - "tests/collab/**"
       - "tests/unit/collab*.test.ts"
       - "playwright.collab.config.ts"
@@ -49,7 +55,7 @@ concurrency:
 jobs:
   connection:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
         with:

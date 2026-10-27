@@ -311,9 +311,10 @@ than the room above the water bar. Where this section says otherwise, the verdic
   map, the toolbars, the minimap, the readout, the right column). The palette shows four tools to a row, each with
   its picture and name. Nothing overlaps at any window size.
 - **The header:** the button is **Maps**. The map's title is renamed in place: a click turns it into a field at
-  exactly its place, size and font; Enter or leaving saves through the core (`MapSession.setName`), Esc cancels; a
+  exactly its place, size and font; Enter or leaving saves through the core (`MapSession.setName`; the field gives way to the fitted title at once,
+  not when the worker answers), Esc cancels; a
   blank name is refused in the core's words, said in the title's second line; a rename is never an undo step
-  (D443). Its tooltip is "Rename". The second line reads "Seed 4242 · 128×128". There is no name field in the
+  (D443). Its tooltip is "Rename and describe the map". The second line reads "Seed 4242 · 128×128". There is no name field in the
   drawer.
 - **The Maps drawer,** top to bottom: Generate and Surprise me pinned at the top; under them, scrolling as one
   panel: what is on the map (picture, number, name; no description); Theme and Seed; Size; the sections Terrain,
@@ -514,6 +515,12 @@ refinements and what the mockups left open:
   It starts one gap (10px) under the top band at both sizes and is 692px tall (its lines 27px): at 1920×1080 it ends
   11px above the coordinates over the minimap, and above the bar's settings, which reach under it there. Your maps
   and Real places take the same box.
+  **Where the window is short** (2026-10-25) the panel takes a shape that fits the room above the bar instead
+  (`src/editor/generator/panelFit.ts`): three columns, 880px wide and 509 tall (lines 26px), or 449 tall (lines 24px, the
+  hints stepping aside while it is open) at 1600×900, 1536×864 and 1440×900; two columns 640px wide and 594 tall (lines 24px)
+  where the window is too narrow for three. The title block and the groups are the same, Terrain and Hazards, Water and
+  Difficulty, Resources and On this map side by side; Showcase's sheet then takes the room it needs, its three cards in
+  a row. A window with less room than that (1280×720) scrolls the panel inside, a fade at its foot saying so.
   Every setting shows at once, nothing scrolls, each on one 27px line: its name, then a slider and its value, or a
   segmented choice (a choice too wide for the column takes room from the name; each column's sliders and values line
   up). A title block of three rows on the same line height (Kyler, 2026-10-04): the Name and the Seed, two fields one
@@ -938,9 +945,40 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **Versions** (`docs/design/showcase-versions-*.jpg`, light and dark at 1280, 1920 and 2560): History's rows keep their
   look; on the row pointed at, focused or current, two ghost buttons sit at its right, **Keep this version** and **Branch from
   here**, the row leaving them room on every row so nothing moves. Your maps' tile of a kept version carries one quiet line
-  under its size, "<parent> · step N" (12px, muted, ellipsized, its tooltip "From <parent>, step N"); the tiles of a row share
-  their height. Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
+  under its size, "<parent> · step N" (12px, muted; the parent's name gives way with an ellipsis and "· step N" always stays
+  whole; its tooltip "From <parent>, step N"); the tiles of a row share their height. A name that two lines cannot hold is
+  cut so the step is kept: a kept version's "<map> — <step>" shows the map's name cut in the first line and "— <step>" in the
+  second, and any name cut at all carries it as its tooltip (the whole name; past 60 characters the end of the map's name is
+  left out and the step kept). Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
   <name>" holds the flip, **Stop** ends it), and while the key is held a name chip sits under the header's top row, centred.
+
+## Together (collaborative editing, part 6a; D486, `docs/COLLAB-BRIEF.md`)
+
+Defaults the page session built; each is one place in the code, so any is easy to change (the product questions behind them
+go to Kyler as design direction).
+
+- **One quiet button, before File** in the header's right group: a 1.8px people icon (the other icons' stroke) and the word
+  Together, a plain button like History: never lit (Save to Timberborn stays the only lit control). Below about 1,400px it is the icon alone, 40px square like Undo and Redo, and below about
+  1,340px the Look button reads just **Look** (its menu shows the current look) so the longest name still fits two lines at
+  1280. While a session is live the button wears the other
+  player's colour as a 10px dot (hollow while they are away; a badge on the icon's corner when it is icon-only), and its accessible name says who ("Together with Bo").
+  Tooltip: "Edit this map with someone else".
+- **The panel** opens under the button, right-aligned, in the checks list's and the menus' panel style (the panel colour, the
+  rule border, the page's radius and shadow), 300px wide, one column, 12px inside, an 8px gap. Alone: the name field, **Invite**
+  across the panel's width, a quiet "or", the code field with **Join**. After Invite: the room code in a large monospace
+  (1.9rem, tracked out), **Copy** beside it, "Waiting for them to join…", **Cancel**. Live: the two players, each a swatch and a
+  name ("you" quiet beside the player's own), then **Go to <name>** (tooltip "Move the camera to where they are looking") and **Leave** ("Leave and keep the map") as two plain buttons. A guest's map title is not clickable while together (its tooltip: "The host names the shared map"). Paused: "<name> has left.
+  Waiting to reconnect." with **Invite again** (the host) or the code field and **Join again** (the guest). A failure is one
+  line in the page's bad colour at the foot. Nothing is lit, no chosen option is a cell in a well (there is no choice to make).
+- **The two colours** are the session's (`PLAYER_COLOURS`, `src/core/collab/wire.ts`; tokens `--collab-host` and
+  `--collab-guest` in `page.css`): the host **#d6338f** (a magenta pink), the guest **#7458ee** (a violet). They were chosen
+  against the map and the page: not the land's greens and browns, not the water's blue, not the contamination's orange-red and not
+  the checks' green and amber, and a swatch, a dot or a marker in either reads on the light page and the dark one (white words on
+  either colour keep 4.4:1 or more). One pair serves both themes.
+- **The other's cursor** is a small arrow in their colour (a white outline and a soft shadow, so it reads over any land), with a
+  pill beside it in the same colour: their name and, after a hairline, the tool they hold. It is drawn over the map by the 3D
+  view's projection like the sources' markers, never in the scene, and goes a second and a half after their last packet.
+- **Captures:** `docs/design/collab-page-*.jpg`, light and dark at 1920×1080, 2560×1440 and 1280×800.
 
 ## The header and top-right controls (polish audit, 2026-10-14)
 

@@ -30,16 +30,16 @@ export function editorView(ed: Ed, props: EditorProps) {
   const {
     floorContext, busy, shelf, pickShelf, dropShelf, icons, ready, forcer, view, info, onReady, layer, sliceLevel,
     renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, mirror, waterTick, heldTick,
-    shapeNote, blockNote, startDrag, needs, startReach, showHistory, setShowHistory, run, api
+    shapeNote, blockNote, startDrag, needs, startReach, showHistory, setShowHistory, run, api, presenceMarkers
   } = ed;
   const drawerOpen = props.drawerOpen;
 
   return (
     <ForceFloor.Provider value={floorContext}>
-    <div class={`editor${drawerOpen || props.mapsOpen || props.placesOpen ? " drawer-open" : ""}`} aria-busy={busy > 0} inert={props.replacing}>
+    <div class={`editor${drawerOpen || props.mapsOpen || props.placesOpen ? " drawer-open" : ""}${drawerOpen ? " gen-open" : ""}`} aria-busy={busy > 0} inert={props.replacing}>
       {header(ed, props)}
       <div class="editor-main">
-        {drawerOpen ? <GeneratorPanel model={props.drawer} icon={(t) => icons[t] ?? null} counts={mapCounts(mirror.current.entities)} /> : null}
+        {drawerOpen ? <GeneratorPanel model={props.drawer} icon={(t) => icons[t] ?? null} counts={mapCounts(mirror.current.entities)} onClose={() => props.onDrawer(false)} /> : null}
         {props.placesOpen ? <RealPlaces onOpen={props.drawer.onOpenPlace} /> : null}
         {props.mapsOpen ? <YourMaps model={props.drawer} /> : null}
         {/* History in the left panel's place, over the map, one panel at a time (Kyler, 2026-10-06) */}
@@ -71,6 +71,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               hoverText={hover}
             >
               {ed.compareFlipped ? null : sourceMarkers()}
+              {presenceMarkers()}
               {ed.compareVeil()}
               {ed.compareFlipped ? null : startHintTag()}
               {topBar(ed, props)}

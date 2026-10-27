@@ -11,6 +11,7 @@ import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
 import { useMenuPresence } from "../ui/menuPresence";
+import { cleanMapName } from "../core/doc/document";
 import { fitsHeaderTwoLines, limitName, linesIn } from "./nameFit";
 import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
@@ -157,8 +158,13 @@ function TitleName(p: {
   onRename(name: string): Promise<string | null>;
   onDescribe(text: string): Promise<string | null>;
   onProblem(problem: string | null): void;
+  /** Why the name can't be changed here (a guest's: the host names the shared map), when it can't. */
+  locked?: string;
 }) {
   const [text, setText] = useState<string | null>(null);
+  /** The name just saved, shown until the core's answer brings it as `p.name`: the core runs in a worker that may be busy,
+   *  and the title never waits for it. */
+  const [pending, setPending] = useState<string | null>(null);
   /** The description being written beside the name (a second line under it while the name is edited), and what it was. */
   const [desc, setDesc] = useState("");
   const [descProblem, setDescProblem] = useState<string | null>(null);
@@ -207,9 +213,28 @@ function TitleName(p: {
       closing.current = false;
     }
   };
+  /** The latest save that sent a rename: only its answer clears the pending name, so an earlier answer never shows a name
+   *  the player has since replaced. */
+  const latest = useRef(0);
   const saveText = async (text: string, leaving: boolean) => {
     // (the name and the description are saved apart: each is refused in the core's own words)
-    const nameProblem = text.trim() === p.name ? null : await p.onRename(text);
+    // (against the name the title shows: a name typed back while a rename is still on its way is a change too)
+    const changed = text.trim() !== (pending ?? p.name);
+    // a name the core will refuse (a blank one) is refused here at once, in the core's own words
+    const clean = cleanMapName(text);
+    const nameProblem = changed && !clean.ok ? clean.reason : null;
+    // the rename goes to the core now and is never waited for by the title: the core runs in a worker that may be busy
+    const mine = changed && clean.ok ? ++latest.current : 0;
+    const sent = mine ? p.onRename(text) : null;
+    const answered = async () => {
+      let problem: string | null = null;
+      try {
+        problem = await sent;
+      } finally {
+        if (latest.current === mine) setPending(null);
+      }
+      if (problem) say(problem, true);
+    };
     let said: string | null = null;
     if (desc !== was.current) {
       said = await p.onDescribe(desc);
@@ -218,21 +243,27 @@ function TitleName(p: {
     setDescProblem(said);
     // a description the core refused is never thrown away: the card stays open with its text and the core's reason, even
     // when focus has left the title (D342: refused with a one-line reason, never silently)
-    if (said) return say(nameProblem, false);
-    const problem = nameProblem;
-    if (!problem) {
-      setText(null);
-      return say(null);
+    if (said) {
+      if (sent) void answered();
+      return say(nameProblem, false);
     }
     // refused: Enter keeps the fields open with the core's words; leaving puts the name back and says why
-    if (leaving) setText(null);
-    say(nameProblem, leaving);
+    if (nameProblem) {
+      if (leaving) setText(null);
+      return say(nameProblem, leaving);
+    }
+    // the name is stored data the core accepts: the field gives way to the title now, which shows it and fits it in the
+    // same frame (the title once stayed a field, drawn for what was typed, for as long as the worker took to answer)
+    if (clean.ok && sent) setPending(clean.name);
+    setText(null);
+    say(null);
+    if (sent) void answered();
   };
   if (text === null)
     return (
       <h1>
-        <button type="button" class="title-button" title={p.clipped ? p.name : "Rename and describe the map"} onClick={() => open(p.name)}>
-          {p.name}
+        <button type="button" class={`title-button${p.locked ? " locked" : ""}`} title={p.locked ?? (p.clipped ? (pending ?? p.name) : "Rename and describe the map")} aria-disabled={p.locked ? true : undefined} onClick={() => (p.locked ? undefined : open(pending ?? p.name))}>
+          {pending ?? p.name}
         </button>
       </h1>
     );
@@ -322,6 +353,8 @@ export interface HeaderProps {
   name: string;
   /** Rename through the core (D443): null when stored, else the core's reason. */
   onRename(name: string): Promise<string | null>;
+  /** Why the name can't be changed here (a guest's: the host names the shared map), when it can't. */
+  renameLocked?: string;
   /** Write the map's description through the core (the setDescription operation): null when stored, else the core's reason. */
   onDescribe(text: string): Promise<string | null>;
   /** Why this browser isn't keeping the map, when it isn't; else empty. */
@@ -354,6 +387,8 @@ export interface HeaderProps {
   onPlaces(): void;
   /** The look's menu (High or Standard, D284), beside More. */
   look?: ComponentChildren;
+  /** Together: edit this map with someone else (a quiet button and its panel), before File. */
+  together?: ComponentChildren;
 }
 
 export function Header(p: HeaderProps) {
@@ -372,7 +407,8 @@ export function Header(p: HeaderProps) {
   // the name ellipsizes, down to about 80px
   const bar = useRef<HTMLElement>(null);
   const fit = useRef<() => void>(() => undefined);
-  useEffect(() => {
+  // (laid out in the commit itself, before the browser draws: the title is never drawn at a fit that is a draw behind)
+  useLayoutEffect(() => {
     const el = bar.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const note = () => {
@@ -421,7 +457,7 @@ export function Header(p: HeaderProps) {
     el.querySelectorAll(".new-map, .editor-actions").forEach((g) => watch.observe(g));
     return () => watch.disconnect();
   }, []);
-  useEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H]);
+  useLayoutEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H]);
   useEffect(() => {
     if (!menu) return;
     const off = (e: PointerEvent) => {
@@ -444,7 +480,7 @@ export function Header(p: HeaderProps) {
   const savingWords = saving ? `Saving…${saving.progress ? ` ${Math.round(saving.progress.done * 100)}%` : ""}` : null;
   return (
     <header class="editor-bar" ref={bar}>
-      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} title={p.drawerOpen ? "Close the map generator" : "Make a new map and change its settings"} onClick={p.onDrawer}>
+      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} {...tip(p.drawerOpen ? "Close the map generator" : "Make a new map and change its settings", p.drawerOpen && "Esc")} onClick={p.onDrawer}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
           <path d="M9 3v15M15 6v15" />
@@ -468,7 +504,7 @@ export function Header(p: HeaderProps) {
         <span class="label">Your maps</span>
       </button>
       <div class="editor-title">
-        <TitleName name={p.name} described={p.info.descriptionWritten ? p.info.description : ""} kept={p.info.descriptionKept} onDescribe={p.onDescribe} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} />
+        <TitleName name={p.name} described={p.info.descriptionWritten ? p.info.description : ""} kept={p.info.descriptionKept} onDescribe={p.onDescribe} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} locked={p.renameLocked} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
           {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed}${p.info.spec.variation ? ` · ${p.info.spec.variation}` : ""} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>
@@ -493,6 +529,7 @@ export function Header(p: HeaderProps) {
           <span class="label">{saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}</span>
         </button>
         {p.look}
+        {p.together}
         <div class="menu-wrap" ref={wrap}>
           <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
             <span class="label">File</span>
