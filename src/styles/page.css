@@ -2593,7 +2593,8 @@
   align-items: center;
   gap: 6px;
   height: 20px;
-  font-size: 13px;
+  /* (scaled down under a wider system font, as the bar's labels are) */
+  font-size: max(min(13px, var(--text-floor)), calc(13px / var(--wide-font)));
   white-space: nowrap;
 }
 
@@ -3166,6 +3167,8 @@
 
 .gen-panel.tight .gen-otm li {
   height: 18px;
+  /* (the tight shapes' columns are narrow: "150 Berry bushes" spilled 9.6px at 1600×900 under CI's Linux font at 13px) */
+  font-size: max(min(12px, var(--text-floor)), calc(12px / var(--wide-font)));
 }
 
 .gen-panel.tight .gen-otm ul {
