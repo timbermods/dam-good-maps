@@ -5,6 +5,7 @@
 // its width (1280×720) it scrolls inside, with its fade at the foot.
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { BEAT_NAMES, BEATS } from "../../src/core/gen/showcaseBeats";
 import { SHAPES } from "../../src/editor/generator/panelFit";
 import { generateButton, openDrawer, openEditor } from "./open";
 
@@ -272,3 +273,57 @@ test("the Name box starts empty with the open map's name in grey, and its toolti
   await expect(field).toHaveValue("");
   await expect(page.locator(".editor-title .title-button")).toHaveText(open);
 });
+
+// Showcase's sheet once a search has filled it (cards made here with the longest words a card holds: the longest beat names,
+// a name at the limit, a story of three lines): no beat touches the next or runs to the card's border, and the cards stand whole
+// inside the panel, which never scrolls
+for (const [w, h] of [[1920, 1080], [1600, 1000], [1600, 900], [1536, 864], [1440, 900]] as const) {
+  test(`Showcase's filled sheet at ${w}×${h}: no beat overlaps another or runs into its card, the cards whole in the room`, async ({ page }) => {
+    test.setTimeout(240_000);
+    await page.setViewportSize({ width: w, height: h });
+    await openEditor(page, SPEC);
+    const panel = await openDrawer(page);
+    await panel.getByRole("button", { name: "Showcase…" }).click();
+    await expect(panel.getByRole("region", { name: "Showcase" })).toBeVisible();
+    await settled(page, panel);
+    await panel.locator(".sc-cards").evaluate(
+      (ol, [beats, names]) => {
+        const says = "A valley behind a gate: the first drought choice is a long way from the water, and the water 19 tiles' walk away holds.";
+        ol.innerHTML = [0, 1, 2]
+          .map(
+            (k) => `<li class="sc-card" aria-label="${k + 1}. Twin Channel Island Chain"><span class="sc-pic hero" aria-hidden="true"></span><div class="sc-body"><div class="sc-top"><b class="sc-name">Twin Channel Island Chain</b><span class="sc-score">6 of 6 beats</span><button type="button" class="ghost sc-open">Open</button></div><ul class="sc-beats">${beats
+              .map((id, i) => `<li class="${i % 2 ? "met" : ""}"><svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3.2" fill="none" stroke="currentColor"/></svg><span>${names[id]}</span></li>`)
+              .join("")}</ul><p class="sc-says">${says}</p></div></li>`,
+          )
+          .join("");
+      },
+      [[...BEATS], BEAT_NAMES] as const,
+    );
+    const seen = await panel.evaluate((aside: HTMLElement) => {
+      const bad: string[] = [];
+      const box = (e: Element) => e.getBoundingClientRect();
+      for (const card of aside.querySelectorAll(".sc-card")) {
+        const c = box(card);
+        const lis = [...card.querySelectorAll(".sc-beats li")];
+        lis.forEach((li, i) => {
+          const b = box(li);
+          const words = li.querySelector("span")!;
+          const wr = (() => { const r = document.createRange(); r.selectNodeContents(words); return r.getBoundingClientRect(); })();
+          if (wr.right > b.right + 0.5 || words.scrollWidth > words.clientWidth + 0.5) bad.push(`beat "${words.textContent}" wider than its place`);
+          if (wr.right > c.right - 8) bad.push(`beat "${words.textContent}" runs to the card's border`);
+          for (const o of lis.slice(i + 1)) {
+            const r = box(o);
+            if (b.left < r.right - 0.5 && r.left < b.right - 0.5 && b.top < r.bottom - 0.5 && r.top < b.bottom - 0.5) bad.push(`beats overlap: ${li.textContent} / ${o.textContent}`);
+          }
+        });
+        const says = card.querySelector(".sc-says")!;
+        if (box(says).bottom > c.bottom - 4) bad.push("the story runs out of its card");
+        const a = box(aside);
+        if (c.bottom > a.bottom - 1) bad.push(`card cut by the panel's foot (${Math.round(c.bottom)} > ${Math.round(a.bottom)})`);
+      }
+      return { bad, scrolls: aside.scrollHeight > aside.clientHeight + 1, natural: aside.scrollHeight + aside.offsetHeight - aside.clientHeight };
+    });
+    expect(seen.bad).toEqual([]);
+    expect(seen.scrolls, `the filled sheet scrolls (${seen.natural}px)`).toBe(false);
+  });
+}

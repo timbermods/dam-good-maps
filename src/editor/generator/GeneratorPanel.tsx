@@ -116,19 +116,21 @@ export function GeneratorPanel({ model: m, counts: held, icon, onClose }: Genera
       watch.disconnect();
     };
   }, []);
-  // Esc closes the panel: with the focus in it, on the button that opened it, or on nothing (a field or a menu elsewhere
-  // keeps its own Esc, and so does the Showcase sheet, which stops its own)
+  // Esc closes the panel, and only the panel: with the focus in it, on the button that opened it, or on nothing (a held
+  // brush stays in hand; a field, a menu or a dialog elsewhere keeps its own Esc, and so does the Showcase sheet, which
+  // closes itself first). Heard before the editor's own keys, which would put the brush away too.
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;
       const at = e.target as HTMLElement | null;
       const mine = !at || at === document.body || !!root.current?.contains(at) || !!at.closest?.("header.editor-bar .new-map");
-      if (!mine || (at && at !== document.body && at.closest?.('[role="dialog"], [role="menu"], .dialog-backdrop'))) return;
+      if (!mine || document.querySelector(".dialog-backdrop") || at?.closest?.(".showcase, [role=\"dialog\"], [role=\"menu\"]")) return;
       e.preventDefault();
+      e.stopPropagation();
       latest.current.onClose();
     };
-    window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
   }, []);
   // Enter anywhere in the panel generates (a field, a slider, a button: Space presses a button, Enter never does). What is
   // typed in the field being left counts first: leaving it commits it, and Generate runs once the page has taken it.

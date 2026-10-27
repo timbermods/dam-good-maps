@@ -3107,10 +3107,6 @@
   --lab: 112px;
 }
 
-.gen-panel.c3 .sheet-col + .sheet-col {
-  --lab: 112px;
-}
-
 .gen-panel.c3 .sheet-col:last-child {
   --lab: 136px;
 }
@@ -3208,6 +3204,27 @@
 
 .gen-panel.c3 .sc-card.empty {
   min-height: 160px;
+}
+
+/* (a card is a third of the panel: each beat on a line of its own, so none runs into its neighbour or the card's edge) */
+.gen-panel.c3 .sc-beats {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.gen-panel.c3 .sc-beats li span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* the sheet is the panel while it shows: the title block's rows give their room to the cards (Settings brings them back) */
+.gen-panel:is(.c3, .tight) .sheet:has(.sheet-cols.covered) > .sheet-top {
+  display: none;
+}
+
+.gen-panel:is(.c3, .tight) .sheet:has(.sheet-cols.covered) > .sheet-cols {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .maps-panel,
