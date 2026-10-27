@@ -346,6 +346,8 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           const first = e.hazard === "drought" ? e.firstDry : e.firstBad;
           const through = e.hazard === "drought" ? e.firstDryThrough : e.firstBadThrough;
           ed.firstNews.current = first && through !== undefined ? { hazard: e.hazard, version: e.version, first, wet0: e.hazard === "drought" ? (e.firstDryWet0 ?? null) : null, through, days: e.days } : null;
+          // (the day the start's water goes or turns bad, for the line under the day box)
+          ed.setStartWater(e.startWaterDay !== undefined ? { hazard: e.hazard, version: e.version, day: e.startWaterDay } : null);
           ed.setWeatherDay(e.day);
           ed.setWeatherDays(e.days);
           ed.heldDay.current = e.day;

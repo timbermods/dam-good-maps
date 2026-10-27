@@ -21,6 +21,7 @@ import { WaterJourney } from "../waterJourney";
 import { WaterPlayer } from "../waterPlayer";
 import { hazardDays, type Hazard } from "../../core/sim/weather";
 import { heldWords, type HeldFirstDays } from "../../core/sim/firstDays";
+import type { HeldStartWater } from "../../core/sim/startWaterDay";
 import { describeTile as describeTileFacts, tileWords } from "../../core/doc/describeTile";
 import type { TerrainState } from "../../core/features/raster/strokePreview";
 import { DEFAULT_OPTIONS, type Rgba, type ToolOptions } from "../tools";
@@ -157,6 +158,10 @@ export interface SessionSlice {
   weatherTarget: number | null;
   setWeatherDay: (day: number | null) => void;
   setWeatherDays: (days: number | null) => void;
+  /** The held hazard's day for the start's water (D133: the day it goes, or badwater reaches it), set with each day the
+   *  worker sends, put away with the view. */
+  startWater: HeldStartWater | null;
+  setStartWater: Dispatch<StateUpdater<HeldStartWater | null>>;
   setWeatherCounting: (day: number | null) => void;
   /** The day the page asked the worker for last (null: the hazard's default last day). */
   heldDay: { current: number | null };
@@ -410,6 +415,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const setWeather = (on: Hazard | null) => {
     weatherRef.current = on;
     if (on !== firstNews.current?.hazard) firstNews.current = null;
+    setStartWater((n) => (n && n.hazard === on ? n : null));
     setWeatherState(on);
     syncDroughtLine();
     // (the hazard's words in the readout go with the view)
@@ -417,6 +423,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   };
   const [weatherDay, setWeatherDay] = useState<number | null>(null);
   const [weatherDays, setWeatherDays] = useState<number | null>(null);
+  const [startWater, setStartWater] = useState<HeldStartWater | null>(null);
   const [weatherCounting, setWeatherCounting] = useState<number | null>(null);
   const [weatherTarget, setWeatherTarget] = useState<number | null>(null);
   const heldDay = useRef<number | null>(null);
@@ -848,7 +855,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
-    feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
+    feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays, startWater, setStartWater,
     setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, resizing, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,

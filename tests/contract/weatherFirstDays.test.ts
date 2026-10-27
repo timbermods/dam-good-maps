@@ -102,6 +102,10 @@ it("a drought's days say when each tile's water goes, read from the days the vie
   expect(last.firstDry, "the last day carries the first dry days").toBeInstanceOf(Int16Array);
   expect(last.firstDry!.length).toBe(W * W);
   expect(last.firstDryThrough).toBe(days);
+  // (and the day the start's water goes, D133's line: worked out through the same days)
+  expect(last.startWaterThrough).toBe(days);
+  expect(last.startWaterDay!).toBeGreaterThanOrEqual(0);
+  expect(last.startWaterDay!).toBeLessThanOrEqual(days);
   // every day the view shows, Day 0 the map's own water: each carries the same first dry days, through the default length
   const shown: WaterView[] = [];
   for (let d = 0; d <= days; d++) {
@@ -141,6 +145,7 @@ it("a badtide's days say when each tile's water turns bad, read from the days th
   expect(last.firstBad, "the last day carries the first bad days").toBeInstanceOf(Int16Array);
   expect(last.firstBad!.length).toBe(W * W);
   expect(last.firstBadThrough).toBe(days);
+  expect(last.startWaterThrough).toBe(days);
   expect(last.firstDry).toBeUndefined();
   const shown: WaterView[] = [];
   for (let d = 0; d <= days; d++) {

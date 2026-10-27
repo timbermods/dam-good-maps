@@ -185,3 +185,30 @@ test("an edit while the Drought view is held: the old map's days say nothing on 
   await expect(readout).not.toContainText(/Dry on day|Lasts the drought/);
   expect(errors).toEqual([]);
 });
+
+test("while Drought or Badtide is held, one quiet line says the day the start's water goes or turns bad, or nothing (D133)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await expectReady(page);
+  const note = page.locator(".water-bar .core-moment");
+  // (no hazard held: no line)
+  await expect(note).toHaveCount(0);
+  // a held Drought: the line comes once its days are worked out, whatever day the box shows (this map's start water dries on day 9)
+  await page.getByRole("button", { name: "Drought", exact: true }).click();
+  await expect(page.locator(".day-words")).toHaveText("Day 9", { timeout: 60_000 });
+  await expect(note).toHaveText("Day 9: your start's water is gone", { timeout: 60_000 });
+  await page.getByRole("button", { name: "Day back" }).click();
+  await expect(page.locator(".day-words")).toHaveText("Day 8", { timeout: 60_000 });
+  await expect(note).toHaveText("Day 9: your start's water is gone");
+  // the other hazard replaces it: never a drought's claim under a held badtide, whose own line comes with its days
+  await page.getByRole("button", { name: "Badtide", exact: true }).click();
+  await expect(page.locator(".day-words")).toHaveText("Day 8", { timeout: 60_000 });
+  await expect(page.getByText("start's water is gone")).toHaveCount(0);
+  await expect(note).toHaveText("Day 1: badwater reaches your start's water", { timeout: 60_000 });
+  // the hazard put away: no line
+  await page.getByRole("button", { name: "Badtide", exact: true }).click();
+  await expect(note).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
