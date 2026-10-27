@@ -366,9 +366,9 @@ multi-level valleys, water through mountains). Cave starts only from 70. Every l
 (ramps, tunnels, ledges, bridges), except the planned rewards, which need player stairs.
 
 **Built so far** (D488, step 4 part 1; `docs/progress/3d-generation.md`): three forms, grown on the finished map where its
-land offers them and kept only where every check still holds, each an intention with its own check, and only above the
-theme's default Verticality (a map with caves has no Fill or Remove unfed water in the editor yet, so the ordinary map
-stays as it was until it does):
+land offers them and kept only where every check still holds, each an intention with its own check, at every
+Verticality but 0, the ordinary map at its theme's default included (Fill and Remove unfed water have their rules for
+caves since #498), rarer the lower it is:
 
 | Verticality | A spring cave feeding the river | An overhang sheltering the start | An arch over a gorge |
 |---|---|---|---|
