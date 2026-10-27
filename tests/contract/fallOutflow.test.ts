@@ -30,8 +30,7 @@ describe("the flow over a fall's lip, with the settle's outflows", () => {
     ["canyon", 5, [96, 0]],
   ] as [ThemeId, number, [number, number]][])("%s %i: every lip, the map's edge included, pours the settle's outflow", (theme, seed, [ex, ey]) => {
     const W = 128;
-    // (the heightfield's falls: the map without its 3D forms, D488, whose water under a roof is the stacked engine's)
-    const b = generate(makeSpec({ seed, theme, size: { x: W, y: W } }), { forms: false }).built;
+    const b = generate(makeSpec({ seed, theme, size: { x: W, y: W } })).built;
     const out = b.settle.out!;
     const view = waterFromDepth(b.heights, b.water, b.contamination);
     view.outflow = outflowsOf(view, W, W, out)!;

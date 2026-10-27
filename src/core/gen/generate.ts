@@ -270,10 +270,6 @@ export interface GenerateOptions {
   /** The first look: prepared land and its planned water (channels 1, lakes 2, floors 3), once
    *  the actual settled start reaches its required mine pair. Fires once per map. */
   onLand?: (l: { attempt: number; heights: Uint8Array; water: Uint8Array }) => void;
-  /** false: no 3D forms (D488), the map its land makes without them, byte for byte as below the forms:
-   *  for the tests of editing a heightfield on a map whose land would grow one (a stroke over a form's rock
-   *  is refused when it would fall, D280 (3)). The page never sets it. */
-  forms?: boolean;
   /** Steering (D138, M12): these intentions instead of the drawn ones; [] for none. */
   intentions?: IntentionId[] | null;
   /** The map, as soon as it passed (D329: the first candidate that passes the absolutes is the map,
@@ -476,7 +472,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   // at the end. Only at 128² and under, where the first look waits for the settled start anyway;
   // above, the land is shown as soon as it is planned, and no arch is grown, `formsFor`)
   let held: Parameters<NonNullable<GenerateOptions["onLand"]>>[0] | null = null;
-  const holdLand = !!opts.onLand && opts.forms !== false && !!formsFor(specIn)["gorge-arch"];
+  const holdLand = !!opts.onLand && !!formsFor(specIn)["gorge-arch"];
   // (the last land a round showed: a rescue round's fresh land replaces round 0's, so the first look
   // pairs the map's own land with its own planned water, never another round's; a land carried into a
   // rescue round is not shown again and stays the one held)
@@ -494,10 +490,12 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
 }
 
 /** The 3D forms a map looks for (D488, gen/forms3d.ts `formsWanted`): its own draw, the same on
- *  every attempt, at every Verticality but 0 (rarer the lower it is: the ordinary map at its theme's
- *  default finds a cave or a shelter where its land offers one, and an arch from 35); no arch above
- *  128² (its first look is not held there, D348), no spring cave on a map made with Sources: None. */
+ *  every attempt; none at or below the theme's default Verticality (an edit on a map with caves has no
+ *  live water yet, worker/session.ts `kickWater`, and ordinary maps keep theirs, D280: the gate comes off
+ *  once the editor's water is live on stacked maps too); no arch above 128² (its first look is not held
+ *  there, D348), no spring cave on a map made with Sources: None. */
 export function formsFor(spec: MapSpec): FormsWanted {
+  if (spec.settings.terrain.verticality <= VT_DEFAULT[spec.theme]) return {};
   const want = formsWanted(spec.theme, spec.settings.terrain.verticality, stream(spec.seed, "forms3d"));
   if (spec.size.x * spec.size.y > SHOW_PROVED_MOST) delete want["gorge-arch"];
   if (spec.settings.water.sources === "none") delete want["spring-cave"];
@@ -3004,7 +3002,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   //      then the map built and checked again: a form is kept only where every check, intention and
   //      outcome the map had still holds and its own check confirms it, else dropped, never forced
   if (passed) {
-    const want = opts.forms === false ? {} : formsFor(specIn);
+    const want = formsFor(specIn);
     if (Object.keys(want).length) {
       const vt = specIn.settings.terrain.verticality;
       const grown = growOn(built, features, want, vt, g.tall ? Math.ceil(g.top) : 16, stream(seed, "forms3d", attempt));

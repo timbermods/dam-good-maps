@@ -196,9 +196,5 @@ export function describe(o: Outcome): string {
  *  the ground along its fault (rust/forces, D356); a `theme` limits an entry to that theme's maps. */
 export const KNOWN: readonly { use: Use; ground: Ground; power: number; theme?: ThemeId; why: string }[] = [];
 
-/** The one-line refusal of a force that would reshape a cave or an overhang (a force leaves them as they are,
- *  D487; D488 grows them on the default maps too): it says why, so it is not a use that did nothing unexplained. */
-const CAVE_REFUSAL = /leaves caves and overhangs as they are/;
-
-/** The uses that did nothing visible and are not among the known ones (nor refused for a cave or an overhang). */
-export const unexpected = (o: readonly Outcome[]) => invisible(o).filter((r) => !(r.refused && CAVE_REFUSAL.test(r.refused))).filter((r) => !KNOWN.some((k) => k.use === r.use && k.ground === r.place.ground && k.power === r.power && (!k.theme || k.theme === r.theme)));
+/** The uses that did nothing visible and are not among the known ones. */
+export const unexpected = (o: readonly Outcome[]) => invisible(o).filter((r) => !KNOWN.some((k) => k.use === r.use && k.ground === r.place.ground && k.power === r.power && (!k.theme || k.theme === r.theme)));

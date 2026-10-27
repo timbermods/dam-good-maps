@@ -110,9 +110,7 @@ describe("placing an object never visibly spills water (D345, B6)", () => {
             const r = ed.applyTool({ tool: "entity", template, x, y, orientation: "Cw0" }, "11111111-2222-4333-8444-555555555555");
             // (a slope the map has there is refused by the placement, not the hover: not this test's business)
             if (!r.ok) {
-              // (nor ground of a cave or an overhang the levelling would leave unheld: refused with the blocks that
-              // would fall, D280 (3), D488)
-              expect(r.errors.join()).toMatch(/stands there|would fall/);
+              expect(r.errors.join()).toMatch(/stands there/);
               continue;
             }
             placed++;

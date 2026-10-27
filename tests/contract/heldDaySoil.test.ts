@@ -64,14 +64,10 @@ function expectSame(a: Day, b: Day, what: string) {
 
 /** Lower the ground around a deep water tile (an edit that moves the water, which then settles again). */
 function lowerAtWater(): void {
-  const view = ed.sessionView().view;
-  const v = view.water;
-  // (open water, not a cave's pool under its roof, D488: lowering a roof leaves the pool's water as it is)
-  const caved = new Set(view.columns.tiles);
+  const v = ed.sessionView().view.water;
   let at = -1;
   for (let k = 0; k < v.count && at < 0; k++) {
     const i = v.tile[k];
-    if (caved.has(i)) continue;
     const x = i % W;
     const y = (i / W) | 0;
     if (v.depth[k] > 0.3 && x > 8 && y > 8 && x < W - 8 && y < W - 8) at = i;
@@ -97,9 +93,7 @@ afterEach(() => {
 });
 
 describe("a held day is the day the saved and reopened map holds", () => {
-  // (Lake Basin seed 5 since 3D forms grow at the default Verticality, D488, D148: seed 4 has a spring cave, and on a map
-  // with caves an edit has no live water, worker/session.ts `kickWater`: the background check's settle puts it in place)
-  for (const [seed, theme] of [[3, "riverValley"], [5, "lakeBasin"]] as [number, ThemeId][]) {
+  for (const [seed, theme] of [[3, "riverValley"], [4, "lakeBasin"]] as [number, ThemeId][]) {
     it(`${theme} ${seed}: an edit, the day held while the water settles, then again once it has: the reopened map's day, byte for byte`, async () => {
       await runGenerate(makeSpec({ seed, theme, size: { x: W, y: W } }));
       ed.refine();

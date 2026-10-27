@@ -20,8 +20,7 @@ const SY = [0, 0, 1, -1];
 /** The view's flow over every fall's lip on a generated map against the settle's own outflow. */
 function checkLips(theme: ThemeId, seed: number): void {
   const W = 128;
-  // (the heightfield's falls: the map without its 3D forms, D488, whose water under a roof is the stacked engine's)
-  const r = generate(makeSpec({ seed, theme, size: { x: W, y: W } }), { forms: false });
+  const r = generate(makeSpec({ seed, theme, size: { x: W, y: W } }));
   const b = r.built;
   const out = b.settle.out!;
   // (the view carries the settle's outflows from the water worker since D353, as the page draws it)

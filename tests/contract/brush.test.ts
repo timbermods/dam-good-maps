@@ -549,16 +549,11 @@ describe("Naturalize keeps slopes.connect and the start's pad (D253, D368 (8))",
         const beside = k % 2 === 1;
         targets.push({ x: Math.min(95, Math.max(0, bx + (beside ? Math.floor((rand() - 0.5) * 6) : 0))), y: Math.min(95, Math.max(0, by + (beside ? Math.floor((rand() - 0.5) * 6) : 0))) });
       }
-      // (a stroke that would leave the rock of an overhang sheltering the start unheld is refused with the
-      // blocks that would fall, D280 (3), D488: the pad is unchanged by it too; the others are taken)
-      let taken = 0;
       for (const t of targets) {
         const p = strokeAt(rand, 96, 96, t.x, t.y);
         const u = s.apply({ op: "brush", params: p }, "user", "Naturalize");
-        if (u.errors.length) expect(u.errors.join(), `${theme} ${seed} at (${t.x}, ${t.y})`).toMatch(/would fall/);
-        else taken++;
+        expect(u.errors, `${theme} ${seed} at (${t.x}, ${t.y})`).toEqual([]);
       }
-      expect(taken, `${theme} ${seed}: strokes taken`).toBeGreaterThan(0);
       const after = s.built.heights;
       for (let i = 0; i < after.length; i++) if (onPad(i)) expect(after[i], `${theme} ${seed}: pad tile (${i % 96}, ${Math.floor(i / 96)}) changed`).toBe(before[i]);
       expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));

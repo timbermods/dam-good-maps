@@ -15,12 +15,10 @@ import { canonicalSettle, DRAIN_DAYS, prefill } from "../../src/core/sim/prefill
 import { settle, TICKS_PER_DAY, waterSteady, WaterSim, type WaterModel } from "../../src/core/sim/water";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
-/** River Valley seed 2 at N² (its land without 3D forms), with a 12×12 pit (144 tiles) dug two levels into a dry plateau away
+/** River Valley seed 2 at N², with a 12×12 pit (144 tiles) dug two levels into a dry plateau away
  *  from water and the start, and a Fill one level deep in it. */
 function filled(N: number): { s: MapSession; level: number; tiles: readonly number[]; at: [number, number] } {
-  // (without its 3D forms, D488: a map with caves settles on the stacked engine, whose own sealed basins are
-  // stackedWater.test.ts's; this is the heightfield's rule, checked against its plain settle)
-  const s = MapSession.fromGenerated(generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: N, y: N } }), { forms: false }));
+  const s = MapSession.fromGenerated(generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: N, y: N } })));
   s.setWaterMode("defer");
   const b = s.built;
   for (let y0 = 8; y0 + 24 < N; y0 += 2)
