@@ -19,7 +19,7 @@ import type { SurfaceWater } from "./model";
 import type { CaveCurrent } from "./caveCurrent";
 import { DT, STEPS, type MotionShapes } from "./motionShapes";
 import { outflowGrid } from "./current";
-import { sharedCopies } from "./shared";
+import { canShare, SharedBlock, sharedCopies } from "./shared";
 import type { Baker } from "./high/fields";
 import type { LayeredWater } from "./high/bake";
 import { surfaceContamination, type RoughCounts } from "./high/flow";
@@ -167,9 +167,9 @@ function streakMaterial(u: SceneUniforms, viewport: { value: Vector2 }, dpr: { v
   });
 }
 
-/** A still view's flow texture (`MapRenderer`'s `still`): no current (RG 128), and the contamination
- *  smoothed as the bake smooths it (B), made at once on this thread, so the water's badwater share shows
- *  without the moving water. */
+/** A still view's flow texture built whole from one water: no current (RG 128), and the contamination
+ *  smoothed as the bake smooths it (B). The renderer keeps its own where nothing moves (stillFlow.ts), which
+ *  equals this one once the water stops; this is its reference. */
 export function stillFlowTexture(W: number, H: number, sw: SurfaceWater): DataTexture {
   const t = texture(W, H, [128, 128, 0, 255]);
   const f = t.image.data as Uint8Array;
@@ -198,6 +198,10 @@ export class WaterMotion {
   private since = 0;
   private timer = 0;
   private pending: { heights: Uint8Array; surface: SurfaceWater } | null = null;
+  /** Bakes out with the worker: the shared block and the outflow grid are reused only when none is. */
+  private out = 0;
+  private readonly block = new SharedBlock();
+  private grid: Float32Array | null = null;
   private disposed = false;
   /** The current of the water below each tile's surface water (caveCurrent.ts), when the map has some. */
   private cave: Data3DTexture | null = null;
@@ -272,13 +276,17 @@ export class WaterMotion {
     this.pending = null;
     const id = ++this.latest;
     const sw = p.surface;
+    // (with no bake out, the last bake's arrays are free again: a flood bakes a few times a second, and fresh ones each
+    // time left the page's thread freeing megabytes of them at once now and then)
+    const free = this.out === 0 && canShare();
     // (the outflows four a tile: the worker works out the current from them)
-    let out = outflowGrid(this.W, this.H, sw);
+    let out = outflowGrid(this.W, this.H, sw, free ? (this.grid ??= new Float32Array(this.W * this.H * 4)) : undefined);
     // (with water per column, its view and columns too, and the surface's columns: the worker deals the layers)
     const layered = this.layered();
     // (copies for the worker, the view keeps its own: on shared memory where the page can share it, so posting them
-    // copies nothing more, shared.ts)
-    const shared = sharedCopies([sw.surface, sw.floor, sw.depth, sw.contamination, p.heights, out ?? new Float32Array(0), layered ? sw.top : new Int32Array(0)] as const);
+    // copies nothing more, shared.ts; the grid is copied there at once)
+    const arrays = [sw.surface, sw.floor, sw.depth, sw.contamination, p.heights, out ?? new Float32Array(0), layered ? sw.top : new Int32Array(0)] as const;
+    const shared = free ? this.block.copies(arrays) : sharedCopies(arrays);
     let copy: SurfaceWater;
     let heights: Uint8Array;
     if (shared) {
@@ -290,7 +298,9 @@ export class WaterMotion {
       copy = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), top: layered ? sw.top.slice() : new Int32Array(0), outflow: null, lower: [] };
       heights = p.heights.slice();
     }
+    this.out++;
     void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights, sw: copy, out, ...(layered ? { layered } : {}) }).then((r) => {
+      this.out--;
       if (id !== this.latest || r.kind !== "flow" || this.disposed) return;
       this.done = id;
       (this.flow.image.data as Uint8Array).set(r.flow);
@@ -304,6 +314,7 @@ export class WaterMotion {
       this.setShapes(r.shapes);
       this.changed();
     }, () => {
+      this.out--;
       // (the bake failed: the water keeps its last flow, or none)
       if (id === this.latest) this.done = id;
     });

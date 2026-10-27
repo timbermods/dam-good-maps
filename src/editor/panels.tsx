@@ -109,6 +109,21 @@ export function StartIndicators({ check, rules }: { check: StartCheck; rules: { 
   const status = startStatus(check);
   const waterOk = check.water !== null && check.water <= rules.waterWithin;
 
+  // (under a roof the walks are not measured: the core's verdict alone, D491)
+  if (check.underRoof)
+    return (
+      <div class="start-indicators" role="status">
+        <p class={status === "blocked" ? "bad" : "ok"} data-status={status}>
+          {check.problem ? `Does not fit: ${check.problem}` : "The district center fits here"}
+        </p>
+        <ul>
+          <li class="warn" data-need="under-roof">
+            Under a roof: its walks to water, wood and berries are not measured
+          </li>
+        </ul>
+      </div>
+    );
+
   return (
     <div class="start-indicators" role="status">
       <p class={status === "blocked" ? "bad" : status === "warn" ? "warn" : "ok"} data-status={status}>

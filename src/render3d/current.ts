@@ -59,10 +59,10 @@ export function currentOf(W: number, H: number, out: ArrayLike<number>, depth: A
 
 /** The surface water's outflows as four a tile (zero where dry or where the view has none), for
  *  `currentOf`: made once a bake, not with every water update. */
-export function outflowGrid(W: number, H: number, sw: SurfaceWater): Float32Array | null {
+export function outflowGrid(W: number, H: number, sw: SurfaceWater, into?: Float32Array): Float32Array | null {
   const o = sw.outflow;
   if (!o) return null;
-  const out = new Float32Array(W * H * 4);
+  const out = into?.length === W * H * 4 ? into.fill(0) : new Float32Array(W * H * 4);
   const top = sw.top;
   for (let i = 0; i < W * H; i++) {
     const k = top[i];

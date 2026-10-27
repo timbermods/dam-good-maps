@@ -23,7 +23,7 @@ function ramp(a: number, b: number, x: number): number {
 
 /** The contamination, smoothed twice through adjacent water on the same surface, and carried a
  *  tile into dry ground so filtering never shows a false clean rim along a badwater bank. */
-export function surfaceContamination(W: number, H: number, sw: SurfaceWater): Float32Array {
+export function surfaceContamination(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">): Float32Array {
   let field = sw.contamination.slice();
   for (let i = 0; i < field.length; i++) if (!(field[i] === field[i])) field[i] = 0;
   const { depth, surface } = sw;

@@ -67,7 +67,8 @@ import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blo
 import { EditGlow, editedCells, type EditCells } from "./editGlow";
 import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
-import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
+import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
+import { whenIdle } from "./idle";
 import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
@@ -91,7 +92,8 @@ import { Mist } from "./high/mist";
 import { Programs, withDefine, type Defines } from "./programs";
 import { isPlant } from "./high/forest";
 import { pageBaker, type Baker } from "./high/fields";
-import { stillFlowTexture, WaterMotion } from "./motion";
+import { WaterMotion } from "./motion";
+import { StillFlow } from "./stillFlow";
 import { BoxUploads, RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
 import { EntityGeometryCache } from "./entityGeometry";
@@ -118,8 +120,9 @@ const STATES: BranchState[] = [
   { cut: false, caves: false, soil: false },
 ];
 
-/** Run this when the page is idle (at once where the browser can't say). */
-function whenIdle(fn: (deadline?: IdleDeadline) => void): void {
+/** Run this when the page is idle, with what the idle period has left (at once where the browser can't say); the
+ *  warm-up's slices. Small jobs of their own go through idle.ts's `whenIdle`. */
+function onIdle(fn: (deadline?: IdleDeadline) => void): void {
   if (typeof requestIdleCallback === "function") requestIdleCallback(fn, { timeout: 2000 });
   else window.setTimeout(() => fn(), 0);
 }
@@ -286,8 +289,14 @@ export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 const WATER_FPS = 30;
 
 /** Whether the browser draws WebGL in software (no GPU, or one it won't use): asked of a throwaway
- *  context before the view's own is made, so the view can be made lighter for it. */
+ *  context before the view's own is made, so the view can be made lighter for it. Asked once a page (a context
+ *  costs the page's thread tens of milliseconds; the answer never changes while the page is open). */
 export function softwareRendering(): boolean {
+  return (softwareAnswer ??= askSoftwareRendering());
+}
+let softwareAnswer: boolean | undefined;
+
+function askSoftwareRendering(): boolean {
   try {
     const c = document.createElement("canvas");
     const g = (c.getContext("webgl2") ?? c.getContext("webgl")) as WebGLRenderingContext | null;
@@ -376,8 +385,8 @@ export class MapRenderer {
   private high: HighLook | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
-  /** Where nothing moves (software, or held still): the flow texture made here, with the badwater share alone. */
-  private stillFlow: DataTexture | null = null;
+  /** Where nothing moves (software, or held still): the flow texture kept here, with the badwater share alone. */
+  private stillFlow: StillFlow | null = null;
   /** A still view (the constructor's `still`). */
   private readonly still: boolean;
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
@@ -509,6 +518,7 @@ export class MapRenderer {
     this.lightRows = new RowUploads(this.gl, () => this.lightTex);
     this.caveRows = new BoxUploads(this.gl, () => this.caveTex);
     this.runRows = new BoxUploads(this.gl, () => this.runTex);
+    this.stillRows = new RowUploads(this.gl, () => this.stillFlow?.texture ?? null);
     this.noCave = this.uniforms.caveTex.value;
     this.uniforms.patternTex.value = this.patterns.texture;
     this.terrainMat = terrainMaterial(this.uniforms, 0, 1, this.software);
@@ -697,13 +707,13 @@ export class MapRenderer {
         // (a few at a time: each sends its compile and returns)
         do sent.push(this.programs.warm([list.shift()!]));
         while (list.length && deadline && deadline.timeRemaining() > 8);
-        if (list.length) whenIdle(step);
+        if (list.length) onIdle(step);
         else
           void Promise.all(sent).then(() => {
             if (run === this.warmRun) this.warmPending = false;
           });
       };
-      whenIdle(step);
+      onIdle(step);
     }, after);
   }
 
@@ -1335,6 +1345,9 @@ export class MapRenderer {
     this.drawnWater.clear();
     this.waterReady = null;
     this.mesherOwn?.clear();
+    // (the view's water mesh workers start with the map, not with the first water that moves: started then, their
+    // start fell among an edit's frames; a still picture never moves its water)
+    if (!this.still && typeof Worker !== "undefined") void this.mesher;
     const { W, H, heights } = v;
     this.waterShown = drawnWater(W * H);
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
@@ -1401,10 +1414,17 @@ export class MapRenderer {
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
       this.waterMotion.waterChanged(heights, surface, true);
-    } else this.flowChanged(heights, surface);
+    } else {
+      const baker = this.baker;
+      const job = (w: number, h: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">) => baker.run({ kind: "share", W: w, H: h, sw }).then((r) => (r.kind === "share" ? r.share : Promise.reject(new Error("not a share"))));
+      this.stillFlow = new StillFlow(W, H, job, (x0, y0, x1, y1) => this.stillRows.touch(x0, y0, x1, y1), () => this.requestRender());
+      this.stillFlow.start(surface);
+      u.flowTex.value = this.stillFlow.texture;
+    }
     this.high?.setMap(W, H, heights, surface, v.entities);
     this.governor?.hold(performance.now());
     const instances = this.setEntitiesInner(v.entities);
+    if (!prepare) this.modelsAhead();
     const meshMs = performance.now() - t0;
     if (!keepView) this.resetView();
     if (!prepare) {
@@ -1429,14 +1449,8 @@ export class MapRenderer {
    *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
    *  WATER_FILM). */
   private flowChanged(heights: Uint8Array, surface: SurfaceWater): void {
-    if (this.waterMotion) {
-      this.waterMotion.waterChanged(heights, surface);
-      return;
-    }
-    if (!this.map) return;
-    this.stillFlow?.dispose();
-    this.stillFlow = stillFlowTexture(this.map.W, this.map.H, surface);
-    this.uniforms.flowTex.value = this.stillFlow;
+    if (this.waterMotion) this.waterMotion.waterChanged(heights, surface);
+    else this.stillFlow?.update(surface);
   }
 
   /** The map as drawn (read only): the legend reads what is on it. */
@@ -1515,6 +1529,9 @@ export class MapRenderer {
     this.caveTex = null;
     this.cave = null;
     this.caveRows.clear();
+    this.stillFlow?.dispose();
+    this.stillFlow = null;
+    this.stillRows.clear();
     this.dropRunSoil();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
@@ -1816,14 +1833,25 @@ export class MapRenderer {
   private readonly entityModels = new EntityGeometryCache();
 
   private setEntitiesInner(e: EntityView): number {
-    if (this.objects) {
-      this.high?.releaseObjects();
-      this.scene.remove(this.objects);
-      disposeGroup(this.objects);
+    // (highlighted objects back in their own colours first: a batch that would be built as it is drawn is kept)
+    for (const l of this.lit) {
+      (l.mesh.instanceColor!.array as Float32Array).set(l.color, l.i * 3);
+      l.mesh.instanceColor!.needsUpdate = true;
     }
     // (a ruin under a roof reads its run top's soil: a soil without runs keeps the last drawn, as the terrain does)
     const soil = this.map?.soil && !this.map.soil.runs && this.runsShown ? { ...this.map.soil, runs: this.runsShown } : (this.map?.soil ?? null);
-    const { group, instances } = buildEntities(e, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels);
+    const before = this.objects;
+    const { group, instances } = buildEntities(e, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels, before && this.map ? { group: before, entities: this.map.entities } : undefined);
+    if (before) {
+      // (the High look's models leave the old group first: the landmarks of batches kept go with them)
+      this.high?.releaseObjects(group);
+      this.scene.remove(before);
+      // (the batches not kept let go of their GPU buffers when the page has a moment: each one put away searches all
+      // of three.js's state, a millisecond or more on a big map)
+      const gone = [...before.children];
+      before.clear();
+      for (const c of gone) whenIdle(() => disposeBatch(c as InstancedMesh));
+    }
     this.objectsMoved = false;
     // (a highlight belonged to the objects as they were)
     this.lit = [];
@@ -1853,6 +1881,18 @@ export class MapRenderer {
     }
     this.markSources();
     return instances;
+  }
+
+  /** Make ahead, when the page has a moment, the models the map's objects may yet be drawn with as the water and soil
+   *  change (entities3d.ts `modelsAhead`), and the High look's for them. */
+  private modelsAhead(): void {
+    const m = this.map;
+    if (!m || this.software || this.still) return;
+    const map = m;
+    const ahead = modelsAhead(m.entities, this.entityModels).map(({ key, build }) => ({ key, model: () => this.entityModels.model(key, build) }));
+    const jobs = [...ahead.map(({ model }) => () => void model()), ...(this.high?.modelsAhead(m.entities, ahead) ?? [])];
+    // (a map opened since: its own are made instead)
+    for (const job of jobs) whenIdle(() => this.map === map && !this.disposed && job());
   }
 
   /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed.
@@ -1999,6 +2039,7 @@ export class MapRenderer {
   private readonly lightRows: RowUploads;
   private readonly caveRows: BoxUploads;
   private readonly runRows: BoxUploads;
+  private readonly stillRows: RowUploads;
 
   /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
   private readonly waterQueue = new Set<string>();
@@ -3380,6 +3421,7 @@ export class MapRenderer {
     this.lightRows.flush();
     this.caveRows.flush();
     this.runRows.flush();
+    this.stillRows.flush();
     this.gl.render(this.scene, cam);
     this.endCost(cost, t0);
     this.endGpuTimer(q);

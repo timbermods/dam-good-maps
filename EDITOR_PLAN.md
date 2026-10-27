@@ -287,10 +287,15 @@ place of its bottom rule.
     pick: a cave's floor through its mouth or under the layer cut, the ground under a ledge) and name that run's level
     in the placement (`editor/shelf/aim.ts`; a cut's cap names its run's real top; the tile's top names none); the
     ghost stands there and its words are the core's answer ("the start needs open ground", "not on a roof or a
-    ledge"). A drag out of a cave lands on the tile's top. Strokes paint a roof's
-    top like any ground, or under a roof the level each tile names (`paintObjects` `levels`; `paint.ts` `paintLevels`
-    gives them from the pick's level), each object held to the game's rule there and a tile that can't hold one left
-    empty. A generated
+    ledge"). The start is the same: its shelf click and its drag name the level aimed at (`moveStartTo`'s `z`), its
+    ghost and words are `footprintCheck` at that level ("not enough room under the roof here: the start needs 5",
+    "its door would open onto rock"; the page's own open-ground check is left out there), and a drop on a tile's top
+    names that top, which brings a start out from under a roof. Under a roof its panel (dragged, or hovered once placed) shows the core's verdict alone with one line, "Under a roof: its walks to water, wood and berries are not measured", and no figures: the page's walks read the roof's top, not the floor (`roofStartCheck`). A drag out of a cave lands on the tile's top. Strokes
+    paint a roof's top like any ground; a stroke begun on a cave's floor or under an overhang paints at that floor
+    (`paintAt(params, z)` with the level of the tile it began on; the core fills `paintObjects` `levels` by
+    `paint.ts` `paintLevels`), each object held to the game's rule there, and the ring's word and the stroke's refusal
+    line say when nothing fits ("nothing can stand at level 4 there: not enough room under the roof here: the pine
+    needs 3"). A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
   - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one
@@ -946,7 +951,7 @@ Make a valley, drop a source, and there's a river.
   shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
   holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
   **◀ Day N of L ▶** (and ← →; L is the hazard's length for the map's difficulty, a drought of 9 days) steps from Day 0 to past the default length (then it reads "Day 10 past 9", never "of 9"); a double-click takes a typed day. Each
-  hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
+  hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. **Hovering water in the Drought view says when it dries** (D133): the readout adds "Dry on day 6" to the tile's words, or "Lasts the drought" once the days are worked out to the drought's end (before that, water that has not yet gone says nothing rather than guess); ground that holds no water on Day 0 says nothing. In the Badtide view the readout adds "Turns bad on day 4" the same way (`firstBad`, `BadDays`, `badWords`; the hover's own "badwater" shows only from 95% bad), and says nothing for water that stays clean, water bad from Day 0 or days not yet worked out. The days come from the worker with each day (`firstDry` and `firstBad` per tile, `core/sim/firstDays.ts` `DryDays` and `BadDays`, a drought's also `firstDryWet0`, the run's own Day 0 water; the words `dryWords` and `badWords`, said by `heldWords` only for the map the days were worked out on, so after an edit while the view is held the hover says nothing until the edited map's days come); the page only looks up the tile. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
   game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
   badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. Each runs from the
@@ -1516,6 +1521,9 @@ delivery routes, the artifact edition and bring-your-own-key) is in
 - **3D rendering** (`src/render3d`, `PLAN.md` §20, D45): chunked meshing (32×32 chunks) with remeshing of dirty
   chunks only; one mesher for terrain as runs (`render3d/mesh.ts`, D126): every run's top, underside and walls,
   merged per level and along each edge, the same quads as a heightfield's where a map has no caves; instanced trees, bushes and ruins;
+  new objects rebuild only the batches that changed (a source placed among a forest keeps the forest, its landmarks and
+  its canopies' occlusion, renumbered), the models the soil and water may yet call for (a ruin's ivy, a drowned plant)
+  are made ahead when the page is idle, and batches put away let go of their GPU buffers then too (D453);
   picking against the voxels of the runs (the first face a ray meets: a run's top, underside or wall) and the features.
   - The shelf (D184): each object's picture is drawn once by the view itself (the object's model in the map's look,
     into a small render target), and the ghost under the pointer is the object's own model, tinted green or red; a
