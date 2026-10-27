@@ -100,8 +100,10 @@ test("Your maps' tile of a kept version of a long-named map keeps its step in vi
   await header.locator(".editor-title .title-button").click();
   await page.keyboard.press("Control+A");
   await page.keyboard.type("The Very Long Winding River Valley B");
+  // (the field keeps what fits two lines of the header's room, at least 30 characters: Kyler, 2026-10-05, A+B)
+  const name = (await header.getByLabel("Map name").inputValue()).trim();
+  expect(name.length, "a long name, at least the floor").toBeGreaterThanOrEqual(30);
   await page.keyboard.press("Enter");
-  const name = "The Very Long Winding River Valley B";
   await expect(header.locator(".editor-title .title-button")).toHaveText(name);
   await edit(page, [[40, 40, 44]], "Raise a tile");
   await idle(page);
