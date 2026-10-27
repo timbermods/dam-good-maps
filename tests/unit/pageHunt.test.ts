@@ -51,6 +51,7 @@ test("Cancel while the recovery snapshot is pending restores a live editor worke
     enterEditor() {}, words: (e: unknown) => String(e), seedText: "4242", proxy: (v: unknown) => v,
     keeping: { current: true }, discardAllowed: { current: false }, saveState: "", setSaveState() {},
     switching: { current: false }, setReplacingMap() {}, setMakingWords() {},
+    together: { isHost: false, isGuest: false, announce() {}, cancelAnnounce() {}, newMap: async () => {} }, sharedGen: { current: null }, committing: { current: false },
   });
   // (run holds the open map back through holdBack: the project Cancel opens again)
   runInContext(compile(functions("src/ui/App.tsx", ["run", "holdBack", "cancelMaking"])), env);

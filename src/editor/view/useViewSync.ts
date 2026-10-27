@@ -8,6 +8,8 @@ import type { Ed } from "../ed";
 
 export interface ViewSyncSlice {
   toolRef: { current: Verb | null };
+  /** Fly the camera to a tile (a problem's "Show", a note's "See it"). */
+  showTile: (x: number, y: number) => void;
   actions: ItemActions;
 }
 
@@ -66,5 +68,5 @@ export function useViewSync(ed: Ed): ViewSyncSlice {
     canShow: (c) => !!whereOf(c, entityAt),
   };
 
-  return { toolRef, actions };
+  return { toolRef, showTile, actions };
 }

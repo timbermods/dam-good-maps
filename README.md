@@ -105,6 +105,15 @@ The editor:
 
 Your maps are saved in this browser as you work.
 
+Edit together:
+- **Together**, in the header before **File**, edits this map with one other person. You can both edit anywhere.
+- **Invite** makes a short code. Send it; they type it under **Join** in their own **Together** panel and get your map.
+- You see each other's cursor, name and tool on the map. **Go to** moves your view to where they are looking.
+- Undo takes back only your own steps. If the other person has built on top of one, it says which.
+- If one of you leaves, the other keeps the map, read-only, until they are back. **Invite again** makes a new code to carry on. **Save to Timberborn** still works.
+- Only the one who invited can open or generate another map. The other is told first, and you both keep the old map in **Your maps**.
+- The connection goes through a relay, so neither of you sees the other's address. If it is down, **Together** says so and editing alone is unaffected.
+
 Real places:
 - **Real places**, at `real-places/` on the site, lists 85 maps made from real land. Each is inspired
   by the land near its namesake, at Timberborn's scale. It is not a replica.

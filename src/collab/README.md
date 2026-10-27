@@ -108,7 +108,7 @@ guest at once), then, once the new map is open in the editor, `newMap(name)` (or
 | `joined`, `resumed` | the other is in; they came back | "Bo joined" |
 | `paused` | the other left or the connection dropped (`message`) | "Bo has left. Waiting to reconnect." The map is read-only; every `submit` and `claim` answers with the same line until `resumed` |
 | `keep` | at a pause (when the session was live), at Leave, and the old map on a whole-map change (`project`, `name`, `sessionId`, `role`, `seq`, `epoch`: the name, log position and epoch of the map being kept, so two keeps can be told apart) | puts the project in Your maps (below) |
-| `presence`, `stroke`, `presence-cleared` | the other's cursor, tool, camera and stroke before release (name and colour included) | their cursor; fades a second after the last; "Go to" reads `view` |
+| `presence`, `stroke`, `presence-cleared` | the other's cursor, tool, camera and stroke before release (name and colour included) | their cursor; stays until their pointer leaves the map or the session pauses (a still pointer sends nothing); "Go to" reads `view` |
 | `claims` | a claim, release, offer, accept or decline stood (`by`, `command`, `offer`) | the outlines; an offer to answer |
 | `note` | the other's edits changed the water in your area (`note.centre` is where "See it" goes, `text` the words) | a quiet note |
 | `applied` | an entry was applied (`author`, `mine`, `kind`, `label`) | |

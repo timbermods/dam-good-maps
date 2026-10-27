@@ -75,6 +75,9 @@ function pace(): void {
   }
 }
 
+/** A shared session is open on this worker (an Invite waiting for a guest counts): every edit is ordered through it. */
+export const collabActive = (): boolean => peer !== null;
+
 function need(): CollabPeer {
   if (!peer) throw new Error("no collaboration session is open");
   return peer;
