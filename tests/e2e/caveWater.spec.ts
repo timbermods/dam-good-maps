@@ -67,8 +67,13 @@ test("a map with caves: an edit's water settles in the background and shows when
   // the dot saying so, and replaces it
   await expect.poll(() => depthAt(page, 57, 26), { timeout: 60_000 }).toBeGreaterThan(0.1);
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().waterPending), { timeout: 60_000 }).toBe(false);
-  const pit = await page.evaluate(() => window as unknown as { pitWet: number; pitSettled: number });
-  expect(pit.pitWet, "the pit's water shows before the canonical settle is in place").toBeLessThan(pit.pitSettled);
+  const pitTimes = () => page.evaluate(() => {
+    const w = window as unknown as { pitWet: number | null; pitSettled: number | null };
+    return { wet: w.pitWet, settled: w.pitSettled };
+  });
+  await expect.poll(async () => (await pitTimes()).settled, { timeout: 10_000 }).not.toBeNull();
+  const pit = await pitTimes();
+  expect(pit.wet, "the pit's water shows before the canonical settle is in place").toBeLessThan(pit.settled!);
   expect(await page.evaluate(() => (window as unknown as { dotSeen: string[] }).dotSeen.some((s) => /Settling/.test(s)))).toBe(true);
   // the file it exports holds the caves' water, simulated: wet columns under the plateau's top
   const file = await page.evaluate(async () => Array.from((await window.dgmEditor!.worker.exportTimber(true)).bytes));
