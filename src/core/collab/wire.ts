@@ -20,7 +20,7 @@ export const idOf = (role: Role): string => (role === "host" ? HOST_ID : GUEST_I
 export const roleOfId = (id: string): Role => (id === HOST_ID ? "host" : "guest");
 
 /** The colours the session gives the players (outlines, cursors, strokes): decided here, not sent. */
-export const PLAYER_COLOURS: Record<Role, string> = { host: "#e8833a", guest: "#3a8fe8" };
+export const PLAYER_COLOURS: Record<Role, string> = { host: "#d6338f", guest: "#7458ee" };
 
 /** At most this many presence packets a second leave a player; the latest wins. */
 export const PRESENCE_HZ = 15;

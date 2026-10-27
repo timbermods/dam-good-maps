@@ -58,9 +58,11 @@ export function FirstRun(p: { done: Set<FirstStep>; onClose(): void; onHelp(): v
         ))}
       </ul>
       {/* Help sits only in File otherwise: the hints say where to find it (usability audits, 2026-10-25) */}
-      <button type="button" class="linkish first-run-help" {...tip("Help and every shortcut", "?")} onClick={p.onHelp}>
-        Help and keys
-      </button>
+      <div class="first-run-help">
+        <button type="button" class="linkish" {...tip("How to make a map and save it")} onClick={p.onHelp}>
+          Help and keys
+        </button>
+      </div>
       <button type="button" class="icon-close" aria-label="No more hints" title="No more hints" onClick={p.onClose}>
         ×
       </button>

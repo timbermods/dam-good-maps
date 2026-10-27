@@ -25,7 +25,7 @@ export interface PresenceIn {
 }
 
 export type PresenceEvent =
-  /** Where the other player is: only what changed is set (a null cursor hides it). The page fades it a second after the last one. */
+  /** Where the other player is: only what changed is set (a null cursor hides it). The page keeps it until it is null or the session pauses. */
   | { type: "presence"; who: Role; name: string; colour: string; at: number; cursor?: [number, number] | null; tool?: string | null; view?: View | null }
   /** A stroke being drawn by the other player: the points new since the last event (in tiles), `fresh` when it is a new stroke. */
   | { type: "stroke"; who: Role; name: string; colour: string; id: number; fresh: boolean; points: [number, number][]; ended: boolean; gap: boolean };
@@ -141,6 +141,8 @@ export class PresenceChannel {
         this.strokeEnd = false;
       }
     }
+    // (a cursor taken off the map goes reliably: the cursor stays until then, and a lost packet would leave it stuck)
+    if (msg.cursor === null) reliable = true;
     this.o.send(encode(msg), reliable);
     return this.wanted !== null || this.strokeDirty;
   }
@@ -160,7 +162,7 @@ export class PresenceChannel {
     if (!ordered) {
       if (m.n <= this.inN) return null;
       this.inN = m.n;
-    }
+    } else if (m.n > this.inN) this.inN = m.n;
     const who: Role = this.o.role === "host" ? "guest" : "host";
     const name = this.o.otherName() || (who === "host" ? "Host" : "Guest");
     const colour = PLAYER_COLOURS[who];

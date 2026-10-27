@@ -189,7 +189,7 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
                     type="button"
                     class="ym-tile"
                     aria-current={here ? "true" : undefined}
-                    {...tip(here ? "The map open now" : "Open this map", "Ctrl+click selects it", "Shift+click a range")}
+                    {...tip(here ? "Select the map open now" : "Open this map", "Ctrl+click selects it", "Shift+click a range")}
                     onClick={(ev) => click(ev, e.id, here)}
                   >
                     {inside}

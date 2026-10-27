@@ -34,14 +34,15 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
-/** An editor note: a refusal (error) goes with the next action; `keep` holds a note until it is dismissed (a save that failed). */
+/** An editor note: a refusal (error) goes with the next action; `keep` holds a note until it is dismissed (a save that failed). `action` is a
+ *  quiet button beside it ("See it" on a shared session's water note). */
 export interface EditorNote {
   kind: "error" | "info";
   text: string;
   keep?: boolean;
   /** One thing the note offers to do (an info note: Undo, after a force cleared sources). It is for the step the history stood
    *  at (`step`, the steps applied) and goes the moment another step lands, so it only ever takes back that step. */
-  action?: { label: string; tip: string; step: number; run: () => void };
+  action?: { label: string; tip: string; step?: number; run: () => void };
 }
 
 export interface SessionSlice {
@@ -269,7 +270,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [message, setMessage] = useState<EditorNote | null>(null);
   // a note that offers to take a step back goes when the history moves on (a stroke, another force, an undo or a redo)
   const stepsApplied = info.history.filter((h) => h.applied).length;
-  useEffect(() => setMessage((m) => (m?.action && m.action.step !== stepsApplied ? null : m)), [stepsApplied]);
+  useEffect(() => setMessage((m) => (m?.action && m.action.step !== undefined && m.action.step !== stepsApplied ? null : m)), [stepsApplied]);
   const [hover, setHover] = useState<string | null>(null);
   /** The tile under the pointer, and the readout said again for it when the water shown changes under a still
    *  pointer (a weather day landing). */
@@ -720,6 +721,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
 
   function applyUpdate(u: SessionUpdate): void {
+    // (a shared session's answer to an edit: the session orders the edit, and the map's news comes as its own update)
+    if (u.routed && !Object.keys(u.view).length) return;
     // a crop, or the undo or redo of one, made the map another size (D340): the page opens the session's map again, which
     // fits the camera and the minimap to it and clears the selection; nothing of this update goes into the old view
     if (u.ok && (u.info.W !== infoRef.current.W || u.info.H !== infoRef.current.H)) {

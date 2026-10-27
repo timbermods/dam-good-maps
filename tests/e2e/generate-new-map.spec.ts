@@ -85,3 +85,30 @@ test("Download project says the project was saved, as Download .timber does", as
   const file = (await download).suggestedFilename();
   await expect(page.getByRole("status").filter({ hasText: `Saved ${file}` })).toBeVisible();
 });
+
+test("with storage writes failing, neither note claims the map is kept: not the first keep, and not the replaced map", async ({ page }) => {
+  test.setTimeout(240_000);
+  // (every write to the browser's storage refuses, as if it were full)
+  await page.addInitScript(() => {
+    IDBObjectStore.prototype.put = function () {
+      throw new DOMException("full", "QuotaExceededError");
+    };
+  });
+  await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
+  const claim = page.getByRole("status").filter({ hasText: /Kept in Your maps|is in Your maps/ });
+  await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 44]], level: 15 } } as never, "Raise a tile"));
+  await expect(page.getByRole("alert").filter({ hasText: /storage/i })).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("alert").getByRole("button", { name: "Dismiss" }).click();
+  await expect(claim).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("dgm.keptNote"))).toBeNull();
+
+  // Generate asks first, as the map is not kept; closing it replaces the map, and nothing is said to be in Your maps
+  const drawer = await openDrawer(page);
+  await pick(drawer, "Size", "128");
+  await generateButton(page).click();
+  await page.getByRole("button", { name: "Close it" }).click();
+  await page.waitForFunction(() => window.dgmEditor?.info().W === 128, null, { timeout: 120_000 });
+  const alert = page.getByRole("alert").getByRole("button", { name: "Dismiss" });
+  if (await alert.count()) await alert.click();
+  await expect(claim).toHaveCount(0);
+});
