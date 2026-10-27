@@ -51,7 +51,7 @@ import type { BrushParams, Rect } from "../core/features/raster/brush";
 import type { WeatheredLand } from "../core/features/raster/remoteStroke";
 import { EMITTERS, objectTile } from "../core/sim/model";
 import { cavesOf, surfaceWater, worldWaterModel, type StackSettle } from "../core/sim/stackWater";
-import { sameKeptWater, StackLive, type StackFrame } from "../core/sim/stackLive";
+import { sameKeptWater, StackLive, type LiveStack, type StackFrame } from "../core/sim/stackLive";
 import { reshapeTop } from "../core/terrain/runs";
 import { toMapObject } from "../core/features/build";
 import { soilObjects } from "../core/sim/columns";
@@ -544,6 +544,10 @@ function changed(s: MapSession, ok: boolean, errors: string[], t0: number): Sess
     if (series && series.session === s && !series.rolls.live && !s.canRedo) series.rolls.settle();
   }
   const view = ok ? viewUpdate(s) : {};
+  // (a stroke let go on a map with caves: its answer shows the stroke's water as it flows, which the edit's water flows
+  // on from, never the older water the map still carries for a moment, D197)
+  const painted = ok && view.water && stackDraft && stackDraft.session === s && stackDraft.live && !s.showsStoredWater ? stackDraft.live.frame() : null;
+  if (painted) view.water = stackView(s, painted, painted.depth, painted.contamination);
   // with a checks worker the instant checks come as an event a moment later, off this worker
   const instant = ok && !checks ? instantCheck(s) : null;
   if (ok) {
@@ -900,8 +904,10 @@ function kickWater(): void {
 interface StackJob {
   token: number;
   live: StackLive | null;
-  /** The water it starts from, on the map's columns or the ones before the edit (carried over). */
-  from: StackSettle;
+  /** The water it starts from, on the map's columns or the ones before the edit (carried over), and the last settle
+   *  whose flows it takes when it has no momentum of its own (`stackStart`). */
+  from: LiveStack;
+  flows: StackSettle | null;
   model: WaterModel;
   version: number;
   session: MapSession;
@@ -909,7 +915,7 @@ interface StackJob {
 let stackJob: StackJob | null = null;
 /** Where the last live water of a map with caves came to stand, until the canonical settle replaces it: the next
  *  edit's water flows on from it, never from the older water the map still carries. */
-let stackRest: { session: MapSession; model: WaterModel; stack: StackSettle } | null = null;
+let stackRest: { session: MapSession; model: WaterModel; stack: LiveStack } | null = null;
 
 /** A stroke being painted on a map with caves or overhangs: its tops reshaped as it goes (`mask`, terrain/runs.ts
  *  `reshapeTop`, as the brushes shape such a map), the stacked engine built on them again when they changed (`dirty`)
@@ -917,7 +923,8 @@ let stackRest: { session: MapSession; model: WaterModel; stack: StackSettle } | 
 let stackDraft: {
   session: MapSession;
   live: StackLive | null;
-  from: StackSettle;
+  from: LiveStack;
+  flows: StackSettle | null;
   model: WaterModel;
   mask: Uint32Array;
   ground: Uint8Array;
@@ -931,29 +938,32 @@ let stackDraft: {
 
 /** The water of `s` in flight on stacked columns, with the model it flows on: the stroke's, the live water's, or
  *  where it last came to stand; null when there is none (the map's own water is the one to start from). */
-function stackFlowing(s: MapSession): { model: WaterModel; stack: StackSettle } | null {
+function stackFlowing(s: MapSession): { model: WaterModel; stack: LiveStack } | null {
   if (stackDraft && stackDraft.session === s) return { model: stackDraft.model, stack: stackDraft.live ? stackDraft.live.state() : stackDraft.from };
   if (stackJob && stackJob.session === s) return { model: stackJob.model, stack: stackJob.live ? stackJob.live.state() : stackJob.from };
   return stackRest && stackRest.session === s ? { model: stackRest.model, stack: stackRest.stack } : null;
 }
 
-/** The water a live run on `s` starts from: the water in flight, carried over, unless the edit stored a lake or took
- *  unfed water (a Fill, Remove unfed water): then the map's own carried-over water, which holds them on their columns
- *  already (features/build.ts `keptOnStack`). */
-function stackStart(s: MapSession): StackSettle | null {
+/** The water a live run on `s` starts from: the water in flight, carried over with its momentum, unless the edit stored
+ *  a lake or took unfed water (a Fill, Remove unfed water): then the map's own carried-over water, which holds them on
+ *  their columns already (features/build.ts `keptOnStack`), its flows taken from the last settle (`flows`), so its
+ *  rivers carry on flowing rather than start from rest. */
+function stackStart(s: MapSession): { from: LiveStack; flows: StackSettle | null } | null {
   const model = s.built.waterModel;
   const flowing = stackFlowing(s);
-  return flowing && sameKeptWater(flowing.model, model) ? flowing.stack : (s.built.settle.stack ?? null);
+  if (flowing && sameKeptWater(flowing.model, model)) return { from: flowing.stack, flows: null };
+  const from = s.built.settle.stack;
+  return from ? { from, flows: s.lastSettled()?.water.stack ?? null } : null;
 }
 
 function kickStack(s: MapSession): void {
-  const from = stackStart(s);
+  const start = stackStart(s);
   handoff = null;
   dropDraft();
   stopWater();
-  if (!from) return;
+  if (!start) return;
   const token = ++waterToken;
-  stackJob = { token, live: null, from, model: s.built.waterModel, version, session: s };
+  stackJob = { token, live: null, ...start, model: s.built.waterModel, version, session: s };
   if (autoWater) setTimeout(() => void runStack(token), 0);
 }
 
@@ -971,7 +981,7 @@ async function runStack(token: number): Promise<void> {
     const j = stackJob;
     if (!j || j.token !== token || session !== j.session) return;
     // (the edit's answer has gone: the run is made now, its first frame at once)
-    if (!j.live) j.live = new StackLive(j.model, j.from);
+    if (!j.live) j.live = new StackLive(j.model, j.from, j.flows);
     const live = j.live;
     const t0 = performance.now();
     let done = false;
@@ -991,7 +1001,7 @@ async function runStack(token: number): Promise<void> {
     if (done) {
       // where the water came to stand, shown as it is, until the canonical settle replaces it
       const f = live.frame();
-      stackRest = { session: j.session, model: j.model, stack: f.stack };
+      stackRest = { session: j.session, model: j.model, stack: live.state() };
       stackJob = null;
       live.close();
       listener?.({ kind: "water", version, water: stackView(j.session, f, f.depth, f.contamination), done: 0.99, ticks: live.ticks });
@@ -1005,14 +1015,14 @@ async function runStack(token: number): Promise<void> {
  *  it flowing at once. */
 function draftStack(s: MapSession, rect: { x0: number; y0: number; x1: number; y1: number }, heights: Uint8Array): void {
   if (!stackDraft || stackDraft.session !== s) {
-    const from = stackStart(s);
-    if (!from) return;
+    const start = stackStart(s);
+    if (!start) return;
     const src = s.built.waterModel;
     const mask = src.stacked!.mask.slice();
     // the edit's own water waits: the stroke's water takes over from it
     stopWater();
     dropDraft();
-    stackDraft = { session: s, live: null, from, model: { ...src, stacked: { mask, objects: src.stacked!.objects } }, mask, ground: s.built.heights.slice(), top: s.built.water, dirty: false, fresh: false, touched: false };
+    stackDraft = { session: s, live: null, ...start, model: { ...src, stacked: { mask, objects: src.stacked!.objects } }, mask, ground: s.built.heights.slice(), top: s.built.water, dirty: false, fresh: false, touched: false };
     const token = ++draftToken;
     setTimeout(() => void runStackDraft(token), 0);
   }
@@ -1050,7 +1060,7 @@ async function runStackDraft(token: number): Promise<void> {
     // (the stroke's tops as they stand now: the engine on them, the water carried over)
     if (!d.live) {
       d.dirty = false;
-      d.live = new StackLive({ ...d.model, stacked: { mask: d.mask.slice(), objects: d.model.stacked!.objects } }, d.from);
+      d.live = new StackLive({ ...d.model, stacked: { mask: d.mask.slice(), objects: d.model.stacked!.objects } }, d.from, d.flows);
     } else if (d.dirty) {
       d.dirty = false;
       d.live.reshape(d.mask.slice());

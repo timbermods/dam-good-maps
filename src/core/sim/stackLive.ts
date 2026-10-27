@@ -50,10 +50,31 @@ export function sameKeptWater(a: WaterModel, b: WaterModel): boolean {
   return sameRetained(a.retained, b.retained) && da.length === db.length && da.every((v, k) => v === db[k]);
 }
 
+/** The momentum of the water's flows between columns (rust/water/src/stack.rs `out`, one an edge of the engine's column
+ *  graph: `start` per column id, each edge's `target` column and direction `dir`), with the columns' floors, so that it
+ *  carries over to another build of the same map's columns (`StackLive`). */
+export interface EdgeMomentum {
+  start: Uint32Array;
+  target: Int32Array;
+  dir: Uint8Array;
+  floor: Int16Array;
+  out: Float64Array;
+}
+
+/** Water on stacked columns as the live water holds it: with its flows' momentum, so a run built again on it carries
+ *  on flowing (a stroke's tops reshaped, the next edit) instead of starting every river from rest. */
+export type LiveStack = StackSettle & { edges?: EdgeMomentum };
+
+/** An edge's key, the same in any build of the map: its column's tile and floor, its direction and its target's floor
+ *  (the target's tile is the neighbour that way). */
+function edgeKey(N: number, column: number, floor: number, dir: number, targetFloor: number): number {
+  return (((column % N) * 64 + floor) * 4 + dir) * 64 + targetFloor;
+}
+
 /** One frame of the live water: every column (`stack`, not a settle), the water seen from above (each tile's top
  *  column, `depth` and `contamination`), and each column's outflows (four a column id, stackWater.ts `columnFlows`). */
 export interface StackFrame {
-  stack: StackSettle;
+  stack: LiveStack;
   depth: Float64Array;
   contamination: Float64Array;
   flows: Float32Array;
@@ -68,6 +89,10 @@ export class StackLive {
   count!: Uint8Array;
   floor!: Int16Array;
   ceil!: Int16Array;
+  /** The engine's column graph (`EdgeMomentum`), fixed for a build. */
+  private start!: Uint32Array;
+  private target!: Int32Array;
+  private dir!: Uint8Array;
   /** Ticks run since the water it started from. */
   ticks = 0;
   private m: StackWater;
@@ -77,10 +102,14 @@ export class StackLive {
   private finished = false;
 
   /** The water of `model` (a map with caves or overhangs) from `from`: water on the same map, on its columns or on
-   *  the columns it had before an edit (carried over, `carryStack`). */
+   *  the columns it had before an edit (carried over, `carryStack`), its flows' momentum with it (`LiveStack.edges`);
+   *  water without it (a settle carried over to an edit's columns) takes its flows from `flows`, a settle of the same
+   *  map with its per-column flows (stackWater.ts `columnFlows`), as a heightfield's warm start takes its outflows
+   *  (preview.ts). With neither, its rivers start from rest, and swell before they settle again. */
   constructor(
     readonly model: WaterModel,
-    from: StackSettle,
+    from: LiveStack,
+    flows: StackSettle | null = null,
     /** The most game days the water runs on while it still moves (the preview's, preview.ts). */
     private readonly days: number = PREVIEW_JOB_DAYS,
   ) {
@@ -93,7 +122,7 @@ export class StackLive {
     this.objects = t.objects;
     this.kept = retainedRows(model.retained ?? []);
     this.m = this.build(this.mask);
-    this.load(from);
+    this.load(from, flows);
   }
 
   private build(mask: Uint32Array): StackWater {
@@ -107,6 +136,9 @@ export class StackLive {
       this.count = m.copy(STACK_FIELD.count) as Uint8Array;
       this.floor = m.copy(STACK_FIELD.floor) as Int16Array;
       this.ceil = m.copy(STACK_FIELD.ceil) as Int16Array;
+      this.start = m.copy(STACK_FIELD.graphStart) as Uint32Array;
+      this.target = m.copy(STACK_FIELD.graphTarget) as Int32Array;
+      this.dir = m.copy(STACK_FIELD.graphDirection) as Uint8Array;
       let L = 1;
       for (let i = 0; i < this.N; i++) if (this.count[i] > L) L = this.count[i];
       this.L = L;
@@ -117,11 +149,70 @@ export class StackLive {
     }
   }
 
-  /** `from` carried over to the engine's columns, written in, and the run on from it begun. */
-  private load(from: StackSettle): void {
+  /** `from` carried over to the engine's columns, written in with its flows' momentum, and the run on from it begun. */
+  private load(from: LiveStack, flows: StackSettle | null = null): void {
     loadStack(this.m, this, true, carryStack(from, this));
+    const out = this.m.view(STACK_FIELD.momentum) as Float64Array;
+    if (from.edges) this.carryMomentum(from.edges, out);
+    else if (flows?.flows) this.seedMomentum(flows, out);
     this.m.op(STACK_OP.settleBegin, this.days, 1);
     this.finished = false;
+  }
+
+  /** Each edge's momentum from the edge of `e` with the same key (`edgeKey`); none on an edge whose column or target
+   *  is new (its ground changed). */
+  private carryMomentum(e: EdgeMomentum, out: Float64Array): void {
+    const N = this.N;
+    const old = new Map<number, number>();
+    for (let c = 0; c + 1 < e.start.length; c++)
+      for (let k = e.start[c]; k < e.start[c + 1]; k++) if (e.out[k] !== 0 && e.target[k] >= 0) old.set(edgeKey(N, c, e.floor[c], e.dir[k], e.floor[e.target[k]]), e.out[k]);
+    if (!old.size) return;
+    for (let c = 0; c + 1 < this.start.length; c++)
+      for (let k = this.start[c]; k < this.start[c + 1]; k++) {
+        const t = this.target[k];
+        if (t < 0) continue;
+        const v = old.get(edgeKey(N, c, this.floor[c], this.dir[k], this.floor[t]));
+        if (v !== undefined) out[k] = v;
+      }
+  }
+
+  /** Each edge's momentum from a settle's flows (four a column id, its column matched by tile and floor). A column
+   *  whose water can leave the same way along several edges (a neighbour with a cave and the ground over it) shares
+   *  that way's flow between them by how much of its water each target's room faces; none faces, evenly. */
+  private seedMomentum(s: StackSettle, out: Float64Array): void {
+    const N = this.N;
+    const flows = s.flows!;
+    if (s.count.length !== N) return;
+    const depth = this.m.view(STACK_FIELD.depth) as Float64Array;
+    const share = new Float64Array(4);
+    const ways = new Uint8Array(4);
+    for (let c = 0; c + 1 < this.start.length; c++) {
+      const a = this.start[c];
+      const b = this.start[c + 1];
+      if (a === b) continue;
+      const i = c % N;
+      let from = -1;
+      for (let q = 0; q < s.count[i] && from < 0; q++) if (s.floor[q * N + i] === this.floor[c]) from = q * N + i;
+      if (from < 0 || 4 * from + 3 >= flows.length) continue;
+      // (the water's face toward each target: its depth over the column's floor, within the target's room)
+      const lo = this.floor[c];
+      const hi = lo + depth[c];
+      const face = (k: number) => {
+        const t = this.target[k];
+        return t < 0 ? 0 : Math.max(0, Math.min(hi, this.ceil[t]) - Math.max(lo, this.floor[t]));
+      };
+      share.fill(0);
+      ways.fill(0);
+      for (let k = a; k < b; k++) {
+        share[this.dir[k]] += face(k);
+        ways[this.dir[k]]++;
+      }
+      for (let k = a; k < b; k++) {
+        const d = this.dir[k];
+        const f = flows[4 * from + d];
+        out[k] = ways[d] === 1 ? f : share[d] > 0 ? (f * face(k)) / share[d] : f / ways[d];
+      }
+    }
   }
 
   /** The terrain under a stroke being painted changed (`mask`, the whole map's): the engine is built on it again and
@@ -150,8 +241,14 @@ export class StackLive {
     return this.finished;
   }
 
-  /** The water as it stands, every column (copies): a `StackSettle` that is not a settle, never written to a file. */
-  state(): StackSettle {
+  /** The water as it stands, every column (copies), with its flows' momentum: a `StackSettle` that is not a settle,
+   *  never written to a file. */
+  state(): LiveStack {
+    return { ...this.water(), edges: { start: this.start, target: this.target, dir: this.dir, floor: this.floor, out: this.m.copy(STACK_FIELD.momentum) as Float64Array } };
+  }
+
+  /** The water as it stands, every column (copies), without its momentum. */
+  private water(): StackSettle {
     const m = this.m;
     return {
       W: this.W,
@@ -170,9 +267,9 @@ export class StackLive {
     };
   }
 
-  /** The water as it stands, to show (`StackFrame`). */
+  /** The water as it stands, to show (`StackFrame`; its stack without the momentum: `state` carries that). */
   frame(): StackFrame {
-    const stack = this.state();
+    const stack = this.water();
     const N = this.N;
     const depth = new Float64Array(N);
     const contamination = new Float64Array(N);

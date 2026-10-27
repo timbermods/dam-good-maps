@@ -126,11 +126,13 @@ describe("live water on a map with caves (D99, D197)", () => {
     const journey = frames.filter((f) => !f.draft && f.version === v);
     expect(journey.length, "the water's journey after the edit, frame by frame").toBeGreaterThanOrEqual(5);
     expect(journey[0].ticks, "its first frame at its first ticks").toBeLessThanOrEqual(4);
-    // the frames move, and from the stroke's water on: never back to the map's water before the stroke
+    // the frames move (the stroke's, then the edit's journey flowing on from them), and from the stroke's water on:
+    // never back to the map's water before the stroke
+    const all = [...drafts, ...journey];
     let moving = 0;
-    for (let k = 1; k < journey.length; k++) {
-      const a = topOf(journey[k - 1].water);
-      const b = topOf(journey[k].water);
+    for (let k = 1; k < all.length; k++) {
+      const a = topOf(all[k - 1].water);
+      const b = topOf(all[k].water);
       if (a.some((d, i) => Math.abs(d - b[i]) > 0.01)) moving++;
     }
     expect(moving).toBeGreaterThanOrEqual(4);
@@ -178,6 +180,51 @@ describe("live water on a map with caves (D99, D197)", () => {
     const s = ed.collabSession()!;
     const fresh = canonicalSettle(s.built.waterModel);
     expect(Buffer.from(s.built.settle.stack!.depth.buffer).equals(Buffer.from(fresh.stack!.depth.buffer))).toBe(true);
+  });
+
+  it("stays as it was where nothing changed: from the settle, rebuilt again and again on the same ground, and after an edit far away (its flows carried, never from rest)", async () => {
+    const frames = openRiver();
+    const s = ed.collabSession()!;
+    const st = s.built.settle.stack!;
+    const most = (d: ArrayLike<number>) => {
+      let m = 0;
+      for (let c = 0; c < d.length; c++) m = Math.max(m, Math.abs(d[c] - st.depth[c]));
+      return m;
+    };
+    // from the settle, its flows taken from the settle's own (as a heightfield's warm start takes its outflows)
+    const fresh = new StackLive(s.built.waterModel, st, st, 1000);
+    // rebuilt on the same ground every 4 ticks, as a stroke rebuilds it: the momentum carried over each time
+    const rebuilt = new StackLive(s.built.waterModel, st, st, 1000);
+    try {
+      let worst = 0;
+      let worstRebuilt = 0;
+      for (let t = 4; t <= 600; t += 4) {
+        fresh.advance(4);
+        rebuilt.advance(4);
+        rebuilt.reshape(s.built.waterModel.stacked!.mask.slice());
+        worst = Math.max(worst, most(fresh.state().depth));
+        worstRebuilt = Math.max(worstRebuilt, most(rebuilt.state().depth));
+      }
+      expect(worst, "the water run on from its settle").toBeLessThan(0.05);
+      expect(worstRebuilt, "the same, rebuilt every 4 ticks").toBeLessThan(0.05);
+    } finally {
+      fresh.close();
+      rebuilt.close();
+    }
+    // an edit far from the water: the live water's frames hold the river as it was
+    ed.setAutoWater(true);
+    const before = topOf(ed.sessionView().view.water);
+    expect(ed.apply({ op: "sculpt", params: { mode: "flatten", cells: [[4, 34, 36]], level: GROUND - 2 } }, "user", "Lower").errors).toEqual([]);
+    const v = ed.sessionInfo().version;
+    await until(() => !ed.waterSettling());
+    const journey = frames.filter((f) => f.version === v);
+    expect(journey.length).toBeGreaterThan(0);
+    let worst = 0;
+    for (const f of journey) {
+      const t = topOf(f.water);
+      for (let i = 0; i < N; i++) if (Math.floor(i / W) > 8) worst = Math.max(worst, Math.abs(t[i] - before[i]));
+    }
+    expect(worst, "the river's water in the frames of an edit far from it").toBeLessThan(0.05);
   });
 
   it("carries water over to new columns by its floors: the same columns give the same water", () => {
