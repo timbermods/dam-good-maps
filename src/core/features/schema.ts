@@ -196,6 +196,20 @@ export interface RuinFieldParams {
   /** Tiles the player deleted (D360 b): no column stands on them, though the columns' heights are still
    *  assigned over the whole area, so the ones that stay keep their shape. */
   cleared?: Runs;
+  /** Each column's storeys (1–8), in the area's tile order: a field whose story shapes its columns
+   *  (a ruined dam's line about a level over its crest, a drowned village's tops out of the water).
+   *  Models and turns still follow `layout`; a length that no longer matches the area is ignored. */
+  storeys?: number[];
+  /** The story the field tells (D488 (2), gen/ruinStories.ts), its line in a player's words. A
+   *  field with a story may stand in water: ruins hold no water in the game (D111). */
+  story?: RuinStory;
+}
+
+/** A ruin field's story: a ruined dam across a natural narrows, its gap where the river runs, or a
+ *  drowned village in a lake's shallows; `say` is its line in a player's words. */
+export interface RuinStory {
+  kind: "dam" | "village";
+  say: string;
 }
 
 export type MapObjectKind = "mineSite" | "relicSmall" | "relicMedium" | "relicLarge" | "geothermal" | "thornBelt" | "weir" | "plug" | "bridge" | "unstableCore";

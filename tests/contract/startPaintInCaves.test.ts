@@ -10,10 +10,12 @@ import { decodeProject } from "../../src/core/doc/document";
 import { paintLevels, planPaintObjects } from "../../src/core/doc/paint";
 import type { PaintParams } from "../../src/core/doc/paintParams";
 import { MapSession } from "../../src/core/doc/session";
-import { startMiddle } from "../../src/core/doc/start";
-import { START_OPEN_GROUND } from "../../src/core/doc/startFit";
+import { cornerFor, startMiddle } from "../../src/core/doc/start";
+import { START_OPEN_GROUND, startOverRoof } from "../../src/core/doc/startFit";
 import { planStart } from "../../src/core/doc/tools";
 import type { StartFeature } from "../../src/core/features/schema";
+import { entityJson, startingLocation } from "../../src/core/format/entities";
+import { startEntranceTile, type Orientation } from "../../src/core/format/footprints";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { tilesToRuns } from "../../src/core/math/grid";
@@ -204,5 +206,58 @@ describe("painting objects under a roof (D491): a level per tile, the game's rul
     expect(s.check({ op: "paintObjects", params: { ...p, levels: [{ z: 3, area: [[30, 30, 30]] }] } })).toEqual(["(30, 30) has a level but is not in the stroke"]);
     expect(s.check({ op: "paintObjects", params: { ...p, levels: [...p.levels!, { z: 4, area: [[17, 17, 17]] }] } })).toEqual(["(17, 17) has two levels"]);
     expect(s.check({ op: "paintObjects", params: { ...p, levels: [{ z: 23, area: [[17, 17, 17]] }] } })[0]).toMatch(/levels/);
+  });
+});
+
+describe("a start a tunnel is dug under later (D491; #553's review): only a move or a placement checks its ground", () => {
+  it("a generated map's start stays lockable and turns in place; moved, it is refused", () => {
+    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
+    const s = MapSession.fromGenerated(r, r.file);
+    const M = s.size.x;
+    // the start on a plateau's open top, then a chamber dug under it from the plateau's west face, a roof three thick
+    const { x, y, h } = levelPatch(s);
+    const plateau = Math.min(h + 8, 22);
+    const x0 = x - 1;
+    const cells: number[] = [];
+    for (let yy = y - 4; yy <= y + 4; yy++) for (let xx = x0; xx <= x0 + 8; xx++) cells.push(yy * M + xx);
+    expect(s.apply({ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(cells, M), level: plateau, exact: true } }).errors).toEqual([]);
+    const placed = planStart(s, x0 + 2, y, "Cw0", newId);
+    expect(placed.ok && s.applyAll(placed.ops).errors).toEqual([]);
+    for (let k = 0; k < 5; k++) expect(s.apply({ op: "blocks", params: { mode: "remove", side: "-x", at: [[x0 + k, y, h + 2]], size: 5 } }).errors).toEqual([]);
+    const start = () => s.features.find((f): f is StartFeature => f.kind === "start")!;
+    expect(start().params).toMatchObject({ position: [x0 + 2, y], orientation: "Cw0" });
+    expect(start().params.z).toBeUndefined();
+    expect(startOverRoof(s.standGround(), x0 + 2, y, "Cw0"), "a cave under it now").toBe(true);
+    // locked and unlocked, turned in place: its ground is not checked again
+    const id = start().id;
+    expect(s.apply({ op: "updateFeature", params: { id, patch: { locked: true } } }).errors).toEqual([]);
+    expect(s.apply({ op: "updateFeature", params: { id, patch: { locked: false } } }).errors).toEqual([]);
+    const turn = planStart(s, x0 + 2, y, "Cw90", newId);
+    expect(turn.ok && s.applyAll(turn.ops).errors).toEqual([]);
+    expect(start().params.orientation).toBe("Cw90");
+    // moved, even by a tile, it is held to open ground
+    expect(planStart(s, x0 + 3, y, undefined, newId)).toEqual({ ok: false, errors: [START_OPEN_GROUND] });
+    expect(s.check({ op: "updateFeature", params: { id, patch: { params: { position: [x0 + 3, y] } } } })).toEqual([START_OPEN_GROUND]);
+  }, 120_000);
+
+  it("an opened map's start turns in place where its new door has open ground, and only there", () => {
+    // the cave map with a start already standing on the roof's top over the cave (its 3×3 at 18–20, as if dug later)
+    const file = caveFile();
+    const [cx, cy] = cornerFor(19, 19, "Cw0");
+    file.world.entities = [entityJson(startingLocation({ id: newId(), owner: "import", x: cx, y: cy, z: 8, orientation: "Cw0" }))];
+    const s = MapSession.importMap(writeTimber(file), "cave.timber");
+    const inCave = (o: Orientation) => {
+      const [dx, dy] = startEntranceTile(...cornerFor(19, 19, o), o);
+      return dx >= CAVE.x0 && dx <= CAVE.x1 && dy >= CAVE.y0 && dy <= CAVE.y1;
+    };
+    const turns = (["Cw90", "Cw180", "Cw270"] as const).map((o) => ({ o, plan: planStart(s, 19, 19, o, newId), cave: inCave(o) }));
+    expect(turns.some((t) => t.cave) && turns.some((t) => !t.cave)).toBe(true);
+    for (const t of turns) if (t.cave) expect(t.plan, t.o).toEqual({ ok: false, errors: [START_OPEN_GROUND] });
+    const open = turns.find((t) => !t.cave)!;
+    expect(open.plan.ok && s.applyAll(open.plan.ops).errors).toEqual([]);
+    expect(startEntity(s)).toMatchObject({ orientation: open.o, z: 8 });
+    expect(startMiddle(s)).toEqual([19, 19]);
+    // moved, it is held to open ground
+    expect(planStart(s, 19, 18, undefined, newId)).toEqual({ ok: false, errors: [START_OPEN_GROUND] });
   });
 });

@@ -5,12 +5,27 @@ import { LookMenu } from "../../ui/LookMenu";
 import { ChecksDot, Header } from "../Header";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
+import { plain } from "../panels";
 
 export function header(ed: Ed, props: EditorProps) {
   const {
     api, info, renderer, localUndo, localRedo, undo, redo, check, instant, busy, progress, flowing, dotOpen, setDotOpen,
     actions, saving, saveMap, exportProject, run, flashNote, showHistory, setShowHistory
   } = ed;
+
+  /** The description written beside the name: the setDescription operation, one undo step; null when stored, else the core's one-line reason. */
+  const describe = (text: string) =>
+    new Promise<string | null>((done) => {
+      let answer: string | null = "The map is busy: try again in a moment";
+      void run(
+        () => api.apply({ op: "setDescription", params: { text } } as never, "user", text ? "Write the description" : "Clear the description"),
+        (u) => {
+          answer = u.ok ? null : plain(u.errors[0] ?? "That description was not kept");
+          // (said under the name, not twice)
+          if (!u.ok) ed.setMessage(null);
+        },
+      ).then(() => done(answer));
+    });
 
   return (
     <Header
@@ -36,6 +51,7 @@ export function header(ed: Ed, props: EditorProps) {
       }}
       name={props.name}
       onRename={props.onRename}
+      onDescribe={describe}
       drawerOpen={props.drawerOpen}
       onDrawer={() => props.onDrawer(!props.drawerOpen)}
       mapsOpen={props.mapsOpen}

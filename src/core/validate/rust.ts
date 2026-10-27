@@ -24,9 +24,11 @@ import { objectTiles } from "../features/objects";
 import { storedWetMask, type Mechanics } from "../analysis/mechanics";
 import { growthOf } from "../analysis/wood";
 import { generatedThemeOf } from "../gen/pack";
-import { isDelayed, specifiedStrength } from "../sim/model";
+import { isDelayed, mapObjects, specifiedStrength } from "../sim/model";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
-import { seenFloor, seenThroughRoofs, worldWaterModel } from "../sim/stackWater";
+import { seenFloor, seenThroughRoofs, worldWaterModel, type StackSettle } from "../sim/stackWater";
+import { runGround, stackSoilOf, type RunGround } from "../sim/soil";
+import { ColumnTerrain } from "../terrain/runs";
 import type { WaterModel } from "../sim/water";
 import { EXTRA_BANDS, type PlayabilityAnalysis } from "./playability";
 import type { ValidationReport } from "./report";
@@ -108,6 +110,31 @@ export interface ChecksInput {
   inputs: Uint8Array[];
   model: WaterModel | null;
   water: CanonicalWater | null;
+}
+
+/** The living plants of a map with caves or overhangs, each by its index among the entities, with the soil and the
+ *  water on the run top it stands on (sim/soil.ts `runGround`, the game's one value per run top, under a roof as on top;
+ *  none there: dry, clean ground): the soil of its stacked water, which the checks' own soil, a heightfield's, can't
+ *  give (D491). */
+/** The plants `plants.survive` judges by their soil (rust/checks/src/playability.rs). */
+const SOIL_PLANTS = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "Succulent"]);
+
+function plantGrounds(file: TimberFile, stack: StackSettle): ({ index: number } & RunGround)[] {
+  const w = file.world;
+  const X = w.sizeX;
+  const Y = w.sizeY;
+  const at: [number, number, number][] = [];
+  w.entities.forEach((e, k) => {
+    const p = placementOf(e);
+    if (!p || !SOIL_PLANTS.has(String(e.Template)) || p.x < 0 || p.y < 0 || p.x >= X || p.y >= Y) return;
+    const lnr = isObject(e.Components) ? e.Components.LivingNaturalResource : undefined;
+    if (isObject(lnr) && lnr.IsDead === true) return;
+    at.push([k, p.y * X + p.x, p.z]);
+  });
+  if (!at.length) return [];
+  const cs = stackSoilOf(ColumnTerrain.fromVoxels(w.voxels, X, Y, w.layers), stack, mapObjects(w));
+  if (!cs) return [];
+  return at.map(([index, i, z]) => ({ index, ...(runGround(cs.soil, stack, i, z) ?? { moisture: 0, contamination: 0, depth: 0 }) }));
 }
 
 /** The checks' input buffers for `validateMap(file, opts)`. */
@@ -299,6 +326,16 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
     if (stored) inputs[STORED_WET] = stored;
     m.bool(!!opts.mineCutAtOpen);
     if (opts.mineCutAtOpen) m.f64s([...opts.mineCutAtOpen]);
+    // on a map with caves or overhangs, the living plants and the ground of the run top each stands on: `plants.survive`
+    // judges them by it, under a roof by its own floor, never its roof's (D491)
+    const grounds = water.stack?.stacked ? plantGrounds(file, water.stack) : [];
+    m.u32(grounds.length);
+    for (const r of grounds) {
+      m.u32(r.index);
+      m.f64(r.moisture);
+      m.f64(r.contamination);
+      m.f64(r.depth);
+    }
     // (on terrain above terrain, the water seen through the roofs on its own floor, D488: a cave's pool,
     // a river under an arch)
     // (a generated map's only: its caves are the generator's forms and the Block tool's, whose water the

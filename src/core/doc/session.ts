@@ -38,7 +38,8 @@ import { clusterSaturation } from "../sim/moisture";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
-import { stackedSoil } from "../sim/soil";
+import { runGround, stackedSoil, stackSoilOf, type RunGround } from "../sim/soil";
+import type { Soil3d } from "../sim/soil3d";
 import { storedStack, type StackSettle } from "../sim/stackWater";
 import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
@@ -67,6 +68,7 @@ import { versionName } from "../library/keptVersions";
 import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
 import { itemName, placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
+import { standingFeatures, standingOf } from "./startFit";
 import {
   applyOp,
   emptyState,
@@ -1110,15 +1112,39 @@ export class MapSession {
     if (this.caveSoils.has(built)) return this.caveSoils.get(built)!;
     const stack = built.settle.stack;
     let out: { cols: ReturnType<typeof waterColumns>; soil: ReturnType<typeof stackedSoil> } | null = null;
-    if (stack) {
-      const terrain = this.terrainOf(built);
-      const objects = built.entities.map(toMapObject);
-      const cols = waterColumns(terrain, objects);
-      if (cols.L === stack.L && cols.count.every((c, i) => c === stack.count[i])) out = { cols, soil: stackedSoil(terrain, cols, stack, objects) };
-    }
+    if (stack) out = stackSoilOf(this.terrainOf(built), stack, built.entities.map(toMapObject));
     this.caveSoils.set(built, out);
     return out;
   }
+
+  /** The soil and the water on each run top as the map stands (D235, D491): what a plant standing at level z of tile i
+   *  lives or dies on, under a roof as on top (`RunGround`; null where no run's top is z). The game's soil rule on the
+   *  map's water on stacked columns (sim/soil.ts `stackedSoil`, as the checks read it, validate/rust.ts): the settle's,
+   *  or, while the file's own water stands, that water's. Null on a map without caves or overhangs (one run a tile:
+   *  the build's `moisture`) or water on its stacked columns. */
+  runGrounds(built: BuildResult = this.cur): ((i: number, z: number) => RunGround | null) | null {
+    let r = this.runSoils.get(built);
+    if (r === undefined) {
+      r = null;
+      if (this.layered(built)) {
+        if (built.waterFromFile) {
+          const terrain = this.terrainOf(built);
+          const objects = built.entities.map(toMapObject);
+          const cols = waterColumns(terrain, objects);
+          const stack = storedStack(cols, storedWater(this.openedFile().world.singletons, this.size.x, this.size.y));
+          r = { soil: stackedSoil(terrain, cols, stack, objects), stack };
+        } else {
+          const cs = this.caveSoilOf(built);
+          if (cs && built.settle.stack) r = { soil: cs.soil, stack: built.settle.stack };
+        }
+      }
+      this.runSoils.set(built, r);
+    }
+    const got = r;
+    return got ? (i, z) => runGround(got.soil, got.stack, i, z) : null;
+  }
+
+  private readonly runSoils = new WeakMap<BuildResult, { soil: Soil3d; stack: StackSettle } | null>();
 
   /** The document as it stands, for the project file and autosave. */
   get document(): MapDocument {
@@ -2072,7 +2098,8 @@ export class MapSession {
       dropped: live ? (this.cur.dropped ?? 0) : undefined,
       spec: this.effectiveSpec(),
       designedFor: this.gen.meta.designedFor,
-      features: this.st.features,
+      // (each map object where its objects stand now: moved, partly or wholly removed, startFit.ts)
+      features: standingFeatures(this.st.features, standingOf(this.cur.entities), this.cur.W, this.cur.H),
       water: opts.water ?? (live ? { model: this.cur.waterModel, settled: this.cur.settle } : undefined),
       loadOnly: opts.loadOnly,
       // an edited import's approximate-water rule compares the settle with the water it was opened with

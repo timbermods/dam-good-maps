@@ -40,29 +40,33 @@ async function fitAt(page: Page, x: number, y: number, W: number): Promise<{ til
 }
 
 /** Level, dry tiles with nothing standing round them, away from the start and the water, nearest
- *  the middle first. */
-async function openGround(page: Page, r: number): Promise<[number, number][]> {
+ *  the middle first: `r` tiles round each across, `ry` (r unless given) up and down, and no water within `dry` tiles
+ *  (of the level ground unless given). */
+async function openGround(page: Page, r: number, o: { ry?: number; dry?: number } = {}): Promise<[number, number][]> {
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   return page.evaluate(
-    ([s0, s1, rr]) => {
+    ([s0, s1, rx, ry, dry]) => {
       const m = window.dgm3d!.renderer.mapState()!;
       const W = m.W;
       const e = m.entities;
       const out: [number, number, number][] = [];
-      for (let y = rr + 2; y < m.H - rr - 2; y += 2)
-        for (let x = rr + 2; x < W - rr - 2; x += 2) {
+      const bx = Math.max(rx, dry);
+      const by = Math.max(ry, dry);
+      for (let y = by + 2; y < m.H - by - 2; y += 2)
+        for (let x = bx + 2; x < W - bx - 2; x += 2) {
           if (Math.hypot(x - s0, y - s1) < 16) continue;
           const h0 = m.heights[y * W + x];
           let ok = true;
-          for (let dy = -rr; dy <= rr && ok; dy++) for (let dx = -rr; dx <= rr && ok; dx++) if (m.heights[(y + dy) * W + x + dx] !== h0 || m.surface.depth[(y + dy) * W + x + dx] > 0) ok = false;
-          for (let k = 0; k < e.count && ok; k++) if (Math.abs(e.x[k] - x) <= rr + 1 && Math.abs(e.y[k] - y) <= rr + 1) ok = false;
+          for (let dy = -ry; dy <= ry && ok; dy++) for (let dx = -rx; dx <= rx && ok; dx++) if (m.heights[(y + dy) * W + x + dx] !== h0) ok = false;
+          for (let dy = -by; dy <= by && ok; dy++) for (let dx = -bx; dx <= bx && ok; dx++) if (m.surface.depth[(y + dy) * W + x + dx] > 0) ok = false;
+          for (let k = 0; k < e.count && ok; k++) if (Math.abs(e.x[k] - x) <= rx + 1 && Math.abs(e.y[k] - y) <= ry + 1) ok = false;
           if (ok) out.push([x, y, Math.abs(x - W / 2) + Math.abs(y - m.H / 2)]);
         }
       out.sort((a, b) => a[2] - b[2]);
       return out.map(([x, y]) => [x, y] as [number, number]);
     },
-    [start[0], start[1], r] as const,
+    [start[0], start[1], r, o.ry ?? r, o.dry ?? 0] as const,
   );
 }
 
@@ -505,10 +509,11 @@ const ALL_NAMES = [
   "Reserve warehouse", "Reserve tank",
 ];
 
-/** Open ground for `n` single objects, each at least 9 tiles from the others. */
-async function apart(page: Page, n: number): Promise<[number, number][]> {
+/** Open ground for `n` single objects, each at least 9 tiles from the others and 12 from each of `away`. */
+async function apart(page: Page, n: number, away: [number, number][] = []): Promise<[number, number][]> {
   const out: [number, number][] = [];
-  for (const s of await openGround(page, 2)) if (out.every((p) => Math.hypot(p[0] - s[0], p[1] - s[1]) >= 9)) out.push(s);
+  for (const s of await openGround(page, 2))
+    if (out.every((p) => Math.hypot(p[0] - s[0], p[1] - s[1]) >= 9) && away.every((p) => Math.hypot(p[0] - s[0], p[1] - s[1]) >= 12)) out.push(s);
   expect(out.length).toBeGreaterThanOrEqual(n);
   return out.slice(0, n);
 }
@@ -523,12 +528,46 @@ test("every 1.x object is on the shelf and placed with its window's settings: th
   const W = (await info(page)).W;
   const shelf = page.getByRole("navigation", { name: "Place" });
   await expect(shelf.getByRole("button")).toHaveText(ALL_NAMES);
-  const at = await apart(page, 9);
+  // (the plants' plot, its own since 0.10.2's maps, D148: its clicks land within 4 tiles across and 2 up and down, on
+  // level, empty ground away from the water, and the plants go in first, the objects well away: on 0.10.2's map the
+  // seeps' water spread over the plot's level ground, and a tile it reaches is rightly refused, "no free ground under
+  // the stroke: it is water")
+  const plot = (await openGround(page, 4, { ry: 2, dry: 3 }))[0];
+  expect(plot).toBeDefined();
+  const at = await apart(page, 8, [plot]);
   const options = (name: string) => page.getByRole("group", { name: `${name} options` });
   const pick = async (name: string) => {
     await shelf.getByRole("button", { name, exact: true }).click();
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   };
+
+  // succulents and mixed woods paint like the other plants: Size, Density and Age in the window, a click one, a drag many
+  const [gx, gy] = plot;
+  await pick("Succulent");
+  await expect(options("Succulent").getByRole("slider", { name: "Size" })).toBeVisible();
+  await expect(options("Succulent").getByRole("slider", { name: "Density" })).toBeVisible();
+  await clickTile(page, gx - 4, gy);
+  expect((await labels(page)).at(-1)).toBe("Place a succulent");
+  const a = await client(page, gx - 2, gy + 1);
+  const b = await client(page, gx + 2, gy + 1);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 6 });
+  await page.mouse.up();
+  await idle(page);
+  expect((await labels(page)).at(-1)).toMatch(/^Plant \d+ succulents?$/);
+  await pick("Mixed woods");
+  await expect(options("Mixed woods").getByRole("group", { name: "Age" })).toBeVisible();
+  await clickTile(page, gx + 4, gy - 2);
+  expect((await labels(page)).at(-1)).toBe("Plant a tree");
+  const c = await client(page, gx - 2, gy - 1);
+  const d = await client(page, gx + 2, gy - 1);
+  await page.mouse.move(c.x, c.y);
+  await page.mouse.down();
+  await page.mouse.move(d.x, d.y, { steps: 6 });
+  await page.mouse.up();
+  await idle(page);
+  expect((await labels(page)).at(-1)).toMatch(/^Plant \d+ /);
 
   // a water seep at strength 4: the footprint is 2 Ã— 2, the window's strength is written as the game writes it
   await pick("Water seep");
@@ -599,33 +638,6 @@ test("every 1.x object is on the shelf and placed with its window's settings: th
   const held = (await standing(page, pile!.x, pile!.y, "ReservePile"))!.components["Inventory:Stockpile"] as { Storage: { Goods: { Amount: number }[] } };
   expect(held.Storage.Goods[0].Amount).toBe(20);
 
-  // succulents and mixed woods paint like the other plants: Size, Density and Age in the window, a click one, a drag many
-  const [gx, gy] = at[8];
-  await pick("Succulent");
-  await expect(options("Succulent").getByRole("slider", { name: "Size" })).toBeVisible();
-  await expect(options("Succulent").getByRole("slider", { name: "Density" })).toBeVisible();
-  await clickTile(page, gx - 4, gy);
-  expect((await labels(page)).at(-1)).toBe("Place a succulent");
-  const a = await client(page, gx - 2, gy + 1);
-  const b = await client(page, gx + 2, gy + 1);
-  await page.mouse.move(a.x, a.y);
-  await page.mouse.down();
-  await page.mouse.move(b.x, b.y, { steps: 6 });
-  await page.mouse.up();
-  await idle(page);
-  expect((await labels(page)).at(-1)).toMatch(/^Plant \d+ succulents?$/);
-  await pick("Mixed woods");
-  await expect(options("Mixed woods").getByRole("group", { name: "Age" })).toBeVisible();
-  await clickTile(page, gx + 4, gy - 2);
-  expect((await labels(page)).at(-1)).toBe("Plant a tree");
-  const c = await client(page, gx - 2, gy - 1);
-  const d = await client(page, gx + 2, gy - 1);
-  await page.mouse.move(c.x, c.y);
-  await page.mouse.down();
-  await page.mouse.move(d.x, d.y, { steps: 6 });
-  await page.mouse.up();
-  await idle(page);
-  expect((await labels(page)).at(-1)).toMatch(/^Plant \d+ /);
   // every object stands in the exported file: the core's validator lets it through (warnings confirmed)
   const out = await page.evaluate(async () => {
     const r = await window.dgmEditor!.worker.exportTimber(true);

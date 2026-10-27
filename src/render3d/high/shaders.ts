@@ -263,6 +263,7 @@ export function terrainHooks(): ShaderHooks {
     // without its water is groundColor's own groundDry, never a second groundColor here: in this branch, which
     // pixels next to each other may or may not take, its derivatives and its patterns' mipmaps would read
     // undefined values, and the bed's veins changed from one frame to the next)
+    filmBad: "(hlWater > 0.5 ? WATER_FILM_HIGH_BAD_TINT : WATER_FILM_BAD_TINT)",
     groundTop: /* glsl */ `
           if (hlWater > 0.5 && d0.a > 0.002 && soil.w > 0.0 && clev > 0.0) {
             float polluted = texture2D(hlFlow, g / hlFlowSize).b * soil.w;
@@ -347,6 +348,9 @@ ${HIGH_WATER_GLSL}
     float edge = (1.0 - smoothstep(${g(B.edgeDepth[0])}, ${g(B.edgeDepth[1])}, depth)) * (1.0 - smoothstep(${g(B.edgeShore[0])}, ${g(B.edgeShore[1])}, shore));
     return max(mix(${g(B.opacity[0])}, ${g(B.opacity[1])}, smoothstep(${g(B.opacityFrom)}, ${g(B.opacityTo)}, depth)) - ${g(B.edge)} * edge, grazing * ${g(B.grazing)});
   }
+  /** How much of the surface's light (its streaks, its light network and its flecks) measuredSurfaceWater drew
+   *  at the point, 0-1: on a film, its sheen keeps the opacity it has on the body (WATER_FILM). */
+  float hlSheen = 0.0;
   vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, float t) {
     float bodyDepth = smoothstep(0.25, 1.25, depth);
     float deep = smoothstep(1.0, 3.5, depth);
@@ -423,6 +427,7 @@ ${HIGH_WATER_GLSL}
     glint *= mix(1.0, 0.35, contamination);
     glint *= mix(1.0, 0.08, smoothstep(0.25, 1.0, contamination));
     colour = mix(colour, mix(HW_GLINT, HW_BAD_GLINT, contamination), glint);
+    hlSheen = max(max(streak * 0.45, clamp(highlights, 0.0, 0.82)), glint);
     if (contamination > 0.01) {
       float bt = t * mix(1.0, 0.55, contamination);
       float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
@@ -465,7 +470,11 @@ export function waterHooks(): ShaderHooks {
             if (bitOf(vFlags, 32.0) > 0.5) fallIn = min(fallIn, hlFr.x);
             if (bitOf(vFlags, 64.0) > 0.5) fallIn = min(fallIn, 1.0 - hlFr.y);
             if (bitOf(vFlags, 128.0) > 0.5) fallIn = min(fallIn, hlFr.y);
-            hlFoam = (1.0 - smoothstep(0.015, 0.16, shore)) * (0.26 + vnoise(g * 4.0 + vec2(hlT * 0.1, -hlT * 0.2)) * 0.38);
+            // a film (a tenth of a level deep or less) is a faint tint over its own ground, building to the
+            // body by a quarter of a level deep, as the Standard look's (waterPalette.ts WATER_FILM): its own
+            // depth, not the bank's; a faint edge, not a foam line
+            float hlFilm = waterFilm(depth);
+            hlFoam = (1.0 - smoothstep(0.015, 0.16, shore)) * (0.26 + vnoise(g * 4.0 + vec2(hlT * 0.1, -hlT * 0.2)) * 0.38) * mix(WATER_FILM_FOAM, 1.0, hlFilm);
             hlFoam += (1.0 - smoothstep(0.12, 0.95, fallIn)) * (0.72 + 0.45 * vnoise(g * 6.0 + vec2(hlT * 0.7, -hlT * 1.4)));
             // rough water (#67 stage 2): froth only below falls, in rapids and in fast wakes
             if (hlRiver > 0.5) {
@@ -481,7 +490,10 @@ export function waterHooks(): ShaderHooks {
             }
             hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0) * 0.30;
             c = mix(hlSurface.rgb, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlBad) * (0.85 + 0.15 * lit), hlFoam);
-            alpha = mix(hlSurface.a, 0.97, hlFoam);
+            // (its light keeps more of the body's opacity: the film's sheen)
+            float hlFilmAlpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, waterMurk(hlBad)), hlSurface.a), hlSurface.a, hlFilm);
+            hlFilmAlpha = mix(hlFilmAlpha, hlSurface.a, hlSheen * (1.0 - hlFilm) * 0.6);
+            alpha = mix(hlFilmAlpha, 0.97, hlFoam);
           } else {
             // the water's side: streaks where it steps down, the water's body at the map's edge
             float stream = vnoise(vec2(g.x * 1.4 + sin(g.y * 0.8), g.y * 3.8 - hlT * 0.16));

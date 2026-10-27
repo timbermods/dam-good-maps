@@ -41,10 +41,12 @@ function spot(s: MapSession): [number, number] | null {
   return null;
 }
 
-/** The first of a few River Valley maps with such a spot (generator 0.7.0's land, #56). */
+/** The first of a few River Valley maps with such a spot (generator 0.7.0's land, #56; seed 25 first since
+ *  the opening shot, 0.10.2, D493, D148: seed 5's start moved nearer the spot it had, and seeds 3–19 hold none). */
 function session(): { s: MapSession; x: number; y: number } {
   let found: { s: MapSession; at: [number, number] } | null = null;
-  for (let seed = 3; seed < 20 && !found; seed++) {
+  for (const seed of [25, ...Array.from({ length: 17 }, (_, k) => k + 3)]) {
+    if (found) break;
     const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");

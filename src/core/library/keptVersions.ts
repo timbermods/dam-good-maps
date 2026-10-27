@@ -42,7 +42,7 @@ export function splitVersionName(name: string): { head: string; tail: string } |
   return head && tail.length > 1 ? { head, tail } : null;
 }
 
-/** A name for a tooltip when the tile cuts it: the whole name, or at most TIP_MAX characters of it with the middle of the
+/** A name for a tooltip when the tile cuts it: the whole name, or at most TIP_MAX characters of it with the end of the
  *  map's name left out, the step kept. */
 export function nameTip(name: string): string {
   if (name.length <= TIP_MAX) return name;

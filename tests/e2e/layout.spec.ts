@@ -439,31 +439,64 @@ async function nameFits(page: Page, w: number, h: number) {
 // by the core, in a worker that may be busy with the water or the checks; the title once stayed the field it was typed in,
 // drawn for what was typed, until the worker answered, and a header measured in that time (a loaded CI machine, 2026-10-25)
 // found the long name on one line cut at the title's edge. Here the worker's answer to every rename is held back 800ms.
+/** Holds back, for `ms`, the worker's answer to every rename the page sends (a call to the worker is a Comlink message whose
+ *  path ends with the function's name); `window.__held` counts the renames held. Set before the page opens. */
+async function holdRenames(page: Page) {
+  await page.addInitScript(() => {
+    const post = Worker.prototype.postMessage;
+    const held = window as unknown as { __holdRename: number; __held: number };
+    held.__holdRename = 0;
+    held.__held = 0;
+    Worker.prototype.postMessage = function (this: Worker, message: { path?: string[] }, ...rest: unknown[]) {
+      if (held.__holdRename && message?.path?.at(-1) === "setName") {
+        held.__held++;
+        setTimeout(() => (post as (...a: unknown[]) => void).call(this, message, ...rest), held.__holdRename);
+        return;
+      }
+      return (post as (...a: unknown[]) => void).call(this, message, ...rest);
+    } as typeof Worker.prototype.postMessage;
+  });
+}
+const holdFor = (page: Page, ms: number) => page.evaluate((ms) => ((window as unknown as { __holdRename: number }).__holdRename = ms), ms);
+
 for (const [w, h] of [[1366, 768], [1300, 900]] as [number, number][]) {
   test(`at ${w}×${h}: the header's name is fitted at once, however late the core answers its rename`, async ({ page }) => {
     test.setTimeout(300_000);
-    await page.addInitScript(() => {
-      const post = Worker.prototype.postMessage;
-      const held = window as unknown as { __holdRename: number; __held: number };
-      held.__holdRename = 0;
-      held.__held = 0;
-      // (a call to the worker is a Comlink message whose path ends with the function's name)
-      Worker.prototype.postMessage = function (this: Worker, message: { path?: string[] }, ...rest: unknown[]) {
-        if (held.__holdRename && message?.path?.at(-1) === "setName") {
-          held.__held++;
-          setTimeout(() => (post as (...a: unknown[]) => void).call(this, message, ...rest), held.__holdRename);
-          return;
-        }
-        return (post as (...a: unknown[]) => void).call(this, message, ...rest);
-      } as typeof Worker.prototype.postMessage;
-    });
+    await holdRenames(page);
     await page.setViewportSize({ width: w, height: h });
     await openEditor(page);
-    await page.evaluate(() => ((window as unknown as { __holdRename: number }).__holdRename = 800));
+    await holdFor(page, 800);
     await nameFits(page, w, h);
     expect(await page.evaluate(() => (window as unknown as { __held: number }).__held), "the renames were held back").toBeGreaterThan(0);
   });
 }
+
+test("two renames in a row while the core answers late: the title ends on the second name and never shows the first again", async ({ page }) => {
+  test.setTimeout(300_000);
+  await holdRenames(page);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await openEditor(page);
+  await holdFor(page, 800);
+  const title = page.locator("header.editor-bar .editor-title .title-button");
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { __seen: string[] }).__seen = seen;
+    setInterval(() => seen.push(document.querySelector(".editor-title .title-button")?.textContent ?? ""), 20);
+  });
+  for (const typed of ["Typo Nmae", "Right Name"]) {
+    await title.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(typed);
+    await page.keyboard.press("Enter");
+  }
+  // (both answers have come: the second held 800ms)
+  await page.waitForTimeout(2500);
+  const seen = await page.evaluate(() => (window as unknown as { __seen: string[] }).__seen);
+  const right = seen.indexOf("Right Name");
+  expect(right, "the second name is shown").toBeGreaterThanOrEqual(0);
+  expect(seen.slice(right).filter((t) => t !== "Right Name"), "after the second name shows, nothing else does").toEqual([]);
+  await expect(title).toHaveText("Right Name");
+});
 
 // Nothing overlaps at any size (Kyler, 2026-10-04: the layout adjusts itself): at sizes the page isn't drawn for, the
 // band lays itself out (the water row on a second line when it can't fit), and the panels and the legend take the
