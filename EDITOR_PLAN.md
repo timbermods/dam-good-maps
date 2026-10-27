@@ -67,7 +67,7 @@ place of its bottom rule.
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
   font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443; the title shows the name and is fitted at once, never waiting for the worker's answer),
   Esc cancels, and a blank name is refused in the core's words, said in the second line. While the name is edited a small card hangs under it with the map's description ("Describe the map" while none is written; Enter saves, Shift+Enter is a line break, Esc cancels; the `setDescription` operation, one undo step, refused in the core's words in the card; empty takes the player's text away; what the file adds after it shows under the field); focus moving between the name and the card saves nothing until it leaves the title. A typed name stops at what
-  fits two lines (13px, where the header's room is narrowest, at 1280 wide) where the fonts allow, never below 30
+  fits two lines (13px, where the header's room is narrowest: at 1280 wide and at 1,340 and 1,400px, where the right group grows, so a name kept at one width is shown whole at every wider one) where the fonts allow, never below 30
   characters: a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines with an
   ellipsis and the full name in its tooltip. On the right **History**
   (its panel open while pressed), Undo, Redo, the checks dot with its
@@ -161,8 +161,10 @@ place of its bottom rule.
   the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
-  (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide, and below about 1,340px wide the Look button reads just "Look" to make room; tooltip "Edit this
-  map with someone else"), opens a small panel under it. **Alone:** the player's name (a field, kept in this browser,
+  (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide; tooltip
+  "Edit this map with someone else"). Below about 1,340px wide the Look button reads just "Look" and the button leaves the
+  header for **Together…** in File's menu (the same tooltip), File wearing the other player's dot while a session is live, so
+  the longest name still fits two lines at 1280 under a wide font. It opens a small panel under it (from File's entry it hangs under the right group's edge). **Alone:** the player's name (a field, kept in this browser,
   "Player" by default), **Invite** (makes a room code and shows it large with **Copy** and "Waiting for them to
   join…", **Cancel** takes it back), and a code field with **Join**. **Live:** the two players, each with their colour
   swatch, **Go to <name>** (the camera glides to where they are looking; never automatic, brief §6) and **Leave**.
@@ -1486,7 +1488,7 @@ checks dot counts; every other row is information under Good to know, worded as 
     its water), so their water drains away as part of the edit's own journey (within about a second on 128² and
     two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. **The sources' labels** (Markers, a picked source, the pointer) are placed by `editor/sources/labelLayout.ts`, a plain function of where each source stands on the screen and what the page has open over the map: a label never stands on another or on a panel (it is nudged to the nearest free spot), a source behind a panel or outside the view has none, and a label with no room left merges into the nearest of its kind ("3 sources, 1.5 water/s", never badwater with clean water), the way a group of sources already does. Markers' wall ledges are **Wall levels**; **Lines** is the view switch for a line at every level. A stored
     lake keeps its water only while its hollow holds it. The preview's water once it stops matches the canonical
-    settle's (a map with caves or overhangs has no preview: the canonical settle itself, in the background).
+    settle's (a map with caves or overhangs has no preview but its own live water, the stacked engine run by `kickStack` and `draftStack`, D280 as amended by #606: shown only, replaced byte for byte by the canonical settle in the background).
   - **No water from nowhere** (D385): a hollow dug where no source's water and no water already there reaches
     stays dry on every path (the instant answer, the stroke's live water, the background settle, the canonical
     settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the

@@ -12,6 +12,8 @@ import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
 import { useMenuPresence } from "../ui/menuPresence";
 import { cleanMapName } from "../core/doc/document";
+import type { Role } from "../core/collab";
+import { openTogether } from "./collab/togetherOpen";
 import { fitsHeaderTwoLines, limitName, linesIn } from "./nameFit";
 import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
@@ -389,6 +391,9 @@ export interface HeaderProps {
   look?: ComponentChildren;
   /** Together: edit this map with someone else (a quiet button and its panel), before File. */
   together?: ComponentChildren;
+  /** The other player in a live or paused session ("paused" while they are away): File wears their dot, and its Together…
+   *  entry is there, where the header is too full for Together's own button (below 1,340px wide); absent without Together. */
+  togetherEntry?: { role: Role; paused: boolean; other: boolean } | null;
 }
 
 export function Header(p: HeaderProps) {
@@ -531,8 +536,9 @@ export function Header(p: HeaderProps) {
         {p.look}
         {p.together}
         <div class="menu-wrap" ref={wrap}>
-          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and find Help" onClick={() => setMenu(!menu)}>
+          <button type="button" class={`ghost file-button${p.togetherEntry?.other ? " with-dot" : ""}`} aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and find Help" onClick={() => setMenu(!menu)}>
             <span class="label">File</span>
+            {p.togetherEntry?.other ? <span class={`together-dot file-together-dot who-${p.togetherEntry.role}${p.togetherEntry.paused ? " paused" : ""}`} aria-hidden="true" /> : null}
           </button>
           {fileMenu.mounted ? (
             <ul class="menu" role="menu" aria-label="File" data-closing={fileMenu.closing ? "" : undefined}>
@@ -541,6 +547,13 @@ export function Header(p: HeaderProps) {
                   Open…
                 </button>
               </li>
+              {p.togetherEntry ? (
+                <li role="none" class="menu-together">
+                  <button type="button" role="menuitem" {...tip("Edit this map with someone else")} onClick={pick(openTogether)}>
+                    Together…
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
                 <button type="button" role="menuitem" title="Download the map and its edits as a project" onClick={pick(p.onSaveProject)}>
                   Download project

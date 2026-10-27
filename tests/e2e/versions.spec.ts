@@ -154,7 +154,9 @@ test("Your maps' tile of a kept version of a long-named map keeps its step in vi
       expect(seen.stepText, `${where}: the from-line ends with its step`).toBe(` · step ${steps}`);
       expect(seen.stepInside && seen.stepWhole, `${where}: the from-line's step is whole`).toBe(true);
       expect(seen.fromTip, `${where}: the from-line's tooltip is the whole line`).toBe(`From ${name}, ${steps ? "step 1" : "as it began"}`);
-      if (label === "The generated map") expect(seen.tailWhole, `${where}: a short step is whole`).toBe(true);
+      // (a step longer than its line alone is cut at its end, by design: under Linux's wider font "— The generated map" is,
+      // at a tile's width, so the short step checked whole is "Raise a tile", short under any font)
+      if (label === "Raise a tile") expect(seen.tailWhole, `${where}: a short step is whole`).toBe(true);
     }
   }
 });
