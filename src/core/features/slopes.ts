@@ -100,10 +100,29 @@ const SPACING = 12;
 /** A boundary this long gets a second slope. */
 const LONG = 60;
 
-export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: number; y: number }, occupied: Uint8Array, rules: SlopeRules): PlacedSlope[] {
+/** What `placeSlopes` reads of the ground alone: its level regions, the boundary pairs between regions
+ *  one level apart (key low·R + high -> [lowTile, dx, dy][]) and each region's neighbours that way,
+ *  sorted. Read only. */
+interface SlopeGround {
+  labels: Int32Array;
+  size: number[];
+  pairs: Map<number, [number, number, number][]>;
+  adj: number[][];
+}
+
+/** The last ground `slopeGround` read and what it found (the settler asks for the slopes of many
+ *  starts on one ground). */
+let lastGround: { h: Uint8Array; W: number; H: number; ground: SlopeGround } | null = null;
+
+function slopeGround(h: Uint8Array, W: number, H: number): SlopeGround {
+  const last = lastGround;
+  if (last && last.W === W && last.H === H && last.h.length === h.length) {
+    let same = true;
+    for (let i = 0; i < h.length && same; i++) if (last.h[i] !== h[i]) same = false;
+    if (same) return last.ground;
+  }
   const { labels, size } = levelRegions(h, W, H);
   const R = size.length;
-  // boundary pairs between regions one level apart: key low·R + high -> [lowTile, dx, dy][]
   const pairs = new Map<number, [number, number, number][]>();
   const adj: number[][] = Array.from({ length: R }, () => []);
   const dirs: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -130,6 +149,15 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
     }
   }
   for (const list of adj) list.sort((a, b) => a - b);
+  const ground = { labels, size, pairs, adj };
+  lastGround = { h: h.slice(), W, H, ground };
+  return ground;
+}
+
+export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: number; y: number }, occupied: Uint8Array, rules: SlopeRules): PlacedSlope[] {
+  // (the regions and the boundary pairs between them, from the ground alone: `slopeGround`)
+  const { labels, size, pairs, adj } = slopeGround(h, W, H);
+  const R = size.length;
   const between = (a: number, b: number) => [...(pairs.get(a * R + b) ?? []), ...(pairs.get(b * R + a) ?? [])];
   // regions joined by standing slopes
   const linked: number[][] = Array.from({ length: R }, () => []);

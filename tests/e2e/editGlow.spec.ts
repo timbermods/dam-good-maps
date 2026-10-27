@@ -141,8 +141,26 @@ test("the Block tool's own click glows on plain ground; a plain edit with it in 
   expect([flipped, back], "a Compare flip and back glow nothing").toEqual([0, 0]);
 });
 
+/** Holds the Block tool's preview questions (`blockFalls`) back while `__holdFalls` is set, so a click goes before its
+ *  preview has answered whatever the machine's speed (on CI's software drawing the preview always won the race). */
+async function holdFalls(page: Page) {
+  await page.addInitScript(() => {
+    const post = Worker.prototype.postMessage;
+    const held = window as unknown as { __holdFalls: number };
+    held.__holdFalls = 0;
+    Worker.prototype.postMessage = function (this: Worker, message: { path?: string[] }, ...rest: unknown[]) {
+      if (held.__holdFalls && message?.path?.at(-1) === "blockFalls") {
+        setTimeout(() => (post as (...a: unknown[]) => void).call(this, message, ...rest), held.__holdFalls);
+        return;
+      }
+      return (post as (...a: unknown[]) => void).call(this, message, ...rest);
+    } as typeof Worker.prototype.postMessage;
+  });
+}
+
 test("a Block edit the core refuses leaves nothing behind: a plain edit landing a moment later glows nothing", async ({ page }) => {
   test.setTimeout(300_000);
+  await holdFalls(page);
   await page.setViewportSize({ width: 1920, height: 1080 });
   await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
   const { x, y, h } = await flatSpot(page);
@@ -159,8 +177,7 @@ test("a Block edit the core refuses leaves nothing behind: a plain edit landing 
   await page.keyboard.press("7");
   await toolInHand(page);
   for (let k = 0; k < 8; k++) await page.keyboard.press("{");
-  // count the edits the Block tool sends (a click pressed the moment the pointer arrives goes before its preview, and
-  // the core refuses it: outside the selection)
+  // count the edits the Block tool sends
   await page.evaluate(() => {
     const r = window.dgm3d!.renderer as unknown as { blockEditSent(sent?: boolean): void; __sent?: number };
     const sent = r.blockEditSent.bind(r);
@@ -171,6 +188,9 @@ test("a Block edit the core refuses leaves nothing behind: a plain edit landing 
     };
   });
   const before = await edits(page);
+  // (the preview's answers are held back for the click: it goes before the preview, so the page sends it and the core
+  // refuses it: outside the selection)
+  await page.evaluate(() => ((window as unknown as { __holdFalls: number }).__holdFalls = 3000));
   for (let tries = 0; tries < 6; tries++) {
     const p = await page.evaluate(([x, y, h]) => {
       const r = window.dgm3d!.renderer;
@@ -185,6 +205,7 @@ test("a Block edit the core refuses leaves nothing behind: a plain edit landing 
     if (await page.evaluate(() => (window.dgm3d!.renderer as unknown as { __sent: number }).__sent > 0)) break;
     await page.mouse.move(4, 400);
   }
+  await page.evaluate(() => ((window as unknown as { __holdFalls: number }).__holdFalls = 0));
   expect(await page.evaluate(() => (window.dgm3d!.renderer as unknown as { __sent: number }).__sent), "a Block edit sent to the core").toBeGreaterThan(0);
   expect(await edits(page), "and refused").toBe(before);
   // a plain edit applied by the worker within the moment the Block tool's land could have come: nothing glows

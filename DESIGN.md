@@ -59,7 +59,7 @@ The rules new CSS follows, taken from [good-css.com](https://good-css.com) (2026
   34px, their words 1px larger; nothing else grows.
 - **Menus** grow from their button: `@starting-style` in, `data-closing` out (`useMenuPresence`), from 0.95 and transparent,
   `display` following with `allow-discrete`; the scaling inside the reduced-motion guard, the fade outside it.
-- **The clipping net:** tests/e2e/layout.spec.ts fails on any visible text wider than its box (scrollWidth over clientWidth by
+- **The clipping net:** tests/e2e/textClipping.spec.ts fails on any visible text wider than its box (scrollWidth over clientWidth by
   more than 1px) at 1280, 1366, 1600, 1920 and 2560, light and dark, across the main states.
 - **Not used here:** logical properties throughout, a fluid type and space scale, a content grid, `text-box` trim on the bar's
   cells, 44px hit areas. Anchor-positioned popovers (the menus and tooltips) are a later step.
@@ -311,9 +311,10 @@ than the room above the water bar. Where this section says otherwise, the verdic
   map, the toolbars, the minimap, the readout, the right column). The palette shows four tools to a row, each with
   its picture and name. Nothing overlaps at any window size.
 - **The header:** the button is **Maps**. The map's title is renamed in place: a click turns it into a field at
-  exactly its place, size and font; Enter or leaving saves through the core (`MapSession.setName`), Esc cancels; a
+  exactly its place, size and font; Enter or leaving saves through the core (`MapSession.setName`; the field gives way to the fitted title at once,
+  not when the worker answers), Esc cancels; a
   blank name is refused in the core's words, said in the title's second line; a rename is never an undo step
-  (D443). Its tooltip is "Rename". The second line reads "Seed 4242 · 128×128". There is no name field in the
+  (D443). Its tooltip is "Rename and describe the map". The second line reads "Seed 4242 · 128×128". There is no name field in the
   drawer.
 - **The Maps drawer,** top to bottom: Generate and Surprise me pinned at the top; under them, scrolling as one
   panel: what is on the map (picture, number, name; no description); Theme and Seed; Size; the sections Terrain,
@@ -514,6 +515,12 @@ refinements and what the mockups left open:
   It starts one gap (10px) under the top band at both sizes and is 692px tall (its lines 27px): at 1920×1080 it ends
   11px above the coordinates over the minimap, and above the bar's settings, which reach under it there. Your maps
   and Real places take the same box.
+  **Where the window is short** (2026-10-25) the panel takes a shape that fits the room above the bar instead
+  (`src/editor/generator/panelFit.ts`): three columns, 880px wide and 509 tall (lines 26px), or 449 tall (lines 24px, the
+  hints stepping aside while it is open) at 1600×900, 1536×864 and 1440×900; two columns 640px wide and 594 tall (lines 24px)
+  where the window is too narrow for three. The title block and the groups are the same, Terrain and Hazards, Water and
+  Difficulty, Resources and On this map side by side; Showcase's sheet then takes the room it needs, its three cards in
+  a row. A window with less room than that (1280×720) scrolls the panel inside, a fade at its foot saying so.
   Every setting shows at once, nothing scrolls, each on one 27px line: its name, then a slider and its value, or a
   segmented choice (a choice too wide for the column takes room from the name; each column's sliders and values line
   up). A title block of three rows on the same line height (Kyler, 2026-10-04): the Name and the Seed, two fields one
@@ -938,8 +945,11 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **Versions** (`docs/design/showcase-versions-*.jpg`, light and dark at 1280, 1920 and 2560): History's rows keep their
   look; on the row pointed at, focused or current, two ghost buttons sit at its right, **Keep this version** and **Branch from
   here**, the row leaving them room on every row so nothing moves. Your maps' tile of a kept version carries one quiet line
-  under its size, "<parent> · step N" (12px, muted, ellipsized, its tooltip "From <parent>, step N"); the tiles of a row share
-  their height. Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
+  under its size, "<parent> · step N" (12px, muted; the parent's name gives way with an ellipsis and "· step N" always stays
+  whole; its tooltip "From <parent>, step N"); the tiles of a row share their height. A name that two lines cannot hold is
+  cut so the step is kept: a kept version's "<map> — <step>" shows the map's name cut in the first line and "— <step>" in the
+  second, and any name cut at all carries it as its tooltip (the whole name; past 60 characters the end of the map's name is
+  left out and the step kept). Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
   <name>" holds the flip, **Stop** ends it), and while the key is held a name chip sits under the header's top row, centred.
 
 ## Together (collaborative editing, part 6a; D486, `docs/COLLAB-BRIEF.md`)

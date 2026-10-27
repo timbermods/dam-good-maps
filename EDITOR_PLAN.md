@@ -50,8 +50,8 @@ workshop; players can still fine-tune in the game's editor if they want. The edi
 ## 3. The screen
 
 The editor's parts as they are now: Layout 2 (Kyler, 2026-10-03). The page is the editor (D330): every map opens in
-the editor at once, in one window; **Map Generator** opens the generator's settings in a 640px panel over the map at the
-left, **Real places** opens the gallery's places, and **Your maps** the maps kept in this browser, in the same place.
+the editor at once, in one window; **Map Generator** opens the generator's settings in a panel over the map at the
+left (640px wide, or wider and shorter in a short window), **Real places** opens the gallery's places, and **Your maps** the maps kept in this browser, in the same place.
 Their look, sizes and exact places are [DESIGN.md](DESIGN.md)'s ("Layout 2 mockups (2026-10-03): the design to
 build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the sizes it is designed for.
 **Depth (Kyler, 2026-10-15):** the plates over the map stand off the land on shadows, not rules or translucency (they stay
@@ -65,7 +65,7 @@ place of its bottom rule.
   name at the window's exact centre, and under it "Seed 4242 · 128×128" (an opened file shows its size; if this
   browser can't keep the map, that line says so); it never reaches either side: where the room is short the second
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
-  font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443),
+  font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443; the title shows the name and is fitted at once, never waiting for the worker's answer),
   Esc cancels, and a blank name is refused in the core's words, said in the second line. While the name is edited a small card hangs under it with the map's description ("Describe the map" while none is written; Enter saves, Shift+Enter is a line break, Esc cancels; the `setDescription` operation, one undo step, refused in the core's words in the card; empty takes the player's text away; what the file adds after it shows under the field); focus moving between the name and the card saves nothing until it leaves the title. A typed name stops at what
   fits two lines (13px, where the header's room is narrowest, at 1280 wide) where the fonts allow, never below 30
   characters: a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines with an
@@ -100,16 +100,25 @@ place of its bottom rule.
   `aria-disabled`), so Esc still closes it. The code: `src/editor/generator/Showcase.tsx`, `showcaseModel.ts`,
   `src/ui/useShowcase.ts`.
 
-- **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
-  the map or moves the camera): every setting at once, nothing scrolling, each on one line in the bar's control
-  language (a slider with its value, or a segmented choice; no dropdowns). A title block: the **Name** for the next
-  map (the field shows the open map's name; what is typed in it names the map **Generate** makes next, and the open
-  map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
+- **The map generator's panel** (Kyler's pick, 2026-10-04; over the map at the left: opening it never resizes
+  the map or moves the camera): every setting at once, each on one line in the bar's control
+  language (a slider with its value, or a segmented choice; no dropdowns), and nothing scrolling wherever the window
+  leaves the room above the bar. It has four shapes, the first that fits the room winning (`panelFit.ts`, chosen by the
+  band's layout, `view/useBandLayout.ts`, from the room above the bar and beside the corner, with the open legend's
+  room kept): two columns 640px wide (692 tall; 1920×1080 and up); three columns 880 wide (509 tall); the same with every
+  row tighter (449 tall; 1600×900, 1536×864, 1440×900); two columns tighter (594 tall; windows too narrow for three).
+  The first-run hints stand aside while it is open. In a window with less room than the shortest shape that fits its
+  width (1280×720, 1366×768) the panel keeps that shape and scrolls inside, a soft fade at its foot saying more lies
+  below; `tests/e2e/generatorFit.spec.ts` holds the sizes. **Enter** anywhere in the panel is Generate (a field, a
+  slider or a button: Space presses a button, Enter never does, so Another like this is only clicked), **Esc** closes it
+  (the Showcase sheet's Esc closes the sheet first). A title block: the **Name** for the next map (the field starts
+  empty, the open map's name in grey in it; what is typed names the map **Generate** makes next, then the field is
+  empty again, and the open map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
   settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
   Custom, its width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses; Generate on a side under the theme's least (48, Islands 64)
   says so in one line, "Canyon needs at least 48 tiles a side to generate", as a note over the map (no dialog dims it,
-  and a map that fails its checks says "No valid map" the same way), and the open map stays). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
+  and a map that fails its checks says "No valid map" the same way), and the open map stays). Then two columns (three in the wider shapes: Terrain and Hazards; Water and Difficulty; Resources and "On this map"): Terrain, Water and Hazards; Resources (the species mix one
   bar of four shares), **Difficulty** (Starting wood, Max walk to water, Starting berries, Start area, No ruins
   within) and "On this map" (Mine sites, Ruins, Berry bushes, **Trees**, Water sources: counted from the map's own
   objects as they are now, edits included, so an opened file or a real place is counted as the generator's maps are;
@@ -1396,10 +1405,14 @@ checks dot counts; every other row is information under Good to know, worded as 
   - **Exact on heightfield terrain**, which covers every generated map. **A map with caves or overhangs** (an
     import's tunnels and overhang bridges, D120, D280, or a hollow the Block tool or Erode made on any map,
     #435) is simulated too, on every water column, by the
-    stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit the
-    last water stays on show while the canonical settle runs in the background, in slices, on several threads
-    where the page has them (`sim/stackParallel.ts`, the same bytes as one), the dot saying "Settling…", and the
-    water shows when it is done (no live water on such a map). An edit that leaves the water provably as it
+    stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit its
+    water flows live, as a plain map's does (D99, D197): the last water (or the water still in flight) is carried
+    over to the new columns and run on by the stacked engine a few ticks at a time, every column of it, the page
+    playing its frames as a journey, and a stroke's water flows while it is painted, each tile's top reshaped as
+    the brush shapes it (`sim/stackLive.ts` `StackLive`, `carryStack`; src/worker/session.ts `kickStack`,
+    `draftStack`). That water is only shown: the map keeps the last settle carried over until the canonical
+    settle, run in the background in slices, on several threads where the page has them (`sim/stackParallel.ts`,
+    the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
     was settles at once (D453): the changed tiles lie more than five tiles from every column the last settle
     ever wet and from every source, with the same objects and the same pre-fill elsewhere, so the last settle
     is the new one, the same bytes (`settledAgain`); Erode and Export then wait for nothing. The file gets the settle
@@ -1469,7 +1482,7 @@ checks dot counts; every other row is information under Good to know, worded as 
     its water), so their water drains away as part of the edit's own journey (within about a second on 128² and
     two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. **The sources' labels** (Markers, a picked source, the pointer) are placed by `editor/sources/labelLayout.ts`, a plain function of where each source stands on the screen and what the page has open over the map: a label never stands on another or on a panel (it is nudged to the nearest free spot), a source behind a panel or outside the view has none, and a label with no room left merges into the nearest of its kind ("3 sources, 1.5 water/s", never badwater with clean water), the way a group of sources already does. Markers' wall ledges are **Wall levels**; **Lines** is the view switch for a line at every level. A stored
     lake keeps its water only while its hollow holds it. The preview's water once it stops matches the canonical
-    settle's (a map with caves or overhangs has no preview: the canonical settle itself, in the background).
+    settle's (a map with caves or overhangs has no preview but its own live water, the stacked engine run by `kickStack` and `draftStack`, D280 as amended by #606: shown only, replaced byte for byte by the canonical settle in the background).
   - **No water from nowhere** (D385): a hollow dug where no source's water and no water already there reaches
     stays dry on every path (the instant answer, the stroke's live water, the background settle, the canonical
     settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the
