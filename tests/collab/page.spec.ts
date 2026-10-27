@@ -156,6 +156,20 @@ test("invite and join with names, edits from both sides on both maps, the other'
     await guest.page.evaluate(() => window.dgmEditor!.idle());
     expect((await info(guest.page)).W).toBe(64);
     await expect.poll(() => land(guest.page), { timeout: 60_000 }).toBe(await land(host.page));
+
+    // where the header is full (under 1,340px) Together's button is not there: File wears the other player's dot and its
+    // Together… entry opens the same panel
+    await host.page.setViewportSize({ width: 1280, height: 800 });
+    const bar = host.page.locator("header.editor-bar");
+    await expect(together(host.page)).toBeHidden();
+    await expect(bar.locator(".file-together-dot.who-guest")).toBeVisible();
+    await bar.getByRole("button", { name: "File", exact: true }).click();
+    await host.page.getByRole("menuitem", { name: "Together…" }).click();
+    await expect(panel(host.page)).toContainText("Bo");
+    await host.page.keyboard.press("Escape");
+    await host.page.setViewportSize({ width: 1440, height: 900 });
+    await expect(together(host.page)).toBeVisible();
+    await expect(bar.locator(".file-together-dot")).toBeHidden();
   }
 });
 

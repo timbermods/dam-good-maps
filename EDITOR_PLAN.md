@@ -158,8 +158,10 @@ place of its bottom rule.
   the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
-  (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide, and below about 1,340px wide the Look button reads just "Look" to make room; tooltip "Edit this
-  map with someone else"), opens a small panel under it. **Alone:** the player's name (a field, kept in this browser,
+  (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide; tooltip
+  "Edit this map with someone else"). Below about 1,340px wide the Look button reads just "Look" and the button leaves the
+  header for **Together…** in File's menu (the same tooltip), File wearing the other player's dot while a session is live, so
+  the longest name still fits two lines at 1280 under a wide font. It opens a small panel under it (from File's entry it hangs under the right group's edge). **Alone:** the player's name (a field, kept in this browser,
   "Player" by default), **Invite** (makes a room code and shows it large with **Copy** and "Waiting for them to
   join…", **Cancel** takes it back), and a code field with **Join**. **Live:** the two players, each with their colour
   swatch, **Go to <name>** (the camera glides to where they are looking; never automatic, brief §6) and **Leave**.

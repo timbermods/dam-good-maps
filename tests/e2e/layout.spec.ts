@@ -517,6 +517,56 @@ test("a rename typed back to the old name while the first is still on its way is
   await expect(title).toHaveText(first);
 });
 
+// The longest name under CI's header (2026-10-26: "Where the Long Winding River M" cut at 1280 on CI). CI draws in software, so
+// the header has no Look button, and its font (DejaVu Sans) is wider than Segoe UI: every header button is wider, and the
+// title was left some 108px between the groups. Verdana, which a Windows machine has, gives the same widths (Map Generator
+// 176px, History at 621px, a title room of 108px at 1280); where it isn't installed the page falls back to the machine's own
+// wide sans. Together's button leaves the header under 1,340px for File's Together… entry, and the small title scales like
+// the labels, so the 30-character floor name shows in full in two lines.
+for (const [w, h] of [[1280, 800], [1300, 900]] as [number, number][]) {
+  test(`at ${w}×${h}: under a wide font and with no Look button, the longest name keeps its floor and shows in full in two lines`, async ({ page }) => {
+    test.setTimeout(300_000);
+    await page.addInitScript(() => {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(`html, body, button, input, textarea, select { font-family: Verdana, "DejaVu Sans", sans-serif !important; }
+        .editor-actions > :has(.look-words) { display: none !important; }`);
+      document.adoptedStyleSheets = [sheet];
+    });
+    await page.setViewportSize({ width: w, height: h });
+    await openEditor(page);
+    expect(await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--wide-font"))), "the font is wider than Segoe UI").toBeGreaterThan(1.02);
+    await nameFits(page, w, h);
+  });
+}
+
+// Under 1,340px the header is full: Together's button is not in it, and File's Together… entry opens the same panel.
+test("under 1,340px Together is File's entry and opens its panel; from 1,340px it is the button again", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page);
+  const header = page.locator("header.editor-bar");
+  const button = header.getByRole("button", { name: /^Together/ });
+  await expect(button).toBeHidden();
+  await header.getByRole("button", { name: "File", exact: true }).click();
+  const entry = page.getByRole("menuitem", { name: "Together…" });
+  await expect(entry).toBeVisible();
+  await entry.click();
+  const panel = page.getByRole("dialog", { name: "Together" });
+  await expect(panel).toBeVisible();
+  // (the panel hangs under the header's right group, on the screen)
+  const actions = (await header.locator(".editor-actions").boundingBox())!;
+  const box = (await panel.boundingBox())!;
+  expect(box.x + box.width, "the panel is inside the window").toBeLessThanOrEqual(1280);
+  expect(box.y, "the panel is under the right group").toBeGreaterThanOrEqual(actions.y + actions.height);
+  expect(box.x + box.width, "the panel ends at the group's right edge").toBeCloseTo(actions.x + actions.width, 0);
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await expect(button).toBeVisible();
+  await header.getByRole("button", { name: "File", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Together…" })).toBeHidden();
+});
+
 // Nothing overlaps at any size (Kyler, 2026-10-04: the layout adjusts itself): at sizes the page isn't drawn for, the
 // band lays itself out (the water row on a second line when it can't fit), and the panels and the legend take the
 // room they have, scrolling inside only when it's short.
