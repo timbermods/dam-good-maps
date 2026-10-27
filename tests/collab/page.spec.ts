@@ -163,6 +163,19 @@ test("invite and join with names, edits from both sides on both maps, the other'
     const bar = host.page.locator("header.editor-bar");
     await expect(together(host.page)).toBeHidden();
     await expect(bar.locator(".file-together-dot.who-guest")).toBeVisible();
+    // (the dot, with its ring, is clear of the word File)
+    const clear = await bar.getByRole("button", { name: "File", exact: true }).evaluate((button) => {
+      const dot = button.querySelector(".file-together-dot")!.getBoundingClientRect();
+      const word = document.createRange();
+      word.selectNodeContents(button.querySelector(".label")!);
+      const w = word.getBoundingClientRect();
+      const ring = 2;
+      const apart = dot.left - ring >= w.right || dot.right + ring <= w.left || dot.top - ring >= w.bottom || dot.bottom + ring <= w.top;
+      const b = button.getBoundingClientRect();
+      return { apart, inside: dot.right <= b.right && dot.left >= b.left, width: Math.round(b.width) };
+    });
+    expect(clear.apart, "the dot's ring does not touch the word").toBe(true);
+    expect(clear.inside, "the dot is inside the button").toBe(true);
     await bar.getByRole("button", { name: "File", exact: true }).click();
     await host.page.getByRole("menuitem", { name: "Together…" }).click();
     await expect(panel(host.page)).toContainText("Bo");

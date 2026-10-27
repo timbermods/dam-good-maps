@@ -3650,8 +3650,17 @@
 .file-together-dot {
   position: absolute;
   top: 5px;
-  right: 5px;
+  right: 3px;
   box-shadow: 0 0 0 2px var(--panel);
+}
+
+/* the dot has its own room: the word moves left by what the dot takes on the right, so File keeps its width and the title's
+   room is the same with or without it */
+@media (max-width: 1339px) {
+  .editor-actions > .menu-wrap > .file-button.with-dot {
+    padding-left: 6px;
+    padding-right: 18px;
+  }
 }
 
 .file-together-dot.paused {

@@ -418,7 +418,8 @@ async function nameFits(page: Page, w: number, h: number) {
       await button.evaluate((e) => {
         const cs = getComputedStyle(e);
         const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
-        return e.scrollWidth <= e.clientWidth + 0.5 && e.getBoundingClientRect().height <= 2 * line + 0.5;
+        // (and never clamped to two lines with an ellipsis: all of it is there)
+        return e.scrollWidth <= e.clientWidth + 0.5 && e.scrollHeight <= e.clientHeight + 1 && e.getBoundingClientRect().height <= 2 * line + 0.5;
       }),
       `${name} in full`,
     ).toBe(true);
@@ -529,6 +530,41 @@ for (const [w, h] of [[1280, 800], [1300, 900]] as [number, number][]) {
     await openEditor(page);
     expect(await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--wide-font"))), "the font is wider than Segoe UI").toBeGreaterThan(1.02);
     await nameFits(page, w, h);
+  });
+}
+
+// A name kept at 1280 is shown whole at every wider width (the header's right group grows at 1,340 and 1,400px: Look's state,
+// Together's icon and its word): the typing limit measures the room the name will have there, under Segoe UI and under a
+// wide font with no Look button alike.
+for (const wide of [false, true]) {
+  test(`the longest name kept at 1280 is shown whole in two lines at every wider width${wide ? ", under a wide font and with no Look button" : ""}`, async ({ page }) => {
+    test.setTimeout(300_000);
+    if (wide)
+      await page.addInitScript(() => {
+        const sheet = new CSSStyleSheet();
+        sheet.replaceSync(`html, body, button, input, textarea, select { font-family: Verdana, "DejaVu Sans", sans-serif !important; }
+          .editor-actions > :has(.look-words) { display: none !important; }`);
+        document.adoptedStyleSheets = [sheet];
+      });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openEditor(page);
+    const header = page.locator("header.editor-bar");
+    await header.locator(".editor-title .title-button").click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type("Where the Long Winding River Meets Again And Again And Again");
+    const name = (await header.getByLabel("Map name").inputValue()).trim();
+    expect(name.length, "at least the floor is kept").toBeGreaterThanOrEqual(30);
+    await page.keyboard.press("Enter");
+    const button = header.locator(".editor-title .title-button");
+    await expect(button).toHaveText(name);
+    for (const w of [1280, 1339, 1340, 1366, 1399, 1400, 1440, 1920]) {
+      await page.setViewportSize({ width: w, height: 900 });
+      await page.waitForTimeout(400);
+      expect(
+        await button.evaluate((e) => e.scrollWidth <= e.clientWidth + 0.5 && e.scrollHeight <= e.clientHeight + 1 && e.getBoundingClientRect().height <= 2 * (parseFloat(getComputedStyle(e).lineHeight) || 22) + 0.5),
+        `${name} (${name.length} characters) in full at ${w}`,
+      ).toBe(true);
+    }
   });
 }
 

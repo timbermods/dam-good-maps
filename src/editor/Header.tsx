@@ -536,7 +536,7 @@ export function Header(p: HeaderProps) {
         {p.look}
         {p.together}
         <div class="menu-wrap" ref={wrap}>
-          <button type="button" class="ghost file-button" aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
+          <button type="button" class={`ghost file-button${p.togetherEntry?.other ? " with-dot" : ""}`} aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
             <span class="label">File</span>
             {p.togetherEntry?.other ? <span class={`together-dot file-together-dot who-${p.togetherEntry.role}${p.togetherEntry.paused ? " paused" : ""}`} aria-hidden="true" /> : null}
           </button>
