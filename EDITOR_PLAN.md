@@ -1412,7 +1412,10 @@ checks dot counts; every other row is information under Good to know, worded as 
     over to the new columns and run on by the stacked engine a few ticks at a time, every column of it, the page
     playing its frames as a journey, and a stroke's water flows while it is painted, each tile's top reshaped as
     the brush shapes it (`sim/stackLive.ts` `StackLive`, `carryStack`; src/worker/session.ts `kickStack`,
-    `draftStack`). That water is only shown: the map keeps the last settle carried over until the canonical
+    `draftStack`). A force's own water flows there too while it plays (D371; `startForceStack`): the engine is
+    built again on the land and objects each frame shows (Erode's voxels included), a carve's front walls its course
+    until the cut reaches it, and kept, the map's water flows on from it (a Slide's water stays where it stood rather
+    than riding its block). That water is only shown: the map keeps the last settle carried over until the canonical
     settle, run in the background in slices, on several threads where the page has them (`sim/stackParallel.ts`,
     the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
     was settles at once (D453): the changed tiles lie more than five tiles from every column the last settle
