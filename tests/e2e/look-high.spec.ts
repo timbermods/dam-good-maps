@@ -13,6 +13,10 @@ import { openEditor, waitForEditor, topDown } from "./open";
 // the automatic choice, not the Standard look the other tests hold (playwright.config.ts)
 test.use({ storageState: { cookies: [], origins: [] } });
 
+// (its tests stand alone: they run in parallel, so the browser shards and their two workers share them; one worker
+// running them all in a row took a shard past its 30 minutes)
+test.describe.configure({ mode: "parallel" });
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true, limits: { window: 8, strikes: 2, grace: 400 }, cost: 6 };
