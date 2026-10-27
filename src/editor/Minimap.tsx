@@ -25,9 +25,10 @@ export function Minimap(p: MinimapProps) {
   const { w, h } = minimapSize(p.W, p.H);
 
   // the picture: one pixel a tile, north up, drawn when the page is idle. The land's colours are kept while the land is
-  // the same (most draws, as the water flows, only put the water on them again)
+  // the same, and so are the pixels the water hasn't moved on: as the water flows, a draw shades and puts only the rows
+  // it changed (a 256² flood shaded the whole map at every settle, D453)
   const ground = useRef<{ heights: Uint8Array; shade: Float64Array } | null>(null);
-  const image = useRef<ImageData | null>(null);
+  const image = useRef<{ data: ImageData; shown: Float64Array } | null>(null);
   useEffect(() => {
     let live = true;
     const draw = () => {
@@ -35,13 +36,17 @@ export function Minimap(p: MinimapProps) {
       const c = canvas.current;
       const ctx = c?.getContext("2d");
       if (!c || !ctx) return;
+      let img = image.current;
+      if (!img || img.data.width !== p.W || img.data.height !== p.H) image.current = img = { data: ctx.createImageData(p.W, p.H), shown: new Float64Array(p.W * p.H).fill(NaN) };
       const heights = p.heights();
       let g = ground.current;
-      if (!g || !sameLand(g.heights, heights)) ground.current = g = { heights: heights.slice(), shade: groundShade(heights, p.W, p.H) };
-      let img = image.current;
-      if (!img || img.width !== p.W || img.height !== p.H) image.current = img = ctx.createImageData(p.W, p.H);
-      shadeRgba(g.shade, p.W, p.H, p.depth(), img.data);
-      ctx.putImageData(img, 0, 0);
+      if (!g || !sameLand(g.heights, heights)) {
+        ground.current = g = { heights: heights.slice(), shade: groundShade(heights, p.W, p.H) };
+        // (new land: every pixel is shaded again)
+        img.shown.fill(NaN);
+      }
+      const rows = shadeRgba(g.shade, p.W, p.H, p.depth(), img.shown, img.data.data);
+      if (rows) ctx.putImageData(img.data, 0, 0, 0, rows.y0, p.W, rows.y1 - rows.y0);
     };
     const idle = typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(draw, { timeout: 1500 }) : window.setTimeout(draw, 200);
     return () => {
@@ -50,6 +55,13 @@ export function Minimap(p: MinimapProps) {
       else clearTimeout(idle);
     };
   }, [p.stamp, p.W, p.H]);
+  // (a canvas the browser let go of comes back blank: its next draw puts every pixel again)
+  useEffect(() => {
+    const c = canvas.current;
+    const again = () => void image.current?.shown.fill(NaN);
+    c?.addEventListener("contextrestored", again);
+    return () => c?.removeEventListener("contextrestored", again);
+  }, []);
 
   // the view reads its height from --minimap-h: the readout and the coordinates stand on it (Layout 2)
   const box = useRef<HTMLDivElement>(null);

@@ -37,7 +37,7 @@ import type { GenerateResponse, GenProgress } from "../worker/api";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { EditorProps, MapPicture, ResizeCarry } from "../editor/Editor";
 import type { LoadingFrameProps } from "../editor/LoadingFrame";
-import { thumbnailPixels } from "../core/render/thumb";
+import { thumbnailMaker } from "./thumbnails";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
@@ -148,19 +148,13 @@ function noteCurrent(id: string, link: string): void {
 /** A row of Your maps: the name and the map's dimensions. */
 const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size, thumbnail: e.thumbnail, ...(e.parent ? { parent: e.parent } : {}) });
 
-/** Your maps' picture of a map (D234): the core's 64px top-down thumbnail (`thumbnailPixels`), as a PNG. */
-function thumbnailUrl(m: MapPicture): string | null {
-  try {
-    const t = thumbnailPixels(m.heights, m.W, m.H, m.water);
-    const c = document.createElement("canvas");
-    c.width = t.w;
-    c.height = t.h;
-    c.getContext("2d")!.putImageData(new ImageData(t.rgba, t.w, t.h), 0, 0);
-    return c.toDataURL("image/png");
-  } catch {
-    return null;
-  }
-}
+/** Your maps' picture of a map (D234): the core's top-down thumbnail as a PNG, made in a worker of its own
+ *  (`thumbnail.worker.ts`), or null when the worker can't make it in time (`thumbnails.ts`). */
+const thumbnailUrl = thumbnailMaker(() => new Worker(new URL("./thumbnail.worker.ts", import.meta.url), { type: "module", name: "thumbnail" }));
+
+/** When the page is next idle (or `ms` from now at the latest). */
+const whenIdle = (ms: number) =>
+  new Promise<void>((go) => (typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(() => go(), { timeout: ms }) : setTimeout(go, 0)));
 
 /** Where an opened map comes from: a row of Your maps keeps its id and name; anything else is a new row. */
 /** Where an open map comes from: a row of Your maps (`kept` false: a map Cancel brings back that was never kept), or a
@@ -384,11 +378,16 @@ export function App() {
     // edits already made go in first, and its version is the worker's)
     const of = entry.current!;
     await pendingEdits.current?.();
-    // (the picture in a task of its own, never stacked on the edit or the water that just went in)
-    await new Promise((go) => setTimeout(go));
-    const pic = picture.current?.();
-    const thumbnail = (pic && thumbnailUrl(pic)) ?? of.thumbnail;
-    const p = await generator.project(6);
+    // (the picture when the page is idle, never stacked on the edit or the water that just went in, while the worker
+    // writes the project)
+    const [p, made] = await Promise.all([
+      generator.project(6),
+      whenIdle(250).then(() => {
+        const pic = picture.current?.();
+        return pic ? thumbnailUrl(pic) : null;
+      }),
+    ]);
+    const thumbnail = made ?? of.thumbnail;
     // (its name and size from the worker and the page, so the save never unzips the project to read them)
     const info = infoRef.current;
     const size = of.size ?? (info ? { w: info.W, h: info.H } : undefined);
@@ -613,9 +612,10 @@ export function App() {
       // (a version's name is given, never asked: chosen as the map is stored, when Your maps already holds it it is numbered, as
       // saved files are; the build above takes a while, and one kept or branched meanwhile must be seen. One at a time here, so two
       // finishing together don't both see the name free)
+      const thumbnail = picture ? thumbnailUrl(picture) : null;
       const stored = keepStore.current.then(async () => {
         const name = numberedName(v.name, (await yourMaps.list().catch(() => maps)).map((m) => m.name));
-        const e: YourMapEntry = { id: newId(), name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: picture ? thumbnailUrl(picture) : null, revision: 1, savedToTimberborn: null, bytes: bytes.length, size: v.size, parent: v.parent };
+        const e: YourMapEntry = { id: newId(), name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: await thumbnail, revision: 1, savedToTimberborn: null, bytes: bytes.length, size: v.size, parent: v.parent };
         return { e, r: await yourMaps.put(e, bytes, null) };
       });
       keepStore.current = stored.then(() => undefined, () => undefined);
