@@ -8,6 +8,7 @@
 // pop of a placed plant and following painted ground work as they do for today's models.
 
 import { BufferGeometry, Color, InstancedBufferAttribute, InstancedMesh, Matrix4, Vector3, type Camera, type Object3D, type ShaderMaterial } from "three";
+import { whenIdle } from "../idle";
 import { DEAD, YOUNG, type EntityView } from "../model";
 import { model, noise, placement, registry, species, type Detail, type Species } from "./models";
 
@@ -35,6 +36,21 @@ function shape(name: Species, variant: number, detail: Detail, dead: boolean): B
   return g;
 }
 
+/** The plants' models the forest may yet need, not made yet (a living species' dead models: water drowns plants),
+ *  each as a job for the page to do when idle (renderer `modelsAhead`). */
+export function shapesAhead(view: EntityView): (() => void)[] {
+  const out: (() => void)[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < view.count; i++) {
+    const name = view.templates[view.template[i]];
+    if (!isPlant(name) || view.flags[i] & DEAD || seen.has(name)) continue;
+    seen.add(name);
+    for (const detail of ["near", "far"] as const)
+      for (let v = 0; v < (detail === "near" ? 3 : 1); v++) if (!cache.has(`${name}.${v}.${detail}.true`)) out.push(() => void shape(name, v, detail, true));
+  }
+  return out;
+}
+
 /** A batch's own geometry: the shared model's attributes, and its own instance data. */
 function batchGeometry(base: BufferGeometry, n: number): BufferGeometry {
   const g = new BufferGeometry();
@@ -48,6 +64,8 @@ function batchGeometry(base: BufferGeometry, n: number): BufferGeometry {
 
 interface Entry {
   index: number;
+  /** Young (drawn smaller) in the view the forest was made from (`reindex`). */
+  young: boolean;
   species: Species;
   dead: boolean;
   variant: number;
@@ -112,6 +130,7 @@ export class Forest {
       m.setPosition(x + 0.5 + p.dx, z, -y - 0.5 + p.dz);
       pending.push({
         index: i,
+        young: !!(view.flags[i] & YOUNG),
         species: name,
         dead,
         variant: p.variant,
@@ -154,6 +173,32 @@ export class Forest {
           this.parent.add(mesh);
         }
       }
+  }
+
+  /** The same plants as the forest was made from, in the same order, numbered as `view` numbers them (objects put in
+   *  or taken out among them move the plants' numbers): the batches' bookkeeping follows, nothing else is made again
+   *  (a plant that died or came back since: `setDead`). False, with nothing changed, when the plants differ. */
+  reindex(view: EntityView): boolean {
+    const index: number[] = [];
+    for (let i = 0; i < view.count; i++) if (isPlant(view.templates[view.template[i]])) index.push(i);
+    if (index.length !== this.entries.length) return false;
+    for (let j = 0; j < index.length; j++) {
+      const e = this.entries[j];
+      const i = index[j];
+      if (view.templates[view.template[i]] !== e.species || view.x[i] !== e.tx || view.y[i] !== e.ty || view.z[i] !== e.y || !!(view.flags[i] & YOUNG) !== e.young) return false;
+    }
+    if (this.entries.every((e, j) => e.index === index[j])) return true;
+    this.entries.forEach((e, j) => (e.index = index[j]));
+    // (each instance's object, laid out as `layout` lays them)
+    const slot = new Map<InstancedMesh, number>();
+    for (const e of this.entries) {
+      const mesh = e.near ? e.nearBatch : e.farBatch;
+      const i = slot.get(mesh) ?? 0;
+      slot.set(mesh, i + 1);
+      (mesh.userData.objects as Int32Array)[i] = e.index;
+      (mesh.userData.follows as Int32Array)[i] = e.index;
+    }
+    return true;
   }
 
   /** Plants change state in place (the Weather view's withering): each plant whose DEAD flag differs from the one it is
@@ -252,9 +297,12 @@ export class Forest {
     for (const mesh of this.meshes) {
       mesh.removeFromParent();
       // (the models' own attributes are shared with other batches: three.js uploads them again for
-      // a batch still drawn)
-      mesh.geometry.dispose();
-      mesh.dispose();
+      // a batch still drawn; the GPU buffers let go when the page has a moment, as each one put away searches all of
+      // three.js's state)
+      whenIdle(() => {
+        mesh.geometry.dispose();
+        mesh.dispose();
+      });
     }
     this.meshes.length = 0;
   }

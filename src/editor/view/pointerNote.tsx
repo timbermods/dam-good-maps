@@ -76,36 +76,102 @@ export function placeNote(
     const at = { x0: p.x, y0: p.y, x1: p.x + w, y1: p.y + h };
     return w * h - area(at, inner) + inflated.reduce((sum, b) => sum + area(at, b), 0);
   };
-  const touchesPointer = (p: { x: number; y: number }) => p.x < pointer.x + FROM_POINTER && p.x + w > pointer.x - FROM_POINTER && p.y < pointer.y + FROM_POINTER && p.y + h > pointer.y - FROM_POINTER;
-  const distance = (p: { x: number; y: number }) => Math.hypot(p.x + w / 2 - pointer.x, p.y + h / 2 - pointer.y);
   for (const p of wishes) {
     const cost = costAt(p);
     if (cost === 0) return p;
     if (cost < least) [best, least] = [p, cost];
   }
-  // (no wish is clear: every clear spot of the free view, so a note near the foot of a narrow gap goes wherever there
-  // is room, however far)
-  const clear: { p: { x: number; y: number }; d: number }[] = [];
-  let nearest = Infinity;
-  for (let y = inner.y0; y + h <= inner.y1; y += SCAN) {
-    for (let x = inner.x0; x + w <= inner.x1; x += SCAN) {
-      const p = { x, y };
-      if (touchesPointer(p) || costAt(p) !== 0) continue;
-      const d = distance(p);
-      clear.push({ p, d });
-      if (d < nearest) nearest = d;
+  // (no wish is clear: the clear spots of the free view, so a note near the foot of a narrow gap goes wherever there is
+  // room, however far. The spots are a grid of SCAN px, a spot clear when it is the same box as a whole one inside the
+  // view, off the pointer and over no control: found without trying every spot, nearest the pointer first)
+  const xs: number[] = [];
+  for (let x = inner.x0; x + w <= inner.x1; x += SCAN) xs.push(x);
+  const ys: number[] = [];
+  for (let y = inner.y0; y + h <= inner.y1; y += SCAN) ys.push(y);
+  if (xs.length && ys.length) {
+    const wh = w * h;
+    const across = xs.map((x) => x + w - x);
+    const down = ys.map((y) => y + h - y);
+    // (per row, the controls in its way as [left, right, ...]: made when the row is first looked at)
+    const rows: (number[] | undefined)[] = new Array(ys.length);
+    const inWay = (j: number) => {
+      let list = rows[j];
+      if (!list) {
+        list = [];
+        const y = ys[j];
+        for (const b of inflated) if (y < b.y1 && y + h > b.y0) list.push(b.x0, b.x1);
+        rows[j] = list;
+      }
+      return list;
+    };
+    const clearAt = (k: number, j: number) => {
+      const x = xs[k];
+      const y = ys[j];
+      if (x < pointer.x + FROM_POINTER && x + w > pointer.x - FROM_POINTER && y < pointer.y + FROM_POINTER && y + h > pointer.y - FROM_POINTER) return false;
+      if (wh !== across[k] * down[j]) return false;
+      const list = inWay(j);
+      for (let i = 0; i < list.length; i += 2) if (x < list[i + 1] && x + w > list[i]) return false;
+      return true;
+    };
+    const dyOf = (j: number) => ys[j] + h / 2 - pointer.y;
+    // the grid column whose spot is centred nearest the pointer's x
+    const centre = Math.min(xs.length - 1, Math.max(0, Math.round((pointer.x - w / 2 - xs[0]) / SCAN)));
+    // 1. the nearest clear spot: rows from the pointer's own outward, each searched outward from the centre column, and
+    // all of it stopped as soon as nothing farther out can be nearer
+    let nearest = Infinity;
+    // (the rows centred at or above the pointer's y are searched upward from the last of them, the rest downward, so each
+    // side's rows only ever get farther)
+    let up = Math.min(ys.length - 1, Math.max(0, Math.round((pointer.y - h / 2 - ys[0]) / SCAN)));
+    while (up >= 0 && dyOf(up) > 0) up--;
+    while (up + 1 < ys.length && dyOf(up + 1) <= 0) up++;
+    let downward = up + 1;
+    while (up >= 0 || downward < ys.length) {
+      const goUp = up >= 0 && (downward >= ys.length || Math.abs(dyOf(up)) <= Math.abs(dyOf(downward)));
+      const j = goUp ? up-- : downward++;
+      const dy = dyOf(j);
+      if (Math.abs(dy) > nearest) {
+        // (this row and every one beyond it on its side are farther; the other side may still hold a nearer one)
+        if (goUp) up = -1;
+        else downward = ys.length;
+        continue;
+      }
+      for (let m = 0; ; m++) {
+        const left = centre - m;
+        const right = centre + m;
+        let reach = false;
+        for (const k of m === 0 ? [left] : [left, right]) {
+          if (k < 0 || k >= xs.length) continue;
+          const dx = xs[k] + w / 2 - pointer.x;
+          if (Math.abs(dx) <= nearest) reach = true;
+          if (Math.abs(dx) > nearest || !clearAt(k, j)) continue;
+          const d = Math.hypot(dx, dy);
+          if (d < nearest) nearest = d;
+        }
+        if ((left < 0 && right >= xs.length) || (!reach && nearest < Infinity)) break;
+      }
     }
-  }
-  if (clear.length) {
-    const kept = previous ? { x: pointer.x + previous.dx, y: pointer.y + previous.dy } : null;
-    let pick = clear[0];
-    let apart = Infinity;
-    for (const c of clear) {
-      if (c.d > nearest + NEAR) continue;
-      const a = kept ? Math.hypot(c.p.x - kept.x, c.p.y - kept.y) : c.d;
-      if (a < apart) [pick, apart] = [c, a];
+    if (nearest < Infinity) {
+      // 2. of the clear spots within NEAR of the nearest, the one nearest the kept place (else the pointer), the first in
+      // reading order among equals
+      const kept = previous ? { x: pointer.x + previous.dx, y: pointer.y + previous.dy } : null;
+      const reach = nearest + NEAR;
+      const from = Math.max(0, Math.floor((pointer.x - w / 2 - reach - xs[0]) / SCAN) - 1);
+      const to = Math.min(xs.length - 1, Math.ceil((pointer.x - w / 2 + reach - xs[0]) / SCAN) + 1);
+      let pick: { x: number; y: number } | null = null;
+      let apart = Infinity;
+      for (let j = 0; j < ys.length; j++) {
+        const dy = dyOf(j);
+        if (Math.abs(dy) > reach) continue;
+        for (let k = from; k <= to; k++) {
+          if (!clearAt(k, j)) continue;
+          const d = Math.hypot(xs[k] + w / 2 - pointer.x, dy);
+          if (d > reach) continue;
+          const a = kept ? Math.hypot(xs[k] - kept.x, ys[j] - kept.y) : d;
+          if (a < apart) [pick, apart] = [{ x: xs[k], y: ys[j] }, a];
+        }
+      }
+      if (pick) return pick;
     }
-    return pick.p;
   }
   return { x: Math.max(inner.x0, Math.min(inner.x1 - w, best.x)), y: Math.max(inner.y0, Math.min(inner.y1 - h, best.y)) };
 }

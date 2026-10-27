@@ -6,13 +6,13 @@
 // High and back when it isn't; the Standard materials are never touched, so the Standard look stays
 // exactly as it was. Every effect is a switch (effects.ts).
 
-import { Color, DataTexture, NearestFilter, RGBAFormat, UnsignedByteType, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
+import { Color, DataTexture, type BufferGeometry, NearestFilter, RGBAFormat, UnsignedByteType, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
 import { fallMaterial, objectMaterial, skyMaterial, terrainMaterial, waterMaterial, type SceneUniforms } from "../materials";
 import type { EntityView, SurfaceWater } from "../model";
 import { allEffects, effectiveEffects, type HighEffects } from "./effects";
 import { AmbientField, type Baker } from "./fields";
-import { Forest, replacedBatch } from "./forest";
-import { buildLandmarks, disposeLandmarks, type Replacement } from "./landmarks";
+import { Forest, replacedBatch, shapesAhead } from "./forest";
+import { buildLandmarks, disposeLandmarks, landmarkAhead, type Replacement } from "./landmarks";
 import { Mist } from "./mist";
 import { paletteDefaults, slots } from "./models";
 import { fallHooks, landmarkHooks, objectHooks, skyHooks, slopeHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks, type Switch } from "./shaders";
@@ -302,15 +302,18 @@ export class HighLook {
   /** The objects the renderer built for the map (buildEntities' group): the new trees and the
    *  landmarks go in beside today's, which hide while they show. */
   objectsBuilt(group: Group, entities: EntityView): void {
-    // (the same plants as before: the forest stays, only the landmarks follow the new batches)
-    const sig = plantSignature(entities);
-    const keep = !!this.forest && sig === this.plants;
+    // (the same plants as before: the forest stays, numbered as the new objects number them; only the landmarks follow
+    // the new batches; the renderer then marks the plants a held day withers, `setPlantsDead`)
+    const keep = !!this.forest && this.forest.reindex(entities);
+    // (plants that died or came back, as when water drowns them: moved to the other state's batches in place)
+    if (keep) this.forest!.setDead(entities.flags);
+    const kept = this.keptLandmarks;
+    this.keptLandmarks = [];
     this.releaseObjects();
     if (!keep) {
       this.forest?.dispose();
       this.forest = new Forest(entities, this.vegetation);
       this.forest.setGroundOffset((x, y) => this.host.groundOffset(x, y));
-      this.plants = sig;
     }
     this.objects = group;
     const forest = this.forest!;
@@ -319,12 +322,18 @@ export class HighLook {
       m.renderOrder = 1;
       group.add(m);
     }
-    this.landmarks = buildLandmarks(group, entities, this.landmark, this.slope);
+    this.landmarks = buildLandmarks(group, entities, this.landmark, this.slope, kept);
     for (const { fresh } of this.landmarks) group.add(fresh);
     this.showObjects();
     if (this.map) this.ambient?.objects(this.map.heights, entities);
     this.stats.landmarks = this.landmarks.length;
     this.shadows.dirty = true;
+  }
+
+  /** The models this look may yet draw the map's objects with, as jobs for the page to do when idle: the forest's dead
+   *  models, and the landmark of each ruin batch `ahead` names (with its model). */
+  modelsAhead(entities: EntityView, ahead: readonly { key: string; model: () => BufferGeometry }[]): (() => void)[] {
+    return [...shapesAhead(entities), ...ahead.map(({ key, model }) => () => landmarkAhead(key, model()))];
   }
 
   /** Plants change state in place (the Weather view's withering): the plants whose DEAD flag differs move to the other
@@ -378,19 +387,23 @@ export class HighLook {
     this.releaseObjects();
     this.forest?.dispose();
     this.forest = null;
-    this.plants = "";
   }
 
-  private plants = "";
-
   /** The renderer is about to put its objects away (new ones follow): the High models leave its
-   *  group first, the forest kept for the next if its plants are the same. */
-  releaseObjects(): void {
+   *  group first, the forest kept for the next if its plants are the same. `next`: the group the new objects are in, with
+   *  the batches the renderer kept as they were; their landmarks are kept for `objectsBuilt`. */
+  releaseObjects(next?: Group): void {
     for (const m of this.forest?.meshes ?? []) m.removeFromParent();
-    disposeLandmarks(this.landmarks);
+    disposeLandmarks(this.keptLandmarks);
+    const kept = next ? this.landmarks.filter((r) => r.old.parent === next) : [];
+    for (const r of kept) r.fresh.removeFromParent();
+    disposeLandmarks(this.landmarks.filter((r) => !kept.includes(r)));
+    this.keptLandmarks = kept;
     this.landmarks = [];
     this.objects = null;
   }
+  /** Landmarks of batches the renderer kept, between `releaseObjects` and `objectsBuilt`. */
+  private keptLandmarks: Replacement[] = [];
 
   /** The terrain changed round a rectangle (or all of it): the ambient occlusion there, the
    *  shadows. */
@@ -488,20 +501,6 @@ export class HighLook {
     this.seasonTexture?.dispose();
     for (const m of this.allMaterials()) m.dispose();
   }
-}
-
-/** The plants of a view (and where each is in its list), as a string that changes when any of them
- *  does. */
-function plantSignature(e: EntityView): string {
-  let h = 2166136261;
-  let n = 0;
-  for (let k = 0; k < e.count; k++) {
-    const t = e.templates[e.template[k]];
-    if (!replacedBatch(t)) continue;
-    n++;
-    for (const v of [k, t.length, t.charCodeAt(0), e.x[k], e.y[k], e.z[k], e.flags[k]]) h = Math.imul(h ^ v, 16777619);
-  }
-  return `${n}:${h >>> 0}`;
 }
 
 function hexColour(hex: string): Color {

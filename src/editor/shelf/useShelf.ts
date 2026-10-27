@@ -126,9 +126,8 @@ export function useShelf(ed: Ed): ShelfSlice {
     const item = shelfRef.current;
     const r = renderer.current;
     if (!item || !r) return;
-    // (what is painted stands on the tile's top: the `paintObjects` operation names no level yet, so a plant's ghost
-    // stays where the stroke plants it)
-    const level = item.paint ? undefined : aim ? aim.level : shelfTile.current?.[0] === x && shelfTile.current[1] === y ? shelfLevel.current : undefined;
+    // (what is painted is checked at the level aimed at too: the stroke plants on that floor, D491)
+    const level = aim ? aim.level : shelfTile.current?.[0] === x && shelfTile.current[1] === y ? shelfLevel.current : undefined;
     const aimedBefore = shelfLevel.current;
     shelfTile.current = [x, y];
     shelfLevel.current = level;
@@ -143,7 +142,8 @@ export function useShelf(ed: Ed): ShelfSlice {
       const [cx, cy] = cornerFor(x, y, o);
       const door = startEntranceTile(cx, cy, o);
       const f = s.feature ? info.features.find((g) => g.id === s.feature) : undefined;
-      const bench = f && f.kind === "start" ? { level: Math.max(1, h[y * W + x]), radius: f.params.benchRadius } : null;
+      // (aimed at a level under a roof the start has no bench, and the core's check answers alone: D342, D491)
+      const bench = f && f.kind === "start" && level === undefined ? { level: Math.max(1, h[y * W + x]), radius: f.params.benchRadius } : null;
       const tiles = startTiles(x, y);
       const own = [...tiles, ...(door[0] >= 0 && door[1] >= 0 && door[0] < W && door[1] < info.H ? [door[1] * W + door[0]] : [])];
       const job = ++shelfStartJob.current;
@@ -151,7 +151,7 @@ export function useShelf(ed: Ed): ShelfSlice {
       // (on a cave or an overhang the core answers, once a spot: the start stays on open ground, D491)
       const roofed = level !== undefined || startRoofed(ed.columnsRef.current, W, info.H, x, y);
       const roof = roofed && startRoof.current?.spot === spot && startRoof.current.version === info.version ? startRoof.current.problem : null;
-      const problem = startProblemAt(ctx(), x, y, door, bench, s.owner) ?? roof;
+      const problem = level !== undefined ? roof : (startProblemAt(ctx(), x, y, door, bench, s.owner) ?? roof);
       shownFit.current = { spot, problem };
       // (it fits but the checks would flag it: amber with the first warning, and no "Move the start here", D361)
       const warning = problem ? null : (startFitWarnings(startExtras(), W, info.H, x, y)[0] ?? null);
@@ -245,8 +245,7 @@ export function useShelf(ed: Ed): ShelfSlice {
   function placeShelf(x: number, y: number, aimed?: number) {
     const item = shelfRef.current;
     if (!item) return;
-    // (a plant stands on the tile's top, where its ghost shows: see shelfHover)
-    const level = item.paint ? undefined : aimed;
+    const level = aimed;
     // (refused: the reason is beside the pointer already, once; a check of another spot (the tile the pointer was
     // over before, its own check still in flight) or left from the object held before is not this one's: the core
     // checks the placement itself)
@@ -260,7 +259,8 @@ export function useShelf(ed: Ed): ShelfSlice {
       const [cx, cy] = cornerFor(x, y, o);
       const move = () =>
         void run(
-          () => api.moveStartTo(x, y, o),
+          // (the level aimed at under a roof; else the tile's top, which also brings a start out from under one: D491)
+          () => api.moveStartTo(x, y, o, level ?? mirror.current.heights[y * info.W + x]),
           (u) => {
             if (!u.ok) return;
             feel("place", cx, cy, 1, false, "StartingLocation");
@@ -277,7 +277,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     }
     if (item.source) return placeSource(item.source === "bad", x, y, level);
     // (Mixed woods has no object of its own: a click plants one of its mix there)
-    if (item.paint === "woods") return plantShelf([y * info.W + x], 1);
+    if (item.paint === "woods") return plantShelf([y * info.W + x], 1, level);
     const template = templateOf(item, shelfOptionsRef.current);
     const o = ORIENTATION_NAMES[turnRef.current] as Orientation;
     const [cx, cy] = coordinatesAt(template, x, y, o);
@@ -313,7 +313,7 @@ export function useShelf(ed: Ed): ShelfSlice {
   }
   /** Trees, bushes and thorns painted by a drag (D235): the core's stroke over the tiles the brush covered, at the
    *  object window's density (and a tree's age), planted where they can grow, one step, each with its pop. */
-  function plantShelf(tiles: number[], density?: number) {
+  function plantShelf(tiles: number[], density?: number, aimed?: number) {
     const item = shelfRef.current;
     if (!item?.paint || !tiles.length) return;
     const o = shelfOptionsRef.current;
@@ -328,7 +328,8 @@ export function useShelf(ed: Ed): ShelfSlice {
       seed: paintSeed.current,
     };
     void run(
-      () => api.paintAt(params),
+      // (a stroke begun on a cave's floor or under an overhang plants at that floor; the core refuses it where nothing fits: D491)
+      () => api.paintAt(params, aimed),
       (u) => {
         const planted = (u as SessionUpdate & { planted?: number[] }).planted ?? [];
         if (!u.ok || !planted.length) return;
@@ -350,7 +351,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     // (the note follows the ring when it turns amber or back; a reason it can't grow there shows instead)
     if (warn !== dryRing.current) {
       dryRing.current = warn;
-      if (!ed.paintSizing.current) shelfWord(problemAt(item, x, y));
+      if (!ed.paintSizing.current) shelfWord(problemAt(item, x, y, shelfLevel.current));
     }
   }
   /** Whether the held plant's ring is amber now: some tile it would plant on is soil it would die on. */
@@ -408,7 +409,7 @@ export function useShelf(ed: Ed): ShelfSlice {
         setPainted(tiles);
         if (!tiles) paintSeed.current = (Math.random() * 0x7fffffff) | 0;
       },
-      plant: (tiles) => shelfCalls.current.plantShelf(tiles),
+      plant: (tiles, hit) => shelfCalls.current.plantShelf(tiles, undefined, hit ? levelOf(hit) : undefined),
     });
     r.tool = t;
     // (the pointer resting on the map: the ghost shows there at once, on the tile's top until the pointer moves)
