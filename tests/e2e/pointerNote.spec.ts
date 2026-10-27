@@ -244,9 +244,7 @@ for (const size of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }]
     // (the pointer put away from the map, so no hover answers over the note the sweep sets)
     await page.mouse.move(size.width / 2, 8);
     const ys: number[] = [];
-    // (down to the bar's top: below it the foot of the gap leaves only a strip a note's height or two tall, where the note forces its own
-    // flips with the view's edge, a pair within a few pixels of the pointer's way that no placement can avoid)
-    for (let y = 200; y <= Math.min(size.height - 10, toolbar.top); y += 8) ys.push(y);
+    for (let y = 200; y <= size.height - 10; y += 8) ys.push(y);
     const path = await sweep(page, ys.map((y) => [x, y] as [number, number]), "Place here");
     expect(path.every((n) => n !== null), "the note was up all along the sweep").toBe(true);
     path.forEach((note, k) => {

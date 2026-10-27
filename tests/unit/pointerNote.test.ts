@@ -118,6 +118,29 @@ describe("a note beside the pointer", () => {
       expect(at, `pointer ${open.x},${open.y}`).toEqual({ x: open.x + 16, y: open.y + 16 });
     }
   });
+  it("does not drop below the pointer for one step and back above it at the foot of the 1920 gap, where the spot above stays clear", () => {
+    // (the bar ends at x 1556, the shelf starts at 1730; the pointer goes down the gap at x 1643 to the view's foot: the corners beside it are
+    // covered, so the note takes a centred spot, and the one above is clear all the way down)
+    const big: Box = { x0: 0, y0: 0, x1: 1920, y1: 1080 };
+    const walls: Box[] = [{ x0: 1730, y0: 165, x1: 1910, y1: 1070 }, { x0: 204, y0: 892, x1: 1556, y1: 1070 }];
+    const x = 1643;
+    const small = { w: 82, h: 30 }; // ("Place here")
+    let last: { x: number; y: number } | null = null;
+    let lastY = 0;
+    let before: { x: number; y: number } | null = null;
+    for (let y = 900; y <= 1070; y += 8) {
+      const at = placeNote(null, { x, y }, small, big, walls, last && { dx: last.x - x, dy: last.y - lastY });
+      if (last) {
+        const m = { x: at.x - last.x, y: at.y - last.y };
+        if (Math.hypot(m.x, m.y) >= 40) {
+          expect(before && m.x * before.x + m.y * before.y < 0, `pointer y ${y}: a move that undoes the one before`).toBeFalsy();
+          before = m;
+        }
+      }
+      last = at;
+      lastY = y;
+    }
+  });
   it("makes no flip that undoes the one before within 48 px of the pointer's way down the gap in the 1280 scene, whatever the step", () => {
     // (1280 × 720, Block settings 194–1086 × 522–642, the page's message 381–898 × 437–478 over them, the shelf from x 1090; a note 211 × 30)
     const view: Box = { x0: 0, y0: 0, x1: 1280, y1: 720 };
