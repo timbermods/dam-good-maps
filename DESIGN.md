@@ -59,7 +59,7 @@ The rules new CSS follows, taken from [good-css.com](https://good-css.com) (2026
   34px, their words 1px larger; nothing else grows.
 - **Menus** grow from their button: `@starting-style` in, `data-closing` out (`useMenuPresence`), from 0.95 and transparent,
   `display` following with `allow-discrete`; the scaling inside the reduced-motion guard, the fade outside it.
-- **The clipping net:** tests/e2e/layout.spec.ts fails on any visible text wider than its box (scrollWidth over clientWidth by
+- **The clipping net:** tests/e2e/textClipping.spec.ts fails on any visible text wider than its box (scrollWidth over clientWidth by
   more than 1px) at 1280, 1366, 1600, 1920 and 2560, light and dark, across the main states.
 - **Not used here:** logical properties throughout, a fluid type and space scale, a content grid, `text-box` trim on the bar's
   cells, 44px hit areas. Anchor-positioned popovers (the menus and tooltips) are a later step.
