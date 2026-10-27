@@ -514,6 +514,12 @@ refinements and what the mockups left open:
   It starts one gap (10px) under the top band at both sizes and is 692px tall (its lines 27px): at 1920×1080 it ends
   11px above the coordinates over the minimap, and above the bar's settings, which reach under it there. Your maps
   and Real places take the same box.
+  **Where the window is short** (2026-10-25) the panel takes a shape that fits the room above the bar instead
+  (`src/editor/generator/panelFit.ts`): three columns, 880px wide and 509 tall (lines 26px), or 449 tall (lines 24px, the
+  hints stepping aside while it is open) at 1600×900, 1536×864 and 1440×900; two columns 640px wide and 594 tall (lines 24px)
+  where the window is too narrow for three. The title block and the groups are the same, Terrain and Hazards, Water and
+  Difficulty, Resources and On this map side by side; Showcase's sheet then takes the room it needs, its three cards in
+  a row. A window with less room than that (1280×720) scrolls the panel inside, a fade at its foot saying so.
   Every setting shows at once, nothing scrolls, each on one 27px line: its name, then a slider and its value, or a
   segmented choice (a choice too wide for the column takes room from the name; each column's sliders and values line
   up). A title block of three rows on the same line height (Kyler, 2026-10-04): the Name and the Seed, two fields one
