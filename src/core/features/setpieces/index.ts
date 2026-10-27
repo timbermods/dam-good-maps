@@ -1,31 +1,25 @@
-// Shared set-piece builders (PLAN §19.3): one module per kind, used by the generator's planner, the
-// editor's tools and Claude's proposals alike.
+// The set-piece builders (PLAN §19.3): one module per kind the generator makes (a second district's
+// site, ruins on a rise, a badwater hollow).
 // - `request` holds the hard bounds of what may be asked (a JSON Schema): outside them, rejected.
-// - `limits` publishes the ranges this map allows (PLAN §9.10).
-// - `plan` resolves a request on a map (the macro layout in generation, the current map in the
-//   editor): its anchor and footprint, every value reduced to what the map allows, and a report of
-//   every reduction, of what it clears and of every source it adds. A builder never moves the start
-//   or touches a locked region: when it would have to, the plan fails with the reason.
+// - `plan` (the second district only; the generator builds the others' plans itself) resolves a
+//   request on the map: its anchor, every value reduced to what the map allows, and a report. A
+//   builder never moves the start: when it would have to, the plan fails with the reason.
 // - `rasterize` builds the stored plan and never plans again (PLAN §19.7): a rebuild gives the same
 //   map. `check` rejects a stored plan outside the hard bounds (an operation may bring one).
+// The editor's set pieces (waterfalls, dam sites, gorges, terraced cliffs, plugged spillways and
+// natural narrows) are gone with its drawing tools (D462): a project that held one opens without it
+// (doc/document.ts `dropRetired`).
 
 import type { Orientation } from "../../format/footprints";
 import { checkSchema } from "../../spec/schema";
 import type { BuildTarget, Rect } from "../target";
 import type { Feature, Origin, SetPieceFeature, SetPieceKind } from "../schema";
 import { badwaterBasin } from "./badwaterBasin";
-import type { AchievableRanges, PlanContext, PlanOutcome, PlanRecord } from "./common";
-import { damSite } from "./damSite";
-import { gorge } from "./gorge";
-import { naturalNarrows } from "./naturalNarrows";
+import type { PlanContext, PlanOutcome, PlanRecord } from "./common";
 import { obstaclePayoff } from "./obstaclePayoff";
-import { plugSpillway } from "./plugSpillway";
 import { secondDistrict } from "./secondDistrict";
-import { terracedCliffs } from "./terracedCliffs";
-import { waterfall } from "./waterfall";
 
-export type { AchievableRanges, PlanContext, PlanOutcome, PlanRecord, PlanValue } from "./common";
-export { clampReported, flowBudget } from "./common";
+export type { PlanContext, PlanOutcome, PlanRecord, PlanValue } from "./common";
 
 /** A water source a set piece adds (build step 9), at Cw0 with its Coordinates at (x, y). */
 export interface SetPieceSource {
@@ -59,9 +53,8 @@ export interface SetPieceBuilder {
   kind: SetPieceKind;
   /** Hard bounds of a request (JSON Schema). */
   request: Record<string, unknown>;
-  limits(ctx: PlanContext, req?: PlanRecord): AchievableRanges;
-  /** Resolve a request. `id` is the feature's own id when it is planned again (an edit). */
-  plan(req: PlanRecord, ctx: PlanContext, id: string | null): PlanOutcome;
+  /** Resolve a request (the second district; the generator plans the others itself). */
+  plan?(req: PlanRecord, ctx: PlanContext): PlanOutcome;
   /** Problems of a stored plan against the hard bounds (empty when it may be built). */
   check(plan: PlanRecord, W: number, H: number): string[];
   rasterize(feature: SetPieceFeature, target: BuildTarget): void;
@@ -81,14 +74,8 @@ export interface SetPieceBuilder {
 
 export const BUILDERS: Partial<Record<SetPieceKind, SetPieceBuilder>> = {
   badwaterBasin,
-  damSite,
-  gorge,
-  naturalNarrows,
   obstaclePayoff,
-  plugSpillway,
   secondDistrict,
-  terracedCliffs,
-  waterfall,
 };
 
 /** Set-piece kinds this version builds. */
@@ -105,14 +92,13 @@ export function orientationForHigh(dx: number, dy: number): Orientation {
 export type PlannedSetPiece = { ok: true; feature: SetPieceFeature } | { ok: false; errors: string[] };
 
 /** Plan a set piece as a feature (PLAN §19.3): the request checked against the builder's hard
- *  bounds, then resolved on the map. `id` and `origin` are the feature's; an edit passes the id of
- *  the feature it plans again. */
-export function planSetPiece(kind: SetPieceKind, request: PlanRecord, ctx: PlanContext, feature: { id: string; origin: Origin; role?: string; locked?: boolean }, replanning = false): PlannedSetPiece {
+ *  bounds, then resolved on the map. `id` and `origin` are the feature's. */
+export function planSetPiece(kind: SetPieceKind, request: PlanRecord, ctx: PlanContext, feature: { id: string; origin: Origin; role?: string; locked?: boolean }): PlannedSetPiece {
   const b = BUILDERS[kind];
-  if (!b) return { ok: false, errors: [`${kind} set pieces are not built by this version`] };
+  if (!b?.plan) return { ok: false, errors: [`${kind} set pieces are not planned by this version`] };
   const errors = checkSchema(b.request, request).map((e) => `${kind}${e.path}: ${e.message}`);
   if (errors.length) return { ok: false, errors };
-  const r = b.plan(request, ctx, replanning ? feature.id : null);
+  const r = b.plan(request, ctx);
   if (!r.ok) return r;
   return {
     ok: true,

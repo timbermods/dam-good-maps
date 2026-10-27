@@ -1,5 +1,5 @@
 // The one build pipeline (PLAN §19.8): features in, terrain and entities out. Generation plans the
-// features first (gen/riverValley.ts) and then runs this; the editor runs the same code after every
+// features first (gen/generate.ts) and then runs this; the editor runs the same code after every
 // edit. It is a pure function of its input: rebuilding a saved document reproduces the map exactly
 // (PLAN §19.7).
 //
@@ -15,26 +15,35 @@
 // moisture and each resource feature are reused when their inputs are unchanged. The property
 // tests check that it equals a full build.
 
-import { coordinatesForMinCorner, footprintTiles, ORIENTATIONS, rotate, slopeHighSide, type Orientation } from "../format/footprints";
+import { coordinatesForMinCorner, FOOTPRINTS, footprintTiles, type Orientation, ORIENTATIONS, rotate, slopeHighSide, worldBlocks } from "../format/footprints";
 import { blockObject, startingLocation, waterSource, slope, type EntitySpec } from "../format/entities";
 import type { MapSpec } from "../spec/mapspec";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
-import { gameSoil } from "../sim/soil";
+import { gameSoil, stackedSoil, topRuns, type Soil } from "../sim/soil";
 import { fedTiles } from "../sim/fed";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
+import { waterColumns } from "../sim/columns";
+import { stackedModel, staleStack, stackGraph } from "../sim/stackWater";
+import { keptOnStack, unfedOwnWater } from "../sim/stackFed";
 import { previewSettle, staleWater } from "../sim/preview";
-import { composeKept, sameKeptWater, type KeptWater, type RetainedWater, type WaterModel, type WaterRules } from "../sim/water";
+import { composeKept, sameKeptWater, type KeptWater, type RetainedWater, type WaterModel } from "../sim/water";
 import { isForce } from "../forces/op";
-import { groupIds, groupTiles, placeSourceGroup, shareEqually, type GroupedSource } from "../water/sourceGroups";
+import { groupIds, groupTiles, placeSourceGroup, rowStrengths, shareEqually, type GroupedSource } from "../water/sourceGroups";
 import { hash32 } from "../math/hash";
 import { DERIVED_SLOPES, entityId, RIM_SLOPES } from "./ids";
 import { keptSlopes, placeSlopes, slopeStands, slopeTiles, SLOPE_RULES, START_CLEAR_RADIUS, type PlacedSlope, type SlopeRules } from "./slopes";
 import { BUILDERS, orientationForHigh, type SetPieceBlock, type SetPieceSource } from "./setpieces";
 import { applyEntityEdits, applySlopeEdits, entityTiles, orphansOf, type EntityEdit, type Orphan, type SlopeEdit } from "./edits";
 import {
+  applyBlocks,
+  applyHollows,
   applySculpt,
   edgeStep,
+  finalMasks,
+  isBlocks,
+  layerCave,
   integrityAt,
+  integrityLevel,
   lakeSpringTile,
   mouthTiles,
   rasterizeBench,
@@ -47,14 +56,18 @@ import {
   sculptReadsNeighbours,
   springTiles,
   terrainFootprint,
+  type BlockLayer,
   type SculptEdit,
 } from "./raster/terrain";
-import { rasterizeResource, resourceOrder, type KeptTiles, type Placed } from "./raster/resources";
-import { objectTiles, rasterizeObjects } from "./objects";
+import { isResource, rasterizeResource, resourceOrder, type KeptTiles, type Placed } from "./raster/resources";
+import { objectTiles, rasterizeObjects, standProblem } from "./objects";
 import { markBrushTiles, type BrushParams } from "./raster/brush";
 import type { DistrictPlan } from "./setpieces/secondDistrict";
 import { BuildTarget, clipRect, fullRegion, sharedFields, type FieldCache, type Rect, type TileRegion } from "./target";
 import type { Feature, MapObjectFeature, SetPieceFeature, StartFeature } from "./schema";
+import { layeredMasks, terrainUnder } from "../terrain/blocks";
+import { bottomRunTop, type ColumnTerrain } from "../terrain/runs";
+import { supportPass } from "../terrain/support";
 
 export { BuildTarget } from "./target";
 export { assignRuinHeights } from "./raster/resources";
@@ -78,9 +91,17 @@ export interface PlacedSource {
 /** An imported map (or a generation's stored base, opened by a newer generator) under the
  *  features: its surface, its caves and overhangs, and its objects. */
 export interface BaseLayer {
+  /** Its terrain as runs per tile (D119). On the tiles that are not a plain run from z = 0 only the
+   *  brushes change anything: each one's top run, never below one layer over its underside, every
+   *  run below kept exactly (D280 (3)); the features and the forces leave them as they are. Absent: a
+   *  heightfield, every tile plain. */
+  terrain?: ColumnTerrain;
+  /** Its surface, derived from the terrain (`terrain.heights()`). */
   heights: Uint8Array;
-  /** Columns that are not a plain run from z = 0: kept exactly, left alone by every tool. */
-  columns: ReadonlyMap<number, Uint8Array>;
+  /** The older form of the tiles that are not plain. The build reads `terrain`, never this: it stays
+   *  only while tests that pass an empty one are another branch's to change, and one with tiles in
+   *  it and no `terrain` is refused. */
+  columns?: ReadonlyMap<number, Uint8Array>;
   entities: readonly EntitySpec[];
   /** Features the base already contains (a stored generation): not rasterized again. */
   frozen?: ReadonlySet<string>;
@@ -88,6 +109,12 @@ export interface BaseLayer {
    *  water warm-starts from after the first edit (marked `preview`, so a canonical build never
    *  takes it for a settle). */
   water?: CanonicalWater;
+  /** The soil the file stores on each tile's top (a stored generation's, frozen): where the edits
+   *  changed it, its trees and bushes are judged again (step 11); elsewhere they stand as stored. */
+  soil?: { moisture: ArrayLike<number>; contamination: ArrayLike<number> };
+  /** The file's water is not kept even while nothing changes the water: the map was cropped (D340), its
+   *  water is the old map's on tiles whose edge is new, and it settles again as after any edit. */
+  resettle?: boolean;
 }
 
 /** The land a generation's processes made (M9a, docs/m9-design.md §12): the ground build step 1
@@ -105,6 +132,11 @@ export interface GeneratedField {
   ramps?: readonly (readonly [number, number])[];
   /** The highest terrain an edit may raise it to: 16, or a tall map's top (Verticality 70+). */
   top?: number;
+  /** The field's terrain as runs when the generation grew 3D forms in it (D118, D488; land/forms3d.ts:
+   *  a spring's cave, an overhang, an arch), `heights` its surface. Its caves and overhangs are kept
+   *  as an imported map's are: the features never reshape them, the brushes shape their top runs
+   *  only, and its water is the stacked engine's. Absent: a heightfield, every tile plain. */
+  caves?: ColumnTerrain;
   /** Sources: None (D330, the UI brief §8): the map was generated with its water, then every
    *  source its features place (and so its water) removed; `moist` and `poisoned` are where the
    *  soil was moist and contaminated as generated, which its trees and bushes keep (they stay as
@@ -148,6 +180,17 @@ export interface BuildInput {
    *  or alive (D404), nothing is added (D368 (10); raster/resources.ts `KeptTiles`). Absent for the
    *  generator's own build, which places them. */
   generatedResources?: ReadonlyMap<string, KeptTiles> | null;
+  /** Each spring's row of sources as the generation placed it (a river's head, a lake's spring; from
+   *  its stored map, by feature id): an edited map keeps that row, its count and its ids, standing on
+   *  the ground as it is now, whatever an edit does round it (D368 (10), D314). Absent for the
+   *  generator's own build, which places them. */
+  generatedSprings?: ReadonlyMap<string, readonly KeptSource[]> | null;
+}
+
+/** A source of a spring's row as the generation placed it: its tile and its id. */
+export interface KeptSource {
+  tile: number;
+  id: string;
 }
 
 export interface BuildResult {
@@ -179,6 +222,10 @@ export interface BuildResult {
   notes: string[];
   /** Operations whose targets did not exist when this build applied them. */
   orphans: Orphan[];
+  /** Blocks of ground the build's rule pass found nothing holds up (the support rule, D121; step 7):
+   *  the game deletes them when it loads the map. Absent: none, as on every heightfield (a generated
+   *  map). On an imported map's caves they are counted, not removed: the file keeps them. */
+  dropped?: number;
   /** What changed since the build `rebuild` started from (null for a full build). */
   dirty: DirtyInfo | null;
   /** Everything a later `rebuild` reuses. */
@@ -211,9 +258,9 @@ export interface BuildOptions {
    *  is carried over to the new ground (`staleWater`, marked `stale` and `preview`) and the editor
    *  settles it in the background, so an edit never waits on the water. */
   water?: "canonical" | "preview" | "defer";
-  /** The water and soil rules the map is built under (sim/water.ts, sim/soil.ts; their defaults
-   *  when absent, D308). */
-  rules?: WaterRules;
+  /** A cacheless editor open can carry the saved base water until its background canonical build.
+   *  Used only in defer mode; never accepted as canonical water. */
+  initialWater?: { model: WaterModel; water: CanonicalWater };
   /** Path and inward fields shared by the builds of one generated land (looked up there first; a
    *  full build without `prev` only). The result's own cache keeps the fields it used. */
   fieldCache?: FieldCache;
@@ -250,6 +297,9 @@ function sameModel(a: WaterModel, aEmitters: string, m: WaterModel, mEmitters = 
   for (let i = 0; i < m.floor.length; i++) if (a.floor[i] !== m.floor[i]) return false;
   if (!!a.dam !== !!m.dam) return false;
   if (a.dam && m.dam) for (let i = 0; i < m.dam.length; i++) if (a.dam[i] !== m.dam[i]) return false;
+  // (terrain above terrain: the same surface over other caves is other water)
+  if (!!a.stacked !== !!m.stacked) return false;
+  if (a.stacked && m.stacked && (!sameMaskArrays(a.stacked.mask, m.stacked.mask) || a.stacked.objects.length !== m.stacked.objects.length || a.stacked.objects.some((v, k) => v !== m.stacked!.objects[k]))) return false;
   return sameKeptWater(a, m);
 }
 
@@ -260,6 +310,16 @@ export function toMapObject(e: EntitySpec): MapObject {
     return { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped, components: comps };
   }
   return { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped, components: { ...(e.before ?? {}), ...e.components } };
+}
+
+/** The water model of a map's ground and objects (a force's map, the build's base). */
+export const modelOf = (m: { W: number; H: number; heights: Uint8Array; entities: readonly EntitySpec[] }): WaterModel => waterModel(m.W, m.H, m.heights, m.entities.map(toMapObject));
+
+/** The soil of a map's ground and objects on any water (a held weather day's, D342): the very rules the map's
+ *  own soil is built with (`gameSoil`: the game's, Thorns and soil per run top), so on the map's own water it is
+ *  the map's own soil tile for tile. About one pass over the map; the caller keeps it off the interactive path. */
+export function soilOnWater(m: { W: number; H: number; heights: ArrayLike<number>; entities: readonly EntitySpec[] }, depth: ArrayLike<number>, contamination: ArrayLike<number>): Soil {
+  return gameSoil(m.W, m.H, m.heights, depth, contamination, m.entities.map(toMapObject));
 }
 
 // ----------------------------------------------------------------------------------------- caches
@@ -277,7 +337,16 @@ interface TerrainCache {
    *  edit broke: gone for good, even where a later edit gives the step back (D368 (10)). */
   slopeList: BuildInput["generatedSlopes"];
   slopeGone: Uint8Array | null;
+  /** The tiles the Block tool's operations touched, each as they left it (tile → voxel mask, the
+   *  top run on this build's surface); every other tile is the stored ground under the surface, or a
+   *  plain run on a heightfield (D335; terrain/blocks.ts `terrainUnder`). Absent in a stored map made
+   *  before the tool: none. */
+  masks?: ReadonlyMap<number, number>;
 }
+
+/** The Block tool's tiles of a terrain step (none for a stored map from before the tool). */
+export const masksOf = (t: { masks?: ReadonlyMap<number, number> }): ReadonlyMap<number, number> => t.masks ?? NO_MASKS;
+const NO_MASKS: ReadonlyMap<number, number> = new Map();
 
 interface ResourceEntry {
   key: string;
@@ -515,6 +584,7 @@ function sameField(a: GeneratedField | null, b: GeneratedField | null): boolean 
   if (!a || !b || a.top !== b.top || a.contains.size !== b.contains.size || !sameBytes(a.heights, b.heights)) return false;
   if (!!a.dry !== !!b.dry || (a.dry && b.dry && (!sameBytes(a.dry.moist, b.dry.moist) || !sameBytes(a.dry.poisoned, b.dry.poisoned)))) return false;
   for (const id of a.contains) if (!b.contains.has(id)) return false;
+  if (!!a.caves !== !!b.caves || (a.caves && b.caves && !sameMaskArrays(a.caves.mask, b.caves.mask))) return false;
   return JSON.stringify(a.ramps ?? []) === JSON.stringify(b.ramps ?? []);
 }
 
@@ -568,13 +638,17 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   //    (a river read back from the field marks its channel on the field's ground)
   for (const f of input.features) if (f.kind === "lake" && live(f) && !carved(f)) rasterizeLake(f, t);
   for (const f of input.features) if (f.kind === "river" && live(f)) (carved(f) ? markRiverChannel : rasterizeRiver)(f, t);
-  // 5. the start bench (and, later, object pads)
-  for (const f of input.features) if (f.kind === "start" && live(f)) rasterizeBench(f, t);
-  // 6. sculpt edits and brush strokes, in order (the brushes leave an import's caves alone). The
+  // 5. the start bench (and, later, object pads); a start under a roof has none (D491)
+  for (const f of input.features) if (f.kind === "start" && live(f) && f.params.z === undefined) rasterizeBench(f, t);
+  // 6. sculpt edits and brush strokes, in order (on an import's caves and overhangs a brush shapes
+  //    the top run only, never below one layer over the roof's underside, D280 (3)). The
   //    generation's slopes are checked after the features and after each edit: one an edit's ground
   //    breaks is gone for good, even where a later edit gives the step back (D368 (10); the slopes
   //    outside the region keep their verdicts, and the region holds every slope it touches whole)
   const gs = input.generatedSlopes ?? null;
+  // (a stored generation, frozen: its slopes stand as stored; one is judged only once an edit has
+  // changed its ground, so today's slope rule never takes one the edits left alone)
+  const broken = (tiles: readonly number[], h: Uint8Array) => (!frozen || tiles.some((i) => h[i] !== base!.heights[i])) && !slopeStands(tiles as [number, number, number], h);
   let slopeGone: Uint8Array | null = null;
   if (gs) {
     if (prev?.terrain.slopeGone && prev.terrain.slopeList === gs) slopeGone = prev.terrain.slopeGone.slice();
@@ -584,7 +658,7 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
       if (prev)
         gs.forEach((s, k) => {
           const tiles = slopeTiles(s, W, H);
-          if (tiles && !slopeStands(tiles, prev.terrain.pre7)) slopeGone![k] = 1;
+          if (tiles && broken(tiles, prev.terrain.pre7)) slopeGone![k] = 1;
         });
     }
   }
@@ -597,10 +671,34 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
       watch.push([k, tiles]);
     });
   const checkSlopes = () => {
-    for (const [k, tiles] of watch) if (!slopeGone![k] && !slopeStands(tiles, heights)) slopeGone![k] = 1;
+    for (const [k, tiles] of watch) if (!slopeGone![k] && broken(tiles, heights)) slopeGone![k] = 1;
   };
   checkSlopes();
-  const caves = base && base.columns.size ? (i: number) => base.columns.has(i) : undefined;
+  if (base && !base.terrain && base.columns?.size) throw new Error("the base layer has caves or overhangs but no terrain: pass its terrain as runs");
+  const layered = base?.terrain && !base.terrain.allPlain() ? base.terrain : (field?.caves ?? null);
+  // (the Block tool: the tiles its operations touched carry their own masks and floors, and are caves or
+  // not by them, so the forces leave the ones it dug as they are)
+  // (and Erode's results, D281: the tiles it hollowed under their surface take their masks the same way)
+  const blocksIn = (input.sculpts ?? []).some((s) => isBlocks(s.params) || (isForce(s.params) && !!s.params.runs));
+  // (what step 7 would show a tile from the heights as they stand: a block operation works on that)
+  const outside = prev ? prev.terrain.pre7 : null;
+  const got = (j: number) => (outside && !t.inRegion(j) ? outside[j] : heights[j]);
+  const lockedMask = locked?.mask;
+  const candidateNow = base ? (i: number) => got(i) !== base.heights[i] : field ? (i: number) => got(i) !== field.heights[i] && !lockedMask?.[i] : lockedMask ? (i: number) => !lockedMask[i] : () => true;
+  const ceiling = Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN);
+  const layer: BlockLayer | null = blocksIn ? { masks: new Map(), floors: layered ? topFloorsOf(layered)!.slice() : new Uint8Array(N), base: layered, level: (i: number) => integrityLevel(got, W, H, protect, channel, candidateNow, i, ceiling) } : null;
+  if (layer && prev) for (const [i, m] of masksOf(prev.terrain)) if (!t.inRegion(i)) layer.masks.set(i, m);
+  const caves = layer ? (i: number) => layerCave(layer, i) : layered ? (i: number) => !layered.isPlain(i) : undefined;
+  const floors = layer ? layer.floors : layered ? topFloorsOf(layered) : null;
+  //    (the features never reshape a roof: before the strokes, an import's caves and overhangs stand
+  //    as the file has them, and the integrity pass leaves their tops as the strokes leave them)
+  //    (and a generated field's 3D forms stand as the generation grew them)
+  if ((base || field?.caves) && caves) t.forEach((i) => {
+    if (caves(i)) {
+      heights[i] = base ? base.heights[i] : field!.heights[i];
+      protect[i] = 1;
+    }
+  });
   //    (a Keep stroke keeps its sources' ground as step 7 shows it, reading the tiles as it will)
   const shownLock = input.locked?.mask;
   const shown = {
@@ -609,16 +707,14 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
     outside: prev ? prev.terrain.pre7 : null,
   };
   for (const s of input.sculpts ?? []) {
-    applySculpt(s, t, caves, shown);
+    if (layer && isBlocks(s.params)) applyBlocks(s.params, t, layer);
+    else {
+      if (layer && isForce(s.params) && s.params.runs) applyHollows(s.params.runs, t, layer);
+      applySculpt(s, t, caves, shown, floors);
+    }
     if (watch.length) checkSlopes();
   }
-  //    an imported map's caves and overhangs are left exactly as they are
-  if (base) t.forEach((i) => {
-    if (base.columns.has(i)) {
-      heights[i] = base.heights[i];
-      protect[i] = 1;
-    }
-  });
+
   let pre7: Uint8Array;
   if (prev) {
     pre7 = prev.terrain.pre7.slice();
@@ -639,7 +735,7 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
         : () => true;
   const r = { x0: Math.max(0, reg.x0 - 1), y0: Math.max(0, reg.y0 - 1), x1: Math.min(W - 1, reg.x1 + 1), y1: Math.min(H - 1, reg.y1 + 1) };
   integrityAt(pre7, final, W, H, protect, channel, candidate, r.x0, r.y0, r.x1, r.y1, Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN));
-  return { terrain: { pre2, pre7, heights: final, protect, channel, notes: t.notes, slopeList: gs, slopeGone }, region: reg };
+  return { terrain: { pre2, pre7, heights: final, protect, channel, notes: t.notes, slopeList: gs, slopeGone, masks: layer ? finalMasks(layer, final) : NO_MASKS }, region: reg };
 }
 
 // --------------------------------------------------------------------------------------- pipeline
@@ -650,12 +746,20 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const N = W * H;
   const base = input.base ?? null;
   const frozen = base?.frozen;
+  // the base's terrain when it has caves or overhangs, or a generated field's when it grew 3D forms
+  // (null: a heightfield)
+  const caves = base ? caveTerrainOf(base) : (input.field?.caves ?? null);
   const live = (f: Feature) => !frozen?.has(f.id);
   const features = input.features;
   const fields: FieldCache = prev ? prev.fields : opts.fieldCache ? sharedFields(opts.fieldCache) : new Map();
 
   const { terrain, region } = terrainStage(input, prev, fields);
   const heights = terrain.heights;
+  // the ground as runs when it is not a heightfield (its water is the stacked engine's), and the floor
+  // a spring's sources stand on there: the top of the run that reaches down to z = 0, a cave's floor
+  // under its roof (GAME_RULES §3.4); every tile's surface on a heightfield
+  const runsGround = caveTerrain(caves, heights, masksOf(terrain), W, H);
+  const floorAt = (i: number) => (runsGround && !runsGround.isPlain(i) ? bottomRunTop(runsGround.mask[i]) : heights[i]);
   const notes = terrain.notes.slice();
   const target = new BuildTarget({ W, H, seed, features, heights, protectedMask: terrain.protect, channel: terrain.channel, region: fullRegion(W, H), fields });
 
@@ -666,7 +770,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   let startInfo: BuildResult["start"];
   if (start) {
     const [cx, cy] = start.params.position;
-    startInfo = { x: cx, y: cy, z: heights[cy * W + cx], feature: start.id };
+    startInfo = { x: cx, y: cy, z: start.params.z ?? heights[cy * W + cx], feature: start.id };
     for (let y = cy - START_CLEAR_RADIUS; y <= cy + START_CLEAR_RADIUS; y++)
       for (let x = cx - START_CLEAR_RADIUS; x <= cx + START_CLEAR_RADIUS; x++)
         if (x >= 0 && x < W && y >= 0 && y < H) reserved[y * W + x] = 1;
@@ -692,6 +796,38 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    head (its course's first step the flow) or round the lake's spring tile
   // (each row keeps its ids as it moves with the land: water/sourceGroups.ts `groupIds`, #172)
   const springs = new Map<string, { sources: GroupedSource[]; ids: string[] }>();
+  // on a map with caves, a spring's source stands only where the game keeps it (D491, objects.ts
+  // `standProblem`, the rule the editor's placing reads): on its floor at the bottom of the map, its
+  // cells free of the map's objects (a placed object's, a kept one's) and of the sources placed before
+  // it. One the game would not keep is left out of its row, never moved onto another's cells
+  let held: Map<number, string> | null = null;
+  const holds = (template: string, x: number, y: number, z: number, orientation: Orientation, flipped = false) => {
+    for (const c of worldBlocks(FOOTPRINTS[template], { template, x, y, z, orientation, flipped }))
+      if (c.x >= 0 && c.y >= 0 && c.x < W && c.y < H && c.z >= 0) held!.set(c.z * N + c.y * W + c.x, template);
+  };
+  const standing = (src: { x: number; y: number; z: number }): boolean => {
+    if (!runsGround) return true;
+    if (!held) {
+      held = new Map();
+      const others = [...features.filter((f): f is MapObjectFeature => f.kind === "mapObject" && live(f)).flatMap((f) => rasterizeObjects(f, W, H, heights, input.locked?.mask ?? null)), ...(input.locked?.entities ?? [])];
+      for (const e of others) if (FOOTPRINTS[e.template]) holds(e.template, e.x, e.y, e.z, e.orientation ?? "Cw0", !!e.flipped);
+    }
+    const taken = (x: number, y: number, z: number) => held!.get(z * N + y * W + x) ?? null;
+    return standProblem("WaterSource", { x: src.x, y: src.y, z: src.z, orientation: "Cw0" }, { W, H, mask: runsGround.mask }, taken) === null;
+  };
+  // (the sources kept of a row, their strength shared again over those, each then holding its cells)
+  const standingRow = (strength: number, row: { sources: GroupedSource[]; ids: string[] }) => {
+    const keep = row.sources.map((src) => standing(src));
+    if (keep.every(Boolean)) {
+      if (held) for (const src of row.sources) holds("WaterSource", src.x, src.y, src.z, "Cw0");
+      return row;
+    }
+    const sources = row.sources.filter((_, k) => keep[k]);
+    const share = rowStrengths(strength, sources.length);
+    const out = { sources: sources.map((src, k) => ({ ...src, strength: share[k] })), ids: row.ids.filter((_, k) => keep[k]) };
+    for (const src of out.sources) holds("WaterSource", src.x, src.y, src.z, "Cw0");
+    return out;
+  };
   for (const f of features) {
     if (!live(f)) continue;
     let at: number | null = null;
@@ -710,15 +846,27 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       strength = "spring" in f.params.inflow ? f.params.inflow.spring : 0;
     }
     if (at === null || !(strength > 0)) continue;
+    // (an edited generated map keeps the row the generation placed, its count and its ids, on the
+    // ground as it is now: placed again, it could grow onto ground an edit freed round it, the start
+    // a Quake carried away, a source the edit added, D368 (10))
+    const kept = input.generatedSprings?.get(f.id);
+    if (kept?.length) {
+      const share = rowStrengths(strength, kept.length);
+      const row = standingRow(strength, { sources: kept.map(({ tile: i }, k) => ({ x: i % W, y: Math.floor(i / W), z: floorAt(i), strength: share[k], tiles: [i] })), ids: kept.map((s) => s.id) });
+      if (row.sources.length) springs.set(f.id, row);
+      for (const { tile } of kept) reserved[tile] = 1;
+      continue;
+    }
     const req = { kind: "water" as const, x: at % W, y: Math.floor(at / W), strength, seed: hash32(seed, f.id), ...(flow ? { flow } : {}) };
     // (a generated feature's row is placed on the ground as generated, so it keeps its sources
     // through edits: an edit that left one a level off its anchor took it away, and the next edit
     // that levelled the ground brought it back, an object the edit added, D425. Each stands on the
     // ground as it is now)
-    const rowGround = input.field?.contains.has(f.id) ? input.field.heights : heights;
+    const rowGround = input.field?.contains.has(f.id) ? (input.field.caves ? runFloorsOf(input.field.caves) : input.field.heights) : runsGround ? runFloorsOf(runsGround) : heights;
     const g = placeSourceGroup(req, { W, H, heights: rowGround, occupied: reserved });
     if (!g.sources.length) continue;
-    springs.set(f.id, { sources: g.sources, ids: groupIds(entityId(f.id, "WaterSource", at), req, g) });
+    const row = standingRow(strength, { sources: g.sources.map((src) => ({ ...src, z: floorAt(src.y * W + src.x) })), ids: groupIds(entityId(f.id, "WaterSource", at), req, g) });
+    if (row.sources.length) springs.set(f.id, row);
     for (const i of groupTiles(g)) reserved[i] = 1;
   }
   //    map objects (mine sites, relics, thorn belts, weirs, plugs, ...) take their tiles now, so the
@@ -839,8 +987,9 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     for (const [y, x0, x1] of f.params.area) if (y >= 0 && y < H) for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) slopeOcc[y * W + x] = 1;
   }
   let slopes: PlacedSlope[] = [];
-  if (input.generatedSlopes) {
-    // an edited generated map: the generation's slopes that still stand; none is ever added
+  if (input.generatedSlopes && !frozen) {
+    // an edited generated map: the generation's slopes that still stand; none is ever added (a
+    // frozen one keeps its stored map's own, below)
     const standing = new Set<number>();
     for (const e of entities) if (e.template === "Slope") standing.add(e.y * W + e.x);
     slopes = keptSlopes(input.generatedSlopes, heights, W, H, standing, terrain.slopeGone);
@@ -896,8 +1045,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     if (!group || (f.kind !== "river" && f.kind !== "lake")) continue;
     group.sources.forEach((src, k) => {
       const i = src.y * W + src.x;
-      sources.push({ x: src.x, y: src.y, z: heights[i], strength: src.strength, owner: f.id, template: "WaterSource" });
-      entities.push(waterSource({ id: group.ids[k], owner: f.id, x: src.x, y: src.y, z: heights[i], strength: src.strength }));
+      sources.push({ x: src.x, y: src.y, z: floorAt(i), strength: src.strength, owner: f.id, template: "WaterSource" });
+      entities.push(waterSource({ id: group.ids[k], owner: f.id, x: src.x, y: src.y, z: floorAt(i), strength: src.strength }));
     });
   }
   //    set pieces add theirs (a waterfall's springs, badwater)
@@ -918,7 +1067,20 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    what a regeneration kept in locked regions, and the imported map's own objects (snapped to
   //    the ground where an edit changed the surface under them)
   if (input.locked) entities.push(...input.locked.entities);
-  if (base) for (const e of base.entities) entities.push(snapToGround(e, base, heights, W));
+  //    (a stored generation's resources and start, opened by a newer generator, come where the
+  //    build places its own, steps 11 and 12: a frozen map lists its objects in the order the
+  //    generation's build did, so it opens exactly as it was saved, its file too, D455)
+  const lateBase = { resources: [] as EntitySpec[], start: [] as EntitySpec[] };
+  const late = new Map<string, EntitySpec[]>();
+  if (frozen) for (const f of features) if (frozen.has(f.id) && (isResource(f) || f.kind === "start")) late.set(f.id, f.kind === "start" ? lateBase.start : lateBase.resources);
+  //    (and its slopes stand as stored, but for those an edit's ground took away, step 6)
+  const goneSlope = new Set<string>();
+  if (frozen && terrain.slopeGone) input.generatedSlopes?.forEach((s, k) => terrain.slopeGone![k] && goneSlope.add(`${s.x},${s.y},${s.orientation}`));
+  if (base)
+    for (const e of base.entities) {
+      if (goneSlope.size && e.template === "Slope" && goneSlope.has(`${e.x},${e.y},${e.orientation}`)) continue;
+      (late.get(e.owner) ?? entities).push(snapToGround(e, base, heights, W));
+    }
   //    slope overrides, then the first pass of entity edits
   const ground = { W, H, heights };
   if (input.slopeEdits?.length) entities = applySlopeEdits(entities, input.slopeEdits, ground, orphans);
@@ -949,7 +1111,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     if (f.kind !== "setPiece" || !live(f)) continue;
     for (const i of BUILDERS[f.params.kind]?.clears?.(f, W, H, features) ?? []) occupied[i] = 1;
   }
-  const partial = { W, H, seed, heights, occupied, channel: terrain.channel, entities, slopes, sources, start: startInfo, notes, orphans };
+  //    the support rule (D121, step 7) on the terrain as built, with the objects that hold ground
+  //    (the resources and the start placed after this hold none)
+  const dropped = groundDropped(caves, heights, entities, masksOf(terrain), W, H);
+  const partial = { W, H, seed, heights, occupied, channel: terrain.channel, entities, slopes, sources, start: startInfo, notes, orphans, ...(dropped ? { dropped } : {}) };
   const makeCache = (over: Partial<BuildCache>): BuildCache => ({
     keys: new Map(features.map((f) => [f.id, featureKey(f)])),
     terrainFeatures: features.filter((f) => isTerrainKind(f) && live(f)).map((f) => JSON.parse(featureKey(f)) as Feature),
@@ -978,7 +1143,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   });
   if (opts.stopBeforeWater) {
     const none = new Float64Array(N);
-    const model = waterModel(W, H, heights, []);
+    const model = runsGround ? stackedModel(waterModel(W, H, heights, []), runsGround, []) : waterModel(W, H, heights, []);
     return {
       ...partial,
       water: none,
@@ -995,7 +1160,15 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
 
   // 10. the canonical water settle (PLAN §19.7), then soil moisture and contamination on it
   const objects = entities.map(toMapObject);
-  const model = waterModel(W, H, heights, objects);
+  // an imported map's caves and overhangs (D120): its water is the stacked-column engine's, on the
+  // terrain as it stands (the surface the edits made, the ground the Block tool dug or built, the
+  // other tiles kept: doc/session.ts `terrainOf`, which the export writes), and so is a generated
+  // map's with 3D forms and any map's the Block tool or Erode hollowed (#435); a heightfield's model is
+  // the one it always was (a map whose last hollow is undone is a heightfield again, its water and file
+  // as before)
+  const stackTerrain = runsGround;
+  const model = stackTerrain ? stackedModel(waterModel(W, H, heights, objects), stackTerrain, objects) : waterModel(W, H, heights, objects);
+  const cols = model.stacked ? waterColumns(stackTerrain!, objects) : null;
   // the oxbow lakes the carves sealed keep their water (sim/water.ts RetainedWater), and so do the
   // Fills; Remove unfed water drains its tiles: all in the order of their operations
   const kept: (KeptWater & { seq: number })[] = [];
@@ -1017,10 +1190,11 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const emitters = JSON.stringify(model.emitters);
   const resourceFeatures = resourceOrder(features).filter(live);
   // an imported map keeps its file's water until its terrain or water objects change
-  const fileWater = !!base && sameModelAsBase(base, model, W, H);
+  const fileWater = !!base && !base.resettle && sameModelAsBase(base, model, W, H);
   const needWater = !fileWater || resourceFeatures.length > 0;
   let settle: CanonicalWater | null = null;
-  let settleEntry = prev?.settle ?? null;
+  const initial = opts.water === "defer" ? opts.initialWater : undefined;
+  let settleEntry = prev?.settle ?? (initial ? { model: initial.model, emitters: JSON.stringify(initial.model.emitters), water: { ...initial.water, preview: true } } : null);
   if (needWater) {
     const preview = opts.water === "preview" || opts.water === "defer";
     // the previous water serves when nothing that moves water changed; preview water only in a
@@ -1031,14 +1205,29 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       let carried = false;
       if (!settle) {
         const warm = settleEntry && settleEntry.model.W === W && settleEntry.model.H === H;
-        if (opts.water === "defer" && warm) {
+        if (cols && preview && warm) {
+          // terrain above terrain has no warm-started preview: the last water is carried over, every
+          // column of it, and the canonical settle follows in the background (sim/stackWater.ts)
+          settle = staleWater({ model: settleEntry!.model, water: settleEntry!.water }, model);
+          const st = (settle.stack = staleStack(settleEntry!.water.stack, cols, settle.depth, settle.contamination));
+          // the lakes an edit stored show at once, and the unfed water a removal drained goes, on every column
+          if ((model.retained?.length || model.drained?.length) && keptOnStack(stackGraph(model), st, model.retained, model.drained))
+            for (let i = 0; i < N; i++) {
+              const c = (st.count[i] - 1) * N + i;
+              settle.depth[i] = st.count[i] ? st.depth[c] : 0;
+              settle.contamination[i] = st.count[i] ? st.contamination[c] : 0;
+            }
+          delete settle.out;
+          carried = true;
+        } else if (opts.water === "defer" && warm) {
           // the last settled water on the new ground; the entry stays the last settled state, so
           // the background settle (and an undo back to it) start from there
           settle = staleWater({ model: settleEntry!.model, water: settleEntry!.water }, model);
           carried = true;
         } else if (preview && warm) settle = previewSettle({ model: settleEntry!.model, water: settleEntry!.water }, model);
         else {
-          settle = canonicalSettle(model, opts.rules ? { rules: opts.rules } : {});
+          // (the last canonical settle may stand for this one on a map with caves: sim/stackWater.ts `settledAgain`)
+          settle = canonicalSettle(model, {}, settleEntry);
           opts.settleCache?.set(model, settle);
         }
       }
@@ -1065,10 +1254,17 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     moist = prev!.moisture!;
     soil = prev!.soil!;
   } else {
-    // the soil rules (D298: the game's own; their default when the build's options do not say)
-    const s = gameSoil(W, H, heights, water, contamination, objects, settle.sat, opts.rules);
-    moist = s.moisture;
-    soil = s.contamination;
+    // the soil rules (D298: the game's own); on terrain above terrain per run top, each tile's top
+    // run here (the plants' ground) and every run in the file (doc/session.ts `exportFile`)
+    if (cols && settle.stack) {
+      const s = stackedSoil(stackTerrain!, cols, settle.stack, objects);
+      moist = topRuns(s, s.moisture);
+      soil = topRuns(s, s.contamination);
+    } else {
+      const s = gameSoil(W, H, heights, water, contamination, objects, settle.sat);
+      moist = s.moisture;
+      soil = s.contamination;
+    }
   }
   const settleOut: CanonicalWater = settle ?? { settled: true, ticks: 0, depth: none, contamination: none, sat: new Uint8Array(N) };
   const withWater = {
@@ -1137,14 +1333,42 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     resources.set(f.id, { key, placed });
     resourceEntities.push(...placed.entities);
   }
-  entities.push(...resourceEntities);
+  //    a stored generation's trees and bushes (frozen) stand exactly as stored, but where the edits
+  //    changed a tile, its ground, or its water or soil against the stored map's: there one is judged
+  //    again by the build's rule, dead or alive by the ground now (D404), as a live map's is
+  const reJudged = new Map<string, { tiles: ReadonlySet<number>; at: Map<number, EntitySpec> }>();
+  if (frozen && base && lateBase.resources.length && input.generatedResources) {
+    const wasWet = new Uint8Array(N);
+    if (base.water) for (let i = 0; i < N; i++) wasWet[i] = base.water.depth[i] > 0 ? 1 : 0;
+    const was = base.soil;
+    // (the file's water kept, no settle: the water and soil are the stored map's, only the ground can differ)
+    const settled = !!settle;
+    const changed = (i: number) => heights[i] !== base.heights[i] || (settled && ((water[i] > 0) !== !!wasWet[i] || (!!was && ((moist[i] > 0) !== (was.moisture[i] > 0) || (soil[i] > 0) !== (was.contamination[i] > 0)))));
+    for (const f of features) {
+      if (!frozen.has(f.id) || (f.kind !== "forest" && f.kind !== "berryPatch")) continue;
+      const tiles = new Set([...(input.generatedResources.get(f.id) ?? [])].filter(changed));
+      if (!tiles.size) continue;
+      reJudged.set(f.id, { tiles, at: new Map(rasterizeResource(f, g, tiles).entities.map((e) => [e.y * W + e.x, e])) });
+    }
+  }
+  const storedResources = reJudged.size
+    ? lateBase.resources.flatMap((e) => {
+        const r = reJudged.get(e.owner);
+        const i = e.y * W + e.x;
+        if (!r || !r.tiles.has(i)) return [e];
+        const again = r.at.get(i);
+        return again ? [again] : [];
+      })
+    : lateBase.resources;
+  entities.push(...storedResources, ...resourceEntities, ...lateBase.start);
 
   // 12. the start entity
   if (start) {
     const [cx, cy] = start.params.position;
     const o = start.params.orientation;
     const [x, y] = coordinatesForMinCorner(3, 3, cx - 1, cy - 1, o);
-    entities.push(startingLocation({ id: entityId(start.id, "StartingLocation", 0), owner: start.id, x, y, z: heights[cy * W + cx], orientation: o, player: start.params.player }));
+    // (under a roof, at its level: a cave's floor, the ground under a ledge, D491)
+    entities.push(startingLocation({ id: entityId(start.id, "StartingLocation", 0), owner: start.id, x, y, z: start.params.z ?? heights[cy * W + cx], orientation: o, player: start.params.player }));
   }
 
   // 13. the second pass of entity edits, on what only exists now
@@ -1158,6 +1382,29 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    a kept resource never stands under another object (the editor removes those a start or an
   //    object is moved onto, tools.ts `startClears`; this only keeps the file whole)
   let finalEntities = passB.entities;
+  //    (a plant the Block tool left on the top of its run, under a block built over it, stands there, not on the
+  //    surface: each operation's `stands`, the latest first to last, where the ground still holds it)
+  const stood = new Map<string, number>();
+  // (an object moved after the operation stands where its move put it)
+  const movedAt = new Map<string, number>();
+  for (const ed of input.entityEdits ?? []) if (ed.op === "moveEntity") movedAt.set(ed.params.id, Math.max(movedAt.get(ed.params.id) ?? -Infinity, ed.seq));
+  for (const sc of input.sculpts ?? []) {
+    if (!isBlocks(sc.params) || !sc.params.stands) continue;
+    for (const [id, z] of sc.params.stands) {
+      if ((movedAt.get(id) ?? -Infinity) > (sc.seq ?? Infinity)) stood.delete(id);
+      else stood.set(id, z);
+    }
+  }
+  if (stood.size) {
+    const dug = masksOf(terrain);
+    finalEntities = finalEntities.map((e) => {
+      const z = stood.get(e.id);
+      if (z === undefined || z === e.z) return e;
+      const m = dug.get(e.y * W + e.x);
+      // (its ground is the tile's blocks as the operations left them: a block under it, air in it)
+      return m !== undefined && z >= 1 && m & (1 << (z - 1)) && !(m & (1 << z)) ? liftEntity(e, z) : e;
+    });
+  }
   if (keptBy) {
     const held = new Set<number>();
     for (const e of finalEntities) if (!keptBy.has(e.owner)) for (const [x, y] of entityTiles(e)) if (x >= 0 && x < W && y >= 0 && y < H) held.add(y * W + x);
@@ -1175,6 +1422,51 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
 }
 
 // -------------------------------------------------------------------------------------- helpers
+
+/** The build's rule pass (D121, step 7): the blocks of ground nothing holds up on the terrain a build
+ *  makes of `base` under `heights`, with `objects` (their stackable tops hold ground). A heightfield
+ *  drops nothing and is not worked out; a base's caves and overhangs are its own, and so are the
+ *  Block tool's (`masks`, which refuses what would fall). `BuildResult.dropped`
+ *  is this, derived, so a stored build leaves it out and its session works it out again. */
+export function groundDropped(caves: ColumnTerrain | null | undefined, heights: ArrayLike<number>, objects: readonly EntitySpec[], masks: ReadonlyMap<number, number> | undefined, W: number, H: number): number {
+  const layered = !!caves && !caves.allPlain();
+  if (!layered && !layeredMasks(masks)) return 0;
+  return supportPass(terrainUnder(layered ? caves! : null, heights, masks, W, H), objects).dropped;
+}
+
+/** The terrain a build stands on when it is not a heightfield: its caves (an imported map's, a
+ *  generated field's 3D forms) under its surface, with the ground the Block tool and Erode left; null
+ *  on a heightfield (#435: a hollow dug on a heightfield map is terrain above terrain too). */
+export function caveTerrain(caves: ColumnTerrain | null, heights: ArrayLike<number>, masks: ReadonlyMap<number, number>, W: number, H: number): ColumnTerrain | null {
+  return caves || layeredMasks(masks) ? terrainUnder(caves, heights, masks, W, H) : null;
+}
+
+/** Each tile's floor where a source may stand (`bottomRunTop`), worked out once per terrain. */
+const runFloors = new WeakMap<ColumnTerrain, Uint8Array>();
+function runFloorsOf(t: ColumnTerrain): Uint8Array {
+  let f = runFloors.get(t);
+  if (!f) {
+    f = new Uint8Array(t.N);
+    for (let i = 0; i < t.N; i++) f[i] = bottomRunTop(t.mask[i]);
+    runFloors.set(t, f);
+  }
+  return f;
+}
+
+function sameMaskArrays(a: Uint32Array, b: Uint32Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** A base terrain's `topFloors` (the lowest a brush may take each roof's top, D280 (3)), worked out
+ *  once per terrain. */
+const floorsOf = new WeakMap<ColumnTerrain, Uint8Array | null>();
+function topFloorsOf(t: ColumnTerrain): Uint8Array | null {
+  let f = floorsOf.get(t);
+  if (f === undefined) floorsOf.set(t, (f = t.topFloors()));
+  return f;
+}
 
 /** Tiles of the landforms whose gentle or terraced edges are "joined by slopes" (PLAN §19.2): the
  *  derived slopes join their steps wherever they are. The key names them for slope reuse. */
@@ -1256,30 +1548,52 @@ function markDifference(a: readonly number[], b: readonly number[], mask: Uint8A
 }
 
 /** An imported object stays where it was, unless an edit changed the surface of its tile and it
- *  stood on that surface: then it moves to the new ground (EDITOR_PLAN §3, conflict rules). */
+ *  stood on that surface: then it moves to the new ground (EDITOR_PLAN §3, conflict rules). On a
+ *  roof that is the roof's top, which the brushes shape (D487); an object under the roof, in the
+ *  cave, stands below the surface and stays. */
 function snapToGround(e: EntitySpec, base: BaseLayer, heights: Uint8Array, W: number): EntitySpec {
   if (!e.raw) return e;
   const i = e.y * W + e.x;
-  if (i < 0 || i >= heights.length || base.columns.has(i)) return e;
+  if (i < 0 || i >= heights.length) return e;
   const was = base.heights[i];
   const now = heights[i];
   if (was === now || e.z !== was) return e;
+  return liftEntity(e, now);
+}
+
+/** An object at layer `z` of its tile (an imported one carries its coordinates in its raw components). */
+function liftEntity(e: EntitySpec, z: number): EntitySpec {
+  if (!e.raw) return { ...e, z };
   const comps = e.raw.Components as Record<string, unknown> | undefined;
   const bo = comps?.BlockObject as Record<string, unknown> | undefined;
-  if (!bo) return e;
+  if (!bo) return { ...e, z };
   const nb: Record<string, unknown> = {};
-  for (const k of Object.keys(bo)) nb[k] = k === "Coordinates" ? { X: e.x, Y: e.y, Z: now } : bo[k];
+  for (const k of Object.keys(bo)) nb[k] = k === "Coordinates" ? { X: e.x, Y: e.y, Z: z } : bo[k];
   const nc: Record<string, unknown> = {};
   for (const k of Object.keys(comps!)) nc[k] = k === "BlockObject" ? nb : comps![k];
-  return { ...e, z: now, raw: { ...e.raw, Components: nc as EntitySpec["components"] } };
+  return { ...e, z, raw: { ...e.raw, Components: nc as EntitySpec["components"] } };
 }
 
 const baseModels = new WeakMap<BaseLayer, { model: WaterModel; emitters: string }>();
 
+const baseCaves = new WeakMap<BaseLayer, ColumnTerrain | null>();
+/** A base's terrain when some tile of it is not one plain run from the bottom (a cave, an overhang),
+ *  else null. */
+function caveTerrainOf(base: BaseLayer): ColumnTerrain | null {
+  let c = baseCaves.get(base);
+  if (c === undefined) {
+    c = base.terrain && !base.terrain.allPlain() ? base.terrain : null;
+    baseCaves.set(base, c);
+  }
+  return c;
+}
+
 function baseModelOf(base: BaseLayer, W: number, H: number): { model: WaterModel; emitters: string } {
   let bm = baseModels.get(base);
   if (!bm) {
-    const m = waterModel(W, H, base.heights, base.entities.map(toMapObject));
+    const flat = modelOf({ W, H, heights: base.heights, entities: base.entities });
+    // (with its caves and overhangs, as every build of the map has them)
+    const m = caveTerrainOf(base) ? stackedModel(flat, base.terrain!, base.entities.map(toMapObject)) : flat;
     bm = { model: m, emitters: JSON.stringify(m.emitters) };
     baseModels.set(base, bm);
   }
@@ -1294,7 +1608,8 @@ function sameModelAsBase(base: BaseLayer, model: WaterModel, W: number, H: numbe
 }
 
 /** An imported map's own standing water that no running source of its file feeds (sim/fed.ts), as a
- *  stored lake on the file's ground (D457), or null when it has none. */
+ *  stored lake on the file's ground (D457), or null when it has none; on a map with caves or overhangs,
+ *  on every column of it (sim/stackFed.ts `unfedOwnWater`: a pool in a cave is kept in the cave). */
 const importedWaters = new WeakMap<BaseLayer, RetainedWater | null>();
 function importedWater(base: BaseLayer, W: number, H: number): RetainedWater | null {
   if (importedWaters.has(base)) return importedWaters.get(base)!;
@@ -1302,6 +1617,11 @@ function importedWater(base: BaseLayer, W: number, H: number): RetainedWater | n
   const w = base.water;
   if (w) {
     const m = baseModelOf(base, W, H).model;
+    if (m.stacked && w.stack) {
+      out = unfedOwnWater(stackGraph(m), w.stack);
+      importedWaters.set(base, out);
+      return out;
+    }
     const fed = fedTiles(m, w.depth);
     const tiles: number[] = [];
     for (let i = 0; i < W * H; i++) if (w.depth[i] > 0 && !fed[i]) tiles.push(i);
@@ -1326,6 +1646,19 @@ function dirtyInfo(prev: BuildResult, next: BuildResult, region: TileRegion | nu
         if (y < y0) y0 = y;
         if (y > y1) y1 = y;
       }
+    }
+  // (a tile the Block tool dug under its surface changed too)
+  const dugWas = masksOf(prev.cache.terrain);
+  const dugNow = masksOf(next.cache.terrain);
+  if (dugWas !== dugNow)
+    for (const i of new Set([...dugWas.keys(), ...dugNow.keys()])) {
+      if (dugWas.get(i) === dugNow.get(i)) continue;
+      const x = i % W;
+      const y = (i - x) / W;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
     }
   let water = prev.water !== next.water;
   if (water && prev.water.length === next.water.length) {

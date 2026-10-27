@@ -3,7 +3,8 @@
 // in each milestone's checks.txt), the cycle model's calibration points (investigation/cycles/CALIBRATION.md
 // on branch investigation/cycles-exact), the Map look captures (docs/map-look/after/after.json), the high
 // terrain test maps, the tall maps (tools/probe-tall.ts, PLAN §20 D172), the ceiling maps made in the editor
-// (tools/probe-ceiling.ts, PLAN §20 D244), the size maps (tools/probe-sizes.ts, PLAN §20 D357 (9)), and any
+// (tools/probe-ceiling.ts, PLAN §20 D244), the size maps (tools/probe-sizes.ts, PLAN §20 D357 (9)), the terrain-3D test maps T1–T7
+// (tools/probe-3d.ts, PLAN §20 D127, D279), and any
 // .timber files given on the command line (the M9 prototypes, for example).
 // Groups whose maps are made outside the repository declare their writer here (GROUP_WRITERS): the runner writes
 // their maps itself before it plans them (writers.ts).
@@ -16,6 +17,7 @@ import { NEW_GAME_DAY } from './job';
 import { firstGenerated, generated, generatedFrom, mesa, raised, withoutStart } from './derived';
 import { readMapBytes, wetAreas, type MapInfo } from './mapfile';
 import { ceilingDir, REPO, sizesDir, tallDir } from './paths';
+import { terrain3dGames, type Terrain3dEntry } from './terrain3d';
 import type { GroupWriter } from '../../../tools/probe-maps/group';
 import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, walkDistance } from '../../../src/core/analysis/walk';
 import { footprintTiles, FOOTPRINTS, slopeHighSide, worldBlocks, type Orientation, type Placement } from '../../../src/core/format/footprints';
@@ -67,6 +69,10 @@ export interface GameDef {
   sizes?: SizesEntry;
   /** Frame times after the first day (the phases; `afterDays` from the start). */
   perf?: Omit<PerfSpec, 'startDay'> & { afterDays: number };
+  /** A terrain-3D test map's entry in terrain3d.json (tools/probe-3d.ts). */
+  terrain3d?: Terrain3dEntry;
+  /** A long play (`--cycles`): its checks read each cycle's records (cycles.ts), and only each hazard's end has screenshots. */
+  longPlay?: { cycles: number };
 }
 
 /** One map of tall.json, the manifest tools/probe-tall.ts writes beside the tall maps. */
@@ -191,6 +197,7 @@ function sizesBytes(t: SizesEntry): Uint8Array {
 export const GROUP_WRITERS: Record<string, () => GroupWriter> = {
   'Tall maps': () => (require('../../../tools/probe-maps/tall') as typeof import('../../../tools/probe-maps/tall')).TALL_WRITER,
   Sizes: () => (require('../../../tools/probe-maps/sizes') as typeof import('../../../tools/probe-maps/sizes')).SIZES_WRITER,
+  'Terrain 3D': () => (require('../../../tools/probe-maps/terrain3d') as typeof import('../../../tools/probe-maps/terrain3d')).TERRAIN3D_WRITER,
 };
 /* eslint-enable @typescript-eslint/no-require-imports */
 
@@ -392,7 +399,74 @@ const EDITOR = "needs the game's map editor, which the probe does not open";
 
 // ------------------------------------------------------------------------------------ the catalog
 
-export function catalog(extraMaps: string[] = []): GameDef[] {
+/** What a map given on the command line is played as (batch.ts: `--factions`, `--badtide`). */
+export interface GivenOptions {
+  /** The factions each given map is played on, one game each (default: Folktails only). */
+  factions?: ('Folktails' | 'IronTeeth')[];
+  /** After the drought: 3 temperate days and a 3-day badtide, then calm (12.5 days instead of 6.5). */
+  badtide?: boolean;
+  /** A long play (`--cycles N`, D488 (2): Showcase mode's winner to cycle 10): N full cycles of `longPlaySchedule`. */
+  cycles?: number;
+}
+
+/** The game's weather per difficulty (GameModeSpec, NewGameModes/GameMode.*; the cycle model's MODES in
+ *  investigation/cycles/weather.ts, which names the game's member behind each): the temperate stretch's range, each
+ *  hazard's range with its handicap (the first occurrence's share, reaching the whole range after `…Cycles` more), and
+ *  the cycles before a badtide can come. */
+export const WEATHER_RULES = {
+  Easy: { temperate: [16, 19], drought: [2, 4], droughtHandicap: 0.25, droughtCycles: 8, randomizeAfter: 5, badtide: [1, 3], badHandicap: 0.3, badCycles: 6 },
+  Normal: { temperate: [13, 17], drought: [5, 9], droughtHandicap: 0.38, droughtCycles: 5, randomizeAfter: 4, badtide: [4, 8], badHandicap: 0.15, badCycles: 5 },
+  Hard: { temperate: [5, 8], drought: [15, 30], droughtHandicap: 0.2, droughtCycles: 12, randomizeAfter: 3, badtide: [15, 30], badHandicap: 0.4, badCycles: 9 },
+} as const;
+
+/** The hazards of a long play once the game allows badtides, repeating: three badtides in cycles 5–10 on Normal, near
+ *  the game's own 40% chance, and a sequence the game can roll (its streak rule never forbids one of these steps). */
+const LONG_PLAY_AFTER: Cycle['hazard'][] = ['badtide', 'drought', 'badtide', 'drought', 'drought'];
+
+/**
+ * A long play's weather (D488 (2)): `n` cycles of the hardest roll the game's rules allow for the difficulty, the same
+ * every run: each temperate stretch the shortest the game draws and each hazard the longest its handicap allows at
+ * that occurrence (HazardousWeatherHelper.GetHandicapMultiplier, DroughtWeather/BadtideWeather.GetDurationAtCycle:
+ * round(handicap × max), at least 1), droughts until the game allows a badtide, then `LONG_PLAY_AFTER`. A map that
+ * keeps its water through this keeps it through any roll the game makes; both factions and every rerun get the same
+ * weather, and the cycle model plays exactly it. Normal, 10 cycles: droughts of 3, 5, 6, 7 days, a 1-day badtide, an
+ * 8-day drought, a 3-day badtide, two 9-day droughts and a 4-day badtide, each after 13 temperate days (185 days).
+ */
+export function longPlaySchedule(n: number, mode: GameDef['mode'] = 'Normal'): Cycle[] {
+  const r = WEATHER_RULES[mode];
+  const counts = { drought: 0, badtide: 0 };
+  const handicap = (k: number, initial: number, cycles: number) => initial + (1 - initial) * Math.min(1, Math.max(0, (k - 1) / cycles));
+  const out: Cycle[] = [];
+  for (let cycle = 1; cycle <= n; cycle++) {
+    const hazard = cycle <= r.randomizeAfter ? 'drought' : LONG_PLAY_AFTER[(cycle - r.randomizeAfter - 1) % LONG_PLAY_AFTER.length];
+    const k = ++counts[hazard];
+    const h = hazard === 'drought' ? handicap(k, r.droughtHandicap, r.droughtCycles) : handicap(k, r.badHandicap, r.badCycles);
+    out.push({ temperateDays: r.temperate[0], hazard, hazardDays: Math.max(1, Math.round(h * r[hazard][1])) });
+  }
+  return out;
+}
+
+/** A schedule's game days from the start to a quarter day after its last hazard ends (cycle 1 starts on day 1, the game at
+ *  04:00 of it). */
+export function scheduleDays(cycles: Cycle[]): number {
+  return Math.round((cycles.reduce((n, c) => n + c.temperateDays + c.hazardDays, 0) + 0.25 - (NEW_GAME_DAY - 1)) * 100) / 100;
+}
+
+/** A schedule in one line, for the plan. */
+export function describeSchedule(cycles: Cycle[]): string {
+  return cycles.map((c, i) => `${i + 1}: ${c.temperateDays} temperate + ${c.hazardDays} ${c.hazard}`).join('; ');
+}
+
+/** A long play's checks (compare: cycles.ts). The model checks are judged; the rest are recorded for the judge of a
+ *  showcase map, with the start's own rules beside them. */
+export const CYCLES = {
+  water: { id: 'cycles-water', title: "The map's water and soil through every cycle against the cycle model: at each hazard's start, first day and end, the whole map's water, its wet tiles (judged as D297, D302 judge water) and its moist tiles within 5% of the model", how: 'measure' },
+  start: { id: 'cycles-start-water', title: "The start's water through every hazard: clean water a pump reaches within the start's walk (start.water) at the hazard's start, first day and end, and the start's water left, against the model (within 10% of the start's volume)", how: 'measure' },
+  land: { id: 'cycles-land', title: "The land by the start through every cycle: moist farmland (dry, clean, moist) within 20 tiles' walk at each hazard's start and end, and the living berry bushes and trees within 20 tiles' walk at each cycle's end, against the start's rules", how: 'measure' },
+  shots: { id: 'cycles-shots', title: "The screenshots at each hazard's end show nothing visibly broken", how: 'partial', why: 'judged by eye from the contact sheet' },
+} satisfies Record<string, CheckDef>;
+
+export function catalog(extraMaps: string[] = [], given: GivenOptions = {}): GameDef[] {
   const games: GameDef[] = [];
   const m1 = 'out/m1/River Valley (4242).timber';
   const m1gap = 'out/m1/River Valley (4242) F2 source gap.timber';
@@ -657,6 +731,10 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
     });
   }
 
+  // Terrain above terrain (PLAN §20 D127, D279): the test maps of investigation/terrain3d/DESIGN.md §8 and the
+  // sink map T7, written with tools/probe-3d.ts into C:\dgm-probe\terrain3d; their checks are in terrain3d.ts.
+  games.push(...terrain3dGames());
+
   // The cycle model's calibration points (CALIBRATION.md on investigation/cycles-exact), under forced weather
   games.push({
     id: 'cal-rv2', title: 'Calibration · River Valley seed 2, 128²: source slowdown and badtide front', group: 'Calibration',
@@ -737,7 +815,7 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
     ], 'Normal', (m) => [...weirTiles(m), ...startWater(m).slice(0, 4)]),
   );
   games.push(
-    m9aGame('m9a-rise', 'Highlands 128², ruins on a rise (the first seed with one)', () => firstGenerated((seed) => `s=${seed}&t=highlands&z=128&d=n`, (r) => r.features.some((f) => f.kind === 'setPiece' && f.params.kind === 'obstaclePayoff')), [M9A_BADWATER]),
+    m9aGame('m9a-rise', 'River Valley 128², ruins on a rise (the first seed with one)', () => firstGenerated((seed) => `s=${seed}&t=riverValley&z=128&d=n`, (r) => r.features.some((f) => f.kind === 'setPiece' && f.params.kind === 'obstaclePayoff')), [M9A_BADWATER]),
   );
   // a tall map (Verticality 85: land above 16, D172), a calm day and a half like the tall maps
   games.push({
@@ -795,17 +873,37 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
     ],
   };
 
-  // Maps from the command line (the M9 prototypes, for example): a Normal drought, compared with the model
+  // Maps from the command line (the M9 prototypes, for example): a Normal drought, compared with the model; with
+  // `--cycles N`, N cycles of the hardest weather Normal's rules allow (longPlaySchedule), checked cycle by cycle
+  const long = given.cycles ? longPlaySchedule(given.cycles, 'Normal') : null;
   for (const path of extraMaps) {
     const name = basename(path).replace(/\.timber$/i, '');
-    games.push({
-      id: 'map-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), title: name, group: 'Given maps',
-      bytes: memo(() => new Uint8Array(readFileSync(path))), faction: 'Folktails', mode: 'Normal',
-      // 3 temperate days (every generated map's source ramp is under a day), then Normal's longest first drought (3 days)
-      cycles: [{ temperateDays: 3, hazard: 'drought', hazardDays: 3 }, calm], days: 6.5,
-      tiles: (m) => startWater(m).slice(0, 6), sampleHours: 1, daily: true, model: true,
-      checks: [...GENERIC, { id: 'drought-start-water', title: "The start's water through a Normal drought, against the model and the map's brief", how: 'measure' }],
-    });
+    const baseId = 'map-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const factions = given.factions?.length ? given.factions : (['Folktails'] as const);
+    for (const faction of factions) {
+      const title = (factions.length > 1 ? `${name} (${faction})` : name) + (long ? `, ${long.length} cycles` : '');
+      if (long) {
+        games.push({
+          id: baseId + (faction === 'IronTeeth' ? '-it' : ''), title, group: 'Given maps', longPlay: { cycles: long.length },
+          bytes: memo(() => new Uint8Array(readFileSync(path))), faction, mode: 'Normal', cycles: long, days: scheduleDays(long),
+          // (the whole map at each hazard's start, first day and end, not every day: 185 days of records at 256² would
+          // be hundreds of MB; the start's water sampled every 3 hours)
+          tiles: (m) => startWater(m).slice(0, 6), sampleHours: 3, model: true,
+          checks: [...GENERIC, CYCLES.water, CYCLES.start, CYCLES.land, CYCLES.shots],
+        });
+        continue;
+      }
+      games.push({
+        id: baseId + (faction === 'IronTeeth' ? '-it' : ''), title, group: 'Given maps',
+        bytes: memo(() => new Uint8Array(readFileSync(path))), faction, mode: 'Normal',
+        // 3 temperate days (every generated map's source ramp is under a day), then Normal's longest first drought (3 days);
+        // with a badtide: 3 more temperate days and a 3-day badtide, then calm
+        cycles: given.badtide ? [{ temperateDays: 3, hazard: 'drought', hazardDays: 3 }, { temperateDays: 3, hazard: 'badtide', hazardDays: 3 }, calm] : [{ temperateDays: 3, hazard: 'drought', hazardDays: 3 }, calm],
+        days: given.badtide ? 12.5 : 6.5,
+        tiles: (m) => startWater(m).slice(0, 6), sampleHours: 1, daily: true, model: true,
+        checks: [...GENERIC, ...(given.badtide ? [{ id: 'cal-timeline', title: "The map's water day by day against the model, through a drought and a badtide", how: 'measure' } as CheckDef] : []), { id: 'drought-start-water', title: "The start's water through a Normal drought, against the model and the map's brief", how: 'measure' }],
+      });
+    }
   }
   games.push(e4game);
   return games;
@@ -845,6 +943,39 @@ export interface StartWater {
 }
 
 const startWaterCache = new WeakMap<MapInfo, Map<string, StartWater>>();
+const startWalkCache = new WeakMap<MapInfo['entities'], { walk: Float64Array; sx: number; sy: number } | null>();
+
+/**
+ * The start's walk over the map's own ground and its slopes (never player stairs), from the district center's middle
+ * tile, round the objects that block walking: tiles' walk per tile (Infinity beyond the walk limit). Null when the map
+ * has no start. The terrain and objects are the file's, so a record of the same map (another moment's water) shares it.
+ */
+export function startWalk(m: MapInfo): { walk: Float64Array; sx: number; sy: number } | null {
+  if (startWalkCache.has(m.entities)) return startWalkCache.get(m.entities)!;
+  let out: { walk: Float64Array; sx: number; sy: number } | null = null;
+  if (m.start) {
+    const { W, H, heights: h } = m;
+    const place = (e: MapInfo['entities'][number]): Placement => {
+      const bo = e.components.BlockObject as { Flipped?: boolean } | undefined;
+      return { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation as Orientation, flipped: bo?.Flipped === true };
+    };
+    const blocked = new Uint8Array(W * H);
+    const links: [number, number][] = [];
+    for (const e of m.entities) {
+      if (WALK_BLOCKERS.has(e.template) && FOOTPRINTS[e.template]) for (const [x, y] of footprintTiles(e.template, place(e))) if (x >= 0 && x < W && y >= 0 && y < H) blocked[y * W + x] = 1;
+      if (e.template !== 'Slope' || e.x < 0 || e.x >= W || e.y < 0 || e.y >= H) continue;
+      const [dx, dy] = slopeHighSide(e.orientation as Orientation);
+      const hx = e.x + dx, hy = e.y + dy;
+      if (hx >= 0 && hx < W && hy >= 0 && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
+    }
+    const cells = worldBlocks(FOOTPRINTS.StartingLocation, place(m.start)).filter((b) => b.localZ === 0);
+    const sx = Math.round(cells.reduce((a, b) => a + b.x, 0) / cells.length);
+    const sy = Math.round(cells.reduce((a, b) => a + b.y, 0) / cells.length);
+    out = { walk: walkDistance(h, W, H, blocked, links, { x: sx, y: sy }), sx, sy };
+  }
+  startWalkCache.set(m.entities, out);
+  return out;
+}
 
 /**
  * The start's water by the product's own water rule, `start.water` (PLAN §11.4, D153): clean water a
@@ -852,7 +983,8 @@ const startWaterCache = new WeakMap<MapInfo, Map<string, StartWater>>();
  * shore tile the start walks to within the rule's walk for the difficulty, over the map's own ground and
  * its slopes (never player stairs), from the district center's middle tile; walking blocked by the
  * same objects. The same pieces as `checkStart` in src/core/validate/playability.ts; the probe's self-test
- * checks the nearest against the product's own verdict. Nothing when the map has no start.
+ * checks the nearest against the product's own verdict. Nothing when the map has no start. `m` may carry
+ * another moment's water (a record's depth and contamination over the file's terrain and objects).
  */
 export function startWaterOf(m: MapInfo, mode: GameDef['mode'] = 'Normal'): StartWater {
   let byMode = startWaterCache.get(m);
@@ -864,24 +996,9 @@ export function startWaterOf(m: MapInfo, mode: GameDef['mode'] = 'Normal'): Star
   const within = DIFFICULTY_RULES[mode.toLowerCase() as 'easy' | 'normal' | 'hard'].waterWithin;
   const result: StartWater = { pump: [], bodies: [], within };
   byMode.set(mode, result);
-  if (!m.start) return result;
-  const place = (e: MapInfo['entities'][number]): Placement => {
-    const bo = e.components.BlockObject as { Flipped?: boolean } | undefined;
-    return { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation as Orientation, flipped: bo?.Flipped === true };
-  };
-  const blocked = new Uint8Array(N);
-  const links: [number, number][] = [];
-  for (const e of m.entities) {
-    if (WALK_BLOCKERS.has(e.template) && FOOTPRINTS[e.template]) for (const [x, y] of footprintTiles(e.template, place(e))) if (x >= 0 && x < W && y >= 0 && y < H) blocked[y * W + x] = 1;
-    if (e.template !== 'Slope' || e.x < 0 || e.x >= W || e.y < 0 || e.y >= H) continue;
-    const [dx, dy] = slopeHighSide(e.orientation as Orientation);
-    const hx = e.x + dx, hy = e.y + dy;
-    if (hx >= 0 && hx < W && hy >= 0 && hy < H) links.push([e.y * W + e.x, hy * W + hx]);
-  }
-  const cells = worldBlocks(FOOTPRINTS.StartingLocation, place(m.start)).filter((b) => b.localZ === 0);
-  const sx = Math.round(cells.reduce((a, b) => a + b.x, 0) / cells.length);
-  const sy = Math.round(cells.reduce((a, b) => a + b.y, 0) / cells.length);
-  const walk = walkDistance(h, W, H, blocked, links, { x: sx, y: sy });
+  const sw = startWalk(m);
+  if (!sw) return result;
+  const { walk, sx, sy } = sw;
   const counted = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     const d = m.depth[i];

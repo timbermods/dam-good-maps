@@ -34,7 +34,6 @@ function slide(path: { x: number; y: number }[], side: 1 | -1, power: number): v
 /** Highlands 64², seed 1: twelve Pines planted in a row on dry free ground, (33..44, 27). */
 async function planted(): Promise<void> {
   await runGenerate(makeSpec({ seed: 1, theme: "highlands", size: { x: W, y: W } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
   PINES.forEach((id, k) => expect(ed.apply({ op: "placeEntity", params: { id, template: "Pine", x: X0 + k, y: ROW, orientation: "Cw0" } }).errors).toEqual([]));
 }

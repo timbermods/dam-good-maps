@@ -1,12 +1,11 @@
-// The Rust water's binding loads and runs in Node (PLAN §20 D381, D442 (b)). Not switched on yet: WaterSim
-// still runs the TypeScript simulation, so this checks only the wiring; tools/rust/check.ts checks that the
-// Rust water gives the same bytes natively, in Node's WebAssembly and in each engine, and
-// tools/rust/water-identity.ts compares it with the app's water (the adoption's identity run, after M9b).
+// The Rust water's binding (PLAN §20 D381, D442 (b)): WaterSim runs in Rust, takes a caller's changes between
+// runs and gives back its depth, badwater, outflows and saturation. water-speedups.test.ts pins its bytes;
+// tools/rust/check.ts checks the same bytes natively, in Node's WebAssembly and in each engine, and
+// tools/rust/water-identity.ts the native settle against the app's.
 
 import { describe, expect, it } from "vitest";
 import { rustWaterRuns } from "../../src/core/sim/rustWater";
-import type { WaterModel } from "../../src/core/sim/water";
-import { RustWaterSim } from "../../src/core/sim/waterRust";
+import { WaterSim, type WaterModel } from "../../src/core/sim/water";
 
 describe("the Rust water's binding", () => {
   it("loads in Node and runs a source into a basin, exposing depth, badwater, outflows and saturation", () => {
@@ -16,7 +15,7 @@ describe("the Rust water's binding", () => {
     const floor = new Float64Array(W * H).fill(3);
     for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) floor[y * W + x] = 1;
     const model: WaterModel = { W, H, floor, dam: null, emitters: [{ cells: [3 * W + 4], strength: 1, contamination: 0.25 }] };
-    const sim = new RustWaterSim(model);
+    const sim = new WaterSim(model);
     sim.run(200);
     expect(sim.ticks).toBe(200);
     expect(sim.out.length).toBe(4 * W * H);
@@ -31,5 +30,16 @@ describe("the Rust water's binding", () => {
     sim.out.fill(0);
     sim.run(1, 0);
     expect(sim.volume()).toBe(0);
+  });
+
+  it("dispose frees the simulation once: again is safe, its arrays stay readable, and running it after says why", () => {
+    const model: WaterModel = { W: 4, H: 4, floor: new Float64Array(16), dam: null, emitters: [{ cells: [5], strength: 1, contamination: 0 }] };
+    const sim = new WaterSim(model).run(10);
+    const depth = sim.D.slice();
+    sim.dispose();
+    sim.dispose();
+    expect(sim.D).toEqual(depth);
+    expect(() => sim.run(1)).toThrow(/disposed/);
+    expect(() => sim.saturation()).toThrow(/disposed/);
   });
 });

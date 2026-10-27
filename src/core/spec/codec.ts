@@ -5,13 +5,15 @@
 // Only the settings that differ from the theme preset at that difficulty and size are written, in
 // a fixed order, so a spec has exactly one fragment. Species weights are four bytes in base64url.
 // The rest of the spec is carried too, when it differs from a fresh spec: the archetype (`a`), the
-// premise (`p`), the colonies (`c`, reserved for Timber Together, D5), the requested set pieces
-// (`sp`) and the regeneration constraints (`k`), the last two as base64url JSON. A share link
-// carries the spec only (D7): it reproduces the generated map, not the player's edits.
+// premise (`p`) and the colonies (`c`, reserved for Timber Together, D5). A link written before the
+// coherence cleanup may carry requested set pieces (`sp`) and regeneration constraints (`k`): no map
+// ever read them, so they are ignored and the link opens the same map. A share link carries the spec
+// only (D7): it reproduces the generated map, not the player's edits.
 //
 // Decoding never throws. A value it cannot use is reported in `problems` and the preset's value
 // stays, so a mistyped link still opens a map.
 
+import { B64_URL, fromBase64, toBase64 } from "../format/base64";
 import { hash32 } from "../math/hash";
 import { jsonEqual } from "./mergepatch";
 import { validateSpec } from "./schema";
@@ -103,6 +105,7 @@ const SPECIES = ["pine", "birch", "oak", "succulent"] as const;
 const DIFF_CODES: Record<Difficulty, string> = { easy: "e", normal: "n", hard: "h" };
 const DIFFS: Record<string, Difficulty> = { e: "easy", n: "normal", h: "hard" };
 /** Keys that are not settings, and `st`: Minimum starting trees before D164 (read as wood). */
+// (`sp` and `k`: set pieces and constraints, which older links may carry; ignored)
 const OTHER_KEYS = new Set(["v", "s", "t", "z", "d", "a", "p", "c", "sp", "k", "st", "vr", "in"]);
 
 function getAt(s: Settings, path: Path): unknown {
@@ -119,46 +122,16 @@ function setAt(s: Settings, path: Path, v: unknown): void {
 
 // ------------------------------------------------------------------------------------ base64url
 
-const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-
+/** Bytes as base64url, unpadded (format/base64.ts's packing with base64url's alphabet). */
 export function toBase64Url(bytes: Uint8Array): string {
-  let out = "";
-  for (let i = 0; i < bytes.length; i += 3) {
-    const a = bytes[i];
-    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
-    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
-    const n = (a << 16) | (b << 8) | c;
-    out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63];
-    if (i + 1 < bytes.length) out += B64[(n >> 6) & 63];
-    if (i + 2 < bytes.length) out += B64[n & 63];
-  }
-  return out;
+  return toBase64(bytes, B64_URL, false);
 }
 
+/** Unpadded base64url as bytes, or null when it isn't (a character outside the alphabet, or a
+ *  length no bytes give). */
 export function fromBase64Url(text: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]*$/.test(text) || text.length % 4 === 1) return null;
-  const out: number[] = [];
-  let acc = 0;
-  let bits = 0;
-  for (const ch of text) {
-    acc = (acc << 6) | B64.indexOf(ch);
-    bits += 6;
-    if (bits >= 8) {
-      bits -= 8;
-      out.push((acc >> bits) & 255);
-    }
-  }
-  return new Uint8Array(out);
-}
-
-function jsonToB64(v: unknown): string {
-  return toBase64Url(new TextEncoder().encode(JSON.stringify(v)));
-}
-
-function b64ToJson(text: string): unknown {
-  const bytes = fromBase64Url(text);
-  if (!bytes) throw new Error("not base64url");
-  return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+  return fromBase64(text, B64_URL);
 }
 
 // ------------------------------------------------------------------------------------ encoding
@@ -197,9 +170,6 @@ export function encodeSpecFragment(spec: MapSpec): string {
   if (spec.variation) put("vr", String(spec.variation));
   if (spec.intentions?.length) put("in", spec.intentions.join("."));
   if (spec.colonies.count !== 1 || spec.colonies.mod !== "none") put("c", `${spec.colonies.count}${spec.colonies.mod === "timberTogether" ? "t" : "n"}`);
-  if (spec.setPieces.length) put("sp", jsonToB64(spec.setPieces));
-  const k = spec.constraints;
-  if (k.keepOut.length || k.keep.length) put("k", jsonToB64(k));
   return parts.join("&");
 }
 
@@ -327,18 +297,6 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
       // more, so the link opens as one, with a word, instead of throwing in the generator)
       spec.colonies = before;
       problems.push(`colonies "${c}": multi-colony maps are not built yet, so the map has one colony`);
-    }
-  }
-  for (const [key, field] of [["sp", "setPieces"], ["k", "constraints"]] as const) {
-    const raw = params.get(key);
-    if (raw === undefined) continue;
-    const before = spec[field];
-    try {
-      (spec as unknown as Record<string, unknown>)[field] = b64ToJson(raw);
-      if (validateSpec(spec).length) throw new Error("invalid");
-    } catch {
-      (spec as unknown as Record<string, unknown>)[field] = before;
-      problems.push(`the ${field === "setPieces" ? "set pieces" : "constraints"} in the link are not valid`);
     }
   }
   for (const k of params.keys()) if (!OTHER_KEYS.has(k) && !SETTING_KEYS.some((sk) => sk.key === k)) problems.push(`unknown setting "${k}" ignored`);

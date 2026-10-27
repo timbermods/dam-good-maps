@@ -1,7 +1,7 @@
-// A force's record never depends on how fast it was planned (PLAN §20 D366). The staged forces plan in
-// slices of a few milliseconds; a quick machine plans in fewer slices than a busy one. The operation
-// keeps the stages it shows (`total`), never the number of planning calls, so the same gesture is
-// the same operation on any machine.
+// A force's record never depends on how fast it was planned (PLAN §20 D366). The staged forces are
+// planned in one call when they start (in Rust, D381) and never read the clock, so a busy machine takes
+// the same steps as a quick one; the operation keeps the stages it shows (`total`), so the same gesture
+// is the same operation on any machine.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { snapshotMap } from "../../src/core/forces/force";
@@ -42,8 +42,8 @@ describe("a force's record does not depend on how fast it was planned (D366)", (
       const m = fixture("river", W);
       const quick = play(() => make(m), 0);
       const busy = play(() => make(m), 100);
-      // the busy machine planned in more slices, and the record is the same
-      expect(busy.calls).toBeGreaterThan(quick.calls);
+      // the busy machine takes the same steps, and the record is the same
+      expect(busy.calls).toBe(quick.calls);
       const rec = { verb, settings: (quick.run as unknown as { settings: never }).settings, where: at as never, cut: null };
       const a = stagedParamsOf(m, quick.run, rec);
       const b = stagedParamsOf(m, busy.run, rec);

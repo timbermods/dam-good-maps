@@ -3,8 +3,8 @@
 > **The yardstick for every review: [docs/PERFECT.md](docs/PERFECT.md)** (what perfect means, `PLAN.md` §20 D225).
 
 **Read this before any editor work** (`CLAUDE.md`). Part 1 is the editor's vision and how it works now, taken from
-Kyler's decisions (`PLAN.md` §20: D158, D172, D179–D187 and the later ones it cites). Part 2 is the technical
-reference. Where anything here conflicts with `PLAN.md` §20, §20 wins. The next screen is
+Kyler's decisions (`docs/decisions/`: D158, D172, D179–D187 and the later ones it cites). Part 2 is the technical
+reference. Where anything here conflicts with `docs/decisions/`, the decisions win. The next screen is
 [docs/UI-BRIEF.md](docs/UI-BRIEF.md)'s ("The page is the editor", D330; a separate page session owns that design):
 where this document describes the screen and the brief differs, the brief wins. What was superseded, the detailed
 text this document condensed (at D390) and the deferred Claude integration's design are in
@@ -34,7 +34,8 @@ workshop; players can still fine-tune in the game's editor if they want. The edi
 - **Every control says what it does** (D351, D361, D368 (6)): each tool, force, option, view toggle, shelf item and
   button has a tooltip, a short phrase (about 60 characters at most, no second sentence, no technical detail) that
   says what it is for at a glance, then its shortcut at the end as a small key cap, never in brackets ("Carve a
-  river" then a cap 7). One shared tooltip shows them all (`src/ui/Tooltip.tsx`): a control carries its phrase as
+  river" then a cap 7). A force's tooltip starts with a verb ("Strike a crater", "Build a volcano"); a toggle's Off
+  says what is absent ("No lake at its head"). One shared tooltip shows them all (`src/ui/Tooltip.tsx`): a control carries its phrase as
   its `title` and its keys in `data-keys` (`tip("Carve a river", "7")`). Whoever changes a control updates its
   tooltip in the same commit; `tests/e2e/tooltips.spec.ts` fails on any interactive control without one, with a
   second sentence, past that length, with a key in brackets, or named with a key its tooltip doesn't end with
@@ -48,22 +49,247 @@ workshop; players can still fine-tune in the game's editor if they want. The edi
 
 ## 3. The screen
 
-The editor's parts as they are now; their placement and styling are the design pass's (UI-BRIEF).
+The editor's parts as they are now: Layout 2 (Kyler, 2026-10-03). The page is the editor (D330): every map opens in
+the editor at once, in one window; **Map Generator** opens the generator's settings in a panel over the map at the
+left (640px wide, or wider and shorter in a short window), **Real places** opens the gallery's places, and **Your maps** the maps kept in this browser, in the same place.
+Their look, sizes and exact places are [DESIGN.md](DESIGN.md)'s ("Layout 2 mockups (2026-10-03): the design to
+build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the sizes it is designed for.
+**Depth (Kyler, 2026-10-15):** the plates over the map stand off the land on shadows, not rules or translucency (they stay
+solid, as "solid chrome", 2026-10-02): three elevations, each three stacked shadows in a warm walnut ink (`--shadow-1`: a
+single control; `--shadow-2`: the bar, its settings, the shelf and its object window, the panels, the legend;
+`--shadow-3`: menus, the checks list, dialogs; `src/styles/app.css`). The header casts a soft shadow onto the map in
+place of its bottom rule.
 
-- **The rows over the map** (D323, item 9): four, top to bottom: the view bar; the tools (Raise, Lower, Flatten,
-  Smooth, Naturalize, Select); the forces in three clusters by prominence (D352, `FORCE_GROUPS` in `TopBar.tsx`:
-  Carve, Craterize, Erupt · Rift, Quake, Glaciate · Erode, Deposit; today Carve, Craterize, Erupt · Quake,
-  Glaciate, keys 7, 8, 0, 9, -; a force not adopted yet takes its place in the list); the active tool's settings
-  and its More. A long settings row takes a second line, and a tool's More opens as a compact grid panel (D345,
-  B2). The first-run hint points at Carve. Every force's row is §4's.
-- **The left shelf:** a clean grid of placeable objects: the **Water source** and the **Badwater source** (two
-  items, D212), then the **Start**, **Pine**, **Birch**, **Oak**, **Berry bush**, ruins, the mine site, relics,
-  slopes and the rest, each a small render in the map's look.
+- **The header:** **Map Generator** alone at the left edge (a small folded-map icon and its name, tinted in the mint),
+  lit while the panel is open. The map's
+  name at the window's exact centre, and under it "Seed 4242 · 128×128" (an opened file shows its size; if this
+  browser can't keep the map, that line says so); it never reaches either side: where the room is short the second
+  line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
+  font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443; the title shows the name and is fitted at once, never waiting for the worker's answer),
+  Esc cancels, and a blank name is refused in the core's words, said in the second line. While the name is edited a small card hangs under it with the map's description ("Describe the map" while none is written; Enter saves, Shift+Enter is a line break, Esc cancels; the `setDescription` operation, one undo step, refused in the core's words in the card; empty takes the player's text away; what the file adds after it shows under the field); focus moving between the name and the card saves nothing until it leaves the title. A typed name stops at what
+  fits two lines (13px, where the header's room is narrowest: at 1280 wide and at 1,340 and 1,400px, where the right group grows, so a name kept at one width is shown whole at every wider one) where the fonts allow, never below 30
+  characters: a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines with an
+  ellipsis and the full name in its tooltip. On the right **History**
+  (its panel open while pressed), Undo, Redo, the checks dot with its
+  words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone; its tooltip "What to fix before
+  playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
+  (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
+  button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…,
+  Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
+  same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
+  under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. A sibling's variation is shown beside its seed, in the header ("Seed 4242 · 2 · 128×128") and in the panel's Seed line, so a seed copied by hand is known to be only part of its address. **Showcase…** (D488 (2)) sits in
+  the empty place at the foot of "On this map", under Reset settings (the panel no taller): it opens Showcase mode's sheet
+  over the two columns of settings (they stay where they are under it; **Settings** or Esc closes it). The sheet
+  holds **Search for** (2, 5 or 15 minutes, 5 the first time, then what was last chosen in this browser), one button
+  (**Start search**; **Stop** while it runs, which ends it after the map in hand; **Search more** once it has ended on
+  the same settings, which goes on from the next variation and keeps the best three of both), a line saying how many
+  maps are made and the time left, a hairline filling with the time gone, and three cards in fixed places, best first:
+  each map's picture in a 16:9 place (200×112: the top-down thumbnail, Your maps', until the search has ended, then the
+  map's hero picture, `render3d/hero.ts` `heroPictureUrl` at 400×225, drawn one at a time, the thumbnail kept where it
+  can't be drawn), its name, how many of the arc's six beats it has ("4 of 6
+  beats"), each beat met (a tick) or not (a ring) by its label, the core's words for its strongest beat (two lines), and
+  **Open**, which works once the search has ended and opens the pick through the normal open path (the camera moves
+  only as any opened map's does, D265). The card of the map on show has the mint edge and its Open greyed. The search
+  uses the settings and the seed in the box (an opened file rolls a seed, as Generate does) and runs in its own worker
+  (`createShowcase`), so the editor never slows and the search goes on with the sheet or the panel closed; if it ends
+  out of view, a note says so with **Show them**. A worker that fails (its file gone after a deploy, a crash) is
+  dropped: one line says why (a worker that never ran, its file gone after a deploy: "The search stopped: its worker
+  could not run. Reload the page to search again."), and the next search starts a fresh one; after a search that stopped on an error only the cards that can still open stay. A map on land a card
+  already shows never takes a second card. The focus stays in the sheet through Stop and Open (the greyed buttons are
+  `aria-disabled`), so Esc still closes it. The code: `src/editor/generator/Showcase.tsx`, `showcaseModel.ts`,
+  `src/ui/useShowcase.ts`.
+
+- **The map generator's panel** (Kyler's pick, 2026-10-04; over the map at the left: opening it never resizes
+  the map or moves the camera): every setting at once, each on one line in the bar's control
+  language (a slider with its value, or a segmented choice; no dropdowns), and nothing scrolling wherever the window
+  leaves the room above the bar. It has four shapes, the first that fits the room winning (`panelFit.ts`, chosen by the
+  band's layout, `view/useBandLayout.ts`, from the room above the bar and beside the corner, with the open legend's
+  room kept): two columns 640px wide (692 tall; 1920×1080 and up); three columns 880 wide (509 tall); the same with every
+  row tighter (449 tall; 1600×900, 1536×864, 1440×900); two columns tighter (594 tall; windows too narrow for three).
+  The first-run hints stand aside while it is open. In a window with less room than the shortest shape that fits its
+  width (1280×720, 1366×768) the panel keeps that shape and scrolls inside, a soft fade at its foot saying more lies
+  below; `tests/e2e/generatorFit.spec.ts` holds the sizes. **Enter** anywhere in the panel is Generate (a field, a
+  slider or a button: Space presses a button, Enter never does, so Another like this is only clicked), **Esc** closes it
+  (the Showcase sheet's Esc closes the sheet first). A title block: the **Name** for the next map (the field starts
+  empty, the open map's name in grey in it; what is typed names the map **Generate** makes next, then the field is
+  empty again, and the open map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
+  settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
+  Custom, its width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
+  own editor can't open the map, D357; nothing moves and it never refuses; Generate on a side under the theme's least (48, Islands 64)
+  says so in one line, "Canyon needs at least 48 tiles a side to generate", as a note over the map (no dialog dims it,
+  and a map that fails its checks says "No valid map" the same way), and the open map stays). Then two columns (three in the wider shapes: Terrain and Hazards; Water and Difficulty; Resources and "On this map"): Terrain, Water and Hazards; Resources (the species mix one
+  bar of four shares), **Difficulty** (Starting wood, Max walk to water, Starting berries, Start area, No ruins
+  within) and "On this map" (Mine sites, Ruins, Berry bushes, **Trees**, Water sources: counted from the map's own
+  objects as they are now, edits included, so an opened file or a real place is counted as the generator's maps are;
+  dead trees and bushes aren't). The numbers carry their units ("200 logs", "30 bushes", "20 tiles", "100%"). Each
+  setting keeps its guard (PLAN §5) and has no line under it (the official maps' range is in its tooltip); the code is
+  `src/editor/generator/`. **An opened file has no generator settings** (a .timber, a project without a spec, a real
+  place): while one is open the panel reads "–" for the seed, the theme and every setting (the controls quiet, the Name
+  and the Size its own), `Generate` makes a map of the Any theme's defaults at that size, and the first setting touched
+  brings every setting back as the next map's (`App.tsx`'s `blank`). **The editor's frame before any map** (a share
+  link, a reload, a place opened first): the real header, bar and shelf held still with the land's first look in the
+  map's place, the progress dialog over it (no Cancel: there is no map to go back to; `src/editor/LoadingFrame.tsx`). **While a map
+  is made** the dialog holds a small stretch of moving water in the view's water colour, and the land's empty square draws
+  an island's contour rings one after another (the lowest in the water's colour; 0.5 s apart, 1.8 s each, then they hold
+  and fade together on a 6 s cycle); both move only while waiting and not under reduced motion (`FirstLook.tsx`);
+  **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
+  open map back as it was; in a Together session, once the new map is built and being put into the session's worker (the last step before it opens), Cancel is off ("The map is opening"), Esc does nothing and the words read "Opening the map…". **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
+  the attempt under way and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
+  quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
+  A real place has one name everywhere, the one in its file ("Near Crater Lake"). Every map is made for Normal until the core drops difficulty
+  after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
+  without asking: edits never replay onto new land (D336), and the map it replaces, if edited, is in Your maps.
+- **Your maps** (D234, D330; with nothing kept it shows one dashed tile where the first map will land, and "No maps kept yet"
+  beside it): a map is kept in this browser from its first edit (an operation applied) or rename,
+  whatever its kind, and stays kept even if every edit is undone; camera bookmarks alone don't keep it, and an
+  unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
+  after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
+  scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
+  thumbnail, made in a worker of its own when the page is idle, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
+  right-click on one, open or not, offers **Download .timber**, **Rename** (in place; a typed name stops at what fits the tile's two
+  lines) and **Delete** (asked
+  once; the open map gives way to the next one, or a new map when none is left). Several are selected as on a
+  desktop (Kyler, 2026-10-05): Ctrl-click toggles one, Shift-click a range from the last clicked, neither opening a
+  map; a selected tile is tinted with a check at its corner, nothing moving. The heading row holds **Compare** (another
+  version selected, the same size as the open map; below under Versions), **Rename** (one selected) and **Delete** (any), always shown,
+  greyed otherwise with the reason in Compare's tooltip; Delete asks once ("Delete 7 maps?"), focus on
+  Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
+  the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
+- **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
+  room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
+  (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide; tooltip
+  "Edit this map with someone else"). Below about 1,340px wide the Look button reads just "Look" and the button leaves the
+  header for **Together…** in File's menu (the same tooltip), File wearing the other player's dot while a session is live, so
+  the longest name still fits two lines at 1280 under a wide font. It opens a small panel under it (from File's entry it hangs under the right group's edge). **Alone:** the player's name (a field, kept in this browser,
+  "Player" by default), **Invite** (makes a room code and shows it large with **Copy** and "Waiting for them to
+  join…", **Cancel** takes it back), and a code field with **Join**. **Live:** the two players, each with their colour
+  swatch, **Go to <name>** (the camera glides to where they are looking; never automatic, brief §6) and **Leave**.
+  **Paused** (the other left or the connection dropped, brief §7): "<name> has left. Waiting to reconnect."; the map
+  stays on screen, read-only (an edit is refused with that line), and **Save to Timberborn** still works;
+  **Invite again** (the host) makes a new code that carries on the same session, the guest types the new code under
+  **Join again**. The button wears the other player's colour dot while a session is live (hollow while they are
+  away). The colours are the session's (`PLAYER_COLOURS`, tokens `--collab-host` and `--collab-guest`, DESIGN.md).
+  A guest cannot rename the map (the host names the shared map: the title's tooltip says so) or open another one.
+  - **How edits route.** The page's controller `Together` (`src/collab/together.ts`, one object for the page's life,
+    beside the editor, which remounts for each map) owns the `CollabClient`. From **Invite** on, the worker sends every
+    edit through the session instead of applying it: `generator.worker.ts` hands each edit function (`apply`,
+    `applyAll`, `applyTool`, `plantAt`, `removeAt`, `moveObjectBy`, `moveStartTo`, `applySelection`, `strokeClearing`,
+    `undo`, `redo`, the forces) to `worker/collabEdit.ts` while `collabActive()`. It plans the operations with the same
+    planner the direct edit uses (`session.planned`), orders them with `submit` and answers with the session's verdict
+    (a plain line when refused). The answer carries no map news (`SessionUpdate.routed`): the map changes by the
+    session's own `update` event, which the editor takes as an edit's answer after the edits already on their way
+    (`editor/collab/useCollab.tsx`). Every call site of the editor is unchanged; nothing in `src/editor` routes an edit.
+    Undo and Redo are the session's per-player ones (only the player's own actions; the header's buttons follow the
+    session's `plan`); History's jump is refused in a session. A force is ordered as a gesture when it is kept, so it has
+    no play-out on this side yet (part 6b), and Try another is not available.
+  - **Notes** are the page's usual note line (`editor-message`): a refusal with its reason ("Reaches into Ada's
+    area", an undo's "… is on top of this", "<name> has left. Waiting to reconnect."), a water note for the player's own
+    claim with a **See it** button, "<name> is opening a new map", and a desync or "Collaboration is unavailable right
+    now" said plainly (in the panel too). Editing alone is unaffected when the relay or the function is down.
+  - **Presence** (§6, minimal in 6a): the other player's cursor is a small arrow in their colour with their name and
+    the tool they hold, over the map (`collab-presence`, drawn with the 3D view's projection like the sources'
+    markers); it goes a second and a half after their last packet. The player's own cursor tile, held tool and camera
+    are sent while the session is live (the session sends at most 15 a second). Their stroke before release and the force
+    playing out come in 6b; so do the claims tools.
+  - **The whole map is the host's alone** (§9): Generate, Surprise me, Another like this, a real place, a file or a map of
+    Your maps, done by the host, tells the guest first ("<name> is opening a new map") and sends the new map once it is
+    open; the host makes a new map in a worker of its own while a session is on, so Cancel never ends it. The guest's
+    own attempts say so quietly. **Your maps** keeps the session on both sides (a `keep` event: at a pause, when someone
+    leaves, and the old map when the host opens another).
+- **Versions** (fearless iteration; D336, D455, D456, D342): in **History**, a row pointed at, focused or current shows
+  **Keep this version** and **Branch from here**. Keep saves the map as it stood at that step (undone steps included) into
+  Your maps as "<map name> — <step label>" in one click, never asking (numbered "(2)", "(3)" when Your maps already holds the name, as saved files are; Rename is in Your maps); the History panel opens with the step the map is at in view; Branch does the same, named the same way, and opens the copy, its History through that step. A version
+  is an ordinary project on the same land with the History's first steps replayed on it (`MapSession.versionProject`, the
+  stored map built so it reopens byte for byte, D455); no new file format, and the map it came from is untouched. Its meta
+  says where it came from (`meta.parent`: map, step label, step count), so Your maps shows "<map> · step N" small under the
+  size (`core/library/keptVersions.ts`, `tests/contract/keptVersions.test.ts`). **Compare**: Your maps' heading-row
+  **Compare** (Ctrl+click the other version; greyed with the reason when none is selected or it is another size) or the right-click
+  **Compare with the open map** (the same size only) reads the other map once, settled, in a worker of its own; a note
+  "Comparing with <name>" with **Stop** shows over the map, and holding **B** (or the note's button) flips (B with nothing chosen says how to choose one, a note that goes by itself) the land, objects and
+  water to the other map at the same camera, a name chip over the map while it is on show; anything that redraws the open map (an edit, an undo, a force, a peer) puts it back and ends the flip, the minimap follows the flip, and letting go puts the open map back; Compare shows the surface only on an import with caves or overhangs
+  (`editor/compare/useCompare.tsx`). Captures `docs/design/showcase-versions-*`.
+- **The address** is always the open map's share link (its spec, D7; a link carries no edits): copying it shares the
+  map as generated, and a link opens straight into the editor. A reload brings the open map back from Your maps,
+  edits and all. A real place's address is `#place=<id>`; an opened file has none.
+- **Select is always in hand** (Kyler, the v4 verdict): held when a map opens; Esc and X put anything else down and
+  return to it; a drag on the land marks an area and a click clears it; a source and the start are pressed and
+  dragged as before; a click picks an object and a drag then moves it, while a drag from an object not picked
+  marks an area. The middle button turns the view, the right button pans.
+
+- **The bar** at the bottom middle, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, Block
+  (D335, key 7), a hairline, then the forces in the order of D352's clusters (`FORCE_GROUPS` in `TopBar.tsx`; today Carve,
+  Craterize, Erupt, Rift, Quake, Deposit, Glaciate, Erode, keys Shift+1 to Shift+8; a force not adopted yet takes its
+  place in the list): fifteen cells of one width, icon above name, keys only in tooltips. A cell is 76px where the
+  map area has room; narrower, in whole pixels (56px at least), where it hasn't, so the bar stays clear of the
+  minimap and the objects menu; the bar sits on whole pixels. **The held tool's settings sit directly above it**
+  (Kyler's option B, 2026-10-03; `src/editor/settings.tsx`): one panel at the bar's exact width and one height,
+  120px, for every tool; two rows of 54px on one grid (Kyler, 2026-10-05: never a third), the bar's own 15 cells,
+  every group spanning whole cells, so each edge in one row lines up with the other and with the bar (every gap
+  between plates continues through the other row, or a plate there spans it; `layout.spec.ts`); every force's Try
+  another one row tall at cells 14–15 of row 2, its Sources at 11–12 beside it (the Block's cell, 7, came after Naturalize's, and
+  Erode's, the last, goes to the group that ended the row: a row laid out on thirteen cells keeps each group over its buttons,
+  `settings.tsx` `fromThirteen`); no empty cells, a tool with fewer
+  settings giving each more room. Every setting is always shown (no More). One look per kind of control, each a plate on its cells as the
+  bar's buttons are: a number is a slider with its value at the right of its name; a choice is one segmented look (a
+  toggle is Off and On); **Auto**, one small word in the same place on every control that has it, is lit while the
+  land (or Power, for a force's Size; the ground, for a brush's Level) decides, and Auto's pick is outlined (a
+  hollow slider, an outlined option) where the player's is filled; labels are said once, at one size; no dropdowns;
+  keys only in tooltips.
+  - Select: How to select's six shapes on the tools' cells, icon above name; "Drag on the map" beside them, or with a
+    selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
+    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it. The first row
+    ends with **Crop** (the map becomes the selection's bounding rectangle, D340; one cell, the size's words take two),
+    **Fill water** (the hollow under the selection's lowest ground filled with standing water up to the Level;
+    hovering says "9 tiles, lasts about 12 days" and marks the hollow, or in a few words why not: "Raise the Level to
+    fill", "It would spill off the map", D394) and **Remove unfed water** (the pools no
+    source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo
+    step, both the core's (`planFill`, `unfedWater`), greyed with `aria-disabled` while nothing is selected, and the words they
+    left in the row go when the selection closes or changes; Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
+    the selection's bounding rectangle (any shape of selection; `useSelect.tsx`, the worker's `cropPlanAt` and `cropTo`).
+    Greyed (`aria-disabled`, so the hover still speaks) with nothing selected ("Select an area to crop") and whenever the
+    core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut): hovering or focusing it says
+    "Can't crop this" and puts the core's one-line reason, word for word, on the message line; pressing it says the reason
+    again, never clamped (with nothing selected the row's words are the one place it says so, and no note repeats it). Enabled, hovering says "32 × 24", adding "; cuts 3 objects" when the edge
+    cuts any (the row's words take the three cells beside the shapes, and no words are ever cut off). The map is then
+    another size, so the page opens the session's map again (`onResized`, `App.tsx` `resized`): the old editor shuts and sends
+    the worker nothing more, what it had queued reaches the worker first, and the new editor opens from the worker's map
+    after it, so History and Undo agree with the worker even with Ctrl+Z held across a crop. The view is carried over
+    (`ResizeCarry`: History open, top-down or 3D, the water overlay, See-through, the minimap) with the camera framed to the
+    new size; the selection is gone, a held Drought or Badtide is stopped through the worker, and its Your maps row takes the
+    new size. Ctrl+Z, History or redo across the crop do the same; past 300 ms the message line says "Cropping…". Tooltip "Crop the map to the selection", no key.
+  - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
+    Lower) or Strength (Smooth, Naturalize) · Mode; Sources · Brush (Round, Square or Lines, one at a time; the area
+    joins them on Raise and Lower) · Flatten's Steps (Off, 2, 3, 4).
+  - The forces: Power (cells 1–3) · Size (cells 4–6; Auto: it follows Power; Quake has none) in the same place on every force, then their choices (Carve's What it leaves, Wander, Walls, Canyon
+    depth, River depth with Off at its far end, Banks; Craterize's Walls, Centre, Debris, Rays; Erupt's Shape, Summit,
+    Flows, Ridges; Quake's Mode, Scarp and Side (V); Glaciate's Meltwater, Benches, Steps, Tarn, Scree) · the Floor ·
+    Try another, always in its place, ready once a run is kept; while its rolls are on offer "2 of 4" stands in its
+    own space just above the panel over it, never on Try another's cells (§4, D488; a click shows the next). A force at work: its status, Pause (Carve) and Revert.
+  An object's settings are not on the bar (below).
+  The first-run hints sit above it and point at Carve below and the objects on the right. Every force's row is §4's.
+- **The objects** at the bottom right, a menu always shown with no headings (the right edge on the page's 10px
+  margin, the foot level with the bar's): one object per row, its picture then its name, in this order: **Start**,
+  **Water source**, **Badwater source** (two items, D212); then, behind a hairline, Water seep, Badwater seep, Aquifer,
+  Ancient drill, Badtide drain and Natural dam; **Pine**, **Birch**, **Oak**, Succulent, Mixed woods and **Berry
+  bush**; Ruin, Mine site, Relic, Slope, Thorns, Blockage and Geothermal field; Unstable core and the Reserve pile,
+  warehouse and tank (five groups, 26 rows), each picture a small render in the map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
+  small window directly above the list, on its edges, showing only while an object is picked (its height follows
+  what it has; the list never moves; no row above the bar then; the object put away, the list returns to its top, or where it was when the row is clicked again): picked in the list, a source's Next source and
+  Pointing at, a ruin's Height, a relic's Size, a plant's or Mixed woods' Size and Density (trees, succulents and woods
+  also Age), a water object's Strength ("drains 2 water/s" below 0) and Starts (At once or Later, with its Cycle), the
+  core's Radius and Goes off in cycle, a reserve's Holds (a menu in the page's own look: the goods every faction has,
+  then those of one faction each, with the warning that another faction's good deletes the reserve) and Amount, the
+  Ancient drill's note, and Turn (0°–270°, R) for an object that turns (not a plant); picked on the map, a source's Strength, This source ("1.45 water/s",
+  in a row "1.45 of 5.79 water/s"), Water, Power, Unleash, Remove and Try another, an object's Delete, each with Put
+  it down (×). The window follows the bar's one look per control: a number is the bar's slider with its value at the right of
+  its name (Strength, Power, Next source, a ruin's Height, a plant's Size and Density), a choice is segmented (Water:
+  Clean | Badwater; a relic's Size; Age: Grown | Mixed; Turn); no dropdowns.
   - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't (the start
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
-    about it changed, D361), with **one label** beside the pointer (D323, item 32): the reason where it doesn't
-    fit, "Move the start here" for the start where it does, "Place here" for the rest. Click to place, R to
+    about it changed, D361), with **one label** beside the pointer (D323, item 32; every such note, a force's, a shelf object's, Select's count and the Block tool's refusal, stays in the free view between the panels, the Items shelf and the bars, and takes the pointer's other corners and sides where its first spot would run under one; with none of those clear it takes the clear spot of the free view nearest the pointer, keeping the place it has among spots within 24 px of the nearest so that it does not trade between two strips as the pointer moves: `view/pointerNote.tsx`): the reason where it doesn't
+    fit, "Move the start here" for the start where it does (amber with the first warning instead where it fits but the checks would flag it, core `startFitWarnings`), "Place here" for the rest. Click to place, R to
     rotate; **Esc or a right-click puts a picked object away** (a right-drag is still the camera).
   - **Drag an object out of the shelf** (D323, item 11): the ghost follows the pointer, letting go over the map
     places it there (the start moves the map's one start); a drag that doesn't place always ends placement. The
@@ -80,41 +306,132 @@ The editor's parts as they are now; their placement and styling are the design p
     in shallow water. The rule lives in the core (`core/features/footprintLevel.ts` `platformLevel`,
     `core/doc/placing.ts` `levelFootprint`, `levelProblem`); the ghost shows the level the worker names. Other
     objects' tiles, caves and water are left as they are; water and badwater sources stay cut-only (D290). It
-    refuses only at the map's edge, in a cave and on another object's tiles, with one plain reason. A generated
+    refuses only at the map's edge and on another object's tiles, with one plain reason.
+  - **Objects stand in caves where the game allows them** (D491): a map object, a source, a seep, an aquifer, a
+    ruin, a mine site, a tree or a bush may stand on a cave's floor, on the ground under a ledge or on a roof's
+    top. Under a roof nothing is levelled: the game's own rule decides, block by block (`core/features/objects.ts`
+    `standProblem`, the checks' `entities.placement` and `plants.clearance`): the cells it occupies are air (its
+    height in room: a pine needs 3 levels), solid ground under every block that needs it, and the water objects,
+    geothermal fields and mine sites on ground that goes down to the map's bottom (a cave's floor, never a ledge or
+    a roof's top). A refusal is one plain line ("not enough room under the roof here: the ruin needs 5"). The
+    placement names its level (`placeEntity` and `moveEntity` `z`, a run's top below the tile's surface); the
+    object stands there, exports there and a source there feeds the cave's water. At a level it stands wholly under
+    the roof ("part of it would stand in the open" otherwise), out of every brush's and force's reach, and off the
+    cells other objects hold there (a map object feature at a level too: `placing.ts` `objectCells`). An object
+    that reaches out of its roof (an imported badtide drain set in a cliff, its mouth over open ground) is held:
+    strokes, sculpts and forces keep the tiles that would bury it or leave it floating within a floor and ceiling
+    (`objects.ts` `objectHolds`; the stroke preview shows the same) and shape the rest as normal, never refused for
+    it (D270). A stroke or sculpt holds only the held tiles in its reach and one round it (the operation logs
+    them): ground elsewhere is left to the build as it was. A force's point on held ground is refused, naming the
+    place ("That ground keeps an object in place at X · Y: a force leaves it as it is"). Erode, which works under
+    roofs, keeps the ground under every object: three levels down, and down to the map's bottom under the objects
+    the game keeps only there (`rust/forces/src/erode.rs`). Only a stroke with nothing left to shape, or, as a last
+    guard no tool reaches, an edit that would still lose such an object, is refused with one line. A feature edit clears an object at a level
+    when the game's rule no longer holds it on the ground after the edit. The start stands on open ground, or at a
+    level wholly under a roof, where the game keeps it: its 3×3×5 in air on level ground and ground at its door
+    (`core/doc/startFit.ts` `startRoofProblem`; `planStart`'s `z`, a start feature's `z`), with no bench and nothing
+    levelled; without a level it is refused where a cave or an overhang is, never put on the roof's top. Only a move or
+    a placement checks its ground: locked, renamed or turned in place, a start a tunnel was dug under later stays (a
+    start feature's bench is the same 5×5 whichever way it faces; an opened map's start, its 3×3 where it stood,
+    checks only its new door's tile, which it levels; under a roof only its new door). A move under a roof keeps its level unless it names another. **The page aims where the
+    player points:** the shelf, a source, a dragged object and the start take the ground the pointer sees (the voxel
+    pick: a cave's floor through its mouth or under the layer cut, the ground under a ledge) and name that run's level
+    in the placement (`editor/shelf/aim.ts`; a cut's cap names its run's real top; the tile's top names none); the
+    ghost stands there and its words are the core's answer ("the start needs open ground", "not on a roof or a
+    ledge"). The start is the same: its shelf click and its drag name the level aimed at (`moveStartTo`'s `z`), its
+    ghost and words are `footprintCheck` at that level ("not enough room under the roof here: the start needs 5",
+    "its door would open onto rock"; the page's own open-ground check is left out there), and a drop on a tile's top
+    names that top, which brings a start out from under a roof. Under a roof its panel (dragged, or hovered once placed) shows the core's verdict alone with one line, "Under a roof: its walks to water, wood and berries are not measured", and no figures: the page's walks read the roof's top, not the floor (`roofStartCheck`). A drag out of a cave lands on the tile's top. Strokes
+    paint a roof's top like any ground; a stroke begun on a cave's floor or under an overhang paints at that floor
+    (`paintAt(params, z)` with the level of the tile it began on; the core fills `paintObjects` `levels` by
+    `paint.ts` `paintLevels`), each object held to the game's rule there, and the ring's word and the stroke's refusal
+    line say when nothing fits ("nothing can stand at level 4 there: not enough room under the roof here: the pine
+    needs 3"). A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
-  - **Scatter-type items place like a brush** (D235): trees, bushes, ruins, thorns and the like show a brush circle
-    with the terrain brushes' grammar (F or { and } to resize, [ and ] its density, the size in the options row);
-    dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
+  - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one
+    ring round the pointer at the size in the object window (Size, tiles across, 2–24, and Density, 5–100%, per kind;
+    the one key habit: { and } or F and the mouse for Size, [ and ] or F+scroll for Density, the ring following); a drag is the core's `paintObjects` over the tiles the brush covered
+    (`ShelfItem.paint`, `worker paintAt`); dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
     allows it (a ruin stroke paints a ruin field with varied heights and mixed models), filling gaps up to the
     density, never stacking; trees and bushes on dry ground tint the brush amber with "dry ground: these will die"
-    (still allowed); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
+    (still allowed; `core/doc/plantSoil.ts`, the rule `plants.survive` applies; on a map with caves or overhangs the
+    run top each tile paints at, under a roof or on top, its own moisture, contamination and water, never a cave's
+    seen through its roof: `paint.ts` `paintDying`, `worker paintDryAt`; the checks read each plant there by its run
+    top too, `plants.survive` and the start's food and wood alike); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
     places exactly one; each stroke is one undo step, and Select and Delete clear them (D288). Unique landmarks
     stay single-placement: the start, the mine site, relics and geothermal fields.
-- **The view buttons** (D287): one **Top-down** toggle (lit while the view looks straight down), Reset view, Height
-  colours, **Level lines** (D248: a thin line wherever the ground steps down a level, off by default), Markers (the
-  sources and the slopes), Clear water and the overlays, **Badwater** and **Under roofs** (where the map has roofed
-  water). The legend appears only while an overlay is on. No dam site is drawn on the map or named on the map
+  - **The game's map-editor objects** (D337–D339): Water Seep and Badwater Seep, Aquifer and Ancient Aquifer Drill
+    (it stands on an aquifer), Badtide Drain (1×3 in the game's data), Unstable Core, Reserve Pile, Warehouse and
+    Tank, Succulent and Mixed woods, with the game's values pinned in `core/data/parity-values.json`. The core has
+    them all; the shelf's tiles, models and settings are the page's. `planEntity` places one at the game's
+    defaults (a new badwater source writes 3; older operations without components keep 1); `optionsOf` and
+    `setOptionsOp` read and change strength or sink (`maxStrength`, 8 a tile), a start delay (Starts at once, or
+    a cycle and countdown days; none for aquifers), a core's radius 0–5 and cycle, a reserve's good (`goodsFor`)
+    and whole stock up to its capacity, each checked against the whole result with a one-line refusal;
+    `planPaintObjects` and the `paintObjects` operation scatter a stroke as literal placed objects in one undo
+    step (Size, Density 0.05–1, Age); `markerNotes` labels them; `blastInfo` and `explosionAfter` answer what a
+    core clears and draw the map after it goes off, the water re-settled, without changing the session;
+    **on the shelf now** (`shelfItems.ts`, `objectOptions.tsx`): every one of these is a row, with an object window of its
+    own from the core's options (`objectGroups`): a water object's Strength (below 0 it drains) and Starts (At once, or Later
+    and its Cycle), a core's Radius and the cycle it goes off in, a reserve's Holds and Amount, the drill's note (Stand it
+    on an aquifer); Succulent and Mixed woods are plants painted like the trees (Size, Density, Age; a click on Mixed woods
+    plants one of its mix; its picture is a pine, a birch and an oak drawn side by side). The settings go into the placement
+    as the core's `placeComponents`; an object picked on the map shows the same window and changes its own settings in
+    place (`setOptionsOp`, one undo step for a slider's run). Relics' Medium and Large are the Relic's Size; the Mine site
+    is the underground ruins. Still to come: the core's **Show after it goes off** view. The list scrolls inside itself when the window is short, keeping the
+    picked row in view;
+    `fluidModelAt` gives each source's strength on a given day for the day-by-day view. Terrain brushes and forces
+    never use the placement path (D425).
+- **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in
+  Timberborn's settings; the toggle is never lit, a click anywhere on it toggles it): **Heights** (the ground by
+  height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources
+  and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
+  and **Caves and overhangs** (where the map has them, right after Badwater; each with its caption under Legend while on);
+  **Legend** stands alone at the top right, just left of Top-down. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
-- **The top-right cluster** (D345 B3, D368 (5)): the compass in the corner, the **level control** (▾ ∞ ▴, as in
-  Timberborn's own editor) beside it, centred and larger, and, directly beneath, **Slow forces** and **Sound** (a
-  speaker icon, crossed out when muted; its volume opens beneath it); one height and one gap throughout
-  (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the whole map, centred in the map area** (D345,
-  B1).
-- **Visible layers, identical to Timberborn** (D207): the level control shows the visible level (∞ when everything
-  shows) with up and down arrows. Everything above the chosen level is hidden (terrain, water, objects) and the cut
-  surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's level, and again on the
-  same level returns to ∞. Brushes and placement act on the visible land, never on hidden terrain above the
-  cursor. Esc never resets the slice; the control's ∞ does.
-- **The water bar's status is the worker's real state** (D345, B14): every update the worker answers with carries
-  `waterSettled`; the page begins a water journey only when it is false, and reads "Water settled" at once when it
-  is true, so an undo, a redo or an edit that leaves the water as it is never leaves "Water flowing… 0%" waiting
-  (`WaterPlayer.settled`, `tests/contract/waterStatus.test.ts`). The bar is: the status, Pause, Skip, Replay,
-  Drought and Badtide (§5).
-- **The minimap** (D205): a small top-down view of the whole map in a corner, refreshed after edits settle, with an
-  outline of what the camera sees; click or drag on it to move there. On by default for 256² maps, off for smaller
-  ones, with a toggle among the view buttons.
+- **The legend,** while Legend is ticked: directly under Legend, centred under it so "Legend" reads as its title (Kyler, 2026-10-04: DESIGN.md), one width,
+  every line a name (Moist ground, Water, Trees and bushes, Start, Slope…; "Markers on:" Slope arrows, Wall levels,
+  Contamination edge, Mine site outline), an object's line with the objects menu's own picture, the ground, the
+  water and the markers with their swatches; a click on a line shows its things on the map; with Heights on, its "Ground height" line carries the map's lowest and highest level (Low and High) under it, as the folded key does. Its rows are one height
+  on every map (17px); the fullest legend fits at 1920×1080 under Legend, clear of the camera controls, the water
+  row, the objects list and the bar; it never scrolls and never changes shape (`layout.spec.ts`).
+- **The top right** (D345 B3, D368 (5)): the camera group, **Top-down** (lit while the view looks straight down),
+  **Reset view** and the compass (a button, **Face north**: the view glides round to north), then under them the
+  **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
+  forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
+  volume stays in view): a three-column grid
+  310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **A new map and Reset view frame the
+  whole map, centred in the map area** (D345, B1; the Top-down toggle keeps the spot at the centre, the zoom and the turn, D492), clear of the page's controls: the page tells the renderer how
+  far the top row (the Show row, the water row, the camera group), the minimap, the bar with its settings and the objects list with a
+  picked object's window reach into the view
+  (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a map opened in a mode
+  and a new map frame within what is left; setting them, or the panel opening or closing, never moves the camera
+  by itself (D265). A map at least three times longer than wide opens turned along the view, so it fills the width
+  (Reset view returns to that turn); a map under 64 a side is framed with its objects, the start building included
+  (`src/render3d/framing.ts`).
+- **Visible layers, as in Timberborn** (D207): the level control shows the visible level (∞ when everything
+  shows) with up and down arrows; its value runs up to 22 (the game's highest terrain), then ∞, on every map; the
+  first step down from ∞ goes to the map's highest ground less one (as the game steps), up runs through every level to 22, then ∞, and a click on
+  the value shows the whole world (Kyler, 2026-10-03). Everything above the chosen level is hidden (terrain, water,
+  objects) and the cut surfaces show as the tops of what remains: a hatched cap only where solid rock crosses the
+  cut, so on a map with caves or overhangs the cut opens into them (their floors, walls and the undersides below
+  the cut), lit as without the cut, and picking lands on what is drawn. The layer pick (Alt+click) slices to a tile's
+  level, and again on the same level returns to ∞; Alt+scroll steps as the game does. Brushes and placement act on
+  the visible land, never on hidden terrain above the cursor. Esc never resets the slice.
+- **The water's state is the worker's real state** (D345, B14): every update the worker answers with carries
+  `waterSettled`; the page begins a water journey only when it is false, and ends it at once when it is true, so an
+  undo, a redo or an edit that leaves the water as it is never leaves the dot at "Settling…"
+  (`WaterPlayer.settled`, `tests/contract/waterStatus.test.ts`). The water row is at the top middle, centred in the
+  map area, each piece floating on its own: Drought and Badtide (§5), then the weather's day (◀ Day 7 ▶: a drought or a badtide held on any day, from Day 0, the map's own water, to past its
+  default length). The water plays into place after every edit with no controls, always at one pace; undo and redo
+  show a change again, and the header's dot reads "Settling…" while it does: one status (Kyler, 2026-10-04). Double-clicking the day box while a hazard is shown turns it into a field
+  in place, same size: a day from 0 to 99, Enter or clicking away shows it, Esc cancels.
+- **The bottom left:** **the minimap** (D205) on the page's margin at the foot, level with the bar's, always shown: a
+  small top-down view of the whole map, refreshed after edits settle (no outline of the view) and showing a held Drought
+  or Badtide day's water as the map does; click or drag on it to move there. Directly above it, the tile under the pointer's coordinates ("X 60 · Y 66 · Z 10", the game's order)
+  over the readout, which always shows its whole text.
 - **Juice** (D205, D220, D226): small satisfying feedback on every action (a soft thud as land rises, a puff of dust
   when it's lowered, a pop and a wiggle when something is placed, a splash when a source starts, each force's own
   moment), with Codex's second-round sounds (#64: recorded CC0 foley; a bed for as long as a stroke changes the
@@ -134,17 +451,20 @@ The editor's parts as they are now; their placement and styling are the design p
   (the readout's water words, as rounded and shown) and re-describes only when they differ
   (`tests/contract/waterSignal.test.ts`).
 - **Saved names** (D345, B10): a saved map is `dgm-<theme>-<seed>.timber` (`any` for a Surprise me map; a seed typed
-  as a word made file-safe; a real place or an opened file as `dgm-<name>`); Save to Timberborn never overwrites: a
+  as a word made file-safe; a real place, an opened file or a renamed map as `dgm-<name>`); Save to Timberborn never overwrites: a
   taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
-- **The header:** Undo and Redo; one primary button, **Save to Timberborn** (**Download .timber** in browsers that
-  can't save to a folder); a small menu for the rest (Open, Save project, Download .timber, History, New map,
-  Clear everything). On a generated map the menu also has **Another like this** (M9b, D278 (1c)): it closes the map
-  (asking first when it has edits) and opens a sibling, the same theme, settings and intentions on different land,
-  with its own share link.
-- **Checks:** a quiet dot, green or amber. Clicking it lists the problems, each highlighted on the map. Never a
-  pop-up.
-- **The notices** (the No badwater line, D213; what opening a file changed): a quiet strip under the map, never
-  over it, so they cover no control in any layout; Hide closes it.
+  **The folder** (`src/platform/index.ts`): only a folder named `Maps` is accepted (the browser gives a folder's name, not
+  its path); any other is refused with one line naming `Documents\Timberborn\Maps`, and the previous choice stands.
+  Closing the folder picker is a cancel: nothing is saved or downloaded and nothing is said. A real failure (permission
+  refused, the folder gone, a write error) falls back to the download with a plain note; a failed write also forgets the remembered folder, so the next Save asks again. **File → Choose Maps folder…**
+  picks or changes the remembered folder without saving. The folder is asked for **first**, straight from
+  the click (`chooseSaveFolder`), then the map is built with its progress on the button, then written (`saveIntoFolder`): the
+  picker needs the click's user activation, which lapses in seconds, long before a big map is built.
+- **Checks:** a quiet dot, green or amber, with its words. Clicking it lists the problems, each with Fix and Show,
+  highlighted on the map. Never a pop-up.
+- **No notices strip** (Kyler, 2026-10-03, amending D213): nothing under the map changes the page's size. The quiet
+  dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, and lists an opened
+  file's import flags with their fixes (counted).
 - **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades.
 
 (D184, D212, D219.)
@@ -153,9 +473,13 @@ The editor's parts as they are now; their placement and styling are the design p
 
 ### The forces' shared rules
 
-Every force (Carve, Craterize, Erupt, Quake, Glaciate; Erode and Deposit when built) follows these. They are built
+Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit, Erode) follows these. They are built
 on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README).
 
+- **Sources** (D474; Kyler, 2026-10-05): every force's settings hold **Sources**, Ride (sources and seeps ride the
+  ground) or **Clear** (the default: the force removes the sources and seeps on ground it changes), in the brushes'
+  Sources look, remembered per force with the other pins and sent as `settings.sources`; Try another sends the row's
+  choice as it is. A force's own sources (Keep river, Meltwater, an unleashed source) always stay.
 - **One row** (D289): **Power**, **Size** (Quake has none), at most one signature choice (Carve's **Keep river** or
   **Dry canyon**; Quake's **Lift** or **Slide**; Glaciate's **Meltwater**), and **Try another**. The gesture is the
   mode: a click unleashes a carve, strikes, vents or flows; a drag draws a line freehand (below). Everything else
@@ -165,25 +489,56 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   keeps what was drawn, so projects replay exactly. **A small More button** at the row's end (outlined in the accent
   colour with a chevron, D309, D361; closed by default, remembering how it was left) opens those details; every
   detail starts on **Auto**, nature's own pick; setting one pins it, with a small way back to Auto beside it. Once
-  a force runs, a detail on Auto shows the value it just took, one click from being pinned. Try another re-rolls
+  a force runs, a detail on Auto shows the value it just took, one click from being pinned; before one runs, the
+  value Auto gives where the row can tell (Craterize's centre by its size, Erupt's summit by Power) or the usual one;
+  a rift's walls and a fan's channels are picked in the run (`autoPicked`), every detail outlined the same way. Try another re-rolls
   only the details still on Auto; pins are remembered with the editor preferences. While a force works its row is
   its status (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop); the other tools wait.
 - **Fast, with a choice to watch** (D321, item 29): a force is worked out first (its gathering shows meanwhile),
   then shown. **Fast**, the default: its land is final within about two seconds of the gesture, however long or
-  large the result, and the player can act again at once (an impact keeps its own, quicker pace). **Slow forces**
+  large the result, and the player can act again at once (an impact keeps its own, quicker pace); a glacier is shown
+  in its own 3.5 seconds once worked out (D374), eased (slow as the ice grips, steady through, settling gently), its
+  advance, the land changing, three quarters of it. **Slow forces**
   (a toggle beside Sound, remembered): about four times as long, to be watched; a click anywhere or a new
   gesture's key jumps it to its final land. The pace never follows the water's speed. What is only a show (water
-  filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking.
+  filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking; a
+  new force started while it plays skips it to its end and plays in full itself, however quickly it came (D378).
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
-  takes all of it back at any moment, and nothing lands afterwards (D341). The row's hint line says **Esc to skip ·
-  Ctrl+Z to undo** (a painted Lift still drawn: **Esc to cancel**).
+  takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
+  **Ctrl+Z** undoes; a painted Lift still drawn: **Esc** cancels), none written in the panel.
 - **A force changes things only when it reaches them** (item 30): objects, trees and sources go as the carve's head,
   the ice front or the lava reaches them; an impact changes everything at once; under a quake they ride the
-  ground. The water, swept sources' water included, stays as it was until the land is final, then flows on as after
-  any edit. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
-  (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
-  never depend on the pace.
+  ground. **The land and its water change together** (D371): while a force is shown, the map's water flows on the land
+  as each frame has it, as it flowed (its currents carried in), and each frame's land and water are drawn in the same
+  frame. Water rides the ground it stands on and flows on from there: into a crater or a rift as it opens, off a cone
+  or a lifted fault, along with a Slide's block; a glacier's tarn and meltwater river fill from its springs at the
+  water's own pace once its land is final; the map's sources run on while it plays. A carve's river is **born as it cuts**: its source runs
+  from the first step, so the water follows the cutting edge down the new channel and never leads it (each dry or damp
+  tile is held until the front reaches it; water already there flows on as it flowed)
+  (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
+  the eye follows); kept (or skipped to its end), the map's water flows on from that water, so
+  nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
+  (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces), and **the force is over the
+  moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
+  places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
+  melt-back, the lava cooling; a new force puts any of them away at once). A force's heat is its own: a later force
+  never shows an earlier eruption's. The result
+  and what is saved never depend on the pace.
+- **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an
+  operation without the choice), removes every water and badwater source and seep on a tile whose ground the force
+  changes (a multi-tile one if any of its tiles changes; in a working area, the feathered ground the force keeps);
+  **Ride** keeps them, moving with the ground, on every force (Carve and Glaciate plan with them, and Glaciate's
+  springs take none of their water). The sources a force places itself always stay (Carve's river source,
+  Glaciate's meltwater, the source an Unleash starts from); every other object keeps riding the ground. A source
+  goes at the step the force first changes one of its tiles, never at the end, and its water drains from then as
+  the game's would (a carve's live water stops a source's emitter the step it leaves the land shown and keeps a
+  riding one running; the others' water flows on from the final land). Under Clear, Carve and Glaciate take what
+  they reach themselves, as their head or ice arrives; the other forces' sources are cleared by the core
+  (`core/forces/clear.ts`). The operation keeps the choice and each cleared source with its step, so undo brings
+  them back. Where the row shows the choice is the page's. A force that removed sources says so as it is kept, a note
+  above the bar with the count and **Undo** ("Cleared 12 sources. Set Sources to Ride to keep them."), which goes as soon as any other step lands so Undo only ever takes back that force; the count is the
+  core's (`keep.ts` `sourcesRemovedBy`, `forceStop`'s `sourcesRemoved`), never worked out in the page.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
   default, up to the height ceiling: one setting shared by all the forces, kept with the editor preferences, never
   Auto (a rule, not a flavour), with **Default** back to 1. Where a force would go deeper it runs shallower there,
@@ -201,8 +556,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   floor, the height ceiling, the file format); it never refuses, stops short or reshapes its result for
   playability. Where it carves, buries or moves the start's ground, the start is carried to the nearest level ground
   where it stands well, in the same undo step: its bench's ground level already, inside the working area and at or
-  below the layer's cut, and the land the force left stays exactly as it was (the old bench's ground with it). Try
-  another replaces that carry with the force. The quiet dot then says what the force left short at the start
+  below the layer's cut, and the land the force left stays exactly as it was (the old bench's ground with it). Each
+  roll of Try another starts from the land before the force, the start where it stood, and carries it only if it
+  breaks that ground itself. The quiet dot then says what the force left short at the start
   (water, wood and berries, the starting-logs floor), each with its one-click fix (move the start, plant berry
   bushes, plant oaks).
 - **Clean, magic gestures** (D258): no force draws a predicted route, footprint, outline or fit on the land. A click
@@ -223,14 +579,25 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `src/editor/forceSize.ts`): hold F and move the mouse to size the ring on the map (a click or letting go keeps
   it, Esc or a right click puts it back), { and } step the Size, [ and ] the Power by five (or F held and the wheel,
   D368 (11)), the number beside the pointer. **Size sets how far a force reaches; Power how strong it is within
-  that** (`core/forces/strength.ts`): a force set larger than its Power's own size keeps its reach and acts in
+  that** (`rust/forces`, `strength`): a force set larger than its Power's own size keeps its reach and acts in
   proportion (`strength`: 1 at Power 100 and at Power's own size, the square root of the natural share at Power
   0). A tempered force still moves every tile it reaches by at least a level: Power scales how deep, never whether
   (D356). At the largest Size, Power 0 is the gentlest effect that still shows; `tests/contract/forcePower.test.ts`
   holds each force to at least 9 tiles changed, at most a quarter of Power 100's change (a Slide 30%), at most 4
   levels deep, and a change growing across Power 0, 50 and 100.
-- **Stored literally:** a force's run is one `forceResult` operation, stored literally, one undo step; Try another
-  replaces it (§ The map document).
+- **Stored literally:** a force's run is one `forceResult` operation, stored literally, one undo step (§ The map
+  document).
+- **Try another keeps every roll** (force variants, D488): each Try another is a new roll of the same force from the
+  same land, with the next seed, and every roll made on the force's step is kept (up to 8; a ninth drops the oldest).
+  Right after a run, before anything else, **Tab** shows the next roll and **Shift+Tab** the one before, at once:
+  each is its real result, kept as it was made, never worked out again; "2 of 4" just above Try another (and beside it
+  on an unleashed source's panel) says which is shown (a click shows the next; its tooltip carries the keys); Try
+  another itself never moves or shrinks, so clicking it again always makes a new roll. The history holds one step for the force, labelled
+  with the roll shown ("Rift, roll 2"); whatever roll shows when the player does anything else (an edit, another
+  tool, Esc, a save) is the one that stays. Undo takes the step back whole; redo brings back the roll that was
+  shown; a saved project holds only that roll and reopens byte for byte (D455). Tab keys the rolls only with the
+  focus on the map or the bar; anywhere else (a field, a menu, a dialog) it keeps its own role. The core keeps the
+  rolls (`core/forces/rolls.ts` on `MapSession.keptStep` and `putStep`); the worker's `forceRoll` shows one.
 - A forces release goes to the preview first and reaches the public site only once Kyler has tried each force
   (D219).
 
@@ -242,17 +609,17 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `where.path`, kept by Try another; a carve drawn uphill is shown the way it was drawn, D344 A5). **Power** (creek to
   catastrophe), **Size** (width; depth follows Power and the width). Wander and walls come from the land and the seed,
   with natural variation (bends wider and deeper on the outside); a cut-off bend becomes an oxbow lake sealed by
-  sediment. Behind More: **Canyon depth**, **River depth** (D321, item 17: how deep its water may be, 1 up to the
+  sediment. Behind More: **Canyon depth** (a cap, not a target: the row reads "max N", since the Floor and the land's height stop the cut
+  sooner), **River depth** (D321, item 17: how deep its water may be, 1 up to the
   height ceiling or **Off**, 2 unless set; where the water would pool deeper over the cut ground the bed is raised
   under the pool's spill level) and **Banks** (item 18, Auto: 0 to 10 tiles of flat land each side of the river
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
-  two levels; moist for crops and may flood when the river refills, D307; `core/forces/carve/river.ts`). **Keep
+  two levels; moist for crops and may flood when the river refills, D307; `rust/forces`, `shape_river`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
-  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. A
-  source row at the map's edge must flow into the map (D321, item 27: `core/water/edgeSources.ts` keeps what leaks
-  with the run, `edgeLeaks`; the fix, M9b's edge lip, plugs into `EDGE_LIP`). Space pauses it. An oxbow lake holds its
+  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water
-  has, D222). Fresh volcanic rock (Erupt's) is hard for it.
+  has, D222). Fresh volcanic rock (Erupt's) is hard for it. Banks and Wander give it its flat land and bends; it has no
+  aging setting (D473): a carve saved with the retired one opens as recorded and, run again, is this carve.
 
 - **Unleash, on a source** (D239; U): select a placed water or badwater source and a small **Unleash** action with
   a quick **Power** sits beside it; the source's own water carves its course downhill with Carve's engine (where it
@@ -272,14 +639,17 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   **Power**; **Try another** (another tilt and crack). **V** flips the side that moves, even while painting; its
   scarp (sheer or stepped) comes from the land and the seed. Lift raises along the curve and shows its whole
   result as it is painted, kept when let go; Slide shows the fault while it is painted, then its block slides
-  along it, 2 to 20 tiles (D361 (3)), the way the drawn line runs there, and a river that crossed the fault is
+  along it, 2 to 20 tiles (D361 (3)), the way the drawn line runs there (where level ground slides along level
+  ground and nothing would show, the ground splits along the fault a level up and down, D356), and a river that crossed the fault is
   joined again along it. A crack runs along the fault and dust rises at its head. Objects ride with the land (a
   rigid one on flat ground of its own), trees on the fault go (D321 item 7), the start is carried to level ground
   when its own breaks (D257); it never adds water.
 - **Erupt** (D206, D216, D226; key 0): raises a volcano. A click vents, a drag opens a fissure (D289). **Power**,
   **Size** (breadth), **Try another**; shape (steep or broad), summit (peak, crater or caldera), flows (light or
-  heavy) and ridges from the land and the seed. Its terrain is final in about two seconds (D312); the lava's glow,
-  the smoke and the plume (bigger and darker with Power) play on, never blocking. **A volcano always looks like a
+  heavy) and ridges from the land and the seed. Its terrain is final in about two seconds (D312); the lava's glow
+  (along its flows, with ridges or without, D356), the smoke and the plume (bigger and darker with Power) play on,
+  never blocking; the ground it raised reads as ash and basalt until the heat fades into the soil's own colours (#367).
+  **A volcano always looks like a
   volcano** (D321, item 14): the cone is the dominant shape at every setting, rising to a clear summit (Summit:
   Crater, a bowl a fifth of its height deep under the rim), flows running down its sides, heavy flows a wider
   thicker skirt, never a round plateau; its surface reads as rock (no lone raised tile, the summit aside); high
@@ -307,13 +677,88 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   have them (D314). One `forceResult`; its ice, sounds and land keep one pace (D344, A7: `ForceCue.pace`). No ice-sheet
   mode for now.
 
+- **Rift** (D352, D438): land cracks open and drops between two rough faults, the opposite of Erupt's ridge: a
+  dropped block with its old floor tilted, hard-bed ledges on the walls, objects riding down upright, sources
+  riding too, or cleared (D474). A click makes a short rupture there (at least a set length, even at the edge);
+  a drag draws the fault.
+  **Power** (0–100, default 70; Power 0 still drops a level), **Size** (width, Auto or 4–64), **Try another**; behind
+  More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
+  `rust/forces/src/rift.rs`; 21 fixed steps). The page: its settings (Power, Size, Walls with Auto; Floor, Try another),
+  a click or a drawn fault, the stroke band as wide as its Size, the ring at the cursor, its sounds (a split, a deep
+  drop, falling stone); no key yet. Its crack-and-drop effects on the land are the renderer's, to come.
+- **Deposit** (D352, D438): an alluvial fan at a valley's mouth: a lobed cone with curving distributaries, every block
+  of it paid for by ground taken from behind it and beside it (conserved; Keep, the Floor and the working area are
+  budgeted before it plays). Nothing changes outside its outline (Kyler, #341): a click's circle, Size across, and a
+  drag's band, Size wide along the line. A click builds the fan where it is clicked; a drag sets its direction and
+  reach. **Power** (default 70), **Size** (the fan's width, Auto or 8–64, independent of Power), **Try another**;
+  behind More, **Channels** (Auto, Few, Many). It never refuses for want of ground (D356): where no fan fits, what it
+  took lies a level deep on the nearest free ground inside the circle, and where the outline's free ground, beside the
+  fan's own tiles, has too little above the Floor to take (a lake's bed, the map's lowest ground, a working area the fan
+  fills), the water brings the rest of a small fan's sediment; only a working area that leaves no free ground in the outline refuses ("the working area leaves nothing to
+  take sediment from"), or an outline at the map's height ceiling ("the map leaves no room for sediment here"). Wet outlets keep their bed; objects ride or are buried,
+  none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars, stray tiles or connecting paths between
+  lobes, which stay separate; short draws, clicks and Power 0 still make a small fan. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps). The
+  page: its settings (Power, Size, Channels with Auto; Floor, Try another), a click or a drawn line (a band as wide as its Size),
+  the ring at the cursor, its sounds (muddy water, settling earth); no key yet. Its sediment-and-water effects on the
+  land are the renderer's, to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
-  **Size**, **Try another**; two to four seconds of dust and rubble. Prototyped on `investigation/erode`, held
-  until Kyler has tried the other forces.
+  **Size** (4–40 tiles across, or Auto), **Try another**; two to four seconds of dust and rubble. Built in Rust in the
+  core (`rust/forces/src/erode.rs`, `core/forces/erode.ts`; its rules in `docs/progress/3d-creating.md`): wear starts
+  at the faces the gesture touches, hardest at a face's foot and just under a hard bed, from both sides of a thin
+  ridge, into worn shapes (no one-block walls or slots, nothing sealed); every tile keeps its top three blocks, so the
+  surface and its objects stay; no rock that holds back water wears, nor an object's ground or a source's tile; the
+  rock that wore least comes back as ragged remnants wherever a roof would hang; where no face can wear, the dry ground
+  at the pointer is scoured into a shallow hollow (D356), never below the water beside it and never under water. Its
+  result writes runs (the operation's `runs`), so any map gains caves. **The page:** Erode is the last button of the
+  forces row (after Glaciate), key Shift+8, tooltip "Wear caves and arches"; its row is Power and Size (Auto) on row 1
+  with "The land decides the form" across the rest of it, the Floor and Try another on row 2 (no choice of its own, and no Sources: it never wears a source's tile, so it
+  keeps the default; the Floor runs on over Sources' place, and Try another stays where every force has it; every edge on the bar's cells); a click acts where it lands, a drawn sweep as a band Size wide, the ring at the cursor (D258).
+  Playback feeds each frame's `columns` (the tiles whose voxels changed) into the renderer with the others the map
+  holds (`editor/forces/columns.ts`); Esc, Ctrl+Z or Try another mid-run puts the map's own back. Sounds
+  (`public/sounds/juice-2`, three CC0 Freesound recordings from `investigation/erode`): a grinding wear held under the
+  whole moment, swelling with how much rock goes, stone landing as it goes and a heavier fall as it clears. **Its moment** (D240; `render3d/forces.ts` `Wear`, where it starts `render3d/wear.ts`): fine rock dust, the
+  walls' stone ground pale, drifts out of the opening from the rock that went in each stage, more where more went,
+  settling and fading; a few small stones a stage drop from where the rock went, bounce once on the ground below the
+  opening, rest a moment and fade; a faint stir of dust at the face as it rumbles. Visual only, gone about two
+  seconds after its land is final, the same in Standard and High, off with reduced motion and in software. What it
+  wore glows red on the faces it opened, fading a second after its last frame, as the Block tool's edits do.
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
+  Its core is built: the `blocks` operation and the `blockFalls` query (`docs/progress/3d-creating.md`, "Delivers 2").
+  **The page** (`src/editor/block/`; "Delivers 3" there): **Block** on the tools row after Naturalize, key **7** (tooltip
+  "Add or remove blocks on any face"). *Pointing:* hovering a face (the 3D pick's `blockAim`) asks the core what a click would do
+  (`blockFalls`, no build; one question at a time, the latest wins) and the renderer shows it as it shows the area
+  brush's blocks (`showBlocks`, forces play's final contract, D335): the blocks to add translucent, the blocks to take
+  red, ground that would fall solid red, and while any would fall the added and removed blocks muted grey (they will
+  not happen), with the reason in red beside the blocks, clear of them ("12 blocks of ground would fall: nothing would
+  hold them up"); the Block tool is registered with `voxel: true` so the pick is the seen surface, and under a layer cut
+  the aim is `blockAim(hit, cut, mode)` (the cut's cap is the block under it: Remove takes it, Add has nothing there); the preview
+  is asked again when the map changes, when Shift goes up or down, when a setting changes and when the camera moves
+  under a still pointer. *Acting:* a click adds a block onto the face (the cell beyond it, across the footprint in the
+  face's plane); **Shift** does the other of Add and Remove (the Action shows it while Shift is down); a drag paints in the
+  plane of the first face, every cell it crosses; an add **chains**: a cell goes in wherever it touches a block, one
+  already there or one added a moment before in the same stroke, so a drag out over air grows a span from the ground
+  across it (a bridge, an arch), in the order it was swept, and the support rule says how far it may reach; a Remove takes only the
+  blocks the viewer sees, those whose face toward the aimed side is open (read by the core from the ground before the
+  operation, under the layer cut), never what is buried inside a hill, so the preview and the operation agree; nothing is
+  applied until the press is let go, then it is one `blocks` operation, one undo
+  step ("Add blocks" or "Remove blocks"); a refusal is the page's usual note and changes nothing; Esc in the middle of a
+  drag drops it, a second Esc (or X) puts the tool away. A press on nothing (the sky) turns the camera. The page sends
+  the working area (Select's open selection as runs, `area`) and the view's layer cut (`cut`) with every operation and
+  makes no refusals of its own: the core refuses a cell outside the area ("(x, y) is outside the selection") and
+  leaves every block from the cut up alone (nothing from there is previewed or changed; a click that would change nothing
+  below the cut says "nothing below layer N would change"), each as the one line the preview's note shows before the
+  click. A click that would be taken but meets plants says so in the same note, in quiet words, not as a refusal:
+  "3 plants removed; 2 plants ride with the ground" (those its blocks fill in or take the ground from, and those that
+  rise or sink with it). The refusal note and the Size's "size N" word are kept apart, so neither clears the other, and a refusal stays
+  while its preview is drawn. The level slice cuts the preview as it cuts the map, so a cave can be worked from inside. *Settings* (on the bar's 14 cells, two rows): **Size** 1 to 8
+  (F and the mouse, or { and }; kept), **Shape** Square or Round, **Action** Add or Remove; remembered between visits. Its
+  land's answer is the brushes' (dust and the stone's thud, `juice`); the blocks' own pop-in and crumble are the
+  renderer's, to come. Once an edit lands, what it changed glows a moment (D488, `render3d/editGlow.ts`): the faces it
+  opened, outlined, white for blocks added, red for the hollow a removal left, fading in about a second (still, then
+  gone, with reduced motion).
 
 ### The brushes and precision tools
 
@@ -329,8 +774,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   bends an edge by several tiles), never fraying; a cliff of three levels or more sheds into a stepped slope,
   up from the cliff's middle and down from it in steps mostly two levels tall, treads two tiles or more (wider
   with Strength, varying along the cliff where the noise says), its edges wandering: the top pulls back and
-  the foot becomes an apron that runs out in lobes (where the foot is water or a stream the whole cliff pulls
-  back); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
+  the foot becomes an apron that runs out in lobes, the scree building up at the foot from what the top
+  loses, so the top comes down no more than its foot rises (a cliff standing in water keeps its top, the
+  water taking what it sheds; above a stream the whole cliff pulls back); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
   presses, narrowing into the cliff beside it, and a slope once shed is left as it is; old land has fewer
   terraces: a narrow stretch of a terrace joins the level it borders most, whole, where that takes away more
   edges than it adds (a Size 64, Strength 10 stroke leaves no more level edges than there were); flat tops
@@ -345,7 +791,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
-  stroke records its rule (`weathering: 3`, added by the core); a stroke saved with D399's first rule
+  stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
+  whatever its foot took, pulling back above water too), rule 3 (dab by dab, some
+  cliffs' scree slopes lost, so a repeated stroke kept cutting those cliffs back), with D399's first rule
   (`weathering: 2`, the whole stroke at once) or before D399 replays with its own rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
   number and a slider up to half the map's width, so the largest brush paints the whole map in one stroke (D322,
   item 42); F held, { and } size it as for the forces (D205, D226, D368 (1)).
@@ -361,6 +809,21 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Shift+scroll, F held with the wheel, or [ and ] set their strength (Raise, Lower and Flatten take nothing from
   those: their target level is theirs). Tooltips name the game editor's terms. Under a layer cut (D207) Raise stops
   at the cut. An exact stroke's tiles stay as it leaves them (the integrity pass leaves them out).
+- **On caves and overhangs** (D487, D280 (3), terrain above terrain's step 3): the brushes shape each tile's top run, on
+  every tile. Raise grows a roof's top; Lower, Flatten, Smooth and Naturalize bring it down at most to one layer
+  above the roof's underside (`terrain/runs.ts` `topFloor`), so every run below the top, the cave's air and floor,
+  stays exactly as it is and no tile gains or loses a run. The build's pit-and-spike pass leaves a roof's top as the
+  stroke leaves it. A stroke that would leave ground nothing holds up (the game's support rule) is refused with one
+  line, "12 blocks of ground would fall: nothing would hold them up", and the page's stroke can show that ground
+  while it is painted (`StrokePreview.falls`). The same refusal covers every edit on such a map: a force's result, a
+  removed object that held ground. The forces stay on heightfield ground: on a map with caves they leave the caves'
+  tiles, and the ground that holds up their roofs (the ground beside them, `terrain/support.ts` `roofHolders`, and an
+  object whose top holds one with its tiles, `objectRoofHolders`), as they are (D487), so a force runs round a cave and
+  nothing it leaves falls (Erode works under roofs and holds them itself). A force's point
+  on a cave or on that ground is refused at once, naming the place ("A force leaves caves and overhangs as they are:
+  there is one at X 17 · Y 17"), and on such a map a force is worked out before it plays, with the objects it leaves: one that would still leave
+  ground falling is refused then, naming the place ("2 blocks of ground would fall at X 32 · Y 19: …"; `forces/start.ts`
+  `fallsBeforePlay`), never shown and then taken back. On a map without caves nothing changes, byte for byte.
 - **Ground, Water and Both** (D322, item 2): every brush's mode. **Ground** changes only dry tiles and never lowers
   a tile beside water below that water's surface; **Water** changes only the wet tiles (those drawn as water); **Both**
   (default) changes everything. Which tiles are wet is fixed when a stroke starts, from the map's own water (never a
@@ -407,7 +870,22 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **Select** (D259): Rectangle, Freehand, **Wand** (D261: a click on land selects the ground joined to it at that
   level; on water, that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at
   the click), **Circle** (drag from the centre) and **Brush** (paint the selection at the brushes' size); Shift adds
-  and Alt subtracts. **Ctrl+click** on the land only takes that tile's level as the Level number (D361, item 7).
+  and Alt subtracts. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
+  under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles. A
+  Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
+  (a cave's floor), the roof over it dimmed as the land outside, and outside a brush's working area too; the actions still take
+  the tiles, and over a cave column the core refuses them, so hovering one tints nothing and shows the core's reason.
+  The brushes' and forces' cursors, rings and bands stay on the tile's top, where their stroke changes the ground,
+  until they work on runs (step 3); hover and Select show the run seen. Over a roof (air under a tile's top run: a
+  cave, a tunnel, an overhang) every editing cursor (a brush's disc, a force's or the shelf's ring, the Block tool's
+  blocks, Select's ring on the roof) also shows the hollow under it, within its reach: the air's footprint laid on
+  the roof's top in the Caves layer's violet, stronger the thinner the roof (one block: as low as a brush can take
+  it), outlined where the hollow ends (D488; `render3d/hollow.ts`). Nothing is drawn on a map without caves. Every
+  edit that changes terrain above terrain (a Block dig or overhang, an Erode cave, a stroke or a Select action on a
+  roof's top, their undo) glows a moment on the faces it opened, white where blocks were added, red in the hollow
+  left (`render3d/editGlow.ts`); on plain ground only the Block tool's and Erode's do, since a brush's land shows as
+  it is painted and the other forces have their moments.
+  **Ctrl+click** on the land only takes that level as the Level number (D361, item 7).
   **The row** (D323, item 6): the marking modes are icons; **Whole map**; **Raise** and **Lower** move the
   selection one level per click (Up and Down arrow keys too); a **Level** number (to the map's ceiling) starts at
   the selection's lowest ground with **Flatten**, **Cut down** and **Fill up** acting at once; **Select all**
@@ -418,15 +896,45 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   that would take any tile past the ceiling is refused with its reason; objects and sources ride changed
   ground; the start moves to the nearest valid ground only if its own can no longer hold it; each action is one
   undo step with a clear label ("Cut 4,210 tiles down to level 16"); the selection stays open until Esc or the ×.
+  **Crop map to selection** (D340; the operation is built in the core, `src/core/doc/crop.ts`): `{op: "crop", params:
+  {x, y, w, h}}` (the selection's bounding rectangle, in tiles) makes the map exactly that rectangle of itself. The
+  ground (its runs: caves and overhangs stay), water, soil, objects and sources inside keep their place relative to the
+  new origin; everything outside is gone; an object whose footprint crosses the edge is removed, counted in the result
+  (`removedObjects`; `planCrop` answers it before applying). One-line refusals, never clamped: a rectangle off the map; a
+  side under 4 or over 512; the same size as the map ("nothing to crop"); a start the edge would cut or leave outside
+  ("The start would be cut off: move it inside the selection first"). The crop is the first operation of the map's next
+  generation (`MapDocument.prior` holds the one before it with its operations), so it is one undo step that brings the
+  full map back exactly, it is recorded and replayed, a saved project opens and saves byte for byte, and the operations
+  after it are in the cropped map's tiles. The cropped map is built as an imported one (its water settles again in the
+  background, as after any edit). A source within 4 tiles of a new edge gets a minimal lip (M9b's idea, `water/edgeLip.ts`; `lipNewEdges`):
+  the cropped map's water is settled and only the new-edge tiles its water leaves through are raised, each to the level
+  of the water beside it (a floor level with the surface takes none: the game's head difference is zero), never a tile
+  on a side the crop did not cut, so it does not pour off the map and nothing reads as a wall (D151). A cropped map has no "as opened"
+  map: its problems are the player's own (the checks list none as existing). A rename is never undone with a crop (D443).
+  Not yet in the core: the checks dot's edge-wall warning and its fix, and re-reading the name and "how it plays" line.
+  Collaborative editing leaves a crop to the host (D362 (9)).
+- **The map's description** (the text the game shows with the map; built in the core, `src/core/doc/description.ts`):
+  `{op: "setDescription", params: {text}}` writes it, and empty text takes the player's away so the generated one is
+  written again. It is one undo step like any operation (History: "Write the description" or "Clear the description"),
+  it is saved in the project and reopens byte for byte, and collaborating players get it from the host like any edit
+  (two writers meet on the key `description`). It changes nothing on the map, so nothing is built. One-line refusals,
+  never cut short: over 600 characters (the game takes any length; the limit is ours, so it reads well in the game's
+  panel and the page's field), only spaces, a control character other than a line break, or what it already is. The
+  exported .timber holds the player's text whole, then what must follow it whatever is written, one paragraph each: the
+  No badwater note (D200, D213) or the No water sources note (D330), the tall note (D172) and a real place's credits; a map whose player wrote none has the generated one: "A 128×128 River Valley map." then the lines of the
+  standout intentions that emerged on it (at most two, the generator's `say` lines), then its badwater line, then
+  "Made with Dam Good Maps <version>, seed <n>.". The session answers `description()`: `{text, written, kept}`
+  (`SessionInfo.description`, `descriptionWritten`, `descriptionKept`: the page shows `kept` under the field, not editable). This is not the name (D443): a rename stays
+  off the history.
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
   selection is open, the brushes, the forces and a brush's Clear work only inside it; everything outside is locked,
   exactly as it is, and dimmed. **A feathered edge**: a tile changes at most as many levels as it is steps inside
   the area, so edited land meets locked land a level a tile, never a cliff. To the forces, locked land is
   unbreakable rock: Carve's river turns away from it, lava pools against it, a crater's rim stops at it; a force
-  refuses to start outside the area ("Outside the working area: Esc clears it"); a brush's Clear takes only the
+  refuses to start outside the area ("Outside the working area: clear it to work there"); a brush's Clear takes only the
   sources wholly inside. Water is never locked. Ctrl+drag with a brush out makes the selection, and on release the
   same brush keeps painting inside it. With a brush or force picked, the Select row shrinks to a chip ("Working
-  inside 40 × 40 · Esc to clear"). Marking or clearing the area is not an edit; a stroke keeps its `area` (runs) so
+  inside 40 × 40"; its tooltip says Esc clears it). Marking or clearing the area is not an edit; a stroke keeps its `area` (runs) so
   it replays exactly.
 
 (D180, D182, D183, D184, D202, D203, D206, D216, D219, D220, D226, D249, D254, D259, D322.)
@@ -444,10 +952,10 @@ Make a valley, drop a source, and there's a river.
   water, still digs deeper while held. The brush ring turns a clear water-blue and slightly thicker, with a faint
   fill as a second cue; ordinary Lower keeps the white ring (readable over water, badwater, every ground and in
   colour-blind views, D198).
-- **Water source and Badwater source** (D212): first on the left shelf. Click to place, and the water spreads at
-  once; the row beneath the top bar sets the next one's strength; Ctrl+scroll over any source sets its strength
+- **Water source and Badwater source** (D212): after the Start in the objects menu. Click to place, and the water spreads at
+  once; the object window above the objects list sets the next one's strength; Ctrl+scroll over any source sets its strength
   (strong waterfalls allowed, with a friendly note past the official range); drag to move. **One strength number
-  everywhere** (D361, item 6; D368 (4)): the row beneath the top bar shows the strength of the source being pointed
+  everywhere** (D361, item 6; D368 (4)): the object window shows the strength of the source being pointed
   at or selected, the same as its marker's label and the scroll's note, live while scrolling; in a row of sources
   it says which the scroll changes ("this source 0.25 · row 1 water/s"); with nothing pointed at, the slider is the
   next source's (`sourceStrengths`, `sourceStrengthWords`, `strengthReader`; `tests/e2e/sources.spec.ts`). A click on
@@ -463,7 +971,7 @@ Make a valley, drop a source, and there's a river.
   of them (never filled, so its water isn't dammed) and what stood on them goes, in the same undo step. Every
   placement refusal is one plain reason ("the district center stands there", "off the map"); uneven ground is
   never one (D328). Removing the map's last badwater source is never refused: the map becomes a **No badwater**
-  map, a quiet line in the notices says so, the file's description and checks follow, and undo brings the source
+  map, the quiet dot's list says "No badwater", the file's description and checks follow, and undo brings the source
   and the setting back (D213). A planned edit that would reshape the ground under another feature's source keeps
   off it and says why (decisions-pending #89).
 - **Unleash, on a source:** see §4.
@@ -488,17 +996,29 @@ Make a valley, drop a source, and there's a river.
 - **Lakes, waterfalls, joins and branches emerge from the land.**
 - **Water flows visibly,** and the land greens along new water. It reacts at once: water near an edit starts moving
   within a frame or two, the rest of the map follows, always at one brisk pace (D197, D268): small edits settle
-  nearby in a second or two, big changes (a new river, a breach) still flow visibly. The water bar: the status,
-  Pause, Skip (straight to where it settles), Replay, Drought and Badtide; no speed control there (D268).
-- **Drought and Badtide, day by day** (D267, D268): clicking one shows the hazard's last day at once (with progress
-  while it's worked out); clicking again returns to the map's own water. While one is shown, a day strip on the
-  water bar runs from Day 0 to the last day: previous and next, a click on any day, play, and **Speed** (slower,
-  normal, faster, instant; it appears only here). Stepping animates that day's water at that speed; Instant jumps
-  and stays; nothing reverts on its own. A length of 1 to 30 days per hazard (defaults drought 9, badtide 8),
-  remembered. The start's water is highlighted, and the strip marks the day it leaves a pump's reach (or, in a
-  badtide, the day badwater reaches it or its farmland); hovering any water says when it dries or turns bad. Any
-  edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. The Weather
-  step's summary and map-card lines build on these buttons (D133).
+  nearby in a second or two, big changes (a new river, a breach) still flow visibly. The water row: Drought and
+  Badtide and the day (the dot says "Settling…"); no controls for the water's journey (D268; Kyler, 2026-10-04).
+- **Drought and Badtide, day by day** (D267, D268; held, not played, D133 as amended by the page): clicking one
+  shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
+  holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
+  **◀ Day N of L ▶** (and ← →; L is the hazard's length for the map's difficulty, a drought of 9 days) steps from Day 0 to past the default length (then it reads "Day 10 past 9", never "of 9"); a double-click takes a typed day. Each
+  hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. **Hovering water in the Drought view says when it dries** (D133): the readout adds "Dry on day 6" to the tile's words, or "Lasts the drought" once the days are worked out to the drought's end (before that, water that has not yet gone says nothing rather than guess); ground that holds no water on Day 0 says nothing. In the Badtide view the readout adds "Turns bad on day 4" the same way (`firstBad`, `BadDays`, `badWords`; the hover's own "badwater" shows only from 95% bad), and says nothing for water that stays clean, water bad from Day 0 or days not yet worked out. The days come from the worker with each day (`firstDry` and `firstBad` per tile, `core/sim/firstDays.ts` `DryDays` and `BadDays`, a drought's also `firstDryWet0`, the run's own Day 0 water; the words `dryWords` and `badWords`, said by `heldWords` only for the map the days were worked out on, so after an edit while the view is held the hover says nothing until the edited map's days come); the page only looks up the tile. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
+  game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
+  badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
+  edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. Each runs from the
+  water the map shows (an unedited import's own), on every map, caves and overhangs included (#391; there a day's soil
+  is worked out per run top, and no plant withers yet). **An Unstable Core's
+  moment** (D339): with a hazard held, a quiet line under the water row says where each core on the map goes off against
+  that cycle's hazard ("Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide": a range, because a cycle's
+  temperate days are drawn), lit on the days it may go off on; the picture is the map as it is, never after the explosion
+  (`core/sim/coreMoment.ts`).
+- **The drought line** (the Weather view, D133, D269): in the normal view every lake and river shows a faint line on
+  its shore where its water will stand on the drought's last day; a lake or river that dries out shows a faint dry
+  tint over its bed; the start's water (the lakes and rivers its pumps draw from) is marked a little more strongly.
+  It is read from the Drought view's own last day, so the two agree tile for tile (`core/sim/droughtLine.ts`), and
+  comes in the background with the drought's days after each edit, never blocking. On a map with caves or
+  overhangs both days are read on each tile's column standing on its ground (`surfaceWater`).
+  The core, the worker's channel (`watchDroughtLine`) and the drawing are built (`render3d/droughtLine.ts`: an amber waterline at the last day's level along the shore, flat and upright by the bank, and an amber tint over beds that dry out completely, both a little stronger on the start's water; one mesh made once per line, drawn in both looks, never while a day is held, put away at the next edit until the new map's line comes). The map card says nothing about droughts or badtides (D472).
 - **Optional water sounds,** our own. **What you watch is what you'll play:** the final water always matches the
   game's settled result.
 
@@ -516,8 +1036,21 @@ Two looks (Map look 2, D147, D242, D250, D284):
   occlusion, a colour-preserving tone curve, distance haze, sky, rock strata and soil edges (#65); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
   rock with a soil cap and the water's section, continuous waterfall crowns, irregular landings with froth, mist and
-  splash rings, rough water below falls (#67). #67's visible seasons wait for the Drought and Badtide day-by-day
-  view (D286 (4)).
+  splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in High, the
+  plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
+  (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
+  dead (`core/sim/withering.ts`, given to the page with the held day). On a held drought day, High also draws pale dusty
+  dry ground with straw where grass stood and a faint heat shimmer over it; on a held badtide day, a slightly sickly sky
+  (each its own effect, `high/seasons.ts`). Day 0 and Standard show the map as it is.
+
+In both looks (the light look too) thin water reads thin (D154's see-through shallows carried down to a film;
+`WATER_FILM` in `render3d/waterPalette.ts`): a sheet a tenth of a level deep or less (a seep's film, a flood's leading
+edge, the wet ground round a source) is mostly see-through, with its ripples' sheen, and its ground is seen as through
+a coloured filter: the ground's own detail in the water's hue (clean water's lighter teal, badwater's crimson, mixed
+water along D154's blend through the warm midpoint), so the hue stays the water's at any depth. One smooth curve on
+the water's own depth builds it to the body's opacity and the bed's colour by a quarter of a level deep, and water
+that deep or deeper is drawn as before. A badwater film stays murkier than clean water as thin; a film's shore keeps
+a faint edge, not a pond's foam line.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
 threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks
@@ -534,7 +1067,8 @@ High is the default where the computer draws it smoothly: it starts in High (or 
 GPU at about that window size), watches what each frame costs the GPU, steps down by itself to a lower-cost High
 (no soft shadows, mist, rings, wind or fine detail, far tree models, 85% of the pixels) and then to Standard when
 frames stay too slow, and never back up in a session. The **Look** menu (on the 3D view; in the editor's header)
-chooses **Automatic**, **High** or **Standard**, and switches High's four parts; every effect is switchable too
+chooses **Automatic**, **High** or **Standard** (a segmented choice, the page's own), and switches High's four parts
+(checkbox rows as the Show column's, a long name hanging under its own first letter); every effect is switchable too
 (`setHighEffect`). A browser drawing in software keeps the light look, with no choice. The camera never moves by
 itself in either look (D265).
 
@@ -551,13 +1085,18 @@ weaker hardware rather than stutter. (The full list is in the archive.)
 
 ## 7. Controls
 
-Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms, Alt+scroll slices
-the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
-T toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, 8 Craterize, 9 Quake, 0 Erupt, -
-Glaciate and M Select.
+Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms toward the pointer
+(the ground under it stays under it, and a zoom in stops short of it, so a zoom into a cave's mouth ends in its air;
+over the sky or off the map, and for + and -, about the screen's centre). The camera never goes into the rock: where
+its place would be in solid ground, it is drawn in toward what it looks at, to the nearest place in the air, and close
+to a point under a roof (in a cave, under an arch) it stays in that point's air (`render3d/cameraClamp.ts`),
+Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
+T toggles clear water. The tools go by their place in the bar (Kyler, 2026-10-06), matched on the key's code so any
+keyboard layout works: 1 Select, 2 to 6 Raise, Lower, Flatten, Smooth and Naturalize; Shift+1 to Shift+8 Carve,
+Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on or off. The shelf's items have no keys.
 
-- **Z undoes, C redoes and X puts down whatever is held** (D345, B7): a brush, a force, the shelf's object, Select
-  and its selection, a picked source or object, leaving a plain pointer, which picks **every object on the map**
+- **Z undoes, C redoes and X puts down whatever is held** (D345, B7): a brush, a force, the shelf's object, the
+  selection, a picked source or object, leaving Select in hand (§3), which picks **every object on the map**
   with a click (D360 a: trees, bushes and ruin columns too, and sources and the start by their own grabs) and moves
   it with a drag, one undo step each (Esc puts a drag back). A quiet highlight shows exactly what will be picked,
   and a bigger object wins over a tree or a bush under the pointer (`core/features/objects.ts` `isPickable`,
@@ -567,8 +1106,10 @@ Glaciate and M Select.
   selection, else the ground's top level (D288, D323); Ctrl+A selects the whole map. In Select, **Ctrl+click** on
   the land only takes its level (D361) and **Shift+scroll** dials the Level number (D345, B8), whether or not a
   selection is open.
-- While a force runs, Space pauses it, Ctrl+Z (or Z) takes it back, and Esc skips it to its end (a painted Lift
-  still drawn: Esc cancels it; D344, A4); the other keys wait, C among them. A river's or a fault's line is drawn
+- While a force runs, Space pauses it (a pause that comes as its last steps arrive holds it on its final land, still
+  at work, until Space again), Ctrl+Z (or Z) takes it back, and Esc skips it to its end (a painted Lift
+  still drawn: Esc cancels it; D344, A4); the other keys wait, C among them. Right after Try another, **Tab** and
+  **Shift+Tab** show the force's next and previous rolls (§4, D488), with the focus on the map or the bar. A river's or a fault's line is drawn
   freehand with the mouse (D321). Slow forces is a view-bar toggle with no key.
 - **When the window loses focus** (D361, item 5) the editor lets go of everything held: every camera key and
   Shift's speed, F's sizing (kept), and any stroke or gesture in progress ends as a released mouse button would
@@ -580,32 +1121,58 @@ Glaciate and M Select.
   zooms; Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength,
   Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Quake has no Size. U
   unleashes a selected source (D239).
-- Ctrl+Shift+1 to 9 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; bookmarks
+- Ctrl+Shift+1 to 9 saves a camera bookmark (position, angle, zoom), and Alt+1 to 9 glides back to it (Shift and a
+  number pick a force); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
   D196, D205, D212, D219.)
 
+### The File menu's help entries (M13)
+
+After its file entries and a hairline, the File menu ends with three, in this order (the 20-second tour's entry joins
+them, ROADMAP "The 20-second tour"):
+
+- **Keyboard shortcuts** (tooltip key: ?). A dialog over the editor like About, in three balanced columns of groups (Tools; Brushes,
+  forces and items; With the mouse; View; Editing), each line what the key does and its keys as key caps; the mouse's camera moves
+  (turn, move, zoom) sit in View with the keys that do the same, so the sheet fits a 720px window without scrolling. The list is data
+  (`src/editor/help/shortcuts.ts`, `shortcutGroups()`): the tools' keys are read from `BRUSHES` and the shown
+  `FORCES`, so a new tool or force appears by itself; the other keys are listed once there, beside the handlers in
+  `keyboard/useKeyboard.ts` and the camera. Esc, ? and Close end it; while it shows the editor's other keys wait.
+- **Help**. A dialog of a few lines for a player: what the editor is for, how to make a map, how to save it into
+  Timberborn (with a link to the README's "Install a map"), the pointer controls and where to report a problem.
+- **Report a problem** opens https://github.com/timbermods/dam-good-maps/issues/new/choose in a new tab (the issue
+  chooser; `REPORT_URL` in `src/editor/help/helpPanels.tsx`). There is no form and no rating (D145).
+
 ## 8. The generator, Claude and the first run
 
-**The page is the editor follows [docs/UI-BRIEF.md](docs/UI-BRIEF.md)** (D330): one workspace with no expand button,
-full screen or "Refine this map" step; the side panel holds the map (the switch, the candidates strip, the map
-card, Your maps) and the rows over the map hold the land; Generate runs only on its button. **Edits never replay
-onto new land** (D336): every Generate makes a new map, at any size or setting; an edited map stays saved and one
-step away. Decided with it and not yet built: 3D is the default view (D232), and Your maps keeps every edited map in
-this browser (D234).
+**The page is the editor** (D330; [docs/UI-BRIEF.md](docs/UI-BRIEF.md), as Kyler reshaped it on the current editor's
+skeleton, DESIGN.md): one window with no step between making a map and shaping it; the map generator's panel and
+Your maps hold the map as a whole (the settings, what is on it, the other maps) and the controls over the map hold the land; Generate runs
+only on its button. **Edits never replay onto new land** (D336): every Generate makes a new map, at any size or
+setting; an edited map stays in Your maps, one click away (D234). Decided and not yet built: the candidates strip
+(the versions, checkpoint 2).
 
 **As built today:**
+- **Showcase mode** (D488 (2); §3) searches for minutes, only when asked, without a dialog: the editor stays in hand
+  while it runs, and its three picks open only on **Open**.
+- **While a map is made** (Generate, Surprise me, Another like this) a dialog over the editor says what the generator
+  is doing, in one line, with **Cancel**: nothing else can be clicked or started. Cancel ends the work (the
+  generator's worker) and the open map comes back exactly as it was, from its project saved just before.
 - **Generate always makes a new map** (D323, item 20): every press rolls a fresh seed, shown in the box; typing a
-  seed pins it (a small lock beside the box) and Generate then makes that map again until the player unlocks it or
-  clears the box; opening a share link pins its seed. Refine and the downloads wait while a map is being made, so
-  they never take a newer map than the card shows.
-- **"Refine this map"** opens the editor. When the shown map has edits, the note under the button says "Generate
-  makes a new map. Yours stays saved, with its edits."; the new map is made beside it, the edited map stays open
-  and autosaved, and the banner's **Back to editing** returns to it. Refining the new map asks first, as opening
-  any other map does.
+  seed keeps it (**Keep**, lit, beside the box) and Generate then makes that map again until the player lets it go or
+  clears the box; opening a share link pins its seed. Generate waits while a map is being made; the map open stays
+  editable meanwhile.
+- **Every map opens in the editor at once** (D330): a new map replaces the open one without asking, and the one it
+  replaces stays in Your maps, its picture in the panel bringing it back (§3).
 - **Claude (M12)** is a small chat box summoned with a key, which disappears when done. Many players won't use it,
   so it never takes permanent space. Claude steers the generator for character and uses the tools only for precise
   edits (D139, D187). The design is deferred (Part 2).
 - **First run:** three one-line hints (paint the land, place things, add water), then never again.
+- **Notes and messages:** a refusal's note (an error) goes with the player's next press, key, tool pick, layer or view
+  change; an edit's own note (info) stays until its × or the next kept edit; a save that failed ("Not saved: …") stays
+  until dismissed or the map is saved. No key is written in a visible word (keys live in tooltips). There is no
+  "Working…" note: the checks pill says "Checking the map". Every × that closes a hint, a note, History or an object's
+  window is one 24px icon button with a hover state and a tooltip. The 3D view's screen-reader label reads
+  "Middle-drag to turn, right-drag to move, wheel to zoom toward the pointer".
 
 ## 9. The future
 
@@ -620,7 +1187,8 @@ The landform tools and their handles, the river and lake tools, the Channel tool
 Remove tool, Terrace and Ramp as brushes, precise mode and hold-to-dig, Flatten's ramped edges, the Show dropdown,
 the Advanced checkbox, the four text tabs, the health pill, the legend always beside the map, the busy readouts,
 the stamp library, symmetry, regenerate-an-area and locks, the Dam sites, Moisture and Drought views, waypoints and
-the aim arrow, "Generate, keeping my edits" and a rebuild that keeps edits, and Claude as a panel. The superseded
+the aim arrow, "Generate, keeping my edits" and a rebuild that keeps edits, Carve's Maturity (Young, Mature, Auto;
+D473), and Claude as a panel. The superseded
 table, each with the decision that replaced it, is in the archive; `tools/retired-terms.json` names them and CI
 flags them if they reappear anywhere else (D188).
 <!-- /retired-terms:allow -->
@@ -630,7 +1198,7 @@ flags them if they reappear anywhere else (D188).
 ## Working rules
 
 - Editor work follows `ROADMAP.md`, one step at a time; each ends with its checks passing and a short progress
-  entry. Record deviations and decisions in `PLAN.md` §20.
+  entry. Record deviations and decisions in `docs/decisions/` (its index says how).
 - The editor must never export a file that breaks the game. Load problems block export; playability and design
   problems show on the quiet dot and never block it. The classes are defined in `PLAN.md` §19.5.
 - In-game checks are logged in `docs/archive/ingame-log.md`; a DGM Probe batch plays maps in the real game only
@@ -639,17 +1207,16 @@ flags them if they reappear anywhere else (D188).
 
 ## Non-goals
 
-- Voxel-level cave and overhang editing, until terrain above terrain's step 3, "Creating them" (`ROADMAP.md`,
-  "Terrain above terrain"; `PLAN.md` §20, D118, D125, D279–D281). Until then imported caves and overhangs must be
-  preserved and exported unchanged, together with the water the file stores under them, and the tools edit
-  surface height only. The data model stores terrain as runs per tile from project format 3 (D119), so voxel
-  editing needs no format change.
+- Reshaping under a roof with the brushes or the forces (`PLAN.md` §20, D118, D125, D279–D281): the ground under a
+  roof is exported unchanged, the brushes shaping each tile's top run only (§4, "On caves and overhangs"), and only
+  the Block tool adds or removes blocks there (D335). The data model stores terrain as runs per tile from project
+  format 3 (D119).
 - Terrain above the map's own limit: 16, or 22 on tall maps (`PLAN.md` §20, D172; §5.9). The tools keep to the
   map's limit (D123), and imported maps with terrain up to 22 are preserved.
 - Multiplayer starts, for now. Timberborn 1.1 keeps exactly one StartingLocation per map. Fair multi-colony maps for
   Kyler's Timber Together mod are a later goal (`PLAN.md` §20, D5): the spec and feature schema keep room for them
   (`MapSpec.colonies`, `start.player`), and the editor's data model must not assume a single start forever.
-- Accounts and server-side storage. Real-time collaborative editing is planned peer to peer, with no server (`docs/COLLAB-BRIEF.md`, D349, D362); nothing of it is built before its milestone.
+- Accounts and server-side storage. Real-time collaborative editing runs through a managed relay and a small room-code function that carries no map data and keeps nothing once the two are connected (`docs/COLLAB-BRIEF.md`, D349, D362, D431, D486); see "Together" in §3.
 
 ## The map document
 
@@ -693,7 +1260,9 @@ stroke records the options it used:
   bed) and `dry`; a stroke that never leaves the water it began in is a deepening pass (`deepen`: a level off what
   the brush's middle passes over, once). The bed never rises along the stroke, so the replay carves the same bed.
   Strokes saved before D263 keep their old start and replay exactly.
-- Also recorded: the brush kit's options (`square`; `target`, D322: Raise, Lower and Flatten exact with hard edges,
+- Also recorded: the brush kit's options (`square`; `shape: "area"`, Timberborn's Terrain on Raise and Lower: a
+  rectangle between the stroke's two dabs, every tile to the tool's Level, or a block up or down per tile on Free; one
+  operation, one undo step, #227; `target`, D322: Raise, Lower and Flatten exact with hard edges,
   a stroke without one is soft, Free; `mode` with the tiles that were wet when it started and, for Ground, the
   banks' levels, `wet`, `bank`; `sources: "keep"` with its `keep` runs; the tiles a layer cut keeps; the pieces
   that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249 (a stroke that
@@ -710,8 +1279,10 @@ stroke records the options it used:
   force again: `forceResult`, shared by the forces (D220): the force, its settings and where it acted (a record),
   then the changed tiles and their levels, the fresh volcanic rock (a bit per level), the objects that lost their
   ground, the ones it carried (a Slide), the trees it knocked down (a record only: every tree is drawn upright, D321
-  item 7), a carve's source and a sealed oxbow lake's water. Try another replaces the force before it, and undoing
-  it brings that one back. Projects saved with the `carve` operation of before still open and replay exactly.
+  item 7), a carve's source and a sealed oxbow lake's water. Try another's rolls are one step, the roll shown in the
+  log (§4, D488); an operation with `replaces` (made before the rolls) still replaces the force before it, and
+  undoing it brings that one back. A project saved with the `carve` operation of before D220 opens with each one as a
+  `forceResult` (the same land, objects and water).
 
 The document keeps the applied operations as its log, on top of its generation (the spec, the planned features and
 the stored base, D37). The log replays only onto that generation: undo and redo, reopening a project and share
@@ -720,7 +1291,10 @@ nothing replaces a document's generation under its log, at any size or setting, 
 generator that keeps the edits. Generate makes a new map beside the edited one, which stays saved and one step
 away; an older map opens exactly as it was saved, edits included: a project made with an older generator opens on
 its stored map, and a generated feature the player changed (a moved start, a deleted river, a forest's density)
-leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385).
+leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385). Its slopes, trees
+and bushes stand exactly as stored, whatever today's rules would make, except where the edits changed a tile (its
+ground, or its water or soil against the stored map's): there a slope whose step went is gone for good, and a tree or
+bush is judged again, dead or alive, as a live map's is (D368 (10), D404).
 
 After a reopen one undo takes back a whole step: the project saves where each step begins, with its label, as an optional field per logged operation (D456); old projects open one operation per step. An imported map's own water is kept in the live water and the export alike, an unfed pond included (D457); generated maps and Real places keep D420.
 
@@ -730,19 +1304,36 @@ referencing them survive other edits wherever the referenced object still exists
 flagged as orphaned and shown, never silently dropped. When terrain changes under an entity, the entity snaps to
 the new ground if placement stays valid; otherwise it is flagged with a fix option.
 
-**Working representation.** Surface heights and entities are kept in typed arrays. A voxel override layer preserves
-imported caves and overhangs: columns with more than one solid run are locked to the brushes and exported
-unchanged, until terrain above terrain's step 3. After every terrain edit the instant checks re-test terrain
-support (the game deletes voxels more than 3 tiles sideways from support, and the objects standing on them).
+**Working representation.** Surface heights and entities are kept in typed arrays; the terrain is runs per tile
+(`ColumnTerrain`, D119): the build's surface with each tile's top run reshaped to it over the base's runs
+(`withSurface`), so on a cave the brushes move only the roof's top and everything under it exports unchanged
+(D280 (3)). An edit that would leave ground the game's support rule deletes (more than 3 tiles sideways from
+support) is refused with its reason before it lands (`MapSession.apply`, `terrain/support.ts` `newFalls`).
 Dirty-region tracking lets rendering, validation and the water preview update only what changed.
 
-**Persistence.** The project file (`PLAN.md` §19.6) download and upload; autosave in the browser through the storage
-adapter (`PLAN.md` §19.9; IndexedDB), guarded against storage failures, recovering the last session on reload
-(D44); `.timber` export through the `export` validation profile. Re-importing a `.timber` file bakes everything into
-a new imported map.
+**Persistence.** The project file (`PLAN.md` §19.6) download and upload; Your maps in the browser (D234;
+`platform/yourMaps.ts`, IndexedDB), guarded against storage failures, recovering the open map on reload (D44); `.timber` export through the `export` validation profile. Re-importing a `.timber` file bakes everything into
+a new imported map. The project carries the map as it was saved (`src/core/doc/stored.ts`, D367): the built map with
+what an incremental rebuild reuses, saved whenever the water is the canonical settle, so a saved map opens from it at
+once, without rebuilding. A project saved while its water was still pending opens by rebuilding its land with the
+saved base water shown as a preview: the checks replica
+builds the canonical water and the editor adopts it, and `SessionInfo.waterPending` turning false tells the page it
+can save the map again, now with its stored map. A
+project saved by another version of the app opens by rebuilding.
 
-**Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
-history is visible as a list the user can step back through. A step of several operations (a force with its objects,
+**Undo and redo** run over the operation list and put back the map each step kept (`MapSession`: every step's
+within 8 steps of where the history stands at 256² (about 6 MB a step), 32 at 128², and one every eight steps
+further back), its own water with it, never rebuilding it; an edit's answer, and undo's and redo's, go to the page
+before the water's settle is even set up, and the water follows in the background (D158, D453). A log another
+session follows (the checks replica, collaborative editing's peers) is rebuilt from where the map stood, as an
+edit is (`followLog`); `spliceStep` takes one step out of the log or puts it back, the steps after it applied
+again, for collaborative editing's undo of a step that is not the latest. The
+history is visible as a list the user can step back through. A map opened from its stored map has its log replayed
+once, where the checks run (the checks worker's replica; the editor's own background check without one), and compared
+with the stored map byte for byte (D455): the same, and undo below the save point works as normal; different (the
+code changed since the save), and undo stops at the save point, with a notice: the map as saved is the earliest
+state, never an approximate replay, and the history lists only the steps undo can reach. An undo that would cross the
+save point before the comparison is in does the comparison first, right there. A step of several operations (a force with its objects,
 a stroke that clears sources, a source changed) stays one undo step after the project is reopened: each of its
 operations records where its step begins (`step`, the first one's `seq`; its label is the first one's), D456. A
 project saved before that undoes operation by operation; an older app ignores the field. Undo never crosses from one map to another: each
@@ -754,15 +1345,27 @@ afresh, with a view built for its size.
 The editor reuses the generator's validation modules unchanged (one source of truth for what "valid" means), run
 with the `export` profile (`PLAN.md` §19.5, §11). An imported map's own problems, the ones it had when it was
 opened, are listed but never blamed on the player's edits and do not block its export (`PLAN.md` §20, D43).
+A real place opened from Real places is not an imported map in this sense: it is ours, so its checks follow the
+place's absolutes (D245, D331; `checkItems.ts` `groupChecks`): a load problem blocks; a missed starting-logs floor,
+a missed water floor (no clean water a pump can reach from the start) or water that keeps moving is a warning the
+checks dot counts; every other row is information under Good to know, worded as a fact without its target.
 
 - **Instant checks** after every edit, on the dirty region: footprints, ground support, overlaps, start area,
   limits, slopes, terrain support. **Background checks** in a web worker, debounced (0.7 s) and cancelled when a
-  newer edit arrives: water simulation, reachability, resource totals, moisture reach, drought survival.
+  newer edit arrives: water simulation, reachability, resource totals, moisture reach, drought survival. The checks
+  worker starts small and loads its replica on its first request; a page that calls the editor worker's `deferChecks`
+  before a map opens keeps the replica waiting until `editorReady`, after the first editable frame (D367), and until
+  then the checks run in the editor's own worker, so Save and export keep their full check.
 - Issues have a severity, a location and a plain-language explanation. They are listed from the quiet dot, each
   highlighted on the map; clicking one flies the camera to it. **Error** (load class): the file would crash the
   game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability or
   design): a flooded start, no water nearby, a map above height 16; it shows on the quiet dot and never blocks
   export; the warning is noted in the map description.
+- **Words.** The History's labels (`core/doc/labels.ts`) read "Verb the thing" with a correct article and plural and the
+  Items list's names: "Raise 806 tiles", "Plant 34 birches", "Plant a berry bush", "Place a water source", "Craterize",
+  "Quake: lift". A check that names several things is listed as one row for each, with its own Show (`checkRows`); the
+  place stays in the row's words as "X 105 · Y 7 · Z 11" (the validate README's rule), and a berry bush is a "berry bush"
+  there too.
 - **Edge walls warn on an edited map** (D323, item 12; D151 still holds for the generator and Real places):
   `terrain.edge_wall` is a warning on the quiet dot, never a block on a save, with the one-click fix **Lower the
   wall** (the outer tiles cut down to the land inside, one undo step; `lowerTheWall` in
@@ -779,32 +1382,55 @@ opened, are listed but never blamed on the player's edits and do not block its e
   the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
   or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
   game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. A
-  generated spring's row of sources is placed on the ground as generated (`GeneratedField.heights`), so it keeps its
-  sources whatever an edit does to the ground under them; each stands on the ground as it is now (D447). What
+  generated map's storied ruins (a ruined dam across the narrows, a drowned village; PLAN §9.7, D488 (2)) are ruin
+  fields like any other in the editor, keeping their columns' storeys and their line (`params.story`). A
+  generated spring's row of sources is kept as the generation placed it (`BuildInput.generatedSprings`, from the
+  stored map): the same sources, count and ids, whatever an edit does round it (a Quake carrying the start off
+  ground the row could have grown onto adds no source); each stands on the ground as it is now (D447, D314). What
   holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
   carries leave their ground together and land where it put them, one it put down on the start or on a slope the
   build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's
-  objects under it in the same step (`doc/tools.ts` `startClears`). `tests/contract/editSequences.ts` runs every
+  objects under it in the same step (`doc/start.ts` `startClears`). `tests/contract/editSequences.ts` runs every
   brush and force in sequences and fails on any new object id (a few every run, every theme nightly). The same holds for an edited import and for the start (moving it places
   nothing, and its checks predict only the slopes that stand). What an edit leaves out of reach is reported, never
   repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony reached when
   the map was opened and no longer does by `resources.mine_site` (advisory in the editor, on the quiet dot), each for the
   player to fix with a Slope from the shelf or the land. Two forces place the water they make, by design: Carve's
   river its source group (D314) and Glaciate its meltwater springs (D246). A stroke from before D247 or D270 that
-  asked the planner for slopes still replays exactly; a new ramped Flatten is refused (`worker/session.ts`
+  asked the planner for slopes still replays exactly; a new ramped Flatten is refused (`doc/strokes.ts`
   `newRampedStroke`). `tests/contract/editsPlaceNothing.test.ts` runs every force and brush and compares the objects
   before and after.
 - **One-click fixes** wherever a sensible fix exists: move the start to the nearest valid spot, add an outlet to a
   lake, pull trees back into moisture reach, remove overlapping entities, add a missing slope. Each fix is a normal
   edit operation, applied live and undoable.
 - **Water preview:** the settled water of the port of the game's rules (`PLAN.md` §10).
-  - **Exact on heightfield terrain**, which covers every generated map and most edited ones; **approximate under
-    roofs** (imported caves, tunnels, overhang bridges, badtide drains): there the editor keeps the water the file
-    stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. The
-    tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and the
-    **Under roofs** view button marks them (D100); the roofed columns are never edited (D40).
-  - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps stop at 0.8 deep, and
-    aquifers run only under a powered drill. Drought is shown analytically: what the basins still hold after N days.
+  - **Exact on heightfield terrain**, which covers every generated map. **A map with caves or overhangs** (an
+    import's tunnels and overhang bridges, D120, D280, or a hollow the Block tool or Erode made on any map,
+    #435) is simulated too, on every water column, by the
+    stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit its
+    water flows live, as a plain map's does (D99, D197): the last water (or the water still in flight) is carried
+    over to the new columns and run on by the stacked engine a few ticks at a time, every column of it, the page
+    playing its frames as a journey, and a stroke's water flows while it is painted, each tile's top reshaped as
+    the brush shapes it (`sim/stackLive.ts` `StackLive`, `carryStack`; src/worker/session.ts `kickStack`,
+    `draftStack`). That water is only shown: the map keeps the last settle carried over until the canonical
+    settle, run in the background in slices, on several threads where the page has them (`sim/stackParallel.ts`,
+    the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
+    was settles at once (D453): the changed tiles lie more than five tiles from every column the last settle
+    ever wet and from every source, with the same objects and the same pre-fill elsewhere, so the last settle
+    is the new one, the same bytes (`settledAgain`); Erode and Export then wait for nothing. The file gets the settle
+    on every column and the soil on every run top. Drought, Badtide and the drought line run there too, on the
+    same engine from the water the map shows (its file's own while unedited): the sources stop or turn bad by
+    the game's rules, every column drains and evaporates, and each day's soil is worked out per run top
+    (`sim/weather.ts` `HazardRun`, `sim/stackWater.ts` `StackRun`; #391). On a map with no caves the stacked
+    weather is the heightfield's, bit for bit. Fill and Remove unfed water work there on every water column
+    (below, "Remove unfed water and Fill"; `sim/stackWater.ts` `cavesOf` decides which maps).
+    The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
+    leave as they are (D40): what lies under a roof is never edited, the brushes shaping only a column's top
+    run (D280 (3), D487). Ground the Block tool digs and Erode hollows counts with them, on any map; once
+    the last hollow is undone the map is a heightfield again, its water and file as before.
+  - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
+    above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength
+    is a sink that drains its own kind of water (D337). Drought is shown analytically: what the basins still hold after N days.
   - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds; the carve stores the water the
     game settles there just before its mouths closed (`RetainedWater`), every settle starts the lake from it, and
     it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222, D413), so
@@ -824,14 +1450,41 @@ opened, are listed but never blamed on the player's edits and do not block its e
     takes the lakes before it; a later Fill keeps its water). A Fill is written at exactly its level: the settle
     stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it. If an
     edit later widens its hollow below its level, its water is stored levelled into the wider hollow.
+    **On a map with caves or overhangs** both ask every water column, on the stacked engine's own geometry
+    (`sim/stackFed.ts`; `sim/stackWater.ts` `stackGraph`: its columns, the edges between overlapping columns of
+    neighbouring tiles, the map's edge, the direction limiters, the columns a running emitter gives water into).
+    Fed water is reached along those edges by the same rule (`fedColumns`), so a cave pool no source feeds is
+    unfed, a spring cave's pool or a siphon under pressure fed. A removal names tiles as on a heightfield and takes
+    the unfed water of every column of them, never a fed river over a cave pool: a pool with a tile in the
+    selection goes whole, and so does every unfed pool on a tile it shares (a pool on a roof over a cave pool), so
+    nothing is taken by halves; once the stacked settle has passed, that water is taken and the water settles on
+    from it (`canonicalStackRun`, at most `STACK_DRAIN_DAYS`). A Fill is measured from one water column at (x, y)
+    (`planFill`'s `floor`, stored as the operation's `floor`: a cave's floor under its roof; by default the
+    tile's highest column whose ground is below the level): every column joined to it whose ground is below the
+    level stands at that level, a column whose roof is lower full, under the pressure of the water above it, as
+    the game holds it; refused when the water would leave the map, or when no column of the hollow is open up to
+    the level ("the hollow is closed above at level 6: fill it to 6 or lower"). Its lake has one entry a column,
+    ascending by tile and then floor, each naming its column by its floor (the engine's `retained_column`: the
+    tile's column with that floor, else its top one), so it is kept in the cave. The stacked settle stores a
+    sealed basin that only dried as it began (D413), so a Fill there too is written at exactly its level, and
+    the water the game loads stays as it is: the lake only evaporates, nothing spills
+    (`tests/contract/caveWaterEdits.test.ts`). A sealed basin whose water moved, or whose start would not stand
+    (an edit dug its rim or widened its hollow), is stored where the water it began with comes to rest, as the heightfield's settle levels it
+    (`keepSealed`), by the game's rules through air gaps, roofs and pressure: each hollow fills to its spill and
+    only the rest runs on, lowest first, so a lake behind a dug rim stays at the cut's floor when the hollow
+    beyond takes the rest, and stands as one level with it when that hollow fills (`rust/water/src/stack_level.rs`;
+    a rest that would reach a source, the edge, other water or an obstacle leaves the basin as the settle left it;
+    the ground the rest could reach is part of the settle's reach, so an edit there settles in full; the drawn current, `StackSettle.flows`, is zero on the columns stored levelled, `Stack::levelled`, since the run's leftover momentum is not that water's). An imported map's own unfed water is kept on every column, a pool
+    in a cave included (D457; `stackFed.ts` `unfedOwnWater`). While the canonical settle runs, the carried-over
+    water shows a Fill and takes a removal's water at once, on their columns (`keptOnStack`).
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source
     removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,
     `sim/preview.ts`; water the settle itself spread past that walk, a lake filling up behind a new dam, keeps
     its water), so their water drains away as part of the edit's own journey (within about a second on 128² and
-    two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. A stored
+    two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. **The sources' labels** (Markers, a picked source, the pointer) are placed by `editor/sources/labelLayout.ts`, a plain function of where each source stands on the screen and what the page has open over the map: a label never stands on another or on a panel (it is nudged to the nearest free spot), a source behind a panel or outside the view has none, and a label with no room left merges into the nearest of its kind ("3 sources, 1.5 water/s", never badwater with clean water), the way a group of sources already does. Markers' wall ledges are **Wall levels**; **Lines** is the view switch for a line at every level. A stored
     lake keeps its water only while its hollow holds it. The preview's water once it stops matches the canonical
-    settle's, except under roofs.
+    settle's (a map with caves or overhangs has no preview but its own live water, the stacked engine run by `kickStack` and `draftStack`, D280 as amended by #606: shown only, replaced byte for byte by the canonical settle in the background).
   - **No water from nowhere** (D385): a hollow dug where no source's water and no water already there reaches
     stays dry on every path (the instant answer, the stroke's live water, the background settle, the canonical
     settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the
@@ -846,14 +1499,39 @@ opened, are listed but never blamed on the player's edits and do not block its e
   - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical
-    settle's days (`PREVIEW_JOB_DAYS`), so "Water settled" means it. Speed belongs to the day strip alone (D268; §5).
+    settle's days (`PREVIEW_JOB_DAYS`), so the dot leaving "Settling…" means it. Speed belongs to the day strip alone (D268; §5).
   - **While a stroke is painted** (D197): the page sends the stroke's ground to the worker every frame it changes,
     the worker runs the water on it at once (so the water nearest the edit moves first) and sends each frame as
-    soon as it has answered; the page meshes a stroke's water a few chunks a frame (`updateWaterSoon`), so painting
-    and turning the view keep the display's rate. On release, the stroke's operation carries that water on into
+    soon as it has answered. Water on land that changed rides it in the frame the land is drawn, and water worked out
+    on the land just before is seated on the land drawn (`rideLand`), so the two never part; a force's water comes with
+    each frame of its land and is drawn with it. A force's water starts from the water on screen (`forceShows`, #329),
+    even while the journey still plays behind the worker, so its first frame never jumps a lake; with stored water, caves
+    or a held Drought or Badtide day it starts from the map's own water. It is only shown: the kept map's water is settled
+    anew. Moving water (a stroke's, a force's, the water's journey after an edit)
+    is drawn again only where it moved visibly since it was drawn, a whole moment at a time: a few workers mesh those chunks on one water
+    (`updateWaterSoon`, `waterMesher.ts`) and the page draws them together, never a mix of moments; water put in place
+    (the journey's last frame, an edit's answer) is meshed there too, every chunk it changed drawn exactly a frame or two
+    on, and where the page is cross-origin isolated the workers read one copy of the water on shared memory; a force's water and
+    the journey are shown averaged over their last dozen ticks, so a thin sheet's waves never strobe at the many times
+    the game's pace they play at (on its own thread where no worker starts), and High's occlusion round the brush's changes is redone a millisecond or
+    two a frame, so painting and turning the view keep the display's rate. On release, the stroke's operation carries that water on into
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
-    export never depends on the preview's history.
+    export never depends on the preview's history. Its thumbnail is the map's 3D picture (D488): drawn off screen in
+    the High look, turned as the new game's camera opens (the start's orientation + 35°) but looking down at 40° at the
+    whole map as the official thumbnails do, not the opening camera's 60° (a deliberate departure), with the water the file
+    starts with drawn still (its badwater share, no moving water's foam), then put in place of the core's top-down
+    one; the player's view is never touched. A map whose water is settled already is drawn while the checks run. Without a GPU or
+    WebGL 2, or if drawing fails, the file keeps the top-down thumbnail and saves anyway; an unedited import keeps its
+    own picture.
+    The same picture serves the page's own pictures (Showcase mode's cards): `heroPicture(view, { width, height,
+    quality? })` gives the JPEG at that size (the default stays the thumbnail's 960×540 at 0.9, byte for byte; the
+    framing is the same at any size, best at 16:9) and `heroPictureUrl` the same as an object URL for an `<img>`, to be
+    freed with `URL.revokeObjectURL`. Pictures are drawn one at a time. Sized pictures share one kept off-screen renderer
+    (one WebGL context): the first compiles the High look's programs off the page's thread where the browser can
+    (`prepareFirstFrame`), the next compile nothing, and it is freed 10 s after the last picture; a picture with no size
+    (the saved file's) is drawn on a renderer of its own, as before. Three 400×225 pictures hold the page's thread about
+    110 ms in all (two tasks of about 55 ms; before, three tasks of about 230 ms) and never touch the player's view.
 
 ## Claude integration (M12)
 
@@ -888,7 +1566,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   adapter in `src/platform/claude/`.
 - **The editor's code** (`src/editor/`, its `README.md`): `Editor.tsx` is a thin shell that builds a bag afresh each
   render and calls one hook per feature, in a fixed order, each in its feature folder (`session/`, `paint/`, `view/`,
-  `sources/`, `start/`, `shelf/`, `remove/`, `forces/`, `rows/`, `selection/`, `keyboard/`, `testHook/`, `save/`);
+  `sources/`, `start/`, `shelf/`, `remove/`, `forces/`, `rows/`, `selection/`, `keyboard/`, `testHook/`, `save/`,
+  `collab/`);
   the markup is plain functions in `render/`, and what the viewer last used is in `prefs/`. New behaviour goes in the
   slice it belongs to; the `README.md` says how slices reach each other.
 - The operations engine and feature rasterization are headless and fully testable without the UI. Determinism: the
@@ -896,13 +1575,17 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   dirty regions and compact arrays, not whole documents. Hosting: a static site on GitHub Pages under the
   timbermods organization (`PLAN.md` §2).
 - **3D rendering** (`src/render3d`, `PLAN.md` §20, D45): chunked meshing (32×32 chunks) with remeshing of dirty
-  chunks only; a voxel mesher only for columns with more than one solid run; instanced trees, bushes and ruins;
-  picking against the heightfield and the features.
+  chunks only; one mesher for terrain as runs (`render3d/mesh.ts`, D126): every run's top, underside and walls,
+  merged per level and along each edge, the same quads as a heightfield's where a map has no caves; instanced trees, bushes and ruins;
+  new objects rebuild only the batches that changed (a source placed among a forest keeps the forest, its landmarks and
+  its canopies' occlusion, renumbered), the models the soil and water may yet call for (a ruin's ivy, a drowned plant)
+  are made ahead when the page is idle, and batches put away let go of their GPU buffers then too (D453);
+  picking against the voxels of the runs (the first face a ray meets: a run's top, underside or wall) and the features.
   - The shelf (D184): each object's picture is drawn once by the view itself (the object's model in the map's look,
     into a small render target), and the ghost under the pointer is the object's own model, tinted green or red; a
     source the pointer targets glows (D249).
   - The minimap (D205): the Real places top-down picture (`core/render/shade.ts`, one pixel a tile), drawn again when
-    the page is idle after an edit or its water settles, never per frame. Camera bookmarks (D205): kept per slot in the
+    the page is idle after an edit or its water settles, never per frame, shading only the tiles the water moved on. Camera bookmarks (D205): kept per slot in the
     document's meta (`views`), never an edit, taken by the autosave; a glide eases there in about half a second (at
     once with reduced motion). The game's layers (D196, D207) are one uniform that cuts the world above a level
     (terrain vertices clamped to it, the cut tops lying on it, hatched; water and objects above it not drawn; picking
@@ -926,19 +1609,28 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     the tiles that really changed and what they touch are drawn again (`terrainChanges.ts`: their chunks, the sky
     and tile data along each changed row's reach, the shadows over their bounds), the same as redoing the
     rectangles.
-  - The moving water (D353): the water worker adds the settle's own outflows (four a wet column) to every water
-    view it sends, handed over with its other arrays (an imported map's stored outflows); the renderer works out
+  - The moving water (D353): the water worker adds the settle's own outflows (four a wet column, each column its
+    own: an imported map's stored per column, the stacked settle's per column on a map with caves) to every water
+    view it sends, handed over with its other arrays; the renderer works out
     the current from them (`render3d/current.ts`: net across each face, over the depth), never from the
     surface's slope, and a fall's lip pours the outflow over its side, the map's edge included (`falls.ts`). The renderer's bake worker (`bake.worker.ts`) turns it into the flow
     texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
     ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
-    changing; `motion.ts` hands them to the GPU. Only drawn: nothing in it reaches the water or a map.
+    changing; `motion.ts` hands them to the GPU. Water below its tile's surface water (a cave's under a wet roof)
+    takes its own column's current and rough water from a volume by level the bake makes on such maps
+    (`caveCurrent.ts`). Only drawn: nothing in it reaches the water or a map.
+  - The renderer warms while the first map loads (D367, part 1; `render3d/prepared.ts`): the page starts
+    `prepareRenderer()` as a map's loading begins, which draws a small map with each kind of thing a map draws
+    in the look that will be drawn, compiles its programs (`compileAsync`) and waits for the GPU; the 3D view takes
+    that renderer, canvas and context, with `takePreparedRenderer`, so the map's first frame compiles nothing new
+    (`tests/e2e/rendererWarmup.spec.ts`). A map's moving water is retired, not dropped, until the next map's first
+    frame, so a new map reuses its programs too.
   - The High look (D284; `src/render3d/high/`): the Standard shaders take the High additions only at named points
     (`materials.ts` `ShaderHooks`), and only in High's own materials, which the meshes swap to while the look is
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
     hover, ground mode and an eruption's heat). A 2048² sun depth map (redrawn only when the terrain or objects
     change, at most ten times a second while a brush paints), ambient occlusion made in a small worker
-    (`bake.worker.ts`), trees batched by species (at most 32 draws). Each effect is a uniform switch.
+    (`bake.worker.ts`, one for the page, shared by every view), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.
 - **The forces** (D203, D206, D220): one shared core in `src/core/forces/` (its README), from Codex's forces core
@@ -954,7 +1646,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     `carve/unleash.ts`): `breakout` finds where the water would spill over, `unleashWidth` its width from its
     strength; the operation names the source (`where.source`). The map's hidden rock is derived once from the map
     as opened; fresh volcanic rock comes from the forces' operations. What is kept is always the plan's final map,
-    touched by the build's own integrity pass in the worker.
+    touched by the build's own integrity pass. A force is planned and its operation assembled in the core
+    (`forces/start.ts` `planForce`, `forces/keep.ts` `keptForceParams`); the worker drives, shows and applies it.
   - The editor's worker works a force out a slice a call, then shows as many steps a frame as the page asks
     (`forceStart`, `forceAdvance`, `forcePaint`, `forceStop`, `forceCancel`, `forceAgain`; no second history or water
     owner); its frames carry the ground and the objects, never water, and say once it is worked out (`planned`) how

@@ -166,7 +166,15 @@ describe("contamination", () => {
     const src = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1).fragmentShader;
     // one vein field for both soils (no grass-only or earth-only veins), gated by the soil's own
     // contamination, never under water
-    expect(src).toContain("if (bad > 0.0 && wet < 1.0) vein = veinsOf(g, lvl) * bad * (1.0 - wet);");
+    expect(src).toContain("if (bad > 0.0 && wet < 1.0) vein = veinsOf(veinQ, veinWidth, lvl) * bad;");
+    expect(src).toContain("vein *= 1.0 - wet;");
+    // (the field's point and its antialiasing width are worked out before that branch, for every pixel: a derivative
+    // or a mipmapped read inside it would read the neighbours that skipped it, an undefined value, and the veins'
+    // edges would change from frame to frame)
+    expect(src.indexOf("float veinWidth = veinAA(veinQ);")).toBeGreaterThan(-1);
+    expect(src.indexOf("float veinWidth = veinAA(veinQ);")).toBeLessThan(src.indexOf("if (bad > 0.0 && wet < 1.0) vein ="));
+    const veins = src.slice(src.indexOf("vec2 veinsOf("), src.indexOf("vec3 groundDry;"));
+    expect(veins).not.toMatch(/fwidth|dFd|texture|vnoise/);
     expect(src).toContain(`c = mix(c, ${gl(CONTAMINATION.vein)}, vein.x * ${CONTAMINATION.cover});`);
     expect(src).toContain(`glow = vein.y * mix(${CONTAMINATION.glow[0]}, ${CONTAMINATION.glow[1]}, lvl);`);
     expect(src).toContain(`smoothstep(0.0, ${CONTAMINATION.onset}, lvl)`);
@@ -232,7 +240,7 @@ describe("objects from afar", () => {
 describe("the legend", () => {
   it("names every meaning the view draws", () => {
     const labels = [...legendEntries("moisture"), ...objectLegend()].map((e) => e.label);
-    for (const want of [/Moist/, /Dry/, /Contaminated/, /^Water: darker is deeper/, /^Badwater$/, /mixed with badwater/, /Walls/, /dead/, /Living trees/, /The start/, /Slopes: arrows point uphill/, /Ruins/, /Mine site/, /Geothermal field/, /Water source/, /Badwater source/, /blocks/])
+    for (const want of [/^Moist ground$/, /^Dry ground$/, /^Contaminated ground$/, /^Water$/, /^Badwater$/, /^Mixed water$/, /^Walls$/, /^Dead trees$/, /^Trees and bushes$/, /^Start$/, /^Slope arrows$/, /^Ruins$/, /^Mine site$/, /^Geothermal field$/, /^Water source$/, /^Badwater source$/, /^Other objects$/])
       expect(labels.some((l) => want.test(l)), String(want)).toBe(true);
     // no dam site is drawn (D287)
     expect(labels.some((l) => /dam site/i.test(l))).toBe(false);

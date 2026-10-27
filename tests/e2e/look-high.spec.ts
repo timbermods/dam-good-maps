@@ -8,9 +8,14 @@
 // (software frames are slow) until a test reports them slow.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor, waitForEditor, topDown } from "./open";
 
 // the automatic choice, not the Standard look the other tests hold (playwright.config.ts)
 test.use({ storageState: { cookies: [], origins: [] } });
+
+// (its tests stand alone: they run in parallel, so the browser shards and their two workers share them; one worker
+// running them all in a row took a shard past its 30 minutes)
+test.describe.configure({ mode: "parallel" });
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -22,10 +27,7 @@ async function open(page: Page, errors: string[]): Promise<void> {
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 }
 
 const look = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.look);
@@ -48,21 +50,19 @@ test("High is the default where it can be drawn, and the look's menu switches it
   await button.click();
   const menu = page.getByRole("group", { name: "Look" });
   await expect(menu).toContainText("Drawing High");
-  await menu.getByRole("radio", { name: /^Standard/ }).check();
+  await menu.getByRole("button", { name: /^Standard/ }).click();
   expect(await look(page)).toBe("standard");
   await expect(page.getByRole("button", { name: "Look: Standard" })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("dgm.look"))).toBe("standard");
-  await menu.getByRole("radio", { name: /^High/ }).check();
+  await menu.getByRole("button", { name: /^High/ }).click();
   expect(await look(page)).toBe("high");
-  await menu.getByRole("radio", { name: /^Automatic/ }).check();
+  await menu.getByRole("button", { name: /^Automatic/ }).click();
   expect(await look(page)).toBe("high");
   expect(await page.evaluate(() => localStorage.getItem("dgm.look"))).toBeNull();
   // a new page keeps the choice
-  await menu.getByRole("radio", { name: /^Standard/ }).check();
+  await menu.getByRole("button", { name: /^Standard/ }).click();
   await page.reload();
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await waitForEditor(page);
   expect(await look(page)).toBe("standard");
   // (no shader failed to compile, nothing threw)
   expect(errors).toEqual([]);
@@ -92,6 +92,9 @@ test("each High effect switches (the menu, its parts), and the switches are reme
   expect(errors).toEqual([]);
 });
 
+/** How far a redraw of the same still frame can stray in a colour value (seen up to 3, on the water). */
+const NOISE = 3;
+
 test("the Standard look is the same after High as before it", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
@@ -118,13 +121,38 @@ test("the Standard look is the same after High as before it", async ({ page }) =
       return { key: k, share: n / px.length, max, size: `${g.drawingBufferWidth}x${g.drawingBufferHeight}` };
     }, key);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard"));
-  // (the view settles its size first: the legend beside it lays out after the map)
-  const size = () => page.evaluate(() => `${window.dgm3d!.renderer.canvas.width}x${window.dgm3d!.renderer.canvas.height}`);
-  await expect.poll(async () => {
-    const a = await size();
-    await page.waitForTimeout(500);
-    return a === (await size());
-  }).toBe(true);
+  // (the view settles its size first: the legend beside it lays out after the map. Watched in the page until neither
+  // the canvas's box nor its pixels have changed for half a second: on a busy page (CI's software GL) a round trip to
+  // the page can take a second or two, and a poll of two reads with a wait between them spent its 5 seconds on one try,
+  // the size long since held)
+  await page.evaluate(
+    () =>
+      new Promise<void>((held) => {
+        const c = window.dgm3d!.renderer.canvas;
+        let size = `${c.width}x${c.height}`;
+        let since = performance.now();
+        const moved = () => (since = performance.now());
+        const box = new ResizeObserver(moved);
+        box.observe(c);
+        const frame = () => {
+          if (`${c.width}x${c.height}` !== size) {
+            size = `${c.width}x${c.height}`;
+            moved();
+          }
+          if (performance.now() - since < 500) return void requestAnimationFrame(frame);
+          box.disconnect();
+          held();
+        };
+        requestAnimationFrame(frame);
+      }),
+  );
+  // (the drought line comes in by itself once the worker has worked it out, a change between frames: wait for it, then
+  // put it away. It is the same in both looks, and where its flat and upright strips overlap over the water, the GPU
+  // (software GL and the RTX 2070 SUPER alike) blends it there once or twice between two redraws of one still frame,
+  // with the draw order, the scene, the clock and the camera held: a few pixels up to 21 apart, back and forth. Its
+  // own drawing is checked in droughtLine.spec.ts; the line has no tint on this map)
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.droughtLineShowing), { timeout: 60_000 }).toBe(true);
+  await page.evaluate(() => window.dgm3d!.renderer.setDroughtLine(null));
   await still("before");
   const again = await still("again");
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high"));
@@ -132,9 +160,10 @@ test("the Standard look is the same after High as before it", async ({ page }) =
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard"));
   const after = await still("after");
   expect(after.size).toBe(again.size);
-  // (a GPU may draw the same frame twice a level apart in a value or two: no more than that)
-  expect(after.share).toBeLessThanOrEqual(Math.max(again.share, 1e-5));
-  expect(after.max).toBeLessThanOrEqual(Math.max(again.max, 1));
+  // the same frame after High as before it, within a redraw's own noise: the same still frame drawn
+  // twice can differ on the water by a few levels (dev's build too), so each pair is held to that,
+  // never to the other pair's noise (a quiet first pair would fail a noisier second one)
+  for (const s of [again, after]) expect(s.max, s.key).toBeLessThanOrEqual(NOISE);
   expect(high.share).toBeGreaterThan(0.2);
   expect(errors).toEqual([]);
 });
@@ -166,14 +195,12 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   await expect(page.getByRole("group", { name: "Look" })).toContainText("High was too slow on this computer");
   // the next page starts in Standard on this computer
   await page.reload();
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await waitForEditor(page);
   expect(await look(page)).toBe("standard");
   // choosing Automatic again gives High another try
   await page.getByRole("button", { name: "Look: Standard" }).click();
-  await page.getByRole("group", { name: "Look" }).getByRole("radio", { name: /^Standard/ }).check();
-  await page.getByRole("group", { name: "Look" }).getByRole("radio", { name: /^Automatic/ }).check();
+  await page.getByRole("group", { name: "Look" }).getByRole("button", { name: /^Standard/ }).click();
+  await page.getByRole("group", { name: "Look" }).getByRole("button", { name: /^Automatic/ }).click();
   expect(await look(page)).toBe("high");
   expect(errors).toEqual([]);
 });
@@ -251,10 +278,7 @@ test("High's water is darker deep than shallow, at one camera and light (D334: t
   await page.setViewportSize({ width: 1280, height: 900 });
   // (seed 5 on M9b's maps, D148: seed 3's lake basin is nowhere 2 deep, its deepest water 1.8; seed 5 shows
   // about a thousand tiles of each in view)
-  await page.goto("./#s=5&z=128&d=n&t=lakeBasin");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=5&z=128&d=n&t=lakeBasin");
   const depths = await page.evaluate(() => {
     const r = window.dgm3d!.renderer;
     r.setLookChoice("high", false);
@@ -296,5 +320,292 @@ test("High's water is darker deep than shallow, at one camera and light (D334: t
   expect(depths.shallow).toBeGreaterThan(10);
   expect(depths.deep).toBeGreaterThan(10);
   expect(depths.deepLuma).toBeLessThan(depths.shallowLuma);
+  expect(errors).toEqual([]);
+});
+
+test("an eruption in High (D378): its plume rises, its lava glows on High's ground, and High stays drawn", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  await topDown(page);
+  expect(await look(page)).toBe("high");
+  await page.keyboard.press("Shift+Digit3");
+  await page.getByRole("group", { name: "Erupt options" }).getByRole("slider", { name: "Power" }).fill("70");
+  // its lava is the test's subject, so Ridges and Flows are set by hand: on Auto the land and the seed draw them
+  // (D309), and with Ridges off the heat on the ground is a faint disc, no lava at all (about 140 pixels; on 0.8.8's
+  // Highlands the middle of this map drew that, which read as "no lava from high ground": the level was never
+  // the cause)
+  const row = page.getByRole("group", { name: "Erupt options" });
+  for (const [detail, choice] of [["Ridges", "On"], ["Flows", "Heavy"]]) await row.getByRole("group", { name: detail, exact: true }).getByRole("button", { name: choice, exact: true }).click();
+  // dry ground in the middle of the view, clear of the controls over the map, at level 6 or lower: the middle of
+  // 0.8.8's map is its top bench, level 15, where the cone has seven levels of room and half the lava in frame
+  const at = await page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    const below = (document.querySelector(".view3d-corner")?.getBoundingClientRect().bottom ?? 120) + 20;
+    const above = (document.querySelector(".tool-dock")?.getBoundingClientRect().top ?? 600) - 20;
+    for (let d = 0; d < m.W / 3; d++)
+      for (const [x, y] of [[m.W / 2 + d, m.H / 2 + d], [m.W / 2 - d, m.H / 2 + d], [m.W / 2 + d, m.H / 2 - d], [m.W / 2 - d, m.H / 2 - d]].map(([a, b]) => [Math.round(a), Math.round(b)])) {
+        const p = window.dgmEditor!.tileToClient(x, y);
+        if (m.heights[y * m.W + x] > 6 || m.surface.depth[y * m.W + x] > 0 || p.y < below || p.y > above || document.elementFromPoint(p.x, p.y)?.tagName !== "CANVAS") continue;
+        return { ...p, tile: [x, y] };
+      }
+    return null;
+  });
+  expect(at).not.toBeNull();
+  // measured in the page at its last frame, its land final and its lava hottest (however slowly the
+  // browser draws: software drawing on CI takes seconds to keep it, and the lava cools meanwhile)
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const w = window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string } };
+    /** How many pixels of the frame drawn now are lava's colour: a strong orange-red, which High's
+     *  ground never is by itself. */
+    const lava = () => {
+      r.renderNow();
+      const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+      const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
+      g.readPixels(0, 0, g.drawingBufferWidth, g.drawingBufferHeight, g.RGBA, g.UNSIGNED_BYTE, px);
+      let n = 0;
+      for (let i = 0; i < px.length; i += 4) if (px[i] > 150 && px[i] > 2.2 * px[i + 1] && px[i] > 3 * px[i + 2]) n++;
+      return n;
+    };
+    const set = r.setForceMoment.bind(r);
+    r.setForceMoment = (m) => {
+      set(m);
+      if (m.verb !== "erupt" || m.phase !== "done" || w.glow) return;
+      const s = r.forceShowing?.erupt ?? null;
+      const hot = lava();
+      // against the same land with its moment gone
+      r.clearForce();
+      w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look };
+    };
+  });
+  await page.mouse.click(at!.x, at!.y);
+  // the plume shows while it works, in High
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.forceShowing?.erupt ?? null), { timeout: 15_000 }).not.toBeNull();
+  expect(await look(page)).toBe("high");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.force()), { timeout: 30_000 }).toBeNull();
+  const glow = (await page.evaluate(() => (window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string } }).glow))!;
+  expect(glow.cooling).not.toBeNull();
+  expect(glow.cooling!).toBeLessThan(0.5);
+  expect(glow.look).toBe("high");
+  // (a few hundred such pixels elsewhere on the map without it; thousands more with its lava)
+  expect(glow.hot - glow.cold, JSON.stringify({ ...glow, at })).toBeGreaterThan(2000);
+  expect(glow.hot, JSON.stringify(glow)).toBeGreaterThan(5 * glow.cold);
+  expect(errors).toEqual([]);
+});
+
+test("every basin source's highlight reads, under its own water too, in High as in Standard (D378, D249; Kyler, 2026-10-03), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
+  const errors: string[] = [];
+  await open(page, errors);
+  // (the drought line comes in by itself once the worker has worked it out, and where its strips overlap over water
+  // the GPU blends it once or twice between redraws of one still frame (the Standard-after-High test above): wait for
+  // it, then put it away, so the frames before and after the highlight compare only what this test is about)
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.droughtLineShowing), { timeout: 60_000 }).toBe(true);
+  await page.evaluate(() => window.dgm3d!.renderer.setDroughtLine(null));
+  // (the colours at a source, framed as the renderer frames a map alone: the page's insets move the camera)
+  await page.evaluate(() => window.dgm3d!.renderer.setFrameInsets({ top: 0, left: 0, bottom: 0, right: 0 }));
+  const result = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    /** The frame drawn now, read back, and how many device pixels a CSS pixel is. */
+    const readFrame = () => {
+      r.renderNow();
+      const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+      const W = g.drawingBufferWidth;
+      const H = g.drawingBufferHeight;
+      const px = new Uint8Array(W * H * 4);
+      g.readPixels(0, 0, W, H, g.RGBA, g.UNSIGNED_BYTE, px);
+      return { px, W, H, k: W / r.canvas.clientWidth };
+    };
+    const m = r.mapState()!;
+    const e = m.entities;
+    /** Every source on the map: its kind, its tile (as the page highlights it), its middle, and the top
+     *  there (the water's surface over a source under its own water, else its ground). */
+    const sources: { name: string; tile: number; middle: number; x: number; y: number; top: number; depth: number }[] = [];
+    for (let k = 0; k < e.count; k++) {
+      const name = e.templates[e.template[k]];
+      if (name !== "WaterSource" && name !== "BadwaterSource") continue;
+      let x = e.x[k];
+      let y = e.y[k];
+      if (name === "BadwaterSource") {
+        const o = e.orientation[k];
+        x += o === 0 || o === 1 ? 1 : -1;
+        y += o === 0 || o === 3 ? 1 : -1;
+      }
+      const middle = y * m.W + x;
+      const depth = m.surface.depth[middle] || 0;
+      const top = depth > 0 && Number.isFinite(m.surface.surface[middle]) ? m.surface.surface[middle] : m.heights[middle] + 0.3;
+      sources.push({ name, tile: e.y[k] * m.W + e.x[k], middle, x, y, top, depth });
+    }
+    /** Each kind's first source, for the glow. */
+    const firsts = ["WaterSource", "BadwaterSource"].map((n) => sources.findIndex((s) => s.name === n));
+    const out: Record<string, { red: number[]; glow: number[] }> = {};
+    let back = 0;
+    for (const look of ["standard", "high"] as const) {
+      r.setLookChoice(look, false);
+      r.setClock(12.5);
+      // (the colours at a source, framed as the renderer frames a map alone: the page's insets move the camera,
+      // and the editor notes them again whenever its controls change size, so they go here, just before framing)
+      r.setFrameInsets({ top: 0, left: 0, bottom: 0, right: 0 });
+      r.resetView();
+      const f0 = readFrame();
+      /** Round each source's middle on screen, at its top: the colour. */
+      const at = (f: typeof f0) =>
+        sources.map((s) => {
+          const p = r.project(s.x + 0.5, s.top, -(s.y + 0.5));
+          const cx = Math.round(p.x * f.k);
+          const cy = f.H - 1 - Math.round(p.y * f.k);
+          const rgb = [0, 0, 0];
+          for (let dy = -3; dy <= 3; dy++)
+            for (let dx = -3; dx <= 3; dx++) {
+              const o = ((cy + dy) * f.W + cx + dx) * 4;
+              for (let c = 0; c < 3; c++) rgb[c] += f.px[o + c] / 49;
+            }
+          return rgb;
+        });
+      const plain = at(f0);
+      r.highlightObjects(sources.map((s) => s.tile));
+      const red = at(readFrame());
+      r.highlightObjects(null);
+      r.setSourceGlow(firsts.map((k) => sources[k].middle));
+      const glow = at(readFrame());
+      r.setSourceGlow([]);
+      const f1 = readFrame();
+      for (let i = 0; i < f0.px.length; i++) back = Math.max(back, Math.abs(f0.px[i] - f1.px[i]));
+      out[look] = {
+        // how much redder than green each source turned
+        red: sources.map((_, k) => red[k][0] - red[k][1] - (plain[k][0] - plain[k][1])),
+        glow: firsts.map((k) => Math.max(...glow[k].map((v: number, c: number) => Math.abs(v - plain[k][c])))),
+      };
+    }
+    return { sources: sources.map((s) => ({ name: s.name, x: s.x, y: s.y, depth: s.depth })), out, back, look: r.look };
+  });
+  const { standard, high } = result.out;
+  expect(result.look).toBe("high");
+  expect(result.sources.some((s) => s.depth > 0.5)).toBe(true);
+  // every source turns a clear red, the one deepest under its own water included, in each look
+  for (const [look, o] of [["standard", standard], ["high", high]] as const) {
+    const worst = Math.min(...o.red);
+    const k = o.red.indexOf(worst);
+    expect(worst, `${look}: the worst, ${JSON.stringify(result.sources[k])}`).toBeGreaterThan(25);
+  }
+  expect(Math.min(...high.red)).toBeGreaterThan(Math.min(...standard.red) * 0.75);
+  // the water over a source the pointer's water comes from glows, clean and bad, as in Standard
+  for (const [k, name] of ["WaterSource", "BadwaterSource"].entries()) {
+    expect(high.glow[k], name).toBeGreaterThan(3);
+    expect(high.glow[k], name).toBeGreaterThan(standard.glow[k] * 0.6);
+  }
+  // and both go exactly (software drawing on CI may stray a little on a redraw)
+  expect(result.back).toBeLessThanOrEqual(8);
+  expect(errors).toEqual([]);
+});
+
+test("High's visible seasons follow the game's timers: no plant dies of dryness in a normal drought's 9 days, a longer one withers them, a badtide kills on poisoned ground; Standard and Day 0 do not (D250)", async ({ page }) => {
+  test.setTimeout(300_000);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
+  expect(await look(page)).toBe("high");
+  const withered = () => page.evaluate(() => window.dgm3d!.renderer.witheredPlants);
+  const bar = page.getByRole("toolbar", { name: "Water time" });
+  const day = bar.locator(".day-label");
+  const goTo = async (n: number) => {
+    await day.dblclick();
+    await bar.getByRole("textbox", { name: "Day" }).fill(String(n));
+    await bar.getByRole("textbox", { name: "Day" }).press("Enter");
+    await expect(day).toHaveText(`Day ${n}`);
+    await expect(day).not.toHaveClass(/counting/, { timeout: 240_000 });
+  };
+  expect(await withered()).toBe(0);
+
+  // a normal drought's last day (9): the ground is dry, but no pine, birch or oak has been dry 14 days (1.1 x 13, 11, 15)
+  await bar.getByRole("button", { name: "Drought" }).click();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+  await expect(day).toHaveText("Day 9");
+  await page.waitForTimeout(1000);
+  expect(await withered()).toBe(0);
+  // a longer one: by day 20 the plants that have stood dry for 1.1 x their days are dead, and stay dead going on
+  await goTo(20);
+  await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(20);
+  const dry20 = await withered();
+  await goTo(24);
+  // (the day comes first and its list follows, the day soil being worked out in a worker: wait for it, or dry24 is day 20's)
+  await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(dry20);
+  // Standard stays as it is, and High again draws the same plants withered
+  const dry24 = await withered();
+  await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
+  expect(await withered()).toBe(0);
+  await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
+  expect(await withered()).toBe(dry24);
+  // back to day 9 and Day 0: nothing dead yet
+  await goTo(9);
+  await expect.poll(withered, { timeout: 30_000 }).toBe(0);
+  await goTo(0);
+  expect(await withered()).toBe(0);
+  await bar.getByRole("button", { name: "Drought" }).click();
+  await expect(bar.getByRole("button", { name: "Drought" })).toHaveAttribute("aria-pressed", "false");
+
+  // a badtide: contamination that stays two days kills any plant, so the plants on poisoned ground are dead; Day 0 has none
+  await bar.getByRole("button", { name: "Badtide" }).click();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+  await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(20);
+  await goTo(0);
+  await expect.poll(withered, { timeout: 30_000 }).toBe(0);
+  await bar.getByRole("button", { name: "Badtide" }).click();
+  await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");
+  expect(await withered()).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test("High's seasons: a held drought draws dry ground and the heat shimmer, a badtide the sickly sky; each switches; Standard draws none (D250)", async ({ page }) => {
+  test.setTimeout(240_000);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
+  expect(await look(page)).toBe("high");
+  const now = () => page.evaluate(() => window.dgm3d!.renderer.seasonLook);
+  const bar = page.getByRole("toolbar", { name: "Water time" });
+  const day = bar.locator(".day-label");
+  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+
+  await bar.getByRole("button", { name: "Drought" }).click();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+  await expect.poll(now, { timeout: 30_000 }).toEqual({ dry: 1, heat: 1, sickly: 0 });
+  // each effect has its own switch
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("dryGround", false));
+  expect(await now()).toEqual({ dry: 0, heat: 1, sickly: 0 });
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("dryGround", true));
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("heat", false));
+  expect(await now()).toEqual({ dry: 1, heat: 0, sickly: 0 });
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("heat", true));
+  // Standard stays as it is, and High again draws them
+  await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
+  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
+  expect(await now()).toEqual({ dry: 1, heat: 1, sickly: 0 });
+  // Day 0 is the map as it is: nothing is drawn for the season
+  await day.dblclick();
+  await bar.getByRole("textbox", { name: "Day" }).fill("0");
+  await bar.getByRole("textbox", { name: "Day" }).press("Enter");
+  await expect(day).toHaveText("Day 0");
+  await expect.poll(now, { timeout: 30_000 }).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  // and the badtide has the sky
+  await bar.getByRole("button", { name: "Badtide" }).click();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+  await expect.poll(async () => (await now()).sickly, { timeout: 30_000 }).toBeGreaterThan(0);
+  expect(await now()).toMatchObject({ dry: 0, heat: 0 });
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("badtideSky", false));
+  expect((await now()).sickly).toBe(0);
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("badtideSky", true));
+  await bar.getByRole("button", { name: "Badtide" }).click();
+  await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");
+  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  // (every shader compiled and nothing threw)
   expect(errors).toEqual([]);
 });

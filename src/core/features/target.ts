@@ -163,18 +163,6 @@ export class BuildTarget {
     return f;
   }
 
-  /** The narrows set pieces put on a river (a gorge's channel width): arc stretches and the
-   *  channel's half-width there. */
-  narrows(riverId: string): { from: number; to: number; half: number }[] {
-    const out: { from: number; to: number; half: number }[] = [];
-    for (const f of this.features.values()) {
-      if (f.kind !== "setPiece" || f.params.kind !== "gorge" || f.params.plan.river !== riverId) continue;
-      const p = f.params.plan as { from: number; to: number; width: number };
-      out.push({ from: p.from, to: p.to, half: p.width / 2 });
-    }
-    return out;
-  }
-
   /** Every feature by id (set pieces read the features they build on). */
   feature(id: string): Feature | undefined {
     return this.features.get(id);

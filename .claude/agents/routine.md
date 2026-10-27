@@ -6,4 +6,4 @@ effort: medium
 ---
 
 You do routine work on Dam Good Maps. Read CLAUDE.md first and follow it, including its writing rules and
-"Docs are part of done". Keep changes small and focused; report exactly what you did.
+"Docs are part of done". Then read docs/decisions/README.md, then docs/decisions/how-we-work.md, then only the topic files your task touches. Keep changes small and focused; report exactly what you did.

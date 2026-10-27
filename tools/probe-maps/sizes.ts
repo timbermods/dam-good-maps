@@ -1,6 +1,6 @@
 // The DGM Probe's size maps (PLAN §20 D357 (9)): before custom map sizes are built, a probe batch loads maps beyond
-// Timberborn's standard sizes and measures them (the group "Sizes"). The generator refuses these sizes today (its
-// MapSpec allows 48–256 a side), so the land is built directly with the core's own modules, as a test: relief from
+// Timberborn's standard sizes and measures them (the group "Sizes"). The generator shapes for none of these yet (D357 part 2; its
+// MapSpec now allows 4–512 a side), so the land is built directly with the core's own modules, as a test: relief from
 // `math/noise`, a river along the long axis with its sources, a lake with a spring and an outlet, a start, trees,
 // bushes and ruins at the generator's densities, then the generator's own build steps (`assemble.ts`: the canonical
 // water settle, soil, the file). 256×256 and 399×399 are the known-good references (the largest standard size; the
@@ -15,12 +15,19 @@ import { FOOTPRINTS, startEntranceTile, worldBlocks } from "../../src/core/forma
 import { mapMetadata, writeTimber } from "../../src/core/format/timber";
 import { emptySimulationSingletons, GAME_VERSION, LAYERS, voxelsFromHeights } from "../../src/core/format/world";
 import { guidFrom, tileHash01 } from "../../src/core/math/hash";
-import { fbm, fbmField } from "../../src/core/math/noise";
+import { fbm } from "../../src/core/math/noise";
 import { TIMESTAMP } from "../../src/core/gen/pack";
 import { validateMap } from "../../src/core/validate/checks";
 import { waterSteady } from "../../src/core/sim/water";
 import { assemble, drop, type Built, type Draft } from "./assemble";
 import type { BuiltMap, GroupWriter } from "./group";
+
+/** A whole field of fbm noise for a W×H map. */
+function fbmField(seed: number, W: number, H: number, cell: number, octaves = 3): Float64Array {
+  const out = new Float64Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) out[y * W + x] = fbm(seed, x, y, cell, octaves);
+  return out;
+}
 
 const OWNER = "dgm-probe-sizes";
 const SEED = 4242;
@@ -262,12 +269,12 @@ function counts(b: Built): SizeCounts {
   return { trees: t(/^(Pine|Birch|Oak)$/), bushes: t(/^BlueberryBush$/), ruins: t(/^RuinColumnH\d$/), sources: t(/Source$/), wetTiles: wet, waterVolume: Math.round(vol), maxHeight: max };
 }
 
-/** The load checks of our own validator, but for `file.size` (the limit under test: our code allows 4–256). */
+/** The load checks of our own validator, but for `file.size` (our validator takes 4–512). */
 export function loadChecks(b: Built): { passed: boolean; failed: string[]; size: string } {
   const v = validateMap(b.file, { profile: "export", loadOnly: true });
   const failed = v.report.checks.filter((c) => !c.ok && c.class === "load" && c.id !== "file.size").map((c) => `${c.id}: ${c.message}`);
   const size = v.report.checks.find((c) => c.id === "file.size");
-  return { passed: failed.length === 0, failed, size: size ? `${size.ok ? "ok" : "refused, as expected above 256"}: ${size.message}` : "not reported" };
+  return { passed: failed.length === 0, failed, size: size ? `${size.ok ? "ok" : "refused"}: ${size.message}` : "not reported" };
 }
 
 /** A few tiles of each body of water the probe samples through the day: river tiles down its length, lake tiles. */

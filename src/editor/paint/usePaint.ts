@@ -3,6 +3,7 @@
 // says while it works.
 
 import { proxy } from "comlink";
+import { cacheAfterEditable } from "../../platform/isolation";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { EditOp } from "../../core/doc/ops";
 import type { FixOp } from "../../core/validate/report";
@@ -43,7 +44,7 @@ export interface PaintSlice {
 export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   const {
     api, info, mirror, renderer, setTool, setShelf, setTurn, setPainted, setBusy, setMessage, setCheck, check,
-    setProgress, layer, setLayers, waterTick, selectingRef, selection, player, mounted, juice, weatherRef,
+    setProgress, setInfo, layer, setLayers, waterTick, selectingRef, selection, player, mounted, juice, weatherRef,
     setWeather, journey, setInstant, setFit, setPicked, setPickedObject, setShapeNote, queue, infoRef, enqueue, run,
     draftWater, showWater, showSoil, applyUpdate
   } = ed;
@@ -75,6 +76,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
 
   /** Put a stroke's terrain before or after it back on the map, at once. */
   function showStroke(s: Stroke, which: "before" | "after") {
+    ed.endFlip();
     const r = renderer.current;
     const W = infoRef.current.W;
     const snap = s[which];
@@ -92,9 +94,11 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     pendingTerrain.current++;
     const next = queue.current.then(async () => {
       setBusy((b) => b + 1);
+      let counted = false;
       try {
         const u = await fn();
         pendingTerrain.current--;
+        counted = true;
         if (pendingTerrain.current === 0) checkStroke.current = true;
         if (!u.ok) {
           // the worker refused it: the page takes the worker's terrain again
@@ -102,16 +106,32 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           localRedo.current = [];
           if (u.errors.length) setMessage({ kind: "error", text: plain(u.errors[0]) });
           const now = await api.terrainNow();
+          // (put in place once nothing else the page painted is on its way; no check: the page showed what was refused)
+          checkStroke.current = false;
+          applyUpdate({ ...u, view: { ...u.view, heights: now.heights, terrain: now.terrain } });
+          return;
+        }
+        applyUpdate(u);
+        // (the other player's terrain came in a shared session while these strokes were on their way, and waited: taken now)
+        if (u.ok && pendingTerrain.current === 0 && ed.collabStale.current) {
+          ed.collabStale.current = false;
+          const now = await api.terrainNow();
           if (pendingTerrain.current === 0) {
             mirror.current.heights = now.heights;
             terrain.current = now.terrain;
             renderer.current?.updateTerrain(now.heights);
           }
         }
-        applyUpdate(u);
       } catch (e) {
-        pendingTerrain.current = Math.max(0, pendingTerrain.current - 1);
+        if (!counted) pendingTerrain.current = Math.max(0, pendingTerrain.current - 1);
         setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+        // (no answer came: the worker's land, as it stands, once nothing else the page painted is on its way; no
+        // check, the page's may be what failed)
+        checkStroke.current = false;
+        await api.terrainNow().then(
+          (now) => ed.applyView({ heights: now.heights, terrain: now.terrain }),
+          () => ed.takeLand(),
+        );
       } finally {
         setBusy((b) => b - 1);
       }
@@ -142,6 +162,9 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   /** The top bar: a brush, a force, or nothing; the shelf's object goes back. */
   function pickTop(t: TopTool | null) {
     if (ed.forcer.current?.running) return;
+    // the Block tool (D335): the others go back as it is picked, and it goes back as another is
+    if (t === "block") return ed.pickBlock(true);
+    if (ed.blockRef.current) ed.pickBlock(false);
     // a force this build doesn't show can't be picked (release.ts, D219)
     const force = t && FORCES.some((f) => f.id === t) ? (t as Verb) : null;
     if (force && !forceShown(force)) return;
@@ -174,9 +197,15 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     if (t !== brushToolRef.current && brushRef.current.target !== null) setBrush({ ...brushRef.current, target: null }, false);
     setBrushTool(t);
     if (t) {
+      if (ed.blockRef.current) ed.pickBlock(false);
       setTool(null);
       pickShelf(null);
       setPicked(null);
+      // the brush takes the map's left button now, not a frame later: the very next press paints
+      brushToolRef.current = t;
+      const r = renderer.current;
+      const p = painter.current;
+      if (r && p) r.tool = p.tool;
     }
   }
 
@@ -191,6 +220,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     renderer.current?.setGhost(null);
     ed.ghostAt.current = null;
     if (!item) return;
+    if (ed.blockRef.current) ed.pickBlock(false);
     ed.setStartHint(null);
     painter.current?.end();
     setBrushTool(null);
@@ -205,36 +235,54 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   useEffect(() => {
     setCheck((c) => (c && c.version === info.version ? c : null));
     setProgress(null);
+    if (!ed.ready) return;
     let live = true;
-    const t = setTimeout(() => {
-      void api
-        .backgroundCheck(proxy((p: CheckProgress) => live && setProgress(p)))
-        .then((r) => {
-          if (!r || !mounted.current) return;
-          // (a force at work shows its own water: the map's comes after it)
-          if (ed.forcer.current?.running) {
-            ed.deferred.current.push(r.view);
-            return;
-          }
-          // the exact settle's water ends the journey in progress (eased into), or shows at once.
-          // The worker put it in place and sends it once, so it shows even when the page moved on
-          // while the check ran (the check started as an edit went in): only the report waits
-          // (the worker says whether a settle still runs: when it does not, the journey ends here whether or
-          // not this answer carries water, so the bar never waits for frames that will not come, D345 B14)
-          journey.current?.check(r);
-          if (!live || r.check.version !== infoRef.current.version) return;
-          setCheck(r.check);
-          setProgress(null);
-        })
-        .catch(() => {
-          // the check is advisory here: export runs it again
-        });
-    }, 700);
+    let t: ReturnType<typeof setTimeout> | undefined;
+    // Two frames give the fully drawn map and its installed handlers a chance to paint.
+    let first = 0, second = 0;
+    first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => {
+        void api.editorReady();
+        cacheAfterEditable();
+        t = setTimeout(() => {
+          void api
+            // (only the stage shows, in the dot: a new stage draws the editor again, not every step of one)
+            .backgroundCheck(proxy((p: CheckProgress) => live && setProgress((was) => (was?.stage === p.stage ? was : p))))
+            .then((r) => {
+              if (!r || !mounted.current) return;
+              // (a force at work shows its own water: the map's comes after it)
+              if (ed.forcer.current?.running) {
+                ed.deferred.current.push(r.view);
+                return;
+              }
+              // the exact settle's water ends the journey in progress (eased into), or shows at once.
+              // The worker put it in place and sends it once, so it shows even when the page moved on
+              // while the check ran (the check started as an edit went in): only the report waits
+              // (the worker says whether a settle still runs: when it does not, the journey ends here whether or
+              // not this answer carries water, so the bar never waits for frames that will not come, D345 B14)
+              journey.current?.check(r);
+              if (!live || r.check.version !== infoRef.current.version) return;
+              // Canonical water changes the saved project even without a new edit version.
+              // Tell Your maps so a save made during the preview is refreshed with its stored map.
+              infoRef.current = { ...infoRef.current, waterPending: r.info.waterPending };
+              setInfo(infoRef.current);
+              props.onChange(infoRef.current);
+              setCheck(r.check);
+              setProgress(null);
+            })
+            .catch(() => {
+              // the check is advisory here: export runs it again
+            });
+        }, 700);
+      });
+    });
     return () => {
       live = false;
       clearTimeout(t);
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
     };
-  }, [info.version]);
+  }, [info.version, ed.ready]);
 
   // the water layer on show: fetched again after every change of the map or its water
   useEffect(() => {
@@ -261,7 +309,8 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
         // a force at work shows its own water; the map's settled view comes after it
         if (ed.forcer.current?.running) {
           if (e.kind === "settled" && e.version === infoRef.current.version) ed.deferred.current.push(e.view);
-          return;
+          // (a force's own water, flowing as it works, shows as a stroke's does, D371)
+          if (!(e.kind === "water" && e.draft)) return;
         }
         if (e.kind === "water" && e.draft) {
           // the water on a stroke being painted: shown as it comes (D197), the latest once a frame at
@@ -284,15 +333,41 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           draftWater.current = null;
           // an edit's water plays at a pace the eye can follow, and the settled water ends it
           journey.current?.news(e);
+          if (e.kind === "settled" && e.version === infoRef.current.version) {
+            infoRef.current = { ...infoRef.current, waterPending: e.info.waterPending };
+            setInfo(infoRef.current);
+            props.onChange(infoRef.current);
+          }
+          // (a held weather day: the journey isn't shown, so the settled water goes in place now and the day runs again
+          // from it)
+          if (e.kind === "settled" && weatherRef.current) player.current?.skip();
+          // (the water has settled: both hazards' days are worked out once Kyler is idle)
+          if (e.kind === "settled") ed.idlePrep();
         } else if (e.kind === "weather") {
-          const w = weatherRef.current;
-          if (!w) return;
-          const day = `day ${Math.max(1, Math.ceil(e.day))} of ${e.days}`;
-          const words = e.phase === "drought" ? `Drought: ${day}` : e.phase === "badtide" ? `Badtide: ${day}` : e.phase === "return" ? (w === "badtide" ? "The water runs clean again" : "The water comes back") : undefined;
-          const soil = e.soil;
-          const show = soil ? () => showSoil(soil) : undefined;
-          const final = e.phase === "end" ? () => (soil && showSoil(soil), setWeather(null)) : show;
-          player.current?.push({ water: e.water, done: e.phase === "return" || e.phase === "end" ? 0.5 : e.day / e.days / 2, ...(words ? { words } : {}), ...(final ? { final } : {}) });
+          // a held weather day (Kyler, 2026-10-04): the days before it counted while they are simulated, the map as it
+          // is meanwhile; then the day itself, its water and soil, and the readout reads it
+          if (e.hazard !== weatherRef.current) return;
+          // (the day box's fill: how far the day asked for is worked out)
+          if (e.phase === "computing") return void ed.setWeatherCounting(Math.min(1, e.day / Math.max(1, e.days)));
+          const want = ed.heldDay.current ?? e.days;
+          if (e.day !== want || !e.water) return;
+          ed.setWeatherCounting(null);
+          // (the first dry day per tile of a drought, or the first bad day of a badtide, for the hover)
+          const first = e.hazard === "drought" ? e.firstDry : e.firstBad;
+          const through = e.hazard === "drought" ? e.firstDryThrough : e.firstBadThrough;
+          ed.firstNews.current = first && through !== undefined ? { hazard: e.hazard, version: e.version, first, wet0: e.hazard === "drought" ? (e.firstDryWet0 ?? null) : null, through, days: e.days } : null;
+          ed.setWeatherDay(e.day);
+          ed.setWeatherDays(e.days);
+          ed.heldDay.current = e.day;
+          showWater(e.water, false, true);
+          if (e.soil) {
+            mirror.current.daySoil = e.soil;
+            showSoil(e.soil, e.withered, e.day);
+          }
+          ed.rehover();
+        } else if (e.kind === "withered") {
+          // the plants the held day has surely killed, worked out after the day was shown (the earlier days' soil)
+          if (e.hazard === weatherRef.current && e.day === ed.heldDay.current) ed.showWithered(e.tiles);
         } else setInstant(e.instant.items.filter((c) => c.here && c.class === "load"));
       }),
     );

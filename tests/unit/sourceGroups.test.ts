@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   cleanCount,
   groupIds,
+  groupMemberId,
   groupTiles,
   MAX_ROW,
   PAIR_CHANCE,
@@ -375,5 +376,24 @@ describe("ids: a group placed again on changed ground keeps its sources' ids (PL
         expect(new Set(pairIds).size).toBe(pair.sources.length);
         expect(pairIds[0]).toBe(ANCHOR);
       }
+  });
+
+  it("one rule for every member's id (groupMemberId, D462 answer 5): a force's new group passes over every id taken", () => {
+    const req = water(16, 32, 2, 7, { flow: [1, 0] });
+    const g = placeSourceGroup(req, head());
+    const plain = groupIds(ANCHOR, req, g);
+    expect(g.sources.length).toBeGreaterThan(1);
+    // (the build's: the anchor and the place alone, as the generator's springs have always been named)
+    const n = Math.max(g.wanted, g.sources.length);
+    g.sources.forEach((s, k) => expect(plain[k]).toBe(groupMemberId(ANCHOR, (((s.x - req.x + s.y - req.y) % n) + n) % n)));
+    // every member id already standing: each is passed over for a fresh one, never one standing or
+    // another member's
+    const standing = new Set(plain.filter((id) => id !== ANCHOR));
+    const fresh = groupIds(ANCHOR, req, g, (id) => standing.has(id));
+    expect(fresh[plain.indexOf(ANCHOR)]).toBe(ANCHOR);
+    for (const id of fresh) if (id !== ANCHOR) expect(standing.has(id), id).toBe(false);
+    expect(new Set(fresh).size).toBe(fresh.length);
+    // nothing taken: the same ids as the build's
+    expect(groupIds(ANCHOR, req, g, () => false)).toEqual(plain);
   });
 });

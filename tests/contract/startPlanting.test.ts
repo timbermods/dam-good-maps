@@ -9,7 +9,7 @@
 // starting-logs floor (D224, D227).
 
 import { beforeAll, describe, expect, it } from "vitest";
-import { startPlantingSpread, type StartPlantingSpread } from "../../src/core/analysis/startPlanting";
+import { startPlantingSpread, type StartPlantingSpread } from "../../tools/lib/startPlanting";
 import type { Feature } from "../../src/core/features/schema";
 import { generate } from "../../src/core/gen/generate";
 import { tilesToRuns } from "../../src/core/math/grid";
@@ -78,11 +78,18 @@ describe("the start's own planting on generated maps (PLAN §20 D252)", () => {
     for (const s of starts) for (const id of ["start.wood", "start.food", "start.wood_floor"]) expect(s.checks[id], `${s.label} ${id}`).toBe(true);
   });
 
+  // Was an expected failure from Islands round 6 (0.8.7: a mean lean of 0.442 on these sixteen starts, two Any maps
+  // that roll a sea layout leaning less); since 0.10.1 (ruins placed with meaning, whose fields the other resources
+  // keep off) the starts lean over the 0.45 again, so `fails` came off (D148). Its seeds and bar are unchanged.
   it("no two starts get the same ring: the planting leans to a side instead of surrounding the start", () => {
     // (the even planting it replaced: a mean lean of 0.36 on these starts, every yard planted up to
     // its bench)
     const lean = starts.reduce((a, s) => a + s.spread.lean, 0) / starts.length;
     expect(lean, "mean lean").toBeGreaterThan(0.45);
+  });
+
+  // (its own test while the lean above is held, so these two stay checked)
+  it("at most three starts get a ring, and a yard stays clear of its own planting where the walk has room", () => {
     const rings = starts.filter((s) => s.spread.ring).map((s) => s.label);
     expect(rings.length, `rings: ${rings.join(", ")}`).toBeLessThanOrEqual(3);
     // where the walk has room, the start's yard stays clear of its own planting

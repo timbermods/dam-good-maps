@@ -4,6 +4,7 @@
 // waiting for the background check.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor, topDown } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
@@ -20,11 +21,8 @@ const waterNear = (page: Page, x: number, y: number, r = 3) =>
   );
 
 test("a removed source's marker goes at once, and its water drains away in the edit's own journey (D260)", async ({ page }) => {
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  await topDown(page);
   // a dry hollow-free spot far from the water, where the map takes the pointer
   const spot = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
@@ -54,17 +52,19 @@ test("a removed source's marker goes at once, and its water drains away in the e
   await page.keyboard.press("Escape");
   await expect.poll(() => waterNear(page, x, y), { timeout: 20_000 }).toBeGreaterThan(0.01);
   // let it settle (the journey and the background check)
-  await expect(page.getByRole("toolbar", { name: "Water time" }).getByRole("status")).toHaveText("Water settled", { timeout: 30_000 });
-  await page.getByRole("button", { name: "Markers" }).click();
-  const markers = page.locator(".source-marker");
-  const n0 = await markers.count();
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
+  await page.getByRole("checkbox", { name: "Markers" }).click();
+  // (sources, not labels: labels crowded together merge into one, "N sources nearby", D249, so each label says how many
+  // sources it speaks for)
+  const sources = () => page.locator(".source-marker").evaluateAll((els) => els.reduce((n, e) => n + Number(e.getAttribute("data-sources")), 0));
+  const n0 = await sources();
   expect(n0).toBeGreaterThan(0);
   // removed (pointed at and Delete): its marker goes at once
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.move(p.x, p.y);
   const t0 = Date.now();
   await page.keyboard.press("Delete");
-  await expect(markers).toHaveCount(n0 - 1, { timeout: 2_000 });
+  await expect.poll(sources, { timeout: 2_000 }).toBe(n0 - 1);
   // and its water drains in the journey, well before any background check could settle it
   await expect.poll(() => waterNear(page, x, y), { timeout: 8_000, intervals: [100] }).toBeLessThan(0.005);
   expect(Date.now() - t0).toBeLessThan(4_000);

@@ -2,13 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://timbermods.github.io/dam-good-maps/schema/ops-v1.json",
   "title": "Dam Good Maps edit operation v1",
-  "description": "One edit operation (EDITOR_PLAN.md §3), the envelope the validation report's fixes also use. Features are checked against the feature schema, and every bound that depends on the map (its size, what exists on it) is checked by the operations engine.",
+  "description": "One edit operation (EDITOR_PLAN.md §3), the envelope the validation report's fixes also use. Features are checked against the feature schema, and every bound that depends on the map (its size, what exists on it) is checked by the operations engine. Coordinates and tile indices here are the widest any map can need (a side of 512, D357); the engine refuses what is past this map's edge.",
   "type": "object",
   "additionalProperties": false,
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -20,7 +20,6 @@
     { "if": { "properties": { "op": { "const": "reorderFeature" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/reorderFeature" } } } },
     { "if": { "properties": { "op": { "const": "sculpt" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/sculpt" } } } },
     { "if": { "properties": { "op": { "const": "brush" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/brush" } } } },
-    { "if": { "properties": { "op": { "const": "carve" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/carve" } } } },
     { "if": { "properties": { "op": { "const": "forceResult" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/forceResult" } } } },
     { "if": { "properties": { "op": { "const": "placeEntity" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/placeEntity" } } } },
     { "if": { "properties": { "op": { "const": "moveEntity" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/moveEntity" } } } },
@@ -29,17 +28,21 @@
     { "if": { "properties": { "op": { "const": "pinSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/pinSlope" } } } },
     { "if": { "properties": { "op": { "const": "removeSlope" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/tile" } } } },
     { "if": { "properties": { "op": { "const": "removeUnfedWater" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/removeUnfedWater" } } } },
-    { "if": { "properties": { "op": { "const": "fillHollow" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/fillHollow" } } } }
+    { "if": { "properties": { "op": { "const": "fillHollow" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/fillHollow" } } } },
+    { "if": { "properties": { "op": { "const": "paintObjects" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/paintObjects" } } } },
+    { "if": { "properties": { "op": { "const": "crop" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/crop" } } } },
+    { "if": { "properties": { "op": { "const": "blocks" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/blocks" } } } },
+    { "if": { "properties": { "op": { "const": "setDescription" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setDescription" } } } }
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
     "guid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
-    "coordinate": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "coordinate": { "type": "integer", "minimum": 0, "maximum": 511 },
     "orientation": { "enum": ["Cw0", "Cw90", "Cw180", "Cw270"] },
     "runs": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
+      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 511 } }
     },
     "brush": {
       "description": "A terrain brush stroke (live editing): the brush, and its dabs as quarter-tile pairs [x0, y0, x1, y1, ...]. Its dabs must lie on the map; the engine checks that.",
@@ -53,18 +56,18 @@
         "level": { "type": "integer", "minimum": 0, "maximum": 22 },
         "target": { "type": "integer", "minimum": 0, "maximum": 22 },
         "mode": { "enum": ["ground", "water"] },
-        "wet": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
-        "bank": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
+        "wet": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "bank": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
         "sources": { "const": "keep" },
         "seed": { "type": "integer" },
         "weathers": { "const": true },
-        "weathering": { "enum": [2, 3] },
+        "weathering": { "enum": [2, 3, 4, 5] },
         "rim": { "type": "array", "maxItems": 8192, "items": { "type": "integer", "minimum": 0 } },
-        "shore": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
-        "pools": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
-        "moist": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "shore": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
+        "pools": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "moist": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "layer": { "enum": ["top"] },
-        "shape": { "enum": ["square"] },
+        "shape": { "enum": ["square", "area"] },
         "precise": { "type": "boolean" },
         "channel": { "type": "boolean" },
         "bed": { "type": "integer", "minimum": 0, "maximum": 22 },
@@ -73,14 +76,15 @@
         "slopes": { "type": "array", "maxItems": 4096, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "levels": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 22 } },
         "stop": { "type": "integer", "minimum": 0, "maximum": 22 },
-        "keep": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
-        "area": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "keep": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "hold": { "description": "The ground holding objects set under a roof (D491): [tile, low, high], the lowest and highest each tile's surface may go; the session adds it.", "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } } },
+        "area": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "rigid": { "type": "array", "maxItems": 4096, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer", "minimum": 0 } } },
         "steps": { "type": "integer", "minimum": 2, "maximum": 8 },
         "walkable": { "type": "boolean" },
         "edges": { "enum": ["ramped"] },
         "pressure": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 255 } },
-        "dabs": { "type": "array", "minItems": 2, "maxItems": 80000, "items": { "type": "integer", "minimum": 0, "maximum": 1023 } }
+        "dabs": { "type": "array", "minItems": 2, "maxItems": 80000, "items": { "type": "integer", "minimum": 0, "maximum": 2047 } }
       }
     },
     "addFeature": {
@@ -127,82 +131,29 @@
         "amount": { "type": "integer", "minimum": 1, "maximum": 22 },
         "level": { "type": "integer", "minimum": 0, "maximum": 22 },
         "step": { "type": "integer", "minimum": 2, "maximum": 8 },
-        "exact": { "type": "boolean" }
-      }
-    },
-    "carve": {
-      "description": "A carve, a force of nature (D194, D199): what the player asked for, and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the objects that lost their ground; the source it keeps). Replay assigns the result; the engine checks it fits the map.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["mode", "origin", "power", "wander", "width", "seed", "walls", "defyGravity", "dry", "steps", "reason", "tiles", "heights", "removed"],
-      "properties": {
-        "mode": { "enum": ["unleash", "aim"] },
-        "origin": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
-        "end": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
-        "power": { "type": "number", "minimum": 0, "maximum": 100 },
-        "wander": { "type": "number", "minimum": 0, "maximum": 100 },
-        "width": { "type": ["number", "null"], "minimum": 2, "maximum": 24 },
-        "depth": { "type": ["integer", "null"], "minimum": 1, "maximum": 12 },
-        "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "walls": { "enum": ["steep", "wide"] },
-        "defyGravity": { "type": "boolean" },
-        "dry": { "type": "boolean" },
-        "cut": { "type": "integer", "minimum": 0, "maximum": 40 },
-        "steps": { "type": "integer", "minimum": 0 },
-        "reason": { "type": "string" },
-        "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
-        "heights": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
-        "removed": { "type": "array", "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } },
-        "source": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["id", "x", "y", "strength"],
-          "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "strength": { "type": "number", "exclusiveMinimum": 0, "maximum": 8 } }
-        },
-        "sources": {
-          "type": "array",
-          "maxItems": 15,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["id", "x", "y", "strength"],
-            "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "strength": { "type": "number", "exclusiveMinimum": 0, "maximum": 8 } }
-          }
-        },
-        "lake": {
-          "description": "The water its sealed oxbow lake keeps (D216): the basin's tiles (ascending), each tile's floor, and the depth and contamination of the water that stood there before its mouths closed. The map's water settles from it.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["tiles", "floor", "depth", "contamination"],
-          "properties": {
-            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
-            "floor": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
-            "depth": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
-            "contamination": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
-          }
-        },
-        "replaces": { "type": "integer", "minimum": 1 }
+        "exact": { "type": "boolean" },
+        "hold": { "description": "The ground holding objects set under a roof (D491): [tile, low, high], the lowest and highest each tile's surface may go; the session adds it.", "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } } }
       }
     },
     "forceResult": {
-      "description": "A force of nature (Carve, Craterize, Erupt, Quake or Glaciate: D194, D202, D203, D206, D220, D246): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn). Replay assigns the result and never runs the force; the engine checks it fits the map. `carve` is the same for projects saved before the forces shared this operation.",
+      "description": "A force of nature (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit or Erode: D194, D202, D203, D206, D220, D246, D281): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the voxels Erode hollowed under the surface, each tile's whole mask; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
       "type": "object",
       "additionalProperties": false,
       "required": ["version", "verb", "settings", "where", "steps", "reason", "tiles", "heights", "removed"],
       "properties": {
         "version": { "const": 1 },
-        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate"] },
+        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode"] },
         "settings": {
           "type": "object",
           "required": ["mode", "power", "seed"],
           "properties": {
-            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow"] },
+            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan", "wear"] },
             "power": { "type": "number", "minimum": 0, "maximum": 100 },
             "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
             "wander": { "type": "number", "minimum": 0, "maximum": 100 },
             "width": { "type": ["number", "null"], "minimum": 2, "maximum": 24 },
             "depth": { "type": ["integer", "null"], "minimum": 1, "maximum": 12 },
-            "walls": { "enum": ["steep", "wide", "terraced"] },
+            "walls": { "enum": ["steep", "wide", "terraced", "auto", "sheer", "stepped"] },
             "defyGravity": { "type": "boolean" },
             "dry": { "type": "boolean" },
             "size": { "type": ["number", "null"], "minimum": 4, "maximum": 180 },
@@ -215,13 +166,15 @@
             "ridges": { "type": "boolean" },
             "scarp": { "enum": ["sheer", "stepped"] },
             "meltwater": { "type": "boolean" },
+            "channels": { "enum": ["auto", "few", "many"] },
             "benches": { "enum": ["none", "some", "many"] },
             "steps": { "enum": ["few", "some", "many"] },
             "tarn": { "type": "boolean" },
             "scree": { "type": "boolean" },
             "floor": { "type": "integer", "minimum": 1, "maximum": 22 },
             "riverDepth": { "type": ["integer", "null"], "minimum": 1, "maximum": 22 },
-            "banks": { "type": "number", "minimum": 0, "maximum": 10 }
+            "banks": { "type": "number", "minimum": 0, "maximum": 10 },
+            "sources": { "enum": ["ride", "clear"], "description": "Sources (D474): ride the ground, or clear every water and badwater source and seep on a tile the force changes. Absent: clear." }
           }
         },
         "where": {
@@ -230,7 +183,7 @@
           "properties": {
             "origin": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
             "end": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
-            "path": { "type": "array", "minItems": 2, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 255 } } },
+            "path": { "type": "array", "minItems": 1, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 511 } } },
             "side": { "enum": [1, -1] },
             "source": { "type": "string" }
           }
@@ -238,26 +191,43 @@
         "cut": { "type": "integer", "minimum": 0, "maximum": 40 },
         "steps": { "type": "integer", "minimum": 0 },
         "reason": { "type": "string" },
-        "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
-        "heights": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+        "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
+        "heights": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
         "rock": {
           "type": "object",
           "additionalProperties": false,
           "required": ["tiles", "bits"],
           "properties": {
-            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
-            "bits": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 4194303 } }
+            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
+            "bits": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 4194303 } }
           }
         },
-        "removed": { "type": "array", "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } },
+        "runs": {
+          "description": "Erode (D281): the tiles it hollowed under their surface, ascending, and each one's voxels now (bit z set where voxel z is solid; levels 0 to 21).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tiles", "masks"],
+          "properties": {
+            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
+            "masks": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 1, "maximum": 4194303 } }
+          }
+        },
+        "removed": { "type": "array", "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } },
+        "cleared": {
+          "description": "Sources set to clear (D474): each source it cleared and the step of its showing that took it.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 262144,
+          "items": { "type": "object", "additionalProperties": false, "required": ["id", "step"], "properties": { "id": { "$ref": "#/$defs/guid" }, "step": { "type": "integer", "minimum": 0 } } }
+        },
         "moved": {
           "type": "array",
-          "maxItems": 65536,
+          "maxItems": 262144,
           "items": { "type": "object", "additionalProperties": false, "required": ["id", "x", "y"], "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" } } }
         },
         "felled": {
           "type": "array",
-          "maxItems": 65536,
+          "maxItems": 262144,
           "items": { "type": "object", "additionalProperties": false, "required": ["id", "dx", "dy"], "properties": { "id": { "$ref": "#/$defs/guid" }, "dx": { "type": "number", "minimum": -1.5, "maximum": 1.5 }, "dy": { "type": "number", "minimum": -1.5, "maximum": 1.5 } } }
         },
         "sources": {
@@ -281,10 +251,10 @@
           "additionalProperties": false,
           "required": ["tiles", "floor", "depth", "contamination"],
           "properties": {
-            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
-            "floor": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
-            "depth": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
-            "contamination": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
+            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
+            "floor": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
+            "depth": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
+            "contamination": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
           }
         },
         "replaces": { "type": "integer", "minimum": 1 }
@@ -301,7 +271,8 @@
         "y": { "$ref": "#/$defs/coordinate" },
         "orientation": { "$ref": "#/$defs/orientation" },
         "flipped": { "type": "boolean" },
-        "components": { "type": "object" }
+        "z": { "description": "The level it stands on under a roof (a cave floor, the ground under a ledge); omitted, the ground's top (D491).", "type": "integer", "minimum": 0, "maximum": 22 },
+        "components": { "$ref": "#/$defs/objectComponents" }
       }
     },
     "moveEntity": {
@@ -312,6 +283,7 @@
         "id": { "$ref": "#/$defs/guid" },
         "x": { "$ref": "#/$defs/coordinate" },
         "y": { "$ref": "#/$defs/coordinate" },
+        "z": { "description": "The level it lands on under a roof; omitted, the ground's top (D491).", "type": "integer", "minimum": 0, "maximum": 22 },
         "orientation": { "$ref": "#/$defs/orientation" }
       }
     },
@@ -319,13 +291,13 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["entities"],
-      "properties": { "entities": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } } }
+      "properties": { "entities": { "type": "array", "minItems": 1, "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } } }
     },
     "setEntityProps": {
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "components"],
-      "properties": { "id": { "$ref": "#/$defs/guid" }, "components": { "type": "object" } }
+      "properties": { "id": { "$ref": "#/$defs/guid" }, "components": { "$ref": "#/$defs/objectComponents" } }
     },
     "pinSlope": {
       "type": "object",
@@ -333,34 +305,54 @@
       "required": ["x", "y", "orientation"],
       "properties": { "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "orientation": { "$ref": "#/$defs/orientation" } }
     },
+    "setDescription": {
+      "description": "Write the map's description, the text the game shows with the map when its player picks it (the .timber's MapDescription). Empty text takes the player's description away, and the map's generated one is written again. The engine refuses text over 600 characters, text of only spaces, a control character other than a line break, and the description the map already has; nothing is cut short. It changes no ground, water or object, so it builds nothing.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": { "text": { "type": "string" } }
+    },
+    "crop": {
+      "description": "Crop map to selection (D340): the map becomes exactly this rectangle of itself, in tiles (its top-left tile and its size). The engine refuses a rectangle off the map, a side under 4 or over 512, the whole map, and a crop that would cut the start; objects the edge cuts are removed. The operations after it are in the cropped map's tiles.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    },
     "removeUnfedWater": {
-      "description": "Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, stored literally as the tiles of the bodies of unfed water it takes (indices y·W + x, ascending; a body with a tile in the selection goes whole). Once the map's water settles, the unfed water on those tiles is taken away and the water settles on from there; water a source feeds is never taken. The engine checks that none of the tiles holds fed water now.",
+      "description": "Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, stored literally as the tiles of the bodies of unfed water it takes (indices y·W + x, ascending; a body with a tile in the selection goes whole, and on a map with caves so does every body on a tile it shares). Once the map's water settles, the unfed water on those tiles is taken away, on every water column of them, and the water settles on from there; water a source feeds is never taken. The engine checks that each tile holds unfed water now.",
       "type": "object",
       "additionalProperties": false,
       "required": ["tiles"],
       "properties": {
-        "tiles": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+        "tiles": { "type": "array", "minItems": 1, "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
         "area": { "$ref": "#/$defs/runs" },
         "pools": { "type": "integer", "minimum": 0 }
       }
     },
     "fillHollow": {
-      "description": "Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source: where it was asked, the level, and the hollow's water stored literally as a carve stores its sealed oxbow lake's (D216): the tiles (ascending), their floors, the depths to the level, clean. Every settle starts the hollow from it and the game's rules evaporate it. The engine checks the hollow, measured on the map now, holds water at that level and is the one stored.",
+      "description": "Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source: where it was asked, the level, and the hollow's water stored literally as a carve stores its sealed oxbow lake's (D216): the tiles (ascending), their floors, the depths to the level, clean; on a map with caves or overhangs one entry a water column, ascending by tile and then floor, and 'floor' the floor of the column at 'at' it was measured from (a cave's under its roof). Every settle starts the hollow from it and the game's rules evaporate it. The engine checks the hollow, measured on the map now, holds water at that level and is the one stored.",
       "type": "object",
       "additionalProperties": false,
       "required": ["at", "level", "lake"],
       "properties": {
         "at": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
         "level": { "type": "number", "exclusiveMinimum": 0, "maximum": 64 },
+        "floor": { "type": "integer", "minimum": 0, "maximum": 33 },
         "lake": {
           "type": "object",
           "additionalProperties": false,
           "required": ["tiles", "floor", "depth", "contamination"],
           "properties": {
-            "tiles": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
-            "floor": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
-            "depth": { "type": "array", "maxItems": 65536, "items": { "type": "number", "exclusiveMinimum": 0, "maximum": 64 } },
-            "contamination": { "type": "array", "maxItems": 65536, "items": { "const": 0 } }
+            "tiles": { "type": "array", "minItems": 1, "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
+            "floor": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
+            "depth": { "type": "array", "maxItems": 262144, "items": { "type": "number", "exclusiveMinimum": 0, "maximum": 64 } },
+            "contamination": { "type": "array", "maxItems": 262144, "items": { "const": 0 } }
           }
         }
       }
@@ -370,6 +362,79 @@
       "additionalProperties": false,
       "required": ["x", "y"],
       "properties": { "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" } }
+    },
+    "objectComponents": {
+      "description": "The components of a placed object or a patch on them, in the game's own names. The options the editor sets are typed here; the engine adds what depends on the object: a water object's strength is at most 8 for each tile it emits into (72 for a badwater source, 32 for a seep) and has no lower bound, a sink is negative; a start delay is a cycle of 1 or more and days of 0 or more, and an aquifer has none; an unstable core's radius is a whole number from 0 to 5 and its countdown is always on; a reserve holds one good of its kind up to its capacity (160 a pile, 200 a warehouse, 300 a tank). Each refusal says which.",
+      "type": "object",
+      "properties": {
+        "WaterSource": {
+          "type": "object",
+          "properties": {
+            "SpecifiedStrength": { "type": "number" },
+            "CurrentStrength": { "type": "number" }
+          }
+        },
+        "WaterDepthStrengthModifier": { "type": "object", "properties": { "CurrentModifier": { "type": "number" } } },
+        "TimeActivatedComponent": {
+          "type": "object",
+          "properties": {
+            "IsEnabled": { "type": "boolean" },
+            "CyclesUntilCountdownActivation": { "type": "number" },
+            "DaysUntilActivation": { "type": "number" },
+            "DaysPassed": { "type": "number" }
+          }
+        },
+        "UnstableCore": { "type": "object", "properties": { "ExplosionRadius": { "type": "number" } } },
+        "FixedStockpile": { "type": "object", "properties": { "FixedGoodId": { "type": "string" } } },
+        "SingleGoodAllower": { "type": "object", "properties": { "AllowedGood": { "type": "string" } } },
+        "Inventory:Stockpile": { "type": "object" },
+        "StockpileVisualizers": { "type": "object", "properties": { "CurrentGood": { "type": "string" } } }
+      }
+    },
+    "blocks": {
+      "description": "The Block tool (D335): blocks added against a face of the ground, or removed, in a click or a drag, across a footprint of 1 to 8 blocks. `at[0]` is the block whose `side` face was pointed at; a drag adds the blocks it swept over, all in that face's plane (the same x for an east or west face, y for north or south, layer for top or bottom). An add puts a block in the cell beyond each swept face, where there is a block to put it against (a cell with no face is skipped), a remove takes the swept blocks themselves. `cells` is filled in by the session: the blocks changed, as pairs [tile, layers]. Nothing is clamped: a cell off the map or the layers, or on an object, refuses the operation, as does one that would leave ground the game drops.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "side", "at", "size"],
+      "properties": {
+        "mode": { "enum": ["add", "remove"] },
+        "side": { "enum": ["+x", "-x", "+y", "-y", "+z", "-z"] },
+        "at": { "type": "array", "minItems": 1, "maxItems": 4096, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 511 } } },
+        "size": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "shape": { "enum": ["square", "round"] },
+        "area": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "cut": { "type": "integer", "minimum": 0, "maximum": 22 },
+        "cells": { "type": "array", "maxItems": 524288, "items": { "type": "integer", "minimum": 0 } },
+        "plants": { "type": "array", "maxItems": 65536, "items": { "type": "string" } },
+        "stands": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 2, "maxItems": 2 } }
+      }
+    },
+    "paintObjects": {
+      "description": "A brush stroke of objects (D235, D338): trees (Pine, Birch or Oak), bushes (BlueberryBush), succulents (Succulent), mixed woods, ruin fields or thorn patches, over the tiles it covers. It is planned on the map as it stands (dry, free ground, one level for a ruin field) and placed as one step; the log keeps the objects it placed, so a replay never plans again. The density is how densely they land: from a sparse scatter to a dense grove, and the share of the ground a ruin field or a thorn patch covers. The age (trees, succulents, woods): grown, or mixed with saplings. The seed makes the same stroke on the same map place the same objects.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "area", "density", "seed"],
+      "properties": {
+        "kind": { "enum": ["trees", "bushes", "succulents", "woods", "ruins", "thorns"] },
+        "template": { "type": "string" },
+        "area": { "$ref": "#/$defs/runs" },
+        "density": { "type": "number", "minimum": 0.05, "maximum": 1 },
+        "age": { "enum": ["grown", "mixed"] },
+        "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "levels": {
+          "description": "Under a roof (D491): groups of the stroke's tiles and the level each paints at (a cave floor, the ground under a ledge, as the pick found it); a tile in none, or at its top, paints the ground's top. Each object stands by the game's rule at its level; a tile that can't hold one gets none, never one on the roof's top.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["z", "area"],
+            "properties": {
+              "z": { "type": "integer", "minimum": 0, "maximum": 22 },
+              "area": { "$ref": "#/$defs/runs" }
+            }
+          }
+        }
+      }
     }
   }
 }

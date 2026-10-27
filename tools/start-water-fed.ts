@@ -30,14 +30,15 @@ import { spawn } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, walkDistance } from "../src/core/analysis/walk";
-import { footprintTiles, FOOTPRINTS, slopeHighSide, worldBlocks } from "../src/core/format/footprints";
+import { components } from "../src/core/analysis/regions";
+import { PUMP_CLEAN, tileShoreWalk, walkDistance, walkWorld, WATER_BODY } from "../src/core/analysis/walk";
+import { startMiddleTile } from "../src/core/format/footprints";
 import { surfaceOf } from "../src/core/format/world";
 import { generate, type GenerateResult } from "../src/core/gen/generate";
 import { droughtStorage } from "../src/core/sim/drought";
 import { mapObjects } from "../src/core/sim/model";
 import { AVAILABLE_THEMES, decodeSpecFragment, type Difficulty, type ThemeId } from "../src/core/spec/mapspec";
-import { rulesFor, WALK_BLOCKERS } from "../src/core/validate/playability";
+import { rulesFor } from "../src/core/validate/playability";
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -53,8 +54,6 @@ function parseSeeds(s: string): number[] {
   }
   return out;
 }
-
-const WATER = 0.001;
 
 export interface Body {
   tiles: number;
@@ -92,60 +91,19 @@ export function startWaterBodies(r: GenerateResult): Omit<SeedResult, "seed" | "
   const D = r.built.water;
   const C = r.built.contamination;
   const rules = rulesFor(r.spec);
-  const blocked = new Uint8Array(N);
-  const links: [number, number][] = [];
-  for (const o of objects) {
-    if (WALK_BLOCKERS.has(o.template) && FOOTPRINTS[o.template]) for (const [x, y] of footprintTiles(o.template, o)) if (x >= 0 && x < W && y >= 0 && y < H) blocked[y * W + x] = 1;
-    if (o.template !== "Slope" || o.x < 0 || o.x >= W || o.y < 0 || o.y >= H) continue;
-    const [dx, dy] = slopeHighSide(o.orientation);
-    const hx = o.x + dx;
-    const hy = o.y + dy;
-    if (hx >= 0 && hx < W && hy >= 0 && hy < H) links.push([o.y * W + o.x, hy * W + hx]);
-  }
+  const { blocked, links } = walkWorld(objects, W, H);
   const start = objects.find((o) => o.template === "StartingLocation");
   if (!start) return { bodies: [], onlyPuddles: false, nearestPuddle: false };
-  const cells = worldBlocks(FOOTPRINTS.StartingLocation, start).filter((b) => b.localZ === 0);
-  const sx = Math.round(cells.reduce((a, b) => a + b.x, 0) / cells.length);
-  const sy = Math.round(cells.reduce((a, b) => a + b.y, 0) / cells.length);
+  const [sx, sy] = startMiddleTile(start);
   const walk = walkDistance(h, W, H, blocked, links, { x: sx, y: sy });
   // a tile's shortest walk to a shore a pump on it reaches, with the water `depth`
-  const shoreWalk = (i: number, depth: number): number => {
-    if (!(depth >= PUMP_DEPTH) || !(C[i] < PUMP_CLEAN)) return Infinity;
-    const surface = h[i] + depth;
-    const x = i % W;
-    const y = (i - x) / W;
-    let best = Infinity;
-    for (const n of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1]) {
-      if (n < 0 || !(walk[n] < best)) continue;
-      if (surface >= h[n] - PUMP_REACH && surface <= h[n] + 0.01) best = walk[n];
-    }
-    return best;
-  };
-  // the bodies of water
-  const body = new Int32Array(N).fill(-1);
-  const size: number[] = [];
-  const volume: number[] = [];
-  const stack: number[] = [];
-  for (let s = 0; s < N; s++) {
-    if (body[s] >= 0 || !(D[s] > WATER)) continue;
-    const k = size.length;
-    size.push(0);
-    volume.push(0);
-    body[s] = k;
-    stack.push(s);
-    while (stack.length) {
-      const i = stack.pop()!;
-      size[k]++;
-      volume[k] += D[i];
-      const x = i % W;
-      const y = (i - x) / W;
-      for (const n of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1])
-        if (n >= 0 && body[n] < 0 && D[n] > WATER) {
-          body[n] = k;
-          stack.push(n);
-        }
-    }
-  }
+  const shoreWalk = (i: number, depth: number): number => tileShoreWalk(walk, h, W, H, i, depth, C[i] < PUMP_CLEAN);
+  // the bodies of water (the core's flood of a mask's components; volumes summed in index order)
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (D[i] > WATER_BODY) wet[i] = 1;
+  const { labels: body, sizes: size } = components(wet, W, H);
+  const volume = new Array<number>(size.length).fill(0);
+  for (let i = 0; i < N; i++) if (body[i] >= 0) volume[body[i]] += D[i];
   const fed = new Uint8Array(size.length);
   for (const e of r.built.waterModel.emitters) if (e.strength > 0) for (const c of e.cells) if (body[c] >= 0) fed[body[c]] = 1;
   const after = droughtStorage(r.built.waterModel, D, rules.droughtDays);

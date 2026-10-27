@@ -9,12 +9,6 @@ export function hash(seed: number, k: number): number {
   return (Math.imul(x, 0xc2b2ae35) >>> 0) / 4294967296;
 }
 
-export function mixSeed(n: number): number {
-  n = Math.imul(n ^ (n >>> 16), 0x21f0aaad);
-  n = Math.imul(n ^ (n >>> 15), 0x735a2d97);
-  return (n ^ (n >>> 15)) >>> 0;
-}
-
 /** A hash of a height field. */
 export function terrainSeed(h: ArrayLike<number>): number {
   let s = 2166136261;
@@ -33,10 +27,7 @@ export function geology(h: ArrayLike<number>): number[] {
 /** The next personality after `seed` (Try another). */
 export const nextSeed = (seed: number) => (seed + 1) >>> 0;
 
+/** `v` held to [a, b], the forces' one copy. Not merged with `math/clamp.ts`' `clamp` (the land's and the
+ *  water's): on an empty range (a > b) this gives `a` where that gives `b` for a `v` above `a`, and the
+ *  two can differ in a zero's sign, so a force's numbers could move. */
 export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-
-/** Smoothstep on [0, 1]. */
-export const smooth = (v: number) => {
-  v = clamp(v, 0, 1);
-  return v * v * (3 - 2 * v);
-};

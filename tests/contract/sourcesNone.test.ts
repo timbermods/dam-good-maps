@@ -10,7 +10,8 @@ import { MapSession } from "../../src/core/doc/session";
 import { generate } from "../../src/core/gen/generate";
 import { decodeSpecFragment, encodeSpecFragment } from "../../src/core/spec/mapspec";
 import { blocks } from "../../src/core/validate/report";
-import { NO_WATER_SOURCE } from "../../src/core/validate/playability";
+/** What a water check says on a map made with Sources: None (rust/checks/src/report.rs `NO_WATER_SOURCE`). */
+const NO_WATER_SOURCE = "No water source: the map was made with Sources: None";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const plants = (e: { template: string; x: number; y: number }[]) =>
@@ -58,7 +59,7 @@ describe("Sources: None (D330)", () => {
     let at = -1;
     for (let i = 0; i < b.W * b.H && at < 0; i++) if (b.channel[i]) at = i;
     expect(at).toBeGreaterThanOrEqual(0);
-    const u = s.apply({ op: "placeEntity", params: { id: "5a0e1d2c-3b4f-4a6e-8c7d-9e0f1a2b3c4d", template: "WaterSource", x: at % b.W, y: Math.floor(at / b.W), orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } }, "user", "Place water source");
+    const u = s.apply({ op: "placeEntity", params: { id: "5a0e1d2c-3b4f-4a6e-8c7d-9e0f1a2b3c4d", template: "WaterSource", x: at % b.W, y: Math.floor(at / b.W), orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } }, "user", "Place a water source");
     expect(u.errors).toEqual([]);
     s.settleCanonical();
     expect(s.built.water.some((d) => d > 0.05)).toBe(true);

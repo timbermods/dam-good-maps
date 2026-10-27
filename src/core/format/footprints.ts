@@ -87,6 +87,20 @@ export function coordinatesForMinCorner(sx: number, sy: number, mx: number, my: 
   }
 }
 
+/** The middle tile of a StartingLocation (the district center's 3×3): its blocks at its own level,
+ *  averaged and rounded. For a start at (x, y) that is (x+1, y+1) at Cw0, (x+1, y−1) at Cw90,
+ *  (x−1, y−1) at Cw180 and (x−1, y+1) at Cw270. */
+export function startMiddleTile(p: { x: number; y: number; z?: number; orientation: Orientation; flipped?: boolean }): [number, number] {
+  const cells = worldBlocks(FOOTPRINTS.StartingLocation, { template: "StartingLocation", x: p.x, y: p.y, z: p.z ?? 0, orientation: p.orientation, flipped: !!p.flipped }).filter((b) => b.localZ === 0);
+  let sumX = 0;
+  let sumY = 0;
+  for (const b of cells) {
+    sumX += b.x;
+    sumY += b.y;
+  }
+  return [Math.round(sumX / cells.length), Math.round(sumY / cells.length)];
+}
+
 /** The tile in front of a StartingLocation / district center door: local (1, −1), rotated. */
 export function startEntranceTile(x: number, y: number, o: Orientation): [number, number] {
   const [dx, dy] = rotate(o, 1, -1);

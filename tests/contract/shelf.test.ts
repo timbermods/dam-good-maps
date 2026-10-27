@@ -44,7 +44,6 @@ describe("the shelf and Remove in the worker (D184)", () => {
     // (a map with open level ground for a grove, clear of other pines: at 0.7.0 seed 4242's 96² has
     // none 9 wide, M9a; seed 18 since 0.8.0, whose seed 4 has none either, D148)
     await runGenerate(makeSpec({ seed: 18, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const [x, y] = openSpot(4);
     // the drag's tiles: dense in the middle, ragged at the edge, the same for the same seed
@@ -102,7 +101,6 @@ describe("the shelf and Remove in the worker (D184)", () => {
 
   it("Delete sources (D315): a sources-only filter takes every source on the map and nothing else, one step, undoable", async () => {
     await runGenerate(makeSpec({ seed: 4242, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const counts = () => {
       const e = ed.sessionView().view.entities;
@@ -131,7 +129,6 @@ describe("the shelf and Remove in the worker (D184)", () => {
 
   it("the start moves and turns in one step; an object on its door is the edit's problem, with the move as its fix", async () => {
     await runGenerate(makeSpec({ seed: 77, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const f = ed.sessionView().info.features.find((g) => g.kind === "start")!;
     const p = f.params as { position: [number, number]; orientation: string };

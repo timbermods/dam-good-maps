@@ -20,10 +20,14 @@ export function pathField(path: Point[], W: number, H: number): PathField {
   const n = path.length;
   const segLen: number[] = [];
   const cum: number[] = [0];
+  // (each segment's invariants, computed once with the same arithmetic, outside the tile loops)
+  const segments: { ax: number; ay: number; vx: number; vy: number; l2: number }[] = [];
   for (let i = 0; i + 1 < n; i++) {
     const dx = path[i + 1][0] - path[i][0];
     const dy = path[i + 1][1] - path[i][1];
-    const l = portable.sqrt(dx * dx + dy * dy);
+    const l2 = dx * dx + dy * dy;
+    const l = portable.sqrt(l2);
+    segments.push({ ax: path[i][0], ay: path[i][1], vx: dx, vy: dy, l2 });
     segLen.push(l);
     cum.push(cum[i] + l);
   }
@@ -85,11 +89,7 @@ export function pathField(path: Point[], W: number, H: number): PathField {
             // (a margin for rounding: the box test only skips what is clearly farther)
             if (bx * bx + by * by > best + 1e-6) continue;
             for (let i = c.i0; i < c.i1; i++) {
-              const ax = path[i][0];
-              const ay = path[i][1];
-              const vx = path[i + 1][0] - ax;
-              const vy = path[i + 1][1] - ay;
-              const l2 = vx * vx + vy * vy;
+              const { ax, ay, vx, vy, l2 } = segments[i];
               let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
               if (t < 0) t = 0;
               else if (t > 1) t = 1;
@@ -193,34 +193,6 @@ export function polygonMask(poly: Point[], W: number, H: number): Uint8Array {
     }
   }
   return mask;
-}
-
-/** The point of a path nearest (x, y), its distance, and its arc position along the path. */
-export function nearestOnPath(path: readonly Point[], x: number, y: number): { p: Point; d: number; s: number } {
-  let best = Infinity;
-  let bp: Point = path[0];
-  let bs = 0;
-  let arc = 0;
-  for (let i = 0; i + 1 < path.length; i++) {
-    const [ax, ay] = path[i];
-    const vx = path[i + 1][0] - ax;
-    const vy = path[i + 1][1] - ay;
-    const l2 = vx * vx + vy * vy;
-    let u = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
-    if (u < 0) u = 0;
-    else if (u > 1) u = 1;
-    const px = ax + u * vx;
-    const py = ay + u * vy;
-    const d = (px - x) * (px - x) + (py - y) * (py - y);
-    const len = portable.sqrt(l2);
-    if (d < best) {
-      best = d;
-      bp = [px, py];
-      bs = arc + u * len;
-    }
-    arc += len;
-  }
-  return { p: bp, d: portable.sqrt(best), s: bs };
 }
 
 /** Squared distance from (x, y) to the segment a–b. */

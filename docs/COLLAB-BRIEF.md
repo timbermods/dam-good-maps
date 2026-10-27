@@ -5,7 +5,7 @@ Kyler's decisions, 2026-10-01. Two players edit one map live, always through a r
 **Connection and joining (D431).** Every session goes through a managed TURN relay (Cloudflare Realtime TURN is the candidate), with no direct peer-to-peer path, so every session connects the same way on every network and neither player sees the other's address. The relay sees only encrypted traffic. The host's Invite gives a short room code; the guest types or pastes it and they are connected. A small serverless function (a Cloudflare Worker is the candidate) hands out the relay's short-lived credentials and passes the connection setup between the two browsers. It never carries map data, never holds the key in the page and keeps nothing once connected. Codes are short-lived and single-use. If the relay or the function is down, collaboration is unavailable and the page says so plainly; editing alone is unaffected. The spike's two-code join (#109) and the short-codes findings (#150) are superseded by D431.
  Forces are ordered as gestures with their seeds and computed by each browser on the agreed map, never sent as results. Rejoining sends the host's current map plus the edits since.
 
-> Recorded as [PLAN.md §20](../PLAN.md#20-editor-decisions) D362 (extends D349's step 4), connection amended by D431. Nothing is built before the
+> Recorded as [docs/decisions/collaboration.md](decisions/collaboration.md) D362 (extends D349's step 4), connection amended by D431. Nothing is built before the
 > milestone. ROADMAP's "Collaborative editing" section points here.
 > §3 and §5 amended by Kyler on 2026-10-01 from Codex's architecture part 2 (#119, merged as an investigation). Whether
 > browsers compute the same map waits for the determinism investigation's report.

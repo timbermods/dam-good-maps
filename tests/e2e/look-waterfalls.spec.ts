@@ -5,6 +5,7 @@
 // brings it back, with no fall left behind.
 
 import { expect, test } from "@playwright/test";
+import { openEditor } from "./open";
 
 test("the 3D view draws a map's falls, and they follow the water", async ({ page }) => {
   const errors: string[] = [];
@@ -13,10 +14,7 @@ test("the 3D view draws a map's falls, and they follow the water", async ({ page
     if (m.type() === "error") errors.push(m.text());
   });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=3&z=128&d=n&t=canyon");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 180_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d && window.dgm3d.renderer.size?.W === 128, null, { timeout: 120_000 });
+  await openEditor(page, "s=3&z=128&d=n&t=canyon");
   // (the background check may replace the water once)
   await page.waitForTimeout(1500);
   await page.evaluate(() => window.dgmEditor!.idle());
@@ -75,6 +73,9 @@ test("the 3D view draws a map's falls, and they follow the water", async ({ page
     return r.updateWater({ count: keep.length, tile: Int32Array.from(keep, (k) => w.tile[k]), floor: Float32Array.from(keep, (k) => w.floor[k]), depth: Float32Array.from(keep, (k) => w.depth[k]), contamination: Float32Array.from(keep, (k) => w.contamination[k]) });
   }, lip!.tile);
   expect(changed).toBeGreaterThan(0);
+  // (the water's chunks are meshed in the workers and drawn a frame or two on)
+  const waterDrawn = () => page.waitForFunction(() => window.dgm3d!.renderer.waterDrawn);
+  await waterDrawn();
   expect(await falls()).toBeLessThanOrEqual(before - lip!.falls);
   expect(await drawn()).toBe(0);
 
@@ -83,6 +84,7 @@ test("the 3D view draws a map's falls, and they follow the water", async ({ page
     const r = window.dgm3d!.renderer as unknown as { updateWater(w: unknown): number };
     r.updateWater((window as unknown as { __water: unknown }).__water);
   });
+  await waterDrawn();
   expect(await falls()).toBe(before);
   expect(await drawn()).toBe(0);
   expect(errors).toEqual([]);

@@ -1,0 +1,61 @@
+diff --git a/rust/forces/src/lib.rs b/rust/forces/src/lib.rs
+index e041557..08041de 100644
+--- a/rust/forces/src/lib.rs
++++ b/rust/forces/src/lib.rs
+@@ -2525,7 +2525,7 @@ fn output_views(task: &mut Job) {
+                 g.extend([
+                     h.mouth as f64,
+                     h.landing as f64,
+-                    h.source.map_or(f64::NAN, |v| v as f64),
++                    h.source.map_or(-1.0, |v| v as f64),
+                     h.catchment as f64,
+                     h.drop,
+                     h.s,
+@@ -2547,7 +2547,7 @@ fn output_views(task: &mut Job) {
+             }
+         }
+         Records::Carve(r) => {
+-            g.extend([r.total as f64, r.strength_depth.unwrap_or(f64::NAN)]);
++            g.extend([r.total as f64, r.strength_depth.unwrap_or(-1.0)]);
+         }
+         Records::Footprint { .. } => {}
+         Records::Crater {
+@@ -2741,7 +2741,7 @@ fn output_views(task: &mut Job) {
+             r.oxbow_basin.len() as f64,
+             r.unleashed
+                 .as_ref()
+-                .map_or(f64::NAN, |v| id_slot(&v.as_str().into()) as f64),
++                .map_or(-1.0, |v| id_slot(&v.as_str().into()) as f64),
+             r.bad as u8 as f64,
+             r.retained.is_some() as u8 as f64,
+             r.retained.as_ref().map_or(0, |v| v.tiles.len()) as f64,
+diff --git a/src/core/forces/rust/bridge.ts b/src/core/forces/rust/bridge.ts
+index 8a5ec3d..47a5436 100644
+--- a/src/core/forces/rust/bridge.ts
++++ b/src/core/forces/rust/bridge.ts
+@@ -506,7 +506,7 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
+         const wet = !!n();
+         const joinLength = n();
+         const size = n();
+-        return { mouth, lip: mouth, landing, source: Number.isNaN(source) ? null : source, catchment, drop, s, wet, joinLength, channel: counted(size, n) };
++        return { mouth, lip: mouth, landing, source: source < 0 ? null : source, catchment, drop, s, wet, joinLength, channel: counted(size, n) };
+       });
+       const joins = counted(nj, () => ({ kind: (["fall", "spill", "inflow"] as const)[n()], from: n(), length: n() }));
+       plan = {
+@@ -599,14 +599,14 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
+         raw,
+         map: finalMap(),
+         total,
+-        strengthDepth: Number.isNaN(strengthDepth) ? null : strengthDepth,
++        strengthDepth: strengthDepth < 0 ? null : strengthDepth,
+         metrics: { ...carveMetrics(view(12, Float64Array)), reason },
+         removedAt,
+         goneSpread,
+         group,
+         oxbows,
+         oxbowBasin,
+-        unleashedId: Number.isNaN(unleashed) ? null : ids[unleashed],
++        unleashedId: unleashed < 0 ? null : ids[unleashed],
+         badwater,
+         retained,
+         closure: hasClosure ? mapOf([46, 47, 48, 49, 50, 51, 52]) : null,

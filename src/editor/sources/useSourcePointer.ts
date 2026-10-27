@@ -9,22 +9,26 @@ import type { PointerTool, TileHit } from "../../render3d";
 import type { EntityInfo } from "../../worker/session";
 import { newId, sourceStrengths, sourceStrengthWords, strengthKey, strengthReader } from "../features";
 import { isPickable, pickWinner } from "../../core/features/objects";
+import { hasOptions } from "../../core/doc/objectOps";
 import { OFFICIAL_FLOW } from "../../core/gen/calibrated";
 import { BADWATER_STRENGTHS, SOURCE_STRENGTHS, sourceRequest } from "../tools";
 import type { EntityRequest } from "../../core/doc/placing";
 import type { Ed } from "../ed";
+import { aimOf } from "../shelf/aim";
 
 export interface SourcePointerSlice {
   pointerAt: { current: { x: number; y: number } };
   notePointer: (ev: { clientX: number; clientY: number }) => void;
   sourceAtTile: (bad: boolean, x: number, y: number) => { tool: "entity" } & EntityRequest;
-  placeSource: (bad: boolean, x: number, y: number) => void;
+  placeSource: (bad: boolean, x: number, y: number, level?: number) => void;
   sourceInfo: (x: number, y: number) => Promise<EntityInfo | null>;
+  /** The objects on a tile (the page's own copy, else the worker's). */
+  entitiesOn: (x: number, y: number) => Promise<EntityInfo[]>;
   sourceGrab: { current: { cancel(): void } | null };
   grabSource: (hit: TileHit | null, ev?: PointerEvent) => PointerTool | null;
   objectUnder: (x: number, y: number) => number | undefined;
   objectTiles: (k: number) => number[];
-  grabObject: (hit: TileHit | null) => PointerTool | null;
+  grabObject: (hit: TileHit | null, pick?: boolean) => PointerTool | null;
   strengthTick: number;
   strengthOfEntity: (k: number) => number;
   liveStrength: (e: { x: number; y: number }, v: number | null) => void;
@@ -56,9 +60,10 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
    *  its options row sets. */
   const sourceAtTile = (bad: boolean, x: number, y: number) => sourceRequest({ ...optionsRef.current, sourceBad: bad }, x, y);
   /** A water or badwater source placed with a click from the shelf (D212): its water spreads at once
-   *  (live editing), one undo step. Sources go anywhere in the editor (D184). */
-  function placeSource(bad: boolean, x: number, y: number) {
-    const req = sourceAtTile(bad, x, y);
+   *  (live editing), one undo step. Sources go anywhere in the editor (D184); `level`: on a cave's
+   *  floor, where the game keeps it (D491). */
+  function placeSource(bad: boolean, x: number, y: number, level?: number) {
+    const req = { ...sourceAtTile(bad, x, y), ...(level !== undefined ? { z: level } : {}) };
     void run(
       () => api.applyTool(req, newId()),
       (u) => {
@@ -69,9 +74,39 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     );
   }
 
-  /** The source's own record (its id, place and strength), from the worker. */
+  /** The objects on a tile from the page's own copy (each carries its id, #200), found by their footprints as the
+   *  worker's entitiesAt finds them, so selecting never waits on the worker; null where an object has no id (the
+   *  worker answers then). */
+  function entitiesHere(x: number, y: number): EntityInfo[] | null {
+    const e = mirror.current.entities;
+    const out: EntityInfo[] = [];
+    for (const k of ed.coverAt().get(y * infoRef.current.W + x) ?? []) {
+      const id = e.ids?.[k];
+      if (!id) return null;
+      const template = e.templates[e.template[k]];
+      const source = template === "WaterSource" || template === "BadwaterSource";
+      out.push({
+        id,
+        template,
+        x: e.x[k],
+        y: e.y[k],
+        z: e.z[k],
+        orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation,
+        flipped: (e.flags[k] & FLIPPED) !== 0,
+        from: "",
+        components: source ? { WaterSource: { SpecifiedStrength: e.strength[k] } } : {},
+      });
+    }
+    return out;
+  }
+  /** The objects on a tile: the page's own copy, else the worker's. */
+  function entitiesOn(x: number, y: number): Promise<EntityInfo[]> {
+    const here = entitiesHere(x, y);
+    return here ? Promise.resolve(here) : enqueue(() => api.entitiesAt(x, y));
+  }
+  /** The source's own record (its id, place and strength). */
   function sourceInfo(x: number, y: number): Promise<EntityInfo | null> {
-    return enqueue(() => api.entitiesAt(x, y)).then((list) => list.find((e) => e.template === "WaterSource" || e.template === "BadwaterSource") ?? null);
+    return entitiesOn(x, y).then((list) => list.find((e) => e.template === "WaterSource" || e.template === "BadwaterSource") ?? null);
   }
 
   /** A source dragged somewhere else (D184): its footprint follows the pointer, and the drop is one
@@ -80,17 +115,19 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
   const sourceGrab = useRef<{ cancel(): void } | null>(null);
   function grabSource(hit: TileHit | null, ev?: PointerEvent): PointerTool | null {
     // (a force picked takes the map's clicks, a source's too: D257)
-    if (!hit || brushToolRef.current || (shelfRef.current && !shelfRef.current.source) || ed.toolRef.current) return null;
+    if (!hit || brushToolRef.current || (shelfRef.current && !shelfRef.current.source) || ed.toolRef.current || ed.blockRef.current) return null;
     const W = infoRef.current.W;
     const H = infoRef.current.H;
     // with nothing picked, a source within about two tiles is the one pressed (D249); with the
     // shelf's source, a press on a placed one (a new one can go right beside it)
-    const free = !shelfRef.current && !ed.toolRef.current && !selectingRef.current;
+    const free = !shelfRef.current && !ed.toolRef.current;
     const spot = free ? targetAt(hit.x, hit.y) : null;
     const src = spot ? { x: spot.x, y: spot.y, bad: spot.bad, tiles: spot.tiles.map((i): [number, number] => [i % W, Math.floor(i / W)]) } : sourceOnScreen(hit, ev?.clientX ?? -1e6, ev?.clientY ?? -1e6);
     if (!src) return null;
     const from: [number, number] = [hit.x, hit.y];
     let to = from;
+    /** The level aimed at where it goes (D491: a cave's floor; undefined, the tile's top). */
+    let level: number | undefined;
     let done = false;
     const record = sourceInfo(src.x, src.y);
     const canvas = renderer.current?.canvas;
@@ -107,6 +144,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
       move(h) {
         if (!h || done) return;
         to = [h.x, h.y];
+        level = aimAt(h);
         const dx = to[0] - from[0];
         const dy = to[1] - from[1];
         setSourceDrag(dx || dy ? src.tiles.map(([x, y]) => [x + dx, y + dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x) : null);
@@ -124,13 +162,17 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
         void record.then((e) => {
           if (!e) return;
           const name = e.template === "BadwaterSource" ? "badwater source" : "water source";
-          // (a badwater source cuts its own spring pool where it lands on uneven ground, D290)
-          void run(() => api.applyAll([{ op: "moveEntity", params: { id: e.id, x: e.x + dx, y: e.y + dy } }], `Move a ${name}`));
+          // (a badwater source cuts its own spring pool where it lands on uneven ground, D290; it lands on the ground
+          // aimed at, a cave's floor too, or with no level on the tile's top, out of a cave as well: D491)
+          void run(() => api.applyAll([{ op: "moveEntity", params: { id: e.id, x: e.x + dx, y: e.y + dy, ...(level !== undefined ? { z: level } : {}) } }], `Move a ${name}`));
         });
       },
       cancel: end,
+      voxel: true,
     };
   }
+  /** The level a drag aims at (D491): a cave's floor, the ground under a ledge; undefined on the tile's top. */
+  const aimAt = (h: TileHit) => aimOf(h, infoRef.current.W, mirror.current.heights, ed.columnsRef.current);
 
   /** An object pressed with the plain pointer (D345, B7): a click picks it (its name and Delete in the
    *  row), a drag moves it, the drop is one step with its ground levelled as a placement's is; Esc
@@ -152,8 +194,10 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
       .filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < infoRef.current.H)
       .map(([x, y]) => y * W + x);
   }
-  function grabObject(hit: TileHit | null): PointerTool | null {
-    if (!hit || brushToolRef.current || shelfRef.current || ed.toolRef.current || selectingRef.current || selection.current.count) return null;
+  /** A press on an object. With Select in hand a drag on the land marks an area, so a press grabs only the
+   *  object already picked (it moves it); `pick`: the press is Select's plain click, which picks it. */
+  function grabObject(hit: TileHit | null, pick = false): PointerTool | null {
+    if (!hit || brushToolRef.current || shelfRef.current || ed.toolRef.current || ed.blockRef.current || selection.current.count) return null;
     const W = infoRef.current.W;
     const H = infoRef.current.H;
     const e = mirror.current.entities;
@@ -161,15 +205,19 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     if (k === undefined) return null;
     const template = e.templates[e.template[k]];
     const at: [number, number] = [e.x[k], e.y[k]];
+    const held = ed.pickedObjectRef.current;
+    if (!pick && !(held && held.template === template && held.x === at[0] && held.y === at[1])) return null;
     const orientation = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
     const flipped = (e.flags[k] & FLIPPED) !== 0;
-    const record = enqueue(() => api.entitiesAt(hit.x, hit.y)).then((list) => list.find((x) => x.template === template && x.x === at[0] && x.y === at[1]) ?? null);
+    const record = (hasOptions(template) ? enqueue(() => api.entitiesAt(hit.x, hit.y)) : entitiesOn(hit.x, hit.y)).then((list) => list.find((x) => x.template === template && x.x === at[0] && x.y === at[1]) ?? null);
     const tilesAt = (dx: number, dy: number) =>
       footprintTiles(template, { template, x: at[0] + dx, y: at[1] + dy, z: 0, orientation, flipped })
         .filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H)
         .map(([x, y]) => y * W + x);
     const from: [number, number] = [hit.x, hit.y];
     let to = from;
+    /** The level aimed at where it goes (D491: a cave's floor; undefined, the tile's top). */
+    let level: number | undefined;
     let done = false;
     const canvas = renderer.current?.canvas;
     if (canvas) canvas.style.cursor = "grabbing";
@@ -185,6 +233,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
       move(h) {
         if (!h || done) return;
         to = [h.x, h.y];
+        level = aimAt(h);
         const dx = to[0] - from[0];
         const dy = to[1] - from[1];
         setSourceDrag(dx || dy ? tilesAt(dx, dy) : null);
@@ -201,17 +250,22 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
             setPicked(null);
             return setPickedObject(rec);
           }
+          // (it lands on the ground aimed at, a cave's floor too, or on the tile's top, out of a cave as well: D491)
+          const x = rec.x + dx;
+          const y = rec.y + dy;
+          const z = level ?? (x >= 0 && y >= 0 && x < W && y < H && rec.z !== mirror.current.heights[rec.y * W + rec.x] ? mirror.current.heights[y * W + x] : undefined);
           void run(
-            () => api.moveObjectBy(rec.id, dx, dy),
+            () => api.moveObjectBy(rec.id, dx, dy, z),
             (u) => {
               if (!u.ok) return;
-              setPickedObject({ ...rec, x: rec.x + dx, y: rec.y + dy });
-              feel("place", rec.x + dx, rec.y + dy, 1, false, rec.template);
+              setPickedObject({ ...rec, x, y, ...(z !== undefined ? { z } : {}) });
+              feel("place", x, y, 1, false, rec.template);
             },
           );
         });
       },
       cancel: end,
+      voxel: true,
     };
   }
 
@@ -304,7 +358,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
   }
 
   return {
-    pointerAt, notePointer, sourceAtTile, placeSource, sourceInfo, sourceGrab, grabSource, objectUnder, objectTiles,
+    pointerAt, notePointer, sourceAtTile, placeSource, sourceInfo, entitiesOn, sourceGrab, grabSource, objectUnder, objectTiles,
     grabObject, strengthTick, strengthOfEntity, liveStrength, entityIndexOf, wheelSource
   };
 }

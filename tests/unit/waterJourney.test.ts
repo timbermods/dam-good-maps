@@ -124,3 +124,18 @@ describe("an edit that comes while settled frames wait", () => {
     expect(names(log)).toEqual(["edit 2", "settled 2"]);
   });
 });
+
+describe("a force starting while the journey still plays (Kyler, 2026-10-05)", () => {
+  it("puts the waiting settled view in place but its water, so the force starts from the water on screen", () => {
+    for (const forForce of [false, true]) {
+      const p = page(water(1));
+      p.journey.update({ ok: true, waterSettled: false, view: { water: water(1) } }, 2);
+      p.journey.news({ kind: "water", version: 2, water: water(2), done: 0.5 });
+      // (the worker has settled; the page is still playing the frames before it)
+      p.journey.news({ kind: "settled", version: 2, view: { water: water(3) } });
+      const before = p.shown();
+      p.journey.flush(!forForce);
+      expect(p.shown(), forForce ? "a force's flush leaves the water on screen" : "an edit's flush puts the settled water in place").toBe(forForce ? before : 3);
+    }
+  });
+});

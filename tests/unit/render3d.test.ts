@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 import { changedRect, chunkCount, CHUNK, dirtyChunks, meshChunk, type MeshData, type TerrainSource } from "../../src/render3d/mesh";
 import { columnMap, entityView, surfaceWater, waterFromDepth, LAYERS } from "../../src/render3d/model";
 import { pickHeightfield, pickPlane } from "../../src/render3d/pick";
-import { lowerByTile, meshWaterChunk, changedWaterChunks } from "../../src/render3d/waterMesh";
+import { meshWaterChunk, changedWaterChunks } from "../../src/render3d/waterMesh";
+import { plainLayers } from "../../src/render3d/waterLayers";
 
 function rng(seed: number): () => number {
   let s = seed >>> 0;
@@ -153,7 +154,7 @@ describe("water meshing", () => {
     const sw = surfaceWater(W, H, view);
     expect(sw.surface[0]).toBeCloseTo(5.5);
     expect(Number.isNaN(sw.surface[4])).toBe(true);
-    const m = meshWaterChunk(W, H, heights, sw, view, lowerByTile(sw, view), 0, 0);
+    const m = meshWaterChunk(W, H, plainLayers(heights, sw), 0, 0);
     let tops = 0;
     let curtains = 0;
     for (let q = 0; q < m.quads; q++) (m.normals[q * 12 + 1] > 0 ? tops++ : curtains++);

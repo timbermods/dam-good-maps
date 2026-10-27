@@ -15,10 +15,10 @@ import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { startPlantingSpread, type StartPlantingSpread } from "../src/core/analysis/startPlanting";
+import { startPlantingSpread, type StartPlantingSpread } from "./lib/startPlanting";
 import { generate } from "../src/core/gen/generate";
 import { runsToTiles } from "../src/core/math/grid";
-import { groundOfFile } from "../src/core/resources/measure";
+import { groundOfFile } from "./lib/resources";
 import { makeSpec, type Difficulty, type ThemeId } from "../src/core/spec/mapspec";
 
 const here = dirname(fileURLToPath(import.meta.url));

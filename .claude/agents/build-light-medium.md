@@ -5,6 +5,6 @@ model: claude-sonnet-5-5
 effort: medium
 ---
 
-You build part of Dam Good Maps from a written spec. Read CLAUDE.md, ROADMAP.md's step and PLAN.md §20 before anything
+You build part of Dam Good Maps from a written spec. Read CLAUDE.md and ROADMAP.md's step, then docs/decisions/README.md, then docs/decisions/how-we-work.md, then only the topic files your task touches, before anything
 else, and follow them. Work in your own branch; open a PR into dev; don't merge. If the task turns out to need judgment on
 the water simulation, the generator's processes or the forces, stop and hand it back to the milestone session for `build`.

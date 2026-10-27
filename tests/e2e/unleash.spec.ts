@@ -4,6 +4,7 @@
 // the land it aims there; Try another re-rolls the course. The source stays: no second one.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor, setWaterSpeed, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -20,12 +21,9 @@ async function stopIfRunning(page: Page) {
 test("Unleash: a selected source carves its own course, kept as one step when it ends; Ctrl+Z takes it back; dragged, it aims; Try another re-rolls it", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
-  await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("faster");
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  await topDown(page);
+  await setWaterSpeed(page, "faster");
 
   // a source on dry high ground far from the start, where the map (not a bar) takes the pointer,
   // with lower ground 12 to 20 tiles from it to aim at
@@ -37,13 +35,21 @@ test("Unleash: a selected source carves its own course, kept as one step when it
       const p = window.dgmEditor!.tileToClient(x, y);
       return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
     };
+    // (and no source of the map's own within six tiles: at this zoom a click that near one picks it instead
+    // of placing another, as on 0.8.8's Highlands 96² seed 4242, whose highest dry ground far from the start,
+    // (68, 26), lies three tiles from a spring's head at (66–67, 29), D148)
+    const e = m.entities;
+    const taken = (x: number, y: number) => {
+      for (let k = 0; k < e.count; k++) if (/Source$/.test(e.templates[e.template[k]]) && Math.abs(e.x[k] - x) <= 6 && Math.abs(e.y[k] - y) <= 6) return true;
+      return false;
+    };
     let best: { at: [number, number]; end: [number, number] } | null = null;
     let score = -Infinity;
     // (well inside the map, so its water has somewhere to run before an edge)
     for (let y = 26; y < m.H - 26; y += 3)
       for (let x = 26; x < m.W - 26; x += 3) {
         const h = m.heights[y * m.W + x];
-        if (m.surface.depth[y * m.W + x] > 0 || !onMap(x, y) || Math.hypot(x - st[0], y - st[1]) < 24) continue;
+        if (m.surface.depth[y * m.W + x] > 0 || !onMap(x, y) || Math.hypot(x - st[0], y - st[1]) < 24 || taken(x, y)) continue;
         let low: [number, number] | null = null;
         for (let yy = y - 20; yy <= y + 20; yy += 2)
           for (let xx = x - 20; xx <= x + 20; xx += 2) {
@@ -77,7 +83,7 @@ test("Unleash: a selected source carves its own course, kept as one step when it
     return row;
   };
   let row = await select();
-  await expect(row.getByRole("combobox", { name: "Strength" })).toBeVisible();
+  await expect(row.getByRole("slider", { name: "Strength", exact: true })).toBeVisible();
   await expect(row.getByRole("slider", { name: "Unleash power" })).toBeVisible();
   const n0 = (await labels(page)).length;
   const before = await heights(page);
@@ -98,9 +104,9 @@ test("Unleash: a selected source carves its own course, kept as one step when it
   await expect(work).toBeVisible();
   await page.waitForTimeout(1500);
   await stopIfRunning(page);
-  expect((await labels(page)).at(-1)).toBe("Try another course");
-  // undo twice: the land as it was
-  await page.keyboard.press("Control+z");
+  // (another roll of its one step, D488)
+  expect((await labels(page)).at(-1)).toBe("Unleash a source, roll 2");
+  // undo: the land as it was, the step whole
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);

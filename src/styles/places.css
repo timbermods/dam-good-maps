@@ -95,7 +95,7 @@
   background: var(--panel);
   border: 1px solid var(--rule);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .place img {
@@ -137,8 +137,11 @@
   font-style: italic;
 }
 
+/* (the three buttons wrap to a second row when the card is too narrow for them, as with the wider fonts of Linux and macOS;
+   a card clips what lies past its edge, so a button left in one row would be cut off, out of reach) */
 .place-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -155,12 +158,6 @@ a.button {
   border-radius: 6px;
   color: var(--ink);
   text-decoration: none;
-}
-
-a.button:focus-visible,
-a:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .place progress {
@@ -240,7 +237,23 @@ button.linkish {
     font-size: 0.9rem;
   }
 
+  /* the three buttons are always two rows, whatever the font: Download across, then Save and Refine side by side
+     (Save's words wrap inside its button rather than the row breaking into three) */
+  .place-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .place-actions > :first-child {
+    grid-column: 1 / -1;
+  }
+
   .filters {
     gap: 10px;
   }
+}
+
+/* the count of maps shown ("3 of 12 maps") */
+.count {
+  font-variant-numeric: tabular-nums;
 }

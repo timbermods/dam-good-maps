@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import { decodeProject } from '../../src/core/doc/document';
+import { MapSession } from '../../src/core/doc/session';
+import { sameMap } from '../../src/core/doc/stored';
+import { createHash } from 'node:crypto';
+const bytes = new Uint8Array(fs.readFileSync('investigation/map-switch-speed/local/target.bin'));
+const exact=MapSession.open(decodeProject(bytes));
+const quick=MapSession.open(decodeProject(bytes),{deferWater:true});
+console.log('deferred',quick.waterPending);
+quick.settleCanonical();
+const hash=(b:Uint8Array)=>createHash('sha256').update(b).digest('hex');
+const result={sameMap:sameMap(exact.built,quick.built),timberExact:hash(exact.exportTimber().bytes),timberCandidate:hash(quick.exportTimber().bytes),projectExact:hash(exact.project(6)),projectCandidate:hash(quick.project(6))};
+fs.writeFileSync('investigation/map-switch-speed/equivalence.json',JSON.stringify(result,null,2));console.log(result);
+if(!result.sameMap||result.timberExact!==result.timberCandidate||result.projectExact!==result.projectCandidate)throw new Error('map differs');

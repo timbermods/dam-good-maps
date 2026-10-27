@@ -1,21 +1,19 @@
-// Map look's fix round (PLAN §20 D114) in the page: the 3D view's legend names every meaning the
-// map shows, with a note that some objects grow from afar. No dam site is drawn on the map (D287:
+// Map look's fix round (PLAN §20 D114) in the page: the legend (the Legend button's panel over the map) names every
+// meaning the map shows, with a note that some objects grow from afar. No dam site is drawn on the map (D287:
 // the preview's best dam site, hatched before, is gone; D148). Since live editing's first
 // phase (Kyler's triage) the legend lists only what the map has: a meaning the map lacks is left
 // out (D148: this test named every meaning before).
 
 import { expect, test } from "@playwright/test";
+import { openEditor, openLegend } from "./open";
 
 test("the 3D legend names every meaning the map shows, only those, and no dam site is drawn", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
-  const legend = page.locator(".view3d-legend");
-  for (const text of ["Living trees and bushes", "The start: district center", "Slopes: arrows point uphill", "Ruins", "Mine site", "Geothermal field", "Water source", "Badwater source", "drawn larger"])
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const legend = await openLegend(page);
+  for (const text of ["Trees and bushes", "Start", "Slope arrows", "Ruins", "Mine site", "Geothermal field", "Water source", "Badwater source"])
     await expect(legend).toContainText(text);
   // water mixed with badwater is named when the map has some, and only then
   const mixed = await page.evaluate(() => {
@@ -23,8 +21,8 @@ test("the 3D legend names every meaning the map shows, only those, and no dam si
     for (let i = 0; i < m.W * m.H; i++) if (m.surface.depth[i] > 0.05 && m.surface.contamination[i] >= 0.05 && m.surface.contamination[i] < 0.9) return true;
     return false;
   });
-  if (mixed) await expect(legend).toContainText("Water mixed with badwater");
-  else await expect(legend).not.toContainText("Water mixed with badwater");
+  if (mixed) await expect(legend).toContainText("Mixed water");
+  else await expect(legend).not.toContainText("Mixed water");
   const hatched = await page.evaluate(() => {
     const d = window.dgm3d!.renderer.overlayData()!;
     let n = 0;

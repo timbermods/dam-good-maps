@@ -23,7 +23,6 @@ function strengthIn(v: EntityView, x: number, y: number): number | undefined {
 describe("a source's one number (D368 (4))", () => {
   it("every notch's new strength reaches the page's copy of the objects, alone and in a row", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const st = s0.built.start!;
@@ -40,7 +39,7 @@ describe("a source's one number (D368 (4))", () => {
     expect(spots.length).toBe(2);
     const [[ax, ay], [rx, ry]] = spots;
     const place = (id: string, x: number, y: number) =>
-      ed.applyStep({ op: "placeEntity", params: { id, template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } }, "Place water source", `place:${id}`);
+      ed.applyStep({ op: "placeEntity", params: { id, template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } }, "Place a water source", `place:${id}`);
     expect(place(ID(0), ax, ay).errors).toEqual([]);
     for (let k = 1; k <= 3; k++) expect(place(ID(k), rx + k - 1, ry).errors).toEqual([]);
 

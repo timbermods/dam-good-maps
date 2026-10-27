@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { startMiddle } from "../../src/core/doc/tools";
+import { startMiddle } from "../../src/core/doc/start";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -24,17 +24,18 @@ const objects = (s: MapSession) => s.built.entities.map((e) => `${e.template} ${
 
 describe("Try another after a force that carried the start (D257, D220)", () => {
   // (seed 3 on M9b's maps, D148: its Highlands 64² seed 4 has no start; the Slide is clicked seven tiles
-  // north of the start, as it was on dev's map)
-  it("Highlands 64², seed 3: a Quake Slide clicked at (20, 16) carries the start; Try another leaves the start's ground alone, so the start stays at (20, 23) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
+  // north of the start, as it was on dev's map; seed 2 for 0.8.3's maps, D148: on seed 3's the next try breaks the start's ground too,
+  // wherever the Slide is clicked; here it is clicked seven tiles north of the start and one east;
+  // the start at (35, 19) on 0.8.8's map, the Canyon and Highlands height round, D148, the click the same way from it)
+  it("Highlands 64², seed 2: a Quake Slide clicked at (36, 12) carries the start; Try another leaves the start's ground alone, so the start stays at (35, 19) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
+    await runGenerate(makeSpec({ seed: 2, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const orig = startMiddle(open())!;
-    expect(orig).toEqual([20, 23]);
+    expect(orig).toEqual([35, 19]);
 
-    // the first try: a Slide clicked at (20, 16), Power 40, the editor's way; it breaks the start's ground
-    expect(ed.forceStart({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 40, seed: 0 }, path: [{ x: 20, y: 16 }, { x: 20, y: 16 }], side: 1, cut: null, natural: true }).errors).toEqual([]);
+    // the first try: a Slide clicked at (36, 12), Power 40, the editor's way; it breaks the start's ground
+    expect(ed.forceStart({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 40, seed: 0 }, path: [{ x: 36, y: 12 }, { x: 36, y: 12 }], side: 1, cut: null, natural: true }).errors).toEqual([]);
     expect(play()).toBe(true);
     expect(startMiddle(open())).not.toEqual(orig);
 
@@ -44,7 +45,9 @@ describe("Try another after a force that carried the start (D257, D220)", () => 
     const tried = open();
     const b = tried.logOps.filter((o) => o.op === "forceResult").at(-1)!;
     if (b.op !== "forceResult") throw new Error("no force");
-    expect(b.params.replaces).toBeDefined();
+    // (another roll of the force's one step, D488: the log holds only the roll shown)
+    expect(b.params.replaces).toBeUndefined();
+    expect(tried.logOps.filter((o) => o.op === "forceResult").length).toBe(1);
     // (it never touches the start's own ground, nor the ground two tiles round it)
     const near = new Set<number>();
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) near.add((orig[1] + dy) * W + orig[0] + dx);

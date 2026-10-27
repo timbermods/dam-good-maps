@@ -1,19 +1,17 @@
 // The game's own soil rules on a heightfield (PLAN §20 D298): the build and both validators take
-// moisture and soil contamination from sim/soil3d.ts's "game" mode (sim/soil.ts `gameSoil`). This
-// holds the heightfield half of the 3D branch's tests/unit/soil3d.test.ts (its cave half needs the
-// stacked-column engine, which stays on that branch): "port" mode still gives sim/moisture.ts's and
-// sim/contamination.ts's numbers bit for bit, game mode keeps its pinned output, and the Python
-// validator's port (prototype/soil.py) gives the same numbers bit for bit.
+// moisture and soil contamination from sim/soil3d.ts (sim/soil.ts `gameSoil`). This holds the
+// heightfield half of the 3D branch's tests/unit/soil3d.test.ts (its cave half needs the
+// stacked-column engine, which stays on that branch): the game's soil keeps its pinned output, and
+// the Python validator's port (prototype/soil.py) gives the same numbers bit for bit.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { heightMasks, waterColumns } from "../../src/core/sim/columns";
-import { soilContamination } from "../../src/core/sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../../src/core/sim/model";
 import { moisture } from "../../src/core/sim/moisture";
 import { canonicalSettle } from "../../src/core/sim/prefill";
-import { columnSaturation, soil3d } from "../../src/core/sim/soil3d";
+import { soil3d } from "../../src/core/sim/soil3d";
 import { gameSoil } from "../../src/core/sim/soil";
 
 /** Python with numpy, for the oracle's side (CI has it; a machine without it skips). */
@@ -55,33 +53,15 @@ function scene() {
 }
 
 describe("the game's soil on a heightfield (D298)", () => {
-  it("port mode gives today's moisture and contamination, bit for bit", () => {
-    const { W, H, h, objects, water } = scene();
-    const barrier = moistureBarrier(W, H, objects);
-    const a = moisture(h, water.depth, water.contamination, W, H, barrier);
-    const b = soilContamination(h, water.depth, water.contamination, W, H, barrier);
-    const masks = heightMasks(W, H, h);
-    const cols = waterColumns(masks, objects);
-    expect(Array.from(columnSaturation(cols, water.depth))).toEqual(Array.from(water.sat));
-    const s = soil3d(masks, cols, water, objects);
-    let differ = 0;
-    for (let i = 0; i < W * H; i++) if (a[i] !== s.moisture[i] || b[i] !== s.contamination[i]) differ++;
-    expect(differ).toBe(0);
-  });
-
-  it("keeps game mode's output as pinned (the 3D branch's value), and gameSoil is that output", () => {
+  it("keeps the game's soil output as pinned (the 3D branch's value), and gameSoil is that output", () => {
     const hash = (s: { moisture: Float64Array; contamination: Float64Array }) => createHash("sha256").update(new Uint8Array(s.moisture.buffer)).update(new Uint8Array(s.contamination.buffer)).digest("hex").slice(0, 16);
     const { W, H, h, objects, water } = scene();
     const masks = heightMasks(W, H, h);
-    expect(hash(soil3d(masks, waterColumns(masks, objects), water, objects, "game"))).toBe("54248ee8ab705b8c");
-    expect(hash(gameSoil(W, H, h, water.depth, water.contamination, objects, water.sat, "game"))).toBe("54248ee8ab705b8c");
-    // and under the port's rules, the port's modules' numbers
-    const ported = gameSoil(W, H, h, water.depth, water.contamination, objects, water.sat, "port");
-    const bar = moistureBarrier(W, H, objects);
-    expect(Array.from(ported.moisture)).toEqual(Array.from(moisture(h, water.depth, water.contamination, W, H, bar)));
+    expect(hash(soil3d(masks, waterColumns(masks, objects), water, objects))).toBe("54248ee8ab705b8c");
+    expect(hash(gameSoil(W, H, h, water.depth, water.contamination, objects, water.sat))).toBe("54248ee8ab705b8c");
     // the game's rules keep moisture from leaking through the badwater stream to the land beyond it
     const port = moisture(h, water.depth, water.contamination, W, H, moistureBarrier(W, H, objects));
-    const game = gameSoil(W, H, h, water.depth, water.contamination, objects, undefined, "game").moisture;
+    const game = gameSoil(W, H, h, water.depth, water.contamination, objects).moisture;
     let differ = 0;
     for (let i = 0; i < W * H; i++) if (port[i] !== game[i]) differ++;
     expect(differ).toBeGreaterThan(0);
@@ -89,7 +69,7 @@ describe("the game's soil on a heightfield (D298)", () => {
 
   it.skipIf(!PY)("the Python validator's port gives the same numbers, bit for bit", () => {
     const { W, H, h, objects, model, water } = scene();
-    const s = gameSoil(W, H, h, water.depth, water.contamination, objects, water.sat, "game");
+    const s = gameSoil(W, H, h, water.depth, water.contamination, objects, water.sat);
     const thorns = objects.filter((o) => o.template === "Thorns").map((o) => [o.x, o.y]);
     const input = JSON.stringify({ W, H, h: Array.from(h), floor: Array.from(model.floor), depth: Array.from(water.depth), contamination: Array.from(water.contamination), sat: Array.from(water.sat), thorns });
     const script = [

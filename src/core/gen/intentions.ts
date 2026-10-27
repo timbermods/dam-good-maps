@@ -3,31 +3,36 @@
 // the finished map, with one re-steer for the start's intentions and a drop, never a forced build,
 // for the rest. Ported from the design version 2 prototype (investigation/generative/v2/generate.ts).
 
+import { prepareOpening } from "../analysis/opening";
 import { fallsOf, reachWalk } from "../analysis/vertical";
 import type { BuildResult } from "../features/build";
 import { ACTIVE, checkIntention, START_SIDE, startPreference, type FinalCtx, type IntentionId, type SettlerView } from "../land/intentions";
 import type { Hydro } from "../land/hydro";
-import { distanceFrom } from "../math/grid";
+import type { FormId } from "../land/forms3d";
+import { distanceFrom, N4 } from "../math/grid";
 import { droughtStorage } from "../sim/drought";
+import { seenWater } from "../sim/stackWater";
 import type { Rng } from "../math/rng";
-import { waterModel } from "../sim/model";
 
 export interface IntentionResult {
-  id: IntentionId;
+  /** One of the set (land/intentions.ts), or a 3D form (land/forms3d.ts, D488). */
+  id: IntentionId | FormId;
   ok: boolean;
   note: string;
   /** What the map shows, in a player's words, when it emerged (the how-it-plays line uses the
    *  standout's). */
   say?: string;
+  /** Where a 3D form stands (its heart, [x, y]) and a tile it is best seen from (D488): for the page's
+   *  camera and the captures. */
+  at?: [number, number];
+  from?: [number, number];
   /** "emerged" at the first check, "re-steered" after one re-steer, or "dropped"; "found" for one
    *  the map was not steered toward but shows of its own accord (M9b). */
   outcome: "emerged" | "re-steered" | "dropped" | "found";
 }
 
-const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
-
 /** The land and water the settler scores places on, for the intentions' preferences. */
-export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers">, D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, kept9?: ArrayLike<number>): SettlerView & { prefer(id: IntentionId, x: number, y: number, L: number, walk: number): number } {
+export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers">, D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>): SettlerView & { prefer(id: IntentionId, x: number, y: number, L: number, walk: number): number } {
   const N = W * H;
   const joinT = new Uint8Array(N);
   for (const r of hy.rivers) {
@@ -38,40 +43,9 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
     if (x >= 0 && y >= 0 && x < W && y < H) joinT[y * W + x] = 1;
   }
   const fallT = new Uint8Array(N);
-  for (const f of fallsOf(h, D, W, H, 1.5)) fallT[f.i] = 1;
+  const falls = fallsOf(h, D, W, H, 1.5);
+  for (const f of falls) fallT[f.i] = 1;
   const sorted = Array.from(h).sort((a, b) => a - b);
-  // clean bodies of 60+ tiles, their surface and what a 9-day drought leaves
-  const kept = kept9 ?? droughtStorage(waterModel(W, H, h, []), D, 9);
-  const lab = new Int32Array(N).fill(-1);
-  const lakes: SettlerView["lakes"] = [];
-  for (let s0 = 0; s0 < N; s0++) {
-    if (lab[s0] >= 0 || !(D[s0] >= 0.1) || !(C[s0] < 0.05)) continue;
-    const q = [s0];
-    lab[s0] = lakes.length;
-    for (let k = 0; k < q.length; k++) {
-      const i = q[k];
-      const x = i % W;
-      const y = (i - x) / W;
-      for (const [dx, dy] of N4) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        const j = yy * W + xx;
-        if (lab[j] >= 0 || !(D[j] >= 0.1) || !(C[j] < 0.05)) continue;
-        lab[j] = lakes.length;
-        q.push(j);
-      }
-    }
-    let surf = 0;
-    let v = 0;
-    let kv = 0;
-    for (const i of q) {
-      surf = Math.max(surf, h[i] + D[i]);
-      v += D[i];
-      kv += kept[i];
-    }
-    lakes.push({ tiles: q.length >= 60 ? q : [], surface: surf, keep9: v > 0 ? kv / v : 0 });
-  }
   // farmland patches and gorges
   const farm = new Uint8Array(N);
   for (let i = 0; i < N; i++) farm[i] = M[i] > 0 && !(D[i] > 0.05) && C[i] < 0.05 ? 1 : 0;
@@ -148,7 +122,7 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
       if (h[i] <= surf + 1.5) blocks.lowBad[k]++;
     }
   }
-  const view: SettlerView = { W, H, h, dJoin: distanceFrom(joinT, W, H), dFall: distanceFrom(fallT, W, H), lakes, farms, gorge, p75: sorted[Math.floor(0.75 * (N - 1))], dBad, blocks };
+  const view: SettlerView = { W, H, h, dJoin: distanceFrom(joinT, W, H), dFall: distanceFrom(fallT, W, H), farms, gorge, p75: sorted[Math.floor(0.75 * (N - 1))], dBad, blocks, opening: prepareOpening(h, W, H, D, falls) };
   return { ...view, prefer: (id, x, y, L, walk) => startPreference(id, view, x, y, L, walk) };
 }
 
@@ -156,6 +130,7 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
 export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hydro["arms"] }): FinalCtx {
   const { W, H } = b;
   const start = b.start ?? { x: 0, y: 0, z: 0 };
+  const seen = seenWater(b);
   const objs = b.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation }));
   const joins: number[] = [];
   for (const r of hy.rivers) {
@@ -169,10 +144,12 @@ export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hy
     W,
     H,
     h: b.heights,
-    D: b.water,
-    C: b.contamination,
+    // (on terrain above terrain, the water seen through the roofs: a cave's stream, a river under an
+    // arch, D488)
+    D: seen.depth,
+    C: seen.contamination,
     moist: b.moisture,
-    start: { x: start.x, y: start.y, z: start.z },
+    start: { x: start.x, y: start.y, z: start.z, orientation: b.entities.find((e) => e.template === "StartingLocation")?.orientation ?? "Cw0" },
     walk: reachWalk(b.heights, W, H, objs, start),
     ...(objs.some((o) => o.template === "Blockage") ? { walkCleared: reachWalk(b.heights, W, H, objs.filter((o) => o.template !== "Blockage"), start) } : {}),
     kept9: droughtStorage(b.waterModel, b.water, 9),

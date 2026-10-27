@@ -11,8 +11,8 @@ import { checkSchema } from "../../src/core/spec/schema";
 import { forceProblems } from "../../src/core/forces/op";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { breakout, sourceTile, strengthOfWidth, unleashWidth } from "../../src/core/forces/carve/unleash";
-import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
+import { breakout, sourceTile, unleashWidth } from "../../src/core/forces/carve/unleash";
+import { DEFAULTS as CARVE_DEFAULTS, sourceStrength } from "../../src/core/forces/carve/run";
 import type { ForceResultParams } from "../../src/core/forces/op";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -62,7 +62,8 @@ describe("Unleash, on a source (D239)", () => {
       expect(w).toBeLessThanOrEqual(24);
       expect(w).toBeGreaterThan(last);
       last = w;
-      expect(Math.abs(strengthOfWidth(w) - s)).toBeLessThan(0.08);
+      // (the strength a Carve of width w would keep: unleashWidth inverts it)
+      expect(Math.abs(sourceStrength(100, w) - s)).toBeLessThan(0.08);
     }
     expect(unleashWidth(64)).toBe(24);
   });
@@ -70,7 +71,6 @@ describe("Unleash, on a source (D239)", () => {
   it("in the editor's worker: one undo step, the source stays its origin (no second source), its width from its strength, aimed by an end; Esc takes it all back; Try another replaces it; a badwater source's river is badwater", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const s0 = open();
@@ -119,20 +119,23 @@ describe("Unleash, on a source (D239)", () => {
     expect(p.settings).toMatchObject({ dry: true, width: unleashWidth(4), power: 70 });
     expect(s1.history().filter((h) => h.applied).length).toBe(n0 + 1);
     expect(s1.history().at(-1)!.label).toBe("Unleash a source");
-    expect(sources(s1)).toBe(sources(before));
+    // (no second source: the count is the one before, less the sources the course itself reached and
+    // took under Clear, D474, each in the operation's `removed`; on 0.8.8's Highlands 96² seed 21 it runs
+    // from (12, 81) off the south edge over a river's two inflow sources at (13, 95) and (14, 95), D148)
+    const took = before.built.entities.filter((e) => (e.template === "WaterSource" || e.template === "BadwaterSource") && p.removed.includes(e.id)).length;
+    expect(sources(s1)).toBe(sources(before) - took);
     expect(s1.built.entities.some((e) => e.id === id)).toBe(true);
     expect(Array.from(s1.built.heights)).not.toEqual(heights0);
     // it replays the same land
     expect(Array.from(MapSession.open(decodeProject(s1.project())).built.heights)).toEqual(Array.from(s1.built.heights));
-    // Try another: another course, replacing it; undo brings the first back
+    // Try another: another course, another roll of its one step (D488); undo takes the step back whole
     const again = ed.forceAgain();
     expect(again.errors).toEqual([]);
     for (let k = 0; k < 300; k++) if (ed.forceAdvance(4)!.done) break;
     expect(ed.forceStop().kept).toBe(true);
     const s2 = open();
-    expect(s2.history().at(-1)!.label).toBe("Try another course");
-    expect(s2.history().filter((h) => h.applied).length).toBe(n0 + 2);
-    ed.undo();
+    expect(ed.sessionInfo().history.filter((h) => h.applied).at(-1)!.label).toBe("Unleash a source, roll 2");
+    expect(s2.history().filter((h) => h.applied).length).toBe(n0 + 1);
     ed.undo();
     expect(Array.from(open().built.heights)).toEqual(heights0);
 

@@ -6,7 +6,7 @@
 // tests/contract/settings.test.ts runs every experiment on a few seeds; tools/settings-batch.ts
 // runs them on more and writes the table in docs/progress.md.
 
-import { measure, type MapMetrics } from "../src/core/analysis/metrics";
+import { measure, type MapMetrics } from "./lib/metrics";
 import { generate } from "../src/core/gen/generate";
 import { makeSpec, type Difficulty, type MapSpec, type ThemeId } from "../src/core/spec/mapspec";
 
@@ -213,6 +213,10 @@ export const EXPERIMENTS: Experiment[] = [
     expect: "up",
     delta: 0.6,
     digits: 2,
+    // (8 seeds since River Valley round 2, 0.8.5: its maps vary more from seed to seed. Seeds 1–4 moved
+    // 0.57 where 0.8.4's moved 0.69; seeds 1–8 move 0.71 and 1–12 0.77, where 0.8.4's 1–12 moved 0.73:
+    // the setting moves the ratio as much as it did, and four maps no longer show it)
+    minSeeds: 8,
   },
   {
     // (re-based under D148 by D333 (6): item 47 (D325) keeps a pit off the lowest ground, two levels

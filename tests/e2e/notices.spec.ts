@@ -1,66 +1,37 @@
-// The editor's notices (D213's "No badwater" line among them) sit where they cover no control, in
-// every layout: a force's rows, the view buttons, the water bar, the minimap and the rest stay clear
-// and clickable while a notice shows.
+// No notices strip (Kyler, 2026-10-03, amending D213's quiet line): the page never shows a strip under the map,
+// which changed the page's size; the player knows what they did. Removing the map's last badwater spring puts
+// "No badwater" in the quiet dot's list, under Good to know, uncounted.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 
-type Box = { x: number; y: number; width: number; height: number };
-const overlap = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+test("there is no notices strip; with the last badwater spring gone, the quiet dot's list says No badwater", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  await expect(page.locator(".editor-notices")).toHaveCount(0);
+  const map = (await page.locator(".editor-map").boundingBox())!;
 
-/** The visible controls on and round the map that the notices overlap, by a short name. */
-async function covered(page: Page): Promise<string[]> {
-  const notices = (await page.locator(".editor-notices").boundingBox())!;
-  const boxes = await page.evaluate(() => {
-    const sel = ".editor-map button, .editor-map input, .editor-map select, .editor-map .map-bar, .editor-map .minimap, .editor-map .water-bar, .editor-map .readout, .editor-map .compass, .editor-map .layer-legend";
-    return Array.from(document.querySelectorAll<HTMLElement>(sel))
-      .filter((e) => !e.closest(".editor-notices") && e.getClientRects().length && getComputedStyle(e).visibility !== "hidden")
-      .map((e) => {
-        const r = e.getBoundingClientRect();
-        return { name: e.getAttribute("aria-label") || e.className || e.tagName, x: r.x, y: r.y, width: r.width, height: r.height };
-      })
-      .filter((b) => b.width > 0 && b.height > 0);
-  });
-  return boxes.filter((b) => overlap(notices, b)).map((b) => b.name);
-}
+  // every badwater spring away: the map is a No badwater map now
+  await page.keyboard.press("Control+a");
+  const row = page.getByRole("group", { name: "Selection" });
+  await row.getByRole("button", { name: "Delete", exact: true }).click();
+  await page.getByRole("menu", { name: "Delete" }).getByRole("menuitem", { name: /^Badwater sources/ }).click();
+  await idle(page);
+  await page.keyboard.press("Escape");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().badwaterRemoved)).toBe(true);
 
-for (const size of [
-  { name: "wide", width: 1280, height: 720 },
-  { name: "narrow", width: 820, height: 900 },
-]) {
-  test(`notices (${size.name}): the No badwater line (D213) covers no control, with a force's rows open`, async ({ page }) => {
-    await page.setViewportSize({ width: size.width, height: size.height });
-    await page.goto("./#s=4242&z=96&d=n&t=highlands");
-    await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-    await page.getByRole("button", { name: "Refine this map" }).click();
-    await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
-    await page.getByRole("button", { name: "Minimap" }).click();
+  // still no strip, and the map's area kept its size
+  await expect(page.locator(".editor-notices")).toHaveCount(0);
+  expect(await page.locator(".editor-map").boundingBox()).toEqual(map);
 
-    // every source away (the map's badwater springs with them): the map is a No badwater map now
-    await page.keyboard.press("m");
-    await page.keyboard.press("Control+a");
-    const row = page.getByRole("group", { name: "Selection" });
-    for (const name of [/^Water sources/, /^Badwater sources/]) {
-      await row.getByRole("button", { name: "Delete", exact: true }).click();
-      await page.getByRole("menu", { name: "Delete" }).getByRole("menuitem", { name }).click();
-      await idle(page);
-    }
-    await page.keyboard.press("Escape");
-    const notices = page.locator(".editor-notices");
-    await expect(notices).toContainText("No badwater");
-
-    // each force's rows, and the notice beside them, never over them
-    const forces = page.getByRole("group", { name: "Forces" }).getByRole("button");
-    const n = await forces.count();
-    expect(n).toBeGreaterThan(0);
-    for (let k = 0; k < n; k++) {
-      const f = forces.nth(k);
-      const name = (await f.textContent())!.trim();
-      await f.click();
-      await expect(page.getByRole("group", { name: `${name} options` })).toBeVisible();
-      await expect(notices).toBeVisible();
-      expect(await covered(page), name).toEqual([]);
-    }
-  });
-}
+  // the quiet dot's list: "No badwater" under Good to know, and not counted
+  const dot = page.getByRole("button", { name: /^Checks: / });
+  await dot.click();
+  const list = page.getByRole("region", { name: "Checks" });
+  const good = list.locator("section").filter({ has: page.getByRole("heading", { name: "Good to know" }) });
+  await expect(good.getByRole("listitem").filter({ hasText: /^No badwater$/ })).toHaveCount(1);
+  // (the counted sections hold no such line)
+  for (const head of ["This edit made", "Fix these first", "Worth a look"]) await expect(list.locator("section").filter({ has: page.getByRole("heading", { name: head }) }).getByText("No badwater", { exact: true })).toHaveCount(0);
+});

@@ -1,0 +1,462 @@
+[
+  {
+    "theme": "any",
+    "side": 128,
+    "seed": 1,
+    "k": 0,
+    "path": [
+      {
+        "x": 11,
+        "y": 102
+      },
+      {
+        "x": 12,
+        "y": 107
+      }
+    ],
+    "power": 0,
+    "afterReason": null,
+    "crop": [
+      0,
+      82,
+      32
+    ]
+  },
+  {
+    "theme": "any",
+    "side": 128,
+    "seed": 1,
+    "k": 1,
+    "path": [
+      {
+        "x": 76,
+        "y": 67
+      },
+      {
+        "x": 76,
+        "y": 67
+      }
+    ],
+    "power": 35,
+    "afterReason": null,
+    "crop": [
+      59,
+      30,
+      55
+    ]
+  },
+  {
+    "theme": "any",
+    "side": 128,
+    "seed": 1,
+    "k": 2,
+    "path": [
+      {
+        "x": 81,
+        "y": 64
+      },
+      {
+        "x": 81,
+        "y": 64
+      }
+    ],
+    "power": 70,
+    "afterReason": null,
+    "crop": [
+      54,
+      17,
+      73
+    ]
+  },
+  {
+    "theme": "riverValley",
+    "side": 128,
+    "seed": 1,
+    "k": 0,
+    "path": [
+      {
+        "x": 11,
+        "y": 102
+      },
+      {
+        "x": 12,
+        "y": 107
+      }
+    ],
+    "power": 0,
+    "afterReason": null,
+    "crop": [
+      0,
+      86,
+      32
+    ]
+  },
+  {
+    "theme": "riverValley",
+    "side": 128,
+    "seed": 1,
+    "k": 1,
+    "path": [
+      {
+        "x": 76,
+        "y": 67
+      },
+      {
+        "x": 76,
+        "y": 67
+      }
+    ],
+    "power": 35,
+    "afterReason": null,
+    "crop": [
+      27,
+      17,
+      93
+    ]
+  },
+  {
+    "theme": "riverValley",
+    "side": 128,
+    "seed": 1,
+    "k": 2,
+    "path": [
+      {
+        "x": 81,
+        "y": 64
+      },
+      {
+        "x": 81,
+        "y": 64
+      }
+    ],
+    "power": 70,
+    "afterReason": null,
+    "crop": [
+      39,
+      19,
+      60
+    ]
+  },
+  {
+    "theme": "canyon",
+    "side": 128,
+    "seed": 1,
+    "k": 0,
+    "path": [
+      {
+        "x": 11,
+        "y": 102
+      },
+      {
+        "x": 12,
+        "y": 107
+      }
+    ],
+    "power": 0,
+    "afterReason": null,
+    "crop": [
+      4,
+      96,
+      32
+    ]
+  },
+  {
+    "theme": "canyon",
+    "side": 128,
+    "seed": 1,
+    "k": 1,
+    "path": [
+      {
+        "x": 76,
+        "y": 67
+      },
+      {
+        "x": 76,
+        "y": 67
+      }
+    ],
+    "power": 35,
+    "afterReason": null,
+    "crop": [
+      42,
+      41,
+      59
+    ]
+  },
+  {
+    "theme": "canyon",
+    "side": 128,
+    "seed": 1,
+    "k": 2,
+    "path": [
+      {
+        "x": 81,
+        "y": 64
+      },
+      {
+        "x": 81,
+        "y": 64
+      }
+    ],
+    "power": 70,
+    "afterReason": null,
+    "crop": [
+      38,
+      40,
+      63
+    ]
+  },
+  {
+    "theme": "highlands",
+    "side": 128,
+    "seed": 1,
+    "k": 0,
+    "path": [
+      {
+        "x": 11,
+        "y": 102
+      },
+      {
+        "x": 12,
+        "y": 107
+      }
+    ],
+    "power": 0,
+    "afterReason": null,
+    "crop": [
+      0,
+      91,
+      32
+    ]
+  },
+  {
+    "theme": "highlands",
+    "side": 128,
+    "seed": 1,
+    "k": 1,
+    "path": [
+      {
+        "x": 76,
+        "y": 67
+      },
+      {
+        "x": 76,
+        "y": 67
+      }
+    ],
+    "power": 35,
+    "afterReason": null,
+    "crop": [
+      40,
+      32,
+      61
+    ]
+  },
+  {
+    "theme": "highlands",
+    "side": 128,
+    "seed": 1,
+    "k": 2,
+    "path": [
+      {
+        "x": 81,
+        "y": 64
+      },
+      {
+        "x": 81,
+        "y": 64
+      }
+    ],
+    "power": 70,
+    "afterReason": null,
+    "crop": [
+      32,
+      21,
+      77
+    ]
+  },
+  {
+    "theme": "lakeBasin",
+    "side": 128,
+    "seed": 1,
+    "k": 0,
+    "path": [
+      {
+        "x": 11,
+        "y": 102
+      },
+      {
+        "x": 12,
+        "y": 107
+      }
+    ],
+    "power": 0,
+    "afterReason": null,
+    "crop": [
+      0,
+      82,
+      32
+    ]
+  },
+  {
+    "theme": "lakeBasin",
+    "side": 128,
+    "seed": 1,
+    "k": 1,
+    "path": [
+      {
+        "x": 76,
+        "y": 67
+      },
+      {
+        "x": 76,
+        "y": 67
+      }
+    ],
+    "power": 35,
+    "afterReason": null,
+    "crop": [
+      44,
+      34,
+      68
+    ]
+  },
+  {
+    "theme": "lakeBasin",
+    "side": 128,
+    "seed": 1,
+    "k": 2,
+    "path": [
+      {
+        "x": 81,
+        "y": 64
+      },
+      {
+        "x": 81,
+        "y": 64
+      }
+    ],
+    "power": 70,
+    "afterReason": null,
+    "crop": [
+      26,
+      15,
+      102
+    ]
+  },
+  {
+    "theme": "delta",
+    "side": 128,
+    "seed": 1,
+    "k": 0,
+    "path": [
+      {
+        "x": 11,
+        "y": 102
+      },
+      {
+        "x": 12,
+        "y": 107
+      }
+    ],
+    "power": 0,
+    "afterReason": null,
+    "crop": [
+      0,
+      76,
+      34
+    ]
+  },
+  {
+    "theme": "delta",
+    "side": 128,
+    "seed": 1,
+    "k": 1,
+    "path": [
+      {
+        "x": 76,
+        "y": 67
+      },
+      {
+        "x": 76,
+        "y": 67
+      }
+    ],
+    "power": 35,
+    "afterReason": null,
+    "crop": [
+      46,
+      27,
+      51
+    ]
+  },
+  {
+    "theme": "delta",
+    "side": 128,
+    "seed": 1,
+    "k": 2,
+    "path": [
+      {
+        "x": 81,
+        "y": 64
+      },
+      {
+        "x": 81,
+        "y": 64
+      }
+    ],
+    "power": 70,
+    "afterReason": null,
+    "crop": [
+      38,
+      20,
+      67
+    ]
+  },
+  {
+    "theme": "islands",
+    "side": 128,
+    "seed": 1,
+    "k": 0,
+    "path": [
+      {
+        "x": 11,
+        "y": 102
+      },
+      {
+        "x": 12,
+        "y": 107
+      }
+    ],
+    "power": 0,
+    "afterReason": null,
+    "crop": [
+      0,
+      82,
+      32
+    ]
+  },
+  {
+    "theme": "islands",
+    "side": 128,
+    "seed": 1,
+    "k": 1,
+    "path": [
+      {
+        "x": 76,
+        "y": 67
+      },
+      {
+        "x": 76,
+        "y": 67
+      }
+    ],
+    "power": 35,
+    "afterReason": null,
+    "crop": [
+      48,
+      41,
+      60
+    ]
+  }
+]

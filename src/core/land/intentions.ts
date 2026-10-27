@@ -10,9 +10,6 @@
 // large crater where multiple rivers converge" (`crater-rivers`); "I want a cliffside with a
 // waterfall that goes into a large circular lake" (`cliff-falls-lake`).
 //
-// "The only safe water is uphill" (`safe-water-uphill`) left the set: in design version 2's first
-// run it emerged on 4 of 86 draws. Its check stays for the record; it is never drawn.
-//
 // M9b (PLAN §20 D274, settling #66): Kyler's pick of design version 2's candidates joins the set:
 // the oxbow lake, lakes stepping down the valley, the river splitting round a big island, two falls
 // side by side, a long cliff splitting the map, hanging side valleys, two ways to grow, badwater
@@ -25,18 +22,20 @@
 // weighs each intention by its mean over the six themes (D209). The set and its rates are
 // decisions-pending #61's default (D209).
 
+import { fallInView, LANDMARK_LEAST, landmarkInView, levelDoorTurns, prepareOpening, type OpeningLand } from "../analysis/opening";
+import { standingForms } from "../analysis/vertical";
+import type { Orientation } from "../format/footprints";
 import * as portable from "../math/portable";
 import type { Rng } from "../math/rng";
 import { SMALL_MAP, type ThemeId } from "../spec/mapspec";
 import type { Genome } from "./genome";
 import { unit } from "./num";
-import { levelRegions } from "../math/grid";
+import { distanceFrom, levelRegions, N4 } from "../math/grid";
 
 export const INTENTIONS = [
   "under-cliff",
   "landmark",
   "farmland-past-gorge",
-  "safe-water-uphill",
   "falls-shield",
   "hidden-valley",
   "high-lake",
@@ -59,18 +58,17 @@ export const INTENTIONS = [
 ] as const;
 export type IntentionId = (typeof INTENTIONS)[number];
 /** The intentions a map may draw (the set). */
-export const ACTIVE: readonly IntentionId[] = INTENTIONS.filter((id) => id !== "safe-water-uphill");
+export const ACTIVE: readonly IntentionId[] = INTENTIONS;
 /** Kyler's own, in his words. */
 export const KYLERS = new Set<IntentionId>(["under-cliff", "snaking-river", "crater-rivers", "cliff-falls-lake"]);
 /** Intentions the settler steers: the start's place decides them, so they are re-steered once. */
-export const START_SIDE = new Set<IntentionId>(["under-cliff", "long-view", "meeting-waters", "falls-shield", "safe-water-uphill", "two-ways", "badwater-rich"]);
+export const START_SIDE = new Set<IntentionId>(["under-cliff", "long-view", "meeting-waters", "falls-shield", "two-ways", "badwater-rich", "landmark"]);
 
 /** The outcome in a player's words. */
 export const INTENTION_TEXT: Record<IntentionId, string> = {
   "under-cliff": "The start sits under a cliff, with water below.",
-  landmark: "A signature landmark stands out: a spire, a mesa, a peak or a tall waterfall.",
+  landmark: "A signature landmark stands in the colony's view: a spire, a mesa, a peak or a tall waterfall.",
   "farmland-past-gorge": "The best farmland lies past the gorge.",
-  "safe-water-uphill": "The only safe water is uphill: a high lake keeps its water when the river runs low.",
   "falls-shield": "A waterfall shields the start: its cliff stands between the start and the nearest threat.",
   "hidden-valley": "A hidden valley up the cliffs, reached only by stairs, holds riches.",
   "high-lake": "A lake high on the heights spills over a fall.",
@@ -99,7 +97,6 @@ const WEIGHT6: Record<IntentionId, ThemeWeights> = {
   "under-cliff": { riverValley: 1, canyon: 1.5, highlands: 1.5, lakeBasin: 0.8, delta: 0.5, islands: 0.8 },
   landmark: { riverValley: 1, canyon: 1, highlands: 1, lakeBasin: 1, delta: 0.8, islands: 1.2 },
   "farmland-past-gorge": { riverValley: 1, canyon: 1.2, highlands: 0.8, lakeBasin: 0.5, delta: 1, islands: 0.3 },
-  "safe-water-uphill": { riverValley: 0.8, canyon: 0.6, highlands: 1, lakeBasin: 0.8, delta: 0.4, islands: 0.5 },
   "falls-shield": { riverValley: 0.8, canyon: 1, highlands: 1, lakeBasin: 0.5, delta: 0.3, islands: 0.4 },
   "hidden-valley": { riverValley: 0.6, canyon: 1, highlands: 1, lakeBasin: 0.4, delta: 0.3, islands: 0.4 },
   "high-lake": { riverValley: 0.5, canyon: 0.8, highlands: 1.2, lakeBasin: 0.8, delta: 0.3, islands: 0.5 },
@@ -136,7 +133,6 @@ function weightOf(id: IntentionId, theme: ThemeId): number {
 const VERTICAL = new Set<IntentionId>(["under-cliff", "falls-shield", "hidden-valley", "high-lake", "long-view", "snaking-river", "cliff-falls-lake", "twin-falls", "upper-lower", "hanging-valleys", "relic-pinnacle"]);
 /** Pairs that pull the start two ways. */
 const CLASH: [IntentionId, IntentionId][] = [
-  ["safe-water-uphill", "long-view"],
   ["under-cliff", "long-view"],
 ];
 
@@ -159,7 +155,7 @@ export function drawIntentions(theme: ThemeId, vt: number, rng: Rng, size: { W: 
   const out: IntentionId[] = [];
   for (let k = 0; k < n; k++) {
     const w = ACTIVE.map((id) => {
-      if (out.includes(id) || out.some((o) => CLASH.some(([a, b]) => (a === o && b === id) || (b === o && a === id)))) return 0;
+      if (out.includes(id) || out.some((o) => clashes(o, id))) return 0;
       if (size && tooSmallFor(id, size.W, size.H)) return 0;
       if (sea && DRAINS_A_SEA.has(id)) return 0;
       return weightOf(id, theme) * (VERTICAL.has(id) ? 1 + vt / 100 : 1);
@@ -193,7 +189,10 @@ export function nudgeFor(id: IntentionId): (g: Genome, rng: Rng, W: number, H: n
       };
     case "landmark":
       return (g, rng, W, H) => {
-        if (rng.float() < 0.75) part(g, rng, (["cone", "mesa", "caldera", "escarpment"] as const)[rng.int(0, 4)], 1.3);
+        // (D488, D493: a form to stand 8–15 levels over its ring, on every landmark map; the draw
+        // keeps its number, so the rest of the genome keeps its draws)
+        void rng.float();
+        part(g, rng, (["cone", "mesa", "caldera", "escarpment"] as const)[rng.int(0, 4)], 1.5);
         g.cap.share = Math.min(0.75, g.cap.share + 0.1);
         // (a field of mesas now and then: the mesa-field recipe, folded in, D275)
         if (rng.float() < 0.2) {
@@ -205,12 +204,6 @@ export function nudgeFor(id: IntentionId): (g: Genome, rng: Rng, W: number, H: n
       return (g) => {
         g.hydro.incise += 1.5;
         g.hydro.floor += 2;
-      };
-    case "safe-water-uphill":
-      return (g, rng) => {
-        g.hydro.springs += 1;
-        if (g.hazards.badwater === "none" && rng.float() < 0.7) g.hazards.badwater = "pit";
-        if (rng.float() < 0.5) part(g, rng, rng.float() < 0.5 ? "mesa" : "plateau");
       };
     case "falls-shield":
       return (g, rng) => {
@@ -374,9 +367,6 @@ export interface SettlerView {
   /** Distance to a planned confluence, and to a fall of the settled water (1.5+ levels). */
   dJoin: Float64Array;
   dFall: Float64Array;
-  /** Clean water bodies (60+ tiles) with their surface and the share they keep through a 9-day
-   *  drought. */
-  lakes: { tiles: number[]; surface: number; keep9: number }[];
   /** Farmland patches (moist, dry, level within a step; 400+ tiles) and the gorges (wet tiles with
    *  banks 2+ above the water on two sides). */
   farms: { size: number; cx: number; cy: number }[];
@@ -387,6 +377,8 @@ export interface SettlerView {
   /** The land in blocks of `B`×`B` tiles (dry tiles, their farmland and summed height), for two
    *  ways to grow. */
   blocks: { B: number; bw: number; bh: number; n: Float32Array; farm: Float32Array; hs: Float32Array; lowBad: Float32Array };
+  /** The standing forms and falls the opening camera may show (D493), for the landmark in view. */
+  opening?: OpeningLand;
 }
 
 /** A straight line from (x, y) to (px, py) crosses a gorge tile. */
@@ -412,7 +404,6 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
         if (xx >= 0 && yy >= 0 && xx < W && yy < H) f(yy * W + xx);
       }
   };
-  const near = (tiles: number[], r: number) => tiles.some((i) => Math.max(Math.abs((i % W) - x), Math.abs(Math.floor(i / W) - y)) <= r);
   switch (id) {
     case "under-cliff": {
       if (!(walk <= 12)) return 0;
@@ -423,7 +414,7 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
         const xx = i % W;
         const yy = (i - xx) / W;
         if (h[i] >= L && h[i] <= L + 1)
-          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          for (const [dx, dy] of N4) {
             const X = xx + dx;
             const Y = yy + dy;
             if (X >= 0 && Y >= 0 && X < W && Y < H && h[Y * W + X] - h[i] >= 2 && h[Y * W + X] >= L + 2) cliff = true;
@@ -442,8 +433,6 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
       return s.dJoin[y * W + x] <= 18 ? 1 : 0;
     case "falls-shield":
       return s.dFall[y * W + x] <= 18 ? 1 : 0;
-    case "safe-water-uphill":
-      return s.lakes.some((lk) => lk.surface >= L + 1 && lk.keep9 >= 0.5 && near(lk.tiles, 40)) ? 1 : 0;
     case "badwater-rich": {
       // the low land beside badwater within 60 tiles, against the check's 400 (at 128²)
       if (!(s.dBad[y * W + x] <= 60)) return 0;
@@ -489,6 +478,18 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
       }
       return 0;
     }
+    case "landmark": {
+      // a landmark the game's opening camera frames (D493): a standing form 8+ levels over its ring
+      // 25–60 tiles out, or a fall of 6+ levels within 60, for a turn whose door is level
+      if (!s.opening) return 0;
+      let best = 0;
+      for (const t of levelDoorTurns(h, W, H, x, y, L)) {
+        const st = { x, y, z: L, orientation: t.o };
+        const lm = landmarkInView(s.opening, st);
+        best = Math.max(best, lm ? lm.weight : fallInView(s.opening, st, 6) ? 0.7 : 0);
+      }
+      return best;
+    }
     case "farmland-past-gorge":
       return s.farms.some((f) => {
         const d = portable.sqrt((f.cx - x) * (f.cx - x) + (f.cy - y) * (f.cy - y));
@@ -511,7 +512,8 @@ export interface FinalCtx {
   D: ArrayLike<number>;
   C: ArrayLike<number>;
   moist: ArrayLike<number>;
-  start: { x: number; y: number; z: number };
+  /** The start's middle tile and level, and its orientation (the opening camera's turn, D493). */
+  start: { x: number; y: number; z: number; orientation?: Orientation };
   /** Walking distance from the start with the map's slopes (Infinity: not on foot). */
   walk: Float64Array;
   /** The same walk with every Blockage (debris) cleared, as a player would early. */
@@ -532,8 +534,6 @@ export interface FinalCtx {
   arms?: [number, number][][];
 }
 
-const D4: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-
 /** Wet bodies (4-connected water ≥ 0.1 deep): labels and each body's tiles. */
 function bodies(c: FinalCtx): { lab: Int32Array; tiles: number[][] } {
   const { W, H, D } = c;
@@ -549,7 +549,7 @@ function bodies(c: FinalCtx): { lab: Int32Array; tiles: number[][] } {
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -570,13 +570,6 @@ export interface CheckResult {
   /** When it holds: what the map shows, in a player's words, with its own numbers (M9b: the
    *  how-it-plays line says something specific about the standout, D273 (3), D278 (1b)). */
   say?: string;
-}
-
-/** "a" or "an" before a number said aloud (an 8, an 11, an 18, an 80, an 800, an 11,000). */
-function an(n: number): string {
-  const t = String(Math.round(n));
-  if (t.startsWith("8")) return "an";
-  return (t.length === 2 || t.length === 5) && (t.startsWith("11") || t.startsWith("18")) ? "an" : "a";
 }
 
 const levels = (n: number) => `${Math.round(n)} level${Math.round(n) === 1 ? "" : "s"}`;
@@ -667,7 +660,7 @@ function levelLakes(c: FinalCtx, min: number): LevelLake[] {
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -712,7 +705,7 @@ function openWater(L: LevelLake, W: number, H: number): number[] {
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const j = (y + dy) * W + x + dx;
         if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H || lab[j] >= 0 || !core[j]) continue;
         lab[j] = s0;
@@ -736,39 +729,6 @@ const RAYS: [number, number][] = (() => {
   const b = [0, 0.383, 0.707, 0.924, 1, 0.924, 0.707, 0.383, 0, -0.383, -0.707, -0.924, -1, -0.924, -0.707, -0.383];
   return a.map((v, k) => [v, b[k]] as [number, number]);
 })();
-
-/** Chamfer distance to the marked tiles (Infinity where none). */
-function distanceTo(mask: Uint8Array, W: number, H: number): Float64Array {
-  const N = W * H;
-  const d = new Float64Array(N);
-  for (let i = 0; i < N; i++) d[i] = mask[i] ? 0 : Infinity;
-  const R2 = Math.SQRT2;
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      let v = d[i];
-      if (x > 0 && d[i - 1] + 1 < v) v = d[i - 1] + 1;
-      if (y > 0) {
-        if (d[i - W] + 1 < v) v = d[i - W] + 1;
-        if (x > 0 && d[i - W - 1] + R2 < v) v = d[i - W - 1] + R2;
-        if (x < W - 1 && d[i - W + 1] + R2 < v) v = d[i - W + 1] + R2;
-      }
-      d[i] = v;
-    }
-  for (let y = H - 1; y >= 0; y--)
-    for (let x = W - 1; x >= 0; x--) {
-      const i = y * W + x;
-      let v = d[i];
-      if (x < W - 1 && d[i + 1] + 1 < v) v = d[i + 1] + 1;
-      if (y < H - 1) {
-        if (d[i + W] + 1 < v) v = d[i + W] + 1;
-        if (x < W - 1 && d[i + W + 1] + R2 < v) v = d[i + W + 1] + R2;
-        if (x > 0 && d[i + W - 1] + R2 < v) v = d[i + W - 1] + R2;
-      }
-      d[i] = v;
-    }
-  return d;
-}
 
 /** A body's second moments: the ratio of its minor to its major axis (1 round, near 0 long). */
 function shapeOf(tiles: readonly number[], W: number): { axes: number } {
@@ -871,7 +831,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         if (h[i] >= z + 2) high++;
         const x = i % W;
         const y = (i - x) / W;
-        for (const [dx, dy] of D4) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -887,7 +847,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         if (s > z - 0.05 || s < z - 2) continue;
         const x = i % W;
         const y = (i - x) / W;
-        for (const [dx, dy] of D4) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -899,60 +859,20 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       return { ok, note: `${high} tiles 2+ levels above within 7, cliff ${cliff ? "yes" : "no"}, water ${Number.isFinite(water) ? Math.round(water) : "none"} tiles' walk`, ...(ok ? { say: `The start sits under a cliff, its water ${Math.round(water)} tiles' walk below.` } : {}) };
     }
     case "landmark": {
-      // a stack, butte, mesa or peak standing 5+ levels above the ground 6–8 tiles round it, on
-      // at most 600 tiles; or a waterfall of 5+ levels
-      let best = 0;
-      const ring: [number, number][] = [];
-      for (let k = 0; k < 16; k++) {
-        const a = [1, 0.92, 0.71, 0.38, 0, -0.38, -0.71, -0.92, -1, -0.92, -0.71, -0.38, 0, 0.38, 0.71, 0.92][k];
-        const b = [0, 0.38, 0.71, 0.92, 1, 0.92, 0.71, 0.38, 0, -0.38, -0.71, -0.92, -1, -0.92, -0.71, -0.38][k];
-        ring.push([Math.round(7 * a), Math.round(7 * b)]);
-      }
-      const top = new Uint8Array(N);
-      for (let y = 7; y < H - 7; y++)
-        for (let x = 7; x < W - 7; x++) {
-          const i = y * W + x;
-          let lo = 99;
-          for (const [dx, dy] of ring) lo = Math.min(lo, h[(y + dy) * W + x + dx]);
-          const p = h[i] - lo;
-          if (p >= 5) top[i] = 1;
-          if (p > best) best = p;
-        }
-      // the standing forms: connected high tiles on at most 300 tiles; the landmark is the most
-      // prominent one, and it must stand 8+ levels over its ring (or a fall of 6+ levels)
-      let forms = 0;
-      let standout = 0;
-      const seen = new Uint8Array(N);
-      for (let s = 0; s < N; s++) {
-        if (!top[s] || seen[s]) continue;
-        const q = [s];
-        seen[s] = 1;
-        for (let k = 0; k < q.length; k++) {
-          const i = q[k];
-          const x = i % W;
-          const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
-            const j = (y + dy) * W + x + dx;
-            if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H || seen[j] || !top[j]) continue;
-            seen[j] = 1;
-            q.push(j);
-          }
-        }
-        if (q.length <= 300) {
-          forms++;
-          for (const i of q) {
-            const x = i % W;
-            const y = (i - x) / W;
-            let lo = 99;
-            for (const [dx, dy] of ring) lo = Math.min(lo, h[(y + dy) * W + x + dx]);
-            standout = Math.max(standout, h[i] - lo);
-          }
-        }
-      }
-      const fall = c.falls.reduce((m, f) => Math.max(m, f.drop), 0);
-      const ok = standout >= 8 || fall >= 6;
-      void best;
-      return { ok, note: `${forms} standing form${forms === 1 ? "" : "s"} of 300 tiles or fewer (the most prominent ${standout} levels over its ring), tallest fall ${Math.round(fall * 10) / 10}`, ...(ok ? { say: standout >= fall ? `A lone height stands ${levels(standout)} over the land round it.` : `A waterfall drops ${levels(fall)}.` } : {}) };
+      // in the colony's view (D488, D493): a stack, butte, mesa or peak standing 8+ levels over the
+      // ground 7 tiles round it (a standing form: 5+ levels over its ring, joined, on at most 300
+      // tiles), 25–60 tiles from the start, or a waterfall of 6+ levels within 60, inside the game's
+      // opening frame (analysis/opening.ts)
+      const forms = standingForms(h, W, H);
+      const land = prepareOpening(h, W, H, D, c.falls, forms);
+      const st = { x: sx, y: sy, z, orientation: start.orientation ?? "Cw0" };
+      const lm = landmarkInView(land, st);
+      const fall = lm ? null : fallInView(land, st, 6);
+      const standout = forms.reduce((m, f) => Math.max(m, f.prominence), 0);
+      const tallest = c.falls.reduce((m, f) => Math.max(m, f.drop), 0);
+      const ok = !!lm || !!fall;
+      const seen = lm ? `in view, ${lm.stand} levels over its ring ${lm.dist} tiles out` : fall ? `a fall of ${Math.round(fall.drop * 10) / 10} in view` : "none in view";
+      return { ok, note: `${forms.length} standing form${forms.length === 1 ? "" : "s"} of 300 tiles or fewer (the most prominent ${standout} levels over its ring, ${forms.filter((f) => f.prominence >= LANDMARK_LEAST).length} of ${LANDMARK_LEAST}+), tallest fall ${Math.round(tallest * 10) / 10}; ${seen}`, ...(ok ? { say: lm ? `A lone height stands ${levels(lm.stand)} over the land round it, in view of the start.` : `A waterfall drops ${levels(fall!.drop)} in view of the start.` } : {}) };
     }
     case "farmland-past-gorge": {
       // farmland: moist, dry, level land; the start's own within 20 tiles' walk, and the largest
@@ -977,7 +897,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const y = (i - x) / W;
           cx += x;
           cy += y;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1008,7 +928,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           if (!(D[i] >= 0.1)) continue;
           const s = h[i] + D[i];
           let sides = 0;
-          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          for (const [dx, dy] of N4) {
             for (let r = 1; r <= 3; r++) {
               const xx = x + dx * r;
               const yy = y + dy * r;
@@ -1023,49 +943,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
         if (gorge && sizes[k] >= 1.5 * Math.max(200, own) && (best < 0 || sizes[k] > sizes[best])) best = k;
       }
-      return { ok: best >= 0, note: best >= 0 ? `${sizes[best]} tiles of farmland past a gorge, against ${own} by the start` : `no larger farmland past a gorge (${own} by the start)`, ...(best >= 0 ? { say: `The best farmland, ${sizes[best]} tiles of it, lies past the gorge; ${own} by the start.` } : {}) };
-    }
-    case "safe-water-uphill": {
-      const b = bodies(c);
-      let startBody = -1;
-      let bestD = Infinity;
-      for (let i = 0; i < N; i++) {
-        if (b.lab[i] < 0 || !(C[i] < 0.05)) continue;
-        const s = h[i] + D[i];
-        if (s > z - 0.05 || s < z - 2) continue;
-        const d = eu(i);
-        if (d < bestD) {
-          bestD = d;
-          startBody = b.lab[i];
-        }
-      }
-      const keep = (id: number) => {
-        let v = 0;
-        let k = 0;
-        for (const i of b.tiles[id]) {
-          v += D[i];
-          k += c.kept9[i];
-        }
-        return v > 0 ? k / v : 0;
-      };
-      const startKeep = startBody >= 0 ? keep(startBody) : 0;
-      let high = -1;
-      for (let id = 0; id < b.tiles.length; id++) {
-        if (id === startBody || b.tiles[id].length < 60) continue;
-        const t = b.tiles[id];
-        let surf = 0;
-        let near = false;
-        let bad = false;
-        for (const i of t) {
-          surf = Math.max(surf, h[i] + D[i]);
-          if (eu(i) <= 40) near = true;
-          if (C[i] >= 0.05) bad = true;
-        }
-        if (!near || bad || surf < z + 1) continue;
-        if (keep(id) >= 0.5) high = id;
-      }
-      const ok = high >= 0 && startKeep < 0.35;
-      return { ok, note: `start's water keeps ${Math.round(startKeep * 100)}% through a 9-day drought; ${high >= 0 ? `a lake uphill keeps ${Math.round(keep(high) * 100)}%` : "no lake uphill keeps half"}` };
+      return { ok: best >= 0, note: best >= 0 ? `${sizes[best]} tiles of farmland past a gorge, against ${own} by the start` : `no larger farmland past a gorge (${own} by the start)`, ...(best >= 0 ? { say: `The best farmland lies past the gorge, ${sizes[best] >= 2 * own ? "more than twice what the start has" : "more than the start has"}.` } : {}) };
     }
     case "falls-shield": {
       const near = c.falls.filter((f) => eu(f.i) <= 20 && f.drop >= 1.5);
@@ -1109,7 +987,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const i = q0[k];
           const x = i % W;
           const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1137,7 +1015,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           if (riches[i]) rich++;
           const x = i % W;
           const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1152,7 +1030,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           bestSize = Math.max(bestSize, q.length);
         }
       }
-      return { ok: found > 0, note: found ? `${found} upland${found > 1 ? "s" : ""} cut off by cliffs, reached only by stairs, with riches (largest ${bestSize} tiles)` : "no upland cut off by cliffs with riches within 60 tiles", ...(found ? { say: `${an(bestSize) === "an" ? "An" : "A"} ${bestSize}-tile valley up the cliffs, reached only by stairs, holds riches.` } : {}) };
+      return { ok: found > 0, note: found ? `${found} upland${found > 1 ? "s" : ""} cut off by cliffs, reached only by stairs, with riches (largest ${bestSize} tiles)` : "no upland cut off by cliffs with riches within 60 tiles", ...(found ? { say: "A hidden valley up the cliffs, reached only by stairs, holds riches." } : {}) };
     }
     case "high-lake": {
       const b = bodies(c);
@@ -1372,7 +1250,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           if (L.inLake[f.i]) continue;
           const x = f.i % W;
           const y = (f.i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1400,7 +1278,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       // one body of water, so the lake is what stands apart from the channel)
       const onCourse = new Uint8Array(N);
       for (const path of [...c.rivers, ...(c.arms ?? [])]) for (const [x, y] of resample(path, W, H)) onCourse[Math.round(y) * W + Math.round(x)] = 1;
-      const near = distanceTo(onCourse, W, H);
+      const near = distanceFrom(onCourse, W, H);
       const off = new Uint8Array(N);
       for (let i = 0; i < N; i++) off[i] = D[i] >= 0.3 && near[i] >= 3 ? 1 : 0;
       const seenO = new Uint8Array(N);
@@ -1412,7 +1290,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const i = q[k];
           const x = i % W;
           const y = (i - x) / W;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1484,7 +1362,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           const x = i % W;
           const y = (i - x) / W;
           if (x === 0 || y === 0 || x === W - 1 || y === H - 1) edge = true;
-          for (const [dx, dy] of D4) {
+          for (const [dx, dy] of N4) {
             const xx = x + dx;
             const yy = y + dy;
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1498,7 +1376,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
             }
           }
         }
-        if (!edge && q.length >= (150 * N) / 16384 && ring > 0 && ringLake < 0.5 * ring) return { ok: true, note: `a ${q.length}-tile island between the river's two arms`, say: `The river splits round ${an(q.length)} ${q.length}-tile island and joins again below it.` };
+        if (!edge && q.length >= (150 * N) / 16384 && ring > 0 && ringLake < 0.5 * ring) return { ok: true, note: `a ${q.length}-tile island between the river's two arms`, say: "The river splits round a big island and joins again below it." };
       }
       return { ok: false, note: "no island of 150+ tiles in a river" };
     }
@@ -1536,7 +1414,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       for (let i = 0; i < N; i++) {
         const x = i % W;
         const y = (i - x) / W;
-        for (const [dx, dy] of D4) {
+        for (const [dx, dy] of N4) {
           const xx = x + dx;
           const yy = y + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -1651,7 +1529,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       // start's own water clean
       const bad = new Uint8Array(N);
       for (let i = 0; i < N; i++) if (D[i] >= 0.05 && C[i] >= 0.05 && eu(i) <= 60) bad[i] = 1;
-      const dist = distanceTo(bad, W, H);
+      const dist = distanceFrom(bad, W, H);
       let surf = 0;
       let n = 0;
       for (let i = 0; i < N; i++)
@@ -1667,7 +1545,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       let clean = false;
       for (let i = 0; i < N && !clean; i++) if (D[i] >= 0.3 && C[i] < 0.05 && c.walk[i] <= 22) clean = true;
       const want = (400 * N) / 16384;
-      return { ok: land >= want && clean, note: `${land} tiles of low land beside badwater within 60 tiles${clean ? "; the start's water clean" : "; no clean water by the start"}`, ...(land >= want && clean ? { say: `Badwater runs through ${land} tiles of moist low land near the start: tame it and the land is yours.` } : {}) };
+      return { ok: land >= want && clean, note: `${land} tiles of low land beside badwater within 60 tiles${clean ? "; the start's water clean" : "; no clean water by the start"}`, ...(land >= want && clean ? { say: "Badwater runs through moist low land near the start: tame it and the land is yours." } : {}) };
     }
     case "relic-pinnacle": {
       // a medium or large relic within 60 tiles on dry land no one walks to from the start
@@ -1699,7 +1577,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           let held = 0;
           for (const i of L.tiles) held += Math.max(0, L.surf - Math.max(h[i], base));
           const clear = z >= L.surf || portable.sqrt((o.x - sx) * (o.x - sx) + (o.y - sy) * (o.y - sy)) > 25;
-          if (held >= (500 * N) / 16384 && clear) return { ok: true, note: `a plug holds back a ${L.tiles.length}-tile lake, about ${Math.round(held)} tiles of water`, say: `A plug holds back ${an(L.tiles.length)} ${L.tiles.length}-tile lake: open it when you are ready.` };
+          if (held >= (500 * N) / 16384 && clear) return { ok: true, note: `a plug holds back a ${L.tiles.length}-tile lake, about ${Math.round(held)} tiles of water`, say: "A plug holds back a lake: open it when you are ready." };
         }
       }
       return { ok: false, note: "no plug holding back a lake" };
@@ -1721,7 +1599,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         regions.set(lab[i], r);
       }
       for (const r of regions.values())
-        if (r.n >= want && r.near >= 35 && r.near <= 70) return { ok: true, note: `${r.n} tiles of level land ${Math.round(r.near)} tiles out, behind debris`, say: `A second district site ${Math.round(r.near)} tiles out, ${r.n} tiles of level land, waits behind debris: clear it early and the land is yours.` };
+        if (r.n >= want && r.near >= 35 && r.near <= 70) return { ok: true, note: `${r.n} tiles of level land ${Math.round(r.near)} tiles out, behind debris`, say: `A wide, level second district site ${Math.round(r.near)} tiles out waits behind debris: clear it early and the land is yours.` };
       return { ok: false, note: "no site close to the start behind debris" };
     }
     case "long-view": {

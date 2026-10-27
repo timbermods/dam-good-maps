@@ -4,17 +4,24 @@
 //! Model: `w u32, h u32, hasDam u32, floor f64[n], dam f64[n] if hasDam, emitters u32`, then per emitter
 //! `cells u32, cell u32[cells], strength f64, contamination f64, hasLimit u32, anchor u32, off f64, on f64`.
 //!
-//! - A simulation (`water_new`): `"DGMS" u32, model, hasStart u32, depth f64[n], contamination f64[n]`.
-//! - A canonical settle job (`water_canonical`, the native batch binary): `"DGMC" u32, model, lakes u32`, per
+//! Rules: `game u32, edgeSpill u32` (water.ts `WaterSimOptions`, resolved).
+//!
+//! - A simulation (`water_new`): `"DGMS" u32, model, rules, hasStart u32, depth f64[n], contamination f64[n]`.
+//! - A strip of a larger map (`water_strip`, the multi-core water): `"DGMT" u32, model, rules, depth f64[n],
+//!   contamination f64[n], y0 u32, mapHeight u32, count u32[emitters]`: the model holds the strip's rows only
+//!   (`n` its tiles), the map's rows `y0..` of `mapHeight`, and each emitter its cells on them, `count` being the
+//!   whole emitter's tile count; a seep's anchor is a tile of the strip.
+//! - A canonical settle job (`water_canonical`, the native batch binary): `"DGMC" u32, model, rules, lakes u32`, per
 //!   lake `tiles u32, tile u32[tiles]`, then `drained u32, tile u32[drained], depth f64[n],
 //!   contamination f64[n]` (the pre-fill's water). Its result: `settled u32, ticks f64, hasSteady u32,
 //!   steadyTicks f64, depth f64[n], contamination f64[n], out f64[4n], sat u8[n]`.
 
 use crate::settle::{CanonicalRun, Stored};
-use crate::sim::{Emitter, Model, Sim};
+use crate::sim::{Emitter, Model, Rules, Sim};
 
 pub const SIM_MAGIC: u32 = 0x534d_4744; // "DGMS"
 pub const CANONICAL_MAGIC: u32 = 0x434d_4744; // "DGMC"
+pub const STRIP_MAGIC: u32 = 0x544d_4744; // "DGMT"
 
 pub struct Reader<'a> {
     b: &'a [u8],
@@ -72,16 +79,41 @@ fn read_model(r: &mut Reader) -> Model {
     Model { w, h, floor, dam, emitters }
 }
 
+fn read_rules(r: &mut Reader) -> Rules {
+    let game = r.u32() != 0;
+    let edge_spill = r.u32() != 0;
+    Rules { game, edge_spill }
+}
+
 /// A simulation (`water_new`).
 pub fn decode_sim(bytes: &[u8]) -> Sim {
     let mut r = Reader::new(bytes);
     assert_eq!(r.u32(), SIM_MAGIC, "not a simulation");
     let model = read_model(&mut r);
+    let rules = read_rules(&mut r);
     let n = model.w * model.h;
     let has_start = r.u32() != 0;
     let (depth, contamination) = if has_start { (Some(r.f64s(n)), Some(r.f64s(n))) } else { (None, None) };
     assert!(r.done(), "trailing bytes");
-    Sim::new(model, depth.as_deref(), contamination.as_deref())
+    Sim::new(model, depth.as_deref(), contamination.as_deref(), rules)
+}
+
+/// A strip of a larger map (`water_strip`).
+pub fn decode_strip(bytes: &[u8]) -> Sim {
+    let mut r = Reader::new(bytes);
+    assert_eq!(r.u32(), STRIP_MAGIC, "not a strip");
+    let model = read_model(&mut r);
+    let rules = read_rules(&mut r);
+    let n = model.w * model.h;
+    let depth = r.f64s(n);
+    let contamination = r.f64s(n);
+    let y0 = r.u32() as usize;
+    let gh = r.u32() as usize;
+    assert!(y0 + model.h <= gh, "a strip off the map");
+    let counts: Vec<usize> = (0..model.emitters.len()).map(|_| r.u32() as usize).collect();
+    assert!(model.emitters.iter().zip(&counts).all(|(e, &c)| e.cells.len() <= c), "an emitter with more cells than its count");
+    assert!(r.done(), "trailing bytes");
+    Sim::new_strip(model, &depth, &contamination, rules, y0, gh, &counts)
 }
 
 /// A canonical settle job, run to the end, and its encoded result.
@@ -89,6 +121,7 @@ pub fn canonical_job(bytes: &[u8]) -> Vec<u8> {
     let mut r = Reader::new(bytes);
     assert_eq!(r.u32(), CANONICAL_MAGIC, "not a canonical settle job");
     let model = read_model(&mut r);
+    let rules = read_rules(&mut r);
     let n = model.w * model.h;
     let lakes = r.u32() as usize;
     let mut retained = Vec::with_capacity(lakes);
@@ -104,7 +137,7 @@ pub fn canonical_job(bytes: &[u8]) -> Vec<u8> {
     let depth = r.f64s(n);
     let contamination = r.f64s(n);
     assert!(r.done(), "trailing bytes");
-    let mut run = CanonicalRun::new(model, Stored { retained, drained }, depth, contamination);
+    let mut run = CanonicalRun::new(model, Stored { retained, drained }, depth, contamination, rules);
     while !run.advance(u64::MAX) {}
     let done = run.done.expect("finished");
     let mut out = Vec::with_capacity(24 + n * (8 * 7 + 1));

@@ -25,6 +25,8 @@ export interface BrushCursorState {
   square?: boolean;
   /** The ring pulses once. */
   pulse?: boolean;
+  /** The Select tool's ring: it lies on the run the pointer aims at (a cave's floor); the editing tools' cursors lie on the tile's top, where their stroke changes the ground. */
+  run?: boolean;
   /** Sources: Clear is on (D249, D322): a small red mark on the ring, so it's never on unnoticed. */
   mark?: boolean;
 }
@@ -93,10 +95,31 @@ export class BrushCursor {
     const pos = this.pos;
     const col = this.col;
     let q = 0;
-    const quad = (x0: number, z0: number, x1: number, z1: number, y: number, a: number, c: [number, number, number] = [cr, cg, cb]) => {
+    // (written straight into the buffers: a big brush lays a few thousand quads each time it moves)
+    const quad = (x0: number, z0: number, x1: number, z1: number, y: number, a: number, c: readonly [number, number, number] | null = null) => {
       if (q >= MAX_QUADS) return;
-      pos.set([x0, y, -z0, x1, y, -z0, x1, y, -z1, x0, y, -z1], q * 12);
-      for (let v = 0; v < 4; v++) col.set([c[0], c[1], c[2], a], q * 16 + v * 4);
+      const p = q * 12;
+      pos[p] = x0;
+      pos[p + 1] = y;
+      pos[p + 2] = -z0;
+      pos[p + 3] = x1;
+      pos[p + 4] = y;
+      pos[p + 5] = -z0;
+      pos[p + 6] = x1;
+      pos[p + 7] = y;
+      pos[p + 8] = -z1;
+      pos[p + 9] = x0;
+      pos[p + 10] = y;
+      pos[p + 11] = -z1;
+      const r = c ? c[0] : cr;
+      const g = c ? c[1] : cg;
+      const b = c ? c[2] : cb;
+      for (let o = q * 16, end = o + 16; o < end; o += 4) {
+        col[o] = r;
+        col[o + 1] = g;
+        col[o + 2] = b;
+        col[o + 3] = a;
+      }
       q++;
     };
     const tx0 = Math.max(0, Math.floor(s.x - r));
@@ -154,8 +177,13 @@ export class BrushCursor {
       quad(px - m, py - m, px + m, py + m, h, 1, MARK);
     }
     this.geo.setDrawRange(0, q * 6);
-    (this.geo.getAttribute("position") as BufferAttribute).needsUpdate = true;
-    (this.geo.getAttribute("color") as BufferAttribute).needsUpdate = true;
+    // (only the quads laid this time go to the GPU)
+    for (const [name, per] of [["position", 12], ["color", 16]] as const) {
+      const attr = this.geo.getAttribute(name) as BufferAttribute;
+      attr.clearUpdateRanges();
+      attr.addUpdateRange(0, Math.max(1, q) * per);
+      attr.needsUpdate = true;
+    }
     this.mesh.visible = q > 0;
     // a target: the level it works to, as a plane over the brush
     if (s.level !== null) {
@@ -174,6 +202,9 @@ export class BrushCursor {
     (this.plane.material as MeshBasicMaterial).dispose();
   }
 }
+
+/** The ring's amber while the plants painted inside it would die (D235): the drought line's amber, brighter. */
+const WARN_RING: readonly number[] = [1.0, 0.72, 0.15];
 
 /** Most dashes a force's ring takes (a crater's, 90 tiles round at most). */
 const RING_DASHES = 720;
@@ -208,8 +239,8 @@ export class ForceRing {
 
   /** Show the ring round (x, y), `r` tiles across its radius, each dash at `level(tx, ty)` (the water's
    *  surface where there is water, else the ground), or, with `marker`, only the small dot at (x, y);
-   *  null hides it. */
-  set(s: { x: number; y: number; r: number; marker?: boolean } | null, level: (tx: number, ty: number) => number, W: number, H: number): void {
+   *  `warn` draws the ring amber (the plants painted inside it would die, D235); null hides it. */
+  set(s: { x: number; y: number; r: number; marker?: boolean; warn?: boolean } | null, level: (tx: number, ty: number) => number, W: number, H: number): void {
     if (!s) {
       this.mesh.visible = false;
       return;
@@ -252,7 +283,7 @@ export class ForceRing {
         if (tx < 0 || ty < 0 || tx >= W || ty >= H) continue;
         const h = level(tx, ty) + 0.06;
         if (pass === 0) quad(px, py, h - 0.005, o, 0.7, edge);
-        else quad(px, py, h, w, 0.82, [1, 1, 1]);
+        else quad(px, py, h, w, 0.82, s.warn ? WARN_RING : [1, 1, 1]);
       }
     this.geo.setDrawRange(0, q * 6);
     (this.geo.getAttribute("position") as BufferAttribute).needsUpdate = true;

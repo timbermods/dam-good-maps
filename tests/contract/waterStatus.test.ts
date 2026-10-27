@@ -13,7 +13,6 @@ const W = 96;
 
 async function fresh() {
   await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: W, y: W } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
 }
 

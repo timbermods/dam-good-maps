@@ -5,10 +5,18 @@
 // shared buttons and bars (D176).
 
 import type { ComponentChildren } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../worker/session";
+import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
+import { useMenuPresence } from "../ui/menuPresence";
+import { cleanMapName } from "../core/doc/document";
+import type { Role } from "../core/collab";
+import { openTogether } from "./collab/togetherOpen";
+import { fitsHeaderTwoLines, limitName, linesIn } from "./nameFit";
+import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
+import { GENERATOR_VERSION } from "../core/spec/mapspec";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
@@ -18,17 +26,30 @@ export interface ChecksState {
   instant: CheckItem[];
   busy: boolean;
   progress: CheckProgress | null;
-  flowing: number | null;
+  /** The water is playing into place after an edit. */
+  flowing: boolean;
+  /** An opened file's import flags, each with its fix: counted with the problems (Kyler, 2026-10-03). */
+  flags?: readonly ImportFlag[];
+  /** The player removed the map's last badwater spring (D213): "No badwater" under Good to know, not counted. */
+  badwaterRemoved?: boolean;
 }
 
 /** The dot's tone and words: checking, ready to play, or things to look at. */
 export function dotOf(c: ChecksState): { tone: "wait" | "ok" | "warn"; words: string; count: number } {
-  const count = c.instant.length + (c.check ? c.check.blocking.length + c.check.warnings.length : 0);
-  if (c.instant.length) return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
-  if (!c.check || c.busy) return { tone: "wait", words: c.flowing !== null ? "Checking, as the water flows" : c.progress?.stage === "water" ? "Settling the water" : "Checking the map", count };
+  const flags = c.flags?.length ?? 0;
+  const count = c.instant.length + flags + (c.check ? c.check.blocking.length + c.check.warnings.length : 0);
+  // (work in flight shows before the problems do, the count badge kept: an edit or a stroke always shows a sign of work)
+  if (c.busy) return { tone: "wait", words: c.progress?.stage === "water" ? "Settling…" : "Checking the map", count };
+  if (c.instant.length || flags) return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
+  // (the water playing into place after an edit, or settled for the checks: one status, Kyler, 2026-10-04)
+  if (c.flowing || ((!c.check || c.busy) && c.progress?.stage === "water")) return { tone: "wait", words: "Settling…", count };
+  if (!c.check || c.busy) return { tone: "wait", words: "Checking the map", count };
   if (!count) return { tone: "ok", words: "Ready to play", count };
   return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
 }
+
+/** The pill's widest words, laid under its own unseen so it keeps their width in every state. */
+const DOT_WIDEST = ["Checking the map", "88 things to look at"];
 
 /** The quiet dot, and its list under it while it is open. */
 export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boolean): void; actions: ItemActions }) {
@@ -50,9 +71,22 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
   const c = p.check;
   return (
     <span class="checks-dot-wrap" ref={wrap}>
-      <button type="button" class={`checks-dot ${d.tone}`} aria-expanded={p.open} aria-label={`Checks: ${d.words}`} title={d.words} onClick={() => p.onToggle(!p.open)}>
+      <button type="button" class={`checks-dot ${d.tone}`} aria-expanded={p.open} aria-label={`Checks: ${d.words}`} {...tip("What to fix before playing")} onClick={() => p.onToggle(!p.open)}>
         <span class="dot" aria-hidden="true" />
-        {d.count ? <span class="dot-count">{d.count}</span> : null}
+        {d.count ? (
+          <span class="dot-count" aria-hidden="true">
+            {d.count}
+          </span>
+        ) : null}
+        {/* (one width whatever it says, its widest state's: the header's right side never changes width, Kyler 2026-10-05) */}
+        <span class="dot-words">
+          <span>{d.words}</span>
+          {DOT_WIDEST.map((w) => (
+            <span key={w} class="dot-sizer" aria-hidden="true">
+              {w}
+            </span>
+          ))}
+        </span>
       </button>
       {p.open ? (
         <div class="checks-list" role="region" aria-label="Checks">
@@ -66,28 +100,42 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
           {c?.blocking.length ? (
             <section class="bad">
               <h3>Fix these first</h3>
-              <p class="note">The map can't be saved until they are fixed.</p>
               <Items items={c.blocking} actions={p.actions} />
             </section>
           ) : null}
-          {c?.warnings.length ? (
+          {c?.warnings.length || p.flags?.length ? (
             <section class="warn">
               <h3>Worth a look</h3>
-              <p class="note">Saving notes them in the map's description.</p>
-              <Items items={c.warnings} actions={p.actions} />
+              {p.flags?.length ? (
+                <ul>
+                  {p.flags.map((f) => (
+                    <li key={f.id}>
+                      {f.message}{" "}
+                      <button type="button" class="linkish" {...tip(f.fix.label, "Ctrl+Z undoes it")} onClick={() => p.actions.onFix([f.fix])}>
+                        {f.fix.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {c?.warnings.length ? <Items items={c.warnings} actions={p.actions} /> : null}
             </section>
           ) : null}
-          {c && !c.blocking.length && !c.warnings.length && !p.instant.length ? <p class="ok-line">All {c.checks} checks pass.</p> : null}
-          {c?.advisory.length ? (
+          {c && !c.blocking.length && !c.warnings.length && !p.instant.length && !p.flags?.length ? <p class="ok-line">All {c.checks} checks pass.</p> : null}
+          {c?.advisory.length || p.badwaterRemoved ? (
             <section>
               <h3>Good to know</h3>
-              <Items items={c.advisory} actions={p.actions} />
+              {p.badwaterRemoved ? (
+                <ul>
+                  <li>No badwater</li>
+                </ul>
+              ) : null}
+              {c?.advisory.length ? <Items items={c.advisory} actions={p.actions} /> : null}
             </section>
           ) : null}
           {c?.existing.length ? (
             <section>
               <h3>In the map when you opened it</h3>
-              <p class="note">These stay as they were, and never stop a save.</p>
               <Items items={c.existing} />
             </section>
           ) : null}
@@ -98,8 +146,220 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
   );
 }
 
+/** The map's name, renamed in place (Kyler, 2026-10-03): a click edits it at exactly the same place, size and font,
+ *  so nothing moves; Enter or leaving the field saves through the core (never an undo step, D443), Esc cancels; a
+ *  blank name is refused in the core's own words. */
+function TitleName(p: {
+  name: string;
+  /** The description the player wrote ("" when none: the generated one is used). */
+  described: string;
+  /** What follows the description in the file whatever is written (a real place's credits, a note): shown, not edited. */
+  kept: string | null;
+  clipped: boolean;
+  onShown(): void;
+  onRename(name: string): Promise<string | null>;
+  onDescribe(text: string): Promise<string | null>;
+  onProblem(problem: string | null): void;
+  /** Why the name can't be changed here (a guest's: the host names the shared map), when it can't. */
+  locked?: string;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  /** The name just saved, shown until the core's answer brings it as `p.name`: the core runs in a worker that may be busy,
+   *  and the title never waits for it. */
+  const [pending, setPending] = useState<string | null>(null);
+  /** The description being written beside the name (a second line under it while the name is edited), and what it was. */
+  const [desc, setDesc] = useState("");
+  const [descProblem, setDescProblem] = useState<string | null>(null);
+  const was = useRef("");
+  const card = useRef<HTMLDivElement>(null);
+  // (the card hangs 6px under the header bar's bottom edge, whatever height the title is: it never lies over the bar's buttons)
+  useLayoutEffect(() => {
+    const el = card.current;
+    const title = el?.parentElement;
+    const bar = title?.closest(".editor-bar");
+    if (el && title && bar) el.style.top = `${bar.getBoundingClientRect().bottom - title.getBoundingClientRect().top + 6}px`;
+  });
+  const input = useRef<HTMLInputElement>(null);
+  const open = (name: string) => {
+    was.current = p.described;
+    setDesc(p.described);
+    setDescProblem(null);
+    setText(name);
+  };
+  const timer = useRef(0);
+  // (focus is taken in the same task as the click that opens the field, so no key typed straight after it is lost)
+  useLayoutEffect(() => {
+    closing.current = false;
+    if (text !== null) {
+      input.current?.focus();
+      input.current?.select();
+    }
+  }, [text !== null]);
+  // (clipping is measured only while the name is shown, not while its field is open: measure again once it is back)
+  useLayoutEffect(() => {
+    if (text === null) p.onShown();
+  }, [text === null]);
+  const say = (problem: string | null, forAWhile = false) => {
+    clearTimeout(timer.current);
+    p.onProblem(problem);
+    if (problem && forAWhile) timer.current = window.setTimeout(() => p.onProblem(null), 3000);
+  };
+  /** (a save under way, or the field closed: the blur of the closing field saves nothing again) */
+  const closing = useRef(false);
+  const save = async (leaving: boolean) => {
+    if (text === null || closing.current) return;
+    closing.current = true;
+    try {
+      await saveText(text, leaving);
+    } finally {
+      closing.current = false;
+    }
+  };
+  /** The latest save that sent a rename: only its answer clears the pending name, so an earlier answer never shows a name
+   *  the player has since replaced. */
+  const latest = useRef(0);
+  const saveText = async (text: string, leaving: boolean) => {
+    // (the name and the description are saved apart: each is refused in the core's own words)
+    // (against the name the title shows: a name typed back while a rename is still on its way is a change too)
+    const changed = text.trim() !== (pending ?? p.name);
+    // a name the core will refuse (a blank one) is refused here at once, in the core's own words
+    const clean = cleanMapName(text);
+    const nameProblem = changed && !clean.ok ? clean.reason : null;
+    // the rename goes to the core now and is never waited for by the title: the core runs in a worker that may be busy
+    const mine = changed && clean.ok ? ++latest.current : 0;
+    const sent = mine ? p.onRename(text) : null;
+    const answered = async () => {
+      let problem: string | null = null;
+      try {
+        problem = await sent;
+      } finally {
+        if (latest.current === mine) setPending(null);
+      }
+      if (problem) say(problem, true);
+    };
+    let said: string | null = null;
+    if (desc !== was.current) {
+      said = await p.onDescribe(desc);
+      if (!said) was.current = desc;
+    }
+    setDescProblem(said);
+    // a description the core refused is never thrown away: the card stays open with its text and the core's reason, even
+    // when focus has left the title (D342: refused with a one-line reason, never silently)
+    if (said) {
+      if (sent) void answered();
+      return say(nameProblem, false);
+    }
+    // refused: Enter keeps the fields open with the core's words; leaving puts the name back and says why
+    if (nameProblem) {
+      if (leaving) setText(null);
+      return say(nameProblem, leaving);
+    }
+    // the name is stored data the core accepts: the field gives way to the title now, which shows it and fits it in the
+    // same frame (the title once stayed a field, drawn for what was typed, for as long as the worker took to answer)
+    if (clean.ok && sent) setPending(clean.name);
+    setText(null);
+    say(null);
+    if (sent) void answered();
+  };
+  if (text === null)
+    return (
+      <h1>
+        <button type="button" class={`title-button${p.locked ? " locked" : ""}`} title={p.locked ?? (p.clipped ? (pending ?? p.name) : "Rename and describe the map")} aria-disabled={p.locked ? true : undefined} onClick={() => (p.locked ? undefined : open(pending ?? p.name))}>
+          {pending ?? p.name}
+        </button>
+      </h1>
+    );
+  // (focus moving between the name and the description stays inside the title: nothing is saved until it leaves)
+  const inside = (e: FocusEvent) => !!(e.relatedTarget as Element | null)?.closest?.(".editor-title");
+  // the name's own box stays (its text hidden, following what is typed), and the field lies exactly over it
+  return (
+    <>
+    <h1 class="title-editing">
+      <span class="title-wrap">
+      <span class="title-button" aria-hidden="true">
+        {text || " "}
+      </span>
+      <input
+          ref={input}
+          value={text}
+          maxLength={80}
+          spellcheck={false}
+          autoComplete="off"
+          aria-label="Map name"
+          title="Rename"
+          size={1}
+          onInput={(e) => setText(limitName(e.target as HTMLInputElement, text, fitsHeaderTwoLines))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void save(false);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              e.stopPropagation();
+              closing.current = true;
+              setText(null);
+              say(null);
+            }
+          }}
+          onBlur={(e) => !inside(e) && void save(true)}
+        />
+      </span>
+    </h1>
+    {/* the map's own description, a second line under the name (short, plain placeholder): the text the game shows with the map */}
+    <div class="title-desc" ref={card} tabIndex={-1} onBlur={(e) => !inside(e) && void save(true)}>
+      <textarea
+        rows={2}
+        value={desc}
+        spellcheck={true}
+        autoComplete="off"
+        aria-label="Map description"
+        placeholder="Describe the map"
+        {...tip("The description the game shows with the map")}
+        class={descProblem ? "refused" : undefined}
+        onInput={(e) => {
+          setDesc((e.target as HTMLTextAreaElement).value);
+          setDescProblem(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            void save(false);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            closing.current = true;
+            setText(null);
+            say(null);
+          }
+        }}
+        onBlur={(e) => !inside(e) && void save(true)}
+      />
+      {p.kept ? (
+        <span class="title-desc-kept" {...tip("Added after the description")}>
+          {p.kept}
+        </span>
+      ) : null}
+      {descProblem ? (
+        <span class="title-desc-problem" role="alert">
+          {descProblem}
+        </span>
+      ) : null}
+    </div>
+    </>
+  );
+}
+
 export interface HeaderProps {
   info: SessionInfo;
+  /** The map's name as the page keeps it. */
+  name: string;
+  /** Rename through the core (D443): null when stored, else the core's reason. */
+  onRename(name: string): Promise<string | null>;
+  /** Why the name can't be changed here (a guest's: the host names the shared map), when it can't. */
+  renameLocked?: string;
+  /** Write the map's description through the core (the setDescription operation): null when stored, else the core's reason. */
+  onDescribe(text: string): Promise<string | null>;
+  /** Why this browser isn't keeping the map, when it isn't; else empty. */
   saveState: string;
   canUndo: boolean;
   canRedo: boolean;
@@ -112,23 +372,97 @@ export interface HeaderProps {
   /** A save in progress, and how far along. */
   saving: { kind: "timberborn" | "download"; progress: CheckProgress | null } | null;
   onSave(kind: "timberborn" | "download"): void;
+  /** Pick or change the folder Save to Timberborn writes to. */
+  onChooseFolder(): void;
   onOpenFile(file: File): void;
   onSaveProject(): void;
   /** Remove every source, tree, bush, ruin, object and the start (one undo step, D323 item 44). */
   onClearEverything(): void;
   historyOpen: boolean;
   onHistory(): void;
-  onBack(): void;
-  /** Another like this (D278 (1c)): a sibling of a generated map. */
-  onAnother?(): void;
+  /** The map generator's panel, Real places and Your maps (one open at a time): open, and their switches. */
+  drawerOpen: boolean;
+  onDrawer(): void;
+  mapsOpen: boolean;
+  onMaps(): void;
+  placesOpen: boolean;
+  onPlaces(): void;
   /** The look's menu (High or Standard, D284), beside More. */
   look?: ComponentChildren;
+  /** Together: edit this map with someone else (a quiet button and its panel), before File. */
+  together?: ComponentChildren;
+  /** The other player in a live or paused session ("paused" while they are away): File wears their dot, and its Together…
+   *  entry is there, where the header is too full for Together's own button (below 1,340px wide); absent without Together. */
+  togetherEntry?: { role: Role; paused: boolean; other: boolean } | null;
 }
 
 export function Header(p: HeaderProps) {
   const [menu, setMenu] = useState(false);
+  const fileMenu = useMenuPresence(menu);
+  const [about, setAbout] = useState(false);
+  /** The core's refusal of a name, said in the title's second line. */
+  const [problem, setProblem] = useState<string | null>(null);
+  /** The shown name is cut to its two lines (an ellipsis): its tooltip then says it whole. */
+  const [clipped, setClipped] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
+  // the map's info sits at the window's exact centre and never overlaps the groups at the header's sides:
+  // the header learns how far each side group reaches (--side-l, --side-r) and the info's width is capped
+  // where the room is short (Kyler, 2026-10-02: below about 1,219px) the info drops its second line first, then
+  // the name ellipsizes, down to about 80px
+  const bar = useRef<HTMLElement>(null);
+  const fit = useRef<() => void>(() => undefined);
+  // (laid out in the commit itself, before the browser draws: the title is never drawn at a fit that is a draw behind)
+  useLayoutEffect(() => {
+    const el = bar.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const note = () => {
+      const h = el.getBoundingClientRect();
+      // (the left group: Map Generator and Your maps)
+      const ls = [...el.querySelectorAll(".new-map")].map((e) => e.getBoundingClientRect().right);
+      const r = el.querySelector(".editor-actions")?.getBoundingClientRect();
+      const sl = ls.length ? Math.ceil(Math.max(...ls) - h.left) : 0;
+      const sr = r ? Math.ceil(h.right - r.left) : 0;
+      el.style.setProperty("--side-l", `${sl}px`);
+      el.style.setProperty("--side-r", `${sr}px`);
+      // the map's name (Kyler, 2026-10-05, A+B; 2026-10-06): centred on the window when it fits there on one line; else
+      // centred between the two groups, today's 12px from each; else on two lines there at full size, its seed and size
+      // line giving way; only when two full-size lines can't hold it, two lines in 13px. Never small on one line, never
+      // "…", never on another control; nothing else in the bar moves.
+      const title = el.querySelector<HTMLElement>(".editor-title");
+      const facts = title?.querySelector(".muted");
+      const name = title?.querySelector<HTMLElement>(".title-button");
+      if (title && facts && name) {
+        const centred = h.width - 2 * Math.max(sl, sr) - 24;
+        const between = h.width - sl - sr - 24;
+        const f = getComputedStyle(name);
+        // (measured at the title's own size: on two lines it is smaller, and must not then fit one line and flip back)
+        if (!title.classList.contains("small")) title.dataset.size = f.fontSize;
+        const pen = document.createElement("canvas").getContext("2d");
+        if (pen) pen.font = `${f.fontStyle} ${f.fontWeight} ${title.dataset.size ?? f.fontSize} ${f.fontFamily}`;
+        const text = name.textContent ?? "";
+        const wide = pen ? Math.ceil(pen.measureText(text).width) + 1 : name.scrollWidth;
+        const inGap = wide > centred;
+        const room = Math.floor(inGap ? between : centred);
+        title.style.setProperty("--title-x", `${Math.round(inGap ? sl + 12 + between / 2 : h.width / 2)}px`);
+        title.style.setProperty("--title-max", `${room}px`);
+        const two = wide > room;
+        // (how many lines its words take at full size in that room, broken where the browser breaks them)
+        const linesAt = (w: number) => (pen ? linesIn(text, w, (t) => Math.ceil(pen.measureText(t).width) + 1) : 3);
+        title.classList.toggle("two-lines", two);
+        title.classList.toggle("small", two && linesAt(room) > 2);
+        title.classList.toggle("no-facts", two || room < facts.scrollWidth);
+        if (!title.querySelector(".title-editing")) setClipped(name.scrollHeight > name.clientHeight + 1);
+      }
+    };
+    fit.current = note;
+    note();
+    const watch = new ResizeObserver(note);
+    watch.observe(el);
+    el.querySelectorAll(".new-map, .editor-actions").forEach((g) => watch.observe(g));
+    return () => watch.disconnect();
+  }, []);
+  useLayoutEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H]);
   useEffect(() => {
     if (!menu) return;
     const off = (e: PointerEvent) => {
@@ -150,17 +484,41 @@ export function Header(p: HeaderProps) {
   const primary = p.canFolder ? "timberborn" : "download";
   const savingWords = saving ? `Saving…${saving.progress ? ` ${Math.round(saving.progress.done * 100)}%` : ""}` : null;
   return (
-    <header class="editor-bar">
+    <header class="editor-bar" ref={bar}>
+      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} {...tip(p.drawerOpen ? "Close the map generator" : "Make a new map and change its settings", p.drawerOpen && "Esc")} onClick={p.onDrawer}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
+          <path d="M9 3v15M15 6v15" />
+        </svg>
+        <span class="label">Map Generator</span>
+      </button>
+      <button type="button" class="ghost new-map" aria-pressed={p.placesOpen} title={p.placesOpen ? "Close Real places" : "Open a map made from real land"} onClick={p.onPlaces}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z" />
+        </svg>
+        <span class="label">Real places</span>
+      </button>
+      <button type="button" class="ghost new-map your-maps-button" aria-pressed={p.mapsOpen} title={p.mapsOpen ? "Close Your maps" : "Open a map you made"} onClick={p.onMaps}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7.5" height="7.5" rx="1" />
+          <rect x="13.5" y="3" width="7.5" height="7.5" rx="1" />
+          <rect x="3" y="13.5" width="7.5" height="7.5" rx="1" />
+          <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1" />
+        </svg>
+        <span class="label">Your maps</span>
+      </button>
       <div class="editor-title">
-        <h1>{p.info.name}</h1>
-        <span class="muted">
-          {p.info.W}×{p.info.H}
-          {p.info.kind === "import" ? " · imported" : ""}
-          {p.info.edits ? ` · ${p.info.edits} edit${p.info.edits > 1 ? "s" : ""}` : ""}
-          {p.saveState ? ` · ${p.saveState}` : ""}
+        <TitleName name={p.name} described={p.info.descriptionWritten ? p.info.description : ""} kept={p.info.descriptionKept} onDescribe={p.onDescribe} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} locked={p.renameLocked} />
+        <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
+          {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed}${p.info.spec.variation ? ` · ${p.info.spec.variation}` : ""} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
+        {/* History, a button of its own left of Undo (Kyler, 2026-10-06): pressed while its panel is open */}
+        <button type="button" class="ghost history-button" aria-pressed={p.historyOpen} {...tip("Every step of the map's history")} onClick={p.onHistory}>
+          <span class="label">History</span>
+        </button>
         <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>
           <svg {...ICON}>
             <path d="M7 5L3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2" />
@@ -173,23 +531,32 @@ export function Header(p: HeaderProps) {
         </button>
         {p.dot}
         <button type="button" class="primary" disabled={!!saving} onClick={() => p.onSave(primary)} title={p.canFolder ? "Save it into Timberborn's Maps folder" : "Download it for Timberborn's Maps folder"}>
-          {saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}
+          <span class="label">{saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}</span>
         </button>
         {p.look}
+        {p.together}
         <div class="menu-wrap" ref={wrap}>
-          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} aria-label="More" title="More: open, save, history, new map" onClick={() => setMenu(!menu)}>
-            ⋯
+          <button type="button" class={`ghost file-button${p.togetherEntry?.other ? " with-dot" : ""}`} aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
+            <span class="label">File</span>
+            {p.togetherEntry?.other ? <span class={`together-dot file-together-dot who-${p.togetherEntry.role}${p.togetherEntry.paused ? " paused" : ""}`} aria-hidden="true" /> : null}
           </button>
-          {menu ? (
-            <ul class="menu" role="menu" aria-label="More">
+          {fileMenu.mounted ? (
+            <ul class="menu" role="menu" aria-label="File" data-closing={fileMenu.closing ? "" : undefined}>
               <li role="none">
-                <button type="button" role="menuitem" title="Open a map or project file" onClick={pick(() => file.current?.click())}>
+                <button type="button" role="menuitem" title="Open a map or a project" onClick={pick(() => file.current?.click())}>
                   Open…
                 </button>
               </li>
+              {p.togetherEntry ? (
+                <li role="none" class="menu-together">
+                  <button type="button" role="menuitem" {...tip("Edit this map with someone else")} onClick={pick(openTogether)}>
+                    Together…
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
-                <button type="button" role="menuitem" title="Save the map and its edits as a project" onClick={pick(p.onSaveProject)}>
-                  Save project
+                <button type="button" role="menuitem" title="Download the map and its edits as a project" onClick={pick(p.onSaveProject)}>
+                  Download project
                 </button>
               </li>
               {p.canFolder ? (
@@ -199,26 +566,36 @@ export function Header(p: HeaderProps) {
                   </button>
                 </li>
               ) : null}
+              {p.canFolder ? (
+                <li role="none">
+                  <button type="button" role="menuitem" disabled={!!saving} title="Pick Timberborn's Maps folder" onClick={pick(p.onChooseFolder)}>
+                    Choose Maps folder…
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
                 <button type="button" role="menuitem" title="Take away every object; the land stays" onClick={pick(p.onClearEverything)}>
                   Clear everything
                 </button>
               </li>
               <li role="none">
-                <button type="button" role="menuitem" aria-pressed={p.historyOpen} title="Every step of the map's history" onClick={pick(p.onHistory)}>
-                  History{p.info.orphans.length ? ` (${p.info.orphans.length} to review)` : ""}
+                <button type="button" role="menuitem" title="About Dam Good Maps: the version, the credits, the licences" onClick={pick(() => setAbout(true))}>
+                  About
                 </button>
               </li>
-              {p.info.kind === "generated" && p.onAnother ? (
-                <li role="none">
-                  <button type="button" role="menuitem" onClick={pick(p.onAnother)} title="A new map like this one, on different land">
-                    Another like this
-                  </button>
-                </li>
-              ) : null}
+              <li role="none" class="menu-rule">
+                <button type="button" role="menuitem" {...tip("Every shortcut in the editor", "?")} onClick={pick(() => showHelpPanel("shortcuts"))}>
+                  Keyboard shortcuts
+                </button>
+              </li>
               <li role="none">
-                <button type="button" role="menuitem" title={p.info.kind === "generated" ? "Back to the generator's settings" : "Close this map and start another"} onClick={pick(p.onBack)}>
-                  {p.info.kind === "generated" ? "Back to settings" : "New map"}
+                <button type="button" role="menuitem" {...tip("How to make a map and save it")} onClick={pick(() => showHelpPanel("help"))}>
+                  Help
+                </button>
+              </li>
+              <li role="none">
+                <button type="button" role="menuitem" {...tip(REPORT_TIP)} onClick={pick(reportProblem)}>
+                  Report a problem
                 </button>
               </li>
             </ul>
@@ -229,7 +606,7 @@ export function Header(p: HeaderProps) {
             class="visually-hidden"
             tabIndex={-1}
             accept=".timber,.json,.gz,application/json"
-            aria-label="Open a map or project file"
+            aria-label="Open a map or a project"
             onChange={(e) => {
               const input = e.target as HTMLInputElement;
               const f = input.files?.[0];
@@ -239,6 +616,36 @@ export function Header(p: HeaderProps) {
           />
         </div>
       </div>
+      {about ? <About onClose={() => setAbout(false)} /> : null}
+      <HelpPanels />
     </header>
+  );
+}
+
+/** About (File → About): the version, the credits and the licences, in the page's dialog. */
+function About(p: { onClose(): void }) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
+  return (
+    <div class="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && p.onClose()}>
+      <div class="dialog about" role="dialog" aria-modal="true" aria-labelledby="about-head">
+        <h2 id="about-head">Dam Good Maps</h2>
+        <p>Generator {GENERATOR_VERSION}.</p>
+        <p>Free software under the GNU Affero General Public License v3. The maps you make are yours.</p>
+        <p>Sounds: recorded CC0 foley. Real places: public elevation data, credited in the gallery.</p>
+        <p>Timberborn is a game by Mechanistry; this project is not affiliated with Mechanistry.</p>
+        <footer>
+          <button type="button" class="ghost" title="The source code, on GitHub" onClick={() => window.open("https://github.com/timbermods/dam-good-maps", "_blank", "noopener")}>
+            Source
+          </button>
+          <button type="button" class="primary" title="Close About" onClick={p.onClose} autoFocus>
+            Close
+          </button>
+        </footer>
+      </div>
+    </div>
   );
 }

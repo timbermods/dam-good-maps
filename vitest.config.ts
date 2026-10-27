@@ -16,10 +16,18 @@ const HEAVY = [
   "tests/contract/firstLand256.test.ts", // the first land shown is the map at 256² (D348)
   "tests/contract/forceEverywhere.heavy.test.ts", // every force at many places on every theme (D356)
   "tests/contract/editSequences.heavy.test.ts", // sequences of edits on every theme add no object (D368 (10))
+  "tests/contract/everySetting.heavy.test.ts", // the settings panel's extremes each make a map (D471)
+  "tests/contract/everySettingLarge.heavy.test.ts", // and over 128² (D471)
+  "tests/contract/collabClaims.heavy.test.ts", // every force's plan and gesture band against the claims' writes (D362)
+  "tests/contract/collabSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits, checkpoints and a rejoin
+  "tests/contract/collabUndoSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits with undo and redo asked at random
 ];
 
 export default defineConfig({
   test: {
+    // Off CI, three workers at most (DGM_TEST_WORKERS overrides): several sessions' agents share the machine,
+    // and a worker per core in each checkout used up its memory (2026-10-24). CI keeps vitest's default.
+    maxWorkers: process.env.CI ? undefined : Number(process.env.DGM_TEST_WORKERS ?? 3),
     projects: [
       {
         extends: true,

@@ -56,10 +56,15 @@ export function deleteGroupOf(template: string): Exclude<DeleteGroup, "everythin
   return kind === "water" || kind === "badwater" || kind === "start" || kind === "ruins" || kind === "trees" || kind === "bushes" ? kind : null;
 }
 
-/** The selected tiles, and their extent. */
+/** The selected tiles, and their extent. A selection taken on a run (the Wand on a cave's floor, a ledge under an
+ *  overhang) also names the ground it was taken at in each tile (`levels`), so the view draws it there and not on the
+ *  roof over it; the operations take the tiles (`mask`) as before. */
 export class Selection {
   readonly mask: Uint8Array;
   count = 0;
+  /** The level of the ground each tile was taken at, plus one (0: none, the tile's whole column, as a plain
+   *  selection); null while no tile names one. */
+  levels: Uint8Array | null = null;
   constructor(
     readonly W: number,
     readonly H: number,
@@ -70,16 +75,33 @@ export class Selection {
   clear(): void {
     this.mask.fill(0);
     this.count = 0;
+    this.levels = null;
   }
 
-  /** Take `tiles` in (set: the selection becomes them), add them, or take them out. */
-  apply(tiles: ArrayLike<number>, how: "set" | "add" | "subtract"): void {
-    if (how === "set") this.mask.fill(0);
+  /** Take `tiles` in (set: the selection becomes them), add them, or take them out; `level`: the level of the ground
+   *  they were taken at (a run's top), when taken on a run. */
+  apply(tiles: ArrayLike<number>, how: "set" | "add" | "subtract", level?: number): void {
+    if (how === "set") {
+      this.mask.fill(0);
+      this.levels = null;
+    }
     const v = how === "subtract" ? 0 : 1;
     for (let k = 0; k < tiles.length; k++) this.mask[tiles[k]] = v;
+    const named = how !== "subtract" && level !== undefined;
+    if (named || this.levels) {
+      const levels = (this.levels ??= new Uint8Array(this.mask.length));
+      const l = named ? level + 1 : 0;
+      for (let k = 0; k < tiles.length; k++) levels[tiles[k]] = l;
+    }
     let n = 0;
-    for (let i = 0; i < this.mask.length; i++) n += this.mask[i];
+    let any = 0;
+    const levels = this.levels;
+    for (let i = 0; i < this.mask.length; i++) {
+      n += this.mask[i];
+      if (levels) any |= levels[i];
+    }
     this.count = n;
+    if (!any) this.levels = null;
   }
 
   tiles(): number[] {
@@ -88,8 +110,8 @@ export class Selection {
     return out;
   }
 
-  /** The selection's extent in tiles, and how many it holds. */
-  size(): { w: number; h: number; tiles: number } | null {
+  /** The selection's extent in tiles (its bounding rectangle: top-left tile and size), and how many it holds. */
+  bounds(): { x: number; y: number; w: number; h: number; tiles: number } | null {
     if (!this.count) return null;
     let x0 = Infinity;
     let y0 = Infinity;
@@ -104,7 +126,13 @@ export class Selection {
       if (y < y0) y0 = y;
       if (y > y1) y1 = y;
     }
-    return { w: x1 - x0 + 1, h: y1 - y0 + 1, tiles: this.count };
+    return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, tiles: this.count };
+  }
+
+  /** The selection's extent in tiles, and how many it holds. */
+  size(): { w: number; h: number; tiles: number } | null {
+    const b = this.bounds();
+    return b && { w: b.w, h: b.h, tiles: b.tiles };
   }
 }
 
@@ -135,9 +163,15 @@ export function outlineTiles(points: readonly [number, number][], W: number, H: 
 }
 
 /** The ground at the clicked tile's level joined to it (four neighbours), at most `limit` tiles. */
-export function sameLevelTiles(heights: Uint8Array, W: number, H: number, x: number, y: number, limit = 65536): number[] {
+export function sameLevelTiles(heights: Uint8Array, W: number, H: number, x: number, y: number, limit = W * H): number[] {
+  const level = heights[y * W + x];
+  return levelTiles((j) => heights[j] === level, W, H, x, y, limit);
+}
+
+/** The tiles joined to tile (x, y) (four neighbours) for which `has` holds: the Wand's ground when the
+ *  click was on a run under an overhang (a cave's floor), where `has` asks for a top at that level. */
+export function levelTiles(has: (i: number) => boolean, W: number, H: number, x: number, y: number, limit = W * H): number[] {
   const start = y * W + x;
-  const level = heights[start];
   const seen = new Uint8Array(W * H);
   const out = [start];
   seen[start] = 1;
@@ -147,7 +181,7 @@ export function sameLevelTiles(heights: Uint8Array, W: number, H: number, x: num
     for (const j of [i - 1, i + 1, i - W, i + W]) {
       if (j < 0 || j >= W * H || seen[j] || (j === i - 1 && cx === 0) || (j === i + 1 && cx === W - 1)) continue;
       seen[j] = 1;
-      if (heights[j] === level) out.push(j);
+      if (has(j)) out.push(j);
     }
   }
   return out;
@@ -216,7 +250,10 @@ export interface SelectHost {
   brushSize?(): number;
   /** The Brush mode's ring under the pointer (null: none). */
   ring?(at: [number, number] | null, radius: number): void;
-  /** Ctrl+click on the land: that tile's level, as the Level number (D345, B8). */
+  /** Whether tile i has a ground top at `level` (a run's top under an overhang too); without it the
+   *  Wand reads the tiles' heights. */
+  hasTop?(i: number, level: number): boolean;
+  /** Ctrl+click on the land: the level of the ground hit, as the Level number (D345, B8). */
   sample?(level: number): void;
   /** Shift+scroll: the Level number a step up (1) or down (-1) (D345, B8). */
   dial?(step: 1 | -1, ev: WheelEvent): void;
@@ -274,6 +311,8 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
   };
   return {
     wantsAlt: true,
+    // (it aims at the ground seen, a cave's floor through its mouth)
+    voxel: true,
     down(hit: TileHit | null, ev: PointerEvent) {
       if (ev.button !== 0 || !hit) return false;
       // Ctrl+click: the tile's level, as the Level number, and nothing else: it never creates or changes
@@ -292,7 +331,13 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
         // a click on water takes that water; on land, the ground at its level joined to it
         const W = host.W;
         const onWater = host.wet?.(hit.y * W + hit.x) ?? false;
-        sel.apply(onWater ? waterTiles(host.wet!, W, host.H, hit.x, hit.y) : sameLevelTiles(host.heights(), W, host.H, hit.x, hit.y), how);
+        // (on land, the level of the run the click hit: a cave's floor takes the ground joined to it at its level)
+        const level = hit.level;
+        const onRun = !!host.hasTop && level !== undefined;
+        const land = onRun ? levelTiles((j) => host.hasTop!(j, level), W, host.H, hit.x, hit.y) : sameLevelTiles(host.heights(), W, host.H, hit.x, hit.y);
+        // (land taken on a run names its level in each tile, so it is drawn on that ground, not the roof over it)
+        if (onWater) sel.apply(waterTiles(host.wet!, W, host.H, hit.x, hit.y), how);
+        else sel.apply(land, how, onRun ? level : undefined);
         host.changed();
         start = null;
         return true;
@@ -332,13 +377,17 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
         painted = null;
         tiles = [];
         host.drawing(null, null, null);
-        host.sample?.(host.heights()[s.y * host.W + s.x]);
+        host.sample?.(s.level ?? host.heights()[s.y * host.W + s.x]);
         return;
       }
       if (!start) return;
+      // a click that never left its tile, with no Shift or Alt, is no area: it clears the selection (Select is
+      // always in hand, so a click on the land must not leave a one-tile selection behind)
+      const s0 = start;
+      const clicked = how === "set" && mode() !== "brush" && points.every((p) => p[0] === s0[0] && p[1] === s0[1]);
       start = null;
       painted = null;
-      sel.apply(tiles, how);
+      sel.apply(clicked ? [] : tiles, how);
       tiles = [];
       host.drawing(null, null, null);
       host.changed();

@@ -110,7 +110,6 @@ describe("the Floor (D321, item 40)", () => {
 
   it("its operation keeps it when it isn't 1; Try another takes the row's Floor now (back at 1: none in the record)", async () => {
     await runGenerate(makeSpec({ seed: 4242, theme: "highlands", size: { x: 96, y: 96 } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const last = () => MapSession.open(decodeProject(ed.project().bytes)).state.sculpts.filter((o) => o.op === "forceResult").at(-1)!.params as ForceResultParams;
     const keep = () => {

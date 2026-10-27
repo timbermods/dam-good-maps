@@ -59,13 +59,19 @@ export function currentOf(W: number, H: number, out: ArrayLike<number>, depth: A
 
 /** The surface water's outflows as four a tile (zero where dry or where the view has none), for
  *  `currentOf`: made once a bake, not with every water update. */
-export function outflowGrid(W: number, H: number, sw: SurfaceWater): Float32Array | null {
+export function outflowGrid(W: number, H: number, sw: SurfaceWater, into?: Float32Array): Float32Array | null {
   const o = sw.outflow;
   if (!o) return null;
-  const out = new Float32Array(W * H * 4);
+  const out = into?.length === W * H * 4 ? into.fill(0) : new Float32Array(W * H * 4);
+  const top = sw.top;
   for (let i = 0; i < W * H; i++) {
-    const k = sw.top[i];
-    if (k >= 0) out.set(o.subarray(k * 4, k * 4 + 4), i * 4);
+    const k = top[i];
+    if (k < 0) continue;
+    // (the four by hand: a view of them for each wet tile cost the page a millisecond or more a bake)
+    out[i * 4] = o[k * 4];
+    out[i * 4 + 1] = o[k * 4 + 1];
+    out[i * 4 + 2] = o[k * 4 + 2];
+    out[i * 4 + 3] = o[k * 4 + 3];
   }
   return out;
 }

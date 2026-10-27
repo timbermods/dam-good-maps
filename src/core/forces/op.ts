@@ -1,26 +1,29 @@
 // A force as the document keeps it (PLAN §20 D194, D202, D203, D206, D220): one operation,
 // `forceResult`, one undo step, its result stored literally (from investigation/forces-core's
-// `core/operation.ts`, fitted to the document: the build assigns it like the carve before it). The
-// four forces share it: what the player asked for (the force, its settings and where: a record, since
-// a replay never runs the force again), then what it left: the changed tiles and their levels, the
-// fresh volcanic rock on them (rock.ts), the objects that lost their ground, the ones it carried (a
-// Slide), the trees it knocked down (dead, lying away from the blow), and a carve's source and sealed
-// oxbow lake. "Try another" replaces the force before it (`replaces`): undoing it brings that one
-// back. The build applies its levels with the sculpts (step 6, kept out of the integrity pass) and its
-// objects' changes with the entity edits.
+// `core/operation.ts`, fitted to the document). The five forces share it: what the player asked for
+// (the force, its settings and where: a record, since a replay never runs the force again), then what
+// it left: the changed tiles and their levels, the fresh volcanic rock on them (rock.ts), the objects
+// that lost their ground, the ones it carried (a Slide), the trees it knocked down (dead, lying away
+// from the blow), a carve's source and sealed oxbow lake, a glacier's springs and tarn, the sources
+// it cleared (D474, clear.ts: its settings' `sources`, Clear when absent). "Try another"
+// replaces the force before it (`replaces`): undoing it brings that one back. The build applies its
+// levels with the sculpts (step 6, kept out of the integrity pass) and its objects' changes with the
+// entity edits.
 //
-// Projects saved with the `carve` operation before the forces shared this one still open and replay
-// exactly: `carve` stays a document operation (carve/op.ts), applied the same way.
+// Projects saved with the `carve` operation, from before the forces shared this one, become
+// `forceResult` when they open (`forceOfCarve`, doc/document.ts), and build exactly as they did.
 
 import * as portable from "../math/portable";
 import type { Rect } from "../features/target";
 import type { RetainedWater } from "../sim/water";
-import type { CarveParams } from "./carve/op";
-import { glaciateDetailsProblem } from "./glaciate/model";
-import { floorProblem } from "./floor";
+import { forceSettingsProblems } from "./settings";
+import { clearedLabel } from "../doc/labels";
+import type { ClearedSource, SourcesRule } from "./clear";
 
-export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate";
-export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate"];
+export { forceSettingsProblems };
+
+export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode";
+export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode"];
 
 /** Where a force was asked to act, in tiles: a carve's origin and aimed end, an impact and the way
  *  its impactor travelled (Aim), a vent, a painted fissure or fault (sub-tile points, to 0.01) and
@@ -34,13 +37,18 @@ export interface ForceWhere {
   source?: string;
 }
 
-/** A force's settings, as each force's options row sets them (the seed is its personality). */
-export type ForceSettingsRecord =
+/** A force's settings, as each force's options row sets them (the seed is its personality), and
+ *  its Sources choice (D474: Clear when absent). */
+export type ForceSettingsRecord = { sources?: SourcesRule } & (
+  | { mode: "wear"; power: number; size: number | null; seed: number; floor: number }
+  | { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; seed: number; floor: number }
+  | { mode: "drop"; power: number; size: number | null; walls: "auto" | "sheer" | "stepped"; seed: number; floor: number }
   | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number }
   | { mode: "strike" | "aim"; power: number; size: number | null; walls: "steep" | "terraced"; centre: "auto" | "bowl" | "peak" | "ring" | "flat"; debris: "light" | "heavy"; rays: boolean; seed: number; floor?: number }
   | { mode: "vent" | "fissure"; power: number; shape: "steep" | "broad"; summit: "auto" | "peak" | "crater" | "caldera"; flows: "light" | "heavy"; ridges: boolean; seed: number; size?: number | null; floor?: number }
   | { mode: "lift" | "slide"; power: number; scarp: "sheer" | "stepped"; seed: number; floor?: number }
-  | { mode: "flow" | "aim"; power: number; size: number | null; meltwater: boolean; seed: number; benches?: "none" | "some" | "many"; steps?: "few" | "some" | "many"; tarn?: boolean; scree?: boolean; floor?: number };
+  | { mode: "flow" | "aim"; power: number; size: number | null; meltwater: boolean; seed: number; benches?: "none" | "some" | "many"; steps?: "few" | "some" | "many"; tarn?: boolean; scree?: boolean; floor?: number }
+);
 
 export interface ForceResultParams {
   version: 1;
@@ -58,6 +66,10 @@ export interface ForceResultParams {
   /** Fresh volcanic rock where it changed: the tiles, ascending, and each one's levels of it now (a
    *  bit per level, rock.ts). */
   rock?: { tiles: number[]; bits: number[] };
+  /** Erode (D281): the tiles it hollowed under their surface, ascending, and each one's voxels now (a
+   *  bit per level, set where solid: terrain/runs.ts). Their surfaces are as they were (`tiles` lists
+   *  only the ground it scoured); the build gives those tiles these masks, as the Block tool's (features/raster/terrain.ts `applyHollows`). */
+  runs?: { tiles: number[]; masks: number[] };
   /** Objects that lost their ground. */
   removed: string[];
   /** Objects it carried (a Slide), and where they stand now. */
@@ -70,27 +82,51 @@ export interface ForceResultParams {
    *  anchor (core/water/sourceGroups.ts), the strength shared (absent on carves from before); Glaciate's
    *  springs (D246): its cirque head's and its hanging valleys' (Meltwater). */
   sources?: { id: string; x: number; y: number; strength: number }[];
-  /** Carve's sealed oxbow lake, Glaciate's tarn: the water it keeps (carve/water.ts). */
+  /** Sources set to Clear (D474): the sources it cleared, each with the step of its showing that
+   *  took it (clear.ts); the build removes them with `removed`, and undo brings them back. */
+  cleared?: ClearedSource[];
+  /** Carve's sealed oxbow lake, Glaciate's tarn: the water it keeps (carve/run.ts `retained`). */
   lake?: RetainedWater;
   /** Try another: the force (its operation's seq) this one replaces. */
   replaces?: number;
 }
 
-/** The literal part the build assigns, common to `forceResult` and the older `carve`. */
-export type ForceLiteral = Pick<ForceResultParams, "tiles" | "heights" | "removed" | "source" | "lake" | "replaces"> & Partial<Pick<ForceResultParams, "rock" | "moved" | "felled" | "sources">>;
-
-/** A force's result, `forceResult` or the older `carve` (their params carry tiles, heights and the
- *  objects they took). */
-export function isForce(p: object): p is CarveParams | ForceResultParams {
+/** A force's result (its params carry tiles, heights and the objects it took). */
+export function isForce(p: object): p is ForceResultParams {
   return "tiles" in p && "heights" in p && "removed" in p;
 }
 
-export function isForceResult(p: object): p is ForceResultParams {
-  return isForce(p) && "verb" in p && "version" in p;
+/** A carve as a project saved before D220 keeps it: the `carve` operation's params, which opening the
+ *  project turns into `forceResult` (`forceOfCarve`). */
+export interface SavedCarve {
+  mode: "unleash" | "aim";
+  origin: [number, number];
+  end?: [number, number];
+  power: number;
+  wander: number;
+  width: number | null;
+  depth?: number;
+  floor?: number;
+  riverDepth?: number | null;
+  banks?: number;
+  seed: number;
+  walls: "steep" | "wide";
+  defyGravity: boolean;
+  dry: boolean;
+  cut?: number;
+  steps: number;
+  reason: string;
+  tiles: number[];
+  heights: number[];
+  removed: string[];
+  source?: { id: string; x: number; y: number; strength: number };
+  sources?: { id: string; x: number; y: number; strength: number }[];
+  lake?: RetainedWater;
+  replaces?: number;
 }
 
-/** A `carve` of before the shared operation, in its shape. */
-export function forceOfCarve(p: CarveParams): ForceResultParams {
+/** A saved `carve` as the shared operation: the build applies it exactly as it applied the `carve`. */
+export function forceOfCarve(p: SavedCarve): ForceResultParams {
   return {
     version: 1,
     verb: "carve",
@@ -109,14 +145,14 @@ export function forceOfCarve(p: CarveParams): ForceResultParams {
   };
 }
 
-/** The rectangle of tiles a force changed (null: none). */
-export function forceBounds(p: Pick<ForceLiteral, "tiles">, W: number): Rect | null {
-  if (!p.tiles.length) return null;
+/** The rectangle of tiles a force changed (null: none): its levels, and the voxels Erode hollowed. */
+export function forceBounds(p: Pick<ForceResultParams, "tiles" | "runs">, W: number): Rect | null {
+  if (!p.tiles.length && !p.runs?.tiles.length) return null;
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
   let y1 = -Infinity;
-  for (const i of p.tiles) {
+  for (const i of p.runs ? [...p.tiles, ...p.runs.tiles] : p.tiles) {
     const x = i % W;
     const y = (i - x) / W;
     if (x < x0) x0 = x;
@@ -125,54 +161,6 @@ export function forceBounds(p: Pick<ForceLiteral, "tiles">, W: number): Rect | n
     if (y > y1) y1 = y;
   }
   return { x0, y0, x1, y1 };
-}
-
-const ENUMS: Record<Verb, Record<string, readonly string[]>> = {
-  carve: { mode: ["unleash", "aim"], walls: ["steep", "wide"] },
-  craterize: { mode: ["strike", "aim"], walls: ["steep", "terraced"], centre: ["auto", "bowl", "peak", "ring", "flat"], debris: ["light", "heavy"] },
-  erupt: { mode: ["vent", "fissure"], shape: ["steep", "broad"], summit: ["auto", "peak", "crater", "caldera"], flows: ["light", "heavy"] },
-  quake: { mode: ["lift", "slide"], scarp: ["sheer", "stepped"] },
-  glaciate: { mode: ["flow", "aim"] },
-};
-const FLAGS: Record<Verb, readonly string[]> = { carve: ["defyGravity", "dry"], craterize: ["rays"], erupt: ["ridges"], quake: [], glaciate: ["meltwater"] };
-
-/** Why a force's settings are not ones its row could set (empty when they are). */
-export function forceSettingsProblems(verb: Verb, s: Record<string, unknown>): string[] {
-  const name = verb === "craterize" ? "an impact" : verb === "erupt" ? "an eruption" : verb === "glaciate" ? "a glacier" : `a ${verb}`;
-  for (const [k, list] of Object.entries(ENUMS[verb])) if (!list.includes(s[k] as string)) return [`${name}'s ${k} is one of ${list.join(", ")}`];
-  for (const k of FLAGS[verb]) if (typeof s[k] !== "boolean") return [`${name}'s ${k} is true or false`];
-  const power = s.power as number;
-  if (!(Number.isFinite(power) && power >= 0 && power <= 100)) return [`${name}'s power is 0 to 100`];
-  const seed = s.seed as number;
-  if (!(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff)) return [`${name}'s seed is a whole number from 0 to 4294967295`];
-  const floor = floorProblem(s.floor);
-  if (floor) return [floor];
-  if (verb === "carve") {
-    const w = s.width as number | null;
-    if (!(Number.isFinite(s.wander as number) && (s.wander as number) >= 0 && (s.wander as number) <= 100)) return ["a carve's wander is 0 to 100"];
-    if (w !== null && !(Number.isFinite(w) && w >= 2 && w <= 24)) return ["a carve's width is 2 to 24 tiles, or null (it follows Power)"];
-    const d = s.depth as number | null | undefined;
-    if (d != null && !(Number.isInteger(d) && d >= 1 && d <= 12)) return ["a carve's depth is 1 to 12 levels, or null (it follows Power)"];
-    const rd = s.riverDepth as number | null | undefined;
-    if (rd != null && !(Number.isInteger(rd) && rd >= 1 && rd <= 22)) return ["a carve's river depth is 1 to 22 levels, or null (Off)"];
-    const b = s.banks as number | undefined;
-    if (b != null && !(Number.isFinite(b) && b >= 0 && b <= 10)) return ["a carve's banks are 0 to 10 tiles"];
-  }
-  if (verb === "erupt") {
-    const size = s.size as number | null | undefined;
-    if (size != null && !(Number.isFinite(size) && size >= 6 && size <= 140)) return ["an eruption's size is 6 to 140 tiles, or null (it follows Power)"];
-  }
-  if (verb === "glaciate") {
-    const size = s.size as number | null;
-    if (size !== null && !(Number.isFinite(size) && size >= 4 && size <= 64)) return ["a glacier's size is 4 to 64 tiles, or null (it follows Power)"];
-    const why = glaciateDetailsProblem(s);
-    if (why) return [why];
-  }
-  if (verb === "craterize") {
-    const size = s.size as number | null;
-    if (size !== null && !(Number.isFinite(size) && size >= 4 && size <= 180)) return ["an impact's size is 4 to 180 tiles, or null (it follows Power)"];
-  }
-  return [];
 }
 
 /** Why a force's result does not fit a W × H map with levels up to `maxLevel` (empty when it does). */
@@ -186,11 +174,15 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
   const mode = p.settings.mode;
   if (w.origin && !inMap(w.origin[0], w.origin[1])) return ["the force's point is off the map"];
   if (w.end && !inMap(w.end[0], w.end[1])) return ["the force's end point is off the map"];
-  if (w.path && !(w.path.length >= 2 && w.path.length <= 512 && w.path.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= W - 1 && y <= H - 1))) return ["a painted line needs 2 to 512 points on the map"];
+  const lined = p.verb === "rift" || p.verb === "deposit" || p.verb === "erode";
+  if (w.path && !(w.path.length >= (lined ? 1 : 2) && w.path.length <= 512 && w.path.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= W - 1 && y <= H - 1))) return [lined ? "a rift's, deposit's or erosion's line needs 1 to 512 points on the map" : "a painted line needs 2 to 512 points on the map"];
+  if (p.verb === "deposit" && !w.path?.length) return ["a deposit needs its origin"];
+  if (p.verb === "rift" && !w.path?.length) return ["a rift needs its fault"];
+  if (p.verb === "erode" && !w.path?.length) return ["an erosion needs where it was drawn"];
   if (p.verb === "quake") {
     if (!w.path) return ["a quake needs its fault"];
     if (w.side !== 1 && w.side !== -1) return ["a quake's side is 1 or -1"];
-  } else if (!w.origin) return ["a force needs the point it started from"];
+  } else if (!lined && !w.origin) return ["a force needs the point it started from"];
   if (p.verb === "erupt" && mode === "fissure" && !w.path) return ["a fissure needs its line"];
   if ((p.verb === "carve" || p.verb === "craterize" || p.verb === "glaciate") && mode === "aim" && !w.end) return ["an aimed force needs its end point"];
   if (w.source !== undefined && !(p.verb === "carve" && typeof w.source === "string" && w.source.length > 0 && !p.source)) return ["only a carve unleashes a source (named by its id), and it adds none of its own"];
@@ -212,6 +204,20 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
       prev = i;
       const b = p.rock.bits[k];
       if (!Number.isInteger(b) || b < 0 || b >= portable.pow(2, 22)) return ["a force's rock is a bit for each of the levels 0 to 21"];
+    }
+  }
+  if (p.runs) {
+    if (p.verb !== "erode") return ["only an erosion hollows the ground under its surface"];
+    const { tiles, masks } = p.runs;
+    if (!Array.isArray(tiles) || !Array.isArray(masks) || tiles.length !== masks.length || !tiles.length) return ["an erosion's hollows need the voxels of each of their tiles"];
+    let prev = -1;
+    for (let k = 0; k < tiles.length; k++) {
+      const i = tiles[k];
+      if (!Number.isInteger(i) || i <= prev || i >= W * H) return ["an erosion's tiles must be on the map, in order, once each"];
+      prev = i;
+      const m = masks[k];
+      // (a hollow under a roof: not one plain run, and nothing in the top layer, which stays empty)
+      if (!Number.isInteger(m) || m <= 0 || m >= portable.pow(2, 22) || (m & (m + 1)) === 0) return ["an erosion's tiles each keep rock over a hollow, in the levels 0 to 21"];
     }
   }
   for (const m of p.moved ?? []) if (!inMap(m.x, m.y)) return ["an object a force carried must stay on the map"];
@@ -238,6 +244,17 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
     }
     if (new Set(p.sources.map((q) => q.id)).size !== p.sources.length) return ["a glacier's springs each have their own id"];
   }
+  if (p.cleared !== undefined) {
+    if (p.settings.sources === "ride") return ["a force set to ride clears no sources"];
+    if (!Array.isArray(p.cleared) || !p.cleared.length || p.cleared.length > W * H) return ["a force's cleared sources are a list of 1 or more, at most one for each tile of the map"];
+    const own = new Set([...p.removed, ...(p.moved ?? []).map((m) => m.id), ...(p.felled ?? []).map((f) => f.id), ...(p.source ? [p.source.id] : []), ...(p.sources ?? []).map((q) => q.id), ...(p.where.source ? [p.where.source] : [])]);
+    const seen = new Set<string>();
+    for (const c of p.cleared) {
+      if (!c || typeof c.id !== "string" || !Number.isInteger(c.step) || c.step < 0) return ["a cleared source is its id and the step that took it (a whole number from 0)"];
+      if (own.has(c.id) || seen.has(c.id)) return [`source ${c.id} is cleared once, and is not one the force took, carried or placed itself`];
+      seen.add(c.id);
+    }
+  }
   if (p.lake) {
     if (p.verb !== "carve" && p.verb !== "glaciate") return ["only a carve or a glacier keeps a lake"];
     const { tiles, floor, depth, contamination } = p.lake;
@@ -255,8 +272,13 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
   return [];
 }
 
-/** The history's word for a force (Try another's, a carve's own). */
+/** The history's word for a force (Try another's, a carve's own), with the sources its Sources: Clear
+ *  took (D474): "Quake: lift, 3 sources cleared". */
 export function forceLabel(p: ForceResultParams): string {
+  return clearedLabel(forceVerbLabel(p), p.cleared?.length ?? 0);
+}
+
+function forceVerbLabel(p: ForceResultParams): string {
   if (p.replaces !== undefined) return p.verb === "carve" ? (p.where.source ? "Try another course" : "Try another path") : "Try another";
   switch (p.verb) {
     case "carve":
@@ -264,10 +286,16 @@ export function forceLabel(p: ForceResultParams): string {
     case "craterize":
       return "Craterize";
     case "erupt":
-      return p.settings.mode === "fissure" ? "Erupt a fissure" : "Erupt";
+      return (p.settings as { mode?: string }).mode === "fissure" ? "Erupt a fissure" : "Erupt";
     case "quake":
-      return p.settings.mode === "slide" ? "Quake: slide" : "Quake: lift";
+      return (p.settings as { mode?: string }).mode === "slide" ? "Quake: slide" : "Quake: lift";
     case "glaciate":
       return "Glaciate";
+    case "rift":
+      return "Rift";
+    case "deposit":
+      return "Deposit";
+    case "erode":
+      return "Erode";
   }
 }

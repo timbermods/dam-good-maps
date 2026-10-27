@@ -36,10 +36,3 @@ export function fbm(seed: number, x: number, y: number, cell: number, octaves = 
   }
   return out / total;
 }
-
-/** A whole field of fbm noise for a W×H map. */
-export function fbmField(seed: number, W: number, H: number, cell: number, octaves = 3): Float64Array {
-  const out = new Float64Array(W * H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) out[y * W + x] = fbm(seed, x, y, cell, octaves);
-  return out;
-}

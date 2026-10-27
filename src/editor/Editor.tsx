@@ -12,10 +12,16 @@
 // The code is in feature folders, one hook per feature (src/editor/README.md); this file only builds the bag
 // and calls them in order.
 
+import type { ComponentChildren } from "preact";
 import type { Remote } from "comlink";
+import { useEffect } from "preact/hooks";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { SessionInfo, SessionOpen } from "../worker/session";
+import type { MapView } from "../render3d/model";
 import type { Ed } from "./ed";
+import type { ViewMode } from "../render3d";
+import type { LayerKind } from "./panels";
+import type { GeneratorModel } from "./generator/model";
 import { useSession } from "./session/useSession";
 import { usePaint } from "./paint/usePaint";
 import { useView } from "./view/useView";
@@ -30,26 +36,84 @@ import { useForceRun } from "./forces/useForceRun";
 import { useForcePointer } from "./forces/useForcePointer";
 import { useRows } from "./rows/useRows";
 import { useReady } from "./view/useReady";
+import { useBandLayout } from "./view/useBandLayout";
+import { useFrameInsets } from "./view/insets";
 import { useSelect } from "./selection/useSelect";
 import { useViewSync } from "./view/useViewSync";
 import { useStart } from "./start/useStart";
+import { useBlockTool } from "./block/useBlockTool";
 import { useKeyboard } from "./keyboard/useKeyboard";
 import { useTestHook } from "./testHook/useTestHook";
 import { useSave } from "./save/useSave";
+import { useCollab } from "./collab/useCollab";
+import type { Together } from "../collab/together";
+import { useCompare } from "./compare/useCompare";
 import { editorView } from "./render/editorView";
+
+/** The map's land and water as the editor shows them, for Your maps' picture. */
+export interface MapPicture {
+  heights: Uint8Array;
+  W: number;
+  H: number;
+  water: ArrayLike<number> | null;
+}
+
+/** What the player has set on the view, carried to the editor that opens after a crop (or its undo): History open, top-down or
+ *  3D, the water overlay, See-through and the minimap; the camera is framed to the new size. */
+export interface ResizeCarry {
+  history: boolean;
+  mode: ViewMode;
+  layer: LayerKind;
+  clearWater: boolean;
+  minimap: boolean;
+}
 
 export interface EditorProps {
   api: Remote<GeneratorApi>;
   opened: SessionOpen;
-  /** "Back to settings" (generated maps) or "New map" (imported ones). */
-  onBack(info: SessionInfo): void;
   /** After every change (autosave keys on `info.version`). */
   onChange(info: SessionInfo): void;
+  /** The map changed size (a crop, or its undo or redo, D340): the page opens the session's map again, once the edits queued
+   *  before it have reached the worker, and gives the new editor `carry`: the view as the player had it. */
+  onResized(carry: ResizeCarry): void;
+  /** The view of the editor this one replaces after a change of the map's size. */
+  carry?: ResizeCarry;
+  /** Finish queued edits before the page snapshots the outgoing worker session. */
+  onPendingEdits?(wait: () => Promise<void>): void;
+  /** While the page captures and replaces the outgoing map, its controls cannot start another edit. */
+  replacing?: boolean;
   /** Open another file (the page confirms before replacing unsaved work). */
   onOpenFile(file: File): void;
-  /** Another like this (D278 (1c)): the page makes a sibling and opens it here. */
-  onAnother?(info: SessionInfo): void;
+  /** Said in the header's second line when this browser can't keep the map (Your maps). */
   saveState: string;
+  /** The page's own line (a save that failed, a version found), shown with the editor's notes above the bar. */
+  notice?: ComponentChildren;
+  /** The map's name as the page keeps it (renamed in the header's title through the core, D443). */
+  name: string;
+  /** Rename the map: null when the core stored it, else the core's reason (a blank name). */
+  onRename(name: string): Promise<string | null>;
+  /** The page asks the editor for the map's land and water as shown (Your maps' picture). */
+  onPicture?(get: () => MapPicture | null): void;
+  /** The map generator's panel and Your maps: what they show, whether each is open (one at a time), and their
+   *  switches (the page keeps them open across maps). */
+  drawer: GeneratorModel;
+  drawerOpen: boolean;
+  onDrawer(open: boolean): void;
+  mapsOpen: boolean;
+  onMaps(open: boolean): void;
+  placesOpen: boolean;
+  onPlaces(open: boolean): void;
+  /** Another version of this map to flip to (Your maps' Compare): its settled land, objects and water, the same size. */
+  compare?: { name: string; view: MapView } | null;
+  /** Stop comparing. */
+  onStopCompare?(): void;
+  /** History's Keep this version and Branch from here: the step (the index History lists, −1 before the first) kept as a
+   *  map of Your maps, and opened too when it is a branch. */
+  onKeepStep?(step: number, branch: boolean): void;
+  /** The map opens with the view where it was (the same map back, after a Cancel). */
+  keepView?: boolean;
+  /** The page's shared session (Together): the editor shows it and the other player's cursor. */
+  together?: Together;
 }
 
 export default function Editor(props: EditorProps) {
@@ -68,12 +132,31 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useForcePointer(ed));
   Object.assign(ed, useRows(ed));
   Object.assign(ed, useReady(ed));
+  // (the Block tool before Select: Select's effect reads ed.block as it runs, and a hook not yet run leaves it undefined)
+  Object.assign(ed, useBlockTool(ed));
   Object.assign(ed, useSelect(ed));
   Object.assign(ed, useViewSync(ed));
   Object.assign(ed, useStart(ed));
   useKeyboard(ed, props);
   Object.assign(ed, useTestHook(ed));
   Object.assign(ed, useSave(ed));
+  Object.assign(ed, useCollab(ed, props));
+  Object.assign(ed, useCompare(ed, props));
+  // the camera frames the map clear of the controls (setting it never moves the camera, D265)
+  useFrameInsets(ed.renderer, !!ed.ready);
+  useBandLayout(!!ed.ready);
+  useEffect(() => props.onPendingEdits?.(() => ed.queue.current.then(() => undefined)), []);
+  // one left panel at a time: Map Generator, Real places or Your maps opening closes History (Kyler, 2026-10-06)
+  useEffect(() => {
+    if (props.drawerOpen || props.mapsOpen || props.placesOpen) ed.setShowHistory(false);
+  }, [props.drawerOpen, props.mapsOpen, props.placesOpen]);
+  // Your maps' picture: the land and water as the view shows them
+  useEffect(() => {
+    props.onPicture?.(() => {
+      const m = ed.renderer.current?.mapState();
+      return m ? { heights: m.heights, W: m.W, H: m.H, water: m.surface.depth } : null;
+    });
+  }, []);
 
   return editorView(ed, props);
 }

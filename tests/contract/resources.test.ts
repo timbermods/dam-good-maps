@@ -16,7 +16,7 @@ import { stream } from "../../src/core/math/rng";
 import { meanStoreys, pickMineSite, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, storeyMix, type BaselineGround } from "../../src/core/resources/baseline";
 import { isSapling, treeLogs } from "../../src/core/analysis/wood";
 import { startingLocation } from "../../src/core/format/entities";
-import { groundOfFile, measureResources, startCentreOf, TOWER } from "../../src/core/resources/measure";
+import { groundOfFile, measureResources, startCentreOf, TOWER } from "../../tools/lib/resources";
 import { planMapResources } from "../../src/core/resources/plan";
 import { decodeSpecFragment, defaultSettings, makeSpec, THEMES } from "../../src/core/spec/mapspec";
 import { validateMap } from "../../src/core/validate/checks";

@@ -1,5 +1,5 @@
 // The live check (.github/workflows/live-check.yml): the deployed site loads without page or console
-// errors, is noindex until launch (DGM_PUBLIC), and its download for seed 4242 at 128² River Valley,
+// errors, is noindex until launch (DGM_PUBLIC), and the map its link makes for seed 4242 at 128² River Valley,
 // Normal, default settings, is the file tools/gen.ts makes from the checked-out commit, byte for
 // byte. Pages can take a few minutes to serve a new build, so a failed attempt is retried before the
 // check fails. It checks the main site only: a preview build under /preview/ (deploy.yml) is not
@@ -54,16 +54,13 @@ test("the live site's download is the file tools/gen.ts makes", async ({ page })
       expect(res?.status(), "the page's HTTP status").toBe(200);
       await expect(page).toHaveTitle(title);
       await expect(page.locator(NOINDEX), notPublic ? "noindex until launch" : "no noindex after launch").toHaveCount(notPublic ? 1 : 0);
-      await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-
-      const button = page.getByRole("button", { name: /^Download .*\.timber$/ });
-      await expect(button).toBeEnabled();
-      const download = page.waitForEvent("download");
-      await button.click();
-      const d = await download;
-      expect(d.suggestedFilename()).toBe(gen.name);
-      live = sha256(readFileSync(await d.path()));
-      expect(live, "the live download's sha256 (tools/gen.ts's is expected)").toBe(gen.sha);
+      // the page is the editor (D330): the link's map is made and opens in the editor; the page's hook gives the
+      // made .timber's sha256 (the file the link makes, before any edit)
+      const made = await page.waitForFunction(() => (window as unknown as { dgm?: { current?(): { sha256: string; passed: boolean } | null } }).dgm?.current?.() ?? null, null, { timeout: 120_000 });
+      const shown = (await made.jsonValue()) as { sha256: string; passed: boolean };
+      expect(shown.passed, "the link's map passes its checks").toBe(true);
+      live = shown.sha256;
+      expect(live, "the live map's sha256 (tools/gen.ts's is expected)").toBe(gen.sha);
       expect(errors, "page and console errors").toEqual([]);
       break;
     } catch (e) {
@@ -72,5 +69,5 @@ test("the live site's download is the file tools/gen.ts makes", async ({ page })
       await page.waitForTimeout(RETRY_MS);
     }
   }
-  console.log(`live download  ${live}\ntools/gen.ts   ${gen.sha}\n${gen.name} from ${page.url().replace(/[?#].*$/, "")}`);
+  console.log(`live map       ${live}\ntools/gen.ts   ${gen.sha}\n${gen.name} from ${page.url().replace(/[?#].*$/, "")}`);
 });

@@ -126,7 +126,7 @@ describe("drained tiles in the canonical settle (D387 (2))", () => {
     for (const i of [...river, ...badwater]) expect(Math.abs(after.depth[i] - before.depth[i])).toBeLessThan(0.005);
     // the game, from that water: three days on, the near pit is still dry
     const sim = new WaterSim(model, { depth: after.depth.slice(), contamination: after.contamination.slice() });
-    sim.out.set(after.out!);
+    sim.setOut(after.out!);
     sim.run(3 * TICKS_PER_DAY);
     for (const i of pitNear) expect(sim.D[i]).toBe(0);
   });

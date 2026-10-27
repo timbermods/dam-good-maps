@@ -12,16 +12,22 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 **Generate and check**
 - `gen.ts` (`npm run gen`) makes maps from the command line; `try.ts` (`npm run try`) builds and serves the site locally.
 - `first-visit-maps.ts` makes and checks the ready-made 128² maps a first visit opens (`public/first-visit/`, gitignored); the deploy runs it before each build and stops on a failed check (D343).
-- `check-maps.ts` checks a folder of `.timber` files as a probe batch's maps are checked; `probe-tall.ts` and `probe-sizes.ts` make the probe's tall and size test maps by hand (the writers are in `probe-maps/`, and the probe's runner calls them itself before a batch); `ingame-files.ts` makes the files for the in-game checks.
+- `check-maps.ts` checks a folder of `.timber` files as a probe batch's maps are checked; `probe-tall.ts` and `probe-sizes.ts` make the probe's tall and size test maps by hand (the writers are in `probe-maps/`, built with the generator's own steps, `places/place.ts` `buildFileFromHeights`; the probe's runner calls them itself before a batch and rewrites any map whose bytes changed); `ingame-files.ts` makes the files for the in-game checks.
+- `official-water-match.ts` settles each official map with caves (unedited) and compares it with the map's own saved water and soil (overlaps, ticks, soil match; `[dir] [--only name]`, local only): rerun it after any water change and compare with `docs/progress/3d-foundations.md`.
+- `map-hashes.ts` hashes generated maps' land, water, objects, file and project (every theme and Any, seeds 1–6, 96² and 128² by default): run it on dev and on a branch and diff, to show a change left generated maps alone.
+- `check-rows.ts` lists every check row of a folder's maps as the editor shows them on import: run it on dev and on a branch and diff, to show what a change to the checks does to real maps.
+- `probe-3d.ts` writes the DGM Probe's Terrain 3D maps by hand (T3–T7; the same writer the runner calls, `probe-maps/terrain3d.ts`, on the scenes in `terrain3d-maps.ts`) into `C:\dgm-probe\terrain3d-2\`; `--check` writes nothing. `rust/stack-sink-fixture.ts` writes the sink case of the stacked engine's identity fixtures.
+- `import-hashes.ts` hashes a folder's maps through import, one sculpt stroke, the project file, reopening and export: run it on dev and on a branch and diff, to show a change left imported maps alone.
 - `oracle.ts` (`npm run oracle`) checks generated maps with the Python implementation in `prototype/`.
 - `determinism/run.ts` runs the same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node and compares them bit for bit (D366; `--smoke` is CI's short list); `determinism/compare.ts` compares runs from different machines.
 
 **Batches and measures**
+- `lib/` holds core measuring code that only tools and tests run, moved out of `src/core/` so the Rust port does not carry it (the coherence review's G3): `metrics.ts` `measure`, `resources.ts` `measureResources`, `startPlanting.ts`, `glaciate.ts` (`measureGlaciate`, `makePlan`), `placeData.ts` (the writer half of a real place's data).
 - `batch.ts`, `batches.ts`: pass rates per theme and size. `settings-suite.ts`, `settings-batch.ts`: each setting's effect on its target.
 - `official-baselines.ts`, `straight-reference.ts`, `edge-walls.ts`, `start-spread.ts`, `start-water-fed.ts`: measure the official maps, real channels and generated starts.
 
 **Contact sheets and captures**
-- `sheet.ts`, `contact-sheet.ts` with `contact-sheet.py`, `resources-sheet.ts`, `start-sheet.ts`, `waterfall-gallery.ts`: sheets of generated maps.
+- `sheet.ts`, `contact-sheet.ts` with `contact-sheet.py`, `resources-sheet.ts`, `start-sheet.ts`, `waterfall-gallery.ts`: sheets of generated maps; `badwater-sheet.ts` with `badwater-sheet.py`: badwater before | after against another checkout, water shaded by how contaminated it is, and whether badwater reaches each map's main water (#265, D476).
 - `capture-*.ts`: before and after captures for Kyler's look rounds, taken in a real browser.
 
 **Data the game supplies**
@@ -31,10 +37,11 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `bench.ts`, `bench3d.ts`, `bench-preview.ts`, `bench-brush.ts` (`npm run bench:*`), `timings.ts`, `ci-timings.ts`.
 
 **Release and machine**
-- `release.sh` merges a tagged, green `dev` commit into `main` and watches the deploy (CLAUDE.md, "Deploying"); `build-spike.ts`, `spike-check.ts` build and check the delivery spike; `keep-awake.ps1` and `notify.ps1` are for the long sessions on this machine (`docs/HANDOFF.md`).
+- `release.sh` merges a tagged, green `dev` commit into `main` and watches the deploy (docs/RULES.md, "Deploying"); `build-spike.ts`, `spike-check.ts` build and check the delivery spike; `keep-awake.ps1` and `notify.ps1` are for the long sessions on this machine (`docs/HANDOFF.md`).
+- `roadmap-canvas/` is a standalone planning page: what needs Kyler, what is in flight, the roadmap's steps as cards, the order of work, a map and the releases, read live from `dev`'s documents and GitHub (open its `index.html` from disk; its README says how). Not part of the site.
 - `retired-terms.json` lists retired features. `tests/unit/retired-terms.test.ts` fails when one reappears in the living documents or the editor code.
 
-**Tests**: tools have none of their own; the oracle and the batches are the checks they run. `tests/unit/retired-terms.test.ts` covers `retired-terms.json`. Run `npx vitest run tests/unit/retired-terms.test.ts`.
+**Tests**: the measures in `lib/` have contract tests (`tests/contract/resources.test.ts`, `startPlanting.test.ts`, `glaciate.test.ts`, `glaciatePowerSize.test.ts`; `settings.test.ts` runs `settings-suite.ts`); `tests/unit/` covers `retired-terms.json`, the maths guard (`portable.test.ts`), the smoothness gate (`smooth.test.ts`), CI's change filter (`ci-changes.test.ts`) and `log-floor.ts`. The other scripts have none of their own: the oracle and the batches are the checks they run. Run one with `npx vitest run tests/unit/retired-terms.test.ts`.
 
 ## Machine setup
 
@@ -52,7 +59,26 @@ Node's WebAssembly, and with `--engines` in Chromium, Firefox and WebKit). CI's 
 has the rules for a port. `tools/portable-guard.ts` is the whole-source guard over the core, the workers and the data
 tools (D401), run by `tests/unit/portable.test.ts`.
 
-The Rust water (wired, not switched on until M9b is on dev): `npx tsx tools/rust/build.ts [--native] [--check]`
-rebuilds its committed Wasm (`src/core/sim/waterWasm.ts`) and the native batch binary; `tools/rust/native-water.ts`
-runs a process's canonical settles natively (`tools/batch.ts --native`); `npx tsx tools/rust/water-identity.ts`
-compares the Rust water with the app's water, three ways (the adoption's identity run).
+The Rust water: `npx tsx tools/rust/build.ts [--native] [--check]` rebuilds its committed Wasm
+(`src/core/sim/waterWasm.ts`) and the native batch binary; `tools/rust/native-water.ts` runs a process's canonical
+settles natively (`tools/batch.ts` by default, `--wasm` to opt out); `npx tsx tools/rust/water-identity.ts`
+checks the native settle against the app's, three ways (in CI).
+
+The Rust forces (D381): `tools/rust/build.ts` rebuilds their committed Wasm too (`src/core/forces/rust/forcesWasm.ts`)
+and, with `--native`, `forces-batch`; `tools/rust/check.ts` runs their byte fixtures (`tools/rust/forces-jobs.ts`)
+natively, in Node's WebAssembly and in each engine against the pins in `tools/rust/forces-pins.json`, taken when
+the TypeScript forces (tag `ts-forces-final`) gave the same. A deliberate change to a force re-pins them:
+`npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json`.
+
+The Rust analysis (D391): the same for its six kernels: the committed Wasm `src/core/analysis/rust/analysisWasm.ts`,
+`analysis-batch`, and byte fixtures (`tools/rust/analysis-jobs.ts`) against `tools/rust/analysis-pins.json`, taken
+when the TypeScript kernels (tag `ts-analysis-final`) gave the same. A deliberate change to a kernel re-pins them:
+`npx tsx tools/rust/analysis-jobs.ts > tools/rust/analysis-pins.json`.
+
+The Rust checks (D465): the same for the map checks: the committed Wasm `src/core/validate/checksWasm.ts`,
+`checks-batch`, and byte fixtures (`tools/rust/checks-jobs.ts`, validations of the forces' studies) against
+`tools/rust/checks-pins.json`, taken when the TypeScript checks (tag `ts-checks-final`) gave the same. A deliberate
+change to a check re-pins them: `npx tsx tools/rust/checks-jobs.ts > tools/rust/checks-pins.json`. The data the
+checks share with the TypeScript (footprints, calibrated targets, names…) is generated into
+`rust/checks/src/tables.rs` by `npx tsx tools/rust/checks-tables.ts` (`tests/unit/checksTables.test.ts` fails when it
+is stale).

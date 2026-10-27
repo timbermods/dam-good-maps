@@ -8,7 +8,6 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
-import { deleteEdit, LAST_BADWATER_NOTE } from "../../src/core/doc/tools";
 import { startingLocation, waterSource } from "../../src/core/format/entities";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { OFFICIAL_BADWATER } from "../../src/core/gen/calibrated";
@@ -153,9 +152,6 @@ describe("badwater on every map (D200)", () => {
     expect(springs.length).toBeGreaterThan(0);
     expect(s.badwaterRemoved()).toBe(false);
     expect(s.effectiveSpec()!.settings.hazards.badwater).toBe(r.spec.settings.hazards.badwater);
-    // removing the last one says so (removing one of several does not)
-    const last = deleteEdit(s, springs[springs.length - 1].id);
-    expect(last.ok && last.report.includes(LAST_BADWATER_NOTE)).toBe(springs.length === 1);
     // removing them is not refused: the map is now a peaceful one, and says so
     const applied = s.applyAll(springs.map((f) => ({ op: "deleteFeature" as const, params: { id: f.id } })), "user", "Remove the badwater springs");
     expect(applied.ok, applied.errors.join("; ")).toBe(true);

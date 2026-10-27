@@ -19,11 +19,15 @@
 
 import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
-import { levelRegions, MinHeap } from "../math/grid";
+import { levelRegions, MinHeap, N4 } from "../math/grid";
 import { stream } from "../math/rng";
-import { clamp, N4, pctSorted, smoothstep } from "./num";
+import { pctSorted } from "./num";
+import { clamp, smoothstep } from "../math/clamp";
 import { BED_FLOOR, VT_HIGH, type Genome } from "./genome";
 import { windRoute } from "./wind";
+import { edgeSpill } from "./drainage";
+import { landRegions } from "../analysis/regions";
+import { integrityLevel } from "../features/raster/terrain";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -110,30 +114,9 @@ export function readable(h: Uint8Array, W: number, H: number): void {
 /** Components of land joined by steps of at most one level (the ground a beaver walks with
  *  slopes), water left out. */
 export function footComponents(h: Uint8Array, W: number, H: number, water: Uint8Array): { lab: Int32Array; size: number[] } {
-  const N = W * H;
-  const lab = new Int32Array(N).fill(-1);
+  const lab = landRegions(h, W, H, water);
   const size: number[] = [];
-  for (let s = 0; s < N; s++) {
-    if (lab[s] >= 0 || water[s]) continue;
-    const id = size.length;
-    const q = [s];
-    lab[s] = id;
-    for (let k = 0; k < q.length; k++) {
-      const i = q[k];
-      const x = i % W;
-      const y = (i - x) / W;
-      for (const [dx, dy] of N4) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        const j = yy * W + xx;
-        if (lab[j] >= 0 || water[j] || Math.abs(h[j] - h[i]) > 1) continue;
-        lab[j] = id;
-        q.push(j);
-      }
-    }
-    size.push(q.length);
-  }
+  for (let i = 0; i < lab.length; i++) if (lab[i] >= 0) size[lab[i]] = (size[lab[i]] ?? 0) + 1;
   return { lab, size };
 }
 
@@ -372,7 +355,7 @@ export function mergeSmallRegions(h: Uint8Array, W: number, H: number, min: numb
       if (size[labels[i]] >= min || keep?.[i]) continue;
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -403,28 +386,24 @@ export function mergeSmallRegions(h: Uint8Array, W: number, H: number, min: numb
   }
 }
 
-/** The build's integrity rule (raster/terrain.ts `integrityAt`): a tile lower than all four
- *  neighbours rises to the lowest, one higher than all four falls to the highest. */
+/** The build's integrity rule (features/raster/terrain.ts `integrityLevel`, unclipped and off no
+ *  channel): a tile lower than all four neighbours rises to the lowest, one higher than all four
+ *  falls to the highest. */
 export function cleanPitsAndSpikes(h: Uint8Array, W: number, H: number, keep: Uint8Array | null): number {
+  const prot = keep ?? new Uint8Array(W * H);
+  const channel = new Uint8Array(W * H);
+  const any = () => true;
   let changed = 0;
   for (let pass = 0; pass < 4; pass++) {
     const src = h.slice();
+    const pre = (j: number) => src[j];
     let n = 0;
     for (let y = 1; y < H - 1; y++)
       for (let x = 1; x < W - 1; x++) {
         const i = y * W + x;
-        if (keep?.[i]) continue;
-        const a = src[i - 1];
-        const b = src[i + 1];
-        const c = src[i - W];
-        const d = src[i + W];
-        const lo = Math.min(a, b, c, d);
-        const hi = Math.max(a, b, c, d);
-        if (src[i] < lo) {
-          h[i] = lo;
-          n++;
-        } else if (src[i] > hi) {
-          h[i] = hi;
+        const v = integrityLevel(pre, W, H, prot, channel, any, i, Infinity);
+        if (v !== src[i]) {
+          h[i] = v;
           n++;
         }
       }
@@ -441,31 +420,7 @@ export function cleanPitsAndSpikes(h: Uint8Array, W: number, H: number, keep: Ui
 export function fillDryHollows(h: Uint8Array, W: number, H: number, keep: Uint8Array): number {
   const N = W * H;
   // priority flood from the edge through the kept water too (it drains through its outlet)
-  const filled = new Int16Array(N).fill(-1);
-  const heap = new MinHeap();
-  for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if (x === 0 || y === 0 || x === W - 1 || y === H - 1) {
-      filled[i] = h[i];
-      heap.push(h[i], i);
-    }
-  }
-  while (heap.size) {
-    const c = heap.pop();
-    const lv = heap.lastKey;
-    const x = c % W;
-    const y = (c - x) / W;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-      const xx = x + dx;
-      const yy = y + dy;
-      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-      const j = yy * W + xx;
-      if (filled[j] >= 0) continue;
-      filled[j] = h[j] > lv ? h[j] : lv;
-      heap.push(filled[j], j);
-    }
-  }
+  const filled = edgeSpill(h, W, H);
   let n = 0;
   for (let i = 0; i < N; i++) {
     if (keep[i] || filled[i] <= h[i]) continue;
@@ -486,31 +441,7 @@ export function fillDryHollows(h: Uint8Array, W: number, H: number, keep: Uint8A
 export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Array, seed: number, width = 5, minArea = 300, minFlat = 120, wet: Uint8Array | null = null): number {
   const N = W * H;
   // spill levels from the draining map edge (priority flood)
-  const spill = new Int16Array(N).fill(-1);
-  const heap = new MinHeap();
-  for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if (x === 0 || y === 0 || x === W - 1 || y === H - 1) {
-      spill[i] = h[i];
-      heap.push(h[i], i);
-    }
-  }
-  while (heap.size) {
-    const c = heap.pop();
-    const lv = heap.lastKey;
-    const x = c % W;
-    const y = (c - x) / W;
-    for (const [dx, dy] of N4) {
-      const xx = x + dx;
-      const yy = y + dy;
-      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-      const j = yy * W + xx;
-      if (spill[j] >= 0) continue;
-      spill[j] = h[j] > lv ? h[j] : lv;
-      heap.push(spill[j], j);
-    }
-  }
+  const spill = edgeSpill(h, W, H);
   // basins: connected tiles standing below their spill level
   const label = new Int32Array(N).fill(-1);
   const basins: { tiles: number[]; level: number }[] = [];
@@ -663,31 +594,7 @@ export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
  *  its river no longer runs into fills only by seeping over a bank, for days. */
 export function unreachedLakes(h: Uint8Array, W: number, H: number, heads: readonly number[], lakes: readonly { tiles: number[] }[], sealed: Uint8Array | null = null): number[] {
   const N = W * H;
-  const spill = new Int16Array(N).fill(-1);
-  const heap = new MinHeap();
-  for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && !sealed?.[i]) {
-      spill[i] = h[i];
-      heap.push(h[i], i);
-    }
-  }
-  while (heap.size) {
-    const c = heap.pop();
-    const lv = heap.lastKey;
-    const x = c % W;
-    const y = (c - x) / W;
-    for (const [dx, dy] of N4) {
-      const xx = x + dx;
-      const yy = y + dy;
-      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-      const j = yy * W + xx;
-      if (spill[j] >= 0) continue;
-      spill[j] = h[j] > lv ? h[j] : lv;
-      heap.push(spill[j], j);
-    }
-  }
+  const spill = edgeSpill(h, W, H, sealed);
   const path = new Uint8Array(N);
   const q: number[] = [];
   for (const i of heads)
@@ -714,38 +621,6 @@ export function unreachedLakes(h: Uint8Array, W: number, H: number, heads: reado
     if (!lk.tiles.some((i) => path[i])) out.push(k);
   });
   return out;
-}
-
-/** Spill levels from the draining map edge (priority flood): the lowest level water standing on a
- *  tile drains at. */
-export function edgeSpill(h: Uint8Array, W: number, H: number): Int16Array {
-  const N = W * H;
-  const spill = new Int16Array(N).fill(-1);
-  const heap = new MinHeap();
-  for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if (x === 0 || y === 0 || x === W - 1 || y === H - 1) {
-      spill[i] = h[i];
-      heap.push(h[i], i);
-    }
-  }
-  while (heap.size) {
-    const c = heap.pop();
-    const lv = heap.lastKey;
-    const x = c % W;
-    const y = (c - x) / W;
-    for (const [dx, dy] of N4) {
-      const xx = x + dx;
-      const yy = y + dy;
-      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-      const j = yy * W + xx;
-      if (spill[j] >= 0) continue;
-      spill[j] = h[j] > lv ? h[j] : lv;
-      heap.push(spill[j], j);
-    }
-  }
-  return spill;
 }
 
 /** A sea's way out, as wide as its water needs (the canonical settle, PLAN §10): a broad basin

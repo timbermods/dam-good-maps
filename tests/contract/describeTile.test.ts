@@ -3,11 +3,12 @@
 // described here, on the map that holds it, and with the ground it stands on.
 
 import { describe, expect, it } from "vitest";
-import { describeObject, describeTile, describeTileOf, tileWords, type TileFacts } from "../../src/core/doc/describeTile";
+import { describeObject, describeTile, describeTileOf, groundWords, runIndexAt, tileWords, type TileFacts } from "../../src/core/doc/describeTile";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { footprintTiles } from "../../src/core/format/footprints";
+import { footprintTiles, ORIENTATIONS } from "../../src/core/format/footprints";
 import { makeSpec } from "../../src/core/spec/mapspec";
+import { build, t3CaveWater } from "../../tools/terrain3d-maps";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
@@ -30,9 +31,9 @@ function spotFor(template: string, taken: Set<number>): [number, number] {
 
 describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
   it("each kind of thing the editor places is named, with its key fact and the ground under it", async () => {
-    // (seed 2 on M9b's maps, D148: the start's footprint is read at (+1, +1) of its anchor, which only holds for orientation Cw0, and seed 4's start now faces another way)
+    // (seed 2 on M9b's maps, D148, when the start's footprint was read at (+1, +1) of its anchor; it is read
+    // through its footprint, whichever way it faces, since 0.8.5's maps turned seed 2's start)
     await runGenerate(makeSpec({ seed: 2, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const taken = new Set<number>();
     const cases: [string, RegExp, Record<string, unknown>?][] = [
@@ -49,7 +50,7 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
       ["Pine", /^Pine, (grown|young|dead)$/],
       ["Birch", /^Birch, (grown|young|dead)$/],
       ["Oak", /^Oak, (grown|young|dead)$/],
-      ["BlueberryBush", /^Blueberry bush, (grown|young|dead)$/],
+      ["BlueberryBush", /^Berry bush, (grown|young|dead)$/],
       ["WaterSource", /^Water source, 1 water\/s$/],
       ["BadwaterSource", /^Badwater source, 3 badwater\/s$/],
     ];
@@ -86,7 +87,9 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
       if (t === "StartingLocation") start = k;
       if (t === "Slope" && slope < 0) slope = k;
     }
-    expect(ed.describeTileAt(e.x[start] + 1, e.y[start] + 1)!.objects.map((o) => o.text)).toContain("Start");
+    const startTiles = footprintTiles("StartingLocation", { template: "StartingLocation", x: e.x[start], y: e.y[start], z: e.z[start], orientation: ORIENTATIONS[e.orientation[start]], flipped: false });
+    const [sx, sy] = startTiles[Math.floor(startTiles.length / 2)];
+    expect(ed.describeTileAt(sx, sy)!.objects.map((o) => o.text)).toContain("Start");
     if (slope >= 0) expect(ed.describeTileAt(e.x[slope], e.y[slope])!.objects.map((o) => o.text)).toContain("Slope");
     const bare = ed.describeTileAt(1, 1)!;
     expect(bare.objects).toEqual([]);
@@ -112,11 +115,64 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
     expect(tileWords(describeTile(facts, 1, 2))).toBe("Pine, grown; Ruin, 2 levels, 30 scrap metal · Height 4, moist soil");
   });
 
+  it("pointing at a cave's floor under a roof names the floor: its level, its soil, never the roof's (a run top below the tile's top)", () => {
+    // a tile whose roof tops at 13 over a floor topping at 3: the roof is dry soil, the floor moist, and water stands on a lower ledge
+    const facts: TileFacts = {
+      W: 4,
+      H: 4,
+      height: () => 13,
+      water: () => null,
+      soil: () => "dry",
+      objects: () => [],
+      runTop: (i, level) => (i !== 5 ? null : level === 3 ? { soil: "moist", water: null } : level === 1 ? { soil: null, water: { depth: 0.5, contamination: 0 } } : null),
+    };
+    expect(tileWords(describeTile(facts, 1, 1))).toBe("Height 13, dry soil");
+    expect(tileWords(describeTile(facts, 1, 1, 13))).toBe("Height 13, dry soil");
+    expect(tileWords(describeTile(facts, 1, 1, 3))).toBe("Height 3, moist soil");
+    expect(tileWords(describeTile(facts, 1, 1, 1))).toBe("Water 0.5 deep, bed level 1");
+    // a level the map says nothing of (a layer cut, a tile without caves) leaves the tile's top as it was
+    expect(tileWords(describeTile(facts, 1, 1, 7))).toBe("Height 13, dry soil");
+    expect(tileWords(describeTile({ ...facts, runTop: undefined }, 1, 1, 3))).toBe("Height 13, dry soil");
+    expect(describeTile(facts, 1, 1, 3)!.ground).toMatchObject({ height: 3, soil: "moist", water: null });
+    // runs are counted from the bottom, the empty one under air first
+    expect(runIndexAt([1, 1, 0, 0, 1, 1, 0], 2)).toBe(0);
+    expect(runIndexAt([1, 1, 0, 0, 1, 1, 0], 6)).toBe(1);
+    expect(runIndexAt([0, 1, 1, 0], 0)).toBe(0);
+    expect(runIndexAt([0, 1, 1, 0], 3)).toBe(1);
+    expect(runIndexAt([1, 1, 0, 0, 1, 1, 0], 4)).toBe(-1);
+  });
+
+  it("on an imported map with caves, a floor under a roof reads its own level, not the roof's", () => {
+    const s = MapSession.importMap(build(t3CaveWater()).bytes, "T3.timber");
+    const W = s.size.x;
+    let found = 0;
+    for (const [i, v] of s.columns) {
+      const top = s.built.heights[i];
+      // each run top below the tile's top
+      for (let z = 0; z < v.length - 1; z++) {
+        if (!(v[z] && !v[z + 1]) || z + 1 >= top) continue;
+        const level = z + 1;
+        const x = i % W;
+        const y = (i - x) / W;
+        const d = describeTileOf(s, x, y, level)!;
+        expect(d.ground.height, `tile ${x},${y} level ${level}`).toBe(level);
+        expect(d.ground.height).not.toBe(top);
+        // the soil is the floor's own, as the readout words it
+        expect(groundWords(d.ground)).toMatch(new RegExp(`^(Height ${level}(, (moist|dry|contaminated) soil)?|(Water|Badwater) [\d.]+ deep, bed level ${level}.*)$`));
+        // the tile asked without a level, or at its top, is the roof as before
+        expect(describeTileOf(s, x, y)!.ground.height).toBe(top);
+        expect(describeTileOf(s, x, y, top)!.ground).toEqual(describeTileOf(s, x, y)!.ground);
+        found++;
+      }
+    }
+    expect(found).toBeGreaterThan(0);
+  });
+
   it("the description follows the water: re-asking after the water under a tile changes gives the new depth, with nothing else to refresh", async () => {
     // (seed 1 on M9b's maps, D148: seed 3's River Valley has no dry, flat, empty 7×7 at level 5 or
-    // above, 6 tiles clear of the water, that the test edits on)
-    await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
+    // above, 6 tiles clear of the water, that the test edits on; seed 2 since 0.8.3's badwater courses
+    // follow the land, D476, D148: seed 1 has none)
+    await runGenerate(makeSpec({ seed: 2, theme: "riverValley", size: { x: W, y: W } }));
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const b0 = s.built;

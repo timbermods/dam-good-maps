@@ -18,17 +18,27 @@ import { FOOTPRINTS, ORIENTATIONS, type Orientation } from "../format/footprints
 import { hasDefaults, type PlaceEntityParams } from "../features/edits";
 import { checkChannel } from "../features/route";
 import { checkSetPiece } from "../features/setpieces";
-import { BUILT_OBJECTS, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
+import { BUILT_OBJECTS, fitProblems, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
+import { optionProblems } from "./objectOps";
+import { descriptionProblem } from "./description";
+import { paintLevelProblems, paintParamProblems, type PaintParams } from "./paintParams";
+import { plainOf, type JsonValue } from "../format/json";
+import { mergeGame } from "../features/edits";
 import { REQUIRED } from "../validate/checks";
-import type { Feature, FeatureKind } from "../features/schema";
+import type { Feature, FeatureKind, StartFeature } from "../features/schema";
+import { makesRoomForStart, START_OPEN_GROUND, startOverRoof, startRoofProblem } from "./startFit";
 import type { Runs } from "../math/grid";
 import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
-import { carveProblems, type CarveParams } from "../forces/carve/op";
 import { forceProblems, type ForceResultParams } from "../forces/op";
 import { applyMergePatch, clone } from "../spec/mergepatch";
+import { blockEffect, blockProblems, type BlockGround, type BlocksParams } from "../terrain/blocks";
+import type { ColumnTerrain } from "../terrain/runs";
 import { fedTiles } from "../sim/fed";
 import { fillProblem } from "../sim/fill";
+import { fedColumns, stackFillProblem } from "../sim/stackFed";
+import { cavesOf, stackGraph, type StackSettle } from "../sim/stackWater";
+import { cropRectProblem, type CropParams } from "./crop";
 import type { RetainedWater, WaterModel } from "../sim/water";
 import opsSchema from "./ops.schema.json" with { type: "json" };
 
@@ -43,20 +53,19 @@ export interface OpParams {
   updateFeature: { id: string; patch: { params?: Record<string, unknown>; locked?: boolean } };
   deleteFeature: { id: string };
   reorderFeature: { id: string; index: number };
-  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean };
+  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean; /** The ground holding objects set under a roof (D491): [tile, low, high]; the session adds it. */ hold?: [number, number, number][] };
   /** A terrain brush stroke (live editing): the brush and its dabs (features/raster/brush.ts). */
   brush: BrushParams;
-  /** A carve, a force of nature (D194, D199), its result stored literally (forces/carve/op.ts): the
-   *  carve's operation before the four forces shared `forceResult`; still read, applied and replayed. */
-  carve: CarveParams;
-  /** A force of nature (Carve, Craterize, Erupt, Quake: D194, D202, D203, D206, D220), its result
-   *  stored literally (forces/op.ts). */
+  /** A force of nature (Carve, Craterize, Erupt, Quake, Glaciate: D194, D202, D203, D206, D220, D246),
+   *  its result stored literally (forces/op.ts). A project's `carve` operations, from before the forces
+   *  shared this one, become this when it opens (doc/document.ts). */
   forceResult: ForceResultParams;
   placeEntity: PlaceEntityParams;
   /** `quiet`: only a force's own edit sets it (an object it carried that is gone, or whose new ground
    *  is taken, is left out); an operation in the log never does. */
-  moveEntity: { id: string; x: number; y: number; orientation?: Orientation; quiet?: boolean };
-  /** `quiet`: ids already gone are fine. Only a carve's own edit sets it (its ground places the
+  /** `z`: the level it lands on under a roof (D491), as `placeEntity`'s; omitted, the ground's top. */
+  moveEntity: { id: string; x: number; y: number; z?: number; orientation?: Orientation; quiet?: boolean };
+  /** `quiet`: ids already gone are fine. Only a force's own edit sets it (its ground places the
    *  resources again); an operation in the log never does. */
   deleteEntities: { entities: string[]; quiet?: boolean };
   /** A JSON Merge Patch on the entity's components (BlockObject excluded: use moveEntity). `quiet`:
@@ -65,16 +74,33 @@ export interface OpParams {
   pinSlope: { x: number; y: number; orientation: Orientation };
   removeSlope: { x: number; y: number };
   /** Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, as
-   *  the core question found it (doc/water.ts `unfedWater`). */
+   *  the core question found it (doc/waterEdits.ts `unfedWater`). */
   removeUnfedWater: RemoveUnfedWaterParams;
   /** Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source, stored
-   *  as a sealed oxbow lake's water is (D216; doc/water.ts `planFill`). */
+   *  as a sealed oxbow lake's water is (D216; doc/waterEdits.ts `planFill`). */
   fillHollow: FillHollowParams;
+  /** Explicit player placement; the log stores literal placed objects, never replans. */
+  paintObjects: PaintParams;
+  /** Crop map to selection (D340): the map becomes exactly this rectangle of itself, in tiles. The first
+   *  operation of the map's next generation (doc/session.ts): the operations after it are in the cropped map's
+   *  tiles. */
+  crop: CropParams;
+  /** The Block tool (D335): blocks added against a face of the ground or removed, in a click or a
+   *  drag (terrain/blocks.ts). Refused, never clamped, when a cell is off the map or the layers or on
+   *  an object, and when the result would leave ground the game drops. */
+  blocks: BlocksParams;
+  /** The map's description, written by its player (doc/description.ts): the text the game shows with the
+   *  map. Empty text takes it away and the generated one is used again. It changes nothing on the map, so
+   *  it builds nothing. */
+  setDescription: { text: string };
 }
+
+export type { CropParams };
 
 export interface RemoveUnfedWaterParams {
   /** The tiles of the unfed bodies of water taken (y·W + x), ascending: once the water settles, the
-   *  water no source feeds on them is taken away (sim/water.ts WaterModel `drained`). */
+   *  water no source feeds on them is taken away (sim/water.ts WaterModel `drained`); on a map with
+   *  caves, the unfed water of every column of them. */
   tiles: number[];
   /** Where it was asked: the selection's tiles as runs [y, x0, x1]; absent, the whole map. A body of
    *  water with a tile inside goes whole. */
@@ -88,8 +114,12 @@ export interface FillHollowParams {
   at: [number, number];
   /** The water's surface. */
   level: number;
+  /** On a map with caves or overhangs: the floor of the water column at `at` the hollow is measured from
+   *  (a cave's floor under its roof, or the ground on top). Absent on a heightfield. */
+  floor?: number;
   /** The hollow's water (its tiles ascending, their floors, depths to the level, clean), as a carve
-   *  stores its oxbow lake's: every settle starts the hollow from it. */
+   *  stores its oxbow lake's: every settle starts the hollow from it. On a map with caves, one entry a
+   *  water column: a tile whose cave and top are both in the hollow has two, ascending by floor. */
   lake: RetainedWater;
 }
 
@@ -104,6 +134,8 @@ export interface UndoData {
   before?: Feature;
   /** Where the feature was (delete, reorder) or went (add). */
   index?: number;
+  /** The description written before a `setDescription` (null: none). */
+  description?: string | null;
 }
 
 interface Applied {
@@ -124,23 +156,15 @@ interface Applied {
 export type AppliedOp = EditOp & Applied;
 export type AppliedOpOf<K extends OpName> = OpOf<K> & Applied;
 
-/** Operations kept in the document's log and replayed on every generation. */
-export const LOG_OPS: readonly OpName[] = [
-  "addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "carve", "forceResult", "placeEntity", "moveEntity",
-  "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow",
-];
-export const ENTITY_OPS: readonly OpName[] = ["placeEntity", "moveEntity", "deleteEntities", "setEntityProps"];
-export const SLOPE_OPS: readonly OpName[] = ["pinSlope", "removeSlope"];
-export const WATER_OPS: readonly OpName[] = ["removeUnfedWater", "fillHollow"];
-
-export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"carve"> | AppliedOpOf<"forceResult">;
-/** A force's operation: the shared `forceResult`, or a `carve` of before it. */
-export type ForceOp = AppliedOpOf<"carve"> | AppliedOpOf<"forceResult">;
-export const isForceOp = (op: { op: string }): op is ForceOp => op.op === "carve" || op.op === "forceResult";
+export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"forceResult"> | AppliedOpOf<"blocks">;
+/** A force's operation. */
+export type ForceOp = AppliedOpOf<"forceResult">;
+export const isForceOp = (op: { op: string }): op is ForceOp => op.op === "forceResult";
 export type SlopeOp = AppliedOpOf<"pinSlope"> | AppliedOpOf<"removeSlope">;
 export type EntityOp = AppliedOpOf<"placeEntity"> | AppliedOpOf<"moveEntity"> | AppliedOpOf<"deleteEntities"> | AppliedOpOf<"setEntityProps">;
 /** An operation that changes only the water (D387 (2) and (3)). */
 export type WaterOp = AppliedOpOf<"removeUnfedWater"> | AppliedOpOf<"fillHollow">;
+export const isCrop = (op: { op: string }): op is AppliedOpOf<"crop"> => op.op === "crop";
 
 /** The document's current state: the generation's features with the log applied. */
 export interface DocState {
@@ -151,10 +175,12 @@ export interface DocState {
   /** Remove unfed water and Fill, in log order (the build makes the water model's stored water of
    *  them and the forces' oxbow lakes, by `seq`). */
   waterEdits: WaterOp[];
+  /** The description its player wrote (`setDescription`), or null: the generated one stands. */
+  description: string | null;
 }
 
 export function emptyState(features: readonly Feature[]): DocState {
-  return { features: clone(features as Feature[]), sculpts: [], slopeEdits: [], entityEdits: [], waterEdits: [] };
+  return { features: clone(features as Feature[]), sculpts: [], slopeEdits: [], entityEdits: [], waterEdits: [], description: null };
 }
 
 // ----------------------------------------------------------------------------------- dependencies
@@ -284,7 +310,11 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     case "brush":
       state.sculpts.push(op);
       return;
-    case "carve":
+    case "blocks":
+      state.sculpts.push(op);
+      // the plants its blocks fill in or take the ground from go with it (quiet, like a force's)
+      if (op.params.plants?.length) state.entityEdits.push({ op: "deleteEntities", params: { entities: op.params.plants, quiet: true }, seq: op.seq, origin: op.origin });
+      return;
     case "forceResult": {
       // Try another replaces the force before it: that one is left out while this one stands
       const r = op.params.replaces;
@@ -316,25 +346,32 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     case "fillHollow":
       state.waterEdits.push(op);
       return;
+    case "crop":
+      // (the session starts the cropped map's next generation; the state of this one is left as it is)
+      return;
+    case "setDescription":
+      op.undo = { description: state.description };
+      state.description = op.params.text === "" ? null : op.params.text;
+      return;
     default:
       throw new Error(`${(op as { op: string }).op} is not a log operation`);
   }
 }
 
 /** A force's objects, as the entity edits the build applies (same seq): the objects that lost their
- *  ground go, the ones it carried move, the trees it knocked down die, and a carve's source is
- *  placed. Each is quiet: what the ground's resources placed again may have changed. */
+ *  ground go, and the sources it cleared (D474), the ones it carried move, the trees it knocked down
+ *  die, and a carve's source is placed. Each is quiet: what the ground's resources placed again may
+ *  have changed. */
 function forceEntityEdits(op: ForceOp): EntityOp[] {
   const { seq, origin } = op;
   const out: EntityOp[] = [];
   const p = op.params;
-  if (p.removed.length) out.push({ op: "deleteEntities", params: { entities: p.removed, quiet: true }, seq, origin });
-  if (op.op === "forceResult") {
-    for (const m of op.params.moved ?? []) out.push({ op: "moveEntity", params: { id: m.id, x: m.x, y: m.y, quiet: true }, seq, origin });
-    for (const f of op.params.felled ?? []) out.push({ op: "setEntityProps", params: { id: f.id, components: { LivingNaturalResource: { IsDead: true } }, quiet: true }, seq, origin });
-  }
+  const gone = p.cleared?.length ? [...p.removed, ...p.cleared.map((c) => c.id)] : p.removed;
+  if (gone.length) out.push({ op: "deleteEntities", params: { entities: gone, quiet: true }, seq, origin });
+  for (const m of p.moved ?? []) out.push({ op: "moveEntity", params: { id: m.id, x: m.x, y: m.y, quiet: true }, seq, origin });
+  for (const f of p.felled ?? []) out.push({ op: "setEntityProps", params: { id: f.id, components: { LivingNaturalResource: { IsDead: true } }, quiet: true }, seq, origin });
   // a carve's source, and since D314 the rest of its row; Glaciate's springs (D246)
-  for (const s of [...(p.source ? [p.source] : []), ...(("sources" in p ? p.sources : undefined) ?? [])])
+  for (const s of [...(p.source ? [p.source] : []), ...(p.sources ?? [])])
     out.push({ op: "placeEntity", params: { id: s.id, template: "WaterSource", x: s.x, y: s.y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: s.strength, CurrentStrength: s.strength } } }, seq, origin });
   return out;
 }
@@ -371,7 +408,10 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     case "brush":
       removeFromList(state.sculpts, op.seq);
       return;
-    case "carve":
+    case "blocks":
+      removeFromList(state.sculpts, op.seq);
+      removeAllFromList(state.entityEdits, op.seq);
+      return;
     case "forceResult": {
       removeFromList(state.sculpts, op.seq);
       removeAllFromList(state.entityEdits, op.seq);
@@ -397,6 +437,11 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     case "removeUnfedWater":
     case "fillHollow":
       removeFromList(state.waterEdits, op.seq);
+      return;
+    case "crop":
+      return;
+    case "setDescription":
+      state.description = op.undo!.description ?? null;
       return;
     default:
       throw new Error(`${(op as { op: string }).op} is not a log operation`);
@@ -429,7 +474,8 @@ export interface OpContext {
   entityIds: ReadonlySet<string>;
   /** Tiles with a slope in the current build. */
   slopeTiles: ReadonlySet<number>;
-  /** Columns the sculpt tools leave alone: imported caves and overhangs (EDITOR_PLAN §3). */
+  /** Caves and overhangs (an imported map's, and ground the Block tool dug): an old sculpt edit, a
+   *  force's result and a fill leave them alone (the brushes shape their top runs, D487). */
   lockedColumns: ReadonlySet<number> | null;
   /** Feature kinds this version builds when a player adds them. */
   buildableKinds?: readonly FeatureKind[];
@@ -437,15 +483,29 @@ export interface OpContext {
   otherStarts?: number;
   /** Why the game would not keep an entity placed (or moved, by id) there, or null: the loader's
    *  rules on the current map (placing.ts `entityProblem`). */
-  placement?: (p: { template?: string; id?: string; x: number; y: number; orientation?: Orientation; flipped?: boolean }) => string | null;
+  placement?: (p: { template?: string; id?: string; x: number; y: number; z?: number; orientation?: Orientation; flipped?: boolean }) => string | null;
   /** The map's water model and its settled water now: Remove unfed water and Fill are checked
    *  against them (a removal takes no fed water; a fill's hollow is still the one it measured). */
-  water?: { model: WaterModel; depth: ArrayLike<number> };
+  water?: { model: WaterModel; depth: ArrayLike<number>; stack?: Pick<StackSettle, "depth" | "overflow"> };
   /** The map's surface now: a sculpt that would raise ground past the ceiling is refused, never
    *  clamped (D342 (4)). */
   heights?: ArrayLike<number>;
+  /** The ground voxel by voxel (bit z of `masks[i]`: voxel z of tile i is solid): a map object feature
+   *  that names its level under a roof is checked against it (D491, objects.ts `fitProblems`). */
+  masks?: ArrayLike<number> | null;
+  /** The cells the objects standing hold, level by level, but those of the feature `owner` builds and
+   *  the resources (which make room): a map object feature at a level does not overlap them (D491,
+   *  placing.ts `objectCells`). */
+  objectCells?: (owner: string) => (x: number, y: number, z: number) => string | null;
+  /** The ground the Block tool works on and the cells of the objects standing on it (a block
+   *  operation is checked against them; the session gives them for one). */
+  blocks?: { terrain: ColumnTerrain; ground: BlockGround };
   /** The objects a start feature builds (its StartingLocation), by id, and that feature's id. */
   startObjects?: ReadonlyMap<string, string>;
+  templateOf?: (id: string) => string | undefined;
+  componentsOf?: (id: string) => Record<string, unknown> | undefined;
+  /** Why the map cannot be cropped to a rectangle for what stands on it (a start the edge would cut), or null. */
+  cropObjects?: (r: CropParams) => string | null;
 }
 
 /** Why an object's components would not load or build: a source's strength must be a number, 0 or
@@ -457,7 +517,7 @@ function componentProblem(components: Record<string, unknown>): string | null {
     if (!c || typeof c !== "object") return `${key} must be an object`;
     for (const field of ["SpecifiedStrength", "CurrentStrength"]) {
       const v = (c as Record<string, unknown>)[field];
-      if (v !== undefined && !(typeof v === "number" && Number.isFinite(v) && v >= 0)) return `${key}.${field} must be a number, 0 or more`;
+      if (v !== undefined && !(typeof v === "number" && Number.isFinite(v))) return `${key}.${field} must be a finite number`;
     }
   }
   return null;
@@ -472,13 +532,15 @@ export const PLACEABLE = new Set([
   "NaturalDam", "NaturalOverhang2x1", "NaturalOverhang3x1", "NaturalOverhang4x1", "Slope", "Thorns", "UnstableCore",
   "RuinColumnH1", "RuinColumnH2", "RuinColumnH3", "RuinColumnH4", "RuinColumnH5", "RuinColumnH6", "RuinColumnH7", "RuinColumnH8",
   "UndergroundRuins", "BadwaterSource", "WaterSource", "WaterSeep", "BadwaterSeep",
+  "Aquifer", "AncientAquiferDrill", "BadtideDrain", "ReservePile", "ReserveWarehouse", "ReserveTank",
 ]);
 
-/** The highest level a carve may leave: the editor's one ceiling (D244). */
-const CARVE_MAX_LEVEL = CEILING;
+/** The highest level a force may leave: the editor's one ceiling (D244). */
+const FORCE_MAX_LEVEL = CEILING;
 
-/** Largest number of tiles one operation may touch. */
-export const MAX_OP_TILES = 256 * 256;
+/** Largest number of tiles one operation may touch: the whole map (D357: tied to the map's area, so a selection or
+ *  a force may cover a 512² map as it covers a 128² one, and never more than the map has). */
+export const maxOpTiles = (W: number, H: number): number => W * H;
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const OPS_SCHEMA = opsSchema as Record<string, unknown>;
@@ -490,7 +552,7 @@ function runsProblems(runs: Runs, W: number, H: number, what: string): string[] 
     n += x1 - x0 + 1;
   }
   if (n === 0) return [`${what} is empty`];
-  if (n > MAX_OP_TILES) return [`${what} covers ${n} tiles, more than one operation may change`];
+  if (n > maxOpTiles(W, H)) return [`${what} covers ${n} tiles, more than one operation may change`];
   return [];
 }
 
@@ -559,10 +621,59 @@ function featureGeometryProblems(f: Feature, W: number, H: number): string[] {
   }
 }
 
+/** Why a map object feature that names its level (`placement.z`, under a roof) can't stand there, in one
+ *  line: the game's rule on the map's ground and wholly under the roof (D491, objects.ts `fitProblems`). `before`: the
+ *  feature an update patches. Only a placement or a move checks the ground: an update that keeps where it stands (a lock,
+ *  a rename, its options) is never refused for ground that changed under it since, a tunnel dug below it later. */
+function levelProblems(f: Feature, ctx: OpContext, before?: Feature): string[] {
+  if (f.kind === "start") {
+    if (before?.kind !== "start") return startLevelProblems(f, ctx, false);
+    const [a, b] = [before.params, f.params];
+    if (a.position[0] !== b.position[0] || a.position[1] !== b.position[1] || a.z !== b.z) return startLevelProblems(f, ctx, false);
+    // (turned in place: without a level its bench, the same 5×5 whichever way it faces, shapes the ground it shaped
+    // before; under a roof its 3×3 stays where it stood and only its new door is checked)
+    return a.orientation === b.orientation || b.z === undefined ? [] : startLevelProblems(f, ctx, true);
+  }
+  if (f.kind !== "mapObject" || f.params.placement.z === undefined) return [];
+  if (before?.kind === "mapObject" && JSON.stringify(before.params.placement) === JSON.stringify(f.params.placement)) return [];
+  const pl = f.params.placement;
+  const name = OBJECT_NAMES[f.params.kind].toLowerCase();
+  if (!ctx.masks || !ctx.heights) return [`the ${name}'s level can't be checked without the map's ground`];
+  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks, taken: ctx.objectCells?.(f.id) ?? null }, pl);
+  return why.length ? [`the ${name} can't stand at level ${pl.z} there: ${why[0]}`] : [];
+}
+
+/** Why a start feature can't stand where it is, in one line (D491): with a level (`z`), the game's rule wholly under the
+ *  roof (startFit.ts `startRoofProblem`); without one, open ground, never a cave or an overhang, where its bench would
+ *  shape a roof (`START_OPEN_GROUND`). The generation's plants and ruin columns make room for it. `doorOnly`: turned in
+ *  place under a roof, only its new door is checked. */
+function startLevelProblems(f: StartFeature, ctx: OpContext, doorOnly: boolean): string[] {
+  const { W, H } = ctx;
+  const [x, y] = f.params.position;
+  const z = f.params.z;
+  if (!ctx.masks || !ctx.heights) return z === undefined ? [] : ["the start's level can't be checked without the map's ground"];
+  const g = { W, H, heights: ctx.heights, mask: ctx.masks };
+  if (z === undefined) return startOverRoof(g, x, y, f.params.orientation) ? [START_OPEN_GROUND] : [];
+  const cells = ctx.objectCells?.(f.id);
+  const taken = cells
+    ? (cx: number, cy: number, cz: number) => {
+        const t = cells(cx, cy, cz);
+        return t && !makesRoomForStart(t, false) ? t : null;
+      }
+    : undefined;
+  const why = startRoofProblem(g, x, y, f.params.orientation, z, taken, doorOnly);
+  return why ? [`the start can't stand at level ${z} there: ${why}`] : [];
+}
+
 /** Why an operation cannot be applied now (empty when it can). */
+/** Why an operation does not fit its schema (empty when it does): the first line of `validateOp`. */
+export function schemaProblems(op: EditOp): string[] {
+  return checkSchema(OPS_SCHEMA, op).map((e) => `${op.op ?? "operation"}${e.path}: ${e.message}`);
+}
+
 export function validateOp(op: EditOp, ctx: OpContext): string[] {
-  const schemaErrors = checkSchema(OPS_SCHEMA, op);
-  if (schemaErrors.length) return schemaErrors.map((e) => `${op.op ?? "operation"}${e.path}: ${e.message}`);
+  const schemaErrors = schemaProblems(op);
+  if (schemaErrors.length) return schemaErrors;
   const { state, W, H } = ctx;
   const inMap = (x: number, y: number) => x >= 0 && x < W && y >= 0 && y < H;
   const featureById = (id: string) => state.features.find((f) => f.id === id);
@@ -578,7 +689,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       const missing = dependenciesOf(f).filter((d) => !featureById(d));
       if (missing.length) return [`it builds on ${missing.join(", ")}, which does not exist`];
       if (op.params.index !== undefined && op.params.index > state.features.length) return [`index ${op.params.index} is past the end of the feature list`];
-      return featureGeometryProblems(f, W, H);
+      const geometry = featureGeometryProblems(f, W, H);
+      return geometry.length ? geometry : levelProblems(f, ctx);
     }
     case "updateFeature": {
       const f = featureById(op.params.id);
@@ -590,7 +702,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (missing.length) return [`it would build on ${missing.join(", ")}, which does not exist`];
       if (after.kind === "mapObject" && f.kind === "mapObject" && after.params.kind !== f.params.kind) return ["a map object keeps its kind: delete it and add another"];
       if (after.kind === "setPiece" && f.kind === "setPiece" && after.params.kind !== f.params.kind) return ["a set piece keeps its kind: delete it and add another"];
-      return featureGeometryProblems(after, W, H);
+      const geometry = featureGeometryProblems(after, W, H);
+      return geometry.length ? geometry : levelProblems(after, ctx, f);
     }
     case "deleteFeature": {
       if (!featureById(op.params.id)) return [`feature ${op.params.id} does not exist`];
@@ -610,7 +723,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (p.mode === "terrace" && p.step === undefined) return ["terrace needs a step"];
       if (ctx.lockedColumns?.size) {
         for (const [y, x0, x1] of p.cells) for (let x = x0; x <= x1; x++) {
-          if (ctx.lockedColumns.has(y * W + x)) return [`(${x}, ${y}) has a cave or overhang, which the sculpt tools leave as it is`];
+          if (ctx.lockedColumns.has(y * W + x)) return [`(${x}, ${y}) has a cave or overhang: shape its top with a brush`];
         }
       }
       // (raised past the ceiling, a tile would stop short of what the step says)
@@ -624,24 +737,14 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
     }
     case "brush":
       return brushProblems(op.params, W, H);
-    case "carve": {
-      const p = op.params;
-      const errors = carveProblems(p, W, H, CARVE_MAX_LEVEL);
-      if (errors.length) return errors;
-      if (ctx.lockedColumns?.size) for (const i of p.tiles) if (ctx.lockedColumns.has(i)) return [`(${i % W}, ${Math.floor(i / W)}) has a cave or overhang, which a carve leaves as it is`];
-      // another path starts from the land before the carve it replaces, whose objects may be gone now
-      if (p.replaces === undefined) for (const id of p.removed) if (!ctx.entityIds.has(id)) return [`entity ${id} does not exist`];
-      for (const id of p.removed) if (!GUID.test(id)) return [`${id} is not a lowercase GUID`];
-      for (const src of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) {
-        if (!GUID.test(src.id)) return [`${src.id} is not a lowercase GUID`];
-        if (ctx.entityIds.has(src.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
-      }
-      if (p.replaces !== undefined && !state.sculpts.some((s) => isForceOp(s) && s.seq === p.replaces)) return [`there is no carve ${p.replaces} to try another path for`];
-      return [];
+    case "blocks": {
+      const bad = blockProblems(op.params, W, H);
+      if (bad.length || !ctx.blocks) return bad;
+      return blockEffect(op.params, ctx.blocks.terrain, ctx.blocks.ground).errors;
     }
     case "forceResult": {
       const p = op.params;
-      const errors = forceProblems(p, W, H, CARVE_MAX_LEVEL);
+      const errors = forceProblems(p, W, H, FORCE_MAX_LEVEL);
       if (errors.length) return errors;
       if (ctx.lockedColumns?.size) for (const i of p.tiles) if (ctx.lockedColumns.has(i)) return [`(${i % W}, ${Math.floor(i / W)}) has a cave or overhang, which a force leaves as it is`];
       // Try another starts from the land before the force it replaces, whose objects may be gone now
@@ -650,8 +753,9 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         for (const id of p.removed) if (!ctx.entityIds.has(id)) return [`entity ${id} does not exist`];
         for (const m of p.moved ?? []) if (!ctx.entityIds.has(m.id)) return [`entity ${m.id} does not exist`];
         for (const f of p.felled ?? []) if (!ctx.entityIds.has(f.id)) return [`entity ${f.id} does not exist`];
+        for (const c of p.cleared ?? []) if (!ctx.entityIds.has(c.id)) return [`there is no source ${c.id} to clear`];
       }
-      for (const id of [...p.removed, ...(p.moved ?? []).map((m) => m.id), ...(p.felled ?? []).map((f) => f.id)]) if (!GUID.test(id)) return [`${id} is not a lowercase GUID`];
+      for (const id of [...p.removed, ...(p.moved ?? []).map((m) => m.id), ...(p.felled ?? []).map((f) => f.id), ...(p.cleared ?? []).map((c) => c.id)]) if (!GUID.test(id)) return [`${id} is not a lowercase GUID`];
       for (const src of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) {
         if (!GUID.test(src.id)) return [`${src.id} is not a lowercase GUID`];
         if (ctx.entityIds.has(src.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
@@ -675,15 +779,17 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         if ("BlockObject" in p.components) return ["BlockObject comes from the operation's position"];
         const bad = componentProblem(p.components);
         if (bad) return [bad];
+        const options = optionProblems(p.template, p.components);
+        if (options.length) return options;
       }
       // an object the game would delete on load is refused
-      const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, orientation: p.orientation, flipped: p.flipped });
+      const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, ...(p.z !== undefined ? { z: p.z } : {}), orientation: p.orientation, flipped: p.flipped });
       return why ? [why] : [];
     }
     case "moveEntity": {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
       if (!inMap(op.params.x, op.params.y)) return [`(${op.params.x}, ${op.params.y}) is outside the map`];
-      const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, orientation: op.params.orientation });
+      const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, ...(op.params.z !== undefined ? { z: op.params.z } : {}), orientation: op.params.orientation });
       return why ? [why] : [];
     }
     case "deleteEntities": {
@@ -698,12 +804,41 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
       if ("BlockObject" in op.params.components) return ["BlockObject changes through moveEntity"];
       const bad = componentProblem(op.params.components);
-      return bad ? [bad] : [];
+      if (bad) return [bad];
+      const template = ctx.templateOf?.(op.params.id);
+      if (!template) return [];
+      const current = ctx.componentsOf?.(op.params.id);
+      const components = current ? plainOf(mergeGame(current as JsonValue, op.params.components)) as Record<string, unknown> : op.params.components;
+      if (current) {
+        const missing = (REQUIRED[template] ?? []).filter((k) => !(k in components));
+        if (missing.length) return [`${template} needs the components ${missing.join(", ")}`];
+      }
+      return optionProblems(template, components);
+    }
+    case "setDescription": {
+      const why = descriptionProblem(op.params.text, state.description);
+      return why ? [why] : [];
     }
     case "pinSlope":
       return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];
     case "removeSlope":
       return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at (${op.params.x}, ${op.params.y})`];
+    case "paintObjects": {
+      const errors = runsProblems(op.params.area, W, H, "the stroke's area");
+      if (errors.length) return errors;
+      for (const l of op.params.levels ?? []) {
+        const e = runsProblems(l.area, W, H, `the tiles at level ${l.z}`);
+        if (e.length) return e;
+      }
+      const bad = paintParamProblems(op.params);
+      return bad.length ? bad : paintLevelProblems(op.params, W);
+    }
+    case "crop": {
+      const why = cropRectProblem(op.params, W, H);
+      if (why) return [why];
+      const objects = ctx.cropObjects?.(op.params);
+      return objects ? [objects] : [];
+    }
     case "removeUnfedWater": {
       const p = op.params;
       const errors = ascendingTiles(p.tiles, W, H, "the water's tiles");
@@ -712,7 +847,29 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         const e = runsProblems(p.area, W, H, "the selection");
         if (e.length) return e;
       }
-      if (ctx.water) {
+      if (ctx.water && cavesOf(ctx.water.model) && ctx.water.stack) {
+        // on a map with caves, every column of each tile: a tile whose water is all fed is refused; a cave
+        // pool under a fed river is the removal's, the river is not
+        const g = stackGraph(ctx.water.model);
+        const { depth: d, overflow } = ctx.water.stack;
+        const fed = fedColumns(g, d, overflow);
+        let fedOnly = 0;
+        let unfed = 0;
+        for (const i of p.tiles) {
+          let wet = false;
+          let free = false;
+          for (let q = 0; q < g.count[i]; q++) {
+            const c = q * g.N + i;
+            if (!(d[c] > 0)) continue;
+            wet = true;
+            if (!fed[c]) free = true;
+          }
+          if (free) unfed++;
+          else if (wet) fedOnly++;
+        }
+        if (fedOnly) return [`${fedOnly === 1 ? "one of those tiles holds" : `${fedOnly} of those tiles hold`} only water a source feeds: look again at what it would remove`];
+        if (!unfed) return ["no unfed water stands there"];
+      } else if (ctx.water) {
         const fed = fedTiles(ctx.water.model, ctx.water.depth);
         const d = ctx.water.depth;
         let fedCount = 0;
@@ -733,21 +890,44 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (!inMap(x, y)) return [`(${x}, ${y}) is off the map`];
       const l = p.lake;
       if (l.floor.length !== l.tiles.length || l.depth.length !== l.tiles.length || l.contamination.length !== l.tiles.length) return ["the fill's tiles, floors, depths and contamination must match one for one"];
-      const errors = ascendingTiles(l.tiles, W, H, "the fill's tiles");
+      // (on a map with caves a tile has an entry for each of its water columns the hollow fills)
+      const caves = !!(ctx.water ? cavesOf(ctx.water.model) : ctx.lockedColumns?.size);
+      const errors = caves ? ascendingColumns(l.tiles, l.floor, W, H, "the fill's tiles") : ascendingTiles(l.tiles, W, H, "the fill's tiles");
       if (errors.length) return errors;
       if (!l.tiles.includes(y * W + x)) return [`the fill's tiles must hold (${x}, ${y}), where it was asked`];
       for (let k = 0; k < l.tiles.length; k++) {
         if (!(l.depth[k] > 0) || Math.abs(l.floor[k] + l.depth[k] - p.level) > 1e-9) return ["the fill's water must stand at its level on every tile"];
         if (l.contamination[k] !== 0) return ["a fill is clean water"];
       }
-      if (ctx.lockedColumns?.size) for (const i of l.tiles) if (ctx.lockedColumns.has(i)) return [`(${i % W}, ${Math.floor(i / W)}) has a cave or overhang, which a fill leaves as it is`];
+      if (p.floor !== undefined && !(Number.isInteger(p.floor) && p.floor >= 0)) return ["the fill's floor must be a level of the ground"];
       if (ctx.water) {
-        const why = fillProblem(ctx.water.model, p.at, p.level, l);
-        if (why) return [why];
+        const m = ctx.water.model;
+        // on a map with caves or overhangs, the hollow on every water column (sim/stackFed.ts); on a heightfield,
+        // the ground's one column a tile
+        if (cavesOf(m)) {
+          const why = stackFillProblem(stackGraph(m), p.at, p.level, l, p.floor);
+          if (why) return [why];
+        } else {
+          if (p.floor !== undefined && p.floor !== m.floor[y * W + x]) return [`there is no ground at level ${p.floor} at (${x}, ${y})`];
+          const why = fillProblem(m, p.at, p.level, l);
+          if (why) return [why];
+        }
       }
       return [];
     }
   }
+}
+
+/** Water columns on a W×H map by tile and floor, ascending by tile and then floor, each once (a tile has
+ *  several only where it has a cave or an overhang). */
+function ascendingColumns(tiles: readonly number[], floors: readonly number[], W: number, H: number, what: string): string[] {
+  if (!tiles.length) return [`${what} are none`];
+  for (let k = 0; k < tiles.length; k++) {
+    const i = tiles[k];
+    if (!Number.isInteger(i) || i < 0 || i >= W * H) return [`${what}: ${i} is not a tile of the ${W}×${H} map`];
+    if (k > 0 && (i < tiles[k - 1] || (i === tiles[k - 1] && !(floors[k] > floors[k - 1])))) return [`${what} must be ascending, each once`];
+  }
+  return [];
 }
 
 /** Tile indices on a W×H map, ascending, each once. */

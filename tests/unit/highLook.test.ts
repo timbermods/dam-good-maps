@@ -70,6 +70,16 @@ describe("the High look's shaders", () => {
     expect(s).toMatch(/if \(hlShadows < 0\.5\) lit = bakedSunLit\(g, z\)/);
   });
 
+  it("draw the poisoned bed from the ground groundColor already worked out, never a second groundColor inside its branch (derivatives and mipmaps there are undefined, and the bed's veins flickered)", () => {
+    const top = terrainHooks().groundTop!;
+    expect(top).not.toContain("groundColor(");
+    expect(top).toContain("ground = mix(ground, groundDry, polluted);");
+    expect(top).toContain("glow = mix(glow, groundDryGlow, polluted);");
+    // (High works the veins out under water too, for the bed; Standard, which has no bed, does not)
+    const s = terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader;
+    expect(s).toContain("if (bad > 0.0) vein = veinsOf(veinQ, veinWidth, lvl) * bad;");
+  });
+
   it("follow Timberborn's references (D334): exposure 1.00, and badwater's own cues, pink highlights moving with the current, slow bubbles and red contact at rock", () => {
     // exposure 1.00 (from 1.22), with no grass-only hold-down beside it
     expect(GRADE_GLSL).toContain("if (hlTone > 0.5) c = hlShoulder(c);");
@@ -317,6 +327,36 @@ describe("the new trees and bushes (#66)", () => {
     f.update(cam, 800, false);
     expect(f.stats.near).toBe(0);
     expect(f.stats.far).toBe(4);
+  });
+});
+
+describe("the forest kept when the plants are the same (a source placed among them)", () => {
+  const material = new ShaderMaterial();
+  const plants = [
+    { template: "Pine", x: 3, y: 4, z: 2, orientation: "Cw0", owner: "t" },
+    { template: "Oak", x: 5, y: 4, z: 2, orientation: "Cw0", owner: "t" },
+    { template: "Birch", x: 7, y: 4, z: 2, orientation: "Cw0", owner: "t", young: true },
+  ];
+  const source = { template: "WaterSource", x: 9, y: 4, z: 2, orientation: "Cw0", owner: "t", strength: 2 };
+  it("numbers its plants as the new objects do, as a forest made from them would", () => {
+    const f = new Forest(entityView(plants), material);
+    f.layout();
+    const moved = entityView([source, ...plants]);
+    expect(f.reindex(moved)).toBe(true);
+    const fresh = new Forest(moved, material);
+    fresh.layout();
+    for (let k = 0; k < f.meshes.length; k++) {
+      expect(Array.from(f.meshes[k].userData.objects as Int32Array)).toEqual(Array.from(fresh.meshes[k].userData.objects as Int32Array));
+      expect(Array.from(f.meshes[k].instanceMatrix.array)).toEqual(Array.from(fresh.meshes[k].instanceMatrix.array));
+    }
+  });
+  it("is made again when a plant moved, grew up or went", () => {
+    const f = new Forest(entityView(plants), material);
+    expect(f.reindex(entityView([{ ...plants[0], x: 4 }, plants[1], plants[2]]))).toBe(false);
+    expect(f.reindex(entityView([plants[0], plants[1], { ...plants[2], young: false }]))).toBe(false);
+    expect(f.reindex(entityView([plants[0], plants[1]]))).toBe(false);
+    // (a plant that died is the same plant: `setDead` moves it)
+    expect(f.reindex(entityView([{ ...plants[0], dead: true }, plants[1], plants[2]]))).toBe(true);
   });
 });
 

@@ -190,7 +190,6 @@ async function editAll(dir: string): Promise<void> {
     },
   };
 
-  ed.setEditorWaterMode("defer");
   for (const p of PLANS) {
     const t0 = Date.now();
     prefix = p.id;
@@ -200,7 +199,7 @@ async function editAll(dir: string): Promise<void> {
     // the export dialog: its one-click fixes for what blocks the export, as a player clicks them
     const fixes: string[] = [];
     for (let round = 0; round < 4; round++) {
-      const c = ed.exportCheck();
+      const c = (await ed.backgroundCheck())!.check;
       const fixable = c.blocking.filter((b) => b.fix?.length);
       if (!fixable.length) break;
       for (const b of fixable) {
@@ -210,7 +209,7 @@ async function editAll(dir: string): Promise<void> {
         fixes.push(`${label} (${b.message})`);
       }
     }
-    const c = ed.exportCheck();
+    const c = (await ed.backgroundCheck())!.check;
     const exported = await ed.exportTimber(true);
     if (!exported.ok) throw new Error(`${p.id}: the export was refused: ${exported.errors.join("; ")}`);
     writeFileSync(join(dir, `${p.id}.timber`), exported.bytes);

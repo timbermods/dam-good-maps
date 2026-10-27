@@ -1,0 +1,1473 @@
+{
+  "pins": {
+    "dev": "009a00b034136ba25fdff1d0e0d5977be1a13e78",
+    "page": "beee673e2dc3fb75d04277f0baf47755deb9fae9"
+  },
+  "hardware": {
+    "cpu": "AMD Ryzen 5 3600 6-Core Processor              ",
+    "memory": 34281148416
+  },
+  "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+  "gpu": {
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 SUPER (0x00001E84) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "vendor": "Google Inc. (NVIDIA)"
+  },
+  "results": [
+    {
+      "label": "dev-before",
+      "scenario": "generate",
+      "visit": "cold",
+      "run": 0,
+      "editableMs": 7006.4,
+      "parseCpuMs": 260.4,
+      "compileCpuMs": 332.5,
+      "wasmModuleCallSumMs": 14.99,
+      "marks": {
+        "fl:render-start": 3043.2099999999627,
+        "fl:map-frame": 6851.555000000633,
+        "fl:handlers": 6901.290000000037,
+        "fl:editable-frame": 6932.075000000186
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 237.2
+        },
+        {
+          "name": "generate:start",
+          "atMs": 243.4
+        },
+        {
+          "name": "generate:end",
+          "atMs": 1987.1
+        },
+        {
+          "name": "worker-evaluated",
+          "atMs": 2155.2
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2507
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2518.6
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2540.3
+        }
+      ],
+      "mapSHA256": "87fbdb6f531c991faa4c30f0131842cbf2990541065c307b1ab47732dcec1625",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-before",
+      "scenario": "generate",
+      "visit": "warm",
+      "run": 0,
+      "editableMs": 2532.5,
+      "parseCpuMs": 222.5,
+      "compileCpuMs": 297.7,
+      "wasmModuleCallSumMs": 9.56,
+      "marks": {
+        "fl:render-start": 2223.6850000005215,
+        "fl:map-frame": 2494.7000000001863,
+        "fl:handlers": 2510.6800000006333,
+        "fl:editable-frame": 2533.3950000004843
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 219.3
+        },
+        {
+          "name": "generate:start",
+          "atMs": 222.7
+        },
+        {
+          "name": "generate:end",
+          "atMs": 1956.9
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2051.6
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2062.7
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2082
+        },
+        {
+          "name": "worker-evaluated",
+          "atMs": 2114.7
+        }
+      ],
+      "mapSHA256": "87fbdb6f531c991faa4c30f0131842cbf2990541065c307b1ab47732dcec1625",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-before",
+      "scenario": "generate",
+      "visit": "cold",
+      "run": 1,
+      "editableMs": 6945.1,
+      "parseCpuMs": 259.1,
+      "compileCpuMs": 344.4,
+      "wasmModuleCallSumMs": 12.29,
+      "marks": {
+        "fl:render-start": 3020.554999999702,
+        "fl:map-frame": 6789.339999999851,
+        "fl:handlers": 6840.084999999963,
+        "fl:editable-frame": 6876.4199999999255
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 247.7
+        },
+        {
+          "name": "generate:start",
+          "atMs": 251.9
+        },
+        {
+          "name": "generate:end",
+          "atMs": 2034
+        },
+        {
+          "name": "worker-evaluated",
+          "atMs": 2186.8
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2505.2
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2517.1
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2538.3
+        }
+      ],
+      "mapSHA256": "87fbdb6f531c991faa4c30f0131842cbf2990541065c307b1ab47732dcec1625",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-before",
+      "scenario": "generate",
+      "visit": "warm",
+      "run": 1,
+      "editableMs": 2969.5,
+      "parseCpuMs": 216.1,
+      "compileCpuMs": 302.1,
+      "wasmModuleCallSumMs": 9.41,
+      "marks": {
+        "fl:render-start": 2663.1299999998882,
+        "fl:map-frame": 2929.105000000447,
+        "fl:handlers": 2944.355000000447,
+        "fl:editable-frame": 2970.0300000002608
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 208.2
+        },
+        {
+          "name": "generate:start",
+          "atMs": 212.5
+        },
+        {
+          "name": "generate:end",
+          "atMs": 2046.8
+        },
+        {
+          "name": "worker-evaluated",
+          "atMs": 2179
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2498.1
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2508.3
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2530.1
+        }
+      ],
+      "mapSHA256": "87fbdb6f531c991faa4c30f0131842cbf2990541065c307b1ab47732dcec1625",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-adopted",
+      "scenario": "generate",
+      "visit": "cold",
+      "run": 0,
+      "editableMs": 6919,
+      "parseCpuMs": 256.5,
+      "compileCpuMs": 349,
+      "wasmModuleCallSumMs": 16.11,
+      "marks": {
+        "fl:render-start": 3019.1399999996647,
+        "fl:map-frame": 6743.4900000002235,
+        "fl:handlers": 6792.905000000261,
+        "fl:editable-frame": 6828.4199999999255
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 275.8
+        },
+        {
+          "name": "generate:start",
+          "atMs": 279.5
+        },
+        {
+          "name": "generate:end",
+          "atMs": 2040
+        },
+        {
+          "name": "worker-evaluated",
+          "atMs": 2188.6
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2492.2
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2523.7
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2616.3
+        }
+      ],
+      "mapSHA256": "87fbdb6f531c991faa4c30f0131842cbf2990541065c307b1ab47732dcec1625",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-adopted",
+      "scenario": "generate",
+      "visit": "warm",
+      "run": 0,
+      "editableMs": 2502,
+      "parseCpuMs": 206.1,
+      "compileCpuMs": 282.2,
+      "wasmModuleCallSumMs": 9.34,
+      "marks": {
+        "fl:render-start": 2200.1699999999255,
+        "fl:map-frame": 2462.524999999441,
+        "fl:handlers": 2478.109999999404,
+        "fl:editable-frame": 2502.6599999992177
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 207.6
+        },
+        {
+          "name": "generate:start",
+          "atMs": 211.5
+        },
+        {
+          "name": "generate:end",
+          "atMs": 1950
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2035.2
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2065.7
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2083.1
+        },
+        {
+          "name": "worker-evaluated",
+          "atMs": 2099.8
+        }
+      ],
+      "mapSHA256": "87fbdb6f531c991faa4c30f0131842cbf2990541065c307b1ab47732dcec1625",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-adopted",
+      "scenario": "generate",
+      "visit": "cold",
+      "run": 1,
+      "editableMs": 6955.8,
+      "parseCpuMs": 252.8,
+      "compileCpuMs": 342.2,
+      "wasmModuleCallSumMs": 13.81,
+      "marks": {
+        "fl:render-start": 3000.5349999992177,
+        "fl:map-frame": 6802.454999999143,
+        "fl:handlers": 6850.4749999996275,
+        "fl:editable-frame": 6881.204999999143
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 312.6
+        },
+        {
+          "name": "generate:start",
+          "atMs": 316.1
+        },
+        {
+          "name": "generate:end",
+          "atMs": 2069.3
+        },
+        {
+          "name": "worker-evaluated",
+          "atMs": 2207
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2450.6
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2484.3
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2563
+        }
+      ],
+      "mapSHA256": "87fbdb6f531c991faa4c30f0131842cbf2990541065c307b1ab47732dcec1625",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-adopted",
+      "scenario": "generate",
+      "visit": "warm",
+      "run": 1,
+      "editableMs": 2984.5,
+      "parseCpuMs": 206.3,
+      "compileCpuMs": 287.2,
+      "wasmModuleCallSumMs": 9.22,
+      "marks": {
+        "fl:render-start": 2658.649999999441,
+        "fl:map-frame": 2940.2799999993294,
+        "fl:handlers": 2955.839999999851,
+        "fl:editable-frame": 2985.05999999959
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 209.8
+        },
+        {
+          "name": "generate:start",
+          "atMs": 213.4
+        },
+        {
+          "name": "generate:end",
+          "atMs": 1959.7
+        },
+        {
+          "name": "worker-evaluated",
+          "atMs": 2097.6
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2483
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2513.9
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2530
+        }
+      ],
+      "mapSHA256": "87fbdb6f531c991faa4c30f0131842cbf2990541065c307b1ab47732dcec1625",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-before-reopen",
+      "scenario": "reopen",
+      "visit": "cold",
+      "run": 0,
+      "editableMs": 4512.7,
+      "parseCpuMs": 171.6,
+      "compileCpuMs": 202.4,
+      "wasmModuleCallSumMs": 9.29,
+      "marks": {
+        "fl:render-start": 802.0400000000373,
+        "fl:map-frame": 4350.804999999702,
+        "fl:handlers": 4397.804999999702,
+        "fl:editable-frame": 4447.504999999888
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 242.3
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 245.9
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 323.3
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 332.7
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-before-reopen",
+      "scenario": "reopen",
+      "visit": "warm",
+      "run": 0,
+      "editableMs": 720,
+      "parseCpuMs": 144.5,
+      "compileCpuMs": 175.9,
+      "wasmModuleCallSumMs": 7.88,
+      "marks": {
+        "fl:render-start": 445.5599999995902,
+        "fl:map-frame": 688.1349999997765,
+        "fl:handlers": 700.214999999851,
+        "fl:editable-frame": 720.4499999992549
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 194.4
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 198.2
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 277.3
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 286.7
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-before-reopen",
+      "scenario": "reopen",
+      "visit": "cold",
+      "run": 1,
+      "editableMs": 4556,
+      "parseCpuMs": 173.2,
+      "compileCpuMs": 203.2,
+      "wasmModuleCallSumMs": 8.64,
+      "marks": {
+        "fl:render-start": 799.75,
+        "fl:map-frame": 4407.80999999959,
+        "fl:handlers": 4454.9749999996275,
+        "fl:editable-frame": 4498.714999999851
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 240
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 244.1
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 324.2
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 335.3
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-before-reopen",
+      "scenario": "reopen",
+      "visit": "warm",
+      "run": 1,
+      "editableMs": 680.6,
+      "parseCpuMs": 140.7,
+      "compileCpuMs": 174.6,
+      "wasmModuleCallSumMs": 5.46,
+      "marks": {
+        "fl:render-start": 418.8600000003353,
+        "fl:map-frame": 648.679999999702,
+        "fl:handlers": 660.5949999997392,
+        "fl:editable-frame": 681.0099999997765
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 185.2
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 189.1
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 261.7
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 272.7
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-adopted-reopen",
+      "scenario": "reopen",
+      "visit": "cold",
+      "run": 0,
+      "editableMs": 4875.7,
+      "parseCpuMs": 161.9,
+      "compileCpuMs": 195.3,
+      "wasmModuleCallSumMs": 8.69,
+      "marks": {
+        "fl:render-start": 868.7050000000745,
+        "fl:map-frame": 4715.19000000041,
+        "fl:handlers": 4765.9000000003725,
+        "fl:editable-frame": 4812.225000000559
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 260.6
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 264.2
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 352.7
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 437.9
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-adopted-reopen",
+      "scenario": "reopen",
+      "visit": "warm",
+      "run": 0,
+      "editableMs": 725.2,
+      "parseCpuMs": 151,
+      "compileCpuMs": 188.2,
+      "wasmModuleCallSumMs": 10.55,
+      "marks": {
+        "fl:render-start": 443.83499999996275,
+        "fl:map-frame": 688.5600000005215,
+        "fl:handlers": 702.3800000008196,
+        "fl:editable-frame": 725.625
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 190.7
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 196.9
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 284
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 308.2
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-adopted-reopen",
+      "scenario": "reopen",
+      "visit": "cold",
+      "run": 1,
+      "editableMs": 5114.3,
+      "parseCpuMs": 178.4,
+      "compileCpuMs": 205.8,
+      "wasmModuleCallSumMs": 11.73,
+      "marks": {
+        "fl:render-start": 1114.6349999997765,
+        "fl:map-frame": 4961.94000000041,
+        "fl:handlers": 5010.355000000447,
+        "fl:editable-frame": 5053.915000000037
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 449.2
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 454.7
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 550.6
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 646.7
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "dev-adopted-reopen",
+      "scenario": "reopen",
+      "visit": "warm",
+      "run": 1,
+      "editableMs": 688,
+      "parseCpuMs": 145.9,
+      "compileCpuMs": 180.1,
+      "wasmModuleCallSumMs": 6.87,
+      "marks": {
+        "fl:render-start": 420.78000000026077,
+        "fl:map-frame": 652.7350000003353,
+        "fl:handlers": 664.5950000006706,
+        "fl:editable-frame": 688.4000000003725
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 190.1
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 194
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 279.6
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 304
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-before",
+      "scenario": "generate",
+      "visit": "cold",
+      "run": 0,
+      "editableMs": 4472.2,
+      "parseCpuMs": 242.1,
+      "compileCpuMs": 300.4,
+      "wasmModuleCallSumMs": 7.46,
+      "marks": {
+        "fl:prepare-start": 75.5,
+        "fl:prepare-end": 2072.9050000002608,
+        "dgm:generate": 2087.0099999997765,
+        "dgm:generated": 3880.7350000003353,
+        "dgm:opened": 3916.5949999997392,
+        "fl:render-start": 4120.520000000484,
+        "fl:map-frame": 4258.520000000484,
+        "fl:handlers": 4316.879999999888,
+        "fl:editable-frame": 4360.350000000559
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 2141.8
+        },
+        {
+          "name": "generate:start",
+          "atMs": 2145.3
+        },
+        {
+          "name": "generate:end",
+          "atMs": 3879.2
+        },
+        {
+          "name": "refine:start",
+          "atMs": 3881.3
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 3894.5
+        },
+        {
+          "name": "refine:end",
+          "atMs": 3914.5
+        },
+        {
+          "name": "worker-evaluated",
+          "atMs": 4435.5
+        }
+      ],
+      "mapSHA256": "8dcdb07fb9723382aed2821410d4d59531386baeaa7a35ce5230e2f2b9c05c37",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-before",
+      "scenario": "generate",
+      "visit": "warm",
+      "run": 0,
+      "editableMs": 2324.5,
+      "parseCpuMs": 186.4,
+      "compileCpuMs": 201.4,
+      "wasmModuleCallSumMs": 9.4,
+      "marks": {
+        "fl:prepare-start": 98.27500000037253,
+        "fl:prepare-end": 241.11500000022352,
+        "dgm:generate": 250.0100000007078,
+        "dgm:generated": 2030.800000000745,
+        "dgm:opened": 2063.714999999851,
+        "fl:render-start": 2149.2200000006706,
+        "fl:map-frame": 2279.8600000003353,
+        "fl:handlers": 2293.5750000001863,
+        "fl:editable-frame": 2325.0800000000745
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 186.2
+        },
+        {
+          "name": "generate:start",
+          "atMs": 252
+        },
+        {
+          "name": "generate:end",
+          "atMs": 2029.3
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2031.3
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2041.6
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2062
+        }
+      ],
+      "mapSHA256": "8dcdb07fb9723382aed2821410d4d59531386baeaa7a35ce5230e2f2b9c05c37",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-before",
+      "scenario": "generate",
+      "visit": "cold",
+      "run": 1,
+      "editableMs": 4528.9,
+      "parseCpuMs": 244.4,
+      "compileCpuMs": 281.8,
+      "wasmModuleCallSumMs": 10.03,
+      "marks": {
+        "fl:prepare-start": 90.14500000048429,
+        "fl:prepare-end": 2127.800000000745,
+        "dgm:generate": 2141.2750000003725,
+        "dgm:generated": 3984.3400000007823,
+        "dgm:opened": 4012.8700000001118,
+        "fl:render-start": 4213.235000000335,
+        "fl:map-frame": 4342.075000000186,
+        "fl:handlers": 4393.230000000447,
+        "fl:editable-frame": 4432.635000000708
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 2197.9
+        },
+        {
+          "name": "generate:start",
+          "atMs": 2201.4
+        },
+        {
+          "name": "generate:end",
+          "atMs": 3982.9
+        },
+        {
+          "name": "refine:start",
+          "atMs": 3984.7
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 3993.4
+        },
+        {
+          "name": "refine:end",
+          "atMs": 4011.2
+        }
+      ],
+      "mapSHA256": "8dcdb07fb9723382aed2821410d4d59531386baeaa7a35ce5230e2f2b9c05c37",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-before",
+      "scenario": "generate",
+      "visit": "warm",
+      "run": 1,
+      "editableMs": 2340.6,
+      "parseCpuMs": 197.9,
+      "compileCpuMs": 214.4,
+      "wasmModuleCallSumMs": 8.09,
+      "marks": {
+        "fl:prepare-start": 96.6699999999255,
+        "fl:prepare-end": 239.9799999995157,
+        "dgm:generate": 249.07499999925494,
+        "dgm:generated": 2020.1399999996647,
+        "dgm:opened": 2063.1749999998137,
+        "fl:render-start": 2158.7999999998137,
+        "fl:map-frame": 2290.859999999404,
+        "fl:handlers": 2305.7799999993294,
+        "fl:editable-frame": 2341.0149999996647
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 192.4
+        },
+        {
+          "name": "generate:start",
+          "atMs": 250.7
+        },
+        {
+          "name": "generate:end",
+          "atMs": 2018.1
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2021
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2035.2
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2060.9
+        }
+      ],
+      "mapSHA256": "8dcdb07fb9723382aed2821410d4d59531386baeaa7a35ce5230e2f2b9c05c37",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-adopted",
+      "scenario": "generate",
+      "visit": "cold",
+      "run": 0,
+      "editableMs": 2984.4,
+      "parseCpuMs": 249.2,
+      "compileCpuMs": 312.6,
+      "wasmModuleCallSumMs": 7.93,
+      "marks": {
+        "dgm:generate": 116.65000000037253,
+        "fl:prepare-start": 288.22000000067055,
+        "dgm:generated": 2428.410000000149,
+        "fl:prepare-end": 2431.230000000447,
+        "dgm:opened": 2456.4599999999627,
+        "fl:render-start": 2658.464999999851,
+        "fl:map-frame": 2777.9350000005215,
+        "fl:handlers": 2822.25,
+        "fl:editable-frame": 2857.19000000041
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 283.4
+        },
+        {
+          "name": "generate:start",
+          "atMs": 288.1
+        },
+        {
+          "name": "generate:end",
+          "atMs": 2258.9
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2428.7
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2454
+        },
+        {
+          "name": "worker-evaluated",
+          "atMs": 2581.5
+        },
+        {
+          "name": "editorReady:start",
+          "atMs": 2859.8
+        }
+      ],
+      "mapSHA256": "8dcdb07fb9723382aed2821410d4d59531386baeaa7a35ce5230e2f2b9c05c37",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-adopted",
+      "scenario": "generate",
+      "visit": "warm",
+      "run": 0,
+      "editableMs": 2230.9,
+      "parseCpuMs": 160.7,
+      "compileCpuMs": 191.6,
+      "wasmModuleCallSumMs": 8.44,
+      "marks": {
+        "dgm:generate": 107.79500000085682,
+        "fl:prepare-start": 170.29000000003725,
+        "fl:prepare-end": 301.41500000003725,
+        "dgm:generated": 1921.3500000005588,
+        "dgm:opened": 1951.1850000005215,
+        "fl:render-start": 2030.7350000003353,
+        "fl:map-frame": 2186.44000000041,
+        "fl:handlers": 2200.44000000041,
+        "fl:editable-frame": 2231.4650000007823
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 165.9
+        },
+        {
+          "name": "generate:start",
+          "atMs": 169.8
+        },
+        {
+          "name": "generate:end",
+          "atMs": 1919.9
+        },
+        {
+          "name": "refine:start",
+          "atMs": 1921.9
+        },
+        {
+          "name": "refine:end",
+          "atMs": 1949.3
+        },
+        {
+          "name": "editorReady:start",
+          "atMs": 2237
+        }
+      ],
+      "mapSHA256": "8dcdb07fb9723382aed2821410d4d59531386baeaa7a35ce5230e2f2b9c05c37",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-adopted",
+      "scenario": "generate",
+      "visit": "cold",
+      "run": 1,
+      "editableMs": 2990,
+      "parseCpuMs": 229.6,
+      "compileCpuMs": 287.8,
+      "wasmModuleCallSumMs": 7.87,
+      "marks": {
+        "dgm:generate": 115.80999999959022,
+        "fl:prepare-start": 286.8849999997765,
+        "dgm:generated": 2453.0849999999627,
+        "fl:prepare-end": 2456.8899999996647,
+        "dgm:opened": 2483.2900000000373,
+        "fl:render-start": 2681.859999999404,
+        "fl:map-frame": 2806.8199999993667,
+        "fl:handlers": 2852.0400000000373,
+        "fl:editable-frame": 2889.2599999997765
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 282.6
+        },
+        {
+          "name": "generate:start",
+          "atMs": 286.8
+        },
+        {
+          "name": "generate:end",
+          "atMs": 2208.3
+        },
+        {
+          "name": "refine:start",
+          "atMs": 2453.3
+        },
+        {
+          "name": "refine:end",
+          "atMs": 2481.3
+        },
+        {
+          "name": "editorReady:start",
+          "atMs": 2894.3
+        }
+      ],
+      "mapSHA256": "8dcdb07fb9723382aed2821410d4d59531386baeaa7a35ce5230e2f2b9c05c37",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-adopted",
+      "scenario": "generate",
+      "visit": "warm",
+      "run": 1,
+      "editableMs": 2211.1,
+      "parseCpuMs": 161.8,
+      "compileCpuMs": 196.2,
+      "wasmModuleCallSumMs": 8.88,
+      "marks": {
+        "dgm:generate": 110.87999999988824,
+        "fl:prepare-start": 172.70000000018626,
+        "fl:prepare-end": 303.8849999997765,
+        "dgm:generated": 1913.7599999997765,
+        "dgm:opened": 1942.5650000004098,
+        "fl:render-start": 2019.535000000149,
+        "fl:map-frame": 2170.3799999998882,
+        "fl:handlers": 2183.035000000149,
+        "fl:editable-frame": 2211.804999999702
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 168
+        },
+        {
+          "name": "generate:start",
+          "atMs": 172.6
+        },
+        {
+          "name": "generate:end",
+          "atMs": 1912.3
+        },
+        {
+          "name": "refine:start",
+          "atMs": 1914.2
+        },
+        {
+          "name": "refine:end",
+          "atMs": 1940.3
+        },
+        {
+          "name": "editorReady:start",
+          "atMs": 2214.9
+        }
+      ],
+      "mapSHA256": "8dcdb07fb9723382aed2821410d4d59531386baeaa7a35ce5230e2f2b9c05c37",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-before-reopen",
+      "scenario": "reopen",
+      "visit": "cold",
+      "run": 0,
+      "editableMs": 2987.7,
+      "parseCpuMs": 188.9,
+      "compileCpuMs": 224,
+      "wasmModuleCallSumMs": 10.34,
+      "marks": {
+        "fl:prepare-start": 78.1699999999255,
+        "fl:prepare-end": 2255.9599999999627,
+        "fl:render-start": 2647.75,
+        "fl:map-frame": 2784.644999999553,
+        "fl:handlers": 2837,
+        "fl:editable-frame": 2895.274999999441
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 2326.5
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 2329.9
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2415
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 2416.7
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-before-reopen",
+      "scenario": "reopen",
+      "visit": "warm",
+      "run": 0,
+      "editableMs": 586.3,
+      "parseCpuMs": 148.8,
+      "compileCpuMs": 167.7,
+      "wasmModuleCallSumMs": 7.3,
+      "marks": {
+        "fl:prepare-start": 64.06000000052154,
+        "fl:prepare-end": 221.31500000040978,
+        "fl:render-start": 398.1150000002235,
+        "fl:map-frame": 535.390000000596,
+        "fl:handlers": 550.0400000000373,
+        "fl:editable-frame": 586.730000000447
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 170.5
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 232.2
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 314.1
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 317.2
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-before-reopen",
+      "scenario": "reopen",
+      "visit": "cold",
+      "run": 1,
+      "editableMs": 3009.3,
+      "parseCpuMs": 188.3,
+      "compileCpuMs": 210.1,
+      "wasmModuleCallSumMs": 9.16,
+      "marks": {
+        "fl:prepare-start": 76.63499999977648,
+        "fl:prepare-end": 2205.9199999999255,
+        "fl:render-start": 2637.30999999959,
+        "fl:map-frame": 2786.0300000002608,
+        "fl:handlers": 2849.609999999404,
+        "fl:editable-frame": 2918.6650000000373
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 2284.5
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 2288.3
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 2377.7
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 2380.4
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-before-reopen",
+      "scenario": "reopen",
+      "visit": "warm",
+      "run": 1,
+      "editableMs": 605.3,
+      "parseCpuMs": 150.3,
+      "compileCpuMs": 186.7,
+      "wasmModuleCallSumMs": 9.16,
+      "marks": {
+        "fl:prepare-start": 74.32000000029802,
+        "fl:prepare-end": 228.3950000004843,
+        "fl:render-start": 407.2600000007078,
+        "fl:map-frame": 549.0500000007451,
+        "fl:handlers": 564.3700000001118,
+        "fl:editable-frame": 605.8150000004098
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 164.3
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 240.2
+        },
+        {
+          "name": "replica-follow",
+          "atMs": 324.2
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 325.6
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-adopted-reopen",
+      "scenario": "reopen",
+      "visit": "cold",
+      "run": 0,
+      "editableMs": 2735,
+      "parseCpuMs": 164.4,
+      "compileCpuMs": 188.7,
+      "wasmModuleCallSumMs": 8.09,
+      "marks": {
+        "fl:prepare-start": 271.29000000003725,
+        "fl:prepare-end": 2192.285000000149,
+        "fl:render-start": 2401.25,
+        "fl:map-frame": 2529.019999999553,
+        "fl:handlers": 2578.2050000000745,
+        "fl:editable-frame": 2639.5099999997765
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 267.2
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 271.2
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 354.3
+        },
+        {
+          "name": "editorReady:start",
+          "atMs": 2642.5
+        }
+      ],
+      "isolated": true,
+      "pageErrors": [],
+      "correctness": {
+        "checksDisabledForExport": true,
+        "brushChanged": true,
+        "undoExact": true,
+        "settledAutosave": {
+          "version": 4,
+          "stored": true,
+          "bytes": 292723
+        },
+        "exported": {
+          "ok": true,
+          "bytes": 130927,
+          "errors": []
+        },
+        "blocked": {
+          "ok": false,
+          "bytes": 0,
+          "errors": [
+            "Place a start first: pick the Start on the shelf"
+          ]
+        }
+      }
+    },
+    {
+      "label": "page-adopted-reopen",
+      "scenario": "reopen",
+      "visit": "warm",
+      "run": 0,
+      "editableMs": 525.9,
+      "parseCpuMs": 128.6,
+      "compileCpuMs": 158,
+      "wasmModuleCallSumMs": 6.23,
+      "marks": {
+        "fl:prepare-start": 137.2700000004843,
+        "fl:prepare-end": 276.035000000149,
+        "fl:render-start": 353.56000000052154,
+        "fl:map-frame": 477.04999999981374,
+        "fl:handlers": 491.43500000052154,
+        "fl:editable-frame": 526.2700000004843
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 133.3
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 137.2
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 226.2
+        },
+        {
+          "name": "editorReady:start",
+          "atMs": 529
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-adopted-reopen",
+      "scenario": "reopen",
+      "visit": "cold",
+      "run": 1,
+      "editableMs": 2759.6,
+      "parseCpuMs": 162.3,
+      "compileCpuMs": 191.5,
+      "wasmModuleCallSumMs": 6.67,
+      "marks": {
+        "fl:prepare-start": 278.9549999991432,
+        "fl:prepare-end": 2220.2949999999255,
+        "fl:render-start": 2435.824999999255,
+        "fl:map-frame": 2559.4099999992177,
+        "fl:handlers": 2609.324999999255,
+        "fl:editable-frame": 2668.429999999702
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 274.3
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 278.3
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 356.9
+        },
+        {
+          "name": "editorReady:start",
+          "atMs": 2672.7
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "label": "page-adopted-reopen",
+      "scenario": "reopen",
+      "visit": "warm",
+      "run": 1,
+      "editableMs": 515.1,
+      "parseCpuMs": 127.9,
+      "compileCpuMs": 156.4,
+      "wasmModuleCallSumMs": 7.32,
+      "marks": {
+        "fl:prepare-start": 141.464999999851,
+        "fl:prepare-end": 274.285000000149,
+        "fl:render-start": 343.12000000011176,
+        "fl:map-frame": 468.66500000003725,
+        "fl:handlers": 480.09499999973923,
+        "fl:editable-frame": 515.5499999998137
+      },
+      "worker": [
+        {
+          "name": "worker-evaluated",
+          "atMs": 137.6
+        },
+        {
+          "name": "openProject:start",
+          "atMs": 141.3
+        },
+        {
+          "name": "openProject:end",
+          "atMs": 226.7
+        },
+        {
+          "name": "editorReady:start",
+          "atMs": 520.5
+        }
+      ],
+      "isolated": true,
+      "pageErrors": []
+    }
+  ],
+  "cacheWithHttpCleared": {
+    "isolated": true,
+    "errors": [],
+    "assetNetworkRequests": [],
+    "pageAssetResponses": [
+      {
+        "path": "/dam-good-maps/assets/app-BINcV6hN.css",
+        "serviceWorker": true,
+        "status": 200
+      },
+      {
+        "path": "/dam-good-maps/assets/main-BYkNKMDC.css",
+        "serviceWorker": true,
+        "status": 200
+      },
+      {
+        "path": "/dam-good-maps/assets/app-9M7CN18G.js",
+        "serviceWorker": true,
+        "status": 200
+      },
+      {
+        "path": "/dam-good-maps/assets/main-B0nvLWgn.js",
+        "serviceWorker": true,
+        "status": 200
+      },
+      {
+        "path": "/dam-good-maps/assets/jsxRuntime.module-Bi2LRXLq.js",
+        "serviceWorker": true,
+        "status": 200
+      },
+      {
+        "path": "/dam-good-maps/assets/Tooltip-Dl8u16LJ.js",
+        "serviceWorker": true,
+        "status": 200
+      },
+      {
+        "path": "/dam-good-maps/assets/Editor-v4cr3E8e.js",
+        "serviceWorker": true,
+        "status": 200
+      }
+    ]
+  }
+}

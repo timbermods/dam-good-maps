@@ -2,8 +2,9 @@
 // like the terrain. Each wet tile gets a flat quad at its surface. Where it pours over a side into
 // water at least FALL_MIN lower, a fall leaves the lip and arcs down into it (falls.ts, D201: the
 // chunk's falls are listed with its water); where a neighbour's ground, or its water just below, is
-// lower, a curtain hangs from the surface down to it, the water's side. Water in caves (below a
-// tile's surface water) gets its top quad only. Each vertex carries a depth and badwater share,
+// lower, a curtain hangs from the surface down to it, the water's side. With terrain above terrain
+// every water column (a cave's pool, the lake on its roof) is drawn the same way on its own floor,
+// seeing the water and ground at its own level round it (waterLayers.ts). Each vertex carries a depth and badwater share,
 // which the shader turns into colour and opacity (Map look, D86: a top's corners share depth with
 // the tiles round the corner, so the water thins toward the shore; D177: the badwater share is
 // blended over the connected water a few tiles round, then shared at the corners too, so where
@@ -13,7 +14,8 @@
 
 import { FALL_MIN, FALL_STRIDE, pushFall } from "./falls";
 import { CHUNK } from "./mesh";
-import type { SurfaceWater, WaterView } from "./model";
+import type { SurfaceWater } from "./model";
+import type { WaterLayer } from "./waterLayers";
 
 /** Foam flags of a water top: bits 0–3 the sides (east, west, north, south) where it meets the
  *  shore, bits 4–7 the sides where a fall comes down into it (its whitewater is the fall's splash),
@@ -36,6 +38,8 @@ export interface WaterMeshData {
   /** The chunk's falls, FALL_STRIDE floats each (falls.ts `pushFall`), and how many. */
   falls: Float32Array;
   fallCount: number;
+  /** Its bounding sphere (x, y, z, radius), when made beside it (the water worker). */
+  sphere?: Float64Array;
 }
 
 class WaterBuffer {
@@ -104,15 +108,51 @@ export function blendedBadwater(W: number, H: number, sw: SurfaceWater): Float32
 }
 
 function blend(W: number, H: number, sw: SurfaceWater): Float32Array {
+  const out = new Float32Array(W * H);
+  blendInto(out, W, H, sw, 0, 0, W - 1, H - 1);
+  return out;
+}
+
+/** Tiles round a chunk whose blend its mesh reads: a top's corner reads one past the chunk, a fall's lips and their
+ *  ends two; two more for safety. */
+const BLEND_WINDOW = 4;
+
+/** A map-sized array the row pass of `blendInto` works in (kept: a chunk's mesh asks for a window of the blend
+ *  many times a second, and the page's thread must not allocate or walk a whole 512x512 map for each). */
+let rowsScratch = new Float32Array(0);
+
+/** What `blendInto` leaves for a chunk's mesh: kept between chunks (only the window of the chunk being meshed is read). */
+let badScratch = new Float32Array(0);
+
+/** The blend (`blendedBadwater`) of the tiles x0..x1 by y0..y1 (clipped to the map) into `out`, a map-sized array whose
+ *  other tiles are left as they were: the same arithmetic tile by tile as the whole map's, so any window holds the
+ *  whole map's numbers (tests/unit/waterBlendWindow.test.ts). A tile's blend reads only the tiles within `BLEND_KERNEL`'s
+ *  reach of it, so the work is the window's, never the map's (D357: a 512x512 map's moving water). */
+export function blendInto(out: Float32Array, W: number, H: number, sw: SurfaceWater, x0: number, y0: number, x1: number, y1: number): void {
   const { surface, contamination } = sw;
-  const N = W * H;
-  const out = new Float32Array(N);
-  let any = false;
-  for (let i = 0; i < N && !any; i++) any = contamination[i] > 0 && surface[i] === surface[i];
-  if (!any) return out;
   const K = BLEND_KERNEL;
   const R = K.length - 1;
-  const rows = new Float32Array(N);
+  const xa = Math.max(0, x0);
+  const xb = Math.min(W - 1, x1);
+  const ya = Math.max(0, y0);
+  const yb = Math.min(H - 1, y1);
+  if (xa > xb || ya > yb) return;
+  // (no badwater within reach of the window: exactly 0 everywhere in it)
+  let any = false;
+  for (let y = Math.max(0, ya - R); y <= Math.min(H - 1, yb + R) && !any; y++)
+    for (let x = Math.max(0, xa - R); x <= Math.min(W - 1, xb + R); x++) {
+      const i = y * W + x;
+      if (contamination[i] > 0 && surface[i] === surface[i]) {
+        any = true;
+        break;
+      }
+    }
+  if (!any) {
+    for (let y = ya; y <= yb; y++) out.fill(0, y * W + xa, y * W + xb + 1);
+    return;
+  }
+  if (rowsScratch.length < W * H) rowsScratch = new Float32Array(W * H);
+  const rows = rowsScratch;
   /** One pass along a line of tiles (step 1: a row; step W: a column), from `src` into `dst`. */
   const pass = (src: Float32Array, dst: Float32Array, i: number, pos: number, len: number, step: number) => {
     const s = surface[i];
@@ -129,17 +169,18 @@ function blend(W: number, H: number, sw: SurfaceWater): Float32Array {
       }
     dst[i] = sum / weight;
   };
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
+  // the rows the column pass reads: the window's, and R above and below it
+  for (let y = Math.max(0, ya - R); y <= Math.min(H - 1, yb + R); y++)
+    for (let x = xa; x <= xb; x++) {
       const i = y * W + x;
       if (surface[i] === surface[i]) pass(contamination, rows, i, x, W, 1);
     }
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
+  for (let y = ya; y <= yb; y++)
+    for (let x = xa; x <= xb; x++) {
       const i = y * W + x;
       if (surface[i] === surface[i]) pass(rows, out, i, y, H, W);
+      else out[i] = 0;
     }
-  return out;
 }
 
 /** A curtain's flags: its drop in thirtieths of a level, to 254; 255 at the map's edge (the side
@@ -149,13 +190,27 @@ export function dropFlags(top: number, bottom: number, edge: boolean): number {
   return edge ? EDGE_CURTAIN : Math.min(254, Math.round((top - bottom) * 30));
 }
 
-export function meshWaterChunk(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, view: WaterView, lowerByTile: Map<number, number[]> | null, cx: number, cy: number): WaterMeshData {
+/** A chunk's water (its tops, curtains and falls), layer by layer (waterLayers.ts): each layer's columns drawn on
+ *  what they see round them. One layer, the open sky's, on a map without terrain above terrain (`plainLayers`). */
+export function meshWaterChunk(W: number, H: number, layers: readonly WaterLayer[], cx: number, cy: number): WaterMeshData {
   const b = new WaterBuffer();
+  const nx = Math.ceil(W / CHUNK);
+  for (const layer of layers) if (!layer.chunks || layer.chunks[cy * nx + cx]) meshLayer(b, W, H, layer.ground, layer.sw, layer.own, cx, cy);
+  return b.finish();
+}
+
+/** One layer's water in a chunk: the tiles it draws (`own`; every wet tile when null), each seeing the water
+ *  `sw` and the ground `heights` round it. */
+function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw: SurfaceWater, own: Uint8Array | null, cx: number, cy: number): void {
   const x0 = cx * CHUNK;
   const y0 = cy * CHUNK;
   const x1 = Math.min(W, x0 + CHUNK);
   const y1 = Math.min(H, y0 + CHUNK);
-  const bad = blendedBadwater(W, H, sw);
+  // the blend of the chunk's window only (a corner reads a tile past the chunk, a fall's lips two): the page's thread
+  // blends no more of a 512x512 map than the chunk it meshes
+  if (badScratch.length < W * H) badScratch = new Float32Array(W * H);
+  const bad = badScratch;
+  blendInto(bad, W, H, sw, x0 - BLEND_WINDOW, y0 - BLEND_WINDOW, x1 + BLEND_WINDOW - 1, y1 + BLEND_WINDOW - 1);
   /** A top's corner (tile-corner coordinates) shares the water of the tiles round it at its own
    *  level: their mean depth, dry ground counting as none (so the water thins toward the shore),
    *  and their mean blended badwater share (so the colour runs on smoothly across the tile). */
@@ -190,7 +245,7 @@ export function meshWaterChunk(W: number, H: number, heights: Uint8Array, sw: Su
     for (let x = x0; x < x1; x++) {
       const i = y * W + x;
       const s = sw.surface[i];
-      if (s === s) {
+      if (s === s && (!own || own[i])) {
         const d = sw.depth[i];
         const c = bad[i];
         const f = sw.floor[i];
@@ -254,37 +309,142 @@ export function meshWaterChunk(W: number, H: number, heights: Uint8Array, sw: Su
           b.quad4([x, so, Z, x + 1, so, Z, x + 1, s, Z, x, s, Z], dd, [c0, c1, c1, c0], 0, 0, 1, dropFlags(s, so, y === 0));
         }
       }
-      const lower = lowerByTile?.get(i);
-      if (lower) {
-        for (const k of lower) {
-          const ls = view.floor[k] + view.depth[k];
-          b.quad([x, ls, -y, x + 1, ls, -y, x + 1, ls, -(y + 1), x, ls, -(y + 1)], view.depth[k], view.contamination[k], 0, 1, 0);
-        }
-      }
     }
   }
-  return b.finish();
 }
 
-/** Lower water columns (in caves) grouped by tile. */
-export function lowerByTile(sw: SurfaceWater, view: WaterView): Map<number, number[]> | null {
-  if (!sw.lower.length) return null;
-  const m = new Map<number, number[]>();
-  for (const k of sw.lower) {
-    const i = view.tile[k];
-    const list = m.get(i);
-    if (list) list.push(k);
-    else m.set(i, [k]);
-  }
-  return m;
+/** The water each tile's chunk was last drawn with: its surface (NaN where dry), depth and badwater
+ *  share (the renderer's `drawWater`). */
+export interface DrawnWater {
+  surface: Float32Array;
+  depth: Float32Array;
+  contamination: Float32Array;
+}
+
+export function drawnWater(N: number): DrawnWater {
+  return { surface: new Float32Array(N).fill(NaN), depth: new Float32Array(N), contamination: new Float32Array(N) };
+}
+
+/** A chunk drawn on `sw`: what it shows, tile by tile. */
+export function drewChunk(W: number, H: number, drawn: DrawnWater, sw: SurfaceWater, cx: number, cy: number): void {
+  for (let y = cy * CHUNK; y < Math.min(H, (cy + 1) * CHUNK); y++)
+    for (let x = cx * CHUNK; x < Math.min(W, (cx + 1) * CHUNK); x++) {
+      const i = y * W + x;
+      drawn.surface[i] = sw.surface[i];
+      drawn.depth[i] = sw.depth[i];
+      drawn.contamination[i] = sw.contamination[i];
+    }
+}
+
+/** How far the water may be from what is drawn before a moving water's chunk is drawn again: a
+ *  two-hundredth of a level in its surface or depth, a hundredth in its badwater share; a tile turning
+ *  wet or dry always counts. (0: any difference, the water in place.) */
+export const MOVED_WATER = { level: 0.005, share: 0.01 };
+
+/** Chunks whose drawn water differs from `sw` by more than `tol` (a tile's surface, depth or badwater
+ *  share; wet or dry), with the chunks within six tiles (the badwater's blend reaches three, a top's
+ *  corners, curtains and falls three more). */
+export function waterMovedChunks(W: number, H: number, drawn: DrawnWater, sw: SurfaceWater, tol: { level: number; share: number }): Set<string> {
+  const marks = chunkMarks(W, H);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const sa = drawn.surface[i];
+      const sb = sw.surface[i];
+      const wa = sa === sa;
+      if (!wa && !(sb === sb)) continue;
+      if (wa === (sb === sb) && Math.abs(sa - sb) <= tol.level && Math.abs(drawn.depth[i] - sw.depth[i]) <= tol.level && Math.abs(drawn.contamination[i] - sw.contamination[i]) <= tol.share) continue;
+      marks.mark(x, y);
+    }
+  return marks.keys();
+}
+
+/** How far round a tile whose water moved the chunks are drawn again (`waterMovedChunks`). */
+const MOVED_REACH = 6;
+
+/** The chunks within MOVED_REACH of the tiles marked (`mark`), as "cx,cy" keys (`keys`). The tiles of a row in the
+ *  same part of a chunk (within reach of its west edge, of its east edge, or of neither) mark the same chunks, so
+ *  each part is marked once a row: water moving over thousands of tiles costs a comparison a tile. */
+function chunkMarks(W: number, H: number): { mark(x: number, y: number): void; keys(): Set<string> } {
+  const R = MOVED_REACH;
+  const nx = Math.ceil(W / CHUNK);
+  const ny = Math.ceil(H / CHUNK);
+  const dirty = new Uint8Array(nx * ny);
+  let row = -1;
+  let part = -1;
+  return {
+    mark(x: number, y: number): void {
+      const lx = x % CHUNK;
+      const p = (x - lx) * 3 + (lx < R ? 0 : lx >= CHUNK - R ? 2 : 1);
+      if (y === row && p === part) return;
+      row = y;
+      part = p;
+      const cx0 = Math.floor(Math.max(0, x - R) / CHUNK);
+      const cx1 = Math.floor(Math.min(W - 1, x + R) / CHUNK);
+      const cy0 = Math.floor(Math.max(0, y - R) / CHUNK);
+      const cy1 = Math.floor(Math.min(H - 1, y + R) / CHUNK);
+      for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) dirty[cy * nx + cx] = 1;
+    },
+    keys(): Set<string> {
+      const out = new Set<string>();
+      for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) if (dirty[cy * nx + cx]) out.add(`${cx},${cy}`);
+      return out;
+    },
+  };
+}
+
+/** Whether chunk (cx, cy) is among `waterMovedChunks`' answer: its drawn water, or a tile's within six of it, differs
+ *  from `sw` by more than `tol`. Reads only the tiles round the chunk, and stops at the first that moved (the page's
+ *  thread asks it of the chunks waiting to be drawn, never of the whole map). */
+export function waterMovedChunk(W: number, H: number, drawn: DrawnWater, sw: SurfaceWater, tol: { level: number; share: number }, cx: number, cy: number): boolean {
+  const R = MOVED_REACH;
+  const x0 = Math.max(0, cx * CHUNK - R);
+  const x1 = Math.min(W - 1, (cx + 1) * CHUNK - 1 + R);
+  const y0 = Math.max(0, cy * CHUNK - R);
+  const y1 = Math.min(H - 1, (cy + 1) * CHUNK - 1 + R);
+  for (let y = y0; y <= y1; y++)
+    for (let i = y * W + x0, end = y * W + x1; i <= end; i++) {
+      const sa = drawn.surface[i];
+      const sb = sw.surface[i];
+      const wa = sa === sa;
+      if (!wa && !(sb === sb)) continue;
+      if (wa === (sb === sb) && Math.abs(sa - sb) <= tol.level && Math.abs(drawn.depth[i] - sw.depth[i]) <= tol.level && Math.abs(drawn.contamination[i] - sw.contamination[i]) <= tol.share) continue;
+      return true;
+    }
+  return false;
+}
+
+/** The chunks water put in place draws again (renderer.updateWater): every chunk within six tiles of a tile whose
+ *  water differs at all from what is drawn there (`waterMovedChunks` with no tolerance) or from the water before it,
+ *  `before` (`changedWaterChunks`, quick: no blend is made). One pass over the map for both. */
+export function exactWaterChunks(W: number, H: number, drawn: DrawnWater, before: SurfaceWater, after: SurfaceWater): Set<string> {
+  const marks = chunkMarks(W, H);
+  const { surface: sb, depth: db, contamination: cb } = after;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const s = sb[i];
+      const wet = s === s;
+      const sd = drawn.surface[i];
+      const s0 = before.surface[i];
+      // (dry before, drawn dry and dry now: nothing)
+      if (!wet && !(sd === sd) && !(s0 === s0)) continue;
+      const fromDrawn = wet !== (sd === sd) || (wet && (sd !== s || drawn.depth[i] !== db[i] || drawn.contamination[i] !== cb[i]));
+      const fromBefore = wet !== (s0 === s0) || (wet && (s0 !== s || before.depth[i] !== db[i] || before.contamination[i] !== cb[i]));
+      if (fromDrawn || fromBefore) marks.mark(x, y);
+    }
+  return marks.keys();
 }
 
 /** Chunks whose water differs between two surface-water states: a tile's surface, depth or
  *  blended badwater share changed (the blend reaches a few tiles past a change of badwater). A
  *  top's corners and curtains read the tiles round it, and a fall the flow of the lips beside it and
  *  round its corners (which reads the tiles round them) and the pool up to three tiles out (its
- *  splash's room), so a chunk is also dirty when a tile up to three away changed. */
-export function changedWaterChunks(W: number, H: number, a: SurfaceWater, b: SurfaceWater, aLower: number, bLower: number): Set<string> {
+ *  splash's room), so a chunk is also dirty when a tile up to three away changed. `quick` (a stroke's
+ *  water, many times a second): the raw badwater share compared instead of the blend, and every
+ *  change reaching three tiles further (as far as the blend reaches), so no blend is made for it:
+ *  every chunk the blend's comparison finds, and a few more. */
+export function changedWaterChunks(W: number, H: number, a: SurfaceWater, b: SurfaceWater, aLower: number, bLower: number, quick = false): Set<string> {
   const out = new Set<string>();
   const nx = Math.ceil(W / CHUNK);
   const ny = Math.ceil(H / CHUNK);
@@ -294,16 +454,17 @@ export function changedWaterChunks(W: number, H: number, a: SurfaceWater, b: Sur
     return out;
   }
   const dirty = new Uint8Array(nx * ny);
-  /** The chunks of the tiles up to three from (x, y). */
+  const R = quick ? 6 : 3;
+  /** The chunks of the tiles up to R from (x, y). */
   const mark = (x: number, y: number) => {
-    const cx0 = Math.floor(Math.max(0, x - 3) / CHUNK);
-    const cx1 = Math.floor(Math.min(W - 1, x + 3) / CHUNK);
-    const cy0 = Math.floor(Math.max(0, y - 3) / CHUNK);
-    const cy1 = Math.floor(Math.min(H - 1, y + 3) / CHUNK);
+    const cx0 = Math.floor(Math.max(0, x - R) / CHUNK);
+    const cx1 = Math.floor(Math.min(W - 1, x + R) / CHUNK);
+    const cy0 = Math.floor(Math.max(0, y - R) / CHUNK);
+    const cy1 = Math.floor(Math.min(H - 1, y + R) / CHUNK);
     for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) dirty[cy * nx + cx] = 1;
   };
-  const ba = blendedBadwater(W, H, a);
-  const bb = blendedBadwater(W, H, b);
+  const ba = quick ? a.contamination : blendedBadwater(W, H, a);
+  const bb = quick ? b.contamination : blendedBadwater(W, H, b);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -315,4 +476,29 @@ export function changedWaterChunks(W: number, H: number, a: SurfaceWater, b: Sur
   }
   for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) if (dirty[cy * nx + cx]) out.add(`${cx},${cy}`);
   return out;
+}
+
+/** Water riding the ground it stands on: where the land under a wet tile changed from `was` to `now`,
+ *  the water there stands on the new ground, its depth kept, as the water's simulation carries it the
+ *  moment it sees that ground (a force's, a stroke's). So the land and its water change in the same
+ *  frame, whichever of them reaches the page first. Only water standing on `was` moves (a file's water on
+ *  something else keeps its own floor, so does water under a roof, whose floor is not the tile's top). Over the
+ *  tiles of `rect` (all of them when left out); true when any moved. */
+export function rideLand(W: number, sw: SurfaceWater, was: ArrayLike<number>, now: ArrayLike<number>, rect?: { x0: number; y0: number; x1: number; y1: number }): boolean {
+  const H = now.length / W;
+  const x0 = Math.max(0, rect?.x0 ?? 0);
+  const y0 = Math.max(0, rect?.y0 ?? 0);
+  const x1 = Math.min(W - 1, rect?.x1 ?? W - 1);
+  const y1 = Math.min(H - 1, rect?.y1 ?? H - 1);
+  let moved = false;
+  for (let y = y0; y <= y1; y++)
+    for (let i = y * W + x0, end = y * W + x1; i <= end; i++) {
+      const a = was[i];
+      const b = now[i];
+      if (a === b || sw.floor[i] !== a) continue;
+      sw.floor[i] = b;
+      sw.surface[i] = b + sw.depth[i];
+      moved = true;
+    }
+  return moved;
 }

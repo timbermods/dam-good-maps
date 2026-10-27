@@ -2,39 +2,107 @@ name: CI
 
 on:
   push:
+    branches: [main, dev]
   pull_request:
+    branches: [dev, main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
   workflow_dispatch:
 
-# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in four shards, the
-# Python oracle, generation, the cross-engine determinism check and the Rust build. They fail only on
-# breakage. Timings are information, not gates: each job's summary lists them against their
-# budgets, with a warning for any over (tools/timings.ts). The heaviest checks run nightly
-# (nightly.yml): the long property runs, the full oracle and the 100-seed batches.
+# What runs, by event (Kyler, 2026-10-15: a change merges once it is reviewed and its quick checks pass; the slow
+# suites run after it is in, on dev's tip):
+#   pull request into dev    the quick checks: `changes` and `test` (typecheck, quick suite in two shards, build). The
+#                            browser shards and the heavier suites wait for the merge. Not while a PR is a draft: marking
+#                            it ready runs CI. A newer push cancels the run. One that touches only investigation/
+#                            (Codex's investigation PRs) runs `changes` alone.
+#   push to dev (a merge)    the suites the change needs, classified like a merge group (below), browser shards included:
+#                            one run at a time on dev's tip; while one runs, only the newest merge waits (GitHub drops the
+#                            older waiting run), so a burst of merges costs two runs, not one each. Each run is classified
+#                            against dev's last tip whose run passed, so a dropped run's changes are still covered. A failure here is
+#                            fixed forward at once by whoever's merge broke it. The nightly (nightly.yml) also checks
+#                            dev's tip every night.
+#   merge group (the queue)  the full suite on the merged state, classified by the batch's change (unused while dev has
+#                            no merge queue).
+#   push to main, pull request into main (a release), manual run
+#                            the full suite, always, and never cancelled.
+# No run for other branches or tags. Merge-group runs have their own ref each, so they never cancel one another.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.base_ref == 'dev' }}
+
+# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in seven shards, the
+# Python oracle, generation, and the cross-engine determinism check with the Rust build. They fail only on
+# breakage. The heaviest checks run nightly (nightly.yml): the long property runs, the full oracle and the
+# 100-seed batches.
 #
-# A change that only touches documents, LICENSE or package.json's descriptive fields (not dependencies,
-# devDependencies, scripts or anything else) skips the heavy jobs (browser, oracle, generation, engines, rust) and
-# finishes in minutes: the `changes` job decides (tools/ci-changes.mjs, tests/unit/ci-changes.test.ts). A
-# skipped job counts as passed for merge and release (tools/release.sh). Any other change, a manual run, or a
-# change it can't compare keeps the full suite, unchanged. `test` always runs: the typecheck and the build, then
-# the whole quick suite, or for such a change only the two tests that read documents.
+# The `changes` job decides what a run needs (tools/ci-changes.mjs, tests/unit/ci-changes.test.ts). Three classes of
+# change, for pull requests into dev and merge groups; main and manual runs run everything:
+#   - only documents, investigation/, LICENSE or package.json's descriptive fields (not dependencies, devDependencies,
+#     scripts or anything else): `test` runs its two document tests and the build; every other job is skipped; a pull
+#     request into dev touching only investigation/ skips `test` too (the nightly and the merge still check it);
+#   - only the collaboration connection (collab-worker/, src/collab/, tests/collab/, their configs and collab*.yml): like
+#     documents, because its own workflow (collab.yml) tests it; the typecheck and the build still run;
+#   - only src/editor/, src/ui/ and the browser specs (tests/e2e/), plus documents: `test` and the browser shards run;
+#     oracle, generation, engines and rust are skipped;
+#   - anything else: all of them, except the Rust checks, which run only when rust/, tools/rust/, the toolchain
+#     file, the TypeScript that wraps the Wasm, package.json or this workflow changes.
+# A skipped job counts as passed for merge and release (tools/release.sh).
 jobs:
   changes:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
     outputs:
       heavy: ${{ steps.which.outputs.heavy }}
+      suites: ${{ steps.which.outputs.suites }}
+      rust: ${{ steps.which.outputs.rust }}
+      test: ${{ steps.which.outputs.test }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Do the heavy suites need to run?
+      # A push to dev is compared with dev's last tip whose run passed, not just the commit before it: while one run goes,
+      # GitHub keeps only the newest waiting run, so a merge whose own run was dropped still gets its suites in the next,
+      # and a suite that failed runs again until it passes. No such run yet: the commit before it.
+      - name: Since dev's last passing tip
+        id: since
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml --branch dev --event push --status success --limit 1 --json headSha -q '.[0].headSha // ""')
+          if [ -n "$sha" ] && git cat-file -e "$sha^{commit}" 2>/dev/null && git merge-base --is-ancestor "$sha" "$GITHUB_SHA"; then
+            echo "base=$sha" >> "$GITHUB_OUTPUT"
+            echo "Comparing with dev's last passing tip, $sha"
+          else
+            echo "base=" >> "$GITHUB_OUTPUT"
+            echo "No passing dev run to compare with: comparing with the commit before this push"
+          fi
+      - name: Which suites does this run need?
         id: which
-        run: node tools/ci-changes.mjs "${{ github.event.pull_request.base.sha || github.event.before }}" "${{ github.event.pull_request.head.sha || github.sha }}"
+        env:
+          BASE: ${{ steps.since.outputs.base || github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+          # merge group and push to dev: by the change; pull request into dev: light; pushes to main, pull requests into main, manual: full
+          MODE: ${{ (github.event_name == 'merge_group' || github.event_name == 'push' && github.ref == 'refs/heads/dev') && 'auto' || github.event_name == 'pull_request' && github.base_ref == 'dev' && 'light' || 'full' }}
+        run: node tools/ci-changes.mjs "$BASE" "$HEAD" "--$MODE"
 
   test:
     needs: changes
+    # (skipped for a pull request into dev that touches only investigation/)
+    if: needs.changes.outputs.test != 'false'
+    # The quick suite runs in two shards, each on its own runner (`--shard=i/2`, split by file): on one runner it
+    # reached the 30 minutes a job gets (generator 0.8.1 and later). The typecheck, the document tests and the build
+    # run on the first. Raising the shard count is the fix if it outgrows them again, never a longer limit.
+    name: test (${{ matrix.shard }}/2)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     runs-on: ubuntu-latest
-    # the browser specs alone take about 25 minutes with the forces and Glaciate; 30 cut them off
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -50,31 +118,36 @@ jobs:
       - run: npm ci
       - run: pip install -r prototype/requirements.txt
       - name: Typecheck
+        if: matrix.shard == 1
         run: npm run typecheck
       - name: Unit and contract tests (the heavy ones run nightly)
         if: needs.changes.outputs.heavy == 'true'
-        run: npm run test:quick
+        run: npx vitest run --project quick --shard=${{ matrix.shard }}/2
       # a documents-only change: just the tests that read documents (retired terms, the sounds' credits)
       - name: Document tests (a change that only touches documents, LICENSE or package.json's descriptive fields)
-        if: needs.changes.outputs.heavy != 'true'
+        if: needs.changes.outputs.heavy != 'true' && matrix.shard == 1
         run: npx vitest run --project quick tests/unit/retired-terms.test.ts tests/unit/juiceSounds.test.ts
       - name: Build
+        if: matrix.shard == 1
         run: npm run build
 
   # The browser specs run as parallel shards, each on its own runner with its own build (Playwright builds
   # the app itself, twice, in its web server). Every spec runs in exactly one shard (`--shard=i/N`); the
-  # split is by file, so the same workflow suits any branch. Raising the shard count is the fix if a
-  # branch's specs outgrow the 30 minutes a job gets, never a longer limit.
+  # split is by test count in file order (a file in parallel mode splits by test), so the same workflow suits any
+  # branch. Raising the shard count is the fix if a branch's specs outgrow the 30 minutes a job gets, never a longer
+  # limit; the slowest specs (layout, look-high, textClipping) run in parallel mode so no shard holds them all on one
+  # worker. (Seven since 2026-10-27: with six, the shard holding layout and look-high ran past its 30 minutes twice.)
   browser:
     needs: changes
-    if: needs.changes.outputs.heavy == 'true'
-    name: browser (${{ matrix.shard }}/4)
+    # (not on a pull request into dev: the browser specs run on dev's tip once it merges)
+    if: needs.changes.outputs.heavy == 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'dev')
+    name: browser (${{ matrix.shard }}/7)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -82,22 +155,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
-      - name: Browser tests, shard ${{ matrix.shard }} of 4 (Node and Chromium produce the same bytes)
-        run: npx playwright test --shard=${{ matrix.shard }}/4
-        env:
-          DGM_TIMINGS: .scratch/timings/e2e.jsonl
-      - name: Timings (information, not gates)
-        if: always()
-        run: npx tsx tools/ci-timings.ts .scratch/timings/e2e.jsonl --title "Browser timings, shard ${{ matrix.shard }} of 4"
-      - uses: actions/upload-artifact@v7
-        if: always()
+      - uses: ./.github/actions/playwright
         with:
-          name: timings-browser-${{ matrix.shard }}
-          path: .scratch/timings/
-          if-no-files-found: ignore
-          retention-days: 30
+          browsers: chromium
+      - name: Browser tests, shard ${{ matrix.shard }} of 7 (Node and Chromium produce the same bytes)
+        run: npx playwright test --shard=${{ matrix.shard }}/7
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
@@ -107,7 +169,7 @@ jobs:
 
   oracle:
     needs: changes
-    if: needs.changes.outputs.heavy == 'true'
+    if: needs.changes.outputs.suites == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -130,11 +192,9 @@ jobs:
 
   generation:
     needs: changes
-    if: needs.changes.outputs.heavy == 'true'
+    if: needs.changes.outputs.suites == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      DGM_TIMINGS: .scratch/timings/generation.jsonl
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -142,10 +202,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Generation time (128², budget 3 s; reported)
-        run: npm run bench -- --info
-      - name: Water settle time (256², budget 3 s, PLAN §10; reported)
-        run: npm run bench:water -- --info
+      # the batches' canonical settles run in the native Rust water (PLAN §20 D381; tools/rust/native-water.ts)
+      - name: Install Rust 1.90 (rust-toolchain.toml) and build the native water
+        run: |
+          rustup toolchain install
+          cd rust && cargo build --release -j 4 -p water --bin water-batch
       # Any and the six themes at once, one process each; 100 seeds each run nightly. A seed that makes no
       # map is breakage (final ≥ 98%, PLAN §20 D145), and every accepted map's project file must
       # reopen to the same bytes; the first-attempt rate is information.
@@ -162,60 +223,44 @@ jobs:
           cat .scratch/batch-*.txt
           { echo "### Pass rates, 20 seeds a theme at 128² (final ≥ 98% blocks; first attempt is information)"; echo; for t in any riverValley canyon highlands lakeBasin delta islands; do sed -n '/ seeds of /,$p' .scratch/batch-$t.txt; echo; done; } >> "$GITHUB_STEP_SUMMARY"
           exit $fail
-      - name: Timings (information, not gates)
-        if: always()
-        run: npx tsx tools/ci-timings.ts .scratch/timings/generation.jsonl --title "Generation timings"
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: timings-generation
-          path: .scratch/timings/
-          if-no-files-found: ignore
-          retention-days: 30
 
-  # The same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node, compared
+  # Two checks that share a setup (the dependencies and the three Playwright browsers), each on its own condition.
+  #
+  # Engines: the same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node, compared
   # bit for bit (PLAN §2.1, §20 D366; tools/determinism/). The short list: every theme, brush and force
-  # setting, one generation seed, short sequences. The full list runs nightly on the CPU matrix
-  # (nightly.yml). The whole-source guard against engine-dependent maths in the core, the workers and the data
+  # setting, one generation seed, short sequences. Chromium and Firefox run it twice: on the page's thread and in a
+  # worker whose water runs on four threads at every size (the multi-core water, src/core/sim/parallel.ts), the
+  # same bytes. The full list runs nightly on the CPU matrix (nightly.yml). The whole-source guard against engine-dependent maths in the core, the workers and the data
   # tools is in the quick suite (tests/unit/portable.test.ts, tools/portable-guard.ts; D401).
-  engines:
-    needs: changes
-    if: needs.changes.outputs.heavy == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Install Chromium, Firefox and WebKit for Playwright
-        run: npx playwright install --with-deps chromium firefox webkit
-      - name: The same results in every engine (the short list)
-        run: npx tsx tools/determinism/run.ts --smoke
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: determinism-smoke
-          path: .scratch/determinism/smoke/*.json
-          retention-days: 7
-
-  # The Rust ports (PLAN §20 D381, D401, D442): Rust 1.90 and the wasm32 target, pinned by rust-toolchain.toml.
+  #
+  # Rust (PLAN §20 D381, D401, D442): Rust 1.90 and the wasm32 target, pinned by rust-toolchain.toml.
   # The maths guard over the Rust source, its optimized IR, its assembly and its Wasm (no libm, no FMA, no
   # transcendental intrinsics), then rust/portable bit for bit against src/core/math/portable.ts: natively, in
-  # Node's WebAssembly and in Chromium, Firefox and WebKit (tools/rust/check.ts). The Rust water (not switched
-  # on until M9b is on dev): the committed Wasm equals a fresh build, and its canonical settle gives the same
-  # bytes natively, in Node's WebAssembly and in each engine.
-  rust:
+  # Node's WebAssembly and in Chromium, Firefox and WebKit (tools/rust/check.ts). The Rust water, which every
+  # job runs (D381): the committed Wasm equals a fresh build; its canonical settle gives the same bytes natively,
+  # in Node's WebAssembly and in each engine; and the native settle gives the app's, on one thread and on four
+  # (tools/rust/water-identity.ts --threads, 512² included).
+  # It runs only when the Rust or what wraps it changes (tools/ci-changes.mjs, isRustInput), and on every full run.
+  # The Rust forces (D381, #158): their committed Wasm equals a fresh build, and every force's byte fixtures give
+  # the same packed results natively, in Node's WebAssembly and in each engine, each as pinned
+  # (tools/rust/forces-jobs.ts, forces-pins.json).
+  # The Rust analysis (D391, #157): its committed Wasm equals a fresh build, its frame guards hold, and each
+  # kernel's byte fixtures give the same results natively, in Node's WebAssembly and in each engine, each as
+  # pinned (tools/rust/analysis-jobs.ts, analysis-pins.json).
+  # The Rust checks (D465, #207): their committed Wasm equals a fresh build, their contracts hold, and each
+  # validation's byte fixtures give the same report and analysis natively, in Node's WebAssembly and in each
+  # engine, each as pinned (tools/rust/checks-jobs.ts, checks-pins.json).
+  # The stacked-column water (D448, rust/water's stack modules, no wiring yet): its contracts, and #71's
+  # game-verified fixtures natively and in Node's WebAssembly (tools/rust/stack-identity.ts); the determinism
+  # check's stacked-water cases compare the engines.
+  engines:
+    name: engines and rust
     needs: changes
-    if: needs.changes.outputs.heavy == 'true'
+    if: needs.changes.outputs.suites == 'true' || needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -223,10 +268,12 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install Rust 1.90 and the wasm32 target (rust-toolchain.toml)
+        if: needs.changes.outputs.rust == 'true'
         run: |
           rustup toolchain install
           rustc --version
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
+        if: needs.changes.outputs.rust == 'true'
         with:
           path: |
             ~/.cargo/registry
@@ -235,9 +282,41 @@ jobs:
           key: cargo-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'rust/Cargo.lock', 'rust/.cargo/config.toml') }}
           restore-keys: cargo-${{ runner.os }}-
       - run: npm ci
-      - name: Install Chromium, Firefox and WebKit for Playwright
-        run: npx playwright install --with-deps chromium firefox webkit
-      - name: The committed Rust water matches a fresh build; the native batch binary
+      - uses: ./.github/actions/playwright
+        with:
+          browsers: chromium firefox webkit
+      - name: The same results in every engine (the short list)
+        if: needs.changes.outputs.suites == 'true'
+        run: npx tsx tools/determinism/run.ts --smoke --engines chromium,firefox,webkit,node,chromium-threads,firefox-threads
+      - name: The committed Rust Wasm (water, forces, analysis and checks) matches a fresh build; the native batch binaries
+        if: needs.changes.outputs.rust == 'true'
         run: npx tsx tools/rust/build.ts --check --native
-      - name: The Rust maths guard, strict builds, the same bits as portable.ts and the same water in every engine
+      - name: Stacked water core contracts, the analysis' frame guards and the checks' contracts (at most four workers)
+        if: needs.changes.outputs.rust == 'true'
+        run: cd rust && cargo test -j 4 -p water -p analysis -p checks --target-dir target/stack-tests -- --test-threads=4
+      - name: Stacked water against the game-verified goldens, native and Node-Wasm; its canonical settle on one thread and on four
+        if: needs.changes.outputs.rust == 'true'
+        run: |
+          cd rust && cargo build --release -j 4 -p water --example stack-fixture
+          cd .. && npx tsx tools/rust/stack-identity.ts --threads 4
+      - name: The native Rust settle gives the app's bytes, on one thread and on four (golden fixtures under both rules, every theme, stored water, 96² to 512²)
+        if: needs.changes.outputs.rust == 'true'
+        run: npx tsx tools/rust/water-identity.ts --seeds 1-1 --require-native --threads 4 --sizes 96,128,256,512
+      - name: The Rust maths guard, strict builds, the same bits as portable.ts, the same water, forces, analysis and checks in every engine
+        if: needs.changes.outputs.rust == 'true'
         run: npx tsx tools/rust/check.ts --engines
+      - uses: actions/upload-artifact@v7
+        if: failure() && needs.changes.outputs.suites == 'true'
+        with:
+          name: determinism-smoke
+          path: .scratch/determinism/smoke/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+      # (a fresh Wasm that differs from the committed one, to compare)
+      - uses: actions/upload-artifact@v7
+        if: failure() && needs.changes.outputs.rust == 'true'
+        with:
+          name: rust-wasm
+          path: rust/target/embed/wasm32-unknown-unknown/release/*.wasm
+          if-no-files-found: ignore
+          retention-days: 7

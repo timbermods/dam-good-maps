@@ -57,7 +57,7 @@ describe("the settled water's outflows in the file (FORMAT.md §4.3)", () => {
     const { W, H } = r.built;
     const S = r.built.settle;
     const sim = new WaterSim(r.built.waterModel, { depth: S.depth.slice(), contamination: S.contamination.slice() });
-    sim.out.set(storedOutflows(r.bytes, W, H));
+    sim.setOut(storedOutflows(r.bytes, W, H));
     sim.run(TICKS_PER_DAY);
     let wet = 0;
     let within = 0;

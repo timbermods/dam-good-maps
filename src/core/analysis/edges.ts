@@ -38,28 +38,38 @@ export function edgeRuleApplies(W: number, H: number): boolean {
   return W >= need && H >= need;
 }
 
+/** The tile at position `p` along edge `e` (`EDGE_NAMES` order), `d` tiles in from it. */
+export function edgeTile(e: number, W: number, H: number, p: number, d: number): [number, number] {
+  return e === 0 ? [p, d] : e === 1 ? [p, H - 1 - d] : e === 2 ? [d, p] : [W - 1 - d, p];
+}
+
+/** At position `p` along edge `e`: the highest tile of its band (`EDGE_BAND`) and of the land just
+ *  inside it (`EDGE_INSIDE`); the tile is walled when the band stands `EDGE_RISE`+ above that land. */
+export function edgeRise(h: ArrayLike<number>, W: number, H: number, e: number, p: number): { band: number; inside: number } {
+  let band = 0;
+  for (let d = 0; d < EDGE_BAND; d++) {
+    const [x, y] = edgeTile(e, W, H, p, d);
+    if (h[y * W + x] > band) band = h[y * W + x];
+  }
+  let inside = 0;
+  for (let d = EDGE_BAND; d < EDGE_BAND + EDGE_INSIDE; d++) {
+    const [x, y] = edgeTile(e, W, H, p, d);
+    if (h[y * W + x] > inside) inside = h[y * W + x];
+  }
+  return { band, inside };
+}
+
 /** The walled share of each edge, and where the longest walled run is, in `EDGE_NAMES` order. */
 export function edgeWalls(h: ArrayLike<number>, W: number, H: number): EdgeWall[] {
   const out: EdgeWall[] = [];
   for (let e = 0; e < 4; e++) {
     const L = e < 2 ? W : H;
-    // tile at position p along edge e, d tiles in from it
-    const at = (p: number, d: number): [number, number] => (e === 0 ? [p, d] : e === 1 ? [p, H - 1 - d] : e === 2 ? [d, p] : [W - 1 - d, p]);
     let walled = 0;
     let run = 0;
     let best = 0;
     let bestEnd = -1;
     for (let p = 0; p < L; p++) {
-      let band = 0;
-      for (let d = 0; d < EDGE_BAND; d++) {
-        const [x, y] = at(p, d);
-        if (h[y * W + x] > band) band = h[y * W + x];
-      }
-      let inside = 0;
-      for (let d = EDGE_BAND; d < EDGE_BAND + EDGE_INSIDE; d++) {
-        const [x, y] = at(p, d);
-        if (h[y * W + x] > inside) inside = h[y * W + x];
-      }
+      const { band, inside } = edgeRise(h, W, H, e, p);
       if (band - inside >= EDGE_RISE) {
         walled++;
         run++;
@@ -70,7 +80,7 @@ export function edgeWalls(h: ArrayLike<number>, W: number, H: number): EdgeWall[
       } else run = 0;
     }
     const mid = bestEnd >= 0 ? bestEnd - (best >> 1) : L >> 1;
-    out.push({ edge: EDGE_NAMES[e], share: walled / L, at: at(mid, 0) });
+    out.push({ edge: EDGE_NAMES[e], share: walled / L, at: edgeTile(e, W, H, mid, 0) });
   }
   return out;
 }

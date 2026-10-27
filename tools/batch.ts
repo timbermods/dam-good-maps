@@ -1,29 +1,35 @@
-// Batch pass rates (PLAN §15; ROADMAP M2 acceptance: 100 seeds at 128² Normal, final pass ≥ 98%,
-// first attempt ≥ 60%). Generates each seed with the retry loop and reports first-attempt and
-// final pass rates, which checks failed and how often, attempts used, and timings.
+// Batch pass rates (PLAN §15: 100 seeds at 128² Normal, final pass ≥ 98% blocks; the first-attempt
+// rate is information against its 60% target, D115, D145, as CI and the nightly run it). Generates
+// each seed with the retry loop and reports first-attempt and final pass rates, which checks failed
+// and how often, attempts used, and timings. Since the land stage (D333 (2), D278) a land drawn again
+// before it is shown counts as an attempt though it costs no settle, so Generate's time is the
+// measure for players: the time per map below, against D278's speed targets.
 //
 // Every accepted map's project file (PLAN §19.6, the page's download) is also reopened: it must pass
 // the checks on open and rebuild the same .timber byte for byte, or the batch fails.
 //
 //   npx tsx tools/batch.ts [--seeds 1-100] [--size 128] [--difficulty normal] [--theme riverValley]
-//                          [--set rl=80&wf=m] [--report file.md] [--min-final 0.98] [--min-first 0.6] [--native]
+//                          [--set rl=80&wf=m] [--report file.md] [--min-final 0.98] [--min-first 0] [--wasm]
 //
 // --set takes settings in the share link's short keys (src/core/spec/codec.ts).
 //
-// Exits non-zero when a rate is below its gate, or when a project file does not reopen to the same
-// bytes.
+// Exits non-zero when the final rate is below its gate (or the first-attempt rate below one asked
+// with --min-first), or when a project file does not reopen to the same bytes.
 
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { decodeProject, encodeProject, generatedDocument } from "../src/core/doc/document";
 import { MapSession } from "../src/core/doc/session";
+import { toMapObject } from "../src/core/features/build";
 import { generate, MAX_ATTEMPTS } from "../src/core/gen/generate";
+import { FORMS, type FormId } from "../src/core/land/forms3d";
 import { officialRange } from "../src/core/gen/calibrated";
 import { STRAIGHT_LIMITS } from "../src/core/analysis/straight";
 import { atan2, hypot } from "../src/core/math/portable";
 import { badwaterBudget } from "../src/core/resources/badwater";
 import { decodeSpecFragment, type Difficulty, type ThemeId } from "../src/core/spec/mapspec";
 import { useNativeWater } from "./rust/native-water";
+import { measureResources } from "./lib/resources";
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -46,11 +52,11 @@ const difficulty = arg("difficulty", "normal") as Difficulty;
 const theme = arg("theme", "riverValley") as ThemeId;
 const extra = arg("set", "");
 const minFinal = Number(arg("min-final", "0.98"));
-const minFirst = Number(arg("min-first", "0.6"));
+const minFirst = Number(arg("min-first", "0"));
 const report = arg("report", "");
-// --native: the canonical settles run in the native Rust water (PLAN §20 D381; build it with
-// `npx tsx tools/rust/build.ts --native`). Not the default until the Rust water is switched on (after M9b).
-if (process.argv.includes("--native")) useNativeWater();
+// the canonical settles run in the native Rust water (PLAN §20 D381; build it with `npx tsx
+// tools/rust/build.ts --native`); --wasm keeps them in WebAssembly, the same bytes
+if (!process.argv.includes("--wasm")) useNativeWater();
 
 let first = 0;
 let final = 0;
@@ -73,6 +79,12 @@ const straight: { run: number; canal: number }[] = [];
 // information: accepted maps with a second district's site (D77: only where one fits) and ruins on a rise
 let districts = 0;
 let rises = 0;
+// the 3D forms (D488, information): per form the maps where it emerged and the times it was dropped;
+// the forms per map; blocks of ground the rule pass dropped and the relief, on the accepted maps
+const forms = new Map<string, { emerged: number; dropped: number }>();
+const formsPerMap: number[] = [];
+let droppedGround = 0;
+let relief = 0;
 // the wood added to meet the starting-logs floor (D224, D227, D229): the maps that needed it, and
 // each grove's kind, distance and direction from the start
 let floorMaps = 0;
@@ -100,6 +112,19 @@ for (const seed of seeds) {
     if (r.info.straight) straight.push(r.info.straight);
     if (r.features.some((f) => f.kind === "setPiece" && f.params.kind === "secondDistrict")) districts++;
     if (r.features.some((f) => f.kind === "setPiece" && f.params.kind === "obstaclePayoff")) rises++;
+    let got = 0;
+    for (const x of r.intentions) {
+      if (!FORMS.includes(x.id as FormId)) continue;
+      const k = forms.get(x.id) ?? { emerged: 0, dropped: 0 };
+      if (x.ok) {
+        k.emerged++;
+        got++;
+      } else k.dropped++;
+      forms.set(x.id, k);
+    }
+    formsPerMap.push(got);
+    droppedGround = Math.max(droppedGround, r.built.dropped ?? 0);
+    for (const v of r.built.heights) relief = Math.max(relief, v);
     const floor = r.features.filter((f) => f.kind === "forest" && !!f.role?.startsWith("forest/floor/"));
     const st = r.features.find((f) => f.kind === "start");
     if (floor.length) floorMaps++;
@@ -130,15 +155,11 @@ for (const seed of seeds) {
   for (const f of r.failures) for (const id of f.failed) failedChecks.set(id, (failedChecks.get(id) ?? 0) + 1);
   for (const c of r.report.checks) if (c.advisory && !c.ok) advisory.set(c.id, (advisory.get(c.id) ?? 0) + 1);
   if (r.report.passed) {
-    const have = { trees: 0, bushes: 0, scrap: 0 };
-    let m = 0;
-    for (const e of r.built.entities) {
-      const t = e.template;
-      if (t === "Pine" || t === "Birch" || t === "Oak" || t === "Succulent") have.trees++;
-      else if (t === "BlueberryBush") have.bushes++;
-      else if (t.startsWith("RuinColumnH")) have.scrap += 15 * Number(t.slice(11));
-      else if (t === "UndergroundRuins") m++;
-    }
+    // the resources as the official maps were measured (tools/lib/resources.ts), on the map's own water and soil
+    const b = r.built;
+    const res = measureResources({ W: b.W, H: b.H, heights: b.heights, depth: b.water, moisture: b.moisture, objects: b.entities.map(toMapObject) });
+    const have = { trees: res.trees.total, bushes: res.bushes.total, scrap: res.ruins.scrap };
+    const m = res.mines.count;
     const bad = r.built.entities.filter((e) => e.template === "BadwaterSource").length;
     badwater.push(bad);
     if (bad < badwaterBudget(r.spec.size.x, r.spec.size.y, r.spec.settings.hazards.badwater, r.spec.seed).sources) badwaterShort++;
@@ -173,7 +194,7 @@ const sorted = times.slice().sort((a, b) => a - b);
 const pct = (k: number) => `${((100 * k) / n).toFixed(1)}%`;
 log("");
 log(`${n} seeds of ${theme} at ${size}×${size}, designed for ${difficulty}${extra ? ` with ${extra}` : ""}, at most ${MAX_ATTEMPTS} attempts:`);
-log(`- first attempt: ${first}/${n} = ${pct(first)} (gate ${Math.round(minFirst * 100)}%)`);
+log(`- first attempt: ${first}/${n} = ${pct(first)} (${minFirst > 0 ? `gate ${Math.round(minFirst * 100)}%` : "information, target 60%"})`);
 log(`- final: ${final}/${n} = ${pct(final)} (gate ${Math.round(minFinal * 100)}%)`);
 log(`- attempts: mean ${(attempts.reduce((a, b) => a + b, 0) / n).toFixed(2)}, max ${attempts.reduce((a, b) => Math.max(a, b), 0)}`);
 log(`- time per map: median ${Math.round(sorted[n >> 1])} ms, p90 ${Math.round(sorted[Math.floor(n * 0.9)])} ms, max ${Math.round(sorted[n - 1])} ms`);
@@ -186,6 +207,11 @@ const spread = (v: number[]) => {
 };
 log(`- straight channels on the accepted maps (information; D209: past the limits a map is planned again): the longest straight bank ${spread(straight.map((x) => x.run))} tiles (limit ${STRAIGHT_LIMITS.run}), the longest canal ${spread(straight.map((x) => x.canal))} (limit ${STRAIGHT_LIMITS.canal})`);
 log(`- set pieces the land held (information): a second district's site on ${districts}/${final} accepted maps, ruins on a rise on ${rises}/${final}`);
+{
+  const s = formsPerMap.slice().sort((a, b) => a - b);
+  const each = FORMS.map((id) => `${id} ${forms.get(id)?.emerged ?? 0} kept, ${forms.get(id)?.dropped ?? 0} dropped`).join("; ");
+  log(`- 3D forms (D488, information): ${each}; forms per map median ${s.length ? s[s.length >> 1] : 0}, max ${s.length ? s[s.length - 1] : 0}; ground the rule pass dropped at most ${droppedGround} blocks; relief up to ${relief}`);
+}
 {
   const q = (v: number[], p: number) => (v.length ? [...v].sort((a, b) => a - b)[Math.min(v.length - 1, Math.floor(p * (v.length - 1)))] : NaN);
   const list = (m: Map<string, number>) => [...m].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ");

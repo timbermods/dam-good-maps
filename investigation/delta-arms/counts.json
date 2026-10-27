@@ -1,0 +1,39 @@
+{
+  "round": 2,
+  "base": "f1a87b54c933540b9dd20179216ba09ec734122b",
+  "size": 128,
+  "seeds": "1\u201330",
+  "timings": false,
+  "before": {
+    "promise": 25,
+    "water": 29,
+    "straight": 30,
+    "misses": {
+      "promise": [
+        7,
+        9,
+        26,
+        27,
+        29
+      ],
+      "water": [
+        27
+      ],
+      "straight": []
+    },
+    "longestBank": 37,
+    "longestCanal": 20.89
+  },
+  "after": {
+    "promise": 30,
+    "water": 30,
+    "straight": 30,
+    "misses": {
+      "promise": [],
+      "water": [],
+      "straight": []
+    },
+    "longestBank": 30,
+    "longestCanal": 20.72
+  }
+}

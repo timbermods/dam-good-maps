@@ -20,6 +20,7 @@ import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
 import { readPng, writeGif, type Rgba } from "./gif";
 import { encodePng } from "./png";
+import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -36,9 +37,7 @@ const CLIP = { x: 280, y: 250, w: 800, h: 480 };
 async function open(page: Page): Promise<{ start: [number, number] }> {
   await page.goto("about:blank");
   await page.goto(`http://localhost:${PORT}/${FRAGMENT}`);
-  await page.getByText(/All \d+ checks passed/).first().waitFor({ timeout: 240_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 180_000 });
+  await waitForEditor(page, 240_000);
   await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
   await page.getByRole("combobox", { name: "Water speed" }).selectOption("slower");
   await page.waitForTimeout(2500);
@@ -153,7 +152,7 @@ async function main(): Promise<void> {
     if (want("bar")) {
       await open(page);
       await pick(page, "0", "Erupt options");
-      const box = (await page.locator(".brush-bar-wrap").boundingBox())!;
+      const box = (await page.locator(".rows-plate").boundingBox())!;
       const shot = readPng(new Uint8Array(await page.screenshot({ clip: { x: box.x, y: box.y, width: Math.min(box.width, 1000), height: 104 } })));
       const rgb = new Uint8Array(shot.width * shot.height * 3);
       for (let i = 0; i < shot.width * shot.height; i++) rgb.set(shot.data.subarray(i * 4, i * 4 + 3), i * 3);

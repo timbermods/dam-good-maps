@@ -1,0 +1,3084 @@
+diff --git a/rust/water/src/lib.rs b/rust/water/src/lib.rs
+index b49e9db4..f9f9da00 100644
+--- a/rust/water/src/lib.rs
++++ b/rust/water/src/lib.rs
+@@ -110,3 +110,9 @@ pub unsafe extern "C" fn water_canonical(ptr: *const u8, len: usize, out_len: *m
+     *out_len = out.len();
+     Box::into_raw(out) as *mut u8
+ }
++
++pub mod columns;
++pub mod stack;
++pub mod stack_prefill;
++pub mod stack_engine;
++pub mod stack_memory;
+diff --git a/rust/water/src/columns.rs b/rust/water/src/columns.rs
+new file mode 100644
+--- /dev/null
++++ b/rust/water/src/columns.rs
+@@ -0,0 +1,269 @@
++//! D448: water gaps, terrain runs and object model, from #71 (24b88b9b).
++use crate::stack::{Emitter, Model};
++use std::collections::BTreeMap;
++pub const OPEN: i16 = 34;
++pub const LAYERS: u32 = 23;
++pub type Refusal = &'static str;
++#[derive(Clone, Debug)]
++pub struct Columns {
++    pub w: usize,
++    pub h: usize,
++    pub n: usize,
++    pub levels: usize,
++    pub count: Vec<u8>,
++    pub floor: Vec<i16>,
++    pub ceil: Vec<i16>,
++    pub height_limit: BTreeMap<usize, f64>,
++    pub dir_limit: BTreeMap<usize, u8>,
++}
++impl Columns {
++    pub fn slot_at(&self, i: usize, z: i16) -> Option<usize> {
++        (0..self.count[i] as usize).find(|&s| self.floor[s * self.n + i] <= z && z < self.ceil[s * self.n + i])
++    }
++    pub fn is_open(&self) -> bool {
++        self.levels == 1 && (0..self.n).all(|i| self.count[i] == 1 && self.ceil[i] == OPEN)
++    }
++}
++/// Typed object codes: 0 inert, 1 blockage, 2 dam, 3/4/5 overhang 2/3/4,
++/// 6 drain, 7 clean source, 8 bad source, 9 clean seep, 10 bad seep, 11 aquifer.
++/// Inert objects are deliberately classified by the caller; unknown codes refuse.
++#[derive(Clone, Debug)]
++pub struct Object {
++    pub kind: u8,
++    pub x: i32,
++    pub y: i32,
++    pub z: i16,
++    pub rotation: u8,
++    pub flipped: bool,
++    pub delayed: bool,
++    pub strength: f64,
++}
++impl Object {
++    fn tile(&self, x: i32, y: i32, w: usize, h: usize) -> Option<usize> {
++        // All water-affecting footprints have width 1 or are non-flippable squares.
++        let x = if self.flipped && [9, 10].contains(&self.kind) { 1 - x } else { x };
++        let (dx, dy) = match self.rotation {
++            0 => (x, y),
++            1 => (y, -x),
++            2 => (-x, -y),
++            _ => (-y, x),
++        };
++        let (xx, yy) = (self.x as i64 + dx as i64, self.y as i64 + dy as i64);
++        (xx >= 0 && yy >= 0 && xx < w as i64 && yy < h as i64).then_some((yy * w as i64 + xx) as usize)
++    }
++}
++fn dimensions(w: usize, h: usize, mask: &[u32]) -> Result<usize, Refusal> {
++    let n = w
++        .checked_mul(h)
++        .filter(|&n| w > 0 && h > 0 && n <= 1_048_576)
++        .ok_or("Water map dimensions are invalid.")?;
++    if mask.len() != n || mask.iter().any(|&m| m >> LAYERS != 0) {
++        return Err("Water terrain masks are invalid.");
++    }
++    Ok(n)
++}
++pub fn water_columns(w: usize, h: usize, mask: &[u32], objects: &[Object]) -> Result<Columns, Refusal> {
++    let n = dimensions(w, h, mask)?;
++    if objects
++        .iter()
++        .any(|o| o.kind > 11 || o.rotation > 3 || o.z < 0 || o.z >= OPEN || !o.strength.is_finite() || o.strength < 0.0)
++    {
++        return Err("Water object is unknown or malformed.");
++    }
++    let mut gaps: Vec<Vec<(i16, i16)>> = mask
++        .iter()
++        .map(|&m| {
++            let mut c = Vec::new();
++            let mut z = 0i16;
++            while z < OPEN {
++                while z < LAYERS as i16 && m & (1u32 << z) != 0 {
++                    z += 1;
++                }
++                if z >= OPEN {
++                    break;
++                }
++                let f = z;
++                while z < OPEN && !(z < LAYERS as i16 && m & (1u32 << z) != 0) {
++                    z += 1;
++                }
++                c.push((f, z));
++            }
++            c
++        })
++        .collect();
++    let mut height_limit = BTreeMap::new();
++    let mut dir_limit = BTreeMap::new();
++    let mut horizontal = BTreeMap::new();
++    for o in objects {
++        if [1, 3, 4, 5, 6].contains(&o.kind) {
++            if let Some(i) = o.tile(0, 0, w, h) {
++                let c = &mut gaps[i];
++                let z = o.z;
++                // Match #71: an obstacle already inside a solid cell is inert.
++                if let Some(k) = c.iter().position(|&(f, t)| f <= z && z < t) {
++                    let (f, t) = c[k];
++                    if f == z {
++                        if t - 1 == z {
++                            c.remove(k);
++                        } else {
++                            c[k].0 = z + 1;
++                        }
++                    } else if t - 1 == z {
++                        c[k].1 = z;
++                    } else {
++                        c[k].1 = z;
++                        c.insert(k + 1, (z + 1, t));
++                    }
++                }
++            }
++        }
++        if o.kind == 2 {
++            if let Some(i) = o.tile(0, 0, w, h) {
++                height_limit.insert(o.z as usize * n + i, 0.65);
++            }
++        }
++        let planes: Vec<(i32, i16)> = match o.kind {
++            3..=5 => (0..o.kind as i32 - 1).map(|y| (y, o.z + 1)).collect(),
++            6 => vec![(1, o.z), (1, o.z + 1)],
++            _ => vec![],
++        };
++        for (y, z) in planes {
++            if z > OPEN {
++                return Err("Water obstacle height is invalid.");
++            }
++            if let Some(i) = o.tile(0, y, w, h) {
++                if horizontal.insert(z as usize * n + i, ()).is_some() {
++                    continue;
++                }
++                let c = &mut gaps[i];
++                if let Some(k) = c.iter().position(|&(f, t)| f < z && z < t) {
++                    let t = c[k].1;
++                    c[k].1 = z;
++                    c.insert(k + 1, (z, t));
++                }
++            }
++        }
++        if o.kind == 6 {
++            if let Some(i) = o.tile(0, 1, w, h) {
++                dir_limit.insert(o.z as usize * n + i, [2, 3, 0, 1][o.rotation as usize]);
++            }
++        }
++    }
++    let levels = gaps.iter().map(Vec::len).max().unwrap_or(1).max(1);
++    let mut c = Columns {
++        w,
++        h,
++        n,
++        levels,
++        count: vec![0; n],
++        floor: vec![0; n * levels],
++        ceil: vec![0; n * levels],
++        height_limit,
++        dir_limit,
++    };
++    for (i, g) in gaps.iter().enumerate() {
++        c.count[i] = g.len() as u8;
++        for (s, &(f, t)) in g.iter().enumerate() {
++            c.floor[s * n + i] = f;
++            c.ceil[s * n + i] = t;
++        }
++    }
++    Ok(c)
++}
++pub fn model(w: usize, h: usize, mask: &[u32], objects: &[Object]) -> Result<Model, Refusal> {
++    let cols = water_columns(w, h, mask, objects)?;
++    let mut emitters = Vec::new();
++    for o in objects {
++        let cells: Vec<(i32, i32)> = match o.kind {
++            7 => vec![(0, 0)],
++            8 => (0..3).flat_map(|x| (0..3).map(move |y| (x, y))).collect(),
++            9 | 10 => (0..2).flat_map(|x| (0..2).map(move |y| (x, y))).collect(),
++            11 => vec![(1, 1)],
++            6 => vec![(0, 1)],
++            _ => continue,
++        };
++        let mut ec = Vec::new();
++        let mut tiles = Vec::new();
++        for &(x, y) in &cells {
++            if let Some(i) = o.tile(x, y, w, h) {
++                tiles.push(i as u32);
++                if let Some(s) = cols.slot_at(i, o.z) {
++                    ec.push((s * cols.n + i) as u32);
++                }
++            }
++        }
++        if tiles.is_empty() {
++            continue;
++        }
++        let strength = if o.kind >= 7 && o.kind <= 10 && !o.delayed && !ec.is_empty() {
++            portable::min(o.strength, 8.0 * cells.len() as f64)
++        } else {
++            0.0
++        };
++        let limit = if (o.kind == 9 || o.kind == 10) && !ec.is_empty() {
++            Some((ec[0], 0.8, 0.72))
++        } else {
++            None
++        };
++        emitters.push(Emitter {
++            cols: ec,
++            tiles,
++            strength,
++            contamination: if [6, 8, 10].contains(&o.kind) { 1.0 } else { 0.0 },
++            limit,
++        });
++    }
++    Ok(Model {
++        cols,
++        emitters,
++        retained: Vec::new(),
++        drained: Vec::new(),
++    })
++}
++/// Solid runs, including empty run zero for a tile whose bottom voxel is air.
++pub fn terrain_columns(w: usize, h: usize, mask: &[u32]) -> Result<Columns, Refusal> {
++    let n = dimensions(w, h, mask)?;
++    let mut runs = Vec::new();
++    for &m in mask {
++        let mut r = Vec::new();
++        let mut solid = true;
++        let mut f = 0;
++        for z in 0..LAYERS as i16 {
++            if m & (1 << z) != 0 {
++                if !solid {
++                    f = z;
++                }
++                solid = true;
++            } else {
++                if solid {
++                    r.push((f, z));
++                }
++                solid = false;
++            }
++        }
++        if solid {
++            r.push((f, LAYERS as i16));
++        }
++        runs.push(r);
++    }
++    let levels = runs.iter().map(Vec::len).max().unwrap_or(1).max(1);
++    let mut c = Columns {
++        w,
++        h,
++        n,
++        levels,
++        count: vec![0; n],
++        floor: vec![0; n * levels],
++        ceil: vec![0; n * levels],
++        height_limit: BTreeMap::new(),
++        dir_limit: BTreeMap::new(),
++    };
++    for (i, r) in runs.iter().enumerate() {
++        c.count[i] = r.len() as u8;
++        for (s, &(f, t)) in r.iter().enumerate() {
++            c.floor[s * n + i] = f;
++            c.ceil[s * n + i] = t;
++        }
++    }
++    Ok(c)
++}
+diff --git a/rust/water/src/stack.rs b/rust/water/src/stack.rs
+new file mode 100644
+--- /dev/null
++++ b/rust/water/src/stack.rs
+@@ -0,0 +1,692 @@
++//! D448: #71's stacked water rules. Fixed direction/slot and sum order; portable max.
++use crate::columns::{Columns, Refusal, OPEN};
++use crate::sim::{BAL, DT, K, KEEP, SPILL};
++use portable::max;
++pub const PRESSURE: f64 = 8.0;
++pub const SINK: i32 = -1;
++#[derive(Clone, Debug)]
++pub struct Emitter {
++    pub cols: Vec<u32>,
++    pub tiles: Vec<u32>,
++    pub strength: f64,
++    pub contamination: f64,
++    pub limit: Option<(u32, f64, f64)>,
++}
++#[derive(Clone, Debug)]
++pub struct Retained {
++    pub tile: u32,
++    pub floor: f64,
++    pub depth: f64,
++    pub contamination: f64,
++}
++#[derive(Clone, Debug)]
++pub struct Model {
++    pub cols: Columns,
++    pub emitters: Vec<Emitter>,
++    pub retained: Vec<Retained>,
++    /// Current flat water's explicitly drained tiles (D387); default empty.
++    pub drained: Vec<u32>,
++}
++#[derive(Clone, Debug)]
++pub struct State {
++    pub depth: Vec<f64>,
++    pub overflow: Vec<f64>,
++    pub contamination: Vec<f64>,
++}
++pub struct Stack {
++    pub cols: Columns,
++    pub emitters: Vec<Emitter>,
++    pub game: bool,
++    pub ticks: u64,
++    pub d: Vec<f64>,
++    pub o: Vec<f64>,
++    pub c: Vec<f64>,
++    pub dold: Vec<f64>,
++    pub start: Vec<u32>,
++    pub target: Vec<i32>,
++    pub dir: Vec<u8>,
++    pub rev: Vec<i32>,
++    pub out: Vec<f64>,
++    pub params: Vec<f64>,
++    f: Vec<f64>,
++    cnew: Vec<f64>,
++    modv: Vec<f64>,
++    wn: Vec<i32>,
++    wet: Vec<usize>,
++    prev_wet: Vec<usize>,
++    active: Vec<usize>,
++    source_cols: Vec<usize>,
++    seep_on: Vec<bool>,
++}
++fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
++    if v < lo {
++        lo
++    } else if v > hi {
++        hi
++    } else {
++        v
++    }
++}
++pub(crate) fn validate_params(params: &[f64], count: usize) -> Result<(), Refusal> {
++    if params.len() != 4 * count {
++        return Err("Water emitter parameters are malformed.");
++    }
++    for p in params.chunks_exact(4) {
++        if p.iter().any(|v| !v.is_finite())
++            || !(0.0..=1_000_000.0).contains(&p[0])
++            || !(0.0..=1.0).contains(&p[1])
++            || p[3] < 0.0
++            || p[2] < p[3]
++        {
++            return Err("Water emitter parameters are malformed.");
++        }
++    }
++    Ok(())
++}
++impl Stack {
++    pub(crate) fn new(m: Model, game: bool) -> Self {
++        let cols = m.cols;
++        let n = cols.n;
++        let size = n * cols.levels;
++        let w = cols.w;
++        let h = cols.h;
++        let mut wall = vec![0u8; n];
++        let mut seen = vec![false; size];
++        let mut source_cols = Vec::new();
++        let mut params = Vec::new();
++        for e in &m.emitters {
++            for &i in &e.tiles {
++                let i = i as usize;
++                let x = i % w;
++                let y = i / w;
++                if y == 0 {
++                    wall[i] |= 1;
++                }
++                if x == 0 {
++                    wall[i] |= 2;
++                }
++                if y == h - 1 {
++                    wall[i] |= 4;
++                }
++                if x == w - 1 {
++                    wall[i] |= 8;
++                }
++            }
++            for &c in &e.cols {
++                let c = c as usize;
++                if !seen[c] {
++                    seen[c] = true;
++                    source_cols.push(c);
++                }
++            }
++            let (_, off, on) = e.limit.unwrap_or((0, 0.0, 0.0));
++            params.extend_from_slice(&[e.strength, e.contamination, off, on]);
++        }
++        let mut start = vec![0; size + 1];
++        let mut target = Vec::new();
++        let mut dir = Vec::new();
++        for c in 0..size {
++            start[c] = target.len() as u32;
++            let i = c % n;
++            if c / n >= cols.count[i] as usize {
++                continue;
++            }
++            let x = i % w;
++            let y = i / w;
++            let fc = cols.floor[c];
++            let cc = cols.ceil[c];
++            let nb = [
++                if y > 0 { Some(i - w) } else { None },
++                if x > 0 { Some(i - 1) } else { None },
++                if y < h - 1 { Some(i + w) } else { None },
++                if x < w - 1 { Some(i + 1) } else { None },
++            ];
++            for (k, tile) in nb.iter().enumerate() {
++                if let Some(t) = tile {
++                    for s in 0..cols.count[*t] as usize {
++                        let id = s * n + t;
++                        if cols.ceil[id] <= fc {
++                            continue;
++                        }
++                        if cols.floor[id] >= cc {
++                            break;
++                        }
++                        target.push(id as i32);
++                        dir.push(k as u8);
++                    }
++                } else if wall[i] & (1 << k) == 0 {
++                    target.push(SINK);
++                    dir.push(k as u8);
++                }
++            }
++        }
++        start[size] = target.len() as u32;
++        let edges = target.len();
++        let mut rev = vec![-1; edges];
++        for c in 0..size {
++            for e in start[c] as usize..start[c + 1] as usize {
++                let t = target[e];
++                if t < 0 {
++                    continue;
++                }
++                let t = t as usize;
++                let back = (dir[e] + 2) & 3;
++                for r in start[t] as usize..start[t + 1] as usize {
++                    if target[r] == c as i32 && dir[r] == back {
++                        rev[e] = r as i32;
++                        break;
++                    }
++                }
++            }
++        }
++        let seep_on = vec![true; m.emitters.len()];
++        Stack {
++            cols,
++            emitters: m.emitters,
++            game,
++            ticks: 0,
++            d: vec![0.0; size],
++            o: vec![0.0; size],
++            c: vec![0.0; size],
++            dold: vec![0.0; size],
++            start,
++            target,
++            dir,
++            rev,
++            out: vec![0.0; edges],
++            params,
++            f: vec![0.0; edges],
++            cnew: vec![0.0; size],
++            modv: vec![1.0; size],
++            wn: vec![0; size],
++            wet: Vec::new(),
++            prev_wet: Vec::new(),
++            active: Vec::new(),
++            source_cols,
++            seep_on,
++        }
++    }
++    pub fn validate_state(&self) -> Result<(), Refusal> {
++        let size = self.cols.n * self.cols.levels;
++        if self.d.len() != size
++            || self.o.len() != size
++            || self.c.len() != size
++            || self.dold.len() != size
++            || self.out.len() != self.target.len()
++        {
++            return Err("Water state arrays are malformed.");
++        }
++        for c in 0..self.d.len() {
++            let valid = c / self.cols.n < self.cols.count[c % self.cols.n] as usize;
++            if !self.d[c].is_finite()
++                || !self.o[c].is_finite()
++                || !self.c[c].is_finite()
++                || self.d[c] < 0.0
++                || self.o[c] < 0.0
++                || !(0.0..=1.0).contains(&self.c[c])
++                || (valid
++                    && (self.d[c] > (self.cols.ceil[c] - self.cols.floor[c]) as f64
++                        || self.o[c] > (OPEN - self.cols.ceil[c]) as f64 / PRESSURE
++                        || (self.o[c] > 0.0 && self.d[c] != (self.cols.ceil[c] - self.cols.floor[c]) as f64)))
++                || (!valid && (self.d[c] != 0.0 || self.o[c] != 0.0 || self.c[c] != 0.0))
++            {
++                return Err("Water state is malformed.");
++            }
++        }
++        if self.out.iter().any(|v| !v.is_finite() || *v < 0.0) || self.dold.iter().any(|v| !v.is_finite() || *v < 0.0) {
++            return Err("Water momentum is malformed.");
++        }
++        validate_params(&self.params, self.emitters.len())
++    }
++    pub fn sync_state(&mut self) -> Result<(), Refusal> {
++        self.validate_state()?;
++        self.dold.copy_from_slice(&self.d);
++        self.wet = (0..self.d.len()).filter(|&c| self.d[c] + self.o[c] > 0.0).collect();
++        Ok(())
++    }
++    pub(crate) fn set_state(&mut self, s: &State) -> Result<(), Refusal> {
++        self.d.copy_from_slice(&s.depth);
++        self.o.copy_from_slice(&s.overflow);
++        self.c.copy_from_slice(&s.contamination);
++        self.sync_state()
++    }
++    pub fn read_params(&mut self) -> Result<(), Refusal> {
++        validate_params(&self.params, self.emitters.len())?;
++        for (e, p) in self.emitters.iter_mut().zip(self.params.chunks_exact(4)) {
++            e.strength = p[0];
++            e.contamination = p[1];
++            if let Some((a, _, _)) = e.limit {
++                e.limit = Some((a, p[2], p[3]));
++            }
++        }
++        Ok(())
++    }
++    fn neighbour_wet(&self, c: usize, t: usize) -> bool {
++        let fc = self.cols.floor[c];
++        let cc = self.cols.ceil[c];
++        if self.cols.floor[t] >= fc {
++            return cc > self.cols.floor[t] && self.d[t] > 0.0;
++        }
++        for s in (0..self.cols.count[t] as usize).rev() {
++            let id = s * self.cols.n + t;
++            if self.cols.floor[id] < cc && self.cols.ceil[id] > fc && self.d[id] > 0.0 {
++                return true;
++            }
++        }
++        false
++    }
++    fn compute_wn(&mut self) {
++        let w = self.cols.w;
++        let h = self.cols.h;
++        for &c in &self.wet {
++            if !(self.d[c] > 0.0) {
++                self.wn[c] = 0;
++                continue;
++            }
++            let i = c % self.cols.n;
++            let x = (i % w) as i32;
++            let y = (i / w) as i32;
++            let mut n = 1;
++            for dy in -1..=1 {
++                let yy = y + dy;
++                if yy < 0 || yy >= h as i32 {
++                    continue;
++                }
++                for dx in -1..=1 {
++                    if dx == 0 && dy == 0 {
++                        continue;
++                    }
++                    let xx = x + dx;
++                    if xx >= 0 && xx < w as i32 && self.neighbour_wet(c, yy as usize * w + xx as usize) {
++                        n += 1;
++                    }
++                }
++            }
++            self.wn[c] = n;
++        }
++    }
++    fn best_wn(&self, c: usize, t: usize) -> i32 {
++        let mut best = 0;
++        for s in 0..self.cols.count[t] as usize {
++            let id = s * self.cols.n + t;
++            if self.d[id] > 0.0 && self.wn[id] > best && self.cols.ceil[id] > self.cols.floor[c] && self.cols.floor[id] < self.cols.ceil[c]
++            {
++                best = self.wn[id];
++            }
++        }
++        best
++    }
++    fn sat_at(&self, c: usize) -> i32 {
++        let w = self.cols.w;
++        let h = self.cols.h;
++        let i = c % self.cols.n;
++        let x = i % w;
++        let y = i / w;
++        let mut best = self.wn[c];
++        for (t, ok) in [
++            (i.wrapping_sub(w), y > 0),
++            (i.wrapping_sub(1), x > 0),
++            (i + w, y < h - 1),
++            (i + 1, x < w - 1),
++        ] {
++            if ok {
++                let b = self.best_wn(c, t);
++                if b - 1 > best {
++                    best = b - 1;
++                }
++            }
++        }
++        best.min(8)
++    }
++    pub fn saturation(&mut self) -> Vec<u8> {
++        self.compute_wn();
++        let mut sat = vec![0; self.d.len()];
++        for &c in &self.wet {
++            if self.d[c] > 0.0 {
++                sat[c] = self.sat_at(c) as u8;
++            }
++        }
++        sat
++    }
++    fn update_evap(&mut self) {
++        self.modv.fill(1.0);
++        self.compute_wn();
++        for &c in &self.wet {
++            if self.d[c] > 0.0 {
++                let t = (10 - self.sat_at(c)) as f64;
++                self.modv[c] = 0.0595 * (t * t) + 0.101 * t + 0.72;
++            }
++        }
++    }
++    fn build_active(&mut self) {
++        self.active.clear();
++        let mut mark = vec![false; self.d.len()];
++        for &c in &self.wet {
++            if !mark[c] {
++                mark[c] = true;
++                self.active.push(c);
++            }
++            for e in self.start[c] as usize..self.start[c + 1] as usize {
++                let t = self.target[e];
++                if t >= 0 && !mark[t as usize] {
++                    mark[t as usize] = true;
++                    self.active.push(t as usize);
++                }
++            }
++        }
++        for &c in &self.source_cols {
++            if !mark[c] {
++                mark[c] = true;
++                self.active.push(c);
++            }
++        }
++    }
++    fn height_limit(&self, c: usize, t: usize, hc: f64) -> f64 {
++        let n = self.cols.n;
++        let tile = t % n;
++        if !self.game {
++            let ft = self.cols.floor[t];
++            return if (ft as f64) < hc.ceil() {
++                *self.cols.height_limit.get(&(ft as usize * n + tile)).unwrap_or(&-1.0)
++            } else {
++                -1.0
++            };
++        }
++        let base = self.cols.floor[c].max(self.cols.floor[t]);
++        for z in base..hc.ceil() as i16 {
++            if let Some(&v) = self.cols.height_limit.get(&(z as usize * n + tile)) {
++                return v;
++            }
++        }
++        -1.0
++    }
++    fn dir_allowed(&self, c: usize, t: i32, k: u8) -> bool {
++        if !self.game {
++            return true;
++        }
++        let n = self.cols.n;
++        if t >= 0 {
++            let t = t as usize;
++            if let Some(&lt) = self.cols.dir_limit.get(&(self.cols.floor[t] as usize * n + t % n)) {
++                if lt != k {
++                    return false;
++                }
++            }
++        }
++        if let Some(&lo) = self.cols.dir_limit.get(&(self.cols.floor[c] as usize * n + c % n)) {
++            if lo != k && lo != ((k + 2) & 3) {
++                return false;
++            }
++        }
++        true
++    }
++    fn substep(&mut self, scale: f64) {
++        for &c in &self.prev_wet {
++            self.f[self.start[c] as usize..self.start[c + 1] as usize].fill(0.0);
++        }
++        self.build_active();
++        for &c in &self.wet {
++            let fc = self.cols.floor[c] as f64;
++            let dc = self.d[c];
++            let oc = self.o[c];
++            let hc = fc + dc;
++            let pc = oc * PRESSURE;
++            let e0 = self.start[c] as usize;
++            let e1 = self.start[c + 1] as usize;
++            let mut sum = 0.0;
++            for e in e0..e1 {
++                let t = self.target[e];
++                let sink = t == SINK;
++                let ti = if sink { 0 } else { t as usize };
++                let ft = if sink { 0.0 } else { self.cols.floor[ti] as f64 };
++                if ft >= hc || !self.dir_allowed(c, t, self.dir[e]) {
++                    self.f[e] = 0.0;
++                    continue;
++                }
++                let dt = if sink { 0.0 } else { self.d[ti] };
++                let ot = if sink { 0.0 } else { self.o[ti] };
++                let ct = if sink { OPEN as f64 } else { self.cols.ceil[ti] as f64 };
++                let ht = ft + dt;
++                let pt = ot * PRESSURE;
++                let d5 = hc + pc - (ht + pt);
++                let mut ev;
++                if d5 > 0.0 {
++                    let n7 = d5 - (ct - ht);
++                    let n8 = if d5 > pc { pc } else { d5 };
++                    let n9 = if n8 > n7 { n8 } else { n7 };
++                    ev = d5 - n9 + n9 / PRESSURE;
++                } else {
++                    let n12 = -d5;
++                    let n13 = n12 - (self.cols.ceil[c] as f64 - hc);
++                    let n14 = if n12 < pt { n12 } else { pt };
++                    let n15 = if n14 > n13 { n14 } else { n13 };
++                    ev = d5 + n15 - n15 / PRESSURE;
++                }
++                let prev = KEEP * self.out[e];
++                let lim = if sink { -1.0 } else { self.height_limit(c, ti, hc) };
++                let fk = if lim >= 0.0 {
++                    let hd = hc + pc - ft;
++                    if hd < lim {
++                        let a = clamp(
++                            clamp((lim - hd) / 0.1, 0.0, 1.0) * clamp(1.0 - 2.25 * (hc - (fc + self.dold[c])), 0.5, 2.0),
++                            0.0,
++                            1.0,
++                        );
++                        0.995 * prev - 0.02 * a
++                    } else {
++                        if hd - lim < 0.1 && ev > 0.0 {
++                            ev = ev * ((hd - lim) / 0.1);
++                        }
++                        0.995 * prev + K * ev
++                    }
++                } else {
++                    if (self.game || !sink) && dt + ot == 0.0 && ft == fc {
++                        ev = ev - SPILL;
++                    }
++                    prev + K * ev
++                };
++                let v = if fk > 0.0 { fk } else { 0.0 };
++                self.f[e] = v;
++                sum += v;
++            }
++            let have = dc + oc;
++            let sd = sum * DT;
++            if self.game {
++                if sum > 0.0 && have < sd {
++                    let r = have / sd;
++                    for e in e0..e1 {
++                        self.f[e] *= r;
++                    }
++                }
++            } else if sd > have {
++                let r = have / max(sd, 1e-12);
++                for e in e0..e1 {
++                    self.f[e] *= r;
++                }
++            }
++        }
++        for &c in &self.active {
++            let mut outsum = 0.0;
++            let mut insum = 0.0;
++            let mut cin = 0.0;
++            for e in self.start[c] as usize..self.start[c + 1] as usize {
++                let fe = self.f[e];
++                let r = self.rev[e];
++                let fin = if r >= 0 { self.f[r as usize] } else { 0.0 };
++                outsum += fe;
++                insum += fin;
++                if fin != 0.0 {
++                    cin += fin * self.c[self.target[e] as usize];
++                }
++                self.out[e] = max(0.0, fe - BAL * fin);
++            }
++            let dc = self.d[c];
++            let vc = dc + self.o[c];
++            let rem0 = vc - outsum * DT;
++            let remaining = if rem0 > 0.0 { rem0 } else { 0.0 };
++            self.dold[c] = dc;
++            let mut net = insum - outsum;
++            if self.game || dc > 0.0 {
++                net = net - (if dc < 0.02 { 1e-3 } else { 1e-4 }) * self.modv[c];
++            }
++            let d1 = vc + net * DT;
++            let tot = if d1 > 0.0 { d1 } else { 0.0 };
++            let cap = (self.cols.ceil[c] - self.cols.floor[c]) as f64;
++            let new_d;
++            if tot > cap {
++                new_d = cap;
++                let max_o = (OPEN - self.cols.ceil[c]) as f64 / PRESSURE;
++                let o = tot - cap;
++                self.o[c] = if o > max_o { max_o } else { o };
++            } else {
++                new_d = tot;
++                self.o[c] = 0.0;
++            }
++            let vol = new_d + self.o[c];
++            let mass = self.c[c] * remaining + cin * DT;
++            self.cnew[c] = if vol > 1e-9 { clamp(mass / max(vol, 1e-9), 0.0, 1.0) } else { 0.0 };
++            self.d[c] = new_d;
++        }
++        for &c in &self.active {
++            self.c[c] = self.cnew[c];
++        }
++        for e in 0..self.emitters.len() {
++            let src = &self.emitters[e];
++            if !self.seep_on[e] || src.cols.is_empty() {
++                continue;
++            }
++            let add = (DT * src.strength * scale) / src.cols.len() as f64;
++            if !(add > 0.0) {
++                continue;
++            }
++            for &c in &src.cols {
++                let c = c as usize;
++                let d0 = self.d[c];
++                let v0 = d0 + self.o[c];
++                if self.game {
++                    self.dold[c] = d0;
++                }
++                self.c[c] = (self.c[c] * v0 + src.contamination * add) / (v0 + add);
++                let tot = v0 + add;
++                let cap = (self.cols.ceil[c] - self.cols.floor[c]) as f64;
++                if tot > cap {
++                    self.d[c] = cap;
++                    let max_o = (OPEN - self.cols.ceil[c]) as f64 / PRESSURE;
++                    let o = tot - cap;
++                    self.o[c] = if o > max_o { max_o } else { o };
++                } else {
++                    self.d[c] = tot;
++                    self.o[c] = 0.0;
++                }
++            }
++        }
++        core::mem::swap(&mut self.prev_wet, &mut self.wet);
++        self.wet.clear();
++        for &c in &self.active {
++            if self.d[c] + self.o[c] > 0.0 {
++                self.wet.push(c);
++            }
++        }
++    }
++    pub fn run(&mut self, ticks: u64, scale: f64) {
++        for _ in 0..ticks {
++            for (e, src) in self.emitters.iter().enumerate() {
++                if let Some((a, off, on)) = src.limit {
++                    let d = self.d[a as usize];
++                    if d > off {
++                        self.seep_on[e] = false;
++                    } else if d < on {
++                        self.seep_on[e] = true;
++                    }
++                }
++            }
++            self.update_evap();
++            self.substep(scale);
++            self.substep(scale);
++            self.ticks += 1;
++        }
++    }
++    pub fn volume(&self) -> f64 {
++        let mut s = 0.0;
++        for c in 0..self.d.len() {
++            s += self.d[c] + self.o[c];
++        }
++        s
++    }
++    pub fn edge_outflow(&self) -> f64 {
++        let mut s = 0.0;
++        for e in 0..self.target.len() {
++            if self.target[e] == SINK {
++                s += self.f[e];
++            }
++        }
++        s
++    }
++}
++
++impl Model {
++    pub fn validate(&self) -> Result<(), Refusal> {
++        let c = &self.cols;
++        let n =
++            c.w.checked_mul(c.h)
++                .filter(|&n| c.w > 0 && c.h > 0 && n <= 1_048_576)
++                .ok_or("Water map dimensions are invalid.")?;
++        if c.n != n || c.levels == 0 || c.levels > 34 || c.count.len() != n || c.floor.len() != n * c.levels || c.ceil.len() != n * c.levels
++        {
++            return Err("Water columns are malformed.");
++        }
++        for i in 0..n {
++            if c.count[i] as usize > c.levels {
++                return Err("Water columns are malformed.");
++            }
++            let mut top = 0;
++            for s in 0..c.levels {
++                let id = s * n + i;
++                let (f, t) = (c.floor[id], c.ceil[id]);
++                if s < c.count[i] as usize {
++                    if f < top || f < 0 || f >= t || t > OPEN {
++                        return Err("Water columns are malformed.");
++                    }
++                    top = t;
++                } else if f != 0 || t != 0 {
++                    return Err("Water columns are malformed.");
++                }
++            }
++        }
++        if c.height_limit
++            .iter()
++            .any(|(&k, &v)| k >= 34 * n || !v.is_finite() || !(0.0..1.0).contains(&v))
++            || c.dir_limit.iter().any(|(&k, &v)| k >= 34 * n || v > 3)
++        {
++            return Err("Water obstacle limits are malformed.");
++        }
++        for e in &self.emitters {
++            if !e.strength.is_finite()
++                || !(0.0..=1_000_000.0).contains(&e.strength)
++                || !e.contamination.is_finite()
++                || !(0.0..=1.0).contains(&e.contamination)
++                || e.tiles.iter().any(|&i| i as usize >= n)
++                || e.cols.iter().any(|&id| {
++                    let id = id as usize;
++                    id >= n * c.levels || id / n >= c.count[id % n] as usize || !e.tiles.contains(&((id % n) as u32))
++                })
++            {
++                return Err("Water emitter is malformed.");
++            }
++            if let Some((a, off, on)) = e.limit {
++                if !e.cols.contains(&a) || !off.is_finite() || !on.is_finite() || on < 0.0 || off < on {
++                    return Err("Water seep limits are malformed.");
++                }
++            }
++        }
++        if self.drained.iter().any(|&i| i as usize >= n) {
++            return Err("Drained water tiles are malformed.");
++        }
++        for r in &self.retained {
++            if r.tile as usize >= n || c.count[r.tile as usize] == 0 {
++                return Err("Retained water has no open column.");
++            }
++        }
++        Ok(())
++    }
++}
+diff --git a/rust/water/src/stack_prefill.rs b/rust/water/src/stack_prefill.rs
+new file mode 100644
+--- /dev/null
++++ b/rust/water/src/stack_prefill.rs
+@@ -0,0 +1,361 @@
++//! D448: #71's priority flood, prefill and sliced settle. No wall-clock stopping.
++use crate::{
++    columns::OPEN,
++    settle::SettleResult,
++    sim::TICKS_PER_DAY,
++    stack::{Retained, Stack, State, PRESSURE},
++};
++use portable::max;
++use std::{cmp::Ordering, collections::BinaryHeap};
++#[derive(PartialEq)]
++struct Entry(f64, usize);
++impl Eq for Entry {}
++impl Ord for Entry {
++    fn cmp(&self, b: &Self) -> Ordering {
++        b.0.total_cmp(&self.0).then_with(|| b.1.cmp(&self.1))
++    }
++}
++impl PartialOrd for Entry {
++    fn partial_cmp(&self, b: &Self) -> Option<Ordering> {
++        Some(self.cmp(b))
++    }
++}
++pub fn spill_levels(s: &Stack) -> Vec<f64> {
++    let n = s.cols.n;
++    let size = s.d.len();
++    let mut filled = vec![0.0; size];
++    for (c, v) in filled.iter_mut().enumerate() {
++        let i = c % n;
++        if c / n >= s.cols.count[i] as usize {
++            continue;
++        }
++        let f = s.cols.floor[c];
++        *v = f as f64 + *s.cols.height_limit.get(&(f as usize * n + i)).unwrap_or(&0.0);
++    }
++    let mut seen = vec![false; size];
++    let mut heap = BinaryHeap::new();
++    for c in 0..size {
++        let i = c % n;
++        if c / n >= s.cols.count[i] as usize {
++            continue;
++        }
++        if (s.start[c] as usize..s.start[c + 1] as usize).any(|e| s.target[e] < 0) {
++            seen[c] = true;
++            heap.push(Entry(filled[c], c));
++        }
++    }
++    while let Some(Entry(lv, c)) = heap.pop() {
++        for e in s.start[c] as usize..s.start[c + 1] as usize {
++            let t = s.target[e];
++            if t < 0 || seen[t as usize] {
++                continue;
++            }
++            let t = t as usize;
++            seen[t] = true;
++            if filled[t] < lv {
++                filled[t] = lv;
++            }
++            heap.push(Entry(filled[t], t));
++        }
++    }
++    filled
++}
++pub fn prefill(s: &Stack, retained: &[Retained]) -> State {
++    let size = s.d.len();
++    let spill = spill_levels(s);
++    let mut q = vec![0.0; size];
++    let mut bad = vec![0.0; size];
++    let mut path = vec![false; size];
++    let mut mark = vec![0usize; size];
++    let mut queue = Vec::new();
++    for (idx, em) in s.emitters.iter().enumerate() {
++        if !(em.strength > 0.0) {
++            continue;
++        }
++        let stamp = idx + 1;
++        queue.clear();
++        for &c in &em.cols {
++            let c = c as usize;
++            if mark[c] != stamp {
++                mark[c] = stamp;
++                queue.push(c);
++            }
++        }
++        let mut head = 0;
++        while head < queue.len() {
++            let c = queue[head];
++            head += 1;
++            q[c] += em.strength;
++            if em.contamination > 0.0 {
++                bad[c] += em.strength * em.contamination;
++            }
++            path[c] = true;
++            for e in s.start[c] as usize..s.start[c + 1] as usize {
++                let t = s.target[e];
++                if t < 0 {
++                    continue;
++                }
++                let t = t as usize;
++                if mark[t] == stamp || spill[t] > spill[c] {
++                    continue;
++                }
++                mark[t] = stamp;
++                queue.push(t);
++            }
++        }
++    }
++    let open: Vec<bool> = (0..size).map(|c| path[c] && !(spill[c] > s.cols.floor[c] as f64)).collect();
++    let next = |c: usize, k: u8| -> Option<usize> {
++        (s.start[c] as usize..s.start[c + 1] as usize).find_map(|e| {
++            let t = s.target[e];
++            (s.dir[e] == k && t >= 0 && open[t as usize]).then_some(t as usize)
++        })
++    };
++    let mut chain = [vec![-1i32; size], vec![-1; size], vec![-1; size], vec![-1; size]];
++    let mut chain_len = |c0: usize, k: usize| -> i32 {
++        let memo = &mut chain[k];
++        let mut c = c0;
++        let mut stack = Vec::new();
++        while memo[c] < 0 {
++            if let Some(t) = next(c, k as u8) {
++                stack.push(c);
++                c = t;
++            } else {
++                memo[c] = 0;
++                break;
++            }
++        }
++        let mut n = memo[c];
++        while let Some(c) = stack.pop() {
++            n += 1;
++            memo[c] = n;
++        }
++        memo[c0]
++    };
++    let mut state = State {
++        depth: vec![0.0; size],
++        overflow: vec![0.0; size],
++        contamination: vec![0.0; size],
++    };
++    for c in 0..size {
++        if !path[c] {
++            continue;
++        }
++        let fl = s.cols.floor[c] as f64;
++        let ce = s.cols.ceil[c] as f64;
++        let cap = ce - fl;
++        let mut d;
++        if spill[c] > fl {
++            d = spill[c] - fl;
++            if d > cap {
++                if ce < (OPEN as f64) {
++                    let o = (spill[c] - ce) / PRESSURE;
++                    let max_o = (OPEN as f64 - ce) / PRESSURE;
++                    state.overflow[c] = if o > max_o { max_o } else { o };
++                }
++                d = cap;
++            }
++        } else {
++            let rx = 1 + chain_len(c, 1) + chain_len(c, 3);
++            let ry = 1 + chain_len(c, 0) + chain_len(c, 2);
++            let w = rx.min(ry);
++            d = (0.3 * q[c]) / w as f64;
++            if d > 1.0 {
++                d = 1.0;
++            }
++            if d > cap {
++                d = cap;
++            }
++        }
++        state.depth[c] = d;
++        state.contamination[c] = if d > 0.0 && q[c] > 0.0 { bad[c] / q[c] } else { 0.0 };
++    }
++    for r in retained {
++        let i = r.tile as usize;
++        let c = (s.cols.count[i] as usize - 1) * s.cols.n + i;
++        let f = s.cols.floor[c] as f64;
++        if f == r.floor {
++            state.depth[c] = r.depth;
++            state.contamination[c] = r.contamination;
++        } else {
++            let mut d = r.floor + r.depth - f;
++            let cap = (s.cols.ceil[c] - s.cols.floor[c]) as f64;
++            if d > cap {
++                d = cap;
++            }
++            state.depth[c] = if d > 0.0 { d } else { 0.0 };
++            state.contamination[c] = if d > 0.0 { r.contamination } else { 0.0 };
++        }
++    }
++    state
++}
++pub fn sealed_columns(s: &Stack, retained: &[Retained]) -> Vec<usize> {
++    let mut v: Vec<usize> = retained
++        .iter()
++        .map(|r| {
++            let i = r.tile as usize;
++            (s.cols.count[i] as usize - 1) * s.cols.n + i
++        })
++        .collect();
++    v.sort_unstable();
++    v.dedup();
++    v
++}
++pub fn steady_apart_from_sealed(s: &Stack, prev_d: &[f64], prev_o: &[f64], vol: f64, sealed: &[usize], tol: f64, share: f64) -> bool {
++    let size = s.d.len();
++    let mut feeds = vec![false; size];
++    for em in &s.emitters {
++        if em.strength > 0.0 {
++            for &c in &em.cols {
++                feeds[c as usize] = true;
++            }
++        }
++    }
++    let wet = |c: usize| s.d[c] > 0.0 || prev_d[c] > 0.0;
++    let mut drying = vec![false; size];
++    let mut seen = vec![false; size];
++    let mut queue = Vec::new();
++    for &seed in sealed {
++        if seen[seed] || !wet(seed) {
++            continue;
++        }
++        seen[seed] = true;
++        queue.clear();
++        queue.push(seed);
++        let mut open = false;
++        let mut head = 0;
++        while head < queue.len() {
++            let c = queue[head];
++            head += 1;
++            let i = c % s.cols.n;
++            let x = i % s.cols.w;
++            let y = i / s.cols.w;
++            if feeds[c] || x == 0 || y == 0 || x == s.cols.w - 1 || y == s.cols.h - 1 {
++                open = true;
++            }
++            for e in s.start[c] as usize..s.start[c + 1] as usize {
++                let t = s.target[e];
++                if t < 0 {
++                    continue;
++                }
++                let t = t as usize;
++                if seen[t] || !wet(t) {
++                    continue;
++                }
++                seen[t] = true;
++                queue.push(t);
++            }
++        }
++        if !open {
++            for &c in &queue {
++                if !(s.d[c] > prev_d[c]) {
++                    drying[c] = true;
++                }
++            }
++        }
++    }
++    let mut rest = 0.0;
++    let mut prev = 0.0;
++    let mut moved = 0;
++    for c in 0..size {
++        if drying[c] {
++            continue;
++        }
++        rest += s.d[c] + s.o[c];
++        prev += prev_d[c] + prev_o[c];
++        if (s.d[c] - prev_d[c]).abs() > tol {
++            moved += 1;
++        }
++    }
++    (rest - prev).abs() / max(vol, 1e-9) < 0.002 && moved as f64 <= share * s.cols.n as f64
++}
++pub struct SettleRun {
++    pub every: u64,
++    pub checks: u64,
++    pub result: Option<SettleResult>,
++    prev_d: Vec<f64>,
++    prev_o: Vec<f64>,
++    prev_vol: f64,
++    k: u64,
++    since: u64,
++    sealed: Vec<usize>,
++    steady: Option<u64>,
++    pub until_steady: bool,
++}
++impl SettleRun {
++    pub fn new(s: &Stack, max_days: f64, sealed: Vec<usize>) -> Self {
++        let checks = ((max_days * TICKS_PER_DAY as f64) / 128.0).floor() as u64;
++        Self {
++            every: 128,
++            checks,
++            result: if checks == 0 {
++                Some(SettleResult {
++                    settled: false,
++                    ticks: s.ticks,
++                    steady_ticks: None,
++                })
++            } else {
++                None
++            },
++            prev_d: s.d.clone(),
++            prev_o: s.o.clone(),
++            prev_vol: s.volume(),
++            k: 0,
++            since: 0,
++            sealed,
++            steady: None,
++            until_steady: false,
++        }
++    }
++    pub fn advance(&mut self, s: &mut Stack, ticks: u64) -> Option<SettleResult> {
++        let mut left = ticks;
++        while self.result.is_none() && left > 0 {
++            let n = left.min(self.every - self.since);
++            s.run(n, 1.0);
++            self.since += n;
++            left -= n;
++            if self.since < self.every {
++                break;
++            }
++            self.since = 0;
++            let vol = s.volume();
++            let dv = (vol - self.prev_vol).abs() / max(vol, 1e-9);
++            let moved = (0..s.d.len()).filter(|&c| (s.d[c] - self.prev_d[c]).abs() > 0.005).count();
++            self.k += 1;
++            if dv < 0.002 && moved as f64 <= 0.005 * s.cols.n as f64 {
++                self.result = Some(SettleResult {
++                    settled: true,
++                    ticks: s.ticks,
++                    steady_ticks: None,
++                });
++            } else {
++                if !self.sealed.is_empty()
++                    && self.steady.is_none()
++                    && steady_apart_from_sealed(s, &self.prev_d, &self.prev_o, vol, &self.sealed, 0.005, 0.005)
++                {
++                    self.steady = Some(s.ticks);
++                    if self.until_steady {
++                        self.result = Some(SettleResult {
++                            settled: false,
++                            ticks: s.ticks,
++                            steady_ticks: self.steady,
++                        });
++                    }
++                }
++                if self.result.is_none() && self.k >= self.checks {
++                    self.result = Some(SettleResult {
++                        settled: false,
++                        ticks: s.ticks,
++                        steady_ticks: self.steady,
++                    });
++                }
++            }
++            if self.result.is_none() {
++                self.prev_d.copy_from_slice(&s.d);
++                self.prev_o.copy_from_slice(&s.o);
++                self.prev_vol = vol;
++            }
++        }
++        self.result
++    }
++}
+diff --git a/rust/water/src/stack_engine.rs b/rust/water/src/stack_engine.rs
+new file mode 100644
+--- /dev/null
++++ b/rust/water/src/stack_engine.rs
+@@ -0,0 +1,281 @@
++//! One water crate, two representations. Flat maps delegate to the unchanged Sim.
++use crate::{
++    columns::Refusal,
++    settle::{self, SettleResult},
++    sim::{Emitter as FlatEmitter, Model as FlatModel, Rules, Sim},
++    stack::{Model, Stack, State},
++    stack_prefill,
++};
++pub enum Flow {
++    Flat(Sim),
++    Stacked(Stack),
++}
++pub enum Settle {
++    Flat(settle::CanonicalRun),
++    Stacked(stack_prefill::SettleRun),
++}
++pub struct Engine {
++    pub model: Model,
++    pub flow: Flow,
++    pub settle: Option<Settle>,
++    pub result: Option<SettleResult>,
++    pub overflow: Vec<f64>,
++}
++pub fn open_field(m: &Model) -> Option<FlatModel> {
++    let wc = &m.cols;
++    if !wc.is_open() || !wc.dir_limit.is_empty() {
++        return None;
++    }
++    let mut dam = None;
++    for (&key, &v) in &wc.height_limit {
++        let i = key % wc.n;
++        if key / wc.n != wc.floor[i] as usize {
++            continue;
++        }
++        dam.get_or_insert_with(|| vec![-1.0; wc.n])[i] = v;
++    }
++    let mut emitters = Vec::new();
++    for e in &m.emitters {
++        if e.cols != e.tiles {
++            return None;
++        }
++        emitters.push(FlatEmitter {
++            cells: e.tiles.clone(),
++            strength: e.strength,
++            contamination: e.contamination,
++            limit: e.limit,
++        });
++    }
++    Some(FlatModel {
++        w: wc.w,
++        h: wc.h,
++        floor: wc.floor.iter().map(|&f| f as f64).collect(),
++        dam,
++        emitters,
++    })
++}
++impl Engine {
++    pub fn new(m: Model, game: bool) -> Result<Self, Refusal> {
++        m.validate()?;
++        let size = m.cols.n * m.cols.levels;
++        for r in &m.retained {
++            if r.tile as usize >= m.cols.n
++                || !r.floor.is_finite()
++                || !r.depth.is_finite()
++                || !r.contamination.is_finite()
++                || r.floor < 0.0
++                || r.depth < 0.0
++                || r.floor + r.depth > 34.0
++                || !(0.0..=1.0).contains(&r.contamination)
++            {
++                return Err("Retained water is malformed.");
++            }
++        }
++        if !m.drained.is_empty() && open_field(&m).is_none() {
++            return Err("Drained tiles need the flat water rules.");
++        }
++        let flow = if let Some(f) = open_field(&m) {
++            Flow::Flat(Sim::new(f, None, None, Rules { game, edge_spill: game }))
++        } else {
++            Flow::Stacked(Stack::new(m.clone(), game))
++        };
++        Ok(Self {
++            model: m,
++            flow,
++            settle: None,
++            result: None,
++            overflow: vec![0.0; size],
++        })
++    }
++    pub fn ticks(&self) -> u64 {
++        match &self.flow {
++            Flow::Flat(s) => s.ticks,
++            Flow::Stacked(s) => s.ticks,
++        }
++    }
++    pub fn flat(&self) -> bool {
++        matches!(self.flow, Flow::Flat(_))
++    }
++    pub fn prefill(&mut self) -> Result<(), Refusal> {
++        let game = match &self.flow {
++            Flow::Flat(s) => s.rules.game,
++            Flow::Stacked(s) => s.game,
++        };
++        let mut temp = Stack::new(self.model.clone(), game);
++        let state = stack_prefill::prefill(&temp, &self.model.retained);
++        temp.set_state(&state)?;
++        if let Some(f) = open_field(&self.model) {
++            self.flow = Flow::Flat(Sim::new(
++                f,
++                Some(&state.depth),
++                Some(&state.contamination),
++                Rules { game, edge_spill: game },
++            ));
++        } else {
++            self.flow = Flow::Stacked(temp);
++        }
++        self.result = None;
++        self.settle = None;
++        Ok(())
++    }
++    pub fn sync(&mut self) -> Result<(), Refusal> {
++        self.validate()?;
++        if self.settle.is_some() {
++            return Err("Water state cannot change during a settle.");
++        }
++        self.params()?;
++        match &mut self.flow {
++            Flow::Flat(s) => {
++                let mut next = Sim::new(open_field(&self.model).unwrap(), Some(&s.d), Some(&s.c), s.rules);
++                next.out.copy_from_slice(&s.out);
++                next.params.copy_from_slice(&s.params);
++                next.ticks = s.ticks;
++                next.read_params();
++                *s = next;
++            }
++            Flow::Stacked(s) => s.sync_state()?,
++        }
++        Ok(())
++    }
++    pub fn validate(&self) -> Result<(), Refusal> {
++        match &self.flow {
++            Flow::Stacked(s) => s.validate_state(),
++            Flow::Flat(s) => {
++                if s.d.len() != s.n
++                    || s.dold.len() != s.n
++                    || s.c.len() != s.n
++                    || s.out.len() != 4 * s.n
++                    || self.overflow.len() != s.n
++                    || s.params.len() != 4 * s.emitters.len()
++                {
++                    return Err("Water state arrays are malformed.");
++                }
++                if s.d
++                    .iter()
++                    .chain(&s.dold)
++                    .chain(&s.out)
++                    .any(|v| !v.is_finite() || *v < 0.0 || *v > 1_000_000.0)
++                    || s.c.iter().any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
++                    || self.overflow.iter().any(|&v| v != 0.0)
++                {
++                    return Err("Water state is malformed.");
++                }
++                crate::stack::validate_params(&s.params, s.emitters.len())
++            }
++        }
++    }
++    fn params(&mut self) -> Result<(), Refusal> {
++        match &mut self.flow {
++            Flow::Stacked(s) => s.read_params(),
++            Flow::Flat(s) => {
++                for p in s.params.chunks_exact(4) {
++                    if p.iter().any(|v| !v.is_finite())
++                        || !(0.0..=1_000_000.0).contains(&p[0])
++                        || !(0.0..=1.0).contains(&p[1])
++                        || p[3] < 0.0
++                        || p[2] < p[3]
++                    {
++                        return Err("Water emitter parameters are malformed.");
++                    }
++                }
++                s.read_params();
++                Ok(())
++            }
++        }
++    }
++    pub fn run(&mut self, ticks: u64, scale: f64) -> Result<(), Refusal> {
++        if self.settle.is_some() {
++            return Err("Use advance while water is settling.");
++        }
++        if !scale.is_finite() || scale < 0.0 || scale > 1_000_000.0 || ticks > 10_000_000 {
++            return Err("Water run arguments are invalid.");
++        }
++        self.validate()?;
++        self.params()?;
++        match &mut self.flow {
++            Flow::Flat(s) => s.run(ticks, scale),
++            Flow::Stacked(s) => s.run(ticks, scale),
++        }
++        Ok(())
++    }
++    pub fn start_settle(&mut self, max_days: f64) -> Result<(), Refusal> {
++        if !max_days.is_finite() || !(0.0..=1000.0).contains(&max_days) {
++            return Err("Water settle arguments are invalid.");
++        }
++        if self.flat() && max_days != 6.0 {
++            return Err("Flat canonical water uses its existing six-day settle.");
++        }
++        self.prefill()?;
++        self.settle = Some(match &self.flow {
++            Flow::Flat(s) => {
++                let stored = settle::Stored {
++                    retained: self.model.retained.iter().map(|r| vec![r.tile]).collect(),
++                    drained: self.model.drained.clone(),
++                };
++                Settle::Flat(settle::CanonicalRun::new(
++                    open_field(&self.model).unwrap(),
++                    stored,
++                    s.d.clone(),
++                    s.c.clone(),
++                    s.rules,
++                ))
++            }
++            Flow::Stacked(s) => Settle::Stacked(stack_prefill::SettleRun::new(
++                s,
++                max_days,
++                stack_prefill::sealed_columns(s, &self.model.retained),
++            )),
++        });
++        Ok(())
++    }
++    pub fn advance(&mut self, ticks: u64) -> Result<Option<SettleResult>, Refusal> {
++        if ticks > 10_000_000 {
++            return Err("Water run arguments are invalid.");
++        }
++        self.validate()?;
++        match (&mut self.settle, &mut self.flow) {
++            (Some(Settle::Flat(r)), Flow::Flat(s)) => {
++                if r.advance(ticks) {
++                    self.result = Some(r.done.as_ref().unwrap().result);
++                } // expose current arrays; the existing canonical run remains authoritative
++                let mut snapshot = Sim::new(open_field(&self.model).unwrap(), Some(&r.sim.d), Some(&r.sim.c), r.sim.rules);
++                snapshot.dold.copy_from_slice(&r.sim.dold);
++                snapshot.out.copy_from_slice(&r.sim.out);
++                snapshot.params.copy_from_slice(&r.sim.params);
++                snapshot.ticks = r.sim.ticks;
++                *s = snapshot;
++            }
++            (Some(Settle::Stacked(r)), Flow::Stacked(s)) => {
++                self.result = r.advance(s, ticks);
++            }
++            _ => return Err("Water settle has not started."),
++        }
++        Ok(self.result)
++    }
++    pub fn state(&self) -> State {
++        match &self.flow {
++            Flow::Flat(s) => State {
++                depth: s.d.clone(),
++                overflow: self.overflow.clone(),
++                contamination: s.c.clone(),
++            },
++            Flow::Stacked(s) => State {
++                depth: s.d.clone(),
++                overflow: s.o.clone(),
++                contamination: s.c.clone(),
++            },
++        }
++    }
++    pub fn saturation(&mut self) -> Vec<u8> {
++        match &mut self.flow {
++            Flow::Flat(s) => s.saturation(),
++            Flow::Stacked(s) => s.saturation(),
++        }
++    }
++    pub fn momentum(&self) -> &[f64] {
++        match &self.flow {
++            Flow::Flat(s) => &s.out,
++            Flow::Stacked(s) => &s.out,
++        }
++    }
++}
+diff --git a/rust/water/src/stack_memory.rs b/rust/water/src/stack_memory.rs
+new file mode 100644
+--- /dev/null
++++ b/rust/water/src/stack_memory.rs
+@@ -0,0 +1,379 @@
++//! D448 typed-memory ABI. Opaque integer handles, owned aligned arrays, one call per operation.
++//! All caller-controlled lengths, values, handles and operation codes refuse before indexing.
++//! Pointers are views into owned memory, not parameters to any operation. Views must be reacquired
++//! after a call that may grow Wasm memory; callers must not write read-only geometry/graph fields.
++use crate::{
++    columns::{self, Object, Refusal},
++    stack::Retained,
++    stack_engine::{Engine, Flow},
++};
++use std::{cell::RefCell, collections::BTreeMap};
++pub struct Session {
++    pub w: usize,
++    pub h: usize,
++    pub masks: Vec<u32>,
++    pub objects: Vec<f64>,
++    pub retained: Vec<f64>,
++    pub drained: Vec<u8>,
++    pub engine: Option<Engine>,
++    pub sat: Vec<u8>,
++    // Geometry/graph snapshots are never read by a simulation. Writing one cannot corrupt indices.
++    count: Vec<u8>,
++    floor: Vec<i16>,
++    ceil: Vec<i16>,
++    start: Vec<u32>,
++    target: Vec<i32>,
++    dir: Vec<u8>,
++    rev: Vec<i32>,
++    terrain_count: Vec<u8>,
++    terrain_floor: Vec<i16>,
++    terrain_ceil: Vec<i16>,
++}
++fn integer(v: f64, lo: f64, hi: f64) -> bool {
++    v.is_finite() && v >= lo && v <= hi && v.trunc() == v
++}
++impl Session {
++    pub fn new(w: usize, h: usize, objects: usize, retained: usize) -> Result<Self, Refusal> {
++        let n = w
++            .checked_mul(h)
++            .filter(|&n| w > 0 && h > 0 && n <= 1_048_576)
++            .ok_or("Water map dimensions are invalid.")?;
++        if objects > 131_072 || retained > n {
++            return Err("Water input counts are invalid.");
++        }
++        Ok(Self {
++            w,
++            h,
++            masks: vec![0; n],
++            objects: vec![0.0; objects * 8],
++            retained: vec![0.0; retained * 4],
++            drained: vec![0; n],
++            engine: None,
++            sat: Vec::new(),
++            count: Vec::new(),
++            floor: Vec::new(),
++            ceil: Vec::new(),
++            start: Vec::new(),
++            target: Vec::new(),
++            dir: Vec::new(),
++            rev: Vec::new(),
++            terrain_count: Vec::new(),
++            terrain_floor: Vec::new(),
++            terrain_ceil: Vec::new(),
++        })
++    }
++    pub fn build(&mut self, game: bool) -> Result<(), Refusal> {
++        if self.objects.len() % 8 != 0 || self.retained.len() % 4 != 0 {
++            return Err("Water input rows are malformed.");
++        }
++        let mut objects = Vec::new();
++        for p in self.objects.chunks_exact(8) {
++            if !integer(p[0], 0.0, 11.0)
++                || !integer(p[1], -1_048_576.0, 1_048_576.0)
++                || !integer(p[2], -1_048_576.0, 1_048_576.0)
++                || !integer(p[3], 0.0, 33.0)
++                || !integer(p[4], 0.0, 3.0)
++                || !integer(p[5], 0.0, 1.0)
++                || !integer(p[6], 0.0, 1.0)
++                || !p[7].is_finite()
++                || !(0.0..=1_000_000.0).contains(&p[7])
++            {
++                return Err("Water object is unknown or malformed.");
++            }
++            objects.push(Object {
++                kind: p[0] as u8,
++                x: p[1] as i32,
++                y: p[2] as i32,
++                z: p[3] as i16,
++                rotation: p[4] as u8,
++                flipped: p[5] != 0.0,
++                delayed: p[6] != 0.0,
++                strength: p[7],
++            });
++        }
++        let mut m = columns::model(self.w, self.h, &self.masks, &objects)?;
++        for p in self.retained.chunks_exact(4) {
++            if !integer(p[0], 0.0, (self.masks.len() - 1) as f64) {
++                return Err("Retained water is malformed.");
++            }
++            let tile = p[0] as u32;
++            if m.cols.count[tile as usize] == 0 {
++                return Err("Retained water has no open column.");
++            }
++            m.retained.push(Retained {
++                tile,
++                floor: p[1],
++                depth: p[2],
++                contamination: p[3],
++            });
++        }
++        if self.drained.len() != self.masks.len() || self.drained.iter().any(|&v| v > 1) {
++            return Err("Drained water tiles are malformed.");
++        }
++        m.drained = (0..self.drained.len())
++            .filter(|&i| self.drained[i] != 0)
++            .map(|i| i as u32)
++            .collect();
++        let engine = Engine::new(m, game)?;
++        let wc = &engine.model.cols;
++        let terrain = columns::terrain_columns(self.w, self.h, &self.masks)?;
++        self.count = wc.count.clone();
++        self.floor = wc.floor.clone();
++        self.ceil = wc.ceil.clone();
++        self.terrain_count = terrain.count;
++        self.terrain_floor = terrain.floor;
++        self.terrain_ceil = terrain.ceil;
++        self.sat = vec![0; wc.n * wc.levels];
++        if let Flow::Stacked(s) = &engine.flow {
++            self.start = s.start.clone();
++            self.target = s.target.clone();
++            self.dir = s.dir.clone();
++            self.rev = s.rev.clone();
++        } else {
++            self.start.clear();
++            self.target.clear();
++            self.dir.clear();
++            self.rev.clear();
++        }
++        self.engine = Some(engine);
++        Ok(())
++    }
++    /// 0 build (a 0 game, 1 port); 1 run (a ticks, b scale); 2 prefill;
++    /// 3 canonical begin (a maxDays; flat must be 6); 4 advance (a tick budget);
++    /// 5 accept edited state; 6 saturation. Unknown codes refuse with one line.
++    pub fn op(&mut self, op: u32, a: f64, b: f64) -> Result<(), Refusal> {
++        if op == 0 {
++            if !integer(a, 0.0, 1.0) || b != 0.0 {
++                return Err("Water build arguments are invalid.");
++            }
++            return self.build(a == 0.0);
++        }
++        if op > 6 {
++            return Err("Water operation is unknown.");
++        }
++        let e = self.engine.as_mut().ok_or("Water map has not been built.")?;
++        match op {
++            1 => {
++                if !integer(a, 0.0, 10_000_000.0) {
++                    return Err("Water run arguments are invalid.");
++                }
++                e.run(a as u64, b)?;
++            }
++            2 => {
++                if a != 0.0 || b != 0.0 {
++                    return Err("Water prefill arguments are invalid.");
++                }
++                e.prefill()?;
++            }
++            3 => {
++                if b != 0.0 {
++                    return Err("Water settle arguments are invalid.");
++                }
++                e.start_settle(a)?;
++            }
++            4 => {
++                if !integer(a, 0.0, 10_000_000.0) || b != 0.0 {
++                    return Err("Water run arguments are invalid.");
++                }
++                e.advance(a as u64)?;
++            }
++            5 => {
++                if a != 0.0 || b != 0.0 {
++                    return Err("Water state arguments are invalid.");
++                }
++                e.sync()?;
++            }
++            6 => {
++                if a != 0.0 || b != 0.0 {
++                    return Err("Water saturation arguments are invalid.");
++                }
++                e.validate()?;
++                self.sat = e.saturation();
++            }
++            _ => unreachable!(),
++        }
++        Ok(())
++    }
++    /// Fields 0 masks u32, 1 objects f64[8], 2 retained f64[4]; read-only geometry:
++    /// 3 count u8, 4 floor i16, 5 ceiling i16; state (writable between runs, then op 5):
++    /// 6 depth f64, 7 overflow f64, 8 contamination f64, 9 old depth f64, 10 momentum f64;
++    /// graph read-only: 11 start u32, 12 target i32 (-1 padding), 13 direction u8, 14 reverse i32;
++    /// 15 mutable emitter parameters f64[4], 16 saturation u8;
++    /// 17 terrain count u8, 18 terrain floor i16, 19 terrain top i16 (read-only).
++    /// 20 drained mask u8, writable before build (flat maps, D387).
++    /// Lengths are element counts, never byte counts. Flat momentum remains four per tile.
++    pub fn field(&mut self, which: u32) -> Option<(*mut u8, usize)> {
++        macro_rules! view {
++            ($v:expr) => {{
++                let v = &mut $v;
++                Some((v.as_mut_ptr() as *mut u8, v.len()))
++            }};
++        }
++        match which {
++            0 => view!(self.masks),
++            20 => view!(self.drained),
++            1 => view!(self.objects),
++            2 => view!(self.retained),
++            3 => view!(self.count),
++            4 => view!(self.floor),
++            5 => view!(self.ceil),
++            11 => view!(self.start),
++            12 => view!(self.target),
++            13 => view!(self.dir),
++            14 => view!(self.rev),
++            16 => view!(self.sat),
++            17 => view!(self.terrain_count),
++            18 => view!(self.terrain_floor),
++            19 => view!(self.terrain_ceil),
++            6..=10 | 15 => {
++                let e = self.engine.as_mut()?;
++                match &mut e.flow {
++                    Flow::Flat(s) => match which {
++                        6 => view!(s.d),
++                        7 => view!(e.overflow),
++                        8 => view!(s.c),
++                        9 => view!(s.dold),
++                        10 => view!(s.out),
++                        15 => view!(s.params),
++                        _ => None,
++                    },
++                    Flow::Stacked(s) => match which {
++                        6 => view!(s.d),
++                        7 => view!(s.o),
++                        8 => view!(s.c),
++                        9 => view!(s.dold),
++                        10 => view!(s.out),
++                        15 => view!(s.params),
++                        _ => None,
++                    },
++                }
++            }
++            _ => None,
++        }
++    }
++}
++struct Registry {
++    next: u32,
++    maps: BTreeMap<u32, Session>,
++    error: Refusal,
++}
++thread_local! {static REGISTRY:RefCell<Registry>=RefCell::new(Registry{next:1,maps:BTreeMap::new(),error:""});}
++#[no_mangle]
++pub extern "C" fn stack_create(w: u32, h: u32, objects: u32, retained: u32) -> u32 {
++    REGISTRY.with(|r| {
++        let mut r = r.borrow_mut();
++        if r.maps.len() >= 64 || r.next == u32::MAX {
++            r.error = "Too many water maps are open.";
++            return 0;
++        }
++        match Session::new(w as usize, h as usize, objects as usize, retained as usize) {
++            Ok(s) => {
++                let id = r.next;
++                r.next += 1;
++                r.maps.insert(id, s);
++                r.error = "";
++                id
++            }
++            Err(e) => {
++                r.error = e;
++                0
++            }
++        }
++    })
++}
++#[no_mangle]
++pub extern "C" fn stack_free(handle: u32) -> u32 {
++    REGISTRY.with(|r| {
++        let mut r = r.borrow_mut();
++        if r.maps.remove(&handle).is_some() {
++            r.error = "";
++            0
++        } else {
++            r.error = "Water map handle is invalid.";
++            1
++        }
++    })
++}
++#[no_mangle]
++pub extern "C" fn stack_ptr(handle: u32, which: u32) -> *mut u8 {
++    REGISTRY.with(|r| {
++        let mut r = r.borrow_mut();
++        if let Some((p, _)) = r.maps.get_mut(&handle).and_then(|s| s.field(which)) {
++            r.error = "";
++            p
++        } else {
++            r.error = "Water map handle or field is invalid.";
++            core::ptr::null_mut()
++        }
++    })
++}
++#[no_mangle]
++pub extern "C" fn stack_len(handle: u32, which: u32) -> usize {
++    REGISTRY.with(|r| {
++        let mut r = r.borrow_mut();
++        if let Some((_, n)) = r.maps.get_mut(&handle).and_then(|s| s.field(which)) {
++            r.error = "";
++            n
++        } else {
++            r.error = "Water map handle or field is invalid.";
++            0
++        }
++    })
++}
++#[no_mangle]
++pub extern "C" fn stack_op(handle: u32, op: u32, a: f64, b: f64) -> u32 {
++    REGISTRY.with(|r| {
++        let mut r = r.borrow_mut();
++        let result = r
++            .maps
++            .get_mut(&handle)
++            .ok_or("Water map handle is invalid.")
++            .and_then(|s| s.op(op, a, b));
++        match result {
++            Ok(()) => {
++                r.error = "";
++                0
++            }
++            Err(e) => {
++                r.error = e;
++                1
++            }
++        }
++    })
++}
++/// UTF-8 one-line refusal from the last ABI call on this thread, or empty after success.
++#[no_mangle]
++pub extern "C" fn stack_error_ptr() -> *const u8 {
++    REGISTRY.with(|r| r.borrow().error.as_ptr())
++}
++#[no_mangle]
++pub extern "C" fn stack_error_len() -> usize {
++    REGISTRY.with(|r| r.borrow().error.len())
++}
++/// Query 0 ticks, 1 representation (0 flat, 1 stacked), 2 settle status (0 running,
++/// 1 settled, 2 exhausted), 3 steady ticks (negative when absent), 4 max ticks.
++#[no_mangle]
++pub extern "C" fn stack_info(handle: u32, which: u32) -> f64 {
++    REGISTRY.with(|r| {
++        let mut r = r.borrow_mut();
++        let value = r.maps.get(&handle).and_then(|s| s.engine.as_ref()).and_then(|e| match which {
++            0 => Some(e.ticks() as f64),
++            1 => Some(if e.flat() { 0.0 } else { 1.0 }),
++            2 => Some(e.result.map_or(0.0, |r| if r.settled { 1.0 } else { 2.0 })),
++            3 => Some(e.result.and_then(|r| r.steady_ticks).map_or(-1.0, |t| t as f64)),
++            4 => Some(match &e.settle {
++                Some(crate::stack_engine::Settle::Flat(r)) => r.max_ticks as f64,
++                Some(crate::stack_engine::Settle::Stacked(r)) => (r.every * r.checks) as f64,
++                None => 0.0,
++            }),
++            _ => None,
++        });
++        if let Some(v) = value {
++            r.error = "";
++            v
++        } else {
++            r.error = "Water map handle or query is invalid.";
++            -1.0
++        }
++    })
++}
+diff --git a/rust/water/examples/stack-fixture.rs b/rust/water/examples/stack-fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/rust/water/examples/stack-fixture.rs
+@@ -0,0 +1,85 @@
++//! Test-only disk fixture adapter. Production callers use Session or stack_memory directly.
++use std::{
++    fs,
++    io::{self, Write},
++};
++use water::{
++    stack_engine::{Flow, Settle},
++    stack_memory::Session,
++};
++fn read_u32(b: &[u8], at: &mut usize) -> Result<u32, String> {
++    let v = b.get(*at..*at + 4).ok_or("Fixture is truncated.")?;
++    *at += 4;
++    Ok(u32::from_le_bytes(v.try_into().unwrap()))
++}
++fn read_f64(b: &[u8], at: &mut usize) -> Result<f64, String> {
++    let v = b.get(*at..*at + 8).ok_or("Fixture is truncated.")?;
++    *at += 8;
++    Ok(f64::from_le_bytes(v.try_into().unwrap()))
++}
++fn job() -> Result<(), String> {
++    let p = std::env::args().nth(1).ok_or("Fixture path is missing.")?;
++    let b = fs::read(p).map_err(|_| "Fixture cannot be read.")?;
++    let mut at = 0;
++    let w = read_u32(&b, &mut at)?;
++    let h = read_u32(&b, &mut at)?;
++    let objects = read_u32(&b, &mut at)?;
++    let retained = read_u32(&b, &mut at)?;
++    let ops = read_u32(&b, &mut at)?;
++    let mut s = Session::new(w as usize, h as usize, objects as usize, retained as usize)?;
++    for v in &mut s.masks {
++        *v = read_u32(&b, &mut at)?;
++    }
++    for v in s.objects.iter_mut().chain(s.retained.iter_mut()) {
++        *v = read_f64(&b, &mut at)?;
++    }
++    for _ in 0..ops {
++        let op = read_f64(&b, &mut at)?;
++        let a = read_f64(&b, &mut at)?;
++        let b = read_f64(&b, &mut at)?;
++        if !op.is_finite() || op.trunc() != op || !(0.0..=6.0).contains(&op) {
++            return Err("Fixture operation is invalid.".into());
++        }
++        s.op(op as u32, a, b)?;
++    }
++    if at != b.len() {
++        return Err("Fixture has trailing data.".into());
++    }
++    let e = s.engine.as_ref().ok_or("Fixture map was not built.")?;
++    let info = [
++        e.ticks() as f64,
++        if matches!(e.flow, Flow::Flat(_)) { 0.0 } else { 1.0 },
++        e.result.map_or(0.0, |r| if r.settled { 1.0 } else { 2.0 }),
++        e.result.and_then(|r| r.steady_ticks).map_or(-1.0, |t| t as f64),
++        match &e.settle {
++            Some(Settle::Flat(r)) => r.max_ticks as f64,
++            Some(Settle::Stacked(r)) => (r.every * r.checks) as f64,
++            None => 0.0,
++        },
++    ];
++    let mut out = Vec::new();
++    for v in info {
++        out.extend(v.to_le_bytes());
++    }
++    for field in 0..20 {
++        let (ptr, len) = s.field(field).ok_or("Fixture field is missing.")?;
++        let width = match field {
++            0 | 11 | 12 | 14 => 4,
++            4 | 5 | 18 | 19 => 2,
++            1 | 2 | 6..=10 | 15 => 8,
++            _ => 1,
++        };
++        out.extend((len as u32).to_le_bytes());
++        // The owned field supplies this exact allocation, aligned and valid until the next mutation.
++        let bytes = unsafe { std::slice::from_raw_parts(ptr, len * width) };
++        out.extend(bytes);
++    }
++    io::stdout().write_all(&out).map_err(|_| "Fixture result cannot be written.")?;
++    Ok(())
++}
++fn main() {
++    if let Err(reason) = job() {
++        eprintln!("{reason}");
++        std::process::exit(1);
++    }
++}
+diff --git a/rust/water/tests/stacked.rs b/rust/water/tests/stacked.rs
+new file mode 100644
+--- /dev/null
++++ b/rust/water/tests/stacked.rs
+@@ -0,0 +1,237 @@
++use water::{
++    columns::{self, Object},
++    sim::{self, Rules},
++    stack::Model,
++    stack_engine::{Engine, Flow},
++    stack_memory::{self, Session},
++};
++fn obj(kind: u8, x: i32, y: i32, z: i16, strength: f64) -> Object {
++    Object {
++        kind,
++        x,
++        y,
++        z,
++        rotation: 0,
++        flipped: false,
++        delayed: false,
++        strength,
++    }
++}
++fn sealed() -> Model {
++    let mut mask = vec![(1 << 10) - 1; 144];
++    for y in 4..=7 {
++        for x in 4..=7 {
++            mask[y * 12 + x] &= !(7 << 3);
++        }
++    }
++    columns::model(12, 12, &mask, &[obj(7, 5, 5, 3, 4.0)]).unwrap()
++}
++fn bits(a: &[f64], b: &[f64]) {
++    assert_eq!(
++        a.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
++        b.iter().map(|v| v.to_bits()).collect::<Vec<_>>()
++    );
++}
++#[test]
++fn pressure_is_capped_and_roofs_never_leak() {
++    let mut e = Engine::new(sealed(), true).unwrap();
++    e.run(2304, 1.0).unwrap();
++    let s = e.state();
++    for y in 4..=7 {
++        for x in 4..=7 {
++            let c = y * 12 + x;
++            assert_eq!(s.depth[c], 3.0);
++            assert!(s.overflow[c] > 0.0 && s.overflow[c] <= 3.5);
++            assert_eq!(s.depth[144 + c], 0.0);
++        }
++    }
++}
++#[test]
++fn sliced_settle_matches_one_go() {
++    let m = sealed();
++    let mut a = Engine::new(m.clone(), true).unwrap();
++    let mut b = Engine::new(m, true).unwrap();
++    a.start_settle(4.0).unwrap();
++    b.start_settle(4.0).unwrap();
++    a.advance(10_000_000).unwrap();
++    while b.result.is_none() {
++        b.advance(37).unwrap();
++    }
++    assert_eq!(a.result, b.result);
++    let x = a.state();
++    let y = b.state();
++    bits(&x.depth, &y.depth);
++    bits(&x.overflow, &y.overflow);
++    bits(&x.contamination, &y.contamination);
++    bits(a.momentum(), b.momentum());
++    assert_eq!(a.saturation(), b.saturation());
++}
++#[test]
++fn flat_delegates_to_today_sim_under_both_rules() {
++    for game in [false, true] {
++        let m = columns::model(9, 7, &vec![7; 63], &[obj(7, 4, 3, 3, 1.0), obj(2, 3, 3, 3, 0.0)]).unwrap();
++        let mut e = Engine::new(m.clone(), game).unwrap();
++        assert!(e.flat());
++        let mut today = sim::Sim::new(
++            water::stack_engine::open_field(&m).unwrap(),
++            None,
++            None,
++            Rules { game, edge_spill: game },
++        );
++        for (ticks, scale) in [(73, 1.0), (19, 0.0), (128, 0.4)] {
++            e.run(ticks, scale).unwrap();
++            today.run(ticks, scale);
++        }
++        let Flow::Flat(s) = &e.flow else { panic!() };
++        bits(&s.d, &today.d);
++        bits(&s.c, &today.c);
++        bits(&s.dold, &today.dold);
++        bits(&s.out, &today.out);
++        assert_eq!(s.saturation(), today.saturation());
++    }
++}
++#[test]
++fn duplicate_planes_and_empty_run_zero() {
++    let o = obj(3, 1, 1, 2, 0.0);
++    let c = columns::water_columns(5, 5, &[1 << 5; 25], &[o.clone(), o]).unwrap();
++    let i = 11;
++    assert_eq!(c.count[i], 3);
++    assert_eq!((c.floor[i], c.ceil[i]), (0, 3));
++    assert_eq!((c.floor[25 + i], c.ceil[25 + i]), (3, 5));
++    let t = columns::terrain_columns(5, 5, &[1 << 5; 25]).unwrap();
++    assert_eq!((t.floor[0], t.ceil[0]), (0, 0));
++    assert_eq!((t.floor[25], t.ceil[25]), (5, 6));
++}
++#[test]
++fn seeps_flip_before_rotation() {
++    let mut o = obj(9, 0, 0, 0, 1.0);
++    o.flipped = true;
++    let m = columns::model(3, 3, &[0; 9], &[o]).unwrap();
++    assert_eq!(m.emitters[0].tiles, vec![1, 4, 0, 3]);
++    assert_eq!(m.emitters[0].limit, Some((1, 0.8, 0.72)));
++}
++#[test]
++fn drain_notch_and_direction_survive_all_rotations() {
++    for rot in 0..4 {
++        let mut o = obj(6, 3, 3, 2, 0.0);
++        o.rotation = rot;
++        let m = columns::model(7, 7, &[0; 49], &[o]).unwrap();
++        let e = &m.emitters[0];
++        let id = e.cols[0] as usize;
++        assert_eq!(e.strength, 0.0);
++        assert_eq!((m.cols.floor[id], m.cols.ceil[id]), (2, 3));
++        assert_eq!(
++            *m.cols.dir_limit.get(&(98 + e.tiles[0] as usize)).unwrap(),
++            [2, 3, 0, 1][rot as usize]
++        );
++    }
++}
++#[test]
++fn malformed_unknown_and_stale_handles_refuse() {
++    assert!(Session::new(0, 1, 0, 0).is_err());
++    let mut s = Session::new(2, 2, 1, 0).unwrap();
++    s.objects[0] = 100.0;
++    assert!(s.op(0, 0.0, 0.0).is_err());
++    s.objects[0] = 7.0;
++    s.objects[7] = f64::NAN;
++    assert!(s.op(0, 0.0, 0.0).is_err());
++    s.objects[7] = 1.0;
++    s.masks[0] = 1 << 31;
++    assert!(s.op(0, 0.0, 0.0).is_err());
++    s.masks[0] = 0;
++    s.op(0, 0.0, 0.0).unwrap();
++    assert!(s.op(100, 0.0, 0.0).is_err());
++    assert!(s.op(1, -1.0, 1.0).is_err());
++    assert!(s.op(1, 1.0, f64::NAN).is_err());
++    let e = s.engine.as_mut().unwrap();
++    let Flow::Flat(f) = &mut e.flow else { panic!() };
++    f.d[0] = f64::NAN;
++    assert!(s.op(1, 1.0, 1.0).is_err());
++    let id = stack_memory::stack_create(2, 2, 0, 0);
++    assert_ne!(id, 0);
++    assert_eq!(stack_memory::stack_free(id), 0);
++    assert_ne!(stack_memory::stack_op(id, 1, 1.0, 1.0), 0);
++    assert!(stack_memory::stack_ptr(id, 6).is_null());
++    assert!(stack_memory::stack_error_len() > 0);
++}
++#[test]
++fn malformed_native_geometry_refuses_before_indexing() {
++    let mut m = sealed();
++    m.cols.floor.clear();
++    assert!(Engine::new(m, true).is_err());
++    let mut m = sealed();
++    m.emitters[0].cols[0] = u32::MAX;
++    assert!(Engine::new(m, true).is_err());
++}
++#[test]
++fn edited_state_clears_wet_lists_and_stale_flows() {
++    let mut e = Engine::new(sealed(), true).unwrap();
++    e.run(50, 1.0).unwrap();
++    let Flow::Stacked(s) = &mut e.flow else { panic!() };
++    s.d.fill(0.0);
++    s.o.fill(0.0);
++    s.c.fill(0.0);
++    s.out.fill(0.0);
++    e.sync().unwrap();
++    e.run(1, 0.0).unwrap();
++    assert!(e.state().depth.iter().all(|&v| v == 0.0));
++}
++#[test]
++fn retained_water_uses_top_column_and_bad_overflow_refuses() {
++    let mut m = sealed();
++    m.retained.push(water::stack::Retained {
++        tile: 65,
++        floor: 10.0,
++        depth: 1.0,
++        contamination: 0.4,
++    });
++    let mut e = Engine::new(m, true).unwrap();
++    e.prefill().unwrap();
++    let s = e.state();
++    assert_eq!(s.depth[209], 1.0);
++    assert_eq!(s.contamination[209], 0.4);
++    let Flow::Stacked(s) = &mut e.flow else { panic!() };
++    s.o[65] = 10.0;
++    assert!(e.run(1, 1.0).is_err());
++}
++
++#[test]
++fn malformed_native_rows_and_state_lengths_refuse() {
++    let mut session = Session::new(2, 2, 1, 0).unwrap();
++    session.objects.truncate(1);
++    assert!(session.op(0, 0.0, 0.0).is_err());
++    let mut e = Engine::new(sealed(), true).unwrap();
++    let Flow::Stacked(s) = &mut e.flow else { panic!() };
++    s.o.clear();
++    assert!(e.run(1, 1.0).is_err());
++    let mut e = Engine::new(sealed(), true).unwrap();
++    let Flow::Stacked(s) = &mut e.flow else { panic!() };
++    s.params.clear();
++    assert!(e.run(1, 1.0).is_err());
++    assert!(e.sync().is_err());
++    let mut e = Engine::new(sealed(), true).unwrap();
++    e.start_settle(4.0).unwrap();
++    let Flow::Stacked(s) = &mut e.flow else { panic!() };
++    s.params[0] = f64::NAN;
++    assert!(e.advance(37).is_err());
++}
++
++#[test]
++fn clean_and_badwater_mix_inside_a_roofed_chamber() {
++    let mut m = sealed();
++    let mut bad = columns::model(12, 12, &vec![7; 144], &[obj(8, 4, 4, 3, 2.0)])
++        .unwrap()
++        .emitters
++        .remove(0);
++    // The same cells lie in slot zero of this chamber; the top slots remain dry.
++    bad.cols = bad.tiles.clone();
++    m.emitters.push(bad);
++    let mut e = Engine::new(m, true).unwrap();
++    e.run(200, 1.0).unwrap();
++    let s = e.state();
++    assert!(s.contamination.iter().any(|&c| c > 0.0 && c < 1.0));
++    assert!(s.contamination.iter().all(|&c| (0.0..=1.0).contains(&c)));
++    for i in 0..144 {
++        assert_eq!(s.depth[144 + i], 0.0);
++    }
++}
+diff --git a/tools/rust/stack-memory.ts b/tools/rust/stack-memory.ts
+new file mode 100644
+--- /dev/null
++++ b/tools/rust/stack-memory.ts
+@@ -0,0 +1,59 @@
++// D448 correctness adapter: Rust-owned typed views; one Wasm call per operation.
++import { WATER_WASM } from '../../src/core/sim/waterWasm';
++interface Exports {
++    memory: WebAssembly.Memory;
++    stack_create(w: number, h: number, o: number, r: number): number;
++    stack_free(h: number): number;
++    stack_ptr(h: number, f: number): number;
++    stack_len(h: number, f: number): number;
++    stack_op(h: number, o: number, a: number, b: number): number;
++    stack_info(h: number, q: number): number;
++    stack_error_ptr(): number;
++    stack_error_len(): number;
++}
++const types = [Uint32Array, Float64Array, Float64Array, Uint8Array, Int16Array, Int16Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Uint32Array, Int32Array, Uint8Array, Int32Array, Float64Array, Uint8Array, Uint8Array, Int16Array, Int16Array, Uint8Array] as const;
++export class StackMemory {
++    readonly wasm: Exports;
++    readonly handle: number;
++    private freed = false;
++    constructor(w: number, h: number, objects = 0, retained = 0) {
++        if (![w, h, objects, retained].every(v => Number.isSafeInteger(v) && v >= 0 && v <= 0xffffffff))
++            throw Error('Water input counts are invalid.');
++        const bytes = Uint8Array.from(atob(WATER_WASM), c => c.charCodeAt(0));
++        this.wasm = new WebAssembly.Instance(new WebAssembly.Module(bytes)).exports as unknown as Exports;
++        this.handle = this.wasm.stack_create(w, h, objects, retained);
++        if (!this.handle)
++            throw Error(this.error());
++    }
++    error() { return new TextDecoder().decode(new Uint8Array(this.wasm.memory.buffer, this.wasm.stack_error_ptr(), this.wasm.stack_error_len())); }
++    view(field: number): Uint8Array | Int16Array | Uint32Array | Int32Array | Float64Array {
++        if (this.freed || !Number.isInteger(field) || field < 0 || field >= types.length)
++            throw Error('Water map handle or field is invalid.');
++        const p = this.wasm.stack_ptr(this.handle, field);
++        const n = this.wasm.stack_len(this.handle, field);
++        if (!p)
++            throw Error(this.error());
++        return new types[field](this.wasm.memory.buffer, p, n);
++    }
++    op(op: number, a = 0, b = 0) {
++        if (this.freed || !Number.isInteger(op) || op < 0 || op > 0xffffffff)
++            throw Error('Water operation is unknown.');
++        if (this.wasm.stack_op(this.handle, op, a, b))
++            throw Error(this.error());
++        return this;
++    }
++    info(q: number) {
++        if (this.freed || !Number.isInteger(q) || q < 0 || q > 4)
++            throw Error('Water map handle or query is invalid.');
++        const v = this.wasm.stack_info(this.handle, q);
++        if (this.error())
++            throw Error(this.error());
++        return v;
++    }
++    close() {
++        if (!this.freed) {
++            this.wasm.stack_free(this.handle);
++            this.freed = true;
++        }
++    }
++}
+diff --git a/tools/rust/stack-fixtures.ts b/tools/rust/stack-fixtures.ts
+new file mode 100644
+--- /dev/null
++++ b/tools/rust/stack-fixtures.ts
+@@ -0,0 +1,59 @@
++// D448 fixed #71 fixtures, not a TypeScript simulation. Compressed inputs are test data;
++// the engine receives only Rust-owned typed arrays, one call per operation.
++import { gunzipSync } from 'fflate';
++import data from '../../tests/golden/stacked-water.json' with { type: 'json' };
++import { StackMemory } from './stack-memory';
++export const stackFixtures = data.cases;
++export function inputBytes(f: typeof stackFixtures[number]) { return gunzipSync(Uint8Array.from(atob(f.inputGzip), c => c.charCodeAt(0))); }
++export function runStackFixture(f: typeof stackFixtures[number], slice = 10000000) {
++    const bytes = inputBytes(f);
++    const d = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
++    let at = 20;
++    const [w, h, o, r, ops] = [0, 4, 8, 12, 16].map(i => d.getUint32(i, true));
++    const m = new StackMemory(w, h, o, r);
++    try {
++        const masks = m.view(0) as Uint32Array;
++        for (let i = 0; i < w * h; i++, at += 4)
++            masks[i] = d.getUint32(at, true);
++        for (const field of [1, 2]) {
++            const view = m.view(field) as Float64Array;
++            for (let i = 0; i < view.length; i++, at += 8)
++                view[i] = d.getFloat64(at, true);
++        }
++        for (let i = 0; i < ops; i++) {
++            const op = d.getFloat64(at, true), a = d.getFloat64(at + 8, true), b = d.getFloat64(at + 16, true);
++            at += 24;
++            if (op === 4 && slice < a) {
++                while (!m.info(2))
++                    m.op(4, slice);
++            }
++            else
++                m.op(op, a, b);
++        }
++        if (at !== bytes.length)
++            throw Error('Water fixture has trailing data.');
++        const fields = Array.from({ length: 20 }, (_, i) => { const v = m.view(i); return new Uint8Array(v.buffer, v.byteOffset, v.byteLength).slice(); });
++        return { info: [0, 1, 2, 3, 4].map(q => m.info(q)), fields };
++    }
++    finally {
++        m.close();
++    }
++}
++export function fixtureOutput(result: ReturnType<typeof runStackFixture>) {
++    const size = 40 + result.fields.reduce((n, b) => n + 4 + b.length, 0);
++    const out = new Uint8Array(size);
++    const d = new DataView(out.buffer);
++    let at = 0;
++    for (const v of result.info) {
++        d.setFloat64(at, v, true);
++        at += 8;
++    }
++    const widths = [4, 8, 8, 1, 2, 2, 8, 8, 8, 8, 8, 4, 4, 1, 4, 8, 1, 1, 2, 2];
++    for (const [i, b] of result.fields.entries()) {
++        d.setUint32(at, b.length / widths[i], true);
++        at += 4;
++        out.set(b, at);
++        at += b.length;
++    }
++    return out;
++}
+diff --git a/tools/rust/stack-identity.ts b/tools/rust/stack-identity.ts
+new file mode 100644
+--- /dev/null
++++ b/tools/rust/stack-identity.ts
+@@ -0,0 +1,49 @@
++// D448 correctness only: all eight #71 fixtures in native Rust and Node-Wasm.
++// Build first: cargo build --release -j 4 -p water --example stack-fixture (inside rust/).
++import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
++import { resolve, join } from 'node:path';
++import { execFileSync } from 'node:child_process';
++import { createHash } from 'node:crypto';
++import { stackFixtures, inputBytes, runStackFixture, fixtureOutput } from './stack-fixtures';
++const root = resolve(import.meta.dirname, '../..');
++const dir = process.env.DGM_STACK_LOCAL ?? join(root, 'investigation/rust-stacked/local/identity');
++mkdirSync(dir, { recursive: true });
++const exe = join(root, 'rust/target/release/examples', process.platform === 'win32' ? 'stack-fixture.exe' : 'stack-fixture');
++const hash = (b: Uint8Array) => createHash('sha256').update(b).digest('hex');
++const results = [];
++for (const f of stackFixtures) {
++    const input = inputBytes(f);
++    if (hash(input) !== f.inputSha256)
++        throw Error(f.name + ' input changed');
++    const p = join(dir, f.name + '.input');
++    writeFileSync(p, input);
++    const native = execFileSync(exe, [p], { maxBuffer: 64 * 1024 * 1024, windowsHide: true });
++    const wasm = runStackFixture(f);
++    const out = fixtureOutput(wasm);
++    if (!native.equals(Buffer.from(out)))
++        throw Error(f.name + ' native differs from Node-Wasm at byte ' + native.findIndex((b, i) => b !== out[i]));
++    for (const [id, expected] of Object.entries(f.fields)) {
++        if (hash(wasm.fields[Number(id)]) !== expected)
++            throw Error(f.name + ' differs from #71 field ' + id);
++    }
++    for (const [id, key] of [[6, 'depth'], [7, 'overflow'], [8, 'contamination']] as const) {
++        if (hash(wasm.fields[id]).slice(0, 16) !== f.hashes[key])
++            throw Error(f.name + ' differs from golden ' + key);
++    }
++    if (f.settle && (wasm.info[0] !== f.settle.ticks || wasm.info[2] !== (f.settle.settled ? 1 : 2)))
++        throw Error(f.name + ' settle differs');
++    const row = { name: f.name, ticks: wasm.info[0], nativeSha256: hash(native), goldenWater: true, allFields: true };
++    results.push(row);
++    writeFileSync(join(dir, f.name + '.native'), native);
++    console.log('PASS ' + f.name + ' native = Node-Wasm = #71 golden; ' + row.ticks + ' ticks');
++}
++// Changing slice boundaries must preserve the entire exposed state.
++for (const name of ['cave-valley', 'lake-cave']) {
++    const f = stackFixtures.find(f => f.name === name)!;
++    const a = fixtureOutput(runStackFixture(f));
++    const b = fixtureOutput(runStackFixture(f, 37));
++    if (!Buffer.from(a).equals(Buffer.from(b)))
++        throw Error(name + ' slices differ');
++    console.log('PASS ' + name + ' slices of 37');
++}
++writeFileSync(join(dir, 'summary.json'), JSON.stringify({ reference: '24b88b9b', cases: results, nativeEqualsNodeWasm: true, slices: true }, null, 2) + '\n');
+diff --git a/tests/golden/stacked-water.json b/tests/golden/stacked-water.json
+new file mode 100644
+--- /dev/null
++++ b/tests/golden/stacked-water.json
+@@ -0,0 +1,298 @@
++{
++  "reference": "feature/terrain3d-a 24b88b9b; tests/golden/terrain3d.json water hashes unchanged. Disk fixtures only; runtime maps use typed memory.",
++  "cases": [
++    {
++      "name": "t1-support",
++      "W": 96,
++      "H": 64,
++      "settle": null,
++      "hashes": {
++        "depth": "3a3ed164e42500a1",
++        "overflow": "3a3ed164e42500a1",
++        "contamination": "3a3ed164e42500a1",
++        "moisture": "3a3ed164e42500a1",
++        "soilContamination": "3a3ed164e42500a1",
++        "dropped": "62f328a99574e4ab"
++      },
++      "levels": 2,
++      "inputSha256": "59d7ab59f727151fc86da472768b44bc305a76ead1bfdf7e539f2291d65c783a",
++      "inputGzip": "H4sIAAAAAAACCu3aOw6CQBRA0Rds7Ka1cysuxaWwNJbiEiwtjFiY6NMg/g3KmeQ0MFNwQ8hAWEbEIk6jiogCAB3atvS6vX7SqWS7ZJtsknWySpqkTiKrEv31f2P/Ok70d//rr7/+43z+1/q7//XX/wf6e7d9uv880V9//f+3f9ue+/56/f+zf98epdJff/2H2L9J6ivSnE/0H9P+X3/99R/O839u/6m//vrrP8rvP/r/Vn/01x/99Uf/sf3/gP4vXX85KNNux/N3zu9ag/76o7/+6K8/+usPAAAAAAAA8Ij+MVtcHtkDyb+va0RgAAA=",
++      "fields": {
++        "3": "71c38a39e3a7eabefaa20a1d13edd4f82f97b2a16c9d28c73b9fb215e6e4a11c",
++        "4": "0a5542a3b1da741c4a76aae68fdbe0e6f1965eefa3953fb91e113cfc3ebf386b",
++        "5": "8fb52f42a9fd5ee616dd84fca5663dc03d3b2368bf754f21ed6fac338e2eff74",
++        "6": "3a3ed164e42500a1c5b2d0093f0a813d27dc50d038f330cc100a7e70ece2e6e4",
++        "7": "3a3ed164e42500a1c5b2d0093f0a813d27dc50d038f330cc100a7e70ece2e6e4",
++        "8": "3a3ed164e42500a1c5b2d0093f0a813d27dc50d038f330cc100a7e70ece2e6e4",
++        "10": "1349fcb7977fc66b0e1a8ce519a9e09036c8af7686b60f07af3aa14d0e778ab7",
++        "11": "00e645ce09baf3c151bb3160618195b8e32adab02805e04cd6bbba1b4956e057",
++        "12": "fd9d399e7482c73cdc94b94f3ee37efa4bff24ea0ad51aa7c782db982f820cff",
++        "13": "27e358f68d7180a8b7d2b7bb270796f809f5173457164173fa9f7eb573555618",
++        "14": "e32b6893f203f38878c79f296a24f064b15cb7367609701ad72884db48a4d339",
++        "16": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
++        "17": "71c38a39e3a7eabefaa20a1d13edd4f82f97b2a16c9d28c73b9fb215e6e4a11c",
++        "18": "49d12616b9ae5af3b7f00cae073a65e03fbe0c8f6fab6ccce82d4330fd05a9cb",
++        "19": "0a5542a3b1da741c4a76aae68fdbe0e6f1965eefa3953fb91e113cfc3ebf386b"
++      }
++    },
++    {
++      "name": "t2-walking",
++      "W": 64,
++      "H": 48,
++      "settle": {
++        "settled": true,
++        "ticks": 128
++      },
++      "hashes": {
++        "depth": "2aae7dc846aaf25f",
++        "overflow": "2aae7dc846aaf25f",
++        "contamination": "2aae7dc846aaf25f",
++        "moisture": "2aae7dc846aaf25f",
++        "soilContamination": "2aae7dc846aaf25f",
++        "dropped": "e3b0c44298fc1c14"
++      },
++      "levels": 2,
++      "inputSha256": "97c873c05dcd4de857e9dd3c280193139b9a3107040979284fbe6d7f9855a3d1",
++      "inputGzip": "H4sIAAAAAAACCu3XwQmDMBSA4XfowYP4pCdvruAGphM4gocOkhF1E0ewhScURaKnYswf+BEDET4MGJ2INPIbDxHRPzdrOJV7hx8/fvz48ePHn5p/0nC8f/z48ePHjx8/fvz48ePHjx8/fvz4423QcPjZ//ivm//u4W4nf3J9rRb+uP39Jvzn1reFhR9/in6fW7F//+ud8OM/PP9lS/jTPP+n7uf/71L+8MicXUu3nrf78fl+recrt33CB8xvKH10MAAA",
++      "fields": {
++        "3": "d67dc6b22939f5e7bc82df9630a0f42c82f8c118c6a7cbffb5c7976b81b621de",
++        "4": "ea2fd7690d1277b88530217361df544abf03d42d5061c7a060b54eb6a0d54339",
++        "5": "e2584d62d78e2162e200a453f6c0f7b312fa34fadfb048b2ff9483c7d365012d",
++        "6": "2aae7dc846aaf25f1cadf55f1666862046c6db9d65d84bdc07fa039dac405606",
++        "7": "2aae7dc846aaf25f1cadf55f1666862046c6db9d65d84bdc07fa039dac405606",
++        "8": "2aae7dc846aaf25f1cadf55f1666862046c6db9d65d84bdc07fa039dac405606",
++        "10": "f7e8f4389aa7406a18e0bb040a73ba74968cb2eb178934837f072b4a17ca95df",
++        "11": "3a94ed8efd04b49bc465760f76394836dc801f651bc643700265dc2440f933ca",
++        "12": "d732a71d55d3455050b80d12b7ca70fa15d2789fc205b69ed0c899fa4659ad8a",
++        "13": "a56789d37c7c0901355d8af1114cb4a0ed50321487a208f5cc28541c468467d3",
++        "14": "f6897a643bbc070e8cf7076c6fb24f7537ed93579703e9f274f7d6b01155f0c9",
++        "16": "fd9243e1ba57263ed469c3bdbd7ade6ec5254e7ed924a9f5737fa44749933cc0",
++        "17": "d67dc6b22939f5e7bc82df9630a0f42c82f8c118c6a7cbffb5c7976b81b621de",
++        "18": "3373da7871cdfcca6a1d2ad44c6c6e30a7571330c2a35bd16505eb223c479ab9",
++        "19": "ea2fd7690d1277b88530217361df544abf03d42d5061c7a060b54eb6a0d54339"
++      }
++    },
++    {
++      "name": "t3-cave-water",
++      "W": 64,
++      "H": 64,
++      "settle": {
++        "settled": true,
++        "ticks": 2176
++      },
++      "hashes": {
++        "depth": "a93122acb6fbdd8e",
++        "overflow": "5a915da332465453",
++        "contamination": "de2f256064a0af79",
++        "moisture": "b4b8dd31c6738050",
++        "soilContamination": "de2f256064a0af79",
++        "dropped": "e3b0c44298fc1c14"
++      },
++      "levels": 2,
++      "inputSha256": "318dfacda94676c65d574ad05ec9c2b8cf821f8a01e98745eaa5e227cb95dd9b",
++      "inputGzip": "H4sIAAAAAAACCu3YMQrCMBSA4VcQ7KY4dXBy0AM4FZTEzXt4EcHBo7l6BDdXRzspkgRsJG21INb8hY+g8mp/qrRUi4gWkZ6Y7bHeAKAjBg3Q394+4NP9HQLo/+3+3ZN/7D8HxNIf+/nn/9/t618SWb+viPx+kH766aeffvpjfP6R8PyDfvpL1Bvo5/dPP/0AAAAAGlBfQD/99NNPf3f6+xXopz/m/pk1t3JrEcD5p59+rv/0008//fTTTz+Alsw21madeKtoqdwuqjy/9ObTmvmTN7+2a2bXYc28Oz43n5t16/YzrZm/qurP08BxmNfH0WZVfj97+b47ynNHmHRBAAA=",
++      "fields": {
++        "3": "bf0b8b14da0e84c925b07da4b5f14e5b51d26c932315fc91106edbb4f5df8847",
++        "4": "2d16f1506ab438df9eee42ba2265002a348725b11b7109361eaead52689066ea",
++        "5": "9a16afda2a59121a7770a23d006daf83e671fabce1a684dfdd4c9bec263b344a",
++        "6": "a93122acb6fbdd8ea802949d95ad112508ecf3dfd1c76643859394a3cbb0ad1d",
++        "7": "5a915da332465453d8a63141de7820fb0f9c11d71e8e64bc4ce696ec2fbceac7",
++        "8": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31",
++        "10": "2bc194071a22e205da19f48b4ea30d8c035fb8a4c25f8a33488d0ca32a80f02a",
++        "11": "fea074f6118f1bf848986227ca7f786a8316ab999b3d4b5210856b47f6477e45",
++        "12": "8df9ef9fef264abc94a67b19f57a1b214a61272f323ea2760b4be042bd283f83",
++        "13": "3fa008ecb2d1d8c2c83fd3f86efa2865ca0932dca7b601fe0834855d5550ff51",
++        "14": "66bded3657b8da6f563a1516839f833d7dca7880724a63a43095e6bda7baa395",
++        "16": "52a60d50cbd715832aa46524980074021901be5a530ca4bb955e480f49d2a7d1",
++        "17": "bf0b8b14da0e84c925b07da4b5f14e5b51d26c932315fc91106edbb4f5df8847",
++        "18": "97089d4c967e21b6d80dac356f74dcd5c8301519f50c2f058d900696115f48d8",
++        "19": "2d16f1506ab438df9eee42ba2265002a348725b11b7109361eaead52689066ea"
++      }
++    },
++    {
++      "name": "t4-soil",
++      "W": 64,
++      "H": 48,
++      "settle": {
++        "settled": true,
++        "ticks": 2048
++      },
++      "hashes": {
++        "depth": "593e2cc6e8e24c18",
++        "overflow": "858b7701a6a1f70b",
++        "contamination": "2aae7dc846aaf25f",
++        "moisture": "2fe17f9f59da1970",
++        "soilContamination": "2aae7dc846aaf25f",
++        "dropped": "e3b0c44298fc1c14"
++      },
++      "levels": 2,
++      "inputSha256": "d88d3a7ed77bfc7658d07ce83be072884a3d07bfee11510ae76c37ec612809bb",
++      "inputGzip": "H4sIAAAAAAACCu3YMQqDMBiG4Y/SwVE6dXCuq2O3PzlLhx7DHtFbuHoDOyQd0lIxFAnFN/AQIsTwIiLoJHWSDgrjKGkGAECS/aDPQP9/9LcZ7hnGDPTTTz/99PP9o59+AAAAAMCGrCD66ae/6H+gvfebFaTt8Px5/+mnn34AAPYjjMaF+RrnS5wrp8UxWbo/zg8f1+eV+7+N1/n1233CejjdfHr987wnXHo8RPQwAAA=",
++      "fields": {
++        "3": "ae41413db61194adba6f2fdebb756a63b5fa700e8249c1e6eddb3efabeae30b6",
++        "4": "3b591561c706ed6edaae2b9b657e9523dd480fb10da891890e1098471a9ccdb7",
++        "5": "9cd3700093c6834e89e3f34a16c9d8302ad583bbca17ed97f48d8d85091813eb",
++        "6": "593e2cc6e8e24c186eaeb46bcf69bac4f172fe0b63bf30f7d8b7526a6bc196cf",
++        "7": "858b7701a6a1f70b73a2bcdd7577bf9ea3fd18688e366989b5c115267c7062f2",
++        "8": "2aae7dc846aaf25f1cadf55f1666862046c6db9d65d84bdc07fa039dac405606",
++        "10": "1a5536086bd1244d709e2598497acbf45b7279704fc670ee40d731b606fa1c56",
++        "11": "85b12a74431189363dc333a57ce47c0a9ddc72d6e72d8cda7282c8374e4222dd",
++        "12": "2eb7f4b5ba486e19aef55b17ae145e4c3c822edd71b7aef788328f227248168e",
++        "13": "e7fae4b2b8514a72fac6319ef4417e537f15fffc94099c66685af54c640d28af",
++        "14": "d89a647766777c1d959b0599262bbc4330addac43e854511dbd37f2affaa8256",
++        "16": "24540aac6bc86c089ae3bca22b6131a09743ac314f719f15d119148c0f26400d",
++        "17": "ae41413db61194adba6f2fdebb756a63b5fa700e8249c1e6eddb3efabeae30b6",
++        "18": "3c885b729e2df62d17b306ea91141739eff7d83ce8baecc198dcc2e2171c4aff",
++        "19": "3b591561c706ed6edaae2b9b657e9523dd480fb10da891890e1098471a9ccdb7"
++      }
++    },
++    {
++      "name": "t5-plants",
++      "W": 48,
++      "H": 48,
++      "settle": {
++        "settled": true,
++        "ticks": 512
++      },
++      "hashes": {
++        "depth": "735cc0e408995426",
++        "overflow": "1c02730953829883",
++        "contamination": "1c02730953829883",
++        "moisture": "796551b6399da5d9",
++        "soilContamination": "1c02730953829883",
++        "dropped": "e3b0c44298fc1c14"
++      },
++      "levels": 2,
++      "inputSha256": "5d6322dc3ef46386893b7e5d11cb95d18254b1ade5b866b5954fe244fea3c4e4",
++      "inputGzip": "H4sIAAAAAAACCu3VMQqDQBCF4WdiYacECwvBK1ikHz2LB80VchRvsMquFmbFSkHIP/AYnIXdrxpbSa2kRKFSSUYIOS0N/lPjcsmyOH6O/7Z+N/fPThx+/PjZP/x/8eO/zO8SyXbi5/jx42f/4MeP/5r985TsEcfP8ePHz/7Bjx8/fvy3SY4fP378f+IPVXehv5deLL3sdFijHZ9nP/etFb6/r6HfzqvovQnKu9nvtCQAAA==",
++      "fields": {
++        "3": "6f1f238bd603cca429b9e9575482d638b73969be9f999e3b226136a4962f634b",
++        "4": "a349739a8ca72b5a65e1b217fd485eb6469340a1667c8fb8b85bd12e0c398981",
++        "5": "5adbca6e5d7cf3d982f2924d17d5c771f66f377399b17afe56961ca07baf5930",
++        "6": "735cc0e408995426e17eee809aa191ceebf4723a2bb7f95155e15516ed7f52c1",
++        "7": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75",
++        "8": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75",
++        "10": "4edd88b2bee1029f12e18e4391209069b9ae20ec37149e996d461cba95e0b3e0",
++        "11": "105bafce49e4ab4fc0d2100cf2aaa79a3c8d7e311f82f0f56587aaee789c9e90",
++        "12": "7eb31dfba9b4781ab32645e76f744d7b9def0323482b1fe8f1b847a506ec7905",
++        "13": "9d8859ff13c10a864cfc3369bb6c76ce7e6244be78e17bb6476f8a09a73920df",
++        "14": "8a52f472d8662011ae74d21834136eafe56ee02e547c107b253a5b784e5b76ff",
++        "16": "35807474ed79a755a792190c8224564564387ef8b40d174107217a5522c46b65",
++        "17": "6f1f238bd603cca429b9e9575482d638b73969be9f999e3b226136a4962f634b",
++        "18": "613a04ea39e9538a079ba41c8d4d149628f1296f677fce92911a6252b257930e",
++        "19": "a349739a8ca72b5a65e1b217fd485eb6469340a1667c8fb8b85bd12e0c398981"
++      }
++    },
++    {
++      "name": "t6-heights",
++      "W": 256,
++      "H": 256,
++      "settle": {
++        "settled": true,
++        "ticks": 1280
++      },
++      "hashes": {
++        "depth": "2d133ad519e00f48",
++        "overflow": "30e14955ebf13522",
++        "contamination": "30e14955ebf13522",
++        "moisture": "5951e2356ad3e98d",
++        "soilContamination": "30e14955ebf13522",
++        "dropped": "e3b0c44298fc1c14"
++      },
++      "levels": 2,
++      "inputSha256": "d2799c72d539213b2644fab70c3246c5e20b492dd9027bb698de7ab17af48de6",
++      "inputGzip": "H4sIAAAAAAACCu2du27kyBVAOZDh7kBQy44UCKr9BP8Bd7/AsQ1HduK/6AUUTDi/NICCSf0JA0ww6QYONuvFqEmJokg2H/W4jzPAwe5o0A/euudWkbxFVR+qqvpQVX+uzn/+VFVVLYBjBGooNibEizwmbvhPzMjjUnEjD/Ef//05Tx7Oi3HKsSHW+F/Se3KxnP/EGf9jxagmdsX9J+bl/K/xn1xMEG/O/fFfo/8gO5eJE/7HjhF5BJz74z/rF8D/fN9bSryoX4D/8u8RpYgZ58RA/5of/62OM7EiH/Df91gTMz3novg//D3I6W1jjdPbc5D+deY1/Gd/Ef7jv8bxxnXbsdRcA8jnPOOM87565LQcI7mM/7jh954y8Sdv6ZHx0Vc25/o+eYz/+G/P/yP+4z/+uz4PGHoP4s/5P/773VtC/PGfHnmf1wK3rAfIXWKF//H3teWMwZZnbkmLMf0qfnplJefe1u+cMw5T7yN9DLhPau9Zb5pimioXctbFLf4fFeUVe391nsNa6/uVdo9pq/+lfJDiIO7b2s+D//L3NEjLMevuzzm2rflwyAT+l/M/xnWGI/6Lu4Z9aQwOyvDi/7GA/yXA/3TXVzV7HqM2pJ6XS87/VuoB/sf1/wBvSHldPtcaoPQzT7T6b/XaH77HqQnSe06s+1/j/yJwV+a1x9Q1oDZaA/Af363Ug635fxSwLrHmv6bnVeOc7nqwJsdzPUvAs/+1UP9xyk49SNVPPJQrGvwvuQ+A+R00XVNc6v+cdYm0ed2j9zjB+iCH/0OfK3FNfzR+vY6ch0PkuTpWbkmc/7WvB8hniFEPcvhfuh5o329GrkLJ6whS+iQ9+E8OAuSvC3gO4Lc2pNrrwzgB6N+DxT43AAAAAAAAAAAAAAAAAAAAAACA5ZxOeSDWADbdpkYA4Dm1AQDPs9SD38kHwHfX/v9WVYevPcgbwHW//n9tfv475w6A7/jPtQTAdfynHgC+47+sekAdwneQ5X/OesC6BN9Btv8pvaQHAt9Bl/8x3aQvCt9Bv/9rvaRPEtc99NV6839urOmdxnXGfcW5sEL/yQ88ZxzjjCn+k1OMiXPwPzufOqTKSeKM7+SODv8B16kJ/vwnFvhOPWD+B1ynHuA/4Dv1YFuucA6A7+CrHmhblzD/4wP1oEwu4T++g62aoO3ahQf3yWfI5aW2axfW/CdXoWRN0Ha+otl/chBgW13Q4D9jC5CmNkjyn3ECsHdvlLgCAAAAAAAAAAAAAAAAACxnlwliDWDTbWoEAJ5TGwDwnJoAoMN3rjMA2HSdGFATwH6uEy/iBfZzl1gSVyAvIW3sS31fxo+cA3njU+q7MXb4DrbrATlDvoDfek5u4TtQD1hX6h9rxoAciekm15F1jSPxJo9SuklflOw44T81IbeDnnsmpR07/sPS3NS+R0z7PrcU35v8h7l5zb5RO3vD8B/Yb+V3Xzj+A7XB715v/AfqhN/7EvgP4NcX/AfAf8YWAP8BAP8BAP+9cbp6hXgA/vu6B9T1fw44gf8cj835H/8B/xU4ujtTwn/qAv5zPDLm51BtJ5b/1AD853jyzr/S/Kcm4D/Hk3ad3aWutpPaf2oCvng6npweafWfmoAvGo9Hiistx2o70o6JeoD/Uo5Hqhse/KcO4H+p45HuxAtVBJQca39ssl67ae63eqxHXvxflZedvMB/u+uEqTHGf53HsynfdiPkzvsPEcj5fXc664HncxQr/r9zJoX/O0f+LzlmCbVywznE0s+wVB+k+t+P69gYjzqTyv+dgPOCFPN295jmHqfC2OS4HjSVt/ifOP4x5z2P/i89TuuxMX7/I7f/2dbMuJ/H/0Ln/9QG2f4Xi1sO/6+c+c+cLnrsJPlfPB6p/b9y7P+OWiH6us2K9cWi++UD+9LFxQT/y7tPDcg/fite+6mDin6Y0tf/mPvl+E+N2cxi/zWQyv8r/Bc197POwH/8z1cXpPb9UAdk+L8z4v8V7qu6n5dinHb4z/yP/y7rlKOxT+5/yZ551v9A7Zfh/w7/Qel1UPzXVUfxHxjzcv7vDPqPI/hvkI8d3Pvf/56j33s/Ah6pPZfH/zz9JBr6f0f/vfX8egScU9sjuxup/8bj8qUD/s/1/mYEPPPYQ4//mdZSc99rk/9D6/q+94cRNhzb6fAWnMzbL4T/sq/972L5fzviezWxtu95/zjCXLeXEGM8qCuXc9PpNd4s/ovq/7sbmduribV9z/unEU4JiO1/rs/UsMbn/o7N/RiT/t+PzO378bV93/tvI1jx32pdGMpJ/Ld3PWXS/4fhuf25Fgys6T8eqtOXnvenjEjy30oNYP63zaT/YXhu/1EL+mv7Lw3fC3gv1X8LNYH+LsXM6LeZ8v8xvJ3fW9evBtb23xtOBdHgv8aasPO971eX692fzei3mfL/Kbyd41vXHwvO8Rb9nzoWiTVCwlrAzXpkqG926r5797Uz+m2m/P8W0l+zw//8x7r12n5p98w/c3I/0T976b57931m9NuM+X8KDQcfTmjzf82xx3oWoZTnl6msAZfOyfcjXrdcuO/efZ85/Tat/y++D4H/JupBLP+f14UN4vzfn0m21+y2x9T599Q6/Xrku12PeN1y4b77y7l77/r8WJ6HcOYU9NcA/J+OTay5s+v/lw6fDgL8v37ljWdr60Hf97seU+ffU+v0m4EaMNBX865vdqSf9sXz5v1m9duEBf4H/LfGWv+7OfHi/+Hsf0toyO7/zXta915qw36G890e2C73PYZ64/Ydl28m5vObXn26Hve6ZayndlV/3VL/hdcC/N9eD5b638+Fvv8/qG9eOV6nrQOtW7su/ZpwPVHz2jn+ttMD2+Whx1Bv3PVrj9zYOv2xXwOaGnLJ66dY/bRho/8B/y2z1v8+Q/63nPZnYt4H7PejfuzXgrYe3I74387xd50e2C6hx0BvXMvUOv2pXwNu5nkd7T5cDP8D/nurA93cWZMDQ/4/86HD1fr+pKeBvtSPPZ5rwN2I/+0cf9+sAXq+P/a5sM9taj7v1oDsY5vL/4z1Av/z5s5m/9ufD/j/wq7Dhe8wdN3rW68/va0Hu/sR/9s5/uG8Buj7/tTnwj63HPvexPqfec2A/wX8P0Twf4il/k98l25/+ve2DoTmHKB7H+/21fPnGnD/3vdvfZT0xpnzPyTyP+B3cf8Tn48+14Fw5qWPobnu13r+2KwB+r5r7Y0x4//Ed4nmf6AOLK29YvwP2/NI+32wrP6HFfFN4H4S/6kD0cni/5brUx7c7/r/cCZqnIMx/6kDev3fula1Ov7NMdUPZ5LF3JL/1ID0/pfOO09j/cP/+zPi3ZfiPzVAr/+M3btYH+/P4D/+F/c/4H92/+/OqIg9/vvqK6IGpI/3XYOGmI+9d30miv/Ne5E/Rt1n/N7G/LZBuftZawC5g/9WYv6XBumxxn/cpwbEj3m750J6jGe4j//4H6VnzWqcq5locD+1/8wdvvyfO8bBsPcxa4Fm/1k/2vZ/7Z5mbeNfRQL/8d+6/9Z6/6rIKLj2h//UAPxP5H8l8N5fKOQ/vuK/N/dLXg/Af2pA7j2AuC+nBiz4DPYAUwM2+7/1u1t2v0QNwH9qQM7ngcT8zvi/PSb4Tw1Ycw6fa+yCQ/8rh/4LeYam+xogLb5Srhfhvw7/WVfYi1PpGlAZ9v+A//hv9HzFm/8H5/5zbcGm/6VrQAn/65nPywj5rguL9p++Avy34v9A723RvQDSfwcAPcU676lrGWMJ/tcZjlej/zyXgnuWqcc4OPH/gP9goG8pxedKXP9njLN69/HfV89i7M+VeO0/4xgk8V9rXoCOnuWYnyfN/4NS/7XmBOjcrxDrfR3P/dH8l7SHBbfYryStBgjO26L+89xq3LdeB4Tn5lWXmw7XDfvO/3f/vfM6NePPfXz8z1kDFORjdv9Ljy/+437qOqAoD7P6H/Af/w37rzAHs57/B2oAGKwBinMP/8GV/0v24DjIPfyHos9nKO1+7Tvvst//owb4ms8l5UZdsAYc8B//eeZo0fzAf/ynBsh+li/+4z/u+3vuKOf/+I//1A7L/gf8pwcQiuZCKe/xf9nvnMB9/LcK7pfLDZyjBuC/Dv+3PB8S96kF1AD9/m+9x4z71IKSPYasAfj9P2CrFtQLwP80OYAT1ADp7tecAwCY3z+I/wB6a8CS943pf8B/gGJ1YM174j/+g67npa3xLZf/Af8B1KwraltrAPwHwH/8B7jgf23Pf2oAQGL/a/wH+qTU14Da3hoA93kOF2Twv8Z/KHwfnDjhfwr/yS09PTDEq5z/AmsA/jvsfyNu+I//9L5C3nsAwvzHfed7X4hlvh4gq/6TJ/iP/yr3AuA/e9+JaaZ9gPgP+M8+APwH/Md//Af8x3/8BynPvoKyzwHJPCb477wGEMc8/gf8B4E1gBimvf4vfEzwnx5A2BDbOsHvFMd9yFUDiN32uNYRf6c4cz+wB8juvRZ6f0FCnhIz1+7jP+6DEP9jfE/8J09xX5//Kb8fNYAcxX+5/guo+/jP3A8G5/6Zn4v/jnKVWNmY+yN+Pv47yVdiJMd/Qfs+8L9QTuXOW+Kvf+4P+G8qr4gJ7pf8Xvifk/Of+5+r7p+f/9H8ff/25+/+/L8efP2vG1//eePrq3+ue/2vfz//9/O/Z77+69vXf/7X+b8//bd53d8uvP63evrf28+/7b3P+e//++t/fnn787t3n/cH5929SPQBBAA=",
++      "fields": {
++        "3": "80cd4d11391cd6f22705c7531f9a1d0cfabd8c495ddf0a3d1814131fca87b286",
++        "4": "c1c50706717762cc83c20f6bab1c068f7e75c05692856026779d65330f4ffa1e",
++        "5": "9d186de5b85c534d4856e388a3101e16deef5bae3a4bd4a502d968706d3a9cb5",
++        "6": "2d133ad519e00f487f1c3b3c4eba385f50fd79d5cd79280a7da18423d3215d06",
++        "7": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
++        "8": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
++        "10": "191c977698dc250c3dc6a916c846a942a0625e4bab8f830bb0e0fc5926c1780a",
++        "11": "451f31dd61a378174f72f0277a6db0fe5a8e5915a1b7d35ce1564a2aba539060",
++        "12": "109359903e5297ef69fe02b978d49cdbc8be82511eae8c0e6ffc273f653c8425",
++        "13": "71f6f8cfc2645283e9858de68fd47ddb0fbe5087c2abb4a7b07f9ce776fbaa9a",
++        "14": "08ec0313f3bde3cf7ba17871ed37e3a3fb6f40e1e434c21528c168dd2d931ea3",
++        "16": "82d9b80e06ae53c6573488768ed2ceab6c07b775cfa8832458e80ceb5220d37e",
++        "17": "80cd4d11391cd6f22705c7531f9a1d0cfabd8c495ddf0a3d1814131fca87b286",
++        "18": "4302a8f9429bbc2ddbf0244cf8c5aa0efdc0e7abef478e9fe57f2e888707f3c0",
++        "19": "c1c50706717762cc83c20f6bab1c068f7e75c05692856026779d65330f4ffa1e"
++      }
++    },
++    {
++      "name": "cave-valley",
++      "W": 40,
++      "H": 32,
++      "settle": {
++        "settled": true,
++        "ticks": 384
++      },
++      "hashes": {
++        "depth": "f0531faa2e51e8a1",
++        "overflow": "a21a749f470d79e7",
++        "contamination": "cc61635da46b2c99",
++        "moisture": "da60975dc7a1a0ac",
++        "soilContamination": "cc61635da46b2c99",
++        "dropped": "e3b0c44298fc1c14"
++      },
++      "levels": 2,
++      "inputSha256": "cafe3b8ad2735786d4621aa6141ca6b0d4046b9b69ab444a5303fe9fd0d4734c",
++      "inputGzip": "H4sIAAAAAAACCtWYTU6FMBSFL6lJ3wxjHDgwwaFDh47scy0uhOV1qDt4W3AH/oRWL4fT0AeWYpOTwnncvq+XFlruReRORIwM5UJEPlqQVbXWFt63DAj5os+uPcPzBpQT26g6KsW3ktETxtnYhjBizhuQWeb5JnA1v5qNFaV4zu7/HzGe7QlhxJwL6ctW3pd60GQMSD3GnjBizke/sf4U9FyQPsYxsCUPeo4wsvvvEteW9jqQI2PAVWR0hBFzrtlZf0p6raqjcAx0FRlbwog5b0FdwmPPrtzYlGeV4jm7/zltnkTkFdStZLSEEXNuSV+Y5wOTV8qNTXk2rP20cAzktukJo13JaAgjjtPcNj1htCsZDWFcOj9w7J12Nj/Y/C0xP/B9WOvZ3CW49/7+wLVYjXUBvnv1Ma4XXUVGltvJPkDqrQEZN+5Vaqybe7KG/lk/733/gftkqcfIcltqf77I+4/7c/b9ZeW3ocUe4y70/WqRR3I7lNtjOAj1Q6ivo58oh+M4/hHaOczEv7vx9U/w/3PxcyXGX0I7w/nb1cvz2L+Z/N8nCmlyCTQVAAA=",
++      "fields": {
++        "3": "be4e935286b2865485e55ef35eca897207aaf25adf1c4c3379a844387a7cb356",
++        "4": "438d1101533d888c6c9d967af95d87053c14da3c7c3a6b6b7980731fd9e4a222",
++        "5": "2c710ac205b17586ac2f73b621b5b19053ffa7b274f1a7e5f0e67f99b432604e",
++        "6": "f0531faa2e51e8a1dbf9fda72ea55660848017f8305389a4c058d706ac0f32ca",
++        "7": "a21a749f470d79e73ab2c939d840b349344f28c39558d21b364e8265cb37cb04",
++        "8": "cc61635da46b2c9974335ea37e0b5fd660a5c8a42a89b271fa7ec2ac4b8b26f6",
++        "10": "1fb658f9cf566a381c40f5c980527cf537954def4faa936b610ea01dd4148472",
++        "11": "0a927d65b75b37082ced93e2ef112be8ee64e597191c10472cc57d0d1b65d8dc",
++        "12": "018b3aadcfc7832a41d8cd723f3fbaf8aa215878ea081dea9ea2f9ac98abca38",
++        "13": "cf923e75466b979e21d1c4b115dd85fa9f7af05b1492ce01b14f870f4df2885c",
++        "14": "0948335828707c6331e9b1cb93fb0ceb3a19a8dccbb6db0d30facdab61a340b2",
++        "16": "686d1d68c9e076c184c26581bdc4283b4585d75435130d25b454197dbda85a2f",
++        "17": "be4e935286b2865485e55ef35eca897207aaf25adf1c4c3379a844387a7cb356",
++        "18": "e94c0fcd17366ad1396354f456ff211718c1202050e3f8720e52df3f1f58441b",
++        "19": "438d1101533d888c6c9d967af95d87053c14da3c7c3a6b6b7980731fd9e4a222"
++      }
++    },
++    {
++      "name": "lake-cave",
++      "W": 30,
++      "H": 20,
++      "settle": {
++        "settled": true,
++        "ticks": 512
++      },
++      "hashes": {
++        "depth": "4b1c2b6958333e4e",
++        "overflow": "5354c05af8285425",
++        "contamination": "e9a15a094703faae",
++        "moisture": "3dea437883f3a8f7",
++        "soilContamination": "e9a15a094703faae",
++        "dropped": "e3b0c44298fc1c14"
++      },
++      "levels": 2,
++      "inputSha256": "63a98b48ef4608c839aaf0f362cad02848ea4e907ac91745e892ce9a2d3922a5",
++      "inputGzip": "H4sIAAAAAAACCpNjYGAQYWBgYGSAABYGBob/zKOYEnwcCx61FztmZsCPHzOj4sFgLyV41F5UbE8FPJTspVUeHLWXPvaO4lFMKYYAGQcIrQClVaA0A4zGAQQIyHM4YFcH4V8QSnZEFZfAMA8APx41nxQKAAA=",
++      "fields": {
++        "3": "a3e331917f60a394533904a1bf08ab3c27cdd9156789f1d914b57c634fed70f0",
++        "4": "74ad3e4886caa0a10fb6cc5b3532e15a6d93e7c0a5c181781a8157b6e8e22754",
++        "5": "5e38eb10385fcce2541c2d64e91457258208939091e01402e04ff3a69561d310",
++        "6": "4b1c2b6958333e4ebc0b5a142621ccfee33f83e17642de74cabfa09c52a9569f",
++        "7": "5354c05af8285425e6cb6c18efbdfece848dcccfc95605efa71637cd3bac8dee",
++        "8": "e9a15a094703faaea3fdf53af7e04da21717008ab4bb228799712b2fced03c65",
++        "10": "77b83cd21edfdbeea053e6ac46326c9d817f1068011c6b79a1bd1a0b33af5649",
++        "11": "f06dfc1eec3a064f5e2fc538830efac24adeb7a57d8f31b3b495c57ea7819907",
++        "12": "c0070b1b24397bfcdb9a98fb01cfcd2697ef443587693ac5e7e503c9cbe0851b",
++        "13": "25a5812107be5f6b89425852d830855e014d8a6ef1758f183dbb63c264ee0a07",
++        "14": "681ac12cf9c33b63abb13160c0766c6395dedc9e3e99e9b9218af2e607cdf7d2",
++        "16": "08d0691258a415b138881cf4e9174b6be12caf5dac42c2af30b4647b58202343",
++        "17": "a3e331917f60a394533904a1bf08ab3c27cdd9156789f1d914b57c634fed70f0",
++        "18": "404bbd4d43a49fc0e5c6021667161f4a9fbb1bd5a014d0fe178004da3086029e",
++        "19": "74ad3e4886caa0a10fb6cc5b3532e15a6d93e7c0a5c181781a8157b6e8e22754"
++      }
++    }
++  ]
++}
+diff --git a/tests/unit/stackedRust.test.ts b/tests/unit/stackedRust.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/stackedRust.test.ts
+@@ -0,0 +1,91 @@
++// D448 core/ABI contracts: #71's immutable water fixtures and plain refusals.
++import { describe, it, expect } from 'vitest';
++import { createHash } from 'node:crypto';
++import { stackFixtures, runStackFixture, fixtureOutput } from '../../tools/rust/stack-fixtures';
++import { StackMemory } from '../../tools/rust/stack-memory';
++import { prefill, canonicalSettle } from '../../src/core/sim/prefill';
++import type { WaterModel } from '../../src/core/sim/water';
++const hash = (a: Uint8Array) => createHash('sha256').update(a).digest('hex');
++describe('Rust stacked water', () => {
++    it('the typed flat path preserves current prefill and canonical bytes, stored and drained water included', () => {
++        const W = 12, H = 10, N = W * H;
++        const floor = new Float64Array(N).fill(5);
++        for (let y = 2; y < 8; y++)
++            for (let x = 2; x < 10; x++)
++                floor[y * W + x] = 2;
++        const model: WaterModel = { W, H, floor, dam: null, emitters: [{ cells: [3 * W + 3], strength: 1, contamination: 0 }], retained: [{ tiles: [5 * W + 7], floor: [2], depth: [1.5], contamination: [0.4] }], drained: [5 * W + 8] };
++        const m = new StackMemory(W, H, 1, 1);
++        try {
++            (m.view(0) as Uint32Array).set(Array.from(floor, h => 2 ** h - 1));
++            (m.view(1) as Float64Array).set([7, 3, 3, 2, 0, 0, 0, 1]);
++            (m.view(2) as Float64Array).set([5 * W + 7, 2, 1.5, 0.4]);
++            (m.view(20) as Uint8Array)[5 * W + 8] = 1;
++            m.op(0);
++            expect(m.info(1)).toBe(0);
++            m.op(2);
++            const start = prefill(model);
++            expect(m.view(6)).toEqual(start.depth);
++            expect(m.view(8)).toEqual(start.contamination);
++            const today = canonicalSettle(model);
++            m.op(3, 6);
++            while (!m.info(2))
++                m.op(4, 37);
++            m.op(6);
++            expect(m.info(0)).toBe(today.ticks);
++            expect(m.info(2)).toBe(today.settled ? 1 : 2);
++            expect(m.view(6)).toEqual(today.depth);
++            expect(m.view(8)).toEqual(today.contamination);
++            expect(m.view(10)).toEqual(today.out);
++            expect(m.view(16)).toEqual(today.sat);
++        }
++        finally {
++            m.close();
++        }
++    });
++    it('matches every #71 golden water byte and graph', () => {
++        for (const f of stackFixtures) {
++            const r = runStackFixture(f);
++            for (const [id, expected] of Object.entries(f.fields))
++                expect(hash(r.fields[Number(id)]), f.name + ' field ' + id).toBe(expected);
++            for (const [id, key] of [[6, 'depth'], [7, 'overflow'], [8, 'contamination']] as const)
++                expect(hash(r.fields[id]).slice(0, 16), f.name + ' ' + key).toBe(f.hashes[key]);
++            if (f.settle) {
++                expect(r.info[0]).toBe(f.settle.ticks);
++                expect(r.info[2]).toBe(f.settle.settled ? 1 : 2);
++            }
++        }
++    });
++    it('keeps all exposed state identical through different slices', () => {
++        for (const name of ['cave-valley', 'lake-cave']) {
++            const f = stackFixtures.find(f => f.name === name)!;
++            expect(Buffer.from(fixtureOutput(runStackFixture(f, 37)))).toEqual(Buffer.from(fixtureOutput(runStackFixture(f))));
++        }
++    });
++    it('refuses malformed input without a Wasm trap or a multiline message', () => {
++        expect(() => new StackMemory(0, 2)).toThrow(/^Water map dimensions are invalid\.$/);
++        const m = new StackMemory(3, 3, 1);
++        try {
++            expect(() => m.view(6)).toThrow(/^Water map handle or field is invalid\.$/);
++            (m.view(1) as Float64Array)[0] = 999;
++            expect(() => m.op(0)).toThrow(/^Water object is unknown or malformed\.$/);
++            (m.view(1) as Float64Array)[0] = 7;
++            m.op(0);
++            expect(() => m.op(999)).toThrow(/^Water operation is unknown\.$/);
++            expect(() => m.op(1, NaN, 1)).toThrow(/^Water run arguments are invalid\.$/);
++            (m.view(15) as Float64Array)[0] = NaN;
++            expect(() => m.op(5)).toThrow(/^Water emitter parameters are malformed\.$/);
++            (m.view(15) as Float64Array)[0] = 1;
++            m.op(3, 6);
++            (m.view(15) as Float64Array)[0] = NaN;
++            expect(() => m.op(4, 37)).toThrow(/^Water emitter parameters are malformed\.$/);
++            (m.view(15) as Float64Array)[0] = 1;
++            m.op(0);
++            (m.view(6) as Float64Array)[0] = NaN;
++            expect(() => m.op(1, 1, 1)).toThrow(/^Water state is malformed\.$/);
++        }
++        finally {
++            m.close();
++        }
++        expect(() => m.op(1, 1, 1)).toThrow(/^Water operation is unknown\.$/);
++    });
++});
+diff --git a/tools/determinism/cases.ts b/tools/determinism/cases.ts
+index 9547d22f..a6d1cbdc 100644
+--- a/tools/determinism/cases.ts
++++ b/tools/determinism/cases.ts
+@@ -5,6 +5,7 @@
+ // hashed as little-endian binary64, so signed zero and low bits count. `run.ts` runs the same cases in
+ // Chromium, Firefox, WebKit and Node and compares them checkpoint by checkpoint.
+
++import { runStackFixture, stackFixtures } from "../rust/stack-fixtures";
+ import { generate } from "../../src/core/gen/generate";
+ import { makeSpec, THEMES } from "../../src/core/spec/mapspec";
+ import { applyBrush, BRUSH_TOOLS } from "../../src/core/features/raster/brush";
+@@ -30,7 +31,7 @@ import { randomOp } from "../../tests/contract/randomOps";
+
+ export interface Case {
+   id: string;
+-  kind: "generate" | "brush" | "force" | "mixed" | "session" | "placement" | "weather" | "scheduling";
++  kind: "stacked-water" | "generate" | "brush" | "force" | "mixed" | "session" | "placement" | "weather" | "scheduling";
+   n: number;
+   [k: string]: any;
+ }
+@@ -185,7 +186,7 @@ function water(m: any, ticks = 24) {
+  *  full list (nightly) runs every setting at both sizes, three seeds and long sequences. */
+ export function cases(smoke = false): Case[] {
+   if ([...VERBS].sort().join(",") !== [...verbs].sort().join(",")) throw Error("Update the determinism cases for the current force list");
+-  const out: Case[] = [];
++  const out: Case[] = ["cave-valley", "lake-cave"].map(name => ({ id: `stacked-water/${name}`, kind: "stacked-water", n: 0, name }));
+   for (const n of [128, 256]) {
+     const grid = !smoke || n === 128;
+     for (const theme of grid ? THEMES : ["any"]) for (const seed of smoke ? [1] : [1, 37, 20260930]) out.push({ id: `generate/${n}/${theme}/${seed}`, kind: "generate", n, theme, seed });
+@@ -211,6 +212,15 @@ export function cases(smoke = false): Case[] {
+ /** One case's checkpoints. */
+ export async function runCase(c: Case, progress: (s: string) => void = () => {}): Promise<Row[]> {
+   const rows: Row[] = [];
++  if (c.kind === "stacked-water") {
++    const f = stackFixtures.find(f => f.name === c.name);
++    if (!f) throw Error("Water fixture is unknown.");
++    const r = runStackFixture(f);
++    const components: Record<string,string> = { info: await sha(binary(r.info, "f64")) };
++    for (const [id, bytes] of r.fields.entries()) components["field"+id] = await sha(bytes);
++    for (const [id, expected] of Object.entries(f.fields)) if (components["field"+id] !== expected) throw Error(f.name+" differs from #71 field "+id);
++    return [{ label: c.id, hash: await sha(enc.encode(json(components))), components }];
++  }
+   const add = async (label: string, m: any, record?: any, extra?: any) => void rows.push({ label, ...(await digest(m, record, extra)) });
+   if (c.kind === "scheduling") {
+     // a force's record must not depend on how fast it was planned (D366): the same run under a
+diff --git a/tools/determinism/run.ts b/tools/determinism/run.ts
+index 911f53df..f798cb13 100644
+--- a/tools/determinism/run.ts
++++ b/tools/determinism/run.ts
+@@ -26,6 +26,8 @@ function arg(name: string): string | null {
+   return i >= 0 ? (process.argv[i + 1] ?? null) : null;
+ }
+ const smoke = process.argv.includes("--smoke");
++const noTiming = process.argv.includes("--no-timing");
++const serial = process.argv.includes("--serial");
+ // --only: case ids containing any of these comma-separated texts (plain text, never a pattern)
+ const only = arg("only") ? arg("only")!.split(",").filter(Boolean) : null;
+ const outName = arg("out") ?? (smoke ? "smoke" : "full");
+@@ -35,7 +37,7 @@ const root = resolve(import.meta.dirname, "../..");
+ const pw: Record<string, BrowserType> = process.env.DGM_DET_PLAYWRIGHT
+   ? await import(pathToFileURL(join(process.env.DGM_DET_PLAYWRIGHT, "index.mjs")).href)
+   : await import("@playwright/test");
+-const dir = join(root, ".scratch/determinism", outName);
++const dir = arg("out-dir") ? resolve(arg("out-dir")!) : join(root, ".scratch/determinism", outName);
+ mkdirSync(dir, { recursive: true });
+
+ // the page: the cases bundled as the site bundles its core
+@@ -64,6 +66,11 @@ const server = http.createServer((req, res) => {
+ await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+ const url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+
++async function runEngines<T>(tasks: Array<() => Promise<T>>): Promise<T[]> {
++  if (!serial) return Promise.all(tasks.map(task => task()));
++  const out: T[] = []; for (const task of tasks) out.push(await task()); return out;
++}
++
+ interface Engine {
+   version: string;
+   userAgent: string;
+@@ -99,12 +106,12 @@ try {
+   let list = caseList(smoke);
+   if (only) list = list.filter((c) => only.some((t) => c.id.includes(t)));
+   const mismatches: { case: string; label: string; engines: string[]; components: string[] }[] = [];
+-  const t0 = performance.now();
++  const t0 = noTiming ? 0 : performance.now();
+   const slowest: { case: string; seconds: number }[] = [];
+   for (const [index, c] of list.entries()) {
+-    const tc = performance.now();
+-    const responses = await Promise.all(
+-      Object.entries(engines).map(async ([name, e]) => {
++    const tc = noTiming ? 0 : performance.now();
++    const responses = await runEngines(
++      Object.entries(engines).map(([name, e]) => async () => {
+         try {
+           const rows = await e.run(c);
+           e.rows.push(...rows);
+@@ -117,7 +124,7 @@ try {
+         }
+       }),
+     );
+-    slowest.push({ case: c.id, seconds: Math.round((performance.now() - tc) / 100) / 10 });
++    if (!noTiming) slowest.push({ case: c.id, seconds: Math.round((performance.now() - tc) / 100) / 10 });
+     const reference = responses[0];
+     for (const other of responses.slice(1)) {
+       if (!other.rows || !reference.rows) continue;
+@@ -135,7 +142,7 @@ try {
+     if (index % 20 === 0 || bad)
+       console.log(`${index + 1}/${list.length} ${c.id}: ${responses.map((r) => (r.rows ? `${r.name} ${r.rows.length}` : `${r.name} ERROR ${r.error?.message}`)).join(", ")}; mismatches ${mismatches.length}`);
+   }
+-  const seconds = Math.round((performance.now() - t0) / 1000);
++  const seconds = noTiming ? undefined : Math.round((performance.now() - t0) / 1000);
+   const summary = {
+     schema: 1,
+     smoke,
+@@ -144,7 +151,7 @@ try {
+     platform: { os: os.platform(), release: os.release(), arch: os.arch(), cpu: os.cpus()[0]?.model ?? "", node: process.version },
+     cases: list.length,
+     seconds,
+-    slowest: slowest.sort((a, b) => b.seconds - a.seconds).slice(0, 20),
++    ...(!noTiming ? { slowest: slowest.sort((a, b) => b.seconds - a.seconds).slice(0, 20) } : {}),
+     engines: Object.fromEntries(Object.entries(engines).map(([n, e]) => [n, { version: e.version, userAgent: e.userAgent, checkpoints: e.rows.length, errors: e.errors }])),
+     mismatches,
+   };
+@@ -153,7 +160,7 @@ try {
+   const errors = Object.values(engines).flatMap((e) => e.errors);
+   for (const m of mismatches.slice(0, 40)) console.error(`MISMATCH ${m.case} ${m.label} (${m.engines.join(" vs ")}): ${m.components.join(", ")}`);
+   for (const e of errors.slice(0, 40)) console.error(`ERROR ${e.case}: ${e.message}`);
+-  console.log(`${list.length} cases, ${Object.entries(engines).map(([n, e]) => `${n} ${e.version}: ${e.rows.length} checkpoints`).join("; ")}; ${mismatches.length} mismatches, ${errors.length} errors, ${seconds} s`);
++  console.log(`${list.length} cases, ${Object.entries(engines).map(([n, e]) => `${n} ${e.version}: ${e.rows.length} checkpoints`).join("; ")}; ${mismatches.length} mismatches, ${errors.length} errors${noTiming ? "" : `, ${seconds} s`}`);
+   failed = mismatches.length > 0 || errors.length > 0;
+ } finally {
+   await Promise.all(browsers.map((b) => b.close()));
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 9ff77cd5..1f18fd1f 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -244,6 +244,12 @@ jobs:
+         run: npx playwright install --with-deps chromium firefox webkit
+       - name: The committed Rust water matches a fresh build; the native batch binary
+         run: npx tsx tools/rust/build.ts --check --native
++      - name: Stacked water core contracts (at most four workers)
++        run: cd rust && cargo test -j 4 -p water --target-dir target/stack-tests -- --test-threads=4
++      - name: Stacked water against the game-verified goldens, native and Node-Wasm
++        run: |
++          cd rust && cargo build --release -j 4 -p water --example stack-fixture
++          cd .. && npx tsx tools/rust/stack-identity.ts
+       - name: The native Rust settle gives the app's bytes (golden fixtures under both rules, every theme, stored water)
+         run: npx tsx tools/rust/water-identity.ts --seeds 1-1 --require-native
+       - name: The Rust maths guard, strict builds, the same bits as portable.ts and the same water in every engine

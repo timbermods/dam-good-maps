@@ -1,0 +1,672 @@
+[
+  {
+    "name": "baseline",
+    "initial": {
+      "unusedCount": 0,
+      "unusedAlive": 0,
+      "unusedCells": 0,
+      "createdCount": 1,
+      "freedCount": 1,
+      "finalizedCount": 0,
+      "outstanding": 0,
+      "maxOutstanding": 1,
+      "wasm": [
+        {
+          "id": 1,
+          "label": "water",
+          "bytes": 14548992
+        }
+      ],
+      "heap": null
+    },
+    "iterations": [
+      {
+        "iteration": 1,
+        "allocation": {
+          "unusedCount": 3,
+          "unusedAlive": 1,
+          "unusedCells": 65536,
+          "createdCount": 7,
+          "freedCount": 2,
+          "finalizedCount": 4,
+          "outstanding": 1,
+          "maxOutstanding": 6,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 67108864
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 2,
+        "allocation": {
+          "unusedCount": 6,
+          "unusedAlive": 2,
+          "unusedCells": 131072,
+          "createdCount": 13,
+          "freedCount": 3,
+          "finalizedCount": 5,
+          "outstanding": 5,
+          "maxOutstanding": 6,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 67108864
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      },
+      {
+        "iteration": 3,
+        "allocation": {
+          "unusedCount": 9,
+          "unusedAlive": 2,
+          "unusedCells": 131072,
+          "createdCount": 19,
+          "freedCount": 4,
+          "finalizedCount": 10,
+          "outstanding": 5,
+          "maxOutstanding": 7,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 77594624
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 4,
+        "allocation": {
+          "unusedCount": 12,
+          "unusedAlive": 2,
+          "unusedCells": 131072,
+          "createdCount": 25,
+          "freedCount": 5,
+          "finalizedCount": 15,
+          "outstanding": 5,
+          "maxOutstanding": 7,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 77594624
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      },
+      {
+        "iteration": 5,
+        "allocation": {
+          "unusedCount": 15,
+          "unusedAlive": 3,
+          "unusedCells": 196608,
+          "createdCount": 31,
+          "freedCount": 6,
+          "finalizedCount": 20,
+          "outstanding": 5,
+          "maxOutstanding": 9,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 98566144
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 6,
+        "allocation": {
+          "unusedCount": 18,
+          "unusedAlive": 2,
+          "unusedCells": 131072,
+          "createdCount": 37,
+          "freedCount": 7,
+          "finalizedCount": 27,
+          "outstanding": 3,
+          "maxOutstanding": 11,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 119537664
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      },
+      {
+        "iteration": 7,
+        "allocation": {
+          "unusedCount": 21,
+          "unusedAlive": 2,
+          "unusedCells": 131072,
+          "createdCount": 43,
+          "freedCount": 8,
+          "finalizedCount": 30,
+          "outstanding": 5,
+          "maxOutstanding": 11,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 119537664
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 8,
+        "allocation": {
+          "unusedCount": 24,
+          "unusedAlive": 3,
+          "unusedCells": 196608,
+          "createdCount": 49,
+          "freedCount": 9,
+          "finalizedCount": 35,
+          "outstanding": 5,
+          "maxOutstanding": 11,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 119537664
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      },
+      {
+        "iteration": 9,
+        "allocation": {
+          "unusedCount": 27,
+          "unusedAlive": 2,
+          "unusedCells": 131072,
+          "createdCount": 55,
+          "freedCount": 10,
+          "finalizedCount": 42,
+          "outstanding": 3,
+          "maxOutstanding": 11,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 119537664
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 10,
+        "allocation": {
+          "unusedCount": 30,
+          "unusedAlive": 2,
+          "unusedCells": 131072,
+          "createdCount": 61,
+          "freedCount": 11,
+          "finalizedCount": 47,
+          "outstanding": 3,
+          "maxOutstanding": 11,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 119537664
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      },
+      {
+        "iteration": 11,
+        "allocation": {
+          "unusedCount": 33,
+          "unusedAlive": 2,
+          "unusedCells": 131072,
+          "createdCount": 67,
+          "freedCount": 12,
+          "finalizedCount": 52,
+          "outstanding": 3,
+          "maxOutstanding": 11,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 119537664
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 12,
+        "allocation": {
+          "unusedCount": 36,
+          "unusedAlive": 2,
+          "unusedCells": 131072,
+          "createdCount": 73,
+          "freedCount": 13,
+          "finalizedCount": 57,
+          "outstanding": 3,
+          "maxOutstanding": 11,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 119537664
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      }
+    ],
+    "beforeGC": {
+      "unusedCount": 36,
+      "unusedAlive": 2,
+      "unusedCells": 131072,
+      "createdCount": 73,
+      "freedCount": 13,
+      "finalizedCount": 57,
+      "outstanding": 3,
+      "maxOutstanding": 11,
+      "wasm": [
+        {
+          "id": 1,
+          "label": "water",
+          "bytes": 119537664
+        }
+      ],
+      "heap": null
+    },
+    "final": {
+      "unusedCount": 36,
+      "unusedAlive": 0,
+      "unusedCells": 0,
+      "createdCount": 73,
+      "freedCount": 13,
+      "finalizedCount": 60,
+      "outstanding": 0,
+      "maxOutstanding": 11,
+      "wasm": [
+        {
+          "id": 1,
+          "label": "water",
+          "bytes": 119537664
+        }
+      ],
+      "heap": null
+    }
+  },
+  {
+    "name": "fixed",
+    "initial": {
+      "unusedCount": 0,
+      "unusedAlive": 0,
+      "unusedCells": 0,
+      "createdCount": 1,
+      "freedCount": 1,
+      "finalizedCount": 0,
+      "outstanding": 0,
+      "maxOutstanding": 1,
+      "wasm": [
+        {
+          "id": 1,
+          "label": "water",
+          "bytes": 14548992
+        }
+      ],
+      "heap": null
+    },
+    "iterations": [
+      {
+        "iteration": 1,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 4,
+          "freedCount": 2,
+          "finalizedCount": 1,
+          "outstanding": 1,
+          "maxOutstanding": 3,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 35651584
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 2,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 7,
+          "freedCount": 3,
+          "finalizedCount": 2,
+          "outstanding": 2,
+          "maxOutstanding": 3,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 35651584
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      },
+      {
+        "iteration": 3,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 10,
+          "freedCount": 4,
+          "finalizedCount": 4,
+          "outstanding": 2,
+          "maxOutstanding": 3,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 35651584
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 4,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 13,
+          "freedCount": 5,
+          "finalizedCount": 6,
+          "outstanding": 2,
+          "maxOutstanding": 3,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 35651584
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      },
+      {
+        "iteration": 5,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 16,
+          "freedCount": 6,
+          "finalizedCount": 10,
+          "outstanding": 0,
+          "maxOutstanding": 5,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 56426496
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 6,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 19,
+          "freedCount": 7,
+          "finalizedCount": 12,
+          "outstanding": 0,
+          "maxOutstanding": 5,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 56426496
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      },
+      {
+        "iteration": 7,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 22,
+          "freedCount": 8,
+          "finalizedCount": 14,
+          "outstanding": 0,
+          "maxOutstanding": 5,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 56426496
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 8,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 25,
+          "freedCount": 9,
+          "finalizedCount": 15,
+          "outstanding": 1,
+          "maxOutstanding": 5,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 56426496
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      },
+      {
+        "iteration": 9,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 28,
+          "freedCount": 10,
+          "finalizedCount": 16,
+          "outstanding": 2,
+          "maxOutstanding": 5,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 56426496
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 10,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 31,
+          "freedCount": 11,
+          "finalizedCount": 20,
+          "outstanding": 0,
+          "maxOutstanding": 5,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 56426496
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      },
+      {
+        "iteration": 11,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 34,
+          "freedCount": 12,
+          "finalizedCount": 22,
+          "outstanding": 0,
+          "maxOutstanding": 5,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 56426496
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 637280,
+        "settledHash": 2663712139
+      },
+      {
+        "iteration": 12,
+        "allocation": {
+          "unusedCount": 0,
+          "unusedAlive": 0,
+          "unusedCells": 0,
+          "createdCount": 37,
+          "freedCount": 13,
+          "finalizedCount": 24,
+          "outstanding": 0,
+          "maxOutstanding": 5,
+          "wasm": [
+            {
+              "id": 1,
+              "label": "water",
+              "bytes": 56426496
+            }
+          ],
+          "heap": null
+        },
+        "settledBytes": 640768,
+        "settledHash": 479449161
+      }
+    ],
+    "beforeGC": {
+      "unusedCount": 0,
+      "unusedAlive": 0,
+      "unusedCells": 0,
+      "createdCount": 37,
+      "freedCount": 13,
+      "finalizedCount": 24,
+      "outstanding": 0,
+      "maxOutstanding": 5,
+      "wasm": [
+        {
+          "id": 1,
+          "label": "water",
+          "bytes": 56426496
+        }
+      ],
+      "heap": null
+    },
+    "final": {
+      "unusedCount": 0,
+      "unusedAlive": 0,
+      "unusedCells": 0,
+      "createdCount": 37,
+      "freedCount": 13,
+      "finalizedCount": 24,
+      "outstanding": 0,
+      "maxOutstanding": 5,
+      "wasm": [
+        {
+          "id": 1,
+          "label": "water",
+          "bytes": 56426496
+        }
+      ],
+      "heap": null
+    }
+  }
+]

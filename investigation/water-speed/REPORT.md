@@ -1,56 +1,80 @@
-# Faster water: exact investigation
+- Base: dev `38d4ee6b` includes multi-core water; product files remain unchanged.
+- Water-only plain SIMD flags: native 2,480→2,566 ms; Chromium 2,839→2,871 ms; no standalone gain observed.
+- Group four private neighbours/flows per tile and bound outflow slices: native 2,566→1,993 ms; Chromium 2,871→2,379 ms.
+- Skip wet-list rebuild on unchanged row occupancy: native 1,993→1,214 ms; Chromium 2,379→2,172 ms; this single-thread case does not exercise strip sync.
+- Observed control→final on the fixed 256² settle: native 2.04× (51.0% less time), Chromium 1.31× (23.5% less time).
+- Each change: 98 canonical settles at 96/128/256/512, native and four strips; 57 pinned tests; 196 baseline determinism checkpoints; zero differing bytes.
+- Strict IR/assembly/Wasm guards pass: no FMA, relaxed SIMD or changed reduction/source/stop order; final Rust and stacked-water checks pass.
+- Adopt [adoption.patch](adoption.patch) using [INTEGRATION.md](INTEGRATION.md); [EVIDENCE-rust.json](EVIDENCE-rust.json) binds every reading and proof.
 
-**Proposal:** adopt [water.ts](water.ts) through the milestone session; [INTEGRATION.md](INTEGRATION.md) has the proofs and regeneration commands. Product code is untouched. Reference: feature/m9b `b01f113c1d97f90de042b7cbe74d052c28f0342c`.
+## One fixed case, one reading per stage
 
-## Where time went and what changed
+Lake Basin, seed 1, 256×256, generated and prefilled by unchanged dev. Rust 1.90.0, Node 24.13.0,
+Chromium/installed Chrome 154.0.8037.95, Ryzen 7 9800X3D, Windows; the PC remained shared.
+The previous stage's one reading is reused as the next change's before value. These are individual observations,
+not medians, guaranteed gains or speed gates. No warmup settle or additional timing case was run.
 
-Six baseline CPU profiles (river, lake, broad sea; 128²/256²) put 77–81% in flow substeps, with active-set rebuilding and evaporation updates taking most of the remainder. The baseline already uses an active set. This proposal maintains membership and wet-neighbour counts incrementally, invalidates evaporation only where occupancy changed, caches neighbour indices, avoids redundant clearing and dry/no-inflow arithmetic, and sorts private tile indices every 64 ticks for locality. All per-tile arithmetic, reduction order, source order, starting water, two substeps and stopping checks stay intact. Extra persistent storage: 1.44 MiB at 256².
+| Cumulative stage | Native ms | Chromium ms | Full result SHA-256 |
+| --- | ---: | ---: | --- |
+| control | 2480.338 | 2839.100 | `e06e94837d18a74b…` |
+| simd | 2565.702 | 2871.300 | `e06e94837d18a74b…` |
+| layout | 1993.280 | 2378.800 | `e06e94837d18a74b…` |
+| sync | 1214.416 | 2172.100 | `e06e94837d18a74b…` |
 
-![Baseline CPU profile](charts/profile.svg)
+The timed operation is one full canonical settle from prefilled water, including protocol decoding, simulation
+construction and result encoding. Generation/prefill, input file reads/copies, process launch and Wasm compilation
+are outside the reading. Instances start cold; browser tiering and host activity can influence the numbers.
+The output is 3,211,288 bytes, with 1408 ticks; settled=true,
+steadyTicks=none. Its complete hash is
+`e06e94837d18a74b99411258c9b2bdc7c4e5106c197abc4fcfbe85c07f36378f`; input hash is
+`ed6d33e54389371ac7a6672a8b0ef37303f1795e7d26fcf4f113aca15eb72f6a`. Every native/Chromium reading matches that exact output.
 
-## Speed on this machine
+SIMD alone did not establish a speedup. The final patch retains the water-only flag alongside the layout change;
+the compiler emits packed memory operations, while directional reductions remain scalar and ordered.
+The layout removes repeated direction-index bounds checks through safe fixed-size tile arrays and bounded slices,
+and puts one tile's neighbour IDs together. Scratch/neighbor capacities stay unchanged; no unchecked indexing is used.
+The sync shortcut removes an active-list scan when all copied halo tiles keep their occupancy. The large native
+layout→sync timing drop is not a demonstrated benefit of this shortcut: this timed native call never calls sync.
+Shared-host variation and compiled-code layout can affect a single reading. Its strip speedup
+is unmeasured here, and variation in this single-thread reading cannot be attributed to that shortcut.
 
-AMD Ryzen 7 9800X3D 8-Core Processor, 16 logical CPUs; Windows, Node v24.13.0. Same input and machine before/after; clone/check time excluded. Both implementations warmed up; paired order alternated. The batch screen ran alongside verification; CPU time still includes cache/clock contention. Repeated samples were collected after this investigation's verification workers stopped; other host activity is uncontrolled. CPU and wall samples are retained in [evidence](evidence/selected.csv).
+## Identity evidence
 
-The 1,073-case one-pair screen has median speedup **1.25×**, geometric mean 1.23×. Generated 128²/256² medians: 1.24×/1.26×. Median/P90/max baseline CPU: 0.97/4.74/14.08 s; candidate: 0.78/3.78/11.41 s. These quantiles are separate distributions. The additional 96 pinned cases have a screened median of 1.42×.
+Each candidate passes the current water-identity assertions over all 13 golden fixtures under both game/port rules,
+all seven generated themes at 96/128/256, retained lakes and drained water, and the tool's tiled 512 case.
+Seeds are the tool's defaults: 1–2 at 96/128, seed 1 at 256/512. Each pass has 98 canonical settles and
+211,264 multi-core ticks. The local check adds direct comparisons with unchanged dev's compiled water, keeping
+all existing assertions. SIMD also passed the original unmodified tool separately before this combined check.
+The simulation arrays, saturation, momentum, settled/tick/steady-tick values are compared as raw bytes.
 
-Five paired observations per representative case (seed 1):
+Existing binding and pinned speedup tests pass (57 tests), including 1×1, 1×9 and rectangular maps,
+old depth, signed zeros, dams, seeps, changing floors, drought and every-tick bookkeeping. Final native Rust
+has 13 passing tests, including the new row-sync reconstruction regression; all eight stacked-water fixtures
+match their pinned fields natively and in Node-Wasm, with both sliced-settle checks passing.
+The current determinism tool runs six water/weather/stacked cases: 196 complete-state checkpoints each in
+Node, Chromium and Chromium with four water threads, with zero mismatches/errors and 1,020 threaded ticks.
+Every candidate's Node manifest also matches unchanged dev's 196 baseline checkpoints. It exercises badtide
+at 128/256 and dry→normal→drought→badtide water at 96/512. Other browsers and unrelated force matrices were
+not run. This corpus plus unchanged arithmetic/order supports adoption; it is not exhaustive enumeration of inputs.
 
-| Case | Baseline → candidate CPU seconds | Median paired gain |
-|---|---:|---:|
-| islands 128² | 1.03 → 0.70 | 1.37× |
-| islands 256² | 2.33 → 1.62 | 1.42× |
-| lakeBasin 128² | 0.36 → 0.25 | 1.39× |
-| lakeBasin 256² | 3.83 → 2.58 | 1.47× |
-| riverValley 128² | 0.25 → 0.20 | 1.23× |
-| riverValley 256² | 1.14 → 0.81 | 1.41× |
+Optimized native and Wasm IR, assembly and unstripped Wasm pass the repository maths guard after each change.
+Native flags remain `-fma,x86-64-v2`; only the water's embedded Wasm gets `+simd128,-relaxed-simd`.
+The candidate TypeScript typecheck passes, and the adoption patch applies cleanly. No pins or versions are changed.
 
-Across these 14 cases, median paired gains for live edit/drought/badtide: **1.40×/1.33×/1.41×**. Full Normal 9-day drought and 8-day badtide measured. The three slowest and three lowest-ratio screened cases were remeasured with five pairs:
+## Starting evidence and scope
 
-| Case | Baseline → candidate CPU seconds | Median paired gain |
-|---|---:|---:|
-| generated-highlands-128-15 | 0.14 → 0.11 | 1.27× |
-| generated-lakeBasin-128-47 | 0.09 → 0.06 | 1.26× |
-| generated-lakeBasin-128-68 | 0.03 → 0.02 | 1.94× |
-| generated-islands-256-6 | 7.22 → 5.49 | 1.32× |
-| generated-islands-256-10 | 8.78 → 7.20 | 1.21× |
-| generated-islands-256-28 | 7.67 → 6.19 | 1.25× |
+[The earlier water investigation](REPORT-typescript.md) put 77–81% of TypeScript water time in flow substeps.
+[Perf-audit's report at 9e366c6c](https://github.com/timbermods/dam-good-maps/blob/9e366c6c25136c25c21a029245923ceca01e551f/investigation/perf-audit/REPORT.md)
+identifies resident arrays, strict SIMD and sparse-loop bounds/branches as candidates, while noting that water
+already has most of its separate state arrays. [Rust-analysis's report](../rust-analysis/PROFILE_REPORT.md)
+records benefits from early exits and validated buffer access in other kernels. Those guided this investigation;
+no fresh CPU profile or sampling was taken. Timing only the fixed settle avoids claiming a generation or
+whole-editor speedup; adoption uses the same water module for live settles, weather, generation and strips.
 
-All 32 screened regressions were repeated. Four paired CPU medians remain below 1; wall gains below 1 mean slower too. Windows thread-CPU samples show coarse ~15 ms quantization, so small cases are noisy. This is not a universal performance win:
-
-| Case | CPU gain | Wall gain |
-|---|---:|---:|
-| generated-riverValley-128-52 | 0.97× | 1.06× |
-| generated-highlands-128-79 | 0.89× | 0.96× |
-| generated-any-128-85 | 0.98× | 1.00× |
-| generated-lakeBasin-256-9 | 0.99× | 1.08× |
-
-![Repeated canonical timings](charts/speed.svg)
-
-## Exactness and limits
-
-**Zero byte mismatches**: all 12 golden fixtures under game/legacy rules (23,400 every-tick checks plus 532 live slices), narrow/rectangular grids (3,584 ticks), 100 randomized fractional/edge/source scenes (10,000 ticks); all 19 official maps, two pinned projects and two saves; M9b's complete seven-theme seed batches (700 at 128², 350 at 256²). The matrix compared 2291 generator attempts and 329020 simulation checkpoints, including sliced canonical/live settling, every weather frame and return to normal. Water, contamination, momentum/settle.out, saturation, ticks, volume, hysteresis, accepted exports, decisions and reports matched. 93 generator refusals matched too; empty exports were never counted as successful exports.
-
-Full product/candidate TypeScript checks pass. Chrome 154.0.8037.58: all fixtures plus six river/lake/sea models, both rules on fixtures, full weather; raw bytes agree and complete-state hashes match Node. Existing suite: **176 passed, two unchanged upstream failures** (D213 seed 23/96 has no badwater basin; historical day-one save depth error 0.0010567997879132873 exceeds 0.001). All 85 gallery pins pass; an additional 96-case matrix covers those maps, the ten determinism seeds and live seed 4242 through canonical/live/weather paths (28864 checkpoints). Four of those determinism seeds are refused identically by M9b (1000, 1037, 1111, 1185); these are water comparisons, not successful exports. Python water/basin checks pass. Independent Python oracle: 40 loads and round trips pass; 1122 generated verdicts plus 19 official maps have zero disagreements. Its commands exit nonzero solely for unchanged Any/3/128 and Islands/20/128 generator refusals; tested export hashes are bound to the final candidate.
-
-No result-changing variant was adopted. Exact early equilibrium must preserve today's stopping tick. Cross-core work would need per-tick barriers and browser shared memory. Planned-level initialization and a longer cap require a separate decision; neither was offered as a measured proposal. Flow arithmetic still dominates. The milestone can decide how to apply this gain to #150. Bulk outputs stay in ignored local/; small evidence and chart generators are committed.
+Everything committed stays in this folder. The patch is limited to `rust/water` and the water's build flags;
+public arrays/ABI, product TypeScript and the forces remain as they were. Full binaries, jobs, output bytes and
+manifests stay in ignored `local/` under D195. Regeneration commands and inputs are in INTEGRATION.md;
+expect tens of minutes, dominated by correctness checks, with cargo/test workers capped at four and engines serial.
+The authorized remote branch previously pointed at the closed TypeScript investigation, `ed6fc4fb`;
+its reports are preserved here. The one branch push uses a lease on that exact old commit. No other branches,
+merges, approvals, auto-merge, tags, releases or game probes are involved.

@@ -14,7 +14,6 @@ describe("the name a map is saved under (D345, B10)", () => {
     const open = ed.refine();
     expect(open.info.timberName).toBe("dgm-canyon-big-beaver.timber");
     // the same map after an edit and its undo is saved under the same name
-    ed.setEditorWaterMode("defer");
     ed.applyAll([{ op: "sculpt", params: { mode: "raise", cells: [[10, 10, 12]], amount: 1 } }], "Raise");
     expect(ed.sessionView().info.timberName).toBe("dgm-canyon-big-beaver.timber");
     // the project file keeps the word
@@ -30,7 +29,6 @@ describe("the name a map is saved under (D345, B10)", () => {
 
   it("an imported map and a real place are saved as dgm-<name>, file-safe (D360 c)", async () => {
     await runGenerate(makeSpec({ seed: 12, theme: "riverValley", size: { x: 96, y: 96 } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const saved = await ed.exportTimber(true);
     expect(saved.ok).toBe(true);

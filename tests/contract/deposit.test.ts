@@ -1,0 +1,117 @@
+// D342/D444: native-planned force, no page required.
+import { describe, expect, test } from "vitest";
+import { DepositRun, DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
+import { fixture } from "./forceFixtures";
+import { jobBytes, executeInRust, planInRust } from "../../src/core/forces/rust/bridge";
+import { decode } from "../../src/core/forces/rust/protocol";
+import { forceParamsOf } from "../../src/core/forces/result";
+import { forceProblems } from "../../src/core/forces/op";
+import { planForce } from "../../src/core/forces/start";
+import { keptForceParams } from "../../src/core/forces/keep";
+const path=[{x:30,y:30},{x:53,y:30}];
+const sum=(a:Uint8Array)=>a.reduce((s,v)=>s+v,0);
+const plain=()=>fixture("plain",64);
+describe("Rust Deposit",()=>{
+ test("sediment is taken upstream, a lobed fan keeps channels, and no material is minted",()=>{
+  const m=plain();for(let y=0;y<64;y++)for(let x=0;x<64;x++)m.heights[y*64+x]=x<27?12:7;
+  const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,size:40},{path}).finishAll();
+  expect(r.plan0.stats.eroded).toBeGreaterThan(100);expect(r.plan0.stats.deposited).toBe(r.plan0.stats.eroded);
+  expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.plan0.stats.balance).toBe(0);
+  expect(r.plan0.branches.length).toBeGreaterThan(1);expect(r.plan0.channelStages).toHaveLength(3);
+  expect(r.plan0.channelStages[0]).not.toEqual(r.plan0.channelStages[1]);
+  expect(new Set(Array.from(r.map.heights.slice(32*64+30,32*64+52))).size).toBeGreaterThan(2);
+  expect(r.map.heights.some((h,i)=>h<m.heights[i]&&i%64<30)).toBe(true);
+ });
+ test("objects ride the current channel bed throughout playback",()=>{
+  const m=plain(),r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,size:40},{path});r.planAll();
+  while(!r.done){r.step();for(const e of r.map.entities){const b=m.entities.find(b=>b.id===e.id)!;
+   expect(e.z).toBe(b.z+r.map.heights[e.y*64+e.x]-m.heights[b.y*64+b.x]);
+  }}
+ });
+ test("Power zero has a visible conserved effect on flat ground, edges and submerged ground",()=>{
+  for(const p of [{x:30,y:30},{x:0,y:0},{x:63,y:63}])for(const wet of [false,true]){
+   const m=plain();if(wet)m.water.depth.fill(.5);
+   const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:0,size:64},{path:[p]}).finishAll();
+   expect(r.plan0.stats.changed).toBeGreaterThan(0);expect(r.plan0.stats.deposited).toBeGreaterThan(0);
+   expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.map.water).toEqual(m.water);
+   expect(r.map.entities.every(e=>m.entities.some(b=>b.id===e.id))).toBe(true);
+  }
+ });
+ test("Floor, kept tiles and area depth enter the material budget before playback",()=>{
+  const m=plain(),keep=new Uint8Array(4096),area=new Uint8Array(4096);area.fill(1);keep[30*64+30]=1;
+  for(let y=20;y<40;y++)area[y*64+10]=0;
+  const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,size:40,floor:8},{path},keep,area).finishAll();
+  expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.map.heights.every((h,i)=>Math.abs(h-m.heights[i])<=area[i])).toBe(true);
+  expect(r.map.heights[30*64+30]).toBe(m.heights[30*64+30]);expect(r.map.heights.every(h=>h>=8)).toBe(true);
+ });
+ test("a native wet outlet is not filled; sources keep their ids, strength and positions",()=>{
+  const m=fixture("river",64),r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,size:64},{path:[{x:35,y:20},{x:35,y:55}]}).finishAll();
+  expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.map.water).toEqual(m.water);
+  const sources=m.entities.filter(e=>e.template==='WaterSource');expect(r.map.entities.filter(e=>e.template==='WaterSource')).toHaveLength(sources.length);
+  for(const b of sources){const e=r.map.entities.find(e=>e.id===b.id)!;expect(e.x).toBe(b.x);expect(e.y).toBe(b.y);expect(e.before).toEqual(b.before);}
+  const seen=new Set<number>(),todo=[20*64+35];let outlet=false;
+  while(todo.length){const i=todo.pop()!;if(seen.has(i)||m.water.depth[i]<=.05||r.map.heights[i]>m.heights[i])continue;seen.add(i);if(Math.floor(i/64)===63)outlet=true;
+   for(const j of [i-1,i+1,i-64,i+64])if(j>=0&&j<4096&&Math.abs(j%64-i%64)<=1)todo.push(j);
+  }
+  expect(outlet).toBe(true);
+ });
+ test("final playback is kept exactly, records validate, and typed/packed plans agree",()=>{
+  const m=plain(),r=new DepositRun(m,DEPOSIT_DEFAULTS,{path}).finishAll();expect(r.map).toEqual(r.final());
+  expect(new DepositRun(m,DEPOSIT_DEFAULTS,{path}).finishAll().map).toEqual(r.map);
+  const job={verb:"deposit" as const,map:m,settings:DEPOSIT_DEFAULTS,intent:{path},keep:null};
+  const packed=decode(executeInRust(jobBytes(job))) as any;expect(packed.raw.heights).toEqual(Array.from(planInRust(job).raw.heights));
+  expect(packed.channelStages).toEqual(r.plan0.channelStages.map(s=>Array.from(s)));
+  const op=forceParamsOf(m,r.map,{verb:"deposit",settings:DEPOSIT_DEFAULTS,where:{path:path.map(p=>[p.x,p.y])},cut:null,steps:r.total,reason:"done"})!;
+  expect(forceProblems(op,64,64,22)).toEqual([]);expect(op.source).toBeUndefined();expect(op.sources).toBeUndefined();
+ });
+ test("the core accepts and records Deposit without requesting any object ids",()=>{
+  const m=plain(),state:any={W:64,H:64,pre:m.heights.slice(),protect:new Uint8Array(4096),channel:new Uint8Array(4096)};
+  const p=planForce({base:m,request:{verb:"deposit",settings:DEPOSIT_DEFAULTS,path,cut:null},state,caves:[],newId:()=>{throw Error("Deposit must not request an id");}});
+  expect(p.ok).toBe(true);if(!p.ok)return;p.staged!.finishAll();const kept=keptForceParams({before:p.before,request:p.request,carve:null,staged:p.staged});
+  expect(kept.ok).toBe(true);if(kept.ok&&kept.params)expect(kept.params.verb).toBe("deposit");
+ });
+ test("an outline with nothing above the Floor to take still lays a small fan, inside it (D356, #341)",()=>{
+  // (the water brings its sediment: a lake's bed or the map's lowest ground never refuses a click)
+  const m=plain(),h=m.heights.slice(),run=new DepositRun(m,{...DEPOSIT_DEFAULTS,floor:22,size:8},{path:[path[0]]});
+  run.finishAll();
+  let raised=0,lowered=0,outside=0;
+  for(let i=0;i<h.length;i++){const d=run.map.heights[i]-h[i];if(d>0)raised++;if(d<0)lowered++;if(d!==0&&Math.hypot(i%64-path[0].x,Math.floor(i/64)-path[0].y)>4)outside++;}
+  expect(raised).toBeGreaterThan(0);expect(lowered).toBe(0);expect(outside).toBe(0);
+ });
+ test("an outline with only a sliver above the Floor still lays at least the least fan (D356; review of #348)",()=>{
+  // (a fan's own tiles never give: one tile a level above a flat at the Floor once left a click refused)
+  const m=plain(),at=path[0].y*64+path[0].x,h0=m.heights[at];m.heights.fill(h0);m.heights[at]=h0+1;
+  for(const [power,size] of [[70,8],[100,8],[100,30]]){
+   const h=m.heights.slice(),run=new DepositRun(m,{...DEPOSIT_DEFAULTS,floor:h0,power,size},{path:[path[0]]});run.finishAll();
+   let changed=0,outside=0;
+   for(let i=0;i<h.length;i++){if(run.map.heights[i]!==h[i]){changed++;if(Math.hypot(i%64-path[0].x,Math.floor(i/64)-path[0].y)>size/2)outside++;}}
+   expect(changed,`Power ${power} Size ${size}`).toBeGreaterThanOrEqual(9);expect(outside).toBe(0);
+  }
+ });
+ test("ground held outside a working area never stops a fan the outline has room for (D356; review of #348)",()=>{
+  // (a flat at the Floor, the area leaving out x ≥ 33, the ground out there higher: the water still brings a fan)
+  const m=plain(),h0=m.heights[30*64+30];m.heights.fill(h0);for(let i=0;i<4096;i++)if(i%64>=33)m.heights[i]=h0+2;
+  const area=new Uint8Array(4096);for(let i=0;i<4096;i++)area[i]=i%64<33?255:0;
+  for(const size of [8,30]){
+   const h=m.heights.slice(),run=new DepositRun(m,{...DEPOSIT_DEFAULTS,floor:h0,power:70,size},{path:[{x:30,y:30}]},null,area);run.finishAll();
+   let changed=0,outside=0;for(let i=0;i<h.length;i++)if(run.map.heights[i]!==h[i]){changed++;if(i%64>=33||Math.hypot(i%64-30,Math.floor(i/64)-30)>size/2)outside++;}
+   expect(changed,`Size ${size}`).toBeGreaterThanOrEqual(9);expect(outside).toBe(0);
+  }
+ });
+ test("a working area leaving only a little free ground still gets a fan on it (D356; review of #348)",()=>{
+  // (all its free ground would be given, leaving nowhere to lay: the water brings it all instead)
+  const m=plain();m.heights.fill(9);const area=new Uint8Array(4096);
+  for(let y=29;y<=31;y++)for(let x=29;x<=31;x++)area[y*64+x]=255;
+  for(const power of [0,70]){
+   const h=m.heights.slice(),run=new DepositRun(m,{...DEPOSIT_DEFAULTS,floor:1,power,size:8},{path:[{x:30,y:30}]},null,area);run.finishAll();
+   let changed=0,outside=0;for(let i=0;i<h.length;i++)if(run.map.heights[i]!==h[i]){changed++;if(!area[i])outside++;}
+   expect(changed,`Power ${power}`).toBeGreaterThan(0);expect(outside).toBe(0);
+  }
+ });
+ test("one-line refusals leave all input bytes unchanged",()=>{
+  const m=plain(),h=m.heights.slice();expect(()=>new DepositRun(m,{...DEPOSIT_DEFAULTS,power:-1},{path})).toThrow("a deposit's power is 0 to 100");
+  expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path:[]})).toThrow("Draw Deposit on the map");
+  expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path},new Uint8Array(4096).fill(1))).toThrow("the working area leaves nothing to take sediment from");
+  expect(m.heights).toEqual(h);
+ });
+});

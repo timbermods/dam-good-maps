@@ -14,6 +14,7 @@ import { woodDetail } from "../core/analysis/wood";
 import { startStatus, type StartCheck } from "./features";
 import { plain } from "./words";
 import { tip } from "../ui/Tooltip";
+import { ObjectSlider } from "./ObjectWindow";
 
 // ------------------------------------------------------------------------------ the water layers
 
@@ -24,20 +25,46 @@ export type LayerKind = "none" | "badwater" | "roofed";
 export const LAYER_NAMES: Record<LayerKind, string> = {
   none: "None",
   badwater: "Badwater",
-  roofed: "Water under roofs",
+  roofed: "Caves and overhangs",
 };
 
-/** What the water layer on the map shows, in a line or two. */
+/** The colours the water layers lay over the map (red, green, blue, alpha out of 255): the overlay and its caption's
+ *  swatches read the same ones, so the caption shows the colours rather than naming them. */
+export const LAYER_COLORS: Record<"badwater" | "soil" | "roofed", [number, number, number, number]> = {
+  badwater: [120, 70, 30, 200],
+  soil: [190, 140, 70, 120],
+  roofed: [170, 90, 220, 150],
+};
+
+/** The overlay's colour without its transparency: a swatch looks the same on any panel, light or dark. */
+const swatchOf = (c: readonly number[]) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+
+/** One line of a caption: the colour as it lies on the map, then what it is. */
+function CaptionRow({ color, children }: { color: readonly number[]; children: string }) {
+  return (
+    <p class="layer-row">
+      <span class="swatch" style={{ background: swatchOf(color) }} aria-hidden="true" />
+      {children}
+    </p>
+  );
+}
+
+/** What the water layer on the map shows: each colour as a swatch with its name. */
 export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLayers }) {
-  let text = "";
-  if (kind === "badwater") text = "Dark brown is badwater. Light brown soil is contaminated: plants die there.";
-  else if (kind === "roofed")
-    text = layers.roofed.length
-      ? `Violet tiles are under caves or overhangs. Their water is the map's own: the preview is approximate there.`
-      : "No caves or overhangs on this map.";
   return (
     <div class="layer-legend" role="status">
-      <p>{text}</p>
+      {kind === "badwater" ? (
+        <>
+          <CaptionRow color={LAYER_COLORS.badwater}>Badwater</CaptionRow>
+          <CaptionRow color={LAYER_COLORS.soil}>Contaminated soil</CaptionRow>
+        </>
+      ) : kind === "roofed" ? (
+        layers.roofed.length ? (
+          <CaptionRow color={LAYER_COLORS.roofed}>Caves or overhangs: the brushes shape only their tops</CaptionRow>
+        ) : (
+          <p>No caves or overhangs on this map.</p>
+        )
+      ) : null}
       {layers.approximate ? <p class="note">Water checks are approximate here: {layers.approximate}.</p> : null}
       {layers.preview && kind !== "roofed" ? <p class="note">Preview water: the exact settle is still running.</p> : null}
     </div>
@@ -46,28 +73,27 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
 
 // ---------------------------------------------------------------------------- a source's strength
 
-/** Water's strength, blocks per second, with the brushes' slider: a few steps from a trickle to
- *  the most the game handles; past the official maps' range it says so, never a block. */
-export function StrengthSlider(p: { value: number; steps: readonly number[]; onChange(v: number): void; label?: string }) {
-  const k = p.steps.reduce((best, f, j) => (Math.abs(f - p.value) < Math.abs(p.steps[best] - p.value) ? j : best), 0);
-  return (
-    <>
-      <label class="slider-field" title="Blocks of water a second">
-        {p.label ?? "Strength"}
-        <input type="range" min={0} max={p.steps.length - 1} step={1} value={k} aria-valuetext={`${p.value} water per second`} onInput={(e) => p.onChange(p.steps[Number((e.target as HTMLInputElement).value)])} />
-        <output>{p.value} water/s</output>
-      </label>
-      {p.value > OFFICIAL_FLOW ? <p class="note">Stronger than any official map.</p> : null}
-    </>
-  );
+/** Water's strength, blocks per second, as the bar's slider with its value: a few steps from a trickle to the most
+ *  the game handles; past the official maps' range it says so, never a block. A strength between the steps (set
+ *  with Ctrl+scroll) is a step of its own. */
+export function StrengthSlider(p: { value: number; steps: readonly number[]; onChange(v: number): void; label?: string; keys?: string[] }) {
+  const steps = [...new Set([...p.steps, p.value])].sort((a, b) => a - b);
+  return <ObjectSlider label={p.label ?? "Strength"} min={0} max={steps.length - 1} step={1} value={steps.indexOf(p.value)} words={`${Number(p.value.toFixed(2))} water per second`} tipText="Water it gives each second" keys={p.keys} onInput={(i) => p.onChange(steps[i])} />;
 }
+
+/** A strength as the window says it, at the right of its name. */
+export const waterWords = (v: number) => `${Number(v.toFixed(2))} water/s`;
+
+/** A strength past the official maps' strongest source. */
+export const STRONGER_WORDS = "Stronger than any official map";
+export const strongerThanOfficial = (v: number) => v > OFFICIAL_FLOW;
 
 /** One source's strength in words, the same as its marker's label says it (PLAN §20 D361, item 6):
  *  in a row, "this source 0.25 · row 1 water/s", so it is clear the scroll changes this source and
  *  not the row. Highlighted: it is the source being changed. */
-export function SourceReadout(p: { label: string; words: string }) {
+export function SourceReadout(p: { label: string; words: string; plain?: boolean }) {
   return (
-    <span class="source-readout" role="status" aria-label={p.label} data-source-readout>
+    <span class={`source-readout${p.plain ? " plain" : ""}`} role="status" aria-label={p.label} data-source-readout>
       <span class="source-readout-label">{p.label}</span> <output>{p.words}</output>
     </span>
   );
@@ -82,6 +108,21 @@ export function StartIndicators({ check, rules }: { check: StartCheck; rules: { 
   const mark = (ok: boolean) => (ok ? "ok" : "low");
   const status = startStatus(check);
   const waterOk = check.water !== null && check.water <= rules.waterWithin;
+
+  // (under a roof the walks are not measured: the core's verdict alone, D491)
+  if (check.underRoof)
+    return (
+      <div class="start-indicators" role="status">
+        <p class={status === "blocked" ? "bad" : "ok"} data-status={status}>
+          {check.problem ? `Does not fit: ${check.problem}` : "The district center fits here"}
+        </p>
+        <ul>
+          <li class="warn" data-need="under-roof">
+            Under a roof: its walks to water, wood and berries are not measured
+          </li>
+        </ul>
+      </div>
+    );
 
   return (
     <div class="start-indicators" role="status">
@@ -113,37 +154,62 @@ export function StartIndicators({ check, rules }: { check: StartCheck; rules: { 
 
 // ---------------------------------------------------------------------------------- the history
 
-export function HistoryPanel({ info, onJump, onClose }: { info: SessionInfo; onJump(index: number): void; onClose(): void }) {
+/** Why a step cannot be kept on a map whose replay differed (D455). */
+const NO_KEEP = "Only the step the map is at can be kept here";
+
+export function HistoryPanel({ info, onJump, onKeep, onClose }: { info: SessionInfo; onJump(index: number): void; onKeep?(step: number, branch: boolean): void; onClose(): void }) {
   const current = info.history.filter((h) => h.applied).length - 1;
+  // opening on a long list: the step the map is at is in view, not the top of the list
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    panel.current?.querySelector<HTMLElement>('.hist-row[aria-current="true"]')?.scrollIntoView({ block: "center" });
+  }, []);
   const orphanNotes = info.orphans.filter((o) => !info.history.some((h) => h.seq === o.seq && h.orphaned));
+  /** A step as a row: the one the map is at is selected (the panel's own look for the thing you are on). Beside it, Keep
+   *  and Branch take the map as it stood at that step into Your maps (a copy; the open map stays where it is), and
+   *  Branch opens the copy; they show on the row pointed at, focused, or the map is at. */
+  const row = (label: string, at: number, title: string, undone = false) => {
+    // (a map whose replay differed keeps only the step it stands at, D455)
+    const cannot = !!info.keepOnlyHere && at !== current;
+    return (
+    <div class="hist-item">
+      <button type="button" class={`hist-row${undone ? " undone" : ""}`} aria-current={current === at ? "true" : undefined} {...tip(title)} onClick={() => onJump(at)}>
+        {label}
+      </button>
+      {onKeep ? (
+        <span class="hist-acts">
+          <button type="button" class="ghost hist-act" disabled={cannot} {...tip(cannot ? NO_KEEP : "Keep this version in Your maps")} onClick={() => onKeep(at, false)}>
+            Keep this version
+          </button>
+          <button type="button" class="ghost hist-act" disabled={cannot} {...tip(cannot ? NO_KEEP : "Keep this version and open the copy")} onClick={() => onKeep(at, true)}>
+            Branch from here
+          </button>
+        </span>
+      ) : null}
+    </div>
+    );
+  };
   return (
-    <aside class="history" aria-label="History">
-      <header>
-        <h2>History</h2>
-        <button type="button" class="linkish" aria-label="Close the history" title="Close the history" onClick={onClose}>
+    <aside class="history gen history-panel" aria-label="History" ref={panel}>
+      <div class="ym-head">
+        <h2 class="ym-title">History</h2>
+        <button type="button" class="ghost ym-act hist-close" aria-label="Close the history" {...tip("Close the history")} onClick={onClose}>
           ×
         </button>
-      </header>
-      <p class="muted">Click a step to go back to it. Nothing is lost: you can go forward again until you make a new edit.</p>
-      <ol>
-        <li>
-          <button type="button" class="linkish" aria-current={current === -1} title="Go back to before any edit" onClick={() => onJump(-1)}>
-            {info.kind === "import" ? "Opened the map" : "The generated map"}
-          </button>
-        </li>
+      </div>
+      <ol class="hist-steps">
+        <li>{row(info.kind === "import" ? "Opened the map" : "The generated map", -1, "Go back to before any edit")}</li>
         {info.history.map((h, k) => (
-          <li key={k} class={h.applied ? "" : "undone"}>
-            <button type="button" class="linkish" aria-current={current === k} title="Go back to this step" onClick={() => onJump(k)}>
-              {h.label}
-            </button>
+          <li key={k}>
+            {row(h.label, k, h.applied ? "Go back to this step" : "Go forward to this step", !h.applied)}
             {h.orphaned ? <p class="orphan">No effect now: {h.orphaned}.</p> : null}
           </li>
         ))}
       </ol>
       {orphanNotes.length ? (
         <>
-          <h3>To review</h3>
-          <ul>
+          <h3 class="hist-sub">To review</h3>
+          <ul class="hist-steps">
             {orphanNotes.map((o) => (
               <li key={o.seq} class="orphan">
                 {o.label}: {o.reason}.
@@ -179,7 +245,7 @@ export function Items({ items, actions }: { items: CheckItem[]; actions?: ItemAc
     <ul>
       {items.map((c) => (
         <li key={c.id + c.message}>
-          {c.message[0].toUpperCase() + c.message.slice(1)} <code>{c.id}</code>
+          {c.message[0].toUpperCase() + c.message.slice(1)}
           {actions && c.fix?.length ? (
             <>
               {" "}
@@ -299,7 +365,7 @@ export function ExportDialog(p: ExportDialogProps) {
         </header>
         {!check && !error ? (
           <p role="status">
-            {progress?.stage === "water" ? "Settling the water…" : "Checking the map…"}
+            {progress?.stage === "water" ? "Settling…" : "Checking the map…"}
             {progress ? <progress max={1} value={progress.done} aria-label="Progress" /> : null}
           </p>
         ) : null}

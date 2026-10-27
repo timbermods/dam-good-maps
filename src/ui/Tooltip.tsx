@@ -21,7 +21,7 @@ const DELAY = 450;
 
 /** A control's tooltip: `text`, then each key as a small key cap at the end. A key may carry a few words after
  *  it ("V flips it": a cap V, then "flips it"); keys that are null or false are left out. Spread it on the
- *  control: `<button {...tip("Carve a river", "7")}>`. */
+ *  control: `<button {...tip("Carve a river", "Shift+1")}>`. */
 export function tip(text: string, ...keys: (string | null | undefined | false)[]): { title: string; "data-keys"?: string } {
   const k = keys.filter((x): x is string => !!x);
   return k.length ? { title: text, "data-keys": k.join(KEY_SEP) } : { title: text };
@@ -47,6 +47,9 @@ interface Shown {
   y: number;
   /** Above the control (no room below). */
   above: boolean;
+  /** Beside the control, to its left, level with its middle (`data-tip-side="left"`: a control with something that
+   *  opens beneath it, the speaker's volume). */
+  left: boolean;
 }
 
 /** The page's one tooltip layer. */
@@ -96,9 +99,14 @@ export function Tooltips() {
       const text = (el.getAttribute(HELD) ?? "").trim();
       if (!text) return;
       const r = el.getBoundingClientRect();
-      const above = r.bottom + 44 > window.innerHeight;
+      const left = el.getAttribute("data-tip-side") === "left";
+      const above = !left && r.bottom + 44 > window.innerHeight;
       visible = true;
-      setShown({ text, keys: keysOf(el), x: r.left + r.width / 2, y: above ? r.top - 6 : r.bottom + 6, above });
+      setShown(
+        left
+          ? { text, keys: keysOf(el), x: r.left - 6, y: r.top + r.height / 2, above: false, left: true }
+          : { text, keys: keysOf(el), x: r.left + r.width / 2, y: above ? r.top - 6 : r.bottom + 6, above, left: false }
+      );
     }
     function point(target: EventTarget | null) {
       const el = (target instanceof Element ? target.closest(`[title], [${HELD}]`) : null) as HTMLElement | null;
@@ -160,12 +168,13 @@ export function Tooltips() {
   useLayoutEffect(() => {
     if (!shown || !box.current) return;
     const w = box.current.offsetWidth;
-    setLeft(Math.max(8, Math.min(window.innerWidth - w - 8, shown.x - w / 2)));
+    // (beside a control: its right edge on the control's left; else centred under or over it)
+    setLeft(Math.max(8, shown.left ? shown.x - w : Math.min(window.innerWidth - w - 8, shown.x - w / 2)));
   }, [shown]);
 
   if (!shown) return null;
   return (
-    <div ref={box} class={`tip${shown.above ? " above" : ""}`} role="tooltip" aria-hidden="true" style={{ left: `${left}px`, top: `${shown.y}px` }}>
+    <div ref={box} class={`tip${shown.above ? " above" : ""}${shown.left ? " beside" : ""}`} role="tooltip" aria-hidden="true" style={{ left: `${left}px`, top: `${shown.y}px` }}>
       <span class="tip-text">{shown.text}</span>
       {shown.keys.map((k) => {
         const { cap, words } = keyParts(k);

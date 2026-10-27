@@ -205,13 +205,14 @@ const landOf = (s: ReturnType<typeof state>) => ({ heights: s.heights, objects: 
 
 /** A force kept, its show playing on: undo takes it back, and nothing of it lands later; then back
  *  (redo, and the worker takes it back by its gesture), so the map is exactly `before`, Redo too. */
-async function undoWhileItShows(p: ReturnType<typeof page>, before: ReturnType<typeof state>, where: string) {
+async function undoWhileItShows(p: ReturnType<typeof page>, before: ReturnType<typeof state>, where: string, undone = before) {
   const heard = p.trace.length;
   ed.undo();
   await p.idle();
   expect(p.trace.length, where).toBe(heard);
-  expect(state().heights, where).toBe(before.heights);
-  expect(state().objects, where).toBe(before.objects);
+  // (undo takes the force's step back whole: a Try another roll's too, D488, to `undone`)
+  expect(state().heights, where).toBe(undone.heights);
+  expect(state().objects, where).toBe(undone.objects);
   ed.redo();
   expect(ed.forceCancel(p.driver.lastGesture).taken, where).toBe("kept");
   expect(state(), where).toEqual(before);
@@ -221,7 +222,7 @@ async function undoWhileItShows(p: ReturnType<typeof page>, before: ReturnType<t
  *  does while a painted Lift is still drawn; Esc once it plays skips to the final land `kept`, one
  *  step; over already, the force was kept, and undo takes it back. The map is left as `before` each
  *  time. What Esc did, moment by moment, is counted. */
-async function everyMoment(g: Gesture, speed: ForceSpeed, key: Key, before: ReturnType<typeof state>, kept: ReturnType<typeof state>, trace: readonly string[]) {
+async function everyMoment(g: Gesture, speed: ForceSpeed, key: Key, before: ReturnType<typeof state>, kept: ReturnType<typeof state>, trace: readonly string[], undone = before) {
   const beforeShown = hash(ed.terrainNow().heights);
   let atWork = 0;
   const esc = { cancelled: 0, skipped: 0 };
@@ -252,10 +253,10 @@ async function everyMoment(g: Gesture, speed: ForceSpeed, key: Key, before: Retu
     // kept: the final land, one step (Esc skipped to it; or it was over when the key came)
     expect(r.p.ended, where).toEqual(["kept"]);
     expect(landOf(state()), where).toEqual(g.again ? landOf(state()) : landOf(kept));
-    expect(landOf(state()).steps.length, where).toBe(landOf(before).steps.length + 1);
+    expect(landOf(state()).steps.length, where).toBe(landOf(before).steps.length + (g.again ? 0 : 1));
     // (the page shows the kept land: nothing of the showing is left on it)
     expect(hash(r.p.shown.heights), where).toBe(hash(ed.terrainNow().heights));
-    await undoWhileItShows(r.p, before, where);
+    await undoWhileItShows(r.p, before, where, undone);
   }
   // (the moments reached the force at work: its start, its working out, its frames, its keep)
   expect(atWork, g.name).toBeGreaterThan(8);
@@ -266,7 +267,6 @@ describe("Esc or undo at any moment of a force (D341)", () => {
   const gestures: Gesture[] = [];
   beforeAll(async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const b = MapSession.open(decodeProject(ed.project().bytes)).built;
     const st = b.start!;
@@ -297,15 +297,16 @@ describe("Esc or undo at any moment of a force (D341)", () => {
 
   /** A whole run of `g`: its trace, and the map it keeps (then taken back by its gesture: exactly the
    *  map before, Redo included). */
-  async function traced(g: Gesture, speed: ForceSpeed) {
+  async function traced(g: Gesture, speed: ForceSpeed, undone?: ReturnType<typeof state>) {
     const before = state();
     const run = await whole(g, speed);
     expect(run.ended, g.name).toEqual(["kept"]);
     const kept = state();
     expect(kept.heights, g.name).not.toBe(before.heights);
-    expect(landOf(kept).steps.length, g.name).toBe(landOf(before).steps.length + 1);
+    // (one step more; Try another's roll is another roll of the same step, D488)
+    expect(landOf(kept).steps.length, g.name).toBe(landOf(before).steps.length + (g.again ? 0 : 1));
     // (kept, its show playing on: undo takes it back, nothing lands later; then exactly as before)
-    await undoWhileItShows(run, before, `${g.name} (${speed}), kept`);
+    await undoWhileItShows(run, before, `${g.name} (${speed}), kept`, undone);
     return { before, kept, trace: run.trace };
   }
 
@@ -343,10 +344,10 @@ describe("Esc or undo at any moment of a force (D341)", () => {
     const run = await whole(first);
     expect(run.ended).toEqual(["kept"]);
     const again: Gesture = { ...first, name: "Try another path", again: true };
-    const { before, kept, trace } = await traced(again, "fast");
-    expect(kept.history.at(-1)).toMatch(/^\+Try another path#/);
-    await everyMoment(again, "fast", "undo", before, kept, trace);
-    await everyMoment(again, "fast", "esc", before, kept, trace);
+    const { before, kept, trace } = await traced(again, "fast", start);
+    expect(kept.history.at(-1)).toMatch(/^\+Carve a river, roll 2#/);
+    await everyMoment(again, "fast", "undo", before, kept, trace, start);
+    await everyMoment(again, "fast", "esc", before, kept, trace, start);
     // (the first carve's gesture is spent once another force was kept: undo takes it back)
     expect(ed.forceCancel(run.driver.lastGesture).taken).toBe(null);
     ed.undo();
@@ -357,7 +358,6 @@ describe("Esc or undo at any moment of a force (D341)", () => {
 describe("taking a kept force back in the worker (D341)", () => {
   it("only while its step is the latest: after another edit it stays, and undo takes it back", async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const before = state();
     const st = ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 45 }, origin: [W >> 1, W >> 1], cut: null, gesture: 900 });
@@ -387,7 +387,6 @@ describe("taking a kept force back in the worker (D341)", () => {
 
   it("a gesture taken back before its start reached the worker never starts, and a keep after Esc keeps nothing", async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const before = state();
     expect(ed.forceCancel(5000).taken).toBe(null);
@@ -405,7 +404,6 @@ describe("taking a kept force back in the worker (D341)", () => {
 describe("MapSession.takeBack (D341): a step taken back as if never taken", () => {
   it("the map, the history and Redo exactly as at the mark; never once another step came", async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const ids = s.built.entities.filter((e) => e.template !== "StartingLocation").map((e) => e.id);

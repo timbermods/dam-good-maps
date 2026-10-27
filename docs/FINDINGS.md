@@ -8,7 +8,7 @@ kept concise and easy to find).
 A finding worth keeping gets a line here (HANDOFF, "How things are run here"). A finding that a later one replaces moves, verbatim, to
 "Stale findings" at the end of [archive/README.md](archive/README.md). Where two sources disagree, both are listed and
 the current one is marked.
-Game facts are for Timberborn 1.1.2.4-52e959e-sw. The game's files are never committed; the notes describe its rules
+Game facts are for Timberborn 1.1.2.4-52e959e-sw; the game on Kyler's PC updated to 1.1.2.7-2c14458-sw on or before 2026-10-08 and nothing here is re-verified against it yet, except where a line says so. The game's files are never committed; the notes describe its rules
 in our own words.
 
 Short names: **WS** = [water and soil notes](../investigation/notes/water_and_soil.md), **FMT** = [format notes](../investigation/notes/format_1_1.md),
@@ -110,7 +110,7 @@ Short names: **WS** = [water and soil notes](../investigation/notes/water_and_so
   entrance, the game spawns no beavers; a second start is silently removed. BLK §3.
 - 13 beavers (9 adults, 4 children); starting food 300 / 130 / 90 and water 250 / 0 / 0 on Easy / Normal / Hard.
   On Normal and Hard the first deaths come about 5.7 days without water. NAV §11.
-- **The starting-logs floor (D224, amended D227): 178 logs for 1.1.2.4.** Grown trees by species yield, reachable on foot
+- **The starting-logs floor (D224, amended D227): 178 logs for 1.1.2.4, and the same on 1.1.2.7.** Grown trees by species yield, reachable on foot
   within about 40 tiles; never configurable below. Minimum starting wood counts within 20 tiles (Easy 250, Normal 200, Hard
   nothing above the floor). The worst route to a Forester is Iron Teeth without flowing water (Folktails: 88).
   `tools/log-floor.ts` recomputes it whenever the game version changes. PLAN §20 D224, D227.
@@ -182,6 +182,22 @@ are recorded in M9A and [the earlier STATUS](archive/status-2026-10-01.md) "Prob
   summary, measured on the prototype before the start and edge rules were merged.
 - A first look at 0.15 s (128²) and 0.6 s (256²), the whole map at 1.3 s and 5.7 s (Node); a slow tail when attempts fail
   (Islands seed 2 at 256²: 41 s). REPORT-v2 §7.
+- **First-attempt rate, River Valley 128², seeds 1–100** (the nightly's batches on dev's tip): 99% before M9a; 59% from M9a
+  (#56, 0.7.0, 2026-09-28); 47% from M9b (#70, D333 (2): a land the land stage refuses before its settle is drawn again and
+  counts as an attempt); 43% from River Valley round 2 (#346, 0.8.5: the default trunk enters from an edge and crosses half
+  the map, else the land has no rivers and is drawn again, 2 → 86 such lands in 100 maps), unchanged on every tip since
+  (2026-10-07 to 10-25). Canyon 6%, Highlands 5%, Islands 16%, Any 29%, Delta 34%, Lake Basin 83%; 100% final in all.
+  On seeds 1–30 (2026-10-25) a land-stage refusal costs about 0.7–1 s (a fresh field) against 3–18 s for the attempt that
+  passes; failed attempts are a quarter of Generate's time, the "no rivers" redraws a tenth. The rate is information
+  (D115, D145); Generate's time, against D278's targets, is what players feel.
+- **Where a 128² Generate's time goes** (2026-10-27, River Valley, Lake Basin, Canyon, Highlands, seeds 1–5, one map per
+  process, bundled as the page is): the settle is 0.25–2.7 s of 4.5–12 s, native or Wasm; the rest is the generator's
+  own work. A passing attempt alone is about 4 s besides its settle (the builds' soil and terrain, the settler's walks,
+  the land stage, the checks, the file); each failed attempt about 0.3–1 s, and Canyon (5–25 attempts) and Highlands
+  (3–17) spend most of their time in them. One hollow search can cost seconds (Highlands seed 4: about 530 ditches
+  routed, then refused as too straight). The settle is never repeated on one model (the cache) and is not the lever at
+  128²; fewer failed attempts is, and that changes maps. Profiling while the machine's other sessions run misleads:
+  time each map in its own process and compare CPU time, not a sampled profile.
 - The outcomes M9b is judged by are Kyler's eye against [PERFECT](PERFECT.md) (D252, D273); the measures are information.
 - **Mechanics** (180 generated maps, generator 0.6.0): nearest badwater or spoiled soil 15.4–24.2 tiles away on every map;
   Canyon has no clean retained water within 40 tiles after a nine-day drought; the largest joint bin holds 20–30% of Canyon,

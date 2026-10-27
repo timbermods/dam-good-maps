@@ -1,8 +1,7 @@
-// MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel, the
-// URL codec, the editor's SpecPatch and Claude all produce one. Complete, never a diff.
+// MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel and the
+// URL codec produce one. Complete, never a diff.
 
-export const GENERATOR_VERSION = "0.8.0";
-export const SPEC_VERSION = 1;
+export const GENERATOR_VERSION = "0.10.2";
 
 /** "any" (Surprise me, the default, D208, D209) draws from all six themes' ranges at once; a named
  *  theme only leans the generator toward that kind of land. */
@@ -27,8 +26,34 @@ export const THEME_NAMES: Record<ThemeId, string> = {
 };
 
 export const SIZE_PRESETS: Record<SizePreset, number> = { small: 96, medium: 128, large: 192, max: 256 };
-export const MIN_SIDE = 48;
-export const MAX_SIDE = 256;
+export const MIN_SIDE = 4;
+export const MAX_SIDE = 512;
+
+/** The least a side each theme generates on (D357, found by trying): the smallest side where every setting the panel
+ *  allows still makes a map keeping the absolutes (D471: the starting-logs floor, a start with its water, item 47's
+ *  must-haves) and its theme. Every side from 4 stays valid (the file, the link and the validator take it) for a map
+ *  shaped by hand. At 32² six of the seven themes find no start, badwater source or mine site after all 1,960
+ *  attempts on seeds 1 and 2; at 40² the default settings make every theme's map, but the panel's extremes don't
+ *  (all maximums, Any seed 101: 181 berry bushes in the start's reach where 200 are asked; starved start, Highlands
+ *  seed 101: no start), and at 48² the nightly's every-setting sweep passes, so the line is 48. Islands' is 64: under
+ *  it no river reaches its sea, which drains (seed 1: 3% water and no island at 40×160, 5% at 48×160; 60% at 64×160). */
+export const GENERATOR_MIN_SIDE: Record<ThemeId, number> = {
+  any: 48,
+  riverValley: 48,
+  canyon: 48,
+  highlands: 48,
+  lakeBasin: 48,
+  delta: 48,
+  islands: 64,
+};
+
+/** Why the generator will not build a map of this size for this theme, in one line, or null when it will (D342:
+ *  refused at once, never clamped, never a crash). */
+export function generatorSizeRefusal(x: number, y: number, theme: ThemeId): string | null {
+  const least = GENERATOR_MIN_SIDE[theme];
+  if (x >= least && y >= least) return null;
+  return `${THEME_NAMES[theme]} needs at least ${least} tiles a side to generate`;
+}
 
 export interface Settings {
   terrain: {
@@ -87,16 +112,6 @@ export interface Settings {
   };
 }
 
-export interface Region {
-  runs: [number, number, number][];
-}
-
-export interface SetPieceRequest {
-  kind: string;
-  params: Record<string, unknown>;
-  region?: Region;
-}
-
 export interface MapSpec {
   specVersion: 1;
   generatorVersion: string;
@@ -115,8 +130,6 @@ export interface MapSpec {
   /** Room for Timber Together multi-colony maps (PLAN §20, D5). The generator builds only
    *  {count: 1, mod: "none"} until a milestone schedules multi-colony maps. */
   colonies: { count: 1 | 2 | 3 | 4; mod: "none" | "timberTogether" };
-  setPieces: SetPieceRequest[];
-  constraints: { keepOut: Region[]; keep: string[] };
   accepted?: { attempt: number; candidate: number };
 }
 
@@ -218,6 +231,16 @@ export function upgradeSpec(spec: unknown): void {
   if (!("woodWithin20" in rules) && typeof trees === "number" && Number.isFinite(trees)) rules.woodWithin20 = woodForTrees(trees);
 }
 
+/** A spec stored before the coherence cleanup (D462) carries `setPieces` and `constraints` (keep-out
+ *  regions and kept features): nothing read them once locks and keep-outs went (D253, D270, D336),
+ *  so they are dropped. Changes the spec in place. */
+export function upgradeRetiredFields(spec: unknown): void {
+  const s = spec as Record<string, unknown> | null;
+  if (!s || typeof s !== "object") return;
+  delete s.setPieces;
+  delete s.constraints;
+}
+
 /** A spec stored before M9a has no Verticality: it takes its theme's default. Changes the spec in
  *  place; anything else is left for the schema to judge. */
 export function upgradeVerticality(spec: unknown): void {
@@ -316,8 +339,6 @@ export function makeSpec(opts: {
     designedFor,
     settings: defaultSettings(theme, designedFor, size),
     colonies: { count: 1, mod: "none" },
-    setPieces: [],
-    constraints: { keepOut: [], keep: [] },
   };
 }
 

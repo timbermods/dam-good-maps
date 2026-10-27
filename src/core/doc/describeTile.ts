@@ -8,10 +8,12 @@
 
 import { isDead, isSapling } from "../analysis/wood";
 import { entityTiles } from "../features/edits";
-import { isObject, JsonFloat, num, type JsonObject } from "../format/json";
+import { isObject, JsonFloat, num, plainJson } from "../format/json";
+import type { Orientation } from "../format/footprints";
 import type { EntitySpec } from "../format/entities";
-import { placementOf } from "../format/entities";
+import { componentsOf, placementOf } from "../format/entities";
 import type { MapSession } from "./session";
+import { kindName } from "./tools";
 
 /** An object standing on a tile, as far as its description goes. */
 export interface TileObject {
@@ -34,6 +36,17 @@ export interface TileFacts {
   soil(i: number): "moist" | "dry" | "contaminated" | null;
   /** The objects whose footprint covers the tile. */
   objects(i: number): TileObject[];
+  /** The ground of the run top at `level` below tile i's top (a cave's floor, a ledge under an overhang, the map's
+   *  floor under air): its soil and the water standing on it. Null where the map has none to say (a tile without
+   *  caves, a level that is no run top, soil not worked out). Only asked when the pointer is on a level below the
+   *  tile's top (`describeTile`'s `level`). */
+  runTop?(i: number, level: number): RunTopFacts | null;
+}
+
+/** What `TileFacts.runTop` says of one run top below its tile's top. */
+export interface RunTopFacts {
+  soil: "moist" | "dry" | "contaminated" | null;
+  water: { depth: number; contamination: number } | null;
 }
 
 export interface TileGround {
@@ -62,7 +75,8 @@ export interface TileDescription {
 /** Scrap metal in one ruin column per level of its height (a field's target is 15 per level a column). */
 export const SCRAP_PER_LEVEL = 15;
 
-const NAMES: Record<string, string> = {
+/** The game's names of the objects that have their own (the checks' messages read them too: rust/checks, tools/rust/checks-tables.ts). */
+export const NAMES: Record<string, string> = {
   Pine: "Pine",
   Birch: "Birch",
   Oak: "Oak",
@@ -70,7 +84,7 @@ const NAMES: Record<string, string> = {
   ChestnutTree: "Chestnut tree",
   Mangrove: "Mangrove",
   Succulent: "Succulent",
-  BlueberryBush: "Blueberry bush",
+  BlueberryBush: "Berry bush",
   Slope: "Slope",
   WaterSource: "Water source",
   BadwaterSource: "Badwater source",
@@ -110,8 +124,19 @@ export function describeObject(o: TileObject): DescribedObject {
   return { template, name, fact, text: fact ? `${name}, ${fact}` : name };
 }
 
-/** The ground of tile i: its height, its water, and its soil once dry. */
-function groundOf(f: TileFacts, i: number): TileGround {
+/** The ground of tile i: its height, its water, and its soil once dry. Pointing at a run top below the tile's top
+ *  (`level`, a cave's floor under its roof) it is that run's: the level, its water and its soil, never the roof's. */
+function groundOf(f: TileFacts, i: number, level?: number): TileGround {
+  const r = level !== undefined && level < f.height(i) ? (f.runTop?.(i, level) ?? null) : null;
+  if (level !== undefined && r) {
+    const rw = r?.water ?? null;
+    const percent = rw ? Math.round(rw.contamination * 100) : 0;
+    return {
+      height: level,
+      water: rw ? { depth: rw.depth, badwater: rw.contamination >= 0.95, percentBad: rw.contamination > 0.05 && rw.contamination < 0.95 ? percent : 0 } : null,
+      soil: rw ? null : (r?.soil ?? null),
+    };
+  }
   const w = f.water(i);
   const percent = w ? Math.round(w.contamination * 100) : 0;
   return {
@@ -121,11 +146,13 @@ function groundOf(f: TileFacts, i: number): TileGround {
   };
 }
 
-/** What is on tile (x, y): its ground and each object standing on it. */
-export function describeTile(f: TileFacts, x: number, y: number): TileDescription | null {
+/** What is on tile (x, y): its ground and each object standing on it. `level` is the level of the ground the pointer
+ *  is on (the voxel pick's `TileHit.level`, the top of the run hit): on a tile with a cave it names the cave's floor
+ *  rather than the roof, with that run's soil and water. Left out, or the tile's top, it is the ground seen from above. */
+export function describeTile(f: TileFacts, x: number, y: number, level?: number): TileDescription | null {
   if (x < 0 || y < 0 || x >= f.W || y >= f.H) return null;
   const i = y * f.W + x;
-  return { x, y, ground: groundOf(f, i), objects: f.objects(i).map(describeObject) };
+  return { x, y, ground: groundOf(f, i, level), objects: f.objects(i).map(describeObject) };
 }
 
 // ------------------------------------------------------------------- the water-changed signal
@@ -179,7 +206,7 @@ const numeric = (v: unknown): number | undefined => (typeof v === "number" ? v :
 
 /** An entity as a `TileObject`. */
 export function objectOf(e: EntitySpec): TileObject {
-  const comps = (e.raw ? e.raw.Components : { ...(e.before ?? {}), ...e.components }) as JsonObject;
+  const comps = componentsOf(e);
   const out: TileObject = { template: e.template };
   if (isDead(comps)) out.dead = true;
   else if (isSapling(comps)) out.young = true;
@@ -189,6 +216,24 @@ export function objectOf(e: EntitySpec): TileObject {
     if (v !== undefined) out.strength = Math.round(v * 100) / 100;
   }
   return out;
+}
+
+/** Which run of a tile's voxel column (`v`, 1 solid) has its top at `level`, runs counted from the bottom as the file
+ *  stores them (run 0 is the empty one under a column whose bottom voxel is air, its top level 0); -1 where none has.
+ *  The last run is the tile's top. */
+export function runIndexAt(v: ArrayLike<number>, level: number): number {
+  let k = 0;
+  if (!v[0]) {
+    if (level === 0) return 0;
+    k = 1;
+  }
+  for (let z = 0; z < v.length; z++) {
+    if (v[z] && (z + 1 >= v.length || !v[z + 1])) {
+      if (z + 1 === level) return k;
+      k++;
+    }
+  }
+  return -1;
 }
 
 /** A session's map as facts: the ground and the settled water it has now. */
@@ -216,6 +261,28 @@ export function tileFactsOf(s: MapSession): TileFacts {
     water: (i) => (water[i] > 0.001 ? { depth: water[i], contamination: b.contamination[i] ?? 0 } : null),
     soil: (i) => (b.soilContamination[i] > 0 ? "contaminated" : b.moisture[i] > 0 ? "moist" : "dry"),
     objects: (i) => at.get(i) ?? [],
+    runTop: (i, level) => {
+      const v = s.columns.get(i);
+      const k = v ? runIndexAt(v, level) : -1;
+      if (k < 0) return null;
+      const soil = s.showsStoredWater ? s.storedSoilRuns() : s.settledSoilRuns();
+      let kind: RunTopFacts["soil"] = null;
+      if (soil) {
+        const at = (a: { slots: number; values: ArrayLike<number> }) => (k < a.slots ? a.values[k * W * H + i] : 0);
+        kind = at(soil.contamination) > 0 ? "contaminated" : at(soil.moisture) > 0 ? "moist" : "dry";
+      }
+      // (the water standing on the run: the settle's column whose floor is the run top's level)
+      let water: RunTopFacts["water"] = null;
+      const st = s.showsStoredWater ? null : b.settle.stack;
+      if (st) {
+        const N = W * H;
+        for (let q = 0; q < st.count[i]; q++) {
+          const id = q * N + i;
+          if (st.floor[id] === level && st.depth[id] > 0.001) water = { depth: st.depth[id], contamination: st.contamination[id] ?? 0 };
+        }
+      }
+      return { soil: kind, water };
+    },
   };
 }
 
@@ -227,7 +294,39 @@ function storedDepth(s: MapSession): ArrayLike<number> {
   return out;
 }
 
-/** What is on tile (x, y) of a session's map. */
-export function describeTileOf(s: MapSession, x: number, y: number): TileDescription | null {
-  return describeTile(tileFactsOf(s), x, y);
+/** What is on tile (x, y) of a session's map (at `level`, the ground the pointer is on: see `describeTile`). */
+export function describeTileOf(s: MapSession, x: number, y: number, level?: number): TileDescription | null {
+  return describeTile(tileFactsOf(s), x, y, level);
+}
+
+// ------------------------------------------------------------------- the entities on a tile
+
+/** An entity as advanced mode's inspector and the source rows show it. */
+export interface EntityInfo {
+  id: string;
+  template: string;
+  x: number;
+  y: number;
+  z: number;
+  orientation: Orientation;
+  flipped: boolean;
+  /** What placed it: a feature's plain name, "placed by hand", "slopes" or "the imported map". */
+  from: string;
+  /** Its components other than BlockObject, as plain JSON. */
+  components: Record<string, unknown>;
+}
+
+/** The entities whose footprint covers tile (x, y) of a session's map, topmost last. */
+export function entitiesAtTile(s: MapSession, x: number, y: number): EntityInfo[] {
+  const names = new Map(s.features.map((f) => [f.id, kindName(f)]));
+  const out: EntityInfo[] = [];
+  for (const e of s.built.entities) {
+    if (e.raw && !placementOf(e.raw)) continue;
+    if (!entityTiles(e).some(([tx, ty]) => tx === x && ty === y)) continue;
+    const comps = componentsOf(e) as Record<string, unknown>;
+    const { BlockObject: _bo, ...rest } = comps;
+    const from = names.get(e.owner) ?? (e.owner === "placed" ? "placed by hand" : e.owner.startsWith("derived:") || e.owner.startsWith("pinned:") ? "slopes" : "the imported map");
+    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped, from, components: plainJson(rest) as Record<string, unknown> });
+  }
+  return out;
 }

@@ -1,10 +1,11 @@
 // Map look (ROADMAP "Map look", PLAN §20 D86) in the page: the 3D view colours the ground by soil
-// with a legend that says what the colours mean, a toggle switches to height colours (and the
-// legend with it), the hover text names the soil, the default camera looks as the game's does
-// (30° east of north, 70° down), and the water holds still for a viewer who prefers less motion.
-// The editor's view gets the worker's soil.
+// with a legend (the Legend button's panel) that says what the colours mean, the Height colours toggle
+// switches to height colours (and the legend with it), the hover text names the soil, the default camera
+// looks as the game's does (30° east of north, 70° down), and the water holds still for a viewer who
+// prefers less motion. The editor's view gets the worker's soil.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor, openLegend, waitForEditor } from "./open";
 
 interface Soil {
   moisture: Uint8Array;
@@ -53,15 +54,11 @@ test("the 3D view: soil colours, their legend, height colours, the soil in the h
   await page.setViewportSize({ width: 1280, height: 900 });
   // (seed 4247: a map with dead trees, a dam site and badwater for every line of the legend; 4242's
   // has no dead tree on D333's maps, D148)
-  await page.goto("./#s=4247&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4247&z=96&d=n&t=riverValley");
 
   // the legend says what the colours mean
-  const legend = page.locator(".view3d-legend");
-  await expect(legend).toBeVisible();
-  for (const text of ["Moist ground: plants grow", "Dry ground: plants die", "Contaminated ground: plants die", "Water: darker is deeper", "Badwater", "Walls: one band per level", "Bare pale trees: dead"]) await expect(legend).toContainText(text);
+  const legend = await openLegend(page);
+  for (const text of ["Moist ground", "Dry ground", "Contaminated ground", "Water", "Badwater", "Walls", "Dead trees"]) await expect(legend).toContainText(text);
   await expect(legend).not.toContainText("dam site");
 
   // the default camera: the game's angle
@@ -79,20 +76,20 @@ test("the 3D view: soil colours, their legend, height colours, the soil in the h
   await hover(page, s.moist!);
   await expect(page.locator(".readout")).toContainText("moist soil");
 
-  // height colours, and back
-  const toggle = page.getByRole("button", { name: "Height colours" });
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  // Heights, and back
+  const toggle = page.getByRole("checkbox", { name: "Heights" });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
   await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
   expect(await page.evaluate(() => window.dgm3d!.renderer.groundMode)).toBe("height");
-  await expect(legend).toContainText("Ground by height: low to high");
+  await expect(legend).toContainText("Ground height");
   await expect(legend).not.toContainText("Moist ground");
-  // the choice lasts: the editor's view opens with height colours too
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d && window.dgm3d.renderer.size?.W === 96, null, { timeout: 60_000 });
-  await expect(page.getByRole("button", { name: "Height colours" })).toHaveAttribute("aria-pressed", "true");
+  // the choice lasts: the map reopens (a reload) with height colours too
+  await page.reload();
+  await waitForEditor(page);
+  await expect(page.getByRole("checkbox", { name: "Heights" })).toHaveAttribute("aria-checked", "true");
   expect(await page.evaluate(() => window.dgm3d!.renderer.groundMode)).toBe("height");
-  await page.getByRole("button", { name: "Height colours" }).click();
+  await page.getByRole("checkbox", { name: "Heights" }).click();
   expect(await page.evaluate(() => window.dgm3d!.renderer.groundMode)).toBe("moisture");
 
   // the editor's view has the worker's soil
@@ -109,10 +106,7 @@ test("the 3D view: soil colours, their legend, height colours, the soil in the h
 
 test("the water holds still for a viewer who prefers less motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   expect(await page.evaluate(() => window.dgm3d!.renderer.animated)).toBe(false);
   await page.emulateMedia({ reducedMotion: "no-preference" });
   // it moves again unless the browser draws in software (CI), where it stays still to save work

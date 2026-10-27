@@ -9,7 +9,8 @@ describe("the weather the buttons play", () => {
   it("a hazard's length is the longest of its difficulty's range; a drought's is the one the reservoirs are sized for", () => {
     expect(hazardDays("normal", "badtide")).toBe(8);
     expect(hazardDays("hard", "badtide")).toBe(30);
-    for (const d of ["easy", "normal", "hard"] as const) expect(hazardDays(d, "drought")).toBe(DROUGHT[d].days);
+    expect([hazardDays("easy", "drought"), hazardDays("normal", "drought"), hazardDays("hard", "drought")]).toEqual([4, 9, 30]);
+    for (const d of ["easy", "normal", "hard"] as const) expect(DROUGHT[d].days).toBe(hazardDays(d, "drought"));
   });
 
   it("a badtide's contamination rises from 0.5 to 1 over its first half day, holds, and falls back over its last", () => {

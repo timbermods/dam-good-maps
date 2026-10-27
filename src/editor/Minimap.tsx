@@ -1,11 +1,12 @@
 // The minimap (PLAN §20 D205): a small top-down picture of the whole map in a corner, the Real
 // places look (`core/render/shade.ts`: height and a hillshade, water blue), drawn again when the
-// page is idle after an edit settles, never per frame; the outline is what the camera sees, and a
-// click or a drag on it moves the camera there.
+// page is idle after an edit settles, never per frame; a click or a drag on it moves the camera there. It draws no
+// outline of the view (Kyler, 2026-10-04: with the whole map on screen only one edge of it crossed the picture).
 
 import { useEffect, useRef } from "preact/hooks";
-import { shadeTiles } from "../core/render/shade";
+import { groundShade, shadeRgba } from "../core/render/shade";
 import type { MapRenderer } from "../render3d";
+import { minimapSize } from "./minimapSize";
 
 export interface MinimapProps {
   W: number;
@@ -16,21 +17,18 @@ export interface MinimapProps {
   depth(): ArrayLike<number> | null;
   /** Changes when the map's ground or water has settled after an edit: it is drawn again. */
   stamp: string;
-  /** Changes when the camera moves: the outline follows. */
-  viewTick: number;
 }
-
-/** The minimap's size on the page, in pixels (the map's longer side). */
-const SIZE = 168;
 
 export function Minimap(p: MinimapProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const drag = useRef(false);
-  const scale = SIZE / Math.max(p.W, p.H);
-  const w = Math.round(p.W * scale);
-  const h = Math.round(p.H * scale);
+  const { w, h } = minimapSize(p.W, p.H);
 
-  // the picture: one pixel a tile, north up, drawn when the page is idle
+  // the picture: one pixel a tile, north up, drawn when the page is idle. The land's colours are kept while the land is
+  // the same, and so are the pixels the water hasn't moved on: as the water flows, a draw shades and puts only the rows
+  // it changed (a 256² flood shaded the whole map at every settle, D453)
+  const ground = useRef<{ heights: Uint8Array; shade: Float64Array } | null>(null);
+  const image = useRef<{ data: ImageData; shown: Float64Array } | null>(null);
   useEffect(() => {
     let live = true;
     const draw = () => {
@@ -38,18 +36,17 @@ export function Minimap(p: MinimapProps) {
       const c = canvas.current;
       const ctx = c?.getContext("2d");
       if (!c || !ctx) return;
-      const rgb = shadeTiles(p.heights(), p.W, p.H, p.depth());
-      const img = ctx.createImageData(p.W, p.H);
-      for (let y = 0; y < p.H; y++)
-        for (let x = 0; x < p.W; x++) {
-          const i = y * p.W + x;
-          const o = ((p.H - 1 - y) * p.W + x) * 4;
-          img.data[o] = rgb[i * 3];
-          img.data[o + 1] = rgb[i * 3 + 1];
-          img.data[o + 2] = rgb[i * 3 + 2];
-          img.data[o + 3] = 255;
-        }
-      ctx.putImageData(img, 0, 0);
+      let img = image.current;
+      if (!img || img.data.width !== p.W || img.data.height !== p.H) image.current = img = { data: ctx.createImageData(p.W, p.H), shown: new Float64Array(p.W * p.H).fill(NaN) };
+      const heights = p.heights();
+      let g = ground.current;
+      if (!g || !sameLand(g.heights, heights)) {
+        ground.current = g = { heights: heights.slice(), shade: groundShade(heights, p.W, p.H) };
+        // (new land: every pixel is shaded again)
+        img.shown.fill(NaN);
+      }
+      const rows = shadeRgba(g.shade, p.W, p.H, p.depth(), img.shown, img.data.data);
+      if (rows) ctx.putImageData(img.data, 0, 0, 0, rows.y0, p.W, rows.y1 - rows.y0);
     };
     const idle = typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(draw, { timeout: 1500 }) : window.setTimeout(draw, 200);
     return () => {
@@ -58,10 +55,21 @@ export function Minimap(p: MinimapProps) {
       else clearTimeout(idle);
     };
   }, [p.stamp, p.W, p.H]);
+  // (a canvas the browser let go of comes back blank: its next draw puts every pixel again)
+  useEffect(() => {
+    const c = canvas.current;
+    const again = () => void image.current?.shown.fill(NaN);
+    c?.addEventListener("contextrestored", again);
+    return () => c?.removeEventListener("contextrestored", again);
+  }, []);
 
-  const outline = p.renderer ? p.renderer.groundFootprint() : [];
-  void p.viewTick;
-  const pts = outline.map(([x, y]) => `${(x * scale).toFixed(1)},${((p.H - y) * scale).toFixed(1)}`).join(" ");
+  // the view reads its height from --minimap-h: the readout and the coordinates stand on it (Layout 2)
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const view = box.current?.parentElement;
+    view?.style.setProperty("--minimap-h", `${h}px`);
+    return () => view?.style.removeProperty("--minimap-h");
+  }, [h]);
 
   /** Move the camera to the tile under a point of the minimap. */
   const moveTo = (ev: PointerEvent) => {
@@ -75,6 +83,7 @@ export function Minimap(p: MinimapProps) {
 
   return (
     <div
+      ref={box}
       class="minimap"
       role="img"
       aria-label="Minimap: the whole map from above; click or drag to move the camera there"
@@ -89,9 +98,13 @@ export function Minimap(p: MinimapProps) {
       onPointerCancel={() => void (drag.current = false)}
     >
       <canvas ref={canvas} width={p.W} height={p.H} />
-      <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true">
-        {pts ? <polygon points={pts} /> : null}
-      </svg>
     </div>
   );
+}
+
+/** Whether two maps' heights are the same, tile for tile. */
+function sameLand(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }

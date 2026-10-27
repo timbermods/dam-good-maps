@@ -4,33 +4,53 @@
 // however quickly the notches come.
 
 import { expect, test, type Page } from "@playwright/test";
+import { centreOn, openEditor, topDown } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 const ID = (k: number) => `00000000-0000-4000-8000-00000000000${k}`;
-/** The number in some words ("this source 0.5 · row 1.25 water/s": the first, this source's). */
+/** The number in some words ("0.5 of 1.25 water/s": the first, this source's). */
 const first = (t: string | null) => Number(/([\d.]+)/.exec(t ?? "")?.[1] ?? NaN);
 
-/** Two dry, level spots away from the start and every object, each with room for a row of three. */
-async function spots(page: Page): Promise<[number, number][]> {
+/** Two dry, level spots away from the start, the sources and each other, each with room for a row of three, and
+ *  the objects standing round them (trees, ruins, thorns: nothing that makes or holds water) to clear, fewest first: the generator's
+ *  maps no longer promise ground 7 tiles from every object (0.10.2's seed 4 has none; D148). */
+async function spots(page: Page): Promise<{ at: [number, number][]; clear: string[] }> {
   return page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
+    const e = m.entities;
     const st = (window.dgmEditor!.info().features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
-    const out: [number, number][] = [];
     const onMap = (x: number, y: number) => {
       const p = window.dgmEditor!.tileToClient(x, y);
       return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
     };
-    for (let y = 16; y < m.H - 16 && out.length < 2; y++)
-      for (let x = 16; x < m.W - 16 && out.length < 2; x++) {
-        if (Math.hypot(x - st[0], y - st[1]) < 16 || out.some(([a, b]) => Math.hypot(a - x, b - y) < 14)) continue;
+    const water = (k: number) => /Source|Seep|Aquifer|Drill|Drain|Dam|Blockage/.test(e.templates[e.template[k]]);
+    const cands: { x: number; y: number; clear: string[] }[] = [];
+    for (let y = 16; y < m.H - 16; y++)
+      for (let x = 16; x < m.W - 16; x++) {
+        if (Math.hypot(x - st[0], y - st[1]) < 16) continue;
         const h0 = m.heights[y * m.W + x];
         let ok = onMap(x, y) && onMap(x + 2, y);
         for (let dy = -3; dy <= 3 && ok; dy++) for (let dx = -3; dx <= 5 && ok; dx++) if (m.heights[(y + dy) * m.W + x + dx] !== h0 || m.surface.depth[(y + dy) * m.W + x + dx] > 0) ok = false;
-        for (let k = 0; k < m.entities.count && ok; k++) if (Math.abs(m.entities.x[k] - x) <= 7 && Math.abs(m.entities.y[k] - y) <= 7) ok = false;
-        if (ok) out.push([x, y]);
+        const clear: string[] = [];
+        for (let k = 0; k < e.count && ok; k++) {
+          const d = Math.max(Math.abs(e.x[k] - x), Math.abs(e.y[k] - y));
+          if (water(k) && d <= 14) ok = false;
+          else if (d <= 7) clear.push(e.ids[k]);
+        }
+        if (ok && clear.every((id) => id)) cands.push({ x, y, clear });
       }
-    return out;
+    // (a stable sort: fewest to clear, then nearest the top left, as the search ran before)
+    cands.sort((a, b) => a.clear.length - b.clear.length);
+    const at: [number, number][] = [];
+    const clear: string[] = [];
+    for (const c of cands) {
+      if (at.length === 2) break;
+      if (at.some(([a, b]) => Math.hypot(a - c.x, b - c.y) < 14)) continue;
+      at.push([c.x, c.y]);
+      clear.push(...c.clear);
+    }
+    return { at, clear };
   });
 }
 
@@ -38,20 +58,21 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
   test.setTimeout(240_000);
   await page.addInitScript(() => localStorage.setItem("dgm.markers", "on"));
   await page.setViewportSize({ width: 1400, height: 1000 });
-  // (seed 4 since D385, D148: seed 9's land changed when its water from nowhere went, and keeps room
-  // for only one of the two rows; of River Valley 96² seeds 1-30 only seed 4 has both)
-  await page.goto("./#s=4&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
-  await page.getByRole("button", { name: "Top-down" }).click();
+  // (seed 4 since River Valley round 2, 0.8.5, D148: seed 7 has room for neither row; seed 7 since 0.8.3's courses follow the land, D148: seed 6 has room for one row; seed 6 for 0.8.3's first maps: seed 8 has room for only one row since badwater joins the main water,
+  // D476; seed 8 for #265's maps, D148: seed 6 has room for only one row since the start's badwater distance
+  // became a rule and River Valley's main river stays clean; seed 6 for 0.8.1's maps, D148: seed 4's land has no room for either row since the badwater ditches
+  // follow the land; seed 4 since D385, D148: seed 9's land changed when its water from nowhere went, and
+  // kept room for only one of the two rows)
+  await openEditor(page, "s=4&z=96&d=n&t=riverValley");
+  await topDown(page);
   await page.waitForTimeout(500);
-  const found = await spots(page);
+  const { at: found, clear } = await spots(page);
   expect(found.length).toBe(2);
+  if (clear.length) await page.evaluate((ids) => window.dgmEditor!.edit({ op: "deleteEntities", params: { entities: ids } } as never, "Delete"), clear);
   const [[ax, ay], [rx, ry]] = found;
   const place = (id: string, x: number, y: number) =>
     page.evaluate(
-      ([id, x, y]) => window.dgmEditor!.edit({ op: "placeEntity", params: { id, template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } } as never, "Place water source"),
+      ([id, x, y]) => window.dgmEditor!.edit({ op: "placeEntity", params: { id, template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } } as never, "Place a water source"),
       [id, x, y] as [string, number, number],
     );
   await place(ID(0), ax, ay);
@@ -70,13 +91,14 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
     );
   const row = page.getByRole("group", { name: "Water source, selected" });
   const readout = row.getByRole("status", { name: "This source" }).locator("output");
-  const strength = row.getByRole("combobox", { name: "Strength" });
+  const strength = row.getByRole("slider", { name: "Strength", exact: true });
 
   for (const [what, x, y, n] of [
     ["alone", ax, ay, 1],
     ["in a row", rx + 1, ry, 3],
   ] as const) {
     // the source picked: its row shows
+    await centreOn(page, x, y);
     const p = await client(page, x, y);
     await page.mouse.move(p.x + 3, p.y);
     await page.mouse.move(p.x, p.y);
@@ -97,13 +119,13 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
     };
     const rowTotal = async () => {
       const t = await readout.textContent();
-      return n > 1 ? Number(/row ([\d.]+)/.exec(t ?? "")?.[1] ?? NaN) : first(t);
+      return n > 1 ? Number(/of ([\d.]+)/.exec(t ?? "")?.[1] ?? NaN) : first(t);
     };
     // at rest: one number everywhere
     await expect.poll(rowTotal).toBe(n);
     expect(await labelNumber()).toBe(n);
     expect(first(await readout.textContent())).toBe(1);
-    await expect(strength).toHaveValue("1");
+    await expect(strength).toHaveAttribute("aria-valuetext", "1 water per second");
 
     // four notches up in quick succession, one down: after each, before the next, the label, the row and
     // the note beside the pointer say the same number at once
@@ -120,8 +142,8 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
           return {
             label: num(labels[0]?.textContent, many > 1 ? /sources, ([\d.]+)/ : /([\d.]+)/),
             own: num(words, /([\d.]+)/),
-            row: num(words, many > 1 ? /row ([\d.]+)/ : /([\d.]+)/),
-            select: Number((group?.querySelector('select[aria-label="Strength"]') as HTMLSelectElement | null)?.value),
+            row: num(words, many > 1 ? /of ([\d.]+)/ : /([\d.]+)/),
+            select: num(group?.querySelector('input[aria-label="Strength"]')?.getAttribute("aria-valuetext"), /([\d.]+)/),
             note: num(document.querySelector(".shape-note")?.textContent, /([\d.]+)/),
           };
         },
@@ -148,7 +170,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
     await expect.poll(() => real(x, y), { timeout: 20_000, message: `${what}: its real strength` }).toBe(3);
     await idle(page);
     expect(first(await readout.textContent())).toBe(3);
-    await expect(strength).toHaveValue("3");
+    await expect(strength).toHaveAttribute("aria-valuetext", "3 water per second");
     expect(await labelNumber()).toBe(n > 1 ? n + 2 : 3);
     await page.keyboard.press("x");
   }

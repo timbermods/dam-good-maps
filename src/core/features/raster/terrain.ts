@@ -10,11 +10,13 @@ import { bedAt, floorAt, polygonMask, segmentDistance2 } from "../geometry";
 import { carveChannel, channelBounds, type ChannelPlan } from "../route";
 import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFeature } from "../schema";
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
-import type { CarveParams } from "../../forces/carve/op";
 import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
 import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams } from "./brush";
+import { blockBounds, blockTileBits, blockTileMask, type BlocksParams } from "../../terrain/blocks";
+import { isPlainMask, plainMask, reshapeTop, surfaceOfMask, topRunFloor, type ColumnTerrain } from "../../terrain/runs";
 import { wantedCount } from "../../water/sourceGroups";
 import * as portable from "../../math/portable";
+import { polyDist } from "../../math/polyline";
 
 /** The highest a column may stand: the editor's one ceiling, D172's tall maximum (PLAN §20 D244;
  *  was 16, D4). The generator's own plans stay within their Verticality (D172 (3)). */
@@ -158,13 +160,6 @@ export function rasterizeLake(f: LakeFeature, t: BuildTarget): void {
   }
 }
 
-/** The channel's half-width at arc position s: the river's own, or a gorge's narrows. */
-export function halfAt(f: RiverFeature, narrows: readonly { from: number; to: number; half: number }[], s: number): number {
-  let half = f.params.width / 2;
-  for (const n of narrows) if (s >= n.from && s <= n.to && n.half < half) half = n.half;
-  return half;
-}
-
 /** How much a generated channel's half-width varies along it (land/hydro.ts: up to a third wider
  *  or narrower than the river's own width, plus the tile the carve rounds to). */
 export const CARVED_HALF_SPREAD = 1.35;
@@ -191,7 +186,6 @@ export function markRiverChannel(f: RiverFeature, t: BuildTarget): void {
 export function rasterizeRiver(f: RiverFeature, t: BuildTarget): void {
   const { heights, channel, W, H } = t;
   const field = t.pathField(f.id);
-  const narrows = t.narrows(f.id);
   const banks = f.params.banks === true;
   // the lakes it flows from or into keep their own floor
   let lakes: Uint8Array | null = null;
@@ -207,7 +201,7 @@ export function rasterizeRiver(f: RiverFeature, t: BuildTarget): void {
   }
   t.forEach((i) => {
     const d = field.d[i];
-    const half = narrows.length ? halfAt(f, narrows, field.s[i]) : f.params.width / 2;
+    const half = f.params.width / 2;
     if (d < half) {
       if (!t.writable(i, f)) return;
       heights[i] = bedAt(f.params.bedProfile, field.s[i]);
@@ -220,11 +214,10 @@ export function rasterizeRiver(f: RiverFeature, t: BuildTarget): void {
 }
 
 /** Channel tiles on the map border where the river enters (its sealed mouth, PLAN §7.6). */
-export function mouthTiles(f: RiverFeature, t: Pick<BuildTarget, "W" | "H" | "pathField" | "narrows">): number[] {
+export function mouthTiles(f: RiverFeature, t: Pick<BuildTarget, "W" | "H" | "pathField">): number[] {
   if (!("edge" in f.params.entry)) return [];
   const field = t.pathField(f.id);
-  const narrows = t.narrows(f.id);
-  return mouthTilesBy(f, t.W, t.H, (i) => field.d[i] < (narrows.length ? halfAt(f, narrows, field.s[i]) : f.params.width / 2));
+  return mouthTilesBy(f, t.W, t.H, (i) => field.d[i] < f.params.width / 2);
 }
 
 /** The mouth's border tiles, `inChannel` saying which border tiles the channel covers. */
@@ -260,23 +253,7 @@ export function mouthTilesOf(f: RiverFeature, W: number, H: number): number[] {
   const half = f.params.width / 2;
   return mouthTilesBy(f, W, H, (i) => {
     const x = i % W;
-    const y = (i - x) / W;
-    let best = Infinity;
-    for (let k = 0; k + 1 < path.length; k++) {
-      const ax = path[k][0];
-      const ay = path[k][1];
-      const vx = path[k + 1][0] - ax;
-      const vy = path[k + 1][1] - ay;
-      const l2 = vx * vx + vy * vy;
-      let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
-      if (t < 0) t = 0;
-      else if (t > 1) t = 1;
-      const px = ax + t * vx - x;
-      const py = ay + t * vy - y;
-      const dd = px * px + py * py;
-      if (dd < best) best = dd;
-    }
-    return portable.sqrt(best) < half;
+    return polyDist(x, (i - x) / W, path) < half;
   });
 }
 
@@ -393,15 +370,27 @@ export function rasterizeBench(f: StartFeature, t: BuildTarget): void {
 
 /** A sculpt edit (cells with a mode) or a brush stroke (dabs with a brush, raster/brush.ts). */
 export interface SculptEdit {
-  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean } | BrushParams | CarveParams | ForceResultParams;
+  /** Its place in the operation log (a session's; absent where order is not needed). */
+  seq?: number;
+  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean; hold?: [number, number, number][] } | BrushParams | ForceResultParams | BlocksParams;
 }
 
 function isBrush(p: SculptEdit["params"]): p is BrushParams {
   return "dabs" in p;
 }
 
+/** The Block tool's operation (terrain/blocks.ts). */
+export function isBlocks(p: SculptEdit["params"]): p is BlocksParams {
+  return "side" in p && "at" in p;
+}
+
 /** A sculpt's tiles' bounds; a force's need the map's width (its tiles are indices). */
 export function sculptBounds(s: SculptEdit, W = 0): Rect | null {
+  if (isBlocks(s.params)) {
+    // (one tile more: the integrity pass may tidy the tiles beside the ones it digs; the build keeps them as they were)
+    const b = blockBounds(s.params, W || Infinity, Infinity);
+    return b && { x0: b.x0 - 1, y0: b.y0 - 1, x1: b.x1 + 1, y1: b.y1 + 1 };
+  }
   if (isBrush(s.params)) return brushBounds(s.params, Infinity, Infinity);
   if (isForce(s.params)) return forceBounds(s.params, W);
   let x0 = Infinity;
@@ -419,14 +408,17 @@ export function sculptBounds(s: SculptEdit, W = 0): Rect | null {
 
 /** Brushes that read neighbouring cells: a rebuild that touches their cells rebuilds all of them. */
 export function sculptReadsNeighbours(s: SculptEdit): boolean {
-  if (isForce(s.params)) return false;
+  if (isForce(s.params) || isBlocks(s.params)) return false;
   return isBrush(s.params) ? brushReadsNeighbours(s.params) : s.params.mode === "smooth";
 }
 
 /** Apply one sculpt edit or brush stroke (step 6) to the region's cells. Heights stay within
  *  0–16, the in-game editor's range (the brushes are defined that way, like the game's own).
- *  `keep(i)` names tiles every tool leaves alone (an imported map's caves). */
-export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean, shown?: { candidate: (i: number) => boolean; cap: number; outside: Uint8Array | null }): void {
+ *  `keep(i)` names the tiles that are not plain (an imported map's caves and overhangs): a force's
+ *  result and an old sculpt edit leave them as they are; a brush shapes their top run like any other
+ *  ground, never below `floor` (one above the roof's underside, D280 (3); terrain/runs.ts
+ *  `topFloors`), so what is under a roof stays as it is. */
+export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean, shown?: { candidate: (i: number) => boolean; cap: number; outside: Uint8Array | null }, floor: Uint8Array | null = null): void {
   const { W, heights } = t;
   if (isForce(s.params)) {
     // a force's result, literally (D194, D220): its tiles take their levels, and the integrity pass leaves
@@ -440,6 +432,8 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     }
     return;
   }
+  // (the Block tool's operations are applied tile by tile with the tiles' masks: `applyBlocks`)
+  if (isBlocks(s.params)) return;
   if (isBrush(s.params)) {
     const b = brushBounds(s.params, W, t.H);
     if (!b || !t.touchesRegion(b)) return;
@@ -454,16 +448,41 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     // bench, an exact stroke's, a force's, D253)
     const pads = s.params.tool === "naturalize" && s.params.weathers ? t.starts() : [];
     const open = s.params.tool !== "naturalize" ? () => true : s.params.weathers ? (i: number) => !padTile(pads, i % W, Math.floor(i / W)) : (i: number) => !t.protectedMask[i];
-    applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i));
+    applyBrush(s.params, heights, W, t.H, keep && !floor ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i), floor);
+    // (the ground holding objects under a roof, D491: within its floor and ceiling, which the map as shown
+    // holds, though the integrity pass had moved it there, and the integrity pass leaves it)
+    for (const [i, lo, hi] of s.params.hold ?? [])
+      if (i >= 0 && i < heights.length && t.inRegion(i)) {
+        heights[i] = Math.min(Math.max(heights[i], lo), hi);
+        t.protectedMask[i] = 1;
+      }
     // a precise or target stroke's tiles stay as it left them: the integrity pass leaves them out (a
     // one-tile pit stays a pit, D193, D322)
-    if (was) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) {
+    if (was) for (let y = b.y0; y <= b.y1; y++) for (let x: number = b.x0; x <= b.x1; x++) {
       const i = y * W + x;
       if (heights[i] !== was[i] && t.inRegion(i)) t.protectedMask[i] = 1;
     }
     return;
   }
   const p = s.params;
+  // (the ground holding objects under a roof, D491: each held tile ends within its floor and ceiling,
+  // and the integrity pass leaves it)
+  if (p.hold?.length) {
+    const was = new Map<number, number>();
+    for (const [i] of p.hold) if (i >= 0 && i < heights.length) was.set(i, heights[i]);
+    applySculpt({ params: { ...p, hold: undefined } }, t, keep, shown, floor);
+    for (const [i, lo, hi] of p.hold) {
+      if (!was.has(i) || !t.inRegion(i)) continue;
+      const h0 = was.get(i)!;
+      const h = heights[i];
+      if (h > h0) heights[i] = Math.min(h, Math.max(h0, hi));
+      else if (h < h0) heights[i] = Math.max(h, Math.min(h0, lo));
+      // (held ground the integrity pass had moved into its floor and ceiling stays there)
+      heights[i] = Math.min(Math.max(heights[i], lo), hi);
+      t.protectedMask[i] = 1;
+    }
+    return;
+  }
   if (p.mode === "smooth") {
     // the median of each cell's 3×3 neighbours inside the brush, read before the brush applies
     const inBrush = new Map<number, number>();
@@ -480,7 +499,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
             if (v !== undefined && x + dx >= 0 && x + dx < W) vals.push(v);
           }
         vals.sort((m, n) => m - n);
-        out.push([i, vals[vals.length >> 1]]);
+        if (!keep?.(i)) out.push([i, vals[vals.length >> 1]]);
       }
     }
     for (const [i, v] of out) heights[i] = v;
@@ -489,7 +508,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
   for (const [y, a, b] of p.cells) {
     for (let x = a; x <= b; x++) {
       const i = y * W + x;
-      if (!t.inRegion(i)) continue;
+      if (!t.inRegion(i) || keep?.(i)) continue;
       const h = heights[i];
       // (exact: what it changes stays as it left it, a one-tile pit included)
       if (p.exact) t.protectedMask[i] = 1;
@@ -513,6 +532,100 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
       }
     }
   }
+}
+
+// -------------------------------------------------------------------------------------- blocks
+
+/** What the Block tool's operations keep while step 6 goes through the sculpts in order (D335, D342):
+ *  the mask of every tile one of them touched, as it stands at that point; the lowest each tile's top
+ *  may go (the brushes' `floor`, which follows the masks); the stored ground the tiles start from
+ *  (null: a heightfield, every tile a plain run from the surface). */
+export interface BlockLayer {
+  masks: Map<number, number>;
+  floors: Uint8Array;
+  base: ColumnTerrain | null;
+  /** The surface the integrity pass (step 7) gives a tile from the heights as they stand now: what the
+   *  map would show there if the step were the last. */
+  level: (i: number) => number;
+}
+
+/** A tile's mask now: the one a block operation left, or the ground's own, its top run following
+ *  the surface `h` (a brush after a block shapes the top and nothing under it, D280 (3)). */
+function maskNow(layer: BlockLayer, h: number, i: number): number {
+  const m = layer.masks.get(i);
+  if (m !== undefined) return surfaceOfMask(m) === h ? m : reshapeTop(m, h);
+  return layer.base ? reshapeTop(layer.base.mask[i], h) : plainMask(h);
+}
+
+/** Whether a tile is a cave, an overhang or floating ground now (what the forces and the features
+ *  leave as it is). */
+export function layerCave(layer: BlockLayer, i: number): boolean {
+  const m = layer.masks.get(i);
+  return m !== undefined ? !isPlainMask(m) : !!layer.base && !layer.base.isPlain(i);
+}
+
+/** Apply one block operation (step 6) to the region's tiles. The ground it works on is the map as the
+ *  integrity pass would show it now (`layer.level`), so what a player sees and what a query says is
+ *  what the operation changes; a tile where no block changes is left alone. A changed tile takes its new
+ *  mask, its surface follows it, the brushes' floor follows its top run, and the integrity pass leaves it
+ *  as it is (like an exact stroke). The four tiles beside one keep the surface they had, even where the
+ *  pass would now tidy them (a pit or a spike its change made): an operation moves no tile but its own. */
+export function applyBlocks(p: BlocksParams, t: BuildTarget, layer: BlockLayer): void {
+  const { heights, W, H } = t;
+  const changing = new Map<number, number>();
+  for (const [i, bits] of blockTileBits(p, W, H)) {
+    if (!t.inRegion(i)) continue;
+    const m0 = maskNow(layer, layer.level(i), i);
+    const m1 = blockTileMask(m0, bits, p.mode);
+    if (m1 !== m0) changing.set(i, m1);
+  }
+  if (!changing.size) return;
+  // (what the beside tiles show now)
+  const beside = new Map<number, number>();
+  for (const i of changing.keys()) {
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const j = ny * W + nx;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || changing.has(j) || beside.has(j) || !t.inRegion(j)) continue;
+      beside.set(j, layer.level(j));
+    }
+  }
+  for (const [i, m] of changing) {
+    layer.masks.set(i, m);
+    heights[i] = surfaceOfMask(m);
+    layer.floors[i] = isPlainMask(m) ? 0 : topRunFloor(m) + 1;
+    t.protectedMask[i] = 1;
+  }
+  for (const [j, was] of beside)
+    if (layer.level(j) !== was) {
+      heights[j] = was;
+      t.protectedMask[j] = 1;
+    }
+}
+
+/** Apply Erode's hollows (D281; forces/erode.ts) to the region's tiles: each takes the mask the force
+ *  left (its surface as it was: the hollow is under a roof), the brushes' floor follows its top run, and
+ *  the integrity pass leaves it as it is, as a block operation's tiles. */
+export function applyHollows(runs: { tiles: readonly number[]; masks: readonly number[] }, t: BuildTarget, layer: BlockLayer): void {
+  for (let k = 0; k < runs.tiles.length; k++) {
+    const i = runs.tiles[k];
+    if (!t.inRegion(i)) continue;
+    const m = runs.masks[k];
+    layer.masks.set(i, m);
+    t.heights[i] = surfaceOfMask(m);
+    layer.floors[i] = isPlainMask(m) ? 0 : topRunFloor(m) + 1;
+    t.protectedMask[i] = 1;
+  }
+}
+
+/** The tiles' masks a build leaves: each as the operations left it, its top run on the final surface. */
+export function finalMasks(layer: BlockLayer, final: Uint8Array): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const [i, m] of [...layer.masks].sort((a, b) => a[0] - b[0])) out.set(i, surfaceOfMask(m) === final[i] ? m : reshapeTop(m, final[i]));
+  return out;
 }
 
 // ------------------------------------------------------------------------------------- integrity

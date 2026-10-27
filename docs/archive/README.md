@@ -12,7 +12,7 @@ say how things are and what is next. Archived files are never rewritten; only th
 - "Stale findings", the last section of this file: the findings later ones replaced, moved from FINDINGS.md.
 - [progress/](progress/README.md): the finished progress logs, one file per milestone and step.
 - [progress-log/](progress-log/README.md): the Progress log issue's monthly copies.
-- [chats/](chats/README.md): the previous versions of the planning chat's handoff (the latest, [2026-10-02](chats/2026-10-02.md), is the one before the prune).
+- [chats/](chats/README.md): the previous versions of the planning handoff (the latest, [2026-10-14](chats/2026-10-14.md), is the claude.ai planning chat's last).
 - [feedback/](feedback/): Kyler's feedback files.
 - [AUDIT.md](AUDIT.md): the early audit. [spike-m3.md](spike-m3.md): the delivery spike. [m9-design.md](m9-design.md): the generator's design (design version 2).
 - [ingame-log.md](ingame-log.md): the in-game log. [merged-branches.md](merged-branches.md): branches merged and deleted.
@@ -27,7 +27,7 @@ Left in place, because tools write to them or read them:
 # The story
 
 How Dam Good Maps' identity has changed, one short chapter per major turn (Kyler's decision, feedback item 33, D326).
-Each chapter links to its decisions in [PLAN.md §20](../../PLAN.md#20-editor-decisions). The decision log stays as
+Each chapter links to its decisions in [PLAN.md §20](../decisions/README.md). The decision log stays as
 written; where a later decision overturned an earlier one, the chapter says so. Add a chapter at every milestone or
 major turn.
 

@@ -6,8 +6,8 @@ import { footprintTiles, type Orientation } from "../../core/format/footprints";
 import { ORIENTATION_NAMES, type EntityView } from "../../render3d/model";
 import type { TileHit } from "../../render3d";
 import type { WaterLayers } from "../../worker/session";
-import { entitiesByTile, startStatus, type TileContext } from "../features";
-import type { LayerKind } from "../panels";
+import { entitiesByTile, startDragStatus, type TileContext } from "../features";
+import { LAYER_COLORS, type LayerKind } from "../panels";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, targetSource, type SourceSpot } from "../sourceSpots";
 import { BAD, STATUS_COLOR, WARN, DRAWING, DRAWING_BAND, GOOD, HOVERED, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, type OverlayLayer } from "../tools";
 import { type StartHere } from "../start/startHere";
@@ -39,11 +39,11 @@ function layerOverlay(l: WaterLayers, kind: LayerKind): OverlayLayer[] {
   switch (kind) {
     case "badwater":
       return [
-        { tiles: pick(l.badwater, 2), color: [190, 140, 70, 120] },
-        { tiles: pick(l.badwater, 1), color: [120, 70, 30, 200] },
+        { tiles: pick(l.badwater, 2), color: LAYER_COLORS.soil },
+        { tiles: pick(l.badwater, 1), color: LAYER_COLORS.badwater },
       ];
     case "roofed":
-      return [{ tiles: Array.from(l.roofed), color: [170, 90, 220, 150] }];
+      return [{ tiles: Array.from(l.roofed), color: LAYER_COLORS.roofed }];
     default:
       return [];
   }
@@ -158,13 +158,14 @@ export function useView(ed: Ed): ViewSlice {
   const startHereRef = useRef<StartHere | null>(null);
   const startHere = useMemo((): StartHere | null => {
     const f = info.features.find((g) => g.kind === "start");
-    if (f && f.kind === "start") return { x: f.params.position[0], y: f.params.position[1], orientation: f.params.orientation, feature: f.id, owner: f.id };
+    if (f && f.kind === "start") return { x: f.params.position[0], y: f.params.position[1], orientation: f.params.orientation, feature: f.id, owner: f.id, ...(f.params.z !== undefined ? { z: f.params.z } : {}) };
     const e = mirror.current.entities;
     for (let k = 0; k < e.count; k++) {
       if (e.templates[e.template[k]] !== "StartingLocation") continue;
       const o = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
       const [cx, cy] = cornerToCentre(e.x[k], e.y[k], o);
-      return { x: cx, y: cy, orientation: o, feature: null, owner: e.owners[e.owner[k]] };
+      const top = cx >= 0 && cy >= 0 && cx < info.W && cy < info.H ? mirror.current.heights[cy * info.W + cx] : 0;
+      return { x: cx, y: cy, orientation: o, feature: null, owner: null, ...(e.z[k] < top ? { z: e.z[k] } : {}) };
     }
     return null;
   }, [info.features, info.version]);
@@ -187,7 +188,7 @@ export function useView(ed: Ed): ViewSlice {
     }
     if (picked) layers.push({ tiles: [picked.y * info.W + picked.x], color: SELECTED });
     if (pickedObject) layers.push({ tiles: footprintTiles(pickedObject.template, { template: pickedObject.template, x: pickedObject.x, y: pickedObject.y, z: 0, orientation: pickedObject.orientation, flipped: pickedObject.flipped }).filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: SELECTED, outline: true });
-    if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: STATUS_COLOR[startStatus(startDrag.check)] });
+    if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: STATUS_COLOR[startDragStatus(startDrag)] });
     if (hoverObject && !sourceDrag) layers.push({ tiles: hoverObject, color: HOVERED, outline: true });
     // the source being changed is clearly marked: the one the pointer is on, the one picked (D361, item 6)
     if (targeted !== null && targetSpot.current && !sourceDrag) layers.push({ tiles: targetSpot.current.tiles, color: HOVERED, outline: true });
@@ -211,6 +212,8 @@ export function useView(ed: Ed): ViewSlice {
     }
     for (const c of instant) for (const [x, y] of c.where?.tiles ?? []) layers.push({ tiles: [y * info.W + x], color: PROBLEM });
     paintOverlay(data, info.W, info.H, layers);
+    // (a selection taken on a run, a cave's floor, is drawn on that ground; the rest of its columns as the land outside it)
+    r.setOverlayRuns(selection.current.count ? selection.current.levels : null, LOCKED);
     r.commitOverlay();
   }, [fit, picked, targeted, pickedObject, hoverObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke]);
   // the force's one ring (D312, D321 item 13): its size round the cursor, drawn once where the cursor

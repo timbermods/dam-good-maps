@@ -1,6 +1,9 @@
 // One command runs everything:
 //   npm --prefix investigation/probe run batch -- [maps.timber ...] [--smoke] [--only id,id] [--group name]
 //       [--confirmed-launch CODE] [--run-id ID] [--speed 99] [--no-wait]
+//       [--factions folktails,ironteeth] [--badtide | --cycles N]   (how the maps on the command line are played)
+//   npm --prefix investigation/probe run batch -- --companion [--companion-variants named,custom,fresh|all] [--keep-mods]
+//       (checks the companion mod in the game: runner/companion.ts; one launch per variant)
 //   npm --prefix investigation/probe run batch -- --compare-only RUN_ID
 //   npm --prefix investigation/probe run batch -- --compare-only RUN_ID --compare-to NAME
 //       (the run's results judged again, written to results\NAME and sheet\NAME.html; the run's own
@@ -17,15 +20,17 @@ import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { buildMod } from './build-mod';
-import { catalog, type GameDef, gameIdsFor } from './catalog';
+import { type CompanionLaunch, companionInstalled, companionSummary, installCompanion, removeCompanion, runCompanion, variantsFrom, writeCompanionReport } from './companion';
+import { catalog, type GameDef, gameIdsFor, type GivenOptions } from './catalog';
 import { evaluate, type GameVerdicts, Loaded } from './compare';
+import { cycleTable } from './cycles';
 import { askInTerminal, consumeConsent, describe, requestConsent } from './consent';
 import type { MapResult } from './job';
 import { makeJob, prepare, type Prepared, summary } from './jobs';
 import { type LaunchLog, resultsDir, runJob } from './launch';
 import { runModel, type ModelRun } from './model';
-import { prefsValueName, probeOnly } from './mods';
-import { CACHE, CHECKED_GAME_VERSION, gameVersion, isEntry, modInstallDir, probePaths, REGISTRY_KEY } from './paths';
+import { prefsValueName, probeAndCompanionOnly, probeOnly } from './mods';
+import { CACHE, CHECKED_GAME_VERSION, companionInstallDir, gameVersion, isEntry, modInstallDir, probePaths, REGISTRY_KEY } from './paths';
 import { waitQuiet } from './quiet';
 import { backupSettings, compareWithBackup, handRestore, hasPendingRestore, isGameRunning, leftovers, marker, parseRegFile, registryValues, restore, type SettingsDiff, takeSnapshot } from './safety';
 import { writeSheet } from './sheet';
@@ -44,17 +49,22 @@ interface Plan {
   runId: string;
   kind: 'smoke' | 'batch';
   extraMaps: string[];
+  /** How the command-line maps are played (`--factions`, `--badtide`, `--cycles`). */
+  given?: GivenOptions;
   gameIds: string[];
   speed: number;
   smokeDays?: number;
   /** Play with the installed mods (Kyler, 2026-09-25): no settings are changed or restored. */
   keepMods?: boolean;
+  /** A companion run (companion.ts): the companion mod checked in the game, one launch per variant. */
+  companion?: { variants: string[] };
   /** The maps the runner wrote for this plan with their groups' writers (writers.ts). */
   written?: ReturnType<typeof writtenForPlan>;
 }
 
 function selectGames(plan: Plan): GameDef[] {
-  const all = catalog(plan.extraMaps);
+  if (plan.companion) return [];
+  const all = catalog(plan.extraMaps, plan.given);
   let games = plan.gameIds.length ? all.filter((g) => plan.gameIds.includes(g.id)) : all;
   if (plan.smokeDays) games = games.map((g) => ({ ...g, days: Math.min(g.days, plan.smokeDays!) }));
   return games;
@@ -64,20 +74,46 @@ function newRunId(kind: string): string {
   return `${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(\d{8})(\d{4})/, '$1-$2')}-${kind}`;
 }
 
+/** `--factions folktails,ironteeth`, `--badtide` and `--cycles N` for the maps given on the command line; none given,
+ *  none changed. */
+function givenFromArgs(): GivenOptions | undefined {
+  const names = opt('factions');
+  const factions = names === undefined ? undefined : names.split(',').map((f) => {
+    const id = f.trim().toLowerCase().replace(/[^a-z]/g, '');
+    if (id === 'folktails') return 'Folktails' as const;
+    if (id === 'ironteeth') return 'IronTeeth' as const;
+    throw new Error(`Unknown faction "${f}": use folktails, ironteeth or both, comma-separated.`);
+  });
+  const cyclesArg = opt('cycles');
+  const cycles = cyclesArg === undefined ? undefined : Number(cyclesArg);
+  if (cycles !== undefined && !(Number.isInteger(cycles) && cycles >= 1 && cycles <= 30)) throw new Error(`--cycles needs a whole number of cycles from 1 to 30, not "${cyclesArg ?? ''}"`);
+  if (cycles !== undefined && flag('badtide')) throw new Error('--cycles plays its own weather (badtides included): leave out --badtide');
+  if (!factions?.length && !flag('badtide') && cycles === undefined) return undefined;
+  return { ...(factions?.length ? { factions: [...new Set(factions)] } : {}), ...(flag('badtide') ? { badtide: true } : {}), ...(cycles !== undefined ? { cycles } : {}) };
+}
+
 function planFromArgs(): Plan {
-  const valued = new Set(['--only', '--group', '--confirmed-launch', '--run-id', '--speed', '--compare-only', '--compare-to', '--days']);
+  const valued = new Set(['--only', '--group', '--confirmed-launch', '--run-id', '--speed', '--compare-only', '--compare-to', '--days', '--companion-variants', '--factions', '--cycles']);
   // npm --prefix runs the script in investigation/probe; paths are meant from where the command was typed
   const extraMaps = argv.filter((a, i) => a.toLowerCase().endsWith('.timber') && !valued.has(argv[i - 1])).map((a) => resolve(process.env.INIT_CWD ?? process.cwd(), a));
+  const given = givenFromArgs();
+  if (flag('companion')) {
+    const variants = variantsFrom(opt('companion-variants')).map((v) => v.id);
+    return { runId: opt('run-id') ?? newRunId('companion'), kind: 'batch', extraMaps: [], gameIds: [], speed: 99, keepMods: flag('keep-mods'), companion: { variants } };
+  }
   const smoke = flag('smoke');
   // (a named group or list that matches nothing refuses: never the whole catalog in its place)
   const valueOf = (n: string) => (argv.includes(`--${n}`) ? ((v) => (v === undefined || v.startsWith('--') ? '' : v))(opt(n)) : undefined);
   // a group made outside the repository gets its maps written first, by its own writer: never a stale map planned
   const written = writeGroups(groupsToWrite(valueOf('only'), valueOf('group')), log);
-  const all = catalog(extraMaps);
+  const all = catalog(extraMaps, given);
+  if (given?.cycles && !extraMaps.length) throw new Error('--cycles plays the maps named on the command line: name at least one .timber. Nothing was planned.');
   let ids = gameIdsFor(all, valueOf('only'), valueOf('group'));
+  // a long play plays only its maps unless --only or --group names more: never the whole catalog beside it
+  if (given?.cycles && !ids.length) ids = all.filter((g) => g.longPlay).map((g) => g.id);
   if (smoke && !ids.length) ids = ['m8-preview'];
   if (smoke) ids = ids.slice(0, 1);
-  return { runId: opt('run-id') ?? newRunId(smoke ? 'smoke' : 'batch'), kind: smoke ? 'smoke' : 'batch', extraMaps, gameIds: ids, speed: Number(opt('speed') ?? 99), smokeDays: smoke ? Number(opt('days') ?? 1) : undefined, keepMods: flag('keep-mods'), ...(written.length ? { written: writtenForPlan(written) } : {}) };
+  return { runId: opt('run-id') ?? newRunId(smoke ? 'smoke' : 'batch'), kind: smoke ? 'smoke' : 'batch', extraMaps, gameIds: ids, ...(given ? { given } : {}), speed: Number(opt('speed') ?? 99), smokeDays: smoke ? Number(opt('days') ?? 1) : undefined, keepMods: flag('keep-mods'), ...(written.length ? { written: writtenForPlan(written) } : {}) };
 }
 
 /**
@@ -87,6 +123,7 @@ function planFromArgs(): Plan {
  */
 async function launch(plan: Plan, prepared: Prepared[], reference: string, build: boolean): Promise<boolean> {
   const keepMods = !!plan.keepMods;
+  const companion = plan.companion ? variantsFrom(plan.companion.variants.join(',')) : null;
   const p = probePaths();
   const dir = resultsDir(plan.runId);
   mkdirSync(dir, { recursive: true });
@@ -103,9 +140,13 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
   }
   else log('the settings match the backup exactly (mod load order included)');
   if (build) {
-    log('building and installing DGM Probe');
+    log(companion ? 'building and installing DGM Probe and the companion' : 'building and installing DGM Probe');
     buildMod(true);
-  } else if (!existsSync(join(modInstallDir(), 'version-1.1', 'Scripts', 'DGMProbe.dll'))) throw new Error('DGM Probe is not installed: run the prepare step first.');
+    if (companion) installCompanion();
+  } else {
+    if (!existsSync(join(modInstallDir(), 'version-1.1', 'Scripts', 'DGMProbe.dll'))) throw new Error('DGM Probe is not installed: run the prepare step first.');
+    if (companion && !companionInstalled()) throw new Error('The companion is not installed: run the prepare step first.');
+  }
   const snap = takeSnapshot();
   let viewIsGames = true;
   log(`recorded the game's settings, logs and saves (${Object.keys(snap.saves).length} save files)`);
@@ -117,6 +158,11 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
     writeFileSync(join(dir, 'restore.json'), JSON.stringify(r, null, 1));
     log(`restored: registry ${r.registryRestored ? `put back (${r.registryChanged.length} values had changed)` : 'unchanged'}; logs ${r.logsRestored.join(', ') || '-'}; player data ${r.playerDataRestored.join(', ') || 'unchanged'}; saves deleted ${r.savesDeleted.length}, saves changed ${r.savesChanged.length}; other new files and folders moved out ${r.docsMoved.length}; changed files put back ${r.docsRestored.join(', ') || 'none'}; changed and left (Steam's own, or too large to copy) ${r.docsChanged.join(', ') || 'none'}`);
   };
+  // DGM Probe, and the companion if the runner installed it: both leave the Mods folder after a run, however it ends
+  const removeRunMods = () => {
+    rmSync(modInstallDir(), { recursive: true, force: true });
+    if (companion && !removeCompanion()) log(`${companionInstallDir()} was not installed by the runner and is left alone`);
+  };
   const onSignal = () => {
     log('interrupted: stopping the game and restoring');
     try {
@@ -125,23 +171,36 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
       // already gone
     }
     setTimeout(() => {
-      doRestore();
-      process.exit(130);
+      try {
+        doRestore();
+      } finally {
+        // the finally below never runs on this path: the run's mods leave the Mods folder here
+        removeRunMods();
+        process.exit(130);
+      }
     }, 4000);
   };
   process.once('SIGINT', onSignal);
   try {
     if (!keepMods) {
-      const mods = probeOnly();
+      const mods = companion ? probeAndCompanionOnly() : probeOnly();
       log(`mods for the run: on ${mods.on.join(', ')}; off ${mods.off.length}`);
     }
-    const job = makeJob(plan.runId, prepared, plan.speed);
-    // a large map loads for longer without a heartbeat (the scene loads in one go): 240 s at 256², more above it
-    const largest = Math.max(...prepared.map((x) => x.info.W * x.info.H));
-    const launches = await runJob(job, { hangSeconds: Math.max(240, Math.round((240 * largest) / (256 * 256))), startSeconds: 300, mapSeconds: Math.max(...job.maps.map((m) => m.timeoutSeconds)) + 300, maxLaunches: Math.max(3, Math.ceil(prepared.length / 3) + 2), log });
-    writeFileSync(join(dir, 'launches.json'), JSON.stringify(launches, null, 1));
+    let launches: { otherMods?: string[] }[];
+    if (companion) {
+      const done = await runCompanion(plan.runId, companion, { startSeconds: 120, launchSeconds: 420, log });
+      writeFileSync(join(dir, 'companion-launches.json'), JSON.stringify(done, null, 1));
+      launches = done;
+    } else {
+      const job = makeJob(plan.runId, prepared, plan.speed);
+      // a large map loads for longer without a heartbeat (the scene loads in one go): 240 s at 256², more above it
+      const largest = Math.max(...prepared.map((x) => x.info.W * x.info.H));
+      const ran = await runJob(job, { hangSeconds: Math.max(240, Math.round((240 * largest) / (256 * 256))), startSeconds: 300, mapSeconds: Math.max(...job.maps.map((m) => m.timeoutSeconds)) + 300, maxLaunches: Math.max(3, Math.ceil(prepared.length / 3) + 2), log });
+      writeFileSync(join(dir, 'launches.json'), JSON.stringify(ran, null, 1));
+      launches = ran;
+    }
     const others = [...new Set(launches.flatMap((l) => l.otherMods ?? []))];
-    if (keepMods) log(`run with the installed mods: ${others.join(', ') || 'none besides DGM Probe'}`);
+    if (keepMods) log(`run with the installed mods: ${others.join(', ') || `none besides DGM Probe${companion ? ' and the companion' : ''}`}`);
     else if (others.length) {
       // The game saw none of the runner's settings changes, so the restore below cannot reach them either
       // (for example when the runner runs in a sandbox with its own view of the registry).
@@ -170,8 +229,9 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
     doRestore();
     if (existsSync(p.job)) rmSync(p.job);
     // DGM Probe leaves the Mods folder after each run, so the player's own game never loads it
-    rmSync(modInstallDir(), { recursive: true, force: true });
+    removeRunMods();
     log('DGM Probe removed from the Mods folder');
+    if (companion) log(`the companion removed from the Mods folder (${companionInstallDir()})`);
     // nothing the run created may stay in Kyler's Timberborn folder
     const left = leftovers(snap);
     writeFileSync(join(dir, 'leftovers.json'), JSON.stringify(left, null, 1));
@@ -227,23 +287,36 @@ export function compareRun(plan: Plan, compareTo?: string): { verdicts: GameVerd
   const launchesFile = join(dir, 'launches.json');
   const otherMods = existsSync(launchesFile) ? [...new Set((JSON.parse(readFileSync(launchesFile, 'utf8')) as LaunchLog[]).flatMap((l) => l.otherMods ?? []))] : [];
   const verdicts: GameVerdicts[] = [];
-  const models: Record<string, { cpuSeconds: number; momentum?: string; error?: string }> = {};
+  const models: Record<string, { cpuSeconds: number; momentum?: string; error?: string; sharedWith?: string }> = {};
+  // A long play's model reads no samples, only the whole map at its moments: both factions play the same file and
+  // weather, so the model runs once for them (185 days of it is minutes of CPU).
+  const longModels = new Map<string, { game: string; model: ModelRun }>();
   for (const p of prepared) {
     const L = loaded.get(p.game.id)!;
     let model: ModelRun | null = null, modelError: string | null = null;
     if (p.game.model && L.result?.status === 'done') {
       try {
-        const sampleDays = L.samples().map((s) => s.day);
+        const bytes = new Uint8Array(readFileSync(p.map.mapFile));
         const mapDays = p.map.moments.filter((m) => m.snapshot).map((m) => m.day);
-        model = runModel(new Uint8Array(readFileSync(p.map.mapFile)), `${p.game.id}.timber`, p.game.cycles, p.map.endDay, p.map.tiles, sampleDays, mapDays);
-        models[p.game.id] = { cpuSeconds: model.cpuSeconds, momentum: model.momentum };
+        const key = p.game.longPlay ? JSON.stringify([p.info.sha256, p.game.cycles, p.map.endDay, mapDays]) : '';
+        const shared = key ? longModels.get(key) : undefined;
+        if (shared) {
+          model = shared.model;
+          models[p.game.id] = { cpuSeconds: 0, momentum: model.momentum, sharedWith: shared.game };
+        } else {
+          const sampleDays = p.game.longPlay ? [] : L.samples().map((s) => s.day);
+          model = runModel(bytes, `${p.game.id}.timber`, p.game.cycles, p.map.endDay, p.map.tiles, sampleDays, mapDays);
+          models[p.game.id] = { cpuSeconds: model.cpuSeconds, momentum: model.momentum };
+          if (key) longModels.set(key, { game: p.game.id, model });
+        }
       } catch (e) {
         modelError = (e as Error).message;
         models[p.game.id] = { cpuSeconds: 0, error: modelError };
       }
     }
-    const checks = evaluate({ L, others: loaded, model, modelError, otherMods: plan.keepMods ? [] : otherMods, installedMods: plan.keepMods ? otherMods : [] }, p.checks);
-    verdicts.push({ game: p.game.id, title: p.game.title, group: p.game.group, status: L.result?.status ?? 'no result', checks });
+    const cycles = p.game.longPlay && L.result ? cycleTable(L, model, modelError ?? (p.game.model && L.result.status !== 'done' ? `the map did not finish (${L.result.status})` : null)) : undefined;
+    const checks = evaluate({ L, others: loaded, model, modelError, otherMods: plan.keepMods ? [] : otherMods, installedMods: plan.keepMods ? otherMods : [], ...(cycles ? { cycles } : {}) }, p.checks);
+    verdicts.push({ game: p.game.id, title: p.game.title, group: p.game.group, status: L.result?.status ?? 'no result', checks, ...(cycles ? { cycles } : {}) });
     log(`${p.game.id}: ${checks.map((c) => `${c.id} ${c.verdict}`).join(', ')}`);
   }
   const title = compareTo ? `${plan.runId}, judged again as ${compareTo}` : plan.runId;
@@ -258,6 +331,17 @@ export function compareRun(plan: Plan, compareTo?: string): { verdicts: GameVerd
   // the maps built only to be checked against the played ones
   if (compareTo) rmSync(join(probePaths().maps, compareTo), { recursive: true, force: true });
   return { verdicts, sheet };
+}
+
+/** Judges a companion run's results and prints them; true when every variant passed. */
+function reportCompanion(plan: Plan): boolean {
+  const variants = variantsFrom(plan.companion!.variants.join(','));
+  const file = join(resultsDir(plan.runId), 'companion-launches.json');
+  const launches = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as CompanionLaunch[]) : [];
+  const { passed, lines } = writeCompanionReport(plan.runId, variants, launches, !!plan.keepMods);
+  for (const l of lines) log(l);
+  log(`companion check ${passed ? 'PASSED' : 'FAILED'}: ${join(resultsDir(plan.runId), 'companion.json')}, ${join(resultsDir(plan.runId), 'summary.md')}`);
+  return passed;
 }
 
 async function main(): Promise<void> {
@@ -315,19 +399,30 @@ async function main(): Promise<void> {
   const compareOnly = opt('compare-only');
   if (compareOnly) {
     const plan = JSON.parse(readFileSync(join(resultsDir(compareOnly), 'plan.json'), 'utf8')) as Plan;
+    if (plan.companion) {
+      if (!reportCompanion(plan)) process.exitCode = 1;
+      return;
+    }
     compareRun(plan, opt('compare-to'));
     return;
   }
   const launchOnly = flag('launch-only');
   const plan = launchOnly ? (JSON.parse(readFileSync(join(resultsDir(opt('run-id') ?? ''), 'plan.json'), 'utf8')) as Plan) : planFromArgs();
-  const prepared = prepare(selectGames(plan), plan.runId);
-  const s = summary(prepared, plan.kind, !!plan.keepMods, plan.written);
+  const prepared = plan.companion ? [] : prepare(selectGames(plan), plan.runId);
+  const s = plan.companion ? companionSummary(variantsFrom(plan.companion.variants.join(',')), !!plan.keepMods) : summary(prepared, plan.kind, !!plan.keepMods, plan.written);
+  if (flag('dry-run')) {
+    // the plan as it would be launched, with no code written and nothing built or launched
+    console.log(describe(s));
+    console.log(`\n(dry run: nothing was built, written or launched; run id ${plan.runId})`);
+    return;
+  }
   if (flag('prepare-only')) {
     // everything before the launch that needs no real game settings: the maps, the plan and the mod
     mkdirSync(resultsDir(plan.runId), { recursive: true });
     writeFileSync(join(resultsDir(plan.runId), 'plan.json'), JSON.stringify(plan, null, 1));
     log('building and installing DGM Probe');
     buildMod(true);
+    if (plan.companion) installCompanion();
     console.log(describe(s));
     console.log(`\nPrepared run ${plan.runId}. The launch step (outside any sandbox, after Kyler's yes): --launch-only --run-id ${plan.runId} --confirmed-launch <code> --reference <settings backup .reg>`);
     return;
@@ -356,7 +451,8 @@ async function main(): Promise<void> {
   // The mod reads the game's internals as they are in the version it was checked against; after a game
   // update only a smoke run may go first.
   const version = gameVersion();
-  if (version !== CHECKED_GAME_VERSION && plan.kind === 'batch' && !flag('allow-new-version'))
+  // (the companion run needs no DGM Probe internals: the companion is built against the game that is installed)
+  if (version !== CHECKED_GAME_VERSION && plan.kind === 'batch' && !plan.companion && !flag('allow-new-version'))
     throw new Error(`The game is ${version}, not ${CHECKED_GAME_VERSION}: run a smoke run first, then the batch with --allow-new-version.`);
   if (plan.kind === 'batch' && !flag('no-wait')) {
     const quiet = await waitQuiet(log);
@@ -367,7 +463,11 @@ async function main(): Promise<void> {
   const settingsOk = await launch(plan, prepared, reference, !launchOnly);
   if (!settingsOk) process.exitCode = 4;
   // the comparisons need no real settings: after a --launch-only step they run on their own (--compare-only)
-  if (!launchOnly) compareRun(plan);
+  if (!launchOnly) {
+    if (plan.companion) {
+      if (!reportCompanion(plan)) process.exitCode ||= 1;
+    } else compareRun(plan);
+  }
 }
 
 if (isEntry(__filename))

@@ -1,8 +1,10 @@
-// Lake Basin round 2 (PLAN §20 D453, D458): one valley basin in a stronger radial catchment, on every
-// Lake Basin map, whatever its settings, difficulty, size, intentions or siblings (Kyler, 2026-10-03;
-// until then only the default Normal square map from 96² to 256², so Another like this and every
-// setting away from the preset lost the theme: the release-gate generator hunt's findings 1 and 2).
-// The player's Rivers count and a Lakes setting away from the preset's keep their lean.
+// Lake Basin round 3 (#234, drowned valley outlines; round 2: PLAN §20 D453, D458): an off-centre warped
+// hollow with a deeper round inner reach, bent drowned valleys running into it and spurs between them, in
+// a stronger radial catchment, on every Lake Basin map, whatever its settings, difficulty, size,
+// intentions or siblings (Kyler, 2026-10-03; until then only the default Normal square map from 96² to
+// 256², so Another like this and every setting away from the preset lost the theme: the release-gate
+// generator hunt's findings 1 and 2). The player's Rivers count (none included) and a Lakes setting away
+// from the preset's keep their lean.
 
 import { describe, expect, it } from "vitest";
 import { drawGenome, leanGenome, type Genome } from "../../src/core/land/genome";
@@ -21,15 +23,26 @@ const shape = (W: number, H: number, settings: Settings, designedFor: Difficulty
   return { shaped: JSON.stringify(g) !== JSON.stringify(before), before, g };
 };
 const isLakeBasin = (g: Genome) => {
-  expect(g.parts.filter((p) => p.kind === "basin" || p.kind === "caldera").map((p) => p.shape)).toEqual(["valley"]);
+  // one basin: the round inner reach at the lake's focus, the old valley basin and any caldera gone
+  const basins = g.parts.filter((p) => p.kind === "basin" || p.kind === "caldera");
+  expect(basins.map((p) => p.shape)).toEqual(["round"]);
+  expect(basins[0].at).toEqual(g.focus);
+  // the main hollow (a warped footprint cut down) off the map's centre, and three per drowned valley
+  const hollows = g.parts.filter((p) => p.kind === "isle" && p.height < 0);
+  expect(hollows.some((p) => p.at[0] === g.focus[0] && p.at[1] === g.focus[1])).toBe(true);
+  expect(hollows.length).toBeGreaterThanOrEqual(1 + 3 * 3);
+  const off = Math.hypot(g.focus[0] - 0.5, g.focus[1] - 0.5);
+  expect(off).toBeGreaterThanOrEqual(0.12 - 1e-9);
+  expect(off).toBeLessThanOrEqual(0.21 + 1e-9);
+  expect(g.parts.some((p) => p.kind === "ridge")).toBe(true);
   expect(g.tiltKind).toBe("radial");
   expect(g.hydro.delta).toBe(0);
 };
 
-describe("Lake Basin round 2 shapes every Lake Basin map (D453; Kyler, 2026-10-03)", () => {
+describe("Lake Basin round 3 shapes every Lake Basin map (#234, D453; Kyler, 2026-10-03)", () => {
   const preset = (x: number, y = x) => makeSpec({ seed: 7, theme: "lakeBasin", size: { x, y } }).settings;
 
-  it("the default Normal square map from 96² to 256²: one valley basin, a radial catchment", () => {
+  it("the default Normal square map from 96² to 256²: drowned valleys into an off-centre basin, a radial catchment", () => {
     for (const n of [96, 128, 256]) {
       const r = shape(n, n, preset(n));
       expect(r.shaped, `${n}²`).toBe(true);
@@ -47,13 +60,18 @@ describe("Lake Basin round 2 shapes every Lake Basin map (D453; Kyler, 2026-10-0
     isLakeBasin(shape(128, 128, changed).g);
   });
 
-  it("the player's Rivers count and a Lakes setting away from the preset's keep their lean", () => {
+  it("the player's Rivers count, none included, and a Lakes setting away from the preset's keep their lean", () => {
     const rivers = structuredClone(preset(128));
     rivers.water.rivers = 3;
     const r = shape(128, 128, rivers);
     isLakeBasin(r.g);
     expect(r.g.hydro.exactInflows).toBe(true);
     expect(r.g.hydro.inflows).toBe(3);
+    const none = structuredClone(preset(128));
+    none.water.rivers = 0;
+    const n = shape(128, 128, none);
+    isLakeBasin(n.g);
+    expect(n.g.hydro.inflows).toBe(0);
     const lakes = structuredClone(preset(128));
     lakes.water.lakes = "none";
     const l = shape(128, 128, lakes);

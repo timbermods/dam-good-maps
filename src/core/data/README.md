@@ -13,3 +13,5 @@ Numbers read from the installed game and pinned in the repository.
 **Regenerate**: `tools/log-floor.ts` (needs the installed game's blueprints) and `tools/export-footprints.ts` (from `investigation/notes/footprints.json`).
 
 **Tests**: `tests/unit/log-floor.test.ts`. Run `npx vitest run tests/unit/log-floor.test.ts`.
+
+`parity-values.json` pins the map-editor fluid, core and reserve values from Timberborn 1.1.2.4 (D337–D339). `parity.ts` exposes footprints, strength ceilings, countdowns and permitted goods. The Badtide Drain is 1×3 in that data.

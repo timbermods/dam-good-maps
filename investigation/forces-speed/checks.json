@@ -1,0 +1,82 @@
+{
+  "base": "38d4ee6b9ef2e0c516a244be42dbfd0f5e576e7e",
+  "productFilesUnchanged": true,
+  "protectedSourcesUnchanged": [
+    "rust/forces/src/deposit.rs",
+    "rust/water"
+  ],
+  "typecheck": {
+    "command": "npx tsc --noEmit -p tsconfig.json",
+    "cwd": "local/adopted",
+    "exitCode": 0
+  },
+  "targetedTests": {
+    "files": 11,
+    "tests": 100,
+    "passed": 100,
+    "workers": 2,
+    "initialFixtureCopyIssue": "The first run had 99 passes and one missing copied public real-place fixture; setup was corrected and only that failed test was rerun, passing."
+  },
+  "rustUnitTests": {
+    "command": "cargo test --release -j 2 -p forces --lib",
+    "passed": 3,
+    "failed": 0
+  },
+  "groups": {
+    "a": {
+      "pins": 50,
+      "baselineStudies": 50,
+      "playbackFrames": 1488,
+      "determinismCases": 122,
+      "checkpointsPerEngine": 280,
+      "mismatches": 0,
+      "errors": 0
+    },
+    "b": {
+      "pins": 50,
+      "nativePins": 50,
+      "nativeUsesRepositoryCpuFlags": true,
+      "baselineStudies": 50,
+      "playbackFrames": 1488,
+      "determinismCases": 122,
+      "checkpointsPerEngine": 280,
+      "mismatches": 0,
+      "errors": 0
+    }
+  },
+  "measured256Results": {
+    "cases": 24,
+    "matchingBaseline": 24,
+    "engines": [
+      "node",
+      "chromium"
+    ],
+    "themes": [
+      "highlands",
+      "lakeBasin"
+    ],
+    "profileCount": 24,
+    "unprofiledReadingsPerCase": 3
+  },
+  "guards": {
+    "source": true,
+    "compiledWasm": true,
+    "wasmBytes": 1028429,
+    "wasmImports": 0
+  },
+  "patches": {
+    "full": "adoption.patch",
+    "recommendedFirst": "adoption-a.patch",
+    "applyCheck": true,
+    "whitespaceErrorAll": true
+  },
+  "limits": {
+    "noTimingRepeats": true,
+    "noQuietWindows": true,
+    "noOtherBrowserEngines": true,
+    "noTimberbornProbes": true,
+    "noSpeedGates": true,
+    "cargoJobs": 2,
+    "vitestWorkers": 2
+  }
+}

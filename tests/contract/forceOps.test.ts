@@ -1,9 +1,9 @@
 // The four forces in the document and the editor's worker (PLAN §20 D202, D203, D206, D219, D220):
 // each force is one `forceResult` operation, one undo step, stored literally, so it replays to the
-// same bytes; Esc drops all of it; Try another replaces it and undo brings the earlier one back; a
+// same bytes; Esc drops all of it; Try another makes another roll of its one step (D488); a
 // force keeps what the page showed; forces, brushes and placements share one history, the project
-// file (format 3) and the .timber export. A carve saved as the carve operation of before still opens
-// and replays exactly.
+// file (format 3) and the .timber export. (A carve saved as the carve operation of before opens as
+// this one: carvesBeforeD220.test.ts.)
 
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
@@ -11,8 +11,7 @@ import { decodeProject } from "../../src/core/doc/document";
 import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" };
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
-import { carveParams, forceMapOf } from "../../src/core/forces/carve/result";
-import { CarveRun, DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
+import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import type { ForceResultParams } from "../../src/core/forces/op";
@@ -21,7 +20,7 @@ import { generate } from "../../src/core/gen/generate";
 import { checkSchema } from "../../src/core/spec/schema";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
-import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/tools";
+import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/start";
 import type { StartFeature } from "../../src/core/features/schema";
 import * as ed from "../../src/worker/session";
 
@@ -73,22 +72,21 @@ function run(req: ed.ForceRequest, shown: { h: Uint8Array }) {
 }
 
 describe("the forces at work in the editor's worker (D202, D203, D206, D219)", () => {
-  it("each force frames as it runs, Esc drops all of it, its end keeps it as one step exactly as shown, and Try another replaces it", async () => {
+  it("each force frames as it runs, Esc drops all of it, its end keeps it as one step exactly as shown, and Try another makes another roll of it", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const ground = ed.sessionView().view.heights.slice();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const at = farFromStart(s.built);
     const fault = faultAway(s.built);
     const cases: [string, ed.ForceRequest, RegExp][] = [
-      ["Craterize, Strike", { verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 45 }, origin: at, cut: null }, /^Craterize$/],
-      ["Craterize, Aim", { verb: "craterize", settings: { ...CRATER_DEFAULTS, mode: "aim", power: 45, rays: true }, origin: at, end: [at[0] + (at[0] < W / 2 ? 20 : -20), at[1]], cut: null }, /^Craterize$/],
-      ["Erupt, Vent", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 45 }, origin: at, cut: null }, /^Erupt$/],
-      ["Erupt, Fissure", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, mode: "fissure", power: 45 }, origin: at, path: [{ x: at[0] - 10, y: at[1] }, { x: at[0] + 12, y: at[1] + 3 }], cut: null }, /^Erupt a fissure$/],
-      ["Quake, Lift", { verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60 }, ...fault, cut: null }, /^Quake: lift$/],
-      ["Quake, Slide", { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 60 }, ...fault, cut: null }, /^Quake: slide$/],
+      ["Craterize, Strike", { verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 45 }, origin: at, cut: null }, /^Craterize(, (a source|\d+ sources) cleared)?$/],
+      ["Craterize, Aim", { verb: "craterize", settings: { ...CRATER_DEFAULTS, mode: "aim", power: 45, rays: true }, origin: at, end: [at[0] + (at[0] < W / 2 ? 20 : -20), at[1]], cut: null }, /^Craterize(, (a source|\d+ sources) cleared)?$/],
+      ["Erupt, Vent", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 45 }, origin: at, cut: null }, /^Erupt(, (a source|\d+ sources) cleared)?$/],
+      ["Erupt, Fissure", { verb: "erupt", settings: { ...ERUPT_DEFAULTS, mode: "fissure", power: 45 }, origin: at, path: [{ x: at[0] - 10, y: at[1] }, { x: at[0] + 12, y: at[1] + 3 }], cut: null }, /^Erupt a fissure(, (a source|\d+ sources) cleared)?$/],
+      ["Quake, Lift", { verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60 }, ...fault, cut: null }, /^Quake: lift(, (a source|\d+ sources) cleared)?$/],
+      ["Quake, Slide", { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 60 }, ...fault, cut: null }, /^Quake: slide(, (a source|\d+ sources) cleared)?$/],
     ];
     for (const [name, req, label] of cases) {
       const n0 = history().length;
@@ -110,17 +108,17 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
       expect(Array.from(first), name).toEqual(Array.from(shown.h));
       expect(Array.from(first), name).not.toEqual(Array.from(before));
       expect(kept.info.forceAgain).toBe(req.verb);
-      // Try another: the same force from the same land, the next seed; it replaces the first
+      // Try another: the same force from the same land, the next seed; another roll of its one step (D488)
       const again = ed.forceAgain();
       expect(again.errors, name).toEqual([]);
       expect(again.verb).toBe(req.verb);
       expect(again.settings!.seed).toBe((req.settings.seed ?? 0) + 1);
       for (let k = 0; k < 400 && !ed.forceAdvance(4)!.done; k++);
       expect(ed.forceStop().kept).toBe(true);
-      expect(lastOp().label, name).toMatch(/^Try another$/);
-      expect(history().length).toBe(n0 + 2);
-      // undo: the first, exactly; again: the land before it
-      ed.undo();
+      expect(lastOp().label, name).toMatch(/, roll 2$/);
+      expect(history().length).toBe(n0 + 1);
+      // the first roll again, exactly; undo: the land before it, the step whole
+      expect(ed.forceRoll({ step: -1 }).ok, name).toBe(true);
       expect(Array.from(ed.terrainNow().heights), name).toEqual(Array.from(first));
       ed.undo();
       expect(Array.from(ed.terrainNow().heights), name).toEqual(Array.from(before));
@@ -133,7 +131,6 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
   it("a painted Lift shows its whole result as it is painted, and is kept when it's let go", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const fault = faultAway(s.built);
@@ -150,14 +147,14 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
     expect(more).toBeGreaterThan(20);
     expect(ed.forceStop().kept).toBe(true);
     expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(long));
-    expect(lastOp().label).toBe("Quake: lift");
+    // (its default Sources: Clear takes what its ground carries off, and the label says so, D474)
+    expect(lastOp().label).toMatch(/^Quake: lift(, (a source|\d+ sources) cleared)?$/);
     ed.settleWater();
   });
 
   it("a force through the start completes, and the start is carried to level ground where it stands well, in the same undo step (D257)", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const st = open().built.start!;
@@ -200,7 +197,6 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
   it("the checks say what a force left short at the start, and each one-click fix mends it (D257)", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const st = s.built.start!;
@@ -209,19 +205,19 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
     expect(gone.length).toBeGreaterThan(0);
     expect(ed.apply({ op: "deleteEntities", params: { entities: gone } }).errors).toEqual([]);
     ed.settleWater();
-    const short = (id: string) => {
-      const c = ed.exportCheck();
+    const short = async (id: string) => {
+      const c = (await ed.backgroundCheck())!.check;
       return [...c.blocking, ...c.warnings, ...c.advisory].find((i) => i.id === id) ?? null;
     };
     for (const id of ["start.wood", "start.food"]) {
-      const item = short(id);
+      const item = await short(id);
       expect(item, id).not.toBeNull();
       expect(item!.fix?.length, id).toBeGreaterThan(0);
       expect(item!.fix![0].label).toMatch(id === "start.wood" ? /oaks? for the starting logs/ : /berry bush/);
       const u = ed.applyAll(item!.fix!.map(({ label: _l, ...op }) => op as EditOp), item!.fix![0].label, "fix");
       expect(u.errors, id).toEqual([]);
       ed.settleWater();
-      expect(short(id), id).toBeNull();
+      expect(await short(id), id).toBeNull();
     }
   });
 });
@@ -242,7 +238,6 @@ function forceOp(s: MapSession, verb: "craterize" | "erupt" | "quake"): EditOp {
 
 /** What the worker would keep for `req` on the session's map, run to its end. */
 function paramsOf(s: MapSession, req: ed.ForceRequest): ForceResultParams {
-  ed.setEditorWaterMode("defer");
   ed.openProject(s.project());
   const r = ed.forceStart(req);
   expect(r.errors).toEqual([]);
@@ -304,33 +299,6 @@ describe("the forces in the document (breakage rule)", () => {
       expect(s.redo()).toBe(true);
       expect(Array.from(s.built.heights), `redo to ${k}`).toEqual(Array.from(maps[k]));
     }
-  });
-
-  it("a carve kept as the carve operation of before the forces shared one still opens and replays exactly", () => {
-    const r = generate(makeSpec({ seed: 5, theme: "highlands", size: { x: 96, y: 96 } }));
-    const s = MapSession.fromGenerated(r, r.file);
-    s.setWaterMode("defer");
-    const m = forceMapOf(s.built);
-    const at = farFromStart(s.built);
-    const run = new CarveRun(m, { ...CARVE_DEFAULTS, power: 70 }, { origin: at[1] * 96 + at[0] }, { sourceId: "22222222-2222-4333-8444-555555555555" });
-    for (let k = 0; k < 1200 && !run.done; k++) run.step();
-    const params = carveParams(m, run, { settings: { ...CARVE_DEFAULTS, power: 70 }, origin: at, cut: null })!;
-    expect(s.apply({ op: "carve", params }, "user").errors).toEqual([]);
-    const saved = s.project();
-    const again = MapSession.open(decodeProject(saved));
-    expect(again.logOps.at(-1)!.op).toBe("carve");
-    expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
-    s.settleCanonical();
-    again.settleCanonical();
-    expect(Buffer.from(s.exportTimber().bytes).equals(Buffer.from(again.exportTimber().bytes))).toBe(true);
-    // Try another can replace it with the shared operation, and undo brings it back
-    const before = s.built.heights.slice();
-    const other = { ...params, seed: 1, tiles: params.tiles.slice(0, 10), heights: params.heights.slice(0, 10) };
-    const op: ForceResultParams = { version: 1, verb: "carve", settings: { mode: "unleash", power: 70, wander: 35, width: null, seed: 1, walls: "steep", defyGravity: false, dry: true }, where: { origin: at }, steps: 1, reason: "stopped", tiles: other.tiles, heights: other.heights, removed: [], replaces: s.history().at(-1)!.seq };
-    expect(s.apply({ op: "forceResult", params: op }, "user").errors).toEqual([]);
-    expect(s.history().at(-1)!.label).toBe("Try another path");
-    s.undo();
-    expect(Array.from(s.built.heights)).toEqual(Array.from(before));
   });
 
   it("the engine refuses a force result that doesn't fit, and the schema agrees with Ajv", () => {

@@ -1,0 +1,150 @@
+[
+  {
+    "type": "worker",
+    "url": "waterMesh.worker-3Q6Rp6i1.js",
+    "before": {
+      "usedSize": 1361264,
+      "totalSize": 2138112,
+      "embedderHeapUsedSize": 424168,
+      "backingStorageSize": 2159329
+    },
+    "after": {
+      "usedSize": 1356988,
+      "totalSize": 1875968,
+      "embedderHeapUsedSize": 30528,
+      "backingStorageSize": 2159329
+    },
+    "wasm": []
+  },
+  {
+    "type": "worker",
+    "url": "checks.worker-CgSlKuHL.js",
+    "before": {
+      "usedSize": 11496112,
+      "totalSize": 13303808,
+      "embedderHeapUsedSize": 477616,
+      "backingStorageSize": 13511134
+    },
+    "after": {
+      "usedSize": 11491396,
+      "totalSize": 12255232,
+      "embedderHeapUsedSize": 32072,
+      "backingStorageSize": 13511134
+    },
+    "wasm": [
+      {
+        "id": 1,
+        "label": "water",
+        "bytes": 56360960
+      }
+    ]
+  },
+  {
+    "type": "worker",
+    "url": "waterStrip.worker-B8QkAeJz.js",
+    "before": {
+      "usedSize": 1743064,
+      "totalSize": 5283840,
+      "embedderHeapUsedSize": 1577520,
+      "backingStorageSize": 288595
+    },
+    "after": {
+      "usedSize": 1298916,
+      "totalSize": 1875968,
+      "embedderHeapUsedSize": 30640,
+      "backingStorageSize": 288595
+    },
+    "wasm": [
+      {
+        "id": 1,
+        "label": "water",
+        "bytes": 17235968
+      }
+    ]
+  },
+  {
+    "type": "worker",
+    "url": "waterStrip.worker-B8QkAeJz.js",
+    "before": {
+      "usedSize": 2066664,
+      "totalSize": 3448832,
+      "embedderHeapUsedSize": 1206888,
+      "backingStorageSize": 288595
+    },
+    "after": {
+      "usedSize": 1266624,
+      "totalSize": 1875968,
+      "embedderHeapUsedSize": 30544,
+      "backingStorageSize": 288595
+    },
+    "wasm": [
+      {
+        "id": 1,
+        "label": "water",
+        "bytes": 25559040
+      }
+    ]
+  },
+  {
+    "type": "worker",
+    "url": "bake.worker-C3pVjpJo.js",
+    "before": {
+      "usedSize": 739060,
+      "totalSize": 1835008,
+      "embedderHeapUsedSize": 489464,
+      "backingStorageSize": 20167
+    },
+    "after": {
+      "usedSize": 734784,
+      "totalSize": 1310720,
+      "embedderHeapUsedSize": 29944,
+      "backingStorageSize": 20167
+    },
+    "wasm": []
+  },
+  {
+    "type": "worker",
+    "url": "generator.worker-CtMEbeeO.js",
+    "before": {
+      "usedSize": 24027864,
+      "totalSize": 26714112,
+      "embedderHeapUsedSize": 441616,
+      "backingStorageSize": 96234656
+    },
+    "after": {
+      "usedSize": 24022988,
+      "totalSize": 25665536,
+      "embedderHeapUsedSize": 36104,
+      "backingStorageSize": 96234656
+    },
+    "wasm": [
+      {
+        "id": 1,
+        "label": "water",
+        "bytes": 61997056
+      },
+      {
+        "id": 2,
+        "label": "forces",
+        "bytes": 17367040
+      }
+    ]
+  },
+  {
+    "type": "page",
+    "url": "#v=0.8.0&s=4264&t=riverValley&z=256&d=n",
+    "before": {
+      "usedSize": 26932936,
+      "totalSize": 33603584,
+      "embedderHeapUsedSize": 5742368,
+      "backingStorageSize": 345043494
+    },
+    "after": {
+      "usedSize": 25927296,
+      "totalSize": 28360704,
+      "embedderHeapUsedSize": 5100600,
+      "backingStorageSize": 345043261
+    },
+    "wasm": []
+  }
+]

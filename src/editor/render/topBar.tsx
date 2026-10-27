@@ -1,15 +1,42 @@
 // The top bar: the brushes, the forces, Select and the row beneath them.
 
 import { FirstRun, saveFirstRun, type FirstStep } from "../FirstRun";
+import type { EditorProps } from "../Editor";
 import { TopBar } from "../TopBar";
+import { tip } from "../../ui/Tooltip";
 import { sizeMax } from "../brushes";
 import type { Ed } from "../ed";
 
-export function topBar(ed: Ed) {
+export function topBar(ed: Ed, props: EditorProps) {
   const {
-    brushTool, tool, forcer, forceRow, unleashRow, shelfRow, pickedRow, firstRun, setFirstRun, brush, info, pickTop,
-    setBrush, ready, selectRow, selectChip, selecting, selectingRef, brushToolRef, toolRef, closeSelect, openSelect
+    brushTool, tool, forcer, forceRow, unleashRow, firstRun, setFirstRun, brush, info, pickTop,
+    setBrush, ready, selectRow, selectChip, selecting, selectingRef, brushToolRef, toolRef, closeSelect, openSelect, shelf, shelfRef,
+    message, setMessage, compareNote, block, blockSettings, blockFlip, setBlockSettings
   } = ed;
+  const notes =
+    message || props.notice || props.compare ? (
+      <>
+        {props.notice ?? null}
+        {compareNote()}
+        {message ? (
+          <div class={`editor-message ${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
+            {message.text}
+            {message.action ? (
+              <button type="button" class="linkish note-action" {...(message.action.step !== undefined ? tip(message.action.tip, "Ctrl+Z") : tip(message.action.tip))} onClick={() => {
+                const run = message.action!.run;
+                setMessage(null);
+                run();
+              }}>
+                {message.action.label}
+              </button>
+            ) : null}
+            <button type="button" class="icon-close" onClick={() => setMessage(null)} aria-label="Dismiss" title="Close">
+              ×
+            </button>
+          </div>
+        ) : null}
+      </>
+    ) : null;
 
   return (
     <TopBar
@@ -17,7 +44,8 @@ export function topBar(ed: Ed) {
       force={tool}
       forceAtWork={!!forcer.current?.running}
       forceRow={forceRow()}
-      row={unleashRow() ?? shelfRow() ?? pickedRow()}
+      row={unleashRow()}
+      notes={notes}
       hints={
         <FirstRun
           done={firstRun}
@@ -29,14 +57,18 @@ export function topBar(ed: Ed) {
         />
       }
       settings={brush}
+      block={block}
+      blockSettings={blockSettings}
+      blockFlip={blockFlip}
+      onBlockSettings={setBlockSettings}
       sizeMax={sizeMax(info.W, info.H)}
       onPick={pickTop}
       onSettings={setBrush}
       loading={!ready}
       selectRow={selectRow()}
       selectChip={selectChip()}
-      selecting={!!selecting && !brushTool && !tool}
-      onSelect={() => (selectingRef.current && !brushToolRef.current && !toolRef.current ? closeSelect() : openSelect())}
+      selecting={!!selecting && !brushTool && !tool && !shelf && !block}
+      onSelect={() => (selectingRef.current && !brushToolRef.current && !toolRef.current && !shelfRef.current && !ed.blockRef.current ? closeSelect() : openSelect())}
     />
   );
 }

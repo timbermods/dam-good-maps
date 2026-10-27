@@ -2098,3 +2098,70 @@ The audit of 2026-09-23 ([AUDIT.md](AUDIT.md)) changed this plan as follows:
     model and the project file.
 14. §17: new risks (JS water performance, features-first port size, thin waterfall lips, pre-1.0
     imports). §18: new in-game checks F1–F4.
+
+## From PLAN.md: §9 and §19.2–19.3, the editor's set-piece builders (superseded by D462)
+
+Removed by the coherence cleanup's group 7, when the six editor set pieces and their replay were deleted.
+
+### §9 Set pieces (the opening paragraph, its last sentences)
+
+Every builder is a shared set-piece builder
+(§19.3). The generator calls it, and Claude reaches it by steering the generator (D139); the editor has no set-piece
+tools (D182, D184). Each builder publishes its achievable ranges for the current map (§9.10). Values outside the
+schema's hard bounds are rejected; values inside them but beyond what the map allows are reduced to the nearest
+achievable value, and the reduction is reported.
+
+### §9.10 Achievable ranges by map size (its first sentence)
+
+The builders publish these ranges for the current map, and Claude uses them to resolve words such as "giant" when it
+steers (D139).
+
+### §19.2 Features (the setPiece line)
+
+- `setPiece` (waterfall / damSite / gorge / terracedCliffs / badwaterBasin / plugSpillway / obstaclePayoff /
+  secondDistrict, params per §9): built only by its shared builder (§19.3).
+
+### §19.3 Set-piece builders
+
+There is one module per kind in `core/features/setpieces/` (`index.ts` `BUILDERS`). The generator's planner uses it, and
+Claude reaches it by steering the generator (D139); the editor has no set-piece tools (D182, D184). A builder has a
+`request` (a JSON Schema: the hard bounds of a request, outside them rejected), `limits(ctx)` (the ranges this map and
+place allow, §9.10), `plan(request, ctx, id)` (the anchor, footprint and values reduced to the limits, with a report; or
+why it cannot), `check(plan, W, H)` (a stored plan outside the hard bounds, which an operation may bring),
+`rasterize(feature, target)` (terrain and the protected mask), `footprint(feature, target)` (what it reads and writes,
+for dirty-region rebuilds) and optionally its springs, its own slopes, the tiles it keeps clear and what the editor
+shows.
+
+`PlanContext` is the map a piece is planned on (its surface, river channels, taken tiles, the start's zone, locked and
+protected tiles, the objects on it; D47). A set-piece feature stores `{kind, request, plan, report}`; operations that
+add or change one are checked against the builder's hard bounds. `BuildContext` is the generated land during
+generation and the current map in the editor: the same code with the same results. The resolved plan is stored in the
+feature; a rebuild rasterizes it and never plans again (§19.7); planning again happens only on an explicit edit of
+the feature. The report lists every value that was reduced, everything that was cleared or relocated (trees, ruins,
+bushes) and every source that was added. A builder never moves the start or touches a locked region; when it would
+have to, the plan fails with the reason. Ruin fields are ordinary features with their own placement rules (§9.7).
+
+## From PLAN.md: §7.0, §14.5 and §19.1, the spec's set pieces and constraints (superseded by D462)
+
+Removed by the coherence cleanup's group 7, when `MapSpec.setPieces` and `constraints` and the link keys `sp` and `k` were dropped.
+
+### §7.0 Normalise (its first paragraph)
+
+Validate the `MapSpec` (§19.1) against its schema; clamp every setting and resolve size-aware targets
+(`target = multiplier × density(key, W·H)`); derive the difficulty rules. Take the spec's constraints (locked regions,
+keep-out regions, ids of features to keep), which the planner treats as occupied and protected (they served
+regeneration around the player's edits, which D336 removed; the spec and share links still carry them). Derive seed
+streams:
+
+### §14.5 Shareable links (the fragment's keys)
+
+  `a` archetype, `p` premise, `c` colonies (reserved for Timber Together, D5) and `sp`, `k` for set pieces and
+  constraints as base64url JSON, each only when set. A value the decoder cannot use is reported and the preset's value
+  kept.
+
+### §19.1 MapSpec (the fields)
+
+(`{count: 1–4, mod: "none" | "timberTogether"}`, room for Timber Together, D5), `setPieces` (requested set pieces,
+Claude steering, D139: `{kind, params, region?}`), `constraints` (`keepOut` regions the planner places nothing in, and
+`keep` feature ids it builds around) and `accepted` (`{attempt, candidate}`, filled in by the generator so a document
+reproduces its map without running the retry loop again).

@@ -1,0 +1,53 @@
+--- a/src/editor/session/mirror.ts
++++ b/src/editor/session/mirror.ts
+@@ -1,6 +1,8 @@
+ // The page's copy of the map (heights, water, objects), kept in step with the worker's.
+ 
+ import { surfaceWater, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "../../render3d/model";
++
++import type { ForceFrame } from "../../worker/session";
+ 
+ export interface Mirror {
+   heights: Uint8Array;
+@@ -17,6 +19,19 @@
+   soil?: SoilView;
+ }
+ 
++/** Apply a force's terrain reply before queuing its rectangle for the next draw. Older workers'
++ * whole snapshots are accepted too; the renderer keeps its own drawnLand for change detection. */
++export function applyForceTerrain(m: Pick<Mirror, "heights">, f: Pick<ForceFrame, "heights" | "heightPatch" | "rect">, W: number): boolean {
++  const rect = f.rect;
++  if (!rect) return false;
++  if (f.heights) m.heights = f.heights;
++  else if (f.heightPatch) {
++    const width = rect.x1 - rect.x0 + 1;
++    for (let y = rect.y0; y <= rect.y1; y++) m.heights.set(f.heightPatch.subarray((y - rect.y0) * width, (y - rect.y0 + 1) * width), y * W + rect.x0);
++  } else return false;
++  return true;
++}
++
+ export function mirrorOf(v: MapView): Mirror {
+   return { heights: v.heights, water: surfaceWater(v.W, v.H, v.water), waterView: v.water, mapWater: v.water, entities: v.entities, entitiesAt: null, soil: v.soil };
+ }
+--- a/src/editor/forces/useForceRun.tsx
++++ b/src/editor/forces/useForceRun.tsx
+@@ -2,6 +2,7 @@
+ // cursor's ring and sizing.
+ 
+ import type { ComponentChildren } from "preact";
++import { applyForceTerrain } from "../session/mirror";
+ import { useEffect, useRef, useState, type Dispatch, type StateUpdater } from "preact/hooks";
+ import type { EntityView } from "../../render3d/model";
+ import type { EntityInfo, ForceFrame, ForceRequest, ViewUpdate } from "../../worker/session";
+@@ -97,10 +98,7 @@
+   function showForceFrame(f: ForceFrame) {
+     const r = renderer.current;
+     const m = mirror.current;
+-    if (f.heights && f.rect) {
+-      m.heights = f.heights;
+-      r?.updateTerrainRect(f.heights, f.rect);
+-    }
++    if (applyForceTerrain(m, f, infoRef.current.W)) r?.updateTerrainRect(m.heights, f.rect!);
+     const v = forceView.current;
+     if (f.entities) v.entities = f.entities;
+     if (f.entities && !v.frame) v.frame = requestAnimationFrame(() => flushForceView());

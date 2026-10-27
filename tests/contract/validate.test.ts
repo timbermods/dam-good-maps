@@ -36,7 +36,8 @@ describe("validation profiles (PLAN §19.5)", () => {
   });
 
   it("re-reading the written file gives the generator's verdicts, check by check", () => {
-    const again = validateMap(file(), { profile: "generate", spec: r.spec, features: r.features });
+    // (what the build's support pass removed is the build's to say, not the file's: passed as the generator does)
+    const again = validateMap(file(), { profile: "generate", spec: r.spec, features: r.features, dropped: r.built.dropped ?? 0 });
     expect(again.report.checks.map((c) => [c.id, verdict(c)])).toEqual(r.report.checks.map((c) => [c.id, verdict(c)]));
     expect(again.water!.ticks).toBe(r.built.settle.ticks);
     expect(Array.from(again.water!.depth)).toEqual(Array.from(r.built.water));
@@ -100,7 +101,7 @@ describe("validation profiles (PLAN §19.5)", () => {
     expect(nb.ok).toBe(true);
   });
 
-  it("water.badwater_contained: a levee on the outlet holds each planned basin; a cut rim leaks (PLAN §9.5, D57)", () => {
+  it("water.badwater_contained: counts a cut rim as a leak but never fails (PLAN §9.5, D57 amended by D469)", () => {
     const basins = r.features.filter((f) => f.kind === "setPiece" && f.params.kind === "badwaterBasin");
     expect(basins.length).toBeGreaterThan(0);
     const c = r.report.checks.find((x) => x.id === "water.badwater_contained")!;
@@ -108,7 +109,7 @@ describe("validation profiles (PLAN §19.5)", () => {
     expect(c.ok).toBe(true);
     // cut a notch from the pit out through its rim, away from its outlet, down to the pit's floor
     // until it meets ground below the floor or the map's edge: the water rising in the basin
-    // leaves by it, and the check fails (M9a: a hollow is dug two levels into high ground, so the
+    // leaves by it, and basinLeak finds it; the check only counts it (D469) (M9a: a hollow is dug two levels into high ground, so the
     // notch runs as far as its rim is wide, not the old box's 4–6 tiles)
     const p = (basins[0].params as { plan: unknown }).plan as { x: number; y: number; floor: number; outlet: number[]; outletLevels: number[]; outletWidth: number };
     const W = r.built.W;

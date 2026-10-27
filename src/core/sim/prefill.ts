@@ -7,7 +7,8 @@
 // algorithm, checked against this one by the oracle):
 // - basins: a priority flood from the draining map edge gives every tile its spill level. Water
 //   from the sources runs downhill on that filled surface; every depression it passes through
-//   starts full, at its spill level (surfaces settle flat, notes/water_and_soil.md Q2);
+//   starts full, at its spill level (surfaces settle flat, notes/water_and_soil.md Q2); a seep's
+//   water stands no higher than its anchor's floor plus 0.8, where the game stops it (`flowThrough`);
 // - rivers: the other tiles on the water's path start at the depth an open channel carries its
 //   flow with, about 0.3·Q/w (Q the flow through the tile, w the channel width there; a lip tile
 //   passes all its water each substep, PLAN §9.2).
@@ -29,55 +30,35 @@
 // level), it is stored levelled into its hollow; other water the walk left in the basin goes
 // (`keepSealed`).
 
+import { analyze } from "../analysis/rust/bridge";
 import { MinHeap } from "../math/grid";
 import { keptSeeds, withoutUnfed } from "./fed";
+import { canonicalStackRun, settledAgain, type StackSettle } from "./stackWater";
 import { sealedTiles, SettleRun, SPILL, WaterSim, type SettleResult, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
  *  edge (Barnes' priority flood). Edge tiles that emit water are walled off from the edge and are
- *  not outlets. A partial obstacle (NaturalDam) raises its tile's level by its height. */
+ *  not outlets. A partial obstacle (NaturalDam) raises its tile's level by its height. In Rust
+ *  (analysis/rust/bridge.ts, D391). */
 export function spillLevels(m: WaterModel): Float64Array {
   const { W, H } = m;
   const N = W * H;
-  const level = new Float64Array(N);
-  for (let i = 0; i < N; i++) level[i] = m.floor[i] + (m.dam && m.dam[i] >= 0 ? m.dam[i] : 0);
   const emitting = new Uint8Array(N);
   for (const e of m.emitters) for (const i of e.cells) emitting[i] = 1;
-  const filled = level.slice();
-  const seen = new Uint8Array(N);
-  const heap = new MinHeap();
-  for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && !emitting[i]) {
-      seen[i] = 1;
-      heap.push(filled[i], i);
-    }
-  }
-  while (heap.size > 0) {
-    const c = heap.pop();
-    const lv = heap.lastKey;
-    const x = c % W;
-    const y = (c - x) / W;
-    for (let k = 0; k < 4; k++) {
-      let n: number;
-      if (k === 0) n = y > 0 ? c - W : -1;
-      else if (k === 1) n = x > 0 ? c - 1 : -1;
-      else if (k === 2) n = y < H - 1 ? c + W : -1;
-      else n = x < W - 1 ? c + 1 : -1;
-      if (n < 0 || seen[n]) continue;
-      seen[n] = 1;
-      if (filled[n] < lv) filled[n] = lv;
-      heap.push(filled[n], n);
-    }
-  }
-  return filled;
+  return analyze("spillLevels", W, H, [], [m.floor, m.dam ?? new Float64Array(N).fill(-1), emitting]);
 }
 
 /** The flow through each tile (`q`, blocks a second: the strength of every running emitter whose
  *  water passes it, walking downhill or level on the filled surface), its badwater part, the tiles
- *  it passes (`path`) and the spill levels it walked on. */
-export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Array; path: Uint8Array; spill: Float64Array } {
+ *  it passes (`path`), the spill levels it walked on, and the level the water stands at on each
+ *  tile it reaches (`level`: the spill level, or lower where only a seep's water gets there).
+ *
+ *  A seep stops while more than its limit stands over it (0.8, the game's `WaterDepthStrengthModifier`),
+ *  so its water never stands higher than its anchor's floor plus that limit: out of a pit that spills
+ *  lower it runs on like a source's, but a pit that holds it fills only to that level, and its water
+ *  reaches only the ground lower than that (the probe's parity-20260930: the start filled such a pit
+ *  to its rim, and the game kept that water with the seep off). */
+export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Array; path: Uint8Array; spill: Float64Array; level: Float64Array } {
   const { W, H } = m;
   const N = W * H;
   const spill = spillLevels(m);
@@ -86,9 +67,14 @@ export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Arra
   const path = new Uint8Array(N);
   const mark = new Int32Array(N);
   const queue = new Int32Array(N);
+  // (with no running seep, every tile's water stands at its spill level: the same array)
+  const seeps = m.emitters.some((e) => e.depthLimit && e.strength > 0);
+  const level = seeps ? new Float64Array(N).fill(-Infinity) : spill;
   let stamp = 0;
   for (const e of m.emitters) {
     if (!(e.strength > 0)) continue;
+    // the highest a seep's water stands: its anchor's floor plus its limit
+    const cap = e.depthLimit ? m.floor[e.depthLimit.anchor] + e.depthLimit.off : Infinity;
     stamp++;
     let head = 0;
     let tail = 0;
@@ -103,6 +89,10 @@ export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Arra
       q[c] += e.strength;
       if (e.contamination > 0) qBad[c] += e.strength * e.contamination;
       path[c] = 1;
+      if (seeps) {
+        const lv = spill[c] < cap ? spill[c] : cap;
+        if (lv > level[c]) level[c] = lv;
+      }
       const x = c % W;
       const y = (c - x) / W;
       for (let k = 0; k < 4; k++) {
@@ -112,23 +102,25 @@ export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Arra
         else if (k === 2) n = y < H - 1 ? c + W : -1;
         else n = x < W - 1 ? c + 1 : -1;
         if (n < 0 || mark[n] === stamp || spill[n] > spill[c]) continue;
+        // (a seep's water stands no higher than its cap: ground at or above it stays dry)
+        if (cap !== Infinity && m.floor[n] + (m.dam && m.dam[n] >= 0 ? m.dam[n] : 0) >= cap) continue;
         mark[n] = stamp;
         queue[tail++] = n;
       }
     }
   }
-  return { q, qBad, path, spill };
+  return { q, qBad, path, spill, level };
 }
 
 /** The deterministic starting state of the canonical settle (see the file comment). */
 export function prefill(m: WaterModel): WaterState {
   const { W, H } = m;
   const N = W * H;
-  const { q, qBad, path, spill } = flowThrough(m);
+  const { q, qBad, path, level } = flowThrough(m);
   // open-channel tiles (on the path, not in a depression): local width = the shorter of the row
   // and column runs of such tiles through the tile
   const open = new Uint8Array(N);
-  for (let i = 0; i < N; i++) open[i] = path[i] && !(spill[i] > m.floor[i]) ? 1 : 0;
+  for (let i = 0; i < N; i++) open[i] = path[i] && !(level[i] > m.floor[i]) ? 1 : 0;
   const runX = new Int32Array(N);
   const runY = new Int32Array(N);
   for (let y = 0; y < H; y++) {
@@ -162,7 +154,7 @@ export function prefill(m: WaterModel): WaterState {
   for (let i = 0; i < N; i++) {
     if (!path[i]) continue;
     let d: number;
-    if (spill[i] > m.floor[i]) d = spill[i] - m.floor[i];
+    if (level[i] > m.floor[i]) d = level[i] - m.floor[i];
     else {
       const w = runX[i] < runY[i] ? runX[i] : runY[i];
       d = (0.3 * q[i]) / w;
@@ -201,38 +193,97 @@ export interface CanonicalWater extends SettleResult {
    *  background (sim/preview.ts `staleWater`): shown at once after an edit, never written to a
    *  file. Always `preview` too. */
   stale?: boolean;
+  /** On terrain above terrain (`WaterModel.stacked`): the settle on every water column, slot by
+   *  slot. The fields above are then the map from above, each tile's top column. */
+  stack?: StackSettle;
 }
 
-/** The canonical settle: the pre-fill, then the exact simulation until it settles (at most 4 game
- *  days, checked every 128 ticks), then, when unfed water is left (the pre-fill's water nothing
+/** A settle to start from: the canonical settle `water` of the water model `model`. */
+export interface SettledFrom {
+  model: WaterModel;
+  water: CanonicalWater;
+}
+
+/** The canonical settle of a model with terrain above terrain (`WaterModel.stacked`, D120), in
+ *  slices: the stacked-column engine's (stackWater.ts), told as `canonicalRun` tells a heightfield's,
+ *  so whoever shows progress shows it the same way. When `from` is the canonical settle of the map
+ *  before an edit that left the water provably as it was (stackWater.ts `settledAgain`), that settle is
+ *  the answer at once, the same bytes. The stored lakes stand on their columns (a Fill in a cave included), a
+ *  sealed basin only evaporating is stored as it started (D413), and the unfed water a removal drained is
+ *  taken once the water has settled, on every column of its tiles (a settle with drained tiles never takes
+ *  the shortcut). */
+function stackedRun(m: WaterModel, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+  const top = (s: StackSettle): CanonicalWater => {
+    const N = m.W * m.H;
+    const depth = new Float64Array(N);
+    const contamination = new Float64Array(N);
+    const sat = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      if (!s.count[i]) continue;
+      const c = (s.count[i] - 1) * N + i;
+      depth[i] = s.depth[c];
+      contamination[i] = s.contamination[c];
+      sat[i] = s.sat[c];
+    }
+    return { settled: s.settled, ticks: s.ticks, ...(s.steadyTicks !== undefined ? { steadyTicks: s.steadyTicks } : {}), depth, contamination, sat, stack: s };
+  };
+  const prev = from && !from.water.preview && from.water.stack ? from.water.stack : null;
+  const again = prev ? settledAgain(prev, from!.model, m) : null;
+  if (again) {
+    const done = top(again);
+    return { advance: () => done, ticks: again.ticks, maxTicks: Math.max(1, again.ticks) };
+  }
+  const run = canonicalStackRun(m.W, m.H, m.stacked!, m.retained, m.drained);
+  let done: CanonicalWater | null = null;
+  return {
+    advance(ticks: number): CanonicalWater | null {
+      if (done) return done;
+      const s = run.advance(ticks);
+      if (!s) return null;
+      done = top(s);
+      return done;
+    },
+    get ticks() {
+      return run.ticks;
+    },
+    get maxTicks() {
+      return run.maxTicks;
+    },
+  };
+}
+
+/** The canonical settle: the pre-fill, then the exact simulation until it settles (at most
+ *  `SETTLE_DAYS` game days, checked every 128 ticks), then, when unfed water is left (the pre-fill's water nothing
  *  reaches, or water a removal drained; see the file comment), once more after taking it (at most
  *  `DRAIN_DAYS`). The same input always gives the same bytes. A sealed basin's
  *  evaporation is not the water changing: the settle stops at the first check where only that
  *  still changed (`steadyTicks`, D222, D413), and every sealed basin at its last check (water.ts
- *  `sealedBasins`) is stored as the pre-fill started it (`keepSealed`). */
-export function canonicalSettle(m: WaterModel, opts: WaterSimOptions = {}): CanonicalWater {
-  // (the native backend runs the default rules only)
-  if (canonicalBackend && !opts.rules) return canonicalBackend(m, prefill(m));
-  const run = canonicalRun(m, opts);
+ *  `sealedBasins`) is stored as the pre-fill started it (`keepSealed`). `from`: as `canonicalRun`'s. */
+export function canonicalSettle(m: WaterModel, opts: WaterSimOptions = {}, from?: SettledFrom | null): CanonicalWater {
+  if (!m.stacked && canonicalBackend) return canonicalBackend(m, prefill(m), opts);
+  const run = canonicalRun(m, opts, from);
   let r = run.advance(Infinity);
   while (!r) r = run.advance(Infinity);
   return r;
 }
 
-/** Where `canonicalSettle` runs after its pre-fill when a batch job asks (tools/rust/native-water.ts: the
- *  native Rust water, PLAN §20 D381), else null: here, with the Rust water in WebAssembly. Both give the
- *  same bytes (tools/rust/water-identity.ts checks it in CI). */
-let canonicalBackend: ((m: WaterModel, start: WaterState) => CanonicalWater) | null = null;
+/** Where `canonicalSettle` runs after its pre-fill in a batch job (tools/rust/native-water.ts: the whole
+ *  settle in the native Rust water, PLAN §20 D381), else null: here, the settle below round the Rust water
+ *  in WebAssembly. Both give the same bytes (tools/rust/water-identity.ts checks it in CI). */
+let canonicalBackend: ((m: WaterModel, start: WaterState, opts: WaterSimOptions) => CanonicalWater) | null = null;
 
 /** Sets (or clears, with null) `canonicalSettle`'s backend; Node batch jobs only. */
-export function setCanonicalBackend(backend: ((m: WaterModel, start: WaterState) => CanonicalWater) | null): void {
+export function setCanonicalBackend(backend: ((m: WaterModel, start: WaterState, opts: WaterSimOptions) => CanonicalWater) | null): void {
   canonicalBackend = backend;
 }
 
 /** The canonical settle in slices (`advance` runs at most the ticks it is given): the editor's
  *  worker runs it between answers to the page, and drops it when a newer edit arrives. The result
- *  equals `canonicalSettle`'s. */
-export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+ *  equals `canonicalSettle`'s. `from`, the map's last canonical settle, may answer a stacked model at
+ *  once (`stackedRun`). */
+export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+  // terrain above terrain settles in the stacked engine; a heightfield (no `stacked`) below, as ever
+  if (m.stacked) return stackedRun(m, from);
   const start = prefill(m);
   let sim = new WaterSim(m, start, opts);
   const sealed = sealedTiles(m);
@@ -255,6 +306,7 @@ export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}): { advan
           drainNext = false;
           const next = withoutUnfed(m, sim, opts);
           if (next) {
+            sim.dispose();
             sim = next;
             run = new SettleRun(sim, { sealed, maxDays: DRAIN_DAYS });
             maxTicks = sim.ticks + run.maxTicks;
@@ -263,7 +315,15 @@ export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}): { advan
           }
         }
         const kept = keepSealed(sim, m, run.closedBasins(), start);
-        done = { ...r, depth: sim.D, contamination: sim.C, sat: kept ? new WaterSim(m, { depth: sim.D, contamination: sim.C }, opts).saturation() : sim.saturation(), out: sim.out.slice() };
+        let sat: Uint8Array;
+        if (kept) {
+          const fresh = new WaterSim(m, { depth: sim.D, contamination: sim.C }, opts);
+          sat = fresh.saturation();
+          fresh.dispose();
+        } else sat = sim.saturation();
+        done = { ...r, depth: sim.D, contamination: sim.C, sat, out: sim.out.slice() };
+        // (its arrays are the result; the Rust simulation is done)
+        sim.dispose();
         return done;
       }
     },

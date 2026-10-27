@@ -42,7 +42,7 @@ function planned<T extends { advance(rows: number): boolean }>(p: T): T {
   return p;
 }
 const proto = (m: ProtoMap, s: Settings, origin = CENTRE) => planned(new ProtoPlan(copy(m), s, { origin })).map;
-const editor = (m: ProtoMap, s: Partial<EruptSettings>, origin = CENTRE) => planned(new EruptPlan(asForce(copy(m)), { ...ERUPT_DEFAULTS, ...s } as EruptSettings, { origin })).map;
+const editor = (m: ProtoMap, s: Partial<EruptSettings>, origin = CENTRE) => new EruptPlan(asForce(copy(m)), { ...ERUPT_DEFAULTS, ...s } as EruptSettings, { origin }).map;
 
 /** The highest level within `r` of (x, y), and how many tiles stand at it there (its top). */
 function top(h: Uint8Array, x: number, y: number, r = 12): { peak: number; at: number } {
@@ -91,7 +91,7 @@ describe("Erupt against the prototype Kyler approved (D226)", () => {
       ];
       const pa = planned(new ProtoPlan(copy(m), s, { origin: 60 * W + 40, path })).map;
       if (Math.max(...pa.heights) < ceiling) {
-        const pb = planned(new EruptPlan(asForce(copy(m)), s as EruptSettings, { origin: 60 * W + 40, path })).map;
+        const pb = new EruptPlan(asForce(copy(m)), s as EruptSettings, { origin: 60 * W + 40, path }).map;
         expect(Math.abs(Math.max(...pb.heights) - Math.max(...pa.heights))).toBeLessThanOrEqual(2);
         compared++;
       }
@@ -145,8 +145,7 @@ describe("Erupt against the prototype Kyler approved (D226)", () => {
       const s = { ...ERUPT_DEFAULTS, power: 62, shape: "steep" as const, summit: "peak" as const, seed: 100 + k };
       const a = eruptAnatomy(asForce(m), s, { origin: CENTRE });
       vents.push({ x: a.x, y: a.y });
-      const p = planned(new EruptPlan(asForce(copy(m)), s, { origin: CENTRE }));
-      expect(p.planned).toBe(true);
+      const p = new EruptPlan(asForce(copy(m)), s, { origin: CENTRE });
       const next = { ...m, heights: p.map.heights, lava: p.map.lava };
       // never a mesa: the top round each vent is a few tiles
       expect(top(next.heights, a.x, a.y, 8).at, `eruption ${k}`).toBeLessThanOrEqual(40);

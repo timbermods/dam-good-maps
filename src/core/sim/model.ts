@@ -16,6 +16,7 @@
 import { isObject, num, type JsonObject } from "../format/json";
 import { FOOTPRINTS, rotate, type Placement } from "../format/footprints";
 import { placementOf } from "../format/entities";
+import { FLUIDS, MAX_STRENGTH_PER_TILE as GAME_MAX, SEEP_RESTART_SCALE } from "../data/parity";
 import type { WorldModel } from "../format/world";
 import type { Emitter, WaterModel } from "./water";
 
@@ -32,25 +33,20 @@ interface EmitterRule {
   seep?: boolean;
 }
 
-const SQUARE = (n: number): [number, number][] => {
-  const out: [number, number][] = [];
-  for (let x = 0; x < n; x++) for (let y = 0; y < n; y++) out.push([x, y]);
-  return out;
-};
+/** Every object that emits, from the game's own data (`data/parity.ts`): the tiles its strength is spread
+ *  over, its contamination, and whether it runs at the map's start (an aquifer waits for a powered drill,
+ *  a badtide drain for a badtide) and stops when the water over it is too deep (a seep). */
+export const EMITTERS: Record<string, EmitterRule> = Object.fromEntries(
+  Object.entries(FLUIDS)
+    .filter(([, f]) => f.tiles)
+    .map(([t, f]): [string, EmitterRule] => [t, { tiles: f.tiles!.map(([x, y]) => [x, y] as [number, number]), contamination: f.contamination ?? 0, runs: !f.needsDrill && !f.activeIn, ...(f.depthLimit !== undefined ? { seep: true } : {}) }]),
+);
 
-export const EMITTERS: Record<string, EmitterRule> = {
-  WaterSource: { tiles: [[0, 0]], contamination: 0, runs: true },
-  BadwaterSource: { tiles: SQUARE(3), contamination: 1, runs: true },
-  WaterSeep: { tiles: SQUARE(2), contamination: 0, runs: true, seep: true },
-  BadwaterSeep: { tiles: SQUARE(2), contamination: 1, runs: true, seep: true },
-  Aquifer: { tiles: [[1, 1]], contamination: 0, runs: false },
-  BadtideDrain: { tiles: [[0, 1]], contamination: 1, runs: false },
-};
-
-/** Max strength per emitting tile (the game clamps CurrentStrength to 8 × tiles). */
-export const MAX_STRENGTH_PER_TILE = 8;
-export const SEEP_OFF = 0.8;
-export const SEEP_ON = 0.72;
+/** Max strength per emitting tile (the game clamps CurrentStrength to 8 × tiles; a sink, a negative
+ *  strength, has no lower bound). */
+export const MAX_STRENGTH_PER_TILE = GAME_MAX;
+export const SEEP_OFF = FLUIDS.WaterSeep.depthLimit!;
+export const SEEP_ON = Math.round(SEEP_OFF * SEEP_RESTART_SCALE * 1e6) / 1e6;
 export const NATURAL_DAM_HEIGHT = 0.65;
 
 /** A local tile of a placed object in world tiles (Coordinates + R(F(local)), FORMAT.md §4.4). */
@@ -89,9 +85,11 @@ export function waterModel(W: number, H: number, surface: Uint8Array, objects: r
       if (cells.length) {
         let strength = rule.runs && !isDelayed(o.components) ? specifiedStrength(o.components) : 0;
         if (strength > MAX_STRENGTH_PER_TILE * rule.tiles.length) strength = MAX_STRENGTH_PER_TILE * rule.tiles.length;
-        if (!(strength > 0)) strength = 0;
+        // (below 0 it is a sink: the water column loses that much a second, as the game's does)
+        if (!Number.isFinite(strength)) strength = 0;
         const e: Emitter = { cells, strength, contamination: rule.contamination };
-        if (rule.seep) e.depthLimit = { anchor: cells[0], off: SEEP_OFF, on: SEEP_ON };
+        // (the game reads the depth at the block's own coordinates, flipped or not)
+        if (rule.seep) e.depthLimit = { anchor: inside(o.x, o.y) ? o.y * W + o.x : cells[0], off: SEEP_OFF, on: SEEP_ON };
         emitters.push(e);
       }
     }

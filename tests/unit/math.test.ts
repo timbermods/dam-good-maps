@@ -3,7 +3,8 @@ import { cosDet, expDet, sinDet } from "../../src/core/math/detmath";
 import { guidFrom, hash32, hash64Base32 } from "../../src/core/math/hash";
 import { stream, Rng } from "../../src/core/math/rng";
 import { fbm, valueNoise } from "../../src/core/math/noise";
-import { lnDet, density } from "../../src/core/gen/calibrated";
+import { density } from "../../src/core/gen/calibrated";
+import * as portable from "../../src/core/math/portable";
 import { distanceFrom, MinHeap, runsToTiles, tilesToRuns } from "../../src/core/math/grid";
 
 describe("deterministic math", () => {
@@ -16,9 +17,9 @@ describe("deterministic math", () => {
     expect(worst).toBeLessThan(1e-9);
   });
 
-  it("expDet and lnDet agree with Math.exp/log", () => {
+  it("expDet and portable.log (the generator's ln) agree with Math.exp/log", () => {
     for (let x = -20; x <= 20; x += 0.37) expect(Math.abs(expDet(x) / Math.exp(x) - 1)).toBeLessThan(1e-13);
-    for (let x = 1; x <= 64; x += 0.73) expect(Math.abs(lnDet(x) - Math.log(x))).toBeLessThan(1e-12);
+    for (let x = 1; x <= 64; x += 0.73) expect(Math.abs(portable.log(x) - Math.log(x))).toBeLessThan(1e-12);
   });
 
   it("density interpolates between the official size classes", () => {

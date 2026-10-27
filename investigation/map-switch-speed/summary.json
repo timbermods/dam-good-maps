@@ -1,0 +1,34 @@
+{
+  "before": {
+    "editableMs": 3170.685000061989,
+    "exactObservedMs": 3184.430000066757,
+    "saveDrainMs": 154.61000001430511,
+    "readMs": 2.5649999380111694,
+    "workerMs": 2862.8400000333786,
+    "pageMs": 150.58000004291534,
+    "otherMs": 0.09000003337860107,
+    "shares": {
+      "save": 4.9,
+      "read": 0.1,
+      "worker": 90.3,
+      "page": 4.7
+    }
+  },
+  "after": {
+    "editableMs": 1270.2250000238419,
+    "exactObservedMs": 5085.22000002861,
+    "saveDrainMs": 623.9150000810623,
+    "readMs": 5.975000023841858,
+    "workerMs": 446.4099999666214,
+    "pageMs": 193.92499995231628,
+    "otherMs": 0,
+    "shares": {
+      "save": 49.1,
+      "read": 0.5,
+      "worker": 35.1,
+      "page": 15.3
+    }
+  },
+  "improvementPercent": 59.9,
+  "afterSaveStage": "Residual from start to enter minus read and worker; includes the queued-edit drain and main-thread overhead."
+}

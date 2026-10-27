@@ -8,8 +8,9 @@ const LOW = [122, 150, 84]; // grass on the valley floor
 const HIGH = [196, 178, 140]; // dry rock on the heights
 const WATER = [64, 128, 200];
 
-/** RGB per tile (3 bytes per tile, row-major, y north = row index). */
-export function shadeTiles(heights: Uint8Array, W: number, H: number, water?: ArrayLike<number> | null): Uint8Array {
+/** The land's colours with no water, per tile (r, g, b, unrounded): the height ramp and the hillshade, which only the
+ *  land changes. `shadeTiles` and `shadeRgba` put the water on it; the minimap keeps it while only the water moves. */
+export function groundShade(heights: Uint8Array, W: number, H: number): Float64Array {
   let lo = 255;
   let hi = 0;
   for (let i = 0; i < heights.length; i++) {
@@ -17,7 +18,7 @@ export function shadeTiles(heights: Uint8Array, W: number, H: number, water?: Ar
     if (heights[i] > hi) hi = heights[i];
   }
   const span = Math.max(1, hi - lo);
-  const out = new Uint8Array(W * H * 3);
+  const out = new Float64Array(W * H * 3);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -33,22 +34,76 @@ export function shadeTiles(heights: Uint8Array, W: number, H: number, water?: Ar
       let light = 1 - 0.18 * (gx - gy);
       if (light < 0.55) light = 0.55;
       if (light > 1.25) light = 1.25;
-      let r = (LOW[0] * (1 - t) + HIGH[0] * t) * light;
-      let g = (LOW[1] * (1 - t) + HIGH[1] * t) * light;
-      let b = (LOW[2] * (1 - t) + HIGH[2] * t) * light;
-      if (water && water[i] > 0.05) {
-        const d = Math.min(water[i], 3) / 3;
-        const k = 0.35 + 0.4 * d;
+      out[i * 3] = (LOW[0] * (1 - t) + HIGH[0] * t) * light;
+      out[i * 3 + 1] = (LOW[1] * (1 - t) + HIGH[1] * t) * light;
+      out[i * 3 + 2] = (LOW[2] * (1 - t) + HIGH[2] * t) * light;
+    }
+  }
+  return out;
+}
+
+/** RGB per tile (3 bytes per tile, row-major, y north = row index). */
+export function shadeTiles(heights: Uint8Array, W: number, H: number, water?: ArrayLike<number> | null): Uint8Array {
+  const ground = groundShade(heights, W, H);
+  const out = new Uint8Array(W * H * 3);
+  for (let i = 0; i < W * H; i++) {
+    let r = ground[i * 3];
+    let g = ground[i * 3 + 1];
+    let b = ground[i * 3 + 2];
+    if (water && water[i] > 0.05) {
+      const d = Math.min(water[i], 3) / 3;
+      const k = 0.35 + 0.4 * d;
+      r = r * (1 - k) + WATER[0] * k;
+      g = g * (1 - k) + WATER[1] * k;
+      b = b * (1 - k) + WATER[2] * k;
+    }
+    out[i * 3] = clamp255(r);
+    out[i * 3 + 1] = clamp255(g);
+    out[i * 3 + 2] = clamp255(b);
+  }
+  return out;
+}
+
+/** The rows of an image a pass shaded, north at the top (`y0` up to `y1`, not including it). */
+export interface ShadedRows {
+  y0: number;
+  y1: number;
+}
+
+/** The same colours as `shadeTiles` (the same arithmetic, kept beside it), straight into an image's RGBA pixels, one a
+ *  tile, north at the top, from the ground's colours (`groundShade`): the minimap's water pass. Only the tiles whose
+ *  water shows differently from when their pixel was last shaded are shaded: `shown` keeps, per tile, the water its
+ *  pixel shows (NaN for one never shaded, so the first pass shades them all) and is updated, so as the water flows only
+ *  the tiles it moved on are shaded again. Once every pixel has been shaded, `out` holds `shadeTiles`' colours for
+ *  this ground and water. The rows it shaded, or null for none. */
+export function shadeRgba(ground: Float64Array, W: number, H: number, water: ArrayLike<number> | null, shown: Float64Array, out: Uint8ClampedArray): ShadedRows | null {
+  let lo = H;
+  let hi = -1;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      // (the water as the colour reads it: none, or its depth up to 3)
+      const v = water && water[i] > 0.05 ? Math.min(water[i], 3) : 0;
+      if (v === shown[i]) continue;
+      shown[i] = v;
+      const o = ((H - 1 - y) * W + x) * 4;
+      let r = ground[i * 3];
+      let g = ground[i * 3 + 1];
+      let b = ground[i * 3 + 2];
+      if (v > 0) {
+        const k = 0.35 + 0.4 * (v / 3);
         r = r * (1 - k) + WATER[0] * k;
         g = g * (1 - k) + WATER[1] * k;
         b = b * (1 - k) + WATER[2] * k;
       }
-      out[i * 3] = clamp255(r);
-      out[i * 3 + 1] = clamp255(g);
-      out[i * 3 + 2] = clamp255(b);
+      out[o] = clamp255(r);
+      out[o + 1] = clamp255(g);
+      out[o + 2] = clamp255(b);
+      out[o + 3] = 255;
+      if (y < lo) lo = y;
+      hi = y;
     }
-  }
-  return out;
+  return hi < 0 ? null : { y0: H - 1 - hi, y1: H - lo };
 }
 
 function clamp255(v: number): number {
@@ -58,17 +113,17 @@ function clamp255(v: number): number {
 export const THUMB_W = 960;
 export const THUMB_H = 540;
 
-/** 960×540 RGBA thumbnail: the shaded map fitted and centred on a dark background, north up,
- *  sampled bilinearly between tile centres. */
-export function thumbnailRgba(heights: Uint8Array, W: number, H: number, water?: ArrayLike<number> | null): Uint8Array {
+/** An RGBA thumbnail, 960×540 unless given another size (the Real places cards): the shaded map
+ *  fitted and centred on a dark background, north up, sampled bilinearly between tile centres. */
+export function thumbnailRgba(heights: Uint8Array, W: number, H: number, water?: ArrayLike<number> | null, width = THUMB_W, height = THUMB_H): Uint8Array {
   const tiles = shadeTiles(heights, W, H, water);
-  const fit = Math.min(THUMB_W / W, THUMB_H / H);
+  const fit = Math.min(width / W, height / H);
   const w = Math.max(1, Math.floor(W * fit));
   const h = Math.max(1, Math.floor(H * fit));
-  const ox = Math.floor((THUMB_W - w) / 2);
-  const oy = Math.floor((THUMB_H - h) / 2);
-  const out = new Uint8Array(THUMB_W * THUMB_H * 4);
-  for (let i = 0; i < THUMB_W * THUMB_H; i++) {
+  const ox = Math.floor((width - w) / 2);
+  const oy = Math.floor((height - h) / 2);
+  const out = new Uint8Array(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
     out[i * 4] = 38;
     out[i * 4 + 1] = 44;
     out[i * 4 + 2] = 36;
@@ -85,7 +140,7 @@ export function thumbnailRgba(heights: Uint8Array, W: number, H: number, water?:
       const x0 = Math.floor(mx);
       const x1 = Math.min(W - 1, x0 + 1);
       const tx = mx - x0;
-      const o = ((py + oy) * THUMB_W + (px + ox)) * 4;
+      const o = ((py + oy) * width + (px + ox)) * 4;
       for (let c = 0; c < 3; c++) {
         const a = tiles[(y0 * W + x0) * 3 + c] * (1 - tx) + tiles[(y0 * W + x1) * 3 + c] * tx;
         const b = tiles[(y1 * W + x0) * 3 + c] * (1 - tx) + tiles[(y1 * W + x1) * 3 + c] * tx;

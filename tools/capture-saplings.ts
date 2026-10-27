@@ -15,6 +15,7 @@ import { chromium } from "@playwright/test";
 import { build, preview } from "vite";
 import { readTimber } from "../src/core/format/timber";
 import { surfaceOf } from "../src/core/format/world";
+import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string, fallback: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -78,9 +79,9 @@ async function main() {
     await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
     const page = await context.newPage();
     await page.goto(`http://localhost:${PORT}/#s=1&z=96&d=n&t=riverValley`);
-    await page.getByText(/checks passed|checks failed/).first().waitFor({ timeout: 180_000 });
-    await page.getByLabel("Open a map or a project file in the editor").setInputFiles(MAP);
-    await page.waitForFunction(() => !!(window as unknown as { dgmEditor?: unknown }).dgmEditor && !!(window as unknown as { dgm3d?: unknown }).dgm3d, null, { timeout: 180_000 });
+    await waitForEditor(page, 180_000);
+    await page.getByLabel("Open a map or project file").setInputFiles(MAP);
+    await page.waitForFunction(() => (window as unknown as { dgmEditor?: { info(): { kind: string } } }).dgmEditor?.info().kind === "import", null, { timeout: 180_000 });
     await page.evaluate(() => (window as unknown as { dgmEditor: { idle(): Promise<void> } }).dgmEditor.idle());
     await page.waitForTimeout(2500);
     await page.keyboard.press("Escape");

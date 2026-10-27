@@ -6,11 +6,13 @@
 // and the integrity pass (build step 7) runs again round the stroke. Pure TypeScript: the page
 // runs it on the main thread, the tests in Node.
 
-import { BrushStroke, brushHard, type BrushParams, type Rect } from "./brush";
+import { BrushStroke, brushHard, byDabRule, tiltedPieces, WEATHERING, type BrushParams, type Rect } from "./brush";
 import type { Runs } from "../../math/grid";
 import type { StartFeature } from "../schema";
 import { integrityAt, keepShownGround, padTile } from "./terrain";
 import { waterLevels } from "./weather";
+import { ColumnTerrain } from "../../terrain/runs";
+import { newFalls } from "../../terrain/support";
 
 /** What the build's step 6 onward starts from, for the page's own copy of the terrain. */
 export interface TerrainState {
@@ -23,8 +25,21 @@ export interface TerrainState {
   base: Uint8Array | null;
   /** Tiles a regeneration kept under a lock: the integrity pass leaves them alone. */
   locked: Uint8Array | null;
-  /** Tiles with caves or overhangs (an imported map's): every tool leaves them as they are. */
+  /** Tiles with caves or overhangs (an imported map's), ascending: a brush shapes their top run, never
+   *  below `floor` (D280 (3)); a force leaves them as they are. */
   columns: Int32Array;
+  /** The lowest each tile's surface may go (one above a roof's underside, terrain/runs.ts
+   *  `topFloors`; 0 elsewhere); absent on a heightfield. */
+  floor?: Uint8Array | null;
+  /** The ground holding objects set under a roof (D491, objects.ts `objectHolds`): [tile, low, high].
+   *  A stroke keeps each tile within them (the session adds it to the operation), and `protect` holds
+   *  these tiles, as the build's integrity pass leaves them. Absent where there is none. */
+  hold?: [number, number, number][] | null;
+  /** The terrain's masks of the `columns` tiles as they stand (bit z: voxel z solid), in their order,
+   *  and the cells holding the tops of objects that hold ground (support.ts `stackableTops`): what
+   *  `StrokePreview.falls` reads. Absent on a heightfield. */
+  masks?: Uint32Array | null;
+  stackTops?: Int32Array | null;
   /** A generated map's stored field (M9a): as on an imported map, the integrity pass only touches
    *  the tiles an edit changed from it (null for other maps). */
   field?: Uint8Array | null;
@@ -63,9 +78,9 @@ export class StrokePreview {
     // hands in, so the operation it records keeps exactly what this preview used (D399; the session
     // adds them itself to a stroke that comes without)
     const record = settings as Omit<BrushParams, "dabs">;
-    const fresh = settings.tool === "naturalize" && settings.weathers && (settings.weathering === undefined || (settings.weathering === 3 && (record.shore !== undefined || record.pools !== undefined || record.moist !== undefined)));
+    const fresh = settings.tool === "naturalize" && settings.weathers && (settings.weathering === undefined || (byDabRule(settings.weathering) && (record.shore !== undefined || record.pools !== undefined || record.moist !== undefined)));
     if (fresh) {
-      record.weathering = 3;
+      record.weathering = WEATHERING;
       delete record.shore;
       delete record.pools;
       delete record.moist;
@@ -77,8 +92,8 @@ export class StrokePreview {
     // a new weathering stroke weathers like nature (D399), as the session records it when it applies,
     // reading where water stands round it from the same land
     let water: Uint8Array | undefined;
-    if (settings.tool === "naturalize" && settings.weathers && settings.weathering === undefined) settings = { ...settings, weathering: 3 };
-    if ((settings.weathering === 2 || settings.weathering === 3) && !settings.rim) water = waterLevels(state.pre, W, H);
+    if (settings.tool === "naturalize" && settings.weathers && settings.weathering === undefined) settings = { ...settings, weathering: WEATHERING };
+    if ((settings.weathering === 2 || byDabRule(settings.weathering)) && !settings.rim) water = waterLevels(state.pre, W, H);
     this.W = W;
     this.H = H;
     this.state = state;
@@ -86,6 +101,8 @@ export class StrokePreview {
     this.start = heights.slice();
     this.last = heights.slice();
     this.pre = state.pre.slice();
+    // (held ground within its floor and ceiling, as the build sets it where the stroke reaches, D491)
+    for (const [i, lo, hi] of state.hold ?? []) if (i >= 0 && i < this.pre.length) this.pre[i] = Math.min(Math.max(this.pre[i], lo), hi);
     // (a target's stroke too, D322: exact, as a precise one was)
     this.precise = brushHard(settings);
     this.protect = this.precise || settings.sources === "keep" ? state.protect.slice() : state.protect;
@@ -98,19 +115,16 @@ export class StrokePreview {
     // kept sources' ground stays exactly as it is shown (D322, item 31): the integrity pass leaves it
     // too, as the build's step 6 does
     if (settings.sources === "keep") keepShownGround(settings.keep ?? [], this.pre, W, H, this.protect, state.channel, this.candidate, state.top);
-    let keep: Uint8Array | null = null;
-    if (state.columns.length) {
-      keep = new Uint8Array(W * H);
-      for (const i of state.columns) keep[i] = 1;
-    }
     // Naturalize weathers all but the start's pad, as build step 6 does (D368 (8))
     // (a stroke from before D368 leaves every protected tile, as the build does)
     const pads = settings.tool === "naturalize" && settings.weathers && state.starts?.length ? state.starts : null;
     const prot = settings.tool === "naturalize" && !settings.weathers ? state.protect : null;
     const depth = fresh && state.water ? state.water : undefined;
     const shown = this.start;
-    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(keep && keep[i]) && !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
+    // (a roof's top no lower than one above its underside, as build step 6 shapes it, D280 (3))
+    this.stroke = new BrushStroke(state.hold?.length && !settings.hold ? { ...settings, hold: state.hold } : settings, this.pre, W, H, (i) => !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
       water,
+      floor: state.floor ?? null,
       ...(depth ? { depth, shown, moisture: state.moisture ?? null, record: (shore, pools, moist) => Object.assign(record, { shore, pools, ...(moist ? { moist } : {}) }) } : {}),
     });
   }
@@ -120,6 +134,13 @@ export class StrokePreview {
   add(dabs: ArrayLike<number>, pressure?: ArrayLike<number>, levels?: ArrayLike<number>): Rect | null {
     const r = this.stroke.add(dabs, pressure, levels);
     return r ? this.settle(r) : null;
+  }
+
+  /** Of the map's pieces that may ride a stroke (`ridingPieces`), the ones this stroke has tilted so
+   *  far: the `rigid` pieces to hand `finish` when it is let go, the same ones the session would add
+   *  to its operation (D249). */
+  rides(pieces: readonly (readonly [number, number, number, number])[]): [number, number, number, number][] {
+    return tiltedPieces(pieces, this.start, this.heights, this.W);
   }
 
   /** The stroke's dabs are all in: the pieces that ride it whole take the level of their middle
@@ -196,6 +217,19 @@ export class StrokePreview {
         if (this.heights[i] !== this.start[i]) n++;
       }
     return n;
+  }
+
+  /** The blocks of ground the stroke as shown so far would make fall (D121, D280 (3)), by cell
+   *  (z·N + tile): what the page shows in red, and what makes the session refuse the stroke. Empty on
+   *  a heightfield. */
+  falls(): number[] {
+    const { masks, columns } = this.state;
+    if (!masks || !columns.length) return [];
+    const { W, H } = this;
+    const before = ColumnTerrain.fromHeights(this.start, W, H);
+    for (let k = 0; k < columns.length; k++) before.mask[columns[k]] = masks[k];
+    const tops = this.state.stackTops ?? null;
+    return newFalls(before, before.withSurface(this.heights), tops, tops);
   }
 
   get dabs(): number {

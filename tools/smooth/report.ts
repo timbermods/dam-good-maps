@@ -138,7 +138,8 @@ export function summarize(entries: readonly Entry[], repeats: number, info: { be
   const runs = liveRuns(entries);
   const discards = entries.filter((e): e is Discard => e.kind === "discard");
   const voids = entries.filter((e): e is Void => e.kind === "void").length;
-  const idle = idleLine([...runs.map((r) => r.load), ...discards.flatMap((d) => (d.load ? [d.load] : []))]);
+  // (the runs the verdict counts, by the gate's own rule: a run thrown away for load says nothing about it)
+  const idle = idleLine(runs.map((r) => r.load));
   const tableHead = [
     "| size | look | configuration | scenario | p99 ms before | p99 ms after | worst ms before | worst ms after | hitches before | hitches after | CPU outside / total % (min/med/max) | verdict |",
     "|---|---|---|---|---|---|---|---|---|---|---|---|",

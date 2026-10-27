@@ -24,6 +24,7 @@
 import { F, isObject, JsonFloat, num, type JsonObject, type JsonValue } from "./json";
 import { GAME_VERSION, LAYERS, numToken, type WorldModel } from "./world";
 import type { TimberFile } from "./timber";
+import { counted, nameOf } from "../validate/words";
 
 export class ImportError extends Error {}
 
@@ -137,7 +138,7 @@ function normalizeTerrain(w: WorldModel, ch: Changes): void {
     }
     w.singletons.TerrainMap = out;
     w.legacy = false;
-    ch.add("terrain.heights", "info", "Converted the 0.6 heightmap terrain to voxels, as the game does on load.");
+    ch.add("terrain.heights", "info", "Converted the old terrain format to the current one");
   }
   if (w.layers > LAYERS) {
     // the game copies X·Y·22 values and warns "Terrain data height exceeds map size, truncating"
@@ -148,21 +149,21 @@ function normalizeTerrain(w: WorldModel, ch: Changes): void {
     ch.add(
       "terrain.layers",
       "warning",
-      `The map has ${w.layers} terrain layers. Kept layers 0–21 and dropped ${dropped} voxels above them, as Timberborn 1.1 does when it loads the map.`,
+      `The map has ${w.layers} terrain layers, the game keeps ${LAYERS - 1}: dropped ${counted(dropped, "block")} of ground above them`,
     );
     w.voxels = vox;
     w.layers = LAYERS;
   } else if (w.layers < LAYERS) {
     const vox = new Uint8Array(plane * LAYERS);
     vox.set(w.voxels);
-    ch.add("terrain.layers", "warning", `The map has only ${w.layers} terrain layers, which the game cannot load. Added empty layers up to the standard ${LAYERS}.`);
+    ch.add("terrain.layers", "warning", `The map has only ${w.layers} terrain layers: added empty ones up to ${LAYERS}`);
     w.voxels = vox;
     w.layers = LAYERS;
   }
   const ms = w.singletons.MapSize as JsonObject;
   if ("MapHeight" in ms) {
     w.singletons.MapSize = withoutKey(ms, "MapHeight");
-    ch.add("mapsize.mapheight", "info", "Dropped MapSize.MapHeight, which Timberborn 1.1 ignores.");
+    ch.add("mapsize.mapheight", "info", "Dropped an old height setting the game ignores");
   }
 }
 
@@ -203,7 +204,7 @@ function normalizeWater(w: WorldModel, ch: Changes): void {
     }
     if (changed) {
       s.WaterMapNew = { ...wm, WaterColumns: { ...wm.WaterColumns, Array: tokens.join(" ") } };
-      ch.add("water.tokens", "info", `Gave ${changed} water columns the 1.1 OldWaterDepth field (equal to their depth), as the game does on load.`);
+      ch.add("water.tokens", "info", `Updated ${counted(changed, "water column")} to the current format`);
     }
   }
   const mig = s.WaterSimulationMigrator;
@@ -240,9 +241,7 @@ function normalizeWater(w: WorldModel, ch: Changes): void {
     ch.add(
       "water.migrator",
       "warning",
-      `Made before Timberborn 1.0: halved the strength of ${sources} water sources` +
-        (flows ? ` and ${flows} saved water flows` : "") +
-        ", as the game does when it loads the map, and marked the water as migrated. Without this the exported map would run at double strength.",
+      `Made before Timberborn 1.0: halved the strength of ${counted(sources, "water source")}` + (flows ? ` and ${counted(flows, "saved water flow")}` : "") + ", as the game does on loading",
     );
   }
   // optional keys the loader defaults: write them the way the game saves them
@@ -250,7 +249,7 @@ function normalizeWater(w: WorldModel, ch: Changes): void {
     const o = w.singletons[key];
     if (isObject(o) && !(field in o)) {
       w.singletons[key] = insertKey(o, field, 1, Object.keys(o)[0]);
-      ch.count("singletons.defaults", "info", (n) => `Wrote ${n} default size fields the game assumes when they are missing.`);
+      ch.count("singletons.defaults", "info", (n) => `Filled in ${counted(n, "missing size setting")}`);
     }
   };
   sz("SoilMoistureSimulator", "Size");
@@ -275,7 +274,7 @@ function migrateGoods(v: JsonValue, ch: Changes): JsonValue {
     let y: JsonValue = x;
     if (k === "Good" && isObject(x) && Object.keys(x).length === 1 && typeof x.Id === "string") {
       y = x.Id;
-      ch.count("entities.goods", "info", (n) => `Rewrote ${n} goods from the old {"Id": …} form.`);
+      ch.count("entities.goods", "info", (n) => `Updated ${counted(n, "stored good")} to the current format`);
     } else if (isObject(x) || Array.isArray(x)) y = migrateGoods(x, ch);
     if (y !== x) {
       out ??= { ...v };
@@ -290,7 +289,7 @@ function normalizeEntity(e: JsonObject, ch: Changes): JsonObject {
   const t = typeof e.Template === "string" ? e.Template : "";
   if (TEMPLATE_RENAMES[t]) {
     entity = { ...entity, Template: TEMPLATE_RENAMES[t] };
-    ch.count(`entities.template.${t}`, "info", (n) => `Renamed ${n} ${t} to ${TEMPLATE_RENAMES[t]}, as the game does.`);
+    ch.count(`entities.template.${t}`, "info", (n) => `Renamed ${n} ${nameOf(t)} to ${nameOf(TEMPLATE_RENAMES[t])}, as the game does`);
   }
   const comps0 = entity.Components;
   if (!isObject(comps0)) return entity;
@@ -303,7 +302,7 @@ function normalizeEntity(e: JsonObject, ch: Changes): JsonObject {
         const v = unwrapValue(b2[key]);
         if (v !== b2[key]) {
           b2 = { ...b2, [key]: v };
-          ch.count("entities.enums", "info", (n) => `Rewrote ${n} orientations from the old {"Value": …} form.`);
+          ch.count("entities.enums", "info", (n) => `Updated ${counted(n, "object direction")} to the current format`);
         }
       }
     }
@@ -317,21 +316,21 @@ function normalizeEntity(e: JsonObject, ch: Changes): JsonObject {
       const moved = !!off && (num(off.X ?? 0) !== 0 || num(off.Y ?? 0) !== 0);
       comps = moved ? renameKey(comps, "CoordinatesOffseter", "CoordinatesOffsetter", { Random: true }) : withoutKey(comps, "CoordinatesOffseter");
     }
-    ch.count("entities.offsetter", "info", (n) => `Rewrote ${n} old CoordinatesOffseter components as CoordinatesOffsetter, as the game does.`);
+    ch.count("entities.offsetter", "info", (n) => `Fixed an old setting on ${counted(n, "object")}`);
   }
   const wnr = comps.WateredNaturalResource;
   if (isObject(wnr) && "DryingProgress" in wnr && !("DyingProgress" in wnr)) {
     comps = { ...comps, WateredNaturalResource: renameKey(wnr, "DryingProgress", "DyingProgress") };
-    ch.count("entities.dying", "info", (n) => `Renamed ${n} DryingProgress fields to DyingProgress, as the game does.`);
+    ch.count("entities.dying", "info", (n) => `Fixed an old setting on ${counted(n, "plant")}`);
   }
   if ("TimeBomb" in comps && !("UnstableCore" in comps)) {
     comps = renameKey(comps, "TimeBomb", "UnstableCore");
-    ch.count("entities.timebomb", "info", (n) => `Renamed ${n} TimeBomb components to UnstableCore, as the game does.`);
+    ch.count("entities.timebomb", "info", (n) => `Updated ${counted(n, "unstable core")} to the current format`);
   }
   for (const key of OBSOLETE_COMPONENTS) {
     if (key in comps) {
       comps = withoutKey(comps, key);
-      ch.count(`entities.obsolete.${key}`, "info", (n) => `Dropped ${n} ${key} components, which Timberborn 1.1 never reads.`);
+      ch.count(`entities.obsolete.${key}`, "info", (n) => `Dropped ${counted(n, "old setting")} the game no longer reads`);
     }
   }
   comps = migrateGoods(comps, ch) as JsonObject;
@@ -351,13 +350,13 @@ function flagFactionPlants(w: WorldModel): ImportFlag[] {
   const names: string[] = [];
   for (const [t, list] of [...byTemplate].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
     ids.push(...list);
-    names.push(`${list.length} ${t}`);
+    names.push(`${list.length} ${nameOf(t)}`);
   }
   if (!ids.length) return [];
   return [
     {
       id: "entities.faction_plants",
-      message: `${names.join(", ")}: plants of one faction only. They fail to load for the other faction and in the map editor.`,
+      message: `${names.join(", ")}: plants only one faction can load`,
       entities: ids,
       fix: { op: "deleteEntities", label: "Remove the plants of one faction", params: { entities: ids } },
     },
@@ -372,7 +371,7 @@ function normalizeMetadata(md: JsonObject, ch: Changes): JsonObject {
   const out: JsonObject = {};
   for (const [k, def] of METADATA_KEYS) out[k] = k in md ? md[k] : def;
   for (const k in md) if (!(k in out)) out[k] = md[k];
-  ch.add("metadata.keys", "info", `Added the metadata fields ${missing.join(", ")} with their defaults.`);
+  ch.add("metadata.keys", "info", `Filled in ${counted(missing.length, "missing map detail")}`);
   return out;
 }
 
@@ -401,7 +400,7 @@ export function normalizeImport(file: TimberFile): ImportReport {
   file.metadata = normalizeMetadata(file.metadata!, ch);
   const versionLine = file.versionTxt.split(/\r?\n/)[0].trim();
   if (w.gameVersion !== GAME_VERSION || versionLine !== GAME_VERSION || file.versionTxt !== GAME_VERSION + "\r\n") {
-    ch.add("file.version", "info", `Stamped as a Timberborn ${GAME_VERSION} map (it was ${sourceVersion || "unversioned"}): no loader reads the version, and the file is now in the 1.1 format.`);
+    ch.add("file.version", "info", `Updated to Timberborn ${GAME_VERSION} (it was ${sourceVersion || "unversioned"})`);
     w.gameVersion = GAME_VERSION;
     file.versionTxt = GAME_VERSION + "\r\n";
   }

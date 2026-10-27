@@ -13,7 +13,8 @@ import { contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, grou
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { FALL_STRIDE } from "../../src/render3d/falls";
-import { dropFlags, EDGE_CURTAIN, FALL_IN_BITS, LIP_BITS, lowerByTile, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
+import { dropFlags, EDGE_CURTAIN, FALL_IN_BITS, LIP_BITS, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
+import { plainLayers } from "../../src/render3d/waterLayers";
 import { DataTexture, ShaderMaterial } from "three";
 import { sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 
@@ -126,12 +127,12 @@ describe("the ground's colours", () => {
     expect(lum(wallColor(16))).toBeGreaterThan(lum(wallColor(0)));
   });
 
-  it("the legend says what each colour means, for soil and for height colours", () => {
+  it("the legend names each colour, for soil and for height colours", () => {
     const soil = legendEntries("moisture").map((e) => e.label);
-    expect(soil).toEqual(["Moist ground: plants grow", "Dry ground: plants die", "Contaminated ground: plants die", "Water: darker is deeper", "Badwater", "Walls: one band per level", "Bare pale trees: dead"]);
+    expect(soil).toEqual(["Moist ground", "Dry ground", "Contaminated ground", "Water", "Badwater", "Walls", "Dead trees"]);
     const height = legendEntries("height").map((e) => e.label);
-    expect(height[0]).toBe("Ground by height: low to high");
-    expect(height).not.toContain("Moist ground: plants grow");
+    expect(height[0]).toBe("Ground height");
+    expect(height).not.toContain("Moist ground");
     expect(legendEntries("moisture")[1].swatch).toContain(cssColor(GROUND.dry));
     expect(legendEntries("moisture").at(-1)!.swatch).toBe(cssColor(DEAD_TREE));
   });
@@ -233,7 +234,7 @@ describe("water foam", () => {
     const heights = new Uint8Array([6, 6, 3, 3, 7, 7, 7, 7]);
     const view = waterFromDepth(heights, [0.5, 0.5, 0.5, 0.5, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]);
     const sw = surfaceWater(W, H, view);
-    const m = meshWaterChunk(W, H, heights, sw, view, lowerByTile(sw, view), 0, 0);
+    const m = meshWaterChunk(W, H, plainLayers(heights, sw), 0, 0);
     const tops = new Map<number, number>();
     const curtains: number[] = [];
     for (let q = 0; q < m.quads; q++) {
@@ -275,7 +276,7 @@ describe("the models", () => {
     expect(modelKeyOf("Blockage", 0)).toBe("block");
     expect(modelKeyOf("SomethingNew", 0)).toBe("block");
     // small enough for tens of thousands of trees
-    for (const k of ["Pine", "Birch", "Oak", "Succulent", "BlueberryBush", "Pine.dead", "Birch.dead", "Oak.dead"]) expect(modelTriangles(k)).toBeLessThanOrEqual(64);
+    for (const k of ["Pine", "Birch", "Oak", "BlueberryBush", "Pine.dead", "Birch.dead", "Oak.dead"]) expect(modelTriangles(k)).toBeLessThanOrEqual(64);
   });
 
   it("builds living and dead trees apart: a dead tree has no green crown", () => {

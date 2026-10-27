@@ -63,7 +63,7 @@ describe("the edge-wall rule (terrain.edge_wall)", () => {
     const c = edgeCheck(h, W, H);
     expect(c.ok).toBe(false);
     expect(c.class).toBe("principle");
-    expect(c.message).toMatch(/wall runs along the south edge .*, north edge .*, west edge .*, east edge/);
+    expect(c.message).toMatch(/^Wall along the south edge .*, north edge .*, west edge .*, east edge/);
     expect(c.where?.tiles?.length).toBe(4);
     // the same land without the wall: the outer tile takes the level of the tile inside it
     const opened = h.slice();

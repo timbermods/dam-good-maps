@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { BRUSHES } from "../../src/editor/brushes";
 import { SHELF, shelfTip } from "../../src/editor/shelfItems";
-import { brushTip, FORCES, forceTip, SELECT_TIP, SIZE_KEYS, STRENGTH_KEYS } from "../../src/editor/TopBar";
+import { BLOCK_TIP, brushTip, FORCES, forceTip, SELECT_TIP, SIZE_KEYS, STRENGTH_KEYS } from "../../src/editor/TopBar";
 import { KEY_SEP, keyParts, tip } from "../../src/ui/Tooltip";
 
 const MAX = 60;
@@ -29,18 +29,20 @@ function expectForm(what: string, t: { title: string; "data-keys"?: string }, ke
 describe("tooltips are one short phrase, the key a cap at the end (D368 (6))", () => {
   it("each brush and Select, with its key", () => {
     for (const b of BRUSHES) expectForm(b.name, brushTip(b), b.key);
-    expectForm("Select", SELECT_TIP, "M");
-    expect(brushTip(BRUSHES.find((b) => b.tool === "smooth")!)).toEqual({ title: "Smooth bumps and steps", "data-keys": "4" });
+    expectForm("Select", SELECT_TIP, "1");
+    expectForm("Block", BLOCK_TIP, "7");
+    expect(BLOCK_TIP).toEqual({ title: "Add or remove blocks on any face", "data-keys": "7" });
+    expect(brushTip(BRUSHES.find((b) => b.tool === "smooth")!)).toEqual({ title: "Smooth bumps and steps", "data-keys": "5" });
   });
   it("each force, with its key", () => {
     for (const f of FORCES) expectForm(f.name, forceTip(f), f.key);
-    expect(forceTip(FORCES.find((f) => f.id === "carve")!)).toEqual({ title: "Carve a river", "data-keys": "7" });
+    expect(forceTip(FORCES.find((f) => f.id === "carve")!)).toEqual({ title: "Carve a river or canyon", "data-keys": "Shift+1" });
   });
-  it("each shelf item, with its key and R's turn", () => {
+  it("each shelf item, its purpose alone: no key, R's turn unsaid (Kyler, 2026-10-06)", () => {
     for (const it of SHELF) {
       const t = shelfTip(it);
-      expectForm(it.name, t, it.key);
-      expect(keysOf(t).includes("R turns it"), it.name).toBe(it.turns);
+      expectForm(it.name, t);
+      expect(keysOf(t), it.name).toEqual([]);
     }
   });
   it("Size's keys are F and { }, strength's and Power's F+scroll and [ ] (D368 (1), (11))", () => {

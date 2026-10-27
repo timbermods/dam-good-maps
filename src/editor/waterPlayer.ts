@@ -6,10 +6,9 @@
 // (and the export's water after it), so what the player watches ends exactly where the map is. The
 // brushes never wait for it: frames only ever change the water shown.
 //
-// Pause, speed (slower, normal, faster, instant; D197: normal is brisk, a small edit settles nearby
-// in a second or two while a new river still flows visibly), skip to the result and replay (the
-// last journey again, from the water right after the edit). A weather run (a drought, then the
-// water coming back) plays the same way.
+// It plays with no controls (Kyler, 2026-10-04: undo and redo show a change again). Its speed (slower, normal, faster,
+// instant; D197: normal is brisk, a small edit settles nearby in a second or two while a new river still flows
+// visibly) is the tests'; the page skips to the result when a held weather day needs the settled water in place.
 
 import type { WaterView } from "../render3d/model";
 
@@ -17,10 +16,9 @@ export interface WaterFrame {
   water: WaterView;
   /** How far the journey has come (0–1), for the status. */
   done: number;
-  /** The settled water, with what grows on it: shown last, and then the journey is over. */
-  final?: () => void;
-  /** A weather run's words ("Drought: day 4 of 9"). */
-  words?: string;
+  /** The settled water, with what grows on it: shown last, and then the journey is over. `water` false: what it
+   *  carries but its water (a force starting from the water on screen, `flushFinals`). */
+  final?: (water?: boolean) => void;
 }
 
 export interface PlayerHost {
@@ -45,6 +43,16 @@ const EASE = 16;
 let columnOf = new Int32Array(0).fill(-1);
 let inLater = new Uint8Array(0);
 
+/** The earlier frame's column a later frame's column `k` of tile `i` blends from (−1: none): its own on a tile with
+ *  one in each (the land under it may have moved), else the one on the same floor (under caves a tile holds several,
+ *  and a cave's pool never takes the lake's on its roof). `next` lists the earlier frame's other columns of a tile. */
+function pairOf(a: WaterView, b: WaterView, k: number, i: number, next: Int32Array, single: boolean): number {
+  const j = columnOf[i];
+  if (j < 0 || (single && next[j] < 0)) return j;
+  for (let q = j; q >= 0; q = next[q]) if (Math.abs(a.floor[q] - b.floor[k]) < 0.5) return q;
+  return -1;
+}
+
 /** Water between two frames (t from 0 to 1): each tile's depth, contamination and outflows in between,
  *  its floor from the later frame. */
 export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
@@ -55,8 +63,14 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
     columnOf = new Int32Array(most + 1).fill(-1);
     inLater = new Uint8Array(most + 1);
   }
-  // (a tile with several columns, under caves: its last one, as a map lookup would keep)
-  for (let k = 0; k < a.count; k++) columnOf[a.tile[k]] = k;
+  // (a tile with several columns, under caves: each paired with the one on its own floor, `pairOf`)
+  const next = new Int32Array(a.count).fill(-1);
+  for (let k = 0; k < a.count; k++) {
+    next[k] = columnOf[a.tile[k]];
+    columnOf[a.tile[k]] = k;
+  }
+  // (how many columns each tile has in the later frame: one, or several)
+  for (let k = 0; k < b.count; k++) inLater[b.tile[k]]++;
   const ca = a.outflow;
   const cb = b.outflow;
   const most2 = a.count + b.count;
@@ -65,11 +79,13 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
   const depth = new Float32Array(most2);
   const contamination = new Float32Array(most2);
   const outflow = cb ? new Float32Array(most2 * 4) : null;
+  // (the earlier frame's columns a later one blends from: the others fade out, a tile still wet or not)
+  const used = new Uint8Array(a.count);
   let n = 0;
   for (let k = 0; k < b.count; k++) {
     const i = b.tile[k];
-    inLater[i] = 1;
-    const j = columnOf[i];
+    const j = pairOf(a, b, k, i, next, inLater[i] === 1);
+    if (j >= 0) used[j] = 1;
     tile[n] = i;
     floor[n] = b.floor[k];
     depth[n] = (j < 0 ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t;
@@ -78,11 +94,10 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
     n++;
   }
   for (let k = 0; k < a.count; k++) {
-    const i = a.tile[k];
-    if (inLater[i]) continue;
+    if (used[k]) continue;
     const d = a.depth[k] * (1 - t);
     if (d <= 0.001) continue;
-    tile[n] = i;
+    tile[n] = a.tile[k];
     floor[n] = a.floor[k];
     depth[n] = d;
     contamination[n] = a.contamination[k];
@@ -117,7 +132,6 @@ export class WaterPlayer {
    *  time, skipping frames when showing them is slow, as in software rendering). */
   private clockAt = 0;
   private clockT = 0;
-  paused = false;
   speedName: WaterSpeed = "normal";
   private get speed(): number {
     return RATE[this.speedName];
@@ -130,14 +144,15 @@ export class WaterPlayer {
   /** Apply what the settled frames still waiting to be shown carry (the plants, the soil, the water), once and in
    *  order, without showing any frame. A new journey or a cleared one drops those frames, and the worker does not
    *  send their parts again (each view is a difference from the last it sent), so whoever drops them first calls this
-   *  (`WaterJourney.flush`), before the next view is applied on top. A weather run's frames are only for show. */
-  flushFinals(): void {
+   *  (`WaterJourney.flush`), before the next view is applied on top. A weather run's frames are only for show.
+   *  `water` false: their water is left out, the water on screen staying (a force starts from it). */
+  flushFinals(water = true): void {
     if (this.weather) return;
     for (let k = this.at + 1; k < this.frames.length; k++) {
       const done = this.frames[k].final;
       if (!done) continue;
       this.frames[k].final = undefined;
-      done();
+      done(water);
     }
   }
 
@@ -183,11 +198,6 @@ export class WaterPlayer {
     return this.at >= 0 ? this.frames[this.at].done : 0;
   }
 
-  /** The words of the frame on screen (a weather run's day), if any. */
-  get words(): string | null {
-    return this.at >= 0 ? (this.frames[this.at].words ?? null) : null;
-  }
-
   /** Whether there is a journey to end (an edit's water shown or on its way). */
   get hasJourney(): boolean {
     return this.frames.length > 0 && !this.weather;
@@ -200,20 +210,6 @@ export class WaterPlayer {
     if (this.weather) return null;
     for (let k = this.frames.length - 1; k >= 0; k--) if (this.frames[k].final) return this.frames[k].water;
     return null;
-  }
-
-  get canReplay(): boolean {
-    return this.frames.length > 1 && !this.playing;
-  }
-
-  pause(on: boolean): void {
-    this.paused = on;
-    if (on) this.stopTimer();
-    else {
-      this.restartClock();
-      this.kick();
-    }
-    this.host.changed();
   }
 
   setSpeed(speed: WaterSpeed): void {
@@ -235,18 +231,6 @@ export class WaterPlayer {
     this.host.changed();
   }
 
-  /** The last journey again, from the water right after its edit. */
-  replay(): void {
-    if (this.frames.length < 2) return;
-    this.stopTimer();
-    this.at = 0;
-    this.paused = false;
-    this.show(this.frames[0]);
-    this.restartClock();
-    this.kick();
-    this.host.changed();
-  }
-
   /** Forget the journey (a map opened, a weather run stopped). */
   clear(): void {
     this.stopTimer();
@@ -263,14 +247,13 @@ export class WaterPlayer {
   }
 
   private kick(): void {
-    if (this.timer || this.paused) return;
+    if (this.timer) return;
     if (this.at >= this.frames.length - 1) {
       this.host.changed();
       return;
     }
     this.timer = window.setTimeout(() => {
       this.timer = 0;
-      if (this.paused) return;
       // the frame the clock is at (at least the next one), and, behind the worker by more than a
       // few seconds, a little faster
       const last = this.frames.length - 1;

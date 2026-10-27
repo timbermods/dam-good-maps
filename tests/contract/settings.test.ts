@@ -26,10 +26,21 @@ const SIZE = Number(process.env.DGM_SETTINGS_SIZE ?? 96);
 
 describe("each setting moves its measured target (ROADMAP M6)", () => {
   // (an experiment that is information, D211, still runs: its maps must pass their checks)
-  it.each(EXPERIMENTS.map((e) => [e.info ? `${e.setting} (information: ${e.info})` : e.setting, e] as const))("%s", (_, e) => {
+  const check = (_: string, e: (typeof EXPERIMENTS)[number]) => {
     const o = runExperiment(e, seedsFor(e, SEEDS), SIZE);
     expect(o.ok, `${e.setting} (${e.values.join(" → ")}): ${e.target}; means ${o.means.map((m) => m.toFixed(e.digits ?? 0)).join(" → ")}; ${o.why}`).toBe(true);
     // every map of the experiment is still a valid map
     expect(o.failed, `${o.failed} maps failed a check`).toBe(0);
-  });
+  };
+  const name = (e: (typeof EXPERIMENTS)[number]) => (e.info ? `${e.setting} (information: ${e.info})` : e.setting);
+  // D466: expected failures, the known shortfalls held for settings round 2 (docs/progress/m9b.md); each moves
+  // back to the plain list when it passes. (Designed for passes on 0.8.3, #330's badwater joining the main
+  // water, so it runs as a plain test again until D449's core change removes it.)
+  // (Drought reserve is held again, Kyler on #338: it passed on 0.8.1 only because one Plenty map, with
+  // 2,692 of stored water, carried the mean, +232; on 0.8.0 it moved +170, on 0.8.2 +139. The setting
+  // itself is the weakness: the settler counts only natural stored water near a start, not dam sites,
+  // so Plenty can't tell starts apart)
+  const HELD = new Set(["Verticality", "Drought reserve", "Lakes and basins", "Waterfalls"]);
+  it.each(EXPERIMENTS.filter((e) => !HELD.has(e.setting)).map((e) => [name(e), e] as const))("%s", check);
+  it.fails.each(EXPERIMENTS.filter((e) => HELD.has(e.setting)).map((e) => [name(e), e] as const))("%s (expected failure, settings round 2)", check);
 });

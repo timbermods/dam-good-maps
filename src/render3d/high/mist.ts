@@ -105,16 +105,16 @@ export class Mist {
 
   /** Build them again from the falls drawn (their instance data) and the water's surface. */
   set(W: number, H: number, sw: SurfaceWater, falls: Iterable<{ geometry: BufferGeometry }>): void {
-    const wet = new Float32Array(W * H * 4);
+    // (into the texture's own array when it fits: its other two channels stay 0)
+    if (!this.wet || this.wet.image.width !== W || this.wet.image.height !== H) {
+      this.wet?.dispose();
+      this.wet = new DataTexture(new Float32Array(W * H * 4), W, H, RGBAFormat, FloatType);
+      this.wet.minFilter = this.wet.magFilter = NearestFilter;
+    }
+    const wet = this.wet.image.data as Float32Array;
     for (let i = 0; i < W * H; i++) {
       wet[i * 4] = sw.surface[i] === sw.surface[i] ? sw.surface[i] : -100;
       wet[i * 4 + 1] = sw.depth[i];
-    }
-    if (this.wet && this.wet.image.width === W && this.wet.image.height === H) (this.wet.image.data as Float32Array).set(wet);
-    else {
-      this.wet?.dispose();
-      this.wet = new DataTexture(wet, W, H, RGBAFormat, FloatType);
-      this.wet.minFilter = this.wet.magFilter = NearestFilter;
     }
     this.wet.needsUpdate = true;
     this.field.value = this.wet;
@@ -195,6 +195,11 @@ export class Mist {
       this.group.add(rings);
     }
     this.stats = { mist: seeds.length, rings: rs.length / 6 };
+  }
+
+  /** Its materials: the mist's (drawn as points) and the rings' (a mesh), neither with a normal. */
+  materials(): { mist: ShaderMaterial; rings: ShaderMaterial } {
+    return { mist: this.mistMat, rings: this.ringMat };
   }
 
   show(mist: boolean, rings: boolean): void {

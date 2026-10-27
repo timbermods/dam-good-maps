@@ -3,7 +3,7 @@
 // TypeScript with no three.js: the worker builds views, the renderer and the editor read them.
 //
 // Coordinates: tile (x, y) with x east and y north, as in the game. The renderer's world space is
-// X = x, Y = height, Z = −y, so north is −Z and the top-down view has north up.
+// X = x, Y = height, Z = −y, so north is −Z and the top-down view has north up until it is turned.
 
 import { contaminationByte, moistureByte } from "./palette";
 
@@ -59,7 +59,9 @@ export interface WaterView {
   /** Badwater share, 0–1. */
   contamination: Float32Array;
   /** The settle's own outflows of each column (four a column, the simulation's order −y, −x, +y, +x;
-   *  current.ts); missing where the worker had none (still water, falls estimated). Only drawn. */
+   *  current.ts), each column its own: a cave's water under a wet roof its own, never its roof's (the file's
+   *  per column, the stacked settle's, stackWater.ts `columnFlows`). Missing where the worker has none for
+   *  every column (still water, falls estimated). Only drawn. */
   outflow?: Float32Array;
 }
 
@@ -68,6 +70,45 @@ export interface WaterView {
 export interface SoilView {
   moisture: Uint8Array;
   contamination: Uint8Array;
+  /** On a map with terrain above terrain, the soil of every run top below its tile's top (a cave's floor,
+   *  a ledge under an overhang, the map's floor under air), as the same bytes: `runSoilView`. The per-tile
+   *  arrays above are each tile's top. Absent on every other map. */
+  runs?: RunSoilView;
+}
+
+/** The soil of the run tops below each tile's top (3D view, part 3): run k of `tile` has its top at `level`
+ *  (the first air over the run; 0 for the map's floor under a column with air at its bottom). */
+export interface RunSoilView {
+  tile: Int32Array;
+  level: Uint8Array;
+  moisture: Uint8Array;
+  contamination: Uint8Array;
+}
+
+/** The soil of the run tops below each tile's top in `columns` (tile → its voxels, 1 solid), from a soil
+ *  stored per run (slot j of tile i at j·N + i, the runs laid out as the game's `ColumnTerrainMap`:
+ *  sim/columns.ts `terrainColumns`, run 0 empty when the bottom voxel is air). Tiles in ascending order,
+ *  each tile's runs from the bottom. */
+export function runSoilView(columns: ReadonlyMap<number, ArrayLike<number>>, N: number, moisture: { slots: number; values: ArrayLike<number> }, contamination: { slots: number; values: ArrayLike<number> }): RunSoilView {
+  const tile: number[] = [];
+  const level: number[] = [];
+  const m: number[] = [];
+  const c: number[] = [];
+  const at = (a: { slots: number; values: ArrayLike<number> }, k: number, i: number) => (k < a.slots ? a.values[k * N + i] : 0);
+  for (const i of [...columns.keys()].sort((a, b) => a - b)) {
+    const v = columns.get(i)!;
+    // the tops of the runs, bottom to top: run 0 starts at z = 0 (empty, its top 0, under air at the bottom)
+    const tops: number[] = [];
+    if (!v[0]) tops.push(0);
+    for (let z = 0; z < LAYERS; z++) if (v[z] && (z + 1 >= LAYERS || !v[z + 1])) tops.push(z + 1);
+    for (let k = 0; k < tops.length - 1; k++) {
+      tile.push(i);
+      level.push(tops[k]);
+      m.push(moistureByte(at(moisture, k, i)));
+      c.push(contaminationByte(at(contamination, k, i)));
+    }
+  }
+  return { tile: Int32Array.from(tile), level: Uint8Array.from(level), moisture: Uint8Array.from(m), contamination: Uint8Array.from(c) };
 }
 
 export interface MapView {
@@ -75,8 +116,11 @@ export interface MapView {
   H: number;
   /** Surface height per tile: the first free layer above the top solid voxel. */
   heights: Uint8Array;
-  /** Columns with caves or overhangs: their tile indices and 23 voxels each (1 = solid). */
-  columns: { tiles: Int32Array; voxels: Uint8Array };
+  /** Columns with caves or overhangs: their tile indices and 23 voxels each (1 = solid), and each one's mask
+   *  (`ColumnTerrain`'s, bit z set: voxel z solid; one Uint32 a listed tile, in `tiles`' order), what the
+   *  renderer looks a column up in (`columnMasks`). The worker always sends `masks`; without them (a view made
+   *  by hand) the renderer works them out from `voxels`, once. */
+  columns: { tiles: Int32Array; voxels: Uint8Array; masks?: Uint32Array };
   water: WaterView;
   entities: EntityView;
   /** The soil the ground's colour shows (Map look, D86). Without it the ground reads as dry. */
@@ -103,7 +147,7 @@ export function emptyWater(): WaterView {
 }
 
 export function emptyColumns(): MapView["columns"] {
-  return { tiles: new Int32Array(0), voxels: new Uint8Array(0) };
+  return { tiles: new Int32Array(0), voxels: new Uint8Array(0), masks: new Uint32Array(0) };
 }
 
 /** A heightfield's settled water (depth per tile over the surface) as a water view. */
@@ -138,7 +182,20 @@ export interface SurfaceWater {
   lower: number[];
 }
 
+const surfaces = new WeakMap<WaterView, SurfaceWater>();
+
+/** The surface water of a water view, made once for each view (a view's arrays never change once
+ *  made, and nothing writes into the answer): the renderer and the page's copy of the map both ask
+ *  for it on every water update, and the editor on every render. */
 export function surfaceWater(W: number, H: number, w: WaterView): SurfaceWater {
+  const known = surfaces.get(w);
+  if (known && known.surface.length === W * H) return known;
+  const s = surfaceOf(W, H, w);
+  surfaces.set(w, s);
+  return s;
+}
+
+function surfaceOf(W: number, H: number, w: WaterView): SurfaceWater {
   const N = W * H;
   const surface = new Float32Array(N).fill(NaN);
   const floor = new Float32Array(N).fill(NaN);
@@ -168,6 +225,24 @@ export function columnMap(c: MapView["columns"]): Map<number, Uint8Array> {
   const m = new Map<number, Uint8Array>();
   for (let k = 0; k < c.tiles.length; k++) m.set(c.tiles[k], c.voxels.subarray(k * LAYERS, (k + 1) * LAYERS));
   return m;
+}
+
+/** The columns' masks over the whole map (N tiles), what `mesh.ts` `columnMask` looks a column up in: a listed
+ *  tile's mask (the view's own `masks`, else worked out from its voxels), 0 on every other tile (one plain run,
+ *  drawn from its height). Undefined when no column is listed (a map without terrain above terrain: nothing to
+ *  look up). */
+export function columnMasks(N: number, c: MapView["columns"]): Uint32Array | undefined {
+  const n = c.tiles.length;
+  if (!n) return undefined;
+  const out = new Uint32Array(N);
+  const given = c.masks && c.masks.length === n ? c.masks : null;
+  for (let k = 0; k < n; k++) {
+    let m = 0;
+    if (given) m = given[k];
+    else for (let z = 0, o = k * LAYERS; z < LAYERS; z++) if (c.voxels[o + z]) m |= 1 << z;
+    out[c.tiles[k]] = m;
+  }
+  return out;
 }
 
 export interface EntityInput {
@@ -249,9 +324,10 @@ export function viewBuffers(v: Partial<MapView> & { terrain?: { pre: Uint8Array;
   if (v.columns) {
     add(v.columns.tiles);
     add(v.columns.voxels);
+    add(v.columns.masks);
   }
   if (v.water) for (const a of [v.water.tile, v.water.floor, v.water.depth, v.water.contamination, v.water.outflow]) add(a);
-  if (v.soil) for (const a of [v.soil.moisture, v.soil.contamination]) add(a);
+  if (v.soil) for (const a of [v.soil.moisture, v.soil.contamination, v.soil.runs?.tile, v.soil.runs?.level, v.soil.runs?.moisture, v.soil.runs?.contamination]) add(a);
   if (v.entities) for (const a of [v.entities.template, v.entities.x, v.entities.y, v.entities.z, v.entities.orientation, v.entities.flags, v.entities.owner, v.entities.variant, v.entities.strength]) add(a);
   return out;
 }

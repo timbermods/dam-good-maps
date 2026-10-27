@@ -62,7 +62,6 @@ describe("one ceiling in the editor (D244)", () => {
 
   it("a map raised past 16 is tall: its description's note, exported and validated as tall; undo makes it standard again", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     expect(isTall(s0.built.heights)).toBe(false);
@@ -108,7 +107,6 @@ ${TALL_NOTE}`);
 
   it("the forces build up to the ceiling on any map, never past it", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const st = s.built.start!;

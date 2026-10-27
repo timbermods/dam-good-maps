@@ -1,0 +1,982 @@
+diff --git a/rust/forces/src/lib.rs b/rust/forces/src/lib.rs
+--- a/rust/forces/src/lib.rs
++++ b/rust/forces/src/lib.rs
+@@ -3,6 +3,7 @@
+ use portable as portable_math;
+ #[macro_use]
+ mod json;
++mod maturity;
+ // Reused from rust-water 2ebeea87, including its validated pointer cache.
+ mod water {
+     // Exact binary64 port of feature/m9b e292cefe src/core/sim/water.ts.
+@@ -1896,6 +1897,7 @@
+         0.0,
+     ]);
+     command[33] = map.w as f64;
++    if opcode == 4.0 { command[37] = match job["settings"].get("maturity") {None => 0.0,Some(v) if matches!(v,V::Null) || v.as_str()==Some("auto") => 2.0,Some(v) if v.as_str()==Some("young") => 0.0,Some(v) if v.as_str()==Some("mature") => 1.0,_ => -1.0}; }
+     command[21] = (job["options"]["finish"].as_bool() == Some(false)) as u8 as f64;
+     command[34] = boolean(&job["settings"], "meltwater") as u8 as f64;
+     command[35] = index(
+@@ -1906,7 +1908,7 @@
+         job["settings"]["steps"].as_str().unwrap_or("some"),
+         &["few", "some", "many"],
+     );
+-    command[37] = job["settings"]["tarn"].as_bool().unwrap_or(true) as u8 as f64;
++    if opcode != 4.0 { command[37] = job["settings"]["tarn"].as_bool().unwrap_or(true) as u8 as f64; }
+     command[38] = job["settings"]["scree"].as_bool().unwrap_or(true) as u8 as f64;
+     let mut path = vec![0.0; 2048.max(intent.path.len() * 2)];
+     for (i, p) in intent.path.iter().enumerate() {
+@@ -2001,7 +2003,7 @@
+         task.id_offsets.push(task.id_bytes.len() as u32);
+     }
+ }
+-const FORCE_ERRORS: [&str; 27] = [
++const FORCE_ERRORS: [&str; 28] = [
+     "",
+     "Invalid impact settings",
+     "Strike on the map",
+@@ -2029,6 +2031,7 @@
+     "a glacier's path is up to 128 tiles on the map",
+     "a glacier's path moves on from each of its tiles to the next",
+     "No room to rise here",
++    "the Floor or kept ground leaves no room to age this river",
+ ];
+ fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
+     let opcode = c[0] as u32;
+@@ -2095,7 +2098,7 @@
+             }
+         }
+         4 => {
+-            if !power || !tile(c[15]) {
++            if !whole(c[37],0.0,2.0) || !power || !tile(c[15]) {
+                 return 11;
+             }
+             if !seed
+@@ -2291,6 +2294,7 @@
+             &before,
+             m,
+             &CarveSettings {
++                mature: c[37] == 1.0 || c[37] == 2.0 && maturity::auto(&before, intent.origin as usize, c[3] as u32),
+                 power: c[1],
+                 wander: c[24],
+                 width: if c[25].is_nan() { None } else { Some(c[25]) },
+@@ -2835,6 +2839,7 @@
+                 pair(d, 41, &r.step_metrics);
+                 pair(d, 45, &p.step_objects);
+                 pair(d, 54, &r.step_object_changes);
++                if let Some(stats)=&r.maturity { pair(d,67,stats); }
+                 pair(d, 63, &r.knobs);
+                 pair(d, 64, &r.rock);
+                 pair(d, 65, &r.sediment);
+@@ -3644,6 +3649,7 @@
+ // These types contain only typed numbers/strings, never generic map values.
+ #[derive(Clone)]
+ struct CarveSettings {
++    mature: bool,
+     power: f64,
+     wander: f64,
+     width: Option<f64>,
+@@ -3661,6 +3667,7 @@
+ impl CarveSettings {
+     fn from(v: &V) -> Self {
+         Self {
++            mature: s(v, "maturity") == "mature",
+             power: n(v, "power"),
+             wander: v["wander"].as_f64().unwrap_or(35.0),
+             width: v["width"].as_f64(),
+@@ -5873,6 +5880,7 @@
+     ]
+ }
+ struct CarveRecords {
++    maturity: Option<Vec<f64>>,
+     initial_entities: Vec<Entity>,
+     raw_changes: Vec<i32>,
+     raw_offsets: Vec<u32>,
+@@ -5958,7 +5966,7 @@
+                 .id
+                 .as_ref()
+         };
+-        json!({"metrics":{"cut":m[0],"deposited":m[1],"exported":m[2],"suspended":m[3],"bankCuts":m[4],"bendCuts":m[5],"steps":m[6],"stable":m[7]!=0.0,"distance":m[8],"reason":self.reason,"splits":m[9],"waterfalls":m[10],"rapids":m[11],"oxbows":m[12]},"total":self.total,
++        let mut value = json!({"metrics":{"cut":m[0],"deposited":m[1],"exported":m[2],"suspended":m[3],"bankCuts":m[4],"bendCuts":m[5],"steps":m[6],"stable":m[7]!=0.0,"distance":m[8],"reason":self.reason,"splits":m[9],"waterfalls":m[10],"rapids":m[11],"oxbows":m[12]},"total":self.total,
+         "changes":self.change_offsets.windows(2).map(|w|self.changes[w[0] as usize..w[1] as usize].to_vec()).collect::<Vec<_>>(),
+         "heads":self.head_offsets.windows(2).map(|w|carve_head_value(&self.heads[w[0] as usize..w[1] as usize])).collect::<Vec<_>>(),"lengths":self.lengths,
+         "path":self.path_offsets.windows(2).map(|w|{let r=&self.path[w[0] as usize..w[1] as usize];json!({"x":r[0],"y":r[1],"bed":r[2],"width":r[3],"dx":r[4],"dy":r[5],"bend":r[6],"lanes":r[8..].chunks_exact(3).map(|a|json!({"x":a[0],"y":a[1],"width":a[2]})).collect::<Vec<_>>()})}).collect::<Vec<_>>(),
+@@ -5967,10 +5975,15 @@
+         "stepMetrics":self.step_metrics.chunks_exact(14).map(carve_metrics_value).collect::<Vec<_>>(),
+         "stepObjectChanges":self.step_object_changes.chunks_exact(5).map(|v|json!({"step":v[0],"id":self.initial_entities.iter().find(|e|e.slot==v[1] as u32).unwrap().id.as_ref(),"x":v[2],"y":v[3],"z":v[4]})).collect::<Vec<_>>(),
+         "oxbows":self.oxbows.iter().map(carve_oxbow_value).collect::<Vec<_>>(),"oxbowBasin":self.oxbow_basin,"retained":self.retained.as_ref().map(|r|json!({"tiles":r.tiles,"floor":r.floor,"depth":r.depth,"contamination":r.contamination})),"unleashedId":self.unleashed,"badwater":self.bad,
+-        "removedAt":self.removed.iter().map(|(slot,s)|json!([id(*slot),s])).collect::<Vec<_>>(),"goneSpread":self.spread.iter().map(|(slot,s)|json!([id(*slot),s])).collect::<Vec<_>>(),"group":self.group.iter().map(|g|json!({"id":g.id.as_ref(),"tile":g.tile,"strength":g.strength})).collect::<Vec<_>>(),"closure":self.closure.as_ref().map(Map::value),"strengthDepth":self.strength_depth})
+-    }
+-}
+-fn carve(
++        "removedAt":self.removed.iter().map(|(slot,s)|json!([id(*slot),s])).collect::<Vec<_>>(),"goneSpread":self.spread.iter().map(|(slot,s)|json!([id(*slot),s])).collect::<Vec<_>>(),"group":self.group.iter().map(|g|json!({"id":g.id.as_ref(),"tile":g.tile,"strength":g.strength})).collect::<Vec<_>>(),"closure":self.closure.as_ref().map(Map::value),"strengthDepth":self.strength_depth});
++        if let Some(stats)=&self.maturity { value["maturity"] = json!({"youngSteps":stats[0],"rounds":stats[1],"eroded":stats[2],"deposited":stats[3],"oxbows":stats[4],"bluffLimited":stats[5],"existingRiver":stats[6]!=0.0,"changed":stats[7],"original":stats[8..].chunks_exact(2).map(|p|json!({"x":p[0],"y":p[1]})).collect::<Vec<_>>()}); }
++        value
++    }
++}
++fn carve(before: &Map, map: Map, s: &CarveSettings, i: &Intent, keep: &[u8], options: CarveOptions) -> Plan {
++    if s.mature { maturity::plan(before,map,s,i,keep,options) } else { carve_young(before,map,s,i,keep,options) }
++}
++fn carve_young(
+     before: &Map,
+     map: Map,
+     s: &CarveSettings,
+@@ -6136,6 +6149,7 @@
+     let knobs = run.character.knobs.iter().flat_map(|k| [k.x, k.y, k.radius]).collect();
+     let curve = run.course.curve.as_ref().map_or(vec![], |c| (0..c.x.len()).flat_map(|i| [c.x[i], c.y[i], c.s[i]]).collect());
+     let r = CarveRecords {
++        maturity: None,
+         knobs,
+         rock: run.character.rock.clone(),
+         sediment: run.sediment.clone(),
+diff --git a/rust/forces/src/maturity.rs b/rust/forces/src/maturity.rs
+new file mode 100644
+--- /dev/null
++++ b/rust/forces/src/maturity.rs
+@@ -0,0 +1,274 @@
++// Carve's Maturity (D355/D381/D444), built directly in typed Rust.
++// Meander #106 is the behaviour reference: downstream-lagged curvature, balanced banks,
++// a continuous native-bed thalweg, floodplain below the bluffs, and real neck cutoffs.
++use super::*;
++
++pub(super) fn auto(m: &Map, origin: usize, seed: u32) -> bool {
++    let x=origin%m.w; let y=origin/m.w; let mut low=255u8; let mut high=0u8;
++    for yy in y.saturating_sub(8)..=(y+8).min(m.h-1) {
++        for xx in x.saturating_sub(8)..=(x+8).min(m.w-1) {
++            let h=m.heights[yy*m.w+xx]; low=low.min(h); high=high.max(h);
++        }
++    }
++    hash(seed as f64,6709.0)<0.8-0.65*min(1.0,(high-low) as f64/8.0)
++}
++fn adjacent(m:&Map,i:usize)->[Option<usize>;4] {
++    let x=i%m.w;let y=i/m.w;
++    [if x>0{Some(i-1)}else{None},if x+1<m.w{Some(i+1)}else{None},
++     if y>0{Some(i-m.w)}else{None},if y+1<m.h{Some(i+m.w)}else{None}]
++}
++fn point(m:&Map,i:usize)->Point { Point{x:(i%m.w) as f64,y:(i/m.w) as f64} }
++fn near(path:&[Point],p:Point)->(usize,f64) {
++    let mut at=0;let mut best=f64::INFINITY;
++    for (k,q) in path.iter().enumerate(){let dx=p.x-q.x;let dy=p.y-q.y;let d=dx*dx+dy*dy;
++        if d<best {best=d;at=k;}}
++    (at,portable_math::sqrt(best))
++}
++fn samples(path:&[Point],spacing:f64,limit:usize)->Vec<Point> {
++    if path.len()<2{return path.to_vec();}
++    let mut arc=vec![0.0];for pair in path.windows(2){arc.push(arc.last().unwrap()+hypot(pair[1].x-pair[0].x,pair[1].y-pair[0].y));}
++    let length=*arc.last().unwrap();if length==0.0{return vec![path[0]];}
++    let count=((length/spacing).ceil() as usize).min(limit-1).max(1);
++    let mut out=Vec::with_capacity(count+1);let mut at=1;
++    for k in 0..=count{let distance=length*k as f64/count as f64;
++        while at+1<arc.len()&&arc[at]<distance{at+=1;}
++        let t=(distance-arc[at-1])/max(1e-12,arc[at]-arc[at-1]);
++        out.push(Point{x:path[at-1].x+(path[at].x-path[at-1].x)*t,y:path[at-1].y+(path[at].y-path[at-1].y)*t});}
++    out
++}
++fn wet_near(m:&Map,p:Point)->bool {
++    (-1..=1).any(|y|(-1..=1).any(|x|m.depth[m.at(p.x+x as f64,p.y+y as f64)]>0.015))
++}
++// A medial walk uses all flowing source types, including badwater; no source or wet tile is invented.
++fn existing(m:&Map,intent:&Intent,aimed:bool)->Option<(Vec<Point>,f64)> {
++    let start=point(m,intent.origin as usize);
++    if !wet_near(m,start){return None;}
++    let mut gesture=vec![start];gesture.extend(intent.via.iter().map(|&i|point(m,i)));
++    if aimed&&intent.end!=intent.origin{gesture.push(point(m,intent.end as usize));}
++    if samples(&gesture,2.0,512).iter().any(|&p|!wet_near(m,p)){return None;}
++    let n=m.heights.len();let mut banks=vec![usize::MAX;n];let mut queue=vec![];
++    for i in 0..n{if m.depth[i]<=0.015{banks[i]=0;queue.push(i);}}
++    let mut q=0;while q<queue.len(){let i=queue[q];q+=1;
++        for j in adjacent(m,i).into_iter().flatten(){if banks[j]>banks[i]+1{banks[j]=banks[i]+1;queue.push(j);}}}
++    let model=force_water_model(m);let mut best:Option<Vec<Point>>=None;let mut closest=f64::INFINITY;
++    for source in model.emitters.iter().filter(|e|e.strength>0.0){
++        let mut cost=vec![f64::INFINITY;n];let mut parent=vec![usize::MAX;n];let mut heap=ForceHeap::default();
++        for &i in &source.cells{for j in std::iter::once(i).chain(adjacent(m,i).into_iter().flatten()){
++            if m.depth[j]>0.015{cost[j]=0.0;parent[j]=j;heap.push(0.0,j);}}}
++        let anchor=point(m,*source.cells.first()?);let mut end=None;
++        while let Some((key,i))=heap.pop(){if key!=cost[i]{continue;}let p=point(m,i);
++            if (i%m.w==0||i%m.w==m.w-1||i/m.w==0||i/m.w==m.h-1)&&hypot(p.x-anchor.x,p.y-anchor.y)>min(40.0,m.w.min(m.h) as f64*0.4){end=Some(i);break;}
++            for j in adjacent(m,i).into_iter().flatten(){if m.depth[j]<=0.015{continue;}
++                let radius=banks[j].min(m.w.max(m.h)) as f64;let next=key+1.0+8.0/(radius*radius+0.5);
++                if next<cost[j]{cost[j]=next;parent[j]=i;heap.push(next,j);}}}
++        if let Some(mut i)=end{let mut path=vec![];loop{path.push(point(m,i));if parent[i]==i{break;}i=parent[i];}path.reverse();
++            let distance=near(&path,start).1;
++            if path.len()>=12&&distance<closest{closest=distance;best=Some(path);}}
++    }
++    let mut path=samples(&best?,2.0,180);if closest>6.0{return None;}
++    for _ in 0..3{let old=path.clone();for k in 1..path.len()-1{path[k]=Point{x:(old[k-1].x+2.0*old[k].x+old[k+1].x)*0.25,y:(old[k-1].y+2.0*old[k].y+old[k+1].y)*0.25};}}
++    let mut widths:Vec<_>=path.iter().skip(3).take(path.len().saturating_sub(6)).map(|p|banks[m.at(p.x,p.y)].min(m.w) as f64*2.0-1.0).collect();
++    widths.sort_by(|a,b|a.total_cmp(b));let width=clamp(widths.get(widths.len()*2/5).copied().unwrap_or(3.0),2.5,7.0);
++    Some((path,width))
++}
++fn empty(m:Map,s:&CarveSettings,options:&CarveOptions,intent:&Intent)->Plan {
++    let at=intent.origin as usize;let head=CarveHead{x:(at%m.w) as f64,y:(at/m.w) as f64,z:m.heights[at] as f64,dx:1.0,dy:0.0,width:s.natural_width(),event:"surge",cut:0.0,lanes:vec![]};
++    let mut heads=vec![];carve_head_record(&head,&mut heads);let head_len=heads.len() as u32;
++    let mut metrics=vec![0.0;14];metrics[13]=2.0;
++    let r=CarveRecords{initial_entities:m.entities.clone(),raw_changes:vec![],raw_offsets:vec![0,0],step_metrics:metrics,
++        step_object_changes:vec![],oxbows:vec![],oxbow_basin:vec![],retained:None,unleashed:options.unleashed.clone(),bad:options.bad,
++        total:0,metrics:[0.0;13],reason:"destination",changes:vec![],change_offsets:vec![0,0],heads,head_offsets:vec![0,head_len],
++        path:vec![],path_offsets:vec![0],lengths:vec![0],removed:vec![],spread:vec![],group:vec![],closure:None,
++        strength_depth:None,knobs:vec![],rock:vec![0;m.heights.len()],sediment:vec![0;m.heights.len()],curve:vec![],maturity:None};
++    Plan{raw:Some(m.clone()),map:m,records:Records::Carve(Box::new(r)),literal:Literal::default(),geometry:vec![],objects:vec![],fallen:vec![],
++        raw_objects:vec![],raw_fallen:vec![],step_objects:vec![],closure_objects:vec![],closure_fallen:vec![],literal_objects:vec![],
++        before:None,before_objects:vec![],before_fallen:vec![]}
++}
++fn stations(m:&Map,path:&[Point],width:f64)->Vec<CarveStation> {
++    path.iter().enumerate().map(|(k,p)|{let a=path[k.saturating_sub(1)];let b=path[(k+1).min(path.len()-1)];let d=max(1e-12,hypot(b.x-a.x,b.y-a.y));
++        CarveStation{x:p.x,y:p.y,bed:m.heights[m.at(p.x,p.y)] as f64,width:width*0.5,dx:(b.x-a.x)/d,dy:(b.y-a.y)/d,bend:0.0,lanes:vec![]}}).collect()
++}
++fn grid(m:&Map,path:&[Point])->(Vec<f64>,Vec<usize>){
++    let mut distance=vec![f64::INFINITY;m.heights.len()];let mut index=vec![0;m.heights.len()];
++    for (k,p) in path.iter().enumerate(){let r=18.0;
++        for y in max(0.0,(p.y-r).floor()) as usize..=min((m.h-1) as f64,(p.y+r).ceil()) as usize{
++            for x in max(0.0,(p.x-r).floor()) as usize..=min((m.w-1) as f64,(p.x+r).ceil()) as usize{
++                let i=y*m.w+x;let d=hypot(x as f64-p.x,y as f64-p.y);if d<distance[i]{distance[i]=d;index[i]=k;}}}}
++    (distance,index)
++}
++// Whole blocks pair before the target is committed. Insufficient room reduces bank work;
++// an essential thalweg cut is never partly applied or filled by a point bar.
++fn balance(m:&Map,target:&mut[u8],channel:&[u8],keep:&[u8],beds:&[u8],idx:&[usize],valley:&[u8])->bool {
++    let mut cuts=vec![];let mut fills=vec![];let mut amount=0usize;let mut capacity=0usize;
++    for i in 0..target.len(){if keep.get(i).copied().unwrap_or(0)!=0{target[i]=m.heights[i];}
++        if target[i]<m.heights[i]{cuts.push(i);amount+=(m.heights[i]-target[i]) as usize;}
++        if target[i]>m.heights[i]&&channel[i]==0{fills.push(i);capacity+=(target[i]-m.heights[i]) as usize;}}
++    // When inside bars alone are too small, spread sediment over the low floodplain.
++    if capacity<amount{for i in 0..target.len(){if valley[i]==0||channel[i]!=0||keep.get(i).copied().unwrap_or(0)!=0||i%m.w<2||i%m.w>=m.w-2||i/m.w<2||i/m.w>=m.h-2{continue;}
++        let z=beds[idx[i]];let top=(z.saturating_add(3)).min(m.ceiling as u8);
++        if m.heights[i]>=top||target[i]<m.heights[i]||target[i]>m.heights[i]{continue;}
++        // idx is only used inside the original valley's distance grid by callers.
++        fills.push(i);target[i]=top;capacity+=(top-m.heights[i]) as usize;}}
++    cuts.sort_by_key(|&i|(channel[i]==0,i));fills.sort_by_key(|&i|(m.heights[i],i));
++    let usable=amount.min(capacity);let mandatory:usize=cuts.iter().filter(|&&i|channel[i]!=0).map(|&i|(m.heights[i]-target[i]) as usize).sum();
++    if usable<mandatory{return false;}
++    let mut remaining=usable;for i in cuts{let cut=remaining.min((m.heights[i]-target[i]) as usize);target[i]=m.heights[i]-cut as u8;remaining-=cut;}
++    remaining=usable;for i in fills{let add=remaining.min((target[i]-m.heights[i]) as usize);target[i]=m.heights[i]+add as u8;remaining-=add;}
++    true
++}
++fn route(m:&Map,path:&[Point],original:&[Point],beds:&[u8],target:&mut[u8],channel:&mut[u8],floor:u8,lo:usize,hi:usize){
++    let mut last=None;
++    let mut stamp=|i:usize,z:u8|{channel[i]=1;target[i]=target[i].min(z.max(m.heights[i].min(floor)));};
++    for p in samples(path,0.45,1600){let k=near(original,p).0;let i=m.at(p.x,p.y);
++        if k<lo||k>hi{last=Some(i);continue;}
++        if let Some(j)=last{if j%m.w!=i%m.w&&j/m.w!=i/m.w{let a=j/m.w*m.w+i%m.w;let b=i/m.w*m.w+j%m.w;stamp(if m.heights[a]<=m.heights[b]{a}else{b},beds[k]);}}
++        stamp(i,beds[k]);last=Some(i);}
++}
++fn age_map(base:&Map,previous:&Map,original:&[Point],course:&[Point],beds:&[u8],width:f64,s:&CarveSettings,keep:&[u8],lo:usize,hi:usize,old_d:&[f64],old_k:&[usize])->Option<Map>{
++    let active=samples(course,0.65,650);let (d,k)=grid(base,&active);let active_k:Vec<_>=active.iter().map(|&p|near(course,p).0).collect();
++    let mut target=base.heights.clone();let mut channel=vec![0;target.len()];let floor=s.floor as u8;
++    for i in 0..target.len(){let at=old_k[i];let t=(at as f64-lo as f64)/max(1.0,(hi-lo) as f64);let fade=smooth(t*5.0)*smooth((1.0-t)*5.0);
++        if at<lo||at>hi||old_d[i]>16.0||fade<=0.0||keep.get(i).copied().unwrap_or(0)!=0{continue;}
++        let h=base.heights[i];let z=beds[at];let flood=z as f64+max(1.0,base.depth[base.at(original[at].x,original[at].y)].ceil());
++        if h as f64>flood+4.0{continue;}
++        let radius=width*0.5*(1.0+0.12*sin(k[i] as f64*0.071));
++        if d[i]<=radius{channel[i]=1;target[i]=h.min(beds[active_k[k[i]]].max(h.min(floor)));}
++        else if old_d[i]<radius+1.2{target[i]=h.max(min(base.ceiling,flood) as u8);}
++        else if old_d[i]<min(15.0,width+4.0+s.power*0.02)&&h as f64>flood{
++            target[i]=max(h.min(floor) as f64,round(h as f64-(h as f64-flood)*fade*(0.08+s.power*0.006))) as u8;}
++    }
++    route(base,course,original,beds,&mut target,&mut channel,floor,lo,hi);
++    // Keep prevents a course crossing locked land; reject that migration increment, not the force.
++    if (0..target.len()).any(|i|channel[i]!=0&&keep.get(i).copied().unwrap_or(0)!=0&&target[i]!=base.heights[i]){return None;}
++    let valley:Vec<_>=(0..target.len()).map(|i|(old_d[i]<16.0&&old_k[i]>=lo&&old_k[i]<=hi) as u8).collect();
++    if !balance(base,&mut target,&channel,keep,beds,old_k,&valley){return None;}
++    let mut m=previous.clone();m.heights=target;
++    for i in 0..m.heights.len(){m.lava[i]=base.lava[i]&mask(m.heights[i]);}
++    Some(m)
++}
++fn record_stage(m:&mut Map,previous:&Map,r:&mut CarveRecords,course:&[Point],width:f64,event:&'static str){
++    r.total+=1;let step=r.total;let mut cut=0.0;let mut fill=0.0;let mut changed=0usize;let mut sx=0usize;let mut sy=0usize;
++    for i in 0..m.heights.len(){let dz=m.heights[i] as i32-previous.heights[i] as i32;
++        if dz!=0{changed+=1;sx+=i%m.w;sy+=i/m.w;r.changes.extend([i as i32,m.heights[i] as i32]);r.raw_changes.extend([i as i32,m.heights[i] as i32]);}
++        if dz<0{cut-=dz as f64;}else{fill+=dz as f64;}}
++    debug_assert_eq!(cut,fill);
++    r.change_offsets.push(r.changes.len() as u32);r.raw_offsets.push(r.raw_changes.len() as u32);
++    r.metrics[0]+=cut;r.metrics[1]+=fill;r.metrics[6]=step as f64;r.metrics[7]=0.0;
++    let mut metrics=r.metrics.to_vec();metrics.push(2.0);r.step_metrics.extend(metrics);
++    let middle=if changed>0{course[near(course,Point{x:sx as f64/changed as f64,y:sy as f64/changed as f64}).0]}else{course[course.len()/2]};let at=m.at(middle.x,middle.y);
++    carve_head_record(&CarveHead{x:middle.x,y:middle.y,z:m.heights[at] as f64,dx:1.0,dy:0.0,width,event,cut,lanes:vec![]},&mut r.heads);
++    r.head_offsets.push(r.heads.len() as u32);r.lengths.push(course.len() as u32);
++    let mut gone=vec![];
++    m.entities.retain_mut(|e|{let source=matches!(e.template.as_ref(),"WaterSource"|"BadwaterSource"|"WaterSeep"|"StartingLocation");
++        if !source&&previous.footprint(e,0).iter().any(|&i|m.heights[i]<previous.heights[i]){gone.push(e.slot);return false;}
++        let i=e.y as usize*m.w+e.x as usize;let dz=m.heights[i] as f64-previous.heights[i] as f64;
++        if dz!=0.0{e.z+=dz;e.raw_removed=true;r.step_object_changes.extend([step as f64,e.slot as f64,e.x,e.y,e.z]);}true});
++    for slot in gone{if !r.removed.iter().any(|&(q,_)|q==slot){r.removed.push((slot,step));r.spread.push((slot,step));}}
++    let heights=&m.heights;
++    m.fallen.retain_mut(|f|{if r.removed.iter().any(|&(q,t)|q==f.slot&&t<=step){return false;}
++        let i=previous.at(f.x,f.y);f.z+=heights[i] as f64-previous.heights[i] as f64;true});
++}
++fn move_water(base:&Map,map:&mut Map,original:&[Point],course:&[Point],width:f64,lo:usize,hi:usize){
++    let mut depth=base.depth.clone();let mut mass:Vec<_>=depth.iter().zip(&base.contamination).map(|(d,c)|d*c).collect();let mut moves=vec![];
++    for i in 0..depth.len(){if depth[i]<=0.015{continue;}let p=point(base,i);let(k,d)=near(original,p);
++        if k<lo||k>hi||d>width*1.4{continue;}let q=course[k];let o=original[k];let j=map.at(p.x+q.x-o.x,p.y+q.y-o.y);moves.push((i,j,depth[i],mass[i]));}
++    for &(i,_,d,c) in &moves{depth[i]-=d;mass[i]-=c;}for &(_,j,d,c) in &moves{depth[j]+=d;mass[j]+=c;}
++    map.contamination=depth.iter().zip(&mass).map(|(d,c)|if *d>0.0{clamp(c/d,0.0,1.0)}else{0.0}).collect();map.depth=depth;
++}
++pub(super) fn plan(before:&Map,map:Map,s:&CarveSettings,intent:&Intent,keep:&[u8],options:CarveOptions)->Plan{
++    let existing=existing(before,intent,s.aimed);let is_existing=existing.is_some();
++    let mut p=if is_existing{empty(map,s,&options,intent)}else{carve_young(before,map,s,intent,keep,options)};
++    let r=match &mut p.records{Records::Carve(r)=>r,_=>unreachable!()};let young_steps=r.total;
++    let (original,width)=if let Some((path,width))=existing{(path,width)}else{
++        let points=r.path_offsets.windows(2).map(|w|Point{x:r.path[w[0] as usize],y:r.path[w[0] as usize+1]}).collect();
++        (points,clamp(s.width.unwrap_or(s.natural_width()),2.5,12.0))};
++    if original.len()<6{return p;}
++    let base=p.map.clone();let beds:Vec<_>=original.iter().map(|q|base.heights[base.at(q.x,q.y)]).collect();let mut course=original.clone();
++    let (old_d,old_k)=grid(&base,&original);let mut lo=2;let mut hi=original.len()-3;
++    if is_existing&&s.aimed{let a=near(&original,point(before,intent.origin as usize)).0;let b=near(&original,point(before,intent.end as usize)).0;lo=a.min(b).max(2);hi=a.max(b).min(original.len()-3);
++        if lo==hi{lo=lo.saturating_sub(6);hi=(hi+6).min(original.len()-3);}}
++    if hi<lo{std::mem::swap(&mut lo,&mut hi);}if hi-lo<6{lo=lo.saturating_sub(4);hi=(hi+4).min(original.len()-3);}
++    let rounds=(round(s.power*0.8) as usize).max(12);let stride=(rounds+7)/8;let scale=if width>4.5{9}else{6};let mut bluff=0.0;
++    if young_steps>0{r.step_metrics[young_steps*14+7]=0.0;}
++    for round in 0..rounds{let mut next=course.clone();
++        for k in lo..=hi{if beds[k]<s.floor as u8{continue;}let p0=course[k];let a=course[k.saturating_sub(scale)];let b=course[(k+scale).min(course.len()-1)];let prev=course[k.saturating_sub(2)];
++            let length=max(1e-12,hypot(b.x-a.x,b.y-a.y));let nx=-(b.y-a.y)/length;let ny=(b.x-a.x)/length;let fade=smooth((k-lo) as f64/5.0)*smooth((hi-k) as f64/5.0);
++            let curve=(p0.x-(a.x+b.x)*0.5)*nx+(p0.y-(a.y+b.y)*0.5)*ny;let phase=k as f64/(scale as f64*1.5)+hash(s.seed as f64,31.0)*6.0;
++            let initiation=sin(phase+0.33*sin(phase*0.47))*0.13*(1.0-round as f64/rounds as f64);
++            let motion=clamp(curve*0.18+initiation,-0.75,0.75)*fade;
++            let q=Point{x:p0.x+nx*motion+(p0.x-prev.x)*0.028*fade,y:p0.y+ny*motion+(p0.y-prev.y)*0.028*fade};let o=original[k];
++            if q.x<2.0||q.y<2.0||q.x>base.w as f64-3.0||q.y>base.h as f64-3.0||hypot(q.x-o.x,q.y-o.y)>3.0+s.power*0.2||base.heights[base.at(q.x,q.y)]>beds[k].saturating_add(5){bluff+=1.0;continue;}next[k]=q;}
++        course=next;
++        if round%stride==stride-1||round==rounds-1{if let Some(mut m)=age_map(&base,&p.map,&original,&course,&beds,width,s,keep,lo,hi,&old_d,&old_k){
++            record_stage(&mut m,&p.map,r,&course,width,"surge");move_water(&base,&mut m,&original,&course,width,lo,hi);p.map=m;}}
++    }
++    // Neck closure is implemented below as a conserved final age increment.
++    cutoff(&base,&mut p.map,r,&mut course,width,s,keep,lo,hi);
++    r.path.clear();r.path_offsets=vec![0];for q in stations(&p.map,&course,width){r.path.extend([q.x,q.y,q.bed,q.width,q.dx,q.dy,q.bend,0.0]);r.path_offsets.push(r.path.len() as u32);}
++    let changed=p.map.heights.iter().zip(&base.heights).filter(|(a,b)|a!=b).count();
++    let cut:usize=p.map.heights.iter().zip(&base.heights).map(|(&h,&b)|b.saturating_sub(h) as usize).sum();let fill:usize=p.map.heights.iter().zip(&base.heights).map(|(&h,&b)|h.saturating_sub(b) as usize).sum();debug_assert_eq!(cut,fill);
++    let mut stats=vec![young_steps as f64,rounds as f64,cut as f64,fill as f64,r.oxbows.len() as f64,bluff,is_existing as u8 as f64,changed as f64];
++    for p in &original {stats.extend([p.x,p.y]);}r.maturity=Some(stats);
++    r.metrics[6]=r.total as f64;r.metrics[7]=1.0;r.metrics[12]=r.oxbows.len() as f64;r.reason="destination";
++    if r.total>0{r.step_metrics[r.total*14+7]=1.0;r.step_metrics[r.total*14+12]=r.oxbows.len() as f64;}
++    if is_existing&&changed==0{p.map.error=27;}
++    p.raw=Some(p.map.clone());p
++}
++fn cutoff(base:&Map,map:&mut Map,r:&mut CarveRecords,course:&mut Vec<Point>,width:f64,s:&CarveSettings,keep:&[u8],lo:usize,hi:usize) {
++    if s.power<85.0{return;}
++    let dense=samples(course,1.35,400);let lo=near(&dense,course[lo]).0;let hi=near(&dense,course[hi]).0;
++    let path=stations(map,&dense,width);let mut candidates=vec![];
++    for k in 26..path.len().saturating_sub(3){if let Some(cut)=carve_neck(&path[..=k],r.total+1){
++        if cut.start>=lo&&cut.end<=hi&&cut.pool.iter().all(|q|(q.bed-cut.pool[0].bed).abs()<=2.0){candidates.push(cut);}}}
++    candidates.sort_by_key(|c|(c.pool.len(),c.start,c.end));
++    for mut cut in candidates.into_iter().take(8){
++        let pool:Vec<_>=cut.pool.iter().map(|q|Point{x:q.x,y:q.y}).collect();
++        let (pd,_)=grid(map,&pool);let (nd,_)=grid(map,&cut.neck);let (od,ok)=grid(map,&dense);
++        let floor=s.floor as u8;let bed=cut.pool.iter().map(|q|map.heights[map.at(q.x,q.y)]).min().unwrap().max(floor);
++        let rim=bed.saturating_add(2).min(map.ceiling as u8);let mut target=map.heights.clone();let mut channel=vec![0;target.len()];
++        let mut next=dense[..cut.start].to_vec();next.extend_from_slice(&cut.neck);next.extend_from_slice(&dense[cut.end+1..]);
++        for i in 0..target.len(){if keep.get(i).copied().unwrap_or(0)!=0||ok[i]<lo||ok[i]>hi{continue;}
++            let p=point(map,i);let old=target[i];
++            if pd[i]<width*0.55{target[i]=target[i].min(bed);}
++            else if pd[i]<width*0.55+2.2&&nd[i]>width*0.5+2.0{target[i]=target[i].max(rim);}
++            for bar in &cut.bars{let dx=p.x-bar.x;let dy=p.y-bar.y;let along=dx*bar.dx+dy*bar.dy;let side=-dx*bar.dy+dy*bar.dx;
++                if along.abs()<2.2&&side.abs()<bar.width+2.0&&nd[i]>width*0.5+1.0{target[i]=target[i].max(rim);}}
++            if nd[i]<width*0.5+0.4 {let (k,_)=near(&cut.neck,p);let head=map.heights[map.at(cut.neck[0].x,cut.neck[0].y)];let tail=map.heights[map.at(cut.neck.last().unwrap().x,cut.neck.last().unwrap().y)];
++                let z=round(head as f64+(tail.min(head) as f64-head as f64)*k as f64/(cut.neck.len()-1) as f64) as u8;target[i]=target[i].min(z.max(old.min(floor)));channel[i]=1;}
++            target[i]=target[i].max(old.min(floor));
++        }
++        let next_stations=stations(map,&next,width);let next_beds:Vec<_>=next_stations.iter().map(|q|q.bed as u8).collect();
++        route(map,&next,&next,&next_beds,&mut target,&mut channel,floor,0,next.len()-1);
++        // These cuts are the material for the two mouths and inside bars; neither is free earth.
++        let need:usize=target.iter().zip(&map.heights).map(|(&h,&b)|h.saturating_sub(b) as usize).sum();
++        let mut supply:usize=target.iter().zip(&map.heights).map(|(&h,&b)|b.saturating_sub(h) as usize).sum();
++        for i in 0..target.len(){if supply>=need{break;}
++            if keep.get(i).copied().unwrap_or(0)!=0||channel[i]!=0||pd[i]<width*0.7||pd[i]>width+6.0||ok[i]<lo||ok[i]>hi||target[i]>rim.saturating_add(4){continue;}
++            let available=target[i].saturating_sub(floor.max(bed.saturating_add(1))).min(4) as usize;
++            let take=available.min(need-supply);target[i]-=take as u8;supply+=take;
++        }
++        if supply<need{continue;}
++        let valley:Vec<_>=(0..target.len()).map(|i|(od[i]<16.0&&pd[i]>width+2.0&&ok[i]>=lo&&ok[i]<=hi) as u8).collect();
++        let beds:Vec<_>=dense.iter().map(|q|map.heights[map.at(q.x,q.y)]).collect();
++        if !balance(map,&mut target,&channel,keep,&beds,&ok,&valley){continue;}
++        let root=map.at(pool[pool.len()/2].x,pool[pool.len()/2].y);let mut seen=vec![false;target.len()];let mut basin=vec![];
++        if target[root]<rim{seen[root]=true;basin.push(root);}let mut at=0;
++        while at<basin.len(){let i=basin[at];at+=1;for j in adjacent(map,i).into_iter().flatten(){if !seen[j]&&target[j]<rim{seen[j]=true;basin.push(j);}}}
++        let model=force_water_model(map);
++        if basin.len()<4||basin.iter().any(|&i|i%map.w==0||i%map.w==map.w-1||i/map.w==0||i/map.w==map.h-1)
++            ||next.iter().any(|q|seen[map.at(q.x,q.y)])||model.emitters.iter().any(|e|e.cells.iter().any(|&i|seen[i])){continue;}
++        // Store actual pre-closure water, using the adopted game's rules and RetainedWater path.
++        let sim=force_canonical_settle(&model,r.retained.as_ref());
++        let mut wet:Vec<_>=basin.into_iter().filter(|&i|sim.d[i]>0.0).collect();wet.sort_unstable();if wet.len()<4{continue;}
++        let mut retained=r.retained.take().unwrap_or(RetainedWater{tiles:vec![],floor:vec![],depth:vec![],contamination:vec![]});
++        for &i in &wet{if !retained.tiles.contains(&i){retained.tiles.push(i);retained.floor.push(target[i] as f64);retained.depth.push(sim.d[i]);retained.contamination.push(sim.c[i]);}}
++        // The literal operation requires one strictly ordered row per retained tile.
++        let mut order:Vec<_>=(0..retained.tiles.len()).collect();order.sort_by_key(|&k|retained.tiles[k]);
++        let retained=RetainedWater{tiles:order.iter().map(|&k|retained.tiles[k]).collect(),floor:order.iter().map(|&k|retained.floor[k]).collect(),depth:order.iter().map(|&k|retained.depth[k]).collect(),contamination:order.iter().map(|&k|retained.contamination[k]).collect()};
++        let previous=map.clone();let mut m=map.clone();m.heights=target;for i in 0..m.heights.len(){m.lava[i]&=mask(m.heights[i]);}
++        for &i in &wet{m.depth[i]=sim.d[i];m.contamination[i]=sim.c[i];}
++        r.closure=Some(previous.clone());r.retained=Some(retained);r.oxbow_basin.extend(&wet);cut.step=r.total+1;cut.floor=bed as f64;
++        record_stage(&mut m,&previous,r,&next,width,"oxbow");r.oxbows.push(cut);*map=m;*course=next;break;
++    }
++    let _=base;
++}
+diff --git a/src/core/doc/ops.schema.json b/src/core/doc/ops.schema.json
+--- a/src/core/doc/ops.schema.json
++++ b/src/core/doc/ops.schema.json
+@@ -160,6 +160,7 @@
+             "ridges": { "type": "boolean" },
+             "scarp": { "enum": ["sheer", "stepped"] },
+             "meltwater": { "type": "boolean" },
++            "maturity": { "enum": ["young", "mature", "auto", null] },
+             "benches": { "enum": ["none", "some", "many"] },
+             "steps": { "enum": ["few", "some", "many"] },
+             "tarn": { "type": "boolean" },
+diff --git a/src/core/forces/carve/play.ts b/src/core/forces/carve/play.ts
+--- a/src/core/forces/carve/play.ts
++++ b/src/core/forces/carve/play.ts
+@@ -62,7 +62,8 @@
+
+   /** The forward step shown at step `k` from the end (k from 1 to total). */
+   private forward(k: number): number {
+-    return this.total - k + 1;
++    const young = this.run.records.maturity?.youngSteps ?? this.total;
++    return k <= young ? young - k + 1 : k;
+   }
+
+   /** The changes shown from the end: step k shows the forward step total - k + 1's tiles, each tile once,
+@@ -72,7 +73,8 @@
+     const total = this.total;
+     const seen = new Uint8Array(this.map.heights.length);
+     const out: Int32Array[] = [new Int32Array(0)];
+-    for (let s = total; s >= 1; s--) {
++    const young = this.run.records.maturity?.youngSteps ?? total;
++    for (let s = young; s >= 1; s--) {
+       const c = this.changes[s];
+       const keep: number[] = [];
+       for (let j = 0; j < c.length; j += 2)
+@@ -82,6 +84,7 @@
+         }
+       out.push(Int32Array.from(keep));
+     }
++    for (let s = young+1; s <= total; s++) out.push(this.changes[s]);
+     return (this.backward = out);
+   }
+
+@@ -99,7 +102,7 @@
+   /** Work it out: the run goes to its end, its steps as shown taken from its plan (made when the carve
+    *  started). True once it is. */
+   plan(): boolean {
+-    if (!this.run.done) {
++    if (!this.run.done || this.run.records.maturity && this.changes.length === 1) {
+       this.run.finish();
+       const r = this.run.records;
+       this.changes = r.changes;
+@@ -149,6 +152,18 @@
+           return e;
+         });
+     }
++    if (this.run.records.maturity) {
++      const records=this.run.records, moves=new Map<string,typeof records.stepObjectChanges[number]>();
++      // Native changes are absolute poses; age stages must never run backwards with the drawn carve.
++      for (const move of records.stepObjectChanges) if (this.goneAt(move.step)<=k) moves.set(move.id,move);
++      this.map.entities=this.objects.filter(e=>!removed.has(e.id)||this.goneAt(removed.get(e.id)!,e.id)>k).map(e=>{
++        const pose=moves.get(e.id);return pose?{...e,x:pose.x,y:pose.y,z:pose.z}:e;
++      });
++      this.map.fallen=(this.run.records.raw.fallen??[]).flatMap(f=>{
++        if (removed.has(f.id)&&this.goneAt(removed.get(f.id)!,f.id)<=k)return [];
++        const i=Math.floor(f.y)*W+Math.floor(f.x);return [{...f,z:f.z+heights[i]-records.map.heights[i]}];
++      });
++    }
+   }
+
+   private unleashedObject(): EntitySpec | undefined {
+@@ -160,7 +175,7 @@
+    *  end, heading back up its course). */
+   get head(): ForceHead {
+     if (this.at === 0) return this.first;
+-    if (!this.fromEnd) return this.heads[this.at];
++    if (!this.fromEnd || this.at > (this.run.records.maturity?.youngSteps ?? this.total)) return this.heads[this.at];
+     const h = this.heads[this.forward(this.at)];
+     return { ...h, dx: -h.dx, dy: -h.dy };
+   }
+@@ -168,7 +183,7 @@
+   /** The last stretch of the course shown (the effects' muddy surge): behind the head, the way it
+    *  goes. */
+   trail(): Station[] {
+-    if (!this.fromEnd) {
++    if (!this.fromEnd || this.at > (this.run.records.maturity?.youngSteps ?? this.total)) {
+       const n = this.lengths[this.at];
+       return this.run.path.slice(Math.max(0, n - 28), n);
+     }
+diff --git a/src/core/forces/carve/result.ts b/src/core/forces/carve/result.ts
+--- a/src/core/forces/carve/result.ts
++++ b/src/core/forces/carve/result.ts
+@@ -58,6 +58,7 @@
+       walls: set.walls,
+       defyGravity: set.defyGravity,
+       dry: set.dry,
++      ...(run.settings.maturity === "mature" ? { maturity: "mature" as const } : {}),
+       ...(set.depth != null ? { depth: set.depth } : {}),
+       ...(set.floor != null && set.floor !== FLOOR_DEFAULT ? { floor: set.floor } : {}),
+       ...(set.riverDepth !== undefined ? { riverDepth: set.riverDepth } : {}),
+diff --git a/src/core/forces/carve/run.ts b/src/core/forces/carve/run.ts
+--- a/src/core/forces/carve/run.ts
++++ b/src/core/forces/carve/run.ts
+@@ -26,12 +26,15 @@
+ import { WaterSim, type RetainedWater, type WaterModel } from "../../sim/water";
+ import { protectedGround, type ForceHead, type ForceMap, type FullForceMap, type Lane } from "../force";
+ import type { CarveRecords } from "../rust/bridge";
++import { carveMaturity } from "../nature";
+ import { planInRust } from "../rust/bridge";
+ import { BANKS_MAX, DEPTH_MAX, DEPTH_MIN, forceSettingsProblem } from "../settings";
+ import type { Oxbow } from "./oxbow";
+
+ export interface CarveSettings {
+   mode: "unleash" | "aim";
++  /** Absent is legacy Young; null/auto is resolved by nature, never by playback. */
++  maturity?: "young" | "mature" | "auto" | null;
+   /** 0 (a creek) to 100 (a catastrophe). */
+   power: number;
+   /** 0 (straight) to 100 (winding). */
+@@ -193,6 +196,7 @@
+     if (why) throw new Error(why);
+     if (settings.mode === "aim" && (!Number.isInteger(intent.end) || intent.end! < 0 || intent.end! >= N || intent.end === intent.origin)) throw new Error("Choose a different end point");
+     if (intent.via && (settings.mode !== "aim" || intent.via.length > MAX_PATH_POINTS || !intent.via.every((v) => Number.isInteger(v) && v >= 0 && v < N))) throw new Error("A drawn path needs an aimed carve, on the map");
++    if (settings.maturity === null || settings.maturity === "auto") settings.maturity = carveMaturity({W:input.W,H:input.H,heights:input.heights,at:intent.origin}, settings.seed ?? 0);
+     this.keep = protectedGround(input, options.keep ?? null);
+     if (this.keep[intent.origin] || (settings.mode === "aim" && this.keep[intent.end!]) || intent.via?.some((v) => this.keep[v])) throw new Error("Choose a point on the land showing");
+     this.intent = { ...intent };
+@@ -230,7 +234,7 @@
+    *  carve is kept (D321, item 30: it updates once the land is final, as for any edit). */
+   liveWater(): WarmState {
+     const model = { ...this.model, floor: Float64Array.from(this.map.heights) };
+-    const sim = new WaterSim(model, { depth: this.initialWater, contamination: this.initialContamination });
++    const sim = new WaterSim(model, this.records.maturity ? this.records.map.water : { depth: this.initialWater, contamination: this.initialContamination });
+     const state = warmState(model, sim);
+     // (its arrays are copied: the Rust simulation is done)
+     sim.dispose();
+@@ -280,6 +284,7 @@
+       m.heights.set(r.map.heights);
+       if (m.lava) m.lava.set(r.map.lava);
+       m.entities = r.map.entities;
++      if (r.maturity) { m.water = {depth:r.map.water.depth.slice(),contamination:r.map.water.contamination.slice()}; m.fallen = r.map.fallen; }
+       Object.assign(this.metrics, r.metrics);
+       this.closure = r.closure;
+       this.retained = r.retained;
+diff --git a/src/core/forces/nature.ts b/src/core/forces/nature.ts
+--- a/src/core/forces/nature.ts
++++ b/src/core/forces/nature.ts
+@@ -17,7 +17,7 @@
+ import type { GlaciateSettings } from "./glaciate/model";
+ import type { Verb } from "./op";
+ import type { ForceRequest } from "./start";
+-import { clamp } from "./random";
++import { clamp, hash } from "./random";
+
+ /** The ground a force acts on: the map's heights and the tile it acts round. */
+ export interface ForceGround {
+@@ -56,22 +56,25 @@
+ type Draft<T, K extends keyof T> = Omit<T, K> & { [P in K]?: T[P] | null };
+
+ /** Carve's details, before nature draws the ones still on Auto (D309). */
+-export type CarveDraft = Draft<CarveSettings, "wander" | "walls" | "depth" | "banks">;
++export type CarveDraft = Draft<CarveSettings, "wander" | "walls" | "depth" | "banks" | "maturity">;
+ /** Every one of Carve's details, reset to Auto: the default for Try another when the caller sends no
+  *  pins (Unleash, and callers outside the row), and what a pinned subset is applied over. */
+-export const AUTO_CARVE_DETAILS = { wander: null, walls: null, depth: null, banks: null } as const;
++export const AUTO_CARVE_DETAILS = { wander: null, walls: null, depth: null, banks: null, maturity: null } as const;
+
+ /** Carve: its wander (open ground meanders, rugged ground runs straighter), its walls (rugged
+  *  ground a gorge, open ground broad terraces) and its banks (D321 item 18: open ground leaves wide
+  *  farmable banks, a gorge few or none); its depth (D226: absent, it follows Power and width, the
+  *  run's own default) passes through untouched either way. A carve asked for without banks (a plain
+  *  caller: `banks` absent) keeps none, as before. */
++/** Open ground leans Mature; rugged ground Young. Separate hash leaves old Auto draws untouched. */
++export function carveMaturity(g: ForceGround, seed: number): "young" | "mature" { return hash(seed,6709) < .8 - .65*ruggedness(g) ? "mature" : "young"; }
+ export function carveNature(s: CarveDraft, g: ForceGround): CarveSettings {
+   const { rough, rng } = draws("carve", s.seed ?? 0, g);
+   const wander = s.wander ?? Math.round(clamp(55 - 30 * rough + rng.range(-15, 15), 5, 90) / 5) * 5;
+   const walls = s.walls ?? (chance(rng, 0.3 + 0.55 * rough) ? "steep" : "wide");
+   const banks = s.banks === null ? Math.round(clamp(6 - 4 * rough + rng.range(-1.5, 1.5), 1, 8)) : s.banks;
+-  return { ...s, wander, walls, ...(banks !== undefined ? { banks } : {}) } as CarveSettings;
++  const maturity = s.maturity === null || s.maturity === "auto" ? carveMaturity(g,s.seed ?? 0) : s.maturity;
++  return { ...s, wander, walls, ...(banks !== undefined ? { banks } : {}), ...(maturity !== undefined ? { maturity } : {}) } as CarveSettings;
+ }
+
+ /** Craterize's details, before nature draws the ones still on Auto (D309). */
+diff --git a/src/core/forces/op.ts b/src/core/forces/op.ts
+--- a/src/core/forces/op.ts
++++ b/src/core/forces/op.ts
+@@ -36,7 +36,7 @@
+
+ /** A force's settings, as each force's options row sets them (the seed is its personality). */
+ export type ForceSettingsRecord =
+-  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number }
++  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number; maturity?: "young" | "mature" | "auto" | null }
+   | { mode: "strike" | "aim"; power: number; size: number | null; walls: "steep" | "terraced"; centre: "auto" | "bowl" | "peak" | "ring" | "flat"; debris: "light" | "heavy"; rays: boolean; seed: number; floor?: number }
+   | { mode: "vent" | "fissure"; power: number; shape: "steep" | "broad"; summit: "auto" | "peak" | "crater" | "caldera"; flows: "light" | "heavy"; ridges: boolean; seed: number; size?: number | null; floor?: number }
+   | { mode: "lift" | "slide"; power: number; scarp: "sheer" | "stepped"; seed: number; floor?: number }
+diff --git a/src/core/forces/rust/bridge.ts b/src/core/forces/rust/bridge.ts
+--- a/src/core/forces/rust/bridge.ts
++++ b/src/core/forces/rust/bridge.ts
+@@ -79,6 +79,7 @@
+   "a glacier's path is up to 128 tiles on the map",
+   "a glacier's path moves on from each of its tiles to the next",
+   "No room to rise here",
++  "the Floor or kept ground leaves no room to age this river",
+ ];
+
+ export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate";
+@@ -171,6 +172,7 @@
+  *  steps as shown (the last step's spread behind the head, D368 (9)), `goneSpread` when what stood there
+  *  goes as shown. */
+ export interface CarveRecords {
++  maturity?: { youngSteps:number; rounds:number; eroded:number; deposited:number; oxbows:number; bluffLimited:number; existingRiver:boolean; changed:number; original: {x:number;y:number}[] };
+   raw: RustMap;
+   map: RustMap;
+   total: number;
+@@ -590,6 +592,7 @@
+         stepMetrics,
+         stepObjectChanges,
+         initialEntities: entityRows(view(45, Float64Array)),
++        ...(view(67,Float64Array).length ? {maturity:(() => {const a=view(67,Float64Array);return {...named(a,["youngSteps","rounds","eroded","deposited","oxbows","bluffLimited","existingRiver","changed"]),existingRiver:!!a[6],original:Array.from({length:(a.length-8)/2},(_,k)=>({x:a[8+2*k],y:a[9+2*k]}))} as CarveRecords["maturity"];})()} : {}),
+         knobs: Array.from({ length: view(63, Float64Array).length / 3 }, (_, i) => {
+           const k = view(63, Float64Array);
+           return { x: k[i * 3], y: k[i * 3 + 1], radius: k[i * 3 + 2] };
+diff --git a/src/core/forces/settings.ts b/src/core/forces/settings.ts
+--- a/src/core/forces/settings.ts
++++ b/src/core/forces/settings.ts
+@@ -72,6 +72,7 @@
+     name: "a carve",
+     choices: { mode: ["unleash", "aim"], walls: ["steep", "wide"] },
+     flags: ["defyGravity", "dry"],
++    details: [{key:"maturity",options:["young","mature","auto"],why:"a carve's maturity is Young, Mature or Auto"}],
+     ranges: [
+       { key: "wander", min: WANDER_MIN, max: WANDER_MAX, empty: "required", why: `a carve's wander is ${WANDER_MIN} to ${WANDER_MAX}` },
+       { key: "width", min: CARVE_WIDTH_MIN, max: CARVE_WIDTH_MAX, empty: "null", why: `a carve's width is ${CARVE_WIDTH_MIN} to ${CARVE_WIDTH_MAX} tiles, or null (it follows Power)` },
+diff --git a/tests/contract/carveMaturity.test.ts b/tests/contract/carveMaturity.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/contract/carveMaturity.test.ts
+@@ -0,0 +1,103 @@
++// D355/D381/D444: direct Rust aging, legacy Young pins, literal undo and reopen.
++import { describe, expect, test } from "vitest";
++import { readFileSync } from "node:fs";
++import { gunzipSync } from "node:zlib";
++import { CarveRun, DEFAULTS, type CarveSettings } from "../../src/core/forces/carve/run";
++import { CarvePlay } from "../../src/core/forces/carve/play";
++import { carveForceParams, forceMapOf } from "../../src/core/forces/carve/result";
++import type { ForceMap } from "../../src/core/forces/force";
++import { fixture } from "./forceFixtures";
++import { geology } from "../../src/core/forces/random";
++import { carveNature, carveMaturity } from "../../src/core/forces/nature";
++import { jobBytes, executeInRust, planInRust } from "../../src/core/forces/rust/bridge";
++import { decode } from "../../src/core/forces/rust/protocol";
++import { canonicalSettle } from "../../src/core/sim/prefill";
++import { modelOf } from "../../src/core/forces/runs";
++import { MapSession } from "../../src/core/doc/session";
++import { decodeProject } from "../../src/core/doc/document";
++import { F } from "../../src/core/format/json";
++import { entityJson } from "../../src/core/format/entities";
++import { writeTimber, mapMetadata } from "../../src/core/format/timber";
++import { voxelsFromHeights, settledSimulationSingletons, GAME_VERSION, LAYERS } from "../../src/core/format/world";
++import { generate } from "../../src/core/gen/generate";
++import { makeSpec } from "../../src/core/spec/mapspec";
++const intent={origin:20*64+35,end:52*64+35,via:[24*64+35,36*64+35,48*64+35]};
++const set:CarveSettings={...DEFAULTS,mode:"aim",maturity:"mature",power:100,seed:4,defyGravity:true};
++const changed=(a:ArrayLike<number>,b:ArrayLike<number>)=>Array.from(a).filter((h,i)=>h!==b[i]).length;
++const sum=(a:ArrayLike<number>)=>Array.from(a).reduce((s,h)=>s+h,0);
++function run(m:ForceMap=fixture("river",64),s:Partial<CarveSettings>={},i=intent){const r=new CarveRun(m,{...set,...s},i);r.finish();return r;}
++export function demo(id:"young"|"narrow"|"long"){
++ const j=JSON.parse(gunzipSync(readFileSync(`investigation/meander/maps/${id}.json.gz`)).toString());const heights=Uint8Array.from(j.heights);
++ return {...j,heights,lava:new Uint32Array(heights.length),fallen:j.fallen??[],rockLayers:geology(heights),water:{depth:Float64Array.from(j.water.depth),contamination:Float64Array.from(j.water.contamination)}};
++}
++describe("Rust Carve Maturity",()=>{
++ test("explicit Young and an absent setting keep the complete old computation and records",()=>{
++  const m=fixture("river",64);for(const power of [0,100]){
++   const s={...DEFAULTS,power,seed:4};const i={origin:52*64+20};
++   const a={verb:"carve" as const,map:m,settings:s,intent:i,keep:null};
++   expect(executeInRust(jobBytes({...a,settings:{...s,maturity:"young"}}))).toEqual(executeInRust(jobBytes(a)));
++   const x=new CarveRun(m,s,i),y=new CarveRun(m,{...s,maturity:"young"},i);x.finish();y.finish();expect(x.map).toEqual(y.map);expect(y.records.maturity).toBeUndefined();
++  }
++ });
++ test("an existing river ages directly, balances whole blocks and adds no objects",()=>{
++  const m=fixture("river",64),old=m.heights.slice();const r=run(m);const a=r.records.maturity!;
++  expect(a.existingRiver).toBe(true);expect(a.youngSteps).toBe(0);expect(a.changed).toBeGreaterThan(80);expect(a.eroded).toBe(a.deposited);expect(sum(r.map.heights)).toBe(sum(old));expect(m.heights).toEqual(old);
++  expect(r.map.entities.every(e=>m.entities.some(b=>b.id===e.id))).toBe(true);
++  for(const e of r.map.entities.filter(e=>e.template.includes("Source"))){const b=m.entities.find(b=>b.id===e.id)!;expect(e.x).toBe(b.x);expect(e.y).toBe(b.y);expect(e.before).toEqual(b.before);expect(e.z-b.z).toBe(r.map.heights[e.y*64+e.x]-old[e.y*64+e.x]);}
++ });
++ test("Power zero visibly ages narrow, Auto and wide rivers; no objects are added",()=>{
++  for(const width of [2,null,24]){const m=fixture("river",64);const r=run(m,{power:0,width});expect(changed(r.map.heights,m.heights),`Width ${width}`).toBeGreaterThan(8);expect(r.map.entities.every(e=>m.entities.some(b=>b.id===e.id))).toBe(true);}
++ });
++ test("a deep canyon keeps its bluffs when there is no balanced room for migration",()=>{
++  const m=fixture("plain",64),i={origin:50*64+35,end:12*64+35,via:[40*64+35,24*64+35]};const r=run(m,{power:55,width:6},i);expect(r.records.maturity!.bluffLimited).toBeGreaterThan(0);expect(r.records.maturity!.existingRiver).toBe(false);expect(changed(r.map.heights,m.heights)).toBeGreaterThan(8);expect(r.records.maturity!.eroded).toBe(r.records.maturity!.deposited);
++ });
++ test("new land gets Young's carve first, then conserved aging; a dry carve adds no objects",()=>{
++  const m=fixture("plain",64);const r=run(m,{dry:true,power:0},{origin:50*64+35,end:12*64+35,via:[40*64+35,24*64+35]});
++  expect(r.records.maturity!.existingRiver).toBe(false);expect(r.records.maturity!.youngSteps).toBeGreaterThan(0);expect(r.steps).toBeGreaterThan(r.records.maturity!.youngSteps);expect(changed(r.map.heights,m.heights)).toBeGreaterThan(8);expect(r.records.maturity!.eroded).toBe(r.records.maturity!.deposited);expect(r.map.entities.every(e=>m.entities.some(b=>b.id===e.id))).toBe(true);
++ });
++ test("Floor and Keep hold; water and badwater mass are carried without minting water",()=>{
++  const m=fixture("river",64);m.water.depth=m.water.depth.map(d=>d>0?.5:0);m.water.contamination.fill(.5);const keep=new Uint8Array(4096);keep[30*64+40]=1;
++  const r=new CarveRun(m,{...set,floor:6},intent,{keep});r.finish();expect(r.map.heights[30*64+40]).toBe(m.heights[30*64+40]);expect(r.map.heights.every((h,i)=>h>=Math.min(6,m.heights[i]))).toBe(true);
++  expect(sum(r.map.water.depth)).toBe(sum(m.water.depth));
++  expect(r.map.water.contamination.every((c,i)=>r.map.water.depth[i]===0||c===.5)).toBe(true);
++ });
++ test("native tape, typed boundary and forward/reversed playback finish at identical land and objects",()=>{
++  const m=fixture("river",64),j={verb:"carve" as const,map:m,settings:set,intent,keep:null};const packed=decode(executeInRust(jobBytes(j))) as any;const native=planInRust(j);
++  expect(packed.raw.heights).toEqual(Array.from(native.raw.heights));expect(packed.maturity.original).toEqual(native.maturity!.original);
++  for(const reverse of [false,true]){const r=new CarveRun(m,set,intent);const p=new CarvePlay(r,reverse);p.plan();for(let k=1;k<=p.total;k++){p.showTo(k);for(const e of p.map.entities.filter(e=>e.template.includes("Source")))expect(e.z).toBe(p.map.heights[e.y*64+e.x]);}expect(p.map.heights).toEqual(r.map.heights);expect(p.map.entities).toEqual(r.map.entities);expect(p.head).toEqual(r.records.heads[r.steps]);}
++ });
++ test("the approved long valley makes a real wet closed oxbow, kept in its literal operation",()=>{
++  const m=demo("long"),intent={"origin":973,"end":5241,"via":[1100,1356,1612,1868,2124,2380,2636,2892,3148,3276,3533,3789,3917,4174,4303,4304,4434,4436,4438,4440,4442,4443,4445,4574,4703,4832,4961,5218,5346,5475,5732,5861,5989,6246,6374,6504,6505,6507,6380,6253,5998,5870,5614,5358,5231,5104,4978,4979,4981,5110,5239]};const r=run(m,{power:100},intent);expect(r.records.maturity!.oxbows).toBeGreaterThan(0);const lake=r.retained!;expect(lake.tiles.length).toBeGreaterThan(3);expect(lake.tiles.every((i,k)=>k===0||i>lake.tiles[k-1])).toBe(true);expect(lake.depth.every(d=>d>0)).toBe(true);
++  const model=modelOf(r.map);model.retained=[lake];const wet=canonicalSettle(model);expect(lake.tiles.filter(i=>wet.depth[i]>0).length).toBeGreaterThan(3);
++  const params=carveForceParams(m,r,{settings:set,origin:[intent.origin%128,Math.floor(intent.origin/128)],end:[intent.end%128,Math.floor(intent.end/128)],cut:null})!;expect(params.lake).toEqual(lake);expect(params.source).toBeUndefined();expect(r.map.entities.every(e=>m.entities.some((b:any)=>b.id===e.id))).toBe(true);
++ });
++ test("a newly carved river plays its Young prefix backwards, then its age increments forwards",()=>{
++  const m=fixture("plain",64),settings={...set,power:0,width:6};const i={origin:50*64+35,end:12*64+35,via:[40*64+35,24*64+35]};
++  for(const reverse of [false,true]){const r=new CarveRun(m,settings,i);const p=new CarvePlay(r,reverse);p.plan();expect(r.records.maturity!.youngSteps).toBeGreaterThan(0);expect(r.records.maturity!.youngSteps).toBeLessThan(p.total);for(let k=1;k<=p.total;k++){p.showTo(k);for(const e of p.map.entities.filter(e=>e.template.includes("Source")))expect(e.z).toBe(p.map.heights[e.y*64+e.x]);}expect(p.map.heights).toEqual(r.map.heights);expect(p.map.entities).toEqual(r.map.entities);expect(p.head).toEqual(r.records.heads[r.steps]);}
++ });
++ test("Auto is map- and seed-dependent, explicit Young and old Auto draws stay unchanged",()=>{
++  const m=fixture("plain",64),g={W:64,H:64,heights:m.heights,at:32*64+32};
++  const s={...DEFAULTS,seed:4};const a=carveNature(s,g);const b=carveNature({...s,maturity:null},g);expect(b.maturity).toBe(carveMaturity(g,4));const {maturity,...legacy}=b;expect(legacy).toEqual(a);
++  expect(new Set(Array.from({length:32},(_,seed)=>carveMaturity(g,seed))).size).toBe(2);
++ });
++ test("one-line refusal preserves the input when settings, Floor or Keep leave no operation",()=>{
++  const m=fixture("river",64),old=m.heights.slice();expect(()=>run(m,{maturity:"old" as any})).toThrow("a carve's maturity is Young, Mature or Auto");
++  expect(()=>run(m,{power:-1})).toThrow("a carve's power is 0 to 100");expect(()=>run(m,{floor:22})).toThrow("the Floor or kept ground leaves no room to age this river");expect(m.heights).toEqual(old);
++ });
++ test("an aged existing river's real oxbow, land and object ids survive undo and project/file reopening",()=>{
++  const original=demo("long"),N=128*128,zero=new Float64Array(N);
++  const bytes=writeTimber({metadata:mapMetadata(128,128,"Original Meander study"),thumbnail:null,versionTxt:GAME_VERSION,extraFiles:[],world:{gameVersion:GAME_VERSION,timestamp:"2026-01-01 00:00:00",sizeX:128,sizeY:128,layers:LAYERS,voxels:voxelsFromHeights(original.heights,128,128),singletons:settledSimulationSingletons(128,128,{floor:original.heights,depth:original.water.depth,contamination:original.water.contamination,moisture:zero,soilContamination:zero,sat:zero}),entities:JSON.parse(JSON.stringify(original.entities.map(entityJson)),(_k,v)=>typeof v==="number"&&!Number.isInteger(v)?F(v):v)}});
++  const s=MapSession.importMap(bytes,"meander-long.timber");s.setWaterMode("defer");const m=forceMapOf(s.built,original.water),old=m.heights.slice(),ids=s.built.entities.map(e=>e.id).sort();const intent={"origin":973,"end":5241,"via":[1100,1356,1612,1868,2124,2380,2636,2892,3148,3276,3533,3789,3917,4174,4303,4304,4434,4436,4438,4440,4442,4443,4445,4574,4703,4832,4961,5218,5346,5475,5732,5861,5989,6246,6374,6504,6505,6507,6380,6253,5998,5870,5614,5358,5231,5104,4978,4979,4981,5110,5239]};const r=run(m,{power:100},intent);expect(r.records.maturity!.changed).toBeGreaterThan(100);expect(r.retained!.tiles.length).toBeGreaterThan(3);
++  const params=carveForceParams(m,r,{settings:set,origin:[intent.origin%128,Math.floor(intent.origin/128)],end:[intent.end%128,Math.floor(intent.end/128)],cut:null})!;expect(s.apply({op:"forceResult",params},"user").errors).toEqual([]);expect(s.built.heights).toEqual(r.map.heights);s.settleCanonical();const water=s.built.water.slice();const exported=s.exportTimber().bytes;
++  const reopened=MapSession.open(decodeProject(s.project()));reopened.settleCanonical();expect(reopened.built.heights).toEqual(s.built.heights);expect(reopened.built.water).toEqual(water);expect(reopened.built.entities.map(e=>e.id).sort()).toEqual(s.built.entities.map(e=>e.id).sort());expect(Buffer.from(reopened.exportTimber().bytes)).toEqual(Buffer.from(exported));
++  const file=MapSession.importMap(exported,"mature.timber");expect(file.built.heights).toEqual(s.built.heights);expect(Buffer.from(file.exportTimber().bytes)).toEqual(Buffer.from(exported));
++  expect(s.undo()).toBe(true);expect(s.built.heights).toEqual(old);expect(s.built.entities.map(e=>e.id).sort()).toEqual(ids);expect(s.redo()).toBe(true);s.settleCanonical();expect(s.built.water).toEqual(water);
++ });
++ test("Mature's literal operation survives undo, redo, project reopen and identical exported bytes",()=>{
++  const generated=generate(makeSpec({theme:"highlands",seed:3,size:{x:96,y:96}}));const s=MapSession.fromGenerated(generated,generated.file);s.setWaterMode("defer");const m=forceMapOf(s.built),old=m.heights.slice();
++  const st=m.entities.find(e=>e.template==="StartingLocation")!;let origin=0,best=-Infinity;for(let i=0;i<m.heights.length;i++){const d=(i%96-st.x)**2+(Math.floor(i/96)-st.y)**2;if(m.heights[i]>3&&d>best){origin=i;best=d;}}
++  const settings={...DEFAULTS,maturity:"mature" as const,power:80,seed:4};const r=new CarveRun(m,settings,{origin},{sourceId:"0c0ffee0-0000-4000-8000-000000000001"});r.finish();
++  const params=carveForceParams(m,r,{settings,origin:[origin%96,Math.floor(origin/96)],cut:null})!;expect(params.settings).toHaveProperty("maturity","mature");expect(s.apply({op:"forceResult",params},"user").errors).toEqual([]);const final=s.built.heights.slice();expect(s.undo()).toBe(true);expect(s.built.heights).toEqual(old);expect(s.redo()).toBe(true);expect(s.built.heights).toEqual(final);
++  const reopened=MapSession.open(decodeProject(s.project()));expect(reopened.built.heights).toEqual(final);s.settleCanonical();reopened.settleCanonical();expect(Buffer.from(reopened.exportTimber().bytes)).toEqual(Buffer.from(s.exportTimber().bytes));
++ });
++});
+diff --git a/tools/determinism/cases.ts b/tools/determinism/cases.ts
+--- a/tools/determinism/cases.ts
++++ b/tools/determinism/cases.ts
+@@ -11,6 +11,8 @@
+ import { applyBrush, BRUSH_TOOLS } from "../../src/core/features/raster/brush";
+ import { snapshotMap, type ForceMap, type FullForceMap } from "../../src/core/forces/force";
+ import { geology } from "../../src/core/forces/random";
++import { fixture as forceFixture } from "../../tests/contract/forceFixtures";
++import { CarvePlay } from "../../src/core/forces/carve/play";
+ import { CarveRun, DEFAULTS as CARVE } from "../../src/core/forces/carve/run";
+ import { CraterRun, EruptRun, QuakeRun, modelOf, type StagedRun } from "../../src/core/forces/runs";
+ import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
+@@ -133,7 +135,7 @@
+
+ const verbs = ["carve", "craterize", "erupt", "quake", "glaciate"];
+
+-function force(m: any, verb: string, power: number, size: number | null, seed: number, mode: number) {
++function force(m: any, verb: string, power: number, size: number | null, seed: number, mode: number, maturity = false) {
+   const n = m.W;
+   const x = Math.floor(n * 0.48);
+   const y = Math.floor(n * 0.38);
+@@ -150,13 +152,16 @@
+   if (verb === "carve") {
+     settings = nature.carveNature({ ...CARVE, mode: mode ? "aim" : "unleash", power, width: size === null ? null : Math.min(24, size / 4), seed, dry: mode === 2 } as any, ground);
+     intent = { origin, ...(mode ? { end } : {}) };
+-    const carve = new CarveRun(m, settings, intent, { sourceId: `carve-source-${seed}` });
++    if (maturity) {settings={...settings,maturity:"mature"};if(mode)intent={origin:20*n+35,end:52*n+35,via:[24*n+35,36*n+35,48*n+35]};}
++    const play = maturity ? new CarvePlay(new CarveRun(m, settings, intent, {sourceId:`carve-source-${seed}`})) : null;
++    const carve = play?.run ?? new CarveRun(m, settings, intent, { sourceId: `carve-source-${seed}` });
+     for (let i = 0; !carve.done && i < 3000; i++) carve.step();
+     if (!carve.done) throw Error("carve exceeded 3000 steps");
+     // (its record as the editor keeps it: forces/keep.ts)
+-    const request = { verb: "carve", settings, origin: [x, y], ...(mode ? { end: [end % n, Math.floor(end / n)] } : {}), cut: null } as ForceRequest;
++    const request = { verb: "carve", settings, origin: maturity ? [intent.origin%n, Math.floor(intent.origin/n)] : [x,y], ...(mode ? { end: maturity ? [intent.end%n,Math.floor(intent.end/n)] : [end % n, Math.floor(end / n)] } : {}), ...(maturity && intent.via ? {via:intent.via.map((v:number)=>[v%n,Math.floor(v/n)])} : {}), cut: null } as ForceRequest;
+     const kept = keptForceParams({ before: m, request, carve, staged: null });
+-    return { map: fullMap(carve.map as any), record: kept.ok ? kept.params : null };
++    const frames: {stage:number;map:FullForceMap}[]=[];if(play){play.plan();for(const stage of [1,Math.floor(play.total/2),play.total]){play.showTo(stage);frames.push({stage,map:fullMap(snapshotMap(play.map))});}}
++    return { map: fullMap(carve.map as any), record: kept.ok ? kept.params : null, frames };
+   }
+   if (verb === "craterize") {
+     settings = nature.craterNature({ ...CRATER_DEFAULTS, mode: mode ? "aim" : "strike", power, size, seed, rays: true } as any, ground);
+@@ -218,6 +223,7 @@
+     out.push({ id: `scheduling/${n}`, kind: "scheduling", n });
+     for (const reserve of ["scarce", "plenty"]) if (grid) out.push({ id: `reserve/${n}/${reserve}`, kind: "generate", n, theme: "riverValley", seed: 37, reserve });
+   }
++  for (const power of [0,100]) for (const mode of [0,1]) out.push({id:`force/maturity/64/${power}/${mode}`,kind:"force",n:64,verb:"carve",power,size:24,mode});
+   return out;
+ }
+
+@@ -302,7 +308,7 @@
+     await add(`${c.id}/reopen`, opened.built, null, { project: await sha(enc.encode(json(s.document))) });
+     if ((await digest(s.built)).hash !== (await digest(opened.built)).hash) throw Error("the session reopens differently");
+   } else {
+-    let m: any = fixture(c.n);
++    let m: any = c.id.includes("/maturity/") ? forceFixture(c.mode?"river":"plain",c.n) : fixture(c.n);
+     const steps = c.kind === "mixed" ? c.count : 1;
+     for (let k = 0; k < steps; k++) {
+       let record: any;
+@@ -311,9 +317,10 @@
+         applyBrush(record, m.heights, c.n, c.n);
+       } else {
+         try {
+-          const f = force(m, c.verb ?? verbs[Math.floor(k / 3) % 5], c.power ?? [10, 55, 100][Math.floor(k / 3) % 3], c.kind === "mixed" ? [null, 12, 48][Math.floor(k / 3) % 3] : c.size, 701 + k, c.mode ?? k % 2);
++          const f = force(m, c.verb ?? verbs[Math.floor(k / 3) % 5], c.power ?? [10, 55, 100][Math.floor(k / 3) % 3], c.kind === "mixed" ? [null, 12, 48][Math.floor(k / 3) % 3] : c.size, 701 + k, c.mode ?? k % 2, c.id.includes("/maturity/"));
+           m = f.map;
+           record = f.record;
++          if ("frames" in f && f.frames) for (const frame of f.frames) await add(`${c.id}/${k}/playback/${frame.stage}`,frame.map,record);
+         } catch (e) {
+           if (c.kind !== "mixed" || !String((e as Error).message).includes("uphill")) throw e;
+           record = { rejected: (e as Error).message, seed: 701 + k };
+diff --git a/tools/determinism/run.ts b/tools/determinism/run.ts
+--- a/tools/determinism/run.ts
++++ b/tools/determinism/run.ts
+@@ -27,6 +27,7 @@
+ }
+ const smoke = process.argv.includes("--smoke");
+ const serial = process.argv.includes("--serial");
++const noTimings = process.argv.includes("--no-timings");
+ // --only: case ids containing any of these comma-separated texts (plain text, never a pattern)
+ const only = arg("only") ? arg("only")!.split(",").filter(Boolean) : null;
+ const outName = arg("out") ?? (smoke ? "smoke" : "full");
+@@ -105,10 +106,10 @@
+   let list = caseList(smoke);
+   if (only) list = list.filter((c) => only.some((t) => c.id.includes(t)));
+   const mismatches: { case: string; label: string; engines: string[]; components: string[] }[] = [];
+-  const t0 = performance.now();
++  const t0 = noTimings ? 0 : performance.now();
+   const slowest: { case: string; seconds: number }[] = [];
+   for (const [index, c] of list.entries()) {
+-    const tc = performance.now();
++    const tc = noTimings ? 0 : performance.now();
+     const responses = await runEngines(
+       Object.entries(engines).map(([name, e]) => async () => {
+         try {
+@@ -123,7 +124,7 @@
+         }
+       }),
+     );
+-    slowest.push({ case: c.id, seconds: Math.round((performance.now() - tc) / 100) / 10 });
++    if (!noTimings) slowest.push({ case: c.id, seconds: Math.round((performance.now() - tc) / 100) / 10 });
+     const reference = responses[0];
+     for (const other of responses.slice(1)) {
+       if (!other.rows || !reference.rows) continue;
+@@ -141,7 +142,7 @@
+     if (index % 20 === 0 || bad)
+       console.log(`${index + 1}/${list.length} ${c.id}: ${responses.map((r) => (r.rows ? `${r.name} ${r.rows.length}` : `${r.name} ERROR ${r.error?.message}`)).join(", ")}; mismatches ${mismatches.length}`);
+   }
+-  const seconds = Math.round((performance.now() - t0) / 1000);
++  const seconds = noTimings ? null : Math.round((performance.now() - t0) / 1000);
+   const summary = {
+     schema: 1,
+     smoke,
+@@ -159,7 +160,7 @@
+   const errors = Object.values(engines).flatMap((e) => e.errors);
+   for (const m of mismatches.slice(0, 40)) console.error(`MISMATCH ${m.case} ${m.label} (${m.engines.join(" vs ")}): ${m.components.join(", ")}`);
+   for (const e of errors.slice(0, 40)) console.error(`ERROR ${e.case}: ${e.message}`);
+-  console.log(`${list.length} cases, ${Object.entries(engines).map(([n, e]) => `${n} ${e.version}: ${e.rows.length} checkpoints`).join("; ")}; ${mismatches.length} mismatches, ${errors.length} errors, ${seconds} s`);
++  console.log(`${list.length} cases, ${Object.entries(engines).map(([n, e]) => `${n} ${e.version}: ${e.rows.length} checkpoints`).join("; ")}; ${mismatches.length} mismatches, ${errors.length} errors${noTimings ? "" : `, ${seconds} s`}`);
+   failed = mismatches.length > 0 || errors.length > 0;
+ } finally {
+   await Promise.all(browsers.map((b) => b.close()));
+diff --git a/tools/rust/check.ts b/tools/rust/check.ts
+--- a/tools/rust/check.ts
++++ b/tools/rust/check.ts
+@@ -286,7 +286,7 @@
+ const nodeForces = forceJobs.map((j) => {
+   const out = executeInRust(j.job);
+   if (sha256(out) !== pins[j.name]) throw new Error(`the Rust forces' ${j.name} differs from its pin (tools/rust/forces-pins.json): a force changed`);
+-  return hash53(out);
++  return Buffer.from(out);
+ });
+ const forcesBin = join(RUST, "target/release", process.platform === "win32" ? "forces-batch.exe" : "forces-batch");
+ if (!existsSync(forcesBin)) cargo(["build", "--release", "-j", JOBS, "-p", "forces", "--bin", "forces-batch"]);
+@@ -296,9 +296,9 @@
+   let at = 0;
+   forceJobs.forEach((j, k) => {
+     const len = out.readUInt32LE(at);
+-    const got = hash53(new Uint8Array(out.buffer, out.byteOffset + at + 4, len));
++    const got = out.subarray(at + 4, at + 4 + len);
+     at += 4 + len;
+-    if (got !== nodeForces[k]) throw new Error(`the Rust forces differ natively and in Node's Wasm: ${j.name}`);
++    if (!got.equals(nodeForces[k])) throw new Error(`the Rust forces differ natively and in Node's Wasm: ${j.name}`);
+   });
+ }
+ console.log(`the Rust forces: ${forceJobs.length} fixtures, the same bytes natively and in Node's Wasm, each as pinned`);
+@@ -318,14 +318,7 @@
+     const res = x.forces_execute(ptr, job.length, lenPtr);
+     const len = new DataView(x.memory.buffer).getUint32(lenPtr, true);
+     const b = new Uint8Array(x.memory.buffer, res, len);
+-    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+-    for (let i = 0; i < b.length; i++) {
+-      h1 = Math.imul(h1 ^ b[i], 2654435761);
+-      h2 = Math.imul(h2 ^ b[i], 1597334677);
+-    }
+-    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+-    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+-    out.push(4294967296 * (2097151 & h2) + (h1 >>> 0));
++    let str = ''; for (const v of b) str += String.fromCharCode(v); out.push(btoa(str));
+     x.water_dealloc(res, len);
+     x.water_dealloc(lenPtr, 4);
+     x.water_dealloc(ptr, job.length);
+@@ -357,9 +350,9 @@
+         if (h !== nodeWater[k]) throw new Error(`the Rust water differs in ${name}: ${waterJobs[k].name}`);
+       });
+       console.log(`${name}: the Rust water's ${waterJobs.length} canonical settles, the same bytes`);
+-      const forceHashes = (await page.evaluate(`(${FORCES_IN_PAGE})(${JSON.stringify(forcesPayload)})`)) as number[];
++      const forceHashes = (await page.evaluate(`(${FORCES_IN_PAGE})(${JSON.stringify(forcesPayload)})`)) as string[];
+       forceHashes.forEach((h, k) => {
+-        if (h !== nodeForces[k]) throw new Error(`the Rust forces differ in ${name}: ${forceJobs[k].name}`);
++        if (!Buffer.from(h, "base64").equals(nodeForces[k])) throw new Error(`the Rust forces differ in ${name}: ${forceJobs[k].name}`);
+       });
+       console.log(`${name}: the Rust forces' ${forceJobs.length} fixtures, the same bytes`);
+     } finally {
+diff --git a/tools/rust/forces-jobs.ts b/tools/rust/forces-jobs.ts
+--- a/tools/rust/forces-jobs.ts
++++ b/tools/rust/forces-jobs.ts
+@@ -8,7 +8,10 @@
+ //   npx tsx tools/rust/check.ts                    checks them (CI's rust job)
+ //   npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json    pins the current Rust (a deliberate change)
+
++import { readFileSync } from "node:fs";
++import { gunzipSync } from "node:zlib";
+ import { createHash } from "node:crypto";
++import { decode } from "../../src/core/forces/rust/protocol";
+ import { pathToFileURL } from "node:url";
+ import { FOOTPRINTS } from "../../src/core/format/footprints";
+ import { F } from "../../src/core/format/json";
+@@ -146,6 +149,16 @@
+     for (let k = 0; k < 4; k++) out.push({ name: `${verb} 64 ${k}`, job: job(verb, 64, k) });
+     for (let k = 0; k < 2; k++) out.push({ name: `${verb} 64 odd ${k}`, job: oddJob(verb, 64, k) });
+   }
++  for (let k=0;k<6;k++) {
++    const j=job("carve",64,k);j.settings={...j.settings,maturity:k===5?null:"mature",power:k===1?0:k===2?55:100,width:k===2?2:k===4?24:null,floor:1};
++    if(k%2||k===2){j.map=fixture("river",64);j.intent={origin:20*64+35,end:52*64+35,via:[24*64+35,36*64+35,48*64+35]};j.settings={...j.settings,mode:"aim",defyGravity:true};}
++    if(k===3)j.map.water.contamination.fill(.7);
++    out.push({name:`maturity 64 ${k}`,job:j});
++  }
++  const j=JSON.parse(gunzipSync(readFileSync(new URL("../../investigation/meander/maps/long.json.gz",import.meta.url))).toString());
++  const heights=Uint8Array.from(j.heights);const map={...j,heights,lava:new Uint32Array(heights.length),fallen:j.fallen??[],water:{depth:Float64Array.from(j.water.depth),contamination:Float64Array.from(j.water.contamination)}};
++  const gestures=[{"origin":973,"end":5241,"via":[1100,1356,1612,1868,2124,2380,2636,2892,3148,3276,3533,3789,3917,4174,4303,4304,4434,4436,4438,4440,4442,4443,4445,4574,4703,4832,4961,5218,5346,5475,5732,5861,5989,6246,6374,6504,6505,6507,6380,6253,5998,5870,5614,5358,5231,5104,4978,4979,4981,5110,5239]},{"origin":3276,"end":5475,"via":[3533,3789,3917,4174,4303,4304,4434,4436,4438,4440,4442,4443,4445,4574,4703,4832,4961,5218,5346]}];
++  gestures.forEach((intent,k)=>out.push({name:`maturity oxbow 128 ${k}`,job:{verb:"carve",map,settings:{...job("carve",64,0).settings,maturity:"mature",power:100,seed:4,mode:"aim",defyGravity:true,width:null,floor:1},intent,keep:null}}));
+   return out;
+ }
+
+@@ -158,6 +171,6 @@
+
+ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+   const pins: Record<string, string> = {};
+-  for (const f of forceFixtures()) pins[f.name] = sha256(executeInRust(f.job));
++  for (const f of forceFixtures()) {const out=executeInRust(f.job);if(f.name.startsWith("maturity ")&&(decode(out) as {error?:string}).error)throw Error(`Unexpected refusal: ${f.name}`);pins[f.name]=sha256(out);}
+   console.log(JSON.stringify(pins, null, 2));
+ }
+diff --git a/tools/rust/forces-pins.json b/tools/rust/forces-pins.json
+--- a/tools/rust/forces-pins.json
++++ b/tools/rust/forces-pins.json
+@@ -28,5 +28,13 @@
+   "glaciate 64 2": "ad9b09f3255b3b586602c3ca4215ca43f2cb9fa67486ebadbcc76e8be92a3835",
+   "glaciate 64 3": "d5b6f6f7d1689752871fcad1d353760cbfb3480f15fe27ab02d348a5cb67af60",
+   "glaciate 64 odd 0": "4ed24eb87f82a8012719d7f63555866337cc4de5bc58648b317b10f61456016f",
+-  "glaciate 64 odd 1": "21c3fea51d5d55c82363eb405ecaf11a6b51657877f85b61380922144e8943c9"
++  "glaciate 64 odd 1": "21c3fea51d5d55c82363eb405ecaf11a6b51657877f85b61380922144e8943c9",
++  "maturity 64 0": "bdbaae36fdec3998c927bb8e89272dc10cf37c969e368dc567a6737249cb85fc",
++  "maturity 64 1": "831e2803d4f6d6827e3cd3d809de330dfd46793ec24088645445104a6da79b7e",
++  "maturity 64 2": "4b79b977a729704cf6c56eeb3fff030a65f46305b543fd0007c70220dae104c1",
++  "maturity 64 3": "ce5018a75300de99d902b1d42c1203c32386e45a441f1e94a88bef32cd45e3e6",
++  "maturity 64 4": "eacfbf98c6a563baec99eb8ffb69a74af9f264c9e068f65088e56ffeef8b3fa2",
++  "maturity 64 5": "d422707259589681c5717c2683c551b85958ea398dad2a7b6caa1d054f9adff7",
++  "maturity oxbow 128 0": "ca88c8b74045af1f54a1a715bb7e5dcbced4616b9117aae69357e95fbc0b704f",
++  "maturity oxbow 128 1": "5e78287dfc87dd663fc0212f9970f9f8fe6defe27c42062ea8e44f8acfdac0f3"
+ }

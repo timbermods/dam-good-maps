@@ -16,3 +16,9 @@ path = "src/main.rs"
 
 [dependencies]
 portable = { path = "../portable" }
+
+[features]
+# The Wasm exports (lib.rs, stack_memory.rs). The forces crate links this crate without them, so its own module
+# carries only its own exports when built on its own (-p), as tools/rust/build.ts and check.ts do.
+default = ["exports"]
+exports = []

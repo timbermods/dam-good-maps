@@ -92,11 +92,12 @@ describe("invalid operations are rejected with a reason and change nothing", () 
     ["deleting a river others build on", { op: "deleteFeature", params: { id: river.id } }, /build on it/],
     ["a second start", { op: "addFeature", params: { feature: { ...start, id: USER, origin: "user" } } }, /already has its start/],
     ["a feature claiming to be generated", { op: "addFeature", params: { feature: { ...forest, id: USER } } }, /only the generator/],
-    // set pieces are built by their builders (M5): a request outside the hard bounds, a plan
-    // outside them, and a kind this version does not build are all rejected
-    ["a set piece with an empty request", { op: "addFeature", params: { feature: { id: USER, kind: "setPiece", origin: "claude", locked: false, params: { kind: "waterfall", request: {}, plan: {}, report: [] } } } }, /missing "mode"/],
+    // set pieces are built by their builders: a request outside the hard bounds, a plan outside
+    // them, and a kind this version does not build are all rejected
+    ["a set piece with an empty request", { op: "addFeature", params: { feature: { id: USER, kind: "setPiece", origin: "claude", locked: false, params: { kind: "badwaterBasin", request: {}, plan: {}, report: [] } } } }, /missing "mode"/],
+    // the editor's set pieces are retired (D462): a waterfall is a kind this version does not build
     [
-      "a waterfall whose plan drops 20 levels",
+      "a retired set piece (a waterfall)",
       {
         op: "addFeature",
         params: {
@@ -105,18 +106,18 @@ describe("invalid operations are rejected with a reason and change nothing", () 
             kind: "setPiece",
             origin: "claude",
             locked: false,
-            params: { kind: "waterfall", request: { mode: "on-river", river: river.id, at: 30, drop: 20 }, plan: { mode: "on-river", river: river.id, at: 30, drop: 20 }, report: [] },
+            params: { kind: "waterfall", request: { mode: "on-river", river: river.id, at: 30, drop: 2 }, plan: { mode: "on-river", river: river.id, at: 30, drop: 2 }, report: [] },
           },
         },
       },
-      /drop of 1–15/,
+      /not built by this version/,
     ],
-    // every set piece is built since M7; natural bridges (a map object) come later
+    // natural bridges (a map object) come later
     ["a map object not built yet", { op: "addFeature", params: { feature: { id: USER, kind: "mapObject", origin: "claude", locked: false, params: { kind: "bridge", placement: { x: 3, y: 3, orientation: "Cw0" } } } } }, /later version/],
-    ["a set piece whose stored plan is out of bounds", { op: "addFeature", params: { feature: { id: USER, kind: "setPiece", origin: "claude", locked: false, params: { kind: "plugSpillway", request: { lake: "x" }, plan: {}, report: [] } } } }, /belongs to a lake/],
+    ["a set piece whose stored plan is out of bounds", { op: "addFeature", params: { feature: { id: USER, kind: "setPiece", origin: "claude", locked: false, params: { kind: "obstaclePayoff", request: { at: [10, 10] }, plan: { x: 10, y: 10, radius: 40, top: 5, rise: 2 }, report: [] } } } }, /radius is 3–16/],
     ["the naturalize brush", { op: "sculpt", params: { mode: "naturalize", cells: [[1, 1, 3]] } }, /roadmap M10/],
     ["a faction-only plant", { op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555555", template: "Maple", x: 3, y: 3, orientation: "Cw0" } }, /cannot be placed/],
-    ["an object without its required components", { op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555555", template: "UnstableCore", x: 3, y: 3, orientation: "Cw0" } }, /needs its components/],
+    ["a core with explicit components missing its required data", { op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555555", template: "UnstableCore", x: 3, y: 3, orientation: "Cw0", components: {} } }, /needs the components/],
     ["a malformed id", { op: "placeEntity", params: { id: "not-a-guid", template: "Pine", x: 3, y: 3, orientation: "Cw0" } }, /must match/],
   ];
   it.each(bad)("%s", (_name, op, reason) => {

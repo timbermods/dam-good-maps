@@ -1,0 +1,287 @@
+{
+  "base": "790f8da1d3db73b2c4edf11c8cc7c58de49c4b8c",
+  "findings": 6,
+  "proposedFixes": 6,
+  "productFilesChanged": 0,
+  "waterMatrix": {
+    "cases": 128,
+    "actuallyThreaded": 106,
+    "requestedThreadCounts": [
+      1,
+      16
+    ]
+  },
+  "baselineWater": [
+    {
+      "test": "shape/thread/weather/floor parity",
+      "cases": 128,
+      "threaded": 106
+    },
+    {
+      "test": "water edit between threaded slices",
+      "identical": false,
+      "threaded": 426,
+      "singleDepth": 0.19645045582892573,
+      "threadedDepth": 0.19638331008568383
+    },
+    {
+      "test": "helper dispatch throws",
+      "threw": true,
+      "stopped": 0
+    }
+  ],
+  "baselineFinalCommit": {
+    "depth": false,
+    "contamination": false,
+    "out": true,
+    "oldDepth": false,
+    "threads": 1
+  },
+  "baselineOccupancy": [
+    {
+      "occupancy": "wet to dry",
+      "freshSingle": false,
+      "beforeFirstRun": false,
+      "equal": false,
+      "continuationEqual": false
+    },
+    {
+      "occupancy": "wet to dry",
+      "freshSingle": false,
+      "beforeFirstRun": true,
+      "equal": true,
+      "continuationEqual": false
+    },
+    {
+      "occupancy": "wet to dry",
+      "freshSingle": true,
+      "beforeFirstRun": false,
+      "equal": false,
+      "continuationEqual": false
+    },
+    {
+      "occupancy": "wet to dry",
+      "freshSingle": true,
+      "beforeFirstRun": true,
+      "equal": true,
+      "continuationEqual": false
+    },
+    {
+      "occupancy": "dry to wet",
+      "freshSingle": false,
+      "beforeFirstRun": false,
+      "equal": false,
+      "continuationEqual": false
+    },
+    {
+      "occupancy": "dry to wet",
+      "freshSingle": false,
+      "beforeFirstRun": true,
+      "equal": false,
+      "continuationEqual": false
+    },
+    {
+      "occupancy": "dry to wet",
+      "freshSingle": true,
+      "beforeFirstRun": false,
+      "equal": false,
+      "continuationEqual": false
+    },
+    {
+      "occupancy": "dry to wet",
+      "freshSingle": true,
+      "beforeFirstRun": true,
+      "equal": false,
+      "continuationEqual": false
+    }
+  ],
+  "candidateOccupancy": [
+    {
+      "occupancy": "wet to dry",
+      "freshSingle": false,
+      "beforeFirstRun": false,
+      "equal": true,
+      "continuationEqual": true
+    },
+    {
+      "occupancy": "wet to dry",
+      "freshSingle": false,
+      "beforeFirstRun": true,
+      "equal": true,
+      "continuationEqual": true
+    },
+    {
+      "occupancy": "wet to dry",
+      "freshSingle": true,
+      "beforeFirstRun": false,
+      "equal": true,
+      "continuationEqual": true
+    },
+    {
+      "occupancy": "wet to dry",
+      "freshSingle": true,
+      "beforeFirstRun": true,
+      "equal": true,
+      "continuationEqual": true
+    },
+    {
+      "occupancy": "dry to wet",
+      "freshSingle": false,
+      "beforeFirstRun": false,
+      "equal": true,
+      "continuationEqual": true
+    },
+    {
+      "occupancy": "dry to wet",
+      "freshSingle": false,
+      "beforeFirstRun": true,
+      "equal": true,
+      "continuationEqual": true
+    },
+    {
+      "occupancy": "dry to wet",
+      "freshSingle": true,
+      "beforeFirstRun": false,
+      "equal": true,
+      "continuationEqual": true
+    },
+    {
+      "occupancy": "dry to wet",
+      "freshSingle": true,
+      "beforeFirstRun": true,
+      "equal": true,
+      "continuationEqual": true
+    }
+  ],
+  "candidateFinalCommit": {
+    "depth": true,
+    "contamination": true,
+    "out": true,
+    "oldDepth": true,
+    "threads": 1
+  },
+  "browser": [
+    {
+      "name": "chromium",
+      "firstVisitNavigations": 2,
+      "first": {
+        "isolated": true,
+        "controlled": true,
+        "failed": null,
+        "version": "1"
+      },
+      "normal": {
+        "equal": true,
+        "runs": 4,
+        "installed": true
+      },
+      "updatedVersion": "2",
+      "roadmap": {
+        "isolated": false,
+        "cors": "outside-data"
+      }
+    },
+    {
+      "name": "blocked service worker",
+      "fallback": {
+        "equal": true,
+        "runs": 0,
+        "installed": false
+      }
+    },
+    {
+      "name": "firefox",
+      "firstVisitNavigations": 2,
+      "first": {
+        "isolated": true,
+        "controlled": true,
+        "failed": null,
+        "version": "1"
+      },
+      "normal": {
+        "equal": true,
+        "runs": 4,
+        "installed": true
+      },
+      "updatedVersion": "2",
+      "roadmap": {
+        "isolated": false,
+        "cors": "outside-data"
+      }
+    },
+    {
+      "name": "webkit",
+      "firstVisitNavigations": 1,
+      "first": {
+        "isolated": false,
+        "controlled": false,
+        "failed": null,
+        "version": "1"
+      },
+      "normal": {
+        "equal": true,
+        "runs": 0,
+        "installed": false
+      },
+      "updatedVersion": "2",
+      "roadmap": {
+        "isolated": false,
+        "cors": "outside-data"
+      }
+    },
+    {
+      "name": "firefox-no-service-worker",
+      "firstVisitNavigations": 1,
+      "first": {
+        "isolated": false,
+        "controlled": false,
+        "failed": null,
+        "version": "1"
+      },
+      "normal": {
+        "equal": true,
+        "runs": 0,
+        "installed": false
+      },
+      "updatedVersion": "2",
+      "roadmap": {
+        "isolated": false,
+        "cors": "outside-data"
+      }
+    },
+    {
+      "name": "Firefox private launch (automation context)",
+      "status": {
+        "isolated": true,
+        "hasServiceWorker": true
+      },
+      "fallback": {
+        "equal": true,
+        "runs": 4,
+        "installed": true
+      }
+    }
+  ],
+  "forceComparisons": 249,
+  "forceMatchingRefusals": 34,
+  "nativeTests": 13,
+  "baselineFocusedTests": 107,
+  "candidateFocusedTests": 100,
+  "candidateFindingVitestTests": 3,
+  "weatherJobs": {
+    "baselineAfter8Cancellations": 8,
+    "candidateAfter8Cancellations": 0
+  },
+  "draftJobs": {
+    "baselineAfterSwitchOrClose": 1,
+    "candidateAfterSwitchOrClose": 0
+  },
+  "explicitDisposalCycles": 40,
+  "limitations": [
+    "No established UI gesture for F1 public-array mutation",
+    "Fault-injected helper dispatch and final commit",
+    "Native Firefox private-window behavior not certified",
+    "Browser resource fixtures do not certify production third-party endpoints",
+    "Bounded lifecycle test, no indefinite soak claim"
+  ]
+}

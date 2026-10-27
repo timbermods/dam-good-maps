@@ -20,6 +20,11 @@ import type { Feature, RiverFeature } from "../features/schema";
 import { wetSystems } from "./story";
 import { polygonMask } from "../features/geometry";
 import * as portable from "../math/portable";
+import { N4 } from "../math/grid";
+
+/** How far a tile's water surface may stand from a lake's and still be that lake's water (a lake's
+ *  surface is level; a river falls away from it). */
+const LAKE_LEVEL = 0.1;
 
 export interface Signature {
   /** River Valley: the median width of the main river's valley floor, as a share of the side. */
@@ -45,13 +50,6 @@ export interface Signature {
   apart: number;
   islands: number;
 }
-
-const D4 = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-] as const;
 
 /** A river's course, a tile at a time inside the map, with the direction along it. */
 function samples(r: RiverFeature, W: number, H: number): { x: number; y: number; dx: number; dy: number }[] {
@@ -89,13 +87,53 @@ function surfaceNear(h: ArrayLike<number>, D: ArrayLike<number>, W: number, H: n
   return Number.isFinite(s) ? s : h[Math.min(H - 1, Math.max(0, cy)) * W + Math.min(W - 1, Math.max(0, cx))];
 }
 
+/** A river's longest stretch, in tiles of its course, whose ground rises 3+ levels over its water
+ *  on both sides within a few tiles of its banks (from the first dry tile out, as wide as the water
+ *  is: a wide river's walls stand beyond a narrow one's; Codex's Canyon audit, D370), and the tiles
+ *  of its course inside the map. */
+export function walledRun(r: RiverFeature, W: number, H: number, h: ArrayLike<number>, D: ArrayLike<number>): { best: number; of: number } {
+  const wet = (i: number) => D[i] >= 0.05;
+  const reach = Math.round(0.3 * Math.min(W, H));
+  const S = samples(r, W, H);
+  let run = 0;
+  let best = 0;
+  for (const { x, y, dx, dy } of S) {
+    const surf = surfaceNear(h, D, W, H, x, y);
+    let sides = 0;
+    for (const sgn of [-1, 1]) {
+      let top = -Infinity;
+      // (out past the water to its bank, then the ground within five tiles of it)
+      let bank = -1;
+      for (let t = 2; t <= reach && bank < 0; t++) {
+        const xx = Math.round(x - sgn * dy * t);
+        const yy = Math.round(y + sgn * dx * t);
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
+        if (!wet(yy * W + xx)) bank = t;
+      }
+      if (bank < 0) continue;
+      for (let t = bank; t <= bank + 4; t++) {
+        const xx = Math.round(x - sgn * dy * t);
+        const yy = Math.round(y + sgn * dx * t);
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
+        if (h[yy * W + xx] > top) top = h[yy * W + xx];
+      }
+      if (top >= surf + 3) sides++;
+    }
+    run = sides === 2 ? run + 1 : 0;
+    if (run > best) best = run;
+  }
+  return { best, of: S.length };
+}
+
 function median(v: number[]): number {
   if (!v.length) return 0;
   const s = v.slice().sort((a, b) => a - b);
   return s[s.length >> 1];
 }
 
-export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<number>, features: readonly Feature[]): Signature {
+/** `held`: the water is settled, and a lake is read as it holds water, its wet tiles and those joined to
+ *  them at its surface; on the water as planned (the land screens), the planned lakes alone. */
+export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<number>, features: readonly Feature[], held = false): Signature {
   const N = W * H;
   const side = Math.min(W, H);
   const areaK = N / (128 * 128);
@@ -128,39 +166,11 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
   //      water is: a wide river's walls stand beyond a narrow one's; Codex's Canyon audit, D370)
   let canyon = 0;
   let canyonShare = 0;
-  const reach = Math.round(0.3 * side);
   for (const r of rivers) {
-    const S = samples(r, W, H);
-    let run = 0;
-    let best = 0;
-    for (const { x, y, dx, dy } of S) {
-      const surf = surfaceNear(h, D, W, H, x, y);
-      let sides = 0;
-      for (const sgn of [-1, 1]) {
-        let top = -Infinity;
-        // (out past the water to its bank, then the ground within five tiles of it)
-        let bank = -1;
-        for (let t = 2; t <= reach && bank < 0; t++) {
-          const xx = Math.round(x - sgn * dy * t);
-          const yy = Math.round(y + sgn * dx * t);
-          if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
-          if (!wet(yy * W + xx)) bank = t;
-        }
-        if (bank < 0) continue;
-        for (let t = bank; t <= bank + 4; t++) {
-          const xx = Math.round(x - sgn * dy * t);
-          const yy = Math.round(y + sgn * dx * t);
-          if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
-          if (h[yy * W + xx] > top) top = h[yy * W + xx];
-        }
-        if (top >= surf + 3) sides++;
-      }
-      run = sides === 2 ? run + 1 : 0;
-      if (run > best) best = run;
-    }
+    const { best, of } = walledRun(r, W, H, h, D);
     if (best > canyon) {
       canyon = best;
-      canyonShare = S.length ? best / S.length : 0;
+      canyonShare = of ? best / of : 0;
     }
   }
   // ---- highlands: dry land well over the rivers, cliffs, plateaus
@@ -176,7 +186,7 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
     if (h[i] >= waterLevel + 4) high++;
     const x = i % W;
     const y = (i - x) / W;
-    for (const [dx, dy] of D4) {
+    for (const [dx, dy] of N4) {
       const xx = x + dx;
       const yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -201,7 +211,7 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
@@ -231,16 +241,41 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
     for (const f of features) {
       if (f.kind !== "lake") continue;
       const m = polygonMask(f.params.outline, W, H);
-      let n = 0;
+      // (the lake as it holds water: its wet tiles, and the wet tiles joined to them at its surface,
+      // where the settled lake stands wider than the lake planned: a big lake over a whole basin was
+      // read as half lake, #265's Lake Basin sibling 8)
+      const q: number[] = [];
+      const surf: number[] = [];
       for (let i = 0; i < N; i++)
         if (m[i] && wet(i)) {
-          n++;
-          if (!counted[i]) {
-            counted[i] = 1;
-            inLakes++;
-          }
+          q.push(i);
+          surf.push(h[i] + D[i]);
         }
-      if (n > bigLake) bigLake = n;
+      if (!q.length) continue;
+      surf.sort((a, b) => a - b);
+      const level = surf[surf.length >> 1];
+      const mine = new Uint8Array(N);
+      for (const i of q) mine[i] = 1;
+      for (let k = 0; held && k < q.length; k++) {
+        const c = q[k];
+        const x = c % W;
+        const y = (c - x) / W;
+        for (const [dx, dy] of N4) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const j = yy * W + xx;
+          if (mine[j] || !wet(j) || Math.abs(h[j] + D[j] - level) > LAKE_LEVEL) continue;
+          mine[j] = 1;
+          q.push(j);
+        }
+      }
+      for (const i of q)
+        if (!counted[i]) {
+          counted[i] = 1;
+          inLakes++;
+        }
+      if (q.length > bigLake) bigLake = q.length;
     }
   }
   // ---- the main system's mouths on the edge it leaves by
@@ -286,7 +321,7 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;

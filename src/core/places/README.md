@@ -7,8 +7,12 @@ Real places: maps made from real terrain by the landscape survey, offered as con
 - A place keeps its real land (D245, D331). It is built with the same steps and code as a generated map.
 - Every place carries the data providers' required notices, verbatim (`attribution.ts`).
 - The gallery shows every place (D445); the index records each place's `faults`, and a place with `start.water` carries the card note "No reachable water" (`placeNote`).
-- The Real places rebuild is parked until the map-changing items have settled (D319).
+- The land has no edge wall (D151): the survey's sealed border is not used. The land is its unsealed crop, the edge runs on past the map as the generator's does (`relaxEdges`), and a short lip stands beside a source the survey put by the edge (`tools/real-places.ts`).
+- A start the opened rivers flood, or that reaches no water a source feeds, moves to the best spot its land offers (D245, `start.ts` `placeStartSpots`): dry, water near, wood and berries kept where it can, never below the starting-logs floor it met. A start that had water on the survey's sealed land and has none on the open land gets a spring by it (D245's water floor, `spring.ts` `placeSprings`). A start short of berries gets the bushes the `start.food` check's own fix plants, on moist tiles within its walk (objects only, D331).
+- A place's plants live where they stand (#523): `tools/real-places.ts` moves each living tree or bush on soil that kills it (`plants.survive`'s rule, `doc/plantSoil.ts`) to the nearest free tile within 4 where it lives, or drops it (`tools/lib/placePlants.ts`); the start's berries never fall and its lost logs come back as oaks on the moist ground nearest it, or, where there is too little, the dying trees nearest it stay (a dead tree keeps its logs). Objects only: the land and water stay.
+- The nightly runs `npm run places -- --check`: the data in `public/real-places/` must match a fresh build, or the nightly fails (run `npm run places` and commit). The build searches start spots and springs, each a full build and settle: about 25 min on a runner, in its own nightly job.
+- The Real places rebuild (round 2) is parked until the map-changing items have settled (D319).
 
-**Start from**: `place.ts` `decodePlaceFile`, `buildPlace` (a place's data to a `.timber`); `attribution.ts` (the credits).
+**Start from**: `place.ts` `decodePlaceFile`, `buildPlace` (a place's data to a `.timber`, through `buildFileFromHeights`, which also builds the probe's test maps from heights and objects as the generator's build does); `start.ts` (where a start may move); `spring.ts` (a spring by the start); `attribution.ts` (the credits).
 
 **Tests**: `tests/contract/places.test.ts`, `places-build-1.test.ts` to `places-build-3.test.ts`, `tests/e2e/places.spec.ts`. The data is written by `tools/real-places.ts` (`npm run places`). Run `npx vitest run tests/contract/places.test.ts`.

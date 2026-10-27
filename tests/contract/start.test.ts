@@ -21,9 +21,13 @@ import { waterModel, type MapObject } from "../../src/core/sim/model";
 import type { CanonicalWater } from "../../src/core/sim/prefill";
 import { F } from "../../src/core/format/json";
 import { LOG_FLOOR, LOG_FLOOR_WALK } from "../../src/core/data/logFloor";
-import { DIFFICULTY_RULES, makeSpec, woodForTrees } from "../../src/core/spec/mapspec";
-import { checkPlayability, rulesFor, type Rules } from "../../src/core/validate/playability";
-import { Collector, type CheckResult } from "../../src/core/validate/report";
+import { DIFFICULTY_RULES, makeSpec, woodForTrees, type MapSpec } from "../../src/core/spec/mapspec";
+import { rulesFor, type Rules } from "../../src/core/validate/playability";
+import type { CheckResult } from "../../src/core/validate/report";
+import { validateMap } from "../../src/core/validate/checks";
+import { mapMetadata, type TimberFile } from "../../src/core/format/timber";
+import { emptySimulationSingletons, GAME_VERSION, LAYERS, voxelsFromHeights } from "../../src/core/format/world";
+import type { JsonObject } from "../../src/core/format/json";
 
 const W = 48;
 const H = 48;
@@ -92,13 +96,42 @@ function slopeLinks(s: Scene): [number, number][] {
   return out;
 }
 
-function check(s: Scene, rules: Partial<Rules> = {}): Record<string, CheckResult> {
-  const base = rulesFor(null, "normal");
-  const c = new Collector("generate");
+/** The scene as a map file: its ground, and its objects in order. */
+function fileOf(s: Scene): TimberFile {
+  const entities: JsonObject[] = s.objects.map((o, k) => ({
+    Id: `00000000-0000-4000-8000-${String(k).padStart(12, "0")}`,
+    Template: o.template,
+    Components: { BlockObject: { Coordinates: { X: o.x, Y: o.y, Z: o.z }, Orientation: o.orientation }, ...o.components },
+  }));
+  return {
+    metadata: mapMetadata(W, H, "start test"),
+    thumbnail: null,
+    versionTxt: GAME_VERSION + "\r\n",
+    world: { gameVersion: GAME_VERSION, timestamp: "2026-10-05 00:00:00", sizeX: W, sizeY: H, layers: LAYERS, voxels: voxelsFromHeights(s.heights, W, H), singletons: emptySimulationSingletons(W, H), entities },
+    extraFiles: [],
+  };
+}
+
+/** The checks on the scene, its water given directly, with a spec holding the start rules (its
+ *  difficulty's, `rules` changing some). */
+function check(s: Scene, rules: Partial<Rules> = {}, profile: "generate" | "export" = "generate"): Record<string, CheckResult> {
+  const difficulty = rules.difficulty ?? "normal";
+  const r = { ...DIFFICULTY_RULES[difficulty], ...rules };
+  const spec = {
+    designedFor: difficulty,
+    theme: "riverValley",
+    settings: {
+      start: { rules: { waterWithin: r.waterWithin, woodWithin20: r.woodWithin20, bushesWithin20: r.bushesWithin20, badwaterWithin: r.badwaterWithin, ruinsWithin: r.ruinsWithin }, area: "normal" },
+      hazards: { badwaterDistance: 0, badwater: "normal" },
+      terrain: { buildableLand: "normal" },
+      water: { sources: "normal", droughtReserve: "normal" },
+      resources: { ruins: 100, forestDensity: 100, berryBushes: 100 },
+    },
+  } as unknown as MapSpec;
   const model = waterModel(W, H, s.heights, s.objects);
-  const water: CanonicalWater = { settled: true, ticks: 0, depth: s.depth, contamination: s.contamination, sat: new Uint8Array(N) };
-  checkPlayability({ W, H, surface: s.heights, objects: s.objects, model, water, rules: { ...base, ...rules }, features: null }, c);
-  return Object.fromEntries(c.checks.map((r) => [r.id, r]));
+  const water = { settled: true, ticks: 0, depth: s.depth, contamination: s.contamination, sat: new Uint8Array(N) } as CanonicalWater;
+  const v = validateMap(fileOf(s), { profile, spec, features: null, water: { model, settled: water } });
+  return Object.fromEntries(v.report.checks.map((c) => [c.id, c]));
 }
 
 /** A scene that meets all three requirements at Normal: 210 logs (35 pines, 15 oaks and 20
@@ -128,7 +161,7 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     expect(rulesFor(spec).waterWithin).toBe(33);
   });
 
-  it("a map that meets all three passes, and the other start rules are only targets", () => {
+  it("a map that meets all three passes; the badwater distance is a rule when generating, the other start rules only targets", () => {
     const c = check(good());
     expect(c["start.water"].ok).toBe(true);
     expect(c["start.water"].value).toBe(20);
@@ -138,7 +171,11 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     expect(c["start.wood_floor"].ok).toBe(true);
     expect(c["start.food"].ok).toBe(true);
     expect(c["start.food"].value).toBe(35);
-    for (const id of ["start.badwater", "start.reach", "start.ruins_clear", "water.storage_possible"]) expect(c[id].advisory, id).toBe(true);
+    for (const id of ["start.reach", "start.ruins_clear", "water.storage_possible"]) expect(c[id].advisory, id).toBe(true);
+    // (Kyler, 2026-10-05, #265: a generated map's start keeps the badwater distance; an edited or
+    // imported map only warns)
+    expect(c["start.badwater"].advisory).toBe(false);
+    expect(check(good(), {}, "export")["start.badwater"].advisory).toBe(true);
     expect(c["start.reach_water"]).toBeUndefined();
   });
 
@@ -148,7 +185,7 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     const c = check(s);
     expect(c["start.water"].ok).toBe(false);
     expect(c["start.water"].value).toBe("none");
-    expect(c["start.water"].message).toMatch(/^the water 20 tiles' walk away is a sealed puddle no source feeds, which a 9-day drought empties/);
+    expect(c["start.water"].message).toMatch(/^A sealed puddle 20 tiles' walk away dries up in a 9-day drought/);
   });
 
   it("water beyond the walking distance fails, and the water setting moves the result", () => {
@@ -307,7 +344,7 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     // a playability check: it rejects a generated map, whatever the difficulty
     expect(c["start.wood_floor"].class).toBe("playability");
     expect(c["start.wood_floor"].severity).toBe("error");
-    expect(c["start.wood_floor"].message).toBe(`160 logs within 40 tiles' walk of the start, under the floor of ${LOG_FLOOR}: not enough to build a Forester, and without one the game is over`);
+    expect(c["start.wood_floor"].message).toBe(`160 logs within 40 tiles' walk of the start, under the ${LOG_FLOOR} a Forester needs`);
     // wood beyond 40 tiles' walk does not count toward it (the far bank of the river is 45 and more)
     const beyond: [number, number][] = [];
     for (let y = 0; y < H && beyond.length < 20; y++) if (s.objects.every((o) => o.x !== 40 || o.y !== y)) beyond.push([40, y]);
@@ -320,7 +357,7 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
       expect(c["start.wood_floor"].value, d).toBe(180);
       expect(c["start.wood_floor"].ok, d).toBe(true);
     }
-    expect(c["start.wood_floor"].message).toBe(`180 logs within 40 tiles' walk of the start: enough to build a Forester (the floor is ${LOG_FLOOR})`);
+    expect(c["start.wood_floor"].message).toBe(`180 logs within 40 tiles' walk of the start, enough for a Forester (${LOG_FLOOR} needed)`);
   });
 
   it("wood across a slope counts (slopes allowed); wood on a cliff top beyond reach does not", () => {
@@ -361,5 +398,50 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     expect(c["start.food"].ok).toBe(false);
     expect(check(s, { bushesWithin20: 25 })["start.food"].ok).toBe(true);
     expect(check(s, { bushesWithin20: 26 })["start.food"].ok).toBe(false);
+  });
+});
+
+describe("the oaks fix plants only where oaks live", () => {
+  const oaksOf = (s: Scene) => {
+    const fix = check(s)["start.wood"].fix ?? [];
+    return { fix, tiles: fix.map((o) => o.params as { x: number; y: number }) };
+  };
+  /** A scene whose only water is a small pond `px` tiles east, so little ground is moist near the start. */
+  const pondScene = (px: number): Scene => {
+    const s = scene();
+    s.depth.fill(0);
+    for (let y = 0; y < H; y++) for (let x = 34; x <= 36; x++) s.heights[y * W + x] = 5;
+    for (let y = 23; y <= 24; y++)
+      for (let x = px; x <= px + 1; x++) {
+        s.heights[y * W + x] = 4;
+        s.depth[y * W + x] = 0.6;
+      }
+    return s;
+  };
+
+  it("on moist ground, a grove that follows it: not a ring round the start", () => {
+    const s = scene();
+    const m = moist(s);
+    const { fix, tiles } = oaksOf(s);
+    expect(fix).toHaveLength(25);
+    expect(fix[0].label).toBe("Plant 25 oaks for the starting logs");
+    expect(tiles.every((p) => m[p.y * W + p.x] === 1)).toBe(true);
+    // (not all one distance from the start, as a ring is)
+    const far = tiles.map((p) => Math.max(Math.abs(p.x - START.x), Math.abs(p.y - START.y)));
+    expect(Math.max(...far) - Math.min(...far)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("with little moist ground it plants the oaks that fit, never on dry ground, and says how many fit", () => {
+    const s = pondScene(34);
+    const m = moist(s);
+    const { fix, tiles } = oaksOf(s);
+    expect(fix.length).toBeGreaterThan(0);
+    expect(fix.length).toBeLessThan(25);
+    expect(tiles.every((p) => m[p.y * W + p.x] === 1)).toBe(true);
+    expect(fix[0].label).toBe(`Plant ${fix.length} oaks, all the moist ground holds (25 needed)`);
+  });
+
+  it("with no moist ground near the start there is no oak fix", () => {
+    expect(oaksOf(pondScene(42)).fix).toHaveLength(0);
   });
 });

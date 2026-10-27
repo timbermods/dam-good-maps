@@ -1,7 +1,7 @@
-// Retired features must not come back (Kyler, PLAN.md §20 D188 (3); docs/README.md, "Retired terms").
+// Retired features must not come back (Kyler, D188 (3) in docs/decisions/how-we-work.md; docs/README.md, "Retired terms").
 // tools/retired-terms.json lists their names. This check fails when one reappears in a living
-// document, the interface text or the editor code. Deliberate mentions are allowed: PLAN.md §20 (the
-// decision log), EDITOR_PLAN.md's "Part 3: superseded", text between the allow markers, and the files
+// document, the interface text or the editor code. Deliberate mentions are allowed: the topic files in
+// docs/decisions/ (the decision log; its index README.md is checked like any living document), EDITOR_PLAN.md's "Part 3: superseded", text between the allow markers, and the files
 // in `pendingRemoval`, which still hold the old tools on dev until the Live editing work removes them.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -29,6 +29,7 @@ interface Config {
   patterns?: Pattern[];
   docs: string[];
   code: { dirs: string[]; files: string[]; extensions: string[] };
+  decisionLog?: { dir: string; index: string; why: string };
   allowedSections: { file: string; heading: string }[];
   markers: { open: string; close: string };
   pendingRemoval: { paths: string[] };
@@ -63,6 +64,8 @@ const PATTERNS = [
  */
 function allowedLines(file: string, lines: readonly string[], problems: string[]): boolean[] {
   const allowed = lines.map(() => false);
+  const log = CONFIG.decisionLog;
+  if (log && file.startsWith(log.dir + "/") && file !== log.dir + "/" + log.index) return lines.map(() => true);
   let open = -1;
   lines.forEach((line, i) => {
     const opens = line.includes(CONFIG.markers.open);
@@ -143,7 +146,9 @@ function codeFiles(dir: string): string[] {
 
 function scanned(): string[] {
   const code = CONFIG.code.dirs.flatMap((d) => codeFiles(join(ROOT, d))).map((f) => relative(ROOT, f).split("\\").join("/"));
-  return [...CONFIG.docs, ...CONFIG.code.files, ...code];
+  const log = CONFIG.decisionLog;
+  const logIndex = log ? [log.dir + "/" + log.index] : [];
+  return [...CONFIG.docs, ...logIndex, ...CONFIG.code.files, ...code];
 }
 
 const show = (h: Hit) => `${h.file}:${h.line}: "${h.term.term}" (retired by ${h.term.retired}; instead: ${h.term.instead})`;
@@ -152,6 +157,8 @@ describe("retired terms stay retired (D188)", () => {
   it("no living document, interface text or editor code names a retired feature", () => {
     const files = scanned();
     expect(files.length).toBeGreaterThan(50);
+    const log = CONFIG.decisionLog;
+    if (log) expect(readdirSync(join(ROOT, log.dir)).filter((f) => f.endsWith(".md")).length, `${log.dir} holds no topic files (moved? update tools/retired-terms.json)`).toBeGreaterThan(1);
     const problems: string[] = [];
     const hits: string[] = [];
     for (const file of files) {
@@ -199,8 +206,10 @@ describe("retired terms stay retired (D188)", () => {
     const marked = ["Kept: Raise.", "<!-- retired-terms:allow -->", "**Removed:** the Channel tool;", "the river tool.", "<!-- /retired-terms:allow -->", "Then the Channel tool."].join("\n");
     expect(scan("ROADMAP.md", marked).map((h) => h.line)).toEqual([6]);
 
-    const plan = ["## 19. Shared foundations", "The river tool.", "## 20. Editor decisions", "| D184 | the river tool and the lake tool |", "## Changes from audit", "the lake tool"].join("\n");
-    expect(scan("PLAN.md", plan).map((h) => `${h.line} ${h.term.term}`)).toEqual(["2 river tool", "6 lake tool"]);
+    // the decision log's topic files are history; their index is a living document
+    const log = "- **D184**: the river tool and the lake tool";
+    expect(scan("docs/decisions/editor.md", log)).toEqual([]);
+    expect(scan("docs/decisions/README.md", log).map((h) => h.term.term)).toEqual(["river tool", "lake tool"]);
 
     const editor = ["# Part 2: the technical reference", "```sh", "# Part 3: superseded", "```", "the Show dropdown", "# Part 3: superseded", "| the Show dropdown |", "## A subsection", "the Advanced checkbox"].join("\n");
     expect(scan("EDITOR_PLAN.md", editor).map((h) => h.line)).toEqual([5]);

@@ -22,7 +22,6 @@ describe("the water player's state after undo, redo and an edit (D345, B14)", ()
     p.settled();
     expect(p.progress).toBeNull();
     expect(p.playing).toBe(false);
-    expect(p.words).toBeNull();
     // and it stays so: an undo after an undo
     p.settled();
     expect(p.progress).toBeNull();
@@ -31,6 +30,6 @@ describe("the water player's state after undo, redo and an edit (D345, B14)", ()
     const p = player();
     p.settled();
     expect(p.progress).toBeNull();
-    expect(p.canReplay).toBe(false);
+    expect(p.playing).toBe(false);
   });
 });

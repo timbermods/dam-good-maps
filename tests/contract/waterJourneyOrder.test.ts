@@ -41,7 +41,6 @@ const edit = () => ed.apply({ op: "sculpt", params: { mode: "lower", cells: [[40
  *  the canonical water in place and stops the worker's own settle), else the settle finishes first. */
 async function record(checkFirst: boolean): Promise<{ undo: Answer; run: Run }> {
   await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: W, y: W } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
   // (the worker's own settle runs only in the job-first case: with it off, the check is what settles the water,
   // deterministically, and the worker's settle is left stopped, as when the check gets there first)
@@ -51,8 +50,9 @@ async function record(checkFirst: boolean): Promise<{ undo: Answer; run: Run }> 
     if (e.kind === "water" && !e.draft) news.push({ kind: "water", version: e.version, water: e.water, done: e.done });
     else if (e.kind === "settled") news.push({ kind: "settled", version: e.version, view: e.view });
   });
+  // (undone before its water settled: the redo puts back the edit's map with its water still to settle; one whose
+  // water had settled comes back settled, its own water with it, and starts no journey)
   edit();
-  await ed.whenWaterSettles();
   const undo = ed.undo();
   await ed.whenWaterSettles();
   news.length = 0;

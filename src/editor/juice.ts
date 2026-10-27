@@ -16,6 +16,7 @@
 
 import type { MapRenderer } from "../render3d";
 import type { ForceCue } from "../core/forces/runs";
+import { GLACIATE_ADVANCE_STEPS, GLACIATE_PACE, GLACIATE_STEPS, showingAt } from "./forceDriver";
 import { JuiceEngine } from "./juice/engine";
 import type { SoundParams } from "./juice/palette";
 import { DEFAULTS as MIX_DEFAULTS } from "./juice/palette";
@@ -236,11 +237,14 @@ export class Juice {
         break;
       case "glaciate": {
         // the ice's grind held while it advances, its cracks once; the meltwater as it retreats, ending
-        // as the land settles (D344, A7: each phase fitted to its showing, `cue.pace`)
-        const seconds = cue.glaciate?.seconds ?? 0;
+        // as the land settles (D344, A7: each phase fitted to its showing, `cue.pace`, eased as the
+        // driver shows it, D374: the advance's sound ends as the land stops changing)
+        const stage = (cue.glaciate?.seconds ?? 0) * 10;
         const pace = cue.pace && cue.pace > 0 ? cue.pace : 1;
+        const show = (GLACIATE_STEPS * GLACIATE_PACE.ms) / pace / 1000;
+        const left = (until: number) => Math.max(0, showingAt("glaciate", GLACIATE_STEPS, until) - showingAt("glaciate", GLACIATE_STEPS, stage)) * show;
         if (cue.phase === "advance") {
-          once("advance", () => this.engine.play("glaciate", p, { id, phase: "advance", span: Math.max(0, 3 - seconds) / pace }));
+          once("advance", () => this.engine.play("glaciate", p, { id, phase: "advance", span: left(GLACIATE_ADVANCE_STEPS) }));
           hold("glaciate", "grind", { ...p, activity: 1 });
         }
         if (cue.phase === "retreat" || cue.phase === "done") {
@@ -250,8 +254,32 @@ export class Juice {
             f.ids.splice(f.ids.indexOf(k), 1);
           }
           // (already at its end, the land settled: no meltwater after it)
-          if (cue.phase === "retreat") once("retreat", () => this.engine.play("glaciate", p, { id, phase: "retreat", span: Math.max(0, 5 - seconds) / pace }));
+          if (cue.phase === "retreat") once("retreat", () => this.engine.play("glaciate", p, { id, phase: "retreat", span: left(GLACIATE_STEPS) }));
         }
+        break;
+      }
+      case "rift":
+        // a low bed while the ground stirs and drops; the split once as it cracks open
+        if (cue.phase !== "done") hold("rift", "rumble", p);
+        if (cue.phase === "crack" || cue.phase === "done") once("crack", () => this.engine.play("rift", p, { id, phase: "crack" }));
+        break;
+      case "deposit":
+        // the muddy water once as the fan begins, its bed held while the sediment spreads, easing as it settles
+        once("advance", () => this.engine.play("deposit", p, { id, phase: "advance" }));
+        if (cue.phase !== "done") hold("deposit", "flow", { ...p, activity: 0.4 + 0.6 * (1 - cue.progress) });
+        break;
+      case "erode": {
+        // the grinding wear under the whole moment, swelling with how much rock is going; stone landing as it goes
+        // (one a tenth of a second at most); a heavier fall as the opening clears (investigation/erode)
+        const e = cue.erode;
+        const level = e && e.worn > 0 ? Math.min(1, e.went.length / (e.worn / 10)) : 0;
+        if (cue.phase !== "done") hold("erode", "wear", { ...p, activity: 0.3 + 0.7 * level });
+        const now = performance.now();
+        if (e && e.went.length && now - f.puffAt > 110) {
+          f.puffAt = now;
+          this.engine.play("erode", { ...p, strength: Math.min(1, 0.25 + 0.75 * level) }, { id, phase: "land" });
+        }
+        if (cue.phase === "done") once("fall", () => this.engine.play("erode", p, { id, phase: "fall" }));
         break;
       }
       case "erupt":

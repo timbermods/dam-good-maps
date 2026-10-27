@@ -22,17 +22,14 @@ const INSTALL = !args.has("--no-install");
 
 /** The worktrees the plan uses: folder suffix, branch. Update this list when a branch starts or is released. */
 const WORKTREES = [
-  ["m9b", "feature/m9b"],
-  ["high", "feature/high-look"],
-  ["parity", "feature/parity"],
   ["page", "feature/page"],
-  ["weather", "feature/weather-days"],
-  ["3d", "feature/terrain3d-a"],
+  ["forces-play", "dev"], // the renderer session's; detached at origin/dev, it makes its own branches
 ];
 /** Parked or held: made only with --all. */
 const PARKED = [
+  ["weather", "feature/weather-days"],
+  ["3d", "feature/terrain3d-a"],
   ["places", "feature/real-places-2"],
-  ["groups", "feature/source-groups"],
 ];
 /** The dedicated probe folder: detached, checked out to the branch being probed before each batch. */
 const PROBE = "probe";
@@ -77,15 +74,18 @@ function addWorktree(suffix, branch) {
   const dir = dirOf(suffix);
   if (existing.has(dir.toLowerCase())) return ready.push(`worktree ${dir} (${existing.get(dir.toLowerCase())})`), dir;
   if (existsSync(dir)) return missing.push(`worktree ${dir}: the folder exists but is not a worktree of this clone`), null;
-  if (branch && branchAt.has(branch)) return ready.push(`branch ${branch} is already checked out at ${branchAt.get(branch)}`), null;
+  // the main clone's own branch (dev) can't be checked out twice: such a worktree starts detached at origin/<branch>
+  const detach = branch && branchAt.get(branch) === main.toLowerCase();
+  if (branch && !detach && branchAt.has(branch)) return ready.push(`branch ${branch} is already checked out at ${branchAt.get(branch)}`), null;
   const remote = branch && tryRun("git", ["rev-parse", "--verify", "--quiet", `origin/${branch}`], main);
   if (branch && !remote) return missing.push(`worktree ${dir}: origin has no branch ${branch} (released or renamed? update tools/setup-machine.mjs)`), null;
-  if (DRY) return did.push(`would create ${dir} (${branch ?? "detached at origin/dev"})`), null;
+  const how = !branch ? "detached at origin/dev" : detach ? `detached at origin/${branch}` : branch;
+  if (DRY) return did.push(`would create ${dir} (${how})`), null;
   try {
-    if (!branch) git(main, "worktree", "add", "--detach", dir, "origin/dev");
+    if (!branch || detach) git(main, "worktree", "add", "--detach", dir, `origin/${branch ?? "dev"}`);
     else if (tryRun("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], main)) git(main, "worktree", "add", dir, branch);
     else git(main, "worktree", "add", "--track", "-b", branch, dir, `origin/${branch}`);
-    did.push(`created ${dir} (${branch ?? "detached at origin/dev"})`);
+    did.push(`created ${dir} (${how})`);
     return dir;
   } catch (e) {
     missing.push(`worktree ${dir}: ${String(e.stderr || e.message).trim().split("\n").pop()}`);

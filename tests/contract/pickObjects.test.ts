@@ -30,7 +30,6 @@ describe("what the plain pointer picks (D360 a)", () => {
 describe("a tree, a bush and a ruin column move like any object (D360 a)", () => {
   it("one step each, refused where they can't stand, undone in one", async () => {
     await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     for (const [pattern, name] of [[/^(Pine|Birch|Oak)$/, "a tree"], [/^BlueberryBush$/, "a bush"], [/^RuinColumnH/, "a ruin column"]] as const) {
       const e = ed.sessionView().view.entities;

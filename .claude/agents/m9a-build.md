@@ -5,5 +5,5 @@ model: claude-opus-5-5
 effort: xhigh
 ---
 
-You build a milestone of Dam Good Maps. Read CLAUDE.md, EDITOR_PLAN.md where relevant, ROADMAP.md's step and
-PLAN.md §20 before anything else, and follow them. Work in your own branch; open a PR into dev; don't merge.
+You build a milestone of Dam Good Maps. Read CLAUDE.md, EDITOR_PLAN.md where relevant, ROADMAP.md's step, then
+docs/decisions/README.md, then docs/decisions/how-we-work.md, then only the topic files your task touches, before anything else, and follow them. Work in your own branch; open a PR into dev; don't merge.

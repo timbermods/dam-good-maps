@@ -1,0 +1,194 @@
+diff --git a/src/core/library/saver.ts b/src/core/library/saver.ts
+index 36fb69e1..f7b57c68 100644
+--- a/src/core/library/saver.ts
++++ b/src/core/library/saver.ts
+@@ -31,6 +31,7 @@ interface Pending {
+ export class YourMapsSaver {
+   private pending = new Map<string, Pending>();
+   private writing = new Map<string, Promise<void>>();
++  private epochs = new Map<string, number>();
+   private readonly delay: number;
+   private readonly setTimer: (fn: () => void, ms: number) => unknown;
+   private readonly clearTimer: (t: unknown) => void;
+@@ -52,9 +53,19 @@ export class YourMapsSaver {
+   }
+
+   /** Save now what is waiting (one map, or all). Nobody needs to await it. */
+-  flush(id?: string): Promise<void> {
+-    const ids = id === undefined ? [...this.pending.keys()] : this.pending.has(id) ? [id] : [];
+-    return Promise.all(ids.map((k) => this.run(k))).then(() => undefined);
++  async flush(id?: string): Promise<void> {
++    const ids = id === undefined ? [...new Set([...this.pending.keys(), ...this.writing.keys()])] : [id];
++    await Promise.all(ids.map((k) => this.run(k)));
++    if (id === undefined ? this.pending.size > 0 : this.pending.has(id)) await this.flush(id);
++  }
++
++  /** Cancel every queued save of a deleted map and wait for a write already in storage. */
++  async discard(id: string): Promise<void> {
++    const p = this.pending.get(id);
++    if (p) this.clearTimer(p.timer);
++    this.pending.delete(id);
++    this.epochs.set(id, (this.epochs.get(id) ?? 0) + 1);
++    await this.writing.get(id);
+   }
+
+   /** Whether a save is waiting or being written (for tests and the page's leave warning). */
+@@ -67,13 +78,20 @@ export class YourMapsSaver {
+     if (!p) return this.writing.get(id) ?? Promise.resolve();
+     this.clearTimer(p.timer);
+     this.pending.delete(id);
++    const epoch = this.epochs.get(id) ?? 0;
+     const before = this.writing.get(id) ?? Promise.resolve();
+     const w = before
+       .then(async () => {
+         let r: StoreResult;
+         try {
++          if ((this.epochs.get(id) ?? 0) !== epoch) return;
+           const s = await p.take();
+-          r = await this.store.put(withSize(withStoredName(s.entry, s.project), s.project), s.project);
++          if ((this.epochs.get(id) ?? 0) !== epoch) return;
++          if (s.entry.id !== id) throw new Error("snapshot belongs to another map");
++          r = await this.store.put(withSize(withStoredName(s.entry, s.project), s.project), s.project, s.entry.storageVersion ?? null);
++          if (r.ok && r.storageVersion) {
++            s.entry.storageVersion = r.storageVersion;
++          }
+         } catch {
+           r = { ok: false, reason: "unavailable" };
+         }
+diff --git a/src/core/library/yourMaps.ts b/src/core/library/yourMaps.ts
+index 9c9573d1..faa647f3 100644
+--- a/src/core/library/yourMaps.ts
++++ b/src/core/library/yourMaps.ts
+@@ -12,6 +12,8 @@ export const KEEP = 30;
+
+ export interface YourMapEntry {
+   id: string;
++  /** Storage commit token, independent of the worker revision (two tabs may share a revision). */
++  storageVersion?: string;
+   name: string;
+   /** Where the map came from (a generated map, a real place, an imported .timber). */
+   kind: "generated" | "place" | "import";
+@@ -71,7 +73,7 @@ export function withStoredName(entry: YourMapEntry, project: Uint8Array): YourMa
+
+ /** A save that could not be kept: storage is full (say so plainly), or there is no browser storage
+  *  at all (a private window, blocked site data). */
+-export type StoreResult = { ok: true } | { ok: false; reason: "full" | "unavailable" };
++export type StoreResult = { ok: true; storageVersion?: string } | { ok: false; reason: "full" | "unavailable" | "conflict" };
+
+ /** A removed map, held so the removal can be undone. */
+ export interface Removed {
+@@ -82,6 +84,7 @@ export interface Removed {
+ /** The words for a save that failed (D234 (5)). */
+ export function storeProblem(r: StoreResult): string | null {
+   if (r.ok) return null;
++  if (r.reason === "conflict") return "This map changed or was deleted in another tab. Your edits are still open here: download the project file to keep them before closing it.";
+   return r.reason === "full"
+     ? "Browser storage is full, so Your maps can't keep this map. Unstar some maps, or download them as project files."
+     : "This browser isn't keeping Your maps (private window or blocked site data). Download the project file to keep a map.";
+@@ -107,7 +110,7 @@ export interface YourMapsStore {
+   /** A map's project file, or null. */
+   project(id: string): Promise<Uint8Array | null>;
+   /** Keep a map (a new one, or a new version of one), then drop the oldest unstarred past `KEEP`. */
+-  put(entry: YourMapEntry, project: Uint8Array): Promise<StoreResult>;
++  put(entry: YourMapEntry, project: Uint8Array, expected?: string | null): Promise<StoreResult>;
+   rename(id: string, name: string): Promise<StoreResult>;
+   star(id: string, starred: boolean): Promise<StoreResult>;
+   /** The latest version was saved to Timberborn. */
+diff --git a/src/platform/yourMaps.ts b/src/platform/yourMaps.ts
+index e58246b1..b37ab3fe 100644
+--- a/src/platform/yourMaps.ts
++++ b/src/platform/yourMaps.ts
+@@ -9,6 +9,8 @@ import { byEdited, toDrop, withSize, type Removed, type StoreResult, type YourMa
+ export const YOUR_MAPS_DB = "dgm-your-maps";
+ const ENTRIES = "entries";
+ const PROJECTS = "projects";
++// Legacy entries receive a deterministic token on read; every new commit uses a fresh token.
++const tokenOf = (e: YourMapEntry): string => e.storageVersion ?? JSON.stringify(e);
+
+ function isQuota(e: unknown): boolean {
+   const name = (e as { name?: string } | null)?.name ?? "";
+@@ -52,18 +54,23 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
+         t.onerror = () => reject(t.error);
+         t.onabort = () => reject(t.error ?? new Error("storage aborted"));
+       });
+-      const out = await fn(t.objectStore(ENTRIES), t.objectStore(PROJECTS));
+-      await done;
+-      return out;
++      try {
++        const out = await fn(t.objectStore(ENTRIES), t.objectStore(PROJECTS));
++        await done;
++        return out;
++      } catch (e) {
++        try { t.abort(); } catch { /* already aborted or committed */ }
++        await done.catch(() => undefined);
++        throw e;
++      }
+     } finally {
+       db.close();
+     }
+   }
+
+-  async function write(fn: (entries: IDBObjectStore, projects: IDBObjectStore) => Promise<void>): Promise<StoreResult> {
++  async function write(fn: (entries: IDBObjectStore, projects: IDBObjectStore) => Promise<StoreResult | void>): Promise<StoreResult> {
+     try {
+-      await tx("readwrite", fn);
+-      return { ok: true };
++      return (await tx("readwrite", fn)) ?? { ok: true };
+     } catch (e) {
+       // a full disk aborts the transaction with a QuotaExceededError
+       return { ok: false, reason: isQuota(e) ? "full" : "unavailable" };
+@@ -75,6 +82,7 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
+       const e = (await request(entries.get(id))) as YourMapEntry | undefined;
+       if (!e) return;
+       change(e);
++      e.storageVersion = crypto.randomUUID();
+       await request(entries.put(e));
+     });
+   }
+@@ -111,21 +119,25 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
+             }
+           });
+         }
+-        return byEdited(all);
++        return byEdited(all.map((e) => ({ ...e, storageVersion: tokenOf(e) })));
+       } catch {
+         return [];
+       }
+     },
+     project: readProject,
+-    put(entry, project) {
++    put(entry, project, expected) {
+       return write(async (entries, projects) => {
+-        await request(entries.put({ ...withSize(entry, project), bytes: project.length }));
++        const current = (await request(entries.get(entry.id))) as YourMapEntry | undefined;
++        if (expected !== undefined && (current ? tokenOf(current) : null) !== expected) return { ok: false, reason: "conflict" };
++        const storageVersion = crypto.randomUUID();
++        await request(entries.put({ ...withSize(entry, project), bytes: project.length, storageVersion }));
+         await request(projects.put(project, entry.id));
+         const all = (await request(entries.getAll())) as YourMapEntry[];
+         for (const id of toDrop(all, entry.id)) {
+           await request(entries.delete(id));
+           await request(projects.delete(id));
+         }
++        return expected === undefined ? { ok: true } : { ok: true, storageVersion };
+       });
+     },
+     rename(id, name) {
+@@ -142,7 +154,7 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
+         const e = (await request(entries.get(id))) as YourMapEntry | undefined;
+         const p = (await request(projects.get(id))) as Uint8Array | undefined;
+         if (!e || !p) return;
+-        await request(entries.put({ ...e, id: c.id, name: c.name, createdAt: c.at, editedAt: c.at, starred: false, savedToTimberborn: null }));
++        await request(entries.put({ ...e, storageVersion: crypto.randomUUID(), id: c.id, name: c.name, createdAt: c.at, editedAt: c.at, starred: false, savedToTimberborn: null }));
+         await request(projects.put(p, c.id));
+       });
+     },
+@@ -162,7 +174,7 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
+     },
+     restore(r) {
+       return write(async (entries, projects) => {
+-        await request(entries.put(r.entry));
++        await request(entries.put({ ...r.entry, storageVersion: crypto.randomUUID() }));
+         await request(projects.put(r.project, r.entry.id));
+       });
+     },

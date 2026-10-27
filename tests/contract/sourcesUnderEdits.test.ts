@@ -1,6 +1,6 @@
 // Another feature's water or badwater source under an edit (decisions-pending #89, accepted by
 // Kyler in PLAN §20 D270 for the generator's feature operations and Claude's steps only). A planned
-// edit (a lake, a landform, a set piece, a move) that would reshape the ground under a source keeps
+// edit (a move of the start; before D182 also a lake, a landform or a set piece) that would reshape the ground under a source keeps
 // off it and says why (`objectsOnNewGround` in src/core/doc/tools.ts). The brushes, the Select tool
 // and the forces never meet that refusal: sources ride the ground under brushes and Select actions
 // (D249), and the forces sweep their path (D257).
@@ -28,7 +28,7 @@ describe("a badwater spring under the brushes and the Select tool (#89, D270)", 
     // to a level (what Select's Raise and Set level send)
     const cells: [number, number, number][] = [];
     for (let row = Math.max(0, y - 3); row <= Math.min(95, y + 5); row++) cells.push([row, Math.max(0, x - 3), Math.min(95, x + 5)]);
-    const raised = s.apply({ op: "sculpt", params: { mode: "raise", cells, amount: 1 } }, "user", "Raise 81 tiles by 1");
+    const raised = s.apply({ op: "sculpt", params: { mode: "raise", cells, amount: 1 } }, "user", "Raise 81 tiles");
     expect(raised.errors).toEqual([]);
     expect(raised.ok).toBe(true);
     const level = s.apply({ op: "sculpt", params: { mode: "flatten", cells, level: s.built.heights[y * 96 + x] } }, "user", "Set 81 tiles to a level");

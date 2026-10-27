@@ -13,7 +13,15 @@
 //   the default 0.75 finds every ruler-straight bank; a natural bank leaves the band within a few
 //   tiles;
 // - a canal: two straight runs facing each other across the water, parallel and overlapping (a
-//   channel with parallel sides); its length is their overlap.
+//   channel with parallel sides); its length is their overlap;
+// - a wave (the badwater line, investigation/theme-critique): a planned one-tile channel (a
+//   badwater ditch; `channels` names them, the generator from its features) whose course swings
+//   from side to side of one straight line in equal bends at equal spacing, four or more in a row,
+//   as a sine drawn on a ruler does and no gully does. The line is the stretch's own axis (least
+//   squares); its bends lie within 4 tiles of it and each leaves the line's own band of 0.75 by 1.2
+//   tiles or more; the deepest bend is at most 2.2 times the shallowest and the longest spacing at
+//   most 1.7 times the shortest. Rivers' own meanders are quasi-periodic too, so the water alone is
+//   not read for it: only the ditches' own lines, where it catches the drawn wave and nothing else.
 //
 // The generator refuses a map whose longest straight run or canal is longer than real terrain and
 // the official maps ever have (the thresholds come from `tools/straight-reference.ts`). Only
@@ -27,9 +35,34 @@
  *  longer one has a ruler-straight channel, and the generator plans it again (D209). */
 export const STRAIGHT_LIMITS = { run: 44, canal: 34.28 } as const;
 
-/** Whether a map's channels run straighter than real terrain and the official maps ever do. */
+/** Whether a map's channels run straighter than real terrain and the official maps ever do, or a
+ *  bank swings in a regular wave (a drawn line, whatever its length). */
 export function tooStraight(s: Straightness): boolean {
-  return (s.longest?.length ?? 0) > STRAIGHT_LIMITS.run || (s.canal?.length ?? 0) > STRAIGHT_LIMITS.canal;
+  return (s.longest?.length ?? 0) > STRAIGHT_LIMITS.run || (s.canal?.length ?? 0) > STRAIGHT_LIMITS.canal || s.wave !== null;
+}
+
+export interface Wave {
+  /** Along the line, from the first bend's peak to the last's. */
+  length: number;
+  /** The bends in a row that are regular. */
+  bends: number;
+  from: [number, number];
+  to: [number, number];
+}
+
+export interface WaveOptions {
+  /** The band's half-width about the line the bank swings about (4 tiles). */
+  band?: number;
+  /** The line's own band, which a bend must leave (0.75 tiles). */
+  core?: number;
+  /** A bend reaches at least this far from the line (1.2 tiles). */
+  minDepth?: number;
+  /** Bends in a row for a wave (4). */
+  minBends?: number;
+  /** The deepest bend over the shallowest, at most (2.2). */
+  depthRatio?: number;
+  /** The longest spacing of bends over the shortest, at most (1.7). */
+  spacingRatio?: number;
 }
 
 export interface StraightRun {
@@ -56,6 +89,8 @@ export interface Straightness {
   canal: Canal | null;
   /** Every straight run of `minRun` tiles or more. */
   runs: StraightRun[];
+  /** The longest regular wave along any of the `channels` given (null: none, or none given). */
+  wave: Wave | null;
 }
 
 export interface StraightOptions {
@@ -75,6 +110,9 @@ export interface StraightOptions {
   /** Only the banks of channels count: water narrower than this many tiles (9). Wider water (a lake, a
    *  sea) has shores, not banks; 0 counts every shore. */
   channelWidth?: number;
+  /** Planned one-tile channels (the badwater ditches), each as its tiles' centres in order, read for
+   *  a regular wave. */
+  channels?: readonly (readonly (readonly [number, number])[])[];
 }
 
 import * as portable from "../math/portable";
@@ -194,6 +232,141 @@ function runEnd(pts: readonly Pt[], i: number, tau: number, cap: number): number
   return end;
 }
 
+/** The axis of a run of points (least squares): its middle and unit direction. */
+function axisOf(pts: readonly Pt[], i: number, e: number): { mx: number; my: number; ux: number; uy: number } {
+  let mx = 0;
+  let my = 0;
+  const n = e - i + 1;
+  for (let k = i; k <= e; k++) {
+    mx += pts[k][0];
+    my += pts[k][1];
+  }
+  mx /= n;
+  my /= n;
+  let sxx = 0;
+  let sxy = 0;
+  let syy = 0;
+  for (let k = i; k <= e; k++) {
+    const dx = pts[k][0] - mx;
+    const dy = pts[k][1] - my;
+    sxx += dx * dx;
+    sxy += dx * dy;
+    syy += dy * dy;
+  }
+  let ux: number;
+  let uy: number;
+  if (sxy === 0) {
+    ux = sxx >= syy ? 1 : 0;
+    uy = sxx >= syy ? 0 : 1;
+  } else {
+    const half = (sxx - syy) / 2;
+    const l1 = (sxx + syy) / 2 + portable.sqrt(half * half + sxy * sxy);
+    ux = sxy;
+    uy = l1 - sxx;
+    const l = portable.sqrt(ux * ux + uy * uy);
+    ux /= l;
+    uy /= l;
+  }
+  return { mx, my, ux, uy };
+}
+
+/** The longest regular wave along a polyline (a bank's corners, or a channel's tile centres):
+ *  `minBends` or more bends in a row, side to side of one straight line (the stretch's own axis),
+ *  equally deep and equally spaced within the ratios. Exact arithmetic (square roots only). */
+export function regularWave(pts: readonly Pt[], o: WaveOptions = {}): Wave | null {
+  const band = o.band ?? 4;
+  const core = o.core ?? 0.75;
+  const minDepth = o.minDepth ?? 1.2;
+  const minBends = o.minBends ?? 4;
+  const depthRatio = o.depthRatio ?? 2.2;
+  const spacingRatio = o.spacingRatio ?? 1.7;
+  let best: Wave | null = null;
+  let lastEnd = -1;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    // a stretch some line lies within `band` of: the line through its first point lies within twice
+    // that of every point; then the stretch's own axis, cut where a point leaves the band
+    let e = runEnd(pts, i, 2 * band, 240);
+    if (e <= lastEnd || e - i < 2 * minBends) continue;
+    lastEnd = e;
+    let { mx, my, ux, uy } = axisOf(pts, i, e);
+    for (let k = i; k <= e; k++) {
+      const d = ux * (pts[k][1] - my) - uy * (pts[k][0] - mx);
+      if (d > band || d < -band) {
+        e = k - 1;
+        ({ mx, my, ux, uy } = axisOf(pts, i, e));
+        break;
+      }
+    }
+    if (e - i < 2 * minBends) continue;
+    const ax = mx;
+    const ay = my;
+    // the bends: each time the bank leaves the line's band on the other side, a new bend begins;
+    // its depth is the furthest it gets, its place the middle of where it gets within half a tile
+    // of that (a bend with a flat top is placed at the top's middle, not its first corner)
+    const ts = new Float64Array(e - i + 1);
+    const ds = new Float64Array(e - i + 1);
+    for (let k = i; k <= e; k++) {
+      const wx = pts[k][0] - ax;
+      const wy = pts[k][1] - ay;
+      ts[k - i] = wx * ux + wy * uy;
+      ds[k - i] = ux * wy - uy * wx;
+    }
+    const spans: { sign: number; depth: number; k0: number; k1: number }[] = [];
+    for (let k = 0; k < ts.length; k++) {
+      const d = ds[k];
+      const sign = d > core ? 1 : d < -core ? -1 : 0;
+      if (sign === 0) continue;
+      const last = spans[spans.length - 1];
+      if (!last || last.sign !== sign) spans.push({ sign, depth: Math.abs(d), k0: k, k1: k });
+      else {
+        last.k1 = k;
+        if (Math.abs(d) > last.depth) last.depth = Math.abs(d);
+      }
+    }
+    const bends = spans.map((sp) => {
+      let sum = 0;
+      let c = 0;
+      for (let k = sp.k0; k <= sp.k1; k++) {
+        if (Math.abs(ds[k]) < sp.depth - 0.5) continue;
+        sum += ts[k];
+        c++;
+      }
+      return { sign: sp.sign, depth: sp.depth, t: sum / c };
+    });
+    // the longest run of bends, deep enough, regular within every window of `minBends`
+    const regular = (a: number, b: number): boolean => {
+      let dLo = Infinity;
+      let dHi = 0;
+      let sLo = Infinity;
+      let sHi = 0;
+      for (let k = a; k <= b; k++) {
+        const bd = bends[k];
+        if (bd.depth < minDepth) return false;
+        dLo = Math.min(dLo, bd.depth);
+        dHi = Math.max(dHi, bd.depth);
+        if (k > a) {
+          const sp = bd.t - bends[k - 1].t;
+          sLo = Math.min(sLo, sp);
+          sHi = Math.max(sHi, sp);
+        }
+      }
+      return dHi <= depthRatio * dLo && sHi <= spacingRatio * sLo;
+    };
+    for (let a = 0; a + minBends <= bends.length; a++) {
+      if (!regular(a, a + minBends - 1)) continue;
+      let b = a + minBends - 1;
+      while (b + 1 < bends.length && regular(b + 2 - minBends, b + 1)) b++;
+      const length = bends[b].t - bends[a].t;
+      if (!best || length > best.length) {
+        const at = (t: number): [number, number] => [Math.round((ax + ux * t) * 100) / 100, Math.round((ay + uy * t) * 100) / 100];
+        best = { length: Math.round(length * 100) / 100, bends: b - a + 1, from: at(bends[a].t), to: at(bends[b].t) };
+      }
+      a = b;
+    }
+  }
+  return best;
+}
+
 export function straightness(W: number, H: number, depth: ArrayLike<number>, opts: StraightOptions = {}): Straightness {
   const wet = opts.wet ?? 0.1;
   const tau = opts.tau ?? 0.75;
@@ -211,6 +384,11 @@ export function straightness(W: number, H: number, depth: ArrayLike<number>, opt
   const chains = bankContours(W, H, isWet, counts);
   let longest: StraightRun | null = null;
   const runs: StraightRun[] = [];
+  let wave: Wave | null = null;
+  for (const pts of opts.channels ?? []) {
+    const w = regularWave(pts as readonly Pt[]);
+    if (w && (!wave || w.length > wave.length)) wave = w;
+  }
   for (const pts of chains) {
     let lastEnd = -1;
     for (let i = 0; i + 1 < pts.length; i++) {
@@ -224,7 +402,7 @@ export function straightness(W: number, H: number, depth: ArrayLike<number>, opt
       }
     }
   }
-  return { longest, canal: canalOf(runs, depth, W, H, wet, opts.maxCanalWidth ?? 14), runs };
+  return { longest, canal: canalOf(runs, depth, W, H, wet, opts.maxCanalWidth ?? 14), runs, wave };
 }
 
 /** Water within `r` tiles of a disc of radius `r` that is all water (a morphological opening):

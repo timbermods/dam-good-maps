@@ -5,8 +5,10 @@
 
 import { describe, expect, it } from "vitest";
 import { encodeProject, generatedDocument } from "../../src/core/doc/document";
+import { MapSession } from "../../src/core/doc/session";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { generate, type GenerateResult } from "../../src/core/gen/generate";
+import { generatedThemeOf } from "../../src/core/gen/pack";
 import { firstVisitProblems, pickFirstVisit, reopensAs, type FirstVisitIndex } from "../../src/core/library/firstVisit";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { thumbnailPixels } from "../../src/core/render/thumb";
@@ -33,11 +35,14 @@ describe("picking a first-visit map", () => {
 describe("the deploy's checks on a first-visit map", () => {
   // (seed 5 on M9b's maps, D148: canyon seeds 1, 3, 4, 9 and 10 miss one of the three outcomes there; 5 meets them all, and 2, the map it must not reopen as, is another)
   const r = generate(makeSpec({ seed: 5, theme: "canyon", size: { x: 96, y: 96 } }));
-  const project = encodeProject(generatedDocument(r));
+  // (the project file as the tool writes it: with the map stored, so it opens without rebuilding, D367)
+  const project = MapSession.fromGenerated(r).project();
 
-  it("a map that passes them all, and reopens as itself from its project file", () => {
+  it("a map that passes them all, and reopens as itself from its project file, from its stored map", () => {
     expect(firstVisitProblems(r)).toEqual([]);
     expect(reopensAs(r, project).same).toBe(true);
+    // a project without its stored map would open by rebuilding: not a first-visit map
+    expect(reopensAs(r, encodeProject(generatedDocument(r))).same).toBe(false);
   });
 
   it("turns a map away when its own checks fail", () => {
@@ -59,9 +64,33 @@ describe("the deploy's checks on a first-visit map", () => {
     expect(firstVisitProblems(missed)).toEqual(["it misses one of the three outcomes"]);
   });
 
+  it("judges the file under its own theme's thresholds: an Islands sea over 35% of the map is no flood, as a first-visit file and opened again as an import (D369)", () => {
+    // (seed 2 at 96²: 60% sea, and quick to make)
+    const isl = generate(makeSpec({ seed: 2, theme: "islands", size: { x: 96, y: 96 } }));
+    const flood = isl.report.checks.find((c) => c.id === "water.no_flood");
+    // (the sea is more than the other themes' 0.35 cap, and within Islands' 0.70)
+    expect(flood?.ok).toBe(true);
+    expect(Number(/(\d+)%/.exec(flood?.message ?? "")?.[1])).toBeGreaterThan(35);
+    expect(firstVisitProblems(isl).join("; ")).not.toMatch(/water\.no_flood/);
+    // the player's path: the exported file opened in the editor, with no spec, reads its theme from its description
+    expect(generatedThemeOf(String(readTimber(isl.bytes).metadata?.MapDescription))).toBe("islands");
+    const opened = MapSession.importMap(isl.bytes, "dgm-islands-2.timber").validate().report.checks.find((c) => c.id === "water.no_flood");
+    expect(opened?.ok).toBe(true);
+    expect(opened?.limit).toBe(0.7);
+  });
+
+  it("reads a theme only from a description Dam Good Maps wrote", () => {
+    expect(generatedThemeOf("Lake Basin, 128×128, designed for hard. Its land … Made with Dam Good Maps 0.8.9, seed 7.")).toBe("lakeBasin");
+    expect(generatedThemeOf("A map, 96×96, designed for normal. Made with Dam Good Maps 0.8.9, seed 3.")).toBe("any");
+    // (an official map, a real place, or the theme's line edited away: none)
+    expect(generatedThemeOf("Islands, 128×128, designed for normal. A map of my own.")).toBe(null);
+    expect(generatedThemeOf("Made with Dam Good Maps from public elevation data: somewhere.")).toBe(null);
+    expect(generatedThemeOf("My islands. Made with Dam Good Maps 0.8.9, seed 3.")).toBe(null);
+  });
+
   it("turns a map away when its project file reopens as another map", () => {
     const other = generate(makeSpec({ seed: 2, theme: "canyon", size: { x: 96, y: 96 } }));
-    expect(reopensAs(r, encodeProject(generatedDocument(other))).same).toBe(false);
+    expect(reopensAs(r, MapSession.fromGenerated(other).project()).same).toBe(false);
   });
 });
 

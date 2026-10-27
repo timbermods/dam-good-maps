@@ -1,0 +1,268 @@
+diff --git a/rust/water/src/sim.rs b/rust/water/src/sim.rs
+index 38af584d..c6969686 100644
+--- a/rust/water/src/sim.rs
++++ b/rust/water/src/sim.rs
+@@ -73,8 +73,10 @@ pub struct Sim {
+     /// (`read_params`): its cells and whether it is a seep never change.
+     pub params: Vec<f64>,
+     wall: Vec<u8>,
+-    nb: [Vec<u32>; 4],
+-    f: Vec<f64>,
++    // Directions stay N/W/S/E, but one tile's four neighbours share a cache line.
++    nb: Vec<[u32; 4]>,
++    // A checked tile access proves all four direction accesses are in bounds.
++    f: Vec<[f64; 4]>,
+     cnew: Vec<f64>,
+     modv: Vec<f64>,
+     evap: [f64; 9],
+@@ -149,21 +151,21 @@ impl Sim {
+         if let Some(src) = contamination {
+             c.copy_from_slice(&src[..n]);
+         }
+-        let mut nb = [vec![NONE; n], vec![NONE; n], vec![NONE; n], vec![NONE; n]];
++        let mut nb = vec![[NONE; 4]; n];
+         for i in 0..n {
+             let x = i % w;
+             let y = (i - x) / w;
+             if y > 0 {
+-                nb[0][i] = (i - w) as u32;
++                nb[i][0] = (i - w) as u32;
+             }
+             if x > 0 {
+-                nb[1][i] = (i - 1) as u32;
++                nb[i][1] = (i - 1) as u32;
+             }
+             if y < h - 1 {
+-                nb[2][i] = (i + w) as u32;
++                nb[i][2] = (i + w) as u32;
+             }
+             if x < w - 1 {
+-                nb[3][i] = (i + 1) as u32;
++                nb[i][3] = (i + 1) as u32;
+             }
+         }
+         let mut evap = [0.0; 9];
+@@ -220,7 +222,7 @@ impl Sim {
+             params,
+             wall,
+             nb,
+-            f: vec![0.0; 4 * n],
++            f: vec![[0.0; 4]; n],
+             cnew: vec![0.0; n],
+             modv: vec![1.0; n],
+             evap,
+@@ -349,7 +351,7 @@ impl Sim {
+     fn mark_active(&mut self, i: usize, delta: i32) {
+         self.ref_active(i, delta);
+         for k in 0..4 {
+-            let nb = self.nb[k][i];
++            let nb = self.nb[i][k];
+             if nb != NONE {
+                 self.ref_active(nb as usize, delta);
+             }
+@@ -454,11 +456,7 @@ impl Sim {
+             if self.d[c] > 0.0 {
+                 continue;
+             }
+-            let b = 4 * c;
+-            self.f[b] = 0.0;
+-            self.f[b + 1] = 0.0;
+-            self.f[b + 2] = 0.0;
+-            self.f[b + 3] = 0.0;
++            self.f[c] = [0.0; 4];
+         }
+
+         // 1. outflows of every wet tile, from the start-of-substep state
+@@ -469,58 +467,46 @@ impl Sim {
+             let hc = fc + dc;
+             let b = 4 * c;
+             let wc = self.wall[c];
+-            let f0 = self.outflow(c, self.nb[0][c], wc & 1 != 0, fc, hc, self.out[b]);
+-            self.f[b] = f0;
+-            let f1 = self.outflow(c, self.nb[1][c], wc & 2 != 0, fc, hc, self.out[b + 1]);
+-            self.f[b + 1] = f1;
+-            let f2 = self.outflow(c, self.nb[2][c], wc & 4 != 0, fc, hc, self.out[b + 2]);
+-            self.f[b + 2] = f2;
+-            let f3 = self.outflow(c, self.nb[3][c], wc & 8 != 0, fc, hc, self.out[b + 3]);
+-            self.f[b + 3] = f3;
+-            // a tile never gives more than it has
+-            let s = self.f[b] + self.f[b + 1] + self.f[b + 2] + self.f[b + 3];
++            let nb = self.nb[c];
++            let out = &self.out[b..b + 4];
++            let f0 = self.outflow(c, nb[0], wc & 1 != 0, fc, hc, out[0]);
++            let f1 = self.outflow(c, nb[1], wc & 2 != 0, fc, hc, out[1]);
++            let f2 = self.outflow(c, nb[2], wc & 4 != 0, fc, hc, out[2]);
++            let f3 = self.outflow(c, nb[3], wc & 8 != 0, fc, hc, out[3]);
++            let mut flows = [f0, f1, f2, f3];
++            // The reduction is still left-to-right, never a SIMD horizontal sum.
++            let s = f0 + f1 + f2 + f3;
+             if game {
+                 let sd = s * DT;
+                 if s > 0.0 && dc < sd {
+                     let r = dc / sd;
+-                    self.f[b] *= r;
+-                    self.f[b + 1] *= r;
+-                    self.f[b + 2] *= r;
+-                    self.f[b + 3] *= r;
++                    for f in &mut flows { *f *= r; }
+                 }
+             } else if s * DT > dc {
+                 let r = dc / max(s * DT, 1e-12);
+-                self.f[b] *= r;
+-                self.f[b + 1] *= r;
+-                self.f[b + 2] *= r;
+-                self.f[b + 3] *= r;
++                for f in &mut flows { *f *= r; }
+             }
++            self.f[c] = flows;
+         }
+
+         // 2. depth, contamination and stored momentum of every active tile
+         for a in 0..self.active_count {
+             let c = self.active[a] as usize;
+             let b = 4 * c;
+-            let (n0, n1, n2, n3) = (self.nb[0][c], self.nb[1][c], self.nb[2][c], self.nb[3][c]);
+-            let in0 = if n0 != NONE { self.f[4 * n0 as usize + 2] } else { 0.0 };
+-            let in1 = if n1 != NONE { self.f[4 * n1 as usize + 3] } else { 0.0 };
+-            let in2 = if n2 != NONE { self.f[4 * n2 as usize] } else { 0.0 };
+-            let in3 = if n3 != NONE { self.f[4 * n3 as usize + 1] } else { 0.0 };
++            let [n0, n1, n2, n3] = self.nb[c];
++            let in0 = if n0 != NONE { self.f[n0 as usize][2] } else { 0.0 };
++            let in1 = if n1 != NONE { self.f[n1 as usize][3] } else { 0.0 };
++            let in2 = if n2 != NONE { self.f[n2 as usize][0] } else { 0.0 };
++            let in3 = if n3 != NONE { self.f[n3 as usize][1] } else { 0.0 };
+             // a dry tile that receives nothing stays dry
+             if self.d[c] == 0.0 && in0 == 0.0 && in1 == 0.0 && in2 == 0.0 && in3 == 0.0 {
+                 self.dold[c] = self.d[c]; // keeps the zero's sign
+-                self.out[b] = 0.0;
+-                self.out[b + 1] = 0.0;
+-                self.out[b + 2] = 0.0;
+-                self.out[b + 3] = 0.0;
++                self.out[b..b + 4].fill(0.0);
+                 self.cnew[c] = 0.0;
+                 self.d[c] = 0.0;
+                 continue;
+             }
+-            let f0 = self.f[b];
+-            let f1 = self.f[b + 1];
+-            let f2 = self.f[b + 2];
+-            let f3 = self.f[b + 3];
++            let [f0, f1, f2, f3] = self.f[c];
+             let outsum = f0 + f1 + f2 + f3;
+             let insum = in0 + in1 + in2 + in3;
+             let c0 = if n0 != NONE { self.c[n0 as usize] } else { 0.0 };
+@@ -531,10 +517,12 @@ impl Sim {
+             let dc = self.d[c];
+             let rem0 = dc - outsum * DT;
+             let remaining = if rem0 > 0.0 { rem0 } else { 0.0 };
+-            self.out[b] = max(0.0, f0 - BAL * in0);
+-            self.out[b + 1] = max(0.0, f1 - BAL * in1);
+-            self.out[b + 2] = max(0.0, f2 - BAL * in2);
+-            self.out[b + 3] = max(0.0, f3 - BAL * in3);
++            self.out[b..b + 4].copy_from_slice(&[
++                max(0.0, f0 - BAL * in0),
++                max(0.0, f1 - BAL * in1),
++                max(0.0, f2 - BAL * in2),
++                max(0.0, f3 - BAL * in3),
++            ]);
+             self.dold[c] = dc;
+             let mut net = insum - outsum;
+             if game || dc > 0.0 {
+@@ -640,15 +628,17 @@ impl Sim {
+             self.count_wet(c, if wet == 1 { 1 } else { -1 });
+             self.mark_dirty(c);
+             if wet == 0 {
+-                let b = 4 * c;
+-                self.f[b] = 0.0;
+-                self.f[b + 1] = 0.0;
+-                self.f[b + 2] = 0.0;
+-                self.f[b + 3] = 0.0;
++                self.f[c] = [0.0; 4];
+             }
+             self.turned[n_turned] = c as u32;
+             n_turned += 1;
+         }
++        // If occupancy did not change, the active and wet memberships are already exact.
++        // Depth/contamination/momentum were copied by the caller before this call;
++        // their magnitudes cannot invalidate the occupancy-only bookkeeping.
++        if n_turned == 0 {
++            return;
++        }
+         for k in 0..n_turned {
+             let c = self.turned[k] as usize;
+             let delta = if self.wet_mask[c] == 1 { 1 } else { -1 };
+@@ -721,8 +711,8 @@ impl Sim {
+             }
+             want[i] = 1;
+             for k in 0..4 {
+-                if self.nb[k][i] != NONE {
+-                    want[self.nb[k][i] as usize] = 1;
++                if self.nb[i][k] != NONE {
++                    want[self.nb[i][k] as usize] = 1;
+                 }
+             }
+         }
+diff --git a/tools/rust/build.ts b/tools/rust/build.ts
+index 9e3ef425..940b3182 100644
+--- a/tools/rust/build.ts
++++ b/tools/rust/build.ts
+@@ -45,7 +45,7 @@ for (const { pkg, lib, out, name } of EMBEDS) {
+   execFileSync("cargo", ["build", "--release", "-j", JOBS, "-p", pkg, "--lib", "--target", "wasm32-unknown-unknown", "--target-dir", "target/embed"], {
+     cwd: RUST,
+     stdio: ["ignore", "inherit", "inherit"],
+-    env: { ...process.env, CARGO_ENCODED_RUSTFLAGS: remaps.join("\x1f") },
++    env: { ...process.env, CARGO_ENCODED_RUSTFLAGS: [...remaps, ...(pkg === "water" ? ["-C", "target-feature=+simd128,-relaxed-simd"] : [])].join("\x1f") },
+     windowsHide: true,
+   });
+   const wasm = readFileSync(join(RUST, `target/embed/wasm32-unknown-unknown/release/${lib}.wasm`));
+diff --git a/rust/water/tests/water_speed.rs b/rust/water/tests/water_speed.rs
+new file mode 100644
+--- /dev/null
++++ b/rust/water/tests/water_speed.rs
+@@ -0,0 +1,46 @@
++//! Regression for the occupancy-only sync shortcut, including signed zero and later substeps.
++use water::sim::{Emitter, Model, Rules, Sim};
++
++fn bits(a: &[f64]) -> Vec<u64> { a.iter().map(|v| v.to_bits()).collect() }
++
++#[test]
++fn synchronized_rows_match_bookkeeping_rebuilt_from_the_same_water() {
++    let (w, h) = (9, 11);
++    let n = w * h;
++    let model = Model {
++        w, h, floor: (0..n).map(|i| (i % 4) as f64).collect(),
++        dam: Some((0..n).map(|i| if i % 13 == 0 { 0.65 } else { -1.0 }).collect()),
++        emitters: vec![Emitter { cells: vec![0, (4 * w + 3) as u32], strength: 1.5, contamination: 0.3, limit: None }],
++    };
++    for rules in [Rules { game: true, edge_spill: true }, Rules { game: false, edge_spill: false }] {
++        let d: Vec<f64> = (0..n).map(|i| if i % 3 == 0 { -0.0 } else { 0.1 + (i % 7) as f64 }).collect();
++        let c: Vec<f64> = (0..n).map(|i| (i % 5) as f64 / 5.0).collect();
++        let mut sim = Sim::new(model.clone(), Some(&d), Some(&c), rules);
++        sim.run(5, 1.0);
++        for change_occupancy in [false, true] {
++            for i in 2 * w..6 * w {
++                sim.d[i] = if change_occupancy && i % 2 == 0 { -0.0 }
++                    else if change_occupancy { 0.75 }
++                    else if sim.d[i] > 0.0 { sim.d[i] * 0.75 } else { sim.d[i] };
++                sim.c[i] = 0.625;
++                sim.dold[i] = sim.d[i] + 0.25;
++                sim.out[4 * i..4 * i + 4].copy_from_slice(&[0.125, 0.25, 0.375, 0.5]);
++            }
++            sim.sync_rows(2, 6);
++            assert_eq!(sim.books_check(), 0);
++            let mut rebuilt = Sim::new(model.clone(), Some(&sim.d), Some(&sim.c), rules);
++            rebuilt.out.copy_from_slice(&sim.out);
++            rebuilt.dold.copy_from_slice(&sim.dold);
++            rebuilt.ticks = sim.ticks;
++            for _ in 0..8 {
++                sim.run(1, 0.35); rebuilt.run(1, 0.35);
++                assert_eq!(bits(&sim.d), bits(&rebuilt.d));
++                assert_eq!(bits(&sim.c), bits(&rebuilt.c));
++                assert_eq!(bits(&sim.out), bits(&rebuilt.out));
++                assert_eq!(bits(&sim.dold), bits(&rebuilt.dold));
++                assert_eq!(sim.saturation(), rebuilt.saturation());
++                assert_eq!(sim.books_check(), 0);
++            }
++        }
++    }
++}

@@ -11,7 +11,7 @@ import { strFromU8, unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { planContextOf, planLake } from "../../src/core/doc/tools";
+import { entityProblem, planEntity, type PlannedOps } from "../../src/core/doc/placing";
 import { isObject, num, type JsonObject } from "../../src/core/format/json";
 import { ImportError, normalizeImport } from "../../src/core/format/normalize";
 import { readTimber } from "../../src/core/format/timber";
@@ -144,7 +144,7 @@ describe("import of the investigation maps (local only)", () => {
     expect(Buffer.from(reopened.exportTimber().bytes).equals(Buffer.from(s.exportTimber().bytes))).toBe(true);
   });
 
-  it.skipIf(!named("Canyon.timber"))("an edited map with water under roofs keeps the file's water there, every slot, and settles the rest (M8, D100)", () => {
+  it.skipIf(!named("Canyon.timber"))("an edited map with water under roofs has it simulated there too, every slot written from the settle (D120, D280; D100's exception is retired)", () => {
     const s = MapSession.importMap(new Uint8Array(readFileSync(named("Canyon.timber")!)), "Canyon.timber");
     s.setPreviewWater(true);
     const roofed = s.roofedTiles;
@@ -155,34 +155,49 @@ describe("import of the investigation maps (local only)", () => {
       return { levels: num(wm.Levels), t: String((wm[key] as JsonObject).Array).split(" "), plane: w.sizeX * w.sizeY };
     };
     const before = tokens(s.exportTimber().bytes, "WaterColumns");
-    const outBefore = tokens(s.exportTimber().bytes, "ColumnOutflows");
-    // a lake on dry ground, away from the caves
+    // a water source on dry ground, away from the caves
     const W = s.size.x;
-    let plan: ReturnType<typeof planLake> | null = null;
+    let plan: PlannedOps | null = null;
+    let at = -1;
     for (let y = 20; y < W - 20 && !plan?.ok; y += 7)
       for (let x = 20; x < W - 20 && !plan?.ok; x += 7) {
         let clear = true;
         for (let dy = -9; dy <= 9 && clear; dy++) for (let dx = -9; dx <= 9; dx++) if (roofed.has((y + dy) * W + x + dx)) clear = false;
-        if (!clear) continue;
-        const p = planLake({ outline: [[x - 3.5, y - 3.5], [x + 3.5, y - 3.5], [x + 3.5, y + 3.5], [x - 3.5, y + 3.5]] }, planContextOf(s), "7a1b2c3d-4444-4222-8333-444455556666");
-        if (p.ok) plan = p;
+        if (!clear || s.built.water[y * W + x] > 0) continue;
+        const req = { template: "WaterSource", x, y, orientation: "Cw0" as const, components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } };
+        if (entityProblem(s, req, null, { level: true })) continue;
+        const p = planEntity(s, req, "7a1b2c3d-4444-4222-8333-444455556666");
+        if (p.ok) {
+          plan = p;
+          at = y * W + x;
+        }
       }
     expect(plan?.ok).toBe(true);
     if (!plan?.ok) return;
     expect(s.applyAll(plan.ops, "user", plan.label).ok).toBe(true);
     const bytes = s.exportTimber().bytes;
     const after = tokens(bytes, "WaterColumns");
-    const outAfter = tokens(bytes, "ColumnOutflows");
     expect(after.levels).toBe(before.levels);
-    for (const i of roofed)
-      for (let k = 0; k < after.levels; k++) {
-        expect(after.t[k * after.plane + i]).toBe(before.t[k * before.plane + i]);
-        expect(outAfter.t[k * outAfter.plane + i]).toBe(outBefore.t[k * outBefore.plane + i]);
-      }
-    // the new lake has settled water in the file
-    const lakeTile = plan.tiles[Math.floor(plan.tiles.length / 2)];
-    expect(after.t[lakeTile]).not.toBe("0");
-    expect(Number(after.t[lakeTile].split(":")[0])).toBeGreaterThan(0.3);
+    expect(s.built.waterModel.stacked).toBeTruthy();
+    expect(s.built.settle.stack?.L).toBe(after.levels);
+    // under the roofs the water is the settle's own now, and it is still there: about as many wet
+    // columns as the file had (the game's water on this map at rest), every slot counted
+    const wet = (t: { levels: number; t: string[]; plane: number }) => {
+      let n = 0;
+      for (const i of roofed) for (let k = 0; k < t.levels; k++) if (Number(t.t[k * t.plane + i].split(":")[0]) > 0.05) n++;
+      return n;
+    };
+    expect(wet(before)).toBeGreaterThan(100);
+    expect(Math.abs(wet(after) - wet(before))).toBeLessThan(0.05 * wet(before));
+    // a lower slot is written from the settle (the writer's token: its depth twice)
+    const lower = [...roofed].map((i) => after.t[i]).filter((t) => t !== "0");
+    expect(lower.length).toBeGreaterThan(0);
+    for (const t of lower) expect(t.split(":")[0]).toBe(t.split(":")[4]);
+    // the new source's water is settled in the file
+    expect(after.t[at]).not.toBe("0");
+    // and the project file brings back the same map
+    const reopened = MapSession.open(decodeProject(s.project()));
+    expect(Buffer.from(reopened.exportTimber().bytes).equals(Buffer.from(bytes))).toBe(true);
   });
 
   it.skipIf(saves.length === 0)("saves are refused with a message", () => {

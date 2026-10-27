@@ -1,113 +1,100 @@
-# Chat handoff: how Kyler and his planning chat work
+# Planning handoff: the planning session
 
-Written 2026-10-02 for a new planning chat in claude.ai. Read this first, then `docs/PERFECT.md` (the yardstick),
-`docs/STATUS.md` (what's in flight and what waits for Kyler), `EDITOR_PLAN.md`, `PLAN.md` §20 (the decisions in force) and
-`docs/HANDOFF.md`, all from github.com/timbermods/dam-good-maps (public). The previous versions are in
-`docs/archive/chats/` (the last, 2026-10-02, is the one before the document prune). Past planning chats are searchable: use
-them for detail on any decision.
+Rewritten 2026-10-14, when a Claude Code session on the dedicated machine replaced the claude.ai planning chat. Read this
+first, then `docs/STATUS.md` and `docs/HANDOFF.md` (tops), `AGENTS.md`, `CLAUDE.md`, `docs/RULES.md`'s "Coordination", `docs/PERFECT.md`,
+`docs/decisions/README.md` and `docs/COLLAB-BRIEF.md`, then #236 from the last few days. The previous versions are in
+`docs/archive/chats/` (the last, 2026-10-14, is the claude.ai chat's).
 
 ## Roles
 
-- **Kyler** (he/him) decides everything; his eye is the final judge. A one-person passion project with no launch date:
-  realising his vision matters more than speed.
-- **The planning chat** (claude.ai) is his advisor and reviewer. It reads the repo, branches, PRs and captures itself, gives
-  brutally honest and specific feedback, and writes the exact prompts he sends elsewhere.
-- **Three Claude Code sessions** work at once: the milestone session, the page session and the renderer session. The renderer
-  session shares `src/worker/session.ts`, `src/editor/waterPlayer.ts` and `src/editor/waterJourney.ts` with the milestone
-  session (HANDOFF §2's rule applies: small changes there, Kyler told before large ones). `Editor.tsx` and its split files
-  are the page session's alone.
-- **The milestone session** (Claude Code, Opus 5.5, high; the main clone `C:\Users\krams\code\DamGoodMaps`) is the only
-  session that changes `dev`, merges and releases. It
-  does everything except the page: the core, the water, the generator, the editor-core items, the Codex adoptions and the
-  documents. It orchestrates sub-agents, records Kyler's decisions in PLAN §20, and logs one line per event on the Progress
-  log issue (#57). It runs on the dedicated machine (`docs/HANDOFF.md`, "The machine").
-- **The page session** (Claude Code, Fable 5.1, high; D388) does only "The page is the editor" and its design (D384), in its
-  own worktree `C:\Users\krams\code\DamGoodMaps-page` and branch `feature/page`, started fresh from `dev` (D395), with Kyler's sittings at each checkpoint. The
-  `/preview/` slot is its while it works (D396). It builds the first-visit map picker and parallel loading; the milestone
-  session builds the startup service worker (D397). Neither session touches the other's
-  files; the page session records its decisions in its own `DESIGN.md` and `docs/progress/page.md`.
-- **The renderer session** (Claude Code, Opus 5.5, high, on Kyler's PC; D398) works on its own branches off `dev`. Moving
-  water, the Flow view and renderer R1 are merged (#165, D446). Its current work: the quick-click PR (post-release items 1
-  and 2), then D371 and D374, playback only. The milestone session
-  merges each PR when CI is green (D453).
-- **Codex** builds prototypes and audits on its own `investigation/<name>` branches. The milestone session merges them into
-  `dev` as investigations, and adopts them on Kyler's yes.
-  On Kyler's PC, Codex works only in its own clone, never in the renderer session's checkout.
+- **Kyler** (he/him) owns the project. Since 2026-10-14 he is done testing and giving feedback (D484): Claude completes the
+  whole order without him, deciding against his recorded decisions. He talks to the planning session, rarely. A
+  one-person passion project with no launch date: realising his vision matters more than speed.
+- **The planning session** (Claude Code, Opus 5.5, high; the dedicated machine, worktree
+  `C:\Users\krams\code\DamGoodMaps-planning`, detached at `origin/dev`) coordinates. It never edits the main clone or
+  another session's worktree; merges go through `gh`. Its job:
+  1. **Keep dev healthy.** Each session merges its own PRs once a fresh reviewer agent has approved them and their quick
+     checks are green (D489, D490). The planning session watches dev's post-merge runs (the browser specs
+     and the suites) and the nightly, and sends each failure to whoever's merge broke it, at once, or reverts that merge
+     if it can't be fixed quickly. It merges a "ready to merge" a session can't merge itself (forces play's permission
+     check). No full run by hand except for a release.
+  2. **Filter design questions.** A session posts one on #236. If Kyler's recorded decisions (`docs/decisions`,
+     `docs/design`, PERFECT, UI-BRIEF, COLLAB-BRIEF) settle it, answer on #236 citing the decision. If not: one
+     `needs-kyler` issue (2–4 options, a capture or mockup, the recommended default), at most one batch a day, one plain
+     line to Kyler in chat. Work never waits: the sessions build on the default.
+  3. **Settle cross-session questions** on #236 (conflicts, who owns a file, page-file edits while the page session is
+     stopped, order inside a step), after reading the code and the decisions, never relaying a session's guess.
+  4. **Keep the order moving.** Watch for stalls. A stopped session gets its resume steps on #236 and one line to Kyler:
+     "type 'Resume from #236' in <session>".
+  5. **Release** at the end of each step once the full run, the nightly and a D483 probe batch are green (docs/RULES.md,
+     "Deploying"), and say so on #236.
+- **The milestone session** (Claude Code, Opus 5.5, high; the main clone `C:\Users\krams\code\DamGoodMaps`, its branches
+  in worktrees) builds everything except the page and the renderer, orchestrates sub-agents, runs probe batches, and owns
+  the decision numbers, STATUS and HANDOFF.
+- **Forces play** (Claude Code; works only in `C:\Users\krams\code\DamGoodMaps-forces-play`, by path) owns `src/render3d/`
+  and the forces' playback, and takes the renderer-side parts of the order.
+- **The page session** is stopped (`DamGoodMaps-page`). **Codex** works in its own clone on `investigation/<name>`
+  branches when Kyler starts it.
 
-## Models (D389)
+## What reaches Kyler
 
-The milestone session runs on Opus 5.5 at high. The document prune and mechanical work touching layout or other work's tests
-go to Sonnet 5.5 sub-agents at high; self-contained mechanical work to Sonnet 5.5 at medium. Never Fable unless Kyler asks
-(he has, for the page session and the coherence review, D386); never raise a model's effort on one's own; never start
-sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definitions".
+Never code. Engineering, tests, performance, fixes, merges, wording and "is this good enough" are the sessions'. He is
+pinged (a `needs-kyler` issue; the label's ntfy workflow reaches his phone) only for:
+- design direction his recorded decisions don't settle (D484);
+- anything irreversible or destructive (history, branches with unmerged work, force-pushing `main` or `dev`, the licence,
+  anything that harms the site's users), secrets, security or money;
+- something only his accounts can do that blocks all work (#377, the merge-queue ruleset, blocks nothing);
+- usage about to stop everything with work unfinished.
+
+A permission prompt that refuses a session's action is his to clear: one line to him naming the session and the words to
+type.
 
 ## Kyler's standing rules and preferences
 
-- **Brutal honesty.** Say when something is fluff, overengineered or wrong; praise only what earns it. Look at captures before
-  judging them. Report what fell short as plainly as what worked.
-- **Prompts stand alone.** Code blocks are the exact text Kyler sends; prose is for him. Each prompt says where it goes and
-  needs nothing from the chat to make sense. A prompt is never assumed sent until Kyler says so.
-- **No excess checks (D454), above every other rule on checks.** No excessive tests, timings or validation, only when genuinely
-  necessary or when Kyler asks; CI, the nightly suite, bug-catching checks and a real check before "done" stay.
-- **Compute is a resource (D316–D318).** Effort matches the stakes; quality is never compromised. Invest in what compounds;
-  spend little on ceremony. The cheapest model and effort that does the job; a real check before anything is reported done;
-  short reports.
-- **The test for every document, section and rule (D390):** does it change what gets built, or how? If not, it goes.
-- **Pings (D332).** The session pings Kyler the moment his decision, eye or yes is needed, never for progress.
-- **Green before merge (D341).** Nothing merges into `dev` red, ever. No test stays known-flaky: the cause is found.
-- **The release gate (D385).** The water and the editor's core must be perfect before the next release; anything Kyler finds
-  in them blocks it. Then a coherence review (D386).
-- **A headless core (D342).** Every change to a map is an operation; all editing logic lives in `src/core/` and runs without
-  the page; every refusal gives a one-line reason; contract tests exercise the core.
-- **Tooltips (D351, D361, D368).** A short purpose phrase with the shortcut as a small key cap at the end; no second
-  sentence, no key in brackets.
-- **A force always has a visible effect (D356)** wherever it's used, even at Power 0 (the gentlest visible effect).
-- **Only the player places objects (D368 (10)).** No force, brush or edit adds an object; problems go to the checks.
-- **The first land shown is the map (D348, D370).** Every shaping step finishes before the land is shown; only water and
-  D350's small outlet wear may follow.
-- **Edits never replay onto new land (D336).** One key habit for every tool: F (or `{ }`) is Size, `[ ]` or F+scroll is
-  strength (D368 (1), (11)).
-- **Before a release, fix only what's wrong;** polish comes after, in its own step.
-- **Speed (D453).** Kyler judges speed by using the tool; something that feels slow is a bug. No quiet windows or timing gates.
-- **The Rust order (D381).** The exact core moves to Rust, each port byte-identical and tagged before its TypeScript is
-  deleted: water, the five forces, their planning and the checks, new forces directly, the generator, perhaps the editor's
-  operations. The interface and rendering stay in TypeScript.
-- **No outside users for now (D382).** Only Kyler uses it: no compatibility constraint on old share links, seeds or project
-  files; re-pin freely. His own saved maps and projects keep opening or convert automatically.
-- **The licence is the AGPL v3 or later (D379);** versions before 2026-10-01 stay MIT.
-- **Probe batches** (the only way Timberborn is launched) need Kyler's yes in chat every time on any machine but the dedicated
-  one (D117, D218).
-- Kyler batches hands-on reviews into single sittings: collect what's ready on the preview and give him one checklist of
-  only what changed.
+- **Brutal honesty.** Say when something is fluff, overengineered or wrong; praise only what earns it. Look at captures
+  before judging them.
+- **No excess checks (D454),** above every other rule on checks. **Compute is a resource (D316–D318):** effort matches the
+  stakes; quality is never compromised. Haiku for mechanical work, Sonnet for specified building, Opus for judgment (D484).
+- **Quick checks before merge, the rest after (D341, amended by D489 and D490).** Nothing merges into `dev` with its quick
+  checks red or without a fresh reviewer's approval; the browser specs and suites run on dev's tip after the merge and are
+  fixed forward at once. No test stays known-flaky: the cause is found.
+- **Propose better rules.** The rules evolve (Kyler, 2026-10-15): when one slows good work, propose the change to Kyler
+  with the reason, and make it once he agrees.
+- **A headless core (D342), tooltips (D351), a force always has a visible effect (D356), only the player places objects
+  (D368), the first land shown is the map (D348), edits never replay onto new land (D336), speed (D453), the Rust order
+  (D381), no old-project compatibility until launch (D475), AGPL v3 or later (D379).**
+- Generated maps stay byte-identical unless a step means to change them.
 
-## Codex: models and prompts
+## Lessons
 
-- **GPT-6.1 Sol at high** is the default: force demos, physics, audits, performance and architecture work. **GPT-6 Astra at
-  high** is for look work, where its judgment has the track record. Choose by the kind of work.
-- Codex prompts start with HARD RULES: the authorization to push one named branch and open one PR; no merges, approvals,
-  auto-merge, other branches, tags or releases; work only in its own folder; large generated results out of git (D195, the
-  text in `investigation/README.md`); original or clearly licensed assets only; a `git diff` check before the PR; "don't
-  wait for my replies". Each branch gets an INTEGRATION.md for adoption.
-- Shared-code findings are reported separately from a prototype's own shaping, so Claude's agent fixes each once.
+From the planning chat (to 2026-10-14):
+1. Judge every option against Kyler's recorded decisions; the tempting fix can reverse one he made on purpose (D476 → the
+   right answer was D480).
+2. Read the code before passing on another session's claim.
+3. Read what a probe batch plays before it runs (D483 came from a batch that replayed old maps).
+4. A test that passes by moving its spot can hide a player-facing bug (Erupt showing no lava broke D356). Ask what the test
+   was catching.
+5. No measuring for its own sake (D454).
+6. A prompt that starts a session or names a folder uses the repo's real folder names and says what to do if a step it
+   depends on hasn't happened. A restarted session has no memory: it needs a complete prompt.
+7. A layout change that adds room is shown as a mockup with its cost named before it's built; judge the whole look, not
+   only the rule asked about.
 
-## Where things live after the prune (D390)
+## Codex prompts
 
-- **What's in flight, the Codex PRs and what waits for Kyler:** `docs/STATUS.md`. **How things are run:**
-  `docs/HANDOFF.md`. **The order of work, the post-release list and the Codex adoptions with Kyler's verdicts:** `ROADMAP.md`.
-- **The decisions in force:** `PLAN.md` §20; the full table as it stood at D390 is in `docs/archive/decisions.md`.
-- **History** (progress logs, old handoffs and chats, feedback files, the story of the project): `docs/archive/`, its README
-  is the index; `investigation/README.md` indexes the investigations. `docs/README.md` maps every document.
-- **Open pending defaults:** `docs/decisions-pending.md`. **Findings:** `docs/FINDINGS.md`. **Terms:** `docs/GLOSSARY.md`.
-- **The next free decision number is D467.**
+GPT-6.1 Sol at high by default; GPT-6 Astra at high for look work. Prompts start with HARD RULES: push one named branch and
+open one PR; no merges, approvals, auto-merge, other branches, tags or releases; its own folder only; large results out of
+git (D195, `investigation/README.md`); original or clearly licensed assets; a `git diff` check before the PR; "don't wait
+for my replies". Each branch gets an INTEGRATION.md, shared-code findings reported separately.
 
-## How the planning chat checks in
+## Where things live
 
-`git fetch` the repo (all branches), read `docs/STATUS.md`, the Progress log issue (#57), recent commits and open PRs, and
-view captures with `git show`. Prefer git over the GitHub REST API, which rate-limits quickly from shared addresses.
+What's in flight: `docs/STATUS.md`. How things are run: `docs/HANDOFF.md`. The order of work: the top of `ROADMAP.md`.
+Decisions: `docs/decisions/README.md` (the next free number is in STATUS; only the milestone hands them out). History:
+`docs/archive/`. Coordination: #236. Progress log: #57.
 
 ## Ideas parked for later
 
-- **Hosting on Cloudflare Workers with Static Assets:** two reasons now. Multi-core water needs the isolation headers
-  GitHub Pages can't set (today's plan is a service worker), and collaborative editing needs a small function for the room
-  code and the relay's credentials (D431).
+- **Hosting on Cloudflare Workers with Static Assets:** multi-core water needs isolation headers GitHub Pages can't set,
+  and collaborative editing needs a small function for the room code and the relay's credentials (D431).
 - **Co-op starts:** an idea only, nothing decided.

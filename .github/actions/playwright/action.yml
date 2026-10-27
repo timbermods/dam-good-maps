@@ -1,0 +1,33 @@
+name: Playwright browsers
+description: >-
+  Installs Playwright's browsers on an Ubuntu runner, cached on Playwright's version. Run it after `npm ci`
+  (the install uses the project's own Playwright). On a cache hit only the system libraries are installed.
+inputs:
+  browsers:
+    description: Space-separated browsers, for example "chromium" or "chromium firefox webkit".
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Cache key (Playwright's version and the browsers)
+      id: key
+      shell: bash
+      env:
+        BROWSERS: ${{ inputs.browsers }}
+      run: |
+        version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
+        echo "key=playwright-$RUNNER_OS-$version-${BROWSERS// /-}" >> "$GITHUB_OUTPUT"
+    - name: Cached browsers
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ steps.key.outputs.key }}
+    - name: Download the browsers and install their system libraries
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npx playwright install --with-deps ${{ inputs.browsers }}
+    - name: Install the system libraries (the browsers are cached)
+      if: steps.cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: npx playwright install-deps ${{ inputs.browsers }}

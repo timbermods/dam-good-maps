@@ -1,0 +1,221 @@
+diff --git a/investigation/generative/proto/generate.ts b/investigation/generative/proto/generate.ts
+index 89575687..402d7f97 100644
+--- a/investigation/generative/proto/generate.ts
++++ b/investigation/generative/proto/generate.ts
+@@ -155,8 +155,8 @@ function attemptOnce(theme: ThemeId, seed: number, size: number, difficulty: Dif
+       const [bx, by] = pick.shore;
+       const steps = Math.ceil(Math.max(Math.abs(bx - pick.x), Math.abs(by - pick.y)) * 2);
+       for (let k = 0; k <= steps; k++) {
+-        const px = pick.x + ((bx - pick.x) * k) / steps;
+-        const py = pick.y + ((by - pick.y) * k) / steps;
++        const px: number = pick.x + ((bx - pick.x) * k) / steps;
++        const py: number = pick.y + ((by - pick.y) * k) / steps;
+         for (let dy = -1; dy <= 1; dy++)
+           for (let dx = -1; dx <= 1; dx++) {
+             const j = Math.round(py + dy) * W + Math.round(px + dx);
+diff --git a/package-lock.json b/package-lock.json
+index b48f9998..b33529f0 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -25,7 +25,8 @@
+         "tsx": "^4.23.15",
+         "typescript": "~5.9.3",
+         "vite": "^8.3.2",
+-        "vitest": "^5.0.3"
++        "vitest": "^5.0.3",
++        "@typescript/typescript6": "6.0.2"
+       },
+       "engines": {
+         "node": ">=22"
+@@ -2800,6 +2801,34 @@
+       "integrity": "sha512-msJxIvYDYcoNL+PJsu+7qmpDWsYmAxTY+2TNYXXF0hzBzBk0BMecOqDOG/EckUoKCuKwObfbugIl8QpqHDXeFA==",
+       "dev": true,
+       "license": "MIT"
++    },
++    "node_modules/@typescript/typescript6": {
++      "version": "6.0.2",
++      "resolved": "https://registry.npmjs.org/@typescript/typescript6/-/typescript6-6.0.2.tgz",
++      "integrity": "sha512-mbCddXd+jm7hfx7w2YU64/Av4/NqqeG3GoRZgxPcgoTxYjhrcfJRw9ULch71SS4G+Q3bOXFhRvPqjguN0Hyp5w==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@typescript/old": "npm:typescript@^6"
++      },
++      "bin": {
++        "tsc6": "bin/tsc6"
++      }
++    },
++    "node_modules/@typescript/old": {
++      "name": "typescript",
++      "version": "6.0.3",
++      "resolved": "https://registry.npmjs.org/typescript/-/typescript-6.0.3.tgz",
++      "integrity": "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "bin": {
++        "tsc": "bin/tsc",
++        "tsserver": "bin/tsserver"
++      },
++      "engines": {
++        "node": ">=14.17"
++      }
+     }
+   }
+ }
+diff --git a/package.json b/package.json
+index 6aedb186..cff67400 100644
+--- a/package.json
++++ b/package.json
+@@ -11,7 +11,7 @@
+     "build": "vite build",
+     "preview": "vite preview",
+     "try": "tsx tools/try.ts",
+-    "typecheck": "tsc --noEmit -p tsconfig.json",
++    "typecheck": "node node_modules/typescript/bin/tsc --noEmit -p tsconfig.json",
+     "test": "vitest run",
+     "test:quick": "vitest run --project quick",
+     "test:heavy": "vitest run --project heavy",
+@@ -43,6 +43,7 @@
+     "@preact/preset-vite": "^2.10.6",
+     "@types/node": "^24.19.1",
+     "@types/three": "^0.186.0",
++    "@typescript/typescript6": "6.0.2",
+     "ajv": "^8.20.0",
+     "fake-indexeddb": "^6.2.5",
+     "tsx": "^4.23.15",
+diff --git a/src/core/features/raster/brush.ts b/src/core/features/raster/brush.ts
+index 8ac53d26..fad5ee7d 100644
+--- a/src/core/features/raster/brush.ts
++++ b/src/core/features/raster/brush.ts
+@@ -860,7 +860,7 @@ export class BrushStroke {
+     const was = this.lastBox;
+     let same = !!was && was.x0 === box.x0 && was.y0 === box.y0 && was.x1 === box.x1 && was.y1 === box.y1;
+     for (let y = box.y0; y <= box.y1; y++)
+-      for (let x = box.x0; x <= box.x1; x++) {
++      for (let x: number = box.x0; x <= box.x1; x++) {
+         const i = y * W + x;
+         if (last[i] !== I[i]) {
+           same = false;
+diff --git a/src/core/features/raster/remoteStroke.ts b/src/core/features/raster/remoteStroke.ts
+index b09c8e12..f337b31b 100644
+--- a/src/core/features/raster/remoteStroke.ts
++++ b/src/core/features/raster/remoteStroke.ts
+@@ -118,7 +118,7 @@ export class RemotePreview {
+     if (!b) return 0;
+     let n = 0;
+     for (let y = b.y0; y <= b.y1; y++)
+-      for (let x = b.x0; x <= b.x1; x++) {
++      for (let x: number = b.x0; x <= b.x1; x++) {
+         const i = y * this.W + x;
+         if (this.heights[i] !== this.start[i]) n++;
+       }
+diff --git a/src/core/features/raster/terrain.ts b/src/core/features/raster/terrain.ts
+index b31b6c96..30898807 100644
+--- a/src/core/features/raster/terrain.ts
++++ b/src/core/features/raster/terrain.ts
+@@ -432,7 +432,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
+     applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i));
+     // a precise or target stroke's tiles stay as it left them: the integrity pass leaves them out (a
+     // one-tile pit stays a pit, D193, D322)
+-    if (was) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) {
++    if (was) for (let y = b.y0; y <= b.y1; y++) for (let x: number = b.x0; x <= b.x1; x++) {
+       const i = y * W + x;
+       if (heights[i] !== was[i] && t.inRegion(i)) t.protectedMask[i] = 1;
+     }
+diff --git a/tests/contract/properties.test.ts b/tests/contract/properties.test.ts
+index 691a62dd..ab5797af 100644
+--- a/tests/contract/properties.test.ts
++++ b/tests/contract/properties.test.ts
+@@ -15,6 +15,7 @@ import { generate } from "../../src/core/gen/generate";
+ import { stream } from "../../src/core/math/rng";
+ import { makeSpec, SIZE_PRESETS } from "../../src/core/spec/mapspec";
+ import type { EditOp, OpName } from "../../src/core/doc/ops";
++import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
+ import { randomOp } from "./randomOps";
+
+ /** Operations kept in the document's log and replayed on every generation. */
+@@ -73,7 +74,56 @@ describe.each(Object.entries(SIZE_PRESETS).map(([name, side], k) => [name, side,
+       }
+       return null;
+     });
+-    const draws: (() => EditOp | EditOp[] | null)[] = [...Array.from({ length: OPS[side] }, () => () => randomOp(s, rng)), ...sweep];
++    // If the unchanged draws leave no Fill/Remove target, make their precondition with an edit,
++    // rather than re-picking the map seed. These steps get the same rebuild/undo checks as the draws.
++    let hollow: { x: number; y: number; level: number; cells: [number, number, number][] } | null = null;
++    const waterCoverage: (() => EditOp | null)[] = [
++      () => {
++        if (kinds.has("fillHollow") && kinds.has("removeUnfedWater")) return null;
++        const { W, H, floor } = s.built.waterModel;
++        // A dry plateau with an 8×8 pit, as in waterEdits.test.ts: a real stored pool,
++        // separated from the sources, for both operations to act on after settling.
++        for (let y = 4; y + 12 < H - 4; y += 2) for (let x = 4; x + 12 < W - 4; x += 2) {
++          let dry = true;
++          let rim = 0;
++          for (let cy = y - 2; cy < y + 14 && dry; cy++) for (let cx = x - 2; cx < x + 14; cx++) {
++            const i = cy * W + cx;
++            if (s.built.water[i] > 0 || floor[i] < 2) { dry = false; break; }
++            rim = Math.max(rim, floor[i] + 1);
++          }
++          if (!dry || rim > 63) continue;
++          if (s.built.entities.some((e) => /^(StartingLocation|WaterSource|BadwaterSource)$/.test(e.template)
++            && e.x >= x - 2 && e.x < x + 14 && e.y >= y - 2 && e.y < y + 14)) continue;
++          const flat: [number, number, number][] = Array.from({ length: 12 }, (_, k) => [y + k, x, x + 11]);
++          const op: EditOp = { op: "sculpt", params: { mode: "flatten", cells: flat, level: rim, exact: true } };
++          if (s.check(op).length) continue;
++          hollow = { x: x + 5, y: y + 5, level: rim - 0.5, cells: Array.from({ length: 8 }, (_, k) => [y + 2 + k, x + 2, x + 9]) };
++          return op;
++        }
++        throw new Error("water-operation coverage needs a dry plateau away from sources and the start");
++      },
++      () => {
++        if (!hollow) return null;
++        return { op: "sculpt", params: { mode: "lower", cells: hollow.cells, amount: 2, exact: true } };
++      },
++      () => {
++        if (!hollow) return null;
++        const plan = planFill(s, hollow.x, hollow.y, hollow.level);
++        expect(plan.reason, "the coverage hollow must hold its Fill").toBeNull();
++        expect(plan.op).not.toBeNull();
++        return plan.op;
++      },
++      () => {
++        if (!hollow) return null;
++        const tile = hollow.y * s.size.x + hollow.x;
++        const take = unfedWater(s, [tile]);
++        expect(take.op, "the coverage Fill must make removable unfed water").not.toBeNull();
++        expect(take.op!.params.tiles).toContain(tile);
++        return take.op;
++      },
++    ];
++    const regularDraws: (() => EditOp | EditOp[] | null)[] = [...Array.from({ length: OPS[side] }, () => () => randomOp(s, rng)), ...sweep];
++    const draws = [...regularDraws, ...waterCoverage];
+     let tools = 0;
+     for (let step = 0; step < draws.length; step++) {
+       const drawn = draws[step]();
+@@ -86,9 +136,11 @@ describe.each(Object.entries(SIZE_PRESETS).map(([name, side], k) => [name, side,
+         rejected++;
+         expect(res.errors.length, JSON.stringify(drawn)).toBeGreaterThan(0);
+         expect(s.document.edits.length).toBe(before);
++        if (step >= regularDraws.length) expect(res.ok, "a coverage precondition edit must apply").toBe(true);
+         continue;
+       }
+-      applied++;
++      // The added precondition cannot help the existing accepted-draw minimum pass.
++      if (step < regularDraws.length) applied++;
+       if (Array.isArray(drawn)) tools++;
+       for (const op of Array.isArray(drawn) ? drawn : [drawn]) kinds.add(op.op);
+       const name = Array.isArray(drawn) ? `a tool's ${drawn.map((o) => o.op).join("+")}` : drawn.op;
+diff --git a/tools/portable-guard.ts b/tools/portable-guard.ts
+index 8260722e..038b70f9 100644
+--- a/tools/portable-guard.ts
++++ b/tools/portable-guard.ts
+@@ -6,7 +6,8 @@
+ // camera (operations record their results, so picking maths never reaches a replay) and the tools that only make
+ // pictures or time the renderer.
+
+-import ts from "typescript";
++// TypeScript 7's CLI has no stable compiler API; use Microsoft's compatibility API for this guard.
++import ts from "@typescript/typescript6";
+
+ /** Math's members that are exact arithmetic or constants in every engine: anything else is rejected. */
+ const EXACT = new Set(["abs", "ceil", "floor", "round", "trunc", "min", "max", "sign", "imul", "clz32", "fround", "PI", "E", "LN2", "LN10", "LOG2E", "LOG10E", "SQRT1_2", "SQRT2"]);

@@ -104,9 +104,14 @@ describe("a run's load", () => {
     expect(busyProcesses(withBusy)[0]).toEqual({ name: "MsMpEng", maxCpu: 6, samples: 3 });
     expect(idleLine([judgeRun(rows, 10_500, 20_500)])).toMatchObject({ idle: true });
     expect(idleLine([judgeRun(rows, 10_500, 20_500)]).text).toMatch(/PC idle: yes/);
+    // by the gate's own rule (Kyler, 2026-10-03): 8% is within its 10%, so idle, with the busy samples named
     const loud = idleLine([j, j, j]);
-    expect(loud.idle).toBe(false);
-    expect(loud.text).toMatch(/PC idle: NO.*MsMpEng 6%/);
+    expect(loud.idle).toBe(true);
+    expect(loud.text).toMatch(/PC idle: yes.*at most 10% CPU and 10% GPU.*above 5% in 9 of .*MsMpEng 6%/);
+    // above the rule, or the GPU above it, the line says NO
+    const over = { ...j, outside: { min: 1, median: 3, max: 11 } };
+    expect(idleLine([j, over]).idle).toBe(false);
+    expect(idleLine([{ ...j, gpu: { min: 0, median: 1, max: 30 } }]).text).toMatch(/PC idle: NO.*outside GPU max 30.0%/);
     expect(idleLine([]).text).toMatch(/unknown/);
     expect(RULES.cpuMax).toBe(10);
     expect(RULES.gpuMax).toBe(10);

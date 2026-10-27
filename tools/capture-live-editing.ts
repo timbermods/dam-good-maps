@@ -17,6 +17,7 @@ import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { chromium, type Page } from "@playwright/test";
 import { build, preview, type PreviewServer } from "vite";
+import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -42,9 +43,7 @@ async function site(root: string, label: string, port: number, mode: string): Pr
 async function open(page: Page, port: number): Promise<void> {
   await page.goto("about:blank");
   await page.goto(`http://localhost:${port}/${FRAGMENT}`);
-  await page.getByText(/All \d+ checks passed/).first().waitFor({ timeout: 240_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 180_000 });
+  await waitForEditor(page, 240_000);
   await page.mouse.move(2, 2);
   await page.keyboard.press("Escape");
   // the first run's hints away, then the background check (it may replace the water once)

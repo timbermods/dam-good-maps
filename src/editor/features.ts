@@ -11,6 +11,7 @@ import { outlineBounds, type OpParams } from "../core/doc/ops";
 import { movePatch as corePatch } from "../core/doc/tools";
 import { OBJECT_NAMES as OBJECT_KIND_NAMES, objectTiles } from "../core/features/objects";
 import { DEAD, FLIPPED, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "../render3d/model";
+import { startFitProblem, takenTiles } from "../core/doc/startFit";
 import { walkRegions } from "../core/analysis/regions";
 import { pumpShoreDistance, reachAt, walkDistance } from "../core/analysis/walk";
 import { noWood, type WoodBySpecies, type WoodSpecies } from "../core/analysis/wood";
@@ -101,41 +102,57 @@ export function tabOf(f: Feature): Tab {
 
 // ---------------------------------------------------------------------------------- tile index
 
-/** The tiles each feature covers, cached by the feature's parameters. */
+/** The tiles each feature covers, cached by the feature's parameters. Built when first read, not when the features
+ *  change: a map opens without waiting on it (a 256² map's rivers take a few hundred milliseconds). */
 export class FeatureIndex {
   private cache = new Map<string, { key: string; tiles: Int32Array }>();
   private fields = new Map<string, { key: string; field: PathField }>();
-  /** Per tile: the index (into `features`) of the area feature (forest, berries, ruins), the
-   *  terrain feature (landform, lake) and the river covering it; −1 for none. */
-  area: Int32Array;
-  terrain: Int32Array;
-  river: Int32Array;
+  private tiles: { area: Int32Array; terrain: Int32Array; river: Int32Array };
+  private stale = false;
   features: Feature[] = [];
 
   constructor(
     readonly W: number,
     readonly H: number,
   ) {
-    this.area = new Int32Array(W * H);
-    this.terrain = new Int32Array(W * H);
-    this.river = new Int32Array(W * H);
+    this.tiles = { area: new Int32Array(W * H), terrain: new Int32Array(W * H), river: new Int32Array(W * H) };
+  }
+
+  /** Per tile: the index (into `features`) of the area feature (forest, berries, ruins), the terrain feature
+   *  (landform, lake) and the river covering it; −1 for none. */
+  get area(): Int32Array {
+    return this.built().area;
+  }
+  get terrain(): Int32Array {
+    return this.built().terrain;
+  }
+  get river(): Int32Array {
+    return this.built().river;
   }
 
   update(features: readonly Feature[]): void {
     this.features = features as Feature[];
-    this.area.fill(-1);
-    this.terrain.fill(-1);
-    this.river.fill(-1);
+    this.stale = true;
+  }
+
+  private built() {
+    if (!this.stale) return this.tiles;
+    this.stale = false;
+    const features = this.features;
+    this.tiles.area.fill(-1);
+    this.tiles.terrain.fill(-1);
+    this.tiles.river.fill(-1);
     const seen = new Set<string>();
     features.forEach((f, k) => {
       seen.add(f.id);
       const tiles = this.tilesOf(f);
-      const into = f.kind === "forest" || f.kind === "berryPatch" || f.kind === "ruinField" ? this.area : f.kind === "river" ? this.river : f.kind === "landform" || f.kind === "lake" ? this.terrain : null;
+      const into = f.kind === "forest" || f.kind === "berryPatch" || f.kind === "ruinField" ? this.tiles.area : f.kind === "river" ? this.tiles.river : f.kind === "landform" || f.kind === "lake" ? this.tiles.terrain : null;
       if (!into) return;
       // later landforms and lakes are built over earlier ones: the last one wins
       for (const i of tiles) into[i] = k;
     });
     for (const id of [...this.cache.keys()]) if (!seen.has(id)) this.cache.delete(id);
+    return this.tiles;
   }
 
   riverField(f: RiverFeature): PathField {
@@ -309,7 +326,7 @@ const OBJECT_NAMES: Record<string, string> = {
   Birch: "birch",
   Oak: "oak",
   Succulent: "succulent",
-  BlueberryBush: "blueberry bush",
+  BlueberryBush: "berry bush",
   Slope: "slope",
   WaterSource: "water source",
   BadwaterSource: "badwater source",
@@ -370,7 +387,7 @@ export function describeTile(c: TileContext, x: number, y: number): string {
   if (here?.length) {
     // the objects on the tile, unless the area already says it all (a living tree in a forest)
     const names = [...new Set(here.map((k) => objectName(c.entities.templates[c.entities.template[k]], c.entities.flags[k])))];
-    const plain = /^(pine|birch|oak|succulent|blueberry bush)$/;
+    const plain = /^(pine|birch|oak|succulent|berry bush)$/;
     if (!(area && names.length === 1 && plain.test(names[0]))) parts.push(...names.slice(0, 2));
   }
   const text = parts.join(", ");
@@ -548,15 +565,32 @@ export interface StartCheck {
   meets: boolean;
   /** The start targets it misses (badwater and ruin distances, walkable land), in plain words. */
   warnings: string[];
+  /** The start stands at a level under a roof (D491): the figures above are not measured (the walks read the heightfield
+   *  of tops, not the floor), and only the core's verdict (`problem`) gives its colour. */
+  underRoof?: boolean;
 }
 
 /** What the start's colour means, one thing everywhere (D361): green, it fits and meets every start
  *  requirement; amber, it fits but misses some (the panel lists which); red, it cannot be placed
  *  there. */
 export type StartStatus = "ok" | "warn" | "blocked";
-export function startStatus(check: Pick<StartCheck, "problem" | "meets">): StartStatus {
-  return check.problem ? "blocked" : check.meets ? "ok" : "warn";
+export function startStatus(check: Pick<StartCheck, "problem" | "meets" | "underRoof">): StartStatus {
+  return check.problem ? "blocked" : check.meets || check.underRoof ? "ok" : "warn";
 }
+
+/** The start being dragged: where it would stand, its footprint check, and the first thing the checks would flag there (D361). */
+export interface StartDrag {
+  x: number;
+  y: number;
+  check: StartCheck;
+  warning?: string | null;
+}
+
+/** Its colour: amber too where it fits but the checks would flag the spot. */
+export const startDragStatus = (d: StartDrag): StartStatus => {
+  const s = startStatus(d.check);
+  return s === "ok" && d.warning ? "warn" : s;
+};
 
 /** Whether two checks of one start say the same (so a placed start's colour and panel change only
  *  when something about it changed, not each time the water moves on and it is asked again). */
@@ -564,6 +598,7 @@ export function sameStartCheck(a: StartCheck, b: StartCheck): boolean {
   return (
     a.problem === b.problem &&
     a.meets === b.meets &&
+    !a.underRoof === !b.underRoof &&
     a.water === b.water &&
     a.wood === b.wood &&
     a.woodGrowing === b.woodGrowing &&
@@ -572,6 +607,14 @@ export function sameStartCheck(a: StartCheck, b: StartCheck): boolean {
     a.warnings.length === b.warnings.length &&
     a.warnings.every((w, i) => w === b.warnings[i])
   );
+}
+
+/** The check of a start at a level under a roof (D491): its footprint and door, the core's verdict for `problem`, and none
+ *  of the figures (the page's walks read the roof's top, not the floor the start stands on). */
+export function roofStartCheck(W: number, x: number, y: number, door: [number, number], problem: string | null): StartCheck {
+  const tiles: number[] = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + (x + dx));
+  return { problem, tiles, door: door[1] * W + door[0], water: null, wood: 0, woodBySpecies: noWood(), woodGrowing: 0, woodFloor: 0, bushes: 0, meets: false, warnings: [], underRoof: true };
 }
 
 export interface StartNeeds {
@@ -603,24 +646,40 @@ function startLinks(c: TileContext): [number, number][] {
   return links;
 }
 
+/** The tiles other objects' whole footprints hold that the start cannot share (core/doc/startFit.ts), made once for the
+ *  objects on show: `entitiesAt` is made anew whenever they change, so it keys the copy. */
+const startTakenOf = new WeakMap<Map<number, number[]>, Map<string | null, Uint8Array>>();
+function startTaken(c: TileContext, self: string | null): Uint8Array {
+  let byOwner = startTakenOf.get(c.entitiesAt);
+  if (!byOwner) startTakenOf.set(c.entitiesAt, (byOwner = new Map()));
+  let taken = byOwner.get(self);
+  if (taken) return taken;
+  const e = c.entities;
+  taken = takenTiles(
+    c.W,
+    c.H,
+    (function* () {
+      for (let k = 0; k < e.count; k++) {
+        const template = e.templates[e.template[k]];
+        if (!FOOTPRINTS[template]) continue;
+        const p = { template, x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 };
+        yield { template, owner: e.owners[e.owner[k]], raw: e.owners[e.owner[k]] === "import", tiles: () => footprintTiles(template, p) };
+      }
+    })(),
+    self,
+  );
+  byOwner.set(self, taken);
+  return taken;
+}
+
 /** Why the district center cannot stand at (x, y) with its door at `door` (null: it can): the quick
- *  part of `checkStartAt`, without the walks. The ground never stops it (D328): a generated start's
- *  bench, or an opened map's cut footprint, levels it. */
+ *  part of `checkStartAt`, without the walks. It is the core's one rule (core/doc/startFit.ts, which the
+ *  checks' "Start overlapping another object" and the shelf's move read too) on the objects the page
+ *  shows. The ground never stops it (D328): a generated start's bench, or an opened map's cut
+ *  footprint, levels it. */
 export function startProblemAt(c: TileContext, x: number, y: number, door: [number, number], bench: { level: number } | null, self: string | null): string | null {
-  const { W, H } = c;
-  const tiles: number[] = [];
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + (x + dx));
-  // (uneven ground doesn't stop it: an opened map's start levels its own footprint and door, D328)
-  for (const i of [...tiles, door[1] * W + door[0]]) {
-    const tx = i % W;
-    const ty = Math.floor(i / W);
-    if (tx < 1 || ty < 1 || tx > W - 2 || ty > H - 2 || i < 0) return "too close to the map edge";
-    if (c.index && c.index.river[i] >= 0) return "in a river";
-    if (c.water.depth[i] > 0.05) return "under water";
-    const here = c.entitiesAt.get(i);
-    if (here?.some((k) => c.entities.owners[c.entities.owner[k]] !== self && !PLACED_AFTER_SLOPES.test(c.entities.templates[c.entities.template[k]]))) return "on an object";
-  }
-  return null;
+  const taken = startTaken(c, self);
+  return startFitProblem({ W: c.W, H: c.H, river: (i) => !!c.index && c.index.river[i] >= 0, depth: (i) => c.water.depth[i], taken: (i) => !!taken[i] }, x, y, door);
 }
 
 /** The start's footprint and the three start requirements at (x, y), from what the page shows
@@ -849,6 +908,13 @@ export function sourceStrengthWords(s: SourceStrengths): string {
   return s.count > 1 ? `this source ${s.own} · row ${s.row} ${unit}` : `${s.own} ${unit}`;
 }
 
+/** The same, short, as a value under its name in the object window: "0.25 water/s", or in a row "0.25 of 1 water/s"
+ *  (this source's, of the row's). */
+export function shortStrengthWords(words: string): string {
+  const m = /^this source ([\d.]+) · row ([\d.]+) (.+)$/.exec(words);
+  return m ? `${m[1]} of ${m[2]} ${m[3]}` : words;
+}
+
 /** The groups whose water reaches the wet tile (x, y): from it, upstream through the water, over
  *  tiles whose surface is no lower than the one before (a river's upper reach, a whole pool, never
  *  a tributary that joins below). Null when the tile is dry. */
@@ -882,4 +948,27 @@ export function feedingGroups(water: SurfaceWater, groups: readonly SourceGroup[
     }
   }
   return [...found].sort((a, b) => a - b);
+}
+
+/** The game's trees (a tree placed by the generator, the shelf or an imported map). */
+const TREE_TEMPLATES = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove)$/;
+
+/** What the map holds, counted from its own objects as the view has them now: edits included, whoever put them
+ *  there (the generator, the player or the file). Dead trees and bushes aren't counted. */
+export interface MapCounts {
+  mines: number;
+  ruins: number;
+  bushes: number;
+  trees: number;
+  sources: number;
+}
+
+export function mapCounts(e: EntityView): MapCounts {
+  const kind = e.templates.map((t) => (TREE_TEMPLATES.test(t) ? "trees" : t === "BlueberryBush" ? "bushes" : /^RuinColumnH\d+$/.test(t) ? "ruins" : t === "UndergroundRuins" ? "mines" : t === "WaterSource" ? "sources" : null));
+  const n: MapCounts = { mines: 0, ruins: 0, bushes: 0, trees: 0, sources: 0 };
+  for (let k = 0; k < e.count; k++) {
+    const w = kind[e.template[k]];
+    if (w && !((w === "trees" || w === "bushes") && e.flags[k] & DEAD)) n[w]++;
+  }
+  return n;
 }

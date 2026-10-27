@@ -10,7 +10,7 @@
 //
 // Maps: seed 4242 in every theme at 128², seed 4242 River Valley at 256², and Beavertopia (a local
 // workshop map; skipped when investigation/raw is absent). Each map is opened in the editor (the
-// generated ones through "Refine this map", Beavertopia through the file input), with its dam sites
+// generated ones through the address, Beavertopia through the file input), with its dam sites
 // shown, and drawn from fixed poses:
 //   - overview: the whole map from the south (the view's default pose before Map look);
 //   - start: close to the start, from the game's default direction (30° east of north, pitched down);
@@ -43,6 +43,7 @@ import { build, preview } from "vite";
 import { FOOTPRINTS, footprintTiles, rotate, slopeHighSide, type Orientation } from "../src/core/format/footprints";
 import { THEMES, THEME_NAMES, type ThemeId } from "../src/core/spec/mapspec";
 import * as entities3d from "../src/render3d/entities3d";
+import { waitForEditor } from "./wait-editor";
 
 // (read loosely, so the tool also runs against the code of `m8-done` for the before captures)
 const ent = entities3d as { plantPlacement?: (x: number, y: number, flags: number) => { dx: number; dy: number; scale: number }; SLOPE_ARROW_HEIGHT?: number };
@@ -118,9 +119,7 @@ function generated(theme: ThemeId, size: number): MapSource {
     async open(page) {
       await page.goto("about:blank");
       await page.goto(`http://localhost:${PORT}/${fragment}`);
-      await page.getByText(/All \d+ checks passed/).first().waitFor({ timeout: 180_000 });
-      await page.getByRole("button", { name: "Refine this map" }).click();
-      await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+      await waitForEditor(page, 180_000);
     },
   };
 }
@@ -132,9 +131,9 @@ function imported(path: string, id: string, name: string): MapSource {
     async open(page) {
       await page.goto("about:blank");
       await page.goto(`http://localhost:${PORT}/#s=1&z=96&d=n&t=riverValley`);
-      await page.getByText(/checks passed|checks failed/).first().waitFor({ timeout: 120_000 });
-      await page.getByLabel("Open a map or a project file in the editor").setInputFiles(path);
-      await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 180_000 });
+      await waitForEditor(page, 120_000);
+      await page.getByLabel("Open a map or project file").setInputFiles(path);
+      await page.waitForFunction(() => window.dgmEditor?.info().kind === "import" && !!window.dgm3d, null, { timeout: 180_000 });
     },
   };
 }
@@ -830,7 +829,7 @@ function writeDoc(): void {
   out.push("after capture also comes in greyscale and in three colour-blindness simulations (protanopia,");
   out.push("deuteranopia, tritanopia; Machado, Oliveira and Fernandes 2009, full severity, in linear RGB).");
   out.push("");
-  out.push(`Made with \`npx tsx tools/capture-look.ts --label before|after\` (before on ${before.date}, after on ${after.date}), in the installed Chrome, headed, at ${after.viewport.width}×${after.viewport.height} CSS pixels and a device pixel ratio of 1. Each map is opened in the editor (generated maps with **Refine this map**, Beavertopia through the file input) with **Show dam sites** on, and only the 3D canvas is captured, except for one whole view per run. The after run takes every pose's camera from the before run's record. The **meets** and **cliff** poses came in the third round; their before captures were made the same way, with \`--poses meets,cliff\`, on \`m8-done\`'s code. The water is held at one moment of its movement.`);
+  out.push(`Made with \`npx tsx tools/capture-look.ts --label before|after\` (before on ${before.date}, after on ${after.date}), in the installed Chrome, headed, at ${after.viewport.width}×${after.viewport.height} CSS pixels and a device pixel ratio of 1. Each map is opened in the editor (generated maps through the address, Beavertopia through the file input) with **Show dam sites** on, and only the 3D canvas is captured, except for one whole view per run. The after run takes every pose's camera from the before run's record. The **meets** and **cliff** poses came in the third round; their before captures were made the same way, with \`--poses meets,cliff\`, on \`m8-done\`'s code. The water is held at one moment of its movement.`);
   out.push("");
   out.push("The maps: seed 4242 in every theme at 128² (Normal), seed 4242 River Valley at 256², and");
   out.push("Beavertopia (a workshop map, 256²). Beavertopia's captures are not ours to share: they stay in");

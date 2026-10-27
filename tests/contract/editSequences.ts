@@ -119,7 +119,6 @@ export const describeSequence = (seq: readonly Step[]) => seq.map((s) => `${s.ed
  */
 export async function sweepSequences(theme: ThemeId, size: number, seed: number, seqs: readonly (readonly Step[])[]): Promise<string[]> {
   await runGenerate(makeSpec({ seed, theme, size: { x: size, y: size } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
   const failures: string[] = [];
   const next = rng(seed * 31 + size);

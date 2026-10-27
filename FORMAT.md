@@ -100,9 +100,10 @@ every water source's strength and every stored outflow on load (the 0.7→1.0 re
 
 **`MapSize`**: in 1.1 only `Size` is read. The vertical size is a game constant: 23 terrain
 layers (`MaxGameTerrainHeight` 22 + 1) and 33 total layers (10 above the terrain). The 1.0-era
-`MapHeight` key is ignored and dropped on re-save. Size limits are 4–256 per axis (enforced only by
-the New Map dialog). Non-square maps are fine. Larger maps load too: the unmodded game plays the Map Resizer mod's maps
-up to 399×399 and 29×599 (investigation/WORKSHOP.md); 512 a side is D357's probe batch (group `Sizes`).
+`MapHeight` key is ignored and dropped on re-save. The game's New Map dialog takes 4–256 per axis;
+our validator and generator take 4–512 (D357). Non-square maps are fine. Larger maps load too: the unmodded game plays
+the Map Resizer mod's maps up to 399×399 and 29×599 (investigation/WORKSHOP.md); 512 a side is D357's probe batch (group
+`Sizes`). Past 256 a side Timberborn's own map editor can't open the map.
 
 **`TerrainMap`**: one token per voxel, `1` solid. The array must hold exactly `X·Y·23` tokens: fewer
 crash, more are truncated to 22 layers with a warning. Limits:
@@ -266,3 +267,7 @@ singleton set, component shapes, outflow format and metadata are otherwise ident
 6. Entities: unique GUIDs, common templates, exact enum case, required components, footprints
    inside the map and on valid ground, nothing overlapping, exactly one StartingLocation with a free
    entrance.
+
+## Map-editor parity objects (D337–D339)
+
+Seeps write WaterSource, BlockObject, WaterDepthStrengthModifier, TimeActivatedComponent, in that order. BadtideDrain writes WaterSource, BlockObject, TimeActivatedComponent; its data footprint is 1×3. Aquifer writes BlockObject then WaterSource, with CurrentStrength 0 and no countdown; AncientAquiferDrill writes BlockObject alone. A delayed source writes CurrentStrength 0 and the four countdown fields IsEnabled, CyclesUntilCountdownActivation, DaysUntilActivation and DaysPassed; days and strengths are floats. UnstableCore writes BlockObject, TimeActivatedComponent (always enabled), UnstableCore; its default radius is 5, cycle 5, countdown 10.5 days. Reserves write BlockObject, FixedStockpile, SingleGoodAllower, Inventory:Stockpile, StockpileVisualizers, Inventory:ConstructionSite; the stock is one allowed good up to capacity, and construction stock records 10 ScrapMetal. `tests/contract/parityObjects.test.ts` checks complete file and project round trips and the load checks for every new object.

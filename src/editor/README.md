@@ -25,6 +25,7 @@ features share is a member of it.
 - `session/` the state the page holds, the queue to the worker, the page's copy of the map (`mirror.ts`).
 - `paint/` the brushes: strokes, undo and redo, picking a tool.
 - `view/` the objects under the pointer, the overlay, the renderer becoming ready, the view kept in step.
+- `block/` the Block tool: add and carve blocks, the gestures' arithmetic (`blockTool.ts`) and the slice (`useBlockTool.ts`).
 - `sources/` water sources: placing, moving, the wheel, the markers, removing.
 - `start/` the start: moving it, its check, the "fits here" hint.
 - `shelf/` the shelf: the ghost under the pointer, placing, the footprint check.
@@ -35,6 +36,9 @@ features share is a member of it.
 - `keyboard/` the keyboard.
 - `testHook/` `window.dgmEditor` for the browser tests.
 - `save/` export and save.
+- `collab/` a shared session (Together): the header's button and panel, the other player's cursor, the map's updates the
+  session orders, notes. The session itself is the page's `Together` (`src/collab/together.ts`); the edits are routed in
+  the worker (`src/worker/collabEdit.ts`), so no other slice knows a session exists.
 - `prefs/` what the viewer last used, kept in `localStorage`.
 - `render/` the markup.
 - `juice/` the sounds and the land's effects. The files beside this one (`brushes.ts`, `select.ts`, `features.ts`,

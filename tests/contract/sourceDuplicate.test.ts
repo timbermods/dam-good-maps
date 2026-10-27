@@ -9,7 +9,6 @@ import * as ed from "../../src/worker/session";
 describe("no duplicate source (D345, B4)", () => {
   it("a source placed on an existing source's tile is refused, and its strength is not touched", async () => {
     await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: 96, y: 96 } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const e = ed.sessionView().view.entities;
     let at: [number, number] | null = null;

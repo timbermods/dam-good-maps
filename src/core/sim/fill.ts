@@ -5,9 +5,8 @@
 // and its evaporation is not the water still changing (D222). Nothing here sets a rate of its own:
 // `fillDays` reads the same rules to say roughly how long the water will last.
 
-import { DT, TICKS_PER_DAY, type RetainedWater, type WaterModel } from "./water";
-
-const SECONDS_PER_DAY = TICKS_PER_DAY * 2 * DT;
+import { evapModifier } from "./moisture";
+import { SECONDS_PER_DAY, type RetainedWater, type WaterModel } from "./water";
 
 /** The water a Fill to `level` at tile (x, y) stores: the hollow's tiles (4-connected, every one
  *  whose floor, with a partial obstacle's height, stands below the level), ascending, with their
@@ -154,8 +153,9 @@ function components(W: number, H: number, tiles: number[], mark: Int32Array, sta
 }
 
 /** Each tile's evaporation modifier from its cluster saturation (water.ts `updateEvapMod`): WN = 1 +
- *  wet 8-neighbours, sat = min(8, max(WN, max over wet 4-neighbours of WN − 1)), t = 10 − sat,
- *  0.0595 t² + 0.101 t + 0.72. */
+ *  wet 8-neighbours, sat = min(8, max(WN, max over wet 4-neighbours of WN − 1)), the modifier
+ *  `evapModifier(sat)`. The saturation is moisture.ts `clusterSaturation`'s, on the pool's own tiles
+ *  only (a whole-map pass for every level the pool sinks through would cost far more). */
 function modifiers(W: number, H: number, wet: number[], mark: Int32Array, stamp: { n: number }): Float64Array {
   const s = ++stamp.n;
   for (const i of wet) mark[i] = s;
@@ -178,8 +178,7 @@ function modifiers(W: number, H: number, wet: number[], mark: Int32Array, stamp:
     if (isWet(x - 1, y)) best = Math.max(best, wn.get(i - 1)! - 1);
     if (isWet(x, y + 1)) best = Math.max(best, wn.get(i + W)! - 1);
     if (isWet(x + 1, y)) best = Math.max(best, wn.get(i + 1)! - 1);
-    const t = 10 - Math.min(8, best);
-    mod[k] = 0.0595 * (t * t) + 0.101 * t + 0.72;
+    mod[k] = evapModifier(Math.min(8, best));
   }
   return mod;
 }

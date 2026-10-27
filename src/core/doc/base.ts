@@ -5,28 +5,27 @@
 //
 // Terrain is stored as format 3's terrain (D119, I-1; terrain/runs.ts): the surface height of every
 // tile plus the solid runs of the tiles that are not one plain run from z = 0 (caves, overhangs,
-// floating ground), kept exactly: the editor's tools edit the surface only, and those columns export
-// unchanged (EDITOR_PLAN §3, "working representation"). Format 1 and 2 files stored those columns
+// floating ground), kept exactly: the brushes shape only each tile's top run, and what lies under a
+// roof exports unchanged (D280 (3); EDITOR_PLAN, "Working representation"). Format 1 and 2 files stored those columns
 // as 23-character strings; they convert to runs when read (the same voxels).
+// In memory the base's terrain is a `ColumnTerrain` (a voxel mask per tile), its surface derived.
 // Everything else of world.json is stored as its exact text with an empty terrain array, so floats
 // keep the digits they were written with.
 
 import { fromBase64, toBase64 } from "../format/base64";
 import { parse, stringify, type JsonObject } from "../format/json";
 import type { TimberFile } from "../format/timber";
-import { decodeWorld, encodeWorld, LAYERS, surfaceOf, type WorldModel } from "../format/world";
-import { columnOfRuns, runsOfColumn } from "../terrain/runs";
+import { decodeWorld, encodeWorld, LAYERS, type WorldModel } from "../format/world";
+import { ColumnTerrain, runsOfColumn, type TerrainData } from "../terrain/runs";
 
-export interface BaseMap {
+/** The base's terrain is format 3's (`TerrainData`): `heights`, the surface height per tile (the
+ *  first free layer above the top solid voxel), base64 of one byte per tile, row-major; `runs`, the
+ *  tiles that are not a single solid run from z = 0, in index order, with their solid runs bottom to
+ *  top (D119). */
+export interface BaseMap extends TerrainData {
   source: "generated" | "import";
   sizeX: number;
   sizeY: number;
-  /** Surface height per tile (the first free layer above the top solid voxel), base64 of one byte
-   *  per tile, row-major. */
-  heights: string;
-  /** Tiles that are not a single solid run from z = 0, in index order: [tile index, their solid
-   *  runs floor0, ceil0, floor1, ceil1, …, bottom to top] (format 3; D119). */
-  runs: [number, number[]][];
   /** world.json with an empty terrain array, exact text; null in documents from project files of
    *  format 1, which stored the heights only (their map is rebuilt from the features). */
   world: string | null;
@@ -43,63 +42,36 @@ export interface BaseMap {
 export interface BaseTerrain {
   W: number;
   H: number;
+  /** The terrain itself: a voxel mask per tile (D119). */
+  terrain: ColumnTerrain;
+  /** Its surface per tile, derived from it. */
   heights: Uint8Array;
-  /** Tile index → its voxel column (LAYERS entries), for columns that are not a plain run. */
+  /** Tile index → its voxel column (LAYERS entries), for the tiles that are not a plain run, derived
+   *  from it: the form the 3D view's voxel mesher takes. */
   columns: Map<number, Uint8Array>;
 }
 
-function columnOf(voxels: Uint8Array, plane: number, i: number): Uint8Array {
-  const col = new Uint8Array(LAYERS);
-  for (let z = 0; z < LAYERS; z++) col[z] = voxels[z * plane + i];
-  return col;
+function decoded(terrain: ColumnTerrain): BaseTerrain {
+  const columns = new Map<number, Uint8Array>();
+  for (const i of terrain.notPlain()) columns.set(i, terrain.column(i, LAYERS));
+  return { W: terrain.W, H: terrain.H, terrain, heights: terrain.heights(), columns };
 }
 
-/** Split a normalized world's voxels into surface heights and the multi-run columns. */
+/** A normalized world's voxels as the terrain: its runs per tile, with the surface heights. */
 export function splitTerrain(w: Pick<WorldModel, "sizeX" | "sizeY" | "layers" | "voxels">): BaseTerrain {
   if (w.layers !== LAYERS) throw new Error(`expected ${LAYERS} layers, got ${w.layers}`);
-  const W = w.sizeX;
-  const H = w.sizeY;
-  const plane = W * H;
-  const heights = surfaceOf(w);
-  const columns = new Map<number, Uint8Array>();
-  for (let i = 0; i < plane; i++) {
-    const h = heights[i];
-    let plain = true;
-    for (let z = 0; z < h && plain; z++) if (!w.voxels[z * plane + i]) plain = false;
-    if (!plain) columns.set(i, columnOf(w.voxels, plane, i));
-  }
-  return { W, H, heights, columns };
-}
-
-/** Voxels of surface heights, with the stored columns put back verbatim. */
-export function joinTerrain(W: number, H: number, heights: Uint8Array, columns: ReadonlyMap<number, Uint8Array>): Uint8Array {
-  const plane = W * H;
-  const out = new Uint8Array(plane * LAYERS);
-  for (let i = 0; i < plane; i++) {
-    const col = columns.get(i);
-    if (col) {
-      for (let z = 0; z < LAYERS; z++) out[z * plane + i] = col[z];
-      continue;
-    }
-    const h = Math.min(heights[i], LAYERS);
-    for (let z = 0; z < h; z++) out[z * plane + i] = 1;
-  }
-  return out;
+  return decoded(ColumnTerrain.fromVoxels(w.voxels, w.sizeX, w.sizeY, LAYERS));
 }
 
 export function baseFromFile(file: TimberFile, source: BaseMap["source"], owners?: string[]): BaseMap {
   const w = file.world;
   if (w.legacy) throw new Error("normalize the map before storing it");
   const t = splitTerrain(w);
-  const runs: [number, number[]][] = [];
-  for (const [i, col] of t.columns) runs.push([i, runsOfColumn(col)]);
-  runs.sort((a, b) => a[0] - b[0]);
   const base: BaseMap = {
     source,
     sizeX: w.sizeX,
     sizeY: w.sizeY,
-    heights: toBase64(t.heights),
-    runs,
+    ...t.terrain.toData(),
     world: encodeWorld({ ...w, voxels: new Uint8Array(0) }),
     metadata: stringify(file.metadata ?? {}),
     thumbnail: file.thumbnail ? toBase64(file.thumbnail) : null,
@@ -109,12 +81,10 @@ export function baseFromFile(file: TimberFile, source: BaseMap["source"], owners
   return base;
 }
 
+/** Tolerant of a stored run that names a tile off the map (it is never drawn), as saved projects
+ *  always opened; `terrain/runs.ts` `terrainColumns` refuses one. */
 export function baseTerrain(base: BaseMap): BaseTerrain {
-  const heights = fromBase64(base.heights);
-  if (heights.length !== base.sizeX * base.sizeY) throw new Error("base heights have the wrong size");
-  const columns = new Map<number, Uint8Array>();
-  for (const [i, r] of base.runs) columns.set(i, columnOfRuns(r, LAYERS));
-  return { W: base.sizeX, H: base.sizeY, heights, columns };
+  return decoded(ColumnTerrain.fromData(base, base.sizeX, base.sizeY));
 }
 
 /** Format 1 and 2's columns ([tile, 23 voxels "0"/"1"]) as format 3's runs. */
@@ -131,7 +101,7 @@ export function runsOfColumns(columns: readonly [number, string][]): [number, nu
 /** The base as a .timber file (a fresh copy: callers may change it). */
 export function fileFromBase(base: BaseMap, terrain = baseTerrain(base)): TimberFile {
   if (base.world === null) throw new Error("this document stores no map: rebuild it from its features");
-  const voxels = joinTerrain(base.sizeX, base.sizeY, terrain.heights, terrain.columns);
+  const voxels = terrain.terrain.voxels(LAYERS);
   return {
     metadata: parse(base.metadata) as JsonObject,
     thumbnail: base.thumbnail ? fromBase64(base.thumbnail) : null,

@@ -1,12 +1,14 @@
 name: Nightly
 
-# The heaviest checks, too slow for every push: the long property runs and the settings batch
-# (vitest's "heavy" project, vitest.config.ts), the full Python oracle, the full cross-engine
+# The heaviest checks, too slow for every push: the long property runs, the settings batch and the
+# settings panel's extremes, each of which must make a map (D471; vitest's "heavy" project,
+# vitest.config.ts, tests/contract/everySetting.ts), the full Python oracle, the full cross-engine
 # determinism list on each CPU and OS of the matrix, and the 100-seed pass-rate
 # batches (final ≥ 98%: a seed that makes no map is breakage, PLAN §20 D145; the first-attempt
-# rate is information, against its 60% target). Runs every night on dev's tip, by hand
-# (gh workflow run nightly.yml --ref dev), and on a pull request that changes this file. A failure
-# of the nightly or hand-started run opens an issue labelled "nightly", or comments on the open one.
+# rate is information, against its 60% target), and Real places' data matching a fresh build. Runs
+# every night on dev's tip, by hand (gh workflow run nightly.yml --ref dev), and on a pull request
+# that changes this file. A failure of the nightly or hand-started run opens an issue labelled
+# "nightly", or comments on the open one.
 #
 # GitHub runs schedules from the default branch (main), so the schedule starts once this file is
 # on main; it then checks dev, where work happens.
@@ -49,8 +51,26 @@ jobs:
           cache-dependency-path: prototype/requirements.txt
       - run: npm ci
       - run: pip install -r prototype/requirements.txt
-      - name: Long property runs and the settings batch
+      - name: Long property runs, the settings batch and every setting's extremes (D471)
         run: npm run test:heavy
+
+  # Real places' data matches a fresh build. Its own job, beside the heavy tests: the build searches
+  # each place's start spots and springs (D245, tools/real-places.ts), about 25 min on a runner.
+  places:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CHECK_REF }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Real places match a fresh build (public/real-places, tools/real-places.ts)
+        run: |
+          npm run places -- --check || { echo "::error::The Real places data is stale: run npm run places and commit"; exit 1; }
 
   oracle:
     runs-on: ubuntu-latest
@@ -85,6 +105,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # the batches' canonical settles run in the native Rust water (PLAN §20 D381; tools/rust/native-water.ts)
+      - name: Install Rust 1.90 (rust-toolchain.toml) and build the native water
+        run: |
+          rustup toolchain install
+          cd rust && cargo build --release -j 4 -p water --bin water-batch
       # Any and the six themes at once, one process each (the other sizes and difficulties run locally,
       # docs/progress.md)
       - name: Pass rates, every theme (100 seeds at 128² Normal, final ≥ 98%; first attempt reported)
@@ -147,7 +172,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           path: .scratch/hosts
           pattern: determinism-*
@@ -155,7 +180,7 @@ jobs:
         run: npx tsx tools/determinism/compare.ts .scratch/hosts/determinism-*
 
   issue:
-    needs: [heavy-tests, oracle, batches, determinism, hosts]
+    needs: [heavy-tests, places, oracle, batches, determinism, hosts]
     if: failure() && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:

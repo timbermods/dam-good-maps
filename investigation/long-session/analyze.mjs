@@ -1,0 +1,4 @@
+import {readFileSync} from 'node:fs';
+const rows=readFileSync('investigation/long-session/local/hour/session.jsonl','utf8').trim().split('\n').map(JSON.parse);
+for(const r of rows.filter(r=>r.kind==='sample').slice(-8))console.log(JSON.stringify({seconds:Math.round(r.elapsedMs/1000),label:r.label,W:r.map?.W,heapMB:+(r.metrics.JSHeapUsedSize/1048576).toFixed(2),geometries:r.three?.geometries,textures:r.three?.textures,buffers:r.gpu?.Buffer,listeners:r.metrics.JSEventListeners,nodes:r.metrics.Nodes,workerMemoryMB:r.workers?.map(w=>({id:w.id,type:w.url.match(/\/([^/]*?)\.worker/)[1],memory:w.wasm?.map(m=>({label:m.label,MB:+(m.bytes/1048576).toFixed(2)}))})),counts:r.counts}));
+const errors=rows.filter(r=>['fatal','sample-error','pageerror'].includes(r.kind));if(errors.length)console.log('ERRORS',errors);

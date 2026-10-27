@@ -8,7 +8,6 @@ import * as ed from "../../src/worker/session";
 describe("the entity view's ids", () => {
   it("has one id per object, unique, matching the core's entities", async () => {
     await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: 96, y: 96 } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const e = ed.sessionView().view.entities;
     expect(e.ids.length).toBe(e.count);

@@ -145,7 +145,7 @@ export function useReady(ed: Ed): ReadySlice {
       // a mode's water (D322): the map's own, never a drought's or a badtide's shown now
       water: () => (weatherRef.current ? surfaceWater(infoRef.current.W, infoRef.current.H, mirror.current.mapWater).surface : (mirror.current.water?.surface ?? null)),
       // the working area (D254, D259): the open selection
-      area: () => ed.workingArea(),
+      area: () => ed.workingArea(true),
       ring: (at, stroke) => clearGlow(at, stroke),
       select: (hit, ev) => {
         // Ctrl+drag: a rectangle (the Select tool opens with it)
@@ -178,6 +178,8 @@ export function useReady(ed: Ed): ReadySlice {
       painting: (on) => {
         if (!on) {
           juice.current?.strokeEnd();
+          // (the worker's land that came while it was painted goes in, unless the stroke is on its way, #410)
+          setTimeout(() => ed.takeLand(), 0);
           return;
         }
         hintJob.current++;
@@ -192,11 +194,24 @@ export function useReady(ed: Ed): ReadySlice {
       // the water flows on the stroke while it is painted (D197)
       draft: (rect, heights) => void api.draftStroke(rect, transfer(heights, [heights.buffer as ArrayBuffer])),
       cancelDraft: () => void api.cancelDraft(),
+      // a Naturalize stroke's land, worked out in the worker (D422)
+      weather: {
+        begin: (settings, ground) => api.weatherBegin(settings, ground.map((r) => [r[0], r[1], r[2]] as [number, number, number])),
+        add: (dabs, pressure) => api.weatherAdd(dabs, pressure),
+        finish: (rigid) => api.weatherFinish(rigid),
+        end: () => api.weatherEnd(),
+        cancel: () => void api.weatherCancel(),
+      },
     });
     r.onSlice = (level) => setSliceLevel(level);
     r.onMarkers = (on) => setMarkersOn(on);
     setMarkersOn(r.markers);
-    r.grab = (hit, ev) => grabSource(hit, ev) ?? ed.startCalls.current.grabStart(hit) ?? ed.grabObjectRef.current(hit);
+    // (a press takes what the pointer sees: an object on a cave's floor through its mouth, D491; on open ground the
+    // seen ground is the tile's top)
+    r.grab = (top, ev) => {
+      const hit = r.pickSeen(ev.clientX, ev.clientY) ?? top;
+      return grabSource(hit, ev) ?? ed.startCalls.current.grabStart(hit) ?? ed.grabObjectRef.current(hit);
+    };
     r.onWheel = (ev, hit) => wheelHabit(ev) || wheelSource(ev, hit);
     // a click with no tool out: a water or badwater source is picked, its strength and its water to
     // change (the water answers live); anything else puts it down

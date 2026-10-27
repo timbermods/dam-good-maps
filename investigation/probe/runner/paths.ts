@@ -60,6 +60,11 @@ export function ceilingDir(): string {
 export function sizesDir(): string {
   return resolve(process.env.DGM_PROBE_SIZES ?? join(DEFAULT_PROBE_HOME, 'sizes'));
 }
+/** The terrain-3D test maps the Terrain 3D writer writes (T3–T7, PLAN §20 D127, D279, D481), with their manifest
+ *  terrain3d.json. `terrain3d` beside it keeps the files September's runs played. */
+export function terrain3dDir(): string {
+  return resolve(process.env.DGM_PROBE_TERRAIN3D ?? join(DEFAULT_PROBE_HOME, 'terrain3d-2'));
+}
 export const probePaths = () => {
   const home = probeHome();
   return {
@@ -79,6 +84,11 @@ export const probePaths = () => {
  *  there during a run only: installed just before the launch and removed right after it. */
 export function modInstallDir(): string {
   return join(timberbornDocs(), 'Mods', 'DGMProbe');
+}
+/** The companion mod (mods/companion, D163) sits beside DGM Probe in a companion run only: installed just before the
+ *  launch and removed right after it, like DGM Probe. */
+export function companionInstallDir(): string {
+  return join(timberbornDocs(), 'Mods', 'DGMCompanion');
 }
 /** Unity writes Player.log here and moves the previous one to Player-prev.log at each launch. */
 export function unityLogDir(): string {

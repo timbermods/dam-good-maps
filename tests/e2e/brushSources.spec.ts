@@ -7,6 +7,7 @@
 // the Remove tool and its drag from a source: Select and Delete clear an area, shelf.spec.)
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor, setLevel, setWaterSpeed, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -38,6 +39,10 @@ async function hold(page: Page, x: number, y: number) {
 }
 
 test("brushes and sources (D249, D322): they ride the ground; Keep holds them; Clear takes them with the stroke; Delete removes the one targeted", async ({ page }) => {
+  // (three held strokes of fourteen moves each: on a GPU, seconds; CI draws in software on a runner its two test pages
+  // share, where each move holds the page's thread about two seconds (the traces of dev's failures), so the test takes
+  // two and a half to over three minutes there, past the default three. Nothing it waits on or asserts changes.)
+  test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   // (taller than the default: the tools, the forces and the options are rows over the map, D323 item 9, and a
@@ -46,12 +51,9 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   await page.setViewportSize({ width: 1280, height: 960 });
   // (seed 4244 on M9b's maps, D148: 4242's highlands have no 13 × 13 dry patch below level 12 twice 14 tiles
   // apart far from the start; 4244 has one at (16, 56))
-  await page.goto("./#s=4244&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
-  await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
+  await openEditor(page, "s=4244&z=96&d=n&t=highlands");
+  await topDown(page);
+  await setWaterSpeed(page, "instant");
 
   // two dry, low spots far from the start, where the map (not a bar) takes the pointer, with room
   const spot = await page.evaluate(() => {
@@ -87,11 +89,11 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   expect((await sources(page)).filter((s) => s.y === ay && (s.x === ax || s.x === bx))).toHaveLength(2);
 
   // Raise: Sources in its row, Ride by default (a soft raise: Free, so a hold keeps raising)
-  await page.keyboard.press("1");
+  await page.keyboard.press("2");
   const row = page.getByRole("group", { name: "Raise options" });
   const sourcesChoice = row.getByRole("group", { name: "Sources" });
   await expect(sourcesChoice.getByRole("button", { name: "Ride" })).toHaveAttribute("aria-pressed", "true");
-  await row.getByRole("combobox", { name: "Target level" }).selectOption("free");
+  await setLevel(row, "free");
 
   // off: a stroke over A leaves it standing on its raised tile
   const a0 = (await sources(page)).find((s) => s.x === ax && s.y === ay)!;
@@ -121,7 +123,7 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   await hold(page, bx, ay);
   await expect.poll(async () => (await sources(page)).some((s) => s.x === bx && s.y === ay)).toBe(false);
   expect(await labels(page)).toHaveLength(n0 + 1);
-  expect((await labels(page)).at(-1)).toMatch(/^Raise, \d+ tiles, a source cleared$/);
+  expect((await labels(page)).at(-1)).toMatch(/^Raise \d+ tiles, a source cleared$/);
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(async () => (await sources(page)).some((s) => s.x === bx && s.y === ay)).toBe(true);

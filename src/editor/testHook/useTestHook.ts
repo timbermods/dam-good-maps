@@ -20,6 +20,7 @@ export function useTestHook(ed: Ed): TestHookSlice {
     window.dgmEditor = {
       info: () => infoRef.current,
       tileToClient: (x, y) => renderer.current!.tileToClient(x, y),
+      pointerNote: (text, x = 0, y = 0) => ed.setShapeNote(text === null ? null : { text, ok: false, warn: false, x, y }),
       idle: () => queue.current.then(() => undefined),
       instant: () => instantRef.current,
       fit: () => fitRef.current,
@@ -36,6 +37,12 @@ export function useTestHook(ed: Ed): TestHookSlice {
       sound: () => juice.current?.status() ?? null,
       sourceGlow: () => glowCorners.current.slice(),
       selection: () => selection.current.tiles(),
+      block: () => ed.blockState(),
+      blockAnswered: () => ed.blockAnswered(),
+      // (the water's pace, for tests that wait on it: the page has no Speed control, Kyler, 2026-10-04)
+      waterSpeed: (speed) => ed.player.current?.setSpeed(speed),
+      // (the water has played into place: what the header's dot reads as no longer "Settling…")
+      waterSettled: () => (ed.player.current?.progress ?? null) === null,
       gesture: () => {
         const g = gestureRef.current;
         return { stroke: g.forceStroke ? g.forceStroke.length : null, band: g.forceStroke ? strokeRadius.current : null, cursor: g.forceCursor, side: quakeUiRef.current.side, ring: g.forceRing ? g.forceRing.r : null };

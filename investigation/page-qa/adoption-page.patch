@@ -1,0 +1,163 @@
+diff --git a/src/editor/save/useSave.ts b/src/editor/save/useSave.ts
+index 94061a98..ce4e9936 100644
+--- a/src/editor/save/useSave.ts
++++ b/src/editor/save/useSave.ts
+@@ -21,6 +21,8 @@ export function useSave(ed: Ed): SaveSlice {
+
+   async function exportProject() {
+     // (in the edits' queue, as the .timber download is: a stroke already shown is in it)
++    // Keep the visible force before taking a file (investigation/page-qa).
++    await ed.forcer.current?.stop();
+     const p = await enqueue(() => api.project());
+     saveFile(p.bytes, p.fileName, "application/gzip");
+   }
+@@ -34,6 +36,8 @@ export function useSave(ed: Ed): SaveSlice {
+     setSaving({ kind, progress: null });
+     setMessage(null);
+     try {
++      // A force draft lives outside the document until it is kept.
++      await ed.forcer.current?.stop();
+       const onProgress = proxy((q: CheckProgress) => setSaving((s) => (s ? { ...s, progress: q } : s)));
+       const r = await enqueue(() => api.exportTimber(true, onProgress));
+       if (!r.ok) {
+diff --git a/src/editor/Editor.tsx b/src/editor/Editor.tsx
+index 287ec50f..b4215b8e 100644
+--- a/src/editor/Editor.tsx
++++ b/src/editor/Editor.tsx
+@@ -78,6 +78,8 @@ export interface EditorProps {
+   onPlaces(open: boolean): void;
+   /** The map opens with the view where it was (the same map back, after a Cancel). */
+   keepView?: boolean;
++  /** In-session history of map replacements, after the map's own edits. */
++  mapHistory?: { canUndo: boolean; canRedo: boolean; undo(): Promise<void>; redo(): Promise<void> };
+ }
+
+ export default function Editor(props: EditorProps) {
+diff --git a/src/editor/paint/usePaint.ts b/src/editor/paint/usePaint.ts
+index 0a6045eb..efe66fcc 100644
+--- a/src/editor/paint/usePaint.ts
++++ b/src/editor/paint/usePaint.ts
+@@ -124,7 +124,10 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
+     if (ed.forcer.current?.running) return ed.forcer.current.cancel();
+     if (painter.current?.painting) return painter.current.cancel();
+     const s = localUndo.current.pop();
+-    if (!s) return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
++    if (!s) {
++      if (!infoRef.current.canUndo && props.mapHistory?.canUndo) return props.mapHistory.undo();
++      return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
++    }
+     juice.current?.undo();
+     showStroke(s, "before");
+     localRedo.current.push(s);
+@@ -133,7 +136,10 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
+   const redo = () => {
+     if (painter.current?.painting || ed.forcer.current?.running) return;
+     const s = localRedo.current.pop();
+-    if (!s) return run(() => api.redo());
++    if (!s) {
++      if (!infoRef.current.canRedo && props.mapHistory?.canRedo) return props.mapHistory.redo();
++      return run(() => api.redo());
++    }
+     showStroke(s, "after");
+     localUndo.current.push(s);
+     sendTerrain(() => api.redo());
+diff --git a/src/editor/render/header.tsx b/src/editor/render/header.tsx
+index 879be466..a81785f6 100644
+--- a/src/editor/render/header.tsx
++++ b/src/editor/render/header.tsx
+@@ -16,8 +16,8 @@ export function header(ed: Ed, props: EditorProps) {
+     <Header
+       info={info}
+       saveState={props.saveState}
+-      canUndo={info.canUndo || !!localUndo.current.length}
+-      canRedo={info.canRedo || !!localRedo.current.length}
++      canUndo={info.canUndo || !!localUndo.current.length || !!props.mapHistory?.canUndo}
++      canRedo={info.canRedo || !!localRedo.current.length || !!props.mapHistory?.canRedo}
+       onUndo={() => void undo()}
+       onRedo={() => void redo()}
+       dot={<ChecksDot check={check} instant={instant} busy={busy > 0} progress={progress} flowing={flowing} flags={ed.flags} badwaterRemoved={info.badwaterRemoved} open={dotOpen} onToggle={setDotOpen} actions={actions} />}
+diff --git a/src/ui/App.tsx b/src/ui/App.tsx
+index f0e3f82a..edf7c60c 100644
+--- a/src/ui/App.tsx
++++ b/src/ui/App.tsx
+@@ -191,6 +191,10 @@ export function App() {
+    *  Cancel already under way (a second one does nothing). */
+   const backReady = useRef<Promise<{ entry: YourMapEntry; bytes: Uint8Array; kept: boolean }> | null>(null);
+   const cancelling = useRef(false);
++  type MapCheckpoint = { entry: YourMapEntry; bytes: Uint8Array; kept: boolean; place?: string };
++  const mapPast = useRef<MapCheckpoint[]>([]);
++  const mapFuture = useRef<MapCheckpoint[]>([]);
++  const restoringMap = useRef(false);
+   /** A real place or a saved map being opened before any map is on show: what the page says meanwhile. */
+   const [opening, setOpening] = useState<string | null>(null);
+   // the map generator's panel, Real places or Your maps, one at a time
+@@ -297,12 +301,52 @@ export function App() {
+     switching.current = true;
+     try {
+       await saver.flush();
+-      return await load();
++      const leaving = entry.current ? await mapCheckpoint() : null;
++      const data = await load();
++      if (leaving) {
++        mapPast.current.push(leaving);
++        mapFuture.current = [];
++        setNote(`New map. Undo to get ${leaving.entry.name} back.`);
++      }
++      return data;
+     } finally {
+       switching.current = false;
+     }
+   }
+
++  /** The replacement boundary lives in the page; document edits stay in the worker. */
++  async function mapCheckpoint(): Promise<MapCheckpoint> {
++    const s = await snapshot();
++    return { entry: s.entry, bytes: s.project, kept: kept.current, place: placeFromHash(location.hash) ?? undefined };
++  }
++
++  async function restoreMap(redo: boolean): Promise<void> {
++    if (restoringMap.current || busy || !entry.current) return;
++    const from = redo ? mapFuture.current : mapPast.current;
++    const to = redo ? mapPast.current : mapFuture.current;
++    const target = from.at(-1);
++    if (!target) return;
++    restoringMap.current = true;
++    switching.current = true;
++    setBusy(true);
++    stopBackground();
++    try {
++      await saver.flush();
++      const leaving = await mapCheckpoint();
++      const data = await generator.openProject(target.bytes);
++      from.pop();
++      to.push(leaving);
++      enterEditor(data, { entry: target.entry, kept: target.kept }, target.place);
++      setNote(null);
++    } catch (e) {
++      setError(`The map could not be restored: ${words(e)}`);
++    } finally {
++      switching.current = false;
++      restoringMap.current = false;
++      setBusy(false);
++    }
++  }
++
+   /** The map is the editor's, the address its link; it gets its row in Your maps at its first edit or rename (a map
+    *  opened from Your maps has it already). */
+   function enterEditor(data: SessionOpen, origin: Origin, place?: string, keepView = false) {
+@@ -327,6 +371,7 @@ export function App() {
+
+   function onEditorChange(info: SessionInfo) {
+     if (switching.current || !entry.current) return;
++    if (info.version !== infoRef.current?.version) mapFuture.current = [];
+     infoRef.current = info;
+     setSession(info);
+     // (a change of the map, or of the editor's camera bookmarks, which the project keeps)
+@@ -911,6 +956,7 @@ export function App() {
+         placesOpen={panel === "places"}
+         onPlaces={(o) => setPanel(o ? "places" : null)}
+         keepView={opened.keepView}
++        mapHistory={{ canUndo: mapPast.current.length > 0, canRedo: mapFuture.current.length > 0, undo: () => restoreMap(false), redo: () => restoreMap(true) }}
+       />
+       {message}
+       {confirmDialog}

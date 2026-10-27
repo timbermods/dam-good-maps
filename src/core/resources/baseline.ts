@@ -29,6 +29,7 @@ import { density, FOREST, OFFICIAL_LAYOUT as L, RUIN_HEIGHT_SHARES } from "../ge
 import { expDet } from "../math/detmath";
 import { hash32, tileHash01 } from "../math/hash";
 import { distanceFrom } from "../math/grid";
+import { reachAt, walkDistance, walkWorld } from "../analysis/walk";
 import { stream, type Rng } from "../math/rng";
 import { resourceBudget, type ResourceBudget, type ResourceSettings } from "./budget";
 import { MAP_TREES, type MapTree } from "./measure";
@@ -626,7 +627,7 @@ export interface BaselineInput {
 }
 
 export interface BaselinePlan {
-  /** Its seed: which living trees are saplings (`isYoungAt`). */
+  /** Its seed: which living trees are saplings (`saplings`). */
   seed: number;
   budget: ResourceBudget;
   groves: Grove[];
@@ -634,21 +635,52 @@ export interface BaselinePlan {
   fields: (RuinField & { columns: RuinColumns })[];
 }
 
-/** How far near-start resources may be walked to (the start requirements count 20, D85). */
+/** Near the start, food and wood go within this walk: the start requirements count 20 (D85). The
+ *  generator (gen/resources.ts) and `planBaseline` both read it. */
 export const NEAR_WALK = 20;
 
-/** Whether the living tree on tile (x, y) is stored as a sapling, as the generator stores a share of
- *  them (FOREST.youngShare): its logs do not count as starting wood until it grows (D164). */
-export function isYoungAt(seed: number, x: number, y: number): boolean {
-  return tileHash01(hash32(seed, "resources", "young"), x, y) < FOREST.youngShare;
+/** How far the colony walks from the start to each tile (analysis/walk.ts: slopes allowed, round
+ *  the objects that block walking; a tile beside the walk counts by `reachAt`). */
+export function startWalkField(heights: ArrayLike<number>, W: number, H: number, entities: readonly EntitySpec[], start: { x: number; y: number }): Float64Array {
+  const { blocked, links } = walkWorld(entities, W, H);
+  const d = walkDistance(heights, W, H, blocked, links, start);
+  const out = new Float64Array(W * H);
+  for (let i = 0; i < W * H; i++) out[i] = reachAt(d, W, H, i);
+  return out;
 }
 
-/** The starting wood a living tree of the near-start groves gives on average: its species' logs by
- *  the mix of pines, birches and oaks (living groves are never succulents), times the share grown. */
+/** Which living trees are stored as saplings (FOREST.youngShare: their logs do not count as
+ *  starting wood until they grow, D164), and a sapling's growth, by a tile hash of the trees' key:
+ *  the generator's forest feature id (its rasterizer and the start's wood read the same saplings), or
+ *  for a map the generator did not plan, "resources" (`planBaseline`'s trees). */
+export function saplings(seed: number, key: string, share: number = FOREST.youngShare): { young: (x: number, y: number) => boolean; growth: (x: number, y: number) => number } {
+  const sYoung = hash32(seed, key, "young");
+  const sGrowth = hash32(seed, key, "growth");
+  return {
+    young: (x, y) => tileHash01(sYoung, x, y) < share,
+    growth: (x, y) => Math.round((0.2 + 0.75 * tileHash01(sGrowth, x, y)) * 1000) / 1000,
+  };
+}
+
+/** The species a living grove takes when the draw gave Succulent: the heaviest of the others,
+ *  Pine when all three weigh nothing (`w`: pine, birch, oak, succulent). */
+export function livingSpecies(w: readonly number[]): "Pine" | "Birch" | "Oak" {
+  if (w[1] > w[0] && w[1] >= w[2]) return "Birch";
+  if (w[2] > w[0] && w[2] > w[1]) return "Oak";
+  return "Pine";
+}
+
+/** The starting wood a tree of a living grove gives, on average (D164): its species' yield by the
+ *  species mix (a draw of Succulent grows the heaviest of the other three, as the generator's
+ *  `growGrove` does), times the share of its trees grown (a sapling's logs are not there yet). */
 export function woodPerTree(mix: ResourceSettings["speciesMix"]): number {
-  const w = mix.pine + mix.birch + mix.oak;
-  const logs = w > 0 ? (mix.pine * TREE_LOGS.Pine + mix.birch * TREE_LOGS.Birch + mix.oak * TREE_LOGS.Oak) / w : TREE_LOGS.Pine;
-  return logs * (1 - FOREST.youngShare);
+  const w = [mix.pine, mix.birch, mix.oak, mix.succulent];
+  const logs = [TREE_LOGS.Pine, TREE_LOGS.Birch, TREE_LOGS.Oak];
+  const heavy = { Pine: 0, Birch: 1, Oak: 2 }[livingSpecies(w)];
+  const total = w[0] + w[1] + w[2] + w[3];
+  let sum = 0;
+  for (let k = 0; k < 3; k++) sum += (w[k] + (k === heavy ? w[3] : 0)) * logs[k];
+  return (total > 0 ? sum / total : TREE_LOGS.Pine) * (1 - FOREST.youngShare);
 }
 
 /** Every resource on one map's ground, in the generator's order: ruin fields, bushes near the start,
@@ -695,6 +727,7 @@ export function planBaseline(inp: BaselineInput): BaselinePlan {
       bushes += p.tiles.length;
     }
     // groves until the grown trees within the walk give the starting wood asked for (D164)
+    const young = saplings(inp.seed, "resources").young;
     const size = Math.max(10, Math.ceil(inp.nearStart.wood / woodPerTree(inp.settings.speciesMix) / 3));
     let wood = 0;
     for (let k = 0; wood < inp.nearStart.wood && k < 40; k++) {
@@ -703,7 +736,7 @@ export function planBaseline(inp: BaselineInput): BaselinePlan {
       for (const gr of got) {
         groves.push(gr);
         living += gr.tiles.length;
-        for (const i of gr.tiles) if (!isYoungAt(inp.seed, i % W, (i - (i % W)) / W)) wood += TREE_LOGS[gr.species] ?? 0;
+        for (const i of gr.tiles) if (!young(i % W, (i - (i % W)) / W)) wood += TREE_LOGS[gr.species] ?? 0;
       }
     }
   }
@@ -715,11 +748,10 @@ export function planBaseline(inp: BaselineInput): BaselinePlan {
   return { seed: inp.seed, budget, groves, patches, fields };
 }
 
-/** The succulents a budget's trees hold by the species mix (they live on dry ground). */
+/** The succulents among a budget's living trees by the species mix (they live on dry ground). */
 export function succulentsOf(b: ResourceBudget, s: ResourceSettings): number {
   const m = s.speciesMix;
-  const total = m.pine + m.birch + m.oak + m.succulent;
-  return total > 0 ? Math.round((b.trees * m.succulent) / total) : 0;
+  return Math.round((b.living * m.succulent) / Math.max(1, m.pine + m.birch + m.oak + m.succulent));
 }
 
 function countMoistFree(g: BaselineGround): number {
@@ -730,19 +762,20 @@ function countMoistFree(g: BaselineGround): number {
 
 /** A plan's trees, bushes and ruin columns as map entities (format/entities.ts), with ids hashed
  *  from `owner`, the template and the tile: living trees where the soil is moist, a share of them
- *  saplings (`isYoungAt`), dead ones on dry soil (succulents alive on dry soil only), every bush
+ *  saplings (`saplings`), dead ones on dry soil (succulents alive on dry soil only), every bush
  *  ripe. */
 export function baselineEntities(plan: BaselinePlan, g: Pick<BaselineGround, "W" | "moisture" | "soilContamination" | "water">, heights: ArrayLike<number>, owner: string): EntitySpec[] {
   const W = g.W;
   const at = (i: number, template: string) => ({ id: entityId(owner, template, i), owner, x: i % W, y: (i - (i % W)) / W, z: heights[i] });
   const out: EntitySpec[] = [];
+  const sap = saplings(plan.seed, "resources");
   for (const p of plan.patches) for (const i of p.tiles) out.push(bush({ ...at(i, "BlueberryBush"), ripe: true }));
   for (const gr of plan.groves)
     for (const i of gr.tiles) {
       const moist = g.moisture[i] > 0 && !(g.soilContamination[i] > 0);
       const x = i % W;
       const y = (i - x) / W;
-      const growth = isYoungAt(plan.seed, x, y) ? Math.round((0.2 + 0.75 * tileHash01(hash32(plan.seed, "resources", "growth"), x, y)) * 1000) / 1000 : 1;
+      const growth = sap.young(x, y) ? sap.growth(x, y) : 1;
       if (gr.species === "Succulent") {
         if (moist) continue;
         out.push(tree({ ...at(i, "Succulent"), species: "Succulent", growth }));

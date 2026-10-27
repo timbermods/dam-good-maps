@@ -12,6 +12,8 @@ import { wetAreas, type MapInfo } from './mapfile';
 import { isObject, num } from '../../../src/core/format/json';
 import type { ModelRun } from './model';
 import { REPO } from './paths';
+import { T3D_EVALS } from './terrain3d';
+import { CYCLE_EVALS, type CycleTable } from './cycles';
 
 export interface CheckResult {
   id: string;
@@ -26,6 +28,8 @@ export interface GameVerdicts {
   group: string;
   status: string;
   checks: CheckResult[];
+  /** A long play's records cycle by cycle (cycles.ts), for the summary's table. */
+  cycles?: CycleTable;
 }
 
 const f2 = (v: number) => (Number.isFinite(v) ? v.toFixed(2) : String(v));
@@ -231,6 +235,8 @@ export interface Ctx {
   otherMods?: string[];
   /** The player's own mods, loaded by choice (a run with the installed mods): recorded, not a failure. */
   installedMods?: string[];
+  /** A long play's records cycle by cycle (`--cycles`; cycles.ts). */
+  cycles?: CycleTable;
 }
 
 type Eval = (c: Ctx) => { verdict: Verdict; detail: string };
@@ -1029,9 +1035,10 @@ export function evaluate(ctx: Ctx, checks: CheckDef[]): CheckResult[] {
   return checks.map((def) => {
     if (def.how === 'none') return { id: def.id, title: def.title, verdict: 'not measurable' as Verdict, detail: def.why ?? '' };
     if (!ctx.L.result) return { id: def.id, title: def.title, verdict: 'not measurable' as Verdict, detail: 'the game produced no result for this map' };
-    if (ctx.L.result.status !== 'done' && !['load', 'high-load', 'tall-load', 'size-load', 'size-load-time', 'A1', 'E4', 'M6-1a', 'M6-1b'].includes(def.id))
+    if (ctx.L.result.status !== 'done' && !['load', 'high-load', 'tall-load', 'size-load', 'size-load-time', 't3d-load', 'A1', 'E4', 'M6-1a', 'M6-1b'].includes(def.id))
       return { id: def.id, title: def.title, verdict: 'not measurable' as Verdict, detail: `the map did not finish (${ctx.L.result.status}${ctx.L.result.failure ? ': ' + ctx.L.result.failure : ''})` };
-    const e = EVALS[def.id];
+    // the terrain-3D group's checks live in terrain3d.ts, a long play's in cycles.ts (looked up here, at call time)
+    const e = EVALS[def.id] ?? T3D_EVALS[def.id] ?? CYCLE_EVALS[def.id];
     if (!e) return { id: def.id, title: def.title, verdict: 'not measurable' as Verdict, detail: 'no evaluation for this check' };
     try {
       const v = e(ctx);

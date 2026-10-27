@@ -1,0 +1,17 @@
+import {generate} from '../../src/core/gen/generate';
+import {makeSpec} from '../../src/core/spec/mapspec';
+import {straightness,tooStraight} from '../../src/core/analysis/straight';
+import {shadeTiles} from '../../src/core/render/shade';
+import {encodePng} from '../../tools/png';
+import {project} from './local/measure-outcomes';
+import {writeFileSync,mkdirSync} from 'node:fs';
+import {resolve} from 'node:path';
+const [mode,seedText]=process.argv.slice(2),seed=Number(seedText),local=resolve('investigation/delta-arms/local',mode);mkdirSync(local,{recursive:true});
+const r=generate(makeSpec({seed,theme:'delta',size:{x:128,y:128}})),b=r.built;
+const s=straightness(b.W,b.H,b.water),outcomes=project(r);
+const row={seed,size:128,ok:r.report.passed,attempts:r.attempts,planned:r.info.planned,outcomes,straight:{pass:!tooStraight(s),run:s.longest?.length??0,canal:s.canal?.length??0},hydro:r.info.hydro,stage:r.info.stage};
+writeFileSync(resolve(local,seed+'.json'),JSON.stringify(row)+'\n');
+const rgb=shadeTiles(b.heights,b.W,b.H,b.water),north=new Uint8Array(rgb.length);for(let y=0;y<b.H;y++)north.set(rgb.subarray(y*b.W*3,(y+1)*b.W*3),(b.H-1-y)*b.W*3);
+writeFileSync(resolve(local,seed+'.png'),encodePng(north,b.W,b.H));
+writeFileSync(resolve(local,seed+'.map.json'),JSON.stringify({W:b.W,H:b.H,heights:Array.from(b.heights),water:Array.from(b.water),features:r.features}));
+console.log(mode,seed,outcomes?.promise,outcomes?.water,row.straight.pass);

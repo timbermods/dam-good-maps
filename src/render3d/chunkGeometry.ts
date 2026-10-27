@@ -5,12 +5,15 @@
 // the same pattern for any chunk, stays); else new buffers with room to grow. What is drawn is the
 // same mesh, byte for byte: the draw range covers exactly its quads.
 
-import { BufferAttribute, BufferGeometry, type TypedArray } from "three";
+import { BufferAttribute, BufferGeometry, Sphere, Vector3, type TypedArray } from "three";
+import { boundingSphereOf } from "./bounds";
 
 /** A chunk mesh's vertex arrays (four vertices a quad) and how many quads it has. */
 export interface ChunkArrays {
   quads: number;
   attributes: { name: string; array: Float32Array | Int8Array; itemSize: number; normalized?: boolean }[];
+  /** Its bounding sphere (x, y, z, radius) when already made (`boundingSphereOf`, in a worker). */
+  sphere?: Float64Array | null;
 }
 
 /** Room to grow, so a stroke's next remesh of the chunk fits. */
@@ -71,11 +74,8 @@ export function chunkGeometry(d: ChunkArrays): BufferGeometry {
   return g;
 }
 
-/** The bounding sphere of the mesh's own vertices (as `computeBoundingSphere` makes it from them alone,
- *  not the room left after them). */
-function sphereOf(d: ChunkArrays): BufferGeometry["boundingSphere"] {
-  const g = new BufferGeometry();
-  g.setAttribute("position", new BufferAttribute(d.attributes.find((a) => a.name === "position")!.array, 3));
-  g.computeBoundingSphere();
-  return g.boundingSphere;
+/** The bounding sphere of the mesh's own vertices (not the room left after them). */
+function sphereOf(d: ChunkArrays): Sphere {
+  const s = d.sphere ?? boundingSphereOf(d.attributes.find((a) => a.name === "position")!.array as Float32Array);
+  return new Sphere(new Vector3(s[0], s[1], s[2]), s[3]);
 }

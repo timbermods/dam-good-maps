@@ -1,10 +1,10 @@
 # Investigations
 
 The one index of every investigation: what it is, what it found, whether it was adopted, and its pull request. Each
-folder holds its report, measurements and often prototype code. Decision numbers (D…) are PLAN.md §20's; where a
+folder holds its report, measurements and often prototype code. Decision numbers (D…) are those of `docs/decisions/`; where a
 finding is a number later work uses, it is also in [docs/FINDINGS.md](../docs/FINDINGS.md).
 
-The verdicts come from each folder's report, PLAN.md §20 and docs/HANDOFF.md §0 (the Codex verdicts of 2026-10-01 and
+The verdicts come from each folder's report, `docs/decisions/` and docs/HANDOFF.md §0 (the Codex verdicts of 2026-10-01 and
 2026-10-02). Where none is recorded the cell says so. Folders marked "held" or "waits" are not in the product yet.
 
 ## Rules for an investigation

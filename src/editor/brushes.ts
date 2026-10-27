@@ -21,7 +21,11 @@
 // Clear (they go with the stroke). Mode and Sources are remembered per brush.
 //
 // The kit (D182, D184), off by default: a square brush; straight lines (the stroke runs from where it
-// started to the pointer, its length beside it); Flatten "in steps" (terraces). A walkable edge is
+// started to the pointer, its length beside it); an area, on Raise and Lower (Timberborn's own editor's
+// Terrain, Kyler 2026-10-03: drag a rectangle; every tile in it goes to the Level, or a block up or
+// down when Free; while it is dragged the land stays as it is and the blocks it will add or take away
+// show, its size beside it; let go, it is one stroke); the three shapes one at a time (`withShape`);
+// Flatten "in steps" (terraces). A walkable edge is
 // the shelf's Slope (D247, D322). Level lines are a view switch beside Height colours (D248),
 // whatever tool is picked; its state is kept here with the brush's. A pen's pressure sets each soft
 // dab's strength.
@@ -30,14 +34,16 @@
 // (raise ↔ lower); Shift+scroll sets the target (Smooth and Naturalize: the strength); Ctrl+click
 // takes the land's level as the target (on water, its bed); Ctrl+drag selects (the Select tool);
 // { and } change the size (D368 (1)); hold F and move the mouse to size the ring, its size beside it, and let go
-// (a click sets it too, D205, from Blender); 1–5 pick a brush; Esc cancels a stroke in progress or a
+// (a click sets it too, D205, from Blender); 2–6 pick a brush (1 Select); Esc cancels a stroke in progress or a
 // resize, then lets a set target follow the ground again.
 
-import type { MapRenderer, PointerTool } from "../render3d";
+import type { GhostTile, MapRenderer, PointerTool } from "../render3d";
 import type { TileHit } from "../render3d/pick";
-import { BRUSH_MAX_LEVEL, type BrushParams, type BrushTool } from "../core/features/raster/brush";
+import { areaRect, BRUSH_MAX_LEVEL, type BrushParams, type BrushTool } from "../core/features/raster/brush";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
+import { RemotePreview, type WeatherChannel } from "../core/features/raster/remoteStroke";
 import { tilesToRuns } from "../core/math/grid";
+import { tileCount } from "../core/doc/labels";
 
 export type { BrushTool };
 
@@ -55,9 +61,11 @@ export interface BrushSettings {
   /** Raise, Lower and Flatten's target (D322): a level set with Shift+scroll or Ctrl+click, "free"
    *  (Raise and Lower sculpt softly), or null: it follows the ground under the pointer. */
   target: number | "free" | null;
-  /** The brush kit's toggles (off by default). */
+  /** The brush kit's toggles (off by default); Square, Straight lines and Area one at a time
+   *  (`withShape`). Area: Raise and Lower drag a rectangle (the game's Terrain). */
   square: boolean;
   straight: boolean;
+  area: boolean;
   levelLines: boolean;
   /** Flatten in steps: benches every `steps` levels, or null. */
   steps: number | null;
@@ -68,14 +76,21 @@ export interface BrushSettings {
 
 const EACH = <T,>(v: T): Record<BrushTool, T> => ({ raise: v, lower: v, flatten: v, smooth: v, naturalize: v });
 
-export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, target: null, square: false, straight: false, levelLines: false, steps: null, modes: EACH<BrushMode>("both"), sources: EACH<SourcesChoice>("ride") };
+export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, target: null, square: false, straight: false, area: false, levelLines: false, steps: null, modes: EACH<BrushMode>("both"), sources: EACH<SourcesChoice>("ride") };
+
+/** The brush kit's shapes, one at a time: turning Square, Straight lines or Area on turns the other
+ *  two off; turning one off leaves the others as they are. */
+export function withShape(s: BrushSettings, shape: "square" | "straight" | "area", on: boolean): BrushSettings {
+  if (!on) return { ...s, [shape]: false };
+  return { ...s, square: shape === "square", straight: shape === "straight", area: shape === "area" };
+}
 
 export const BRUSHES: { tool: BrushTool; name: string; key: string; hint: string }[] = [
-  { tool: "raise", name: "Raise", key: "1", hint: "raise the ground" },
-  { tool: "lower", name: "Lower", key: "2", hint: "lower the ground" },
-  { tool: "flatten", name: "Flatten", key: "3", hint: "level the ground" },
-  { tool: "smooth", name: "Smooth", key: "4", hint: "smooth bumps and steps" },
-  { tool: "naturalize", name: "Naturalize", key: "5", hint: "weather cliffs into slopes" },
+  { tool: "raise", name: "Raise", key: "2", hint: "raise the ground" },
+  { tool: "lower", name: "Lower", key: "3", hint: "lower the ground" },
+  { tool: "flatten", name: "Flatten", key: "4", hint: "level the ground" },
+  { tool: "smooth", name: "Smooth", key: "5", hint: "smooth bumps and steps" },
+  { tool: "naturalize", name: "Naturalize", key: "6", hint: "weather cliffs into slopes" },
 ];
 
 export const BRUSH_NAMES: Record<BrushTool, string> = { raise: "Raise", lower: "Lower", flatten: "Flatten", smooth: "Smooth", naturalize: "Naturalize" };
@@ -181,6 +196,9 @@ export interface PainterHost {
   /** The ground under every source and object, as runs [y, x0, x1]: Naturalize leaves it as it is
    *  (D368 (8)). */
   objectGround?(): [number, number, number][];
+  /** The worker's weathering (D422): a Naturalize stroke's land is worked out there, the page showing
+   *  what comes back. */
+  weather?: WeatherChannel;
   /** The working area (D254, D259: the Select tool's open selection) as runs [y, x0, x1], or null:
    *  a stroke changes only its tiles, feathered toward its edge. */
   area?(): [number, number, number][] | null;
@@ -193,7 +211,8 @@ export interface PainterHost {
 const q = (v: number, size: number) => Math.max(0, Math.min(4 * size - 1, Math.round(v * 4)));
 
 interface StrokeState {
-  preview: StrokePreview;
+  /** The stroke's preview: the page's own, or (a Naturalize stroke, D422) the worker's. */
+  preview: StrokePreview | RemotePreview;
   settings: Omit<BrushParams, "dabs">;
   dabs: number[];
   /** A pen's pressure per dab (null: a mouse). */
@@ -207,11 +226,16 @@ interface StrokeState {
   dabAt: [number, number];
   lastDab: number;
   raf: number;
+  /** Points the pointer reached since the last frame: pressed together in the next one, so a stroke
+   *  works out its land at most once a frame however many pointer events arrive (D380). */
+  queued: [number, number][];
   /** Ground changed since it last went to the water, and when it last went. */
   drafted: Rect | null;
   draftAt: number;
-  /** Straight lines: where the line starts. */
+  /** Straight lines: where the line starts; an area: its first corner. */
   anchor: [number, number] | null;
+  /** An area (the game's Terrain): the land stays as it is while it is dragged; its blocks show. */
+  area: boolean;
   /** The pen's pressure now (0–1), or null for a mouse. */
   pen: number | null;
   /** Smart Lower (D263): the tiles wet when the stroke began, and the bed a new channel would start
@@ -265,7 +289,7 @@ export class BrushPainter {
           self.ctrl = { hit, x: ev.clientX, y: ev.clientY, down: ev, handed: null };
           return true;
         }
-        self.begin(hit.x + 0.5, hit.y + 0.5, ev);
+        self.begin(hit, ev);
         return true;
       },
       move(hit, ev) {
@@ -284,7 +308,7 @@ export class BrushPainter {
         if (self.waiting) {
           if (!hit) return;
           self.waiting = false;
-          self.begin(hit.x + 0.5, hit.y + 0.5, ev);
+          self.begin(hit, ev);
           return;
         }
         self.moveTo(ev);
@@ -327,8 +351,7 @@ export class BrushPainter {
         }
         self.hereLevel = self.levelAt(hit.x, hit.y);
         self.picking = ev.ctrlKey || ev.metaKey;
-        const p = host.renderer.pickAtLevel(ev.clientX, ev.clientY, host.renderer.heightAt(hit.x, hit.y));
-        self.cursorAt = p ? [p.point[0], -p.point[2]] : [hit.x + 0.5, hit.y + 0.5];
+        self.cursorAt = self.aimAt(hit, ev).at;
         self.showCursor();
         self.say(ev);
       },
@@ -363,6 +386,12 @@ export class BrushPainter {
 
   get painting(): boolean {
     return this.stroke !== null;
+  }
+
+  /** A stroke is being painted, or a Naturalize stroke's land is still coming from the worker (D422): the
+   *  page's land is its own until it is sent. */
+  get busy(): boolean {
+    return this.stroke !== null || this.committing !== null;
   }
 
   /** A click that set the size: its drag and release do nothing. */
@@ -456,8 +485,11 @@ export class BrushPainter {
     const t = water ? null : this.shownTarget();
     const level = typeof t === "number" ? t : null;
     const clear = s.sources[tool] === "clear";
-    this.host.renderer.setBrushCursor({ x: at[0], y: at[1], radius: s.size, tool, level, water, square: this.stroke ? this.stroke.settings.shape === "square" : s.square, ...(level !== null ? { hard: true } : {}), ...(clear ? { mark: true } : {}) });
-    this.host.ring?.(at, this.stroke ? { settings: this.stroke.settings, dabs: this.stroke.dabs } : null);
+    // an area: a tile's square before it is pressed; its blocks once it is dragged
+    const area = this.stroke ? this.stroke.area : s.area && (tool === "raise" || tool === "lower");
+    if (this.stroke?.area) this.host.renderer.setBrushCursor(null);
+    else this.host.renderer.setBrushCursor({ x: at[0], y: at[1], radius: area ? 0.5 : s.size, tool, level, water, square: area || (this.stroke ? this.stroke.settings.shape === "square" : s.square), ...(level !== null ? { hard: true } : {}), ...(clear ? { mark: true } : {}) });
+    this.host.ring?.(at, this.stroke ? (this.stroke.area ? areaFootprint(this.stroke.settings, this.stroke.dabs, this.host.W, this.host.H) : { settings: this.stroke.settings, dabs: this.stroke.dabs }) : null);
     if (!this.stroke) this.say(null);
   }
 
@@ -549,7 +581,26 @@ export class BrushPainter {
     this.host.note?.(null, null);
   }
 
-  private begin(x: number, y: number, ev: PointerEvent): void {
+  /** Where the brush is under the pointer, and the level plane a stroke from there follows: on a tile's top, where the
+   *  ray meets that top's level; on a wall below a top (a cliff's face, a cave's mouth seen from low down: the editing
+   *  pick lands on the wall of the tile whose top the stroke changes), where the ray meets the wall, on its tile, and
+   *  the level of that point. The top's level would be crossed in front of the wall, toward the camera, so the brush
+   *  and its stroke would lie away from the pointer, tiles nearer the camera. */
+  private aimAt(hit: TileHit, ev: PointerEvent): { at: [number, number]; plane: number } {
+    if (hit.face === "side") {
+      const inside = (v: number, lo: number) => Math.min(lo + 0.999, Math.max(lo, v));
+      return { at: [inside(hit.point[0], hit.x), inside(-hit.point[2], hit.y)], plane: hit.point[1] };
+    }
+    const plane = this.host.renderer.heightAt(hit.x, hit.y);
+    const p = this.host.renderer.pickAtLevel(ev.clientX, ev.clientY, plane);
+    return { at: p ? [p.point[0], -p.point[2]] : [hit.x + 0.5, hit.y + 0.5], plane };
+  }
+
+  private begin(hit: TileHit, ev: PointerEvent): void {
+    // (the last Naturalize stroke is still going to the worker, D422: a moment, then press again)
+    if (this.committing) return;
+    const x = hit.x + 0.5;
+    const y = hit.y + 0.5;
     const h = this.host;
     const s = h.settings();
     let tool = s.tool;
@@ -557,13 +608,15 @@ export class BrushPainter {
     const inverted = ev.shiftKey && (tool === "raise" || tool === "lower");
     if (inverted) tool = tool === "raise" ? "lower" : "raise";
     const mode = s.modes[s.tool];
+    // an area (the game's Terrain): Raise and Lower drag a rectangle
+    const rect = s.area && (tool === "raise" || tool === "lower");
     // the game's layers (D207): under a cut, the brush works the visible land only: the ground above
     // the cut stays as it is, and nothing rises past it
     const cut = h.renderer.slice;
     const here = this.levelAt(Math.floor(x), Math.floor(y));
     const area = h.area?.() ?? null;
     // smart Lower (D184): in Both, a stroke that starts in or beside water carves a bed it follows
-    const smart = tool === "lower" && mode === "both" && this.byWater(x, y);
+    const smart = !rect && tool === "lower" && mode === "both" && this.byWater(x, y);
     // the target (D322): the one set, or the ground's where the stroke starts; "free" is soft
     let target: number | null = null;
     if (hasTarget(tool) && !smart) {
@@ -588,7 +641,7 @@ export class BrushPainter {
       strength: s.strength,
       ...(target !== null ? { target } : {}),
       ...(tool === "naturalize" ? { seed: (Math.random() * 0x7fffffff) | 0, weathers: true as const } : {}),
-      ...(s.square ? { shape: "square" as const } : {}),
+      ...(rect ? { shape: "area" as const } : s.square ? { shape: "square" as const } : {}),
       ...(tool === "flatten" && s.steps ? { steps: s.steps } : {}),
       ...(stop !== null ? { stop } : {}),
       ...(keep.length ? { keep } : {}),
@@ -601,12 +654,20 @@ export class BrushPainter {
     // below that water's surface, once it leaves it)
     const channel = settings.channel ? this.channelStart(x, y) : null;
     if (channel) Object.assign(settings, channel.wet[Math.floor(y) * h.W + Math.floor(x)] ? { deepen: true } : { bed: channel.bed, dry: 0 });
-    const preview = new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
+    // a Naturalize stroke is weathered in the worker (D422), the land following a frame or two behind
+    // the cursor (but for a straight line, drawn again from its start at every move, and Keep)
+    const remote = tool === "naturalize" && !!h.weather && !s.straight && !keepSources;
+    const preview = remote ? this.remotePreview(settings) : new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
     // the stroke follows the cursor on the level it started on (a target's, for Flatten), so the
     // brush stays under the pointer while the ground rises or sinks beneath it
-    const plane = tool === "flatten" && target !== null ? target : h.renderer.heightAt(Math.floor(x), Math.floor(y));
-    const p = h.renderer.pickAtLevel(ev.clientX, ev.clientY, plane);
-    const at: [number, number] = p ? [p.point[0], -p.point[2]] : [x, y];
+    const aim = this.aimAt(hit, ev);
+    let plane = aim.plane;
+    let at = aim.at;
+    if (tool === "flatten" && target !== null) {
+      plane = target;
+      const p = h.renderer.pickAtLevel(ev.clientX, ev.clientY, plane);
+      at = p ? [p.point[0], -p.point[2]] : [x, y];
+    }
     const pen = ev.pointerType === "pen" && target === null ? ev.pressure : null;
     this.stroke = {
       preview,
@@ -619,17 +680,33 @@ export class BrushPainter {
       dabAt: at,
       lastDab: performance.now(),
       raf: 0,
+      queued: [],
       drafted: null,
       draftAt: 0,
-      anchor: s.straight ? at : null,
+      anchor: s.straight || rect ? at : null,
+      area: rect,
       pen,
       channel,
       feltAt: 0,
       sourceRuns,
     };
     h.painting(true);
-    this.dab([at]);
+    if (rect) this.areaTo(ev);
+    else this.dab([at]);
     this.loop();
+  }
+
+  /** A preview whose land the worker works out (D422): its land is drawn as it comes. */
+  private remotePreview(settings: Omit<BrushParams, "dabs">): RemotePreview {
+    const h = this.host;
+    const t = h.terrain();
+    return new RemotePreview(settings, h.heights(), h.W, h.H, this.ground, h.weather!, (r) => this.landed(r), t.pre.slice(), t.protect);
+  }
+
+  /** The worker's land for a stroke arrived (D422): drawn now (its water flows there already). */
+  private landed(r: Rect): void {
+    this.host.renderer.updateTerrainRect(this.host.heights(), r);
+    if (this.stroke) this.feel();
   }
 
   /** The pointer moved while painting: dabs along the way, a fifth of the brush apart (or the whole
@@ -658,11 +735,15 @@ export class BrushPainter {
       ly = points[points.length - 1][1];
     }
     if (st.anchor) {
-      this.straight(ev);
+      if (st.area) this.areaTo(ev);
+      else this.straight(ev);
       return;
     }
-    if (points.length) this.dab(points);
-    else this.showCursor();
+    if (points.length) {
+      st.queued.push(...points);
+      st.dabAt = points[points.length - 1];
+    }
+    this.showCursor();
     this.say(ev);
   }
 
@@ -690,6 +771,32 @@ export class BrushPainter {
     for (let k = 1; k <= n; k++) points.push([ax + ((bx - ax) * k) / Math.max(1, n), ay + ((by - ay) * k) / Math.max(1, n)]);
     this.dab(points, back);
     h.note?.(`${Math.round(len)} tile${Math.round(len) === 1 ? "" : "s"}`, ev);
+  }
+
+  /** An area (the game's Terrain): the rectangle from its first corner to the pointer. The land stays as
+   *  it is while it is dragged: the stroke is worked out on the page's terrain and put back at once,
+   *  and the blocks it will add or take away show (the renderer's), its size beside the pointer. */
+  private areaTo(ev: PointerEvent): void {
+    const st = this.stroke!;
+    const h = this.host;
+    const [ax, ay] = st.anchor!;
+    const [bx, by] = st.last;
+    st.dabs = [q(ax, h.W), q(ay, h.H), q(bx, h.W), q(by, h.H)];
+    const trial = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
+    const r = trial.add(st.dabs);
+    const shown = h.heights();
+    const tiles: GhostTile[] = [];
+    if (r)
+      for (let y = r.y0; y <= r.y1; y++)
+        for (let x: number = r.x0; x <= r.x1; x++) {
+          const i = y * h.W + x;
+          if (shown[i] !== trial.start[i]) tiles.push({ i, from: trial.start[i], to: shown[i] });
+        }
+    trial.restore();
+    h.renderer.setBlockGhost(tiles);
+    const b = areaRect(st.dabs, h.W, h.H);
+    h.note?.(b ? `${b.x1 - b.x0 + 1} × ${b.y1 - b.y0 + 1}` : null, ev);
+    this.showCursor();
   }
 
   /** Press the brush at these points: the ground changes in this frame. */
@@ -726,7 +833,6 @@ export class BrushPainter {
       h.renderer.updateTerrainRect(h.heights(), changed);
       const d = st.drafted;
       st.drafted = d ? { x0: Math.min(d.x0, changed.x0), y0: Math.min(d.y0, changed.y0), x1: Math.max(d.x1, changed.x1), y1: Math.max(d.y1, changed.y1) } : { ...changed };
-      this.sendDraft(false);
       this.feel();
     }
     this.showCursor();
@@ -763,8 +869,12 @@ export class BrushPainter {
     if (!st) return;
     st.raf = requestAnimationFrame(() => {
       if (this.stroke !== st) return;
-      if (st.target === null && !st.anchor && performance.now() - st.lastDab >= 1000 / 30) this.dab([st.last]);
-      this.sendDraft(false);
+      if (st.queued.length) this.dab(st.queued.splice(0));
+      else if (st.target === null && !st.anchor && performance.now() - st.lastDab >= 1000 / 30) this.dab([st.last]);
+      // the water's draft once the frame showing the land is drawn
+      setTimeout(() => {
+        if (this.stroke === st) this.sendDraft(false);
+      }, 0);
       this.loop();
     });
   }
@@ -843,10 +953,41 @@ export class BrushPainter {
     const st = this.stroke;
     if (!st) return;
     cancelAnimationFrame(st.raf);
+    // (what the pointer reached since the last frame, pressed before the stroke ends)
+    if (st.queued.length) this.dab(st.queued.splice(0));
+    // (the worker's stroke: once its land is all in)
+    if (st.preview instanceof RemotePreview) {
+      this.stroke = null;
+      const preview = st.preview;
+      this.committing = preview
+        .settled()
+        .then(() => {
+          this.rideWhole(st);
+          return preview.done();
+        })
+        .then(() => this.finishEnd(st))
+        .finally(() => (this.committing = null));
+      return;
+    }
     this.stroke = null;
     const h = this.host;
+    // an area: its blocks go, and the land takes them (one stroke)
+    if (st.area) {
+      h.renderer.setBlockGhost(null);
+      const r = st.preview.add(st.dabs);
+      if (r) h.renderer.updateTerrainRect(h.heights(), r);
+    }
     this.rideObjects(st);
     this.rideWhole(st);
+    this.finishEnd(st);
+  }
+
+  /** A Naturalize stroke still going to the worker (D422): a new stroke waits for it. */
+  private committing: Promise<void> | null = null;
+
+  /** The stroke's dabs are all in: it becomes one operation. */
+  private finishEnd(st: StrokeState): void {
+    const h = this.host;
     h.painting(false);
     if (st.anchor) h.note?.(null, null);
     h.renderer.refreshShadows();
@@ -876,7 +1017,7 @@ export class BrushPainter {
     const shown = h.heights();
     const stroke: Stroke = {
       params,
-      label: `${BRUSH_NAMES[st.settings.tool as BrushTool]}, ${tiles} tile${tiles === 1 ? "" : "s"}`,
+      label: `${BRUSH_NAMES[st.settings.tool as BrushTool]} ${tileCount(tiles)}`,
       rect,
       before: { shown: cut(st.preview.start, rect, h.W), pre: cut(before.pre, rect, h.W) },
       after: { shown: cut(shown, rect, h.W), pre: cut(st.preview.pre, rect, h.W) },
@@ -891,6 +1032,7 @@ export class BrushPainter {
     if (!st) return;
     cancelAnimationFrame(st.raf);
     this.stroke = null;
+    if (st.area) this.host.renderer.setBlockGhost(null);
     const r = st.preview.restore();
     if (r) this.host.renderer.updateTerrainRect(this.host.heights(), r);
     this.host.renderer.refreshShadows();
@@ -960,3 +1102,12 @@ export function paste(a: Uint8Array, part: Uint8Array, r: { x0: number; y0: numb
   for (let y = r.y0; y <= r.y1; y++) a.set(part.subarray((y - r.y0) * w, (y - r.y0 + 1) * w), y * W + r.x0);
 }
 
+/** An area stroke as the ring reads it (Clear sources, D249): the same tiles, one exact dab on each, so
+ *  the page finds the sources in the rectangle as it does under any brush. */
+function areaFootprint(settings: Omit<BrushParams, "dabs">, dabs: readonly number[], W: number, H: number): { settings: Omit<BrushParams, "dabs">; dabs: number[] } {
+  const b = areaRect(dabs, W, H);
+  const out: number[] = [];
+  if (b) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) out.push(4 * x + 2, 4 * y + 2);
+  const { target: _t, shape: _s, ...rest } = settings;
+  return { settings: { ...rest, size: 0.5, shape: "square", precise: true }, dabs: out };
+}

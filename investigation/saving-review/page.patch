@@ -1,0 +1,167 @@
+diff --git a/src/ui/App.tsx b/src/ui/App.tsx
+index e0a6b40f..74328060 100644
+--- a/src/ui/App.tsx
++++ b/src/ui/App.tsx
+@@ -208,6 +208,7 @@ export function App() {
+   const switching = useRef(false);
+   /** Whether the last save into Your maps worked (if not, replacing an edited map asks first). */
+   const keeping = useRef(true);
++  const discardAllowed = useRef(false);
+
+   const refresh = () => void yourMaps.list().then(setMaps, () => setMaps([]));
+   // (its last save took this version and was written, and nothing waits to be saved)
+@@ -215,7 +216,8 @@ export function App() {
+   const saver = useMemo(
+     () =>
+       new YourMapsSaver(yourMaps, {
+-        onResult: (r) => {
++        onResult: (r, id) => {
++          if (r.ok && r.storageVersion && entry.current?.id === id) entry.current = { ...entry.current, storageVersion: r.storageVersion };
+           keeping.current = r.ok;
+           const problem = storeProblem(r);
+           setSaveState(problem ? (r.ok === false && r.reason === "full" ? "Not saved: browser storage is full" : "Not saved in this browser") : "");
+@@ -273,11 +275,17 @@ export function App() {
+
+   /** The open map, as Your maps keeps it: its project file now. */
+   async function snapshot() {
+-    unsaved.current = false;
+-    const p = await generator.project(6);
++    const current = entry.current;
++    if (!current) throw new Error("No map to save");
++    const key = lastKey.current;
+     const pic = picture.current?.();
+-    const e = { ...entry.current!, name: nameRef.current || entry.current!.name, revision: infoRef.current?.version ?? entry.current!.revision, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail: (pic && thumbnailUrl(pic)) ?? entry.current!.thumbnail };
+-    entry.current = e;
++    const thumbnail = (pic && thumbnailUrl(pic)) ?? current.thumbnail;
++    const p = await generator.project(6);
++    const e = { ...current, name: p.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail };
++    if (entry.current?.id === current.id && lastKey.current === key) {
++      entry.current = e;
++      unsaved.current = false;
++    }
+     return { entry: e, project: p.bytes };
+   }
+
+@@ -287,9 +295,11 @@ export function App() {
+     if (unsaved.current && entry.current) saver.changed(entry.current.id, snapshot);
+     try {
+       await saver.flush();
++      if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download its project file before replacing it.");
+       return await load();
+     } finally {
+       switching.current = false;
++      discardAllowed.current = false;
+     }
+   }
+
+@@ -299,6 +309,8 @@ export function App() {
+     const isNew = !("entry" in origin);
+     const e: YourMapEntry = isNew ? { id: newId(), name: data.info.name, kind: origin.kind, createdAt: now, editedAt: now, starred: false, thumbnail: null, revision: data.info.version, savedToTimberborn: null, bytes: 0, size: { w: data.info.W, h: data.info.H } } : origin.entry;
+     entry.current = e;
++    keeping.current = true;
++    setSaveState("");
+     nameRef.current = e.name;
+     infoRef.current = data.info;
+     lastKey.current = `${data.info.version}|${JSON.stringify(data.info.views ?? [])}`;
+@@ -328,6 +340,7 @@ export function App() {
+     const key = `${info.version}|${JSON.stringify(info.views ?? [])}`;
+     if (key === lastKey.current) return;
+     lastKey.current = key;
++    unsaved.current = true;
+     saver.changed(entry.current.id, snapshot);
+   }
+
+@@ -340,14 +353,17 @@ export function App() {
+     infoRef.current = info;
+     setName(result.name);
+     setSession(info);
+-    if (entry.current) saver.changed(entry.current.id, snapshot);
++    if (entry.current) {
++      unsaved.current = true;
++      saver.changed(entry.current.id, snapshot);
++    }
+     return null;
+   }
+
+   /** Ask before replacing an edited map only when Your maps isn't keeping it. */
+   function guard(action: () => void, what: string) {
+     if (!keeping.current && session && session.edits > 0) {
+-      setConfirm({ text: `${what} closes ${nameRef.current}, and this browser isn't keeping Your maps. Save its project file first if you want to keep its edits.`, yes: "Close it", onYes: action, offerProject: true });
++      setConfirm({ text: `${what} closes ${nameRef.current}, and this browser isn't keeping Your maps. Save its project file first if you want to keep its edits.`, yes: "Close it", onYes: () => { discardAllowed.current = true; action(); }, offerProject: true });
+     } else action();
+   }
+
+@@ -408,16 +424,18 @@ export function App() {
+         void (async () => {
+           const here = id === entry.current?.id;
+           const at = maps.findIndex((m) => m.id === id);
++          if (here) switching.current = true;
++          await saver.discard(id);
+           if (here) {
+-            // (nothing of it is saved again)
+             unsaved.current = false;
++            keeping.current = true;
++            setSaveState("");
+             entry.current = null;
+           }
+-          // (anything of it waiting to be saved is written first, so nothing brings it back after)
+-          await saver.flush();
+           await yourMaps.remove(id).catch(() => null);
+           const left = await yourMaps.list().catch(() => maps.filter((m) => m.id !== id));
+           setMaps(left);
++          if (here) switching.current = false;
+           if (!here) return;
+           const next = left[Math.min(at, left.length - 1)];
+           if (next) await openMap(next.id, left);
+@@ -445,6 +463,28 @@ export function App() {
+     }
+   }
+
++  // A normal reload/close asks while a map is not durable. Async writes cannot be guaranteed during unload.
++  useEffect(() => {
++    const leaving = (e: BeforeUnloadEvent) => {
++      if (!unsaved.current && !saver.busy() && keeping.current) return;
++      e.preventDefault();
++      e.returnValue = "";
++    };
++    const flush = () => {
++      if (unsaved.current && entry.current) saver.changed(entry.current.id, snapshot);
++      void saver.flush();
++    };
++    const hidden = () => { if (document.visibilityState === "hidden") flush(); };
++    window.addEventListener("beforeunload", leaving);
++    window.addEventListener("pagehide", flush);
++    document.addEventListener("visibilitychange", hidden);
++    return () => {
++      window.removeEventListener("beforeunload", leaving);
++      window.removeEventListener("pagehide", flush);
++      document.removeEventListener("visibilitychange", hidden);
++    };
++  }, []);
++
+   // ------------------------------------------------------------------------------ generating
+
+   /** D329: stop any background search (a new map was asked for). */
+@@ -503,6 +543,8 @@ export function App() {
+         const kept = await snapshot();
+         saver.changed(kept.entry.id, () => kept);
+         await saver.flush();
++        if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download its project file before generating another.");
++        discardAllowed.current = false;
+         if (id !== runId.current) return null;
+         back.current = { entry: kept.entry, bytes: kept.project };
+       }
+@@ -664,7 +706,12 @@ export function App() {
+           try {
+             const data = await generator.openProject(saved.bytes);
+             enterEditor(data, { kind: data.info.kind === "generated" ? "generated" : "import" });
+-            return void storage.clear();
++            // Keep the old recovery copy until the new store commits successfully.
++            const id = entry.current!.id;
++            saver.changed(id, snapshot);
++            await saver.flush(id);
++            if (keeping.current) await storage.clear();
++            return;
+           } catch {
+             // (an autosave that can't be read: a new map instead)
+           }

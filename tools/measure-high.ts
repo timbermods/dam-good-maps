@@ -5,7 +5,11 @@
 // shows. Information (D115), and where the automatic fallback starts (high/fallback.ts LIMITS).
 //
 //   npx tsx tools/measure-high.ts [--port 4941] [--seconds 5] [--only generated,busy] [--configs 1,2,3]
-//     [--dpr 2] [--tag -dpr2] [--headless]
+//     [--dpr 2] [--tag -dpr2] [--headless] [--season drought|badtide]
+//
+// With --season, the day-by-day view is held on that hazard's last day first (the Weather view, D250's seasons: dry ground and
+// straw, heat shimmer, the badtide's sky, the plants withered) and the configurations are Standard, High with every effect,
+// High's lower-cost tier, and High with the seasons' effects off.
 //
 // It opens the installed Chrome headed (real vsync; nothing is played), builds the site from this
 // checkout, and writes .scratch/measure-high.json (gitignored) and a table on stdout. The camera
@@ -14,6 +18,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
+import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -28,6 +33,8 @@ const DPR = Number(arg("dpr") ?? 1);
 /** Which configurations (their numbers in CONFIGS, from 1). */
 const PICK = arg("configs")?.split(",").map(Number);
 const TAG = arg("tag") ?? "";
+/** A hazard held on its last day for every configuration (the seasons' cost). */
+const SEASON = arg("season") as "drought" | "badtide" | undefined;
 const OUT = ".scratch/measure-high-dist";
 
 /** Dense 256² maps: forests at twice the density in big woods, ruins ×3. */
@@ -59,15 +66,21 @@ const CONFIGS: Config[] = [
   { id: "foundation + stage 3 (landmarks)", tier: "high", off: ALL_FINISH.filter((k) => !STAGE3.includes(k)) },
 ];
 
+/** The configurations of --season. */
+const SEASON_CONFIGS: Config[] = [
+  { id: "Standard", tier: "standard", off: [] },
+  { id: "High, every effect (seasons on)", tier: "high", off: [] },
+  { id: "High, lower-cost tier", tier: "lower", off: [] },
+  { id: "High, seasons' effects off", tier: "high", off: ["dryGround", "heat", "badtideSky"] },
+];
+
 const pct = (a: number[], p: number) => (a.length ? [...a].sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor(p * a.length))] : 0);
 const round = (v: number | null) => (v === null ? null : Math.round(v * 100) / 100);
 
 async function open(page: Page, fragment: string): Promise<void> {
   await page.goto("about:blank");
   await page.goto(`http://localhost:${PORT}/${fragment}`);
-  await page.getByText(/All \d+ checks passed|checks passed|checks failed/).first().waitFor({ timeout: 600_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 300_000 });
+  await waitForEditor(page, 600_000);
   await page.mouse.move(2, 2);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /Ready to play|warning|problem/ }).waitFor({ timeout: 600_000 });
@@ -170,7 +183,15 @@ async function main() {
       await open(page, m.fragment);
       const info = (await page.evaluate(`(() => { const r = window.dgm3d.renderer; return { gpu: r.gpu().renderer, canvas: [r.canvas.width, r.canvas.height], objects: r.mapState().entities.count, falls: r.info().falls }; })()`)) as Record<string, unknown>;
       console.log(JSON.stringify(info));
-      for (const [n, c] of CONFIGS.entries()) {
+      if (SEASON) {
+        const bar = page.getByRole("toolbar", { name: "Water time" });
+        await bar.getByRole("button", { name: SEASON === "drought" ? "Drought" : "Badtide", exact: true }).click();
+        await page.waitForTimeout(800);
+        await page.waitForFunction(() => !document.querySelector(".day-fill"), null, { timeout: 900_000 });
+        await page.waitForTimeout(2000);
+        console.log(`${SEASON} held; plants withered ${await page.evaluate("window.dgm3d.renderer.witheredPlants")}`);
+      }
+      for (const [n, c] of (SEASON ? SEASON_CONFIGS : CONFIGS).entries()) {
         if (PICK && !PICK.includes(n + 1)) continue;
         await setConfig(page, c);
         const drawWhole = await drawn(page, "whole");
@@ -179,7 +200,7 @@ async function main() {
         const close = await orbit(page, "close");
         const painting = await paint(page);
         const stats = await page.evaluate("window.dgm3d.renderer.highStats");
-        const row = { map: m.id, dpr: DPR, config: c.id, drawn: { whole: drawWhole, close: drawClose }, whole, close, painting, stats, ...info };
+        const row = { map: m.id, dpr: DPR, season: SEASON ?? null, config: c.id, drawn: { whole: drawWhole, close: drawClose }, whole, close, painting, stats, ...info };
         results.push(row);
         console.log(`${c.id.padEnd(38)} drawn: whole ${drawWhole.p50} ms, close ${drawClose.p50} ms · whole: GPU p50 ${whole.gpuP50} p95 ${whole.gpuP95} ms, ${whole.fps} fps · close: GPU p50 ${close.gpuP50} p95 ${close.gpuP95} ms, ${close.fps} fps · painting: frames p50 ${painting.frameP50} p95 ${painting.frameP95} ms, long tasks ${(painting.longTasks as number[]).length}`);
       }

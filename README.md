@@ -1,94 +1,121 @@
 # Dam Good Maps
 
-A map generator for [Timberborn](https://mechanistry.com/). Pick settings, generate a map, see it
-in the browser and download a `.timber` file that loads and plays in Timberborn 1.1.
+A map generator and editor for [Timberborn](https://mechanistry.com/). Generate a map, shape it in
+the browser and save a `.timber` file that loads and plays in Timberborn 1.1.
 
 The website is in progress, following [ROADMAP.md](ROADMAP.md). Once Pages is on, it is served at
 <https://timbermods.github.io/dam-good-maps/>.
 
+## Install a map
+
+1. In Chrome or Edge, press **Save to Timberborn**. The first time, pick `Documents\Timberborn\Maps`.
+2. In another browser, press **Download .timber** and move the file to `Documents\Timberborn\Maps` (on macOS
+   `~/Documents/Timberborn/Maps`).
+3. If you got a `.zip`, extract it first and move the `.timber` inside.
+4. Start Timberborn, choose **New game** and pick the map.
+
+**File → Help** in the editor says the same. To report a problem, use **File → Report a problem**, or
+[open an issue](https://github.com/timbermods/dam-good-maps/issues/new/choose).
+
 The generator:
+- A map opens ready to edit. **Map Generator**, top left, opens every setting at once.
 - Pick **Any**, or a theme to lean toward: **River Valley**, **Canyon**, **Highlands**, **Lake
-  Basin**, **Delta** or **Islands**. Then pick the size and the difficulty.
+  Basin**, **Delta** or **Islands**. Then pick the size.
 - The land and its rivers grow from uplift, erosion and flowing water. **Terrain → Verticality**
   makes it taller and sheerer. From 70 it can rise above level 16, which the game's map editor
   can't edit.
-- Open **Terrain**, **Water**, **Hazards**, **Resources** or **Advanced: start rules** to change the
-  map. Each setting shows what the official maps use.
+- Open **Terrain**, **Water**, **Hazards**, **Resources** or **Difficulty** to change the map. Point at
+  a setting to see what the official maps use.
 - **Generate** makes the map. Its water is settled by the game's own rules, and it is checked for a
   colony's survival.
 - Every map's start has clean water within a short walk, using only the map's own slopes. Wood and
-  berry bushes grow nearby. The map card lists the **Start requirements**. **Advanced: start
-  rules** sets them.
-- The preview shows water, moisture and reach layers. **3D** shows the map in 3D. The ground looks
-  as in the game: green where the soil is moist, cracked earth where it is dry, rusty red where
-  badwater spoils it.
+  berry bushes grow nearby. **Difficulty** sets what the start needs.
+- The ground looks as in the game: green where the soil is moist, cracked earth where it is dry,
+  rusty red where badwater spoils it.
 - Trees, berry bushes and ruins come in about the amounts official maps of that size have. They
   grow in groves, patches and fields. Every map has at least one mine site and one badwater
   source. For a peaceful map, set **Badwater** to **No badwater**.
-- **Copy link** gives a link that opens the same map. It carries the settings, not your edits.
+- The address is the map's link: copy it to share the map. It carries the settings, not your edits.
 - **Save to Timberborn** puts the map straight into the game's custom maps. The first time, pick
   `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). A map with the same
   name is kept, and the new one gets a number: `dgm-river-valley-7-2.timber`.
 - In other browsers it downloads the `.timber`: move it to `Documents\Timberborn\Maps`.
-  **Download project file** keeps the map for editing later.
+  **File → Download project** keeps the map for editing later.
 
 The editor:
-- **Refine this map** opens the map in 3D. Drag to turn the view, right-drag to move it, scroll to
-  zoom. WASD and the arrow keys move, Q and E turn, Shift is faster.
-- Paint the ground with the brushes at the top: **Raise**, **Lower**, **Flatten**, **Smooth** and
-  **Naturalize** (keys 1–5). Drag on the map to paint.
+- Middle-drag turns the view, right-drag moves it, scroll zooms toward the pointer. WASD and the arrow keys move, Q and
+  E turn, Shift is faster.
+- Paint the ground with the brushes in the bar at the bottom: **Raise**, **Lower**, **Flatten**, **Smooth** and
+  **Naturalize** (keys 2–6). Drag on the map to paint.
 - { and } size the brush, or hold F and move the mouse. Hold F and scroll, or press [ and ], to set
   **Smooth** and **Naturalize**'s strength. Shift while painting swaps Raise and Lower. Esc cancels a stroke.
 - **Raise**, **Lower** and **Flatten** work like the game's editor. They take the ground to the level
   shown beside the pointer, with hard edges.
 - Shift+scroll or Ctrl+click on the land sets that level; Esc lets it follow the ground again. Past
   either end, **Free** raises or digs softly.
-- The row under the brushes holds their options: **Size**, **Level**, **Mode** and **Sources**, then
-  **Square** and **Straight lines**. **Flatten** adds **In steps**.
+- The held tool's settings sit just above the bar: **Size**, **Level** (or **Strength**), **Mode**,
+  **Sources** and **Brush** (**Round**, **Square** or **Lines**). **Flatten** adds **Steps**.
 - **Mode**: **Ground** leaves water alone, **Water** changes only the ground under it, **Both**
   changes everything.
 - **Sources**: **Ride** moves them with the ground, **Keep** leaves them where they are, **Clear**
   removes them.
-- **Level lines** is a view switch beside **Height colours**. A slope goes exactly where you want it
-  from the shelf's **Slope**.
+- **Lines**, under **Show** at the top left, draws a line at every level. A slope goes exactly where you
+  want it from the objects' **Slope**.
 - A **Lower** stroke that starts in or next to water carves a bed the water follows. Its ring turns
   blue.
-- The forces reshape the land in one gesture: **Carve** (7) a river, **Craterize** (8) an impact crater, **Quake** (9)
-  a fault, **Erupt** (0) a volcano, **Glaciate** (-) a glacial valley. Click the map, or draw a path, a fault or a loop.
+- The forces reshape the land in one gesture: **Carve** (Shift+1) a river, **Craterize** (Shift+2) an impact crater,
+  **Erupt** (Shift+3) a volcano, **Rift** (Shift+4) a crack that drops the land, **Quake** (Shift+5) a fault, **Deposit** (Shift+6) a fan of sediment, **Glaciate** (Shift+7) a glacial valley and **Erode** (Shift+8) caves and arches. Click the map, or draw a path, a fault or a loop.
 - Each force has **Power**, and all but Quake a **Size**: hold F and move the mouse for Size, hold F and scroll or press [ and ] for
-  Power. **Try another** gives a different result; **More** holds the details.
+  Power. Every setting shows; **Auto** lets the land decide one. **Try another** gives a different result.
 - **Slow forces** plays a force out slowly. Esc skips it to its end, and Ctrl+Z takes it back.
-- The shelf on the left places things: **Start**, **Water source**, **Badwater source**, trees,
+- The objects at the bottom right place things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.
-- A new source's water flows at once. The row under the brushes sets its strength.
+- A new source's water flows at once. The window above the objects sets its strength.
 - Over a placed source, Ctrl+scroll sets its strength. Drag it to move it. Click it to change or
   remove it.
 - Point at an object or a source and press **Delete** to remove it. The start stays.
-- **Select** (M) marks an area, as does Ctrl+drag with a brush. Raise it, lower it, level it or dig
-  it out. **Delete** clears everything standing in it.
+- **Select** is in hand whenever nothing else is: drag on the land to mark an area (Ctrl+drag with a
+  brush too). Raise it, lower it, level it or dig it out. **Delete** clears everything standing in
+  it. Esc or X puts anything down and goes back to Select.
 - Drag the start to move it. Point at it to see its water, wood and berries.
-- The water flows as you edit. **Pause**, **Speed**, **Skip** and **Replay** control
-  it. **Drought** and **Badtide** show what each does to the map.
-- A brush over water clears the water around it, so you see the bed. **Clear water** (T) clears all
+- The water flows into place after each edit. Undo and redo show a change again.
+- **Drought** and **Badtide** hold their last day on the map. **◀** and **▶** step through the days; double-click the
+  day to type one.
+- A brush over water clears the water around it, so you see the bed. **See-through** (T) clears all
   of it.
-- The buttons over the map: **Top-down**, **Height colours**, **Markers**, **Badwater**,
-  **Minimap** and **Sound**.
+- Tick what to show at the top left: **Heights**, **Lines**, **Markers**, **Flow**, **See-through**,
+  **Badwater** and **Legend**. **Top-down**, **Reset view** and **Sound** are at the top right.
 - Alt+scroll hides the levels above a layer, as in the game. Alt+click jumps to a tile's layer.
-- Ctrl+Shift+1 to 9 keeps the view; Shift+1 to 9 goes back to it.
+- Ctrl+Shift+1 to 9 keeps the view; Alt+1 to 9 goes back to it.
+- **File → Keyboard shortcuts**, or ?, lists every key.
 - Ctrl+Z undoes and Ctrl+Y redoes. Each stroke or placement is one step.
 - The dot at the top is green when the map is ready to play. Amber means something to look at:
   click it for the list and the fixes.
-- **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). The
-  **⋯** menu has **Open…**, **Save project**, **History** and **Back to settings**.
-- **Back to settings** keeps your edits. **Generate** makes a new map; yours stays saved, and
-  **Back to editing** returns to it.
-- **Open a map** opens any `.timber` from Timberborn 0.6 to 1.1.
+- **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). **File**
+  has **Open…**, **Download project**, **Download .timber**, **Choose Maps folder…** (Chrome and Edge), **Clear everything**, **About**, **Keyboard shortcuts**,
+  **Help** and **Report a problem**.
+  **History** beside Undo lists every step: click one to go back to it.
+- Click the map's name at the top to rename it. The saved file takes the name.
+- **Generate** makes a new map. **Cancel** stops it and keeps the map you were on.
+- **Real places** in the header opens maps made from real land: click one to edit it.
+- The map you were on stays in **Your maps**, in the header: click it to go back.
+- Right-click a map in **Your maps** to download its `.timber`, rename it or delete it.
+- **File → Open…**, or a file dropped on the page, opens any `.timber` from Timberborn 0.6 to 1.1.
 
-Your map is saved in the browser as you work.
+Your maps are saved in this browser as you work.
+
+Edit together:
+- **Together**, in the header before **File**, edits this map with one other person. You can both edit anywhere.
+- **Invite** makes a short code. Send it; they type it under **Join** in their own **Together** panel and get your map.
+- You see each other's cursor, name and tool on the map. **Go to** moves your view to where they are looking.
+- Undo takes back only your own steps. If the other person has built on top of one, it says which.
+- If one of you leaves, the other keeps the map, read-only, until they are back. **Invite again** makes a new code to carry on. **Save to Timberborn** still works.
+- Only the one who invited can open or generate another map. The other is told first, and you both keep the old map in **Your maps**.
+- The connection goes through a relay, so neither of you sees the other's address. If it is down, **Together** says so and editing alone is unaffected.
 
 Real places:
-- **Real places**, at the top of the generator, lists 85 maps made from real land. Each is inspired
+- **Real places**, at `real-places/` on the site, lists 85 maps made from real land. Each is inspired
   by the land near its namesake, at Timberborn's scale. It is not a replica.
 - Filter by **Landform** and size. **Save to Timberborn** puts the map in the game, as above.
   **Refine** opens it in the editor.

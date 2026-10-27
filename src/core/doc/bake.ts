@@ -2,8 +2,8 @@
 // the editor's core, and hills and valleys come from the brushes). A project or an autosave that
 // has them opens with its land exactly as it was: the drawn hills, plateaus, ridges, canyons,
 // valleys and islands are taken out, and every tile they changed is set back to its level with a
-// terrain edit, as one step of the history (so it undoes). The generator's own landforms stay:
-// they are how it builds its terrain, and it recognises landforms by reading the ground.
+// terrain edit, as one step of the history (so it undoes). The landforms an older generator made
+// (before M9a's field) stay: they are its map's own ground.
 
 import type { Feature } from "../features/schema";
 import { tilesToRuns } from "../math/grid";

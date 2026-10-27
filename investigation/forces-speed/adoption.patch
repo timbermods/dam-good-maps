@@ -1,0 +1,454 @@
+diff --git a/src/core/features/geometry.ts b/src/core/features/geometry.ts
+index 4c3e0419..7dad2dcf 100644
+--- a/src/core/features/geometry.ts
++++ b/src/core/features/geometry.ts
+@@ -20,10 +20,14 @@ export function pathField(path: Point[], W: number, H: number): PathField {
+   const n = path.length;
+   const segLen: number[] = [];
+   const cum: number[] = [0];
++  // forces-speed: segment invariants keep the original arithmetic, outside the tile loops.
++  const segments: { ax: number; ay: number; vx: number; vy: number; l2: number }[] = [];
+   for (let i = 0; i + 1 < n; i++) {
+     const dx = path[i + 1][0] - path[i][0];
+     const dy = path[i + 1][1] - path[i][1];
+-    const l = portable.sqrt(dx * dx + dy * dy);
++    const l2 = dx * dx + dy * dy;
++    const l = portable.sqrt(l2);
++    segments.push({ ax: path[i][0], ay: path[i][1], vx: dx, vy: dy, l2 });
+     segLen.push(l);
+     cum.push(cum[i] + l);
+   }
+@@ -85,11 +89,7 @@ export function pathField(path: Point[], W: number, H: number): PathField {
+             // (a margin for rounding: the box test only skips what is clearly farther)
+             if (bx * bx + by * by > best + 1e-6) continue;
+             for (let i = c.i0; i < c.i1; i++) {
+-              const ax = path[i][0];
+-              const ay = path[i][1];
+-              const vx = path[i + 1][0] - ax;
+-              const vy = path[i + 1][1] - ay;
+-              const l2 = vx * vx + vy * vy;
++              const { ax, ay, vx, vy, l2 } = segments[i];
+               let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
+               if (t < 0) t = 0;
+               else if (t > 1) t = 1;
+diff --git a/src/core/forces/carve/play.ts b/src/core/forces/carve/play.ts
+index 9253e819..0044b559 100644
+--- a/src/core/forces/carve/play.ts
++++ b/src/core/forces/carve/play.ts
+@@ -143,12 +143,15 @@ export class CarvePlay {
+     for (const [id, s] of removed) if (this.goneAt(s, id) <= k) gone++;
+     if (gone !== this.removedShown || this.riders) {
+       this.removedShown = gone;
++      const ownById = new Map<string, typeof this.run.group[number]>();
++      for (const g of this.run.group) if (!ownById.has(g.id)) ownById.set(g.id, g);
++      const unleashed = this.unleashedObject();
+       this.map.entities = this.objects
+         .filter((e) => !(removed.has(e.id) && this.goneAt(removed.get(e.id)!, e.id) <= k))
+         .map((e) => {
+-          const own = this.run.group.find((g) => g.id === e.id);
++          const own = ownById.get(e.id);
+           if (own) return e.z === heights[own.tile] ? e : { ...e, z: heights[own.tile] };
+-          if (e === this.unleashedObject()) return { ...e, z: heights[e.y * W + e.x] };
++          if (e === unleashed) return { ...e, z: heights[e.y * W + e.x] };
+           return e;
+         });
+     }
+diff --git a/src/core/forces/rift.ts b/src/core/forces/rift.ts
+index e3625e68..328f39ff 100644
+--- a/src/core/forces/rift.ts
++++ b/src/core/forces/rift.ts
+@@ -41,7 +41,9 @@ export class RiftRun extends Staged implements StagedRun {
+   protected show(stage: number): void {
+     const { raw, arrival } = this.plan0;
+     const t = stage / this.stages;
+-    const out = snapshotMap(this.before);
++    if (stage >= this.stages) { this.map = snapshotMap(raw); return; }
++    // Both object lists are replaced below; do not clone the discarded lists.
++    const out = snapshotMap<FullForceMap>({ ...this.before, entities: [], fallen: [] });
+     for (let i = 0; i < arrival.length; i++) if (arrival[i] <= t)
+       out.heights[i] = Math.round(this.before.heights[i] + (raw.heights[i] - this.before.heights[i]) * smoothstep((t - arrival[i]) / .14));
+     transportRock(this.before, out, this.source, true);
+@@ -52,14 +54,16 @@ export class RiftRun extends Staged implements StagedRun {
+       const rider=structuredClone(final), i=final.y*raw.W+final.x;
+       rider.z += out.heights[i]-raw.heights[i];return [rider];
+     });
++    const oldFallen = new Map<string, typeof this.before.fallen[number]>();
++    for (const f of this.before.fallen) if (!oldFallen.has(f.id)) oldFallen.set(f.id, f);
+     out.fallen = raw.fallen.map(f => {
+-      const old = this.before.fallen.find(g => g.id === f.id);
++      const old = oldFallen.get(f.id);
+       const i = Math.floor(f.y) * raw.W + Math.floor(f.x);
+       if (old && arrival[i] > t) return structuredClone(old);
+       return {...structuredClone(f),z:f.z+out.heights[i]-raw.heights[i]};
+     });
+     // No water or sources are minted; the ordinary warm simulation continues on the displayed ground.
+-    this.map = stage >= this.stages ? snapshotMap(raw) : out;
++    this.map = out;
+   }
+   cue(): ForceCue {
+     const progress = this.stage / this.stages, pts = this.plan0.fault.points;
+diff --git a/src/core/forces/runs.ts b/src/core/forces/runs.ts
+index 3e4bd921..8c801a0d 100644
+--- a/src/core/forces/runs.ts
++++ b/src/core/forces/runs.ts
+@@ -309,7 +309,7 @@ export class EruptRun extends Staged implements StagedRun {
+       this.map = snapshotMap(this.plan0.map);
+       return;
+     }
+-    const m = stageMap(this.before, this.plan0.map, t);
++    const m = stageMap(this.before, this.plan0.map, t, this.before.water);
+     // an object changes (falls, goes, rides the rock) only once the eruption reaches it: the heat's
+     // arrival, from the vent outward (or along a fissure); the water waits for the final land
+     const heat = this.heat()!;
+@@ -324,7 +324,6 @@ export class EruptRun extends Staged implements StagedRun {
+     const had = new Set(this.before.fallen.map((f) => f.id));
+     const ids = new Set(m.entities.map((e) => e.id));
+     m.fallen = m.fallen.filter((f) => ids.has(f.id) && (had.has(f.id) || reached(f.x, f.y)));
+-    m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
+     this.map = m;
+   }
+
+@@ -437,7 +436,8 @@ export class QuakeRun extends Staged implements StagedRun {
+       m = snapshotMap(p.map);
+       src.set(p.source);
+     } else {
+-      m = snapshotMap(this.before);
++      // The riders below replace every object: avoid a discarded JSON round trip.
++      m = snapshotMap({ ...this.before, entities: [] });
+       this.shift(f, m.heights, m.lava, src);
+       // (what the fault does besides moving the block, its rivers joined again across it and its
+       // tear, D368 (9): each part shown as the slide passes it, never all at the end)
+@@ -475,6 +475,8 @@ export class QuakeRun extends Staged implements StagedRun {
+
+   /** The block `f` of its way along (whole tiles): the heights, rock and where each tile's ground came
+    *  from (of `this.before`). */
++  private travel0: { plan: QuakePlan; values: Float64Array } | null = null;
++
+   private shift(f: number, heights: Uint8Array, lava: Uint32Array | null, src: Uint32Array | null): void {
+     const p = this.plan0;
+     const { W, H } = this.before;
+@@ -488,6 +490,8 @@ export class QuakeRun extends Staged implements StagedRun {
+       if (lava) lava[j] = this.before.lava[s];
+       if (src) src[j] = s;
+     }
++    if (this.travel0?.plan !== p) this.travel0 = { plan: p, values: Float64Array.from(p.dx, (dx, i) => portable.hypot(dx, p.dy[i])) };
++    const travelValues = this.travel0.values;
+     const priority = new Float32Array(N).fill(-1);
+     for (let i = 0; i < N; i++) {
+       if (!p.dx[i] && !p.dy[i]) continue;
+@@ -495,7 +499,7 @@ export class QuakeRun extends Staged implements StagedRun {
+       const y = Math.floor(i / W) + off(p.dy[i]);
+       if (x < 0 || y < 0 || x >= W || y >= H) continue;
+       const j = y * W + x;
+-      const travel = portable.hypot(p.dx[i], p.dy[i]);
++      const travel = travelValues[i];
+       if (travel < priority[j]) continue;
+       priority[j] = travel;
+       heights[j] = this.before.heights[i];
+diff --git a/src/core/forces/erupt.ts b/src/core/forces/erupt.ts
+index 1664b142..457ce280 100644
+--- a/src/core/forces/erupt.ts
++++ b/src/core/forces/erupt.ts
+@@ -591,8 +591,9 @@ export function erupt(m: FullForceMap, s: EruptSettings, intent: EruptIntent, ke
+
+ /** The eruption at `t` (0–1) of its swell: every raised tile a share of the way up (whole levels),
+  *  objects on their ground then. */
+-export function stageMap(before: FullForceMap, after: FullForceMap, t: number): FullForceMap {
+-  const m = snapshotMap(after);
++export function stageMap(before: FullForceMap, after: FullForceMap, t: number, water = after.water): FullForceMap {
++  // Playback keeps the old water; copy that directly instead of copying and discarding the new water.
++  const m = snapshotMap({ ...after, water });
+   for (let i = 0; i < m.heights.length; i++) m.heights[i] = Math.round(before.heights[i] + (after.heights[i] - before.heights[i]) * smoothstep(t));
+   m.entities = m.entities.map((e) => ({ ...e, z: m.heights[e.y * m.W + e.x] }));
+   m.fallen = m.fallen.map((f) => ({ ...f, z: m.heights[Math.floor(f.y) * m.W + Math.floor(f.x)] }));
+diff --git a/src/core/forces/glaciate/run.ts b/src/core/forces/glaciate/run.ts
+index 28de0e59..559db9ca 100644
+--- a/src/core/forces/glaciate/run.ts
++++ b/src/core/forces/glaciate/run.ts
+@@ -125,6 +125,9 @@ export class GlaciateRun extends Staged implements StagedRun {
+   protected settle(): void {
+     const p = this.made;
+     const m = p.map;
++    // Rust already prefilled this exact raw model with the retained tarn.
++    const plannedModel = modelOf(m);
++    const plannedWater = { depth: m.water.depth.slice(), contamination: m.water.contamination.slice() };
+     trimRock(m);
+     respectKeep(this.before, m, this.keep);
+     this.pending = p;
+@@ -134,7 +137,13 @@ export class GlaciateRun extends Staged implements StagedRun {
+     const r = p.retained;
+     const keepAt = r.tiles.map((i, k) => m.heights[i] === r.floor[k]);
+     if (keepAt.some((k) => !k)) p.retained = { tiles: r.tiles.filter((_, k) => keepAt[k]), floor: r.floor.filter((_, k) => keepAt[k]), depth: r.depth.filter((_, k) => keepAt[k]), contamination: r.contamination.filter((_, k) => keepAt[k]) };
+-    m.water = prefill({ ...modelOf(m), ...(p.retained.tiles.length ? { retained: [p.retained] } : {}) });
++    const nextModel = modelOf(m);
++    const equal = (a: ArrayLike<number>, b: ArrayLike<number>) => { if (a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) return false; return true; };
++    const same = p.retained === r && equal(plannedModel.floor, nextModel.floor) &&
++      (plannedModel.dam === null ? nextModel.dam === null : nextModel.dam !== null && equal(plannedModel.dam, nextModel.dam)) &&
++      JSON.stringify(plannedModel.emitters) === JSON.stringify(nextModel.emitters);
++    // Keep/build touches that alter the water model still take the original canonical prefill.
++    m.water = same ? plannedWater : prefill({ ...nextModel, ...(p.retained.tiles.length ? { retained: [p.retained] } : {}) });
+     this.plan0 = p;
+   }
+
+@@ -152,9 +161,11 @@ export class GlaciateRun extends Staged implements StagedRun {
+       this.map = snapshotMap(p.map);
+       return;
+     }
++    // After the first retreat stage only the cue changes, until the final water arrives.
++    if (stage > ADVANCE_STEPS + 1) return;
+     const b = this.before;
+     const f = p.map;
+-    const m = snapshotMap(b);
++    const m = snapshotMap<FullForceMap>({ ...b, fallen: [] });
+     const advance = clamp(stage / ADVANCE_STEPS, 0, 1);
+     const retreating = stage > ADVANCE_STEPS;
+     for (let i = 0; i < m.heights.length; i++) {
+diff --git a/src/core/forces/rust/bridge.ts b/src/core/forces/rust/bridge.ts
+index 0f36fc2d..fe81a371 100644
+--- a/src/core/forces/rust/bridge.ts
++++ b/src/core/forces/rust/bridge.ts
+@@ -227,6 +227,17 @@ export type RustPlan =
+   | ({ verb: "glaciate" } & GlaciateRecords)
+   | ({ verb: "carve" } & CarveRecords);
+
++/** Whether encode(..., false) would write the same value as its JSON-normalized copy. */
++function samePlain(a: unknown, b: unknown): boolean {
++  if (Object.is(a, b)) return true;
++  if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
++  if (ArrayBuffer.isView(a) || a instanceof Set) return false;
++  if (Array.isArray(a) !== Array.isArray(b)) return false;
++  const ak = Object.keys(a).filter(k => (a as Record<string, unknown>)[k] !== undefined);
++  const bk = Object.keys(b);
++  return ak.length === bk.length && ak.every((k, i) => k === bk[i] && samePlain((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
++}
++
+ /** Plans a force in Rust; throws its refusal (one plain reason). */
+ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extract<RustPlan, { verb: V }> {
+   const x = rustForces();
+@@ -236,7 +247,8 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
+   const metadata = encode(
+     {
+       ...jobMetadata(job),
+-      map: { ...m, _plainEntities: plain, _rockLength: m.rockLayers.length, heights: [], lava: [], rockLayers: [], water: { depth: [], contamination: [] } },
++      // Rust defaults plain metadata to the original metadata when no second representation is supplied.
++      map: { ...m, ...(samePlain(m.entities, plain) ? {} : { _plainEntities: plain }), _rockLength: m.rockLayers.length, heights: [], lava: [], rockLayers: [], water: { depth: [], contamination: [] } },
+       keep: [],
+     },
+     false,
+@@ -351,11 +363,13 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
+     for (let k = 0; k < a.length; k += 7) out.push(entity(a[k], a[k + 1], a[k + 2], a[k + 3], a[k + 4], a[k + 5], a[k + 6]));
+     return out;
+   };
++  const firstFallen = new Map<string, Fallen>();
++  for (const f of m.fallen) if (!firstFallen.has(f.id)) firstFallen.set(f.id, f);
+   const fallenRows = (a: ArrayLike<number>) => {
+     const out: Fallen[] = [];
+     for (let k = 0; k < a.length; k += 7) {
+       const id = ids[a[k]];
+-      const original = m.fallen.find((f) => f.id === id);
++      const original = firstFallen.get(id);
+       out.push({ ...structuredClone(original ?? {}), id, x: a[k + 1], y: a[k + 2], z: a[k + 3], dx: a[k + 4], dy: a[k + 5], length: a[k + 6] });
+     }
+     return out;
+@@ -391,7 +405,8 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
+     };
+   };
+
+-  const g = view(18, Float64Array).slice();
++  // Geometry is decoded synchronously before forces_free: a second buffer copy is unnecessary.
++  const g = view(18, Float64Array);
+   let at = 0;
+   const n = () => g[at++];
+   const point = () => ({ x: n(), y: n() });
+diff --git a/src/worker/session.ts b/src/worker/session.ts
+index 35aafb7b..028c2a08 100644
+--- a/src/worker/session.ts
++++ b/src/worker/session.ts
+@@ -1618,7 +1618,8 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
+   }
+   const rect = changedRect(W, H, f.shown, map.heights);
+   if (rect) {
+-    f.shown = map.heights.slice();
++    // forces-speed: this comparison buffer is private; reuse its allocation each frame.
++    f.shown.set(map.heights);
+     out.heights = map.heights.slice();
+     out.rect = rect;
+   }
+diff --git a/rust/forces/src/lib.rs b/rust/forces/src/lib.rs
+index e98017c3..e1b73fea 100644
+--- a/rust/forces/src/lib.rs
++++ b/rust/forces/src/lib.rs
+@@ -53,6 +53,8 @@ mod water {
+         refs: Vec<i32>,
+         pos: Vec<usize>,
+         settle_closed: Option<Vec<bool>>,
++        // forces-speed: reused wet-transition scratch, never part of numeric state.
++        turned: Vec<usize>,
+     }
+     fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
+         if v < lo {
+@@ -162,6 +164,7 @@ mod water {
+                 refs: vec![0; n],
+                 pos: vec![usize::MAX; n],
+                 settle_closed: None,
++                turned: Vec::new(),
+             };
+             // a seep starts off, as the game's does (rust/water sim.rs)
+             s.seep = s.emitters.iter().map(|e| if e.limit.is_some() { 0 } else { 1 }).collect();
+@@ -295,7 +298,7 @@ mod water {
+             }
+             sat
+         }
+-        fn substep(&mut self, scale: f64) {
++        fn substep<const GAME: bool, const DAM: bool>(&mut self, scale: f64) {
+             for &i in &self.prev_wet {
+                 if self.d[i] > 0.0 {
+                     continue;
+@@ -306,8 +309,8 @@ mod water {
+             // are constructed only from 0..n or validated source cells. The numeric
+             // buffers never resize during these phases; frame pointers never escape.
+             let mut frame = unsafe { NumericFrame::new(self) };
+-            frame.flow_phase(&self.wet);
+-            frame.depth_phase(&self.active);
++            frame.flow_phase::<GAME, DAM>(&self.wet);
++            frame.depth_phase::<GAME>(&self.active);
+
+             for &i in &self.active {
+                 self.c[i] = self.next_c[i];
+@@ -324,7 +327,7 @@ mod water {
+                         if !(d0 > 0.0) {
+                             continue;
+                         }
+-                        if self.game {
++                        if GAME {
+                             self.old[i] = d0;
+                         }
+                         let d1 = d0 + add;
+@@ -343,7 +346,7 @@ mod water {
+                 }
+                 for &i in &src.cells {
+                     let d0 = self.d[i];
+-                    if self.game {
++                    if GAME {
+                         self.old[i] = d0;
+                     }
+                     self.c[i] = (self.c[i] * d0 + src.contamination * add) / (d0 + add);
+@@ -352,7 +355,7 @@ mod water {
+             }
+             std::mem::swap(&mut self.prev_wet, &mut self.wet);
+             self.wet.clear();
+-            let mut turned = vec![];
++            self.turned.clear();
+             for a in 0..self.active.len() {
+                 let i = self.active[a];
+                 let wet = self.d[i] > 0.0;
+@@ -360,18 +363,28 @@ mod water {
+                     self.wet_mask[i] = wet;
+                     self.count_wet(i, if wet { 1 } else { -1 });
+                     self.mark_dirty(i);
+-                    turned.push(i);
++                    self.turned.push(i);
+                 }
+                 if wet {
+                     self.wet.push(i);
+                 }
+             }
+-            for i in turned {
++            for k in 0..self.turned.len() {
++                let i = self.turned[k];
+                 self.mark_active(i, if self.wet_mask[i] { 1 } else { -1 });
+             }
+         }
+         pub fn run(&mut self, ticks: u64, scale: f64) {
+             self.validate_shape();
++            // Hoist invariant rule/obstacle branches out of the tile/direction kernels.
++            match (self.game, self.dam.is_some()) {
++                (true, true) => self.run_rules::<true, true>(ticks, scale),
++                (true, false) => self.run_rules::<true, false>(ticks, scale),
++                (false, true) => self.run_rules::<false, true>(ticks, scale),
++                (false, false) => self.run_rules::<false, false>(ticks, scale),
++            }
++        }
++        fn run_rules<const GAME: bool, const DAM: bool>(&mut self, ticks: u64, scale: f64) {
+             for _ in 0..ticks {
+                 if self.ticks % 64 == 0 {
+                     self.active.sort_unstable();
+@@ -398,8 +411,8 @@ mod water {
+                     self.dirty_mask[i] = false;
+                 }
+                 self.dirty.clear();
+-                self.substep(scale);
+-                self.substep(scale);
++                self.substep::<GAME, DAM>(scale);
++                self.substep::<GAME, DAM>(scale);
+                 self.ticks += 1;
+             }
+         }
+@@ -562,7 +575,6 @@ mod water {
+         wall: NumericBuffer<u8>,
+         nb: NumericBuffer<[isize; 4]>,
+         dam: Option<NumericBuffer<f64>>,
+-        game: bool,
+         edge: bool,
+     }
+     impl NumericFrame {
+@@ -580,7 +592,6 @@ mod water {
+                 wall: NumericBuffer(s.wall.as_mut_ptr()),
+                 nb: NumericBuffer(s.nb.as_mut_ptr()),
+                 dam: s.dam.as_mut().map(|d| NumericBuffer(d.as_mut_ptr())),
+-                game: s.game,
+                 edge: s.edge,
+             }
+         }
+@@ -610,7 +621,7 @@ mod water {
+             0.995 * prev + K * e
+         }
+         #[inline(always)]
+-        fn flow_phase(&mut self, wet: &[usize]) {
++        fn flow_phase<const GAME: bool, const DAM: bool>(&mut self, wet: &[usize]) {
+             for &i in wet {
+                 let fc = self.floor[i];
+                 let dc = self.d[i];
+@@ -627,12 +638,12 @@ mod water {
+                     } else {
+                         let mut e = hc - hn;
+                         let prev = KEEP * self.out[b + k];
+-                        let lim = if inside {
+-                            self.dam.as_ref().map_or(-1.0, |d| d[j as usize])
++                        let lim = if DAM && inside {
++                            self.dam.as_ref().unwrap()[j as usize]
+                         } else {
+                             -1.0
+                         };
+-                        let fk = if lim >= 0.0 && fn_ < hc.ceil() && (!self.game || fc <= fn_) {
++                        let fk = if lim >= 0.0 && fn_ < hc.ceil() && (!GAME || fc <= fn_) {
+                             self.dam_flow(i, fc, hc, fn_, lim, e, prev)
+                         } else {
+                             if (inside || self.edge) && dn == 0.0 && fn_ == fc {
+@@ -644,7 +655,7 @@ mod water {
+                     }
+                 }
+                 let sum = self.f[b] + self.f[b + 1] + self.f[b + 2] + self.f[b + 3];
+-                if self.game {
++                if GAME {
+                     let sd = sum * DT;
+                     if sum > 0.0 && dc < sd {
+                         let r = dc / sd;
+@@ -661,7 +672,7 @@ mod water {
+             }
+         }
+         #[inline(always)]
+-        fn depth_phase(&mut self, active: &[usize]) {
++        fn depth_phase<const GAME: bool>(&mut self, active: &[usize]) {
+             for &i in active {
+                 let b = 4 * i;
+                 let ns = self.nb[i];
+@@ -698,7 +709,7 @@ mod water {
+                 }
+                 self.old[i] = dc;
+                 let mut net = insum - outsum;
+-                if self.game || dc > 0.0 {
++                if GAME || dc > 0.0 {
+                     net = net - (if dc < 0.02 { 1e-3 } else { 1e-4 }) * self.modifiers[i];
+                 }
+                 let d1 = dc + net * DT;

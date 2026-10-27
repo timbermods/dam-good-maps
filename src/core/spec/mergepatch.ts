@@ -1,6 +1,6 @@
 // JSON Merge Patch (RFC 7396): objects merge key by key, `null` deletes a key, and anything else,
-// arrays included, replaces the target's value whole. The `SpecPatch` operation (PLAN §19.1) and
-// `updateFeature` use it. The input values are never changed.
+// arrays included, replaces the target's value whole. `updateFeature` uses it (and the planned
+// `SpecPatch`, PLAN §19.1). The input values are never changed.
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 

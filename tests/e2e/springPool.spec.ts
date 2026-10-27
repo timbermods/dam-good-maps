@@ -3,6 +3,7 @@
 // pool, in the same undo step as the switch. And the shelf's Badwater source shows green there.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -12,11 +13,8 @@ const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.ren
 test("a clean source on uneven ground switched to badwater cuts its own spring pool, one step (D290)", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  await topDown(page);
   // the middle of a 3 × 3 of dry, uneven ground with nothing on it, where the map takes the pointer
   const spot = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
@@ -65,7 +63,7 @@ test("a clean source on uneven ground switched to badwater cuts its own spring p
   await page.mouse.click(p.x, p.y);
   const row = page.getByRole("group", { name: /Water source, selected/ });
   await expect(row).toBeVisible();
-  await row.getByRole("combobox", { name: "Water" }).selectOption("bad");
+  await row.getByRole("group", { name: "Water" }).getByRole("button", { name: "Badwater" }).click();
   await idle(page);
   await expect.poll(async () => (await info(page)).history.filter((h) => h.applied).map((h) => h.label)).toHaveLength(n0 + 1);
   expect((await info(page)).history.filter((h) => h.applied).at(-1)!.label).toBe("Make a source badwater");

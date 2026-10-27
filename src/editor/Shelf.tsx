@@ -7,9 +7,12 @@
 // there. The drag is the page's own pointer drag, never the browser's (which carries a file with an
 // image and offered to open it).
 
-import { useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { SHELF, shelfTip, type ShelfItem } from "./shelfItems";
 import { tip } from "../ui/Tooltip";
+
+/** The first row of each group after the first: the water objects, the plants, the landmarks, the core and the reserves. */
+const GROUP_FIRST = new Set(["WaterSeep", "Pine", "ruin", "UnstableCore"]);
 
 /** How far a press must move before it is a drag and not a click, in pixels. */
 const DRAG_PX = 6;
@@ -36,9 +39,49 @@ export function Shelf(p: ShelfProps) {
   const swallow = useRef(false);
   const latest = useRef(p);
   latest.current = p;
+  const grid = useRef<HTMLDivElement>(null);
+  // the picked object's window opens above the list and shortens it: the list scrolls by what it shrank, so the row picked
+  // stays under the pointer (the list never moves, EDITOR_PLAN); a row picked from the keyboard is only kept in view
+  const rowTop = useRef<{ id: string; top: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!p.picked) return;
+    const settle = () => {
+      const row = grid.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
+      const menu = grid.current?.closest<HTMLElement>(".objects-menu");
+      if (!row || !menu) return;
+      const was = rowTop.current?.id === p.picked ? rowTop.current.top : null;
+      if (was === null) return row.scrollIntoView({ block: "nearest" });
+      const delta = row.getBoundingClientRect().top - was;
+      if (Math.abs(delta) > 0.5) menu.scrollTop += delta;
+    };
+    settle();
+    // (the window's own height may settle a frame later)
+    const id = requestAnimationFrame(settle);
+    return () => cancelAnimationFrame(id);
+  }, [p.picked]);
+
+  // the object put away, its window gone: put away by a click on its row, the list goes back to where it was before the window
+  // opened (the row stays under the pointer); put away any other way (Esc), to its top, with Start and the sources in sight
+  // (while the window was up the list was scrolled to keep the picked row under the pointer)
+  const had = useRef(false);
+  const home = useRef(0);
+  const clicked = useRef(false);
+  useEffect(() => {
+    // (a key, Esc above all, puts the object away without the pointer)
+    const key = () => (clicked.current = false);
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, []);
+  useLayoutEffect(() => {
+    const menu = grid.current?.closest<HTMLElement>(".objects-menu");
+    if (menu && had.current && !p.picked) menu.scrollTop = clicked.current ? home.current : 0;
+    if (!p.picked) clicked.current = false;
+    had.current = !!p.picked;
+  }, [p.picked]);
 
   function down(e: PointerEvent, it: ShelfItem) {
     swallow.current = false;
+    rowTop.current = { id: it.id, top: (e.currentTarget as HTMLElement).getBoundingClientRect().top };
     if (e.button !== 0 || latest.current.loading) return;
     const s = { x: e.clientX, y: e.clientY, id: e.pointerId, dragging: false };
     press.current = s;
@@ -70,17 +113,27 @@ export function Shelf(p: ShelfProps) {
   }
 
   return (
-    <nav class="shelf" aria-label="Place">
-      <div class="shelf-grid" role="toolbar" aria-label="Objects">
+    <nav
+      class="shelf objects-menu"
+      aria-label="Place"
+      onScroll={(e) => {
+        // (the player's own scroll, while no window is open)
+        if (!latest.current.picked) home.current = (e.currentTarget as HTMLElement).scrollTop;
+      }}
+      onPointerDown={() => (clicked.current = true)}
+    >
+      {/* its title (Kyler, 2026-10-06): one row of the items' height, the names' inset */}
+      <h2 class="shelf-title">Items</h2>
+      <div class="shelf-grid" role="toolbar" aria-label="Objects" ref={grid}>
         {SHELF.map((it) => {
-          const src = p.icon(it.template);
+          const src = p.icon(it.picture ? it.id : it.template);
           return (
             <button
               type="button"
               key={it.id}
-              class="shelf-item"
+              class={`shelf-item${GROUP_FIRST.has(it.id) ? " shelf-first" : ""}`}
               aria-pressed={p.picked === it.id}
-              aria-label={it.key ? `${it.name} (${it.key})` : it.name}
+              aria-label={it.name}
               {...(p.loading ? tip("The map is still loading") : shelfTip(it))}
               disabled={p.loading}
               onPointerDown={(e) => down(e, it)}
@@ -93,7 +146,7 @@ export function Shelf(p: ShelfProps) {
                 p.onPick(p.picked === it.id ? null : it);
               }}
             >
-              {src ? <img src={src} alt="" width={48} height={48} draggable={false} /> : <span class="shelf-blank" aria-hidden="true" />}
+              {src ? <img src={src} alt="" width={28} height={28} draggable={false} /> : <span class="shelf-blank" aria-hidden="true" />}
               <span class="shelf-word">{it.name}</span>
             </button>
           );

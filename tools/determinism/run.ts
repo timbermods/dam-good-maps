@@ -4,6 +4,10 @@
 //
 //   npx tsx tools/determinism/run.ts [--smoke] [--only <text,text>] [--out <name>] [--engines chromium,firefox,webkit,node]
 //
+// `chromium-threads` and `firefox-threads` run the same cases in a worker whose water runs on four threads at
+// every size (the multi-core water, src/core/sim/parallel.ts; threads.ts), on the page served cross-origin
+// isolated: their rows must be the others' byte for byte, and their threads must have run.
+//
 // Pull requests run --smoke (every theme, brush and force setting; one generation seed, short
 // sequences); the nightly runs the full list on each CPU of the matrix, and compare.ts compares
 // the hosts. Results go to .scratch/determinism/<out>/ (summary.json and one manifest an engine).
@@ -26,6 +30,8 @@ function arg(name: string): string | null {
   return i >= 0 ? (process.argv[i + 1] ?? null) : null;
 }
 const smoke = process.argv.includes("--smoke");
+const serial = process.argv.includes("--serial");
+const noTimings = process.argv.includes("--no-timings");
 // --only: case ids containing any of these comma-separated texts (plain text, never a pattern)
 const only = arg("only") ? arg("only")!.split(",").filter(Boolean) : null;
 const outName = arg("out") ?? (smoke ? "smoke" : "full");
@@ -35,27 +41,34 @@ const root = resolve(import.meta.dirname, "../..");
 const pw: Record<string, BrowserType> = process.env.DGM_DET_PLAYWRIGHT
   ? await import(pathToFileURL(join(process.env.DGM_DET_PLAYWRIGHT, "index.mjs")).href)
   : await import("@playwright/test");
-const dir = join(root, ".scratch/determinism", outName);
+const dir = arg("out-dir") ? resolve(arg("out-dir")!) : join(root, ".scratch/determinism", outName);
 mkdirSync(dir, { recursive: true });
 
-// the page: the cases bundled as the site bundles its core
-await build({
-  configFile: false,
-  logLevel: "warn",
-  root,
-  build: {
-    outDir: join(dir, "page"),
-    emptyOutDir: true,
-    target: "es2022",
-    minify: false,
-    lib: { entry: join(root, "tools/determinism/page.ts"), formats: ["es"], fileName: () => "bundle.js" },
-  },
-});
-const bundle = readFileSync(join(dir, "page/bundle.js"));
+// the page: the cases bundled as the site bundles its core; the threaded engines' worker and its helpers beside it
+const scripts: Record<string, Buffer> = {};
+for (const [entry, file] of [["page", "bundle"], ["threads", "threads"], ["strip", "strip"]]) {
+  await build({
+    configFile: false,
+    logLevel: "warn",
+    root,
+    build: {
+      outDir: join(dir, "page"),
+      emptyOutDir: entry === "page",
+      target: "es2022",
+      minify: false,
+      lib: { entry: join(root, `tools/determinism/${entry}.ts`), formats: ["es"], fileName: () => `${file}.js` },
+    },
+  });
+  scripts[`/${file}.js`] = readFileSync(join(dir, `page/${file}.js`));
+}
 const server = http.createServer((req, res) => {
-  if (req.url === "/bundle.js") {
+  // cross-origin isolated, so the threaded engines' worker has SharedArrayBuffer
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+  const script = scripts[req.url ?? ""];
+  if (script) {
     res.setHeader("Content-Type", "text/javascript; charset=utf-8");
-    res.end(bundle);
+    res.end(script);
   } else {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end('<!doctype html><meta charset="utf-8"><script type="module" src="/bundle.js"></script>');
@@ -63,6 +76,11 @@ const server = http.createServer((req, res) => {
 });
 await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
 const url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+
+async function runEngines<T>(tasks: Array<() => Promise<T>>): Promise<T[]> {
+  if (!serial) return Promise.all(tasks.map(task => task()));
+  const out: T[] = []; for (const task of tasks) out.push(await task()); return out;
+}
 
 interface Engine {
   version: string;
@@ -72,6 +90,7 @@ interface Engine {
   errors: { case: string; message: string }[];
 }
 const browsers: Browser[] = [];
+const threadedPages: Record<string, Page> = {};
 const engines: Record<string, Engine> = {};
 let failed = false;
 try {
@@ -80,9 +99,11 @@ try {
       engines.node = { version: process.version, userAgent: `Node ${process.version}`, run: (c) => runCase(c), rows: [], errors: [] };
       continue;
     }
-    const type = ["chromium", "firefox", "webkit"].includes(name) ? pw[name] : undefined;
+    const threaded = name.endsWith("-threads");
+    const base = threaded ? name.slice(0, -"-threads".length) : name;
+    const type = ["chromium", "firefox", "webkit"].includes(base) ? pw[base] : undefined;
     if (!type) throw Error(`unknown engine ${name}`);
-    const channel = name === "chromium" ? process.env.PW_CHANNEL : undefined;
+    const channel = base === "chromium" ? process.env.PW_CHANNEL : undefined;
     const b = await type.launch({ headless: true, ...(channel ? { channel } : {}) });
     browsers.push(b);
     const p: Page = await b.newPage();
@@ -93,18 +114,21 @@ try {
     });
     await p.goto(url);
     await p.waitForFunction(() => (window as unknown as { determinism?: unknown }).determinism);
-    const run = (c: Case) => p.evaluate((c) => (window as unknown as { determinism: { runCase(c: Case): Promise<Row[]> } }).determinism.runCase(c), c);
+    const run = threaded
+      ? (c: Case) => p.evaluate((c) => (window as unknown as { determinism: { runCaseThreaded(c: Case): Promise<Row[]> } }).determinism.runCaseThreaded(c), c)
+      : (c: Case) => p.evaluate((c) => (window as unknown as { determinism: { runCase(c: Case): Promise<Row[]> } }).determinism.runCase(c), c);
     engines[name] = { version: b.version(), userAgent: await p.evaluate(() => navigator.userAgent), run, rows: [], errors: [] };
+    if (threaded) threadedPages[name] = p;
   }
   let list = caseList(smoke);
   if (only) list = list.filter((c) => only.some((t) => c.id.includes(t)));
   const mismatches: { case: string; label: string; engines: string[]; components: string[] }[] = [];
-  const t0 = performance.now();
+  const t0 = noTimings ? 0 : performance.now();
   const slowest: { case: string; seconds: number }[] = [];
   for (const [index, c] of list.entries()) {
-    const tc = performance.now();
-    const responses = await Promise.all(
-      Object.entries(engines).map(async ([name, e]) => {
+    const tc = noTimings ? 0 : performance.now();
+    const responses = await runEngines(
+      Object.entries(engines).map(([name, e]) => async () => {
         try {
           const rows = await e.run(c);
           e.rows.push(...rows);
@@ -117,7 +141,7 @@ try {
         }
       }),
     );
-    slowest.push({ case: c.id, seconds: Math.round((performance.now() - tc) / 100) / 10 });
+    if (!noTimings) slowest.push({ case: c.id, seconds: Math.round((performance.now() - tc) / 100) / 10 });
     const reference = responses[0];
     for (const other of responses.slice(1)) {
       if (!other.rows || !reference.rows) continue;
@@ -135,7 +159,13 @@ try {
     if (index % 20 === 0 || bad)
       console.log(`${index + 1}/${list.length} ${c.id}: ${responses.map((r) => (r.rows ? `${r.name} ${r.rows.length}` : `${r.name} ERROR ${r.error?.message}`)).join(", ")}; mismatches ${mismatches.length}`);
   }
-  const seconds = Math.round((performance.now() - t0) / 1000);
+  // a threaded engine whose threads never ran checked nothing
+  for (const [name, p] of Object.entries(threadedPages)) {
+    const ticks = await p.evaluate(() => (window as unknown as { determinism: { threadedTicks(): number } }).determinism.threadedTicks());
+    if (!(ticks > 0)) engines[name].errors.push({ case: "(all)", message: "the water's threads never ran" });
+    else console.log(`${name}: ${ticks} ticks on several threads`);
+  }
+  const seconds = noTimings ? null : Math.round((performance.now() - t0) / 1000);
   const summary = {
     schema: 1,
     smoke,
@@ -153,7 +183,7 @@ try {
   const errors = Object.values(engines).flatMap((e) => e.errors);
   for (const m of mismatches.slice(0, 40)) console.error(`MISMATCH ${m.case} ${m.label} (${m.engines.join(" vs ")}): ${m.components.join(", ")}`);
   for (const e of errors.slice(0, 40)) console.error(`ERROR ${e.case}: ${e.message}`);
-  console.log(`${list.length} cases, ${Object.entries(engines).map(([n, e]) => `${n} ${e.version}: ${e.rows.length} checkpoints`).join("; ")}; ${mismatches.length} mismatches, ${errors.length} errors, ${seconds} s`);
+  console.log(`${list.length} cases, ${Object.entries(engines).map(([n, e]) => `${n} ${e.version}: ${e.rows.length} checkpoints`).join("; ")}; ${mismatches.length} mismatches, ${errors.length} errors${noTimings ? "" : `, ${seconds} s`}`);
   failed = mismatches.length > 0 || errors.length > 0;
 } finally {
   await Promise.all(browsers.map((b) => b.close()));

@@ -3,7 +3,9 @@
 // waits on it; sounds are on at the mix's own clearly audible default; a placement plays its
 // accent; a force's sounds stop at once on Esc.
 
+import { readdirSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -17,10 +19,7 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   page.on("request", (r) => {
     if (/\/sounds\/juice-2\//.test(r.url())) fetched.push(r.url());
   });
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.waitForTimeout(800);
   // (the editor open, nothing asked of it yet: no recording fetched)
   expect(fetched).toEqual([]);
@@ -30,17 +29,19 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   await expect(page.locator('input[aria-label="Sound volume"]')).toHaveValue("0.54");
 
   // the first gestures (the view from above, Raise, a click on the land): the edit is there at once
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const at: [number, number] = [start[0] < i.W / 2 ? Math.round(i.W * 0.75) : Math.round(i.W * 0.25), Math.round(i.H / 2)];
-  await page.getByRole("button", { name: "Raise brush (1)" }).click();
+  await page.getByRole("button", { name: "Raise brush (2)" }).click();
   const p = await client(page, at[0], at[1]);
   await page.mouse.click(p.x, p.y);
   await idle(page);
   expect((await info(page)).history.filter((h) => h.applied).at(-1)!.label).toMatch(/Raise/);
-  // meanwhile the bank came, every recording once
-  await expect.poll(() => new Set(fetched).size, { timeout: 30_000 }).toBe(26);
+  // meanwhile the bank came, every recording once (however many the bank holds: the files in public/)
+  const recordings = readdirSync("public/sounds/juice-2/audio").length;
+  await expect.poll(() => new Set(fetched).size, { timeout: 30_000 }).toBe(recordings);
+  expect(fetched.length).toBe(recordings);
   await expect.poll(async () => (await sound(page))!.ready, { timeout: 30_000 }).toBe(true);
 
   // a tree placed: its accent plays
@@ -50,17 +51,22 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   await page.mouse.move(q.x + 3, q.y);
   await page.mouse.click(q.x, q.y);
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 2_000, intervals: [20, 40, 80] }).toBeGreaterThan(0);
+  // (the placement is an edit like the others: it is in the history once the queue has it, and what is counted below counts it)
+  await idle(page);
+  expect((await info(page)).history.filter((h) => h.applied).at(-1)!.label).toMatch(/pine/i);
   await page.keyboard.press("Escape");
 
   // an impact: its sounds as it strikes; Ctrl+Z takes it back and every sound of it stops at once
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 5_000 }).toBe(0);
-  // (at the slowest pace, so Esc comes while it is still at work)
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("slower");
+  // (Slow forces, about four times as long, so it is still at work when Ctrl+Z comes)
+  await page.getByRole("button", { name: "Slow forces", exact: true }).click();
   const kept = (await info(page)).history.filter((h) => h.applied).length;
-  await page.keyboard.press("8");
+  await page.keyboard.press("Shift+Digit2");
   const c = await client(page, at[0], at[1] + 8);
   await page.mouse.move(c.x + 3, c.y);
   await page.mouse.click(c.x, c.y);
+  // (the force is at work first: the sounds counted are its own, not a click's or a placement's tail)
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.force()), { timeout: 10_000 }).not.toBeNull();
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 3_000, intervals: [20, 40, 80] }).toBeGreaterThan(0);
   expect(await page.evaluate(() => window.dgmEditor!.force())).not.toBeNull();
   await page.keyboard.press("Control+z");

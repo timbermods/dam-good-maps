@@ -12,7 +12,8 @@ import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { CHUNK } from "../../src/render3d/mesh";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
 import { BADWATER, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_BLEND, WATER_CALIBRATION, WATER_GLSL, waterBlend, waterBody } from "../../src/render3d/waterPalette";
-import { blendedBadwater, changedWaterChunks, lowerByTile, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { plainLayers } from "../../src/render3d/waterLayers";
 
 /** CIE L* of a display colour (sRGB). */
 const lightness = (c: readonly number[]) => {
@@ -61,7 +62,7 @@ function cornerShares(meshes: WaterMeshData[]): Map<string, number> {
 /** Every chunk's water mesh. */
 function meshAll(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, view: ReturnType<typeof waterFromDepth>): WaterMeshData[] {
   const out: WaterMeshData[] = [];
-  for (let cy = 0; cy * CHUNK < H; cy++) for (let cx = 0; cx * CHUNK < W; cx++) out.push(meshWaterChunk(W, H, heights, sw, view, lowerByTile(sw, view), cx, cy));
+  for (let cy = 0; cy * CHUNK < H; cy++) for (let cx = 0; cx * CHUNK < W; cx++) out.push(meshWaterChunk(W, H, plainLayers(heights, sw), cx, cy));
   return out;
 }
 
@@ -148,7 +149,7 @@ describe("badwater meeting clean water", () => {
     const view = waterFromDepth(heights, [0.5, 0.5, 0.5, 0.5, 0.5, 0.5], [1, 1, 1, 0, 0, 0]);
     const sw = surfaceWater(6, 1, view);
     expect([...blendedBadwater(6, 1, sw)]).toEqual([1, 1, 1, 0, 0, 0]);
-    const m = meshWaterChunk(6, 1, heights, sw, view, lowerByTile(sw, view), 0, 0);
+    const m = meshWaterChunk(6, 1, plainLayers(heights, sw), 0, 0);
     for (let q = 0; q < m.quads; q++) {
       const top = m.normals[q * 12 + 1] > 0;
       const x = Math.min(m.positions[q * 12], m.positions[q * 12 + 3], m.positions[q * 12 + 6]);
@@ -175,6 +176,30 @@ describe("badwater meeting clean water", () => {
     expect([...changedWaterChunks(W, H, a.sw, c.sw, 0, 0)]).toEqual(["0,0"]);
     // the same state: nothing
     expect(changedWaterChunks(W, H, b.sw, flat(W, H, (x) => (x === 30 ? 1 : 0)).sw, 0, 0).size).toBe(0);
+  });
+
+  it("a stroke's quick comparison finds every chunk the blend's comparison finds", () => {
+    // random badwater and dry patches on a 96 × 80 map, then one tile's share or water changed
+    let r = 7;
+    const rnd = () => ((r = (Math.imul(r, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+    const W = 96;
+    const H = 80;
+    const tile = () => Math.floor(rnd() * W * H);
+    const of = (bad: Map<number, number>, dry: Set<number>) => flat(W, H, (x, y) => bad.get(y * W + x) ?? 0, (x, y) => !dry.has(y * W + x)).sw;
+    for (let k = 0; k < 40; k++) {
+      const bad = new Map<number, number>();
+      const dry = new Set<number>();
+      for (let n = 0; n < 12; n++) bad.set(tile(), rnd());
+      for (let n = 0; n < 6; n++) dry.add(tile());
+      const a = of(bad, dry);
+      const t = tile();
+      if (k % 2) bad.set(t, rnd());
+      else if (dry.has(t)) dry.delete(t);
+      else dry.add(t);
+      const b = of(bad, dry);
+      const quick = changedWaterChunks(W, H, a, b, 0, 0, true);
+      for (const key of changedWaterChunks(W, H, a, b, 0, 0)) expect(quick.has(key), key).toBe(true);
+    }
   });
 });
 

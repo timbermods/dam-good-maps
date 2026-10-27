@@ -1,0 +1,17 @@
+# Rift and Deposit in Rust
+
+Built directly on adopted `rust/forces`, from dev **ac5a8b224483f87ab7917565d036d6c9c695d986**. The branch changes only this investigation; [adoption.patch](adoption.patch) contains the product change. AGPL-3.0-or-later; original primitive meshes from the approved demos, no game assets.
+
+**Rift:** a dropped block between independently rough faults, tilted old floor relief, hard-bed ledges, upright riders and unchanged sources. The approved plateau/river gestures retain their character. Unlike the old demo, Power 0 visibly drops a coherent level; short strokes keep a middle block, and tiny edge clicks have a minimum rupture length.
+
+**Deposit:** a lobed cone at a valley mouth, curving distributaries and alternating channel beds; upstream ground and higher shoulders pay every deposited integer block. Floor, Keep and working-area depth enter that budget before playback. Wet outlets retain their native bed; objects ride or are buried, none are added. Flat edge clicks move slightly inland to leave an upstream apron. Fixed Size sets reach independently of Power; standard adopted water replaces the demos' custom continuation/poses. No independent weathering pass can unbalance the sediment.
+
+**Checks:** strict source/LLVM IR/assembly/unstripped-Wasm guards and 47,063 portable-math vectors pass. Six successful fixtures per new force at 64² match **every output byte** in native, Node-Wasm, Chromium, Firefox and WebKit; all 30 adopted-force pins remain unchanged. Eight core determinism cases have 40 checkpoints per engine and zero mismatches/errors, including literal records, typed area depth and subsequent water. Core contracts cover Power 0, minimum/maximum Size, relief, conservation, protected land, source identity, all playback riders, last frame, undo/reopen and one-line refusals. The seeded visibility sample checks 384 clicks. All 33 existing/new quick force-suite files (222 tests) and typecheck pass; [CHECKS.json](CHECKS.json) records counts. No speed measurements or matrix.
+
+During development the guard rejected floating min/max intrinsics (replaced with the crate's helpers); contracts caught short Power-zero tapers, edge donors, source-adjacent outlets and temporary-bed riders. All were fixed exactly; no identity mismatch or tolerance was accepted. A missing exported Carve data fixture was supplied from this clone's pinned commit, without changing that test.
+
+Reproduce: `node investigation/rust-rift-deposit/run.mjs --captures` (Rust 1.90 GNU + Wasm target, cargo on PATH, Node ≥22, Python ≥3.10 and Playwright's three engines; `PW_CHANNEL=chrome` uses installed Chrome). Inputs are the pinned dev export, overlay and approved demo maps. Allow several minutes; cargo/tests cap at eight jobs/workers. All executables, bundles, Wasm, IR, maps, full logs and manifests stay in ignored `local/`; the few report JPEGs are copied from there.
+
+Left for adoption: apply/rebuild the patch, full product CI on dev, and the page's controls, previews, effects and sound. The cheap sample is the D444 gate, not an exhaustive corpus.
+
+Approved demo gestures on their original maps, before beside Rust: [Rift plateau](captures/rift-plateau.jpg), [Deposit canyon](captures/deposit-canyon.jpg), [Deposit dry valley](captures/deposit-dry.jpg). Canyon cut/fill is 2,958/2,958 blocks; dry valley 7,362/7,362. The canyon matches the approved sediment counts; dry totals differ slightly because current wet-bed exclusions and portable arithmetic replace the old demo. Both keep the cone and broad lobes.

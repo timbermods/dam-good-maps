@@ -22,8 +22,13 @@ export function map(seed = 1, side = 64, theme?: ThemeId): GenerateResult {
 export const session = (seed = 1, side = 64, theme?: ThemeId) => MapSession.fromGenerated(map(seed, side, theme));
 export const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 export const timber = (s: MapSession) => sha(s.exportTimber().bytes);
-/** Save the project file and open it again. */
-export const reopen = (s: MapSession) => MapSession.open(decodeProject(s.project()));
+/** Save the project file and open it again, from its stored map, with its log's replay compared
+ *  (D455), as the page's first background check does: then undo goes below the save point. */
+export const reopen = (s: MapSession) => {
+  const again = MapSession.open(decodeProject(s.project()));
+  again.checkReplay();
+  return again;
+};
 
 let n = 0;
 /** A fresh lowercase GUID, deterministic within a run. */

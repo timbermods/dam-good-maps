@@ -1,4 +1,4 @@
-// The renderer's bake worker (`Baker`: both looks' moving water, motion.ts) and the High look's
+// The page's bake worker (`Baker`: both looks' moving water, motion.ts) and the High look's
 // ambient occlusion (#65). A whole map's occlusion is made in the worker (bake.worker.ts) and arrives a
 // moment after the map; until then the ground has none (a quiet start, never a wait). An edit's own
 // tiles are redone here at once. A newer request always wins over an older.
@@ -6,51 +6,98 @@
 import { DataTexture, LinearFilter, RGBAFormat, UnsignedByteType } from "three";
 import type { EntityView } from "../model";
 import { DEAD } from "../model";
-import { AMBIENT_REACH, ambientRect, canopyCover, canopyInto, canopyKind, runBake, type BakeJob, type BakeResult, type Canopies } from "./bake";
+import { AMBIENT_REACH, ambientRect, canopyCover, canopyInto, canopyKind, runBake, type BakeJob, type BakeReply, type BakeResult, type Canopies } from "./bake";
 
 type Job = BakeJob extends infer J ? (J extends { id: number } ? Omit<J, "id"> : never) : never;
 
+let warned = false;
+/** A worker's failure, said once a page (the look carries on without it). */
+function warnOnce(why: string): void {
+  if (warned) return;
+  warned = true;
+  console.warn(`The renderer's bake worker failed (${why}); its fields are made on the page's thread.`);
+}
+
 /** The worker the fields are made in (one per view), or the page's thread where a worker can't
- *  start. */
+ *  start. A job always settles: the worker's jobs are kept until they come back, and if the worker
+ *  fails they and every later job are made on the page's thread; a job that itself throws rejects. */
 export class Baker {
   private worker: Worker | null = null;
   private next = 1;
-  private waiting = new Map<number, (r: BakeResult) => void>();
+  private inFlight = new Map<number, { job: BakeJob; resolve: (r: BakeResult) => void; reject: (e: Error) => void }>();
 
   constructor() {
     try {
       this.worker = new Worker(new URL("./bake.worker.ts", import.meta.url), { type: "module" });
-      this.worker.onmessage = (e: MessageEvent<BakeResult>) => {
-        const done = this.waiting.get(e.data.id);
-        this.waiting.delete(e.data.id);
-        done?.(e.data);
+      this.worker.onmessage = (e: MessageEvent<BakeReply>) => {
+        const r = e.data;
+        const j = this.inFlight.get(r.id);
+        if (!j) return;
+        this.inFlight.delete(r.id);
+        if (r.kind === "error") j.reject(new Error(r.error));
+        else j.resolve(r);
       };
-      this.worker.onerror = () => {
-        // (no worker after all: the rest on the page's thread)
-        this.worker?.terminate();
-        this.worker = null;
+      this.worker.onerror = (e) => {
+        e.preventDefault();
+        this.fail(e.message || "it stopped");
       };
-    } catch {
-      this.worker = null;
+      this.worker.onmessageerror = () => this.fail("an answer couldn't be read");
+    } catch (e) {
+      this.fail(e instanceof Error ? e.message : "it couldn't start");
     }
   }
 
-  /** A job, its arrays in `transfer` handed over (the caller's own copies). */
-  run(job: Job, transfer: ArrayBuffer[] = []): Promise<BakeResult> {
+  /** No worker from now on: what it had, and the rest, on the page's thread. */
+  private fail(why: string): void {
+    warnOnce(why);
+    this.worker?.terminate();
+    this.worker = null;
+    const jobs = [...this.inFlight.values()];
+    this.inFlight.clear();
+    for (const j of jobs) this.here(j.job).then(j.resolve, j.reject);
+  }
+
+  private here(job: BakeJob): Promise<BakeResult> {
+    return new Promise((resolve, reject) =>
+      setTimeout(() => {
+        try {
+          resolve(runBake(job));
+        } catch (e) {
+          reject(e instanceof Error ? e : new Error(String(e)));
+        }
+      }, 0),
+    );
+  }
+
+  /** A job (its arrays the caller's own copies, kept until the answer comes back). */
+  run(job: Job): Promise<BakeResult> {
     const id = this.next++;
     const full = { ...job, id } as BakeJob;
-    if (!this.worker) return new Promise((resolve) => setTimeout(() => resolve(runBake(full)), 0));
-    return new Promise((resolve) => {
-      this.waiting.set(id, resolve);
-      this.worker!.postMessage(full, transfer);
+    if (!this.worker) return this.here(full);
+    return new Promise((resolve, reject) => {
+      this.inFlight.set(id, { job: full, resolve, reject });
+      try {
+        this.worker!.postMessage(full);
+      } catch (e) {
+        this.fail(e instanceof Error ? e.message : "a job couldn't be sent");
+      }
     });
   }
 
   dispose(): void {
     this.worker?.terminate();
     this.worker = null;
-    this.waiting.clear();
+    this.inFlight.clear();
   }
+}
+
+let shared: Baker | null = null;
+/** The page's bake worker, one for every view: started with the first map's (the warm-up's, D367) and
+ *  kept, so no view waits for a worker to start. (On CI's software drawing a new worker took over 3 s
+ *  to answer its first job, and each view started its own.) A job for a view since closed is answered
+ *  and dropped. */
+export function pageBaker(): Baker {
+  return (shared ??= new Baker());
 }
 
 function texture(W: number, H: number, fill: [number, number, number, number]): DataTexture {
@@ -68,6 +115,27 @@ function canopies(e: EntityView): Canopies {
   return { kind, x: e.x.slice(), y: e.y.slice(), z: e.z.slice() };
 }
 
+/** The canopies that cover anything (kind, x, y, z, four a canopy, in order): what the cover is worked out from. */
+function canopyKey(c: Canopies): Int16Array {
+  let n = 0;
+  for (let k = 0; k < c.kind.length; k++) if (c.kind[k]) n++;
+  const out = new Int16Array(n * 4);
+  for (let k = 0, j = 0; k < c.kind.length; k++) {
+    if (!c.kind[k]) continue;
+    out[j++] = c.kind[k];
+    out[j++] = c.x[k];
+    out[j++] = c.y[k];
+    out[j++] = c.z[k];
+  }
+  return out;
+}
+
+function sameNumbers(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 const union = (a: Rect | null, b: Rect): Rect => (a ? { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) } : { ...b });
 
@@ -78,6 +146,8 @@ export class AmbientField {
   /** What changed since the bake in flight was asked for (redone when it arrives). */
   private since: Rect | null = null;
   private objectsSince: EntityView | null = null;
+  /** The land and the canopies (`canopyKey`) the cover was last worked out from here (`objects`). */
+  private coverOf: { heights: Uint8Array; key: Int16Array } | null = null;
   private heights: Uint8Array;
   ms = 0;
 
@@ -107,6 +177,7 @@ export class AmbientField {
       if (id !== this.latest || r.kind !== "ambient") return;
       this.done = id;
       this.cover = r.cover;
+      this.coverOf = null;
       (this.texture.image.data as Uint8Array).set(r.data);
       this.ms = r.ms;
       if (this.objectsSince) this.objects(this.heights, this.objectsSince);
@@ -114,6 +185,9 @@ export class AmbientField {
       this.since = null;
       this.texture.needsUpdate = true;
       this.changed();
+    }, () => {
+      // (the bake failed: the ground stays without occlusion, the quiet start's look)
+      if (id === this.latest) this.done = id;
     });
   }
 
@@ -124,22 +198,44 @@ export class AmbientField {
       this.objectsSince = e;
       return;
     }
-    this.cover = canopyCover(this.W, this.H, heights, canopies(e));
+    const c = canopies(e);
+    // (the same canopies on the same land cover the same: placing a source among a forest redoes none of it)
+    const key = canopyKey(c);
+    if (this.coverOf && this.coverOf.heights === heights && sameNumbers(this.coverOf.key, key)) return;
+    this.coverOf = { heights, key };
+    this.cover = canopyCover(this.W, this.H, heights, c);
     canopyInto(this.cover, this.texture.image.data as Uint8Array);
     this.texture.needsUpdate = true;
   }
 
-  /** The terrain round a rectangle of changed heights. */
+  /** The terrain round a rectangle of changed heights (redone by `catchUp`, before the next frame). */
   terrainAround(heights: Uint8Array, rect: Rect): void {
     this.heights = heights;
     const r = AMBIENT_REACH;
-    const grown = { x0: rect.x0 - r, y0: rect.y0 - r, x1: rect.x1 + r, y1: rect.y1 + r };
+    const grown = { x0: Math.max(0, rect.x0 - r), y0: Math.max(0, rect.y0 - r), x1: Math.min(this.W - 1, rect.x1 + r), y1: Math.min(this.H - 1, rect.y1 + r) };
     if (!this.cover) {
       this.since = union(this.since, grown);
       return;
     }
-    this.redo(grown);
+    this.stale = union(this.stale, grown);
+  }
+
+  /** Tiles whose occlusion waits to be redone. */
+  private stale: Rect | null = null;
+
+  /** Redo the waiting occlusion, a row at a time for at most `budget` ms (each tile's is its own, from
+   *  the heights now): a brush's all at once, a brush across half the map over a few frames rather
+   *  than a long one each time it moves. Whether some still waits. */
+  catchUp(budget: number): boolean {
+    const s = this.stale;
+    if (!s || !this.cover) return false;
+    const t0 = performance.now();
+    let y = s.y0;
+    do this.redo({ x0: s.x0, y0: y, x1: s.x1, y1: y++ });
+    while (y <= s.y1 && performance.now() - t0 < budget);
+    this.stale = y > s.y1 ? null : { ...s, y0: y };
     this.texture.needsUpdate = true;
+    return this.stale !== null;
   }
 
   private redo(r: Rect): void {

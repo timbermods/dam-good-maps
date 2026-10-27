@@ -11,6 +11,8 @@ import { withSize, withStoredName, type StoreResult, type YourMapEntry, type You
 export interface Snapshot {
   entry: YourMapEntry;
   project: Uint8Array;
+  /** The map's name stored in `project`, given by whoever made the file (D443): the entry takes it. */
+  name?: string | null;
 }
 
 export interface SaverOptions {
@@ -31,6 +33,7 @@ interface Pending {
 export class YourMapsSaver {
   private pending = new Map<string, Pending>();
   private writing = new Map<string, Promise<void>>();
+  private epochs = new Map<string, number>();
   private readonly delay: number;
   private readonly setTimer: (fn: () => void, ms: number) => unknown;
   private readonly clearTimer: (t: unknown) => void;
@@ -51,10 +54,26 @@ export class YourMapsSaver {
     this.pending.set(id, { take, timer: this.setTimer(() => void this.flush(id), this.delay) });
   }
 
-  /** Save now what is waiting (one map, or all). Nobody needs to await it. */
-  flush(id?: string): Promise<void> {
-    const ids = id === undefined ? [...this.pending.keys()] : this.pending.has(id) ? [id] : [];
-    return Promise.all(ids.map((k) => this.run(k))).then(() => undefined);
+  /** Save now what is waiting (one map, or all). Nobody needs to await it, but a caller that does (the page, before it
+   *  replaces the open map) can rely on it: it returns only when nothing is waiting and no write is running, however
+   *  that came about. A save a timer claimed while this waited on an earlier write is such a one: it is queued behind
+   *  that write, in `writing` and no longer in `pending`, and its snapshot of the outgoing map would otherwise be taken
+   *  after the page had opened the next. */
+  async flush(id?: string): Promise<void> {
+    for (;;) {
+      const ids = id === undefined ? [...new Set([...this.pending.keys(), ...this.writing.keys()])] : [id];
+      await Promise.all(ids.map((k) => this.run(k)));
+      if (id === undefined ? this.pending.size === 0 && this.writing.size === 0 : !this.pending.has(id) && !this.writing.has(id)) return;
+    }
+  }
+
+  /** Cancel every queued save of a deleted map and wait for a write already in storage. */
+  async discard(id: string): Promise<void> {
+    const p = this.pending.get(id);
+    if (p) this.clearTimer(p.timer);
+    this.pending.delete(id);
+    this.epochs.set(id, (this.epochs.get(id) ?? 0) + 1);
+    await this.writing.get(id);
   }
 
   /** Whether a save is waiting or being written (for tests and the page's leave warning). */
@@ -67,13 +86,20 @@ export class YourMapsSaver {
     if (!p) return this.writing.get(id) ?? Promise.resolve();
     this.clearTimer(p.timer);
     this.pending.delete(id);
+    const epoch = this.epochs.get(id) ?? 0;
     const before = this.writing.get(id) ?? Promise.resolve();
     const w = before
       .then(async () => {
         let r: StoreResult;
         try {
+          if ((this.epochs.get(id) ?? 0) !== epoch) return;
           const s = await p.take();
-          r = await this.store.put(withSize(withStoredName(s.entry, s.project), s.project), s.project);
+          if ((this.epochs.get(id) ?? 0) !== epoch) return;
+          if (s.entry.id !== id) throw new Error("snapshot belongs to another map");
+          r = await this.store.put(withSize(withStoredName(s.entry, s.name), s.project), s.project, s.entry.storageVersion ?? null);
+          if (r.ok && r.storageVersion) {
+            s.entry.storageVersion = r.storageVersion;
+          }
         } catch {
           r = { ok: false, reason: "unavailable" };
         }

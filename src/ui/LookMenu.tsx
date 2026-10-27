@@ -5,6 +5,7 @@
 // no choice to make). Built from the shared styles only; the design pass styles it (D176, D296).
 
 import { useEffect, useRef, useState } from "preact/hooks";
+import { useMenuPresence } from "./menuPresence";
 import type { MapRenderer } from "../render3d";
 import { HIGH_EFFECTS, type HighEffect } from "../render3d/high/effects";
 import type { LookChoice } from "../render3d/high/fallback";
@@ -39,6 +40,7 @@ export function lookWords(choice: LookChoice, look: Look): string {
 export function LookMenu(props: { renderer: MapRenderer | null; buttonClass?: string }) {
   const r = props.renderer;
   const [open, setOpen] = useState(false);
+  const menu = useMenuPresence(open);
   const [, setTick] = useState(0);
   const wrap = useRef<HTMLDivElement>(null);
   useEffect(() => (r ? r.listenLook(() => setTick((n) => n + 1)) : undefined), [r]);
@@ -62,48 +64,66 @@ export function LookMenu(props: { renderer: MapRenderer | null; buttonClass?: st
   const effects = r.highEffects;
   return (
     <div class="menu-wrap" ref={wrap}>
-      <button type="button" class={props.buttonClass} aria-expanded={open} aria-controls="look-menu" onClick={() => setOpen(!open)} title="Choose how the map is drawn">
-        Look: {high ? "High" : "Standard"}
+      <button type="button" class={props.buttonClass} aria-label={`Look: ${high ? "High" : "Standard"}`} aria-expanded={open} aria-controls="look-menu" onClick={() => setOpen(!open)} title="Choose how the map is drawn">
+        {/* (one width whatever it says, its widest's: the header's right side never changes width, Kyler 2026-10-06) */}
+        <span class="look-words">
+          <span>
+            Look<span class="look-state">: {high ? "High" : "Standard"}</span>
+          </span>
+          <span class="look-sizer" aria-hidden="true">
+            Look<span class="look-state">: Standard</span>
+          </span>
+        </span>
       </button>
-      {open ? (
-        <div class="menu" id="look-menu" role="group" aria-label="Look">
-          {CHOICES.map((c) => (
-            <div key={c.key}>
-              <label title={c.note}>
-                <input
-                  type="radio"
-                  name="look"
-                  checked={choice === c.key}
-                  onChange={() => {
-                    r.setLookChoice(c.key);
-                    setTick((n) => n + 1);
-                  }}
-                />{" "}
+      {menu.mounted ? (
+        <div class="menu look-menu" id="look-menu" role="group" aria-label="Look" data-closing={menu.closing ? "" : undefined}>
+          {/* the page's own controls: a segmented choice (the chosen cell lit as the page's choices are) and checkbox
+              rows as the Show column's, a wrapped word hanging under its own first letter */}
+          <div class="set-seg" role="group" aria-label="Drawing">
+            {CHOICES.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                aria-pressed={choice === c.key}
+                title={c.note}
+                onClick={() => {
+                  r.setLookChoice(c.key);
+                  setTick((n) => n + 1);
+                }}
+              >
                 {c.label}
-              </label>
-            </div>
-          ))}
+              </button>
+            ))}
+          </div>
           <p class="note" role="status">
             {lookWords(choice, look)}
           </p>
           {high
             ? PARTS.map((p) => {
                 const keys = HIGH_EFFECTS.filter((e) => e.from === p.from).map((e) => e.key);
+                const on = keys.every((k) => effects[k]);
                 return (
-                  <div key={p.from}>
-                    <label title={`Turn High's ${p.label.toLowerCase()} on or off`}>
-                      <input
-                        type="checkbox"
-                        checked={keys.every((k) => effects[k])}
-                        onChange={(ev) => {
-                          const on = (ev.target as HTMLInputElement).checked;
-                          for (const k of keys) r.setHighEffect(k, on);
-                          setTick((n) => n + 1);
-                        }}
-                      />{" "}
-                      {p.label}
-                    </label>
-                  </div>
+                  <button
+                    key={p.from}
+                    type="button"
+                    role="checkbox"
+                    class="look-part"
+                    aria-checked={on}
+                    title={`Turn High's ${p.label.toLowerCase()} on or off`}
+                    onClick={() => {
+                      for (const k of keys) r.setHighEffect(k, !on);
+                      setTick((n) => n + 1);
+                    }}
+                  >
+                    <span class={`cb${on ? " on" : ""}`} aria-hidden="true">
+                      {on ? (
+                        <svg viewBox="0 0 12 12">
+                          <path d="M2.5 6.2l2.4 2.4 4.6-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span class="cb-word">{p.label}</span>
+                  </button>
                 );
               })
             : null}
