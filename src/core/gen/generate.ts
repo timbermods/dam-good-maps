@@ -490,12 +490,11 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
 }
 
 /** The 3D forms a map looks for (D488, gen/forms3d.ts `formsWanted`): its own draw, the same on
- *  every attempt; none at or below the theme's default Verticality (an edit on a map with caves has no
- *  live water yet, worker/session.ts `kickWater`, and ordinary maps keep theirs, D280: the gate comes off
- *  once the editor's water is live on stacked maps too); no arch above 128² (its first look is not held
- *  there, D348), no spring cave on a map made with Sources: None. */
+ *  every attempt, at every Verticality but 0 (rarer the lower it is: the ordinary map at its theme's
+ *  default finds a cave or a shelter where its land offers one, and an arch from 35; its edits keep their
+ *  live water since #606, D280); no arch above 128² (its first look is not held there, D348), no spring
+ *  cave on a map made with Sources: None. */
 export function formsFor(spec: MapSpec): FormsWanted {
-  if (spec.settings.terrain.verticality <= VT_DEFAULT[spec.theme]) return {};
   const want = formsWanted(spec.theme, spec.settings.terrain.verticality, stream(spec.seed, "forms3d"));
   if (spec.size.x * spec.size.y > SHOW_PROVED_MOST) delete want["gorge-arch"];
   if (spec.settings.water.sources === "none") delete want["spring-cave"];
