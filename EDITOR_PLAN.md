@@ -1405,10 +1405,14 @@ checks dot counts; every other row is information under Good to know, worded as 
   - **Exact on heightfield terrain**, which covers every generated map. **A map with caves or overhangs** (an
     import's tunnels and overhang bridges, D120, D280, or a hollow the Block tool or Erode made on any map,
     #435) is simulated too, on every water column, by the
-    stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit the
-    last water stays on show while the canonical settle runs in the background, in slices, on several threads
-    where the page has them (`sim/stackParallel.ts`, the same bytes as one), the dot saying "Settling…", and the
-    water shows when it is done (no live water on such a map). An edit that leaves the water provably as it
+    stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit its
+    water flows live, as a plain map's does (D99, D197): the last water (or the water still in flight) is carried
+    over to the new columns and run on by the stacked engine a few ticks at a time, every column of it, the page
+    playing its frames as a journey, and a stroke's water flows while it is painted, each tile's top reshaped as
+    the brush shapes it (`sim/stackLive.ts` `StackLive`, `carryStack`; src/worker/session.ts `kickStack`,
+    `draftStack`). That water is only shown: the map keeps the last settle carried over until the canonical
+    settle, run in the background in slices, on several threads where the page has them (`sim/stackParallel.ts`,
+    the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
     was settles at once (D453): the changed tiles lie more than five tiles from every column the last settle
     ever wet and from every source, with the same objects and the same pre-fill elsewhere, so the last settle
     is the new one, the same bytes (`settledAgain`); Erode and Export then wait for nothing. The file gets the settle
