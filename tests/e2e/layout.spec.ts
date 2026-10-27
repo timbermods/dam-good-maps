@@ -11,6 +11,11 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { legendEntries, objectLegend } from "../../src/render3d/palette";
+import { openLayoutMap as openEditor, settle } from "./helpers";
+
+// (its tests stand alone: they run in parallel, so the browser shards and their two workers share them; one worker
+// running them all in a row took a shard past its 30 minutes)
+test.describe.configure({ mode: "parallel" });
 
 /** Every tool and the key that picks it. */
 const EVERY_TOOL = [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["7", "Block"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"], ["Shift+Digit8", "Erode"]] as const;
@@ -109,18 +114,6 @@ async function contrast(page: Page): Promise<{ name: string; ratio: number; soli
 const edge = (v: number) => Math.round(v * 10) / 10;
 const same = (a: number, b: number, what: string, within = 0.6) => expect(Math.abs(a - b), `${what}: ${edge(a)} against ${edge(b)}`).toBeLessThanOrEqual(within);
 
-async function openEditor(page: Page) {
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
-  await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
-  // the checks done: the dot's words, and with them the header's right group, hold still from here
-  await expect(page.locator(".checks-dot .dot-words > :first-child")).toHaveText("Ready to play", { timeout: 120_000 });
-}
-
-const settle = async (page: Page, w: number, h: number) => {
-  await page.mouse.move(w * 0.55, h * 0.6);
-  await page.waitForTimeout(300);
-};
 
 /** The held tool's settings stand on the bar's cells (Kyler's option B): one panel at the bar's exact width and one
  *  height, 120px (two rows, never a third: Kyler, 2026-10-05), for every tool; every group starts at a cell's left edge and ends at a cell's right edge, so each
@@ -404,6 +397,119 @@ test("the fullest legend fits at 1920×1080 under Legend, without scrolling", as
   expect(m.top + fullest, `the fullest legend (${clean} lines, the heading and ${marked} markers' lines) ends on the map's foot margin or higher`).toBeLessThanOrEqual(m.minimap.bottom + 0.5);
 });
 
+/** The map's name (Kyler, 2026-10-05, A+B): the longest generated one and one at Rename's limit, kept to at least
+ *  30 characters whatever the fonts (what fits two lines of the header's room where they allow), shown in full in at
+ *  most two lines, clear of both groups, the bar's other pieces where they were. */
+async function nameFits(page: Page, w: number, h: number) {
+  const header = page.locator("header.editor-bar");
+  const actions = await header.locator(".editor-actions").boundingBox();
+  for (const typed of ["Twin Channel Island Chain", "Where the Long Winding River Meets Again And Again"]) {
+    await header.locator(".editor-title .title-button").click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(typed);
+    const name = (await header.getByLabel("Map name").inputValue()).trim();
+    expect(name.length, `${typed}: at least the floor is kept`).toBeGreaterThanOrEqual(Math.min(typed.length, 30));
+    await page.keyboard.press("Enter");
+    await expect(header.locator(".editor-title .title-button")).toHaveText(name);
+    await settle(page, w, h);
+    const button = header.locator(".editor-title .title-button");
+    // (at most two lines of its line height, never wider than its box)
+    expect(
+      await button.evaluate((e) => {
+        const cs = getComputedStyle(e);
+        const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
+        return e.scrollWidth <= e.clientWidth + 0.5 && e.getBoundingClientRect().height <= 2 * line + 0.5;
+      }),
+      `${name} in full`,
+    ).toBe(true);
+    const bs = await boxes(page, [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions"]);
+    for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlaps(bs[i], bs[j]), `${name}: ${bs[i].name} overlaps ${bs[j].name}`).toBe(false);
+    expect(await header.locator(".editor-actions").boundingBox(), `${name}: the right group stays put`).toEqual(actions);
+  }
+}
+
+// The same when the core answers a rename late (D341: the title's fit must not depend on timing). The map's name is kept
+// by the core, in a worker that may be busy with the water or the checks; the title once stayed the field it was typed in,
+// drawn for what was typed, until the worker answered, and a header measured in that time (a loaded CI machine, 2026-10-25)
+// found the long name on one line cut at the title's edge. Here the worker's answer to every rename is held back 800ms.
+/** Holds back, for `ms`, the worker's answer to every rename the page sends (a call to the worker is a Comlink message whose
+ *  path ends with the function's name); `window.__held` counts the renames held. Set before the page opens. */
+async function holdRenames(page: Page) {
+  await page.addInitScript(() => {
+    const post = Worker.prototype.postMessage;
+    const held = window as unknown as { __holdRename: number; __held: number };
+    held.__holdRename = 0;
+    held.__held = 0;
+    Worker.prototype.postMessage = function (this: Worker, message: { path?: string[] }, ...rest: unknown[]) {
+      if (held.__holdRename && message?.path?.at(-1) === "setName") {
+        held.__held++;
+        setTimeout(() => (post as (...a: unknown[]) => void).call(this, message, ...rest), held.__holdRename);
+        return;
+      }
+      return (post as (...a: unknown[]) => void).call(this, message, ...rest);
+    } as typeof Worker.prototype.postMessage;
+  });
+}
+const holdFor = (page: Page, ms: number) => page.evaluate((ms) => ((window as unknown as { __holdRename: number }).__holdRename = ms), ms);
+
+for (const [w, h] of [[1366, 768], [1300, 900]] as [number, number][]) {
+  test(`at ${w}×${h}: the header's name is fitted at once, however late the core answers its rename`, async ({ page }) => {
+    test.setTimeout(300_000);
+    await holdRenames(page);
+    await page.setViewportSize({ width: w, height: h });
+    await openEditor(page);
+    await holdFor(page, 800);
+    await nameFits(page, w, h);
+    expect(await page.evaluate(() => (window as unknown as { __held: number }).__held), "the renames were held back").toBeGreaterThan(0);
+  });
+}
+
+test("two renames in a row while the core answers late: the title ends on the second name and never shows the first again", async ({ page }) => {
+  test.setTimeout(300_000);
+  await holdRenames(page);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await openEditor(page);
+  await holdFor(page, 800);
+  const title = page.locator("header.editor-bar .editor-title .title-button");
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { __seen: string[] }).__seen = seen;
+    setInterval(() => seen.push(document.querySelector(".editor-title .title-button")?.textContent ?? ""), 20);
+  });
+  for (const typed of ["Typo Nmae", "Right Name"]) {
+    await title.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(typed);
+    await page.keyboard.press("Enter");
+  }
+  // (both answers have come: the second held 800ms)
+  await page.waitForTimeout(2500);
+  const seen = await page.evaluate(() => (window as unknown as { __seen: string[] }).__seen);
+  const right = seen.indexOf("Right Name");
+  expect(right, "the second name is shown").toBeGreaterThanOrEqual(0);
+  expect(seen.slice(right).filter((t) => t !== "Right Name"), "after the second name shows, nothing else does").toEqual([]);
+  await expect(title).toHaveText("Right Name");
+});
+
+test("a rename typed back to the old name while the first is still on its way is sent, never lost", async ({ page }) => {
+  test.setTimeout(300_000);
+  await holdRenames(page);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await openEditor(page);
+  await holdFor(page, 800);
+  const title = page.locator("header.editor-bar .editor-title .title-button");
+  const first = ((await title.textContent()) ?? "").trim();
+  for (const typed of ["Typo Nmae", first]) {
+    await title.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(typed);
+    await page.keyboard.press("Enter");
+  }
+  // (both answers have come: each held 800ms)
+  await page.waitForTimeout(2500);
+  await expect(title).toHaveText(first);
+});
+
 // Nothing overlaps at any size (Kyler, 2026-10-04: the layout adjusts itself): at sizes the page isn't drawn for, the
 // band lays itself out (the water row on a second line when it can't fit), and the panels and the legend take the
 // room they have, scrolling inside only when it's short.
@@ -424,146 +530,8 @@ for (const [w, h] of [[1400, 900], [1300, 900], [1366, 768], [1280, 800]] as [nu
       }
       if (panel) await header.getByRole("button", { name: panel, exact: true }).click();
     }
-    // the map's name (Kyler, 2026-10-05, A+B): the longest generated one and one at Rename's limit, kept to at least
-    // 30 characters whatever the fonts (what fits two lines of the header's room where they allow), shown in at most
-    // two lines, clear of both groups, the bar's other pieces where they were
-    const actions = await header.locator(".editor-actions").boundingBox();
-    for (const typed of ["Twin Channel Island Chain", "Where the Long Winding River Meets Again And Again"]) {
-      await header.locator(".editor-title .title-button").click();
-      await page.keyboard.press("Control+A");
-      await page.keyboard.type(typed);
-      const name = (await header.getByLabel("Map name").inputValue()).trim();
-      expect(name.length, `${typed}: at least the floor is kept`).toBeGreaterThanOrEqual(Math.min(typed.length, 30));
-      await page.keyboard.press("Enter");
-      await expect(header.locator(".editor-title .title-button")).toHaveText(name);
-      await settle(page, w, h);
-      const button = header.locator(".editor-title .title-button");
-      // (at most two lines of its line height, never wider than its box)
-      expect(
-        await button.evaluate((e) => {
-          const cs = getComputedStyle(e);
-          const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
-          return e.scrollWidth <= e.clientWidth + 0.5 && e.getBoundingClientRect().height <= 2 * line + 0.5;
-        }),
-        `${name} in full`,
-      ).toBe(true);
-      const bs = await boxes(page, [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions"]);
-      for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlaps(bs[i], bs[j]), `${name}: ${bs[i].name} overlaps ${bs[j].name}`).toBe(false);
-      expect(await header.locator(".editor-actions").boundingBox(), `${name}: the right group stays put`).toEqual(actions);
-    }
+    await nameFits(page, w, h);
   });
-}
-
-// The clipping net (Kyler, 2026-10-15): at each supported width, in light and dark, across the main states, no visible
-// text spills out of the box that holds it (a label, a cell, a plate, a menu item, a shelf row, a panel's words): the
-// words never reach more than a pixel past the box's padding edges, which is what scrollWidth over clientWidth would say,
-// measured on the words alone so an invisible hit area or a turning dial doesn't count. A word that spills out, or is cut
-// short, fails here, with its state and where it stands.
-const NET_SIZES: [number, number][] = [[1280, 800], [1366, 768], [1600, 900], [1920, 1080], [2560, 1440]];
-
-/** The visible text in the page that is wider than its own box, each as "state: where "its words" scrollWidth > clientWidth". */
-async function clippedText(page: Page, state: string): Promise<string[]> {
-  return page.evaluate((state) => {
-    const TEXTY = "button, [role=button], [role=menuitem], [role=checkbox], label, a, summary, output, li, h1, h2, h3, h4, p, legend, dt, dd, th, td, option";
-    const found: { el: Element; line: string }[] = [];
-    const where = (e: Element) => {
-      const name = (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ").slice(0, 28);
-      const cls = [...e.classList].slice(0, 2).join(".");
-      return `${e.tagName.toLowerCase()}${cls ? `.${cls}` : ""} "${name}"`;
-    };
-    for (const e of document.body.querySelectorAll("*")) {
-      const el = e as HTMLElement;
-      if (el.closest("[aria-hidden=true], .visually-hidden, script, style, svg, canvas")) continue;
-      const own = [...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "");
-      if (!own && !el.matches(TEXTY)) continue;
-      if (!el.textContent?.trim()) continue;
-      if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true } as never)) continue;
-      if (el.clientWidth === 0) continue;
-      const r = el.getBoundingClientRect();
-      if (r.right < 0 || r.bottom < 0 || r.left > innerWidth || r.top > innerHeight) continue;
-      // (what the words themselves cover, against the box's padding edges: not an invisible hit area, nor a dial that turns)
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      const w = range.getBoundingClientRect();
-      if (w.width === 0) continue;
-      const left = r.left + el.clientLeft;
-      const right = left + el.clientWidth;
-      const spill = Math.max(w.right - right, left - w.left);
-      if (spill > 1 && !el.querySelector("[style*=rotate]")) found.push({ el, line: `${state}: ${where(el)} spills ${Math.round(spill * 10) / 10}px past its box (words ${Math.round(w.width)}px, box ${el.clientWidth}px)` });
-    }
-    // (a button and the span inside it spill together: report the innermost)
-    return found.filter((f) => !found.some((g) => g !== f && f.el.contains(g.el))).map((f) => f.line);
-  }, state);
-}
-
-for (const scheme of ["light", "dark"] as const) {
-  for (const [w, h] of NET_SIZES) {
-    test(`no visible text is clipped at ${w}×${h}, ${scheme}: at rest, a tool, a force, Select's rows, the menus, the shelf and the panels`, async ({ page }) => {
-      test.setTimeout(300_000);
-      // (the net covers what a GPU shows, the Look menu among it: a browser that draws in software, as CI's does, has no
-      // Look button, so the page is told it has a GPU; the Standard look stays held by the config's storage)
-      await page.addInitScript(() => {
-        (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true };
-      });
-      await page.emulateMedia({ colorScheme: scheme });
-      await page.setViewportSize({ width: w, height: h });
-      await openEditor(page);
-      const bad: string[] = [];
-      const look = async (state: string) => {
-        await settle(page, w, h);
-        bad.push(...(await clippedText(page, state)));
-      };
-      const bar = page.locator(".tool-bar");
-      const header = page.locator("header.editor-bar");
-      await look("at rest");
-      for (const tool of ["Raise", "Carve", "Rift", "Quake", "Deposit"]) {
-        await bar.getByRole("button", { name: new RegExp(`^${tool}`) }).click();
-        await look(`${tool} picked`);
-        await page.keyboard.press("Escape");
-      }
-      // Select's rows, with a box marked
-      await bar.getByRole("button", { name: /^Select/ }).click();
-      const a = await page.evaluate(() => window.dgmEditor!.tileToClient(30, 30));
-      const b = await page.evaluate(() => window.dgmEditor!.tileToClient(52, 48));
-      await page.mouse.move(a.x, a.y);
-      await page.mouse.down();
-      await page.mouse.move(b.x, b.y, { steps: 5 });
-      await page.mouse.up();
-      await page.evaluate(() => window.dgmEditor!.idle());
-      await look("Select with a box");
-      await page.keyboard.press("Escape");
-      // the menus
-      await header.getByRole("button", { name: "File", exact: true }).click();
-      await look("the File menu");
-      await page.keyboard.press("Escape");
-      await header.getByRole("button", { name: /^Look/ }).click();
-      await look("the Look menu");
-      await page.keyboard.press("Escape");
-      // the shelf, scrolled to its foot, and an object picked with its window
-      await page.locator(".objects-menu").evaluate((e) => (e.scrollTop = e.scrollHeight));
-      await look("the shelf's foot");
-      await page.locator(".objects-menu").evaluate((e) => (e.scrollTop = 0));
-      await page.locator(".objects-menu .shelf-item", { hasText: "Water source" }).first().click();
-      await look("an object picked");
-      await page.keyboard.press("Escape");
-      // the panels
-      for (const panel of ["Map Generator", "Your maps", "History"]) {
-        await header.getByRole("button", { name: panel, exact: true }).click();
-        await look(panel);
-        if (panel === "Map Generator") {
-          // Showcase mode's sheet over the settings (D488 (2)), Esc closing it
-          const gen = page.locator('aside[aria-label="Map Generator"]');
-          await gen.getByRole("button", { name: "Showcase…" }).click();
-          await expect(gen.getByRole("region", { name: "Showcase" })).toBeVisible();
-          await look("the Showcase sheet");
-          await page.keyboard.press("Escape");
-          await expect(gen.getByRole("region", { name: "Showcase" })).toBeHidden();
-        }
-        await header.getByRole("button", { name: panel, exact: true }).click();
-      }
-      expect(bad, "text wider than its box").toEqual([]);
-    });
-  }
 }
 
 // Invisible hit areas (Kyler, 2026-10-15): a control smaller than 32px has an ::after that reaches 32px each way where there is

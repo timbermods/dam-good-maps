@@ -39,8 +39,9 @@ const NEAR = 24;
 
 const area = (a: Box, b: Box) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
 
-/** Where a note of `note`'s size goes: its first wish when that is clear of every control and inside `bounds`, else the
- *  pointer's other corners in turn (below left, above right, above left), else beside it above or below, so a note
+/** Where a note of `note`'s size goes: its first wish when that is clear of every control and inside `bounds`, else of
+ *  the pointer's other corners and sides (below left, above right, above left, then beside it and above or below) that
+ *  are clear the one nearest the spot the note has (`previous`), the first in that order when it has none, so a note
  *  follows the pointer as closely as there is room. With none of the eight clear, the clear spots of the whole free
  *  view (FROM_POINTER clear of the pointer) within NEAR px of the nearest to the pointer, and of those the one
  *  nearest the spot the note has (`previous`, its offset from the pointer, so two strips at nearly the same distance
@@ -76,11 +77,20 @@ export function placeNote(
     const at = { x0: p.x, y0: p.y, x1: p.x + w, y1: p.y + h };
     return w * h - area(at, inner) + inflated.reduce((sum, b) => sum + area(at, b), 0);
   };
-  for (const p of wishes) {
+  // (the first wish when it is clear; else, of the other clear wishes, the one nearest the kept place, the first in order when
+  // there is none, so a note whose first spot has just been lost does not drop to a spot the pointer's next step undoes)
+  const held = previous ? { x: pointer.x + previous.dx, y: pointer.y + previous.dy } : null;
+  let clearWish: { x: number; y: number } | null = null;
+  let apartWish = Infinity;
+  for (const [i, p] of wishes.entries()) {
     const cost = costAt(p);
-    if (cost === 0) return p;
-    if (cost < least) [best, least] = [p, cost];
+    if (cost === 0) {
+      if (i === 0) return p;
+      const a = held ? Math.hypot(p.x - held.x, p.y - held.y) : 0;
+      if (a < apartWish) [clearWish, apartWish] = [p, a];
+    } else if (cost < least) [best, least] = [p, cost];
   }
+  if (clearWish) return clearWish;
   // (no wish is clear: the clear spots of the free view, so a note near the foot of a narrow gap goes wherever there is
   // room, however far. The spots are a grid of SCAN px, a spot clear when it is the same box as a whole one inside the
   // view, off the pointer and over no control: found without trying every spot, nearest the pointer first)

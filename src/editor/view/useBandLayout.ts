@@ -8,6 +8,7 @@
 // 2560×1440); the objects' dock likewise, its list scrolling so the picked object's window is never cut off. Whole pixels throughout. The positions go to CSS variables on the editor's main area.
 
 import { useEffect, useLayoutEffect } from "preact/hooks";
+import { chooseShape, setPanelShape } from "../generator/panelFit";
 
 /** One clear gap between neighbours in the band, and the gap between the Show row's toggles. */
 const GAP = 16;
@@ -65,6 +66,28 @@ export function useBandLayout(ready: boolean): void {
       const C = corner.left - v.left;
       const w = water.width;
       const L = legend.width;
+      // (the controls under a panel or the legend: as tall as the room above the first of them it would meet; over the
+      // minimap, room for the coordinates and the readout, one gap apart: the readout a line, or two where it is narrow,
+      // kept left of the bar's settings; the dock's pieces each by its own box: the first run's hints sit centred above
+      // the settings, not across them; a note by its own box too: its container spans the dock, the note only its middle)
+      const dock = box(".tool-dock");
+      const readoutW = dock ? Math.min(500, dock.left - v.left - 22 - TOP) : 500;
+      const pieces = [
+        ...[".tool-dock > .tool-settings", ".tool-dock > .tool-bar", ".tool-dock > .working-note", ".tool-dock > .dock-notes > *:not(.first-run)"].map((s) => ({ b: box(s), over: 0 })),
+        { b: box(".objects-dock"), over: 0 },
+        { b: box(".minimap"), over: 6 + 32 + 6 + (readoutW < 300 ? 52 : 32) },
+      ].filter((u): u is { b: DOMRect; over: number } => !!u.b);
+      const hints = box(".tool-dock .first-run");
+      const under = hints ? [...pieces, { b: hints, over: 0 }] : pieces;
+      const roomAbove = (x0: number, x1: number, from: number, among = under) => {
+        let floor = v.height - TOP;
+        for (const { b, over } of among) {
+          const l = b.left - v.left;
+          const r = b.right - v.left;
+          if (r > x0 && l < x1) floor = Math.min(floor, b.top - v.top - over - TOP);
+        }
+        return Math.max(0, Math.floor(floor - from));
+      };
       let left: number;
       let top = TOP;
       let legendLeft: number;
@@ -72,21 +95,33 @@ export function useBandLayout(ready: boolean): void {
       // (the furthest right Legend's centre goes: the button one gap clear of Top-down, and the button and its open
       // legend 8px clear of the corner, whose second row hangs under the band beside the legend)
       const most = Math.min(C - GAP - L / 2, C - 8 - Math.max(L, LEGEND_W) / 2);
-      if (S + GAP + w + GAP + L / 2 <= most) {
+      const inBand = S + GAP + w + GAP + L / 2 <= most;
+      if (inBand) {
         // in the band: centred on the window, else as near the centre as the Show row and Legend allow; Legend centred
         // between the water row and Top-down, its open legend centred under it (clear of a panel open at the left, the
         // button clear of Top-down)
         left = Math.min(Math.max(v.width / 2 - w / 2, S + GAP), most - L / 2 - GAP - w);
-        const centre = Math.min(Math.max((left + w + C) / 2, TOP + PANEL_W + GAP + LEGEND_W / 2), most);
-        legendLeft = centre - L / 2;
-        panelLeft = centre - LEGEND_W / 2;
       } else {
         // a second line under the band, centred, clear of the corner's second row; Legend the Show row's last toggle,
         // its open legend under the second line, from its left edge, clear of a panel open at the left
         top = TOP + BAND + UNDER;
         left = Math.max(TOP, Math.min(v.width / 2 - w / 2, C - GAP - w));
+      }
+      const below = top + BAND;
+      const panelTop = below + 10;
+      // the generator's panel takes the shape that fits the room it has (panelFit.ts, the hints stepping aside while it is
+      // open); the open legend, beside it at its right, stays clear of the corner and so of the panel, whatever its shape
+      const widest = (inBand ? most - LEGEND_W / 2 : C - 8 - LEGEND_W) - GAP - TOP;
+      const shape = chooseShape((width) => roomAbove(TOP, TOP + width, panelTop, pieces), widest);
+      setPanelShape(shape);
+      const panelW = shape.width;
+      if (inBand) {
+        const centre = Math.min(Math.max((left + w + C) / 2, TOP + panelW + GAP + LEGEND_W / 2), most);
+        legendLeft = centre - L / 2;
+        panelLeft = centre - LEGEND_W / 2;
+      } else {
         legendLeft = S + TOGGLE_GAP;
-        panelLeft = Math.max(legendLeft, TOP + PANEL_W + GAP);
+        panelLeft = Math.max(legendLeft, TOP + panelW + GAP);
       }
       left = Math.round(left);
       // (one line: whole pixels; on the Show row it keeps the toggles' own spacing exactly)
@@ -96,29 +131,6 @@ export function useBandLayout(ready: boolean): void {
         panelLeft = legendLeft + L / 2 - LEGEND_W / 2;
       }
       panelLeft = Math.round(panelLeft);
-      const below = top + BAND;
-      // the controls under a panel or the legend: as tall as the room above the first of them it would meet
-      // (over the minimap, room for the coordinates and the readout, one gap apart: the readout a line, or two where
-      // it is narrow, kept left of the bar's settings)
-      // (the dock's pieces each by its own box: the first run's hints sit centred above the settings, not across them)
-      // (a note by its own box too: its container spans the dock, the note only its middle)
-      const dock = box(".tool-dock");
-      const readoutW = dock ? Math.min(500, dock.left - v.left - 22 - TOP) : 500;
-      const under = [
-        ...[".tool-dock > .tool-settings", ".tool-dock > .tool-bar", ".tool-dock > .first-run", ".tool-dock > .working-note", ".tool-dock > .dock-notes > *"].map((s) => ({ b: box(s), over: 0 })),
-        { b: box(".objects-dock"), over: 0 },
-        { b: box(".minimap"), over: 6 + 32 + 6 + (readoutW < 300 ? 52 : 32) },
-      ].filter((u): u is { b: DOMRect; over: number } => !!u.b);
-      const roomAbove = (x0: number, x1: number, from: number) => {
-        let floor = v.height - TOP;
-        for (const { b, over } of under) {
-          const l = b.left - v.left;
-          const r = b.right - v.left;
-          if (r > x0 && l < x1) floor = Math.min(floor, b.top - v.top - over - TOP);
-        }
-        return Math.max(0, Math.floor(floor - from));
-      };
-      const panelTop = below + 10;
       const legendTop = below + 6;
       const drop = top === TOP ? 0 : top + BAND - (TOP + BAND);
       const vars: Record<string, string> = {
@@ -131,6 +143,9 @@ export function useBandLayout(ready: boolean): void {
         // (the panel sits in the main area, the view's own top and left)
         "--panel-top": `${Math.round(v.top - m.top + panelTop)}px`,
         "--panel-max": `${roomAbove(TOP, TOP + PANEL_W, panelTop)}px`,
+        // (the generator's panel: the room without the hints, which it covers, and its width)
+        "--gen-max": `${roomAbove(TOP, TOP + panelW, panelTop, pieces)}px`,
+        "--gen-w": `${panelW}px`,
         // (the objects' dock, the list and the picked object's window: as tall as the room under the corner's buttons, the
         // list scrolling inside when a short window can't hold both)
         "--dock-max": dockMax(v.height, corner.bottom - v.top),

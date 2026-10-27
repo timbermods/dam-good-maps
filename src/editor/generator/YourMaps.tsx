@@ -9,7 +9,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { GeneratorModel } from "./model";
 import { tip } from "../../ui/Tooltip";
-import { compareProblem, parentFull, parentLine } from "../../core/library/keptVersions";
+import { compareProblem, nameTip, parentFull, parentStep, splitVersionName } from "../../core/library/keptVersions";
 import { limitName } from "../nameFit";
 import { COMPARE_KEY } from "../compare/useCompare";
 
@@ -22,6 +22,29 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const anchor = useRef<string | null>(null);
   const panel = useRef<HTMLElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  /** The maps whose name is longer than the two lines a tile keeps for it: a kept version then shows its map's name cut and
+   *  its step whole, and every such name has the whole in its tooltip. Measured after each draw that could change it (before
+   *  the browser paints), and again when the list's width changes. */
+  const [clipped, setClipped] = useState<ReadonlySet<string>>(new Set());
+  const measureNames = useRef(() => undefined as void);
+  measureNames.current = () => {
+    const now = new Set<string>();
+    list.current?.querySelectorAll<HTMLElement>("li[data-id] span.ym-name").forEach((el) => {
+      const bold = el.closest(".ym-tile")?.getAttribute("aria-current") === "true";
+      if (!fitsTwoLines(el, el.textContent ?? "", bold ? "600" : "400")) now.add(el.closest("li")!.getAttribute("data-id")!);
+    });
+    setClipped((was) => (was.size === now.size && [...now].every((id) => was.has(id)) ? was : now));
+  };
+  const names = m.maps.map((e) => e.name).join("|");
+  useLayoutEffect(() => measureNames.current(), [names, m.current, renaming]);
+  useEffect(() => {
+    const el = list.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(() => measureNames.current());
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
   // (maps gone from the list leave the selection)
   const ids = m.maps.map((e) => e.id).join("|");
   useEffect(() => {
@@ -154,7 +177,7 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
             </button>
           </span>
         </div>
-        <ul>
+        <ul ref={list}>
           {m.maps.map((e) => {
             const here = e.id === m.current;
             const picked = selected.has(e.id);
@@ -162,7 +185,7 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
               <>
                 {e.thumbnail ? <img class="ym-pic" src={e.thumbnail} alt="" width={142} height={142} draggable={false} /> : <span class="ym-pic" aria-hidden="true" />}
                 <span class="ym-line">
-                  {renaming === e.id ? <TileName name={e.name} onDone={(n, leaving) => void finishRename(e.id, n, leaving)} problem={problem} /> : <span class="ym-name">{e.name}</span>}
+                  {renaming === e.id ? <TileName name={e.name} onDone={(n, leaving) => void finishRename(e.id, n, leaving)} problem={problem} /> : <TileLabel name={e.name} version={!!e.parent} clipped={clipped.has(e.id)} />}
                   {e.size ? (
                     <span class="ym-size">
                       {e.size.w}×{e.size.h}
@@ -171,7 +194,8 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
                   {/* a kept version: where it came from, small and quiet, a line of its own */}
                   {e.parent ? (
                     <span class="ym-from" {...tip(parentFull(e.parent))}>
-                      {parentLine(e.parent)}
+                      <span class="ym-from-name">{e.parent.name}</span>
+                      <span class="ym-from-step">{parentStep(e.parent)}</span>
                     </span>
                   ) : null}
                 </span>
@@ -222,18 +246,38 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
   );
 }
 
-/** Whether a name fits the two lines a tile keeps for it, as the tile shows it (in the open map's bold). */
-function fitsTwoLines(field: HTMLElement, name: string): boolean {
+/** Whether a name fits the two lines a tile keeps for it, as the tile shows it (the rename field in the open map's bold). */
+function fitsTwoLines(field: HTMLElement, name: string, weight = "600"): boolean {
   const line = field.parentElement;
   if (!line) return true;
   const probe = document.createElement("span");
   probe.className = "ym-name";
   probe.textContent = name;
-  probe.style.cssText = `position: absolute; visibility: hidden; display: block; height: auto; -webkit-line-clamp: none; font-weight: 600; width: ${line.clientWidth}px`;
+  probe.style.cssText = `position: absolute; visibility: hidden; display: block; height: auto; -webkit-line-clamp: none; font-weight: ${weight}; width: ${line.clientWidth}px`;
   line.appendChild(probe);
   const fits = probe.scrollHeight <= 2 * parseFloat(getComputedStyle(probe).lineHeight) + 0.5;
   probe.remove();
   return fits;
+}
+
+/** A map's name on its tile: two lines, cut at the end when it is longer. A kept version's name is its map's name and its
+ *  step ("River Valley — Raise a tile"): when the two lines cannot hold it, the map's name is cut in the first line and the
+ *  step kept in the second, because the step is what tells the versions of one map apart. A name that is cut has the whole
+ *  in its tooltip. */
+function TileLabel(p: { name: string; version: boolean; clipped: boolean }) {
+  const parts = p.version ? splitVersionName(p.name) : null;
+  const split = p.clipped && !!parts;
+  return (
+    <span class={`ym-name${split ? " split" : ""}`} {...(p.clipped ? tip(nameTip(p.name)) : {})}>
+      {parts ? (
+        <>
+          <span class="ym-name-head">{parts.head}</span> <span class="ym-name-tail">{parts.tail}</span>
+        </>
+      ) : (
+        p.name
+      )}
+    </span>
+  );
 }
 
 /** A map's name in Your maps renamed in place, at the name's own size and font: Enter or clicking away renames it,
