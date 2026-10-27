@@ -16,6 +16,20 @@ const edits = (page: Page) => page.evaluate(() => window.dgmEditor!.info().edits
 const height = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), [x, y]);
 const block = (page: Page) => page.evaluate(() => window.dgmEditor!.block());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
+/** The preview has answered all it was asked (the page's own signal, `blockAnswered`), so what it shows is read once.
+ *  Never a timed poll: CI draws in software, where a frame holds the page's thread for seconds and starves this process
+ *  too, and a poll's deadline ran out with the right answer on its way (dev's traces). */
+const answered = (page: Page) => page.evaluate(() => window.dgmEditor!.blockAnswered());
+/** What the preview shows once it has answered. */
+const previewNow = async (page: Page) => {
+  await answered(page);
+  return (await block(page)).preview;
+};
+/** The edits once the worker's queue has run (a press's edit joins it as the button comes up): read once, never polled. */
+const settledEdits = async (page: Page) => {
+  await idle(page);
+  return edits(page);
+};
 
 /** The screen point of the middle of a block's face: the block at (x, y, layer) and which side. */
 async function face(page: Page, x: number, y: number, layer: number, side: Side) {
@@ -63,7 +77,7 @@ async function flatSpot(page: Page) {
 async function aim(page: Page, x: number, y: number, layer: number, side: Side) {
   const p = await face(page, x, y, layer, side);
   await page.mouse.move(p.x, p.y);
-  await expect.poll(async () => (await block(page)).preview?.added.length ?? 0, { message: "the preview for the face under the pointer" }).toBeGreaterThan(0);
+  expect((await previewNow(page))?.added.length ?? 0, "the preview for the face under the pointer").toBeGreaterThan(0);
   return p;
 }
 
@@ -72,16 +86,12 @@ async function click(page: Page, x: number, y: number, layer: number, side: Side
   const before = await edits(page);
   const p = await face(page, x, y, layer, side);
   await page.mouse.move(p.x, p.y);
-  // (straight after the click before it: CI draws in software, a frame of the map holds the page for a few hundred
-  // milliseconds while the last edit's water and soil are drawn, and the hover and its answer each wait their turn
-  // between frames; on a GPU the preview answers in tens of milliseconds. What is asserted is unchanged.)
-  await expect.poll(async () => (await block(page)).preview !== null, { timeout: 15_000 }).toBe(true);
+  expect(await previewNow(page), "the preview for the face under the pointer").not.toBeNull();
   if (shift) await page.keyboard.down("Shift");
   await page.mouse.down();
   await page.mouse.up();
   if (shift) await page.keyboard.up("Shift");
-  await expect.poll(() => edits(page)).toBe(before + 1);
-  await idle(page);
+  expect(await settledEdits(page)).toBe(before + 1);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -151,8 +161,8 @@ test("a click adds a block onto the face, Shift removes it, a drag paints a plan
   const p = await face(page, px, py, h, "+z");
   await page.mouse.move(p.x, p.y);
   await page.keyboard.down("Shift");
+  expect((await previewNow(page))?.removed.length ?? 0).toBe(1);
   await expect(page.getByRole("group", { name: "Block options" }).getByRole("button", { name: "Remove" })).toHaveAttribute("aria-pressed", "true");
-  await expect.poll(async () => (await block(page)).preview?.removed.length ?? 0).toBe(1);
   expect((await block(page)).preview!.removed).toEqual([[px, py, h]]);
   await page.keyboard.up("Shift");
   await click(page, px, py, h, "+z", true);
@@ -163,31 +173,30 @@ test("a click adds a block onto the face, Shift removes it, a drag paints a plan
   const b = await face(page, px + 3, py, h - 1, "+z");
   const before = await edits(page);
   await page.mouse.move(a.x, a.y);
-  await expect.poll(async () => (await block(page)).preview !== null).toBe(true);
+  expect(await previewNow(page)).not.toBeNull();
   await page.mouse.down();
   for (let t = 1; t <= 8; t++) {
     await page.mouse.move(a.x + ((b.x - a.x) * t) / 8, a.y + ((b.y - a.y) * t) / 8);
     await page.waitForTimeout(30);
   }
-  await expect.poll(async () => (await block(page)).preview?.added.length ?? 0).toBe(6);
+  expect((await previewNow(page))?.added.length ?? 0).toBe(6);
   expect((await block(page)).dragging).toBe(true);
   // (nothing is applied until release)
   expect(await edits(page)).toBe(before);
   expect(await height(page, px + 1, py)).toBe(h);
   await page.mouse.up();
-  await expect.poll(() => edits(page)).toBe(before + 1);
-  await idle(page);
+  expect(await settledEdits(page)).toBe(before + 1);
   for (let i = -2; i <= 3; i++) expect(await height(page, px + i, py), `x ${px + i}`).toBe(h + 1);
   expect(await height(page, px + 4, py)).toBe(h);
   expect(await height(page, px - 3, py)).toBe(h);
   // one undo takes the whole drag back
   await page.keyboard.press("z");
-  await expect.poll(() => edits(page)).toBe(before);
+  expect(await settledEdits(page)).toBe(before);
   for (let i = -2; i <= 3; i++) expect(await height(page, px + i, py), `x ${px + i} after undo`).toBe(h);
 
   // Esc in the middle of a drag applies nothing
   await page.mouse.move(a.x, a.y);
-  await expect.poll(async () => (await block(page)).preview !== null).toBe(true);
+  expect(await previewNow(page)).not.toBeNull();
   await page.mouse.down();
   await page.mouse.move(b.x, b.y, { steps: 4 });
   await page.keyboard.press("Escape");
@@ -212,18 +221,17 @@ test("a drag out over air chains: each block goes where it touches the last, the
   const a = await face(page, px, py, h, "+x");
   const b = await face(page, px, py, h + 3, "+x");
   await page.mouse.move(a.x, a.y);
-  await expect.poll(async () => (await block(page)).preview?.added.length ?? 0).toBe(1);
+  expect((await previewNow(page))?.added.length ?? 0).toBe(1);
   await page.mouse.down();
   for (let t = 1; t <= 8; t++) {
     await page.mouse.move(a.x + ((b.x - a.x) * t) / 8, a.y + ((b.y - a.y) * t) / 8);
     await page.waitForTimeout(30);
   }
-  await expect.poll(async () => (await block(page)).preview?.added.length ?? 0, { message: "the span over the air is in the preview" }).toBeGreaterThanOrEqual(4);
+  expect((await previewNow(page))?.added.length ?? 0, "the span over the air is in the preview").toBeGreaterThanOrEqual(4);
   const shown = (await block(page)).preview!.added;
   expect(shown.every((c) => c[0] === px + 1 && c[1] === py)).toBe(true);
   await page.mouse.up();
-  await expect.poll(() => edits(page)).toBe(before + 1);
-  await idle(page);
+  expect(await settledEdits(page)).toBe(before + 1);
   // what was drawn is what stands: the column beside the pillar rose to its top
   expect(await height(page, px + 1, py)).toBe(Math.max(...shown.map((c) => c[2])) + 1);
 });
@@ -265,16 +273,23 @@ test("ground that would fall is shown before the press is let go, and the click 
   const px = x + 2;
   const py = y + 4;
   await look(page, x + 5, py, h);
-  // a pillar of four, then a shelf out from its top, a block at a time: each is held by the one before, three sideways
-  for (let k = 0; k < 4; k++) await click(page, px, py, h - 1 + k, "+z");
-  expect(await height(page, px, py)).toBe(h + 4);
+  // a pillar of four, then a shelf out from its top, a block at a time: each is held by the one before, three sideways.
+  // (Built with the operation a click makes, one per block, through the editor's own edit path: the clicks themselves
+  // are the tests above. On CI's software drawing each click's hover, preview and edit cost three or four frames of
+  // 2 to 7 s, and seven of them took this test past its three minutes (run 40241046321: 21 to 29 s a click).)
+  const add = (at: [number, number, number], side: "+x" | "+z") =>
+    page.evaluate(([at, side]) => window.dgmEditor!.edit({ op: "blocks", params: { mode: "add", side, at: [at], size: 1 } }, "Add blocks"), [at, side] as const);
   const top = h + 3;
-  for (let k = 0; k < 3; k++) await click(page, px + k, py, top, "+x");
+  const built = await edits(page);
+  for (let k = 0; k < 4; k++) await add([px, py, h - 1 + k], "+z");
+  for (let k = 0; k < 3; k++) await add([px + k, py, top], "+x");
+  expect(await settledEdits(page), "each block taken, one step each").toBe(built + 7);
+  expect(await height(page, px, py)).toBe(h + 4);
   // the fourth would hang more than 3 sideways from the pillar: the press shows what would fall and why
   const before = await edits(page);
   const a = await face(page, px + 3, py, top, "+x");
   await page.mouse.move(a.x, a.y);
-  await expect.poll(async () => (await block(page)).preview?.falls.length ?? 0, { message: "the blocks that would fall" }).toBeGreaterThan(0);
+  expect((await previewNow(page))?.falls.length ?? 0, "the blocks that would fall").toBeGreaterThan(0);
   const shown = (await block(page)).preview!;
   expect(shown.reason).toMatch(/blocks? of ground would fall: nothing would hold (them|it) up/);
   // (the reason in red beside the blocks, never over them)
@@ -306,7 +321,8 @@ test("ground that would fall is shown before the press is let go, and the click 
   expect(await edits(page)).toBe(before);
   // (the pointer still on that face, the preview asks again; off the map it goes)
   await page.mouse.move(5, 300);
-  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.blocksDrawn.falls)).toBe(0);
+  await answered(page);
+  expect(await page.evaluate(() => window.dgm3d!.renderer.blocksDrawn.falls)).toBe(0);
 });
 
 test("on an imported cave map a Shift-click removes blocks from a cave wall: the blocks go, the surface stays, undo gives them back", async ({ page }) => {
@@ -337,7 +353,7 @@ test("on an imported cave map a Shift-click removes blocks from a cave wall: the
   expect(await height(page, 14, 17)).toBe(8);
   expect(await page.evaluate((i) => window.dgm3d!.renderer.hasTop(i, 3), tile(14, 17)), "the wall's column has a floor at layer 3 now").toBe(true);
   await page.keyboard.press("z");
-  await expect.poll(() => edits(page)).toBe(before);
+  expect(await settledEdits(page)).toBe(before);
   expect(await page.evaluate((i) => window.dgm3d!.renderer.hasTop(i, 3), tile(14, 17))).toBe(false);
 });
 
@@ -405,7 +421,7 @@ test("under a layer cut a click takes what is below the cut and leaves the hidde
   const wall = await face(page, 14, 17, 5, "+x");
   await page.mouse.move(wall.x, wall.y);
   await page.keyboard.down("Shift");
-  await expect.poll(async () => (await block(page)).preview?.removed.length ?? 0).toBeGreaterThan(0);
+  expect((await previewNow(page))?.removed.length ?? 0).toBeGreaterThan(0);
   const preview = (await block(page)).preview!;
   expect(preview.removed.every((c) => c[2] < 6), "nothing from the cut up is planned").toBe(true);
   await expect(page.locator(".shape-note.error")).toHaveCount(0);
@@ -413,7 +429,7 @@ test("under a layer cut a click takes what is below the cut and leaves the hidde
   await page.mouse.down();
   await page.mouse.up();
   await page.keyboard.up("Shift");
-  await expect.poll(() => edits(page)).toBe(before + 1);
+  expect(await settledEdits(page)).toBe(before + 1);
   // (the block the cut hides is still there: one of its faces is open to a remove)
   const stands = await page.evaluate(async () => {
     for (const side of ["+x", "-x", "+y", "-y", "+z", "-z"] as const) {

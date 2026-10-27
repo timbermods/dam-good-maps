@@ -60,7 +60,7 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
         </>
       ) : kind === "roofed" ? (
         layers.roofed.length ? (
-          <CaptionRow color={LAYER_COLORS.roofed}>Caves or overhangs, which the tools leave as they are</CaptionRow>
+          <CaptionRow color={LAYER_COLORS.roofed}>Caves or overhangs: the brushes shape only their tops</CaptionRow>
         ) : (
           <p>No caves or overhangs on this map.</p>
         )
@@ -109,6 +109,21 @@ export function StartIndicators({ check, rules }: { check: StartCheck; rules: { 
   const status = startStatus(check);
   const waterOk = check.water !== null && check.water <= rules.waterWithin;
 
+  // (under a roof the walks are not measured: the core's verdict alone, D491)
+  if (check.underRoof)
+    return (
+      <div class="start-indicators" role="status">
+        <p class={status === "blocked" ? "bad" : "ok"} data-status={status}>
+          {check.problem ? `Does not fit: ${check.problem}` : "The district center fits here"}
+        </p>
+        <ul>
+          <li class="warn" data-need="under-roof">
+            Under a roof: its walks to water, wood and berries are not measured
+          </li>
+        </ul>
+      </div>
+    );
+
   return (
     <div class="start-indicators" role="status">
       <p class={status === "blocked" ? "bad" : status === "warn" ? "warn" : "ok"} data-status={status}>
@@ -144,6 +159,11 @@ const NO_KEEP = "Only the step the map is at can be kept here";
 
 export function HistoryPanel({ info, onJump, onKeep, onClose }: { info: SessionInfo; onJump(index: number): void; onKeep?(step: number, branch: boolean): void; onClose(): void }) {
   const current = info.history.filter((h) => h.applied).length - 1;
+  // opening on a long list: the step the map is at is in view, not the top of the list
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    panel.current?.querySelector<HTMLElement>('.hist-row[aria-current="true"]')?.scrollIntoView({ block: "center" });
+  }, []);
   const orphanNotes = info.orphans.filter((o) => !info.history.some((h) => h.seq === o.seq && h.orphaned));
   /** A step as a row: the one the map is at is selected (the panel's own look for the thing you are on). Beside it, Keep
    *  and Branch take the map as it stood at that step into Your maps (a copy; the open map stays where it is), and
@@ -170,7 +190,7 @@ export function HistoryPanel({ info, onJump, onKeep, onClose }: { info: SessionI
     );
   };
   return (
-    <aside class="history gen history-panel" aria-label="History">
+    <aside class="history gen history-panel" aria-label="History" ref={panel}>
       <div class="ym-head">
         <h2 class="ym-title">History</h2>
         <button type="button" class="ghost ym-act hist-close" aria-label="Close the history" {...tip("Close the history")} onClick={onClose}>

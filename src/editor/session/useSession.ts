@@ -9,7 +9,7 @@ import { surfaceWater, type MapView, type SoilView, type WaterView } from "../..
 import type { MapRenderer } from "../../render3d";
 import type { GeneratorApi } from "../../worker/generator.worker";
 import type { CheckItem, CheckProgress, DroughtLineNews, EntityInfo, ExportCheck, SessionInfo, SessionUpdate, ViewUpdate, WaterLayers } from "../../worker/session";
-import { FeatureIndex, type StartCheck, type StartStatus } from "../features";
+import { FeatureIndex, type StartCheck, type StartDrag, type StartStatus } from "../features";
 import { plain, type LayerKind } from "../panels";
 import { DEFAULT_SHELF_OPTIONS, type ShelfItem, type ShelfOptions } from "../shelfItems";
 import { Juice, loadSound, type SoundSettings } from "../juice";
@@ -20,6 +20,7 @@ import { Selection, type SelectMode } from "../select";
 import { WaterJourney } from "../waterJourney";
 import { WaterPlayer } from "../waterPlayer";
 import { hazardDays, type Hazard } from "../../core/sim/weather";
+import { heldWords, type HeldFirstDays } from "../../core/sim/firstDays";
 import { describeTile as describeTileFacts, tileWords } from "../../core/doc/describeTile";
 import type { TerrainState } from "../../core/features/raster/strokePreview";
 import { DEFAULT_OPTIONS, type Rgba, type ToolOptions } from "../tools";
@@ -38,6 +39,9 @@ export interface EditorNote {
   kind: "error" | "info";
   text: string;
   keep?: boolean;
+  /** One thing the note offers to do (an info note: Undo, after a force cleared sources). It is for the step the history stood
+   *  at (`step`, the steps applied) and goes the moment another step lands, so it only ever takes back that step. */
+  action?: { label: string; tip: string; step: number; run: () => void };
 }
 
 export interface SessionSlice {
@@ -77,8 +81,8 @@ export interface SessionSlice {
   painted: number[] | null;
   setIcons: Dispatch<StateUpdater<Record<string, string>>>;
   icons: Record<string, string>;
-  startDrag: { x: number; y: number; check: StartCheck } | null;
-  setStartDrag: Dispatch<StateUpdater<{ x: number; y: number; check: StartCheck } | null>>;
+  startDrag: StartDrag | null;
+  setStartDrag: Dispatch<StateUpdater<StartDrag | null>>;
   setBusy: Dispatch<StateUpdater<number>>;
   busy: number;
   setMessage: Dispatch<StateUpdater<EditorNote | null>>;
@@ -98,7 +102,7 @@ export interface SessionSlice {
   waterTick: number;
   /** Changes when a held weather day's water is put on the map (the minimap draws it). */
   heldTick: number;
-  flowing: number | null;
+  flowing: boolean;
   markersOn: boolean;
   setMarkersOn: Dispatch<StateUpdater<boolean>>;
   /** The Show row's Markers toggle, as its click does it (the 3D view puts it here): M's way to it. */
@@ -162,8 +166,13 @@ export interface SessionSlice {
   holdWeatherDay: (day: number) => void;
   /** Ask the worker for the held day again (after an edit's water has settled: it re-runs from it). */
   requestHeldDay: () => void;
-  lastHover: { current: { x: number; y: number } | null };
+  lastHover: { current: { x: number; y: number; level?: number } | null };
   rehover: () => void;
+  /** The hover readout's words for a tile: what is on it, and while the Drought or Badtide view is on, when its water
+   *  dries or turns bad. */
+  hoverWordsAt: (x: number, y: number, level?: number) => string;
+  /** A held hazard day's first dry or first bad days per tile (core/sim/firstDays.ts, from the worker), or null. */
+  firstNews: { current: HeldFirstDays | null };
   /** Work out both weather hazards' days once Kyler has been idle a moment with the water settled (the worker stops
    *  the moment he acts). */
   idlePrep: () => void;
@@ -255,16 +264,36 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [painted, setPainted] = useState<number[] | null>(null);
   /** The shelf's icons, drawn by the view once it is ready. */
   const [icons, setIcons] = useState<Record<string, string>>({});
-  const [startDrag, setStartDrag] = useState<{ x: number; y: number; check: StartCheck } | null>(null);
+  const [startDrag, setStartDrag] = useState<StartDrag | null>(null);
   const [busy, setBusy] = useState(0);
   const [message, setMessage] = useState<EditorNote | null>(null);
+  // a note that offers to take a step back goes when the history moves on (a stroke, another force, an undo or a redo)
+  const stepsApplied = info.history.filter((h) => h.applied).length;
+  useEffect(() => setMessage((m) => (m?.action && m.action.step !== stepsApplied ? null : m)), [stepsApplied]);
   const [hover, setHover] = useState<string | null>(null);
   /** The tile under the pointer, and the readout said again for it when the water shown changes under a still
    *  pointer (a weather day landing). */
-  const lastHover = useRef<{ x: number; y: number } | null>(null);
+  const lastHover = useRef<{ x: number; y: number; level?: number } | null>(null);
+  /** The held hazard's first dry or first bad day per tile (D133's hover), set with each day the worker sends, put away
+   *  with the view. */
+  const firstNews = useRef<HeldFirstDays | null>(null);
+  /** The readout for a tile: the core's words, and while the Drought or Badtide view is on, the day its water goes or
+   *  turns bad ("Dry on day 6", "Lasts the drought", "Turns bad on day 4"). A cave's floor or a ledge under a roof is
+   *  not the water seen from above: no words there. */
+  const hoverWordsAt = (x: number, y: number, level?: number): string => {
+    const words = tileWords(describeTileFacts(ed.pageTileFacts(), x, y, level));
+    const n = firstNews.current;
+    if (!n || x < 0 || y < 0 || x >= infoRef.current.W || y >= infoRef.current.H) return words;
+    const i = y * infoRef.current.W + x;
+    const m = mirror.current;
+    if (level !== undefined && level < m.heights[i]) return words;
+    // (an edit while the view is held: the old map's days say nothing until the edited map's come)
+    const when = heldWords(n, weatherRef.current, infoRef.current.version, i);
+    return when ? `${words} · ${when}` : words;
+  };
   const rehover = () => {
     const h = lastHover.current;
-    if (h && ed.pageTileFacts) setHover(tileWords(describeTileFacts(ed.pageTileFacts(), h.x, h.y)));
+    if (h) setHover(hoverWordsAt(h.x, h.y, h.level));
   };
   // A refusal's note goes with the next thing the player does (a press, a key, a tool picked, the layer or the view
   // changed); only a save that failed stays until it is dismissed or the map is saved. An edit's own note
@@ -295,8 +324,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [waterLayers, setLayers] = useState<WaterLayers | null>(null);
   const [waterTick, setWaterTick] = useState(0);
   const [heldTick, setHeldTick] = useState(0);
-  /** The water is flowing into an edit's new shape (how far it has come, 0–1), or null. */
-  const [flowing, setFlowing] = useState<number | null>(null);
+  /** The water is flowing into an edit's new shape (the dot says "Settling…"): set as a journey starts and ends, never
+   *  per frame, so the editor isn't drawn again for every frame of the water's journey. */
+  const [flowing, setFlowing] = useState(false);
   /** **Markers** is on (every source shows its marker then, D196). */
   const [markersOn, setMarkersOn] = useState(false);
   const markersToggle = useRef<(() => void) | null>(null);
@@ -347,7 +377,6 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   };
   /** Feedback for an action at tile (x, y). */
   const feel = (kind: Parameters<Juice["play"]>[0], x: number, y: number, size = 1, soft = false, what?: string) => juice.current?.play(kind, x, y, size, soft, what);
-  const [, setPlayerTick] = useState(0);
   /** A hazard playing (a drought or a badtide to watch), or null. */
   const [weather, setWeatherState] = useState<Hazard | null>(null);
   const weatherRef = useRef<Hazard | null>(null);
@@ -380,8 +409,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }, [ready]);
   const setWeather = (on: Hazard | null) => {
     weatherRef.current = on;
+    if (on !== firstNews.current?.hazard) firstNews.current = null;
     setWeatherState(on);
     syncDroughtLine();
+    // (the hazard's words in the readout go with the view)
+    rehover();
   };
   const [weatherDay, setWeatherDay] = useState<number | null>(null);
   const [weatherDays, setWeatherDays] = useState<number | null>(null);
@@ -424,10 +456,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     // (the journey's frames mesh a few chunks a frame too; its last, the settled water, at once; a held weather day
     // stays on screen meanwhile)
     show: (f) => showWater(f.water, !f.final),
-    changed: () => {
-      setPlayerTick((n) => n + 1);
-      setFlowing(player.current!.progress);
-    },
+    changed: () => setFlowing(player.current!.progress !== null),
   });
   // what the worker says about the water, and the bar that reads it (waterJourney.ts, D345 B14)
   const applyViewRef = useRef<(v: ViewUpdate) => void>(() => undefined);
@@ -820,7 +849,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
     feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
-    setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
+    setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, resizing, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,

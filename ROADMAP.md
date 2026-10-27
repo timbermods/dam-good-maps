@@ -224,8 +224,10 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
 - **Multi-core water** (done, #281, merged; #130's design; follow-ups on `fix/multicore-water-followups`): #130's strips with halo exchange,
   on several single-threaded instances of the Rust water's Wasm over a `SharedArrayBuffer` (`src/core/sim/parallel.ts`),
   byte-identical to one thread. Threads only where they help: 256² and up in Chromium and Firefox (Firefox's speed is
-  not re-timed, D440, D441), about 8 threads at 256² and up to 16 at 512²; single-core at 128² and in
-  WebKit. Its gate, the native `exp` and `hypot` calls made portable, is met (D401's guard). Costs: one
+  not re-timed, D440, D441), about 8 threads at 256² and up to 16 at 512², within a budget that leaves the page's
+  thread, the water mesh workers and the flow bake a core each (`waterThreadBudget`: 7 threads of 12, 4 of 8, and 3
+  on a machine of 4 to 6, where one thread would settle about 2.5 times slower);
+  single-core at 128² and in WebKit. Its gate, the native `exp` and `hypot` calls made portable, is met (D401's guard). Costs: one
   first-visit reload through the one service worker (`public/sw.js`, D397; until hosting sends the headers itself; moving
   to Cloudflare Workers with Static Assets becomes worth doing then) and about 35 MiB at 512².
 - **Scaling round 4** (#132): approved. Files about a quarter of round 3's (7 MiB at 256², 20 MiB at 512²), reopening about
@@ -503,10 +505,14 @@ byte check nightly and in the release check; clean titles; 3D thumbnails rendere
 rebuilt without perimeter walls, water free to drain, at 256² where the data allows with its signature as the focal point; and
 the gallery grown to about 150 places. Kyler sees a contact sheet of the whole gallery and says if any should go.
 
-**Meanwhile (D421, amended by D445, done):** the gallery shows every place; the 33 whose start reaches no fed water (the recorded
-`start.water` fault, `src/core/places/place.ts`) carry the card note "No reachable water" until round 2 fixes them.
-`tools/real-places.ts` runs again and the cards are re-rendered. Plants on dry soil and berry shortfalls wait for round 2.
-The nightly runs `npm run places -- --check` and fails when `public/real-places` differs from a fresh build (2026-10-15: it matched): run `npm run places` and commit.
+**Meanwhile (D421, amended by D445, done):** the gallery shows every place; the 24 whose start reaches no fed water (the recorded
+`start.water` fault, `src/core/places/place.ts`) carry the card note "No reachable water" until round 2's water floor fixes them.
+Plants on soil that kills them (#523) move to moist ground within 4 tiles where they live, or go (15,832 dying plants on 85 places: 6,484 moved, 8,928 gone, 96 oaks planted by starts for the logs lost); on 8 places whose start has too little moist ground for its wood, the dying trees nearest the start stay (420; a dead tree keeps its logs) until round 2 plants by the settled water. A start short of berries gets the bushes the `start.food` check's own fix plants (24 places; 8 still fall short, as on dev). **Open edges (D151, done):** every place is built from the survey's
+unsealed land, so none has an edge wall: the edge runs on past the map as the generator's does, with a short lip beside a source
+the survey put by the edge; a start the opened rivers flood, or that reaches no fed water, moves to the best spot its land offers
+(20 moved, D245), and a start that had water on the sealed land and has none on the open land gets a spring by it (11 places,
+D245's water floor), so no place lost its water. The nightly runs `npm run places -- --check` and fails when `public/real-places` is stale: run `npm run places`
+and commit.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone, D151 (no edge walls), and the
 starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start). Only those, and the file playing
@@ -679,6 +685,13 @@ After the view (D280 (3)).
 
 Once M9b has settled (D280 (4)).
 
+**Part 1 built** (D488, `feature/3d-generation`; [docs/progress/3d-generation.md](docs/progress/3d-generation.md)): a
+spring cave feeding the river, an overhang sheltering the start, an arch over a gorge, as intentions grown on the finished
+map (`src/core/land/forms3d.ts`, `src/core/gen/forms3d.ts`), each kept only where every check, intention and outcome still
+holds and its own check confirms it, above the theme's default Verticality only until Fill and Remove unfed water have
+their rules for caves; generated caves' water is the stacked engine's. Next: those rules (then forms
+at the default too), the remaining processes below, and the probe batch.
+
 **Delivers**
 1. **3D features as intentions**, under Kyler's three principles (D138: outcomes, failure allowed,
    many realizations) — "a natural arch", "a cave with a spring in it", "an overhang shading the
@@ -760,6 +773,14 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    that stands higher), a faint amber tint over the beds that dry out completely, both a little stronger on the start's
    water. One mesh built once per line, drawn in both looks, not drawn while a Drought or Badtide day is held, and put
    away at the next edit (or terrain change) until the new map's line comes; a refused line draws nothing.
+   **Built (the hover's data):** each held drought day's `weather` event carries `firstDry` (an `Int16Array` per tile: 0
+   for water that lasts every day worked out so far, or no water on Day 0; else the first day it holds none) and
+   `firstDryThrough` (the last day it covers, at least the day sent), for "Dry on day 6" and "Lasts the drought" (D133).
+   Each held badtide day carries `firstBad` and `firstBadThrough` the same way: 0 for no badwater on any day so far, or
+   badwater already on Day 0; else the first day the tile holds badwater (water with contamination at 0.05 or more,
+   where the hover's "badwater" begins). `core/sim/firstDays.ts` `DryDays` and `BadDays` read them from the days the run
+   keeps, one pass per day, "dry" as the view and the line read it (no depth over `WATER_BODY`), both seen from above on
+   caves; `tests/contract/weatherFirstDays.test.ts`. The page's hover lines are the page session's.
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).

@@ -12,7 +12,7 @@
 // control whose name gives a key its tooltip does not end with.
 
 import { expect, test, type Page } from "@playwright/test";
-import { closeFileMenu, openDrawer, openEditor, openFileMenu, openSection, openYourMaps } from "./open";
+import { closeFileMenu, openDrawer, openEditor, openFileMenu, openSection, openYourMaps, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -91,7 +91,7 @@ async function open(page: Page) {
   // went; its one flat spot is a plateau by the map's edge, where the placed source's water runs over the
   // uneven ground the mine site needs levelled, and "the water is in the way")
   await openEditor(page, "s=6&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await page.waitForTimeout(500);
 }
 
@@ -233,7 +233,7 @@ test("every control in the map generator's panel, in each settings section opene
   };
   await check("the editor with the drawer closed");
   // the title renames in place: its button, then its field (Esc puts the name back)
-  await expect(page.locator(".editor-title h1 button.title-button")).toHaveAttribute("title", "Rename");
+  await expect(page.locator(".editor-title h1 button.title-button")).toHaveAttribute("title", "Rename and describe the map");
   await page.locator(".editor-title h1 button.title-button").click();
   await expect(page.getByLabel("Map name")).toBeFocused();
   await check("the title being renamed");

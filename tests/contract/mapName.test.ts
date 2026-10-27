@@ -44,15 +44,22 @@ describe("renaming a map (D443)", () => {
     expect(s.exportTimberName()).toBe("dgm-beaver-bend.timber");
   });
 
-  it("Your maps' entry takes the stored name on the next save", async () => {
+  it("Your maps' entry takes the stored name on the next save, given beside the project (never unzipped from it)", async () => {
     const s = open();
     s.setName("Beaver Bend");
     const put: YourMapEntry[] = [];
     const saver = new YourMapsSaver({ put: async (e) => (put.push(e), { ok: true }) }, { setTimer: () => 0, clearTimer: () => {} });
-    const entry: YourMapEntry = { id: "a", name: "Old", kind: "generated", createdAt: "x", editedAt: "x", thumbnail: null, revision: 1, savedToTimberborn: null, bytes: 0 };
-    saver.changed("a", () => ({ entry, project: s.project() }));
+    const entry: YourMapEntry = { id: "a", name: "Old", kind: "generated", createdAt: "x", editedAt: "x", thumbnail: null, revision: 1, savedToTimberborn: null, bytes: 0, size: { w: 64, h: 64 } };
+    // (the name the worker's project() hands back with the bytes: the session's stored one, the same the file carries)
+    const project = s.project();
+    expect(decodeProject(project).meta.name).toBe(s.meta.name);
+    saver.changed("a", () => ({ entry, project, name: s.meta.name }));
     await saver.flush();
     expect(put[0].name).toBe("Beaver Bend");
+    // a blank or missing name keeps the entry's
+    saver.changed("a", () => ({ entry, project }));
+    await saver.flush();
+    expect(put[1].name).toBe("Old");
   });
 
   it("an old project without a stored name opens with the name it had", () => {

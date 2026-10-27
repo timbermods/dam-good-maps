@@ -38,7 +38,7 @@ const FORCE_WHAT: Record<string, string> = {
 /** A force's line: its name as the bar shows it, then what it does ("Carve: a river"). */
 const forceWhat = (name: string) => (FORCE_WHAT[name] ? `${name}: ${FORCE_WHAT[name]}` : name);
 
-/** The groups, in the panel's order: the tools, holding them, the mouse, the view and editing. */
+/** The groups, in the panel's order: the tools, holding them, the mouse's other moves, the view (with the mouse's camera moves) and editing. */
 export function shortcutGroups(): readonly ShortcutGroup[] {
   return [
     {
@@ -67,14 +67,11 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
     {
       title: "With the mouse",
       rows: [
-        { what: "Turn the view", keys: ["Middle-drag"] },
-        { what: "Move the view", keys: ["Right-drag"] },
-        { what: "Zoom toward the pointer", keys: ["Scroll"] },
         { what: "Set the strength, power or density", keys: ["F+scroll"] },
         { what: "Set the level", keys: ["Shift+scroll", "Ctrl+click"] },
-        { what: "Swap Raise and Lower, or add and remove blocks", keys: ["Shift"] },
+        { what: "Reverse Raise, Lower and Block", keys: ["Shift"] },
         { what: "Set a source's strength", keys: ["Ctrl+scroll"] },
-        { what: "Mark an area that brushes and forces stay inside", keys: ["Ctrl+drag"] },
+        { what: "Mark an area to work inside", keys: ["Ctrl+drag"] },
         { what: "Add to the selection", keys: ["Shift+drag"] },
         { what: "Take from the selection", keys: ["Alt+drag"] },
         { what: "Hide the levels above a layer", keys: ["Alt+scroll"] },
@@ -84,10 +81,11 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
     {
       title: "View",
       rows: [
-        { what: "Move the view", keys: ["W", "A", "S", "D", "\u2191", "\u2193", "\u2190", "\u2192"] },
-        { what: "Turn the view", keys: ["Q", "E"] },
+        // (the mouse's camera moves sit with the keys that do the same, so the sheet fits a 720px window)
+        { what: "Move the view", keys: ["WASD", "\u2191\u2009\u2193\u2009\u2190\u2009\u2192", "Right-drag"] },
+        { what: "Turn the view", keys: ["Q", "E", "Middle-drag"] },
         { what: "Move faster", keys: ["Shift"] },
-        { what: "Zoom", keys: ["+", "-"] },
+        { what: "Zoom", keys: ["+", "-", "Scroll"] },
         { what: "Show markers", keys: ["M"] },
         { what: "See through the water", keys: ["T"] },
         { what: "Hold to see the version you compare with", keys: [COMPARE_KEY] },

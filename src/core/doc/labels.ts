@@ -36,6 +36,12 @@ export function counted(n: number, name: string, many = pluralOf(name)): string 
   return n === 1 ? withArticle(name) : `${n.toLocaleString("en-GB")} ${many}`;
 }
 
+/** A step that also cleared sources (D249's brushes, D474's forces): "Raise 806 tiles, a source cleared",
+ *  "Quake: lift, 3 sources cleared"; the label alone when it cleared none. */
+export function clearedLabel(label: string, n: number): string {
+  return n > 0 ? `${label}, ${counted(n, "source")} cleared` : label;
+}
+
 /** "1 tile", "806 tiles". */
 export function tileCount(n: number): string {
   return `${n.toLocaleString("en-GB")} tile${n === 1 ? "" : "s"}`;

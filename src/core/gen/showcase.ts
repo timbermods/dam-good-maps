@@ -10,15 +10,15 @@
 //
 // The measures reuse what the generator already reads: the intentions' checks (land/intentions.ts
 // `checkIntention` on `finalCtx`), the dam sites the checks measured (`analysis.damSites`), the falls
-// and the walk from the start. New ones are plain functions here or in analysis/: the game's opening
-// camera's frame (`openingFrame`), the standing forms (analysis/vertical.ts `standingForms`), the
-// pumpable waters near the start through the first drought (`startWaters`).
+// and the walk from the start, the game's opening camera (analysis/opening.ts, D493), the 3D forms the
+// map kept (gen/forms3d.ts) and the stories its ruins tell (gen/ruinStories.ts). New ones are plain
+// functions here or in analysis/: the standing forms (analysis/vertical.ts `standingForms`), the places
+// to pump near the start through the first drought (`pumpPlaces`).
 
+import { frameAt, landmarkInView, LANDMARK_FAR, LANDMARK_LEAST, LANDMARK_MOST, OPENING, openingFrame, type OpeningCamera, type OpeningStart } from "../analysis/opening";
 import { sameLand } from "../analysis/story";
 import { standingForms, type StandingForm } from "../analysis/vertical";
 import { PUMP_CLEAN, PUMP_DEPTH, tileShoreWalk } from "../analysis/walk";
-import { components } from "../analysis/regions";
-import type { Orientation } from "../format/footprints";
 import { checkIntention, type FinalCtx } from "../land/intentions";
 import * as portable from "../math/portable";
 import type { MapSpec } from "../spec/mapspec";
@@ -26,35 +26,14 @@ import { droughtStorage } from "../sim/drought";
 import { FIRST_DROUGHT_DAYS, generate, type GenerateResult } from "./generate";
 import { finalCtx } from "./intentions";
 import { compass } from "./names";
+import { ruinStories } from "./ruinStories";
 import { siblingSpec } from "./versions";
+import { BEATS, type Arc, type Beat } from "./showcaseBeats";
 
-export const BEATS = ["vista", "drought", "valley", "project", "landmark", "mystery"] as const;
-export type BeatId = (typeof BEATS)[number];
-
-/** Each beat in a few words (the page's labels). */
-export const BEAT_NAMES: Record<BeatId, string> = {
-  vista: "An opening vista",
-  drought: "A first-drought choice",
-  valley: "A valley behind a gate",
-  project: "A late-game project",
-  landmark: "A landmark in view",
-  mystery: "A mystery",
-};
-
-export interface Beat {
-  met: boolean;
-  /** How strongly the map has it, 0–1 (a beat not met may still show some of it). */
-  strength: number;
-  /** What the map shows, in a player's words, with its own numbers (when met). */
-  say?: string;
-}
-
-export type Arc = Record<BeatId, Beat>;
+export { BEATS, BEAT_NAMES, type Arc, type Beat, type BeatId } from "./showcaseBeats";
 
 const clamp01 = (v: number) => (v <= 0 ? 0 : v >= 1 ? 1 : v);
 const levels = (n: number) => `${Math.round(n)}-level`;
-const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six"];
-const words = (n: number) => NUMBER_WORDS[n] ?? String(n);
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** "a" or "an" before a number said aloud (an 8, an 11, an 18, an 80, an 800). */
 const an = (n: number) => {
@@ -62,96 +41,50 @@ const an = (n: number) => {
   return t.startsWith("8") || ((t.length === 2 || t.length === 5) && (t.startsWith("11") || t.startsWith("18"))) ? "an" : "a";
 };
 
-// ---------------------------------------------------------------------------- the opening camera
-
-/** The new game's camera turns this far past the start's orientation (investigation/notes/
- *  blocks_and_placement.md §3; render3d/hero.ts `heroYaw`), clockwise from north. */
-export const OPENING_TURN = 35;
-
-/** The ground the game's opening camera frames round the start (60° pitch), in tiles along the way
- *  it looks (`ahead` from the start, negative toward the camera) and across: a trapezoid widening
- *  away from the camera. An interim estimate of the game's frame at its opening zoom: the opening-shot
- *  step (feature/opening-shot, docs/progress/showcase.md) brings the core's own frame, and the vista and
- *  landmark beats switch to it when it lands. */
-export const OPENING_FRAME = { behind: 14, ahead: 30, half: 20, spread: 0.35 } as const;
-
-/** The way the opening camera looks, as a unit step in tiles (x east, y north): the start's
- *  orientation × 90° + 35° clockwise from north. */
-export function openingLook(orientation: Orientation): { fx: number; fy: number; degrees: number } {
-  const degrees = ({ Cw0: 0, Cw90: 90, Cw180: 180, Cw270: 270 } as const)[orientation] + OPENING_TURN;
-  const a = (degrees * Math.PI) / 180;
-  return { fx: portable.sin(a), fy: portable.cos(a), degrees };
-}
-
-/** 1 on the tiles the opening camera frames (`OPENING_FRAME`) round `start`. */
-export function openingFrame(W: number, H: number, start: { x: number; y: number }, orientation: Orientation): Uint8Array {
-  const { fx, fy } = openingLook(orientation);
-  const F = OPENING_FRAME;
-  const out = new Uint8Array(W * H);
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const dx = x - start.x;
-      const dy = y - start.y;
-      const u = dx * fx + dy * fy;
-      const v = dx * fy - dy * fx;
-      if (u >= -F.behind && u <= F.ahead && Math.abs(v) <= F.half + F.spread * (u + F.behind)) out[y * W + x] = 1;
-    }
-  return out;
-}
-
 // ---------------------------------------------------------------------------- the waters near the start
 
-/** How far the start's waters may be, in tiles' walk, to count as a choice in the first drought. */
+/** How far a pumping place may be from the start, in tiles' walk, to count in the first drought's choice. */
 export const DROUGHT_WALK = 30;
-/** Two waters count as two choices when their nearest pumping places stand this far apart, or more. */
+/** Two pumping places are two choices when they stand this far apart, or more, on whatever water. */
 const WATERS_APART = 8;
 
-export interface StartWater {
-  /** The walk to its nearest shore a pump works from, and that water tile. */
-  walk: number;
+export interface PumpPlace {
+  /** The water tile, and the walk to the nearest shore a pump on it works from. */
   tile: number;
-  tiles: number;
-  /** A pump within `DROUGHT_WALK` still reaches it after the first drought. */
+  walk: number;
+  /** A pump there still reaches its water after the first drought. */
   holds: boolean;
 }
 
-/** The separate bodies of clean, pumpable water whose shores lie within `DROUGHT_WALK` of the start,
- *  nearest first, each a distinct place to pump (`WATERS_APART`), and whether each holds through the
- *  first drought (`kept`: the water left after it, `FIRST_DROUGHT_DAYS` of it, as the generator reads
- *  the start's water, still pumpable from a shore in reach). */
-export function startWaters(c: FinalCtx, kept: ArrayLike<number>): StartWater[] {
+/** The places to pump within `DROUGHT_WALK` of the start, nearest first, each `WATERS_APART` from the
+ *  others, whichever water they are on (a river and the pool it runs through are one body of water but
+ *  two choices), and whether each holds through the first drought (`kept`: the water left after
+ *  `FIRST_DROUGHT_DAYS`, as the generator reads the start's water). The places that hold are spread
+ *  first, then those that dry: the nearest holding place is always among them, while a drying place
+ *  within `WATERS_APART` of a holding one is the same place to a player (the stretch running into
+ *  the pool that holds) and is left out. */
+export function pumpPlaces(c: FinalCtx, kept: ArrayLike<number>): PumpPlace[] {
   const { W, H, h, D, C } = c;
-  const N = W * H;
-  const mask = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (D[i] >= PUMP_DEPTH && C[i] < PUMP_CLEAN) mask[i] = 1;
-  const { labels, sizes } = components(mask, W, H);
-  const found = sizes.map((n) => ({ walk: Infinity, tile: -1, tiles: n, holds: false }));
-  for (let i = 0; i < N; i++) {
-    const k = labels[i];
-    if (k < 0) continue;
-    const w = tileShoreWalk(c.walk, h, W, H, i, D[i], true);
-    const f = found[k];
-    if (w < f.walk) {
-      f.walk = w;
-      f.tile = i;
+  const all: PumpPlace[] = [];
+  for (let i = 0; i < W * H; i++) {
+    if (!(D[i] >= PUMP_DEPTH) || !(C[i] < PUMP_CLEAN)) continue;
+    const walk = tileShoreWalk(c.walk, h, W, H, i, D[i], true);
+    if (!(walk <= DROUGHT_WALK)) continue;
+    all.push({ tile: i, walk, holds: tileShoreWalk(c.walk, h, W, H, i, kept[i], true) <= DROUGHT_WALK });
+  }
+  all.sort((a, b) => a.walk - b.walk || a.tile - b.tile);
+  const out: PumpPlace[] = [];
+  for (const holds of [true, false])
+    for (const p of all) {
+      if (p.holds !== holds) continue;
+      const px = p.tile % W;
+      const py = (p.tile - px) / W;
+      if (!out.some((o) => portable.hypot((o.tile % W) - px, Math.floor(o.tile / W) - py) < WATERS_APART)) out.push(p);
     }
-    if (!f.holds && tileShoreWalk(c.walk, h, W, H, i, kept[i], C[i] < PUMP_CLEAN) <= DROUGHT_WALK) f.holds = true;
-  }
-  const near = found.filter((f) => f.walk <= DROUGHT_WALK && f.tiles >= 8).sort((a, b) => a.walk - b.walk || a.tile - b.tile);
-  const out: StartWater[] = [];
-  for (const f of near) {
-    const fx = f.tile % W;
-    const fy = (f.tile - fx) / W;
-    if (out.some((o) => portable.hypot((o.tile % W) - fx, Math.floor(o.tile / W) - fy) < WATERS_APART)) continue;
-    out.push(f);
-  }
-  return out;
+  return out.sort((a, b) => a.walk - b.walk || a.tile - b.tile);
 }
 
 // ---------------------------------------------------------------------------- the beats
-
-/** The colony's reach for a landmark in its view: within this many tiles of the start. */
-export const LANDMARK_REACH = 50;
 
 /** Farmland a colony grows into, reached the long way round (a pass, a ramp or a ford): a level,
  *  moist, clean patch of 400+ tiles (at 128²) past the start's own, its nearest tile 15–70 tiles off
@@ -199,147 +132,197 @@ function formWord(f: StandingForm): string {
   return f.tiles.length <= 30 ? "spire" : f.tiles.length <= 120 ? "butte" : "mesa";
 }
 
-/** The opening camera's frame as the arc reads it: its relief, its water, its tallest fall and its
- *  most prominent standing form. */
-function vistaBeat(c: FinalCtx, frame: Uint8Array, forms: readonly StandingForm[], sayForm: boolean): Beat {
+/** The game's first frame as the arc reads it (D493): the opening camera at the game's own zoom
+ *  (the start's level × 0.1, about 30 × 45 tiles round the start), what the player sees as the game
+ *  opens, before pulling back. */
+interface FirstFrame {
+  camera: OpeningCamera;
+  /** 1 on the tiles whose ground is in the frame. */
+  mask: Uint8Array;
+}
+
+const inFrame = (p: { u: number; v: number } | null) => !!p && p.u >= -1 && p.u <= 1 && p.v >= -1 && p.v <= 1;
+
+/** Whether a standing form shows in the first frame: its ground in it, or its top standing up into it. */
+function formInFrame(f: StandingForm, h: ArrayLike<number>, W: number, frame: FirstFrame): boolean {
+  const px = f.peak % W;
+  if (inFrame(frameAt(frame.camera, px + 0.5, (f.peak - px) / W + 0.5, h[f.peak]))) return true;
+  return f.tiles.some((i) => frame.mask[i] === 1);
+}
+
+/** The 3D forms the map kept (gen/forms3d.ts, recorded with its intentions): their ids, where each
+ *  stands, and their own words. */
+function keptForms(r: GenerateResult): { id: string; at?: [number, number]; say?: string }[] {
+  return r.intentions.filter((x) => x.ok && (x.id === "spring-cave" || x.id === "start-overhang" || x.id === "gorge-arch")).map((x) => ({ id: x.id, ...(x.at ? { at: x.at } : {}), ...(x.say ? { say: x.say } : {}) }));
+}
+
+/** The game's first frame (`FirstFrame`): its relief, its open water, its tallest fall, its most
+ *  prominent standing form, and a 3D form at the start (an overhang over it, an arch in view). */
+function vistaBeat(c: FinalCtx, frame: FirstFrame, forms: readonly StandingForm[], sayForm: boolean, kept: ReturnType<typeof keptForms>): Beat {
   const { W, H, h, D } = c;
   let lo = Infinity;
   let hi = -Infinity;
   let n = 0;
   let wet = 0;
+  let fall = 0;
+  const drops = new Map(c.falls.map((f) => [f.i, f.drop]));
   for (let i = 0; i < W * H; i++) {
-    if (!frame[i]) continue;
+    if (!frame.mask[i]) continue;
     n++;
     if (h[i] < lo) lo = h[i];
     if (h[i] > hi) hi = h[i];
     if (D[i] >= 0.1) wet++;
+    const d = drops.get(i);
+    if (d !== undefined && d > fall) fall = d;
   }
   if (!n) return { met: false, strength: 0 };
   const relief = hi - lo;
   const share = wet / n;
-  const fall = c.falls.reduce((m, f) => (frame[f.i] && f.drop > m ? f.drop : m), 0);
-  const form = forms.find((f) => f.tiles.some((i) => frame[i]));
+  const form = forms.find((f) => formInFrame(f, h, W, frame));
   const prom = form?.prominence ?? 0;
+  const arch = kept.some((k) => k.id === "gorge-arch" && k.at && frame.mask[k.at[1] * W + k.at[0]] === 1);
+  const overhang = kept.some((k) => k.id === "start-overhang");
   const parts: string[] = [];
   if (relief >= 6) parts.push(`${relief} levels of relief`);
   if (share >= 0.04) parts.push("open water");
   if (fall >= 2) parts.push(`${an(fall)} ${levels(fall)} fall`);
   // (the form is the landmark beat's to say when that beat has it)
   if (form && prom >= 6) parts.push(sayForm ? `${an(prom)} ${levels(prom)} ${formWord(form)}` : `the ${formWord(form)}`);
-  const strength = (clamp01((relief - 3) / 9) + clamp01(share / 0.12) + Math.max(fall >= 2 ? clamp01(fall / 5) : 0, prom >= 6 ? clamp01((prom - 3) / 9) : 0)) / 3;
+  if (arch) parts.push("a natural arch");
+  if (overhang) parts.push("the rock hanging over the start");
+  const shape = Math.max(fall >= 2 ? clamp01(fall / 5) : 0, prom >= 6 ? clamp01((prom - 3) / 9) : 0, arch ? 1 : 0, overhang ? 0.8 : 0);
+  const strength = (clamp01((relief - 3) / 9) + clamp01(share / 0.12) + shape) / 3;
   // (relief alone is every rugged map's: the view needs two things to see and some strength)
   const met = parts.length >= 2 && strength >= 0.6;
   const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
   return { met, strength, ...(met ? { say: `The opening view takes in ${list}.` } : {}) };
 }
 
+/** The first drought's choice (`pumpPlaces`): the nearest water runs dry in the first drought and
+ *  water further off holds. The easy pump is the trap; the colony that pumps the farther water, or
+ *  stores some, is ready. When the nearest water is the one that holds, the colony's obvious pump is
+ *  the safe one and there is no choice to face: some of the beat (0.4), not met. */
 function droughtBeat(c: FinalCtx, kept: ArrayLike<number>): Beat {
-  const waters = startWaters(c, kept);
-  const holding = waters.filter((w) => w.holds);
-  if (waters.length < 2 || !holding.length) return { met: false, strength: holding.length ? 0.25 : 0 };
-  const drying = waters.filter((w) => !w.holds);
-  const strength = 0.5 + (drying.length ? 0.3 : 0) + (waters.length >= 3 ? 0.2 : 0);
-  const say = drying.length
-    ? `${capital(words(waters.length))} waters near the start: one ${Math.round(drying[0].walk)} tiles' walk away runs low in the first drought, one ${Math.round(holding[0].walk)} tiles' walk away holds.`
-    : `${capital(words(waters.length))} waters within ${Math.round(waters[waters.length - 1].walk)} tiles' walk of the start, all holding through the first drought.`;
+  const places = pumpPlaces(c, kept);
+  const holds = places.filter((p) => p.holds);
+  const dries = places.filter((p) => !p.holds);
+  if (!holds.length || !dries.length) return { met: false, strength: holds.length ? 0.25 : 0 };
+  if (!(dries[0].walk < holds[0].walk)) return { met: false, strength: 0.4 };
+  const strength = 0.7 + 0.3 * clamp01((places.length - 2) / 3);
+  const say = `The nearest water, ${Math.round(dries[0].walk)} tiles' walk from the start, runs low in the first drought; water ${Math.round(holds[0].walk)} tiles' walk away holds.`;
   return { met: true, strength, say };
 }
 
-function valleyBeat(c: FinalCtx): Beat {
+/** A feature two beats could claim (a plug holding back a lake, a district behind debris): it counts
+ *  in one only (`arcOf`). */
+type Shared = { say: string } | null;
+
+function valleyBeat(c: FinalCtx, district: Shared): Beat {
   const says: string[] = [];
-  for (const id of ["hidden-valley", "farmland-past-gorge", "district-behind"] as const) {
+  for (const id of ["hidden-valley", "farmland-past-gorge"] as const) {
     const r = checkIntention(id, c);
     if (r.ok && r.say) says.push(r.say);
   }
+  if (district) says.push(district.say);
   const far = farmlandTheLongWay(c);
   if (far) says.push(`${far.tiles} tiles of farmland lie ${Math.round(far.dist)} tiles ${compass(c.start.x, c.start.y, far.x, far.y)}, reached the long way round: ${Math.round(far.walk)} tiles' walk.`);
   if (!says.length) return { met: false, strength: 0 };
   return { met: true, strength: Math.min(1, 0.55 + 0.15 * (says.length - 1)), say: says[0] };
 }
 
-function projectBeat(c: FinalCtx, r: GenerateResult): Beat {
-  const N = c.W * c.H;
-  const scale = N / 16384;
+/** The strongest of several readings, with its words: met at 0.5. */
+function strongest(): { take(s: number, line: string): void; beat(): Beat } {
   let strength = 0;
   let say: string | undefined;
-  const take = (s: number, line: string) => {
-    if (s > strength) {
-      strength = s;
-      say = line;
-    }
+  return {
+    take(s, line) {
+      if (s > strength) {
+        strength = s;
+        say = line;
+      }
+    },
+    beat: () => ({ met: strength >= 0.5, strength, ...(strength >= 0.5 && say ? { say } : {}) }),
   };
-  // a natural narrows a dam of 4–14 tiles closes, holding a large reservoir (a dam of a tile or two
-  // across a lake's outlet is an early fix, not a project)
+}
+
+function projectBeat(c: FinalCtx, r: GenerateResult, plug: Shared): Beat {
+  const scale = (c.W * c.H) / 16384;
+  const best = strongest();
+  // a natural narrows a dam of 4–14 tiles closes, holding a real reservoir: 2,500 blocks or more at
+  // 128² (a dam of a tile or two across a lake's outlet is an early fix, and most sites hold
+  // 1,000–1,600 blocks: a pond, not a project), strongest at 6,000
   const sites = (r.analysis?.damSites ?? []).filter((d) => d.length >= 4 && d.length <= 14);
   let dam = sites[0] ?? null;
   for (const d of sites) if (d.volume > dam!.volume) dam = d;
-  if (dam && dam.volume >= 1000 * scale) {
+  if (dam && dam.volume >= 2500 * scale) {
     const d = Math.round(portable.sqrt((dam.x - c.start.x) * (dam.x - c.start.x) + (dam.y - c.start.y) * (dam.y - c.start.y)));
     const held = String(Math.round(dam.volume / 100) * 100).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    take(0.5 + 0.5 * clamp01((dam.volume - 1000 * scale) / (3000 * scale)), `${capital(an(dam.length))} ${dam.length}-tile dam across a narrows ${d} tiles ${compass(c.start.x, c.start.y, dam.x, dam.y)} of the start would hold ${held} water.`);
+    best.take(0.5 + 0.5 * clamp01((dam.volume - 2500 * scale) / (3500 * scale)), `${capital(an(dam.length))} ${dam.length}-tile dam across a narrows ${d} tiles ${compass(c.start.x, c.start.y, dam.x, dam.y)} of the start would hold ${held} water.`);
   }
-  const plug = checkIntention("plug-lake", c);
-  if (plug.ok && plug.say) take(0.85, plug.say);
+  if (plug) best.take(0.85, plug.say);
+  // a ruined dam across the narrows, waiting to be rebuilt (ruins placed with meaning, gen/ruinStories.ts):
+  // its ruins name the project even where its reservoir is modest, but a big reservoir is the stronger claim
+  for (const s of ruinStories(r.features, c.W)) if (s.kind === "dam") best.take(0.6, s.say);
   const high = checkIntention("high-lake", c);
-  if (high.ok && high.say) take(0.75, high.say);
-  return { met: strength >= 0.5, strength, ...(strength >= 0.5 && say ? { say } : {}) };
+  // (a high lake spilling over a fall is a project's place more than a project: the weaker claim)
+  if (high.ok && high.say) best.take(0.6, high.say);
+  return best.beat();
 }
 
-function landmarkBeat(c: FinalCtx, frame: Uint8Array, forms: readonly StandingForm[]): Beat {
-  const { W, start } = c;
-  let strength = 0;
-  let say: string | undefined;
-  for (const f of forms) {
-    if (f.prominence < 8) break;
-    let near = Infinity;
-    let seen = false;
-    for (const i of f.tiles) {
-      const x = i % W;
-      const y = (i - x) / W;
-      near = Math.min(near, portable.sqrt((x - start.x) * (x - start.x) + (y - start.y) * (y - start.y)));
-      if (frame[i]) seen = true;
-    }
-    const reach = near <= LANDMARK_REACH;
-    const s = reach && seen ? 0.7 + 0.3 * clamp01((Math.min(f.prominence, 15) - 8) / 5) : reach ? 0.35 : 0.15;
-    if (s > strength) {
-      strength = s;
-      const px = f.peak % W;
-      const py = (f.peak - px) / W;
-      say = reach && seen ? `${capital(an(f.prominence))} ${levels(f.prominence)} ${formWord(f)} stands ${Math.round(near)} tiles ${compass(start.x, start.y, px, py)} of the start, in the opening view.` : undefined;
-    }
+/** A landmark in the colony's view (D488, D493: analysis/opening.ts `landmarkInView`): a standing form
+ *  8–15 levels over its ring, 25–60 tiles out, its top in the upper half of the opening camera pulled
+ *  back (the shot's backdrop beyond the colony). A tall form near the colony but out of that frame is
+ *  some of the beat, one elsewhere less. */
+function landmarkBeat(c: FinalCtx, start: OpeningStart, forms: readonly StandingForm[]): Beat {
+  const { W } = c;
+  const seen = landmarkInView({ W, h: c.h, forms: forms as StandingForm[] }, start);
+  if (seen) {
+    const f = forms.find((x) => x.peak === seen.tile);
+    const px = seen.tile % W;
+    const py = (seen.tile - px) / W;
+    const word = f ? formWord(f) : "height";
+    return {
+      met: true,
+      strength: 0.7 + 0.3 * clamp01((Math.min(seen.stand, LANDMARK_MOST) - LANDMARK_LEAST) / (LANDMARK_MOST - LANDMARK_LEAST)),
+      say: `${capital(an(seen.stand))} ${levels(seen.stand)} ${word} stands ${seen.dist} tiles ${compass(start.x, start.y, px, py)} of the start, in the opening view.`,
+    };
   }
-  return { met: strength >= 0.7, strength, ...(say ? { say } : {}) };
+  let strength = 0;
+  for (const f of forms) {
+    if (f.prominence < LANDMARK_LEAST) break;
+    const px = f.peak % W;
+    const py = (f.peak - px) / W;
+    const near = (px - start.x) * (px - start.x) + (py - start.y) * (py - start.y) <= LANDMARK_FAR * LANDMARK_FAR;
+    strength = Math.max(strength, near ? 0.35 : 0.15);
+  }
+  return { met: false, strength };
 }
 
-function mysteryBeat(c: FinalCtx, r: GenerateResult): Beat {
-  let strength = 0;
-  let say: string | undefined;
-  const take = (s: number, line: string) => {
-    if (s > strength) {
-      strength = s;
-      say = line;
-    }
-  };
+function mysteryBeat(c: FinalCtx, r: GenerateResult, plug: Shared, district: Shared, kept: ReturnType<typeof keptForms>): Beat {
+  const best = strongest();
   const relic = checkIntention("relic-pinnacle", c);
-  if (relic.ok && relic.say) take(1, relic.say);
-  // a cave or an overhang: columns of the map with air under ground (terrain above terrain)
+  if (relic.ok && relic.say) best.take(1, relic.say);
+  // the 3D forms the map kept (gen/forms3d.ts): a spring rising in a cave, an arch over a gorge
+  for (const k of kept) {
+    if (k.id === "spring-cave") best.take(0.9, k.say ?? "A spring rises inside a cave and feeds the river.");
+    if (k.id === "gorge-arch") best.take(0.85, k.say ?? "A natural arch spans a gorge, the river running under it.");
+  }
+  // any other cave: columns of the map with air under ground (terrain above terrain)
   const mask = r.built.waterModel.stacked?.mask;
-  if (mask) {
+  if (mask && !kept.length) {
     let caves = 0;
     for (let i = 0; i < mask.length; i++) if ((mask[i] & (mask[i] + 1)) !== 0) caves++;
-    if (caves >= 6) take(0.9, `A cave opens under the land, ${caves} tiles of it.`);
+    if (caves >= 6) best.take(0.8, `A cave opens under the land, ${caves} tiles of it.`);
   }
-  const plug = checkIntention("plug-lake", c);
-  if (plug.ok && plug.say) take(0.8, plug.say);
-  if (c.walkCleared) {
-    const district = checkIntention("district-behind", c);
-    if (district.ok && district.say) take(0.6, district.say);
-  }
+  if (plug) best.take(0.8, plug.say);
+  // a drowned village standing in the water (ruins placed with meaning, gen/ruinStories.ts)
+  for (const s of ruinStories(r.features, c.W)) if (s.kind === "village") best.take(0.7, s.say);
+  if (district) best.take(0.6, district.say);
   let ruins = 0;
   for (const o of c.objects) if (/^RuinColumnH\d$/.test(o.template) && o.x >= 0 && o.y >= 0 && o.x < c.W && o.y < c.H && !Number.isFinite(c.walk[o.y * c.W + o.x])) ruins++;
   // (ruins on unwalked heights are on most rugged maps: some mystery, not enough alone)
-  if (ruins >= 4) take(0.4, "A field of ruins stands on heights no beaver walks to.");
-  return { met: strength >= 0.5, strength, ...(strength >= 0.5 && say ? { say } : {}) };
+  if (ruins >= 4) best.take(0.4, "A field of ruins stands on heights no beaver walks to.");
+  return best.beat();
 }
 
 /** The finished map's arc: its six beats, each measured on it. Null for a map without a start. */
@@ -348,18 +331,34 @@ export function arcOf(r: GenerateResult): Arc | null {
   if (!b.start) return null;
   const c = finalCtx(b, { rivers: [] });
   const startObj = b.entities.find((e) => e.template === "StartingLocation");
-  const frame = openingFrame(b.W, b.H, b.start, startObj?.orientation ?? "Cw0");
+  const start: OpeningStart = { x: b.start.x, y: b.start.y, z: b.start.z, orientation: startObj?.orientation ?? "Cw0" };
+  // the vista is the game's first frame, at its own zoom; the landmark reads the camera pulled back
+  // (D493's frame, analysis/opening.ts)
+  const first = openingFrame(start, b.W, b.H, { heights: b.heights, zoom: start.z * OPENING.zoomPerLevel });
   const forms = standingForms(b.heights, b.W, b.H);
-  // (each beat is one small function, so a better measure replaces one alone: the opening shot's
-  // frame, the ruins placed with meaning, docs/progress/showcase.md)
-  const landmark = landmarkBeat(c, frame, forms);
+  const kept = keptForms(r);
+  // (each beat is one small function, so a better measure replaces one alone)
+  const landmark = landmarkBeat(c, start, forms);
+  // a feature two beats could claim counts in one: in the valley (a district behind debris) or the
+  // project (a plug holding back a lake) when that beat has nothing else, else in the mystery
+  const shared = (id: "plug-lake" | "district-behind"): Shared => {
+    if (id === "district-behind" && !c.walkCleared) return null;
+    const x = checkIntention(id, c);
+    return x.ok && x.say ? { say: x.say } : null;
+  };
+  const plug = shared("plug-lake");
+  const district = shared("district-behind");
+  const valleyAlone = valleyBeat(c, null);
+  const projectAlone = projectBeat(c, r, null);
+  const districtInValley = !!district && !valleyAlone.met;
+  const plugInProject = !!plug && !projectAlone.met;
   return {
-    vista: vistaBeat(c, frame, forms, !landmark.met),
+    vista: vistaBeat(c, first, forms, !landmark.met, kept),
     drought: droughtBeat(c, droughtStorage(b.waterModel, b.water, FIRST_DROUGHT_DAYS)),
-    valley: valleyBeat(c),
-    project: projectBeat(c, r),
+    valley: districtInValley ? valleyBeat(c, district) : valleyAlone,
+    project: plugInProject ? projectBeat(c, r, plug) : projectAlone,
     landmark,
-    mystery: mysteryBeat(c, r),
+    mystery: mysteryBeat(c, r, plugInProject ? null : plug, districtInValley ? null : district, kept),
   };
 }
 
@@ -424,7 +423,8 @@ export interface ShowcaseResult {
 }
 
 export interface ShowcaseOptions {
-  /** The time allowed, in milliseconds: no candidate starts after it (one always runs). */
+  /** The time allowed, in milliseconds: no candidate starts after it (one always runs). Ignored when
+   *  `tries` is given: a replay makes all its maps, however long they take. */
   budgetMs?: number;
   /** The most candidates to make (the reproduction of an earlier search: its `tried`). */
   tries?: number;
@@ -457,8 +457,8 @@ export function scoreCandidate(r: GenerateResult, index: number, spec: MapSpec):
 
 /**
  * Makes the asked map's siblings in order (`showcaseSpec`), scores each by its arc, and keeps the best
- * three that passed every absolute, never two on the same land. It yields between candidates, so a
- * worker hears a stop while it runs. Deterministic for the spec and the number of candidates made.
+ * three that passed every absolute, never two on the same land (the better of two is kept). It yields
+ * between candidates, so a worker hears a stop while it runs. Deterministic for the spec and the number of candidates made.
  */
 export async function showcaseSearch(spec: MapSpec, opts: ShowcaseOptions = {}): Promise<ShowcaseResult> {
   const t0 = performance.now();
@@ -467,7 +467,7 @@ export async function showcaseSearch(spec: MapSpec, opts: ShowcaseOptions = {}):
   let tried = 0;
   let stopped = false;
   while (tried < most) {
-    if (tried > 0 && opts.budgetMs !== undefined && performance.now() - t0 >= opts.budgetMs) break;
+    if (tried > 0 && opts.tries === undefined && opts.budgetMs !== undefined && performance.now() - t0 >= opts.budgetMs) break;
     await new Promise((resolve) => setTimeout(resolve, 0));
     if (opts.signal?.aborted) {
       stopped = true;
@@ -477,7 +477,10 @@ export async function showcaseSearch(spec: MapSpec, opts: ShowcaseOptions = {}):
     const r = generate(s);
     const c = scoreCandidate(r, tried, s);
     tried++;
-    if (c.arc && !best.some((p) => sameLand(p.result.built.heights, r.built.heights))) {
+    // (a sibling on a kept pick's land replaces it when it ranks before it, else is passed over)
+    const twin = c.arc ? best.findIndex((p) => sameLand(p.result.built.heights, r.built.heights)) : -1;
+    if (c.arc && (twin < 0 || before(c, best[twin]))) {
+      if (twin >= 0) best.splice(twin, 1);
       let at = best.length;
       while (at > 0 && before(c, best[at - 1])) at--;
       if (at < SHOWCASE_KEEP) {

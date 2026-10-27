@@ -11,7 +11,7 @@ import { outlineBounds, type OpParams } from "../core/doc/ops";
 import { movePatch as corePatch } from "../core/doc/tools";
 import { OBJECT_NAMES as OBJECT_KIND_NAMES, objectTiles } from "../core/features/objects";
 import { DEAD, FLIPPED, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "../render3d/model";
-import { makesRoomForStart, startFitProblem } from "../core/doc/startFit";
+import { startFitProblem, takenTiles } from "../core/doc/startFit";
 import { walkRegions } from "../core/analysis/regions";
 import { pumpShoreDistance, reachAt, walkDistance } from "../core/analysis/walk";
 import { noWood, type WoodBySpecies, type WoodSpecies } from "../core/analysis/wood";
@@ -565,15 +565,32 @@ export interface StartCheck {
   meets: boolean;
   /** The start targets it misses (badwater and ruin distances, walkable land), in plain words. */
   warnings: string[];
+  /** The start stands at a level under a roof (D491): the figures above are not measured (the walks read the heightfield
+   *  of tops, not the floor), and only the core's verdict (`problem`) gives its colour. */
+  underRoof?: boolean;
 }
 
 /** What the start's colour means, one thing everywhere (D361): green, it fits and meets every start
  *  requirement; amber, it fits but misses some (the panel lists which); red, it cannot be placed
  *  there. */
 export type StartStatus = "ok" | "warn" | "blocked";
-export function startStatus(check: Pick<StartCheck, "problem" | "meets">): StartStatus {
-  return check.problem ? "blocked" : check.meets ? "ok" : "warn";
+export function startStatus(check: Pick<StartCheck, "problem" | "meets" | "underRoof">): StartStatus {
+  return check.problem ? "blocked" : check.meets || check.underRoof ? "ok" : "warn";
 }
+
+/** The start being dragged: where it would stand, its footprint check, and the first thing the checks would flag there (D361). */
+export interface StartDrag {
+  x: number;
+  y: number;
+  check: StartCheck;
+  warning?: string | null;
+}
+
+/** Its colour: amber too where it fits but the checks would flag the spot. */
+export const startDragStatus = (d: StartDrag): StartStatus => {
+  const s = startStatus(d.check);
+  return s === "ok" && d.warning ? "warn" : s;
+};
 
 /** Whether two checks of one start say the same (so a placed start's colour and panel change only
  *  when something about it changed, not each time the water moves on and it is asked again). */
@@ -581,6 +598,7 @@ export function sameStartCheck(a: StartCheck, b: StartCheck): boolean {
   return (
     a.problem === b.problem &&
     a.meets === b.meets &&
+    !a.underRoof === !b.underRoof &&
     a.water === b.water &&
     a.wood === b.wood &&
     a.woodGrowing === b.woodGrowing &&
@@ -589,6 +607,14 @@ export function sameStartCheck(a: StartCheck, b: StartCheck): boolean {
     a.warnings.length === b.warnings.length &&
     a.warnings.every((w, i) => w === b.warnings[i])
   );
+}
+
+/** The check of a start at a level under a roof (D491): its footprint and door, the core's verdict for `problem`, and none
+ *  of the figures (the page's walks read the roof's top, not the floor the start stands on). */
+export function roofStartCheck(W: number, x: number, y: number, door: [number, number], problem: string | null): StartCheck {
+  const tiles: number[] = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + (x + dx));
+  return { problem, tiles, door: door[1] * W + door[0], water: null, wood: 0, woodBySpecies: noWood(), woodGrowing: 0, woodFloor: 0, bushes: 0, meets: false, warnings: [], underRoof: true };
 }
 
 export interface StartNeeds {
@@ -628,15 +654,20 @@ function startTaken(c: TileContext, self: string | null): Uint8Array {
   if (!byOwner) startTakenOf.set(c.entitiesAt, (byOwner = new Map()));
   let taken = byOwner.get(self);
   if (taken) return taken;
-  taken = new Uint8Array(c.W * c.H);
   const e = c.entities;
-  for (let k = 0; k < e.count; k++) {
-    const t = e.templates[e.template[k]];
-    const owner = e.owners[e.owner[k]];
-    if (owner === self || !FOOTPRINTS[t] || makesRoomForStart(t, owner === "import")) continue;
-    const p = { template: t, x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 };
-    for (const [tx, ty] of footprintTiles(t, p)) if (tx >= 0 && ty >= 0 && tx < c.W && ty < c.H) taken[ty * c.W + tx] = 1;
-  }
+  taken = takenTiles(
+    c.W,
+    c.H,
+    (function* () {
+      for (let k = 0; k < e.count; k++) {
+        const template = e.templates[e.template[k]];
+        if (!FOOTPRINTS[template]) continue;
+        const p = { template, x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 };
+        yield { template, owner: e.owners[e.owner[k]], raw: e.owners[e.owner[k]] === "import", tiles: () => footprintTiles(template, p) };
+      }
+    })(),
+    self,
+  );
   byOwner.set(self, taken);
   return taken;
 }

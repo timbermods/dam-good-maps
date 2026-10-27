@@ -5,7 +5,7 @@
 // brushes working only the visible land under a cut.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, openFileMenu, waitForEditor } from "./open";
+import { openEditor, openFileMenu, waitForEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -122,7 +122,7 @@ test("the start's reach shows while the pointer is on it; the brushes work only 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await open(page);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 

@@ -18,12 +18,14 @@ declare global {
     dgmEditor?: {
       info: () => SessionInfo;
       tileToClient(x: number, y: number): { x: number; y: number };
+      /** The words beside the pointer, as a refusal, with the pointer at (x, y) of the map view (null clears them): placement tests. */
+      pointerNote(text: string | null, x?: number, y?: number): void;
       idle(): Promise<void>;
       /** The problems the last edit made. */
       instant(): CheckItem[];
       /** The footprint under the pointer (an object from the shelf): its tiles, and why the game would
        *  refuse it there. */
-      fit(): { tiles: number[]; problem: string | null } | null;
+      fit(): { tiles: number[]; problem: string | null; status?: string } | null;
       /** The start's check while it moves (its footprint and the three start requirements). */
       startCheck(): StartCheck | null;
       /** An edit through the editor, as a stroke or a click would make it (tests). */
@@ -59,6 +61,9 @@ declare global {
       /** The Block tool (D335): whether it is in hand, a drag in progress, its settings, the preview `blockFalls` last gave
        *  for the face under the pointer and the refusal shown beside it. */
       block(): { held: boolean; dragging: boolean; settings: { size: number; shape: "square" | "round"; mode: "add" | "remove" }; preview: { reason: string | null; errors: string[]; added: [number, number, number][]; removed: [number, number, number][]; falls: [number, number, number][] } | null; note: string | null };
+      /** Resolves once the Block tool's preview has answered all it was asked: the pointer moves sent before, the map's last
+       *  change, no question on its way (a signal to wait on, not a timed poll). */
+      blockAnswered(): Promise<void>;
       /** The water's pace after an edit (tests only: the page always plays it at Normal). */
       waterSpeed(speed: "slower" | "normal" | "faster" | "instant"): void;
       waterSettled(): boolean;

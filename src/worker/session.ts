@@ -19,7 +19,7 @@ import { applySelection as applySelectionStep, startCarry } from "../core/doc/st
 import { ForceRolls } from "../core/forces/rolls";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
-import { planPaintObjects } from "../core/doc/paint";
+import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
 import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
@@ -40,6 +40,7 @@ import { bakeLandforms } from "../core/doc/bake";
 import { HazardRun, hazardDays, hazardSoil, type Hazard, type HazardWater } from "../core/sim/weather";
 import { mapDroughtLine } from "../core/doc/droughtLine";
 import { emptyDroughtLine, type DroughtLine } from "../core/sim/droughtLine";
+import { BadDays, DryDays, type DayWater, type FirstDays } from "../core/sim/firstDays";
 import { witheredByDay, WITHERING_SPECIES, type Plant } from "../core/sim/withering";
 import type { Difficulty, MapSpec } from "../core/spec/mapspec";
 import type { Validation } from "../core/validate/checks";
@@ -49,7 +50,7 @@ import { StrokePreview, type TerrainState } from "../core/features/raster/stroke
 import type { BrushParams, Rect } from "../core/features/raster/brush";
 import type { WeatheredLand } from "../core/features/raster/remoteStroke";
 import { EMITTERS, objectTile } from "../core/sim/model";
-import { cavesOf, worldWaterModel, type StackSettle } from "../core/sim/stackWater";
+import { cavesOf, surfaceWater, worldWaterModel, type StackSettle } from "../core/sim/stackWater";
 import { toMapObject } from "../core/features/build";
 import { soilObjects } from "../core/sim/columns";
 import { computeDaySoil, type SoilBase, type SoilJob, type SoilRunner } from "./daySoil";
@@ -63,7 +64,7 @@ import type { ForceResultParams, Verb } from "../core/forces/op";
 import { geology } from "../core/forces/random";
 import { modelOf, QuakeRun, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { againRequest, autoPicked, fallsBeforePlay, fullForceMapOf, lavaOf, nextForceSeed, planForce, type AnyForceSettings, type ForcePoint, type ForceRequest } from "../core/forces/start";
-import { keptForceParams } from "../core/forces/keep";
+import { keptForceParams, sourcesRemovedBy } from "../core/forces/keep";
 import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
@@ -88,6 +89,12 @@ export interface SessionInfo {
   notices: string[];
   importReport: ImportReport | null;
   timberName: string;
+  /** The map's description, the text the game shows with it (the `setDescription` operation writes it):
+   *  the player's, or the generated one (`descriptionWritten` says which). `descriptionKept`: what follows it in the file
+   *  whatever is written (the no-badwater or no-sources note, the tall note, a real place's credits), shown but not edited. */
+  description: string;
+  descriptionWritten: boolean;
+  descriptionKept: string | null;
   /** Bumped on every change (the page's autosave and checks key on it). */
   version: number;
   /** Changes only when the features do (the page keeps its copy, and its index, meanwhile). */
@@ -194,6 +201,11 @@ function featuresKeyOf(features: readonly Feature[]): string {
   return featuresMemo.key;
 }
 
+function descriptionInfo(s: MapSession) {
+  const d = s.description();
+  return { description: d.text, descriptionWritten: d.written, descriptionKept: d.kept };
+}
+
 export function sessionInfo(s: MapSession = need()): SessionInfo {
   const { x: W, y: H } = s.size;
   const history = s.history();
@@ -213,6 +225,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     notices: [...s.notices],
     importReport: s.meta.source?.report ?? null,
     timberName: s.exportTimberName(),
+    ...descriptionInfo(s),
     featuresKey: featuresKeyOf(s.features),
     views: s.views,
     forceAgain: againVerb(s),
@@ -263,13 +276,26 @@ function entityInputs(list: readonly EntitySpec[]) {
   return out;
 }
 
-/** The water the view shows, with its outflows (the moving water and the falls, current.ts): the live
- *  water's own, else the settle's, else the stored file's. */
+/** The water the view shows, with its outflows (the moving water and the falls, current.ts), each column its own: the
+ *  live water's, else the settle's, else the stored file's (every column's, a cave's water its own). A view has its
+ *  columns' own outflows or none (a weather day under caves: the stacked engine's water in flight has none). */
 function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> | null }, ground: Uint8Array = s.built.heights): WaterView {
-  const view = columnsWaterOf(s, live, ground);
   // (a build without the outflows, for measuring their own cost: tools/smooth)
-  if (import.meta.env?.VITE_DGM_CURRENT === "off") return view;
-  const out = live ? live.out : s.showsStoredWater ? s.storedOutflows() : s.built.settle.out;
+  const flows = import.meta.env?.VITE_DGM_CURRENT !== "off";
+  const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
+  if (s.showsStoredWater && !live?.weather) {
+    const w = s.storedWater();
+    const floor = Float32Array.from(w.floor, (f, k) => (f < 0 ? b.heights[w.tile[k]] : f));
+    const view: WaterView = { count: w.tile.length, tile: w.tile.slice(), floor, depth: w.depth.slice(), contamination: w.contamination.slice() };
+    const out = flows ? s.storedColumnOutflows() : null;
+    if (out && out.length === 4 * view.count) view.outflow = Float32Array.from(out, (v) => (v === v && v > 0 ? v : 0));
+    return view;
+  }
+  const out = !flows ? null : live ? live.out : s.built.settle.out;
+  // an edited map with caves or overhangs: its water on every column, simulated like the rest (D120)
+  const stack = live?.stack !== undefined ? live.stack : s.built.settle.stack;
+  if (stack) return waterFromStack(stack, b.heights, b.water, b.contamination, out, flows ? stack.flows : undefined);
+  const view = waterFromDepth(b.heights, b.water, b.contamination);
   const outflow = outflowsOf(view, s.size.x, s.size.y, out);
   if (outflow) view.outflow = outflow;
   return view;
@@ -286,27 +312,22 @@ interface LiveWater {
   weather?: boolean;
 }
 
-function columnsWaterOf(s: MapSession, live?: LiveWater, ground: Uint8Array = s.built.heights): WaterView {
-  const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
-  if (s.showsStoredWater && !live?.weather) {
-    const w = s.storedWater();
-    const floor = Float32Array.from(w.floor, (f, k) => (f < 0 ? b.heights[w.tile[k]] : f));
-    return { count: w.tile.length, tile: w.tile.slice(), floor, depth: w.depth.slice(), contamination: w.contamination.slice() };
-  }
-  // an edited map with caves or overhangs: its water on every column, simulated like the rest (D120)
-  const stack = live?.stack !== undefined ? live.stack : s.built.settle.stack;
-  return stack ? waterFromStack(stack, b.heights, b.water, b.contamination) : waterFromDepth(b.heights, b.water, b.contamination);
-}
-
 /** The water of a map with caves or overhangs as a view: every wet column of `stack`, each tile's
  *  top column holding the water seen from above (`depth`, `contamination`: the settle's own, or water
- *  in flight). A tile with one column stands on its ground, as a heightfield's does. */
-function waterFromStack(stack: StackSettle, heights: Uint8Array, depth: ArrayLike<number>, contamination: ArrayLike<number>): WaterView {
+ *  in flight). A tile with one column stands on its ground, as a heightfield's does. Its outflows, each
+ *  column its own: a top column's from `out` (four a tile, the water in flight's) or `flows` (four a column
+ *  id, the settle's, stackWater.ts `columnFlows`), a column under it from `flows`; none where some column
+ *  has neither. */
+function waterFromStack(stack: StackSettle, heights: Uint8Array, depth: ArrayLike<number>, contamination: ArrayLike<number>, out?: ArrayLike<number> | null, flows?: Float32Array): WaterView {
   const N = heights.length;
   const tile: number[] = [];
   const floor: number[] = [];
   const d: number[] = [];
   const c: number[] = [];
+  const o: number[] = [];
+  const perTile = out && out.length === 4 * N ? out : null;
+  const perColumn = flows && flows.length >= 4 * stack.L * N ? flows : null;
+  let known = !!(perTile || perColumn);
   for (let i = 0; i < N; i++) {
     const n = stack.count[i];
     for (let q = 0; q < n; q++) {
@@ -318,9 +339,20 @@ function waterFromStack(stack: StackSettle, heights: Uint8Array, depth: ArrayLik
       floor.push(n === 1 ? heights[i] : stack.floor[id]);
       d.push(dv);
       c.push((top ? contamination[i] : stack.contamination[id]) ?? 0);
+      if (!known) continue;
+      const from = top && perTile ? perTile : perColumn;
+      const at = top && perTile ? i * 4 : id * 4;
+      if (!from) known = false;
+      else
+        for (let k = 0; k < 4; k++) {
+          const v = from[at + k];
+          o.push(v === v && v > 0 ? v : 0);
+        }
     }
   }
-  return { count: tile.length, tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(d), contamination: Float32Array.from(c) };
+  const view: WaterView = { count: tile.length, tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(d), contamination: Float32Array.from(c) };
+  if (known) view.outflow = Float32Array.from(o);
+  return view;
 }
 /** A column holds water the view shows (render3d/model.ts `waterFromDepth` draws from the same depth). */
 const STACK_WET = 0.001;
@@ -637,10 +669,10 @@ export type EditorEvent =
   /** The water as it flows after an edit (D133's live water): the whole view, a frame every few
    *  ticks of the game (close together at first, where the water moves most), for the page to play
    *  at a pace the eye can follow. `done` is how far the settle has come (0–1). */
-  | { kind: "water"; version: number; water: WaterView; done: number; ticks: number; draft?: boolean }
+  | { kind: "water"; version: number; water: WaterView; done: number; ticks: number; draft?: boolean; at?: number }
   /** A weather run (a drought, then the water coming back): its frames, the day, and the end (the
    *  map's own water, exactly). */
-  | { kind: "weather"; version: number; phase: "computing" | "day"; hazard: Hazard; day: number; days: number; water?: WaterView; soil?: SoilView; withered?: Int32Array }
+  | { kind: "weather"; version: number; phase: "computing" | "day"; hazard: Hazard; day: number; days: number; water?: WaterView; soil?: SoilView; withered?: Int32Array } & DryNews & BadNews
   /** The plants a held day has surely killed, when they could not be worked out with the day (the earlier days' soil is
    *  worked out a day at a time, the worker breathing between): the tiles, for that hazard's held day. */
   | { kind: "withered"; version: number; hazard: Hazard; day: number; tiles: Int32Array }
@@ -648,6 +680,26 @@ export type EditorEvent =
   | ({ kind: "settled"; version: number } & ViewNews)
   /** The instant checks of an edit (with a checks worker, they come a moment after the edit). */
   | { kind: "instant"; version: number; instant: InstantCheck };
+
+/** A drought's day also says when each tile's water goes (the hover's "Dry on day 6", D133; core/sim/firstDays.ts
+ *  `DryDays`): `firstDry`, per tile, 0 for water that lasts every day worked out so far (Day 1 to `firstDryThrough`) or a
+ *  tile with none on Day 0, else the first day it holds none (the Drought view's own "dry", depth over `WATER_BODY`).
+ *  `firstDryThrough` is at least the day sent; a badtide's days carry neither. */
+export interface DryNews {
+  firstDry?: Int16Array;
+  firstDryThrough?: number;
+  /** Per tile, 1 where the run's own Day 0 holds water (`DryDays.wet0`): a 0 in `firstDry` is water that lasts only there. */
+  firstDryWet0?: Uint8Array;
+}
+
+/** A badtide's day also says when each tile's water turns bad (D133; core/sim/firstDays.ts `BadDays`): `firstBad`, per
+ *  tile, 0 for a tile with no badwater on any day worked out so far (Day 1 to `firstBadThrough`) or badwater already on
+ *  Day 0, else the first day it holds badwater (`badWater`: water over `WATER_BODY` with contamination at 0.05 or more,
+ *  where the hover's "badwater" begins). `firstBadThrough` is at least the day sent; a drought's days carry neither. */
+export interface BadNews {
+  firstBad?: Int16Array;
+  firstBadThrough?: number;
+}
 
 let listener: ((e: EditorEvent) => void) | null = null;
 
@@ -769,13 +821,15 @@ async function runDraft(token: number): Promise<void> {
     if (listener && (fresh || performance.now() - last >= (d.touched ? DRAFT_FRAME_MS : WATER_FRAME_MS))) {
       fresh = false;
       last = performance.now();
+      // (a stroke's frame carries `at`, the throttle's own clock for it: the pacing is tested on this, not on
+      // when the frame arrives, which also holds the frame's own building time and a loaded machine's jitter)
       // only when the water has moved (a stroke far from water sends nothing)
       const D = d.job.sim.D;
       let moved = !d.sent || d.sent.length !== D.length;
       for (let i = 0; !moved && i < D.length; i++) if (Math.abs(D[i] - d.sent![i]) > 0.01) moved = true;
       if (moved) {
         d.sent = D.slice();
-        listener({ kind: "water", version, water: waterOf(d.session, { depth: D, contamination: d.job.sim.C, out: d.job.sim.out }, d.ground), done: 0, ticks: d.job.ticks, draft: true });
+        listener({ kind: "water", version, water: waterOf(d.session, { depth: D, contamination: d.job.sim.C, out: d.job.sim.out }, d.ground), done: 0, ticks: d.job.ticks, draft: true, at: last });
       }
     }
     await breathe();
@@ -951,6 +1005,8 @@ interface WeatherRun {
   /** Each day's water as the simulation leaves it, from day 1 on (day 0 is the map's own): only the water is kept;
    *  the ground's moisture and contamination are worked out for the day shown (Kyler, 2026-10-04). */
   kept: (HazardWater | null)[];
+  /** Each tile's first dry day (a drought) or first bad day (a badtide), from the days kept so far. */
+  firsts: FirstDays;
   /** Each day's soil as the view holds it, worked out when first needed (the day shown, and the days before it that
    *  decide which plants have died, a day at a time; day 0 is the map's own), and the plants that can wither (the
    *  visible seasons). A 256² day is 128 KB. */
@@ -997,9 +1053,23 @@ function runFor(hazard: Hazard): WeatherRun {
   const from = s.waterShown();
   // the hazard's steps are the core's (sim/weather.ts `HazardRun`), held without an end: a held badtide never eases back
   const hazardRun = new HazardRun(base, { depth: Float64Array.from(from.depth), contamination: Float64Array.from(from.contamination), stack: from.stack }, hazard, Infinity);
-  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, kept: [null], soils: [], plants: null, shown: 0, witherDue: null, soilJobs: new Map(), want: 0, show: null, prep: null, running: false };
+  const firsts = hazard === "drought" ? new DryDays(seenWater(s, from)) : new BadDays(seenWater(s, from));
+  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, kept: [null], firsts, soils: [], plants: null, shown: 0, witherDue: null, soilJobs: new Map(), want: 0, show: null, prep: null, running: false };
   weatherRuns[hazard] = run;
   return run;
+}
+
+/** The water per tile the Drought and Badtide views read "dry" and "bad" from: each tile's own, or on a map with caves
+ *  or overhangs the water seen from above (`surfaceWater`, as the drought line reads it). */
+function seenWater(s: MapSession, w: { depth: Float64Array; contamination: Float64Array; stack?: StackSettle | null }): DayWater {
+  return w.stack ? surfaceWater(w.stack, s.built.heights) : w;
+}
+
+/** A hazard's first dry or bad days as the page is told them with a day (a copy: the event's arrays are handed over). */
+function firstsNews(run: WeatherRun): DryNews & BadNews {
+  const first = run.firsts.first.slice();
+  const through = run.firsts.through;
+  return run.firsts instanceof DryDays ? { firstDry: first, firstDryThrough: through, firstDryWet0: run.firsts.wet0.slice() } : { firstBad: first, firstBadThrough: through };
 }
 
 /** Show day `day` (null: the hazard's default last day) of a drought or a badtide: at once when it is kept, or after
@@ -1074,18 +1144,18 @@ async function sendWeatherDay(run: WeatherRun, day: number): Promise<void> {
   run.shown = day;
   run.witherDue = null;
   // (no plants withered on Day 0: the map as it is)
-  if (!k) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s), soil: soilOf(s), withered: new Int32Array(0) });
+  if (!k) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s), soil: soilOf(s), withered: new Int32Array(0), ...firstsNews(run) });
   const soil = await soilOfDay(run, day);
   // (another day asked for, or the map changed, while the soil was being worked out)
   if (!currentRun(run) || run.shown !== day) return;
   // the soil worker failed: the day as it is held, its water with the map's own soil and nothing withered or changed
-  if (!soil) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out?.slice() ?? null, stack: k.stack, weather: true }), soil: soilOf(s) });
+  if (!soil) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out?.slice() ?? null, stack: k.stack, weather: true }), soil: soilOf(s), ...firstsNews(run) });
   // (a map with caves or overhangs: its day soil, but no withering yet, `stackedMap`)
   run.soils[0] ??= soilOf(s);
   const caves = stackedMap(s);
   const ready = !caves && cachedUpTo(run, day);
   const withered = caves ? new Int32Array(0) : ready ? witheredTiles(run, day) : undefined;
-  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out?.slice() ?? null, stack: k.stack, weather: true }), soil, ...(withered ? { withered } : {}) });
+  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out?.slice() ?? null, stack: k.stack, weather: true }), soil, ...(withered ? { withered } : {}), ...firstsNews(run) });
   if (!caves && !ready) void witherLater(run, day);
 }
 
@@ -1209,7 +1279,9 @@ async function driveWeather(run: WeatherRun): Promise<void> {
         await breathe();
       }
       if (!currentRun(run)) return;
-      run.kept.push(run.run.water());
+      const kept = run.run.water();
+      run.kept.push(kept);
+      run.firsts.see(seenWater(run.session, kept));
       if (run.hazard === "drought" && day === run.days) droughtLineFrom(run);
       if (run.show !== null) {
         if (day >= run.show) {
@@ -1840,10 +1912,15 @@ export function plantAt(template: string, tiles: readonly number[]): SessionUpda
 }
 
 /** A stroke of trees, bushes or thorns from the shelf (D235): the core's `paintObjects` plan, with its density and age, as
- *  one step (core/doc/paint.ts). The tiles it planted, for the page's pop. */
-export function paintAt(params: PaintParams): SessionUpdate & { planted: number[] } {
+ *  one step (core/doc/paint.ts). `z`: the level the pick found under a roof (D491), which gives the stroke's tiles their
+ *  levels when the params name none (`paintLevels`). The tiles it planted, for the page's pop. */
+export function paintAt(params: PaintParams, z?: number): SessionUpdate & { planted: number[] } {
   const t0 = performance.now();
   const s = need();
+  if (z !== undefined && !params.levels) {
+    const levels = paintLevels(s, params.area, z);
+    if (levels.length) params = { ...params, levels };
+  }
   const plan = planPaintObjects(s, params);
   if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
   const r = s.applyBatch(plan.ops, "user", plan.label);
@@ -1963,27 +2040,40 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
 }
 
 /** Move a placed object (a mine site, a relic, a geothermal field, a natural dam, a blockage) by (dx, dy)
- *  tiles, its ground levelled as a placement's is: one step (D345, B7). */
-export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate {
+ *  tiles, its ground levelled as a placement's is: one step (D345, B7). `z`: the level it lands on under
+ *  a roof (D491, `planMoveEntity`). */
+export function moveObjectBy(id: string, dx: number, dy: number, z?: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return changed(s, false, [blocked], t0);
-  const p = planMoveEntity(s, id, dx, dy);
+  const p = planMoveEntity(s, id, dx, dy, z);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
   return changed(s, r.ok, r.errors, t0);
 }
 
+/** Whether a stroke of trees, bushes or succulents would plant on soil that kills them (D235's amber ring, "dry ground:
+ *  these will die"): the core's rule (core/doc/paint.ts `paintDying`), under a roof at the level the pick found (`z`,
+ *  D491), the run top each tile paints at. */
+export function paintDryAt(params: PaintParams, z?: number): boolean {
+  const s = need();
+  if (z !== undefined && !params.levels) {
+    const levels = paintLevels(s, params.area, z);
+    if (levels.length) params = { ...params, levels };
+  }
+  return paintDying(s, params).length > 0;
+}
+
 /** Move the map's start so its middle is at (x, y): the start feature of a generated map, or an
  *  imported map's own StartingLocation; with none, the shelf's Start places one (core/doc/tools.ts
- *  `planStart`). */
-export function moveStartTo(x: number, y: number, orientation?: Orientation): SessionUpdate {
+ *  `planStart`). `z`: the level under a roof it stands on (D491), as the pick found it. */
+export function moveStartTo(x: number, y: number, orientation?: Orientation, z?: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return changed(s, false, [blocked], t0);
-  const p = planStart(s, x, y, orientation, () => crypto.randomUUID());
+  const p = planStart(s, x, y, orientation, () => crypto.randomUUID(), z);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
   return changed(s, r.ok, r.errors, t0);
@@ -2005,7 +2095,7 @@ export function footprintCheck(req: ToolRequest): { tiles: number[]; problem: st
 // ------------------------------------------------------------------------------ the water layers
 
 /** The editor's water layers (EDITOR_PLAN §3 view buttons, D287): badwater and the soil it spoils,
- *  and the tiles with caves or overhangs, which the tools leave as they are. Per-tile codes, for the page's
+ *  and the tiles with caves or overhangs, whose tops the brushes shape. Per-tile codes, for the page's
  *  overlay texture. (No moisture or drought layer: the land shows moisture, and the water bar's
  *  Drought shows a drought day by day.) */
 export interface WaterLayers {
@@ -2013,7 +2103,7 @@ export interface WaterLayers {
   H: number;
   /** 1 badwater, 2 soil its contamination spoils. */
   badwater: Uint8Array;
-  /** An imported map's tiles with a cave or an overhang: the tools leave them as they are. */
+  /** An imported map's tiles with a cave or an overhang: the brushes shape only their tops. */
   roofed: Int32Array;
   /** Why the water checks are approximate on this map (null: they are not). */
   approximate: string | null;
@@ -3015,7 +3105,7 @@ export function forceCancel(gesture?: number): ForceTakenBack {
 
 /** Keep the force (Stop, or it ended by itself; a painted Lift let go): what it has done, as one
  *  operation and one undo step. The water it shows flows on into the map's settled water. */
-export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
+export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; sourcesRemoved?: number } {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
@@ -3073,7 +3163,9 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   handoff = null;
   // the page shows the force's water: the map's water flows on from it, not from the water before
   if (u.view.water && !s.showsStoredWater) u.view.water = waterFromDepth(s.built.heights, water.water.depth, water.water.contamination);
-  return { ...u, kept: true };
+  // (the sources it removed: the page says how many, with Undo)
+  const sourcesRemoved = sourcesRemovedBy(params, f.before);
+  return { ...u, kept: true, ...(sourcesRemoved ? { sourcesRemoved } : {}) };
 }
 
 /** A force that broke the start's own ground (carved it, buried it, moved it: off level ground, on

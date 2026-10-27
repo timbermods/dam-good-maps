@@ -23,7 +23,8 @@ export interface ChecksState {
   instant: CheckItem[];
   busy: boolean;
   progress: CheckProgress | null;
-  flowing: number | null;
+  /** The water is playing into place after an edit. */
+  flowing: boolean;
   /** An opened file's import flags, each with its fix: counted with the problems (Kyler, 2026-10-03). */
   flags?: readonly ImportFlag[];
   /** The player removed the map's last badwater spring (D213): "No badwater" under Good to know, not counted. */
@@ -38,7 +39,7 @@ export function dotOf(c: ChecksState): { tone: "wait" | "ok" | "warn"; words: st
   if (c.busy) return { tone: "wait", words: c.progress?.stage === "water" ? "Settling…" : "Checking the map", count };
   if (c.instant.length || flags) return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
   // (the water playing into place after an edit, or settled for the checks: one status, Kyler, 2026-10-04)
-  if (c.flowing !== null || ((!c.check || c.busy) && c.progress?.stage === "water")) return { tone: "wait", words: "Settling…", count };
+  if (c.flowing || ((!c.check || c.busy) && c.progress?.stage === "water")) return { tone: "wait", words: "Settling…", count };
   if (!c.check || c.busy) return { tone: "wait", words: "Checking the map", count };
   if (!count) return { tone: "ok", words: "Ready to play", count };
   return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
@@ -145,9 +146,38 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
 /** The map's name, renamed in place (Kyler, 2026-10-03): a click edits it at exactly the same place, size and font,
  *  so nothing moves; Enter or leaving the field saves through the core (never an undo step, D443), Esc cancels; a
  *  blank name is refused in the core's own words. */
-function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void }) {
+function TitleName(p: {
+  name: string;
+  /** The description the player wrote ("" when none: the generated one is used). */
+  described: string;
+  /** What follows the description in the file whatever is written (a real place's credits, a note): shown, not edited. */
+  kept: string | null;
+  clipped: boolean;
+  onShown(): void;
+  onRename(name: string): Promise<string | null>;
+  onDescribe(text: string): Promise<string | null>;
+  onProblem(problem: string | null): void;
+}) {
   const [text, setText] = useState<string | null>(null);
+  /** The description being written beside the name (a second line under it while the name is edited), and what it was. */
+  const [desc, setDesc] = useState("");
+  const [descProblem, setDescProblem] = useState<string | null>(null);
+  const was = useRef("");
+  const card = useRef<HTMLDivElement>(null);
+  // (the card hangs 6px under the header bar's bottom edge, whatever height the title is: it never lies over the bar's buttons)
+  useLayoutEffect(() => {
+    const el = card.current;
+    const title = el?.parentElement;
+    const bar = title?.closest(".editor-bar");
+    if (el && title && bar) el.style.top = `${bar.getBoundingClientRect().bottom - title.getBoundingClientRect().top + 6}px`;
+  });
   const input = useRef<HTMLInputElement>(null);
+  const open = (name: string) => {
+    was.current = p.described;
+    setDesc(p.described);
+    setDescProblem(null);
+    setText(name);
+  };
   const timer = useRef(0);
   // (focus is taken in the same task as the click that opens the field, so no key typed straight after it is lost)
   useLayoutEffect(() => {
@@ -178,29 +208,39 @@ function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRenam
     }
   };
   const saveText = async (text: string, leaving: boolean) => {
-    if (text.trim() === p.name) {
-      setText(null);
-      return say(null);
+    // (the name and the description are saved apart: each is refused in the core's own words)
+    const nameProblem = text.trim() === p.name ? null : await p.onRename(text);
+    let said: string | null = null;
+    if (desc !== was.current) {
+      said = await p.onDescribe(desc);
+      if (!said) was.current = desc;
     }
-    const problem = await p.onRename(text);
+    setDescProblem(said);
+    // a description the core refused is never thrown away: the card stays open with its text and the core's reason, even
+    // when focus has left the title (D342: refused with a one-line reason, never silently)
+    if (said) return say(nameProblem, false);
+    const problem = nameProblem;
     if (!problem) {
       setText(null);
       return say(null);
     }
-    // refused: Enter keeps the field open with the core's words; leaving puts the name back and says why
+    // refused: Enter keeps the fields open with the core's words; leaving puts the name back and says why
     if (leaving) setText(null);
-    say(problem, leaving);
+    say(nameProblem, leaving);
   };
   if (text === null)
     return (
       <h1>
-        <button type="button" class="title-button" title={p.clipped ? p.name : "Rename"} onClick={() => setText(p.name)}>
+        <button type="button" class="title-button" title={p.clipped ? p.name : "Rename and describe the map"} onClick={() => open(p.name)}>
           {p.name}
         </button>
       </h1>
     );
+  // (focus moving between the name and the description stays inside the title: nothing is saved until it leaves)
+  const inside = (e: FocusEvent) => !!(e.relatedTarget as Element | null)?.closest?.(".editor-title");
   // the name's own box stays (its text hidden, following what is typed), and the field lies exactly over it
   return (
+    <>
     <h1 class="title-editing">
       <span class="title-wrap">
       <span class="title-button" aria-hidden="true">
@@ -228,10 +268,51 @@ function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRenam
               say(null);
             }
           }}
-          onBlur={() => void save(true)}
+          onBlur={(e) => !inside(e) && void save(true)}
         />
       </span>
     </h1>
+    {/* the map's own description, a second line under the name (short, plain placeholder): the text the game shows with the map */}
+    <div class="title-desc" ref={card} tabIndex={-1} onBlur={(e) => !inside(e) && void save(true)}>
+      <textarea
+        rows={2}
+        value={desc}
+        spellcheck={true}
+        autoComplete="off"
+        aria-label="Map description"
+        placeholder="Describe the map"
+        {...tip("The description the game shows with the map")}
+        class={descProblem ? "refused" : undefined}
+        onInput={(e) => {
+          setDesc((e.target as HTMLTextAreaElement).value);
+          setDescProblem(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            void save(false);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            closing.current = true;
+            setText(null);
+            say(null);
+          }
+        }}
+        onBlur={(e) => !inside(e) && void save(true)}
+      />
+      {p.kept ? (
+        <span class="title-desc-kept" {...tip("Added after the description")}>
+          {p.kept}
+        </span>
+      ) : null}
+      {descProblem ? (
+        <span class="title-desc-problem" role="alert">
+          {descProblem}
+        </span>
+      ) : null}
+    </div>
+    </>
   );
 }
 
@@ -241,6 +322,8 @@ export interface HeaderProps {
   name: string;
   /** Rename through the core (D443): null when stored, else the core's reason. */
   onRename(name: string): Promise<string | null>;
+  /** Write the map's description through the core (the setDescription operation): null when stored, else the core's reason. */
+  onDescribe(text: string): Promise<string | null>;
   /** Why this browser isn't keeping the map, when it isn't; else empty. */
   saveState: string;
   canUndo: boolean;
@@ -385,9 +468,9 @@ export function Header(p: HeaderProps) {
         <span class="label">Your maps</span>
       </button>
       <div class="editor-title">
-        <TitleName name={p.name} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} />
+        <TitleName name={p.name} described={p.info.descriptionWritten ? p.info.description : ""} kept={p.info.descriptionKept} onDescribe={p.onDescribe} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
-          {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}
+          {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed}${p.info.spec.variation ? ` · ${p.info.spec.variation}` : ""} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">

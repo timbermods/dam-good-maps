@@ -4,7 +4,7 @@
 // map, shown at once (D329); a version that meets every outcome is looked for in the background
 // afterwards, never here.
 
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { GenProgress } from "../worker/api";
 
 export interface Progress {
@@ -56,6 +56,37 @@ export function progressText(p: Progress | null): string {
   const what = stageWords(p);
   if (p.candidate) return "Your map is ready…";
   return p.attempt > 0 ? `${what} (layout ${p.attempt + 1})…` : `${what}…`;
+}
+
+/** The time so far, plainly: "12 s", "2 min 14 s". */
+export function elapsedWords(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`;
+}
+
+/** How a long wait counts itself (a 256² map can take minutes): the attempt under way and the time so far, shown once the
+ *  first seconds have passed or a first attempt did not pass; nothing before. */
+export function countText(p: Progress | null, seconds: number): string {
+  if (!p || p.candidate || (seconds < 4 && p.attempt === 0)) return "";
+  return `Attempt ${p.attempt + 1} · ${elapsedWords(seconds)}`;
+}
+
+/** The count line of the progress dialog, under its words: it keeps its own clock (a second's tick re-draws only this line),
+ *  started when the first progress arrives and stopped when it ends. */
+export function MakingCount({ progress }: { progress: Progress | null }) {
+  const since = useRef<number | null>(null);
+  const [, tick] = useState(0);
+  const running = progress !== null;
+  if (running && since.current === null) since.current = Date.now();
+  if (!running) since.current = null;
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [running]);
+  const seconds = since.current === null ? 0 : (Date.now() - since.current) / 1000;
+  // (the line's room is kept, so the card never changes height as the count appears)
+  return <p class="making-count">{countText(progress, seconds) || "\u00a0"}</p>;
 }
 
 /** The land shaded by height, the planned water blue. */

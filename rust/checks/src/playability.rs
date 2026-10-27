@@ -23,6 +23,15 @@ pub const FARMLAND_NEAR: f64 = 100.0;
 pub const MINES_WANTED: f64 = 2.0;
 pub const FLOOD_MARGIN: i64 = 2;
 
+/// The moisture, water depth and contamination a plant on tile `i` lives on: on a map with caves or overhangs the run
+/// top it stands on (the host's `run_soil`: the game keeps one soil value per run top, D491), else its tile's. The one
+/// reading `plants.survive` and the start's food and wood counts share.
+fn soil_under(o: &Entity, i: usize, mo: &[f64], d: &[f64], sc: &[f64]) -> (f64, f64, f64) {
+    match o.run_soil {
+        Some([m, c, dd]) => (m, dd, c),
+        None => (mo[i], d[i], sc[i]),
+    }
+}
 fn is_tree(t: &str) -> bool {
     matches!(t, "Pine" | "Birch" | "Oak")
 }
@@ -252,7 +261,7 @@ fn playability(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], rules: &R
         ("message", s(format!("{} of clean water, aim for {}", counted(clean_count, "tile"), num(min_clean)))),
     ]);
     check_outflow(p, &model, w, h, c);
-    check_sources_in_flow(&model, objects, d, c);
+    check_sources_in_flow(&model, objects, d, hgt, c);
     let cleanf: Vec<f64> = clean.iter().map(|&v| v as f64).collect();
     let bodies = kernels::k_components(&cleanf, false, w, h);
     let count = bodies[nn] as usize;
@@ -505,18 +514,39 @@ fn check_contained(p: &Playable, hgt: &[u8], w: usize, h: usize, c: &mut Collect
     c.add(r);
 }
 
+/// Whether an object stands under terrain: its tile's surface above its own level (a cave's floor).
+fn roofed(o: &Entity, surface: &[u8], w: usize, h: usize) -> bool {
+    o.x >= 0 && o.y >= 0 && (o.x as usize) < w && (o.y as usize) < h && surface[o.y as usize * w + o.x as usize] as i64 > o.z
+}
+
 /// `water.source_in_flow`.
-fn check_sources_in_flow(model: &Model, objects: &[&Entity], depth: &[f64], c: &mut Collector) {
+fn check_sources_in_flow(model: &Model, objects: &[&Entity], depth: &[f64], surface: &[u8], c: &mut Collector) {
     if c.profile == crate::report::Profile::Export {
         c.not_applicable("water.source_in_flow", "design", "Not checked in the editor: sources go anywhere", false);
         return;
     }
-    let r = water::sources_in_flow(model, objects, depth);
+    // (a source under a roof, a cave's spring, D488: the surface's spill levels cannot see into its cave,
+    // so it is judged by its cave alone, whose water leaves by its own mouth)
+    let open: Vec<&Entity> = objects.iter().copied().filter(|o| !roofed(o, surface, model.w, model.h)).collect();
+    let r = water::sources_in_flow(model, &open, depth);
     if r.sources == 0 {
+        // (every source under a roof: there are sources, and no flow on the surface reaches one)
+        let under = objects.iter().filter(|o| (o.template == "WaterSource" || o.template == "BadwaterSource") && roofed(o, surface, model.w, model.h)).count();
+        if under > 0 {
+            c.add(vec![
+                ("id", s("water.source_in_flow")),
+                ("class", s("design")),
+                ("ok", b(true)),
+                ("value", n(0.0)),
+                ("limit", n(0.0)),
+                ("message", s(format!("{} under a roof, where no other source's flow reaches", counted(under as f64, "water source")))),
+            ]);
+            return;
+        }
         c.not_applicable("water.source_in_flow", "design", "No water sources on this map", false);
         return;
     }
-    let ents: Vec<String> = r.in_flow.iter().map(|&k| objects[k].id.clone()).filter(|e| !e.is_empty()).collect();
+    let ents: Vec<String> = r.in_flow.iter().map(|&k| open[k].id.clone()).filter(|e| !e.is_empty()).collect();
     let k = r.in_flow.len();
     let mut e = vec![
         ("id", s("water.source_in_flow")),
@@ -783,7 +813,10 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
     ]);
 
     // starting food and wood
-    let survives = |i: usize| mo[i] > 0.0 && !(d[i] > 0.0) && !(sc[i] > 0.0);
+    let survives = |o: &Entity, i: usize| {
+        let (m, dd, c) = soil_under(o, i, &mo, d, &sc);
+        m > 0.0 && !(dd > 0.0) && !(c > 0.0)
+    };
     let mut bushes = 0.0;
     let mut trees = 0.0;
     let mut wood = 0.0;
@@ -829,7 +862,7 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
         if !tree && woody {
             continue;
         }
-        if o.dead || !survives(i) {
+        if o.dead || !survives(o, i) {
             continue;
         }
         if tree {
@@ -964,10 +997,11 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
             continue;
         }
         let i = (o.y * wi + o.x) as usize;
+        let (moist, depth, soil) = soil_under(o, i, &mo, d, &sc);
         let bad = if is_tree(&o.template) || o.template == "BlueberryBush" {
-            mo[i] <= 0.0 || d[i] > 0.0 || sc[i] > 0.0
+            moist <= 0.0 || depth > 0.0 || soil > 0.0
         } else if o.template == "Succulent" {
-            mo[i] > 0.0
+            moist > 0.0
         } else {
             false
         };
@@ -1384,7 +1418,11 @@ fn check_extras(p: &Playable, hgt: &[u8], w: usize, h: usize, sd: &[f64], c: &mu
     Ok(())
 }
 
-/// `startPlanting`: berry bushes and oaks on the nearest free soil within the walk, one step each.
+/// `startPlanting`: berry bushes on the nearest free moist soil within the walk, one step each; oaks only on
+/// moist soil too, where the check judges they live (never the dry ground, where they would die and the next
+/// check flag them), as a grove that follows the ground: from the nearest moist tile outward over the moist
+/// ground (a step 10, a diagonal 14), then the next nearest patch once one is full. When the moist ground
+/// holds fewer oaks than the logs need, it plants those and the label says so.
 #[allow(clippy::too_many_arguments)]
 fn start_planting(w: usize, h: usize, objects: &[&Entity], blocked: &[u8], wet: &[u8], depth: &[f64], mo: &[f64], sc: &[f64], walk: &[f64], sd: &[f64], bushes: f64, logs: f64) -> (Vec<Json>, Vec<Json>) {
     let mut out_b: Vec<Json> = vec![];
@@ -1407,7 +1445,6 @@ fn start_planting(w: usize, h: usize, objects: &[&Entity], blocked: &[u8], wet: 
         }
     }
     let mut moist: Vec<(usize, f64)> = vec![];
-    let mut dry: Vec<(usize, f64)> = vec![];
     for i in 0..nn {
         if taken[i] != 0 || blocked[i] != 0 || wet[i] != 0 || depth[i] > 0.0 || sd[i] < 3.0 {
             continue;
@@ -1423,8 +1460,6 @@ fn start_planting(w: usize, h: usize, objects: &[&Entity], blocked: &[u8], wet: 
         }
         if mo[i] > 0.0 && !(sc[i] > 0.0) {
             moist.push((i, dd));
-        } else {
-            dry.push((i, dd));
         }
     }
     let near = |a: &(usize, f64), bb: &(usize, f64)| {
@@ -1439,7 +1474,6 @@ fn start_planting(w: usize, h: usize, objects: &[&Entity], blocked: &[u8], wet: 
         }
     };
     moist.sort_by(near);
-    dry.sort_by(near);
     let place = |template: &str, i: usize| -> Json {
         obj(vec![
             ("op", s("placeEntity")),
@@ -1463,17 +1497,50 @@ fn start_planting(w: usize, h: usize, objects: &[&Entity], blocked: &[u8], wet: 
     }
     let oak = logs_per_tree("Oak").unwrap();
     let oaks = portable::max(0.0, (logs / oak).ceil());
-    for st in moist[k..].iter().chain(dry.iter()) {
+    let mut open = vec![false; nn];
+    for st in &moist[k..] {
+        open[st.0] = true;
+    }
+    for st in &moist[k..] {
         if out_t.len() as f64 >= oaks {
             break;
         }
-        out_t.push(place("Oak", st.0));
+        if !open[st.0] {
+            continue;
+        }
+        let mut heap = std::collections::BinaryHeap::new();
+        let mut seen: std::collections::HashMap<usize, u32> = std::collections::HashMap::new();
+        heap.push(std::cmp::Reverse((0u32, st.0)));
+        seen.insert(st.0, 0);
+        while let Some(std::cmp::Reverse((cost, i))) = heap.pop() {
+            if !open[i] || seen.get(&i).copied() != Some(cost) {
+                continue;
+            }
+            open[i] = false;
+            out_t.push(place("Oak", i));
+            if out_t.len() as f64 >= oaks {
+                break;
+            }
+            let (x, y) = ((i % w) as i64, (i / w) as i64);
+            for (dx, dy) in [(-1i64, -1i64), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)] {
+                let (nx, ny) = (x + dx, y + dy);
+                if nx < 0 || ny < 0 || nx >= wi || ny >= hi {
+                    continue;
+                }
+                let j = (ny * wi + nx) as usize;
+                if !open[j] {
+                    continue;
+                }
+                let next = cost + if dx != 0 && dy != 0 { 14 } else { 10 };
+                if seen.get(&j).map_or(true, |&c| next < c) {
+                    seen.insert(j, next);
+                    heap.push(std::cmp::Reverse((next, j)));
+                }
+            }
+        }
     }
     if (out_b.len() as f64) < bushes {
         out_b.clear();
-    }
-    if (out_t.len() as f64) < oaks {
-        out_t.clear();
     }
     let relabel = |list: &mut Vec<Json>, label: String| {
         if let Some(Json::Obj(first)) = list.first_mut() {
@@ -1490,7 +1557,12 @@ fn start_planting(w: usize, h: usize, objects: &[&Entity], blocked: &[u8], wet: 
     }
     if !out_t.is_empty() {
         let k = out_t.len();
-        relabel(&mut out_t, format!("Plant {} oak{} for the starting logs", k, if k > 1 { "s" } else { "" }));
+        let plural = if k > 1 { "s" } else { "" };
+        if (k as f64) < oaks {
+            relabel(&mut out_t, format!("Plant {} oak{}, all the moist ground holds ({} needed)", k, plural, num(oaks)));
+        } else {
+            relabel(&mut out_t, format!("Plant {} oak{} for the starting logs", k, plural));
+        }
     }
     (out_b, out_t)
 }

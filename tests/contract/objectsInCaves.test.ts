@@ -7,6 +7,9 @@
 // cave's floor feeds the stacked settle.
 
 import { describe, expect, it } from "vitest";
+import { applyForce } from "../../src/core/collab";
+import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
+import type { ForceRequest } from "../../src/core/forces/start";
 import { caveFile, caveSession, caveVoxels, CAVE, LEDGE, LOWLAND_X } from "./caveMap";
 import { decodeProject } from "../../src/core/doc/document";
 import { placeComponents } from "../../src/core/doc/objectOps";
@@ -194,6 +197,21 @@ describe("objects in caves (D491): the edge cases", () => {
     expect(s.check(relic(5, 5, 20))).toEqual(["the small relic can't stand at level 20 there: part of it would stand in the open: under a roof it stands wholly under it"]);
   });
 
+  it("a map object feature at a level never overlaps an object placed there by hand, nor its own when moved", () => {
+    const s = caveSession();
+    const ruin = planEntity(s, { template: "RuinColumnH1", x: 17, y: 17, z: 3, orientation: "Cw0" }, "00000000-0000-4000-8000-0000000000b1");
+    expect(ruin.ok && s.applyBatch(ruin.ops).ok).toBe(true);
+    const relic = (x: number) => ({ id: "f-aaaaaaaaaaaac", kind: "mapObject", origin: "user", locked: false, params: { kind: "relicSmall", placement: { x, y: 17, orientation: "Cw0", z: 3 } } }) as never;
+    // (the small relic covers (x, 17) and (x + 1, 17))
+    expect(s.check({ op: "addFeature", params: { feature: relic(16) } })).toEqual(["the small relic can't stand at level 3 there: a ruin stands there"]);
+    expect(s.check({ op: "addFeature", params: { feature: relic(18) } })).toEqual([]);
+    expect(s.apply({ op: "addFeature", params: { feature: relic(18) } }).ok).toBe(true);
+    // (moved a tile on, it may stand where it stood; onto the ruin, it may not)
+    const move = (x: number) => ({ op: "updateFeature" as const, params: { id: "f-aaaaaaaaaaaac", patch: { params: { kind: "relicSmall", placement: { x, y: 17, orientation: "Cw0", z: 3 } } } } as never });
+    expect(s.check(move(19))).toEqual([]);
+    expect(s.check(move(17))).toEqual(["the small relic can't stand at level 3 there: a ruin stands there"]);
+  });
+
   it("the start stays on open ground", () => {
     expect(entityProblem(caveSession(), { template: "StartingLocation", x: 16, y: 16, orientation: "Cw0" })).toBe("the start needs open ground: there is a cave or overhang there");
   });
@@ -243,6 +261,22 @@ describe("objects in caves (D491): strokes hold the ground under objects set und
     });
   }
 
+  it("a force's point on held ground is refused before it plays, naming the place; beside it the force runs round it", () => {
+    const s = straddled();
+    const before = s.built.heights.slice();
+    const held = s.holds();
+    expect(held.length).toBe(6);
+    const crater = (x: number, y: number): ForceRequest => ({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 30, seed: 3 }, origin: [x, y], cut: null, natural: true });
+    const r = applyForce(s, { id: "00000000-0000-4000-8000-0000000000c1", sourceId: "00000000-0000-4000-8000-0000000000c2", request: crater(34, 12) });
+    expect(r.ok ? "" : r.reason).toBe("That ground keeps an object in place at X 34 · Y 12: a force leaves it as it is");
+    expect(s.canUndo).toBe(false);
+    const u = applyForce(s, { id: "00000000-0000-4000-8000-0000000000c1", sourceId: "00000000-0000-4000-8000-0000000000c2", request: crater(37, 12) });
+    expect(u.ok ? "" : u.reason).toBe("");
+    expect(s.built.heights.some((h, i) => h !== before[i])).toBe(true);
+    for (const [i] of held) expect(s.built.heights[i], `tile ${i}`).toBe(before[i]);
+    expect(s.built.entities.some((e) => e.id === ID)).toBe(true);
+  });
+
   it("a stroke only over held ground is refused, saying why; a sculpt there leaves it too", () => {
     const s = straddled();
     const u = s.apply({ op: "brush", params: area("raise", 6, 33, 12, 34, 13) });
@@ -251,6 +285,34 @@ describe("objects in caves (D491): strokes hold the ground under objects set und
     const k = s.apply({ op: "sculpt", params: { mode: "raise", cells: [[12, 33, 36]], amount: 2 } });
     expect(k.ok, k.errors.join("; ")).toBe(true);
     expect([s.built.heights[12 * W + 33], s.built.heights[12 * W + 34], s.built.heights[12 * W + 36]]).toEqual([before[12 * W + 33], before[12 * W + 34], before[12 * W + 36] + 2]);
+  });
+});
+
+describe("objects in caves (D491): a stroke holds only the ground in its reach", () => {
+  it("held ground the integrity pass levelled stays as it shows: a stroke elsewhere leaves it, one over it keeps it at its level", () => {
+    const s = straddled();
+    const T = 12 * W + 34;
+    expect(s.holds()).toContainEqual([T, 2, 2]);
+    // (one of the field's open tiles sculpted a level down with no hold: the integrity pass fills the pit)
+    expect(s.apply({ op: "sculpt", params: { mode: "lower", cells: [[12, 34, 34]], amount: 1, hold: [] } }).ok).toBe(true);
+    expect(s.terrainState().pre[T]).toBe(1);
+    expect(s.built.heights[T]).toBe(2);
+    // a stroke elsewhere carries no hold, and leaves that tile to the integrity pass
+    const far = s.apply({ op: "brush", params: area("raise", 10, 4, 4, 6, 6) });
+    expect(far.ok, far.errors.join("; ")).toBe(true);
+    expect((s.logOps.at(-1)!.params as BrushParams).hold).toBeUndefined();
+    expect(s.built.heights[T]).toBe(2);
+    // one over it holds the field's tiles in its reach, and the tile at the level it shows
+    const near = s.apply({ op: "brush", params: area("lower", 0, 34, 12, 37, 13) });
+    expect(near.ok, near.errors.join("; ")).toBe(true);
+    expect((s.logOps.at(-1)!.params as BrushParams).hold!.map(([i]) => i)).toEqual([11 * W + 33, 11 * W + 34, 12 * W + 33, 12 * W + 34, 13 * W + 33, 13 * W + 34]);
+    expect(s.built.heights[T]).toBe(2);
+    expect(s.built.heights[12 * W + 36]).toBe(0);
+    const placement = validateMap(readTimber(s.exportTimber().bytes), { profile: "export", loadOnly: true }).report.checks.find((c) => c.id === "entities.placement")!;
+    expect(placement.ok, placement.message).toBe(true);
+    // (and the project replays onto the same ground)
+    const again = MapSession.open(decodeProject(s.project()), { rebuild: true });
+    expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
   });
 });
 

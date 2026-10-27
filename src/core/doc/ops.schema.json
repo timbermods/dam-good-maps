@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -31,7 +31,8 @@
     { "if": { "properties": { "op": { "const": "fillHollow" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/fillHollow" } } } },
     { "if": { "properties": { "op": { "const": "paintObjects" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/paintObjects" } } } },
     { "if": { "properties": { "op": { "const": "crop" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/crop" } } } },
-    { "if": { "properties": { "op": { "const": "blocks" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/blocks" } } } }
+    { "if": { "properties": { "op": { "const": "blocks" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/blocks" } } } },
+    { "if": { "properties": { "op": { "const": "setDescription" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setDescription" } } } }
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
@@ -304,6 +305,13 @@
       "required": ["x", "y", "orientation"],
       "properties": { "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "orientation": { "$ref": "#/$defs/orientation" } }
     },
+    "setDescription": {
+      "description": "Write the map's description, the text the game shows with the map when its player picks it (the .timber's MapDescription). Empty text takes the player's description away, and the map's generated one is written again. The engine refuses text over 600 characters, text of only spaces, a control character other than a line break, and the description the map already has; nothing is cut short. It changes no ground, water or object, so it builds nothing.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": { "text": { "type": "string" } }
+    },
     "crop": {
       "description": "Crop map to selection (D340): the map becomes exactly this rectangle of itself, in tiles (its top-left tile and its size). The engine refuses a rectangle off the map, a side under 4 or over 512, the whole map, and a crop that would cut the start; objects the edge cuts are removed. The operations after it are in the cropped map's tiles.",
       "type": "object",
@@ -412,7 +420,20 @@
         "area": { "$ref": "#/$defs/runs" },
         "density": { "type": "number", "minimum": 0.05, "maximum": 1 },
         "age": { "enum": ["grown", "mixed"] },
-        "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
+        "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "levels": {
+          "description": "Under a roof (D491): groups of the stroke's tiles and the level each paints at (a cave floor, the ground under a ledge, as the pick found it); a tile in none, or at its top, paints the ground's top. Each object stands by the game's rule at its level; a tile that can't hold one gets none, never one on the roof's top.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["z", "area"],
+            "properties": {
+              "z": { "type": "integer", "minimum": 0, "maximum": 22 },
+              "area": { "$ref": "#/$defs/runs" }
+            }
+          }
+        }
       }
     }
   }

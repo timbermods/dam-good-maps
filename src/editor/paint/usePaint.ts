@@ -236,7 +236,8 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
         cacheAfterEditable();
         t = setTimeout(() => {
           void api
-            .backgroundCheck(proxy((p: CheckProgress) => live && setProgress(p)))
+            // (only the stage shows, in the dot: a new stage draws the editor again, not every step of one)
+            .backgroundCheck(proxy((p: CheckProgress) => live && setProgress((was) => (was?.stage === p.stage ? was : p))))
             .then((r) => {
               if (!r || !mounted.current) return;
               // (a force at work shows its own water: the map's comes after it)
@@ -341,6 +342,10 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           const want = ed.heldDay.current ?? e.days;
           if (e.day !== want || !e.water) return;
           ed.setWeatherCounting(null);
+          // (the first dry day per tile of a drought, or the first bad day of a badtide, for the hover)
+          const first = e.hazard === "drought" ? e.firstDry : e.firstBad;
+          const through = e.hazard === "drought" ? e.firstDryThrough : e.firstBadThrough;
+          ed.firstNews.current = first && through !== undefined ? { hazard: e.hazard, version: e.version, first, wet0: e.hazard === "drought" ? (e.firstDryWet0 ?? null) : null, through, days: e.days } : null;
           ed.setWeatherDay(e.day);
           ed.setWeatherDays(e.days);
           ed.heldDay.current = e.day;
