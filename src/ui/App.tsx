@@ -9,7 +9,7 @@
 
 import type { ComponentType } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { proxy, transfer, wrap, type Remote } from "comlink";
+import { proxy } from "comlink";
 import { createBackground, createGeneratorWorker, readFile, saveFile, storage } from "../platform";
 import { sameLand } from "../core/analysis/story";
 import { cleanMapName } from "../core/doc/document";
@@ -37,7 +37,7 @@ import type { GenerateResponse, GenProgress } from "../worker/api";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { EditorProps, MapPicture, ResizeCarry } from "../editor/Editor";
 import type { LoadingFrameProps } from "../editor/LoadingFrame";
-import type { ThumbnailApi } from "./thumbnail.worker";
+import { thumbnailMaker } from "./thumbnails";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
@@ -143,21 +143,9 @@ function noteCurrent(id: string, link: string): void {
 /** A row of Your maps: the name and the map's dimensions. */
 const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size, thumbnail: e.thumbnail, ...(e.parent ? { parent: e.parent } : {}) });
 
-/** The worker Your maps' pictures are made in, started with the first. */
-let thumbnails: Remote<ThumbnailApi> | null = null;
-
 /** Your maps' picture of a map (D234): the core's top-down thumbnail as a PNG, made in a worker of its own
- *  (`thumbnail.worker.ts`), so the page's thread only copies the map's heights and water. */
-async function thumbnailUrl(m: MapPicture): Promise<string | null> {
-  try {
-    thumbnails ??= wrap<ThumbnailApi>(new Worker(new URL("./thumbnail.worker.ts", import.meta.url), { type: "module", name: "thumbnail" }));
-    const heights = m.heights.slice();
-    const water = m.water ? Float32Array.from(m.water) : null;
-    return await thumbnails.png(transfer({ heights, W: m.W, H: m.H, water }, water ? [heights.buffer, water.buffer] : [heights.buffer]));
-  } catch {
-    return null;
-  }
-}
+ *  (`thumbnail.worker.ts`), or null when the worker can't make it in time (`thumbnails.ts`). */
+const thumbnailUrl = thumbnailMaker(() => new Worker(new URL("./thumbnail.worker.ts", import.meta.url), { type: "module", name: "thumbnail" }));
 
 /** When the page is next idle (or `ms` from now at the latest). */
 const whenIdle = (ms: number) =>

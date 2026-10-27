@@ -71,4 +71,19 @@ describe("the minimap's water pass", () => {
     shadeRgba(ground, W, H, null, shown, out);
     expect(shadeRgba(ground, W, H, new Float32Array(W * H).fill(0.04), shown, out)).toBeNull();
   });
+  it("shades every pixel again on new land once `shown` is reset, as the minimap does", () => {
+    const W = 19;
+    const H = 31;
+    const r = rng(11);
+    const water = new Float32Array(W * H).map(() => (r() < 0.4 ? r() * 4 : 0));
+    const a = new Uint8Array(W * H).map(() => 2 + Math.floor(r() * 10));
+    const b = a.map((v, i) => (i % 3 === 0 ? v + 4 : v));
+    const shown = new Float64Array(W * H).fill(NaN);
+    const out = new Uint8ClampedArray(W * H * 4);
+    shadeRgba(groundShade(a, W, H), W, H, water, shown, out);
+    // (the same water on new land: without the reset no tile would be shaded again)
+    shown.fill(NaN);
+    expect(shadeRgba(groundShade(b, W, H), W, H, water, shown, out)).toEqual({ y0: 0, y1: H });
+    expect(out).toEqual(wholeImage(b, W, H, water));
+  });
 });
