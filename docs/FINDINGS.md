@@ -190,6 +190,14 @@ are recorded in M9A and [the earlier STATUS](archive/status-2026-10-01.md) "Prob
   On seeds 1–30 (2026-10-25) a land-stage refusal costs about 0.7–1 s (a fresh field) against 3–18 s for the attempt that
   passes; failed attempts are a quarter of Generate's time, the "no rivers" redraws a tenth. The rate is information
   (D115, D145); Generate's time, against D278's targets, is what players feel.
+- **Where a 128² Generate's time goes** (2026-10-27, River Valley, Lake Basin, Canyon, Highlands, seeds 1–5, one map per
+  process, bundled as the page is): the settle is 0.25–2.7 s of 4.5–12 s, native or Wasm; the rest is the generator's
+  own work. A passing attempt alone is about 4 s besides its settle (the builds' soil and terrain, the settler's walks,
+  the land stage, the checks, the file); each failed attempt about 0.3–1 s, and Canyon (5–25 attempts) and Highlands
+  (3–17) spend most of their time in them. One hollow search can cost seconds (Highlands seed 4: about 530 ditches
+  routed, then refused as too straight). The settle is never repeated on one model (the cache) and is not the lever at
+  128²; fewer failed attempts is, and that changes maps. Profiling while the machine's other sessions run misleads:
+  time each map in its own process and compare CPU time, not a sampled profile.
 - The outcomes M9b is judged by are Kyler's eye against [PERFECT](PERFECT.md) (D252, D273); the measures are information.
 - **Mechanics** (180 generated maps, generator 0.6.0): nearest badwater or spoiled soil 15.4–24.2 tiles away on every map;
   Canyon has no clean retained water within 40 tiles after a nine-day drought; the largest joint bin holds 20–30% of Canyon,
