@@ -22,7 +22,7 @@ export function topBar(ed: Ed, props: EditorProps) {
           <div class={`editor-message ${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
             {message.text}
             {message.action ? (
-              <button type="button" class="linkish note-action" {...tip(message.action.tip, "Ctrl+Z")} onClick={() => {
+              <button type="button" class="linkish note-action" {...(message.action.step !== undefined ? tip(message.action.tip, "Ctrl+Z") : tip(message.action.tip))} onClick={() => {
                 const run = message.action!.run;
                 setMessage(null);
                 run();

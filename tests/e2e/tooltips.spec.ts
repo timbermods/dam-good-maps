@@ -148,6 +148,13 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await page.getByRole("group", { name: "Selection" }).getByRole("button", { name: "Delete", exact: true }).click();
   await page.waitForTimeout(400);
   await check("Select, Delete's menu");
+  await page.keyboard.press("Escape");
+
+  // Together (a shared session): the button and its panel, alone
+  await page.locator("header.editor-bar").getByRole("button", { name: /^Together/ }).click();
+  await expect(page.getByRole("dialog", { name: "Together" })).toBeVisible();
+  await check("Together, alone");
+  await page.keyboard.press("Escape");
   await page.keyboard.press("x");
 
   // a source picked (its row), an object picked: each on open, level, dry ground of its own, the mine
