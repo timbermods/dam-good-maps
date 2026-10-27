@@ -97,7 +97,7 @@ export class StackLive {
   ticks = 0;
   private m: StackWater;
   private mask: Uint32Array;
-  private readonly objects: Float64Array;
+  private objects: Float64Array;
   private readonly kept: number[];
   private finished = false;
 
@@ -215,11 +215,20 @@ export class StackLive {
     }
   }
 
-  /** The terrain under a stroke being painted changed (`mask`, the whole map's): the engine is built on it again and
-   *  the water as it stands carried over to it. */
-  reshape(mask: Uint32Array): void {
+  /** The terrain under a stroke being painted or a force at work changed (`mask`, the whole map's), and with a force
+   *  perhaps its objects (`objects`, stackWater.ts `stackObjectRows`: a source it took or moved): the engine is built
+   *  on them again and the water as it stands carried over to it, its flows' momentum with it. */
+  reshape(mask: Uint32Array, objects?: Float64Array): void {
     const now = this.state();
-    const m = this.build(mask);
+    const was = this.objects;
+    if (objects) this.objects = objects;
+    let m: StackWater;
+    try {
+      m = this.build(mask);
+    } catch (e) {
+      this.objects = was;
+      throw e;
+    }
     this.m.close();
     this.m = m;
     this.mask = mask;

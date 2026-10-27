@@ -50,9 +50,10 @@ import { StrokePreview, type TerrainState } from "../core/features/raster/stroke
 import type { BrushParams, Rect } from "../core/features/raster/brush";
 import type { WeatheredLand } from "../core/features/raster/remoteStroke";
 import { EMITTERS, objectTile } from "../core/sim/model";
-import { cavesOf, surfaceWater, worldWaterModel, type StackSettle } from "../core/sim/stackWater";
-import { sameKeptWater, StackLive, type LiveStack, type StackFrame } from "../core/sim/stackLive";
-import { reshapeTop } from "../core/terrain/runs";
+import { cavesOf, stackGraph, stackObjectRows, surfaceWater, worldWaterModel, type StackSettle } from "../core/sim/stackWater";
+import { keptOnStack } from "../core/sim/stackFed";
+import { carryStack, sameKeptWater, StackLive, type LiveStack, type StackFrame } from "../core/sim/stackLive";
+import { reshapeTop, TERRAIN_LAYERS } from "../core/terrain/runs";
 import { toMapObject } from "../core/features/build";
 import { soilObjects } from "../core/sim/columns";
 import { computeDaySoil, type SoilBase, type SoilJob, type SoilRunner } from "./daySoil";
@@ -952,6 +953,15 @@ function stackStart(s: MapSession): { from: LiveStack; flows: StackSettle | null
   const model = s.built.waterModel;
   const flowing = stackFlowing(s);
   if (flowing && sameKeptWater(flowing.model, model)) return { from: flowing.stack, flows: null };
+  if (flowing && model.stacked) {
+    // (a lake stored or unfed water taken, a Fill, a removal or a carve's oxbow lake: the water in flight carried
+    // over to the map's columns, with its momentum, and the lake and the removal put on it as the build puts them on
+    // the map's own carried-over water, features/build.ts)
+    const g = stackGraph(model);
+    const carried: LiveStack = { ...carryStack(flowing.stack, g), ...(flowing.stack.edges ? { edges: flowing.stack.edges } : {}) };
+    if (model.retained?.length || model.drained?.length) keptOnStack(g, carried, model.retained, model.drained);
+    return { from: carried, flows: null };
+  }
   const from = s.built.settle.stack;
   return from ? { from, flows: s.lastSettled()?.water.stack ?? null } : null;
 }
@@ -2618,6 +2628,8 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, roll?:
   // the map's own water waits: the force's water takes over from it, as it flows (a weather run stops; the page asks
   // for its held day again once the force's water has settled)
   const flowing = waterInFlight(s);
+  // (on a map with caves or overhangs: the stacked water in flight, or the map's own with its last settle's flows)
+  const stackFrom = s.built.waterModel.stacked ? stackStart(s) : null;
   stopWater();
   prepToken++;
   for (const run of Object.values(weatherRuns)) if (run) run.show = null;
@@ -2643,7 +2655,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, roll?:
     heatSent: false,
     viewAt: -Infinity,
   };
-  startForceWater(force, flowing);
+  startForceWater(force, flowing, stackFrom);
   // (the settings it ran with, and what its Auto picked in the run, for the row to show: D309)
   return { ok: true, errors: [], frame: forceFrame(force), settings: force.settings, verb: req.verb, gesture };
 }
@@ -2829,6 +2841,8 @@ export function forceAdvance(steps: number, patches = false): ForceFrame | null 
 function withForceWater(f: NonNullable<typeof force>, frame: ForceFrame): ForceFrame {
   const w = forceWater;
   if ((frame.heights || frame.heightPatch) && w && w.force === f && forceWaterFlows(w)) sendForceWater(w, true);
+  const ws = forceStack;
+  if ((frame.heights || frame.heightPatch || frame.columns) && ws && ws.force === f && forceStackFlows(ws)) sendForceStack(ws, true);
   return frame;
 }
 
@@ -2887,17 +2901,23 @@ function seeWater(w: NonNullable<typeof forceWater>, ticks: number): void {
 }
 let forceWaterToken = 0;
 
-/** `flowing`: the map's water in flight as the force started, if it was still settling. */
-function startForceWater(f: NonNullable<typeof force>, flowing: WarmState | null): void {
+/** `flowing`: the map's water in flight as the force started, if it was still settling; `stackFrom`, on a map with
+ *  caves or overhangs, the stacked water to start from (`stackStart`). */
+function startForceWater(f: NonNullable<typeof force>, flowing: WarmState | null, stackFrom: ReturnType<typeof stackStart> = null): void {
   forceWater?.sim.dispose();
   forceWater = null;
+  forceStack?.live.close();
+  forceStack = null;
   const token = ++forceWaterToken;
   const p = f.play;
-  // (a map with caves or overhangs: no force water while it plays; once the force is kept its water flows live,
-  // `kickStack`)
-  if (f.session.built.waterModel.stacked) return;
   if (p ? p.run.settings.dry : !f.staged) return;
   const m = p ? p.map : f.staged!.map;
+  // (a force on ground with caves or overhangs: its water on the stacked engine, `startForceStack`; a force whose own
+  // ground has none, Erode's Try another from the ground before its hollows, flows as on any heightfield)
+  if (f.session.built.waterModel.stacked && m.masks?.some((v) => (v & (v + 1)) !== 0)) {
+    if (stackFrom) startForceStack(f, stackFrom, token);
+    return;
+  }
   const model = modelOf(m);
   // (from the water on screen, when the page said which: its journey may run behind the worker's water)
   const shown = shownByPage(f.session, m);
@@ -3105,6 +3125,8 @@ function forceWaterState(f: NonNullable<typeof force>): WarmState | null {
 function endForceWater(): void {
   forceWater?.sim.dispose();
   forceWater = null;
+  forceStack?.live.close();
+  forceStack = null;
   forceWaterToken++;
 }
 
@@ -3234,6 +3256,11 @@ function followSources(w: NonNullable<typeof forceWater>, objects: readonly Enti
 /** The force's water `ticks` on, on the ground shown now, and its depths (Node tests run it
  *  themselves, as they run `settleWater`); null when the force has none. */
 export function flowForceWater(ticks: number): Float64Array | null {
+  const ws = forceStack;
+  if (ws && force === ws.force) {
+    if (forceStackFlows(ws) && ticks > 0) ws.live.advance(ticks);
+    return forceStack === ws ? stackShown(ws, ws.live.frame()).depth : null;
+  }
   const w = forceWater;
   if (!w || force !== w.force) return null;
   if (forceWaterFlows(w) && ticks > 0) {
@@ -3291,6 +3318,221 @@ async function runForceWater(token: number): Promise<void> {
   }
 }
 
+// ------------------------------------------------------- a force's own water on a map with caves (D371)
+
+/** A force's own water on a map with caves or overhangs (D371 on the stacked engine, core/sim/stackLive.ts): the map's
+ *  water in flight (or its own, with its last settle's flows) run on by the stacked engine while the force plays, the
+ *  engine built again on the land as each frame shows it (each tile's top reshaped to the ground shown, as the brushes
+ *  shape such a map; Erode's voxels as it wears them) and on the objects shown (a source the force took stops, one it
+ *  moved runs from its new tiles, D474). A carve's front holds its course dry until the cut reaches it, as on a
+ *  heightfield (`carveFront`): a held tile's top stands to the top of the map, a wall to the water, until then. Its
+ *  frames go to the page as a stroke's do; kept, the map's water flows on from it (`stackRest`, `kickStack`), and the
+ *  canonical settle replaces it as after any edit. A Slide's water stays where it stood rather than riding its block. */
+let forceStack: {
+  force: Parameters<typeof forceFrame>[0];
+  live: StackLive;
+  /** The map's water model when the force started (its stored lakes, its removals). */
+  model: WaterModel;
+  /** Each tile's terrain as the force's map has it (its voxels), the ground shown (its heights), and the masks the
+   *  engine is on (the ground, with the front's walls). */
+  base: Uint32Array;
+  ground: Uint8Array;
+  mask: Uint32Array;
+  objects: readonly EntitySpec[];
+  rows: Float64Array;
+  front: CarveFront | null;
+  seen: SeenWater;
+  seenTicks: number;
+  sent?: Float64Array;
+  /** The water last sent to the page, while the land is as it was then (kept, it is what the page shows). */
+  lastShown?: { frame: StackFrame; shown: { depth: Float64Array; contamination: Float64Array } } | null;
+} | null = null;
+
+/** The engine's objects for a force's map (stackWater.ts `stackObjectRows`, as the build makes them). */
+function stackRowsOf(entities: readonly EntitySpec[]): Float64Array {
+  return stackObjectRows(entities.map(toMapObject));
+}
+
+/** Each tile's top as the force's water stands on it: the ground shown, or a wall where a carve's front holds it. */
+function forceStackMask(w: NonNullable<typeof forceStack>): Uint32Array {
+  const out = new Uint32Array(w.base.length);
+  const held = w.front?.held;
+  for (let i = 0; i < out.length; i++) out[i] = reshapeTop(w.base[i], held && held[i] ? TERRAIN_LAYERS : w.ground[i]);
+  return out;
+}
+
+function startForceStack(f: NonNullable<typeof force>, start: NonNullable<ReturnType<typeof stackStart>>, token: number): void {
+  const p = f.play;
+  const m = p ? p.map : f.staged!.map;
+  const model = f.session.built.waterModel;
+  const N = m.W * m.H;
+  const base = (m.masks ?? model.stacked!.mask).slice();
+  const rows = stackRowsOf(m.entities);
+  // (the water it starts from on its own columns, each tile's top: a carve's front sets the films ahead of it aside)
+  const from: LiveStack = { ...start.from, depth: start.from.depth.slice(), contamination: start.from.contamination.slice() };
+  let front: CarveFront | null = null;
+  if (p) {
+    const depth = new Float64Array(N);
+    const contamination = new Float64Array(N);
+    const top = (i: number) => (from.count.length === N && from.count[i] ? (from.count[i] - 1) * N + i : -1);
+    for (let i = 0; i < N; i++) {
+      const c = top(i);
+      if (c < 0) continue;
+      depth[i] = from.depth[c];
+      contamination[i] = from.contamination[c];
+    }
+    front = carveFront(p, { ...model, floor: Float64Array.from(m.heights) }, depth, contamination);
+    for (let i = 0; i < N; i++) {
+      const c = top(i);
+      if (!front.held[i] || c < 0) continue;
+      from.depth[c] = 0;
+      from.contamination[c] = 0;
+    }
+  }
+  const w: NonNullable<typeof forceStack> = { force: f, live: null as unknown as StackLive, model, base, ground: m.heights.slice(), mask: base, objects: m.entities, rows, front, seen: null as unknown as SeenWater, seenTicks: 0 };
+  w.mask = forceStackMask(w);
+  w.live = new StackLive({ ...model, stacked: { mask: w.mask.slice(), objects: rows } }, from, start.flows);
+  const f0 = w.live.frame();
+  w.seen = new SeenWater(f0.depth, f0.contamination);
+  forceStack = w;
+  if (autoWater) setTimeout(() => void runForceStack(token), 0);
+}
+
+/** Whether the force's water flows now (as `forceWaterFlows`), the engine brought to the land and objects shown and
+ *  the tiles a carve's front has reached let go. */
+function forceStackFlows(w: NonNullable<typeof forceStack>): boolean {
+  const r = w.force.staged;
+  const p = w.force.play;
+  if (r ? !r.planned || r.shown === 0 : !p || p.shown === 0) return false;
+  const map = r ? r.map : p!.map;
+  const h = map.heights;
+  const masks = map.masks;
+  let changed = false;
+  for (let i = 0; i < h.length; i++) {
+    const b = masks ? masks[i] : w.base[i];
+    if (h[i] === w.ground[i] && b === w.base[i]) continue;
+    // (new ground: the film it had goes with it)
+    if (w.front && h[i] !== w.ground[i]) w.front.film[i] = 0;
+    w.ground[i] = h[i];
+    w.base[i] = b;
+    changed = true;
+  }
+  if (w.front && p)
+    for (let i = 0; i < w.front.held.length; i++)
+      if (w.front.held[i] && w.front.reach[i] <= p.shown) {
+        w.front.held[i] = 0;
+        changed = true;
+      }
+  let rows: Float64Array | undefined;
+  if (map.entities !== w.objects) {
+    w.objects = map.entities;
+    const next = stackRowsOf(map.entities);
+    if (next.length !== w.rows.length || next.some((v, k) => v !== w.rows[k])) {
+      rows = w.rows = next;
+      changed = true;
+    }
+  }
+  if (changed) {
+    const mask = forceStackMask(w);
+    let same = !rows;
+    for (let i = 0; same && i < mask.length; i++) if (mask[i] !== w.mask[i]) same = false;
+    if (!same) {
+      w.mask = mask;
+      try {
+        w.live.reshape(mask.slice(), rows);
+      } catch {
+        // (its ground has no cave or overhang left: the force's water stops here, and flows on once it is kept)
+        endForceWater();
+        return false;
+      }
+      w.lastShown = null;
+    }
+  }
+  return p ? p.shown >= w.front!.origin : true;
+}
+
+/** The force's water as shown: the stacked engine's from above, averaged as a heightfield force's is (`SeenWater`),
+ *  with the films a carve's front holds as they were (`frontWater`). */
+function stackShown(w: NonNullable<typeof forceStack>, f: StackFrame): { depth: Float64Array; contamination: Float64Array } {
+  w.seen.see(f.depth, f.contamination, w.live.ticks - w.seenTicks);
+  w.seenTicks = w.live.ticks;
+  const depth = w.seen.depth.slice();
+  const contamination = w.seen.contamination.slice();
+  if (w.front) {
+    const { held, film, filmBad } = w.front;
+    for (let i = 0; i < held.length; i++)
+      if (held[i] || film[i] > depth[i]) {
+        depth[i] = film[i];
+        contamination[i] = filmBad[i];
+      }
+  }
+  return { depth, contamination };
+}
+
+function sendForceStack(w: NonNullable<typeof forceStack>, always = false): void {
+  if (!listener) return;
+  const f = w.live.frame();
+  const shown = stackShown(w, f);
+  const D = shown.depth;
+  let moved = always || !w.sent;
+  for (let i = 0; !moved && i < D.length; i++) if (Math.abs(D[i] - w.sent![i]) > 0.01) moved = true;
+  if (!moved) return;
+  w.sent = D;
+  w.lastShown = { frame: f, shown };
+  listener({ kind: "water", version, water: stackView(w.force.session, f, shown.depth, shown.contamination, w.ground), done: 0, ticks: w.live.ticks, draft: true });
+}
+
+async function runForceStack(token: number): Promise<void> {
+  let last = 0;
+  let owed = 0;
+  let at = performance.now();
+  for (;;) {
+    const w = forceStack;
+    if (!w || token !== forceWaterToken || force !== w.force || w.force.session !== session) return;
+    const now = performance.now();
+    // (the heightfield force water's pace, `runForceWater`)
+    owed = Math.min(owed + ((now - at) / 1000) * FORCE_WATER_PACE, FORCE_WATER_PACE / 10);
+    at = now;
+    if (forceStackFlows(w)) {
+      while (owed >= 2 && performance.now() - now < WATER_SLICE_MS) {
+        w.live.advance(2);
+        owed -= 2;
+      }
+      if (listener && performance.now() - last >= DRAFT_FRAME_MS) {
+        last = performance.now();
+        sendForceStack(w);
+      }
+    } else owed = 0;
+    await (owed < 2 ? new Promise<void>((r) => setTimeout(r, 4)) : breathe());
+  }
+}
+
+/** The stacked force's water to flow on from once it is kept (null: it has none): every wall let go, on the land and
+ *  objects it ended with, with the frame the page shows of it. */
+function forceStackState(f: NonNullable<typeof force>): { model: WaterModel; stack: LiveStack; frame: StackFrame; shown: { depth: Float64Array; contamination: Float64Array } } | null {
+  const w = forceStack;
+  if (!w || w.force !== f) return null;
+  forceStackFlows(w);
+  if (forceStack !== w) return null;
+  // (what the page shows, the films the front held included; then every wall let go, for the water to flow on from)
+  const last = w.lastShown ?? (() => {
+    const frame = w.live.frame();
+    return { frame, shown: stackShown(w, frame) };
+  })();
+  if (w.front) w.front.held.fill(0);
+  const mask = forceStackMask(w);
+  if (mask.some((v, i) => v !== w.mask[i])) {
+    w.mask = mask;
+    try {
+      w.live.reshape(mask.slice());
+    } catch {
+      return null;
+    }
+  }
+  const { frame, shown } = last;
+  return { model: { ...w.model, stacked: { mask: w.mask.slice(), objects: w.rows } }, stack: w.live.state(), frame, shown };
+}
+
 /** A painted Lift: the fault as it is painted now (the page sends the latest stroke when the worker
  *  is free); the whole result shows at once. */
 export function forcePaint(path: Point[], side: 1 | -1, power?: number, patches = false): ForceFrame | null {
@@ -3324,7 +3566,7 @@ export function forceCancel(gesture?: number): ForceTakenBack {
   const s = session;
   if (f && (gesture === undefined || f.gesture === gesture)) {
     force = null;
-    const flowing = forceWater?.force === f;
+    const flowing = forceWater?.force === f || forceStack?.force === f;
     endForceWater();
     if (!s || f.session !== s) return { taken: null };
     // (the force's water frames still on their way give way to the map's water)
@@ -3368,10 +3610,11 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; so
   else if (!f.staged!.done && !(f.staged instanceof QuakeRun && f.staged.painting)) f.staged!.finishAll();
   // (the water it flowed as it worked: the map's water flows on from it, D371)
   const flowed = forceWaterState(f);
+  const flowedStack = forceStackState(f);
   endForceWater();
   const refused = (errors: string[]) => {
     // (the force's water frames still on their way give way to the map's water)
-    if (flowed) listener?.({ kind: "water", version, water: waterOf(s), done: 1, ticks: 0, draft: true });
+    if (flowed || flowedStack) listener?.({ kind: "water", version, water: waterOf(s), done: 1, ticks: 0, draft: true });
     const view = restoreView(s);
     kickWater();
     return { ok: false, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), kept: false };
@@ -3406,10 +3649,15 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; so
   }
   const step = s.stepSince(mark);
   lastKept = roll ? { gesture: f.gesture, session: s, mark, series: roll, roll: true } : step ? { gesture: f.gesture, session: s, mark: step, series: seriesBefore, roll: false } : null;
+  // (on a map with caves or overhangs the map's water flows on from the force's, on every column: `kickStack` takes it
+  // as the water in flight)
+  if (flowedStack) stackRest = { session: s, model: flowedStack.model, stack: flowedStack.stack };
   const u = changed(s, true, [], t0);
   handoff = null;
   // the page shows the force's water: the map's water flows on from it, not from the water before
-  if (u.view.water && !s.showsStoredWater) u.view.water = waterFromDepth(s.built.heights, water.water.depth, water.water.contamination);
+  if (flowedStack) {
+    if (u.view.water && !s.showsStoredWater) u.view.water = stackView(s, flowedStack.frame, flowedStack.shown.depth, flowedStack.shown.contamination);
+  } else if (u.view.water && !s.showsStoredWater) u.view.water = waterFromDepth(s.built.heights, water.water.depth, water.water.contamination);
   // (the sources it removed: the page says how many, with Undo)
   const sourcesRemoved = sourcesRemovedBy(params, f.before);
   return { ...u, kept: true, ...(sourcesRemoved ? { sourcesRemoved } : {}) };
