@@ -487,7 +487,7 @@ function drainSettled(m: StackWater, W: number, H: number, t: StackedTerrain, re
 }
 
 /** Retained water as the engine takes it: (tile, floor, depth, contamination) rows, one a column. */
-function retainedRows(retained: readonly RetainedWater[]): number[] {
+export function retainedRows(retained: readonly RetainedWater[]): number[] {
   // (a column two lakes hold keeps the later one's water, as the pre-fill would leave it: each entry names
   // its column by its tile and floor, stackFed.ts `retainedColumn`)
   const last = new Map<string, number[]>();
@@ -652,6 +652,34 @@ export function settledAgain(prev: StackSettle, prevModel: WaterModel, next: Wat
   }
 }
 
+/** Writes `from` (water on the same columns as `cols`, the engine's own) into `m` as the engine takes it, and
+ *  accepts it: each column's water within its room, a full cave's pressure only when it is full, none on an open
+ *  field. Throws when `from` is on other columns. */
+export function loadStack(m: StackWater, cols: { count: Uint8Array; floor: Int16Array; ceil: Int16Array }, stacked: boolean, from: Pick<StackSettle, "count" | "depth" | "overflow" | "contamination">): void {
+  const N = cols.count.length;
+  if (from.count.length !== N) throw new Error("The water to start from is for another map.");
+  for (let i = 0; i < N; i++) if (from.count[i] !== cols.count[i]) throw new Error("The water to start from is for another map.");
+  const depth = m.view(STACK_FIELD.depth) as Float64Array;
+  const contamination = m.view(STACK_FIELD.contamination) as Float64Array;
+  const overflow = stacked ? (m.view(STACK_FIELD.overflow) as Float64Array) : null;
+  for (let i = 0; i < N; i++)
+    for (let q = 0; q < cols.count[i]; q++) {
+      const c = q * N + i;
+      const cap = cols.ceil[c] - cols.floor[c];
+      const d0 = from.depth[c];
+      const d = d0 > 0 ? (d0 < cap ? d0 : cap) : 0;
+      const c0 = from.contamination[c];
+      depth[c] = d;
+      contamination[c] = c0 > 0 ? (c0 < 1 ? c0 : 1) : 0;
+      if (overflow && d === cap) {
+        const o = from.overflow[c];
+        const most = (OPEN_CEILING - cols.ceil[c]) / 8;
+        overflow[c] = o > 0 ? (o < most ? o : most) : 0;
+      }
+    }
+  m.op(STACK_OP.accept);
+}
+
 /** The water of terrain above terrain run on from a given state by the game's rules, with the sources
  *  scaled and the clean ones' contamination set at each step: the weather's simulation on such a map
  *  (sim/weather.ts `HazardRun`). The sources stop or turn bad exactly as on a heightfield (the game's
@@ -694,29 +722,7 @@ export class StackRun {
       let L = 1;
       for (let i = 0; i < N; i++) if (this.count[i] > L) L = this.count[i];
       this.L = L;
-      if (from.count.length !== N) throw new Error("The water to start from is for another map.");
-      for (let i = 0; i < N; i++) if (from.count[i] !== this.count[i]) throw new Error("The water to start from is for another map.");
-      // the state as the engine takes it: each column's water within its room, a full cave's pressure only
-      // when it is full, none on an open field
-      const depth = m.view(STACK_FIELD.depth) as Float64Array;
-      const contamination = m.view(STACK_FIELD.contamination) as Float64Array;
-      const overflow = this.stacked ? (m.view(STACK_FIELD.overflow) as Float64Array) : null;
-      for (let i = 0; i < N; i++)
-        for (let q = 0; q < this.count[i]; q++) {
-          const c = q * N + i;
-          const cap = this.ceil[c] - this.floor[c];
-          const d0 = from.depth[c];
-          const d = d0 > 0 ? (d0 < cap ? d0 : cap) : 0;
-          const c0 = from.contamination[c];
-          depth[c] = d;
-          contamination[c] = c0 > 0 ? (c0 < 1 ? c0 : 1) : 0;
-          if (overflow && d === cap) {
-            const o = from.overflow[c];
-            const most = (OPEN_CEILING - this.ceil[c]) / 8;
-            overflow[c] = o > 0 ? (o < most ? o : most) : 0;
-          }
-        }
-      m.op(STACK_OP.accept);
+      loadStack(m, this, this.stacked, from);
       const params = m.view(STACK_FIELD.emitters) as Float64Array;
       for (let k = 0; 4 * k < params.length; k++) if (params[4 * k + 1] === 0) this.clean.push(k);
     } catch (e) {
