@@ -216,7 +216,8 @@ function TitleName(p: {
   const latest = useRef(0);
   const saveText = async (text: string, leaving: boolean) => {
     // (the name and the description are saved apart: each is refused in the core's own words)
-    const changed = text.trim() !== p.name;
+    // (against the name the title shows: a name typed back while a rename is still on its way is a change too)
+    const changed = text.trim() !== (pending ?? p.name);
     // a name the core will refuse (a blank one) is refused here at once, in the core's own words
     const clean = cleanMapName(text);
     const nameProblem = changed && !clean.ok ? clean.reason : null;

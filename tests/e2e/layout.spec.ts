@@ -498,6 +498,25 @@ test("two renames in a row while the core answers late: the title ends on the se
   await expect(title).toHaveText("Right Name");
 });
 
+test("a rename typed back to the old name while the first is still on its way is sent, never lost", async ({ page }) => {
+  test.setTimeout(300_000);
+  await holdRenames(page);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await openEditor(page);
+  await holdFor(page, 800);
+  const title = page.locator("header.editor-bar .editor-title .title-button");
+  const first = ((await title.textContent()) ?? "").trim();
+  for (const typed of ["Typo Nmae", first]) {
+    await title.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(typed);
+    await page.keyboard.press("Enter");
+  }
+  // (both answers have come: each held 800ms)
+  await page.waitForTimeout(2500);
+  await expect(title).toHaveText(first);
+});
+
 // Nothing overlaps at any size (Kyler, 2026-10-04: the layout adjusts itself): at sizes the page isn't drawn for, the
 // band lays itself out (the water row on a second line when it can't fit), and the panels and the legend take the
 // room they have, scrolling inside only when it's short.
