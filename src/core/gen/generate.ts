@@ -270,6 +270,11 @@ export interface GenerateOptions {
   /** The first look: prepared land and its planned water (channels 1, lakes 2, floors 3), once
    *  the actual settled start reaches its required mine pair. Fires once per map. */
   onLand?: (l: { attempt: number; heights: Uint8Array; water: Uint8Array }) => void;
+  /** false: no 3D forms (D488), the map its land makes without them, byte for byte as below the forms:
+   *  for the tests of a heightfield's own rules (its outflows, its falls, its settle) and of editing a
+   *  heightfield, on a map whose land would grow one (a stroke over a form's rock is refused when it would
+   *  fall, D280 (3)). The page never sets it. */
+  forms?: boolean;
   /** Steering (D138, M12): these intentions instead of the drawn ones; [] for none. */
   intentions?: IntentionId[] | null;
   /** The map, as soon as it passed (D329: the first candidate that passes the absolutes is the map,
@@ -472,7 +477,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   // at the end. Only at 128² and under, where the first look waits for the settled start anyway;
   // above, the land is shown as soon as it is planned, and no arch is grown, `formsFor`)
   let held: Parameters<NonNullable<GenerateOptions["onLand"]>>[0] | null = null;
-  const holdLand = !!opts.onLand && !!formsFor(specIn)["gorge-arch"];
+  const holdLand = !!opts.onLand && opts.forms !== false && !!formsFor(specIn)["gorge-arch"];
   // (the last land a round showed: a rescue round's fresh land replaces round 0's, so the first look
   // pairs the map's own land with its own planned water, never another round's; a land carried into a
   // rescue round is not shown again and stays the one held)
@@ -3001,7 +3006,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   //      then the map built and checked again: a form is kept only where every check, intention and
   //      outcome the map had still holds and its own check confirms it, else dropped, never forced
   if (passed) {
-    const want = formsFor(specIn);
+    const want = opts.forms === false ? {} : formsFor(specIn);
     if (Object.keys(want).length) {
       const vt = specIn.settings.terrain.verticality;
       const grown = growOn(built, features, want, vt, g.tall ? Math.ceil(g.top) : 16, stream(seed, "forms3d", attempt));

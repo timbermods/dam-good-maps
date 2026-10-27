@@ -48,7 +48,7 @@ async function runDrought(seed: number, theme: ThemeId) {
     await until(() => !!lastDay && !!news, 60_000);
     // the map never changes
     expect(ed.project().bytes).toEqual(bytes);
-    return { day0: open.view.water, last: lastDay! as WaterView, news: news! as ed.DroughtLineNews, bytes };
+    return { day0: open.view.water, last: lastDay! as WaterView, news: news! as ed.DroughtLineNews, bytes, seen: { heights: open.view.heights, caved: new Set(open.view.columns.tiles) } };
   } finally {
     ed.listen(null);
     ed.watchDroughtLine(null);
@@ -57,9 +57,17 @@ async function runDrought(seed: number, theme: ThemeId) {
   }
 }
 
-const wetSet = (w: WaterView) => {
+/** The tiles a column of the view stands for as the line reads them: on a map with caves or overhangs (D488 grows them at
+ *  the default Verticality too) the water seen from above, a caved tile's column standing on its top only, never a
+ *  cave's pool under its roof (stackWater.ts `surfaceWater`). */
+interface Seen {
+  heights: ArrayLike<number>;
+  caved: ReadonlySet<number>;
+}
+const shows = (w: WaterView, k: number, v: Seen) => !v.caved.has(w.tile[k]) || w.floor[k] === v.heights[w.tile[k]];
+const wetSet = (w: WaterView, v: Seen) => {
   const s = new Set<number>();
-  for (let k = 0; k < w.count; k++) if (w.depth[k] > WATER_BODY) s.add(w.tile[k]);
+  for (let k = 0; k < w.count; k++) if (w.depth[k] > WATER_BODY && shows(w, k, v)) s.add(w.tile[k]);
   return s;
 };
 
@@ -73,14 +81,14 @@ describe("the drought line (D133, D269)", () => {
     ["riverValley", 1],
   ] as const)
     it(`matches the Drought view's last day tile for tile (${theme} ${seed})`, async () => {
-      const { day0, last, news } = await drought(seed, theme);
+      const { day0, last, news, seen } = await drought(seed, theme);
       const L = news.line;
       expect(L.refused).toBeNull();
       expect(L.days).toBe(9);
-      const then = wetSet(last);
-      const now = wetSet(day0);
+      const then = wetSet(last, seen);
+      const now = wetSet(day0, seen);
       const at = new Map<number, number>();
-      for (let k = 0; k < last.count; k++) at.set(last.tile[k], k);
+      for (let k = 0; k < last.count; k++) if (shows(last, k, seen)) at.set(last.tile[k], k);
       // the shore: exactly the last day's water tiles with a dry side, each dry side marked, at the view's surface
       const want = new Map<number, number>();
       for (const i of then) {
