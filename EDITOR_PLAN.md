@@ -1482,7 +1482,7 @@ checks dot counts; every other row is information under Good to know, worded as 
     its water), so their water drains away as part of the edit's own journey (within about a second on 128² and
     two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. **The sources' labels** (Markers, a picked source, the pointer) are placed by `editor/sources/labelLayout.ts`, a plain function of where each source stands on the screen and what the page has open over the map: a label never stands on another or on a panel (it is nudged to the nearest free spot), a source behind a panel or outside the view has none, and a label with no room left merges into the nearest of its kind ("3 sources, 1.5 water/s", never badwater with clean water), the way a group of sources already does. Markers' wall ledges are **Wall levels**; **Lines** is the view switch for a line at every level. A stored
     lake keeps its water only while its hollow holds it. The preview's water once it stops matches the canonical
-    settle's (a map with caves or overhangs has no preview: the canonical settle itself, in the background).
+    settle's (a map with caves or overhangs has no preview but its own live water, the stacked engine run by `kickStack` and `draftStack`, D280 as amended by #606: shown only, replaced byte for byte by the canonical settle in the background).
   - **No water from nowhere** (D385): a hollow dug where no source's water and no water already there reaches
     stays dry on every path (the instant answer, the stroke's live water, the background settle, the canonical
     settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the
