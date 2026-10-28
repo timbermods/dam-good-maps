@@ -368,6 +368,51 @@ export function shadowPairArea(x0: number, y0: number, x1: number, y1: number): 
   return { sx0: R * x0, sx1: R * (x1 + 1) + reach, sy0: R * y0 - reach, sy1: R * (y1 + 1) };
 }
 
+/** The side of the blocks of tiles `castersChangedRects` gathers changed casters by. */
+const CASTER_BLOCK = 8;
+
+/** The tiles whose casters differ between `a` and `b` (no casters: none anywhere), as rectangles to redo the shadows
+ *  round: `shadowPairRect` on each of them, in any order, gives the bytes of baking the whole map again (a sample a
+ *  change reaches lies in that change's rectangle's area, and each area is redone from the samples north-west of it).
+ *  The changed tiles of each block of CASTER_BLOCK² tiles, or their one bounding rectangle where that redoes fewer
+ *  samples: plants drowned here and there across a map redo their own shadows, not the map's. Null when none differ. */
+export function castersChangedRects(W: number, H: number, a: Float32Array | null, b: Float32Array | null): { x0: number; y0: number; x1: number; y1: number }[] | null {
+  if (!a && !b) return null;
+  const B = CASTER_BLOCK;
+  const bw = Math.ceil(W / B);
+  const blocks = new Map<number, { x0: number; y0: number; x1: number; y1: number }>();
+  const all = { x0: W, y0: H, x1: -1, y1: -1 };
+  for (let i = 0; i < W * H; i++) {
+    if ((a ? a[i] : 0) === (b ? b[i] : 0)) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    const k = Math.floor(y / B) * bw + Math.floor(x / B);
+    const r = blocks.get(k);
+    if (r) {
+      r.x0 = Math.min(r.x0, x);
+      r.x1 = Math.max(r.x1, x);
+      r.y0 = Math.min(r.y0, y);
+      r.y1 = Math.max(r.y1, y);
+    } else blocks.set(k, { x0: x, y0: y, x1: x, y1: y });
+    all.x0 = Math.min(all.x0, x);
+    all.x1 = Math.max(all.x1, x);
+    all.y0 = Math.min(all.y0, y);
+    all.y1 = Math.max(all.y1, y);
+  }
+  if (!blocks.size) return null;
+  // (the samples a rectangle redoes, on the map)
+  const SW = W * SHADOW_RES;
+  const SH = H * SHADOW_RES;
+  const cost = (r: { x0: number; y0: number; x1: number; y1: number }) => {
+    const p = shadowPairArea(r.x0, r.y0, r.x1, r.y1);
+    return Math.max(0, Math.min(SW - 1, p.sx1) - Math.max(0, p.sx0) + 1) * Math.max(0, Math.min(SH - 1, p.sy1) - Math.max(0, p.sy0) + 1);
+  };
+  const rects = [...blocks.values()];
+  let sum = 0;
+  for (const r of rects) sum += cost(r);
+  return sum < cost(all) ? rects : [all];
+}
+
 /** Redo the tops of a pair round tiles that changed (x0…x1 × y0…y1), and write their bytes into
  *  the shadow map `bytes` (RGBA per sample). Equal to baking the whole map again. `rock`: the map's
  *  terrain above terrain (`shadowRock`), whose runs above air cast shadows with gaps under them. */

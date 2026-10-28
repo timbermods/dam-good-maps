@@ -69,7 +69,7 @@ import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
 import { whenIdle } from "./idle";
-import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
+import { castersChangedRects, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
@@ -1748,12 +1748,16 @@ export class MapRenderer {
     const m = this.map;
     if (!m || !this.lightTex) return;
     const casters = objectCasters(m.W, m.H, this.drawnObjects ?? m.entities);
-    const rect = onlyCasters && this.tops ? castersChanged(this.casters, casters, m.W, m.H) : undefined;
+    // (round each group of objects that changed, not their one bounding rectangle: plants drowned across a map)
+    const rects = onlyCasters && this.tops && this.casters !== undefined ? castersChangedRects(m.W, m.H, this.casters, casters) : undefined;
     this.casters = casters;
-    if (rect === null) return;
-    if (rect && this.tops) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, rect.x0, rect.y0, rect.x1, rect.y1, this.rock());
-      this.touchShadows(rect);
+    if (rects === null) return;
+    if (rects && this.tops) {
+      const rock = this.rock();
+      for (const r of rects) {
+        shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, r.x0, r.y0, r.x1, r.y1, rock);
+        this.touchShadows(r);
+      }
     } else {
       this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
       (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops, this.rock()));
@@ -2283,7 +2287,13 @@ export class MapRenderer {
     this.flushTerrain();
     if (!this.map) return;
     this.setEntitiesInner(e);
-    this.bakeShadows(true);
+    // (the shadows of the objects that changed in a task of their own, the next moment, drawn a frame later: in the
+    // task that brought them they lengthened a flood's answer by 10 to 20 ms when plants drowned)
+    clearTimeout(this.casterTimer);
+    this.casterTimer = window.setTimeout(() => {
+      this.bakeShadows(true);
+      this.requestRender();
+    }, 0);
     this.requestRender();
     this.onMapChange?.();
   }
@@ -4001,26 +4011,6 @@ export class MapRenderer {
     // free the context now: browsers keep only a few, and the editor opens a view per map
     this.gl.forceContextLoss();
   }
-}
-
-/** The rectangle of tiles whose shadow casters differ (null: none; undefined: all of them). */
-function castersChanged(a: Float32Array | null | undefined, b: Float32Array | null, W: number, H: number): { x0: number; y0: number; x1: number; y1: number } | null | undefined {
-  if (a === undefined) return undefined;
-  if (!a && !b) return null;
-  let x0 = W;
-  let y0 = H;
-  let x1 = -1;
-  let y1 = -1;
-  for (let i = 0; i < W * H; i++) {
-    if ((a ? a[i] : 0) === (b ? b[i] : 0)) continue;
-    const x = i % W;
-    const y = (i - x) / W;
-    if (x < x0) x0 = x;
-    if (x > x1) x1 = x;
-    if (y < y0) y0 = y;
-    if (y > y1) y1 = y;
-  }
-  return x1 < 0 ? null : { x0, y0, x1, y1 };
 }
 
 /** The legend's highlight over the overlay: the tiles lightly tinted, their edge strongly. */

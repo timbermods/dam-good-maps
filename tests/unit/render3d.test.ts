@@ -224,6 +224,44 @@ describe("the map view", () => {
   });
 });
 
+describe("objects that changed here and there redo their own shadows", () => {
+  it("each group's rectangle redone, in any order, equals a whole bake", async () => {
+    const { castersChangedRects, shadowMap, shadowPairRect } = await import("../../src/render3d/light");
+    const W = 200;
+    const H = 160;
+    let s = 3;
+    let split = 0;
+    const rand = () => ((s = (Math.imul(s, 1103515245) + 12345) >>> 0) / 4294967296);
+    const heights = new Uint8Array(W * H);
+    for (let i = 0; i < heights.length; i++) heights[i] = 2 + Math.floor(rand() * 6) + (i % W > 40 && i % W < 50 ? 9 : 0);
+    let casters = new Float32Array(W * H);
+    for (let i = 0; i < casters.length; i++) if (rand() < 0.2) casters[i] = 0.5 + rand();
+    for (let trial = 0; trial < 12; trial++) {
+      const tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
+      const bytes = shadowMap(W, H, heights, casters, tops);
+      // plants drowned, grown or gone at a few places across the map, a cluster of them at one
+      const next = casters.slice();
+      for (let k = 0; k < 6; k++) {
+        const x = Math.floor(rand() * W);
+        const y = Math.floor(rand() * H);
+        for (let d = 0; d < (k === 0 ? 9 : 1); d++) {
+          const i = Math.min(H - 1, y + Math.floor(d / 3)) * W + Math.min(W - 1, x + (d % 3));
+          next[i] = rand() < 0.3 ? 0 : next[i] ? next[i] * 0.35 : 1.35;
+        }
+      }
+      const rects = castersChangedRects(W, H, casters, next)!;
+      if (rects.length > 1) split++;
+      for (const r of trial % 2 ? [...rects].reverse() : rects) shadowPairRect(tops, bytes, W, H, heights, next, r.x0, r.y0, r.x1, r.y1);
+      expect(Buffer.from(bytes).equals(Buffer.from(shadowMap(W, H, heights, next))), `trial ${trial}`).toBe(true);
+      casters = next;
+    }
+    // (most trials redo groups of their own, not one rectangle round them all)
+    expect(split).toBeGreaterThan(6);
+    expect(castersChangedRects(W, H, casters, casters.slice())).toBeNull();
+    expect(castersChangedRects(W, H, null, null)).toBeNull();
+  });
+});
+
 describe("live editing: the light is redone round a change only", () => {
   it("the sky, and the shadows of both suns, redone round changed tiles equal a whole bake", async () => {
     const { skyVisibility, skyVisibilityRect, shadowMap, shadowPairRect, objectCasters, SKY_REACH } = await import("../../src/render3d/light");

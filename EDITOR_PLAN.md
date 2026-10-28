@@ -1623,7 +1623,9 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   merged per level and along each edge, the same quads as a heightfield's where a map has no caves; instanced trees, bushes and ruins;
   new objects rebuild only the batches that changed (a source placed among a forest keeps the forest, its landmarks and
   its canopies' occlusion, renumbered), the models the soil and water may yet call for (a ruin's ivy, a drowned plant)
-  are made ahead when the page is idle, and batches put away let go of their GPU buffers then too (D453);
+  are made ahead when the page is idle, and batches put away let go of their GPU buffers then too; canopies that changed
+  have their occlusion worked out in the bake worker, and objects that changed have their shadows redone round each
+  group of them (not one rectangle round all) in a task of their own a moment later, both drawn a frame or two on (D453);
   picking against the voxels of the runs (the first face a ray meets: a run's top, underside or wall) and the features.
   - The shelf (D184): each object's picture is drawn once by the view itself (the object's model in the map's look,
     into a small render target), and the ghost under the pointer is the object's own model, tinted green or red; a
