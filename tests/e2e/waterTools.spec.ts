@@ -145,12 +145,15 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   // the pointer, one undo step
   const steps = (await info(page)).history.length;
   await page.mouse.move(sp.x, sp.y);
-  await page.keyboard.down("Control");
-  for (let k = 0; k < 3; k++) {
-    await page.mouse.wheel(0, -120);
-    await page.waitForTimeout(120);
-  }
-  await page.keyboard.up("Control");
+  // (three notches 120 ms apart, sent from the page: each page.mouse.wheel waits for a frame, and CI's
+  // software frames once put 1.75 s between two notches, past the 1.5 s pause that ends a scroll)
+  await page.evaluate(async ({ x, y }) => {
+    const at = document.elementFromPoint(x, y)!;
+    for (let k = 0; k < 3; k++) {
+      at.dispatchEvent(new WheelEvent("wheel", { deltaY: -120, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+      await new Promise((r) => setTimeout(r, 120));
+    }
+  }, sp);
   await expect(page.locator(".shape-note")).toHaveText("3 water/s");
   await expect.poll(async () => (await info(page)).history.at(-1)!.label, { timeout: 20_000 }).toBe("Water source: 3 water/s");
   await idle(page);
