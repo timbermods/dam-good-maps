@@ -198,6 +198,9 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   // (seed 84 for 0.8.5's maps, D148: seed 77's river now has its middle by the map's edge, where the click
   // lands on no tile)
   await openEditor(page, "s=84&z=96&d=n&t=riverValley");
+  // (the first-keep note already shown: after the Delete below, its 8 s over the view's middle can take the hover meant
+  // for the map, as in dev's run 40766826335; generate-new-map.spec checks the note itself)
+  await page.evaluate(() => localStorage.setItem("dgm.keptNote", "1"));
   await topDown(page);
   // a click on the start picks nothing (it is dragged, or picked on the shelf), and nothing is
   // listed: the generator's features are its plan, not objects (D184)
