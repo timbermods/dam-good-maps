@@ -638,8 +638,8 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   left open in the hollow (the rock round it: floor, ceiling, back and sides) red. It holds a quarter of a second, then
   fades out over 0.85 s. Its clock runs with the frames drawn, at most 250 ms a frame, so a page held by the first cave's
   light and shaders (seconds, `syncCaves`) never uses it up unseen. A change landing while one glows joins it and both
-  start over, so a force's frames glow together until a second after its last. With reduced motion it shows still for
-  a second, then goes. Under a layer cut what the cut hides is left out; the cut moving puts the glow away.
+  start over, so a force's frames glow together until a second after its last. With reduced motion, and in the light
+  look (software drawing, where each frame of a fade is a whole frame's cost), it shows still for a second, then goes. Under a layer cut what the cut hides is left out; the cut moving puts the glow away.
 - **What counts** (worked out by the renderer from each terrain update, no operation change: `editedCells`): every
   cell whose solid state differs between the columns drawn before and the update's, on tiles with terrain above terrain
   before or after (stored masks, not reshaped to the heights, so a roof's top a stroke painted first still counts): a
@@ -680,6 +680,27 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   dig, the Block tool's next preview (white) over the red glow reads pink for a moment. The first hollow dug on a plain
   map held the page for seconds in a cold browser (the cave light and shaders, before this change and dev's shader
   warm-up); the glow waits for it.
+
+## Software frames (`perf/software-frames`)
+
+- **Why:** dev's CI (software drawing, SwiftShader) took 21–29 s a Block tool click in `blockTool.spec.ts`. Measured
+  under SwiftShader (Chrome `--use-angle=swiftshader`, 1920×1013, a Block click on Lake Basin 96 seed 77): each frame
+  drawn holds the page's thread as long as SwiftShader draws it (the canvas is read back for the software compositor at
+  each frame), so a click costs its frames times a frame. CI draws a frame in 1–2.5 s (its trace's screencast), this
+  machine in ~50 ms; frames a click were the same at 2026-10-15 and on dev (8–12 with frames held at 1.5 s), and CI's
+  2026-10-15 runs of the spec failed at their first click (33–39 s was a failure's time, not the spec's pace).
+- **What grew:** the light look's terrain program, about 13% a frame since 2026-10-15 (the thin-water film's bed, the
+  cut's new hatch, the run soil's water flag, all paid on every top pixel in software, where branches do not skip), and
+  the edit glow's fade, at least five frames an edit whatever they cost (its clock moves at most 250 ms a frame).
+- **What changed (software only; on a GPU every program's translated source is the same, Standard's 13 and High's 10):**
+  the light look's tops work out the tile's own soil, sky, level and film once (its neighbours are the tile itself, so
+  the blend comes to that; no edge wobble, D135), with no contact shadow or lip (none to draw), and its walls drop the
+  stone bevel and cracks (D135: no patterns); the edit glow shows still in the light look (two frames); `commitOverlay`
+  draws nothing when the page paints the same overlay again (a frame at rest, from the page's effects).
+- **Numbers (this machine, SwiftShader):** a frame 48–49 → 43.5 ms (2026-10-15: 47–49); `blockTool.spec.ts` 147 → 131 s
+  of tests; an edit's glow 6+ frames → 2.
+- **Falls short:** a frame in software is still about 2 s on CI's runners; the next lever is drawing fewer pixels in
+  the light look (0.75 of the resolution: 34 ms here), which softens its picture, so it is not done.
 
 ## The rest of the step (next parts)
 

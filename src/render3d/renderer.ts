@@ -117,6 +117,20 @@ const STATES: BranchState[] = [
   { cut: false, caves: false, soil: false },
 ];
 
+/** Whether two byte arrays of the same length hold the same bytes (four at a time where both are aligned). */
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  let i = 0;
+  if (a.byteOffset % 4 === 0 && b.byteOffset % 4 === 0) {
+    const n = a.length >> 2;
+    const a4 = new Uint32Array(a.buffer, a.byteOffset, n);
+    const b4 = new Uint32Array(b.buffer, b.byteOffset, n);
+    for (; i < n; i++) if (a4[i] !== b4[i]) return false;
+    i = n << 2;
+  }
+  for (; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 /** Run this when the page is idle, with what the idle period has left (at once where the browser can't say); the
  *  warm-up's slices. Small jobs of their own go through idle.ts's `whenIdle`. */
 function onIdle(fn: (deadline?: IdleDeadline) => void): void {
@@ -471,6 +485,8 @@ export class MapRenderer {
   private highlight: Uint8Array | null = null;
   /** The page's overlay as it painted it, without the highlight. */
   private pageOverlay: Uint8Array | null = null;
+  /** The highlight drawn at the last `commitOverlay`. */
+  private committedHighlight: Uint8Array | null = null;
   /** The brush under the cursor (live editing), made on first use. */
   private cursor: BrushCursor | null = null;
   private ring: ForceRing | null = null;
@@ -2933,12 +2949,14 @@ export class MapRenderer {
   private editGlow: EditGlow | null = null;
 
   /** What an edit just changed in 3D glows a moment (editGlow.ts; D488, D335's colours): a still glow with reduced
-   *  motion. Nothing is made until an edit changes a cell, and nothing runs once it has faded. */
+   *  motion, and in the light look (software drawing, where each frame of a fade costs as much as a whole frame and
+   *  holds the page: two frames, shown and gone). Nothing is made until an edit changes a cell, and nothing runs once
+   *  it has faded. */
   private glowEdits(cells: EditCells): void {
     const m = this.map;
     if (!m || (!cells.added.length && !cells.removed.length)) return;
     const src = m.source;
-    (this.editGlow ??= new EditGlow(this.scene, () => this.requestRender())).show(cells, m.W, m.H, (x, y) => columnMask(src, y * m.W + x), this.slice, this.reducedMotion);
+    (this.editGlow ??= new EditGlow(this.scene, () => this.requestRender())).show(cells, m.W, m.H, (x, y) => columnMask(src, y * m.W + x), this.slice, this.reducedMotion || this.software);
   }
 
   /** What the edit glow shows now (tests): its faces of each kind and its strength, 0 once faded. */
@@ -3088,6 +3106,13 @@ export class MapRenderer {
     const m = this.map;
     if (!this.overlay || !this.marks || !m) return;
     const data = this.overlay.image.data as Uint8Array;
+    // the page paints the same overlay again (its effect runs on every render it has): nothing to upload or draw (a
+    // frame in software holds the page for as long as it draws); the highlight painted back over it as it stands
+    if (this.highlight === this.committedHighlight && this.pageOverlay?.length === data.length && sameBytes(data, this.pageOverlay)) {
+      if (this.highlight) paintHighlight(data, m.W, m.H, this.highlight);
+      return;
+    }
+    this.committedHighlight = this.highlight;
     // the page's own paint, kept apart from the highlight drawn over it
     if (!this.pageOverlay || this.pageOverlay.length !== data.length) this.pageOverlay = new Uint8Array(data.length);
     this.pageOverlay.set(data);
