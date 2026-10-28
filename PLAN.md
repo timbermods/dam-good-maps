@@ -366,9 +366,9 @@ multi-level valleys, water through mountains). Cave starts only from 70. Every l
 (ramps, tunnels, ledges, bridges), except the planned rewards, which need player stairs.
 
 **Built so far** (D488, step 4 part 1; `docs/progress/3d-generation.md`): three forms, grown on the finished map where its
-land offers them and kept only where every check still holds, each an intention with its own check, and only above the
-theme's default Verticality (a map with caves has no Fill or Remove unfed water in the editor yet, so the ordinary map
-stays as it was until it does):
+land offers them and kept only where every check still holds, each an intention with its own check, at every
+Verticality but 0, the ordinary map at its theme's default included (Fill and Remove unfed water have their rules for
+caves since #498), rarer the lower it is:
 
 | Verticality | A spring cave feeding the river | An overhang sheltering the start | An arch over a gorge |
 |---|---|---|---|
@@ -742,6 +742,17 @@ where the land's own processes make them. The builder's limits still fix what a 
   the start and 18+ tiles between field centres; 1 field 20–40% of the way to the far edge, most at 40–70%, the
   largest at the frontier. **Each column:** `RuinModels.VariantId` A–E (A 26%, B–E 18–19%), turns mostly Cw0 (59%),
   `Yielder:Ruin` 15·h; each needs an 8-neighbour at its own level, which the one-level rule guarantees.
+- **Ruins placed with meaning** (D488 (2), `src/core/gen/ruinStories.ts`), found where the land offers them, never
+  forced (D138): a **ruined dam** across the river's natural narrows (the checks' dam site there, 16 tiles or fewer, holding 600 water or more at 128², by area), three or
+  four columns deep from bank to bank and into the abutments, broken here and there, its columns about two levels over
+  the crest a rebuilt dam would have (the piers by the gap a level more), with a gap where the river's channel runs; and a **drowned village** 20+ tiles from it, a cluster of
+  columns in a lake's shallows or on a flooded valley floor (clean water 0.3–2.5 deep; on three maps in four that offer one), their tops rising out of the
+  water, a few sunk under it. Ruins carry no water obstacle in the game, so the river runs through the dam as before
+  (D111) and the game allows ruins in water; these two fields may stand in it (`params.story`), every other ruin rule
+  holding (pieces of 10+, each column reached from its own level, the start's ruin distance + 4). Their storeys are
+  their own (`params.storeys`), their scrap comes out of the map's budget (at most half of it), and each carries its
+  line in a player's words (`params.story.say`, read back by `ruinStories` for the Showcase's mystery and late-game
+  project beats). The 3D forms grow after them and never take a ruin's tile (`gen/forms3d.ts` `growOn`), so no ruin stands in a cave mouth or on an arch span. A plugged tunnel to buried water is still to come (D488 (1), D491).
 
 ### 9.10 Achievable ranges by map size
 

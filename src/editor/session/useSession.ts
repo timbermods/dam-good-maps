@@ -20,6 +20,7 @@ import { Selection, type SelectMode } from "../select";
 import { WaterJourney } from "../waterJourney";
 import { WaterPlayer } from "../waterPlayer";
 import { hazardDays, type Hazard } from "../../core/sim/weather";
+import { heldWords, type HeldFirstDays } from "../../core/sim/firstDays";
 import { describeTile as describeTileFacts, tileWords } from "../../core/doc/describeTile";
 import type { TerrainState } from "../../core/features/raster/strokePreview";
 import { DEFAULT_OPTIONS, type Rgba, type ToolOptions } from "../tools";
@@ -33,14 +34,15 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
-/** An editor note: a refusal (error) goes with the next action; `keep` holds a note until it is dismissed (a save that failed). */
+/** An editor note: a refusal (error) goes with the next action; `keep` holds a note until it is dismissed (a save that failed). `action` is a
+ *  quiet button beside it ("See it" on a shared session's water note). */
 export interface EditorNote {
   kind: "error" | "info";
   text: string;
   keep?: boolean;
   /** One thing the note offers to do (an info note: Undo, after a force cleared sources). It is for the step the history stood
    *  at (`step`, the steps applied) and goes the moment another step lands, so it only ever takes back that step. */
-  action?: { label: string; tip: string; step: number; run: () => void };
+  action?: { label: string; tip: string; step?: number; run: () => void };
 }
 
 export interface SessionSlice {
@@ -124,6 +126,10 @@ export interface SessionSlice {
   setSelectDraw: Dispatch<StateUpdater<number[] | null>>;
   selectPreview: { tiles: number[]; color: Rgba } | null;
   setSelectPreview: Dispatch<StateUpdater<{ tiles: number[]; color: Rgba } | null>>;
+  /** The tiles the last brush stroke or sculpt kept to hold up a cave's or an overhang's rock, tinted while the map
+   *  is at that edit's version (D280 (3), amended by #623). */
+  rockHeld: { tiles: number[]; version: number } | null;
+  setRockHeld: Dispatch<StateUpdater<{ tiles: number[]; version: number } | null>>;
   deleteMenu: boolean;
   setDeleteMenu: Dispatch<StateUpdater<boolean>>;
   setDeleteCounts: Dispatch<StateUpdater<{ counts: Record<string, number> } | null>>;
@@ -167,6 +173,11 @@ export interface SessionSlice {
   requestHeldDay: () => void;
   lastHover: { current: { x: number; y: number; level?: number } | null };
   rehover: () => void;
+  /** The hover readout's words for a tile: what is on it, and while the Drought or Badtide view is on, when its water
+   *  dries or turns bad. */
+  hoverWordsAt: (x: number, y: number, level?: number) => string;
+  /** A held hazard day's first dry or first bad days per tile (core/sim/firstDays.ts, from the worker), or null. */
+  firstNews: { current: HeldFirstDays | null };
   /** Work out both weather hazards' days once Kyler has been idle a moment with the water settled (the worker stops
    *  the moment he acts). */
   idlePrep: () => void;
@@ -263,14 +274,31 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [message, setMessage] = useState<EditorNote | null>(null);
   // a note that offers to take a step back goes when the history moves on (a stroke, another force, an undo or a redo)
   const stepsApplied = info.history.filter((h) => h.applied).length;
-  useEffect(() => setMessage((m) => (m?.action && m.action.step !== stepsApplied ? null : m)), [stepsApplied]);
+  useEffect(() => setMessage((m) => (m?.action && m.action.step !== undefined && m.action.step !== stepsApplied ? null : m)), [stepsApplied]);
   const [hover, setHover] = useState<string | null>(null);
   /** The tile under the pointer, and the readout said again for it when the water shown changes under a still
    *  pointer (a weather day landing). */
   const lastHover = useRef<{ x: number; y: number; level?: number } | null>(null);
+  /** The held hazard's first dry or first bad day per tile (D133's hover), set with each day the worker sends, put away
+   *  with the view. */
+  const firstNews = useRef<HeldFirstDays | null>(null);
+  /** The readout for a tile: the core's words, and while the Drought or Badtide view is on, the day its water goes or
+   *  turns bad ("Dry on day 6", "Lasts the drought", "Turns bad on day 4"). A cave's floor or a ledge under a roof is
+   *  not the water seen from above: no words there. */
+  const hoverWordsAt = (x: number, y: number, level?: number): string => {
+    const words = tileWords(describeTileFacts(ed.pageTileFacts(), x, y, level));
+    const n = firstNews.current;
+    if (!n || x < 0 || y < 0 || x >= infoRef.current.W || y >= infoRef.current.H) return words;
+    const i = y * infoRef.current.W + x;
+    const m = mirror.current;
+    if (level !== undefined && level < m.heights[i]) return words;
+    // (an edit while the view is held: the old map's days say nothing until the edited map's come)
+    const when = heldWords(n, weatherRef.current, infoRef.current.version, i);
+    return when ? `${words} · ${when}` : words;
+  };
   const rehover = () => {
     const h = lastHover.current;
-    if (h && ed.pageTileFacts) setHover(tileWords(describeTileFacts(ed.pageTileFacts(), h.x, h.y, h.level)));
+    if (h) setHover(hoverWordsAt(h.x, h.y, h.level));
   };
   // A refusal's note goes with the next thing the player does (a press, a key, a tool picked, the layer or the view
   // changed); only a save that failed stays until it is dismissed or the map is saved. An edit's own note
@@ -327,6 +355,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [selectDraw, setSelectDraw] = useState<number[] | null>(null);
   /** The tiles hovering a Select action would change (D323 item 6), and the Delete menu's state. */
   const [selectPreview, setSelectPreview] = useState<{ tiles: number[]; color: Rgba } | null>(null);
+  const [rockHeld, setRockHeld] = useState<{ tiles: number[]; version: number } | null>(null);
   const [deleteMenu, setDeleteMenu] = useState(false);
   /** What the core says stands in the selection while Delete's menu is open (objects under water too). */
   const [deleteCounts, setDeleteCounts] = useState<{ counts: Record<string, number> } | null>(null);
@@ -386,8 +415,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }, [ready]);
   const setWeather = (on: Hazard | null) => {
     weatherRef.current = on;
+    if (on !== firstNews.current?.hazard) firstNews.current = null;
     setWeatherState(on);
     syncDroughtLine();
+    // (the hazard's words in the readout go with the view)
+    rehover();
   };
   const [weatherDay, setWeatherDay] = useState<number | null>(null);
   const [weatherDays, setWeatherDays] = useState<number | null>(null);
@@ -694,6 +726,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
 
   function applyUpdate(u: SessionUpdate): void {
+    // (a shared session's answer to an edit: the session orders the edit, and the map's news comes as its own update)
+    if (u.routed && !Object.keys(u.view).length) return;
     // a crop, or the undo or redo of one, made the map another size (D340): the page opens the session's map again, which
     // fits the camera and the minimap to it and clears the selection; nothing of this update goes into the old view
     if (u.ok && (u.info.W !== infoRef.current.W || u.info.H !== infoRef.current.H)) {
@@ -820,10 +854,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     setShowHistory, setCheck, check, setProgress, progress, layer, setLayer, setLayers, waterLayers, waterTick, heldTick,
     flowing, markersOn, setMarkersOn, markersToggle, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
-    selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
+    selectDraw, setSelectDraw, selectPreview, setSelectPreview, rockHeld, setRockHeld, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
     feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
-    setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
+    setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, resizing, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,

@@ -50,6 +50,8 @@ test("Rename stops at two lines, as Your maps' does: a paste keeps what fits, a 
   await page.keyboard.type("W");
   await expect(field).toHaveValue(full);
   await page.keyboard.press("Enter");
+  // (the field is gone: the name is shown, not its hidden copy inside the open field)
+  await expect(field).toHaveCount(0);
   const button = page.locator(".editor-title .title-button");
   await expect(button).toHaveText(full.trim());
   // the name takes two lines at most (the 13px lines at 1280), never overflows, and the header keeps its height
@@ -169,7 +171,7 @@ test("the checks' list closes the Legend while it is open, never lying over it, 
   }
 });
 
-test("the generator's Name field stops at the same two lines as Rename, deleting in it is never limited, and Enter leaves the open map's title alone", async ({ page }) => {
+test("the generator's Name field stops at the same two lines as Rename, deleting in it is never limited, and the open map's title is left alone while the name waits", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   await openDrawer(page);
@@ -182,9 +184,8 @@ test("the generator's Name field stops at the same two lines as Rename, deleting
   await page.keyboard.press("Home");
   await page.keyboard.press("Delete");
   await expect(field).toHaveValue(kept.slice(1));
-  // Enter keeps the typed name for the next map: the open map's title is not renamed
+  // the typed name waits for the next map: the open map's title is not renamed (Enter would make that map, generatorFit.spec.ts)
   const was = await page.locator(".editor-title .title-button").innerText();
-  await page.keyboard.press("Enter");
   await expect(field).toHaveValue(kept.slice(1));
   await expect(page.locator(".editor-title .title-button")).toHaveText(was);
 });
@@ -217,5 +218,5 @@ test("a name the room cannot hold in two lines is shown clamped to two with an e
   await button.click();
   await field.fill("Quiet Valley");
   await page.keyboard.press("Enter");
-  await expect.poll(() => tip(button)).toBe("Rename");
+  await expect.poll(() => tip(button)).toBe("Rename and describe the map");
 });

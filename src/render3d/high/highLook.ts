@@ -6,13 +6,13 @@
 // High and back when it isn't; the Standard materials are never touched, so the Standard look stays
 // exactly as it was. Every effect is a switch (effects.ts).
 
-import { Color, DataTexture, NearestFilter, RGBAFormat, UnsignedByteType, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
+import { Color, DataTexture, type BufferGeometry, NearestFilter, RGBAFormat, UnsignedByteType, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
 import { fallMaterial, objectMaterial, skyMaterial, terrainMaterial, waterMaterial, type SceneUniforms } from "../materials";
 import type { EntityView, SurfaceWater } from "../model";
 import { allEffects, effectiveEffects, type HighEffects } from "./effects";
 import { AmbientField, type Baker } from "./fields";
-import { Forest, replacedBatch } from "./forest";
-import { buildLandmarks, disposeLandmarks, type Replacement } from "./landmarks";
+import { Forest, replacedBatch, shapesAhead } from "./forest";
+import { buildLandmarks, disposeLandmarks, landmarkAhead, type Replacement } from "./landmarks";
 import { Mist } from "./mist";
 import { paletteDefaults, slots } from "./models";
 import { fallHooks, landmarkHooks, objectHooks, skyHooks, slopeHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks, type Switch } from "./shaders";
@@ -50,6 +50,37 @@ export interface HighMaterials {
   fall: ShaderMaterial;
   object: ShaderMaterial;
   sky: ShaderMaterial;
+}
+
+/** The look's materials as its shaders make them, before their uniforms are the look's own: the look builds its own
+ *  from these, and the renderer compiles a copy of them in the background before it first switches to the look
+ *  (programs.ts), so the switch finds their programs ready. `object`, `vegetation`, `landmark` and `slope` draw
+ *  instanced objects. */
+export type HighLookMaterials = HighMaterials & { vegetation: ShaderMaterial; landmark: ShaderMaterial; slope: ShaderMaterial };
+
+export function highLookMaterials(u: SceneUniforms): HighLookMaterials {
+  return {
+    terrain: terrainMaterial(u, 0, 1, false, terrainHooks()),
+    water: waterMaterial(u, false, waterHooks()),
+    fall: fallMaterial(u, false, fallHooks()),
+    object: objectMaterial(u, false, objectHooks()),
+    sky: skyMaterial(skyHooks()),
+    vegetation: objectMaterial(u, false, vegetationHooks(slots.length)),
+    landmark: objectMaterial(u, false, landmarkHooks()),
+    slope: objectMaterial(u, false, slopeHooks()),
+  };
+}
+
+/** The materials of what can stand under a roof (objects of every kind, falls and water): the ones that read the light
+ *  volume on a map with terrain above terrain (the renderer's `CAVES`). */
+export function roofedOf(m: HighLookMaterials): ShaderMaterial[] {
+  return [m.object, m.fall, m.water, m.vegetation, m.landmark, m.slope];
+}
+
+/** The materials that read the run tops' own soil on a map with run tops below a tile's top (the renderer's
+ *  `RUN_SOIL`): the terrain's floors and the slopes standing on them. */
+export function runSoilOf(m: HighLookMaterials): ShaderMaterial[] {
+  return [m.terrain, m.slope];
 }
 
 /** The time between redraws of the sun's depth map while the land keeps changing (a brush). */
@@ -124,20 +155,15 @@ export class HighLook {
       m.uniforms = { ...m.uniforms, ...high, ...extra };
       return m;
     };
-    this.materials = {
-      terrain: own(terrainMaterial(u, 0, 1, false, terrainHooks())),
-      water: own(waterMaterial(u, false, waterHooks())),
-      fall: own(fallMaterial(u, false, fallHooks())),
-      object: own(objectMaterial(u, false, objectHooks())),
-      sky: own(skyMaterial(skyHooks())),
-    };
-    this.vegetation = own(objectMaterial(u, false, vegetationHooks(slots.length)), {
+    const m = highLookMaterials(u);
+    this.materials = { terrain: own(m.terrain), water: own(m.water), fall: own(m.fall), object: own(m.object), sky: own(m.sky) };
+    this.vegetation = own(m.vegetation, {
       vegPalette: { value: slots.map((k) => hexColour(paletteDefaults[k])) },
       vegTime: this.vegTime,
       vegSway: this.vegSway,
     });
-    this.landmark = own(objectMaterial(u, false, landmarkHooks()));
-    this.slope = own(objectMaterial(u, false, slopeHooks()));
+    this.landmark = own(m.landmark);
+    this.slope = own(m.slope);
     this.mist = new Mist(u.time);
     host.scene.add(this.mist.group);
     this.apply();
@@ -276,15 +302,18 @@ export class HighLook {
   /** The objects the renderer built for the map (buildEntities' group): the new trees and the
    *  landmarks go in beside today's, which hide while they show. */
   objectsBuilt(group: Group, entities: EntityView): void {
-    // (the same plants as before: the forest stays, only the landmarks follow the new batches)
-    const sig = plantSignature(entities);
-    const keep = !!this.forest && sig === this.plants;
+    // (the same plants as before: the forest stays, numbered as the new objects number them; only the landmarks follow
+    // the new batches; the renderer then marks the plants a held day withers, `setPlantsDead`)
+    const keep = !!this.forest && this.forest.reindex(entities);
+    // (plants that died or came back, as when water drowns them: moved to the other state's batches in place)
+    if (keep) this.forest!.setDead(entities.flags);
+    const kept = this.keptLandmarks;
+    this.keptLandmarks = [];
     this.releaseObjects();
     if (!keep) {
       this.forest?.dispose();
       this.forest = new Forest(entities, this.vegetation);
       this.forest.setGroundOffset((x, y) => this.host.groundOffset(x, y));
-      this.plants = sig;
     }
     this.objects = group;
     const forest = this.forest!;
@@ -293,12 +322,18 @@ export class HighLook {
       m.renderOrder = 1;
       group.add(m);
     }
-    this.landmarks = buildLandmarks(group, entities, this.landmark, this.slope);
+    this.landmarks = buildLandmarks(group, entities, this.landmark, this.slope, kept);
     for (const { fresh } of this.landmarks) group.add(fresh);
     this.showObjects();
     if (this.map) this.ambient?.objects(this.map.heights, entities);
     this.stats.landmarks = this.landmarks.length;
     this.shadows.dirty = true;
+  }
+
+  /** The models this look may yet draw the map's objects with, as jobs for the page to do when idle: the forest's dead
+   *  models, and the landmark of each ruin batch `ahead` names (with its model). */
+  modelsAhead(entities: EntityView, ahead: readonly { key: string; model: () => BufferGeometry }[]): (() => void)[] {
+    return [...shapesAhead(entities), ...ahead.map(({ key, model }) => () => landmarkAhead(key, model()))];
   }
 
   /** Plants change state in place (the Weather view's withering): the plants whose DEAD flag differs move to the other
@@ -352,19 +387,23 @@ export class HighLook {
     this.releaseObjects();
     this.forest?.dispose();
     this.forest = null;
-    this.plants = "";
   }
 
-  private plants = "";
-
   /** The renderer is about to put its objects away (new ones follow): the High models leave its
-   *  group first, the forest kept for the next if its plants are the same. */
-  releaseObjects(): void {
+   *  group first, the forest kept for the next if its plants are the same. `next`: the group the new objects are in, with
+   *  the batches the renderer kept as they were; their landmarks are kept for `objectsBuilt`. */
+  releaseObjects(next?: Group): void {
     for (const m of this.forest?.meshes ?? []) m.removeFromParent();
-    disposeLandmarks(this.landmarks);
+    disposeLandmarks(this.keptLandmarks);
+    const kept = next ? this.landmarks.filter((r) => r.old.parent === next) : [];
+    for (const r of kept) r.fresh.removeFromParent();
+    disposeLandmarks(this.landmarks.filter((r) => !kept.includes(r)));
+    this.keptLandmarks = kept;
     this.landmarks = [];
     this.objects = null;
   }
+  /** Landmarks of batches the renderer kept, between `releaseObjects` and `objectsBuilt`. */
+  private keptLandmarks: Replacement[] = [];
 
   /** The terrain changed round a rectangle (or all of it): the ambient occlusion there, the
    *  shadows. */
@@ -433,16 +472,19 @@ export class HighLook {
     }
   }
 
-  /** The materials of what can stand under a roof (objects of every kind, falls and water): the ones that read the light
-   *  volume on a map with terrain above terrain (the renderer's `CAVES`). */
-  roofedMaterials(): ShaderMaterial[] {
-    return [this.materials.object, this.materials.fall, this.materials.water, this.vegetation, this.landmark, this.slope];
+  /** The look's materials by name. */
+  named(): HighLookMaterials {
+    return { ...this.materials, vegetation: this.vegetation, landmark: this.landmark, slope: this.slope };
   }
 
-  /** The materials that read the run tops' own soil on a map with run tops below a tile's top (the renderer's
-   *  `RUN_SOIL`): the terrain's floors and the slopes standing on them. */
+  /** The look's materials of what can stand under a roof (`roofedOf`). */
+  roofedMaterials(): ShaderMaterial[] {
+    return roofedOf(this.named());
+  }
+
+  /** The look's materials that read the run tops' own soil (`runSoilOf`). */
   runSoilMaterials(): ShaderMaterial[] {
-    return [this.materials.terrain, this.slope];
+    return runSoilOf(this.named());
   }
 
   private allMaterials(): ShaderMaterial[] {
@@ -459,20 +501,6 @@ export class HighLook {
     this.seasonTexture?.dispose();
     for (const m of this.allMaterials()) m.dispose();
   }
-}
-
-/** The plants of a view (and where each is in its list), as a string that changes when any of them
- *  does. */
-function plantSignature(e: EntityView): string {
-  let h = 2166136261;
-  let n = 0;
-  for (let k = 0; k < e.count; k++) {
-    const t = e.templates[e.template[k]];
-    if (!replacedBatch(t)) continue;
-    n++;
-    for (const v of [k, t.length, t.charCodeAt(0), e.x[k], e.y[k], e.z[k], e.flags[k]]) h = Math.imul(h ^ v, 16777619);
-  }
-  return `${n}:${h >>> 0}`;
 }
 
 function hexColour(hex: string): Color {

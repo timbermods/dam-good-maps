@@ -42,3 +42,18 @@ export async function startHintUp(page: Page) {
     })
     .not.toBeNull();
 }
+
+/** The map the layout specs look at (riverValley 96², seed 4242), its first hint closed and its checks done: the dot's
+ *  words, and with them the header's right group, hold still from here (layout.spec.ts, textClipping.spec.ts). */
+export async function openLayoutMap(page: Page) {
+  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
+  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+  await page.locator(".map-note button").first().click().catch(() => undefined);
+  await expect(page.locator(".checks-dot .dot-words > :first-child")).toHaveText("Ready to play", { timeout: 120_000 });
+}
+
+/** The pointer parked over the map, clear of the controls, and a moment for the page to settle (the layout specs). */
+export async function settle(page: Page, w: number, h: number) {
+  await page.mouse.move(w * 0.55, h * 0.6);
+  await page.waitForTimeout(300);
+}

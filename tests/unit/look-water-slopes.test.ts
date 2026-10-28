@@ -13,6 +13,7 @@ import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { entityView, surfaceWater, waterFromDepth } from "../../src/render3d/model";
 import { GROUND, RUIN, WATER_SURFACE, waterBody, waterOpacity } from "../../src/render3d/palette";
 import { blendedBadwater, meshWaterChunk } from "../../src/render3d/waterMesh";
+import { waterFilmGround } from "../../src/render3d/waterPalette";
 import { plainLayers } from "../../src/render3d/waterLayers";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -48,6 +49,57 @@ describe("water", () => {
       expect(waterOpacity(d, 0)).toBeLessThanOrEqual(waterOpacity(d, 1));
     }
     for (const d of [0.1, 0.25, 0.5, 1]) expect(waterOpacity(d, 0)).toBeLessThan(0.8);
+  });
+
+  it("draws thin water thin (D154, WATER_FILM): a film is mostly see-through, builds smoothly to the body, deep water unchanged, badwater murkier", () => {
+    // a film a tenth of a level deep or less: under half of half-a-level water's opacity; badwater's a tint, not a slab
+    for (const d of [0.03, 0.05, 0.1]) {
+      expect(waterOpacity(d), `${d} deep`).toBeLessThan(waterOpacity(0.5) * 0.5);
+      expect(waterOpacity(d, 1, 1), `badwater ${d} deep`).toBeLessThan(0.75);
+      // badwater stays murkier than clean water as thin
+      expect(waterOpacity(d, 1, 1)).toBeGreaterThan(waterOpacity(d) + 0.2);
+    }
+    // one smooth curve: rising with depth, no step between neighbouring depths
+    let last = waterOpacity(0);
+    for (let d = 0.01; d <= 0.6; d += 0.01) {
+      const a = waterOpacity(d);
+      expect(a).toBeGreaterThanOrEqual(last);
+      expect(a - last).toBeLessThan(0.04);
+      last = a;
+    }
+    // a quarter of a level deep and deeper: the body's own opacity, as before
+    const S = WATER_SURFACE;
+    for (const d of [0.25, 0.5, 1, 3]) expect(waterOpacity(d)).toBeCloseTo(S.clearest + (S.deepest - S.clearest) * (1 - Math.exp(-d * S.absorb)), 9);
+    // the shader reads the same curve
+    const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+    const shader = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t())).fragmentShader;
+    expect(shader).toContain("float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(absorb), film);");
+    expect(shader).toContain("return max(mix(min(WATER_FILM_BAD, body), body, waterFilm(depth)), grazing * ");
+  });
+
+  it("draws the ground under a film in the water's hue (D154): teal, crimson, mixed water through the warm midpoint, never purple or mauve-grey", () => {
+    /** Hue in degrees (0 red, 120 green, 240 blue) and saturation (max - min) of a display colour. */
+    const hue = (c: readonly number[]) => {
+      const [r, g, b] = c;
+      const mx = Math.max(r, g, b);
+      const d = mx - Math.min(r, g, b);
+      if (d < 1e-6) return { h: 0, s: 0 };
+      const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      return { h: (h * 60 + 360) % 360, s: d };
+    };
+    for (const ground of [GROUND.moistLow, GROUND.moistHigh, GROUND.dry, GROUND.contaminated]) {
+      // clean: a teal-green, the grass's hue only partly kept; badwater: crimson whatever the ground
+      const clean = hue(waterFilmGround(ground, 0));
+      expect(clean.h, `clean over ${ground}`).toBeGreaterThan(130);
+      expect(clean.h).toBeLessThan(200);
+      const bad = hue(waterFilmGround(ground, 1));
+      expect(bad.h < 20 || bad.h > 350, `badwater over ${ground}: ${bad.h}`).toBe(true);
+      // mixed water: never purple or mauve (hues 250-345 with any colour to them)
+      for (let s = 0.05; s < 1; s += 0.05) {
+        const m = hue(waterFilmGround(ground, s));
+        if (m.s > 0.02) expect(m.h > 250 && m.h < 345, `share ${s.toFixed(2)} over ${ground}: ${m.h}`).toBe(false);
+      }
+    }
   });
 
   it("blends the badwater share between tiles on the tops, so water partly bad turns smoothly (D177)", () => {

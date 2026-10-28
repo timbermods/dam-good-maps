@@ -193,6 +193,18 @@ export interface KeptSource {
   id: string;
 }
 
+/** A spring's source the build left out of its row (D491, D342: recorded, never silent). */
+export interface SpringLeft {
+  /** The river or lake whose row it was. */
+  feature: string;
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  /** The game's reason, one plain line (objects.ts `standProblem`). */
+  why: string;
+}
+
 export interface BuildResult {
   W: number;
   H: number;
@@ -226,6 +238,9 @@ export interface BuildResult {
    *  the game deletes them when it loads the map. Absent: none, as on every heightfield (a generated
    *  map). On an imported map's caves they are counted, not removed: the file keeps them. */
   dropped?: number;
+  /** A spring's sources the build left out on a map with caves, each where the game would not keep
+   *  it (D491), with the game's reason. Absent: none. */
+  springsLeft?: SpringLeft[];
   /** What changed since the build `rebuild` started from (null for a full build). */
   dirty: DirtyInfo | null;
   /** Everything a later `rebuild` reuses. */
@@ -638,8 +653,8 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   //    (a river read back from the field marks its channel on the field's ground)
   for (const f of input.features) if (f.kind === "lake" && live(f) && !carved(f)) rasterizeLake(f, t);
   for (const f of input.features) if (f.kind === "river" && live(f)) (carved(f) ? markRiverChannel : rasterizeRiver)(f, t);
-  // 5. the start bench (and, later, object pads)
-  for (const f of input.features) if (f.kind === "start" && live(f)) rasterizeBench(f, t);
+  // 5. the start bench (and, later, object pads); a start under a roof has none (D491)
+  for (const f of input.features) if (f.kind === "start" && live(f) && f.params.z === undefined) rasterizeBench(f, t);
   // 6. sculpt edits and brush strokes, in order (on an import's caves and overhangs a brush shapes
   //    the top run only, never below one layer over the roof's underside, D280 (3)). The
   //    generation's slopes are checked after the features and after each edit: one an edit's ground
@@ -770,7 +785,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   let startInfo: BuildResult["start"];
   if (start) {
     const [cx, cy] = start.params.position;
-    startInfo = { x: cx, y: cy, z: heights[cy * W + cx], feature: start.id };
+    startInfo = { x: cx, y: cy, z: start.params.z ?? heights[cy * W + cx], feature: start.id };
     for (let y = cy - START_CLEAR_RADIUS; y <= cy + START_CLEAR_RADIUS; y++)
       for (let x = cx - START_CLEAR_RADIUS; x <= cx + START_CLEAR_RADIUS; x++)
         if (x >= 0 && x < W && y >= 0 && y < H) reserved[y * W + x] = 1;
@@ -799,25 +814,32 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   // on a map with caves, a spring's source stands only where the game keeps it (D491, objects.ts
   // `standProblem`, the rule the editor's placing reads): on its floor at the bottom of the map, its
   // cells free of the map's objects (a placed object's, a kept one's) and of the sources placed before
-  // it. One the game would not keep is left out of its row, never moved onto another's cells
+  // it. One the game would not keep is left out of its row, never moved onto another's cells, and
+  // recorded with the game's reason (`springsLeft`: never silently, D342; the generator notes it as
+  // a fix, an edit that newly leaves one out is refused)
+  const springsLeft: SpringLeft[] = [];
   let held: Map<number, string> | null = null;
   const holds = (template: string, x: number, y: number, z: number, orientation: Orientation, flipped = false) => {
     for (const c of worldBlocks(FOOTPRINTS[template], { template, x, y, z, orientation, flipped }))
       if (c.x >= 0 && c.y >= 0 && c.x < W && c.y < H && c.z >= 0) held!.set(c.z * N + c.y * W + c.x, template);
   };
-  const standing = (src: { x: number; y: number; z: number }): boolean => {
-    if (!runsGround) return true;
+  const standing = (src: { x: number; y: number; z: number }): string | null => {
+    if (!runsGround) return null;
     if (!held) {
       held = new Map();
       const others = [...features.filter((f): f is MapObjectFeature => f.kind === "mapObject" && live(f)).flatMap((f) => rasterizeObjects(f, W, H, heights, input.locked?.mask ?? null)), ...(input.locked?.entities ?? [])];
       for (const e of others) if (FOOTPRINTS[e.template]) holds(e.template, e.x, e.y, e.z, e.orientation ?? "Cw0", !!e.flipped);
     }
     const taken = (x: number, y: number, z: number) => held!.get(z * N + y * W + x) ?? null;
-    return standProblem("WaterSource", { x: src.x, y: src.y, z: src.z, orientation: "Cw0" }, { W, H, mask: runsGround.mask }, taken) === null;
+    return standProblem("WaterSource", { x: src.x, y: src.y, z: src.z, orientation: "Cw0" }, { W, H, mask: runsGround.mask }, taken);
   };
   // (the sources kept of a row, their strength shared again over those, each then holding its cells)
-  const standingRow = (strength: number, row: { sources: GroupedSource[]; ids: string[] }) => {
-    const keep = row.sources.map((src) => standing(src));
+  const standingRow = (feature: string, strength: number, row: { sources: GroupedSource[]; ids: string[] }) => {
+    const why = row.sources.map((src) => standing(src));
+    const keep = why.map((w) => w === null);
+    row.sources.forEach((src, k) => {
+      if (why[k] !== null) springsLeft.push({ feature, id: row.ids[k], x: src.x, y: src.y, z: src.z, why: why[k]! });
+    });
     if (keep.every(Boolean)) {
       if (held) for (const src of row.sources) holds("WaterSource", src.x, src.y, src.z, "Cw0");
       return row;
@@ -852,7 +874,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     const kept = input.generatedSprings?.get(f.id);
     if (kept?.length) {
       const share = rowStrengths(strength, kept.length);
-      const row = standingRow(strength, { sources: kept.map(({ tile: i }, k) => ({ x: i % W, y: Math.floor(i / W), z: floorAt(i), strength: share[k], tiles: [i] })), ids: kept.map((s) => s.id) });
+      const row = standingRow(f.id, strength, { sources: kept.map(({ tile: i }, k) => ({ x: i % W, y: Math.floor(i / W), z: floorAt(i), strength: share[k], tiles: [i] })), ids: kept.map((s) => s.id) });
       if (row.sources.length) springs.set(f.id, row);
       for (const { tile } of kept) reserved[tile] = 1;
       continue;
@@ -865,7 +887,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     const rowGround = input.field?.contains.has(f.id) ? (input.field.caves ? runFloorsOf(input.field.caves) : input.field.heights) : runsGround ? runFloorsOf(runsGround) : heights;
     const g = placeSourceGroup(req, { W, H, heights: rowGround, occupied: reserved });
     if (!g.sources.length) continue;
-    const row = standingRow(strength, { sources: g.sources.map((src) => ({ ...src, z: floorAt(src.y * W + src.x) })), ids: groupIds(entityId(f.id, "WaterSource", at), req, g) });
+    const row = standingRow(f.id, strength, { sources: g.sources.map((src) => ({ ...src, z: floorAt(src.y * W + src.x) })), ids: groupIds(entityId(f.id, "WaterSource", at), req, g) });
     if (row.sources.length) springs.set(f.id, row);
     for (const i of groupTiles(g)) reserved[i] = 1;
   }
@@ -1114,7 +1136,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    the support rule (D121, step 7) on the terrain as built, with the objects that hold ground
   //    (the resources and the start placed after this hold none)
   const dropped = groundDropped(caves, heights, entities, masksOf(terrain), W, H);
-  const partial = { W, H, seed, heights, occupied, channel: terrain.channel, entities, slopes, sources, start: startInfo, notes, orphans, ...(dropped ? { dropped } : {}) };
+  const partial = { W, H, seed, heights, occupied, channel: terrain.channel, entities, slopes, sources, start: startInfo, notes, orphans, ...(dropped ? { dropped } : {}), ...(springsLeft.length ? { springsLeft } : {}) };
   const makeCache = (over: Partial<BuildCache>): BuildCache => ({
     keys: new Map(features.map((f) => [f.id, featureKey(f)])),
     terrainFeatures: features.filter((f) => isTerrainKind(f) && live(f)).map((f) => JSON.parse(featureKey(f)) as Feature),
@@ -1367,7 +1389,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     const [cx, cy] = start.params.position;
     const o = start.params.orientation;
     const [x, y] = coordinatesForMinCorner(3, 3, cx - 1, cy - 1, o);
-    entities.push(startingLocation({ id: entityId(start.id, "StartingLocation", 0), owner: start.id, x, y, z: heights[cy * W + cx], orientation: o, player: start.params.player }));
+    // (under a roof, at its level: a cave's floor, the ground under a ledge, D491)
+    entities.push(startingLocation({ id: entityId(start.id, "StartingLocation", 0), owner: start.id, x, y, z: start.params.z ?? heights[cy * W + cx], orientation: o, player: start.params.player }));
   }
 
   // 13. the second pass of entity edits, on what only exists now

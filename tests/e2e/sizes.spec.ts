@@ -11,7 +11,9 @@ const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
 async function openTopDown(page: Page) {
-  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  // (Highlands seed 4246, a map whose land grows no 3D form, since forms grow at the default Verticality, #611, D488,
+  // D148: on seed 4242 the whole-map Flatten would leave its spring cave's roof unheld, and is refused, D280 (3))
+  await openEditor(page, "s=4246&z=96&d=n&t=highlands");
   await topDown(page);
 }
 

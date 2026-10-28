@@ -11,6 +11,7 @@ import { plain } from "../words";
 import { loadBlock, saveBlock } from "../prefs/blockPrefs";
 import type { Ed } from "../ed";
 import { blockAim, type BlockAim } from "../../render3d/pick";
+import { freeView } from "../view/pointerNote";
 import { blockLabel, blockParams, clampSize, modeFor, noteSpot, paramsKey, plantsWords, PlaneSweep, sizeFromPointer, type BlockSettings, type ScreenBox } from "./blockTool";
 import { showBlocks } from "./view";
 
@@ -24,7 +25,7 @@ export interface BlockSlice {
   /** Why the click under the pointer is refused, or the plants it would take or lift, beside the blocks it would
    *  change (kept apart from the size flash, so neither clears the other); x and y as the shape note's; `ok` when
    *  the click would be taken (the plants' words). */
-  blockNote: { text: string; x: number; y: number; ok?: boolean } | null;
+  blockNote: { text: string; x: number; y: number; pointer: { x: number; y: number }; own: boolean; ok?: boolean } | null;
   setBlockSettings: (s: BlockSettings, save?: boolean) => void;
   /** Pick the tool up or put it away (every other tool goes back when it is picked). */
   pickBlock: (on: boolean) => void;
@@ -49,7 +50,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
   blockRef.current = block;
   const [blockSettings, setSettingsState] = useState<BlockSettings>(loadBlock);
   const [blockFlip, setFlip] = useState(false);
-  const [blockNote, setBlockNote] = useState<{ text: string; x: number; y: number; ok?: boolean } | null>(null);
+  const [blockNote, setBlockNote] = useState<{ text: string; x: number; y: number; pointer: { x: number; y: number }; own: boolean; ok?: boolean } | null>(null);
   const settingsRef = useRef(blockSettings);
   settingsRef.current = blockSettings;
   const setBlockSettings = (s: BlockSettings, save = true) => {
@@ -113,11 +114,14 @@ export function useBlockTool(ed: Ed): BlockSlice {
     pv.current.note = reason ? plain(reason) : null;
     if (!reason) return setBlockNote(null);
     const c = renderer.current?.canvas;
-    // (the note's own size, about: two lines at most; its left and top are what the page places it by, less 16px each;
-    // below the pointer's own words, which show a size beside it for a moment)
-    const at = { x: pointerAt.current.x, y: pointerAt.current.y + 32 };
-    const spot = c ? noteSpot(box, at, { w: c.clientWidth, h: c.clientHeight }, { w: 300, h: 52 }) : { x: at.x + 16, y: at.y + 16 };
-    setBlockNote({ text: plain(reason), x: spot.x - 16, y: spot.y - 16, ok });
+    // (the note's own size, about: two lines at most; below the pointer's own words, which show a size beside it for a
+    // moment; clear of the panels, the shelf and the bars, and the page moves it again if it still runs under one)
+    const pointer = { ...pointerAt.current };
+    const at = { x: pointer.x, y: pointer.y + 32 };
+    const free = c?.parentElement ? freeView(c.parentElement) : null;
+    const spot = c ? noteSpot(box, at, { w: c.clientWidth, h: c.clientHeight }, { w: 300, h: 52 }, 10, free?.avoid) : { x: at.x + 16, y: at.y + 16 };
+    // (with blocks drawn, the spot is the tool's own, clear of them; the page does not move it to another side it had)
+    setBlockNote({ text: plain(reason), x: spot.x, y: spot.y, pointer, own: !!box, ok });
   }
 
   /** Show an answer: the blocks on the map and, when the click would be refused, why. */
@@ -288,7 +292,11 @@ export function useBlockTool(ed: Ed): BlockSlice {
     // (the preview is cleared as the edit goes: the new blocks stand where it was)
     ask(null);
     void run(
-      () => api.apply({ op: "blocks", params }, "user", blockLabel(mode)),
+      () => {
+        // (said as it goes, after any edit queued before it has landed: the land its answer brings is its own)
+        renderer.current?.blockEditSent();
+        return api.apply({ op: "blocks", params }, "user", blockLabel(mode));
+      },
       (u) => {
         if (!u.ok) return refresh();
         ed.firstDoneRef.current("paint");
@@ -297,7 +305,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
         const c = list[Math.floor(list.length / 2)] ?? sweep.at[0];
         feel(mode === "add" ? "raise" : "lower", c[0], c[1], params.size);
       },
-    );
+    ).finally(() => renderer.current?.blockEditSent(false));
   }
 
   // the map changed (an edit, an undo, a redo): the face under the pointer is asked about again

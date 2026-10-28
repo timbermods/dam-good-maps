@@ -23,9 +23,10 @@ const haveFirefox = (ci || process.env.DGM_COLLAB_FIREFOX === "1") && existsSync
 
 /**
  * A browser in its own process. `chromium` is Chrome; `other` is Firefox, or Edge where Firefox isn't available (local).
- * `open` loads the harness page.
+ * `open` loads the harness page. `webgl`: the page draws the 3D view, so the other peer is never Firefox (the CI runner's Firefox
+ * cannot make a WebGL context): it is a second Chromium process (Edge locally), still its own browser over the real relay.
  */
-export async function launchPeer(kind: Kind, open: (page: Page) => Promise<void>, global = "harness"): Promise<Peer> {
+export async function launchPeer(kind: Kind, open: (page: Page) => Promise<void>, global = "harness", webgl = false): Promise<Peer> {
   let server: BrowserServer;
   let name: string;
   let browser: Browser;
@@ -33,14 +34,14 @@ export async function launchPeer(kind: Kind, open: (page: Page) => Promise<void>
     server = await chromium.launchServer({ headless: true, ...(ci ? {} : { channel: "chrome" }) });
     browser = await chromium.connect(server.wsEndpoint());
     name = "Chromium";
-  } else if (haveFirefox) {
+  } else if (haveFirefox && !webgl) {
     server = await firefox.launchServer({ headless: true, firefoxUserPrefs: FIREFOX_PREFS });
     browser = await firefox.connect(server.wsEndpoint());
     name = "Firefox";
   } else {
-    server = await chromium.launchServer({ headless: true, channel: "msedge" });
+    server = await chromium.launchServer({ headless: true, ...(ci ? {} : { channel: "msedge" }) });
     browser = await chromium.connect(server.wsEndpoint());
-    name = "Edge";
+    name = ci ? "Chromium (second)" : "Edge";
   }
   const page = await browser.newPage();
   await open(page);

@@ -18,6 +18,8 @@ declare global {
     dgmEditor?: {
       info: () => SessionInfo;
       tileToClient(x: number, y: number): { x: number; y: number };
+      /** The words beside the pointer, as a refusal, with the pointer at (x, y) of the map view (null clears them): placement tests. */
+      pointerNote(text: string | null, x?: number, y?: number): void;
       idle(): Promise<void>;
       /** The problems the last edit made. */
       instant(): CheckItem[];

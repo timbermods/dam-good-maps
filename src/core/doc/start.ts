@@ -8,11 +8,14 @@ import type { BuildResult } from "../features/build";
 import { inBench } from "../features/raster/terrain";
 import { BUILDERS } from "../features/setpieces";
 import { entityTiles } from "../features/edits";
-import { startFitExtras, startFitProblem, startFitWarnings, takenTiles, type StartFitExtra } from "./startFit";
+import { makesRoomForStart, standingOf, startFitExtras, startFitProblem, startFitWarnings, startRoofProblem, takenTiles, type StartFitExtra } from "./startFit";
+import { objectCells } from "./placing";
 import { startEntranceTile, startMiddleTile, type Orientation } from "../format/footprints";
 import type { Feature, StartFeature } from "../features/schema";
 import type { EditOp } from "./ops";
 import type { ApplyResult, MapSession } from "./session";
+import { objectRoofHolders, roofHolders } from "../terrain/support";
+import { tilesToRuns } from "../math/grid";
 import type { ForceResultParams } from "../forces/op";
 
 /** The tiles other objects cover (every one's whole footprint, what the checks read) and the generation's
@@ -24,7 +27,7 @@ export interface StartGround {
 
 export function startGroundOf(b: BuildResult, features: readonly Feature[], ignoreOwner: string | null): StartGround {
   const taken = takenTiles(b.W, b.H, function* () { for (const e of b.entities) yield { template: e.template, owner: e.owner, raw: e.raw, tiles: () => entityTiles(e) }; }(), ignoreOwner);
-  return { taken, extras: startFitExtras(features, b.W, b.H) };
+  return { taken, extras: startFitExtras(features, b.W, b.H, standingOf(b.entities)) };
 }
 
 /** Whether the start's district center can stand with its middle at (x, y) facing `o`: its 3×3 and
@@ -111,7 +114,8 @@ function nearestSpot(s: MapSession, fromX: number, fromY: number, level: boolean
         if (!ok || startProblem(b, x, y, o, level, feat.id, pieces, ground, strict)) continue;
         const benchLevel = Math.max(1, b.heights[y * W + x]);
         if ((level || allowed) && !benchFits(b, x, y, o, rr, level ? benchLevel : null, allowed)) continue;
-        return [...startClears(s, x, y, o), { op: "updateFeature", params: { id: feat.id, patch: { params: { position: [x, y], benchLevel, bank: null } } } }];
+        // (a start under a roof comes out onto the top, D491)
+        return [...startClears(s, x, y, o), { op: "updateFeature", params: { id: feat.id, patch: { params: { position: [x, y], benchLevel, bank: null, ...(feat.params.z !== undefined ? { z: null } : {}) } } } }];
       }
       if (startProblem(b, x, y, o, true, null, pieces, ground, strict)) continue;
       if (allowed && !benchFits(b, x, y, o, 0, null, allowed)) continue;
@@ -146,9 +150,10 @@ function benchFits(b: BuildResult, x: number, y: number, o: Orientation, r: numb
 /** The generation's trees, bushes and ruin columns under a start moved to (x, y) (its footprint and
  *  its entrance), removed in the step that puts the start there: without the removal the build
  *  would only keep them aside while the start stands on them, and moving it on would bring them
- *  back (D368 (10): only the player places objects). Empty for a map that keeps no generation's
- *  record. */
-export function startClears(s: MapSession, x: number, y: number, o: Orientation): EditOp[] {
+ *  back (D368 (10): only the player places objects). `z`: the level a start under a roof stands on
+ *  (D491): only what grows on that floor goes, never what stands on the roof's top above it. Empty for
+ *  a map that keeps no generation's record. */
+export function startClears(s: MapSession, x: number, y: number, o: Orientation, z?: number): EditOp[] {
   const kept = s.generatedResources();
   if (!kept) return [];
   const { W } = s.built;
@@ -157,7 +162,7 @@ export function startClears(s: MapSession, x: number, y: number, o: Orientation)
   const [cx, cy] = cornerFor(x, y, o);
   const door = startEntranceTile(cx, cy, o);
   under.add(door[1] * W + door[0]);
-  const ids = s.built.entities.filter((e) => kept.has(e.owner) && under.has(e.y * W + e.x)).map((e) => e.id);
+  const ids = s.built.entities.filter((e) => kept.has(e.owner) && under.has(e.y * W + e.x) && (z === undefined || e.z === z)).map((e) => e.id);
   return ids.length ? [{ op: "deleteEntities", params: { entities: ids } }] : [];
 }
 
@@ -176,6 +181,13 @@ export function startBrokenBy(s: MapSession, changed: ReadonlySet<number>): bool
   const tiles = [door[1] * W + door[0]];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + x + dx);
   if (!tiles.some((i) => changed.has(i))) return false;
+  // (under a roof, the game's rule at its level: the tools shape only the roof's top, D487, D491)
+  const z = feat ? feat.params.z : ent!.z < b.heights[ent!.y * W + ent!.x] ? ent!.z : undefined;
+  if (z !== undefined) {
+    // (the start's own object by its feature, or by its template: an import's objects are all owned by "import")
+    const cells = objectCells(b.entities, W, b.H, (e) => (!!feat && e.owner === feat.id) || makesRoomForStart(e.template, !!e.raw));
+    return startRoofProblem({ ...s.standGround(), heights: b.heights }, x, y, o, z, cells) !== null;
+  }
   const why = startProblem(b, x, y, o, true, feat ? feat.id : null, pieceTiles(s));
   return why !== null && why !== "under water";
 }
@@ -230,8 +242,43 @@ export function startCarry(s: MapSession, params: ForceResultParams, limits: { i
 export function applySelection(s: MapSession, ops: EditOp[], label: string, tiles: readonly number[]): ApplyResult {
   // (Select's actions are exact: what they change stays as they left it, a lone tile too; D259, D264)
   ops = ops.map((o) => (o.op === "sculpt" && !o.params.exact ? { ...o, params: { ...o.params, exact: true } } : o));
+  // (on a map with caves, a selection that takes one in, a whole map with a 3D form on it, shapes the rest: the cave's or
+  // overhang's columns and the ground holding up its roof are left as they are, as a force leaves them (D487), and the
+  // answer says how many; a selection of nothing else is refused with the core's one line)
+  const held = selectionHeld(s);
+  let left = 0;
+  if (held.size) {
+    const kept: EditOp[] = [];
+    const out = new Set<number>();
+    let first = -1;
+    for (const o of ops) {
+      if (o.op !== "sculpt") {
+        kept.push(o);
+        continue;
+      }
+      const W = s.size.x;
+      const open: number[] = [];
+      for (const [y, x0, x1] of o.params.cells)
+        for (let x = x0; x <= x1; x++) {
+          const i = y * W + x;
+          if (held.has(i)) {
+            out.add(i);
+            if (first < 0) first = i;
+          } else open.push(i);
+        }
+      if (open.length) kept.push({ ...o, params: { ...o.params, cells: tilesToRuns(open, W) } } as EditOp);
+    }
+    if (!kept.some((o) => o.op === "sculpt") && out.size) {
+      // (a cave's own column first, when there is one; else the ground beside it that holds up its roof)
+      const cave = [...out].find((i) => s.columns.has(i));
+      return { ok: false, errors: [heldWhy(cave ?? first, cave !== undefined, s.size.x)], applied: [], dirty: null };
+    }
+    ops = kept;
+    left = out.size;
+  }
   const r = s.applyAll(ops, "user", label);
   if (!r.ok) return r;
+  if (left) r.left = left;
   if (startBrokenBy(s, new Set(tiles))) {
     const at = startMiddle(s);
     const carry = at ? moveStartNear(s, at[0], at[1], true, undefined, true) : null;
@@ -242,4 +289,23 @@ export function applySelection(s: MapSession, ops: EditOp[], label: string, tile
     }
   }
   return r;
+}
+
+/** Why a Select action leaves tile i as it is, in one line: a cave's or an overhang's column, or the ground holding up
+ *  its roof (as the forces say it, forces/start.ts `caveRefusal`). */
+export function heldWhy(i: number, cave: boolean, W: number): string {
+  const at = `(${i % W}, ${Math.floor(i / W)})`;
+  return cave ? `${at} has a cave or overhang: shape its top with a brush` : `${at} holds up the roof of a cave or overhang: the Select actions leave it as it is`;
+}
+
+/** The ground a Select action leaves as it is on a map with caves (D487, as the forces leave it): every column with a
+ *  cave or an overhang, and the ground holding up its roof (`terrain/support.ts` `roofHolders`, with the tiles of an object
+ *  whose stackable top holds one). Empty on a heightfield. */
+export function selectionHeld(s: MapSession): Set<number> {
+  const caves = [...s.columns.keys()];
+  if (!caves.length) return new Set();
+  const g = s.standGround();
+  const t = { W: g.W, H: g.H, mask: Uint32Array.from(g.mask) };
+  const objects = s.built.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation ?? "Cw0", flipped: !!e.flipped }));
+  return new Set([...caves, ...roofHolders(t, caves), ...objectRoofHolders(t, objects)]);
 }

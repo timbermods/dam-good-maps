@@ -11,6 +11,9 @@ import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
 import { useMenuPresence } from "../ui/menuPresence";
+import { cleanMapName } from "../core/doc/document";
+import type { Role } from "../core/collab";
+import { openTogether } from "./collab/togetherOpen";
 import { fitsHeaderTwoLines, limitName, linesIn } from "./nameFit";
 import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
@@ -146,9 +149,43 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
 /** The map's name, renamed in place (Kyler, 2026-10-03): a click edits it at exactly the same place, size and font,
  *  so nothing moves; Enter or leaving the field saves through the core (never an undo step, D443), Esc cancels; a
  *  blank name is refused in the core's own words. */
-function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void }) {
+function TitleName(p: {
+  name: string;
+  /** The description the player wrote ("" when none: the generated one is used). */
+  described: string;
+  /** What follows the description in the file whatever is written (a real place's credits, a note): shown, not edited. */
+  kept: string | null;
+  clipped: boolean;
+  onShown(): void;
+  onRename(name: string): Promise<string | null>;
+  onDescribe(text: string): Promise<string | null>;
+  onProblem(problem: string | null): void;
+  /** Why the name can't be changed here (a guest's: the host names the shared map), when it can't. */
+  locked?: string;
+}) {
   const [text, setText] = useState<string | null>(null);
+  /** The name just saved, shown until the core's answer brings it as `p.name`: the core runs in a worker that may be busy,
+   *  and the title never waits for it. */
+  const [pending, setPending] = useState<string | null>(null);
+  /** The description being written beside the name (a second line under it while the name is edited), and what it was. */
+  const [desc, setDesc] = useState("");
+  const [descProblem, setDescProblem] = useState<string | null>(null);
+  const was = useRef("");
+  const card = useRef<HTMLDivElement>(null);
+  // (the card hangs 6px under the header bar's bottom edge, whatever height the title is: it never lies over the bar's buttons)
+  useLayoutEffect(() => {
+    const el = card.current;
+    const title = el?.parentElement;
+    const bar = title?.closest(".editor-bar");
+    if (el && title && bar) el.style.top = `${bar.getBoundingClientRect().bottom - title.getBoundingClientRect().top + 6}px`;
+  });
   const input = useRef<HTMLInputElement>(null);
+  const open = (name: string) => {
+    was.current = p.described;
+    setDesc(p.described);
+    setDescProblem(null);
+    setText(name);
+  };
   const timer = useRef(0);
   // (focus is taken in the same task as the click that opens the field, so no key typed straight after it is lost)
   useLayoutEffect(() => {
@@ -178,30 +215,65 @@ function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRenam
       closing.current = false;
     }
   };
+  /** The latest save that sent a rename: only its answer clears the pending name, so an earlier answer never shows a name
+   *  the player has since replaced. */
+  const latest = useRef(0);
   const saveText = async (text: string, leaving: boolean) => {
-    if (text.trim() === p.name) {
-      setText(null);
-      return say(null);
+    // (the name and the description are saved apart: each is refused in the core's own words)
+    // (against the name the title shows: a name typed back while a rename is still on its way is a change too)
+    const changed = text.trim() !== (pending ?? p.name);
+    // a name the core will refuse (a blank one) is refused here at once, in the core's own words
+    const clean = cleanMapName(text);
+    const nameProblem = changed && !clean.ok ? clean.reason : null;
+    // the rename goes to the core now and is never waited for by the title: the core runs in a worker that may be busy
+    const mine = changed && clean.ok ? ++latest.current : 0;
+    const sent = mine ? p.onRename(text) : null;
+    const answered = async () => {
+      let problem: string | null = null;
+      try {
+        problem = await sent;
+      } finally {
+        if (latest.current === mine) setPending(null);
+      }
+      if (problem) say(problem, true);
+    };
+    let said: string | null = null;
+    if (desc !== was.current) {
+      said = await p.onDescribe(desc);
+      if (!said) was.current = desc;
     }
-    const problem = await p.onRename(text);
-    if (!problem) {
-      setText(null);
-      return say(null);
+    setDescProblem(said);
+    // a description the core refused is never thrown away: the card stays open with its text and the core's reason, even
+    // when focus has left the title (D342: refused with a one-line reason, never silently)
+    if (said) {
+      if (sent) void answered();
+      return say(nameProblem, false);
     }
-    // refused: Enter keeps the field open with the core's words; leaving puts the name back and says why
-    if (leaving) setText(null);
-    say(problem, leaving);
+    // refused: Enter keeps the fields open with the core's words; leaving puts the name back and says why
+    if (nameProblem) {
+      if (leaving) setText(null);
+      return say(nameProblem, leaving);
+    }
+    // the name is stored data the core accepts: the field gives way to the title now, which shows it and fits it in the
+    // same frame (the title once stayed a field, drawn for what was typed, for as long as the worker took to answer)
+    if (clean.ok && sent) setPending(clean.name);
+    setText(null);
+    say(null);
+    if (sent) void answered();
   };
   if (text === null)
     return (
       <h1>
-        <button type="button" class="title-button" title={p.clipped ? p.name : "Rename"} onClick={() => setText(p.name)}>
-          {p.name}
+        <button type="button" class={`title-button${p.locked ? " locked" : ""}`} title={p.locked ?? (p.clipped ? (pending ?? p.name) : "Rename and describe the map")} aria-disabled={p.locked ? true : undefined} onClick={() => (p.locked ? undefined : open(pending ?? p.name))}>
+          {pending ?? p.name}
         </button>
       </h1>
     );
+  // (focus moving between the name and the description stays inside the title: nothing is saved until it leaves)
+  const inside = (e: FocusEvent) => !!(e.relatedTarget as Element | null)?.closest?.(".editor-title");
   // the name's own box stays (its text hidden, following what is typed), and the field lies exactly over it
   return (
+    <>
     <h1 class="title-editing">
       <span class="title-wrap">
       <span class="title-button" aria-hidden="true">
@@ -229,10 +301,51 @@ function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRenam
               say(null);
             }
           }}
-          onBlur={() => void save(true)}
+          onBlur={(e) => !inside(e) && void save(true)}
         />
       </span>
     </h1>
+    {/* the map's own description, a second line under the name (short, plain placeholder): the text the game shows with the map */}
+    <div class="title-desc" ref={card} tabIndex={-1} onBlur={(e) => !inside(e) && void save(true)}>
+      <textarea
+        rows={2}
+        value={desc}
+        spellcheck={true}
+        autoComplete="off"
+        aria-label="Map description"
+        placeholder="Describe the map"
+        {...tip("The description the game shows with the map")}
+        class={descProblem ? "refused" : undefined}
+        onInput={(e) => {
+          setDesc((e.target as HTMLTextAreaElement).value);
+          setDescProblem(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            void save(false);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            closing.current = true;
+            setText(null);
+            say(null);
+          }
+        }}
+        onBlur={(e) => !inside(e) && void save(true)}
+      />
+      {p.kept ? (
+        <span class="title-desc-kept" {...tip("Added after the description")}>
+          {p.kept}
+        </span>
+      ) : null}
+      {descProblem ? (
+        <span class="title-desc-problem" role="alert">
+          {descProblem}
+        </span>
+      ) : null}
+    </div>
+    </>
   );
 }
 
@@ -242,6 +355,10 @@ export interface HeaderProps {
   name: string;
   /** Rename through the core (D443): null when stored, else the core's reason. */
   onRename(name: string): Promise<string | null>;
+  /** Why the name can't be changed here (a guest's: the host names the shared map), when it can't. */
+  renameLocked?: string;
+  /** Write the map's description through the core (the setDescription operation): null when stored, else the core's reason. */
+  onDescribe(text: string): Promise<string | null>;
   /** Why this browser isn't keeping the map, when it isn't; else empty. */
   saveState: string;
   canUndo: boolean;
@@ -272,6 +389,11 @@ export interface HeaderProps {
   onPlaces(): void;
   /** The look's menu (High or Standard, D284), beside More. */
   look?: ComponentChildren;
+  /** Together: edit this map with someone else (a quiet button and its panel), before File. */
+  together?: ComponentChildren;
+  /** The other player in a live or paused session ("paused" while they are away): File wears their dot, and its Together…
+   *  entry is there, where the header is too full for Together's own button (below 1,340px wide); absent without Together. */
+  togetherEntry?: { role: Role; paused: boolean; other: boolean } | null;
 }
 
 export function Header(p: HeaderProps) {
@@ -290,7 +412,8 @@ export function Header(p: HeaderProps) {
   // the name ellipsizes, down to about 80px
   const bar = useRef<HTMLElement>(null);
   const fit = useRef<() => void>(() => undefined);
-  useEffect(() => {
+  // (laid out in the commit itself, before the browser draws: the title is never drawn at a fit that is a draw behind)
+  useLayoutEffect(() => {
     const el = bar.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const note = () => {
@@ -339,7 +462,7 @@ export function Header(p: HeaderProps) {
     el.querySelectorAll(".new-map, .editor-actions").forEach((g) => watch.observe(g));
     return () => watch.disconnect();
   }, []);
-  useEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H]);
+  useLayoutEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H]);
   useEffect(() => {
     if (!menu) return;
     const off = (e: PointerEvent) => {
@@ -362,7 +485,7 @@ export function Header(p: HeaderProps) {
   const savingWords = saving ? `Saving…${saving.progress ? ` ${Math.round(saving.progress.done * 100)}%` : ""}` : null;
   return (
     <header class="editor-bar" ref={bar}>
-      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} title={p.drawerOpen ? "Close the map generator" : "Make a new map and change its settings"} onClick={p.onDrawer}>
+      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} {...tip(p.drawerOpen ? "Close the map generator" : "Make a new map and change its settings", p.drawerOpen && "Esc")} onClick={p.onDrawer}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
           <path d="M9 3v15M15 6v15" />
@@ -386,7 +509,7 @@ export function Header(p: HeaderProps) {
         <span class="label">Your maps</span>
       </button>
       <div class="editor-title">
-        <TitleName name={p.name} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} />
+        <TitleName name={p.name} described={p.info.descriptionWritten ? p.info.description : ""} kept={p.info.descriptionKept} onDescribe={p.onDescribe} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} locked={p.renameLocked} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
           {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed}${p.info.spec.variation ? ` · ${p.info.spec.variation}` : ""} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>
@@ -411,9 +534,11 @@ export function Header(p: HeaderProps) {
           <span class="label">{saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}</span>
         </button>
         {p.look}
+        {p.together}
         <div class="menu-wrap" ref={wrap}>
-          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
+          <button type="button" class={`ghost file-button${p.togetherEntry?.other ? " with-dot" : ""}`} aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
             <span class="label">File</span>
+            {p.togetherEntry?.other ? <span class={`together-dot file-together-dot who-${p.togetherEntry.role}${p.togetherEntry.paused ? " paused" : ""}`} aria-hidden="true" /> : null}
           </button>
           {fileMenu.mounted ? (
             <ul class="menu" role="menu" aria-label="File" data-closing={fileMenu.closing ? "" : undefined}>
@@ -422,6 +547,13 @@ export function Header(p: HeaderProps) {
                   Open…
                 </button>
               </li>
+              {p.togetherEntry ? (
+                <li role="none" class="menu-together">
+                  <button type="button" role="menuitem" {...tip("Edit this map with someone else")} onClick={pick(openTogether)}>
+                    Together…
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
                 <button type="button" role="menuitem" title="Download the map and its edits as a project" onClick={pick(p.onSaveProject)}>
                   Download project

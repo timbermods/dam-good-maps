@@ -21,11 +21,12 @@ import { checkSetPiece } from "../features/setpieces";
 import { BUILT_OBJECTS, fitProblems, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
 import { optionProblems } from "./objectOps";
 import { descriptionProblem } from "./description";
-import { paintParamProblems, type PaintParams } from "./paintParams";
+import { paintLevelProblems, paintParamProblems, type PaintParams } from "./paintParams";
 import { plainOf, type JsonValue } from "../format/json";
 import { mergeGame } from "../features/edits";
 import { REQUIRED } from "../validate/checks";
-import type { Feature, FeatureKind } from "../features/schema";
+import type { Feature, FeatureKind, StartFeature } from "../features/schema";
+import { makesRoomForStart, START_OPEN_GROUND, startOverRoof, startRoofProblem } from "./startFit";
 import type { Runs } from "../math/grid";
 import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
@@ -52,7 +53,7 @@ export interface OpParams {
   updateFeature: { id: string; patch: { params?: Record<string, unknown>; locked?: boolean } };
   deleteFeature: { id: string };
   reorderFeature: { id: string; index: number };
-  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean; /** The ground holding objects set under a roof (D491): [tile, low, high]; the session adds it. */ hold?: [number, number, number][] };
+  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean; /** The ground the edit holds (D491's under objects set under a roof; D280 (3)'s holding up a cave's or an overhang's rock): [tile, low, high]; the session adds it. */ hold?: [number, number, number][] };
   /** A terrain brush stroke (live editing): the brush and its dabs (features/raster/brush.ts). */
   brush: BrushParams;
   /** A force of nature (Carve, Craterize, Erupt, Quake, Glaciate: D194, D202, D203, D206, D220, D246),
@@ -621,14 +622,47 @@ function featureGeometryProblems(f: Feature, W: number, H: number): string[] {
 }
 
 /** Why a map object feature that names its level (`placement.z`, under a roof) can't stand there, in one
- *  line: the game's rule on the map's ground and wholly under the roof (D491, objects.ts `fitProblems`). */
-function levelProblems(f: Feature, ctx: OpContext): string[] {
+ *  line: the game's rule on the map's ground and wholly under the roof (D491, objects.ts `fitProblems`). `before`: the
+ *  feature an update patches. Only a placement or a move checks the ground: an update that keeps where it stands (a lock,
+ *  a rename, its options) is never refused for ground that changed under it since, a tunnel dug below it later. */
+function levelProblems(f: Feature, ctx: OpContext, before?: Feature): string[] {
+  if (f.kind === "start") {
+    if (before?.kind !== "start") return startLevelProblems(f, ctx, false);
+    const [a, b] = [before.params, f.params];
+    if (a.position[0] !== b.position[0] || a.position[1] !== b.position[1] || a.z !== b.z) return startLevelProblems(f, ctx, false);
+    // (turned in place: without a level its bench, the same 5×5 whichever way it faces, shapes the ground it shaped
+    // before; under a roof its 3×3 stays where it stood and only its new door is checked)
+    return a.orientation === b.orientation || b.z === undefined ? [] : startLevelProblems(f, ctx, true);
+  }
   if (f.kind !== "mapObject" || f.params.placement.z === undefined) return [];
+  if (before?.kind === "mapObject" && JSON.stringify(before.params.placement) === JSON.stringify(f.params.placement)) return [];
   const pl = f.params.placement;
   const name = OBJECT_NAMES[f.params.kind].toLowerCase();
   if (!ctx.masks || !ctx.heights) return [`the ${name}'s level can't be checked without the map's ground`];
   const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks, taken: ctx.objectCells?.(f.id) ?? null }, pl);
   return why.length ? [`the ${name} can't stand at level ${pl.z} there: ${why[0]}`] : [];
+}
+
+/** Why a start feature can't stand where it is, in one line (D491): with a level (`z`), the game's rule wholly under the
+ *  roof (startFit.ts `startRoofProblem`); without one, open ground, never a cave or an overhang, where its bench would
+ *  shape a roof (`START_OPEN_GROUND`). The generation's plants and ruin columns make room for it. `doorOnly`: turned in
+ *  place under a roof, only its new door is checked. */
+function startLevelProblems(f: StartFeature, ctx: OpContext, doorOnly: boolean): string[] {
+  const { W, H } = ctx;
+  const [x, y] = f.params.position;
+  const z = f.params.z;
+  if (!ctx.masks || !ctx.heights) return z === undefined ? [] : ["the start's level can't be checked without the map's ground"];
+  const g = { W, H, heights: ctx.heights, mask: ctx.masks };
+  if (z === undefined) return startOverRoof(g, x, y, f.params.orientation) ? [START_OPEN_GROUND] : [];
+  const cells = ctx.objectCells?.(f.id);
+  const taken = cells
+    ? (cx: number, cy: number, cz: number) => {
+        const t = cells(cx, cy, cz);
+        return t && !makesRoomForStart(t, false) ? t : null;
+      }
+    : undefined;
+  const why = startRoofProblem(g, x, y, f.params.orientation, z, taken, doorOnly);
+  return why ? [`the start can't stand at level ${z} there: ${why}`] : [];
 }
 
 /** Why an operation cannot be applied now (empty when it can). */
@@ -669,7 +703,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (after.kind === "mapObject" && f.kind === "mapObject" && after.params.kind !== f.params.kind) return ["a map object keeps its kind: delete it and add another"];
       if (after.kind === "setPiece" && f.kind === "setPiece" && after.params.kind !== f.params.kind) return ["a set piece keeps its kind: delete it and add another"];
       const geometry = featureGeometryProblems(after, W, H);
-      return geometry.length ? geometry : levelProblems(after, ctx);
+      return geometry.length ? geometry : levelProblems(after, ctx, f);
     }
     case "deleteFeature": {
       if (!featureById(op.params.id)) return [`feature ${op.params.id} does not exist`];
@@ -791,7 +825,13 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at (${op.params.x}, ${op.params.y})`];
     case "paintObjects": {
       const errors = runsProblems(op.params.area, W, H, "the stroke's area");
-      return errors.length ? errors : paintParamProblems(op.params);
+      if (errors.length) return errors;
+      for (const l of op.params.levels ?? []) {
+        const e = runsProblems(l.area, W, H, `the tiles at level ${l.z}`);
+        if (e.length) return e;
+      }
+      const bad = paintParamProblems(op.params);
+      return bad.length ? bad : paintLevelProblems(op.params, W);
     }
     case "crop": {
       const why = cropRectProblem(op.params, W, H);

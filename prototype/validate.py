@@ -23,8 +23,11 @@ copy of the 3D rules (PLAN section 20, D279: 3D is verified against the game, no
 implementation kept in step). They are reported as information, marked "information", and the oracle does
 not compare their verdicts. So is water under roofs: this validator's water model sees the map from above,
 with no Python engine for the water in caves (D279), so on a map with caves or overhangs every row that
-reads the water is marked "information" and says so. On the heightfield maps the generator makes, the two
-rows pass by construction and no water is under a roof.
+reads the water is marked "information" and says so. On a generated map a source under a roof (a spring
+cave's, D488) is left out of the settle, as source_in_flow leaves it out (playability.py `water_model`): the
+water it feeds is not in this settle, so the rows that read the soil it moistens (plants.survive) compare
+only what the surface's own water gives. On the heightfield maps the generator makes, the two rows pass by
+construction and no water is under a roof.
 
 Check ids and thresholds are documented in PLAN.md ("Validation"); the evidence behind them is
 in investigation/notes/*.md and investigation/REPORT.md.

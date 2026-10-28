@@ -20,6 +20,7 @@ export function useTestHook(ed: Ed): TestHookSlice {
     window.dgmEditor = {
       info: () => infoRef.current,
       tileToClient: (x, y) => renderer.current!.tileToClient(x, y),
+      pointerNote: (text, x = 0, y = 0) => ed.setShapeNote(text === null ? null : { text, ok: false, warn: false, x, y }),
       idle: () => queue.current.then(() => undefined),
       instant: () => instantRef.current,
       fit: () => fitRef.current,

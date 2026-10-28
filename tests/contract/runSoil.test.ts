@@ -14,20 +14,21 @@ import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { toMapObject } from "../../src/core/features/build";
 import { generate } from "../../src/core/gen/generate";
-import { readTimber, writeTimber } from "../../src/core/format/timber";
+import { readTimber } from "../../src/core/format/timber";
 import { normalizeImport } from "../../src/core/format/normalize";
-import { stackedSimulationSingletons, storedWater } from "../../src/core/format/world";
+import { storedWater } from "../../src/core/format/world";
 import { waterColumns, type VoxelMasks } from "../../src/core/sim/columns";
-import { columnSaturation, soil3d, type Soil3d } from "../../src/core/sim/soil3d";
+import { soil3d, type Soil3d } from "../../src/core/sim/soil3d";
 import { stackedSoil } from "../../src/core/sim/soil";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { ColumnTerrain } from "../../src/core/terrain/runs";
 import { buildEntities } from "../../src/render3d/entities3d";
 import { soilNibbles } from "../../src/render3d/light";
 import { entityView, WET, type MapView } from "../../src/render3d/model";
 import { contaminationByte, moistureByte } from "../../src/render3d/palette";
 import { objectSoilAt, RunSoil, runSoilAt, runSoilOn } from "../../src/render3d/runSoil";
 import { apply, collabOpen, collabSession, openTimber, settleWater } from "../../src/worker/session";
-import { CAVE, CAVE_H as H, CAVE_W as W, caveFile, caveVoxels } from "./caveMap";
+import { CAVE, CAVE_H as H, CAVE_W as W, TUNNEL, wetCave } from "./caveMap";
 
 const byte = (m: number, c: number) => soilNibbles(moistureByte(m), contaminationByte(c));
 
@@ -73,40 +74,7 @@ const wetIn = (view: MapView) => (i: number, z: number) => {
   return false;
 };
 
-/** A tunnel at the bottom of the plateau (inclusive tiles). */
-const TUNNEL = { x0: 5, y0: 30, x1: 7, y1: 32 };
 const tile = (x: number, y: number) => [4 * x + 2, 4 * y + 2];
-
-/** The cave map with water in the cave (clean on its east, badwater on its west) and the game's soil for it,
- *  stored as the game saves a map with caves (per water column and per run top). */
-function wetCave(): { bytes: Uint8Array; soil: Soil3d } {
-  const voxels = caveVoxels();
-  const N = W * H;
-  // and a tunnel at the very bottom (air at z 0–1 under the ground), with water in it: its columns start with the
-  // game's empty run, so a tile's top is its second slot
-  for (let y = TUNNEL.y0; y <= TUNNEL.y1; y++) for (let x = TUNNEL.x0; x <= TUNNEL.x1; x++) for (let z = 0; z < 2; z++) voxels[z * N + y * W + x] = 0;
-  const mask = new Uint32Array(N);
-  for (let z = 0; z < 23; z++) for (let i = 0; i < N; i++) if (voxels[z * N + i]) mask[i] |= 1 << z;
-  const masks: VoxelMasks = { W, H, mask };
-  const cols = waterColumns(masks, []);
-  const depth = new Float64Array(cols.L * N);
-  const contamination = new Float64Array(cols.L * N);
-  for (let y = CAVE.y0; y <= CAVE.y1; y++)
-    for (let x = CAVE.x0; x <= CAVE.x0 + 2; x++) {
-      const i = y * W + x;
-      for (let k = 0; k < cols.count[i]; k++)
-        if (cols.floor[k * N + i] === CAVE.air[0]) {
-          depth[k * N + i] = 1.2;
-          contamination[k * N + i] = x === CAVE.x0 ? 1 : 0;
-        }
-    }
-  for (let y = TUNNEL.y0; y <= TUNNEL.y1; y++) for (let x = TUNNEL.x0; x <= TUNNEL.x1; x++) depth[y * W + x] = 1.2;
-  const sat = columnSaturation(cols, depth);
-  const soil = soil3d(masks, cols, { depth, contamination, sat });
-  const file = caveFile(voxels);
-  file.world.singletons = stackedSimulationSingletons(W, H, { cols, depth, overflow: new Float64Array(depth.length), contamination, sat, runs: soil.runs, moisture: soil.moisture, soilContamination: soil.contamination });
-  return { bytes: writeTimber(file), soil };
-}
 
 describe("soil per run top (3D view, part 3)", () => {
   it("a cave's floors show their own run's soil and water, unedited and after an edit", () => {
@@ -206,13 +174,23 @@ describe("soil per run top (3D view, part 3)", () => {
     ["islands", 96, 2],
     ["delta", 96, 7],
   ];
-  it.each(maps)("%s %i² seed %i, generated: no soil per run top, so no texture and no shader branch", (theme, size, seed) => {
+  // (a generated map's columns are its 3D forms' caves, D488, at the default Verticality too: soil per run
+  // top on those columns alone; a map whose land offered no form has none, so no texture and no branch)
+  it.each(maps)("%s %i² seed %i, generated: soil per run top only on its 3D forms' columns, none without", (theme, size, seed) => {
     const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
     const { view } = collabOpen(MapSession.fromGenerated(r));
-    expect(view.columns.tiles.length).toBe(0);
-    expect(view.soil?.runs).toBeUndefined();
-    expect(runSoilOn(view.columns.tiles.length, view.soil?.runs)).toBe(false);
-    expect(RunSoil.build(view.W, view.H, view.soil?.runs ?? null, view.water)).toBeNull();
+    const caves = r.field!.runs.length ? ColumnTerrain.fromData(r.field!, size, size) : null;
+    let columns = 0;
+    for (let i = 0; i < size * size; i++) if (caves && !caves.isPlain(i)) columns++;
+    expect(view.columns.tiles.length).toBe(columns);
+    if (!columns) {
+      expect(view.soil?.runs).toBeUndefined();
+      expect(runSoilOn(view.columns.tiles.length, view.soil?.runs)).toBe(false);
+      expect(RunSoil.build(view.W, view.H, view.soil?.runs ?? null, view.water)).toBeNull();
+    } else {
+      expect(runSoilOn(view.columns.tiles.length, view.soil?.runs)).toBe(true);
+      expect(RunSoil.build(view.W, view.H, view.soil?.runs ?? null, view.water)).not.toBeNull();
+    }
   });
 });
 

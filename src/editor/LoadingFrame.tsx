@@ -14,6 +14,7 @@ import { Shelf } from "./Shelf";
 import { TopBar } from "./TopBar";
 import { shelfIcons } from "./shelf/iconCache";
 import { DEFAULT_BRUSH } from "./brushes";
+import { TogetherFace } from "./collab/Together";
 import { DEFAULT_BLOCK } from "./block/blockTool";
 import { useFrameDockRoom } from "./view/useBandLayout";
 
@@ -39,6 +40,7 @@ export function LoadingFrame(p: LoadingFrameProps) {
         info={{ kind: "import", W: 0, H: 0 } as SessionInfo}
         name={p.name}
         onRename={() => Promise.resolve(null)}
+        onDescribe={() => Promise.resolve(null)}
         saveState={p.subtitle}
         canUndo={false}
         canRedo={false}
@@ -64,10 +66,19 @@ export function LoadingFrame(p: LoadingFrameProps) {
           look ? (
             <button type="button" class="ghost" tabIndex={-1}>
               <span class="look-words">
-                <span>Look: Standard</span>
+                <span>
+                  Look<span class="look-state">: Standard</span>
+                </span>
               </span>
             </button>
           ) : null
+        }
+        together={
+          <div class="together-wrap">
+            <button type="button" class="ghost together-button" tabIndex={-1}>
+              <TogetherFace />
+            </button>
+          </div>
         }
       />
       <div class="editor-main">

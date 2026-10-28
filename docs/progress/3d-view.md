@@ -469,6 +469,40 @@ Standard's shadow before a cave (item 8).
   under a roof switches on the cutaway's branch, builds the light volume whole (once, about as long as a map with
   caves takes to open) and the roofed objects' branch, and the last one filled switches them off again. The cut opens
   into a hollow dug under it as it does on an imported cave map (`tests/e2e/cutaway.spec.ts`, its second test).
+- **No frame waits on a shader compile** (D453; a fresh reviewer's finding on the RTX 2070 SUPER: the first hollow froze
+  the page 3.6 s in `getProgramInfoLog`): a branch switched on (or off) is compiled first, in the background
+  (`programs.ts`, `KHR_parallel_shader_compile`: compile and link sent, completion asked without waiting), and the
+  material takes its new defines only once the program is ready, before the next frame when it is compiled already;
+  the frames until then draw with the program it has.
+  - **Compiled ahead:** half a second after a map is drawn, while the page is idle, and at once when a layer cut is set
+    (how a hollow is dug), the programs an edit could need: the look's in every state a map can reach (cut and caves,
+    their floors' soil, an overhang alone, plain; the likeliest first), the falls' and water's while none are drawn, the
+    drought line's; then the other look's in every state too (in Standard the High look's, from a copy of its
+    materials, its mist and the sun's depth map included; in High Standard's). Leaving High keeps its programs in every
+    state, so a switch back and a dig right after are drawn at once.
+  - **A switch's program first:** the browser compiles what it is sent in turn, so the programs compiled ahead are
+    sent two at a time (`WARM_IN_FLIGHT`), and none while a switch waits for its own (a dig's branches, or the switch
+    to High's programs), whose compile is sent at once and waited for alone: it never waits behind the warm-up's queue,
+    and a program sent already is never queued again (`tests/unit/programs.test.ts`). The map's picture waits for
+    the branches its map asks for (up to 20 s, the page's thread free, then drawn with a warning), never drawn without
+    its caves' look unsaid.
+  - **The program the frame asks for:** each is compiled with every kind of object that draws its material (a fall's
+    template has no position or normal, the objects are instanced), or a stand-in of that kind, and the branches always
+    come in one order (`withDefine`). `tests/e2e/cutaway.spec.ts` checks that a switch to High and a dig right after
+    it compile nothing in the frames that follow.
+  - **Numbers** (real Chrome, RTX 2070 SUPER on a loaded machine, 256² map; compile on the page's thread): the first
+    hollow dug 4.1 s (Standard) and 11.8 s (High) before, 7 and 11 ms after; the switch to High 9.2 s before, 24 ms
+    after; opening Hollows ~12 s before, 11 ms after.
+    A Block dig in High right after the switch from Standard, and on a map just opened in High (the cut set a second
+    after it was up, the dig a second later): the branches switched in the dig's own update, no frame with the old
+    program, nothing compiled by a frame.
+  - **Falls short:** a hollow dug before the programs compiled ahead are ready draws the old program, a lid over it
+    under the cut, until they are (the background compile of High's programs takes seconds on a loaded machine: before
+    this order and the warm-up's earlier start, a dig 1–3 s after the cut on a map just opened in High showed it for
+    5–6 s); a first switch to High before Standard has compiled High's draws Standard until they are ready (no freeze). The forces' and effects' small
+    materials are not compiled ahead. Where the browser draws in software nothing is compiled ahead; without the
+    extension a define is set at once, as before. The map's picture compiles its own programs before its first frame
+    (`compileAhead`) and compiles nothing ahead.
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
 
@@ -593,6 +627,59 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
 - **Falls short:** the tone says thin or thick, not a number of blocks; a big force's ring over a cave map marks a lot
   of violet (all of it ground the force leaves as it is, D487). Under water on a roof the marks lie on the ground,
   seen through the water as the brush's own disc is.
+
+## What an edit changed (D488; `feature/3d-edits-show`)
+
+- **Why:** two usability audits agreed that a 3D edit is hard to see once it lands: a block added to a cliff or dug into
+  a wall is the same stone as its neighbours, an Erode cave opens in shade, and from an editing distance the player
+  cannot tell what changed or that anything did.
+- **What:** `src/render3d/editGlow.ts`. When an edit lands, the faces it opened glow in the Block tool's preview colours
+  (D335), each outlined so the change reads as blocks: a block added, its open faces white; a block taken, the faces it
+  left open in the hollow (the rock round it: floor, ceiling, back and sides) red. It holds a quarter of a second, then
+  fades out over 0.85 s. Its clock runs with the frames drawn, at most 250 ms a frame, so a page held by the first cave's
+  light and shaders (seconds, `syncCaves`) never uses it up unseen. A change landing while one glows joins it and both
+  start over, so a force's frames glow together until a second after its last. With reduced motion it shows still for
+  a second, then goes. Under a layer cut what the cut hides is left out; the cut moving puts the glow away.
+- **What counts** (worked out by the renderer from each terrain update, no operation change: `editedCells`): every
+  cell whose solid state differs between the columns drawn before and the update's, on tiles with terrain above terrain
+  before or after (stored masks, not reshaped to the heights, so a roof's top a stroke painted first still counts): a
+  Block dig or overhang, an Erode cave, a stroke or a Select action that reshapes a roof's top (D487), their undo and
+  redo, a History jump. On plain tiles, only the Block tool's edits and Erode's frames: the Block tool says so as it
+  sends its operation to the worker (`renderer.blockEditSent()` in `useBlockTool.ts` `commit`, once the edits queued
+  before it have landed), and the next land that comes takes it, however long the answer takes (no clock: on CI's
+  software drawing a Block click's answer came after the 4 s an earlier stamp allowed, and glowed nothing); once the
+  operation's answer is back (taken, refused or failed) the word is dropped (`blockEditSent(false)`), so a refused edit
+  never lends it to a change that lands after; Erode's frames' plain ground is painted through `flushTerrain` while its moment plays.
+  Plain heightfield edits otherwise get nothing, the Block tool in hand or not: a brush paints its land as it goes
+  (D197), a Select action is the selection's own, and the other forces have their own moments (D240), so nothing is
+  doubled. Compare's flip to another version and back is not an edit: `useCompare.tsx` asks for its land with
+  `updateTerrain(h, undefined, { glow: false })`, so it never glows, on cave maps too. (Branch from here opens the copy
+  as a new map, which glows nothing.)
+- **Tried by eye** (real Chrome, Highlands 128 seed 12, the same cliff): A, the opened faces (built); B, the changed cells
+  as whole ghost blocks, the preview lingering. They read the same for an add. For a dig, B fills the hole it confirms
+  with four red blocks, which reads as blocks added; A lights the hollow's floor, walls and ceiling, so the hole reads as
+  a hole, and draws only what is open (12 quads to B's 24 for a 2 × 2 dig).
+- **Cost:** nothing per frame once faded (no mesh drawn, no frame asked for); the cells are found inside the update's
+  changed rectangle (typed arrays, a mask compare a tile), the faces rebuilt when an edit lands (six mask lookups a
+  cell, at most 20,000 cells).
+- **Tests:** `tests/unit/editGlow.test.ts` (a dig into a wall, an overhang and its undo, a roof's top a stroke painted
+  first, plain tiles only when asked, the faces of an added block, a dug block, the map's edge and floor and the cut, the
+  fade); `tests/e2e/editGlow.spec.ts` (a plain edit draws nothing; a dig into a wall glows on the hollow's 5 faces and is
+  gone after it fades; its undo glows the block put back; with reduced motion it holds still, then goes; the Block
+  tool's click on flat ground glows its block's 5 faces, while a plain edit with the Block tool in hand and a Compare
+  flip and back glow nothing, the click's answer held back 5 s; a Block click the core refuses, then a plain edit a
+  moment later, glows nothing). The spec watches the glow in every frame from before each edit (`watchGlow`): on a slow
+  machine the glow can show and go while a poll from the test still waits for the edit's answer.
+- **Captures:** `docs/sheets/3d-edits-show.jpg` (`tools/capture-edits-show.ts`, real Chrome on the RTX 2070 SUPER):
+  before, just after (the glow held at full for the shot) and a second later; a Block dig into a cliff, an overhang built out of it, a Block tool click on
+  the plain ground at its foot and an Erode click on its face (Highlands 128 seed 12); a dig into a cave's wall under a
+  layer cut and a Lower dab on a roof (Hollows); Standard and High, 1920×1080 dark and 1280×800 light.
+- **Falls short:** a change seen only from inside (a hollow behind its mouth, the far side of a roof) glows where the
+  camera cannot see it, and the red reads weaker beside badwater (Hollows' cave lake). The undo of a Block edit on plain
+  ground does not glow (the page's undo does not say which operation it takes back); on caves it does. Right after a
+  dig, the Block tool's next preview (white) over the red glow reads pink for a moment. The first hollow dug on a plain
+  map held the page for seconds in a cold browser (the cave light and shaders, before this change and dev's shader
+  warm-up); the glow waits for it.
 
 ## The rest of the step (next parts)
 

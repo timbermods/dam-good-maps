@@ -27,6 +27,11 @@ import {
   BufferGeometry,
   BufferAttribute,
   Color,
+  InstancedBufferAttribute,
+  InstancedMesh as InstancedMeshObject,
+  DoubleSide,
+  MeshDepthMaterial,
+  Points,
   InstancedBufferGeometry,
   InstancedInterleavedBuffer,
   InterleavedBufferAttribute,
@@ -45,6 +50,7 @@ import {
   type DataTexture,
   type Group,
   type InstancedMesh,
+  type Object3D,
   type ShaderMaterial,
   WebGLRenderTarget,
   Box3,
@@ -58,9 +64,11 @@ import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import type { Voxels } from "./wear";
 import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
-import { DroughtLineLayer } from "./droughtLine";
+import { EditGlow, editedCells, type EditCells } from "./editGlow";
+import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
-import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
+import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
+import { whenIdle } from "./idle";
 import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
@@ -79,10 +87,13 @@ import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers,
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
-import { HighLook, type HighMaterials } from "./high/highLook";
+import { HighLook, highLookMaterials, roofedOf, runSoilOf, type HighLookMaterials, type HighMaterials } from "./high/highLook";
+import { Mist } from "./high/mist";
+import { Programs, withDefine, type Defines } from "./programs";
 import { isPlant } from "./high/forest";
 import { pageBaker, type Baker } from "./high/fields";
-import { stillFlowTexture, WaterMotion } from "./motion";
+import { WaterMotion } from "./motion";
+import { StillFlow } from "./stillFlow";
 import { BoxUploads, RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
 import { EntityGeometryCache } from "./entityGeometry";
@@ -91,6 +102,27 @@ import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
 import { focusLost } from "./focusLost";
 
 ColorManagement.enabled = false;
+
+/** How long after a map is drawn the programs an edit could need start compiling in the background (scheduleWarm). */
+const WARM_AFTER_MS = 500;
+
+type BranchState = { cut: boolean; caves: boolean; soil: boolean };
+
+/** The states of a map an edit can bring, each with its own programs (the cutaway's, the roofed ones', the run soil's),
+ *  the likeliest first: the first hollow dug (cut and caves), its floor's soil, an overhang alone, all filled again. */
+const STATES: BranchState[] = [
+  { cut: true, caves: true, soil: false },
+  { cut: true, caves: true, soil: true },
+  { cut: true, caves: false, soil: false },
+  { cut: false, caves: false, soil: false },
+];
+
+/** Run this when the page is idle, with what the idle period has left (at once where the browser can't say); the
+ *  warm-up's slices. Small jobs of their own go through idle.ts's `whenIdle`. */
+function onIdle(fn: (deadline?: IdleDeadline) => void): void {
+  if (typeof requestIdleCallback === "function") requestIdleCallback(fn, { timeout: 2000 });
+  else window.setTimeout(() => fn(), 0);
+}
 
 export type ViewMode = "orbit" | "top";
 
@@ -254,8 +286,14 @@ export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 const WATER_FPS = 30;
 
 /** Whether the browser draws WebGL in software (no GPU, or one it won't use): asked of a throwaway
- *  context before the view's own is made, so the view can be made lighter for it. */
+ *  context before the view's own is made, so the view can be made lighter for it. Asked once a page (a context
+ *  costs the page's thread tens of milliseconds; the answer never changes while the page is open). */
 export function softwareRendering(): boolean {
+  return (softwareAnswer ??= askSoftwareRendering());
+}
+let softwareAnswer: boolean | undefined;
+
+function askSoftwareRendering(): boolean {
   try {
     const c = document.createElement("canvas");
     const g = (c.getContext("webgl2") ?? c.getContext("webgl")) as WebGLRenderingContext | null;
@@ -344,6 +382,8 @@ export class MapRenderer {
   private high: HighLook | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
+  /** Where nothing moves (software, or held still): the flow texture kept here, with the badwater share alone. */
+  private stillFlow: StillFlow | null = null;
   /** A still view (the constructor's `still`). */
   private readonly still: boolean;
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
@@ -351,6 +391,25 @@ export class MapRenderer {
   /** The Flow view (off by default): the current's streaks over the water. */
   private flowOn = false;
   private lookNow: Look = "standard";
+  /** The shader programs compiled before a frame needs them (programs.ts). */
+  private programs: Programs;
+  private warmTimer = 0;
+  /** Whether the browser draws in software (the light look or not): nothing is compiled ahead there. */
+  private drawsInSoftware = false;
+  /** A copy of the High look's materials, compiled in the background before the first switch to the look on a map
+   *  already drawn, and with the look's own when it is left, so a later switch finds its programs; each one's name. */
+  private highCopy: HighLookMaterials | null = null;
+  private copyOf = new Map<ShaderMaterial, keyof HighLookMaterials>();
+  /** The look's mist (its materials compiled with the copy's) and a copy of the drought line's materials. */
+  private mistCopy: Mist | null = null;
+  /** The sun's depth map's material (high/shadows.ts), twice: compiled with the terrain's meshes and with the objects. */
+  private depthCopy: [ShaderMaterial, ShaderMaterial] | null = null;
+  private lineCopy: ShaderMaterial[] | null = null;
+  /** Objects to compile a program with when nothing draws its material (`standIn`). */
+  private standIns: Record<"mesh" | "instanced" | "bare" | "points" | "fall", Object3D> | null = null;
+  /** The tier asked for while the High look's programs compile (the look drawn stays meanwhile), or null. */
+  private lookWaiting: Tier | null = null;
+  private lookWarming = false;
   private choice: LookChoice = "auto";
   private chosenEffects: HighEffects = allEffects();
   private governor: LookGovernor | null = null;
@@ -439,7 +498,8 @@ export class MapRenderer {
     this.canvas = canvas;
     this.still = !!opts.still;
     // a browser that draws in software gets the light look, without multisampling (D110)
-    this.software = softwareRendering() && !window.dgmLookTest?.gpu;
+    this.drawsInSoftware = softwareRendering();
+    this.software = this.drawsInSoftware && !window.dgmLookTest?.gpu;
     this.gl = new WebGLRenderer({ canvas, antialias: !this.software, powerPreference: "high-performance" });
     this.gl.outputColorSpace = LinearSRGBColorSpace;
     this.gl.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -455,6 +515,7 @@ export class MapRenderer {
     this.lightRows = new RowUploads(this.gl, () => this.lightTex);
     this.caveRows = new BoxUploads(this.gl, () => this.caveTex);
     this.runRows = new BoxUploads(this.gl, () => this.runTex);
+    this.stillRows = new RowUploads(this.gl, () => this.stillFlow?.texture ?? null);
     this.noCave = this.uniforms.caveTex.value;
     this.uniforms.patternTex.value = this.patterns.texture;
     this.terrainMat = terrainMaterial(this.uniforms, 0, 1, this.software);
@@ -463,6 +524,14 @@ export class MapRenderer {
     this.objectMat = objectMaterial(this.uniforms, this.software);
     this.skyMat = skyMaterial();
     this.std = { terrain: this.terrainMat, water: this.waterMat, fall: this.fallMat, object: this.objectMat, sky: this.skyMat };
+    this.programs = new Programs({
+      gl: this.gl,
+      scene: this.scene,
+      camera: () => this.camera(),
+      drawnWith: (m) => this.drawnWith(m),
+      standIn: (m) => this.standIn(m),
+      changed: () => this.requestRender(),
+    });
     this.sky = new Mesh(new PlaneGeometry(2, 2), this.skyMat);
     this.sky.frustumCulled = false;
     this.sky.renderOrder = -1000;
@@ -560,9 +629,13 @@ export class MapRenderer {
     this.uniforms.slice.value = v;
     this.droughtLayer?.setHidden(level !== null);
     this.blockCells?.setCut(level === null ? null : v);
+    // (what an edit just changed was drawn under the cut it had)
+    this.editGlow?.clear();
     this.hollowStale = true;
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
+    // (a cut is how a hollow is dug: the programs a dig needs, compiled now if they are not)
+    if (level !== null && this.map) this.scheduleWarm(0);
   }
 
   /** Whether the terrain's shaders open the layer cut over air (cutaway.ts): only on a map with terrain above
@@ -571,11 +644,7 @@ export class MapRenderer {
 
   private setCutaway(on: boolean): void {
     this.cutaway = on;
-    for (const mat of [this.std.terrain, this.high?.materials.terrain]) {
-      if (!mat || (mat.defines.CUTAWAY === 1) === on) continue;
-      mat.defines.CUTAWAY = on ? 1 : 0;
-      mat.needsUpdate = true;
-    }
+    for (const mat of [this.std.terrain, this.high?.materials.terrain]) if (mat) this.programs.set(mat, "CUTAWAY", on ? 1 : 0);
   }
 
   /** Whether objects, falls and water read the light volume (materials.ts `CAVE_POINT`): only on a map with air under a
@@ -584,24 +653,158 @@ export class MapRenderer {
 
   private setCaveBranch(on: boolean): void {
     this.caveBranch = on;
-    for (const mat of [this.std.object, this.std.fall, this.std.water, ...(this.high?.roofedMaterials() ?? [])]) {
-      if (("CAVES" in mat.defines) === on) continue;
-      if (on) mat.defines.CAVES = 1;
-      else delete mat.defines.CAVES;
-      mat.needsUpdate = true;
-    }
+    for (const mat of [this.std.object, this.std.fall, this.std.water, ...(this.high?.roofedMaterials() ?? [])]) this.programs.set(mat, "CAVES", on ? 1 : null);
   }
 
   /** Whether the terrain's shaders (and High's slopes standing on a floor) read the run tops' own soil (runSoil.ts):
    *  only on a map with run tops below a tile's top, so every other map draws with the same program as before (the
    *  define is not there at all). */
   private setRunSoilBranch(on: boolean): void {
-    for (const mat of [this.std.terrain, ...(this.high?.runSoilMaterials() ?? [])]) {
-      if (!mat || ("RUN_SOIL" in mat.defines) === on) continue;
-      if (on) mat.defines.RUN_SOIL = 1;
-      else delete mat.defines.RUN_SOIL;
-      mat.needsUpdate = true;
+    this.runSoilBranch = on;
+    for (const mat of [this.std.terrain, ...(this.high?.runSoilMaterials() ?? [])]) this.programs.set(mat, "RUN_SOIL", on ? 1 : null);
+  }
+
+  private runSoilBranch = false;
+
+  /** The branches' defines on a look's materials (the cutaway's, the roofed ones', the run soil's) in a state of the
+   *  map, from the defines each has or is about to take. */
+  private branchDefines(cut: ShaderMaterial[], roofed: ShaderMaterial[], soil: ShaderMaterial[], state: BranchState): [ShaderMaterial, Defines][] {
+    const out = new Map<ShaderMaterial, Defines>();
+    const edit = (m: ShaderMaterial, name: string, v: number | null) => out.set(m, withDefine(out.get(m) ?? this.programs.defines(m), name, v));
+    for (const m of cut) edit(m, "CUTAWAY", state.cut ? 1 : 0);
+    for (const m of roofed) edit(m, "CAVES", state.caves ? 1 : null);
+    for (const m of soil) edit(m, "RUN_SOIL", state.soil ? 1 : null);
+    return [...out];
+  }
+
+  /** The programs an edit could switch the look drawn to next (every state of the map an edit can bring, the falls'
+   *  and water's while none are drawn, the drought line's), compiled in the background a moment after a map is drawn,
+   *  a few at a time while the page is idle, so a switch finds them ready (programs.ts); then the other look's, in every
+   *  state too (in Standard where High can be drawn: High's, so a switch to it and a dig right after are drawn at
+   *  once; in High: Standard's). Not where the browser draws in software or can't compile in the background, nor for
+   *  the map's picture (it compiles its own, `compileAhead`). */
+  private scheduleWarm(after = WARM_AFTER_MS): void {
+    if (this.drawsInSoftware || !this.programs.background || this.still) return;
+    clearTimeout(this.warmTimer);
+    const run = ++this.warmRun;
+    this.warmPending = true;
+    this.warmTimer = window.setTimeout(() => {
+      this.warmTimer = 0;
+      const h = this.high;
+      const std = this.branchStates([this.std.terrain], [this.std.object, this.std.fall, this.std.water], [this.std.terrain]);
+      const list = h ? this.branchStates([h.materials.terrain], h.roofedMaterials(), h.runSoilMaterials()) : std;
+      // (the drought line's, drawn in both looks once its days are worked out)
+      this.lineCopy ??= droughtLineMaterials();
+      for (const m of this.lineCopy) list.push([m, { ...(m.defines as Defines) }]);
+      if (h) list.push(...std);
+      else if (this.canHigh) list.push(...this.highCopyList(STATES));
+      const sent: Promise<void>[] = [];
+      const step = (deadline?: IdleDeadline) => {
+        if (this.disposed || this.high !== h || run !== this.warmRun) return;
+        // (a few at a time: each sends its compile and returns)
+        do sent.push(this.programs.warm([list.shift()!]));
+        while (list.length && deadline && deadline.timeRemaining() > 8);
+        if (list.length) onIdle(step);
+        else
+          void Promise.all(sent).then(() => {
+            if (run === this.warmRun) this.warmPending = false;
+          });
+      };
+      onIdle(step);
+    }, after);
+  }
+
+  private warmRun = 0;
+  private warmPending = false;
+
+  /** Whether the programs compiled ahead (`scheduleWarm`) are all ready: nothing is compiling ahead. */
+  get programsWarm(): boolean {
+    return !this.warmPending;
+  }
+
+  /** A look's materials' branches in every state of the map an edit can bring (`STATES`), the map's own first. */
+  private branchStates(cut: ShaderMaterial[], roofed: ShaderMaterial[], soil: ShaderMaterial[]): [ShaderMaterial, Defines][] {
+    const now = { cut: this.cutaway, caves: this.caveBranch, soil: this.runSoilBranch };
+    return [now, ...STATES].flatMap((st) => this.branchDefines(cut, roofed, soil, st));
+  }
+
+  /** The objects drawn with this material now, one of each kind its program can tell apart (for a copy of the High
+   *  look's, those drawn with the Standard material it stands for or the look's own). */
+  private drawnWith(mat: ShaderMaterial): Object3D[] {
+    const name = this.copyOf.get(mat);
+    const std = name === "vegetation" || name === "landmark" || name === "slope" ? "object" : name;
+    const ms = name && std ? [this.std[std], this.high?.named()[name]] : [mat];
+    const kinds = new Map<string, Object3D>();
+    this.scene.traverse((o) => {
+      const m = o as Mesh & { isPoints?: boolean; instanceColor?: unknown };
+      // (a fall's mesh draws its layers with one material, as a list)
+      if (!(m.isMesh || m.isPoints) || !(Array.isArray(m.material) ? m.material : [m.material]).some((x) => ms.includes(x as ShaderMaterial))) return;
+      const a = m.geometry.attributes;
+      const kind = [m.type, !!m.instanceColor, !!a.normal, !!a.uv1, !!a.uv2, !!a.uv3, !!a.tangent, !!m.geometry.morphAttributes.position].join();
+      if (!kinds.has(kind)) kinds.set(kind, o);
+    });
+    return [...kinds.values()];
+  }
+
+  /** An object like those a material draws, for compiling its program when nothing draws it (programs.ts): the mist's
+   *  points, its rings and the drought line have no normal, a fall's template has neither a position nor a normal, the
+   *  objects are instanced with their colours, the rest are meshes with a normal. */
+  private standIn(mat: ShaderMaterial): Object3D {
+    if (!this.standIns) {
+      const geometry = (normal: boolean) => {
+        const g = new BufferGeometry();
+        g.setAttribute("position", new BufferAttribute(new Float32Array(0), 3));
+        if (normal) g.setAttribute("normal", new BufferAttribute(new Float32Array(0), 3));
+        return g;
+      };
+      const instanced = new InstancedMeshObject(geometry(true), undefined, 1);
+      instanced.instanceColor = new InstancedBufferAttribute(new Float32Array(3), 3);
+      const fall = new BufferGeometry();
+      fall.setAttribute("rib", new BufferAttribute(new Float32Array(0), 4));
+      this.standIns = { mesh: new Mesh(geometry(true)), instanced, bare: new Mesh(geometry(false)), points: new Points(geometry(false)), fall: new Mesh(fall) };
     }
+    if ([this.std, this.high?.materials, this.highCopy].some((l) => l?.fall === mat)) return this.standIns.fall;
+    const mist = this.mistCopy?.materials();
+    if (mist && mat === mist.mist) return this.standIns.points;
+    if ((mist && mat === mist.rings) || this.lineCopy?.includes(mat)) return this.standIns.bare;
+    const plain = mat === this.depthCopy?.[0] || [this.std, this.high?.materials, this.highCopy].some((l) => l && [l.terrain, l.water, l.fall, l.sky].includes(mat));
+    return plain ? this.standIns.mesh : this.standIns.instanced;
+  }
+
+  /** The High look's materials (a copy of them) with the branches of the map drawn, and of these other states of it. */
+  private highCopyList(states: BranchState[] = []): [ShaderMaterial, Defines][] {
+    if (!this.highCopy) {
+      const c = (this.highCopy = highLookMaterials(this.uniforms));
+      for (const name of Object.keys(c) as (keyof HighLookMaterials)[]) this.copyOf.set(c[name], name);
+    }
+    const c = this.highCopy;
+    this.mistCopy ??= new Mist(this.uniforms.time);
+    // (three.js reads a material's defines and nothing of its kind here: the depth material passes as one)
+    this.depthCopy ??= [0, 1].map(() => new MeshDepthMaterial({ side: DoubleSide }) as unknown as ShaderMaterial) as [ShaderMaterial, ShaderMaterial];
+    const own = (m: ShaderMaterial): [ShaderMaterial, Defines] => [m, { ...(m.defines as Defines) }];
+    const mist = this.mistCopy.materials();
+    const now = { cut: this.cutaway, caves: this.caveBranch, soil: this.runSoilBranch };
+    const branches = [now, ...states].flatMap((st) => this.branchDefines([c.terrain], roofedOf(c), runSoilOf(c), st));
+    return [...branches, own(c.sky), own(mist.mist), own(mist.rings), ...this.depthCopy.map(own)];
+  }
+
+  /** Whether a switch to this tier can be drawn at once. On a map already drawn the High look's programs are compiled
+   *  first, in the background (a copy of its materials, programs.ts): until they are ready the look drawn stays and the
+   *  switch waits, then is made. */
+  private highProgramsReady(tier: Tier): boolean {
+    if (tier === "standard" || this.high || !this.map || !this.programs.background) return true;
+    const list = this.highCopyList();
+    if (this.programs.ready(list)) return true;
+    this.lookWaiting = tier;
+    if (!this.lookWarming) {
+      this.lookWarming = true;
+      void this.programs.now(list).then(() => {
+        this.lookWarming = false;
+        const t = this.lookWaiting;
+        if (t && !this.disposed) this.applyLook(t);
+      });
+    }
+    return false;
   }
 
   /** The run tops' soil as the map's soil and water now give it: built (and the shader's branch switched on) when
@@ -816,7 +1019,13 @@ export class MapRenderer {
   /** Whether the High look has all it needs for the map drawn (its fields come from a worker a
    *  moment after the map): true when not High. */
   get highSettled(): boolean {
-    return (this.high ? this.high.settled : true) && (this.waterMotion?.ready ?? true);
+    return this.programsSettled && (this.high ? this.high.settled : true) && (this.waterMotion?.ready ?? true);
+  }
+
+  /** Whether the look and the branches asked for are the ones drawn (their programs compile in the background first,
+   *  programs.ts). */
+  get programsSettled(): boolean {
+    return this.lookWaiting === null && this.programs.settled;
   }
 
   /** The page's bake worker (the moving water's fields and shapes, High's occlusion), shared by every
@@ -877,6 +1086,8 @@ export class MapRenderer {
   /** Draw with the High materials, High's lower-cost tier, or the Standard ones. */
   private applyLook(tier: Tier): void {
     if (this.software) return;
+    if (!this.highProgramsReady(tier)) return;
+    this.lookWaiting = null;
     if (tier !== "standard" && !this.high) {
       try {
         this.high = new HighLook({
@@ -911,6 +1122,9 @@ export class MapRenderer {
     this.droughtLayer?.setHigh(tier !== "standard");
     if (tier === "standard") {
       if (this.high) {
+        // (its programs kept by the look's copy, in every state of the map: those it has compiled at once with them, the
+        // rest in the background, so a switch back and a dig right after find them: programs.ts)
+        this.programs.ready(this.highCopyList(STATES));
         this.useMaterials(this.std);
         this.high.dispose();
         this.high = null;
@@ -945,7 +1159,10 @@ export class MapRenderer {
     this.governor?.hold(performance.now());
     this.applyWithered();
     this.requestRender();
-    if (was !== tier) this.tellLook();
+    if (was !== tier) {
+      this.tellLook();
+      if (this.map) this.scheduleWarm();
+    }
   }
 
   /** Every mesh drawn with the look's materials takes these. */
@@ -1094,10 +1311,16 @@ export class MapRenderer {
     const entities = entityView([at("Pine", 1, 1), at("Oak", 2, 9), at("Birch", 9, 1), at("BlueberryBush", 10, 9), at("WaterSource", 1, 5, { strength: 1 }), at("BadwaterSource", 8, 8, { strength: 1 }), at("Slope", 4, 2), at("StartingLocation", 5, 9)]);
     const view: MapView = { W, H, heights, columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, water: waterFromDepth(heights, depth, bad), entities, soil: soilView(new Uint8Array(W * H).fill(4), new Float32Array(W * H).fill(0.5)) };
     this.setMap(view, false, true);
-    await this.gl.compileAsync(this.scene, this.camera());
+    await this.compileAhead();
     this.renderNow();
     const ctx = this.gl.getContext();
     ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
+  }
+
+  /** The programs the view's next frame draws with, compiled off the page's thread where the browser can, before it
+   *  is drawn (a view built to be drawn at once: the first map's warm-up, the map's picture). */
+  async compileAhead(): Promise<void> {
+    await this.gl.compileAsync(this.scene, this.camera());
   }
 
   /** The canvas moved into the page's own view (a prepared renderer taken, `prepared.ts`): it takes
@@ -1119,6 +1342,9 @@ export class MapRenderer {
     this.drawnWater.clear();
     this.waterReady = null;
     this.mesherOwn?.clear();
+    // (the view's water mesh workers start with the map, not with the first water that moves: started then, their
+    // start fell among an edit's frames; a still picture never moves its water)
+    if (!this.still && typeof Worker !== "undefined") void this.mesher;
     const { W, H, heights } = v;
     this.waterShown = drawnWater(W * H);
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
@@ -1185,10 +1411,17 @@ export class MapRenderer {
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
       this.waterMotion.waterChanged(heights, surface, true);
-    } else if (this.still) u.flowTex.value = stillFlowTexture(W, H, surface);
+    } else {
+      const baker = this.baker;
+      const job = (w: number, h: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">) => baker.run({ kind: "share", W: w, H: h, sw }).then((r) => (r.kind === "share" ? r.share : Promise.reject(new Error("not a share"))));
+      this.stillFlow = new StillFlow(W, H, job, (x0, y0, x1, y1) => this.stillRows.touch(x0, y0, x1, y1), () => this.requestRender());
+      this.stillFlow.start(surface);
+      u.flowTex.value = this.stillFlow.texture;
+    }
     this.high?.setMap(W, H, heights, surface, v.entities);
     this.governor?.hold(performance.now());
     const instances = this.setEntitiesInner(v.entities);
+    if (!prepare) this.modelsAhead();
     const meshMs = performance.now() - t0;
     if (!keepView) this.resetView();
     if (!prepare) {
@@ -1202,10 +1435,19 @@ export class MapRenderer {
     const ms = performance.now() - t0;
     this.lastBuild = { ms, meshMs, chunks: nx * ny, terrainQuads, waterQuads, falls, instances };
     if (!prepare) this.scheduleProbe();
+    this.scheduleWarm();
     this.highlight = null;
     this.pageOverlay = null;
     this.onMapChange?.();
     return this.lastBuild;
+  }
+
+  /** The water changed: its current and badwater share in the flow texture (motion.ts); where nothing moves (the
+   *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
+   *  WATER_FILM). */
+  private flowChanged(heights: Uint8Array, surface: SurfaceWater): void {
+    if (this.waterMotion) this.waterMotion.waterChanged(heights, surface);
+    else this.stillFlow?.update(surface);
   }
 
   /** The map as drawn (read only): the legend reads what is on it. */
@@ -1253,6 +1495,7 @@ export class MapRenderer {
     this.witheredCount = 0;
     this.season = null;
     this.droughtLayer?.clear();
+    this.editGlow?.clear();
     clearTimeout(this.casterTimer);
     if (this.skirt) this.dropMesh(this.skirt);
     this.skirt = null;
@@ -1283,6 +1526,9 @@ export class MapRenderer {
     this.caveTex = null;
     this.cave = null;
     this.caveRows.clear();
+    this.stillFlow?.dispose();
+    this.stillFlow = null;
+    this.stillRows.clear();
     this.dropRunSoil();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
@@ -1584,14 +1830,25 @@ export class MapRenderer {
   private readonly entityModels = new EntityGeometryCache();
 
   private setEntitiesInner(e: EntityView): number {
-    if (this.objects) {
-      this.high?.releaseObjects();
-      this.scene.remove(this.objects);
-      disposeGroup(this.objects);
+    // (highlighted objects back in their own colours first: a batch that would be built as it is drawn is kept)
+    for (const l of this.lit) {
+      (l.mesh.instanceColor!.array as Float32Array).set(l.color, l.i * 3);
+      l.mesh.instanceColor!.needsUpdate = true;
     }
     // (a ruin under a roof reads its run top's soil: a soil without runs keeps the last drawn, as the terrain does)
     const soil = this.map?.soil && !this.map.soil.runs && this.runsShown ? { ...this.map.soil, runs: this.runsShown } : (this.map?.soil ?? null);
-    const { group, instances } = buildEntities(e, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels);
+    const before = this.objects;
+    const { group, instances } = buildEntities(e, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels, before && this.map ? { group: before, entities: this.map.entities } : undefined);
+    if (before) {
+      // (the High look's models leave the old group first: the landmarks of batches kept go with them)
+      this.high?.releaseObjects(group);
+      this.scene.remove(before);
+      // (the batches not kept let go of their GPU buffers when the page has a moment: each one put away searches all
+      // of three.js's state, a millisecond or more on a big map)
+      const gone = [...before.children];
+      before.clear();
+      for (const c of gone) whenIdle(() => disposeBatch(c as InstancedMesh));
+    }
     this.objectsMoved = false;
     // (a highlight belonged to the objects as they were)
     this.lit = [];
@@ -1623,16 +1880,32 @@ export class MapRenderer {
     return instances;
   }
 
+  /** Make ahead, when the page has a moment, the models the map's objects may yet be drawn with as the water and soil
+   *  change (entities3d.ts `modelsAhead`), and the High look's for them. */
+  private modelsAhead(): void {
+    const m = this.map;
+    if (!m || this.software || this.still) return;
+    const map = m;
+    const ahead = modelsAhead(m.entities, this.entityModels).map(({ key, build }) => ({ key, model: () => this.entityModels.model(key, build) }));
+    const jobs = [...ahead.map(({ model }) => () => void model()), ...(this.high?.modelsAhead(m.entities, ahead) ?? [])];
+    // (a map opened since: its own are made instead)
+    for (const job of jobs) whenIdle(() => this.map === map && !this.disposed && job());
+  }
+
   /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed.
    *  `columns`: a map with caves or overhangs, its columns as they stand when an edit reshaped a
-   *  roof's top (D280 (3)); those tiles are drawn from them. */
-  updateTerrain(heights: Uint8Array, columns?: MapView["columns"]): number {
+   *  roof's top (D280 (3)); those tiles are drawn from them. `glow: false`: not an edit (Compare's flip to another
+   *  version and back), so nothing glows (editGlow.ts). */
+  updateTerrain(heights: Uint8Array, columns?: MapView["columns"], opts: { glow?: boolean } = {}): number {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
     let rect = changedRect(m.W, m.H, m.heights, heights);
     // (a roof the page's own stroke already drew the heights of: its columns changed all the same)
     if (columns) rect = grownRect(rect, columnsChanged(m.source.columns, columnMap(columns), m.W));
+    // (what the edit changed in 3D, from the columns drawn before and the update's: editGlow.ts)
+    const masks = columns ? columnMasks(m.W * m.H, columns) : m.source.masks;
+    const edited = rect && opts.glow !== false ? editedCells(m.W, m.H, { heights: m.heights, masks: m.source.masks }, { heights, masks }, this.blockEdit(), rect) : null;
     if (rect) this.droughtLayer?.retire();
     // (the water on the land that changed rides it, whichever came first: `rideLand`)
     if (rect && this.drawnLand) {
@@ -1644,7 +1917,7 @@ export class MapRenderer {
     this.heightStats = null;
     m.source = { ...m.source, heights };
     if (columns) {
-      m.source = { ...m.source, columns: columnMap(columns), masks: columnMasks(m.W * m.H, columns) };
+      m.source = { ...m.source, columns: columnMap(columns), masks };
       this.columnsSent = { tiles: columns.tiles, voxels: columns.voxels, key: ++this.columnsKey };
       this.syncCaves();
       this.runsOverlay?.refresh(m.source);
@@ -1654,6 +1927,7 @@ export class MapRenderer {
     this.drawnLand = heights.slice();
     this.settleObjects();
     this.hollowStale = true;
+    if (edited) this.glowEdits(edited);
     // (the game's rule: a layer above everything the map could hide shows the whole world)
     if (this.slice !== null && this.slice > this.topHiding()) this.setSlice(null);
     if (!rect) return 0;
@@ -1683,7 +1957,7 @@ export class MapRenderer {
       if (this.layered) this.layeredWaterNear(rect);
       else for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 })) this.meshWater(cx, cy);
       this.high?.waterChanged(m.surface);
-      this.waterMotion?.waterChanged(heights, m.surface);
+      this.flowChanged(heights, m.surface);
     }
     this.high?.terrainChanged(heights, rect);
     this.requestRender();
@@ -1749,7 +2023,7 @@ export class MapRenderer {
     // (the water standing on a cave's floor: its run top's cell)
     if (this.runSoil) this.syncRunSoil();
     this.high?.waterChanged(surface);
-    this.waterMotion?.waterChanged(m.heights, surface);
+    this.flowChanged(m.heights, surface);
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
@@ -1762,6 +2036,7 @@ export class MapRenderer {
   private readonly lightRows: RowUploads;
   private readonly caveRows: BoxUploads;
   private readonly runRows: BoxUploads;
+  private readonly stillRows: RowUploads;
 
   /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
   private readonly waterQueue = new Set<string>();
@@ -1815,7 +2090,7 @@ export class MapRenderer {
     for (const key of changed) this.waterQueue.add(key);
     // (moving again: what waits is drawn where it moved visibly)
     this.waterExact = false;
-    this.waterMotion?.waterChanged(m.heights, surface);
+    this.flowChanged(m.heights, surface);
     this.updateClearAround();
     this.requestRender();
     this.onMapChange?.();
@@ -2071,9 +2346,11 @@ export class MapRenderer {
     const drawn = this.drawnLand;
     for (let y = c.rect.y0; y <= c.rect.y1; y++)
       for (let i = y * m.W + c.rect.x0, end = y * m.W + c.rect.x1; i <= end; i++) if (heights[i] !== drawn[i]) landBefore[i] = drawn[i];
+    // (Erode's frames paint its plain ground here, its hollows under roofs in updateTerrain: both glow)
+    if (this.eroding) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
     if (m.water.count && rideLand(m.W, m.surface, drawn, heights, c.rect)) {
       this.rodeLand(c.rect);
-      this.waterMotion?.waterChanged(heights, m.surface);
+      this.flowChanged(heights, m.surface);
     }
     for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
     for (const row of c.rows) skyVisibilityRect(m.W, m.H, heights, m.sky, row.x0, row.y, row.x1, row.y);
@@ -2345,6 +2622,8 @@ export class MapRenderer {
    *  effects play on their own clocks. A new force's first moment, a carve's included, skips the last
    *  one's to its end (D378). Not with reduced motion, not in software. */
   setForceMoment(m: ForceMoment): void {
+    // (Erode at work: what it wears glows, on plain ground too, with or without its moment's effects)
+    this.eroding = m.verb === "erode";
     if (!this.juicy) return;
     const fresh = m.verb === "carve" ? this.forceFx?.set(m) : this.forceFxOf().set(m);
     // (a new force: an earlier eruption's heat never shows again; only this force's own, given with
@@ -2362,6 +2641,7 @@ export class MapRenderer {
 
   /** The force was kept: its tails play out (dust settling, lava cooling). */
   forceDone(): void {
+    this.eroding = false;
     this.forceFx?.finish();
     // (its lava cools on; the next force's first moment puts its heat away)
     this.heatOfThisForce = false;
@@ -2369,6 +2649,7 @@ export class MapRenderer {
 
   /** Esc, undo: a force's effects and its heat go at once. */
   clearForce(): void {
+    this.eroding = false;
     this.forceFx?.clear();
     this.setHeat(null);
     this.heatOfThisForce = false;
@@ -2625,6 +2906,44 @@ export class MapRenderer {
     if (!any && !this.blockCells) return;
     this.blockCells ??= new BlockCells(this.scene);
     if (this.blockCells.set(any ? preview : null, this.slice)) this.requestRender();
+  }
+
+  /** Erode is at work (its moment's cues come with its frames). */
+  private eroding = false;
+
+  /** The Block tool's edit is on its way (`blockEditSent`): from when it goes to the worker until its land comes or
+   *  its answer does. No clock: on a slow machine, or behind a busy worker, the answer can take seconds, and its land
+   *  still glows when it comes. */
+  private blockSent = false;
+
+  /** The Block tool is sending a `blocks` operation: the land that comes with its answer is its own, and glows on plain
+   *  ground too (a brush paints its land as it goes and a force has its own moment, D197, D240, so neither is doubled).
+   *  `false`: its answer came (taken, refused or failed), so no land coming after is its own. */
+  blockEditSent(sent = true): void {
+    this.blockSent = sent;
+  }
+
+  /** The land coming now is the Block tool's edit (sent, its land not come yet): taken once. */
+  private blockEdit(): boolean {
+    const yes = this.blockSent;
+    this.blockSent = false;
+    return yes;
+  }
+
+  private editGlow: EditGlow | null = null;
+
+  /** What an edit just changed in 3D glows a moment (editGlow.ts; D488, D335's colours): a still glow with reduced
+   *  motion. Nothing is made until an edit changes a cell, and nothing runs once it has faded. */
+  private glowEdits(cells: EditCells): void {
+    const m = this.map;
+    if (!m || (!cells.added.length && !cells.removed.length)) return;
+    const src = m.source;
+    (this.editGlow ??= new EditGlow(this.scene, () => this.requestRender())).show(cells, m.W, m.H, (x, y) => columnMask(src, y * m.W + x), this.slice, this.reducedMotion);
+  }
+
+  /** What the edit glow shows now (tests): its faces of each kind and its strength, 0 once faded. */
+  get editGlowDrawn(): { added: number; removed: number; fade: number } {
+    return this.editGlow?.drawn ?? { added: 0, removed: 0, fade: 0 };
   }
 
   /** The blocks of the Block tool's preview drawn now, by kind (tests). */
@@ -3101,6 +3420,7 @@ export class MapRenderer {
     this.lightRows.flush();
     this.caveRows.flush();
     this.runRows.flush();
+    this.stillRows.flush();
     this.gl.render(this.scene, cam);
     this.endCost(cost, t0);
     this.endGpuTimer(q);
@@ -3646,6 +3966,13 @@ export class MapRenderer {
     if (this.frame) cancelAnimationFrame(this.frame);
     clearTimeout(this.animTimer);
     clearTimeout(this.probeTimer);
+    clearTimeout(this.warmTimer);
+    this.programs.dispose();
+    if (this.highCopy) for (const m of Object.values(this.highCopy)) m.dispose();
+    this.mistCopy?.dispose();
+    for (const m of this.depthCopy ?? []) m.dispose();
+    for (const m of this.lineCopy ?? []) m.dispose();
+    for (const o of Object.values(this.standIns ?? {})) (o as Mesh).geometry.dispose();
     this.resize.disconnect();
     this.seen?.disconnect();
     for (const [target, type, fn, opts] of this.listeners) target.removeEventListener(type, fn, opts);
@@ -3660,6 +3987,7 @@ export class MapRenderer {
     this.effects?.dispose();
     this.blockGhost?.dispose();
     this.blockCells?.dispose();
+    this.editGlow?.dispose();
     this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();

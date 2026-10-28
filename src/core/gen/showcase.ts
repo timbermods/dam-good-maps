@@ -10,14 +10,15 @@
 //
 // The measures reuse what the generator already reads: the intentions' checks (land/intentions.ts
 // `checkIntention` on `finalCtx`), the dam sites the checks measured (`analysis.damSites`), the falls
-// and the walk from the start. New ones are plain functions here or in analysis/: the game's opening
-// camera's frame (`openingFrame`), the standing forms (analysis/vertical.ts `standingForms`), the
-// places to pump near the start through the first drought (`pumpPlaces`).
+// and the walk from the start, the game's opening camera (analysis/opening.ts, D493), the 3D forms the
+// map kept (gen/forms3d.ts) and the stories its ruins tell (gen/ruinStories.ts). New ones are plain
+// functions here or in analysis/: the standing forms (analysis/vertical.ts `standingForms`), the places
+// to pump near the start through the first drought (`pumpPlaces`).
 
+import { frameAt, landmarkInView, LANDMARK_FAR, LANDMARK_LEAST, LANDMARK_MOST, OPENING, openingFrame, type OpeningCamera, type OpeningStart } from "../analysis/opening";
 import { sameLand } from "../analysis/story";
 import { standingForms, type StandingForm } from "../analysis/vertical";
 import { PUMP_CLEAN, PUMP_DEPTH, tileShoreWalk } from "../analysis/walk";
-import type { Orientation } from "../format/footprints";
 import { checkIntention, type FinalCtx } from "../land/intentions";
 import * as portable from "../math/portable";
 import type { MapSpec } from "../spec/mapspec";
@@ -25,6 +26,7 @@ import { droughtStorage } from "../sim/drought";
 import { FIRST_DROUGHT_DAYS, generate, type GenerateResult } from "./generate";
 import { finalCtx } from "./intentions";
 import { compass } from "./names";
+import { ruinStories } from "./ruinStories";
 import { siblingSpec } from "./versions";
 import { BEATS, type Arc, type Beat } from "./showcaseBeats";
 
@@ -38,55 +40,6 @@ const an = (n: number) => {
   const t = String(Math.round(n));
   return t.startsWith("8") || ((t.length === 2 || t.length === 5) && (t.startsWith("11") || t.startsWith("18"))) ? "an" : "a";
 };
-
-// ---------------------------------------------------------------------------- the opening camera
-
-/** The new game's camera turns this far past the start's orientation (investigation/notes/
- *  blocks_and_placement.md §3; render3d/hero.ts `heroYaw`), clockwise from north. */
-export const OPENING_TURN = 35;
-
-/** The ground the game's opening camera frames round the start (60° pitch), in tiles along the way
- *  it looks (`ahead` from the start, negative toward the camera) and across: a trapezoid widening
- *  away from the camera. An interim estimate of the game's frame at its opening zoom: the opening-shot
- *  step (feature/opening-shot, docs/progress/showcase.md) brings the core's own frame, and the vista and
- *  landmark beats switch to it when it lands. */
-export const OPENING_FRAME = { behind: 14, ahead: 30, half: 20, spread: 0.35 } as const;
-
-/** The way the opening camera looks, as a unit step in tiles (x east, y north): the start's
- *  orientation × 90° + 35° clockwise from north. */
-export function openingLook(orientation: Orientation): { fx: number; fy: number; degrees: number } {
-  const degrees = ({ Cw0: 0, Cw90: 90, Cw180: 180, Cw270: 270 } as const)[orientation] + OPENING_TURN;
-  const a = (degrees * Math.PI) / 180;
-  return { fx: portable.sin(a), fy: portable.cos(a), degrees };
-}
-
-/** cot 60°, the opening camera's pitch. */
-const COT_PITCH = 0.57735;
-
-/** Whether a point `rise` levels over the ground at (x, y) shows in the opening camera's frame
- *  (`OPENING_FRAME`) round `start`. Looking down at 60°, a point up in the air shows where the ground
- *  `rise` × cot 60° beyond it would: a tall form standing just short of the frame's near edge still
- *  stands up into the picture. */
-export function openingView(start: { x: number; y: number }, orientation: Orientation): (x: number, y: number, rise?: number) => boolean {
-  const { fx, fy } = openingLook(orientation);
-  const F = OPENING_FRAME;
-  return (x, y, rise = 0) => {
-    const dx = x - start.x;
-    const dy = y - start.y;
-    const u = dx * fx + dy * fy + rise * COT_PITCH;
-    const v = dx * fy - dy * fx;
-    return u >= -F.behind && u <= F.ahead && Math.abs(v) <= F.half + F.spread * (u + F.behind);
-  };
-}
-
-
-/** 1 on the ground the opening camera frames (`OPENING_FRAME`) round `start`. */
-export function openingFrame(W: number, H: number, start: { x: number; y: number }, orientation: Orientation): Uint8Array {
-  const view = openingView(start, orientation);
-  const out = new Uint8Array(W * H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (view(x, y)) out[y * W + x] = 1;
-  return out;
-}
 
 // ---------------------------------------------------------------------------- the waters near the start
 
@@ -132,9 +85,6 @@ export function pumpPlaces(c: FinalCtx, kept: ArrayLike<number>): PumpPlace[] {
 }
 
 // ---------------------------------------------------------------------------- the beats
-
-/** The colony's reach for a landmark in its view: within this many tiles of the start. */
-export const LANDMARK_REACH = 50;
 
 /** Farmland a colony grows into, reached the long way round (a pass, a ramp or a ford): a level,
  *  moist, clean patch of 400+ tiles (at 128²) past the start's own, its nearest tile 15–70 tiles off
@@ -182,19 +132,39 @@ function formWord(f: StandingForm): string {
   return f.tiles.length <= 30 ? "spire" : f.tiles.length <= 120 ? "butte" : "mesa";
 }
 
-type View = (x: number, y: number, rise?: number) => boolean;
-
-/** Whether a standing form shows in the opening view: its ground in the frame, or its top standing up
- *  into it (`openingView` with its height). */
-function formInView(f: StandingForm, W: number, view: View): boolean {
-  const px = f.peak % W;
-  if (view(px, (f.peak - px) / W, f.prominence)) return true;
-  return f.tiles.some((i) => view(i % W, Math.floor(i / W)));
+/** The game's first frame as the arc reads it (D493): the opening camera at the game's own zoom
+ *  (the start's level × 0.1, about 30 × 45 tiles round the start), what the player sees as the game
+ *  opens, before pulling back. */
+interface FirstFrame {
+  camera: OpeningCamera;
+  /** 1 on the tiles whose ground is in the frame. */
+  mask: Uint8Array;
 }
 
-/** The opening camera's frame as the arc reads it: its relief, its water, its tallest fall and its
- *  most prominent standing form. */
-function vistaBeat(c: FinalCtx, view: View, forms: readonly StandingForm[], sayForm: boolean): Beat {
+const inFrame = (p: { u: number; v: number } | null) => !!p && p.u >= -1 && p.u <= 1 && p.v >= -1 && p.v <= 1;
+
+/** Whether a standing form shows in the first frame: its ground in it, or its top standing up into it. */
+function formInFrame(f: StandingForm, h: ArrayLike<number>, W: number, frame: FirstFrame): boolean {
+  const px = f.peak % W;
+  if (inFrame(frameAt(frame.camera, px + 0.5, (f.peak - px) / W + 0.5, h[f.peak]))) return true;
+  return f.tiles.some((i) => frame.mask[i] === 1);
+}
+
+/** The 3D forms the map kept (gen/forms3d.ts, recorded with its intentions): their ids, where each
+ *  stands, and their own words. */
+function keptForms(r: GenerateResult): { id: string; at?: [number, number]; say?: string }[] {
+  return r.intentions.filter((x) => x.ok && (x.id === "spring-cave" || x.id === "start-overhang" || x.id === "gorge-arch")).map((x) => ({ id: x.id, ...(x.at ? { at: x.at } : {}), ...(x.say ? { say: x.say } : {}) }));
+}
+
+/** Whether the map's kept arch stands in the game's first frame. A 3D form counts in one beat only: the
+ *  vista when it is in that frame, else the mystery (the same rule as a plug lake or debris). */
+function archInFrame(kept: ReturnType<typeof keptForms>, frame: FirstFrame, W: number): boolean {
+  return kept.some((k) => k.id === "gorge-arch" && k.at && frame.mask[k.at[1] * W + k.at[0]] === 1);
+}
+
+/** The game's first frame (`FirstFrame`): its relief, its open water, its tallest fall, its most
+ *  prominent standing form, and a 3D form at the start (an overhang over it, an arch in view). */
+function vistaBeat(c: FinalCtx, frame: FirstFrame, forms: readonly StandingForm[], sayForm: boolean, kept: ReturnType<typeof keptForms>): Beat {
   const { W, H, h, D } = c;
   let lo = Infinity;
   let hi = -Infinity;
@@ -202,29 +172,32 @@ function vistaBeat(c: FinalCtx, view: View, forms: readonly StandingForm[], sayF
   let wet = 0;
   let fall = 0;
   const drops = new Map(c.falls.map((f) => [f.i, f.drop]));
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      if (!view(x, y)) continue;
-      const i = y * W + x;
-      n++;
-      if (h[i] < lo) lo = h[i];
-      if (h[i] > hi) hi = h[i];
-      if (D[i] >= 0.1) wet++;
-      const d = drops.get(i);
-      if (d !== undefined && d > fall) fall = d;
-    }
+  for (let i = 0; i < W * H; i++) {
+    if (!frame.mask[i]) continue;
+    n++;
+    if (h[i] < lo) lo = h[i];
+    if (h[i] > hi) hi = h[i];
+    if (D[i] >= 0.1) wet++;
+    const d = drops.get(i);
+    if (d !== undefined && d > fall) fall = d;
+  }
   if (!n) return { met: false, strength: 0 };
   const relief = hi - lo;
   const share = wet / n;
-  const form = forms.find((f) => formInView(f, W, view));
+  const form = forms.find((f) => formInFrame(f, h, W, frame));
   const prom = form?.prominence ?? 0;
+  const arch = archInFrame(kept, frame, W);
+  const overhang = kept.some((k) => k.id === "start-overhang");
   const parts: string[] = [];
   if (relief >= 6) parts.push(`${relief} levels of relief`);
   if (share >= 0.04) parts.push("open water");
   if (fall >= 2) parts.push(`${an(fall)} ${levels(fall)} fall`);
   // (the form is the landmark beat's to say when that beat has it)
   if (form && prom >= 6) parts.push(sayForm ? `${an(prom)} ${levels(prom)} ${formWord(form)}` : `the ${formWord(form)}`);
-  const strength = (clamp01((relief - 3) / 9) + clamp01(share / 0.12) + Math.max(fall >= 2 ? clamp01(fall / 5) : 0, prom >= 6 ? clamp01((prom - 3) / 9) : 0)) / 3;
+  if (arch) parts.push("a natural arch");
+  if (overhang) parts.push("the rock hanging over the start");
+  const shape = Math.max(fall >= 2 ? clamp01(fall / 5) : 0, prom >= 6 ? clamp01((prom - 3) / 9) : 0, arch ? 1 : 0, overhang ? 0.8 : 0);
+  const strength = (clamp01((relief - 3) / 9) + clamp01(share / 0.12) + shape) / 3;
   // (relief alone is every rugged map's: the view needs two things to see and some strength)
   const met = parts.length >= 2 && strength >= 0.6;
   const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
@@ -293,49 +266,66 @@ function projectBeat(c: FinalCtx, r: GenerateResult, plug: Shared): Beat {
     best.take(0.5 + 0.5 * clamp01((dam.volume - 2500 * scale) / (3500 * scale)), `${capital(an(dam.length))} ${dam.length}-tile dam across a narrows ${d} tiles ${compass(c.start.x, c.start.y, dam.x, dam.y)} of the start would hold ${held} water.`);
   }
   if (plug) best.take(0.85, plug.say);
+  // a ruined dam across the narrows, waiting to be rebuilt (ruins placed with meaning, gen/ruinStories.ts):
+  // its ruins name the project even where its reservoir is modest, but a big reservoir is the stronger claim
+  for (const s of ruinStories(r.features, c.W)) if (s.kind === "dam") best.take(0.6, s.say);
   const high = checkIntention("high-lake", c);
   // (a high lake spilling over a fall is a project's place more than a project: the weaker claim)
   if (high.ok && high.say) best.take(0.6, high.say);
   return best.beat();
 }
 
-function landmarkBeat(c: FinalCtx, view: View, forms: readonly StandingForm[]): Beat {
-  const { W, start } = c;
-  let strength = 0;
-  let say: string | undefined;
-  for (const f of forms) {
-    if (f.prominence < 8) break;
-    let near = Infinity;
-    for (const i of f.tiles) {
-      const x = i % W;
-      const y = (i - x) / W;
-      near = Math.min(near, portable.sqrt((x - start.x) * (x - start.x) + (y - start.y) * (y - start.y)));
-    }
-    const reach = near <= LANDMARK_REACH;
-    const seen = reach && formInView(f, W, view);
-    const s = seen ? 0.7 + 0.3 * clamp01((Math.min(f.prominence, 15) - 8) / 5) : reach ? 0.35 : 0.15;
-    if (s > strength) {
-      strength = s;
-      const px = f.peak % W;
-      const py = (f.peak - px) / W;
-      say = seen ? `${capital(an(f.prominence))} ${levels(f.prominence)} ${formWord(f)} stands ${Math.round(near)} tiles ${compass(start.x, start.y, px, py)} of the start, in the opening view.` : undefined;
-    }
+/** A landmark in the colony's view (D488, D493: analysis/opening.ts `landmarkInView`): a standing form
+ *  8–15 levels over its ring, 25–60 tiles out, its top in the upper half of the opening camera pulled
+ *  back (the shot's backdrop beyond the colony). A tall form near the colony but out of that frame is
+ *  some of the beat, one elsewhere less. */
+function landmarkBeat(c: FinalCtx, start: OpeningStart, forms: readonly StandingForm[]): Beat {
+  const { W } = c;
+  const seen = landmarkInView({ W, h: c.h, forms: forms as StandingForm[] }, start);
+  if (seen) {
+    const f = forms.find((x) => x.peak === seen.tile);
+    const px = seen.tile % W;
+    const py = (seen.tile - px) / W;
+    const word = f ? formWord(f) : "height";
+    return {
+      met: true,
+      strength: 0.7 + 0.3 * clamp01((Math.min(seen.stand, LANDMARK_MOST) - LANDMARK_LEAST) / (LANDMARK_MOST - LANDMARK_LEAST)),
+      say: `${capital(an(seen.stand))} ${levels(seen.stand)} ${word} stands ${seen.dist} tiles ${compass(start.x, start.y, px, py)} of the start, in the opening view.`,
+    };
   }
-  return { met: strength >= 0.7, strength, ...(say ? { say } : {}) };
+  let strength = 0;
+  for (const f of forms) {
+    if (f.prominence < LANDMARK_LEAST) break;
+    const px = f.peak % W;
+    const py = (f.peak - px) / W;
+    const near = (px - start.x) * (px - start.x) + (py - start.y) * (py - start.y) <= LANDMARK_FAR * LANDMARK_FAR;
+    strength = Math.max(strength, near ? 0.35 : 0.15);
+  }
+  return { met: false, strength };
 }
 
-function mysteryBeat(c: FinalCtx, r: GenerateResult, plug: Shared, district: Shared): Beat {
+function mysteryBeat(c: FinalCtx, r: GenerateResult, plug: Shared, district: Shared, kept: ReturnType<typeof keptForms>, archInVista: boolean): Beat {
   const best = strongest();
   const relic = checkIntention("relic-pinnacle", c);
   if (relic.ok && relic.say) best.take(1, relic.say);
-  // a cave or an overhang: columns of the map with air under ground (terrain above terrain)
+  // the 3D forms the map kept (gen/forms3d.ts): a spring rising in a cave, an arch over a gorge
+  for (const k of kept) {
+    if (k.id === "spring-cave") best.take(0.9, k.say ?? "A spring rises inside a cave and feeds the river.");
+    // (an arch in the game's first frame is the vista's: one beat per form)
+    if (k.id === "gorge-arch" && !archInVista) best.take(0.85, k.say ?? "A natural arch spans a gorge, the river running under it.");
+  }
+  // any other cave: columns of the map with air under ground (terrain above terrain). It keeps the
+  // 0.9 it had before the kept forms (#588 lowered it to 0.8 without a reason); it only counts when the
+  // map kept no 3D form, so it never competes with the spring cave's 0.9 or the arch's 0.85.
   const mask = r.built.waterModel.stacked?.mask;
-  if (mask) {
+  if (mask && !kept.length) {
     let caves = 0;
     for (let i = 0; i < mask.length; i++) if ((mask[i] & (mask[i] + 1)) !== 0) caves++;
     if (caves >= 6) best.take(0.9, `A cave opens under the land, ${caves} tiles of it.`);
   }
   if (plug) best.take(0.8, plug.say);
+  // a drowned village standing in the water (ruins placed with meaning, gen/ruinStories.ts)
+  for (const s of ruinStories(r.features, c.W)) if (s.kind === "village") best.take(0.7, s.say);
   if (district) best.take(0.6, district.say);
   let ruins = 0;
   for (const o of c.objects) if (/^RuinColumnH\d$/.test(o.template) && o.x >= 0 && o.y >= 0 && o.x < c.W && o.y < c.H && !Number.isFinite(c.walk[o.y * c.W + o.x])) ruins++;
@@ -350,11 +340,14 @@ export function arcOf(r: GenerateResult): Arc | null {
   if (!b.start) return null;
   const c = finalCtx(b, { rivers: [] });
   const startObj = b.entities.find((e) => e.template === "StartingLocation");
-  const view = openingView(b.start, startObj?.orientation ?? "Cw0");
+  const start: OpeningStart = { x: b.start.x, y: b.start.y, z: b.start.z, orientation: startObj?.orientation ?? "Cw0" };
+  // the vista is the game's first frame, at its own zoom; the landmark reads the camera pulled back
+  // (D493's frame, analysis/opening.ts)
+  const first = openingFrame(start, b.W, b.H, { heights: b.heights, zoom: start.z * OPENING.zoomPerLevel });
   const forms = standingForms(b.heights, b.W, b.H);
-  // (each beat is one small function, so a better measure replaces one alone: the opening shot's
-  // frame, the ruins placed with meaning, docs/progress/showcase.md)
-  const landmark = landmarkBeat(c, view, forms);
+  const kept = keptForms(r);
+  // (each beat is one small function, so a better measure replaces one alone)
+  const landmark = landmarkBeat(c, start, forms);
   // a feature two beats could claim counts in one: in the valley (a district behind debris) or the
   // project (a plug holding back a lake) when that beat has nothing else, else in the mystery
   const shared = (id: "plug-lake" | "district-behind"): Shared => {
@@ -369,12 +362,12 @@ export function arcOf(r: GenerateResult): Arc | null {
   const districtInValley = !!district && !valleyAlone.met;
   const plugInProject = !!plug && !projectAlone.met;
   return {
-    vista: vistaBeat(c, view, forms, !landmark.met),
+    vista: vistaBeat(c, first, forms, !landmark.met, kept),
     drought: droughtBeat(c, droughtStorage(b.waterModel, b.water, FIRST_DROUGHT_DAYS)),
     valley: districtInValley ? valleyBeat(c, district) : valleyAlone,
     project: plugInProject ? projectBeat(c, r, plug) : projectAlone,
     landmark,
-    mystery: mysteryBeat(c, r, plugInProject ? null : plug, districtInValley ? null : district),
+    mystery: mysteryBeat(c, r, plugInProject ? null : plug, districtInValley ? null : district, kept, archInFrame(kept, first, b.W)),
   };
 }
 

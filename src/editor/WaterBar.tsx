@@ -125,9 +125,10 @@ export function WaterBar({ weather, onWeather, day, target, counting, onStep, on
             <span class="day-words">{!weather || shown === null ? "Day –" : `Day ${shown}`}</span>
           )}
         </span>
-        {/* the hazard's length, quiet beside the day ("Day 3 of 9": a drought that lasts nine days); its room kept while none is on */}
+        {/* the hazard's length, quiet beside the day ("Day 3 of 9": a drought that lasts nine days; stepped on past it, "past 9", since
+            Day 10 of 9 is not a day of it); its room kept while none is on */}
         <span class="day-length" aria-hidden={!weather || !length}>
-          {weather && length ? `of ${length}` : ""}
+          {weather && length ? (shown !== null && shown > length ? `past ${length}` : `of ${length}`) : ""}
         </span>
         <button type="button" class="day-step" aria-label="Day on" disabled={!weather} {...tip("A day on", "→")} onClick={() => onStep(1)}>
           ▶

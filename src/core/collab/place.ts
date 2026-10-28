@@ -50,6 +50,10 @@ export function placeWords(W: number, H: number, m: Mask): string {
 /** The words for the features a player knows by name (a landform is not one). */
 const NAMED = { lake: "lake", river: "river", start: "start" } as const;
 
+/** A feature's word: a spring cave's stream (gen/forms3d.ts `caveStream`, D488) is "the cave", never one more
+ *  river of the map. */
+const wordOf = (f: Feature): string => (f.kind === "river" && f.role?.startsWith("river/caveSpring/") ? "cave" : NAMED[f.kind as keyof typeof NAMED]);
+
 const dist2 = (px: number, py: number, ax: number, ay: number, bx: number, by: number): number => {
   const dx = bx - ax;
   const dy = by - ay;
@@ -124,9 +128,9 @@ export function placeOf(session: MapSession, m: Mask): string {
     if (better) best = { f, held, cx: sx / held / W, cy: sy / held / H };
   }
   if (!best) return placeWords(W, H, m);
-  const kind = best.f.kind as keyof typeof NAMED;
-  if (kind === "start") return "by the start";
-  const several = features.filter((f) => f.kind === kind).length > 1;
+  if (best.f.kind === "start") return "by the start";
+  const word = wordOf(best.f);
+  const several = features.filter((f) => f.kind in NAMED && wordOf(f) === word).length > 1;
   const where = several ? compass(best.cx, best.cy) || "middle" : "";
-  return `at the ${where ? `${where} ` : ""}${NAMED[kind]}`;
+  return `at the ${where ? `${where} ` : ""}${word}`;
 }

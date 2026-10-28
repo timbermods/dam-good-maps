@@ -1,7 +1,7 @@
 // Objects go where the pointer aims, in caves and under overhangs (D491): the shelf aims at the ground seen (the voxel
 // pick), names the level of a cave's floor in the placement, and the core decides. A water source, a seep and a relic
 // on a tunnel's floor through its mouth and under the layer cut stand there, the ghost and its words saying so first;
-// the start is kept on open ground with the core's one line; a picked relic drags along the floor;
+// the start is refused under a roof too low for it with the core's one line (#553); a picked relic drags along the floor;
 // the water flows from the cave and the export carries the objects at the floor's level.
 // The map is built here (a valley at 3, a plateau at 8 with a tunnel and a chamber under it): never an official map.
 
@@ -24,6 +24,25 @@ function caveMap(): Uint8Array {
   s.start(37, 37, 8);
   return build({ id: "place-in-caves", title: "Place in caves", tests: "", scene: s, days: 1, snapshots: [], checks: [], focus: [], samples: [], water: "none" }).bytes;
 }
+
+/** The chambers of the second test: the start and pines under a roof. */
+function startMap(): Uint8Array {
+  const s = new Scene(W, W, 11);
+  s.columns(0, 0, 9, W - 1, FLOOR);
+  // a tunnel into the plateau; chamber A with 6 levels of air (the start fits), B with 2 (not even a pine), C with 4
+  s.box(10, 21, 17, 24, FLOOR, 9, false);
+  s.box(18, 14, 29, 29, FLOOR, 9, false);
+  s.box(32, 4, 43, 12, FLOOR, 5, false);
+  s.box(32, 16, 43, 28, FLOOR, 7, false);
+  s.start(37, 37, 11);
+  // pines on the roof over chamber A, 8 levels above its floor: no figure of the start's may count them
+  for (let x = 19; x <= 28; x += 3) for (let y = 15; y <= 28; y += 3) s.plant(`roof-${x}-${y}`, "Pine", x, y, 11);
+  return build({ id: "start-paint-levels", title: "Start and paint levels", tests: "", scene: s, days: 1, snapshots: [], checks: [], focus: [], samples: [], water: "none" }).bytes;
+}
+const of = (page: Page, template: string) => objects(page).then((o) => o.filter((g) => g.startsWith(`${template} `)));
+const levels = (list: string[]) => list.map((g) => Number(g.split(",")[2]));
+/** The pines standing below the plateau's top (the painted ones; the map's own stand on the roof at 11). */
+const floorPines = (page: Page) => of(page, "Pine").then((o) => o.filter((g) => levels([g])[0] < 11));
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const objects = (page: Page) =>
@@ -74,7 +93,7 @@ async function hover(page: Page, p: { x: number; y: number }, words: string): Pr
   await expect(page.locator(".shape-note")).toHaveText(words);
 }
 
-test("objects go where the pointer aims: on a cave's floor through its mouth and under the layer cut, the start kept on open ground, a relic dragged along the floor; the water flows from the cave and the file carries them at its level", async ({ page }) => {
+test("objects go where the pointer aims: on a cave's floor through its mouth and under the layer cut, the start refused under a roof too low for it, a relic dragged along the floor; the water flows from the cave and the file carries them at its level", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 860 });
@@ -103,10 +122,11 @@ test("objects go where the pointer aims: on a cave's floor through its mouth and
     }
   }
 
-  // the start stays on open ground (D491): refused on the floor with the core's line, and a click there moves nothing
+  // the start may stand under a roof only with room for it (D491, #553): the chamber's air is too low for it, so
+  // the floor refuses it with the core's line, and a click there moves nothing
   await shelf.getByRole("button", { name: "Start", exact: true }).click();
   const floor = await seen(page, 24, 22, FLOOR);
-  await hover(page, floor, "the start needs open ground");
+  await hover(page, floor, "not enough room under the roof here: the start needs 5");
   const before = await applied(page);
   await page.mouse.click(floor.x, floor.y);
   await idle(page);
@@ -157,5 +177,112 @@ test("objects go where the pointer aims: on a cave's floor through its mouth and
   }
   expect(cave).toBeGreaterThan(50);
   expect(valley).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
+test("the start and painted pines go where you aim under a roof: the start lands on a big chamber's floor, is refused in a low one with the core's line; pines stand on a floor and are refused on one with 2 levels of air", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1400, height: 860 });
+  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  await page.getByLabel("Open a map or a project").setInputFiles({ name: "Start and paint levels.timber", mimeType: "application/zip", buffer: Buffer.from(startMap()) });
+  await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
+  await waitForEditor(page);
+  const shelf = page.getByRole("navigation", { name: "Place" });
+  // the layer cut at 5 takes the roofs off, looking down on the three chambers' floors
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    r.setSlice(5);
+    r.setView({ mode: "orbit", yaw: 0.2, pitch: 1.2, distance: 62, target: [30, 3, -18] });
+  });
+  const start = () => of(page, "StartingLocation");
+  expect(levels(await start())).toEqual([11]);
+
+  // into the chamber with room: it lands at the floor's level
+  await shelf.getByRole("button", { name: "Start", exact: true }).click();
+  const big = await seen(page, 23, 21, FLOOR);
+  await hover(page, big, "Move the start here");
+  await page.mouse.click(big.x, big.y);
+  await idle(page);
+  await expect.poll(async () => levels(await start())).toEqual([FLOOR]);
+  // (and out again onto the plateau's top by undo)
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(async () => levels(await start())).toEqual([11]);
+
+  // the start dragged onto the floor: the figures are not measured under a roof (the pines on the roof do not count), the
+  // core's verdict gives the colour, and it lands at the floor's level
+  const grab = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const q = r.project(37.5, 5, -37.5);
+    const box = r.canvas.getBoundingClientRect();
+    return { x: q.x + box.left, y: q.y + box.top };
+  });
+  const floorA = await seen(page, 23, 21, FLOOR);
+  await page.mouse.move(grab.x, grab.y);
+  await page.mouse.down();
+  await page.mouse.move(floorA.x, floorA.y, { steps: 12 });
+  await expect(page.locator(".start-indicators")).toContainText("Under a roof");
+  await expect(page.locator(".start-indicators")).toContainText("The district center fits here");
+  await expect(page.locator(".start-indicators")).not.toContainText("Starting wood");
+  await expect(page.locator(".start-indicators [data-status]")).toHaveAttribute("data-status", "ok");
+  await page.mouse.up();
+  await idle(page);
+  await expect.poll(async () => levels(await start())).toEqual([FLOOR]);
+  // hovering the start placed there: still the core's verdict, never "on an object" from the roof's pines
+  // (the start stands on tiles 23–25 × 21–23: its middle is where the pointer is)
+  const onIt = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const q = r.project(24.5, 3.5, -22.5);
+    const box = r.canvas.getBoundingClientRect();
+    return { x: q.x + box.left, y: q.y + box.top };
+  });
+  await page.mouse.move(onIt.x + 150, onIt.y + 150);
+  await page.mouse.move(onIt.x, onIt.y, { steps: 6 });
+  const reach = page.locator(".start-reach .start-indicators");
+  await expect(reach).toContainText("Under a roof");
+  await expect(reach).toContainText("The district center fits here");
+  await expect(reach).not.toContainText("Does not fit");
+  await expect(reach).not.toContainText("Starting wood");
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(async () => levels(await start())).toEqual([11]);
+
+  // into the chamber with 4 levels of air: refused with the core's line, and the start stays
+  await shelf.getByRole("button", { name: "Start", exact: true }).click();
+  const low = await seen(page, 37, 22, FLOOR);
+  await hover(page, low, "not enough room under the roof here: the start needs 5");
+  const before = await applied(page);
+  await page.mouse.click(low.x, low.y);
+  await idle(page);
+  expect(await applied(page)).toBe(before);
+  expect(levels(await start())).toEqual([11]);
+  await page.keyboard.press("Escape");
+
+  // a drag of pines on the big chamber's floor: they stand at the floor, none on the roof's top
+  await shelf.getByRole("button", { name: "Pine", exact: true }).click();
+  const a = await seen(page, 22, 21, FLOOR);
+  const b = await seen(page, 25, 24, FLOOR);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 8 });
+  await page.mouse.up();
+  await idle(page);
+  await expect.poll(async () => (await floorPines(page)).length).toBeGreaterThan(0);
+  expect(new Set(levels(await floorPines(page)))).toEqual(new Set([FLOOR]));
+  await page.keyboard.press("Escape");
+  const planted = (await floorPines(page)).length;
+
+  // a drag on the floor with 2 levels of air: refused with the core's line, nothing planted
+  await shelf.getByRole("button", { name: "Pine", exact: true }).click();
+  const c = await seen(page, 36, 7, FLOOR);
+  const d = await seen(page, 39, 9, FLOOR);
+  await hover(page, c, "not enough room under the roof here: the pine needs 3");
+  await page.mouse.down();
+  await page.mouse.move(d.x, d.y, { steps: 8 });
+  await page.mouse.up();
+  await idle(page);
+  await expect(page.getByRole("alert")).toContainText("the pine needs 3");
+  expect((await floorPines(page)).length).toBe(planted);
   expect(errors).toEqual([]);
 });
