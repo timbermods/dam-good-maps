@@ -33,6 +33,7 @@ import type { Orientation } from "../core/format/footprints";
 import { describeTileOf, entitiesAtTile, type EntityInfo, type TileDescription } from "../core/doc/describeTile";
 export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
+import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { planFill, unfedWater } from "../core/doc/waterEdits";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
@@ -2388,6 +2389,11 @@ export interface WaterLayers {
   /** The water these layers show is the preview's (the canonical settle is still running). */
   preview: boolean;
   version: number;
+}
+
+/** The labels Markers shows on the water objects, cores and reserves (the core's `markerNotes`, D337, D338). */
+export function markerNotesNow(): MarkerNote[] {
+  return markerNotes(need().built.entities);
 }
 
 /** The water layers of the map as it now stands. An unedited import keeps the file's water and

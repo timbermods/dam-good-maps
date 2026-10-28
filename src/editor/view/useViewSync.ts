@@ -54,6 +54,39 @@ export function useViewSync(ed: Ed): ViewSyncSlice {
     r.setView({ target: [x + 0.5, r.heightAt(x, y), -(y + 0.5)], distance: Math.min(r.getView().distance, 60) });
   }
 
+  const shown = useRef<{ off: () => void } | null>(null);
+  /** Take the marks off the map (a new Show, Esc, a press on the map). */
+  function unmark() {
+    const s = shown.current;
+    if (!s) return;
+    shown.current = null;
+    s.off();
+    renderer.current?.setHighlight(null);
+  }
+  /** Mark a problem's tiles on the map with the page's highlight (the overlay the legend points with, D330): they stay
+   *  until Esc, a press on the map or another Show; the camera may move meanwhile (a right or middle drag, the wheel), as the
+   *  legend's pointing stays through it. */
+  function mark(tiles: readonly (readonly [number, number])[]) {
+    unmark();
+    const r = renderer.current;
+    if (!r || !tiles.length) return;
+    const cells: number[] = [];
+    for (const [x, y] of tiles) if (x >= 0 && y >= 0 && x < info.W && y < info.H) cells.push(y * info.W + x);
+    r.setHighlight(cells);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && unmark();
+    const onPress = (e: PointerEvent) => e.button === 0 && e.target === renderer.current?.canvas && unmark();
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPress, true);
+    shown.current = {
+      off: () => {
+        window.removeEventListener("keydown", onKey);
+        window.removeEventListener("pointerdown", onPress, true);
+      },
+    };
+  }
+  // (a map opened or generated clears the renderer's marks by itself; the listeners go with the editor)
+  useEffect(() => unmark, []);
+
   const entityAt = (id: string): [number, number] | null => {
     // the page's view has no entity ids: a problem's entities are found by the worker's "where"
     void id;
@@ -64,6 +97,8 @@ export function useViewSync(ed: Ed): ViewSyncSlice {
     onShow: (c) => {
       const at = whereOf(c, entityAt);
       if (at) showTile(at[0], at[1]);
+      // (every tile the check names, not only the first the camera goes to)
+      if (c.where?.tiles?.length) mark(c.where.tiles);
     },
     canShow: (c) => !!whereOf(c, entityAt),
   };

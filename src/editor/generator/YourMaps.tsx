@@ -193,9 +193,9 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
                   ) : null}
                   {/* a kept version: where it came from, small and quiet, a line of its own */}
                   {e.parent ? (
-                    <span class="ym-from" {...tip(parentFull(e.parent))}>
+                    <span class="ym-from" {...tip(parentFull(e.parent, e.editedSince))}>
                       <span class="ym-from-name">{e.parent.name}</span>
-                      <span class="ym-from-step">{parentStep(e.parent)}</span>
+                      <span class="ym-from-step">{parentStep(e.parent, e.editedSince)}</span>
                     </span>
                   ) : null}
                 </span>

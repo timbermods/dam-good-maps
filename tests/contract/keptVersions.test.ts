@@ -78,6 +78,12 @@ describe("a version of a map at a step of its History", () => {
     expect(parentLine(v.parent)).toBe(`${s.meta.name} · step 2`);
     expect(parentFull(v.parent)).toBe(`From ${s.meta.name}, step 2`);
     expect(parentFull({ ...v.parent, name: "A".repeat(90) }).length).toBeLessThanOrEqual(60);
+    // edited since it was kept: the line's step piece says so (it stays whole), the tooltip last, both within their limits
+    expect(parentLine(v.parent, true)).toBe(`${s.meta.name} · step 2 · edited`);
+    expect(parentStep(v.parent, true)).toBe(" · step 2 · edited");
+    expect(parentFull(v.parent, true)).toBe(`From ${s.meta.name}, step 2, edited since`);
+    expect(parentFull({ ...v.parent, name: "A".repeat(90) }, true).length).toBeLessThanOrEqual(60);
+    expect(parentFull({ ...v.parent, name: "A".repeat(90) }, true)).toMatch(/, step 2, edited since$/);
     // (the line's step is its own piece, so the tile can keep it whole when the name gives way)
     expect(parentStep(v.parent)).toBe(" · step 2");
     expect(splitVersionName(v.name)).toEqual({ head: s.meta.name, tail: "— Make a source stronger" });

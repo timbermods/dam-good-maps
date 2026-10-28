@@ -2,7 +2,7 @@
 // steady while the camera moves.
 
 import { describe, expect, it } from "vitest";
-import { GAP, labelWords, layoutLabels, type LabelIn, type LabelOut, type LayoutEnv, type Rect } from "../../src/editor/sources/labelLayout";
+import { GAP, labelWords, layoutLabels, notesWords, type LabelIn, type LabelOut, type LayoutEnv, type Rect } from "../../src/editor/sources/labelLayout";
 
 const env = (obstacles: Rect[] = [], w = 800, h = 600): LayoutEnv => ({ bounds: { w, h }, obstacles, width: (words) => words.length * 6.5 + 22, height: 24 });
 const label = (id: number, ax: number, ay: number, extra: Partial<LabelIn> = {}): LabelIn => ({ id, ax, ay, count: 1, strength: 0.37, bad: false, feeding: false, target: false, ...extra });
@@ -183,5 +183,28 @@ describe("the sources' labels", () => {
     const out = layoutLabels(withPrev(sources(152), tight), env([], 1700, 110));
     expect(drawn(out)).toHaveLength(8);
     expect(out.every((o) => o.dx === 0 && o.dy === 0 && o.into === null && o.merged.length === 0)).toBe(true);
+  });
+
+  it("keeps the notes of water objects, cores and reserves off one another, merging crowded ones into one that warns if any does", () => {
+    const aquifer = "Aquifer · 1 water/s · no water until a powered drill stands on it";
+    const notes = (n: number, step: number) =>
+      Array.from({ length: n }, (_, i) => label(100 + i, 200 + (i % 4) * step, 150 + Math.floor(i / 4) * step, { text: i === 5 ? aquifer : `Water seep · ${i} water/s`, ...(i === 5 ? { warn: true } : {}) }));
+    for (const step of [2, 12, 30, 60, 140]) {
+      const out = layoutLabels(notes(12, step), env([], 900, 500));
+      noneOver(out);
+      // (each is drawn alone or speaks for the ones it took in; none is lost)
+      const spoken = drawn(out).reduce((n, o) => n + o.count, 0) + out.filter((o) => o.hidden && o.into === null).length;
+      expect(spoken, `step ${step}`).toBe(12);
+    }
+    const tight = layoutLabels(notes(12, 2), env([], 900, 500));
+    const merged = drawn(tight).filter((o) => o.merged.length > 0);
+    expect(merged.length).toBeGreaterThan(0);
+    expect(merged[0].words).toBe(notesWords(merged[0].count));
+    // the warning follows the aquifer into the label that speaks for it
+    expect(drawn(tight).some((o) => o.warn && (o.merged.length > 0 || o.words === aquifer))).toBe(true);
+    // a note never merges into a source's label, nor a source into a note's
+    const mixed = layoutLabels([label(0, 300, 300), label(1, 302, 300, { text: "Water seep · 1 water/s" })], env());
+    noneOver(mixed);
+    expect(drawn(mixed)).toHaveLength(2);
   });
 });

@@ -303,6 +303,10 @@ const api = {
     const r = await ed.settingsResponse();
     return transfer(r, responseBuffers(r));
   },
+  /** The labels Markers draws for seeps, aquifers, drains, cores and reserves. */
+  markerNotes() {
+    return ed.markerNotesNow();
+  },
   waterLayers() {
     const r = ed.waterLayers();
     return transfer(r, [r.badwater.buffer, r.roofed.buffer] as Transferable[]);
