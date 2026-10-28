@@ -180,7 +180,9 @@ export class Forest {
    *  (a plant that died or came back since: `setDead`). False, with nothing changed, when the plants differ. */
   reindex(view: EntityView): boolean {
     const index: number[] = [];
-    for (let i = 0; i < view.count; i++) if (isPlant(view.templates[view.template[i]])) index.push(i);
+    // (each template asked once: a map has thousands of objects and a handful of templates)
+    const plant = view.templates.map(isPlant);
+    for (let i = 0; i < view.count; i++) if (plant[view.template[i]]) index.push(i);
     if (index.length !== this.entries.length) return false;
     for (let j = 0; j < index.length; j++) {
       const e = this.entries[j];

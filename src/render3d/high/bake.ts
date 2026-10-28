@@ -164,10 +164,12 @@ let columnsKept: { key: number; map: Map<number, Uint8Array> } | null = null;
 /** A job for the worker, and its answer. */
 export type BakeJob =
   | { id: number; kind: "ambient"; W: number; H: number; heights: Uint8Array; canopies: Canopies }
+  | { id: number; kind: "cover"; W: number; H: number; heights: Uint8Array; canopies: Canopies }
   | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null; layered?: LayeredWater }
   | { id: number; kind: "share"; W: number; H: number; sw: Pick<SurfaceWater, "surface" | "depth" | "contamination"> };
 export type BakeResult =
   | { id: number; kind: "ambient"; data: Uint8Array; cover: Float32Array; ms: number }
+  | { id: number; kind: "cover"; cover: Float32Array; ms: number }
   | { id: number; kind: "flow"; flow: Uint8Array; rough: Uint8Array; counts: RoughCounts; shapes: MotionShapes; cave: CaveCurrent | null; ms: number }
   | { id: number; kind: "share"; share: Uint8Array; ms: number };
 /** What the worker sends back: the answer, or why the job failed. */
@@ -179,6 +181,8 @@ export function runBake(job: BakeJob): BakeResult {
     const { data, cover } = bakeAmbient(job.W, job.H, job.heights, job.canopies);
     return { id: job.id, kind: "ambient", data, cover, ms: performance.now() - t0 };
   }
+  // the canopies' cover alone (the objects changed: fields.ts `objects`)
+  if (job.kind === "cover") return { id: job.id, kind: "cover", cover: canopyCover(job.W, job.H, job.heights, job.canopies), ms: performance.now() - t0 };
   if (job.kind === "share") return { id: job.id, kind: "share", share: shareBytes(job.W, job.H, job.sw), ms: performance.now() - t0 };
   // the current from the outflows (current.ts), here rather than on the page's thread
   const current = job.out ? currentOf(job.W, job.H, job.out, job.sw.depth) : new Float32Array(job.W * job.H * 2);

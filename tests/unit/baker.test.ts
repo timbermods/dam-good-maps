@@ -63,3 +63,38 @@ describe("the bake worker", () => {
     warn.mockRestore();
   });
 });
+
+describe("the canopies' cover after the objects change", () => {
+  it("comes from the bake worker a moment later, the same as the whole bake's for those objects", async () => {
+    const { AmbientField } = await import("../../src/render3d/high/fields");
+    const { entityView } = await import("../../src/render3d/model");
+    vi.stubGlobal("Worker", class {
+      constructor() {
+        throw new Error("no workers here");
+      }
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const W = 24;
+    const H = 20;
+    const heights = Uint8Array.from({ length: W * H }, (_, i) => 3 + ((i * 7) % 3));
+    const tree = (template: string, x: number, y: number, dead = false) => ({ template, x, y, z: heights[y * W + x], owner: "t", orientation: "Cw0", dead });
+    const before = entityView([tree("Pine", 4, 4), tree("Oak", 10, 8), tree("RuinColumnH3", 15, 12)]);
+    // a pine drowned, a source placed among them, a birch grown
+    const after = entityView([tree("WaterSource", 2, 2), tree("Pine", 4, 4, true), tree("Oak", 10, 8), tree("RuinColumnH3", 15, 12), tree("Birch", 18, 5)]);
+    const field = new AmbientField(W, H, new Baker(), () => undefined);
+    const until = async () => {
+      for (let k = 0; k < 200 && !field.ready; k++) await new Promise((r) => setTimeout(r, 5));
+    };
+    field.bake(heights, before);
+    await until();
+    field.objects(heights, after);
+    expect(field.ready).toBe(false);
+    await until();
+    expect(field.ready).toBe(true);
+    const whole = new AmbientField(W, H, new Baker(), () => undefined);
+    whole.bake(heights, after);
+    for (let k = 0; k < 200 && !whole.ready; k++) await new Promise((r) => setTimeout(r, 5));
+    expect(Array.from(field.texture.image.data as Uint8Array)).toEqual(Array.from(whole.texture.image.data as Uint8Array));
+    warn.mockRestore();
+  });
+});
