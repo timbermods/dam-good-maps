@@ -68,8 +68,7 @@ no full run by hand except for a release.
    and first-bad days (#566, #573).
 3. **Merge rules (D489, D490):** a PR merges on a fresh review plus quick checks, and the owner may merge it themselves; the
    full suites run on dev after the merge.
-4. **Next (milestone):** lift the gate (#611: merging dev in, off hold next); then move the writer's stamped game version and
-   `log-floor.json` to 1.1.2.8; #532 (cave outflows in exports) later. Next decision number: D495.
+4. **Next (milestone):** lift the gate (#611: merging dev in, off hold next); #532 (cave outflows in exports) later. Next decision number: D495.
 5. **Held until Kyler lifts the no-Timberborn hold:** Real places' open edges (#493's four places, files ready in
    `C:\dgm-probe\places-open-edges\`), the release's D483 batch for generated caves and the opening shot, and the cycle-10 run for
    Showcase's winners (#507's `--cycles`).
