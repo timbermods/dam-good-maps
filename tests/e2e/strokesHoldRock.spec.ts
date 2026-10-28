@@ -90,13 +90,14 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
   const after = await page.evaluate(() => window.dgmEditor!.worker.terrainNow());
   expect(Array.from(after.terrain.columns)).toEqual(columns);
 
-  // the live water plays after it: new frames reach the view, then it settles
+  // the live water plays after it: new frames reach the view, then it settles (waited on by the water's own progress,
+  // not a few seconds: CI's software renderer draws a frame every 1.5 to 2.3 s, room for two depths in 4 s)
   const frames = await page.evaluate(async () => {
     const seen = new Set<unknown>();
     const t0 = performance.now();
-    while (performance.now() - t0 < 4000) {
+    while (performance.now() - t0 < 60_000) {
       seen.add(window.dgm3d!.renderer.mapState()!.surface.depth);
-      if (seen.size > 2 && window.dgmEditor!.waterSettled()) break;
+      if (seen.size > 1 && window.dgmEditor!.waterSettled()) break;
       await new Promise((r) => setTimeout(r, 50));
     }
     return seen.size;
