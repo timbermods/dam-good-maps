@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { bedAtCut, CUT_SLACK, cutCornerDepth, fallSheetCut, surfaceAtCut } from "../../src/render3d/cutWater";
+import { bedAtCut, CUT_SLACK, cutCornerDepth, fallSheetCut, ringLevelAt, surfaceAtCut, waterLevelAt } from "../../src/render3d/cutWater";
 import { WATER_BYTE_FINE, WATER_BYTE_STEPS, waterByte } from "../../src/render3d/light";
 import { chunkCount } from "../../src/render3d/mesh";
 import { LAYERS, surfaceWater, waterFromDepth, type SurfaceWater, type WaterView } from "../../src/render3d/model";
@@ -299,5 +299,42 @@ describe("a side of water the cut removed", () => {
     expect(d.goneSidesBelow, "the shelf's side reaching under the cut").toBeGreaterThan(0);
     expect(d.goneSides, "drawn: nothing").toBe(0);
     expect([...(d.tops.get(W + 4)?.values() ?? [])], "the pool whole").toEqual([Math.fround(3.95)]);
+  });
+});
+
+describe("where a tool stands on the water (pickSurface, a force's ring)", () => {
+  it("with no cut, the answer before the cut drew water, on land and on water, from the water view alone", () => {
+    const b = generate(makeSpec({ seed: 7, theme: "canyon", size: { x: 128, y: 128 } })).built;
+    const { W, H, heights } = b;
+    const sw = surfaceWater(W, H, waterFromDepth(heights, b.water, b.contamination));
+    let land = 0;
+    let water = 0;
+    for (let i = 0; i < W * H; i++) {
+      // (before #642: pickSurface took the surface where the water is over 0.05 deep, else the ground's hit; the ring
+      // the higher of the ground and that surface)
+      const wet = sw.depth[i] > 0.05;
+      if (wet) water++;
+      else land++;
+      expect(waterLevelAt(sw, i, null), `tile ${i}`).toBe(wet ? sw.surface[i] : null);
+      expect(ringLevelAt(heights, sw, i, null), `tile ${i}`).toBe(wet ? Math.max(heights[i], sw.surface[i]) : heights[i]);
+    }
+    expect(land).toBeGreaterThan(1000);
+    expect(water).toBeGreaterThan(100);
+    // (the same numbers whether or not a water chunk is meshed: neither reads a mesh, and meshing changes nothing they read)
+    const copy = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice() };
+    for (let cy = 0; cy * 32 < H; cy++) for (let cx = 0; cx * 32 < W; cx++) meshWaterChunk(W, H, plainLayers(heights, sw), cx, cy);
+    for (let i = 0; i < W * H; i++) {
+      expect(waterLevelAt(sw, i, null)).toBe(waterLevelAt(copy, i, null));
+      expect(ringLevelAt(heights, sw, i, 4)).toBe(ringLevelAt(heights, copy, i, 4));
+    }
+  });
+
+  it("under a cut, the water as drawn: on the cut over sliced water, none where the cut took it, the ground at most the cut", () => {
+    const heights = Uint8Array.from([2, 7, 9]);
+    const sw = { surface: Float32Array.from([8, 8, NaN]), floor: Float32Array.from([2, 7, NaN]), depth: Float32Array.from([6, 1, 0]) };
+    expect([0, 1, 2].map((i) => waterLevelAt(sw, i, 7))).toEqual([7, null, null]);
+    expect([0, 1, 2].map((i) => ringLevelAt(heights, sw, i, 7))).toEqual([7, 7, 7]);
+    expect([0, 1, 2].map((i) => ringLevelAt(heights, sw, i, 5))).toEqual([5, 5, 5]);
+    expect([0, 1, 2].map((i) => ringLevelAt(heights, sw, i, null))).toEqual([8, 8, 9]);
   });
 });
