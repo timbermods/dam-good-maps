@@ -269,8 +269,9 @@ export function applySelection(s: MapSession, ops: EditOp[], label: string, tile
       if (open.length) kept.push({ ...o, params: { ...o.params, cells: tilesToRuns(open, W) } } as EditOp);
     }
     if (!kept.some((o) => o.op === "sculpt") && out.size) {
-      const W = s.size.x;
-      return { ok: false, errors: [`(${first % W}, ${Math.floor(first / W)}) has a cave or overhang: shape its top with a brush`], applied: [], dirty: null };
+      // (a cave's own column first, when there is one; else the ground beside it that holds up its roof)
+      const cave = [...out].find((i) => s.columns.has(i));
+      return { ok: false, errors: [heldWhy(cave ?? first, cave !== undefined, s.size.x)], applied: [], dirty: null };
     }
     ops = kept;
     left = out.size;
@@ -288,6 +289,13 @@ export function applySelection(s: MapSession, ops: EditOp[], label: string, tile
     }
   }
   return r;
+}
+
+/** Why a Select action leaves tile i as it is, in one line: a cave's or an overhang's column, or the ground holding up
+ *  its roof (as the forces say it, forces/start.ts `caveRefusal`). */
+export function heldWhy(i: number, cave: boolean, W: number): string {
+  const at = `(${i % W}, ${Math.floor(i / W)})`;
+  return cave ? `${at} has a cave or overhang: shape its top with a brush` : `${at} holds up the roof of a cave or overhang: the Select actions leave it as it is`;
 }
 
 /** The ground a Select action leaves as it is on a map with caves (D487, as the forces leave it): every column with a

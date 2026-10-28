@@ -15,6 +15,7 @@ import { tip } from "../../ui/Tooltip";
 import { ButtonSetting, NumberSetting, SettingsGrid, Words, type Group } from "../settings";
 import { ALL_KINDS } from "../remove/kinds";
 import type { Ed } from "../ed";
+import { heldWhy } from "../../core/doc/start";
 import { tileCount } from "../../core/doc/labels";
 
 export interface SelectSlice {
@@ -29,6 +30,12 @@ export interface SelectSlice {
   selectChip: () => ComponentChildren;
   selectRow: () => JSX.Element | null;
   objectFootprints: () => number[][];
+  /** These tiles without the ground the Select actions (and Delete's ground) leave as it is on a map with caves. */
+  openGround: (tiles: readonly number[]) => { tiles: number[]; left: number };
+  /** The message after an action that left a cave's ground as it is. */
+  caveLeftWords: (n: number) => string;
+  /** Says why, and clears the preview, when these tiles are all ground an action leaves as it is. */
+  refusedOnCave: (tiles: readonly number[]) => boolean;
 }
 
 export function useSelect(ed: Ed): SelectSlice {
@@ -254,7 +261,8 @@ export function useSelect(ed: Ed): SelectSlice {
       (u) => {
         if (!u.ok) return;
         feel(what === "raise" || what === "fill" ? "raise" : lowers ? "lower" : "shape", mid[0], mid[1], size);
-        const left = u.left ?? open.left;
+        // (the page trimmed what it knew of; the core what it held besides: together, every tile left)
+        const left = open.left + (u.left ?? 0);
         if (left) setMessage({ kind: "info", text: caveLeftWords(left) });
       },
     );
@@ -311,6 +319,10 @@ export function useSelect(ed: Ed): SelectSlice {
     return set;
   }
   useEffect(() => void heldNow(), [selectionTick, info.version]);
+  /** The map's columns with a cave or an overhang. */
+  function columnsSet(): Set<number> {
+    return new Set<number>(ed.columnsRef.current.tiles);
+  }
   /** The first tile among these that the Select actions leave as it is (a cave's, an overhang's, the ground under a roof's
    *  edge), or -1. */
   function caveAmong(tiles: readonly number[]): number {
@@ -333,7 +345,8 @@ export function useSelect(ed: Ed): SelectSlice {
     const at = caveAmong(tiles);
     if (at < 0) return false;
     const W = infoRef.current.W;
-    const why = `(${at % W}, ${Math.floor(at / W)}) has a cave or overhang: shape its top with a brush`;
+    const cave = tiles.find((i) => columnsSet().has(i));
+    const why = heldWhy(cave ?? at, cave !== undefined, W);
     hintJob.current++;
     cropShown.current = why;
     setMessage({ kind: "info", text: why });
@@ -545,8 +558,11 @@ export function useSelect(ed: Ed): SelectSlice {
     const cut = renderer.current?.slice ?? null;
     const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
     if (group === "ground") {
-      if (refusedOnCave(tiles)) return;
-      return setSelectPreview({ tiles: tiles.filter((i) => h[i] > 0), color: LOWERS });
+      // (as the Select actions: a cave's ground and what holds up its roof stay as they are, the rest is marked)
+      const low = tiles.filter((i) => h[i] > 0);
+      const open = openGround(low);
+      if (open.left && !open.tiles.length) return void refusedOnCave(low);
+      return setSelectPreview({ tiles: open.tiles, color: LOWERS });
     }
     const e = mirror.current.entities;
     const at = coverAt();
@@ -769,6 +785,6 @@ export function useSelect(ed: Ed): SelectSlice {
 
   return {
     selectHost, openSelect, closeSelect, selectAll, workingArea, inArea, selectCalls, checkDepthRef, selectChip,
-    selectRow, objectFootprints
+    selectRow, objectFootprints, openGround, caveLeftWords, refusedOnCave
   };
 }

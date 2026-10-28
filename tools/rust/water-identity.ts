@@ -122,7 +122,7 @@ function sameStack(a: StackSettle, info: number[], field: (id: number) => Uint8A
   const steady = info[STACK_INFO.steadyTicks];
   const r = [info[STACK_INFO.settle] === 1, info[STACK_INFO.ticks], steady >= 0 ? steady : undefined];
   if (a.settled !== r[0] || a.ticks !== r[1] || a.steadyTicks !== r[2]) return `result ${JSON.stringify([a.settled, a.ticks, a.steadyTicks])} vs ${JSON.stringify(r)}`;
-  for (const [k, id] of [["count", STACK_FIELD.count], ["floor", STACK_FIELD.floor], ["depth", STACK_FIELD.depth], ["contamination", STACK_FIELD.contamination], ["sat", STACK_FIELD.saturation]] as const) {
+  for (const [k, id] of [["count", STACK_FIELD.count], ["floor", STACK_FIELD.floor], ["depth", STACK_FIELD.depth], ["contamination", STACK_FIELD.contamination], ["overflow", STACK_FIELD.overflow], ["sat", STACK_FIELD.saturation]] as const) {
     const x = bytesOf(a[k]);
     const y = field(id);
     if (x.length !== y.length) return `${k}: ${x.length} vs ${y.length} bytes`;
@@ -153,7 +153,7 @@ function checkStacked(name: string, m: WaterModel): CanonicalWater {
   if (threads) {
     const on = canonicalSettle(m).stack!;
     const f = (id: number) => {
-      const k = id === STACK_FIELD.count ? "count" : id === STACK_FIELD.floor ? "floor" : id === STACK_FIELD.depth ? "depth" : id === STACK_FIELD.contamination ? "contamination" : "sat";
+      const k = id === STACK_FIELD.count ? "count" : id === STACK_FIELD.floor ? "floor" : id === STACK_FIELD.depth ? "depth" : id === STACK_FIELD.contamination ? "contamination" : id === STACK_FIELD.overflow ? "overflow" : "sat";
       return bytesOf(on[k]);
     };
     diffs.push([`the app on ${threads} threads`, sameStack(s, [on.ticks, 1, on.settled ? 1 : 2, on.steadyTicks ?? -1, 0], f)]);
