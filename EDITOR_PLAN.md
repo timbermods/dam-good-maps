@@ -92,7 +92,7 @@ place of its bottom rule.
   each map's picture (in two columns a 16:9 place, 200×112; the top-down thumbnail, Your maps', until the search has ended, then the
   map's hero picture, `render3d/hero.ts` `heroPictureUrl` at 400×225, drawn one at a time, the thumbnail kept where it
   can't be drawn), its name, how many of the arc's six beats it has ("4 of 6
-  beats"), each beat met (a tick) or not (a ring) by its label, the core's words for its strongest beat (two lines), and
+  beats"), each beat met (a tick) or not (a ring) by its label, the core's words for its strongest beat (two lines; three in the three-column cards), and
   **Open**, which works once the search has ended and opens the pick through the normal open path (the camera moves
   only as any opened map's does, D265). The card of the map on show has the mint edge and its Open greyed. The search
   uses the settings and the seed in the box (an opened file rolls a seed, as Generate does) and runs in its own worker
