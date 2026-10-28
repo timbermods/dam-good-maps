@@ -476,7 +476,10 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   // above, the land is shown as soon as it is planned, and no arch is grown, `formsFor`)
   let held: Parameters<NonNullable<GenerateOptions["onLand"]>>[0] | null = null;
   const holdLand = !!opts.onLand && !!formsFor(specIn)["gorge-arch"];
-  const o: GenerateOptions = holdLand ? { ...opts, onLand: (l) => void (held ??= l) } : opts;
+  // (the last land a round showed: a rescue round's fresh land replaces round 0's, so the first look
+  // pairs the map's own land with its own planned water, never another round's; a land carried into a
+  // rescue round is not shown again and stays the one held)
+  const o: GenerateOptions = holdLand ? { ...opts, onLand: (l) => void (held = l) } : opts;
   let r = attemptRound(specIn, o, t0, 0, record);
   // D471: a round whose attempts are spent without a map is followed by rounds on fresh lands, until
   // one makes a map (a caller that caps the attempts gets its cap: the measures, the tests)
@@ -490,10 +493,10 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
 }
 
 /** The 3D forms a map looks for (D488, gen/forms3d.ts `formsWanted`): its own draw, the same on
- *  every attempt; none at or below the theme's default Verticality (a map with caves has no Fill or
- *  Remove unfed water in the editor yet, so the ordinary map stays as it was until
- *  they do); no arch above 128² (its first look is not held there, D348), no spring cave on a map
- *  made with Sources: None. */
+ *  every attempt; none at or below the theme's default Verticality (an edit on a map with caves has no
+ *  live water yet, worker/session.ts `kickWater`, and ordinary maps keep theirs, D280: the gate comes off
+ *  once the editor's water is live on stacked maps too); no arch above 128² (its first look is not held
+ *  there, D348), no spring cave on a map made with Sources: None. */
 export function formsFor(spec: MapSpec): FormsWanted {
   if (spec.settings.terrain.verticality <= VT_DEFAULT[spec.theme]) return {};
   const want = formsWanted(spec.theme, spec.settings.terrain.verticality, stream(spec.seed, "forms3d"));
@@ -3088,6 +3091,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       intentions = [...intentions, ...records];
     }
   }
+  // (a spring's source the game would not keep, left out of its row on a map with caves, is noted as a
+  // fix with the game's reason, never silently: D491, D342; the build shares the row's strength again)
+  for (const s of built.springsLeft ?? []) fixes.push(`spring source left out at (${s.x}, ${s.y}): ${s.why}`);
   info.stage = !v.report.passed ? "checks" : straight ? "ruler-straight channel" : !tallOk ? "above 16" : "built";
   // the build keeps the field as the processes made it (a changed tile would mean the land was
   // not what was planned: never plan again on it)

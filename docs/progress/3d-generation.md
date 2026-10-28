@@ -25,7 +25,9 @@ each form on the finished map; `gen/generate.ts` grows them at the end of an att
   and where it would not hold the wear the gallery is cut plain. The surface does not change.
 - **An overhang sheltering the start** (`start-overhang`). Where the start's level ground meets a cliff 3 or more above it
   within 8–12 tiles, a stretch of 3–14 tiles of the face is worn back 1–3 tiles, as soft rock under a harder cap, 2–3 high,
-  its depth wandering along the face; where the rock would not hold that, less deep, down to a tile. Level ground at the
+  its depth wandering along the face; where the rock would not hold that, less deep, down to a tile. Worn, not boxed (a
+  flat face read as a doorway): its ends taper into the face (a tile deep, two beside them), its height wanders 2–3 along
+  the face, its roof comes down a level at the back, and here and there its lip hangs a level under the hollow behind. Level ground at the
   start's floor runs on under the rock. The surface does not change. The start itself is never roofed (cave starts are
   for Verticality 70+, later).
 - **An arch over a gorge** (`gorge-arch`). Where a river runs between rims at one height 3 to 6 + Verticality/6 tiles apart
@@ -39,9 +41,11 @@ each form on the finished map; `gen/generate.ts` grows them at the end of an att
   there; and its feet flare, a buttress a row out on either face by each rim, now and then, 1–2 under the rims. The
   surface rises on the arch's tiles only.
 
-**How often, and where.** None at or below the theme's default Verticality (`formsFor`): a map with caves has no Fill
-or Remove unfed water in the editor yet (they are refused with one line, as on an imported cave map; Drought and Badtide
-run on caves since #404), so the ordinary map stays exactly as it was until those have their rules for caves; above it,
+**How often, and where.** None at or below the theme's default Verticality (`formsFor`): an edit on a map with caves has
+no live water yet (`worker/session.ts` `kickWater`, `draftStroke`: the whole map waits for the background check's
+settle, 3–7 s, then jumps), and ordinary maps keep theirs (D280, D99, D197); #579 took the gate off once (Fill and Remove
+unfed water have had their rules for caves since #498) and put it back on review for that. It comes off when the editor's
+water is live on maps with caves. Above it,
 `formsWanted` draws from the map's own stream (`stream(seed, "forms3d")`, the same on every attempt, nothing else drawn
 differently): Verticality 0 none; a spring cave on 25% + Verticality% of maps (up to 90%), two
 from 50, three from 75; an overhang on 20% + Verticality% (up to 85%); an arch from 35, more in Canyon and Highlands, fewer
@@ -86,7 +90,13 @@ field's terrain.
 
 **The first look (D348).** An arch is the one form that changes the land seen from above, so a map that looks for an arch
 holds its first look until the map is done: the land shown is the land at the end (`generate`; only at 128² and under,
-where the first look waits for the settled start anyway; above 128² no arch is grown).
+where the first look waits for the settled start anyway; above 128² no arch is grown). The land held is the last a round
+showed, so after a rescue round the first look pairs the map's own land with its own planned water.
+
+**A source the game would not keep.** On a map with caves, a spring's source whose cells an object takes, or that the
+game's rule refuses for any other reason, is left out of its row (its strength shared again over the rest) and recorded
+with the game's reason (`BuildResult.springsLeft`): the generator notes it as a fix (`info.fixes`, and a cave's check
+note), and an edit that newly leaves one out is refused with that line (`session.ts` `lostSince`, D342).
 
 **Names.** A map whose standout is a form takes a title from its own list ("Hidden Spring Gorge", "Rock Shelter Valley",
 "Stone Arch Heights", `gen/names.ts`) and says it in its own numbers ("A spring rises in a cave 6 tiles into the cliff and
@@ -95,7 +105,8 @@ feeds the river.").
 **Checked:** `tests/unit/forms3d.test.ts` (each form on hand-made land: its place, nothing falls, the surface kept where
 it should be, the same draw the same terrain, none where the land offers none); `tests/contract/forms3d.test.ts` (Canyon
 96² seed 3 at Verticality 80: spring caves and an arch, nothing dropped, the file's caves and stacked water, the project
-reopens to the same .timber; none at Verticality 0); the batches and the 84 maps below.
+reopens to the same .timber, a relic placed beside the cave's spring on its floor, a source the game would not keep left
+out with its reason; none at Verticality 0); the batches and the 84 maps below.
 
 **Numbers** (`tools/batch.ts`, 128², seeds 1–10 of every theme and Any at each Verticality, 70 maps a row; rerun
 2026-10-25 on the worn shapes, the cave springs through the game's rule and dev with #490 and #498; this machine shared
@@ -120,6 +131,11 @@ with many other sessions' runs, three lanes at once, so times are high):
   placed (22 with a spring cave, 11 an overhang, 8 an arch, on Canyon and Highlands, whose defaults are 40 and 45), and
   their caves turned off Fill and Remove unfed water in the editor (and Drought, before #404), which is why the gate is
   there.
+- **At each theme's default Verticality, measured with the gate off** (#579, generator 0.10.3, 2026-10-25; `tools/batch.ts`,
+  128²): every map final (River Valley 100 of 100, the others seeds 1–10), every project round trip identical, 0 blocks
+  dropped. Forms kept (caves / overhangs / arches): River Valley 16 / 27 / 0 of 100 maps; Canyon 5 / 0 / 2 (6 of 10 maps);
+  Highlands 7 / 0 / 4 (9 of 10); Any 5 / 2 / 0 (7 of 10); Delta 2 / 0 / 0; Lake Basin and Islands none. What the default
+  maps will get when the gate comes off.
 - Time: at Verticality 80, 12 maps (Canyon, Highlands, River Valley, Any, seeds 1–3) took a median of 14.7 s against
   dev's 7.9 s on the same loaded machine: a map with forms is built and checked once or twice more, each time with the
   stacked engine's settle. Under 3 s at 128² is not met, by dev either on this machine.
@@ -131,9 +147,12 @@ close,high,top] [--only …]`). The worn shapes against the boxes they replaced 
 big arch from above and straight down): `docs/sheets/3d-generation-1-natural.jpg`.
 
 **Falls short, for the next parts:**
-- No forms at the default Verticality yet. The gate was there because Fill and Remove unfed water were refused on maps
-  with caves; #498 (merged 2026-10-25) gives them their rules, so the gate can now go, in its own PR: it changes the
-  default maps (31 of the 84 when measured, every one where a form was placed) and needs their re-pin (D148).
+- No forms at the default Verticality yet: they wait for live water on maps with caves (the stacked settle in the editor
+  worker's job in slices, as `runWater` sends frames, and a stacked draft for strokes), being built separately.
+- A stroke, a placement's levelling or a force over a form whose rock would then fall is refused whole, as on any map
+  with caves (D280 (3); a force leaves a cave or an overhang as it is), rather than shaped round it. Holding a form's rock
+  as a stroke holds the ground under an object (D491) would let it through; the hover's footprint check does not foresee
+  the falls either.
 - Overhangs are rare: most starts stand on open ground with no cliff in reach. Steering the settler toward a cliff when
   the map looks for one would change maps that then find none, so it waits for a round where that is allowed.
 - No arch above 128² (its first look is not held there); a land-stage arch on the planned water would bring them back.
