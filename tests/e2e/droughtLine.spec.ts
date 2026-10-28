@@ -195,14 +195,19 @@ test("while Drought or Badtide is held, one quiet line says the day the start's 
   const note = page.locator(".water-bar .core-moment");
   // (no hazard held: no line)
   await expect(note).toHaveCount(0);
-  // a held Drought: the line comes once its days are worked out, whatever day the box shows (this map's start water dries on day 9)
+  // a held Drought: the line comes once its days are worked out, whatever day the box shows (this map's start water goes
+  // within the drought's 9 days; which day is the generator's map, the day's rule is tests/contract/startWaterDay.test.ts)
   await page.getByRole("button", { name: "Drought", exact: true }).click();
   await expect(page.locator(".day-words")).toHaveText("Day 9", { timeout: 60_000 });
-  await expect(note).toHaveText("Day 9: your start's water is gone", { timeout: 60_000 });
-  await page.getByRole("button", { name: "Day back" }).click();
-  await expect(page.locator(".day-words")).toHaveText("Day 8", { timeout: 60_000 });
-  await expect(note).toHaveText("Day 9: your start's water is gone");
+  await expect(note).toHaveText(/^Day [1-9]: your start's water is gone$/, { timeout: 60_000 });
+  const gone = (await note.textContent())!;
+  for (const shown of ["Day 8", "Day 7"]) {
+    await page.getByRole("button", { name: "Day back" }).click();
+    await expect(page.locator(".day-words")).toHaveText(shown, { timeout: 60_000 });
+    await expect(note, "the line is the hazard's, not the shown day's").toHaveText(gone);
+  }
   // the other hazard replaces it: never a drought's claim under a held badtide, whose own line comes with its days
+  // (the badtide's own last day: Normal's is Day 8)
   await page.getByRole("button", { name: "Badtide", exact: true }).click();
   await expect(page.locator(".day-words")).toHaveText("Day 8", { timeout: 60_000 });
   await expect(page.getByText("start's water is gone")).toHaveCount(0);
