@@ -214,11 +214,13 @@ test("an Unstable Core's moment shows under the water row while a hazard is held
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
   const bar = page.getByRole("toolbar", { name: "Water time" });
   const notes = bar.getByRole("note").locator("span");
+  // (the cores' notes: the start's water line, D133, may stand after them once the hazard's days are worked out)
+  const cores = notes.filter({ hasText: /^Unstable core/ });
   await expect(notes).toHaveCount(0);
   await bar.getByRole("button", { name: "Badtide" }).click();
   // (this map's two cores start their countdowns in cycles 6 and 7; a Normal cycle opens with 13 to 17 temperate days,
   // so the generator's 10.5 days put each 2 to 7 days before the hazard)
-  await expect(notes).toHaveText([
+  await expect(cores).toHaveText([
     "Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide",
     "Unstable core: goes off 2 to 7 days before cycle 7's drought or badtide",
   ]);
@@ -226,6 +228,7 @@ test("an Unstable Core's moment shows under the water row while a hazard is held
   const box = await bar.boundingBox();
   await bar.getByRole("button", { name: "Drought" }).click();
   await expect(notes.first()).toHaveText("Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide");
+  await expect(cores).toHaveCount(2);
   expect(await bar.boundingBox()).toEqual(box);
   await bar.getByRole("button", { name: "Drought" }).click();
   await expect(notes).toHaveCount(0);
