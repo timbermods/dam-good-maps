@@ -1,7 +1,8 @@
 // What an edit just changed in 3D glows a moment (render3d/editGlow.ts; D488): a hole dug into a wall shows the
-// hollow's faces it opened, then fades away; its undo shows the block put back; with reduced motion it shows still,
-// then goes. On plain ground only the Block tool's own click glows: a plain edit (a brush's, a force's or a Select
-// action's land shows itself) draws nothing, the Block tool in hand or not, and Compare's flip, not an edit, nothing.
+// hollow's faces it opened, then fades away; its undo shows the block put back; with reduced motion, and in the light
+// look (software drawing), it shows still, then goes. On plain ground only the Block tool's own click glows: a plain
+// edit (a brush's, a force's or a Select action's land shows itself) draws nothing, the Block tool in hand or not, and
+// Compare's flip, not an edit, nothing.
 
 import { expect, test, type Page } from "@playwright/test";
 import { toolInHand } from "./helpers";
@@ -78,6 +79,10 @@ async function flatSpot(page: Page): Promise<{ x: number; y: number; h: number }
 }
 
 test("a Block dig into a wall glows on the hollow's faces and fades; its undo glows the block put back; a plain edit does not", async ({ page }) => {
+  // (drawn as on a GPU: in software, the light look, the glow shows still, the second test)
+  await page.addInitScript(() => {
+    (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true };
+  });
   await page.setViewportSize({ width: 1280, height: 800 });
   await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
   const { x, y, h } = await flatSpot(page);
@@ -150,6 +155,10 @@ test("the Block tool's own click glows on plain ground; a plain edit with it in 
   await holdFor(page, "apply", 0);
   await expect.poll(async () => (await glowSeen(page)).added, { message: "the added block glows", timeout: 30_000 }).toBe(5);
   await expect.poll(() => glow(page), { timeout: 30_000 }).toEqual({ added: 0, removed: 0, fade: 0 });
+  // drawn in software (the light look, CI) it shows still and goes, two frames; on a GPU it fades
+  const seen = await glowSeen(page);
+  if ((await page.evaluate(() => window.dgm3d!.renderer.look)) === "light") expect([seen.low, seen.high], "held still in software").toEqual([expect.closeTo(0.85, 5), expect.closeTo(0.85, 5)]);
+  else expect(seen.low, "it faded before it went").toBeLessThan(1);
 
   // a plain edit (a Select action's Flatten) with the Block tool still in hand and its preview shown: nothing glows
   await page.evaluate(([x, y, h]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[y, x, x + 1]], level: h + 2 } } as never, "Raise a tile"), [x, y, h] as const);

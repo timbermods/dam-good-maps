@@ -1164,28 +1164,40 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           // a little along the edge (the same wobble seen from both tiles, so it stays continuous); the
           // light and the contamination's level (shading) keep the smooth weights above
           float bandW = max(0.04, 1.5 * max(fwidth(g.x), fwidth(g.y)));
-          vec2 edgeWave = vec2(vnoise(g * 6.7 + 17.0), vnoise(g * 5.3 + 47.0)) - 0.5;
-          vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w + edgeWave * sd * 0.105);
-          float v10 = ws.x * (1.0 - ws.y) * sx;
-          float v01 = (1.0 - ws.x) * ws.y * sy;
-          float v11 = ws.x * ws.y * sg;
-          float v00 = 1.0 - v10 - v01 - v11;
-          vec4 s0 = soilOf(d0);
-          vec4 s1 = soilOf(dx);
-          vec4 s2 = soilOf(dy);
-          vec4 s3 = soilOf(dd);
-          vec4 flags0 = vec4(step(0.5, s0.x), s0.x, step(0.5, s0.y), s0.z);
-          vec4 flags1 = vec4(step(0.5, s1.x), s1.x, step(0.5, s1.y), s1.z);
-          vec4 flags2 = vec4(step(0.5, s2.x), s2.x, step(0.5, s2.y), s2.z);
-          vec4 flags3 = vec4(step(0.5, s3.x), s3.x, step(0.5, s3.y), s3.z);
-          vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;
-          float sky = s0.w * w00 + s1.w * w10 + s2.w * w01 + s3.w * w11;
-          float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
-          // the bed under thin water (WATER_FILM): its depth's film curve, blended over the wet tiles round
-          // the point only (a pond's bed holds to its shore)
-          vec4 under = vec4(s0.z * w00, s1.z * w10, s2.z * w01, s3.z * w11);
-          float underSum = under.x + under.y + under.z + under.w;
-          groundBed = underSum > 0.0001 ? dot(under, vec4(waterFilm(waterDepthOf(d0)), waterFilm(waterDepthOf(dx)), waterFilm(waterDepthOf(dy)), waterFilm(waterDepthOf(dd)))) / underSum : 1.0;
+          #if LITE
+            // (the light look: the tile alone, so the blend below comes to the tile's own soil, sky, level and film;
+            // worked out once, without the edge's wobble (D135: no soil blending), which software would pay for
+            // on every pixel)
+            vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w);
+            vec4 s0 = soilOf(d0);
+            vec4 soil = vec4(step(0.5, s0.x), s0.x, step(0.5, s0.y), s0.z);
+            float sky = s0.w;
+            float clev = s0.y / 15.0;
+            groundBed = s0.z > 0.0 ? waterFilm(waterDepthOf(d0)) : 1.0;
+          #else
+            vec2 edgeWave = vec2(vnoise(g * 6.7 + 17.0), vnoise(g * 5.3 + 47.0)) - 0.5;
+            vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w + edgeWave * sd * 0.105);
+            float v10 = ws.x * (1.0 - ws.y) * sx;
+            float v01 = (1.0 - ws.x) * ws.y * sy;
+            float v11 = ws.x * ws.y * sg;
+            float v00 = 1.0 - v10 - v01 - v11;
+            vec4 s0 = soilOf(d0);
+            vec4 s1 = soilOf(dx);
+            vec4 s2 = soilOf(dy);
+            vec4 s3 = soilOf(dd);
+            vec4 flags0 = vec4(step(0.5, s0.x), s0.x, step(0.5, s0.y), s0.z);
+            vec4 flags1 = vec4(step(0.5, s1.x), s1.x, step(0.5, s1.y), s1.z);
+            vec4 flags2 = vec4(step(0.5, s2.x), s2.x, step(0.5, s2.y), s2.z);
+            vec4 flags3 = vec4(step(0.5, s3.x), s3.x, step(0.5, s3.y), s3.z);
+            vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;
+            float sky = s0.w * w00 + s1.w * w10 + s2.w * w01 + s3.w * w11;
+            float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
+            // the bed under thin water (WATER_FILM): its depth's film curve, blended over the wet tiles round
+            // the point only (a pond's bed holds to its shore)
+            vec4 under = vec4(s0.z * w00, s1.z * w10, s2.z * w01, s3.z * w11);
+            float underSum = under.x + under.y + under.z + under.w;
+            groundBed = underSum > 0.0001 ? dot(under, vec4(waterFilm(waterDepthOf(d0)), waterFilm(waterDepthOf(dx)), waterFilm(waterDepthOf(dy)), waterFilm(waterDepthOf(dd)))) / underSum : 1.0;
+          #endif
           vec3 ground = groundColor(soil, g, detail, clev, glow);${hook(h, "groundTop")}
           // under a film the ground is seen through the water as through a coloured filter (WATER_FILM): its
           // own detail in the water's hue, teal, crimson or between them by the water's badwater share
@@ -1213,21 +1225,26 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           float ry = 1.0 - smoothstep(0.0, 0.5, 0.5 - w.y);
           // (a neighbour whose air at this level is under a roof is a cave's mouth, not a wall: no contact
           // shadow toward it)
-          float ax = hx;
-          float ay = hy;
-          float ad = hd;
-          if (caveSize.z > 0.5) {
-            if (roofedAir(vec3(tile + vec2(sd.x, 0.0), h0))) ax = h0;
-            if (roofedAir(vec3(tile + vec2(0.0, sd.y), h0))) ay = h0;
-            if (roofedAir(vec3(tile + sd, h0))) ad = h0;
-          }
-          float ox = min(max(ax - h0, 0.0), 2.0) * 0.5 * rx;
-          float oy = min(max(ay - h0, 0.0), 2.0) * 0.5 * ry;
-          float od = min(max(ad - h0, 0.0), 2.0) * 0.5 * rx * ry * (1.0 - max(step(0.5, ax - h0), step(0.5, ay - h0)));
-          // a thin dark line along the top of a drop, and a deeper contact shadow at a wall's foot
-          float topLip = max(step(0.5, h0 - hx) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.x)), 0.5 - w.x)), step(0.5, h0 - hy) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.y)), 0.5 - w.y)));
-          c *= 1.0 - topLip * 0.30;
-          float ao = 1.0 - 0.75 * clamp(ox + oy + od - ox * oy, 0.0, 1.0);
+          #if LITE
+            // (the light look's neighbours are the tile itself: no contact shadow, no lip)
+            float ao = 1.0;
+          #else
+            float ax = hx;
+            float ay = hy;
+            float ad = hd;
+            if (caveSize.z > 0.5) {
+              if (roofedAir(vec3(tile + vec2(sd.x, 0.0), h0))) ax = h0;
+              if (roofedAir(vec3(tile + vec2(0.0, sd.y), h0))) ay = h0;
+              if (roofedAir(vec3(tile + sd, h0))) ad = h0;
+            }
+            float ox = min(max(ax - h0, 0.0), 2.0) * 0.5 * rx;
+            float oy = min(max(ay - h0, 0.0), 2.0) * 0.5 * ry;
+            float od = min(max(ad - h0, 0.0), 2.0) * 0.5 * rx * ry * (1.0 - max(step(0.5, ax - h0), step(0.5, ay - h0)));
+            // a thin dark line along the top of a drop, and a deeper contact shadow at a wall's foot
+            float topLip = max(step(0.5, h0 - hx) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.x)), 0.5 - w.x)), step(0.5, h0 - hy) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.y)), 0.5 - w.y)));
+            c *= 1.0 - topLip * 0.30;
+            float ao = 1.0 - 0.75 * clamp(ox + oy + od - ox * oy, 0.0, 1.0);
+          #endif
           sunHere = sunLit(g, h0);
           light = lightOf(n, mix(0.55, 1.0, sky), ao, sunHere);
           if (vWorld.y < h0 - 0.5) {
@@ -1316,11 +1333,20 @@ ${hook(h, "wall")}          float py = fwidth(y);
           wc = mix(wc, ${glColor(JUICE.ashDark)} * (0.62 + 0.5 * k), freshWall * 0.7);
           if (groundMode < 0.5) top = mix(top, ${glColor(JUICE.ashPale)} * 0.85, freshRock(tile, h0));
           vec2 stoneUV = vec2(along * 1.5 + (vnoise(vec2(along * 0.7, y)) - 0.5) * 0.35, y * 1.6);
-          float bevel = cobble(stoneUV + vec2(0.055, 0.075)) - cobble(stoneUV - vec2(0.055, 0.075));
+          #if LITE
+            // (the light look draws no stone pattern, D135: no bevel or cracks either)
+            float bevel = 0.0;
+          #else
+            float bevel = cobble(stoneUV + vec2(0.055, 0.075)) - cobble(stoneUV - vec2(0.055, 0.075));
+          #endif
           wc *= 1.0 + clamp(bevel * 0.62, -0.10, 0.13);
           float seamAA = max(0.012, fwidth(y));
           float seam = ceiling ? 0.0 : (1.0 - smoothstep(0.025, 0.025 + seamAA, min(fy, 1.0 - fy))) * (1.0 - smoothstep(0.25, 0.6, seamAA));
-          float vertical = cracks(vec2(along * 0.43, y * 0.11)).x;
+          #if LITE
+            float vertical = 0.0;
+          #else
+            float vertical = cracks(vec2(along * 0.43, y * 0.11)).x;
+          #endif
           wc *= (1.0 - 0.18 * seam) * (1.0 - 0.10 * vertical);
           c = mix(wc, top * 0.58, lip * 0.55);
           if (ceiling) light = lightOf(n, 0.5, 0.6, 0.0);
