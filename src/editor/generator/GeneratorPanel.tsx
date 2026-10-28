@@ -127,7 +127,10 @@ export function GeneratorPanel({ model: m, counts: held, icon, onClose }: Genera
       if (!mine || document.querySelector(".dialog-backdrop") || at?.closest?.(".showcase, [role=\"dialog\"], [role=\"menu\"]")) return;
       e.preventDefault();
       e.stopPropagation();
-      latest.current.onClose();
+      // (an open Showcase sheet closes first wherever the focus is: it takes the focus after it is drawn, and an Esc
+      // pressed before that is still the sheet's)
+      if (latest.current.m.showcase.open) latest.current.m.showcase.onOpen(false);
+      else latest.current.onClose();
     };
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);

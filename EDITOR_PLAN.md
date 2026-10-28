@@ -67,7 +67,7 @@ place of its bottom rule.
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
   font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443; the title shows the name and is fitted at once, never waiting for the worker's answer),
   Esc cancels, and a blank name is refused in the core's words, said in the second line. While the name is edited a small card hangs under it with the map's description ("Describe the map" while none is written; Enter saves, Shift+Enter is a line break, Esc cancels; the `setDescription` operation, one undo step, refused in the core's words in the card; empty takes the player's text away; what the file adds after it shows under the field); focus moving between the name and the card saves nothing until it leaves the title. A typed name stops at what
-  fits two lines (13px, where the header's room is narrowest: at 1280 wide and at 1,340 and 1,400px, where the right group grows, so a name kept at one width is shown whole at every wider one) where the fonts allow, never below 30
+  fits two lines (13px, where the header's room is narrowest: at 1280 wide and at 1,340 and 1,400px, where the right group grows, so a name kept at one width is shown whole at every wider one, and the limit is the same whatever the window's width) where the fonts allow, never below 30
   characters: a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines with an
   ellipsis and the full name in its tooltip. On the right **History**
   (its panel open while pressed), Undo, Redo, the checks dot with its
@@ -148,7 +148,7 @@ place of its bottom rule.
 - **Your maps** (D234, D330; with nothing kept it shows one dashed tile where the first map will land, and "No maps kept yet"
   beside it): a map is kept in this browser from its first edit (an operation applied) or rename,
   whatever its kind, and stays kept even if every edit is undone (the first time a save is stored in a browser a quiet note says so, going by itself after 8 s: "Kept in Your maps,
-  in this browser", remembered in `dgm.keptNote`; never shown for a save that failed); camera bookmarks alone don't keep it, and an
+  in this browser", remembered in `dgm.keptNote`; never shown for a save that failed, nor while another message holds its place, Showcase's among them: the next stored save says it); camera bookmarks alone don't keep it, and an
   unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
   after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
@@ -168,7 +168,7 @@ place of its bottom rule.
   (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide; tooltip
   "Edit this map with someone else"). Below about 1,340px wide the Look button reads just "Look" and the button leaves the
   header for **Together…** in File's menu (the same tooltip), File wearing the other player's dot while a session is live, so
-  the longest name still fits two lines at 1280 under a wide font. It opens a small panel under it (from File's entry it hangs under the right group's edge). **Alone:** the player's name (a field, kept in this browser,
+  the longest name still fits two lines at 1280 under a wide font. It opens a small panel under it (from File's entry it hangs under the right group's edge, the focus in it; File, wearing the other player's dot, is named "File (together with <name>)"). **Alone:** the player's name (a field, kept in this browser,
   "Player" by default), **Invite** (makes a room code and shows it large with **Copy** and "Waiting for them to
   join…", **Cancel** takes it back), and a code field with **Join**. **Live:** the two players, each with their colour
   swatch, **Go to <name>** (the camera glides to where they are looking; never automatic, brief §6) and **Leave**.
@@ -177,7 +177,7 @@ place of its bottom rule.
   **Invite again** (the host) makes a new code that carries on the same session, the guest types the new code under
   **Join again**. The button wears the other player's colour dot while a session is live (hollow while they are
   away). The colours are the session's (`PLAYER_COLOURS`, tokens `--collab-host` and `--collab-guest`, DESIGN.md).
-  A guest cannot rename the map (the host names the shared map: the title's tooltip says so) or open another one.
+  A guest cannot rename or describe the map (the host names and describes the shared map: the title's tooltip says so) or open another one.
   - **How edits route.** The page's controller `Together` (`src/collab/together.ts`, one object for the page's life,
     beside the editor, which remounts for each map) owns the `CollabClient`. From **Invite** on, the worker sends every
     edit through the session instead of applying it: `generator.worker.ts` hands each edit function (`apply`,

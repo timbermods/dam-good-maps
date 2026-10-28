@@ -35,8 +35,9 @@ const GROWS_AT = [1340, 1400] as const;
 
 /** What the right group gains at each of GROWS_AT, in px, in the page's font: Look's ": Standard" and Together's icon (40px and
  *  the 6px gap) at the first, Together's word at the second (its button's padding and gap over the icon's square, 10px).
- *  These parts are in the page while hidden, so their text is measured, not their boxes. */
-function growth(bar: HTMLElement, pen: CanvasRenderingContext2D): [number, number] {
+ *  These parts are in the page while hidden, so their text is measured, not their boxes. `dot`: the other player's dot
+ *  beside the word while a session is live (10px and its 6px gap), and whether it is there now. */
+function growth(bar: HTMLElement, pen: CanvasRenderingContext2D): { added: [number, number]; dot: number; dotShown: boolean } {
   const wide = (selector: string) => {
     const el = bar.querySelector<HTMLElement>(selector);
     if (!el) return 0;
@@ -45,28 +46,37 @@ function growth(bar: HTMLElement, pen: CanvasRenderingContext2D): [number, numbe
     return Math.ceil(pen.measureText(el.textContent ?? "").width);
   };
   const together = bar.querySelector(".together-button") ? 46 : 0;
-  const word = bar.querySelector(".together-label") ? wide(".together-label") + 10 : 0;
-  return [wide(".look-state") + together, word];
+  const label = !!bar.querySelector(".together-label");
+  const word = label ? wide(".together-label") + 10 : 0;
+  // (Look's state grows only where its button is shown, not where the page draws without 3D, and by its widest words,
+  // the sizer's, whatever the look)
+  const look = bar.querySelector(".look-words")?.getClientRects().length ? wide(".look-sizer .look-state") : 0;
+  return { added: [look + together, word], dot: label ? 16 : 0, dotShown: !!bar.querySelector(".together-button .together-dot") };
 }
 
 /** Whether a name fits the two lines the header keeps for it where its room is narrowest: the small title size, between the
  *  two groups at 1280 wide, and at each width above where the right group grows (DESIGN: every name Rename allows fits two
- *  lines at every width from 1280 up, so a name kept at one width is never cut at another). True when the header is not on
- *  the page. */
+ *  lines at every width from 1280 up, so a name kept at one width is never cut at another, and a wider window allows as
+ *  much as 1280 does). True when the header is not on the page. */
 export function fitsHeaderTwoLines(name: string): boolean {
   const bar = document.querySelector<HTMLElement>("header.editor-bar");
   if (!bar) return true;
   const pen = document.createElement("canvas").getContext("2d");
   if (!pen) return true;
   const get = (n: string) => parseFloat(bar.style.getPropertyValue(n)) || 0;
-  const [left, right] = [get("--side-l"), get("--side-r")];
+  const left = get("--side-l");
+  // (the right group as it is under 1,340px: what has grown at this window's width taken off, the dot with it if it shows)
+  const { added, dot, dotShown } = growth(bar, pen);
+  let right = get("--side-r");
+  GROWS_AT.forEach((width, i) => {
+    if (window.innerWidth >= width) right -= added[i] + (i === 1 && dotShown ? dot : 0);
+  });
   let room = Math.min(bar.clientWidth, 1280) - left - right - 24;
-  // (the room the name will have where the window is wider: the group has grown by more than the window has)
-  const added = growth(bar, pen);
+  // (the room the name will have where the window is wider: the group grows by more than the window does, the dot's room
+  // kept free whether a session is live or not, so one starting never cuts the name)
   let grown = 0;
   GROWS_AT.forEach((width, i) => {
-    if (window.innerWidth >= width) return;
-    grown += added[i];
+    grown += added[i] + (i === 1 ? dot : 0);
     room = Math.min(room, width - left - (right + grown) - 24);
   });
   room = Math.max(60, room);

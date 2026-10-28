@@ -252,6 +252,15 @@ test("Esc closes the panel from the button that opened it, from a field in it, a
   await expect(panel).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
+
+  // (and with the focus on nothing, as before the sheet has taken it: still the sheet first)
+  await opener.click();
+  await panel.getByRole("button", { name: "Showcase…" }).click();
+  await expect(sheet).toBeVisible();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(panel).toBeVisible();
 });
 
 test("the Name box starts empty with the open map's name in grey, and its tooltip says it names the next map", async ({ page }) => {
