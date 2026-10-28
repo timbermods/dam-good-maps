@@ -234,15 +234,17 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // Lake Basin 3 still ends 2,351 → 2,458 (rule 4: 2,665), from cliffs above farmland pulling back
   // (D418) and edges wandering at a terrace's moist rim. River Valley 6 joined it with River Valley
   // round 2 (#244, generator 0.8.5: 2,226 → 2,229; 2,237 with rule 4), whose taller cliffs stand on
-  // farmland or in water (three in four): 7,458 levels cut, 214 filled.
+  // farmland or in water (three in four): 7,458 levels cut, 214 filled. River Valley 6 passes on generator
+  // 0.10.5's maps (2,654 → 2,335, D148): the gap is re-seeded to River Valley 8 (1,896 → 2,362), which shows it.
   // One known gap, one cause (Kyler, 2026-10-07, D479): Naturalize on cliffs whose foot can't rise
   // (farmland, D418). Both come off this list together, the next time Naturalize gets real work,
   // judged on a sheet. First check then whether this count scores a stepped slope as younger than the
   // tall cliff it weathers from; if it does, the measure is what's wrong, not Naturalize.
-  const fails = new Set(["lakeBasin 3", "riverValley 6"]);
+  const fails = new Set(["lakeBasin 3", "riverValley 8"]);
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],
+    ["riverValley", 8],
     ["lakeBasin", 1],
     ["lakeBasin", 3],
   ] as const)

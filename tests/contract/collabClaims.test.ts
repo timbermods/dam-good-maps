@@ -282,7 +282,7 @@ describe("what an edit reaches (§3)", () => {
     // a slope pinned and taken away
     const ground = s.built.heights;
     let at: [number, number] | null = null;
-    for (let y = 21; y < W - 8 && !at; y++) for (let x = 21; x < W - 8 && !at; x++) if (ground[y * W + x] + 1 === ground[y * W + x + 1] && !s.built.entities.some((e) => Math.abs(e.x - x) < 2 && Math.abs(e.y - y) < 2)) at = [x, y];
+    for (let y = 4; y < W - 8 && !at; y++) for (let x = 24; x < W - 8 && !at; x++) if (ground[y * W + x] + 1 === ground[y * W + x + 1] && !s.built.entities.some((e) => Math.abs(e.x - x) < 2 && Math.abs(e.y - y) < 2)) at = [x, y];
     expect(at).not.toBeNull();
     const pin: EditOp = { op: "pinSlope", params: { x: at![0], y: at![1], orientation: "Cw0" } };
     if (s.check(pin).length === 0) {
@@ -637,7 +637,7 @@ describe("water notes (§4)", () => {
     const s = session("canonical");
     const claims = new ClaimsState(W, W);
     // hers beside the spring's flood, his own elsewhere
-    claims.apply("guest", { kind: "claim", runs: square(38, 26, 44, 32) }, NAMES);
+    claims.apply("guest", { kind: "claim", runs: square(38, 33, 44, 39) }, NAMES);
     claims.apply("host", { kind: "claim", runs: square(2, 6, 12, 14) }, NAMES);
     const before = Float64Array.from(s.built.water);
     const plan = planEntity(s, { template: "WaterSource", x: 36, y: 30, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 3, CurrentStrength: 3 } } }, "d0000000-0000-4000-8000-000000000a01");
@@ -660,8 +660,8 @@ describe("water notes (§4)", () => {
     // where: inside her area, the centre one of the flooded tiles
     expect(note.bounds.x0).toBeGreaterThanOrEqual(38);
     expect(note.bounds.x1).toBeLessThanOrEqual(44);
-    expect(note.bounds.y0).toBeGreaterThanOrEqual(26);
-    expect(note.bounds.y1).toBeLessThanOrEqual(32);
+    expect(note.bounds.y0).toBeGreaterThanOrEqual(33);
+    expect(note.bounds.y1).toBeLessThanOrEqual(39);
     const centre = note.centre.y * W + note.centre.x;
     expect(claims.ownerOf(centre)).toBe("guest");
     expect(s.built.water[centre] - before[centre]).toBeGreaterThanOrEqual(0.25);
@@ -695,15 +695,15 @@ describe("water notes (§4)", () => {
     expect(waterNote(before, trace, claims, "guest", batch, roleOf)).toBeNull();
     // two tiles are not worth a note either; the threshold and the count can be asked for
     const two = Float64Array.from(before);
-    two[28 * W + 40] += 1;
-    two[28 * W + 41] += 1;
+    two[36 * W + 40] += 1;
+    two[36 * W + 41] += 1;
     expect(waterNote(before, two, claims, "guest", batch, roleOf)).toBeNull();
     expect(waterNote(before, two, claims, "guest", batch, roleOf, { minTiles: 2 })?.tiles).toBe(2);
     expect(waterNote(before, two, claims, "guest", batch, roleOf, { minTiles: 2, threshold: 2 })).toBeNull();
     // badwater reaching her area, when contamination is given
     const clean = new Float64Array(W * W);
     const fouled = Float64Array.from(clean);
-    for (let x = 39; x < 45; x++) fouled[28 * W + x] = 0.5;
+    for (let x = 39; x < 45; x++) fouled[36 * W + x] = 0.5;
     const foul = waterNote(before, before, claims, "guest", batch, roleOf, { contamination: { before: clean, after: fouled } });
     expect(foul?.fouled).toBe(6);
     expect(foul?.flooded).toBe(0);

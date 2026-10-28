@@ -383,13 +383,13 @@ describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edge
 });
 
 describe("Crop map to selection: the lip stays at the new edges and is no wall", () => {
-  // seed 6 at 128²: a source at (27, 127) on the old north edge, cropped to {27, 68, 60, 60}: its river mouth
-  // stands on a side the crop did not cut
+  // seed 14 at 128²: sources at (40..44, 127) on the old north edge, cropped to {27, 44, 60, 84} (it holds the
+  // start at (82, 60)): their river mouth stands on a side the crop did not cut
   it("changes no tile on a side the crop did not cut, and little beside the new ones", () => {
-    const original = MapSession.fromGenerated(generate(makeSpec({ seed: 6, size: { x: 128, y: 128 } })));
+    const original = MapSession.fromGenerated(generate(makeSpec({ seed: 14, size: { x: 128, y: 128 } })));
     original.settleCanonical();
-    const r = { x: 27, y: 68, w: 60, h: 60 };
-    const s = MapSession.fromGenerated(generate(makeSpec({ seed: 6, size: { x: 128, y: 128 } })));
+    const r = { x: 27, y: 44, w: 60, h: 84 };
+    const s = MapSession.fromGenerated(generate(makeSpec({ seed: 14, size: { x: 128, y: 128 } })));
     s.settleCanonical();
     expect(s.apply(crop(r.x, r.y, r.w, r.h)).errors).toEqual([]);
     let raised = 0;
