@@ -115,7 +115,11 @@ export function Together(p: { controller: TogetherController; state: TogetherSta
     return () => window.removeEventListener(OPEN_TOGETHER, show);
   }, []);
   useEffect(() => {
-    if (!open || !focusIn.current) return;
+    // (put down with the panel too: an entry chosen while it was open never pulls the focus into a later opening)
+    if (!open || !focusIn.current) {
+      focusIn.current = false;
+      return;
+    }
     focusIn.current = false;
     wrap.current?.querySelector<HTMLElement>(".together-panel :is(input, button):not(:disabled)")?.focus();
   }, [open]);
