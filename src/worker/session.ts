@@ -1850,14 +1850,16 @@ let lastStep: { key: string; at: number; length: number; session: MapSession } |
 const STEP_JOIN_MS = 1500;
 
 /** Apply a change a control makes in steps (a slider): shown at once, and steps a moment apart
- *  with the same `key` are one undo step (the latest replaces the one before). */
-export function applyStep(op: EditOp, label: string, key: string): SessionUpdate {
+ *  with the same `key` are one undo step (the latest replaces the one before). `more`: the page says this
+ *  step goes on the gesture it sent the last one in (a scroll whose notches wait for each other), so it
+ *  joins whatever the time, and a busy worker never splits one gesture into two undo steps. */
+export function applyStep(op: EditOp, label: string, key: string, more = false): SessionUpdate {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return changed(s, false, [blocked], t0);
   const n = s.history().filter((h) => h.applied).length;
-  const joins = lastStep && lastStep.session === s && lastStep.key === key && lastStep.length === n && performance.now() - lastStep.at < STEP_JOIN_MS;
+  const joins = lastStep && lastStep.session === s && lastStep.key === key && lastStep.length === n && (more || performance.now() - lastStep.at < STEP_JOIN_MS);
   if (joins) s.undo();
   const r = s.apply(op, "user", label);
   if (!r.ok && joins) s.redo();

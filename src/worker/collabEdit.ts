@@ -42,7 +42,7 @@ export const collabEditApi = {
   },
 
   /** A slider's step: each step is its own action here (the steps cannot be joined into one undo step across two players). */
-  applyStep(op: EditOp, label: string, _key: string): Promise<Answer> {
+  applyStep(op: EditOp, label: string, _key: string, _more?: boolean): Promise<Answer> {
     return order({ kind: "edit", ops: [op], label });
   },
 
