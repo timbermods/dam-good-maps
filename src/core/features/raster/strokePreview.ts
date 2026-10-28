@@ -35,7 +35,7 @@ export interface TerrainState {
    *  A stroke keeps each tile within them (the session adds it to the operation), and `protect` holds
    *  these tiles, as the build's integrity pass leaves them. Absent where there is none. */
   hold?: [number, number, number][] | null;
-  /** The ground holding up a cave's or an overhang's rock (D280 (3), amended by #ROCKHOLD-PR; session.ts
+  /** The ground holding up a cave's or an overhang's rock (D280 (3), amended by #623; session.ts
    *  `rockHolds`): [tile, low, high]. A stroke keeps each tile within them as it keeps `hold` (the session
    *  adds both to the operation, where they meet one entry a tile within both) and the integrity pass leaves
    *  them; a force reads only `hold`. Absent where there is none. */

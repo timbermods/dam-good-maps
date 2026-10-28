@@ -187,7 +187,7 @@ export interface ApplyResult {
   dirty: DirtyInfo | null;
   /** A crop (D340): how many objects the new edge cut and removed. */
   removedObjects?: number;
-  /** A brush stroke or a sculpt on a map with caves or overhangs (D280 (3), amended by #ROCKHOLD-PR): the
+  /** A brush stroke or a sculpt on a map with caves or overhangs (D280 (3), amended by #623): the
    *  tiles holding up a cave's or an overhang's rock it kept from where it would have taken them, ascending
    *  (what the page's one line counts and tints); absent when it kept none. */
   held?: number[];
@@ -788,7 +788,7 @@ export class MapSession {
   private holdsCache: { key: BuildResult; holds: [number, number, number][] } | null = null;
 
   /** The ground holding up a cave's or an overhang's rock on the map as it stands (D280 (3), amended by
-   *  #ROCKHOLD-PR; the roof-holding ground the forces leave, D487): [tile, low, high]. The ground beside a
+   *  #623; the roof-holding ground the forces leave, D487): [tile, low, high]. The ground beside a
    *  roof that holds it, and a roof's top where the roof beside it rests on it, may come down no lower than
    *  one above the underside it holds (`terrain/support.ts` `rockFloors`) and may rise freely; the open
    *  ground of an object whose stackable top holds a roof (`objectRoofHolders`) stays exactly as it is.
@@ -829,7 +829,7 @@ export class MapSession {
 
   /** A stroke or a sculpt with the ground it holds (`heldGround`): the ground that holds objects set
    *  under a roof (D491) and the ground that holds up a cave's or an overhang's rock (D280 (3), amended
-   *  by #ROCKHOLD-PR): it keeps those tiles within their floor and ceiling and shapes the rest as normal, never
+   *  by #623): it keeps those tiles within their floor and ceiling and shapes the rest as normal, never
    *  refused for them (D270). Only the held tiles in its reach, and one tile round it (the integrity pass
    *  reads each tile's neighbours), go in the operation, so a replay builds exactly what was shown (D455):
    *  the build keeps those, and only those, from the integrity pass, so a stroke never moves held ground
@@ -855,7 +855,7 @@ export class MapSession {
     return { ...op, params: { ...op.params, hold: hold.map((h) => [...h] as [number, number, number]) } } as EditOp;
   }
 
-  /** Why a held stroke or sculpt is refused (D491; D280 (3), amended by #ROCKHOLD-PR): only when holding
+  /** Why a held stroke or sculpt is refused (D491; D280 (3), amended by #623): only when holding
    *  leaves it nothing to shape, every tile it covers being ground that holds an object under a roof or
    *  holds up a cave's or an overhang's rock (`rock`); null otherwise. */
   private heldOnly(op: EditOp, before: BuildResult, rock: ReadonlySet<number>): string | null {
@@ -885,7 +885,7 @@ export class MapSession {
   }
 
   /** The tiles holding up a cave's or an overhang's rock (`rock`) a held stroke or sculpt keeps from
-   *  where it would take them (D280 (3), amended by #ROCKHOLD-PR): the stroke's land worked out on the
+   *  where it would take them (D280 (3), amended by #623): the stroke's land worked out on the
    *  map it applied to (`before`) with its hold and without the rock's part of it (build step 6, the
    *  brush or the sculpt alone), and the tiles of `rock` that differ, ascending. What the page's one line
    *  reports. */
@@ -1135,7 +1135,7 @@ export class MapSession {
       columns: Int32Array.from([...this.columns.keys()].sort((a, b) => a - b)),
       ...(this.columns.size ? this.roofState() : {}),
       ...(this.holds().length ? { hold: this.holds().map((h) => [...h] as [number, number, number]) } : {}),
-      // (the ground holding up a cave's or an overhang's rock, which a stroke keeps: D280 (3), amended by #ROCKHOLD-PR)
+      // (the ground holding up a cave's or an overhang's rock, which a stroke keeps: D280 (3), amended by #623)
       ...(this.rockHolds().length ? { rockHold: this.rockHolds().map((h) => [...h] as [number, number, number]) } : {}),
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
       water: this.cur.water.slice(),

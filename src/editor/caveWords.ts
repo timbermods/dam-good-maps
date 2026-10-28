@@ -1,4 +1,4 @@
-// The page's words for what an edit leaves round a cave or an overhang (D487; D280 (3), amended by #ROCKHOLD-PR).
+// The page's words for what an edit leaves round a cave or an overhang (D487; D280 (3), amended by #623).
 
 /** The message after a Select action or Delete's ground that left a cave's or an overhang's ground as it is
  *  (core/doc/start.ts `applySelection`'s `left`). */

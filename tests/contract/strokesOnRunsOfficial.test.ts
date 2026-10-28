@@ -1,6 +1,6 @@
 // The brushes on runs (D280 (3)) on the official maps with caves and overhangs: random strokes keep
 // every run under a roof and drop no ground the map held; one that would take the ground holding up a
-// roof keeps it and shapes the rest, never refused for it (D280 (3), amended by #ROCKHOLD-PR), and the
+// roof keeps it and shapes the rest, never refused for it (D280 (3), amended by #623), and the
 // page's stroke shows nothing falling; undo gives back the exact runs, an
 // incremental build equals a full one, and an unedited map still exports byte for byte. The maps are
 // not ours to redistribute, so this runs only where they were copied locally (`DGM_OFFICIAL_MAPS`,

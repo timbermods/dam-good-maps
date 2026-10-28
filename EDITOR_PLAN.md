@@ -818,7 +818,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   above the roof's underside (`terrain/runs.ts` `topFloor`), so every run below the top, the cave's air and floor,
   stays exactly as it is and no tile gains or loses a run. The build's pit-and-spike pass leaves a roof's top as the
   stroke leaves it. A stroke or a sculpt never takes away what holds a cave's, an overhang's or an arch's rock up, and
-  is never refused for it (D280 (3), amended by #ROCKHOLD-PR; D270): it holds that ground and shapes the rest. Held are
+  is never refused for it (D280 (3), amended by #623; D270): it holds that ground and shapes the rest. Held are
   the ground beside a roof that holds it, no lower than one layer above the underside it holds (it may rise freely), a
   roof's top where the roof beside it rests on it, the same way, and the open ground of an object whose top holds a
   roof, exactly as it is (`terrain/support.ts` `rockFloors`, `MapSession.rockHolds`; the roof-holding ground the forces

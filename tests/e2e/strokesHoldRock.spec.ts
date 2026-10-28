@@ -1,4 +1,4 @@
-// Strokes hold a cave's or an overhang's rock (D280 (3), amended by #ROCKHOLD-PR): on a default Highlands 128² map with a 3D
+// Strokes hold a cave's or an overhang's rock (D280 (3), amended by #623): on a default Highlands 128² map with a 3D
 // form (D488), a Flatten stroke from the low ground across the form's edge flattens the rest, keeps the ground holding up
 // the form's rock no lower than it needs, never refused; the page painted exactly what the worker built, says how many
 // tiles it held in one line, the form stands (no cave or overhang tile lost), and the live water plays after it.

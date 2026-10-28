@@ -147,7 +147,7 @@ big arch from above and straight down): `docs/sheets/3d-generation-1-natural.jpg
 
 **Falls short, for the next parts:**
 - A stroke or a sculpt over a form holds the ground that holds its rock up and shapes the rest (D280 (3), amended by
-  #ROCKHOLD-PR: done); a placement whose levelling meets that ground is refused as uneven, and a force leaves a cave or an
+  #623: done); a placement whose levelling meets that ground is refused as uneven, and a force leaves a cave or an
   overhang and what holds it as it is (D487). The hover's footprint check does not foresee a held levelling.
 - Overhangs are rare: most starts stand on open ground with no cliff in reach. Steering the settler toward a cliff when
   the map looks for one would change maps that then find none, so it waits for a round where that is allowed.

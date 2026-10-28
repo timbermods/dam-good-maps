@@ -550,7 +550,7 @@ describe("Naturalize keeps slopes.connect and the start's pad (D253, D368 (8))",
         targets.push({ x: Math.min(95, Math.max(0, bx + (beside ? Math.floor((rand() - 0.5) * 6) : 0))), y: Math.min(95, Math.max(0, by + (beside ? Math.floor((rand() - 0.5) * 6) : 0))) });
       }
       // (a stroke beside the rock of an overhang sheltering the start keeps the ground holding it up and shapes the
-      // rest, never refused for it, D280 (3) amended by #ROCKHOLD-PR, D488: every one is taken)
+      // rest, never refused for it, D280 (3) amended by #623, D488: every one is taken)
       let taken = 0;
       for (const t of targets) {
         const p = strokeAt(rand, 96, 96, t.x, t.y);

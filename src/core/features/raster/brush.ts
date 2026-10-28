@@ -156,7 +156,7 @@ export interface BrushParams {
    *  start or the objects standing there, D193). */
   keep?: [number, number, number][];
   /** The ground the stroke holds: under objects set under a roof (D491, objects.ts `objectHolds`) and
-   *  holding up a cave's or an overhang's rock (D280 (3), amended by #ROCKHOLD-PR; session.ts `rockHolds`):
+   *  holding up a cave's or an overhang's rock (D280 (3), amended by #623; session.ts `rockHolds`):
    *  [tile, low, high], the lowest and highest each tile's surface may go. The stroke keeps each within them and shapes the
    *  rest as normal; a natural weathering and the pieces that ride leave them as they are. The session
    *  adds it to a stroke over such ground, and the page's preview applies the same. */

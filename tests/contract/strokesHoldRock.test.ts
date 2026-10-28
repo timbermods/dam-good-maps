@@ -1,4 +1,4 @@
-// Strokes and sculpts hold a cave's or an overhang's rock (D280 (3), amended by #ROCKHOLD-PR; D270, D487, D491): on a map
+// Strokes and sculpts hold a cave's or an overhang's rock (D280 (3), amended by #623; D270, D487, D491): on a map
 // with caves or overhangs a brush stroke or a sculpt that would take away the ground holding up a roof keeps that ground
 // (no lower than one above the underside it holds, `terrain/support.ts` `rockFloors`) and shapes the rest, never refused
 // for it; the operation logs what it held, so the project replays byte for byte, and a log from before replays as it

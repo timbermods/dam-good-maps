@@ -127,7 +127,7 @@ export interface SessionSlice {
   selectPreview: { tiles: number[]; color: Rgba } | null;
   setSelectPreview: Dispatch<StateUpdater<{ tiles: number[]; color: Rgba } | null>>;
   /** The tiles the last brush stroke or sculpt kept to hold up a cave's or an overhang's rock, tinted while the map
-   *  is at that edit's version (D280 (3), amended by #ROCKHOLD-PR). */
+   *  is at that edit's version (D280 (3), amended by #623). */
   rockHeld: { tiles: number[]; version: number } | null;
   setRockHeld: Dispatch<StateUpdater<{ tiles: number[]; version: number } | null>>;
   deleteMenu: boolean;

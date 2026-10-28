@@ -1,7 +1,7 @@
 // The brushes on runs (3D step 3, D280 (3)): on a map with caves or overhangs a stroke shapes each
 // tile's top run and never what is under a roof; a roof keeps its lowest layer; a stroke that would
 // take the ground holding up a roof keeps it instead and shapes the rest (D280 (3), amended by
-// #ROCKHOLD-PR: strokesHoldRock.test.ts), so the page's stroke shows nothing falling; undo gives back the exact runs, an incremental build equals a full one, and the log replays
+// #623: strokesHoldRock.test.ts), so the page's stroke shows nothing falling; undo gives back the exact runs, an incremental build equals a full one, and the log replays
 // onto the same runs through the project file. (On a heightfield nothing changes: the stroke
 // hashes, `tools/stroke-hashes.ts`, are dev's.)
 
