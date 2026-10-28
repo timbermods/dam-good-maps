@@ -32,7 +32,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is ahead of `main` by wh
   nothing of its own, and nothing is queued until 3D's step 3 needs the Block tool's interface. To resume: the top of
   `docs/progress/page.md`; no page work starts without Kyler's yes. Worktree `DamGoodMaps-page`.
 - **The renderer session "forces play"** (the dedicated machine, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
-  Carve's smooth play and builds the 3D view. Last seen 2026-10-26: #615 (a force's own water on maps with caves) merged.
+  Carve's smooth play and builds the 3D view. Last seen 2026-10-27: #615 (a force's own water on maps with caves) merged.
 - **Codex** builds investigations on `investigation/<name>`, each with an adoption patch split by owner and an
   eight-line report; Kyler decides each adoption; the milestone session adopts its part.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session) open real PRs into `dev`.
@@ -45,8 +45,7 @@ no full run by hand except for a release.
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #579 | 3D forms: #478's follow-ups (first look, sources the game won't keep, worn overhang), generator 0.10.3 | milestone | Approved; hold removed, merges next |
-| #611 | 3D forms at each theme's default Verticality (the gate comes off), 0.10.4 | milestone | Stacked on #579; on `hold` until #579 lands |
+| #611 | 3D forms at each theme's default Verticality (the gate comes off), 0.10.4 | milestone | Merging dev in; comes off hold next |
 | #599 | Say when a map is kept and where a replaced map went; Help findable; Rename in Your maps | planning | Open |
 | #549 | Finisher fixes: Show marks the problem, Markers labels water objects, kept version note, seep label fits | planning | Open |
 | #617 | Dependabot: collab-worker minor and patch group | planning | Open |
@@ -60,7 +59,7 @@ no full run by hand except for a release.
 1. **Released:** `3d-foundations-done` (above).
 2. **In dev since 2026-10-24 (milestone's):** Showcase mode's core and worker with three tuning rounds (#504, #516, #526, #588) and
    planning's page (#520, #535); the opening shot and landmarks into view (#515, D493, 0.10.2); ruins with meaning (#527, 0.10.1);
-   3D in generation part 1 (#478, 0.10.0); objects in caves (#490, D491) with follow-ups (#531), forces around caves (#496),
+   3D in generation part 1 (#478, 0.10.0) and its follow-ups (#579, 0.10.3); objects in caves (#490, D491) with follow-ups (#531), forces around caves (#496),
    Fill/Remove unfed water on caves (#498, D494), sealed basins at rest (#534 via #567), live water on maps with caves (#606,
    D280 amended in #610) and for forces (#615); the start and painted plants under a roof (#553, #572); removed or moved relics
    measured where they stand (#584); Real places' open edges (#493) and dying plants (#576); long shapes (#545, #603);
@@ -69,7 +68,7 @@ no full run by hand except for a release.
    and first-bad days (#566, #573).
 3. **Merge rules (D489, D490):** a PR merges on a fresh review plus quick checks, and the owner may merge it themselves; the
    full suites run on dev after the merge.
-4. **Next (milestone):** land #579, then lift the gate (#611); then move the writer's stamped game version and
+4. **Next (milestone):** lift the gate (#611: merging dev in, off hold next); then move the writer's stamped game version and
    `log-floor.json` to 1.1.2.8; #532 (cave outflows in exports) later. Next decision number: D495.
 5. **Held until Kyler lifts the no-Timberborn hold:** Real places' open edges (#493's four places, files ready in
    `C:\dgm-probe\places-open-edges\`), the release's D483 batch for generated caves and the opening shot, and the cycle-10 run for
