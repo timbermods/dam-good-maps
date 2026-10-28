@@ -900,6 +900,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   that would take any tile past the ceiling is refused with its reason; objects and sources ride changed
   ground; the start moves to the nearest valid ground only if its own can no longer hold it; each action is one
   undo step with a clear label ("Cut 4,210 tiles down to level 16"); the selection stays open until Esc or the ×.
+  On a map with caves (a generated map's 3D forms too, D488) the actions leave a cave's or an overhang's columns and the
+  ground holding up their roofs as they are, as a force does (D487; `core/doc/start.ts` `selectionHeld`): a whole-map
+  Cut down shapes the rest, the hover tints only what changes and the message says how many tiles were left; a
+  selection of nothing else is refused with the core's one line.
   **Crop map to selection** (D340; the operation is built in the core, `src/core/doc/crop.ts`): `{op: "crop", params:
   {x, y, w, h}}` (the selection's bounding rectangle, in tiles) makes the map exactly that rectangle of itself. The
   ground (its runs: caves and overhangs stay), water, soil, objects and sources inside keep their place relative to the

@@ -239,15 +239,24 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
   await idle(page);
   expect(await labels(page)).toHaveLength(n0 + 1);
   const h2 = await heights(page);
-  for (const i of sel) expect(h2[i]).toBe(L);
+  // (on a map with a 3D form, D488, the ground of its cave or overhang and what holds up its roof is left as it is, as a
+  // force leaves it, D487, and the message says so; every other tile of the water's bed is at the level)
+  const held = new Set(await page.evaluate(() => window.dgmEditor!.worker.selectionHeld()));
+  expect(sel.filter((i) => !held.has(i)).length).toBeGreaterThan(20);
+  for (const i of sel) expect(h2[i], `tile ${i}`).toBe(held.has(i) ? h0[i] : L);
+  if (sel.some((i) => held.has(i))) await expect(page.getByText(/with a cave or overhang left as/)).toBeVisible();
 });
 
-test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothing at or below it changed; Fill up raises only the ground below", async ({ page }) => {
+test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothing at or below it changed; Fill up raises only the ground below; a cave's ground and what holds its roof left as they are (D487)", async ({ page }) => {
   await openTopDown(page);
   const row = page.getByRole("group", { name: "Selection" });
   await page.keyboard.press("Control+a");
   await expect(row.getByRole("status")).toHaveText("96 × 96 tiles");
   const h0 = await heights(page);
+  // (this map grows a spring cave at the default Verticality, D488: the Select actions leave its ground, and the ground
+  // holding up its roof, as they are, as a force does, D487; the whole map's rest is shaped)
+  const held = new Set(await page.evaluate(() => window.dgmEditor!.worker.selectionHeld()));
+  expect(held.size).toBeGreaterThan(0);
   const L = 8;
   await row.getByRole("slider", { name: "Level", exact: true }).fill(String(L));
   await row.getByRole("button", { name: "Cut down" }).click();
@@ -256,10 +265,12 @@ test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothi
   const cut = await heights(page);
   let above = 0;
   for (let i = 0; i < cut.length; i++) {
-    if (cut[i] > L) above++;
+    if (held.has(i)) expect(cut[i], `tile ${i} of the cave or holding its roof`).toBe(h0[i]);
+    else if (cut[i] > L) above++;
     if (h0[i] <= L) expect(cut[i], `tile ${i} at or below the level`).toBe(h0[i]);
   }
   expect(above).toBe(0);
+  await expect(page.getByText(/with a cave or overhang left as they are/)).toBeVisible();
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(h0);
@@ -267,8 +278,8 @@ test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothi
   await idle(page);
   expect((await labels(page)).at(-1)).toMatch(new RegExp(`^Fill [\\d,]+ tiles up to level ${L}$`));
   const fill = await heights(page);
-  for (let i = 0; i < fill.length; i++) if (h0[i] >= L) expect(fill[i], `tile ${i} at or above the level`).toBe(h0[i]);
-  for (let i = 0; i < fill.length; i++) if (h0[i] < L) expect(fill[i], `tile ${i} below the level`).toBeGreaterThanOrEqual(L);
+  for (let i = 0; i < fill.length; i++) if (h0[i] >= L || held.has(i)) expect(fill[i], `tile ${i} at or above the level, or the cave's`).toBe(h0[i]);
+  for (let i = 0; i < fill.length; i++) if (h0[i] < L && !held.has(i)) expect(fill[i], `tile ${i} below the level`).toBeGreaterThanOrEqual(L);
 });
 
 test("Delete sources (D315): removes only the water or badwater source in the selection, one undo step; its water drains after", async ({ page }) => {
