@@ -156,6 +156,12 @@ function keptForms(r: GenerateResult): { id: string; at?: [number, number]; say?
   return r.intentions.filter((x) => x.ok && (x.id === "spring-cave" || x.id === "start-overhang" || x.id === "gorge-arch")).map((x) => ({ id: x.id, ...(x.at ? { at: x.at } : {}), ...(x.say ? { say: x.say } : {}) }));
 }
 
+/** Whether the map's kept arch stands in the game's first frame. A 3D form counts in one beat only: the
+ *  vista when it is in that frame, else the mystery (the same rule as a plug lake or debris). */
+function archInFrame(kept: ReturnType<typeof keptForms>, frame: FirstFrame, W: number): boolean {
+  return kept.some((k) => k.id === "gorge-arch" && k.at && frame.mask[k.at[1] * W + k.at[0]] === 1);
+}
+
 /** The game's first frame (`FirstFrame`): its relief, its open water, its tallest fall, its most
  *  prominent standing form, and a 3D form at the start (an overhang over it, an arch in view). */
 function vistaBeat(c: FinalCtx, frame: FirstFrame, forms: readonly StandingForm[], sayForm: boolean, kept: ReturnType<typeof keptForms>): Beat {
@@ -180,7 +186,7 @@ function vistaBeat(c: FinalCtx, frame: FirstFrame, forms: readonly StandingForm[
   const share = wet / n;
   const form = forms.find((f) => formInFrame(f, h, W, frame));
   const prom = form?.prominence ?? 0;
-  const arch = kept.some((k) => k.id === "gorge-arch" && k.at && frame.mask[k.at[1] * W + k.at[0]] === 1);
+  const arch = archInFrame(kept, frame, W);
   const overhang = kept.some((k) => k.id === "start-overhang");
   const parts: string[] = [];
   if (relief >= 6) parts.push(`${relief} levels of relief`);
@@ -298,21 +304,24 @@ function landmarkBeat(c: FinalCtx, start: OpeningStart, forms: readonly Standing
   return { met: false, strength };
 }
 
-function mysteryBeat(c: FinalCtx, r: GenerateResult, plug: Shared, district: Shared, kept: ReturnType<typeof keptForms>): Beat {
+function mysteryBeat(c: FinalCtx, r: GenerateResult, plug: Shared, district: Shared, kept: ReturnType<typeof keptForms>, archInVista: boolean): Beat {
   const best = strongest();
   const relic = checkIntention("relic-pinnacle", c);
   if (relic.ok && relic.say) best.take(1, relic.say);
   // the 3D forms the map kept (gen/forms3d.ts): a spring rising in a cave, an arch over a gorge
   for (const k of kept) {
     if (k.id === "spring-cave") best.take(0.9, k.say ?? "A spring rises inside a cave and feeds the river.");
-    if (k.id === "gorge-arch") best.take(0.85, k.say ?? "A natural arch spans a gorge, the river running under it.");
+    // (an arch in the game's first frame is the vista's: one beat per form)
+    if (k.id === "gorge-arch" && !archInVista) best.take(0.85, k.say ?? "A natural arch spans a gorge, the river running under it.");
   }
-  // any other cave: columns of the map with air under ground (terrain above terrain)
+  // any other cave: columns of the map with air under ground (terrain above terrain). It keeps the
+  // 0.9 it had before the kept forms (#588 lowered it to 0.8 without a reason); it only counts when the
+  // map kept no 3D form, so it never competes with the spring cave's 0.9 or the arch's 0.85.
   const mask = r.built.waterModel.stacked?.mask;
   if (mask && !kept.length) {
     let caves = 0;
     for (let i = 0; i < mask.length; i++) if ((mask[i] & (mask[i] + 1)) !== 0) caves++;
-    if (caves >= 6) best.take(0.8, `A cave opens under the land, ${caves} tiles of it.`);
+    if (caves >= 6) best.take(0.9, `A cave opens under the land, ${caves} tiles of it.`);
   }
   if (plug) best.take(0.8, plug.say);
   // a drowned village standing in the water (ruins placed with meaning, gen/ruinStories.ts)
@@ -358,7 +367,7 @@ export function arcOf(r: GenerateResult): Arc | null {
     valley: districtInValley ? valleyBeat(c, district) : valleyAlone,
     project: plugInProject ? projectBeat(c, r, plug) : projectAlone,
     landmark,
-    mystery: mysteryBeat(c, r, plugInProject ? null : plug, districtInValley ? null : district, kept),
+    mystery: mysteryBeat(c, r, plugInProject ? null : plug, districtInValley ? null : district, kept, archInFrame(kept, first, b.W)),
   };
 }
 
