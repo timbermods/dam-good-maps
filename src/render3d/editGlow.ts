@@ -172,9 +172,12 @@ export function glowFade(t: number): number {
   return 1 - u * u * (3 - 2 * u);
 }
 
-function glowMaterial(): ShaderMaterial {
+/** The glow's material: the renderer makes it once and compiles its program ahead with the others (programs.ts), so the
+ *  first glow never compiles in a frame. One program in every look (no tone mapping, no defines). */
+export function editGlowMaterial(): ShaderMaterial {
   return new ShaderMaterial({
     transparent: true,
+    toneMapped: false,
     depthWrite: false,
     side: DoubleSide,
     polygonOffset: true,
@@ -212,17 +215,22 @@ function glowMaterial(): ShaderMaterial {
  *  glowing, and they all start over), its strength a uniform while it fades. */
 export class EditGlow {
   private readonly geo = new BufferGeometry();
-  private readonly mat = glowMaterial();
-  private readonly mesh = new Mesh(this.geo, this.mat);
+  private readonly mesh: Mesh;
   /** The cells glowing, as `glowFaces` keys. */
   private cells = new Set<number>();
   private frame = 0;
   private faces = { added: 0, removed: 0 };
 
+  /** `mat`: `editGlowMaterial()`, the renderer's (it compiles it ahead and disposes it); `ready`: whether its program
+   *  is compiled (asked again each frame until it is: the glow is drawn, and its clock starts, only then, so a first glow
+   *  never compiles in a frame). */
   constructor(
     scene: Scene,
     private readonly render: () => void,
+    private readonly mat: ShaderMaterial,
+    private readonly ready: () => boolean = () => true,
   ) {
+    this.mesh = new Mesh(this.geo, mat);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 8;
     this.mesh.visible = false;
@@ -233,7 +241,7 @@ export class EditGlow {
   /** An edit's cells (`editedCells`) landed: they glow with any still glowing, against the columns as they are now
    *  (`maskAt`), under the layer cut. `still` (reduced motion): shown for a moment without fading. */
   show(cells: EditCells, W: number, H: number, maskAt: (x: number, y: number) => number, cut: number | null, still: boolean): void {
-    if (!this.mesh.visible) this.cells.clear();
+    if (!this.live) this.cells.clear();
     for (const list of [cells.added, cells.removed])
       for (const [x, y, z] of list) {
         if (this.cells.size >= MAX_CELLS) break;
@@ -250,7 +258,8 @@ export class EditGlow {
     this.geo.setAttribute("face", new BufferAttribute(f.face, 2));
     this.geo.setAttribute("kind", new BufferAttribute(f.kind, 1));
     this.geo.setIndex(new BufferAttribute(idx, 1));
-    this.mesh.visible = true;
+    this.live = true;
+    this.mesh.visible = this.ready();
     this.age = 0;
     this.last = -1;
     this.still = still;
@@ -261,12 +270,23 @@ export class EditGlow {
   }
 
   private still = false;
+  /** Cells are glowing (drawn once the program is ready). */
+  private live = false;
   /** How long it has been shown (seconds), and when the last frame came. */
   private age = 0;
   private last = -1;
 
   private readonly tick = (): void => {
     this.frame = 0;
+    if (!this.mesh.visible) {
+      // (its program still compiling in the background: drawn, and its clock started, once it is ready)
+      if (!this.ready()) {
+        this.last = -1;
+        this.frame = requestAnimationFrame(this.tick);
+        return;
+      }
+      this.mesh.visible = true;
+    }
     // (its clock runs with the frames drawn, at most a frame's worth a frame: the first cave on a map builds its light
     // and compiles its shaders first, which can hold the page for seconds, and the glow must not be over unseen)
     const now = performance.now();
@@ -296,6 +316,7 @@ export class EditGlow {
     cancelAnimationFrame(this.frame);
     this.frame = 0;
     this.mesh.visible = false;
+    this.live = false;
     this.cells.clear();
     this.faces = { added: 0, removed: 0 };
     // (its buffers go from the GPU too; the next glow sets new ones)
@@ -311,6 +332,5 @@ export class EditGlow {
     this.clear();
     this.mesh.removeFromParent();
     this.geo.dispose();
-    this.mat.dispose();
   }
 }
