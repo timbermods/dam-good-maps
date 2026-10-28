@@ -11,7 +11,13 @@ import { defineConfig } from "@playwright/test";
 // their release: src/editor/release.ts); a second build, as the public site is built, is served
 // beside it under public-build/ for the checks of what the public site hides.
 const channel = process.env.PW_CHANNEL ?? (process.env.CI ? undefined : "chrome");
-const checkoutPort = () => 4174 + ([...process.cwd().toLowerCase()].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 5000);
+// (the ports Chrome refuses in that range, net::ERR_UNSAFE_PORT: a checkout landing on one takes the next)
+const UNSAFE_PORTS = new Set([4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669, 6679, 6697]);
+const checkoutPort = () => {
+  let p = 4174 + ([...process.cwd().toLowerCase()].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 5000);
+  while (UNSAFE_PORTS.has(p)) p++;
+  return p;
+};
 const port = Number(process.env.DGM_E2E_PORT ?? (process.env.CI ? 4173 : checkoutPort()));
 
 export default defineConfig({
