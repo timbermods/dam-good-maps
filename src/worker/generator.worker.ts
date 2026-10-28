@@ -222,7 +222,7 @@ const api = {
   closeSession: () => ed.closeSession(),
   apply: routed((op: EditOp, origin?: OpOrigin, label?: string) => sendUpdate(ed.apply(op, origin, label)), (...a) => collabEditApi.apply(...a).then(sendUpdate)),
   /** A slider's step: steps a moment apart with the same key are one undo step. */
-  applyStep: routed((op: EditOp, label: string, key: string) => sendUpdate(ed.applyStep(op, label, key)), (...a) => collabEditApi.applyStep(...a).then(sendUpdate)),
+  applyStep: routed((op: EditOp, label: string, key: string, more?: boolean) => sendUpdate(ed.applyStep(op, label, key, more)), (...a) => collabEditApi.applyStep(...a).then(sendUpdate)),
   applyAll: routed((ops: EditOp[], label: string, origin?: OpOrigin) => sendUpdate(ed.applyAll(ops, label, origin)), (...a) => collabEditApi.applyAll(...a).then(sendUpdate)),
   undo: routed(() => sendUpdate(ed.undo()), () => collabEditApi.undo().then(sendUpdate)),
   redo: routed(() => sendUpdate(ed.redo()), () => collabEditApi.redo().then(sendUpdate)),

@@ -5,11 +5,16 @@
 // the water flows from the cave and the export carries the objects at the floor's level.
 // The map is built here (a valley at 3, a plateau at 8 with a tunnel and a chamber under it): never an official map.
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect as base, test, type Page } from "@playwright/test";
 import { readTimber } from "../../src/core/format/timber";
 import { storedWater, surfaceOf } from "../../src/core/format/world";
 import { Scene, build } from "../../tools/terrain3d-maps";
 import { openEditor, waitForEditor } from "./open";
+
+// (CI draws with a software renderer: the close-up views into the cave fill the screen with rock and draw a frame
+// every 1.5 to 2.3 s there, and the page answers a test's call only between frames, so one call can take 5 s; run
+// 40641827280's trace: the source was placed 2 s after the click, the call that read it came back 5 s later)
+const expect = base.configure({ timeout: 30_000 });
 
 const W = 48;
 const FLOOR = 3;

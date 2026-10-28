@@ -3,7 +3,7 @@
 // label and the row read, so every change of a source's strength reaches it, notch by notch, however quickly they
 // come: the worker sends the objects again whenever a strength changed, not only when an object moved or went.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -55,6 +55,42 @@ describe("a source's one number (D368 (4))", () => {
         expect(u.view.entities, `${id} at ${v}: the objects come with the answer`).toBeTruthy();
         expect(strengthIn(u.view.entities!, x, y), `${id} at ${v}`).toBe(v);
       }
+    }
+  });
+
+  it("one Ctrl+scroll is one undo step however long the worker takes between its notches (D196)", async () => {
+    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
+    ed.refine();
+    const s0 = MapSession.open(decodeProject(ed.project().bytes));
+    const st = s0.built.start!;
+    let spot: [number, number] | null = null;
+    for (let y = 8; y < W - 8 && !spot; y++)
+      for (let x = 8; x < W - 8 && !spot; x++) {
+        const h = s0.built.heights[y * W + x];
+        if (Math.hypot(x - st.x, y - st.y) >= 14 && s0.built.heights[y * W + x + 1] === h && s0.built.water[y * W + x] === 0 && !s0.built.entities.some((e) => Math.abs(e.x - x) <= 4 && Math.abs(e.y - y) <= 2)) spot = [x, y];
+      }
+    expect(spot).not.toBeNull();
+    const id = ID(5);
+    ed.applyAll([{ op: "placeEntity", params: { id, template: "WaterSource", x: spot![0], y: spot![1], orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } }], "Place a water source");
+    const steps = () => ed.sessionInfo().history.filter((h) => h.applied).length;
+    const n0 = steps();
+    const notch = (v: number, more: boolean) => ed.applyStep({ op: "setEntityProps", params: { id, components: { WaterSource: { SpecifiedStrength: v, CurrentStrength: v } } } }, `Water source: ${v} water/s`, `strength:${id}`, more);
+    // (the worker's clock jumps 5 s between notches: a busy worker, the page sending each notch once the last was answered)
+    let t = performance.now();
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => t);
+    try {
+      expect(notch(2, false).errors).toEqual([]);
+      for (const v of [3, 4]) {
+        t += 5000;
+        expect(notch(v, true).errors).toEqual([]);
+      }
+      expect(steps(), "the notches of one scroll are one step").toBe(n0 + 1);
+      // a scroll started later is its own step
+      t += 5000;
+      expect(notch(3, false).errors).toEqual([]);
+      expect(steps()).toBe(n0 + 2);
+    } finally {
+      clock.mockRestore();
     }
   });
 });
