@@ -322,11 +322,13 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
       liveStrength(e, value);
       const s = ek >= 0 ? sourceStrengths(ed.groupsRef.current, strengthOfEntity, ek) : null;
       const words = s ? sourceStrengthWords(s) : `${value} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
-      setShapeNote({ text: over ? `${words}: stronger than any official map` : words, ok: true, warn: over, ...at });
+      const note = { text: over ? `${words}: stronger than any official map` : words, ok: true, warn: over, ...at };
+      setShapeNote(note);
       clearTimeout(wheelNoteTimer.current);
       state.ended = false;
       wheelNoteTimer.current = window.setTimeout(() => {
-        setShapeNote(null);
+        // (only its own words: a brush's or a tool's shown since stay)
+        setShapeNote((n) => (n === note ? null : n));
         // (the scroll is over; a notch still on its way ends it once answered, so a later scroll is its own step)
         if (sourceWheel.current === state) {
           if (state.busy) state.ended = true;
