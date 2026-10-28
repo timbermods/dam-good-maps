@@ -9,6 +9,8 @@
 //   npx tsx tools/capture-cut-water.ts --before .scratch/cut-water-dev [--maps <folder with the official .timber files>]
 //                                      [--out docs/sheets/cut-water.jpg] [--no-build] [--only canyon,lakes,hollows]
 //                                      [--looks standard,high,light]
+//   npx tsx tools/capture-cut-water.ts --before <dev's site> --slivers --looks standard,high [--out docs/sheets/cut-curtain-sliver.jpg]
+//     (the sides of water the cut removed: Canyon 128 seed 7 at 4 and the official Waterfalls, close up, 1920×1080 dark)
 
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -23,7 +25,8 @@ const arg = (name: string): string | undefined => {
 const DIST = arg("dist") ?? ".scratch/cut-water-dist";
 const BEFORE = arg("before");
 const SHOTS = ".scratch/cut-water";
-const OUT = arg("out") ?? "docs/sheets/cut-water.jpg";
+const SLIVERS = process.argv.includes("--slivers");
+const OUT = arg("out") ?? (SLIVERS ? "docs/sheets/cut-curtain-sliver.jpg" : "docs/sheets/cut-water.jpg");
 const ONLY = arg("only")?.split(",");
 const LOOKS = (arg("looks") ?? "standard,high,light").split(",");
 const PORT = { after: 4795, before: 4796 };
@@ -37,6 +40,8 @@ interface Shot {
 }
 interface Spot {
   cut: number;
+  /** The camera's yaw (0.6 when left out). */
+  yaw?: number;
   x: number;
   y: number;
   sliced: number;
@@ -49,6 +54,8 @@ interface Scene {
   caves: boolean;
   /** The cut to take (null: the one slicing the most). */
   cut: number | null;
+  /** How the spot is found (in the page; `FIND_CUT` when left out). */
+  find?: string;
 }
 
 /** The cut that slices the most water columns (their floor below it, their surface over it: a cave's only, or clean
@@ -85,6 +92,32 @@ const FIND_CUT = `(caves, want) => {
   return best;
 }`;
 
+/** The side of water the cut removes (its floor at the cut or above, its surface over it) that hangs lowest under the
+ *  cut's slack: a step of less than a fall (falls.ts FALL_MIN 0.3) to lower water or ground, at the cut `want` (or any up
+ *  to 24), with the camera's yaw facing it. The open sky's water only. */
+const FIND_SLIVER = `(caves, want) => {
+  const m = window.dgm3d.renderer.map;
+  const sw = m.surface, W = m.W, H = m.H, tops = m.heights;
+  const level = (x, y) => { const j = y * W + x; const s = sw.surface[j]; return s === s ? s : tops[j]; };
+  let best = null;
+  for (const c of want !== null ? [want] : Array.from({ length: 24 }, (_, k) => k + 1))
+    for (let y = 1; y < H - 1; y++)
+      for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x, s = sw.surface[i], f = sw.floor[i];
+        if (!(s === s) || !(f >= c) || !(s > c + 0.05)) continue;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const lv = level(x + dx, y + dy), j = (y + dy) * W + x + dx, wet = sw.surface[j] === sw.surface[j];
+          if (!(lv < s - 0.02) || (wet && s - lv >= 0.3)) continue;
+          const e = wet ? lv : Math.max(lv, f);
+          const below = Math.min(s, c + 0.05) - e;
+          if (below > 0 && (!best || below > best.below))
+            best = { cut: c, x: x + 0.5 * dx, y: y + 0.5 * dy, sliced: 1, below, yaw: Math.atan2(dx, -dy) + 0.35 };
+        }
+      }
+  if (best) console.log("sliver", JSON.stringify(best));
+  return best;
+}`;
+
 async function openGenerated(page: Page, port: number, fragment: string): Promise<void> {
   await page.goto("about:blank");
   await page.goto(`http://localhost:${port}/#${fragment}`);
@@ -103,16 +136,16 @@ async function openImport(page: Page, port: number, path: string): Promise<void>
 }
 
 /** The view at the spot, the cut set (null: none), the water held; a frame drawn. */
-async function frame(page: Page, spot: Spot, cut: number | null, distance: number): Promise<void> {
+async function frame(page: Page, spot: Spot, cut: number | null, distance: number, pitch = 0.85): Promise<void> {
   await page.mouse.move(4, 300);
   await page.evaluate(
-    ([x, y, level, cut, distance]) => {
+    ([x, y, level, cut, distance, pitch, yaw]) => {
       const r = (window as unknown as { dgm3d: { renderer: { setSlice(c: number | null): void; setClock(t: number | null): void; setView(v: object): void } } }).dgm3d.renderer;
       r.setClock(12.5);
       r.setSlice(cut);
-      r.setView({ mode: "orbit", yaw: 0.6, pitch: 0.85, distance, target: [x + 0.5, level, -(y + 0.5)] });
+      r.setView({ mode: "orbit", yaw, pitch, distance, target: [x + 0.5, level, -(y + 0.5)] });
     },
-    [spot.x, spot.y, spot.cut, cut, distance] as const,
+    [spot.x, spot.y, spot.cut, cut, distance, pitch, spot.yaw ?? 0.6] as const,
   );
   await page.waitForTimeout(2500);
 }
@@ -177,7 +210,7 @@ async function sheet(browser: Browser, shots: Shot[]): Promise<void> {
     .grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
     figure { margin: 0; } img { width: 100%; display: block; border-radius: 4px; }
     figcaption { padding: 3px 2px 0; color: #c9c6bf; font-size: 12px; }
-  </style><h1>Water sliced by the layer cut (D207): dev (before) and this branch (after), real Chrome, the water held</h1><div class="grid">${cells}</div>`;
+  </style><h1>${SLIVERS ? "The sides of water the layer cut removes (D207)" : "Water sliced by the layer cut (D207)"}: dev (before) and this branch (after), real Chrome, the water held</h1><div class="grid">${cells}</div>`;
   const htmlFile = resolve(SHOTS, "sheet.html");
   writeFileSync(htmlFile, html);
   const page = await browser.newPage({ viewport: { width: 1800, height: 1000 } });
@@ -200,12 +233,19 @@ async function main() {
   const gpu = await chromium.launch({ channel: "chrome", headless: false });
   // (the light look: Chrome drawing in software, as a player's browser without a GPU does)
   const soft = await chromium.launch({ channel: "chrome", headless: false, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-  const scenes: Scene[] = [
+  const waterfalls = official("Waterfalls");
+  const scenes: Scene[] = SLIVERS
+    ? [
+        { id: "canyon4", label: "Canyon 128 seed 7, water the cut removes", caves: false, cut: 4, find: FIND_SLIVER, open: (p, port) => openGenerated(p, port, "s=7&z=128&d=n&t=canyon") },
+        ...(waterfalls ? [{ id: "waterfalls", label: "Waterfalls (official), water the cut removes", caves: false, cut: null, find: FIND_SLIVER, open: (p: Page, port: number) => openImport(p, port, waterfalls) }] : []),
+      ]
+    : [];
+  if (!SLIVERS) scenes.push(
     // (its river is mostly under a level deep, so a whole-level cut slices it only where it pools deeper: at 9)
     { id: "canyon", label: "Canyon 128 seed 7, its river", caves: false, cut: 9, open: (p, port) => openGenerated(p, port, "s=7&z=128&d=n&t=canyon") },
-  ];
+  );
   const lakes = official("Lakes");
-  scenes.push(
+  if (!SLIVERS) scenes.push(
     lakes
       ? { id: "lakes", label: "Lakes (official), its lakes", caves: false, cut: null, open: (p, port) => openImport(p, port, lakes) }
       : { id: "lakes", label: "Lake Basin 128 seed 5, its lakes", caves: false, cut: null, open: (p, port) => openGenerated(p, port, "s=5&z=128&d=n&t=lakeBasin") },
@@ -213,12 +253,12 @@ async function main() {
   const hollows = official("Hollows");
   // (its river is under a level deep, drawn whole or gone at any whole-level cut; the cave water a cut slices is a shaft by
   // the river, at 2, and a cave pool in the south, at 10)
-  if (hollows)
+  if (hollows && !SLIVERS)
     scenes.push(
       { id: "hollows", label: "Hollows (official), a shaft by its underground river", caves: true, cut: 2, open: (p, port) => openImport(p, port, hollows) },
       { id: "hollows10", label: "Hollows (official), a cave pool", caves: true, cut: 10, open: (p, port) => openImport(p, port, hollows) },
     );
-  else console.log("Hollows: not found (pass --maps)");
+  else if (!hollows) console.log("Hollows: not found (pass --maps)");
   const shots: Shot[] = [];
   const errors: string[] = [];
   const identity: string[] = [];
@@ -226,7 +266,7 @@ async function main() {
     const sizes: [string, { width: number; height: number }, "dark" | "light"][] = [
       ["1920", { width: 1920, height: 1080 }, "dark"],
       ["1280", { width: 1280, height: 800 }, "light"],
-    ];
+    ].filter(([size]) => !SLIVERS || size === "1920") as [string, { width: number; height: number }, "dark" | "light"][];
     const spots = new Map<string, Spot>();
     for (const look of LOOKS)
       for (const [size, viewport, scheme] of sizes) {
@@ -243,7 +283,7 @@ async function main() {
           if (ONLY && !ONLY.includes(scene.id)) continue;
           // (the second Hollows scene at 1920 only: the sheet stays small)
           if (scene.id === "hollows10" && size !== "1920") continue;
-          const distance = scene.id.startsWith("hollows") ? 24 : scene.id === "canyon" ? 36 : 48;
+          const distance = SLIVERS ? 6 : scene.id.startsWith("hollows") ? 24 : scene.id === "canyon" ? 36 : 48;
           for (const variant of BEFORE ? (["before", "after", "again"] as const) : (["after"] as const)) {
             // ("again": this branch opened a second time, its frame with no cut only: the frames' own noise)
             if (variant === "again" && size !== "1920") continue;
@@ -251,9 +291,9 @@ async function main() {
             const drawn = await page.evaluate("window.dgm3d.renderer.look");
             let spot = spots.get(scene.id);
             if (!spot) {
-              spot = (await page.evaluate(`(${FIND_CUT})(${scene.caves}, ${scene.cut})`)) as Spot;
+              spot = (await page.evaluate(`(${scene.find ?? FIND_CUT})(${scene.caves}, ${scene.cut})`)) as Spot;
               if (!spot) throw new Error(`${scene.id}: no water to slice`);
-              console.log(`${scene.id}: cut ${spot.cut} at (${spot.x}, ${spot.y}), ${spot.sliced} columns sliced round it`);
+              console.log(`${scene.id}: cut ${spot.cut} at (${spot.x}, ${spot.y}), ${SLIVERS ? JSON.stringify(spot) : `${spot.sliced} columns sliced round it`}`);
               spots.set(scene.id, spot);
             }
             // (no cut: this build's frame, for the comparison of the two builds)
@@ -263,10 +303,16 @@ async function main() {
               (identityFrames[`${scene.id}-${look}`] ??= {})[variant] = px;
             }
             if (variant === "again") continue;
-            await frame(page, spot, spot.cut, distance);
+            await frame(page, spot, spot.cut, distance, SLIVERS ? 0.4 : 0.85);
+            if (SLIVERS) (identityFrames[`cut-${scene.id}-${look}`] ??= {})[variant] = await pixels(page);
             await shoot(page, `${scene.id}-${look}-${size}-${variant}`, `${scene.label}, cut at ${spot.cut}: ${variant}, ${look} (${drawn}), ${size} ${scheme}`, shots);
           }
         }
+        if (SLIVERS)
+          for (const scene of scenes) {
+            const f = identityFrames[`cut-${scene.id}-${look}`];
+            if (f?.before && f.after) identity.push(`${scene.id}, ${look}, at the cut: ${(await differing(page, f.before, f.after)).n} pixels differ between dev and this branch`);
+          }
         if (size === "1920")
           for (const scene of scenes) {
             const f = identityFrames[`${scene.id}-${look}`];

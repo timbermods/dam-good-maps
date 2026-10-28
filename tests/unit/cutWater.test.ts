@@ -64,6 +64,8 @@ function fold(
 ): { y: number; depth: number; flags: number } {
   const slice = cut ?? 99;
   const surface = ny > 0 ? y : floor + depth;
+  // (a gone column's side folds flat: nothing drawn)
+  if (surface > slice + CUT_SLACK && floor >= slice && ny <= 0) return { y: surface, depth, flags };
   if (!(surface > slice + CUT_SLACK && floor < slice)) return { y, depth, flags };
   const over = surface - slice;
   if (ny > 0)
@@ -97,6 +99,10 @@ interface Drawn {
   movedUncut: number;
   /** Side vertices of a sliced column over the cut. */
   sidesOver: number;
+  /** Sides of a column the cut removed that still have height under the cut (a sliver in front of the cut face). */
+  goneSides: number;
+  /** Sides of a column the cut removed hanging below the cut before the fold (the case the fold is for). */
+  goneSidesBelow: number;
   /** Tops not lying flat. */
   tilted: number;
 }
@@ -108,6 +114,8 @@ function draw(W: number, H: number, layers: readonly WaterLayer[], cut: number |
     corners: new Map(),
     movedUncut: 0,
     sidesOver: 0,
+    goneSides: 0,
+    goneSidesBelow: 0,
     tilted: 0,
   };
   const { nx, ny } = chunkCount(W, H);
@@ -145,6 +153,12 @@ function draw(W: number, H: number, layers: readonly WaterLayer[], cut: number |
         } else if (cut !== null) {
           const surface = vs[0].floor + m.data[q * 4 * 2];
           if (surface > cut + CUT_SLACK && vs[0].floor < cut) out.sidesOver += vs.filter((v) => v.y > cut).length;
+          if (surface > cut + CUT_SLACK && vs[0].floor >= cut) {
+            // (drawn: what the fragment shader keeps, under the cut's slack, with some height)
+            const ys = vs.map((v) => v.y);
+            if (Math.min(...vs.map((v) => v.s)) < cut + CUT_SLACK) out.goneSidesBelow++;
+            if (Math.min(...ys) < cut + CUT_SLACK && Math.max(...ys) > Math.min(...ys)) out.goneSides++;
+          }
         }
       }
     }
@@ -179,6 +193,7 @@ function check(
   const d = draw(W, H, layers, cut);
   if (cut === null) expect(d.movedUncut, `${at}: nothing moves with no cut`).toBe(0);
   expect(d.sidesOver, `${at}: a sliced column's sides stop at the cut`).toBe(0);
+  expect(d.goneSides, `${at}: a removed column's sides draw nothing`).toBe(0);
   expect(d.tilted, `${at}: every top flat`).toBe(0);
   // every column drawn where the rule says, once
   for (let k = 0; k < view.count; k++) {
@@ -259,5 +274,30 @@ describe("water as drawn under a cut, in a cave", () => {
     expect([...(d.tops.get(middle)?.values() ?? [])]).toEqual([4]);
     const depths = d.corners.get(`5,-3,5`);
     expect(depths?.[0], "the pool's depth where four of its tiles meet").toBeCloseTo(2, 5);
+  });
+});
+
+describe("a side of water the cut removed", () => {
+  it("a shallow step down to lower water in front of a cliff draws nothing under the cut, where it was clipped to a sliver", () => {
+    // 6 × 3: a shelf at 4 (x 0–2) with water 0.2 deep on it, stepping down 0.25 to a pool on ground at 2 (x 3–5) standing
+    // at 3.95: less than a fall, so the shelf's water has a side hanging in front of the cliff, below its own floor
+    const W = 6;
+    const H = 3;
+    const heights = new Uint8Array(W * H);
+    const depth = new Float32Array(W * H);
+    for (let i = 0; i < W * H; i++) {
+      const shelf = i % W < 3;
+      heights[i] = shelf ? 4 : 2;
+      depth[i] = shelf ? 0.2 : 1.95;
+    }
+    const view = waterFromDepth(heights, depth, new Float32Array(W * H));
+    const sw = surfaceWater(W, H, view);
+    const layers = plainLayers(heights, sw);
+    for (const cut of cuts(view)) check(W, H, heights, sw, view, layers, cut, `cut ${cut}`);
+    // at 4 the shelf's water is gone and its side hung from 4.2 to 3.95: the fragment shader alone kept 3.95–4.05
+    const d = draw(W, H, layers, 4);
+    expect(d.goneSidesBelow, "the shelf's side reaching under the cut").toBeGreaterThan(0);
+    expect(d.goneSides, "drawn: nothing").toBe(0);
+    expect([...(d.tops.get(W + 4)?.values() ?? [])], "the pool whole").toEqual([Math.fround(3.95)]);
   });
 });

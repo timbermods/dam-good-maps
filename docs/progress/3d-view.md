@@ -755,8 +755,17 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   of the camera buttons, page controls, differed). Captures:
   `docs/sheets/cut-water.jpg` (dev against this branch, Standard, High and the light look, 1920×1080 dark and
   1280×800 light).
+- **The sides of water the cut removes (`fix/cut-curtain-sliver`, from #642's review):** a side of a column whose floor
+  is at the cut or above was only clipped per fragment, so one hanging below its floor (a step of less than a fall down to
+  lower water in front of a cliff) left a sliver up to the cut's slack in front of the cut face. The water's vertex
+  shader now folds such sides flat (the no-cut path is unchanged: `slice` is 99). `tests/unit/cutWater.test.ts` checks
+  every removed column's sides at every cut on its maps (dev's fold drew some on each) and a shallow step in front of a
+  cliff. Captures: `docs/sheets/cut-curtain-sliver.jpg` (`tools/capture-cut-water.ts --slivers`: Canyon 128 seed 7 at
+  cut 4 and the official Waterfalls, close up, dev against the branch, Standard and High, 1920×1080 dark).
 - **Falls short:** a sliced top whose upper water poured in a fall (now gone) has no side where the fall was, down to the
-  pool below; a top next to water whose floor the cut reaches (gone) keeps no shore foam at the new bank. A film exactly
+  pool below (it would need a quad meshed only for a cut; no such case found on the official maps, whose lips are
+  shallower than a level); a top next to water whose floor the cut reaches (gone) keeps no shore foam at the new bank
+  (each top would need its neighbours' floors). A film exactly
   on a run top at the cut is counted dry by the terrain (the run texture has no depth). Objects and the drought line are
   cut as before. The cut is whole levels, so water under a level deep is never sliced (drawn whole or gone, as before).
 

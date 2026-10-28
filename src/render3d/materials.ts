@@ -1511,8 +1511,10 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         vec4 w = modelMatrix * vec4(position, 1.0);
         // the game's layers (D207, cutWater.ts): a column standing over the cut with its floor below it is sliced, its
         // top lying on the cut, shallower by what the cut took off, its sides stopping there; one whose floor is at
-        // the cut or above it is gone (the fragment shader drops what stands over the cut)
+        // the cut or above it is gone (the fragment shader drops its top over the cut, and its sides fold flat here:
+        // a side hanging below its floor, to lower water in front of a cliff, would leave a sliver under the cut)
         float surface = normal.y > 0.5 ? w.y : wcut.x + wdata.x;
+        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = surface;
         if (surface > slice + ${f(CUT_SLACK)} && wcut.x < slice) {
           float over = surface - slice;
           w.y = min(w.y, slice);
