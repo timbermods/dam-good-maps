@@ -64,7 +64,7 @@ import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import type { Voxels } from "./wear";
 import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
-import { EditGlow, editedCells, type EditCells } from "./editGlow";
+import { EditGlow, editedCells, editGlowMaterial, type EditCells } from "./editGlow";
 import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
@@ -712,6 +712,8 @@ export class MapRenderer {
       // (the drought line's, drawn in both looks once its days are worked out)
       this.lineCopy ??= droughtLineMaterials();
       for (const m of this.lineCopy) list.push([m, { ...(m.defines as Defines) }]);
+      // (the edit glow's, drawn when an edit first lands: one program in every look and state, editGlow.ts)
+      list.push([this.glowMat, { ...(this.glowMat.defines as Defines) }]);
       if (h) list.push(...std);
       else if (this.canHigh) list.push(...this.highCopyList(STATES));
       const sent: Promise<void>[] = [];
@@ -782,7 +784,7 @@ export class MapRenderer {
     if ([this.std, this.high?.materials, this.highCopy].some((l) => l?.fall === mat)) return this.standIns.fall;
     const mist = this.mistCopy?.materials();
     if (mist && mat === mist.mist) return this.standIns.points;
-    if ((mist && mat === mist.rings) || this.lineCopy?.includes(mat)) return this.standIns.bare;
+    if ((mist && mat === mist.rings) || this.lineCopy?.includes(mat) || mat === this.glowMat) return this.standIns.bare;
     const plain = mat === this.depthCopy?.[0] || [this.std, this.high?.materials, this.highCopy].some((l) => l && [l.terrain, l.water, l.fall, l.sky].includes(mat));
     return plain ? this.standIns.mesh : this.standIns.instanced;
   }
@@ -2957,6 +2959,8 @@ export class MapRenderer {
   }
 
   private editGlow: EditGlow | null = null;
+  /** The edit glow's material, made with the renderer so its program is compiled ahead (`scheduleWarm`). */
+  private readonly glowMat = editGlowMaterial();
 
   /** What an edit just changed in 3D glows a moment (editGlow.ts; D488, D335's colours): a still glow with reduced
    *  motion, and in the light look (software drawing, where each frame of a fade costs as much as a whole frame and
@@ -2966,7 +2970,7 @@ export class MapRenderer {
     const m = this.map;
     if (!m || (!cells.added.length && !cells.removed.length)) return;
     const src = m.source;
-    (this.editGlow ??= new EditGlow(this.scene, () => this.requestRender())).show(cells, m.W, m.H, (x, y) => columnMask(src, y * m.W + x), this.slice, this.reducedMotion || this.software);
+    (this.editGlow ??= new EditGlow(this.scene, () => this.requestRender(), this.glowMat, () => this.programs.ready([[this.glowMat, { ...(this.glowMat.defines as Defines) }]]))).show(cells, m.W, m.H, (x, y) => columnMask(src, y * m.W + x), this.slice, this.reducedMotion || this.software);
   }
 
   /** What the edit glow shows now (tests): its faces of each kind and its strength, 0 once faded. */
@@ -4023,6 +4027,7 @@ export class MapRenderer {
     this.blockGhost?.dispose();
     this.blockCells?.dispose();
     this.editGlow?.dispose();
+    this.glowMat.dispose();
     this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();

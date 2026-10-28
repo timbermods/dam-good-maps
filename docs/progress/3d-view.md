@@ -659,6 +659,10 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   as whole ghost blocks, the preview lingering. They read the same for an add. For a dig, B fills the hole it confirms
   with four red blocks, which reads as blocks added; A lights the hollow's floor, walls and ceiling, so the hole reads as
   a hole, and draws only what is open (12 quads to B's 24 for a 2 × 2 dig).
+- **Its program, compiled ahead:** the glow's one material (no tone mapping, no defines: one program in every look)
+  is the renderer's, put on the warm-up list (`scheduleWarm`, programs.ts) with the cave states, and a glow whose
+  program is not ready yet waits for it, drawn and its clock started only once it is (`programs.ready`), so a first
+  glow never compiles in a frame (D453; `cutaway.spec.ts` counts the programs the frames compile after a dig: 0).
 - **Cost:** nothing per frame once faded (no mesh drawn, no frame asked for); the cells are found inside the update's
   changed rectangle (typed arrays, a mask compare a tile), the faces rebuilt when an edit lands (six mask lookups a
   cell, at most 20,000 cells).
