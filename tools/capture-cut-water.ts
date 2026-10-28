@@ -40,6 +40,8 @@ interface Shot {
 }
 interface Spot {
   cut: number;
+  /** The camera's yaw (0.6 when left out). */
+  yaw?: number;
   x: number;
   y: number;
   sliced: number;
@@ -90,38 +92,29 @@ const FIND_CUT = `(caves, want) => {
   return best;
 }`;
 
-/** The cut (`want`, or the one with the most) where the most sides of water the cut removes (its floor at the cut or above,
- *  its surface over it) hang down below the cut's slack: a step to lower water or ground in front of a cliff, less than a
- *  fall (falls.ts FALL_MIN 0.3); and the tile with the most of them round it. The open sky's water only. */
+/** The side of water the cut removes (its floor at the cut or above, its surface over it) that hangs lowest under the
+ *  cut's slack: a step of less than a fall (falls.ts FALL_MIN 0.3) to lower water or ground, at the cut `want` (or any up
+ *  to 24), with the camera's yaw facing it. The open sky's water only. */
 const FIND_SLIVER = `(caves, want) => {
   const m = window.dgm3d.renderer.map;
   const sw = m.surface, W = m.W, H = m.H, tops = m.heights;
   const level = (x, y) => { const j = y * W + x; const s = sw.surface[j]; return s === s ? s : tops[j]; };
-  const sides = (c) => {
-    const out = new Uint8Array(W * H);
+  let best = null;
+  for (const c of want !== null ? [want] : Array.from({ length: 24 }, (_, k) => k + 1))
     for (let y = 1; y < H - 1; y++)
       for (let x = 1; x < W - 1; x++) {
         const i = y * W + x, s = sw.surface[i], f = sw.floor[i];
         if (!(s === s) || !(f >= c) || !(s > c + 0.05)) continue;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const lv = level(x + dx, y + dy), j = (y + dy) * W + x + dx, wet = sw.surface[j] === sw.surface[j];
-          if (lv < s - 0.02 && !(wet && s - lv >= 0.3) && (wet ? lv : Math.max(lv, f)) < c + 0.05) out[i]++;
+          if (!(lv < s - 0.02) || (wet && s - lv >= 0.3)) continue;
+          const e = wet ? lv : Math.max(lv, f);
+          const below = Math.min(s, c + 0.05) - e;
+          if (below > 0 && (!best || below > best.below))
+            best = { cut: c, x: x + 0.5 * dx, y: y + 0.5 * dy, sliced: 1, below, yaw: Math.atan2(dx, -dy) + 0.35 };
         }
       }
-    return out;
-  };
-  let cut = want, best = null;
-  const cuts = want !== null ? [want] : Array.from({ length: 24 }, (_, k) => k + 1);
-  for (const c of cuts) {
-    const n = sides(c);
-    const r = 6;
-    for (let y = r; y < H - r; y += 2)
-      for (let x = r; x < W - r; x += 2) {
-        let k = 0;
-        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) k += n[(y + dy) * W + x + dx];
-        if (k && (!best || k > best.sliced)) best = { cut: c, x, y, sliced: k };
-      }
-  }
+  if (best) console.log("sliver", JSON.stringify(best));
   return best;
 }`;
 
@@ -146,13 +139,13 @@ async function openImport(page: Page, port: number, path: string): Promise<void>
 async function frame(page: Page, spot: Spot, cut: number | null, distance: number, pitch = 0.85): Promise<void> {
   await page.mouse.move(4, 300);
   await page.evaluate(
-    ([x, y, level, cut, distance, pitch]) => {
+    ([x, y, level, cut, distance, pitch, yaw]) => {
       const r = (window as unknown as { dgm3d: { renderer: { setSlice(c: number | null): void; setClock(t: number | null): void; setView(v: object): void } } }).dgm3d.renderer;
       r.setClock(12.5);
       r.setSlice(cut);
-      r.setView({ mode: "orbit", yaw: 0.6, pitch, distance, target: [x + 0.5, level, -(y + 0.5)] });
+      r.setView({ mode: "orbit", yaw, pitch, distance, target: [x + 0.5, level, -(y + 0.5)] });
     },
-    [spot.x, spot.y, spot.cut, cut, distance, pitch] as const,
+    [spot.x, spot.y, spot.cut, cut, distance, pitch, spot.yaw ?? 0.6] as const,
   );
   await page.waitForTimeout(2500);
 }
@@ -290,7 +283,7 @@ async function main() {
           if (ONLY && !ONLY.includes(scene.id)) continue;
           // (the second Hollows scene at 1920 only: the sheet stays small)
           if (scene.id === "hollows10" && size !== "1920") continue;
-          const distance = SLIVERS ? 15 : scene.id.startsWith("hollows") ? 24 : scene.id === "canyon" ? 36 : 48;
+          const distance = SLIVERS ? 6 : scene.id.startsWith("hollows") ? 24 : scene.id === "canyon" ? 36 : 48;
           for (const variant of BEFORE ? (["before", "after", "again"] as const) : (["after"] as const)) {
             // ("again": this branch opened a second time, its frame with no cut only: the frames' own noise)
             if (variant === "again" && size !== "1920") continue;
@@ -300,7 +293,7 @@ async function main() {
             if (!spot) {
               spot = (await page.evaluate(`(${scene.find ?? FIND_CUT})(${scene.caves}, ${scene.cut})`)) as Spot;
               if (!spot) throw new Error(`${scene.id}: no water to slice`);
-              console.log(`${scene.id}: cut ${spot.cut} at (${spot.x}, ${spot.y}), ${spot.sliced} columns sliced round it`);
+              console.log(`${scene.id}: cut ${spot.cut} at (${spot.x}, ${spot.y}), ${SLIVERS ? JSON.stringify(spot) : `${spot.sliced} columns sliced round it`}`);
               spots.set(scene.id, spot);
             }
             // (no cut: this build's frame, for the comparison of the two builds)
@@ -310,10 +303,16 @@ async function main() {
               (identityFrames[`${scene.id}-${look}`] ??= {})[variant] = px;
             }
             if (variant === "again") continue;
-            await frame(page, spot, spot.cut, distance, SLIVERS ? 0.5 : 0.85);
+            await frame(page, spot, spot.cut, distance, SLIVERS ? 0.4 : 0.85);
+            if (SLIVERS) (identityFrames[`cut-${scene.id}-${look}`] ??= {})[variant] = await pixels(page);
             await shoot(page, `${scene.id}-${look}-${size}-${variant}`, `${scene.label}, cut at ${spot.cut}: ${variant}, ${look} (${drawn}), ${size} ${scheme}`, shots);
           }
         }
+        if (SLIVERS)
+          for (const scene of scenes) {
+            const f = identityFrames[`cut-${scene.id}-${look}`];
+            if (f?.before && f.after) identity.push(`${scene.id}, ${look}, at the cut: ${(await differing(page, f.before, f.after)).n} pixels differ between dev and this branch`);
+          }
         if (size === "1920")
           for (const scene of scenes) {
             const f = identityFrames[`${scene.id}-${look}`];
