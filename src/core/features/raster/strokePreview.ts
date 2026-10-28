@@ -35,6 +35,11 @@ export interface TerrainState {
    *  A stroke keeps each tile within them (the session adds it to the operation), and `protect` holds
    *  these tiles, as the build's integrity pass leaves them. Absent where there is none. */
   hold?: [number, number, number][] | null;
+  /** The ground holding up a cave's or an overhang's rock (D280 (3), amended by #ROCKHOLD-PR; session.ts
+   *  `rockHolds`): [tile, low, high]. A stroke keeps each tile within them as it keeps `hold` (the session
+   *  adds both to the operation, where they meet one entry a tile within both) and the integrity pass leaves
+   *  them; a force reads only `hold`. Absent where there is none. */
+  rockHold?: [number, number, number][] | null;
   /** The terrain's masks of the `columns` tiles as they stand (bit z: voxel z solid), in their order,
    *  and the cells holding the tops of objects that hold ground (support.ts `stackableTops`): what
    *  `StrokePreview.falls` reads. Absent on a heightfield. */
@@ -52,6 +57,22 @@ export interface TerrainState {
   water?: Float64Array | null;
   /** The settled water's moisture on every tile (rule 3: moist ground keeps its height). */
   moisture?: Float64Array | null;
+}
+
+/** Every hold a stroke keeps on the terrain `state` (the ground under objects set under a roof, and the ground holding
+ *  up a cave's or an overhang's rock), one entry a tile within both where they meet, as the session puts them in the
+ *  operation (session.ts `heldGround`); null without any. */
+export function heldOf(state: Pick<TerrainState, "hold" | "rockHold">): [number, number, number][] | null {
+  const objects = state.hold ?? [];
+  const rock = state.rockHold ?? [];
+  if (!rock.length) return objects.length ? objects : null;
+  if (!objects.length) return rock;
+  const out = new Map<number, [number, number, number]>(rock.map((r) => [r[0], [...r] as [number, number, number]]));
+  for (const [i, lo, hi] of objects) {
+    const r = out.get(i);
+    out.set(i, r ? [i, Math.max(lo, r[1]), Math.min(hi, r[2])] : [i, lo, hi]);
+  }
+  return [...out.values()].sort((a, b) => a[0] - b[0]);
 }
 
 export class StrokePreview {
@@ -101,11 +122,15 @@ export class StrokePreview {
     this.start = heights.slice();
     this.last = heights.slice();
     this.pre = state.pre.slice();
-    // (held ground within its floor and ceiling, as the build sets it where the stroke reaches, D491)
-    for (const [i, lo, hi] of state.hold ?? []) if (i >= 0 && i < this.pre.length) this.pre[i] = Math.min(Math.max(this.pre[i], lo), hi);
+    // (held ground within its floor and ceiling, as the build sets it where the stroke reaches, D491; the ground holding
+    // up a cave's or an overhang's rock too, D280 (3))
+    const hold = heldOf(state);
+    for (const [i, lo, hi] of hold ?? []) if (i >= 0 && i < this.pre.length) this.pre[i] = Math.min(Math.max(this.pre[i], lo), hi);
     // (a target's stroke too, D322: exact, as a precise one was)
     this.precise = brushHard(settings);
-    this.protect = this.precise || settings.sources === "keep" ? state.protect.slice() : state.protect;
+    this.protect = this.precise || settings.sources === "keep" || state.rockHold?.length ? state.protect.slice() : state.protect;
+    // (the integrity pass leaves the ground holding up the rock, as the build leaves the held tiles in the stroke's reach)
+    for (const [i] of state.rockHold ?? []) if (i >= 0 && i < this.protect.length) this.protect[i] = 1;
     const pre = this.pre;
     const base = state.base;
     const locked = state.locked;
@@ -122,7 +147,7 @@ export class StrokePreview {
     const depth = fresh && state.water ? state.water : undefined;
     const shown = this.start;
     // (a roof's top no lower than one above its underside, as build step 6 shapes it, D280 (3))
-    this.stroke = new BrushStroke(state.hold?.length && !settings.hold ? { ...settings, hold: state.hold } : settings, this.pre, W, H, (i) => !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
+    this.stroke = new BrushStroke(hold?.length && !settings.hold ? { ...settings, hold } : settings, this.pre, W, H, (i) => !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
       water,
       floor: state.floor ?? null,
       ...(depth ? { depth, shown, moisture: state.moisture ?? null, record: (shore, pools, moist) => Object.assign(record, { shore, pools, ...(moist ? { moist } : {}) }) } : {}),

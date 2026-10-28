@@ -77,7 +77,7 @@
         "levels": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 22 } },
         "stop": { "type": "integer", "minimum": 0, "maximum": 22 },
         "keep": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
-        "hold": { "description": "The ground holding objects set under a roof (D491): [tile, low, high], the lowest and highest each tile's surface may go; the session adds it.", "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } } },
+        "hold": { "description": "The ground a stroke holds (the session adds it): under objects set under a roof (D491), and holding up a cave's or an overhang's rock (D280 (3), amended by #ROCKHOLD-PR): [tile, low, high], the lowest and highest each tile's surface may go, one entry a tile.", "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } } },
         "area": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "rigid": { "type": "array", "maxItems": 4096, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer", "minimum": 0 } } },
         "steps": { "type": "integer", "minimum": 2, "maximum": 8 },
@@ -132,7 +132,7 @@
         "level": { "type": "integer", "minimum": 0, "maximum": 22 },
         "step": { "type": "integer", "minimum": 2, "maximum": 8 },
         "exact": { "type": "boolean" },
-        "hold": { "description": "The ground holding objects set under a roof (D491): [tile, low, high], the lowest and highest each tile's surface may go; the session adds it.", "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } } }
+        "hold": { "description": "The ground a stroke holds (the session adds it): under objects set under a roof (D491), and holding up a cave's or an overhang's rock (D280 (3), amended by #ROCKHOLD-PR): [tile, low, high], the lowest and highest each tile's surface may go, one entry a tile.", "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } } }
       }
     },
     "forceResult": {

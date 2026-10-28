@@ -817,10 +817,20 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   every tile. Raise grows a roof's top; Lower, Flatten, Smooth and Naturalize bring it down at most to one layer
   above the roof's underside (`terrain/runs.ts` `topFloor`), so every run below the top, the cave's air and floor,
   stays exactly as it is and no tile gains or loses a run. The build's pit-and-spike pass leaves a roof's top as the
-  stroke leaves it. A stroke that would leave ground nothing holds up (the game's support rule) is refused with one
-  line, "12 blocks of ground would fall: nothing would hold them up", and the page's stroke can show that ground
-  while it is painted (`StrokePreview.falls`). The same refusal covers every edit on such a map: a force's result, a
-  removed object that held ground. The forces stay on heightfield ground: on a map with caves they leave the caves'
+  stroke leaves it. A stroke or a sculpt never takes away what holds a cave's, an overhang's or an arch's rock up, and
+  is never refused for it (D280 (3), amended by #ROCKHOLD-PR; D270): it holds that ground and shapes the rest. Held are
+  the ground beside a roof that holds it, no lower than one layer above the underside it holds (it may rise freely), a
+  roof's top where the roof beside it rests on it, the same way, and the open ground of an object whose top holds a
+  roof, exactly as it is (`terrain/support.ts` `rockFloors`, `MapSession.rockHolds`; the roof-holding ground the forces
+  and Select leave, with the floor it needs). The operation logs the held tiles in its reach and one round it (its
+  `hold`, beside D491's), so the project replays byte for byte and a log from before replays as it was. The page's
+  stroke keeps the same ground while it is painted (`TerrainState.rockHold`), and afterwards the tiles held are tinted
+  in the caves' violet, until the next edit, with one line: "12 tiles left high enough to hold up a cave or overhang"
+  (`ApplyResult.held`). Only a stroke over held ground alone that can change nothing is refused ("nothing to shape
+  here: this ground holds up a cave's or an overhang's rock, which the edit leaves as it is"). Any edit that would
+  still leave ground nothing holds up (the game's support rule) is refused with one line, "12 blocks of ground would
+  fall: nothing would hold them up": a last guard no stroke reaches, and the rule for a force's result and a removed
+  object that held ground; `StrokePreview.falls` can show that ground while a stroke is painted. The forces stay on heightfield ground: on a map with caves they leave the caves'
   tiles, and the ground that holds up their roofs (the ground beside them, `terrain/support.ts` `roofHolders`, and an
   object whose top holds one with its tiles, `objectRoofHolders`), as they are (D487), so a force runs round a cave and
   nothing it leaves falls (Erode works under roofs and holds them itself). A force's point

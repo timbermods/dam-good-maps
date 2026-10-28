@@ -126,6 +126,10 @@ export interface SessionSlice {
   setSelectDraw: Dispatch<StateUpdater<number[] | null>>;
   selectPreview: { tiles: number[]; color: Rgba } | null;
   setSelectPreview: Dispatch<StateUpdater<{ tiles: number[]; color: Rgba } | null>>;
+  /** The tiles the last brush stroke or sculpt kept to hold up a cave's or an overhang's rock, tinted while the map
+   *  is at that edit's version (D280 (3), amended by #ROCKHOLD-PR). */
+  rockHeld: { tiles: number[]; version: number } | null;
+  setRockHeld: Dispatch<StateUpdater<{ tiles: number[]; version: number } | null>>;
   deleteMenu: boolean;
   setDeleteMenu: Dispatch<StateUpdater<boolean>>;
   setDeleteCounts: Dispatch<StateUpdater<{ counts: Record<string, number> } | null>>;
@@ -351,6 +355,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [selectDraw, setSelectDraw] = useState<number[] | null>(null);
   /** The tiles hovering a Select action would change (D323 item 6), and the Delete menu's state. */
   const [selectPreview, setSelectPreview] = useState<{ tiles: number[]; color: Rgba } | null>(null);
+  const [rockHeld, setRockHeld] = useState<{ tiles: number[]; version: number } | null>(null);
   const [deleteMenu, setDeleteMenu] = useState(false);
   /** What the core says stands in the selection while Delete's menu is open (objects under water too). */
   const [deleteCounts, setDeleteCounts] = useState<{ counts: Record<string, number> } | null>(null);
@@ -849,7 +854,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     setShowHistory, setCheck, check, setProgress, progress, layer, setLayer, setLayers, waterLayers, waterTick, heldTick,
     flowing, markersOn, setMarkersOn, markersToggle, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
-    selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
+    selectDraw, setSelectDraw, selectPreview, setSelectPreview, rockHeld, setRockHeld, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
     feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
     setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,

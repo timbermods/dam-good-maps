@@ -135,8 +135,8 @@ describe("an edit never places an object (D368 (10))", () => {
     // alive and keeps every bush and ruin column where the generation put them; a slope an edit
     // broke stays gone)
     await open(seed);
-    // (off the map's 3D forms, D488: a stroke over a form's rock that would fall is refused whole, D280 (3);
-    // a dab whose brush reaches a cave or an overhang is left out)
+    // (off the map's 3D forms, D488: a stroke over a form's ground holds what holds its rock, D280 (3) amended, and
+    // this test is about the objects; a dab whose brush reaches a cave or an overhang is left out)
     const opened = MapSession.open(decodeProject(ed.project().bytes));
     const rock: [number, number][] = [];
     for (let i = 0; i < W * W; i++) if (!opened.plainAt(i)) rock.push([i % W, Math.floor(i / W)]);

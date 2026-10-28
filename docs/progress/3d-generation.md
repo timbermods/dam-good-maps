@@ -146,10 +146,9 @@ close,high,top] [--only …]`). The worn shapes against the boxes they replaced 
 big arch from above and straight down): `docs/sheets/3d-generation-1-natural.jpg`.
 
 **Falls short, for the next parts:**
-- A stroke, a placement's levelling or a force over a form whose rock would then fall is refused whole, as on any map
-  with caves (D280 (3); a force leaves a cave or an overhang as it is), rather than shaped round it. Holding a form's rock
-  as a stroke holds the ground under an object (D491) would let it through; the hover's footprint check does not foresee
-  the falls either.
+- A stroke or a sculpt over a form holds the ground that holds its rock up and shapes the rest (D280 (3), amended by
+  #ROCKHOLD-PR: done); a placement whose levelling meets that ground is refused as uneven, and a force leaves a cave or an
+  overhang and what holds it as it is (D487). The hover's footprint check does not foresee a held levelling.
 - Overhangs are rare: most starts stand on open ground with no cliff in reach. Steering the settler toward a cliff when
   the map looks for one would change maps that then find none, so it waits for a round where that is allowed.
 - No arch above 128² (its first look is not held there); a land-stage arch on the planned water would bring them back.

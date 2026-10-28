@@ -155,6 +155,9 @@ export interface SessionUpdate extends ViewNews {
   ms: number;
   /** The instant checks after the change (PLAN §19.5): null when nothing changed. */
   instant?: InstantCheck | null;
+  /** A brush stroke or a sculpt on a map with caves or overhangs: the tiles holding up their rock it kept from where
+   *  it would have taken them (core/doc/session.ts `ApplyResult.held`). */
+  held?: number[];
   /** A shared session's answer to an edit (worker/collabEdit.ts): the session ordered it or refused it, and the map's news comes
    *  as the session's own `update` event, so this answer carries none and the page leaves the map alone. */
   routed?: true;
@@ -1809,7 +1812,12 @@ export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): Se
   const refused = newRampedStroke(op);
   if (refused) return changed(s, false, [refused], t0);
   const r = s.apply(op, origin, label);
-  return changed(s, r.ok, r.errors, t0);
+  return withHeld(changed(s, r.ok, r.errors, t0), r.held);
+}
+
+/** An answer with the tiles holding up a cave's or an overhang's rock the edit kept (`SessionUpdate.held`). */
+function withHeld(u: SessionUpdate, held: number[] | undefined): SessionUpdate {
+  return held?.length ? { ...u, held } : u;
 }
 
 // (a new ramped Flatten is refused: core/doc/strokes.ts `newRampedStroke`)
@@ -1842,7 +1850,7 @@ export function applyAll(ops: EditOp[], label: string, origin: OpOrigin = "user"
   if (blocked) return changed(s, false, [blocked], t0);
   // (a badwater source in the group cuts its spring pool: core/doc/placing.ts `withSpringPools`)
   const r = s.applyAll(withSpringPools(s, ops), origin, label);
-  return changed(s, r.ok, r.errors, t0);
+  return withHeld(changed(s, r.ok, r.errors, t0), r.held);
 }
 
 export function undo(): SessionUpdate {
@@ -2299,7 +2307,7 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
   const p = planStrokeClearing(s, op, label, tiles);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = p.cleared ? s.applyAll(p.ops, "user", p.label) : s.apply(op, "user", label);
-  return changed(s, r.ok, r.errors, t0);
+  return withHeld(changed(s, r.ok, r.errors, t0), r.held);
 }
 
 /** Move a placed object (a mine site, a relic, a geothermal field, a natural dam, a blockage) by (dx, dy)

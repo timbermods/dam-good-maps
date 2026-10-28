@@ -14,6 +14,7 @@ import type { Verb } from "../../core/forces/op";
 import { FORCES, forceShown, type TopTool } from "../TopBar";
 import { BrushPainter, paste, type BrushSettings, type BrushTool, type Stroke } from "../brushes";
 import type { TerrainState } from "../../core/features/raster/strokePreview";
+import { rockHeldWords } from "../caveWords";
 import { loadBrush, saveBrush } from "../prefs/brushPrefs";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
@@ -46,7 +47,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     api, info, mirror, renderer, setTool, setShelf, setTurn, setPainted, setBusy, setMessage, setCheck, check,
     setProgress, setInfo, layer, setLayers, waterTick, selectingRef, selection, player, mounted, juice, weatherRef,
     setWeather, journey, setInstant, setFit, setPicked, setPickedObject, setShapeNote, queue, infoRef, enqueue, run,
-    draftWater, showWater, showSoil, applyUpdate
+    draftWater, showWater, showSoil, applyUpdate, setRockHeld
   } = ed;
 
   // ------------------------------------------------------------------------------ the brushes
@@ -112,6 +113,10 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           return;
         }
         applyUpdate(u);
+        // (a stroke that kept ground holding up a cave's or an overhang's rock says how much in one line, and the map
+        // tints it until the next edit: D280 (3), amended by #ROCKHOLD-PR)
+        setRockHeld(u.held?.length ? { tiles: u.held, version: u.info.version } : null);
+        if (u.held?.length) setMessage({ kind: "info", text: rockHeldWords(u.held.length) });
         // (the other player's terrain came in a shared session while these strokes were on their way, and waited: taken now)
         if (u.ok && pendingTerrain.current === 0 && ed.collabStale.current) {
           ed.collabStale.current = false;
