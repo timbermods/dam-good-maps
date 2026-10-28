@@ -22,13 +22,13 @@ const marked = (page: Page) =>
   });
 
 /** The top left tile of a square of `size` tiles of flat ground with no water, at least `start` tiles in from the edge and clear of the `skip` spots. */
-const flatSpot = (page: Page, size: number, start: number, skip: number[][] = []) =>
+const flatSpot = (page: Page, size: number, start: number, skip: number[][] = [], apart = size + 6) =>
   page.evaluate(
-    ([n, from, others]) => {
+    ([n, from, others, gap]) => {
       const m = window.dgm3d!.renderer.mapState()!;
       for (let y = from; y < m.H - from; y++)
         for (let x = from; x < m.W - from; x++) {
-          if ((others as number[][]).some(([a, b]) => Math.abs(a - x) < n + 6 && Math.abs(b - y) < n + 6)) continue;
+          if ((others as number[][]).some(([a, b]) => Math.abs(a - x) < gap && Math.abs(b - y) < gap)) continue;
           const z = m.heights[y * m.W + x];
           let ok = true;
           for (let dy = 0; dy < n && ok; dy++) for (let dx = 0; dx < n && ok; dx++) if (m.heights[(y + dy) * m.W + x + dx] !== z || m.surface.depth[(y + dy) * m.W + x + dx] > 0) ok = false;
@@ -36,14 +36,14 @@ const flatSpot = (page: Page, size: number, start: number, skip: number[][] = []
         }
       return null;
     },
-    [size, start, skip] as const,
+    [size, start, skip, apart] as const,
   );
 
-/** Pick `item` from the shelf and click it down on a flat spot of `size` tiles clear of the `taken` ones (a spot with an object on it, a
- *  relic or a ruin, is passed over), once the page says it fits there; the spot is added to `taken`. */
-async function place(page: Page, item: string, taken: number[][], size = 5): Promise<[number, number]> {
+/** Pick `item` from the shelf and click it down on a flat spot of `size` tiles clear of the `taken` ones by `apart` tiles (a spot with
+ *  an object on it, a relic or a ruin, is passed over), once the page says it fits there; the spot is added to `taken`. */
+async function place(page: Page, item: string, taken: number[][], size = 5, apart = size + 6): Promise<[number, number]> {
   for (let tries = 0; tries < 8; tries++) {
-    const at = (await flatSpot(page, size, 8, taken))!;
+    const at = (await flatSpot(page, size, 8, taken, apart))!;
     taken.push(at);
     const before = await applied(page);
     await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: item, exact: true }).click();
@@ -140,7 +140,8 @@ test("Markers labels the seeps, aquifers, drains and reserves, with a warning on
   await page.getByRole("button", { name: "Top-down" }).click();
   await idle(page);
   const taken: number[][] = [];
-  for (const item of ["Badwater seep", "Aquifer", "Reserve pile"]) await place(page, item, taken);
+  // (far apart, 40 tiles: at this zoom 13 tiles are some 45px, and labels that close speak as one crowd, as they should)
+  for (const item of ["Badwater seep", "Aquifer", "Reserve pile"]) await place(page, item, taken, 5, 40);
   // off: the objects are there, their labels are not
   const labels = page.locator(".source-marker");
   await expect(labels.filter({ hasText: /Aquifer|Badwater seep|Reserve pile/ })).toHaveCount(0);
