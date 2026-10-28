@@ -2039,27 +2039,57 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const heldMoist = moisture(h, held, zero, W, H, null);
     guess = settlerOn(held, zero, heldMoist, 0, avoidOf(null), 1, null, true);
     allowLevel = true;
+    // (the water the plan's starts stand by: the planned water as its land holds it, or, where that
+    // leaves no start or no second place, with the pre-fill's water too, below)
+    let startWater = held;
     if (!from) {
-      if (!guess && !lastAttempt) return fail("no start", null, true);
       // (and a second place, away from the first: a land with one place for a start has nothing to
       // fall back on when the settled water or the objects fail it, and a shown land can't be drawn
-      // again, D348)
-      if (guess && !lastAttempt) {
+      // again, D348; and the places after it, apart from each other: every start a shown land may
+      // fall back on has its pad ready, levelled now if it needs it, D373 (3))
+      const placesOn = (D: Float64Array, M: ArrayLike<number>, first: StartPick | null) => {
+        const more: StartPick[] = [];
+        if (!first || lastAttempt) return { first, second: null, more };
         const off = avoidOf(null);
-        markTried(off, guess, W, H);
-        second = settlerOn(held, zero, heldMoist, 5, off, 1, null, true);
-        // (not in a rescue round's later lands, D471: a small or rugged land may hold only one)
-        if (!second && ease < 2) return fail("one place for a start", null, true);
-        // (and the places after it, apart from each other: every start a shown land may fall back
-        // on has its pad ready, levelled now if it needs it, D373 (3))
+        markTried(off, first, W, H);
+        const second = settlerOn(D, zero, M, 5, off, 1, null, true);
+        // (a land with one place fails below unless a rescue round's later land asks for one, D471)
+        if (!second && ease < 2) return { first, second, more };
         if (second) markTried(off, second, W, H);
         for (let k = 0; k < PREPARED_MORE; k++) {
-          const more = settlerOn(held, zero, heldMoist, 9 + k, off, 1, null, true);
-          if (!more) break;
-          prepared.push(more);
-          markTried(off, more, W, H);
+          const next = settlerOn(D, zero, M, 9 + k, off, 1, null, true);
+          if (!next) break;
+          more.push(next);
+          markTried(off, next, W, H);
+        }
+        return { first, second, more };
+      };
+      let found = placesOn(held, heldMoist, guess);
+      // The planned water is an estimate, and on deep-cut land too shallow: streams under the depth a
+      // pump needs, none of the pools their water backs into as it settles. Of the Canyon lands drawn
+      // again for no start (128², seeds 3 and 4), two in three had hundreds of places on their settled
+      // water, and the pre-fill (the water the settle starts from, a build's cost, not a settle's)
+      // found the same places. So a land the plan leaves no start, or one place, looks again on the
+      // plan's water and the pre-fill's together before it is drawn again; a land whose plan has its
+      // places keeps them, and the start is found again on the settled water as ever.
+      if (!lastAttempt && (!found.first || (!found.second && ease < 2))) {
+        const bw = build(rivers, "water");
+        const fill = prefill(waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }))).depth;
+        const both = Float64Array.from(held, (v, i) => Math.max(v, fill[i]));
+        const bothMoist = moisture(h, both, zero, W, H, null);
+        plannedStart = null;
+        const again = placesOn(both, bothMoist, settlerOn(both, zero, bothMoist, 0, avoidOf(null), 1, null, true));
+        if (again.first && (again.second || ease >= 2)) {
+          found = again;
+          startWater = both;
         }
       }
+      guess = found.first;
+      second = found.second;
+      prepared.push(...found.more);
+      if (!guess && !lastAttempt) return fail("no start", null, true);
+      // (not in a rescue round's later lands, D471: a small or rugged land may hold only one)
+      if (guess && !second && ease < 2 && !lastAttempt) return fail("one place for a start", null, true);
       // The shared fields expire before any levelling or mine-pad shaping.
       plannedStart = null;
       // (no wall along a map edge, D151: the land alone shows one, so it is drawn again before it
@@ -2084,7 +2114,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const scale = bandScale(W, H);
         const want = minesWanted(W, H);
         const lo = MINE_REACH_LO * scale + 1;
-        const padFor = (at: StartPick) => minePads(h, W, H, { start: at, wet: held, keep: keepP, want, lo, far: MINE_LO * scale + 1, seed: hash32(seed, "mine-pads", attempt) });
+        const padFor = (at: StartPick) => minePads(h, W, H, { start: at, wet: startWater, keep: keepP, want, lo, far: MINE_LO * scale + 1, seed: hash32(seed, "mine-pads", attempt) });
         const hPre = h.slice();
         let pads = padFor(guess);
         if (mineSquares().length < want) {
@@ -2092,10 +2122,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           // gives, where its walk has the room, is the plan's start; a land with none is drawn again
           // before it is shown: rugged or small land, D363)
           h.set(hPre);
-          const room = roomMap(h, W, H, { wet: held, keep: keepP, want, lo, firm: FIRM });
+          const room = roomMap(h, W, H, { wet: startWater, keep: keepP, want, lo, firm: FIRM });
           const off = avoidOf(null);
           for (let i = 0; i < N; i++) if (!room[i]) off[i] = 1;
-          const alt = settlerOn(held, zero, moisture(h, held, zero, W, H, null), 8, off);
+          const alt = settlerOn(startWater, zero, moisture(h, startWater, zero, W, H, null), 8, off);
           if (alt) {
             guess = alt;
             pads = padFor(guess);

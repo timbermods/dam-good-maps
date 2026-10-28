@@ -57,8 +57,9 @@ import * as ed from "../../src/worker/session";
  *  rules, #44, and `5118b6a6…` from M8 until then); `68451be7…` before the description was rewritten in a player's words
  *  (the same map, a new description; D382); `7f7c8677…` before generator 0.10.0's version string (D488, the same
  *  map); `a4c34743…` before the game version stamped became 1.1.2.8-ffc2de0-sw (the same map, D148: re-stamped
- *  with 1.1.2.4-52e959e-sw the file is that one byte for byte). */
-const LIVE_SHA = "30543f1d6f956d14d379a56be9ffc5f2d5824225c951ad086b32496b1a912215";
+ *  with 1.1.2.4-52e959e-sw the file is that one byte for byte); `30543f1d…` before generator 0.10.5's version
+ *  string (the same map: its first land fails the course check, not the start or the trunk's search). */
+const LIVE_SHA = "01c74752d573f581bad07e20cb66500af8c36ec4fa6a3db2cb58bae86e110b00";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
