@@ -191,7 +191,8 @@ export interface ApplyResult {
    *  tiles holding up a cave's or an overhang's rock, or an object under a roof, it kept from where it would
    *  have taken them, ascending (what the page's one line counts and tints); absent when it kept none. */
   held?: number[];
-  /** How many of `held` hold an object under a roof alone (D491; the line says so); absent when none. */
+  /** How many of `held` hold an object under a roof (D491; some may hold up rock too: the line says so); absent when
+   *  none. */
   heldUnder?: number;
   /** A Select action on a map with caves (core/doc/start.ts `applySelection`): how many of its tiles it left as they
    *  are, a cave's or an overhang's column or the ground holding up its roof. */
@@ -1450,7 +1451,7 @@ export class MapSession {
       return { ok: false, errors: [lost], applied: [], dirty: null };
     }
     const held = this.heldBy(op, new Set([...rock, ...kept.objects]), before);
-    const under = held.filter((i) => kept.objects.has(i) && !rock.has(i)).length;
+    const under = held.filter((i) => kept.objects.has(i)).length;
     return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty, ...(held.length ? { held, ...(under ? { heldUnder: under } : {}) } : {}) };
   }
 
@@ -1513,7 +1514,7 @@ export class MapSession {
       const kept = this.heldIn(op);
       for (const i of this.heldBy(op, new Set([...kept.rock, ...kept.objects]), this.cur)) {
         held.add(i);
-        if (kept.objects.has(i) && !kept.rock.has(i)) under.add(i);
+        if (kept.objects.has(i)) under.add(i);
       }
       done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined));
       // later operations of the group may refer to what earlier ones made (a description makes nothing)

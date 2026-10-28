@@ -23,6 +23,7 @@ import type { ColumnTerrain } from "../../src/core/terrain/runs";
 import { unsupportedVoxels } from "../../src/core/terrain/support";
 import { mulberry } from "./brushRandom";
 import { randomBrush, STROKE_TOOLS } from "./strokeRandom";
+import { heldWords } from "../../src/editor/caveWords";
 
 const DIRS = [process.env.DGM_OFFICIAL_MAPS ?? "", ".scratch/official", resolve("../../../.scratch/official"), "investigation/raw/builtin"];
 const DIR = DIRS.find((d) => d && existsSync(d)) ?? null;
@@ -124,6 +125,9 @@ describe("the brushes on the official maps with caves (local only)", () => {
     expect(u.errors).toEqual([]);
     for (const i of open) expect(s.built.heights[i]).toBe(8);
     expect(u.held).toEqual(expect.arrayContaining(open));
+    // (they hold up the overhang too: the line names both)
+    expect(u.heldUnder).toBe(4);
+    expect(heldWords(u.held!.length, u.heldUnder)).toBe(`${u.held!.length} tiles left to hold up a cave or overhang and an object under a roof`);
     expect(s.built.heights[19 * W + 13]).toBe(0);
     expect(s.built.entities.find((e) => e.id === source.id)).toMatchObject({ x: 14, y: 19, z: 8 });
   });
