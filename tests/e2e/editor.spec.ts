@@ -36,6 +36,9 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await expect(page.getByRole("heading", { name: (await info(page)).name })).toBeVisible();
   expect((await page.evaluate(() => window.dgm3d!.renderer.info())).triangles).toBeGreaterThan(0);
   await topDown(page);
+  // (the first-run hints put away: what is tested is the map, and their box, a line taller since they say where Help is,
+  // #599, kept the spring's search off the spot it found, D148)
+  await page.getByRole("button", { name: "No more hints" }).click();
 
   // the player's own edits: a stroke of the Lower brush, and a water source (the brush kit and the
   // water, D182, D184)

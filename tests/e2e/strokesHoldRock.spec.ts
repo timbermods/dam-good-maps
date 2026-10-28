@@ -16,7 +16,8 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1600, height: 1000 });
   await openEditor(page, "s=1&z=128&d=n&t=highlands");
-  await page.locator(".map-note button").first().click().catch(() => undefined);
+  // (the first-run hints put away by their ×: their first button is Help since #599)
+  await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
   await topDown(page);
   const W = 128;
   const { terrain } = await page.evaluate(() => window.dgmEditor!.worker.terrainNow());
