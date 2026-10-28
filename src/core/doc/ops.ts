@@ -53,7 +53,7 @@ export interface OpParams {
   updateFeature: { id: string; patch: { params?: Record<string, unknown>; locked?: boolean } };
   deleteFeature: { id: string };
   reorderFeature: { id: string; index: number };
-  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean; /** The ground holding objects set under a roof (D491): [tile, low, high]; the session adds it. */ hold?: [number, number, number][] };
+  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean; /** The ground the edit holds (D491's under objects set under a roof; D280 (3)'s holding up a cave's or an overhang's rock): [tile, low, high]; the session adds it. */ hold?: [number, number, number][] };
   /** A terrain brush stroke (live editing): the brush and its dabs (features/raster/brush.ts). */
   brush: BrushParams;
   /** A force of nature (Carve, Craterize, Erupt, Quake, Glaciate: D194, D202, D203, D206, D220, D246),

@@ -21,17 +21,17 @@ import { generatedTallSentence, isTall, surfaceOf, TALL_NOTE, withTallNote } fro
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
 import { buildMap, groundDropped, masksOf, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
-import type { TerrainState } from "../features/raster/strokePreview";
+import { heldOf, type TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { objectHolds, standProblem, type StandGround } from "../features/objects";
-import { brushBounds, byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
+import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
 import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
-import { fallsReason, newFalls, placeOf, stackableTops, unsupportedVoxels } from "../terrain/support";
+import { fallsReason, newFalls, objectRoofHolders, placeOf, rockFloors, stackableTops, unsupportedVoxels } from "../terrain/support";
 import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
 import { clusterSaturation } from "../sim/moisture";
@@ -187,6 +187,10 @@ export interface ApplyResult {
   dirty: DirtyInfo | null;
   /** A crop (D340): how many objects the new edge cut and removed. */
   removedObjects?: number;
+  /** A brush stroke or a sculpt on a map with caves or overhangs (D280 (3), amended by #623): the
+   *  tiles holding up a cave's or an overhang's rock it kept from where it would have taken them, ascending
+   *  (what the page's one line counts and tints); absent when it kept none. */
+  held?: number[];
   /** A Select action on a map with caves (core/doc/start.ts `applySelection`): how many of its tiles it left as they
    *  are, a cave's or an overhang's column or the ground holding up its roof. */
   left?: number;
@@ -783,15 +787,57 @@ export class MapSession {
   }
   private holdsCache: { key: BuildResult; holds: [number, number, number][] } | null = null;
 
-  /** A stroke or a sculpt with the ground that holds objects set under a roof (D491): it keeps those
-   *  tiles within their floor and ceiling and shapes the rest as normal, never refused for them (D270).
-   *  Only the held tiles in its reach, and one tile round it (the integrity pass reads each tile's
-   *  neighbours), go in the operation: the build keeps those, and only those, from the integrity pass,
-   *  so a stroke never moves held ground elsewhere on the map, and the page's preview, which keeps every
-   *  held tile, agrees inside the only ground the stroke changes. */
+  /** The ground holding up a cave's or an overhang's rock on the map as it stands (D280 (3), amended by
+   *  #623; the roof-holding ground the forces leave, D487): [tile, low, high]. The ground beside a
+   *  roof that holds it, and a roof's top where the roof beside it rests on it, may come down no lower than
+   *  one above the underside it holds (`terrain/support.ts` `rockFloors`) and may rise freely; the open
+   *  ground of an object whose stackable top holds a roof (`objectRoofHolders`) stays exactly as it is.
+   *  With these kept, a stroke over a cave's or an overhang's ground leaves every block of its rock held
+   *  up, so it is never refused for it (D270): the brushes shape the roofs' tops (D487) and the rest as
+   *  normal round what holds them. Empty on a heightfield. */
+  rockHolds(): [number, number, number][] {
+    const c = this.rockCache;
+    if (c && c.key === this.cur) return c.holds;
+    let holds: [number, number, number][] = [];
+    const caves = this.layered(this.cur) ? [...this.columns.keys()] : [];
+    if (caves.length) {
+      const t = this.terrainOf(this.cur);
+      const h = this.cur.heights;
+      const out = new Map<number, [number, number, number]>();
+      for (const [i, low] of rockFloors(t, caves)) out.set(i, [i, Math.min(low, h[i]), 255]);
+      const objects = this.cur.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation ?? "Cw0", flipped: !!e.flipped }));
+      for (const i of objectRoofHolders(t, objects)) if (t.isPlain(i)) out.set(i, [i, h[i], h[i]]);
+      holds = [...out.values()].sort((a, b) => a[0] - b[0]);
+    }
+    this.rockCache = { key: this.cur, holds };
+    return holds;
+  }
+  private rockCache: { key: BuildResult; holds: [number, number, number][] } | null = null;
+
+  /** Every hold a stroke or a sculpt keeps on the map as it stands: the ground holding objects set under
+   *  a roof (`holds`, D491) and the ground holding up a cave's or an overhang's rock (`rockHolds`), one
+   *  entry a tile, the two kept together where both hold it (the page's stroke keeps the same:
+   *  strokePreview.ts `heldOf`). */
+  heldGround(): [number, number, number][] {
+    const c = this.heldCache;
+    if (c && c.key === this.cur) return c.holds;
+    const holds = heldOf({ hold: this.holds(), rockHold: this.rockHolds() }) ?? [];
+    this.heldCache = { key: this.cur, holds };
+    return holds;
+  }
+  private heldCache: { key: BuildResult; holds: [number, number, number][] } | null = null;
+
+  /** A stroke or a sculpt with the ground it holds (`heldGround`): the ground that holds objects set
+   *  under a roof (D491) and the ground that holds up a cave's or an overhang's rock (D280 (3), amended
+   *  by #623): it keeps those tiles within their floor and ceiling and shapes the rest as normal, never
+   *  refused for them (D270). Only the held tiles in its reach, and one tile round it (the integrity pass
+   *  reads each tile's neighbours), go in the operation, so a replay builds exactly what was shown (D455):
+   *  the build keeps those, and only those, from the integrity pass, so a stroke never moves held ground
+   *  elsewhere on the map, and the page's preview, which keeps every held tile, agrees inside the only
+   *  ground the stroke changes. */
   private withHold(op: EditOp): EditOp {
     if ((op.op !== "brush" && op.op !== "sculpt") || op.params.hold) return op;
-    const all = this.holds();
+    const all = this.heldGround();
     if (!all.length) return op;
     const { x: W, y: H } = this.size;
     let box: { x0: number; y0: number; x1: number; y1: number } | null = null;
@@ -809,9 +855,10 @@ export class MapSession {
     return { ...op, params: { ...op.params, hold: hold.map((h) => [...h] as [number, number, number]) } } as EditOp;
   }
 
-  /** Why a held stroke or sculpt is refused (D491): only when holding leaves it nothing to shape, every
-   *  tile it covers being ground that holds an object under a roof; null otherwise. */
-  private heldOnly(op: EditOp, before: BuildResult): string | null {
+  /** Why a held stroke or sculpt is refused (D491; D280 (3), amended by #623): only when holding
+   *  leaves it nothing to shape, every tile it covers being ground that holds an object under a roof or
+   *  holds up a cave's or an overhang's rock (`rock`); null otherwise. */
+  private heldOnly(op: EditOp, before: BuildResult, rock: ReadonlySet<number>): string | null {
     if ((op.op !== "brush" && op.op !== "sculpt") || !op.params.hold?.length) return null;
     if (!sameBytes(before.heights, this.cur.heights)) return null;
     const { x: W, y: H } = this.size;
@@ -823,7 +870,53 @@ export class MapSession {
       for (let i = 0; i < m.length; i++) if (m[i]) tiles.push(i);
     } else for (const [y, a, b] of op.params.cells) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) tiles.push(y * W + x);
     if (!tiles.length || !tiles.every((i) => held.has(i))) return null;
+    if (tiles.some((i) => rock.has(i))) return "nothing to shape here: this ground holds up a cave's or an overhang's rock, which the edit leaves as it is";
     return "nothing to shape here: this ground holds an object under a roof, which the edit leaves as it is";
+  }
+
+  /** The tiles of a held stroke or sculpt that hold up a cave's or an overhang's rock (`rockHolds` of the
+   *  map as it stands, before the operation applies). */
+  private rockIn(op: EditOp): Set<number> {
+    if ((op.op !== "brush" && op.op !== "sculpt") || !op.params.hold?.length) return new Set();
+    const rock = this.rockHolds();
+    if (!rock.length) return new Set();
+    const all = new Set(rock.map(([i]) => i));
+    return new Set(op.params.hold.map(([i]) => i).filter((i) => all.has(i)));
+  }
+
+  /** The tiles holding up a cave's or an overhang's rock (`rock`) a held stroke or sculpt keeps from
+   *  where it would take them (D280 (3), amended by #623): the stroke's land worked out on the
+   *  map it applied to (`before`) with its hold and without the rock's part of it (build step 6, the
+   *  brush or the sculpt alone), and the tiles of `rock` that differ, ascending. What the page's one line
+   *  reports. */
+  private heldBy(op: EditOp, rock: ReadonlySet<number>, before: BuildResult): number[] {
+    if (!rock.size || (op.op !== "brush" && op.op !== "sculpt") || !op.params.hold?.length) return [];
+    const { x: W, y: H } = this.size;
+    const pre = before.cache.terrain.pre7;
+    const others = op.params.hold.filter(([i]) => !rock.has(i));
+    if (op.op === "brush") {
+      const floor = this.terrainOf(before).topFloors();
+      const kept = pre.slice();
+      const free = pre.slice();
+      applyBrush(op.params, kept, W, H, () => true, floor);
+      const { hold: _hold, ...params } = op.params;
+      applyBrush(others.length ? { ...params, hold: others } : params, free, W, H, () => true, floor);
+      return [...rock].filter((i) => kept[i] !== free[i]).sort((a, b) => a - b);
+    }
+    // (a sculpt changes each tile by itself, and its hold keeps each held tile within its floor and ceiling)
+    const p = op.params;
+    const bounds = new Map(op.params.hold.map(([i, lo, hi]) => [i, [lo, hi] as const]));
+    const out: number[] = [];
+    for (const [y, a, b] of p.cells)
+      for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) {
+        const i = y * W + x;
+        if (!rock.has(i)) continue;
+        const h = pre[i];
+        const want = p.mode === "raise" ? h + (p.amount ?? 0) : p.mode === "lower" ? h - (p.amount ?? 0) : p.mode === "flatten" ? (p.level ?? h) : p.mode === "terrace" ? Math.floor(h / (p.step ?? 2)) * (p.step ?? 2) : h;
+        const [lo, hi] = bounds.get(i)!;
+        if (want < lo || want > hi) out.push(i);
+      }
+    return out.sort((a, b) => a - b);
   }
 
   /** The first object the map as it stands would lose that it kept as `before`, in one line, or null
@@ -1042,6 +1135,8 @@ export class MapSession {
       columns: Int32Array.from([...this.columns.keys()].sort((a, b) => a - b)),
       ...(this.columns.size ? this.roofState() : {}),
       ...(this.holds().length ? { hold: this.holds().map((h) => [...h] as [number, number, number]) } : {}),
+      // (the ground holding up a cave's or an overhang's rock, which a stroke keeps: D280 (3), amended by #623)
+      ...(this.rockHolds().length ? { rockHold: this.rockHolds().map((h) => [...h] as [number, number, number]) } : {}),
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
       water: this.cur.water.slice(),
       moisture: this.cur.moisture.slice(),
@@ -1302,6 +1397,7 @@ export class MapSession {
   /** Apply one operation. */
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
     op = this.withHold(op);
+    const rock = this.rockIn(op);
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
     if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
@@ -1337,12 +1433,13 @@ export class MapSession {
     }
     // a stroke held whole by the ground under objects in a cliff or a cave (D491), and, as a last guard,
     // an object under a roof or on one that the game would then remove
-    const lost = this.heldOnly(op, before) ?? this.lostSince(before);
+    const lost = this.heldOnly(op, before, rock) ?? this.lostSince(before);
     if (lost) {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [lost], applied: [], dirty: null };
     }
-    return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty };
+    const held = this.heldBy(op, rock, before);
+    return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty, ...(held.length ? { held } : {}) };
   }
 
   /** A step whose brush stroke left a source of several tiles (a BadwaterSource) off level ground,
@@ -1387,6 +1484,7 @@ export class MapSession {
     const mark = this.mark();
     const seq = this.seqNext;
     const done: AppliedOp[] = [];
+    const held = new Set<number>();
     for (const given of ops) {
       const op = this.withHold(given);
       const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : op.op === "crop" ? ["a crop cannot be part of a group of edits"] : this.check(op);
@@ -1399,6 +1497,7 @@ export class MapSession {
         this.seqNext = seq;
         return { ok: false, errors, applied: [], dirty: null };
       }
+      for (const i of this.heldBy(op, this.rockIn(op), this.cur)) held.add(i);
       done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined));
       // later operations of the group may refer to what earlier ones made (a description makes nothing)
       if (op.op !== "setDescription") this.cur = this.rebuilt();
@@ -1417,7 +1516,7 @@ export class MapSession {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [lost], applied: [], dirty: null };
     }
-    return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
+    return { ok: true, errors: [], applied: done, dirty: this.cur.dirty, ...(held.size ? { held: [...held].sort((a, b) => a - b) } : {}) };
   }
 
   /** Crop map to selection (D340): the map becomes the rectangle, as the next generation (the cropped map as an
