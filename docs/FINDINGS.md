@@ -213,6 +213,15 @@ are recorded in M9A and [the earlier STATUS](archive/status-2026-10-01.md) "Prob
   straight slope its way leaves by a side): looking again from the sides, 3.0 → 2.1 attempts (53% → 60% first).
   Occasionally (one map in ten) a land routes hundreds of badwater ditches that all come out too straight to bend,
   1–3 s (`hazards.ts` `windDitch`): information.
+- **Where the hollow search's time goes** (2026-10-28, seeds 1–30 at 128², Highlands, Canyon, Any): `planBadwater`
+  is about 0.1 s on most maps; on 2 of 90 (Highlands 4, Canyon 12) it routed 380–530 ditches from neighbouring pits,
+  nearly all refused because the side-to-side walk of a meandered route still runs 10 tiles straight on a diagonal
+  staircase (D209's 9). Of that time, about 70% was the cheapest-way search (`ditchRoute`, reading most of the map
+  for each pit), 20% the winding (`meanderPath`, six draws a pit), the dig-and-prove next to nothing. The search is
+  now led by a lower bound every pit on one ground and floor shares (`ditchLower`, A*): the same routes, byte for
+  byte on all 90 maps, the route time 2.2 → 0.9 s (Highlands) and 2.6 → 1.6 s (Canyon) over the 30 seeds, the worst
+  maps 2.7 → 1.5 s and 2.4 → 1.6 s. Median Generate moves by less than the machine's noise. What is left is per pit
+  (its own noise and its own meander draws); fewer pits routed would change maps.
 - The outcomes M9b is judged by are Kyler's eye against [PERFECT](PERFECT.md) (D252, D273); the measures are information.
 - **Mechanics** (180 generated maps, generator 0.6.0): nearest badwater or spoiled soil 15.4–24.2 tiles away on every map;
   Canyon has no clean retained water within 40 tiles after a nine-day drought; the largest joint bin holds 20–30% of Canyon,
