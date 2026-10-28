@@ -103,12 +103,22 @@ export function Together(p: { controller: TogetherController; state: TogetherSta
       window.removeEventListener("keydown", key);
     };
   }, [open]);
-  // (File's Together… entry, where the header has no room for this button: it opens the same panel)
+  // (File's Together… entry, where the header has no room for this button: it opens the same panel, the focus in it, as
+  // the menu it came from has gone)
+  const focusIn = useRef(false);
   useEffect(() => {
-    const show = () => setOpen(true);
+    const show = () => {
+      focusIn.current = true;
+      setOpen(true);
+    };
     window.addEventListener(OPEN_TOGETHER, show);
     return () => window.removeEventListener(OPEN_TOGETHER, show);
   }, []);
+  useEffect(() => {
+    if (!open || !focusIn.current) return;
+    focusIn.current = false;
+    wrap.current?.querySelector<HTMLElement>(".together-panel :is(input, button):not(:disabled)")?.focus();
+  }, [open]);
   // (an Invite just made: the panel shows its code)
   useEffect(() => {
     if (s.phase === "inviting" || s.problem) setOpen(true);

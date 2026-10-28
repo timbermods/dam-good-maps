@@ -393,7 +393,7 @@ export interface HeaderProps {
   together?: ComponentChildren;
   /** The other player in a live or paused session ("paused" while they are away): File wears their dot, and its Together…
    *  entry is there, where the header is too full for Together's own button (below 1,340px wide); absent without Together. */
-  togetherEntry?: { role: Role; paused: boolean; other: boolean } | null;
+  togetherEntry?: { role: Role; name: string; paused: boolean; other: boolean } | null;
 }
 
 export function Header(p: HeaderProps) {
@@ -538,7 +538,12 @@ export function Header(p: HeaderProps) {
         <div class="menu-wrap" ref={wrap}>
           <button type="button" class={`ghost file-button${p.togetherEntry?.other ? " with-dot" : ""}`} aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and find Help" onClick={() => setMenu(!menu)}>
             <span class="label">File</span>
-            {p.togetherEntry?.other ? <span class={`together-dot file-together-dot who-${p.togetherEntry.role}${p.togetherEntry.paused ? " paused" : ""}`} aria-hidden="true" /> : null}
+            {/* (the dot says who in File's name while it shows: under 1,340px, where Together's own button is not there) */}
+            {p.togetherEntry?.other ? (
+              <span class={`together-dot file-together-dot who-${p.togetherEntry.role}${p.togetherEntry.paused ? " paused" : ""}`}>
+                <span class="visually-hidden">(together with {p.togetherEntry.name})</span>
+              </span>
+            ) : null}
           </button>
           {fileMenu.mounted ? (
             <ul class="menu" role="menu" aria-label="File" data-closing={fileMenu.closing ? "" : undefined}>
