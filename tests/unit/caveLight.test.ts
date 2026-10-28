@@ -307,6 +307,29 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
     expect(Buffer.from(bytes).equals(Buffer.from(shadowMap(W, H, src.heights, next, undefined, rock)))).toBe(true);
   });
 
+  it("an object moved to another level of its tile redoes its shadows: the floor's pine on the roof above, or one of two pines on a tile deleted", () => {
+    const view = (list: [number, number, number, number][]) => ({ ...entities, count: list.length, template: new Uint16Array(list.length), x: Int16Array.from(list, (t) => t[0]), y: Int16Array.from(list, (t) => t[1]), z: Int16Array.from(list, (t) => t[2]), flags: Uint8Array.from(list, (t) => t[3]) }) as unknown as EntityView;
+    const cases: [[number, number, number, number][], [number, number, number, number][]][] = [
+      // the pine under the overhang, on its floor, replaced by one on the overhang's roof above it
+      [trees, trees.map((t, k): [number, number, number, number] => (k === 2 ? [16, 22, 11, 0] : t))],
+      // two pines on one tile, on the floor and on the roof: the one casting (the first, the floor's) deleted
+      [[...trees, [16, 22, 11, 0]], trees.filter((_, k) => k !== 2).concat([[16, 22, 11, 0]])],
+    ];
+    for (const [was, now] of cases) {
+      const a = objectCasters(W, H, view(was));
+      const b = objectCasters(W, H, view(now));
+      expect(a![22 * W + 16]).toBe(b![22 * W + 16]);
+      const tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
+      const bytes = shadowMap(W, H, src.heights, a, tops, rock);
+      const rects = castersChangedRects(W, H, a, b)!;
+      expect(rects).not.toBeNull();
+      for (const r of rects) shadowPairRect(tops, bytes, W, H, src.heights, b, r.x0, r.y0, r.x1, r.y1, rock);
+      const whole = shadowMap(W, H, src.heights, b, undefined, rock);
+      expect(Buffer.from(whole).equals(Buffer.from(shadowMap(W, H, src.heights, a, undefined, rock)))).toBe(false);
+      expect(Buffer.from(bytes).equals(Buffer.from(whole))).toBe(true);
+    }
+  });
+
   it("a terrain without terrain above terrain has no rock to add: its shadows are the heightfield's", () => {
     expect(shadowRock(W, H, new Map())).toBeNull();
   });

@@ -371,7 +371,8 @@ export function shadowPairArea(x0: number, y0: number, x1: number, y1: number): 
 /** The side of the blocks of tiles `castersChangedRects` gathers changed casters by. */
 const CASTER_BLOCK = 8;
 
-/** The tiles whose casters differ between `a` and `b` (no casters: none anywhere), as rectangles to redo the shadows
+/** The tiles whose casters differ between `a` and `b` (in height, or in the level an object casts from; no casters:
+ *  none anywhere), as rectangles to redo the shadows
  *  round: `shadowPairRect` on each of them, in any order, gives the bytes of baking the whole map again (a sample a
  *  change reaches lies in that change's rectangle's area, and each area is redone from the samples north-west of it).
  *  The changed tiles of each block of CASTER_BLOCK² tiles, or their one bounding rectangle where that redoes fewer
@@ -382,8 +383,13 @@ export function castersChangedRects(W: number, H: number, a: Float32Array | null
   const bw = Math.ceil(W / B);
   const blocks = new Map<number, { x0: number; y0: number; x1: number; y1: number }>();
   const all = { x0: W, y0: H, x1: -1, y1: -1 };
+  // (a tile's object casts from the level it stands on: under a roof, the same height cast from the floor or from the
+  // roof is a different shadow)
+  const la = a ? casterLevels.get(a) : undefined;
+  const lb = b ? casterLevels.get(b) : undefined;
   for (let i = 0; i < W * H; i++) {
-    if ((a ? a[i] : 0) === (b ? b[i] : 0)) continue;
+    const ca = a ? a[i] : 0;
+    if (ca === (b ? b[i] : 0) && (!ca || (la ? la[i] : -1) === (lb ? lb[i] : -1))) continue;
     const x = i % W;
     const y = (i - x) / W;
     const k = Math.floor(y / B) * bw + Math.floor(x / B);
