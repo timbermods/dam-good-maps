@@ -6,6 +6,7 @@
 // too); the falls' program is compiled with the branch too, and a brush over the roof draws the hollow under it
 // (hollow.ts), which a plain map never makes. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec does,
 // so the High look's programs are checked there too.)
+// Every program stays within the 16 samplers any WebGL 2 browser has (Direct3D 11's ANGLE has no more).
 // A pond on a shelf cut at the shelf's level, and a reservoir deeper than the water byte's fine range cut below its
 // surface: the ground is drawn as the same ground dry.
 
@@ -80,7 +81,7 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
         objects: Obj & { children: { name: string }[] };
         scene: Obj;
         persp: object;
-        gl: { info: { programs: { name: string; diagnostics?: { runnable: boolean } }[] | null }; getContext(): WebGL2RenderingContext; render(s: Obj, c: object): void };
+        gl: { info: { programs: { name: string; program: WebGLProgram; diagnostics?: { runnable: boolean } }[] | null }; getContext(): WebGL2RenderingContext; render(s: Obj, c: object): void };
       };
       const roofed = [internals.std.object, internals.std.fall, internals.std.water, ...(internals.high?.roofedMaterials() ?? [])].every((m) => m.defines.CAVES === 1);
       const waterLayers = internals.layers?.layers.length ?? 0;
@@ -136,7 +137,18 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
       r.renderNow();
       const hollow = r.hollowDrawn;
       const hollowBroken = (internals.gl.info.programs ?? []).filter((p) => p.diagnostics && !p.diagnostics.runnable).map((p) => p.name);
-      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, runSoil: internals.std.terrain.defines.RUN_SOIL, slopeSoil, ivy, roofed, waterLayers, waterChunks: internals.water.size, slice, ground: ground / seen, broken, lite, hollow, hollowBroken };
+      // every program within the 16 samplers a shader is sure to have (WebGL 2's least, ANGLE's on Direct3D 11): past it
+      // a program does not link there, however many this browser allows (High's terrain on a cave map drew empty with
+      // 17). Counted over the whole program, its vertex shader's too.
+      const samplerTypes = new Set<number>([g.SAMPLER_2D, g.SAMPLER_3D, g.SAMPLER_CUBE, g.SAMPLER_2D_SHADOW, g.SAMPLER_2D_ARRAY, g.INT_SAMPLER_2D, g.INT_SAMPLER_3D, g.UNSIGNED_INT_SAMPLER_2D, g.UNSIGNED_INT_SAMPLER_3D]);
+      const overSamplers = (internals.gl.info.programs ?? [])
+        .map((p) => {
+          let n = 0;
+          for (let i = 0; i < (g.getProgramParameter(p.program, g.ACTIVE_UNIFORMS) as number); i++) if (samplerTypes.has(g.getActiveUniform(p.program, i)!.type)) n++;
+          return `${p.name || "program"}: ${n}`;
+        })
+        .filter((s) => Number(s.split(": ")[1]) > 16);
+      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, runSoil: internals.std.terrain.defines.RUN_SOIL, slopeSoil, ivy, roofed, waterLayers, waterChunks: internals.water.size, slice, ground: ground / seen, broken, lite, hollow, hollowBroken, overSamplers };
       r.dispose();
       host.remove();
       return result;
@@ -155,6 +167,7 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
     expect(out.ground, `${look}: the terrain draws`).toBeGreaterThan(0.5);
     expect(out.hollow, `${look}: the hollow under the brush`).toEqual({ tiles: 9, edges: 12 });
     expect(out.hollowBroken, look).toEqual([]);
+    expect(out.overSamplers, `${look}: no program past 16 samplers`).toEqual([]);
   }
   expect(errors).toEqual([]);
 });

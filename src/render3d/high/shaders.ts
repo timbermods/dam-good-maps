@@ -264,6 +264,8 @@ export function terrainHooks(): ShaderHooks {
     // pixels next to each other may or may not take, its derivatives and its patterns' mipmaps would read
     // undefined values, and the bed's veins changed from one frame to the next)
     filmBad: "(hlWater > 0.5 ? WATER_FILM_HIGH_BAD_TINT : WATER_FILM_BAD_TINT)",
+    // (the scene's flow texture is High's own, hlFlow: read through it, one sampler fewer, materials.ts filmShare)
+    filmShare: "texture2D(hlFlow, g / hlFlowSize).b",
     groundTop: /* glsl */ `
           if (hlWater > 0.5 && d0.a > 0.002 && soil.w > 0.0 && clev > 0.0) {
             float polluted = texture2D(hlFlow, g / hlFlowSize).b * soil.w;

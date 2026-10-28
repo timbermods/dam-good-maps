@@ -681,6 +681,20 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   map held the page for seconds in a cold browser (the cave light and shaders, before this change and dev's shader
   warm-up); the glow waits for it.
 
+## High within 16 samplers (`fix/high-software-link`)
+
+- **Why:** on a map with terrain above terrain (every generated map with a 3D form, the cutaway's and the run soil's
+  branches), High's terrain program read 17 textures; a fragment shader is sure of 16 (WebGL 2's least, and all that
+  ANGLE on Direct3D 11 gives, so Chrome on Windows, GPU or not), so there it did not link (`useProgram: program not
+  valid`) and the terrain drew empty. Since #571, whose thin-water film read the flow texture in the terrain shader,
+  where High already reads the same texture as `hlFlow`. Seen first in headless Chrome; a browser allowing 32 (Vulkan's
+  SwiftShader) never showed it.
+- **What:** the film's badwater share is a hook (`ShaderHooks.filmShare`); High reads it through `hlFlow`, the same
+  texture at the same size, so its terrain reads 16 and the picture is the same (frames at a held moment, Standard and
+  High: only the run-to-run noise). `cutaway.spec.ts` now fails any program past 16 samplers, in every browser.
+- **Falls short:** High's terrain is at the limit: a 17th texture there needs another one packed first (the eruption's
+  two or the edges' two are the candidates).
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

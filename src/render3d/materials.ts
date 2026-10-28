@@ -508,6 +508,10 @@ export interface ShaderHooks {
   groundTop?: string;
   /** The crimson the ground takes under a badwater film (a vec3; waterPalette.ts WATER_FILM). */
   filmBad?: string;
+  /** The badwater share of the water over ground point g (a float; the flow texture's blue). High reads its own flow
+   *  texture, the same texture: a second sampler of it would take High's terrain past the 16 a fragment shader is sure
+   *  to have (WebGL 2's least, ANGLE's on Direct3D 11) on a map with terrain above terrain, and it would not link. */
+  filmShare?: string;
   /** In a wall, before its level lines (wc, n, along, y, k, shade). */
   wall?: string;
   /** How strong the wall's level lines are (an expression; Standard: `markers`). */
@@ -1188,7 +1192,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           float filmOver = smoothstep(0.4, 0.6, soil.w) * (1.0 - groundBed);
           // (and the light of the bed's veins, where a look draws them under polluted water, is half seen through it)
           if (filmOver > 0.0) {
-            ground = mix(ground, waterFilmGround(ground, texture2D(flowTex, g / mapSize).b, ${hook(h, "filmBad", "WATER_FILM_BAD_TINT")}), filmOver);
+            ground = mix(ground, waterFilmGround(ground, ${hook(h, "filmShare", "texture2D(flowTex, g / mapSize).b")}, ${hook(h, "filmBad", "WATER_FILM_BAD_TINT")}), filmOver);
             glow *= 1.0 - 0.5 * filmOver;
           }
           groundBed = 1.0;
