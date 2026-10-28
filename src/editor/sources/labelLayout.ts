@@ -24,6 +24,11 @@ export interface LabelIn {
    *  their place, never merge into another, and say their own number. */
   feeding: boolean;
   target: boolean;
+  /** A note of its own words instead of a strength (a seep, an aquifer, a core, a reserve: the core's `markerNotes`), which
+   *  merges only with other notes ("3 objects nearby"); `warn` draws it as a warning (an aquifer that gives no water without
+   *  a drill, and a label that speaks for one). */
+  text?: string;
+  warn?: boolean;
   /** What this label did last frame (its `dx`, `dy` and `into`), kept while it is still clear. */
   prev?: { dx: number; dy: number; into: number | null } | null;
 }
@@ -42,6 +47,7 @@ export interface LabelOut {
   strength: number;
   bad: boolean;
   words: string;
+  warn?: boolean;
   /** The labels merged into this one (their ids), if any. */
   merged: number[];
   /** The label this one's words went into, if any (it is not drawn). */
@@ -61,6 +67,9 @@ export interface LayoutEnv {
   width(words: string, strong: boolean): number;
   height: number;
 }
+
+/** What a merged label of notes says. */
+export const notesWords = (count: number) => `${count} objects nearby`;
 
 /** The label's words: "0.37 water/s", for a group "2 sources, 0.74 water/s", for labels merged on the screen
  *  "5 sources nearby, 2.5 water/s". */
@@ -131,12 +140,14 @@ interface Item extends LabelIn {
   boosted: boolean;
 }
 
-/** Whether two labels may speak as one: the same kind of water, neither the pointer's own, both feeding or neither. */
-const mergeable = (a: Item, b: Item) => !a.target && !b.target && a.bad === b.bad && a.feeding === b.feeding;
+/** Whether two labels may speak as one: the same kind of water, neither the pointer's own, both feeding or neither; a note
+ *  merges with notes only. */
+const mergeable = (a: Item, b: Item) => !a.target && !b.target && (a.text === undefined) === (b.text === undefined) && a.bad === b.bad && a.feeding === b.feeding;
 const apart = (a: Item, b: Item) => Math.hypot(a.ax - b.ax, a.ay - b.ay);
 
 function absorb(keep: Item, victim: Item, byId: Map<number, Item>) {
   keep.count += victim.count;
+  if (victim.warn) keep.warn = true;
   keep.strength = rounded(keep.strength + victim.strength);
   for (const m of victim.members) {
     const o = byId.get(m);
@@ -156,14 +167,14 @@ export function layoutLabels(labels: readonly LabelIn[], env: LayoutEnv): LabelO
   const first = new Map(labels.map((l) => [l.id, l]));
   for (const l of labels) {
     const keep = l.prev?.into != null ? first.get(l.prev.into) : undefined;
-    if (keep && keep.id !== l.id && !l.target && !keep.target && l.bad === keep.bad && l.feeding === keep.feeding && Math.hypot(l.ax - keep.ax, l.ay - keep.ay) <= NEARBY) carried.set(l.id, keep.id);
+    if (keep && keep.id !== l.id && !l.target && !keep.target && (l.text === undefined) === (keep.text === undefined) && l.bad === keep.bad && l.feeding === keep.feeding && Math.hypot(l.ax - keep.ax, l.ay - keep.ay) <= NEARBY) carried.set(l.id, keep.id);
   }
   for (;;) {
     const out = lay(labels, env, carried);
     // (a merge is let go once the label's own spot is clear by a little more than a label needs, so it does not flicker)
     let letGo = false;
     // (the label it went into counts at its own width, not the merged one, which is what it would go back to)
-    const alone = (l: LabelIn) => env.width(labelWords(l.count, l.strength, l.bad), l.target || l.feeding);
+    const alone = (l: LabelIn) => env.width(l.text ?? labelWords(l.count, l.strength, l.bad), l.target || l.feeding);
     for (const [id, into] of carried) {
       const l = first.get(id)!;
       const w = alone(l);
@@ -196,7 +207,7 @@ function lay(labels: readonly LabelIn[], env: LayoutEnv, carried: Map<number, nu
   for (let guard = 0; guard < items.length * 3 + 3; guard++) {
     const { out, crowded } = place(items, env);
     const next = crowded.find((i) => !stuck.has(i));
-    if (next === undefined) return out;
+    if (next === undefined) return hideCrowdedNotes(items, out, crowded);
     const victim = items[next];
     // the nearest label of its kind takes it in
     let keep: Item | null = null;
@@ -216,7 +227,13 @@ function lay(labels: readonly LabelIn[], env: LayoutEnv, carried: Map<number, nu
     else if (!victim.boosted) victim.boosted = true;
     else stuck.add(next);
   }
-  return place(items, env).out;
+  const last = place(items, env);
+  return hideCrowdedNotes(items, last.out, last.crowded);
+}
+
+/** A note with no room and no neighbour to merge into is not drawn (it stays with its object; a label never stands on another). */
+function hideCrowdedNotes(items: Item[], out: LabelOut[], crowded: number[]): LabelOut[] {
+  return out.map((o, i) => (crowded.includes(i) && items[i].text !== undefined ? { ...o, hidden: true } : o));
 }
 
 function place(items: Item[], env: LayoutEnv): { out: LabelOut[]; crowded: number[] } {
@@ -233,10 +250,10 @@ function place(items: Item[], env: LayoutEnv): { out: LabelOut[]; crowded: numbe
   for (const i of order) {
     const it = items[i];
     const strong = it.target || it.feeding;
-    const words = labelWords(it.count, it.strength, it.bad, it.members.length > 0);
+    const words = it.text !== undefined ? (it.members.length > 0 ? notesWords(it.count) : it.text) : labelWords(it.count, it.strength, it.bad, it.members.length > 0);
     const w = env.width(words, strong);
     const natural: Rect = { x: it.ax - w / 2, y: it.ay - h * LIFT, w, h };
-    const base: LabelOut = { id: it.id, ax: it.ax, ay: it.ay, dx: 0, dy: 0, x: it.ax, y: it.ay, count: it.count, strength: it.strength, bad: it.bad, words, merged: it.members, into: null, hidden: false, box: natural };
+    const base: LabelOut = { id: it.id, ax: it.ax, ay: it.ay, dx: 0, dy: 0, x: it.ax, y: it.ay, count: it.count, strength: it.strength, bad: it.bad, words, ...(it.warn ? { warn: true } : {}), merged: it.members, into: null, hidden: false, box: natural };
     // a source outside the view has no label; a plain one behind a panel has none either (the pointer's and the
     // feeding ones are moved clear of it instead)
     if (!inside(view, it.ax, it.ay) || (!strong && obstacles.some((o) => inside(o, it.ax, it.ay)))) {
@@ -309,7 +326,7 @@ function place(items: Item[], env: LayoutEnv): { out: LabelOut[]; crowded: numbe
     if (!f) {
       crowded.push(i);
       // (left where it is for now: the caller merges it into a neighbour, or places it first)
-      placed.push(natural);
+      if (it.text === undefined) placed.push(natural);
       out.set(i, base);
       continue;
     }

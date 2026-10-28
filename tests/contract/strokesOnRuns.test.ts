@@ -1,7 +1,7 @@
 // The brushes on runs (3D step 3, D280 (3)): on a map with caves or overhangs a stroke shapes each
 // tile's top run and never what is under a roof; a roof keeps its lowest layer; a stroke that would
-// leave ground the game drops is refused with its reason, and the page's stroke shows that ground
-// first; undo gives back the exact runs, an incremental build equals a full one, and the log replays
+// take the ground holding up a roof keeps it instead and shapes the rest (D280 (3), amended by
+// #623: strokesHoldRock.test.ts), so the page's stroke shows nothing falling; undo gives back the exact runs, an incremental build equals a full one, and the log replays
 // onto the same runs through the project file. (On a heightfield nothing changes: the stroke
 // hashes, `tools/stroke-hashes.ts`, are dev's.)
 
@@ -60,22 +60,20 @@ describe("the brushes on a map with caves and overhangs (D280 (3))", () => {
     expect(s.terrainState().floor![at(17, 17)]).toBe(7);
   });
 
-  it("a stroke that would leave ground nothing holds up is refused with its reason, and the page shows that ground first", () => {
+  it("a stroke that would take the ground holding up a ledge keeps it and lowers the rest, and the page shows nothing falling (D280 (3), amended)", () => {
     const s = caveSession();
-    const before = s.terrain.mask.slice();
     const seq = s.nextSeq;
-    // the cliff that holds the ledge, cut away
+    // the cliff that holds the ledge, cut down: its edge stays one above the ledge's underside
     const p = area("lower", 0, 26, 9, 29, 15);
     const { preview } = painted(s, p);
-    const falls = preview.falls();
-    expect(falls.length).toBeGreaterThan(0);
+    expect(preview.falls()).toEqual([]);
     const u = s.apply({ op: "brush", params: p });
-    expect(u.ok).toBe(false);
-    expect(u.errors).toEqual([`${falls.length} blocks of ground would fall: nothing would hold them up`]);
-    expect(Array.from(s.terrain.mask)).toEqual(Array.from(before));
-    expect(s.canUndo).toBe(false);
-    expect(s.nextSeq).toBe(seq);
-    // (a stroke that holds everything shows nothing falling)
+    expect(u.errors).toEqual([]);
+    expect(u.held).toEqual([10, 11, 12, 13, 14].map((y) => at(29, y)));
+    expect(unsupportedVoxels(s.terrain).some((v) => v === 1)).toBe(false);
+    expect(s.canUndo).toBe(true);
+    expect(s.nextSeq).toBe(seq + 1);
+    // (a stroke over the cave's roof shows nothing falling either)
     expect(painted(s, area("lower", 0, 16, 16, 19, 19)).preview.falls()).toEqual([]);
   });
 
@@ -106,7 +104,8 @@ describe("the brushes on a map with caves and overhangs (D280 (3))", () => {
       const p = randomBrush(rand, W, H, tool, rand() < 0.6 ? { x: 18, y: 18, r: 6 } : { x: 31, y: 12, r: 4 });
       const u = s.apply({ op: "brush", params: p });
       if (!u.ok) {
-        expect(u.errors[0]).toMatch(/^\d+ blocks? of ground would fall: nothing would hold (them|it) up$/);
+        // (never for ground that would fall, D280 (3), amended: only a stroke over held ground alone that changes nothing)
+        expect(u.errors[0]).toMatch(/^nothing to shape here: /);
         expect(Array.from(s.terrain.mask)).toEqual(Array.from(states.at(-1)!));
         refused++;
         continue;

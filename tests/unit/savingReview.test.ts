@@ -33,6 +33,8 @@ function failingPage(extra: Record<string, unknown> = {}) {
     discardAllowed: { current: false },
     switching: { current: false },
     pendingEdits: { current: null },
+    // (a kept map leaving says where it went, once the new one is in)
+    kept: { current: true }, nameRef: { current: "Old map" }, sayBriefly() {},
     saver: { flush: async () => void (env.keeping.current = false), changed() {} },
     setReplacingMap() {},
     // (no shared session: the page is alone)

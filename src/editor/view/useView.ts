@@ -9,7 +9,7 @@ import type { WaterLayers } from "../../worker/session";
 import { entitiesByTile, startDragStatus, type TileContext } from "../features";
 import { LAYER_COLORS, type LayerKind } from "../panels";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, targetSource, type SourceSpot } from "../sourceSpots";
-import { BAD, STATUS_COLOR, WARN, DRAWING, DRAWING_BAND, GOOD, HOVERED, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, type OverlayLayer } from "../tools";
+import { BAD, STATUS_COLOR, WARN, DRAWING, DRAWING_BAND, GOOD, HELD, HOVERED, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, type OverlayLayer } from "../tools";
 import { type StartHere } from "../start/startHere";
 import type { Ed } from "../ed";
 
@@ -65,7 +65,7 @@ export function useView(ed: Ed): ViewSlice {
   const {
     info, mirror, renderer, ready, forceStroke, forceCursor, forceRing, painted, startDrag, layer, waterLayers,
     selection, selectionTick, selectDraw, selectPreview, sourceDrag, hoverObject, instant, fit, picked, pickedObject,
-    indexed, infoRef
+    indexed, infoRef, rockHeld
   } = ed;
 
   // ------------------------------------------------------------------------------- the view
@@ -204,6 +204,8 @@ export function useView(ed: Ed): ViewSlice {
     }
     if (selectDraw) layers.push({ tiles: selectDraw, color: DRAWING });
     if (selectPreview) layers.push({ tiles: selectPreview.tiles, color: selectPreview.color });
+    // the ground the last stroke kept to hold up a cave's or an overhang's rock, in the caves' violet, until the next edit
+    if (rockHeld && rockHeld.version === info.version) layers.push({ tiles: rockHeld.tiles, color: HELD });
     // the line a force is drawn with (the gesture itself, D258, D321 item 41)
     if (forceStroke) {
       // (a band: a soft fill and its edge; a thin line is all edge)
@@ -215,7 +217,7 @@ export function useView(ed: Ed): ViewSlice {
     // (a selection taken on a run, a cave's floor, is drawn on that ground; the rest of its columns as the land outside it)
     r.setOverlayRuns(selection.current.count ? selection.current.levels : null, LOCKED);
     r.commitOverlay();
-  }, [fit, picked, targeted, pickedObject, hoverObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke]);
+  }, [fit, picked, targeted, pickedObject, hoverObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke, rockHeld, info.version]);
   // the force's one ring (D312, D321 item 13): its size round the cursor, drawn once where the cursor
   // is (the water's surface over water); a click's small reach still shows a ring round the cursor. A
   // force with no size to show (Quake) shows only a small marker, never a circle (D368 (2))

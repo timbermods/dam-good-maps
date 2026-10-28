@@ -75,7 +75,7 @@ place of its bottom rule.
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
   button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…,
-  Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. A sibling's variation is shown beside its seed, in the header ("Seed 4242 · 2 · 128×128") and in the panel's Seed line, so a seed copied by hand is known to be only part of its address. **Showcase…** (D488 (2)) sits in
@@ -143,14 +143,17 @@ place of its bottom rule.
   quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
   A real place has one name everywhere, the one in its file ("Near Crater Lake"). Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
-  without asking: edits never replay onto new land (D336), and the map it replaces, if edited, is in Your maps.
+  without asking: edits never replay onto new land (D336), and the map it replaces, if kept, is in Your maps, which a quiet note says
+  ("<name> is in Your maps", also when Another like this or opening another map replaces it; only when it was really stored, and a note that goes by itself after 8 s).
 - **Your maps** (D234, D330; with nothing kept it shows one dashed tile where the first map will land, and "No maps kept yet"
   beside it): a map is kept in this browser from its first edit (an operation applied) or rename,
-  whatever its kind, and stays kept even if every edit is undone; camera bookmarks alone don't keep it, and an
+  whatever its kind, and stays kept even if every edit is undone (the first time a save is stored in a browser a quiet note says so, going by itself after 8 s: "Kept in Your maps,
+  in this browser", remembered in `dgm.keptNote`; never shown for a save that failed); camera bookmarks alone don't keep it, and an
   unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
   after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
-  thumbnail, made in a worker of its own when the page is idle, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
+  thumbnail, made in a worker of its own when the page is idle, never cropped), its name and size under it, newest first, the open map marked, a click opening one (a click on the open
+  map's own tile selects it, so the heading row's Rename and Delete reach it). A
   right-click on one, open or not, offers **Download .timber**, **Rename** (in place; a typed name stops at what fits the tile's two
   lines) and **Delete** (asked
   once; the open map gives way to the next one, or a new map when none is left). Several are selected as on a
@@ -207,7 +210,11 @@ place of its bottom rule.
   is an ordinary project on the same land with the History's first steps replayed on it (`MapSession.versionProject`, the
   stored map built so it reopens byte for byte, D455); no new file format, and the map it came from is untouched. Its meta
   says where it came from (`meta.parent`: map, step label, step count), so Your maps shows "<map> · step N" small under the
-  size (`core/library/keptVersions.ts`, `tests/contract/keptVersions.test.ts`). **Compare**: Your maps' heading-row
+  size (`core/library/keptVersions.ts`, `tests/contract/keptVersions.test.ts`). **Editing a kept version** changes that
+  version (it is an ordinary project; Branch from here is the copy to try an idea on): the first edit after it is opened
+  says so once, over the map ("Editing your kept version. Undo puts it back; History's Branch from here keeps a copy."; not
+  for the branch just made), and its card then reads "<map> · step N · edited" (`editedSince` on its Your maps entry; the step piece stays whole as the name gives way) until an undo brings back the
+  steps it was kept with. **Compare**: Your maps' heading-row
   **Compare** (Ctrl+click the other version; greyed with the reason when none is selected or it is another size) or the right-click
   **Compare with the open map** (the same size only) reads the other map once, settled, in a worker of its own; a note
   "Comparing with <name>" with **Stop** shows over the map, and holding **B** (or the note's button) flips (B with nothing chosen says how to choose one, a note that goes by itself) the land, objects and
@@ -322,11 +329,17 @@ place of its bottom rule.
     object stands there, exports there and a source there feeds the cave's water. At a level it stands wholly under
     the roof ("part of it would stand in the open" otherwise), out of every brush's and force's reach, and off the
     cells other objects hold there (a map object feature at a level too: `placing.ts` `objectCells`). An object
-    that reaches out of its roof (an imported badtide drain set in a cliff, its mouth over open ground) is held:
-    strokes, sculpts and forces keep the tiles that would bury it or leave it floating within a floor and ceiling
-    (`objects.ts` `objectHolds`; the stroke preview shows the same) and shape the rest as normal, never refused for
-    it (D270). A stroke or sculpt holds only the held tiles in its reach and one round it (the operation logs
-    them): ground elsewhere is left to the build as it was. A force's point on held ground is refused, naming the
+    that reaches out of its roof (an imported badtide drain set in a cliff, its mouth over open ground), one that
+    stands partly under a roof (an imported badwater source with some of its tiles under an overhang, a ruin
+    half under a ledge), or one partly on a run's top and partly on plain ground, is held: strokes, sculpts and
+    forces keep the ground under every part of it, the tiles that would bury it or leave it floating within a floor
+    and ceiling (`objects.ts` `objectHolds`; the stroke preview shows the same), and shape the rest as normal, never
+    refused for it (D270). An object wholly on open ground or wholly on run tops rides the ground instead. A stroke
+    or sculpt holds only the held tiles in its reach and one round it (the operation logs them): ground elsewhere is
+    left to the build as it was. Afterwards the tiles it kept from where it would have taken them are tinted with
+    the rock's (below), with one line: "3 tiles left as they are: an object under a roof stands on them", or, with
+    rock held too, "8 tiles left to hold up a cave or overhang and an object under a roof" (`ApplyResult.held`,
+    `heldUnder`). A force's point on held ground is refused, naming the
     place ("That ground keeps an object in place at X · Y: a force leaves it as it is"). Erode, which works under
     roofs, keeps the ground under every object: three levels down, and down to the map's bottom under the objects
     the game keeps only there (`rust/forces/src/erode.rs`). Only a stroke with nothing left to shape, or, as a last
@@ -389,8 +402,8 @@ place of its bottom rule.
     never use the placement path (D425).
 - **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in
   Timberborn's settings; the toggle is never lit, a click anywhere on it toggles it): **Heights** (the ground by
-  height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources
-  and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
+  height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources,
+  each water object, core and reserve with a label of its own words, and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
   and **Caves and overhangs** (where the map has them, right after Badwater; each with its caption under Legend while on);
   **Legend** stands alone at the top right, just left of Top-down. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
@@ -465,7 +478,9 @@ place of its bottom rule.
   the click (`chooseSaveFolder`), then the map is built with its progress on the button, then written (`saveIntoFolder`): the
   picker needs the click's user activation, which lapses in seconds, long before a big map is built.
 - **Checks:** a quiet dot, green or amber, with its words. Clicking it lists the problems, each with Fix and Show,
-  highlighted on the map. Never a pop-up.
+  highlighted on the map. Never a pop-up. **Show** takes the camera to the problem as before and marks every tile the check
+  names with the page's highlight (the legend's: a blue tint, brighter at the edge), an object's whole footprint, until Esc, a
+  left press on the map or another Show; a camera move (right or middle drag, the wheel) leaves them (`editor/view/useViewSync.ts`).
 - **No notices strip** (Kyler, 2026-10-03, amending D213): nothing under the map changes the page's size. The quiet
   dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, and lists an opened
   file's import flags with their fixes (counted).
@@ -817,10 +832,23 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   every tile. Raise grows a roof's top; Lower, Flatten, Smooth and Naturalize bring it down at most to one layer
   above the roof's underside (`terrain/runs.ts` `topFloor`), so every run below the top, the cave's air and floor,
   stays exactly as it is and no tile gains or loses a run. The build's pit-and-spike pass leaves a roof's top as the
-  stroke leaves it. A stroke that would leave ground nothing holds up (the game's support rule) is refused with one
-  line, "12 blocks of ground would fall: nothing would hold them up", and the page's stroke can show that ground
-  while it is painted (`StrokePreview.falls`). The same refusal covers every edit on such a map: a force's result, a
-  removed object that held ground. The forces stay on heightfield ground: on a map with caves they leave the caves'
+  stroke leaves it. A stroke or a sculpt never takes away what holds a cave's, an overhang's or an arch's rock up, and
+  is never refused for it (D280 (3), amended by #623; D270): it holds that ground and shapes the rest. Held are
+  the ground beside a roof that holds it, no lower than one layer above the underside it holds (it may rise freely), a
+  roof's top where the roof beside it rests on it, the same way, and the open ground of an object whose top holds a
+  roof, exactly as it is (`terrain/support.ts` `rockFloors`, `MapSession.rockHolds`; the roof-holding ground the forces
+  and Select leave, with the floor it needs). An underside a cave's own ground from the bottom holds beside it needs
+  neither: no tool that shapes the top reaches that ground. Where a roof is held from several sides each holder is still
+  kept, as the stroke being painted can't yet know which sides it will take. The operation logs the held tiles in its reach and one round it (its
+  `hold`, beside D491's), so the project replays byte for byte and a log from before replays as it was. The page's
+  stroke keeps the same ground while it is painted (`TerrainState.rockHold`), and afterwards the tiles held are tinted
+  in the caves' violet, until the next edit, with one line: "12 tiles left high enough to hold up a cave or overhang"
+  (`ApplyResult.held`: the tiles the stroke, on the ground the build lets it shape, would have taken; a Naturalize
+  stroke leaves a start's pad, so the pad is never counted). Only a stroke over held ground alone that can change nothing is refused ("nothing to shape
+  here: this ground holds up a cave's or an overhang's rock, which the edit leaves as it is"). Any edit that would
+  still leave ground nothing holds up (the game's support rule) is refused with one line, "12 blocks of ground would
+  fall: nothing would hold them up": a last guard no stroke reaches, and the rule for a force's result and a removed
+  object that held ground; `StrokePreview.falls` can show that ground while a stroke is painted. The forces stay on heightfield ground: on a map with caves they leave the caves'
   tiles, and the ground that holds up their roofs (the ground beside them, `terrain/support.ts` `roofHolders`, and an
   object whose top holds one with its tiles, `objectRoofHolders`), as they are (D487), so a force runs round a cave and
   nothing it leaves falls (Erode works under roofs and holds them itself). A force's point
@@ -972,7 +1000,10 @@ Make a valley, drop a source, and there's a river.
   its water recede live. A source is drawn as the game draws one (D324): a stone basin with water welling up, a
   badwater source a darker stone basin with badwater boiling up, at its true 3×3 size. A source is always findable,
   even underwater (a subtle upwelling shows through the water); with a source picked or hovering near one, a clear
-  marker with its strength; Markers shows every source (D196). **Sources are easy to hit** (D249): with any tool
+  marker with its strength; Markers shows every source (D196), and the seeps, aquifers, drains, cores and reserves with the
+  core's `markerNotes` (D337: "Aquifer · 1 water/s · no water until a powered drill stands on it" drawn as a warning; the
+  worker works them out, `MarkerNote`, and `labelLayout.ts` places them beside the sources' labels; notes too crowded for
+  their spots merge into "N objects nearby", and one with no room is not drawn). **Sources are easy to hit** (D249): with any tool
   picked, the pointer over water or bare ground within about two tiles of a source targets it (a direct hit on
   another object wins; the nearest source wins); Delete or Backspace removes it, one undo step. **A badwater source
   cuts its own spring pool** (D290, generalised to every object by D328): it is 3 × 3 and needs level ground, so
@@ -1011,7 +1042,7 @@ Make a valley, drop a source, and there's a river.
   shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
   holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
   **◀ Day N of L ▶** (and ← →; L is the hazard's length for the map's difficulty, a drought of 9 days) steps from Day 0 to past the default length (then it reads "Day 10 past 9", never "of 9"); a double-click takes a typed day. Each
-  hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. **Hovering water in the Drought view says when it dries** (D133): the readout adds "Dry on day 6" to the tile's words, or "Lasts the drought" once the days are worked out to the drought's end (before that, water that has not yet gone says nothing rather than guess); ground that holds no water on Day 0 says nothing. In the Badtide view the readout adds "Turns bad on day 4" the same way (`firstBad`, `BadDays`, `badWords`; the hover's own "badwater" shows only from 95% bad), and says nothing for water that stays clean, water bad from Day 0 or days not yet worked out. The days come from the worker with each day (`firstDry` and `firstBad` per tile, `core/sim/firstDays.ts` `DryDays` and `BadDays`, a drought's also `firstDryWet0`, the run's own Day 0 water; the words `dryWords` and `badWords`, said by `heldWords` only for the map the days were worked out on, so after an edit while the view is held the hover says nothing until the edited map's days come); the page only looks up the tile. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
+  hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. **Hovering water in the Drought view says when it dries** (D133): the readout adds "Dry on day 6" to the tile's words, or "Lasts the drought" once the days are worked out to the drought's end (before that, water that has not yet gone says nothing rather than guess); ground that holds no water on Day 0 says nothing. In the Badtide view the readout adds "Turns bad on day 4" the same way (`firstBad`, `BadDays`, `badWords`; the hover's own "badwater" shows only from 95% bad), and says nothing for water that stays clean, water bad from Day 0 or days not yet worked out. The days come from the worker with each day (`firstDry` and `firstBad` per tile, `core/sim/firstDays.ts` `DryDays` and `BadDays`, a drought's also `firstDryWet0`, the run's own Day 0 water; the words `dryWords` and `badWords`, said by `heldWords` only for the map the days were worked out on, so after an edit while the view is held the hover says nothing until the edited map's days come); the page only looks up the tile. **Under the day box, the start's water** (D133): in the Drought view a quiet line "Day 6: your start's water is gone", the first day no water joined to the start's Day 0 water is one a pump on a shore within the start's water rule's walk reaches (clean, 0.3 deep: the water may still lie on the map); in the Badtide view "Day 3: badwater reaches your start's water", the first day badwater stands where such a pump would draw it. It says nothing while the day is not among those worked out yet, for an older map, or when the start has no water a pump reaches on Day 0 (`core/sim/startWaterDay.ts` `StartWaterDays`, fed the run's days by the worker as the first days are; `startWaterWords`). A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
   game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
   badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. Each runs from the
@@ -1175,7 +1206,8 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
 - **Claude (M12)** is a small chat box summoned with a key, which disappears when done. Many players won't use it,
   so it never takes permanent space. Claude steers the generator for character and uses the tools only for precise
   edits (D139, D187). The design is deferred (Part 2).
-- **First run:** three one-line hints (paint the land, place things, add water), then never again.
+- **First run:** three one-line hints (paint the land, place things, add water), then never again; under them a link, **Help and keys**,
+  opens Help (File's tooltip names Help too; no header button for it).
 - **Notes and messages:** a refusal's note (an error) goes with the player's next press, key, tool pick, layer or view
   change; an edit's own note (info) stays until its × or the next kept edit; a save that failed ("Not saved: …") stays
   until dismissed or the map is saved. No key is written in a visible word (keys live in tooltips). There is no

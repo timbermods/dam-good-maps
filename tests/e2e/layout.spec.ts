@@ -691,7 +691,7 @@ for (const [w, h] of [[1280, 800], [1920, 1080]] as [number, number][]) {
     const header = page.locator("header.editor-bar");
     const bar = page.locator(".tool-bar");
     await look("the first hints");
-    await page.locator(".map-note button").first().click().catch(() => undefined);
+    await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
     for (const tool of ["Rift", "Carve"]) {
       await bar.getByRole("button", { name: new RegExp(`^${tool}`) }).click();
       await look(`${tool} picked`);

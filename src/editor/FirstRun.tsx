@@ -1,6 +1,8 @@
 // First run (PLAN §20 D184): three one-line hints, each gone once it is done (paint the land, place
 // things, add water), and never again after the three, or after the ×. Kept in the browser.
 
+import { tip } from "../ui/Tooltip";
+
 const KEY = "dgm.firstRun";
 
 export type FirstStep = "paint" | "place" | "water";
@@ -45,7 +47,7 @@ export function FirstRunSizer() {
   );
 }
 
-export function FirstRun(p: { done: Set<FirstStep>; onClose(): void }) {
+export function FirstRun(p: { done: Set<FirstStep>; onClose(): void; onHelp(): void }) {
   const left = LINES.filter(([k]) => !p.done.has(k));
   if (!left.length) return null;
   return (
@@ -55,6 +57,12 @@ export function FirstRun(p: { done: Set<FirstStep>; onClose(): void }) {
           <li key={k}>{words}</li>
         ))}
       </ul>
+      {/* Help sits only in File otherwise: the hints say where to find it (usability audits, 2026-10-25) */}
+      <div class="first-run-help">
+        <button type="button" class="linkish" {...tip("How to make a map and save it")} onClick={p.onHelp}>
+          Help and keys
+        </button>
+      </div>
       <button type="button" class="icon-close" aria-label="No more hints" title="No more hints" onClick={p.onClose}>
         ×
       </button>

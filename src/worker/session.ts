@@ -33,6 +33,7 @@ import type { Orientation } from "../core/format/footprints";
 import { describeTileOf, entitiesAtTile, type EntityInfo, type TileDescription } from "../core/doc/describeTile";
 export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
+import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { planFill, unfedWater } from "../core/doc/waterEdits";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
@@ -41,6 +42,8 @@ import { HazardRun, hazardDays, hazardSoil, type Hazard, type HazardWater } from
 import { mapDroughtLine } from "../core/doc/droughtLine";
 import { emptyDroughtLine, type DroughtLine } from "../core/sim/droughtLine";
 import { BadDays, DryDays, type DayWater, type FirstDays } from "../core/sim/firstDays";
+import type { StartWaterDays } from "../core/sim/startWaterDay";
+import { mapStartWaterDays } from "../core/doc/startWaterDay";
 import { witheredByDay, WITHERING_SPECIES, type Plant } from "../core/sim/withering";
 import type { Difficulty, MapSpec } from "../core/spec/mapspec";
 import type { Validation } from "../core/validate/checks";
@@ -155,6 +158,11 @@ export interface SessionUpdate extends ViewNews {
   ms: number;
   /** The instant checks after the change (PLAN §19.5): null when nothing changed. */
   instant?: InstantCheck | null;
+  /** A brush stroke or a sculpt on a map with caves or overhangs: the tiles holding up their rock, or an object under a
+   *  roof, it kept from where it would have taken them, and how many of them hold an object alone (core/doc/session.ts
+   *  `ApplyResult.held`, `heldUnder`). */
+  held?: number[];
+  heldUnder?: number;
   /** A Select action on a map with caves: how many of its tiles it left as they are (core/doc/start.ts `applySelection`). */
   left?: number;
   /** A shared session's answer to an edit (worker/collabEdit.ts): the session ordered it or refused it, and the map's news comes
@@ -684,7 +692,7 @@ export type EditorEvent =
   | { kind: "water"; version: number; water: WaterView; done: number; ticks: number; draft?: boolean; at?: number }
   /** A weather run (a drought, then the water coming back): its frames, the day, and the end (the
    *  map's own water, exactly). */
-  | { kind: "weather"; version: number; phase: "computing" | "day"; hazard: Hazard; day: number; days: number; water?: WaterView; soil?: SoilView; withered?: Int32Array } & DryNews & BadNews
+  | { kind: "weather"; version: number; phase: "computing" | "day"; hazard: Hazard; day: number; days: number; water?: WaterView; soil?: SoilView; withered?: Int32Array } & DryNews & BadNews & StartNews
   /** The plants a held day has surely killed, when they could not be worked out with the day (the earlier days' soil is
    *  worked out a day at a time, the worker breathing between): the tiles, for that hazard's held day. */
   | { kind: "withered"; version: number; hazard: Hazard; day: number; tiles: Int32Array }
@@ -711,6 +719,14 @@ export interface DryNews {
 export interface BadNews {
   firstBad?: Int16Array;
   firstBadThrough?: number;
+}
+
+/** A hazard's day also says the day the start's water goes (a drought) or badwater reaches it (a badtide), D133's line
+ *  (core/sim/startWaterDay.ts): `startWaterDay`, 0 when it did not happen on any day worked out so far (Day 1 to
+ *  `startWaterThrough`) or the start has no such water on Day 0. */
+export interface StartNews {
+  startWaterDay?: number;
+  startWaterThrough?: number;
 }
 
 let listener: ((e: EditorEvent) => void) | null = null;
@@ -1242,6 +1258,8 @@ interface WeatherRun {
   kept: (HazardWater | null)[];
   /** Each tile's first dry day (a drought) or first bad day (a badtide), from the days kept so far. */
   firsts: FirstDays;
+  /** The day the start's water goes in a drought, or badwater reaches it in a badtide, from the days kept so far. */
+  startWater: StartWaterDays;
   /** Each day's soil as the view holds it, worked out when first needed (the day shown, and the days before it that
    *  decide which plants have died, a day at a time; day 0 is the map's own), and the plants that can wither (the
    *  visible seasons). A 256² day is 128 KB. */
@@ -1289,7 +1307,8 @@ function runFor(hazard: Hazard): WeatherRun {
   // the hazard's steps are the core's (sim/weather.ts `HazardRun`), held without an end: a held badtide never eases back
   const hazardRun = new HazardRun(base, { depth: Float64Array.from(from.depth), contamination: Float64Array.from(from.contamination), stack: from.stack }, hazard, Infinity);
   const firsts = hazard === "drought" ? new DryDays(seenWater(s, from)) : new BadDays(seenWater(s, from));
-  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, kept: [null], firsts, soils: [], plants: null, shown: 0, witherDue: null, soilJobs: new Map(), want: 0, show: null, prep: null, running: false };
+  const startWater = mapStartWaterDays(s, hazard, seenWater(s, from));
+  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, kept: [null], firsts, startWater, soils: [], plants: null, shown: 0, witherDue: null, soilJobs: new Map(), want: 0, show: null, prep: null, running: false };
   weatherRuns[hazard] = run;
   return run;
 }
@@ -1301,10 +1320,11 @@ function seenWater(s: MapSession, w: { depth: Float64Array; contamination: Float
 }
 
 /** A hazard's first dry or bad days as the page is told them with a day (a copy: the event's arrays are handed over). */
-function firstsNews(run: WeatherRun): DryNews & BadNews {
+function firstsNews(run: WeatherRun): DryNews & BadNews & StartNews {
   const first = run.firsts.first.slice();
   const through = run.firsts.through;
-  return run.firsts instanceof DryDays ? { firstDry: first, firstDryThrough: through, firstDryWet0: run.firsts.wet0.slice() } : { firstBad: first, firstBadThrough: through };
+  const start = { startWaterDay: run.startWater.day, startWaterThrough: run.startWater.through };
+  return run.firsts instanceof DryDays ? { firstDry: first, firstDryThrough: through, firstDryWet0: run.firsts.wet0.slice(), ...start } : { firstBad: first, firstBadThrough: through, ...start };
 }
 
 /** Show day `day` (null: the hazard's default last day) of a drought or a badtide: at once when it is kept, or after
@@ -1516,7 +1536,9 @@ async function driveWeather(run: WeatherRun): Promise<void> {
       if (!currentRun(run)) return;
       const kept = run.run.water();
       run.kept.push(kept);
-      run.firsts.see(seenWater(run.session, kept));
+      const seen = seenWater(run.session, kept);
+      run.firsts.see(seen);
+      run.startWater.see(seen);
       if (run.hazard === "drought" && day === run.days) droughtLineFrom(run);
       if (run.show !== null) {
         if (day >= run.show) {
@@ -1811,7 +1833,13 @@ export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): Se
   const refused = newRampedStroke(op);
   if (refused) return changed(s, false, [refused], t0);
   const r = s.apply(op, origin, label);
-  return changed(s, r.ok, r.errors, t0);
+  return withHeld(changed(s, r.ok, r.errors, t0), r);
+}
+
+/** An answer with the tiles holding up a cave's or an overhang's rock, or an object under a roof, the edit kept
+ *  (`SessionUpdate.held`). */
+function withHeld(u: SessionUpdate, r: { held?: number[]; heldUnder?: number }): SessionUpdate {
+  return r.held?.length ? { ...u, held: r.held, ...(r.heldUnder ? { heldUnder: r.heldUnder } : {}) } : u;
 }
 
 // (a new ramped Flatten is refused: core/doc/strokes.ts `newRampedStroke`)
@@ -1844,7 +1872,7 @@ export function applyAll(ops: EditOp[], label: string, origin: OpOrigin = "user"
   if (blocked) return changed(s, false, [blocked], t0);
   // (a badwater source in the group cuts its spring pool: core/doc/placing.ts `withSpringPools`)
   const r = s.applyAll(withSpringPools(s, ops), origin, label);
-  return changed(s, r.ok, r.errors, t0);
+  return withHeld(changed(s, r.ok, r.errors, t0), r);
 }
 
 export function undo(): SessionUpdate {
@@ -2308,7 +2336,7 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
   const p = planStrokeClearing(s, op, label, tiles);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = p.cleared ? s.applyAll(p.ops, "user", p.label) : s.apply(op, "user", label);
-  return changed(s, r.ok, r.errors, t0);
+  return withHeld(changed(s, r.ok, r.errors, t0), r);
 }
 
 /** Move a placed object (a mine site, a relic, a geothermal field, a natural dam, a blockage) by (dx, dy)
@@ -2377,6 +2405,11 @@ export interface WaterLayers {
   /** The water these layers show is the preview's (the canonical settle is still running). */
   preview: boolean;
   version: number;
+}
+
+/** The labels Markers shows on the water objects, cores and reserves (the core's `markerNotes`, D337, D338). */
+export function markerNotesNow(): MarkerNote[] {
+  return markerNotes(need().built.entities);
 }
 
 /** The water layers of the map as it now stands. An unedited import keeps the file's water and

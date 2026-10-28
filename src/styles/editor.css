@@ -672,6 +672,12 @@ button[aria-pressed="true"] {
   border-color: var(--warn);
 }
 
+/* a note that warns (an aquifer gives no water until a powered drill stands on it) */
+.source-marker.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
 .source-marker.feeding {
   outline: 2px solid var(--accent);
   font-weight: 600;
@@ -876,7 +882,16 @@ button.linkish.ow-close:focus-visible,
 
 /* an object's window: its name line is the × button's height, so the hover square shows whole */
 .object-window .cell-head.ow-head:has(> .ow-close) {
-  height: 24px;
-  line-height: 24px;
-  overflow: visible;
+  position: relative;
+  min-height: 24px;
+  padding-right: 30px;
+  align-content: center;
+}
+
+/* (the × stays at the top right, clear of the value, which wraps under the name when the line is short) */
+.object-window .cell-head.ow-head > .ow-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
 }

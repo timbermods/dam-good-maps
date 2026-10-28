@@ -17,6 +17,7 @@ import { ALL_KINDS } from "../remove/kinds";
 import type { Ed } from "../ed";
 import { heldWhy } from "../../core/doc/start";
 import { tileCount } from "../../core/doc/labels";
+import { caveLeftWords } from "../caveWords";
 
 export interface SelectSlice {
   selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; wet: (i: number) => boolean; hasTop: (i: number, level: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
@@ -337,8 +338,6 @@ export function useSelect(ed: Ed): SelectSlice {
     const out = tiles.filter((i) => !held.has(i));
     return { tiles: out, left: tiles.length - out.length };
   }
-  /** The message after a Select action that left a cave's or an overhang's ground as it is. */
-  const caveLeftWords = (n: number) => `${n.toLocaleString("en-GB")} tile${n > 1 ? "s" : ""} with a cave or overhang left as ${n > 1 ? "they are" : "it is"}: shape ${n > 1 ? "their tops" : "its top"} with a brush`;
   /** Whether the action over these tiles would be refused for a cave or overhang; if so, the preview is cleared, the
    *  row says so in a few words and the message line gives the core's reason, until the pointer leaves. */
   function refusedOnCave(tiles: readonly number[]): boolean {

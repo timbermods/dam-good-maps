@@ -21,14 +21,15 @@ export function versionName(map: string, label: string): string {
   return room >= 2 ? `${map.slice(0, room - 1).trimEnd()}…${tail}` : `${map}${tail}`.slice(0, NAME_MAX);
 }
 
-/** The step a kept version holds, as its quiet line ends: the line's name gives way to it, so it is always read. */
-export function parentStep(p: VersionParent): string {
-  return ` · step ${p.steps}`;
+/** The step a kept version holds, as its quiet line ends, and "edited" once the version has been edited since it was
+ *  kept: the line's name gives way to it, so it is always read. */
+export function parentStep(p: VersionParent, editedSince = false): string {
+  return ` · step ${p.steps}${editedSince ? " · edited" : ""}`;
 }
 
 /** The quiet line under a kept version in Your maps: where it came from and the step it holds. */
-export function parentLine(p: VersionParent): string {
-  return `${p.name}${parentStep(p)}`;
+export function parentLine(p: VersionParent, editedSince = false): string {
+  return `${p.name}${parentStep(p, editedSince)}`;
 }
 
 /** A kept version's name in its two parts, the map's name and the step ("<map name>", "— <step label>"); null when the
@@ -55,8 +56,8 @@ export function nameTip(name: string): string {
 }
 
 /** The same in words, for the line's tooltip (a tooltip is a short phrase: the map's name is shortened to fit). */
-export function parentFull(p: VersionParent): string {
-  const tail = p.steps > 0 ? `, step ${p.steps}` : ", as it began";
+export function parentFull(p: VersionParent, editedSince = false): string {
+  const tail = (p.steps > 0 ? `, step ${p.steps}` : ", as it began") + (editedSince ? ", edited since" : "");
   const room = TIP_MAX - "From ".length - tail.length;
   const name = p.name.length <= room ? p.name : `${p.name.slice(0, Math.max(1, room - 1)).trimEnd()}…`;
   return `From ${name}${tail}`;

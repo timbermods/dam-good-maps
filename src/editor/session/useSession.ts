@@ -21,6 +21,7 @@ import { WaterJourney } from "../waterJourney";
 import { WaterPlayer } from "../waterPlayer";
 import { hazardDays, type Hazard } from "../../core/sim/weather";
 import { heldWords, type HeldFirstDays } from "../../core/sim/firstDays";
+import type { HeldStartWater } from "../../core/sim/startWaterDay";
 import { describeTile as describeTileFacts, tileWords } from "../../core/doc/describeTile";
 import type { TerrainState } from "../../core/features/raster/strokePreview";
 import { DEFAULT_OPTIONS, type Rgba, type ToolOptions } from "../tools";
@@ -126,6 +127,10 @@ export interface SessionSlice {
   setSelectDraw: Dispatch<StateUpdater<number[] | null>>;
   selectPreview: { tiles: number[]; color: Rgba } | null;
   setSelectPreview: Dispatch<StateUpdater<{ tiles: number[]; color: Rgba } | null>>;
+  /** The tiles the last brush stroke or sculpt kept to hold up a cave's or an overhang's rock, tinted while the map
+   *  is at that edit's version (D280 (3), amended by #623). */
+  rockHeld: { tiles: number[]; version: number } | null;
+  setRockHeld: Dispatch<StateUpdater<{ tiles: number[]; version: number } | null>>;
   deleteMenu: boolean;
   setDeleteMenu: Dispatch<StateUpdater<boolean>>;
   setDeleteCounts: Dispatch<StateUpdater<{ counts: Record<string, number> } | null>>;
@@ -158,6 +163,10 @@ export interface SessionSlice {
   weatherTarget: number | null;
   setWeatherDay: (day: number | null) => void;
   setWeatherDays: (days: number | null) => void;
+  /** The held hazard's day for the start's water (D133: the day it goes, or badwater reaches it), set with each day the
+   *  worker sends, put away with the view. */
+  startWater: HeldStartWater | null;
+  setStartWater: Dispatch<StateUpdater<HeldStartWater | null>>;
   setWeatherCounting: (day: number | null) => void;
   /** The day the page asked the worker for last (null: the hazard's default last day). */
   heldDay: { current: number | null };
@@ -351,6 +360,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [selectDraw, setSelectDraw] = useState<number[] | null>(null);
   /** The tiles hovering a Select action would change (D323 item 6), and the Delete menu's state. */
   const [selectPreview, setSelectPreview] = useState<{ tiles: number[]; color: Rgba } | null>(null);
+  const [rockHeld, setRockHeld] = useState<{ tiles: number[]; version: number } | null>(null);
   const [deleteMenu, setDeleteMenu] = useState(false);
   /** What the core says stands in the selection while Delete's menu is open (objects under water too). */
   const [deleteCounts, setDeleteCounts] = useState<{ counts: Record<string, number> } | null>(null);
@@ -411,6 +421,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const setWeather = (on: Hazard | null) => {
     weatherRef.current = on;
     if (on !== firstNews.current?.hazard) firstNews.current = null;
+    setStartWater((n) => (n && n.hazard === on ? n : null));
     setWeatherState(on);
     syncDroughtLine();
     // (the hazard's words in the readout go with the view)
@@ -418,6 +429,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   };
   const [weatherDay, setWeatherDay] = useState<number | null>(null);
   const [weatherDays, setWeatherDays] = useState<number | null>(null);
+  const [startWater, setStartWater] = useState<HeldStartWater | null>(null);
   const [weatherCounting, setWeatherCounting] = useState<number | null>(null);
   const [weatherTarget, setWeatherTarget] = useState<number | null>(null);
   const heldDay = useRef<number | null>(null);
@@ -849,9 +861,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     setShowHistory, setCheck, check, setProgress, progress, layer, setLayer, setLayers, waterLayers, waterTick, heldTick,
     flowing, markersOn, setMarkersOn, markersToggle, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
-    selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
+    selectDraw, setSelectDraw, selectPreview, setSelectPreview, rockHeld, setRockHeld, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
-    feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
+    feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays, startWater, setStartWater,
     setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, resizing, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,

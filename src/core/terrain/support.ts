@@ -169,6 +169,80 @@ export function roofHolders(t: SupportTerrain, columns: Iterable<number>): numbe
   return [...out].sort((a, b) => a - b);
 }
 
+/** How low a tool that shapes the top may take each tile beside or in a roof and still leave every block of rock held
+ *  up as it was (D280 (3), amended): [tile, lowest surface], ascending, only where that is above what the tile's
+ *  `topFloor` already allows. Support enters a run above a tile's own from z = 0 (a roof's) at its lowest layer, its
+ *  underside, from the ground beside it in that layer, and climbs the run at no distance (`unsupportedVoxels`: a voxel
+ *  standing on a supported one), so what holds a roof is the ground beside each underside, in that layer. Kept are:
+ *  - a plain tile beside a roof (`roofHolders`): no lower than one above the highest underside it reaches (its run is
+ *    from z = 0, so it reaches every underside below its surface);
+ *  - the top run of a tile of `columns` (a roof's top, which the brushes cut down to one above its own underside,
+ *    D487): no lower than one above the highest underside of a run beside it that it reaches (a roof stepping up one
+ *    layer to the next tile, an arch's span resting on the roof beside it).
+ *  An underside beside a cave's or an overhang's run from z = 0 in its layer needs neither: no tool that shapes the top
+ *  reaches that run, so it holds that underside whatever is cut round it. Every underside then keeps the ground beside
+ *  it in its layer, and every other voxel the one under it, so, by induction up the layers, nothing a stroke leaves is
+ *  held up less than before (an imported map's ground the game already drops aside). The page's stroke and the session's operation keep each of these and shape the rest. */
+export function rockFloors(t: SupportTerrain, columns: Iterable<number>): [number, number][] {
+  const { W, H, mask } = t;
+  const ALL = (1 << LAYERS) - 1;
+  const run = (i: number) => {
+    const m = mask[i] & ALL;
+    return m & ~(m + 1);
+  };
+  const cols = new Set(columns);
+  /** The lowest layer of each run of tile i above its run from z = 0, but those a cave's or an overhang's run from z = 0
+   *  beside it holds in that layer: no tool that shapes the top reaches that run (a column's top run is above it), so
+   *  that underside stays held whatever the strokes do round it. */
+  const undersides = (i: number) => {
+    const upper = (mask[i] & ALL) & ~run(i);
+    let out = upper & ~(upper << 1);
+    if (!out) return 0;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const k of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1]) if (k >= 0 && cols.has(k) && (mask[k] & ALL) & ~run(k)) out &= ~run(k);
+    return out;
+  };
+  const low = new Map<number, number>();
+  const keep = (j: number, reached: number) => {
+    if (!reached) return;
+    const z = 31 - Math.clz32(reached);
+    if (z + 1 > (low.get(j) ?? 0)) low.set(j, z + 1);
+  };
+  for (const i of cols) {
+    const under = undersides(i);
+    const x = i % W;
+    const y = (i - x) / W;
+    // (the top run of this tile, from its own underside to its surface)
+    const m = mask[i] & ALL;
+    const below = m ? 31 - Math.clz32(m) : -1;
+    let top = 0;
+    for (let z = below; z >= 0 && m & (1 << z); z--) top |= 1 << z;
+    for (const j of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1]) {
+      if (j < 0) continue;
+      if (!cols.has(j)) keep(j, run(j) & under);
+      // (this tile's top run beside the undersides of the runs next to it, above its own underside, where they
+      // need it)
+      else if (top) keep(i, top & undersides(j) & ~(top & ~(top << 1)));
+    }
+  }
+  const out: [number, number][] = [];
+  for (const [j, z] of low) {
+    // (a roof's top no lower than its topFloor already: only what is above that)
+    const m = mask[j] & ALL;
+    const plain = (m & (m + 1)) === 0;
+    if (plain || z > topUnderside(m) + 1) out.push([j, z]);
+  }
+  return out.sort((a, b) => a[0] - b[0]);
+}
+
+/** The lowest layer of a column's top run (its mask not empty). */
+function topUnderside(m: number): number {
+  let z = 31 - Math.clz32(m);
+  while (z > 0 && m & (1 << (z - 1))) z--;
+  return z;
+}
+
 /** The tiles of the objects that hold up a roof: each object with a stackable top (a NaturalOverhang,
  *  `stackableTops`) under a voxel of ground above its tile's run from z = 0, every tile of it. A force
  *  that took the object would drop that ground, so it leaves the object's ground as it is (D487).

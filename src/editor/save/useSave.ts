@@ -33,6 +33,7 @@ export function useSave(ed: Ed): SaveSlice {
     ed.endRolls?.();
     const p = await enqueue(() => api.project());
     saveFile(p.bytes, p.fileName, "application/gzip");
+    setMessage({ kind: "info", text: `Saved ${p.fileName}. Open it again from File.` });
   }
 
   /** Save the map for Timberborn (D184): the canonical settle and every check, with progress on the

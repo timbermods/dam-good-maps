@@ -51,3 +51,15 @@ test("Help opens from the File menu and closes", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 });
+
+test("the first hints link to Help and keys, and File's tooltip names Help", async ({ page }) => {
+  await openEditor(page, "s=6&z=96&d=n&t=riverValley");
+  const hints = page.getByRole("status", { name: "First steps" });
+  await expect(hints.getByRole("listitem")).toHaveCount(3);
+  await hints.getByRole("button", { name: "Help and keys" }).click();
+  const dialog = page.getByRole("dialog", { name: "Help" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "File", exact: true })).toHaveAttribute("title", /Help/);
+});

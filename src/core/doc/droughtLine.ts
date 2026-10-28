@@ -8,6 +8,11 @@ import { droughtLine, startWaterMask, type DroughtLine } from "../sim/droughtLin
 import { surfaceWater, type StackSettle } from "../sim/stackWater";
 import type { MapSession } from "./session";
 
+/** The start's water rule's walk for `s`: its spec's `waterWithin`, else its difficulty's. */
+export function startWaterWithin(s: MapSession): number {
+  return s.effectiveSpec()?.settings.start.rules.waterWithin ?? DIFFICULTY_RULES[s.meta.designedFor ?? "normal"].waterWithin;
+}
+
 /** Water as the line reads it: per tile, or with every column (`stack`, a map with caves or overhangs). */
 type LineWater = { depth: ArrayLike<number>; contamination?: ArrayLike<number>; stack?: StackSettle | null };
 
@@ -20,7 +25,7 @@ export function mapDroughtLine(s: MapSession, last: ArrayLike<number> | LineWate
   const lastWater: LineWater = "depth" in last ? last : { depth: last };
   const now = settled.stack ? surfaceWater(settled.stack, b.heights) : settled;
   const then = lastWater.stack ? surfaceWater(lastWater.stack, b.heights).depth : lastWater.depth;
-  const within = s.effectiveSpec()?.settings.start.rules.waterWithin ?? DIFFICULTY_RULES[s.meta.designedFor ?? "normal"].waterWithin;
+  const within = startWaterWithin(s);
   const startWater = startWaterMask({
     W: b.W,
     H: b.H,
