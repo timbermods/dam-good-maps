@@ -878,15 +878,15 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles. A
   Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
   (a cave's floor), the roof over it dimmed as the land outside, and outside a brush's working area too; the actions still take
-  the tiles, and over a cave column the core refuses them, so hovering one tints nothing and shows the core's reason.
+  the tiles, and leave a cave column and the ground holding up its roof as they are (below), so hovering tints only the rest.
   The brushes' and forces' cursors, rings and bands stay on the tile's top, where their stroke changes the ground,
   until they work on runs (step 3); hover and Select show the run seen. Over a roof (air under a tile's top run: a
   cave, a tunnel, an overhang) every editing cursor (a brush's disc, a force's or the shelf's ring, the Block tool's
   blocks, Select's ring on the roof) also shows the hollow under it, within its reach: the air's footprint laid on
   the roof's top in the Caves layer's violet, stronger the thinner the roof (one block: as low as a brush can take
   it), outlined where the hollow ends (D488; `render3d/hollow.ts`). Nothing is drawn on a map without caves. Every
-  edit that changes terrain above terrain (a Block dig or overhang, an Erode cave, a stroke or a Select action on a
-  roof's top, their undo) glows a moment on the faces it opened, white where blocks were added, red in the hollow
+  edit that changes terrain above terrain (a Block dig or overhang, an Erode cave, a stroke on a roof's top, their
+  undo) glows a moment on the faces it opened, white where blocks were added, red in the hollow
   left (`render3d/editGlow.ts`); on plain ground only the Block tool's and Erode's do, since a brush's land shows as
   it is painted and the other forces have their moments.
   **Ctrl+click** on the land only takes that level as the Level number (D361, item 7).
@@ -900,6 +900,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   that would take any tile past the ceiling is refused with its reason; objects and sources ride changed
   ground; the start moves to the nearest valid ground only if its own can no longer hold it; each action is one
   undo step with a clear label ("Cut 4,210 tiles down to level 16"); the selection stays open until Esc or the ×.
+  On a map with caves (a generated map's 3D forms too, D488) the actions leave a cave's or an overhang's columns and the
+  ground holding up their roofs as they are, as a force does (D487; `core/doc/start.ts` `selectionHeld`): a whole-map
+  Cut down shapes the rest, the hover tints only what changes and the message says how many tiles were left; a
+  selection of nothing else is refused with the core's one line (the tile has a cave or overhang, or holds up a roof).
+  Delete's ground (the Delete menu's Ground, the Delete key where nothing stands) does the same.
   **Crop map to selection** (D340; the operation is built in the core, `src/core/doc/crop.ts`): `{op: "crop", params:
   {x, y, w, h}}` (the selection's bounding rectangle, in tiles) makes the map exactly that rectangle of itself. The
   ground (its runs: caves and overhangs stay), water, soil, objects and sources inside keep their place relative to the

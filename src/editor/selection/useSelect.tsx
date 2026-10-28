@@ -15,6 +15,7 @@ import { tip } from "../../ui/Tooltip";
 import { ButtonSetting, NumberSetting, SettingsGrid, Words, type Group } from "../settings";
 import { ALL_KINDS } from "../remove/kinds";
 import type { Ed } from "../ed";
+import { heldWhy } from "../../core/doc/start";
 import { tileCount } from "../../core/doc/labels";
 
 export interface SelectSlice {
@@ -29,6 +30,12 @@ export interface SelectSlice {
   selectChip: () => ComponentChildren;
   selectRow: () => JSX.Element | null;
   objectFootprints: () => number[][];
+  /** These tiles without the ground the Select actions (and Delete's ground) leave as it is on a map with caves. */
+  openGround: (tiles: readonly number[]) => { tiles: number[]; left: number };
+  /** The message after an action that left a cave's ground as it is. */
+  caveLeftWords: (n: number) => string;
+  /** Says why, and clears the preview, when these tiles are all ground an action leaves as it is. */
+  refusedOnCave: (tiles: readonly number[]) => boolean;
 }
 
 export function useSelect(ed: Ed): SelectSlice {
@@ -198,6 +205,12 @@ export function useSelect(ed: Ed): SelectSlice {
     const cut = renderer.current?.slice ?? null;
     let tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
     if (!tiles.length) return;
+    // (on a map with caves the core leaves a cave's or an overhang's column and the ground holding up its roof as they
+    // are, as a force does, D487 (core/doc/start.ts `applySelection`): a selection that takes one in, a whole map with a
+    // 3D form on it, shapes the rest and says so; one of nothing else is refused)
+    const open = openGround(tiles);
+    if (!open.tiles.length) return void refusedOnCave(tiles);
+    tiles = open.tiles;
     const count = tileCount;
     let ops: EditOp[];
     let label: string;
@@ -245,7 +258,13 @@ export function useSelect(ed: Ed): SelectSlice {
     setSelectPreview(null);
     void run(
       () => api.applySelection(ops, label, tiles),
-      (u) => u.ok && feel(what === "raise" || what === "fill" ? "raise" : lowers ? "lower" : "shape", mid[0], mid[1], size),
+      (u) => {
+        if (!u.ok) return;
+        feel(what === "raise" || what === "fill" ? "raise" : lowers ? "lower" : "shape", mid[0], mid[1], size);
+        // (the page trimmed what it knew of; the core what it held besides: together, every tile left)
+        const left = open.left + (u.left ?? 0);
+        if (left) setMessage({ kind: "info", text: caveLeftWords(left) });
+      },
     );
   }
   const selectCalls = useRef({ action: selectAction });
@@ -283,21 +302,51 @@ export function useSelect(ed: Ed): SelectSlice {
     if (w) for (const i of selection.current.tiles()) if (w.depth[i] > d) d = w.depth[i];
     return Math.floor(d);
   }
-  /** The core refuses a sculpt over a column with a cave or overhang (`lockedColumns`, ops.ts): the first such tile
-   *  among these. */
-  function caveAmong(tiles: readonly number[]): number {
-    const c = ed.columnsRef.current.tiles;
-    if (!c.length) return -1;
-    const locked = new Set<number>(c);
-    return tiles.find((i) => locked.has(i)) ?? -1;
+  /** The ground the Select actions leave as they are on a map with caves (the core's `selectionHeld`: the columns with a
+   *  cave or an overhang and the ground holding up their roofs), asked once a version; the columns alone until it answers. */
+  const heldCache = useRef<{ version: number; set: Set<number> } | null>(null);
+  function heldNow(): Set<number> {
+    const c = heldCache.current;
+    if (c && c.version === info.version) return c.set;
+    const cols = ed.columnsRef.current.tiles;
+    const set = new Set<number>(cols);
+    const version = info.version;
+    heldCache.current = { version, set };
+    if (cols.length)
+      void api.selectionHeld().then((list) => {
+        if (heldCache.current?.version === version) heldCache.current = { version, set: new Set(list) };
+      });
+    return set;
   }
+  useEffect(() => void heldNow(), [selectionTick, info.version]);
+  /** The map's columns with a cave or an overhang. */
+  function columnsSet(): Set<number> {
+    return new Set<number>(ed.columnsRef.current.tiles);
+  }
+  /** The first tile among these that the Select actions leave as it is (a cave's, an overhang's, the ground under a roof's
+   *  edge), or -1. */
+  function caveAmong(tiles: readonly number[]): number {
+    const held = heldNow();
+    if (!held.size) return -1;
+    return tiles.find((i) => held.has(i)) ?? -1;
+  }
+  /** These tiles without the ground the Select actions leave as it is, and how many that was. */
+  function openGround(tiles: readonly number[]): { tiles: number[]; left: number } {
+    const held = heldNow();
+    if (!held.size) return { tiles: tiles.slice(), left: 0 };
+    const out = tiles.filter((i) => !held.has(i));
+    return { tiles: out, left: tiles.length - out.length };
+  }
+  /** The message after a Select action that left a cave's or an overhang's ground as it is. */
+  const caveLeftWords = (n: number) => `${n.toLocaleString("en-GB")} tile${n > 1 ? "s" : ""} with a cave or overhang left as ${n > 1 ? "they are" : "it is"}: shape ${n > 1 ? "their tops" : "its top"} with a brush`;
   /** Whether the action over these tiles would be refused for a cave or overhang; if so, the preview is cleared, the
    *  row says so in a few words and the message line gives the core's reason, until the pointer leaves. */
   function refusedOnCave(tiles: readonly number[]): boolean {
     const at = caveAmong(tiles);
     if (at < 0) return false;
     const W = infoRef.current.W;
-    const why = `(${at % W}, ${Math.floor(at / W)}) has a cave or overhang: shape its top with a brush`;
+    const cave = tiles.find((i) => columnsSet().has(i));
+    const why = heldWhy(cave ?? at, cave !== undefined, W);
     hintJob.current++;
     cropShown.current = why;
     setMessage({ kind: "info", text: why });
@@ -320,8 +369,10 @@ export function useSelect(ed: Ed): SelectSlice {
     if (what === "cut") tiles = tiles.filter((i) => h[i] > level);
     if (what === "fill") tiles = tiles.filter((i) => h[i] < level);
     if (what === "flatten") tiles = tiles.filter((i) => h[i] !== level);
-    // (a cave or overhang under the selection: the core refuses the whole sculpt, so nothing is marked and the reason shows)
-    if (refusedOnCave(tiles)) return;
+    // (a cave or overhang under the selection is left as it is: only the rest is marked; with nothing else, the reason shows)
+    const open = openGround(tiles);
+    if (open.left && !open.tiles.length) return void refusedOnCave(tiles);
+    tiles = open.tiles;
     setSelectPreview({ tiles, color: what === "raise" || what === "fill" ? RAISES : what === "flatten" ? MOVING : LOWERS });
   }
   // ------------------------------------------------------------------------------ Fill and Remove unfed water (D387, D394)
@@ -507,8 +558,11 @@ export function useSelect(ed: Ed): SelectSlice {
     const cut = renderer.current?.slice ?? null;
     const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
     if (group === "ground") {
-      if (refusedOnCave(tiles)) return;
-      return setSelectPreview({ tiles: tiles.filter((i) => h[i] > 0), color: LOWERS });
+      // (as the Select actions: a cave's ground and what holds up its roof stay as they are, the rest is marked)
+      const low = tiles.filter((i) => h[i] > 0);
+      const open = openGround(low);
+      if (open.left && !open.tiles.length) return void refusedOnCave(low);
+      return setSelectPreview({ tiles: open.tiles, color: LOWERS });
     }
     const e = mirror.current.entities;
     const at = coverAt();
@@ -731,6 +785,6 @@ export function useSelect(ed: Ed): SelectSlice {
 
   return {
     selectHost, openSelect, closeSelect, selectAll, workingArea, inArea, selectCalls, checkDepthRef, selectChip,
-    selectRow, objectFootprints
+    selectRow, objectFootprints, openGround, caveLeftWords, refusedOnCave
   };
 }

@@ -187,6 +187,9 @@ export interface ApplyResult {
   dirty: DirtyInfo | null;
   /** A crop (D340): how many objects the new edge cut and removed. */
   removedObjects?: number;
+  /** A Select action on a map with caves (core/doc/start.ts `applySelection`): how many of its tiles it left as they
+   *  are, a cave's or an overhang's column or the ground holding up its roof. */
+  left?: number;
 }
 
 /** An operation with no effect, and why (PLAN §19.4): shown to the player, never dropped. */
