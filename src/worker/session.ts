@@ -15,7 +15,7 @@ import { masksOf } from "../core/features/build";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import { planStart } from "../core/doc/tools";
 import { planCrop, type CropParams } from "../core/doc/crop";
-import { applySelection as applySelectionStep, startCarry } from "../core/doc/start";
+import { applySelection as applySelectionStep, selectionHeld, startCarry } from "../core/doc/start";
 import { ForceRolls } from "../core/forces/rolls";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
@@ -158,6 +158,8 @@ export interface SessionUpdate extends ViewNews {
   /** A brush stroke or a sculpt on a map with caves or overhangs: the tiles holding up their rock it kept from where
    *  it would have taken them (core/doc/session.ts `ApplyResult.held`). */
   held?: number[];
+  /** A Select action on a map with caves: how many of its tiles it left as they are (core/doc/start.ts `applySelection`). */
+  left?: number;
   /** A shared session's answer to an edit (worker/collabEdit.ts): the session ordered it or refused it, and the map's news comes
    *  as the session's own `update` event, so this answer carries none and the page leaves the map alone. */
   routed?: true;
@@ -2293,7 +2295,14 @@ export function applySelection(ops: EditOp[], label: string, tiles: readonly num
   // (the step and its carry are the core's: core/doc/start.ts `applySelection`)
   const r = applySelectionStep(s, ops, label, tiles);
   if (!r.ok) return changed(s, false, r.errors, t0);
-  return changed(s, true, [], t0);
+  const u = changed(s, true, [], t0);
+  return r.left ? { ...u, left: r.left } : u;
+}
+
+/** The ground the Select actions leave as it is on a map with caves (core/doc/start.ts `selectionHeld`), for the page's
+ *  preview: empty on a heightfield. */
+export function selectionHeldTiles(): number[] {
+  return session ? [...selectionHeld(session)] : [];
 }
 
 /** A brush stroke with **Clear sources** on (D249): the stroke and the removal of every water or

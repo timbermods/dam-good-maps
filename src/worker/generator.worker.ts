@@ -260,6 +260,7 @@ const api = {
   setName: (name: string) => ed.setName(name),
   removeAt: routed((tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)), (...a) => collabEditApi.removeAt(...a).then(sendUpdate)),
   objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
+  selectionHeld: () => ed.selectionHeldTiles(),
   /** Remove unfed water and Fill (D387, D394): what they would do, then doing it, one undo step. */
   unfedWaterIn: (tiles: number[] | null) => ed.unfedWaterIn(tiles),
   removeUnfedWater: routed((tiles: number[] | null) => sendUpdate(ed.removeUnfedWater(tiles)), (...a) => collabEditApi.removeUnfedWater(...a).then(sendUpdate)),
