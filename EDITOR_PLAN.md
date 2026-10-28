@@ -79,13 +79,17 @@ place of its bottom rule.
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. A sibling's variation is shown beside its seed, in the header ("Seed 4242 · 2 · 128×128") and in the panel's Seed line, so a seed copied by hand is known to be only part of its address. **Showcase…** (D488 (2)) sits in
-  the empty place at the foot of "On this map", under Reset settings (the panel no taller): it opens Showcase mode's sheet
-  over the two columns of settings (they stay where they are under it; **Settings** or Esc closes it). The sheet
+  the empty place at the foot of "On this map", under Reset settings (the panel no taller): it opens Showcase mode's sheet:
+  in the two tall columns it lies over the settings (they stay where they are under it); in the three-column and the
+  tight shapes it takes the panel's room, the settings gone from under it while it shows (**Settings** or Esc closes it,
+  either way). The sheet
   holds **Search for** (2, 5 or 15 minutes, 5 the first time, then what was last chosen in this browser), one button
   (**Start search**; **Stop** while it runs, which ends it after the map in hand; **Search more** once it has ended on
   the same settings, which goes on from the next variation and keeps the best three of both), a line saying how many
-  maps are made and the time left, a hairline filling with the time gone, and three cards in fixed places, best first:
-  each map's picture in a 16:9 place (200×112: the top-down thumbnail, Your maps', until the search has ended, then the
+  maps are made and the time left, a hairline filling with the time gone, and three cards in fixed places, best first (in the three-column
+  shapes side by side, each its picture over its words, the picture the card's width and 92px tall, 78px in the tight
+  shape, each beat on a line of its own):
+  each map's picture (in two columns a 16:9 place, 200×112; the top-down thumbnail, Your maps', until the search has ended, then the
   map's hero picture, `render3d/hero.ts` `heroPictureUrl` at 400×225, drawn one at a time, the thumbnail kept where it
   can't be drawn), its name, how many of the arc's six beats it has ("4 of 6
   beats"), each beat met (a tick) or not (a ring) by its label, the core's words for its strongest beat (two lines), and
