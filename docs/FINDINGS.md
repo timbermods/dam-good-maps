@@ -198,6 +198,21 @@ are recorded in M9A and [the earlier STATUS](archive/status-2026-10-01.md) "Prob
   routed, then refused as too straight). The settle is never repeated on one model (the cache) and is not the lever at
   128²; fewer failed attempts is, and that changes maps. Profiling while the machine's other sessions run misleads:
   time each map in its own process and compare CPU time, not a sampled profile.
+- **Why Canyon and Highlands drew so many lands** (2026-10-27, seeds 1–30 at 128²): the land stage's "no start" (Canyon
+  half its refusals) was mostly the plan's water, not the land: `plannedWater` runs streams under a pump's 0.35 and has
+  none of the pools the settle backs up, so two in three Canyon lands refused for it had hundreds of places on their
+  settled water; the pre-fill (a build, no settle) finds the same places. Looking again with it, at 128² and under
+  (above, the land is shown before its start is proved, and a start the settle then moved held Any 256² at every
+  setting's maximum to no map; generator 0.10.5):
+  Canyon 11.3 → 3.8 attempts a map (first attempt 7% → 30%, median Generate 8.2 → 5.8 s), Highlands 9.9 → 6.8 (7% →
+  10%, 9.5 → 7.5 s). Replanning a land's water after "no start" passes half as often as a fresh land (6% against 13%,
+  Canyon) but costs only a little less, a wash once the pre-fill looks. Highlands' remaining refusals are mostly its
+  promise on the plan (half its lands; four in five for cliffs under 0.1, most at 0.07–0.1), and the cliffs that keep
+  the promise are the ones that cut a start off its water: no single genome setting moves either far (jitter, erosion,
+  terrace cell: ±10%). River Valley's "no rivers" (a trunk from the upstream edge must cross half the map, and on a
+  straight slope its way leaves by a side): looking again from the sides, 3.0 → 2.1 attempts (53% → 60% first).
+  Occasionally (one map in ten) a land routes hundreds of badwater ditches that all come out too straight to bend,
+  1–3 s (`hazards.ts` `windDitch`): information.
 - The outcomes M9b is judged by are Kyler's eye against [PERFECT](PERFECT.md) (D252, D273); the measures are information.
 - **Mechanics** (180 generated maps, generator 0.6.0): nearest badwater or spoiled soil 15.4–24.2 tiles away on every map;
   Canyon has no clean retained water within 40 tiles after a nine-day drought; the largest joint bin holds 20–30% of Canyon,

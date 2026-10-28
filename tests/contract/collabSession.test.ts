@@ -163,7 +163,7 @@ describe("claims", () => {
     rig.connect();
     rig.settle();
     // the guest claims ground the water reaches when the host puts a strong spring outside it
-    const claim = rig.guest.claim({ kind: "claim", runs: square(30, 6, 46, 13) });
+    const claim = rig.guest.claim({ kind: "claim", runs: square(30, 21, 46, 28) });
     rig.drain();
     expect((await claim).ok).toBe(true);
     const spring: Command = { kind: "edit", label: "Place WaterSource", ops: [{ op: "placeEntity", params: { id: GUID(9001), template: "WaterSource", x: 22, y: 24, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 8, CurrentStrength: 8 } } } } as EditOp] };
@@ -180,7 +180,7 @@ describe("claims", () => {
     expect(notes[0].text).toMatch(/^Ada's edit (flooded|drained|fouled)[a-z0-9 ,]* of your area$/);
     // the host never gets a note for the guest's area, and the guest's own edit in it earns none
     expect(rig.eventsOf("host", "note")).toEqual([]);
-    const own = rig.guest.submit(raise(36, 10));
+    const own = rig.guest.submit(raise(36, 24));
     rig.drain();
     await own;
     rig.settle();

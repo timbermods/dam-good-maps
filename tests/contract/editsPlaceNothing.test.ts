@@ -203,16 +203,17 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
   // Generator 0.8.1's Highlands 128² seed 3 (#265): a spring river's head row stood two long, the
   // start's ground keeping the third tile; a Lift carried the start away, the row was placed again
   // three long, and the third spring was new, an object the force added (D368 (10), D314). An edited
-  // map keeps the row the generation placed. Here Highlands 96² seed 1's three-spring row at
-  // (65–67, 58) is stored two long, as that one was: no edit may give it its third. ((14–16, 44) until
+  // map keeps the row the generation placed. Here Highlands 96² seed 3's three-spring row at
+  // (71–73, 27) is stored two long, as that one was: no edit may give it its third. ((14–16, 44) until
   // the Canyon and Highlands height round, 0.8.8, D148: that spring's row is two long on its map now,
-  // and this one is the map's three-spring row.)
+  // and this one is the map's three-spring row. Seed 1's (65–67, 58) until generator 0.10.5, D148: its
+  // three-spring row stands up the map now, (74, 75–77), and seed 3's runs along the fault as this one did.)
   it("a Quake Lift leaves a generated spring's two-spring head row as it was: the same sources, count and ids", async () => {
-    await runGenerate(makeSpec({ seed: 1, theme: "highlands", size: { x: 96, y: 96 } }));
+    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: 96, y: 96 } }));
     ed.refine();
     const doc = decodeProject(ed.project().bytes);
-    const row = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === "f-u7lhuqresfhze").map((e) => `${e.id}@${e.x},${e.y}`);
-    const third = MapSession.open(doc).built.entities.find((e) => e.template === "WaterSource" && e.x === 67 && e.y === 58)!;
+    const row = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === "f-mngcmarnbq4x4").map((e) => `${e.id}@${e.x},${e.y}`);
+    const third = MapSession.open(doc).built.entities.find((e) => e.template === "WaterSource" && e.x === 73 && e.y === 27)!;
     const world = JSON.parse(doc.base.world!) as { Entities: { Id: string }[] };
     const k = world.Entities.findIndex((e) => e.Id === third.id);
     world.Entities.splice(k, 1);
@@ -221,10 +222,10 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
     doc.stored = undefined;
     ed.openProject(encodeProject(doc));
     const before = row(entities());
-    expect(before.map((s) => s.split("@")[1])).toEqual(["65,58", "66,58"]);
+    expect(before.map((s) => s.split("@")[1])).toEqual(["71,27", "72,27"]);
     for (const side of [1, -1] as const) {
       // (Ride, D474: the row rides the ground; Clear would take it)
-      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60, sources: "ride" }, path: [{ x: 2, y: 58.5 }, { x: 48, y: 58.5 }, { x: 93, y: 58.5 }], side, cut: null, natural: true });
+      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60, sources: "ride" }, path: [{ x: 2, y: 27.5 }, { x: 48, y: 27.5 }, { x: 93, y: 27.5 }], side, cut: null, natural: true });
       expect(row(entities()), `the Lift on side ${side}`).toEqual(before);
       ed.undo();
     }

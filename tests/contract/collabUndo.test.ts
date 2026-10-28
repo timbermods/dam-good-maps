@@ -382,7 +382,7 @@ describe("a place in words", () => {
     );
 
   test("a lake, the start and a river are named; a compass word only when there are several of the kind", () => {
-    const one = open(1, "highlands");
+    const one = open(51, "highlands");
     const lakes = one.features.filter((f) => f.kind === "lake");
     expect(lakes.length, "the map has a single lake").toBe(1);
     const [lx, ly] = centre((lakes[0].params as { outline: number[][] }).outline);
@@ -400,14 +400,14 @@ describe("a place in words", () => {
       const [cx, cy] = (caves[0].params as { path: number[][] }).path[0];
       expect(placeOf(one, tilesAt([Math.floor(cx), Math.floor(cy)]))).toBe("at the cave");
     }
-    const three = open(5, "highlands");
+    const three = open(2, "highlands");
     const rivers = three.features.filter((f) => f.kind === "river");
     expect(rivers.length).toBeGreaterThan(1);
     const path = (rivers[0].params as { path: number[][] }).path;
     const [rx, ry] = path[Math.floor(path.length / 2)];
     expect(placeOf(three, tilesAt([Math.floor(rx), Math.floor(ry)]))).toMatch(/^at the (north|south|east|west|north-east|north-west|south-east|south-west|middle) river$/);
     // two lakes: the one that holds the tiles, with where it lies
-    const two = open(3, "canyon");
+    const two = open(4, "canyon");
     const both = two.features.filter((f) => f.kind === "lake");
     expect(both.length).toBe(2);
     for (const lake of both) {
