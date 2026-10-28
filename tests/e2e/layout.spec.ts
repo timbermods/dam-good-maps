@@ -535,7 +535,7 @@ for (const [w, h] of [[1280, 800], [1300, 900]] as [number, number][]) {
 
 // A name kept at 1280 is shown whole at every wider width (the header's right group grows at 1,340 and 1,400px: Look's state,
 // Together's icon and its word): the typing limit measures the room the name will have there, under Segoe UI and under a
-// wide font with no Look button alike.
+// wide font with no Look button alike, and keeps as much typed in a wide window as at 1280.
 for (const wide of [false, true]) {
   test(`the longest name kept at 1280 is shown whole in two lines at every wider width${wide ? ", under a wide font and with no Look button" : ""}`, async ({ page }) => {
     test.setTimeout(300_000);
@@ -565,6 +565,12 @@ for (const wide of [false, true]) {
         `${name} (${name.length} characters) in full at ${w}`,
       ).toBe(true);
     }
+    // (typed again in the widest window, the limit is the same: the room is the narrowest width's, not this one's)
+    await button.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type("Where the Long Winding River Meets Again And Again And Again");
+    expect((await header.getByLabel("Map name").inputValue()).trim(), "the same name kept at 1920 as at 1280").toBe(name);
+    await page.keyboard.press("Escape");
   });
 }
 

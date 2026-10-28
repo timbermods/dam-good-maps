@@ -67,7 +67,7 @@ place of its bottom rule.
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
   font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443; the title shows the name and is fitted at once, never waiting for the worker's answer),
   Esc cancels, and a blank name is refused in the core's words, said in the second line. While the name is edited a small card hangs under it with the map's description ("Describe the map" while none is written; Enter saves, Shift+Enter is a line break, Esc cancels; the `setDescription` operation, one undo step, refused in the core's words in the card; empty takes the player's text away; what the file adds after it shows under the field); focus moving between the name and the card saves nothing until it leaves the title. A typed name stops at what
-  fits two lines (13px, where the header's room is narrowest: at 1280 wide and at 1,340 and 1,400px, where the right group grows, so a name kept at one width is shown whole at every wider one) where the fonts allow, never below 30
+  fits two lines (13px, where the header's room is narrowest: at 1280 wide and at 1,340 and 1,400px, where the right group grows, so a name kept at one width is shown whole at every wider one, and the limit is the same whatever the window's width) where the fonts allow, never below 30
   characters: a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines with an
   ellipsis and the full name in its tooltip. On the right **History**
   (its panel open while pressed), Undo, Redo, the checks dot with its

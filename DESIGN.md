@@ -986,7 +986,8 @@ go to Kyler as design direction).
 ## The header and top-right controls (polish audit, 2026-10-14)
 
 - **Rename stops at two lines** in the header as in Your maps: the name's limit is what fits two lines at 13px where the
-  header's room is narrowest (1280 wide), the same 80-character ceiling, and never below 30 characters (wider system
+  header's room is narrowest (1280 wide, and 1,340 and 1,400 where the right group grows), the same limit whatever the
+  window's width, the same 80-character ceiling, and never below 30 characters (wider system
   fonts leave less room); a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines
   with an ellipsis, the full name in its tooltip, so the header never takes a third line, at any width or font.
 - **The compass is a button, Face north**: the round plate keeps its place and size; a click glides the

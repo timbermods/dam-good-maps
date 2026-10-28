@@ -46,26 +46,32 @@ function growth(bar: HTMLElement, pen: CanvasRenderingContext2D): [number, numbe
   };
   const together = bar.querySelector(".together-button") ? 46 : 0;
   const word = bar.querySelector(".together-label") ? wide(".together-label") + 10 : 0;
-  return [wide(".look-state") + together, word];
+  // (Look's state grows only where its button is shown: not where the page draws without 3D)
+  const look = bar.querySelector(".look-words")?.getClientRects().length ? wide(".look-state") : 0;
+  return [look + together, word];
 }
 
 /** Whether a name fits the two lines the header keeps for it where its room is narrowest: the small title size, between the
  *  two groups at 1280 wide, and at each width above where the right group grows (DESIGN: every name Rename allows fits two
- *  lines at every width from 1280 up, so a name kept at one width is never cut at another). True when the header is not on
- *  the page. */
+ *  lines at every width from 1280 up, so a name kept at one width is never cut at another, and a wider window allows as
+ *  much as 1280 does). True when the header is not on the page. */
 export function fitsHeaderTwoLines(name: string): boolean {
   const bar = document.querySelector<HTMLElement>("header.editor-bar");
   if (!bar) return true;
   const pen = document.createElement("canvas").getContext("2d");
   if (!pen) return true;
   const get = (n: string) => parseFloat(bar.style.getPropertyValue(n)) || 0;
-  const [left, right] = [get("--side-l"), get("--side-r")];
-  let room = Math.min(bar.clientWidth, 1280) - left - right - 24;
-  // (the room the name will have where the window is wider: the group has grown by more than the window has)
+  const left = get("--side-l");
+  // (the right group as it is under 1,340px: what has grown at this window's width taken off)
   const added = growth(bar, pen);
+  let right = get("--side-r");
+  GROWS_AT.forEach((width, i) => {
+    if (window.innerWidth >= width) right -= added[i];
+  });
+  let room = Math.min(bar.clientWidth, 1280) - left - right - 24;
+  // (the room the name will have where the window is wider: the group grows by more than the window does)
   let grown = 0;
   GROWS_AT.forEach((width, i) => {
-    if (window.innerWidth >= width) return;
     grown += added[i];
     room = Math.min(room, width - left - (right + grown) - 24);
   });
