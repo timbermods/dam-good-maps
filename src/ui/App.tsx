@@ -283,6 +283,8 @@ export function App() {
   errorRef.current = error;
   const versionRef = useRef<unknown>(null);
   versionRef.current = version;
+  /** Showcase's notice, which takes the same place (set where Showcase is). */
+  const showcaseNoticeRef = useRef<unknown>(null);
   const noteTimer = useRef(0);
   /** A quiet note that goes by itself after a few seconds (a later note, or the player's ×, ends it sooner). */
   function sayBriefly(text: string) {
@@ -300,7 +302,7 @@ export function App() {
   function sayKept() {
     try {
       if (localStorage.getItem(KEPT_NOTE_KEY)) return;
-      if (noteRef.current || errorRef.current || versionRef.current) return;
+      if (noteRef.current || errorRef.current || versionRef.current || showcaseNoticeRef.current) return;
       localStorage.setItem(KEPT_NOTE_KEY, "1");
     } catch {
       // (no storage: the note shows each time it would have been the first)
@@ -1265,6 +1267,7 @@ export function App() {
       ),
     shownSpec: session?.kind === "generated" ? (session.spec ?? null) : null,
   });
+  showcaseNoticeRef.current = showcase.notice;
 
   // ---------------------------------------------------------------------------------- render
 

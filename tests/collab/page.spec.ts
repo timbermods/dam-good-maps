@@ -164,7 +164,9 @@ test("invite and join with names, edits from both sides on both maps, the other'
     await expect(together(host.page)).toBeHidden();
     await expect(bar.locator(".file-together-dot.who-guest")).toBeVisible();
     // (the dot, with its ring, is clear of the word File)
-    const clear = await bar.getByRole("button", { name: "File", exact: true }).evaluate((button) => {
+    // (File's name says who the dot is)
+    const file = bar.getByRole("button", { name: "File (together with Bo)", exact: true });
+    const clear = await file.evaluate((button) => {
       const dot = button.querySelector(".file-together-dot")!.getBoundingClientRect();
       const word = document.createRange();
       word.selectNodeContents(button.querySelector(".label")!);
@@ -176,13 +178,17 @@ test("invite and join with names, edits from both sides on both maps, the other'
     });
     expect(clear.apart, "the dot's ring does not touch the word").toBe(true);
     expect(clear.inside, "the dot is inside the button").toBe(true);
-    await bar.getByRole("button", { name: "File", exact: true }).click();
+    await file.click();
     await host.page.getByRole("menuitem", { name: "Together…" }).click();
     await expect(panel(host.page)).toContainText("Bo");
+    // (the focus is in the panel, the menu it came from gone)
+    await expect.poll(() => host.page.evaluate(() => !!document.activeElement?.closest(".together-panel"))).toBe(true);
     await host.page.keyboard.press("Escape");
     await host.page.setViewportSize({ width: 1440, height: 900 });
     await expect(together(host.page)).toBeVisible();
     await expect(bar.locator(".file-together-dot")).toBeHidden();
+    // (and File is just File again, Together's button saying who)
+    await expect(bar.getByRole("button", { name: "File", exact: true })).toBeVisible();
   }
 });
 
