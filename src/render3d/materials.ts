@@ -71,6 +71,7 @@ import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { CAVE_SKY_FLOOR, LIGHT_LEVELS, type CaveLight } from "./caveLight";
+import { CUT_SLACK } from "./cutWater";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 
 const az = LIGHT.sunAzimuth;
@@ -946,22 +947,30 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float f = vnoise(g * 5.3 + 3.0);
         return mix(${glColor(JUICE.ashDark)}, ${glColor(JUICE.ashPale)}, smoothstep(0.22, 0.78, b)) * (0.9 + 0.2 * f);
       }
+      /** The surface of the water over a tile's top (light.ts waterByte: steps of a sixtieth to three levels deep, whole
+       *  levels deeper, its surface then at most 0.05 over the one this gives). */
+      float waterSurfaceOf(vec4 d) {
+        float wb = floor(d.a * 255.0 + 0.5);
+        return heightOf(d) + (wb <= ${f(WATER_BYTE_FINE)} ? (wb - 1.0) / ${f(WATER_BYTE_STEPS)} : wb - ${f(WATER_BYTE_FINE - 3)});
+      }
       /** moisture level (0–15), contamination (0–15), under water (0/1), sky (0–1). Under water only where the water's
-       *  surface is drawn: a layer cut takes away the water standing above it (the water's shader), and the ground that
-       *  water covered is then a top like any other, not a bed seen through water. */
+       *  surface is drawn (cutWater.ts bedAtCut): a layer cut takes away the water standing above it, and a top whose water
+       *  it took whole (the top at the cut or above it) is then a top like any other, not a bed seen through water; under
+       *  a top below the cut the water is drawn up to the cut over it, a bed. */
       vec4 soilOf(vec4 d) {
         float g = floor(d.g * 255.0 + 0.5);
         float m = floor(g / 16.0);
-        // (the water byte, light.ts waterByte: steps of a sixtieth to three levels deep, whole levels deeper)
-        float wb = floor(d.a * 255.0 + 0.5);
-        float surface = heightOf(d) + (wb <= ${f(WATER_BYTE_FINE)} ? (wb - 1.0) / ${f(WATER_BYTE_STEPS)} : wb - ${f(WATER_BYTE_FINE - 3)});
-        return vec4(m, g - m * 16.0, d.a > 0.002 && surface <= slice + 0.05 ? 1.0 : 0.0, d.b);
+        bool drawn = waterSurfaceOf(d) <= slice + ${f(CUT_SLACK)} || heightOf(d) < slice;
+        return vec4(m, g - m * 16.0, d.a > 0.002 && drawn ? 1.0 : 0.0, d.b);
       }
       ${WATER_GLSL}
-      /** The depth of the water over a tile's top (light.ts waterByte; three levels for any deeper). */
+      /** The depth of the water drawn over a tile's top (light.ts waterByte; three levels for any deeper): under a layer
+       *  cut through it, to the cut (cutWater.ts surfaceAtCut). */
       float waterDepthOf(vec4 d) {
         float wb = floor(d.a * 255.0 + 0.5);
-        return wb < 0.5 ? 0.0 : min(3.0, (wb - 1.0) / ${f(WATER_BYTE_STEPS)});
+        if (wb < 0.5) return 0.0;
+        float depth = min(3.0, (wb - 1.0) / ${f(WATER_BYTE_STEPS)});
+        return waterSurfaceOf(d) > slice + ${f(CUT_SLACK)} ? min(depth, max(0.0, slice - heightOf(d))) : depth;
       }
       /** How much of the bed's own colour the ground under water takes (groundColor): 1 under water of
        *  a quarter level or more, less under a film, whose ground keeps its own soil, seen through the
@@ -972,10 +981,12 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         // the soil of the run tops below each tile's top (runSoil.ts; only on a map with terrain above terrain)
         uniform highp sampler3D runTex;
         /** A run top's cell at tile t and level z: x its soil byte (the tile data's G), y 1 a run top, 2 one
-         *  under water, 0 none (outside the map too). */
+         *  under water, 0 none (outside the map too). Under a layer cut a run top at the cut or above it has no water
+         *  drawn over it (cutWater.ts bedAtCut; its water stands over the cut, but for a film a hair deep). */
         vec2 runAt(vec2 t, float z) {
           if (t.x < 0.0 || t.y < 0.0 || t.x >= mapSize.x || t.y >= mapSize.y || z < 0.0 || z >= ${f(RUN_LEVELS)}) return vec2(0.0);
-          return floor(texelFetch(runTex, ivec3(vec3(t, z)), 0).rg * 255.0 + 0.5);
+          vec2 r = floor(texelFetch(runTex, ivec3(vec3(t, z)), 0).rg * 255.0 + 0.5);
+          return r.y > 1.5 && z >= slice ? vec2(r.x, 1.0) : r;
         }
         /** The soil of the ground at level z of tile t as soilOf gives it (no sky), and in \`here\` whether there is
          *  ground there to blend toward: a run top below the tile's top, or the tile's own top. */
@@ -1487,6 +1498,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
     vertexShader: /* glsl */ `
       attribute vec2 wdata;
       attribute float wflags;
+      attribute vec2 wcut;
+      uniform float slice;
       varying vec2 vData;
       varying float vFlags;
       varying vec3 vNormal;
@@ -1496,6 +1509,23 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         vFlags = wflags;
         vNormal = normal;
         vec4 w = modelMatrix * vec4(position, 1.0);
+        // the game's layers (D207, cutWater.ts): a column standing over the cut with its floor below it is sliced, its
+        // top lying on the cut, shallower by what the cut took off, its sides stopping there; one whose floor is at
+        // the cut or above it is gone (the fragment shader drops what stands over the cut)
+        float surface = normal.y > 0.5 ? w.y : wcut.x + wdata.x;
+        if (surface > slice + ${f(CUT_SLACK)} && wcut.x < slice) {
+          float over = surface - slice;
+          w.y = min(w.y, slice);
+          if (normal.y > 0.5) {
+            vData.x = max(0.0, wdata.x - over * wcut.y);
+            // (its shores only: a fall into it or over its brink is gone with the water over the cut, fallSheetCut)
+            vFlags = mod(wflags, 16.0);
+          } else {
+            vData.x = slice - wcut.x;
+            // (a side's drop, but at the map's edge: shorter by what the cut took off)
+            if (wflags < 254.5) vFlags = max(0.0, wflags - over * 30.0);
+          }
+        }
         vWorld = w.xyz;
         gl_Position = projectionMatrix * viewMatrix * w;
       }
@@ -1723,8 +1753,8 @@ ${hook(h, "water")}        #ifdef CAVES
           c = mix(c, hatch.rgb, hatch.a);
           alpha = mix(alpha, 1.0, hatch.a);
         }
-        // the game's layers: water above the slice is cut away
-        if (vWorld.y > slice + 0.05) discard;
+        // the game's layers: water above the slice is cut away (a column sliced by it lies on it: the vertex shader)
+        if (vWorld.y > slice + ${f(CUT_SLACK)}) discard;
         // every source wells up (D196): rings spreading from it and a few bubbles, on the water over
         // it, so it is found even deep under water; brighter while the pointer's water comes from it
         #if !LITE
@@ -1809,7 +1839,8 @@ export function fallMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks
       attribute vec4 fTop;
       attribute vec4 fShape;
       attribute vec4 fMore;
-      uniform float viewHeight;${hook(h, "fallVertexDecl")}
+      uniform float viewHeight;
+      uniform float slice;${hook(h, "fallVertexDecl")}
       varying vec4 vRib;
       varying vec4 vFall;
       varying vec4 vEdge;
@@ -1850,6 +1881,9 @@ export function fallMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks
         #endif
         // the parts of the other view, and the ends where the sheet runs on: out of the clip volume
         bool off = kind < 2.5 ? (!near || (kind > 0.5 && kind < 1.5 && freeA < 0.5) || (kind > 1.5 && freeB < 0.5)) : kind < 3.5 ? near : kind > 4.5 ? !near : false;
+        // the game's layers (D207, cutWater.ts fallSheetCut): a fall whose lip stands over the cut is gone, its landing
+        // kept where its pool is below the cut (the fragment shader drops what stands over it)
+        if (kind < 3.5 && max(fTop.x, fTop.y) > slice + ${f(CUT_SLACK)}) off = true;
         if (off) {
           vRib = vec4(0.0);
           vFall = vec4(0.0);
@@ -1955,8 +1989,9 @@ ${hook(h, "fallVertex")}        vNormal = n;
       ${common(h)}
       ${WATER_GLSL}${CAVE_POINT}
       void main() {
-        // the game's layers: a fall above the slice is cut away
-        if (vWorld.y > slice + 0.05) discard;
+        // the game's layers: a fall above the slice is cut away (one whose lip stands over it keeps only its landing:
+        // the vertex shader)
+        if (vWorld.y > slice + ${f(CUT_SLACK)}) discard;
         float kind = vRib.w;
         float along = vRib.x;
         float flow = vFall.x;

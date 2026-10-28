@@ -194,7 +194,7 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 - **Captures:** `docs/sheets/3d-view-water-columns.jpg` (Hollows: its river's cave through a mouth, and cut at 6 over the
   river where dev's falls from the roof came through; Pressure: a badwater tunnel's mouth, and cut at 2 over its
   tunnels; before and after, Standard and High, 1920×1080 dark, and the cuts at 1280×800 light).
-- **Falls short:** the cut still drops what stands above it, water included. (Water under a wet roof flowing as its
+- **Falls short:** (water sliced by the cut: built, "Water sliced by the cut" below). (Water under a wet roof flowing as its
   roof's, and a cave column's falls estimating their flow: built, part 4b.) `tests/e2e/cutaway.spec.ts` compiles and draws the water's branch on a
   hand-made cave with a pool and a puddle on its roof in CI.
 
@@ -368,10 +368,9 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   `tests/e2e/cutaway.spec.ts`: a pond's shelf cut at its level, and ground at 2 under a reservoir six levels deep cut
   at 7, draw as the same ground dry (each failed before its fix by 38 levels). Captures: `docs/sheets/cut-level-ground.jpg` (dev against the branch, Canyon's shelf and Hollows at cut 7,
   Standard and High, 1920×1080 dark and 1280×800 light).
-- **Falls short:** water, objects, falls and the drought line are cut as before: what stands above the cut is not drawn
-  (each water column stands at its own level since part 4). Water whose surface stands above the cut is not drawn even
-  where its floor lies below the cut, so that floor shows as ground, not as a bed under water.
-  `tests/e2e/cutaway.spec.ts` compiles and draws the branch on a hand-made cave in CI.
+- **Falls short:** objects and the drought line are cut as before: what stands above the cut is not drawn. Water whose
+  surface stands above the cut and whose floor lies below it is drawn sliced at the cut, its bed a bed under it (built,
+  "Water sliced by the cut" below). `tests/e2e/cutaway.spec.ts` compiles and draws the branch on a hand-made cave in CI.
 
 ## The camera keeps out of the rock (`fix/caves-brush-camera`)
 
@@ -715,6 +714,51 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   High: only the run-to-run noise). `cutaway.spec.ts` now fails any program past 16 samplers, in every browser.
 - **Falls short:** High's terrain is at the limit: a 17th texture there needs another one packed first (the eruption's
   two or the edges' two are the candidates).
+
+## Water sliced by the cut (`feature/cut-water`)
+
+- **Why:** under a layer cut every voxel at or above the cut is gone (D207), the water's too, but water whose surface
+  stood over the cut was not drawn at all, even where its floor lay below the cut: a cut through a lake or a river
+  showed its bed as dry ground with nothing over it (since #571's films it read as plain ground, and since #518 the bed
+  as an ordinary top). What you see is now the lake sliced.
+- **The rule** (`src/render3d/cutWater.ts`, the shaders' rules in plain code): a water column is drawn whole where its
+  surface stands at most 0.05 over the cut (`CUT_SLACK`, as before); sliced, its top lying flat on the cut, where its
+  floor is below the cut; not at all where its floor is at the cut or above it (`surfaceAtCut`). A sliced top is
+  shallower by what the cut took off its water (`cutCornerDepth`: a corner's shared depth less that much times the
+  corner's wet share, so neighbouring tops still meet at their corners and the water still thins to its shore), and it
+  keeps only its shore foam; its sides stop at the cut, their drop and depth shortened with it. A fall whose lip stands
+  over the cut is gone; its landing stays where its pool is below the cut (`fallSheetCut`). The terrain counts a top as
+  a bed under water exactly where a top is drawn over it (`bedAtCut`: `soilOf` adds "or the top is below the cut"; a run
+  top at the cut or above it has no water drawn over it), and a film's depth (#571) is the depth left under the cut
+  (`waterDepthOf`).
+- **How it is drawn:** no remesh, the cut stays one uniform (`setSlice`). The water's mesh carries, per vertex, its
+  column's floor and, on a top, the corner's wet share (`WaterMeshData.cut`, the `wcut` attribute; 8 bytes a vertex), and
+  the water's vertex shader folds a sliced column onto the cut as the terrain's folds the ground (`waterMaterial`, both
+  looks and the light look; High's rough water and every look's moving surface read the current by tile, so they move on
+  the sliced surface). The falls' vertex shader drops a sheet whose lip stands over the cut. The ribbons and the Flow
+  view's streaks carry the water's floor too (`motionShapes.ts`) and lie on a sliced surface. The water's chunk bounds
+  reach down to each column's floor (`boundingSphereOf`), where the cut may fold it. A force's cursor and ring
+  (`pickSurface`, the force ring) stand on the water as drawn: on the cut over sliced water.
+- **Check:** `tests/unit/cutWater.test.ts` works out what is drawn as the GPU does it (the vertex shader mirrored) on
+  Canyon 128 seed 7, Lake Basin 128 seed 5 and a hand-made cave pool under a roof with a lake on it, at every cut through
+  their water: each column drawn where `surfaceAtCut` says, every top flat, a sliced column's sides under the cut,
+  tops of one water meeting at their corners, the terrain's bed (from the tile data's water byte, as `soilOf` reads it)
+  exactly under drawn water, and nothing moved with no cut. `tests/e2e/cutaway.spec.ts`: a reservoir six levels deep cut
+  at 7 draws as five levels of water would, not as its bed dry (it drew as the bed dry before), in Standard and High,
+  with no shader error and every program within 16 samplers.
+- **Real Chrome** (`tools/capture-cut-water.ts`; the RTX 2070 SUPER, and Chrome in software for the light look):
+  Canyon 128 seed 7 cut at 9 (its river is mostly under a level deep, so a whole-level cut slices it only where it pools
+  deeper), the official Lakes at 1 (222 columns sliced round the frame), Hollows at 2 (a shaft by its underground river,
+  which is under a level deep and so is drawn whole or gone at any cut) and at 10 (a badwater cave pool). With no cut, dev
+  against this branch, the water held: Standard and High within the run-to-run noise of two loads of one build (0–93
+  pixels, all on the water and the Items panel's animated icon), the light look 0 on the map (on Hollows the outlines
+  of the camera buttons, page controls, differed). Captures:
+  `docs/sheets/cut-water.jpg` (dev against this branch, Standard, High and the light look, 1920×1080 dark and
+  1280×800 light).
+- **Falls short:** a sliced top whose upper water poured in a fall (now gone) has no side where the fall was, down to the
+  pool below; a top next to water whose floor the cut reaches (gone) keeps no shore foam at the new bank. A film exactly
+  on a run top at the cut is counted dry by the terrain (the run texture has no depth). Objects and the drought line are
+  cut as before. The cut is whole levels, so water under a level deep is never sliced (drawn whole or gone, as before).
 
 ## The rest of the step (next parts)
 

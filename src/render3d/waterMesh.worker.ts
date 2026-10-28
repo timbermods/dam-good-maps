@@ -35,9 +35,9 @@ self.onmessage = (e: MessageEvent<MesherRequest>) => {
     const [cx, cy] = key.split(",").map(Number);
     try {
       const d = meshWaterChunk(m.W, m.H, layers, cx, cy);
-      const sphere = boundingSphereOf(d.positions);
+      const sphere = boundingSphereOf(d.positions, d.cut);
       chunks.push({ key, data: { ...d, sphere } });
-      transfer.push(...([d.positions.buffer, d.data.buffer, d.flags.buffer, d.normals.buffer, d.indices.buffer, d.falls.buffer, sphere.buffer] as ArrayBuffer[]));
+      transfer.push(...([d.positions.buffer, d.data.buffer, d.flags.buffer, d.cut.buffer, d.normals.buffer, d.indices.buffer, d.falls.buffer, sphere.buffer] as ArrayBuffer[]));
     } catch (err) {
       failed.push({ key, error: err instanceof Error ? err.message : String(err) });
     }

@@ -17,11 +17,11 @@ import { columnMap, LAYERS, surfaceWater, waterFromDepth, type WaterView } from 
 import { meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { changedColumnChunks, needsLayers, plainLayers, waterLayers } from "../../src/render3d/waterLayers";
 import { openTimber } from "../../src/worker/session";
-import { heightfieldWaterChunk } from "../fixtures/heightfieldWaterMesher";
+import { heightfieldWaterChunk, type HeightfieldWaterMesh } from "../fixtures/heightfieldWaterMesher";
 
 const bytes = (a: ArrayBufferView) => Buffer.from(a.buffer, a.byteOffset, a.byteLength);
 
-function same(a: WaterMeshData, b: WaterMeshData, at: string): void {
+function same(a: HeightfieldWaterMesh, b: WaterMeshData, at: string): void {
   expect(b.quads, `quads, ${at}`).toBe(a.quads);
   expect(b.fallCount, `falls, ${at}`).toBe(a.fallCount);
   for (const k of ["positions", "data", "flags", "normals", "indices", "falls"] as const) expect(bytes(b[k]).equals(bytes(a[k])), `${k}, ${at}`).toBe(true);

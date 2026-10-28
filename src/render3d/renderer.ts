@@ -78,6 +78,7 @@ import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
+import { surfaceAtCut } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
@@ -96,6 +97,7 @@ import { WaterMotion } from "./motion";
 import { StillFlow } from "./stillFlow";
 import { BoxUploads, RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
+import { boundingSphereOf } from "./bounds";
 import { EntityGeometryCache } from "./entityGeometry";
 import { terrainChanges } from "./terrainChanges";
 import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
@@ -1681,8 +1683,10 @@ export class MapRenderer {
         { name: "normal", array: d.normals, itemSize: 3, normalized: true },
         { name: "wdata", array: d.data, itemSize: 2 },
         { name: "wflags", array: d.flags, itemSize: 1 },
+        { name: "wcut", array: d.cut, itemSize: 2 },
       ],
-      sphere: d.sphere ?? null,
+      // (down to each column's floor, where a layer cut may fold its water: cutWater.ts)
+      sphere: d.sphere ?? boundingSphereOf(d.positions, d.cut),
     };
     if (old && d.quads && refillChunk(old.geometry, arrays)) return d.quads;
     if (old) this.dropMesh(old);
@@ -3053,7 +3057,9 @@ export class MapRenderer {
     const level = (tx: number, ty: number) => {
       const i = ty * m.W + tx;
       const top = this.slice === null ? m.heights[i] : Math.min(m.heights[i], this.slice);
-      return m.surface.depth[i] > 0.05 && this.slice === null ? Math.max(top, m.surface.surface[i]) : top;
+      // (the water as drawn: under a layer cut through it, at the cut, cutWater.ts)
+      const water = m.surface.depth[i] > 0.05 ? surfaceAtCut(m.surface.floor[i], m.surface.surface[i], this.slice) : null;
+      return water === null ? top : Math.max(top, water);
     };
     this.ring.set(s, level, m.W, m.H);
     this.requestRender();
@@ -3598,11 +3604,13 @@ export class MapRenderer {
   pickSurface(clientX: number, clientY: number, picked?: TileHit | null): TileHit | null {
     const hit = picked === undefined ? this.pick(clientX, clientY) : picked;
     const m = this.map;
-    if (!hit || !m || this.slice !== null) return hit;
+    if (!hit || !m) return hit;
     const i = hit.y * m.W + hit.x;
     if (!(m.surface.depth[i] > 0.05)) return hit;
+    // (the water as drawn: under a layer cut through it, at the cut; none where the cut took it all, cutWater.ts)
+    const level = surfaceAtCut(m.surface.floor[i], m.surface.surface[i], this.slice);
+    if (level === null) return hit;
     const ray = this.rayAt(clientX, clientY);
-    const level = m.surface.surface[i];
     // (only where the ray meets the water before the ground: a roof over a cave's water keeps its own hit)
     if (ray.direction[1] < 0 && (level - ray.origin[1]) / ray.direction[1] > hit.t + 1e-6) return hit;
     const p = pickPlane(ray, level);
