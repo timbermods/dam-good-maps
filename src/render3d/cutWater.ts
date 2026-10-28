@@ -5,7 +5,8 @@
 //
 // How it is drawn: the water's vertex shader (materials.ts `waterMaterial`) folds such a column's top and sides down
 // onto the cut, as the terrain's folds the ground, from each vertex's own column (its floor, `WaterMeshData.cut`): the
-// top lies on the cut, shallower by what the cut took away (`cutCornerDepth`), and its sides stop at the cut. Nothing
+// top lies on the cut, shallower by what the cut took away (`cutCornerDepth`), and its sides stop at the cut. A gone
+// column's sides fold flat, so one hanging below its floor (to lower water in front of a cliff) leaves nothing. Nothing
 // is remeshed when the level changes: the cut stays one uniform. A fall whose lip stands over the cut is gone; its
 // landing stays where its pool is below the cut (`fallSheetCut`). The ribbons and the Flow view's streaks follow the
 // same rule (motion.ts). The terrain counts a top as under water exactly where this draws water over it
