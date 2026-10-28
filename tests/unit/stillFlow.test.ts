@@ -114,4 +114,30 @@ describe("the light look's flow texture", () => {
     await vi.advanceTimersByTimeAsync(500);
     expect(drawn).toBe(0);
   });
+
+  it("sets the share at once for water put in place (a Compare flip), and drops a job's late answer from before it", async () => {
+    vi.useFakeTimers();
+    const rand = random(17);
+    const heights = land(rand);
+    const depth = new Float32Array(W * H);
+    const cont = new Float32Array(W * H);
+    change(rand, depth, cont, true);
+    let drawn = 0;
+    const flow = new StillFlow(W, H, (w, h, sw) => new Promise((r) => setTimeout(() => r(shareBytes(w, h, sw)), 100)), undefined, () => drawn++);
+    flow.start(water(heights, depth, cont));
+    // moving water: a job goes out on it
+    change(rand, depth, cont, true);
+    flow.update(water(heights, depth, cont));
+    await vi.advanceTimersByTimeAsync(10);
+    // the flip: the other version's water, its share in the same frame
+    change(rand, depth, cont, true);
+    const flipped = water(heights, depth, cont);
+    flow.update(flipped, true);
+    expect(shares(flow.texture)).toEqual(shares(stillFlowTexture(W, H, flipped)));
+    // the job from before the flip answers late: dropped
+    await vi.advanceTimersByTimeAsync(500);
+    expect(drawn).toBe(0);
+    expect(shares(flow.texture)).toEqual(shares(stillFlowTexture(W, H, flipped)));
+    flow.dispose();
+  });
 });

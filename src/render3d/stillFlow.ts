@@ -26,6 +26,8 @@ export class StillFlow {
   private busy = false;
   private lastSent = -Infinity;
   private disposed = false;
+  /** One more each time the share is set here at once: a job sent before it is dropped when it answers. */
+  private version = 0;
 
   /** `job`: the share worked out off the page's thread; `touch`: texels x0…x1 × y0…y1 changed, to go up with the
    *  next frame (a RowUploads); `drawn`: a share that changed asks for a frame. */
@@ -49,8 +51,17 @@ export class StillFlow {
     this.write(shareBytes(this.W, this.H, sw));
   }
 
-  /** The water changed: a job soon, on the latest water. */
-  update(sw: Water): void {
+  /** The water changed: a job soon, on the latest water; `now` (water put in place to show with the land put in with
+   *  it, a version flipped to): worked out at once, here, and a job still out on older water dropped. */
+  update(sw: Water, now = false): void {
+    if (now) {
+      this.version++;
+      this.pending = null;
+      if (this.timer !== null) clearTimeout(this.timer);
+      this.timer = null;
+      this.write(shareBytes(this.W, this.H, sw));
+      return;
+    }
     this.pending = sw;
     this.kick();
   }
@@ -66,13 +77,14 @@ export class StillFlow {
       if (!sw || this.disposed) return;
       this.busy = true;
       this.lastSent = performance.now();
+      const version = this.version;
       const done = () => {
         this.busy = false;
         this.kick();
       };
       // (copies: the map's water may change in place before the job is done)
       this.job(this.W, this.H, { surface: sw.surface.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice() }).then((share) => {
-        if (!this.disposed && this.write(share)) this.drawn();
+        if (!this.disposed && version === this.version && this.write(share)) this.drawn();
         done();
       }, done);
     }, wait);

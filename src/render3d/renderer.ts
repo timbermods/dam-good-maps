@@ -1444,10 +1444,10 @@ export class MapRenderer {
 
   /** The water changed: its current and badwater share in the flow texture (motion.ts); where nothing moves (the
    *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
-   *  WATER_FILM). */
-  private flowChanged(heights: Uint8Array, surface: SurfaceWater): void {
+   *  WATER_FILM); `now`: water that shows with the next frame (a version flipped to), its share with it. */
+  private flowChanged(heights: Uint8Array, surface: SurfaceWater, now = false): void {
     if (this.waterMotion) this.waterMotion.waterChanged(heights, surface);
-    else this.stillFlow?.update(surface);
+    else this.stillFlow?.update(surface, now);
   }
 
   /** The map as drawn (read only): the legend reads what is on it. */
@@ -2023,7 +2023,7 @@ export class MapRenderer {
     // (the water standing on a cave's floor: its run top's cell)
     if (this.runSoil) this.syncRunSoil();
     this.high?.waterChanged(surface);
-    this.flowChanged(m.heights, surface);
+    this.flowChanged(m.heights, surface, now);
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
