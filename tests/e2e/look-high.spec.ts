@@ -13,9 +13,10 @@ import { openEditor, waitForEditor, topDown } from "./open";
 // the automatic choice, not the Standard look the other tests hold (playwright.config.ts)
 test.use({ storageState: { cookies: [], origins: [] } });
 
-// (its tests stand alone: they run in parallel, so the browser shards and their two workers share them; one worker
-// running them all in a row took a shard past its 30 minutes)
-test.describe.configure({ mode: "parallel" });
+// (its tests run one after another on one worker, never two at once: each draws High, which on CI's software drawing
+// costs 2 to 3 s a frame, and two of them side by side on the runner's four cores took the slow-frames test past its
+// budget, run 40601987187. With the clipping net in its own file the shards stay balanced: about 17 minutes of tests at
+// most, as with this file in parallel.)
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -169,6 +170,10 @@ test("the Standard look is the same after High as before it", async ({ page }) =
 });
 
 test("too slow frames fall back to High's lower-cost tier, then to Standard, remembered (simulated)", async ({ page }) => {
+  // (some forty frames of High and two page loads: under three minutes on a runner to itself, 162 s on 2026-10-25, but
+  // CI's software drawing makes it the slowest test here; the fallback reads the frames' simulated cost, not how long
+  // the runner takes to draw them)
+  test.setTimeout(300_000);
   const errors: string[] = [];
   await open(page, errors);
   expect(await look(page)).toBe("high");
