@@ -28,7 +28,7 @@ import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { objectHolds, standProblem, type StandGround } from "../features/objects";
 import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
-import { MAX_TERRAIN } from "../features/raster/terrain";
+import { MAX_TERRAIN, padTile } from "../features/raster/terrain";
 import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
 import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
 import { fallsReason, newFalls, objectRoofHolders, placeOf, rockFloors, stackableTops, unsupportedVoxels } from "../terrain/support";
@@ -187,10 +187,12 @@ export interface ApplyResult {
   dirty: DirtyInfo | null;
   /** A crop (D340): how many objects the new edge cut and removed. */
   removedObjects?: number;
-  /** A brush stroke or a sculpt on a map with caves or overhangs (D280 (3), amended by #623): the
-   *  tiles holding up a cave's or an overhang's rock it kept from where it would have taken them, ascending
-   *  (what the page's one line counts and tints); absent when it kept none. */
+  /** A brush stroke or a sculpt on a map with caves or overhangs (D280 (3), amended by #623; D491): the
+   *  tiles holding up a cave's or an overhang's rock, or an object under a roof, it kept from where it would
+   *  have taken them, ascending (what the page's one line counts and tints); absent when it kept none. */
   held?: number[];
+  /** How many of `held` hold an object under a roof alone (D491; the line says so); absent when none. */
+  heldUnder?: number;
   /** A Select action on a map with caves (core/doc/start.ts `applySelection`): how many of its tiles it left as they
    *  are, a cave's or an overhang's column or the ground holding up its roof. */
   left?: number;
@@ -874,34 +876,42 @@ export class MapSession {
     return "nothing to shape here: this ground holds an object under a roof, which the edit leaves as it is";
   }
 
-  /** The tiles of a held stroke or sculpt that hold up a cave's or an overhang's rock (`rockHolds` of the
-   *  map as it stands, before the operation applies). */
-  private rockIn(op: EditOp): Set<number> {
-    if ((op.op !== "brush" && op.op !== "sculpt") || !op.params.hold?.length) return new Set();
-    const rock = this.rockHolds();
-    if (!rock.length) return new Set();
-    const all = new Set(rock.map(([i]) => i));
-    return new Set(op.params.hold.map(([i]) => i).filter((i) => all.has(i)));
+  /** The tiles of a held stroke or sculpt that hold up a cave's or an overhang's rock (`rockHolds`) and
+   *  that hold an object under a roof (`holds`, D491), of the map as it stands, before the operation
+   *  applies. */
+  private heldIn(op: EditOp): { rock: Set<number>; objects: Set<number> } {
+    if ((op.op !== "brush" && op.op !== "sculpt") || !op.params.hold?.length) return { rock: new Set(), objects: new Set() };
+    const of = (holds: readonly [number, number, number][]) => {
+      if (!holds.length) return new Set<number>();
+      const all = new Set(holds.map(([i]) => i));
+      return new Set(op.params.hold!.map(([i]) => i).filter((i) => all.has(i)));
+    };
+    return { rock: of(this.rockHolds()), objects: of(this.holds()) };
   }
 
-  /** The tiles holding up a cave's or an overhang's rock (`rock`) a held stroke or sculpt keeps from
-   *  where it would take them (D280 (3), amended by #623): the stroke's land worked out on the
-   *  map it applied to (`before`) with its hold and without the rock's part of it (build step 6, the
-   *  brush or the sculpt alone), and the tiles of `rock` that differ, ascending. What the page's one line
-   *  reports. */
-  private heldBy(op: EditOp, rock: ReadonlySet<number>, before: BuildResult): number[] {
-    if (!rock.size || (op.op !== "brush" && op.op !== "sculpt") || !op.params.hold?.length) return [];
+  /** The held tiles (`held`: holding up a cave's or an overhang's rock, or an object under a roof) a held
+   *  stroke or sculpt keeps from where it would take them (D280 (3), amended by #623; D491): the stroke's
+   *  land worked out on the map it applied to (`before`) with its hold and without it (build step 6, the
+   *  brush or the sculpt alone, on the ground the build lets it shape: Naturalize leaves a start's pad),
+   *  and the tiles of `held` that differ, ascending. What the page's one line reports. */
+  private heldBy(op: EditOp, held: ReadonlySet<number>, before: BuildResult): number[] {
+    if (!held.size || (op.op !== "brush" && op.op !== "sculpt") || !op.params.hold?.length) return [];
     const { x: W, y: H } = this.size;
     const pre = before.cache.terrain.pre7;
-    const others = op.params.hold.filter(([i]) => !rock.has(i));
+    const others = op.params.hold.filter(([i]) => !held.has(i));
     if (op.op === "brush") {
       const floor = this.terrainOf(before).topFloors();
       const kept = pre.slice();
       const free = pre.slice();
-      applyBrush(op.params, kept, W, H, () => true, floor);
-      const { hold: _hold, ...params } = op.params;
-      applyBrush(others.length ? { ...params, hold: others } : params, free, W, H, () => true, floor);
-      return [...rock].filter((i) => kept[i] !== free[i]).sort((a, b) => a - b);
+      // (as build step 6 shapes it: a Naturalize stroke leaves a start's pad, or one from before D368 every protected tile)
+      const p = op.params;
+      const pads = p.tool === "naturalize" && p.weathers ? this.st.features.filter((f): f is StartFeature => f.kind === "start") : [];
+      const prot = before.cache.terrain.protect;
+      const open = p.tool !== "naturalize" ? () => true : p.weathers ? (i: number) => !padTile(pads, i % W, Math.floor(i / W)) : (i: number) => !prot[i];
+      applyBrush(p, kept, W, H, open, floor);
+      const { hold: _hold, ...params } = p;
+      applyBrush(others.length ? { ...params, hold: others } : params, free, W, H, open, floor);
+      return [...held].filter((i) => kept[i] !== free[i]).sort((a, b) => a - b);
     }
     // (a sculpt changes each tile by itself, and its hold keeps each held tile within its floor and ceiling)
     const p = op.params;
@@ -910,7 +920,7 @@ export class MapSession {
     for (const [y, a, b] of p.cells)
       for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) {
         const i = y * W + x;
-        if (!rock.has(i)) continue;
+        if (!held.has(i)) continue;
         const h = pre[i];
         const want = p.mode === "raise" ? h + (p.amount ?? 0) : p.mode === "lower" ? h - (p.amount ?? 0) : p.mode === "flatten" ? (p.level ?? h) : p.mode === "terrace" ? Math.floor(h / (p.step ?? 2)) * (p.step ?? 2) : h;
         const [lo, hi] = bounds.get(i)!;
@@ -1397,7 +1407,8 @@ export class MapSession {
   /** Apply one operation. */
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
     op = this.withHold(op);
-    const rock = this.rockIn(op);
+    const kept = this.heldIn(op);
+    const rock = kept.rock;
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
     if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
@@ -1438,8 +1449,9 @@ export class MapSession {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [lost], applied: [], dirty: null };
     }
-    const held = this.heldBy(op, rock, before);
-    return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty, ...(held.length ? { held } : {}) };
+    const held = this.heldBy(op, new Set([...rock, ...kept.objects]), before);
+    const under = held.filter((i) => kept.objects.has(i) && !rock.has(i)).length;
+    return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty, ...(held.length ? { held, ...(under ? { heldUnder: under } : {}) } : {}) };
   }
 
   /** A step whose brush stroke left a source of several tiles (a BadwaterSource) off level ground,
@@ -1485,6 +1497,7 @@ export class MapSession {
     const seq = this.seqNext;
     const done: AppliedOp[] = [];
     const held = new Set<number>();
+    const under = new Set<number>();
     for (const given of ops) {
       const op = this.withHold(given);
       const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : op.op === "crop" ? ["a crop cannot be part of a group of edits"] : this.check(op);
@@ -1497,7 +1510,11 @@ export class MapSession {
         this.seqNext = seq;
         return { ok: false, errors, applied: [], dirty: null };
       }
-      for (const i of this.heldBy(op, this.rockIn(op), this.cur)) held.add(i);
+      const kept = this.heldIn(op);
+      for (const i of this.heldBy(op, new Set([...kept.rock, ...kept.objects]), this.cur)) {
+        held.add(i);
+        if (kept.objects.has(i) && !kept.rock.has(i)) under.add(i);
+      }
       done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined));
       // later operations of the group may refer to what earlier ones made (a description makes nothing)
       if (op.op !== "setDescription") this.cur = this.rebuilt();
@@ -1516,7 +1533,7 @@ export class MapSession {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [lost], applied: [], dirty: null };
     }
-    return { ok: true, errors: [], applied: done, dirty: this.cur.dirty, ...(held.size ? { held: [...held].sort((a, b) => a - b) } : {}) };
+    return { ok: true, errors: [], applied: done, dirty: this.cur.dirty, ...(held.size ? { held: [...held].sort((a, b) => a - b), ...(under.size ? { heldUnder: under.size } : {}) } : {}) };
   }
 
   /** Crop map to selection (D340): the map becomes the rectangle, as the next generation (the cropped map as an

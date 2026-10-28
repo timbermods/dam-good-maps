@@ -179,9 +179,10 @@ export function roofHolders(t: SupportTerrain, columns: Iterable<number>): numbe
  *  - the top run of a tile of `columns` (a roof's top, which the brushes cut down to one above its own underside,
  *    D487): no lower than one above the highest underside of a run beside it that it reaches (a roof stepping up one
  *    layer to the next tile, an arch's span resting on the roof beside it).
- *  Every underside then keeps the ground beside it in its layer, and every other voxel the one under it, so, by
- *  induction up the layers, nothing a stroke leaves is held up less than before (an imported map's ground the game
- *  already drops aside). The page's stroke and the session's operation keep each of these and shape the rest. */
+ *  An underside beside a cave's or an overhang's run from z = 0 in its layer needs neither: no tool that shapes the top
+ *  reaches that run, so it holds that underside whatever is cut round it. Every underside then keeps the ground beside
+ *  it in its layer, and every other voxel the one under it, so, by induction up the layers, nothing a stroke leaves is
+ *  held up less than before (an imported map's ground the game already drops aside). The page's stroke and the session's operation keep each of these and shape the rest. */
 export function rockFloors(t: SupportTerrain, columns: Iterable<number>): [number, number][] {
   const { W, H, mask } = t;
   const ALL = (1 << LAYERS) - 1;
@@ -189,12 +190,19 @@ export function rockFloors(t: SupportTerrain, columns: Iterable<number>): [numbe
     const m = mask[i] & ALL;
     return m & ~(m + 1);
   };
-  /** The lowest layer of each run of tile i above its run from z = 0. */
+  const cols = new Set(columns);
+  /** The lowest layer of each run of tile i above its run from z = 0, but those a cave's or an overhang's run from z = 0
+   *  beside it holds in that layer: no tool that shapes the top reaches that run (a column's top run is above it), so
+   *  that underside stays held whatever the strokes do round it. */
   const undersides = (i: number) => {
     const upper = (mask[i] & ALL) & ~run(i);
-    return upper & ~(upper << 1);
+    let out = upper & ~(upper << 1);
+    if (!out) return 0;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const k of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1]) if (k >= 0 && cols.has(k) && (mask[k] & ALL) & ~run(k)) out &= ~run(k);
+    return out;
   };
-  const cols = new Set(columns);
   const low = new Map<number, number>();
   const keep = (j: number, reached: number) => {
     if (!reached) return;
@@ -213,7 +221,8 @@ export function rockFloors(t: SupportTerrain, columns: Iterable<number>): [numbe
     for (const j of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1]) {
       if (j < 0) continue;
       if (!cols.has(j)) keep(j, run(j) & under);
-      // (this tile's top run beside the undersides of the runs next to it, above its own underside)
+      // (this tile's top run beside the undersides of the runs next to it, above its own underside, where they
+      // need it)
       else if (top) keep(i, top & undersides(j) & ~(top & ~(top << 1)));
     }
   }

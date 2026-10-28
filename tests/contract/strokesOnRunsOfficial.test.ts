@@ -66,9 +66,9 @@ describe("the brushes on the official maps with caves (local only)", () => {
         expect(falls, k).toEqual([]);
         const u = s.apply({ op: "brush", params: { ...settings, dabs } as BrushParams });
         if (!u.ok) {
-          // (never for ground that would fall: only the last guard for an object under a roof the game would lose, D491,
-          // or a stroke over held ground alone that changes nothing)
-          expect(u.errors[0], k).toMatch(/^(it would leave .* the game would remove it|nothing to shape here: .*)$/);
+          // (never for ground that would fall, nor for an object under a roof or partly under one, whose ground the stroke
+          // holds (D491): only a stroke over held ground alone that changes nothing)
+          expect(u.errors[0], k).toMatch(/^nothing to shape here: .*$/);
           expect(Array.from(s.terrain.mask), k).toEqual(Array.from(states.at(-1)!));
           return;
         }
@@ -110,4 +110,21 @@ describe("the brushes on the official maps with caves (local only)", () => {
         expect(Array.from(s.terrain.mask), `undo to ${k}`).toEqual(Array.from(states[k]));
       }
     });
+
+  const canyon = MAPS.find(([n]) => n === "Canyon")![1];
+  it.skipIf(!canyon)("Canyon: a Lower cut round the badwater source partly under an overhang holds its ground and is taken (D491)", () => {
+    const s = MapSession.importMap(new Uint8Array(readFileSync(canyon!)), "Canyon.timber");
+    s.setWaterMode("defer");
+    const { x: W } = s.size;
+    const source = s.built.entities.find((e) => e.template === "BadwaterSource" && e.x === 14 && e.y === 19)!;
+    expect(source).toBeDefined();
+    // (its tiles in the open: (14, 19), (15, 19), (14, 20), (14, 21), at level 8; the rest under the overhang)
+    const open = [[14, 19], [15, 19], [14, 20], [14, 21]].map(([x, y]) => y * W + x);
+    const u = s.apply({ op: "brush", params: { tool: "lower", size: 1, strength: 5, shape: "area", target: 0, dabs: [42, 70, 74, 94] } });
+    expect(u.errors).toEqual([]);
+    for (const i of open) expect(s.built.heights[i]).toBe(8);
+    expect(u.held).toEqual(expect.arrayContaining(open));
+    expect(s.built.heights[19 * W + 13]).toBe(0);
+    expect(s.built.entities.find((e) => e.id === source.id)).toMatchObject({ x: 14, y: 19, z: 8 });
+  });
 });
