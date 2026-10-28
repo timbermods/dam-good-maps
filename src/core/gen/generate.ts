@@ -2071,8 +2071,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // water, and the pre-fill (the water the settle starts from, a build's cost, not a settle's)
       // found the same places. So a land the plan leaves no start, or one place, looks again on the
       // plan's water and the pre-fill's together before it is drawn again; a land whose plan has its
-      // places keeps them, and the start is found again on the settled water as ever.
-      if (!lastAttempt && (!found.first || (!found.second && ease < 2))) {
+      // places keeps them, and the start is found again on the settled water as ever. (At 128² and under,
+      // where a land stays hidden until its settled start is proved, SHOW_PROVED_MOST: above it the land is
+      // shown as it passes this stage, and a start the pre-fill promised that the settled water then
+      // moved held the shown land for its whole round, Any 256² at every setting's maximum seed 105 making
+      // no map in 64 attempts.)
+      if (!lastAttempt && N <= SHOW_PROVED_MOST && (!found.first || (!found.second && ease < 2))) {
         const bw = build(rivers, "water");
         const fill = prefill(waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }))).depth;
         const both = Float64Array.from(held, (v, i) => Math.max(v, fill[i]));

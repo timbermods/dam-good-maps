@@ -201,7 +201,9 @@ are recorded in M9A and [the earlier STATUS](archive/status-2026-10-01.md) "Prob
 - **Why Canyon and Highlands drew so many lands** (2026-10-27, seeds 1–30 at 128²): the land stage's "no start" (Canyon
   half its refusals) was mostly the plan's water, not the land: `plannedWater` runs streams under a pump's 0.35 and has
   none of the pools the settle backs up, so two in three Canyon lands refused for it had hundreds of places on their
-  settled water; the pre-fill (a build, no settle) finds the same places. Looking again with it (generator 0.10.5):
+  settled water; the pre-fill (a build, no settle) finds the same places. Looking again with it, at 128² and under
+  (above, the land is shown before its start is proved, and a start the settle then moved held Any 256² at every
+  setting's maximum to no map; generator 0.10.5):
   Canyon 11.3 → 3.8 attempts a map (first attempt 7% → 30%, median Generate 8.2 → 5.8 s), Highlands 9.9 → 6.8 (7% →
   10%, 9.5 → 7.5 s). Replanning a land's water after "no start" passes half as often as a fresh land (6% against 13%,
   Canyon) but costs only a little less, a wash once the pre-fill looks. Highlands' remaining refusals are mostly its
