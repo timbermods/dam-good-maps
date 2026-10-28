@@ -12,6 +12,8 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
+  // (a browser that has never had the first-keep note: the tests' stored state marks it shown)
+  await page.evaluate(() => localStorage.removeItem("dgm.keptNote"));
   await topDown(page);
 
   // one edit: a Lower stroke
@@ -95,6 +97,8 @@ test("with storage writes failing, neither note claims the map is kept: not the 
     };
   });
   await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
+  // (a browser that has never had the first-keep note: the tests' stored state marks it shown)
+  await page.evaluate(() => localStorage.removeItem("dgm.keptNote"));
   const claim = page.getByRole("status").filter({ hasText: /Kept in Your maps|is in Your maps/ });
   await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 44]], level: 15 } } as never, "Raise a tile"));
   await expect(page.getByRole("alert").filter({ hasText: /storage/i })).toBeVisible({ timeout: 60_000 });
