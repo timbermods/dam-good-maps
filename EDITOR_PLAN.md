@@ -322,11 +322,17 @@ place of its bottom rule.
     object stands there, exports there and a source there feeds the cave's water. At a level it stands wholly under
     the roof ("part of it would stand in the open" otherwise), out of every brush's and force's reach, and off the
     cells other objects hold there (a map object feature at a level too: `placing.ts` `objectCells`). An object
-    that reaches out of its roof (an imported badtide drain set in a cliff, its mouth over open ground) is held:
-    strokes, sculpts and forces keep the tiles that would bury it or leave it floating within a floor and ceiling
-    (`objects.ts` `objectHolds`; the stroke preview shows the same) and shape the rest as normal, never refused for
-    it (D270). A stroke or sculpt holds only the held tiles in its reach and one round it (the operation logs
-    them): ground elsewhere is left to the build as it was. A force's point on held ground is refused, naming the
+    that reaches out of its roof (an imported badtide drain set in a cliff, its mouth over open ground), one that
+    stands partly under a roof (an imported badwater source with some of its tiles under an overhang, a ruin
+    half under a ledge), or one partly on a run's top and partly on plain ground, is held: strokes, sculpts and
+    forces keep the ground under every part of it, the tiles that would bury it or leave it floating within a floor
+    and ceiling (`objects.ts` `objectHolds`; the stroke preview shows the same), and shape the rest as normal, never
+    refused for it (D270). An object wholly on open ground or wholly on run tops rides the ground instead. A stroke
+    or sculpt holds only the held tiles in its reach and one round it (the operation logs them): ground elsewhere is
+    left to the build as it was. Afterwards the tiles it kept from where it would have taken them are tinted with
+    the rock's (below), with one line: "3 tiles left as they are: an object under a roof stands on them", or, with
+    rock held too, "8 tiles left to hold up a cave or overhang and an object under a roof" (`ApplyResult.held`,
+    `heldUnder`). A force's point on held ground is refused, naming the
     place ("That ground keeps an object in place at X · Y: a force leaves it as it is"). Erode, which works under
     roofs, keeps the ground under every object: three levels down, and down to the map's bottom under the objects
     the game keeps only there (`rust/forces/src/erode.rs`). Only a stroke with nothing left to shape, or, as a last
@@ -822,11 +828,14 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   the ground beside a roof that holds it, no lower than one layer above the underside it holds (it may rise freely), a
   roof's top where the roof beside it rests on it, the same way, and the open ground of an object whose top holds a
   roof, exactly as it is (`terrain/support.ts` `rockFloors`, `MapSession.rockHolds`; the roof-holding ground the forces
-  and Select leave, with the floor it needs). The operation logs the held tiles in its reach and one round it (its
+  and Select leave, with the floor it needs). An underside a cave's own ground from the bottom holds beside it needs
+  neither: no tool that shapes the top reaches that ground. Where a roof is held from several sides each holder is still
+  kept, as the stroke being painted can't yet know which sides it will take. The operation logs the held tiles in its reach and one round it (its
   `hold`, beside D491's), so the project replays byte for byte and a log from before replays as it was. The page's
   stroke keeps the same ground while it is painted (`TerrainState.rockHold`), and afterwards the tiles held are tinted
   in the caves' violet, until the next edit, with one line: "12 tiles left high enough to hold up a cave or overhang"
-  (`ApplyResult.held`). Only a stroke over held ground alone that can change nothing is refused ("nothing to shape
+  (`ApplyResult.held`: the tiles the stroke, on the ground the build lets it shape, would have taken; a Naturalize
+  stroke leaves a start's pad, so the pad is never counted). Only a stroke over held ground alone that can change nothing is refused ("nothing to shape
   here: this ground holds up a cave's or an overhang's rock, which the edit leaves as it is"). Any edit that would
   still leave ground nothing holds up (the game's support rule) is refused with one line, "12 blocks of ground would
   fall: nothing would hold them up": a last guard no stroke reaches, and the rule for a force's result and a removed
