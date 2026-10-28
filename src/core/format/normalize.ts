@@ -15,7 +15,7 @@
 // - components 1.1 never reads (`DryObject`, `ContaminatedObject`,
 //   `NaturalResourceModelRandomizer`) are dropped. `StartingLocationPlayer` is kept: vanilla
 //   ignores it and Timber Together reads it (PLAN §20, D5, D36);
-// - the version becomes the native 1.1.2.4 stamp.
+// - the version becomes the native stamp (`GAME_VERSION`, 1.1.2.8).
 //
 // Everything else (unknown components and singletons, multi-slot water and moisture arrays, key
 // order, float text) passes through verbatim. Faction-only plants are flagged, not removed: the

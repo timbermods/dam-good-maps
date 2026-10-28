@@ -6,7 +6,7 @@ import { F, formatFloat, isObject, num, parse, stringify, type JsonObject, type 
 import { evapModifier } from "../sim/moisture";
 import type { TerrainColumns, WaterColumns } from "../sim/columns";
 
-export const GAME_VERSION = "1.1.2.4-52e959e-sw";
+export const GAME_VERSION = "1.1.2.8-ffc2de0-sw";
 export const LAYERS = 23; // MaxGameTerrainHeight 22 + 1
 export const MAX_OBJECT_Z = 33; // terrain layers + 10 above
 export const EDITOR_MAX_HEIGHT = 16;

@@ -1,7 +1,8 @@
 # The `.timber` map format (Timberborn 1.1)
 
 What a native Timberborn 1.1 map file contains, and what a generator must write so the game loads
-it without dropping anything. Verified against game build `1.1.2.4-52e959e-sw`. The sources are the
+it without dropping anything. Verified against game build `1.1.2.4-52e959e-sw`; the version rules (§2) checked
+again against `1.1.2.8-ffc2de0-sw`, the version written since. The sources are the
 game's decompiled loaders, its blueprints, the 19 official maps (saved by 1.1.2.1 and 1.1.2.3), 9
 workshop maps (0.6 to 1.0) and two 1.1.2.4 saves. The detailed evidence is in
 [investigation/notes/format_1_1.md](investigation/notes/format_1_1.md),
@@ -35,7 +36,8 @@ missing entry reads as empty.
 
 ## 2. `version.txt` and `GameVersion`
 
-Write `1.1.2.4-52e959e-sw` followed by `\r\n`, and the same string in `world.json` `GameVersion`.
+Write `1.1.2.8-ffc2de0-sw` followed by `\r\n`, and the same string in `world.json` `GameVersion` (the
+installed game's `Version.txt`; `GAME_VERSION` in `src/core/format/world.ts`).
 
 - The version is checked only when a map is picked in the menu or opened in the editor. On the
   stable (`-sw`) branch any 1.1.x map loads silently on any 1.1.x game. Maps older than 0.7.6.0
@@ -237,7 +239,7 @@ Nothing checks slope direction, water in cells, or reachability. The generator m
 
 | | 0.6 | 0.7 | 1.0 | 1.1 |
 |---|---|---|---|---|
-| Version string | `0.6.9.x-…` | `0.7.x-…` | `1.0.12.3-db72a8c-sw` | `1.1.2.x-…` (write `1.1.2.4-52e959e-sw`) |
+| Version string | `0.6.9.x-…` | `0.7.x-…` | `1.0.12.3-db72a8c-sw` | `1.1.2.x-…` (write `1.1.2.8-ffc2de0-sw`) |
 | Terrain | `TerrainMap.Heights` (2-D) | `Voxels` | `Voxels` | `Voxels`, exactly 23 layers |
 | `MapSize.MapHeight` | – | some maps (`{23,33}`) | `{23,33}` | **not written, ignored** |
 | Water column token | 4 fields | 4 fields | 4 fields | **5 fields** (adds `OldWaterDepth`) |
@@ -260,7 +262,7 @@ singleton set, component shapes, outflow format and metadata are otherwise ident
 
 1. Zip: `map_metadata.json`, `map_thumbnail.jpg` (960×540 JPEG), `version.txt`, `world.json`;
    Deflate; fixed entry dates if the file must be reproducible.
-2. `GameVersion` and `version.txt`: `1.1.2.4-52e959e-sw`.
+2. `GameVersion` and `version.txt`: `1.1.2.8-ffc2de0-sw`.
 3. Singletons as in §4.3, including `WaterSimulationMigrator {IsMigrated:true}`.
 4. Terrain: exactly 23 layers, height ≤ 16, layer 22 empty, no unsupported overhangs.
 5. Water: `Levels` ≥ the terrain's floors; all `"0"`, or settled columns with the 5-field token.

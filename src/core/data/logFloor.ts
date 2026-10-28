@@ -8,7 +8,7 @@
 
 import data from "./log-floor.json" with { type: "json" };
 
-/** The floor, in logs (178 for 1.1.2.4). */
+/** The floor, in logs (178 for 1.1.2.8, as for 1.1.2.4 and 1.1.2.7). */
 export const LOG_FLOOR: number = data.floor;
 
 /** The walk from the district center the floor's logs are counted within, in tiles (40). */
@@ -22,5 +22,5 @@ export const LOG_FLOOR_GAME_VERSION: string = data.gameVersion;
 export const LOGS_PER_TREE_SPECIES: Readonly<Record<string, number>> = data.logsPerTree;
 
 /** Whether a dead grown tree keeps its logs, by template (every tree that gives logs does in
- *  1.1.2.4; only the Succulent loses its yield when it dies, and it gives no logs). */
+ *  1.1.2.8; only the Succulent loses its yield when it dies, and it gives no logs). */
 export const DEAD_TREES_KEEP_LOGS: Readonly<Record<string, boolean>> = data.deadTreesKeepLogs;
