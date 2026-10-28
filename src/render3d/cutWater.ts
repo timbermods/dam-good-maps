@@ -14,6 +14,8 @@
 //
 // These functions are the shaders' rules in plain code, for the tests (tests/unit/cutWater.test.ts).
 
+import type { SurfaceWater } from "./model";
+
 /** How far over the cut a water surface may stand and still be drawn whole (the water's, the falls' and the ribbons'
  *  shaders, `soilOf`): a film lying on ground at the cut is drawn as it is. */
 export const CUT_SLACK = 0.05;
@@ -38,6 +40,22 @@ export function cutCornerDepth(depth: number, share: number, surface: number, dr
  *  water under a cut at `cut` (null: no cut): where the water over it is drawn (`surfaceAtCut`), its floor the top. */
 export function bedAtCut(top: number, surface: number, cut: number | null): boolean {
   return surface === surface && surfaceAtCut(top, surface, cut) !== null;
+}
+
+/** The water a tool stands on at tile `i` (a force's cursor, `pickSurface`; its ring): the tile's surface water as
+ *  drawn under a cut at `cut` (null: no cut), from the water view alone, never from a drawn mesh, so it is the same
+ *  whether or not the water's chunk is meshed yet; null where there is none to stand on (dry, a film, or the cut took it
+ *  all). With no cut, the surface wherever the water is over 0.05 deep, as before the cut drew water. */
+export function waterLevelAt(sw: Pick<SurfaceWater, "surface" | "floor" | "depth">, i: number, cut: number | null): number | null {
+  return sw.depth[i] > 0.05 ? surfaceAtCut(sw.floor[i], sw.surface[i], cut) : null;
+}
+
+/** The level a force's ring lies on at tile `i`: the ground (at most the cut), or the water drawn over it
+ *  (`waterLevelAt`). */
+export function ringLevelAt(heights: ArrayLike<number>, sw: Pick<SurfaceWater, "surface" | "floor" | "depth">, i: number, cut: number | null): number {
+  const top = cut === null ? heights[i] : Math.min(heights[i], cut);
+  const water = waterLevelAt(sw, i, cut);
+  return water === null ? top : Math.max(top, water);
 }
 
 /** What a fall draws under a cut at `cut` (null: no cut), its lip at `lip` (the higher end's) and its pool at `pool`:

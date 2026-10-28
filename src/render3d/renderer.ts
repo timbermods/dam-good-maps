@@ -78,7 +78,7 @@ import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
-import { surfaceAtCut } from "./cutWater";
+import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
@@ -3058,13 +3058,8 @@ export class MapRenderer {
       if (!s) return;
       this.ring = new ForceRing(this.scene);
     }
-    const level = (tx: number, ty: number) => {
-      const i = ty * m.W + tx;
-      const top = this.slice === null ? m.heights[i] : Math.min(m.heights[i], this.slice);
-      // (the water as drawn: under a layer cut through it, at the cut, cutWater.ts)
-      const water = m.surface.depth[i] > 0.05 ? surfaceAtCut(m.surface.floor[i], m.surface.surface[i], this.slice) : null;
-      return water === null ? top : Math.max(top, water);
-    };
+    // (the water as drawn: under a layer cut through it, at the cut; from the water view, cutWater.ts)
+    const level = (tx: number, ty: number) => ringLevelAt(m.heights, m.surface, ty * m.W + tx, this.slice);
     this.ring.set(s, level, m.W, m.H);
     this.requestRender();
   }
@@ -3610,9 +3605,9 @@ export class MapRenderer {
     const m = this.map;
     if (!hit || !m) return hit;
     const i = hit.y * m.W + hit.x;
-    if (!(m.surface.depth[i] > 0.05)) return hit;
-    // (the water as drawn: under a layer cut through it, at the cut; none where the cut took it all, cutWater.ts)
-    const level = surfaceAtCut(m.surface.floor[i], m.surface.surface[i], this.slice);
+    // (the water as drawn: under a layer cut through it, at the cut; none where the cut took it all; from the water view,
+    // never a mesh, cutWater.ts)
+    const level = waterLevelAt(m.surface, i, this.slice);
     if (level === null) return hit;
     const ray = this.rayAt(clientX, clientY);
     // (only where the ray meets the water before the ground: a roof over a cave's water keeps its own hit)
