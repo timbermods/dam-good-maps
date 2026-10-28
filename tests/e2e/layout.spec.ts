@@ -536,9 +536,17 @@ for (const [w, h] of [[1280, 800], [1300, 900]] as [number, number][]) {
 // A name kept at 1280 is shown whole at every wider width (the header's right group grows at 1,340 and 1,400px: Look's state,
 // Together's icon and its word): the typing limit measures the room the name will have there, under Segoe UI and under a
 // wide font with no Look button alike, and keeps as much typed in a wide window as at 1280.
-for (const wide of [false, true]) {
-  test(`the longest name kept at 1280 is shown whole in two lines at every wider width${wide ? ", under a wide font and with no Look button" : ""}`, async ({ page }) => {
+for (const look of ["standard", "wide", "high"] as const) {
+  const wide = look === "wide";
+  const named = { standard: "", wide: ", under a wide font and with no Look button", high: ", under the High look (its button as wide as Standard's)" }[look];
+  test(`the longest name kept at 1280 is shown whole in two lines at every wider width${named}`, async ({ page }) => {
     test.setTimeout(300_000);
+    // (the High look held, where the browser draws in software as on a GPU: CI's has none)
+    if (look === "high")
+      await page.addInitScript(() => {
+        (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true };
+        localStorage.setItem("dgm.look", "high");
+      });
     if (wide)
       await page.addInitScript(() => {
         const sheet = new CSSStyleSheet();
@@ -549,6 +557,7 @@ for (const wide of [false, true]) {
     await page.setViewportSize({ width: 1280, height: 800 });
     await openEditor(page);
     const header = page.locator("header.editor-bar");
+    if (look === "high") await expect(header.getByRole("button", { name: "Look: High" })).toBeVisible({ timeout: 60_000 });
     await header.locator(".editor-title .title-button").click();
     await page.keyboard.press("Control+A");
     await page.keyboard.type("Where the Long Winding River Meets Again And Again And Again");
