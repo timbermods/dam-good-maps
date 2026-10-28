@@ -13,11 +13,12 @@
 // it keeps changing), never on the page's thread: the page only hands the arrays to the GPU. Only
 // drawn; nothing here reaches the water, a map or an operation.
 
-import { BufferAttribute, BufferGeometry, Data3DTexture, DataTexture, DoubleSide, FloatType, LinearFilter, Mesh, NearestFilter, Points, RGBAFormat, ShaderMaterial, UnsignedByteType, Vector2, type Scene } from "three";
+import { BufferAttribute, BufferGeometry, Data3DTexture, DataTexture, DoubleSide, FloatType, LinearFilter, Mesh, NearestFilter, Points, RedFormat, RGBAFormat, ShaderMaterial, UnsignedByteType, Vector2, type Scene } from "three";
 import { caveCurrentTexture, noCaveCurrent, type SceneUniforms } from "./materials";
 import type { SurfaceWater } from "./model";
 import type { CaveCurrent } from "./caveCurrent";
-import { DT, STEPS, type MotionShapes } from "./motionShapes";
+import { DT, RIBBON_LIFT, STEPS, SURFACE_LIFT, type MotionShapes } from "./motionShapes";
+import { CUT_SLACK } from "./cutWater";
 import { outflowGrid } from "./current";
 import { canShare, SharedBlock, sharedCopies } from "./shared";
 import type { Baker } from "./high/fields";
@@ -52,22 +53,30 @@ function cueMaterial(u: SceneUniforms, high: { value: number }, viewport: { valu
     vertexShader: /* glsl */ `
       uniform vec2 viewport;
       uniform float dpr;
+      uniform float slice;
       attribute vec3 direction;
       attribute vec4 detail;
       attribute vec4 energy;
+      attribute float wfloor;
       varying vec4 d;
       varying vec4 e;
       varying float y;
       void main() {
-        vec4 clip = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        vec4 across = projectionMatrix * modelViewMatrix * vec4(position + direction * energy.w, 1.0);
+        // (the game's layers, cutWater.ts: on water sliced by the cut, on the cut; y the water's surface it lies on)
+        vec3 at = position;
+        y = at.y - ${RIBBON_LIFT.toFixed(3)};
+        if (y > slice + ${CUT_SLACK.toFixed(2)} && wfloor < slice) {
+          y = slice;
+          at.y = slice + ${RIBBON_LIFT.toFixed(3)};
+        }
+        vec4 clip = projectionMatrix * modelViewMatrix * vec4(at, 1.0);
+        vec4 across = projectionMatrix * modelViewMatrix * vec4(at + direction * energy.w, 1.0);
         vec2 offset = (across.xy / across.w - clip.xy / clip.w) * viewport * 0.5;
         float pixels = clamp(length(offset), 0.72 * dpr, 1.8 * dpr);
         clip.xy += normalize(offset + vec2(0.00001)) * pixels * detail.y * 2.0 / viewport * clip.w;
         gl_Position = clip;
         d = detail;
         e = energy;
-        y = position.y;
       }
     `,
     fragmentShader: /* glsl */ `
@@ -79,7 +88,7 @@ function cueMaterial(u: SceneUniforms, high: { value: number }, viewport: { valu
       varying float y;
       void main() {
         // (the game's layers: water above the slice is cut away)
-        if (y > slice + 0.05) discard;
+        if (y > slice + ${CUT_SLACK.toFixed(2)}) discard;
         float phase = fract((d.x - time) / 10.0 + e.z);
         float body = smoothstep(0.0, 0.20, phase) * (1.0 - smoothstep(0.27, 0.34, phase));
         float tail = mix(0.25, 1.0, smoothstep(0.0, 0.23, phase));
@@ -107,10 +116,12 @@ function streakMaterial(u: SceneUniforms, viewport: { value: Vector2 }, dpr: { v
     transparent: true,
     depthTest: true,
     depthWrite: false,
-    uniforms: { paths: { value: null }, rows: { value: 1 }, time: u.time, slice: u.slice, viewport, dpr },
+    uniforms: { paths: { value: null }, floors: { value: null }, rows: { value: 1 }, time: u.time, slice: u.slice, viewport, dpr },
     vertexShader: /* glsl */ `
       uniform sampler2D paths;
+      uniform sampler2D floors;
       uniform float rows;
+      uniform float slice;
       uniform float time;
       uniform float dpr;
       uniform vec2 viewport;
@@ -120,7 +131,13 @@ function streakMaterial(u: SceneUniforms, viewport: { value: Vector2 }, dpr: { v
       varying float bad;
       varying float rush;
       varying float y;
-      vec4 at(float k) { return texture2D(paths, vec2((k + 0.5) / ${STEPS}.0, (track.x + 0.5) / rows)); }
+      /** A lane's point k: on water sliced by the cut (cutWater.ts), on the cut. */
+      vec4 at(float k) {
+        vec2 uv = vec2((k + 0.5) / ${STEPS}.0, (track.x + 0.5) / rows);
+        vec4 q = texture2D(paths, uv);
+        if (q.y - ${SURFACE_LIFT.toFixed(3)} > slice + ${CUT_SLACK.toFixed(2)} && texture2D(floors, uv).r < slice) q.y = slice + ${SURFACE_LIFT.toFixed(3)};
+        return q;
+      }
       void main() {
         float age = mod(time + track.z, track.y);
         float f = age / ${DT};
@@ -135,7 +152,7 @@ function streakMaterial(u: SceneUniforms, viewport: { value: Vector2 }, dpr: { v
         heading = length(direction) > 0.0001 ? normalize(direction) : vec2(1.0, 0.0);
         rush = smoothstep(0.1, 3.0, length(b.xz - a.xz) / ${DT});
         bad = p.w;
-        y = p.y;
+        y = p.y - ${SURFACE_LIFT.toFixed(3)};
         float ends = min(0.6, track.y * ${DT});
         fade = smoothstep(0.0, ends, age) * smoothstep(0.0, ends, track.y - age);
         gl_Position = clip;
@@ -150,7 +167,7 @@ function streakMaterial(u: SceneUniforms, viewport: { value: Vector2 }, dpr: { v
       varying float rush;
       varying float y;
       void main() {
-        if (y > slice + 0.05) discard;
+        if (y > slice + ${CUT_SLACK.toFixed(2)}) discard;
         vec2 p = gl_PointCoord - 0.5;
         p.y = -p.y;
         vec2 q = vec2(dot(p, heading), dot(p, vec2(-heading.y, heading.x)));
@@ -349,6 +366,7 @@ export class WaterMotion {
     cues.setAttribute("direction", new BufferAttribute(s.cues.direction, 3));
     cues.setAttribute("detail", new BufferAttribute(s.cues.detail, 4));
     cues.setAttribute("energy", new BufferAttribute(s.cues.energy, 4));
+    cues.setAttribute("wfloor", new BufferAttribute(s.cues.floor, 1));
     this.cues.geometry.dispose();
     this.cues.geometry = cues;
     const streaks = new BufferGeometry();
@@ -362,6 +380,11 @@ export class WaterMotion {
     paths.needsUpdate = true;
     (m.uniforms.paths.value as DataTexture | null)?.dispose();
     m.uniforms.paths.value = paths;
+    const floors = new DataTexture(s.streaks.floors, STEPS, s.streaks.rows, RedFormat, FloatType);
+    floors.minFilter = floors.magFilter = NearestFilter;
+    floors.needsUpdate = true;
+    (m.uniforms.floors.value as DataTexture | null)?.dispose();
+    m.uniforms.floors.value = floors;
     m.uniforms.rows.value = s.streaks.rows;
     this.stats = s.stats;
     this.streaks.visible = this.flowOn && s.stats.streaks > 0;
@@ -398,6 +421,7 @@ export class WaterMotion {
     this.streaks.geometry.dispose();
     const m = this.streaks.material as ShaderMaterial;
     (m.uniforms.paths.value as DataTexture | null)?.dispose();
+    (m.uniforms.floors.value as DataTexture | null)?.dispose();
     m.dispose();
     this.flow.dispose();
     this.rough.dispose();

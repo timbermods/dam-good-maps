@@ -31,6 +31,9 @@ export interface WaterMeshData {
   data: Float32Array;
   /** Foam flags per vertex (SHORE_BITS, FALL_IN_BITS, LIP_BITS). */
   flags: Float32Array;
+  /** Per vertex, for a layer cut (cutWater.ts): the floor of its column, and on a top the corner's wet share (the share
+   *  of the tiles its depth is shared with that are water, `corner`), 1 on a side. */
+  cut: Float32Array;
   /** Axis normal per vertex. */
   normals: Int8Array;
   indices: Uint32Array;
@@ -47,17 +50,17 @@ class WaterBuffer {
   data: number[] = [];
   nrm: number[] = [];
   flg: number[] = [];
+  cut: number[] = [];
   quads = 0;
   /** The falls (falls.ts `pushFall`), FALL_STRIDE floats each. */
   falls: number[] = [];
-  quad(c: number[], depth: number, cont: number, nx: number, ny: number, nz: number, flags = 0): void {
-    this.quad4(c, [depth, depth, depth, depth], [cont, cont, cont, cont], nx, ny, nz, flags);
-  }
-  /** A quad with its own depth and badwater share at each corner. */
-  quad4(c: number[], depth: readonly number[], cont: readonly number[], nx: number, ny: number, nz: number, flags = 0): void {
+  /** A quad of a column on `floor` with its own depth, badwater share and wet share (`WaterMeshData.cut`) at each
+   *  corner. */
+  quad4(c: number[], depth: readonly number[], cont: readonly number[], floor: number, share: readonly number[], nx: number, ny: number, nz: number, flags = 0): void {
     for (let k = 0; k < 12; k++) this.pos.push(c[k]);
     for (let v = 0; v < 4; v++) {
       this.data.push(depth[v], cont[v]);
+      this.cut.push(floor, share[v]);
       this.nrm.push(nx * 127, ny * 127, nz * 127);
       this.flg.push(flags);
     }
@@ -71,7 +74,7 @@ class WaterBuffer {
       indices.set([v, v + 1, v + 2, v, v + 2, v + 3], q * 6);
     }
     const falls = new Float32Array(this.falls);
-    return { positions: new Float32Array(this.pos), data: new Float32Array(this.data), flags: new Float32Array(this.flg), normals: new Int8Array(this.nrm), indices, quads: n, falls, fallCount: falls.length / FALL_STRIDE };
+    return { positions: new Float32Array(this.pos), data: new Float32Array(this.data), flags: new Float32Array(this.flg), cut: new Float32Array(this.cut), normals: new Int8Array(this.nrm), indices, quads: n, falls, fallCount: falls.length / FALL_STRIDE };
   }
 }
 
@@ -213,8 +216,9 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
   blendInto(bad, W, H, sw, x0 - BLEND_WINDOW, y0 - BLEND_WINDOW, x1 + BLEND_WINDOW - 1, y1 + BLEND_WINDOW - 1);
   /** A top's corner (tile-corner coordinates) shares the water of the tiles round it at its own
    *  level: their mean depth, dry ground counting as none (so the water thins toward the shore),
-   *  and their mean blended badwater share (so the colour runs on smoothly across the tile). */
-  const corner = (cxx: number, cyy: number, s: number, d: number, c: number): [number, number] => {
+   *  and their mean blended badwater share (so the colour runs on smoothly across the tile); and the
+   *  share of those tiles that are water (a layer cut takes its depth off theirs only, cutWater.ts). */
+  const corner = (cxx: number, cyy: number, s: number, d: number, c: number): [number, number, number] => {
     let dn = 0;
     let ds = 0;
     let cn = 0;
@@ -232,7 +236,7 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
           cs += bad[j];
         } else if (heights[j] >= s - 0.05) dn++;
       }
-    return [dn ? ds / dn : d, cn ? cs / cn : c];
+    return [dn ? ds / dn : d, cn ? cs / cn : c, dn ? cn / dn : 1];
   };
   /** What stands at a neighbour: its water surface, else its ground; off the map, nothing. */
   const level = (x: number, y: number): number => {
@@ -273,12 +277,13 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
         const c1 = k1[1];
         const c2 = k2[1];
         const c3 = k3[1];
-        b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], 0, 1, 0, flags);
+        b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], f, [k0[2], k1[2], k2[2], k3[2]], 0, 1, 0, flags);
         // curtains toward lower neighbours: down to the ground (never below the floor), or to the
         // water just below, in front of the cliff where it stands below the floor; each with the
         // badwater share of the top's edge it hangs from. Where the water falls into water well
         // below, the fall pours from the lip instead (above)
         const dd = [d, d, d, d];
+        const side = [1, 1, 1, 1];
         const drop = (xx: number, yy: number): number => {
           const lv = level(xx, yy);
           if (!(lv < s - STEP)) return NaN;
@@ -291,22 +296,22 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
         const e = drop(x + 1, y);
         if (e === e) {
           const X = e < f ? x + 1 + O : x + 1;
-          b.quad4([X, e, -y, X, e, -(y + 1), X, s, -(y + 1), X, s, -y], dd, [c1, c2, c2, c1], 1, 0, 0, dropFlags(s, e, x + 1 >= W));
+          b.quad4([X, e, -y, X, e, -(y + 1), X, s, -(y + 1), X, s, -y], dd, [c1, c2, c2, c1], f, side, 1, 0, 0, dropFlags(s, e, x + 1 >= W));
         }
         const wv = drop(x - 1, y);
         if (wv === wv) {
           const X = wv < f ? x - O : x;
-          b.quad4([X, wv, -(y + 1), X, wv, -y, X, s, -y, X, s, -(y + 1)], dd, [c3, c0, c0, c3], -1, 0, 0, dropFlags(s, wv, x === 0));
+          b.quad4([X, wv, -(y + 1), X, wv, -y, X, s, -y, X, s, -(y + 1)], dd, [c3, c0, c0, c3], f, side, -1, 0, 0, dropFlags(s, wv, x === 0));
         }
         const n = drop(x, y + 1);
         if (n === n) {
           const Z = n < f ? -(y + 1) - O : -(y + 1);
-          b.quad4([x + 1, n, Z, x, n, Z, x, s, Z, x + 1, s, Z], dd, [c2, c3, c3, c2], 0, 0, -1, dropFlags(s, n, y + 1 >= H));
+          b.quad4([x + 1, n, Z, x, n, Z, x, s, Z, x + 1, s, Z], dd, [c2, c3, c3, c2], f, side, 0, 0, -1, dropFlags(s, n, y + 1 >= H));
         }
         const so = drop(x, y - 1);
         if (so === so) {
           const Z = so < f ? -y + O : -y;
-          b.quad4([x, so, Z, x + 1, so, Z, x + 1, s, Z, x, s, Z], dd, [c0, c1, c1, c0], 0, 0, 1, dropFlags(s, so, y === 0));
+          b.quad4([x, so, Z, x + 1, so, Z, x + 1, s, Z, x, s, Z], dd, [c0, c1, c1, c0], f, side, 0, 0, 1, dropFlags(s, so, y === 0));
         }
       }
     }
