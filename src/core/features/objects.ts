@@ -261,9 +261,13 @@ export function openPart(tiles: readonly (readonly [number, number])[], z: numbe
  *  go, as [tile, low, high], ascending by tile. A stroke, a sculpt and a force keep each tile within
  *  them and shape the rest as normal (the brushes' `hold`), so no edit buries such an object or
  *  leaves it floating: under its own block the ground stays (low = high), beside a block above the
- *  ground the surface may rise up to it. The objects are those standing below the ground's top at
- *  their Coordinates (an object on a top rides it, as on open ground) that the game keeps there.
- *  `entities` carry their placement (x, y, z, orientation, flipped). */
+ *  ground the surface may rise up to it. The objects are those the game keeps where they stand that
+ *  stand under a roof in part or whole (a block below its tile's top: a cave's floor, the ground under
+ *  a ledge, a badwater source with some of its tiles under an overhang), and those standing partly on a
+ *  run's top and partly on plain ground: a stroke would move those two grounds apart, as the roof's top
+ *  goes no lower than its floor (D487), and the game would drop the object. An object wholly on open
+ *  ground, or wholly on run tops, rides it. `entities` carry their placement (x, y, z, orientation,
+ *  flipped). */
 export function objectHolds(
   entities: readonly { template: string; x: number; y: number; z: number; orientation: Orientation; flipped?: boolean }[],
   g: StandGround & { heights: ArrayLike<number> },
@@ -271,11 +275,17 @@ export function objectHolds(
   const { W, H, heights } = g;
   const lo = new Map<number, number>();
   const hi = new Map<number, number>();
+  const inMap = (b: { x: number; y: number }) => b.x >= 0 && b.y >= 0 && b.x < W && b.y < H;
   for (const e of entities) {
-    if (e.x < 0 || e.y < 0 || e.x >= W || e.y >= H || !(e.z < heights[e.y * W + e.x])) continue;
+    if (e.x < 0 || e.y < 0 || e.x >= W || e.y >= H) continue;
     const fp = FOOTPRINTS[e.template];
-    if (!fp || standProblem(e.template, e, g)) continue;
-    for (const b of worldBlocks(fp, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: !!e.flipped })) {
+    if (!fp) continue;
+    const blocks = worldBlocks(fp, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: !!e.flipped });
+    // (under a roof in part or whole, or partly on a run's top and partly on plain ground)
+    const under = blocks.some((b) => inMap(b) && b.z < heights[b.y * W + b.x]);
+    const mixed = !under && blocks.some((b) => inMap(b) && !isPlainColumn(g.mask[b.y * W + b.x])) && blocks.some((b) => inMap(b) && isPlainColumn(g.mask[b.y * W + b.x]));
+    if ((!under && !mixed) || standProblem(e.template, e, g)) continue;
+    for (const b of blocks) {
       const i = b.y * W + b.x;
       const h = heights[i];
       // (a block under the tile's top run is under a roof there: the tools shape only the roof's top)

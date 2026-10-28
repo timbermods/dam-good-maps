@@ -14,7 +14,7 @@ import { generate } from "../../src/core/gen/generate";
 import { tilesToRuns } from "../../src/core/math/grid";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { unsupportedVoxels } from "../../src/core/terrain/support";
-import { rockHeldWords } from "../../src/editor/caveWords";
+import { heldWords } from "../../src/editor/caveWords";
 import { CAVE_W as W, CAVE_H as H, caveSession } from "./caveMap";
 
 const tile = (x: number, y: number, w = W) => [4 * x + 2, 4 * y + 2].map((v) => Math.min(4 * w - 1, v));
@@ -43,8 +43,8 @@ describe("strokes hold a cave's or an overhang's rock (D280 (3), amended)", () =
     expect(u.errors).toEqual([]);
     const edge = [10, 11, 12, 13, 14].map((y) => at(29, y));
     expect(u.held).toEqual(edge);
-    expect(rockHeldWords(u.held!.length)).toBe("5 tiles left high enough to hold up a cave or overhang");
-    expect(rockHeldWords(1)).toBe("1 tile left high enough to hold up a cave or overhang");
+    expect(heldWords(u.held!.length)).toBe("5 tiles left high enough to hold up a cave or overhang");
+    expect(heldWords(1)).toBe("1 tile left high enough to hold up a cave or overhang");
     for (let y = 9; y <= 15; y++)
       for (let x = 26; x <= 29; x++) expect(s.built.heights[at(x, y)], `(${x}, ${y})`).toBe(edge.includes(at(x, y)) ? 6 : 0);
     // (the ledge stands whole, nothing the game would drop, and the page showed exactly this land as it was painted)

@@ -155,9 +155,11 @@ export interface SessionUpdate extends ViewNews {
   ms: number;
   /** The instant checks after the change (PLAN §19.5): null when nothing changed. */
   instant?: InstantCheck | null;
-  /** A brush stroke or a sculpt on a map with caves or overhangs: the tiles holding up their rock it kept from where
-   *  it would have taken them (core/doc/session.ts `ApplyResult.held`). */
+  /** A brush stroke or a sculpt on a map with caves or overhangs: the tiles holding up their rock, or an object under a
+   *  roof, it kept from where it would have taken them, and how many of them hold an object alone (core/doc/session.ts
+   *  `ApplyResult.held`, `heldUnder`). */
   held?: number[];
+  heldUnder?: number;
   /** A Select action on a map with caves: how many of its tiles it left as they are (core/doc/start.ts `applySelection`). */
   left?: number;
   /** A shared session's answer to an edit (worker/collabEdit.ts): the session ordered it or refused it, and the map's news comes
@@ -1814,12 +1816,13 @@ export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): Se
   const refused = newRampedStroke(op);
   if (refused) return changed(s, false, [refused], t0);
   const r = s.apply(op, origin, label);
-  return withHeld(changed(s, r.ok, r.errors, t0), r.held);
+  return withHeld(changed(s, r.ok, r.errors, t0), r);
 }
 
-/** An answer with the tiles holding up a cave's or an overhang's rock the edit kept (`SessionUpdate.held`). */
-function withHeld(u: SessionUpdate, held: number[] | undefined): SessionUpdate {
-  return held?.length ? { ...u, held } : u;
+/** An answer with the tiles holding up a cave's or an overhang's rock, or an object under a roof, the edit kept
+ *  (`SessionUpdate.held`). */
+function withHeld(u: SessionUpdate, r: { held?: number[]; heldUnder?: number }): SessionUpdate {
+  return r.held?.length ? { ...u, held: r.held, ...(r.heldUnder ? { heldUnder: r.heldUnder } : {}) } : u;
 }
 
 // (a new ramped Flatten is refused: core/doc/strokes.ts `newRampedStroke`)
@@ -1852,7 +1855,7 @@ export function applyAll(ops: EditOp[], label: string, origin: OpOrigin = "user"
   if (blocked) return changed(s, false, [blocked], t0);
   // (a badwater source in the group cuts its spring pool: core/doc/placing.ts `withSpringPools`)
   const r = s.applyAll(withSpringPools(s, ops), origin, label);
-  return withHeld(changed(s, r.ok, r.errors, t0), r.held);
+  return withHeld(changed(s, r.ok, r.errors, t0), r);
 }
 
 export function undo(): SessionUpdate {
@@ -2316,7 +2319,7 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
   const p = planStrokeClearing(s, op, label, tiles);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = p.cleared ? s.applyAll(p.ops, "user", p.label) : s.apply(op, "user", label);
-  return withHeld(changed(s, r.ok, r.errors, t0), r.held);
+  return withHeld(changed(s, r.ok, r.errors, t0), r);
 }
 
 /** Move a placed object (a mine site, a relic, a geothermal field, a natural dam, a blockage) by (dx, dy)
