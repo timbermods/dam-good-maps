@@ -103,9 +103,6 @@ import { focusLost } from "./focusLost";
 
 ColorManagement.enabled = false;
 
-/** How long after the Block tool sends an edit its land may come and still glow as its own (a refused one sends none). */
-const BLOCK_EDIT_MS = 4000;
-
 /** How long after a map is drawn the programs an edit could need start compiling in the background (scheduleWarm). */
 const WARM_AFTER_MS = 500;
 
@@ -2914,20 +2911,22 @@ export class MapRenderer {
   /** Erode is at work (its moment's cues come with its frames). */
   private eroding = false;
 
-  /** When the Block tool last sent an edit (`blockEditSent`); -Infinity once its land came or its answer did. */
-  private blockSentAt = -Infinity;
+  /** The Block tool's edit is on its way (`blockEditSent`): from when it goes to the worker until its land comes or
+   *  its answer does. No clock: on a slow machine, or behind a busy worker, the answer can take seconds, and its land
+   *  still glows when it comes. */
+  private blockSent = false;
 
-  /** The Block tool sent a `blocks` operation: the land that comes next is its own, and glows on plain ground too (a
-   *  brush paints its land as it goes and a force has its own moment, D197, D240, so neither is doubled). `false`: its
-   *  answer came (taken, refused or failed), so no land coming after is its own. */
+  /** The Block tool is sending a `blocks` operation: the land that comes with its answer is its own, and glows on plain
+   *  ground too (a brush paints its land as it goes and a force has its own moment, D197, D240, so neither is doubled).
+   *  `false`: its answer came (taken, refused or failed), so no land coming after is its own. */
   blockEditSent(sent = true): void {
-    this.blockSentAt = sent ? performance.now() : -Infinity;
+    this.blockSent = sent;
   }
 
-  /** The land coming now is the Block tool's edit (sent a moment ago, its land not come yet): taken once. */
+  /** The land coming now is the Block tool's edit (sent, its land not come yet): taken once. */
   private blockEdit(): boolean {
-    const yes = performance.now() - this.blockSentAt < BLOCK_EDIT_MS;
-    this.blockSentAt = -Infinity;
+    const yes = this.blockSent;
+    this.blockSent = false;
     return yes;
   }
 

@@ -76,6 +76,9 @@ export const STATUS_COLOR: Record<"ok" | "warn" | "blocked", Rgba> = { ok: GOOD,
 /** The start's ghost tint by its status: true green, "warn" amber, false red. */
 export const GHOST_OK: Record<"ok" | "warn" | "blocked", boolean | "warn"> = { ok: true, warn: "warn", blocked: false };
 export const PROBLEM: Rgba = [230, 60, 50, 150];
+/** The ground a stroke kept to hold up a cave's or an overhang's rock (D280 (3), amended by #623): the caves
+ *  layer's violet (panels.tsx `LAYER_COLORS.roofed`). */
+export const HELD: Rgba = [170, 90, 220, 150];
 /** The locked land outside the working area (D254): dimmed. */
 export const LOCKED: Rgba = [16, 20, 28, 120];
 

@@ -645,9 +645,11 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   before or after (stored masks, not reshaped to the heights, so a roof's top a stroke painted first still counts): a
   Block dig or overhang, an Erode cave, a stroke or a Select action that reshapes a roof's top (D487), their undo and
   redo, a History jump. On plain tiles, only the Block tool's edits and Erode's frames: the Block tool says so as it
-  sends its operation (`renderer.blockEditSent()` in `useBlockTool.ts` `commit`), and the next land that comes within
-  4 s takes it; once the operation's answer is back (taken, refused or failed) the word is dropped
-  (`blockEditSent(false)`), so a refused edit never lends it to a change that lands after; Erode's frames' plain ground is painted through `flushTerrain` while its moment plays.
+  sends its operation to the worker (`renderer.blockEditSent()` in `useBlockTool.ts` `commit`, once the edits queued
+  before it have landed), and the next land that comes takes it, however long the answer takes (no clock: on CI's
+  software drawing a Block click's answer came after the 4 s an earlier stamp allowed, and glowed nothing); once the
+  operation's answer is back (taken, refused or failed) the word is dropped (`blockEditSent(false)`), so a refused edit
+  never lends it to a change that lands after; Erode's frames' plain ground is painted through `flushTerrain` while its moment plays.
   Plain heightfield edits otherwise get nothing, the Block tool in hand or not: a brush paints its land as it goes
   (D197), a Select action is the selection's own, and the other forces have their own moments (D240), so nothing is
   doubled. Compare's flip to another version and back is not an edit: `useCompare.tsx` asks for its land with
@@ -665,7 +667,9 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   fade); `tests/e2e/editGlow.spec.ts` (a plain edit draws nothing; a dig into a wall glows on the hollow's 5 faces and is
   gone after it fades; its undo glows the block put back; with reduced motion it holds still, then goes; the Block
   tool's click on flat ground glows its block's 5 faces, while a plain edit with the Block tool in hand and a Compare
-  flip and back glow nothing; a Block click the core refuses, then a plain edit within the 4 s, glows nothing).
+  flip and back glow nothing, the click's answer held back 5 s; a Block click the core refuses, then a plain edit a
+  moment later, glows nothing). The spec watches the glow in every frame from before each edit (`watchGlow`): on a slow
+  machine the glow can show and go while a poll from the test still waits for the edit's answer.
 - **Captures:** `docs/sheets/3d-edits-show.jpg` (`tools/capture-edits-show.ts`, real Chrome on the RTX 2070 SUPER):
   before, just after (the glow held at full for the shot) and a second later; a Block dig into a cliff, an overhang built out of it, a Block tool click on
   the plain ground at its foot and an Erode click on its face (Highlands 128 seed 12); a dig into a cave's wall under a

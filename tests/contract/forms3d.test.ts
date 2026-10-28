@@ -5,11 +5,12 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
+import { buildMap, type GeneratedField } from "../../src/core/features/build";
 import { generate } from "../../src/core/gen/generate";
 import { standProblem } from "../../src/core/features/objects";
 import { FORMS, type FormId } from "../../src/core/land/forms3d";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { ColumnTerrain } from "../../src/core/terrain/runs";
+import { bottomRunTop, ColumnTerrain, isPlainMask, terrainColumns } from "../../src/core/terrain/runs";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
@@ -65,6 +66,49 @@ describe("a generated map's 3D forms (D488)", () => {
     expect(on.ok).toBe(false);
     expect(on.errors[0]).toMatch(/a water source stands there/i);
     expect(s.built.entities.some((e) => e.id === src.id && e.x === src.x && e.y === src.y)).toBe(true);
+    // beside it, on the cave's floor under the same rock, the relic stands: the nearest dry floor tile
+    // under a roof that takes it (each refused one names why, before anything is built)
+    const near: number[] = [];
+    for (let y = src.y - 8; y <= src.y + 8; y++)
+      for (let x = src.x - 8; x <= src.x + 8; x++) if (x >= 0 && y >= 0 && x < 96 && y < 96 && (x !== src.x || y !== src.y) && !isPlainMask(mask[y * 96 + x])) near.push(y * 96 + x);
+    near.sort((a, b) => Math.max(Math.abs((a % 96) - src.x), Math.abs(Math.floor(a / 96) - src.y)) - Math.max(Math.abs((b % 96) - src.x), Math.abs(Math.floor(b / 96) - src.y)) || a - b);
+    let placed: { x: number; y: number; z: number } | null = null;
+    for (const i of near) {
+      const x = i % 96;
+      const y = Math.floor(i / 96);
+      const z = bottomRunTop(mask[i]);
+      const at = s.apply({ ...relic(x, y), params: { feature: { ...relic(x, y).params.feature, params: { kind: "relicSmall", placement: { x, y, orientation: "Cw0", z } } } } } as never);
+      if (at.ok) {
+        placed = { x, y, z };
+        break;
+      }
+    }
+    expect(placed).not.toBeNull();
+    const e = s.built.entities.find((x) => x.template === "SmallRelic" && x.x === placed!.x && x.y === placed!.y)!;
+    expect(e.z).toBe(placed!.z);
+    // under the rock: the ground above it is the cave's roof
+    expect(s.built.heights[placed!.y * 96 + placed!.x]).toBeGreaterThan(placed!.z);
+    // and the source keeps its place
+    expect(s.built.entities.some((x) => x.id === src.id && x.x === src.x && x.y === src.y)).toBe(true);
+  });
+
+  it("a spring's source the game would not keep is left out with the game's reason, never silently (D342)", () => {
+    const r = canyon3();
+    const springs = r.features.filter((f) => f.kind === "river" && f.role?.startsWith("river/caveSpring/")).map((f) => f.id);
+    const src = r.built.entities.find((e) => e.template === "WaterSource" && springs.includes(e.owner))!;
+    // the map's own field, built again with a relic standing on the source's cell (the editor refuses
+    // that placement; the build, which has no one to refuse, records the source it leaves out)
+    const fd = r.field!;
+    const ramps: [number, number][] = [];
+    for (let k = 0; k + 1 < (fd.ramps ?? []).length; k += 2) ramps.push([fd.ramps![k], fd.ramps![k + 1]]);
+    const field: GeneratedField = { heights: terrainColumns(fd, 96 * 96).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), caves: ColumnTerrain.fromData(fd, 96, 96) };
+    const relic = { id: "f-aaaaaaaaaaaac", kind: "mapObject", origin: "user", locked: false, params: { kind: "relicSmall", placement: { x: src.x, y: src.y, orientation: "Cw0", z: src.z } } };
+    expect(buildMap({ W: 96, H: 96, seed: 3, features: r.features, field }).springsLeft).toBeUndefined();
+    const b = buildMap({ W: 96, H: 96, seed: 3, features: [...r.features, relic as never], field });
+    const left = (b.springsLeft ?? []).filter((x) => x.feature === src.owner);
+    expect(left.map((x) => [x.x, x.y])).toContainEqual([src.x, src.y]);
+    expect(left[0].why).toMatch(/relic stands there/i);
+    expect(b.entities.some((e) => e.template === "WaterSource" && e.x === src.x && e.y === src.y)).toBe(false);
   });
 
   it("at Verticality 0 the same map grows none", () => {

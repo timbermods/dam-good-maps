@@ -14,6 +14,8 @@ import { startEntranceTile, startMiddleTile, type Orientation } from "../format/
 import type { Feature, StartFeature } from "../features/schema";
 import type { EditOp } from "./ops";
 import type { ApplyResult, MapSession } from "./session";
+import { objectRoofHolders, roofHolders } from "../terrain/support";
+import { tilesToRuns } from "../math/grid";
 import type { ForceResultParams } from "../forces/op";
 
 /** The tiles other objects cover (every one's whole footprint, what the checks read) and the generation's
@@ -240,8 +242,43 @@ export function startCarry(s: MapSession, params: ForceResultParams, limits: { i
 export function applySelection(s: MapSession, ops: EditOp[], label: string, tiles: readonly number[]): ApplyResult {
   // (Select's actions are exact: what they change stays as they left it, a lone tile too; D259, D264)
   ops = ops.map((o) => (o.op === "sculpt" && !o.params.exact ? { ...o, params: { ...o.params, exact: true } } : o));
+  // (on a map with caves, a selection that takes one in, a whole map with a 3D form on it, shapes the rest: the cave's or
+  // overhang's columns and the ground holding up its roof are left as they are, as a force leaves them (D487), and the
+  // answer says how many; a selection of nothing else is refused with the core's one line)
+  const held = selectionHeld(s);
+  let left = 0;
+  if (held.size) {
+    const kept: EditOp[] = [];
+    const out = new Set<number>();
+    let first = -1;
+    for (const o of ops) {
+      if (o.op !== "sculpt") {
+        kept.push(o);
+        continue;
+      }
+      const W = s.size.x;
+      const open: number[] = [];
+      for (const [y, x0, x1] of o.params.cells)
+        for (let x = x0; x <= x1; x++) {
+          const i = y * W + x;
+          if (held.has(i)) {
+            out.add(i);
+            if (first < 0) first = i;
+          } else open.push(i);
+        }
+      if (open.length) kept.push({ ...o, params: { ...o.params, cells: tilesToRuns(open, W) } } as EditOp);
+    }
+    if (!kept.some((o) => o.op === "sculpt") && out.size) {
+      // (a cave's own column first, when there is one; else the ground beside it that holds up its roof)
+      const cave = [...out].find((i) => s.columns.has(i));
+      return { ok: false, errors: [heldWhy(cave ?? first, cave !== undefined, s.size.x)], applied: [], dirty: null };
+    }
+    ops = kept;
+    left = out.size;
+  }
   const r = s.applyAll(ops, "user", label);
   if (!r.ok) return r;
+  if (left) r.left = left;
   if (startBrokenBy(s, new Set(tiles))) {
     const at = startMiddle(s);
     const carry = at ? moveStartNear(s, at[0], at[1], true, undefined, true) : null;
@@ -252,4 +289,23 @@ export function applySelection(s: MapSession, ops: EditOp[], label: string, tile
     }
   }
   return r;
+}
+
+/** Why a Select action leaves tile i as it is, in one line: a cave's or an overhang's column, or the ground holding up
+ *  its roof (as the forces say it, forces/start.ts `caveRefusal`). */
+export function heldWhy(i: number, cave: boolean, W: number): string {
+  const at = `(${i % W}, ${Math.floor(i / W)})`;
+  return cave ? `${at} has a cave or overhang: shape its top with a brush` : `${at} holds up the roof of a cave or overhang: the Select actions leave it as it is`;
+}
+
+/** The ground a Select action leaves as it is on a map with caves (D487, as the forces leave it): every column with a
+ *  cave or an overhang, and the ground holding up its roof (`terrain/support.ts` `roofHolders`, with the tiles of an object
+ *  whose stackable top holds one). Empty on a heightfield. */
+export function selectionHeld(s: MapSession): Set<number> {
+  const caves = [...s.columns.keys()];
+  if (!caves.length) return new Set();
+  const g = s.standGround();
+  const t = { W: g.W, H: g.H, mask: Uint32Array.from(g.mask) };
+  const objects = s.built.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation ?? "Cw0", flipped: !!e.flipped }));
+  return new Set([...caves, ...roofHolders(t, caves), ...objectRoofHolders(t, objects)]);
 }

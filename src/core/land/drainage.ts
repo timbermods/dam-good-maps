@@ -31,16 +31,91 @@ export interface Drainage {
  */
 export function drainage(h: ArrayLike<number>, W: number, H: number, opts: { outlet?: (i: number) => boolean; eight?: boolean; epsilon?: number } = {}): Drainage {
   const N = W * H;
+  // (the same ground and outlets as a recent flood: its answer, copied; the land stage floods one
+  // ground several times over, `recent`)
+  const eight = opts.eight !== false;
+  const eps = opts.epsilon ?? 0;
+  let outlets: Uint8Array | null = null;
+  if (opts.outlet) {
+    outlets = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      const x = i % W;
+      const y = (i - x) / W;
+      if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && opts.outlet(i)) outlets[i] = 1;
+    }
+  }
+  const hit = recentFlood(h, W, H, eight, eps, outlets);
+  if (hit) return copyOf(hit.out);
+  const out = flood(h, W, H, eight, eps, outlets);
+  remember({ h: Float64Array.from(h), W, H, eight, eps, outlets, out: copyOf(out) });
+  return out;
+}
+
+/** A recent flood: its input and its answer. */
+interface Flood {
+  h: Float64Array;
+  W: number;
+  H: number;
+  eight: boolean;
+  eps: number;
+  outlets: Uint8Array | null;
+  out: Drainage;
+}
+
+/** The recent floods, newest first, as many as `RECENT_CELLS` tiles hold (at most `RECENT`). */
+const recent: Flood[] = [];
+const RECENT = 8;
+const RECENT_CELLS = 4 * 256 * 256;
+
+function copyOf(d: Drainage): Drainage {
+  return { filled: d.filled.slice(), rcv: d.rcv.slice(), order: d.order.slice(), area: d.area.slice() };
+}
+
+/** The same value, telling 0 from -0 (a border tile's filled level is its height as given). */
+function same(a: number, b: number): boolean {
+  return a === b ? a !== 0 || 1 / a === 1 / b : false;
+}
+
+function recentFlood(h: ArrayLike<number>, W: number, H: number, eight: boolean, eps: number, outlets: Uint8Array | null): Flood | null {
+  const N = W * H;
+  next: for (let k = 0; k < recent.length; k++) {
+    const f = recent[k];
+    if (f.W !== W || f.H !== H || f.eight !== eight || !same(f.eps, eps) || !f.outlets !== !outlets || h.length !== f.h.length) continue;
+    if (outlets) for (let i = 0; i < N; i++) if (outlets[i] !== f.outlets![i]) continue next;
+    for (let i = 0; i < h.length; i++) if (!same(h[i], f.h[i])) continue next;
+    if (k > 0) {
+      recent.splice(k, 1);
+      recent.unshift(f);
+    }
+    return f;
+  }
+  return null;
+}
+
+function remember(f: Flood): void {
+  recent.unshift(f);
+  let cells = 0;
+  for (let k = 0; k < recent.length; k++) {
+    cells += recent[k].W * recent[k].H;
+    if (k >= RECENT || cells > RECENT_CELLS) {
+      recent.length = k;
+      break;
+    }
+  }
+}
+
+/** The flood itself (`drainage`). */
+function flood(h: ArrayLike<number>, W: number, H: number, eight: boolean, eps: number, outlets: Uint8Array | null): Drainage {
+  const N = W * H;
   const filled = new Float64Array(N);
   const rcv = new Int32Array(N).fill(-2);
   const order = new Int32Array(N);
   const heap = new MinHeap();
-  const eps = opts.epsilon ?? 0;
-  const K = opts.eight === false ? 4 : 8;
+  const K = eight ? 8 : 4;
   for (let i = 0; i < N; i++) {
     const x = i % W;
     const y = (i - x) / W;
-    if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && (!opts.outlet || opts.outlet(i))) {
+    if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && (!outlets || outlets[i])) {
       rcv[i] = -1;
       filled[i] = h[i];
       heap.push(h[i], i);

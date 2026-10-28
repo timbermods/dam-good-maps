@@ -30,7 +30,7 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' && github.base_ref == 'dev' }}
 
-# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in six shards, the
+# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in seven shards, the
 # Python oracle, generation, and the cross-engine determinism check with the Rust build. They fail only on
 # breakage. The heaviest checks run nightly (nightly.yml): the long property runs, the full oracle and the
 # 100-seed batches.
@@ -133,20 +133,21 @@ jobs:
 
   # The browser specs run as parallel shards, each on its own runner with its own build (Playwright builds
   # the app itself, twice, in its web server). Every spec runs in exactly one shard (`--shard=i/N`); the
-  # split is by file, so the same workflow suits any branch. Raising the shard count is the fix if a
-  # branch's specs outgrow the 30 minutes a job gets, never a longer limit. (Six since 2026-10-25: on a slow
-  # runner the shard holding layout.spec and look-high.spec reached its 30 minutes with four tests left, nothing hung.)
+  # split is by test count in file order (a file in parallel mode splits by test), so the same workflow suits any
+  # branch. Raising the shard count is the fix if a branch's specs outgrow the 30 minutes a job gets, never a longer
+  # limit; the slowest specs (layout, look-high, textClipping) run in parallel mode so no shard holds them all on one
+  # worker. (Seven since 2026-10-27: with six, the shard holding layout and look-high ran past its 30 minutes twice.)
   browser:
     needs: changes
     # (not on a pull request into dev: the browser specs run on dev's tip once it merges)
     if: needs.changes.outputs.heavy == 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'dev')
-    name: browser (${{ matrix.shard }}/6)
+    name: browser (${{ matrix.shard }}/7)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -157,8 +158,8 @@ jobs:
       - uses: ./.github/actions/playwright
         with:
           browsers: chromium
-      - name: Browser tests, shard ${{ matrix.shard }} of 6 (Node and Chromium produce the same bytes)
-        run: npx playwright test --shard=${{ matrix.shard }}/6
+      - name: Browser tests, shard ${{ matrix.shard }} of 7 (Node and Chromium produce the same bytes)
+        run: npx playwright test --shard=${{ matrix.shard }}/7
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

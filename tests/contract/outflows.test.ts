@@ -37,9 +37,11 @@ function storedOutflows(bytes: Uint8Array, W: number, H: number): Float64Array {
   return out;
 }
 
+// (heightfield maps: at Verticality 0 a map grows no 3D forms, D488; a map with caves writes its water and
+// outflows per level, as the game saves such a map, stackedWater.test.ts and forms3d.test.ts)
 describe("the settled water's outflows in the file (FORMAT.md §4.3)", () => {
   it("a generated map stores its settle's outflows, Bottom:Left:Top:Right to the neighbours in the game's grid", () => {
-    const r = generate(decodeSpecFragment("s=1&t=any&z=96&d=n")!.spec);
+    const r = generate(decodeSpecFragment("s=1&t=any&z=96&d=n&vt=0")!.spec);
     const { W, H } = r.built;
     const out = storedOutflows(r.bytes, W, H);
     const settled = r.built.settle.out!;
@@ -52,8 +54,8 @@ describe("the settled water's outflows in the file (FORMAT.md §4.3)", () => {
     expect(flowing).toBeGreaterThan(100);
   });
 
-  it("loaded with its outflows, as the game loads it, the stored water holds a day (Delta 128² seed 1)", () => {
-    const r = generate(decodeSpecFragment("s=1&t=delta&z=128&d=n")!.spec);
+  it("loaded with its outflows, as the game loads it, the stored water holds a day (Delta 128² seed 1, Verticality 0)", () => {
+    const r = generate(decodeSpecFragment("s=1&t=delta&z=128&d=n&vt=0")!.spec);
     const { W, H } = r.built;
     const S = r.built.settle;
     const sim = new WaterSim(r.built.waterModel, { depth: S.depth.slice(), contamination: S.contamination.slice() });

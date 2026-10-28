@@ -92,7 +92,8 @@
 
 .editor-title.two-lines.small h1,
 .editor-title.two-lines.small .title-button {
-  font-size: 13px;
+  /* (13px, taken back like the labels where the page's font is wider than Segoe UI: nameFit.ts smallTitlePx sets the same) */
+  font-size: max(min(13px, var(--text-floor)), calc(13px / var(--wide-font)));
   line-height: 16px;
 }
 
@@ -267,16 +268,30 @@
   text-overflow: ellipsis;
 }
 
-/* a kept version's parent under the size: one quiet line, ellipsized; the tiles of a row share their height */
+/* a kept version's parent under the size: one quiet line; the tiles of a row share their height. The parent's name gives
+   way (an ellipsis) and "· step N" stays whole: the step is what tells the versions of one map apart (its tooltip is the
+   whole line) */
 .ym-from {
-  display: block;
+  display: flex;
+  align-items: baseline;
   min-width: 0;
   overflow: clip;
   color: var(--muted);
   font-size: 0.75rem;
   line-height: 16px;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ym-from-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ym-from-step {
+  flex: none;
+  white-space: pre;
 }
 
 .your-maps li {
@@ -330,6 +345,10 @@
   overflow: clip;
   text-overflow: ellipsis;
   cursor: text;
+}
+
+.editor-title .title-button.locked {
+  cursor: default;
 }
 
 .editor-title h1.title-editing .title-wrap {
@@ -2424,6 +2443,13 @@
   text-overflow: ellipsis;
 }
 
+/* (the open map's name, in grey, until a name for the next map is typed) */
+.gen-name .set-text::placeholder {
+  color: var(--muted);
+  font-weight: 400;
+  opacity: 1;
+}
+
 /* an opened file has no generator settings: they read "–", their controls quiet until one is set */
 .gen.blank .set-range,
 .gen.blank .species-mix .mix-bar {
@@ -2567,7 +2593,8 @@
   align-items: center;
   gap: 6px;
   height: 20px;
-  font-size: 13px;
+  /* (scaled down under a wider system font, as the bar's labels are) */
+  font-size: max(min(13px, var(--text-floor)), calc(13px / var(--wide-font)));
   white-space: nowrap;
 }
 
@@ -3075,6 +3102,158 @@
   opacity: 1;
 }
 
+/* ---- the generator's shapes (panelFit.ts): two columns 640px wide where the window is tall; three columns wider and
+   shorter where it is not, and every row tighter in a short window. The band's layout sets the width and the room (the hints
+   stand aside while the panel is open, so the room is the whole of what lies above the bar). */
+.gen.gen-panel {
+  width: var(--gen-w, 640px);
+  max-height: var(--gen-max, var(--panel-max, none));
+}
+
+.editor.gen-open .tool-dock > .first-run {
+  visibility: hidden;
+}
+
+.gen-panel.c3 .sheet-cols {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gen-panel.c3 .sheet {
+  --line: 26px;
+}
+
+/* each column's names one width (the longest label of the groups it holds) */
+.gen-panel.c3 .sheet-col {
+  --lab: 112px;
+}
+
+.gen-panel.c3 .sheet-col:last-child {
+  --lab: 136px;
+}
+
+/* the tighter rows: one line height for every setting and the title block's rows */
+.gen-panel.tight .sheet {
+  --line: 24px;
+  gap: 6px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.gen-panel.tight .sheet-top {
+  gap: 2px 10px;
+}
+
+.gen-panel.tight .sheet-cols {
+  padding-top: 6px;
+}
+
+.gen-panel.tight .sheet-col {
+  gap: 4px;
+}
+
+.gen-panel.tight .gen-group {
+  gap: 1px;
+}
+
+.gen-panel.tight .gen-group h3 {
+  height: 16px;
+}
+
+.gen-panel.tight .gen-otm h3 {
+  height: 16px;
+  margin-bottom: 1px;
+  line-height: 16px;
+}
+
+.gen-panel.tight .gen-otm li {
+  height: 18px;
+  /* (the tight shapes' columns are narrow: "150 Berry bushes" spilled 9.6px at 1600×900 under CI's Linux font at 13px) */
+  font-size: max(min(12px, var(--text-floor)), calc(12px / var(--wide-font)));
+}
+
+.gen-panel.tight .gen-otm ul {
+  gap: 0 10px;
+}
+
+/* Showcase's sheet where the settings are not tall: it takes the room it needs, the settings gone from under it (in two
+   tall columns it lies over them, which stay where they are) */
+.gen-panel:is(.c3, .tight) .sheet-cols.covered > .sheet-col {
+  display: none;
+}
+
+.gen-panel:is(.c3, .tight) .showcase {
+  grid-column: 1 / -1;
+  position: static;
+  padding-top: 8px;
+}
+
+/* three columns wide: the three cards side by side, each its picture over its words */
+.gen-panel.c3 .sc-cards {
+  flex-direction: row;
+  gap: 10px;
+}
+
+.gen-panel.c3 .sc-card {
+  flex: 1 1 0;
+  min-width: 0;
+  height: auto;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  align-content: start;
+  row-gap: 6px;
+}
+
+.gen-panel.c3 .sc-pic {
+  width: 100%;
+  height: 92px;
+}
+
+/* (the tight shape's room is the filled sheet's: the pictures a little shorter, whole width) */
+.gen-panel.c3.tight .sc-pic {
+  height: 78px;
+}
+
+.gen-panel.c3 .sc-top {
+  flex-wrap: wrap;
+  height: auto;
+  gap: 2px 10px;
+}
+
+.gen-panel.c3 .sc-name {
+  flex: 1 1 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gen-panel.c3 .sc-score {
+  margin-right: auto;
+}
+
+.gen-panel.c3 .sc-card.empty {
+  min-height: 160px;
+}
+
+/* (a card is a third of the panel: each beat on a line of its own, so none runs into its neighbour or the card's edge) */
+.gen-panel.c3 .sc-beats {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.gen-panel.c3 .sc-beats li span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* the sheet is the panel while it shows: the title block's rows give their room to the cards (Settings brings them back) */
+.gen-panel:is(.c3, .tight) .sheet:has(.sheet-cols.covered) > .sheet-top {
+  display: none;
+}
+
+.gen-panel:is(.c3, .tight) .sheet:has(.sheet-cols.covered) > .sheet-cols {
+  padding-top: 0;
+  border-top: 0;
+}
+
 .maps-panel,
 .places-panel {
   height: min(692px, var(--panel-max, 692px));
@@ -3231,6 +3410,21 @@
   overflow-wrap: anywhere;
 }
 
+/* a kept version's name too long for its two lines: its map's name cut in the first line, its step whole in the second
+   (cut at its end only when the step alone is longer than a line) */
+.your-maps .ym-name.split {
+  display: flex;
+  flex-direction: column;
+}
+
+.your-maps .ym-name.split > * {
+  flex: none;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .your-maps .ym-size {
   line-height: 16px;
 }
@@ -3337,6 +3531,322 @@
   .shortcut-groups {
     column-count: 1;
   }
+}
+
+/* ---- Together (docs/COLLAB-BRIEF.md, D486): one quiet button before File, the small panel under it, and the other player's
+   cursor on the map. The two players' colours are the session's (src/core/collab/wire.ts PLAYER_COLOURS); chosen to be neither
+   the land's greens and browns, the water's blue, the contamination's orange-red nor the checks' green and amber, and to read
+   on the light and the dark page. */
+:root {
+  --collab-host: #d6338f;
+  --collab-guest: #7458ee;
+}
+
+.who-host {
+  --who: var(--collab-host);
+}
+
+.who-guest {
+  --who: var(--collab-guest);
+}
+
+.together-wrap {
+  position: relative;
+  display: flex;
+}
+
+.editor-actions > .together-wrap > button {
+  box-sizing: border-box;
+  height: 40px;
+}
+
+.together-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.together-button svg {
+  flex: none;
+}
+
+/* the other player's dot on the button while a session is live; hollow while they are away */
+.together-dot,
+.together-swatch {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--who);
+  box-shadow: 0 0 0 1px var(--rule);
+}
+
+.together-dot.paused {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--who);
+}
+
+/* Narrower than 1,400px the button is the icon alone, square like Undo and Redo (40px), the other player's dot a badge on its
+   corner; narrower than 1,340px the Look button says just "Look" (its menu shows the current look) and Together's button is
+   gone from the header (File's entry below), so the longest map name still fits two lines at 1280, where there is no Look
+   button at all (software drawing) and the page's font is wider. */
+@media (max-width: 1399px) {
+  .together-label {
+    display: none;
+  }
+
+  .editor-actions > .together-wrap > .together-button {
+    justify-content: center;
+    width: 40px;
+    padding: 0;
+  }
+
+  .together-button .together-dot {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    box-shadow: 0 0 0 2px var(--panel);
+  }
+
+  .together-button .together-dot.paused {
+    background: var(--panel);
+    box-shadow: inset 0 0 0 2px var(--who), 0 0 0 1px var(--panel);
+  }
+}
+
+@media (max-width: 1339px) {
+  .look-state {
+    display: none;
+  }
+
+  /* the header is full: Together's button leaves it for File's Together… entry, and File wears the other player's dot while a
+     session is live. The panel stays Together's, hung from the group's right edge (the wrap draws no box of its own, so no
+     gap is left where the button was). */
+  .together-wrap {
+    display: contents;
+  }
+
+  .editor-actions {
+    position: relative;
+  }
+
+  .editor-actions > .together-wrap > .together-button {
+    display: none;
+  }
+}
+
+@media (min-width: 1340px) {
+  .menu-together,
+  .file-together-dot {
+    display: none;
+  }
+}
+
+.file-button {
+  position: relative;
+}
+
+.file-together-dot {
+  position: absolute;
+  top: 5px;
+  right: 3px;
+  box-shadow: 0 0 0 2px var(--panel);
+}
+
+/* the dot has its own room: the word moves left by what the dot takes on the right, so File keeps its width and the title's
+   room is the same with or without it */
+@media (max-width: 1339px) {
+  .editor-actions > .menu-wrap > .file-button.with-dot {
+    padding-left: 6px;
+    padding-right: 18px;
+  }
+}
+
+.file-together-dot.paused {
+  background: var(--panel);
+  box-shadow: inset 0 0 0 2px var(--who), 0 0 0 1px var(--panel);
+}
+
+.together-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  box-sizing: border-box;
+  width: 300px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-size: 0.9rem;
+}
+
+.together-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.together-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.together-wide {
+  width: 100%;
+}
+
+.together-or {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.together-join {
+  display: flex;
+  gap: 6px;
+}
+
+.together-join button {
+  flex: none;
+}
+
+.together-code-input {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+
+.together-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.together-code-text {
+  font: 600 1.9rem/1.1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+  user-select: all;
+}
+
+.together-line {
+  margin: 0;
+  color: var(--muted);
+  min-height: 1.2em;
+}
+
+.together-line:empty {
+  display: none;
+}
+
+.together-line.bad {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.together-people {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.together-people li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.together-person {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.together-you {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.together-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.together-actions button {
+  flex: 1 1 auto;
+}
+
+/* the other player's cursor on the map: an arrow in their colour, their name and what they hold beside it */
+.collab-presence {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.collab-cursor {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  transform: translate(-2px, -2px);
+  color: var(--who);
+  transition: left 80ms linear, top 80ms linear;
+}
+
+.collab-cursor svg {
+  flex: none;
+  fill: var(--who);
+  stroke: #fff;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.collab-tag {
+  margin-top: 12px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--who);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.collab-tool {
+  margin-left: 6px;
+  padding-left: 6px;
+  border-left: 1px solid rgba(255, 255, 255, 0.55);
+  font-weight: 600;
 }
 
 /* a reserve's good: a button that opens a menu in the page's own look, under it over the list, its height kept to the window */

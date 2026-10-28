@@ -533,7 +533,9 @@ describe("a carve in the document (breakage rule)", () => {
     // Highlands 96² seed 8 again, with the carve's seed 1, since the Canyon and Highlands height round, 0.8.8, D148: seed 29
     // seals none now; of Highlands and Canyon seeds 1–30 with the carve's seeds 1–6, this one (91 tiles), Highlands 23 and 26
     // and Canyon 4 and 13 seal a lake that keeps evaporating)
-    const r = generate(makeSpec({ seed: 8, theme: "highlands", size: { x: 96, y: 96 } }));
+    // (without its 3D forms, D488: since they grow at the default Verticality this map has a cave on the
+    // carve's way, which a force leaves as it is; the oxbow is the carve's, not the caves')
+    const r = generate(makeSpec({ seed: 8, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
     const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 1, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
@@ -657,8 +659,12 @@ describe("a carve at work in the editor's worker", () => {
       if (f!.heights) shown = f!.heights;
       return f!;
     };
-    show(st.frame);
-    for (let k = 0; k < 200 && !show(ed.forceAdvance(1)).planned; k++) expect(Array.from(shown)).toEqual(Array.from(ground));
+    // (a carve worked out within its first slice is planned at its start: no step is asked for before it)
+    let planning = show(st.frame);
+    for (let k = 0; k < 200 && !planning.planned; k++) {
+      planning = show(ed.forceAdvance(1));
+      expect(Array.from(shown)).toEqual(Array.from(ground));
+    }
     const worked = ed.forceAdvance(0)!;
     expect(worked.planned).toBe(true);
     expect(worked.total).toBeGreaterThan(3 * STEPS_PER_SECOND);

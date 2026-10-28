@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { compareProblem, parentFull, parentLine, versionName } from "../../src/core/library/keptVersions";
+import { compareProblem, nameTip, parentFull, parentLine, parentStep, splitVersionName, versionName } from "../../src/core/library/keptVersions";
 import { guid, reopen, session, timber } from "./gateHelpers";
 
 /** Three steps: a raise stroke, a source made stronger (two operations, one step), a lower stroke. */
@@ -78,6 +78,9 @@ describe("a version of a map at a step of its History", () => {
     expect(parentLine(v.parent)).toBe(`${s.meta.name} · step 2`);
     expect(parentFull(v.parent)).toBe(`From ${s.meta.name}, step 2`);
     expect(parentFull({ ...v.parent, name: "A".repeat(90) }).length).toBeLessThanOrEqual(60);
+    // (the line's step is its own piece, so the tile can keep it whole when the name gives way)
+    expect(parentStep(v.parent)).toBe(" · step 2");
+    expect(splitVersionName(v.name)).toEqual({ head: s.meta.name, tail: "— Make a source stronger" });
     const begin = s.versionProject(-1)!;
     expect(begin.name).toBe(`${s.meta.name} — The generated map`);
     expect(begin.parent.steps).toBe(0);
@@ -161,3 +164,25 @@ describe("a version in Your maps", () => {
     expect(compareProblem({ w: 64, h: 64 }, undefined)).toBe("That map's size is unknown");
   });
 });
+
+describe("a kept version's name in a tile that cannot hold it (the tile keeps the step, the tooltip the whole)", () => {
+  it("splits at the last em dash, and not a name that has none", () => {
+    expect(splitVersionName("The Very Long Winding River Valley B — The generated map")).toEqual({ head: "The Very Long Winding River Valley B", tail: "— The generated map" });
+    expect(splitVersionName("A — B — C")).toEqual({ head: "A — B", tail: "— C" });
+    expect(splitVersionName("River Valley")).toBeNull();
+    expect(splitVersionName(" — nothing before it")).toBeNull();
+    expect(splitVersionName("a map — ")).toBeNull();
+  });
+
+  it("gives a tooltip of at most 60 characters that keeps the step", () => {
+    const short = "River Valley — Raise a tile";
+    expect(nameTip(short)).toBe(short);
+    const long = versionName("A".repeat(70), "Raise a wall");
+    const tipped = nameTip(long);
+    expect(tipped.length).toBeLessThanOrEqual(60);
+    expect(tipped.endsWith("— Raise a wall")).toBe(true);
+    expect(tipped).toContain("…");
+    expect(nameTip("B".repeat(80)).length).toBeLessThanOrEqual(60);
+  });
+});
+

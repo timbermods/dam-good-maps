@@ -89,6 +89,78 @@ test("Keep this version and Branch from here, the parent in Your maps, and Compa
   expect(errors).toEqual([]);
 });
 
+// Long names (a regression since 2026-10-24: the tiles were held to their columns, and a long name cut away the very words
+// that tell a version from its parent): the tile of a kept version keeps its step whole, the name cut in the map's part, and
+// the whole name in a tooltip.
+test("Your maps' tile of a kept version of a long-named map keeps its step in view, at 1280×800 and at 1920×1080", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const header = page.locator("header.editor-bar");
+  await header.locator(".editor-title .title-button").click();
+  await page.keyboard.press("Control+A");
+  await page.keyboard.type("The Very Long Winding River Valley B");
+  // (the field keeps what fits two lines of the header's room, at least 30 characters: Kyler, 2026-10-05, A+B)
+  const name = (await header.getByLabel("Map name").inputValue()).trim();
+  expect(name.length, "a long name, at least the floor").toBeGreaterThanOrEqual(30);
+  await page.keyboard.press("Enter");
+  await expect(header.locator(".editor-title .title-button")).toHaveText(name);
+  await edit(page, [[40, 40, 44]], "Raise a tile");
+  await idle(page);
+  // keep the map as it began, and after its step
+  for (const [at, label] of [[0, "The generated map"], [1, "Raise a tile"]] as const) {
+    await history(page).click();
+    const panel = page.getByRole("complementary", { name: "History" });
+    const row = panel.locator(".hist-item").nth(at);
+    await row.hover();
+    await row.getByRole("button", { name: "Keep this version" }).click();
+    await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — ${label}` })).toBeVisible({ timeout: 60_000 });
+    await history(page).click();
+  }
+  const yours = await openYourMaps(page);
+  for (const [w, h] of [[1920, 1080], [1280, 800]] as const) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForTimeout(300);
+    for (const [label, steps] of [["The generated map", 0], ["Raise a tile", 1]] as const) {
+      const full = `${name} — ${label}`;
+      const tile = yours.locator("li", { hasText: full });
+      await expect(tile, `${w}×${h}: ${full}`).toHaveCount(1);
+      const seen = await tile.evaluate((li) => {
+        const box = li.getBoundingClientRect();
+        const el = (s: string) => li.querySelector<HTMLElement>(s)!;
+        const nameEl = el(".ym-name");
+        const tip = nameEl.getAttribute("title") ?? nameEl.getAttribute("data-tip-held");
+        const inside = (e: HTMLElement) => {
+          const r = e.getBoundingClientRect();
+          return r.width > 0 && r.left >= box.left - 0.5 && r.right <= box.right + 0.5;
+        };
+        return {
+          split: nameEl.classList.contains("split"),
+          tip,
+          tailStarts: el(".ym-name-tail").textContent!.slice(0, 1),
+          tailInside: inside(el(".ym-name-tail")),
+          tailWhole: el(".ym-name-tail").scrollWidth <= el(".ym-name-tail").clientWidth,
+          stepText: el(".ym-from-step").textContent,
+          stepInside: inside(el(".ym-from-step")),
+          stepWhole: el(".ym-from-step").scrollWidth <= el(".ym-from-step").clientWidth,
+          fromTip: el(".ym-from").getAttribute("title") ?? el(".ym-from").getAttribute("data-tip-held"),
+        };
+      });
+      const where = `${w}×${h}: ${full}`;
+      expect(seen.split, `${where}: the map's name is cut, its step kept`).toBe(true);
+      expect(seen.tip, `${where}: the whole name is in its tooltip`).toBe(full);
+      expect(seen.tailStarts, `${where}: the second line starts with the step`).toBe("—");
+      expect(seen.tailInside, `${where}: the step is inside the tile`).toBe(true);
+      expect(seen.stepText, `${where}: the from-line ends with its step`).toBe(` · step ${steps}`);
+      expect(seen.stepInside && seen.stepWhole, `${where}: the from-line's step is whole`).toBe(true);
+      expect(seen.fromTip, `${where}: the from-line's tooltip is the whole line`).toBe(`From ${name}, ${steps ? "step 1" : "as it began"}`);
+      // (a step longer than its line alone is cut at its end, by design: under Linux's wider font "— The generated map" is,
+      // at a tile's width, so the short step checked whole is "Raise a tile", short under any font)
+      if (label === "Raise a tile") expect(seen.tailWhole, `${where}: a short step is whole`).toBe(true);
+    }
+  }
+});
+
 test("an undo while the other version is held ends the flip: the open map comes back as the undo left it, nothing mixed", async ({ page }) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1600, height: 900 });

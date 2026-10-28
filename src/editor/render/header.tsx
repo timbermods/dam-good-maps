@@ -5,13 +5,16 @@ import { LookMenu } from "../../ui/LookMenu";
 import { ChecksDot, Header } from "../Header";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
+import { Together } from "../collab/Together";
 import { plain } from "../panels";
 
 export function header(ed: Ed, props: EditorProps) {
   const {
     api, info, renderer, localUndo, localRedo, undo, redo, check, instant, busy, progress, flowing, dotOpen, setDotOpen,
-    actions, saving, saveMap, exportProject, run, flashNote, showHistory, setShowHistory
+    actions, saving, saveMap, exportProject, run, flashNote, showHistory, setShowHistory, together, collab
   } = ed;
+  // (in a shared session Undo and Redo take back only this player's own actions: the session says when there is one)
+  const shared = !!collab && collab.phase !== "alone";
 
   /** The description written beside the name: the setDescription operation, one undo step; null when stored, else the core's one-line reason. */
   const describe = (text: string) =>
@@ -31,8 +34,8 @@ export function header(ed: Ed, props: EditorProps) {
     <Header
       info={info}
       saveState={props.saveState}
-      canUndo={info.canUndo || !!localUndo.current.length}
-      canRedo={info.canRedo || !!localRedo.current.length}
+      canUndo={shared ? collab.canUndo || !!localUndo.current.length : info.canUndo || !!localUndo.current.length}
+      canRedo={shared ? collab.canRedo || !!localRedo.current.length : info.canRedo || !!localRedo.current.length}
       onUndo={() => void undo()}
       onRedo={() => void redo()}
       dot={<ChecksDot check={check} instant={instant} busy={busy > 0} progress={progress} flowing={flowing} flags={ed.flags} badwaterRemoved={info.badwaterRemoved} open={dotOpen} onToggle={setDotOpen} actions={actions} />}
@@ -51,6 +54,7 @@ export function header(ed: Ed, props: EditorProps) {
       }}
       name={props.name}
       onRename={props.onRename}
+      renameLocked={collab?.role === "guest" && (collab.phase === "live" || collab.phase === "paused") ? "The host names the shared map" : undefined}
       onDescribe={describe}
       drawerOpen={props.drawerOpen}
       onDrawer={() => props.onDrawer(!props.drawerOpen)}
@@ -59,6 +63,8 @@ export function header(ed: Ed, props: EditorProps) {
       placesOpen={props.placesOpen}
       onPlaces={() => props.onPlaces(!props.placesOpen)}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
+      together={together && collab ? <Together controller={together} state={collab} /> : null}
+      togetherEntry={together && collab ? { role: collab.other?.role ?? "guest", paused: collab.phase === "paused", other: !!collab.other && collab.phase !== "alone" && collab.phase !== "inviting" && collab.phase !== "joining" } : null}
     />
   );
 }

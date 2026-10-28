@@ -130,7 +130,7 @@ pub fn emitter_rule(template: &str) -> Option<&'static EmitterRule> {
     }
 }
 pub const MAX_STRENGTH_PER_TILE: f64 = 8.0;
-pub const GAME_VERSION: &str = "1.1.2.4-52e959e-sw";
+pub const GAME_VERSION: &str = "1.1.2.8-ffc2de0-sw";
 pub const GAME_MAX_HEIGHT: f64 = 22.0;
 pub const EDITOR_MAX_HEIGHT: f64 = 16.0;
 pub const MAX_OBJECT_Z: i64 = 33;

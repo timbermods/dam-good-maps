@@ -137,8 +137,11 @@ const PREPARED_MORE = 2;
  *  intention's pull, which the start's score weighs at 0.8 beside a random 0.25). */
 const SHAPE_PULL = 1;
 /** The least share of a long Islands map its planned sea holds (D357); under it the sea has drained. Islands' maps
- *  hold 47–66% (`tools/size-smoke.ts`). */
+ *  hold 47–66% (`tools/size-smoke.ts`). The settled sea is read too (the shapes audit of 2026-10-24: planned
+ *  well, two 80×250 seas drained to 28% and 5% as they settled): under this, or under `SETTLED_SEA` of the water
+ *  planned, the land is drawn again, so a long Islands map's land is shown once its sea has settled. */
 const DRAINED_SEA = 0.2;
+const SETTLED_SEA = 0.7;
 /** Lands drawn again before one is shown that don't use up the attempts (up to this many): a small
  *  or rugged map draws many lands before one has room for its start and its mine sites (D363), and
  *  the land it shows keeps the attempts it needs. A land draw costs no settle. */
@@ -270,6 +273,11 @@ export interface GenerateOptions {
   /** The first look: prepared land and its planned water (channels 1, lakes 2, floors 3), once
    *  the actual settled start reaches its required mine pair. Fires once per map. */
   onLand?: (l: { attempt: number; heights: Uint8Array; water: Uint8Array }) => void;
+  /** false: no 3D forms (D488), the map its land makes without them, byte for byte as below the forms:
+   *  for the tests of a heightfield's own rules (its outflows, its falls, its settle) and of editing a
+   *  heightfield, on a map whose land would grow one (a stroke over a form's rock is refused when it would
+   *  fall, D280 (3)). The page never sets it. */
+  forms?: boolean;
   /** Steering (D138, M12): these intentions instead of the drawn ones; [] for none. */
   intentions?: IntentionId[] | null;
   /** The map, as soon as it passed (D329: the first candidate that passes the absolutes is the map,
@@ -413,7 +421,7 @@ export function landScreen(W: number, H: number): number {
   return N <= 128 * 128 ? 6 : N <= 192 * 192 ? 4 : 3;
 }
 /** Hidden lands of a long Lake Basin map at most drawn again because its settled water left the basin dry
- *  (D488): each costs a settle. */
+ *  (D488), or of a long Islands map because its sea drained as it settled (`DRAINED_SEA`): each costs a settle. */
 const DRY_BASIN_REDRAWS = 4;
 /** How far round a start that failed the next attempt on the same land keeps off, from 128² up;
  *  less on smaller maps, as the distance bands shrink (`bandScale`): at 96² a disc of 16 took a
@@ -472,8 +480,11 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   // at the end. Only at 128² and under, where the first look waits for the settled start anyway;
   // above, the land is shown as soon as it is planned, and no arch is grown, `formsFor`)
   let held: Parameters<NonNullable<GenerateOptions["onLand"]>>[0] | null = null;
-  const holdLand = !!opts.onLand && !!formsFor(specIn)["gorge-arch"];
-  const o: GenerateOptions = holdLand ? { ...opts, onLand: (l) => void (held ??= l) } : opts;
+  const holdLand = !!opts.onLand && opts.forms !== false && !!formsFor(specIn)["gorge-arch"];
+  // (the last land a round showed: a rescue round's fresh land replaces round 0's, so the first look
+  // pairs the map's own land with its own planned water, never another round's; a land carried into a
+  // rescue round is not shown again and stays the one held)
+  const o: GenerateOptions = holdLand ? { ...opts, onLand: (l) => void (held = l) } : opts;
   let r = attemptRound(specIn, o, t0, 0, record);
   // D471: a round whose attempts are spent without a map is followed by rounds on fresh lands, until
   // one makes a map (a caller that caps the attempts gets its cap: the measures, the tests)
@@ -487,12 +498,11 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
 }
 
 /** The 3D forms a map looks for (D488, gen/forms3d.ts `formsWanted`): its own draw, the same on
- *  every attempt; none at or below the theme's default Verticality (a map with caves has no Fill or
- *  Remove unfed water in the editor yet, so the ordinary map stays as it was until
- *  they do); no arch above 128² (its first look is not held there, D348), no spring cave on a map
- *  made with Sources: None. */
+ *  every attempt, at every Verticality but 0 (rarer the lower it is: the ordinary map at its theme's
+ *  default finds a cave or a shelter where its land offers one, and an arch from 35; its edits keep their
+ *  live water since #606, D280); no arch above 128² (its first look is not held there, D348), no spring
+ *  cave on a map made with Sources: None. */
 export function formsFor(spec: MapSpec): FormsWanted {
-  if (spec.settings.terrain.verticality <= VT_DEFAULT[spec.theme]) return {};
   const want = formsWanted(spec.theme, spec.settings.terrain.verticality, stream(spec.seed, "forms3d"));
   if (spec.size.x * spec.size.y > SHOW_PROVED_MOST) delete want["gorge-arch"];
   if (spec.settings.water.sources === "none") delete want["spring-cave"];
@@ -1589,6 +1599,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const W = spec.size.x;
   const H = spec.size.y;
   const N = W * H;
+  // (a long Islands map's sea is proved settled before its land is shown, DRAINED_SEA)
+  const seaProved = specIn.theme === "islands" && !!g.seaLayout && mapShape(W, H).long;
   const seed = spec.seed;
   const rule = spec.settings.start.rules.waterWithin;
   // (a rescue round's easing, D471)
@@ -2219,7 +2231,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // takes most of a map's time; small starts' proof of the settled start's mine pair before the
       // land is shown (#153) holds at 128² and under, where the target is time to the settled map
       // and every land it redrew was found; a default the session chose, docs/progress/m9b.md)
-      if (N > SHOW_PROVED_MOST) {
+      // (a long Islands map's land waits for its sea to settle, DRAINED_SEA)
+      if (N > SHOW_PROVED_MOST && !seaProved) {
         landStage.shown = true;
         firstLook = Math.round(performance.now() - t0);
         landStage.firstLook = firstLook;
@@ -2495,6 +2508,24 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (badHit) return { ...fail("water.source_in_flow", b1, false), stuck: true };
     b1 = build([...rivers, ...bad.features], "resources");
     if (!b1.settle.settled) return unsettled(b1);
+  }
+  // (D357, the shapes audit: a long Islands map's sea as it settled, on a land not yet shown: one that drained is
+  // drawn again, as a long Lake Basin's dry basin is below, sharing its few redraws, DRAINED_SEA)
+  if (seaProved && landStage && !landStage.shown && !lastAttempt && (screened.dry ?? 0) < DRY_BASIN_REDRAWS) {
+    let wet = 0;
+    for (let i = 0; i < N; i++) if (b1.water[i] > WET) wet++;
+    if (wet < DRAINED_SEA * N || wet < SETTLED_SEA * (landStage.preWet ?? 0) * N) {
+      screened.dry = (screened.dry ?? 0) + 1;
+      return { ...fail("a drained sea (settled)", b1, false), stage: null, stuck: !!from };
+    }
+  }
+  // (and then shown, above 128² as any land is at the land stage, D405: the sea proved, the land is the map, and
+  // D471's bounds on a shown land apply)
+  if (seaProved && landStage && !landStage.shown && N > SHOW_PROVED_MOST) {
+    landStage.shown = true;
+    firstLook = Math.round(performance.now() - t0);
+    landStage.firstLook = firstLook;
+    opts.onLand?.({ attempt, heights: landStage.hLand, water: hy.water });
   }
   // (D488: a long Lake Basin's lake on the settled water, while its land is still hidden (a thin map, 128²
   // and under): a basin its rivers leave dry, or a lake drained to a pool, passed on the plan's held lakes
@@ -2999,7 +3030,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   //      then the map built and checked again: a form is kept only where every check, intention and
   //      outcome the map had still holds and its own check confirms it, else dropped, never forced
   if (passed) {
-    const want = formsFor(specIn);
+    const want = opts.forms === false ? {} : formsFor(specIn);
     if (Object.keys(want).length) {
       const vt = specIn.settings.terrain.verticality;
       const grown = growOn(built, features, want, vt, g.tall ? Math.ceil(g.top) : 16, stream(seed, "forms3d", attempt));
@@ -3064,6 +3095,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       intentions = [...intentions, ...records];
     }
   }
+  // (a spring's source the game would not keep, left out of its row on a map with caves, is noted as a
+  // fix with the game's reason, never silently: D491, D342; the build shares the row's strength again)
+  for (const s of built.springsLeft ?? []) fixes.push(`spring source left out at (${s.x}, ${s.y}): ${s.why}`);
   info.stage = !v.report.passed ? "checks" : straight ? "ruler-straight channel" : !tallOk ? "above 16" : "built";
   // the build keeps the field as the processes made it (a changed tile would mean the land was
   // not what was planned: never plan again on it)

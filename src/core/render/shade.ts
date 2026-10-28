@@ -64,19 +64,34 @@ export function shadeTiles(heights: Uint8Array, W: number, H: number, water?: Ar
   return out;
 }
 
+/** The rows of an image a pass shaded, north at the top (`y0` up to `y1`, not including it). */
+export interface ShadedRows {
+  y0: number;
+  y1: number;
+}
+
 /** The same colours as `shadeTiles` (the same arithmetic, kept beside it), straight into an image's RGBA pixels, one a
- *  tile, north at the top, from the ground's colours (`groundShade`): the minimap's water pass. */
-export function shadeRgba(ground: Float64Array, W: number, H: number, water: ArrayLike<number> | null, out: Uint8ClampedArray): void {
+ *  tile, north at the top, from the ground's colours (`groundShade`): the minimap's water pass. Only the tiles whose
+ *  water shows differently from when their pixel was last shaded are shaded: `shown` keeps, per tile, the water its
+ *  pixel shows (NaN for one never shaded, so the first pass shades them all) and is updated, so as the water flows only
+ *  the tiles it moved on are shaded again. Once every pixel has been shaded, `out` holds `shadeTiles`' colours for
+ *  this ground and water. The rows it shaded, or null for none. */
+export function shadeRgba(ground: Float64Array, W: number, H: number, water: ArrayLike<number> | null, shown: Float64Array, out: Uint8ClampedArray): ShadedRows | null {
+  let lo = H;
+  let hi = -1;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
+      // (the water as the colour reads it: none, or its depth up to 3)
+      const v = water && water[i] > 0.05 ? Math.min(water[i], 3) : 0;
+      if (v === shown[i]) continue;
+      shown[i] = v;
       const o = ((H - 1 - y) * W + x) * 4;
       let r = ground[i * 3];
       let g = ground[i * 3 + 1];
       let b = ground[i * 3 + 2];
-      if (water && water[i] > 0.05) {
-        const d = Math.min(water[i], 3) / 3;
-        const k = 0.35 + 0.4 * d;
+      if (v > 0) {
+        const k = 0.35 + 0.4 * (v / 3);
         r = r * (1 - k) + WATER[0] * k;
         g = g * (1 - k) + WATER[1] * k;
         b = b * (1 - k) + WATER[2] * k;
@@ -85,7 +100,10 @@ export function shadeRgba(ground: Float64Array, W: number, H: number, water: Arr
       out[o + 1] = clamp255(g);
       out[o + 2] = clamp255(b);
       out[o + 3] = 255;
+      if (y < lo) lo = y;
+      hi = y;
     }
+  return hi < 0 ? null : { y0: H - 1 - hi, y1: H - lo };
 }
 
 function clamp255(v: number): number {

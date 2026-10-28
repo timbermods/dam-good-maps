@@ -35,7 +35,9 @@ const W = 96;
 function session(theme: ThemeId, seed: number, terracing?: number): MapSession {
   const spec = makeSpec({ seed, theme, size: { x: W, y: W } });
   if (terracing !== undefined) spec.settings.terrain.terracing = terracing;
-  const r = generate(spec);
+  // (the maps of Kyler's verdicts as they were judged, without 3D forms: a stroke over a form's ground holds what
+  // holds its rock, D280 (3) amended, D488, which is the caves' rule, not Naturalize's)
+  const r = generate(spec, { forms: false });
   const s = MapSession.fromGenerated(r, r.file);
   s.setWaterMode("defer");
   return s;

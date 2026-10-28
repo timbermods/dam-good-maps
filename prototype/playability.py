@@ -180,8 +180,9 @@ def footprint_tiles(fps, p):
     return out
 
 
-def water_model(m, fps, surface):
-    """(floor, sources, dam) for the simulation, from the map's objects in file order."""
+def water_model(m, fps, surface, roofed_out=False):
+    """(floor, sources, dam) for the simulation, from the map's objects in file order. roofed_out (a generated map):
+    the sources under a roof left out."""
     Y, X = surface.shape
     floor = surface.astype(float).copy()
     dam = None
@@ -194,6 +195,11 @@ def water_model(m, fps, surface):
         if rule:
             tiles, cont, runs, seep = rule
             cells = [(ty, tx) for tx, ty in (object_tile(fps, p, lx, ly) for lx, ly in tiles) if 0 <= tx < X and 0 <= ty < Y]
+            # on a generated map a source under a roof (a spring cave's, D488) is the stacked engine's, on its own floor
+            # (validate/rust.ts), a 3D rule this heightfield settle does not copy (D279): left out, as source_in_flow
+            # leaves it out (playability.rs `roofed`); an import keeps it on the surface's floor, as TypeScript does
+            if roofed_out and cells and any(p.z < surface[ty, tx] for ty, tx in cells):
+                cells = []
             if cells:
                 comps = e["Components"]
                 delayed = comps.get("TimeActivatedComponent", {}).get("IsEnabled") is True
@@ -434,7 +440,7 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     barrier = thorns if thorns.any() else None
 
     # ---- water: the canonical settle of the map's own sources
-    floor, sources, dam = water_model(m, fps, h)
+    floor, sources, dam = water_model(m, fps, h, roofed_out=spec is not None or features is not None)
     sim, settled = canonical_settle(floor, sources, dam, rules=water_rules)
     D, C = sim.D, sim.C
     wet = D > WET
