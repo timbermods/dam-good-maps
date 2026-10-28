@@ -75,6 +75,7 @@ test("Download project captures the map after already queued edits", async () =>
   let revision = 0;
   let queue: Promise<unknown> = pendingEdit.promise.then(() => { revision = 1; });
   const downloads: number[][] = [];
+  const messages: string[] = [];
   const module = { exports: {} as Record<string, any> };
   const env = createContext({
     exports: module.exports, module,
@@ -91,7 +92,7 @@ test("Download project captures the map after already queued edits", async () =>
   const save = module.exports.useSave({
     api: { project: async () => ({ bytes: new Uint8Array([revision]), fileName: "map.json.gz" }) },
     info: {}, enqueue: (fn: () => Promise<unknown>) => { queue = queue.then(fn); return queue; },
-    forcer: { current: null },
+    forcer: { current: null }, setMessage: (m: { text: string }) => messages.push(m.text),
   });
   const exporting = save.exportProject();
   await Promise.resolve();
@@ -100,4 +101,5 @@ test("Download project captures the map after already queued edits", async () =>
   await exporting;
   expect(exportedBeforeEdit).toBe(0);
   expect(downloads).toEqual([[1]]);
+  expect(messages).toEqual(["Saved map.json.gz. Open it again from File."]);
 });

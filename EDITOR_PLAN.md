@@ -75,7 +75,7 @@ place of its bottom rule.
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
   button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…,
-  Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. A sibling's variation is shown beside its seed, in the header ("Seed 4242 · 2 · 128×128") and in the panel's Seed line, so a seed copied by hand is known to be only part of its address. **Showcase…** (D488 (2)) sits in
@@ -143,14 +143,17 @@ place of its bottom rule.
   quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
   A real place has one name everywhere, the one in its file ("Near Crater Lake"). Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
-  without asking: edits never replay onto new land (D336), and the map it replaces, if edited, is in Your maps.
+  without asking: edits never replay onto new land (D336), and the map it replaces, if kept, is in Your maps, which a quiet note says
+  ("<name> is in Your maps", also when Another like this or opening another map replaces it; only when it was really stored, and a note that goes by itself after 8 s).
 - **Your maps** (D234, D330; with nothing kept it shows one dashed tile where the first map will land, and "No maps kept yet"
   beside it): a map is kept in this browser from its first edit (an operation applied) or rename,
-  whatever its kind, and stays kept even if every edit is undone; camera bookmarks alone don't keep it, and an
+  whatever its kind, and stays kept even if every edit is undone (the first time a save is stored in a browser a quiet note says so, going by itself after 8 s: "Kept in Your maps,
+  in this browser", remembered in `dgm.keptNote`; never shown for a save that failed); camera bookmarks alone don't keep it, and an
   unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
   after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
-  thumbnail, made in a worker of its own when the page is idle, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
+  thumbnail, made in a worker of its own when the page is idle, never cropped), its name and size under it, newest first, the open map marked, a click opening one (a click on the open
+  map's own tile selects it, so the heading row's Rename and Delete reach it). A
   right-click on one, open or not, offers **Download .timber**, **Rename** (in place; a typed name stops at what fits the tile's two
   lines) and **Delete** (asked
   once; the open map gives way to the next one, or a new map when none is left). Several are selected as on a
@@ -1194,7 +1197,8 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
 - **Claude (M12)** is a small chat box summoned with a key, which disappears when done. Many players won't use it,
   so it never takes permanent space. Claude steers the generator for character and uses the tools only for precise
   edits (D139, D187). The design is deferred (Part 2).
-- **First run:** three one-line hints (paint the land, place things, add water), then never again.
+- **First run:** three one-line hints (paint the land, place things, add water), then never again; under them a link, **Help and keys**,
+  opens Help (File's tooltip names Help too; no header button for it).
 - **Notes and messages:** a refusal's note (an error) goes with the player's next press, key, tool pick, layer or view
   change; an edit's own note (info) stays until its × or the next kept edit; a save that failed ("Not saved: …") stays
   until dismissed or the map is saved. No key is written in a visible word (keys live in tooltips). There is no

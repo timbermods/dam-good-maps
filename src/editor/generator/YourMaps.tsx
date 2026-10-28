@@ -67,7 +67,8 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
       return setSelected(new Set(m.maps.slice(a, b + 1).map((e) => e.id)));
     }
     anchor.current = id;
-    setSelected(new Set());
+    // (the map open now has nothing to open: the click selects it, so Rename and Delete on the heading row reach it)
+    setSelected(here ? new Set([id]) : new Set());
     if (!here) m.onOpenMap(id);
   };
   const chosen = m.maps.filter((e) => selected.has(e.id)).map((e) => e.id);
@@ -212,7 +213,7 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
                     type="button"
                     class="ym-tile"
                     aria-current={here ? "true" : undefined}
-                    {...tip(here ? "The map open now" : "Open this map", "Ctrl+click selects it", "Shift+click a range")}
+                    {...tip(here ? "Select the map open now" : "Open this map", "Ctrl+click selects it", "Shift+click a range")}
                     onClick={(ev) => click(ev, e.id, here)}
                   >
                     {inside}

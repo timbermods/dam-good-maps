@@ -1685,6 +1685,22 @@
   flex: 1;
 }
 
+/* the link to Help under the hints: a row of its own, in line with their words (the × stays on the first row) */
+.tool-dock > .first-run {
+  flex-wrap: wrap;
+}
+
+.tool-dock > .first-run > .first-run-help {
+  order: 1;
+  flex: 0 0 100%;
+  padding-left: 16px;
+}
+
+.first-run-help > .linkish {
+  padding: 0;
+  font: inherit;
+}
+
 .dock-notes > .error.floating,
 .dock-notes > .editor-message {
   position: relative;
