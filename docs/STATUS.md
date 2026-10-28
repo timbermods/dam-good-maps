@@ -68,8 +68,7 @@ no full run by hand except for a release.
    and first-bad days (#566, #573).
 3. **Merge rules (D489, D490):** a PR merges on a fresh review plus quick checks, and the owner may merge it themselves; the
    full suites run on dev after the merge.
-4. **Next (milestone):** lift the gate (#611: merging dev in, off hold next); then move the writer's stamped game version and
-   `log-floor.json` to 1.1.2.8; #532 (cave outflows in exports) later. Next decision number: D495.
+4. **Next (milestone):** lift the gate (#611: merging dev in, off hold next); #532 (cave outflows in exports) later. Next decision number: D495.
 5. **Held until Kyler lifts the no-Timberborn hold:** Real places' open edges (#493's four places, files ready in
    `C:\dgm-probe\places-open-edges\`), the release's D483 batch for generated caves and the opening shot, and the cycle-10 run for
    Showcase's winners (#507's `--cycles`).
@@ -110,7 +109,7 @@ Run on the dedicated machine without asking (D218); anywhere else only with Kyle
 results are recorded here. Earlier batches: [archive/status-2026-10-01.md](archive/status-2026-10-01.md), "Probe batches".
 
 - **Objects in caves, D491** (2026-10-25, D218; #490): Hollows edited through the core and exported (`hollows-cave-source`, a water source on a cave's floor at (78, 6, 1) under a roof up to 7; `hollows-cave-ruin`, a RuinColumnH3 at (180, 9, 1) under a roof up to 8; written by the Terrain 3D writer, both validators' export profile failing only what unedited Hollows fails), `--keep-mods`, on the game's new **1.1.2.8** (Unity 6000.5.11): a smoke run (`20261025-0917-smoke`: passed) and `20261025-1008-batch`. **All passed:** 2381 of 2381 objects at their tile and level on both maps (none dropped or moved); water at the load and after 1 and 1.18 days 100% of 4117 wet columns within 0.1, the 988 roofed ones included, IoU 1.000, 23 of 23 pressurised columns matching, largest difference 0.005 (source) and 0.013 (ruin); the source adds about 10 units to its cave as the stacked engine predicts (that cave already holds water in the official file). On 1.1.2.8, two of four launches hung at engine start (no heartbeat in 300 s; the runner's next launch played). Still to do for 1.1.2.8: `investigation/decompiled/`.
-- **The game updated to 1.1.2.8** (seen 2026-10-25): only beaver death handling changed; the starting-logs floor stays 178. To do: the writer's stamped version and `log-floor.json` move to 1.1.2.8 together. No batch can run until the hold on Timberborn is lifted (see the top).
+- **The game updated to 1.1.2.8** (seen 2026-10-25): only beaver death handling changed; the starting-logs floor stays 178. Done (2026-10-27): the writer's stamped version and `log-floor.json` moved to 1.1.2.8-ffc2de0-sw together, after `20261025-1008-batch` played edited exports on it; only the version string changed in every re-pinned file.
 - **The `3d-foundations-done` gate** (2026-10-15, D218; `docs/progress/3d-foundations.md`, "RESULTS"): a smoke run (`20261015-0947-smoke`: passed) and `20261015-1011-batch`, six cave edits as the app exports them (Hollows and Canyon edited, a roof stroke on Pillars, a Block dig in Hollows, an Erode cave on a generated map, unedited Hollows as the control), `--keep-mods`. **All passed:** water at the load and after a day 100% of wet columns within 0.1, roofed ones included (largest difference 0.033), soil per run 100%, nothing dropped. The gate is green.
 - **Terrain 3D on 1.1.2.7** (2026-10-08, Kyler's yes in chat; #361, closed): a smoke run (`20261008-0857-smoke`, the M8 preview: passed) and
   the batch (`20261008-0859-batch`, T3–T7, with `--keep-mods`). **T7, the sink under a roof, passed:** 100% of 209 wet columns
