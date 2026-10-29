@@ -96,3 +96,59 @@ test("pointing at a roof over a cave's water: the readout names the roof's dry t
   expect(seen?.level, "the cut shows the cave's floor there").toBeLessThan(roof!.top);
   await expect.poll(feeding).toBeGreaterThan(0);
 });
+
+test("a cave's water seen through its mouth keeps its sources lit when the objects change, the pointer resting there", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  const bytes = build(t3CaveWater()).bytes;
+  await page.getByLabel("Open a map or a project").setInputFiles({ name: "T3 caves.timber", mimeType: "application/zip", buffer: Buffer.from(bytes) });
+  await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
+  await waitForEditor(page);
+  await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
+  const feeding = () => page.evaluate(() => (window.dgm3d!.renderer as unknown as { sourceGlow: readonly number[] }).sourceGlow.length);
+  // the spring cave's pool, seen through its tunnel's mouth on the map's west edge (tools/terrain3d-maps.ts T3 (a)): once
+  // it has water, pointer spots on a floor under its roof, with no cut
+  await page.waitForFunction(
+    () => {
+      const m = (window.dgm3d!.renderer as unknown as { map: { W: number; heights: Uint8Array; surface: { floor: Float32Array; depth: Float32Array } } }).map;
+      const i = 9 * m.W + 9;
+      return m.surface.depth[i] > 0.05 && m.surface.floor[i] < m.heights[i];
+    },
+    null,
+    { timeout: 120_000 },
+  );
+  const spots = await page.evaluate(async () => {
+    const r = window.dgm3d!.renderer;
+    const m = r.mapState()!;
+    r.setSlice(null);
+    r.setView({ mode: "orbit", yaw: -Math.PI / 2, pitch: 0.12, distance: 12, target: [3, 4, -9.5] });
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    const box = r.canvas.getBoundingClientRect();
+    const out: { x: number; y: number }[] = [];
+    for (let py = 60; py < box.height - 60; py += 8)
+      for (let px = 60; px < box.width - 60; px += 8) {
+        const h = r.pickSeen(box.left + px, box.top + py);
+        if (h?.level === undefined || h.face === "bottom" || h.level >= m.heights[h.y * m.W + h.x]) continue;
+        out.push({ x: box.left + px, y: box.top + py });
+      }
+    return out;
+  });
+  expect(spots.length, "pointer spots on the cave's floor through its mouth").toBeGreaterThan(0);
+  // a spot whose water lights the sources feeding it (D196)
+  let lit: { x: number; y: number } | null = null;
+  for (const s of spots.filter((_, k) => k % Math.ceil(spots.length / 24) === 0)) {
+    await page.mouse.move(s.x + 30, s.y);
+    await page.mouse.move(s.x, s.y, { steps: 2 });
+    if (await feeding()) {
+      lit = s;
+      break;
+    }
+  }
+  expect(lit, "a spot on the cave's water that lights its sources").not.toBeNull();
+  // the objects change with the pointer resting there (a relic placed far off): the sources are found again from the
+  // ground seen, the cave's floor, never the roof's top over it, so the glow stays
+  await page.evaluate(() => window.dgmEditor!.edit({ op: "placeEntity", params: { id: crypto.randomUUID(), template: "SmallRelic", x: 40, y: 30, orientation: "Cw0" } } as never, "Place a relic"));
+  await page.evaluate(() => window.dgmEditor!.idle());
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.mapState()!.entities.templates.includes("SmallRelic"))).toBe(true);
+  expect(await feeding(), "the cave's water still lights its sources after the objects change").toBeGreaterThan(0);
+});

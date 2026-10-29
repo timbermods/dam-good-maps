@@ -1,26 +1,24 @@
-// The map's picture (D488): the .timber's map_thumbnail.jpg drawn in 3D, as the game's own maps show
-// in its map picker: turned as the new game's camera opens (the start's orientation + 35°), the land
-// filling the frame under a band of sky. It looks down at 40° and frames the whole map, as the official
-// thumbnails do, not at the game's opening camera's 60° and zoom: a deliberate departure (D488). One frame, drawn by a renderer of its own, off screen, so the
-// player's view (its camera, look and size) is never touched; in the High look with every effect
-// (Standard where High can't be drawn). Only what the game shows: the land, the water, the objects;
-// no layer, overlay, cursor, highlight or drought line. The page saves it in place of the core's
+// The map's picture (D488): the .timber's map_thumbnail.jpg drawn in 3D, shown in the game's map picker. It is
+// what the game shows from its own camera and light (`heroView.ts`): the new game's opening camera (60° down,
+// turned to the start's orientation + 35°, the game camera's 35° field of view, at the default zoom's widest, the
+// frame the start is turned for, D493), lit as the game lights its thumbnails (the sun turning with the camera), the
+// start hidden as the game's thumbnails hide it. One frame, drawn by a renderer of its own, off screen, so the
+// player's view (its camera, look and size) is never touched; in the High look with every effect (Standard where
+// High can't be drawn), at twice the picture's size and scaled down. Only what the game shows: the land, the water,
+// the objects; no layer, overlay, cursor, highlight or drought line. The page saves it in place of the core's
 // top-down thumbnail (`src/editor/save/hero.ts`).
 
-import { DEFAULT_YAW, drawnOutline, MapRenderer, softwareRendering } from "./renderer";
-import type { EntityView, MapView } from "./model";
+import { heroScene } from "./heroView";
+import { MapRenderer, softwareRendering } from "./renderer";
+import { OPENING } from "../core/analysis/opening";
+import type { MapView } from "./model";
 
 /** The picture's size: the game's thumbnails' (FORMAT.md §1). */
 export const HERO_W = 960;
 export const HERO_H = 540;
-/** How far the camera looks down (the official maps' pictures: about 35–55°). */
-const HERO_PITCH = (40 * Math.PI) / 180;
-/** The new game's camera turns this far past the start's orientation (investigation/notes/blocks_and_placement.md §3). */
-const START_TURN = 35;
-/** The land's width across the frame (a little over it: the near corners run off its sides). */
-const FILL = 1.15;
-/** The band of sky above the map's far edge, as a share of the frame's height. */
-const SKY = 0.08;
+/** Device pixels to a pixel of the picture: drawn at twice its size and scaled down, so thin things (a ruin's
+ *  posts, a tree's trunk, a cliff's edge) are averaged, never broken into pixels. */
+const SUPERSAMPLE = 2;
 /** The moment the water and the wind are held at. */
 const CLOCK = 6;
 /** The longest wait for the High look's occlusion (from the page's bake worker) before the frame is drawn anyway:
@@ -29,18 +27,6 @@ const SETTLE_MS = 3000;
 /** The longest the picture waits for the programs of the branches its map asks for (compiled in the background, the
  *  page's thread free meanwhile) before it is drawn anyway, with a warning. */
 const PROGRAMS_MS = 20_000;
-
-/** The picture's turn (the renderer's yaw): the game's new-game camera, the start's orientation
- *  angle + 35° clockwise from north; the default view's without a start. */
-export function heroYaw(e: EntityView): number {
-  for (let k = 0; k < e.count; k++) {
-    if (e.templates[e.template[k]] !== "StartingLocation") continue;
-    // (the renderer's yaw turns the other way from the game's horizontal angle: DEFAULT_YAW is the
-    // game's 30° east of north)
-    return -(((e.orientation[k] & 3) * 90 + START_TURN) * Math.PI) / 180;
-  }
-  return DEFAULT_YAW;
-}
 
 /** Whether the picture can be drawn here: a GPU (not software rendering) with WebGL 2 (asked of a throwaway
  *  context once a page: each costs the page's thread tens of milliseconds). */
@@ -131,7 +117,7 @@ function releaseKept(): void {
 /** A renderer on an off-screen host, in the High look with every effect. */
 function make(pw: number, ph: number): { r: MapRenderer; host: HTMLElement } {
   const host = document.createElement("div");
-  // off screen at the picture's size (CSS pixels; the renderer draws at up to twice them, scaled down below)
+  // off screen at the picture's size (CSS pixels; the renderer draws at twice them, SUPERSAMPLE, scaled down below)
   host.style.cssText = `position:fixed;left:-${pw * 4}px;top:0;width:${pw}px;height:${ph}px;pointer-events:none;opacity:0`;
   host.setAttribute("aria-hidden", "true");
   const canvas = document.createElement("canvas");
@@ -139,7 +125,7 @@ function make(pw: number, ph: number): { r: MapRenderer; host: HTMLElement } {
   host.append(canvas);
   document.body.append(host);
   try {
-    const r = new MapRenderer(canvas, { still: true });
+    const r = new MapRenderer(canvas, { still: true, fov: OPENING.fov, pixels: SUPERSAMPLE });
     r.holdShowcase();
     return { r, host };
   } catch (e) {
@@ -183,8 +169,9 @@ async function draw(view: MapView, pw: number, ph: number, quality: number, reus
 
 async function paint(r: MapRenderer, view: MapView, pw: number, ph: number, quality: number): Promise<Uint8Array> {
   r.setClock(CLOCK);
-  r.setMap(view, false, true);
-  frameHero(r, view, pw, ph);
+  const scene = heroScene(view);
+  r.setMap(scene.view, false, true);
+  r.setView({ mode: "orbit", ...scene.camera });
   // (its programs compiled first, off the page's thread where the browser can: a picture never freezes on them, D453;
   // and the branches its map asks for, a cave's, switched on before it is drawn: the picture waits for them, never
   // drawn in a wrong look unsaid)
@@ -209,30 +196,4 @@ async function paint(r: MapRenderer, view: MapView, pw: number, ph: number, qual
   const blob = await new Promise<Blob | null>((done) => out.toBlob(done, "image/jpeg", quality));
   if (!blob) throw new Error("the browser could not encode the picture");
   return new Uint8Array(await blob.arrayBuffer());
-}
-
-/** Point the camera as the game's thumbnails do: turned as the new game opens, looking down at
- *  HERO_PITCH, the map's width filling the frame and its far edge under a band of sky. */
-function frameHero(r: MapRenderer, view: MapView, w: number, h: number): void {
-  const { W, H, heights } = view;
-  let sum = 0;
-  for (let i = 0; i < heights.length; i++) sum += heights[i];
-  const level = sum / heights.length;
-  const outline = drawnOutline(W, H, heights);
-  r.setView({ mode: "orbit", yaw: heroYaw(view.entities), pitch: HERO_PITCH, distance: Math.max(W, H) * 1.6, target: [W / 2, level, -H / 2] });
-  const box = () => r.screenBox(outline);
-  const rect = r.canvas.getBoundingClientRect();
-  for (let pass = 0; pass < 8; pass++) {
-    let b = box();
-    const s = (b.x1 - b.x0) / (FILL * w);
-    const v = r.getView();
-    if (Number.isFinite(s) && s > 0) r.setView({ distance: Math.min(v.distance * s, Math.max(W, H) * 6) });
-    b = box();
-    // the box's middle across, and its top SKY down from the frame's: the ground under where it is moved to where it goes
-    const at = r.pickAtLevel(rect.left + (b.x0 + b.x1) / 2, rect.top + b.y0 + h / 2, level);
-    const to = r.pickAtLevel(rect.left + w / 2, rect.top + SKY * h + h / 2, level);
-    if (!at || !to) break;
-    const t = r.getView().target;
-    r.setView({ target: [t[0] + at.point[0] - to.point[0], t[1], t[2] + at.point[2] - to.point[2]] });
-  }
 }
