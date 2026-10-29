@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp, OpOf } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
-import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
+import { fillLevel, planFill, unfedWater } from "../../src/core/doc/waterEdits";
 import { generate } from "../../src/core/gen/generate";
 import { fedTiles, WATER } from "../../src/core/sim/fed";
 import { fillDays } from "../../src/core/sim/fill";
@@ -192,6 +192,18 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
     expect(planFill(s, at[0], at[1], floor).reason).toBe(`level ${floor} is at or below the ground at X ${at[0]} · Y ${at[1]}, which stands at ${floor}`);
     expect(planFill(s, at[0], at[1], floor - 1).reason).toMatch(/is at or below the ground/);
     expect(planFill(s, N, 3, level).reason).toBe(`X ${N} · Y 3 is off the map`);
+  });
+
+  it("with no level named, fills to the brim: the highest level the hollow holds, so the first Fill holds; none on land that drains", () => {
+    const [{ at, level }] = pits;
+    // (the pit, two levels into the plateau: it holds water up to the plateau's level, and spills one above)
+    expect(fillLevel(s, at[0], at[1])).toBe(level);
+    expect(planFill(s, at[0], at[1], level).reason).toBeNull();
+    expect(planFill(s, at[0], at[1], level + 1).reason).toMatch(/would spill off the map/);
+    // (the plateau beside the pit holds none: a Fill there is refused at every level, and the page says why)
+    const beside: [number, number] = [at[0] - 5, at[1]];
+    expect(s.built.waterModel.floor[beside[1] * N + beside[0]]).toBe(level);
+    expect(fillLevel(s, beside[0], beside[1])).toBeNull();
   });
 
   it("is one operation and one undo step, says how long it lasts, and is stored at its level and evaporates from there by the game's rules (D222, D413)", () => {

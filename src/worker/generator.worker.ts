@@ -268,6 +268,8 @@ const api = {
   unfedWaterIn: (tiles: number[] | null) => ed.unfedWaterIn(tiles),
   removeUnfedWater: routed((tiles: number[] | null) => sendUpdate(ed.removeUnfedWater(tiles)), (...a) => collabEditApi.removeUnfedWater(...a).then(sendUpdate)),
   fillPlanAt: (x: number, y: number, level: number) => ed.fillPlanAt(x, y, level),
+  /** The level Fill fills to unless one is set: the highest its hollow holds (null: none). */
+  fillLevelAt: (x: number, y: number) => ed.fillLevelAt(x, y),
   /** Crop map to selection (D340): what it would do (or why not), then doing it, one undo step. A crop changes the map's size, which
    *  a shared session cannot carry: refused with a plain line while one is on. */
   cropPlanAt: (r: { x: number; y: number; w: number; h: number }) => ed.cropPlanAt(r),

@@ -408,15 +408,27 @@ export function useSelect(ed: Ed): SelectSlice {
     if (/cave|overhang/.test(reason)) return "A cave is in the way";
     return "It would not hold water";
   }
-  function previewFill(level: number) {
+  /** The level Fill fills to: the Level once the player sets it; else the highest the hollow holds (the core's
+   *  `fillLevel`), so a first Fill holds, or where it holds none, one above the ground there, so the refusal says why. */
+  async function fillLevelAt(spot: [number, number]): Promise<{ level: number; set: boolean }> {
+    const set = flattenRef.current;
+    if (set !== null) return { level: set, set: true };
+    const top = await api.fillLevelAt(spot[0], spot[1]);
+    return { level: top ?? mirror.current.heights[spot[1] * infoRef.current.W + spot[0]] + 1, set: false };
+  }
+  function previewFill() {
     const spot = fillSpot();
     if (!spot) return;
     const job = ++hintJob.current;
-    void api.fillPlanAt(spot[0], spot[1], level).then((r) => {
-      if (job !== hintJob.current) return;
-      setWaterHint(r.reason ? fillWhy(r.reason) : `${r.tiles.length.toLocaleString("en-GB")} tiles, lasts ${daysWords(r.days)}`);
-      setSelectPreview(r.tiles.length ? { tiles: r.tiles, color: MOVING } : null);
-    });
+    void fillLevelAt(spot).then(({ level, set }) =>
+      api.fillPlanAt(spot[0], spot[1], level).then((r) => {
+        if (job !== hintJob.current) return;
+        // (the level it found said when the player set none, the Level number showing the ground's; the hollow's tiles
+        // are marked on the map, so the words stay short enough for their cells)
+        setWaterHint(r.reason ? fillWhy(r.reason) : set ? `${r.tiles.length.toLocaleString("en-GB")} tiles, lasts ${daysWords(r.days)}` : `Level ${level}, lasts ${daysWords(r.days)}`);
+        setSelectPreview(r.tiles.length ? { tiles: r.tiles, color: MOVING } : null);
+      }),
+    );
   }
   function previewUnfed() {
     // (greyed with nothing selected: the row's own words say what to do)
@@ -506,13 +518,14 @@ export function useSelect(ed: Ed): SelectSlice {
       if (!ed.resizing.current) setMessage((m) => (m && m.text === "Cropping…" ? null : m));
     });
   }
-  /** Fill: the hollow under the selection's lowest ground, filled with standing water to the Level, no source (D394). */
-  function fillWater(level: number) {
+  /** Fill: the hollow under the selection's lowest ground, filled with standing water, no source (D394): to the Level once
+   *  set, else as high as it holds. */
+  function fillWater() {
     const spot = fillSpot();
     if (!spot) return;
     endWaterHint();
     void run(
-      () => api.fillAt(spot[0], spot[1], level),
+      () => fillLevelAt(spot).then(({ level }) => api.fillAt(spot[0], spot[1], level)),
       (u) => u.ok && feel("raise", spot[0], spot[1], 2),
     );
   }
@@ -663,7 +676,8 @@ export function useSelect(ed: Ed): SelectSlice {
           </div>
         ),
       },
-      // the water's two actions (D387): Fill pours into the hollow under the selection's lowest ground, up to the Level;
+      // the water's two actions (D387): Fill pours into the hollow under the selection's lowest ground, to the brim (the
+      // highest level it holds) or to the Level once the player sets it;
       // Remove unfed water takes the pools no source feeds, saying first how many (the words and the marked tiles)
       {
         key: "fillwater",
@@ -676,12 +690,12 @@ export function useSelect(ed: Ed): SelectSlice {
               type="button"
               class="set-button"
               aria-disabled={z ? undefined : "true"}
-              {...tip("Fill the hollow with water up to the Level")}
-              onMouseEnter={() => previewFill(level)}
-              onFocus={() => previewFill(level)}
+              {...tip("Fill the hollow with water to the brim, or to a Level you set")}
+              onMouseEnter={previewFill}
+              onFocus={previewFill}
               onMouseLeave={endWaterHint}
               onBlur={endWaterHint}
-              onClick={() => fillWater(level)}
+              onClick={fillWater}
             >
               Fill water
             </button>
@@ -709,7 +723,7 @@ export function useSelect(ed: Ed): SelectSlice {
         row: 2,
         at: 1,
         span: 2,
-        node: <NumberSetting label="Level" title="The level Flatten, Cut down and Fill up work to" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} disabled={!z} onChange={(v) => setFlattenTo(v)} />,
+        node: <NumberSetting label="Level" title="The level Flatten, Cut down, Fill up and Fill water work to" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} disabled={!z} onChange={(v) => setFlattenTo(v)} />,
       },
       act("up", 3, "Up 1", tip("Raise the selection one level", "\u2191"), "raise", () => selectAction("raise")),
       act("down", 4, "Down 1", tip("Lower the selection one level", "\u2193"), "lower", () => selectAction("lower")),
