@@ -71,6 +71,9 @@ export interface ParallelOptions {
   threads?: number;
   /** Helpers started at once (more are started for bigger maps); default: those 256² uses. */
   eager?: number;
+  /** The checks' worker's: of the budget it shares with the editor's (`shareWaterBudget`), it takes at most what the
+   *  editor's half leaves (the editor's worker, generating or editing, always has half of it). */
+  rest?: boolean;
 }
 
 // ------------------------------------------------------------------------------------------ the barrier
@@ -358,10 +361,13 @@ class Pool {
   constructor(
     private readonly spawn: () => HelperPort,
     readonly forced: number | null,
+    /** The checks' worker's pool (`ParallelOptions.rest`). */
+    private readonly rest = false,
   ) {
     // the page's own thread, the water's mesh workers and the flow bake keep a core each where there is room
-    // (waterThreadBudget)
+    // (waterThreadBudget); the checks' worker's, no more than its share of the budget (`rest`)
     this.cap = forced ?? waterThreadBudget(machineThreads());
+    if (rest && budget) this.cap = Math.min(this.cap, restOf(budget[1]));
   }
 
   /** Starts helpers until there are `count` (never more than the cap allows); when a helper can't be started,
@@ -398,6 +404,7 @@ class Pool {
   take(want: number, half = false): number {
     if (!budget) return want;
     if (half) want = Math.min(want, Math.max(2, Math.ceil(budget[1] / 2)));
+    if (this.rest) want = Math.min(want, restOf(budget[1]));
     for (;;) {
       const free = Atomics.load(budget, 0);
       const got = Math.min(want, free);
@@ -439,6 +446,11 @@ let jobIds = 0;
  *  that together they never run more than one worker's budget did (`waterThreadBudget`); null: no sharing. */
 let budget: Int32Array | null = null;
 
+/** What the editor's half of a budget of `total` threads leaves the checks' worker. */
+export function restOf(total: number): number {
+  return total - Math.ceil(total / 2);
+}
+
 /** The budget shared between this page's workers (the page makes it, parallelPolicy.ts `newWaterBudget`, and hands it to
  *  both). */
 export function shareWaterBudget(sab: SharedArrayBuffer): void {
@@ -452,7 +464,7 @@ export function installParallelWater(opts: ParallelOptions): boolean {
   const forced = opts.threads ?? null;
   if (forced === null && !parallelWaterSupported()) return false;
   if (forced !== null && forced < 2) return false;
-  pool = new Pool(opts.spawn, forced);
+  pool = new Pool(opts.spawn, forced, opts.rest);
   try {
     for (const h of opts.helpers ?? []) {
       if (pool.helpers.length < pool.cap - 1) pool.add(h);
