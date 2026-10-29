@@ -251,9 +251,11 @@ place of its bottom rule.
     selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
     row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it. The first row
     ends with **Crop** (the map becomes the selection's bounding rectangle, D340; one cell, the size's words take two),
-    **Fill water** (the hollow under the selection's lowest ground filled with standing water up to the Level;
-    hovering says "9 tiles, lasts about 12 days" and marks the hollow, or in a few words why not: "Raise the Level to
-    fill", "It would spill off the map", D394) and **Remove unfed water** (the pools no
+    **Fill water** (the hollow under the selection's lowest ground filled with standing water to the brim, the highest
+    level it holds (the core's `fillLevel`), so the first try holds; to the Level once the player sets it; hovering says
+    "Level 7, lasts about 12 days" (with a Level set, "9 tiles, lasts about 12 days") and marks the hollow, or in a
+    few words why not: "Raise the Level to fill", "It would spill off the map" (a slope or flat land, which hold none),
+    D394) and **Remove unfed water** (the pools no
     source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo
     step, both the core's (`planFill`, `unfedWater`), greyed with `aria-disabled` while nothing is selected, and the words they
     left in the row go when the selection closes or changes; Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
@@ -1027,7 +1029,8 @@ Make a valley, drop a source, and there's a river.
 - **Remove unfed water and Fill** (D387 (2) and (3), D394): Remove unfed water takes the water no source feeds (a
   pool the settle left in a hollow, a sealed oxbow lake, a Fill), map-wide or within a selection, and says first
   what it will take ("12 pools, 3,400 tiles of water"); a pool with a tile in the selection goes whole, and fed
-  water is never touched. Fill fills a hollow with standing water to a chosen level, with no source, and says
+  water is never touched. Fill fills a hollow with standing water to a chosen level (by default the highest it holds,
+  `fillLevel`), with no source, and says
   roughly how long it will last; it is refused with a plain reason when the hollow doesn't hold water at that
   level. Each is one undo step. Their engine and questions are in the core; where they sit in the page is agreed
   with the page session (D388).

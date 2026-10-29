@@ -34,7 +34,7 @@ import { describeTileOf, entitiesAtTile, type EntityInfo, type TileDescription }
 export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
 import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
-import { planFill, unfedWater } from "../core/doc/waterEdits";
+import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -2295,6 +2295,12 @@ export function cropTo(r: CropParams): SessionUpdate & { removedObjects: number 
 export function fillPlanAt(x: number, y: number, level: number, floor?: number | null): { reason: string | null; tiles: number[]; volume: number; days: number } {
   const p = planFill(need(), x, y, level, floor);
   return { reason: p.reason, tiles: p.op ? [...new Set(p.op.params.lake.tiles)] : [], volume: p.volume, days: p.days };
+}
+
+/** The level a Fill at (x, y) fills to when the player names none: the highest its hollow holds, or null when it holds
+ *  none (core/doc/waterEdits.ts `fillLevel`, D394). Reads the map only. */
+export function fillLevelAt(x: number, y: number, floor?: number | null): number | null {
+  return fillLevel(need(), x, y, floor);
 }
 
 /** Fill the hollow round (x, y) with standing water to `level`, no source: one undo step. */

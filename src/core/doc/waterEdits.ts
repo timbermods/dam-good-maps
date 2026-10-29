@@ -8,6 +8,7 @@
 // - `planFill(s, x, y, level, floor?)`: a hollow filled with standing water to a level, with no source:
 //   how many tiles, how much water, roughly how many days it lasts, and the `fillHollow` operation; or a
 //   plain one-line reason the hollow doesn't hold water at that level.
+// - `fillLevel(s, x, y, floor?)`: the level a Fill fills to when none is named: the highest its hollow holds.
 //
 // On a map with caves or overhangs both ask every water column (sim/stackFed.ts): a cave pool no source
 // feeds is unfed, and a hollow under a roof fills to its level, measured from the column `floor` names
@@ -18,6 +19,7 @@ import { fillDays, fillLake } from "../sim/fill";
 import { lakeFromAbove, placeLake, stackFillLake, unfedColumnBodies } from "../sim/stackFed";
 import { cavesOf, stackGraph, type StackSettle } from "../sim/stackWater";
 import { tilesToRuns } from "../math/grid";
+import { CEILING } from "../format/world";
 import type { OpOf } from "./ops";
 import type { MapSession } from "./session";
 
@@ -156,6 +158,26 @@ export function planFill(s: MapSession, x: number, y: number, level: number, flo
   let volume = 0;
   for (const d of r.lake.depth) volume += d;
   return { reason: null, op, tiles: r.lake.tiles.length, volume, days: fillDays(model.W, model.H, r.lake) };
+}
+
+/** The level a Fill at tile (x, y) fills to when the player names none: the highest whole level its hollow holds, one
+ *  under the level where it would spill (off the map, past a roof or a dam), so a first Fill holds; null when it holds
+ *  water at no level (a slope that drains, flat land). A hollow holds every level from the first that fills it up to its
+ *  spill, so the search ends at the first refusal after one that fills; the level found passes `planFill` too. `floor`
+ *  as `planFill`'s. Reads the map only. */
+export function fillLevel(s: MapSession, x: number, y: number, floor?: number | null): number | null {
+  const { model, depth, stack } = s.waterNow();
+  const g = cavesOf(model) ? stackGraph(model) : null;
+  if (!g && floor !== undefined && floor !== null && floor !== model.floor[y * model.W + x]) return null;
+  const holds = (level: number) => !("reason" in (g ? stackFillLake(g, x, y, level, floor, stack) : fillLake(model, x, y, level, depth)));
+  let best: number | null = null;
+  for (let level = 1; level <= CEILING; level++) {
+    if (holds(level)) best = level;
+    else if (best !== null) break;
+  }
+  // (the operation's own check as well, a level down at a time while the hollow still holds)
+  while (best !== null && planFill(s, x, y, best, floor).reason) best = best > 1 && holds(best - 1) ? best - 1 : null;
+  return best;
 }
 
 /** `planFill` on a map with caves or overhangs: the hollow on every water column (sim/stackFed.ts `stackFillLake`). Its
