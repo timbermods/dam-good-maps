@@ -749,7 +749,8 @@ const common = (h?: ShaderHooks) => /* glsl */ `
     return vec4(${glColor(HATCH.dark)}, 1.0 - smoothstep(w, w + px, e));
   }
   /** A footprint's edge (the shelf's ghost, the start: an overlay painted with an odd alpha below 255, tools.ts
-   *  \`paintOverlay\`'s \`edge\`): at tile position g, with \`px\` the size of a pixel in tiles, how much of a line lies here along the sides where the tile beside it is not of the same footprint,
+   *  \`paintOverlay\`'s \`edge\`): at tile position g, with \`px\` the size of a pixel in tiles, how much of a line lies here along the sides where the tile beside it is not of the same footprint
+   *  (and round an inward corner),
    *  about a sixteenth of a tile wide and never under a pixel and a half. Drawn in a light tint of the fill
    *  (\`overlayEdgeColor\`): a lighter edge on a darker fill of one hue, calm on grass, rock, sand and water. */
   bool sameOverlay(vec2 t, vec4 o) {
@@ -762,10 +763,19 @@ const common = (h?: ShaderHooks) => /* glsl */ `
     vec2 tile = floor(g);
     vec2 fr = g - tile;
     float e = 9.0;
-    if (!sameOverlay(tile + vec2(1.0, 0.0), o)) e = min(e, 1.0 - fr.x);
-    if (!sameOverlay(tile - vec2(1.0, 0.0), o)) e = min(e, fr.x);
-    if (!sameOverlay(tile + vec2(0.0, 1.0), o)) e = min(e, 1.0 - fr.y);
-    if (!sameOverlay(tile - vec2(0.0, 1.0), o)) e = min(e, fr.y);
+    bool east = sameOverlay(tile + vec2(1.0, 0.0), o);
+    bool west = sameOverlay(tile - vec2(1.0, 0.0), o);
+    bool north = sameOverlay(tile + vec2(0.0, 1.0), o);
+    bool south = sameOverlay(tile - vec2(0.0, 1.0), o);
+    if (!east) e = min(e, 1.0 - fr.x);
+    if (!west) e = min(e, fr.x);
+    if (!north) e = min(e, 1.0 - fr.y);
+    if (!south) e = min(e, fr.y);
+    // an inward corner (both sides in the footprint, the tile between them not): the line turns round it
+    if (east && north && !sameOverlay(tile + vec2(1.0, 1.0), o)) e = min(e, max(1.0 - fr.x, 1.0 - fr.y));
+    if (west && north && !sameOverlay(tile + vec2(-1.0, 1.0), o)) e = min(e, max(fr.x, 1.0 - fr.y));
+    if (east && south && !sameOverlay(tile + vec2(1.0, -1.0), o)) e = min(e, max(1.0 - fr.x, fr.y));
+    if (west && south && !sameOverlay(tile - vec2(1.0, 1.0), o)) e = min(e, max(fr.x, fr.y));
     float w = max(0.06, 1.5 * px);
     return 1.0 - smoothstep(w, w + px, e);
   }

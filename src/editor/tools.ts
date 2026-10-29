@@ -74,6 +74,9 @@ export const GOOD: Rgba = [52, 150, 66, 170];
 export const BAD: Rgba = [190, 54, 44, 180];
 /** A start that fits but misses some requirement (D361). */
 export const WARN: Rgba = [200, 140, 30, 180];
+/** A footprint whose fit is still being checked (the start's walks): a faint fill and a pale edge, never a colour that
+ *  claims an answer. */
+export const PENDING: Rgba = [205, 210, 200, 50];
 /** The start's overlay colour by its status (D361). */
 export const STATUS_COLOR: Record<"ok" | "warn" | "blocked", Rgba> = { ok: GOOD, warn: WARN, blocked: BAD };
 /** The start's ghost tint by its status: true green, "warn" amber, false red. */
