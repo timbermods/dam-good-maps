@@ -23,15 +23,16 @@ test("Easy start: a toggle beside Size, kept by a theme and remembered; the map 
   await pick(panel, "Theme", "Any");
   await panel.getByRole("button", { name: "Reset settings", exact: true }).click();
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
-  // the seed kept, Generate makes seed 2 with Easy start
-  await panel.getByRole("button", { name: "Keep", exact: true }).click();
+  // the link's seed is kept, so Generate makes seed 2 with Easy start
+  await expect(panel.getByRole("button", { name: "Keep", exact: true })).toHaveAttribute("aria-pressed", "true");
   const before = await page.evaluate(() => window.dgm!.current!()?.made ?? 0);
   await generateButton(page).click();
   await page.waitForFunction((n) => (window.dgm!.current!()?.made ?? 0) > n, before, { timeout: 300_000 });
   const shown = (await page.evaluate(() => window.dgm!.current!()))!;
   const fragment = shown.link.split("#")[1];
   expect(fragment).toContain("es=1");
-  expect(new URL(page.url()).hash).toBe(`#${fragment}`);
+  expect(fragment).toContain("s=2&");
+  await expect.poll(() => new URL(page.url()).hash, { timeout: 30_000 }).toBe(`#${fragment}`);
   expect(shown.passed).toBe(true);
   await expect(page.locator(".editor-title .muted")).toContainText("Easy start");
   // its start holds every target, each a row of the checks it was made by
