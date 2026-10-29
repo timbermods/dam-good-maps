@@ -1556,7 +1556,11 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
        *  not the whole surface, which a modest GPU felt). */
       void flowingAt(vec2 p, float t, float bad, float fine, out float fn, out float pale, out float bubbles) {
         fn = vnoise(p * 4.0 + vec2(t * 0.3, -t * 0.2));
-        pale = smoothstep(0.6, 0.82, vnoise(vec2(p.x * 0.9 + p.y * 0.3, (p.y - p.x * 0.2) * 5.0) + vec2(t * 0.15, t * 0.5)));
+        // (clean water's pale streaks run along the flow; badwater's light is mottled, as the game's
+        // contaminated surface is a pattern of patches, never streaks that read as rain)
+        float streaks = vnoise(vec2(p.x * 0.9 + p.y * 0.3, (p.y - p.x * 0.2) * 5.0) + vec2(t * 0.15, t * 0.5));
+        float patches = vnoise(p * 1.4 + vec2(t * 0.05, t * 0.08)) * 0.6 + vnoise(p * 3.3 - vec2(t * 0.04, -t * 0.06)) * 0.4;
+        pale = smoothstep(0.6, 0.82, mix(streaks, patches + 0.06, bad));
         bubbles = bad > 0.01 ? fine * smoothstep(0.93 - 0.1 * bad, 1.03 - 0.1 * bad, vnoise(p * 5.0 + vec2(t * 0.05, -t * 0.08))) * smoothstep(0.55, 0.8, vnoise(p * 1.3 - vec2(0.0, t * 0.04))) : 0.0;
       }
       void main() {
@@ -1649,7 +1653,9 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             // badwater is dull)
             crest = smoothstep(0.1, 0.85, 0.5 + 0.42 * (sl.x * 0.7 - sl.y * 0.5)) * near * (1.0 - bad);
             // badwater's troughs: the ripples' low parts
-            trough = (1.0 - smoothstep(0.15, 0.5, 0.5 + 0.42 * (sl.x * 0.7 - sl.y * 0.5))) * near * bad;
+            // (in mottled patches, as the game's contaminated pattern, not the ripples' parallel bands)
+            float mottle = vnoise(g * 1.1 + vec2(t * 0.03, -t * 0.04)) * 0.6 + vnoise(g * 2.7 - vec2(t * 0.05, t * 0.02)) * 0.4;
+            trough = (1.0 - smoothstep(0.3, 0.46, mottle)) * near * bad;
           #endif
           // badwater's opacity (nearly opaque but at its shallow edges), by how bad it is
           alpha = mix(alpha, badwaterAlpha(depth, shore, waterGrazing(V, N)), bad);
