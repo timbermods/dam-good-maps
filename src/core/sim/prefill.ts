@@ -212,7 +212,7 @@ export interface SettledFrom {
  *  sealed basin only evaporating is stored as it started (D413), and the unfed water a removal drained is
  *  taken once the water has settled, on every column of its tiles (a settle with drained tiles never takes
  *  the shortcut). */
-function stackedRun(m: WaterModel, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+function stackedRun(m: WaterModel, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; free?(): void; readonly ticks: number; readonly maxTicks: number } {
   const top = (s: StackSettle): CanonicalWater => {
     const N = m.W * m.H;
     const depth = new Float64Array(N);
@@ -243,6 +243,7 @@ function stackedRun(m: WaterModel, from?: SettledFrom | null): { advance(ticks: 
       done = top(s);
       return done;
     },
+    free: () => run.free(),
     get ticks() {
       return run.ticks;
     },
@@ -281,7 +282,7 @@ export function setCanonicalBackend(backend: ((m: WaterModel, start: WaterState,
  *  worker runs it between answers to the page, and drops it when a newer edit arrives. The result
  *  equals `canonicalSettle`'s. `from`, the map's last canonical settle, may answer a stacked model at
  *  once (`stackedRun`). */
-export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; free?(): void; readonly ticks: number; readonly maxTicks: number } {
   // terrain above terrain settles in the stacked engine; a heightfield (no `stacked`) below, as ever
   if (m.stacked) return stackedRun(m, from);
   const start = prefill(m);

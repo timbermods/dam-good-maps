@@ -7,7 +7,7 @@ import { transfer, wrap, type Remote } from "comlink";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { ShowcaseMessage, ShowcaseRequest } from "../worker/showcaseApi";
 import type { MapSpec } from "../core/spec/mapspec";
-import { machineThreads, parallelWaterSupported, threadsFor, waterThreadBudget } from "../core/sim/parallelPolicy";
+import { machineThreads, newWaterBudget, parallelWaterSupported, threadsFor, waterThreadBudget } from "../core/sim/parallelPolicy";
 
 /** workers: module URLs on the website (the artifact build will inline them as blobs). The
  *  generator and the editor's map run in one worker; the editor's checks run in a second one, on
@@ -25,11 +25,13 @@ export function createGeneratorWorker(): { api: Remote<GeneratorApi>; stop(): vo
   // the water's helper threads (src/core/sim/parallel.ts), started here so they are ready by the first big map
   const helpers = waterHelpers();
   const ports = helpers.map((h) => h.port);
-  if (ports.length) void api.waterHelpers(transfer(ports, ports));
+  // (one budget of water threads for both workers: the checks' settle takes what the editor's water leaves)
+  const waterBudget = ports.length ? newWaterBudget(waterThreadBudget(machineThreads())) : null;
+  if (ports.length) void api.waterHelpers(transfer(ports, ports), waterBudget!);
   try {
     checks = new Worker(new URL("../worker/checks.worker.ts", import.meta.url), { type: "module" });
     const ch = new MessageChannel();
-    checks.postMessage({ checksPort: ch.port1 }, [ch.port1]);
+    checks.postMessage({ checksPort: ch.port1, waterBudget }, [ch.port1]);
     void api.connectChecks(transfer(ch.port2, [ch.port2]));
   } catch {
     // no second worker: the checks run in the first one

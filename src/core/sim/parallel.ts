@@ -11,7 +11,9 @@
 // determinism check (`chromium-threads`, `firefox-threads`) prove it byte for byte.
 //
 // Where it runs (#130's approved shape): only where it helps, in a worker that installed a pool
-// (`installParallelWater`: the editor's generator worker, with helpers the page starts) on a cross-origin isolated page (the service worker,
+// (`installParallelWater`: the editor's generator worker, with helpers the page starts, and the checks' worker for its
+// canonical settle, with helpers it starts; both take from one budget the page shares, `shareWaterBudget`, D402's
+// amendment) on a cross-origin isolated page (the service worker,
 // public/sw.js) in Chromium and Firefox, for maps of 256² and more (about 8 threads at 256², up to 16 at 512²)
 // with enough water to share, within the machine's budget (`waterThreadBudget`: the page's thread, the water mesh
 // workers and the flow bake keep a core each, 7 threads of 12; a machine of 4 to 6 threads keeps 3). Everywhere else, and whenever it can't, WaterSim runs the single thread, and the
@@ -389,6 +391,31 @@ class Pool {
     this.helpers.push(h);
   }
 
+  /** Up to `want` threads of the water's budget the page shares between its workers (`shareWaterBudget`), the
+   *  coordinator's own included, taken until given back: all of them, the fewest that are worth it (2), or none (0);
+   *  `half`: at most half the budget (the live water, leaving the rest to the checks' settle). Without a shared
+   *  budget (the tools, a single worker), `want`. */
+  take(want: number, half = false): number {
+    if (!budget) return want;
+    if (half) want = Math.min(want, Math.max(2, Math.ceil(budget[1] / 2)));
+    for (;;) {
+      const free = Atomics.load(budget, 0);
+      const got = Math.min(want, free);
+      if (got < 2) return 0;
+      if (Atomics.compareExchange(budget, 0, free, free - got) === free) return got;
+    }
+  }
+
+  /** Gives back threads `take` gave. */
+  give(n: number): void {
+    if (budget && n >= 2) Atomics.add(budget, 0, n);
+  }
+
+  /** The budget's threads free now (no sharing: as many as could be wanted). */
+  free(): number {
+    return budget ? Atomics.load(budget, 0) : Infinity;
+  }
+
   /** Threads available now, the coordinator's own included: it and the helpers ready in a row. */
   threads(): number {
     let k = 0;
@@ -408,6 +435,15 @@ class Pool {
 
 let pool: Pool | null = null;
 let jobIds = 0;
+/** The water's threads the page shares between the editor's worker and the checks' (`[free, total]`, shared memory), so
+ *  that together they never run more than one worker's budget did (`waterThreadBudget`); null: no sharing. */
+let budget: Int32Array | null = null;
+
+/** The budget shared between this page's workers (the page makes it, parallelPolicy.ts `newWaterBudget`, and hands it to
+ *  both). */
+export function shareWaterBudget(sab: SharedArrayBuffer): void {
+  budget = new Int32Array(sab);
+}
 
 /** Gives this thread a pool of helper threads for the water (once; again is a no-op). Returns whether the
  *  water may now run on several threads here. */
@@ -439,6 +475,9 @@ export function sharedPool(): {
   readonly forced: number | null;
   readonly died: boolean;
   threads(): number;
+  take(want: number, half?: boolean): number;
+  give(n: number): void;
+  free(): number;
   grow(count: number): void;
   break(): void;
 } | null {
@@ -562,6 +601,13 @@ export class WaterThreads {
     const replan = !this.fresh || this.sinceInit >= REBALANCE_TICKS;
     const strips0 = replan ? this.plan(D) : null;
     if (replan && !strips0) return false;
+    // the budget's threads for this run (given back at its end); short of them, this run is on one thread
+    const want = (strips0 ?? this.strips)!.length;
+    const lease = this.pool.take(want);
+    if (lease !== want) {
+      this.pool.give(lease);
+      return false;
+    }
     // (the shared state is made here, once the threads are really used)
     const f = this.f;
     // A helper can fail after another strip wrote its final rows. Public water has not been
@@ -598,6 +644,7 @@ export class WaterThreads {
     } catch {
       ok = false;
     }
+    this.pool.give(lease);
     if (!ok) {
       // Keep private carry outside shared memory: another strip may still be exiting its failed run.
       this.failedCarry = { dold: checkpoint.slice(0, N), seeps: Uint8Array.from(checkpoint.subarray(N + 4 * this.info.emitters.length)) };
@@ -632,6 +679,8 @@ export class WaterThreads {
     }
     let T = Math.min(this.most, this.pool.threads());
     if (!forced) T = Math.min(T, Math.floor(wet / WET_PER_THREAD));
+    // (as many as the budget the page's workers share has free now, `Pool.free`)
+    T = Math.min(T, this.pool.free());
     if (T < 2) return null;
     // each row's work: its water and its neighbours' (a strip runs the tiles beside its water too), and a little
     // for the row itself

@@ -2018,7 +2018,11 @@ async function settleInSlices(model: WaterModel, current: () => boolean, onProgr
     if (w) return w;
     onProgress?.({ stage: "water", done: Math.min(0.99, run.ticks / run.maxTicks) });
     await breathe();
-    if (!current()) return null;
+    if (!current()) {
+      // (its threads back in the budget the page's workers share, at once)
+      run.free?.();
+      return null;
+    }
   }
 }
 
