@@ -1577,9 +1577,9 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         #endif
         float t = time;
         // the badwater share, blended between tiles by the mesh: the water turns from clean water to
-        // badwater with it, smoothly, never in streaks or patches (waterPalette.ts WATER_BLEND):
-        // its colour (waterBlend), its opacity (waterMurk) and its dull surface, foam and bubbles
-        float bad = waterDull(cont);
+        // badwater with it, smoothly, never in streaks or patches, by the game's own tint (waterPalette.ts
+        // WATER_BLEND): its colour (waterBlend), its opacity and its dull surface, foam and bubbles
+        float bad = waterTint(cont);
         // how far this point is from the tile's shores (1 in open water): the water shallows toward
         // its banks
         vec2 fr = fract(g);
@@ -1615,7 +1615,12 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
             vec2 q2 = g * 1.6 + vec2(sin(g.y * 0.5), sin(g.x * 0.43)) * 1.5;
             vec2 sl = ripple(q2, t * slow) + 0.6 * ripple(q2 * 1.9 + 7.0, t * 1.3 * slow);
-            glints = fine * smoothstep(0.8, 0.9, vnoise(g * 17.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(g * 13.0 - vec2(t * 0.3, t * 0.7)) * 1.6);
+            // small glints (D154): a few to a tile, each a few pixels across, gathered in the patches of
+            // ripples that catch the sun, not a static of specks all over (gone where a glint would be
+            // under two pixels)
+            float sparkle = 1.0 - smoothstep(0.035, 0.08, fwidth(g.x));
+            float sunPatch = smoothstep(0.4, 0.75, vnoise(g * 0.45 + vec2(t * 0.03, -t * 0.02)));
+            glints = sparkle * sunPatch * smoothstep(0.84, 0.93, vnoise(g * 9.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(g * 7.1 - vec2(t * 0.3, t * 0.7)) * 1.6);
             // the foam and pale streaks move with the water's current (D353): drawn at two points
             // carried back along it, each fading in as the other is carried furthest, so neither is
             // seen to start again; still water draws them where they are, as always
@@ -1647,7 +1652,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             trough = (1.0 - smoothstep(0.15, 0.5, 0.5 + 0.42 * (sl.x * 0.7 - sl.y * 0.5))) * near * bad;
           #endif
           // badwater's opacity (nearly opaque but at its shallow edges), by how bad it is
-          alpha = mix(alpha, badwaterAlpha(depth, shore, waterGrazing(V, N)), waterMurk(cont));
+          alpha = mix(alpha, badwaterAlpha(depth, shore, waterGrazing(V, N)), bad);
           // foam where the water meets the shore, and along the brink where a fall pours over (the
           // whitewater where a fall lands is the fall's own splash: fallMaterial)
           float lip = 1.0;
@@ -1699,8 +1704,10 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // (none on a fall: a sheet seen edge-on would mirror the sky in patches)
         float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0) * step(0.5, n.y);
         c = mix(c, WATER_SKY, fres * mix(WATER_REFLECT, BADWATER_REFLECT, bad));
-        // pale streaks where it flows (badwater's brownish, so it reads as a flowing liquid too)
-        c = mix(c, mix(WATER_PALE, badwaterShade(BADWATER_STREAK, depth), bad), pale * mix(WATER_PALE_AMOUNT, BADWATER_STREAK_AMOUNT, bad));
+        // pale streaks where it flows (badwater's brownish, so it reads as a flowing liquid too): each
+        // by its own share, so water partly bad never takes a pale pink haze between the two
+        c = mix(c, WATER_PALE, pale * WATER_PALE_AMOUNT * (1.0 - bad));
+        c = mix(c, badwaterShade(BADWATER_STREAK, depth), pale * BADWATER_STREAK_AMOUNT * bad);
         float spec = pow(max(dot(reflect(-sunDir, N), V), 0.0), 90.0) * lit;
         // a film keeps at most a faint sheen of glints: they come in with its body (WATER_FILM), so a glint
         // never turns a film's faint tint into a solid fleck
@@ -2002,7 +2009,7 @@ ${hook(h, "fallVertex")}        vNormal = n;
         float flow = vFall.x;
         float h = vFall.y;
         float cont = clamp(vFall.w, 0.0, 1.0);
-        float bad = waterDull(cont);
+        float bad = waterTint(cont);
         float t = time;
         vec2 g = vec2(vWorld.x, -vWorld.z);
         vec3 N = ${hook(h, "fallNormal", "normalize(vNormal)")};
@@ -2120,7 +2127,7 @@ ${hook(h, "crownNoise")}            float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fi
           c = mix(c, foamColour, foam * 0.18);
           float edgeOn = 1.0 - max(dot(N, V), 0.0);
           alpha = mix(FALL_CLEAR, FALL_STREAK, streak);
-          alpha = mix(alpha, BADWATER_FALL, waterMurk(cont));
+          alpha = mix(alpha, BADWATER_FALL, bad);
           alpha = mix(alpha, FALL_FOAM, foam);
           alpha = mix(alpha, 1.0, edgeOn * edgeOn * 0.5) * mix(0.6, 1.0, weak);
           // the inner face, behind the outer; a free end frays
