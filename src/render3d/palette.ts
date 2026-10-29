@@ -14,7 +14,8 @@
 // beyond the game's. Grass reads apart from dry earth by its hue and its painted strokes, contamination by
 // its orange-red veins over either soil, badwater by its crimson, its dullness and its bubbles (and in
 // High its pink caustics and red contact at rock). Clean water reads as water by its light shore foam, glints and ripple crests and its see-through shallows, and in
-// colour by its blue. Badwater is the same crimson at any depth, as the game's, and dull; water partly
+// colour by its blue. Badwater is darker than clean water of the same depth in Standard, darkening with depth as the game's
+// (D496), and dull; water partly
 // bad turns smoothly from one to the other over a few tiles where they meet, greying as it turns as the
 // game's does (a teal-grey, a grey, a dull red-brown, crimson), never in streaks, patches or purple
 // (D177, D496). Living trees are dark, dead trees pale. The walls, in the side light, are darker than the ground above them. The information

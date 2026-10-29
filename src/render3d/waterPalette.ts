@@ -54,11 +54,9 @@ export const WATER = {
   foam: [0.9, 0.94, 0.95] as Rgb,
   /** The sky the water reflects (clean water's pale flow streaks are this, a little darker). */
   sky: [0.6, 0.72, 0.84] as Rgb,
-  /** Badwater's body, crimson, matte and nearly opaque. The game's contaminated colour has no depth in it
-   *  (its PhysicalWaterURP darkens only clean water's colour with depth; D496), so badwater keeps this
-   *  colour deeper too, darkened only where Standard's rule needs it: at least `BADWATER.under` L* under
-   *  clean open water of the same depth (D177; `badwaterBody`). Kyler's option A darkened it toward near
-   *  black, and the seas partly bad with it. Unchanged by D310 (see `BAD_BODY`). */
+  /** Badwater's body a quarter level deep (#38's calibration depth), crimson, matte and nearly opaque;
+   *  lighter on a film and darker deeper, as the game's (`BADWATER.ramp`, `badwaterBody`: D496), so it stays
+   *  darker than clean water of the same depth. Unchanged by D310 (see `BAD_BODY`). */
   bad: BAD_BODY,
   /** The dark crimson under a badwater source's basin (not water: the basin's floor). */
   badDeep: [0.14, 0.066, 0.058] as Rgb,
@@ -188,11 +186,14 @@ export const CLEAR_WATER = {
 
 /** Badwater's depth, opacity and surface. */
 export const BADWATER = {
-  /** The depth (levels) #38 calibrated badwater's colour at (`WATER_CALIBRATION`); it keeps that colour
-   *  deeper too, but never less than `under` L* darker than clean open water of the same depth
-   *  (`badwaterBody`; the rule asks for 6). */
+  /** The depth (levels) #38 calibrated badwater's colour at (`WATER_CALIBRATION`): `WATER.bad` there. */
   shallow: 0.25,
-  under: 6.5,
+  /** How badwater's lightness goes with depth, as the game's (D496): Timberborn 1.1.2.8's PhysicalWaterURP
+   *  multiplies its contaminated colour by the G channel of its `_DepthGradients` texture, sampled at depth
+   *  / `_MaxDepth` (5 levels). Fitted within 5% to 4.25 levels: from `shallow`, luminance falls by
+   *  e^-`first` a level down to `knee` levels deep (and rises as much above it, on a film), then by
+   *  e^-`beyond` a level: 0.61 of it at half a level, 0.43 at one, 0.19 at two, 0.08 at three. */
+  ramp: { first: 1.98, knee: 0.5, beyond: 0.8 },
   /** Its opacity, #38's (`badwaterOpacity`): nearly opaque, `opacity` from `opacityFrom` to
    *  `opacityTo` levels deep (by #38's own depth near a bank: this share of it at the bank, deepening
    *  over `bankWidth`), less by `edge` at its shallow edges (depths `edgeDepth`, `edgeShore` tiles
@@ -359,9 +360,6 @@ export const WATER_CALIBRATION = {
 
 /** Luminance weights (Rec. 709, linear light). */
 const luma = (c: Rgb) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-/** CIE L* of a luminance, and back (above L* 8, where water's colours are). */
-const lstarOf = (y: number) => 116 * Math.cbrt(y) - 16;
-const lstarLuma = (l: number) => ((l + 16) / 116) ** 3;
 /** Display values to linear light and back (sRGB). */
 const toLinear = (c: Rgb): Rgb => c.map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)) as unknown as Rgb;
 const toDisplay = (c: Rgb): Rgb => c.map((v) => (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055)) as unknown as Rgb;
@@ -386,13 +384,19 @@ export function cleanWaterBody(depth: number, fromBank = 1): Rgb {
   return mixRgb(mixRgb(WATER.shallow, WATER.teal, absorbed(d)), WATER.navy, smooth(S.navyFrom, S.navyTo, d));
 }
 
-/** Badwater's body `depth` levels deep: `WATER.bad`, as the game's at any depth, darkened only as far as
- *  keeps it `BADWATER.under` L* under clean open water of that depth. */
+/** How badwater's lightness at this depth compares with its lightness `BADWATER.shallow` deep, as the
+ *  game's (`BADWATER.ramp`): 1 there, more on a film, less deeper. */
+export function badwaterRamp(depth: number): number {
+  const R = BADWATER.ramp;
+  const d = Math.max(0, depth);
+  return Math.exp(-R.first * (Math.min(d, R.knee) - BADWATER.shallow) - R.beyond * Math.max(0, d - R.knee));
+}
+
+/** Badwater's body `depth` levels deep: `WATER.bad` at `BADWATER.shallow`, its light by the game's ramp
+ *  (`badwaterRamp`, in linear light). */
 export function badwaterBody(depth: number): Rgb {
-  const bad = toLinear(WATER.bad);
-  const most = lstarLuma(lstarOf(luma(toLinear(cleanWaterBody(depth)))) - BADWATER.under);
-  const k = Math.min(1, most / luma(bad));
-  return toDisplay([bad[0] * k, bad[1] * k, bad[2] * k]);
+  const k = badwaterRamp(depth);
+  return toDisplay(toLinear(WATER.bad).map((v) => v * k) as unknown as Rgb);
 }
 
 /** How far water with this badwater share (0–1) has turned toward badwater's look (`WATER_BLEND`): 0 when
@@ -546,15 +550,12 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   vec3 waterToDisplay(vec3 v) {
     return mix(v * 12.92, 1.055 * pow(v, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, v));
   }
-  /** Badwater's body at a depth (waterPalette.ts badwaterBody): the game's colour, darkened only as far as
-   *  keeps it ${f(BADWATER.under)} L* under clean open water of that depth. */
+  /** Badwater's body at a depth (waterPalette.ts badwaterBody, badwaterRamp): its lightness by the game's
+   *  _DepthGradients ramp. */
   vec3 badwaterBody(float depth) {
-    vec3 lw = vec3(0.2126, 0.7152, 0.0722);
-    vec3 clean = cleanWaterBody(depth, waterAbsorb(depth));
-    float lc = 116.0 * pow(dot(waterToLinear(clean), lw), 1.0 / 3.0) - 16.0;
-    float most = pow((lc - ${f(BADWATER.under)} + 16.0) / 116.0, 3.0);
-    vec3 bad = waterToLinear(BADWATER_BODY);
-    return waterToDisplay(bad * min(1.0, most / dot(bad, lw)));
+    float d = max(depth, 0.0);
+    float k = exp(-${f(BADWATER.ramp.first)} * (min(d, ${f(BADWATER.ramp.knee)}) - ${f(BADWATER.shallow)}) - ${f(BADWATER.ramp.beyond)} * max(0.0, d - ${f(BADWATER.ramp.knee)}));
+    return waterToDisplay(waterToLinear(BADWATER_BODY) * k);
   }
   /** A badwater colour (its troughs, its streaks) darkened with depth as its body is. */
   vec3 badwaterShade(vec3 c, float depth) {

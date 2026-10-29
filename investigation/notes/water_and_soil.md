@@ -451,6 +451,11 @@ byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgres
 - **Surface:** smoothness goes to 0.15 by t × pattern (matte), metallic to 0 and normal strength up to ×2 linearly in c,
   specular highlights × saturate(1 − c / 0.6); an emissive detail between `_Detail_Contamination_Color_A` #D99053 and
   `_B` #E09C65 comes in by t (the pink-orange light).
+- **Depth (`_DepthGradients`, texture slot 7, pathID 763 in `resources.assets`, 32×32 BC7 sRGB):** both pixel programs sample it
+  at (depth / `_MaxDepth`, 0.5). Its R runs 245 to 0 and its G 245 to 22 over the 5 levels. Clean albedo = lerp(`_Color`,
+  `_AlbedoAtMaxDepth`, u) × R × 2; the contaminated colour × G. In linear light G relative to a quarter level deep: 1.64 at
+  no depth, 0.61 at half a level, 0.43 at 1, 0.19 at 2, 0.08 at 3, 0.03 at 4.25 (`BADWATER.ramp` fits it within 5%). Clean
+  albedo × R × 2 reaches near black by 3 levels; on screen the sky's reflection (smoothness 0.67) holds deep clean water up.
 - **Opacity:** none by contamination: `_WaterOpacity` is 1 (0.4 while a tool hides the water).
 - Used by `src/render3d/waterPalette.ts` `WATER_BLEND` (2026-10-29).
 
