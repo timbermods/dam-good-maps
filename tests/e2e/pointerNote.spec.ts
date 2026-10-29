@@ -206,7 +206,7 @@ test("with the Legend open, a note beside the pointer keeps off its panel", asyn
  *  would, and each is read once the page has put it in its place. A sweep is one round trip, not one per step: each step costs seconds on
  *  CI's software drawing, and the whole sweep ran past the test's timeout there. */
 type Placed = { x: number; y: number; w: number; h: number } | null;
-const sweep = (page: Page, points: [number, number][], text = "(46, 35) is outside the selection"): Promise<Placed[]> =>
+const sweep = (page: Page, points: [number, number][], text = "X 46 · Y 35 is outside the selection"): Promise<Placed[]> =>
   page.evaluate(
     async ({ points, text }) => {
       const view = document.querySelector(".editor-view .view3d")!.getBoundingClientRect();

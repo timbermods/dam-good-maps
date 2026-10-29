@@ -723,14 +723,14 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (p.mode === "terrace" && p.step === undefined) return ["terrace needs a step"];
       if (ctx.lockedColumns?.size) {
         for (const [y, x0, x1] of p.cells) for (let x = x0; x <= x1; x++) {
-          if (ctx.lockedColumns.has(y * W + x)) return [`(${x}, ${y}) has a cave or overhang: shape its top with a brush`];
+          if (ctx.lockedColumns.has(y * W + x)) return [`X ${x} · Y ${y} has a cave or overhang: shape its top with a brush`];
         }
       }
       // (raised past the ceiling, a tile would stop short of what the step says)
       if (ctx.heights && p.mode === "raise" && p.amount! > 0) {
         for (const [y, x0, x1] of p.cells) for (let x = x0; x <= x1; x++) {
           const h = ctx.heights[y * W + x];
-          if (h + p.amount! > CEILING) return [h >= CEILING ? `(${x}, ${y}) is at the ceiling (level ${CEILING}) already` : `(${x}, ${y}) would go above the ceiling (level ${CEILING})`];
+          if (h + p.amount! > CEILING) return [h >= CEILING ? `X ${x} · Y ${y} is at the ceiling (level ${CEILING}) already` : `X ${x} · Y ${y} would go above the ceiling (level ${CEILING})`];
         }
       }
       return [];
@@ -746,7 +746,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       const p = op.params;
       const errors = forceProblems(p, W, H, FORCE_MAX_LEVEL);
       if (errors.length) return errors;
-      if (ctx.lockedColumns?.size) for (const i of p.tiles) if (ctx.lockedColumns.has(i)) return [`(${i % W}, ${Math.floor(i / W)}) has a cave or overhang, which a force leaves as it is`];
+      if (ctx.lockedColumns?.size) for (const i of p.tiles) if (ctx.lockedColumns.has(i)) return [`X ${i % W} · Y ${Math.floor(i / W)} has a cave or overhang, which a force leaves as it is`];
       // Try another starts from the land before the force it replaces, whose objects may be gone now
       if (p.replaces === undefined) {
         if (p.where.source !== undefined && !ctx.entityIds.has(p.where.source)) return [`there is no source ${p.where.source} to unleash`];
@@ -770,7 +770,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       // (the start too, on a map that has none: its own was deleted, D323 item 44)
       const noStart = p.template === "StartingLocation" && !state.features.some((f) => f.kind === "start") && (ctx.otherStarts ?? 0) === 0;
       if (!(PLACEABLE.has(p.template) || noStart) || !FOOTPRINTS[p.template]) return [`${p.template} cannot be placed by hand`];
-      if (!inMap(p.x, p.y)) return [`(${p.x}, ${p.y}) is outside the map`];
+      if (!inMap(p.x, p.y)) return [`X ${p.x} · Y ${p.y} is outside the map`];
       if (!ORIENTATIONS.includes(p.orientation)) return [`bad orientation ${String(p.orientation)}`];
       if (!p.components && !hasDefaults(p.template)) return [`${p.template} needs its components`];
       if (p.components) {
@@ -788,7 +788,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
     }
     case "moveEntity": {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
-      if (!inMap(op.params.x, op.params.y)) return [`(${op.params.x}, ${op.params.y}) is outside the map`];
+      if (!inMap(op.params.x, op.params.y)) return [`X ${op.params.x} · Y ${op.params.y} is outside the map`];
       const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, ...(op.params.z !== undefined ? { z: op.params.z } : {}), orientation: op.params.orientation });
       return why ? [why] : [];
     }
@@ -820,9 +820,9 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       return why ? [why] : [];
     }
     case "pinSlope":
-      return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];
+      return inMap(op.params.x, op.params.y) ? [] : [`X ${op.params.x} · Y ${op.params.y} is outside the map`];
     case "removeSlope":
-      return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at (${op.params.x}, ${op.params.y})`];
+      return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at X ${op.params.x} · Y ${op.params.y}`];
     case "paintObjects": {
       const errors = runsProblems(op.params.area, W, H, "the stroke's area");
       if (errors.length) return errors;
@@ -887,14 +887,14 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
     case "fillHollow": {
       const p = op.params;
       const [x, y] = p.at;
-      if (!inMap(x, y)) return [`(${x}, ${y}) is off the map`];
+      if (!inMap(x, y)) return [`X ${x} · Y ${y} is off the map`];
       const l = p.lake;
       if (l.floor.length !== l.tiles.length || l.depth.length !== l.tiles.length || l.contamination.length !== l.tiles.length) return ["the fill's tiles, floors, depths and contamination must match one for one"];
       // (on a map with caves a tile has an entry for each of its water columns the hollow fills)
       const caves = !!(ctx.water ? cavesOf(ctx.water.model) : ctx.lockedColumns?.size);
       const errors = caves ? ascendingColumns(l.tiles, l.floor, W, H, "the fill's tiles") : ascendingTiles(l.tiles, W, H, "the fill's tiles");
       if (errors.length) return errors;
-      if (!l.tiles.includes(y * W + x)) return [`the fill's tiles must hold (${x}, ${y}), where it was asked`];
+      if (!l.tiles.includes(y * W + x)) return [`the fill's tiles must hold X ${x} · Y ${y}, where it was asked`];
       for (let k = 0; k < l.tiles.length; k++) {
         if (!(l.depth[k] > 0) || Math.abs(l.floor[k] + l.depth[k] - p.level) > 1e-9) return ["the fill's water must stand at its level on every tile"];
         if (l.contamination[k] !== 0) return ["a fill is clean water"];
@@ -908,7 +908,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
           const why = stackFillProblem(stackGraph(m), p.at, p.level, l, p.floor);
           if (why) return [why];
         } else {
-          if (p.floor !== undefined && p.floor !== m.floor[y * W + x]) return [`there is no ground at level ${p.floor} at (${x}, ${y})`];
+          if (p.floor !== undefined && p.floor !== m.floor[y * W + x]) return [`there is no ground at level ${p.floor} at X ${x} · Y ${y}`];
           const why = fillProblem(m, p.at, p.level, l);
           if (why) return [why];
         }

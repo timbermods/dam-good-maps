@@ -147,7 +147,7 @@ export interface FillPlan {
 export function planFill(s: MapSession, x: number, y: number, level: number, floor?: number | null): FillPlan {
   const { model, depth, stack } = s.waterNow();
   if (cavesOf(model)) return stackPlanFill(s, model, x, y, level, floor, stack);
-  if (floor !== undefined && floor !== null && floor !== model.floor[y * model.W + x]) return { reason: `there is no ground at level ${floor} at (${x}, ${y})`, op: null, tiles: 0, volume: 0, days: 0 };
+  if (floor !== undefined && floor !== null && floor !== model.floor[y * model.W + x]) return { reason: `there is no ground at level ${floor} at X ${x} · Y ${y}`, op: null, tiles: 0, volume: 0, days: 0 };
   const r = fillLake(model, x, y, level, depth);
   if ("reason" in r) return { reason: r.reason, op: null, tiles: 0, volume: 0, days: 0 };
   const op: OpOf<"fillHollow"> = { op: "fillHollow", params: { at: [x, y], level, lake: r.lake } };

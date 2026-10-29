@@ -203,8 +203,8 @@ describe("painting objects under a roof (D491): a level per tile, the game's rul
   it("a level's tiles lie in the stroke, one level a tile", () => {
     const s = caveSession();
     const p = stroke("bushes", "BlueberryBush", caveTiles, 3);
-    expect(s.check({ op: "paintObjects", params: { ...p, levels: [{ z: 3, area: [[30, 30, 30]] }] } })).toEqual(["(30, 30) has a level but is not in the stroke"]);
-    expect(s.check({ op: "paintObjects", params: { ...p, levels: [...p.levels!, { z: 4, area: [[17, 17, 17]] }] } })).toEqual(["(17, 17) has two levels"]);
+    expect(s.check({ op: "paintObjects", params: { ...p, levels: [{ z: 3, area: [[30, 30, 30]] }] } })).toEqual(["X 30 · Y 30 has a level but is not in the stroke"]);
+    expect(s.check({ op: "paintObjects", params: { ...p, levels: [...p.levels!, { z: 4, area: [[17, 17, 17]] }] } })).toEqual(["X 17 · Y 17 has two levels"]);
     expect(s.check({ op: "paintObjects", params: { ...p, levels: [{ z: 23, area: [[17, 17, 17]] }] } })[0]).toMatch(/levels/);
   });
 });

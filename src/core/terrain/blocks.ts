@@ -85,7 +85,7 @@ export function blockProblems(p: BlocksParams, W: number, H: number): string[] {
   if (p.stands !== undefined && !(Array.isArray(p.stands) && p.stands.every((e) => Array.isArray(e) && e.length === 2 && typeof e[0] === "string" && isInt(e[1]) && e[1] >= 0 && e[1] <= BLOCK_TOP_LAYER + 1))) return ["a block operation's stands are [plant id, layer]"];
   const axis = axisOf(p.side);
   for (const c of p.at) {
-    if (c[0] < 0 || c[1] < 0 || c[0] >= W || c[1] >= H) return [`(${c[0]}, ${c[1]}) is outside the map`];
+    if (c[0] < 0 || c[1] < 0 || c[0] >= W || c[1] >= H) return [`X ${c[0]} · Y ${c[1]} is outside the map`];
     if (c[2] < 0 || c[2] > BLOCK_TOP_LAYER) return [layerProblem(c[2])];
     if (c[axis] !== p.at[0][axis]) return [`a sweep stays in the face's plane: ${"xyz"[axis]} is ${p.at[0][axis]}`];
   }
@@ -249,7 +249,7 @@ export function blockEffect(p: BlocksParams, t: ColumnTerrain, ground: BlockGrou
   const bad = blockProblems(p, W, H);
   if (bad.length) return refuse(bad[0]);
   const [fx, fy, fz] = p.at[0];
-  if (!t.solid(fy * W + fx, fz)) return refuse(`(${fx}, ${fy}) has no block in layer ${fz} to point at`);
+  if (!t.solid(fy * W + fx, fz)) return refuse(`X ${fx} · Y ${fy} has no block in layer ${fz} to point at`);
   const inArea = p.area ? areaTiles(p.area, W, H) : null;
   const cut = p.cut ?? BLOCK_TOP_LAYER + 1;
   const added: number[] = [];
@@ -291,23 +291,23 @@ export function blockEffect(p: BlocksParams, t: ColumnTerrain, ground: BlockGrou
     }
     // (a footprint over the map's edge or the layers' is clipped)
     if (plane[0] < 0 || plane[1] < 0 || plane[0] >= W || plane[1] >= H || plane[2] < 0 || plane[2] > BLOCK_TOP_LAYER) continue;
-    if (x < 0 || y < 0 || x >= W || y >= H) return refuse(`(${x}, ${y}) is outside the map`);
+    if (x < 0 || y < 0 || x >= W || y >= H) return refuse(`X ${x} · Y ${y} is outside the map`);
     if (z < 0 || z > BLOCK_TOP_LAYER) return refuse(layerProblem(z));
     const i = y * W + x;
-    if (inArea && !inArea[i]) return refuse(`(${x}, ${y}) is outside the selection`);
+    if (inArea && !inArea[i]) return refuse(`X ${x} · Y ${y} is outside the selection`);
     if (z >= cut) {
       hidden++;
       continue;
     }
     const cell = z * N + i;
-    if (ground?.objects.has(cell)) return refuse(`an object stands at (${x}, ${y}) in layer ${z}`);
+    if (ground?.objects.has(cell)) return refuse(`an object stands at X ${x} · Y ${y} in layer ${z}`);
     if (p.mode === "add") {
       if (!t.solid(i, z) && !placed.has(cell)) pending.push(cell);
     } else if (t.solid(i, z) && !taken.has(cell)) {
       // (a remove takes what a viewer sees: a block whose aimed face is buried in the ground stays)
       if (!openBeyond(t, x, y, z, p.side, cut)) continue;
       // (the block an object stands on stays)
-      if (ground?.objects.has(cell + N)) return refuse(`an object stands on the block at (${x}, ${y}) in layer ${z}`);
+      if (ground?.objects.has(cell + N)) return refuse(`an object stands on the block at X ${x} · Y ${y} in layer ${z}`);
       taken.add(cell);
       removed.push(cell);
     }
