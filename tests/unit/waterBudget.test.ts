@@ -6,12 +6,12 @@
 import { Worker } from "node:worker_threads";
 import { afterEach, describe, expect, it } from "vitest";
 import { WaterSim, type WaterModel, type WaterState } from "../../src/core/sim/water";
-import { installParallelWater, parallelWaterStats, parallelWaterThreads, shareWaterBudget, sharedPool, uninstallParallelWater, withoutParallelWater } from "../../src/core/sim/parallel";
+import { installParallelWater, parallelWaterStats, parallelWaterThreads, restOf, shareWaterBudget, sharedPool, uninstallParallelWater, withoutParallelWater } from "../../src/core/sim/parallel";
 import { newWaterBudget } from "../../src/core/sim/parallelPolicy";
 
-async function pool(threads: number): Promise<void> {
+async function pool(threads: number, rest = false): Promise<void> {
   const url = new URL("./threads/strip-helper.mjs", import.meta.url);
-  expect(installParallelWater({ threads, spawn: () => { const w = new Worker(url); return { postMessage: (m) => w.postMessage(m), terminate: () => void w.terminate() }; } })).toBe(true);
+  expect(installParallelWater({ threads, rest, spawn: () => { const w = new Worker(url); return { postMessage: (m) => w.postMessage(m), terminate: () => void w.terminate() }; } })).toBe(true);
   while (parallelWaterThreads() < threads) await new Promise((r) => setTimeout(r, 10));
 }
 
@@ -35,6 +35,18 @@ describe("the water's threads shared between the page's workers", () => {
     // (the live water, half of five)
     expect(p.take(5, true)).toBe(3);
     expect(p.free()).toBe(2);
+  });
+
+  it("the checks' worker takes at most what the editor's half leaves: 3 of 7, none of 3", async () => {
+    expect([restOf(3), restOf(4), restOf(7), restOf(12)]).toEqual([1, 2, 3, 6]);
+    shareWaterBudget(newWaterBudget(7));
+    await pool(3, true);
+    const p = sharedPool()!;
+    expect(p.take(7)).toBe(3);
+    expect(p.free()).toBe(4);
+    p.give(3);
+    // (the budget's other half stays the editor's)
+    expect(p.free()).toBe(7);
   });
 
   it("short of threads a simulation runs on one, the same water, and on several once they are back", async () => {

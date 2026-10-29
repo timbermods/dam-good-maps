@@ -17,8 +17,11 @@ let waterPool: Promise<void> | null = null;
 const waterThreads = () =>
   (waterPool ??= waterBudget
     ? import("../core/sim/parallel").then((p) => {
+        // (none on a machine whose budget's rest is under two threads: the settle runs on one, as before)
+        if (p.restOf(new Int32Array(waterBudget!)[1]) < 2) return;
         p.shareWaterBudget(waterBudget!);
-        p.installParallelWater({ spawn: () => new Worker(new URL("./waterStrip.worker.ts", import.meta.url), { type: "module" }) });
+        // (what the editor's half of the budget leaves: on a small machine, none, and the settle runs on one thread)
+        p.installParallelWater({ rest: true, spawn: () => new Worker(new URL("./waterStrip.worker.ts", import.meta.url), { type: "module" }) });
         // (a test hook, tests/e2e/isolation.spec.ts: the threads ready, and the ticks they ran)
         void import("../core/sim/stackParallel").then((q) => Object.assign(self, { dgmWater: () => ({ threads: p.parallelWaterThreads(), ticks: p.parallelWaterStats.ticks, stackTicks: q.stackParallelStats.ticks }) }));
       })
