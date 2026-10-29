@@ -1,13 +1,16 @@
 // A level through a shared session (D491, D342, D455): the pick's level under a roof ("z") reaches the planners a guest's edit
-// goes through (session.ts `planned.paint`, `planned.start`), so the ops the host orders are the ones the direct edit plans
+// goes through (session.ts `planned.paint`, `planned.start`, called by collabEdit.ts `paintAt` and `moveStartTo`), so the ops the host orders are the ones the direct edit plans
 // (`paintAt`, `moveStartTo`), and both maps end identical, with the bushes and the start at that level, not on the roof's top.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import type { Command } from "../../src/core/collab";
 import type { EditOp } from "../../src/core/doc/ops";
 import type { PaintParams } from "../../src/core/doc/paintParams";
 import { MapSession } from "../../src/core/doc/session";
 import { writeTimber } from "../../src/core/format/timber";
 import { tilesToRuns } from "../../src/core/math/grid";
+import { collabApi } from "../../src/worker/collab";
+import { collabEditApi } from "../../src/worker/collabEdit";
 import * as ed from "../../src/worker/session";
 import { CAVE, CAVE_W, caveFile, caveSession, caveVoxels } from "./caveMap";
 import { makeRig } from "./collabSessionRig";
@@ -75,5 +78,27 @@ describe("a level under a roof through the shared session", () => {
     expect(await answer).toMatchObject({ ok: true });
     rig.identical("after a start at a level");
     for (const map of [rig.hostMap.session!, rig.guestMap.session!]) expect(map.built.entities.find((e) => e.template === "StartingLocation")).toMatchObject({ x: 16, y: 16, z: 1 });
+  });
+
+  test("the page's calls carry the level: Paint and Move start in a shared session order the planners' ops at that level", async () => {
+    const sent: Command[] = [];
+    const submit = vi.spyOn(collabApi, "submit").mockImplementation(async (c) => (sent.push(c), { ok: true }) as Awaited<ReturnType<typeof collabApi.submit>>);
+    const ordered = () => {
+      const c = sent.at(-1);
+      expect(c?.kind).toBe("edit");
+      return c && c.kind === "edit" ? c.ops : [];
+    };
+    try {
+      ed.collabOpen(caveSession());
+      const bushOps = opsOf(ed.planned.paint(bushes, 3));
+      expect(await collabEditApi.paintAt(bushes, 3)).toMatchObject({ ok: true });
+      expect(ordered()).toEqual(bushOps);
+      ed.collabOpen(tallCave());
+      const startOps = opsOf(ed.planned.start(17, 17, "Cw0", 1));
+      expect(await collabEditApi.moveStartTo(17, 17, "Cw0", 1)).toMatchObject({ ok: true });
+      expect(masked(ordered())).toEqual(masked(startOps));
+    } finally {
+      submit.mockRestore();
+    }
   });
 });
