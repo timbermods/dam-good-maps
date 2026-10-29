@@ -15,10 +15,10 @@
 // Neither claims anything when the start has no such water on Day 0 (no start, or none a pump reaches clean).
 
 import { components } from "../analysis/regions";
-import { PUMP_CLEAN, tileShoreWalk, walkDistance, walkWorld, WATER_BODY, type WalkObject } from "../analysis/walk";
+import { PUMP_CLEAN, tileShoreWalk, WATER_BODY, type WalkObject } from "../analysis/walk";
 import type { CoreNote } from "./coreMoment";
 import { badWater, type DayWater } from "./firstDays";
-import { startWaterMask } from "./droughtLine";
+import { startWalk, startWaterMask } from "./droughtLine";
 import type { Hazard } from "./weather";
 
 /** What the day is read from: the map and its start's water rule. */
@@ -56,17 +56,16 @@ export class StartWaterDays {
   constructor(private readonly hazard: Hazard, day0: DayWater, private readonly p: StartWaterInput) {
     const { W, H } = p;
     const N = W * H;
-    this.mask = startWaterMask({ W, H, heights: p.heights, depth: day0.depth, contamination: day0.contamination, objects: p.objects, start: p.start, within: p.within });
+    // (the walk worked out once, for the mask and for the days)
+    const walk = p.start ? startWalk(p.objects, p.heights, W, H, p.start) : undefined;
+    this.mask = startWaterMask({ W, H, heights: p.heights, depth: day0.depth, contamination: day0.contamination, objects: p.objects, start: p.start, within: p.within, walk });
     const list: number[] = [];
     for (let i = 0; i < N; i++) if (this.mask[i]) list.push(i);
     this.tiles = Int32Array.from(list);
     this.has = list.length > 0;
     this.wasBad = new Uint8Array(N);
     for (const i of list) if (badWater(day0.depth[i], day0.contamination[i])) this.wasBad[i] = 1;
-    if (this.has && p.start) {
-      const { blocked, links } = walkWorld(p.objects, W, H);
-      this.walk = walkDistance(p.heights, W, H, blocked, links, p.start);
-    } else this.walk = null;
+    this.walk = this.has && walk ? walk : null;
   }
 
   /** The next day's water (Day `through + 1`). */

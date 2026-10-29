@@ -173,7 +173,8 @@ export function droughtLine(p: DroughtLineInput): DroughtLine {
 
 /** The start's water (see `DroughtLine`): a mask of the settled bodies of water the start's pumps
  *  would draw from, within `within` tiles' walk (the start's water rule, `waterWithin`). All zero
- *  without a start, or with no such water. */
+ *  without a start, or with no such water. `walk`: the walk from the start (`startWalk`), when the caller
+ *  has it already. */
 export function startWaterMask(p: {
   W: number;
   H: number;
@@ -183,13 +184,13 @@ export function startWaterMask(p: {
   objects: readonly WalkObject[];
   start: { x: number; y: number } | null | undefined;
   within: number;
+  walk?: Float64Array;
 }): Uint8Array {
   const { W, H, heights, depth, contamination } = p;
   const N = W * H;
   const mask = new Uint8Array(N);
   if (!p.start) return mask;
-  const { blocked, links } = walkWorld(p.objects, W, H);
-  const walk = walkDistance(heights, W, H, blocked, links, p.start);
+  const walk = p.walk ?? startWalk(p.objects, heights, W, H, p.start);
   const wet = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (depth[i] > WATER_BODY) wet[i] = 1;
   const body = components(wet, W, H).labels;
@@ -200,4 +201,10 @@ export function startWaterMask(p: {
   }
   if (ours.size) for (let i = 0; i < N; i++) if (body[i] >= 0 && ours.has(body[i])) mask[i] = 1;
   return mask;
+}
+
+/** The walk from the start over the map (`walk.ts` `walkDistance`, round its objects), in tiles. */
+export function startWalk(objects: readonly WalkObject[], heights: ArrayLike<number>, W: number, H: number, start: { x: number; y: number }): Float64Array {
+  const { blocked, links } = walkWorld(objects, W, H);
+  return walkDistance(heights, W, H, blocked, links, start);
 }

@@ -696,6 +696,9 @@ export type EditorEvent =
   /** The plants a held day has surely killed, when they could not be worked out with the day (the earlier days' soil is
    *  worked out a day at a time, the worker breathing between): the tiles, for that hazard's held day. */
   | { kind: "withered"; version: number; hazard: Hazard; day: number; tiles: Int32Array }
+  /** The day the start's water goes or turns bad (`StartNews`), found by the background's days while the page holds an
+   *  earlier day: the line under the day box shows now, not with the next day stepped to. */
+  | { kind: "startWater"; version: number; hazard: Hazard; day: number }
   /** The water has settled after an edit: the water, the soil and the plants on it. */
   | ({ kind: "settled"; version: number } & ViewNews)
   /** The instant checks of an edit (with a checks worker, they come a moment after the edit). */
@@ -1539,6 +1542,8 @@ async function driveWeather(run: WeatherRun): Promise<void> {
       const seen = seenWater(run.session, kept);
       run.firsts.see(seen);
       run.startWater.see(seen);
+      // (found while the page holds an earlier day of this map, not waiting for one: a day it waits for carries it)
+      if (run.startWater.day === day && run.show === null && weatherShown === run.session) listener?.({ kind: "startWater", version: run.version, hazard: run.hazard, day });
       if (run.hazard === "drought" && day === run.days) droughtLineFrom(run);
       if (run.show !== null) {
         if (day >= run.show) {
