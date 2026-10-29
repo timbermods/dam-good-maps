@@ -12,6 +12,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { toolPutAway } from "./helpers";
 import { centreOn, openEditor, setWaterSpeed, topDown, waitForEditor } from "./open";
 import { Scene, build } from "../../tools/terrain3d-maps";
+import { ruin } from "../../src/core/format/entities";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -427,5 +428,62 @@ test("under a layer cut, a Select action on a cave's floor says the cave is left
   await idle(page);
   await expect(page.getByText(/has a cave or overhang: shape its top with a brush/)).toBeVisible();
   expect((await info(page)).history.length).toBe(before);
+  expect(await heights(page)).toEqual(h0);
+});
+
+test("under a layer cut, Delete takes what stands on a cave's floor and nothing on the roof the cut hides: the menu counts it and takes it, the Delete key too (D207, D288)", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  // a plateau at 8 over a sealed chamber (floor 3, air 3–6) with a ruin on its floor and a pine on its roof above, built
+  // here: never an official map
+  const s = new Scene(48, 48, 8);
+  s.box(16, 16, 27, 27, 3, 7, false);
+  s.start(38, 38, 8);
+  s.add(ruin({ id: s.id("floor ruin"), owner: "select-under-cut", x: 20, y: 20, z: 3, height: 1, variant: "A", orientation: "Cw0" }));
+  s.plant("roof pine", "Pine", 22, 22, 8);
+  const bytes = build({ id: "delete-under-cut", title: "Delete under a cut", tests: "", scene: s, days: 1, snapshots: [], checks: [], focus: [], samples: [], water: "none" }).bytes;
+  await page.getByLabel("Open a map or a project").setInputFiles({ name: "Delete under a cut.timber", mimeType: "application/zip", buffer: Buffer.from(bytes) });
+  await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
+  await waitForEditor(page);
+  await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
+  const count = (prefix: string) => page.evaluate((p) => {
+    const e = window.dgm3d!.renderer.mapState()!.entities;
+    let n = 0;
+    for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]].startsWith(p)) n++;
+    return n;
+  }, prefix);
+  const ruins = () => count("RuinColumn");
+  const pines = () => count("Pine");
+  expect(await ruins()).toBe(1);
+  expect(await pines()).toBe(1);
+  // the cut at 6 opens the chamber; the Wand takes its floor
+  const p = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    r.setSlice(6);
+    r.setView({ mode: "orbit", yaw: 0.5, pitch: 1.1, distance: 34, target: [22, 3, -22] });
+    const q = r.project(24.5, 3, -24.5);
+    const box = r.canvas.getBoundingClientRect();
+    return { x: q.x + box.left, y: q.y + box.top };
+  });
+  await page.getByRole("button", { name: "Wand", exact: true }).click();
+  await page.mouse.click(p.x, p.y);
+  await expect.poll(async () => (await selection(page)).length).toBe(12 * 12);
+  const h0 = await heights(page);
+  // the Delete menu counts the ruin on the floor, never the pine on the roof the cut hides, and takes it alone, the ground
+  // as it is
+  const row = page.getByRole("group", { name: "Selection" });
+  await deleteFrom(page, row, /^Everything \(1\)$/);
+  await idle(page);
+  await expect.poll(ruins).toBe(0);
+  expect(await pines()).toBe(1);
+  expect(await heights(page)).toEqual(h0);
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(ruins).toBe(1);
+  // the Delete key, the selection still open: the ruin first, as ever
+  await page.keyboard.press("Delete");
+  await idle(page);
+  await expect.poll(ruins).toBe(0);
+  expect(await pines()).toBe(1);
   expect(await heights(page)).toEqual(h0);
 });

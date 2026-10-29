@@ -369,11 +369,13 @@ ${HIGH_WATER_GLSL}
     vec3 streakColour = mix(mix(HW_STREAK_ABOVE, HW_STREAK_LOW, low), HW_STREAK_GRAZING, grazing);
     vec3 cleanBody = body;
     vec3 badBody = HW_BAD * (1.0 - deep * 0.12) + vec3(0.0012, 0.0008, 0.0006) * grazing;
-    // water partly bad as the Standard look has it (D177: one shared blend, through the game's
-    // mixing zone and a warm brown to crimson, a tenth bad already warm)
+    // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts
+    // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the fewer glints,
+    // the bubbles, the murk) turned toward badwater's by the same tint
     body = waterBlend(body, badBody, contamination);
-    vec3 badCrest = mix(vec3(0.035, 0.023, 0.018) + vec3(0.008, 0.006, 0.004) * low, vec3(0.009, 0.007, 0.004) + vec3(0.0008, 0.0006, 0.0004) * low, smoothstep(0.25, 1.0, contamination));
-    streakColour = body + mix(streakColour - cleanBody, badCrest, contamination);
+    float tint = waterTint(contamination);
+    vec3 badCrest = mix(vec3(0.035, 0.023, 0.018) + vec3(0.008, 0.006, 0.004) * low, vec3(0.009, 0.007, 0.004) + vec3(0.0008, 0.0006, 0.0004) * low, smoothstep(0.25, 1.0, tint));
+    streakColour = body + mix(streakColour - cleanBody, badCrest, tint);
     vec2 velocity = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
     #ifdef CAVES
       // (water below its tile's surface water: its own column's current, materials.ts ownFlowAt)
@@ -414,32 +416,32 @@ ${HIGH_WATER_GLSL}
     highlights = mix(highlights, rolling * (0.43 + rough * 0.34), smoothstep(0.10, 0.65, speed));
     colour *= 1.0 - speed * (1.0 - rolling) * 0.14;
     highlights *= mix(1.0, 0.68, deep);
-    vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), contamination);
+    vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), tint);
     colour *= 0.80 + broad * 0.40;
     colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));
-    colour += vec3(0.26, 0.035, 0.008) * contamination * (1.0 - smoothstep(0.0, 0.32, shore));
-    if (contamination > 0.25) {
+    colour += vec3(0.26, 0.035, 0.008) * tint * (1.0 - smoothstep(0.0, 0.32, shore));
+    if (tint > 0.25) {
       float trough = (1.0 - smoothstep(0.20, 0.38, waterTexture)) * near;
       float signalOpacity = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
       signalOpacity = mix(0.30, signalOpacity, smoothstep(0.0, 0.20, shore));
       signalOpacity = max(signalOpacity, grazing * 0.62);
-      signalOpacity = mix(signalOpacity, badwaterOpacity(depth, shore, grazing), smoothstep(0.25, 1.0, contamination));
-      colour += (HW_BAD_TROUGH * trough + HW_BAD_STREAK * streak) * ((contamination - 0.25) / 0.75) / signalOpacity;
+      signalOpacity = mix(signalOpacity, badwaterOpacity(depth, shore, grazing), smoothstep(0.25, 1.0, tint));
+      colour += (HW_BAD_TROUGH * trough + HW_BAD_STREAK * streak) * ((tint - 0.25) / 0.75) / signalOpacity;
     }
     vec3 referenceLight = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
     vec3 rippleLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(normalize(mix(vec3(0.0, 1.0, 0.0), N, 0.35)), sunDir), 0.0) * lit;
     colour *= rippleLight / max(referenceLight, vec3(0.01));
     float glint = mix(microFlecks(p, t, speed, pixel), microFlecks(p2, t, speed, pixel), blend);
     glint *= lit * (1.0 - smoothstep(0.08, 0.22, pixel));
-    glint *= mix(1.0, 0.35, contamination);
-    glint *= mix(1.0, 0.08, smoothstep(0.25, 1.0, contamination));
-    colour = mix(colour, mix(HW_GLINT, HW_BAD_GLINT, contamination), glint);
+    glint *= mix(1.0, 0.35, tint);
+    glint *= mix(1.0, 0.08, smoothstep(0.25, 1.0, tint));
+    colour = mix(colour, mix(HW_GLINT, HW_BAD_GLINT, tint), glint);
     hlSheen = max(max(streak * 0.45, clamp(highlights, 0.0, 0.82)), glint);
-    if (contamination > 0.01) {
-      float bt = t * mix(1.0, 0.55, contamination);
+    if (tint > 0.01) {
+      float bt = t * mix(1.0, 0.55, tint);
       float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
       float bubbles = fine * smoothstep(0.83, 0.93, vnoise(g * 5.0 + vec2(bt * 0.05, -bt * 0.08))) * smoothstep(0.55, 0.8, vnoise(g * 1.3 - vec2(0.0, bt * 0.04)));
-      colour += vec3(${WATER.badVein.join(", ")}) * bubbles * contamination * 0.55;
+      colour += vec3(${WATER.badVein.join(", ")}) * bubbles * tint * 0.55;
     }
     float alpha = mix(mix(0.86, 0.96, bodyDepth), 0.995, deep);
     alpha = mix(0.76, alpha, smoothstep(0.0, 0.20, shore));
@@ -447,8 +449,8 @@ ${HIGH_WATER_GLSL}
     float badAlpha = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
     badAlpha = mix(0.30, badAlpha, smoothstep(0.0, 0.20, shore));
     badAlpha = max(badAlpha, grazing * 0.62);
-    alpha = mix(alpha, badAlpha, contamination);
-    alpha = mix(alpha, badwaterOpacity(depth, shore, grazing), smoothstep(0.25, 1.0, contamination));
+    alpha = mix(alpha, badAlpha, tint);
+    alpha = mix(alpha, badwaterOpacity(depth, shore, grazing), smoothstep(0.25, 1.0, tint));
     return vec4(colour, alpha);
   }
 `;
@@ -495,10 +497,11 @@ export function waterHooks(): ShaderHooks {
               #endif
               if (strength > 0.005) hlFoam = max(hlFoam, strength * 0.68 * smoothstep(0.40, 0.78, detailNoise(g * 1.71 - vel * hlT * 0.23)));
             }
-            hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0) * 0.30;
-            c = mix(hlSurface.rgb, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlBad) * (0.85 + 0.15 * lit), hlFoam);
+            float hlTint = waterTint(hlBad);
+            hlFoam = clamp(hlFoam * (1.0 - hlTint * 0.55), 0.0, 1.0) * 0.30;
+            c = mix(hlSurface.rgb, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlTint) * (0.85 + 0.15 * lit), hlFoam);
             // (its light keeps more of the body's opacity: the film's sheen)
-            float hlFilmAlpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, waterMurk(hlBad)), hlSurface.a), hlSurface.a, hlFilm);
+            float hlFilmAlpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
             hlFilmAlpha = mix(hlFilmAlpha, hlSurface.a, hlSheen * (1.0 - hlFilm) * 0.6);
             alpha = mix(hlFilmAlpha, 0.97, hlFoam);
           } else {
@@ -509,19 +512,20 @@ export function waterHooks(): ShaderHooks {
             vec3 clean = mix(HW_SIDE_SHALLOW, HW_SIDE_BODY, hlAbsorb);
             clean = mix(clean, HW_SIDE_DEEP, 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));
             vec3 murk = mix(HW_SIDE_BAD, HW_SIDE_BAD_DEEP, hlAbsorb);
-            c = mix(clean, murk, hlBad) * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
+            float hlTint = waterTint(hlBad);
+            c = waterBlend(clean, murk, hlBad) * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
             bool edge = vFlags > 254.5;
             float drop = edge ? 0.0 : vFlags / 30.0;
             float along = abs(n.x) > 0.5 ? g.y : g.x;
             float strands = smoothstep(0.30, 0.72, vnoise(vec2(along * 7.0, vWorld.y * 1.4 + hlT * 3.6)));
             hlFoam = edge ? 0.0 : smoothstep(0.12, 0.6, drop) * (0.42 + strands * 0.60);
-            alpha = edge ? mix(0.78, 0.96, hlBad) : (0.32 + 0.53 * strands) * smoothstep(0.06, 0.25, drop);
+            alpha = edge ? mix(0.78, 0.96, hlTint) : (0.32 + 0.53 * strands) * smoothstep(0.06, 0.25, drop);
             // the water's section at the map's edge (#67 stage 1)
             if (hlSection > 0.5 && edge) {
               vec3 section = mix(HW_SECTION, HW_SECTION_DEEP, 1.0 - exp(-max(depth, 0.0) * 0.65));
-              section = mix(section, HW_SECTION_BAD, cont);
+              section = waterBlend(section, HW_SECTION_BAD, cont);
               c = section * (0.94 + vnoise(vec2(g.x + g.y, vWorld.y * 5.7)) * 0.08);
-              alpha = mix(0.91, 0.98, cont);
+              alpha = mix(0.91, 0.98, waterTint(cont));
             }
             // tiny steps between two waters take the surface's own colour (#67 stage 2)
             if (hlRiver > 0.5 && vFlags < 9.0) {
@@ -530,8 +534,8 @@ export function waterHooks(): ShaderHooks {
               alpha = joined.a;
               hlFoam = 0.0;
             }
-            hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0) * 0.30;
-            c = mix(c, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlBad) * (0.85 + 0.15 * lit), hlFoam);
+            hlFoam = clamp(hlFoam * (1.0 - hlTint * 0.55), 0.0, 1.0) * 0.30;
+            c = mix(c, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlTint) * (0.85 + 0.15 * lit), hlFoam);
             alpha = mix(alpha, 0.97, hlFoam);
             if (alpha < 0.01) discard;
           }

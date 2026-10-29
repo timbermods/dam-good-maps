@@ -18,6 +18,7 @@ import type { Ed } from "../ed";
 import { heldWhy } from "../../core/doc/start";
 import { tileCount } from "../../core/doc/labels";
 import { caveLeftWords } from "../caveWords";
+import { seenUnderCut } from "../shelf/aim";
 
 export interface SelectSlice {
   selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; wet: (i: number) => boolean; hasTop: (i: number, level: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
@@ -31,6 +32,8 @@ export interface SelectSlice {
   selectChip: () => ComponentChildren;
   selectRow: () => JSX.Element | null;
   objectFootprints: () => number[][];
+  /** These tiles as the view's layer cut shows them (D207): those with ground at or under it, a cave's floor included. */
+  underCut: (tiles: readonly number[]) => number[];
   /** These tiles without the ground the Select actions (and Delete's ground) leave as it is on a map with caves. */
   openGround: (tiles: readonly number[]) => { tiles: number[]; left: number };
   /** The message after an action that left a cave's ground as it is. */
@@ -115,10 +118,8 @@ export function useSelect(ed: Ed): SelectSlice {
   useEffect(() => {
     if (!deleteMenu) return setDeleteCounts(null);
     let live = true;
-    const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
-    void api.objectsInArea(tiles).then((r) => live && setDeleteCounts(r));
+    const tiles = underCut(selection.current.tiles());
+    void api.objectsInArea(tiles, renderer.current?.slice ?? null).then((r) => live && setDeleteCounts(r));
     return () => {
       live = false;
     };
@@ -325,13 +326,14 @@ export function useSelect(ed: Ed): SelectSlice {
   function columnsSet(): Set<number> {
     return new Set<number>(ed.columnsRef.current.tiles);
   }
-  /** The tiles of these the Select actions see under a layer cut (D207): the ground at or below it, and the columns with a
-   *  cave or an overhang, whose floors the cut opens to view (the actions leave those as they are, and say so). */
-  function underCut(tiles: readonly number[], cut: number | null): number[] {
+  /** The tiles of these that Select's actions and Delete see under the view's layer cut (D207): those with ground showing
+   *  at or under it, a cave's floor under a roof that rises past the cut among them (its column's lowest run's top; the
+   *  actions leave a cave's ground as it is, and say so, while Delete takes what stands on its floor). */
+  function underCut(tiles: readonly number[], cut: number | null = renderer.current?.slice ?? null): number[] {
     if (cut === null) return tiles.slice();
     const h = mirror.current.heights;
-    const cols = columnsSet();
-    return tiles.filter((i) => h[i] <= cut || cols.has(i));
+    const cols = ed.columnsRef.current;
+    return tiles.filter((i) => seenUnderCut(i, cut, h, cols));
   }
   /** The first tile among these that the Select actions leave as it is (a cave's, an overhang's, the ground under a roof's
    *  edge), or -1. */
@@ -398,7 +400,8 @@ export function useSelect(ed: Ed): SelectSlice {
     for (const i of selection.current.tiles()) if (at < 0 || h[i] < h[at]) at = i;
     return at < 0 ? null : [at % W, Math.floor(at / W)];
   }
-  const daysWords = (d: number) => (d < 1 ? "less than a day" : `about ${Math.round(d).toLocaleString("en-GB")} ${Math.round(d) === 1 ? "day" : "days"}`);
+  // (short enough for Select's cells on any system font: the days are an estimate, said without "about")
+  const daysWords = (d: number) => (d < 1 ? "under a day" : `${Math.round(d).toLocaleString("en-GB")} ${Math.round(d) === 1 ? "day" : "days"}`);
   /** Why a Fill can't be made, in a few words (the core's reason names a tile and a level). */
   function fillWhy(reason: string): string {
     if (/at or below the ground/.test(reason)) return "Raise the Level to fill";
@@ -408,15 +411,27 @@ export function useSelect(ed: Ed): SelectSlice {
     if (/cave|overhang/.test(reason)) return "A cave is in the way";
     return "It would not hold water";
   }
-  function previewFill(level: number) {
+  /** The level Fill fills to: the Level once the player sets it; else the highest the hollow holds (the core's
+   *  `fillLevel`), so a first Fill holds, or where it holds none, one above the ground there, so the refusal says why. */
+  async function fillLevelAt(spot: [number, number]): Promise<{ level: number; set: boolean }> {
+    const set = flattenRef.current;
+    if (set !== null) return { level: set, set: true };
+    const top = await api.fillLevelAt(spot[0], spot[1]);
+    return { level: top ?? mirror.current.heights[spot[1] * infoRef.current.W + spot[0]] + 1, set: false };
+  }
+  function previewFill() {
     const spot = fillSpot();
     if (!spot) return;
     const job = ++hintJob.current;
-    void api.fillPlanAt(spot[0], spot[1], level).then((r) => {
-      if (job !== hintJob.current) return;
-      setWaterHint(r.reason ? fillWhy(r.reason) : `${r.tiles.length.toLocaleString("en-GB")} tiles, lasts ${daysWords(r.days)}`);
-      setSelectPreview(r.tiles.length ? { tiles: r.tiles, color: MOVING } : null);
-    });
+    void fillLevelAt(spot).then(({ level, set }) =>
+      api.fillPlanAt(spot[0], spot[1], level).then((r) => {
+        if (job !== hintJob.current) return;
+        // (the level it found said when the player set none, the Level number showing the ground's; the hollow's tiles
+        // are marked on the map, so the words stay short enough for their cells)
+        setWaterHint(r.reason ? fillWhy(r.reason) : set ? `${r.tiles.length.toLocaleString("en-GB")} tiles, lasts ${daysWords(r.days)}` : `Level ${level}, lasts ${daysWords(r.days)}`);
+        setSelectPreview(r.tiles.length ? { tiles: r.tiles, color: MOVING } : null);
+      }),
+    );
   }
   function previewUnfed() {
     // (greyed with nothing selected: the row's own words say what to do)
@@ -506,13 +521,14 @@ export function useSelect(ed: Ed): SelectSlice {
       if (!ed.resizing.current) setMessage((m) => (m && m.text === "Cropping…" ? null : m));
     });
   }
-  /** Fill: the hollow under the selection's lowest ground, filled with standing water to the Level, no source (D394). */
-  function fillWater(level: number) {
+  /** Fill: the hollow under the selection's lowest ground, filled with standing water, no source (D394): to the Level once
+   *  set, else as high as it holds. */
+  function fillWater() {
     const spot = fillSpot();
     if (!spot) return;
     endWaterHint();
     void run(
-      () => api.fillAt(spot[0], spot[1], level),
+      () => fillLevelAt(spot).then(({ level }) => api.fillAt(spot[0], spot[1], level)),
       (u) => u.ok && feel("raise", spot[0], spot[1], 2),
     );
   }
@@ -527,8 +543,7 @@ export function useSelect(ed: Ed): SelectSlice {
    *  objects, not their tiles), and the ground (D323 item 1). */
   function deleteChoices(): { group: DeleteGroup | "ground"; name: string; count: number }[] {
     const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    const tiles = underCut(selection.current.tiles());
     // (what stands there is the core's answer, the objects under water counted too: D345, B5)
     const counts = new Map<DeleteGroup, number>();
     for (const [template, n] of Object.entries(deleteCounts?.counts ?? {})) {
@@ -551,9 +566,7 @@ export function useSelect(ed: Ed): SelectSlice {
   }
   /** Delete one kind of thing (or everything) in the selection, or its ground one level down. */
   function deleteChoice(group: DeleteGroup | "ground") {
-    const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    const tiles = underCut(selection.current.tiles());
     setDeleteMenu(false);
     setSelectPreview(null);
     if (!tiles.length) return;
@@ -564,8 +577,7 @@ export function useSelect(ed: Ed): SelectSlice {
    *  the ground tiles. */
   function deletePreview(group: DeleteGroup | "ground"): void {
     const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    const tiles = underCut(selection.current.tiles());
     if (group === "ground") {
       // (as the Select actions: a cave's ground and what holds up its roof stay as they are, the rest is marked)
       const low = tiles.filter((i) => h[i] > 0);
@@ -575,9 +587,12 @@ export function useSelect(ed: Ed): SelectSlice {
     }
     const e = mirror.current.entities;
     const at = coverAt();
+    const cut = renderer.current?.slice ?? null;
     const out = new Set<number>();
     for (const i of tiles)
       for (const k of at.get(i) ?? []) {
+        // (under a cut, only what it shows: never an object on a roof above it)
+        if (cut !== null && e.z[k] > cut) continue;
         const g = deleteGroupOf(e.templates[e.template[k]]);
         if (g && (group === "everything" || g === group)) out.add(i);
       }
@@ -663,7 +678,8 @@ export function useSelect(ed: Ed): SelectSlice {
           </div>
         ),
       },
-      // the water's two actions (D387): Fill pours into the hollow under the selection's lowest ground, up to the Level;
+      // the water's two actions (D387): Fill pours into the hollow under the selection's lowest ground, to the brim (the
+      // highest level it holds) or to the Level once the player sets it;
       // Remove unfed water takes the pools no source feeds, saying first how many (the words and the marked tiles)
       {
         key: "fillwater",
@@ -676,12 +692,12 @@ export function useSelect(ed: Ed): SelectSlice {
               type="button"
               class="set-button"
               aria-disabled={z ? undefined : "true"}
-              {...tip("Fill the hollow with water up to the Level")}
-              onMouseEnter={() => previewFill(level)}
-              onFocus={() => previewFill(level)}
+              {...tip("Fill the hollow with water to the brim or the Level")}
+              onMouseEnter={previewFill}
+              onFocus={previewFill}
               onMouseLeave={endWaterHint}
               onBlur={endWaterHint}
-              onClick={() => fillWater(level)}
+              onClick={fillWater}
             >
               Fill water
             </button>
@@ -709,7 +725,7 @@ export function useSelect(ed: Ed): SelectSlice {
         row: 2,
         at: 1,
         span: 2,
-        node: <NumberSetting label="Level" title="The level Flatten, Cut down and Fill up work to" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} disabled={!z} onChange={(v) => setFlattenTo(v)} />,
+        node: <NumberSetting label="Level" title="The level Flatten, Cut down, Fill up and Fill water work to" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} disabled={!z} onChange={(v) => setFlattenTo(v)} />,
       },
       act("up", 3, "Up 1", tip("Raise the selection one level", "\u2191"), "raise", () => selectAction("raise")),
       act("down", 4, "Down 1", tip("Lower the selection one level", "\u2193"), "lower", () => selectAction("lower")),
@@ -794,6 +810,6 @@ export function useSelect(ed: Ed): SelectSlice {
 
   return {
     selectHost, openSelect, closeSelect, selectAll, workingArea, inArea, selectCalls, checkDepthRef, selectChip,
-    selectRow, objectFootprints, openGround, caveLeftWords, refusedOnCave
+    selectRow, objectFootprints, underCut: (tiles: readonly number[]) => underCut(tiles), openGround, caveLeftWords, refusedOnCave
   };
 }

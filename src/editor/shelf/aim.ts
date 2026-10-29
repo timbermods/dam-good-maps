@@ -25,6 +25,18 @@ export function columnMaskAt(columns: MapView["columns"], i: number): number | u
   return undefined;
 }
 
+/** Whether tile `i` shows ground at or under a layer cut at `cut` (D207): a plain tile whose top is at or under it, or a
+ *  column whose lowest run's top is (a cave's floor under a roof that rises past the cut, the ground under a ledge). */
+export function seenUnderCut(i: number, cut: number, heights: ArrayLike<number>, columns: MapView["columns"]): boolean {
+  if (heights[i] <= cut) return true;
+  const mask = columnMaskAt(columns, i);
+  if (mask === undefined) return false;
+  let z = 0;
+  while (z < LAYERS && !((mask >>> z) & 1)) z++;
+  while (z < LAYERS && (mask >>> z) & 1) z++;
+  return z <= cut;
+}
+
 /** The level a placement names for a hit of the voxel pick (`TileHit.level`, `run`): the top of the run hit when it lies
  *  below the tile's top (`top`), undefined on the top itself, where a placement names no level and stands as it always
  *  has. `mask` is the tile's whole column (`columnMaskAt`; undefined on a plain tile, whose one run is its top).
