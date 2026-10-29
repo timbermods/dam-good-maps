@@ -58,9 +58,10 @@ say "2. Wait for every pull_request run on $branch (the full CI, and the connect
 # and #653 merged within 10 s of opening, 2026-10-29)
 runs() { gh run list -R "$repo" --branch "$branch" --event pull_request --commit "$commit" --json databaseId,workflowName --jq '.[] | "\(.databaseId) \(.workflowName)"'; }
 if [ -n "$go" ]; then
-  # (grep reads all its input: `grep -q` can stop the list early, and under pipefail that reads as no CI run)
-  for _ in $(seq 1 30); do sleep 20; runs | grep ' CI$' > /dev/null && break; done
-  runs | grep ' CI$' > /dev/null || { echo "no CI run on the PR after 10 minutes: not tagged, not merged"; exit 1; }
+  # (the list taken whole first: grep stopping at its first match would cut the pipe, and under pipefail that reads as no CI
+  # run)
+  for _ in $(seq 1 30); do sleep 20; grep -q ' CI$' <<< "$(runs)" && break; done
+  grep -q ' CI$' <<< "$(runs)" || { echo "no CI run on the PR after 10 minutes: not tagged, not merged"; exit 1; }
   # (the other workflows register within seconds of CI)
   sleep 30
   failed=""
