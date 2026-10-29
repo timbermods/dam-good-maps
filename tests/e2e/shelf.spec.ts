@@ -703,17 +703,30 @@ test("Select's row: Fill water pours into the hollow under the selection up to t
   expect(errors).toEqual([]);
 });
 
-test("picking an object never moves the list under the pointer: its window opens above, and the picked row stays where it was", async ({ page }) => {
+test("picking an object never moves the list under the pointer: its window opens above, and the picked row stays where it was, or in view under the title where the window takes its place", async ({ page }) => {
   await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
   const shelf = page.getByRole("navigation", { name: "Place" });
   for (const size of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
     await page.setViewportSize(size);
-    for (const name of ["Water seep", "Natural dam", "Succulent", "Relic", "Unstable core", "Reserve pile"]) {
+    for (const name of ["Start", "Water source", "Water seep", "Natural dam", "Succulent", "Relic", "Unstable core", "Reserve pile"]) {
       const row = shelf.getByRole("button", { name, exact: true });
       await row.scrollIntoViewIfNeeded();
       const before = (await row.boundingBox())!.y;
       await row.click();
-      await expect.poll(async () => Math.abs((await row.boundingBox())!.y - before), { message: `${name} at ${size.width}` }).toBeLessThanOrEqual(1);
+      // the row in view, the topmost thing at its middle (not the list's title or the window over it), and where it was
+      // or, where the window took that place (Start, at the list's top), just under the list's title
+      await expect
+        .poll(
+          () =>
+            row.evaluate((b, before) => {
+              const r = b.getBoundingClientRect();
+              const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+              const title = b.closest(".objects-menu")!.querySelector(".shelf-title")!.getBoundingClientRect();
+              return !!at && b.contains(at) && (Math.abs(r.top - before) <= 1 || (before < title.bottom && Math.abs(r.top - title.bottom) <= 3));
+            }, before),
+          { message: `${name} at ${size.width}` },
+        )
+        .toBe(true);
       await page.keyboard.press("Escape");
       // the object put away, the list is back at its top, with Start in sight
       await expect.poll(() => shelf.evaluate((el) => el.scrollTop), { message: `${name} put away at ${size.width}` }).toBe(0);
