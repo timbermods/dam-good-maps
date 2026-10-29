@@ -194,13 +194,17 @@ export function entityTiles(e: Pick<EntitySpec, "template" | "x" | "y" | "orient
  *  BadwaterSource) and every other object of several tiles (a mine site, a relic, the start), as its
  *  rectangle [x0, y0, x1, y1] on the W × H map. The game drops an object whose ground is not level
  *  under it, so one on open ground rides a stroke level; a natural overhang hangs from a cliff by
- *  design and does not. Which of them a stroke tilted is `tiltedPieces` (raster/brush.ts). */
-export function ridingPieces(entities: readonly EntitySpec[], W: number, H: number): [number, number, number, number][] {
+ *  design and does not. With the ground's `heights`, only those nothing roofs (no tile's surface
+ *  above their base): one under a roof in part or whole is held where it stands (`objectHolds`, D491),
+ *  and the roof's top over it is the stroke's to shape. Which of them a stroke tilted is
+ *  `tiltedPieces` (raster/brush.ts). */
+export function ridingPieces(entities: readonly EntitySpec[], W: number, H: number, heights?: ArrayLike<number>): [number, number, number, number][] {
   const out: [number, number, number, number][] = [];
   for (const e of entities) {
     if (e.template.startsWith("NaturalOverhang")) continue;
     const cells = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
     if (cells.length < 2) continue;
+    if (heights && cells.some(([x, y]) => heights[y * W + x] > e.z)) continue;
     const xs = cells.map(([x]) => x);
     const ys = cells.map(([, y]) => y);
     out.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
