@@ -119,7 +119,9 @@ place of its bottom rule.
   empty, the open map's name in grey in it; what is typed names the map **Generate** makes next, then the field is
   empty again, and the open map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
   settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
-  Custom, its width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
+  Custom, then the **Easy start** toggle at the line's end, D495: "A flat, roomy start with water and food close by";
+  on, the next map's start is calm and generous, PLAN §5.6; a theme, Surprise me and Reset settings keep it, the page
+  remembers it in this browser and the share link carries it, `es=1`; Custom's width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses; Generate on a side under the theme's least (48, Islands 64)
   says so in one line, "Canyon needs at least 48 tiles a side to generate", as a note over the map (no dialog dims it,
   and a map that fails its checks says "No valid map" the same way), and the open map stays). Then two columns (three in the wider shapes: Terrain and Hazards; Water and Difficulty; Resources and "On this map"): Terrain, Water and Hazards; Resources (the species mix one

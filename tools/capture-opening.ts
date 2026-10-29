@@ -5,6 +5,7 @@
 // field of view, at 16:9. Only the 3D canvas is captured.
 //
 //   npx tsx tools/capture-opening.ts --maps highlands:1,canyon:4 [--size 128] [--zoom vista,opening] [--dir docs/sheets/opening] [--quality 82]
+//                                    [--set es=1 --tag easy]   (settings in the share link's short keys, and a word in the file names)
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -26,6 +27,8 @@ const SIZE = Number(arg("size", "128"));
 const ZOOMS = arg("zoom", "vista").split(",");
 const DIR = arg("dir", ".scratch/opening");
 const QUALITY = Number(arg("quality", "82"));
+const SET = arg("set", "");
+const TAG = arg("tag", "");
 const PORT = 4193;
 const DIST = ".scratch/capture-opening-dist";
 const VIEWPORT = { width: 1280, height: 720 };
@@ -42,8 +45,8 @@ async function main(): Promise<void> {
     const page = await context.newPage();
     for (const m of MAPS) {
       await page.goto("about:blank");
-      await page.goto(`http://localhost:${PORT}/#s=${m.seed}&z=${SIZE}&d=n&t=${m.theme}`);
-      await waitForEditor(page, 300_000);
+      await page.goto(`http://localhost:${PORT}/#s=${m.seed}&z=${SIZE}&d=n&t=${m.theme}${SET ? `&${SET}` : ""}`);
+      await waitForEditor(page, 900_000);
       await page.evaluate(() => window.dgmEditor!.idle());
       const st = (await page.evaluate(() => {
         const e = (window.dgm3d!.renderer as unknown as { map: { entities: { count: number; templates: string[]; template: Uint16Array; x: Int16Array; y: Int16Array; z: Int16Array; orientation: Uint8Array } } }).map.entities;
@@ -81,7 +84,7 @@ async function main(): Promise<void> {
         // the canvas's middle at 16:9 (its height kept: the field of view is vertical)
         const box = (await page.locator("[data-opening-view]").boundingBox())!;
         const w = Math.min(box.width, (box.height * 16) / 9);
-        const file = join(DIR, `${m.theme}-${SIZE}-${m.seed}-${ZOOM}.jpg`);
+        const file = join(DIR, `${m.theme}-${SIZE}-${m.seed}-${ZOOM}${TAG ? `-${TAG}` : ""}.jpg`);
         writeFileSync(file, await page.screenshot({ type: "jpeg", quality: QUALITY, clip: { x: box.x + (box.width - w) / 2, y: box.y, width: w, height: box.height } }));
         console.log(`${file}  start ${mx},${my} z${st.z} ${orientation}`);
       }
