@@ -58,14 +58,16 @@ say "2. Wait for every pull_request run on $branch (the full CI, and the connect
 # and #653 merged within 10 s of opening, 2026-10-29)
 runs() { gh run list -R "$repo" --branch "$branch" --event pull_request --commit "$commit" --json databaseId,workflowName --jq '.[] | "\(.databaseId) \(.workflowName)"'; }
 if [ -n "$go" ]; then
-  for _ in $(seq 1 30); do sleep 20; runs | grep -q ' CI$' && break; done
-  runs | grep -q ' CI$' || { echo "no CI run on the PR after 10 minutes: not tagged, not merged"; exit 1; }
+  # (grep reads all its input: `grep -q` can stop the list early, and under pipefail that reads as no CI run)
+  for _ in $(seq 1 30); do sleep 20; runs | grep ' CI$' > /dev/null && break; done
+  runs | grep ' CI$' > /dev/null || { echo "no CI run on the PR after 10 minutes: not tagged, not merged"; exit 1; }
   # (the other workflows register within seconds of CI)
   sleep 30
   failed=""
   while read -r id name; do
     echo "waiting for $name (run $id)"
-    gh run watch "$id" -R "$repo" --interval 60 --exit-status > /dev/null 2>&1 || failed="$failed; $name (run $id)"
+    # (< /dev/null: the loop's own list is on stdin, and a run skipped there would be a release not waited for)
+    gh run watch "$id" -R "$repo" --interval 60 --exit-status < /dev/null > /dev/null 2>&1 || failed="$failed; $name (run $id)"
   done <<< "$(runs)"
   [ -z "$failed" ] || { echo "the PR's runs failed${failed#;}: not tagged, not merged"; exit 1; }
 else
