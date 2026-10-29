@@ -20,9 +20,10 @@ tool's fix #652 (tagged at 0deeec96), #653 merged to `main` as c9402a39, the dep
 (run 40832798319). The release PRs merged before their CI ran (`tools/release.sh` passed on the first skipped checks, as
 it had for #616; fixed in #656): #653's full CI passed afterwards (run 40843420297); #651's failed, the collab specs stale
 since generator 0.10.5 (#657) and water.spec's 256² timing test timed out once. The first try, `high-look-fix-done`
-(82a2bd14, #651), merged but its deploy stopped at "First-visit maps": the maps with caves were checked as imports (#652). **No D483 probe batch, by Kyler's call:** generated caves, overhangs and arches at
-the default Verticality (#478, #579, #611), strokes that hold a cave's rock (#623, #625), the 1.1.2.8 stamp (#621) and the
-opening shot (#515) are unplayed in the game until probes run again.
+(82a2bd14, #651), merged but its deploy stopped at "First-visit maps": the maps with caves were checked as imports (#652).
+**No D483 probe batch, by Kyler's call:** generated caves, overhangs and arches at the default Verticality (#478, #579,
+#611), strokes that hold a cave's rock (#623, #625), the 1.1.2.8 stamp (#621) and the opening shot (#515) are unplayed in the
+game until probes run again.
 Before it: `3d-foundations-done` (2026-10-27, `main` at 60f79a97, generator 0.10.2), `m9b-done` (2026-10-04, `main` at
 b407656, generator 0.8.0), then `roadmap-page-done` and `needs-kyler-ping-done`.
 Every released step's tag: `git tag -l '*-done'`. `dev` is ahead of `main` by what is under "Done, and next".
