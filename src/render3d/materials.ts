@@ -1577,9 +1577,9 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         #endif
         float t = time;
         // the badwater share, blended between tiles by the mesh: the water turns from clean water to
-        // badwater with it, smoothly, never in streaks or patches (waterPalette.ts WATER_BLEND):
-        // its colour (waterBlend), its opacity (waterMurk) and its dull surface, foam and bubbles
-        float bad = waterDull(cont);
+        // badwater with it, smoothly, never in streaks or patches, by the game's own tint (waterPalette.ts
+        // WATER_BLEND): its colour (waterBlend), its opacity and its dull surface, foam and bubbles
+        float bad = waterTint(cont);
         // how far this point is from the tile's shores (1 in open water): the water shallows toward
         // its banks
         vec2 fr = fract(g);
@@ -1647,7 +1647,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             trough = (1.0 - smoothstep(0.15, 0.5, 0.5 + 0.42 * (sl.x * 0.7 - sl.y * 0.5))) * near * bad;
           #endif
           // badwater's opacity (nearly opaque but at its shallow edges), by how bad it is
-          alpha = mix(alpha, badwaterAlpha(depth, shore, waterGrazing(V, N)), waterMurk(cont));
+          alpha = mix(alpha, badwaterAlpha(depth, shore, waterGrazing(V, N)), bad);
           // foam where the water meets the shore, and along the brink where a fall pours over (the
           // whitewater where a fall lands is the fall's own splash: fallMaterial)
           float lip = 1.0;
@@ -1699,8 +1699,10 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // (none on a fall: a sheet seen edge-on would mirror the sky in patches)
         float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0) * step(0.5, n.y);
         c = mix(c, WATER_SKY, fres * mix(WATER_REFLECT, BADWATER_REFLECT, bad));
-        // pale streaks where it flows (badwater's brownish, so it reads as a flowing liquid too)
-        c = mix(c, mix(WATER_PALE, badwaterShade(BADWATER_STREAK, depth), bad), pale * mix(WATER_PALE_AMOUNT, BADWATER_STREAK_AMOUNT, bad));
+        // pale streaks where it flows (badwater's brownish, so it reads as a flowing liquid too): each
+        // by its own share, so water partly bad never takes a pale pink haze between the two
+        c = mix(c, WATER_PALE, pale * WATER_PALE_AMOUNT * (1.0 - bad));
+        c = mix(c, badwaterShade(BADWATER_STREAK, depth), pale * BADWATER_STREAK_AMOUNT * bad);
         float spec = pow(max(dot(reflect(-sunDir, N), V), 0.0), 90.0) * lit;
         c += sunColor * (spec * mix(WATER_SPEC, BADWATER_SPEC, bad) + glints * ${f(WS.glints)} * mix(1.0, BADWATER_GLINTS, bad) * (0.3 + 0.7 * lit));
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
@@ -1999,7 +2001,7 @@ ${hook(h, "fallVertex")}        vNormal = n;
         float flow = vFall.x;
         float h = vFall.y;
         float cont = clamp(vFall.w, 0.0, 1.0);
-        float bad = waterDull(cont);
+        float bad = waterTint(cont);
         float t = time;
         vec2 g = vec2(vWorld.x, -vWorld.z);
         vec3 N = ${hook(h, "fallNormal", "normalize(vNormal)")};
@@ -2117,7 +2119,7 @@ ${hook(h, "crownNoise")}            float bil = mix(0.6, 0.6 * b1 + 0.4 * b2, fi
           c = mix(c, foamColour, foam * 0.18);
           float edgeOn = 1.0 - max(dot(N, V), 0.0);
           alpha = mix(FALL_CLEAR, FALL_STREAK, streak);
-          alpha = mix(alpha, BADWATER_FALL, waterMurk(cont));
+          alpha = mix(alpha, BADWATER_FALL, bad);
           alpha = mix(alpha, FALL_FOAM, foam);
           alpha = mix(alpha, 1.0, edgeOn * edgeOn * 0.5) * mix(0.6, 1.0, weak);
           // the inner face, behind the outer; a free end frays
