@@ -63,10 +63,12 @@ type Rgb = readonly [number, number, number];
 // ------------------------------------------------------------------------------ model building
 
 /** Which view a model's part is drawn in (the per-vertex `lod` the object shader reads): always,
- *  only close up, or only from afar (materials.ts `RUIN_NEAR_PX` sets where they meet). */
+ *  only close up, or only from afar (materials.ts `RUIN_NEAR_PX` sets where they meet), solid or as
+ *  a lattice (`LOD_FAR_FRAME`, a far ruin block's frame: materials.ts `RUIN_LATTICE_SCALE`). */
 export const LOD_ALL = 0;
 export const LOD_NEAR = 1;
 export const LOD_FAR = 2;
+export const LOD_FAR_FRAME = 3;
 
 /** A model under construction: flat-shaded triangles with a colour per vertex. */
 class Model {
@@ -74,7 +76,7 @@ class Model {
   nrm: number[] = [];
   col: number[] = [];
   lod: number[] = [];
-  /** The view the parts added now belong to (LOD_ALL, LOD_NEAR or LOD_FAR). */
+  /** The view the parts added now belong to (LOD_ALL, LOD_NEAR, LOD_FAR or LOD_FAR_FRAME). */
   level = LOD_ALL;
 
   /** Add a three.js geometry, transformed, in one colour or with a colour for each vertex (a function of
@@ -133,10 +135,10 @@ class Model {
     return this.pos.length / 9;
   }
 
-  /** Triangles drawn in one view: close up (LOD_NEAR) or from afar (LOD_FAR). */
+  /** Triangles drawn in one view: close up (LOD_NEAR) or from afar (LOD_FAR, its frame's included). */
   trianglesIn(view: typeof LOD_NEAR | typeof LOD_FAR): number {
     let n = 0;
-    for (let v = 0; v < this.lod.length; v += 3) if (this.lod[v] === LOD_ALL || this.lod[v] === view) n++;
+    for (let v = 0; v < this.lod.length; v += 3) if (this.lod[v] === LOD_ALL || (view === LOD_FAR ? this.lod[v] >= LOD_FAR : this.lod[v] === view)) n++;
     return n;
   }
 }
@@ -1152,9 +1154,9 @@ function storey(variant: number, kind: number, ivy: number): Model {
       if (ivy) drape(m, f, variant, ivy, top);
     });
   }
-  // from afar: a solid block
+  // from afar: a block, its frame a lattice
   m.level = LOD_FAR;
-  farBlock(m, layout, partial ? 0.72 : 1, ivy, variant);
+  farBlock(m, layout, partial ? 0.72 : 1, ivy, variant, LOD_FAR_FRAME);
   m.level = LOD_ALL;
   return m;
 }
@@ -1220,15 +1222,22 @@ function drape(m: Model, f: number, variant: number, ivy: number, top: number): 
 }
 
 /** A storey from afar (D305, D334): a block over its tile in the near skeleton's own orange
- *  (`RUIN.far`, the object shader's lattice pattern tells it apart from a solid box), a cream panel
- *  where each face's sack or boards are, a band of ivy low on the faces (all four at a column's foot,
- *  two above it, none on the highest ivy; `variant` picks the two), and the same colour on top. */
-function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, variant = 0): void {
+ *  (`RUIN.far`, drawn at `frame`: as LOD_FAR_FRAME the object shader's lattice pattern tells it apart
+ *  from a solid box), a cream panel where each face's sack or boards are, a band of ivy low on the
+ *  faces (all four at a column's foot, two above it, none on the highest ivy; `variant` picks the
+ *  two), and the same colour on top. The panels and ivy are solid, at the model's level. */
+function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, variant = 0, frame = m.level): void {
   const w = 0.86;
+  const solid = m.level;
+  const framed = (add: () => void) => {
+    m.level = frame;
+    add();
+    m.level = solid;
+  };
   for (let f = 0; f < 4; f++) {
     const panels = layout.panels.filter(([g]) => g === f).map(([, p]) => p);
     onFace(m, f, () => {
-      m.add(plane(w, height), RUIN.far, { ry: Math.PI, y: height / 2, z: -w / 2 });
+      framed(() => m.add(plane(w, height), RUIN.far, { ry: Math.PI, y: height / 2, z: -w / 2 }));
       if (panels.length) {
         // (where the near sack or boards are: a big sack low, a small one low or high, one askew
         // across the middle, broken boards over most of the face)
@@ -1241,7 +1250,7 @@ function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, vari
       else if (ivy === IVY_MEDIUM && (f + variant) % 4 >= 2) m.add(plane(0.6, 0.3 * height), RUIN.leaf, { ry: Math.PI, y: 0.15 * height, z: -w / 2 - 0.008 });
     });
   }
-  m.add(plane(w, w), RUIN.far, { rx: -Math.PI / 2, y: height });
+  framed(() => m.add(plane(w, w), RUIN.far, { rx: -Math.PI / 2, y: height }));
 }
 
 /** A column's quarter turns: one more than its west neighbour and two more than its south one, so
@@ -1548,7 +1557,7 @@ function sameBatch(mesh: InstancedMesh, b: Batch, v: EntityView, was: EntityView
 function baked(full: Model, matrices: number[], tints: number[]): BufferGeometry {
   const model = new Model();
   for (let v = 0; v < full.lod.length; v++) {
-    if (full.lod[v] === LOD_FAR) continue;
+    if (full.lod[v] >= LOD_FAR) continue;
     model.pos.push(full.pos[v * 3], full.pos[v * 3 + 1], full.pos[v * 3 + 2]);
     model.nrm.push(full.nrm[v * 3], full.nrm[v * 3 + 1], full.nrm[v * 3 + 2]);
     model.col.push(full.col[v * 3], full.col[v * 3 + 1], full.col[v * 3 + 2]);
