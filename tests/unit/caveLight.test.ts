@@ -7,7 +7,8 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { CAVE_CELL, CAVE_FLOOR_BYTE, CAVE_SKY_FLOOR, CAVE_SKY_STEP, CaveLight, caveSample, LIGHT_LEVELS, openSky } from "../../src/render3d/caveLight";
+import { AMBIENT_LEAST, CAVE_CELL, CaveLight, caveSample, LIGHT_LEVELS, openSky } from "../../src/render3d/caveLight";
+import { terrainAmbient } from "../../src/render3d/high/bake";
 import { castersChangedRects, decodeTop, objectCasters, SHADOW_RES, shadowMap, shadowPairRect, shadowRock, skyVisibility } from "../../src/render3d/light";
 import { DEAD, type EntityView } from "../../src/render3d/model";
 import { LIGHT } from "../../src/render3d/palette";
@@ -91,37 +92,42 @@ describe("light under roofs on terrains with roofs", () => {
     expect(v.data.length).toBe(W * H * LIGHT_LEVELS * CAVE_CELL);
   });
 
-  it("the tunnel's floor, walls and ceiling take their own light, dimmer deeper in", () => {
+  it("the tunnel's floor, walls and ceiling take their mouth's light all the way in (D497: no falloff)", () => {
     const floor = (x: number) => caveSample(v, [x + 0.5, 2, -10.5], [0, 1, 0]);
     const ceiling = (x: number) => caveSample(v, [x + 0.5, 5, -10.5], [0, -1, 0]);
     const wall = (x: number) => caveSample(v, [x + 0.5, 3.5, -9], [0, 0, -1]); // the tunnel's south wall, facing north
-    for (const f of [floor, ceiling, wall]) {
-      const mouth = f(19)!;
-      const deep = f(11)!;
-      expect(mouth).not.toBeNull();
-      expect(deep).not.toBeNull();
-      expect(deep[0]).toBeLessThan(mouth[0]);
-    }
-    // the walk loses a step a cell from the mouth's own light, never below the volume's least (which the shader holds
-    // too): the floors' from the open ground's sky, the walls' and ceilings' from the whole sky, as an open wall takes it
-    const step = CAVE_SKY_STEP / 255;
-    expect(floor(19)![0]).toBeCloseTo(openSky(sky[10 * W + 20]) / 255, 6);
-    expect(floor(10)![0]).toBeCloseTo(Math.max(CAVE_SKY_FLOOR, floor(19)![0] - 9 * step), 2);
-    expect(wall(19)![2]).toBe(1);
-    expect(wall(10)![2]).toBeCloseTo(Math.max(CAVE_SKY_FLOOR, 1 - 9 * step), 2);
-    for (const f of [floor, ceiling, wall]) for (let x = 10; x <= 19; x++) expect(f(x)![2]).toBeGreaterThanOrEqual(f(x)![0]);
+    // the floors' sky is the open ground's before the mouth (its three tiles' at x = 20), the High look's occlusion the
+    // field's there, at the cells' height over that ground
+    const seeds = [9, 10, 11].map((y) => openSky(sky[y * W + 20]) / 255);
+    const occ = [9, 10, 11].flatMap((y) => [2, 3, 4].map((z) => {
+      const a = terrainAmbient(W, H, src.heights, 20, y) / 255;
+      const t = Math.min(1, Math.max(0, (z - src.heights[y * W + 20] - 0.1) / 3.4));
+      return Math.round(255 * Math.max(AMBIENT_LEAST, a + (1 - a) * t * t * (3 - 2 * t))) / 255;
+    }));
+    for (const f of [floor, ceiling, wall])
+      for (let x = 10; x <= 19; x++) {
+        const s = f(x)!;
+        expect(s).not.toBeNull();
+        expect(s[0]).toBeGreaterThanOrEqual(Math.min(...seeds) - 1 / 255);
+        expect(s[0]).toBeLessThanOrEqual(Math.max(...seeds) + 1 / 255 + 1e-9);
+        expect(s[2]).toBeGreaterThanOrEqual(Math.min(...occ) - 1 / 255);
+        expect(s[2]).toBeLessThanOrEqual(Math.max(...occ) + 1 / 255 + 1e-9);
+        // and the same deep in as at the mouth
+        expect(Math.abs(s[0] - f(19)![0])).toBeLessThanOrEqual(1.5 / 255);
+      }
   });
 
-  it("a cave's mouth is never brighter than the open ground before it", () => {
-    // the tunnel opens east onto the ground at x = 20: its floor just inside, and at the roof line
+  it("a cave's mouth is never brighter than the open ground before it, and as bright going in", () => {
+    // the tunnel opens east onto the ground at x = 20: its floor just inside, at the roof line, and a tile in
     const open = openSky(sky[10 * W + 20]) / 255;
-    for (const x of [19.7, 19.95]) expect(caveSample(v, [x, 2, -10.5], [0, 1, 0])![0]).toBeLessThanOrEqual(open);
-    expect(caveSample(v, [18.5, 2, -10.5], [0, 1, 0])![0]).toBeLessThan(open);
+    for (const x of [18.5, 19.7, 19.95]) expect(caveSample(v, [x, 2, -10.5], [0, 1, 0])![0]).toBeLessThanOrEqual(open + 1 / 255 + 1e-9);
+    expect(caveSample(v, [18.5, 2, -10.5], [0, 1, 0])![0]).toBeGreaterThanOrEqual(open - 1 / 255);
   });
 
-  it("a sealed chamber takes the least sky and no sun", () => {
+  it("a sealed chamber takes the whole sky, as the game lights it, and no sun", () => {
     const s = caveSample(v, [8.5, 6, -6.5], [0, 1, 0])!;
-    expect(s[0]).toBeLessThanOrEqual(CAVE_FLOOR_BYTE / 255 + 1e-9);
+    expect(s[0]).toBe(1);
+    expect(s[2]).toBe(1);
     expect(s[1]).toBe(0);
   });
 
@@ -132,6 +138,40 @@ describe("light under roofs on terrains with roofs", () => {
     // the map's own border, and a top folded into the slice's cut (its air is rock)
     expect(caveSample(v, [0, 1, -5.5], [-1, 0, 0])).toBeNull();
     expect(caveSample(v, [12.5, 8, -5.5], [0, 1, 0])).toBeNull();
+  });
+});
+
+describe("a tunnel between two mouths (D497)", () => {
+  // ground 2 high, a hill 12 high (x 6…33, y 4…11) with a tunnel at levels 2–4 right through it (y 7…8), opening west
+  // onto ground shut in by a wall 14 high (x 0…2: little sky) and east onto open ground
+  const W = 40;
+  const H = 16;
+  const src = terrain(W, H, (x, y, z) => {
+    if (z < 2) return true;
+    if (x <= 2) return z < 14;
+    if (x < 6 || x > 33 || y < 4 || y > 11 || z >= 12) return false;
+    return !(y >= 7 && y <= 8 && z <= 4);
+  });
+  const sky = skyVisibility(W, H, src.heights);
+  const v = CaveLight.build(src, sky)!;
+
+  it("moves from one mouth's light to the other's, never above the brighter or below the dimmer, never back", () => {
+    const west = openSky(sky[7 * W + 5]) / 255;
+    const east = openSky(sky[7 * W + 34]) / 255;
+    expect(east - west, "the mouths differ").toBeGreaterThan(0.05);
+    for (const [ny, y, n] of [[0, 2, [0, 1, 0]], [0, 3.5, [0, 0, -1]]] as const) {
+      void ny;
+      let last = -1;
+      for (let x = 6.5; x <= 33.5; x += 0.25) {
+        const s = caveSample(v, [x, y, -7.5], n as unknown as [number, number, number])!;
+        expect(s[0]).toBeGreaterThanOrEqual(Math.min(west, east) - 1 / 255);
+        expect(s[0]).toBeLessThanOrEqual(Math.max(west, east) + 1 / 255 + 1e-9);
+        // (never back by more than a byte: the openings over the ground, a level up, see a little more sky, so the light
+        // evened out over the levels leans by a fraction of a byte by the mouth)
+        expect(s[0], `x ${x}`).toBeGreaterThanOrEqual(last - 1 / 255 - 1e-9);
+        last = Math.max(last, s[0]);
+      }
+    }
   });
 });
 
@@ -187,6 +227,50 @@ describe("relighting after an edit", () => {
       expect(box.x1 - box.x0).toBeLessThan(W);
       const full = CaveLight.build(src, sky)!;
       expect(Buffer.from(v.data).equals(Buffer.from(full.data)), `edit ${k}`).toBe(true);
+    }
+  });
+});
+
+describe("relighting after the roofed spaces change shape (D497)", () => {
+  it("a block dug or filled in a cave, a mouth opened or closed: the same bytes as building the volume again", () => {
+    let seed = 11;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+    const W = 48;
+    const H = 40;
+    // tunnels joined into one network under a plateau 10 high, opening onto a valley at x 20…23
+    const solid = new Set<number>();
+    const key = (x: number, y: number, z: number) => (z * H + y) * W + x;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        for (let z = 0; z < 10; z++) {
+          const valley = x >= 20 && x <= 23 && z >= 2;
+          const tunnel = (y % 8 < 2 || x % 12 < 2) && z >= 2 && z <= 4;
+          if (!valley && !tunnel) solid.add(key(x, y, z));
+        }
+    const make = () => terrain(W, H, (x, y, z) => z < 10 && solid.has(key(x, y, z)));
+    let src = make();
+    const v = CaveLight.build(src, skyVisibility(W, H, src.heights))!;
+    for (let k = 0; k < 40; k++) {
+      // a block in the tunnels' levels toggled, anywhere (a dig, a fill, a mouth opened or closed)
+      const x = Math.floor(rnd() * W);
+      const y = Math.floor(rnd() * H);
+      const z = 2 + Math.floor(rnd() * 3);
+      const c = key(x, y, z);
+      if (solid.has(c)) solid.delete(c);
+      else solid.add(c);
+      src = make();
+      const sky = skyVisibility(W, H, src.heights);
+      v.relight(src, sky, { x0: x, y0: y, x1: x, y1: y });
+      const full = CaveLight.build(src, sky)!;
+      const diffs: string[] = [];
+      for (let o = 0; o < full.data.length && diffs.length < 8; o++)
+        if (full.data[o] !== v.data[o]) {
+          const cc = Math.floor(o / 4);
+          const zz = Math.floor(cc / (W * H));
+          const ii = cc % (W * H);
+          diffs.push(`${ii % W},${Math.floor(ii / W)},${zz} ch${o % 4} ${v.data[o]}/${full.data[o]}`);
+        }
+      expect(diffs.join(" "), `edit ${k} at ${x},${y},${z}`).toBe("");
     }
   });
 });

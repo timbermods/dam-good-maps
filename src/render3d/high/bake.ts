@@ -82,28 +82,35 @@ const HORIZON: Float64Array = (() => {
  *  steps and horizons come from tables made once: the same numbers, a brush's rectangle many times
  *  faster, R1.) */
 export function ambientRect(W: number, H: number, heights: Uint8Array, cover: Float32Array, out: Uint8Array, x0: number, y0: number, x1: number, y1: number): void {
-  const R = RADII.length;
   for (let y = Math.max(0, y0); y <= Math.min(H - 1, y1); y++)
     for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) {
       const i = y * W + x;
       const z = heights[i];
-      let occlusion = 0;
-      for (let a = 0; a < 8; a++) {
-        let horizon = 0;
-        for (let k = 0; k < R; k++) {
-          const xx = x + STEPS_AT[(a * R + k) * 2];
-          const yy = y + STEPS_AT[(a * R + k) * 2 + 1];
-          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-          const rise = heights[yy * W + xx] - z;
-          if (rise > 0) horizon = Math.max(horizon, HORIZON[rise * R + k]);
-        }
-        occlusion += horizon / 8;
-      }
-      out[i * 4] = Math.round(255 * (1 - Math.min(0.32, occlusion * 0.55)));
+      out[i * 4] = terrainAmbient(W, H, heights, x, y);
       out[i * 4 + 1] = Math.round(255 * (1 - Math.min(0.4, cover[i])));
       out[i * 4 + 2] = z;
       out[i * 4 + 3] = 255;
     }
+}
+
+/** The ambient occlusion's terrain term at tile (x, y), as its texel's R (0–255): how much of the sky the ground sees
+ *  past the terrain round it (eight horizons at four radii). The light under roofs reads it too (caveLight.ts). */
+export function terrainAmbient(W: number, H: number, heights: Uint8Array, x: number, y: number): number {
+  const R = RADII.length;
+  const z = heights[y * W + x];
+  let occlusion = 0;
+  for (let a = 0; a < 8; a++) {
+    let horizon = 0;
+    for (let k = 0; k < R; k++) {
+      const xx = x + STEPS_AT[(a * R + k) * 2];
+      const yy = y + STEPS_AT[(a * R + k) * 2 + 1];
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const rise = heights[yy * W + xx] - z;
+      if (rise > 0) horizon = Math.max(horizon, HORIZON[rise * R + k]);
+    }
+    occlusion += horizon / 8;
+  }
+  return Math.round(255 * (1 - Math.min(0.32, occlusion * 0.55)));
 }
 
 export function canopyInto(cover: Float32Array, out: Uint8Array): void {
