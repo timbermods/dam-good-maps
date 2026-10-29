@@ -1469,9 +1469,11 @@ export class MapSession {
     if (this.riding || !ops.some((o) => o.op === "brush")) return null;
     const { W, H } = this.cur;
     // (the page's preview asks the same, StrokePreview `rides`; the pieces as they stood, nothing roofing
-    // them, and not those the stroke already keeps level: a replica's copy of a step given again)
+    // them, and not those the stroke already keeps level: a replica's copy of a step given again; nor those the
+    // step removed, a source a Clear stroke takes, which the page lists none of)
     const kept = new Set(ops.flatMap((o) => (o.op === "brush" ? (o.params.rigid ?? []) : [])).map((r) => r.join(",")));
-    const rects = tiltedPieces(ridingPieces(before.entities, W, H, before.heights), before.heights, this.cur.heights, W).filter((r) => !kept.has(r.join(",")));
+    const still = new Set(this.cur.entities.map((e) => e.id));
+    const rects = tiltedPieces(ridingPieces(before.entities.filter((e) => still.has(e.id)), W, H, before.heights), before.heights, this.cur.heights, W).filter((r) => !kept.has(r.join(",")));
     if (!rects.length) return null;
     const step = this.stepSince(mark);
     if (!step || !this.takeBack(step)) return null;

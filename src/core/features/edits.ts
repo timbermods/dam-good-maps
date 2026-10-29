@@ -11,7 +11,7 @@
 import { bush, entityJson, fluidObject, reserve, ruin, slope, tree, unstableCore, waterSource, type EntitySpec } from "../format/entities";
 import { CORE, defaultStock, FLUIDS, isReserve } from "../data/parity";
 import { F, isObject, JsonFloat, type JsonObject, type JsonValue } from "../format/json";
-import { FOOTPRINTS, footprintTiles, type Orientation } from "../format/footprints";
+import { FOOTPRINTS, footprintTiles, startEntranceTile, type Orientation } from "../format/footprints";
 import { entityId } from "./ids";
 
 export interface PlaceEntityParams {
@@ -202,14 +202,29 @@ export function ridingPieces(entities: readonly (Parameters<typeof entityTiles>[
   const out: [number, number, number, number][] = [];
   for (const e of entities) {
     if (e.template.startsWith("NaturalOverhang")) continue;
-    const cells = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
-    if (cells.length < 2) continue;
-    if (heights && cells.some(([x, y]) => heights[y * W + x] > e.z)) continue;
-    const xs = cells.map(([x]) => x);
-    const ys = cells.map(([, y]) => y);
-    out.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+    const on = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
+    if (on.length < 2) continue;
+    if (heights && on.some(([x, y]) => heights[y * W + x] > e.z)) continue;
+    const xs = on.map(([x]) => x);
+    const ys = on.map(([, y]) => y);
+    const piece: [number, number, number, number] = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    out.push(e.template === "StartingLocation" ? withDoor(piece, e, W, H, heights) : piece);
   }
   return out;
+}
+
+/** The start's riding piece with the row before its door, whose tile the game needs at the start's level (D491): its
+ *  3 × 3 grown to 3 × 4. As its 3 × 3 when that row leaves the map or a tile of it stands above the start (a roof over
+ *  the door, or higher ground beside it), which levelling the row would cut. */
+function withDoor(piece: [number, number, number, number], e: Parameters<typeof entityTiles>[0] & { z: number }, W: number, H: number, heights?: ArrayLike<number>): [number, number, number, number] {
+  const [dx, dy] = startEntranceTile(e.x, e.y, e.orientation as Orientation);
+  if (dx < 0 || dy < 0 || dx >= W || dy >= H) return piece;
+  const [x0, y0, x1, y1] = piece;
+  const grown: [number, number, number, number] = [Math.min(x0, dx), Math.min(y0, dy), Math.max(x1, dx), Math.max(y1, dy)];
+  if (heights)
+    for (let y = grown[1]; y <= grown[3]; y++)
+      for (let x = grown[0]; x <= grown[2]; x++) if ((x < x0 || x > x1 || y < y0 || y > y1) && heights[y * W + x] > e.z) return piece;
+  return grown;
 }
 
 // ---------------------------------------------------------------------------------- applying
