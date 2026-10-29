@@ -972,9 +972,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float depth = min(3.0, (wb - 1.0) / ${f(WATER_BYTE_STEPS)});
         return waterSurfaceOf(d) > slice + ${f(CUT_SLACK)} ? min(depth, max(0.0, slice - heightOf(d))) : depth;
       }
-      /** How much of the bed's own colour the ground under water takes (groundColor): 1 under water of
-       *  a quarter level or more, less under a film, whose ground keeps its own soil, seen through the
-       *  film's coloured filter (waterPalette.ts WATER_FILM, waterFilmGround). Set round a top's
+      /** How much of the bed's own colour the ground under water takes (groundColor): 1 under water past
+       *  a sliver's depth, less under a sliver at a shore's edge, whose ground keeps its own soil, seen through
+       *  the water's coloured filter (waterPalette.ts WATER_FILM, waterFilmGround). Set round a top's
        *  groundColor; 1 everywhere else. */
       float groundBed = 1.0;
       #ifdef RUN_SOIL
@@ -1597,8 +1597,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         float absorb = waterAbsorb(d);
         vec3 murky = badwaterBody(depth);
         vec3 body = cleanWaterBody(d, absorb);
-        // a film (a tenth of a level deep or less) is a faint tint over its own ground, building to the
-        // body by a quarter of a level deep (waterPalette.ts WATER_FILM): its own depth, not the bank's
+        // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
+        // WATER_FILM.to deep (waterPalette.ts WATER_FILM; our anti-aliasing): its own depth, not the bank's
         float film = waterFilm(depth);
         float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(absorb), film);
         float foam = 0.0;

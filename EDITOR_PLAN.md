@@ -1095,11 +1095,12 @@ Two looks (Map look 2, D147, D242, D250, D284):
   dry ground with straw where grass stood and a faint heat shimmer over it; on a held badtide day, a slightly sickly sky
   (each its own effect, `high/seasons.ts`). Day 0 and Standard show the map as it is.
 
-In both looks (the light look too) water of any depth draws as water, as the game draws it (D496: its water shader
-draws every water tile opaque, a film included; `WATER_FILM` in `render3d/waterPalette.ts`). Only a sliver a fiftieth
-of a level deep or less, a shore's very edge or a film's leading edge, fades in from a faint tint (its ground seen as
-through a coloured filter in the water's hue) to the body, on one smooth curve on the water's own depth, so a sheet's
-edge isn't a hard line; a badwater sliver stays murkier than clean water, and keeps a faint edge, not a foam line.
+In both looks (the light look too) water of any depth draws as water, as the game draws it: a film is the same water
+as its body, not a faint tint over its ground (`WATER_FILM` in `render3d/waterPalette.ts`; the game's water in play is its
+opaque material, the ground behind showing only as a small tinted share, `investigation/notes/water_and_soil.md` Q8).
+Only a sliver a fiftieth of a level deep or less, a shore's very edge, fades in from a faint tint (its ground seen as
+through a coloured filter in the water's hue) to the body, on one smooth curve on the water's own depth: our own
+anti-aliasing, where the game clips hard at the floor; a badwater sliver stays murkier than clean water, and keeps a faint edge, not a foam line.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
 threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks
