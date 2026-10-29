@@ -7,7 +7,7 @@ import { rebuiltSlope } from "../features/ids";
 import { removeKindOf, removeTakes, type RemoveKind } from "../features/objects";
 import { placementOf } from "../format/entities";
 import { runsToTiles, tilesToRuns, type Runs } from "../math/grid";
-import { ruinFieldTilesIn, submergedIn } from "./inArea";
+import { ruinFieldTilesIn, submergedIn, surfaceUnderCut, underCut } from "./inArea";
 import type { EditOp } from "./ops";
 import type { MapSession } from "./session";
 
@@ -17,10 +17,14 @@ export type { RemoveKind };
  *  when its kind is named, D323 item 44), what the resource features hold under water there (D345, B5)
  *  and the tiles they would plant later, a ruin field's columns inside the selection (D360 b). `label`
  *  replaces the one it would name. The operations, their label and the tiles the removed objects
- *  stood on (their corners), or why nothing goes. */
-export function planRemove(s: MapSession, tiles: readonly number[], kinds: readonly RemoveKind[], label?: string): { ok: true; ops: EditOp[]; label: string; removed: number[] } | { ok: false; errors: string[] } {
+ *  stood on (their corners), or why nothing goes. Under a layer cut (`cut`, D207) only what it shows goes: the objects
+ *  at or under it (a cave's floor's, never its roof's) and, on tiles whose top is at or under it, the ruin fields',
+ *  the submerged objects and the resource features' areas. */
+export function planRemove(s: MapSession, tiles: readonly number[], kinds: readonly RemoveKind[], label?: string, cut?: number | null): { ok: true; ops: EditOp[]; label: string; removed: number[] } | { ok: false; errors: string[] } {
   const { x: W, y: H } = s.size;
-  const want = new Set(tiles);
+  const all = new Set(tiles);
+  // (the tiles whose surface the cut shows: a roof above it, over a cave's floor in the selection, keeps its own)
+  const want = surfaceUnderCut(s, all, cut);
   const ids: string[] = [];
   const slopes: { x: number; y: number }[] = [];
   const startFeatures = new Set<string>();
@@ -31,7 +35,8 @@ export function planRemove(s: MapSession, tiles: readonly number[], kinds: reado
   const fields = removeTakes(kinds, "RuinColumnH1") ? ruinFieldTilesIn(s, want) : new Map<string, number[]>();
   for (const e of s.built.entities) {
     if (e.raw && !placementOf(e.raw)) continue;
-    if (!entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) continue;
+    if (!underCut(e, cut)) continue;
+    if (!entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && all.has(ty * W + tx))) continue;
     const kind = removeKindOf(e.template);
     if (!kind || !removeTakes(kinds, e.template)) continue;
     if (kind === "ruins" && fields.has(e.owner)) {

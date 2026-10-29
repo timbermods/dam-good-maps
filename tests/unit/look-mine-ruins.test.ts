@@ -11,8 +11,8 @@
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../../src/core/format/footprints";
-import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
-import { objectMaterial, RUIN_LATTICE_SCALE, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
+import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_FAR_FRAME, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
+import { objectMaterial, RUIN_INSIDE_COVER, RUIN_LATTICE_SCALE, RUIN_LATTICE_STRUT, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
 import { entityView, variantIndex, type EntityInput } from "../../src/render3d/model";
 import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, WATER, type Rgb } from "../../src/render3d/palette";
@@ -246,7 +246,9 @@ describe("ruins", () => {
         let farArea = 0;
         for (let t = 0; t < m.lod.length / 3; t++) {
           const lod = m.lod[t * 3];
-          expect([LOD_NEAR, LOD_FAR]).toContain(lod);
+          expect([LOD_NEAR, LOD_FAR, LOD_FAR_FRAME]).toContain(lod);
+          // (from afar, the block's orange is its frame, drawn as a lattice; its panels and ivy solid)
+          if (lod !== LOD_NEAR) expect(lod === LOD_FAR_FRAME, `${v}${kind}`).toBe(cssColor([m.col[t * 9], m.col[t * 9 + 1], m.col[t * 9 + 2]]) === cssColor(RUIN.far));
           const c = cssColor([m.col[t * 9], m.col[t * 9 + 1], m.col[t * 9 + 2]]);
           if (lod === LOD_NEAR) near.push(c);
           else {
@@ -331,13 +333,20 @@ describe("ruins", () => {
     expect(shader).toContain("attribute float lod");
     expect(shader).toContain(`perUnit >= ${RUIN_NEAR_PX}`);
     expect(RUIN_NEAR_PX).toBeGreaterThanOrEqual(6);
-    // the far ruin block's lattice (D305): a cheap discard pattern in the fragment shader, gated on
-    // the far lod alone (so it never touches any other object), the same in Standard and High since
-    // it lives in the shared shader, not behind a hook
+    // the far ruin block's lattice (D305): a pattern in the fragment shader, gated on the far frame's
+    // lod alone (so it never touches any other object or the block's panels and ivy), the same in
+    // Standard and High since it lives in the shared shader, not behind a hook; filtered to the pixel and
+    // drawn as coverage (alpha to coverage on the multisampled view), so it never breaks into noise
     expect(mat.vertexShader).toContain("vLod = lod;");
-    expect(mat.fragmentShader).toContain("if (vLod > 1.5)");
+    expect(mat.fragmentShader).toContain("if (vLod > 2.5)");
+    expect(mat.fragmentShader).toContain("fwidth(cells)");
     expect(mat.fragmentShader).toContain(`${RUIN_LATTICE_SCALE}`);
     expect(RUIN_LATTICE_SCALE).toBeGreaterThan(1);
+    expect(mat.alphaToCoverage).toBe(true);
+    expect(objectMaterial(u, true).alphaToCoverage).toBe(false);
+    // from afar it lets little through: its struts and the column's inside behind its cells
+    const mean = 1 - (1 - RUIN_LATTICE_STRUT) ** 2;
+    expect(mean + (1 - mean) * RUIN_INSIDE_COVER).toBeGreaterThan(0.75);
     // every model carries the attribute; the light look (software rendering) draws a block per ruin
     for (const m of meshesOf([column(1, 1, 3, "B"), { template: "Pine", x: 3, y: 3, z: 2, orientation: "Cw0", owner: "f" }])) expect(m.geometry.getAttribute("lod")).toBeDefined();
     const lite = meshesOf([column(1, 1, 3, "B")], null, 0, true);
@@ -465,7 +474,7 @@ describe("ruins", () => {
           const w = pts[2].map((q, i) => q - pts[0][i]);
           const a = Math.hypot(u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]) / 2;
           const isIvy = c === cssColor(RUIN.ivy) || c === cssColor(RUIN.leaf);
-          if (md.lod[t * 3] === LOD_FAR) {
+          if (md.lod[t * 3] >= LOD_FAR) {
             farArea += a;
             if (isIvy) farIvy += a;
             if (c === cssColor(RUIN.far)) farRust += a;
