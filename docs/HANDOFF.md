@@ -164,10 +164,11 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 - **The roadmap canvas** is at <https://timbermods.github.io/dam-good-maps/roadmap/> (noindex), taken from dev by every deploy;
   `roadmap-sync.yml` runs a deploy when dev's copy changes and republishes the live preview commit (`/preview/ref.txt`).
 - **Releases** (docs/RULES.md, "Deploying"): `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` releases a
-  `dev` commit that the queue's run passed (a commit with no run is refused): pushes a `release/<name>` branch, opens the PR into `main` (its run is the full CI; a
-  cancelled run on the commit counts as no result), then tags the commit (annotated) and merges the PR **as a merge commit**
-  once its checks pass, and watches the deploy and `live-check / live` (without `--go` it only checks and
-  prints the steps). Then republish the preview and record the release in STATUS and the Progress log. If the live check
+  `dev` commit (one whose run completed red is refused; with no completed run, the release PR's runs decide): pushes a
+  `release/<name>` branch, opens the PR into `main`, waits for every pull_request run on that branch (the full CI, and the
+  connection tests when the release touches them; #656: before it, release PRs merged before their CI ran), then tags the
+  commit (annotated) and merges the PR **as a merge commit**, and watches the deploy and `live-check / live` (without
+  `--go` it only checks and prints the steps). The deploy builds the first-visit maps, which the nightly builds too (#655). Then republish the preview and record the release in STATUS and the Progress log. If the live check
   fails, revert the release merge on `main`.
 - **Fixes for dev's own failing tests go to dev**, never only onto a feature branch: as a PR through the queue (a repository admin's direct push bypasses it, and has no CI run, so release only commits that went through the queue).
 - **Speed (D453).** No quiet windows, measured budgets or timing gates; Kyler judges speed by using the tool. Correctness and
