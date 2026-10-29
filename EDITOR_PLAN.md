@@ -867,6 +867,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (a one-tile spike the integrity pass levelled stays levelled, `keepShownGround`). **Clear**: the sources the
   brush passes over are removed in the same undo step (they glow red under the ring first), even when the stroke
   changes no ground, and their water drains at once (item 15, D260). Each brush remembers its mode and choice.
+  Whatever the choice, every other object of several tiles on open ground (a mine site, a relic, the start) rides
+  the stroke as one level piece, and the stroke shows it so when it is let go (D491, amended 2026-10-29; `ridingPieces`).
 - **Precision when wanted:** the target level, straight lines, level lines, a Select tool for big shaped edits (a
   small button beside the brushes; M and Ctrl+drag still open it, D259), and live dimensions.
 - **Flatten** (D204, D322): sets the ground to its target, cutting and filling, so one stroke makes a clean plateau
@@ -1306,7 +1308,8 @@ stroke records the options it used:
   operation, one undo step, #227; `target`, D322: Raise, Lower and Flatten exact with hard edges,
   a stroke without one is soft, Free; `mode` with the tiles that were wet when it started and, for Ground, the
   banks' levels, `wet`, `bank`; `sources: "keep"` with its `keep` runs; the tiles a layer cut keeps; the pieces
-  that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249 (a stroke that
+  that ride whole, `rigid`, the rectangle of a 3 × 3 badwater source or of any other object of several tiles on open
+  ground taking its middle tile's level, D249, D491 (a stroke that
   doesn't list one it would leave off level ground gets it riding whole, never a refusal, D270); the working
   area it was painted in, `area`, D254: runs, feathered; `steps`; a pen's pressure per dab). Strokes saved before
   D322, D270 or D247 (precise or ramped strokes with their `slopes`, Smooth's walkable flag, soft Flatten's level)

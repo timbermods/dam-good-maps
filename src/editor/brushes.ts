@@ -187,10 +187,11 @@ export interface PainterHost {
   footprints?(): number[][];
   /** Ctrl+drag hands the pointer to the Select tool: the drag's pointer tool from here on. */
   select?(hit: TileHit, ev: PointerEvent): PointerTool | null;
-  /** The pieces that ride a stroke whole and level (D249: a 3 × 3 badwater source), as rectangles
-   *  [x0, y0, x1, y1]; a stroke that changes one of their tiles takes the piece to its middle's
-   *  level. */
-  rides?(): [number, number, number, number][];
+  /** The pieces that ride a stroke whole and level (D249: a 3 × 3 badwater source; D491: a mine site, a
+   *  relic, the start), as rectangles [x0, y0, x1, y1], given the ground as the stroke found it (`start`:
+   *  an object under a roof then is held, not ridden); a stroke that changes one of their tiles takes the
+   *  piece to its middle's level. */
+  rides?(start: ArrayLike<number>): [number, number, number, number][];
   /** The sources' own tiles, as runs [y, x0, x1]: Keep leaves them as they are (D322, item 31). */
   sourceGround?(): [number, number, number][];
   /** The ground under every source and object, as runs [y, x0, x1]: Naturalize leaves it as it is
@@ -921,7 +922,7 @@ export class BrushPainter {
     if (!b || !h.rides) return;
     const now = h.heights();
     const was = st.preview.start;
-    const rigid = h.rides().filter(([x0, y0, x1, y1]) => {
+    const rigid = h.rides(was).filter(([x0, y0, x1, y1]) => {
       if (x1 < b.x0 - 1 || x0 > b.x1 + 1 || y1 < b.y0 - 1 || y0 > b.y1 + 1) return false;
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (now[y * h.W + x] !== was[y * h.W + x]) return true;
       return false;
