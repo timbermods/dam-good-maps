@@ -748,6 +748,30 @@ const common = (h?: ShaderHooks) => /* glsl */ `
     float w = max(0.12, 1.1 * px);
     return vec4(${glColor(HATCH.dark)}, 1.0 - smoothstep(w, w + px, e));
   }
+  /** A footprint's edge (the shelf's ghost, the start: an overlay painted with an odd alpha below 255, tools.ts
+   *  \`paintOverlay\`'s \`edge\`): at tile position g, with \`px\` the size of a pixel in tiles, how much of a line lies here along the sides where the tile beside it is not of the same footprint,
+   *  about a sixteenth of a tile wide and never under a pixel and a half. Drawn in a light tint of the fill
+   *  (\`overlayEdgeColor\`): a lighter edge on a darker fill of one hue, calm on grass, rock, sand and water. */
+  bool sameOverlay(vec2 t, vec4 o) {
+    vec4 n = texture2D(overlay, (t + 0.5) / mapSize);
+    return all(lessThan(abs(n - o), vec4(0.5 / 255.0)));
+  }
+  float overlayEdge(vec2 g, vec4 o, float px) {
+    float a = floor(o.a * 255.0 + 0.5);
+    if (a > 254.5 || mod(a, 2.0) < 0.5) return 0.0;
+    vec2 tile = floor(g);
+    vec2 fr = g - tile;
+    float e = 9.0;
+    if (!sameOverlay(tile + vec2(1.0, 0.0), o)) e = min(e, 1.0 - fr.x);
+    if (!sameOverlay(tile - vec2(1.0, 0.0), o)) e = min(e, fr.x);
+    if (!sameOverlay(tile + vec2(0.0, 1.0), o)) e = min(e, 1.0 - fr.y);
+    if (!sameOverlay(tile - vec2(0.0, 1.0), o)) e = min(e, fr.y);
+    float w = max(0.06, 1.5 * px);
+    return 1.0 - smoothstep(w, w + px, e);
+  }
+  vec3 overlayEdgeColor(vec4 o) {
+    return clamp(o.rgb * 1.4 + 0.3, 0.0, 1.0);
+  }
   /** The blue-grey haze over distant ground, and the warm grade. */
   vec3 finish(vec3 c, vec3 world) {
     float d = distance(world, cameraPosition);
@@ -1402,6 +1426,10 @@ ${hook(h, "wall")}          float py = fwidth(y);
         #endif
         if (o.a < 0.998) c = mix(c, o.rgb * (0.8 + 0.2 * min(light.g, 1.0)), o.a);
         else c = mix(c, o.rgb, (n.y > 0.5 ? float(LITE) : 0.5) * markers);
+        // a footprint's edge, on its tops
+        float footEdge = n.y > 0.5 ? overlayEdge(g, o, max(max(fwidth(g.x), fwidth(g.y)), 0.002)) : 0.0;
+        c = mix(c, overlayEdgeColor(o) * (0.85 + 0.15 * min(light.g, 1.0)), footEdge);
+        bool footprint = mod(floor(o.a * 255.0 + 0.5), 2.0) > 0.5 && o.a < 0.998;
         if (n.y > 0.5) {
           vec4 hatch = hatchAt(g, o.rgb * (0.88 + 0.12 * min(light.g, 1.0)));
           c = mix(c, hatch.rgb, hatch.a);
@@ -1458,7 +1486,8 @@ ${hook(h, "wall")}          float py = fwidth(y);
             c = mix(c, ${glColor(WALL.groove)}, (1.0 - smoothstep(lw, lw + px, e)) * 0.8);
           }
         }
-        if (hover.z > 0.5 && tile == hover.xy && (hover.w < 0.0 || n.y < 0.5 || abs(vWorld.y - hover.w) < 0.02)) {
+        // (on a footprint its own edge marks it: no white square over it)
+        if (hover.z > 0.5 && tile == hover.xy && !footprint && (hover.w < 0.0 || n.y < 0.5 || abs(vWorld.y - hover.w) < 0.02)) {
           vec2 fr = fract(vec2(p.x, -p.z));
           float edge = min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y));
           c = mix(c * 1.18, vec3(1.0), (1.0 - smoothstep(0.04, 0.09, edge)) * (n.y > 0.5 ? 0.85 : 0.0));
@@ -1751,6 +1780,9 @@ ${hook(h, "water")}        #ifdef CAVES
           float oa = o.a < 0.998 ? o.a : o.a * markers * float(LITE);
           c = mix(c, o.rgb, oa * 0.85);
           alpha = mix(alpha, 1.0, oa * 0.6);
+          float footEdge = overlayEdge(g, o, max(max(fwidth(g.x), fwidth(g.y)), 0.002));
+          c = mix(c, overlayEdgeColor(o), footEdge);
+          alpha = mix(alpha, 1.0, footEdge);
           vec4 hatch = hatchAt(g, o.rgb);
           c = mix(c, hatch.rgb, hatch.a);
           alpha = mix(alpha, 1.0, hatch.a);

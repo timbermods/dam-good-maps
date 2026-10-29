@@ -296,7 +296,9 @@ place of its bottom rule.
   it down (×). The window follows the bar's one look per control: a number is the bar's slider with its value at the right of
   its name (Strength, Power, Next source, a ruin's Height, a plant's Size and Density), a choice is segmented (Water:
   Clean | Badwater; a relic's Size; Age: Grown | Mixed; Turn); no dropdowns.
-  - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't (the start
+  - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't, its footprint
+    on the ground a darker fill of that hue with a lighter edge of the same hue round it, never a white square
+    (`tools.ts` `GOOD`, `WARN`, `BAD` and a layer's `edge`; Kyler, 2026-10-29: calm, not abrasive) (the start
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
     about it changed, D361), with **one label** beside the pointer (D323, item 32; every such note, a force's, a shelf object's, Select's count and the Block tool's refusal, stays in the free view between the panels, the Items shelf and the bars, and takes the pointer's other corners and sides where its first spot would run under one; with none of those clear it takes the clear spot of the free view nearest the pointer, keeping the place it has among spots within 24 px of the nearest so that it does not trade between two strips as the pointer moves: `view/pointerNote.tsx`): the reason where it doesn't

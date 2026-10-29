@@ -184,11 +184,11 @@ export function useView(ed: Ed): ViewSlice {
     else if (fit) {
       // (the start's colour says what it is: green fits and meets, amber misses, red cannot stand; D361)
       const color = fit.problem ? BAD : fit.status === "warn" ? WARN : GOOD;
-      if (fit.status !== "pending") layers.push({ tiles: fit.tiles, color });
+      if (fit.status !== "pending") layers.push({ tiles: fit.tiles, color, edge: true });
     }
     if (picked) layers.push({ tiles: [picked.y * info.W + picked.x], color: SELECTED });
     if (pickedObject) layers.push({ tiles: footprintTiles(pickedObject.template, { template: pickedObject.template, x: pickedObject.x, y: pickedObject.y, z: 0, orientation: pickedObject.orientation, flipped: pickedObject.flipped }).filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: SELECTED, outline: true });
-    if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: STATUS_COLOR[startDragStatus(startDrag)] });
+    if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: STATUS_COLOR[startDragStatus(startDrag)], edge: true });
     if (hoverObject && !sourceDrag) layers.push({ tiles: hoverObject, color: HOVERED, outline: true });
     // the source being changed is clearly marked: the one the pointer is on, the one picked (D361, item 6)
     if (targeted !== null && targetSpot.current && !sourceDrag) layers.push({ tiles: targetSpot.current.tiles, color: HOVERED, outline: true });
