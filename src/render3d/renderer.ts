@@ -2914,7 +2914,7 @@ export class MapRenderer {
       this.droughtLayer ??= new DroughtLineLayer(this.scene);
       this.droughtLayer.setHigh(this.lookNow !== "standard" && this.lookNow !== "light");
       this.droughtLayer.setHidden(this.slice !== null);
-      this.droughtLayer.set(line, m.heights, m.surface.surface);
+      this.droughtLayer.set(line, m.heights);
     } else this.droughtLayer?.clear();
     this.requestRender();
   }

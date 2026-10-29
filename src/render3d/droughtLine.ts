@@ -106,14 +106,14 @@ export class DroughtLineLayer {
     };
   }
 
-  /** Draw `line` on ground `heights` under today's water `surface` (per tile, NaN where dry; null, a refused line or
-   *  one with nothing on it: nothing). The line already drawn, or one put away by a terrain change, is left as it is. */
-  set(line: DroughtLine | null, heights: ArrayLike<number>, surface?: ArrayLike<number>): void {
+  /** Draw `line` on ground `heights` (null, a refused line or one with nothing on it: nothing). The line already
+   *  drawn, or one put away by a terrain change, is left as it is. */
+  set(line: DroughtLine | null, heights: ArrayLike<number>): void {
     if (line && (line === this.current || line === this.retired)) return;
     this.clear();
     this.retired = null;
     if (!line || line.refused || (!line.line.count && !line.bed.count)) return;
-    const g = droughtLineGeometry(line, heights, surface);
+    const g = droughtLineGeometry(line, heights);
     this.current = line;
     if (g.tint.quads) {
       const mesh = new Mesh(geometry(g.tint), this.tintMat);
