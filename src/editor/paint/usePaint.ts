@@ -375,6 +375,9 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
         } else if (e.kind === "withered") {
           // the plants the held day has surely killed, worked out after the day was shown (the earlier days' soil)
           if (e.hazard === weatherRef.current && e.day === ed.heldDay.current) ed.showWithered(e.tiles);
+        } else if (e.kind === "startWater") {
+          // the day the start's water goes or turns bad, found after the held day was shown
+          if (e.hazard === weatherRef.current) ed.setStartWater({ hazard: e.hazard, version: e.version, day: e.day });
         } else setInstant(e.instant.items.filter((c) => c.here && c.class === "load"));
       }),
     );

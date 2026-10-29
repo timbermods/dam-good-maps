@@ -211,7 +211,8 @@ test("while Drought or Badtide is held, one quiet line says the day the start's 
   await page.getByRole("button", { name: "Badtide", exact: true }).click();
   await expect(page.locator(".day-words")).toHaveText("Day 8", { timeout: 60_000 });
   await expect(page.getByText("start's water is gone")).toHaveCount(0);
-  await expect(note).toHaveText("Day 1: badwater reaches your start's water", { timeout: 60_000 });
+  // (which day is the generator's map, as the drought's above: the day's rule is tests/contract/startWaterDay.test.ts)
+  await expect(note).toHaveText(/^Day [1-8]: badwater reaches your start's water$/, { timeout: 60_000 });
   // the hazard put away: no line
   await page.getByRole("button", { name: "Badtide", exact: true }).click();
   await expect(note).toHaveCount(0);
