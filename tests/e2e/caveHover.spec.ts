@@ -84,4 +84,15 @@ test("pointing at a roof over a cave's water: the readout names the roof's dry t
   const readout = page.locator(".readout");
   await expect(readout).toHaveText(new RegExp(`^Height ${roof!.top}(?![0-9])`));
   expect(await readout.textContent()).not.toMatch(/water/i);
+  // (nor does it light the sources feeding the water under it: the view's glow on the sources hovered water comes from)
+  const feeding = () => page.evaluate(() => (window.dgm3d!.renderer as unknown as { sourceGlow: readonly number[] }).sourceGlow.length);
+  expect(await feeding()).toBe(0);
+  // the cave's own water, its floor pointed at under the layer cut, lights the sources that feed it (D196)
+  await page.evaluate(() => window.dgm3d!.renderer.setSlice(6));
+  // (off the tile and back, so the hover is asked again under the cut)
+  await page.mouse.move(p.x + 80, p.y + 80);
+  await page.mouse.move(p.x, p.y, { steps: 3 });
+  const seen = await page.evaluate(([x, y]) => window.dgm3d!.renderer.pickSeen(x, y), [p.x, p.y] as const);
+  expect(seen?.level, "the cut shows the cave's floor there").toBeLessThan(roof!.top);
+  await expect.poll(feeding).toBeGreaterThan(0);
 });

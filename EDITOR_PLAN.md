@@ -286,7 +286,7 @@ place of its bottom rule.
   bush**; Ruin, Mine site, Relic, Slope, Thorns, Blockage and Geothermal field; Unstable core and the Reserve pile,
   warehouse and tank (five groups, 26 rows), each picture a small render in the map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
-  what it has; the list never moves; no row above the bar then; the object put away, the list returns to its top, or where it was when the row is clicked again): picked in the list, a source's Next source and
+  what it has; the picked row stays under the pointer, or, where the window takes its place (Start, at the list's top), comes into view just under the list's title (#668); no row above the bar then; the object put away, the list returns to its top, or where it was when the row is clicked again): picked in the list, a source's Next source and
   Pointing at, a ruin's Height, a relic's Size, a plant's or Mixed woods' Size and Density (trees, succulents and woods
   also Age), a water object's Strength ("drains 2 water/s" below 0) and Starts (At once or Later, with its Cycle), the
   core's Radius and Goes off in cycle, a reserve's Holds (a menu in the page's own look: the goods every faction has,

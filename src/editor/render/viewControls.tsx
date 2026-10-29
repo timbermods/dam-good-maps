@@ -89,7 +89,8 @@ export function hoverHandler(ed: Ed) {
     const read = seen ?? hit;
     ed.lastHover.current = read ? { x: read.x, y: read.y, level: seen?.level } : null;
     setHover(read ? ed.hoverWordsAt(read.x, read.y, seen?.level) : null);
-    hoverSources(hit);
+    // (the sources by the ground seen too: a cave's water under the cut lights its sources, a roof over it none)
+    hoverSources(read);
     // the source the pointer targets, whatever tool is picked (D249)
     const t = hit ? targetAt(hit.x, hit.y) : null;
     targetSpot.current = t;
