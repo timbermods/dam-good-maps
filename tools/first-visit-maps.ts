@@ -59,6 +59,9 @@ function pythonLoadChecks(made: Made[]): boolean {
     const files = made.map((m) => {
       const p = join(dir, `${m.entry.id}.timber`);
       writeFileSync(p, m.timber);
+      // (its project file beside it: the validator checks it as a generated map, which may have caves and overhangs, not
+      // as an import, whose caves `terrain.single_floor` reports)
+      writeFileSync(join(dir, `${m.entry.id}.damgoodmaps.json`), m.project);
       return p;
     });
     const py = spawnSync("python", ["prototype/validate.py", ...files, "--load-only", "--quiet", "--difficulty", "normal"], { encoding: "utf8" });
