@@ -1592,8 +1592,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // (waterPalette.ts's waterBody and waterOpacity say the same, for the tests)
         float d = waterSeenDepth(depth, shore);
         // clean water: clear in the shallows (the bed shows through a light teal tint), a deep teal
-        // body a level or so deep, navy where deep; badwater murky and nearly opaque at any depth,
-        // the game's red-brown in its shallows, darker deeper
+        // body a level or so deep, navy where deep; badwater murky and nearly opaque, the game's
+        // crimson at any depth, darkened deep only as far as keeps it 6.5 L* under clean water (D496)
         float absorb = waterAbsorb(d);
         vec3 murky = badwaterBody(depth);
         vec3 body = cleanWaterBody(d, absorb);

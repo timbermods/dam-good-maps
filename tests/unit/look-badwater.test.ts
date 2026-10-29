@@ -5,7 +5,7 @@
 // the game's own tint (Timberborn 1.1.2.8's water shader: smoothstep(0.01, 1, share) ^ 0.25), its
 // colour mixed straight in linear light as the game mixes it, through the game's teal-grey and a muted
 // warm grey-brown to crimson, never purple (Kyler's reviews of #41); badwater is #38's approved
-// crimson, matte and nearly opaque, and darkens with depth (option A).
+// crimson, matte and nearly opaque, the same at any depth as the game's (D496).
 
 import { describe, expect, it } from "vitest";
 import { DataTexture } from "three";
@@ -206,7 +206,7 @@ describe("badwater meeting clean water", () => {
 });
 
 describe("badwater's colour", () => {
-  it("is #38's approved crimson, darkened a little by D324: its body, troughs and streaks, matte and nearly opaque, and darker deeper (option A)", () => {
+  it("is #38's approved crimson, darkened a little by D324: its body, troughs and streaks, matte and nearly opaque, as the game's at any depth", () => {
     // #38's check:colour targets at e63a3ff were [110, 52, 49], [94, 46, 43] and [124, 69, 56]; D324
     // (option (a) of D310) darkened badwater about a tenth and the targets were re-measured once
     // on screen (tools/capture-badwater.ts --measure lands on them); the view draws the body about
@@ -228,9 +228,14 @@ describe("badwater's colour", () => {
     expect(BADWATER.spec).toBeLessThan(0.1);
     expect(BADWATER.reflect).toBeLessThan(0.1);
     expect(badwaterBody(BADWATER.shallow)).toEqual(WATER.bad);
-    // option A: darker with depth
-    for (let d = 0.3; d < 5; d += 0.1) expect(lightness(badwaterBody(d))).toBeLessThan(lightness(badwaterBody(d - 0.1)) + 1e-9);
-    expect(lightness(badwaterBody(4))).toBeLessThan(lightness(WATER.bad) - 15);
+    // the game's crimson deeper too (its contaminated colour has no depth in it; D496 in place of option A's
+    // darkening, which drew deep badwater and the seas partly bad near black): the same to a level deep,
+    // then darkened only as far as keeps it 6.5 L* under clean open water, never below L* 22
+    for (const d of [0.05, 0.25, 0.5, 1]) expect(badwaterBody(d)).toEqual(WATER.bad);
+    for (let d = 1.3; d < 6; d += 0.1) {
+      expect(lightness(cleanWaterBody(d)) - lightness(badwaterBody(d))).toBeCloseTo(BADWATER.under, 6);
+      expect(lightness(badwaterBody(d))).toBeGreaterThan(22);
+    }
   });
 
   it("turns from clean water's by the game's tint, as the game mixes its colours, darker at every step", () => {
