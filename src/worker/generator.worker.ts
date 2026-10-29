@@ -261,8 +261,8 @@ const api = {
   paintDryAt: (params: PaintParams, z?: number) => ed.paintDryAt(params, z),
   setViews: (views: SavedView[]) => ed.setViews(views),
   setName: (name: string) => ed.setName(name),
-  removeAt: routed((tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)), (...a) => collabEditApi.removeAt(...a).then(sendUpdate)),
-  objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
+  removeAt: routed((tiles: number[], kinds: ed.RemoveKind[], cut?: number | null) => sendUpdate(ed.removeAt(tiles, kinds, undefined, cut)), (tiles, kinds, cut) => collabEditApi.removeAt(tiles, kinds, undefined, cut).then(sendUpdate)),
+  objectsInArea: (tiles: number[], cut?: number | null) => ed.objectsInArea(tiles, cut),
   selectionHeld: () => ed.selectionHeldTiles(),
   /** Remove unfed water and Fill (D387, D394): what they would do, then doing it, one undo step. */
   unfedWaterIn: (tiles: number[] | null) => ed.unfedWaterIn(tiles),
