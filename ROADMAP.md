@@ -11,50 +11,58 @@ decisions in force, in [docs/decisions/](docs/decisions/README.md).
 
 ## The order of work
 
-Who builds what (D388, D398, D453, D463, D468, D470):
+**Who leads (Kyler, 2026-10-29):** the planning session leads all the work and sets this order, and Kyler talks to it. There is
+no deadline: quality decides, never a date.
 
-- **The milestone session** (Opus 5.5, high; the dedicated machine): everything but the page: the core, the water, the
-  generator, the Codex adoptions and the documents. It merges and releases, and hands out decision numbers.
-- **The page session** (Opus 5.5, high since 2026-10-03, D468; worktree `-page`, branch `feature/page`, PR #163): only
-  "The page is the editor".
-- **The renderer session** (Kyler's PC; its own branches): moving water, the Flow view and the High look; its PRs merge
-  on green CI (D453).
-- **Codex** (investigation branches): builds investigations; the milestone session adopts them.
-- **Other Claude Code sessions Kyler starts**: the theme critique, the Islands rounds, the coherence cleanup.
+- **The milestone session**: the core, the water and the generator; it hands out decision numbers.
+- **The renderer session** ("forces play", worktree `DamGoodMaps-forces-play`): `src/render3d`, the look and the moving water.
+- **The planning session**: this order, the page (`src/editor`, `src/ui`; the page session is stopped), releases, in-game
+  proof (probe batches, D117, D218, D483) and the builders it starts for the pieces it assigns.
 
-Neither the page nor the milestone session touches the other's files: the page session owns the page, the editor's
-interface, `Editor.tsx` and its split. Models and effort: D389. Messages between sessions go on the Coordination issue
-(#236, D470); what waits for Kyler carries the `needs-kyler` label.
+Messages go on the Coordination issue (#236, D470) and directly between sessions; decisions are in `docs/decisions/`.
 
-For the next three weeks (D488): 3D creation first (#370, the Foundations release, the Block tool, Erode, 3D in generation), then generation with intent (Showcase mode, landmarks, ruins with meaning, custom sizes up to 256², the opening shot), with the renderer and the page working alongside; collaborative editing, sizes above 256, the tour, M13's accessibility and Lighthouse passes, Pick a place and Real places 2 are paused.
+**What the editor is for, from first principles:** turning what a player imagines into a world that plays and looks
+magnificent in Timberborn. There are five steps: get a great map at once, understand it, make it yours, trust it, play it.
+The waves below each close the weakest of those steps.
 
-**0. In flight now** (2026-10-07; each line is a PR or branch and the session that owns it)
+**Wave 1, now**
+- **Maps as the game shows them** (milestone):
+  - the theme's signature water no longer mostly badwater (an amendment to D476);
+  - a landmark in view of the start on the default Generate (D493);
+  - 3D forms that are there and read as such;
+  - 256² maps that aren't mostly bare ground.
+- **Planning's builders:**
+  - island seas with a shore, not a rim (`addSea`, D410);
+  - natural ramps without stair causeways (`naturalRamps`);
+  - the start's berries through the first drought;
+  - **Easy start** (D495), an optional setting that gives the start room, calm ground, water and food;
+  - Delete under a layer cut and Fill's first try;
+  - the shelf's picked row in view (#668's fix, redone).
+- **The look** (renderer):
+  - badwater's colour as the game draws it;
+  - light in caves;
+  - overhangs and arches that read;
+  - the hero picture;
+  - the first Erode's freeze;
+  - a calm placement outline;
+  - then the look audit's smaller items.
+- **In-game proof:** probe batches run again (the hold was lifted 2026-10-29). The first plays what shipped unplayed since
+  10-25.
+- **Showcase maps made by hand** with the editor, to find what the tools can't yet do.
 
-- **3D, step 1: Foundations** (D481; milestone session's `build` agents, `feature/3d-foundations`, its own worktree):
-  started ahead of the Weather view and custom map sizes, alongside the generator queue (the queue's step
-  keeps first place; the two never edit the same files at once). Its new modules are already on dev (the Rust
-  stacked-column engine and #71's eight game-verified fixtures in CI); what remains is "Terrain above terrain", step 1.
+**Wave 2**
+- **Judging by looks:** Showcase mode and the audits rank maps rendered from the game's camera, not by text alone.
+- **In-game proof built in:** a probe batch for each release and each showcase map, its results in STATUS.
+- **Generation's seconds per map** (the parked draft #672; D453).
 
-- **The generator queue** (milestone session, one re-pin at a time, each with its sheets for Kyler): Delta arms round 2
-  (#325, 0.8.2), badwater joins the main water (#330, D476, 0.8.3) and Lake Basin round 3 (#339, 0.8.4) are merged;
-  River Valley round 2 (#346, 0.8.5), the story's reach (#351, D480, 0.8.6) and Islands round 6 (#235, 0.8.7) are merged
-  too, and Canyon and Highlands (#261, 0.8.8) and the story keeping a main water that is mostly badwater (D480's
-  extension, 0.8.9). The queue is empty.
-- **The page** (`feature/page`; the page session): "The page is the editor" is on dev (#347, #163's squash).
-- **Forces play** (renderer session, worktree `DamGoodMaps-forces-play`): the lake-jump fix, then #312's worker part once the
-  page part reaches dev with #163.
-- **Codex** (investigation branches; Kyler decides each adoption): TypeScript 7 (`investigation/ts7`), generation speed
-  (`investigation/gen-speed-3`), first load (`investigation/first-load`), the page hunt (#303).
-- **The dam sketch, round 3** (#279, `investigation/dam-sketch-3`): parked; the dam sketch is out of the order (D485).
-- **Merged since:** every force plays smoothly (#311), the forces share rust/water's kernel (#304), the checks in Rust (#321),
-  the badwater line (#265, generator 0.8.1), Craterize clears and rides sources (#322), Naturalize rule 4 (#324), forces end
-  the moment their land is final (#275), a source's highlight under its water (#225), shared object models (#323), #313's
-  and #315's fixes (#319); before them Carve plays smoothly (#297), Carve's river follows its cut (#292) and Your maps keeps
-  every map (#298). Decided today: forces can clear sources (D474), no old-project compatibility until launch (D475), badwater
-  joins the main water (D476).
-- **Held investigations and old drafts:** the theme critique (#211), Islands round 2 (#210), the performance audit (#152),
-  scaling (#132) and the parked drafts (#73, #71, #35); STATUS has each one's state.
-- **Next, after Foundations** (D481): the Weather view, custom map sizes, then 3D's view, Erode and the Block tool (D485).
+**Wave 3**
+- **Intent-level editing:** describe a change ("a hidden cave with a relic behind the falls") and get it built from the
+  forces and the features (PLAN §20 D187; M12 in `docs/archive/roadmap.md`).
+- **One click from the editor into the game.**
+- **Starting presets** beyond Easy start, and a first map that teaches by playing.
+
+**Paused, as D488 set:** collaborative editing after part 6a, sizes above 256, the tour (#399), M13's accessibility and
+Lighthouse passes, Pick a place, and Real places' second round.
 
 **1. Released, and the coherence cleanup**
 
