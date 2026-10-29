@@ -83,6 +83,9 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 async function stroke(page: Page, a: [number, number], b: [number, number]) {
   const p = await client(page, ...a);
   const q = await client(page, ...b);
+  // (both ends on the map itself, not under a panel: a stroke started on one does nothing)
+  for (const [t, c] of [[a, p], [b, q]] as const)
+    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.tagName, [c.x, c.y] as const), `tile ${t} on screen`).toBe("CANVAS");
   await page.mouse.move(p.x, p.y);
   await page.mouse.down();
   for (let k = 1; k <= 20; k++) {
@@ -239,6 +242,8 @@ test("a refusal shows as the page's usual note, with its reason", async () => {
   expect(claimed).toMatchObject({ ok: true });
   const before = await land(guest.page);
   await pick(guest.page, "2");
+  // (the whole map in view: Go to left the guest's camera close, with the corner under the brush's options)
+  await resetView(guest.page);
   await stroke(guest.page, [8, 8], [14, 8]);
   await expect(message(guest.page)).toContainText("Reaches into Ada's area", { timeout: 20_000 });
   // (nothing changed, and the guest's page took the land back)
