@@ -1568,10 +1568,13 @@ checks dot counts; every other row is information under Good to know, worded as 
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
     export never depends on the preview's history. Its thumbnail is the map's 3D picture (D488): drawn off screen in
-    the High look, turned as the new game's camera opens (the start's orientation + 35°) but looking down at 40° at the
-    whole map as the official thumbnails do, not the opening camera's 60° (a deliberate departure), with the water the file
-    starts with drawn still (its badwater share, no moving water's foam), then put in place of the core's top-down
-    one; the player's view is never touched. A map whose water is settled already is drawn while the checks run. Without a GPU or
+    the High look, at twice its size and scaled down, from the game's own opening camera (`render3d/heroView.ts`: 60°
+    down, turned to the start's orientation + 35°, the game camera's 35° field of view, at the default zoom's widest,
+    the frame the start is turned for, D493; a map without a start from the game's default thumbnail camera, 40° down
+    looking north), lit as the game lights its thumbnails (its sun turns with the camera, 40° past it: the map is turned
+    in quarter turns under the view's fixed sun to the nearest, within 30°), the start hidden as the game's thumbnails
+    hide it, with the water the file starts with drawn still (its badwater share, no moving water's foam), then put in
+    place of the core's top-down one; the player's view is never touched. A map whose water is settled already is drawn while the checks run. Without a GPU or
     WebGL 2, or if drawing fails, the file keeps the top-down thumbnail and saves anyway; an unedited import keeps its
     own picture.
     The same picture serves the page's own pictures (Showcase mode's cards): `heroPicture(view, { width, height,
