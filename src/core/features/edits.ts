@@ -11,7 +11,7 @@
 import { bush, entityJson, fluidObject, reserve, ruin, slope, tree, unstableCore, waterSource, type EntitySpec } from "../format/entities";
 import { CORE, defaultStock, FLUIDS, isReserve } from "../data/parity";
 import { F, isObject, JsonFloat, type JsonObject, type JsonValue } from "../format/json";
-import { FOOTPRINTS, footprintTiles, type Orientation } from "../format/footprints";
+import { FOOTPRINTS, footprintTiles, startEntranceTile, type Orientation } from "../format/footprints";
 import { entityId } from "./ids";
 
 export interface PlaceEntityParams {
@@ -202,11 +202,14 @@ export function ridingPieces(entities: readonly EntitySpec[], W: number, H: numb
   const out: [number, number, number, number][] = [];
   for (const e of entities) {
     if (e.template.startsWith("NaturalOverhang")) continue;
-    const cells = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
-    if (cells.length < 2) continue;
-    if (heights && cells.some(([x, y]) => heights[y * W + x] > e.z)) continue;
-    const xs = cells.map(([x]) => x);
-    const ys = cells.map(([, y]) => y);
+    const cells = entityTiles(e);
+    // (the start with the tile at its door, which the game needs at the start's level: a 3 × 4 piece, D491)
+    if (e.template === "StartingLocation") cells.push(startEntranceTile(e.x, e.y, e.orientation as Orientation));
+    const on = cells.filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
+    if (on.length < 2) continue;
+    if (heights && on.some(([x, y]) => heights[y * W + x] > e.z)) continue;
+    const xs = on.map(([x]) => x);
+    const ys = on.map(([, y]) => y);
     out.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
   }
   return out;
