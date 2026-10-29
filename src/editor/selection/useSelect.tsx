@@ -202,9 +202,10 @@ export function useSelect(ed: Ed): SelectSlice {
   function selectAction(what: "raise" | "lower" | "flatten" | "cut" | "fill" | "depth", level?: number) {
     const h = mirror.current.heights;
     const W = info.W;
-    // under a cut (D207), only the visible land: the ground above the cut stays as it is
+    // under a cut (D207), only the visible land: the ground above the cut stays as it is (a cave's column, its floor seen
+    // under the cut, is kept here to be left as it is below, and said so)
     const cut = renderer.current?.slice ?? null;
-    let tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    let tiles = underCut(selection.current.tiles(), cut);
     if (!tiles.length) return;
     // (on a map with caves the core leaves a cave's or an overhang's column and the ground holding up its roof as they
     // are, as a force does, D487 (core/doc/start.ts `applySelection`): a selection that takes one in, a whole map with a
@@ -324,6 +325,14 @@ export function useSelect(ed: Ed): SelectSlice {
   function columnsSet(): Set<number> {
     return new Set<number>(ed.columnsRef.current.tiles);
   }
+  /** The tiles of these the Select actions see under a layer cut (D207): the ground at or below it, and the columns with a
+   *  cave or an overhang, whose floors the cut opens to view (the actions leave those as they are, and say so). */
+  function underCut(tiles: readonly number[], cut: number | null): number[] {
+    if (cut === null) return tiles.slice();
+    const h = mirror.current.heights;
+    const cols = columnsSet();
+    return tiles.filter((i) => h[i] <= cut || cols.has(i));
+  }
   /** The first tile among these that the Select actions leave as it is (a cave's, an overhang's, the ground under a roof's
    *  edge), or -1. */
   function caveAmong(tiles: readonly number[]): number {
@@ -358,10 +367,11 @@ export function useSelect(ed: Ed): SelectSlice {
   function selectPreviewOf(what: "raise" | "lower" | "flatten" | "cut" | "fill", level: number): void {
     const h = mirror.current.heights;
     const cut = renderer.current?.slice ?? null;
-    let tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    let tiles = underCut(selection.current.tiles(), cut);
     if (what === "raise") {
       let top = 0;
-      for (const i of tiles) top = Math.max(top, h[i]);
+      const cols = columnsSet();
+      for (const i of tiles) if (!cols.has(i)) top = Math.max(top, h[i]);
       if (cut !== null && cut - top <= 0) tiles = [];
     }
     if (what === "lower") tiles = tiles.filter((i) => h[i] > 0);

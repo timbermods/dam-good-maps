@@ -10,7 +10,8 @@
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { toolPutAway } from "./helpers";
-import { centreOn, openEditor, setWaterSpeed, topDown } from "./open";
+import { centreOn, openEditor, setWaterSpeed, topDown, waitForEditor } from "./open";
+import { Scene, build } from "../../tools/terrain3d-maps";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -394,4 +395,37 @@ test("Select still selects after the Block tool is put away (Esc, or a click on 
     await page.keyboard.press("Escape");
     await expect.poll(selected).toBe(0);
   }
+});
+
+test("under a layer cut, a Select action on a cave's floor says the cave is left as it is, never nothing (D207, D487)", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  // a plateau at 8 over a sealed chamber (floor 3, air 3–6), built here: never an official map
+  const s = new Scene(48, 48, 8);
+  s.box(16, 16, 27, 27, 3, 7, false);
+  s.start(38, 38, 8);
+  const bytes = build({ id: "select-under-cut", title: "Select under a cut", tests: "", scene: s, days: 1, snapshots: [], checks: [], focus: [], samples: [], water: "none" }).bytes;
+  await page.getByLabel("Open a map or a project").setInputFiles({ name: "Select under a cut.timber", mimeType: "application/zip", buffer: Buffer.from(bytes) });
+  await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
+  await waitForEditor(page);
+  await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
+  // the cut at 6 opens the chamber; the Wand takes its floor, the cave's tiles alone
+  const p = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    r.setSlice(6);
+    r.setView({ mode: "orbit", yaw: 0.5, pitch: 1.1, distance: 34, target: [22, 3, -22] });
+    const q = r.project(21.5, 3, -21.5);
+    const box = r.canvas.getBoundingClientRect();
+    return { x: q.x + box.left, y: q.y + box.top };
+  });
+  await page.getByRole("button", { name: "Wand", exact: true }).click();
+  await page.mouse.click(p.x, p.y);
+  await expect.poll(async () => (await selection(page)).length).toBe(12 * 12);
+  const h0 = await heights(page);
+  const before = (await info(page)).history.length;
+  await page.getByRole("button", { name: "Up 1", exact: true }).click();
+  await idle(page);
+  await expect(page.getByText(/has a cave or overhang: shape its top with a brush/)).toBeVisible();
+  expect((await info(page)).history.length).toBe(before);
+  expect(await heights(page)).toEqual(h0);
 });
