@@ -73,11 +73,12 @@ export function useReady(ed: Ed): ReadySlice {
   }
   /** The brush out clears the sources it passes over (Sources: Clear, D322). */
   const clears = () => !!brushToolRef.current && brushRef.current.sources[brushToolRef.current] === "clear";
-  /** The map's objects as the core reads them (template, tile, orientation, flip), from the page's mirror. */
+  /** The map's objects as the core reads where they stand (template, tile, level, orientation, flip), from the page's
+   *  mirror. */
   function objectList() {
     const e = mirror.current.entities;
     const list = [];
-    for (let k = 0; k < e.count; k++) list.push({ template: e.templates[e.template[k]], x: e.x[k], y: e.y[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 });
+    for (let k = 0; k < e.count; k++) list.push({ template: e.templates[e.template[k]], x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 });
     return list;
   }
   function endClearGlow() {
@@ -141,12 +142,12 @@ export function useReady(ed: Ed): ReadySlice {
       // Clear they go, D322); every other object of several tiles rides it level too, a mine site, a relic, the start
       // (D491, amended 2026-10-29: the game drops one whose ground is not level), as the session levels it
       // (`ridingPieces`), so the stroke shows what it makes
-      rides: () => {
+      rides: (start) => {
         const t = brushToolRef.current;
         if (!t) return [];
         const sources = brushRef.current.sources[t] === "ride" ? spots().filter((c) => c.tiles.length > 1 && ed.inArea(c.tiles)).map((c) => c.rect) : [];
         const { W, H } = infoRef.current;
-        return [...sources, ...ridingPieces(objectList().filter((o) => !isSource(o.template)), W, H)];
+        return [...sources, ...ridingPieces(objectList().filter((o) => !isSource(o.template)), W, H, start)];
       },
       // Keep (D322): every source's own tiles
       sourceGround: () => tilesToRuns([...new Set(spots().flatMap((c) => c.tiles))].sort((a, b) => a - b), infoRef.current.W),

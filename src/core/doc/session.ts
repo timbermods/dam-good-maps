@@ -970,7 +970,10 @@ export class MapSession {
     const { heights } = previewTerrain(this.cur, this.input());
     if (sameBytes(heights, this.cur.heights)) return [];
     // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
-    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, W, H), this.cur.heights, heights, W).length) return [];
+    if (op.op === "brush" && !this.riding) {
+      const kept = new Set((op.params.rigid ?? []).map((r) => r.join(",")));
+      if (tiltedPieces(ridingPieces(this.cur.entities, W, H, this.cur.heights), this.cur.heights, heights, W).some((r) => !kept.has(r.join(",")))) return [];
+    }
     return this.forceFalls(heights);
   }
 
@@ -1465,8 +1468,10 @@ export class MapSession {
   private rideTilted(ops: readonly EditOp[], before: BuildResult, mark: HistoryMark, seq: number): EditOp[] | null {
     if (this.riding || !ops.some((o) => o.op === "brush")) return null;
     const { W, H } = this.cur;
-    // (the page's preview asks the same, StrokePreview `rides`)
-    const rects = tiltedPieces(ridingPieces(this.cur.entities, W, H), before.heights, this.cur.heights, W);
+    // (the page's preview asks the same, StrokePreview `rides`; the pieces as they stood, nothing roofing
+    // them, and not those the stroke already keeps level: a replica's copy of a step given again)
+    const kept = new Set(ops.flatMap((o) => (o.op === "brush" ? (o.params.rigid ?? []) : [])).map((r) => r.join(",")));
+    const rects = tiltedPieces(ridingPieces(before.entities, W, H, before.heights), before.heights, this.cur.heights, W).filter((r) => !kept.has(r.join(",")));
     if (!rects.length) return null;
     const step = this.stepSince(mark);
     if (!step || !this.takeBack(step)) return null;
