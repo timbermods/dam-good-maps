@@ -9,8 +9,9 @@ Claude Code loads it through CLAUDE.md). Kyler Ramsey owns the project. The map 
 - **The milestone session** (Claude Code, the dedicated machine): everything except the page — the core, the water, the
   generator, the Rust ports, adopting Codex's investigations, the documents. It owns the decision numbers,
   `docs/STATUS.md` and `docs/HANDOFF.md`.
-- **The planning session** (Claude Code, the dedicated machine, worktree `DamGoodMaps-planning`; since 2026-10-14): the
-  coordination. It releases to `main`, watches dev's runs after merges and sends each failure to its owner, settles
+- **The planning session** (Claude Code, the dedicated machine, worktree `DamGoodMaps-planning`; since 2026-10-14): leads
+  the work since 2026-10-29 (Kyler): it sets the order (ROADMAP.md) for the milestone and renderer sessions, owns the page
+  while the page session is stopped, and is the one session Kyler talks to. It releases to `main`, watches dev's runs after merges and sends each failure to its owner, settles
   cross-session questions on #236, and answers design questions that Kyler's recorded decisions settle, sending only
   the rest to him.
 - **The page session** (Claude Code, branch `feature/page`): the page and its design — the editor's interface,
