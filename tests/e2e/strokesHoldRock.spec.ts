@@ -103,5 +103,11 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
     return seen.size;
   });
   expect(frames).toBeGreaterThan(1);
+
+  // the stroke taken back: its line goes with it, so nothing says tiles were held that the map no longer shows
+  await page.keyboard.press("Control+z");
+  await settled(page);
+  expect(await heights(page)).toEqual(h0);
+  await expect(page.getByText(/\d+ tiles? left high enough to hold up a cave or overhang/)).toBeHidden();
   expect(errors).toEqual([]);
 });
