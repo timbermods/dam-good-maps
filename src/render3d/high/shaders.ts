@@ -219,13 +219,18 @@ export function terrainHooks(): ShaderHooks {
     // under a roof, the soft shadow of the real meshes, the roof included, as on the ground before it
     // (off: the march through the light volume)
     caveSun: "hlShadows > 0.5 ? sunHere : caveSunMarch(vWorld, n, cave.y)",
-    // under a roof, the occlusion of the open ground at the roof line its light comes in by, never more
-    // than here
+    // under a roof, the occlusion of the open ground at the roof line its light comes in by
     caveSunOpen: "hlShadows > 0.5 ? hlSunAt(mouth.xyz) : sunLit(vec2(mouth.x, -mouth.z), mouth.y)",
     caveSky: /* glsl */ `
         if (hlAO > 0.5) {
-          float av = ambientVisibility(vWorld, n);
-          if (mouth.w > 0.5) av = min(av, ambientVisibility(mouth.xyz, vec3(0.0, 1.0, 0.0)));
+          // (the occlusion at the line: a floor the open ground's there, a wall or a ceiling an open wall's, at its own height
+          // above that ground, as a cliff beside the mouth takes it. Not the point's own: the field is the heightfield's,
+          // and under a roof it reads the roof's top. Deeper than the walk reaches, the point's, under the cave's least)
+          // (both read in every pixel: a texture read under a branch that differs from pixel to pixel does not link on
+          // Direct3D)
+          float avHere = ambientVisibility(vWorld, n);
+          float avLine = ambientVisibility(mouth.w > 0.5 ? vec3(mouth.x, n.y > 0.5 ? mouth.y : max(mouth.y, vWorld.y), mouth.z) : vWorld, vec3(0.0, 1.0, 0.0));
+          float av = mouth.w > 0.5 ? avLine : avHere;
           sky *= av;
         }`,
     // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still

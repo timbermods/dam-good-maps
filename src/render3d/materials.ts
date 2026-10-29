@@ -223,8 +223,8 @@ export function runTexture(r: RunSoil): Data3DTexture {
 /** The light under roofs as a 3D texture, filtered (a cave's light softens toward its rock); a single
  *  cell where a map has none. */
 export function caveTexture(v: CaveLight | null): Data3DTexture {
-  const t = v ? new Data3DTexture(v.data, v.W, v.H, LIGHT_LEVELS) : new Data3DTexture(new Uint8Array([255, 255]), 1, 1, 1);
-  t.format = RGFormat;
+  const t = v ? new Data3DTexture(v.data, v.W, v.H, LIGHT_LEVELS) : new Data3DTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, 1);
+  t.format = RGBAFormat;
   t.type = UnsignedByteType;
   t.magFilter = LinearFilter;
   t.minFilter = LinearFilter;
@@ -824,14 +824,15 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       ${OVERLAY_RUN}
       #endif
       ${CAVE_AIR}      /** The light of the air a face looks into, half a cell along its normal (caveLight.ts, whose
-       *  caveSample does the same): x the sky, y the sun (0–1), z 1 where that air is under a roof. In
-       *  open air, in rock (the slice's cut), outside the map and on a map without roofs z is 0, and
-       *  the baked light stands. */
-      vec3 caveAt(vec3 world, vec3 n) {
-        if (caveSize.z < 0.5) return vec3(1.0, 1.0, 0.0);
+       *  caveSample does the same): x the floors' sky, y the sun (0–1), z 1 where that air is under a roof, w the
+       *  walls' and ceilings' sky. In open air, in rock (the slice's cut), outside the map and on a map without
+       *  roofs z is 0, and the baked light stands. */
+      vec4 caveAt(vec3 world, vec3 n) {
+        if (caveSize.z < 0.5) return vec4(1.0, 1.0, 0.0, 1.0);
         vec3 q = vec3(world.x, -world.z, world.y) + vec3(n.x, -n.z, n.y) * 0.5;
-        if (!roofedAir(floor(q))) return vec3(1.0, 1.0, 0.0);
-        return vec3(textureLod(caveTex, q / caveSize, 0.0).rg, 1.0);
+        if (!roofedAir(floor(q))) return vec4(1.0, 1.0, 0.0, 1.0);
+        vec4 v = textureLod(caveTex, q / caveSize, 0.0);
+        return vec4(v.rg, 1.0, v.b);
       }
       /** The sun on a point under a roof: a ray marched toward the sun through the voxels (open air and
        *  roofed air alike, so it passes under an overhang as the light does); rock stops it, and once it is
@@ -901,7 +902,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
        *  near-black, and its sun. Both carry on from the open ground at the roof line the air opens by
        *  (caveMouth): the sun there fades to the cave's own over the first 0.6 of a tile and never exceeds
        *  it inside, so the light never steps at the line or rises inward. */
-      vec3 caveLightOf(vec3 n, vec3 cave, float sunHere, float ao) {
+      vec3 caveLightOf(vec3 n, vec4 cave, float sunHere, float ao) {
         float ndl = max(dot(n, sunDir), 0.0);
         vec4 mouth = caveMouth(vWorld, n);
         float sun = 0.0;
@@ -914,12 +915,18 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
             sun = mix(open, min(inside, open), smoothstep(0.0, 0.6, d));
           }
         }
-        float sky = cave.x;${hook(h, "caveSky")}
+        // (a floor carries on from the open ground's top, whose sky is its tile's visibility; a wall or a ceiling from
+        // an open wall's, which takes the whole sky: caveLight.ts R and B)
+        float sky = n.y > 0.5 ? cave.x : cave.w;${hook(h, "caveSky")}
         // (deeper in, the sky's light comes bounced off the rock round it: the walls and the ceiling take nearly a
         // floor's share, as the open ground's faces take theirs at the mouth; and the least holds there, not at the
-        // mouth, where the open ground's own light, its occlusion with it, carries on)
-        float bounce = 1.0 - smoothstep(${f(CAVE_SKY_FLOOR)}, 0.8, cave.x);
+        // mouth, where the open ground's own light, its occlusion with it, carries on. How deep: the walls' sky, the
+        // walk from the whole sky, the same at every mouth)
+        float bounce = 1.0 - smoothstep(${f(CAVE_SKY_FLOOR)}, 0.95, cave.w);
         float facing = mix(0.7 + 0.3 * n.y, 0.85 + 0.15 * n.y, bounce);
+        // (a floor's contact shadow from the rock beside it: the open ground's at the mouth, two fifths of it deep in, where
+        // the game draws none, its ambient unoccluded; a gallery two tiles wide is all wall foot)
+        ao = 1.0 - (1.0 - ao) * mix(1.0, 0.4, bounce);
         return skyColor * facing * max(${f(CAVE_SKY_FLOOR)} * bounce, sky) * ao + sunColor * 0.55 * ndl * sun * mix(1.0, ao, 0.35);
       }
       /** Rock at a cell (a tile and a level) of the light volume: in the map, and no air there. */
@@ -1369,7 +1376,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
         }
         // a face whose air is under a roof (a cave's floor, walls and ceiling, under an overhang or
         // an arch) takes that air's own light, not its tile top's
-        vec3 cave = caveAt(vWorld, n);
+        vec4 cave = caveAt(vWorld, n);
         if (cave.z > 0.5) light = caveLightOf(n, cave, sunHere, caveAo);
         c *= light;
         // the glowing cracks of contaminated ground shine in shadow too

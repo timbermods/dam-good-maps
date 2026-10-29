@@ -1,18 +1,21 @@
 // Light under roofs (3D terrain step 2, part 2; D126, D280 (2)): the sky and the sun in caves, under
 // overhangs and arches, from Erode's light volume (investigation/erode/core/mesher.ts `lightVolume`,
-// as investigation/3d-view adopted it). Two bytes a cell, W × H × LIGHT_LEVELS cells (x fastest, then
+// as investigation/3d-view adopted it). Four bytes a cell, W × H × LIGHT_LEVELS cells (x fastest, then
 // y, then the level), a 3D texture the terrain shader reads half a cell along each face's normal:
 // - R, the sky. Roofed air (below its column's top, not rock) walks it in from its openings: beside an
-//   open cell, that cell's sky; beside the map's edge, 235; then 20 less per step through
+//   open cell, that cell's sky; beside the map's edge, 249; then CAVE_SKY_STEP less per step through
 //   roofed air, never below the cave's least (`CAVE_SKY_FLOOR`; a cave's mouth as bright as the open
 //   ground before it, never brighter, its depths murky but readable, never near-black; the shader holds
 //   the same least). An open cell beside roofed
 //   air holds the sky the baked light would give ground at its height there (light.ts: 0.55 + 0.45 × the
 //   sky visibility; on the ground the tile's own, higher up, over a drop, the sky seen from that height),
 //   so the texture's filtering blends a cave's mouth into the ground before it; any other open cell 255.
-//   0 in rock.
+//   0 in rock. The floors' sky (a top's baked light carries its tile's sky visibility).
 // - G, the sun: 255 where a ray toward the sun leaves the land without meeting rock, else 0, marched
 //   from every roofed cell and every open cell beside one; 255 in any other open cell, 0 in rock.
+// - B, the walls' and ceilings' sky: the same walk, from 255 at every opening (an open wall's baked light
+//   takes the whole sky, whatever its tile's visibility), so a cave's wall carries on from the open cliff
+//   beside its mouth with no step. A, 0.
 // The shader's rule (materials.ts `caveAt`, mirrored by `caveSample` for the tests): only a face whose
 // own air is roofed takes this light; in open air, and so on every map without terrain above terrain,
 // the baked light is used exactly as before (tests/unit/caveLight.test.ts).
@@ -36,8 +39,15 @@ const OPEN = 255;
  *  "cave interiors a little murky" (D280 (2)), dim but never near-black, so a cave's floor, walls and
  *  ceiling read while editing. */
 export const CAVE_SKY_FLOOR = 0.55;
-/** How much sky the walk in from an opening loses a cell (of 255): about six cells from a mouth to the least. */
-const STEP = 16;
+/** How much sky the walk in from an opening loses a cell (of 255). The game lights a roofed space as it lights any shade
+ *  (Unity's ambient by the face's normal, unoccluded; the sun's shadow alone darkens it: decompiled `Sun`, its
+ *  `AmbientMode.Trilight`, and Sun.blueprint.json), so a cave in the game is as bright a few cells in as at its mouth.
+ *  Ours dims going in, slowly: a generated gallery (about six cells) keeps most of its mouth's light, a long tunnel
+ *  reaches the least some 13 cells from its mouth. */
+export const CAVE_SKY_STEP = 6;
+const STEP = CAVE_SKY_STEP;
+/** Bytes a cell: R the floors' sky, G the sun, B the walls' and ceilings' sky, A unused. */
+export const CAVE_CELL = 4;
 /** The least as a byte. */
 export const CAVE_FLOOR_BYTE = Math.round(255 * CAVE_SKY_FLOOR);
 const FLOOR = CAVE_FLOOR_BYTE;
@@ -88,7 +98,7 @@ export class CaveLight {
     const { W, H } = src;
     this.W = W;
     this.H = H;
-    this.data = new Uint8Array(W * H * LIGHT_LEVELS * 2);
+    this.data = new Uint8Array(W * H * LIGHT_LEVELS * CAVE_CELL);
     this.masks = new Uint32Array(W * H);
     this.near = new Uint8Array(W * H);
     this.besideTop = new Uint8Array(W * H);
@@ -147,10 +157,10 @@ export class CaveLight {
         const top = 32 - Math.clz32(m);
         if (top > this.maxTop) this.maxTop = top;
         for (let z = 0; z < D; z++) {
-          const o = (z * N + i) * 2;
-          if (z < LAYERS && (m >>> z) & 1) data[o] = data[o + 1] = 0;
-          else if (z >= top) data[o] = data[o + 1] = OPEN;
-          else (data[o] = FLOOR), (data[o + 1] = 0);
+          const o = (z * N + i) * CAVE_CELL;
+          if (z < LAYERS && (m >>> z) & 1) data[o] = data[o + 1] = data[o + 2] = 0;
+          else if (z >= top) data[o] = data[o + 1] = data[o + 2] = OPEN;
+          else (data[o] = data[o + 2] = FLOOR), (data[o + 1] = 0);
         }
       }
     // what the change reaches: the open cells whose tiles' sky changed and the sky walk from them all
@@ -179,12 +189,46 @@ export class CaveLight {
         const top = 32 - Math.clz32(m);
         const zTop = Math.min(D - 1, this.besideTop[i]);
         for (let z = 0; z < D; z++) {
-          const o = (z * N + i) * 2;
+          const o = (z * N + i) * CAVE_CELL;
           if (z < top) {
-            if (!((m >>> z) & 1)) data[o] = FLOOR;
+            if (!((m >>> z) & 1)) data[o] = data[o + 2] = FLOOR;
           } else data[o] = z <= zTop && this.roofedBeside(x, y, z) ? openSky(z === top ? sky[i] : skyAt(W, H, src.heights, x, y, z)) : OPEN;
         }
       }
+    // (R from each opening's own sky, B from the whole sky)
+    for (const ch of [0, 2]) this.walk(ch, S, masks, inS);
+    // 3. the sun: march every roofed cell, and every open cell beside one (all 26 neighbours: the
+    // filtering blends them), toward the sun; outside the changed tiles only the cells whose ray
+    // crosses them (whether air is roofed never changes with the heights)
+    for (let y = R.y0; y <= R.y1; y++)
+      for (let x = R.x0; x <= R.x1; x++) {
+        const i = y * W + x;
+        if (!near[i]) continue;
+        const changed = x >= x0 && x <= x1 && y >= y0 && y <= y1;
+        const top = this.top(i);
+        const zTop = Math.min(D - 1, this.besideTop[i]);
+        for (let z = 0; z <= zTop; z++) {
+          const o = (z * N + i) * CAVE_CELL;
+          if (data[o] === 0) continue;
+          if (!changed) {
+            // the tiles the ray's run can cross, a step over
+            const run = Math.max(0, this.maxTop - z - 0.5) / sz + MARCH;
+            const ex = Math.floor(x + 0.5 + sx * run);
+            const ey = Math.floor(y + 0.5 + sy * run);
+            if (Math.max(x, ex) < x0 || Math.min(x, ex) > x1 || Math.max(y, ey) < y0 || Math.min(y, ey) > y1) continue;
+          }
+          // (an open cell beside roofed air holds less than 255: step 2, or unchanged outside S)
+          if (z >= top && data[o] === OPEN) data[o + 1] = OPEN;
+          else data[o + 1] = this.sunlit(x, y, z) ? OPEN : 0;
+        }
+      }
+    return R;
+  }
+
+  /** The sky walk of channel `ch` through the roofed air of S (step 2 of `relight`). */
+  private walk(ch: number, S: Rect, masks: Uint32Array, inS: (x: number, y: number) => boolean): void {
+    const { W, H, D, data, near } = this;
+    const N = W * H;
     const queue: number[] = [];
     for (let y = S.y0; y <= S.y1; y++)
       for (let x = S.x0; x <= S.x1; x++) {
@@ -205,7 +249,7 @@ export class CaveLight {
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) v = OPEN - STEP;
             else {
               const j = yy * W + xx;
-              v = data[(z * N + j) * 2];
+              v = data[(z * N + j) * CAVE_CELL + ch];
               if (!v) continue;
               if (z < 32 - Math.clz32(masks[j])) {
                 if (inS(xx, yy)) continue;
@@ -215,14 +259,14 @@ export class CaveLight {
             if (v > best) best = v;
           }
           if (best > FLOOR) {
-            data[(z * N + i) * 2] = best;
+            data[(z * N + i) * CAVE_CELL + ch] = best;
             queue.push(z * N + i);
           }
         }
       }
     for (let h = 0; h < queue.length; h++) {
       const c = queue[h];
-      const next = data[c * 2] - STEP;
+      const next = data[c * CAVE_CELL + ch] - STEP;
       if (next <= FLOOR) continue;
       const z = Math.floor(c / N);
       const i = c - z * N;
@@ -239,38 +283,12 @@ export class CaveLight {
         else (n = z < D - 1 ? c + N : -1), (zz = z + 1);
         if (n < 0) continue;
         const j = n - zz * N;
-        const o = data[n * 2];
+        const o = data[n * CAVE_CELL + ch];
         if (o === 0 || zz >= 32 - Math.clz32(masks[j]) || o >= next) continue;
-        data[n * 2] = next;
+        data[n * CAVE_CELL + ch] = next;
         queue.push(n);
       }
     }
-    // 3. the sun: march every roofed cell, and every open cell beside one (all 26 neighbours: the
-    // filtering blends them), toward the sun; outside the changed tiles only the cells whose ray
-    // crosses them (whether air is roofed never changes with the heights)
-    for (let y = R.y0; y <= R.y1; y++)
-      for (let x = R.x0; x <= R.x1; x++) {
-        const i = y * W + x;
-        if (!near[i]) continue;
-        const changed = x >= x0 && x <= x1 && y >= y0 && y <= y1;
-        const top = this.top(i);
-        const zTop = Math.min(D - 1, this.besideTop[i]);
-        for (let z = 0; z <= zTop; z++) {
-          const o = (z * N + i) * 2;
-          if (data[o] === 0) continue;
-          if (!changed) {
-            // the tiles the ray's run can cross, a step over
-            const run = Math.max(0, this.maxTop - z - 0.5) / sz + MARCH;
-            const ex = Math.floor(x + 0.5 + sx * run);
-            const ey = Math.floor(y + 0.5 + sy * run);
-            if (Math.max(x, ex) < x0 || Math.min(x, ex) > x1 || Math.max(y, ey) < y0 || Math.min(y, ey) > y1) continue;
-          }
-          // (an open cell beside roofed air holds less than 255: step 2, or unchanged outside S)
-          if (z >= top && data[o] === OPEN) data[o + 1] = OPEN;
-          else data[o + 1] = this.sunlit(x, y, z) ? OPEN : 0;
-        }
-      }
-    return R;
   }
 
   /** Whether any of the 26 cells round (x, y, z) is roofed air. */
@@ -311,23 +329,23 @@ export class CaveLight {
 
 /** The light the terrain shader takes from the volume for a point on a face (materials.ts `caveAt`,
  *  in the same steps): null where the face's own air (half a cell along its normal) is open (at or
- *  over its tile's top), or rock, or outside the map, so the baked light stands; else the filtered sky
- *  and sun (0–1). World space as the view's: X = x, Y = height, Z = −y. */
-export function caveSample(v: CaveLight | null, world: readonly [number, number, number], normal: readonly [number, number, number]): [number, number] | null {
+ *  over its tile's top), or rock, or outside the map, so the baked light stands; else the filtered floors'
+ *  sky, the sun and the walls' sky (0–1). World space as the view's: X = x, Y = height, Z = −y. */
+export function caveSample(v: CaveLight | null, world: readonly [number, number, number], normal: readonly [number, number, number]): [number, number, number] | null {
   if (!v) return null;
   const q = [world[0] + normal[0] * 0.5, -world[2] - normal[2] * 0.5, world[1] + normal[1] * 0.5];
   const size = [v.W, v.H, v.D];
   const c = q.map(Math.floor);
   if (c.some((k, a) => k < 0 || k >= size[a])) return null;
   const N = v.W * v.H;
-  const at = (x: number, y: number, z: number, ch: number) => v.data[(z * N + y * v.W + x) * 2 + ch];
+  const at = (x: number, y: number, z: number, ch: number) => v.data[(z * N + y * v.W + x) * CAVE_CELL + ch];
   if (c[2] >= v.top(c[1] * v.W + c[0]) || at(c[0], c[1], c[2], 0) === 0) return null;
   // trilinear between the texel centres, clamped to the edge (the texture's LinearFilter)
   const f = q.map((k) => k - 0.5);
   const i0 = f.map(Math.floor);
   const t = f.map((k, a) => k - i0[a]);
-  const out: [number, number] = [0, 0];
-  for (let ch = 0; ch < 2; ch++) {
+  const out: [number, number, number] = [0, 0, 0];
+  for (let ch = 0; ch < 3; ch++) {
     let s = 0;
     for (let k = 0; k < 8; k++) {
       const ix = Math.min(size[0] - 1, Math.max(0, i0[0] + (k & 1)));

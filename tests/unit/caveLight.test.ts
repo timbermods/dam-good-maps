@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { CAVE_FLOOR_BYTE, CAVE_SKY_FLOOR, CaveLight, caveSample, LIGHT_LEVELS, openSky } from "../../src/render3d/caveLight";
+import { CAVE_CELL, CAVE_FLOOR_BYTE, CAVE_SKY_FLOOR, CAVE_SKY_STEP, CaveLight, caveSample, LIGHT_LEVELS, openSky } from "../../src/render3d/caveLight";
 import { castersChangedRects, decodeTop, objectCasters, SHADOW_RES, shadowMap, shadowPairRect, shadowRock, skyVisibility } from "../../src/render3d/light";
 import { DEAD, type EntityView } from "../../src/render3d/model";
 import { LIGHT } from "../../src/render3d/palette";
@@ -85,9 +85,10 @@ describe("light under roofs on terrains with roofs", () => {
   const sky = skyVisibility(W, H, src.heights);
   const v = CaveLight.build(src, sky)!;
 
-  it("builds a volume, 2 bytes a cell", () => {
+  it("builds a volume, 4 bytes a cell", () => {
     expect(v).not.toBeNull();
-    expect(v.data.length).toBe(W * H * LIGHT_LEVELS * 2);
+    expect(CAVE_CELL).toBe(4);
+    expect(v.data.length).toBe(W * H * LIGHT_LEVELS * CAVE_CELL);
   });
 
   it("the tunnel's floor, walls and ceiling take their own light, dimmer deeper in", () => {
@@ -101,8 +102,14 @@ describe("light under roofs on terrains with roofs", () => {
       expect(deep).not.toBeNull();
       expect(deep[0]).toBeLessThan(mouth[0]);
     }
-    // the deepest floor dims to the volume's least, which the shader holds too
-    expect(floor(10)![0]).toBeLessThanOrEqual(CAVE_SKY_FLOOR + 1e-9);
+    // the walk loses a step a cell from the mouth's own light, never below the volume's least (which the shader holds
+    // too): the floors' from the open ground's sky, the walls' and ceilings' from the whole sky, as an open wall takes it
+    const step = CAVE_SKY_STEP / 255;
+    expect(floor(19)![0]).toBeCloseTo(openSky(sky[10 * W + 20]) / 255, 6);
+    expect(floor(10)![0]).toBeCloseTo(Math.max(CAVE_SKY_FLOOR, floor(19)![0] - 9 * step), 2);
+    expect(wall(19)![2]).toBe(1);
+    expect(wall(10)![2]).toBeCloseTo(Math.max(CAVE_SKY_FLOOR, 1 - 9 * step), 2);
+    for (const f of [floor, ceiling, wall]) for (let x = 10; x <= 19; x++) expect(f(x)![2]).toBeGreaterThanOrEqual(f(x)![0]);
   });
 
   it("a cave's mouth is never brighter than the open ground before it", () => {

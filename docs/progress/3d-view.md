@@ -35,12 +35,12 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 
 ## Part 2: light in 3D (built, `feature/3d-view-light`)
 
-- **What:** `src/render3d/caveLight.ts`, Erode's light volume (`lightVolume`) on the mesher's column masks: two
-  bytes a cell, W × H × 24 levels, a 3D texture (`caveTex`, RG, filtered). R the sky: roofed air (below its
+- **What:** `src/render3d/caveLight.ts`, Erode's light volume (`lightVolume`) on the mesher's column masks: four
+  bytes a cell, W × H × 24 levels, a 3D texture (`caveTex`, RGBA, filtered). R the sky: roofed air (below its
   column's top, not rock) walks it in from its openings: beside an open cell, that cell's sky (an open cell beside
   roofed air holds the sky the baked light would give ground at its height, 0.55 + 0.45 × the sky visibility: on
   the ground the tile's own, over a drop the sky seen from that height, `light.ts` `skyAt`); beside the map's edge
-  235; then 16 less per step, never below the cave's least (`CAVE_SKY_FLOOR`, items 7 and 8 below); 0 in rock. G the sun: a ray marched toward the sun from
+  249; then 6 less per step (`CAVE_SKY_STEP`, "Caves in the game's light" below), never below the cave's least (`CAVE_SKY_FLOOR`, items 7 and 8 below); 0 in rock. G the sun: a ray marched toward the sun from
   every roofed cell and every open cell beside one, 255 or 0. The terrain shader (`materials.ts` `caveAt`, both
   looks) reads the cell half a cell along the face's normal: where that cell is roofed air, the face takes
   `caveLightOf`; anywhere else (open air, rock under the slice's cut, outside the map) the baked light of
@@ -78,7 +78,7 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   now the volume), dabs placed on cave tiles: official cave maps at 256² 0.51–0.55 ms median before, 0.59–0.79 ms after
   (`builtin_18`, 192², the most caves: 0.55 → 1.2 ms); a generated map: no change (no volume). Building the volume
   when a map opens: up to about 0.25 s on the official maps (once, with the map).
-- **Memory:** 2 bytes a cell × 24 levels: 3.0 MB at 256², 12.6 MB at 512² (in memory and on the GPU), only on maps
+- **Memory:** 4 bytes a cell × 24 levels: 6.0 MB at 256², 25 MB at 512² (in memory and on the GPU), only on maps
   with air under a roof.
 - **Captures:** `docs/sheets/3d-view-light.jpg`.
 
@@ -420,7 +420,7 @@ Standard's shadow before a cave (item 8).
   walls and their corners in both looks (High's strata hook reads the same `along` and `y`); the level lines, the seams
   between levels and the top's lip stay the walls' alone. Only maps with terrain above terrain have undersides.
 - **Interiors that read:** a cave's least sky rises from 0.30 to 0.55 (`caveLight.ts` `CAVE_SKY_FLOOR`, the volume's
-  least byte too) and the walk in from an opening loses 16 a cell instead of 26, so light carries about six cells in
+  least byte too) and the walk in from an opening loses 16 a cell instead of 26 (6 since "Caves in the game's light"), so light carries about six cells in
   before the least; deeper in, the sky's light comes bounced off the rock, so walls and ceilings take nearly a floor's
   share (`caveLightOf`: from the open ground's 0.7 + 0.3 n.y at the mouth to 0.85 + 0.15 n.y deep). The least holds
   deep in only, never at the mouth, where the open ground's light (High's occlusion with it) carries on. Murky, never
@@ -502,6 +502,40 @@ Standard's shadow before a cave (item 8).
     materials are not compiled ahead. Where the browser draws in software nothing is compiled ahead; without the
     extension a define is set at once, as before. The map's picture compiles its own programs before its first frame
     (`compileAhead`) and compiles nothing ahead.
+
+## Caves in the game's light (`fix/forms-read`)
+
+- **Why:** inside Canyon 128² seed 1's spring cave (a gallery 2–3 wide and about 6 deep, its mouth onto the river) the
+  frame from the mouth averaged 35 of 255 in Standard (68% of it under 40) and 30 in High (86%): the walk in lost a
+  sixteenth of the sky a cell and reached the least four cells in, every floor in a gallery two tiles wide took the
+  contact shadow of both walls, and a cave's walls took the floors' sky (the open ground's, with its tile's visibility:
+  0.85 at this mouth) where an open wall beside the mouth takes the whole sky, a step of 15% at the roof line.
+- **The game's answer** (decompiled `Timberborn.SkySystem` `Sun`: `RenderSettings.ambientMode = AmbientMode.Trilight`;
+  `Configurations/Sun.blueprint.json` in the game's Blueprints.zip, the day: sky (0.62, 0.63, 0.97), equator (1, 1, 1),
+  ground (0.28, 0.23, 0.37), sun 1.1 with shadows at full strength; no ambient occlusion setting in
+  `GraphicsQualitySystem`): every face takes Unity's ambient by its normal, unoccluded, and only the sun's shadow
+  darkens a roofed space, so a cave in the game is lit as any shade, as bright deep in as at its mouth. The probe's
+  shots of roofed terrain (`C:\dgm-probe\shots\terrain3d-20260927`, local) agree: floors under a roof 74–91 of 255 beside
+  sunlit floors at 109, stone walls in shade 39–68.
+- **What:** the walk loses 6 a cell (`caveLight.ts` `CAVE_SKY_STEP`), so a generated gallery keeps most of its mouth's
+  light and a long tunnel reaches the least some 18 cells in. The volume has a third channel, B, the same walk from the
+  whole sky at every opening, which walls and ceilings take (`caveLightOf`), so a cave's wall carries on from the open
+  cliff beside its mouth with no step; floors keep R, the open ground's sky. How deep a face is (the walls' facing,
+  the least) is read from B, the same at every mouth. A floor's contact shadow from the rock beside it is the open
+  ground's at the mouth and two fifths of it deep in. In High the sky's occlusion under a roof is the line's (a floor the
+  open ground's there, a wall or a ceiling an open wall's at its own height above that ground), not the point's: the
+  field is the heightfield's and under a roof it read the roof's top. Rules kept: the light never steps at the roof line
+  (walls now meet the open cliff's) and never rises going in (each channel's walk only falls).
+- **Numbers** (`tools/capture-forms-read.ts`, real Chrome on the RTX 2070 SUPER, 1920×1080, every 6th pixel picked and
+  sorted by the face it lands on; mean luma of 255, share under 40): inside the cave from its mouth, Standard all 35 →
+  41 (68% → 52%), floors 51 → 56, walls 33 → 39; High all 30.5 → 37 (86% → 65%), floors 41 → 45.5, walls 29 → 36. The
+  open ground round it 99 (Standard) and 89 (High): unchanged, and the cave stays darker.
+- **Captures:** `docs/sheets/caves-bright.jpg` (inside the spring cave and its mouth, dev against this branch, Standard
+  and High, 1920×1080 dark).
+- **Falls short:** stone in shade is ours, open or roofed, at about 40–53 of 255 where the game's is 39–68 (its walls
+  take the equator's white ambient, ours 0.7 of the sky); a cave's walls can be no lighter than the open cliff at its
+  mouth without a step, so the interior's stone is as dark as an open cliff in shade. Lifting walls in shade everywhere
+  would change every plain map. Ceilings, overhangs and arches are D488 (3)'s next part.
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
 
