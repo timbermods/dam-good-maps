@@ -195,7 +195,7 @@ export function entityTiles(e: Pick<EntitySpec, "template" | "x" | "y" | "orient
  *  rectangle [x0, y0, x1, y1] on the W × H map. The game drops an object whose ground is not level
  *  under it, so one on open ground rides a stroke level; a natural overhang hangs from a cliff by
  *  design and does not. Which of them a stroke tilted is `tiltedPieces` (raster/brush.ts). */
-export function ridingPieces(entities: readonly EntitySpec[], W: number, H: number): [number, number, number, number][] {
+export function ridingPieces(entities: readonly Parameters<typeof entityTiles>[0][], W: number, H: number): [number, number, number, number][] {
   const out: [number, number, number, number][] = [];
   for (const e of entities) {
     if (e.template.startsWith("NaturalOverhang")) continue;

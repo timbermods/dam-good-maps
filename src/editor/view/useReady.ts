@@ -4,6 +4,7 @@ import { transfer } from "comlink";
 import { useRef } from "preact/hooks";
 import type { EditOp } from "../../core/doc/ops";
 import type { Orientation } from "../../core/format/footprints";
+import { ridingPieces } from "../../core/features/edits";
 import { groundUnderObjects } from "../../core/features/raster/objectGround";
 import { FLIPPED, ORIENTATION_NAMES, surfaceWater } from "../../render3d/model";
 import type { MapRenderer, ViewState } from "../../render3d";
@@ -11,7 +12,7 @@ import { Juice, type StrokeSound } from "../juice";
 import { selectTool } from "../select";
 import { BRUSH_NAMES, BrushPainter, hasTarget, sizeMax, targetWords } from "../brushes";
 import { tilesToRuns } from "../../core/math/grid";
-import { sourcesPressed } from "../sourceSpots";
+import { isSource, sourcesPressed } from "../sourceSpots";
 import type { BrushParams } from "../../core/features/raster/brush";
 import type { Ed } from "../ed";
 
@@ -72,6 +73,13 @@ export function useReady(ed: Ed): ReadySlice {
   }
   /** The brush out clears the sources it passes over (Sources: Clear, D322). */
   const clears = () => !!brushToolRef.current && brushRef.current.sources[brushToolRef.current] === "clear";
+  /** The map's objects as the core reads them (template, tile, orientation, flip), from the page's mirror. */
+  function objectList() {
+    const e = mirror.current.entities;
+    const list = [];
+    for (let k = 0; k < e.count; k++) list.push({ template: e.templates[e.template[k]], x: e.x[k], y: e.y[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 });
+    return list;
+  }
   function endClearGlow() {
     clearing.current = null;
     glowCorners.current = [];
@@ -130,17 +138,20 @@ export function useReady(ed: Ed): ReadySlice {
       },
       footprints: () => ed.objectFootprints(),
       // sources ride a stroke's ground (D249): a 3 × 3 one whole and level (with Keep they stay, with
-      // Clear they go, D322)
-      rides: () => (brushToolRef.current && brushRef.current.sources[brushToolRef.current] === "ride" ? spots().filter((c) => c.tiles.length > 1 && ed.inArea(c.tiles)).map((c) => c.rect) : []),
+      // Clear they go, D322); every other object of several tiles rides it level too, a mine site, a relic, the start
+      // (D491, amended 2026-10-29: the game drops one whose ground is not level), as the session levels it
+      // (`ridingPieces`), so the stroke shows what it makes
+      rides: () => {
+        const t = brushToolRef.current;
+        if (!t) return [];
+        const sources = brushRef.current.sources[t] === "ride" ? spots().filter((c) => c.tiles.length > 1 && ed.inArea(c.tiles)).map((c) => c.rect) : [];
+        const { W, H } = infoRef.current;
+        return [...sources, ...ridingPieces(objectList().filter((o) => !isSource(o.template)), W, H)];
+      },
       // Keep (D322): every source's own tiles
       sourceGround: () => tilesToRuns([...new Set(spots().flatMap((c) => c.tiles))].sort((a, b) => a - b), infoRef.current.W),
       // Naturalize leaves the ground under every source and object as it is (D368 (8))
-      objectGround: () => {
-        const e = mirror.current.entities;
-        const list = [];
-        for (let k = 0; k < e.count; k++) list.push({ template: e.templates[e.template[k]], x: e.x[k], y: e.y[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 });
-        return groundUnderObjects(list);
-      },
+      objectGround: () => groundUnderObjects(objectList()),
       maxSize: () => sizeMax(infoRef.current.W, infoRef.current.H),
       // a mode's water (D322): the map's own, never a drought's or a badtide's shown now
       water: () => (weatherRef.current ? surfaceWater(infoRef.current.W, infoRef.current.H, mirror.current.mapWater).surface : (mirror.current.water?.surface ?? null)),
