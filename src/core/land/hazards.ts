@@ -72,8 +72,11 @@ export interface BadwaterAsk {
    *  first hollow's ditch joins it or water that flows into it, below the start's water where it can,
    *  else beyond the badwater distance with the start then found by other clean water (D85); where
    *  none can, the badwater drains where the land takes it. Without it the ditches go to the nearest
-   *  water, seldom the main (#265's sheets: 0 of 20 Delta maps). */
+   *  water, seldom the main (#265's sheets: 0 of 20 Delta maps). Its lower reach (`joinReach`, D498). */
   join?: Uint8Array | null;
+  /** Water no ditch ends in, nor in water that drains into it (D498): the theme's main water above
+   *  its lower reach, which colonies draw on and whose standing water takes in the whole of any badwater. */
+  spare?: Uint8Array | null;
 }
 
 /** The theme's main water, which badwater joins on most maps (D476), from the hydrology's own plan:
@@ -86,6 +89,76 @@ export function mainWater(theme: string, hy: Pick<Hydro, "water" | "rivers" | "l
   const river = () => mainRiver(hy, W, H);
   const first = theme === "lakeBasin" ? lake() : river();
   return first.some((v) => v) ? first : theme === "lakeBasin" ? river() : lake();
+}
+
+/** The share of the main water's course, from its end, where badwater joins it (D498); and how far
+ *  below the last lake it runs through the reach begins, in tiles of the course: badwater joining just below a
+ *  lake's outlet spread back into the lake's slow water (Lake Basin 128² seed 7, its whole lake at 0.29). */
+const LOWER_REACH = 0.3;
+const LAKE_GAP = 16;
+
+/** Where badwater joins the theme's main water (D498): its lower reach, so the main water stays clean
+ *  where colonies draw it and the badwater runs on off the map. The planned channel of "river/main" along the
+ *  last `LOWER_REACH` of its course, `LAKE_GAP` and more below the last lake it runs through, never a lake's
+ *  own tiles. Empty on a theme named for its standing water (`STANDING`), where the main river ends in a basin
+ *  or leaves no such reach: badwater reaching standing or slow water mixes through the whole of it, and
+ *  nothing carries it on, so there it drains on its own. */
+export function joinReach(theme: string, hy: Pick<Hydro, "water" | "rivers" | "lakes" | "arms">, W: number, H: number): Uint8Array {
+  const N = W * H;
+  const out = new Uint8Array(N);
+  // (a theme named for its standing water takes none: Lake Basin's lakes and Islands' sea; badwater joined below
+  // a lake's outlet spread back up through its slow water into the lake, Lake Basin 128² seeds 1, 2 and 7)
+  if (STANDING.has(theme)) return out;
+  const river = hy.rivers.find((r) => r.role === "river/main");
+  if (!river || !("edge" in river.params.exit)) return out;
+  const path = river.params.path;
+  if (path.length < 2) return out;
+  const lake = new Uint8Array(N);
+  for (const lk of hy.lakes) for (const i of lk.tiles) lake[i] = 1;
+  for (let i = 0; i < N; i++) if (hy.water[i] === 2) lake[i] = 1;
+  // (the last point of the course that stands in a lake)
+  let last = -1;
+  for (let k = 0; k < path.length; k++) {
+    const x = Math.round(path[k][0]);
+    const y = Math.round(path[k][1]);
+    if (x >= 0 && y >= 0 && x < W && y < H && lake[y * W + x]) last = k;
+  }
+  // (the course's points are about a tile apart: the gap below the last lake is counted along them)
+  let gapEnd = last + 1;
+  if (last >= 0) {
+    let run = 0;
+    while (gapEnd < path.length - 1 && run < LAKE_GAP) {
+      run += dist(path[gapEnd + 1][0], path[gapEnd + 1][1], path[gapEnd][0], path[gapEnd][1]);
+      gapEnd++;
+    }
+  }
+  const from = Math.max(gapEnd, Math.floor((1 - LOWER_REACH) * (path.length - 1)));
+  if (from >= path.length - 1) return out;
+  const half = river.params.width / 2 + 1;
+  for (let k = from; k + 1 < path.length; k++) {
+    const [ax, ay] = path[k];
+    const [bx, by] = path[k + 1];
+    const n = Math.max(1, Math.ceil(2 * Math.max(Math.abs(bx - ax), Math.abs(by - ay))));
+    for (let t = 0; t <= n; t++) {
+      const px = ax + ((bx - ax) * t) / n;
+      const py = ay + ((by - ay) * t) / n;
+      const R = Math.ceil(half);
+      for (let y = Math.max(0, Math.round(py) - R); y <= Math.min(H - 1, Math.round(py) + R); y++)
+        for (let x = Math.max(0, Math.round(px) - R); x <= Math.min(W - 1, Math.round(px) + R); x++) {
+          const i = y * W + x;
+          if (Math.max(Math.abs(x - px), Math.abs(y - py)) <= half && hy.water[i] === 1 && !lake[i]) out[i] = 1;
+        }
+    }
+  }
+  return out;
+}
+
+/** The themes named for their standing water (D498): their badwater drains on its own, into none of it. */
+const STANDING = new Set(["lakeBasin", "islands"]);
+
+/** Whether a theme is named for its standing water: Lake Basin's lakes, Islands' sea (D498). */
+export function standingTheme(theme: string): boolean {
+  return STANDING.has(theme);
 }
 
 /** The main river's water: the planned water (channels and lakes) of the river the hydrology names
@@ -524,14 +597,17 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     // and whether it ends in the water the ditch must join
     const reachesStart = new Uint8Array(N);
     const reachesOnly = new Uint8Array(N);
+    const reachesSpare = new Uint8Array(N);
+    const spare = ask.spare ?? null;
     for (let q = 0; q < dn.order.length; q++) {
       const j = dn.order[q];
       const r = dn.rcv[j];
       reachesStart[j] = sd[j] <= 26 || (r >= 0 && reachesStart[r]) ? 1 : 0;
       if (only) reachesOnly[j] = only[j] || (r >= 0 && reachesOnly[r]) ? 1 : 0;
+      if (spare) reachesSpare[j] = spare[j] || (r >= 0 && reachesSpare[r]) ? 1 : 0;
     }
     const goal = new Uint8Array(N);
-    for (let j = 0; j < N; j++) if ((hy.water[j] === 1 || hy.water[j] === 2) && (loose || (!startWater[j] && !reachesStart[j])) && sd[j] > D + 6 && (!only || reachesOnly[j])) goal[j] = 1;
+    for (let j = 0; j < N; j++) if ((hy.water[j] === 1 || hy.water[j] === 2) && (loose || (!startWater[j] && !reachesStart[j])) && sd[j] > D + 6 && (!only || reachesOnly[j]) && !(spare && !(only && only[j]) && reachesSpare[j])) goal[j] = 1;
     const keepOff = new Uint8Array(N);
     for (let j = 0; j < N; j++) if (sd[j] < D + 6 || startWater[j] || avoid[j] || ask.keepOff?.[j] || byMouth[j]) keepOff[j] = 1;
     // (water it may not join, and the ring beside it, it never crosses on its way: that water
