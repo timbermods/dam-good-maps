@@ -20,6 +20,7 @@ import * as ed from "./session";
 import { collabActive, collabApi } from "./collab";
 import { collabEditApi } from "./collabEdit";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
+import { stackParallelStats } from "../core/sim/stackParallel";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
   return [r.heights, r.water, r.contamination, r.moisture, r.soilContamination, r.reach, r.timber, r.project].map((a) => a.buffer) as Transferable[];
@@ -332,6 +333,6 @@ const api = {
 };
 
 export type GeneratorApi = typeof api;
-// a test hook (tests/e2e/isolation.spec.ts): the water's threads ready, and the ticks they ran
-Object.assign(self, { dgmWater: () => ({ threads: parallelWaterThreads(), ticks: parallelWaterStats.ticks }) });
+// a test hook (tests/e2e/isolation.spec.ts): the water's threads ready, and the ticks they ran (the stacked water's apart)
+Object.assign(self, { dgmWater: () => ({ threads: parallelWaterThreads(), ticks: parallelWaterStats.ticks, stackTicks: stackParallelStats.ticks }) });
 expose(api);

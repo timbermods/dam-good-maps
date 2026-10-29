@@ -73,11 +73,17 @@ interface StackJob {
   /** The shared memory's length. It starts with the whole map's depth, pressure and contamination (slot by
    *  slot, L·W·H each): the pre-fill's, then each run's end. */
   length: number;
+  /** The live water's (stackLive.ts), which runs on from water already flowing: per strip, where the whole map's
+   *  block of its rows sits (`exportRows`, its flows' momentum and old depth with its water), which the strip takes
+   *  in once built; and where the strip writes its own rows' block at the end of each run, which the whole map's
+   *  engine takes back (`StackThreads.sync`). None for a settle, which starts from the pre-fill at rest. */
+  seeds?: Block[];
+  owns?: Block[];
 }
 
 export type StackMessage =
   | { kind: "stack-init"; job: number; sab: SharedArrayBuffer; ctl: SharedArrayBuffer; info: StackJob; index: number }
-  | { kind: "stack-run"; job: number; ticks: number }
+  | { kind: "stack-run"; job: number; ticks: number; report?: boolean }
   | { kind: "stack-free"; job: number };
 
 /** A strip in this thread: the engine over rows lo..hi (its own y0..y1 and the halo), and the run. */
@@ -123,6 +129,27 @@ class StackStrip {
         for (let s = 0; s < levels; s++) v.set(f.subarray((q * L + s) * N + this.lo * W, (q * L + s) * N + this.hi * W), s * n);
       }
       m.op(STACK_OP.accept);
+      // (water already flowing: its flows' momentum too, but on the strip's first and last rows, whose edges are not the map's)
+      const seed = job.seeds?.[index];
+      if (seed) {
+        m.op(STACK_OP.inbox, seed.len);
+        const v = f.subarray(seed.at, seed.at + seed.len);
+        (m.view(STACK_FIELD.rowsIn) as Float64Array).set(v);
+        m.op(STACK_OP.importRows, 0, rows);
+        // (and the momentum of its first and last rows where they are the map's own, at its top and bottom edges: their
+        // edges are the map's there, and a river leaving the map flows on)
+        const momentum = m.view(STACK_FIELD.momentum) as Float64Array;
+        const start = m.view(STACK_FIELD.graphStart) as Uint32Array;
+        const theirs = v[0];
+        let p = 3 + 4 * theirs * n;
+        for (let s = 0; s < theirs; s++)
+          for (let r = 0; r < rows; r++) {
+            const len = v[p++];
+            const edge = (r === 0 && this.lo === 0) || (r === rows - 1 && this.hi === H);
+            if (edge && s < levels && start[s * n + (r + 1) * W] - start[s * n + r * W] === len) momentum.set(v.subarray(p, p + len), start[s * n + r * W]);
+            p += len;
+          }
+      }
     } catch (e) {
       m.close();
       throw e;
@@ -144,8 +171,8 @@ class StackStrip {
     this.m.op(STACK_OP.importRows, b.row - this.lo, b.row - this.lo + HALO);
   }
 
-  /** Runs ticks with the others, then writes its own rows back. */
-  run(ctl: Int32Array, dead: Int32Array | null, ticks: number): boolean {
+  /** Runs ticks with the others, then writes its own rows back (`report`; the live water asks only when it reads them). */
+  run(ctl: Int32Array, dead: Int32Array | null, ticks: number, report = true): boolean {
     const { strips, down, up, W, H, L } = this.job;
     const j = this.index;
     const T = strips.length;
@@ -160,6 +187,7 @@ class StackStrip {
       parity ^= 1;
     }
     if (!barrier(ctl, T, dead)) return false;
+    if (!report) return barrier(ctl, T, dead);
     // its own rows, from a block of them: [slots, rows, width], then depth, pressure and contamination
     const { y0, y1 } = strips[j];
     this.m.op(STACK_OP.exportRows, y0 - this.lo, y1 - this.lo);
@@ -169,6 +197,12 @@ class StackStrip {
     const N = W * H;
     for (let q = 0; q < 3; q++)
       for (let s = 0; s < levels; s++) this.f.set(v.subarray(3 + (q * levels + s) * k, 3 + (q * levels + s + 1) * k), (q * L + s) * N + y0 * W);
+    // (the live water's: the whole block, its momentum with it, for the whole map's engine to take back)
+    const own = this.job.owns?.[j];
+    if (own) {
+      if (v.length !== own.len) throw new Error("a strip's water columns differ from the map's");
+      this.f.set(v, own.at);
+    }
     // and where its own rows have been wet (exact there, as their water is)
     const reach = this.m.view(STACK_FIELD.reach) as Uint8Array;
     const n = (this.hi - this.lo) * W;
@@ -225,7 +259,7 @@ export function stackStripHelper(): { handle(msg: StackMessage, flags: Int32Arra
       }
       if (!job) return;
       try {
-        if (!job.strip || !job.strip.run(job.ctl, flags, msg.ticks)) fail(job.ctl);
+        if (!job.strip || !job.strip.run(job.ctl, flags, msg.ticks, msg.report ?? true)) fail(job.ctl);
       } catch {
         fail(job.ctl);
       }
@@ -244,8 +278,10 @@ const live: StackThreads[] = [];
 const MOST_LIVE = 2;
 
 /** The settle's strips on several threads, or null when one thread is better (no pool, a small map, too
- *  little water) or a strip can't be built. `whole` is the whole map's engine after its pre-fill. */
-export function stackThreads(whole: StackWater, W: number, H: number, mask: Uint32Array, objects: Float64Array): StackThreads | null {
+ *  little water) or a strip can't be built. `whole` is the whole map's engine after its pre-fill. `flowing`: the live
+ *  water's (stackLive.ts), on from water already flowing: the strips take its flows' momentum too, and hand theirs back
+ *  (`sync`). */
+export function stackThreads(whole: StackWater, W: number, H: number, mask: Uint32Array, objects: Float64Array, flowing = false): StackThreads | null {
   const pool = sharedPool();
   if (!pool) return null;
   const N = W * H;
@@ -319,11 +355,33 @@ export function stackThreads(whole: StackWater, W: number, H: number, mask: Uint
   at += L * N;
   const flowsAt = at;
   at += 4 * L * N;
+  // (the live water's: each strip's rows from the whole map's engine, and room for its own rows' block, the length
+  // export_rows gives it: its slots, then four numbers a column and each row's momentum with its count)
+  let seeds: { block: Block; v: Float64Array }[] | undefined;
+  let owns: Block[] | undefined;
+  if (flowing) {
+    seeds = [];
+    owns = [];
+    for (const s0 of strips) {
+      const lo = Math.max(0, s0.y0 - HALO);
+      const hi = Math.min(H, s0.y1 + HALO);
+      whole.op(STACK_OP.exportRows, lo, hi);
+      const v = (whole.view(STACK_FIELD.rowsOut) as Float64Array).slice();
+      seeds.push({ block: { row: lo, at, len: v.length }, v });
+      at += v.length;
+      const ls = levelsOf(lo, hi);
+      let len = 3 + 4 * ls * (s0.y1 - s0.y0) * W + ls * (s0.y1 - s0.y0);
+      for (let s = 0; s < ls; s++) len += start[s * N + s0.y1 * W] - start[s * N + s0.y0 * W];
+      owns.push({ row: s0.y0, at, len });
+      at += len;
+    }
+  }
   while (live.length >= MOST_LIVE) live[0].free();
-  const job: StackJob = { W, H, L, mask, objects, strips, down, up, reachAt, flowsAt, length: at };
+  const job: StackJob = { W, H, L, mask, objects, strips, down, up, reachAt, flowsAt, length: at, ...(seeds ? { seeds: seeds.map((x) => x.block), owns } : {}) };
   const f = new Float64Array(new SharedArrayBuffer(8 * job.length));
   const fields = [STACK_FIELD.depth, STACK_FIELD.overflow, STACK_FIELD.contamination];
   for (let q = 0; q < 3; q++) f.set((whole.view(fields[q]) as Float64Array).subarray(0, L * N), q * L * N);
+  for (const x of seeds ?? []) f.set(x.v, x.block.at);
   try {
     return new StackThreads(pool, job, f);
   } catch {
@@ -357,13 +415,14 @@ export class StackThreads {
     return this;
   }
 
-  /** Runs `ticks` ticks on every strip; false when a thread failed (the pool is then given up). */
-  run(ticks: number): boolean {
+  /** Runs `ticks` ticks on every strip, each writing its own rows back after (`report`; 0 ticks: only that); false when
+   *  a thread failed (the pool is then given up). */
+  run(ticks: number, report = true): boolean {
     if (this.freed || this.pool.died) return false;
     let ok = false;
     try {
-      for (let j = 1; j < this.job.strips.length; j++) this.pool.helpers[j - 1].postMessage({ kind: "stack-run", job: this.id, ticks } satisfies StackMessage);
-      ok = this.own.run(this.ctl, this.pool.ready, ticks);
+      for (let j = 1; j < this.job.strips.length; j++) this.pool.helpers[j - 1].postMessage({ kind: "stack-run", job: this.id, ticks, report } satisfies StackMessage);
+      ok = this.own.run(this.ctl, this.pool.ready, ticks, report);
     } catch {
       ok = false;
     }
@@ -383,6 +442,34 @@ export class StackThreads {
     (whole.view(STACK_FIELD.depth) as Float64Array).set(this.f.subarray(0, n));
     (whole.view(STACK_FIELD.overflow) as Float64Array).set(this.f.subarray(n, 2 * n));
     (whole.view(STACK_FIELD.contamination) as Float64Array).set(this.f.subarray(2 * n, 3 * n));
+  }
+
+  /** The whole map's water after the last run, its old depth and its flows' momentum with it, written into `whole`'s
+   *  engine as the strips' depth is (`write`): each strip's own rows, from its block (stack.rs `export_rows`; a row's
+   *  edges are the same in a strip as in the whole map). The live water's (`flowing`); the run's bookkeeping is the
+   *  caller's (`elsewhere`). */
+  sync(whole: StackWater): void {
+    const { W, H } = this.job;
+    const N = W * H;
+    const fields = [STACK_FIELD.depth, STACK_FIELD.overflow, STACK_FIELD.contamination, STACK_FIELD.oldDepth].map((q) => whole.view(q) as Float64Array);
+    const momentum = whole.view(STACK_FIELD.momentum) as Float64Array;
+    const start = whole.view(STACK_FIELD.graphStart) as Uint32Array;
+    for (const b of this.job.owns ?? []) {
+      const { y0, y1 } = this.job.strips.find((s) => s.y0 === b.row)!;
+      const v = this.f.subarray(b.at, b.at + b.len);
+      const levels = v[0];
+      const k = (y1 - y0) * W;
+      for (let q = 0; q < 4; q++) for (let s = 0; s < levels; s++) fields[q].set(v.subarray(3 + (q * levels + s) * k, 3 + (q * levels + s + 1) * k), s * N + y0 * W);
+      let p = 3 + 4 * levels * k;
+      for (let s = 0; s < levels; s++)
+        for (let r = y0; r < y1; r++) {
+          const len = v[p++];
+          const a = start[s * N + r * W];
+          if (start[s * N + (r + 1) * W] - a !== len) throw new Error("a strip's water columns differ from the map's");
+          momentum.set(v.subarray(p, p + len), a);
+          p += len;
+        }
+    }
   }
 
   /** Marks in `into` (the whole map's reach, L·W·H) every column a strip has wet. */

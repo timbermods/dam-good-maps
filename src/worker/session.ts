@@ -48,7 +48,7 @@ import { witheredByDay, WITHERING_SPECIES, type Plant } from "../core/sim/wither
 import type { Difficulty, MapSpec } from "../core/spec/mapspec";
 import type { Validation } from "../core/validate/checks";
 import { canonicalRun, type CanonicalWater } from "../core/sim/prefill";
-import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
+import { PREVIEW_JOB_DAYS, PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import type { BrushParams, Rect } from "../core/features/raster/brush";
 import type { WeatheredLand } from "../core/features/raster/remoteStroke";
@@ -1012,7 +1012,7 @@ async function runStack(token: number): Promise<void> {
     const j = stackJob;
     if (!j || j.token !== token || session !== j.session) return;
     // (the edit's answer has gone: the run is made now, its first frame at once)
-    if (!j.live) j.live = new StackLive(j.model, j.from, j.flows);
+    if (!j.live) j.live = new StackLive(j.model, j.from, j.flows, PREVIEW_JOB_DAYS, true);
     const live = j.live;
     const t0 = performance.now();
     let done = false;
