@@ -888,7 +888,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   trees, bushes and ruin columns stand in a lake that covers them (a tree dead, D404) and are counted as standing;
   a resource feature without the generation's record (an old document's) holds its trees and bushes under the
   water, which stand again when it drains, and those are counted too (`objectsIn`, `core/doc/inArea.ts`); a ruin field only partly inside the selection gives up just the tiles inside it (its
-  `cleared` tiles, D360 b). With no selection, Delete takes what the pointer is on: a source within its targeting
+  `cleared` tiles, D360 b). Under a layer cut (D207) Delete, its menu's counts and Select's actions take the tiles whose
+  ground shows at or under the cut, a cave's floor under a roof that rises past it among them (the column's lowest run's
+  top; `seenUnderCut`, `editor/shelf/aim.ts`): what stands on the floor is counted and taken, and the cave's ground is
+  left as it is (above). With no selection, Delete takes what the pointer is on: a source within its targeting
   range (D249) first, else the objects on the tile, else the ground. **Ctrl+A** or **Whole map** selects the whole
   map. The water the removed sources fed drains as its cause is gone (D260). **Clear everything** in the ⋯ menu
   removes every source, badwater source, tree, bush, ruin, object and the start in one undo step, leaving the
@@ -1023,7 +1026,8 @@ Make a valley, drop a source, and there's a river.
   panel or selection. A river's flow is its sources' strength; clean or bad belongs to each source; water changes
   only through its causes (a source removed, moved or weakened, or the land reshaped). Generated maps' rivers are
   just their sources (edge inflows included) and their land. Hovering water quietly highlights the sources feeding
-  it (D196).
+  it (D196): by the ground seen (a cave's water through its mouth or under the cut), found again from that ground
+  whenever the objects change with the pointer resting there.
 - **Remove unfed water and Fill** (D387 (2) and (3), D394): Remove unfed water takes the water no source feeds (a
   pool the settle left in a hollow, a sealed oxbow lake, a Fill), map-wide or within a selection, and says first
   what it will take ("12 pools, 3,400 tiles of water"); a pool with a tile in the selection goes whole, and fed

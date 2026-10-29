@@ -36,7 +36,7 @@ function runIndexOf(tile: Int32Array, level: Uint8Array, i: number, at: number):
 }
 
 export function useDelete(ed: Ed): DeleteSlice {
-  const { api, info, mirror, renderer, setMessage, selection, feel, run, flashNote } = ed;
+  const { api, info, mirror, setMessage, selection, feel, run, flashNote } = ed;
 
   // ------------------------------------------------------------------------------ Delete (D288)
 
@@ -134,8 +134,7 @@ export function useDelete(ed: Ed): DeleteSlice {
    *  water the bed's top block; one undo step. */
   function deleteGround(tiles: number[]): boolean {
     const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const all = tiles.filter((i) => h[i] > 0 && (cut === null || h[i] <= cut));
+    const all = ed.underCut(tiles).filter((i) => h[i] > 0);
     if (!all.length) {
       flashNote("Nothing left to delete there");
       return false;
@@ -175,11 +174,9 @@ export function useDelete(ed: Ed): DeleteSlice {
     return deleteGround(tiles);
   }
   /** Select and Delete (D288, D323): everything standing inside the selection (under a cut, on the
-   *  visible land), or where nothing stands, its ground one level. */
+   *  visible land, a cave's floor the cut shows too), or where nothing stands, its ground one level. */
   function deleteSelection() {
-    const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    const tiles = ed.underCut(selection.current.tiles());
     if (tiles.length) deleteHere(tiles);
   }
   const deleteCalls = useRef({ deleteHere, deleteSelection });

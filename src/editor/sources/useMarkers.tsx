@@ -39,7 +39,11 @@ export function useMarkers(ed: Ed): MarkersSlice {
   groupsRef.current = groups;
   /** Near the pointer: the groups within two tiles; over water: the groups it comes from. */
   const hoverKey = useRef("");
+  /** The ground the pointer last pointed at, as the hover handed it (the ground seen: a cave's floor under the cut or
+   *  through a mouth, not the roof over it), for `sourcesChanged`. */
+  const hoverAt = useRef<TileHit | null>(null);
   function hoverSources(hit: TileHit | null) {
+    hoverAt.current = hit;
     // (the level too: the same tile under a layer cut is its cave's floor, not its roof)
     const key = hit ? `${hit.x},${hit.y},${hit.level ?? ""}` : "";
     if (key === hoverKey.current) return;
@@ -74,7 +78,8 @@ export function useMarkers(ed: Ed): MarkersSlice {
     // (the groups as the objects are now: the page's memo follows at its next render)
     groupsRef.current = sourceGroups(mirror.current.entities, infoRef.current.W, mirror.current.heights, strengthOfEntity);
     hoverKey.current = "";
-    hoverSourcesRef.current(renderer.current?.hoverHit ?? null);
+    // (the ground seen, as the hover found it: the tile's top would put out the glow of a cave's water under the cut)
+    hoverSourcesRef.current(renderer.current?.hoverHit ? hoverAt.current : null);
   }
   /** Which markers show: every one with a source picked on the shelf or **Markers** on; else those
    *  near the pointer and those its water comes from. */

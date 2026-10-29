@@ -18,6 +18,7 @@ import type { Ed } from "../ed";
 import { heldWhy } from "../../core/doc/start";
 import { tileCount } from "../../core/doc/labels";
 import { caveLeftWords } from "../caveWords";
+import { seenUnderCut } from "../shelf/aim";
 
 export interface SelectSlice {
   selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; wet: (i: number) => boolean; hasTop: (i: number, level: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
@@ -31,6 +32,8 @@ export interface SelectSlice {
   selectChip: () => ComponentChildren;
   selectRow: () => JSX.Element | null;
   objectFootprints: () => number[][];
+  /** These tiles as the view's layer cut shows them (D207): those with ground at or under it, a cave's floor included. */
+  underCut: (tiles: readonly number[]) => number[];
   /** These tiles without the ground the Select actions (and Delete's ground) leave as it is on a map with caves. */
   openGround: (tiles: readonly number[]) => { tiles: number[]; left: number };
   /** The message after an action that left a cave's ground as it is. */
@@ -115,9 +118,7 @@ export function useSelect(ed: Ed): SelectSlice {
   useEffect(() => {
     if (!deleteMenu) return setDeleteCounts(null);
     let live = true;
-    const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    const tiles = underCut(selection.current.tiles());
     void api.objectsInArea(tiles).then((r) => live && setDeleteCounts(r));
     return () => {
       live = false;
@@ -325,13 +326,14 @@ export function useSelect(ed: Ed): SelectSlice {
   function columnsSet(): Set<number> {
     return new Set<number>(ed.columnsRef.current.tiles);
   }
-  /** The tiles of these the Select actions see under a layer cut (D207): the ground at or below it, and the columns with a
-   *  cave or an overhang, whose floors the cut opens to view (the actions leave those as they are, and say so). */
-  function underCut(tiles: readonly number[], cut: number | null): number[] {
+  /** The tiles of these that Select's actions and Delete see under the view's layer cut (D207): those with ground showing
+   *  at or under it, a cave's floor under a roof that rises past the cut among them (its column's lowest run's top; the
+   *  actions leave a cave's ground as it is, and say so, while Delete takes what stands on its floor). */
+  function underCut(tiles: readonly number[], cut: number | null = renderer.current?.slice ?? null): number[] {
     if (cut === null) return tiles.slice();
     const h = mirror.current.heights;
-    const cols = columnsSet();
-    return tiles.filter((i) => h[i] <= cut || cols.has(i));
+    const cols = ed.columnsRef.current;
+    return tiles.filter((i) => seenUnderCut(i, cut, h, cols));
   }
   /** The first tile among these that the Select actions leave as it is (a cave's, an overhang's, the ground under a roof's
    *  edge), or -1. */
@@ -527,8 +529,7 @@ export function useSelect(ed: Ed): SelectSlice {
    *  objects, not their tiles), and the ground (D323 item 1). */
   function deleteChoices(): { group: DeleteGroup | "ground"; name: string; count: number }[] {
     const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    const tiles = underCut(selection.current.tiles());
     // (what stands there is the core's answer, the objects under water counted too: D345, B5)
     const counts = new Map<DeleteGroup, number>();
     for (const [template, n] of Object.entries(deleteCounts?.counts ?? {})) {
@@ -551,9 +552,7 @@ export function useSelect(ed: Ed): SelectSlice {
   }
   /** Delete one kind of thing (or everything) in the selection, or its ground one level down. */
   function deleteChoice(group: DeleteGroup | "ground") {
-    const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    const tiles = underCut(selection.current.tiles());
     setDeleteMenu(false);
     setSelectPreview(null);
     if (!tiles.length) return;
@@ -564,8 +563,7 @@ export function useSelect(ed: Ed): SelectSlice {
    *  the ground tiles. */
   function deletePreview(group: DeleteGroup | "ground"): void {
     const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
+    const tiles = underCut(selection.current.tiles());
     if (group === "ground") {
       // (as the Select actions: a cave's ground and what holds up its roof stay as they are, the rest is marked)
       const low = tiles.filter((i) => h[i] > 0);
@@ -794,6 +792,6 @@ export function useSelect(ed: Ed): SelectSlice {
 
   return {
     selectHost, openSelect, closeSelect, selectAll, workingArea, inArea, selectCalls, checkDepthRef, selectChip,
-    selectRow, objectFootprints, openGround, caveLeftWords, refusedOnCave
+    selectRow, objectFootprints, underCut: (tiles: readonly number[]) => underCut(tiles), openGround, caveLeftWords, refusedOnCave
   };
 }
