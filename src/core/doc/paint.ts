@@ -90,11 +90,10 @@ function soilTemplate(p: PaintParams): string | null {
   return null;
 }
 
-/** The tiles of a stroke where its plants would die (D235's warning, "dry ground: these will die"; the stroke still
- *  paints), by the rule `plants.survive` applies (plantSoil.ts `dyingTiles`): on a map with caves or overhangs the run
- *  top each tile paints at, under a roof (`p.levels`) or on top, as the check reads each plant there (D491); else the
- *  build's moisture, contamination and water. Empty for ruins and thorns. */
-export function paintDying(s: MapSession, p: PaintParams): number[] {
+/** The tiles of a stroke whose ground kills its plants, by the rule `plants.survive` applies (plantSoil.ts `dyingTiles`):
+ *  on a map with caves or overhangs the run top each tile paints at, under a roof (`p.levels`) or on top, as the check
+ *  reads each plant there (D491); else the build's moisture, contamination and water. Empty for ruins and thorns. */
+function soilKills(s: MapSession, p: PaintParams): number[] {
   const template = soilTemplate(p);
   if (!template) return [];
   const { x: W, y: H } = s.size;
@@ -104,6 +103,13 @@ export function paintDying(s: MapSession, p: PaintParams): number[] {
   const runs = s.runGrounds();
   const at = runs ? new Map(region.map((i) => [i, levels.get(i) ?? b.heights[i]])) : levels;
   return dyingTiles(template, region, { moisture: b.moisture, contamination: b.soilContamination, depth: waterDepth(s), runs }, at);
+}
+
+/** The tiles of a stroke where its plants would die (D235's warning, "dry ground: these will die"; the stroke still
+ *  paints), as `soilKills` reads them. A succulent stroke never has any: succulents are planted only where they live
+ *  (`planPaintObjects` leaves moist ground empty), so there is nothing to warn of. */
+export function paintDying(s: MapSession, p: PaintParams): number[] {
+  return p.kind === "succulents" ? [] : soilKills(s, p);
 }
 
 export type PaintPlan = { ok: true; plan: PlannedObject[]; ops: EditOp[]; label: string } | { ok: false; errors: string[] };
@@ -118,6 +124,11 @@ export function planPaintObjects(s: MapSession, p: PaintParams, nextSeq: number 
   const region = runsToTiles(p.area, W).filter((i) => i >= 0 && i < W * H);
   const levels = levelMap(s, p);
   const g = paintGround(s, levels);
+  // succulents die on moist ground: they go only where they live (trees and bushes keep the warning, D235)
+  let moist = 0;
+  if (p.kind === "succulents") {
+    for (const i of soilKills(s, p)) if (g.free[i]) (g.free[i] = 0, moist++);
+  }
   let existing = 0;
   const same = p.kind === "trees" ? [p.template ?? ""] : (SAME[p.kind] ?? []);
   if (same.length) {
@@ -144,15 +155,16 @@ export function planPaintObjects(s: MapSession, p: PaintParams, nextSeq: number 
       return !why;
     });
   }
-  if (!plan.length) return { ok: false, errors: [refused[0] ?? nothingReason(p, region, g, existing, levels)] };
+  if (!plan.length) return { ok: false, errors: [refused[0] ?? nothingReason(p, region, g, existing, levels, moist)] };
   let k = 0;
   const ops = paintOps(plan, W, () => guidFrom("paint", p.seed, nextSeq, k++), levels);
   return { ok: true, plan, ops, label: paintLabel(p.kind, p.template ?? "", plan.length) };
 }
 
-function nothingReason(p: PaintParams, region: number[], g: PaintGround, existing: number, levels: ReadonlyMap<number, number>): string {
+function nothingReason(p: PaintParams, region: number[], g: PaintGround, existing: number, levels: ReadonlyMap<number, number>, moist: number): string {
   let free = 0;
   for (const i of region) if (g.free[i]) free++;
+  if (!free && moist) return "succulents die on moist ground: paint them on dry ground";
   if (!free && levels.size) return "there is no free ground at that level under the stroke: it is rock, air or other objects";
   if (!free) return "there is no free ground under the stroke: it is water or other objects";
   if (p.kind === "ruins") return "the ground under the stroke is too small or broken for a ruin field: a field stands on one level";

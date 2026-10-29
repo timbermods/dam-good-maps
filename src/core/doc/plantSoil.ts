@@ -3,8 +3,8 @@
 // `plants.survive` applies (rust/checks/src/playability.rs, "plants survive"): a living tree or bush needs moist,
 // clean ground with no water on it at all (any depth), a living succulent dies on moist ground. Under a roof (a
 // cave's floor, the ground under a ledge) the ground is the run top the plant stands on, its own moisture,
-// contamination and water (sim/soil.ts `runGround`): the game keeps one value per run top. Painting is never refused
-// for it. tests/contract/plantSoil.test.ts compares this with the check's flagged plants on a built map.
+// contamination and water (sim/soil.ts `runGround`): the game keeps one value per run top. Painting trees and bushes is never refused
+// for it; a succulent stroke leaves such tiles empty (core/doc/paint.ts). tests/contract/plantSoil.test.ts compares this with the check's flagged plants on a built map.
 
 import type { RunGround } from "../sim/soil";
 
