@@ -9,7 +9,7 @@ import { placeComponents } from "../../src/core/doc/objectOps";
 import type { AppliedOp, EditOp } from "../../src/core/doc/ops";
 import { planStrokeClearing } from "../../src/core/doc/strokes";
 import { MapSession } from "../../src/core/doc/session";
-import { entityTiles, placedEntity } from "../../src/core/features/edits";
+import { entityTiles, placedEntity, ridingPieces } from "../../src/core/features/edits";
 import { entityJson } from "../../src/core/format/entities";
 import { startEntranceTile, type Orientation } from "../../src/core/format/footprints";
 import { writeTimber } from "../../src/core/format/timber";
@@ -74,6 +74,36 @@ describe("the start rides a stroke with the tile at its door (D491)", () => {
     expect(s1.z).toBe(level);
     expect((await ed.exportTimber(true)).errors).toEqual([]);
   }, 120_000);
+});
+
+describe("the start's piece takes the row before its door only where nothing there stands above it (D491)", () => {
+  const W = 20;
+  const bbox = (t: readonly (readonly [number, number])[]) => [Math.min(...t.map((c) => c[0])), Math.min(...t.map((c) => c[1])), Math.max(...t.map((c) => c[0])), Math.max(...t.map((c) => c[1]))];
+  for (const orientation of ["Cw0", "Cw90", "Cw180", "Cw270"] as Orientation[]) {
+    it(`facing ${orientation}`, () => {
+      const start = { template: "StartingLocation", x: 9, y: 9, z: 2, orientation };
+      const own = entityTiles(start);
+      const door = startEntranceTile(start.x, start.y, orientation);
+      const flat = () => new Uint8Array(W * W).fill(2);
+      // (open ground: the 3 × 3 with the door's row)
+      const grown = bbox([...own, door]);
+      expect(ridingPieces([start], W, W, flat())).toEqual([grown]);
+      expect((grown[2] - grown[0] + 1) * (grown[3] - grown[1] + 1)).toBe(12);
+      // (a roof over the door, or higher ground beside it: the 3 × 3, so the row is never cut down)
+      const row: number[] = [];
+      for (let y = grown[1]; y <= grown[3]; y++) for (let x = grown[0]; x <= grown[2]; x++) if (!own.some(([a, b]) => a === x && b === y)) row.push(y * W + x);
+      expect(row).toHaveLength(3);
+      for (const t of row) {
+        const h = flat();
+        h[t] = 5;
+        expect(ridingPieces([start], W, W, h), `tile ${t % W}, ${Math.floor(t / W)} above`).toEqual([bbox(own)]);
+      }
+      // (a roof over the start itself: it is held, not ridden)
+      const h = flat();
+      h[own[4][1] * W + own[4][0]] = 5;
+      expect(ridingPieces([start], W, W, h)).toEqual([]);
+    });
+  }
 });
 
 /** The cave fixture (caveMap.ts: a ledge at x 30–32, y 10–14 over lowland at level 2; a cave at x 15–20, y 15–20 under a
