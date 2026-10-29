@@ -22,6 +22,10 @@ test("the page settles the water, its checks pass, and no dam site is shown", as
 });
 
 test("256² in the browser (timing for PLAN §10)", async ({ page }) => {
+  // (five 256² maps, each 12–50 s on CI's runners since 3D forms are on by default: 1.7 minutes on 2026-10-27, 2.9 on
+  // 10-29 and once over the 3 minutes every test gets, which logged no time at all. The times are what it is for; no budget
+  // is asserted on them)
+  test.setTimeout(6 * 60_000);
   await page.goto("./#s=1&z=128&d=n&t=riverValley");
   await page.waitForFunction(() => "dgm" in window);
   const times: number[] = [];
