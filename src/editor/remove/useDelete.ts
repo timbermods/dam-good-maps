@@ -36,7 +36,7 @@ function runIndexOf(tile: Int32Array, level: Uint8Array, i: number, at: number):
 }
 
 export function useDelete(ed: Ed): DeleteSlice {
-  const { api, info, mirror, setMessage, selection, feel, run, flashNote } = ed;
+  const { api, info, mirror, renderer, setMessage, selection, feel, run, flashNote } = ed;
 
   // ------------------------------------------------------------------------------ Delete (D288)
 
@@ -104,13 +104,15 @@ export function useDelete(ed: Ed): DeleteSlice {
     m.coverAt = out;
     return out;
   };
-  /** The corner tiles of the objects standing on these tiles that `kinds` names (D315, D323). */
+  /** The corner tiles of the objects standing on these tiles that `kinds` names (D315, D323); under the view's layer cut,
+   *  only those it shows (at or under it: a cave's floor's, never the roof's above it, as the core's `planRemove`). */
   function objectsOn(tiles: readonly number[], kinds: RemoveKind[] = ALL_KINDS): number[] {
     const e = mirror.current.entities;
     const at = coverAt();
+    const cut = renderer.current?.slice ?? null;
     const out = new Set<number>();
     for (const i of tiles)
-      for (const k of at.get(i) ?? []) if (removeTakes(kinds, e.templates[e.template[k]])) out.add(e.y[k] * info.W + e.x[k]);
+      for (const k of at.get(i) ?? []) if ((cut === null || e.z[k] <= cut) && removeTakes(kinds, e.templates[e.template[k]])) out.add(e.y[k] * info.W + e.x[k]);
     return [...out];
   }
   /** Delete everything of `kinds` standing on these tiles (every kind, the start too, by default), as
@@ -125,7 +127,7 @@ export function useDelete(ed: Ed): DeleteSlice {
     const W = info.W;
     const at = corners.length ? corners[0] : tiles[0];
     void run(
-      () => api.removeAt(tiles, kinds),
+      () => api.removeAt(tiles, kinds, renderer.current?.slice ?? null),
       (u) => u.ok && feel("remove", at % W, Math.floor(at / W)),
     );
     return true;

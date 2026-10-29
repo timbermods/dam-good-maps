@@ -119,7 +119,7 @@ export function useSelect(ed: Ed): SelectSlice {
     if (!deleteMenu) return setDeleteCounts(null);
     let live = true;
     const tiles = underCut(selection.current.tiles());
-    void api.objectsInArea(tiles).then((r) => live && setDeleteCounts(r));
+    void api.objectsInArea(tiles, renderer.current?.slice ?? null).then((r) => live && setDeleteCounts(r));
     return () => {
       live = false;
     };
@@ -573,9 +573,12 @@ export function useSelect(ed: Ed): SelectSlice {
     }
     const e = mirror.current.entities;
     const at = coverAt();
+    const cut = renderer.current?.slice ?? null;
     const out = new Set<number>();
     for (const i of tiles)
       for (const k of at.get(i) ?? []) {
+        // (under a cut, only what it shows: never an object on a roof above it)
+        if (cut !== null && e.z[k] > cut) continue;
         const g = deleteGroupOf(e.templates[e.template[k]]);
         if (g && (group === "everything" || g === group)) out.add(i);
       }

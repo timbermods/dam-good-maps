@@ -891,7 +891,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `cleared` tiles, D360 b). Under a layer cut (D207) Delete, its menu's counts and Select's actions take the tiles whose
   ground shows at or under the cut, a cave's floor under a roof that rises past it among them (the column's lowest run's
   top; `seenUnderCut`, `editor/shelf/aim.ts`): what stands on the floor is counted and taken, and the cave's ground is
-  left as it is (above). With no selection, Delete takes what the pointer is on: a source within its targeting
+  left as it is (above). What the cut hides stays: the core's `objectsIn` and `planRemove` take the cut and keep only
+  objects at or under it, and resource areas and submerged objects only on tiles whose top is at or under it. With no selection, Delete takes what the pointer is on: a source within its targeting
   range (D249) first, else the objects on the tile, else the ground. **Ctrl+A** or **Whole map** selects the whole
   map. The water the removed sources fed drains as its cause is gone (D260). **Clear everything** in the ⋯ menu
   removes every source, badwater source, tree, bush, ruin, object and the start in one undo step, leaving the

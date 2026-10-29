@@ -82,8 +82,8 @@ export const collabEditApi = {
     return order({ kind: "edit", ops: [p.op], label: p.op.op });
   },
 
-  async removeAt(tiles: readonly number[], kinds: readonly ed.RemoveKind[], label?: string): Promise<Answer & { removed: number[] }> {
-    const p = ed.planned.remove(tiles, kinds, label);
+  async removeAt(tiles: readonly number[], kinds: readonly ed.RemoveKind[], label?: string, cut?: number | null): Promise<Answer & { removed: number[] }> {
+    const p = ed.planned.remove(tiles, kinds, label, cut);
     const a = await edit(p);
     return { ...a, removed: a.ok && p.ok ? p.removed : [] };
   },

@@ -1801,7 +1801,7 @@ export const planned = {
   all: (ops: EditOp[]): EditOp[] => withSpringPools(need(), ops),
   tool: (req: ToolRequest, id: string): ToolPlan => planTool(req, id),
   plant: (template: string, tiles: readonly number[]) => planPlant(need(), template, tiles, () => crypto.randomUUID()),
-  remove: (tiles: readonly number[], kinds: readonly RemoveKind[], label?: string) => planRemove(need(), tiles, kinds, label),
+  remove: (tiles: readonly number[], kinds: readonly RemoveKind[], label?: string, cut?: number | null) => planRemove(need(), tiles, kinds, label, cut),
   paint: (params: PaintParams, z?: number) => planPaintObjects(need(), withLevels(params, z)),
   strokeClearing: (op: EditOp, label: string, tiles: readonly number[]) => planStrokeClearing(need(), op, label, tiles),
   move: (id: string, dx: number, dy: number, z?: number) => planMoveEntity(need(), id, dx, dy, z),
@@ -2232,13 +2232,14 @@ export function paintAt(params: PaintParams, z?: number): SessionUpdate & { plan
 }
 
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
- *  the ground (core/doc/remove.ts `planRemove`). The tiles the removed objects stood on. */
-export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[], label?: string): SessionUpdate & { removed: number[] } {
+ *  the ground (core/doc/remove.ts `planRemove`); under the view's layer cut (`cut`), only what it shows. The tiles the
+ *  removed objects stood on. */
+export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[], label?: string, cut?: number | null): SessionUpdate & { removed: number[] } {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return { ...changed(s, false, [blocked], t0), removed: [] };
-  const p = planRemove(s, tiles, kinds, label);
+  const p = planRemove(s, tiles, kinds, label, cut);
   if (!p.ok) return { ...changed(s, false, p.errors, t0), removed: [] };
   const r = s.applyAll(p.ops, "user", p.label);
   return { ...changed(s, r.ok, r.errors, t0), removed: r.ok ? p.removed : [] };
@@ -2249,9 +2250,10 @@ export function describeTileAt(x: number, y: number): TileDescription | null {
   return describeTileOf(need(), x, y);
 }
 
-/** What stands in `tiles`, by template, and how much of it is under water (D345, B5): Delete's menu. */
-export function objectsInArea(tiles: readonly number[]): { counts: Record<string, number>; submerged: Record<string, number> } {
-  return objectsIn(need(), tiles);
+/** What stands in `tiles`, by template, and how much of it is under water (D345, B5): Delete's menu; under the view's
+ *  layer cut (`cut`), only what it shows. */
+export function objectsInArea(tiles: readonly number[], cut?: number | null): { counts: Record<string, number>; submerged: Record<string, number> } {
+  return objectsIn(need(), tiles, cut);
 }
 
 /** What Remove unfed water would take within `tiles` (or on the whole map with none): its pools, tiles of water and the
