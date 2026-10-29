@@ -12,6 +12,8 @@ import { stackFixtures, inputBytes, runStackFixture, fixtureOutput, settleFixtur
 import { installNodeThreads, nodeThreadsReady, uninstallParallelWater } from './water-threads';
 import { withoutParallelWater } from '../../src/core/sim/parallel';
 import { canonicalStackRun, type StackSettle } from '../../src/core/sim/stackWater';
+import { StackLive } from '../../src/core/sim/stackLive';
+import type { WaterModel } from '../../src/core/sim/water';
 import { stackParallelStats } from '../../src/core/sim/stackParallel';
 const root = resolve(import.meta.dirname, '../..');
 const dir = process.env.DGM_STACK_LOCAL ?? join(root, '.scratch/stacked-water');
@@ -144,6 +146,62 @@ if (threads) {
             throw Error(c.name + ' differs on ' + threads + ' threads');
         if (stackParallelStats.ticks > before) ran++;
         console.log('PASS ' + c.name + ' canonical settle on one thread = on ' + threads + (stackParallelStats.ticks > before ? '' : ' (one thread: an open field, or the settle after a removal)') + '; ' + many.ticks + ' ticks');
+    }
+    // the live water (stackLive.ts): the journey after an edit, on from water already flowing, its flows' momentum
+    // taken into the strips and handed back at each check: on one thread and on several, the same water, momentum and
+    // frames at every check, on a map with a cave and every kind of emitter, the water poured on across the strips' edges
+    {
+        const W = 48, H = 48;
+        const mask = new Uint32Array(W * H);
+        for (let y = 0; y < H; y++)
+            for (let x = 0; x < W; x++) {
+                const ground = 4 + ((x * 7 + y * 3) % 5 === 0 ? 1 : 0) - (x > 30 && x < 40 ? 2 : 0);
+                mask[y * W + x] = ((1 << ground) - 1) | (x >= 14 && x < 26 ? 0b111 << 9 : 0);
+            }
+        const objects: number[] = [];
+        const kinds = [8, 9, 10, 11, 6];
+        for (let k = 0, y = 1; y < H - 2; y += 3, k++)
+            for (const x of [4 + (k % 3), 18 + (k % 4), 34]) objects.push(kinds[k % kinds.length], x, y, 32 - Math.clz32(mask[y * W + x] & 0x1ff), k % 4, k % 2, 0, kinds[k % kinds.length] === 6 ? 0 : 3);
+        const model = { W, H, stacked: { mask, objects: Float64Array.from(objects) } } as unknown as WaterModel;
+        const settled = withoutParallelWater(() => {
+            const run = canonicalStackRun(W, H, model.stacked!);
+            let s = run.advance(1e6);
+            while (!s) s = run.advance(1e6);
+            return s;
+        });
+        const N = W * H;
+        const depth = settled.depth.slice();
+        for (let i = 0; i < N; i++) {
+            const n = settled.count[i];
+            const c = (n - 1) * N + i;
+            if (n && i % W < 30 && settled.floor[c] + depth[c] + 1 <= settled.ceil[c]) depth[c] += 1;
+        }
+        const from = { ...settled, depth };
+        const one = new StackLive(model, from, settled, 4, false);
+        const many = new StackLive(model, from, settled, 4, true);
+        const before = stackParallelStats.ticks;
+        const same = (a: ArrayLike<number>, b: ArrayLike<number>) => a.length === b.length && Buffer.from(Float64Array.from(a).buffer).equals(Buffer.from(Float64Array.from(b).buffer));
+        let checks = 0;
+        for (let last = -Infinity; ; ) {
+            const d1 = one.advance(4);
+            const d2 = many.advance(4);
+            if (d1 !== d2 || one.ticks !== many.ticks) throw Error('the live water runs differently on ' + threads + ' threads at tick ' + one.ticks);
+            if (one.ticks - last >= 12 || d1) {
+                last = one.ticks;
+                const fa = one.frame(), fb = many.frame();
+                if (!same(fa.depth, fb.depth) || !same(fa.contamination, fb.contamination) || !same(fa.flows, fb.flows)) throw Error('a frame of the live water differs on ' + threads + ' threads at tick ' + one.ticks);
+            }
+            if (one.ticks % 128 === 0 || d1) {
+                const a = one.state(), b = many.state();
+                if (!same(a.depth, b.depth) || !same(a.overflow, b.overflow) || !same(a.contamination, b.contamination) || !same(a.edges!.out, b.edges!.out)) throw Error('the live water differs on ' + threads + ' threads at tick ' + one.ticks);
+                checks++;
+            }
+            if (d1 || one.ticks >= 2048) break;
+        }
+        one.close();
+        many.close();
+        if (stackParallelStats.ticks === before) throw Error('the live water never ran on threads');
+        console.log('PASS the live water on one thread = on ' + threads + ', its momentum handed over at ' + checks + ' checks; ' + one.ticks + ' ticks');
     }
     uninstallParallelWater();
     if (!ran) throw Error('the threads never ran');

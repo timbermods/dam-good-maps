@@ -13,6 +13,7 @@
 
 import type { WaterColumns } from "./columns";
 import { PREVIEW_JOB_DAYS } from "./preview";
+import { STACK_CHECK_TICKS, stackThreads, type StackThreads } from "./stackParallel";
 import { columnFlows, loadStack, retainedRows, staleStack, STACK_FIELD, STACK_INFO, STACK_OP, StackWater, type StackSettle } from "./stackWater";
 import { sameRetained, type WaterModel } from "./water";
 
@@ -100,6 +101,13 @@ export class StackLive {
   private objects: Float64Array;
   private readonly kept: number[];
   private finished = false;
+  /** On several threads (stackParallel.ts, `flowing`) where this thread has a pool, decided at the first run after each
+   *  load (undefined), null on one; `since`, the ticks the strips ran since the run's last check, when the whole map's
+   *  engine takes their water back with its momentum and checks it (`sync`, `elsewhere`), as the canonical settle's do. */
+  private threads: StackThreads | null | undefined;
+  private since = 0;
+  /** Whether the strips have written their rows back since they last ran (they do only when asked: a check, a frame). */
+  private reported = true;
 
   /** The water of `model` (a map with caves or overhangs) from `from`: water on the same map, on its columns or on
    *  the columns it had before an edit (carried over, `carryStack`), its flows' momentum with it (`LiveStack.edges`);
@@ -112,6 +120,9 @@ export class StackLive {
     flows: StackSettle | null = null,
     /** The most game days the water runs on while it still moves (the preview's, preview.ts). */
     private readonly days: number = PREVIEW_JOB_DAYS,
+    /** The journey after an edit runs on several threads where there is a pool (a stroke's draft, built again as its
+     *  ground changes, stays on one). */
+    private readonly parallel = false,
   ) {
     const t = model.stacked;
     if (!t) throw new Error("The map has no caves or overhangs.");
@@ -151,6 +162,9 @@ export class StackLive {
 
   /** `from` carried over to the engine's columns, written in with its flows' momentum, and the run on from it begun. */
   private load(from: LiveStack, flows: StackSettle | null = null): void {
+    this.threads?.free();
+    this.threads = undefined;
+    this.since = 0;
     loadStack(this.m, this, true, carryStack(from, this));
     const out = this.m.view(STACK_FIELD.momentum) as Float64Array;
     if (from.edges) this.carryMomentum(from.edges, out);
@@ -238,11 +252,63 @@ export class StackLive {
   /** Run at most `ticks` more; true once the water stands still (the canonical settle's test) or its days ran out. */
   advance(ticks: number): boolean {
     if (this.finished) return true;
-    const before = this.m.info(STACK_INFO.ticks);
-    this.m.op(STACK_OP.advance, Math.max(0, Math.floor(ticks)));
-    this.ticks += this.m.info(STACK_INFO.ticks) - before;
-    if (this.m.info(STACK_INFO.settle) !== 0) this.finished = true;
+    const m = this.m;
+    let left = Math.max(0, Math.floor(ticks));
+    if (this.threads === undefined)
+      this.threads = this.parallel && m.info(STACK_INFO.settle) === 0 && m.info(STACK_INFO.maxTicks) % STACK_CHECK_TICKS === 0 ? stackThreads(m, this.W, this.H, this.mask, this.objects, true)?.watch(this) ?? null : null;
+    while (this.threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
+      const n = Math.min(left, STACK_CHECK_TICKS - this.since);
+      const check = this.since + n === STACK_CHECK_TICKS;
+      if (!this.threads.run(n, check)) {
+        this.single();
+        break;
+      }
+      left -= n;
+      this.since += n;
+      this.ticks += n;
+      this.reported = check;
+      if (check) {
+        this.threads.sync(m);
+        m.op(STACK_OP.elsewhere, this.since);
+        this.since = 0;
+      }
+    }
+    if (!this.threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
+      const before = m.info(STACK_INFO.ticks);
+      m.op(STACK_OP.advance, left);
+      this.ticks += m.info(STACK_INFO.ticks) - before;
+    }
+    if (m.info(STACK_INFO.settle) !== 0) {
+      this.finished = true;
+      this.threads?.free();
+      this.threads = null;
+    }
     return this.finished;
+  }
+
+  /** The strips' water since the run's last check, into the whole map's engine, its momentum with it: before it is read. */
+  private gather(): void {
+    if (this.threads && this.since > 0 && this.report()) this.threads.sync(this.m);
+  }
+
+  /** The strips' rows written back, if they ran since they last were; false when a thread failed (on one thread then). */
+  private report(): boolean {
+    if (!this.threads || this.reported) return !!this.threads;
+    if (this.threads.run(0, true)) {
+      this.reported = true;
+      return true;
+    }
+    this.single();
+    return false;
+  }
+
+  /** A thread failed (the pool is given up): the run goes on on one thread, from the water as the strips last handed it
+   *  back (a few ticks back). */
+  private single(): void {
+    this.threads = null;
+    this.since = 0;
+    this.load(this.state());
+    this.threads = null;
   }
 
   /** Whether the water stands still (or ran out of days). */
@@ -253,6 +319,7 @@ export class StackLive {
   /** The water as it stands, every column (copies), with its flows' momentum: a `StackSettle` that is not a settle,
    *  never written to a file. */
   state(): LiveStack {
+    this.gather();
     return { ...this.water(), edges: { start: this.start, target: this.target, dir: this.dir, floor: this.floor, out: this.m.copy(STACK_FIELD.momentum) as Float64Array } };
   }
 
@@ -278,6 +345,9 @@ export class StackLive {
 
   /** The water as it stands, to show (`StackFrame`; its stack without the momentum: `state` carries that). */
   frame(): StackFrame {
+    // (between checks on several threads, the strips' water and outflows; their momentum stays theirs till asked for)
+    const strips = this.threads && this.since > 0 && this.report() ? this.threads : null;
+    strips?.write(this.m);
     const stack = this.water();
     const N = this.N;
     const depth = new Float64Array(N);
@@ -289,10 +359,12 @@ export class StackLive {
       depth[i] = stack.depth[c];
       contamination[i] = stack.contamination[c];
     }
-    return { stack, depth, contamination, flows: columnFlows(this.m, true) };
+    return { stack, depth, contamination, flows: strips ? strips.flows() : columnFlows(this.m, true) };
   }
 
   close(): void {
+    this.threads?.free();
+    this.threads = null;
     this.m.close();
   }
 }
