@@ -16,14 +16,18 @@ no deadline: quality decides, never a date.
 
 - **The milestone session**: the core, the water and the generator; it hands out decision numbers.
 - **The renderer session** ("forces play", worktree `DamGoodMaps-forces-play`): `src/render3d`, the look and the moving water.
-- **The planning session**: this order, the page (`src/editor`, `src/ui`; the page session is stopped), releases, in-game
-  proof (probe batches, D117, D218, D483) and the builders it starts for the pieces it assigns.
+- **The planning session**: this order, the page (`src/editor`, `src/ui`; the page session is stopped), releases and the
+  builders it starts for the pieces it assigns.
 
 Messages go on the Coordination issue (#236, D470) and directly between sessions; decisions are in `docs/decisions/`.
 
 **What the editor is for, from first principles:** turning what a player imagines into a world that plays and looks
-magnificent in Timberborn. There are five steps: get a great map at once, understand it, make it yours, trust it, play it.
-The waves below each close the weakest of those steps.
+magnificent in Timberborn. There are four steps: get a great map at once, understand it, make it yours, play it. The waves
+below each close the weakest of those steps.
+
+**Work is what changes what a player gets** (Kyler, 2026-10-29). Verifying is not progress. The export is proven: hundreds
+of maps have loaded on several machines. Probe batches, re-runs and audits of what already works don't run by routine,
+only where an implementation looks wrong.
 
 **Wave 1, now**
 - **Maps as the game shows them** (milestone):
@@ -46,13 +50,10 @@ The waves below each close the weakest of those steps.
   - the first Erode's freeze;
   - a calm placement outline;
   - then the look audit's smaller items.
-- **In-game proof:** probe batches run again (the hold was lifted 2026-10-29). The first plays what shipped unplayed since
-  10-25.
 - **Showcase maps made by hand** with the editor, to find what the tools can't yet do.
 
 **Wave 2**
 - **Judging by looks:** Showcase mode and the audits rank maps rendered from the game's camera, not by text alone.
-- **In-game proof built in:** a probe batch for each release and each showcase map, its results in STATUS.
 - **Generation's seconds per map** (the parked draft #672; D453).
 
 **Wave 3**
