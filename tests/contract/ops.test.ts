@@ -88,7 +88,7 @@ describe("invalid operations are rejected with a reason and change nothing", () 
     ["cells outside the map", { op: "sculpt", params: { mode: "raise", cells: [[100, 0, 3]], amount: 1 } }, /outside the 96×96 map/],
     ["a feature that does not exist", { op: "updateFeature", params: { id: "f-aaaaaaaaaaaaa", patch: { locked: true } } }, /does not exist/],
     ["entities that do not exist", { op: "deleteEntities", params: { entities: ["11111111-2222-4333-8444-555555555555"] } }, /do not exist/],
-    ["a slope that is not there", { op: "removeSlope", params: { x: 0, y: 0 } }, /no slope at \(0, 0\)/],
+    ["a slope that is not there", { op: "removeSlope", params: { x: 0, y: 0 } }, /no slope at X 0 · Y 0/],
     ["deleting a river others build on", { op: "deleteFeature", params: { id: river.id } }, /build on it/],
     ["a second start", { op: "addFeature", params: { feature: { ...start, id: USER, origin: "user" } } }, /already has its start/],
     ["a feature claiming to be generated", { op: "addFeature", params: { feature: { ...forest, id: USER } } }, /only the generator/],

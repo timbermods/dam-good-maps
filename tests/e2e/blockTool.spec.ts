@@ -391,7 +391,7 @@ test("inside a selected area a quick click outside it changes nothing, its note 
   const note = page.locator(".shape-note.error");
   await expect(note).toContainText("outside the selection");
   const refused = (await block(page)).preview!;
-  expect(refused.reason, "the core's own reason").toMatch(/^\(\d+, \d+\) is outside the selection$/);
+  expect(refused.reason, "the core's own reason").toMatch(/^X \d+ · Y \d+ is outside the selection$/);
   expect(refused.added.length + refused.removed.length, "nothing drawn for a refused click").toBe(0);
 
   // a size flash beside the pointer neither clears the note nor is cleared by it, and the note stays after the flash ends
