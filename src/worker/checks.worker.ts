@@ -9,15 +9,39 @@ import { expose } from "comlink";
 // worker costs next to nothing while the first map opens (D367).
 const session = () => import("./checksReplica");
 
+/** The water's threads for the canonical settle (src/core/sim/parallel.ts), from the budget the page shares with the
+ *  editor's worker: made once, when the first map is followed (its helpers ready by its first edit's check), and kept
+ *  warm for the session (helpers this worker starts itself). */
+let waterBudget: SharedArrayBuffer | null = null;
+let waterPool: Promise<void> | null = null;
+const waterThreads = () =>
+  (waterPool ??= waterBudget
+    ? import("../core/sim/parallel").then((p) => {
+        p.shareWaterBudget(waterBudget!);
+        p.installParallelWater({ spawn: () => new Worker(new URL("./waterStrip.worker.ts", import.meta.url), { type: "module" }) });
+        // (a test hook, tests/e2e/isolation.spec.ts: the threads ready, and the ticks they ran)
+        void import("../core/sim/stackParallel").then((q) => Object.assign(self, { dgmWater: () => ({ threads: p.parallelWaterThreads(), ticks: p.parallelWaterStats.ticks, stackTicks: q.stackParallelStats.ticks }) }));
+      })
+      // (no threads, then: the settle runs on one, as before)
+      .catch(() => undefined)
+    : Promise.resolve());
+
 const api = {
-  follow: async (p: import("./session").FollowPayload) => (await session()).follow(p),
-  check: async (version: number, onProgress?: (p: import("./session").CheckProgress) => void) => (await session()).replicaCheck(version, onProgress),
+  follow: async (p: import("./session").FollowPayload) => {
+    void waterThreads();
+    return (await session()).follow(p);
+  },
+  check: async (version: number, onProgress?: (p: import("./session").CheckProgress) => void) => {
+    await waterThreads();
+    return (await session()).replicaCheck(version, onProgress);
+  },
 };
 
 export type ChecksApi = typeof api;
 
 // the page sends the port the editor's worker talks on
 self.addEventListener("message", (e: MessageEvent) => {
-  const port = (e.data as { checksPort?: MessagePort } | null)?.checksPort;
-  if (port) expose(api, port);
+  const data = e.data as { checksPort?: MessagePort; waterBudget?: SharedArrayBuffer | null } | null;
+  if (data?.waterBudget) waterBudget = data.waterBudget;
+  if (data?.checksPort) expose(api, data.checksPort);
 });

@@ -306,6 +306,12 @@ export function stackThreads(whole: StackWater, W: number, H: number, mask: Uint
   let T = Math.min(most, pool.threads());
   if (!forced) T = Math.min(T, Math.floor(wet / WET_PER_THREAD));
   if (T < 2) return null;
+  // (settles a newer edit replaced go first, their threads back in the budget; then this one's are taken from the budget
+  // the page's workers share, the live water's at most half of it)
+  while (live.length >= MOST_LIVE) live[0].free();
+  const held = pool.take(T, flowing);
+  if (held < 2) return null;
+  T = held;
   // each row's work: its water and its neighbours' (a strip runs the columns beside its water too), and a
   // little for the row itself
   const weight = new Float64Array(H);
@@ -376,15 +382,15 @@ export function stackThreads(whole: StackWater, W: number, H: number, mask: Uint
       at += len;
     }
   }
-  while (live.length >= MOST_LIVE) live[0].free();
   const job: StackJob = { W, H, L, mask, objects, strips, down, up, reachAt, flowsAt, length: at, ...(seeds ? { seeds: seeds.map((x) => x.block), owns } : {}) };
   const f = new Float64Array(new SharedArrayBuffer(8 * job.length));
   const fields = [STACK_FIELD.depth, STACK_FIELD.overflow, STACK_FIELD.contamination];
   for (let q = 0; q < 3; q++) f.set((whole.view(fields[q]) as Float64Array).subarray(0, L * N), q * L * N);
   for (const x of seeds ?? []) f.set(x.v, x.block.at);
   try {
-    return new StackThreads(pool, job, f);
+    return new StackThreads(pool, job, f, held);
   } catch {
+    pool.give(held);
     return null;
   }
 }
@@ -402,6 +408,8 @@ export class StackThreads {
     private readonly pool: NonNullable<ReturnType<typeof sharedPool>>,
     private readonly job: StackJob,
     private readonly f: Float64Array,
+    /** The budget's threads it holds (`take`), given back when freed. */
+    private readonly held: number,
   ) {
     this.own = new StackStrip(job, f, 0);
     live.push(this);
@@ -489,6 +497,7 @@ export class StackThreads {
     if (this.freed) return;
     this.freed = true;
     finalizer?.unregister(this);
+    this.pool.give(this.held);
     const k = live.indexOf(this);
     if (k >= 0) live.splice(k, 1);
     this.own.free();

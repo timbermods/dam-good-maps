@@ -432,10 +432,11 @@ export class MapSession {
   /** The canonical settle of the current map's water, in slices (`advance`), for `adoptWater`. On a
    *  map with caves an edit that left the water provably as it was settles at once (`lastSettled`,
    *  sim/stackWater.ts `settledAgain`). */
-  canonicalRun(): { model: WaterModel; advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+  canonicalRun(): { model: WaterModel; advance(ticks: number): CanonicalWater | null; free(): void; readonly ticks: number; readonly maxTicks: number } {
     const model = this.cur.waterModel;
     const run = canonicalRun(model, {}, this.lastSettled());
-    return { model, advance: (t) => run.advance(t), get ticks() { return run.ticks; }, get maxTicks() { return run.maxTicks; } };
+    // (`free`: a run dropped half way gives its water threads back at once)
+    return { model, advance: (t) => run.advance(t), free: () => run.free?.(), get ticks() { return run.ticks; }, get maxTicks() { return run.maxTicks; } };
   }
 
   /** Put the canonical settle of `model` in place of the preview's water. False when the map

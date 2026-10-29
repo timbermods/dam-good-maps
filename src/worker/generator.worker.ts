@@ -19,7 +19,7 @@ import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, typ
 import * as ed from "./session";
 import { collabActive, collabApi } from "./collab";
 import { collabEditApi } from "./collabEdit";
-import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
+import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper, shareWaterBudget } from "../core/sim/parallel";
 import { stackParallelStats } from "../core/sim/stackParallel";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
@@ -211,7 +211,9 @@ const api = {
   /** The water's helper threads (src/core/sim/parallel.ts), started by the page (platform/index.ts) so they start
    *  while this worker is busy: its water runs on several threads where that helps. More are started from here
    *  for bigger maps. The page sends them before anything else; the background search's worker gets none. */
-  waterHelpers(ports: MessagePort[]) {
+  waterHelpers(ports: MessagePort[], budget?: SharedArrayBuffer) {
+    // (the budget shared with the checks' worker, platform/index.ts)
+    if (budget) shareWaterBudget(budget);
     installParallelWater({
       helpers: ports.map(portHelper),
       spawn: () => new Worker(new URL("./waterStrip.worker.ts", import.meta.url), { type: "module" }),

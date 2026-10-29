@@ -44,6 +44,15 @@ export function waterThreadBudget(cores: number): number {
   return Math.max(1, Math.min(MAX_THREADS, Math.max(Math.min(3, cores - 1), cores - meshWorkersFor(cores) - 2)));
 }
 
+/** A budget of `threads` water threads the page shares between its workers (parallel.ts `shareWaterBudget`): free, total. */
+export function newWaterBudget(threads: number): SharedArrayBuffer {
+  const sab = new SharedArrayBuffer(8);
+  const b = new Int32Array(sab);
+  b[0] = threads;
+  b[1] = threads;
+  return sab;
+}
+
 /** Whether this thread can run the water on several: a worker on a cross-origin isolated page in Chromium or
  *  Firefox (WebKit stays on one thread, #130). `page`: whether the page's own thread may start helpers for its
  *  worker (it can't wait for them itself). */
