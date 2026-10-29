@@ -400,7 +400,8 @@ export function useSelect(ed: Ed): SelectSlice {
     for (const i of selection.current.tiles()) if (at < 0 || h[i] < h[at]) at = i;
     return at < 0 ? null : [at % W, Math.floor(at / W)];
   }
-  const daysWords = (d: number) => (d < 1 ? "less than a day" : `about ${Math.round(d).toLocaleString("en-GB")} ${Math.round(d) === 1 ? "day" : "days"}`);
+  // (short enough for Select's cells on any system font: the days are an estimate, said without "about")
+  const daysWords = (d: number) => (d < 1 ? "under a day" : `${Math.round(d).toLocaleString("en-GB")} ${Math.round(d) === 1 ? "day" : "days"}`);
   /** Why a Fill can't be made, in a few words (the core's reason names a tile and a level). */
   function fillWhy(reason: string): string {
     if (/at or below the ground/.test(reason)) return "Raise the Level to fill";
@@ -691,7 +692,7 @@ export function useSelect(ed: Ed): SelectSlice {
               type="button"
               class="set-button"
               aria-disabled={z ? undefined : "true"}
-              {...tip("Fill the hollow with water to the brim, or to a Level you set")}
+              {...tip("Fill the hollow with water to the brim or the Level")}
               onMouseEnter={previewFill}
               onFocus={previewFill}
               onMouseLeave={endWaterHint}
