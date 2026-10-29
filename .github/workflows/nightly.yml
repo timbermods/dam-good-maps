@@ -5,7 +5,9 @@ name: Nightly
 # vitest.config.ts, tests/contract/everySetting.ts), the full Python oracle, the full cross-engine
 # determinism list on each CPU and OS of the matrix, and the 100-seed pass-rate
 # batches (final ≥ 98%: a seed that makes no map is breakage, PLAN §20 D145; the first-attempt
-# rate is information, against its 60% target), and Real places' data matching a fresh build. Runs
+# rate is information, against its 60% target), Real places' data matching a fresh build, and the
+# first-visit maps as the deploy builds them (tools/first-visit-maps.ts, which no other run builds:
+# the deploy of high-look-fix-done stopped there, #652). Runs
 # every night on dev's tip, by hand (gh workflow run nightly.yml --ref dev), and on a pull request
 # that changes this file. A failure of the nightly or hand-started run opens an issue labelled
 # "nightly", or comments on the open one.
@@ -92,6 +94,8 @@ jobs:
       - run: pip install -r prototype/requirements.txt
       - name: Python oracle (load checks, round trip, validator parity; seeds 1-21, every theme and Any)
         run: npm run oracle -- --seeds 1-21 --sizes 96,128,256
+      - name: First-visit maps, as the deploy builds them (one per theme, each through the Python load checks)
+        run: npx tsx tools/first-visit-maps.ts
 
   batches:
     runs-on: ubuntu-latest
