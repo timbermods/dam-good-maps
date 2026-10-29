@@ -1615,7 +1615,12 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
             vec2 q2 = g * 1.6 + vec2(sin(g.y * 0.5), sin(g.x * 0.43)) * 1.5;
             vec2 sl = ripple(q2, t * slow) + 0.6 * ripple(q2 * 1.9 + 7.0, t * 1.3 * slow);
-            glints = fine * smoothstep(0.8, 0.9, vnoise(g * 17.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(g * 13.0 - vec2(t * 0.3, t * 0.7)) * 1.6);
+            // small glints (D154): a few to a tile, each a few pixels across, gathered in the patches of
+            // ripples that catch the sun, not a static of specks all over (gone where a glint would be
+            // under two pixels)
+            float sparkle = 1.0 - smoothstep(0.035, 0.08, fwidth(g.x));
+            float sunPatch = smoothstep(0.4, 0.75, vnoise(g * 0.45 + vec2(t * 0.03, -t * 0.02)));
+            glints = sparkle * sunPatch * smoothstep(0.84, 0.93, vnoise(g * 9.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(g * 7.1 - vec2(t * 0.3, t * 0.7)) * 1.6);
             // the foam and pale streaks move with the water's current (D353): drawn at two points
             // carried back along it, each fading in as the other is carried furthest, so neither is
             // seen to start again; still water draws them where they are, as always
