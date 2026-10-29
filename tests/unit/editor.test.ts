@@ -126,6 +126,12 @@ describe("the sources (D196)", () => {
     expect(feedingGroups(water, groups, W, H, 40, 10)).toEqual([1]);
     // dry ground: none
     expect(feedingGroups(water, groups, W, H, 30, 40)).toBeNull();
+    // a roof over the river (its top above the water's floor, the water in a cave under it): the pointer is on dry
+    // ground, so nothing feeds it; beside the roof the river still finds its sources
+    const roofed = heights.slice();
+    roofed[20 * W + 20] = 12;
+    expect(feedingGroups(water, groups, W, H, 20, 20, undefined, roofed)).toBeNull();
+    expect(feedingGroups(water, groups, W, H, 21, 20, undefined, roofed)).toEqual([0]);
   });
 });
 
