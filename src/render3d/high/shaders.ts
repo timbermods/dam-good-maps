@@ -219,15 +219,12 @@ export function terrainHooks(): ShaderHooks {
     // under a roof, the soft shadow of the real meshes, the roof included, as on the ground before it
     // (off: the march through the light volume)
     caveSun: "hlShadows > 0.5 ? sunHere : caveSunMarch(vWorld, n, cave.y)",
-    // under a roof, the occlusion of the open ground at the roof line its light comes in by, never more
-    // than here
+    // under a roof, the sun of the open ground at the roof line its light comes in by
     caveSunOpen: "hlShadows > 0.5 ? hlSunAt(mouth.xyz) : sunLit(vec2(mouth.x, -mouth.z), mouth.y)",
+    // under a roof, the occlusion its mouths' ground takes, all the way in (caveLight.ts B: the field itself reads the
+    // roof's top there)
     caveSky: /* glsl */ `
-        if (hlAO > 0.5) {
-          float av = ambientVisibility(vWorld, n);
-          if (mouth.w > 0.5) av = min(av, ambientVisibility(mouth.xyz, vec3(0.0, 1.0, 0.0)));
-          sky *= av;
-        }`,
+        if (hlAO > 0.5) sky *= cave.w;`,
     // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
     // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
     moist: "hlBlend > 0.5 ? smoothstep(0.36, 0.64, s.x + edge) : smoothstep(0.42, 0.58, s.x + edge)",
