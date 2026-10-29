@@ -1137,6 +1137,19 @@ export class ForceEffects {
     return this.impact.active || this.rupture.active || this.plume.active || this.glacier.active || this.wear.active;
   }
 
+  /** The moments' own shader materials (Erode's dust and stones, Erupt's puffs, Glaciate's ice), each drawn by its
+   *  mesh in the scene (hidden until its force plays): the renderer compiles their programs ahead (programs.ts), so a
+   *  force's first moment never waits on its compile (D453; the first Erode on a page held a frame 265–435 ms). */
+  shaderMaterials(): ShaderMaterial[] {
+    const out = new Set<ShaderMaterial>();
+    for (const g of [this.impact.group, this.rupture.group, this.plume.group, this.glacier.group, this.wear.group])
+      g.traverse((o) => {
+        const m = (o as Mesh).material;
+        for (const x of Array.isArray(m) ? m : m ? [m] : []) if ((x as ShaderMaterial).isShaderMaterial) out.add(x as ShaderMaterial);
+      });
+    return [...out];
+  }
+
   private kick(): void {
     if (!this.frame) this.frame = requestAnimationFrame(this.tick);
   }
