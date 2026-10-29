@@ -39,10 +39,33 @@ async function hold(hazard: Hazard, day: number | null): Promise<DayEvent> {
   return got!;
 }
 
+/** The ground's heights and the tiles with a cave or an overhang, for the water seen from above (set once the map
+ *  is open). */
+let heights: ArrayLike<number> = [];
+let caved = new Set<number>();
+
+/** A day's water per tile as the views read it: on a map with caves or overhangs (D488 grows them at the default
+ *  Verticality too) the water seen from above, the column standing on a caved tile's top (stackWater.ts
+ *  `surfaceWater`), a cave's pool under its roof not; elsewhere the one column a tile has. */
+function seen(w: WaterView): { depth: Float64Array; contamination: Float64Array } {
+  const at: number[][] = Array.from({ length: W * W }, () => []);
+  for (let k = 0; k < w.count; k++) at[w.tile[k]].push(k);
+  const depth = new Float64Array(W * W);
+  const contamination = new Float64Array(W * W);
+  at.forEach((ks, i) => {
+    const k = caved.has(i) ? ks.filter((q) => w.floor[q] === heights[i]).at(-1) : ks[0];
+    if (k === undefined) return;
+    depth[i] = w.depth[k];
+    contamination[i] = w.contamination[k];
+  });
+  return { depth, contamination };
+}
+
 /** The tiles holding water in a day's water as the page is sent it. */
 function wetOf(w: WaterView): Uint8Array {
   const wet = new Uint8Array(W * W);
-  for (let k = 0; k < w.count; k++) if (w.depth[k] > WATER_BODY) wet[w.tile[k]] = 1;
+  const d = seen(w).depth;
+  for (let i = 0; i < W * W; i++) if (d[i] > WATER_BODY) wet[i] = 1;
   return wet;
 }
 
@@ -66,7 +89,8 @@ function expectedBad(days: WaterView[]): Int16Array {
   const out = new Int16Array(W * W);
   const bad = (w: WaterView) => {
     const b = new Uint8Array(W * W);
-    for (let k = 0; k < w.count; k++) if (badWater(w.depth[k], w.contamination[k])) b[w.tile[k]] = 1;
+    const v = seen(w);
+    for (let i = 0; i < W * W; i++) if (badWater(v.depth[i], v.contamination[i])) b[i] = 1;
     return b;
   };
   const clean = bad(days[0]).map((v) => 1 - v);
@@ -87,6 +111,9 @@ beforeAll(async () => {
   await runGenerate(makeSpec({ seed: 4, theme: "lakeBasin", size: { x: W, y: W } }));
   ed.setAutoWater(false);
   ed.refine();
+  const v = ed.sessionView().view;
+  heights = v.heights;
+  caved = new Set(v.columns.tiles);
 });
 
 afterEach(() => {
@@ -102,6 +129,10 @@ it("a drought's days say when each tile's water goes, read from the days the vie
   expect(last.firstDry, "the last day carries the first dry days").toBeInstanceOf(Int16Array);
   expect(last.firstDry!.length).toBe(W * W);
   expect(last.firstDryThrough).toBe(days);
+  // (and the day the start's water goes, D133's line: worked out through the same days)
+  expect(last.startWaterThrough).toBe(days);
+  expect(last.startWaterDay!).toBeGreaterThanOrEqual(0);
+  expect(last.startWaterDay!).toBeLessThanOrEqual(days);
   // every day the view shows, Day 0 the map's own water: each carries the same first dry days, through the default length
   const shown: WaterView[] = [];
   for (let d = 0; d <= days; d++) {
@@ -141,6 +172,7 @@ it("a badtide's days say when each tile's water turns bad, read from the days th
   expect(last.firstBad, "the last day carries the first bad days").toBeInstanceOf(Int16Array);
   expect(last.firstBad!.length).toBe(W * W);
   expect(last.firstBadThrough).toBe(days);
+  expect(last.startWaterThrough).toBe(days);
   expect(last.firstDry).toBeUndefined();
   const shown: WaterView[] = [];
   for (let d = 0; d <= days; d++) {

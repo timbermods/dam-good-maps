@@ -48,7 +48,8 @@ export async function startHintUp(page: Page) {
 export async function openLayoutMap(page: Page) {
   await page.goto("./#s=4242&z=96&d=n&t=riverValley");
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
-  await page.locator(".map-note button").first().click().catch(() => undefined);
+  // (the first hints' own close: their first button is "Help and keys" now)
+  await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
   await expect(page.locator(".checks-dot .dot-words > :first-child")).toHaveText("Ready to play", { timeout: 120_000 });
 }
 

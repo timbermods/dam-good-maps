@@ -1,5 +1,6 @@
 // The top bar: the brushes, the forces, Select and the row beneath them.
 
+import { showHelpPanel } from "../help/helpPanels";
 import { FirstRun, saveFirstRun, type FirstStep } from "../FirstRun";
 import type { EditorProps } from "../Editor";
 import { TopBar } from "../TopBar";
@@ -49,6 +50,7 @@ export function topBar(ed: Ed, props: EditorProps) {
       hints={
         <FirstRun
           done={firstRun}
+          onHelp={() => showHelpPanel("help")}
           onClose={() => {
             const all = new Set<FirstStep>(["paint", "place", "water"]);
             saveFirstRun(all);

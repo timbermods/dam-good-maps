@@ -24,13 +24,15 @@ describe("the flow over a fall's lip, with the settle's outflows", () => {
   // plateau moved every map from 128² up: Highlands 5's edge lip is at (27, 0) (at (37, 127) before the
   // round's fixes for Kyler's look) and Canyon 2 holds none, Canyon 5 one at (0, 18), still the only one
   // in Canyon's seeds to 20 after Canyon's gorge and lakes for Kyler's second look; at (96, 0) since the
-  // opening shot, D493, whose start moved the map's water, D148)
+  // opening shot, D493, whose start moved the map's water; Canyon 5 holds none since generator 0.10.5 (a land whose
+  // planned water leaves no start looks again), Canyon 2 holds one at (31, 0) again, D148)
   it.each([
     ["highlands", 5, [27, 0]],
-    ["canyon", 5, [96, 0]],
+    ["canyon", 2, [31, 0]],
   ] as [ThemeId, number, [number, number]][])("%s %i: every lip, the map's edge included, pours the settle's outflow", (theme, seed, [ex, ey]) => {
     const W = 128;
-    const b = generate(makeSpec({ seed, theme, size: { x: W, y: W } })).built;
+    // (the heightfield's falls: the map without its 3D forms, D488, whose water under a roof is the stacked engine's)
+    const b = generate(makeSpec({ seed, theme, size: { x: W, y: W } }), { forms: false }).built;
     const out = b.settle.out!;
     const view = waterFromDepth(b.heights, b.water, b.contamination);
     view.outflow = outflowsOf(view, W, W, out)!;

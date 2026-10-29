@@ -59,6 +59,17 @@ describe("3D forms on hand-made land (D488)", () => {
       expect(i % W).toBeGreaterThanOrEqual(16);
     }
     expect(g.forms[0].tiles.length).toBeGreaterThanOrEqual(4);
+    // worn, not a box: its hollow is not one height and one depth all along (its ends taper into the
+    // face, its roof wanders), so it reads as rock, not a doorway
+    const hollow = (i: number) => {
+      let z = 5;
+      while (!(g.mask[i] & (1 << z))) z++;
+      return z - 5;
+    };
+    const tiles = g.forms[0].tiles;
+    const rows = new Map<number, number>();
+    for (const i of tiles) rows.set(Math.floor(i / W), (rows.get(Math.floor(i / W)) ?? 0) + 1);
+    expect(new Set([...tiles.map(hollow)]).size + new Set(rows.values()).size).toBeGreaterThan(2);
   });
 
   it("an arch spans a narrow gorge at its rims' level, the river running under it", () => {
@@ -74,7 +85,11 @@ describe("3D forms on hand-made land (D488)", () => {
       // over air: the gorge's floor stays where it was, and the arch's underside 2 or more over the water
       expect(bottomRunTop(g.mask[i])).toBe(3);
       expect(isPlainMask(g.mask[i])).toBe(false);
+      // over the river (0.6 deep on the floor at 3: its surface in the layer under 4), the rock's
+      // underside stands 2 or more layers over the water: nothing solid from layer 3 to layer 5
+      if (inp.water[i] > 0.1) for (let z = 3; z < 6; z++) expect(g.mask[i] & (1 << z)).toBe(0);
     }
+    expect(deck.some((i) => inp.water[i] > 0.1)).toBe(true);
     // its spine: a row along the crossing, whole at the rims' level from one rim to the other
     const rows = new Map<number, number>();
     for (const i of deck) if (surfaceOfMask(g.mask[i]) === 12) rows.set(Math.floor(i / W), (rows.get(Math.floor(i / W)) ?? 0) + 1);

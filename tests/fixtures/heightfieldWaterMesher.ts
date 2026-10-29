@@ -35,7 +35,7 @@ class WaterBuffer {
     }
     this.quads++;
   }
-  finish(): WaterMeshData {
+  finish(): HeightfieldWaterMesh {
     const n = this.quads;
     const indices = new Uint32Array(n * 6);
     for (let q = 0; q < n; q++) {
@@ -47,7 +47,10 @@ class WaterBuffer {
   }
 }
 
-export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, cx: number, cy: number): WaterMeshData {
+/** A chunk's water as the mesher drew it then (the layer cut's per-vertex columns came later: cutWater.ts). */
+export type HeightfieldWaterMesh = Omit<WaterMeshData, "cut">;
+
+export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, cx: number, cy: number): HeightfieldWaterMesh {
   const b = new WaterBuffer();
   const x0 = cx * CHUNK;
   const y0 = cy * CHUNK;

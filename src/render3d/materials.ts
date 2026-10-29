@@ -71,6 +71,7 @@ import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { CAVE_SKY_FLOOR, LIGHT_LEVELS, type CaveLight } from "./caveLight";
+import { CUT_SLACK } from "./cutWater";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 
 const az = LIGHT.sunAzimuth;
@@ -508,6 +509,10 @@ export interface ShaderHooks {
   groundTop?: string;
   /** The crimson the ground takes under a badwater film (a vec3; waterPalette.ts WATER_FILM). */
   filmBad?: string;
+  /** The badwater share of the water over ground point g (a float; the flow texture's blue). High reads its own flow
+   *  texture, the same texture: a second sampler of it would take High's terrain past the 16 a fragment shader is sure
+   *  to have (WebGL 2's least, ANGLE's on Direct3D 11) on a map with terrain above terrain, and it would not link. */
+  filmShare?: string;
   /** In a wall, before its level lines (wc, n, along, y, k, shade). */
   wall?: string;
   /** How strong the wall's level lines are (an expression; Standard: `markers`). */
@@ -942,22 +947,30 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float f = vnoise(g * 5.3 + 3.0);
         return mix(${glColor(JUICE.ashDark)}, ${glColor(JUICE.ashPale)}, smoothstep(0.22, 0.78, b)) * (0.9 + 0.2 * f);
       }
+      /** The surface of the water over a tile's top (light.ts waterByte: steps of a sixtieth to three levels deep, whole
+       *  levels deeper, its surface then at most 0.05 over the one this gives). */
+      float waterSurfaceOf(vec4 d) {
+        float wb = floor(d.a * 255.0 + 0.5);
+        return heightOf(d) + (wb <= ${f(WATER_BYTE_FINE)} ? (wb - 1.0) / ${f(WATER_BYTE_STEPS)} : wb - ${f(WATER_BYTE_FINE - 3)});
+      }
       /** moisture level (0–15), contamination (0–15), under water (0/1), sky (0–1). Under water only where the water's
-       *  surface is drawn: a layer cut takes away the water standing above it (the water's shader), and the ground that
-       *  water covered is then a top like any other, not a bed seen through water. */
+       *  surface is drawn (cutWater.ts bedAtCut): a layer cut takes away the water standing above it, and a top whose water
+       *  it took whole (the top at the cut or above it) is then a top like any other, not a bed seen through water; under
+       *  a top below the cut the water is drawn up to the cut over it, a bed. */
       vec4 soilOf(vec4 d) {
         float g = floor(d.g * 255.0 + 0.5);
         float m = floor(g / 16.0);
-        // (the water byte, light.ts waterByte: steps of a sixtieth to three levels deep, whole levels deeper)
-        float wb = floor(d.a * 255.0 + 0.5);
-        float surface = heightOf(d) + (wb <= ${f(WATER_BYTE_FINE)} ? (wb - 1.0) / ${f(WATER_BYTE_STEPS)} : wb - ${f(WATER_BYTE_FINE - 3)});
-        return vec4(m, g - m * 16.0, d.a > 0.002 && surface <= slice + 0.05 ? 1.0 : 0.0, d.b);
+        bool drawn = waterSurfaceOf(d) <= slice + ${f(CUT_SLACK)} || heightOf(d) < slice;
+        return vec4(m, g - m * 16.0, d.a > 0.002 && drawn ? 1.0 : 0.0, d.b);
       }
       ${WATER_GLSL}
-      /** The depth of the water over a tile's top (light.ts waterByte; three levels for any deeper). */
+      /** The depth of the water drawn over a tile's top (light.ts waterByte; three levels for any deeper): under a layer
+       *  cut through it, to the cut (cutWater.ts surfaceAtCut). */
       float waterDepthOf(vec4 d) {
         float wb = floor(d.a * 255.0 + 0.5);
-        return wb < 0.5 ? 0.0 : min(3.0, (wb - 1.0) / ${f(WATER_BYTE_STEPS)});
+        if (wb < 0.5) return 0.0;
+        float depth = min(3.0, (wb - 1.0) / ${f(WATER_BYTE_STEPS)});
+        return waterSurfaceOf(d) > slice + ${f(CUT_SLACK)} ? min(depth, max(0.0, slice - heightOf(d))) : depth;
       }
       /** How much of the bed's own colour the ground under water takes (groundColor): 1 under water of
        *  a quarter level or more, less under a film, whose ground keeps its own soil, seen through the
@@ -968,10 +981,12 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         // the soil of the run tops below each tile's top (runSoil.ts; only on a map with terrain above terrain)
         uniform highp sampler3D runTex;
         /** A run top's cell at tile t and level z: x its soil byte (the tile data's G), y 1 a run top, 2 one
-         *  under water, 0 none (outside the map too). */
+         *  under water, 0 none (outside the map too). Under a layer cut a run top at the cut or above it has no water
+         *  drawn over it (cutWater.ts bedAtCut; its water stands over the cut, but for a film a hair deep). */
         vec2 runAt(vec2 t, float z) {
           if (t.x < 0.0 || t.y < 0.0 || t.x >= mapSize.x || t.y >= mapSize.y || z < 0.0 || z >= ${f(RUN_LEVELS)}) return vec2(0.0);
-          return floor(texelFetch(runTex, ivec3(vec3(t, z)), 0).rg * 255.0 + 0.5);
+          vec2 r = floor(texelFetch(runTex, ivec3(vec3(t, z)), 0).rg * 255.0 + 0.5);
+          return r.y > 1.5 && z >= slice ? vec2(r.x, 1.0) : r;
         }
         /** The soil of the ground at level z of tile t as soilOf gives it (no sky), and in \`here\` whether there is
          *  ground there to blend toward: a run top below the tile's top, or the tile's own top. */
@@ -1160,35 +1175,47 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           // a little along the edge (the same wobble seen from both tiles, so it stays continuous); the
           // light and the contamination's level (shading) keep the smooth weights above
           float bandW = max(0.04, 1.5 * max(fwidth(g.x), fwidth(g.y)));
-          vec2 edgeWave = vec2(vnoise(g * 6.7 + 17.0), vnoise(g * 5.3 + 47.0)) - 0.5;
-          vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w + edgeWave * sd * 0.105);
-          float v10 = ws.x * (1.0 - ws.y) * sx;
-          float v01 = (1.0 - ws.x) * ws.y * sy;
-          float v11 = ws.x * ws.y * sg;
-          float v00 = 1.0 - v10 - v01 - v11;
-          vec4 s0 = soilOf(d0);
-          vec4 s1 = soilOf(dx);
-          vec4 s2 = soilOf(dy);
-          vec4 s3 = soilOf(dd);
-          vec4 flags0 = vec4(step(0.5, s0.x), s0.x, step(0.5, s0.y), s0.z);
-          vec4 flags1 = vec4(step(0.5, s1.x), s1.x, step(0.5, s1.y), s1.z);
-          vec4 flags2 = vec4(step(0.5, s2.x), s2.x, step(0.5, s2.y), s2.z);
-          vec4 flags3 = vec4(step(0.5, s3.x), s3.x, step(0.5, s3.y), s3.z);
-          vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;
-          float sky = s0.w * w00 + s1.w * w10 + s2.w * w01 + s3.w * w11;
-          float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
-          // the bed under thin water (WATER_FILM): its depth's film curve, blended over the wet tiles round
-          // the point only (a pond's bed holds to its shore)
-          vec4 under = vec4(s0.z * w00, s1.z * w10, s2.z * w01, s3.z * w11);
-          float underSum = under.x + under.y + under.z + under.w;
-          groundBed = underSum > 0.0001 ? dot(under, vec4(waterFilm(waterDepthOf(d0)), waterFilm(waterDepthOf(dx)), waterFilm(waterDepthOf(dy)), waterFilm(waterDepthOf(dd)))) / underSum : 1.0;
+          #if LITE
+            // (the light look: the tile alone, so the blend below comes to the tile's own soil, sky, level and film;
+            // worked out once, without the edge's wobble (D135: no soil blending), which software would pay for
+            // on every pixel)
+            vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w);
+            vec4 s0 = soilOf(d0);
+            vec4 soil = vec4(step(0.5, s0.x), s0.x, step(0.5, s0.y), s0.z);
+            float sky = s0.w;
+            float clev = s0.y / 15.0;
+            groundBed = s0.z > 0.0 ? waterFilm(waterDepthOf(d0)) : 1.0;
+          #else
+            vec2 edgeWave = vec2(vnoise(g * 6.7 + 17.0), vnoise(g * 5.3 + 47.0)) - 0.5;
+            vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w + edgeWave * sd * 0.105);
+            float v10 = ws.x * (1.0 - ws.y) * sx;
+            float v01 = (1.0 - ws.x) * ws.y * sy;
+            float v11 = ws.x * ws.y * sg;
+            float v00 = 1.0 - v10 - v01 - v11;
+            vec4 s0 = soilOf(d0);
+            vec4 s1 = soilOf(dx);
+            vec4 s2 = soilOf(dy);
+            vec4 s3 = soilOf(dd);
+            vec4 flags0 = vec4(step(0.5, s0.x), s0.x, step(0.5, s0.y), s0.z);
+            vec4 flags1 = vec4(step(0.5, s1.x), s1.x, step(0.5, s1.y), s1.z);
+            vec4 flags2 = vec4(step(0.5, s2.x), s2.x, step(0.5, s2.y), s2.z);
+            vec4 flags3 = vec4(step(0.5, s3.x), s3.x, step(0.5, s3.y), s3.z);
+            vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;
+            float sky = s0.w * w00 + s1.w * w10 + s2.w * w01 + s3.w * w11;
+            float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
+            // the bed under thin water (WATER_FILM): its depth's film curve, blended over the wet tiles round
+            // the point only (a pond's bed holds to its shore)
+            vec4 under = vec4(s0.z * w00, s1.z * w10, s2.z * w01, s3.z * w11);
+            float underSum = under.x + under.y + under.z + under.w;
+            groundBed = underSum > 0.0001 ? dot(under, vec4(waterFilm(waterDepthOf(d0)), waterFilm(waterDepthOf(dx)), waterFilm(waterDepthOf(dy)), waterFilm(waterDepthOf(dd)))) / underSum : 1.0;
+          #endif
           vec3 ground = groundColor(soil, g, detail, clev, glow);${hook(h, "groundTop")}
           // under a film the ground is seen through the water as through a coloured filter (WATER_FILM): its
           // own detail in the water's hue, teal, crimson or between them by the water's badwater share
           float filmOver = smoothstep(0.4, 0.6, soil.w) * (1.0 - groundBed);
           // (and the light of the bed's veins, where a look draws them under polluted water, is half seen through it)
           if (filmOver > 0.0) {
-            ground = mix(ground, waterFilmGround(ground, texture2D(flowTex, g / mapSize).b, ${hook(h, "filmBad", "WATER_FILM_BAD_TINT")}), filmOver);
+            ground = mix(ground, waterFilmGround(ground, ${hook(h, "filmShare", "texture2D(flowTex, g / mapSize).b")}, ${hook(h, "filmBad", "WATER_FILM_BAD_TINT")}), filmOver);
             glow *= 1.0 - 0.5 * filmOver;
           }
           groundBed = 1.0;
@@ -1209,21 +1236,26 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           float ry = 1.0 - smoothstep(0.0, 0.5, 0.5 - w.y);
           // (a neighbour whose air at this level is under a roof is a cave's mouth, not a wall: no contact
           // shadow toward it)
-          float ax = hx;
-          float ay = hy;
-          float ad = hd;
-          if (caveSize.z > 0.5) {
-            if (roofedAir(vec3(tile + vec2(sd.x, 0.0), h0))) ax = h0;
-            if (roofedAir(vec3(tile + vec2(0.0, sd.y), h0))) ay = h0;
-            if (roofedAir(vec3(tile + sd, h0))) ad = h0;
-          }
-          float ox = min(max(ax - h0, 0.0), 2.0) * 0.5 * rx;
-          float oy = min(max(ay - h0, 0.0), 2.0) * 0.5 * ry;
-          float od = min(max(ad - h0, 0.0), 2.0) * 0.5 * rx * ry * (1.0 - max(step(0.5, ax - h0), step(0.5, ay - h0)));
-          // a thin dark line along the top of a drop, and a deeper contact shadow at a wall's foot
-          float topLip = max(step(0.5, h0 - hx) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.x)), 0.5 - w.x)), step(0.5, h0 - hy) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.y)), 0.5 - w.y)));
-          c *= 1.0 - topLip * 0.30;
-          float ao = 1.0 - 0.75 * clamp(ox + oy + od - ox * oy, 0.0, 1.0);
+          #if LITE
+            // (the light look's neighbours are the tile itself: no contact shadow, no lip)
+            float ao = 1.0;
+          #else
+            float ax = hx;
+            float ay = hy;
+            float ad = hd;
+            if (caveSize.z > 0.5) {
+              if (roofedAir(vec3(tile + vec2(sd.x, 0.0), h0))) ax = h0;
+              if (roofedAir(vec3(tile + vec2(0.0, sd.y), h0))) ay = h0;
+              if (roofedAir(vec3(tile + sd, h0))) ad = h0;
+            }
+            float ox = min(max(ax - h0, 0.0), 2.0) * 0.5 * rx;
+            float oy = min(max(ay - h0, 0.0), 2.0) * 0.5 * ry;
+            float od = min(max(ad - h0, 0.0), 2.0) * 0.5 * rx * ry * (1.0 - max(step(0.5, ax - h0), step(0.5, ay - h0)));
+            // a thin dark line along the top of a drop, and a deeper contact shadow at a wall's foot
+            float topLip = max(step(0.5, h0 - hx) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.x)), 0.5 - w.x)), step(0.5, h0 - hy) * (1.0 - smoothstep(0.025, max(0.06, fwidth(g.y)), 0.5 - w.y)));
+            c *= 1.0 - topLip * 0.30;
+            float ao = 1.0 - 0.75 * clamp(ox + oy + od - ox * oy, 0.0, 1.0);
+          #endif
           sunHere = sunLit(g, h0);
           light = lightOf(n, mix(0.55, 1.0, sky), ao, sunHere);
           if (vWorld.y < h0 - 0.5) {
@@ -1312,11 +1344,20 @@ ${hook(h, "wall")}          float py = fwidth(y);
           wc = mix(wc, ${glColor(JUICE.ashDark)} * (0.62 + 0.5 * k), freshWall * 0.7);
           if (groundMode < 0.5) top = mix(top, ${glColor(JUICE.ashPale)} * 0.85, freshRock(tile, h0));
           vec2 stoneUV = vec2(along * 1.5 + (vnoise(vec2(along * 0.7, y)) - 0.5) * 0.35, y * 1.6);
-          float bevel = cobble(stoneUV + vec2(0.055, 0.075)) - cobble(stoneUV - vec2(0.055, 0.075));
+          #if LITE
+            // (the light look draws no stone pattern, D135: no bevel or cracks either)
+            float bevel = 0.0;
+          #else
+            float bevel = cobble(stoneUV + vec2(0.055, 0.075)) - cobble(stoneUV - vec2(0.055, 0.075));
+          #endif
           wc *= 1.0 + clamp(bevel * 0.62, -0.10, 0.13);
           float seamAA = max(0.012, fwidth(y));
           float seam = ceiling ? 0.0 : (1.0 - smoothstep(0.025, 0.025 + seamAA, min(fy, 1.0 - fy))) * (1.0 - smoothstep(0.25, 0.6, seamAA));
-          float vertical = cracks(vec2(along * 0.43, y * 0.11)).x;
+          #if LITE
+            float vertical = 0.0;
+          #else
+            float vertical = cracks(vec2(along * 0.43, y * 0.11)).x;
+          #endif
           wc *= (1.0 - 0.18 * seam) * (1.0 - 0.10 * vertical);
           c = mix(wc, top * 0.58, lip * 0.55);
           if (ceiling) light = lightOf(n, 0.5, 0.6, 0.0);
@@ -1457,6 +1498,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
     vertexShader: /* glsl */ `
       attribute vec2 wdata;
       attribute float wflags;
+      attribute vec2 wcut;
+      uniform float slice;
       varying vec2 vData;
       varying float vFlags;
       varying vec3 vNormal;
@@ -1466,6 +1509,25 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         vFlags = wflags;
         vNormal = normal;
         vec4 w = modelMatrix * vec4(position, 1.0);
+        // the game's layers (D207, cutWater.ts): a column standing over the cut with its floor below it is sliced, its
+        // top lying on the cut, shallower by what the cut took off, its sides stopping there; one whose floor is at
+        // the cut or above it is gone (the fragment shader drops its top over the cut, and its sides fold flat here:
+        // a side hanging below its floor, to lower water in front of a cliff, would leave a sliver under the cut)
+        float surface = normal.y > 0.5 ? w.y : wcut.x + wdata.x;
+        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = surface;
+        if (surface > slice + ${f(CUT_SLACK)} && wcut.x < slice) {
+          float over = surface - slice;
+          w.y = min(w.y, slice);
+          if (normal.y > 0.5) {
+            vData.x = max(0.0, wdata.x - over * wcut.y);
+            // (its shores only: a fall into it or over its brink is gone with the water over the cut, fallSheetCut)
+            vFlags = mod(wflags, 16.0);
+          } else {
+            vData.x = slice - wcut.x;
+            // (a side's drop, but at the map's edge: shorter by what the cut took off)
+            if (wflags < 254.5) vFlags = max(0.0, wflags - over * 30.0);
+          }
+        }
         vWorld = w.xyz;
         gl_Position = projectionMatrix * viewMatrix * w;
       }
@@ -1693,8 +1755,8 @@ ${hook(h, "water")}        #ifdef CAVES
           c = mix(c, hatch.rgb, hatch.a);
           alpha = mix(alpha, 1.0, hatch.a);
         }
-        // the game's layers: water above the slice is cut away
-        if (vWorld.y > slice + 0.05) discard;
+        // the game's layers: water above the slice is cut away (a column sliced by it lies on it: the vertex shader)
+        if (vWorld.y > slice + ${f(CUT_SLACK)}) discard;
         // every source wells up (D196): rings spreading from it and a few bubbles, on the water over
         // it, so it is found even deep under water; brighter while the pointer's water comes from it
         #if !LITE
@@ -1779,7 +1841,8 @@ export function fallMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks
       attribute vec4 fTop;
       attribute vec4 fShape;
       attribute vec4 fMore;
-      uniform float viewHeight;${hook(h, "fallVertexDecl")}
+      uniform float viewHeight;
+      uniform float slice;${hook(h, "fallVertexDecl")}
       varying vec4 vRib;
       varying vec4 vFall;
       varying vec4 vEdge;
@@ -1820,6 +1883,9 @@ export function fallMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks
         #endif
         // the parts of the other view, and the ends where the sheet runs on: out of the clip volume
         bool off = kind < 2.5 ? (!near || (kind > 0.5 && kind < 1.5 && freeA < 0.5) || (kind > 1.5 && freeB < 0.5)) : kind < 3.5 ? near : kind > 4.5 ? !near : false;
+        // the game's layers (D207, cutWater.ts fallSheetCut): a fall whose lip stands over the cut is gone, its landing
+        // kept where its pool is below the cut (the fragment shader drops what stands over it)
+        if (kind < 3.5 && max(fTop.x, fTop.y) > slice + ${f(CUT_SLACK)}) off = true;
         if (off) {
           vRib = vec4(0.0);
           vFall = vec4(0.0);
@@ -1925,8 +1991,9 @@ ${hook(h, "fallVertex")}        vNormal = n;
       ${common(h)}
       ${WATER_GLSL}${CAVE_POINT}
       void main() {
-        // the game's layers: a fall above the slice is cut away
-        if (vWorld.y > slice + 0.05) discard;
+        // the game's layers: a fall above the slice is cut away (one whose lip stands over it keeps only its landing:
+        // the vertex shader)
+        if (vWorld.y > slice + ${f(CUT_SLACK)}) discard;
         float kind = vRib.w;
         float along = vRib.x;
         float flow = vFall.x;

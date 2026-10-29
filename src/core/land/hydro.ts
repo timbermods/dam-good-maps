@@ -73,6 +73,9 @@ export interface HydroOptions {
   /** Meanders and varying widths (M9a's no-straight-rivers rule); false gives the prototype's
    *  courses, for comparisons. */
   meander?: boolean;
+  /** River Valley's default trunk looked for again (`planHydro`): its water may enter by every edge
+   *  but the downstream ones, and leaves by those alone. */
+  across?: boolean;
 }
 
 /** The share of the map the planned courses aim to bring within the story's reach (`STORY_REACH`,
@@ -448,7 +451,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   const natural = opts.meander !== false;
   const rng = stream(seed, "hydro", attempt);
   const down = downstreamEdges(g.flowDir);
-  const up: Edge[] = g.tiltKind === "radial" ? (["west", "east", "south", "north"] as Edge[]).filter((e) => !down.includes(e)) : down.map((e) => OPPOSITE[e]);
+  const up: Edge[] = g.tiltKind === "radial" || opts.across ? (["west", "east", "south", "north"] as Edge[]).filter((e) => !down.includes(e)) : down.map((e) => OPPOSITE[e]);
   const onUp = (i: number) => {
     const e = edgeOf(i, W, H);
     return !!e && up.includes(e);
@@ -1805,7 +1808,21 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
  *  Both use the same field; only existing ground is carved, before the land stage. */
 export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: number, W: number, H: number, attempt: number, opts: HydroOptions = {}): Hydro {
   const cliffDraw = g.theme === "riverValley" && opts.meander !== false && !g.hydro.exactInflows && (g.intentions.includes("upper-lower") || g.intentions.includes("under-cliff"));
-  if (!cliffDraw) return planHydroSingle(E, h, g, seed, W, H, attempt, opts);
+  if (!cliffDraw) {
+    // River Valley's default trunk enters from an upstream edge and crosses half the map, or the land
+    // has no rivers and is drawn again (#346): on a straight slope the sides drain too, and most
+    // ways in from the upstream edge leave by a side before they cross half the map, or hug it. A land
+    // with no such way in looks again with its sides as edges the trunk may enter by, the water
+    // leaving by the downstream edge alone (its land falls that way, so the river turns down it): River
+    // Valley 128², seeds 1–30, drew 13 lands again for no rivers where it drew 33. A land whose first
+    // look found its trunk keeps it.
+    const again = g.theme === "riverValley" && opts.meander !== false && g.tiltKind !== "radial" && downstreamEdges(g.flowDir).length === 1 && !g.hydro.exactInflows && !g.hydro.noInflows && !g.intentions.includes("upper-lower") && !mapShape(W, H).long;
+    const original = again ? h.slice() : null;
+    const hy = planHydroSingle(E, h, g, seed, W, H, attempt, opts);
+    if (hy.rivers.length || !original) return hy;
+    h.set(original);
+    return planHydroSingle(E, h, g, seed, W, H, attempt, { ...opts, across: true });
+  }
   // A full-map escarpment remains a split; stairs can connect its worlds.
   if (g.intentions.includes("upper-lower")) g.ramps = Math.min(g.ramps, 0.1);
   const original = h.slice();

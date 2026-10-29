@@ -610,6 +610,28 @@ function startOverhang(c: Ctx): { forms: FormPlan[]; why: string } {
     if (rng.float() < 0.45) depth = Math.max(1, Math.min(deepest, depth + (rng.float() < 0.5 ? -1 : 1)));
     depths.push(depth);
   }
+  // worn as rock wears, not cut (a box's flat face reads as a doorway): its ends taper into the face,
+  // a tile deep, two beside them; the opening's height wanders along the face (2 or 3); the roof comes
+  // down a level toward the back; and here and there the lip hangs a level lower than the hollow behind
+  const ends = stretch.map((e) => {
+    const x = e.i % W;
+    const y = (e.i - x) / W;
+    let n = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && inStretch.has((y + dy) * W + x + dx)) n++;
+    return n <= 1;
+  });
+  stretch.forEach((e, q) => {
+    if (ends[q]) depths[q] = 1;
+    else if (stretch.some((o, r) => ends[r] && Math.max(Math.abs((o.i % W) - (e.i % W)), Math.abs(Math.floor(o.i / W) - Math.floor(e.i / W))) <= 1)) depths[q] = Math.min(depths[q], 2);
+  });
+  const tall: number[] = [];
+  let up = 2 + rng.int(0, 2);
+  for (let k = 0; k < stretch.length; k++) {
+    if (rng.float() < 0.4) up = 5 - up;
+    tall.push(up);
+  }
+  const lips = stretch.map(() => rng.float() < 0.3);
+  const backs = stretch.map(() => rng.float() < 0.5);
   for (let most = deepest; most >= 1; most--) {
     const change = new Map<number, number>();
     let floorTiles = 0;
@@ -623,8 +645,12 @@ function startOverhang(c: Ctx): { forms: FormPlan[]; why: string } {
         if (!inside(W, H, xx, yy)) break;
         const i = yy * W + xx;
         if (foot[i] || keep[i] || inp.plants[i] || used[i] || change.has(i) || mask[i] !== plainMask(heights[i]) || wetBy(i)) break;
-        const a = Math.min(3, heights[i] - z - 1);
-        if (a < 2) break;
+        const room = Math.min(3, heights[i] - z - 1);
+        if (room < 2) break;
+        // (the lip a level under the hollow behind it; the back a level under the front)
+        const d = Math.min(most, depths[q]);
+        const lower = (k === 0 && d > 1 && lips[q]) || (k > 0 && k === d - 1 && (k >= 2 || backs[q]));
+        const a = Math.max(2, Math.min(room, tall[q] - (lower ? 1 : 0)));
         change.set(i, mask[i] & ~bits(z, z + a));
         floorTiles++;
         high = Math.max(high, a);

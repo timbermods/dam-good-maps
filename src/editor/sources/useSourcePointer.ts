@@ -271,7 +271,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
 
   /** Ctrl+scroll over a source (D184, D196, D322): its strength a step up or down, the water answering
    *  at once, the new strength beside the pointer; one adjustment is one undo step. */
-  const sourceWheel = useRef<{ key: string; record: Promise<EntityInfo | null>; value: number | null; sent: number | null; busy: boolean } | null>(null);
+  const sourceWheel = useRef<{ key: string; record: Promise<EntityInfo | null>; value: number | null; sent: number | null; busy: boolean; ended?: boolean } | null>(null);
   const wheelNoteTimer = useRef(0);
   /** The strengths set on sources still on their way to the worker (D368 (4)), and a tick when they change. */
   const pendingStrength = useRef(new Map<string, number>());
@@ -322,22 +322,31 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
       liveStrength(e, value);
       const s = ek >= 0 ? sourceStrengths(ed.groupsRef.current, strengthOfEntity, ek) : null;
       const words = s ? sourceStrengthWords(s) : `${value} ${e.template === "BadwaterSource" ? "badwater" : "water"}/s`;
-      setShapeNote({ text: over ? `${words}: stronger than any official map` : words, ok: true, warn: over, ...at });
+      const note = { text: over ? `${words}: stronger than any official map` : words, ok: true, warn: over, ...at };
+      setShapeNote(note);
       clearTimeout(wheelNoteTimer.current);
+      state.ended = false;
       wheelNoteTimer.current = window.setTimeout(() => {
-        setShapeNote(null);
-        if (sourceWheel.current === state && !state.busy) sourceWheel.current = null;
+        // (only its own words: a brush's or a tool's shown since stay)
+        setShapeNote((n) => (n === note ? null : n));
+        // (the scroll is over; a notch still on its way ends it once answered, so a later scroll is its own step)
+        if (sourceWheel.current === state) {
+          if (state.busy) state.ended = true;
+          else sourceWheel.current = null;
+        }
       }, 1500);
       const send = () => {
         if (state.busy || state.value === state.sent || state.value === null) return;
         const v = state.value;
+        // (a notch after this scroll's first goes on its undo step, however long the worker took: D196)
+        const more = state.sent !== null;
         state.busy = true;
         state.sent = v;
         const name = e.template === "BadwaterSource" ? "Badwater source" : "Water source";
         const op: EditOp = { op: "setEntityProps", params: { id: e.id, components: { WaterSource: { SpecifiedStrength: v, CurrentStrength: v } } } };
         let ok = false;
         void run(
-          () => api.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`),
+          () => api.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`, more),
           (u) => {
             ok = u.ok;
             const p = pickedRef.current;
@@ -350,6 +359,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
           if (!ok) state.value = null;
           if (!ok || state.value === v) liveStrength(e, null);
           send();
+          if (state.ended && !state.busy && sourceWheel.current === state) sourceWheel.current = null;
         });
       };
       send();

@@ -412,7 +412,8 @@ describe("the Block tool on a generated map after strokes", () => {
       const q = blockFalls(s, params);
       const u = s.apply(op(params));
       if (q.reason !== null) {
-        expect(u.errors, `step ${k}`).toEqual([q.reason]);
+        // (the query's every reason a cell can't be taken, as the step gives them; or the ground that would fall)
+        expect(u.errors, `step ${k}`).toEqual(q.errors.length ? q.errors : [q.reason]);
         expect(Array.from(s.terrain.mask)).toEqual(Array.from(was));
         expect(Array.from(s.built.heights)).toEqual(Array.from(wasH));
         refused++;

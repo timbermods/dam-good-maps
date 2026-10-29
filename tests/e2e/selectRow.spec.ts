@@ -44,7 +44,9 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
   const h0 = await heights(page);
   await page.keyboard.press("Escape");
   // a small box: the level number starts at its lowest ground
-  const c: [number, number] = [40, 40];
+  // (away from the spring cave at (33–38, 37–41) and its source at (35, 37), which 3D forms grow at the default
+  // Verticality since #611, D488, D148: a press that close to a source picks the source, D345 B4)
+  const c: [number, number] = [60, 62];
   await box(page, [c[0] - 3, c[1] - 3], [c[0] + 3, c[1] + 3]);
   const W = 96;
   const tiles = await selection(page);

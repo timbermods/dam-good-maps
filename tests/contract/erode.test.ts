@@ -242,11 +242,12 @@ function cliffFeet(m: FullForceMap, drop: number): { foot: number; face: number 
 }
 
 describe("on generated maps (D281)", () => {
-  const maps = (["canyon", "highlands"] as const).map((theme) => {
-    const r = generate(makeSpec({ seed: 3, theme, size: { x: 128, y: 128 } }));
+  const mapOf = (theme: "canyon" | "highlands", seed: number) => {
+    const r = generate(makeSpec({ seed, theme, size: { x: 128, y: 128 } }));
     const s = MapSession.fromGenerated(r);
     return [theme, fullForceMapOf(s.built, { rockLayers: geology(s.openedHeights), lava: null, down: new Map(), usedIds: new Set() })] as const;
-  });
+  };
+  const maps = (["canyon", "highlands"] as const).map((theme) => mapOf(theme, 3));
 
   it("a cliff's foot wears into a cave; under a hard bed, an overhang; nothing falls", () => {
     for (const [theme, m] of maps) {
@@ -268,7 +269,9 @@ describe("on generated maps (D281)", () => {
 
   it("a thin ridge, where the map has one, opens into an arch", () => {
     let ridges = 0;
-    for (const [theme, m] of maps) {
+    // (Highlands seed 2 since generator 0.10.5, D148: Canyon seed 3's ridge is gone with its map; of Canyon seeds
+    // 1–18 and Highlands seeds 1–14, only Highlands 2 has a fin now, as only Canyon 3 had one before)
+    for (const [theme, m] of [mapOf("highlands", 2)]) {
       const { W, H, heights: h } = m;
       // a dry fin two to four tiles thick, at least 5 over the ground on both sides, five tiles long
       const fin = (x: number, y: number, dx: number, dy: number): number => {
@@ -308,7 +311,7 @@ describe("on generated maps (D281)", () => {
             expect(through, `${theme} fin at ${x},${y}`).toBe(true);
           }
     }
-    // (Canyon seed 3 has one; if a generator change takes it away, find another seed)
+    // (Highlands seed 2 has one; if a generator change takes it away, find another seed)
     expect(ridges).toBeGreaterThan(0);
   });
 });

@@ -6,12 +6,14 @@
 // opens it again.
 
 import { expect, test } from "@playwright/test";
-import { centreOn, generateButton, openDrawer, openEditor, openYourMaps, pick, topDown } from "./open";
+import { centreOn, generateButton, openDrawer, openEditor, openFileMenu, openYourMaps, pick, topDown } from "./open";
 
 test("Generate on an edited map makes a new map that no edit touches, and the edited map stays in Your maps (D336)", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
+  // (a browser that has never had the first-keep note: the tests' stored state marks it shown)
+  await page.evaluate(() => localStorage.removeItem("dgm.keptNote"));
   await topDown(page);
 
   // one edit: a Lower stroke
@@ -25,6 +27,9 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
   await page.mouse.down();
   await page.mouse.move(b.x, b.y, { steps: 6 });
   await page.mouse.up();
+  // the first edit keeps the map in this browser, and the page says so once, quietly
+  await expect(page.getByRole("status").filter({ hasText: "Kept in Your maps, in this browser" })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("dgm.keptNote"))).toBe("1");
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   await page.evaluate(() => window.dgmEditor!.idle());
   await page.keyboard.press("Escape");
@@ -40,6 +45,8 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page.waitForFunction((n) => (window.dgm!.current!()?.made ?? 0) > n, before, { timeout: 120_000 });
   await page.waitForFunction(() => window.dgmEditor?.info().W === 128 && window.dgm3d?.renderer.mapState()?.W === 128, null, { timeout: 120_000 });
+  // the page says where the replaced map went (never asking, never blocking)
+  await expect(page.getByRole("status").filter({ hasText: `${edited.name} is in Your maps` })).toBeVisible();
   await expect(generate).toBeEnabled({ timeout: 120_000 });
 
   // the new map is exactly the generator's own for its settings: no edit applied to it
@@ -63,4 +70,49 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
   expect(back.history.map((h) => h.label)).toEqual(edited.history.map((h) => h.label));
   expect(await page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x, y), at)).toBeLessThan(ground);
   expect(errors).toEqual([]);
+});
+
+test("the first-keep note shows once in a browser: a browser that has had it keeps the next map quietly", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("dgm.keptNote", "1"));
+  await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
+  await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 44]], level: 15 } } as never, "Raise a tile"));
+  await page.waitForFunction((v) => window.dgm!.kept!(v), (await page.evaluate(() => window.dgmEditor!.info())).version, { timeout: 60_000, polling: 200 });
+  await expect(page.getByRole("status").filter({ hasText: "Kept in Your maps" })).toHaveCount(0);
+});
+
+test("Download project says the project was saved, as Download .timber does", async ({ page }) => {
+  await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
+  const download = page.waitForEvent("download");
+  await (await openFileMenu(page)).getByRole("menuitem", { name: "Download project" }).click();
+  const file = (await download).suggestedFilename();
+  await expect(page.getByRole("status").filter({ hasText: `Saved ${file}` })).toBeVisible();
+});
+
+test("with storage writes failing, neither note claims the map is kept: not the first keep, and not the replaced map", async ({ page }) => {
+  test.setTimeout(240_000);
+  // (every write to the browser's storage refuses, as if it were full)
+  await page.addInitScript(() => {
+    IDBObjectStore.prototype.put = function () {
+      throw new DOMException("full", "QuotaExceededError");
+    };
+  });
+  await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
+  // (a browser that has never had the first-keep note: the tests' stored state marks it shown)
+  await page.evaluate(() => localStorage.removeItem("dgm.keptNote"));
+  const claim = page.getByRole("status").filter({ hasText: /Kept in Your maps|is in Your maps/ });
+  await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 44]], level: 15 } } as never, "Raise a tile"));
+  await expect(page.getByRole("alert").filter({ hasText: /storage/i })).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("alert").getByRole("button", { name: "Dismiss" }).click();
+  await expect(claim).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("dgm.keptNote"))).toBeNull();
+
+  // Generate asks first, as the map is not kept; closing it replaces the map, and nothing is said to be in Your maps
+  const drawer = await openDrawer(page);
+  await pick(drawer, "Size", "128");
+  await generateButton(page).click();
+  await page.getByRole("button", { name: "Close it" }).click();
+  await page.waitForFunction(() => window.dgmEditor?.info().W === 128, null, { timeout: 120_000 });
+  const alert = page.getByRole("alert").getByRole("button", { name: "Dismiss" });
+  if (await alert.count()) await alert.click();
+  await expect(claim).toHaveCount(0);
 });

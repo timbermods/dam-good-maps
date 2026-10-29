@@ -36,6 +36,9 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await expect(page.getByRole("heading", { name: (await info(page)).name })).toBeVisible();
   expect((await page.evaluate(() => window.dgm3d!.renderer.info())).triangles).toBeGreaterThan(0);
   await topDown(page);
+  // (the first-run hints put away: what is tested is the map, and their box, a line taller since they say where Help is,
+  // #599, kept the spring's search off the spot it found, D148)
+  await page.getByRole("button", { name: "No more hints" }).click();
 
   // the player's own edits: a stroke of the Lower brush, and a water source (the brush kit and the
   // water, D182, D184)
@@ -43,7 +46,22 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   const W = i.W;
   const start0 = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const x = start0[0] < W / 2 ? Math.round(W * 0.78) : Math.round(W * 0.22);
-  const lowered: [number, number] = [x, 12];
+  // (the first row from 12 where the stroke's four tiles are dry and bare: on 0.10.5's map a spring's sources stand on
+  // row 12 there, and the ground under an object stays as it is, D491, D148)
+  const lowered: [number, number] = await page.evaluate(
+    ([x0, W0]) => {
+      const m = window.dgm3d!.renderer.mapState()!;
+      const e = m.entities;
+      for (let y = 12; y < W0 - 12; y++) {
+        let ok = true;
+        for (let dx = 0; dx <= 3 && ok; dx++) if (m.surface.depth[y * W0 + x0 + dx] > 0) ok = false;
+        for (let k = 0; k < e.count && ok; k++) if (e.x[k] >= x0 - 2 && e.x[k] <= x0 + 5 && Math.abs(e.y[k] - y) <= 2) ok = false;
+        if (ok) return [x0, y] as [number, number];
+      }
+      return [x0, 12] as [number, number];
+    },
+    [x, W] as const,
+  );
   const ground = await page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), lowered);
   await centreOn(page, lowered[0], lowered[1]);
   await page.getByRole("button", { name: "Lower brush (3)" }).click();

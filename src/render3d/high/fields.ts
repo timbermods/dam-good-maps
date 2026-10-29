@@ -6,7 +6,7 @@
 import { DataTexture, LinearFilter, RGBAFormat, UnsignedByteType } from "three";
 import type { EntityView } from "../model";
 import { DEAD } from "../model";
-import { AMBIENT_REACH, ambientRect, canopyCover, canopyInto, canopyKind, runBake, type BakeJob, type BakeReply, type BakeResult, type Canopies } from "./bake";
+import { AMBIENT_REACH, ambientRect, canopyInto, canopyKind, runBake, type BakeJob, type BakeReply, type BakeResult, type Canopies } from "./bake";
 
 type Job = BakeJob extends infer J ? (J extends { id: number } ? Omit<J, "id"> : never) : never;
 
@@ -111,7 +111,10 @@ function texture(W: number, H: number, fill: [number, number, number, number]): 
 
 function canopies(e: EntityView): Canopies {
   const kind = new Uint8Array(e.count);
-  for (let k = 0; k < e.count; k++) kind[k] = canopyKind(e.templates[e.template[k]], !!(e.flags[k] & DEAD));
+  // (each template asked once, alive and dead)
+  const alive = e.templates.map((t) => canopyKind(t, false));
+  const dead = e.templates.map((t) => canopyKind(t, true));
+  for (let k = 0; k < e.count; k++) kind[k] = (e.flags[k] & DEAD ? dead : alive)[e.template[k]];
   return { kind, x: e.x.slice(), y: e.y.slice(), z: e.z.slice() };
 }
 
@@ -162,14 +165,19 @@ export class AmbientField {
     this.heights = new Uint8Array(W * H);
   }
 
-  /** Whether the last bake asked for has arrived. */
+  /** Whether the last bake asked for has arrived, and the last canopies' cover. */
   get ready(): boolean {
-    return this.done === this.latest;
+    return this.done === this.latest && this.coverDone === this.coverAsked;
   }
   private done = 0;
+  /** The canopies' cover asked of the worker (`objects`), and the last answered or dropped. */
+  private coverAsked = 0;
+  private coverDone = 0;
 
   bake(heights: Uint8Array, e: EntityView): void {
     const id = ++this.latest;
+    // (a cover still with the worker is the bake's to make now)
+    this.coverDone = ++this.coverAsked;
     this.heights = heights;
     this.since = null;
     this.objectsSince = null;
@@ -203,9 +211,23 @@ export class AmbientField {
     const key = canopyKey(c);
     if (this.coverOf && this.coverOf.heights === heights && sameNumbers(this.coverOf.key, key)) return;
     this.coverOf = { heights, key };
-    this.cover = canopyCover(this.W, this.H, heights, c);
-    canopyInto(this.cover, this.texture.image.data as Uint8Array);
-    this.texture.needsUpdate = true;
+    // (worked out in the bake worker, as the ambient bake works it out, and drawn a frame or two later: on the page's
+    // thread it cost a flood's answer several milliseconds each time plants drowned; until it comes, a tile redone
+    // here keeps the last cover, and the answer writes the whole map's)
+    const id = ++this.coverAsked;
+    void this.baker.run({ kind: "cover", W: this.W, H: this.H, heights: heights.slice(), canopies: c }).then(
+      (r) => {
+        if (id !== this.coverAsked || r.kind !== "cover") return;
+        this.coverDone = id;
+        this.cover = r.cover;
+        canopyInto(r.cover, this.texture.image.data as Uint8Array);
+        this.texture.needsUpdate = true;
+        this.changed();
+      },
+      () => {
+        if (id === this.coverAsked) this.coverDone = id;
+      },
+    );
   }
 
   /** The terrain round a rectangle of changed heights (redone by `catchUp`, before the next frame). */
@@ -244,6 +266,7 @@ export class AmbientField {
 
   dispose(): void {
     this.latest = -1;
+    this.coverAsked++;
     this.texture.dispose();
   }
 }

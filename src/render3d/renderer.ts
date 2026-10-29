@@ -64,12 +64,12 @@ import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import type { Voxels } from "./wear";
 import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
-import { EditGlow, editedCells, type EditCells } from "./editGlow";
+import { EditGlow, editedCells, editGlowMaterial, type EditCells } from "./editGlow";
 import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
 import { whenIdle } from "./idle";
-import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
+import { castersChangedRects, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
@@ -78,6 +78,7 @@ import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
+import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
@@ -96,15 +97,13 @@ import { WaterMotion } from "./motion";
 import { StillFlow } from "./stillFlow";
 import { BoxUploads, RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
+import { boundingSphereOf } from "./bounds";
 import { EntityGeometryCache } from "./entityGeometry";
 import { terrainChanges } from "./terrainChanges";
 import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
 import { focusLost } from "./focusLost";
 
 ColorManagement.enabled = false;
-
-/** How long after the Block tool sends an edit its land may come and still glow as its own (a refused one sends none). */
-const BLOCK_EDIT_MS = 4000;
 
 /** How long after a map is drawn the programs an edit could need start compiling in the background (scheduleWarm). */
 const WARM_AFTER_MS = 500;
@@ -119,6 +118,20 @@ const STATES: BranchState[] = [
   { cut: true, caves: false, soil: false },
   { cut: false, caves: false, soil: false },
 ];
+
+/** Whether two byte arrays of the same length hold the same bytes (four at a time where both are aligned). */
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  let i = 0;
+  if (a.byteOffset % 4 === 0 && b.byteOffset % 4 === 0) {
+    const n = a.length >> 2;
+    const a4 = new Uint32Array(a.buffer, a.byteOffset, n);
+    const b4 = new Uint32Array(b.buffer, b.byteOffset, n);
+    for (; i < n; i++) if (a4[i] !== b4[i]) return false;
+    i = n << 2;
+  }
+  for (; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
 
 /** Run this when the page is idle, with what the idle period has left (at once where the browser can't say); the
  *  warm-up's slices. Small jobs of their own go through idle.ts's `whenIdle`. */
@@ -474,6 +487,8 @@ export class MapRenderer {
   private highlight: Uint8Array | null = null;
   /** The page's overlay as it painted it, without the highlight. */
   private pageOverlay: Uint8Array | null = null;
+  /** The highlight drawn at the last `commitOverlay`. */
+  private committedHighlight: Uint8Array | null = null;
   /** The brush under the cursor (live editing), made on first use. */
   private cursor: BrushCursor | null = null;
   private ring: ForceRing | null = null;
@@ -699,6 +714,8 @@ export class MapRenderer {
       // (the drought line's, drawn in both looks once its days are worked out)
       this.lineCopy ??= droughtLineMaterials();
       for (const m of this.lineCopy) list.push([m, { ...(m.defines as Defines) }]);
+      // (the edit glow's, drawn when an edit first lands: one program in every look and state, editGlow.ts)
+      list.push([this.glowMat, { ...(this.glowMat.defines as Defines) }]);
       if (h) list.push(...std);
       else if (this.canHigh) list.push(...this.highCopyList(STATES));
       const sent: Promise<void>[] = [];
@@ -769,7 +786,7 @@ export class MapRenderer {
     if ([this.std, this.high?.materials, this.highCopy].some((l) => l?.fall === mat)) return this.standIns.fall;
     const mist = this.mistCopy?.materials();
     if (mist && mat === mist.mist) return this.standIns.points;
-    if ((mist && mat === mist.rings) || this.lineCopy?.includes(mat)) return this.standIns.bare;
+    if ((mist && mat === mist.rings) || this.lineCopy?.includes(mat) || mat === this.glowMat) return this.standIns.bare;
     const plain = mat === this.depthCopy?.[0] || [this.std, this.high?.materials, this.highCopy].some((l) => l && [l.terrain, l.water, l.fall, l.sky].includes(mat));
     return plain ? this.standIns.mesh : this.standIns.instanced;
   }
@@ -1447,10 +1464,10 @@ export class MapRenderer {
 
   /** The water changed: its current and badwater share in the flow texture (motion.ts); where nothing moves (the
    *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
-   *  WATER_FILM). */
-  private flowChanged(heights: Uint8Array, surface: SurfaceWater): void {
+   *  WATER_FILM); `now`: water that shows with the next frame (a version flipped to), its share with it. */
+  private flowChanged(heights: Uint8Array, surface: SurfaceWater, now = false): void {
     if (this.waterMotion) this.waterMotion.waterChanged(heights, surface);
-    else this.stillFlow?.update(surface);
+    else this.stillFlow?.update(surface, now);
   }
 
   /** The map as drawn (read only): the legend reads what is on it. */
@@ -1668,8 +1685,10 @@ export class MapRenderer {
         { name: "normal", array: d.normals, itemSize: 3, normalized: true },
         { name: "wdata", array: d.data, itemSize: 2 },
         { name: "wflags", array: d.flags, itemSize: 1 },
+        { name: "wcut", array: d.cut, itemSize: 2 },
       ],
-      sphere: d.sphere ?? null,
+      // (down to each column's floor, where a layer cut may fold its water: cutWater.ts)
+      sphere: d.sphere ?? boundingSphereOf(d.positions, d.cut),
     };
     if (old && d.quads && refillChunk(old.geometry, arrays)) return d.quads;
     if (old) this.dropMesh(old);
@@ -1751,12 +1770,16 @@ export class MapRenderer {
     const m = this.map;
     if (!m || !this.lightTex) return;
     const casters = objectCasters(m.W, m.H, this.drawnObjects ?? m.entities);
-    const rect = onlyCasters && this.tops ? castersChanged(this.casters, casters, m.W, m.H) : undefined;
+    // (round each group of objects that changed, not their one bounding rectangle: plants drowned across a map)
+    const rects = onlyCasters && this.tops && this.casters !== undefined ? castersChangedRects(m.W, m.H, this.casters, casters) : undefined;
     this.casters = casters;
-    if (rect === null) return;
-    if (rect && this.tops) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, rect.x0, rect.y0, rect.x1, rect.y1, this.rock());
-      this.touchShadows(rect);
+    if (rects === null) return;
+    if (rects && this.tops) {
+      const rock = this.rock();
+      for (const r of rects) {
+        shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, r.x0, r.y0, r.x1, r.y1, rock);
+        this.touchShadows(r);
+      }
     } else {
       this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
       (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops, this.rock()));
@@ -2026,7 +2049,7 @@ export class MapRenderer {
     // (the water standing on a cave's floor: its run top's cell)
     if (this.runSoil) this.syncRunSoil();
     this.high?.waterChanged(surface);
-    this.flowChanged(m.heights, surface);
+    this.flowChanged(m.heights, surface, now);
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
@@ -2286,7 +2309,13 @@ export class MapRenderer {
     this.flushTerrain();
     if (!this.map) return;
     this.setEntitiesInner(e);
-    this.bakeShadows(true);
+    // (the shadows of the objects that changed in a task of their own, the next moment, drawn a frame later: in the
+    // task that brought them they lengthened a flood's answer by 10 to 20 ms when plants drowned)
+    clearTimeout(this.casterTimer);
+    this.casterTimer = window.setTimeout(() => {
+      this.bakeShadows(true);
+      this.requestRender();
+    }, 0);
     this.requestRender();
     this.onMapChange?.();
   }
@@ -2914,32 +2943,38 @@ export class MapRenderer {
   /** Erode is at work (its moment's cues come with its frames). */
   private eroding = false;
 
-  /** When the Block tool last sent an edit (`blockEditSent`); -Infinity once its land came or its answer did. */
-  private blockSentAt = -Infinity;
+  /** The Block tool's edit is on its way (`blockEditSent`): from when it goes to the worker until its land comes or
+   *  its answer does. No clock: on a slow machine, or behind a busy worker, the answer can take seconds, and its land
+   *  still glows when it comes. */
+  private blockSent = false;
 
-  /** The Block tool sent a `blocks` operation: the land that comes next is its own, and glows on plain ground too (a
-   *  brush paints its land as it goes and a force has its own moment, D197, D240, so neither is doubled). `false`: its
-   *  answer came (taken, refused or failed), so no land coming after is its own. */
+  /** The Block tool is sending a `blocks` operation: the land that comes with its answer is its own, and glows on plain
+   *  ground too (a brush paints its land as it goes and a force has its own moment, D197, D240, so neither is doubled).
+   *  `false`: its answer came (taken, refused or failed), so no land coming after is its own. */
   blockEditSent(sent = true): void {
-    this.blockSentAt = sent ? performance.now() : -Infinity;
+    this.blockSent = sent;
   }
 
-  /** The land coming now is the Block tool's edit (sent a moment ago, its land not come yet): taken once. */
+  /** The land coming now is the Block tool's edit (sent, its land not come yet): taken once. */
   private blockEdit(): boolean {
-    const yes = performance.now() - this.blockSentAt < BLOCK_EDIT_MS;
-    this.blockSentAt = -Infinity;
+    const yes = this.blockSent;
+    this.blockSent = false;
     return yes;
   }
 
   private editGlow: EditGlow | null = null;
+  /** The edit glow's material, made with the renderer so its program is compiled ahead (`scheduleWarm`). */
+  private readonly glowMat = editGlowMaterial();
 
   /** What an edit just changed in 3D glows a moment (editGlow.ts; D488, D335's colours): a still glow with reduced
-   *  motion. Nothing is made until an edit changes a cell, and nothing runs once it has faded. */
+   *  motion, and in the light look (software drawing, where each frame of a fade costs as much as a whole frame and
+   *  holds the page: two frames, shown and gone). Nothing is made until an edit changes a cell, and nothing runs once
+   *  it has faded. */
   private glowEdits(cells: EditCells): void {
     const m = this.map;
     if (!m || (!cells.added.length && !cells.removed.length)) return;
     const src = m.source;
-    (this.editGlow ??= new EditGlow(this.scene, () => this.requestRender())).show(cells, m.W, m.H, (x, y) => columnMask(src, y * m.W + x), this.slice, this.reducedMotion);
+    (this.editGlow ??= new EditGlow(this.scene, () => this.requestRender(), this.glowMat, () => this.programs.ready([[this.glowMat, { ...(this.glowMat.defines as Defines) }]]))).show(cells, m.W, m.H, (x, y) => columnMask(src, y * m.W + x), this.slice, this.reducedMotion || this.software);
   }
 
   /** What the edit glow shows now (tests): its faces of each kind and its strength, 0 once faded. */
@@ -3023,11 +3058,8 @@ export class MapRenderer {
       if (!s) return;
       this.ring = new ForceRing(this.scene);
     }
-    const level = (tx: number, ty: number) => {
-      const i = ty * m.W + tx;
-      const top = this.slice === null ? m.heights[i] : Math.min(m.heights[i], this.slice);
-      return m.surface.depth[i] > 0.05 && this.slice === null ? Math.max(top, m.surface.surface[i]) : top;
-    };
+    // (the water as drawn: under a layer cut through it, at the cut; from the water view, cutWater.ts)
+    const level = (tx: number, ty: number) => ringLevelAt(m.heights, m.surface, ty * m.W + tx, this.slice);
     this.ring.set(s, level, m.W, m.H);
     this.requestRender();
   }
@@ -3089,6 +3121,13 @@ export class MapRenderer {
     const m = this.map;
     if (!this.overlay || !this.marks || !m) return;
     const data = this.overlay.image.data as Uint8Array;
+    // the page paints the same overlay again (its effect runs on every render it has): nothing to upload or draw (a
+    // frame in software holds the page for as long as it draws); the highlight painted back over it as it stands
+    if (this.highlight === this.committedHighlight && this.pageOverlay?.length === data.length && sameBytes(data, this.pageOverlay)) {
+      if (this.highlight) paintHighlight(data, m.W, m.H, this.highlight);
+      return;
+    }
+    this.committedHighlight = this.highlight;
     // the page's own paint, kept apart from the highlight drawn over it
     if (!this.pageOverlay || this.pageOverlay.length !== data.length) this.pageOverlay = new Uint8Array(data.length);
     this.pageOverlay.set(data);
@@ -3564,11 +3603,13 @@ export class MapRenderer {
   pickSurface(clientX: number, clientY: number, picked?: TileHit | null): TileHit | null {
     const hit = picked === undefined ? this.pick(clientX, clientY) : picked;
     const m = this.map;
-    if (!hit || !m || this.slice !== null) return hit;
+    if (!hit || !m) return hit;
     const i = hit.y * m.W + hit.x;
-    if (!(m.surface.depth[i] > 0.05)) return hit;
+    // (the water as drawn: under a layer cut through it, at the cut; none where the cut took it all; from the water view,
+    // never a mesh, cutWater.ts)
+    const level = waterLevelAt(m.surface, i, this.slice);
+    if (level === null) return hit;
     const ray = this.rayAt(clientX, clientY);
-    const level = m.surface.surface[i];
     // (only where the ray meets the water before the ground: a roof over a cave's water keeps its own hit)
     if (ray.direction[1] < 0 && (level - ray.origin[1]) / ray.direction[1] > hit.t + 1e-6) return hit;
     const p = pickPlane(ray, level);
@@ -3989,6 +4030,7 @@ export class MapRenderer {
     this.blockGhost?.dispose();
     this.blockCells?.dispose();
     this.editGlow?.dispose();
+    this.glowMat.dispose();
     this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();
@@ -4002,26 +4044,6 @@ export class MapRenderer {
     // free the context now: browsers keep only a few, and the editor opens a view per map
     this.gl.forceContextLoss();
   }
-}
-
-/** The rectangle of tiles whose shadow casters differ (null: none; undefined: all of them). */
-function castersChanged(a: Float32Array | null | undefined, b: Float32Array | null, W: number, H: number): { x0: number; y0: number; x1: number; y1: number } | null | undefined {
-  if (a === undefined) return undefined;
-  if (!a && !b) return null;
-  let x0 = W;
-  let y0 = H;
-  let x1 = -1;
-  let y1 = -1;
-  for (let i = 0; i < W * H; i++) {
-    if ((a ? a[i] : 0) === (b ? b[i] : 0)) continue;
-    const x = i % W;
-    const y = (i - x) / W;
-    if (x < x0) x0 = x;
-    if (x > x1) x1 = x;
-    if (y < y0) y0 = y;
-    if (y > y1) y1 = y;
-  }
-  return x1 < 0 ? null : { x0, y0, x1, y1 };
 }
 
 /** The legend's highlight over the overlay: the tiles lightly tinted, their edge strongly. */

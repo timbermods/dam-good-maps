@@ -87,15 +87,17 @@ describe("Max water depth (D264)", () => {
       for (const i of r.raised) expect(rv[i], `river tile ${i}`).toBeLessThan(1.6);
     }
   };
-  // (seed 9 for 0.8.5's maps, D148: it has both halves, a dry spot for the pit and a river stretch the rule
-  // raises; seed 5's pit now shows the shortfall below. Seed 5 for 0.8.1's maps: seed 2's river had no stretch
+  // (seed 15 for 0.10.5's maps, D148: it has both halves, a dry spot for the pit and a river stretch (74 tiles)
+  // the rule raises; seed 9 for 0.8.5's maps, whose pit now shows the shortfall below, as do seeds 11, 16 and 19
+  // (3.072 for the 3.06), while seeds 1, 2, 5 and 8 have no river stretch to raise. Seed 5 for 0.8.1's maps: seed 2's river had no stretch
   // deeper than 1.2 that the rule raises, so the river half had nothing to apply)
-  it("a lake 6 deep becomes 3 deep with the same surface, in one step; a river ends no deeper than about the number", () => lakeAndRiver(9));
+  it("a lake 6 deep becomes 3 deep with the same surface, in one step; a river ends no deeper than about the number", () => lakeAndRiver(15));
   // An expected failure, kept on a seed that shows it (Kyler, 2026-10-02): the settle leaves the pit 0.07 over
   // the 3, past the 0.06 the bound allows (the editor's water, for the milestone session); when it passes,
   // `fails` comes off. M9b's River Valley 96² seed 3 caught it; on 0.8.5's maps seed 3's pit ends within the
-  // bound and seed 5's 0.07 over (D148, the same failure re-seeded).
-  it.fails("seed 5: the pit's water ends 0.07 over the number, past the bound", () => lakeAndRiver(5));
+  // bound and seed 5's 0.07 over; on 0.10.5's maps seed 5 has no river stretch to raise and seed 9's pit is 0.07 over
+  // (D148, the same failure re-seeded).
+  it.fails("seed 9: the pit's water ends 0.07 over the number, past the bound", () => lakeAndRiver(9));
 
   // Where no water is deeper than the number there is nothing to raise, and nothing is sent; an empty
   // step reaching the session is refused with a reason, never a history entry (reading the history

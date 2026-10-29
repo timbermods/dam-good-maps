@@ -194,7 +194,7 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 - **Captures:** `docs/sheets/3d-view-water-columns.jpg` (Hollows: its river's cave through a mouth, and cut at 6 over the
   river where dev's falls from the roof came through; Pressure: a badwater tunnel's mouth, and cut at 2 over its
   tunnels; before and after, Standard and High, 1920×1080 dark, and the cuts at 1280×800 light).
-- **Falls short:** the cut still drops what stands above it, water included. (Water under a wet roof flowing as its
+- **Falls short:** (water sliced by the cut: built, "Water sliced by the cut" below). (Water under a wet roof flowing as its
   roof's, and a cave column's falls estimating their flow: built, part 4b.) `tests/e2e/cutaway.spec.ts` compiles and draws the water's branch on a
   hand-made cave with a pool and a puddle on its roof in CI.
 
@@ -368,10 +368,9 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   `tests/e2e/cutaway.spec.ts`: a pond's shelf cut at its level, and ground at 2 under a reservoir six levels deep cut
   at 7, draw as the same ground dry (each failed before its fix by 38 levels). Captures: `docs/sheets/cut-level-ground.jpg` (dev against the branch, Canyon's shelf and Hollows at cut 7,
   Standard and High, 1920×1080 dark and 1280×800 light).
-- **Falls short:** water, objects, falls and the drought line are cut as before: what stands above the cut is not drawn
-  (each water column stands at its own level since part 4). Water whose surface stands above the cut is not drawn even
-  where its floor lies below the cut, so that floor shows as ground, not as a bed under water.
-  `tests/e2e/cutaway.spec.ts` compiles and draws the branch on a hand-made cave in CI.
+- **Falls short:** objects and the drought line are cut as before: what stands above the cut is not drawn. Water whose
+  surface stands above the cut and whose floor lies below it is drawn sliced at the cut, its bed a bed under it (built,
+  "Water sliced by the cut" below). `tests/e2e/cutaway.spec.ts` compiles and draws the branch on a hand-made cave in CI.
 
 ## The camera keeps out of the rock (`fix/caves-brush-camera`)
 
@@ -638,16 +637,18 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   left open in the hollow (the rock round it: floor, ceiling, back and sides) red. It holds a quarter of a second, then
   fades out over 0.85 s. Its clock runs with the frames drawn, at most 250 ms a frame, so a page held by the first cave's
   light and shaders (seconds, `syncCaves`) never uses it up unseen. A change landing while one glows joins it and both
-  start over, so a force's frames glow together until a second after its last. With reduced motion it shows still for
-  a second, then goes. Under a layer cut what the cut hides is left out; the cut moving puts the glow away.
+  start over, so a force's frames glow together until a second after its last. With reduced motion, and in the light
+  look (software drawing, where each frame of a fade is a whole frame's cost), it shows still for a second, then goes. Under a layer cut what the cut hides is left out; the cut moving puts the glow away.
 - **What counts** (worked out by the renderer from each terrain update, no operation change: `editedCells`): every
   cell whose solid state differs between the columns drawn before and the update's, on tiles with terrain above terrain
   before or after (stored masks, not reshaped to the heights, so a roof's top a stroke painted first still counts): a
   Block dig or overhang, an Erode cave, a stroke or a Select action that reshapes a roof's top (D487), their undo and
   redo, a History jump. On plain tiles, only the Block tool's edits and Erode's frames: the Block tool says so as it
-  sends its operation (`renderer.blockEditSent()` in `useBlockTool.ts` `commit`), and the next land that comes within
-  4 s takes it; once the operation's answer is back (taken, refused or failed) the word is dropped
-  (`blockEditSent(false)`), so a refused edit never lends it to a change that lands after; Erode's frames' plain ground is painted through `flushTerrain` while its moment plays.
+  sends its operation to the worker (`renderer.blockEditSent()` in `useBlockTool.ts` `commit`, once the edits queued
+  before it have landed), and the next land that comes takes it, however long the answer takes (no clock: on CI's
+  software drawing a Block click's answer came after the 4 s an earlier stamp allowed, and glowed nothing); once the
+  operation's answer is back (taken, refused or failed) the word is dropped (`blockEditSent(false)`), so a refused edit
+  never lends it to a change that lands after; Erode's frames' plain ground is painted through `flushTerrain` while its moment plays.
   Plain heightfield edits otherwise get nothing, the Block tool in hand or not: a brush paints its land as it goes
   (D197), a Select action is the selection's own, and the other forces have their own moments (D240), so nothing is
   doubled. Compare's flip to another version and back is not an edit: `useCompare.tsx` asks for its land with
@@ -657,6 +658,10 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   as whole ghost blocks, the preview lingering. They read the same for an add. For a dig, B fills the hole it confirms
   with four red blocks, which reads as blocks added; A lights the hollow's floor, walls and ceiling, so the hole reads as
   a hole, and draws only what is open (12 quads to B's 24 for a 2 × 2 dig).
+- **Its program, compiled ahead:** the glow's one material (no tone mapping, no defines: one program in every look)
+  is the renderer's, put on the warm-up list (`scheduleWarm`, programs.ts) with the cave states, and a glow whose
+  program is not ready yet waits for it, drawn and its clock started only once it is (`programs.ready`), so a first
+  glow never compiles in a frame (D453; `cutaway.spec.ts` counts the programs the frames compile after a dig: 0).
 - **Cost:** nothing per frame once faded (no mesh drawn, no frame asked for); the cells are found inside the update's
   changed rectangle (typed arrays, a mask compare a tile), the faces rebuilt when an edit lands (six mask lookups a
   cell, at most 20,000 cells).
@@ -665,7 +670,9 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   fade); `tests/e2e/editGlow.spec.ts` (a plain edit draws nothing; a dig into a wall glows on the hollow's 5 faces and is
   gone after it fades; its undo glows the block put back; with reduced motion it holds still, then goes; the Block
   tool's click on flat ground glows its block's 5 faces, while a plain edit with the Block tool in hand and a Compare
-  flip and back glow nothing; a Block click the core refuses, then a plain edit within the 4 s, glows nothing).
+  flip and back glow nothing, the click's answer held back 5 s; a Block click the core refuses, then a plain edit a
+  moment later, glows nothing). The spec watches the glow in every frame from before each edit (`watchGlow`): on a slow
+  machine the glow can show and go while a poll from the test still waits for the edit's answer.
 - **Captures:** `docs/sheets/3d-edits-show.jpg` (`tools/capture-edits-show.ts`, real Chrome on the RTX 2070 SUPER):
   before, just after (the glow held at full for the shot) and a second later; a Block dig into a cliff, an overhang built out of it, a Block tool click on
   the plain ground at its foot and an Erode click on its face (Highlands 128 seed 12); a dig into a cave's wall under a
@@ -676,6 +683,95 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   dig, the Block tool's next preview (white) over the red glow reads pink for a moment. The first hollow dug on a plain
   map held the page for seconds in a cold browser (the cave light and shaders, before this change and dev's shader
   warm-up); the glow waits for it.
+
+## Software frames (`perf/software-frames`)
+
+- **Why:** dev's CI (software drawing, SwiftShader) took 21–29 s a Block tool click in `blockTool.spec.ts`. Measured
+  under SwiftShader (Chrome `--use-angle=swiftshader`, 1920×1013, a Block click on Lake Basin 96 seed 77): each frame
+  drawn holds the page's thread as long as SwiftShader draws it (the canvas is read back for the software compositor at
+  each frame), so a click costs its frames times a frame. CI draws a frame in 1–2.5 s (its trace's screencast), this
+  machine in ~50 ms; frames a click were the same at 2026-10-15 and on dev (8–12 with frames held at 1.5 s), and CI's
+  2026-10-15 runs of the spec failed at their first click (33–39 s was a failure's time, not the spec's pace).
+- **What grew:** the light look's terrain program, about 13% a frame since 2026-10-15 (the thin-water film's bed, the
+  cut's new hatch, the run soil's water flag, all paid on every top pixel in software, where branches do not skip), and
+  the edit glow's fade, at least five frames an edit whatever they cost (its clock moves at most 250 ms a frame).
+- **What changed (software only; on a GPU every program's translated source is the same, Standard's 13 and High's 10):**
+  the light look's tops work out the tile's own soil, sky, level and film once (its neighbours are the tile itself, so
+  the blend comes to that; no edge wobble, D135), with no contact shadow or lip (none to draw), and its walls drop the
+  stone bevel and cracks (D135: no patterns); the edit glow shows still in the light look (two frames); `commitOverlay`
+  draws nothing when the page paints the same overlay again (a frame at rest, from the page's effects).
+- **Numbers (this machine, SwiftShader):** a frame 48–49 → 43.5 ms (2026-10-15: 47–49); `blockTool.spec.ts` 147 → 131 s
+  of tests; an edit's glow 6+ frames → 2.
+- **Falls short:** a frame in software is still about 2 s on CI's runners; the next lever is drawing fewer pixels in
+  the light look (0.75 of the resolution: 34 ms here), which softens its picture, so it is not done.
+
+## High within 16 samplers (`fix/high-software-link`)
+
+- **Why:** on a map with terrain above terrain (every generated map with a 3D form, the cutaway's and the run soil's
+  branches), High's terrain program read 17 textures; a fragment shader is sure of 16 (WebGL 2's least, and all that
+  ANGLE on Direct3D 11 gives, so Chrome on Windows, GPU or not), so there it did not link (`useProgram: program not
+  valid`) and the terrain drew empty. Since #571, whose thin-water film read the flow texture in the terrain shader,
+  where High already reads the same texture as `hlFlow`. Seen first in headless Chrome; a browser allowing 32 (Vulkan's
+  SwiftShader) never showed it.
+- **What:** the film's badwater share is a hook (`ShaderHooks.filmShare`); High reads it through `hlFlow`, the same
+  texture at the same size, so its terrain reads 16 and the picture is the same (frames at a held moment, Standard and
+  High: only the run-to-run noise). `cutaway.spec.ts` now fails any program past 16 samplers, in every browser.
+- **Falls short:** High's terrain is at the limit: a 17th texture there needs another one packed first (the eruption's
+  two or the edges' two are the candidates).
+
+## Water sliced by the cut (`feature/cut-water`)
+
+- **Why:** under a layer cut every voxel at or above the cut is gone (D207), the water's too, but water whose surface
+  stood over the cut was not drawn at all, even where its floor lay below the cut: a cut through a lake or a river
+  showed its bed as dry ground with nothing over it (since #571's films it read as plain ground, and since #518 the bed
+  as an ordinary top). What you see is now the lake sliced.
+- **The rule** (`src/render3d/cutWater.ts`, the shaders' rules in plain code): a water column is drawn whole where its
+  surface stands at most 0.05 over the cut (`CUT_SLACK`, as before); sliced, its top lying flat on the cut, where its
+  floor is below the cut; not at all where its floor is at the cut or above it (`surfaceAtCut`). A sliced top is
+  shallower by what the cut took off its water (`cutCornerDepth`: a corner's shared depth less that much times the
+  corner's wet share, so neighbouring tops still meet at their corners and the water still thins to its shore), and it
+  keeps only its shore foam; its sides stop at the cut, their drop and depth shortened with it. A fall whose lip stands
+  over the cut is gone; its landing stays where its pool is below the cut (`fallSheetCut`). The terrain counts a top as
+  a bed under water exactly where a top is drawn over it (`bedAtCut`: `soilOf` adds "or the top is below the cut"; a run
+  top at the cut or above it has no water drawn over it), and a film's depth (#571) is the depth left under the cut
+  (`waterDepthOf`).
+- **How it is drawn:** no remesh, the cut stays one uniform (`setSlice`). The water's mesh carries, per vertex, its
+  column's floor and, on a top, the corner's wet share (`WaterMeshData.cut`, the `wcut` attribute; 8 bytes a vertex), and
+  the water's vertex shader folds a sliced column onto the cut as the terrain's folds the ground (`waterMaterial`, both
+  looks and the light look; High's rough water and every look's moving surface read the current by tile, so they move on
+  the sliced surface). The falls' vertex shader drops a sheet whose lip stands over the cut. The ribbons and the Flow
+  view's streaks carry the water's floor too (`motionShapes.ts`) and lie on a sliced surface. The water's chunk bounds
+  reach down to each column's floor (`boundingSphereOf`), where the cut may fold it. A force's cursor and ring
+  (`pickSurface`, the force ring) stand on the water as drawn: on the cut over sliced water.
+- **Check:** `tests/unit/cutWater.test.ts` works out what is drawn as the GPU does it (the vertex shader mirrored) on
+  Canyon 128 seed 7, Lake Basin 128 seed 5 and a hand-made cave pool under a roof with a lake on it, at every cut through
+  their water: each column drawn where `surfaceAtCut` says, every top flat, a sliced column's sides under the cut,
+  tops of one water meeting at their corners, the terrain's bed (from the tile data's water byte, as `soilOf` reads it)
+  exactly under drawn water, and nothing moved with no cut. `tests/e2e/cutaway.spec.ts`: a reservoir six levels deep cut
+  at 7 draws as five levels of water would, not as its bed dry (it drew as the bed dry before), in Standard and High,
+  with no shader error and every program within 16 samplers.
+- **Real Chrome** (`tools/capture-cut-water.ts`; the RTX 2070 SUPER, and Chrome in software for the light look):
+  Canyon 128 seed 7 cut at 9 (its river is mostly under a level deep, so a whole-level cut slices it only where it pools
+  deeper), the official Lakes at 1 (222 columns sliced round the frame), Hollows at 2 (a shaft by its underground river,
+  which is under a level deep and so is drawn whole or gone at any cut) and at 10 (a badwater cave pool). With no cut, dev
+  against this branch, the water held: Standard and High within the run-to-run noise of two loads of one build (0–93
+  pixels, all on the water and the Items panel's animated icon), the light look 0 on the map (on Hollows the outlines
+  of the camera buttons, page controls, differed). Captures:
+  `docs/sheets/cut-water.jpg` (dev against this branch, Standard, High and the light look, 1920×1080 dark and
+  1280×800 light).
+- **The sides of water the cut removes (`fix/cut-curtain-sliver`, from #642's review):** a side of a column whose floor
+  is at the cut or above was only clipped per fragment, so one hanging below its floor (a step of less than a fall down to
+  lower water in front of a cliff) left a sliver up to the cut's slack in front of the cut face. The water's vertex
+  shader now folds such sides flat (the no-cut path is unchanged: `slice` is 99). `tests/unit/cutWater.test.ts` checks
+  every removed column's sides at every cut on its maps (dev's fold drew some on each) and a shallow step in front of a
+  cliff. Captures: `docs/sheets/cut-curtain-sliver.jpg` (`tools/capture-cut-water.ts --slivers`: Canyon 128 seed 7 at
+  cut 4 and the official Waterfalls, close up, dev against the branch, Standard and High, 1920×1080 dark).
+- **Falls short:** a sliced top whose upper water poured in a fall (now gone) has no side where the fall was, down to the
+  pool below (it would need a quad meshed only for a cut; no such case found on the official maps, whose lips are
+  shallower than a level); a top next to water whose floor the cut reaches (gone) keeps no shore foam at the new bank
+  (each top would need its neighbours' floors). A film exactly
+  on a run top at the cut is counted dry by the terrain (the run texture has no depth). Objects and the drought line are
+  cut as before. The cut is whole levels, so water under a level deep is never sliced (drawn whole or gone, as before).
 
 ## The rest of the step (next parts)
 

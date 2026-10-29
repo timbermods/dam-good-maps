@@ -132,11 +132,19 @@ export function useDelete(ed: Ed): DeleteSlice {
   function deleteGround(tiles: number[]): boolean {
     const h = mirror.current.heights;
     const cut = renderer.current?.slice ?? null;
-    const low = tiles.filter((i) => h[i] > 0 && (cut === null || h[i] <= cut));
-    if (!low.length) {
+    const all = tiles.filter((i) => h[i] > 0 && (cut === null || h[i] <= cut));
+    if (!all.length) {
       flashNote("Nothing left to delete there");
       return false;
     }
+    // (as Select's actions, D487: a cave's ground and what holds up its roof stay as they are, the rest goes down a
+    // level, and the message says how many were left; ground of nothing else is refused, saying why)
+    const open = ed.openGround(all);
+    if (!open.tiles.length) {
+      ed.refusedOnCave(all);
+      return false;
+    }
+    const low = open.tiles;
     const W = info.W;
     let sx = 0;
     let sy = 0;
@@ -148,7 +156,12 @@ export function useDelete(ed: Ed): DeleteSlice {
     const ops: EditOp[] = [{ op: "sculpt", params: { mode: "lower", cells: tilesToRuns(low, W), amount: 1, exact: true } }];
     void run(
       () => api.applySelection(ops, low.length === 1 ? "Delete a level of ground" : `Delete a level of ground on ${tileCount(low.length)}`, low),
-      (u) => u.ok && feel("lower", mid[0], mid[1], Math.max(1, Math.sqrt(low.length) / 2)),
+      (u) => {
+        if (!u.ok) return;
+        feel("lower", mid[0], mid[1], Math.max(1, Math.sqrt(low.length) / 2));
+        const left = open.left + (u.left ?? 0);
+        if (left) setMessage({ kind: "info", text: ed.caveLeftWords(left) });
+      },
     );
     return true;
   }

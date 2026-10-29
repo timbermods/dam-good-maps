@@ -70,13 +70,18 @@ describe("the moving water's shapes", () => {
     expect(Array.from(b.streaks.track)).toEqual(Array.from(a.streaks.track));
   });
 
-  it("shapeBuffers returns the 7 underlying buffers", () => {
+  it("shapeBuffers returns the 9 underlying buffers (the water's floors under the ribbons and the lanes' points too, for a layer cut)", () => {
     const { sw, current } = channel(2);
     const s = motionShapes(W, H, sw, current);
     const b = shapeBuffers(s);
-    expect(b.length).toBe(7);
+    expect(b.length).toBe(9);
     expect(b[0]).toBe(s.cues.position.buffer);
-    expect(b[4]).toBe(s.streaks.paths.buffer);
-    expect(b[6]).toBe(s.streaks.position.buffer);
+    expect(b[4]).toBe(s.cues.floor.buffer);
+    expect(b[5]).toBe(s.streaks.paths.buffer);
+    expect(b[6]).toBe(s.streaks.floors.buffer);
+    expect(b[8]).toBe(s.streaks.position.buffer);
+    // (one floor a ribbon's vertex and a lane's point, the water's under it)
+    expect(s.cues.floor.length).toBe(s.cues.position.length / 3);
+    expect(s.streaks.floors.length).toBe(s.streaks.paths.length / 4);
   });
 });

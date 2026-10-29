@@ -155,7 +155,7 @@ export function SourceLabels(p: { items: LabelIn[] }) {
         const feeding = ids.some((s) => s.feeding);
         const target = ids.some((s) => s.target);
         return (
-          <span key={l.id} class={`map-note source-marker${l.bad ? " bad" : ""}${feeding ? " feeding" : ""}${target ? " target" : ""}`} style={{ left: `${l.x}px`, top: `${l.y}px` }} data-sources={l.count}>
+          <span key={l.id} class={`map-note source-marker${l.bad ? " bad" : ""}${feeding ? " feeding" : ""}${target ? " target" : ""}${l.warn ? " warn" : ""}`} style={{ left: `${l.x}px`, top: `${l.y}px` }} data-sources={l.count}>
             {l.words}
           </span>
         );

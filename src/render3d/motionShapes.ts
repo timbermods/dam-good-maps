@@ -19,26 +19,39 @@ interface Sample {
   x: number;
   y: number;
   h: number;
+  /** The floor of the water there (a layer cut slices the water over it: cutWater.ts). */
+  f: number;
   bad: number;
   vx: number;
   vy: number;
   speed: number;
 }
 
-/** The foam ribbons (one mesh): per vertex its position, the direction it widens in, its details
- *  (distance along, side, badwater share, kind: 0 a lane's foam thread, 1 a wake, 2 a seam) and its
- *  energy (strength, end fade, phase, width in tiles). */
+/** How far over the water's surface a lane's points lie. */
+export const SURFACE_LIFT = 0.035;
+/** How far over a lane's points its ribbon lies. */
+const RIBBON_OVER = 0.014;
+/** How far over the water's surface a ribbon lies. */
+export const RIBBON_LIFT = SURFACE_LIFT + RIBBON_OVER;
+
+/** The foam ribbons (one mesh): per vertex its position (`RIBBON_LIFT` over the water), the direction it
+ *  widens in, its details (distance along, side, badwater share, kind: 0 a lane's foam thread, 1 a wake,
+ *  2 a seam), its energy (strength, end fade, phase, width in tiles) and the floor of the water under it
+ *  (a layer cut slices the water over it, cutWater.ts). */
 export interface CueArrays {
   position: Float32Array;
   direction: Float32Array;
   detail: Float32Array;
   energy: Float32Array;
+  floor: Float32Array;
 }
 
-/** The Flow view's streaks (one draw): each lane's points (x, height, −y, badwater share: STEPS a
- *  row), and each streak's lane, life and start (with its first point, for the bounds). */
+/** The Flow view's streaks (one draw): each lane's points (x, height `SURFACE_LIFT` over the water, −y,
+ *  badwater share: STEPS a row) and the floors of the water under them (STEPS a row, for a layer cut),
+ *  and each streak's lane, life and start (with its first point, for the bounds). */
 export interface StreakArrays {
   paths: Float32Array;
+  floors: Float32Array;
   rows: number;
   track: Float32Array;
   position: Float32Array;
@@ -87,7 +100,7 @@ class Field {
       }
     vx /= Math.max(w, 0.0001);
     vy /= Math.max(w, 0.0001);
-    return { x, y, h: sw.surface[i] + 0.035, bad: sw.contamination[i], vx, vy, speed: Math.hypot(vx, vy) };
+    return { x, y, h: sw.surface[i] + SURFACE_LIFT, f: sw.floor[i], bad: sw.contamination[i], vx, vy, speed: Math.hypot(vx, vy) };
   }
 
   private step(p: Sample, dt: number): Sample | null {
@@ -203,6 +216,7 @@ export function motionShapes(W: number, H: number, sw: SurfaceWater, current: Fl
   const dir: number[] = [];
   const detail: number[] = [];
   const energy: number[] = [];
+  const floor: number[] = [];
   const ribbon = (points: Sample[], kind: number, seed: number, strength = 1) => {
     if (points.length < 3) return;
     const vertex = (k: number, side: number) => {
@@ -213,7 +227,8 @@ export function motionShapes(W: number, H: number, sw: SurfaceWater, current: Fl
       const dy = b.y - a.y;
       const length = Math.max(0.0001, Math.hypot(dx, dy));
       const rush = Math.max(0, Math.min(1, (p.speed - 0.14) / 1.9));
-      pos.push(p.x, p.h + 0.014, -p.y);
+      pos.push(p.x, p.h + RIBBON_OVER, -p.y);
+      floor.push(p.f);
       dir.push(-dy / length, 0, -dx / length);
       detail.push(k * DT, side, p.bad, kind);
       const end = Math.min(1, k / 3, (points.length - 1 - k) / 3);
@@ -264,6 +279,7 @@ export function motionShapes(W: number, H: number, sw: SurfaceWater, current: Fl
   // the Flow view's streaks: a few on each lane, its whole path in a texture row
   const rows = Math.max(1, lanes.length);
   const paths = new Float32Array(STEPS * 4 * rows);
+  const floors = new Float32Array(STEPS * rows);
   const track: number[] = [];
   const first: number[] = [];
   lanes.forEach(({ points, length }, row) => {
@@ -271,6 +287,7 @@ export function motionShapes(W: number, H: number, sw: SurfaceWater, current: Fl
     for (let k = 0; k < STEPS; k++) {
       const p = points[Math.min(k, points.length - 1)];
       paths.set([p.x, p.h, -p.y, p.bad], (row * STEPS + k) * 4);
+      floors[row * STEPS + k] = p.f;
     }
     // the same lane carries a few, far apart
     const count = Math.min(4, Math.max(1, Math.ceil(length / 16)));
@@ -280,13 +297,13 @@ export function motionShapes(W: number, H: number, sw: SurfaceWater, current: Fl
     }
   });
   return {
-    cues: { position: Float32Array.from(pos), direction: Float32Array.from(dir), detail: Float32Array.from(detail), energy: Float32Array.from(energy) },
-    streaks: { paths, rows, track: Float32Array.from(track), position: Float32Array.from(first) },
+    cues: { position: Float32Array.from(pos), direction: Float32Array.from(dir), detail: Float32Array.from(detail), energy: Float32Array.from(energy), floor: Float32Array.from(floor) },
+    streaks: { paths, floors, rows, track: Float32Array.from(track), position: Float32Array.from(first) },
     stats: { lanes: lanes.length, wakes: wakeCount, seams: seams.length, streaks: track.length / 3, triangles: pos.length / 9 },
   };
 }
 
 /** The arrays to hand over with the shapes (transferred, not copied). */
 export function shapeBuffers(s: MotionShapes): ArrayBuffer[] {
-  return [s.cues.position, s.cues.direction, s.cues.detail, s.cues.energy, s.streaks.paths, s.streaks.track, s.streaks.position].map((a) => a.buffer as ArrayBuffer);
+  return [s.cues.position, s.cues.direction, s.cues.detail, s.cues.energy, s.cues.floor, s.streaks.paths, s.streaks.floors, s.streaks.track, s.streaks.position].map((a) => a.buffer as ArrayBuffer);
 }

@@ -14,7 +14,7 @@ import { openMap } from "./forceEverywhere";
 
 const W = 128;
 const SEED = 22;
-const SIZE_HEAD: [number, number] = [62, 14];
+const SIZE_HEAD: [number, number] = [98, 18];
 const POWER_HEAD: [number, number] = [74, 18];
 let at: [number, number] = [W >> 1, W >> 1];
 
@@ -34,7 +34,10 @@ beforeAll(async () => {
   // on the rest); no head of 30 tried on this map and 30 on seed 21 keeps every check of both. Power's is
   // (74, 18), level 11, since the opening shot turned the start, D493, D148: from (14, 46) Power 100's
   // walls now stand 9 to Power 50's 7; of 20 heads tried on a grid of 8, (74, 18) is the first that keeps
-  // every check of Power)
+  // every check of Power). Size's moved again with generator 0.10.5, D148: at (62, 14) Power 20's narrow valley
+  // (Size 10) is left on the old floor (a cut of 0) where the wide one (Size 40) cuts it 3, the same level, so
+  // "the floor is Power's" had no clean stretch there; of the heads on a grid of 4 from (62, 14) outward,
+  // (98, 18) is the first where every check of Size holds at Power 20, 60 and 100)
   at = SIZE_HEAD;
 });
 

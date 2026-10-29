@@ -145,8 +145,11 @@ function noteCurrent(id: string, link: string): void {
   }
 }
 
+/** A History's steps as one key (their sequence numbers): the same steps applied is the same map. */
+const stepsOf = (steps: readonly { seq?: number; label: string }[]) => steps.map((h) => h.seq ?? h.label).join(",");
+
 /** A row of Your maps: the name and the map's dimensions. */
-const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size, thumbnail: e.thumbnail, ...(e.parent ? { parent: e.parent } : {}) });
+const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size, thumbnail: e.thumbnail, ...(e.parent ? { parent: e.parent } : {}), ...(e.editedSince ? { editedSince: true } : {}) });
 
 /** Your maps' picture of a map (D234): the core's top-down thumbnail as a PNG, made in a worker of its own
  *  (`thumbnail.worker.ts`), or null when the worker can't make it in time (`thumbnails.ts`). */
@@ -160,6 +163,9 @@ const whenIdle = (ms: number) =>
 /** Where an open map comes from: a row of Your maps (`kept` false: a map Cancel brings back that was never kept), or a
  *  new map of a kind. */
 type Origin = { entry: YourMapEntry; kept?: boolean } | { kind: YourMapEntry["kind"] };
+
+/** Set once the first-keep note has been shown in this browser. */
+const KEPT_NOTE_KEY = "dgm.keptNote";
 
 interface Confirm {
   text: string;
@@ -270,8 +276,48 @@ export function App() {
   /** The open map is kept in Your maps (D330, Kyler, 2026-10-05): from its first edit or rename on, or opened from it.
    *  An unedited map is never written there; Cancel brings it back from memory. Once kept, it stays kept. */
   const kept = useRef(false);
+  /** The note on show (a ref beside the state: a quiet note never replaces another one). */
+  const noteRef = useRef<string | null>(null);
+  noteRef.current = note;
+  const errorRef = useRef<string | null>(null);
+  errorRef.current = error;
+  const versionRef = useRef<unknown>(null);
+  versionRef.current = version;
+  /** Showcase's notice, which takes the same place (set where Showcase is). */
+  const showcaseNoticeRef = useRef<unknown>(null);
+  const noteTimer = useRef(0);
+  /** A quiet note that goes by itself after a few seconds (a later note, or the player's ×, ends it sooner). */
+  function sayBriefly(text: string) {
+    setNote(text);
+    window.clearTimeout(noteTimer.current);
+    noteTimer.current = window.setTimeout(() => setNote((n) => (n === text ? null : n)), 8000);
+  }
+  /** The open map becomes kept in Your maps (its first edit or rename, or a name typed for it). */
+  function keepNow() {
+    kept.current = true;
+  }
+  /** The first time a save of the open map is stored in this browser, a quiet note says so: nothing else ever tells a player
+   *  their work is kept. Only a stored map is claimed, and only when the note can be seen (no other note or error is up);
+   *  otherwise the next stored save says it. */
+  function sayKept() {
+    try {
+      if (localStorage.getItem(KEPT_NOTE_KEY)) return;
+      if (noteRef.current || errorRef.current || versionRef.current || showcaseNoticeRef.current) return;
+      localStorage.setItem(KEPT_NOTE_KEY, "1");
+    } catch {
+      // (no storage: the note shows each time it would have been the first)
+    }
+    sayBriefly("Kept in Your maps, in this browser");
+  }
   /** The open map's version when it opened: a later one is an operation applied, an edit. */
   const openedVersion = useRef(0);
+  /** The History steps a kept version was kept with (their sequence numbers, as opened): the map stands at its kept state while
+   *  exactly these are applied, edited since when not (null: not a kept version, or its steps are not all in the History). */
+  const keptSteps = useRef<string | null>(null);
+  /** The open map is a kept version and has been told, once since it opened, that its first edit changes the kept copy. */
+  const keptTold = useRef(false);
+  /** The branch Branch from here has just opened for editing: no warning, it is the copy to try an idea on (D234 (3)). */
+  const branchedId = useRef<string | null>(null);
   /** Set while the open map is being replaced: the editor's last changes then belong to the map leaving. */
   const switching = useRef(false);
   /** While the open map is captured and replaced, its editor takes no new edit (investigation/map-switch-speed); the
@@ -293,6 +339,7 @@ export function App() {
           // (the open map's entry takes its new storage token: its next save is over this one, investigation/saving-review)
           if (r.ok && r.storageVersion && entry.current?.id === id) entry.current = { ...entry.current, storageVersion: r.storageVersion };
           keeping.current = r.ok;
+          if (r.ok && entry.current?.id === id) sayKept();
           const problem = storeProblem(r);
           setSaveState(problem ? (r.ok === false && r.reason === "full" ? "Not saved: browser storage is full" : "Not saved in this browser") : "");
           if (problem) setError(problem);
@@ -388,10 +435,12 @@ export function App() {
       }),
     ]);
     const thumbnail = made ?? of.thumbnail;
+    // (what the page changed on the entry while this waited, an edited-since mark among it, is kept: the entry as it is now)
+    const now = entry.current?.id === of.id ? entry.current : of;
     // (its name and size from the worker and the page, so the save never unzips the project to read them)
     const info = infoRef.current;
-    const size = of.size ?? (info ? { w: info.W, h: info.H } : undefined);
-    const e = { ...of, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail, ...(size ? { size } : {}) };
+    const size = now.size ?? (info ? { w: info.W, h: info.H } : undefined);
+    const e = { ...now, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail, ...(size ? { size } : {}) };
     if (entry.current?.id === of.id) entry.current = e;
     return { entry: e, project: p.bytes, name: p.name };
   }
@@ -407,8 +456,11 @@ export function App() {
       await pendingEdits.current?.();
       await saver.flush();
       if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download the project before replacing it.");
+      // (a kept map leaving, and really stored: where it went is said once the new one is in)
+      const leaving = kept.current && keeping.current ? nameRef.current : null;
       switching.current = true;
       const data = await load();
+      if (leaving) sayBriefly(`${leaving} is in Your maps`);
       if (hosting) await together.newMap(data.info.name);
       return data;
     } catch (e) {
@@ -449,6 +501,8 @@ export function App() {
     noteCurrent(e.id, link);
     kept.current = !isNew && origin.kept !== false;
     openedVersion.current = data.info.version;
+    keptTold.current = false;
+    keptSteps.current = e.parent && data.info.history.length >= e.parent.steps ? stepsOf(data.info.history.slice(0, e.parent.steps)) : null;
     if (!isNew) refresh();
   }
 
@@ -507,7 +561,23 @@ export function App() {
     // (not kept yet: only an operation applied makes it so; camera bookmarks alone don't)
     if (!kept.current) {
       if (info.version === openedVersion.current) return;
-      kept.current = true;
+      keepNow();
+    }
+    // a kept version opened and edited: the kept copy itself changes, so it says so, once, and its card says it was edited
+    // (and not once an undo has brought it back to the steps it was kept with)
+    const open = entry.current;
+    if (open.parent) {
+      const edited = keptSteps.current !== null ? stepsOf(info.history.filter((h) => h.applied)) !== keptSteps.current : info.version !== openedVersion.current;
+      if (edited) {
+        if (!open.editedSince) entry.current = { ...open, editedSince: true };
+        const branched = branchedId.current === open.id;
+        if (branched) branchedId.current = null;
+        if (!keptTold.current && !branched) setNote("Editing your kept version. Undo puts it back; History's Branch from here keeps a copy.");
+        keptTold.current = true;
+      } else if (open.editedSince && keptSteps.current !== null) {
+        const { editedSince: _was, ...rest } = open;
+        entry.current = rest;
+      }
     }
     saver.changed(entry.current.id, snapshot);
   }
@@ -522,7 +592,7 @@ export function App() {
     setName(result.name);
     setSession(info);
     // (a rename keeps the map in Your maps, as an edit does)
-    kept.current = true;
+    keepNow();
     if (entry.current) saver.changed(entry.current.id, snapshot);
     return null;
   }
@@ -625,8 +695,10 @@ export function App() {
       if (problem) return setError(problem);
       const list = await yourMaps.list().catch(() => [e, ...maps]);
       setMaps(list);
-      if (branch) guard(() => void openMap(e.id, list), "Branching");
-      else setNote(`Kept as ${name}`);
+      if (branch) {
+        branchedId.current = e.id;
+        guard(() => void openMap(e.id, list), "Branching");
+      } else setNote(`Kept as ${name}`);
     } catch (err) {
       setError(`That version was not kept: ${words(err)}`);
     }
@@ -924,7 +996,7 @@ export function App() {
       enterEditor(fresh, { kind: "generated" });
       // (a name given keeps the map in Your maps, as a rename does)
       if (named) {
-        kept.current = true;
+        keepNow();
         saver.changed(entry.current!.id, snapshot);
       }
       performance.mark("dgm:opened");
@@ -1195,6 +1267,7 @@ export function App() {
       ),
     shownSpec: session?.kind === "generated" ? (session.spec ?? null) : null,
   });
+  showcaseNoticeRef.current = showcase.notice;
 
   // ---------------------------------------------------------------------------------- render
 

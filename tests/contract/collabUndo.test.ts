@@ -382,7 +382,7 @@ describe("a place in words", () => {
     );
 
   test("a lake, the start and a river are named; a compass word only when there are several of the kind", () => {
-    const one = open(1, "highlands");
+    const one = open(51, "highlands");
     const lakes = one.features.filter((f) => f.kind === "lake");
     expect(lakes.length, "the map has a single lake").toBe(1);
     const [lx, ly] = centre((lakes[0].params as { outline: number[][] }).outline);
@@ -390,17 +390,24 @@ describe("a place in words", () => {
     const start = one.features.find((f) => f.kind === "start")!;
     const [sx, sy] = (start.params as { position: [number, number] }).position;
     expect(placeOf(one, tilesAt([Math.round(sx), Math.round(sy)]))).toBe("by the start");
-    expect(one.features.filter((f) => f.kind === "river").length, "a single river needs no compass word").toBe(1);
-    const [ox, oy] = (one.features.find((f) => f.kind === "river")!.params as { path: number[][] }).path[1];
+    // (a spring cave's stream is "the cave", not one more river, D488)
+    const caves = one.features.filter((f) => f.kind === "river" && f.role?.startsWith("river/caveSpring/"));
+    const mains = one.features.filter((f) => f.kind === "river" && !caves.includes(f));
+    expect(mains.length, "a single river needs no compass word").toBe(1);
+    const [ox, oy] = (mains[0].params as { path: number[][] }).path[1];
     expect(placeOf(one, tilesAt([Math.floor(ox), Math.floor(oy)]))).toBe("at the river");
-    const three = open(5, "highlands");
+    if (caves.length === 1) {
+      const [cx, cy] = (caves[0].params as { path: number[][] }).path[0];
+      expect(placeOf(one, tilesAt([Math.floor(cx), Math.floor(cy)]))).toBe("at the cave");
+    }
+    const three = open(2, "highlands");
     const rivers = three.features.filter((f) => f.kind === "river");
     expect(rivers.length).toBeGreaterThan(1);
     const path = (rivers[0].params as { path: number[][] }).path;
     const [rx, ry] = path[Math.floor(path.length / 2)];
     expect(placeOf(three, tilesAt([Math.floor(rx), Math.floor(ry)]))).toMatch(/^at the (north|south|east|west|north-east|north-west|south-east|south-west|middle) river$/);
     // two lakes: the one that holds the tiles, with where it lies
-    const two = open(3, "canyon");
+    const two = open(4, "canyon");
     const both = two.features.filter((f) => f.kind === "lake");
     expect(both.length).toBe(2);
     for (const lake of both) {
