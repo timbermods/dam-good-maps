@@ -202,6 +202,18 @@ if (threads) {
         many.close();
         if (stackParallelStats.ticks === before) throw Error('the live water never ran on threads');
         console.log('PASS the live water on one thread = on ' + threads + ', its momentum handed over at ' + checks + ' checks; ' + one.ticks + ' ticks');
+        // its strips taken from it (two settles of their own fill the pool's room, stackParallel.ts MOST_LIVE): it carries
+        // on on one thread to its end, on an engine built again
+        const cut = new StackLive(model, from, settled, 4, true);
+        for (let k = 0; k < 10; k++) cut.advance(4);
+        const others = [0, 1].map(() => canonicalStackRun(W, H, model.stacked!));
+        for (const o of others) o.advance(16);
+        cut.frame();
+        while (!cut.advance(4) && cut.ticks < 4096);
+        if (!cut.done) throw Error('the live water did not carry on once its threads were taken');
+        cut.close();
+        for (const o of others) while (!o.advance(1e6));
+        console.log('PASS the live water carries on on one thread once its threads are taken; ' + cut.ticks + ' ticks');
     }
     uninstallParallelWater();
     if (!ran) throw Error('the threads never ran');

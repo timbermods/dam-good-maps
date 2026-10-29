@@ -252,11 +252,10 @@ export class StackLive {
   /** Run at most `ticks` more; true once the water stands still (the canonical settle's test) or its days ran out. */
   advance(ticks: number): boolean {
     if (this.finished) return true;
-    const m = this.m;
     let left = Math.max(0, Math.floor(ticks));
     if (this.threads === undefined)
-      this.threads = this.parallel && m.info(STACK_INFO.settle) === 0 && m.info(STACK_INFO.maxTicks) % STACK_CHECK_TICKS === 0 ? stackThreads(m, this.W, this.H, this.mask, this.objects, true)?.watch(this) ?? null : null;
-    while (this.threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
+      this.threads = this.parallel && this.m.info(STACK_INFO.settle) === 0 && this.m.info(STACK_INFO.maxTicks) % STACK_CHECK_TICKS === 0 ? stackThreads(this.m, this.W, this.H, this.mask, this.objects, true)?.watch(this) ?? null : null;
+    while (this.threads && left > 0 && this.m.info(STACK_INFO.settle) === 0) {
       const n = Math.min(left, STACK_CHECK_TICKS - this.since);
       const check = this.since + n === STACK_CHECK_TICKS;
       if (!this.threads.run(n, check)) {
@@ -268,11 +267,17 @@ export class StackLive {
       this.ticks += n;
       this.reported = check;
       if (check) {
-        this.threads.sync(m);
-        m.op(STACK_OP.elsewhere, this.since);
+        try {
+          this.threads.sync(this.m);
+        } catch {
+          this.single();
+          break;
+        }
+        this.m.op(STACK_OP.elsewhere, this.since);
         this.since = 0;
       }
     }
+    const m = this.m;
     if (!this.threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
       const before = m.info(STACK_INFO.ticks);
       m.op(STACK_OP.advance, left);
@@ -288,7 +293,12 @@ export class StackLive {
 
   /** The strips' water since the run's last check, into the whole map's engine, its momentum with it: before it is read. */
   private gather(): void {
-    if (this.threads && this.since > 0 && this.report()) this.threads.sync(this.m);
+    if (!this.threads || this.since === 0 || !this.report()) return;
+    try {
+      this.threads.sync(this.m);
+    } catch {
+      this.single();
+    }
   }
 
   /** The strips' rows written back, if they ran since they last were; false when a thread failed (on one thread then). */
@@ -303,11 +313,12 @@ export class StackLive {
   }
 
   /** A thread failed (the pool is given up): the run goes on on one thread, from the water as the strips last handed it
-   *  back (a few ticks back). */
+   *  back (a few ticks back), on an engine built again (the old one's settle runs on, and takes no new water). */
   private single(): void {
+    this.threads?.free();
     this.threads = null;
     this.since = 0;
-    this.load(this.state());
+    this.reshape(this.mask);
     this.threads = null;
   }
 
