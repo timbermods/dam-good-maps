@@ -259,7 +259,7 @@ export const WATER_FILM = {
   clean: 0.14,
   bad: 0.62,
   foam: 0.3,
-  keep: 0.4,
+  keep: 0,
   gain: [0.8, 0.45] as readonly [number, number],
   /** The crimson the ground takes under a badwater film: `WATER.bad` a touch cooler, as the ground's
    *  light is warmer than the water's, so the film lands on the body's own crimson hue. */

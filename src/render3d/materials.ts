@@ -1702,6 +1702,9 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // pale streaks where it flows (badwater's brownish, so it reads as a flowing liquid too)
         c = mix(c, mix(WATER_PALE, badwaterShade(BADWATER_STREAK, depth), bad), pale * mix(WATER_PALE_AMOUNT, BADWATER_STREAK_AMOUNT, bad));
         float spec = pow(max(dot(reflect(-sunDir, N), V), 0.0), 90.0) * lit;
+        // a film keeps at most a faint sheen of glints: they come in with its body (WATER_FILM), so a glint
+        // never turns a film's faint tint into a solid fleck
+        glints *= film;
         c += sunColor * (spec * mix(WATER_SPEC, BADWATER_SPEC, bad) + glints * ${f(WS.glints)} * mix(1.0, BADWATER_GLINTS, bad) * (0.3 + 0.7 * lit));
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
