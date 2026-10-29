@@ -867,8 +867,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (a one-tile spike the integrity pass levelled stays levelled, `keepShownGround`). **Clear**: the sources the
   brush passes over are removed in the same undo step (they glow red under the ring first), even when the stroke
   changes no ground, and their water drains at once (item 15, D260). Each brush remembers its mode and choice.
-  Whatever the choice, every other object of several tiles on open ground (a mine site, a relic, the start) rides
-  the stroke as one level piece, and the stroke shows it so when it is let go (D491, amended 2026-10-29; `ridingPieces`).
+  Whatever the choice, every other object of several tiles on open ground (a mine site, a relic, the start with the
+  row before its door, whose tile the game needs at its level) rides the stroke as one level piece, and the stroke
+  shows it so when it is let go (D491, amended 2026-10-29; `ridingPieces`). A source Clear takes does not ride it.
 - **Precision when wanted:** the target level, straight lines, level lines, a Select tool for big shaped edits (a
   small button beside the brushes; M and Ctrl+drag still open it, D259), and live dimensions.
 - **Flatten** (D204, D322): sets the ground to its target, cutting and filling, so one stroke makes a clean plateau
