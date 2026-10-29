@@ -190,13 +190,15 @@ export function entityTiles(e: Pick<EntitySpec, "template" | "x" | "y" | "orient
   return footprintTiles(e.template, { template: e.template, x: e.x, y: e.y, z: e.z ?? 0, orientation: e.orientation, flipped: !!e.flipped });
 }
 
-/** The pieces that may ride a brush stroke whole (D249): each source of several tiles (a
- *  BadwaterSource), as its rectangle [x0, y0, x1, y1] on the W × H map. Which of them a stroke
- *  tilted is `tiltedPieces` (raster/brush.ts). */
+/** The pieces that may ride a brush stroke whole (D249, D491): each source of several tiles (a
+ *  BadwaterSource) and every other object of several tiles (a mine site, a relic, the start), as its
+ *  rectangle [x0, y0, x1, y1] on the W × H map. The game drops an object whose ground is not level
+ *  under it, so one on open ground rides a stroke level; a natural overhang hangs from a cliff by
+ *  design and does not. Which of them a stroke tilted is `tiltedPieces` (raster/brush.ts). */
 export function ridingPieces(entities: readonly EntitySpec[], W: number, H: number): [number, number, number, number][] {
   const out: [number, number, number, number][] = [];
   for (const e of entities) {
-    if (!FLUIDS[e.template]?.tiles) continue;
+    if (e.template.startsWith("NaturalOverhang")) continue;
     const cells = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
     if (cells.length < 2) continue;
     const xs = cells.map(([x]) => x);
