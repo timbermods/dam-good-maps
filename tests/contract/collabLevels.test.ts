@@ -1,6 +1,7 @@
 // A level through a shared session (D491, D342, D455): the pick's level under a roof ("z") reaches the planners a guest's edit
-// goes through (session.ts `planned.paint`, `planned.start`, called by collabEdit.ts `paintAt` and `moveStartTo`), so the ops the host orders are the ones the direct edit plans
-// (`paintAt`, `moveStartTo`), and both maps end identical, with the bushes and the start at that level, not on the roof's top.
+// goes through (session.ts `planned.paint`, `planned.start`, which collabEdit.ts `paintAt` and `moveStartTo` call), so the ops
+// the host orders are the ones the direct edit plans (`paintAt`, `moveStartTo`), and both maps end identical, with the bushes
+// and the start at that level, not on the roof's top.
 
 import { describe, expect, test, vi } from "vitest";
 import type { Command } from "../../src/core/collab";
