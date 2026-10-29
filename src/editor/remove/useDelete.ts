@@ -8,6 +8,7 @@ import type { TileFacts as PageTileFacts, TileObject } from "../../core/doc/desc
 import { removeTakes, type RemoveKind } from "../../core/features/objects";
 import { tilesToRuns } from "../../core/math/grid";
 import { isSource } from "../sourceSpots";
+import { waterOnTop } from "../features";
 import { ALL_KINDS } from "./kinds";
 import type { Ed } from "../ed";
 import { tileCount } from "../../core/doc/labels";
@@ -49,9 +50,11 @@ export function useDelete(ed: Ed): DeleteSlice {
       W: info.W,
       H: info.H,
       height: (i) => m.heights[i],
+      // (the water standing on the tile's top: a tile's uppermost water may lie in a cave under its roof, which the
+      // roof's readout never names; the cave's floor names it, `runTop` below)
       water: (i) => {
         const w = m.water;
-        return w && w.surface[i] === w.surface[i] && w.depth[i] > 0.001 ? { depth: w.depth[i], contamination: w.contamination[i] } : null;
+        return w && w.surface[i] === w.surface[i] && w.depth[i] > 0.001 && waterOnTop(w, m.heights, i) ? { depth: w.depth[i], contamination: w.contamination[i] } : null;
       },
       // (a held weather day's soil while one is on, Kyler, 2026-10-04: the readout reports the day shown)
       soil: (i) => {

@@ -40,7 +40,8 @@ export function useMarkers(ed: Ed): MarkersSlice {
   /** Near the pointer: the groups within two tiles; over water: the groups it comes from. */
   const hoverKey = useRef("");
   function hoverSources(hit: TileHit | null) {
-    const key = hit ? `${hit.x},${hit.y}` : "";
+    // (the level too: the same tile under a layer cut is its cave's floor, not its roof)
+    const key = hit ? `${hit.x},${hit.y},${hit.level ?? ""}` : "";
     if (key === hoverKey.current) return;
     hoverKey.current = key;
     const gs = groupsRef.current;
@@ -56,7 +57,11 @@ export function useMarkers(ed: Ed): MarkersSlice {
       if (g.tiles.some((t) => Math.abs((t % info.W) - hit.x) <= 2 && Math.abs(Math.floor(t / info.W) - hit.y) <= 2)) near.push(k);
     });
     setNearSources(near);
-    const feed = mirror.current.water ? (feedingGroups(mirror.current.water, gs, info.W, info.H, hit.x, hit.y) ?? []) : [];
+    // (a roof over a cave's water lights none of its sources; the cave's own water, its floor pointed at under the cut or
+    // through a mouth, lights them as ever, D196)
+    const top = mirror.current.heights[hit.y * info.W + hit.x];
+    const onTop = (hit.level ?? top) >= top;
+    const feed = mirror.current.water ? (feedingGroups(mirror.current.water, gs, info.W, info.H, hit.x, hit.y, undefined, onTop ? mirror.current.heights : undefined) ?? []) : [];
     setFeeding(feed);
     r?.setSourceGlow(feed.flatMap((k) => gs[k].tiles));
   }
