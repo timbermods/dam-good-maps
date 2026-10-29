@@ -81,7 +81,7 @@ describe("Fill water and Remove unfed water on a cave import", () => {
     const [floor, roof] = CAVE.air;
     // the cave is sealed: water stands in it no higher than its roof, and a level on the ground above is another hollow
     expect(planFill(s, 17, 17, roof + 1, floor).reason).toBe(`the hollow is closed above at level ${roof}: fill it to ${roof} or lower`);
-    expect(planFill(s, 17, 17, roof + 3).reason).toMatch(/^at level 9 the water would spill off the map at \(\d+, \d+\): the hollow doesn't hold it$/);
+    expect(planFill(s, 17, 17, roof + 3).reason).toMatch(/^at level 9 the water would spill off the map at X \d+ · Y \d+: the hollow doesn't hold it$/);
     // filled to its roof, where it would spill: by default from the cave, the tile's highest column below the level
     const p = planFill(s, 17, 17, roof);
     expect(p.reason).toBeNull();

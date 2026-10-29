@@ -1262,7 +1262,7 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   for (let k = 0; k < p.dabs.length; k += 2) {
     const x = p.dabs[k];
     const y = p.dabs[k + 1];
-    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= 4 * W || y >= 4 * H) return [`a dab at (${x / 4}, ${y / 4}) is outside the ${W}×${H} map`];
+    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= 4 * W || y >= 4 * H) return [`a dab at X ${x / 4} · Y ${y / 4} is outside the ${W}×${H} map`];
   }
   return [];
 }

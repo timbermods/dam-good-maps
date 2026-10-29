@@ -188,10 +188,10 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
     const [{ at, level }] = pits;
     const floor = s.built.waterModel.floor[at[1] * N + at[0]];
     expect(floor).toBe(level - 2);
-    expect(planFill(s, at[0], at[1], level + 0.5).reason).toMatch(/^at level \d+(\.5)? the water would spill off the map at \(\d+, \d+\): the hollow doesn't hold it$/);
-    expect(planFill(s, at[0], at[1], floor).reason).toBe(`level ${floor} is at or below the ground at (${at[0]}, ${at[1]}), which stands at ${floor}`);
+    expect(planFill(s, at[0], at[1], level + 0.5).reason).toMatch(/^at level \d+(\.5)? the water would spill off the map at X \d+ · Y \d+: the hollow doesn't hold it$/);
+    expect(planFill(s, at[0], at[1], floor).reason).toBe(`level ${floor} is at or below the ground at X ${at[0]} · Y ${at[1]}, which stands at ${floor}`);
     expect(planFill(s, at[0], at[1], floor - 1).reason).toMatch(/is at or below the ground/);
-    expect(planFill(s, N, 3, level).reason).toBe(`(${N}, 3) is off the map`);
+    expect(planFill(s, N, 3, level).reason).toBe(`X ${N} · Y 3 is off the map`);
   });
 
   it("is one operation and one undo step, says how long it lasts, and is stored at its level and evaporates from there by the game's rules (D222, D413)", () => {

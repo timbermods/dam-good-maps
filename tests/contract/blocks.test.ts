@@ -104,7 +104,7 @@ describe("the Block tool on a map with a cave and a ledge", () => {
       expect(s.nextSeq).toBe(seq);
       expect(blockFalls(s, p).reason).toBe(u.errors[0]);
     };
-    refused(add("+x", [[W - 1, 5, 1]]), "(40, 5) is outside the map");
+    refused(add("+x", [[W - 1, 5, 1]]), "X 40 · Y 5 is outside the map");
     // the top layer: raise a column to the ceiling, then build on it
     expect(s.apply({ op: "brush", params: area("raise", 22, 5, 5, 5, 5) }).errors).toEqual([]);
     expect(s.built.heights[at(5, 5)]).toBe(22);
@@ -118,7 +118,7 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     // nothing to change, and no block to point at
     const flat = caveSession();
     expect(flat.apply(op(add("-z", [[10, 10, 7]]))).errors).toEqual(["there is no room for a block there"]);
-    expect(flat.apply(op(remove("+z", [[10, 10, 9]]))).errors).toEqual(["(10, 10) has no block in layer 9 to point at"]);
+    expect(flat.apply(op(remove("+z", [[10, 10, 9]]))).errors).toEqual(["X 10 · Y 10 has no block in layer 9 to point at"]);
     expect(flat.apply(op({ mode: "add", side: "+z", at: [[10, 10, 7]], size: 9 })).errors[0]).toMatch(/size/);
     expect(flat.canUndo).toBe(false);
   });
@@ -129,9 +129,9 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     const tree = s.built.entities.find((e) => e.id === "11111111-2222-4333-8444-555555555555")!;
     expect(tree.z).toBe(8);
     const steps = s.history().length;
-    expect(s.apply(op(add("+z", [[8, 30, 7]]))).errors).toEqual(["an object stands at (8, 30) in layer 8"]);
-    expect(s.apply(op(remove("+z", [[8, 30, 7]]))).errors).toEqual(["an object stands on the block at (8, 30) in layer 7"]);
-    expect(s.apply(op(remove("+z", [[7, 29, 7]], 3))).errors).toEqual(["an object stands on the block at (8, 30) in layer 7"]);
+    expect(s.apply(op(add("+z", [[8, 30, 7]]))).errors).toEqual(["an object stands at X 8 · Y 30 in layer 8"]);
+    expect(s.apply(op(remove("+z", [[8, 30, 7]]))).errors).toEqual(["an object stands on the block at X 8 · Y 30 in layer 7"]);
+    expect(s.apply(op(remove("+z", [[7, 29, 7]], 3))).errors).toEqual(["an object stands on the block at X 8 · Y 30 in layer 7"]);
     expect(s.history().length).toBe(steps);
     // (deeper in the same column the blocks are buried: a remove takes only what a viewer sees)
     expect(s.apply(op(remove("+z", [[8, 30, 3]]))).errors).toEqual(["there is no block there to remove"]);
@@ -161,7 +161,7 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     expect(s.nextSeq).toBe(seq);
     // an add of ground three tiles past what holds it up falls; one within reach does not
     const far = add("+z", [[34, 12, 7]]);
-    expect(blockFalls(s, far).errors).toEqual(["(34, 12) has no block in layer 7 to point at"]);
+    expect(blockFalls(s, far).errors).toEqual(["X 34 · Y 12 has no block in layer 7 to point at"]);
     const out = add("+x", [[32, 12, 5]]);
     expect(blockFalls(s, out).reason).toBe("1 block of ground would fall: nothing would hold it up");
     expect(s.apply(op(out)).errors).toEqual(["1 block of ground would fall: nothing would hold it up"]);
@@ -241,7 +241,7 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     expect(s.apply(op(add("+z", [[0, 0, 7]], 3))).errors).toEqual([]);
     expect(s.built.heights[at(1, 1)]).toBe(9);
     // (in the direction of the face the map still ends)
-    expect(s.apply(op(add("+x", [[W - 1, 5, 1]], 3))).errors).toEqual(["(40, 4) is outside the map"]);
+    expect(s.apply(op(add("+x", [[W - 1, 5, 1]], 3))).errors).toEqual(["X 40 · Y 4 is outside the map"]);
   });
 
   it("Select's working area: a cell outside it refuses the operation, with the same line from the query", () => {
@@ -255,11 +255,11 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     const over = { ...remove("+z", [[8, 12, 7]], 3), area };
     const before = s.terrain.mask.slice();
     const u = s.apply(op(over));
-    expect(u.errors).toEqual(["(7, 11) is outside the selection"]);
+    expect(u.errors).toEqual(["X 7 · Y 11 is outside the selection"]);
     expect(blockFalls(s, over).reason).toBe(u.errors[0]);
     expect(Array.from(s.terrain.mask)).toEqual(Array.from(before));
     // an add's cell beyond the face is checked too
-    expect(blockFalls(s, { ...add("+x", [[12, 12, 7]]), area }).reason).toBe("(13, 12) is outside the selection");
+    expect(blockFalls(s, { ...add("+x", [[12, 12, 7]]), area }).reason).toBe("X 13 · Y 12 is outside the selection");
   });
 
   it("the view's cut: nothing from the cut up is touched, and nothing below it to change is refused", () => {
@@ -457,7 +457,7 @@ describe("the Block tool on a generated map after strokes", () => {
     const slope = s.built.entities.find((e) => e.template === "Slope");
     expect(slope).toBeDefined();
     const u = s.apply(op(remove("+z", [[slope!.x, slope!.y, slope!.z - 1]])));
-    expect(u.errors).toEqual([`an object stands on the block at (${slope!.x}, ${slope!.y}) in layer ${slope!.z - 1}`]);
+    expect(u.errors).toEqual([`an object stands on the block at X ${slope!.x} · Y ${slope!.y} in layer ${slope!.z - 1}`]);
     expect(s.canUndo).toBe(false);
   });
 });

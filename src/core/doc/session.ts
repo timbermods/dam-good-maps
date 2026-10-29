@@ -943,7 +943,7 @@ export class MapSession {
     if (!this.layered(before) && !this.layered(now)) return null;
     const left = new Set((before.springsLeft ?? []).map((s) => s.id));
     const out = (now.springsLeft ?? []).find((s) => !left.has(s.id));
-    if (out) return `it would leave out a spring's water source at (${out.x}, ${out.y}): ${out.why}`;
+    if (out) return `it would leave out a spring's water source at X ${out.x} · Y ${out.y}: ${out.why}`;
     const { x: W, y: H } = this.size;
     const t0 = this.terrainOf(before);
     const g0 = { W, H, mask: t0.mask };
@@ -955,7 +955,7 @@ export class MapSession {
       const tiles = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
       if (tiles.every((i) => isPlainMask(g0.mask[i]) && isPlainMask(g1.mask[i]))) continue;
       if (standProblem(b.template, b, g0) || !standProblem(e.template, e, g1)) continue;
-      return `it would leave ${withArticle(itemName(e.template))} at (${e.x}, ${e.y}) inside the ground or floating, and the game would remove it`;
+      return `it would leave ${withArticle(itemName(e.template))} at X ${e.x} · Y ${e.y} inside the ground or floating, and the game would remove it`;
     }
     return null;
   }

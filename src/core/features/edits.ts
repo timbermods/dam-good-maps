@@ -243,7 +243,7 @@ export function applySlopeEdits(entities: EntitySpec[], edits: readonly SlopeEdi
     const k = list.findIndex((e) => e.template === "Slope" && e.x === x && e.y === y);
     if (ed.op === "removeSlope") {
       if (k < 0) {
-        orphans.push({ seq: ed.seq, reason: `there is no longer a slope at (${x}, ${y})` });
+        orphans.push({ seq: ed.seq, reason: `there is no longer a slope at X ${x} · Y ${y}` });
         continue;
       }
       list = list.filter((_, j) => j !== k);
