@@ -253,7 +253,7 @@ place of its bottom rule.
     ends with **Crop** (the map becomes the selection's bounding rectangle, D340; one cell, the size's words take two),
     **Fill water** (the hollow under the selection's lowest ground filled with standing water to the brim, the highest
     level it holds (the core's `fillLevel`), so the first try holds; to the Level once the player sets it; hovering says
-    "Level 7, lasts about 12 days" (with a Level set, "9 tiles, lasts about 12 days") and marks the hollow, or in a
+    "Level 7, lasts 12 days" (with a Level set, "9 tiles, lasts 12 days"; "under a day" below one) and marks the hollow, or in a
     few words why not: "Raise the Level to fill", "It would spill off the map" (a slope or flat land, which hold none),
     D394) and **Remove unfed water** (the pools no
     source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo

@@ -692,7 +692,7 @@ test("Select's row: Fill water pours into the hollow under the selection to the 
   await expect(levelSlider).toHaveValue(String(level - 1));
   await row.getByRole("button", { name: "Fill water" }).hover();
   const words = row.getByRole("status");
-  await expect(words).toHaveText(new RegExp(`^Level ${level}, lasts (about \\d+ days?|less than a day)$`));  // (the words fit their cells, nothing cut off)
+  await expect(words).toHaveText(new RegExp(`^Level ${level}, lasts (\\d+ days?|under a day)$`));  // (the words fit their cells, nothing cut off)
   expect(await words.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
   const first = (await labels(page)).length;
   await row.getByRole("button", { name: "Fill water" }).click();
@@ -708,7 +708,7 @@ test("Select's row: Fill water pours into the hollow under the selection to the 
   await levelSlider.fill(String(level));
   // hovering says what it will make, in words
   await row.getByRole("button", { name: "Fill water" }).hover();
-  await expect(row.getByRole("status")).toContainText(/^9 tiles, lasts (about|less)/);
+  await expect(row.getByRole("status")).toContainText(/^9 tiles, lasts (\d+ days?|under a day)/);
   const n = (await labels(page)).length;
   await row.getByRole("button", { name: "Fill water" }).click();
   await idle(page);
