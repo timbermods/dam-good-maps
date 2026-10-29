@@ -433,6 +433,27 @@ For scale: one S = 1 source delivers 460 m³/day. Refilling a 300 m³ reservoir 
 
 ---
 
+## Q8. How the game draws contaminated water (1.1.2.8)
+
+Read from the game's own files, not run: the water material's saved properties in `resources.assets`, and the
+`Shader Graphs/PhysicalWaterURP_Opaque` and `_Transparent` shaders' D3D11 programs (the shader blob is LZ4; Windows'
+`d3dcompiler_47` `D3DDisassemble` reads the programs; the `UnityPerMaterial` offsets come from the pass's
+vector-parameter table). The C# (`Timberborn.WaterSystemRendering`) only uploads each column's contamination as a
+byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgress`).
+
+- **Per pixel:** the tile's contamination, eased toward its neighbours' average near tile edges, then one tint
+  `t = min(1, smoothstep(0.01, 1, c) ^ 0.25)` (`_MinContaminationThreshold` 0.01, `_MaxContaminationThreshold` 1,
+  `_ContaminationNonlinearity` 0.25). t: 0.26 at 5 %, 0.39 at 10 %, 0.56 at 20 %, 0.84 at 50 %.
+- **Colour:** albedo = lerp(clean, contaminated, t), in linear light. Clean = `_Color` #446C71 toward
+  `_AlbedoAtMaxDepth` #000F48 over `_MaxDepth` 5 levels. Contaminated = a noise pattern between
+  `_Base_Contamination_Color_A` (near black, #050505) and `_B` (#801F0B), times 1.75 up to 60 % and easing to 1.0 at
+  100 % (`_Base_Contamination_Intensity_Low` / `_High`): partly bad water is a brighter crimson than pure badwater.
+- **Surface:** smoothness goes to 0.15 by t × pattern (matte), metallic to 0 and normal strength up to ×2 linearly in c,
+  specular highlights × saturate(1 − c / 0.6); an emissive detail between `_Detail_Contamination_Color_A` #D99053 and
+  `_B` #E09C65 comes in by t (the pink-orange light).
+- **Opacity:** none by contamination: `_WaterOpacity` is 1 (0.4 while a tool hides the water).
+- Used by `src/render3d/waterPalette.ts` `WATER_BLEND` (2026-10-29).
+
 ## Simplified water simulation spec (browser implementation)
 
 This spec is for heightfield terrain (one water column per cell). It is exact for maps without caves or overhang objects, as validated against the 1.1 save.
