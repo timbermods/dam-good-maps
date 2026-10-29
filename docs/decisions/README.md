@@ -182,6 +182,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The look](look.md)
 
+- D496: Badwater's colour follows the game (amends D154)
 - D135: The 3D view's look
 - D154: Contaminated ground layer
 - D178: Mine sites and ruins models
