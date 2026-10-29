@@ -116,7 +116,9 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
         // (a stroke that kept ground holding up a cave's or an overhang's rock, or an object under a roof, says how much in
         // one line, and the map tints it until the next edit: D280 (3), amended by #623; D491)
         setRockHeld(u.held?.length ? { tiles: u.held, version: u.info.version } : null);
-        if (u.held?.length) setMessage({ kind: "info", text: heldWords(u.held.length, u.heldUnder) });
+        // (an edit's own note goes with the next kept step, a stroke, its undo or its redo, as it does with any other
+        // edit's: a held stroke taken back leaves no line about tiles the map no longer holds)
+        setMessage(u.held?.length ? { kind: "info", text: heldWords(u.held.length, u.heldUnder) } : (m) => (m && !m.keep ? null : m));
         // (the other player's terrain came in a shared session while these strokes were on their way, and waited: taken now)
         if (u.ok && pendingTerrain.current === 0 && ed.collabStale.current) {
           ed.collabStale.current = false;

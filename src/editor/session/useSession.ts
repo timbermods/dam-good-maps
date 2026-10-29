@@ -307,7 +307,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   };
   // A refusal's note goes with the next thing the player does (a press, a key, a tool picked, the layer or the view
   // changed); only a save that failed stays until it is dismissed or the map is saved. An edit's own note
-  // (info) stays until its × or the next kept edit.
+  // (info) stays until its × or the next step kept, undone or redone.
   const dropRefusal = () => setMessage((m) => (m && m.kind === "error" && !m.keep ? null : m));
   useEffect(() => {
     const key = (e: KeyboardEvent) => {

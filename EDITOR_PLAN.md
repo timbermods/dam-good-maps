@@ -1213,7 +1213,8 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
 - **First run:** three one-line hints (paint the land, place things, add water), then never again; under them a link, **Help and keys**,
   opens Help (File's tooltip names Help too; no header button for it).
 - **Notes and messages:** a refusal's note (an error) goes with the player's next press, key, tool pick, layer or view
-  change; an edit's own note (info) stays until its × or the next kept edit; a save that failed ("Not saved: …") stays
+  change; an edit's own note (info) stays until its × or the next step kept, undone or redone (a brush stroke's as
+  any other edit's); a save that failed ("Not saved: …") stays
   until dismissed or the map is saved. No key is written in a visible word (keys live in tooltips). There is no
   "Working…" note: the checks pill says "Checking the map". Every × that closes a hint, a note, History or an object's
   window is one 24px icon button with a hover state and a tooltip. The 3D view's screen-reader label reads
