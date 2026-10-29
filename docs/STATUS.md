@@ -14,10 +14,15 @@ game launch until he lifts it. The page session is stopped (worktree `DamGoodMap
 
 ## Released
 
-Latest: `3d-foundations-done` (2026-10-27): dev 0bcec27f tagged, #616 merged to `main` as 60f79a97, the deploy and the live check
-passed (run 40604407598); the live site runs generator 0.10.2. **It went out without a D483 probe batch, by Kyler's call:**
-generated caves, overhangs and arches (#478) and the opening shot (#515) are unplayed in the game until probes run again.
-Before it: `m9b-done` (2026-10-04, `main` at b407656, generator 0.8.0), then `roadmap-page-done` and `needs-kyler-ping-done`.
+Latest: `high-look-fix-2-done` (2026-10-29), a patch release for the High look's fix (#641): dev 82a2bd14 plus the deploy
+tool's fix #652 (tagged at 0deeec96), #653 merged to `main` as c9402a39, the deploy and the live check passed (run
+40843431988); the live site runs generator 0.10.5. Its gates: the nightly at 82a2bd14 (run 40832798319) and each release PR's
+full CI. The first try, `high-look-fix-done` (82a2bd14, #651), merged but its deploy stopped at "First-visit maps": the maps
+with caves were checked as imports (#652). **No D483 probe batch, by Kyler's call:** generated caves, overhangs and arches at
+the default Verticality (#478, #579, #611), strokes that hold a cave's rock (#623, #625), the 1.1.2.8 stamp (#621) and the
+opening shot (#515) are unplayed in the game until probes run again.
+Before it: `3d-foundations-done` (2026-10-27, `main` at 60f79a97, generator 0.10.2), `m9b-done` (2026-10-04, `main` at
+b407656, generator 0.8.0), then `roadmap-page-done` and `needs-kyler-ping-done`.
 Every released step's tag: `git tag -l '*-done'`. `dev` is ahead of `main` by what is under "Done, and next".
 
 ## The sessions (D388, D398, D468, D470)
@@ -26,7 +31,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is ahead of `main` by wh
   generator, the Rust order, the Codex adoptions and the documents. It hands out
   decision numbers (**next free: D495**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF. Since 2026-10-15 trivial and simple work goes to Haiku sub-agents at high effort wherever they can do it (Kyler).
 - **The planning session** (Opus 5.5, high; worktree `DamGoodMaps-planning`; since 2026-10-14; active since 2026-10-25) coordinates: it merges
-  every "ready to merge" posted on #236, releases to `main` (it cut `3d-foundations-done`), now owns the page's work (Showcase's page #520 and #535, #555), settles cross-session questions, and sends Kyler only the
+  every "ready to merge" posted on #236, releases to `main` (it cut `3d-foundations-done` and `high-look-fix-2-done`), now owns the page's work (Showcase's page #520 and #535, #555), settles cross-session questions, and sends Kyler only the
   design questions his decisions don't settle.
 - **The page session** is stopped (2026-10-07, on Kyler's word): "The page is the editor" is on dev (#347), `feature/page` holds
   nothing of its own, and nothing is queued until 3D's step 3 needs the Block tool's interface. To resume: the top of
@@ -56,7 +61,7 @@ no full run by hand except for a release.
 
 ## Done, and next
 
-1. **Released:** `3d-foundations-done` (above).
+1. **Released:** `3d-foundations-done`, then the patch `high-look-fix-2-done` (above).
 2. **In dev since 2026-10-24 (milestone's):** Showcase mode's core and worker with three tuning rounds (#504, #516, #526, #588) and
    planning's page (#520, #535); the opening shot and landmarks into view (#515, D493, 0.10.2); ruins with meaning (#527, 0.10.1);
    3D in generation part 1 (#478, 0.10.0) and its follow-ups (#579, 0.10.3); objects in caves (#490, D491) with follow-ups (#531), forces around caves (#496),
