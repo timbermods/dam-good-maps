@@ -197,8 +197,8 @@ export function entityTiles(e: Pick<EntitySpec, "template" | "x" | "y" | "orient
  *  design and does not. With the ground's `heights`, only those nothing roofs (no tile's surface
  *  above their base): one under a roof in part or whole is held where it stands (`objectHolds`, D491),
  *  and the roof's top over it is the stroke's to shape. Which of them a stroke tilted is
- *  `tiltedPieces` (raster/brush.ts). */
-export function ridingPieces(entities: readonly EntitySpec[], W: number, H: number, heights?: ArrayLike<number>): [number, number, number, number][] {
+ *  `tiltedPieces` (raster/brush.ts). It reads only where each stands (the page passes its mirror's). */
+export function ridingPieces(entities: readonly (Parameters<typeof entityTiles>[0] & { z: number })[], W: number, H: number, heights?: ArrayLike<number>): [number, number, number, number][] {
   const out: [number, number, number, number][] = [];
   for (const e of entities) {
     if (e.template.startsWith("NaturalOverhang")) continue;

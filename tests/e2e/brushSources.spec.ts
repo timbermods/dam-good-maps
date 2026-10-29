@@ -151,3 +151,73 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
 
   expect(errors).toEqual([]);
 });
+
+test("a mine site rides a stroke level, and the stroke shows it as the map is built (D491, amended 2026-10-29)", async ({ page }) => {
+  // (one held stroke on CI's software frames, as above)
+  test.setTimeout(300_000);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1280, height: 960 });
+  await openEditor(page, "s=4244&z=96&d=n&t=highlands");
+  await topDown(page);
+  await setWaterSpeed(page, "instant");
+
+  // a dry, level 5 × 5 patch with nothing on it and dry ground round it, away from the start
+  const at = await page.evaluate(() => {
+    const i = window.dgmEditor!.info();
+    const st = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
+    const m = window.dgm3d!.renderer.mapState()!;
+    const e = m.entities;
+    const taken = new Set<number>();
+    for (let k = 0; k < e.count; k++) taken.add(e.y[k] * m.W + e.x[k]);
+    const fits = (x: number, y: number) => {
+      const h = m.heights[y * m.W + x];
+      for (let yy = y - 3; yy <= y + 7; yy++)
+        for (let xx = x - 3; xx <= x + 7; xx++) {
+          const t = yy * m.W + xx;
+          if (m.surface.depth[t] > 0 || m.heights[t] > 12) return false;
+          if (xx >= x && xx < x + 5 && yy >= y && yy < y + 5 && (m.heights[t] !== h || taken.has(t))) return false;
+        }
+      return true;
+    };
+    for (let y = 12; y < m.H - 16; y++) for (let x = 12; x < m.W - 16; x++) if (Math.hypot(x - st[0], y - st[1]) > 20 && fits(x, y)) return [x, y] as [number, number];
+    return null;
+  });
+  expect(at).not.toBeNull();
+  const [mx, my] = at!;
+  await page.evaluate(
+    ([x, y]) => window.dgmEditor!.edit({ op: "placeEntity", params: { id: crypto.randomUUID(), template: "UndergroundRuins", x, y, orientation: "Cw0" } } as never, "Place a mine site"),
+    [mx, my] as [number, number],
+  );
+  await idle(page);
+  const mine = () =>
+    page.evaluate(([x, y]) => {
+      const m = window.dgm3d!.renderer.mapState()!;
+      const e = m.entities;
+      for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "UndergroundRuins" && e.x[k] === x && e.y[k] === y) {
+        const ground: number[] = [];
+        for (let yy = y; yy < y + 5; yy++) for (let xx = x; xx < x + 5; xx++) ground.push(m.heights[yy * m.W + xx]);
+        return { z: e.z[k], ground };
+      }
+      return null;
+    }, [mx, my] as [number, number]);
+  expect(await mine()).not.toBeNull();
+  await page.evaluate(([x, y]) => {
+    const r = window.dgm3d!.renderer;
+    r.setView({ target: [x + 2.5, r.getView().target[1], -(y + 2.5)] });
+  }, [mx, my] as [number, number]);
+  await page.waitForTimeout(300);
+
+  // a raise held on its corner: part of its ground rises, so the stroke would tilt it
+  await page.keyboard.press("2");
+  await setLevel(page.getByRole("group", { name: "Raise options" }), "free");
+  await hold(page, mx, my);
+  await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 60_000 });
+  // the stroke itself carries the mine site's rectangle level, as the page painted it, and the map built is the one painted
+  expect((await page.evaluate(() => window.dgmEditor!.lastStroke()))?.rigid ?? []).toContainEqual([mx, my, mx + 4, my + 4]);
+  expect(await page.evaluate(() => window.dgmEditor!.strokeMismatches())).toBe(0);
+  const after = (await mine())!;
+  expect(new Set(after.ground).size, "its ground is level").toBe(1);
+  expect(after.z, "it stands on its ground").toBe(after.ground[0]);
+  expect(errors).toEqual([]);
+});
