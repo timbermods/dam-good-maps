@@ -10,7 +10,8 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { stackFixtures, inputBytes, runStackFixture, fixtureOutput, settleFixture } from './stack-fixtures';
 import { installNodeThreads, nodeThreadsReady, uninstallParallelWater } from './water-threads';
-import { withoutParallelWater } from '../../src/core/sim/parallel';
+import { shareWaterBudget, sharedPool, withoutParallelWater } from '../../src/core/sim/parallel';
+import { newWaterBudget } from '../../src/core/sim/parallelPolicy';
 import { canonicalStackRun, type StackSettle } from '../../src/core/sim/stackWater';
 import { StackLive } from '../../src/core/sim/stackLive';
 import type { WaterModel } from '../../src/core/sim/water';
@@ -214,6 +215,20 @@ if (threads) {
         cut.close();
         for (const o of others) while (!o.advance(1e6));
         console.log('PASS the live water carries on on one thread once its threads are taken; ' + cut.ticks + ' ticks');
+        // the budget the page shares with the checks' worker all held (its settle took it): the live water starts on one
+        // thread, and takes threads at a check once they are given back
+        shareWaterBudget(newWaterBudget(threads));
+        const held = sharedPool()!.take(threads);
+        const late = new StackLive(model, from, settled, 4, true);
+        const was = stackParallelStats.ticks;
+        for (let k = 0; k < 40; k++) late.advance(4);
+        if (stackParallelStats.ticks !== was) throw Error('the live water ran on threads the budget did not have');
+        sharedPool()!.give(held);
+        while (!late.advance(4) && late.ticks < 4096);
+        if (!late.done || stackParallelStats.ticks === was) throw Error('the live water did not take the threads once they were given back');
+        late.close();
+        if (sharedPool()!.free() !== threads) throw Error('the live water kept threads once done');
+        console.log('PASS the live water takes the threads at a check once the checks give them back; ' + late.ticks + ' ticks, ' + (stackParallelStats.ticks - was) + ' on threads');
     }
     uninstallParallelWater();
     if (!ran) throw Error('the threads never ran');

@@ -108,6 +108,11 @@ export class StackLive {
   private since = 0;
   /** Whether the strips have written their rows back since they last ran (they do only when asked: a check, a frame). */
   private reported = true;
+  /** Ticks since the run's settle began (at a check when a multiple of STACK_CHECK_TICKS); and whether its threads
+   *  failed (it stays on one thread then). A run on one thread for want of the budget's threads (the checks' settle held
+   *  them) asks again at each check. */
+  private begun = 0;
+  private failed = false;
 
   /** The water of `model` (a map with caves or overhangs) from `from`: water on the same map, on its columns or on
    *  the columns it had before an edit (carried over, `carryStack`), its flows' momentum with it (`LiveStack.edges`);
@@ -165,6 +170,7 @@ export class StackLive {
     this.threads?.free();
     this.threads = undefined;
     this.since = 0;
+    this.begun = 0;
     loadStack(this.m, this, true, carryStack(from, this));
     const out = this.m.view(STACK_FIELD.momentum) as Float64Array;
     if (from.edges) this.carryMomentum(from.edges, out);
@@ -253,8 +259,9 @@ export class StackLive {
   advance(ticks: number): boolean {
     if (this.finished) return true;
     let left = Math.max(0, Math.floor(ticks));
-    if (this.threads === undefined)
-      this.threads = this.parallel && this.m.info(STACK_INFO.settle) === 0 && this.m.info(STACK_INFO.maxTicks) % STACK_CHECK_TICKS === 0 ? stackThreads(this.m, this.W, this.H, this.mask, this.objects, true)?.watch(this) ?? null : null;
+    const asking = this.parallel && !this.failed;
+    if (this.threads === undefined || (this.threads === null && asking && this.begun % STACK_CHECK_TICKS === 0))
+      this.threads = asking && this.m.info(STACK_INFO.settle) === 0 && this.m.info(STACK_INFO.maxTicks) % STACK_CHECK_TICKS === 0 ? stackThreads(this.m, this.W, this.H, this.mask, this.objects, true)?.watch(this) ?? null : null;
     while (this.threads && left > 0 && this.m.info(STACK_INFO.settle) === 0) {
       const n = Math.min(left, STACK_CHECK_TICKS - this.since);
       const check = this.since + n === STACK_CHECK_TICKS;
@@ -264,6 +271,7 @@ export class StackLive {
       }
       left -= n;
       this.since += n;
+      this.begun += n;
       this.ticks += n;
       this.reported = check;
       if (check) {
@@ -279,9 +287,13 @@ export class StackLive {
     }
     const m = this.m;
     if (!this.threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
+      // (on one thread for want of the budget's threads: to the next check, where it asks again)
+      const n = this.parallel && !this.failed ? Math.min(left, STACK_CHECK_TICKS - (this.begun % STACK_CHECK_TICKS)) : left;
       const before = m.info(STACK_INFO.ticks);
-      m.op(STACK_OP.advance, left);
-      this.ticks += m.info(STACK_INFO.ticks) - before;
+      m.op(STACK_OP.advance, n);
+      const ran = m.info(STACK_INFO.ticks) - before;
+      this.ticks += ran;
+      this.begun += ran;
     }
     if (m.info(STACK_INFO.settle) !== 0) {
       this.finished = true;
@@ -315,6 +327,7 @@ export class StackLive {
   /** A thread failed (the pool is given up): the run goes on on one thread, from the water as the strips last handed it
    *  back (a few ticks back), on an engine built again (the old one's settle runs on, and takes no new water). */
   private single(): void {
+    this.failed = true;
     this.threads?.free();
     this.threads = null;
     this.since = 0;

@@ -22,6 +22,8 @@ const waterThreads = () =>
         // (a test hook, tests/e2e/isolation.spec.ts: the threads ready, and the ticks they ran)
         void import("../core/sim/stackParallel").then((q) => Object.assign(self, { dgmWater: () => ({ threads: p.parallelWaterThreads(), ticks: p.parallelWaterStats.ticks, stackTicks: q.stackParallelStats.ticks }) }));
       })
+      // (no threads, then: the settle runs on one, as before)
+      .catch(() => undefined)
     : Promise.resolve());
 
 const api = {

@@ -29,6 +29,8 @@ export class WaterBarrier {
 
   /** The map changed: a settle in progress is for ground that is gone. */
   invalidate(): void {
+    // (its water threads back at once)
+    this.run?.free();
     this.run = null;
   }
 
