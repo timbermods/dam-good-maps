@@ -54,7 +54,8 @@
 import { EntityGeometryCache } from "./entityGeometry";
 import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
-import { DEAD, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
+import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
+import { DRYING, dryColour, isFoliage } from "./dying";
 import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 
@@ -141,6 +142,36 @@ class Model {
     for (let v = 0; v < this.lod.length; v += 3) if (this.lod[v] === LOD_ALL || (view === LOD_FAR ? this.lod[v] >= LOD_FAR : this.lod[v] === view)) n++;
     return n;
   }
+}
+
+/** A plant's dying form (dying.ts): its foliage in the game's dry colour, drawn in toward the trunk and sunk as much as the
+ *  game's is; each triangle's normal made again where it moved. */
+function dyingOf(species: string, m: Model): Model {
+  const d = DRYING[species];
+  const out = new Model();
+  out.lod = m.lod.slice();
+  for (let v = 0; v < m.pos.length; v += 9) {
+    const tri = m.pos.slice(v, v + 9);
+    let moved = false;
+    for (let k = 0; k < 3; k++) {
+      const c: Rgb = [m.col[v + k * 3], m.col[v + k * 3 + 1], m.col[v + k * 3 + 2]];
+      out.col.push(...dryColour(species, c));
+      if (d.mode === "ratio" || isFoliage(c)) {
+        tri[k * 3] *= d.reach;
+        tri[k * 3 + 1] *= d.height;
+        tri[k * 3 + 2] *= d.reach;
+        moved = true;
+      }
+    }
+    out.pos.push(...tri);
+    if (!moved) {
+      out.nrm.push(...m.nrm.slice(v, v + 9));
+      continue;
+    }
+    const n = new Vector3(tri[3] - tri[0], tri[4] - tri[1], tri[5] - tri[2]).cross(new Vector3(tri[6] - tri[0], tri[7] - tri[1], tri[8] - tri[2])).normalize();
+    for (let k = 0; k < 3; k++) out.nrm.push(n.x, n.y, n.z);
+  }
+  return out;
 }
 
 const cone = (r: number, h: number, sides: number) => new ConeGeometry(r, h, sides, 1, true);
@@ -401,6 +432,8 @@ const MODELS: Record<string, () => Model> = {
   ReserveWarehouse: reserveWarehouse,
   ReserveTank: reserveTank,
 };
+// (each plant's dying form, drawn while it is dying: dying.ts)
+for (const species of Object.keys(DRYING)) MODELS[`${species}.dying`] = () => dyingOf(species, MODELS[species]());
 
 // ------------------------------------------------------------------------------ the 1.x objects
 
@@ -961,6 +994,7 @@ const LITE_MODELS: Record<string, () => Model> = {
   Succulent: liteSucculent,
   BlueberryBush: () => new Model().add(new OctahedronGeometry(0.28, 0), [0.14, 0.29, 0.14], { y: 0.2, sy: 0.75 }),
 };
+for (const species of Object.keys(DRYING)) if (LITE_MODELS[species]) LITE_MODELS[`${species}.dying`] = () => dyingOf(species, LITE_MODELS[species]());
 /** The light look's ruin: a column one block per ruin, as it looks from afar (scaled to its height). */
 const LITE_RUIN = () => {
   const m = new Model();
@@ -1291,8 +1325,8 @@ export function modelKeyOf(template: string, flags: number): string {
   if (/^RuinColumnH\d$/.test(template)) return "ruin";
   if (template === "StartingLocation") return "start";
   if (!(template in MODELS)) return "block";
-  const dead = !!(flags & DEAD) && `${template}.dead` in MODELS;
-  return dead ? `${template}.dead` : template;
+  if (flags & DEAD) return `${template}.dead` in MODELS ? `${template}.dead` : template;
+  return flags & DYING && `${template}.dying` in MODELS ? `${template}.dying` : template;
 }
 
 /** Triangles of a model (tests and the benchmark's budget). */
@@ -1605,7 +1639,8 @@ function baked(full: Model, matrices: number[], tints: number[]): BufferGeometry
 }
 
 /** The models the map's objects may yet be drawn with as the water and soil change, not made yet: a ruin's storeys
- *  with and without their ivy (moist ground grows it), a plant's dead model (water drowns it). Each as its batch's key
+ *  with and without their ivy (moist ground grows it), a plant's dead and dying models (water drowns it, dry ground starts
+ *  it dying). Each as its batch's key
  *  and how to make it (`EntityGeometryCache.model`), for the page to make ahead when idle: made in the frame that
  *  first drew them, they cost an edit's answer tens of milliseconds. */
 export function modelsAhead(v: EntityView, models: EntityGeometryCache): { key: string; build: () => BufferGeometry }[] {
@@ -1623,7 +1658,10 @@ export function modelsAhead(v: EntityView, models: EntityGeometryCache): { key: 
       ruinStoreys(x, y, n, v.variant?.[k] ?? NO_VARIANT).forEach(({ variant, kind }, lv) => {
         for (const green of [IVY_NONE, ruinIvy(x, y, n, lv)]) want(`scaffold.${RUIN_VARIANT_IDS[variant]}${kind}${["", ".ivy.light", ".ivy.medium", ".ivy"][green]}`, () => storey(variant, kind, green));
       });
-    } else if (PLANTS.has(template) && `${template}.dead` in MODELS) want(`${template}.dead`, MODELS[`${template}.dead`]);
+    } else if (PLANTS.has(template)) {
+      // (its dead and dying forms: drought and water kill it, dry or wet ground and contamination start it dying)
+      for (const form of [`${template}.dead`, `${template}.dying`]) if (form in MODELS) want(form, MODELS[form]);
+    }
   }
   return [...out].map(([key, build]) => ({ key, build }));
 }

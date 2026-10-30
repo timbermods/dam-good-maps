@@ -68,20 +68,21 @@ import { EditGlow, editedCells, editGlowMaterial, type EditCells } from "./editG
 import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import { fogOf } from "./high/seasons";
 import type { DroughtLine } from "../core/sim/droughtLine";
+import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
 import { whenIdle } from "./idle";
 import { castersChangedRects, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
-import { RunSoil, runSoilOn } from "./runSoil";
+import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
-import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
+import { columnMap, columnMasks, DEAD, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { drawnWater, drewChunk, exactWaterChunks, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
@@ -92,7 +93,6 @@ import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, saved
 import { HighLook, highLookMaterials, roofedOf, runSoilOf, type HighLookMaterials, type HighMaterials } from "./high/highLook";
 import { Mist } from "./high/mist";
 import { Programs, withDefine, type Defines } from "./programs";
-import { isPlant } from "./high/forest";
 import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { StillFlow } from "./stillFlow";
@@ -511,6 +511,8 @@ export class MapRenderer {
   private withered: Int32Array | null = null;
   private drawnObjects: EntityView | null = null;
   private witheredCount = 0;
+  /** How many living plants are drawn dying now (the ground as shown: core/sim/withering.ts `dyingCause`). */
+  private dyingCount = 0;
   private casterTimer = 0;
   /** The hazard held and the map's own soil (the Weather view's seasons: dry ground, heat, the badtide's sky), or null. */
   private season: "drought" | "badtide" | null = null;
@@ -1530,11 +1532,13 @@ export class MapRenderer {
     this.drawnObjects = null;
     this.objectsFrom = null;
     this.witheredCount = 0;
+    this.dyingCount = 0;
     this.season = null;
     this.applySeason();
     this.droughtLayer?.clear();
     this.editGlow?.clear();
     clearTimeout(this.casterTimer);
+    clearTimeout(this.lifeTimer);
     if (this.skirt) this.dropMesh(this.skirt);
     this.skirt = null;
     for (const m of this.terrain.values()) this.dropMesh(m);
@@ -2079,10 +2083,19 @@ export class MapRenderer {
     if (this.runSoil) this.syncRunSoil();
     this.high?.waterChanged(surface);
     this.flowChanged(m.heights, surface, now);
+    this.lifeLater();
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
   }
+
+  /** The plants the water floods or leaves start or stop dying (`applyWithered`) a moment after the water last changed:
+   *  never in a stroke's frame, where a Standard redraw would cost it milliseconds. */
+  private lifeLater(): void {
+    clearTimeout(this.lifeTimer);
+    this.lifeTimer = window.setTimeout(() => this.applyWithered(), 150);
+  }
+  private lifeTimer = 0;
 
   /** The tile data's and the shadow map's changed rows, to the GPU with the next frame (R1). */
   private readonly tileRows: RowUploads;
@@ -2147,6 +2160,7 @@ export class MapRenderer {
     this.waterExact = false;
     this.flowChanged(m.heights, surface);
     this.updateClearAround();
+    this.lifeLater();
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
@@ -2267,6 +2281,8 @@ export class MapRenderer {
     m.soil = soil;
     this.bakeTiles();
     this.syncRunSoil();
+    // (the plants its dry, wet or poisoned ground starts dying, or stops)
+    this.applyWithered();
     this.requestRender();
     this.onMapChange?.();
   }
@@ -2316,24 +2332,52 @@ export class MapRenderer {
     return n;
   }
 
-  /** The objects with the plants a held day has surely killed (`withered`) marked dead, and how many: the map's own when
+  /** How many living plants are drawn dying now (the tests read it). */
+  get dyingPlants(): number {
+    return this.dyingCount;
+  }
+
+  /** The objects as drawn: the plants a held day has surely killed (`withered`) marked dead, and every living plant the
+   *  ground as shown starts dying marked dying (DYING: the soil at its level, the water above its base, as the game's
+   *  `#Dying` model shows on Day 0 as on any held day; D242 as amended), and how many of each: the map's own objects when
    *  none are. */
-  private witheredView(e: EntityView): { view: EntityView; count: number } {
+  private witheredView(e: EntityView): { view: EntityView; count: number; dying: number } {
     const m = this.map;
+    if (!m) return { view: e, count: 0, dying: 0 };
     const tiles = this.withered;
-    if (!m || !tiles?.length) return { view: e, count: 0 };
-    const dead = new Uint8Array(m.W * m.H);
-    for (const t of tiles) dead[t] = 1;
+    let dead: Uint8Array | null = null;
+    if (tiles?.length) {
+      dead = new Uint8Array(m.W * m.H);
+      for (const t of tiles) dead[t] = 1;
+    }
+    const soil = m.soil;
+    const sw = m.surface;
+    const lower = sw?.lower.length ? lowerWater(m.water, m.W * m.H) : null;
+    const rule = e.templates.map((t) => WITHERING_SPECIES.has(t));
     let flags: Uint8Array | null = null;
     let count = 0;
+    let dying = 0;
     for (let k = 0; k < e.count; k++) {
-      if (e.flags[k] & DEAD || e.x[k] < 0 || e.y[k] < 0 || e.x[k] >= m.W || e.y[k] >= m.H || !dead[e.y[k] * m.W + e.x[k]]) continue;
-      if (!isPlant(e.templates[e.template[k]])) continue;
+      const x = e.x[k];
+      const y = e.y[k];
+      if (!rule[e.template[k]] || e.flags[k] & DEAD || x < 0 || y < 0 || x >= m.W || y >= m.H) continue;
+      const i = y * m.W + x;
+      if (dead?.[i]) {
+        flags ??= e.flags.slice();
+        flags[k] |= DEAD;
+        count++;
+        continue;
+      }
+      const z = e.z[k];
+      const ground = soil ? objectSoilAt(soil, m.W, x, y, z) : null;
+      if (!ground) continue;
+      const above = sw ? Math.max(waterAboveBase(z, sw.floor[i], sw.depth[i]), lower?.get(z * m.W * m.H + i) ?? 0) : 0;
+      if (!dyingCause(e.templates[e.template[k]], { moisture: ground.moisture, contamination: ground.contamination, waterAboveBase: above })) continue;
       flags ??= e.flags.slice();
-      flags[k] |= DEAD;
-      count++;
+      flags[k] |= DYING;
+      dying++;
     }
-    return flags ? { view: { ...e, flags }, count } : { view: e, count: 0 };
+    return flags ? { view: { ...e, flags }, count, dying } : { view: e, count: 0, dying: 0 };
   }
 
   /** The objects as drawn now (the plants a held day withered dead), what the next build of them is compared with. */
@@ -2346,8 +2390,9 @@ export class MapRenderer {
     const flags = w.view.flags;
     const count = w.count;
     this.witheredCount = count;
+    this.dyingCount = w.dying;
     const was = this.drawnObjects;
-    this.drawnObjects = count ? w.view : null;
+    this.drawnObjects = count || w.dying ? w.view : null;
     // the Standard and light looks' plants: the objects drawn again where a plant's state changed (the batches that did
     // not change kept), only while they are the ones shown (High hides them: they are drawn again when the look switches
     // back, applyLook); High's own plants change state in place
@@ -2356,14 +2401,14 @@ export class MapRenderer {
     let redraw = shown && !!this.objects && !!from && from.length === flags.length;
     if (redraw) {
       redraw = false;
-      for (let k = 0; k < flags.length && !redraw; k++) redraw = (from![k] & DEAD) !== (flags[k] & DEAD);
+      for (let k = 0; k < flags.length && !redraw; k++) redraw = (from![k] & (DEAD | DYING)) !== (flags[k] & (DEAD | DYING));
     }
     // (only the objects: nothing else of the map changed; the sources' glow put back after)
     if (redraw) {
       this.drawObjects(m.entities);
       this.markSources();
     }
-    const changed = this.high?.setPlantsDead(flags) ?? 0;
+    const changed = this.high?.setPlantStates(flags) ?? 0;
     if (!changed && !redraw && !was === !this.drawnObjects) return;
     this.requestRender();
     // (the dead cast a lighter shadow: baked once stepping has settled, never per day)
@@ -4076,6 +4121,7 @@ export class MapRenderer {
     clearTimeout(this.animTimer);
     clearTimeout(this.probeTimer);
     clearTimeout(this.warmTimer);
+    clearTimeout(this.lifeTimer);
     this.programs.dispose();
     if (this.highCopy) for (const m of Object.values(this.highCopy)) m.dispose();
     this.mistCopy?.dispose();
@@ -4167,6 +4213,24 @@ function columnsChanged(a: ReadonlyMap<number, Uint8Array>, b: ReadonlyMap<numbe
 }
 
 /** Two rectangles' bounds (either may be null). */
+/** The water above the base of ground under the surface water (a cave's floor, a ledge under an overhang), by level · N +
+ *  tile, for a water view (core/sim/withering.ts `waterAboveBase`): made once a view. */
+const lowerWaters = new WeakMap<WaterView, Map<number, number>>();
+function lowerWater(w: WaterView | null | undefined, N: number): Map<number, number> | null {
+  if (!w) return null;
+  let out = lowerWaters.get(w);
+  if (!out) {
+    out = new Map();
+    for (let k = 0; k < w.count; k++) {
+      const z = Math.round(w.floor[k]);
+      const above = waterAboveBase(z, w.floor[k], w.depth[k]);
+      if (above > 0) out.set(z * N + w.tile[k], above);
+    }
+    lowerWaters.set(w, out);
+  }
+  return out;
+}
+
 function grownRect(a: { x0: number; y0: number; x1: number; y1: number } | null, b: { x0: number; y0: number; x1: number; y1: number } | null): { x0: number; y0: number; x1: number; y1: number } | null {
   if (!a || !b) return a ?? b;
   return { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) };

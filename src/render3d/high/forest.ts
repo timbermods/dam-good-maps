@@ -9,16 +9,19 @@
 
 import { BufferGeometry, Color, InstancedBufferAttribute, InstancedMesh, Matrix4, Vector3, type Camera, type Object3D, type ShaderMaterial } from "three";
 import { whenIdle } from "../idle";
-import { DEAD, YOUNG, type EntityView } from "../model";
-import { model, noise, placement, registry, species, type Detail, type Species } from "./models";
+import { DEAD, DYING, YOUNG, type EntityView } from "../model";
+import { model, noise, placement, registry, species, type Detail, type PlantState, type Species } from "./models";
 
 export const isPlant = (name: string): name is Species => (species as readonly string[]).includes(name);
 
 /** The renderer's batch names of the models the forest replaces (entities3d.ts `modelKeyOf`). */
 export function replacedBatch(name: string): boolean {
-  const base = name.endsWith(".dead") ? name.slice(0, -5) : name;
+  const base = name.replace(/\.(dead|dying)$/, "");
   return isPlant(base);
 }
+
+/** A plant's state from its flags: dead over dying. */
+const stateOf = (flags: number): PlantState => (flags & DEAD ? "dead" : flags & DYING ? "dying" : "alive");
 
 /** Dead trees grow on screen when far off, with **Markers** (entities3d.ts GROW_DEAD). */
 const GROW_DEAD = [14, 0, 2.5] as const;
@@ -26,17 +29,18 @@ const TREES = new Set(["Pine", "Birch", "Oak"]);
 
 const cache = new Map<string, BufferGeometry>();
 /** A model's geometry, made once for every view. */
-function shape(name: Species, variant: number, detail: Detail, dead: boolean): BufferGeometry {
-  const key = `${name}.${variant}.${detail}.${dead}`;
+function shape(name: Species, variant: number, detail: Detail, state: PlantState): BufferGeometry {
+  const key = `${name}.${variant}.${detail}.${state}`;
   let g = cache.get(key);
   if (!g) {
-    g = model(name, variant, detail, dead);
+    g = model(name, variant, detail, state);
     cache.set(key, g);
   }
   return g;
 }
 
-/** The plants' models the forest may yet need, not made yet (a living species' dead models: water drowns plants),
+/** The plants' models the forest may yet need, not made yet (a living species' dead and dying models: water drowns plants,
+ *  dry ground starts them dying),
  *  each as a job for the page to do when idle (renderer `modelsAhead`). */
 export function shapesAhead(view: EntityView): (() => void)[] {
   const out: (() => void)[] = [];
@@ -45,8 +49,9 @@ export function shapesAhead(view: EntityView): (() => void)[] {
     const name = view.templates[view.template[i]];
     if (!isPlant(name) || view.flags[i] & DEAD || seen.has(name)) continue;
     seen.add(name);
-    for (const detail of ["near", "far"] as const)
-      for (let v = 0; v < (detail === "near" ? 3 : 1); v++) if (!cache.has(`${name}.${v}.${detail}.true`)) out.push(() => void shape(name, v, detail, true));
+    for (const state of ["dead", "dying"] as const)
+      for (const detail of ["near", "far"] as const)
+        for (let v = 0; v < (detail === "near" ? 3 : 1); v++) if (!cache.has(`${name}.${v}.${detail}.${state}`)) out.push(() => void shape(name, v, detail, state));
   }
   return out;
 }
@@ -67,7 +72,7 @@ interface Entry {
   /** Young (drawn smaller) in the view the forest was made from (`reindex`). */
   young: boolean;
   species: Species;
-  dead: boolean;
+  state: PlantState;
   variant: number;
   matrix: Matrix4;
   tint: Color;
@@ -84,14 +89,14 @@ interface Entry {
   farBatch: InstancedMesh;
 }
 
-/** One batch of a species in one state (alive or dead) and one model: its instances can hold every plant of the species, so
- *  a plant can change state without the batches being made again. */
-function makeBatch(material: ShaderMaterial, name: Species, dead: boolean, detail: Detail, v: number, n: number): InstancedMesh {
-  const mesh = new InstancedMesh(batchGeometry(shape(name, v, detail, dead), n), material, n);
+/** One batch of a species in one state (alive, dying or dead) and one model: its instances can hold every plant of the
+ *  species, so a plant can change state without the batches being made again. */
+function makeBatch(material: ShaderMaterial, name: Species, state: PlantState, detail: Detail, v: number, n: number): InstancedMesh {
+  const mesh = new InstancedMesh(batchGeometry(shape(name, v, detail, state), n), material, n);
   mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(n * 3), 3);
   mesh.count = 0;
   mesh.frustumCulled = false;
-  mesh.name = `high.${name}${dead ? ".dead" : ""}.${detail}.${v}`;
+  mesh.name = `high.${name}${state === "alive" ? "" : `.${state}`}.${detail}.${v}`;
   mesh.userData.objects = new Int32Array(n).fill(-1);
   mesh.userData.follows = new Int32Array(n).fill(-1);
   mesh.userData.ty0 = new Float32Array(n);
@@ -124,7 +129,8 @@ export class Forest {
       const x = view.x[i];
       const y = view.y[i];
       const z = view.z[i];
-      const dead = !!(view.flags[i] & DEAD);
+      const state = stateOf(view.flags[i]);
+      const dead = state === "dead";
       const p = placement(x, y, view.flags[i] & YOUNG ? 0.35 : 1);
       m.makeRotationY(p.turn).scale(new Vector3(p.scale, p.scale, p.scale));
       m.setPosition(x + 0.5 + p.dx, z, -y - 0.5 + p.dz);
@@ -132,7 +138,7 @@ export class Forest {
         index: i,
         young: !!(view.flags[i] & YOUNG),
         species: name,
-        dead,
+        state,
         variant: p.variant,
         matrix: m.clone(),
         tint: new Color(1 + p.hue, 0.98 + noise(x, y, 9) * 0.04, 1 - p.hue),
@@ -146,26 +152,26 @@ export class Forest {
         tx: x,
         ty: y,
       });
-      const k = `${name}.${dead}`;
+      const k = `${name}.${state}`;
       byBatch.set(k, (byBatch.get(k) ?? 0) + 1);
       this.perSpecies.set(name, (this.perSpecies.get(name) ?? 0) + 1);
     }
     for (const k of byBatch.keys()) {
-      const [name, deadText] = k.split(".") as [Species, string];
-      this.ensure(name, deadText === "true");
+      const [name, state] = k.split(".") as [Species, PlantState];
+      this.ensure(name, state);
     }
-    for (const e of pending) this.entries.push({ ...e, nearBatch: this.batches.get(`${e.species}.${e.dead}.near.${e.variant}`)!, farBatch: this.batches.get(`${e.species}.${e.dead}.far.0`)! });
+    for (const e of pending) this.entries.push({ ...e, nearBatch: this.batches.get(`${e.species}.${e.state}.near.${e.variant}`)!, farBatch: this.batches.get(`${e.species}.${e.state}.far.0`)! });
     this.stats.plants = this.entries.length;
   }
 
   /** The batches of a species in a state, made when first needed (room for every plant of the species). */
-  private ensure(name: Species, dead: boolean): void {
-    if (this.batches.has(`${name}.${dead}.far.0`)) return;
+  private ensure(name: Species, state: PlantState): void {
+    if (this.batches.has(`${name}.${state}.far.0`)) return;
     const n = this.perSpecies.get(name) ?? 0;
     for (const detail of ["near", "far"] as const)
       for (let v = 0; v < (detail === "near" ? 3 : 1); v++) {
-        const mesh = makeBatch(this.material, name, dead, detail, v, n);
-        this.batches.set(`${name}.${dead}.${detail}.${v}`, mesh);
+        const mesh = makeBatch(this.material, name, state, detail, v, n);
+        this.batches.set(`${name}.${state}.${detail}.${v}`, mesh);
         this.meshes.push(mesh);
         // (made after the look drew the forest: it joins the same group, as the others did)
         if (this.parent) {
@@ -177,7 +183,7 @@ export class Forest {
 
   /** The same plants as the forest was made from, in the same order, numbered as `view` numbers them (objects put in
    *  or taken out among them move the plants' numbers): the batches' bookkeeping follows, nothing else is made again
-   *  (a plant that died or came back since: `setDead`). False, with nothing changed, when the plants differ. */
+   *  (a plant that died, started dying or came back since: `setState`). False, with nothing changed, when the plants differ. */
   reindex(view: EntityView): boolean {
     const index: number[] = [];
     // (each template asked once: a map has thousands of objects and a handful of templates)
@@ -203,22 +209,23 @@ export class Forest {
     return true;
   }
 
-  /** Plants change state in place (the Weather view's withering): each plant whose DEAD flag differs from the one it is
-   *  drawn with moves to the other state's batch, and every plant is laid out again, which is cheap (the models, the
-   *  batches and the shadows' casters are not made again). `flags` is indexed like the view the forest was made from.
-   *  Returns how many plants changed. */
-  setDead(flags: ArrayLike<number>): number {
+  /** Plants change state in place (the Weather view's withering, the ground starting them dying): each plant whose DEAD
+   *  or DYING flag differs from the state it is drawn in moves to that state's batch, and every plant is laid out again,
+   *  which is cheap (the models, the batches and the shadows' casters are not made again). `flags` is indexed like the
+   *  view the forest was made from. Returns how many plants changed. */
+  setState(flags: ArrayLike<number>): number {
     let changed = 0;
     for (const e of this.entries) {
-      const dead = !!(flags[e.index] & DEAD);
-      if (dead === e.dead) continue;
+      const state = stateOf(flags[e.index]);
+      if (state === e.state) continue;
       changed++;
-      e.dead = dead;
+      e.state = state;
+      const dead = state === "dead";
       e.wind[2] = dead || this.still ? 0 : registry[e.species].wind;
       e.grow = dead && TREES.has(e.species) ? GROW_DEAD : [0, 0, 1];
-      this.ensure(e.species, dead);
-      e.nearBatch = this.batches.get(`${e.species}.${dead}.near.${e.variant}`)!;
-      e.farBatch = this.batches.get(`${e.species}.${dead}.far.0`)!;
+      this.ensure(e.species, state);
+      e.nearBatch = this.batches.get(`${e.species}.${state}.near.${e.variant}`)!;
+      e.farBatch = this.batches.get(`${e.species}.${state}.far.0`)!;
     }
     if (changed) this.layout();
     return changed;

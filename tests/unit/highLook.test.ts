@@ -356,7 +356,7 @@ describe("the forest kept when the plants are the same (a source placed among th
     expect(f.reindex(entityView([{ ...plants[0], x: 4 }, plants[1], plants[2]]))).toBe(false);
     expect(f.reindex(entityView([plants[0], plants[1], { ...plants[2], young: false }]))).toBe(false);
     expect(f.reindex(entityView([plants[0], plants[1]]))).toBe(false);
-    // (a plant that died is the same plant: `setDead` moves it)
+    // (a plant that died is the same plant: `setState` moves it)
     expect(f.reindex(entityView([{ ...plants[0], dead: true }, plants[1], plants[2]]))).toBe(true);
   });
 });
