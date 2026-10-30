@@ -63,7 +63,8 @@ place of its bottom rule.
 - **The header:** **Map Generator** alone at the left edge (a small folded-map icon and its name, tinted in the mint),
   lit while the panel is open. The map's
   name at the window's exact centre, and under it "Seed 4242 · 128×128" (an opened file shows its size; if this
-  browser can't keep the map, that line says so); it never reaches either side: where the room is short the second
+  browser can't keep the map, that line says so; an Easy start map adds "· Easy start", D495, or "· Easy start (fell
+  short)" when a late rescue round made it, its tooltip and a Good to know line in the checks dot naming what fell short); it never reaches either side: where the room is short the second
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
   font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443; the title shows the name and is fitted at once, never waiting for the worker's answer),
   Esc cancels, and a blank name is refused in the core's words, said in the second line. While the name is edited a small card hangs under it with the map's description ("Describe the map" while none is written; Enter saves, Shift+Enter is a line break, Esc cancels; the `setDescription` operation, one undo step, refused in the core's words in the card; empty takes the player's text away; what the file adds after it shows under the field); focus moving between the name and the card saves nothing until it leaves the title. A typed name stops at what
@@ -119,7 +120,9 @@ place of its bottom rule.
   empty, the open map's name in grey in it; what is typed names the map **Generate** makes next, then the field is
   empty again, and the open map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
   settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
-  Custom, its width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
+  Custom, then the **Easy start** toggle at the line's end, D495: "A flat, roomy start with water and food close by";
+  on, the next map's start is calm and generous, PLAN §5.6; a theme, Surprise me and Reset settings keep it, the page
+  remembers it in this browser and the share link carries it, `es=1`; Custom's width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses; Generate on a side under the theme's least (48, Islands 64)
   says so in one line, "Canyon needs at least 48 tiles a side to generate", as a note over the map (no dialog dims it,
   and a map that fails its checks says "No valid map" the same way), and the open map stays). Then two columns (three in the wider shapes: Terrain and Hazards; Water and Difficulty; Resources and "On this map"): Terrain, Water and Hazards; Resources (the species mix one
@@ -486,7 +489,8 @@ place of its bottom rule.
   names with the page's highlight (the legend's: a blue tint, brighter at the edge), an object's whole footprint, until Esc, a
   left press on the map or another Show; a camera move (right or middle drag, the wheel) leaves them (`editor/view/useViewSync.ts`).
 - **No notices strip** (Kyler, 2026-10-03, amending D213): nothing under the map changes the page's size. The quiet
-  dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, and lists an opened
+  dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, what an Easy start map
+  made in a late rescue round left short of its targets (Good to know, uncounted, D495), and lists an opened
   file's import flags with their fixes (counted).
 - **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades.
 

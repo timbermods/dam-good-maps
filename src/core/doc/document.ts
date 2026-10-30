@@ -53,6 +53,9 @@ export interface DocMeta {
   /** The name the generator gave the map (M9b, D278 (1b)): until the player renames it (D443), the map
    *  is saved under its theme and seed (D345, B10). */
   generatedName?: string;
+  /** Easy start (D495): on a map a late rescue round made, what it left short of the full targets, as the page says
+   *  it by the Easy start label (`GenerateResult.easyShort`); absent when it met them all. */
+  easyShort?: string;
   /** An imported map: its file name and what normalization changed (PLAN §19.6). */
   source?: { fileName: string; report: ImportReport };
   /** A real place (its id, "near-colca-canyon"), opened from Real places: its checks follow the place's
@@ -171,12 +174,13 @@ export function toDocument(spec: MapSpec, features: Feature[], built: BuildResul
 }
 
 /** The document of a map the generator just made, with its field (format 3). */
-export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null; seedWord?: string; name?: string; description?: string; says?: readonly string[] }): MapDocument {
+export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null; seedWord?: string; name?: string; description?: string; says?: readonly string[]; easyShort?: string }): MapDocument {
   const doc = toDocument(r.spec, r.features, r.built, r.file ?? toTimberFile(r.spec, r.built, r.says?.length ? { says: r.says } : {}), r.field ?? null, r.seedWord);
   // (M9b, D278 (1b): a generated map keeps its own name and how it plays)
   if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
   if (r.description) doc.meta.premise = r.description;
   if (r.says?.length) doc.meta.says = [...r.says];
+  if (r.easyShort) doc.meta.easyShort = r.easyShort;
   return doc;
 }
 
