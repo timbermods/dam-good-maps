@@ -46,9 +46,10 @@ describe("validation profiles (PLAN §19.5)", () => {
   it("ruins.fields is a target for generated ruins: a player's lone ruin is no field to fill, D499", () => {
     // (one ruin column of the map's, the rest taken away: no field of ten)
     const f = file();
-    const ruins = f.world.entities.filter((e) => e.Template.startsWith("RuinColumn"));
+    const ruin = (e: (typeof f.world.entities)[number]) => String(e.Template).startsWith("RuinColumn");
+    const ruins = f.world.entities.filter(ruin);
     expect(ruins.length).toBeGreaterThan(1);
-    f.world.entities = f.world.entities.filter((e) => !e.Template.startsWith("RuinColumn") || e === ruins[0]);
+    f.world.entities = f.world.entities.filter((e) => !ruin(e) || e === ruins[0]);
     const fields = (profile: "generate" | "export" | "import") => validateMap(f, profile === "import" ? { profile } : { profile, spec: r.spec, features: r.features }).report.checks.find((c) => c.id === "ruins.fields")!;
     expect(verdict(fields("generate"))).toBe("fail");
     expect(verdict(fields("export"))).toBe("na");
