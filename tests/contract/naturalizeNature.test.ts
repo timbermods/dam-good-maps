@@ -236,17 +236,22 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // round 2 (#244, generator 0.8.5: 2,226 → 2,229; 2,237 with rule 4), whose taller cliffs stand on
   // farmland or in water (three in four): 7,458 levels cut, 214 filled. River Valley 6 passes on generator
   // 0.10.5's maps (2,654 → 2,335, D148): the gap is re-seeded to River Valley 8 (1,896 → 2,362), which shows it.
+  // Lake Basin 3 passes on generator 0.10.7's maps (2,287 → 2,216, D502, D148: the generator moved the land),
+  // with Lake Basin 1 (2,735 → 2,685) and River Valley 3 and 6; the gap is not closed (River Valley 1, 2, 5, 8, 9, 10 and
+  // 11 and Lake Basin 4 and 10 of seeds 1–12 still end with more level edges), so it is re-seeded to Lake Basin 4
+  // (1,680 → 1,839), which shows it as Lake Basin 3 did, and Lake Basin 3 stays as a test that passes.
   // One known gap, one cause (Kyler, 2026-10-07, D479): Naturalize on cliffs whose foot can't rise
   // (farmland, D418). Both come off this list together, the next time Naturalize gets real work,
   // judged on a sheet. First check then whether this count scores a stepped slope as younger than the
   // tall cliff it weathers from; if it does, the measure is what's wrong, not Naturalize.
-  const fails = new Set(["lakeBasin 3", "riverValley 8"]);
+  const fails = new Set(["lakeBasin 4", "riverValley 8"]);
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],
     ["riverValley", 8],
     ["lakeBasin", 1],
     ["lakeBasin", 3],
+    ["lakeBasin", 4],
   ] as const)
     (fails.has(`${theme} ${seed}`) ? it.fails : it)(`${theme} ${seed} at Terracing 100`, () => {
       const s = session(theme, seed, 100);
