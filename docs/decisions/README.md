@@ -171,6 +171,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The forces](forces.md)
 
+- D500: A Carve with a Depth keeps its channel falling, or is refused
 - D474: Forces can clear sources
 - D473: Carve's aging setting removed
 - D257: The forces
