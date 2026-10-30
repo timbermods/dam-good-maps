@@ -118,6 +118,29 @@ export interface Station {
 }
 
 
+/** Where a carve's Depth stops its channel falling (D500): along its course from the spring, the first station
+ *  whose floor the Depth holds above the bed it runs at (its ground less the Depth) and above the lowest floor
+ *  upstream, so the water would back up behind it. The one line naming it and the least Depth that keeps the
+ *  whole course falling (a deeper Depth lowers the floors upstream too), or null. */
+export function cappedRise(heights: ArrayLike<number>, W: number, path: readonly Pick<Station, "x" | "y" | "bed">[], depth: number): string | null {
+  const riseAt = (d: number): number => {
+    let lowest = Infinity;
+    for (let k = 0; k < path.length; k++) {
+      const st = path[k];
+      const ground = heights[Math.round(st.y) * W + Math.round(st.x)];
+      const floor = Math.floor(Math.max(st.bed, ground - d));
+      if (ground - d > st.bed && floor > lowest) return k;
+      lowest = Math.min(lowest, floor);
+    }
+    return -1;
+  };
+  const k = riseAt(depth);
+  if (k < 0) return null;
+  const at = `The rise at X ${Math.round(path[k].x)} · Y ${Math.round(path[k].y)}`;
+  for (let d = depth + 1; d <= DEPTH_MAX; d++) if (riseAt(d) < 0) return `${at} needs Depth ${d} to keep the channel falling`;
+  return `${at} is too tall for a Depth: let Power set it`;
+}
+
 /** Terrain-derived, coherent horizontal beds (a hash of the heights: the same map, the same rock). */
 export function mapSeed(m: Pick<ForceMap, "W" | "H" | "heights">): number {
   let s = 2166136261;
@@ -210,6 +233,12 @@ export class CarveRun {
     this.badwater = !!options.bad;
     const map: FullForceMap = { ...input, rockLayers: input.rockLayers ?? [], lava: input.lava ?? new Uint32Array(N), fallen: input.fallen ?? [] };
     const r = planInRust({ verb: "carve", map, settings, intent: this.intent, keep: this.keep, options: { sourceId: options.sourceId, unleashed: this.unleashedId, bad: this.badwater } });
+    // (D500, D342: a river carved with a Depth keeps falling, or the carve is refused: past a rise taller than the
+    // Depth its cut climbs with the land, and its spring floods back over the ground behind)
+    if (settings.depth != null && !settings.dry) {
+      const rise = cappedRise(input.heights, input.W, r.path, settings.depth);
+      if (rise) throw new Error(rise);
+    }
     this.records = r;
     this.initialWater = input.water.depth.slice();
     this.initialContamination = input.water.contamination.slice();
