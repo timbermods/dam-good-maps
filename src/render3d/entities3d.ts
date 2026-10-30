@@ -1626,9 +1626,13 @@ function baked(full: Model, matrices: number[], tints: number[]): BufferGeometry
   const pos = new Float32Array(n * V * 3);
   const nrm = new Float32Array(n * V * 3);
   const col = new Float32Array(n * V * 3);
+  // (each vertex's object's place, x and z: the fade round the pointer takes an object whole, objectFade.ts)
+  const origin = new Float32Array(n * V * 2);
   for (let k = 0; k < n; k++) {
     const e = matrices.slice(k * 16, k * 16 + 16);
     for (let v = 0; v < V; v++) {
+      origin[(k * V + v) * 2] = e[12];
+      origin[(k * V + v) * 2 + 1] = e[14];
       const x = model.pos[v * 3];
       const y = model.pos[v * 3 + 1];
       const z = model.pos[v * 3 + 2];
@@ -1650,6 +1654,7 @@ function baked(full: Model, matrices: number[], tints: number[]): BufferGeometry
   g.setAttribute("normal", new Float32BufferAttribute(nrm, 3));
   g.setAttribute("pcolor", new Float32BufferAttribute(col, 3));
   g.setAttribute("lod", new Float32BufferAttribute(new Float32Array(n * V), 1));
+  g.setAttribute("origin", new Float32BufferAttribute(origin, 2));
   g.computeBoundingSphere();
   return g;
 }

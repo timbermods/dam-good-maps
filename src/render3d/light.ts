@@ -110,6 +110,17 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
   return out;
 }
 
+/** These casters without the ones on the tiles of x0…x1 × y0…y1 that `drop` says (an object faded round the pointer,
+ *  objectFade.ts): a copy, its standing levels kept. */
+export function withoutCasters(casters: Float32Array, W: number, H: number, x0: number, y0: number, x1: number, y1: number, drop: (x: number, y: number) => boolean): Float32Array {
+  const out = casters.slice();
+  const levels = casterLevels.get(casters);
+  if (levels) casterLevels.set(out, levels);
+  for (let y = Math.max(0, y0); y <= Math.min(H - 1, y1); y++)
+    for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) if (out[y * W + x] && drop(x, y)) out[y * W + x] = 0;
+  return out;
+}
+
 /** The top of the shadow volume at each shadow sample (W·R × H·R, row-major from the south-west),
  *  for the sun at `elevation`: a point at height z is lit when z is at or above it. */
 export function shadowTops(W: number, H: number, heights: Uint8Array, casters: Float32Array | null, elevation: number): Float32Array {
