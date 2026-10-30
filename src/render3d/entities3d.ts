@@ -1253,6 +1253,23 @@ function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, vari
   framed(() => m.add(plane(w, w), RUIN.far, { rx: -Math.PI / 2, y: height }));
 }
 
+/** Whether a ruin at (x, y, level z) shows its overgrown model, as the game's: its wet model on soil that is neither
+ *  dry nor contaminated, its dry model otherwise (Timberborn.Ruins `RuinModelUpdater.UpdateModel`: `IsDry ||
+ *  IsContaminated`, contaminated being any contamination at all). The soil the ground's colour shows (under a roof, its
+ *  own run top's, `objectSoilAt`), so on a held Drought or Badtide day the day's. */
+export function ruinOvergrown(soil: SoilView | null, W: number, x: number, y: number, z: number): boolean {
+  const s = objectSoilAt(soil, W, x, y, z);
+  return !!s && s.moisture > 0 && s.contamination === 0;
+}
+
+/** Each object's `ruinOvergrown` as drawn (1 overgrown, 0 not or not a ruin): what a new soil is compared against. */
+export function ruinsOvergrown(v: EntityView, soil: SoilView | null, W: number): Uint8Array {
+  const out = new Uint8Array(v.count);
+  const ruin = v.templates.map((t) => /^RuinColumnH\d$/.test(t));
+  for (let k = 0; k < v.count; k++) if (ruin[v.template[k]] && ruinOvergrown(soil, W, v.x[k], v.y[k], v.z[k])) out[k] = 1;
+  return out;
+}
+
 /** A column's quarter turns: one more than its west neighbour and two more than its south one, so
  *  no two neighbouring columns (the eight round one) are turned alike. */
 export function ruinTurn(x: number, y: number): number {
@@ -1427,11 +1444,10 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       continue;
     }
     if (key === "ruin") {
-      // a storey per level, turned as the column is (`ruinTurn`); where the column stands on moist
-      // ground (the soil the ground's colour shows: under a roof, its own run top's, `objectSoilAt`), ivy
-      // over about half its storeys (`ruinIvy`)
+      // a storey per level, turned as the column is (`ruinTurn`); where the column stands on moist,
+      // uncontaminated ground (`ruinOvergrown`), ivy over about half its storeys (`ruinIvy`)
       const n = Number(template.slice(-1));
-      const moist = (objectSoilAt(soil, W, x, y, z)?.moisture ?? 0) > 0;
+      const moist = ruinOvergrown(soil, W, x, y, z);
       const angle = ruinTurn(x, y) * (Math.PI / 2);
       ruinStoreys(x, y, n, v.variant?.[k] ?? NO_VARIANT).forEach(({ variant, kind }, lv) => {
         const green = moist ? ruinIvy(x, y, n, lv) : IVY_NONE;

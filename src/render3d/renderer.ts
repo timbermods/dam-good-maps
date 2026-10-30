@@ -68,7 +68,7 @@ import { EditGlow, editedCells, editGlowMaterial, type EditCells } from "./editG
 import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import { fogOf } from "./high/seasons";
 import type { DroughtLine } from "../core/sim/droughtLine";
-import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
+import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
 import { whenIdle } from "./idle";
 import { castersChangedRects, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
@@ -1873,6 +1873,22 @@ export class MapRenderer {
 
   private readonly entityModels = new EntityGeometryCache();
 
+  /** The soil the objects are drawn by (a ruin under a roof reads its run top's soil: a soil without runs keeps the last
+   *  drawn, as the terrain does). */
+  private objectSoil(): SoilView | null {
+    return this.map?.soil && !this.map.soil.runs && this.runsShown ? { ...this.map.soil, runs: this.runsShown } : (this.map?.soil ?? null);
+  }
+
+  /** Each object's overgrown ruin as drawn (`ruinsOvergrown`): a new soil that changes one rebuilds the objects. */
+  private ruinsDrawn: Uint8Array | null = null;
+
+  /** How many ruins are drawn overgrown now (the tests read it). */
+  get overgrownRuins(): number {
+    let n = 0;
+    for (const v of this.ruinsDrawn ?? []) n += v;
+    return n;
+  }
+
   private setEntitiesInner(e: EntityView): number {
     const instances = this.drawObjects(e);
     const m = this.map!;
@@ -1906,14 +1922,14 @@ export class MapRenderer {
       (l.mesh.instanceColor!.array as Float32Array).set(l.color, l.i * 3);
       l.mesh.instanceColor!.needsUpdate = true;
     }
-    // (a ruin under a roof reads its run top's soil: a soil without runs keeps the last drawn, as the terrain does)
-    const soil = this.map?.soil && !this.map.soil.runs && this.runsShown ? { ...this.map.soil, runs: this.runsShown } : (this.map?.soil ?? null);
+    const soil = this.objectSoil();
     const before = this.objects;
     // (the plants a held day has withered drawn dead, in every look, as the game does: D242 as amended; High's own plants
     // follow in applyWithered)
     const drawn = this.witheredView(e).view;
     const { group, instances } = buildEntities(drawn, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels, before && this.objectsFrom ? { group: before, entities: this.objectsFrom } : undefined);
     this.objectsFrom = drawn;
+    this.ruinsDrawn = ruinsOvergrown(e, soil, this.map?.W ?? 0);
     if (before) {
       // (the High look's models leave the old group first: the landmarks of batches kept go with them)
       this.high?.releaseObjects(group);
@@ -2259,7 +2275,8 @@ export class MapRenderer {
     this.edgeRows.touch(x0 - 1, y0 - 1, x1 + 1, y1 + 1);
   }
 
-  /** New soil (moisture and contamination follow the water): the ground's colours. */
+  /** New soil (moisture and contamination follow the water): the ground's colours, and the ruins' models, which the
+   *  game turns dry on dry or contaminated soil (a held Drought or Badtide day's too). */
   updateSoil(soil: SoilView): void {
     this.flushTerrain();
     const m = this.map;
@@ -2267,6 +2284,23 @@ export class MapRenderer {
     m.soil = soil;
     this.bakeTiles();
     this.syncRunSoil();
+    if (this.objects && this.ruinsDrawn) {
+      const now = ruinsOvergrown(m.entities, this.objectSoil(), m.W);
+      const was = this.ruinsDrawn;
+      let changed = now.length !== was.length;
+      for (let k = 0; !changed && k < now.length; k++) changed = now[k] !== was[k];
+      // (the light look draws every ruin as one block without ivy: nothing to draw again there)
+      if (changed && this.software) this.ruinsDrawn = now;
+      else if (changed) {
+        // (the batches that did not change are kept: buildEntities)
+        this.setEntitiesInner(m.entities);
+        clearTimeout(this.casterTimer);
+        this.casterTimer = window.setTimeout(() => {
+          this.bakeShadows(true);
+          this.requestRender();
+        }, 0);
+      }
+    }
     this.requestRender();
     this.onMapChange?.();
   }
