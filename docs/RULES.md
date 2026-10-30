@@ -72,8 +72,9 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   No full run by hand except for a release.
 - **Labels on your own PRs:** `hold` (never merge). `needs-kyler` holds only design questions and the things only Kyler's
   account can do (listed with their exact clicks in one issue, a workaround meanwhile). `approved` is no longer needed.
-- **Releases:** at the end of each step in the order, from dev to main once the full run, the nightly and a D483 probe batch
-  are green; the planning session cuts them and posts on #236.
+- **Releases:** at the end of each step in the order, from dev to main once the full run and the nightly are green; the
+  planning session cuts them and posts on #236. No probe batch for a release (Kyler, 2026-10-29: the export is proven; a
+  probe runs only where an implementation looks wrong in the game).
 - **The machine is the sessions' own (D484):** nobody else uses it. Test and probe without asking or holding back, within the
   worker caps under "Going faster", Timberborn whenever it helps, within D483 for what a probe plays. Split the threads with the other session as
   the work needs; say on #236 when a probe batch holds the game.

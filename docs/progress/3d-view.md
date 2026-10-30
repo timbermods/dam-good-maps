@@ -773,6 +773,28 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   on a run top at the cut is counted dry by the terrain (the run texture has no depth). Objects and the drought line are
   cut as before. The cut is whole levels, so water under a level deep is never sliced (drawn whole or gone, as before).
 
+## The map's picture and ruins from afar (D488; `fix/render-audit-small`)
+
+- **Ruins from afar never break into noise** (both looks; every map with ruins, at the opening camera's and the
+  picture's distance): the far block's frame (`entities3d.ts` `LOD_FAR_FRAME`) keeps its lattice (D305), but the
+  object shader filters it to the pixel, the struts' share of each pixel's footprint (`fwidth`), drawn as coverage
+  (alpha to coverage on the multisampled view; the canvas has no alpha). Its cells were at most 2.8 pixels wherever
+  the far block is drawn (below `RUIN_NEAR_PX`), so the old discard test made orange noise. A cell shows the column's
+  inside, darker and letting little through (`RUIN_INSIDE_SHADE`, `RUIN_INSIDE_COVER`), so a far ruin reads as the
+  orange scaffold with its cream panels (D334), now solid (the lattice had discarded them too), and settles to an
+  even veil of its colour as it shrinks. The game draws one textured model per ruin height at every distance (no
+  LOD meshes for `RuinColumn*` in its `resources.assets`), its textures mipmapped: the same averaging.
+- **The picture is what the game shows** (`heroView.ts`, from the decompiled `MapThumbnailCapturing`, `SkySystem`
+  and `opening.ts`): the new game's opening camera at the default zoom's widest (the very first zoom holds only the
+  start's 30 × 45 tiles), the sun turning with the camera as the game's does (`RotateWithCameraOffset` 40: the map is
+  turned under the view's fixed sun to the nearest quarter), the start hidden, drawn at twice its size. Before, it
+  looked down at 40° at the whole map (the official maps' authored thumbnails do; a new map has none).
+- **The forms in it:** Canyon 128 seed 1 at the default Verticality grows one form, the overhang sheltering the
+  start; no spring cave or arch. At the opening camera it stands at the picture's middle, a ledge of a few pixels: a
+  60° camera looks down on its roof, the shelter under it out of sight, as in the game. Exposure and size hide
+  nothing else.
+- **Captures:** `docs/sheets/hero-ruins.jpg` (`tools/capture-hero.ts`, real Chrome on the GPU).
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

@@ -402,6 +402,11 @@ export class MapRenderer {
   private stillFlow: StillFlow | null = null;
   /** A still view (the constructor's `still`). */
   private readonly still: boolean;
+  /** Device pixels to a CSS pixel when the constructor sets them, else null (the display's). */
+  private readonly pixels: number | null;
+  private pixelRatio(): number {
+    return this.pixels ?? Math.min(2, window.devicePixelRatio || 1);
+  }
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
   private retiredMotion: WaterMotion | null = null;
   /** The Flow view (off by default): the current's streaks over the water. */
@@ -511,16 +516,20 @@ export class MapRenderer {
 
   /** `still`: a view nobody steers and nothing moves in (the map's picture, `hero.ts`): no pointer or key
    *  reaches it, and its water is drawn still, without the moving water's flow and foam (no wait on the bake
-   *  worker for them). */
-  constructor(canvas: HTMLCanvasElement, opts: { still?: boolean } = {}) {
+   *  worker for them). `fov`: the vertical field of view, degrees (the view's own, PERSP_FOV_DEG, by default; the
+   *  picture takes the game camera's). `pixels`: device pixels to a CSS pixel (the display's, at most 2, by default;
+   *  the picture draws at twice its size and is scaled down, whatever the display). */
+  constructor(canvas: HTMLCanvasElement, opts: { still?: boolean; fov?: number; pixels?: number } = {}) {
     this.canvas = canvas;
     this.still = !!opts.still;
+    this.pixels = opts.pixels ?? null;
+    if (opts.fov !== undefined) this.persp.fov = opts.fov;
     // a browser that draws in software gets the light look, without multisampling (D110)
     this.drawsInSoftware = softwareRendering();
     this.software = this.drawsInSoftware && !window.dgmLookTest?.gpu;
     this.gl = new WebGLRenderer({ canvas, antialias: !this.software, powerPreference: "high-performance" });
     this.gl.outputColorSpace = LinearSRGBColorSpace;
-    this.gl.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this.gl.setPixelRatio(this.pixelRatio());
     // the sky round the map (the light look clears to its colour below the horizon instead)
     this.gl.setClearColor(new Color(...SKY.below));
     this.scene.background = null;
@@ -1166,7 +1175,7 @@ export class MapRenderer {
         }
       }
     }
-    this.gl.setPixelRatio(Math.min(2, window.devicePixelRatio || 1) * (tier === "lower" ? LOWER_PIXELS : 1));
+    this.gl.setPixelRatio(this.pixelRatio() * (tier === "lower" ? LOWER_PIXELS : 1));
     this.fit();
     this.thumbs.clear();
     if (this.ghost) {

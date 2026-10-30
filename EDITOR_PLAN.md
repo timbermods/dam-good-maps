@@ -253,9 +253,11 @@ place of its bottom rule.
     selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
     row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it. The first row
     ends with **Crop** (the map becomes the selection's bounding rectangle, D340; one cell, the size's words take two),
-    **Fill water** (the hollow under the selection's lowest ground filled with standing water up to the Level;
-    hovering says "9 tiles, lasts about 12 days" and marks the hollow, or in a few words why not: "Raise the Level to
-    fill", "It would spill off the map", D394) and **Remove unfed water** (the pools no
+    **Fill water** (the hollow under the selection's lowest ground filled with standing water to the brim, the highest
+    level it holds (the core's `fillLevel`), so the first try holds; to the Level once the player sets it; hovering says
+    "Level 7, lasts 12 days" (with a Level set, "9 tiles, lasts 12 days"; "under a day" below one) and marks the hollow, or in a
+    few words why not: "Raise the Level to fill", "It would spill off the map" (a slope or flat land, which hold none),
+    D394) and **Remove unfed water** (the pools no
     source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo
     step, both the core's (`planFill`, `unfedWater`), greyed with `aria-disabled` while nothing is selected, and the words they
     left in the row go when the selection closes or changes; Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
@@ -288,7 +290,7 @@ place of its bottom rule.
   bush**; Ruin, Mine site, Relic, Slope, Thorns, Blockage and Geothermal field; Unstable core and the Reserve pile,
   warehouse and tank (five groups, 26 rows), each picture a small render in the map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
-  what it has; the picked row stays under the pointer, or, where the window takes its place (Start, at the list's top), comes into view just under the list's title (#668); no row above the bar then; the object put away, the list returns to its top, or where it was when the row is clicked again): picked in the list, a source's Next source and
+  what it has; the list never moves; no row above the bar then; the object put away, the list returns to its top, or where it was when the row is clicked again): picked in the list, a source's Next source and
   Pointing at, a ruin's Height, a relic's Size, a plant's or Mixed woods' Size and Density (trees, succulents and woods
   also Age), a water object's Strength ("drains 2 water/s" below 0) and Starts (At once or Later, with its Cycle), the
   core's Radius and Goes off in cycle, a reserve's Holds (a menu in the page's own look: the goods every faction has,
@@ -890,7 +892,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   trees, bushes and ruin columns stand in a lake that covers them (a tree dead, D404) and are counted as standing;
   a resource feature without the generation's record (an old document's) holds its trees and bushes under the
   water, which stand again when it drains, and those are counted too (`objectsIn`, `core/doc/inArea.ts`); a ruin field only partly inside the selection gives up just the tiles inside it (its
-  `cleared` tiles, D360 b). With no selection, Delete takes what the pointer is on: a source within its targeting
+  `cleared` tiles, D360 b). Under a layer cut (D207) Delete, its menu's counts and Select's actions take the tiles whose
+  ground shows at or under the cut, a cave's floor under a roof that rises past it among them (the column's lowest run's
+  top; `seenUnderCut`, `editor/shelf/aim.ts`): what stands on the floor is counted and taken, and the cave's ground is
+  left as it is (above). What the cut hides stays: the core's `objectsIn` and `planRemove` take the cut and keep only
+  objects at or under it, and resource areas and submerged objects only on tiles whose top is at or under it. With no selection, Delete takes what the pointer is on: a source within its targeting
   range (D249) first, else the objects on the tile, else the ground. **Ctrl+A** or **Whole map** selects the whole
   map. The water the removed sources fed drains as its cause is gone (D260). **Clear everything** in the ⋯ menu
   removes every source, badwater source, tree, bush, ruin, object and the start in one undo step, leaving the
@@ -1025,11 +1031,13 @@ Make a valley, drop a source, and there's a river.
   panel or selection. A river's flow is its sources' strength; clean or bad belongs to each source; water changes
   only through its causes (a source removed, moved or weakened, or the land reshaped). Generated maps' rivers are
   just their sources (edge inflows included) and their land. Hovering water quietly highlights the sources feeding
-  it (D196).
+  it (D196): by the ground seen (a cave's water through its mouth or under the cut), found again from that ground
+  whenever the objects change with the pointer resting there.
 - **Remove unfed water and Fill** (D387 (2) and (3), D394): Remove unfed water takes the water no source feeds (a
   pool the settle left in a hollow, a sealed oxbow lake, a Fill), map-wide or within a selection, and says first
   what it will take ("12 pools, 3,400 tiles of water"); a pool with a tile in the selection goes whole, and fed
-  water is never touched. Fill fills a hollow with standing water to a chosen level, with no source, and says
+  water is never touched. Fill fills a hollow with standing water to a chosen level (by default the highest it holds,
+  `fillLevel`), with no source, and says
   roughly how long it will last; it is refused with a plain reason when the hollow doesn't hold water at that
   level. Each is one undo step. Their engine and questions are in the core; where they sit in the page is agreed
   with the page session (D388).
@@ -1570,10 +1578,13 @@ checks dot counts; every other row is information under Good to know, worded as 
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
     export never depends on the preview's history. Its thumbnail is the map's 3D picture (D488): drawn off screen in
-    the High look, turned as the new game's camera opens (the start's orientation + 35°) but looking down at 40° at the
-    whole map as the official thumbnails do, not the opening camera's 60° (a deliberate departure), with the water the file
-    starts with drawn still (its badwater share, no moving water's foam), then put in place of the core's top-down
-    one; the player's view is never touched. A map whose water is settled already is drawn while the checks run. Without a GPU or
+    the High look, at twice its size and scaled down, from the game's own opening camera (`render3d/heroView.ts`: 60°
+    down, turned to the start's orientation + 35°, the game camera's 35° field of view, at the default zoom's widest,
+    the frame the start is turned for, D493; a map without a start from the game's default thumbnail camera, 40° down
+    looking north), lit as the game lights its thumbnails (its sun turns with the camera, 40° past it: the map is turned
+    in quarter turns under the view's fixed sun to the nearest, within 30°), the start hidden as the game's thumbnails
+    hide it, with the water the file starts with drawn still (its badwater share, no moving water's foam), then put in
+    place of the core's top-down one; the player's view is never touched. A map whose water is settled already is drawn while the checks run. Without a GPU or
     WebGL 2, or if drawing fails, the file keeps the top-down thumbnail and saves anyway; an unedited import keeps its
     own picture.
     The same picture serves the page's own pictures (Showcase mode's cards): `heroPicture(view, { width, height,

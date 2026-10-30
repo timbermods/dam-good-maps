@@ -486,7 +486,7 @@ describe("a fall's colours", () => {
       const own = m.fragmentShader.replace(WATER_GLSL, "");
       const body = own.slice(own.indexOf("void main()", own.indexOf("vec3 finish(")));
       expect(body).not.toMatch(/vec3\(\s*-?\d/);
-      for (const use of ["waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont)", "mix(WATER_FOAM, BADWATER_FOAM, bad)", "mix(FALL_TEAL, FALL_BAD_STREAK, bad)", "waterBlend(WATER_TEAL, BADWATER_BODY, cont)", "waterMurk(cont)"]) expect(m.fragmentShader).toContain(use);
+      for (const use of ["waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont)", "mix(WATER_FOAM, BADWATER_FOAM, bad)", "mix(FALL_TEAL, FALL_BAD_STREAK, bad)", "waterBlend(WATER_TEAL, BADWATER_BODY, cont)", "float bad = waterTint(cont);", "alpha = mix(alpha, BADWATER_FALL, bad);"]) expect(m.fragmentShader).toContain(use);
       expect(m.transparent).toBe(true);
       expect(m.depthWrite).toBe(false);
     }
