@@ -243,12 +243,14 @@ export const WATER_FALL = {
   whitewaterTint: 0.2,
 } as const;
 
-/** Thin water reads thin (D154's see-through shallows, carried down to a film): a sheet a tenth of a
- *  level deep or less (a seep's film, a flood's leading edge, wet ground round a source) is mostly
- *  see-through over its own ground, a faint tint with its ripples' sheen, and builds smoothly to the
- *  water's usual body by `to` levels deep (`waterFilm`, a smoothstep on the water's own depth, not
- *  its depth as seen near a bank; at `to` and deeper nothing changes). Both looks and the ground
- *  under the water read this one curve:
+/** Water of any depth draws as water, as the game draws it: a film is the same water as its body, not a faint
+ *  tint over its ground (a wide sheet a tenth of a level deep, Delta 128² seed 2's, read as a green slab when it
+ *  was one). In play the game draws every water tile with its opaque material; its High-quality variant shows the
+ *  ground behind only as a small, water-tinted, desaturated share that thins with depth, the same for a film as
+ *  for shallows (`investigation/notes/water_and_soil.md` Q8), and its Low variant shows none. Only a sliver `to`
+ *  levels deep or less fades in (`waterFilm`, a smoothstep on the water's own depth): our own anti-aliasing of a
+ *  shore's very edge, where the game clips hard at the floor. Both looks and the ground under the water read this
+ *  one curve:
  *  - the water's opacity goes from `clean` (clean water) or `bad` (badwater, still murkier than clean
  *    water at the same depth) at no depth to its body's own opacity at `to`;
  *  - its shore foam keeps `foam` of itself on a film (a faint edge, not a pond's foam line);
@@ -260,7 +262,7 @@ export const WATER_FALL = {
  *    `gain` of the ground's lightness (clean, bad); the bed's
  *    own colour comes in along the same curve. So the hue is the water's at any depth. */
 export const WATER_FILM = {
-  to: 0.25,
+  to: 0.02,
   clean: 0.14,
   bad: 0.62,
   foam: 0.3,

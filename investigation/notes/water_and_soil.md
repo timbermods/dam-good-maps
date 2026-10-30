@@ -454,11 +454,19 @@ byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgres
 - **Depth (`_DepthGradients`, texture slot 7, pathID 763 in `resources.assets`, 32×32 BC7 sRGB):** both pixel programs sample it
   at (depth / `_MaxDepth`, 0.5). Its R runs 245 to 0 and its G 245 to 22 over the 5 levels. Clean albedo = lerp(`_Color`,
   `_AlbedoAtMaxDepth`, u) × R × 2; the contaminated colour × G. In linear light G relative to a quarter level deep: 1.64 at
-  no depth, 0.61 at half a level, 0.43 at 1, 0.19 at 2, 0.08 at 3, 0.03 at 4.25 (`BADWATER.ramp` fits it within 5%). Clean
+  no depth, 0.61 at half a level, 0.43 at 1, 0.19 at 2, 0.08 at 3, 0.03 at 4.25 (`BADWATER.ramp` fits it within 5% at these depths). Clean
   albedo × R × 2 reaches near black by 3 levels; on screen the sky's reflection (smoothness 0.67) holds deep clean water up.
   Badwater keeps a reflection too, with no depth in it: its metallic goes to 0 (F0 0.04), about 0.6 of clean water's
   reflection, and its emissive detail (`_Detail_Contamination_Color_*` × t) has no depth term either, so deep badwater
   never goes black on screen. `BADWATER.floor` (0.17) stands for that share until an in-game measurement sets it.
+- **See-through (the High-quality variant, `opaque/p036`; Medium and above set `_HIGH_QUALITY_WATER_ENABLED`):** in play
+  every tile uses the opaque material (`WaterMesh.GetWaterMaterial`; the transparent one only while a tool hides the
+  water, at a flat 0.4). The High-quality program samples `_CameraOpaqueTexture` behind the water and mixes it in, alpha
+  staying 1: the ground behind, overlaid 80 % with the water's colour (`_TransparencyBlending` 0.8) and desaturated to
+  30 % (`_TransparencySaturation`), at a share 0.35 × 0.5 × (1 − d / 5) (`_TransparencyDepth`, `_TransparencyDepthModifier`,
+  `_MaxDepth`), d the vertical depth to the ground: about 0.17 at a film's 0.087 deep and at a shore's edge, 0 at
+  5 levels; falls 0.1 × (1 − d / 5). The Low variant (`p032`) shows no ground. The contaminated tint, the depth ramp
+  and the reflection are the same in both variants. A film is drawn like any water; the game clips hard at the floor.
 - **Opacity:** none by contamination: `_WaterOpacity` is 1 (0.4 while a tool hides the water).
 - Used by `src/render3d/waterPalette.ts` `WATER_BLEND` (2026-10-29).
 
