@@ -1674,7 +1674,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // body a level or so deep, navy where deep; badwater murky, the game's
         // crimson, lighter on a film and darker deeper by the game's _DepthGradients ramp (D496)
         float absorb = waterAbsorb(d);
-        vec3 murky = badwaterBody(depth);
+        vec3 murky = badwaterGlow(badwaterBody(depth), BADWATER_BODY, d, cont);
         vec3 body = cleanWaterBody(d, absorb);
         // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
         // WATER_FILM.to deep (waterPalette.ts WATER_FILM; our anti-aliasing): its own depth, not the bank's
