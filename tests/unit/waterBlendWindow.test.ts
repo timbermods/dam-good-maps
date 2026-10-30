@@ -78,7 +78,7 @@ describe("the blend of a window", () => {
       expect(c.quads).toBeGreaterThan(0);
       expect(Array.from(dirty[k].data)).toEqual(Array.from(c.data));
       expect(Array.from(dirty[k].positions)).toEqual(Array.from(c.positions));
-      expect(Array.from(dirty[k].falls)).toEqual(Array.from(c.falls));
+      expect(Array.from(dirty[k].flags)).toEqual(Array.from(c.flags));
     });
   });
 });

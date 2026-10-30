@@ -12,8 +12,7 @@ import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from 
 import { contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
 import { waterHooks } from "../../src/render3d/high/shaders";
-import { FALL_STRIDE } from "../../src/render3d/falls";
-import { dropFlags, EDGE_CURTAIN, FALL_IN_BITS, LIP_BITS, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
+import { dropFlags, EDGE_CURTAIN, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
 import { DataTexture, ShaderMaterial } from "three";
 import { sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
@@ -223,10 +222,11 @@ describe("the baked light", () => {
   });
 });
 
-describe("water foam", () => {
-  // (D148: a fall was a curtain carrying its drop in its flags; since D201 it pours from the lip as
-  // a fall of its own, which carries its lip's and its landing's surfaces, and its brink is marked)
-  it("marks shores, the foot of falls and their brinks, and the drop of each fall", () => {
+describe("water's flags", () => {
+  // (D148: a fall was a curtain carrying its drop in its flags; from D201 it poured from the lip as a fall of its own,
+  // its foot and brink marked for foam; since D201's amendment (2026-10-29) it is a curtain again, as the game draws
+  // it, with no foam)
+  it("marks shores, and the drop of each fall", () => {
     // west to east: a pool at 6 (surface 6.5) falls to a river at 3 (surface 3.5), beside dry
     // ground at 7 on the north side of the pool
     const W = 4;
@@ -242,20 +242,12 @@ describe("water foam", () => {
       if (m.normals[q * 12 + 1] > 0) tops.set(Math.round(x), m.flags[q * 4]);
       else if (m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 2) < 0.1) curtains.push(m.flags[q * 4]);
     }
-    // the pool's tiles meet dry ground to the north; the river's first tile takes the fall, and the
-    // pool's last tile is its brink
+    // the pool's tiles meet dry ground to the north, and no top carries any other mark
     expect(tops.get(0)! & SHORE_BITS[2]).toBeTruthy();
     expect(tops.get(1)! & SHORE_BITS[2]).toBeTruthy();
-    expect(tops.get(2)! & FALL_IN_BITS[1]).toBeTruthy();
-    expect(tops.get(3)! & FALL_IN_BITS[1]).toBeFalsy();
-    expect(tops.get(1)! & LIP_BITS[0]).toBeTruthy();
-    expect(tops.get(0)! & LIP_BITS[0]).toBeFalsy();
-    // the fall pours from the pool's surface down to the river's, 3 levels: no curtain hangs there
-    expect(curtains).toEqual([]);
-    expect(m.fallCount).toBe(1);
-    const f = m.falls.subarray(0, FALL_STRIDE);
-    expect(f[4] - f[6]).toBeCloseTo(3, 5);
-    expect(f[5] - f[7]).toBeCloseTo(3, 5);
+    for (const [, flags] of tops) expect(flags & ~15).toBe(0);
+    // the fall hangs from the pool's surface down to the river's, 3 levels: its drop in its flags
+    expect(curtains).toEqual([90]);
     // a curtain's flags are its drop, and none at the map's edge
     expect(dropFlags(6.5, 3.5, false)).toBe(90);
     expect(dropFlags(3, 0, true)).toBe(EDGE_CURTAIN);
