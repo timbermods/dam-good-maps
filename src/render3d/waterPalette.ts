@@ -156,7 +156,7 @@ export const HIGH_WATER = {
   /** Clean water by depth, from Timberborn's references (D334): a teal shallow, a darker body and a
    *  navy deep, which keeps its depth at a grazing angle too; badwater a deep crimson. Readability
    *  follows the game's (D334 (2)): deep clean water may be as dark as badwater, which reads by its
-   *  colour, dullness, pink highlights, bubbles and red contact at rock, not by a lightness gap. */
+   *  colour, dullness, pink highlights, bubbles and the orange glow of its shallow edges, not by a lightness gap. */
   shallow: [0.13, 0.29, 0.36] as Rgb,
   body: [0.08, 0.20, 0.28] as Rgb,
   deep: [0.045, 0.12, 0.19] as Rgb,
@@ -405,7 +405,8 @@ export function badwaterGlow(body: Rgb, base: Rgb, depth: number, share: number)
   const G = BADWATER.glow;
   const w = (G.atShallow * badwaterRamp(depth)) ** G.power * Math.max(0, Math.min(1, 1 - share / G.upTo));
   if (!(w > 0)) return body;
-  return [0, 1, 2].map((i) => body[i] + (Math.min(1, (base[i] / G.atShallow) * G.tint[i]) - body[i]) * w) as unknown as Rgb;
+  // (the game mixes toward the target unclamped: its red channel past 1 on a film)
+  return [0, 1, 2].map((i) => body[i] + ((base[i] / G.atShallow) * G.tint[i] - body[i]) * w) as unknown as Rgb;
 }
 
 /** How far water with this badwater share (0–1) has turned toward badwater's look (`WATER_BLEND`): 0 when
@@ -593,7 +594,7 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
     float d = max(depth, 0.0);
     float g = ${f(BADWATER.glow.atShallow)} * exp(-${f(BADWATER.ramp.first)} * (min(d, ${f(BADWATER.ramp.knee)}) - ${f(BADWATER.shallow)}) - ${f(BADWATER.ramp.beyond)} * max(0.0, d - ${f(BADWATER.ramp.knee)}));
     float w = pow(g, ${f(BADWATER.glow.power)}) * clamp(1.0 - s / ${f(BADWATER.glow.upTo)}, 0.0, 1.0);
-    return mix(body, min(base / ${f(BADWATER.glow.atShallow)} * vec3(${BADWATER.glow.tint.map(f).join(", ")}), 1.0), w);
+    return mix(body, base / ${f(BADWATER.glow.atShallow)} * vec3(${BADWATER.glow.tint.map(f).join(", ")}), w);
   }
   /** A badwater colour (its troughs, its streaks) darkened with depth as its body is. */
   vec3 badwaterShade(vec3 c, float depth) {

@@ -93,7 +93,7 @@ const FIND_CUT = `(caves, want) => {
 }`;
 
 /** The side of water the cut removes (its floor at the cut or above, its surface over it) that hangs lowest under the
- *  cut's slack: a step of less than a fall (falls.ts FALL_MIN 0.3) to lower water or ground, at the cut `want` (or any up
+ *  cut's slack: a step of less than a fall (waterMesh.ts FALL 0.3) to lower water or ground, at the cut `want` (or any up
  *  to 24), with the camera's yaw facing it. The open sky's water only. */
 const FIND_SLIVER = `(caves, want) => {
   const m = window.dgm3d.renderer.map;

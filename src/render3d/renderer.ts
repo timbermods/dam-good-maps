@@ -409,9 +409,9 @@ export class MapRenderer {
    *  already drawn, and with the look's own when it is left, so a later switch finds its programs; each one's name. */
   private highCopy: HighLookMaterials | null = null;
   private copyOf = new Map<ShaderMaterial, keyof HighLookMaterials>();
-  /** A copy of the drought line's materials. */
   /** The sun's depth map's material (high/shadows.ts), twice: compiled with the terrain's meshes and with the objects. */
   private depthCopy: [ShaderMaterial, ShaderMaterial] | null = null;
+  /** A copy of the drought line's materials. */
   private lineCopy: ShaderMaterial[] | null = null;
   /** Objects to compile a program with when nothing draws its material (`standIn`). */
   private standIns: Record<"mesh" | "instanced" | "bare", Object3D> | null = null;

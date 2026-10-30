@@ -45,7 +45,7 @@ const MAPS = [
 
 /** The High effects of each part (render3d/high/effects.ts), for the stages' costs. */
 const STAGE1 = ["geology", "soilCap", "section"];
-const STAGE2 = ["crown", "landing", "bubbles", "mist", "rings", "roughWater"];
+const STAGE2 = ["roughWater"];
 const STAGE3 = ["landmarks", "objectDetail"];
 const ALL_FINISH = [...STAGE1, ...STAGE2, ...STAGE3];
 
