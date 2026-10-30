@@ -60,8 +60,8 @@ export const WATER = {
   bad: BAD_BODY,
   /** The dark crimson under a badwater source's basin (not water: the basin's floor). */
   badDeep: [0.14, 0.066, 0.058] as Rgb,
-  /** Badwater's darker troughs, in the ripples' low parts (`BADWATER.trough` of the way), and
-   *  its subdued, lighter flow streaks. */
+  /** Badwater's darker troughs, in its mottled dark patches (`BADWATER.trough` of the way), and
+   *  its subdued, lighter flow streaks; both in its shallows, darkening with depth as the body. */
   badTrough: [0.292, 0.143, 0.128] as Rgb,
   badStreak: [0.421, 0.234, 0.194] as Rgb,
   /** Badwater's slow glowing bubbles, denser the more of the water is bad. */
