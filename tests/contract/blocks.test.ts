@@ -678,8 +678,8 @@ describe("the Block tool's steps undo, replay and save exactly", () => {
 describe("the Block tool on a generated map", () => {
   // (seed 6 since generator 0.10.6, D498, D148: the test builds up 5 tiles east of the spot, so the level, dry ground
   // must run from 3 tiles west of it to 5 east, at level 7 or more, away from every object; seed 3's River Valley holds
-  // none any more, nor does any other of seeds 1–40 but seed 6, whose spot is at (46, 15), level 14)
-  const spec = makeSpec({ seed: 6, theme: "riverValley", size: { x: 64, y: 64 } });
+  // none any more, nor does any other of seeds 1–40 but seed 6, whose spot is at (46, 15), level 14; seed 43 since generator 0.10.7, D502, D148: seed 6 has none now, nor has any of seeds 1–42; seed 43 is the first with one)
+  const spec = makeSpec({ seed: 43, theme: "riverValley", size: { x: 64, y: 64 } });
   const r = generate(spec);
 
   /** A dry tile with dry neighbours, no object near, on high enough ground, level out to the build-up 5 tiles east. */
