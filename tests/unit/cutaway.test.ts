@@ -109,7 +109,7 @@ describe("the cutaway on maps without terrain above terrain", () => {
     const { W, H, heights } = generate(makeSpec({ seed, theme, size: { x: size, y: size } })).built;
     const src: TerrainSource = { W, H, heights, columns: new Map() };
     expect(cutawayOn(src)).toBe(false);
-    expect(CaveLight.build(src, new Uint8Array(W * H))).toBeNull();
+    expect(CaveLight.build(src)).toBeNull();
     let top = 0;
     for (const h of heights) top = Math.max(top, h);
     for (const cut of [0, 3, Math.floor(top / 2), top - 1]) {

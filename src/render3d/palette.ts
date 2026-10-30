@@ -270,6 +270,17 @@ export const LIGHT = {
   haze: [0.68, 0.77, 0.87] as Rgb,
 } as const;
 
+/** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,
+ *  Timberborn 1.1.2.8): the terrain shader multiplies the ground's colour by the ramp at the ground's height over
+ *  `ceiling` (Configurations/TerrainMaterialMap.blueprint.json `AltitudeCeiling`), the grass's on grass and the desert's on
+ *  dry ground. Each a 32 × 1 RGB24 texture, sampled linearly; stored about mid-grey, it is a doubling multiplier (128 is
+ *  the colour as it is). */
+export const ALTITUDE_RAMP = {
+  ceiling: 22,
+  grass: [[112, 125, 133], [114, 126, 134], [112, 128, 139], [118, 126, 133], [126, 125, 125], [126, 129, 127], [125, 131, 133], [125, 132, 136], [121, 135, 136], [124, 138, 134], [126, 138, 136], [129, 140, 141], [137, 138, 134], [144, 139, 129], [145, 142, 131], [143, 142, 135], [141, 142, 140], [142, 142, 138], [150, 143, 128], [154, 144, 125], [149, 145, 134], [146, 143, 145], [149, 143, 142], [155, 146, 135], [133, 127, 128], [134, 128, 128], [133, 129, 129], [127, 124, 123], [133, 129, 130], [120, 118, 121], [119, 121, 124], [117, 126, 130]] as readonly (readonly [number, number, number])[],
+  desert: [[123, 140, 150], [125, 141, 149], [126, 141, 150], [125, 139, 156], [139, 133, 139], [149, 134, 128], [144, 139, 137], [139, 139, 149], [134, 137, 156], [136, 138, 152], [150, 138, 131], [152, 139, 124], [142, 139, 138], [132, 135, 158], [135, 137, 153], [144, 140, 136], [148, 138, 136], [147, 138, 135], [146, 140, 136], [146, 141, 136], [146, 140, 136], [144, 138, 138], [141, 141, 140], [136, 147, 153], [134, 152, 159], [138, 151, 155], [135, 150, 163], [145, 145, 152], [159, 144, 137], [157, 149, 144], [151, 150, 155], [148, 149, 162]] as readonly (readonly [number, number, number])[],
+} as const;
+
 /** The game's light (Timberborn 1.1.2.8; decompiled `Timberborn.SkySystem` `Sun`, its `AmbientMode.Trilight`, and the day's
  *  colours in the game's `Configurations/Sun.blueprint.json`), in linear values: the ambient by a face's normal (the
  *  sky's from above, the equator's from the side, the ground's from below, blended by the normal's height as Unity's

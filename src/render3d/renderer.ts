@@ -6,7 +6,7 @@
 // instances of one small template per chunk (falls.ts), listed when the chunk's water is meshed.
 //
 // Map look (D86): the ground is coloured by soil (or by height, `setGroundMode`); the light is
-// baked when the mesh is built (light.ts: sky visibility, soft sun shadows) into two textures the
+// baked when the mesh is built (light.ts: soft sun shadows) into two textures the
 // shaders read with the per-tile overlay; the default camera looks as the game's does, 30° east of
 // north and 70° down. The water's surface moves (at 30 frames a second at most) unless the viewer
 // prefers reduced motion, the browser renders in software, or the view is hidden. A browser that
@@ -69,7 +69,7 @@ import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
 import { whenIdle } from "./idle";
-import { castersChangedRects, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
+import { castersChangedRects, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
@@ -245,8 +245,7 @@ interface MapState {
   surface: SurfaceWater;
   entities: EntityView;
   soil: SoilView | null;
-  /** Baked: sky visibility per tile, and the terrain shader's tile data. */
-  sky: Uint8Array;
+  /** Baked: the terrain shader's tile data. */
   tiles: Uint8Array;
 }
 
@@ -1380,10 +1379,9 @@ export class MapRenderer {
     const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), masks: columnMasks(W * H, v.columns), cutout: mineCutout(v.entities, W, H) };
     this.columnsSent = { tiles: v.columns.tiles, voxels: v.columns.voxels, key: ++this.columnsKey };
     const surface = surfaceWater(W, H, v.water);
-    const sky = skyVisibility(W, H, heights);
     const soil = v.soil ?? null;
-    const tiles = tileData(W, H, heights, sky, soil, surface);
-    this.map = { W, H, heights, source, water: v.water, surface, entities: v.entities, soil, sky, tiles };
+    const tiles = tileData(W, H, heights, soil, surface);
+    this.map = { W, H, heights, source, water: v.water, surface, entities: v.entities, soil, tiles };
     this.heightStats = null;
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
@@ -1405,7 +1403,7 @@ export class MapRenderer {
     this.casters = objectCasters(W, H, v.entities);
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
     this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns)));
-    this.cave = CaveLight.build(source, sky);
+    this.cave = CaveLight.build(source);
     this.caveTex = this.cave ? caveTexture(this.cave) : null;
     const u = this.uniforms;
     u.caveTex.value = this.caveTex ?? this.noCave;
@@ -1815,7 +1813,7 @@ export class MapRenderer {
     if (want === !!this.cave) return;
     const u = this.uniforms;
     if (want) {
-      this.cave = CaveLight.build(m.source, m.sky);
+      this.cave = CaveLight.build(m.source);
       this.caveTex = this.cave ? caveTexture(this.cave) : null;
       u.caveTex.value = this.caveTex ?? this.noCave;
       if (this.cave) {
@@ -1839,7 +1837,7 @@ export class MapRenderer {
   private relightCaves(rect: { x0: number; y0: number; x1: number; y1: number }): void {
     const m = this.map;
     if (!m || !this.cave) return;
-    const box = this.cave.relight(m.source, m.sky, rect);
+    const box = this.cave.relight(m.source, rect);
     this.caveRows.touch(box.x0, box.y0, box.x1, box.y1);
     // (the land may have risen: the march under roofs runs up to the highest ground)
     this.uniforms.caveTop.value = this.cave.highest;
@@ -1850,7 +1848,7 @@ export class MapRenderer {
   private bakeTiles(): void {
     const m = this.map;
     if (!m || !this.tileTex) return;
-    const c = tileDataChanges(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles);
+    const c = tileDataChanges(m.W, m.H, m.heights, m.soil, m.surface, m.tiles);
     for (const r of c.rows) this.tileRows.touch(r.x0, r.y, r.x1, r.y);
     this.redoEdges(c.edgeRows);
   }
@@ -1968,12 +1966,11 @@ export class MapRenderer {
     if (!rect) return 0;
     const chunks = dirtyChunks(m.W, m.H, rect);
     for (const [cx, cy] of chunks) this.meshTerrain(cx, cy);
-    // the light round what changed: the sky each tile sees, the tile data, the shadows (the same
-    // bytes as baking the whole map); and the water's shores there
-    const r = SKY_REACH;
-    skyVisibilityRect(m.W, m.H, heights, m.sky, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
+    // the light round what changed: the tile data, the shadows (the same bytes as baking the whole map); and the
+    // water's shores there
+    const r = TILE_REACH;
     if (this.tileTex) {
-      tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
+      tileDataRect(m.W, m.H, heights, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       this.tileRows.touch(rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       // (the contamination outline reads the tile data, a tile further)
       if (this.edges) {
@@ -2224,7 +2221,7 @@ export class MapRenderer {
   /** The ground's tile data under a water chunk drawn anew (the water over each top). */
   private waterTiles(m: MapState, cx: number, cy: number): void {
     if (!this.tileTex) return;
-    tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+    tileDataRect(m.W, m.H, m.heights, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.edgesAround(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
   }
@@ -2378,7 +2375,7 @@ export class MapRenderer {
     this.pendingLand = null;
     if (!m || !rect || !this.drawnLand) return false;
     const heights = m.heights;
-    const c = terrainChanges(m.W, m.H, this.drawnLand, heights, rect, SKY_REACH);
+    const c = terrainChanges(m.W, m.H, this.drawnLand, heights, rect, TILE_REACH);
     if (!c) return false;
     this.droughtLayer?.retire();
     // the water on the land that changed rides it in this same frame (its own water follows, worked
@@ -2394,9 +2391,8 @@ export class MapRenderer {
       this.flowChanged(heights, m.surface);
     }
     for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
-    for (const row of c.rows) skyVisibilityRect(m.W, m.H, heights, m.sky, row.x0, row.y, row.x1, row.y);
     if (this.tileTex) {
-      for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
+      for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.tileRows.touch(row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.edgesAround(row.x0, row.y, row.x1, row.y);
     }

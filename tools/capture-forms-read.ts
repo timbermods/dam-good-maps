@@ -262,6 +262,8 @@ async function capture(tag: string): Promise<void> {
 async function sheet(kind: string, out: string): Promise<void> {
   const ids = (arg("ids") ?? (kind === "caves" ? "cave-inside,cave-mouth,opening" : "overhang,overhang-under,arch,opening,hero")).split(",");
   const rows: { label: string; files: (string | null)[] }[] = [];
+  const sheetLooks = (arg("looks") ?? "standard,high").split(",");
+  const heads = sheetLooks.flatMap((l) => [`${l[0].toUpperCase()}${l.slice(1)}, before (dev)`, `${l[0].toUpperCase()}${l.slice(1)}, after`]);
   for (const sz of ["1920", "1280"] as Size[])
     for (const id of ids) {
       if (sz === "1280" && !(arg("light") ?? (kind === "caves" ? "cave-inside" : "overhang,arch")).split(",").includes(id)) continue;
@@ -269,7 +271,7 @@ async function sheet(kind: string, out: string): Promise<void> {
       const s = SHOTS.find((x) => id.endsWith(x.id) && (id === x.id || id.endsWith(`-${x.id}`)))!;
       const where = id === s.id ? "Canyon 128² seed 1" : id.slice(0, -s.id.length - 1).replace(/^(\w+)-(\d+)$/, "$1 128² seed $2");
       const tags = [arg("before") ?? "before", arg("after") ?? "after"];
-      const files = ["standard", "high"].flatMap((look) => tags.map((tag) => join(BASE, tag, `${id}-${look}-${sz}.jpg`)));
+      const files = sheetLooks.flatMap((look) => tags.map((tag) => join(BASE, tag, `${id}-${look}-${sz}.jpg`)));
       rows.push({ label: `${where}, ${s.label}, ${sz === "1920" ? "1920×1080 dark" : "1280×800 light"}`, files: files.map((f) => (existsSync(f) ? f : null)) });
     }
   const browser = await chromium.launch({ channel: "chrome", headless: false });
@@ -279,14 +281,14 @@ async function sheet(kind: string, out: string): Promise<void> {
     const jpeg = (await page.evaluate(
       `(async (rows) => {
         const load = async (b) => { if (!b) return null; const i = new Image(); i.src = "data:image/jpeg;base64," + b; await i.decode(); return i; };
-        const W = 2400, cols = 4, w = W / cols, band = 26, head = 30;
+        const W = ${sheetLooks.length > 1 ? 2400 : 1600}, cols = ${sheetLooks.length * 2}, w = W / cols, band = 26, head = 30;
         const all = await Promise.all(rows.map(async (r) => ({ label: r.label, imgs: await Promise.all(r.imgs.map(load)) })));
         const hOf = (r) => { const i = r.imgs.find(Boolean); return i ? Math.round(i.height * w / i.width) : 100; };
         const H = head + all.reduce((s, r) => s + band + hOf(r), 0);
         const c = document.createElement("canvas"); c.width = W; c.height = H;
         const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
         g.fillStyle = "#222"; g.font = "bold 18px sans-serif";
-        ["Standard, before (dev)", "Standard, after", "High, before (dev)", "High, after"].forEach((t, k) => g.fillText(t, k * w + 8, 21));
+        ${JSON.stringify(heads)}.forEach((t, k) => g.fillText(t, k * w + 8, 21));
         let y = head;
         for (const r of all) {
           const h = hOf(r);

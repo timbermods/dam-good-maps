@@ -36,24 +36,17 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 ## Part 2: light in 3D (built, `feature/3d-view-light`)
 
 - **What:** `src/render3d/caveLight.ts`, Erode's light volume (`lightVolume`) on the mesher's column masks: two
-  bytes a cell, W × H × 24 levels, a 3D texture (`caveTex`, RG, filtered). R the sky: roofed air (below its
-  column's top, not rock) walks it in from its openings: beside an open cell, that cell's sky (an open cell beside
-  roofed air holds the sky the baked light would give ground at its height, 0.55 + 0.45 × the sky visibility: on
-  the ground the tile's own, over a drop the sky seen from that height, `light.ts` `skyAt`); beside the map's edge
-  235; then 16 less per step, never below the cave's least (`CAVE_SKY_FLOOR`, items 7 and 8 below); 0 in rock. G the sun: a ray marched toward the sun from
-  every roofed cell and every open cell beside one, 255 or 0. The terrain shader (`materials.ts` `caveAt`, both
-  looks) reads the cell half a cell along the face's normal: where that cell is roofed air, the face takes
-  `caveLightOf`; anywhere else (open air, rock under the slice's cut, outside the map) the baked light of
-  `light.ts` stands. `caveLightOf` carries the light on from the open ground at the roof line the air opens by
-  (`caveMouth`, walked toward the brightest neighbour, the open side nearest the face; over a drop, at the cave's
-  own level): the sky, deeper in never below the cave's least, with the look's occlusion as at that line (`ShaderHooks.caveSky`: High's
-  ambient field, never more than at the point); the sun the open ground's at the line, fading over 0.6 of a tile
-  to the cave's own and never above the line's (`caveSun`: Standard marches the ray through the voxels, under
-  overhangs too, until rock or the map's highest ground, then the baked shadow; High uses its soft shadow of the
-  real meshes; `caveSunOpen`: each look's sun at the line). Open ground casts no contact shadow toward a mouth (the
-  roof above is not a wall at its level), and a cave floor takes the open ground's contact shadow from the rock
-  beside it at its own level (`wallAt`), so the line holds beside a mouth's side walls too. Objects and falls under
-  roofs take it too (items 7 and 8 below), and water under roofs (part 4).
+  bytes a cell, W × H × 24 levels, a 3D texture (`caveTex`, RG, filtered). Since D497 ("The game's light" below) it
+  holds only what a roof changes in the game's light, the sun: R 255 in air, 0 in rock; G the sun, a ray marched toward
+  the sun from every roofed cell and every open cell beside one, 255 or 0. The terrain shader (`materials.ts`
+  `caveAt`, both looks) reads the cell half a cell along the face's normal: where that cell is roofed air, the face
+  takes `caveLightOf`; anywhere else (open air, rock under the slice's cut, outside the map) the baked shadow of
+  `light.ts` stands. `caveLightOf` lights the face as open ground's are lit, the game's ambient by its normal, with the
+  sun the open ground's at the roof line (`caveMouth`, the open side nearest the face; over a drop, at the cave's own
+  level), fading over 0.6 of a tile to the cave's own and never above the line's (`caveSun`: Standard marches the ray
+  through the voxels, under overhangs too, until rock or the map's highest ground, then the baked shadow; High uses
+  its soft shadow of the real meshes; `caveSunOpen`: each look's sun at the line). Objects and falls under roofs take
+  the open air's sky and the sun where it reaches (items 7 and 8 below), and water under roofs (part 4).
 - **Equivalence:** a map with no column that is not plain builds no volume (`caveSize` 0: the shader returns before
   reading it). `tests/unit/caveLight.test.ts` builds the volume anyway on seven generated maps (all six themes and
   Any, 96², 128², 256²), meshes every chunk and samples every quad's middle and four inner points through
@@ -61,8 +54,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   used exactly. Frames, before (dev) and after, real Chrome on the RTX 2070 SUPER, the water held at one moment:
   Canyon 128 seed 7, Standard and High, the whole map and a cliff, 1920×1080: 22–109 pixels differ by at most 2
   levels, all on the moving water's surface (located by a diff mask); the terrain is pixel-identical.
-- **On cave maps** (official imports): cave floors, walls and ceilings take their own air's light: bright at the
-  mouth, dimmer inward to the cave's least, sun where a ray reaches them; floors no longer take the fixed light of
+- **On cave maps** (official imports): cave floors, walls and ceilings take their own air's sun (and, until D497, a sky
+  dimmer inward to the cave's least), sun where a ray reaches them; floors no longer take the fixed light of
   the overhang's shade, nor walls their top's sky. The light never steps at the roof line and does not rise
   going in from it: measured once on the 28 mouths of the #400 review (builtin_14 and builtin_18), a flat grey on
   every face, sunlit and shaded: the step across ±0.05 tile is at most 4 levels in 54 of the 56 look-mouths (both
@@ -70,10 +63,11 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   opening the cave is lit by (an overhang open along its side, a second mouth). Sun reaches in as far as the
   geometry lets it, in both looks. Seen from above, only hollowed
   cliffs and the open ground at mouths change (0.6–2.1% of the frame).
-- **Relight:** after a change of heights only the changed tiles' cells are reset, the sky is redone within 14
-  tiles of them (their tiles' sky visibility reaches 5, the walk 8; seeded from the unchanged lit air just outside), and the sun only for cells whose ray can cross
-  them (within 15 tiles down-sun); the same bytes as building it again (the test, 60 random dabs among random
-  caves). The box goes to the GPU by itself (`rowUploads.ts` `BoxUploads`, `texSubImage3D`), not the whole texture.
+- **Relight:** after a change of heights only the changed tiles' cells are reset, and the sun redone for the cells
+  beside them and those whose ray can cross them (within 15 tiles down-sun); the same bytes as building it again (the
+  tests: 60 random dabs among random caves, and 40 blocks dug or filled in a tunnel network, mouths opened and closed,
+  new roofs made). A column that comes to hold roofed air after the map opens (a Block dig, an Erode cave) joins the
+  tiles the sun is marched in. The box goes to the GPU by itself (`rowUploads.ts` `BoxUploads`, `texSubImage3D`), not the whole texture.
   Measured once in Node on this machine, the light work of a dab of radius 6 at 256² (sky, tile data, shadows, and
   now the volume), dabs placed on cave tiles: official cave maps at 256² 0.51–0.55 ms median before, 0.59–0.79 ms after
   (`builtin_18`, 192², the most caves: 0.55 → 1.2 ms); a generated map: no change (no volume). Building the volume
@@ -419,16 +413,15 @@ Standard's shadow before a cave (item 8).
   the walls' scale (`materials.ts`, the wall branch with `ceiling`), so it keeps its scale and orientation on ceilings,
   walls and their corners in both looks (High's strata hook reads the same `along` and `y`); the level lines, the seams
   between levels and the top's lip stay the walls' alone. Only maps with terrain above terrain have undersides.
-- **Interiors that read:** a cave's least sky rises from 0.30 to 0.55 (`caveLight.ts` `CAVE_SKY_FLOOR`, the volume's
+- **Interiors that read** (*superseded by D497*: a cave is lit as open ground, "The game's light" below): a cave's least sky rose from 0.30 to 0.55 (`caveLight.ts` `CAVE_SKY_FLOOR`, the volume's
   least byte too) and the walk in from an opening loses 16 a cell instead of 26, so light carries about six cells in
   before the least; deeper in, the sky's light comes bounced off the rock, so walls and ceilings take nearly a floor's
   share (`caveLightOf`: from the open ground's 0.7 + 0.3 n.y at the mouth to 0.85 + 0.15 n.y deep). The least holds
   deep in only, never at the mouth, where the open ground's light (High's occlusion with it) carries on. Murky, never
   near-black: deep floors at 0.55 of the sky (0.30 before), about 0.6 of the open ground's shade.
-- **Objects and falls under a roof** (trees, bushes, ruins, sources, slopes, the ghosts; falls): the light of the air
-  they stand in, from the same volume (`materials.ts` `CAVE_POINT`: `caveAirAt`, `roofedSky`): the whole sky at a
-  mouth, as in open air, the cave's least deep in; the sun the open air's at a mouth, fading going in to the volume's
-  (High: its soft shadow of the real meshes, `ShaderHooks.roofedSun`), as the ground's does at the roof line. The branch is compiled only on a map with air under a roof (`CAVES`, the renderer's
+- **Objects and falls under a roof** (trees, bushes, ruins, sources, slopes, the ghosts; falls): the air they stand
+  in, from the same volume (`materials.ts` `CAVE_POINT`: `caveAirAt`): the open air's sky (D497), and the sun only
+  where it reaches, the volume's (High: its soft shadow of the real meshes, `ShaderHooks.roofedSun`). The branch is compiled only on a map with air under a roof (`CAVES`, the renderer's
   `setCaveBranch`, on the objects' and falls' materials of both looks); every other map draws them with the same
   program as before. Their looks by soil follow the run top they stand on (below, "Objects on their run top's soil").
 - **Standard's baked shadow from the voxels (item 8):** on a map with terrain above terrain the sweep (`light.ts`
@@ -502,6 +495,34 @@ Standard's shadow before a cave (item 8).
     materials are not compiled ahead. Where the browser draws in software nothing is compiled ahead; without the
     extension a define is set at once, as before. The map's picture compiles its own programs before its first frame
     (`compileAhead`) and compiles nothing ahead.
+
+## The game's light (D497; `draft/game-ambient`)
+
+- **The rule** (planning, 2026-10-29): draw it as the game draws it; editing aids get their own channel. The game
+  lights every face by Unity's Trilight ambient by its normal, unoccluded (decompiled `Timberborn.SkySystem` `Sun`:
+  `AmbientMode.Trilight`; the day's colours in `Configurations/Sun.blueprint.json`: sky (0.62, 0.63, 0.97) from above,
+  equator (1, 1, 1) from the side, ground (0.28, 0.23, 0.37) from below, the sun 1.1 at full shadow strength; no
+  ambient-occlusion setting in `GraphicsQualitySystem`), and only the sun's shadow darkens a face. Its one height term
+  is the ground's altitude colour ramp (`Timberborn.TerrainSystemRendering` `TerrainMaterialMap`:
+  `_AltitudeMultiplierTex`, `_DesertAltitudeMultiplierTex`, `_AltitudeCeiling` 22 from
+  `Configurations/TerrainMaterialMap.blueprint.json`).
+- **What:** the terrain shader (`materials.ts`, both looks and the light look) lights each face in linear values by
+  `gameLight` (`palette.ts` `GAME_LIGHT`: the ambient by the normal, blended as Trilight blends it, and the sun by its
+  shadow), with `exposure` 0.76 so a level top in full sun comes out as bright as before. Gone: the sky visibility
+  (`light.ts` `skyVisibility`, `skyAt`, the tile data's B), the contact shadow at a wall's foot and a cave floor's, the
+  wall's foot darkening, and High's ambient occlusion (`ambientVisibility`, its field `hlAmbient`, the bake worker's
+  `ambient` and `cover` jobs, `AmbientField`, the "Ambient occlusion" effect and its switch `hlAO`, and the relight that
+  rebuilt them after a brush). The thin dark line along the top of a drop stays (the game's blocks draw their edges).
+  Tops take the game's altitude ramps (`ALTITUDE_RAMP`, read from the game's `resources.assets` by
+  `tools/altitude-ramp.ts`: 32 texels each, RGB24, stored about mid-grey and applied as twice the texel), the grass's on
+  grass and the desert's on dry ground, by the ground's height over 22 levels. Under a roof the same light, the sun only
+  where it reaches: the light volume keeps the sun alone (Part 2), so a roof's relight is local again.
+- **Objects, water and falls** keep their own light (their sky colour and sun), less High's ambient occlusion.
+- **Captures and numbers:** in the PR.
+- **Falls short:** our stone and earth colours were tuned against the old light: shaded stone now reads about 1.4 ×
+  the game's measured shaded stone (39–68 of 255 in the probe's shots), and our sun keeps its direction (north-west,
+  50°) where the game's turns with the camera (yaw + 40°, 45° up). The terrain's look is ready for a colour
+  calibration against the game's under its own light.
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
 

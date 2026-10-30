@@ -20,12 +20,12 @@ export interface TerrainChanges {
   chunks: [number, number][];
   /** Water chunks to mesh again. */
   waterChunks: [number, number][];
-  /** For each row a change reaches, the span of tiles whose sky and tile data to redo (in row order). */
+  /** For each row a change reaches, the span of tiles whose tile data to redo (in row order). */
   rows: { y: number; x0: number; x1: number }[];
 }
 
 /** The changes inside `rect` between `drawn` (the heights the view shows) and `now`; null when none. `reach` is how
- *  far a height reaches into its neighbours' sky (light.ts SKY_REACH). */
+ *  far a height reaches into its neighbours' tile data (light.ts TILE_REACH: none since D497). */
 export function terrainChanges(W: number, H: number, drawn: Uint8Array, now: Uint8Array, rect: Rect, reach: number): TerrainChanges | null {
   const x0 = Math.max(0, rect.x0);
   const y0 = Math.max(0, rect.y0);

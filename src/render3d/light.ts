@@ -1,15 +1,12 @@
 // Light baked when the mesh is built (ROADMAP "Map look", D86): per-tile data for the terrain
-// shader (height, soil, sky visibility, water over the top) and a soft sun-shadow map. Pure
-// TypeScript and deterministic: the same map always bakes the same bytes.
+// shader (height, soil, water over the top) and a soft sun-shadow map. Pure TypeScript and
+// deterministic: the same map always bakes the same bytes. The sky's light is the game's Trilight
+// ambient by each face's normal, unoccluded (D497): nothing of it is baked.
 //
-// - Sky visibility (broad ambient occlusion): how much of the sky a tile's top sees, from the
-//   highest ground within 5 tiles in 8 directions. The bottom of a gorge sees less sky.
 // - Sun shadows: the sun shines from the north-west. A sweep from the sun's side carries the top
 //   of the shadow volume across the map (`shadowTops`): a point is in shadow when it lies below
 //   it. Two sweeps with the sun a little higher and lower give the penumbra, so shadows are soft
 //   and widen with the distance from what casts them. Trees and ruins cast shadows too.
-// - Contact shadows at the foot of walls are drawn by the shader from the tile data (the heights
-//   of the neighbours next to each point), so they stay sharp at every zoom.
 // All of this is the light of open air. A face whose air is under a roof (a cave, an overhang, an
 // arch) takes that air's own light instead, from the light volume (caveLight.ts).
 
@@ -31,46 +28,8 @@ export function decodeTop(b: number): number {
   return b / SHADOW_SCALE - SHADOW_OFFSET;
 }
 
-const SKY_DIRS: readonly [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-const SKY_STEPS = [1, 2, 3, 5];
-
-/** Sky visibility per tile, 0–255 (255: the whole sky). */
-export function skyVisibility(W: number, H: number, heights: Uint8Array): Uint8Array {
-  const out = new Uint8Array(W * H);
-  skyVisibilityRect(W, H, heights, out, 0, 0, W - 1, H - 1);
-  return out;
-}
-
-/** How far a tile's sky reaches: a change of height moves the sky of the tiles this far round it. */
-export const SKY_REACH = SKY_STEPS[SKY_STEPS.length - 1];
-
-/** Sky visibility of the tiles of a rectangle, into `out` (the terrain changed there: live
- *  editing redoes only the tiles round what a brush changed). */
-export function skyVisibilityRect(W: number, H: number, heights: Uint8Array, out: Uint8Array, x0: number, y0: number, x1: number, y1: number): void {
-  for (let y = Math.max(0, y0); y <= Math.min(H - 1, y1); y++)
-    for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) out[y * W + x] = skyAt(W, H, heights, x, y, heights[y * W + x]);
-}
-
-/** The sky a point of tile (x, y) at height h sees, 0–255 (on the tile's top, its sky visibility; higher
- *  up, over a drop, more of the sky). */
-export function skyAt(W: number, H: number, heights: Uint8Array, x: number, y: number, h: number): number {
-  const norm = 2 / Math.PI;
-  let occ = 0;
-  for (const [dx, dy] of SKY_DIRS) {
-    const len = dx && dy ? Math.SQRT2 : 1;
-    let best = 0;
-    for (const k of SKY_STEPS) {
-      const xx = x + dx * k;
-      const yy = y + dy * k;
-      if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
-      const s = (heights[yy * W + xx] - h) / (k * len);
-      if (s > best) best = s;
-    }
-    occ += Math.atan(best) * norm;
-  }
-  // the horizon's angle averaged over the directions; walls hide the sky's low part only
-  return Math.round(255 * Math.max(0, 1 - (occ / SKY_DIRS.length) * 0.9));
-}
+/** How far a tile's data reaches: a tile's bytes depend on that tile alone (its height, soil and water). */
+export const TILE_REACH = 0;
 
 /** The level each tile's tallest caster stands on (`objectCasters`' arrays): on a tile with terrain above terrain, the
  *  run whose top it stands on casts it (a tree on a cave's floor casts from the floor, not the roof). */
@@ -502,29 +461,29 @@ export function soilNibbles(moisture: number, contamination: number): number {
 }
 
 /** The terrain shader's per-tile data, RGBA bytes (W × H): R the height, G the soil nibbles,
- *  B the sky visibility, A the water over the top. */
-export function tileData(W: number, H: number, heights: Uint8Array, sky: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, into?: Uint8Array): Uint8Array {
+ *  B unused (0; the sky visibility until D497), A the water over the top. */
+export function tileData(W: number, H: number, heights: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, into?: Uint8Array): Uint8Array {
   const N = W * H;
   const out = into ?? new Uint8Array(N * 4);
   for (let i = 0; i < N; i++) {
     const o = i * 4;
     out[o] = heights[i];
     out[o + 1] = soil ? soilNibbles(soil.moisture[i], soil.contamination[i]) : 0;
-    out[o + 2] = sky[i];
+    out[o + 2] = 0;
     out[o + 3] = waterByte(sw, heights, i);
   }
   return out;
 }
 
 /** The tile data of a rectangle's tiles only, into `out` (live editing). */
-export function tileDataRect(W: number, H: number, heights: Uint8Array, sky: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, out: Uint8Array, x0: number, y0: number, x1: number, y1: number): void {
+export function tileDataRect(W: number, H: number, heights: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, out: Uint8Array, x0: number, y0: number, x1: number, y1: number): void {
   for (let y = Math.max(0, y0); y <= Math.min(H - 1, y1); y++)
     for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) {
       const i = y * W + x;
       const o = i * 4;
       out[o] = heights[i];
       out[o + 1] = soil ? soilNibbles(soil.moisture[i], soil.contamination[i]) : 0;
-      out[o + 2] = sky[i];
+      out[o + 2] = 0;
       out[o + 3] = waterByte(sw, heights, i);
     }
 }
@@ -551,7 +510,7 @@ export interface TileChanges {
  *  gives (so `out` ends exactly as a whole `tileData`), and says where. A tile's bytes depend on that tile alone, so the
  *  changed ones are found by comparing, whatever came before: a water update, new soil, or both. The cheap path for the
  *  frequent update (moving water changes a few tiles; the whole map's bytes are neither rewritten nor uploaded). */
-export function tileDataChanges(W: number, H: number, heights: Uint8Array, sky: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, out: Uint8Array): TileChanges {
+export function tileDataChanges(W: number, H: number, heights: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, out: Uint8Array): TileChanges {
   const rows: TileSpan[] = [];
   const edgeRows: TileSpan[] = [];
   const moisture = soil?.moisture;
@@ -569,10 +528,10 @@ export function tileDataChanges(W: number, H: number, heights: Uint8Array, sky: 
       const a = surface && surface[i] === surface[i] ? waterByte(sw, heights, i) : 0;
       const og = out[o + 1];
       const oa = out[o + 3];
-      if (out[o] === heights[i] && og === g && out[o + 2] === sky[i] && oa === a) continue;
+      if (out[o] === heights[i] && og === g && out[o + 2] === 0 && oa === a) continue;
       out[o] = heights[i];
       out[o + 1] = g;
-      out[o + 2] = sky[i];
+      out[o + 2] = 0;
       out[o + 3] = a;
       if (lo < 0) lo = x;
       hi = x;

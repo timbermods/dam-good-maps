@@ -3,7 +3,7 @@
 // - #38 (investigation/maplook2): the water shader (colour by depth, clear shallows, fine crests and
 //   flecks advected by the flow, the calibrated crimson badwater, the poisoned bed under it) and
 //   soft shadows from the real meshes (a 2048² sun depth map, 25-tap PCF, receiver-plane bias);
-// - #65 (investigation/maplook3): warm sunlight, ambient occlusion, the colour-preserving tone
+// - #65 (investigation/maplook3): warm sunlight, the colour-preserving tone
 //   curve and grade, the distance haze, the sky, rock strata, soil edges and colour variation;
 // - #66 (investigation/vegetation): the vegetation's material (palette regions, wrapped light, matte
 //   specular) and its wind;
@@ -40,7 +40,6 @@ import type { ShaderHooks } from "../materials";
 export const SWITCHES = [
   "hlWater",
   "hlShadows",
-  "hlAO",
   "hlTone",
   "hlGrade",
   "hlHaze",
@@ -148,23 +147,6 @@ const SHADOW_GLSL = /* glsl */ `
   }
 `;
 
-/** Ambient occlusion (#65): the map's horizons at four radii in eight directions and the trees' and
- *  ruins' soft footprints, one texel a tile; it darkens only the sky's light, fading up a cliff from
- *  its foot. */
-const AMBIENT_GLSL = /* glsl */ `
-  uniform sampler2D hlAmbient;
-  float ambientVisibility(vec3 world, vec3 normal) {
-    if (hlAO < 0.5) return 1.0;
-    vec2 g = vec2(world.x + normal.x * 0.55, -world.z - normal.z * 0.55);
-    vec4 a = texture2D(hlAmbient, clamp(g / mapSize, 0.5 / mapSize, 1.0 - 0.5 / mapSize));
-    float ground = texture2D(tileTex, (clamp(floor(g), vec2(0.0), mapSize - 1.0) + 0.5) / mapSize).r * 255.0;
-    float above = max(0.0, world.y - ground);
-    float terrain = mix(a.r, 1.0, smoothstep(0.1, 3.5, above));
-    float canopy = mix(a.g, 1.0, smoothstep(0.0, 2.4, above));
-    return max(0.40, terrain * canopy);
-  }
-`;
-
 /** The finish's High haze (#65): a clear afternoon, no wash near the camera, at most 5.5% far off;
  *  off, the Standard haze. None from straight above (hazeAmount is 0 there). */
 const HAZE = /* glsl */ `if (hlHaze > 0.5 && hazeAmount > 0.0) {
@@ -192,7 +174,7 @@ const ROOFED_SUN = "(hlShadows > 0.5 ? lit : cave.y)";
 
 export function terrainHooks(): ShaderHooks {
   return {
-    ...lit(["hlAO", "hlStrata", "hlBlend", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], AMBIENT_GLSL + /* glsl */ `
+    ...lit(["hlStrata", "hlBlend", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
   uniform sampler2D hlSeasonMask;
@@ -215,19 +197,12 @@ export function terrainHooks(): ShaderHooks {
           }
         }
 `,
-    skyLight: "ambientVisibility(vWorld, n) * ",
     // under a roof, the soft shadow of the real meshes, the roof included, as on the ground before it
     // (off: the march through the light volume)
     caveSun: "hlShadows > 0.5 ? sunHere : caveSunMarch(vWorld, n, cave.y)",
     // under a roof, the occlusion of the open ground at the roof line its light comes in by, never more
     // than here
     caveSunOpen: "hlShadows > 0.5 ? hlSunAt(mouth.xyz) : sunLit(vec2(mouth.x, -mouth.z), mouth.y)",
-    caveSky: /* glsl */ `
-        if (hlAO > 0.5) {
-          float av = ambientVisibility(vWorld, n);
-          if (mouth.w > 0.5) av = min(av, ambientVisibility(mouth.xyz, vec3(0.0, 1.0, 0.0)));
-          sky *= av;
-        }`,
     // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
     // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
     moist: "hlBlend > 0.5 ? smoothstep(0.36, 0.64, s.x + edge) : smoothstep(0.42, 0.58, s.x + edge)",
@@ -612,14 +587,13 @@ export function fallHooks(): ShaderHooks {
 // ---------------------------------------------------------------------------------------- objects
 
 export function objectHooks(): ShaderHooks {
-  return { ...lit(["hlAO"], AMBIENT_GLSL), skyLight: "ambientVisibility(vWorld, n) * ", roofedSun: ROOFED_SUN };
+  return { ...lit([]), roofedSun: ROOFED_SUN };
 }
 
 /** The landmarks (#67 stage 3): the High object material with a fine grain and patina close up. */
 export function landmarkHooks(): ShaderHooks {
   return {
-    ...lit(["hlAO", "hlObjectDetail"], AMBIENT_GLSL + "\n  varying vec3 hlLocal;"),
-    skyLight: "ambientVisibility(vWorld, n) * ",
+    ...lit(["hlObjectDetail"], "\n  varying vec3 hlLocal;"),
     roofedSun: ROOFED_SUN,
     objectVertexDecl: "\n      varying vec3 hlLocal;",
     objectVertex: "        hlLocal = position;\n",

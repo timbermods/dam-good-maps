@@ -1,7 +1,7 @@
 // The High look (Map look 2; PLAN §20 D147, D241, D242, D250, D283, D284): what the renderer draws
 // with when the look is High. It holds the High versions of the renderer's materials (the Standard
 // shaders with the High additions at their named points, shaders.ts) and everything they read: the
-// sun's depth map (soft shadows), the ambient occlusion, the water's flow, the mist and rings, the
+// sun's depth map (soft shadows), the water's flow, the mist and rings, the
 // new trees and the refreshed landmarks. The renderer swaps its materials for these while the look is
 // High and back when it isn't; the Standard materials are never touched, so the Standard look stays
 // exactly as it was. Every effect is a switch (effects.ts).
@@ -10,7 +10,7 @@ import { Color, DataTexture, type BufferGeometry, NearestFilter, RGBAFormat, Uns
 import { fallMaterial, objectMaterial, skyMaterial, terrainMaterial, waterMaterial, type SceneUniforms } from "../materials";
 import type { EntityView, SurfaceWater } from "../model";
 import { allEffects, effectiveEffects, type HighEffects } from "./effects";
-import { AmbientField, type Baker } from "./fields";
+import type { Baker } from "./fields";
 import { Forest, replacedBatch, shapesAhead } from "./forest";
 import { buildLandmarks, disposeLandmarks, landmarkAhead, type Replacement } from "./landmarks";
 import { Mist } from "./mist";
@@ -85,8 +85,6 @@ export function runSoilOf(m: HighLookMaterials): ShaderMaterial[] {
 
 /** The time between redraws of the sun's depth map while the land keeps changing (a brush). */
 const SHADOW_EVERY = 100;
-/** How long a frame may spend redoing the occlusion round a brush's changes (AmbientField.catchUp). */
-const AMBIENT_BUDGET_MS = 1.5;
 /** The mist follows the water this long after it changes (and at least this often). */
 const WATER_WAIT = 250;
 const WATER_MOST = 1000;
@@ -113,7 +111,6 @@ export class HighLook {
   private seasonTexture: DataTexture | null = null;
   private seasonHazard: "drought" | "badtide" | null = null;
   private badWater = 0;
-  private ambient: AmbientField | null = null;
   readonly mist: Mist;
   private forest: Forest | null = null;
   private landmarks: Replacement[] = [];
@@ -128,7 +125,7 @@ export class HighLook {
   private waterTimer = 0;
   private disposed = false;
   /** Timings (information: the page's look menu and the measurements). */
-  stats = { ambientMs: 0, flowMs: 0, shadowPasses: 0, forest: { plants: 0, near: 0, far: 0, triangles: 0, draws: 0, lodMs: 0 }, landmarks: 0, mist: 0, rings: 0 };
+  stats = { flowMs: 0, shadowPasses: 0, forest: { plants: 0, near: 0, far: 0, triangles: 0, draws: 0, lodMs: 0 }, landmarks: 0, mist: 0, rings: 0 };
 
   constructor(private host: HighHost) {
     const u = host.uniforms;
@@ -139,7 +136,6 @@ export class HighLook {
       hlDepth: { value: this.shadows.target.depthTexture },
       hlShadowMatrix: { value: this.shadows.matrix },
       hlTexel: { value: 1 / SHADOW_SIZE },
-      hlAmbient: { value: null as unknown },
       hlFlow: { value: null as unknown },
       hlFlowSize: { value: new Vector2(1, 1) },
       hlRough: { value: null as unknown },
@@ -195,7 +191,6 @@ export class HighLook {
     const set = (k: Switch, on: boolean) => (this.switches[k].value = on ? 1 : 0);
     set("hlWater", e.water);
     set("hlShadows", e.shadows);
-    set("hlAO", e.ao);
     set("hlTone", e.tone);
     set("hlGrade", e.grade);
     set("hlHaze", e.haze);
@@ -226,7 +221,7 @@ export class HighLook {
   /** Whether everything a map needs has arrived (the worker's fields, the water's): the captures
    *  wait for it. */
   get settled(): boolean {
-    return !this.waterTimer && (this.ambient?.ready ?? true) && this.host.flow().ready;
+    return !this.waterTimer && this.host.flow().ready;
   }
 
   /** Whether the look moves on its own (the wind in the trees): the renderer keeps drawing. */
@@ -275,24 +270,17 @@ export class HighLook {
 
   // ------------------------------------------------------------------------------------ the map
 
-  /** A new map: the shadows' frame, the ambient occlusion, the water's flow and mist. */
+  /** A new map: the shadows' frame, the water's flow and mist. */
   setMap(W: number, H: number, heights: Uint8Array, surface: SurfaceWater, entities: EntityView): void {
     this.map = { W, H, heights, surface };
     this.shadows.fit(W, H);
     // (a new map's shadows are drawn with its first frame, however soon after the last map's: the
     // wait between redraws is for a brush's strokes, and the last map's depth map is not this one's)
     this.lastShadow = -Infinity;
-    this.ambient?.dispose();
-    this.ambient = new AmbientField(W, H, this.host.baker, () => {
-      this.stats.ambientMs = this.ambient?.ms ?? 0;
-      this.host.requestRender();
-    });
-    this.ambient.bake(heights, entities);
     const flow = this.host.flow();
     const size = this.materials.terrain.uniforms.hlFlowSize.value as Vector2;
     size.set(W, H);
     for (const m of this.allMaterials()) {
-      m.uniforms.hlAmbient.value = this.ambient.texture;
       m.uniforms.hlFlow.value = flow.flow;
       m.uniforms.hlRough.value = flow.rough;
     }
@@ -325,7 +313,6 @@ export class HighLook {
     this.landmarks = buildLandmarks(group, entities, this.landmark, this.slope, kept);
     for (const { fresh } of this.landmarks) group.add(fresh);
     this.showObjects();
-    if (this.map) this.ambient?.objects(this.map.heights, entities);
     this.stats.landmarks = this.landmarks.length;
     this.shadows.dirty = true;
   }
@@ -405,12 +392,10 @@ export class HighLook {
   /** Landmarks of batches the renderer kept, between `releaseObjects` and `objectsBuilt`. */
   private keptLandmarks: Replacement[] = [];
 
-  /** The terrain changed round a rectangle (or all of it): the ambient occlusion there, the
-   *  shadows. */
+  /** The terrain changed round a rectangle (or all of it): the shadows. */
   terrainChanged(heights: Uint8Array, rect: { x0: number; y0: number; x1: number; y1: number } | null): void {
     if (!this.map) return;
     this.map.heights = heights;
-    this.ambient?.terrainAround(heights, rect ?? { x0: 0, y0: 0, x1: this.map.W - 1, y1: this.map.H - 1 });
     this.shadows.dirty = true;
   }
 
@@ -451,12 +436,10 @@ export class HighLook {
 
   // --------------------------------------------------------------------------------- each frame
 
-  /** Before each frame: the occlusion round a brush's changes, the trees' models for this camera, the
+  /** Before each frame: the trees' models for this camera, the
    *  wind's clock, the sun's depth map. */
   beforeRender(camera: Camera, pixels: number, time: number): void {
     this.vegTime.value = time;
-    // (what can't be redone in this frame, the next)
-    if (this.ambient?.catchUp(AMBIENT_BUDGET_MS)) this.host.requestRender();
     // (a tree's close-up or far model casts nearly the same shadow: the depth map keeps the one it
     // was drawn with, and isn't drawn again for the camera's moves)
     if (this.forest && this.effects.vegetation) this.forest.update(camera, pixels, !this.lower);
@@ -497,7 +480,6 @@ export class HighLook {
     this.clearObjects();
     this.mist.dispose();
     this.shadows.dispose();
-    this.ambient?.dispose();
     this.seasonTexture?.dispose();
     for (const m of this.allMaterials()) m.dispose();
   }

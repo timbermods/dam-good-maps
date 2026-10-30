@@ -14,7 +14,6 @@ export type HighEffectKey =
   | "water"
   | "shadows"
   | "sunlight"
-  | "ao"
   | "tone"
   | "grade"
   | "haze"
@@ -43,7 +42,6 @@ export const HIGH_EFFECTS: readonly HighEffect[] = [
   { key: "water", label: "Water", from: "#38" },
   { key: "shadows", label: "Soft shadows", from: "#38" },
   { key: "sunlight", label: "Warm sunlight", from: "#65" },
-  { key: "ao", label: "Ambient occlusion", from: "#65" },
   { key: "tone", label: "Tone curve", from: "#65" },
   { key: "grade", label: "Colour grade", from: "#65" },
   { key: "haze", label: "Distance haze", from: "#65" },
