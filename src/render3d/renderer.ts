@@ -67,7 +67,7 @@ import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blo
 import { EditGlow, editedCells, editGlowMaterial, type EditCells } from "./editGlow";
 import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
-import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
+import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
 import { whenIdle } from "./idle";
 import { castersChangedRects, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
@@ -1867,14 +1867,22 @@ export class MapRenderer {
 
   private readonly entityModels = new EntityGeometryCache();
 
+  /** The soil the objects are drawn by (a ruin under a roof reads its run top's soil: a soil without runs keeps the last
+   *  drawn, as the terrain does). */
+  private objectSoil(): SoilView | null {
+    return this.map?.soil && !this.map.soil.runs && this.runsShown ? { ...this.map.soil, runs: this.runsShown } : (this.map?.soil ?? null);
+  }
+
+  /** Each object's overgrown ruin as drawn (`ruinsOvergrown`): a new soil that changes one rebuilds the objects. */
+  private ruinsDrawn: Uint8Array | null = null;
+
   private setEntitiesInner(e: EntityView): number {
     // (highlighted objects back in their own colours first: a batch that would be built as it is drawn is kept)
     for (const l of this.lit) {
       (l.mesh.instanceColor!.array as Float32Array).set(l.color, l.i * 3);
       l.mesh.instanceColor!.needsUpdate = true;
     }
-    // (a ruin under a roof reads its run top's soil: a soil without runs keeps the last drawn, as the terrain does)
-    const soil = this.map?.soil && !this.map.soil.runs && this.runsShown ? { ...this.map.soil, runs: this.runsShown } : (this.map?.soil ?? null);
+    const soil = this.objectSoil();
     const before = this.objects;
     const { group, instances } = buildEntities(e, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels, before && this.map ? { group: before, entities: this.map.entities } : undefined);
     if (before) {
@@ -1897,6 +1905,7 @@ export class MapRenderer {
     this.showMarkerObjects();
     const m = this.map!;
     m.entities = e;
+    this.ruinsDrawn = ruinsOvergrown(e, soil, m.W);
     this.high?.objectsBuilt(group, e);
     this.applyWithered();
     // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
@@ -2242,7 +2251,8 @@ export class MapRenderer {
     this.edgeRows.touch(x0 - 1, y0 - 1, x1 + 1, y1 + 1);
   }
 
-  /** New soil (moisture and contamination follow the water): the ground's colours. */
+  /** New soil (moisture and contamination follow the water): the ground's colours, and the ruins' models, which the
+   *  game turns dry on dry or contaminated soil (a held Drought or Badtide day's too). */
   updateSoil(soil: SoilView): void {
     this.flushTerrain();
     const m = this.map;
@@ -2251,6 +2261,21 @@ export class MapRenderer {
     this.bakeTiles();
     this.syncRunSoil();
     this.applySeason();
+    if (this.objects && this.ruinsDrawn) {
+      const now = ruinsOvergrown(m.entities, this.objectSoil(), m.W);
+      const was = this.ruinsDrawn;
+      let changed = now.length !== was.length;
+      for (let k = 0; !changed && k < now.length; k++) changed = now[k] !== was[k];
+      if (changed) {
+        // (the batches that did not change are kept: buildEntities)
+        this.setEntitiesInner(m.entities);
+        clearTimeout(this.casterTimer);
+        this.casterTimer = window.setTimeout(() => {
+          this.bakeShadows(true);
+          this.requestRender();
+        }, 0);
+      }
+    }
     this.requestRender();
     this.onMapChange?.();
   }
