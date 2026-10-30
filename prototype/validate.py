@@ -482,7 +482,7 @@ def validate(path, difficulty="normal", water=None, load_only=False, profile=Non
     note = "not computed in Python: 3D rules are verified against the game (D279)"
     starts = len(ents.get("StartingLocation", []))
     rep.add("walk.levels", True, note if starts == 1 else f"needs one start, the map has {starts}", na=starts != 1, information=True)
-    rep.add("water.sealed_source", True, note, advisory=True)
+    rep.add("water.sealed_source", True, note, advisory=True, information=True)
     return rep
 
 
