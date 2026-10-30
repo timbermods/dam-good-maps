@@ -36,7 +36,7 @@ describe("grass by moisture, as the game's terrain draws it (D135 as amended 202
     expect(DESERT).toEqual({ threshold: 5, max: 0.7 });
     for (let m = 0; m <= 15; m++) expect(grassOf(m), `moisture ${m}`).toBeCloseTo(1 - desert(m), 9);
     const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
-    const shader = terrainMaterial(u).fragmentShader;
+    const shader = terrainMaterial(u, 0, 1).fragmentShader;
     expect(shader).toContain("float grassOf(float m)");
     expect(shader).toContain("vec4(grassOf(s0.x), s0.x,");
   });
