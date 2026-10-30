@@ -1596,7 +1596,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // (waterPalette.ts's waterBody and waterOpacity say the same, for the tests)
         float d = waterSeenDepth(depth, shore);
         // clean water: clear in the shallows (the bed shows through a light teal tint), a deep teal
-        // body a level or so deep, navy where deep; badwater murky and nearly opaque at any depth,
+        // body a level or so deep, navy where deep; badwater murky at any depth,
         // the game's red-brown in its shallows, darker deeper
         float absorb = waterAbsorb(d);
         vec3 murky = badwaterBody(depth);
@@ -1657,7 +1657,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             float mottle = vnoise(g * 1.1 + vec2(t * 0.03, -t * 0.04)) * 0.6 + vnoise(g * 2.7 - vec2(t * 0.05, t * 0.02)) * 0.4;
             trough = (1.0 - smoothstep(0.3, 0.46, mottle)) * near * bad;
           #endif
-          // badwater's opacity (nearly opaque but at its shallow edges), by how bad it is
+          // badwater's opacity (the water's, as the game's: WATER_SURFACE.seeThrough), by how bad it is
           alpha = mix(alpha, badwaterAlpha(depth, shore), bad);
           #if LITE
             // (the light look follows the game's Low quality: no ground behind the water)
@@ -1725,7 +1725,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         c += sunColor * (spec * mix(WATER_SPEC, BADWATER_SPEC, bad) + glints * ${f(WS.glints)} * mix(1.0, BADWATER_GLINTS, bad) * (0.3 + 0.7 * lit));
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
-        if (n.y > 0.5) alpha = mix(alpha, 0.95, max(foam, glints * 0.6));
+        // (foam and glints only ever make the water more opaque: deep water and the light look stay opaque)
+        if (n.y > 0.5) alpha = max(alpha, mix(alpha, 0.95, max(foam, glints * 0.6)));
 ${hook(h, "water")}        #ifdef CAVES
           // under a roof, the light of the air it stands in, as objects and falls there take it: all the sky at a
           // mouth, a cave's least deep in, and the sun the open air's at a mouth, fading to the cave's own going in
@@ -1823,7 +1824,7 @@ ${hook(h, "water")}        #ifdef CAVES
               lit = max(lit, 1.0 - smoothstep(reach - 0.06, reach + 0.04, max(q.x, q.y)));
             }
           c = mix(c, WATER_SOURCE_LIT, lit * 0.9);
-          alpha = mix(alpha, 0.97, lit * 0.9);
+          alpha = max(alpha, mix(alpha, 0.97, lit * 0.9));
         }
         gl_FragColor = vec4(finish(c, vWorld), alpha);
       }

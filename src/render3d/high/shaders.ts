@@ -487,7 +487,7 @@ export function waterHooks(): ShaderHooks {
             // (its light keeps more of the body's opacity: the film's sheen)
             float hlFilmAlpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
             hlFilmAlpha = mix(hlFilmAlpha, hlSurface.a, hlSheen * (1.0 - hlFilm) * 0.6);
-            alpha = mix(hlFilmAlpha, 0.97, hlFoam);
+            alpha = max(hlFilmAlpha, mix(hlFilmAlpha, 0.97, hlFoam));
           } else {
             // the water's side: streaks where it steps down, the water's body at the map's edge
             float stream = vnoise(vec2(g.x * 1.4 + sin(g.y * 0.8), g.y * 3.8 - hlT * 0.16));

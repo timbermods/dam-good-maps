@@ -8,7 +8,7 @@
 // schematic colours; they are not the 3D view.
 //
 // Badwater is #38's, as Kyler approved it (the High prototype at e63a3ff): a crimson, matte,
-// nearly opaque body with darker troughs and subdued streaks, see-through only at its shallow
+// murky body with darker troughs and subdued streaks, see-through as the game's water is at its shallow
 // edges. Its on-screen colours are #38's calibration targets (`WATER_CALIBRATION`); the inputs here
 // are calibrated so the Standard look lands on them. Colours are display values, before the light.
 //
@@ -55,7 +55,7 @@ export const WATER = {
   /** The sky the water reflects (clean water's pale flow streaks are this, a little darker). */
   sky: [0.6, 0.72, 0.84] as Rgb,
   /** Badwater's body in its usual shallow pools (`BADWATER.shallow` deep or less), crimson,
-   *  matte and nearly opaque; deeper it darkens toward `badDeep` (Kyler's option A), so it stays
+   *  matte and murky; deeper it darkens toward `badDeep` (Kyler's option A), so it stays
    *  darker than clean water of the same depth. Unchanged by D310 (see `BAD_BODY`). */
   bad: BAD_BODY,
   badDeep: [0.14, 0.066, 0.058] as Rgb,
@@ -208,7 +208,7 @@ export const BADWATER = {
 } as const;
 
 /** Waterfalls (D201): how see-through a fall is between its streaks and on them (clean water),
- *  badwater's (murky, nearly opaque), and its foam; the inner face shows `inner` of its opacity,
+ *  badwater's (murky), and its foam; the inner face shows `inner` of its opacity,
  *  behind the outer one. A fall's colours are the water's: clean water's light teal shallows with
  *  lighter teal streaks, badwater's crimson body with orange-red ones, little white (D334: the
  *  sheet well opaque, as the game's), and water partly bad between them by the blend (`WATER_BLEND`). */
