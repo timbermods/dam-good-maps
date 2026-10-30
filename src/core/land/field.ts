@@ -567,8 +567,8 @@ export function makeField(g: Genome, seed: number, W: number, H: number): Field 
   let E = erodeHard(U, hard, W, H, g.erosion.iterations, g.erosion.k, g.erosion.diffusion, lengthwise ? farEnd : undefined);
   // weathering acts in the caprock's stratum: soft rock goes, hard rock stands
   if (g.cap.share > 0.01) E = weather(E, hard, stratum, W, H, g.weathering);
-  // (round 6: an island sea's lip, a tile or two at the map's edge between it and a fall of a dozen
-  // levels, keeps its uplift: the erosion's diffusion wore a ridge that thin down into the sea, and
+  // (round 6: an island sea's lip, the two outer rows and the shore wandering in from them (the D410 shore
+  // round), between it and a fall of a dozen levels, keeps its uplift: the erosion's diffusion wore a ridge that thin down into the sea, and
   // the sea drained over it. The mainland's lobes keep their erosion.)
   const sea = g.parts.find((p) => p.shape === "sea" && p.coast !== undefined && p.thinLip);
   if (sea)

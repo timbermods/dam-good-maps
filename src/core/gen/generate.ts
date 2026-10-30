@@ -93,6 +93,8 @@ import { mapSays, mapWords, type PlayFacts } from "./names";
 import { nearStartTargets, planResources } from "./resources";
 import { planRuinStories } from "./ruinStories";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
+import { gameSoil } from "../sim/soil";
+import { DAYS_TO_DIE_DRY } from "../sim/withering";
 import { resourceBudget, ruinColumns } from "../resources/baseline";
 import { tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
@@ -1821,7 +1823,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const kept = droughtStorage(model, D, FIRST_DROUGHT_DAYS);
       const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
       const view = g.intentions.length ? settlerView(h, W, H, hy, D, C, M) : null;
-      const prepared = prepareStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, rule, { kept, drought: policy, storage });
+      // (the D410 round: the soil the rule's drought leaves moist, where the start's berries last it)
+      const droughtFood = droughtDays > 0.9 * DAYS_TO_DIE_DRY.BlueberryBush ? gameSoil(W, H, h, storage.kept, new Float64Array(N), []).moisture : null;
+      const prepared = prepareStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, rule, { kept, drought: policy, storage, droughtFood });
       data = { kept, storage, view, prepared };
       if (reusePlanned) plannedStart = data;
     }
@@ -3033,7 +3037,17 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (const i of stories.taken) keepOff[i] = 1;
   }
   opts.onProgress?.({ attempt, stage: "resources" });
-  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, base, 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1 }, sites)];
+  // (the D410 round: the start's berries on ground that stays moist through the rule's drought, the
+  // soil the drought's water leaves, as plants.drought reads it; a drought shorter than a berry bush
+  // lasts dry asks nothing)
+  const droughtGround = (b: BuildResult): BuildResult & { droughtMoisture?: Float64Array } => {
+    if (droughtDays <= 0.9 * DAYS_TO_DIE_DRY.BlueberryBush) return b;
+    const kept = droughtStorage(b.waterModel, b.water, droughtDays);
+    const cd = new Float64Array(N);
+    for (let i = 0; i < N; i++) cd[i] = kept[i] > 0 ? b.contamination[i] : 0;
+    return { ...b, droughtMoisture: gameSoil(W, H, b.heights, kept, cd, mapObjects({ entities: b.entities.map(entityJson) })).moisture };
+  };
+  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(base), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1 }, sites)];
   let features = [...layout, ...resources];
   let built = build(features, null);
   opts.onProgress?.({ attempt, stage: "check" });
@@ -3054,7 +3068,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (d < 60 || d > 120 || !walkableFromStart(b3, st.x, st.y)) return null;
       }
       if (risePlan && !riseStands(b3, risePlan.x, risePlan.y, risePlan.radius, risePlan.top, risePlan.rise)) return null;
-      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, b3, 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1 }, sites)];
+      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(b3), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1 }, sites)];
       const f3 = [...lay3, ...r3];
       const bb = build(f3, null);
       const file3 = toTimberFile(spec, bb);

@@ -19,8 +19,8 @@
 
 import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
-import { levelRegions, MinHeap, N4 } from "../math/grid";
-import { stream } from "../math/rng";
+import { levelRegions, MinHeap, N4, N8 } from "../math/grid";
+import { stream, type Rng } from "../math/rng";
 import { pctSorted } from "./num";
 import { clamp, smoothstep } from "../math/clamp";
 import { BED_FLOOR, VT_HIGH, type Genome } from "./genome";
@@ -138,6 +138,8 @@ export interface Ramps {
 export function naturalRamps(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: Uint8Array, g: Genome, seed: number, attempt: number): Ramps {
   const N = W * H;
   const rng = stream(seed, "ramps", attempt, g.variation);
+  // (the D410 round's ramps: each step's length its own draw, so no ramp is a staircase of even treads)
+  const lay = stream(seed, "ramp-steps", attempt, g.variation);
   const tiles = new Uint8Array(N);
   const steps: [number, number][] = [];
   let cut = 0;
@@ -170,7 +172,7 @@ export function naturalRamps(h: Uint8Array, W: number, H: number, water: Uint8Ar
       }
       // (a path too short for its drop is left to stairs; the prototype tried the same component
       // again every round, so one short path used up all eight)
-      if (!cutRamp(h, W, H, water, keep, path, tiles, steps)) {
+      if (!cutRamp(h, W, H, water, keep, path, tiles, steps, lay)) {
         for (let i = 0; i < N; i++) if (fc.lab[i] === comp) tiles[i] = tiles[i] || 2;
         left++;
         continue;
@@ -205,7 +207,7 @@ function rampPath(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: 
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       if (lab[yy * W + xx] !== from) edge = true;
     }
-    if (!edge) continue;
+    if (!edge || !inside(x, y, W, H, 4)) continue;
     cost[i] = 0;
     heap.push(0, i);
   }
@@ -223,7 +225,7 @@ function rampPath(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: 
     for (const [dx, dy] of N4) {
       const xx = x + dx;
       const yy = y + dy;
-      if (xx < 1 || yy < 1 || xx >= W - 1 || yy >= H - 1) continue;
+      if (!inside(xx, yy, W, H, 4)) continue;
       const j = yy * W + xx;
       if (water[j] || keep[j] || lab[j] === from) continue;
       const d = Math.abs(h[j] - h[c]);
@@ -238,14 +240,33 @@ function rampPath(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: 
   return null;
 }
 
-/** Regrade a path into steps of one level, each at least two tiles long, three tiles wide; the
- *  path is extended into the land on both sides as far as the drop needs. */
-function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: Uint8Array, path: number[], tiles: Uint8Array, steps: [number, number][]): boolean {
+/** A ramp's ground keeps off the map's two outer rows, and its line off the four (the D410 round: ramps ran
+ *  along the row beside the edge, a staircase down the map's frame on four Highlands maps; kept off the two
+ *  rows alone, they ran along the third). */
+function inside(x: number, y: number, W: number, H: number, m = 2): boolean {
+  return x >= m && y >= m && x < W - m && y < H - m;
+}
+
+/** The most levels one natural ramp climbs. A taller cliff is left to stairs: a ramp of eight levels
+ *  was a straight flight of eight slopes two tiles apart, a pier down the valley side (the D410
+ *  round: River Valley 128² seed 4, Highlands 128² seeds 2–4). */
+export const RAMP_MOST = 4;
+
+/** Regrade a path into steps of one level, three tiles wide, each two to four tiles long (drawn from
+ *  `lay`, so a ramp has landings, never even treads); the path is extended into the land on both
+ *  sides as far as the drop and its landings need. A ramp that would read as built is not cut: one
+ *  taller than `RAMP_MOST`, one whose regrade raises a causeway over the lower ground beside it, and
+ *  one running between water or kept ground on both sides, a pier (the D410 round). */
+function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: Uint8Array, path: number[], tiles: Uint8Array, steps: [number, number][], lay: Rng): boolean {
   const a = h[path[0]];
   const b = h[path[path.length - 1]];
   const drop = Math.abs(a - b);
-  // extend each end straight on, inside its own ground, until the path is 2 tiles a level + 2
+  if (drop > RAMP_MOST) return false;
+  // extend each end straight on, inside its own ground, until the path is 2 tiles a level + 2, and
+  // as far again as the landings drawn for it
   const need = 2 * drop + 2;
+  const landings = drop > 1 ? lay.int(1, drop + 1) : 0;
+  const want = need + landings;
   const q = path.slice();
   const extend = (atStart: boolean) => {
     const p0 = atStart ? q[0] : q[q.length - 1];
@@ -255,18 +276,18 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
     const lv = h[p0];
     let x = p0 % W;
     let y = Math.floor(p0 / W);
-    for (let n = 0; n < need; n++) {
+    for (let n = 0; n < want; n++) {
       x += dx;
       y += dy;
-      if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) break;
+      if (!inside(x, y, W, H, 4)) break;
       const j = y * W + x;
       if (water[j] || keep[j] || h[j] !== lv) break;
       if (atStart) q.unshift(j);
       else q.push(j);
-      if (q.length >= need) break;
+      if (q.length >= want) break;
     }
   };
-  if (q.length < need && q.length >= 2) {
+  if (q.length < want && q.length >= 2) {
     extend(true);
     extend(false);
   }
@@ -281,12 +302,34 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
   const top = Math.max(a, b);
   const bottom = Math.min(a, b);
   for (const i of q) if (h[i] > top || h[i] < bottom) return false;
-  // a level must span two tiles at least; where it cannot (too short a path), no ramp. The levels
-  // share the path evenly (the prototype rounded a straight line, which left one-tile levels on
-  // paths long enough for two-tile ones, and gave the ramp up)
+  // a level must span two tiles at least; where it cannot (too short a path), no ramp
   if (n < 2 * (drop + 1)) return false;
+  // each level's length: two tiles, and the path's spare tiles dealt to levels drawn at random, so
+  // the treads run two, three or four tiles and the slopes stand unevenly apart
+  const len = new Array<number>(drop + 1).fill(2);
+  for (let spare = n - 2 * (drop + 1), tries = 0; spare > 0 && tries < 64; tries++) {
+    const k = lay.int(0, drop + 1);
+    if (len[k] >= 4 && tries < 48) continue;
+    len[k]++;
+    spare--;
+  }
   const sgn = b > a ? 1 : -1;
-  const lev = q.map((_, k) => a + sgn * Math.floor((k * (drop + 1)) / n));
+  const lev: number[] = [];
+  for (let k = 0; k <= drop; k++) for (let t = 0; t < len[k]; t++) lev.push(a + sgn * k);
+  while (lev.length < n) lev.push(b);
+  // a ramp between water or kept ground on most of both sides is not cut: a pier, or a 1-wide ridge
+  // with slopes up it (Canyon 128² seed 1)
+  const held = new Set<number>();
+  for (const i of q) {
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const [dx, dy] of N8) {
+      const j = (y + dy) * W + x + dx;
+      if (inside(x + dx, y + dy, W, H) && (water[j] || keep[j])) held.add(j);
+    }
+  }
+  if (held.size > 1.5 * n) return false;
+  const band: number[] = [];
   for (let k = 0; k < n; k++) {
     const i = q[k];
     const x = i % W;
@@ -295,14 +338,59 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
       for (let ox = -1; ox <= 1; ox++) {
         const xx = x + ox;
         const yy = y + oy;
-        if (xx < 1 || yy < 1 || xx >= W - 1 || yy >= H - 1) continue;
+        if (!inside(xx, yy, W, H)) continue;
         const j = yy * W + xx;
         if (water[j] || keep[j]) continue;
         // the middle line takes its level; the sides only where they would not stand above it
         if (ox === 0 && oy === 0) h[j] = lev[k];
         else if (Math.abs(h[j] - lev[k]) > 1) h[j] = lev[k];
+        if (!tiles[j]) band.push(j);
         tiles[j] = 1;
       }
+  }
+  // the lower ground beside a fill rises to it a level a tile, two tiles out at most: the fill below a
+  // ramp is a spur of land, never a three-wide causeway with cliffs down its sides (the D410 round:
+  // River Valley 128² seed 4). The cut above it is left as the band cut it, a cleft: shoulders over
+  // the cut too, and as far as the drop, wore the cliffs and plateau rims round every ramp away
+  // (Highlands missed its promise on more lands)
+  const seen = new Uint8Array(W * H);
+  for (const j of band) seen[j] = 1;
+  let ring = band;
+  for (let r = 0; r < 2 && ring.length; r++) {
+    const next: number[] = [];
+    const visited: number[] = [];
+    for (const c of ring) {
+      const x = c % W;
+      const y = (c - x) / W;
+      for (const [dx, dy] of N8) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (!inside(xx, yy, W, H)) continue;
+        const j = yy * W + xx;
+        if (seen[j] || water[j] || keep[j]) continue;
+        seen[j] = 2;
+        visited.push(j);
+        let lo = -Infinity;
+        let hi = Infinity;
+        for (const [ex, ey] of N8) {
+          const xe = xx + ex;
+          const ye = yy + ey;
+          if (xe < 0 || ye < 0 || xe >= W || ye >= H) continue;
+          const e = ye * W + xe;
+          if (seen[e] !== 1) continue;
+          lo = Math.max(lo, h[e] - 1);
+          hi = Math.min(hi, h[e] + 1);
+        }
+        if (lo > hi) continue;
+        const v = h[j] < lo ? lo : h[j];
+        if (v === h[j]) continue;
+        h[j] = v;
+        next.push(j);
+      }
+    }
+    // (a ring's tiles are read as settled only once the whole ring is shaped)
+    for (const j of visited) seen[j] = 1;
+    ring = next;
   }
   // each step: a slope on its low tile, facing up the path
   for (let k = 0; k + 1 < n; k++) {
