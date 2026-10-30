@@ -5,10 +5,11 @@
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelOf } from "../../src/render3d/entities3d";
-import { DRYING, dryColour, isFoliage } from "../../src/render3d/dying";
+import { DEAD_FORM, deadLeaves, DRYING, dryColour, isFoliage } from "../../src/render3d/dying";
 import { DEAD, DYING, entityView } from "../../src/render3d/model";
 import { Forest } from "../../src/render3d/high/forest";
-import { model, paletteDefaults, slots } from "../../src/render3d/high/models";
+import { model, paletteDefaults, slots, WARM_SUN } from "../../src/render3d/high/models";
+import { SUNLIGHT } from "../../src/render3d/high/highLook";
 
 const luma = (c: readonly number[]) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
 /** The largest distance from the trunk of the vertices that are foliage in the living model (the same vertices in its dying
@@ -72,11 +73,13 @@ describe("a dying plant's form, the game's way", () => {
     expect(names(true)).toEqual(["Oak.lite", "Pine.dying.lite"]);
   });
 
-  it("High's dying models: foliage in its dying slot, the game's dry colour at the living slot's lightness", () => {
+  it("High's dying models: foliage in its dying slot, the game's dry colour at the living slot's lightness, as High's warm sun lights both", () => {
     for (const [slot, species] of [["pine", "Pine"], ["birch", "Birch"], ["oak", "Oak"], ["bush", "BlueberryBush"]] as const) {
       const dry = `${slot}Dry` as keyof typeof paletteDefaults;
       const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
-      expect(luma(hex(paletteDefaults[dry])) / luma(hex(paletteDefaults[slot])), slot).toBeCloseTo(luma(DRYING[species].dry) / luma(DRYING[species].alive), 1);
+      // (as lit by High's warm sun: its albedo has the sun's tint taken out, below)
+      const lit = (h: string) => hex(h).map((c, k) => c * WARM_SUN[k]);
+      expect(luma(lit(paletteDefaults[dry])) / luma(lit(paletteDefaults[slot])), slot).toBeCloseTo(luma(DRYING[species].dry) / luma(DRYING[species].alive), 1);
       const regions = (g: ReturnType<typeof model>) => new Set(Array.from(g.getAttribute("region").array as Float32Array));
       const living = regions(model(species, 0, "near", "alive"));
       const dying = regions(model(species, 0, "near", "dying"));
@@ -103,5 +106,51 @@ describe("a dying plant's form, the game's way", () => {
     expect(f.setState(flags)).toBe(1);
     expect(shown()).toEqual(["high.Birch", "high.Pine.dead"]);
     expect(f.setState(flags)).toBe(0);
+  });
+
+  it("High's dying and dead colours are the game's as they read under High's warm sun (its tint taken out of the albedo)", () => {
+    expect([...WARM_SUN]).toEqual([...SUNLIGHT.sun]);
+    const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+    for (const [slot, species] of [["pine", "Pine"], ["oak", "Oak"], ["birch", "Birch"]] as const) {
+      const lit = hex(paletteDefaults[`${slot}Dry`]).map((c, k) => c * WARM_SUN[k]);
+      const d = DRYING[species].dry;
+      // lit, the game's hue (to the hex colour's rounding)
+      expect(lit[0] / lit[1], slot).toBeCloseTo(d[0] / d[1], 1);
+      expect(lit[2] / lit[1], slot).toBeCloseTo(d[2] / d[1], 1);
+    }
+  });
+});
+
+describe("a dead plant's form, by the game's numbers", () => {
+  const height = (pos: ArrayLike<number>) => {
+    let h = 0;
+    for (let v = 1; v < pos.length; v += 3) h = Math.max(h, pos[v]);
+    return h;
+  };
+  it("stands at the game's height for it, dead ÷ alive, in Standard, the light look and High", () => {
+    for (const species of Object.keys(DEAD_FORM)) {
+      expect(height(modelOf(`${species}.dead`).pos) / height(modelOf(species).pos), species).toBeCloseTo(DEAD_FORM[species].height, 2);
+    }
+    for (const species of ["Pine", "Birch", "Oak", "BlueberryBush"] as const)
+      for (const detail of ["near", "far"] as const) {
+        const h = (state: "alive" | "dead") => height(model(species, 0, detail, state).getAttribute("position").array as Float32Array);
+        expect(h("dead") / h("alive"), `${species} ${detail}`).toBeCloseTo(DEAD_FORM[species].height, 2);
+      }
+  });
+  it("is its own bark weathered as the game's, and a dead bush keeps its leaves, gone brown, without its berries", () => {
+    const colours = (key: string) => {
+      const { col } = modelOf(key);
+      const out = new Set<string>();
+      for (let v = 0; v < col.length; v += 3) out.add([col[v], col[v + 1], col[v + 2]].map((c) => c.toFixed(3)).join(","));
+      return out;
+    };
+    // the pine's pole: its bark × the game's dead-wood ratio, lighter than the living crowns
+    expect(colours("Pine.dead").has([0.36 * 1.25, 0.25 * 1.43, 0.16 * 1.6].map((c) => c.toFixed(3)).join(","))).toBe(true);
+    const bush = colours("BlueberryBush.dead");
+    expect(bush.size).toBe(1);
+    expect([...bush][0]).toBe(deadLeaves("BlueberryBush", [0.14, 0.29, 0.14]).map((c) => c.toFixed(3)).join(","));
+    const regions = new Set(Array.from(model("BlueberryBush", 0, "near", "dead").getAttribute("region").array as Float32Array));
+    expect(regions.has(slots.indexOf("berry"))).toBe(false);
+    expect(regions.has(slots.indexOf("bushDead"))).toBe(true);
   });
 });

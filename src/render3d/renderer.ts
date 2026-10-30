@@ -2440,7 +2440,8 @@ export class MapRenderer {
       dead = new Uint8Array(m.W * m.H);
       for (const t of tiles) dead[t] = 1;
     }
-    const soil = m.soil;
+    // (the soil the objects are drawn by: a provisional soil without its run tops keeps the last drawn, as the ruins do)
+    const soil = this.objectSoil();
     const sw = m.surface;
     const lower = sw?.lower.length ? lowerWater(m.water, m.W * m.H) : null;
     const rule = e.templates.map((t) => WITHERING_SPECIES.has(t));

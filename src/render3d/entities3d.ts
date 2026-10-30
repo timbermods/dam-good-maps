@@ -55,7 +55,7 @@ import { EntityGeometryCache } from "./entityGeometry";
 import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
-import { DRYING, dryColour, isFoliage } from "./dying";
+import { DEAD_FORM, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
 import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 
@@ -174,6 +174,25 @@ function dyingOf(species: string, m: Model): Model {
   return out;
 }
 
+/** A model's height (its highest vertex). */
+function heightOf(m: Model): number {
+  let h = 0;
+  for (let k = 1; k < m.pos.length; k += 3) h = Math.max(h, m.pos[k]);
+  return h;
+}
+
+/** A model scaled upright to height `h` (a dead plant at the game's height for it), its normals made again. */
+function heightTo(m: Model, h: number): Model {
+  const k = h / heightOf(m);
+  for (let v = 1; v < m.pos.length; v += 3) m.pos[v] *= k;
+  for (let v = 0; v < m.pos.length; v += 9) {
+    const p = m.pos;
+    const n = new Vector3(p[v + 3] - p[v], p[v + 4] - p[v + 1], p[v + 5] - p[v + 2]).cross(new Vector3(p[v + 6] - p[v], p[v + 7] - p[v + 1], p[v + 8] - p[v + 2])).normalize();
+    for (let c = 0; c < 3; c++) m.nrm.splice(v + c * 3, 3, n.x, n.y, n.z);
+  }
+  return m;
+}
+
 const cone = (r: number, h: number, sides: number) => new ConeGeometry(r, h, sides, 1, true);
 const cyl = (r0: number, r1: number, h: number, sides: number) => new CylinderGeometry(r1, r0, h, sides, 1, true);
 /** A cylinder with its ends closed (a trunk seen from above). */
@@ -238,12 +257,17 @@ function onFace(m: Model, f: number, build: () => void): void {
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 
 const BARK: Rgb = [0.36, 0.25, 0.16];
-/** Bare dead wood: a pale grey-brown tan, far lighter than the living crowns; a dead birch stays
- *  white, a dead oak's thick trunk darker. */
-const DEAD_WOOD: Rgb = [0.78, 0.69, 0.56];
-const DEAD_DARK: Rgb = [0.7, 0.62, 0.5];
-const DEAD_BIRCH: Rgb = [0.9, 0.88, 0.84];
-const DEAD_BARK: Rgb = [0.6, 0.54, 0.45];
+const BIRCH_BARK: Rgb = [0.93, 0.91, 0.86];
+const OAK_BARK: Rgb = [0.34, 0.23, 0.14];
+const BUSH_LEAVES: Rgb = [0.14, 0.29, 0.14];
+/** Bare dead wood as the game's (dying.ts `DEAD_FORM`): each tree's own bark weathered, the pine's and oak's lighter and
+ *  greyer brown, still lighter than the living crowns; a dead birch stays white, a shade darker. Where a limb broke the
+ *  wood is paler. */
+const DEAD_WOOD: Rgb = deadWood("Pine", BARK);
+const DEAD_DARK: Rgb = shade(DEAD_WOOD, 0.85);
+const DEAD_BIRCH: Rgb = deadWood("Birch", BIRCH_BARK);
+const DEAD_BARK: Rgb = deadWood("Oak", OAK_BARK);
+const DEAD_BREAK: Rgb = shade(deadWood("Oak", OAK_BARK), 1.35);
 
 /** A bare branch from the trunk at height y, outward along `angle`, tilted up by `tilt`: a spike
  *  tapering to a point. */
@@ -295,7 +319,7 @@ const MODELS: Record<string, () => Model> = {
   },
   Birch: () =>
     new Model()
-      .add(cyl(0.05, 0.04, 0.75, 4), [0.93, 0.91, 0.86], { y: 0.375 })
+      .add(cyl(0.05, 0.04, 0.75, 4), BIRCH_BARK, { y: 0.375 })
       .add(cyl(0.052, 0.05, 0.07, 4), [0.18, 0.16, 0.15], { y: 0.36 })
       .add(ico(0.31), [0.34, 0.52, 0.19], { y: 0.96, sy: 1.4 }),
   "Birch.dead": () => {
@@ -303,34 +327,30 @@ const MODELS: Record<string, () => Model> = {
     const m = new Model().add(post(0.06, 0.045, 0.5, 5), DEAD_BIRCH, { y: 0.25 });
     branch(m, 0.46, 0.3, 1.2, 0.55, 0.045, DEAD_BIRCH);
     branch(m, 0.46, 3.4, 1.15, 0.5, 0.04, DEAD_BIRCH);
-    branch(m, 0.62, 1.9, 0.8, 0.2, 0.025, DEAD_WOOD);
+    branch(m, 0.62, 1.9, 0.8, 0.2, 0.025, shade(DEAD_BIRCH, 0.8));
     return m;
   },
   Oak: () =>
     new Model()
-      .add(cyl(0.11, 0.08, 0.55, 4), [0.34, 0.23, 0.14], { y: 0.275 })
+      .add(cyl(0.11, 0.08, 0.55, 4), OAK_BARK, { y: 0.275 })
       .add(ico(0.44), [0.22, 0.42, 0.16], { y: 0.95, sy: 0.85 })
       .add(ico(0.28), [0.26, 0.47, 0.18], { x: 0.2, y: 0.8, z: 0.12 }),
   "Oak.dead": () => {
     // a thick bare trunk, its limbs broken off short, pale where they broke
-    const m = new Model().add(post(0.15, 0.11, 0.62, 6), DEAD_BARK, { y: 0.31 }).add(new CylinderGeometry(0.1, 0.1, 0.02, 6), DEAD_WOOD, { y: 0.62 });
-    for (let k = 0; k < 3; k++) branch(m, 0.56, 0.5 + (k * Math.PI * 2) / 3, 1.05, 0.26, 0.06, DEAD_WOOD);
+    const m = new Model().add(post(0.15, 0.11, 0.62, 6), DEAD_BARK, { y: 0.31 }).add(new CylinderGeometry(0.1, 0.1, 0.02, 6), DEAD_BREAK, { y: 0.62 });
+    for (let k = 0; k < 3; k++) branch(m, 0.56, 0.5 + (k * Math.PI * 2) / 3, 1.05, 0.26, 0.06, DEAD_BARK);
     return m;
   },
   Succulent: () => succulent(false),
   "Succulent.dead": () => succulent(true),
   BlueberryBush: () => {
-    const m = new Model().add(ico(0.3), [0.14, 0.29, 0.14], { y: 0.2, sy: 0.72, sx: 1.1 });
+    const m = new Model().add(ico(0.3), BUSH_LEAVES, { y: 0.2, sy: 0.72, sx: 1.1 });
     const flowers: [number, number, number][] = [[0.16, 0.3, 0.12], [-0.08, 0.36, 0.15], [0.05, 0.38, -0.15], [0.22, 0.18, -0.12]];
     for (const [x, y, z] of flowers) m.add(new OctahedronGeometry(0.065, 0), [0.46, 0.56, 1.0], { x, y, z });
     return m;
   },
-  "BlueberryBush.dead": () => {
-    // a pale clump of bare twigs
-    const m = new Model();
-    for (let k = 0; k < 5; k++) branch(m, 0.04, (k * Math.PI * 2) / 5, 0.7, 0.36, 0.04, k % 2 ? DEAD_DARK : DEAD_WOOD);
-    return m;
-  },
+  // the game's dead bush keeps its leaves, gone brown, and loses its berries (dying.ts `DEAD_FORM`)
+  "BlueberryBush.dead": () => new Model().add(ico(0.3), deadLeaves("BlueberryBush", BUSH_LEAVES), { y: 0.2, sy: 0.72, sx: 1.1 }),
   Slope: () => {
     // a ramp over the tile, low on the north (−Z) edge and high on the south (+Z), as a Cw0
     // slope's high side is south (its arrows are "Slope.mark")
@@ -432,8 +452,12 @@ const MODELS: Record<string, () => Model> = {
   ReserveWarehouse: reserveWarehouse,
   ReserveTank: reserveTank,
 };
-// (each plant's dying form, drawn while it is dying: dying.ts)
+// (each plant's dying form, drawn while it is dying: dying.ts; its dead form at the game's height for it)
 for (const species of Object.keys(DRYING)) MODELS[`${species}.dying`] = () => dyingOf(species, MODELS[species]());
+for (const species of Object.keys(DEAD_FORM)) {
+  const dead = MODELS[`${species}.dead`];
+  if (dead) MODELS[`${species}.dead`] = () => heightTo(dead(), DEAD_FORM[species].height * heightOf(MODELS[species]()));
+}
 
 // ------------------------------------------------------------------------------ the 1.x objects
 
@@ -477,13 +501,14 @@ const PAD_TIP: Rgb = [0.64, 0.47, 0.34];
  *  near level, reaching past the tile like a tree's crown, each blushing pink-red at its outer tip; and a young
  *  plant beside it, a rosette of five pads. Dead: a grey-tan trunk and three limp tan pads. At most 240 triangles. */
 function succulent(dead: boolean): Model {
-  const mid: Rgb = dead ? [0.55, 0.47, 0.36] : [0.5, 0.36, 0.22];
-  const dark: Rgb = dead ? [0.5, 0.43, 0.33] : [0.43, 0.3, 0.18];
+  // (dead: darker by the game's ratio, its pads gone the game's dead red-brown: dying.ts `DEAD_FORM`)
+  const mid: Rgb = dead ? deadRatio("Succulent", [0.5, 0.36, 0.22]) : [0.5, 0.36, 0.22];
+  const dark: Rgb = dead ? deadRatio("Succulent", [0.43, 0.3, 0.18]) : [0.43, 0.3, 0.18];
   const cx = 0;
   const m = new Model();
   const rings: [number, number][] = [[0.1, 0.17], [0.17, 0.19], [0.19, 0.15], [0.15, 0.08]];
   rings.forEach(([r0, r1], k) => m.add(cyl(r0, r1, 0.17, 6), k % 2 ? dark : mid, { x: cx, y: 0.085 + 0.17 * k, ry: 0.3 * k }));
-  const green: Rgb = dead ? [0.62, 0.54, 0.4] : SAGE;
+  const green: Rgb = dead ? deadLeaves("Succulent", SAGE) : SAGE;
   // (a pad as an oval lens, `len` long and `wid` wide: its inner end at (x, y, z), leaning out along `turn` at `tilt` above
   // the horizontal, so the crown's pads fan up and out past the trunk; its outer tip blushes. A dead plant's droop.)
   const pad = (x: number, y: number, z: number, turn: number, tilt: number, len: number, wid: number) => {
@@ -991,10 +1016,15 @@ const LITE_MODELS: Record<string, () => Model> = {
   "Pine.dead": () => liteDead(0.08, 1.35, 0.12, DEAD_WOOD),
   "Birch.dead": () => liteDead(0.07, 0.95, 0.4, DEAD_BIRCH),
   "Oak.dead": () => liteDead(0.14, 0.7, 0.26, DEAD_BARK),
+  "BlueberryBush.dead": () => new Model().add(new OctahedronGeometry(0.28, 0), deadLeaves("BlueberryBush", BUSH_LEAVES), { y: 0.2, sy: 0.75 }),
   Succulent: liteSucculent,
-  BlueberryBush: () => new Model().add(new OctahedronGeometry(0.28, 0), [0.14, 0.29, 0.14], { y: 0.2, sy: 0.75 }),
+  BlueberryBush: () => new Model().add(new OctahedronGeometry(0.28, 0), BUSH_LEAVES, { y: 0.2, sy: 0.75 }),
 };
 for (const species of Object.keys(DRYING)) if (LITE_MODELS[species]) LITE_MODELS[`${species}.dying`] = () => dyingOf(species, LITE_MODELS[species]());
+for (const species of Object.keys(DEAD_FORM)) {
+  const dead = LITE_MODELS[`${species}.dead`];
+  if (dead && LITE_MODELS[species]) LITE_MODELS[`${species}.dead`] = () => heightTo(dead(), DEAD_FORM[species].height * heightOf(LITE_MODELS[species]()));
+}
 /** The light look's ruin: a column one block per ruin, as it looks from afar (scaled to its height). */
 const LITE_RUIN = () => {
   const m = new Model();
