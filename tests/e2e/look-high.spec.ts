@@ -565,7 +565,7 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   expect(errors).toEqual([]);
 });
 
-test("High's seasons: a held drought draws dry ground and the heat shimmer, a badtide the sickly sky; each switches; Standard draws none (D250)", async ({ page }) => {
+test("a held drought or badtide turns the haze to the game's fog colour for it, in both looks; Day 0 and no day the temperate fog (D250 as amended)", async ({ page }) => {
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -574,43 +574,36 @@ test("High's seasons: a held drought draws dry ground and the heat shimmer, a ba
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   expect(await look(page)).toBe("high");
-  const now = () => page.evaluate(() => window.dgm3d!.renderer.seasonLook);
+  // (the game's daytime fogs, Sun.blueprint: temperate, drought, badtide)
+  const TEMPERATE = [0.447, 0.761, 0.824];
+  const DROUGHT = [0.706, 0.549, 0.376];
+  const BADTIDE = [0.698, 0.439, 0.349];
+  const haze = async () => (await page.evaluate(() => window.dgm3d!.renderer.hazeNow)).map((v) => Math.round(v * 1000) / 1000);
   const bar = page.getByRole("toolbar", { name: "Water time" });
   const day = bar.locator(".day-label");
-  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  expect(await haze()).toEqual(TEMPERATE);
 
   await bar.getByRole("button", { name: "Drought" }).click();
   await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
-  await expect.poll(now, { timeout: 30_000 }).toEqual({ dry: 1, heat: 1, sickly: 0 });
-  // each effect has its own switch
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("dryGround", false));
-  expect(await now()).toEqual({ dry: 0, heat: 1, sickly: 0 });
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("dryGround", true));
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("heat", false));
-  expect(await now()).toEqual({ dry: 1, heat: 0, sickly: 0 });
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("heat", true));
-  // Standard stays as it is, and High again draws them
+  await expect.poll(haze, { timeout: 30_000 }).toEqual(DROUGHT);
+  // the same in Standard
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
-  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  expect(await haze()).toEqual(DROUGHT);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
-  expect(await now()).toEqual({ dry: 1, heat: 1, sickly: 0 });
-  // Day 0 is the map as it is: nothing is drawn for the season
+  expect(await haze()).toEqual(DROUGHT);
+  // Day 0 is the map as it is
   await day.dblclick();
   await bar.getByRole("textbox", { name: "Day" }).fill("0");
   await bar.getByRole("textbox", { name: "Day" }).press("Enter");
   await expect(day).toHaveText("Day 0");
-  await expect.poll(now, { timeout: 30_000 }).toEqual({ dry: 0, heat: 0, sickly: 0 });
-  // and the badtide has the sky
+  await expect.poll(haze, { timeout: 30_000 }).toEqual(TEMPERATE);
+  // and the badtide has its own
   await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
-  await expect.poll(async () => (await now()).sickly, { timeout: 30_000 }).toBeGreaterThan(0);
-  expect(await now()).toMatchObject({ dry: 0, heat: 0 });
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("badtideSky", false));
-  expect((await now()).sickly).toBe(0);
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("badtideSky", true));
+  await expect.poll(haze, { timeout: 30_000 }).toEqual(BADTIDE);
   await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");
-  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  await expect.poll(haze, { timeout: 30_000 }).toEqual(TEMPERATE);
   // (every shader compiled and nothing threw)
   expect(errors).toEqual([]);
 });

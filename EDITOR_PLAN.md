@@ -1097,9 +1097,10 @@ Two looks (Map look 2, D147, D242, D250, D284):
   splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in High, the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
-  dead (`core/sim/withering.ts`, given to the page with the held day). On a held drought day, High also draws pale dusty
-  dry ground with straw where grass stood and a faint heat shimmer over it; on a held badtide day, a slightly sickly sky
-  (each its own effect, `high/seasons.ts`). Day 0 and Standard show the map as it is.
+  dead (`core/sim/withering.ts`, given to the page with the held day). A held drought or badtide day turns the haze to
+  the game's fog colour for it, in both looks (`Sun.blueprint`, `high/seasons.ts` `FOG`; the map's own haze is its
+  temperate fog), as the game does and nothing more: its ground dries by the day's soil like any dry tile (D250 as
+  amended 2026-10-29). Day 0 shows the map as it is.
 
 In both looks (the light look too) water of any depth draws as water, as the game draws it: a film is the same water
 as its body, not a faint tint over its ground (`WATER_FILM` in `render3d/waterPalette.ts`; the game's water in play is its
