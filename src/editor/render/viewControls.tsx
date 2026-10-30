@@ -6,6 +6,7 @@ import { tip } from "../../ui/Tooltip";
 import { ShowRow } from "../../ui/View3D";
 import { LAYER_NAMES, LayerLegend, type LayerKind } from "../panels";
 import type { Ed } from "../ed";
+import { HIDE_OBJECTS_KEY } from "../view/useHideObjects";
 
 /** The overlays' words on their view buttons. */
 const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Caves and overhangs" };
@@ -31,7 +32,7 @@ function overlayRow(ed: Ed, k: LayerKind) {
   );
 }
 
-/** The Show row's toggles after Flow: See-through, Badwater and, on a map that has them, Caves and overhangs, right
+/** The Show row's toggles after Flow: See-through, Hide objects, Badwater and, on a map that has them, Caves and overhangs, right
  *  after Badwater at every width (the band's layout moves the water row to a second line when the row needs the room). */
 export function viewButtons(ed: Ed) {
   const { clearWater, setClearWater } = ed;
@@ -39,6 +40,10 @@ export function viewButtons(ed: Ed) {
     <>
       <ShowRow on={clearWater} onToggle={() => setClearWater(!clearWater)} tip={tip("See through the water", "T")}>
         See-through
+      </ShowRow>
+      {/* (an editing aid: held on H, kept by a click; useHideObjects.ts) */}
+      <ShowRow on={ed.objectsHidden} onToggle={ed.toggleObjectsHidden} tip={tip("See the land behind objects", HIDE_OBJECTS_KEY)}>
+        Hide objects
       </ShowRow>
       {overlayRow(ed, "badwater")}
       {ed.info.caves ? overlayRow(ed, "roofed") : null}
