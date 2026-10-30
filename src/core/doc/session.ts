@@ -25,11 +25,11 @@ import { heldOf, type TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
-import { objectHolds, standProblem, type StandGround } from "../features/objects";
+import { objectHolds, rasterizeObjects, standProblem, type StandGround } from "../features/objects";
 import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN, padTile } from "../features/raster/terrain";
-import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
+import { bottomRunTop, ColumnTerrain, isPlainMask, surfaceOfMask, terrainColumns } from "../terrain/runs";
 import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
 import { fallsReason, newFalls, objectRoofHolders, placeOf, rockFloors, stackableTops, unsupportedVoxels } from "../terrain/support";
 import { LAYERS } from "../format/world";
@@ -963,19 +963,7 @@ export class MapSession {
     const out = (now.springsLeft ?? []).find((s) => !left.has(s.id));
     if (out) return `it would leave out a spring's water source at X ${out.x} · Y ${out.y}: ${out.why}`;
     const { x: W, y: H } = this.size;
-    const t0 = this.terrainOf(before);
-    const g0 = { W, H, mask: t0.mask };
-    const g1 = this.standGround();
-    const was = new Map(before.entities.map((e) => [e.id, e]));
-    for (const e of now.entities) {
-      const b = was.get(e.id);
-      if (!b) continue;
-      const tiles = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
-      if (tiles.every((i) => isPlainMask(g0.mask[i]) && isPlainMask(g1.mask[i]))) continue;
-      if (standProblem(b.template, b, g0) || !standProblem(e.template, e, g1)) continue;
-      return `it would leave ${withArticle(itemName(e.template))} at X ${e.x} · Y ${e.y} inside the ground or floating, and the game would remove it`;
-    }
-    return null;
+    return objectLost(before.entities, now.entities, { W, H, mask: this.terrainOf(before).mask }, this.standGround());
   }
 
   /** How many blocks of ground an operation just put in the log would make fall, worked out from the
@@ -1022,8 +1010,10 @@ export class MapSession {
    *  ground as it stands, and what the game's support rule would drop because of it, before anything
    *  is applied. `added` and `removed` are the blocks it changes, as [x, y, layer]; `falls` the blocks
    *  of ground that would drop (nothing holding them up), the cells `apply` refuses with
-   *  `fallsReason`. `errors` is the one line why it cannot be taken at all (a cell off the map or the
-   *  layers, on an object, nothing to change); then the three are empty. Plain data, nothing changes. */
+   *  `fallsReason`; with none, `reason` names an object it would move or leave for the game to remove
+   *  (D491, `blockLost`), as `apply` refuses it. `errors` is the one line why it cannot be taken at all (a
+   *  cell off the map or the layers, on an object, nothing to change); then the three are empty. Plain
+   *  data, nothing changes. */
   blockFalls(params: OpParams["blocks"]): BlockFalls {
     const { x: W, y: H } = this.size;
     const none = (errors: string[]): BlockFalls => ({ reason: errors[0], errors, added: [], removed: [], falls: [], plantsRemoved: 0, plantsRiding: 0 });
@@ -1040,7 +1030,82 @@ export class MapSession {
     const fell: number[] = [];
     for (let c = 0; c < now.length; c++) if (now[c] && !was[c]) fell.push(c);
     const falls = cells(fell);
-    return { reason: falls.length ? fallsReason(falls.length) : null, errors: [], added: cells(effect.added), removed: cells(effect.removed), falls, plantsRemoved: effect.plants.length, plantsRiding: effect.riding };
+    // (an object the step would move or leave for the game to remove: refused, as `apply` refuses it)
+    const lost = falls.length ? null : this.blockLost(t, after, new Set([...effect.added, ...effect.removed].map((c) => c % (W * H))));
+    return { reason: falls.length ? fallsReason(falls.length) : lost, errors: [], added: cells(effect.added), removed: cells(effect.removed), falls, plantsRemoved: effect.plants.length, plantsRiding: effect.riding };
+  }
+
+  /** Why a block step from ground `t` to `after`, changing the tiles `changed`, would cost an object its
+   *  place, in one line, or null (`blockFalls`). Only an object on a tile the step changes can be: the
+   *  game's rule reads its own cells and the ground under them. Plants ride as `blockEffect` says, and a
+   *  slope is the ground's. Every other object's level after the step is the build's: the start's from
+   *  its middle tile (step 12); a spring's source on its floor, or left out of its row where the game
+   *  would not keep it there (`springsLeft`); an object placed or moved by hand at the level the edit
+   *  names, else its own tile's surface (`applyEntityEdits`); a map object at the highest surface under
+   *  it (`rasterizeObjects`, step 9); any other at its own tile's surface when it stands on its top. A
+   *  block over part of a map object (the cells above an object are free) would lift it off the rest of
+   *  its ground, and the game would remove it; one over the tile an object takes its level from would
+   *  carry it up onto the block, a change the ghost does not show. So a step that moves an object is
+   *  refused, and one that leaves an object where it stands, inside the ground or floating, is refused
+   *  by the rule of the step's own last guard (`objectLost`). */
+  private blockLost(t: ColumnTerrain, after: ColumnTerrain, changed: ReadonlySet<number>): string | null {
+    const { W, H } = t;
+    const { byTile, edits } = this.blockObjectsOf(this.cur);
+    const near = new Set<BuildResult["entities"][number]>();
+    for (const i of changed) for (const e of byTile.get(i) ?? []) near.add(e);
+    if (!near.size) return null;
+    const features = new Map(this.st.features.map((f) => [f.id, f]));
+    let surface: Uint8Array | null = null;
+    const surfaceAfter = () => surface ?? (surface = Uint8Array.from(after.mask, surfaceOfMask));
+    const top = (m: ArrayLike<number>, x: number, y: number) => (x >= 0 && y >= 0 && x < W && y < H ? surfaceOfMask(m[y * W + x]) : undefined);
+    const stay: BuildResult["entities"] = [];
+    for (const e of near) {
+      const f = features.get(e.owner);
+      const edit = edits.get(e.id);
+      let z: number | undefined;
+      if (f?.kind === "start") z = f.params.z ?? top(after.mask, f.params.position[0], f.params.position[1]);
+      else if (!edit && ((f?.kind === "river" && "spring" in f.params.entry) || f?.kind === "lake")) {
+        const m = after.mask[e.y * W + e.x];
+        const floor = isPlainMask(m) ? surfaceOfMask(m) : bottomRunTop(m);
+        const why = standProblem("WaterSource", { x: e.x, y: e.y, z: floor, orientation: "Cw0" }, { W, H, mask: after.mask });
+        if (why) return `it would leave out a spring's water source at X ${e.x} · Y ${e.y}: ${why}`;
+        continue;
+      } else if (edit?.z !== undefined) z = edit.z;
+      else if (edit && !edit.quiet) z = top(after.mask, e.x, e.y);
+      else if (!edit && f?.kind === "mapObject") z = rasterizeObjects(f, W, H, surfaceAfter(), this.keptLayer()?.mask ?? null).find((g) => g.id === e.id)?.z;
+      else z = e.z === top(t.mask, e.x, e.y) ? top(after.mask, e.x, e.y) : e.z;
+      if (z !== undefined && z !== e.z) {
+        const name = withArticle(itemName(e.template));
+        return z > e.z ? `${name} stands under it at X ${e.x} · Y ${e.y}` : `it would take the ground from under ${name} at X ${e.x} · Y ${e.y}`;
+      }
+      stay.push(e);
+    }
+    return objectLost(stay, stay, { W, H, mask: t.mask }, { W, H, mask: after.mask });
+  }
+
+  private readonly blockObjects = new WeakMap<BuildResult, { byTile: Map<number, BuildResult["entities"]>; edits: Map<string, { z?: number; quiet: boolean }> }>();
+
+  /** A build's objects as `blockLost` reads them, once per build (the page asks on every pointer tile):
+   *  by every tile they cover, all but the plants and the slopes; and the last placement or move by hand
+   *  of each, with the level it names and whether a force made it. */
+  private blockObjectsOf(b: BuildResult): { byTile: Map<number, BuildResult["entities"]>; edits: Map<string, { z?: number; quiet: boolean }> } {
+    let o = this.blockObjects.get(b);
+    if (o) return o;
+    const { x: W, y: H } = this.size;
+    const plants = new Set<string>();
+    for (const list of this.groundOf(b.entities).byTile.values()) for (const p of list) plants.add(p.id);
+    const byTile = new Map<number, BuildResult["entities"]>();
+    for (const e of b.entities) {
+      if (plants.has(e.id) || e.template === "Slope") continue;
+      for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) byTile.set(y * W + x, [...(byTile.get(y * W + x) ?? []), e]);
+    }
+    const edits = new Map<string, { z?: number; quiet: boolean }>();
+    for (const ed of this.st.entityEdits) {
+      if (ed.op === "placeEntity") edits.set(ed.params.id, { ...(ed.params.z !== undefined ? { z: ed.params.z } : {}), quiet: false });
+      else if (ed.op === "moveEntity") edits.set(ed.params.id, { ...(ed.params.z !== undefined ? { z: ed.params.z } : {}), quiet: !!ed.params.quiet });
+    }
+    this.blockObjects.set(b, (o = { byTile, edits }));
+    return o;
   }
 
   // What a build's objects mean to the Block tool and the support rule, worked out once per build (the
@@ -1435,10 +1500,11 @@ export class MapSession {
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
     if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
-    // (the Block tool's ground that would fall is refused before anything is built: the query the page shows)
+    // (the Block tool's ground that would fall, or an object it would leave for the game to remove, is
+    // refused before anything is built, with the line of the query the page shows)
     if (op.op === "blocks") {
       const f = this.blockFalls(op.params);
-      if (f.falls.length) return { ok: false, errors: [fallsReason(f.falls.length)], applied: [], dirty: null };
+      if (f.reason) return { ok: false, errors: [f.reason], applied: [], dirty: null };
     }
     if (op.op === "crop") return this.applyCrop(op, origin, label);
     if (op.op === "setDescription") return this.applyDescription(op, origin, label);
@@ -2328,6 +2394,26 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+/** The first object of `now` the game would remove that it kept as it stood in `before`, in one line, or
+ *  null (D491): one on a tile with a cave or an overhang that the game's rule (`standProblem`) held on
+ *  ground `g0` and no longer holds on `g1` (inside the ground or floating: the game removes it on load).
+ *  Nothing wholly on plain ground (its objects ride it). The one rule for a step's last guard
+ *  (`lostSince`) and the Block tool's query (`blockFalls`), so the page never shows a step as fine that
+ *  `apply` then refuses. */
+function objectLost(before: BuildResult["entities"], now: BuildResult["entities"], g0: StandGround, g1: StandGround): string | null {
+  const { W, H } = g1;
+  const was = new Map(before.map((e) => [e.id, e]));
+  for (const e of now) {
+    const b = was.get(e.id);
+    if (!b) continue;
+    const tiles = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
+    if (tiles.every((i) => isPlainMask(g0.mask[i]) && isPlainMask(g1.mask[i]))) continue;
+    if (standProblem(b.template, b, g0) || !standProblem(e.template, e, g1)) continue;
+    return `it would leave ${withArticle(itemName(e.template))} at X ${e.x} · Y ${e.y} inside the ground or floating, and the game would remove it`;
+  }
+  return null;
 }
 
 /** The same tiles with the same masks (the Block tool's ground). */

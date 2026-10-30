@@ -42,6 +42,10 @@ export type GroundKind = "moist" | "dry" | "contaminated" | "underwater";
  *  the threshold, none above (the shaders' `grassOf`; D135 as amended 2026-10-29). */
 export const DESERT = { threshold: 5, max: 0.7 } as const;
 
+/** How the game's terrain blends its desert map at a point (its TerrainMaterialMapSpec: \`BlendingMargin\`,
+ *  \`BlendingNoiseMultiplier\`, \`BlendingSoftness\`; the shaders' \`desertBlend\`). */
+export const BLEND = { margin: 0.2, noise: 0.96, softness: 5.8 } as const;
+
 export const GROUND = {
   /** Dry ground: cracked earth in a warm brown, with dark cracks; plants die there. Broad patches
    *  drift between it, a cooler mauve and a warmer tan (D334, from Timberborn's references: the earth
