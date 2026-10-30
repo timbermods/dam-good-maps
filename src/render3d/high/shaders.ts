@@ -399,7 +399,9 @@ ${HIGH_WATER_GLSL}
     flowB += vec2(vnoise(p2 * 0.71), vnoise(p2 * 0.83 + 8.1)) * 2.2;
     float network = mix(cracks(flowA).x * smoothstep(0.28, 0.66, vnoise(p * 4.2 + 31.0)), cracks(flowB).x * smoothstep(0.28, 0.66, vnoise(p2 * 4.2 + 31.0)), blend);
     float ribbons = mix(smoothstep(0.49, 0.72, vnoise(flowA * vec2(1.7, 0.7))), smoothstep(0.49, 0.72, vnoise(flowB * vec2(1.7, 0.7))), blend);
-    float broad = mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend);
+    // (its broad swells of light fade to their mean from afar, where the eye no longer resolves the ripples
+    // that make them and they would read as cloud blotches on the water: the game's distant water is even)
+    float broad = mix(0.5, mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend), 1.0 - smoothstep(0.05, 0.15, pixel));
     float rough = texture2D(hlRough, g / hlFlowSize).r * hlRiver;
     #ifdef CAVES
       if (waterOwnFlow.a > 0.5) rough = waterOwnFlow.b * hlRiver;
