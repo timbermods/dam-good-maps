@@ -14,11 +14,19 @@ test("the 3D view draws a map's falls, and they follow the water", async ({ page
   });
   await page.setViewportSize({ width: 1280, height: 900 });
   await openEditor(page, "s=3&z=128&d=n&t=canyon");
-  // (the background check may replace the water once)
-  await page.waitForTimeout(1500);
-  await page.evaluate(() => window.dgmEditor!.idle());
+  // (the map as it settles on show: its own water settled and drawn, and the drought line the background works out from
+  // it in (its line and tint, two draws: it comes when the background has done, which a fixed wait raced, D341))
+  await expect
+    .poll(() => page.evaluate(() => !window.dgmEditor!.info().waterPending && window.dgmEditor!.waterSettled() && window.dgm3d!.renderer.waterDrawn && window.dgm3d!.renderer.droughtLineShowing), { timeout: 120_000 })
+    .toBe(true);
 
-  const triangles = () => page.evaluate(() => window.dgm3d!.renderer.info().triangles);
+  // (the triangles of a frame drawn now: the last frame drawn may be one from before the change looked at)
+  const triangles = () =>
+    page.evaluate(() => {
+      const r = window.dgm3d!.renderer as unknown as { renderNow(): void; info(): { triangles: number } };
+      r.renderNow();
+      return r.info().triangles;
+    });
   const drawn = () =>
     page.evaluate(() => {
       const r = window.dgm3d!.renderer as unknown as { renderNow(): void; gl: { getContext(): WebGLRenderingContext } };
