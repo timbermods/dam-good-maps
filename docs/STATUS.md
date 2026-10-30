@@ -87,7 +87,7 @@ Tests marked as expected failures, each a named gap. One comes off the list only
 
 | Test | Gap | Since |
 |---|---|---|
-| naturalizeNature: Lake Basin 4 and River Valley 8 at Terracing 100 (the maps that show it since generator 0.10.7) | Naturalize on cliffs whose foot can't rise (farmland, D418). Both come off together, the next time Naturalize gets real work, judged on a sheet; first check whether the level-edge count scores a stepped slope as younger than the tall cliff it came from (D479) | #339, #346 |
+| naturalizeNature: Lake Basin 3 and 4 and River Valley 3 and 8 at Terracing 100 (the maps that show it since D502's narrowed maps) | Naturalize on cliffs whose foot can't rise (farmland, D418). Both come off together, the next time Naturalize gets real work, judged on a sheet; first check whether the level-edge count scores a stepped slope as younger than the tall cliff it came from (D479) | #339, #346 |
 | maxWaterDepth: seed 5's pit ends 0.07 over the number | The pit's water past the bound (seed 3 until 0.8.5, the same shortfall) | M9b |
 | draftWaterQuiet: Lake Basin seed 7's lake still fills at the four-day preview cap | A draft's water that never ends settled on that map | before 2026-10-07 (missed in this list's first version) |
 | startPlanting: "no two starts get the same ring" (0.442, bar 0.45) | Sea-map starts: two Any maps that roll a sea layout lean less. Kyler, 2026-10-07 | #235 |
