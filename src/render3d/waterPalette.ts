@@ -41,7 +41,7 @@ export const WATER = {
    *  badwater's body by `look-readable.test.ts`'s raw margin (0.3, restored by D310) and
    *  `look-waterfalls.test.ts`'s colour-blind margin (D201, at least 20 L*). D324 (option (a)) darkened
    *  badwater and the mine pit's earth first (see `BAD_BODY`), which let it come down from L* 65.9 to
-   *  58.8; it is as low as the margin allows. Water still reads as water by its shore foam, glints and
+   *  58.8; it is as low as the margin allows. Water still reads as water by its glints and
    *  ripples, not by a wide light-to-dark swing across its own depths. */
   shallow: [0.245, 0.602, 0.654] as Rgb,
   /** The ripples' lit crests, where they catch the sky: the lightest the water gets. */
@@ -87,13 +87,10 @@ export const WATER_UI = {
   sourceLit: [0.9, 0.12, 0.08] as Rgb,
 } as const;
 
-/** Clean water's surface, as the water shader draws it: foam along the shore and broken foam
- *  just off it, glints on the ripples, and shallows clear enough to see the bed through, the more
- *  so toward the banks. */
+/** Clean water's surface, as the water shader draws it: glints on the ripples, and shallows showing a little
+ *  of the bed, the more so toward the banks. No foam along the shore: the game's water shader has none
+ *  (amended 2026-10-29, planning, D496's rule). */
 export const WATER_SURFACE = {
-  /** Foam: the line along the shore, and the broken foam just off it. */
-  shoreFoam: 0.7,
-  brokenFoam: 0.6,
   /** Glints of light on the ripples (up close). */
   glints: 0.6,
   /** How much of the ground behind the water shows through it, as the game draws it (its PhysicalWaterURP's
@@ -253,7 +250,6 @@ export const WATER_FALL = {
  *  one curve:
  *  - the water's opacity goes from `clean` (clean water) or `bad` (badwater, still murkier than clean
  *    water at the same depth) at no depth to its body's own opacity at `to`;
- *  - its shore foam keeps `foam` of itself on a film (a faint edge, not a pond's foam line);
  *  - the ground under it keeps its own soil, seen as through a coloured filter (`waterFilmGround`):
  *    its own detail (its lightness, and `keep` of its own hue under clean water, none under
  *    badwater) in the water's hue, clean water's shallow teal, badwater's crimson or the blend
@@ -265,7 +261,6 @@ export const WATER_FILM = {
   to: 0.03,
   clean: 0.14,
   bad: 0.62,
-  foam: 0.3,
   keep: 0.4,
   gain: [0.8, 0.45] as readonly [number, number],
   /** The crimson the ground takes under a badwater film: `WATER.bad` a touch cooler, as the ground's
@@ -477,7 +472,6 @@ const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000))
 export const WATER_FILM_GLSL = /* glsl */ `
   #define WATER_FILM_CLEAN ${f(WATER_FILM.clean)}
   #define WATER_FILM_BAD ${f(WATER_FILM.bad)}
-  #define WATER_FILM_FOAM ${f(WATER_FILM.foam)}
   /** How far water this deep has built from a film to its body (waterPalette.ts waterFilm). */
   float waterFilm(float depth) {
     return smoothstep(0.0, ${f(WATER_FILM.to)}, depth);
