@@ -1090,12 +1090,12 @@ Two looks (Map look 2, D147, D242, D250, D284):
   occlusion, a colour-preserving tone curve, distance haze, sky, rock strata and soil edges (#65); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
   rock with a soil cap and the water's section, continuous waterfall crowns, irregular landings with froth, mist and
-  splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in High, the
+  splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
   dead (`core/sim/withering.ts`, given to the page with the held day). On a held drought day, High also draws pale dusty
   dry ground with straw where grass stood and a faint heat shimmer over it; on a held badtide day, a slightly sickly sky
-  (each its own effect, `high/seasons.ts`). Day 0 and Standard show the map as it is.
+  (each its own effect, `high/seasons.ts`). Day 0 shows the map as it is.
 
 In both looks (the light look too) water of any depth draws as water, as the game draws it: a film is the same water
 as its body, not a faint tint over its ground (`WATER_FILM` in `render3d/waterPalette.ts`; the game's water in play is its
