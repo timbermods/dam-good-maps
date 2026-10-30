@@ -298,11 +298,10 @@ export function drawnOutline(W: number, H: number, heights: Uint8Array): Float32
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
 export { DEFAULT_YAW };
 
-/** How long a turn of the camera rests before the sun follows it (ms), how far ahead it may run before the sun follows
- *  anyway, and the least difference that counts (radians). */
-const SUN_SETTLE_MS = 120;
-const SUN_LAG = (25 * Math.PI) / 180;
+/** The least turn of the sun the baked shadows are baked again for, and the least turn High's light and depth map take
+ *  (radians): High's every frame it turns that far, as the game's sun turns each frame (`LateUpdate`). */
 const SUN_SAME = (0.2 * Math.PI) / 180;
+const SUN_STEP = (0.5 * Math.PI) / 180;
 
 /** The angle between two suns' ways (radians). */
 function sunApart(a: Sun, b: Sun): number {
@@ -464,12 +463,11 @@ export class MapRenderer {
   private software = false;
   /** The sun as the shadows are baked for (light.ts `Sun`): it turns with the camera, as the game's does (`followSun`). */
   private sun: Sun = DEFAULT_SUN;
-  /** The sun the camera asks for, and since when (a turn still under way waits for it to settle). */
+  /** The sun the camera asks for, and the one the light and High's depth map take now. */
   private sunWant: Sun = DEFAULT_SUN;
-  private sunMovedAt = 0;
+  private sunPointed: Sun = DEFAULT_SUN;
   /** The bake worker is baking the shadows for a turned sun. */
   private sunBaking = false;
-  private sunTimer = 0;
   /** Bumped whenever the baked shadows change (an edit, new objects, a new map): a bake for a turned sun made before
    *  is dropped and asked again. */
   private shadowEpoch = 0;
@@ -1218,6 +1216,8 @@ export class MapRenderer {
     this.governor?.hold(performance.now());
     this.applyWithered();
     this.applyFog();
+    // (High's light follows the camera's sun itself, the others the baked one's)
+    this.pointSun();
     this.requestRender();
     if (was !== tier) {
       this.tellLook();
@@ -2787,7 +2787,7 @@ export class MapRenderer {
       if (!m) return 0;
       const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
       return m.heights[i];
-    }, () => this.voxelsShown));
+    }, () => this.voxelsShown, this.uniforms.sunDir));
   }
 
   /** The map's voxels as shown, for Erode's stones (one object, read as the map changes). */
@@ -3519,22 +3519,16 @@ export class MapRenderer {
 
   // ------------------------------------------------------------------------------------- the sun
 
-  /** The sun follows the camera's turn, as the game's does (light.ts `sunOfYaw`): once the turn settles, or when it has
-   *  run far ahead, the shadows are baked for the new sun in the bake worker, and the light, High's depth map and the
-   *  baked shadows all take it together. Nothing per frame but this comparison. */
+  /** The sun follows the camera's turn, as the game's does (light.ts `sunOfYaw`). The baked shadows roll: a bake for
+   *  the sun as it stands starts in the bake worker as soon as the last has landed, so while the camera turns they trail
+   *  it by one bake (Standard and the light look take its light with them). High draws its shadows from its depth map:
+   *  its light and depth map take the camera's sun every frame it turns past SUN_STEP. Nothing per frame but these
+   *  comparisons. */
   private followSun(): void {
     const want = sunOfYaw(this.view.yaw);
-    const now = performance.now();
-    if (sunApart(want, this.sunWant) > 1e-6) {
-      this.sunWant = want;
-      this.sunMovedAt = now;
-    }
+    this.sunWant = want;
+    if (this.high && sunApart(want, this.sunPointed) >= SUN_STEP) this.pointSun();
     if (this.sunBaking || sunApart(want, this.sun) < SUN_SAME) return;
-    if (now - this.sunMovedAt < SUN_SETTLE_MS && sunApart(want, this.sun) < SUN_LAG) {
-      clearTimeout(this.sunTimer);
-      this.sunTimer = window.setTimeout(() => this.requestRender(), SUN_SETTLE_MS);
-      return;
-    }
     this.turnSun(want);
   }
 
@@ -3583,9 +3577,11 @@ export class MapRenderer {
       );
   }
 
-  /** The light and High's depth map take `this.sun`. */
+  /** The light and High's depth map take the sun: in High the camera's own (its shadows are its depth map's), elsewhere
+   *  the one the shadows are baked for. */
   private pointSun(): void {
-    const [x, y, z] = sunVector(this.sun);
+    this.sunPointed = this.high ? this.sunWant : this.sun;
+    const [x, y, z] = sunVector(this.sunPointed);
     this.uniforms.sunDir.value.set(x, y, z);
     this.high?.setSunWay(this.uniforms.sunDir.value);
     this.requestRender();
@@ -4195,7 +4191,6 @@ export class MapRenderer {
   dispose(): void {
     this.disposed = true;
     if (this.frame) cancelAnimationFrame(this.frame);
-    clearTimeout(this.sunTimer);
     clearTimeout(this.animTimer);
     clearTimeout(this.probeTimer);
     clearTimeout(this.warmTimer);

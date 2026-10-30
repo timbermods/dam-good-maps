@@ -1037,6 +1037,11 @@ class Wear {
     this.group.visible = false;
   }
 
+  /** Light the stones by the scene's sun (it turns with the camera: light.ts `sunOfYaw`), not a fixed one. */
+  useSun(sun: { value: Vector3 }): void {
+    this.stoneMaterial.uniforms.sun = sun;
+  }
+
   dispose(): void {
     this.dustGeometry.dispose();
     this.dustMaterial.dispose();
@@ -1066,8 +1071,11 @@ export class ForceEffects {
     private readonly ground: Ground,
     /** The map's voxels as shown (Erode's stones land on them), or null. */
     private readonly voxels: () => Voxels | null = () => null,
+    /** The scene's sun (its uniform), which the worn stones take. */
+    sun?: { value: Vector3 },
   ) {
     scene.add(this.impact.group, this.rupture.group, this.plume.group, this.glacier.group, this.wear.group);
+    if (sun) this.wear.useSun(sun);
   }
 
   /** A force's latest moment (from its frame). The first moment after the last force was kept or

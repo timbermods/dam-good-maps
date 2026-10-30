@@ -17,6 +17,7 @@
 
 import { columnMask, type TerrainSource } from "./mesh";
 import { LAYERS } from "./model";
+import { LIGHT } from "./palette";
 
 /** Levels in the volume: the 23 layers and one of open sky over them. */
 export const LIGHT_LEVELS = LAYERS + 1;
@@ -116,4 +117,45 @@ export function caveSample(v: CaveLight | null, world: readonly [number, number,
     out[ch] = s / 255;
   }
   return out;
+}
+
+/** The shaders' march toward the sun under a roof (materials.ts `sunMarch`): its step (levels and tiles) and how many it
+ *  takes, enough to climb from the lowest level over the volume's top at the sun's height. */
+export const SUN_MARCH_STEP = 0.3;
+export const SUN_MARCH_STEPS = Math.ceil(LIGHT_LEVELS / (SUN_MARCH_STEP * Math.sin(LIGHT.sunElevation))) + 1;
+
+/** The volume's air at q (tile x, tile y, level), read as the shader reads it: filtered between the cells' middles,
+ *  clamped to the edge (1 in air, 0 in rock). */
+function airAt(v: CaveLight, q: readonly number[]): number {
+  const size = [v.W, v.H, v.D];
+  const N = v.W * v.H;
+  const f = q.map((k) => k - 0.5);
+  const i0 = f.map(Math.floor);
+  const t = f.map((k, a) => k - i0[a]);
+  let s = 0;
+  for (let k = 0; k < 8; k++) {
+    const ix = Math.min(size[0] - 1, Math.max(0, i0[0] + (k & 1)));
+    const iy = Math.min(size[1] - 1, Math.max(0, i0[1] + ((k >> 1) & 1)));
+    const iz = Math.min(size[2] - 1, Math.max(0, i0[2] + ((k >> 2) & 1)));
+    const w = (k & 1 ? t[0] : 1 - t[0]) * ((k >> 1) & 1 ? t[1] : 1 - t[1]) * ((k >> 2) & 1 ? t[2] : 1 - t[2]);
+    s += w * v.data[(iz * N + iy * v.W + ix) * 2];
+  }
+  return s / 255;
+}
+
+/** The shaders' `sunMarch`, for the tests: the sun at q (tile x, tile y, level) under a roof, for the sun toward
+ *  `dir` (tile x, tile y, up; unit), its first step `jitter` of a step along; `open` the baked shadow once the ray is over
+ *  the map's highest ground (1 where nothing casts there). */
+export function sunMarch(v: CaveLight, q: readonly [number, number, number], dir: readonly [number, number, number], jitter = 0, open: (x: number, y: number, z: number) => number = () => 1): number {
+  const clear = Math.min(v.highest, v.D);
+  let lit = 1;
+  const p = q.map((k, a) => k + dir[a] * SUN_MARCH_STEP * jitter);
+  for (let k = 0; k < SUN_MARCH_STEPS; k++) {
+    if (p[0] < 0 || p[1] < 0 || p[0] >= v.W || p[1] >= v.H) return lit;
+    if (p[2] >= clear) return lit * open(p[0], p[1], p[2]);
+    lit = Math.min(lit, airAt(v, p));
+    if (lit < 0.004) return 0;
+    for (let a = 0; a < 3; a++) p[a] += dir[a] * SUN_MARCH_STEP;
+  }
+  return lit * open(p[0], p[1], p[2]);
 }

@@ -7,8 +7,8 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { CaveLight, caveSample, LIGHT_LEVELS } from "../../src/render3d/caveLight";
-import { castersChangedRects, decodeTop, objectCasters, SHADOW_RES, shadowMap, shadowPairRect, shadowRock } from "../../src/render3d/light";
+import { CaveLight, caveSample, LIGHT_LEVELS, sunMarch, SUN_MARCH_STEP, SUN_MARCH_STEPS } from "../../src/render3d/caveLight";
+import { castersChangedRects, decodeTop, objectCasters, SHADOW_RES, shadowMap, shadowPairRect, shadowRock, sunOfYaw } from "../../src/render3d/light";
 import { DEAD, type EntityView } from "../../src/render3d/model";
 import { LIGHT } from "../../src/render3d/palette";
 import { chunkCount, meshChunk, type MeshData, type TerrainSource } from "../../src/render3d/mesh";
@@ -113,6 +113,42 @@ describe("light under roofs on terrains with roofs", () => {
     // the map's own border, and a top folded into the slice's cut (its air is rock)
     expect(caveSample(v, [0, 1, -5.5], [-1, 0, 0])).toBeNull();
     expect(caveSample(v, [12.5, 8, -5.5], [0, 1, 0])).toBeNull();
+  });
+});
+
+describe("the sun's march under a roof (materials.ts sunMarch, mirrored)", () => {
+  // ground 1 high, a slab of rock at levels 4–6 over x 10…18, y 10…14 (on a leg at its west end), and a peak 22 high
+  // far to the south-west, out of the way: the map's highest ground, which the march must climb over
+  const W = 40;
+  const H = 40;
+  const src = terrain(W, H, (x, y, z) => {
+    if (z < 1) return true;
+    if (x === 2 && y === 2) return z < 22;
+    if (x >= 10 && x <= 18 && y >= 10 && y <= 14) return (z >= 4 && z < 7) || (x === 10 && z < 7);
+    return false;
+  });
+  const v = CaveLight.build(src)!;
+  // the sun 45° up toward +x (east)
+  const dir: [number, number, number] = [Math.SQRT1_2, 0, Math.SQRT1_2];
+
+  it("climbs from the lowest level over the highest ground: a deep overhang's floor open to the sun is lit", () => {
+    expect(v.highest).toBe(22);
+    expect(SUN_MARCH_STEPS * SUN_MARCH_STEP * Math.sin(Math.PI / 4)).toBeGreaterThan(LIGHT_LEVELS);
+    // under the slab's east edge: the ray leaves under it and climbs 20 levels of open air
+    for (const jitter of [0, 0.5, 0.99]) expect(sunMarch(v, [18.5, 12.5, 1.5], dir, jitter), `jitter ${jitter}`).toBeGreaterThan(0.95);
+  });
+
+  it("is stopped by the roof: deeper under the slab the ray meets its rock", () => {
+    for (const jitter of [0, 0.5, 0.99]) expect(sunMarch(v, [11.5, 12.5, 1.5], dir, jitter), `jitter ${jitter}`).toBeLessThan(0.05);
+  });
+
+  it("softens a shadow's edge over about a voxel, not a step", () => {
+    // along x under the slab, the sun's share rises from 0 to 1 through partial values
+    const along = Array.from({ length: 41 }, (_, k) => sunMarch(v, [15 + k * 0.1, 12.5, 1.5], dir, 0));
+    expect(along[0]).toBeLessThan(0.05);
+    expect(along[40]).toBeGreaterThan(0.95);
+    expect(along.some((l) => l > 0.2 && l < 0.8)).toBe(true);
+    for (let k = 1; k < along.length; k++) expect(along[k]).toBeGreaterThanOrEqual(along[k - 1] - 1e-9);
   });
 });
 
@@ -362,6 +398,32 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
       const whole = shadowMap(W, H, src.heights, b, undefined, rock);
       expect(Buffer.from(whole).equals(Buffer.from(shadowMap(W, H, src.heights, a, undefined, rock)))).toBe(false);
       expect(Buffer.from(bytes).equals(Buffer.from(whole))).toBe(true);
+    }
+  });
+
+  it("for a sun turned with the camera, redoing round an edit or changed objects gives the bytes of baking again", () => {
+    let seed = 5;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+    for (let deg = 0; deg < 360; deg += 23) {
+      const sun = sunOfYaw((deg * Math.PI) / 180);
+      for (const r of [rock, null]) {
+        const tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
+        const bytes = shadowMap(W, H, src.heights, casters, tops, r, sun);
+        const heights = src.heights.slice();
+        const x0 = 4 + Math.floor(rnd() * 30);
+        const y0 = 4 + Math.floor(rnd() * 28);
+        for (let y = y0; y <= y0 + 2; y++) for (let x = x0; x <= x0 + 1; x++) if (!src.columns.has(y * W + x)) heights[y * W + x] = Math.min(20, heights[y * W + x] + 6);
+        shadowPairRect(tops, bytes, W, H, heights, casters, x0, y0, x0 + 1, y0 + 2, r, false, sun);
+        expect(Buffer.from(bytes).equals(Buffer.from(shadowMap(W, H, heights, casters, undefined, r, sun))), `edit, sun ${deg}°, rock ${!!r}`).toBe(true);
+        const next = casters!.slice();
+        next[(y0 + 3) * W + x0] = 5;
+        next[2 * W + 30] = 4;
+        const rects = castersChangedRects(W, H, casters, next, sun)!;
+        const t2 = { hi: new Float32Array(0), lo: new Float32Array(0) };
+        const b2 = shadowMap(W, H, heights, casters, t2, r, sun);
+        for (const q of rects) shadowPairRect(t2, b2, W, H, heights, next, q.x0, q.y0, q.x1, q.y1, r, false, sun);
+        expect(Buffer.from(b2).equals(Buffer.from(shadowMap(W, H, heights, next, undefined, r, sun))), `objects, sun ${deg}°, rock ${!!r}`).toBe(true);
+      }
     }
   });
 

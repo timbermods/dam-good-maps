@@ -70,7 +70,7 @@ import { ALTITUDE_RAMP, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, C
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
-import { LIGHT_LEVELS, type CaveLight } from "./caveLight";
+import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
 import { CUT_SLACK } from "./cutWater";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 
@@ -594,26 +594,30 @@ const CAVE_AIR = /* glsl */ `vec4 tileAt(vec2 t) {
         if (cell.z >= heightOf(tileAt(cell.xy))) return false;
         return texelFetch(caveTex, ivec3(cell), 0).r > 0.001;
       }
-      /** The sun at a point under a roof (tile coordinates: x, y, level): a ray marched toward the sun through the
-       *  voxels (open air and roofed air alike, so it passes under an overhang as the light does), whichever way the sun
-       *  stands as it turns with the camera; rock stops it, and once it is over the map's highest ground (kept as edits
-       *  raise it) the baked shadow there decides (the objects' shadows); a ray still among the land after its run is in
-       *  shade. */
+      /** The sun at a point under a roof (tile coordinates: x, y, level; caveLight.ts \`sunMarch\` mirrors it): a ray
+       *  marched toward the sun through the volume (open air and roofed air alike, so it passes under an overhang as the
+       *  light does), whichever way the sun stands as it turns with the camera. The volume is read filtered, its air 1
+       *  and its rock 0 blended between cells' middles, and the ray keeps the least it meets: a shadow's edge is soft
+       *  over about a voxel instead of stepping with them. Its first step is a hashed fraction of the step, so the
+       *  steps' banding becomes a fine grain. Once over the map's highest ground (kept as edits raise it) the baked
+       *  shadow there decides (the objects' shadows); \`SUN_MARCH_STEPS\` reach that from the lowest level. */
       float sunMarch(vec3 q) {
         vec3 dir = vec3(sunDir.x, -sunDir.z, sunDir.y);
         float clear = min(caveTop, caveSize.z);
-        for (int k = 0; k < 80; k++) {
-          q += dir * 0.3;
-          if (q.x < 0.0 || q.y < 0.0 || q.x >= caveSize.x || q.y >= caveSize.y) return 1.0;
-          if (q.z >= clear) return sunLit(q.xy, q.z);
-          vec3 cell = floor(q);
-          if (cell.z < heightOf(tileAt(cell.xy)) && texelFetch(caveTex, ivec3(cell), 0).r < 0.001) return 0.0;
+        float lit = 1.0;
+        q += dir * ${f(SUN_MARCH_STEP)} * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+        for (int k = 0; k < ${SUN_MARCH_STEPS}; k++) {
+          if (q.x < 0.0 || q.y < 0.0 || q.x >= caveSize.x || q.y >= caveSize.y) return lit;
+          if (q.z >= clear) return lit * sunLit(q.xy, q.z);
+          lit = min(lit, textureLod(caveTex, q / caveSize, 0.0).r);
+          if (lit < 0.004) return 0.0;
+          q += dir * ${f(SUN_MARCH_STEP)};
         }
-        return 0.0;
+        return lit * sunLit(q.xy, q.z);
       }
-      /** sunMarch at a world point. */
+      /** sunMarch at a point in the air (an object's, the water's): from half a level up, the middle of its cell's air. */
       float sunMarchAt(vec3 world) {
-        return sunMarch(vec3(world.x, -world.z, world.y));
+        return sunMarch(vec3(world.x, -world.z, world.y + 0.5));
       }
 `;
 
@@ -949,7 +953,8 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       }
       /** The sun on a face under a roof (sunMarch from a hair off the face). */
       float caveSunMarch(vec3 world, vec3 n) {
-        return sunMarch(vec3(world.x, -world.z, world.y) + vec3(n.x, -n.z, n.y) * 0.02);
+        // (from the middle of the air cell the face looks into: the filtered volume reads a face itself as half rock)
+        return sunMarch(vec3(world.x, -world.z, world.y) + vec3(n.x, -n.z, n.y) * 0.5);
       }
       /** The roof line a face under a roof takes its sun from: the open side nearest the face, from its cell (the
        *  volume holds no light that rises toward an opening since D497, so only a cell beside open air finds one).
