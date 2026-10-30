@@ -81,8 +81,8 @@ describe("placing an object never visibly spills water (D345, B6)", () => {
     it(`a ${template} placed on uneven ground by water fills no wet tile, cuts nothing below the water beside it, and leaves the water where it was`, async () => {
       let placed = 0;
       let refused = 0;
-      // (seed 3 for seed 2 before generator 0.10.6, D498, D148: the new seed 2 map has a cave under the dune at 54,23 that the snapshot reads as 0.06 of water on the surface, and a lake-edge tile at 63,29 that the canonical settle leaves 0.15 short of level until any edit nearby moves it; neither is the placement spilling)
-      for (const seed of [1, 3]) {
+      // (seed 3 for seed 2 before generator 0.10.6, D498, D148: the new seed 2 map has a cave under the dune at 54,23 that the snapshot reads as 0.06 of water on the surface, and a lake-edge tile at 63,29 that the canonical settle leaves 0.15 short of level until any edit nearby moves it; neither is the placement spilling; seed 4 for seed 1 before generator 0.10.7, D502: the new seed 1 map has a perched pool at 60,39 whose surface, 15.1, stood above the dry tiles beside it, 13 to 14, before any placement, so the LargeRelic at 58,34 lowering three of them cut nothing the water had held)
+      for (const seed of [3, 4]) {
         await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
         ed.refine();
         // the water as the editor settles it, so that a placement is compared with that
