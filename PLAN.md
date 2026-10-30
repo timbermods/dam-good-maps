@@ -697,12 +697,12 @@ where the land's own processes make them. The builder's limits still fix what a 
   spring dropped when its badwater comes nearer the start than the badwater distance.
 - **Validated:** no badwater or contaminated soil within the badwater distance of the start; the start's pumpable
   water stays clean (contamination under 0.05); at least one clean river reach of 40+ tiles; badwater joins rivers and
-  lakes (D469), and on most maps the first basin's ditch joins the theme's main water (D476, `land/hazards.ts`
-  `mainWater`: Lake Basin's main lake, its largest planned lake, or water flowing into it; elsewhere the river named
-  `river/main` with its split arms, its lakes and the rivers joining it, on a delta its trunk and own channel, on
-  Islands the sea it drains), below the start's water where it can, else beyond the badwater distance with the start
-  then found by other clean water (`BadwaterAsk.join`); on about 15 maps in 100 (`OWN_DRAIN`, its own hash), and where
-  no join can be routed, the badwater drains where the land takes it ( `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
+  lakes (D469), and on most maps the first basin's ditch joins the theme's main water's lower reach (D476, D498,
+  `land/hazards.ts` `joinReach`: the last 30% of `river/main`'s course, 16 tiles and more below its last lake, where it
+  leaves by an edge), below the start's water where it can, else beyond the badwater distance with the start then found
+  by other clean water (`BadwaterAsk.join`); no other ditch ends in the main water above that reach (`BadwaterAsk.spare`);
+  Lake Basin and Islands take no join, their lakes, sea and the water joined to them staying clean; on about 15 maps in
+  100 (`OWN_DRAIN`, its own hash), and where no join can be routed, the badwater drains where the land takes it ( `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
   badwater, so only stored water stays clean (the map card says nothing about badtides, D472).
 
 ### 9.6 Plugged spillway, 9.8 Second district site, 9.9 Gorge

@@ -149,9 +149,13 @@ function lockstep(make: () => MapSession, setup: Blocks | ((s: MapSession) => Ed
 const OFFICIAL = process.env.DGM_OFFICIAL ?? "C:/Users/krams/code/DamGoodMaps/.scratch/official/";
 const HOLLOWS = OFFICIAL + "builtin_18_MapMetadataHollowsName.timber";
 
+// seed 7 on 0.10.6's maps (D148): a level patch for the pit, a hillside to hollow, and no caves of its own (seed 3's River Valley
+// has no level patch since badwater joined the lower reach, D498)
+const SEED = 7;
+
 describe("random edits on a map with caves: the settle at once is the settle from cold (D453)", () => {
   it("a generated 64² map, hollowed", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
+    const r = generate(makeSpec({ seed: SEED, theme: "riverValley", size: { x: 64, y: 64 } }));
     const make = () => MapSession.fromGenerated(r, r.file);
     const f = hillsides(make())[0];
     expect(lockstep(make, dig(f.x, f.y, f.z, "-x"), 25, 11)).toBeGreaterThanOrEqual(5);
@@ -173,13 +177,13 @@ describe("random edits on a map with caves: the settle at once is the settle fro
   }
 
   it("a generated 64² map holding a Fill: the stored lake's stop, the lake kept as it began", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
+    const r = generate(makeSpec({ seed: SEED, theme: "riverValley", size: { x: 64, y: 64 } }));
     const make = () => MapSession.fromGenerated(r, r.file);
     expect(lockstep(make, pitAndFill(), 25, 12)).toBeGreaterThanOrEqual(5);
   }, 120_000);
 
   it("a generated 64² map with a removal: the shortcut never stands for it, every settle the cold one", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
+    const r = generate(makeSpec({ seed: SEED, theme: "riverValley", size: { x: 64, y: 64 } }));
     const make = () => MapSession.fromGenerated(r, r.file);
     expect(lockstep(make, [...pitAndFill(), (s) => unfedWater(s).op!], 4, 13)).toBe(0);
   }, 120_000);
