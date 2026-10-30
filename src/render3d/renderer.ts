@@ -3485,6 +3485,7 @@ export class MapRenderer {
     const v = this.view;
     u.fogDensity.value = v.mode === "top" || (this.high && !this.high.effects.fog) ? 0 : GAME_FINISH.fogParam;
     u.fogShift.value = Math.max(0, v.distance - GAME_FINISH.fogFarthest);
+    u.fogNear.value = this.persp.near;
   }
 
   // --------------------------------------------------------------------------------- rendering

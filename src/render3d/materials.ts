@@ -94,6 +94,8 @@ export interface SceneUniforms {
   /** How much of the view depth the fog leaves out: past the game's farthest default zoom, the camera's distance beyond
    *  it (renderer.ts applyFog). */
   fogShift: { value: number };
+  /** The camera's near plane: URP's fog counts the depth from it (UNITY_Z_0_FAR_FROM_CLIPSPACE). */
+  fogNear: { value: number };
   time: { value: number };
   tileTex: { value: DataTexture };
   lightTex: { value: DataTexture };
@@ -163,6 +165,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     hazeColor: { value: color(LIGHT.haze) },
     fogDensity: { value: GAME_FINISH.fogParam },
     fogShift: { value: 0 },
+    fogNear: { value: 0 },
     time: { value: 0 },
     tileTex: { value: tile },
     lightTex: { value: light },
@@ -651,6 +654,7 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   uniform vec3 hazeColor;
   uniform float fogDensity;
   uniform float fogShift;
+  uniform float fogNear;
   uniform float time;
   uniform sampler2D tileTex;
   uniform sampler2D lightTex;
@@ -684,6 +688,14 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   float cobble(vec2 p) {
     return texture2D(patternTex, p / vec2(${f(COBBLE_CELLS[0])}, ${f(COBBLE_CELLS[1])})).b;
   }
+  /** How much of a tile's top is grass at moisture level m (its soil nibble, the game's levels), as the game's terrain
+   *  draws it (SoilMoistureSystem \`UpdateDesertIntensity\`; \`DesertMoistureThreshold\` 5, \`MaxDesertIntensity\` 0.7 in
+   *  its blueprint): its desert texture over all of a dry tile (moisture 0), over (1 − m/5) × 0.7 of one at moisture 0
+   *  to 5, none above, so green thins toward the edge of the water's reach, and through a drought. (Before the hooks'
+   *  declarations: High's slopes read it there.) */
+  float grassOf(float m) {
+    return m < 0.5 ? 0.0 : 1.0 - ${f(DESERT.max)} * max(0.0, 1.0 - m / ${f(DESERT.threshold)});
+  }
   /** How lit a point at height z above tile position g is (the baked sun shadow, soft). */
   float ${h?.sunLit ? "bakedSunLit" : "sunLit"}(vec2 g, float z) {
     #if LITE
@@ -694,13 +706,6 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
     float lo = s.g * ${f(255 / SHADOW_SCALE)} - ${f(SHADOW_OFFSET)};
     return clamp((z - hi) / max(0.05, lo - hi), 0.0, 1.0);
   }${hook(h, "decl")}${hook(h, "sunLit")}
-  /** How much of a tile's top is grass at moisture level m (its soil nibble, the game's levels), as the game's terrain
-   *  draws it (SoilMoistureSystem \`UpdateDesertIntensity\`; \`DesertMoistureThreshold\` 5, \`MaxDesertIntensity\` 0.7 in
-   *  its blueprint): its desert texture over all of a dry tile (moisture 0), over (1 − m/5) × 0.7 of one at moisture 0
-   *  to 5, none above, so green thins toward the edge of the water's reach, and through a drought. */
-  float grassOf(float m) {
-    return m < 0.5 ? 0.0 : 1.0 - ${f(DESERT.max)} * max(0.0, 1.0 - m / ${f(DESERT.threshold)});
-  }
   /** A hatched overlay (dam sites) at tile position g: inside, light stripes in the tile's
    *  overlay colour and dark stripes (solid light where a stripe would be under two pixels); just
    *  outside, a dark rim at least a pixel wide. Returns the colour and its weight. */
@@ -770,7 +775,7 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   /** The game's finish (palette.ts GAME_FINISH): its exponential fog by the view depth (URP's FOG_EXP), then its post
    *  chain. */
   vec3 finish(vec3 c, vec3 world) {
-    float depth = max(-(viewMatrix * vec4(world, 1.0)).z - fogShift, 0.0);
+    float depth = max(-(viewMatrix * vec4(world, 1.0)).z - fogNear - fogShift, 0.0);
     c = mix(hazeColor, c, exp2(-fogDensity * depth));
     return gamePost(c);
   }
@@ -789,7 +794,7 @@ export const GAME_POST_GLSL = /* glsl */ `
     vec3 c = mix(d / 12.92, pow((d + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), d)) * ${f(Math.round(2 ** GAME_FINISH.postExposure * 1e6) / 1e6)};
     float white = 1.0 / gpCurve(vec3(5.3)).x;
     c = clamp(gpCurve(c * white) * white, 0.0, 1.0);
-    c = max(gpFromLogC((gpLogC(c) - 0.4135884) * ${f(GAME_FINISH.contrast)} + 0.4135884), vec3(0.0));
+    c = clamp(gpFromLogC((gpLogC(c) - 0.4135884) * ${f(GAME_FINISH.contrast)} + 0.4135884), 0.0, 1.0);
     float l = dot(c, vec3(0.2126729, 0.7151522, 0.072175));
     c = clamp(vec3(l) + ${f(GAME_FINISH.saturation)} * (c - vec3(l)), 0.0, 1.0);
     return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
