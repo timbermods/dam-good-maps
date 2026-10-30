@@ -1047,6 +1047,29 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float t = clamp((z - heightRange.x) / max(1.0, heightRange.y - heightRange.x), 0.0, 1.0);
         return mix(${glColor(HEIGHT_RAMP.low)}, ${glColor(HEIGHT_RAMP.high)}, t);
       }
+      /** How much of the ground at tile point g is the game's desert (TerrainURP's ForwardLit program, read from its
+       *  DXBC): four taps \`BLEND_MARGIN\` round the point, each the desert of the tile it falls in (\`desert\`: this tile,
+       *  the neighbour toward the nearest corner across x, across y, and the diagonal; a tile whose top is at another
+       *  level counts as desert, as the game's map holds 1 there), weighted by how far the tap lies from the nearest
+       *  tile corner (|dx| × |dz|); then the game's noise (here our own, the game's being a texture at world × 0.2) and its
+       *  softness: saturate((f + 0.96 (n − 0.5) − 0.5) × 5.8 + 0.5). So a tile's share shows as patches of grass and
+       *  earth, and the change between tiles is a noisy blend a fifth of a tile wide. */
+      float desertBlend(vec2 g, vec4 desert) {
+        vec2 corner = floor(g + 0.5);
+        vec2 tile = floor(g);
+        float sum = 0.0;
+        float weight = 0.0;
+        for (int k = 0; k < 4; k++) {
+          vec2 q = g + ${f(BLEND.margin)} * vec2(k == 0 || k == 2 ? -1.0 : 1.0, k < 2 ? -1.0 : 1.0);
+          vec2 off = floor(q) - tile;
+          float dsr = off.x != 0.0 ? (off.y != 0.0 ? desert.w : desert.y) : (off.y != 0.0 ? desert.z : desert.x);
+          float wq = abs(q.x - corner.x) * abs(q.y - corner.y);
+          sum += wq * dsr;
+          weight += wq;
+        }
+        float n = 0.5 + 0.6 * (0.62 * vnoise(g * 0.8 + vec2(3.1, 11.7)) + 0.38 * vnoise(g * 2.1 + vec2(17.3, 5.9)) - 0.5);
+        return clamp((sum / max(weight, 1e-4) + ${f(BLEND.noise)} * (n - 0.5) - 0.5) * ${f(BLEND.softness)} + 0.5, 0.0, 1.0);
+      }
       /** Contamination's veins at field point q and contamination level lvl (0–1), as in the game
        *  (D334): sparse, irregular orange-red fissures, the edges of a coarse jittered cell field
        *  (about a tile and a half across), some edges dropped, the kept ones thick main cracks or
@@ -1084,29 +1107,6 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float rim = 1.0 - smoothstep(width, width + aa, distance);
         float core = 1.0 - smoothstep(width * 0.14, width * 0.48 + aa, distance);
         return vec2(rim, core) * present * smoothstep(0.0, ${f(CT.onset)}, lvl);
-      }
-      /** How much of the ground at tile point g is the game's desert (TerrainURP's ForwardLit program, read from its
-       *  DXBC): four taps \`BLEND_MARGIN\` round the point, each the desert of the tile it falls in (\`desert\`: this tile,
-       *  the neighbour toward the nearest corner across x, across y, and the diagonal; a tile whose top is at another
-       *  level counts as desert, as the game's map holds 1 there), weighted by how far the tap lies from the nearest
-       *  tile corner (|dx| × |dz|); then the game's noise (here our own, the game's being a texture at world × 0.2) and its
-       *  softness: saturate((f + 0.96 (n − 0.5) − 0.5) × 5.8 + 0.5). So a tile's share shows as patches of grass and
-       *  earth, and the change between tiles is a noisy blend a fifth of a tile wide. */
-      float desertBlend(vec2 g, vec4 desert) {
-        vec2 corner = floor(g + 0.5);
-        vec2 tile = floor(g);
-        float sum = 0.0;
-        float weight = 0.0;
-        for (int k = 0; k < 4; k++) {
-          vec2 q = g + ${f(BLEND.margin)} * vec2(k == 0 || k == 2 ? -1.0 : 1.0, k < 2 ? -1.0 : 1.0);
-          vec2 off = floor(q) - tile;
-          float dsr = off.x != 0.0 ? (off.y != 0.0 ? desert.w : desert.y) : (off.y != 0.0 ? desert.z : desert.x);
-          float wq = abs(q.x - corner.x) * abs(q.y - corner.y);
-          sum += wq * dsr;
-          weight += wq;
-        }
-        float n = 0.5 + 0.6 * (0.62 * vnoise(g * 0.8 + vec2(3.1, 11.7)) + 0.38 * vnoise(g * 2.1 + vec2(17.3, 5.9)) - 0.5);
-        return clamp((sum / max(weight, 1e-4) + ${f(BLEND.noise)} * (n - 0.5) - 0.5) * ${f(BLEND.softness)} + 0.5, 0.0, 1.0);
       }
       /** The last groundColor's ground and glow as they are with no water on it (its soil's under-water flag clear). */
       vec3 groundDry;
