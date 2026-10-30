@@ -404,14 +404,17 @@ ${HIGH_WATER_GLSL}
     }
     vec3 referenceLight = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
     vec3 rippleLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(normalize(mix(vec3(0.0, 1.0, 0.0), N, 0.35)), sunDir), 0.0) * lit;
+    // the game's own highlight on the ripples (its camera-tied light; WATER_SURFACE.highlight), not a sun hotspot:
+    // in the colour before its light, and again after it as the game's emission, unlit and unshadowed
+    vec3 highlight = sunColor * waterCameraHighlight(N, V, tint);
+    colour += highlight;
     colour *= rippleLight / max(referenceLight, vec3(0.01));
     float glint = mix(microFlecks(p, t, speed, pixel), microFlecks(p2, t, speed, pixel), blend);
     glint *= lit * (1.0 - smoothstep(0.08, 0.22, pixel));
     glint *= mix(1.0, 0.35, tint);
     glint *= mix(1.0, 0.08, smoothstep(0.25, 1.0, tint));
     colour = mix(colour, mix(HW_GLINT, HW_BAD_GLINT, tint), glint);
-    // the game's own highlight on the ripples (its camera-tied light; WATER_SURFACE.highlight), not a sun hotspot
-    colour += sunColor * waterCameraHighlight(N, V, tint) * lit;
+    colour += highlight;
     hlSheen = max(max(streak * 0.45, clamp(highlights, 0.0, 0.82)), glint);
     if (tint > 0.01) {
       float bt = t * mix(1.0, 0.55, tint);

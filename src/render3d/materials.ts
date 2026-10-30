@@ -1765,8 +1765,9 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         vec3 c = waterBlend(body, murky, cont);
         float lit = sunLit(g, vWorld.y);
         vec3 light = skyColor * 1.2 + sunColor * 0.3 * max(dot(N, sunDir), 0.0) * lit;
-        // the game's own highlight on the ripples, added to the colour before its light
-        c += sunColor * waterCameraHighlight(N, V, bad) * step(0.5, n.y);
+        // the game's own highlight on the ripples, added to the colour before its light (and again after it)
+        vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, n.y);
+        c += highlight;
         c *= light;
         c = mix(c, WATER_CREST * light, crest * WATER_CREST_AMOUNT);
         c = mix(c, badwaterShade(BADWATER_TROUGH, depth) * light, trough * BADWATER_TROUGH_AMOUNT);
@@ -1777,6 +1778,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         float smoothness = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, bad);
         float fres = waterSkyReflect(dot(N, V), smoothness) * step(0.5, n.y);
         c += WATER_SKY * fres;
+        // (the highlight's emission: unlit, unshadowed)
+        c += highlight;
         // pale streaks where it flows (badwater's brownish, so it reads as a flowing liquid too): each
         // by its own share, so water partly bad never takes a pale pink haze between the two
         c = mix(c, WATER_PALE, pale * WATER_PALE_AMOUNT * (1.0 - bad));

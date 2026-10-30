@@ -130,12 +130,14 @@ export const WATER_SURFACE = {
   smoothnessSpread: 0.6,
   f0: 0.04,
   reflection: 1,
-  /** The game's own highlight (its PhysicalWaterURP, after the albedo): a light tied to the camera, tilted toward the
-   *  horizon by `downTilt` and down by `lightTilt`, its reflection off the ripples' normals to the eye raised to
-   *  `exponent`, × (fresnel ^ `fresnelPower` × 0.5 + 0.5), × the wrapped light (N·L + `wrap`) / (1 + `wrap`),
-   *  × (1 − |N.y|³) (only on the ripples' slopes), × `clean` to `bad` by the tint, × the sun's colour, added to the
-   *  albedo (`waterCameraHighlight`): its sparkles on the waves. */
-  highlight: { exponent: 150, fresnelPower: 5, downTilt: 0.15, lightTilt: 0.2, wrap: 0.4, clean: 1.1, bad: 0.4 },
+  /** The game's own highlight (its PhysicalWaterURP, p036 791–835): a light tied to the camera, along its forward
+   *  direction turned `horizon` of the way to the horizontal (`_LightHorizonBias`) and down by `tilt`
+   *  (`_LightTilt`), its reflection off the ripples' normals to the eye raised to `exponent`, × (fresnel ^
+   *  `fresnelPower` × 0.5 + 0.5), × the wrapped light (saturate(N·L) + `wrap`) / (1 + `wrap`), × (1 − |N.y|³)
+   *  (only on the ripples' slopes), × `clean` to `bad` by the tint (`waterCameraHighlight`). It lands on slopes
+   *  facing away from the camera. × the sun's colour, the game adds it twice: to the albedo, lit, and to the
+   *  emission, unlit and unshadowed. */
+  highlight: { exponent: 150, fresnelPower: 5, horizon: 0.9, tilt: 0.2, wrap: 0.4, clean: 1.1, bad: 0.4 },
 } as const;
 
 /** The High look's water (Map look 2, D284; #38, investigation/maplook2 water.ts, as Kyler approved it at
@@ -544,13 +546,16 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
     float r = max(pr * pr, 0.0078125);
     return ${f(WATER_SURFACE.reflection)} * (clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0) - ${f(WATER_SURFACE.f0)}) * pow(1.0 - clamp(NoV, 0.0, 1.0), 4.0) / (1.0 + r * r);
   }
-  /** The game's own highlight on the ripples (waterPalette.ts WATER_SURFACE.highlight), at a tint; × the sun's colour. */
+  /** The game's own highlight on the ripples (waterPalette.ts WATER_SURFACE.highlight), at a tint; the caller
+   *  adds it × the sun's colour twice, before the light and after it. */
   float waterCameraHighlight(vec3 N, vec3 V, float tint) {
-    vec3 Vh = normalize(vec3(V.x, 0.0, V.z) + vec3(0.00001, 0.0, 0.0));
-    vec3 Lc = normalize(mix(V, Vh, ${f(WATER_SURFACE.highlight.downTilt)}) - vec3(0.0, ${f(WATER_SURFACE.highlight.lightTilt)}, 0.0));
+    // (the camera's forward direction: the view matrix's third row is its back axis)
+    vec3 F = -normalize(vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2]));
+    vec3 Fh = normalize(vec3(F.x, 0.0, F.z) + vec3(0.00001, 0.0, 0.0));
+    vec3 Lc = normalize(mix(F, Fh, ${f(WATER_SURFACE.highlight.horizon)}) - vec3(0.0, ${f(WATER_SURFACE.highlight.tilt)}, 0.0));
     float spec = pow(clamp(dot(reflect(-Lc, N), V), 0.0, 1.0), ${f(WATER_SURFACE.highlight.exponent)});
     float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), ${f(WATER_SURFACE.highlight.fresnelPower)});
-    float wrap = clamp((dot(N, Lc) + ${f(WATER_SURFACE.highlight.wrap)}) / ${f(1 + WATER_SURFACE.highlight.wrap)}, 0.0, 1.0);
+    float wrap = clamp((clamp(dot(N, Lc), 0.0, 1.0) + ${f(WATER_SURFACE.highlight.wrap)}) / ${f(1 + WATER_SURFACE.highlight.wrap)}, 0.0, 1.0);
     float slope = max(0.0, 1.0 - pow(abs(N.y), 3.0));
     return wrap * (fres * 0.5 + 0.5) * spec * slope * mix(${f(WATER_SURFACE.highlight.clean)}, ${f(WATER_SURFACE.highlight.bad)}, tint);
   }
