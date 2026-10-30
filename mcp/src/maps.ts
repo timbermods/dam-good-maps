@@ -117,6 +117,10 @@ export interface Generated {
   ms: number;
 }
 
+/** What a finished job keeps of its map: the handle, the intentions and the time, never the session. The session
+ *  lives in the open maps alone, so the bound on them (MOST_OPEN) is the bound on the maps held. */
+export type Made = Omit<Generated, "session">;
+
 const SIDE_MAX = 256;
 
 function sizeOf(v: GenerateInput["size"]): { x: number; y: number } {

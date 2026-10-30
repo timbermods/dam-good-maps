@@ -61,6 +61,18 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
     await page.mouse.move(p.x + ((q.x - p.x) * k) / 30, p.y + ((q.y - p.y) * k) / 30);
     await page.waitForTimeout(15);
   }
+  // (the water the view shows is watched from the release on: the checks below wait on the worker, which may finish the
+  // stroke's whole water journey first, and a watch begun after them then saw one depth for 60 s, dev's run 41002468990)
+  await page.evaluate(() => {
+    const seen = new Set<unknown>();
+    (window as unknown as { strokeWater: Set<unknown> }).strokeWater = seen;
+    const look = () => {
+      const depth = window.dgm3d?.renderer.mapState()?.surface.depth;
+      if (depth) seen.add(depth);
+    };
+    look();
+    setInterval(look, 10);
+  });
   await page.mouse.up();
   await settled(page);
 
@@ -93,10 +105,9 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
   // the live water plays after it: new frames reach the view, then it settles (waited on by the water's own progress,
   // not a few seconds: CI's software renderer draws a frame every 1.5 to 2.3 s, room for two depths in 4 s)
   const frames = await page.evaluate(async () => {
-    const seen = new Set<unknown>();
+    const seen = (window as unknown as { strokeWater: Set<unknown> }).strokeWater;
     const t0 = performance.now();
     while (performance.now() - t0 < 60_000) {
-      seen.add(window.dgm3d!.renderer.mapState()!.surface.depth);
       if (seen.size > 1 && window.dgmEditor!.waterSettled()) break;
       await new Promise((r) => setTimeout(r, 50));
     }
