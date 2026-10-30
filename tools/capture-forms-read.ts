@@ -80,6 +80,9 @@ const SHOTS: ShotDef[] = [
   { id: "drought-first", label: "the game's first frame on a held drought day", view: "opening-first", before: `window.dgm3d.renderer.setSeason("drought")`, undo: `window.dgm3d.renderer.setSeason(null)` },
   { id: "fog-off", label: "the game's first frame, High's Fog off", view: "opening-first", looks: ["high"], before: `window.dgm3d.renderer.setHighEffect("fog", false)`, undo: `window.dgm3d.renderer.setHighEffect("fog", true)` },
   { id: "zoom-far", label: "pulled back to 300, past the game's farthest zoom", view: "opening", after: `window.dgm3d.renderer.setView({ distance: 300 })` },
+  // the sun turning with the camera (D497): the first frame turned a quarter, the light still from behind the camera's
+  // left shoulder
+  { id: "turned-first", label: "the game's first frame, the camera turned a quarter", view: "opening-first", after: `(() => { const r = window.dgm3d.renderer; r.setView({ yaw: r.getView().yaw + Math.PI / 2 }); })()` },
   { id: "top-down", label: "straight down", view: "opening", after: `(() => { const r = window.dgm3d.renderer; const v = r.getView(); r.setView({ mode: "top", yaw: 0, pitch: v.pitch, distance: 120, target: v.target }); })()` },
 ];
 

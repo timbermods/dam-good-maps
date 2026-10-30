@@ -100,10 +100,10 @@ describe("light under roofs on terrains with roofs", () => {
       }
   });
 
-  it("a sealed chamber is air like any other, with no sun", () => {
+  it("a sealed chamber is air like any other; the volume holds air alone (D497: the sun turns with the camera, so the shader marches it)", () => {
     const s = caveSample(v, [8.5, 6, -6.5], [0, 1, 0])!;
     expect(s[0]).toBe(1);
-    expect(s[1]).toBe(0);
+    expect(s[1]).toBe(s[0]);
   });
 
   it("open ground beside the hill, the hill's top and its outer walls keep the baked light", () => {
@@ -117,7 +117,7 @@ describe("light under roofs on terrains with roofs", () => {
 });
 
 describe("relighting after an edit", () => {
-  it("rock raised above the map's old highest ground on a cave's sun path shades its floor", () => {
+  it("rock raised above the map's old highest ground raises the ceiling the shader's sun march climbs to", () => {
     // ground 2 high, a low hill (6) with an overhang (two levels high) at its north-west corner open to the sun, and a plain
     // tile two tiles up the sun's way to raise
     const W = 24;
@@ -127,13 +127,14 @@ describe("relighting after an edit", () => {
     const v = CaveLight.build(src)!;
     const floor = () => caveSample(v, [10.5, 2, -11.5], [0, 1, 0])!;
     expect(v.highest).toBe(6);
-    expect(floor()[1], "the mouth's floor in sun").toBeGreaterThan(0.5);
+    expect(floor()[0], "the mouth's floor is roofed air").toBe(1);
     const heights = src.heights.slice();
     heights[13 * W + 8] = 20;
     src = { ...src, heights };
     v.relight(src, { x0: 8, y0: 13, x1: 8, y1: 13 });
+    // (the march under roofs runs up to the highest ground: materials.ts sunMarch, caveTop; the volume holds air alone)
     expect(v.highest).toBe(20);
-    expect(floor()[1], "in the new rock's shadow").toBeLessThan(0.5);
+    expect(floor()[0]).toBe(1);
   });
 
   it("redoes only the box round the change, with the same bytes as building the volume again", () => {
@@ -235,8 +236,9 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
         if (casters && on) on[1] += casters[i];
       }
       for (const [lo, hi] of runs) {
+        // (within a rounding step of a run's bottom or top the ray grazes it, inside or not: the bytes decide)
         if (Math.min(Math.abs(h - lo), Math.abs(h - hi)) < 0.15) near = true;
-        if (h >= lo && h < hi) return true;
+        else if (h >= lo && h < hi) return true;
       }
     }
     return near ? null : false;
@@ -323,9 +325,21 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
     const view = { ...entities, count: now.length, template: new Uint16Array(now.length), x: Int16Array.from(now, (t) => t[0]), y: Int16Array.from(now, (t) => t[1]), z: Int16Array.from(now, (t) => t[2]), flags: Uint8Array.from(now, (t) => t[3]) } as unknown as EntityView;
     const next = objectCasters(W, H, view);
     const rects = castersChangedRects(W, H, casters, next)!;
-    expect(rects.length).toBeGreaterThan(1);
     for (const r of rects) shadowPairRect(tops, bytes, W, H, src.heights, next, r.x0, r.y0, r.x1, r.y1, rock);
     expect(Buffer.from(bytes).equals(Buffer.from(shadowMap(W, H, src.heights, next, undefined, rock)))).toBe(true);
+    // (on this small map at the game's 45° sun, one rectangle round them all is cheaper; on a wide one, groups apart
+    // redo their own)
+    const BW = 96;
+    const flat = terrain(BW, BW, (x, y, z) => z < 3);
+    const wide = (list: [number, number][]) => objectCasters(BW, BW, { ...entities, count: list.length, template: new Uint16Array(list.length), x: Int16Array.from(list, (t) => t[0]), y: Int16Array.from(list, (t) => t[1]), z: Int16Array.from(list, () => 3), flags: new Uint8Array(list.length) } as unknown as EntityView);
+    const before = wide([[3, 3], [48, 48]]);
+    const after = wide([[48, 48], [92, 92], [92, 3]]);
+    const wideTops = { hi: new Float32Array(0), lo: new Float32Array(0) };
+    const wideBytes = shadowMap(BW, BW, flat.heights, before, wideTops);
+    const wideRects = castersChangedRects(BW, BW, before, after)!;
+    expect(wideRects.length).toBeGreaterThan(1);
+    for (const r of wideRects) shadowPairRect(wideTops, wideBytes, BW, BW, flat.heights, after, r.x0, r.y0, r.x1, r.y1);
+    expect(Buffer.from(wideBytes).equals(Buffer.from(shadowMap(BW, BW, flat.heights, after)))).toBe(true);
   });
 
   it("an object moved to another level of its tile redoes its shadows: the floor's pine on the roof above, or one of two pines on a tile deleted", () => {
