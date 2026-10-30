@@ -676,6 +676,15 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
 
   float bitOf(float v, float b) { return mod(floor(v / b + 0.001), 2.0); }
 
+  /** How much of a tile's top is grass at moisture level m (its soil nibble, the game's levels), as the game's terrain
+   *  draws it (SoilMoistureSystem \`UpdateDesertIntensity\`; \`DesertMoistureThreshold\` 5, \`MaxDesertIntensity\` 0.7 in
+   *  its blueprint): its desert texture over all of a dry tile (moisture 0), over (1 − m/5) × 0.7 of one at moisture 0
+   *  to 5, none above, so green thins toward the edge of the water's reach, and through a drought. (Before the hooks'
+   *  declarations: High's slope reads it too.) */
+  float grassOf(float m) {
+    return m < 0.5 ? 0.0 : 1.0 - ${f(DESERT.max)} * max(0.0, 1.0 - m / ${f(DESERT.threshold)});
+  }
+
   /** Value noise, one cell per unit of p. */
   float vnoise(vec2 p) {
     return texture2D(patternTex, p * ${f(1 / NOISE_CELLS)}).r;
@@ -687,14 +696,6 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   /** Cobbles: 0 on the mortar, 0.5–1 on a stone; p in stones along and courses up. */
   float cobble(vec2 p) {
     return texture2D(patternTex, p / vec2(${f(COBBLE_CELLS[0])}, ${f(COBBLE_CELLS[1])})).b;
-  }
-  /** How much of a tile's top is grass at moisture level m (its soil nibble, the game's levels), as the game's terrain
-   *  draws it (SoilMoistureSystem \`UpdateDesertIntensity\`; \`DesertMoistureThreshold\` 5, \`MaxDesertIntensity\` 0.7 in
-   *  its blueprint): its desert texture over all of a dry tile (moisture 0), over (1 − m/5) × 0.7 of one at moisture 0
-   *  to 5, none above, so green thins toward the edge of the water's reach, and through a drought. (Before the hooks'
-   *  declarations: High's slopes read it there.) */
-  float grassOf(float m) {
-    return m < 0.5 ? 0.0 : 1.0 - ${f(DESERT.max)} * max(0.0, 1.0 - m / ${f(DESERT.threshold)});
   }
   /** How lit a point at height z above tile position g is (the baked sun shadow, soft). */
   float ${h?.sunLit ? "bakedSunLit" : "sunLit"}(vec2 g, float z) {
