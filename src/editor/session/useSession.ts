@@ -556,6 +556,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setMessage({ kind: "info", text: "A force is at work: it is kept when it ends. Skip it to its end or take it back first." });
       return Promise.resolve();
     }
+    // (an undo has taken the kept force's tails back already, on its key)
+    juice.current?.edited();
     const next = queue.current.then(async () => {
       setBusy((b) => b + 1);
       try {
