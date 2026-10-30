@@ -126,8 +126,19 @@ test("the first Glaciate and the first Erode on a page compile no program in the
   const e = await high(page);
   const p = await client(page, e[0], e[1]);
   await watch();
-  await page.mouse.click(p.x, p.y);
-  await expect.poll(() => status(page)).not.toBeNull();
+  // (Glaciate's meltwater settles first: Erode waits for it, refusing a click meanwhile, so the click is made again
+  // until it takes)
+  await expect
+    .poll(
+      async () => {
+        if (await status(page)) return true;
+        await page.mouse.click(p.x, p.y);
+        await page.waitForTimeout(800);
+        return !!(await status(page));
+      },
+      { timeout: 90_000, intervals: [500] },
+    )
+    .toBe(true);
   await settled(page);
   expect(await stop(), "programs compiled by the first Erode's frames").toBe(0);
 });

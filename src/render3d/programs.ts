@@ -230,16 +230,14 @@ export class Programs {
     for (const o of drawn.length ? drawn : [this.host.standIn(mat)]) {
       const obj = o as Object3D & { material: Material | Material[] };
       const keepMaterial = obj.material;
-      // (three.js compiles what is visible: an object hidden until its tool shows it, a cursor or a ring, too)
-      const keepVisible = obj.visible;
+      // (an object hidden until its tool shows it, a cursor or a ring, compiles as it is: three.js's compile walks
+      // every mesh for its materials, only its lights by visibility)
       obj.material = mat;
-      obj.visible = true;
       mat.defines = { ...d };
       mat.needsUpdate = true;
       try {
         gl.compile(obj, this.host.camera(), this.host.scene);
       } finally {
-        obj.visible = keepVisible;
         obj.material = keepMaterial;
         mat.defines = keepDefines;
         // (its own program again at the next frame: three.js finds it in the material's map)

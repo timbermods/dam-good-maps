@@ -502,7 +502,7 @@ Standard's shadow before a cave (item 8).
     materials are compiled ahead with the rest (`ForceEffects.materials`: Erode's dust and stones, Erupt's puffs,
     Glaciate's ice through an empty stand-in of its tongue, which is made only when it plays, its gathering ice and
     crystals, Craterize's dust, rocks and flash), and so are the brush's cursor and a force's ring, made hidden with the
-    warm-up (the programs of a hidden object are compiled too: `programs.ts`); the first Erode on a page compiled two
+    warm-up (three.js compiles a hidden object's program as any other's); the first Erode on a page compiled two
     programs in its frames, a frame held 265–435 ms on Highlands 128 seed 12, and the first Glaciate three, now none
     (`erode.spec.ts`). Quake's crack (a line, which the warm-up has no stand-in for) and the water effects' materials are
     not. Where the browser draws in software nothing is compiled ahead; without the
