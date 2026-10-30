@@ -9,7 +9,7 @@ import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
 import { sceneUniforms, skyMaterial, terrainMaterial } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
-import { DESERT, GROUND, legendEntries, objectLegend, SKY, type Rgb } from "../../src/render3d/palette";
+import { DESERT, GAME_SKY, gamePostRgb, GROUND, legendEntries, objectLegend, type Rgb } from "../../src/render3d/palette";
 
 type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): { array: ArrayLike<number>; count: number } } };
 
@@ -104,9 +104,15 @@ describe("the clean view", () => {
     expect(src).toContain(`c = mix(c, ${gl(GROUND.crack)}, dry.x * (0.58 + 0.20 * detail));`);
   });
 
-  it("draws a sky round the map: blue overhead, paler at the horizon", () => {
-    expect(SKY.zenith[2]).toBeGreaterThan(SKY.zenith[0] + 0.3);
-    expect(SKY.horizon[0]).toBeGreaterThan(SKY.zenith[0]);
+  it("draws the game's sky round the map (D497): blue overhead, paler at the horizon, the game's own colour straight down", () => {
+    const day = GAME_SKY.day;
+    const zenith = day[day.length - 1];
+    const horizon = day[(day.length - 1) / 2];
+    expect(zenith[2]).toBeGreaterThan(zenith[0] + 0.3);
+    expect(horizon[0]).toBeGreaterThan(zenith[0]);
+    // straight down, graded by the game's post chain, it is the colour behind the map in the game's own shots (47, 90, 133)
+    const below = gamePostRgb(day[0] as unknown as Rgb).map((v) => Math.round(v * 255));
+    for (const [k, game] of [47, 90, 133].entries()) expect(Math.abs(below[k] - game)).toBeLessThanOrEqual(2);
     const sky = skyMaterial();
     expect(sky.depthWrite).toBe(false);
     sky.dispose();

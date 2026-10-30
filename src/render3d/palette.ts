@@ -231,9 +231,53 @@ export const RELIC_STONE: Rgb = [0.66, 0.62, 0.54];
 /** Thorns: a low, dark red-brown bramble. */
 export const THORNS: Rgb = [0.34, 0.16, 0.14];
 
-/** The sky round the map: blue overhead, paler toward the horizon (the haze is the horizon's
- *  colour, so distant ground fades into it). */
-export const SKY = { zenith: [0.36, 0.55, 0.8] as Rgb, horizon: [0.64, 0.75, 0.87] as Rgb, below: [0.46, 0.6, 0.77] as Rgb, cloud: [0.93, 0.95, 0.97] as Rgb } as const;
+/** The game's sky (D497): its camera's Skybox material (`resources.assets` "Skybox", shader path 1816, its pixel program
+ *  read with D3DDisassemble), drawn without fog and graded by the post chain like the rest of the frame.
+ *  - `day`: its colour by the view's height, the strip "DayCycleSkybox_8k_Manual" at `_DayProgress` 0.2 (the day:
+ *    `SkyboxPositioner.blueprint.json`), straight down to straight up evenly (`tools/game-sky.ts`; display values).
+ *  - `clouds`: its clouds, added in the sun's colour (`_MainLightColor`) within a band round the horizon. The game reads
+ *    them from two noise textures (`Skybox_ShapeNoise` 128³, `Skybox_DetailNoise` 64³; ARGB, their alpha unused or a
+ *    fourth octave): ours are our own value noise, an octave a channel at the textures' own scales (their
+ *    channels' correlation lengths), spread as theirs (`spread`: their standard deviation 0.135 against our noise's
+ *    0.192), so the cover comes out as theirs (from the textures: a mean 0.016, 13% over 0.05, the 99th percentile 0.18;
+ *    ours 0.017, 14%, 0.18). The rest is the shader's formula and the material's values: the shape (`_ShapeScale`,
+ *    `_ShapeWeights`) and the detail (`_DetailScale`, `_DetailWeights`), cloud = (detail + `_DensityOffset`) − (1 −
+ *    shape) × (1 − detail)^`_DetailErosion`, ^`_DensityPower`, × `_Multiplier`, between `_SkyStart` and `_SkyEnd` of the
+ *    height (0 down, 1 up). They drift at their `_ShapeMovemenSpeed` and `_DetailMovementSpeed` (radians a second
+ *    round the vertical): ours stand still, so the sky needs no frames of its own. */
+export const GAME_SKY = {
+  day: [[0.201, 0.345, 0.494], [0.202, 0.346, 0.495], [0.203, 0.346, 0.495], [0.203, 0.346, 0.496], [0.203, 0.346, 0.496], [0.204, 0.347, 0.496], [0.204, 0.347, 0.496], [0.204, 0.347, 0.497], [0.204, 0.347, 0.497], [0.204, 0.347, 0.497], [0.204, 0.347, 0.497], [0.204, 0.347, 0.498], [0.205, 0.347, 0.498], [0.205, 0.346, 0.498], [0.205, 0.346, 0.498], [0.205, 0.346, 0.498], [0.205, 0.346, 0.498], [0.205, 0.345, 0.498], [0.205, 0.345, 0.498], [0.205, 0.345, 0.498], [0.205, 0.344, 0.498], [0.205, 0.344, 0.498], [0.205, 0.344, 0.498], [0.204, 0.344, 0.498], [0.204, 0.344, 0.498], [0.203, 0.344, 0.498], [0.202, 0.344, 0.498], [0.202, 0.344, 0.498], [0.202, 0.344, 0.498], [0.202, 0.344, 0.498], [0.202, 0.344, 0.498], [0.201, 0.344, 0.499], [0.202, 0.344, 0.499], [0.202, 0.344, 0.499], [0.202, 0.344, 0.499], [0.203, 0.344, 0.5], [0.204, 0.344, 0.5], [0.205, 0.344, 0.501], [0.209, 0.343, 0.503], [0.211, 0.344, 0.505], [0.214, 0.346, 0.508], [0.217, 0.349, 0.512], [0.22, 0.353, 0.516], [0.225, 0.358, 0.522], [0.229, 0.364, 0.528], [0.235, 0.371, 0.535], [0.241, 0.38, 0.543], [0.248, 0.389, 0.552], [0.255, 0.399, 0.563], [0.264, 0.411, 0.574], [0.276, 0.425, 0.587], [0.291, 0.442, 0.602], [0.308, 0.462, 0.618], [0.327, 0.484, 0.637], [0.345, 0.506, 0.656], [0.364, 0.529, 0.675], [0.382, 0.552, 0.696], [0.401, 0.574, 0.716], [0.417, 0.596, 0.736], [0.434, 0.617, 0.756], [0.449, 0.637, 0.775], [0.463, 0.656, 0.793], [0.493, 0.701, 0.841], [0.519, 0.74, 0.884], [0.536, 0.767, 0.917], [0.543, 0.778, 0.937], [0.543, 0.773, 0.939], [0.526, 0.752, 0.941], [0.501, 0.719, 0.936], [0.472, 0.676, 0.922], [0.458, 0.658, 0.916], [0.444, 0.641, 0.91], [0.429, 0.622, 0.904], [0.413, 0.603, 0.897], [0.397, 0.584, 0.891], [0.38, 0.564, 0.884], [0.363, 0.544, 0.877], [0.346, 0.525, 0.87], [0.329, 0.506, 0.863], [0.313, 0.489, 0.856], [0.298, 0.473, 0.849], [0.284, 0.458, 0.842], [0.267, 0.436, 0.828], [0.25, 0.416, 0.811], [0.234, 0.397, 0.792], [0.218, 0.381, 0.772], [0.204, 0.366, 0.749], [0.189, 0.353, 0.726], [0.185, 0.349, 0.719], [0.182, 0.348, 0.716], [0.18, 0.346, 0.713], [0.178, 0.345, 0.71], [0.176, 0.343, 0.708], [0.174, 0.342, 0.705], [0.174, 0.34, 0.702], [0.173, 0.339, 0.7], [0.173, 0.337, 0.697], [0.172, 0.336, 0.694], [0.172, 0.334, 0.692], [0.171, 0.333, 0.689], [0.17, 0.332, 0.686], [0.169, 0.33, 0.683], [0.169, 0.329, 0.681], [0.168, 0.328, 0.678], [0.167, 0.326, 0.675], [0.166, 0.325, 0.673], [0.165, 0.324, 0.67], [0.164, 0.323, 0.667], [0.163, 0.322, 0.664], [0.163, 0.321, 0.662], [0.162, 0.319, 0.659], [0.161, 0.318, 0.656], [0.16, 0.317, 0.654], [0.158, 0.316, 0.651], [0.158, 0.315, 0.648], [0.157, 0.314, 0.646], [0.155, 0.313, 0.643], [0.154, 0.312, 0.641], [0.153, 0.311, 0.638], [0.152, 0.31, 0.636], [0.151, 0.309, 0.633], [0.15, 0.308, 0.631], [0.148, 0.307, 0.628], [0.147, 0.306, 0.626], [0.146, 0.306, 0.624], [0.145, 0.305, 0.621], [0.144, 0.304, 0.619], [0.143, 0.303, 0.617], [0.142, 0.302, 0.614], [0.14, 0.301, 0.612], [0.139, 0.3, 0.61], [0.138, 0.299, 0.608], [0.137, 0.298, 0.605], [0.136, 0.297, 0.603], [0.135, 0.297, 0.601], [0.134, 0.295, 0.599], [0.133, 0.295, 0.597], [0.131, 0.294, 0.596], [0.13, 0.293, 0.594], [0.13, 0.292, 0.592], [0.129, 0.291, 0.59], [0.128, 0.29, 0.589], [0.127, 0.289, 0.587], [0.126, 0.287, 0.585], [0.124, 0.286, 0.583]] as readonly Rgb[],
+  clouds: {
+    shapeScale: [1, 3, 1],
+    shapeOctaves: [4, 16, 16, 32],
+    shapeWeights: [1, 0.5, 0.3, 0.1],
+    detailScale: [6, 12, 6],
+    detailOctaves: [8, 16, 32],
+    detailWeights: [1, 0.5, 0.3],
+    spread: 0.7,
+    densityOffset: -0.475,
+    erosion: 1.6,
+    densityPower: 0.8,
+    multiplier: 0.775,
+    start: [0.3, 0.425],
+    end: [0.6, 0.7],
+  },
+} as const;
+
+/** The game's post chain on a display colour (materials.ts `gamePost`, for what no shader draws: the light look's
+ *  background). */
+export function gamePostRgb(c: Rgb): Rgb {
+  const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const disp = (v: number) => (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
+  const curve = (x: number) => (x * (0.2 * x + 0.24 * 0.29) + 0.272 * 0.02) / (x * (0.2 * x + 0.29) + 0.272 * 0.3) - 0.02 / 0.3;
+  const white = 1 / curve(5.3);
+  const logC = (x: number) => (x > 0.011361 ? 0.244161 * Math.log10(5.555556 * x + 0.047996) + 0.386036 : 5.301883 * x + 0.092819);
+  const fromLogC = (x: number) => (x > 5.301883 * 0.011361 + 0.092819 ? (10 ** ((x - 0.386036) / 0.244161) - 0.047996) / 5.555556 : (x - 0.092819) / 5.301883);
+  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+  const l = c.map((v) => clamp(curve(lin(Math.max(0, v)) * 2 ** GAME_FINISH.postExposure * white) * white)).map((v) => clamp(fromLogC((logC(v) - 0.4135884) * GAME_FINISH.contrast + 0.4135884)));
+  const y = 0.2126729 * l[0] + 0.7151522 * l[1] + 0.072175 * l[2];
+  return l.map((v) => disp(clamp(y + GAME_FINISH.saturation * (v - y)))) as unknown as Rgb;
+}
 
 /** Mine sites (Kyler's rounds, D178; his colours, measured in the game; the pit's earth a little darker
  *  since D324): a rusty frame in a dull

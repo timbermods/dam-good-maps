@@ -82,7 +82,7 @@ import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
-import { GAME_FINISH, SKY, type GroundMode } from "./palette";
+import { GAME_FINISH, GAME_SKY, gamePostRgb, type GroundMode, type Rgb } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { drawnWater, drewChunk, exactWaterChunks, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
@@ -531,7 +531,8 @@ export class MapRenderer {
     this.gl.outputColorSpace = LinearSRGBColorSpace;
     this.gl.setPixelRatio(this.pixelRatio());
     // the sky round the map (the light look clears to its colour below the horizon instead)
-    this.gl.setClearColor(new Color(...SKY.below));
+    // (behind the map where no sky is drawn, the light look's: the game's sky straight down, graded)
+    this.gl.setClearColor(new Color(...gamePostRgb(GAME_SKY.day[0] as unknown as Rgb)));
     this.scene.background = null;
     // placeholder textures until a map arrives; every material shares these uniforms
     const one = () => tileTexture(1, 1, new Uint8Array(4));

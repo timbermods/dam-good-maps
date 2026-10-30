@@ -66,7 +66,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { ALTITUDE_RAMP, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
@@ -570,9 +570,6 @@ export interface ShaderHooks {
   /** The sun on an object or a fall under a roof (an expression of `cave`, the light volume's sky in x and sun in y,
    *  and `lit`, the look's own sun shadow there; Standard: the volume's sun). */
   roofedSun?: string;
-  // the sky
-  /** At the sky's end (c, d). */
-  sky?: string;
 }
 
 const hook = (h: ShaderHooks | undefined, k: keyof ShaderHooks, standard = ""): string => h?.[k] ?? standard;
@@ -2261,9 +2258,15 @@ ${hook(h, "fallEnd")}        // clear water (D196, D212; waterPalette.ts CLEAR_W
   });
 }
 
-/** The sky round the map, drawn behind everything: blue overhead, paler toward the horizon, a
- *  hazy blue below it, where the map floats, with soft clouds above and below. */
+/** The sky round the map, drawn behind everything, as the game draws its skybox (palette.ts GAME_SKY): the day's colour
+ *  by the view's height, and its clouds in a band round the horizon in the sun's colour; no fog (Unity's skybox takes
+ *  none), and the post chain like the rest of the frame. */
 export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
+  const C = GAME_SKY.clouds;
+  const n = GAME_SKY.day.length;
+  const sw = C.shapeWeights.reduce((a, b) => a + b, 0);
+  const dw = C.detailWeights.reduce((a, b) => a + b, 0);
+  const oct = (o: number, k: number, scale: readonly number[], w: number, sum: number) => `${f(w / sum)} * (0.52 + (vn3(p${scale === C.shapeScale ? "s" : "d"} * ${f(o)} + ${f(k * 17.31 + 0.37)}) - 0.5) * ${f(C.spread)})`;
   return new ShaderMaterial({
     vertexShader: /* glsl */ `
       varying vec3 vDir;
@@ -2275,23 +2278,34 @@ export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
     `,
     fragmentShader: /* glsl */ `
       varying vec3 vDir;${GAME_POST_GLSL}${hook(h, "decl")}
-      float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-      float vn(vec2 p) {
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        f = f * f * (3.0 - 2.0 * f);
-        return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y);
+      const vec3 SKY_DAY[${n}] = vec3[${n}](${GAME_SKY.day.map((c) => glColor(c as unknown as Rgb)).join(", ")});
+      float h3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+      /** Value noise in 3D, one cell per unit of p. */
+      float vn3(vec3 p) {
+        vec3 i = floor(p);
+        vec3 t = fract(p);
+        t = t * t * (3.0 - 2.0 * t);
+        return mix(mix(mix(h3(i), h3(i + vec3(1.0, 0.0, 0.0)), t.x), mix(h3(i + vec3(0.0, 1.0, 0.0)), h3(i + vec3(1.0, 1.0, 0.0)), t.x), t.y),
+                   mix(mix(h3(i + vec3(0.0, 0.0, 1.0)), h3(i + vec3(1.0, 0.0, 1.0)), t.x), mix(h3(i + vec3(0.0, 1.0, 1.0)), h3(i + vec3(1.0, 1.0, 1.0)), t.x), t.y), t.z);
       }
       void main() {
         vec3 d = normalize(vDir);
-        vec3 up = mix(${glColor(SKY.horizon)}, ${glColor(SKY.zenith)}, pow(smoothstep(0.0, 0.5, d.y), 0.7));
-        vec3 down = mix(${glColor(SKY.horizon)}, ${glColor(SKY.below)}, smoothstep(0.0, 0.4, -d.y));
-        vec3 c = d.y > 0.0 ? up : down;
-        // soft clouds on a layer above and one below (the map floats in the sky)
-        vec2 q = d.xz / max(abs(d.y), 0.08) * 1.6;
-        float n = vn(q) * 0.55 + vn(q * 2.3 + 7.1) * 0.3 + vn(q * 5.1 + 3.3) * 0.15;
-        float cloud = smoothstep(0.52, 0.8, n) * smoothstep(0.02, 0.2, abs(d.y));
-        c = mix(c, ${glColor(SKY.cloud)}, cloud * 0.75);${hook(h, "sky")}
+        // the view's height, 0 straight down to 1 straight up, as the game's strip is read
+        float e = asin(clamp(d.y, -1.0, 1.0)) / 3.14159265 + 0.5;
+        float u = e * ${f(n - 1)};
+        int k = int(min(floor(u), ${f(n - 2)}));
+        vec3 c = mix(SKY_DAY[k], SKY_DAY[k + 1], u - float(k));
+        // the clouds: the shape less the detail's erosion, within the band round the horizon, in the sun's colour
+        float band = smoothstep(${f(C.start[0])}, ${f(C.start[1])}, e) * (1.0 - smoothstep(${f(C.end[0])}, ${f(C.end[1])}, e));
+        if (band > 0.0) {
+          vec3 ps = d * vec3(${C.shapeScale.map(f).join(", ")});
+          vec3 pd = d * vec3(${C.detailScale.map(f).join(", ")});
+          float shape = ${C.shapeOctaves.map((o, k) => oct(o, k, C.shapeScale, C.shapeWeights[k], sw)).join(" + ")};
+          float detail = ${C.detailOctaves.map((o, k) => oct(o, k + 4, C.detailScale, C.detailWeights[k], dw)).join(" + ")};
+          float cloud = clamp(detail + ${f(C.densityOffset)}, 0.0, 1.0) - (1.0 - shape) * pow(1.0 - detail, ${f(C.erosion)});
+          cloud = clamp(pow(max(cloud, 0.0), ${f(C.densityPower)}) * ${f(C.multiplier)}, 0.0, 1.0) * band;
+          c += cloud * ${glColor(GAME_LIGHT.sun)};
+        }
         // (the game's post chain grades the whole frame, the sky too)
         gl_FragColor = vec4(gamePost(c), 1.0);
       }

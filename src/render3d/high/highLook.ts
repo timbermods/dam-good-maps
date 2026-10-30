@@ -15,7 +15,7 @@ import { Forest, replacedBatch, shapesAhead } from "./forest";
 import { buildLandmarks, disposeLandmarks, landmarkAhead, type Replacement } from "./landmarks";
 import { Mist } from "./mist";
 import { paletteDefaults, slots } from "./models";
-import { fallHooks, landmarkHooks, objectHooks, skyHooks, slopeHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks, type Switch } from "./shaders";
+import { fallHooks, landmarkHooks, objectHooks, slopeHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks, type Switch } from "./shaders";
 import { CASTER_LAYER, SHADOW_SIZE, SunShadows } from "./shadows";
 
 /** Warm sunlight (#65): the sun ×(1.48, 1.30, 1.10) and the sky ×0.97 of Standard's; with only the
@@ -63,7 +63,8 @@ export function highLookMaterials(u: SceneUniforms): HighLookMaterials {
     water: waterMaterial(u, false, waterHooks()),
     fall: fallMaterial(u, false, fallHooks()),
     object: objectMaterial(u, false, objectHooks()),
-    sky: skyMaterial(skyHooks()),
+    // (the game's sky, every look's: D497)
+    sky: skyMaterial(),
     vegetation: objectMaterial(u, false, vegetationHooks(slots.length)),
     landmark: objectMaterial(u, false, landmarkHooks()),
     slope: objectMaterial(u, false, slopeHooks()),
@@ -174,7 +175,6 @@ export class HighLook {
     const set = (k: Switch, on: boolean) => (this.switches[k].value = on ? 1 : 0);
     set("hlWater", e.water);
     set("hlShadows", e.shadows);
-    set("hlSky", e.sky);
     set("hlStrata", e.strata);
     set("hlBlend", e.soilEdges);
     set("hlVariation", e.variation);

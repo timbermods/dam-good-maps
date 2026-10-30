@@ -3,7 +3,7 @@
 // - #38 (investigation/maplook2): the water shader (colour by depth, clear shallows, fine crests and
 //   flecks advected by the flow, the calibrated crimson badwater, the poisoned bed under it) and
 //   soft shadows from the real meshes (a 2048² sun depth map, 25-tap PCF, receiver-plane bias);
-// - #65 (investigation/maplook3): warm sunlight, the sky, rock strata, soil edges and colour variation (its tone
+// - #65 (investigation/maplook3): warm sunlight, rock strata, soil edges and colour variation (its tone
 //   curve, grade and distance haze gave way to the game's fog and post chain, every look's: D497);
 // - #66 (investigation/vegetation): the vegetation's material (palette regions, wrapped light, matte
 //   specular) and its wind;
@@ -36,7 +36,6 @@ import type { ShaderHooks } from "../materials";
 export const SWITCHES = [
   "hlWater",
   "hlShadows",
-  "hlSky",
   "hlStrata",
   "hlBlend",
   "hlVariation",
@@ -606,25 +605,3 @@ export function vegetationHooks(slots: number): ShaderHooks {
   };
 }
 
-// ---------------------------------------------------------------------------------------- the sky
-
-/** #65's sky: a clear blue, the same pale horizon as the haze, soft static clouds above it, a broad
- *  glow toward the sun instead of a disc; graded like the land (materials.ts gamePost). */
-export function skyHooks(): ShaderHooks {
-  return {
-    decl: switches(["hlSky"]),
-    sky: /* glsl */ `
-        if (hlSky > 0.5) {
-          float horizon = exp(-abs(d.y) * 5.5);
-          c = mix(vec3(0.30, 0.49, 0.76), vec3(0.29, 0.52, 0.79), horizon);
-          if (d.y < 0.0) c = mix(vec3(0.19, 0.36, 0.55), c, exp(d.y * 3.0));
-          vec2 hp = d.xz / (0.28 + abs(d.y)) * 4.2;
-          float hn = vn(hp) * 0.52 + vn(hp * 2.07 + 3.7) * 0.30 + vn(hp * 4.31 + 19.1) * 0.18;
-          float cloudBank = smoothstep(0.34, 0.62, vn(hp * 0.29 + 17.1));
-          float hcloud = cloudBank * smoothstep(0.52, 0.73, hn) * (0.65 + 0.35 * smoothstep(0.0, 0.22, abs(d.y)));
-          c = mix(c, vec3(0.97, 0.96, 0.89), hcloud * 0.46);
-          float sun = pow(max(dot(d, normalize(vec3(-0.45, 0.77, -0.45))), 0.0), 24.0);
-          c += vec3(0.11, 0.075, 0.028) * sun;
-        }`,
-  };
-}
