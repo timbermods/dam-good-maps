@@ -100,7 +100,7 @@ export interface SoundEngine {
   dispose(): Promise<void> | void;
   /** Decoded and running (tests). */
   readonly ready?: boolean;
-  /** Recordings playing now (tests). */
+  /** Recordings sounding now, a stopped sound's not counted (tests). */
   readonly playing?: number;
 }
 
@@ -112,6 +112,8 @@ export class Juice {
   private stroke: string | number | null = null;
   /** The force at work's sounds: its run's number, its textures and the phases already played. */
   private force: { run: number; verb: string; ids: string[]; played: Set<string>; puffAt: number } | null = null;
+  /** The force kept last, its tails still sounding until another action comes (an undo takes them back). */
+  private kept: number | null = null;
   private runs = 0;
   private readonly unlock = () => void this.engine.unlock();
   private readonly blur = () => this.engine.pause();
@@ -154,6 +156,7 @@ export class Juice {
     const now = performance.now();
     if (now - (this.last.get(kind) ?? -Infinity) < GAP[kind]) return;
     this.last.set(kind, now);
+    this.kept = null;
     // the land's part
     const r = this.renderer();
     if (r) {
@@ -175,6 +178,7 @@ export class Juice {
     // (a grove or a patch painted: a quiet leaf bed while it paints, its accents one a batch)
     const foliage = sound === "tree" || sound === "berry";
     const p = { ...this.place(x, y), size: soundSize(size), strength: foliage ? 0.3 : strength, activity: 1 };
+    this.kept = null;
     if (this.stroke === null) this.stroke = this.engine.start(foliage ? "naturalize" : sound, p, "stroke");
     else this.engine.update(this.stroke, p);
   }
@@ -185,15 +189,28 @@ export class Juice {
     this.stroke = null;
   }
 
-  /** Undo: a soft rewind (once, after the undo happened; a stroke's bed stops first). */
-  undo(): void {
+  /** Undo pressed: a stroke's bed stops, and a force kept just before it is taken back with its
+   *  tails (an impact's boom, an eruption's hiss), at once, before the worker answers. */
+  takeBack(): void {
     this.strokeEnd();
+    if (this.kept === null) return;
+    this.engine.stop(`force-${this.kept}`);
+    this.engine.stop(`force-${this.kept}-slide`);
+    this.kept = null;
+  }
+
+  /** Undo: a soft rewind (once, after the undo happened; what it takes back is silent first). */
+  undo(): void {
+    this.takeBack();
     this.engine.play("undo", { size: 0.3, strength: 0.4 });
   }
 
   /** A force's moment (its frame's cue): its sounds as it goes, each phase once. */
   forceMoment(cue: ForceCue, head?: { x: number; y: number; width: number; cut: number }): void {
-    if (!this.force || this.force.verb !== cue.verb) this.force = { run: ++this.runs, verb: cue.verb, ids: [], played: new Set(), puffAt: 0 };
+    if (!this.force || this.force.verb !== cue.verb) {
+      this.force = { run: ++this.runs, verb: cue.verb, ids: [], played: new Set(), puffAt: 0 };
+      this.kept = null;
+    }
     const f = this.force;
     const id = `force-${f.run}`;
     const p = { ...this.place(cue.x, cue.y), size: soundSize(cue.size), strength: 0.3 + (0.7 * cue.power) / 100 };
@@ -294,12 +311,13 @@ export class Juice {
     }
   }
 
-  /** The force is over: kept (its tails: an eruption's cooling hiss) or dropped (every sound of it
-   *  stops at once, and none of it plays later). */
+  /** The force is over: kept (its tails play out: an impact's boom, an eruption's cooling hiss,
+   *  unless undo comes first) or dropped (every sound of it stops at once, and none of it plays later). */
   forceEnded(kept: boolean, last?: ForceCue): void {
     const f = this.force;
     this.force = null;
     if (!f) return;
+    this.kept = kept ? f.run : null;
     for (const k of f.ids) this.engine.stop(k);
     // (a glacier's sounds end as its land settles, D344 A7: kept at its end, or skipped to it)
     if (!kept || f.verb === "glaciate") {
@@ -308,7 +326,7 @@ export class Juice {
     } else if (f.verb === "erupt" && last) this.engine.play("erupt", { ...this.place(last.x, last.y), size: soundSize(last.size), strength: 0.3 + (0.7 * last.power) / 100 }, { id: `force-${f.run}`, phase: "cool" });
   }
 
-  /** The sound as it is now (tests): the bank ready, and how many recordings are playing. */
+  /** The sound as it is now (tests): the bank ready, and how many recordings are sounding. */
   status(): { ready: boolean; playing: number } {
     return { ready: !!this.engine.ready, playing: this.engine.playing ?? 0 };
   }

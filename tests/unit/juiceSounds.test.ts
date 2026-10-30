@@ -253,8 +253,16 @@ describe("the sound engine (round two)", () => {
     const bed = e.start("quake", {}, "bed");
     expect(bed).toBe("bed");
     const before = ctx.stopped;
+    const sounding = e.playing;
+    const held = e.scheduled;
     e.stop("run");
     expect(ctx.stopped).toBeGreaterThan(before);
+    // (silent from the cut: no longer sounding, though counted against the limit until the audio thread ends it)
+    expect(e.playing).toBeGreaterThan(0);
+    expect(e.playing).toBeLessThan(sounding);
+    expect(e.scheduled).toBe(held);
+    e.stop("bed");
+    expect(e.playing).toBe(0);
     // a phase after the cut never plays
     expect(e.play("craterize", {}, { id: "run", phase: "debris" })).toBeNull();
     // the page hidden: all of it stops, the context sleeps soon after
@@ -277,7 +285,7 @@ describe("the sound engine (round two)", () => {
     let admitted = 0;
     for (let k = 0; k < 40; k++) if (e.play(k % 2 ? "tree" : "berry")) admitted++;
     expect(admitted).toBeLessThanOrEqual(6);
-    expect(e.playing).toBeLessThanOrEqual(LIMITS.sources);
+    expect(e.scheduled).toBeLessThanOrEqual(LIMITS.sources);
     await e.dispose();
     expect(ctx.state).toBe("closed");
   });
