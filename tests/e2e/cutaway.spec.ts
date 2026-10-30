@@ -3,7 +3,7 @@
 // terrain above terrain, which no other spec opens. A 12² map with a roofed block, its cave's floor with its own soil,
 // a tree, a slope, a ruin and a pool on it and a puddle on its roof, cut through its cave, draws in Standard and in High
 // with no shader error and with the terrain on screen, the ruin overgrown by its floor's soil (High's slope reads it
-// too); the falls' program is compiled with the branch too, and a brush over the roof draws the hollow under it
+// too; falls are the water's own curtains, #740, so the water's branch covers them), and a brush over the roof draws the hollow under it
 // (hollow.ts), which a plain map never makes. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec does,
 // so the High look's programs are checked there too.)
 // Every program stays within the 16 samplers any WebGL 2 browser has (Direct3D 11's ANGLE has no more).
@@ -75,16 +75,17 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
         type Mat = { defines: Record<string, number>; needsUpdate: boolean };
         type Obj = { isMesh?: boolean; isInstancedMesh?: boolean; frustumCulled: boolean; geometry: object; constructor: new (...a: unknown[]) => Obj; add(o: Obj): void; traverse(f: (o: Obj) => void): void };
         const internals = r as unknown as {
-          std: { terrain: Mat; object: Mat; fall: Mat; water: Mat };
+          std: { terrain: Mat; object: Mat; water: Mat };
           water: Map<string, object>;
           layers: { layers: unknown[] } | null;
-          high: { roofedMaterials(): Mat[]; runSoilMaterials(): Mat[]; materials: { fall: Mat } } | null;
+          high: { roofedMaterials(): Mat[]; runSoilMaterials(): Mat[] } | null;
           objects: Obj & { children: { name: string }[] };
           scene: Obj;
           persp: object;
           gl: { info: { programs: { name: string; program: WebGLProgram; diagnostics?: { runnable: boolean } }[] | null }; getContext(): WebGL2RenderingContext; render(s: Obj, c: object): void };
         };
-        const roofed = [internals.std.object, internals.std.fall, internals.std.water, ...(internals.high?.roofedMaterials() ?? [])].every((m) => m.defines.CAVES === 1);
+        // (falls are the water's own curtains since #740, drawn by the water's program: no program of their own)
+        const roofed = [internals.std.object, internals.std.water, ...(internals.high?.roofedMaterials() ?? [])].every((m) => m.defines.CAVES === 1);
         const waterLayers = internals.layers?.layers.length ?? 0;
         const g = internals.gl.getContext();
         const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
@@ -102,21 +103,6 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
             const slate = px[o + 2] < px[o] + 30 && px[o] + px[o + 1] + px[o + 2] < 450;
             if (px[o] >= px[o + 2] || px[o + 1] > px[o + 2] + 10 || slate) ground++;
           }
-        // (no fall on this map: the falls' programs, the look's own, drawn once on a mesh of their own, after the frame is read)
-        let mesh: Obj | null = null;
-        internals.scene.traverse((o) => {
-          if (!mesh && o.isMesh && !o.isInstancedMesh) mesh = o;
-        });
-        if (!mesh) throw new Error("no mesh in the scene");
-        const plain: Obj = mesh;
-        const falls = new internals.scene.constructor();
-        for (const mat of [internals.std.fall, internals.high?.materials.fall]) {
-          if (!mat) continue;
-          const one = new plain.constructor(new (plain.geometry.constructor as new () => object)(), mat);
-          one.frustumCulled = false;
-          falls.add(one);
-        }
-        internals.gl.render(falls, internals.persp);
         const broken = (internals.gl.info.programs ?? []).filter((p) => p.diagnostics && !p.diagnostics.runnable).map((p) => p.name);
         // the light look (software drawing) with both branches: its program compiled too (forced here: CI's software drawing is
         // treated as a GPU above, and a GPU never draws it)
@@ -159,7 +145,7 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
     expect(out.runSoil, `${look}: the soil per run top's branch`).toBe(1);
     expect(out.slopeSoil, `${look}: High's slopes on the soil per run top's branch too`).toBe(true);
     expect(out.ivy, `${look}: the ruin on the moist floor under a dry roof is overgrown`).toBe(true);
-    expect(out.roofed, `${look}: the roofed objects', falls' and water's branch`).toBe(true);
+    expect(out.roofed, `${look}: the roofed objects' and water's branch (falls drawn by the water's)`).toBe(true);
     expect(out.waterLayers, `${look}: the cave's pool and the roof's puddle in layers of their own`).toBe(2);
     expect(out.waterChunks, `${look}: the water drawn`).toBe(1);
     expect(out.slice, look).toBe(3);
