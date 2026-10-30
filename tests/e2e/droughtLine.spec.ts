@@ -181,7 +181,12 @@ test("an edit while the Drought view is held: the old map's days say nothing on 
   await page.evaluate(([a, b]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[b, a - 1, a + 1]], level: 15 } } as never, "Raise a tile"), [x, y]);
   expect(await page.evaluate(() => window.dgmEditor!.info().version)).toBeGreaterThan(v0);
   await hover();
-  await expect(readout).toContainText("Height");
+  // (at once: the held day's water stays on screen until the edited map's own day replaces it, so a tile the drought
+  // did not dry still reads that day's water over its new ground; the old map's days' words are gone)
+  await expect(readout).not.toContainText(/Dry on day|Lasts the drought/);
+  // the edited map's own day comes (about twenty seconds on a busy machine: the settle, then the days worked out again):
+  // the tile is land now, dry
+  await expect(readout).toContainText("Height", { timeout: 90_000 });
   await expect(readout).not.toContainText(/Dry on day|Lasts the drought/);
   expect(errors).toEqual([]);
 });
