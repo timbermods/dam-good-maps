@@ -104,14 +104,30 @@ const SHADOW_GLSL = /* glsl */ `
   uniform sampler2D hlDepth;
   uniform mat4 hlShadowMatrix;
   uniform float hlTexel;
+  /** The receiver plane's depth gradient across the depth map (its depth's change with the map's u and v), from the
+   *  plane's two screen derivatives; none where the plane is seen edge-on from the sun (its uv derivatives
+   *  degenerate). The divisor is the determinant only where it is not degenerate, else 1 (its quotient then unused):
+   *  HLSL evaluates both sides of a choice, and a division by a determinant that may be 0 there drew D3D's
+   *  "X4008: floating point division by zero" and could make NaN. */
+  vec2 receiverGradient(vec3 dx, vec3 dy) {
+    float determinant = dx.x * dy.y - dx.y * dy.x;
+    bool solvable = abs(determinant) > 1e-10;
+    vec2 gradient = vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / (solvable ? determinant : 1.0);
+    return solvable ? gradient : vec2(0.0);
+  }
   float sunLit(vec2 g, float z) {
     // (the derivatives first, outside any branch or loop; the depth read at its own level)
     vec3 n = normalize(vNormal);
-    vec4 p = hlShadowMatrix * vec4(vWorld + n * 0.045, 1.0);
+    // (pushed off the surface along its normal, more the more it turns from the sun, by the depth map's texels:
+    // a wall the sun grazes is drawn in the map as thin slivers of its own triangles, and with too small a push
+    // it shadowed itself in their pattern, a dotted seam down a close wall; the map's texel in the world from the
+    // matrix's scale, an orthographic one's the same across)
+    float texelWorld = 2.0 * hlTexel / length(vec3(hlShadowMatrix[0][0], hlShadowMatrix[1][0], hlShadowMatrix[2][0]));
+    float grazing = 1.0 - clamp(abs(dot(n, sunDir)), 0.0, 1.0);
+    vec4 p = hlShadowMatrix * vec4(vWorld + n * (0.045 + 1.5 * texelWorld * grazing), 1.0);
     vec3 q = p.xyz / p.w * 0.5 + 0.5;
     vec3 dx = dFdx(q), dy = dFdy(q);
-    float determinant = dx.x * dy.y - dx.y * dy.x;
-    vec2 gradient = abs(determinant) > 1e-10 ? vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / determinant : vec2(0.0);
+    vec2 gradient = receiverGradient(dx, dy);
     gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
     float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
     float lit = 1.0;
@@ -135,8 +151,7 @@ const SHADOW_GLSL = /* glsl */ `
     // (sunLit's receiver-plane bias, for the level plane: its derivatives are the matrix's own columns)
     vec3 dx = (hlShadowMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz * 0.5;
     vec3 dy = (hlShadowMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz * 0.5;
-    float determinant = dx.x * dy.y - dx.y * dy.x;
-    vec2 gradient = abs(determinant) > 1e-10 ? vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / determinant : vec2(0.0);
+    vec2 gradient = receiverGradient(dx, dy);
     gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
     float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
     float light = 0.0;
@@ -393,7 +408,11 @@ ${HIGH_WATER_GLSL}
     flowB += vec2(vnoise(p2 * 0.71), vnoise(p2 * 0.83 + 8.1)) * 2.2;
     float network = mix(cracks(flowA).x * smoothstep(0.28, 0.66, vnoise(p * 4.2 + 31.0)), cracks(flowB).x * smoothstep(0.28, 0.66, vnoise(p2 * 4.2 + 31.0)), blend);
     float ribbons = mix(smoothstep(0.49, 0.72, vnoise(flowA * vec2(1.7, 0.7))), smoothstep(0.49, 0.72, vnoise(flowB * vec2(1.7, 0.7))), blend);
-    float broad = mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend);
+    // (its broad swells and rolling packets of light fade to their mean from afar, where the eye no longer
+    // resolves the ripples that make them and they would read as cloud blotches on the water: the game's
+    // distant water is even)
+    float far = 1.0 - smoothstep(0.05, 0.15, pixel);
+    float broad = mix(0.5, mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend), far);
     float rough = texture2D(hlRough, g / hlFlowSize).r * hlRiver;
     #ifdef CAVES
       if (waterOwnFlow.a > 0.5) rough = waterOwnFlow.b * hlRiver;
@@ -401,7 +420,7 @@ ${HIGH_WATER_GLSL}
     float highlights = (network * (0.18 + broad * 0.72) + ribbons * (0.16 + rough * 0.43)) * (0.35 + broad * 0.80);
     float rollA = vnoise(p * 0.70) * 0.50 + vnoise((p + direction * 1.7) * 0.70) * 0.30 + vnoise(p * 1.3 + 47.0) * 0.20;
     float rollB = vnoise(p2 * 0.70) * 0.50 + vnoise((p2 + direction * 1.7) * 0.70) * 0.30 + vnoise(p2 * 1.3 + 47.0) * 0.20;
-    float rolling = mix(smoothstep(0.41, 0.72, rollA), smoothstep(0.41, 0.72, rollB), blend);
+    float rolling = mix(0.35, mix(smoothstep(0.41, 0.72, rollA), smoothstep(0.41, 0.72, rollB), blend), far);
     highlights = mix(highlights, rolling * (0.43 + rough * 0.34), smoothstep(0.10, 0.65, speed));
     colour *= 1.0 - speed * (1.0 - rolling) * 0.14;
     highlights *= mix(1.0, 0.68, deep);

@@ -1603,17 +1603,24 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       }
       /** The water's current here as drawn (tiles a second; motion.ts), 0 where still. */
       vec2 waterCurrent(vec2 g) { return (texture2D(flowTex, g / mapSize).rg * 255.0 - 128.0) / 63.5; }
-      /** The textures the current carries, at p: the broken foam's noise, the pale streaks and
-       *  badwater's bubbles (the ripples and glints stay where they are: a few noise lookups twice over,
-       *  not the whole surface, which a modest GPU felt). */
-      void flowingAt(vec2 p, float t, float bad, float fine, out float fn, out float pale, out float bubbles) {
+      /** The textures the current carries, at p: the broken foam's noise, the pale streaks, badwater's
+       *  mottled light and dark patches and its bubbles (the ripples and glints stay where they are: a few
+       *  noise lookups twice over, not the whole surface, which a modest GPU felt). */
+      void flowingAt(vec2 p, float t, float bad, float fine, out float fn, out float pale, out float bubbles, out float dark) {
         fn = vnoise(p * 4.0 + vec2(t * 0.3, -t * 0.2));
-        // (clean water's pale streaks run along the flow; badwater's light is mottled, as the game's
-        // contaminated surface is a pattern of patches, never streaks that read as rain)
-        float streaks = vnoise(vec2(p.x * 0.9 + p.y * 0.3, (p.y - p.x * 0.2) * 5.0) + vec2(t * 0.15, t * 0.5));
-        float patches = vnoise(p * 1.4 + vec2(t * 0.05, t * 0.08)) * 0.6 + vnoise(p * 3.3 - vec2(t * 0.04, -t * 0.06)) * 0.4;
-        pale = smoothstep(0.6, 0.82, mix(streaks, patches + 0.06, bad));
-        bubbles = bad > 0.01 ? fine * smoothstep(0.93 - 0.1 * bad, 1.03 - 0.1 * bad, vnoise(p * 5.0 + vec2(t * 0.05, -t * 0.08))) * smoothstep(0.55, 0.8, vnoise(p * 1.3 - vec2(0.0, t * 0.04))) : 0.0;
+        // clean water's pale streaks run along the flow; badwater's light and dark are mottled patches, as
+        // the game's contaminated surface is a pattern of patches flowing with the water, never streaks
+        // that read as rain (each thresholded before they mix, so the light keeps its coverage when half bad)
+        pale = smoothstep(0.6, 0.82, vnoise(vec2(p.x * 0.9 + p.y * 0.3, (p.y - p.x * 0.2) * 5.0) + vec2(t * 0.15, t * 0.5)));
+        dark = 0.0;
+        bubbles = 0.0;
+        if (bad > 0.01) {
+          float light = vnoise(p * 1.4 + vec2(t * 0.05, t * 0.08)) * 0.6 + vnoise(p * 3.3 - vec2(t * 0.04, -t * 0.06)) * 0.4;
+          pale = mix(pale, smoothstep(0.6, 0.82, light + 0.06), bad);
+          float mottle = vnoise(p * 1.1 + vec2(t * 0.03, -t * 0.04)) * 0.6 + vnoise(p * 2.7 - vec2(t * 0.05, t * 0.02)) * 0.4;
+          dark = 1.0 - smoothstep(0.3, 0.46, mottle);
+          bubbles = fine * smoothstep(0.93 - 0.1 * bad, 1.03 - 0.1 * bad, vnoise(p * 5.0 + vec2(t * 0.05, -t * 0.08))) * smoothstep(0.55, 0.8, vnoise(p * 1.3 - vec2(0.0, t * 0.04)));
+        }
       }
       void main() {
         vec3 n = normalize(vNormal);
@@ -1685,17 +1692,19 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             #ifdef CAVES
               if (waterOwnFlow.a > 0.5) drift = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5 * 0.65;
             #endif
-            if (dot(drift, drift) < 1e-6 || (${hook(h, "waterOwnSurface", "false")})) flowingAt(g, t, bad, fine, fn, pale, bubbles);
+            float dark;
+            if (dot(drift, drift) < 1e-6 || (${hook(h, "waterOwnSurface", "false")})) flowingAt(g, t, bad, fine, fn, pale, bubbles, dark);
             else {
               float phase = fract(t / 12.0);
               float second = fract(t / 12.0 + 0.5);
               float blend = abs(phase * 2.0 - 1.0);
-              float fn2, pale2, bubbles2;
-              flowingAt(g - drift * (phase * 12.0), t, bad, fine, fn, pale, bubbles);
-              flowingAt(g - drift * (second * 12.0), t, bad, fine, fn2, pale2, bubbles2);
+              float fn2, pale2, bubbles2, dark2;
+              flowingAt(g - drift * (phase * 12.0), t, bad, fine, fn, pale, bubbles, dark);
+              flowingAt(g - drift * (second * 12.0), t, bad, fine, fn2, pale2, bubbles2, dark2);
               fn = mix(fn, fn2, blend);
               pale = mix(pale, pale2, blend);
               bubbles = mix(bubbles, bubbles2, blend);
+              dark = mix(dark, dark2, blend);
             }
             // calmer from afar, where a pixel spans a ripple (no shimmer)
             float near = 1.0 - smoothstep(0.08, 0.25, fwidth(g.x));
@@ -1704,10 +1713,9 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             // the ripples' crests catch the sky: a light teal texture on the dark body (clean water;
             // badwater is dull)
             crest = smoothstep(0.1, 0.85, 0.5 + 0.42 * (sl.x * 0.7 - sl.y * 0.5)) * near * (1.0 - bad);
-            // badwater's troughs: the ripples' low parts
-            // (in mottled patches, as the game's contaminated pattern, not the ripples' parallel bands)
-            float mottle = vnoise(g * 1.1 + vec2(t * 0.03, -t * 0.04)) * 0.6 + vnoise(g * 2.7 - vec2(t * 0.05, t * 0.02)) * 0.4;
-            trough = (1.0 - smoothstep(0.3, 0.46, mottle)) * near * bad;
+            // badwater's troughs: its darker patches, carried by the current (flowingAt), as the game's
+            // contaminated pattern, not the ripples' parallel bands
+            trough = dark * near * bad;
           #endif
           // badwater's opacity (the water's, as the game's: WATER_SURFACE.seeThrough), by how bad it is
           alpha = mix(alpha, badwaterAlpha(depth, shore), bad);
