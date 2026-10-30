@@ -230,6 +230,8 @@ export class Programs {
     for (const o of drawn.length ? drawn : [this.host.standIn(mat)]) {
       const obj = o as Object3D & { material: Material | Material[] };
       const keepMaterial = obj.material;
+      // (an object hidden until its tool shows it, a cursor or a ring, compiles as it is: three.js's compile walks
+      // every mesh for its materials, only its lights by visibility)
       obj.material = mat;
       mat.defines = { ...d };
       mat.needsUpdate = true;
