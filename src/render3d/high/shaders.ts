@@ -344,12 +344,6 @@ ${HIGH_WATER_GLSL}
     float twinkle = smoothstep(0.1, 0.85, sin(t * (1.1 + speed * 1.2) + fleckHash(cell) * 51.0));
     return spot * step(mix(0.96, 0.82, speed), fleckHash(cell + 91.0)) * twinkle;
   }
-  /** #38's badwater opacity at its own depth (already shallower toward a bank), with the shared
-   *  palette's numbers (BADWATER). */
-  float badwaterOpacity(float depth, float shore, float grazing) {
-    float edge = (1.0 - smoothstep(${g(B.edgeDepth[0])}, ${g(B.edgeDepth[1])}, depth)) * (1.0 - smoothstep(${g(B.edgeShore[0])}, ${g(B.edgeShore[1])}, shore));
-    return max(mix(${g(B.opacity[0])}, ${g(B.opacity[1])}, smoothstep(${g(B.opacityFrom)}, ${g(B.opacityTo)}, depth)) - ${g(B.edge)} * edge, grazing * ${g(B.grazing)});
-  }
   /** How much of the surface's light (its streaks, its light network and its flecks) measuredSurfaceWater drew
    *  at the point, 0-1: on a film, its sheen keeps the opacity it has on the body (WATER_FILM). */
   float hlSheen = 0.0;
@@ -420,7 +414,7 @@ ${HIGH_WATER_GLSL}
       float signalOpacity = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
       signalOpacity = mix(0.30, signalOpacity, smoothstep(0.0, 0.20, shore));
       signalOpacity = max(signalOpacity, grazing * 0.62);
-      signalOpacity = mix(signalOpacity, badwaterOpacity(depth, shore, grazing), smoothstep(0.25, 1.0, tint));
+      signalOpacity = mix(signalOpacity, cleanWaterAlpha(depth), smoothstep(0.25, 1.0, tint));
       colour += (HW_BAD_TROUGH * trough + HW_BAD_STREAK * streak) * ((tint - 0.25) / 0.75) / signalOpacity;
     }
     vec3 referenceLight = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
@@ -438,14 +432,9 @@ ${HIGH_WATER_GLSL}
       float bubbles = fine * smoothstep(0.83, 0.93, vnoise(g * 5.0 + vec2(bt * 0.05, -bt * 0.08))) * smoothstep(0.55, 0.8, vnoise(g * 1.3 - vec2(0.0, bt * 0.04)));
       colour += vec3(${WATER.badVein.join(", ")}) * bubbles * tint * 0.55;
     }
-    float alpha = mix(mix(0.86, 0.96, bodyDepth), 0.995, deep);
-    alpha = mix(0.76, alpha, smoothstep(0.0, 0.20, shore));
-    alpha = max(alpha, grazing * 0.98);
-    float badAlpha = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
-    badAlpha = mix(0.30, badAlpha, smoothstep(0.0, 0.20, shore));
-    badAlpha = max(badAlpha, grazing * 0.62);
-    alpha = mix(alpha, badAlpha, tint);
-    alpha = mix(alpha, badwaterOpacity(depth, shore, grazing), smoothstep(0.25, 1.0, tint));
+    // the ground behind shows as the game's does, clean water and badwater alike (waterPalette.ts
+    // WATER_SURFACE.seeThrough; the depth here is already shallower toward a bank)
+    float alpha = cleanWaterAlpha(depth);
     return vec4(colour, alpha);
   }
 `;

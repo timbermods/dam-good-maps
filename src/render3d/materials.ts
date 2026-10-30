@@ -1600,7 +1600,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
         // WATER_FILM.to deep (waterPalette.ts WATER_FILM; our anti-aliasing): its own depth, not the bank's
         float film = waterFilm(depth);
-        float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(absorb), film);
+        float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);
         float foam = 0.0;
         float glints = 0.0;
         float pale = 0.0;
@@ -1652,7 +1652,11 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             trough = (1.0 - smoothstep(0.15, 0.5, 0.5 + 0.42 * (sl.x * 0.7 - sl.y * 0.5))) * near * bad;
           #endif
           // badwater's opacity (nearly opaque but at its shallow edges), by how bad it is
-          alpha = mix(alpha, badwaterAlpha(depth, shore, waterGrazing(V, N)), bad);
+          alpha = mix(alpha, badwaterAlpha(depth, shore), bad);
+          #if LITE
+            // (the light look follows the game's Low quality: no ground behind the water)
+            alpha = max(alpha, film);
+          #endif
           // foam where the water meets the shore, and along the brink where a fall pours over (the
           // whitewater where a fall lands is the fall's own splash: fallMaterial)
           float lip = 1.0;

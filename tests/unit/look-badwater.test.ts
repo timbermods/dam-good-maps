@@ -219,10 +219,12 @@ describe("badwater's colour", () => {
     expect(WATER.bad[1]).toBeGreaterThan(WATER.bad[2]);
     expect(lightness(WATER.badTrough)).toBeLessThan(lightness(WATER.bad) - 2);
     expect(lightness(WATER.badStreak)).toBeGreaterThan(lightness(WATER.bad) + 2);
-    // nearly opaque in open water, see-through at its shallow edges, opaque at a grazing angle
-    for (const d of [0.25, 0.5, 1, 3]) expect(badwaterOpacity(d)).toBeGreaterThanOrEqual(0.975);
-    expect(badwaterOpacity(0.1, 0)).toBeLessThan(0.5);
-    expect(badwaterOpacity(0.1, 0, 0)).toBeGreaterThanOrEqual(0.85);
+    // as see-through as clean water, as the game's High quality draws it (Q8: the ground behind by 0.175 at
+    // the floor, none 5 levels deep; #38's nearly opaque badwater gave way to the game's rule), a crimson
+    // tint on a sliver
+    for (const d of [0.25, 0.5, 1, 3]) expect(badwaterOpacity(d)).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
+    expect(badwaterOpacity(0.1, 0)).toBeLessThan(badwaterOpacity(0.1, 1));
+    expect(badwaterOpacity(0.005)).toBeLessThan(badwaterOpacity(0.05));
     // matte: a twelfth of clean water's glints and glint, and a trace of the sky
     expect(BADWATER.glints).toBeLessThan(0.1);
     expect(BADWATER.spec).toBeLessThan(0.1);
@@ -327,7 +329,7 @@ describe("badwater's colour", () => {
       expect(shader).toContain("float bad = waterTint(cont);");
       expect(shader).toContain("vec3 murky = badwaterBody(depth);");
       expect(shader).toContain("vec3 c = waterBlend(body, murky, cont);");
-      expect(shader).toContain("alpha = mix(alpha, badwaterAlpha(depth, shore, waterGrazing(V, N)), bad);");
+      expect(shader).toContain("alpha = mix(alpha, badwaterAlpha(depth, shore), bad);");
       // the old streaks of mixed water are gone; the bubbles grow denser with the share
       expect(shader).not.toContain("mixed");
       expect(shader).toContain("smoothstep(0.93 - 0.1 * bad, 1.03 - 0.1 * bad");
