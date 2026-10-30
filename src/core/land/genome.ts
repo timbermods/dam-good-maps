@@ -632,6 +632,11 @@ export function tallTop(vt: number): number {
   return EDITOR_TOP + ((GAME_TOP - EDITOR_TOP) * (vt - VT_HIGH)) / (100 - VT_HIGH);
 }
 
+/** The themes whose land seldom stands a landmark of its own (D502): there every map grows the landmark
+ *  intention's form, one for each 128² of the map. Canyon, Highlands and Islands stand theirs (13 to 16 maps in 16
+ *  at 128²), and forms added there only displaced them. */
+const BACKDROP_THEMES = new Set<ThemeId>(["riverValley", "lakeBasin", "delta", "any"]);
+
 export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, attempt: number, o: DrawOptions = {}): Genome {
   const variation = o.variation ?? 0;
   // a variation draws from the same stream as the map (so its settings and intentions match) and
@@ -773,6 +778,13 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   // intentions: outcomes the processes are steered toward, never built (D138)
   g.intentions = o.intentions === undefined || o.intentions === null ? drawIntentions(theme, vt, rng, { W, H }, !!g.seaLayout) : o.intentions.filter((id) => !tooSmallFor(id, W, H));
   for (const id of g.intentions) nudgeFor(id)(g, rng, W, H);
+  // (D502: every map's first look holds a landmark where it can, D493: on a theme whose land seldom stands one of its
+  // own, one landmark's form for each 128² of the map, so wherever the start stands one may stand in its view; the
+  // landmark intention's own is the first. Each from a stream of its own, so the rest of the genome keeps its draws)
+  if (BACKDROP_THEMES.has(theme) && !tooSmallFor("landmark", W, H)) {
+    const forms = Math.max(1, Math.round((W * H) / (128 * 128)));
+    for (let k = g.intentions.includes("landmark") ? 1 : 0; k < forms; k++) nudgeFor("landmark")(g, stream(seed, "backdrop", theme, attempt, k), W, H);
+  }
   // (round 6: on an open island sea, the landforms whose middle lies in the open sea are dropped, the
   // mainland's kept: a mesa or an escarpment there stood as a flat shoal with straight sides under the
   // water, Islands 128² seed 5)

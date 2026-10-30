@@ -1799,7 +1799,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (whether a start may need its ground levelled: before the land is shown, as the plan, whose
   // levelling is part of shaping the land; never on a shown land, D348)
   let allowLevel = true;
-  let plannedStart: { kept: Float64Array | null; storage: { kept: Float64Array; want: number }; view: ReturnType<typeof settlerView> | null; prepared: ReturnType<typeof prepareStart> } | null = null;
+  let plannedStart: { kept: Float64Array | null; storage: { kept: Float64Array; want: number }; view: ReturnType<typeof settlerView>; prepared: ReturnType<typeof prepareStart> } | null = null;
   // (D411, D417: a sea's start goes on an island where one has room for a colony, not on the shore
   // that holds the sea at the map's edge; where none of them has, anywhere, as before. `isles`:
   // "prefer" tries the islands and then anywhere, "only" the islands alone, "skip" anywhere alone)
@@ -1820,17 +1820,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const model = waterModel(W, H, h, []);
       const kept = droughtStorage(model, D, FIRST_DROUGHT_DAYS);
       const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
-      const view = g.intentions.length ? settlerView(h, W, H, hy, D, C, M) : null;
+      const view = settlerView(h, W, H, hy, D, C, M);
       const prepared = prepareStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, rule, { kept, drought: policy, storage });
       data = { kept, storage, view, prepared };
       if (reusePlanned) plannedStart = data;
     }
     const { kept, storage, view, prepared } = data;
-    const intended = view ? (x: number, y: number, L: number, w: number) => weight * Math.max(...g.intentions.map((id) => view.prefer(id, x, y, L, w))) : null;
+    // (the map's own intentions, and on every map a landmark in the opening view at half their pull, D502)
+    const backdrop = g.intentions.includes("landmark") ? 0 : 0.5;
+    const intended = (x: number, y: number, L: number, w: number) => weight * ((g.intentions.length ? Math.max(...g.intentions.map((id) => view.prefer(id, x, y, L, w))) : 0) + (backdrop && backdrop * view.prefer("landmark", x, y, L, w)));
     // (D357: on a long map the start leans to where its theme wants it along the length, an end for a
     // journey or the middle with two ways to grow, land/shape.ts; a lean, never a rule)
     const lengthwise = mapShape(W, H).long;
-    const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => (intended ? intended(x, y, L, w) : 0) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
+    const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
     const rng = stream(seed, "settler2", attempt, salt);
     return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, storage, near, level: allowLevel, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}) });
   };
