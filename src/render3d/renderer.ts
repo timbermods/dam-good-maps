@@ -84,7 +84,7 @@ import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
-import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
+import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, waterChangedRect, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
@@ -2084,12 +2084,33 @@ export class MapRenderer {
     if (on === this.holding) return;
     this.holding = on;
     this.heldSurface = null;
-    // (the water drawn now is held from here: drawn from a copy, which an edit writes, `heldSeat`)
+    // (the water drawn now is held from here: drawn from a copy, which an edit writes, `heldSeat`; where it differs from
+    // the water drawn, as where live water rode land an edit raised over the day's surface before the water answered,
+    // it is drawn again now, so the drawing and the readout agree from the press)
     if (on && m) {
-      m.surface = this.heldSeat(m.water, m.surface);
+      const before = m.surface;
+      m.surface = this.heldSeat(m.water, before);
+      const rect = waterChangedRect(m.W, before, m.surface);
+      if (rect) this.redrawWater(rect);
       this.high?.waterChanged(m.surface);
       this.flowChanged(m.heights, m.surface);
     }
+  }
+
+  /** The water over the tiles of `rect` changed in place: its chunks (and a tile round them, a fall's lip reads its
+   *  neighbours) drawn again, and the ground's tile data under it. */
+  private redrawWater(rect: { x0: number; y0: number; x1: number; y1: number }): void {
+    const m = this.map!;
+    const g = { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 };
+    if (this.tileTex) {
+      tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, g.x0, g.y0, g.x1, g.y1);
+      this.tileRows.touch(g.x0, g.y0, g.x1, g.y1);
+      this.edgesAround(g.x0, g.y0, g.x1, g.y1);
+    }
+    if (this.layered) this.layeredWaterNear(rect);
+    else for (const [cx, cy] of dirtyChunks(m.W, m.H, g)) this.meshWater(cx, cy);
+    this.requestRender();
+    this.onMapChange?.();
   }
 
   /** A weather day is held (`holdWater`). */
@@ -2184,6 +2205,12 @@ export class MapRenderer {
   /** The chunks waiting are water put in place (`updateWater`): sent whole, none left out for being within a hair
    *  of what is drawn, until moving water comes again. */
   private waterExact = false;
+
+  /** The depth of the water drawn on tile i (0 where none is drawn), as its chunk was last meshed (the tests read it). */
+  drawnDepthAt(i: number): number {
+    const s = this.waterShown.surface[i];
+    return s === s ? this.waterShown.depth[i] : 0;
+  }
 
   /** Every water chunk is drawn on the water the map holds: none waits to be sent or with the workers. */
   get waterDrawn(): boolean {

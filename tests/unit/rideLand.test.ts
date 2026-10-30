@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { surfaceWater, waterFromDepth, type WaterView } from "../../src/render3d/model";
-import { heldSurfaceOf, holdLand, ownSurface, rideLand } from "../../src/render3d/waterMesh";
+import { heldSurfaceOf, holdLand, ownSurface, rideLand, waterChangedRect } from "../../src/render3d/waterMesh";
 
 const W = 8;
 const H = 4;
@@ -132,5 +132,19 @@ describe("a held day's water keeps its surface (D133)", () => {
     raised[1] = 8;
     expect(holdLand(W, under, heldSurfaceOf(caves, under.top, was), raised)).toBe(false);
     expect([under.floor[1], under.surface[1]]).toEqual([1, 2]);
+  });
+});
+
+describe("where the water changed (waterChangedRect)", () => {
+  it("the rectangle round the tiles that turned wet or dry or changed their surface or depth; null where none did", () => {
+    const { was, view } = lake();
+    const a = surfaceWater(W, H, view);
+    const b = ownSurface(a);
+    expect(waterChangedRect(W, a, b)).toBeNull();
+    const now = was.slice();
+    now[9] = 15;
+    now[2 * W + 5] = 2;
+    holdLand(W, b, heldSurfaceOf(view, a.top, was), now);
+    expect(waterChangedRect(W, a, b)).toEqual({ x0: 1, y0: 1, x1: 5, y1: 2 });
   });
 });
