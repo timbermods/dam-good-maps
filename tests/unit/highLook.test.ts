@@ -94,7 +94,8 @@ describe("the High look's shaders", () => {
     expect(s).toContain("vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), tint);");
     expect(s).toContain("colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));");
     expect(s).toMatch(/float bubbles = fine \* smoothstep\(/);
-    expect(s).toContain("colour += vec3(0.26, 0.035, 0.008) * tint * (1.0 - smoothstep(0.0, 0.32, shore));");
+    // the red at rock is the game's own glow of shallow water partly bad (waterPalette.ts badwaterGlow)
+    expect(s).toContain("badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);");
   });
 
   it("have a switch for each effect that needs one in a shader", () => {
