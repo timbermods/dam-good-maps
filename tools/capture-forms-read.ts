@@ -75,6 +75,8 @@ const SHOTS: ShotDef[] = [
   { id: "opening", label: "the game's opening camera", view: "opening" },
   { id: "opening-first", label: "the game's first frame", view: "opening-first" },
   { id: "hero", label: "the map's picture", view: "hero" },
+  // toward the horizon, low over the map (the sky and its clouds, the fog meeting it)
+  { id: "horizon", label: "toward the horizon", view: { yaw: 0.6, pitch: 0.28, distance: 90, target: at(64, 64, 8), fov: 35 } },
   // the finish's other views (D497): a held drought's fog colour, High with its Fog off, pulled back past the game's
   // farthest default zoom (the fog held at 154), and looking straight down (no fog)
   { id: "drought-first", label: "the game's first frame on a held drought day", view: "opening-first", before: `window.dgm3d.renderer.setSeason("drought")`, undo: `window.dgm3d.renderer.setSeason(null)` },

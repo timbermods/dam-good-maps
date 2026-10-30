@@ -2295,15 +2295,15 @@ export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
         float u = e * ${f(n - 1)};
         int k = int(min(floor(u), ${f(n - 2)}));
         vec3 c = mix(SKY_DAY[k], SKY_DAY[k + 1], u - float(k));
-        // the clouds: the shape less the detail's erosion, within the band round the horizon, in the sun's colour
+        // the clouds: the shape less its erosion by the detail, within the band round the horizon, in the sun's colour
         float band = smoothstep(${f(C.start[0])}, ${f(C.start[1])}, e) * (1.0 - smoothstep(${f(C.end[0])}, ${f(C.end[1])}, e));
         if (band > 0.0) {
           vec3 ps = d * vec3(${C.shapeScale.map(f).join(", ")});
           vec3 pd = d * vec3(${C.detailScale.map(f).join(", ")});
           float shape = ${C.shapeOctaves.map((o, k) => oct(o, k, C.shapeScale, C.shapeWeights[k], sw)).join(" + ")};
           float detail = ${C.detailOctaves.map((o, k) => oct(o, k + 4, C.detailScale, C.detailWeights[k], dw)).join(" + ")};
-          float cloud = clamp(detail + ${f(C.densityOffset)}, 0.0, 1.0) - (1.0 - shape) * pow(1.0 - detail, ${f(C.erosion)});
-          cloud = clamp(pow(max(cloud, 0.0), ${f(C.densityPower)}) * ${f(C.multiplier)}, 0.0, 1.0) * band;
+          float cloud = clamp(shape + ${f(C.densityOffset)}, 0.0, 1.0) - (1.0 - detail) * pow(1.0 - shape, ${f(C.erosion)});
+          cloud = clamp(pow(max(cloud, 0.0), ${f(C.densityPower)}) * ${f(C.blending)}, 0.0, 1.0) * band;
           c += cloud * ${glColor(GAME_LIGHT.sun)};
         }
         // (the game's post chain grades the whole frame, the sky too)
