@@ -151,7 +151,11 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     if (ed.forcer.current?.running) return ed.forcer.current.cancel();
     if (painter.current?.painting) return painter.current.cancel();
     const s = localUndo.current.pop();
-    if (!s) return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
+    if (!s) {
+      // (a force just kept: its tails stop at the key, not when the worker answers)
+      juice.current?.takeBack();
+      return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
+    }
     juice.current?.undo();
     showStroke(s, "before");
     localRedo.current.push(s);
