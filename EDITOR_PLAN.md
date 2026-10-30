@@ -953,7 +953,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   {x, y, w, h}}` (the selection's bounding rectangle, in tiles) makes the map exactly that rectangle of itself. The
   ground (its runs: caves and overhangs stay), water, soil, objects and sources inside keep their place relative to the
   new origin; everything outside is gone; an object whose footprint crosses the edge is removed, counted in the result
-  (`removedObjects`; `planCrop` answers it before applying). One-line refusals, never clamped: a rectangle off the map; a
+  (`removedObjects`; `planCrop` answers it before applying). So is a slope whose step the edge cuts (its high side or the
+  ground behind its foot past the new edge: it would join no step, `slopes.connect`), and a slope climbing from one so
+  cut; the lip never raises the step a kept slope joins. One-line refusals, never clamped: a rectangle off the map; a
   side under 4 or over 512; the same size as the map ("nothing to crop"); a start the edge would cut or leave outside
   ("The start would be cut off: move it inside the selection first"). The crop is the first operation of the map's next
   generation (`MapDocument.prior` holds the one before it with its operations), so it is one undo step that brings the
