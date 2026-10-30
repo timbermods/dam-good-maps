@@ -8,7 +8,7 @@ Badwater is #38's crimson, as Kyler approved it: matte and nearly opaque, with d
 subdued streaks. It is see-through only at its shallow edges, lighter on a film and darker with depth, as the game's (D496: the G ramp of its `_DepthGradients` texture; option A before it, close to the game's down to two levels).
 Partly bad water turns as the game turns it (2026-10-29, read from Timberborn 1.1.2.8's water shader;
 `investigation/notes/water_and_soil.md` Q8): one tint, smoothstep(0.01, 1, share) ^ 0.25, carries its
-colour, opacity and dull surface toward badwater's, the colour mixed in linear light as the game mixes
+colour, opacity and dull surface toward badwater's, the colour mixed on display values as the game (in Gamma colour space) mixes
 it, so it greys as it turns: a darker teal-grey near the game's mixing zone (#2E444C) at a few percent,
 a grey at a fifth, a dull red-brown at half, crimson when pure. It is never purple or mauve. (Before,
 the hue turned along its own steeper path and 10% already read warm; the game greys first.) The

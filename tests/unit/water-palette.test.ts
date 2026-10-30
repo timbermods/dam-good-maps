@@ -82,7 +82,7 @@ describe("the shared water palette", () => {
     // the GLSL is made from the exported values
     const gl = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
     for (const c of Object.values(WATER)) expect(WATER_GLSL).toContain(`vec3(${c.map(gl).join(", ")})`);
-    for (const k of ["from", "to", "power", "weight", "lean", "room"] as const) expect(WATER_GLSL).toContain(gl(WATER_BLEND[k]));
+    for (const k of ["from", "to", "power", "lean", "room"] as const) expect(WATER_GLSL).toContain(gl(WATER_BLEND[k]));
   });
 
   it("keeps the calibration with the colours: the method, and the targets, #38's for badwater", () => {

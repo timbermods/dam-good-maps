@@ -1104,7 +1104,8 @@ opaque material, the ground behind showing only as a small tinted share, `invest
 Only a sliver three hundredths of a level deep or less, a shore's very edge, fades in from a faint tint (its ground seen as
 through a coloured filter in the water's hue) to the body, on one smooth curve on the water's own depth: our own
 anti-aliasing, where the game clips hard at the floor. The ground behind the water shows as the game's High quality
-shows it (`WATER_SURFACE.seeThrough`): 0.175 of it at the water's floor, thinning in step with depth to none at 5 levels,
+shows it (`WATER_SURFACE.seeThrough`, `waterGroundBehind`): overlaid with the water's colour and desaturated, 0.175 of it
+at the water's floor, thinning in step with depth to none at 5 levels,
 behind clean water and badwater alike; the light look follows the game's Low quality and shows none; a badwater sliver stays murkier than clean water, and keeps a faint edge, not a foam line.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
