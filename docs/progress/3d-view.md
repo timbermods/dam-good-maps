@@ -551,16 +551,22 @@ Standard's shadow before a cave (item 8).
     (r² + 1) × the Fresnel blend toward the grazing term) and the sun's GGX highlight. The probe is the game's own
     Cubemap (`sharedassets1.assets` "TimberbornEnvironmentRelfectionProbe", 128², 8 mips, BC6H), which
     `tools/reflection-probe.ts` decodes on the GPU; `GAME_ENV` keeps its roughest mip, up, side and down, and `--json`
-    writes every face and mip for the water's sharper reflection.
+    writes every face and mip. The water reflects it too (`WATER.sky`: the probe at the water's mip 5.29, toward a
+    reflection 60° up; `WATER_SURFACE.reflection` 0.65). The light look leaves out the terrain's specular (D453: in
+    software it cost a third of the finish's frame time; the set draws the light look in 30 ms against dev's 25 at
+    1280×800, SwiftShader).
   - The post chain: URP's LDR grading under Gamma: to linear, +0.15 EV, Neutral tonemapping, contrast +14 round
     ACEScc's mid grey in LogC, saturation +3, back to display values; the sky takes it too.
-  - Not drawn: `m_AmbientIntensity` 1.2 (Unity uses it for a skybox's ambient only; the game sets Trilight) and bloom
+  - Not drawn: `m_AmbientIntensity` 1.2, unsettled (Unity's Lighting window offers it for Skybox ambient only, but the
+    game's shade against its sun points to an ambient about 1.2× ours: the frame capture decides), and bloom
     (threshold 1.5: highlights only).
 - **Objects, water and falls** keep their own light (their sky colour and sun), less High's ambient occlusion; they
   take the fog and the post chain.
 - **Captures and numbers:** in the PRs (#703, #722, and the finish's, which carries the set).
-- **Falls short:** the ambient SH's projection is the engine's and waits for a frame capture; the water's own
-  reflection takes the probe and 0.65 with #723.
+- **Falls short:** the ambient SH's projection and `m_AmbientIntensity` wait for a frame capture: shade reads about 0.8
+  of the game's (floors truly in shade 57–62 in the game's shots, our overhang floor 49–50). The game's sky behind
+  the map is still ours. The water is graded before it blends over the ground, where the game grades the finished
+  frame; grading after would take a full-frame pass (D110's rejected 25–27 MiB target).
 - **Next:** the sun turning with the camera (yaw + 40°, 45° up).
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
