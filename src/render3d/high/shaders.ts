@@ -474,9 +474,9 @@ export function waterHooks(): ShaderHooks {
             if (bitOf(vFlags, 32.0) > 0.5) fallIn = min(fallIn, hlFr.x);
             if (bitOf(vFlags, 64.0) > 0.5) fallIn = min(fallIn, 1.0 - hlFr.y);
             if (bitOf(vFlags, 128.0) > 0.5) fallIn = min(fallIn, hlFr.y);
-            // a film (a tenth of a level deep or less) is a faint tint over its own ground, building to the
-            // body by a quarter of a level deep, as the Standard look's (waterPalette.ts WATER_FILM): its own
-            // depth, not the bank's; a faint edge, not a foam line
+            // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
+            // WATER_FILM.to deep, as the Standard look's (waterPalette.ts WATER_FILM): its own depth, not the
+            // bank's; a faint edge, not a foam line
             float hlFilm = waterFilm(depth);
             hlFoam = (1.0 - smoothstep(0.015, 0.16, shore)) * (0.26 + vnoise(g * 4.0 + vec2(hlT * 0.1, -hlT * 0.2)) * 0.38) * mix(WATER_FILM_FOAM, 1.0, hlFilm);
             hlFoam += (1.0 - smoothstep(0.12, 0.95, fallIn)) * (0.72 + 0.45 * vnoise(g * 6.0 + vec2(hlT * 0.7, -hlT * 1.4)));
