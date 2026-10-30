@@ -112,7 +112,7 @@ export class Juice {
   private stroke: string | number | null = null;
   /** The force at work's sounds: its run's number, its textures and the phases already played. */
   private force: { run: number; verb: string; ids: string[]; played: Set<string>; puffAt: number } | null = null;
-  /** The force kept last, its tails still sounding until another action comes (an undo takes them back). */
+  /** The force kept last, its tails still sounding until another edit comes (an undo takes them back). */
   private kept: number | null = null;
   private runs = 0;
   private readonly unlock = () => void this.engine.unlock();
@@ -187,6 +187,12 @@ export class Juice {
   strokeEnd(): void {
     if (this.stroke !== null) this.engine.stop(this.stroke);
     this.stroke = null;
+  }
+
+  /** Another edit on its way, silent ones too (a delete, a move, an object's options, Fix, crop): the
+   *  force kept before it is no longer the step undo takes back, and its tails play on. */
+  edited(): void {
+    this.kept = null;
   }
 
   /** Undo pressed: a stroke's bed stops, and a force kept just before it is taken back with its
