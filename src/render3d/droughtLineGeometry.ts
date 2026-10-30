@@ -25,10 +25,15 @@ export const FACE_INSET = 0.012;
 /** The tint floats this far over the bed's ground. */
 export const TINT_LIFT = 0.03;
 
-/** The line's colour (amber: the drought's, apart from the water's blues and the land's greens), and its opacity
- *  on the start's water and elsewhere. Faint: feedback from the land, not a readout (D184). */
-export const LINE_COLOR: readonly [number, number, number] = [1.0, 0.82, 0.42];
-export const LINE_ALPHA = { start: 0.6, other: 0.4 };
+/** The line's colour (a pale dry-earth white: the mark a falling lake leaves on its bank, apart from the water's blues,
+ *  the land's greens and the editor's gold selection outlines), and its opacity on the start's water and elsewhere.
+ *  Faint: an editing aid drawn on the land, not a readout (D133, D184). */
+export const LINE_COLOR: readonly [number, number, number] = [0.92, 0.88, 0.78];
+export const LINE_ALPHA = { start: 0.45, other: 0.3 };
+/** Where today's water stands over the line (`DroughtLine` `under`: a lake that falls, its last day's shore inside
+ *  today's lake), the line is seen through it: this much of its opacity, so it never draws bright lines across the
+ *  water. */
+export const UNDER_WATER = 0.4;
 /** The dry tint: where a lake or river dries out completely (it lies under today's water, which veils it; High's near-opaque water hides it, so it is stronger there). Its vertices carry 1 on the start's water, else 0 in the alpha: the tint's shader sets the opacity for the look. */
 export const TINT_COLOR: readonly [number, number, number] = [0.95, 0.68, 0.2];
 export const TINT_ALPHA = { standard: { start: 0.3, other: 0.2 }, high: { start: 0.6, other: 0.45 } };
@@ -89,7 +94,8 @@ export function droughtLineGeometry(line: DroughtLine, heights: ArrayLike<number
     const y = (i - x) / W;
     const s = ln.sides[k];
     const L = ln.level[k];
-    const a = ln.start[k] ? LINE_ALPHA.start : LINE_ALPHA.other;
+    // (under today's water as the line itself says, from the map's settled water: never whatever the view shows now)
+    const a = (ln.start[k] ? LINE_ALPHA.start : LINE_ALPHA.other) * (ln.under[k] ? UNDER_WATER : 1);
     const west = (s & SIDE_WEST) !== 0;
     const east = (s & SIDE_EAST) !== 0;
     const north = (s & SIDE_NORTH) !== 0;
