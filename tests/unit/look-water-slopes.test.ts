@@ -51,24 +51,26 @@ describe("water", () => {
     for (const d of [0.1, 0.25, 0.5, 1]) expect(waterOpacity(d, 0)).toBeLessThan(0.8);
   });
 
-  it("draws thin water thin (D154, WATER_FILM): a film is mostly see-through, builds smoothly to the body, deep water unchanged, badwater murkier", () => {
-    // a film a tenth of a level deep or less: under half of half-a-level water's opacity; badwater's a tint, not a slab
-    for (const d of [0.03, 0.05, 0.1]) {
-      expect(waterOpacity(d), `${d} deep`).toBeLessThan(waterOpacity(0.5) * 0.5);
-      expect(waterOpacity(d, 1, 1), `badwater ${d} deep`).toBeLessThan(0.75);
+  it("draws water of any depth as water, as the game does (WATER_FILM): only a sliver fades in, smoothly; badwater murkier", () => {
+    // the game draws a film a tenth of a level deep as the same water as its body, not a faint tint over its
+    // ground (Q8: its opaque material in play): from a fiftieth of a level the body's own opacity
+    const S = WATER_SURFACE;
+    for (const d of [0.02, 0.03, 0.05, 0.1]) {
+      expect(waterOpacity(d), `${d} deep`).toBeCloseTo(S.clearest + (S.deepest - S.clearest) * (1 - Math.exp(-d * S.absorb)), 9);
       // badwater stays murkier than clean water as thin
       expect(waterOpacity(d, 1, 1)).toBeGreaterThan(waterOpacity(d) + 0.2);
     }
-    // one smooth curve: rising with depth, no step between neighbouring depths
+    // a sliver fades in (our anti-aliasing of a shore's edge): under the body's opacity, rising with depth to
+    // it in one smooth curve, no step between neighbouring depths
+    expect(waterOpacity(0.005)).toBeLessThan(waterOpacity(0.02));
     let last = waterOpacity(0);
-    for (let d = 0.01; d <= 0.6; d += 0.01) {
+    for (let d = 0.001; d <= 0.6; d += 0.001) {
       const a = waterOpacity(d);
       expect(a).toBeGreaterThanOrEqual(last);
       expect(a - last).toBeLessThan(0.04);
       last = a;
     }
     // a quarter of a level deep and deeper: the body's own opacity, as before
-    const S = WATER_SURFACE;
     for (const d of [0.25, 0.5, 1, 3]) expect(waterOpacity(d)).toBeCloseTo(S.clearest + (S.deepest - S.clearest) * (1 - Math.exp(-d * S.absorb)), 9);
     // the shader reads the same curve
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
