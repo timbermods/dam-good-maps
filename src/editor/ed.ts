@@ -22,5 +22,6 @@ import type { SaveSlice } from "./save/useSave";
 import type { CollabSlice } from "./collab/useCollab";
 import type { CompareSlice } from "./compare/useCompare";
 import type { BlockSlice } from "./block/useBlockTool";
+import type { HideObjectsSlice } from "./view/useHideObjects";
 
-export type Ed = SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & ForcePointerSlice & RowsSlice & ReadySlice & SelectSlice & ViewSyncSlice & StartSlice & BlockSlice & TestHookSlice & SaveSlice & CompareSlice & CollabSlice;
+export type Ed = SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & ForcePointerSlice & RowsSlice & ReadySlice & SelectSlice & ViewSyncSlice & StartSlice & BlockSlice & TestHookSlice & SaveSlice & CompareSlice & CollabSlice & HideObjectsSlice;

@@ -1,12 +1,13 @@
 // The keyboard shortcuts as data: the one list the shortcuts panel shows (File → Keyboard shortcuts, or ?). The
 // tools' keys are read from the lists that pick them (`BRUSHES`, `FORCES`), so a new tool or force appears here by
 // itself; the other keys are listed once below, beside the code that handles them (keyboard/useKeyboard.ts, the
-// camera in render3d/renderer.ts, the pointer in editor/select.ts and sources/useSourcePointer.ts). The panel only
-// shows them: no key's behaviour is read from this list.
+// camera in render3d/renderer.ts, view/useHideObjects.ts, the pointer in editor/select.ts and
+// sources/useSourcePointer.ts). The panel only shows them: no key's behaviour is read from this list.
 
 import { BRUSHES } from "../brushes";
 import { COMPARE_KEY } from "../compare/useCompare";
 import { SHOWN_FORCES, SIZE_KEYS, STRENGTH_KEYS } from "../TopBar";
+import { HIDE_OBJECTS_KEY } from "../view/useHideObjects";
 
 /** One line of the panel: what the key does, and the keys that do it (any one of them; each shows as a key cap). */
 export interface Shortcut {
@@ -88,6 +89,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
         { what: "Zoom", keys: ["+", "-", "Scroll"] },
         { what: "Show markers", keys: ["M"] },
         { what: "See through the water", keys: ["T"] },
+        { what: "Hold to see the land behind objects", keys: [HIDE_OBJECTS_KEY] },
         { what: "Hold to see the version you compare with", keys: [COMPARE_KEY] },
         { what: "Keep this view in a slot", keys: ["Ctrl+Shift+1–9"] },
         { what: "Go back to a kept view", keys: ["Alt+1–9"] },
