@@ -3,7 +3,7 @@
 // corners, so where badwater meets clean water the colour turns in a soft gradient over several
 // tiles, never in streaks or patches; clean water stays exactly as it was; water partly bad turns by
 // the game's own tint (Timberborn 1.1.2.8's water shader: smoothstep(0.01, 1, share) ^ 0.25), its
-// colour mixed straight in linear light as the game mixes it, through the game's teal-grey and a muted
+// colour mixed straight on display values as the game (in Gamma colour space) mixes it, through the game's teal-grey and a muted
 // warm grey-brown to crimson, never purple (Kyler's reviews of #41); badwater is #38's approved
 // crimson, matte and murky, and darkens with depth (option A).
 
@@ -233,16 +233,15 @@ describe("badwater's colour", () => {
     expect(BADWATER.spec).toBeLessThan(0.1);
     expect(BADWATER.reflect).toBeLessThan(0.1);
     expect(badwaterBody(BADWATER.shallow)).toEqual(WATER.bad);
-    // option A: darker with depth
+    // darker with depth (option A's depth darkening, now the game's ramp, checked against it below; option A's
+    // own "15 L* darker at 4 levels" went with its curve, D148)
     for (let d = 0.3; d < 5; d += 0.1) expect(lightness(badwaterBody(d))).toBeLessThan(lightness(badwaterBody(d - 0.1)) + 1e-9);
-    expect(lightness(badwaterBody(4))).toBeLessThan(lightness(WATER.bad) - 15);
-    // as the game's (D496): its luminance follows the G ramp of Timberborn 1.1.2.8's _DepthGradients
-    // texture (PhysicalWaterURP multiplies the contaminated colour by it), within 5% at these depths,
-    // relative to a quarter level deep, but for the share with no depth in it (its reflection and emission,
-    // BADWATER.floor); lighter on a film
-    const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-    const y = (c: readonly number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
-    for (const [d, game] of [[0.5, 0.61], [1, 0.426], [2, 0.185], [3, 0.081]] as const) expect(Math.abs(y(badwaterBody(d)) / y(WATER.bad) / (BADWATER.floor + (1 - BADWATER.floor) * game) - 1), `${d} deep`).toBeLessThan(0.05);
+    // as the game's (D496): its colour follows the G ramp of Timberborn 1.1.2.8's _DepthGradients texture
+    // (PhysicalWaterURP multiplies the contaminated colour by it, raw, on display values: the game renders in
+    // Gamma colour space), within 5% at these depths, relative to a quarter level deep, but for the share with
+    // no depth in it (its reflection and emission, BADWATER.floor); lighter on a film
+    for (const [d, game] of [[0.5, 0.802], [1, 0.681], [2, 0.46], [3, 0.305]] as const)
+      for (let k = 0; k < 3; k++) expect(Math.abs(badwaterBody(d)[k] / WATER.bad[k] / (BADWATER.floor + (1 - BADWATER.floor) * game) - 1), `${d} deep`).toBeLessThan(0.05);
     expect(lightness(badwaterBody(0.05))).toBeGreaterThan(lightness(WATER.bad));
   });
 
@@ -270,12 +269,10 @@ describe("badwater's colour", () => {
       for (const s of shares.slice(2)) {
         const c = waterBody(d, s);
         const k = waterTint(s);
-        // its luminance straight between clean water's and badwater's, by the tint (the game's mix; a
-        // hair under it where blue is kept from leaning purple)
-        const y = (c: readonly number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
-        const straight = y(clean) + (y(bad) - y(clean)) * k;
-        expect(y(c)).toBeLessThanOrEqual(straight + 1e-9);
-        expect(y(c)).toBeGreaterThan(straight - 0.002);
+        // straight between clean water's and badwater's on display values, by the tint (the game's mix, in
+        // Gamma colour space); blue the same or under it where it is kept from leaning purple
+        for (const i of [0, 1]) expect(c[i]).toBeCloseTo(clean[i] + (bad[i] - clean[i]) * k, 9);
+        expect(c[2]).toBeLessThanOrEqual(clean[2] + (bad[2] - clean[2]) * k + 1e-9);
         // darker at every step in greyscale too, and no jump in any channel (the game's tint is steep
         // just past a hundredth: 0.06 at the most for 1% more bad)
         expect(lightness(c), `${d} deep, ${s} bad`).toBeLessThan(prevL);
@@ -314,7 +311,8 @@ describe("badwater's colour", () => {
         expect(waterBody(d, 0.7, fromBank)[0] - waterBody(d, 0.7, fromBank)[2], `${d} deep, 0.7 bad`).toBeGreaterThan(8.5 / 255);
         expect(h < 45 || h > 355, `${d} deep, 0.6 bad: hue ${Math.round(h)}°`).toBe(true);
       }
-    // on the way, a little bad, it passes near the game's measured mixing zone's teal-grey (#2E444C)
+    // on the way, a little bad, it passes near the game's measured mixing zone's teal-grey (#2E444C), its
+    // colour with its lightness taken out
     const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
     const chroma = (c: readonly number[]) => {
       const l = c.map(lin);
@@ -328,7 +326,8 @@ describe("badwater's colour", () => {
         const h = chroma(waterBody(d, k / 100));
         closest = Math.min(closest, Math.max(...h.map((v, i) => Math.abs(v - mixingZone[i]))));
       }
-      expect(closest, `${d} deep`).toBeLessThan(0.08);
+      // (0.08 when the mix ran in linear light; on display values, as the game, it passes a little further off)
+      expect(closest, `${d} deep`).toBeLessThan(0.12);
     }
   });
 
