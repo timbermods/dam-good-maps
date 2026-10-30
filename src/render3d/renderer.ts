@@ -93,7 +93,7 @@ import { HighLook, highLookMaterials, roofedOf, runSoilOf, type HighLookMaterial
 import { Mist } from "./high/mist";
 import { Programs, withDefine, type Defines } from "./programs";
 import { isPlant } from "./high/forest";
-import { pageBaker, type Baker } from "./high/fields";
+import { pageBaker, sunBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { StillFlow } from "./stillFlow";
 import { BoxUploads, RowUploads } from "./rowUploads";
@@ -3553,7 +3553,7 @@ export class MapRenderer {
     const casters = this.casters ?? null;
     const levels = casters ? casterLevelsOf(casters) : undefined;
     this.sunBaking = true;
-    this.baker
+    sunBaker()
       .run({ kind: "shadows", W: m.W, H: m.H, heights: m.heights.slice(), casters: casters ? casters.slice() : null, levels: levels ? levels.slice() : null, rock: this.rock(), sun })
       .then(
         (r) => {

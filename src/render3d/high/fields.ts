@@ -93,3 +93,11 @@ let shared: Baker | null = null;
 export function pageBaker(): Baker {
   return (shared ??= new Baker());
 }
+
+let sunShared: Baker | null = null;
+
+/** The page's worker for the sun's shadows alone (the renderer's rolling bakes as the camera turns): its own, so a
+ *  bake never waits behind the water's fields in the page's bake worker. */
+export function sunBaker(): Baker {
+  return (sunShared ??= new Baker());
+}
