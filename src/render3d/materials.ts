@@ -1710,21 +1710,16 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             // (the light look follows the game's Low quality: no ground behind the water)
             alpha = max(alpha, film);
           #endif
-          // foam where the water meets the shore, and along the brink where a fall pours over (the
-          // whitewater where a fall lands is the fall's own splash: fallMaterial)
+          // foam along the brink where a fall pours over (the whitewater where a fall lands is the fall's own
+          // splash: fallMaterial); none along the shore, as the game draws none (its water shader has no foam)
           float lip = 1.0;
           if (bitOf(vFlags, 256.0) > 0.5) lip = min(lip, 1.0 - fr.x);
           if (bitOf(vFlags, 512.0) > 0.5) lip = min(lip, fr.x);
           if (bitOf(vFlags, 1024.0) > 0.5) lip = min(lip, 1.0 - fr.y);
           if (bitOf(vFlags, 2048.0) > 0.5) lip = min(lip, fr.y);
-          // a thin line along the shore, and (clean water only) broken foam just off it; a film keeps a
-          // faint edge, not a pond's foam line
-          float filmFoam = mix(WATER_FILM_FOAM, 1.0, film);
-          foam += (1.0 - smoothstep(0.03, 0.08, shore)) * mix(${f(WS.shoreFoam)}, 0.45, bad) * filmFoam;
           #if LITE
             foam += (1.0 - smoothstep(0.02, 0.1, lip)) * 0.5 * (1.0 - bad * 0.35);
           #else
-            foam += (1.0 - smoothstep(0.06, 0.24 + 0.1 * fn, shore)) * smoothstep(0.4, 0.72, fn + 0.12) * ${f(WS.brokenFoam)} * (1.0 - bad) * filmFoam;
             // the water breaks white over the brink, in a ragged line that runs with it
             float brink = vnoise(vec2((g.x + g.y) * 5.0, t * 1.6)) * 0.6 + vnoise(vec2((g.x - g.y) * 11.0, t * 2.3)) * 0.4;
             foam += (1.0 - smoothstep(0.02, 0.08 + 0.1 * brink, lip)) * (0.4 + 0.45 * brink) * (1.0 - bad * 0.35);
