@@ -107,7 +107,13 @@ const SHADOW_GLSL = /* glsl */ `
   float sunLit(vec2 g, float z) {
     // (the derivatives first, outside any branch or loop; the depth read at its own level)
     vec3 n = normalize(vNormal);
-    vec4 p = hlShadowMatrix * vec4(vWorld + n * 0.045, 1.0);
+    // (pushed off the surface along its normal, more the more it turns from the sun, by the depth map's texels:
+    // a wall the sun grazes is drawn in the map as thin slivers of its own triangles, and with too small a push
+    // it shadowed itself in their pattern, a dotted seam down a close wall; the map's texel in the world from the
+    // matrix's scale, an orthographic one's the same across)
+    float texelWorld = 2.0 * hlTexel / length(vec3(hlShadowMatrix[0][0], hlShadowMatrix[1][0], hlShadowMatrix[2][0]));
+    float grazing = 1.0 - clamp(abs(dot(n, sunDir)), 0.0, 1.0);
+    vec4 p = hlShadowMatrix * vec4(vWorld + n * (0.045 + 1.5 * texelWorld * grazing), 1.0);
     vec3 q = p.xyz / p.w * 0.5 + 0.5;
     vec3 dx = dFdx(q), dy = dFdy(q);
     float determinant = dx.x * dy.y - dx.y * dy.x;
