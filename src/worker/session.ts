@@ -3321,8 +3321,10 @@ function followSources(w: NonNullable<typeof forceWater>, objects: readonly Enti
   return moved;
 }
 
-/** The force's water `ticks` on, on the ground shown now, and its depths (Node tests run it
- *  themselves, as they run `settleWater`); null when the force has none. */
+/** The force's water `ticks` on, on the ground shown now, and its depths seen from above, a tile's top column (Node
+ *  tests run it themselves, as they run `settleWater`); null when the force has none. On a map with caves the page
+ *  also draws every column under a roof (`stackView`): compare a kept view's top columns with these, or the frames
+ *  drawn with the kept view. */
 export function flowForceWater(ticks: number): Float64Array | null {
   const ws = forceStack;
   if (ws && force === ws.force) {
