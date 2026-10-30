@@ -14,7 +14,7 @@ const owned = (s: MapSession, id: string) => s.built.entities.filter((e) => e.ow
 
 describe("a generated resource feature the player changes", () => {
   it("a berry patch moved (as an older editor's Move recorded it): the session's map is the one its project reopens to", () => {
-    const PATCH = "f-4exnbelxaospg"; // a generated berry patch on seed 11, 96², 69 bushes that a Move leaves 52 (re-picked for each generator whose map lacks the earlier one, D148: 0.8.1, #265, and 0.8.3, D476, twice; 0.10.1, ruins placed with meaning; 0.10.6, D498; 0.10.7, D502)
+    const PATCH = "f-lr7v65mmweygu"; // a generated berry patch on seed 11, 96², 52 bushes that a Move leaves 35 (re-picked for each generator whose map lacks the earlier one, D148: 0.8.1, #265, and 0.8.3, D476, twice; 0.10.1, ruins placed with meaning; 0.10.6, D498; 0.10.7, D502, twice)
     const s = session(11, W);
     // the Move's plan on the session, applied as one step
     const m = moveEdit(s, PATCH, 2, 1);
@@ -28,7 +28,7 @@ describe("a generated resource feature the player changes", () => {
   });
 
   it("a forest's density changed after another edit shows at once, as with no earlier edit and in the reopened project", () => {
-    const FOREST = "f-fhjxiawi53f7e"; // a generated oak grove on seed 11, 96², 54 oaks that density 0.36 leaves 22 (re-picked for each generator whose map lacks the earlier one, D148: 0.8.1, #265, and 0.8.3, D476, twice; 0.10.1, ruins placed with meaning; 0.10.2, D493; 0.10.6, D498; 0.10.7, D502)
+    const FOREST = "f-imql4a6eo2jyw"; // a generated forest on seed 11, 96², 34 trees that density 0.36 leaves 13 (re-picked for each generator whose map lacks the earlier one, D148: 0.8.1, #265, and 0.8.3, D476, twice; 0.10.1, ruins placed with meaning; 0.10.2, D493; 0.10.6, D498; 0.10.7, D502, twice)
     const first: EditOp = { op: "sculpt", params: { mode: "raise", cells: [[1, 86, 89], [2, 86, 89]], amount: 1 } };
     const density: EditOp = { op: "updateFeature", params: { id: FOREST, patch: { params: { density: 0.36 } } } };
     const alone = session(11, W);

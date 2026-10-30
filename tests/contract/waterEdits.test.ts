@@ -75,12 +75,14 @@ describe("Remove unfed water (D387 (2))", () => {
   let fileBefore: Uint8Array;
 
   beforeAll(() => {
-    // Lake Basin 2 (5 before generator 0.10.7, D502, where it has no dry plateau; 3 before generator 0.10.6, D498; 2 before Lake Basin round 3, 1 before M9b's maps, D148: their 96² maps have no dry
+    // Lake Basin 5 (2 on generator 0.10.7's first D502 maps, where seed 5 had no dry plateau; 5 again on D502 narrowed to
+    // one landmark form per whole 128², where seed 2 has none; 5 before generator 0.10.7; 3 before generator 0.10.6, D498; 2 before
+    // Lake Basin round 3, 1 before M9b's maps, D148: their 96² maps have no dry
     // plateau for the two pits): rows
     // of grouped sources (D314), two badwater sources, and two Fills, pools no source's water
     // reaches (the canonical settle's pre-fill left such pools in hollows until D385, which takes
     // that water from nowhere away; a stored lake is the unfed water a map keeps)
-    s = session("lakeBasin", 2);
+    s = session("lakeBasin", 5);
     for (const p of digPits(s, 2)) expect(s.apply(planFill(s, p.at[0], p.at[1], p.level).op!).errors).toEqual([]);
     before = s.built.water.slice();
     fedBefore = fedTiles(s.built.waterModel, before);
@@ -262,8 +264,10 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
     expect(errors.length).toBe(1);
     expect(errors[0]).toMatch(/hollow is no longer the one measured|must hold/);
     expect(s.check({ op: "fillHollow", params: { ...op.params, level: level - 0.5 } })).toEqual(["the fill's water must stand at its level on every tile"]);
-    // the ground changed under it since it was measured
-    const [y, x0] = [at[1] - 1, at[0] - 1];
+    // the ground changed under it since it was measured, at the pit's corner: not under the asked tile itself, whose
+    // column a fill on a map with caves names (generator 0.10.7, D502, D148: River Valley 7's 96² map has them now, and
+    // lowering that column is refused first, "there is no ground at level 14", not as a changed hollow)
+    const [y, x0] = [at[1] - 3, at[0] - 3];
     const r = s.apply({ op: "sculpt", params: { mode: "lower", cells: [[y, x0, x0 + 2], [y + 1, x0, x0 + 2], [y + 2, x0, x0 + 2]], amount: 1 } });
     expect(r.errors).toEqual([]);
     expect(s.check(op)).toEqual(["the hollow is no longer the one measured: measure the fill again"]);
