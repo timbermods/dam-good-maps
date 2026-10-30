@@ -58,7 +58,9 @@ only where an implementation looks wrong.
 
 **Wave 3**
 - **Intent-level editing:** describe a change ("a hidden cave with a relic behind the falls") and get it built from the
-  forces and the features (PLAN §20 D187; M12 in `docs/archive/roadmap.md`).
+  forces and the features (PLAN §20 D187; M12 in `docs/archive/roadmap.md`). Its first form is built: the MCP server
+  (D501, `mcp/`), through which a player's own Claude steers the generator and shapes the map with the forces; the
+  page's own chat box waits with M12.
 - **One click from the editor into the game.**
 - **Starting presets** beyond Easy start, and a first map that teaches by playing.
 
@@ -938,7 +940,7 @@ acceptance, is in [docs/archive/roadmap.md](docs/archive/roadmap.md) ("M12. Clau
   provider built (bring-your-own-key).
 - **Also here:** the agent guide (D142); the words moved out of M9 (D277, D278): river courses read from the actual flow, the
   place resolver (flow-relative places, never a compass assumption) and the judgement-word table (D84, D88), left in
-  `investigation/claude/` until M12 resumes; the artifact edition; a Dam Good Maps MCP server after M12 (Later).
+  `investigation/claude/` until M12 resumes; the artifact edition; the Dam Good Maps MCP server, built ahead of M12 (D501).
 
 M12's new interface is built to the design pass's records (D176, D236), with the finish review on the new screens.
 **Effort:** xhigh.
@@ -1138,11 +1140,11 @@ player text). A small mod: the main menu gets "Play latest Dam Good Maps map" (t
 with its name), one click starts it with the last faction and difficulty, and in game a key reloads the map after the app
 saves it again. Its logic is tested headless; its in-game check (`mods/companion/TESTING.md`) is still to run.
 
-**After M12: a Dam Good Maps MCP server** (Kyler, 2026-09-25; D141). M12's tools (generate, steer
-with intentions, the forces, edit, validate, export) packaged as an MCP server, so Claude
-Desktop, claude.ai or other MCP-capable assistants can build Timberborn maps with the same engine,
-tools and steering principle as the app. A thin wrapper over M12's tool layer that inherits the
-same honesty and "steer, don't hand-build" rules.
+**A Dam Good Maps MCP server** (Kyler, 2026-09-25; D141; built ahead of M12 by D501, `mcp/`). Generate, steer
+with intentions, the forces, edit, check and save, as an MCP server, so Claude Desktop and other MCP-capable
+assistants build Timberborn maps with the same engine and steering principle as the app. A thin wrapper over the
+core that inherits the same honesty and "steer, don't hand-build" rules. What is left: a release that attaches its
+two files, and later the tools M12 adds (the place resolver, the judgement words).
 
 Each item below stays behind a feature flag until its own in-game check passes:
 - seeps and an arid theme;

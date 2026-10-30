@@ -54,7 +54,7 @@ import { shapeLakeBasin } from "../land/lakeBasin";
 import { shapeCanyon } from "../land/canyon";
 import { shapeHighlands } from "../land/highlands";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
-import { mainWater, planBadwater, type Hazards } from "../land/hazards";
+import { joinReach, mainWater, planBadwater, standingTheme, type Hazards } from "../land/hazards";
 import { blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { edgeLip, LIP_REACH } from "../water/edgeLip";
@@ -1904,13 +1904,53 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the size, each about as strong (resources/badwater.ts `badwaterBudget`, moved by the seed and
   // scaled by the Badwater setting), each in a hollow of its own
   const budget = badwaterBudget(W, H, spec.settings.hazards.badwater, seed);
-  // (D476: on most maps one badwater course joins the theme's main water, hazards.ts `mainWater`, as
+  // (D476: on most maps one badwater course joins the theme's main water, at its lower reach, hazards.ts `joinReach`, as
   // in the game: badwater that drains on its own is no challenge, and diverting it is part of the
   // fun; on the occasional map, by its own draw, the badwater drains where the land takes it)
-  // (Easy start, D495: an easy start's water is its own, so its map's badwater drains where the land takes it, never
-  // steered into the water the start's pond is cut from)
+  // (Easy start, D495: an easy start's water is its own, so its map's badwater never joins the main water: it drains
+  // where the land takes it, and D498 keeps it out of all the main water then)
   const joins = hash32(seed, "badwater joins") % 100 >= OWN_DRAIN && !easy;
-  const joinWater = (): Uint8Array | null => (joins ? mainWater(shown.theme, hy, W, H) : null);
+  const joinWater = (): Uint8Array | null => (joins && !standingTheme(shown.theme) ? joinReach(shown.theme, hy, W, H) : null);
+  // (and on every map no other badwater ends in the main water above that reach, D498; where it
+  // drains on its own, in none of the main water)
+  // (worked out once: the plan's water stays as it is while the hollows are tried)
+  let spared: Uint8Array | null = null;
+  const spareWater = (): Uint8Array => {
+    if (spared) return spared;
+    const main = mainWater(shown.theme, hy, W, H);
+    // (a theme named for its standing water keeps all of it clean: every lake it planned, its sea, and every
+    // river joined to them, whose slow water carried badwater from its last reach back up into the lakes,
+    // Lake Basin 128² seeds 1 and 2: there the badwater drains on its own)
+    if (standingTheme(shown.theme)) {
+      const wet = (i: number) => hy.water[i] === 1 || hy.water[i] === 2;
+      const seen = new Uint8Array(N);
+      for (let i = 0; i < N; i++) {
+        if (seen[i] || !wet(i)) continue;
+        const body: number[] = [i];
+        seen[i] = 1;
+        let standing = false;
+        for (let k = 0; k < body.length; k++) {
+          const c = body[k];
+          if (hy.water[c] === 2 || main[c]) standing = true;
+          const x = c % W;
+          const y = (c - x) / W;
+          for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++)
+            for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) {
+              const n = yy * W + xx;
+              if (!seen[n] && wet(n)) {
+                seen[n] = 1;
+                body.push(n);
+              }
+            }
+        }
+        if (standing) for (const c of body) main[c] = 1;
+      }
+    }
+    if (!joins) return (spared = main);
+    const low = joinReach(shown.theme, hy, W, H);
+    for (let i = 0; i < N; i++) if (low[i]) main[i] = 0;
+    return (spared = main);
+  };
   const badAsk = {
     count: g.hazards.badwater === "none" ? 0 : Math.max(1, budget.sources),
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
@@ -1934,7 +1974,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const planBad = (D: ArrayLike<number>, ask: typeof badAsk, salt: number, start: { x: number; y: number }): Hazards => {
     let out: Hazards | null = null;
     for (const extra of [orMask(mineKeep, mineWay), mineKeep, null]) {
-      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff, join: joinWater() }, seed, salt, start);
+      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff, join: joinWater(), spare: spareWater() }, seed, salt, start);
       if (out.features.length) break;
     }
     return out!;
@@ -2953,6 +2993,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // other clean water)
   if (bad.past) fixes.push("start by other water");
   if (badAsk.count > 0 && !bad.features.length) return fail("no place for badwater", base, true);
+
   // D171: a source inside a flow fails the map (water.source_in_flow, blocking here); the objects and
   // resources change no water, so it is found on this settle and the field planned again at once
   // (not on the last attempt, whose map is the one kept when none passes)

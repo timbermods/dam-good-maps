@@ -1,0 +1,38 @@
+{
+  "manifest_version": "0.3",
+  "name": "dam-good-maps",
+  "display_name": "Dam Good Maps",
+  "version": "0.1.0",
+  "description": "Make and edit Timberborn maps with the Dam Good Maps engine.",
+  "long_description": "Ask Claude for a Timberborn map. It generates one with the Dam Good Maps engine, shapes it with the forces of nature, shows you pictures of it, and saves it into Timberborn's Maps folder. The map plays in the game as it shows here.",
+  "author": { "name": "Timbermods", "url": "https://github.com/timbermods" },
+  "repository": { "type": "git", "url": "https://github.com/timbermods/dam-good-maps" },
+  "homepage": "https://timbermods.github.io/dam-good-maps/",
+  "documentation": "https://github.com/timbermods/dam-good-maps/tree/main/mcp",
+  "support": "https://github.com/timbermods/dam-good-maps/issues",
+  "license": "AGPL-3.0-or-later",
+  "keywords": ["timberborn", "maps", "map generator"],
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.mjs"],
+      "env": { "DGM_MAPS_FOLDER": "${user_config.maps_folder}" }
+    }
+  },
+  "tools": [],
+  "user_config": {
+    "maps_folder": {
+      "type": "directory",
+      "title": "Timberborn's Maps folder",
+      "description": "Where saved maps go. Timberborn reads custom maps from Documents\\Timberborn\\Maps.",
+      "required": false,
+      "default": "${DOCUMENTS}/Timberborn/Maps"
+    }
+  },
+  "compatibility": {
+    "platforms": ["win32", "darwin", "linux"],
+    "runtimes": { "node": ">=20.0.0" }
+  }
+}
