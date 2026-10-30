@@ -1876,6 +1876,13 @@ export class MapRenderer {
   /** Each object's overgrown ruin as drawn (`ruinsOvergrown`): a new soil that changes one rebuilds the objects. */
   private ruinsDrawn: Uint8Array | null = null;
 
+  /** How many ruins are drawn overgrown now (the tests read it). */
+  get overgrownRuins(): number {
+    let n = 0;
+    for (const v of this.ruinsDrawn ?? []) n += v;
+    return n;
+  }
+
   private setEntitiesInner(e: EntityView): number {
     // (highlighted objects back in their own colours first: a batch that would be built as it is drawn is kept)
     for (const l of this.lit) {
@@ -2266,7 +2273,9 @@ export class MapRenderer {
       const was = this.ruinsDrawn;
       let changed = now.length !== was.length;
       for (let k = 0; !changed && k < now.length; k++) changed = now[k] !== was[k];
-      if (changed) {
+      // (the light look draws every ruin as one block without ivy: nothing to draw again there)
+      if (changed && this.software) this.ruinsDrawn = now;
+      else if (changed) {
         // (the batches that did not change are kept: buildEntities)
         this.setEntitiesInner(m.entities);
         clearTimeout(this.casterTimer);
