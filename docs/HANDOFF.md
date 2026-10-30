@@ -167,7 +167,8 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   `dev` commit (one whose run completed red is refused; with no completed run, the release PR's runs decide): pushes a
   `release/<name>` branch, opens the PR into `main`, waits for every pull_request run on that branch (the full CI, and the
   connection tests when the release touches them; #656: before it, release PRs merged before their CI ran), then tags the
-  commit (annotated) and merges the PR **as a merge commit**, and watches the deploy and `live-check / live` (without
+  commit (annotated; the tag's push makes its GitHub Release, marked latest, with the MCP server's `.mcpb` and `.tgz`
+  attached, `release-assets.yml`) and merges the PR **as a merge commit**, and watches the deploy and `live-check / live` (without
   `--go` it only checks and prints the steps). The deploy builds the first-visit maps, which the nightly builds too (#655). Then republish the preview and record the release in STATUS and the Progress log. If the live check
   fails, revert the release merge on `main`.
 - **Fixes for dev's own failing tests go to dev**, never only onto a feature branch: as a PR through the queue (a repository admin's direct push bypasses it, and has no CI run, so release only commits that went through the queue).

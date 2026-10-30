@@ -201,6 +201,10 @@ text.
 - Work happens on `dev`. The site is GitHub Pages, deployed from `main`: https://timbermods.github.io/dam-good-maps/
 - A release merges a tag into `main`, never dev's tip, and always as a merge commit. After a milestone is tagged `mN-done`
   and its full check passed, merge that tag into `main` through a PR.
+- Pushing a release tag (`*-done`) runs `.github/workflows/release-assets.yml`: it builds the MCP server
+  (`npm run mcp:build`) and makes the tag's GitHub Release, marked latest, with `dam-good-maps.mcpb` and
+  `dam-good-maps-mcp.tgz` attached and the release PR's body as its notes. The install links in `mcp/README.md` point at
+  the latest release, so check both files are on it after a release. A re-run replaces the files.
 - After every deploy, the live check (`.github/workflows/live-check.yml`) must pass. It runs after each deploy and daily;
   `gh workflow run live-check.yml --ref main` runs it by hand. If it fails, revert the release merge on `main`, confirm the
   old site is back, and report.
