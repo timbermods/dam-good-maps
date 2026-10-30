@@ -726,8 +726,12 @@ export class MapRenderer {
       for (const m of this.lineCopy) list.push([m, { ...(m.defines as Defines) }]);
       // (the edit glow's, drawn when an edit first lands: one program in every look and state, editGlow.ts)
       list.push([this.glowMat, { ...(this.glowMat.defines as Defines) }]);
-      // (the forces' moments', drawn when a force first plays: Erode's dust and stones, forces.ts)
-      for (const m of this.forceFxOf().shaderMaterials()) list.push([m, { ...((m.defines ?? {}) as Defines) }]);
+      // (the forces' moments', drawn when a force first plays: Erode's dust and stones, Glaciate's ice, forces.ts)
+      for (const m of this.forceFxOf().materials()) list.push([m as ShaderMaterial, { ...((m.defines ?? {}) as Defines) }]);
+      // (the brush's cursor and a force's ring, made now, hidden until a tool shows them: brushCursor.ts)
+      this.cursor ??= new BrushCursor(this.scene);
+      this.ring ??= new ForceRing(this.scene);
+      for (const m of [...this.cursor.materials(), ...this.ring.materials()]) list.push([m as ShaderMaterial, { ...((m.defines ?? {}) as Defines) }]);
       if (h) list.push(...std);
       else if (this.canHigh) list.push(...this.highCopyList(STATES));
       const sent: Promise<void>[] = [];

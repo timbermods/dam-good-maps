@@ -499,10 +499,13 @@ Standard's shadow before a cave (item 8).
     under the cut, until they are (the background compile of High's programs takes seconds on a loaded machine: before
     this order and the warm-up's earlier start, a dig 1–3 s after the cut on a map just opened in High showed it for
     5–6 s); a first switch to High before Standard has compiled High's draws Standard until they are ready (no freeze). The forces' moments'
-    shader materials are compiled ahead with the rest (Erode's dust and stones, Erupt's puffs, Glaciate's ice:
-    `ForceEffects.shaderMaterials`; the first Erode on a page compiled two programs in its frames, a frame held 265–435 ms
-    on Highlands 128 seed 12, now none: `erode.spec.ts`); the forces' plain three.js materials (Craterize's dust and
-    flash, Quake's crack) and the water effects' are not. Where the browser draws in software nothing is compiled ahead; without the
+    materials are compiled ahead with the rest (`ForceEffects.materials`: Erode's dust and stones, Erupt's puffs,
+    Glaciate's ice through an empty stand-in of its tongue, which is made only when it plays, its gathering ice and
+    crystals, Craterize's dust, rocks and flash), and so are the brush's cursor and a force's ring, made hidden with the
+    warm-up (three.js compiles a hidden object's program as any other's); the first Erode on a page compiled two
+    programs in its frames, a frame held 265–435 ms on Highlands 128 seed 12, and the first Glaciate three, now none
+    (`erode.spec.ts`). Quake's crack (a line, which the warm-up has no stand-in for) and the water effects' materials are
+    not. Where the browser draws in software nothing is compiled ahead; without the
     extension a define is set at once, as before. The map's picture compiles its own programs before its first frame
     (`compileAhead`) and compiles nothing ahead.
 
