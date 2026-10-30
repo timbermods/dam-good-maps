@@ -21,23 +21,27 @@ describe("Showcase mode (D488 (2))", () => {
     expect(seen.map((c) => c.spec.variation)).toEqual([undefined, 1, 2]);
     expect(seen.every((c) => c.passed && c.arc)).toBe(true);
     const [a, b, c] = seen.map((s) => s.arc!);
-    // the asked map: an 8-level butte 34 tiles east in the opening camera pulled back (D493), but too
+    // the asked map: an 8-level mesa 36 tiles east in the opening camera pulled back (D493), but too
     // little in the game's first frame round the start to call a vista
     expect(a.vista.met).toBe(false);
     expect(a.landmark.met).toBe(true);
-    expect(a.landmark.say).toMatch(/^An 8-level butte stands 34 tiles east of the start, in the opening view\.$/);
+    expect(a.landmark.say).toMatch(/^An 8-level mesa stands 36 tiles east of the start, in the opening view\.$/);
     // and the first drought's choice: the river by the start runs low, the pool a little further holds
     expect(a.drought.met).toBe(true);
-    expect(a.drought.say).toMatch(/^The nearest water, 5 tiles' walk from the start, runs low in the first drought; water 7 tiles' walk away holds.$/);
-    // the first sibling: no landmark near the colony, no valley behind a gate
+    expect(a.drought.say).toMatch(/^The nearest water, 7 tiles' walk from the start, runs low in the first drought; water 8 tiles' walk away holds.$/);
+    // the first sibling: no landmark near the colony; the best farmland lies past a gorge (the valley, since
+    // badwater joins only the main river's lower reach, D498) and a drowned village is its mystery
     expect(b.landmark.met).toBe(false);
-    expect(b.valley.met).toBe(false);
-    // the second: a district behind debris (a valley behind a gate) and an 11-level mesa in view
+    expect(b.valley.met).toBe(true);
+    expect(b.valley.say).toBe("The best farmland lies past the gorge, more than twice what the start has.");
+    expect(b.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 52 tiles east of the start/);
+    // the second: a district behind debris (38 tiles out) and an 11-level mesa in view. Farmland past a gorge
+    // is also there now, so the valley beat has its own feature and the debris counts once, in the mystery's
+    // contest, not in the valley; the mystery is the drowned village in the lake's shallows (ruins placed with
+    // meaning, generator 0.10.1)
     expect(c.valley.met).toBe(true);
-    expect(c.valley.say).toMatch(/^A wide, level second district site 39 tiles out/);
-    // the debris counts once: in the valley, which has nothing else, not again as a mystery; the mystery
-    // is the drowned village in the lake's shallows (ruins placed with meaning, generator 0.10.1)
-    expect(c.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 57 tiles south-west of the start/);
+    expect(c.valley.say).toBe("The best farmland lies past the gorge, more than twice what the start has.");
+    expect(c.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 56 tiles south-west of the start/);
     // its nearest water holds and a farther one runs dry: no choice to face, some of the beat only
     expect(c.drought.met).toBe(false);
     expect(c.drought.strength).toBe(0.4);
@@ -46,9 +50,9 @@ describe("Showcase mode (D488 (2))", () => {
     expect(c.vista.met).toBe(true);
     expect(c.vista.say).toBe("The opening view takes in 12 levels of relief, open water, a 3-level fall and the mesa.");
     // the best three, best first: the second sibling (its drowned village a mystery, since 0.10.1; its start
-    // turned to its relief, open water, a fall and the mesa, D493: 5.74 to the asked map's 3.60), the asked
-    // map (its drought's choice), the first
-    expect(res.best.map((p) => p.index)).toEqual([2, 0, 1]);
+    // turned to its relief, open water, a fall and the mesa, D493), the first (a valley past a gorge, a drought's
+    // choice, a project and the mystery: 4 beats), the asked map (3 beats, its drought's choice)
+    expect(res.best.map((p) => p.index)).toEqual([2, 1, 0]);
     expect(res.best[0].note).toMatch(/^\d of 6 beats\. /);
     // a budget spent at once still makes one map, the asked map's own
     const once = await showcaseSearch(spec, { budgetMs: 0 });

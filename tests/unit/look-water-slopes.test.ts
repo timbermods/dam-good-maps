@@ -42,27 +42,29 @@ describe("water", () => {
     expect(shader).toContain(`mix(${num(WATER_SURFACE.shoreFoam)}, 0.45, bad)`);
     expect(shader).toContain(`* ${num(WATER_SURFACE.brokenFoam)} * (1.0 - bad)`);
     expect(shader).toContain(`glints * ${num(WATER_SURFACE.glints)}`);
-    // see-through: never opaque, clearer toward the banks, and at a bank of water a level deep
-    // or shallower the bed shows through
+    // see-through as the game's High quality draws it (Q8): the ground behind shows by 0.175 at the water's
+    // floor, thinning in step with depth to none at 5 levels; clearer toward the banks, and at a bank of water
+    // a level deep or shallower over a seventh of the bed shows through
     for (const d of depths) {
       expect(waterOpacity(d, 0)).toBeLessThan(1);
       expect(waterOpacity(d, 0)).toBeLessThanOrEqual(waterOpacity(d, 1));
     }
-    for (const d of [0.1, 0.25, 0.5, 1]) expect(waterOpacity(d, 0)).toBeLessThan(0.8);
+    for (const d of [0.1, 0.25, 0.5, 1]) expect(waterOpacity(d, 0)).toBeLessThan(0.86);
+    for (const d of [0.25, 1, 2.5, 5, 6]) expect(waterOpacity(d)).toBeCloseTo(1 - 0.175 * Math.max(0, 1 - d / 5), 9);
   });
 
-  it("draws water of any depth as water, as the game does (WATER_FILM): only a sliver fades in, smoothly; badwater murkier", () => {
+  it("draws water of any depth as water, as the game does (WATER_FILM): only a sliver fades in, smoothly; badwater as see-through as clean water", () => {
     // the game draws a film a tenth of a level deep as the same water as its body, not a faint tint over its
-    // ground (Q8: its opaque material in play): from a fiftieth of a level the body's own opacity
-    const S = WATER_SURFACE;
-    for (const d of [0.02, 0.03, 0.05, 0.1]) {
-      expect(waterOpacity(d), `${d} deep`).toBeCloseTo(S.clearest + (S.deepest - S.clearest) * (1 - Math.exp(-d * S.absorb)), 9);
-      // badwater stays murkier than clean water as thin
-      expect(waterOpacity(d, 1, 1)).toBeGreaterThan(waterOpacity(d) + 0.2);
+    // ground (Q8: its opaque material in play): from three hundredths of a level the body's own opacity
+    for (const d of [0.03, 0.05, 0.1]) {
+      expect(waterOpacity(d), `${d} deep`).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
+      // the game shows the ground behind badwater as it does behind clean water (Q8; #38's murkier badwater
+      // gave way to the game's see-through rule)
+      expect(waterOpacity(d, 1, 1)).toBeCloseTo(waterOpacity(d), 9);
     }
     // a sliver fades in (our anti-aliasing of a shore's edge): under the body's opacity, rising with depth to
     // it in one smooth curve, no step between neighbouring depths
-    expect(waterOpacity(0.005)).toBeLessThan(waterOpacity(0.02));
+    expect(waterOpacity(0.005)).toBeLessThan(waterOpacity(0.03));
     let last = waterOpacity(0);
     for (let d = 0.001; d <= 0.6; d += 0.001) {
       const a = waterOpacity(d);
@@ -71,12 +73,13 @@ describe("water", () => {
       last = a;
     }
     // a quarter of a level deep and deeper: the body's own opacity, as before
-    for (const d of [0.25, 0.5, 1, 3]) expect(waterOpacity(d)).toBeCloseTo(S.clearest + (S.deepest - S.clearest) * (1 - Math.exp(-d * S.absorb)), 9);
+    for (const d of [0.25, 0.5, 1, 3]) expect(waterOpacity(d)).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
     // the shader reads the same curve
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
     const shader = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t())).fragmentShader;
-    expect(shader).toContain("float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(absorb), film);");
-    expect(shader).toContain("return max(mix(min(WATER_FILM_BAD, body), body, waterFilm(depth)), grazing * ");
+    expect(shader).toContain("float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);");
+    expect(shader).toContain("return mix(min(WATER_FILM_BAD, body), body, waterFilm(depth));");
+    expect(WATER_SURFACE.seeThrough).toBe(0.175);
   });
 
   it("draws the ground under a film in the water's hue (D154): teal, crimson, mixed water through the warm midpoint, never purple or mauve-grey", () => {

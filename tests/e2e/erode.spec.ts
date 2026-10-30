@@ -77,6 +77,72 @@ test("Erode's row is Power, Size (Auto), the Floor and Try another, Try another 
   await expect(again).toBeEnabled();
 });
 
+test("the first Glaciate and the first Erode on a page compile no program in their frames: their moments' are compiled ahead (D453)", async ({ page }) => {
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  await topDown(page);
+  type R = { programsWarm: boolean; programs: { background: boolean }; gl: { info: { programs: unknown[] | null } } };
+  // (where the browser draws in software or can't compile in the background nothing is compiled ahead: programs.ts)
+  const background = await page.evaluate(() => (window.dgm3d!.renderer as unknown as R).programs.background);
+  test.skip(!background, "programs are compiled in the background only on a GPU with KHR_parallel_shader_compile");
+  await page.waitForFunction(() => (window.dgm3d!.renderer as unknown as R).programsWarm, null, { timeout: 120_000 });
+  /** The programs every frame compiles from now until `stop` is called. */
+  const watch = () =>
+    page.evaluate(() => {
+      const w = window as unknown as { dgmCompiled: number; dgmWatch: boolean };
+      const gl = (window.dgm3d!.renderer as unknown as R).gl;
+      w.dgmCompiled = 0;
+      w.dgmWatch = true;
+      let last = gl.info.programs?.length ?? 0;
+      const tick = () => {
+        const n = gl.info.programs?.length ?? 0;
+        w.dgmCompiled += Math.max(0, n - last);
+        last = n;
+        if (w.dgmWatch) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  const stop = () =>
+    page.evaluate(() => {
+      const w = window as unknown as { dgmCompiled: number; dgmWatch: boolean };
+      w.dgmWatch = false;
+      return w.dgmCompiled;
+    });
+  const at = await high(page);
+  // Glaciate drawn across the high ground (its ice's tongue is made only when it plays: forces.ts Glacier)
+  await page.keyboard.press("Shift+Digit7");
+  const a = await client(page, at[0] - 10, at[1]);
+  const b = await client(page, at[0] + 10, at[1]);
+  await watch();
+  await page.mouse.move(a.x + 3, a.y);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 12 });
+  await page.mouse.up();
+  await expect.poll(() => status(page)).not.toBeNull();
+  await settled(page);
+  expect(await stop(), "programs compiled by the first Glaciate's frames").toBe(0);
+  // Erode clicked on the highest ground (its dust and stones: forces.ts Wear)
+  await page.keyboard.press("Shift+Digit8");
+  const e = await high(page);
+  const p = await client(page, e[0], e[1]);
+  await watch();
+  // (Glaciate's meltwater settles first: Erode waits for it, refusing a click meanwhile, so the click is made again
+  // until it takes)
+  await expect
+    .poll(
+      async () => {
+        if (await status(page)) return true;
+        await page.mouse.click(p.x, p.y);
+        await page.waitForTimeout(800);
+        return !!(await status(page));
+      },
+      { timeout: 90_000, intervals: [500] },
+    )
+    .toBe(true);
+  await settled(page);
+  expect(await stop(), "programs compiled by the first Erode's frames").toBe(0);
+});
+
 test("a click wears the land there, kept as one step; one Ctrl+Z restores the map exactly", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await topDown(page);

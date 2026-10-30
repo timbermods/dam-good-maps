@@ -24,6 +24,7 @@ import {
   IcosahedronGeometry,
   InstancedBufferAttribute,
   InstancedMesh,
+  type Material,
   Line,
   LineBasicMaterial,
   Mesh,
@@ -451,6 +452,17 @@ class Glacier {
       }`,
   });
   private tongue: Mesh | null = null;
+  /** A tongue with nothing in it, kept in the group: the mesh the ice's program is compiled ahead with (a plain mesh
+   *  reading the tongue's attributes, as the tongue made when the force plays is: ForceEffects.shaderMaterials). */
+  private readonly standIn = (() => {
+    const g = new BufferGeometry();
+    g.setAttribute("position", new Float32BufferAttribute([], 3));
+    g.setAttribute("station", new Float32BufferAttribute([], 1));
+    g.setAttribute("across", new Float32BufferAttribute([], 1));
+    const m = new Mesh(g, this.material);
+    m.frustumCulled = false;
+    return m;
+  })();
   private at = { x: 0, y: 0, z: 0, r: 4 };
   private t0 = 0;
   /** When the tongue began (null: the ice is still gathering), and when it ended. */
@@ -465,7 +477,7 @@ class Glacier {
   constructor() {
     this.gather.frustumCulled = this.crystals.frustumCulled = false;
     this.gather.renderOrder = this.crystals.renderOrder = 5;
-    this.group.add(this.gather, this.crystals);
+    this.group.add(this.gather, this.crystals, this.standIn);
     this.group.visible = false;
   }
 
@@ -612,6 +624,7 @@ class Glacier {
   dispose(): void {
     this.dropTongue();
     this.material.dispose();
+    this.standIn.geometry.dispose();
     this.gather.geometry.dispose();
     this.gatherMat.dispose();
     this.crystals.geometry.dispose();
@@ -1135,6 +1148,24 @@ export class ForceEffects {
 
   get active(): boolean {
     return this.impact.active || this.rupture.active || this.plume.active || this.glacier.active || this.wear.active;
+  }
+
+  /** The moments' materials (Erode's dust and stones, Erupt's puffs, Glaciate's ice, its gathering ice and crystals,
+   *  Craterize's dust, rocks and flash), each drawn by its mesh in the scene (hidden until its force plays; Glaciate's
+   *  ice by an empty stand-in of its tongue, which is made when it plays): the renderer compiles their programs ahead
+   *  (programs.ts), so a force's first moment never waits on a compile (D453; the first Erode on a page held a frame
+   *  265–435 ms). Lines (Quake's crack) are left out: their program is compiled with a line, which the warm-up has no
+   *  stand-in for. */
+  materials(): Material[] {
+    const out = new Set<Material>();
+    for (const g of [this.impact.group, this.rupture.group, this.plume.group, this.glacier.group, this.wear.group])
+      g.traverse((o) => {
+        const mesh = o as Mesh & { isPoints?: boolean };
+        if (!mesh.isMesh && !mesh.isPoints) return;
+        const m = mesh.material;
+        for (const x of Array.isArray(m) ? m : m ? [m] : []) out.add(x);
+      });
+    return [...out];
   }
 
   private kick(): void {

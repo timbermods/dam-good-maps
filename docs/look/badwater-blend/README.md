@@ -5,7 +5,7 @@ look on our own generated maps, with the same camera and water time. No Real pla
 none is shown. Made with `tools/capture-badwater.ts`.
 
 Badwater is #38's crimson, as Kyler approved it: matte and nearly opaque, with darker troughs and
-subdued streaks. It is see-through only at its shallow edges, and darker with depth (option A).
+subdued streaks. It is see-through only at its shallow edges, lighter on a film and darker with depth, as the game's (D496: the G ramp of its `_DepthGradients` texture; option A before it, close to the game's down to two levels).
 Partly bad water turns as the game turns it (2026-10-29, read from Timberborn 1.1.2.8's water shader;
 `investigation/notes/water_and_soil.md` Q8): one tint, smoothstep(0.01, 1, share) ^ 0.25, carries its
 colour, opacity and dull surface toward badwater's, the colour mixed in linear light as the game mixes

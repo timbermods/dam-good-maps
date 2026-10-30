@@ -59,18 +59,22 @@ describe("a force leaves the locked land, and the ground above the layer showing
   // (seed 10 on M9b's maps, D148: seed 3's start stands at level 13, with few objects above it; seed 10's
   // at (50, 29), level 10, with 149; seed 7 for 0.8.8's maps, the Canyon and Highlands height round, D148:
   // seed 10's start stands at level 13 on the tall terraces, with 60 objects above it; seed 7's at (41, 31),
-  // level 11, with 208, and the Craterize carries it to (37, 34))
-  it("Highlands 64², seed 7: a Craterize (Power 44) at (42, 30) with the layer cut at level 11 breaks the start's ground; the ground above the layer and every object on it stay as they were", async () => {
+  // level 11, with 208, and the Craterize carries it to (37, 34); seed 10 again for 0.10.6's maps, D498,
+  // D148: on seed 7's new map the start stands at (42, 41), level 11, and the Craterize at (42, 30) carries it to
+  // (42, 38), but the force's integrity pass also lowers four one-tile spikes above the layer far to the west,
+  // (9, 15) among them, a separate matter from the start's carry that this test is about; seed 10's start stands at (15, 30), level 13, with 138 objects above it, and the Craterize 11 tiles
+  // north of it, at (15, 19), carries it to (19, 24), level 7, below the layer, and leaves the ground above alone)
+  it("Highlands 64², seed 10: a Craterize (Power 44) at (15, 19) with the layer cut at level 13 breaks the start's ground; the ground above the layer and every object on it stay as they were", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 7, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 10, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
-    const cut = 11;
+    const cut = 13;
     const before = open().built;
     const hidden = (i: number) => before.heights[i] > cut;
     const above = before.entities.filter((e) => e.template !== "StartingLocation" && hidden(e.y * W + e.x));
     expect(above.length).toBeGreaterThan(100);
 
-    expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 44 }, origin: [42, 30], cut, natural: true }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 44 }, origin: [15, 19], cut, natural: true }).errors).toEqual([]);
     for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
     expect(ed.forceStop().kept).toBe(true);
     const after = open().built;

@@ -1,7 +1,7 @@
 # Editor decisions
 
 These are the decisions in force, by topic, one file per topic. Every decision as recorded, with its reasons, date and amendments, is in [docs/archive/decisions.md](../archive/decisions.md); a number missing here is superseded or completed there.
-A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D498; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
+A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D501; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
 
 Read this index, then [how-we-work.md](how-we-work.md), then only the topic files your task touches.
 
@@ -68,6 +68,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [Core, files and validation](core.md)
 
+- D499: ruins.fields is a target for generated ruins
 - D491: Objects may stand in caves where the game allows them
 - D475: No old-project compatibility until launch
 - D455: Byte-exact reopening
@@ -87,6 +88,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D498: Badwater joins the main water's lower reach, never its signature water
 - D493: The opening shot: the start turned so the game's first camera frames the landmark
 - D480: The water story's reach counts the main water
 - D476: Badwater joins the main water
@@ -170,6 +172,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The forces](forces.md)
 
+- D500: A Carve with a Depth keeps its channel falling, or is refused
 - D474: Forces can clear sources
 - D473: Carve's aging setting removed
 - D257: The forces
@@ -237,6 +240,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [Claude (M12, deferred)](claude.md)
 
+- D501: The MCP server comes ahead of M12
 - D84: M12 compound requests
 - D139: Claude steers the generator
 - D277: All M12 work deferred

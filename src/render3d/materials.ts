@@ -496,9 +496,6 @@ export interface ShaderHooks {
   /** Where grass meets earth, and where contamination ends (expressions). */
   moist?: string;
   bad?: string;
-  /** At the start of groundColor, before the pattern warp (g): to keep the tile's own coordinates and, where the Weather
-   *  view's heat shimmer is on, to move g by less than half a pixel. */
-  groundStart?: string;
   /** After the ground's colour, before contamination is layered over it (c, g). */
   groundVariation?: string;
   /** Before groundColor returns (c: its colour with contamination; glow). */
@@ -725,6 +722,40 @@ const common = (h?: ShaderHooks) => /* glsl */ `
     if (bitOf(d, 8.0) > 0.5) e = min(e, length(fr));
     float w = max(0.12, 1.1 * px);
     return vec4(${glColor(HATCH.dark)}, 1.0 - smoothstep(w, w + px, e));
+  }
+  /** A footprint's edge (the shelf's ghost, the start: an overlay painted with an odd alpha below 255, tools.ts
+   *  \`paintOverlay\`'s \`edge\`): at tile position g, with \`px\` the size of a pixel in tiles, how much of a line lies here along the sides where the tile beside it is not of the same footprint
+   *  (and round an inward corner),
+   *  about a sixteenth of a tile wide and never under a pixel and a half. Drawn in a light tint of the fill
+   *  (\`overlayEdgeColor\`): a lighter edge on a darker fill of one hue, calm on grass, rock, sand and water. */
+  bool sameOverlay(vec2 t, vec4 o) {
+    vec4 n = texture2D(overlay, (t + 0.5) / mapSize);
+    return all(lessThan(abs(n - o), vec4(0.5 / 255.0)));
+  }
+  float overlayEdge(vec2 g, vec4 o, float px) {
+    float a = floor(o.a * 255.0 + 0.5);
+    if (a > 254.5 || mod(a, 2.0) < 0.5) return 0.0;
+    vec2 tile = floor(g);
+    vec2 fr = g - tile;
+    float e = 9.0;
+    bool east = sameOverlay(tile + vec2(1.0, 0.0), o);
+    bool west = sameOverlay(tile - vec2(1.0, 0.0), o);
+    bool north = sameOverlay(tile + vec2(0.0, 1.0), o);
+    bool south = sameOverlay(tile - vec2(0.0, 1.0), o);
+    if (!east) e = min(e, 1.0 - fr.x);
+    if (!west) e = min(e, fr.x);
+    if (!north) e = min(e, 1.0 - fr.y);
+    if (!south) e = min(e, fr.y);
+    // an inward corner (both sides in the footprint, the tile between them not): the line turns round it
+    if (east && north && !sameOverlay(tile + vec2(1.0, 1.0), o)) e = min(e, max(1.0 - fr.x, 1.0 - fr.y));
+    if (west && north && !sameOverlay(tile + vec2(-1.0, 1.0), o)) e = min(e, max(fr.x, 1.0 - fr.y));
+    if (east && south && !sameOverlay(tile + vec2(1.0, -1.0), o)) e = min(e, max(1.0 - fr.x, fr.y));
+    if (west && south && !sameOverlay(tile - vec2(1.0, 1.0), o)) e = min(e, max(fr.x, fr.y));
+    float w = max(0.06, 1.5 * px);
+    return 1.0 - smoothstep(w, w + px, e);
+  }
+  vec3 overlayEdgeColor(vec4 o) {
+    return clamp(o.rgb * 1.4 + 0.3, 0.0, 1.0);
   }
   /** The blue-grey haze over distant ground, and the warm grade. */
   vec3 finish(vec3 c, vec3 world) {
@@ -1043,7 +1074,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           if (s.z > 0.5) lc = mix(lc, s.x > 0.5 ? ${glColor(GROUND.contaminatedWet)} : ${glColor(GROUND.contaminated)}, 0.25 + 0.3 * clev);
           return mix(lc, ${glColor(GROUND.underwater)}, step(0.5, s.w) * groundBed);
         #endif
-${hook(h, "groundStart")}        // (the patterns are read through a broad warp, so their repeat never shows from afar)
+        // (the patterns are read through a broad warp, so their repeat never shows from afar)
         vec2 macroUV = mat2(0.8, -0.6, 0.6, 0.8) * g * 0.037;
         vec2 patternWarp = vec2(vnoise(macroUV + 23.7), vnoise(macroUV * 1.73 + 91.2)) - 0.5;
         g += patternWarp * 3.2;
@@ -1355,6 +1386,10 @@ ${hook(h, "wall")}          float py = fwidth(y);
         #endif
         if (o.a < 0.998) c = mix(c, o.rgb * (0.8 + 0.2 * min(light.g, 1.0)), o.a);
         else c = mix(c, o.rgb, (n.y > 0.5 ? float(LITE) : 0.5) * markers);
+        // a footprint's edge, on its tops
+        float footEdge = n.y > 0.5 ? overlayEdge(g, o, max(max(fwidth(g.x), fwidth(g.y)), 0.002)) : 0.0;
+        c = mix(c, overlayEdgeColor(o) * (0.85 + 0.15 * min(light.g, 1.0)), footEdge);
+        bool footprint = mod(floor(o.a * 255.0 + 0.5), 2.0) > 0.5 && o.a < 0.998;
         if (n.y > 0.5) {
           vec4 hatch = hatchAt(g, o.rgb * (0.88 + 0.12 * min(light.g, 1.0)));
           c = mix(c, hatch.rgb, hatch.a);
@@ -1411,7 +1446,8 @@ ${hook(h, "wall")}          float py = fwidth(y);
             c = mix(c, ${glColor(WALL.groove)}, (1.0 - smoothstep(lw, lw + px, e)) * 0.8);
           }
         }
-        if (hover.z > 0.5 && tile == hover.xy && (hover.w < 0.0 || n.y < 0.5 || abs(vWorld.y - hover.w) < 0.02)) {
+        // (on a footprint its own edge marks it: no white square over it)
+        if (hover.z > 0.5 && tile == hover.xy && !footprint && (hover.w < 0.0 || n.y < 0.5 || abs(vWorld.y - hover.w) < 0.02)) {
           vec2 fr = fract(vec2(p.x, -p.z));
           float edge = min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y));
           c = mix(c * 1.18, vec3(1.0), (1.0 - smoothstep(0.04, 0.09, edge)) * (n.y > 0.5 ? 0.85 : 0.0));
@@ -1504,17 +1540,24 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       }
       /** The water's current here as drawn (tiles a second; motion.ts), 0 where still. */
       vec2 waterCurrent(vec2 g) { return (texture2D(flowTex, g / mapSize).rg * 255.0 - 128.0) / 63.5; }
-      /** The textures the current carries, at p: the broken foam's noise, the pale streaks and
-       *  badwater's bubbles (the ripples and glints stay where they are: a few noise lookups twice over,
-       *  not the whole surface, which a modest GPU felt). */
-      void flowingAt(vec2 p, float t, float bad, float fine, out float fn, out float pale, out float bubbles) {
+      /** The textures the current carries, at p: the broken foam's noise, the pale streaks, badwater's
+       *  mottled light and dark patches and its bubbles (the ripples and glints stay where they are: a few
+       *  noise lookups twice over, not the whole surface, which a modest GPU felt). */
+      void flowingAt(vec2 p, float t, float bad, float fine, out float fn, out float pale, out float bubbles, out float dark) {
         fn = vnoise(p * 4.0 + vec2(t * 0.3, -t * 0.2));
-        // (clean water's pale streaks run along the flow; badwater's light is mottled, as the game's
-        // contaminated surface is a pattern of patches, never streaks that read as rain)
-        float streaks = vnoise(vec2(p.x * 0.9 + p.y * 0.3, (p.y - p.x * 0.2) * 5.0) + vec2(t * 0.15, t * 0.5));
-        float patches = vnoise(p * 1.4 + vec2(t * 0.05, t * 0.08)) * 0.6 + vnoise(p * 3.3 - vec2(t * 0.04, -t * 0.06)) * 0.4;
-        pale = smoothstep(0.6, 0.82, mix(streaks, patches + 0.06, bad));
-        bubbles = bad > 0.01 ? fine * smoothstep(0.93 - 0.1 * bad, 1.03 - 0.1 * bad, vnoise(p * 5.0 + vec2(t * 0.05, -t * 0.08))) * smoothstep(0.55, 0.8, vnoise(p * 1.3 - vec2(0.0, t * 0.04))) : 0.0;
+        // clean water's pale streaks run along the flow; badwater's light and dark are mottled patches, as
+        // the game's contaminated surface is a pattern of patches flowing with the water, never streaks
+        // that read as rain (each thresholded before they mix, so the light keeps its coverage when half bad)
+        pale = smoothstep(0.6, 0.82, vnoise(vec2(p.x * 0.9 + p.y * 0.3, (p.y - p.x * 0.2) * 5.0) + vec2(t * 0.15, t * 0.5)));
+        dark = 0.0;
+        bubbles = 0.0;
+        if (bad > 0.01) {
+          float light = vnoise(p * 1.4 + vec2(t * 0.05, t * 0.08)) * 0.6 + vnoise(p * 3.3 - vec2(t * 0.04, -t * 0.06)) * 0.4;
+          pale = mix(pale, smoothstep(0.6, 0.82, light + 0.06), bad);
+          float mottle = vnoise(p * 1.1 + vec2(t * 0.03, -t * 0.04)) * 0.6 + vnoise(p * 2.7 - vec2(t * 0.05, t * 0.02)) * 0.4;
+          dark = 1.0 - smoothstep(0.3, 0.46, mottle);
+          bubbles = fine * smoothstep(0.93 - 0.1 * bad, 1.03 - 0.1 * bad, vnoise(p * 5.0 + vec2(t * 0.05, -t * 0.08))) * smoothstep(0.55, 0.8, vnoise(p * 1.3 - vec2(0.0, t * 0.04)));
+        }
       }
       void main() {
         vec3 n = normalize(vNormal);
@@ -1549,15 +1592,15 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // (waterPalette.ts's waterBody and waterOpacity say the same, for the tests)
         float d = waterSeenDepth(depth, shore);
         // clean water: clear in the shallows (the bed shows through a light teal tint), a deep teal
-        // body a level or so deep, navy where deep; badwater murky and nearly opaque at any depth,
-        // the game's red-brown in its shallows, darker deeper
+        // body a level or so deep, navy where deep; badwater murky, the game's
+        // crimson, lighter on a film and darker deeper by the game's _DepthGradients ramp (D496)
         float absorb = waterAbsorb(d);
         vec3 murky = badwaterBody(depth);
         vec3 body = cleanWaterBody(d, absorb);
         // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
         // WATER_FILM.to deep (waterPalette.ts WATER_FILM; our anti-aliasing): its own depth, not the bank's
         float film = waterFilm(depth);
-        float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(absorb), film);
+        float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);
         float foam = 0.0;
         float glints = 0.0;
         float pale = 0.0;
@@ -1586,17 +1629,19 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             #ifdef CAVES
               if (waterOwnFlow.a > 0.5) drift = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5 * 0.65;
             #endif
-            if (dot(drift, drift) < 1e-6 || (${hook(h, "waterOwnSurface", "false")})) flowingAt(g, t, bad, fine, fn, pale, bubbles);
+            float dark;
+            if (dot(drift, drift) < 1e-6 || (${hook(h, "waterOwnSurface", "false")})) flowingAt(g, t, bad, fine, fn, pale, bubbles, dark);
             else {
               float phase = fract(t / 12.0);
               float second = fract(t / 12.0 + 0.5);
               float blend = abs(phase * 2.0 - 1.0);
-              float fn2, pale2, bubbles2;
-              flowingAt(g - drift * (phase * 12.0), t, bad, fine, fn, pale, bubbles);
-              flowingAt(g - drift * (second * 12.0), t, bad, fine, fn2, pale2, bubbles2);
+              float fn2, pale2, bubbles2, dark2;
+              flowingAt(g - drift * (phase * 12.0), t, bad, fine, fn, pale, bubbles, dark);
+              flowingAt(g - drift * (second * 12.0), t, bad, fine, fn2, pale2, bubbles2, dark2);
               fn = mix(fn, fn2, blend);
               pale = mix(pale, pale2, blend);
               bubbles = mix(bubbles, bubbles2, blend);
+              dark = mix(dark, dark2, blend);
             }
             // calmer from afar, where a pixel spans a ripple (no shimmer)
             float near = 1.0 - smoothstep(0.08, 0.25, fwidth(g.x));
@@ -1605,13 +1650,16 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             // the ripples' crests catch the sky: a light teal texture on the dark body (clean water;
             // badwater is dull)
             crest = smoothstep(0.1, 0.85, 0.5 + 0.42 * (sl.x * 0.7 - sl.y * 0.5)) * near * (1.0 - bad);
-            // badwater's troughs: the ripples' low parts
-            // (in mottled patches, as the game's contaminated pattern, not the ripples' parallel bands)
-            float mottle = vnoise(g * 1.1 + vec2(t * 0.03, -t * 0.04)) * 0.6 + vnoise(g * 2.7 - vec2(t * 0.05, t * 0.02)) * 0.4;
-            trough = (1.0 - smoothstep(0.3, 0.46, mottle)) * near * bad;
+            // badwater's troughs: its darker patches, carried by the current (flowingAt), as the game's
+            // contaminated pattern, not the ripples' parallel bands
+            trough = dark * near * bad;
           #endif
-          // badwater's opacity (nearly opaque but at its shallow edges), by how bad it is
-          alpha = mix(alpha, badwaterAlpha(depth, shore, waterGrazing(V, N)), bad);
+          // badwater's opacity (the water's, as the game's: WATER_SURFACE.seeThrough), by how bad it is
+          alpha = mix(alpha, badwaterAlpha(depth, shore), bad);
+          #if LITE
+            // (the light look follows the game's Low quality: no ground behind the water)
+            alpha = max(alpha, film);
+          #endif
           // foam where the water meets the shore, and along the brink where a fall pours over (the
           // whitewater where a fall lands is the fall's own splash: fallMaterial)
           float lip = 1.0;
@@ -1674,7 +1722,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         c += sunColor * (spec * mix(WATER_SPEC, BADWATER_SPEC, bad) + glints * ${f(WS.glints)} * mix(1.0, BADWATER_GLINTS, bad) * (0.3 + 0.7 * lit));
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
-        if (n.y > 0.5) alpha = mix(alpha, 0.95, max(foam, glints * 0.6));
+        // (foam and glints only ever make the water more opaque: deep water and the light look stay opaque)
+        if (n.y > 0.5) alpha = max(alpha, mix(alpha, 0.95, max(foam, glints * 0.6)));
 ${hook(h, "water")}        #ifdef CAVES
           // under a roof, the light of the air it stands in, as objects and falls there take it: the open air's sky
           // (D497), and the sun only where the volume's ray reaches
@@ -1720,6 +1769,9 @@ ${hook(h, "water")}        #ifdef CAVES
           float oa = o.a < 0.998 ? o.a : o.a * markers * float(LITE);
           c = mix(c, o.rgb, oa * 0.85);
           alpha = mix(alpha, 1.0, oa * 0.6);
+          float footEdge = overlayEdge(g, o, max(max(fwidth(g.x), fwidth(g.y)), 0.002));
+          c = mix(c, overlayEdgeColor(o), footEdge);
+          alpha = mix(alpha, 1.0, footEdge);
           vec4 hatch = hatchAt(g, o.rgb);
           c = mix(c, hatch.rgb, hatch.a);
           alpha = mix(alpha, 1.0, hatch.a);
@@ -1751,9 +1803,9 @@ ${hook(h, "water")}        #ifdef CAVES
             }
           vec3 uc = mix(WATER_FOAM, BADWATER_FOAM, step(0.01, badSrc));
           c = mix(c, uc, up * 0.55);
-          alpha = mix(alpha, 0.85, up * 0.5);
+          alpha = max(alpha, mix(alpha, 0.85, up * 0.5));
           c = mix(c, WATER_SOURCE_GLOW, hl * 0.45);
-          alpha = mix(alpha, 0.9, hl * 0.4);
+          alpha = max(alpha, mix(alpha, 0.9, hl * 0.4));
         }
         #endif
         // a highlighted source reads under its own water too (D249; Kyler, 2026-10-03: a settled source
@@ -1772,7 +1824,7 @@ ${hook(h, "water")}        #ifdef CAVES
               lit = max(lit, 1.0 - smoothstep(reach - 0.06, reach + 0.04, max(q.x, q.y)));
             }
           c = mix(c, WATER_SOURCE_LIT, lit * 0.9);
-          alpha = mix(alpha, 0.97, lit * 0.9);
+          alpha = max(alpha, mix(alpha, 0.97, lit * 0.9));
         }
         gl_FragColor = vec4(finish(c, vWorld), alpha);
       }

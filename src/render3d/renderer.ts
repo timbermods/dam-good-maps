@@ -66,6 +66,7 @@ import type { Voxels } from "./wear";
 import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
 import { EditGlow, editedCells, editGlowMaterial, type EditCells } from "./editGlow";
 import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
+import { fogOf } from "./high/seasons";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
 import { whenIdle } from "./idle";
@@ -511,7 +512,7 @@ export class MapRenderer {
   private witheredCount = 0;
   private casterTimer = 0;
   /** The hazard held and the map's own soil (the Weather view's seasons: dry ground, heat, the badtide's sky), or null. */
-  private season: { hazard: "drought" | "badtide"; own: SoilView } | null = null;
+  private season: "drought" | "badtide" | null = null;
 
   /** `still`: a view nobody steers and nothing moves in (the map's picture, `hero.ts`): no pointer or key
    *  reaches it, and its water is drawn still, without the moving water's flow and foam (no wait on the bake
@@ -704,8 +705,9 @@ export class MapRenderer {
   }
 
   /** The programs an edit could switch the look drawn to next (every state of the map an edit can bring, the falls'
-   *  and water's while none are drawn, the drought line's), compiled in the background a moment after a map is drawn,
-   *  a few at a time while the page is idle, so a switch finds them ready (programs.ts); then the other look's, in every
+   *  and water's while none are drawn, the drought line's, the edit glow's, the forces' moments'), compiled in the
+   *  background a moment after a map is drawn, a few at a time while the page is idle, so a switch finds them ready
+   *  (programs.ts); then the other look's, in every
    *  state too (in Standard where High can be drawn: High's, so a switch to it and a dig right after are drawn at
    *  once; in High: Standard's). Not where the browser draws in software or can't compile in the background, nor for
    *  the map's picture (it compiles its own, `compileAhead`). */
@@ -724,6 +726,12 @@ export class MapRenderer {
       for (const m of this.lineCopy) list.push([m, { ...(m.defines as Defines) }]);
       // (the edit glow's, drawn when an edit first lands: one program in every look and state, editGlow.ts)
       list.push([this.glowMat, { ...(this.glowMat.defines as Defines) }]);
+      // (the forces' moments', drawn when a force first plays: Erode's dust and stones, Glaciate's ice, forces.ts)
+      for (const m of this.forceFxOf().materials()) list.push([m as ShaderMaterial, { ...((m.defines ?? {}) as Defines) }]);
+      // (the brush's cursor and a force's ring, made now, hidden until a tool shows them: brushCursor.ts)
+      this.cursor ??= new BrushCursor(this.scene);
+      this.ring ??= new ForceRing(this.scene);
+      for (const m of [...this.cursor.materials(), ...this.ring.materials()]) list.push([m as ShaderMaterial, { ...((m.defines ?? {}) as Defines) }]);
       if (h) list.push(...std);
       else if (this.canHigh) list.push(...this.highCopyList(STATES));
       const sent: Promise<void>[] = [];
@@ -1170,7 +1178,6 @@ export class MapRenderer {
           high.setMap(m.W, m.H, m.heights, m.surface, m.entities);
           if (this.objects) high.objectsBuilt(this.objects, m.entities);
           this.applyWithered();
-          this.applySeason();
         }
       }
     }
@@ -1521,6 +1528,7 @@ export class MapRenderer {
     this.drawnObjects = null;
     this.witheredCount = 0;
     this.season = null;
+    this.applySeason();
     this.droughtLayer?.clear();
     this.editGlow?.clear();
     clearTimeout(this.casterTimer);
@@ -2244,29 +2252,28 @@ export class MapRenderer {
     m.soil = soil;
     this.bakeTiles();
     this.syncRunSoil();
-    this.applySeason();
     this.requestRender();
     this.onMapChange?.();
   }
 
-  /** A drought or a badtide is held (null: none), with the map's own soil: the High look draws its dry ground and straw, heat
-   *  shimmer and sky from the day's soil and water (`high/seasons.ts`); Standard stays as it is. */
-  setSeason(hazard: "drought" | "badtide" | null, own: SoilView | null): void {
-    this.season = hazard && own ? { hazard, own } : null;
+  /** A drought or a badtide is held (null: none): the haze takes the game's fog colour for it, in both looks, as the
+   *  game's only change of look for a hazard (`high/seasons.ts`; D250 as amended); the ground follows the day's soil and
+   *  the plants and ruins theirs, by their own updates. */
+  setSeason(hazard: "drought" | "badtide" | null): void {
+    this.season = hazard;
     this.applySeason();
   }
 
-  /** What the seasons draw now, or all zero (Standard, or no day held): the tests read it. */
-  get seasonLook(): { dry: number; heat: number; sickly: number } {
-    return this.high?.seasonNow ?? { dry: 0, heat: 0, sickly: 0 };
+  /** The haze's colour now (the tests read it). */
+  get hazeNow(): [number, number, number] {
+    const c = this.uniforms.hazeColor.value;
+    return [c.r, c.g, c.b];
   }
 
   private applySeason(): void {
-    const m = this.map;
-    const s = this.season;
-    if (!this.high) return;
-    if (!m || !s || !m.soil || m.soil.moisture.length !== s.own.moisture.length) return this.high.setSeason(null, null);
-    this.high.setSeason(s.hazard, { W: m.W, H: m.H, own: s.own, day: m.soil, depth: m.surface.depth, contamination: m.surface.contamination });
+    const [r, g, b] = fogOf(this.season);
+    this.uniforms.hazeColor.value.setRGB(r, g, b);
+    this.requestRender();
   }
 
   /** The plants a held drought or badtide day has surely killed (the worker's `withered`, core/sim/withering.ts), by tile, or

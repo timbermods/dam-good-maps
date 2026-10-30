@@ -222,6 +222,7 @@ describe("Crop map to selection: an imported map keeps its caves and overhangs",
   it("keeps every voxel of its columns, runs included", () => {
     const { s, at } = withCaves();
     expect(s.columns.size).toBeGreaterThanOrEqual(at.length);
+    const columnsBefore = [...s.columns.keys()];
     const before = s.exportFile();
     const start = s.built.entities.find((e) => e.template === "StartingLocation")!;
     const r = { x: Math.max(0, start.x - 20), y: Math.max(0, start.y - 20), w: 44, h: 44 };
@@ -234,7 +235,11 @@ describe("Crop map to selection: an imported map keeps its caves and overhangs",
     expect(voxelsOn(after.world, { x: 0, y: 0, w: r.w, h: r.h }, { rect: r, W, H: W })).toEqual(voxelsOn(before.world, r, { rect: r, W, H: W }));
     const inside = at.filter((p) => p.x >= r.x && p.y >= r.y && p.x < r.x + r.w && p.y < r.y + r.h);
     expect(inside.length).toBeGreaterThan(0);
-    expect([...s.columns.keys()].sort((a, b) => a - b)).toEqual(inside.map((p) => (p.y - r.y) * r.w + p.x - r.x).sort((a, b) => a - b));
+    // (every column that stood inside the rectangle stays, at its new tile: the caves made here and the generated map's
+    // own, since this seed's map has natural caves from generator 0.10.6, D498, D148, 13 columns besides these)
+    const stay = columnsBefore.filter((i) => i % W >= r.x && Math.floor(i / W) >= r.y && i % W < r.x + r.w && Math.floor(i / W) < r.y + r.h).map((i) => (Math.floor(i / W) - r.y) * r.w + (i % W) - r.x);
+    for (const p of inside) expect(stay).toContain((p.y - r.y) * r.w + p.x - r.x);
+    expect([...s.columns.keys()].sort((a, b) => a - b)).toEqual(stay.sort((a, b) => a - b));
     // the cave is still a cave in the exported file
     for (const p of inside) {
       const i = (p.y - r.y) * r.w + p.x - r.x;
@@ -356,23 +361,26 @@ describe("Crop map to selection: the name", () => {
 });
 
 describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edgeLip.ts)", () => {
-  // seed 4's spring at (12, 50) is a river head 12 tiles in from the west edge: cropped to the west at the
-  // source itself (0 tiles behind the new edge) or one tile before it (1 behind), its water poured off the new
-  // edge on the tiles beside it
+  // seed 1's springs at (23, 63) and (24, 63) are a river head 23 tiles in from the west edge, on the south edge: cropped
+  // to the west at the source itself (0 tiles behind the new edge) or one tile before it (1 behind), its water poured
+  // off the new edge on the tiles beside it (seed 4's spring at (12, 50) before generator 0.10.6, D498, D148: the
+  // badwater joining the river's lower reach moved the land; seed 1's heads leave the start whole and no water beside
+  // the new edge, with the lip raising ten tiles of it, at both distances)
   it.each([0, 1])("a source %i tile(s) behind the new edge does not pour its water off the map", (behind) => {
-    const original = session(4);
-    const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 12);
+    const original = session(1);
+    const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 23);
     expect(spring.length).toBeGreaterThan(0);
-    const rect = { x: 12 - behind, y: 0, w: W - 12 + behind, h: W };
+    const sy = spring[0].y;
+    const rect = { x: 23 - behind, y: 0, w: W - 23 + behind, h: W };
     expect(cropObjects(original.built.entities, rect).cutStart).toBeNull();
     original.settleCanonical();
-    const s = session(4);
+    const s = session(1);
     s.settleCanonical();
     expect(s.apply(crop(rect.x, rect.y, rect.w, rect.h)).errors).toEqual([]);
     const sources = new Set(s.built.entities.filter((e) => /Source/.test(e.template)).map((e) => e.y * rect.w + e.x));
     const wetBeside: number[] = [];
     let raised = 0;
-    for (let y = 40; y < 60; y++) {
+    for (let y = Math.max(0, sy - 10); y < Math.min(W, sy + 10); y++) {
       const i = y * rect.w;
       if (s.built.heights[i] > original.built.heights[y * W + rect.x]) raised++;
       if (!sources.has(i) && s.built.water[i] > 0.02) wetBeside.push(y);
