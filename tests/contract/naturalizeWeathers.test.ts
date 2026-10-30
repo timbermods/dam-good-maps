@@ -21,8 +21,9 @@ const W = 96;
 const PLANT = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent|BlueberryBush|Slope|RuinColumnH\d+)$/;
 
 // (seed 1 on M9b's maps, D148: seed 3 has no 19 × 19 stretch of dry, open ground below level 12 away from the start; the best has 16 bad tiles;
-// seed 11 for 0.8.1's maps, D148: badwater ditches now follow the land and seed 1's best spot has 49 bad tiles; seed 7 has an open spot, but it straddles a four-level terrace edge, so the Raise cliff's tallest step is the terrace's)
-function session(seed = 11): MapSession {
+// seed 11 for 0.8.1's maps, D148: badwater ditches now follow the land and seed 1's best spot has 49 bad tiles; seed 7 has an open spot, but it straddles a four-level terrace edge, so the Raise cliff's tallest step is the terrace's;
+// seed 3 for 0.10.7's maps, D502, D148: seed 11's best spot has 78 bad tiles; seeds 1 and 2 have an open spot, but on seed 1 the wall beside the start's pad does not weather and on seed 2 the Raise cliff's tallest step is the terrace's; seeds 3 and 4 pass all six)
+function session(seed = 3): MapSession {
   const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
   const s = MapSession.fromGenerated(r, r.file);
   s.setWaterMode("defer");
