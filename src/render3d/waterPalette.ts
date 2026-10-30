@@ -59,7 +59,7 @@ export const WATER = {
    *  darker than clean water of the same depth. Unchanged by D310 (see `BAD_BODY`). */
   bad: BAD_BODY,
   badDeep: [0.14, 0.066, 0.058] as Rgb,
-  /** Badwater's darker troughs, in the ripples' low parts (`BADWATER.trough` of the way), and
+  /** Badwater's darker troughs, in its mottled dark patches (`BADWATER.trough` of the way), and
    *  its subdued, lighter flow streaks; both in its shallows, darkening with depth as the body. */
   badTrough: [0.292, 0.143, 0.128] as Rgb,
   badStreak: [0.421, 0.234, 0.194] as Rgb,
