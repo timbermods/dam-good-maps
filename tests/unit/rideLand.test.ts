@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { surfaceWater, waterFromDepth, type WaterView } from "../../src/render3d/model";
-import { heldSurfaceOf, holdLand, rideLand } from "../../src/render3d/waterMesh";
+import { heldSurfaceOf, holdLand, ownSurface, rideLand } from "../../src/render3d/waterMesh";
 
 const W = 8;
 const H = 4;
@@ -53,13 +53,19 @@ describe("water rides its land", () => {
 });
 
 describe("a held day's water keeps its surface (D133)", () => {
-  it("land raised to the surface or above holds none, land under it fills to it, dry land stays dry, land put back has its water back", () => {
+  /** A lake 1.5 deep on land at 4, tile 7 dry on the day; its surface water drawn as a copy, as the renderer draws it. */
+  function heldLake() {
     const was = new Uint8Array(N).fill(4);
     const depth = new Float64Array(N).fill(1.5);
-    // (tile 7 dry on the day)
     depth[7] = 0;
-    const sw = surfaceWater(W, H, waterFromDepth(was, depth, new Float64Array(N)));
-    const held = heldSurfaceOf(sw, was);
+    const view = waterFromDepth(was, depth, new Float64Array(N));
+    const day = surfaceWater(W, H, view);
+    const held = heldSurfaceOf(view, day.top, was);
+    return { was, view, day, held, sw: ownSurface(day) };
+  }
+
+  it("land raised to the surface or above holds none, land under it fills to it, dry land stays dry, land put back has its water back", () => {
+    const { was, held, sw } = heldLake();
     expect(held[0]).toBe(5.5);
     expect(held[7]).toBeNaN();
     const now = was.slice();
@@ -67,7 +73,7 @@ describe("a held day's water keeps its surface (D133)", () => {
     now[2] = 5; // raised, still under it
     now[4] = 1; // lowered under it
     now[7] = 0; // dry land lowered
-    expect(holdLand(W, sw, held, was, now)).toBe(true);
+    expect(holdLand(W, sw, held, now)).toBe(true);
     // raised above: no water, and the readout's water is gone with it
     expect(sw.surface[1]).toBeNaN();
     expect(sw.depth[1]).toBe(0);
@@ -78,11 +84,34 @@ describe("a held day's water keeps its surface (D133)", () => {
     // untouched and dry tiles as they were
     expect([sw.floor[3], sw.surface[3], sw.depth[3]]).toEqual([4, 5.5, 1.5]);
     expect(sw.surface[7]).toBeNaN();
+    // (again on the same land: nothing changes)
+    expect(holdLand(W, sw, held, now)).toBe(false);
     // the raised tile put back: the day's water there again
     const back = now.slice();
     back[1] = 4;
-    expect(holdLand(W, sw, held, now, back)).toBe(true);
+    expect(holdLand(W, sw, held, back)).toBe(true);
     expect([sw.floor[1], sw.surface[1], sw.depth[1]]).toEqual([4, 5.5, 1.5]);
+  });
+
+  it("the day's own water is never written: a flip to other land and back, or the day seated again, gives the same water", () => {
+    const { was, view, day, held, sw } = heldLake();
+    const other = was.slice();
+    other[1] = 15;
+    other[2] = 9;
+    holdLand(W, sw, held, other);
+    expect(sw.surface[1]).toBeNaN();
+    // the day's own water as it came, and its held surface worked out again from it, are as they were
+    expect([day.floor[1], day.surface[1], day.depth[1]]).toEqual([4, 5.5, 1.5]);
+    const again = heldSurfaceOf(view, day.top, was);
+    expect(Array.from(again)).toEqual(Array.from(held));
+    // back on its own land, from a fresh copy (a flip back) or the same one: the day's water everywhere
+    const reseated = ownSurface(day);
+    holdLand(W, reseated, again, was);
+    holdLand(W, sw, held, was);
+    for (const w of [reseated, sw]) {
+      expect([w.floor[1], w.surface[1], w.depth[1]]).toEqual([4, 5.5, 1.5]);
+      expect([w.floor[2], w.surface[2], w.depth[2]]).toEqual([4, 5.5, 1.5]);
+    }
   });
 
   it("a held day worked out on the land before an edit stands on the land drawn with its surface kept; a cave's water is left alone", () => {
@@ -90,9 +119,10 @@ describe("a held day's water keeps its surface (D133)", () => {
     const now = was.slice();
     now[0] = 9;
     now[1] = 2;
-    const sw = surfaceWater(W, H, view);
-    const held = heldSurfaceOf(sw, now, was);
-    expect(holdLand(W, sw, held, was, now)).toBe(true);
+    const day = surfaceWater(W, H, view);
+    const held = heldSurfaceOf(view, day.top, now, was);
+    const sw = ownSurface(day);
+    expect(holdLand(W, sw, held, now)).toBe(true);
     expect(sw.surface[0]).toBeNaN();
     expect([sw.floor[1], sw.surface[1], sw.depth[1]]).toEqual([2, 5.5, 3.5]);
     // tile 1: a cave's pool at 1 under a roof at 4, which the edit raises
@@ -100,7 +130,7 @@ describe("a held day's water keeps its surface (D133)", () => {
     const under = surfaceWater(W, H, caves);
     const raised = was.slice();
     raised[1] = 8;
-    expect(holdLand(W, under, heldSurfaceOf(under, was), was, raised)).toBe(false);
+    expect(holdLand(W, under, heldSurfaceOf(caves, under.top, was), raised)).toBe(false);
     expect([under.floor[1], under.surface[1]]).toEqual([1, 2]);
   });
 });

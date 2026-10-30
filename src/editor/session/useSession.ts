@@ -422,6 +422,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     weatherRef.current = on;
     // (the water drawn from here is a held day's, which an edit never carries on its land: it keeps its surface, D133)
     renderer.current?.holdWater(on !== null);
+    // (held, the water drawn is the renderer's own copy: the readout reads that one)
+    const drawn = comparing.current ? null : renderer.current?.mapState()?.surface;
+    if (drawn) mirror.current.water = drawn;
     if (on !== firstNews.current?.hazard) firstNews.current = null;
     setStartWater((n) => (n && n.hazard === on ? n : null));
     setWeatherState(on);

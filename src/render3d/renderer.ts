@@ -84,7 +84,7 @@ import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
-import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
+import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
@@ -1397,6 +1397,7 @@ export class MapRenderer {
     this.landBefore = heights.slice();
     this.pendingLand = null;
     // (a map opened shows its own water: the page says when a weather day is held on it)
+    this.holding = false;
     this.heldSurface = null;
     let lo = 255;
     let hi = 0;
@@ -2028,37 +2029,60 @@ export class MapRenderer {
   private seated(water: WaterView): SurfaceWater {
     const m = this.map!;
     const surface = surfaceWater(m.W, m.H, water);
-    if (this.heldSurface) {
-      // (a held weather day: its surface stays where the day had it, on the land as drawn, `holdLand`)
-      this.heldSurface = heldSurfaceOf(surface, m.heights, this.landBefore);
-      if (this.landBefore) holdLand(m.W, surface, this.heldSurface, this.landBefore, m.heights);
-    } else if (this.landBefore) rideLand(m.W, surface, this.landBefore, m.heights);
+    // (a held weather day: its surface stays where the day had it, on the land as drawn, `holdLand`)
+    if (this.holding) return this.heldSeat(water, surface);
+    if (this.landBefore) rideLand(m.W, surface, this.landBefore, m.heights);
     return surface;
+  }
+
+  /** Water drawn while a weather day is held: a copy of `sw` (the day's own water is never written: it is drawn again
+   *  as it came after a flip of Compare or another day), standing at the surface the day had, kept once per day as it
+   *  came (`heldOf`), on the land drawn. */
+  private heldSeat(water: WaterView, sw: SurfaceWater): SurfaceWater {
+    const m = this.map!;
+    let held = this.heldOf.get(water);
+    if (!held) {
+      held = heldSurfaceOf(water, sw.top, m.heights, this.landBefore);
+      this.heldOf.set(water, held);
+    }
+    this.heldSurface = held;
+    const own = ownSurface(sw);
+    holdLand(m.W, own, held, m.heights);
+    return own;
   }
 
   /** The land under the water drawn changed from `was` to `now` over `rect`: live water rides it (`rideLand`), a held
    *  weather day's keeps its surface (`holdLand`). True when the water there changed. */
   private landUnder(was: Uint8Array, now: Uint8Array, rect: { x0: number; y0: number; x1: number; y1: number }): boolean {
     const m = this.map!;
-    return this.heldSurface ? holdLand(m.W, m.surface, this.heldSurface, was, now, rect) : rideLand(m.W, m.surface, was, now, rect);
+    return this.holding && this.heldSurface ? holdLand(m.W, m.surface, this.heldSurface, now, rect) : rideLand(m.W, m.surface, was, now, rect);
   }
 
   /** Whether the water drawn is a held weather day's (D133: a drought or a badtide held, from its button pressed until
    *  it is put away). Nothing simulates that water until the edited map's own day comes, so an edit meanwhile never
    *  carries it on the land as it does live water: land raised to the held surface or above holds none at once, land
-   *  under it holds water up to it (`holdLand`), and the readout, reading the same water, says so. */
+   *  under it holds water up to it (`holdLand`), and the readout, reading the same water, says so. Held, the water
+   *  drawn is a copy (`mapState().surface` is a new object: the page's copy of the map reads it again). */
   holdWater(on: boolean): void {
     const m = this.map;
-    if (!on || !m) {
-      this.heldSurface = null;
-      return;
+    if (on === this.holding) return;
+    this.holding = on;
+    this.heldSurface = null;
+    // (the water drawn now is held from here: drawn from a copy, which an edit writes, `heldSeat`)
+    if (on && m) {
+      m.surface = this.heldSeat(m.water, m.surface);
+      this.high?.waterChanged(m.surface);
+      this.flowChanged(m.heights, m.surface);
     }
-    if (!this.heldSurface) this.heldSurface = heldSurfaceOf(m.surface, m.heights, this.landBefore);
   }
 
-  /** While a weather day is held (`holdWater`), the surface its water keeps on each tile (NaN where it had none on
-   *  the tile's top); null otherwise. */
+  /** A weather day is held (`holdWater`). */
+  private holding = false;
+  /** While a weather day is held, the surface its water keeps on each tile (NaN where it had none on the tile's top),
+   *  the water drawn's (`heldOf`); null otherwise. */
   private heldSurface: Float32Array | null = null;
+  /** Each held day's surface, worked out once from its water as it came (`heldSurfaceOf`). */
+  private readonly heldOf = new WeakMap<WaterView, Float32Array>();
 
   /** New water: remesh the chunks whose water changed, in the water mesh workers where they run, drawn a frame or
    *  two on (meshing them here cost the page tens of milliseconds each time water was put in place). `now`: on a
