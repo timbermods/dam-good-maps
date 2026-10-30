@@ -204,7 +204,11 @@ refusals).
 `added` and `removed` are exactly the blocks the click changes (the ghost), `falls` the blocks of ground that would drop
 (red), `reason` the one line `apply` would refuse with (the same string), `null` when it would be taken. `errors` is the
 refusal when the operation cannot be taken at all (then the three lists are empty). `apply` runs the same check before it
-logs anything, so the count in the refusal is the length of `falls`. The slope, like any object, holds its block: removing
+logs anything, so the count in the refusal is the length of `falls`. With nothing falling, `reason` also names an object
+the step would move or leave for the game to remove (D491; `session.ts` `blockLost`): a block over the tile an object takes
+its level from, which the build would carry it up onto (`a mine site stands under it at X 25 · Y 30`; a generated map
+object takes the highest surface under it), and a dig deep under a mine site that leaves its ground off the bottom of the
+map, by the same rule as the step's last guard (`objectLost`). So the page never shows a step as fine that `apply` refuses. The slope, like any object, holds its block: removing
 the block it stands on is refused with the object line. **The page should call `blockFalls` when the pointer's block
 changes, not on every move**: it costs about 7 ms at 256² on a loaded machine once the first call has worked out the
 build's objects (about 30 ms), which are kept per build.

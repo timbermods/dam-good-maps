@@ -138,6 +138,44 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     expect(s.built.entities.find((e) => e.id === tree.id)!.z).toBe(8);
   });
 
+  it("a step that would move a mine site or leave it for the game to remove is refused, with the line blockFalls gives first (D491)", () => {
+    const s = caveSession();
+    // a 5 × 5 mine site on the cliff's top, its east row at the cliff's edge over the lowland
+    const id = "11111111-2222-4333-8444-555555555555";
+    expect(s.apply({ op: "placeEntity", params: { id, template: "UndergroundRuins", x: 25, y: 30, orientation: "Cw0" } }).errors).toEqual([]);
+    const site = () => s.built.entities.find((e) => e.id === id)!;
+    expect(site().z).toBe(8);
+    // a pillar beside it, two blocks high, and a block out from it over the site: over its corner tile, which
+    // it takes its level from, the build would carry it up; over another tile it stays under the block
+    for (const z of [7, 8]) expect(s.apply(op(add("+z", [[24, 30, z]]))).errors).toEqual([]);
+    for (const z of [7, 8]) expect(s.apply(op(add("+z", [[24, 32, z]]))).errors).toEqual([]);
+    const corner = add("+x", [[24, 30, 9]]);
+    const q0 = blockFalls(s, corner);
+    expect(q0.added).toEqual([[25, 30, 9]]);
+    expect(q0.reason).toBe("a mine site stands under it at X 25 · Y 30");
+    expect(s.apply(op(corner)).errors).toEqual([q0.reason]);
+    const over = add("+x", [[24, 32, 9]]);
+    expect(blockFalls(s, over).reason).toBeNull();
+    expect(s.apply(op(over)).errors).toEqual([]);
+    expect(site().z).toBe(8);
+    const steps = s.history().length;
+    const held = s.terrain.mask.slice();
+    // a block dug from the cliff's face, deep under the site's east row: nothing falls, but the game keeps a
+    // mine site only on ground that reaches the bottom of the map, so it would remove it
+    const under = remove("+x", [[29, 32, 4]]);
+    const q = blockFalls(s, under);
+    expect(q.falls).toEqual([]);
+    expect(q.removed).toEqual([[29, 32, 4]]);
+    expect(q.reason).toBe("it would leave a mine site at X 25 · Y 30 inside the ground or floating, and the game would remove it");
+    expect(s.apply(op(under)).errors).toEqual([q.reason]);
+    expect(Array.from(s.terrain.mask)).toEqual(Array.from(held));
+    expect(s.history().length).toBe(steps);
+    // the same dig beside it is taken
+    const beside = remove("+x", [[29, 36, 4]]);
+    expect(blockFalls(s, beside).reason).toBeNull();
+    expect(s.apply(op(beside)).errors).toEqual([]);
+  });
+
   it("ground that would fall is refused with its count, which blockFalls shows first", () => {
     const s = caveSession();
     // the cliff that holds the ledge, taken from the top down, a layer at a time (each is open once the one above is gone)
