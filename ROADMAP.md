@@ -805,12 +805,7 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    soil for two days running (any plant, the game's 0.2 to 0.3 days, reset if it leaves), and dead for good once dead. So a normal
    drought's 9 days kill no pine, birch or oak; a badtide kills on every tile its poison stays on. The worker adds the held day's dead tiles to its held-day event
    (each day's soil is worked out on demand, once, from the last one cached; none yet on a map with caves, whose day soil, per run top, is worked out on the session worker, #404); the renderer moves those plants to the dead batches in place
-   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. **The rest of #67's stage 4** (High only, each its own
-   effect in the Look menu's Finishing touches, `high/seasons.ts`): on a held drought day, pale dusty dry ground with straw
-   where grass stood, read from the day's soil and water and the map's own soil (a tile mask, nearest-sampled), and a heat
-   shimmer over it, the ground's own pattern moved by under half a pixel (no post pass, D334; still for reduced motion and
-   dropped by the lower-cost tier); on a held badtide day, the sky pulled slightly sickly. Contamination stays the veins in
-   every look (D334).
+   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. **The rest of #67's stage 4**, as amended 2026-10-29 (planning: follows the game): a held drought or badtide day turns the haze to the game's fog colour for it, in both looks (`high/seasons.ts` `FOG`, from `Sun.blueprint`); the High-only straw, heat shimmer and sickly sky are gone, the game having none. Contamination stays the veins in every look (D334).
 
    **Built: the Unstable Core's moment (D339).** While a hazard is held, a quiet line under the water row says where each
    core goes off against that cycle's hazard (a core goes off `days` days into its cycle, a hazard starts after the cycle's
