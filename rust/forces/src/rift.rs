@@ -38,7 +38,7 @@ pub(super) fn keep_footprints(before:&Map,map:&mut Map) -> bool {
     let mut kept=false;
     for k in 0..map.entities.len() {
         let e=&map.entities[k];
-        if e.sx*e.sy<=1.0 || emitter(&e.template) || plant(&e.template) || e.template.as_ref()=="StartingLocation" {continue;}
+        if !rides_whole(e) {continue;}
         let tiles=map.footprint(e,0);
         let dz=|m:&Map,i:usize| m.heights[i] as i32-before.heights[i] as i32;
         let Some(&first)=tiles.first() else {continue};
@@ -48,6 +48,10 @@ pub(super) fn keep_footprints(before:&Map,map:&mut Map) -> bool {
         kept=true;
     }
     kept
+}
+/// An object whose footprint `keep_footprints` holds together: more than one tile, not a source, seep, plant or the start.
+pub(super) fn rides_whole(e:&Entity) -> bool {
+    e.sx*e.sy>1.0 && !emitter(&e.template) && !plant(&e.template) && e.template.as_ref()!="StartingLocation"
 }
 // Vertical transport, never topple trees or create objects. Opaque metadata stays attached by numeric slot.
 pub(super) fn ride(before:&Map,map:&mut Map) {

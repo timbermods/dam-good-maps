@@ -100,6 +100,10 @@ export interface Settings {
   };
   start: {
     area: "small" | "normal" | "large";
+    /** Easy start (`es`, D495): the start is calm and generous, guaranteed (`analysis/easyStart.ts`); the
+     *  rest of the map keeps its variety. Absent or false: off, the map as ever (a spec without it, and
+     *  every old link, reads as off; the page sets it only when on). */
+    easyStart?: boolean;
     /** The start requirements and targets (PLAN §5.6, D85). The first three reject a map:
      *  water without stairs, Minimum starting wood and Minimum starting bushes. */
     rules: {

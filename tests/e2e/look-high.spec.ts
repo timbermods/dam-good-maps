@@ -506,7 +506,7 @@ test("every basin source's highlight reads, under its own water too, in High as 
   expect(errors).toEqual([]);
 });
 
-test("High's visible seasons follow the game's timers: no plant dies of dryness in a normal drought's 9 days, a longer one withers them, a badtide kills on poisoned ground; Standard and Day 0 do not (D250)", async ({ page }) => {
+test("High's visible seasons follow the game's timers: no plant dies of dryness in a normal drought's 9 days, a longer one withers them, a badtide kills on poisoned ground; in both looks; Day 0 does not (D250, D242 as amended)", async ({ page }) => {
   test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -539,10 +539,13 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   await goTo(24);
   // (the day comes first and its list follows, the day soil being worked out in a worker: wait for it, or dry24 is day 20's)
   await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(dry20);
-  // Standard stays as it is, and High again draws the same plants withered
+  // Standard draws the same plants withered (as the game does at any quality: D242 as amended 2026-10-29), its own objects
+  // dead, and High again the same
   const dry24 = await withered();
+  const drawnDead = () => page.evaluate(() => (window.dgm3d!.renderer as unknown as { witheredDrawn: number }).witheredDrawn);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
-  expect(await withered()).toBe(0);
+  expect(await withered()).toBe(dry24);
+  await expect.poll(drawnDead, { timeout: 30_000 }).toBe(dry24);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
   expect(await withered()).toBe(dry24);
   // back to day 9 and Day 0: nothing dead yet

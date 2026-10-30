@@ -16,8 +16,13 @@ import type { CanonicalWater } from "../sim/prefill";
 import type { WaterModel } from "../sim/water";
 import type { Difficulty, MapSpec } from "../spec/mapspec";
 import type { PlayabilityAnalysis } from "./playability";
-import type { Profile, ValidationReport } from "./report";
+import type { CheckResult, Profile, ValidationReport } from "./report";
+import { blocks, severityOf } from "./report";
 import { validateInRust } from "./rust";
+import { easyShortfall, easyStartMeasures, easyTargets } from "../analysis/easyStart";
+import { surfaceOf } from "../format/world";
+import { mapObjects } from "../sim/model";
+import { seenThroughRoofs } from "../sim/stackWater";
 
 export type { CheckClass, CheckResult, Profile, Severity, ValidationReport } from "./report";
 export { blocks } from "./report";
@@ -75,6 +80,10 @@ export interface ValidateOptions {
   /** The map's own water, as its wet tiles: by default the file's; an edited import passes the
    *  water of the map as it was opened (the approximate-water rule compares the settle with it). */
   storedWet?: Uint8Array | null;
+  /** Easy start's rows (D495) on a generated map whose spec asks for it: `relax` scales its targets (1 as they
+   *  are; a late rescue round's less, D471), and at 0 they are advisory; `badtide: false` leaves out the first
+   *  badtide's run. */
+  easyStart?: { relax: number; badtide?: boolean; badtideDay?: number };
 }
 
 export interface Validation {
@@ -86,13 +95,56 @@ export interface Validation {
   /** What a steady state leaves out of this map's water (null with loadOnly). When it gives
    *  reasons, the water and start checks are approximate (PLAN §11, D87). */
   mechanics: Mechanics | null;
+  /** Easy start (D495), on a map a late rescue round checked against eased targets: what it left short of the full
+   *  ones, one line for the page (`easyShortfall`); absent when every full target holds. */
+  easyShort?: string;
 }
 
 /** Every check on `file`, and what they measured. Without `water`, the map's water is settled here
  *  (the heightfield water model on the top surface: on maps with caves or overhangs an approximation,
  *  as terrain.single_floor says). Throws the one-line reason of a map the checks refuse. */
 export function validateMap(file: TimberFile, opts: ValidateOptions): Validation {
-  return validateInRust(file, opts);
+  const v = validateInRust(file, opts);
+  // (not on a map made with Sources: None, D330: its water is the player's to place)
+  if (opts.profile !== "generate" || opts.spec?.settings?.start?.easyStart !== true || opts.spec.settings.water.sources === "none" || !v.analysis || !v.model || !v.water) return v;
+  return withEasyStart(file, opts, v);
+}
+
+/** Easy start's rows (D495, `analysis/easyStart.ts`) after the Rust checks' on a generated map whose spec asks
+ *  for it: each target a playability row that blocks the map, so the generator plans again. They run in
+ *  TypeScript on the checks' own water and soil (their analysis); only the generate profile reads them: what
+ *  the generator guarantees, never a nag once the player edits the start. */
+function withEasyStart(file: TimberFile, opts: ValidateOptions, v: Validation): Validation {
+  const w = file.world;
+  const W = w.sizeX;
+  const H = w.sizeY;
+  const relax = opts.easyStart?.relax ?? 1;
+  const settled = v.water!;
+  const water = settled.stack?.stacked ? { ...seenThroughRoofs(settled.stack), stack: settled.stack } : settled;
+  const input = { W, H, heights: surfaceOf(w), objects: mapObjects(w), water, model: v.model!, moisture: v.analysis!.moisture, soilContamination: v.analysis!.soilContamination, woodNear: v.analysis!.woodNear, badtide: opts.easyStart?.badtide, badtideDay: opts.easyStart?.badtideDay };
+  const measures = easyStartMeasures(input, easyTargets(W, H, relax > 0 ? relax : 0.8));
+  const advisory = relax <= 0;
+  const rows: CheckResult[] = measures.map((m) => ({
+    id: m.id,
+    class: "playability",
+    severity: severityOf(opts.profile, "playability", m.ok, advisory),
+    ok: m.ok,
+    value: m.value,
+    limit: m.limit,
+    message: m.message,
+    ...(advisory ? { advisory: true } : {}),
+    ...(m.where ? { where: m.where } : {}),
+  }));
+  const passed = v.report.passed && !rows.some((r) => blocks(opts.profile, r));
+  // (on a map that passes a late rescue round's eased targets: what it leaves short of the full ones, for the page
+  // to say, the badtide's day as its own row read it)
+  let easyShort: string | null = null;
+  if (relax < 1 && passed) {
+    const full = easyStartMeasures({ ...input, badtide: false }, easyTargets(W, H));
+    const badtide = measures.find((m) => m.id === "start.easy_badtide");
+    easyShort = easyShortfall(badtide ? [...full, badtide] : full);
+  }
+  return { ...v, report: { ...v.report, checks: [...v.report.checks, ...rows], passed }, ...(easyShort ? { easyShort } : {}) };
 }
 
 export function validateFile(file: TimberFile, opts: ValidateOptions): ValidationReport {

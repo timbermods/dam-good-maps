@@ -50,6 +50,20 @@ const PHRASES: Record<string, string> = {
   "resources.trees": "too few trees",
   "resources.bushes": "too few berry bushes",
   "resources.badwater_source": "no place for the badwater",
+  // Easy start (D495)
+  "easy start (planned)": "no calm place for an easy start",
+  "start.easy_room": "too little level ground at the easy start",
+  "start.easy_calm": "a cliff stood by the easy start",
+  "start.easy_water": "the easy start's water was too far",
+  "start.easy_drought": "the easy start's water dried in a drought",
+  "start.easy_badtide": "a badtide reached the easy start's water",
+  "start.easy_badwater": "badwater rose near the easy start",
+  "start.easy_food": "too few berries by the easy start",
+  "start.easy_farmland": "too little farmland by the easy start",
+  "start.easy_wood": "too little wood by the easy start",
+  "start.easy_metal": "no ruins near the easy start",
+  "start.easy_hazards": "a hazard stood near the easy start",
+  "start.easy_view": "the easy start's water was out of view",
 };
 
 /** The words of a family of checks no phrase above names. */

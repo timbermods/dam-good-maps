@@ -4,6 +4,7 @@ The checks on a map, each with an id, a class and a severity, and the report the
 
 **Rules**
 - The checks run in Rust (`rust/checks`, D465): `rust.ts` writes the map into the module's typed buffers and reads back the report and what the checks measured; their TypeScript is tag `ts-checks-final`. A change to a check is a change to `rust/checks` and a re-pin of `tools/rust/checks-pins.json`.
+- One exception runs in TypeScript: Easy start's rows (`start.easy_*`, D495), which `checks.ts` appends after the Rust checks' on a generated map whose spec asks for it, in the generate profile only, read on the checks' own water and soil by `analysis/easyStart.ts` (its badtide is the game's run, `sim/weather.ts`); in a late rescue round's eased rows, a map that passes also gets `easyShort`, what it left short of the full targets. The oracle has no such rows.
 - Check ids, rules and thresholds match the Python oracle (`prototype/validate.py`, `prototype/playability.py`). `tools/oracle.ts` runs both on the same files and compares every verdict.
 - A profile decides what each class does (`report.ts`). What must never fail is correctness and the absolutes (`docs/PERFECT.md`); measures and budgets are information (D115, D145).
 - A row can depend on the map's kind (`ValidateOptions.external`: an imported map). `slopes.connect` blocks on a generated map and is a warning on an imported one, which never blocks its export (D482); `terrain.single_floor` is an imported map's row only; `terrain.dropped` a generated map's only.

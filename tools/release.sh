@@ -5,8 +5,9 @@
 #
 # Without --go it checks the commit and prints each step. With --go it:
 #   1. pushes release/<name> at the commit and opens a PR into main;
-#   2. waits for every pull_request run on the release branch (the full CI, and the connection tests; tag pushes run none);
-#   3. makes the annotated tag at the commit and pushes it, then merges the PR as a merge commit;
+#   2. waits for every pull_request run on the release branch (the full CI, and the connection tests);
+#   3. makes the annotated tag at the commit and pushes it (its push runs release-assets.yml: the GitHub Release, with the
+#      MCP server's two installs attached), then merges the PR as a merge commit;
 #   4. watches the deploy of main (build, deploy, live check);
 #   5. republishes the preview from <preview branch>, if one is given (a deploy of main drops /preview/).
 # If the live check fails it stops and says how to revert the release merge on main.
