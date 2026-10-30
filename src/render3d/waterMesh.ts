@@ -545,6 +545,27 @@ export function holdLand(W: number, sw: SurfaceWater, held: ArrayLike<number>, n
   return changed;
 }
 
+/** The tiles whose water differs between `a` and `b` (wet or dry, its surface or its depth), as the rectangle round
+ *  them, or null where none does. */
+export function waterChangedRect(W: number, a: SurfaceWater, b: SurfaceWater): { x0: number; y0: number; x1: number; y1: number } | null {
+  let x0 = W;
+  let y0 = Infinity;
+  let x1 = -1;
+  let y1 = -1;
+  for (let i = 0; i < a.surface.length; i++) {
+    const sa = a.surface[i];
+    const sb = b.surface[i];
+    if (sa !== sa ? sb !== sb : sa === sb && a.depth[i] === b.depth[i]) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    y1 = y;
+  }
+  return x1 < 0 ? null : { x0, y0, x1, y1 };
+}
+
 /** A copy of surface water whose levels can be written (`holdLand`) without touching the water it was made from. */
 export function ownSurface(sw: SurfaceWater): SurfaceWater {
   return { ...sw, surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice() };
