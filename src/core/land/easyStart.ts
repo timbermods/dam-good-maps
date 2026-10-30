@@ -60,8 +60,9 @@ const isWater = (depth: ArrayLike<number>, water: ArrayLike<number>, i: number) 
 
 /** The water tile a start at `p` would have its pond joined to: water 13–24 tiles from its middle whose cut stands
  *  1–3 levels under the start's ground, with room for the pond's floor two levels under it above the beds' floor;
- *  the nearest, a level under the start first (the least cut); −1 when none. */
-export function pondWater(h: ArrayLike<number>, W: number, H: number, depth: ArrayLike<number>, water: ArrayLike<number>, p: EasyPlace): number {
+ *  the nearest, a level under the start first (the least cut), off `off` (a river's head, whose sources its water
+ *  must not reach, D171; a sea, whose settled level the plan only guesses); −1 when none. */
+export function pondWater(h: ArrayLike<number>, W: number, H: number, depth: ArrayLike<number>, water: ArrayLike<number>, p: EasyPlace, off: Uint8Array | null = null): number {
   let best = -1;
   let bestScore = Infinity;
   const r = POND_WATER.hi;
@@ -73,7 +74,7 @@ export function pondWater(h: ArrayLike<number>, W: number, H: number, depth: Arr
       const y = p.y + dy;
       if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
       const j = y * W + x;
-      if (!isWater(depth, water, j)) continue;
+      if (!isWater(depth, water, j) || off?.[j]) continue;
       const c = cutLevel(h, depth, water, j);
       const drop = p.level - c;
       if (!Number.isFinite(c) || drop < 1 || drop > POND_DROP || c - 1 < BED_FLOOR) continue;
@@ -106,9 +107,9 @@ export interface EasyShape {
 /** Shapes the start's clearing and pond on `h` (in place), on the water the land was planned with (`depth`, and
  *  the hydrology's `water`: 1 channels, 2 lakes). Null, `h` unchanged, when the place has no water a pond can be
  *  joined to (`pondWater`). */
-export function shapeEasyStart(h: Uint8Array, W: number, H: number, p: EasyPlace, depth: ArrayLike<number>, water: ArrayLike<number>, rng: Rng): EasyShape | null {
+export function shapeEasyStart(h: Uint8Array, W: number, H: number, p: EasyPlace, depth: ArrayLike<number>, water: ArrayLike<number>, rng: Rng, off: Uint8Array | null = null): EasyShape | null {
   const N = W * H;
-  const j = pondWater(h, W, H, depth, water, p);
+  const j = pondWater(h, W, H, depth, water, p, off);
   if (j < 0) return null;
   const L = cutLevel(h, depth, water, j) + 1;
   const wet = new Uint8Array(N);

@@ -2074,9 +2074,24 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const prepared: StartPick[] = [];
     // (Easy start, D495: the places planned on this water have their water at the pond's distance, room for the
     // clearing and water a pond can be joined to)
+    // (a pond keeps off a river's head, whose sources its water must not reach, D171, and off a sea, whose settled
+    // level the plan only guesses)
+    let pondOff: Uint8Array | null = null;
     if (easyT) {
+      pondOff = new Uint8Array(N);
+      if (g.seaLayout) for (let i = 0; i < N; i++) if (hy.water[i] === 2) pondOff[i] = 1;
+      for (const r of hy.rivers) {
+        const [px, py] = "spring" in r.params.entry ? r.params.entry.spring : r.params.path[0];
+        for (let dy = -8; dy <= 8; dy++)
+          for (let dx = -8; dx <= 8; dx++) {
+            const x = Math.round(px) + dx;
+            const y = Math.round(py) + dy;
+            if (x >= 0 && y >= 0 && x < W && y < H && dx * dx + dy * dy <= 64) pondOff[y * W + x] = 1;
+          }
+      }
+      const off = pondOff;
       stageRule = EASY_PLAN_RULE;
-      stageEasy = { band: [POND_WATER.lo - 2, POND_WATER.hi - 2], room: Math.round((380 * easyT.room) / 400), pond: (x, y, level) => pondWater(h, W, H, held, hy.water, { x, y, level }) >= 0 };
+      stageEasy = { band: [POND_WATER.lo - 2, POND_WATER.hi - 2], room: Math.round((380 * easyT.room) / 400), pond: (x, y, level) => pondWater(h, W, H, held, hy.water, { x, y, level }, off) >= 0 };
     }
     // (on a shown land, a place that needs no levelling: no ground is levelled after it was shown)
     allowLevel = !from;
@@ -2147,7 +2162,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // land is shaped (land/easyStart.ts); a land where neither can is planned again. The pond and its cut are
       // kept as water is, so nothing after fills them)
       if (easyT && guess) {
-        const shapeAt = (p: StartPick) => shapeEasyStart(h, W, H, p, startWater, hy.water, stream(seed, "easy-start", attempt, p.x, p.y));
+        const shapeAt = (p: StartPick) => shapeEasyStart(h, W, H, p, startWater, hy.water, stream(seed, "easy-start", attempt, p.x, p.y), pondOff);
         const keepShape = (s: NonNullable<ReturnType<typeof shapeEasyStart>>) => {
           for (const i of [...s.pond, ...s.cut]) keep[i] = 1;
         };
