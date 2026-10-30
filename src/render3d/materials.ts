@@ -1094,7 +1094,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           // (no patterns: contamination tints the ground a little, rust on earth, dark red on grass)
           glow = 0.0;
           vec3 lc = mix(${glColor(GROUND.dry)}, mix(${glColor(GROUND.moistLow)}, ${glColor(GROUND.moistHigh)}, clamp((s.y - 1.0) / 9.0, 0.0, 1.0)), s.x);
-          if (s.z > 0.5) lc = mix(lc, s.x > 0.5 ? ${glColor(GROUND.contaminatedWet)} : ${glColor(GROUND.contaminated)}, 0.25 + 0.3 * clev);
+          if (s.z > 0.5) lc = mix(lc, mix(${glColor(GROUND.contaminated)}, ${glColor(GROUND.contaminatedWet)}, s.x), 0.25 + 0.3 * clev);
           return mix(lc, ${glColor(GROUND.underwater)}, step(0.5, s.w) * groundBed);
         #endif
         // (the patterns are read through a broad warp, so their repeat never shows from afar)
@@ -1266,9 +1266,8 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             c = heightColor(h0) * (0.96 + 0.08 * (vnoise(g * 9.0) - 0.5) * detail);
             glow = 0.0;
           } else {
-            // a thin darker rim where grass meets earth, painted as the game's is
-            float rim = 1.0 - smoothstep(0.06, 0.24, abs(soil.x - 0.5));
-            c = ground * (1.0 - rim * 0.22);
+            // (no rim where grass meets earth: the game blends its grass into its desert by the share alone)
+            c = ground;
           }
           // contact shadow at the foot of higher neighbours, fading within half a tile
           float rx = 1.0 - smoothstep(0.0, 0.5, 0.5 - w.x);

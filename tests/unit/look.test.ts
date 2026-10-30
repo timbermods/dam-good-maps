@@ -34,16 +34,16 @@ describe("a crisp map (D324's follow-up: tile edges, no blend across a whole til
     expect(src).toContain("* 0.22;");
   });
 
-  it("gives the grass-to-earth edge the game's painted shape (D324's note, D334): a slight irregular wobble along the tile's edge, the same from both tiles, and a thin darker rim", () => {
+  it("gives the grass-to-earth edge the game's painted shape (D324's note, D334): a slight irregular wobble along the tile's edge, the same from both tiles, and no rim (D135 as amended 2026-10-29: the game blends grass into desert by its share alone)", () => {
     const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
     const src = terrainMaterial(sceneUniforms(1, 1, tex(), tex(), tex(), tex()), 0, 1).fragmentShader;
     // the wobble is world-anchored noise, signed by the side of the tile the point lies on, so the
     // two tiles either side of an edge agree on where it runs (smoothstep's symmetry about 0.5), a
     // twentieth of a tile at the most, within the narrow band
     expect(src).toContain("vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w + edgeWave * sd * 0.105);");
-    // a thin darker rim where grass meets earth
-    expect(src).toContain("float rim = 1.0 - smoothstep(0.06, 0.24, abs(soil.x - 0.5));");
-    expect(src).toContain("c = ground * (1.0 - rim * 0.22);");
+    // no darker rim where grass meets earth (re-based from the rim, D148: the share now runs across whole tiles)
+    expect(src).not.toContain("abs(soil.x - 0.5)");
+    expect(src).toContain("c = ground;");
   });
 });
 
