@@ -11,7 +11,7 @@ import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" }
 import { MapSession } from "../../src/core/doc/session";
 import { naturalDepth } from "../../src/core/forces/carve/character";
 import { carveForceParams, forceMapOf } from "../../src/core/forces/carve/result";
-import { cappedRise, CarveRun, DEFAULTS as CARVE_DEFAULTS, type CarveSettings } from "../../src/core/forces/carve/run";
+import { cappedRise, CarveRun, cutBound, DEFAULTS as CARVE_DEFAULTS, type CarveSettings } from "../../src/core/forces/carve/run";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { forceSettingsProblems, type ForceResultParams } from "../../src/core/forces/op";
 import { generate } from "../../src/core/gen/generate";
@@ -108,6 +108,14 @@ describe("Power and size are separate in every force (D226)", () => {
     expect(cappedRise([14, 12, 11, 9, 8, 6], 6, path, 1)).toBeNull();
     // (a rise past Depth's most, 12: let Power set it)
     expect(cappedRise([1, 1, 1, 15, 15, 1], 6, path.map((st) => ({ ...st, bed: 0 })), 1)).toBe("The rise at X 3 · Y 0 is too tall for a Depth: let Power set it");
+    // (a weak or wide carve cuts less than its Depth, rust/forces `stamp`: there the Depth it names must clear the rise
+    // within that bound, and where none can, the Power and Width are what to change)
+    expect(cappedRise(ground, 6, path, 5, 3)).toBe("The rise at X 3 · Y 0 is too tall for this Power and Width: raise Power or narrow Width");
+    expect(cappedRise([10, 10, 10, 12, 12, 9], 6, path, 2, 6)).toBe("The rise at X 3 · Y 0 needs Depth 6 to keep the channel falling");
+    // (Power 40 at its own Width cuts at most 3; a Width wider than Power's own holds it to the plan's own bound)
+    expect(cutBound({ power: 40, width: null }, null)).toBe(3);
+    expect(cutBound({ power: 95, width: null }, null)).toBe(Infinity);
+    expect(cutBound({ power: 95, width: 24 }, 5)).toBe(5);
   });
 
   it("each size is checked alike by the engine and the schema; operations from before D226 (no Depth, no Size) still fit", () => {

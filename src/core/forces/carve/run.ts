@@ -21,6 +21,7 @@
 // replay never runs it.
 
 import type { SourcesRule } from "../clear";
+import * as portable from "../../math/portable";
 import { modelOf } from "../../features/build";
 import type { EntitySpec } from "../../format/entities";
 import { warmState, type WarmState } from "../../sim/preview";
@@ -30,6 +31,7 @@ import type { CarveRecords } from "../rust/bridge";
 import { planInRust } from "../rust/bridge";
 import { BANKS_MAX, DEPTH_MAX, DEPTH_MIN, forceSettingsProblem } from "../settings";
 import type { Oxbow } from "./oxbow";
+import { naturalWidth } from "./character";
 
 export interface CarveSettings {
   mode: "unleash" | "aim";
@@ -118,18 +120,29 @@ export interface Station {
 }
 
 
+/** The most a carve cuts below the land in its channel whatever its Depth, as the plan cuts (rust/forces `stamp`):
+ *  a Width wider than Power's own holds it (the plan's `strengthDepth`), and so does a weak carve, its work
+ *  (Power, thinned by a wide Width) under 0.45; Infinity where neither does. */
+export function cutBound(settings: Pick<CarveSettings, "power" | "width">, strengthDepth: number | null): number {
+  const natural = naturalWidth(settings.power);
+  const work = (settings.power / 100) * portable.sqrt(natural / (settings.width ?? natural));
+  return Math.min(strengthDepth ?? Infinity, work < 0.45 ? Math.max(1, Math.round(1 + 6 * work)) : Infinity);
+}
+
 /** Where a carve's Depth stops its channel falling (D500): along its course from the spring, the first station
- *  whose floor the Depth holds above the bed it runs at (its ground less the Depth) and above the lowest floor
- *  upstream, so the water would back up behind it. The one line naming it and the least Depth that keeps the
- *  whole course falling (a deeper Depth lowers the floors upstream too), or null. */
-export function cappedRise(heights: ArrayLike<number>, W: number, path: readonly Pick<Station, "x" | "y" | "bed">[], depth: number): string | null {
+ *  whose floor the cut's limit (the Depth, or `bound` where that is less) holds above the bed it runs at and above
+ *  the lowest floor upstream, so the water would back up behind it. The one line naming it and the least Depth
+ *  that keeps the whole course falling (a deeper Depth lowers the floors upstream too), or, where no Depth can
+ *  under `bound`, that the rise is too tall for the carve; null where it keeps falling. */
+export function cappedRise(heights: ArrayLike<number>, W: number, path: readonly Pick<Station, "x" | "y" | "bed">[], depth: number, bound = Infinity): string | null {
   const riseAt = (d: number): number => {
+    const cut = Math.min(d, bound);
     let lowest = Infinity;
     for (let k = 0; k < path.length; k++) {
       const st = path[k];
       const ground = heights[Math.round(st.y) * W + Math.round(st.x)];
-      const floor = Math.floor(Math.max(st.bed, ground - d));
-      if (ground - d > st.bed && floor > lowest) return k;
+      const floor = Math.floor(Math.max(st.bed, ground - cut));
+      if (ground - cut > st.bed && floor > lowest) return k;
       lowest = Math.min(lowest, floor);
     }
     return -1;
@@ -137,8 +150,8 @@ export function cappedRise(heights: ArrayLike<number>, W: number, path: readonly
   const k = riseAt(depth);
   if (k < 0) return null;
   const at = `The rise at X ${Math.round(path[k].x)} · Y ${Math.round(path[k].y)}`;
-  for (let d = depth + 1; d <= DEPTH_MAX; d++) if (riseAt(d) < 0) return `${at} needs Depth ${d} to keep the channel falling`;
-  return `${at} is too tall for a Depth: let Power set it`;
+  for (let d = depth + 1; d <= Math.min(DEPTH_MAX, bound); d++) if (riseAt(d) < 0) return `${at} needs Depth ${d} to keep the channel falling`;
+  return bound <= DEPTH_MAX ? `${at} is too tall for this Power and Width: raise Power or narrow Width` : `${at} is too tall for a Depth: let Power set it`;
 }
 
 /** Terrain-derived, coherent horizontal beds (a hash of the heights: the same map, the same rock). */
@@ -235,8 +248,9 @@ export class CarveRun {
     const r = planInRust({ verb: "carve", map, settings, intent: this.intent, keep: this.keep, options: { sourceId: options.sourceId, unleashed: this.unleashedId, bad: this.badwater } });
     // (D500, D342: a river carved with a Depth keeps falling, or the carve is refused: past a rise taller than the
     // Depth its cut climbs with the land, and its spring floods back over the ground behind)
-    if (settings.depth != null && !settings.dry) {
-      const rise = cappedRise(input.heights, input.W, r.path, settings.depth);
+    // (an Unleash runs dry, its source's own water the river)
+    if (settings.depth != null && (!settings.dry || options.unleashed)) {
+      const rise = cappedRise(input.heights, input.W, r.path, settings.depth, cutBound(settings, r.strengthDepth));
       if (rise) throw new Error(rise);
     }
     this.records = r;
