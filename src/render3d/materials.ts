@@ -1670,6 +1670,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);
         float foam = 0.0;
         float glints = 0.0;
+        // the gloss's slow variation, as the game's two panned samples of its gloss map (WATER_SURFACE.smoothness)
+        float gloss = 0.5;
         float pale = 0.0;
         float bubbles = 0.0;
         float crest = 0.0;
@@ -1680,36 +1682,48 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             float slow = mix(1.0, 0.5, bad);
             // (small and sparse, and gone where a pixel covers more than a few of them)
             float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
-            vec2 q2 = g * 1.6 + vec2(sin(g.y * 0.5), sin(g.x * 0.43)) * 1.5;
-            vec2 sl = ripple(q2, t * slow) + 0.6 * ripple(q2 * 1.9 + 7.0, t * 1.3 * slow);
-            // small glints (D154): a few to a tile, each a few pixels across, gathered in the patches of
-            // ripples that catch the sun, not a static of specks all over (gone where a glint would be
-            // under two pixels)
-            float sparkle = 1.0 - smoothstep(0.035, 0.08, fwidth(g.x));
-            float sunPatch = smoothstep(0.4, 0.75, vnoise(g * 0.45 + vec2(t * 0.03, -t * 0.02)));
-            glints = sparkle * sunPatch * smoothstep(0.84, 0.93, vnoise(g * 9.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(g * 7.1 - vec2(t * 0.3, t * 0.7)) * 1.6);
-            // the foam and pale streaks move with the water's current (D353): drawn at two points
-            // carried back along it, each fading in as the other is carried furthest, so neither is
-            // seen to start again; still water draws them where they are, as always
+            // everything on the surface moves with the water's current, as the game's albedo and normals do
+            // (D353; its flow map, two phases): drawn at two points carried back along it, each fading in as the
+            // other is carried furthest, so neither is seen to start again; still water draws them where they are
             float fn;
             vec2 drift = waterCurrent(g) * 0.65;
             #ifdef CAVES
               if (waterOwnFlow.a > 0.5) drift = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5 * 0.65;
             #endif
             float dark;
+            vec2 p1 = g;
+            vec2 p2 = g;
+            float blend = 0.0;
             if (dot(drift, drift) < 1e-6 || (${hook(h, "waterOwnSurface", "false")})) flowingAt(g, t, bad, fine, fn, pale, bubbles, dark);
             else {
               float phase = fract(t / 12.0);
               float second = fract(t / 12.0 + 0.5);
-              float blend = abs(phase * 2.0 - 1.0);
+              blend = abs(phase * 2.0 - 1.0);
+              p1 = g - drift * (phase * 12.0);
+              p2 = g - drift * (second * 12.0);
               float fn2, pale2, bubbles2, dark2;
-              flowingAt(g - drift * (phase * 12.0), t, bad, fine, fn, pale, bubbles, dark);
-              flowingAt(g - drift * (second * 12.0), t, bad, fine, fn2, pale2, bubbles2, dark2);
+              flowingAt(p1, t, bad, fine, fn, pale, bubbles, dark);
+              flowingAt(p2, t, bad, fine, fn2, pale2, bubbles2, dark2);
               fn = mix(fn, fn2, blend);
               pale = mix(pale, pale2, blend);
               bubbles = mix(bubbles, bubbles2, blend);
               dark = mix(dark, dark2, blend);
             }
+            // the ripples (the surface's normals) and the glints, carried the same way
+            vec2 q1 = p1 * 1.6 + vec2(sin(p1.y * 0.5), sin(p1.x * 0.43)) * 1.5;
+            vec2 sl = ripple(q1, t * slow) + 0.6 * ripple(q1 * 1.9 + 7.0, t * 1.3 * slow);
+            if (blend > 0.0) {
+              vec2 qb = p2 * 1.6 + vec2(sin(p2.y * 0.5), sin(p2.x * 0.43)) * 1.5;
+              sl = mix(sl, ripple(qb, t * slow) + 0.6 * ripple(qb * 1.9 + 7.0, t * 1.3 * slow), blend);
+            }
+            gloss = (vnoise(p1 * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(p1 * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
+            // small glints (D154): a few to a tile, each a few pixels across, gathered in the patches of
+            // ripples that catch the sun, not a static of specks all over (gone where a glint would be
+            // under two pixels)
+            float sparkle = 1.0 - smoothstep(0.035, 0.08, fwidth(g.x));
+            float sunPatch = smoothstep(0.4, 0.75, vnoise(g * 0.45 + vec2(t * 0.03, -t * 0.02)));
+            glints = sparkle * sunPatch * smoothstep(0.84, 0.93, vnoise(p1 * 9.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(p1 * 7.1 - vec2(t * 0.3, t * 0.7)) * 1.6);
+            if (blend > 0.0) glints = mix(glints, sparkle * sunPatch * smoothstep(0.84, 0.93, vnoise(p2 * 9.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(p2 * 7.1 - vec2(t * 0.3, t * 0.7)) * 1.6), blend);
             // calmer from afar, where a pixel spans a ripple (no shimmer)
             float near = 1.0 - smoothstep(0.08, 0.25, fwidth(g.x));
             float calm = 0.07 * near;
@@ -1766,22 +1780,30 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         vec3 c = waterBlend(body, murky, cont);
         float lit = sunLit(g, vWorld.y);
         vec3 light = skyColor * 1.2 + sunColor * 0.3 * max(dot(N, sunDir), 0.0) * lit;
+        // the game's own highlight on the ripples, added to the colour before its light (and again after it)
+        vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, n.y);
+        c += highlight;
         c *= light;
         c = mix(c, WATER_CREST * light, crest * WATER_CREST_AMOUNT);
         c = mix(c, badwaterShade(BADWATER_TROUGH, depth) * light, trough * BADWATER_TROUGH_AMOUNT);
         // the sky's reflection, stronger at low angles; pale ripples; the sun's glint and glints
         // (none on a fall: a sheet seen edge-on would mirror the sky in patches)
-        float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0) * step(0.5, n.y);
-        c = mix(c, WATER_SKY, fres * mix(WATER_REFLECT, BADWATER_REFLECT, bad));
+        // (the game's URP lighting at the water's smoothness, clean water's about 0.25 to badwater's 0.15: the sky
+        // added on top, as URP's environment term)
+        float smoothness = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, bad);
+        float fres = waterSkyReflect(dot(N, V), smoothness) * step(0.5, n.y);
+        c += WATER_SKY * fres;
+        // (the highlight's emission: unlit, unshadowed)
+        c += highlight;
         // pale streaks where it flows (badwater's brownish, so it reads as a flowing liquid too): each
         // by its own share, so water partly bad never takes a pale pink haze between the two
         c = mix(c, WATER_PALE, pale * WATER_PALE_AMOUNT * (1.0 - bad));
         c = mix(c, badwaterShade(BADWATER_STREAK, depth), pale * BADWATER_STREAK_AMOUNT * bad);
-        float spec = pow(max(dot(reflect(-sunDir, N), V), 0.0), 90.0) * lit;
+        float spec = waterSunGlint(N, V, sunDir, smoothness) * lit * step(0.5, n.y);
         // a film keeps at most a faint sheen of glints: they come in with its body (WATER_FILM), so a glint
         // never turns a film's faint tint into a solid fleck
         glints *= film;
-        c += sunColor * (spec * mix(WATER_SPEC, BADWATER_SPEC, bad) + glints * ${f(WS.glints)} * mix(1.0, BADWATER_GLINTS, bad) * (0.3 + 0.7 * lit));
+        c += sunColor * (spec + glints * ${f(WS.glints)} * mix(1.0, BADWATER_GLINTS, bad) * (0.3 + 0.7 * lit));
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
         // (foam and glints only ever make the water more opaque: deep water and the light look stay opaque)
@@ -1813,8 +1835,8 @@ ${hook(h, "water")}        #ifdef CAVES
             float line = 1.0 - smoothstep(0.0, CLEAR_SHORE_WIDTH, shore);
             cc = WATER_CLEAR_TINT * light;
             cc = mix(cc, WATER_CLEAR_SHORE * light, crest * CLEAR_RIPPLE_LIGHT);
-            cc = mix(cc, WATER_SKY, fres * WATER_REFLECT);
-            cc += sunColor * (spec * WATER_SPEC + glints * ${f(WS.glints * 0.5)} * (0.3 + 0.7 * lit));
+            cc += WATER_SKY * waterSkyReflect(dot(N, V), WATER_SMOOTHNESS);
+            cc += sunColor * (waterSunGlint(N, V, sunDir, WATER_SMOOTHNESS) * lit + glints * ${f(WS.glints * 0.5)} * (0.3 + 0.7 * lit));
             cc = mix(cc, WATER_FOAM * (0.8 + 0.2 * lit), foam * 0.6);
             cc = mix(cc, WATER_CLEAR_SHORE * (0.85 + 0.15 * lit), line);
             ca = min(0.9, CLEAR_OPACITY + CLEAR_RIPPLE * crest + 0.15 * glints + CLEAR_SHORE_OPACITY * line + 0.3 * foam);
