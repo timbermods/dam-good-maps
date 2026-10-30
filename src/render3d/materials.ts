@@ -66,7 +66,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
@@ -1083,6 +1083,29 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float core = 1.0 - smoothstep(width * 0.14, width * 0.48 + aa, distance);
         return vec2(rim, core) * present * smoothstep(0.0, ${f(CT.onset)}, lvl);
       }
+      /** How much of the ground at tile point g is the game's desert (TerrainURP's ForwardLit program, read from its
+       *  DXBC): four taps \`BLEND_MARGIN\` round the point, each the desert of the tile it falls in (\`desert\`: this tile,
+       *  the neighbour toward the nearest corner across x, across y, and the diagonal; a tile whose top is at another
+       *  level counts as desert, as the game's map holds 1 there), weighted by how far the tap lies from the nearest
+       *  tile corner (|dx| × |dz|); then the game's noise (here our own, the game's being a texture at world × 0.2) and its
+       *  softness: saturate((f + 0.96 (n − 0.5) − 0.5) × 5.8 + 0.5). So a tile's share shows as patches of grass and
+       *  earth, and the change between tiles is a noisy blend a fifth of a tile wide. */
+      float desertBlend(vec2 g, vec4 desert) {
+        vec2 corner = floor(g + 0.5);
+        vec2 tile = floor(g);
+        float sum = 0.0;
+        float weight = 0.0;
+        for (int k = 0; k < 4; k++) {
+          vec2 q = g + ${f(BLEND.margin)} * vec2(k == 0 || k == 2 ? -1.0 : 1.0, k < 2 ? -1.0 : 1.0);
+          vec2 off = floor(q) - tile;
+          float dsr = off.x != 0.0 ? (off.y != 0.0 ? desert.w : desert.y) : (off.y != 0.0 ? desert.z : desert.x);
+          float wq = abs(q.x - corner.x) * abs(q.y - corner.y);
+          sum += wq * dsr;
+          weight += wq;
+        }
+        float n = 0.5 + 0.6 * (0.62 * vnoise(g * 0.8 + vec2(3.1, 11.7)) + 0.38 * vnoise(g * 2.1 + vec2(17.3, 5.9)) - 0.5);
+        return clamp((sum / max(weight, 1e-4) + ${f(BLEND.noise)} * (n - 0.5) - 0.5) * ${f(BLEND.softness)} + 0.5, 0.0, 1.0);
+      }
       /** The last groundColor's ground and glow as they are with no water on it (its soil's under-water flag clear). */
       vec3 groundDry;
       float groundDryGlow;
@@ -1240,6 +1263,8 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             vec4 flags2 = vec4(grassOf(s2.x), s2.x, step(0.5, s2.y), s2.z);
             vec4 flags3 = vec4(grassOf(s3.x), s3.x, step(0.5, s3.y), s3.z);
             vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;
+            // the grass's share as the game draws it: its desert map's noisy blend (desertBlend)
+            soil.x = 1.0 - desertBlend(g, vec4(1.0 - flags0.x, sx > 0.5 ? 1.0 - flags1.x : 1.0, sy > 0.5 ? 1.0 - flags2.x : 1.0, hd == h0 ? 1.0 - flags3.x : 1.0));
             float sky = s0.w * w00 + s1.w * w10 + s2.w * w01 + s3.w * w11;
             float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
             // the bed under thin water (WATER_FILM): its depth's film curve, blended over the wet tiles round
@@ -1340,6 +1365,11 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
                 float z00 = 1.0 - z10 - z01 - z11;
                 floorSoil = vec4(grassOf(q0.x), q0.x, step(0.5, q0.y), q0.z) * u00 + vec4(grassOf(q1.x), q1.x, step(0.5, q1.y), q1.z) * u10
                   + vec4(grassOf(q2.x), q2.x, step(0.5, q2.y), q2.z) * u01 + vec4(grassOf(q3.x), q3.x, step(0.5, q3.y), q3.z) * u11;
+                #if !LITE
+                  // the game's desert map is 3D: a cave's floor blends as a top does, at its own level
+                  floorSoil.x = 1.0 - desertBlend(g, vec4(1.0 - grassOf(q0.x), rx1 > 0.5 ? 1.0 - grassOf(q1.x) : 1.0,
+                    ry1 > 0.5 ? 1.0 - grassOf(q2.x) : 1.0, rd1 > 0.5 ? 1.0 - grassOf(q3.x) : 1.0));
+                #endif
                 floorLevel = (q0.y * z00 + q1.y * z10 + q2.y * z01 + q3.y * z11) / 15.0;
               }
               c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(floorSoil, g, detail, floorLevel, none);
