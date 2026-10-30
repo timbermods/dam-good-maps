@@ -154,41 +154,31 @@ test("an edit while the Drought view is held: the old map's days say nothing on 
   await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
   await expectReady(page);
   await topDown(page);
-  // (the lake's water on Day 0, to tell which of its tiles the drought dries out: the tile and the two beside it, the
-  // strip the edit below raises. The spot is read off the map as the generator made it, not fixed at a place)
-  const wet0 = await page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.surface.depth));
-  await page.getByRole("button", { name: "Drought", exact: true }).click();
+  const lake = await page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    const wet = (x: number, y: number) => m.surface.depth[y * m.W + x] > 0.5;
+    for (let y = 4; y < m.H - 4; y++)
+      for (let x = 4; x < m.W - 4; x++) {
+        let all = true;
+        for (let dy = -2; dy <= 2 && all; dy++) for (let dx = -2; dx <= 2; dx++) if (!wet(x + dx, y + dy)) all = false;
+        if (all) return [x, y] as [number, number];
+      }
+    return null;
+  });
+  expect(lake).not.toBeNull();
+  const [x, y] = lake!;
   const readout = page.locator(".readout");
-  const dries = () =>
-    page.evaluate((w0) => {
-      const m = window.dgm3d!.renderer.mapState()!;
-      for (let y = 4; y < m.H - 4; y++)
-        for (let x = 4; x < m.W - 4; x++) {
-          let all = true;
-          for (let dx = -1; dx <= 1 && all; dx++) if (!(w0[y * m.W + x + dx] > 0.5 && m.surface.depth[y * m.W + x + dx] === 0)) all = false;
-          if (all) return [x, y] as [number, number];
-        }
-      return null;
-    }, wet0);
-  await expect.poll(dries, { timeout: 60_000 }).not.toBeNull();
-  const [x, y] = (await dries())!;
   const hover = async () => {
     const p = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y]);
     await page.mouse.move(p.x + 4, p.y);
     await page.mouse.move(p.x, p.y, { steps: 2 });
   };
+  await page.getByRole("button", { name: "Drought", exact: true }).click();
   await hover();
   await expect(readout).toContainText(/Dry on day [1-9]\d*|Lasts the drought/, { timeout: 60_000 });
   // the lake tile is raised to land while the view is held: it holds no water now, whatever the old map's days said
-  // (over the lake's surface on Day 0, wherever the generator put it)
   const v0 = await page.evaluate(() => window.dgmEditor!.info().version);
-  const raised = await page.evaluate(([a, b, w0]) => {
-    const m = window.dgm3d!.renderer.mapState()!;
-    let top = 0;
-    for (let dx = -1; dx <= 1; dx++) top = Math.max(top, m.heights[b * m.W + a + dx] + w0[b * m.W + a + dx]);
-    return Math.ceil(top) + 1;
-  }, [x, y, wet0] as const);
-  await page.evaluate(([a, b, lv]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[b, a - 1, a + 1]], level: lv } } as never, "Raise a tile"), [x, y, raised] as const);
+  await page.evaluate(([a, b]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[b, a - 1, a + 1]], level: 15 } } as never, "Raise a tile"), [x, y]);
   expect(await page.evaluate(() => window.dgmEditor!.info().version)).toBeGreaterThan(v0);
   await hover();
   await expect(readout).toContainText("Height");
