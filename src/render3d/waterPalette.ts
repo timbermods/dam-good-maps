@@ -52,8 +52,11 @@ export const WATER = {
    *  #264A58), not the old navy. */
   navy: [0.117, 0.298, 0.324] as Rgb,
   foam: [0.9, 0.94, 0.95] as Rgb,
-  /** The sky the water reflects (clean water's pale flow streaks are this, a little darker). */
-  sky: [0.6, 0.72, 0.84] as Rgb,
+  /** The sky the water reflects (clean water's pale flow streaks are this, a little darker): the game's reflection
+   *  probe (`tools/reflection-probe.ts`) at the mip URP reads for the water's smoothness (perceptual roughness 0.75:
+   *  0.75 × (1.7 − 0.7 × 0.75) × 6, mip 5.29, between its mips 5 and 6), toward a reflection 60° up (the view's
+   *  pitch): its side faces' mean blended toward its top face's by 0.87. */
+  sky: [0.402, 0.492, 0.617] as Rgb,
   /** Badwater's body a quarter level deep (#38's calibration depth), crimson, matte and murky;
    *  lighter on a film and darker deeper, as the game's (`BADWATER.ramp`, `badwaterBody`: D496), so it stays
    *  darker than clean water of the same depth. Unchanged by D310 (see `BAD_BODY`). */
@@ -127,13 +130,14 @@ export const WATER_SURFACE = {
    *  noise's swing round its middle), panned the same way, not the game's texture. Its metallic is 0 (the texture's
    *  red), so `f0` 0.04. The sky's reflection is added on top (URP's environment term):
    *  `reflection` × sky × (saturate(smoothness + f0) − f0) × (1 − N·V)^4 / (1 + roughness²) (`waterSkyReflect`; the
-   *  head-on f0 part stays in the calibrated body colour); the game's own `m_ReflectionIntensity` 0.65 and its
-   *  skybox's average colour (in place of `WATER.sky`) wait for the finish: `reflection` is the scale they set. The
+   *  head-on f0 part stays in the calibrated body colour); `reflection` is the game's `m_ReflectionIntensity` (palette.ts
+   *  `GAME_FINISH.reflectionIntensity`, kept here as a number: palette.ts imports this file) and `WATER.sky` its
+   *  probe. The
    *  sun's glint is URP's GGX specular term × f0 (`waterSunGlint`), a faint sheen at this roughness. */
   smoothness: 0.25,
   smoothnessSpread: 0.6,
   f0: 0.04,
-  reflection: 1,
+  reflection: 0.65,
   /** The game's own highlight (its PhysicalWaterURP, p036 791–835): a light tied to the camera, along its forward
    *  direction turned `horizon` of the way to the horizontal (`_LightHorizonBias`) and down by `tilt`
    *  (`_LightTilt`), its reflection off the ripples' normals to the eye raised to `exponent`, × (fresnel ^

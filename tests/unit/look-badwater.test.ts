@@ -13,6 +13,7 @@ import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { GROUND } from "../../src/render3d/palette";
 import { CHUNK } from "../../src/render3d/mesh";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
+import { GAME_FINISH } from "../../src/render3d/palette";
 import { BADWATER, WATER_SURFACE, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
 import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
@@ -237,6 +238,8 @@ describe("badwater's colour", () => {
     // reflect 0.03 and spec 0.04)
     expect(BADWATER.smoothness).toBe(0.15);
     expect(WATER_SURFACE.smoothness).toBe(0.25);
+    // (the sky's reflection at the game's m_ReflectionIntensity, the finish's, D497)
+    expect(WATER_SURFACE.reflection).toBe(GAME_FINISH.reflectionIntensity);
     expect(badwaterBody(BADWATER.shallow)).toEqual(WATER.bad);
     // darker with depth (option A's depth darkening, now the game's ramp, checked against it below; option A's
     // own "15 L* darker at 4 levels" went with its curve, D148)
