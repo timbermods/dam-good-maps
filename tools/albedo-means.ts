@@ -1,9 +1,10 @@
 // Our terrain's albedo, measured in the page, for calibrating it against the game's textures (D497; docs/progress/3d-view.md,
-// "The game's light"). Real Chrome, headed, Standard and High from this checkout's dev server (High with its tone curve,
-// colour grade, warm sunlight and haze switched off). In the page the terrain
-// shader is patched to draw its albedo alone: no light, no altitude ramp, no cliff gradient, no haze, nothing but the
-// terrain. Every 4th pixel is picked (`pickSeen`), sorted into tops and walls, and the tops by their tile's soil into
-// grass and dry ground (only a tile's middle, where its soil is its own; contaminated and wet tiles left out). Means are display values, 0–255, as the game's texture means.
+// "The game's light"). Real Chrome, headed, Standard and High from this checkout's dev server (High with its warm
+// sunlight switched off). In the page the terrain shader is patched to draw its albedo alone: no light, no specular, no
+// altitude ramp, no cliff gradient, no fog or post chain, nothing but the terrain. Every 4th pixel is picked
+// (`pickSeen`), sorted into tops and walls, and the tops by their tile's soil into grass and dry ground (only a tile's
+// middle, where its soil is its own; contaminated and wet tiles left out). Means are display values, 0–255, as the
+// game's texture means.
 //
 //   npx tsx tools/albedo-means.ts                     (Canyon 128² seed 1 and River Valley 128² seed 4242, their opening views)
 //   options: --maps canyon:1,riverValley:4242  --looks standard,high  --port 4796
@@ -43,11 +44,13 @@ const PATCH = `(() => {
     s = s.replace("c *= altitudeOf(vWorld.y, moist);", "");
     s = s.replace(/float shade = [^;]+;/, "float shade = 1.0;");
     s = s.replace(/vec3 cliffTint = [^;]+;/, "vec3 cliffTint = vec3(1.0);");
+    s = s.replace("c += gameSpecular(n, albedo, n.y > 0.5 ? 0.0 : 0.05);", "");
+    s = s.replace("return gamePost(c);", "return c;");
     if (s === before) throw new Error("terrain shader not patched");
     m.fragmentShader = s;
     m.needsUpdate = true;
   }
-  r.uniforms.hazeAmount.value = 0;
+  r.uniforms.fogDensity.value = 0;
   r.uniforms.markers.value = 0;
   return seen.size;
 })()`;
@@ -115,7 +118,7 @@ try {
     if (look === "high" && !LIT)
       await page.evaluate(() => {
         const r = window.dgm3d!.renderer as unknown as { setHighEffect(k: string, on: boolean): void };
-        for (const k of ["tone", "grade", "sunlight", "haze"]) r.setHighEffect(k, false);
+        r.setHighEffect("sunlight", false);
       });
     if (!LIT) console.log(`${look} ${theme} ${seed}: patched ${await page.evaluate(PATCH)} terrain programs`);
     else {

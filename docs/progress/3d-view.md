@@ -528,7 +528,7 @@ Standard's shadow before a cave (item 8).
   local again.
 - **The game's colours** (the calibration, #703's follow-up): the colours the light multiplies are the game's texture
   means. `tools/albedo-means.ts` draws the terrain in the page with the light, the ramp, the cliff gradient and the
-  haze off (High also without its tone curve, grade and warm sunlight), picks every 4th pixel and averages tops by
+  haze off (High also without its warm sunlight; since the finish, no fog, specular or post chain either), picks every 4th pixel and averages tops by
   their tile's soil (a tile's middle, no contamination or water) and walls. Each kind's colours were scaled by one
   factor per channel so that mean is the game's: dry ground (`GROUND.dry`, `dryCool`, `dryWarm`, `crack`) the
   `Desert` texture's 63/52/42 × 1.098 (the detail texture `GrassDetailsAlbedo`, mean 140, doubled) = 69/57/46; grass
@@ -542,7 +542,7 @@ Standard's shadow before a cave (item 8).
 - **Captures and numbers:** in the PRs (#703; the calibration's).
 - **Falls short:** sunlit floors read darker than in the game's shots (Canyon's opening camera about 90 of 255 against
   the game's desert tops 109–113): the game's post chain is still ours, and objects keep their own light and colours,
-  so a mine's pit stands 0.12 under sunlit dry ground where it stood 0.15 under the old colour.
+  so a mine's pit stands 0.13 under sunlit dry ground where it stood 0.15 under the old colour.
 - **Next:** the game's post-processing in place of our finish (the URP asset has HDR on and LDR grading, the camera
   allows HDR: postExposure +0.15 EV, Neutral tonemapping, contrast +14, saturation +3, from the Volume profile), and
   the sun turning with the camera (yaw + 40°, 45° up).

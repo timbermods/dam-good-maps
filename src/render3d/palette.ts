@@ -315,6 +315,38 @@ export function sunlitTop(c: Rgb): Rgb {
   return [0, 1, 2].map((k) => c[k] * GAME_LIGHT.diffuse * (GAME_LIGHT.sky[k] + GAME_LIGHT.sun[k] * up)) as unknown as Rgb;
 }
 
+/** The game's finish (D497), after the light: its scene's settings (`level2`'s RenderSettings, read raw) and its
+ *  post-processing (the `Rendering/Volume` profile; the URP asset grades in LDR). Every look draws it.
+ *  - The fog: Unity's exponential fog (`m_FogMode` 2) as URP draws it (its FOG_EXP programs in TerrainURP:
+ *    `exp2(-unity_FogParams.x × the view depth)`, `unity_FogParams.x` = density / √ln 2, so `exp(-0.83 × density ×
+ *    depth)`), toward the day's fog colour (`Sun.blueprint` `TemperateWeatherFog`, a held hazard's
+ *    `HazardousWeatherFogs`: high/seasons.ts `FOG`). `fogParam` is that `unity_FogParams.x`.
+ *  - The reflection probe's strength (`m_ReflectionIntensity`), on every environment reflection (`GAME_ENV`).
+ *  - The post chain, as URP's uber pass grades in LDR under Gamma colour space: to linear, × 2^`postExposure`
+ *    (ColorAdjustments; the game's Brightness setting at its default adds none), Neutral tonemapping (Tonemapping), then
+ *    the LUT: `contrast` round ACEScc's mid grey in LogC and `saturation` round the luminance (ColorAdjustments
+ *    +14 and +3), back to display values. Bloom (threshold 1.5) only touches highlights and is not drawn.
+ *  `m_AmbientIntensity` (1.2) is not applied: Unity uses it for a skybox's ambient only (its Lighting window offers it
+ *  only there), and the game sets Trilight. */
+export const GAME_FINISH = {
+  fogDensity: 0.003,
+  fogParam: 0.003 / Math.sqrt(Math.LN2),
+  reflectionIntensity: 0.65,
+  postExposure: 0.15,
+  contrast: 1.14,
+  saturation: 1.03,
+} as const;
+
+/** The game's reflection probe at its roughest mip (`tools/reflection-probe.ts`: the Cubemap
+ *  "TimberbornEnvironmentRelfectionProbe" in `sharedassets1.assets`, mip 6, what URP samples at perceptual roughness 1),
+ *  straight up, toward the horizon (its four side faces) and straight down; display values, before
+ *  `GAME_FINISH.reflectionIntensity`. */
+export const GAME_ENV = {
+  up: [0.414, 0.504, 0.632] as Rgb,
+  side: [0.397, 0.47, 0.54] as Rgb,
+  down: [0.328, 0.374, 0.368] as Rgb,
+} as const;
+
 /** The game's Trilight colours in linear values (sRGB decoded), which the probe blends. */
 const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 export const GAME_AMBIENT_LINEAR = {

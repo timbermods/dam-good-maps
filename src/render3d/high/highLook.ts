@@ -174,9 +174,6 @@ export class HighLook {
     const set = (k: Switch, on: boolean) => (this.switches[k].value = on ? 1 : 0);
     set("hlWater", e.water);
     set("hlShadows", e.shadows);
-    set("hlTone", e.tone);
-    set("hlGrade", e.grade);
-    set("hlHaze", e.haze);
     set("hlSky", e.sky);
     set("hlStrata", e.strata);
     set("hlBlend", e.soilEdges);

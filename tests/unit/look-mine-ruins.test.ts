@@ -143,7 +143,7 @@ describe("mine sites", () => {
     expect(lum(MINE.frame) - lum(MINE.pit)).toBeGreaterThan(0.1);
     expect(lum(MINE.wood) - lum(MINE.frame)).toBeGreaterThan(0.2);
     // (the pit is a colour on screen, dry ground an albedo since D497: against it as a sunlit top shows it in the game's
-    // light; before the game's post chain lifts the ground, the gap is 0.12, not D324's 0.15 against the old colour)
+    // light; before the game's post chain lifts the ground, the gap is 0.13, not D324's 0.15 against the old colour)
     expect(lum(MINE.pit)).toBeLessThan(lum(sunlitTop(GROUND.dry)) - 0.1);
     // a badwater source is a dark round pit with a brown swirl, no pale wood: the mine's corners
     // are far lighter than anything on it

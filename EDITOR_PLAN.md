@@ -1086,8 +1086,9 @@ Two looks (Map look 2, D147, D242, D250, D284):
   into the pool as one sheet, with foam at the lip, whitewater and a splash where they land (soft white water, never
   cells that read as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
 - **High**, the same view finished further: water coloured by depth with clear shallows, fine crests and flecks
-  moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, ambient
-  occlusion, a colour-preserving tone curve, distance haze, sky, rock strata and soil edges (#65); trees and bushes
+  moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, sky, rock
+  strata and soil edges (#65; its ambient occlusion, tone curve and haze gave way to the game's light, fog and post
+  chain in every look, D497); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
   rock with a soil cap and the water's section, continuous waterfall crowns, irregular landings with froth, mist and
   splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in High, the

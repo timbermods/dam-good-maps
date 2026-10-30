@@ -18,7 +18,7 @@ import { FLOW_DISPLAY } from "../../src/render3d/high/bake";
 import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { Forest, isPlant, replacedBatch } from "../../src/render3d/high/forest";
 import { buildLandmarks, landmarkKind } from "../../src/render3d/high/landmarks";
-import { fallHooks, GRADE_GLSL, landmarkHooks, objectHooks, skyHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
+import { fallHooks, landmarkHooks, objectHooks, skyHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
 import { buildEntities } from "../../src/render3d/entities3d";
 
 const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
@@ -80,11 +80,11 @@ describe("the High look's shaders", () => {
     expect(s).toContain("if (bad > 0.0) vein = veinsOf(veinQ, veinWidth, lvl) * bad;");
   });
 
-  it("follow Timberborn's references (D334): exposure 1.00, and badwater's own cues, pink highlights moving with the current, slow bubbles and red contact at rock", () => {
-    // exposure 1.00 (from 1.22), with no grass-only hold-down beside it
-    expect(GRADE_GLSL).toContain("if (hlTone > 0.5) c = hlShoulder(c);");
-    expect(GRADE_GLSL).not.toMatch(/c \* 1\.2/);
-    expect(Object.values(terrainHooks()).join("\n")).not.toMatch(/moist \* hlTone/);
+  it("follow Timberborn's references (D334): the game's finish, and badwater's own cues, pink highlights moving with the current, slow bubbles and red contact at rock", () => {
+    // (D497: High's own tone curve, grade and haze gave way to the game's fog and post chain, every look's)
+    const all = [terrainHooks(), waterHooks(), fallHooks(), objectHooks(), landmarkHooks(), skyHooks()].map((h) => Object.values(h).join("\n")).join("\n");
+    expect(all).not.toMatch(/hlTone|hlGrade|hlHaze|hlGradeColour/);
+    expect(terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader).toContain("return gamePost(c);");
     // the water's highlights are advected in two phases along the current, pink where it is bad (by the game's tint);
     // bubbles rise in badwater; its edge glows red where it meets the rock (the game's cues, not a
     // pattern of our own: no density or contrast is asked of them)
@@ -115,10 +115,10 @@ describe("the effects", () => {
   });
 
   it("lose only what the lower-cost tier drops, and keep the player's own switches", () => {
-    const chosen = { ...allEffects(), haze: false };
+    const chosen = { ...allEffects(), strata: false };
     const lower = effectiveEffects(chosen, true);
     for (const k of LOWER_COST_DROPS) expect(lower[k]).toBe(false);
-    expect(lower.haze).toBe(false);
+    expect(lower.strata).toBe(false);
     expect(lower.water).toBe(true);
     expect(effectiveEffects(chosen, false)).toEqual(chosen);
   });

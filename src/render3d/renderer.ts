@@ -82,7 +82,7 @@ import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
-import { SKY, type GroundMode } from "./palette";
+import { GAME_FINISH, SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { drawnWater, drewChunk, exactWaterChunks, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
@@ -3420,11 +3420,10 @@ export class MapRenderer {
       this.persp.updateProjectionMatrix();
       this.persp.updateMatrixWorld();
     }
-    // a light haze beyond the point looked at, none from straight above
+    // the game's fog (palette.ts GAME_FINISH), none from straight above, where the game never looks
     const u = this.uniforms;
     u.viewHeight.value = h;
-    u.hazeAmount.value = v.mode === "top" ? 0 : 0.24;
-    u.hazeRange.value.set(v.distance * 0.85, v.distance * 2.6);
+    u.fogDensity.value = v.mode === "top" ? 0 : GAME_FINISH.fogParam;
   }
 
   // --------------------------------------------------------------------------------- rendering

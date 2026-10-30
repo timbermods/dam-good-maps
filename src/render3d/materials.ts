@@ -66,7 +66,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GAME_AMBIENT_LINEAR, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { ALTITUDE_RAMP, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GAME_AMBIENT_LINEAR, GAME_ENV, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
@@ -86,10 +86,11 @@ export interface SceneUniforms {
   sunDir: { value: Vector3 };
   sunColor: { value: Color };
   skyColor: { value: Color };
+  /** The fog's colour: the game's day fog, or a held hazard's (high/seasons.ts `FOG`). */
   hazeColor: { value: Color };
-  /** World distance where the haze starts and where it is full. */
-  hazeRange: { value: Vector2 };
-  hazeAmount: { value: number };
+  /** The game's exponential fog's `unity_FogParams.x` (`GAME_FINISH.fogParam`; 0 looking straight down, where the game
+   *  never looks). */
+  fogDensity: { value: number };
   time: { value: number };
   tileTex: { value: DataTexture };
   lightTex: { value: DataTexture };
@@ -157,8 +158,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     sunColor: { value: color(LIGHT.sun) },
     skyColor: { value: color(LIGHT.sky) },
     hazeColor: { value: color(LIGHT.haze) },
-    hazeRange: { value: new Vector2(200, 600) },
-    hazeAmount: { value: 0.16 },
+    fogDensity: { value: GAME_FINISH.fogParam },
     time: { value: 0 },
     tileTex: { value: tile },
     lightTex: { value: light },
@@ -489,9 +489,6 @@ export interface ShaderHooks {
   /** A sun shadow of its own: `float sunLit(vec2 g, float z)` (the baked one is kept as
    *  `bakedSunLit`, for when the effect is off). */
   sunLit?: string;
-  /** finish(): the haze (replacing the Standard line), and the last step (replacing the clamp). */
-  haze?: string;
-  finishEnd?: string;
   // the terrain
   /** Where grass meets earth, and where contamination ends (expressions). */
   moist?: string;
@@ -641,13 +638,12 @@ const CAVE_FLOW = /* glsl */ `
       #endif`;
 
 /** Shared GLSL: the scene's uniforms, the patterns, the baked shadow, the light and the finish. */
-const common = (h?: ShaderHooks) => /* glsl */ `
+const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   uniform vec3 sunDir;
   uniform vec3 sunColor;
   uniform vec3 skyColor;
   uniform vec3 hazeColor;
-  uniform vec2 hazeRange;
-  uniform float hazeAmount;
+  uniform float fogDensity;
   uniform float time;
   uniform sampler2D tileTex;
   uniform sampler2D lightTex;
@@ -757,14 +753,32 @@ const common = (h?: ShaderHooks) => /* glsl */ `
   vec3 overlayEdgeColor(vec4 o) {
     return clamp(o.rgb * 1.4 + 0.3, 0.0, 1.0);
   }
-  /** The blue-grey haze over distant ground, and the warm grade. */
+  /** The game's finish (palette.ts GAME_FINISH): its exponential fog by the view depth (URP's FOG_EXP), then its post
+   *  chain. */
   vec3 finish(vec3 c, vec3 world) {
-    float d = distance(world, cameraPosition);
-    ${hook(h, "haze", "c = mix(c, hazeColor, hazeAmount * smoothstep(hazeRange.x, hazeRange.y, d));")}
-    c *= vec3(1.01, 1.0, 0.98);
-    float l = dot(c, vec3(0.299, 0.587, 0.114));
-    c = mix(vec3(l), c, 1.03);
-    ${hook(h, "finishEnd", "return clamp(c, 0.0, 1.0);")}
+    float depth = max(-(viewMatrix * vec4(world, 1.0)).z, 0.0);
+    c = mix(hazeColor, c, exp2(-fogDensity * depth));
+    return gamePost(c);
+  }
+`;
+
+/** The game's post chain (palette.ts GAME_FINISH), as URP's uber pass grades in LDR under Gamma colour space: the
+ *  display colour to linear, its exposure, Neutral tonemapping (URP's NeutralTonemap), then its LUT's contrast round
+ *  ACEScc's mid grey in LogC (ALEXA LogC, URP's LinearToLogC/LogCToLinear) and saturation round the luminance, back to
+ *  display values. */
+export const GAME_POST_GLSL = /* glsl */ `
+  vec3 gpCurve(vec3 x) { return (x * (0.2 * x + 0.24 * 0.29) + 0.272 * 0.02) / (x * (0.2 * x + 0.29) + 0.272 * 0.3) - 0.02 / 0.3; }
+  vec3 gpLogC(vec3 x) { return mix(5.301883 * x + 0.092819, 0.244161 * log2(max(5.555556 * x + 0.047996, 1e-6)) * 0.30103 + 0.386036, step(vec3(0.011361), x)); }
+  vec3 gpFromLogC(vec3 x) { return mix((x - 0.092819) / 5.301883, (pow(vec3(10.0), (x - 0.386036) / 0.244161) - 0.047996) / 5.555556, step(vec3(5.301883 * 0.011361 + 0.092819), x)); }
+  vec3 gamePost(vec3 display) {
+    vec3 d = max(display, vec3(0.0));
+    vec3 c = mix(d / 12.92, pow((d + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), d)) * ${f(Math.round(2 ** GAME_FINISH.postExposure * 1e6) / 1e6)};
+    float white = 1.0 / gpCurve(vec3(5.3)).x;
+    c = clamp(gpCurve(c * white) * white, 0.0, 1.0);
+    c = max(gpFromLogC((gpLogC(c) - 0.4135884) * ${f(GAME_FINISH.contrast)} + 0.4135884), vec3(0.0));
+    float l = dot(c, vec3(0.2126729, 0.7151522, 0.072175));
+    c = clamp(vec3(l) + ${f(GAME_FINISH.saturation)} * (c - vec3(l)), 0.0, 1.0);
+    return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
   }
 `;
 
@@ -836,9 +850,34 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
        *  space: the Trilight probe by its normal (blended in linear values, turned back to display values), and the sun
        *  by its shadow (\`sun\`, 0–1), times the diffuse share. A factor on the face's display colour. */
       vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
+      /** The sun the last face lit took (gameLight's \`sun\`), for its specular. */
+      float gameSunNow = 0.0;
       vec3 gameLight(vec3 n, float sun) {
+        gameSunNow = sun;
         vec3 ambient = toDisplay(n.y >= 0.0 ? mix(${glColor(GAME_AMBIENT_LINEAR.equator)}, ${glColor(GAME_AMBIENT_LINEAR.sky)}, n.y) : mix(${glColor(GAME_AMBIENT_LINEAR.equator)}, ${glColor(GAME_AMBIENT_LINEAR.ground)}, -n.y));
         return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
+      }
+      /** What URP's lit shader adds to the diffuse light (the terrain's materials: _Metallic 0.05, smoothness 0 on the
+       *  ground and 0.05 on its cliffs): the environment's reflection (the game's probe at its roughest mip,
+       *  palette.ts GAME_ENV, by the reflected direction, × m_ReflectionIntensity, × 1 / (roughness² + 1) × the
+       *  Fresnel blend toward the grazing term) and the sun's GGX highlight by its shadow. */
+      vec3 gameSpecular(vec3 n, vec3 albedo, float smoothness) {
+        vec3 v = normalize(cameraPosition - vWorld);
+        float pr = 1.0 - smoothness;
+        float r = max(pr * pr, 0.0078125);
+        float r2 = max(r * r, 6.103515625e-5);
+        vec3 f0 = mix(vec3(0.04), albedo, 0.05);
+        float grazing = clamp(smoothness + ${f(Math.round((1 - GAME_LIGHT.diffuse) * 1e6) / 1e6)}, 0.0, 1.0);
+        float fresnel = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 4.0);
+        vec3 rd = reflect(-v, n);
+        vec3 env = rd.y >= 0.0 ? mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.up)}, rd.y) : mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.down)}, -rd.y);
+        vec3 c = env * ${f(GAME_FINISH.reflectionIntensity)} / (r2 + 1.0) * mix(f0, vec3(grazing), fresnel);
+        vec3 hv = normalize(sunDir + v);
+        float nh = clamp(dot(n, hv), 0.0, 1.0);
+        float lh = clamp(dot(sunDir, hv), 0.0, 1.0);
+        float d = nh * nh * (r2 - 1.0) + 1.00001;
+        float spec = r2 / (d * d * max(0.1, lh * lh) * (r * 4.0 + 2.0));
+        return c + f0 * spec * ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * gameSunNow;
       }
       /** The game's altitude ramps (palette.ts ALTITUDE_RAMP, as multipliers: twice the texel), read as its texture is,
        *  32 texels over the ground's height up to the ceiling, filtered between them. */
@@ -1355,7 +1394,9 @@ ${hook(h, "wall")}          float py = fwidth(y);
         // an arch) takes that air's own light, not its tile top's
         vec3 cave = caveAt(vWorld, n);
         if (cave.z > 0.5) light = caveLightOf(n, cave, sunHere);
+        vec3 albedo = c;
         c *= light;
+        c += gameSpecular(n, albedo, n.y > 0.5 ? 0.0 : 0.05);
         // the glowing cracks of contaminated ground shine in shadow too
         c += ${glColor(GROUND.contaminatedGlow)} * glow * ${f(CT.glowAdd)};${hook(h, "lit")}
         // the slice's cut (D207): the tops of columns taller than the layer (with terrain above terrain, only the cap
@@ -2177,7 +2218,7 @@ export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
       }
     `,
     fragmentShader: /* glsl */ `
-      varying vec3 vDir;${hook(h, "decl")}
+      varying vec3 vDir;${GAME_POST_GLSL}${hook(h, "decl")}
       float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vn(vec2 p) {
         vec2 i = floor(p);
@@ -2195,7 +2236,8 @@ export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
         float n = vn(q) * 0.55 + vn(q * 2.3 + 7.1) * 0.3 + vn(q * 5.1 + 3.3) * 0.15;
         float cloud = smoothstep(0.52, 0.8, n) * smoothstep(0.02, 0.2, abs(d.y));
         c = mix(c, ${glColor(SKY.cloud)}, cloud * 0.75);${hook(h, "sky")}
-        gl_FragColor = vec4(c, 1.0);
+        // (the game's post chain grades the whole frame, the sky too)
+        gl_FragColor = vec4(gamePost(c), 1.0);
       }
     `,
     depthTest: false,
