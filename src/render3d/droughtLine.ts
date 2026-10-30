@@ -1,9 +1,11 @@
-// The drought line on the map (the Weather view, D133, D269): the faint waterline of the drought's last day along
+// The drought line on the map (the Weather view, D133, D269; an editing aid, drawn in its own channel, never a change
+// of the land's look): the faint waterline of the drought's last day along
 // every lake and river, and a faint dry tint where one dries out completely (geometry in droughtLineGeometry.ts).
 // Two meshes made once per line, so drawing them costs the frame nothing, shared by both looks:
 // - the tint is drawn before the water (which does not write depth), so today's water veils it the way it veils the
 //   ground, and the land hides it as it hides anything;
-// - the line is drawn after the water, so it shows through today's water where that stands higher, and the land
+// - the line is drawn after the water, so it shows through today's water where that stands higher (fainter there,
+//   `UNDER_WATER`: never bright lines across a lake), and the land
 //   hides it where it is behind a bank. Its vertex shader widens it about its middle line to at least `LINE_MIN_PX`
 //   on screen (up close it is its own width), so it never shimmers as dots when the camera pulls out.
 // Only drawn.

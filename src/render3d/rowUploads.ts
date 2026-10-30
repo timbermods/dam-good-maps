@@ -87,7 +87,9 @@ export class BoxUploads {
     }
     const ctx = this.gl.getContext() as WebGL2RenderingContext;
     const state = this.gl.state;
-    const keep = [ctx.UNPACK_ALIGNMENT, ctx.UNPACK_ROW_LENGTH, ctx.UNPACK_IMAGE_HEIGHT, ctx.UNPACK_SKIP_PIXELS, ctx.UNPACK_SKIP_ROWS, ctx.UNPACK_SKIP_IMAGES].map((p) => [p, state.getParameter(p)] as const);
+    // (and neither flipped nor premultiplied: a 3D texture's upload refuses both, and the last 2D upload, a canvas's
+    // or an image's, may have left them on: "texSubImage3D: FLIP_Y or PREMULTIPLY_ALPHA isn't allowed")
+    const keep = [ctx.UNPACK_ALIGNMENT, ctx.UNPACK_ROW_LENGTH, ctx.UNPACK_IMAGE_HEIGHT, ctx.UNPACK_SKIP_PIXELS, ctx.UNPACK_SKIP_ROWS, ctx.UNPACK_SKIP_IMAGES, ctx.UNPACK_FLIP_Y_WEBGL, ctx.UNPACK_PREMULTIPLY_ALPHA_WEBGL].map((p) => [p, state.getParameter(p)] as const);
     state.activeTexture(ctx.TEXTURE0);
     state.bindTexture(ctx.TEXTURE_3D, props.__webglTexture);
     state.pixelStorei(ctx.UNPACK_ALIGNMENT, 1);
@@ -96,8 +98,10 @@ export class BoxUploads {
     state.pixelStorei(ctx.UNPACK_SKIP_PIXELS, d.x0);
     state.pixelStorei(ctx.UNPACK_SKIP_ROWS, d.y0);
     state.pixelStorei(ctx.UNPACK_SKIP_IMAGES, 0);
+    state.pixelStorei(ctx.UNPACK_FLIP_Y_WEBGL, false);
+    state.pixelStorei(ctx.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     ctx.texSubImage3D(ctx.TEXTURE_3D, 0, d.x0, d.y0, 0, w, h, D, ctx.RG, ctx.UNSIGNED_BYTE, t.image.data as Uint8Array);
-    for (const [p, v] of keep) state.pixelStorei(p, v as number);
+    for (const [p, v] of keep) state.pixelStorei(p, v as number | boolean);
   }
 
   /** A new map: nothing waits. */

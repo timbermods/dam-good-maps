@@ -77,6 +77,43 @@ test("Erode's row is Power, Size (Auto), the Floor and Try another, Try another 
   await expect(again).toBeEnabled();
 });
 
+test("the first Erode on a page compiles no program in its frames: its dust's and stones' are compiled ahead (D453)", async ({ page }) => {
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  await topDown(page);
+  type R = { programsWarm: boolean; programs: { background: boolean }; gl: { info: { programs: unknown[] | null } } };
+  // (where the browser draws in software or can't compile in the background nothing is compiled ahead: programs.ts)
+  const background = await page.evaluate(() => (window.dgm3d!.renderer as unknown as R).programs.background);
+  test.skip(!background, "programs are compiled in the background only on a GPU with KHR_parallel_shader_compile");
+  await page.waitForFunction(() => (window.dgm3d!.renderer as unknown as R).programsWarm, null, { timeout: 120_000 });
+  await page.keyboard.press("Shift+Digit8");
+  const at = await high(page);
+  const p = await client(page, at[0], at[1]);
+  // every frame from the click on: the programs it compiled
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer as unknown as R & { dgmCompiled?: number };
+    const w = window as unknown as { dgmCompiled: number; dgmWatch: boolean };
+    w.dgmCompiled = 0;
+    w.dgmWatch = true;
+    let last = r.gl.info.programs?.length ?? 0;
+    const tick = () => {
+      const n = r.gl.info.programs?.length ?? 0;
+      w.dgmCompiled += Math.max(0, n - last);
+      last = n;
+      if (w.dgmWatch) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  await page.mouse.click(p.x, p.y);
+  await expect.poll(() => status(page)).not.toBeNull();
+  await settled(page);
+  const compiled = await page.evaluate(() => {
+    const w = window as unknown as { dgmCompiled: number; dgmWatch: boolean };
+    w.dgmWatch = false;
+    return w.dgmCompiled;
+  });
+  expect(compiled, "programs compiled by the first Erode's frames").toBe(0);
+});
+
 test("a click wears the land there, kept as one step; one Ctrl+Z restores the map exactly", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await topDown(page);
