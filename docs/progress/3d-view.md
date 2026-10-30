@@ -563,10 +563,14 @@ Standard's shadow before a cave (item 8).
 - **The game's sky** (`fix/game-sky`, after #734): its camera's skybox, read from its pixel program (shader path
   1816, `D3DDisassemble`). Its colour by the view's height is the strip "DayCycleSkybox_8k_Manual" (16 × 8192,
   RGBAHalf) at `_DayProgress` 0.2, the day (`tools/game-sky.ts` prints the 145 heights `GAME_SKY.day` keeps); its
-  stars (a Voronoi field, by night only) are left out; its clouds come in a band round the horizon (`_SkyStart` to
-  `_SkyEnd` of the height), shape less the detail's erosion, in the sun's colour. The game reads the clouds from two
-  noise textures; ours are our own value noise, an octave a channel at their scales and spread as theirs, so the cover
-  matches theirs (a mean 0.017 against 0.016, 14% against 13% over 0.05). They stand still (the game's drift a
+  stars (a Voronoi field, by night only) are left out; its clouds come in a band round the horizon (full from −13.5°
+  to +18°, gone by −36° and +36°), the shape eroded by the detail, in the sun's colour. The shader's constants are read
+  by name and offset from its own table (UnityPerMaterial), not guessed from their use: the shape (`Skybox_ShapeNoise`,
+  128³, at `_ShapeScale` 1, 3, 1) sets the clouds' size, the detail (`Skybox_DetailNoise`, 64³, at `_DetailScale`
+  6, 12, 6) erodes their edges, and `_Blending` (0.7) scales them. The game reads both from noise textures; ours are our
+  own value noise, an octave a channel at the textures' scales, spread so the field comes out as the game's, worked out
+  from its decoded textures over the band (a mean 0.016 against ours 0.016, 13% over 0.05 against 13%, features about
+  4° across: autocorrelation 0.44 at 4° against 0.47). They stand still (the game's drift a
   quarter of a degree a second). No fog, as Unity's skybox; the post chain as the rest. Straight down, graded, it is
   (47, 90, 132): the game's shots show (47, 90, 133) behind the map. High's own sky and its switch go. The light look
   draws no sky: its background is that colour straight down.
