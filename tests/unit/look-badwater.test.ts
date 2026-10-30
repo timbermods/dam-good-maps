@@ -236,6 +236,14 @@ describe("badwater's colour", () => {
     // option A: darker with depth
     for (let d = 0.3; d < 5; d += 0.1) expect(lightness(badwaterBody(d))).toBeLessThan(lightness(badwaterBody(d - 0.1)) + 1e-9);
     expect(lightness(badwaterBody(4))).toBeLessThan(lightness(WATER.bad) - 15);
+    // as the game's (D496): its luminance follows the G ramp of Timberborn 1.1.2.8's _DepthGradients
+    // texture (PhysicalWaterURP multiplies the contaminated colour by it), within 5% at these depths,
+    // relative to a quarter level deep, but for the share with no depth in it (its reflection and emission,
+    // BADWATER.floor); lighter on a film
+    const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const y = (c: readonly number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    for (const [d, game] of [[0.5, 0.61], [1, 0.426], [2, 0.185], [3, 0.081]] as const) expect(Math.abs(y(badwaterBody(d)) / y(WATER.bad) / (BADWATER.floor + (1 - BADWATER.floor) * game) - 1), `${d} deep`).toBeLessThan(0.05);
+    expect(lightness(badwaterBody(0.05))).toBeGreaterThan(lightness(WATER.bad));
   });
 
   it("turns from clean water's by the game's tint, as the game mixes its colours, darker at every step", () => {
