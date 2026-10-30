@@ -117,6 +117,17 @@ export class HazardRun {
     return given;
   }
 
+  /** `ticks` more with the hazard over: every source at its own strength, the clean ones clean again (the water
+   *  a badtide left running on, Easy start's first badtide, D495). */
+  after(ticks: number): void {
+    if (this.stack) this.stack.run(ticks, 1, 0);
+    else {
+      for (const e of this.clean) e.contamination = 0;
+      this.sim!.run(ticks, 1);
+    }
+    this.ticks += ticks;
+  }
+
   /** The water as the run has left it (copies). */
   water(): HazardWater {
     if (this.stack) return { ...this.stack.top(), out: this.stack.outflows(), stack: this.stack.state() };

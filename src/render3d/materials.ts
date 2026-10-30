@@ -1249,6 +1249,19 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             ground = mix(ground, waterFilmGround(ground, ${hook(h, "filmShare", "texture2D(flowTex, g / mapSize).b")}, ${hook(h, "filmBad", "WATER_FILM_BAD_TINT")}), filmOver);
             glow *= 1.0 - 0.5 * filmOver;
           }
+          #if !LITE
+            // the ground behind the water past a sliver shows as the game's High quality shows it: overlaid with
+            // the water's own colour there and desaturated (WATER_SURFACE.behindTint); the water's opacity sets how
+            // much of it shows. Clear water (an editing aid) shows the bed as it is.
+            float clrBehind = clearWater;
+            if (clearAround.w > 0.5) clrBehind = max(clrBehind, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
+            float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind);
+            if (behind > 0.0) {
+              float bd = waterDepthOf(d0);
+              vec3 wc = waterBlend(cleanWaterBody(bd, waterAbsorb(bd)), badwaterBody(bd), ${hook(h, "filmShare", "texture2D(flowTex, g / mapSize).b")});
+              ground = mix(ground, waterGroundBehind(ground, wc), behind);
+            }
+          #endif
           groundBed = 1.0;
           // an eruption's fresh rock reads as rock, never the grass or earth it rose from (#367)
           float fresh = freshRock(tile, h0);
@@ -1721,21 +1734,16 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             // (the light look follows the game's Low quality: no ground behind the water)
             alpha = max(alpha, film);
           #endif
-          // foam where the water meets the shore, and along the brink where a fall pours over (the
-          // whitewater where a fall lands is the fall's own splash: fallMaterial)
+          // foam along the brink where a fall pours over (the whitewater where a fall lands is the fall's own
+          // splash: fallMaterial); none along the shore, as the game draws none (its water shader has no foam)
           float lip = 1.0;
           if (bitOf(vFlags, 256.0) > 0.5) lip = min(lip, 1.0 - fr.x);
           if (bitOf(vFlags, 512.0) > 0.5) lip = min(lip, fr.x);
           if (bitOf(vFlags, 1024.0) > 0.5) lip = min(lip, 1.0 - fr.y);
           if (bitOf(vFlags, 2048.0) > 0.5) lip = min(lip, fr.y);
-          // a thin line along the shore, and (clean water only) broken foam just off it; a film keeps a
-          // faint edge, not a pond's foam line
-          float filmFoam = mix(WATER_FILM_FOAM, 1.0, film);
-          foam += (1.0 - smoothstep(0.03, 0.08, shore)) * mix(${f(WS.shoreFoam)}, 0.45, bad) * filmFoam;
           #if LITE
             foam += (1.0 - smoothstep(0.02, 0.1, lip)) * 0.5 * (1.0 - bad * 0.35);
           #else
-            foam += (1.0 - smoothstep(0.06, 0.24 + 0.1 * fn, shore)) * smoothstep(0.4, 0.72, fn + 0.12) * ${f(WS.brokenFoam)} * (1.0 - bad) * filmFoam;
             // the water breaks white over the brink, in a ragged line that runs with it
             float brink = vnoise(vec2((g.x + g.y) * 5.0, t * 1.6)) * 0.6 + vnoise(vec2((g.x - g.y) * 11.0, t * 2.3)) * 0.4;
             foam += (1.0 - smoothstep(0.02, 0.08 + 0.1 * brink, lip)) * (0.4 + 0.45 * brink) * (1.0 - bad * 0.35);

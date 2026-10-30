@@ -1,6 +1,8 @@
 // The MCP server (D141, D501) driven in-process through the SDK's own client: generate, a force and a brush, a
 // refusal word for word, the checks, then save; the saved files are the core's export of the same project, and the
-// project opened and saved again gives the same bytes (D455).
+// project opened and saved again gives the same bytes (D455). The map is made in the generator's worker, and a call
+// here waits for it only a quarter of a second: so generate answers that the map is not ready, wait gets it, and the
+// progress comes while they wait.
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -10,7 +12,9 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { closeAll, exportFiles, mapOf } from "../src/maps";
+import { setWaitMs } from "../src/jobs";
+import { generate } from "../../src/core/gen/generate";
+import { closeAll, exportFiles, mapOf, specOf } from "../src/maps";
 import { createServer, TOOLS } from "../src/server";
 
 type Content = { type: string; text?: string; data?: string; mimeType?: string };
@@ -25,8 +29,23 @@ async function call(name: string, args: Record<string, unknown>): Promise<Result
 }
 const textOf = (r: Result) => r.content.filter((c) => c.type === "text").map((c) => c.text).join("\n");
 
+/** Generate, then wait until the map is ready, each call with a client time limit far shorter than the map takes. */
+async function make(args: Record<string, unknown>): Promise<{ result: Result; calls: number; progress: string[] }> {
+  const progress: string[] = [];
+  const options = { timeout: 20_000, onprogress: (p: { message?: string }) => void (p.message && progress.push(p.message)) };
+  let result = (await client.callTool({ name: "generate", arguments: args }, undefined, options)) as Result;
+  let calls = 1;
+  for (;;) {
+    const waiting = /^Map (map-\d+) is not ready yet/.exec(textOf(result));
+    if (!waiting) return { result, calls, progress };
+    result = (await client.callTool({ name: "wait", arguments: { map: waiting[1] } }, undefined, options)) as Result;
+    calls++;
+  }
+}
+
 beforeAll(async () => {
   closeAll();
+  setWaitMs(250);
   const [a, b] = InMemoryTransport.createLinkedPair();
   await createServer().connect(a);
   client = new Client({ name: "test", version: "0" });
@@ -40,15 +59,30 @@ afterAll(async () => {
 });
 
 describe("the Dam Good Maps MCP server", () => {
-  it("lists its eight tools", async () => {
+  it("lists its nine tools", async () => {
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["apply", "check", "describe", "generate", "open", "picture", "save", "undo"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["apply", "check", "describe", "generate", "open", "picture", "save", "undo", "wait"]);
     expect(TOOLS.every((t) => t.description && t.description.length < 1200)).toBe(true);
   });
 
   it("generates, edits, refuses, checks, saves and reopens a map byte for byte", async () => {
-    const g = await call("generate", { theme: "riverValley", size: 96, seed: 7 });
-    expect(g.isError).toBeFalsy();
+    // a map made in more time than a call waits: generate says so, wait gets it, and the stages come as progress
+    const made = await make({ theme: "riverValley", size: 96, seed: 7 });
+    const g = made.result;
+    expect(g.isError, textOf(g)).toBeFalsy();
+    expect(made.calls).toBeGreaterThan(1);
+    expect(made.progress.some((m) => /^Attempt \d+: (raising the land|running the rivers|settling the water)/.test(m)), made.progress.join(" | ")).toBe(true);
+    // (wait again gives the made map again)
+    expect(textOf(await call("wait", { map: "map-1" }))).toMatch(/^Map map-1 \(generated in /);
+    // the map made in the worker is the map made on this thread, byte for byte
+    {
+      const r = generate(specOf({ theme: "riverValley", size: 96, seed: 7 }).spec);
+      const here = MapSession.fromGenerated(r, r.file);
+      const a = exportFiles(here);
+      const b = exportFiles(mapOf("map-1"));
+      expect(Buffer.compare(Buffer.from(a.timber), Buffer.from(b.timber))).toBe(0);
+      expect(Buffer.compare(Buffer.from(a.project), Buffer.from(b.project))).toBe(0);
+    }
     expect(textOf(g)).toMatch(/^Map map-1 /);
     expect(textOf(g)).toContain("Start: X ");
     expect(g.content.some((c) => c.type === "image" && c.mimeType === "image/png" && (c.data?.length ?? 0) > 1000)).toBe(true);

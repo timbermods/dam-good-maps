@@ -26,7 +26,7 @@ import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import type { ForceRequest } from "../../src/core/forces/start";
-import { generate } from "../../src/core/gen/generate";
+import { generate, type GenerateResult } from "../../src/core/gen/generate";
 import { INTENTIONS } from "../../src/core/land/intentions";
 import { canonicalRun, type CanonicalWater } from "../../src/core/sim/prefill";
 import { worldWaterModel } from "../../src/core/sim/stackWater";
@@ -40,6 +40,7 @@ import {
   SIZE_PRESETS,
   THEMES,
   type Difficulty,
+  type MapSpec,
   type SizePreset,
   type ThemeId,
 } from "../../src/core/spec/mapspec";
@@ -58,10 +59,24 @@ const refuse = (why: string): never => {
 /** The maps open in this server, by handle. Each holds a whole map and its history, so only the latest few stay. */
 const MOST_OPEN = 6;
 const open = new Map<string, MapSession>();
+/** Handles of maps the generator is still making (jobs.ts). */
+const making = new Set<string>();
 let nextHandle = 1;
 
-function keep(s: MapSession): string {
+/** A handle for a map the generator starts to make. It names the map when the map is made. */
+export function reserveHandle(): string {
   const id = `map-${nextHandle++}`;
+  making.add(id);
+  return id;
+}
+
+/** The generator did not make the map: its handle names nothing. */
+export function releaseHandle(id: string): void {
+  making.delete(id);
+}
+
+function keep(s: MapSession, id = `map-${nextHandle++}`): string {
+  making.delete(id);
   open.set(id, s);
   while (open.size > MOST_OPEN) open.delete(open.keys().next().value!);
   return id;
@@ -71,6 +86,7 @@ function keep(s: MapSession): string {
 export function mapOf(handle: string): MapSession {
   const s = open.get(handle);
   if (s) return s;
+  if (making.has(handle)) refuse(`Map ${handle} is not ready yet: call wait with it`);
   const have = [...open.keys()];
   return refuse(`There is no open map "${handle}"${have.length ? `: the open maps are ${have.join(", ")}` : ": generate or open a map first"}`);
 }
@@ -78,6 +94,7 @@ export function mapOf(handle: string): MapSession {
 /** Forget every open map (the tests). */
 export function closeAll(): void {
   open.clear();
+  making.clear();
   nextHandle = 1;
 }
 
@@ -115,9 +132,9 @@ function sizeOf(v: GenerateInput["size"]): { x: number; y: number } {
   return { x: v.x, y: v.y };
 }
 
-/** Generate a map as the page's Generate does (src/ui/App.tsx, src/worker/api.ts `runGenerate`) and open it to edit
- *  (src/worker/session.ts `refine`). */
-export function generateMap(input: GenerateInput): Generated {
+/** The spec that a generate call asks for, as the page's Generate makes it (src/ui/App.tsx), or the refusal of its
+ *  input. `seedWord`: a seed given in words, which names the file. */
+export function specOf(input: GenerateInput): { spec: MapSpec; seedWord?: string } {
   const theme = (input.theme ?? "any") as ThemeId;
   if (!THEMES.includes(theme)) refuse(`The theme is one of ${THEMES.join(", ")}`);
   const size = sizeOf(input.size);
@@ -153,17 +170,28 @@ export function generateMap(input: GenerateInput): Generated {
   }
   const errors = validateSpec(spec);
   if (errors.length) refuse(`The settings are refused: ${errors[0].path ? `${errors[0].path} ` : ""}${errors[0].message}`);
-  const t0 = performance.now();
-  const r = generate(spec);
-  const ms = Math.round(performance.now() - t0);
-  // (the page opens only a map that passed its checks, worker/session.ts `refine`)
+  return { spec, seedWord };
+}
+
+/** Open a generated map to edit (src/worker/session.ts `refine`), under `handle` when one was reserved for it. A map
+ *  that did not pass its checks is refused, as the page opens only a map that passed. */
+export function openGenerated(r: GenerateResult, ms: number, seedWord?: string, handle?: string): Generated {
   if (!r.report.passed) {
+    if (handle) releaseHandle(handle);
     const failed = r.report.checks.filter((c) => !c.ok && c.severity === "error").map((c) => c.message);
     refuse(`This map did not pass its checks${failed.length ? ` (${failed.slice(0, 3).join("; ")})` : ""}: try another seed or other settings`);
   }
   const session = MapSession.fromGenerated(r, r.file, seedWord);
-  const handle = keep(session);
-  return { handle, session, intentions: r.intentions.map((x) => ({ id: x.id, ok: x.ok, note: x.note })), ms };
+  return { handle: keep(session, handle), session, intentions: r.intentions.map((x) => ({ id: x.id, ok: x.ok, note: x.note })), ms };
+}
+
+/** Generate a map on this thread and open it, as the page's Generate does (src/worker/api.ts `runGenerate`). The
+ *  server's tools make their maps in a worker instead (jobs.ts), so that the server stays responsive. */
+export function generateMap(input: GenerateInput): Generated {
+  const { spec, seedWord } = specOf(input);
+  const t0 = performance.now();
+  const r = generate(spec);
+  return openGenerated(r, Math.round(performance.now() - t0), seedWord);
 }
 
 // ---------------------------------------------------------------------------------------------------- open

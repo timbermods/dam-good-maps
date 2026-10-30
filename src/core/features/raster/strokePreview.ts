@@ -13,6 +13,7 @@ import { integrityAt, keepShownGround, padTile } from "./terrain";
 import { waterLevels } from "./weather";
 import { ColumnTerrain } from "../../terrain/runs";
 import { newFalls } from "../../terrain/support";
+import { ridingPieces } from "../edits";
 
 /** What the build's step 6 onward starts from, for the page's own copy of the terrain. */
 export interface TerrainState {
@@ -167,11 +168,12 @@ export class StrokePreview {
     return r ? this.settle(r) : null;
   }
 
-  /** Of the map's pieces that may ride a stroke (`ridingPieces`), the ones this stroke has tilted so
-   *  far: the `rigid` pieces to hand `finish` when it is let go, the same ones the session would add
-   *  to its operation (D249). */
-  rides(pieces: readonly (readonly [number, number, number, number])[]): [number, number, number, number][] {
-    return tiltedPieces(pieces, this.start, this.heights, this.W);
+  /** Of the `objects` that may ride a stroke, the pieces this stroke has tilted so far: the `rigid` pieces to hand
+   *  `finish` when it is let go, the same ones the session would add to its operation (D249; session.ts `rideTilted`).
+   *  One rule for both: `ridingPieces` read from the ground before the stroke, so an object anything roofs stays out
+   *  and the roof's top over it is the stroke's to shape (D491, amended 2026-10-29). */
+  rides(objects: Parameters<typeof ridingPieces>[0]): [number, number, number, number][] {
+    return tiltedPieces(ridingPieces(objects, this.W, this.H, this.start), this.start, this.heights, this.W);
   }
 
   /** The stroke's dabs are all in: the pieces that ride it whole take the level of their middle
