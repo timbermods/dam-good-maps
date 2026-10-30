@@ -380,7 +380,22 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
       set(m);
       if (m.verb !== "erupt" || m.phase !== "done" || w.glow) return;
       const s = r.forceShowing?.erupt ?? null;
+      // the lava once all of it has arrived (the shader's arrival, smoothstep(a·1.1, a·1.1 + 0.55) of the eruption's
+      // age, is whole for every tile at 1.65 s), with its cooling as it is now, without the plume's smoke over it (the
+      // poll below sees the plume). The moment it is kept is no fixed age of the eruption: its age then is however long
+      // the browser took, and the count moved with it, through the lava still arriving, the ash settling over it from
+      // 0.5 to 2.4 s and the smoke's puffs (in software drawing, 1,750 lava pixels at 0.8 s, 2,580 at 1.4 s, 1,995 at
+      // 2.5 s; CI drew 1,661 and 1,798, dev's runs 41002468990 and 41009357513). Held at 1.65 s, software drawing counts
+      // 2,361 to 2,363 every time, a GPU about 3,500
+      const fx = (r as unknown as { forceFx: { heat(now: number): { age: number; cooling: number } | null; plume: { group: { visible: boolean } } } }).forceFx;
+      const heat = fx.heat;
+      fx.heat = (now) => {
+        const h = heat.call(fx, now);
+        return h && { age: 1.65, cooling: h.cooling };
+      };
+      fx.plume.group.visible = false;
       const hot = lava();
+      fx.heat = heat;
       // against the same land with its moment gone
       r.clearForce();
       w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look };
