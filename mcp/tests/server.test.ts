@@ -54,6 +54,16 @@ describe("the Dam Good Maps MCP server", () => {
     expect(g.content.some((c) => c.type === "image" && c.mimeType === "image/png" && (c.data?.length ?? 0) > 1000)).toBe(true);
     const s = mapOf("map-1");
     const start = s.built.start!;
+    // a water source moves as the page drags one, and a crop is one step, each taken back
+    const src = s.built.entities.find((e) => e.template === "WaterSource")!;
+    const moved = await call("apply", { map: "map-1", ops: [{ op: "moveEntity", params: { id: src.id, x: src.x + 1, y: src.y } }] });
+    expect(moved.isError, textOf(moved)).toBeFalsy();
+    expect(textOf(await call("undo", { map: "map-1" }))).toBe("Undone: Move an object.");
+    const cropped = await call("apply", { map: "map-1", ops: [{ op: "crop", params: { x: Math.max(0, start.x - 30), y: Math.max(0, start.y - 30), w: 60, h: 60 } }] });
+    expect(cropped.isError, textOf(cropped)).toBeFalsy();
+    expect(JSON.parse(textOf(cropped)).size).toEqual({ x: 60, y: 60 });
+    await call("undo", { map: "map-1" });
+    expect(s.size).toEqual({ x: 96, y: 96 });
     // a force away from the start, by its verb and where: the engine plans and keeps it
     const fx = start.x < 48 ? 72 : 22;
     const fy = start.y < 48 ? 72 : 22;

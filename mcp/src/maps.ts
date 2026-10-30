@@ -16,6 +16,7 @@ import { newRampedStroke } from "../../src/core/doc/strokes";
 import { planStart } from "../../src/core/doc/tools";
 import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
 import { applyForce } from "../../src/core/collab/forceStep";
+import { isPickable } from "../../src/core/features/objects";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
@@ -196,9 +197,12 @@ export interface Change {
   water: { wetBefore: number; wetAfter: number };
   /** Tiles a stroke kept from where it would have gone, to hold up rock or an object under a roof. */
   held: number;
+  /** The map's new size, after a crop. */
+  size?: { x: number; y: number };
 }
 
 interface Before {
+  size: { x: number; y: number };
   heights: Uint8Array;
   ents: Map<string, string>;
   wet: number;
@@ -212,7 +216,7 @@ function wetTiles(s: MapSession): number {
 }
 
 function snapshot(s: MapSession): Before {
-  return { heights: s.built.heights.slice(), ents: new Map(s.built.entities.map((e) => [e.id, e.template])), wet: wetTiles(s) };
+  return { size: { ...s.size }, heights: s.built.heights.slice(), ents: new Map(s.built.entities.map((e) => [e.id, e.template])), wet: wetTiles(s) };
 }
 
 function changeSince(s: MapSession, b: Before, steps: string[], held: number): Change {
@@ -253,6 +257,7 @@ function changeSince(s: MapSession, b: Before, steps: string[], held: number): C
     objects: { added, removed },
     water: { wetBefore: b.wet, wetAfter: wetTiles(s) },
     held,
+    ...(s.size.x !== b.size.x || s.size.y !== b.size.y ? { size: { ...s.size } } : {}),
   };
 }
 
@@ -277,7 +282,10 @@ function forceRequestOf(s: MapSession, p: Record<string, unknown>): ForceRequest
   const where = (p.where ?? {}) as { origin?: Pair; end?: Pair; path?: Pair[]; side?: 1 | -1; source?: string };
   const given = (p.settings ?? {}) as Record<string, unknown>;
   const seed = typeof given.seed === "number" ? given.seed : (Math.imul(s.nextSeq + 1, 0x9e3779b1) >>> 0);
-  const settings = { ...FORCE_DEFAULTS[verb], ...given, seed };
+  // a Carve or a Craterize given an end is aimed, as a drag aims the editor's (CarveRow.tsx, ForceRows.tsx): a carve
+  // aimed cuts through rises to get there (D289)
+  const aimed = where.end && (verb === "carve" || verb === "craterize") ? { mode: "aim", ...(verb === "carve" ? { defyGravity: true } : {}) } : {};
+  const settings = { ...FORCE_DEFAULTS[verb], ...aimed, ...given, seed };
   const path = where.path?.map(([x, y]) => ({ x, y }));
   const point = (k: "origin" | "end"): Pair | undefined => (where[k] ? [where[k]![0], where[k]![1]] : undefined);
   const base = { settings, cut: null, natural: true } as const;
@@ -366,8 +374,9 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
       }
       const plan = planEntity(s, { template: p.template as string, x: p.x as number, y: p.y as number, orientation: (p.orientation as never) ?? "Cw0", ...(p.flipped ? { flipped: true } : {}), ...(p.z !== undefined ? { z: p.z as number } : {}), ...(p.components ? { components: p.components as Record<string, unknown> } : {}) }, id);
       if (!plan.ok) refuse(plan.errors[0]);
+      // (the planner levels the footprint itself, a badwater source's spring pool included: the shelf's `applyTool`)
       const ok = plan as { ops: EditOp[]; label: string };
-      return done(s.applyAll(withSpringPools(s, ok.ops), "user", label ?? ok.label), label ?? ok.label);
+      return done(s.applyAll(ok.ops, "user", label ?? ok.label), label ?? ok.label);
     }
     case "moveEntity": {
       const e = s.built.entities.find((g) => g.id === p.id);
@@ -377,11 +386,13 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
         const ok = plan as { ops: EditOp[]; label: string };
         return done(s.applyAll(ok.ops, "user", label ?? ok.label), label ?? ok.label);
       }
-      if (e && p.orientation === undefined && typeof p.x === "number" && typeof p.y === "number") {
+      // a placed object moves as the page drags one, its ground levelled (`moveObjectBy`); a source moves as an operation
+      // with its spring pool (src/editor/sources/useSourcePointer.ts), below
+      if (e && isPickable(e.template) && p.orientation === undefined && typeof p.x === "number" && typeof p.y === "number") {
         const plan = planMoveEntity(s, e.id, (p.x as number) - e.x, (p.y as number) - e.y, p.z as number | undefined);
         if (!plan.ok) refuse(plan.errors[0]);
         const ok = plan as { ops: EditOp[]; label: string };
-        return done(s.applyAll(withSpringPools(s, ok.ops), "user", label ?? ok.label), label ?? ok.label);
+        return done(s.applyAll(ok.ops, "user", label ?? ok.label), label ?? ok.label);
       }
       break;
     }
@@ -389,7 +400,10 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
   const edit = { op, params } as EditOp;
   const ramped = newRampedStroke(edit);
   if (ramped) refuse(ramped);
-  return done(s.applyAll(withSpringPools(s, [edit]), "user", label), lastLabel());
+  // one operation goes through `apply`, as the page's (src/worker/session.ts `apply`): a crop, and a stroke held whole,
+  // are refused there and only there; a badwater source's move or placement with its spring pool is a group (`applyAll`)
+  const ops = withSpringPools(s, [edit]);
+  return done(ops.length === 1 ? s.apply(edit, "user", label) : s.applyAll(ops, "user", label), lastLabel());
 }
 
 /** Apply requests in order, each one undo step, as the page applies each gesture. All or nothing: a refusal takes back
