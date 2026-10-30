@@ -879,6 +879,23 @@ export class MapSession {
     return "nothing to shape here: this ground holds an object under a roof, which the edit leaves as it is";
   }
 
+  /** Why a sculpt that changes nothing is refused (D342: never a silent clamp): it was to move a tile, and the
+   *  integrity pass wore every one back, a lone tile set far from its neighbours that isn't exact (a one-tile spike
+   *  or pit is the land's to wear, D193); null otherwise, a flatten to the level the ground already has included. */
+  private wornAway(op: EditOp, before: BuildResult): string | null {
+    if (op.op !== "sculpt" || op.params.exact || op.params.hold?.length || !sameBytes(before.heights, this.cur.heights)) return null;
+    const p = op.params;
+    const { x: W } = this.size;
+    const meant = (h: number): number =>
+      p.mode === "raise" ? Math.min(MAX_TERRAIN, h + (p.amount ?? 0)) : p.mode === "lower" ? Math.max(0, h - (p.amount ?? 0)) : p.mode === "flatten" ? (p.level ?? h) : p.mode === "terrace" ? Math.floor(h / (p.step ?? 2)) * (p.step ?? 2) : h;
+    for (const [y, a, b] of p.cells)
+      for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) {
+        const h = before.heights[y * W + x];
+        if (meant(h) !== h) return "nothing changes: a lone tile set that far from its neighbours is worn back to them; shape two or more tiles, or make it exact";
+      }
+    return null;
+  }
+
   /** The tiles of a held stroke or sculpt that hold up a cave's or an overhang's rock (`rockHolds`) and
    *  that hold an object under a roof (`holds`, D491), of the map as it stands, before the operation
    *  applies. */
@@ -1450,7 +1467,7 @@ export class MapSession {
     }
     // a stroke held whole by the ground under objects in a cliff or a cave (D491), and, as a last guard,
     // an object under a roof or on one that the game would then remove
-    const lost = this.heldOnly(op, before, rock) ?? this.lostSince(before);
+    const lost = this.heldOnly(op, before, rock) ?? this.wornAway(op, before) ?? this.lostSince(before);
     if (lost) {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [lost], applied: [], dirty: null };
