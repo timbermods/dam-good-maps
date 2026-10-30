@@ -1528,6 +1528,7 @@ export class MapRenderer {
     // (a held day belonged to the map that goes: the new one withers nothing until it is shown a day of its own)
     this.withered = null;
     this.drawnObjects = null;
+    this.objectsFrom = null;
     this.witheredCount = 0;
     this.season = null;
     this.applySeason();
@@ -1873,6 +1874,33 @@ export class MapRenderer {
   private readonly entityModels = new EntityGeometryCache();
 
   private setEntitiesInner(e: EntityView): number {
+    const instances = this.drawObjects(e);
+    const m = this.map!;
+    m.entities = e;
+    this.high?.objectsBuilt(this.objects!, e);
+    this.applyWithered();
+    // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
+    const cut = mineCutout(e, m.W, m.H);
+    const old = m.source.cutout ?? new Map<number, number>();
+    const changed = new Set<string>();
+    for (const [i, z] of cut) if (old.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
+    for (const [i, z] of old) if (cut.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
+    m.source = { ...m.source, cutout: cut };
+    for (const key of changed) {
+      const [cx, cy] = key.split(",").map(Number);
+      this.meshTerrain(cx, cy);
+    }
+    if (this.sites) {
+      mineOutline(e, m.W, m.H, this.sites.image.data as Uint8Array);
+      this.sites.needsUpdate = true;
+    }
+    this.markSources();
+    return instances;
+  }
+
+  /** The objects `e` drawn (the plants a held day has withered dead), the batches that would be built as they are drawn
+   *  kept; nothing else of the map. Returns the instances. */
+  private drawObjects(e: EntityView): number {
     // (highlighted objects back in their own colours first: a batch that would be built as it is drawn is kept)
     for (const l of this.lit) {
       (l.mesh.instanceColor!.array as Float32Array).set(l.color, l.i * 3);
@@ -1881,7 +1909,11 @@ export class MapRenderer {
     // (a ruin under a roof reads its run top's soil: a soil without runs keeps the last drawn, as the terrain does)
     const soil = this.map?.soil && !this.map.soil.runs && this.runsShown ? { ...this.map.soil, runs: this.runsShown } : (this.map?.soil ?? null);
     const before = this.objects;
-    const { group, instances } = buildEntities(e, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels, before && this.map ? { group: before, entities: this.map.entities } : undefined);
+    // (the plants a held day has withered drawn dead, in every look, as the game does: D242 as amended; High's own plants
+    // follow in applyWithered)
+    const drawn = this.witheredView(e).view;
+    const { group, instances } = buildEntities(drawn, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels, before && this.objectsFrom ? { group: before, entities: this.objectsFrom } : undefined);
+    this.objectsFrom = drawn;
     if (before) {
       // (the High look's models leave the old group first: the landmarks of batches kept go with them)
       this.high?.releaseObjects(group);
@@ -1900,26 +1932,6 @@ export class MapRenderer {
     this.objects = group;
     this.scene.add(group);
     this.showMarkerObjects();
-    const m = this.map!;
-    m.entities = e;
-    this.high?.objectsBuilt(group, e);
-    this.applyWithered();
-    // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
-    const cut = mineCutout(e, m.W, m.H);
-    const old = m.source.cutout ?? new Map<number, number>();
-    const changed = new Set<string>();
-    for (const [i, z] of cut) if (old.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
-    for (const [i, z] of old) if (cut.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
-    m.source = { ...m.source, cutout: cut };
-    for (const key of changed) {
-      const [cx, cy] = key.split(",").map(Number);
-      this.meshTerrain(cx, cy);
-    }
-    if (this.sites) {
-      mineOutline(e, m.W, m.H, this.sites.image.data as Uint8Array);
-      this.sites.needsUpdate = true;
-    }
-    this.markSources();
     return instances;
   }
 
@@ -2280,8 +2292,9 @@ export class MapRenderer {
   }
 
   /** The plants a held drought or badtide day has surely killed (the worker's `withered`, core/sim/withering.ts), by tile, or
-   *  null to put them back: drawn withered in the High look (D250, D286 (4)); Standard and the map's own plants stay as
-   *  they are. Plants change state in place, so stepping from day to day costs a layout, not a rebuild. */
+   *  null to put them back: drawn dead in every look, as the game shows them whatever its quality (D242 and D250 as
+   *  amended 2026-10-29); the map's own plants stay as they are. In High plants change state in place, so stepping from day
+   *  to day costs a layout; Standard's and the light look's objects are drawn again, the batches that did not change kept. */
   setWithered(tiles: Int32Array | null): void {
     this.withered = tiles;
     this.applyWithered();
@@ -2292,29 +2305,66 @@ export class MapRenderer {
     return this.witheredCount;
   }
 
+  /** How many plants the objects drawn now (Standard's and the light look's own, and the batches under High's) show dead
+   *  that the map has alive (the tests read it). */
+  get witheredDrawn(): number {
+    const m = this.map;
+    const d = this.objectsFrom;
+    if (!m || !d || d.count !== m.entities.count) return 0;
+    let n = 0;
+    for (let k = 0; k < d.count; k++) if (d.flags[k] & DEAD && !(m.entities.flags[k] & DEAD)) n++;
+    return n;
+  }
+
+  /** The objects with the plants a held day has surely killed (`withered`) marked dead, and how many: the map's own when
+   *  none are. */
+  private witheredView(e: EntityView): { view: EntityView; count: number } {
+    const m = this.map;
+    const tiles = this.withered;
+    if (!m || !tiles?.length) return { view: e, count: 0 };
+    const dead = new Uint8Array(m.W * m.H);
+    for (const t of tiles) dead[t] = 1;
+    let flags: Uint8Array | null = null;
+    let count = 0;
+    for (let k = 0; k < e.count; k++) {
+      if (e.flags[k] & DEAD || e.x[k] < 0 || e.y[k] < 0 || e.x[k] >= m.W || e.y[k] >= m.H || !dead[e.y[k] * m.W + e.x[k]]) continue;
+      if (!isPlant(e.templates[e.template[k]])) continue;
+      flags ??= e.flags.slice();
+      flags[k] |= DEAD;
+      count++;
+    }
+    return flags ? { view: { ...e, flags }, count } : { view: e, count: 0 };
+  }
+
+  /** The objects as drawn now (the plants a held day withered dead), what the next build of them is compared with. */
+  private objectsFrom: EntityView | null = null;
+
   private applyWithered(): void {
     const m = this.map;
     if (!m) return;
-    let flags = m.entities.flags;
-    let count = 0;
-    const tiles = this.withered;
-    if (tiles?.length && this.high && this.lookNow !== "standard" && this.lookNow !== "light") {
-      const dead = new Uint8Array(m.W * m.H);
-      for (const t of tiles) dead[t] = 1;
-      const e = m.entities;
-      flags = e.flags.slice();
-      for (let k = 0; k < e.count; k++) {
-        if (flags[k] & DEAD || e.x[k] < 0 || e.y[k] < 0 || e.x[k] >= m.W || e.y[k] >= m.H || !dead[e.y[k] * m.W + e.x[k]]) continue;
-        if (!isPlant(e.templates[e.template[k]])) continue;
-        flags[k] |= DEAD;
-        count++;
-      }
-    }
+    const w = this.witheredView(m.entities);
+    const flags = w.view.flags;
+    const count = w.count;
     this.witheredCount = count;
     const was = this.drawnObjects;
-    this.drawnObjects = count ? { ...m.entities, flags } : null;
+    this.drawnObjects = count ? w.view : null;
+    // the Standard and light looks' plants: the objects drawn again where a plant's state changed (the batches that did
+    // not change kept), only while they are the ones shown (High hides them: they are drawn again when the look switches
+    // back, applyLook); High's own plants change state in place
+    const from = this.objectsFrom?.flags;
+    const shown = this.lookNow === "standard" || this.lookNow === "light";
+    let redraw = shown && !!this.objects && !!from && from.length === flags.length;
+    if (redraw) {
+      redraw = false;
+      for (let k = 0; k < flags.length && !redraw; k++) redraw = (from![k] & DEAD) !== (flags[k] & DEAD);
+    }
+    // (only the objects: nothing else of the map changed; the sources' glow put back after)
+    if (redraw) {
+      this.drawObjects(m.entities);
+      this.markSources();
+    }
     const changed = this.high?.setPlantsDead(flags) ?? 0;
-    if (!changed && !was === !this.drawnObjects) return;
+    if (!changed && !redraw && !was === !this.drawnObjects) return;
     this.requestRender();
     // (the dead cast a lighter shadow: baked once stepping has settled, never per day)
     clearTimeout(this.casterTimer);
@@ -2632,7 +2682,8 @@ export class MapRenderer {
       for (const c of this.objects.children) {
         const mesh = c as InstancedMesh;
         const own = mesh.userData.objects as Int32Array | undefined;
-        if (!own || !mesh.instanceColor) continue;
+        // (the light look's batches are baked into one instance: nothing to light one by one)
+        if (!own || !mesh.instanceColor || mesh.userData.baked) continue;
         const a = mesh.instanceColor.array as Float32Array;
         for (let i = 0; i < own.length; i++) {
           const k = own[i];
@@ -2816,7 +2867,7 @@ export class MapRenderer {
     for (const c of objects.children) {
       const mesh = c as InstancedMesh;
       const own = mesh.userData.objects as Int32Array | undefined;
-      if (!own) continue;
+      if (!own || mesh.userData.baked) continue;
       const a = mesh.instanceMatrix.array as Float32Array;
       for (let i = 0; i < own.length; i++) {
         const k = own[i];

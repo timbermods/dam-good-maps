@@ -14,7 +14,6 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { brushProblems, type BrushParams } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
-import { ridingPieces } from "../../src/core/features/edits";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -228,7 +227,7 @@ describe("brushes and water sources (D249)", () => {
     const preview = new StrokePreview(settings, s.terrainState(), shown, W, W);
     for (let j = 0; j < dabs.length; j += 6) preview.add(dabs.slice(j, j + 6));
     // the stroke tilted it: the source rides whole
-    const rigid = preview.rides(ridingPieces(s.built.entities, W, W));
+    const rigid = preview.rides(s.built.entities);
     expect(rigid).toEqual([[x, y, x + 2, y + 2]]);
     preview.finish(rigid);
     const u = s.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Raise");

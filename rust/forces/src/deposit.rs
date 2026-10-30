@@ -1,6 +1,6 @@
 // Built directly in Rust (D438/D444). Behaviour/look reference: Deposit round 2, approved #114/D364.
 use super::*;
-use super::rift::{keep_footprints, noise, result, ride};
+use super::rift::{keep_footprints, noise, result, ride, rides_whole};
 
 pub(super) struct DepositRecords {
     pub arrival: Vec<f32>, pub channel: Vec<u8>, pub stages: Vec<u8>,
@@ -131,6 +131,36 @@ fn shape(m:&Map,offers:&[Offer],bed:&[u8],room:&[u8],outlet:&[u8],budget:usize,m
         match best{Some(cells)=>{volume+=cells.len();for i in cells{add[i]+=1;}},None=>break}
     }
     add
+}
+// Brings the ground's sum back to `target` (what the fan laid less what it cut) after kept footprints took some
+// back, only on tiles no object holds together, so no footprint moves unevenly again. Too little laid: the donors
+// give less (the last first), then the lowest sediment or the free ground nearest the mouth takes a level where it
+// stays supported, arriving last. Too much laid: the donors give more (the first first), then the highest sediment
+// gives a level.
+fn rebalance(before:&Map,map:&mut Map,arrival:&mut[f32],donors:&[Donor],cuts:&[u8],room:&[u8],outlet:&[u8],mouth:Point,target:i64) {
+    let n=map.heights.len();let mut held=vec![false;n];
+    for e in &map.entities{if rides_whole(e){for i in map.footprint(e,0){held[i]=true;}}}
+    let mut cuts=cuts.to_vec();
+    let mut balance=(0..n).map(|i|map.heights[i] as i64-before.heights[i] as i64).sum::<i64>()-target;
+    for d in donors.iter().rev(){while balance<0&&!held[d.i]&&cuts[d.i]>0{cuts[d.i]-=1;map.heights[d.i]+=1;balance+=1;}}
+    for d in donors{let spare=(before.heights[d.i]-d.target).saturating_sub(cuts[d.i]);
+        if balance>0&&!held[d.i]&&spare>0&&map.heights[d.i]<=before.heights[d.i]{let take=spare.min(balance.min(255) as u8);cuts[d.i]+=take;map.heights[d.i]-=take;balance-=take as i64;arrival[d.i]=min(arrival[d.i] as f64,min(0.85,0.02+d.rank*0.055)) as f32;}
+    }
+    while balance<0{
+        let mut best=None;let mut score=f64::INFINITY;
+        for i in 0..n{let (h,h0)=(map.heights[i],before.heights[i]);
+            if held[i]||outlet[i]!=0||h<h0||h-h0>=room[i]||(h as f64)+1.0>map.ceiling{continue;}
+            let top=neighbours(map,i).into_iter().flatten().map(|j|map.heights[j]).max().unwrap_or(0);if h+1>top.saturating_add(2){continue;}
+            let value=if h>h0{h as f64}else{1000.0+hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y)};
+            if value<score{score=value;best=Some(i);}
+        }
+        match best{Some(i)=>{map.heights[i]+=1;balance+=1;arrival[i]=min(arrival[i] as f64,0.88) as f32;},None=>break}
+    }
+    while balance>0{
+        let mut best=None;let mut top=0;
+        for i in 0..n{if !held[i]&&map.heights[i]>before.heights[i]&&map.heights[i]>top{top=map.heights[i];best=Some(i);}}
+        match best{Some(i)=>{map.heights[i]-=1;balance-=1;},None=>break}
+    }
 }
 /// Where a deposit may change the ground (Kyler, #341): a click's circle (`radius` round the click), a drag's
 /// band (every tile within `radius` of the drawn line), as the page draws them.
@@ -295,16 +325,19 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     for i in 0..n{if add[i]>0{map.heights[i]+=add[i];let x=(i%map.w) as f64-mouth.x;let y=(i/map.w) as f64-mouth.y;let u=if progress[i].is_nan(){(x*dir.x+y*dir.y)/reach}else{progress[i]};let side=(-x*dir.y+y*dir.x)/max(1.0,width);
         arrival[i]=clamp(0.08+u*0.66+0.16*smooth(side*sin(u*std::f64::consts::PI*3.0)*4.0+0.5)+noise(s.seed,(i%map.w) as f64/9.0,1800.0)*0.035,0.04,0.88) as f32;
     }}
-    remaining=deposited;for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);map.heights[d.i]-=cut as u8;remaining-=cut;
+    let mut cuts=vec![0u8;n];
+    remaining=deposited;for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);map.heights[d.i]-=cut as u8;cuts[d.i]+=cut as u8;remaining-=cut;
         if cut>0{arrival[d.i]=min(0.85,0.02+d.rank*0.055) as f32;stats[10]=max(stats[10],hypot((d.i%map.w) as f64-mouth.x,(d.i/map.w) as f64-mouth.y));}
     }
     // (nothing laid: the player's Keep or working area holds the whole outline, or the map has no room there)
     if deposited==0{map.error=if (0..n).any(|i|outline[i]!=0&&(keep.get(i).copied().unwrap_or(0)!=0||area.get(i).copied()==Some(0))){32}else{34};}
-    let kept=keep_footprints(before,&mut map);
-    // what it changed, counted on the ground as it is left: an object's footprint kept as it was takes back
-    // what it took or laid there, so only then may the balance be off (conserved otherwise, D356)
+    let laid:i64=(0..n).map(|i|map.heights[i] as i64-before.heights[i] as i64).sum();
+    // An object's footprint kept as it was (D368 (10)) takes back what was laid or cut there; the fan then keeps
+    // its material elsewhere, so it is conserved whatever is on the ground (D356, #714)
+    if keep_footprints(before,&mut map){rebalance(before,&mut map,&mut arrival,&donors,&cuts,&room,&outlet,mouth,laid);}
+    // what it changed, counted on the ground as it is left
     for i in 0..n{let dz=map.heights[i] as i32-before.heights[i] as i32;if dz!=0{stats[0]+=1.0;}if dz>0{stats[2]+=dz as f64;stats[5]=max(stats[5],dz as f64);}if dz<0{stats[1]-=dz as f64;stats[4]=max(stats[4],-dz as f64);}map.lava[i]&=mask(map.heights[i]);}
-    stats[3]=stats[2]-stats[1];debug_assert!(brought||kept||stats[3]==0.0);
+    stats[3]=stats[2]-stats[1];debug_assert!(brought||stats[3]==0.0);
     map.entities.retain(|e|{let i=e.y as usize*map.w+e.x as usize;let dz=map.heights[i] as i32-before.heights[i] as i32;
         let held=matches!(e.template.as_ref(),"WaterSource"|"BadwaterSource"|"WaterSeep"|"StartingLocation");
         let threshold=if e.template.as_ref()=="BlueberryBush"{2}else if plant(&e.template){3}else{4};

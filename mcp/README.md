@@ -44,6 +44,8 @@ claude mcp add dam-good-maps -- npx -y --package=https://github.com/timbermods/d
 
 Claude tells you what the generator made and what it didn't. If a wish didn't come out, ask for another seed.
 
+A large map (256 tiles a side) can take a few minutes to make. Claude checks on it until it is ready.
+
 ## Play the map
 
 Start Timberborn, choose **New game** and pick the map from the custom maps.
