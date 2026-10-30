@@ -59,6 +59,17 @@ export interface TerrainState {
   moisture?: Float64Array | null;
 }
 
+/** The tiles the build's integrity pass (step 7) may wear, as it chooses them: on an imported map only
+ *  the tiles an edit changed from its surface, on a generated map those changed from its field (a spike
+ *  the generation grew stays) and not kept under a lock, elsewhere every tile not kept under a lock.
+ *  `pre`: the heights before the pass. The page's strokes and the forces' last touches read the same. */
+export function integrityCandidate(state: Pick<TerrainState, "base" | "field" | "locked">, pre: ArrayLike<number>): (i: number) => boolean {
+  const base = state.base;
+  const locked = state.locked;
+  const field = state.field ?? null;
+  return base ? (i) => pre[i] !== base[i] : field ? (i) => pre[i] !== field[i] && !locked?.[i] : locked ? (i) => !locked[i] : () => true;
+}
+
 /** Every hold a stroke keeps on the terrain `state` (the ground under objects set under a roof, and the ground holding
  *  up a cave's or an overhang's rock), one entry a tile within both where they meet, as the session puts them in the
  *  operation (session.ts `heldGround`); null without any. */
@@ -131,12 +142,7 @@ export class StrokePreview {
     this.protect = this.precise || settings.sources === "keep" || state.rockHold?.length ? state.protect.slice() : state.protect;
     // (the integrity pass leaves the ground holding up the rock, as the build leaves the held tiles in the stroke's reach)
     for (const [i] of state.rockHold ?? []) if (i >= 0 && i < this.protect.length) this.protect[i] = 1;
-    const pre = this.pre;
-    const base = state.base;
-    const locked = state.locked;
-    const field = state.field ?? null;
-    // (as the build's step 7 chooses them)
-    this.candidate = base ? (i) => pre[i] !== base[i] : field ? (i) => pre[i] !== field[i] && !locked?.[i] : locked ? (i) => !locked[i] : () => true;
+    this.candidate = integrityCandidate(state, this.pre);
     // kept sources' ground stays exactly as it is shown (D322, item 31): the integrity pass leaves it
     // too, as the build's step 6 does
     if (settings.sources === "keep") keepShownGround(settings.keep ?? [], this.pre, W, H, this.protect, state.channel, this.candidate, state.top);
