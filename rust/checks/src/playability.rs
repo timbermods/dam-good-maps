@@ -1219,14 +1219,20 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
             }
         }
         let share_in = in_fields / ruins.len() as f64;
-        c.add(vec![
-            ("id", s("ruins.fields")),
-            ("class", s("playability")),
-            ("ok", b(share_in >= 0.8)),
-            ("value", n(round(share_in * 100.0) / 100.0)),
-            ("limit", n(0.8)),
-            ("message", s(format!("{}% of ruin columns are in fields of 10 or more, at least 80%", num(round(share_in * 100.0))))),
-        ]);
+        // (a target for the generator's ruins, which come in fields as the official maps' do; a player's own
+        // tower, arch or stone circle plays exactly right, and ruins.access covers what matters for play, D499)
+        if c.profile == Profile::Generate {
+            c.add(vec![
+                ("id", s("ruins.fields")),
+                ("class", s("playability")),
+                ("ok", b(share_in >= 0.8)),
+                ("value", n(round(share_in * 100.0) / 100.0)),
+                ("limit", n(0.8)),
+                ("message", s(format!("{}% of ruin columns are in fields of 10 or more, at least 80%", num(round(share_in * 100.0))))),
+            ]);
+        } else {
+            c.not_applicable("ruins.fields", "playability", "A target for generated ruins", false);
+        }
         let mut no_access = 0.0;
         for o in &ruins {
             let mut ok = false;
