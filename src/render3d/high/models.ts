@@ -8,6 +8,7 @@
 // (ported from investigation/vegetation/models.ts)
 import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour, type Rgb } from '../dying';
 import { plantScale, RANDOMIZER } from '../plantSize';
+import { TREE_COLOURS } from '../palette';
 import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 
 export const species = ['Pine', 'Birch', 'Oak', 'BlueberryBush'] as const;
@@ -18,21 +19,22 @@ export const WARM_SUN = [1.48, 1.3, 1.1] as const;
 /** A colour the game gives (its hue and saturation, as Standard's neutral light shows it) as High's albedo for it: the warm
  *  sun's tint taken out, so a dying crown reads the same olive-ochre in both looks rather than orange. */
 const underSun = (c: readonly number[]) => [c[0] * (WARM_SUN[1] / WARM_SUN[0]), c[1], c[2] * (WARM_SUN[1] / WARM_SUN[2])];
-const living = { pine: '#2b6936', birch: '#a7cc45', oak: '#489a38', bush: '#387632' } as const;
-/** Foliage slots, their species, and their dying slot (dying.ts). */
-const FOLIAGE = { pine: ['Pine', 'pineDry'], birch: ['Birch', 'birchDry'], oak: ['Oak', 'oakDry'], bush: ['BlueberryBush', 'bushDry'] } as const;
 const hex = (c: readonly number[]) => '#' + c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
 const parse = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as unknown as Rgb;
+/** The trees' and bushes' foliage: the game's colours as ours (palette.ts `TREE_COLOURS`), as they read under the warm sun. */
+const living = { pine: hex(underSun(TREE_COLOURS.pine)), birch: hex(underSun(TREE_COLOURS.birch)), oak: hex(underSun(TREE_COLOURS.oak)), bush: hex(underSun(TREE_COLOURS.bush)) };
+/** Foliage slots, their species, and their dying slot (dying.ts). */
+const FOLIAGE = { pine: ['Pine', 'pineDry'], birch: ['Birch', 'birchDry'], oak: ['Oak', 'oakDry'], bush: ['BlueberryBush', 'bushDry'] } as const;
 const bark = '#806044', birchBark = '#f2efdd';
 export const paletteDefaults = {
   ...living,
   bark, birchBark, berry: '#7f9bff', marks: '#494239',
   // a dead tree's bare wood, its own bark weathered as the game's is; a dead bush's leaves gone brown (dying.ts DEAD_FORM)
   dead: hex(deadWood('Pine', parse(bark))), birchDead: hex(deadWood('Birch', parse(birchBark))),
-  bushDead: hex(underSun(deadLeaves('BlueberryBush', parse(living.bush)))),
+  bushDead: hex(underSun(deadLeaves('BlueberryBush', TREE_COLOURS.bush))),
   // a dying plant's foliage: the game's dry colour at the living green's lightness (dying.ts), as it reads under the warm sun
-  pineDry: hex(underSun(dryColour('Pine', parse(living.pine)))), birchDry: hex(underSun(dryColour('Birch', parse(living.birch)))),
-  oakDry: hex(underSun(dryColour('Oak', parse(living.oak)))), bushDry: hex(underSun(dryColour('BlueberryBush', parse(living.bush)))),
+  pineDry: hex(underSun(dryColour('Pine', TREE_COLOURS.pine))), birchDry: hex(underSun(dryColour('Birch', TREE_COLOURS.birch))),
+  oakDry: hex(underSun(dryColour('Oak', TREE_COLOURS.oak))), bushDry: hex(underSun(dryColour('BlueberryBush', TREE_COLOURS.bush))),
 };
 export type Palette = typeof paletteDefaults;
 export const slots = Object.keys(paletteDefaults) as (keyof Palette)[];
@@ -123,7 +125,7 @@ export interface SpeciesDefinition { height: number; wind: number; build: (m: Sh
 export const registry: Record<Species, SpeciesDefinition> = {
   // the game's grown pine (plantSize.ts): a bare trunk to about 1.25, then broad whorls of needles to 3.0, 1.2 across
   Pine: { height: 3.0, wind: 0.038, build(m, v, detail, dead) {
-    const near = detail === 'near', h = 2.92 + v * 0.06;
+    const near = detail === 'near', h = 2.9 + v * 0.04;
     m.branch([0, 0, 0], [0.015, dead ? h * 0.94 : h, 0], near ? 0.1 : 0.08, dead ? 'dead' : 'bark', near ? 6 : 3, 0.35);
     if (dead) {
       for (let i = 0; i < (near ? 7 : 3); i++) {
@@ -144,7 +146,7 @@ export const registry: Record<Species, SpeciesDefinition> = {
     const near = detail === 'near', bark = dead ? 'birchDead' : 'birchBark';
     m.branch([0, 0, 0], [0.015, 0.94, 0], 0.07, bark, near ? 6 : 3, 0.5);
     if (!near && !dead) {
-      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'birch', side === 1 ? 1.04 : 0.92, [side * 0.2, side === 1 ? 1.5 : 1.38, 0], [0.34, 0.52, 0.3]);
+      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'birch', side === 1 ? 1.04 : 0.92, [side * 0.2, side === 1 ? 1.48 : 1.36, 0], [0.34, 0.46, 0.3]);
       return;
     }
     for (const side of [-1, 1]) {
@@ -159,8 +161,8 @@ export const registry: Record<Species, SpeciesDefinition> = {
       const n = near ? 7 : 2;
       for (let i = 0; i < n; i++) {
         const side = i % 2 ? 1 : -1, a = i * 2.4 + v * 0.7;
-        m.crown([side * (near ? 0.18 : 0.2), 1.12 + (near ? i * 0.1 : i * 0.2), near ? Math.sin(a) * 0.16 : 0],
-          [near ? 0.3 : 0.34, near ? 0.32 : 0.52, near ? 0.24 : 0.3], 'birch', 0.97 + i / n * 0.15, a);
+        m.crown([side * (near ? 0.18 : 0.2), 1.1 + (near ? i * 0.09 : i * 0.2), near ? Math.sin(a) * 0.16 : 0],
+          [near ? 0.3 : 0.34, near ? 0.3 : 0.46, near ? 0.24 : 0.3], 'birch', 0.97 + i / n * 0.15, a);
       }
     }
   } },

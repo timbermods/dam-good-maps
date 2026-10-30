@@ -57,7 +57,7 @@ import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } 
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, WATER } from "./palette";
+import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 
 type Rgb = readonly [number, number, number];
@@ -257,10 +257,10 @@ function onFace(m: Model, f: number, build: () => void): void {
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 
-const BARK: Rgb = [0.36, 0.25, 0.16];
+const BARK: Rgb = TREE_COLOURS.pineBark;
 const BIRCH_BARK: Rgb = [0.93, 0.91, 0.86];
-const OAK_BARK: Rgb = [0.34, 0.23, 0.14];
-const BUSH_LEAVES: Rgb = [0.14, 0.29, 0.14];
+const OAK_BARK: Rgb = TREE_COLOURS.oakBark;
+const BUSH_LEAVES: Rgb = TREE_COLOURS.bush;
 /** Bare dead wood as the game's (dying.ts `DEAD_FORM`): each tree's own bark weathered, the pine's and oak's lighter and
  *  greyer brown, still lighter than the living crowns; a dead birch stays white, a shade darker. Where a limb broke the
  *  wood is paler. */
@@ -310,9 +310,9 @@ const MODELS: Record<string, () => Model> = {
   Pine: () =>
     new Model()
       .add(cyl(0.11, 0.06, 1.75, 5), BARK, { y: 0.875 })
-      .add(cone(0.62, 0.8, 7), [0.11, 0.28, 0.17], { y: 1.22 + 0.4 })
-      .add(cone(0.58, 0.72, 7), [0.13, 0.32, 0.19], { y: 1.84 + 0.36, ry: 0.45 })
-      .add(cone(0.4, 0.6, 7), [0.15, 0.36, 0.21], { y: 2.41 + 0.3, ry: 0.9 }),
+      .add(cone(0.62, 0.8, 7), shade(TREE_COLOURS.pine, 0.9), { y: 1.22 + 0.4 })
+      .add(cone(0.58, 0.72, 7), TREE_COLOURS.pine, { y: 1.84 + 0.36, ry: 0.45 })
+      .add(cone(0.4, 0.6, 7), shade(TREE_COLOURS.pine, 1.1), { y: 2.4 + 0.3, ry: 0.9 }),
   "Pine.dead": () => {
     // a tall bare pole, its top broken off askew, a few stubs of branches
     const m = new Model().add(post(0.075, 0.05, 1.25, 6), DEAD_WOOD, { y: 0.625 }).add(post(0.05, 0.03, 0.22, 5), DEAD_DARK, { x: 0.03, y: 1.33, rz: -0.35 });
@@ -327,8 +327,8 @@ const MODELS: Record<string, () => Model> = {
       .add(cyl(0.077, 0.075, 0.06, 5), [0.18, 0.16, 0.15], { y: 0.3 })
       .add(cyl(0.055, 0.035, 0.75, 4), BIRCH_BARK, { x: -0.07, y: 0.78, rz: 0.2 })
       .add(cyl(0.05, 0.035, 0.7, 4), BIRCH_BARK, { x: 0.07, y: 0.76, rz: -0.22, ry: 0.4 })
-      .add(ico(0.5), [0.34, 0.52, 0.19], { y: 1.42, sy: 0.98 })
-      .add(oct(0.3), [0.38, 0.56, 0.21], { x: 0.2, y: 1.58, z: -0.14 }),
+      .add(ico(0.5), TREE_COLOURS.birch, { y: 1.42, sy: 0.98 })
+      .add(oct(0.3), shade(TREE_COLOURS.birch, 1.08), { x: 0.2, y: 1.58, z: -0.14 }),
   "Birch.dead": () => {
     // a white trunk forking into two bare arms, and a twig
     const m = new Model().add(post(0.06, 0.045, 0.5, 5), DEAD_BIRCH, { y: 0.25 });
@@ -342,10 +342,10 @@ const MODELS: Record<string, () => Model> = {
   Oak: () =>
     new Model()
       .add(cyl(0.2, 0.13, 1.3, 6), OAK_BARK, { y: 0.65 })
-      .add(ico(0.86), [0.22, 0.42, 0.16], { y: 1.62, sy: 0.54 })
-      .add(oct(0.42), [0.26, 0.47, 0.18], { x: 0.48, y: 1.42, z: 0.3, sy: 0.6, ry: 0.4 })
-      .add(oct(0.4), [0.2, 0.4, 0.15], { x: -0.45, y: 1.48, z: -0.28, sy: 0.6, ry: 1.1 })
-      .add(oct(0.44), [0.25, 0.46, 0.18], { y: 2.02, sy: 0.55, ry: 0.7 }),
+      .add(ico(0.86), TREE_COLOURS.oak, { y: 1.62, sy: 0.54 })
+      .add(oct(0.42), shade(TREE_COLOURS.oak, 1.08), { x: 0.48, y: 1.42, z: 0.3, sy: 0.6, ry: 0.4 })
+      .add(oct(0.4), shade(TREE_COLOURS.oak, 0.92), { x: -0.45, y: 1.48, z: -0.28, sy: 0.6, ry: 1.1 })
+      .add(oct(0.44), shade(TREE_COLOURS.oak, 1.05), { y: 2.02, sy: 0.55, ry: 0.7 }),
   "Oak.dead": () => {
     // a thick bare trunk, its limbs broken off short, pale where they broke
     const m = new Model().add(post(0.15, 0.11, 0.62, 6), DEAD_BARK, { y: 0.31 }).add(new CylinderGeometry(0.1, 0.1, 0.02, 6), DEAD_BREAK, { y: 0.62 });
@@ -1021,9 +1021,9 @@ const RUBBLE = new Set(["Blockage", "NaturalDam"]);
 
 /** The light look's models, for browsers that render in software (a few triangles each; D110). */
 const LITE_MODELS: Record<string, () => Model> = {
-  Pine: () => new Model().add(cone(0.1, 1.4, 3), BARK, { y: 0.7 }).add(cone(0.6, 1.8, 4), [0.13, 0.32, 0.19], { y: 1.2 + 0.9 }),
-  Birch: () => new Model().add(cone(0.07, 1.1, 3), BIRCH_BARK, { y: 0.55 }).add(new OctahedronGeometry(0.5, 0), [0.34, 0.52, 0.19], { y: 1.42, sy: 1.0 }),
-  Oak: () => new Model().add(cone(0.18, 1.3, 3), OAK_BARK, { y: 0.65 }).add(new OctahedronGeometry(0.86, 0), [0.24, 0.45, 0.17], { y: 1.66, sy: 0.6 }),
+  Pine: () => new Model().add(cone(0.1, 1.4, 3), BARK, { y: 0.7 }).add(cone(0.6, 1.8, 4), TREE_COLOURS.pine, { y: 1.2 + 0.9 }),
+  Birch: () => new Model().add(cone(0.07, 1.1, 3), BIRCH_BARK, { y: 0.55 }).add(new OctahedronGeometry(0.5, 0), TREE_COLOURS.birch, { y: 1.42, sy: 1.0 }),
+  Oak: () => new Model().add(cone(0.18, 1.3, 3), OAK_BARK, { y: 0.65 }).add(new OctahedronGeometry(0.86, 0), TREE_COLOURS.oak, { y: 1.66, sy: 0.6 }),
   // dead trees: a pale trunk and two bare branches (a few triangles each)
   "Pine.dead": () => liteDead(0.08, 1.35, 0.12, DEAD_WOOD),
   "Birch.dead": () => liteDead(0.07, 0.95, 0.4, DEAD_BIRCH),

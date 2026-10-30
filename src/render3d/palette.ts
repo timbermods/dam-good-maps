@@ -73,6 +73,25 @@ export const GROUND = {
   underwater: [0.36, 0.38, 0.34] as Rgb,
 } as const;
 
+const luma = (c: Rgb) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+/** The game's grass (its terrain's Grass texture, mean): with ours (`GROUND.moistHigh`) it gives how much lighter our
+ *  albedo is than the game's, so a colour the game gives is drawn at our lightness, in the game's own hue (D135 as
+ *  amended 2026-10-29: models in the game's colour). */
+export const GAME_GRASS: Rgb = [0.263, 0.285, 0.096];
+export const ALBEDO_SCALE = luma(GROUND.moistHigh) / luma(GAME_GRASS);
+/** A colour of the game's albedo as ours. */
+export const asOurs = (c: Rgb): Rgb => [Math.min(1, c[0] * ALBEDO_SCALE), Math.min(1, c[1] * ALBEDO_SCALE), Math.min(1, c[2] * ALBEDO_SCALE)];
+/** Trees and bushes as the game colours them: the grown models' foliage and bark (texture x vertex colour, means over
+ *  their area, read from resources.assets), as ours. Olive and yellow-green, darker than the grass. */
+export const TREE_COLOURS = {
+  pine: asOurs([0.114, 0.181, 0.099]),
+  birch: asOurs([0.174, 0.231, 0.099]),
+  oak: asOurs([0.126, 0.176, 0.083]),
+  bush: asOurs([0.153, 0.175, 0.088]),
+  pineBark: asOurs([0.269, 0.183, 0.117]),
+  oakBark: asOurs([0.21, 0.17, 0.103]),
+} as const;
+
 /** Juice (D205): the dust a lowered stroke puffs up (a light, dry earth), and a source's splash
  *  (the editor's water-blue). A carve at work (D199): the foam surging round its head, the blocks
  *  crumbling at its front (the cut earth), and the muddy water along its last stretch. */
@@ -173,10 +192,10 @@ const smooth = (a: number, b: number, x: number) => {
 
 /** Dead trees: bare wood (no crown), the game's dead wood: the living bark weathered lighter and greyer, still lighter
  *  than the living crowns (dying.ts `DEAD_FORM`; the models' dead pine). */
-export const DEAD_TREE: Rgb = deadWood("Pine", [0.36, 0.25, 0.16]);
+export const DEAD_TREE: Rgb = deadWood("Pine", TREE_COLOURS.pineBark);
 
 /** Living trees' crowns (the legend; each species has its own shade in the models). */
-export const LIVING_TREE: Rgb = [0.11, 0.27, 0.15];
+export const LIVING_TREE: Rgb = TREE_COLOURS.pine;
 
 /** A hatched overlay (alpha 255): light stripes in the overlay's colour, dark stripes, and a
  *  dark rim round the hatched tiles. */
@@ -400,7 +419,7 @@ export function objectLegend(): LegendEntry[] {
       label: "Mixed water",
     },
     {
-      swatch: icon(`<circle cx="7" cy="8" r="5" fill="${c(LIVING_TREE)}"/><path d="M16 2 L21 14 H11Z" fill="${c([0.11, 0.28, 0.17])}"/>`, grass),
+      swatch: icon(`<circle cx="7" cy="8" r="5" fill="${c(LIVING_TREE)}"/><path d="M16 2 L21 14 H11Z" fill="${c(TREE_COLOURS.pine)}"/>`, grass),
       label: "Trees and bushes",
     },
     {

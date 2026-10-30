@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { modelOf } from "../../src/render3d/entities3d";
 import { model } from "../../src/render3d/high/models";
 import { plantScale, RANDOMIZER } from "../../src/render3d/plantSize";
+import { PLANT_CLEARANCE } from "../../src/core/terrain/clearance";
 
 /** The game's grown models (resources.assets): height and width (the larger footprint side), tiles. */
 const GAME: Record<string, { height: number; width: number }> = {
@@ -55,5 +56,13 @@ describe("trees and bushes at the game's size", () => {
     expect(oak.width).toBeCloseTo(oak.height, 9);
     expect(oak.height).toBeCloseTo(1.0, 9);
     expect(plantScale("RuinColumnH1", 0.3, 0.7)).toEqual({ width: 1, height: 1 });
+  });
+
+  it("stand within the air the game asks of them at their tallest, so none pokes through a roof it was placed under", () => {
+    for (const species of Object.keys(GAME)) {
+      const top = RANDOMIZER[species].height[1];
+      const heights = [extent(modelOf(species).pos).height, ...[0, 1, 2].map((v) => extent(model(species as never, v, "near").getAttribute("position").array as Float32Array).height), extent(model(species as never, 0, "far").getAttribute("position").array as Float32Array).height];
+      for (const h of heights) expect(h * top, species).toBeLessThanOrEqual(PLANT_CLEARANCE[species]);
+    }
   });
 });
