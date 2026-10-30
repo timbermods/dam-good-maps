@@ -1138,8 +1138,9 @@ saves it again. Its logic is tested headless; its in-game check (`mods/companion
 **A Dam Good Maps MCP server** (Kyler, 2026-09-25; D141; built ahead of M12 by D501, `mcp/`). Generate, steer
 with intentions, the forces, edit, check and save, as an MCP server, so Claude Desktop and other MCP-capable
 assistants build Timberborn maps with the same engine and steering principle as the app. A thin wrapper over the
-core that inherits the same honesty and "steer, don't hand-build" rules. What is left: a release that attaches its
-two files, and later the tools M12 adds (the place resolver, the judgement words).
+core that inherits the same honesty and "steer, don't hand-build" rules. Each release tag's push attaches its two
+files to the tag's GitHub Release (`release-assets.yml`). What is left: the first release with them, and later the
+tools M12 adds (the place resolver, the judgement words).
 
 Each item below stays behind a feature flag until its own in-game check passes:
 - seeps and an arid theme;
