@@ -677,7 +677,11 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     if ruins:
         pts = [(placement(e).x, placement(e).y) for e in ruins]
         in_fields = sum(len(c) for c in point_clusters(pts, 1) if len(c) >= 10) / len(ruins)
-        rep.add("ruins.fields", in_fields >= 0.8, f"{in_fields:.0%} of columns in fields of 10+", round(in_fields, 2), 0.8)
+        # (a target for the generator's ruins; a player's own tower or stone circle plays exactly right, D499)
+        if profile in ("export", "import"):
+            rep.add("ruins.fields", True, "a target for generated ruins", na=True)
+        else:
+            rep.add("ruins.fields", in_fields >= 0.8, f"{in_fields:.0%} of columns in fields of 10+", round(in_fields, 2), 0.8)
         no_access = 0
         for e, (x, y) in zip(ruins, pts):
             z = placement(e).z
