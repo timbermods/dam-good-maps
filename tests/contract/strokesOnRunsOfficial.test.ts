@@ -15,7 +15,6 @@ import { MapSession } from "../../src/core/doc/session";
 import type { BrushParams } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
 import { groundUnderObjects } from "../../src/core/features/raster/objectGround";
-import { ridingPieces } from "../../src/core/features/edits";
 import { normalizeImport } from "../../src/core/format/normalize";
 import { readTimber } from "../../src/core/format/timber";
 import { encodeWorld } from "../../src/core/format/world";
@@ -61,7 +60,7 @@ describe("the brushes on the official maps with caves (local only)", () => {
         const { dabs, ...settings } = p;
         const preview = new StrokePreview(settings, s.terrainState(), shown, W, H, p.tool === "naturalize" ? groundUnderObjects(s.built.entities) : undefined);
         for (let j = 0; j < dabs.length; j += 8) preview.add(dabs.slice(j, j + 8));
-        const rides = preview.rides(ridingPieces(s.built.entities, W, H));
+        const rides = preview.rides(s.built.entities);
         if (rides.length) preview.finish(rides);
         const falls = preview.falls();
         expect(falls, k).toEqual([]);
