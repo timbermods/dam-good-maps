@@ -194,16 +194,17 @@ export const BADWATER = {
   shallow: 0.25,
   /** How badwater's lightness goes with depth, as the game's (D496): Timberborn 1.1.2.8's PhysicalWaterURP
    *  multiplies its contaminated colour by the G channel of its `_DepthGradients` texture, sampled at depth
-   *  / `_MaxDepth` (5 levels). Fitted at the cited depths: from `shallow`, luminance falls by e^-`first`
-   *  a level down to `knee` levels deep (and rises as much above it, on a film), then by e^-`beyond` a
-   *  level: 0.61 of it at half a level, 0.43 at one, 0.19 at two, 0.08 at three. */
-  ramp: { first: 1.98, knee: 0.5, beyond: 0.8 },
+   *  / `_MaxDepth` (5 levels), raw: the game renders in Gamma colour space, so the texture's values multiply
+   *  the display colour as they are stored. Fitted at the cited depths: from `shallow`, the colour falls by
+   *  e^-`first` a level down to `knee` levels deep (and rises as much above it, on a film), then by e^-`beyond`
+   *  a level: 0.80 of it at half a level, 0.68 at one, 0.46 at two, 0.31 at three. */
+  ramp: { first: 0.88, knee: 0.5, beyond: 0.39 },
   /** The share of badwater's light on screen that the ramp leaves alone (`badwaterBody`): the game lights
    *  its surface with a reflection that has no depth in it (metallic 0, so F0 0.04, about 0.6 of clean
    *  water's) and adds an emissive detail with no depth in it either, so deep badwater never goes black.
-   *  0.17, option A's own floor, until an in-game measurement of a shallow and a deep badwater pool sets
-   *  it. */
-  floor: 0.17,
+   *  On display values, as the game's Gamma maths: 0.37, option A's own floor (`badDeep` over `bad`), until an
+   *  in-game measurement of a shallow and a deep badwater pool sets it. */
+  floor: 0.37,
   /** Its opacity is the water's (`WATER_SURFACE.seeThrough`: the game shows the ground behind badwater as
    *  it does behind clean water); at the map's edge, the water's side. */
   side: 0.95,
@@ -296,12 +297,9 @@ export function waterFilmGround(ground: Rgb, share: number, bad: Rgb = WATER_FIL
  *  (its material's `_MinContaminationThreshold`, `_MaxContaminationThreshold` and
  *  `_ContaminationNonlinearity`), and turns its surface matte by the same tint. So here the one tint
  *  (`waterTint`) carries everything toward badwater's look:
- *  - the colour, as the game mixes its colours: straight in linear light, so it greys as it turns rather
- *    than keeping its strength. Its lightness goes by the tint; its colour turns as the game's own two
- *    colours' mix turns, the game's clean water colour being `weight` times as light as its contaminated
- *    one (its material's `_Color` against `_Base_Contamination_Color_A` to `_B` at their middle, at
- *    `_Base_Contamination_Intensity_Low`), so both looks turn at the game's pace whatever their own
- *    colours' lightness. Under a hundredth bad the water is clean; a twentieth is a quarter of the way,
+ *  - the colour, as the game mixes its colours: straight, on display values (the game renders in Gamma
+ *    colour space, so its lerp never goes to linear light), so it greys as it turns rather than keeping its
+ *    strength. Under a hundredth bad the water is clean; a twentieth is a quarter of the way,
  *    a darker teal-grey (about the game's measured mixing zone, #2E444C); a tenth two fifths; a fifth
  *    over half, a grey; half bad over four fifths, a dull red-brown;
  *  - its opacity (the game's water is opaque at any share; ours keeps clean water see-through and
@@ -311,7 +309,7 @@ export function waterFilmGround(ground: Rgb, share: number, bad: Rgb = WATER_FIL
  *  once red rises over green, blue stays under green, by `lean` of the gap (less near badwater, none at
  *  it), so the way from teal-grey to crimson is a muted warm grey-brown. While red is still under green,
  *  blue may sit over green by `room` times the gap, so clean water's own blue is never touched. */
-export const WATER_BLEND = { from: 0.01, to: 1, power: 0.25, weight: 2.6, lean: 0.5, room: 4 } as const;
+export const WATER_BLEND = { from: 0.01, to: 1, power: 0.25, lean: 0.5, room: 4 } as const;
 
 /** How the water's colours are measured on screen, as #38's colour check does
  *  (investigation/maplook2/colour-check.mjs), and what they should measure. `npx tsx
@@ -394,11 +392,12 @@ export function badwaterRamp(depth: number): number {
   return Math.exp(-R.first * (Math.min(d, R.knee) - BADWATER.shallow) - R.beyond * Math.max(0, d - R.knee));
 }
 
-/** Badwater's body `depth` levels deep: `WATER.bad` at `BADWATER.shallow`, its light by the game's ramp
- *  (`badwaterRamp`, in linear light) but for the share that has no depth in it (`BADWATER.floor`). */
+/** Badwater's body `depth` levels deep: `WATER.bad` at `BADWATER.shallow`, scaled by the game's ramp
+ *  (`badwaterRamp`, on display values as the game's Gamma maths) but for the share that has no depth in it
+ *  (`BADWATER.floor`). */
 export function badwaterBody(depth: number): Rgb {
   const k = BADWATER.floor + (1 - BADWATER.floor) * badwaterRamp(depth);
-  return toDisplay(toLinear(WATER.bad).map((v) => v * k) as unknown as Rgb);
+  return [WATER.bad[0] * k, WATER.bad[1] * k, WATER.bad[2] * k];
 }
 
 /** How far water with this badwater share (0–1) has turned toward badwater's look (`WATER_BLEND`): 0 when
@@ -415,15 +414,9 @@ export function blendWater(clean: Rgb, bad: Rgb, share: number): Rgb {
   if (share >= 1) return bad;
   const B = WATER_BLEND;
   const k = waterTint(share);
-  const cl = toLinear(clean);
-  const bl = toLinear(bad);
-  const yc = Math.max(luma(cl), 1e-5);
-  const yb = Math.max(luma(bl), 1e-5);
-  const y = yc + (yb - yc) * k;
-  const w = k / (B.weight * (1 - k) + k);
-  const m = [0, 1, 2].map((i) => y * (cl[i] / yc + (bl[i] / yb - cl[i] / yc) * w));
+  const m = mixRgb(clean, bad, k) as [number, number, number];
   m[2] = Math.min(m[2], m[1] + (m[1] - m[0]) * (m[0] < m[1] ? B.room : B.lean * (1 - k)));
-  return toDisplay(m as unknown as Rgb);
+  return m;
 }
 
 /** The body colour of water `depth` levels deep, `fromBank` tiles from a bank (open water by
@@ -556,7 +549,7 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   vec3 badwaterBody(float depth) {
     float d = max(depth, 0.0);
     float k = ${f(BADWATER.floor)} + ${f(1 - BADWATER.floor)} * exp(-${f(BADWATER.ramp.first)} * (min(d, ${f(BADWATER.ramp.knee)}) - ${f(BADWATER.shallow)}) - ${f(BADWATER.ramp.beyond)} * max(0.0, d - ${f(BADWATER.ramp.knee)}));
-    return waterToDisplay(waterToLinear(BADWATER_BODY) * k);
+    return BADWATER_BODY * k;
   }
   /** A badwater colour (its troughs, its streaks) darkened with depth as its body is. */
   vec3 badwaterShade(vec3 c, float depth) {
@@ -581,15 +574,9 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
     if (s <= 0.0) return clean;
     if (s >= 1.0) return bad;
     float k = waterTint(s);
-    vec3 cl = waterToLinear(clean);
-    vec3 bl = waterToLinear(bad);
-    vec3 lw = vec3(0.2126, 0.7152, 0.0722);
-    float yc = max(dot(cl, lw), 0.00001);
-    float yb = max(dot(bl, lw), 0.00001);
-    float w = k / (${f(WATER_BLEND.weight)} * (1.0 - k) + k);
-    vec3 m = mix(yc, yb, k) * mix(cl / yc, bl / yb, w);
+    vec3 m = mix(clean, bad, k);
     m.b = min(m.b, m.g + (m.g - m.r) * (m.r < m.g ? ${f(WATER_BLEND.room)} : ${f(WATER_BLEND.lean)} * (1.0 - k)));
-    return waterToDisplay(m);
+    return m;
   }
   /** The ground seen through a film of water with this badwater share, as through a coloured filter
    *  (waterPalette.ts waterFilmGround): its own detail in the water's hue. */
