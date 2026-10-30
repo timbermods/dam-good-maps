@@ -75,10 +75,12 @@ describe("the drought line (D133, D269)", () => {
   // a lake that keeps water and a pool that dries; a river that leaves pools; the start's own water drying out
   // while other water stays; a river that dries out entirely
   // (River Valley 15 for 1 since generator 0.10.6, D498, D148: seed 1's river still dries out, but a badwater pool beside it
-  // holds 66 tiles of water through the drought, so its line is not empty; seed 15 has no water left on the last day)
+  // holds 66 tiles of water through the drought, so its line is not empty; seed 15 has no water left on the last day;
+  // Lake Basin 5 for 4 and River Valley 4 for 3 since generator 0.10.7, D502, D148: seed 4's pools no longer dry out,
+  // and seed 3's river now dries out entirely, as do River Valley 64² seeds 2 and 6)
   for (const [theme, seed] of [
-    ["lakeBasin", 4],
-    ["riverValley", 3],
+    ["lakeBasin", 5],
+    ["riverValley", 4],
     ["delta", 1],
     ["riverValley", 15],
   ] as const)
@@ -220,7 +222,7 @@ describe("the drought line (D133, D269)", () => {
   });
 
   it("is only ever the map's line as it is: none yet when a map opens, none after an edit or once it closes", async () => {
-    await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: W, y: W } }));
     ed.setAutoWater(false);
     const got: ed.DroughtLineNews[] = [];
     ed.watchDroughtLine((n) => got.push(n));
