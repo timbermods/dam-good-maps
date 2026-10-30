@@ -399,9 +399,11 @@ ${HIGH_WATER_GLSL}
     flowB += vec2(vnoise(p2 * 0.71), vnoise(p2 * 0.83 + 8.1)) * 2.2;
     float network = mix(cracks(flowA).x * smoothstep(0.28, 0.66, vnoise(p * 4.2 + 31.0)), cracks(flowB).x * smoothstep(0.28, 0.66, vnoise(p2 * 4.2 + 31.0)), blend);
     float ribbons = mix(smoothstep(0.49, 0.72, vnoise(flowA * vec2(1.7, 0.7))), smoothstep(0.49, 0.72, vnoise(flowB * vec2(1.7, 0.7))), blend);
-    // (its broad swells of light fade to their mean from afar, where the eye no longer resolves the ripples
-    // that make them and they would read as cloud blotches on the water: the game's distant water is even)
-    float broad = mix(0.5, mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend), 1.0 - smoothstep(0.05, 0.15, pixel));
+    // (its broad swells and rolling packets of light fade to their mean from afar, where the eye no longer
+    // resolves the ripples that make them and they would read as cloud blotches on the water: the game's
+    // distant water is even)
+    float far = 1.0 - smoothstep(0.05, 0.15, pixel);
+    float broad = mix(0.5, mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend), far);
     float rough = texture2D(hlRough, g / hlFlowSize).r * hlRiver;
     #ifdef CAVES
       if (waterOwnFlow.a > 0.5) rough = waterOwnFlow.b * hlRiver;
@@ -409,7 +411,7 @@ ${HIGH_WATER_GLSL}
     float highlights = (network * (0.18 + broad * 0.72) + ribbons * (0.16 + rough * 0.43)) * (0.35 + broad * 0.80);
     float rollA = vnoise(p * 0.70) * 0.50 + vnoise((p + direction * 1.7) * 0.70) * 0.30 + vnoise(p * 1.3 + 47.0) * 0.20;
     float rollB = vnoise(p2 * 0.70) * 0.50 + vnoise((p2 + direction * 1.7) * 0.70) * 0.30 + vnoise(p2 * 1.3 + 47.0) * 0.20;
-    float rolling = mix(smoothstep(0.41, 0.72, rollA), smoothstep(0.41, 0.72, rollB), blend);
+    float rolling = mix(0.35, mix(smoothstep(0.41, 0.72, rollA), smoothstep(0.41, 0.72, rollB), blend), far);
     highlights = mix(highlights, rolling * (0.43 + rough * 0.34), smoothstep(0.10, 0.65, speed));
     colour *= 1.0 - speed * (1.0 - rolling) * 0.14;
     highlights *= mix(1.0, 0.68, deep);
