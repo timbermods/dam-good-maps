@@ -361,20 +361,23 @@ describe("Crop map to selection: the name", () => {
 });
 
 describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edgeLip.ts)", () => {
-  // seed 1's springs at (23, 63) and (24, 63) are a river head 23 tiles in from the west edge, on the south edge: cropped
+  // seed 2's springs at (12, 63) and (13, 63) are a river head 12 tiles in from the west edge, on the south edge: cropped
   // to the west at the source itself (0 tiles behind the new edge) or one tile before it (1 behind), its water poured
   // off the new edge on the tiles beside it (seed 4's spring at (12, 50) before generator 0.10.6, D498, D148: the
   // badwater joining the river's lower reach moved the land; seed 1's heads leave the start whole and no water beside
-  // the new edge, with the lip raising ten tiles of it, at both distances)
+  // the new edge, with the lip raising ten tiles of it, at both distances; seed 2's springs at (12, 63) and (13, 63) for
+  // generator 0.10.7, D502, D148: the start moved, and a crop to the west at seed 1's springs, (21, 22) and (22, 22), now cuts the start;
+  // seed 2's river head, 12 tiles in from the west edge on the south edge, leaves the start whole and no water beside the
+  // new edge, with the lip raising three tiles of it, at both distances)
   it.each([0, 1])("a source %i tile(s) behind the new edge does not pour its water off the map", (behind) => {
-    const original = session(1);
-    const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 23);
+    const original = session(2);
+    const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 12);
     expect(spring.length).toBeGreaterThan(0);
     const sy = spring[0].y;
-    const rect = { x: 23 - behind, y: 0, w: W - 23 + behind, h: W };
+    const rect = { x: 12 - behind, y: 0, w: W - 12 + behind, h: W };
     expect(cropObjects(original.built.entities, rect).cutStart).toBeNull();
     original.settleCanonical();
-    const s = session(1);
+    const s = session(2);
     s.settleCanonical();
     expect(s.apply(crop(rect.x, rect.y, rect.w, rect.h)).errors).toEqual([]);
     const sources = new Set(s.built.entities.filter((e) => /Source/.test(e.template)).map((e) => e.y * rect.w + e.x));
