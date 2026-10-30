@@ -173,9 +173,12 @@ describe("brushes and water sources (D249)", () => {
     expect(x).toBeGreaterThan(0);
     const KEPT = "d2490000-0000-4000-8000-000000000003";
     expect(s.apply({ op: "placeEntity", params: { id: KEPT, template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } }).errors).toEqual([]);
-    // a spike on its tile: raised alone, the integrity pass shows it at its neighbours' level
+    // a spike on its tile: raised with its east neighbour, then the neighbour lowered back, it stands alone a level up,
+    // and the integrity pass shows it at its neighbours' level (a lone tile raised on its own is refused, #739: it
+    // changes nothing the map shows)
     const h0 = s.built.heights[y * W + x];
-    expect(s.apply({ op: "sculpt", params: { mode: "raise", cells: [[y, x, x]], amount: 1 } }).errors).toEqual([]);
+    expect(s.apply({ op: "sculpt", params: { mode: "raise", cells: [[y, x, x + 1]], amount: 1 } }).errors).toEqual([]);
+    expect(s.apply({ op: "sculpt", params: { mode: "lower", cells: [[y, x + 1, x + 1]], amount: 1 } }).errors).toEqual([]);
     expect(s.terrainState().pre[y * W + x]).toBe(h0 + 1);
     expect(s.built.heights[y * W + x]).toBe(h0);
     expect(byId(s, KEPT).z).toBe(h0);
