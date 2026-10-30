@@ -66,7 +66,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GAME_AMBIENT_SH, GAME_ENV, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { ALTITUDE_RAMP, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
@@ -694,6 +694,13 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
     float lo = s.g * ${f(255 / SHADOW_SCALE)} - ${f(SHADOW_OFFSET)};
     return clamp((z - hi) / max(0.05, lo - hi), 0.0, 1.0);
   }${hook(h, "decl")}${hook(h, "sunLit")}
+  /** How much of a tile's top is grass at moisture level m (its soil nibble, the game's levels), as the game's terrain
+   *  draws it (SoilMoistureSystem \`UpdateDesertIntensity\`; \`DesertMoistureThreshold\` 5, \`MaxDesertIntensity\` 0.7 in
+   *  its blueprint): its desert texture over all of a dry tile (moisture 0), over (1 − m/5) × 0.7 of one at moisture 0
+   *  to 5, none above, so green thins toward the edge of the water's reach, and through a drought. */
+  float grassOf(float m) {
+    return m < 0.5 ? 0.0 : 1.0 - ${f(DESERT.max)} * max(0.0, 1.0 - m / ${f(DESERT.threshold)});
+  }
   /** A hatched overlay (dam sites) at tile position g: inside, light stripes in the tile's
    *  overlay colour and dark stripes (solid light where a stripe would be under two pixels); just
    *  outside, a dark rim at least a pixel wide. Returns the colour and its weight. */
@@ -1115,9 +1122,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         #if LITE
           // (no patterns: contamination tints the ground a little, rust on earth, dark red on grass)
           glow = 0.0;
-          vec3 lc = s.x > 0.5 ? mix(${glColor(GROUND.moistLow)}, ${glColor(GROUND.moistHigh)}, clamp((s.y - 1.0) / 9.0, 0.0, 1.0)) : ${glColor(GROUND.dry)};
-          lc *= altitudeOf(vWorld.y, step(0.5, s.x));
-          if (s.z > 0.5) lc = mix(lc, s.x > 0.5 ? ${glColor(GROUND.contaminatedWet)} : ${glColor(GROUND.contaminated)}, 0.25 + 0.3 * clev);
+          // (the game's ground: the grass's colour and ramp blended into the desert's by the tile's grass share)
+          vec3 lc = mix(${glColor(GROUND.dry)} * altitudeOf(vWorld.y, 0.0), mix(${glColor(GROUND.moistLow)}, ${glColor(GROUND.moistHigh)}, clamp((s.y - 1.0) / 9.0, 0.0, 1.0)) * altitudeOf(vWorld.y, 1.0), s.x);
+          if (s.z > 0.5) lc = mix(lc, mix(${glColor(GROUND.contaminated)}, ${glColor(GROUND.contaminatedWet)}, s.x), 0.25 + 0.3 * clev);
           return mix(lc, ${glColor(GROUND.underwater)}, step(0.5, s.w) * groundBed);
         #endif
         // (the patterns are read through a broad warp, so their repeat never shows from afar)
@@ -1135,7 +1142,8 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         // grass meets the earth along the tile's edge
         // (a slight wobble along the tile's edge only: the soil itself changes there, not in ragged patches)
         float edge = ((n1 - 0.5) * 0.5 + (n2 - 0.5) * 0.45 + (b3 - 0.5) * 0.4) * 0.22;
-        float moist = ${hook(h, "moist", "smoothstep(0.42, 0.58, s.x + edge)")};
+        // (the grass's share of the point: s.x, the game's per tile, blended across the narrow band at the tile's edge)
+        float moist = ${hook(h, "moist", "clamp(s.x, 0.0, 1.0)")};
         float bad = ${hook(h, "bad", "smoothstep(0.4, 0.6, s.z + edge * 0.6)")};
         float wet = smoothstep(0.4, 0.6, s.w + (n1 - 0.5) * 0.2);
         // (under a film the ground keeps its own soil, seen through the film's filter in main: WATER_FILM)
@@ -1242,7 +1250,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             // on every pixel)
             vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w);
             vec4 s0 = soilOf(d0);
-            vec4 soil = vec4(step(0.5, s0.x), s0.x, step(0.5, s0.y), s0.z);
+            vec4 soil = vec4(grassOf(s0.x), s0.x, step(0.5, s0.y), s0.z);
             float clev = s0.y / 15.0;
             groundBed = s0.z > 0.0 ? waterFilm(waterDepthOf(d0)) : 1.0;
           #else
@@ -1256,10 +1264,10 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             vec4 s1 = soilOf(dx);
             vec4 s2 = soilOf(dy);
             vec4 s3 = soilOf(dd);
-            vec4 flags0 = vec4(step(0.5, s0.x), s0.x, step(0.5, s0.y), s0.z);
-            vec4 flags1 = vec4(step(0.5, s1.x), s1.x, step(0.5, s1.y), s1.z);
-            vec4 flags2 = vec4(step(0.5, s2.x), s2.x, step(0.5, s2.y), s2.z);
-            vec4 flags3 = vec4(step(0.5, s3.x), s3.x, step(0.5, s3.y), s3.z);
+            vec4 flags0 = vec4(grassOf(s0.x), s0.x, step(0.5, s0.y), s0.z);
+            vec4 flags1 = vec4(grassOf(s1.x), s1.x, step(0.5, s1.y), s1.z);
+            vec4 flags2 = vec4(grassOf(s2.x), s2.x, step(0.5, s2.y), s2.z);
+            vec4 flags3 = vec4(grassOf(s3.x), s3.x, step(0.5, s3.y), s3.z);
             vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;
             float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
             // the bed under thin water (WATER_FILM): its depth's film curve, blended over the wet tiles round
@@ -1300,9 +1308,8 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             c = heightColor(h0) * (0.96 + 0.08 * (vnoise(g * 9.0) - 0.5) * detail);
             glow = 0.0;
           } else {
-            // a thin darker rim where grass meets earth, painted as the game's is
-            float rim = 1.0 - smoothstep(0.06, 0.24, abs(soil.x - 0.5));
-            c = ground * (1.0 - rim * 0.22);
+            // (no rim where grass meets earth: the game blends its grass into its desert by the share alone)
+            c = ground;
           }
           #if LITE == 0
             // a thin dark line along the top of a drop, as the game's blocks draw their edges (the light look's
@@ -1341,8 +1348,8 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
                 float z01 = (1.0 - w.x) * w.y * ry1;
                 float z11 = w.x * w.y * rd;
                 float z00 = 1.0 - z10 - z01 - z11;
-                floorSoil = vec4(step(0.5, q0.x), q0.x, step(0.5, q0.y), q0.z) * u00 + vec4(step(0.5, q1.x), q1.x, step(0.5, q1.y), q1.z) * u10
-                  + vec4(step(0.5, q2.x), q2.x, step(0.5, q2.y), q2.z) * u01 + vec4(step(0.5, q3.x), q3.x, step(0.5, q3.y), q3.z) * u11;
+                floorSoil = vec4(grassOf(q0.x), q0.x, step(0.5, q0.y), q0.z) * u00 + vec4(grassOf(q1.x), q1.x, step(0.5, q1.y), q1.z) * u10
+                  + vec4(grassOf(q2.x), q2.x, step(0.5, q2.y), q2.z) * u01 + vec4(grassOf(q3.x), q3.x, step(0.5, q3.y), q3.z) * u11;
                 floorLevel = (q0.y * z00 + q1.y * z10 + q2.y * z01 + q3.y * z11) / 15.0;
               }
               c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(floorSoil, g, detail, floorLevel, none);
@@ -1382,7 +1389,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
           wc = mix(wc, ${glColor(WALL.groove)}, (1.0 - smoothstep(gw - py * 0.5, gw + py * 0.5, fy)) * lines);
           float lip = ceiling ? 0.0 : 1.0 - smoothstep(0.07, 0.13, h0 - y);
           vec4 s0 = soilOf(d0);
-          vec3 top = groundMode > 0.5 ? heightColor(h0) : (s0.x > 0.5 ? ${glColor(GROUND.moistHigh)} : ${glColor(GROUND.dry)} * 0.85);
+          vec3 top = groundMode > 0.5 ? heightColor(h0) : mix(${glColor(GROUND.dry)} * 0.85, ${glColor(GROUND.moistHigh)}, grassOf(s0.x));
           // (an eruption's fresh rock: its cliffs dark basalt, its lip ash)
           float freshWall = freshRock(tile, vWorld.y);
           wc = mix(wc, ${glColor(JUICE.ashDark)} * (0.62 + 0.5 * k), freshWall * 0.7);
@@ -1664,6 +1671,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);
         float foam = 0.0;
         float glints = 0.0;
+        // the gloss's slow variation, as the game's two panned samples of its gloss map (WATER_SURFACE.smoothness)
+        float gloss = 0.5;
         float pale = 0.0;
         float bubbles = 0.0;
         float crest = 0.0;
@@ -1674,36 +1683,48 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             float slow = mix(1.0, 0.5, bad);
             // (small and sparse, and gone where a pixel covers more than a few of them)
             float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
-            vec2 q2 = g * 1.6 + vec2(sin(g.y * 0.5), sin(g.x * 0.43)) * 1.5;
-            vec2 sl = ripple(q2, t * slow) + 0.6 * ripple(q2 * 1.9 + 7.0, t * 1.3 * slow);
-            // small glints (D154): a few to a tile, each a few pixels across, gathered in the patches of
-            // ripples that catch the sun, not a static of specks all over (gone where a glint would be
-            // under two pixels)
-            float sparkle = 1.0 - smoothstep(0.035, 0.08, fwidth(g.x));
-            float sunPatch = smoothstep(0.4, 0.75, vnoise(g * 0.45 + vec2(t * 0.03, -t * 0.02)));
-            glints = sparkle * sunPatch * smoothstep(0.84, 0.93, vnoise(g * 9.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(g * 7.1 - vec2(t * 0.3, t * 0.7)) * 1.6);
-            // the foam and pale streaks move with the water's current (D353): drawn at two points
-            // carried back along it, each fading in as the other is carried furthest, so neither is
-            // seen to start again; still water draws them where they are, as always
+            // everything on the surface moves with the water's current, as the game's albedo and normals do
+            // (D353; its flow map, two phases): drawn at two points carried back along it, each fading in as the
+            // other is carried furthest, so neither is seen to start again; still water draws them where they are
             float fn;
             vec2 drift = waterCurrent(g) * 0.65;
             #ifdef CAVES
               if (waterOwnFlow.a > 0.5) drift = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5 * 0.65;
             #endif
             float dark;
+            vec2 p1 = g;
+            vec2 p2 = g;
+            float blend = 0.0;
             if (dot(drift, drift) < 1e-6 || (${hook(h, "waterOwnSurface", "false")})) flowingAt(g, t, bad, fine, fn, pale, bubbles, dark);
             else {
               float phase = fract(t / 12.0);
               float second = fract(t / 12.0 + 0.5);
-              float blend = abs(phase * 2.0 - 1.0);
+              blend = abs(phase * 2.0 - 1.0);
+              p1 = g - drift * (phase * 12.0);
+              p2 = g - drift * (second * 12.0);
               float fn2, pale2, bubbles2, dark2;
-              flowingAt(g - drift * (phase * 12.0), t, bad, fine, fn, pale, bubbles, dark);
-              flowingAt(g - drift * (second * 12.0), t, bad, fine, fn2, pale2, bubbles2, dark2);
+              flowingAt(p1, t, bad, fine, fn, pale, bubbles, dark);
+              flowingAt(p2, t, bad, fine, fn2, pale2, bubbles2, dark2);
               fn = mix(fn, fn2, blend);
               pale = mix(pale, pale2, blend);
               bubbles = mix(bubbles, bubbles2, blend);
               dark = mix(dark, dark2, blend);
             }
+            // the ripples (the surface's normals) and the glints, carried the same way
+            vec2 q1 = p1 * 1.6 + vec2(sin(p1.y * 0.5), sin(p1.x * 0.43)) * 1.5;
+            vec2 sl = ripple(q1, t * slow) + 0.6 * ripple(q1 * 1.9 + 7.0, t * 1.3 * slow);
+            if (blend > 0.0) {
+              vec2 qb = p2 * 1.6 + vec2(sin(p2.y * 0.5), sin(p2.x * 0.43)) * 1.5;
+              sl = mix(sl, ripple(qb, t * slow) + 0.6 * ripple(qb * 1.9 + 7.0, t * 1.3 * slow), blend);
+            }
+            gloss = (vnoise(p1 * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(p1 * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
+            // small glints (D154): a few to a tile, each a few pixels across, gathered in the patches of
+            // ripples that catch the sun, not a static of specks all over (gone where a glint would be
+            // under two pixels)
+            float sparkle = 1.0 - smoothstep(0.035, 0.08, fwidth(g.x));
+            float sunPatch = smoothstep(0.4, 0.75, vnoise(g * 0.45 + vec2(t * 0.03, -t * 0.02)));
+            glints = sparkle * sunPatch * smoothstep(0.84, 0.93, vnoise(p1 * 9.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(p1 * 7.1 - vec2(t * 0.3, t * 0.7)) * 1.6);
+            if (blend > 0.0) glints = mix(glints, sparkle * sunPatch * smoothstep(0.84, 0.93, vnoise(p2 * 9.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(p2 * 7.1 - vec2(t * 0.3, t * 0.7)) * 1.6), blend);
             // calmer from afar, where a pixel spans a ripple (no shimmer)
             float near = 1.0 - smoothstep(0.08, 0.25, fwidth(g.x));
             float calm = 0.07 * near;
@@ -1760,22 +1781,30 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         vec3 c = waterBlend(body, murky, cont);
         float lit = sunLit(g, vWorld.y);
         vec3 light = skyColor * 1.2 + sunColor * 0.3 * max(dot(N, sunDir), 0.0) * lit;
+        // the game's own highlight on the ripples, added to the colour before its light (and again after it)
+        vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, n.y);
+        c += highlight;
         c *= light;
         c = mix(c, WATER_CREST * light, crest * WATER_CREST_AMOUNT);
         c = mix(c, badwaterShade(BADWATER_TROUGH, depth) * light, trough * BADWATER_TROUGH_AMOUNT);
         // the sky's reflection, stronger at low angles; pale ripples; the sun's glint and glints
         // (none on a fall: a sheet seen edge-on would mirror the sky in patches)
-        float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0) * step(0.5, n.y);
-        c = mix(c, WATER_SKY, fres * mix(WATER_REFLECT, BADWATER_REFLECT, bad));
+        // (the game's URP lighting at the water's smoothness, clean water's about 0.25 to badwater's 0.15: the sky
+        // added on top, as URP's environment term)
+        float smoothness = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, bad);
+        float fres = waterSkyReflect(dot(N, V), smoothness) * step(0.5, n.y);
+        c += WATER_SKY * fres;
+        // (the highlight's emission: unlit, unshadowed)
+        c += highlight;
         // pale streaks where it flows (badwater's brownish, so it reads as a flowing liquid too): each
         // by its own share, so water partly bad never takes a pale pink haze between the two
         c = mix(c, WATER_PALE, pale * WATER_PALE_AMOUNT * (1.0 - bad));
         c = mix(c, badwaterShade(BADWATER_STREAK, depth), pale * BADWATER_STREAK_AMOUNT * bad);
-        float spec = pow(max(dot(reflect(-sunDir, N), V), 0.0), 90.0) * lit;
+        float spec = waterSunGlint(N, V, sunDir, smoothness) * lit * step(0.5, n.y);
         // a film keeps at most a faint sheen of glints: they come in with its body (WATER_FILM), so a glint
         // never turns a film's faint tint into a solid fleck
         glints *= film;
-        c += sunColor * (spec * mix(WATER_SPEC, BADWATER_SPEC, bad) + glints * ${f(WS.glints)} * mix(1.0, BADWATER_GLINTS, bad) * (0.3 + 0.7 * lit));
+        c += sunColor * (spec + glints * ${f(WS.glints)} * mix(1.0, BADWATER_GLINTS, bad) * (0.3 + 0.7 * lit));
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
         // (foam and glints only ever make the water more opaque: deep water and the light look stay opaque)
@@ -1807,8 +1836,8 @@ ${hook(h, "water")}        #ifdef CAVES
             float line = 1.0 - smoothstep(0.0, CLEAR_SHORE_WIDTH, shore);
             cc = WATER_CLEAR_TINT * light;
             cc = mix(cc, WATER_CLEAR_SHORE * light, crest * CLEAR_RIPPLE_LIGHT);
-            cc = mix(cc, WATER_SKY, fres * WATER_REFLECT);
-            cc += sunColor * (spec * WATER_SPEC + glints * ${f(WS.glints * 0.5)} * (0.3 + 0.7 * lit));
+            cc += WATER_SKY * waterSkyReflect(dot(N, V), WATER_SMOOTHNESS);
+            cc += sunColor * (waterSunGlint(N, V, sunDir, WATER_SMOOTHNESS) * lit + glints * ${f(WS.glints * 0.5)} * (0.3 + 0.7 * lit));
             cc = mix(cc, WATER_FOAM * (0.8 + 0.2 * lit), foam * 0.6);
             cc = mix(cc, WATER_CLEAR_SHORE * (0.85 + 0.15 * lit), line);
             ca = min(0.9, CLEAR_OPACITY + CLEAR_RIPPLE * crest + 0.15 * glints + CLEAR_SHORE_OPACITY * line + 0.3 * foam);

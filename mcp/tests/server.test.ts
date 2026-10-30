@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { setWaitMs } from "../src/jobs";
+import { jobOf, setMostJobs, setWaitMs } from "../src/jobs";
 import { generate } from "../../src/core/gen/generate";
 import { closeAll, exportFiles, mapOf, specOf } from "../src/maps";
 import { createServer, TOOLS } from "../src/server";
@@ -154,5 +154,37 @@ describe("the Dam Good Maps MCP server", () => {
     // a picture of a region with a layer
     const pic = await call("picture", { map: handle, layer: "depth", region: { x: 0, y: 0, w: 32, h: 32 } });
     expect(pic.content.some((c) => c.type === "image")).toBe(true);
+  });
+
+  it("keeps no finished map in its jobs, and never drops a job that is still running", async () => {
+    setMostJobs(2);
+    const handleOf = (r: Result) => /^Map (map-\d+) is not ready yet/.exec(textOf(r))![1];
+    // three generates in flight with room for two jobs: all three stay, and each can be waited for
+    const started = await Promise.all([1, 2, 3].map((seed) => call("generate", { theme: "riverValley", size: 48, seed })));
+    const [a, b, c] = started.map(handleOf);
+    expect(textOf(await call("describe", { map: a }))).toBe(`Map ${a} is not ready yet: call wait with it`);
+    for (const h of [a, b, c]) jobOf(h);
+    const finish = async (h: string): Promise<Result> => {
+      let r = await call("wait", { map: h });
+      while (/is not ready yet \(/.test(textOf(r))) r = await call("wait", { map: h });
+      return r;
+    };
+    for (const h of [a, b, c]) expect(textOf(await finish(h)), h).toMatch(new RegExp(`^Map ${h} \\(generated in `));
+    // a finished job holds its handle, intentions and time, never the map: that is in the open maps alone
+    expect(Object.keys(await jobOf(a).done).sort()).toEqual(["handle", "intentions", "ms"]);
+    // a new job drops the finished ones beyond the bound, oldest first
+    const d = handleOf(await call("generate", { theme: "riverValley", size: 48, seed: 4 }));
+    expect(() => jobOf(a)).toThrow(/no map/);
+    expect(() => jobOf(b)).toThrow(/no map/);
+    jobOf(c);
+    await finish(d);
+    // a map that open has dropped since: wait refuses in one line, and so does every other tool
+    closeAll();
+    for (const h of [c, d]) {
+      const w = await call("wait", { map: h });
+      expect(w.isError).toBe(true);
+      expect(textOf(w)).toMatch(new RegExp(`^There is no open map "${h}"`));
+    }
+    setMostJobs(12);
   });
 });

@@ -11,7 +11,7 @@ import { INTENTIONS, INTENTION_TEXT } from "../../src/core/land/intentions";
 import { SIZE_PRESETS, THEMES } from "../../src/core/spec/mapspec";
 import { describeMap, summaryOf } from "./describe";
 import { jobOf, secondsOf, startGenerate, waitFor, WAIT_MS, type Job } from "./jobs";
-import { applyOps, checksOf, mapOf, mapsFolder, openMap, Refused, rowOf, saveMap, undoStep, type Generated } from "./maps";
+import { applyOps, checksOf, mapOf, mapsFolder, openMap, Refused, rowOf, saveMap, undoStep, type Made } from "./maps";
 import { LAYERS, picture, type Layer, type Region } from "./picture";
 
 export const SERVER_VERSION = "0.2.0";
@@ -219,8 +219,9 @@ function around(area: { x0: number; y0: number; x1: number; y1: number }, W: num
 }
 
 /** A made map as generate and wait return it: its handle, summary, intentions and picture. */
-function generated(g: Generated): CallToolResult {
-  const s = g.session;
+function generated(g: Made): CallToolResult {
+  // (a job keeps no map: if open has dropped it since, this is the refusal that no map is open under the handle)
+  const s = mapOf(g.handle);
   const emerged = g.intentions.length
     ? `Intentions:\n${g.intentions.map((x) => `- ${x.id}: ${x.ok ? "emerged" : "did not emerge"} (${x.note})`).join("\n")}`
     : "Intentions: none.";
