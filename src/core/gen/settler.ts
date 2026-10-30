@@ -108,6 +108,10 @@ export interface SettlerOptions {
    *  start should have within 40 tiles (the colony's need times the Drought reserve, PLAN §11.4):
    *  places with more are preferred (#67: information the generator prefers, never a guard). */
   storage?: { kept: ArrayLike<number>; want: number } | null;
+  /** The soil's moisture on the water the rule's drought leaves (`plants.drought`'s), where that
+   *  drought outlasts a berry bush: places with dry land near them that stays moist, where the
+   *  start's berries last the drought, are preferred (the D410 round; never a guard). */
+  droughtFood?: ArrayLike<number> | null;
   /** Where the start was expected (the guess the badwater hollows were planned from): among the
    *  places nearly as good as the best, the one nearest it, so the hollows keep the distance the
    *  settings asked for. Without it, one of them at random. */
@@ -340,10 +344,21 @@ export function prepareStart(h: Uint8Array, W: number, H: number,
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) storeSum[(y + 1) * (W + 1) + x + 1] = k[y * W + x] + storeSum[y * (W + 1) + x + 1] + storeSum[(y + 1) * (W + 1) + x] - storeSum[y * (W + 1) + x];
   }
+  // dry land that stays moist through the rule's drought within 14 tiles, from a summed-area table
+  let foodSum: Int32Array | null = null;
+  if (opts.droughtFood) {
+    foodSum = new Int32Array((W + 1) * (H + 1));
+    const f = opts.droughtFood;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        foodSum[(y + 1) * (W + 1) + x + 1] = (f[i] > 0 && !(D[i] > 0) ? 1 : 0) + foodSum[y * (W + 1) + x + 1] + foodSum[(y + 1) * (W + 1) + x] - foodSum[y * (W + 1) + x];
+      }
+  }
   // what the opening camera would show from each place (D493), read once; for the chosen place's turn
   let opening: OpeningLand | null = null;
   const openingLand = (): OpeningLand => (opening ??= prepareOpening(h, W, H, D, fallsOf(h, D, W, H, 1.5)));
-  return { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, openingLand };
+  return { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, foodSum, openingLand };
 }
 
 export type StartPreparation = ReturnType<typeof prepareStart>;
@@ -362,7 +377,7 @@ export function pickStart(
   const avoid = opts.avoid ?? null;
   const N = W * H;
   const D = water.depth;
-  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum, openingLand } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
+  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum, foodSum, openingLand } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
   const margin = opts.margin ?? edgeMargin;
   const storedNear = (x: number, y: number): number => {
     if (!storeSum) return 0;
@@ -466,9 +481,19 @@ export function pickStart(
         const walkFit = 1 - Math.min(1, Math.abs(w - walkWant) / 5);
         // the stored water the Drought reserve and the difficulty ask for (PLAN §5.3, §11.4)
         const storeFit = storeSum ? Math.min(1, storedNear(x, y) / opts.storage!.want) : 1;
+        // the start's berries' ground that lasts the drought: 60 tiles of it within 14 is room for them
+        let foodFit = 1;
+        if (foodSum) {
+          const x0 = Math.max(0, x - 14);
+          const y0 = Math.max(0, y - 14);
+          const x1 = Math.min(W, x + 15);
+          const y1 = Math.min(H, y + 15);
+          const n = foodSum[y1 * (W + 1) + x1] - foodSum[y0 * (W + 1) + x1] - foodSum[y1 * (W + 1) + x0] + foodSum[y0 * (W + 1) + x0];
+          foodFit = 0.8 + 0.4 * Math.min(1, n / 60);
+        }
         // the player's settings weigh on the intentions' preference too: they are asked for
         const settingsFit = (0.3 + 0.7 * benchFit * benchFit) * (0.3 + 0.7 * walkFit) * (0.4 + 0.6 * storeFit) * (0.5 + 0.5 * footFit);
-        const score = (pref * (0.5 + 0.5 * room) * (0.6 + 0.4 * Math.min(1, moistNear / 500)) * dry + 0.8 * intent) * settingsFit + 0.25 * rng.float();
+        const score = (pref * (0.5 + 0.5 * room) * (0.6 + 0.4 * Math.min(1, moistNear / 500)) * dry * foodFit + 0.8 * intent) * settingsFit + 0.25 * rng.float();
         cands.push({ i, score, kind, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
       }
     }

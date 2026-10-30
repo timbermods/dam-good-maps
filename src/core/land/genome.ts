@@ -92,27 +92,54 @@ export function rimLobe(lobes: readonly RimLobe[] | undefined, u: number): numbe
 
 /** How much of a sea's depth a tile takes: 0 on the land at the map's edge (D350: the game drains
  *  every edge tile, so the sea keeps a lip of land; below 0 on a lobe, lifted) to 1 in the sea. The
- *  lip is 1–2 tiles at the very edge, falling to the sea in a tile or two (round 6), and the mainland
+ *  lip is the two outer rows and the shore `lipKeep` wanders in from them (the D410 shore round), and the mainland
  *  is the broad lobes addSea drew, their coast warped so it bends at every scale. `s` is the sea's
  *  `coast` seed: the field draws the land with it and addSea reads it to place islands. */
+/** How far the lip of land along an edge reaches into the map at the edge point (ex, ey), in tiles,
+ *  before the rag of `lipKeep` (the D410 shore round, 2026-10-29). Islands' (`thin`) is 2.2–3.8
+ *  tiles, so the sea runs on past the map there, broken by headlands and spits of shore reaching up
+ *  to a tenth of the side; Any's sea maps' 5–8, with headlands to an eighth of the side. Read along
+ *  the edge at the scale of bays, so the coast never runs with the edge: round 6's lip, 1–2 tiles on a
+ *  noise a third of the side across, ran ruler-straight for 120 tiles, a bathtub's rim. */
+function lipReach(s: number, ex: number, ey: number, side: number, thin: boolean): number {
+  const n = 0.5 * (fbm(s + 17, ex, ey, 0.1 * side, 2) + 1);
+  const head = (thin ? 0.1 : 0.125) * side * smoothstep((fbm(s + 83, ex, ey, 0.11 * side, 3) + 0.05) / 0.5);
+  return (thin ? 2.2 + 1.6 * n : 5 + 3 * n) + head;
+}
+
+/** `lipReach` at a place on the map's perimeter (0–4, as `rimLobe` reads it). */
+export function lipReachAt(s: number, u: number, W: number, H: number, thin: boolean): number {
+  const j = Math.floor(u) % 4;
+  const f = u - Math.floor(u);
+  const side = Math.min(W, H);
+  if (j === 0) return lipReach(s, f * (W - 1), 0, side, thin);
+  if (j === 1) return lipReach(s, W - 1, f * (H - 1), side, thin);
+  if (j === 2) return lipReach(s, (1 - f) * (W - 1), H - 1, side, thin);
+  return lipReach(s, 0, (1 - f) * (H - 1), side, thin);
+}
+
 /** The lip alone (`rimKeep` without the mainland): 0 on the land at the map's edge, 1 past its fall
- *  to the sea. Islands' (`thin`) is 1–2 tiles falling in a tile or two (round 6); Any's sea maps keep
- *  round 5's, 6–10 tiles with rounded corners, falling over 2–4. */
+ *  to the sea. The two outer rows are always land (D350: the game drains every edge tile, so the sea
+ *  keeps a lip of land there); past it the land reaches in as far as `lipReach` says at the nearest point of
+ *  each edge, its line ragged by a noise six tiles across, and rounded in the corners. Islands'
+ *  (`thin`) falls to the sea in a tile or two (round 6), Any's sea maps' over 2–4. */
 export function lipKeep(s: number, x: number, y: number, W: number, H: number, thin = false): number {
   const side = Math.min(W, H);
-  if (thin) {
-    const e = Math.min(x, W - 1 - x, y, H - 1 - y);
-    const base = 1 + 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
-    const fall = 1.5 + 0.5 * (fbm(s + 41, x, y, 0.2 * side, 2) + 1);
-    return smoothstep((e - base) / fall);
-  }
-  const ex = Math.min(x, W - 1 - x);
-  const ey = Math.min(y, H - 1 - y);
-  const rc = 6;
-  const e = ex < rc && ey < rc ? rc - portable.sqrt((rc - ex) * (rc - ex) + (rc - ey) * (rc - ey)) : Math.min(ex, ey);
-  const t = 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
-  const head = Math.max(0, 1 - 2 * Math.abs(fbm(s + 29, x, y, 0.14 * side, 2)) - 0.72) / 0.28;
-  return smoothstep((e - (6 + 2 * t + 2 * head)) / (2 + (fbm(s + 41, x, y, 0.2 * side, 2) + 1)));
+  const dx = Math.min(x, W - 1 - x);
+  const dy = Math.min(y, H - 1 - y);
+  // (the two outer rows: one row let the sea spill at the lowest tile of the edge itself, a level or
+  // more under the two rows' lowest way out, and the sea fell and moved the start's water)
+  if (Math.min(dx, dy) < 2) return 0;
+  // (far from every edge: past the furthest the lip can reach, its rag and its fall)
+  const most = (thin ? 3.8 + 0.1 * side + 2.4 + 2.5 : 8 + 0.125 * side + 3 + 4) + (thin ? 3 : 6);
+  if (dx > most && dy > most) return 1;
+  const rag = (thin ? 2.4 : 3) * fbm(s + 89, x, y, 7, 2);
+  const ax = dx + rag - lipReach(s, x <= W - 1 - x ? 0 : W - 1, y, side, thin);
+  const ay = dy + rag - lipReach(s, x, y <= H - 1 - y ? 0 : H - 1, side, thin);
+  const rc = thin ? 3 : 6;
+  const a = ax < rc && ay < rc ? rc - portable.hypot(rc - ax, rc - ay) : Math.min(ax, ay);
+  const fall = thin ? 1.5 + 0.5 * (fbm(s + 41, x, y, 0.2 * side, 2) + 1) : 2 + (fbm(s + 41, x, y, 0.2 * side, 2) + 1);
+  return smoothstep(a / fall);
 }
 
 export function rimKeep(s: number, x: number, y: number, W: number, H: number, lobes?: readonly RimLobe[], thin = false): number {
@@ -1003,7 +1030,10 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   // (the margins in tiles shrink with the map under 128², whose sea and islands are smaller and whose
   // room they took: at full size, 96² drew lands without islands enough twice as often)
   const tight = Math.min(1, side / 128);
-  const rimAt = (u: number) => (thin ? 4 : 10) * tight + side * rimLobe(lobes, u) * 1.35 + (rimLobe(lobes, u) > 0 ? 0.12 * side * Math.max(0, ...lobes.map((l) => l[2])) : 0);
+  // (the D410 shore round: and the lip's own reach there, its headlands; the mainland's lobes give way to
+  // the islands (rimClashes) by the lip's old margin, since the lip's headlands never draw back)
+  const rimAt = (u: number, lip = true) =>
+    (lip ? (thin ? 2.5 : 4) * tight + lipReachAt(coast, u, W, H, thin) : (thin ? 4 : 10) * tight) + side * rimLobe(lobes, u) * 1.35 + (rimLobe(lobes, u) > 0 ? 0.12 * side * Math.max(0, ...lobes.map((l) => l[2])) : 0);
   // (an island's centre keeps the land along each edge and its own foot from the map's edges, so it
   // stands in the sea; one rooted in that land was the shore's own, joined to it by high ground)
   const room = (x: number, y: number, r: number) => {
@@ -1270,10 +1300,10 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       if (offshore.includes(grp)) continue;
       const b = boxOf(grp);
       const p = g.parts[grp.from];
-      if (b.y0 < rimAt(p.at[0])) at.push(p.at[0]);
-      if (H - 1 - b.y1 < rimAt(3 - p.at[0])) at.push(3 - p.at[0]);
-      if (b.x0 < rimAt(4 - p.at[1])) at.push((4 - p.at[1]) % 4);
-      if (W - 1 - b.x1 < rimAt(1 + p.at[1])) at.push(1 + p.at[1]);
+      if (b.y0 < rimAt(p.at[0], false)) at.push(p.at[0]);
+      if (H - 1 - b.y1 < rimAt(3 - p.at[0], false)) at.push(3 - p.at[0]);
+      if (b.x0 < rimAt(4 - p.at[1], false)) at.push((4 - p.at[1]) % 4);
+      if (W - 1 - b.x1 < rimAt(1 + p.at[1], false)) at.push(1 + p.at[1]);
     }
     return at;
   };

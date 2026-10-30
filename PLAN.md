@@ -354,8 +354,10 @@ terrain, water and objects, §18 E1, D172); below, maps stay within 16. Vertical
 escarpments with hanging valleys, stepped canyons and deep gorges, towering mesas with summit lakes, cascades of falls
 with plunge pools, cliff-bench terraces) are emergent, never stamped, and used more as it rises. The land stays
 traversable at any value: the start and its first resources stand on reachable land, with natural ramps (slopes)
-between levels where the land needs them (a ramp's route is no longer than it needs, two tiles a level, and never runs
-over higher or lower ground than its ends, D209); heights reachable only by building stairs are allowed, as rewards.
+between levels where the land needs them (a ramp's route is no longer than it needs, two to four tiles a level, its
+treads uneven, and never runs over higher or lower ground than its ends, D209; it climbs at most four levels, runs four
+rows or more in from the map's edges and never between water on both sides, and the lower ground beside a fill rises to it a
+level a tile, a spur, never a causeway); heights reachable only by building stairs are allowed, as rewards.
 Measures (design version 2): relief range, levels used, share of land above 16, tallest fall, cliff share and vertical
 reach, against the official and workshop maps.
 
@@ -504,7 +506,11 @@ Every placement uses the footprints in `footprints.json` and marks occupied cell
 2. **Berries:** patches of blueberry bushes across the map (median 20–40, beside water) up to the density target, the
    start's share kept back; then, where they leave the start short of its target within 20 tiles' walk, 1–3 patches
    on moist soil beside clean water, on the side and at the distance the start's layout draws; what they leave of the
-   start's share goes to the rest of the map. Bushes are ripe (`GatherableYieldGrower 1.0`) near the start and 55%
+   start's share goes to the rest of the map. Where the rule's drought outlasts a berry bush (Normal and Hard), every
+   patch within the colony's walk grows only on soil the water the drought leaves keeps moist (`plants.drought`'s
+   reading), so the start's food lasts its first drought; where the walk holds too little of it for Minimum starting
+   bushes, the rest grows on moist soil as before, and the start itself prefers places with such soil near them (on
+   most River Valley maps the rivers drain whole in a drought, and nothing near them stays moist). Bushes are ripe (`GatherableYieldGrower 1.0`) near the start and 55%
    ripe elsewhere, as in official maps.
 3. **Forests:** groves are single-species blobs grown with a compactness of about 0.8, sized log-normal around the
    grove-size median. The map's groves come first (living groves on moist soil up to about a quarter of it, then dead
@@ -580,8 +586,10 @@ D278); the named premises that became intentions are in design version 2 §6 (`d
 No dam ridge is built anywhere (D111). M9b brings Islands' archipelagos, chains and atolls and the crater and
 waterfall-lake intentions (D209). Islands and Delta are shaped by the same processes as every theme (D408): Islands
 draws one of D209's sea layouts, islands with relief of their own and springs on them. The sea is most of the map
-and runs to the map's edge on two or three sides, held there by a lip a tile or two wide at the very edge, a level over
-a shallow shelf (no edge wall, D151; Any's sea maps keep a lip of 6–10 tiles); a river that meets the sea ends there,
+and runs to the map's edge on two or three sides, held there by the two outer rows of land, a level over the water (no edge
+wall, D151): its shore wanders from them to headlands and spits reaching up to a tenth of the side, ragged at
+every scale, so the sea never sits in a straight rim (Any's sea maps keep 5–8 tiles of land there, with headlands to an
+eighth of the side); a river that meets the sea ends there,
 never crossing the lip. The mainland stands on one side or two, its coast warped into bays and points at every scale;
 an inland sea in a ring of land on about one sea map in eleven (D423, D427). The sea is never cut to fit the lake
 budget (D432). Islands grow with the map and vary: a large one with arms and a long coast, smaller ones down from it in
