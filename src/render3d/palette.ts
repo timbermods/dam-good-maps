@@ -270,6 +270,19 @@ export const LIGHT = {
   haze: [0.68, 0.77, 0.87] as Rgb,
 } as const;
 
+/** The game's light (Timberborn 1.1.2.8; decompiled `Timberborn.SkySystem` `Sun`, its `AmbientMode.Trilight`, and the day's
+ *  colours in the game's `Configurations/Sun.blueprint.json`), in linear values: the ambient by a face's normal (the
+ *  sky's from above, the equator's from the side, the ground's from below, blended by the normal's height as Unity's
+ *  Trilight blends them), unoccluded, and the sun (its colour times its intensity), which only its shadow takes away.
+ *  `exposure` scales it so a level top in full sun comes out as bright as before (the look's calibration, D334). */
+export const GAME_LIGHT = {
+  sky: [0.6239606, 0.6307573, 0.9734455] as Rgb,
+  equator: [1, 1, 1] as Rgb,
+  ground: [0.2831488, 0.2269659, 0.3712378] as Rgb,
+  sun: [1.1, 1.1 * 0.9625, 1.1 * 0.85] as Rgb,
+  exposure: 0.76,
+} as const;
+
 /** Soil moisture (the game's levels, 0–16) and contamination (0–1) as bytes: 0 stays 0, and any
  *  moisture or contamination at all stays above 0 (moist soil is where living plants grow). */
 export function moistureByte(m: number): number {

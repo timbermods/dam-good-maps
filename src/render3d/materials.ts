@@ -66,7 +66,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
@@ -823,7 +823,15 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       #if CUTAWAY
       ${OVERLAY_RUN}
       #endif
-      ${CAVE_AIR}      /** The light of the air a face looks into, half a cell along its normal (caveLight.ts, whose
+      ${CAVE_AIR}      /** The game's light on a face (palette.ts GAME_LIGHT, linear): the Trilight ambient by its normal,
+       *  unoccluded, and the sun by its shadow (\`sun\`, 0–1). */
+      vec3 gameLight(vec3 n, float sun) {
+        vec3 ambient = n.y >= 0.0 ? mix(${glColor(GAME_LIGHT.equator)}, ${glColor(GAME_LIGHT.sky)}, n.y) : mix(${glColor(GAME_LIGHT.equator)}, ${glColor(GAME_LIGHT.ground)}, -n.y);
+        return ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun;
+      }
+      vec3 toLinear(vec3 c) { return mix(c / 12.92, pow(max((c + 0.055) / 1.055, vec3(0.0)), vec3(2.4)), step(vec3(0.04045), c)); }
+      vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
+      /** The light of the air a face looks into, half a cell along its normal (caveLight.ts, whose
        *  caveSample does the same): x the sky, y the sun (0–1), z 1 where that air is under a roof. In
        *  open air, in rock (the slice's cut), outside the map and on a map without roofs z is 0, and
        *  the baked light stands. */
@@ -914,13 +922,8 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
             sun = mix(open, min(inside, open), smoothstep(0.0, 0.6, d));
           }
         }
-        float sky = cave.x;${hook(h, "caveSky")}
-        // (deeper in, the sky's light comes bounced off the rock round it: the walls and the ceiling take nearly a
-        // floor's share, as the open ground's faces take theirs at the mouth; and the least holds there, not at the
-        // mouth, where the open ground's own light, its occlusion with it, carries on)
-        float bounce = 1.0 - smoothstep(${f(CAVE_SKY_FLOOR)}, 0.8, cave.x);
-        float facing = mix(0.7 + 0.3 * n.y, 0.85 + 0.15 * n.y, bounce);
-        return skyColor * facing * max(${f(CAVE_SKY_FLOOR)} * bounce, sky) * ao + sunColor * 0.55 * ndl * sun * mix(1.0, ao, 0.35);
+        // (as the game lights it: the ambient by the normal, unoccluded by the roof, and the sun only where it reaches)
+        return gameLight(n, sun);
       }
       /** Rock at a cell (a tile and a level) of the light volume: in the map, and no air there. */
       float rockAt(vec2 t, float z) {
@@ -1257,7 +1260,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             float ao = 1.0 - 0.75 * clamp(ox + oy + od - ox * oy, 0.0, 1.0);
           #endif
           sunHere = sunLit(g, h0);
-          light = lightOf(n, mix(0.55, 1.0, sky), ao, sunHere);
+          light = gameLight(n, sunHere);
           if (vWorld.y < h0 - 0.5) {
             // a floor under an overhang (a cave's or a ledge's): the top's soil, never its water,
             // in the overhang's shade
@@ -1296,7 +1299,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
               c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(vec4(soil.xyz, 0.0), g, detail, clev, none);
             #endif
             glow = 0.0;
-            light = lightOf(n, 0.6, 0.85, 0.0);
+            light = gameLight(n, 0.0);
             if (caveSize.z > 0.5) {
               float zf = floor(vWorld.y + 0.5);
               float kx = wallAt(tile + vec2(sd.x, 0.0), zf);
@@ -1360,18 +1363,19 @@ ${hook(h, "wall")}          float py = fwidth(y);
           #endif
           wc *= (1.0 - 0.18 * seam) * (1.0 - 0.10 * vertical);
           c = mix(wc, top * 0.58, lip * 0.55);
-          if (ceiling) light = lightOf(n, 0.5, 0.6, 0.0);
+          if (ceiling) light = gameLight(n, 0.0);
           else {
-            float ao = mix(0.5, 1.0, smoothstep(0.0, 1.1, y - base));
             sunHere = sunLit(g + out2 * 0.26, y);
-            light = lightOf(n, 1.0, ao, sunHere);
+            light = gameLight(n, sunHere);
           }
         }
         // a face whose air is under a roof (a cave's floor, walls and ceiling, under an overhang or
         // an arch) takes that air's own light, not its tile top's
         vec3 cave = caveAt(vWorld, n);
         if (cave.z > 0.5) light = caveLightOf(n, cave, sunHere, caveAo);
-        c *= light;
+        // (the game's light works in linear values: the colour taken there, lit, and brought back)
+        light *= ${f(GAME_LIGHT.exposure)};
+        c = toDisplay(toLinear(c) * light);
         // the glowing cracks of contaminated ground shine in shadow too
         c += ${glColor(GROUND.contaminatedGlow)} * glow * ${f(CT.glowAdd)};${hook(h, "lit")}
         // the slice's cut (D207): the tops of columns taller than the layer (with terrain above terrain, only the cap
