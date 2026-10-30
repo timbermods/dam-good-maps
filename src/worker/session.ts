@@ -2003,6 +2003,9 @@ if (yieldChannel) {
 }
 function breathe(): Promise<void> {
   return new Promise((r) => {
+    // (in Node, the tests' worker, a port's messages all run before the loop's check phase, so a slice loop held
+    // every setImmediate behind it for seconds, draftWaterQuiet.test: there the check phase itself, D341)
+    if (typeof setImmediate === "function") return void setImmediate(r);
     if (!yieldChannel) return void setTimeout(r, 0);
     yielding.push(r);
     yieldChannel.port2.postMessage(0);

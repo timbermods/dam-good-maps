@@ -298,7 +298,9 @@ place of its bottom rule.
   it down (×). The window follows the bar's one look per control: a number is the bar's slider with its value at the right of
   its name (Strength, Power, Next source, a ruin's Height, a plant's Size and Density), a choice is segmented (Water:
   Clean | Badwater; a relic's Size; Age: Grown | Mixed; Turn); no dropdowns.
-  - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't (the start
+  - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't, its footprint
+    on the ground a darker fill of that hue with a lighter edge of the same hue round it, never a white square
+    (`tools.ts` `GOOD`, `WARN`, `BAD` and a layer's `edge`; Kyler, 2026-10-29: calm, not abrasive) (the start
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
     about it changed, D361), with **one label** beside the pointer (D323, item 32; every such note, a force's, a shelf object's, Select's count and the Block tool's refusal, stays in the free view between the panels, the Items shelf and the bars, and takes the pointer's other corners and sides where its first spot would run under one; with none of those clear it takes the clear spot of the free view nearest the pointer, keeping the place it has among spots within 24 px of the nearest so that it does not trade between two strips as the pointer moves: `view/pointerNote.tsx`): the reason where it doesn't
@@ -1098,9 +1100,11 @@ Two looks (Map look 2, D147, D242, D250, D284):
 In both looks (the light look too) water of any depth draws as water, as the game draws it: a film is the same water
 as its body, not a faint tint over its ground (`WATER_FILM` in `render3d/waterPalette.ts`; the game's water in play is its
 opaque material, the ground behind showing only as a small tinted share, `investigation/notes/water_and_soil.md` Q8).
-Only a sliver a fiftieth of a level deep or less, a shore's very edge, fades in from a faint tint (its ground seen as
+Only a sliver three hundredths of a level deep or less, a shore's very edge, fades in from a faint tint (its ground seen as
 through a coloured filter in the water's hue) to the body, on one smooth curve on the water's own depth: our own
-anti-aliasing, where the game clips hard at the floor; a badwater sliver stays murkier than clean water, and keeps a faint edge, not a foam line.
+anti-aliasing, where the game clips hard at the floor. The ground behind the water shows as the game's High quality
+shows it (`WATER_SURFACE.seeThrough`): 0.175 of it at the water's floor, thinning in step with depth to none at 5 levels,
+behind clean water and badwater alike; the light look follows the game's Low quality and shows none; a badwater sliver stays murkier than clean water, and keeps a faint edge, not a foam line.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
 threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks

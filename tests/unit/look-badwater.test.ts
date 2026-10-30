@@ -5,11 +5,12 @@
 // the game's own tint (Timberborn 1.1.2.8's water shader: smoothstep(0.01, 1, share) ^ 0.25), its
 // colour mixed straight in linear light as the game mixes it, through the game's teal-grey and a muted
 // warm grey-brown to crimson, never purple (Kyler's reviews of #41); badwater is #38's approved
-// crimson, matte and nearly opaque, and darkens with depth (option A).
+// crimson, matte and murky, and darkens with depth (option A).
 
 import { describe, expect, it } from "vitest";
 import { DataTexture } from "three";
 import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
+import { GROUND } from "../../src/render3d/palette";
 import { CHUNK } from "../../src/render3d/mesh";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
 import { BADWATER, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterTint } from "../../src/render3d/waterPalette";
@@ -206,23 +207,27 @@ describe("badwater meeting clean water", () => {
 });
 
 describe("badwater's colour", () => {
-  it("is #38's approved crimson, darkened a little by D324: its body, troughs and streaks, matte and nearly opaque, and darker deeper (option A)", () => {
+  it("is #38's approved crimson, darkened a little by D324: its body, troughs and streaks, matte and murky, and darker deeper (option A)", () => {
     // #38's check:colour targets at e63a3ff were [110, 52, 49], [94, 46, 43] and [124, 69, 56]; D324
     // (option (a) of D310) darkened badwater about a tenth and the targets were re-measured once
-    // on screen (tools/capture-badwater.ts --measure lands on them); the view draws the body about
-    // as it is at 70°
+    // on screen (tools/capture-badwater.ts --measure lands on them), and again after #692 let the
+    // ground behind show by the game's share: the view draws the body about as it is at 70°, over the
+    // grey underwater bed (GROUND.underwater) showing through by 1 - badwaterOpacity(0.25)
     const target = WATER_CALIBRATION.targets.find((t) => t.share === 1)!;
-    expect(target.bands).toEqual({ typical: [97, 46, 43], trough: [83, 41, 38], streak: [110, 61, 50] });
-    for (let k = 0; k < 3; k++) expect(Math.abs(WATER.bad[k] - target.bands.typical[k] / 255)).toBeLessThan(0.03);
+    expect(target.bands).toEqual({ typical: [98, 55, 50], trough: [85, 50, 46], streak: [108, 67, 56] });
+    const behind = 1 - badwaterOpacity(0.25);
+    for (let k = 0; k < 3; k++) expect(Math.abs(WATER.bad[k] + (GROUND.underwater[k] - WATER.bad[k]) * behind - target.bands.typical[k] / 255)).toBeLessThan(0.03);
     // crimson: red well over green and blue; darker troughs, lighter streaks
     expect(WATER.bad[0]).toBeGreaterThan(2 * WATER.bad[1]);
     expect(WATER.bad[1]).toBeGreaterThan(WATER.bad[2]);
     expect(lightness(WATER.badTrough)).toBeLessThan(lightness(WATER.bad) - 2);
     expect(lightness(WATER.badStreak)).toBeGreaterThan(lightness(WATER.bad) + 2);
-    // nearly opaque in open water, see-through at its shallow edges, opaque at a grazing angle
-    for (const d of [0.25, 0.5, 1, 3]) expect(badwaterOpacity(d)).toBeGreaterThanOrEqual(0.975);
-    expect(badwaterOpacity(0.1, 0)).toBeLessThan(0.5);
-    expect(badwaterOpacity(0.1, 0, 0)).toBeGreaterThanOrEqual(0.85);
+    // as see-through as clean water, as the game's High quality draws it (Q8: the ground behind by 0.175 at
+    // the floor, none 5 levels deep; #38's murkier badwater gave way to the game's rule), a crimson
+    // tint on a sliver
+    for (const d of [0.25, 0.5, 1, 3]) expect(badwaterOpacity(d)).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
+    expect(badwaterOpacity(0.1, 0)).toBeLessThan(badwaterOpacity(0.1, 1));
+    expect(badwaterOpacity(0.005)).toBeLessThan(badwaterOpacity(0.05));
     // matte: a twelfth of clean water's glints and glint, and a trace of the sky
     expect(BADWATER.glints).toBeLessThan(0.1);
     expect(BADWATER.spec).toBeLessThan(0.1);
@@ -231,6 +236,14 @@ describe("badwater's colour", () => {
     // option A: darker with depth
     for (let d = 0.3; d < 5; d += 0.1) expect(lightness(badwaterBody(d))).toBeLessThan(lightness(badwaterBody(d - 0.1)) + 1e-9);
     expect(lightness(badwaterBody(4))).toBeLessThan(lightness(WATER.bad) - 15);
+    // as the game's (D496): its luminance follows the G ramp of Timberborn 1.1.2.8's _DepthGradients
+    // texture (PhysicalWaterURP multiplies the contaminated colour by it), within 5% at these depths,
+    // relative to a quarter level deep, but for the share with no depth in it (its reflection and emission,
+    // BADWATER.floor); lighter on a film
+    const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const y = (c: readonly number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    for (const [d, game] of [[0.5, 0.61], [1, 0.426], [2, 0.185], [3, 0.081]] as const) expect(Math.abs(y(badwaterBody(d)) / y(WATER.bad) / (BADWATER.floor + (1 - BADWATER.floor) * game) - 1), `${d} deep`).toBeLessThan(0.05);
+    expect(lightness(badwaterBody(0.05))).toBeGreaterThan(lightness(WATER.bad));
   });
 
   it("turns from clean water's by the game's tint, as the game mixes its colours, darker at every step", () => {
@@ -327,7 +340,7 @@ describe("badwater's colour", () => {
       expect(shader).toContain("float bad = waterTint(cont);");
       expect(shader).toContain("vec3 murky = badwaterBody(depth);");
       expect(shader).toContain("vec3 c = waterBlend(body, murky, cont);");
-      expect(shader).toContain("alpha = mix(alpha, badwaterAlpha(depth, shore, waterGrazing(V, N)), bad);");
+      expect(shader).toContain("alpha = mix(alpha, badwaterAlpha(depth, shore), bad);");
       // the old streaks of mixed water are gone; the bubbles grow denser with the share
       expect(shader).not.toContain("mixed");
       expect(shader).toContain("smoothstep(0.93 - 0.1 * bad, 1.03 - 0.1 * bad");
