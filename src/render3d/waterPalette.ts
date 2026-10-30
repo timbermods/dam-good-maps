@@ -103,6 +103,12 @@ export const WATER_SURFACE = {
    *  Low quality, which shows no ground. The water's side at the map's edge. */
   seeThrough: 0.175,
   seeThroughTo: 5,
+  /** The ground that shows behind the water, as the game shows it (`waterGroundBehind`): overlaid with the
+   *  water's own colour by `behindTint` (`_TransparencyBlending`), then desaturated to `behindSaturation`
+   *  (`_TransparencySaturation`, Rec. 709 luma), so it reads as the water's, darker and greyer than the
+   *  ground in the open. */
+  behindTint: 0.8,
+  behindSaturation: 0.3,
   edge: 0.85,
   /** At a bank the water is this share of its depth, deepening over this far from it (tiles). */
   bank: 0.3,
@@ -421,6 +427,18 @@ export function waterSeeThrough(depth: number): number {
   return 1 - S.seeThrough * Math.max(0, 1 - depth / S.seeThroughTo);
 }
 
+/** The ground (a display colour) as it shows behind water of this colour, as the game's High quality draws
+ *  it (`WATER_SURFACE.behindTint`, `behindSaturation`): in linear light, overlaid with the water's colour,
+ *  then desaturated. */
+export function waterGroundBehind(ground: Rgb, water: Rgb): Rgb {
+  const S = WATER_SURFACE;
+  const g = toLinear(ground);
+  const w = toLinear(water);
+  const m = g.map((v, i) => v + ((v <= 0.5 ? 2 * v * w[i] : 1 - 2 * (1 - v) * (1 - w[i])) - v) * S.behindTint);
+  const y = luma(m as unknown as Rgb);
+  return toDisplay(m.map((v) => y + (v - y) * S.behindSaturation) as unknown as Rgb);
+}
+
 /** Badwater's opacity `depth` levels deep, `fromBank` tiles from a bank: the water's, a crimson tint on a
  *  sliver (`WATER_FILM`). */
 export function badwaterOpacity(depth: number, fromBank = 1): number {
@@ -534,6 +552,14 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   /** How edge-on the water is seen (1 at a grazing angle), as #38 has it. */
   float waterGrazing(vec3 V, vec3 N) {
     return 1.0 - smoothstep(0.18, 0.5, clamp(V.y + (N.x + N.z) * 0.05, 0.0, 1.0));
+  }
+  /** The ground as it shows behind water of this colour, as the game's (waterPalette.ts waterGroundBehind). */
+  vec3 waterGroundBehind(vec3 ground, vec3 water) {
+    vec3 gl = waterToLinear(ground);
+    vec3 wl = waterToLinear(water);
+    vec3 m = mix(gl, mix(2.0 * gl * wl, 1.0 - 2.0 * (1.0 - gl) * (1.0 - wl), step(0.5, gl)), ${f(WATER_SURFACE.behindTint)});
+    float y = dot(m, vec3(0.2126, 0.7152, 0.0722));
+    return waterToDisplay(max(mix(vec3(y), m, ${f(WATER_SURFACE.behindSaturation)}), 0.0));
   }
   /** Badwater's opacity (waterPalette.ts badwaterOpacity): the water's, a crimson tint on a sliver. */
   float badwaterAlpha(float depth, float shore) {
