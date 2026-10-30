@@ -7,6 +7,7 @@
 
 // (ported from investigation/vegetation/models.ts)
 import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour, type Rgb } from '../dying';
+import { plantScale, RANDOMIZER } from '../plantSize';
 import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 
 export const species = ['Pine', 'Birch', 'Oak', 'BlueberryBush'] as const;
@@ -44,9 +45,13 @@ export function noise(x: number, y: number, salt = 0): number {
   return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
 }
 export function growthScale(progress: number): number { return 0.18 + 0.82 * Math.max(0, Math.min(1, progress)); }
-export function placement(x: number, y: number, growth = 1) {
+/** Where a plant stands and its size: `scale` its width and `scaleY` its height, the game's randomizer's factors for its
+ *  species (plantSize.ts) at its growth. */
+export function placement(x: number, y: number, growth = 1, species = '') {
+  const g = RANDOMIZER[species] ? plantScale(species, noise(x, y, 3), noise(x, y, 10)) : null;
+  const own = 0.92 + 0.12 * noise(x, y, 3);
   return { dx: (noise(x, y, 1) - 0.5) * 0.14, dz: (noise(x, y, 2) - 0.5) * 0.14,
-    scale: growthScale(growth) * (0.92 + 0.12 * noise(x, y, 3)), turn: noise(x, y, 4) * Math.PI * 2,
+    scale: growthScale(growth) * (g ? g.width : own), scaleY: growthScale(growth) * (g ? g.height : own), turn: noise(x, y, 4) * Math.PI * 2,
     variant: Math.floor(noise(x, y, 5) * 3), hue: (noise(x, y, 6) - 0.5) * 0.075,
     phase: noise(x, y, 7) * Math.PI * 2, rate: 0.65 + 0.5 * noise(x, y, 8) };
 }
@@ -116,32 +121,35 @@ function tier(m: Shape, radius: number, base: number, height: number, seed: numb
 export interface SpeciesDefinition { height: number; wind: number; build: (m: Shape, variant: number, detail: Detail, dead: boolean) => void }
 /** Add species here; batching, icons, ghosts and palette binding use this same registry. */
 export const registry: Record<Species, SpeciesDefinition> = {
-  Pine: { height: 1.72, wind: 0.038, build(m, v, detail, dead) {
-    const near = detail === 'near', h = 1.58 + v * 0.07;
-    m.branch([0, 0, 0], [0.015, dead ? h * 0.94 : h, 0], near ? 0.055 : 0.045, dead ? 'dead' : 'bark', near ? 6 : 3, 0.35);
+  // the game's grown pine (plantSize.ts): a bare trunk to about 1.25, then broad whorls of needles to 3.0, 1.2 across
+  Pine: { height: 3.0, wind: 0.038, build(m, v, detail, dead) {
+    const near = detail === 'near', h = 2.92 + v * 0.06;
+    m.branch([0, 0, 0], [0.015, dead ? h * 0.94 : h, 0], near ? 0.1 : 0.08, dead ? 'dead' : 'bark', near ? 6 : 3, 0.35);
     if (dead) {
       for (let i = 0; i < (near ? 7 : 3); i++) {
-        const a = i * 2.4 + v, y = 0.45 + i * 0.14;
-        m.branch([0, y, 0], [Math.cos(a) * 0.23, y + 0.10, Math.sin(a) * 0.23], 0.023, 'dead', 3, 0.1);
+        const a = i * 2.4 + v, y = 0.7 + i * 0.26;
+        m.branch([0, y, 0], [Math.cos(a) * 0.32, y + 0.14, Math.sin(a) * 0.32], 0.03, 'dead', 3, 0.1);
       }
     } else {
-      for (let i = 0; i < (near ? 4 : 3); i++) {
-        const f = i / (near ? 4 : 3);
-        tier(m, 0.365 * (1 - f * 0.64), 0.28 + f * (h - 0.65), 0.66 - f * 0.13, v * 4 + i, near);
+      const n = near ? 4 : 3;
+      for (let i = 0; i < n; i++) {
+        const f = i / n;
+        tier(m, 0.62 * (1 - f * 0.42), 1.2 + f * (h - 1.85), 0.8 - f * 0.12, v * 4 + i, near);
       }
-      if (near) tier(m, 0.095, h - 0.37, 0.37, v + 19, true);
+      if (near) tier(m, 0.18, h - 0.5, 0.5, v + 19, true);
     }
   } },
-  Birch: { height: 1.51, wind: 0.049, build(m, v, detail, dead) {
+  // the game's grown birch: a white trunk forking low into two stems, a round crown from 0.95 to 1.92, 1.0 across
+  Birch: { height: 1.92, wind: 0.049, build(m, v, detail, dead) {
     const near = detail === 'near', bark = dead ? 'birchDead' : 'birchBark';
-    m.branch([0, 0, 0], [0.015, 0.94, 0], 0.046, bark, near ? 6 : 3, 0.5);
+    m.branch([0, 0, 0], [0.015, 0.94, 0], 0.07, bark, near ? 6 : 3, 0.5);
     if (!near && !dead) {
-      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'birch', side === 1 ? 1.04 : 0.92, [side * 0.12, side === 1 ? 1.08 : 0.99, 0], [0.21, 0.42, 0.16]);
+      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'birch', side === 1 ? 1.04 : 0.92, [side * 0.2, side === 1 ? 1.5 : 1.38, 0], [0.34, 0.52, 0.3]);
       return;
     }
     for (const side of [-1, 1]) {
-      m.branch([0, 0.60, 0], [side * 0.16, 1.24 + (side + 1) * 0.06, 0.02 * v], 0.027, bark, near ? 5 : 3, 0.1);
-      if (near) m.branch([side * 0.08, 0.94, 0], [side * 0.27, 1.10, -0.12], 0.016, bark, 3, 0.05);
+      m.branch([0, 0.45, 0], [side * 0.22, 1.32 + (side + 1) * 0.08, 0.03 * v], 0.042, bark, near ? 5 : 3, 0.15);
+      if (near) m.branch([side * 0.1, 1.0, 0], [side * 0.36, 1.28, -0.16], 0.022, bark, 3, 0.05);
     }
     if (near) for (let i = 0; i < 5; i++) {
       // Small asymmetric marks on the white bark, geometry rather than a texture.
@@ -151,55 +159,56 @@ export const registry: Record<Species, SpeciesDefinition> = {
       const n = near ? 7 : 2;
       for (let i = 0; i < n; i++) {
         const side = i % 2 ? 1 : -1, a = i * 2.4 + v * 0.7;
-        m.crown([side * (near ? 0.11 : 0.12), 0.85 + (near ? i * 0.072 : i * 0.13), near ? Math.sin(a) * 0.10 : 0],
-          [near ? 0.17 : 0.20, near ? 0.25 : 0.40, near ? 0.13 : 0.16], 'birch', 0.97 + i / n * 0.15, a);
+        m.crown([side * (near ? 0.18 : 0.2), 1.12 + (near ? i * 0.1 : i * 0.2), near ? Math.sin(a) * 0.16 : 0],
+          [near ? 0.3 : 0.34, near ? 0.32 : 0.52, near ? 0.24 : 0.3], 'birch', 0.97 + i / n * 0.15, a);
       }
     }
   } },
-  Oak: { height: 1.46, wind: 0.027, build(m, v, detail, dead) {
+  // the game's grown oak: a thick trunk to about 1.2, under one broad, flat-layered crown from 1.13 to 2.26, 1.7 across
+  Oak: { height: 2.26, wind: 0.027, build(m, v, detail, dead) {
     const near = detail === 'near', bark = dead ? 'dead' : 'bark';
-    m.branch([0, 0, 0], [0.02, dead ? 0.87 : 0.68, 0], dead ? 0.10 : 0.125, bark, near ? 7 : 3, dead ? 0.52 : 0.62);
+    m.branch([0, 0, 0], [0.02, dead ? 1.45 : 1.25, 0], dead ? 0.17 : 0.2, bark, near ? 7 : 3, dead ? 0.52 : 0.62);
     if (!near && !dead) {
-      // The same broad main crown and low shoulder as today's signature oak; 36 total triangles.
-      m.crown([0, 0.95, 0], [0.49, 0.39, 0.46], 'oak', 1.02);
-      m.add(new TetrahedronGeometry(1), 'oak', 1.06, [0.18, 0.81, 0.10], [0.30, 0.28, 0.29]);
+      m.crown([0, 1.66, 0], [0.98, 0.56, 0.94], 'oak', 1.02);
+      m.add(new TetrahedronGeometry(1), 'oak', 1.06, [0.32, 1.4, 0.18], [0.5, 0.46, 0.48]);
       return;
     }
     const n = near ? 5 : 3;
     for (let i = 0; i < n; i++) {
       const a = i / n * Math.PI * 2 + v * 0.4;
-      m.branch([0, 0.42 + i * 0.03, 0], [Math.cos(a) * 0.27, 0.99 + i * 0.055, Math.sin(a) * 0.27], near ? 0.04 : 0.025, bark, near ? 5 : 3, 0.18);
-      if (dead && near) m.branch([Math.cos(a) * 0.20, 0.87 + i * 0.055, Math.sin(a) * 0.20], [Math.cos(a + 0.4) * 0.34, 1.12 + i * 0.055, Math.sin(a + 0.4) * 0.34], 0.021, bark, 3, 0.05);
+      m.branch([0, 0.75 + i * 0.04, 0], [Math.cos(a) * 0.48, 1.5 + i * 0.07, Math.sin(a) * 0.48], near ? 0.06 : 0.04, bark, near ? 5 : 3, 0.18);
+      if (dead && near) m.branch([Math.cos(a) * 0.36, 1.35 + i * 0.07, Math.sin(a) * 0.36], [Math.cos(a + 0.4) * 0.6, 1.72 + i * 0.07, Math.sin(a + 0.4) * 0.6], 0.032, bark, 3, 0.05);
     }
     if (!dead) {
-      // One continuous, squat round crown does the reading; small shoulders only soften its edge.
+      // One broad, flat crown does the reading, as the game's layered one; small shoulders soften its edge.
       const width = [1, 0.94, 1.04][v];
-      m.add(new IcosahedronGeometry(1, 1), 'oak', 1.02, [0, 0.97 + (v === 1 ? 0.04 : 0), 0], [0.47 * width, 0.36, 0.44 * width], v * 0.25);
-      m.crown([0.21, 0.82, 0.12], [0.29, 0.27, 0.28], 'oak', 1.06, v * 0.3);
-      m.crown([-0.22, 0.89, 0.08], [0.25, 0.25, 0.27], 'oak', 0.97, v * 0.7);
-      m.crown([0.02, 0.94, -0.22], [0.27, 0.25, 0.24], 'oak', 1.04, v);
+      m.add(new IcosahedronGeometry(1, 1), 'oak', 1.02, [0, 1.66 + (v === 1 ? 0.05 : 0), 0], [0.84 * width, 0.5, 0.8 * width], v * 0.25);
+      m.crown([0.4, 1.42, 0.22], [0.46, 0.38, 0.44], 'oak', 1.06, v * 0.3);
+      m.crown([-0.42, 1.52, 0.14], [0.42, 0.38, 0.44], 'oak', 0.97, v * 0.7);
+      m.crown([0.04, 2.0, -0.1], [0.46, 0.3, 0.42], 'oak', 1.04, v);
     }
   } },
-  BlueberryBush: { height: 0.47, wind: 0.008, build(m, v, detail, dead) {
+  // the game's grown blueberry bush: a low, wide mound, 1.1 across and 0.4 tall
+  BlueberryBush: { height: 0.4, wind: 0.008, build(m, v, detail, dead) {
     const near = detail === 'near';
     // (dead: the game's keeps its leaves, gone brown, without its berries: its crowns alone, in their dead slot)
     const leaves = dead ? 'bushDead' : 'bush';
     if (!near) {
-      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), leaves, side === 1 ? 1 : 0.96, [side * 0.12, 0.19, 0], [0.23, 0.18, 0.24]);
+      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), leaves, side === 1 ? 1 : 0.96, [side * 0.24, 0.15, 0], [0.4, 0.22, 0.44]);
       if (dead) return;
-      for (let i = 0; i < 3; i++) m.add(new OctahedronGeometry(0.079), 'berry', 1.04, [Math.cos(i * 2.4 + v) * 0.145, 0.35, Math.sin(i * 2.4 + v) * 0.145]);
-      m.add(new OctahedronGeometry(0.079), 'berry', 1, [0.24, 0.21, 0.12]);
+      for (let i = 0; i < 3; i++) m.add(new OctahedronGeometry(0.085), 'berry', 1.04, [Math.cos(i * 2.4 + v) * 0.26, 0.33, Math.sin(i * 2.4 + v) * 0.26]);
+      m.add(new OctahedronGeometry(0.085), 'berry', 1, [0.46, 0.18, 0.2]);
       return;
     }
     for (let i = 0; i < 5; i++) {
       const a = i * 2.4 + v;
-      m.crown([Math.cos(a) * 0.13, 0.18 + (i % 2) * 0.04, Math.sin(a) * 0.13], [0.205, 0.155, 0.195], leaves, 0.96 + (i % 3) * 0.06, a);
+      m.crown([Math.cos(a) * 0.26, 0.14 + (i % 2) * 0.04, Math.sin(a) * 0.26], [0.36, 0.2, 0.34], leaves, 0.96 + (i % 3) * 0.06, a);
     }
     if (dead) return;
     // Big blue fruit sits outside the leaves: a top cluster and a ring readable from any side.
-    for (let i = 0; i < 3; i++) { const a = i * 2.4 + v; m.add(new OctahedronGeometry(0.075), 'berry', 1.04, [Math.cos(a) * 0.145, 0.355, Math.sin(a) * 0.145]); }
-    m.add(new OctahedronGeometry(0.068), 'berry', 1.10, [0.015, 0.375, 0.015]);
-    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + v * 0.7; m.add(new OctahedronGeometry(0.073), 'berry', 1, [Math.cos(a) * 0.275, 0.23, Math.sin(a) * 0.275]); }
+    for (let i = 0; i < 3; i++) { const a = i * 2.4 + v; m.add(new OctahedronGeometry(0.08), 'berry', 1.04, [Math.cos(a) * 0.26, 0.3, Math.sin(a) * 0.26]); }
+    m.add(new OctahedronGeometry(0.072), 'berry', 1.10, [0.02, 0.33, 0.02]);
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + v * 0.7; m.add(new OctahedronGeometry(0.078), 'berry', 1, [Math.cos(a) * 0.5, 0.2, Math.sin(a) * 0.5]); }
   } },
 };
 
