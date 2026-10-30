@@ -9,7 +9,9 @@ import { decodeSpecFragment } from "../../src/core/spec/codec";
 import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { surfaceWater, waterFromDepth } from "../../src/render3d/model";
 
-const r = generate(decodeSpecFragment("s=4242&t=riverValley&z=128&d=n")!.spec);
+// (seed 4241: a map whose water is flat columns with the settle's outflows, as the file stores them; River Valley
+// seed 4242's land has stood its water in stacked columns, which have none, since D502's landmark forms)
+const r = generate(decodeSpecFragment("s=4241&t=riverValley&z=128&d=n")!.spec);
 const { W, H } = r.built;
 const S = r.built.settle;
 const view = waterFromDepth(r.built.heights, S.depth, S.contamination);
@@ -19,7 +21,7 @@ const sw0 = surfaceWater(W, H, view);
 const c0 = surfaceCurrent(W, H, sw0);
 const cur = Float32Array.from({ length: view.count * 2 }, (_, n) => c0[view.tile[n >> 1] * 2 + (n & 1)]);
 
-describe("the current of River Valley seed 4242 at 128 squared", () => {
+describe("the current of River Valley seed 4241 at 128 squared", () => {
   it("the river moves: a quarter of the wet columns are quicker than 0.5, none beyond 10", () => {
     let fast = 0;
     for (let k = 0; k < view.count; k++) {
