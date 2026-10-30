@@ -1136,7 +1136,9 @@ the replay matches the map exactly at its end; the page never freezes while reco
 **A companion mod for one-click play** (Kyler, 2026-09-25; D163; built in `mods/companion/`, its README is the
 player text). A small mod: the main menu gets "Play latest Dam Good Maps map" (the newest `dgm-*` map in the Maps folder,
 with its name), one click starts it with the last faction and difficulty, and in game a key reloads the map after the app
-saves it again. Its logic is tested headless; its in-game check (`mods/companion/TESTING.md`) is still to run.
+saves it again. Its logic is tested headless, and it has played in the game (2026-10-30, `mods/companion/TESTING.md`): the
+entry, the click and the reload onto a `-2` re-save work, and the entry now looks like the menu's own; `named` and `fresh`
+are re-run with the last fixes, then it is published (mod.io and the Steam Workshop need Kyler's account).
 
 **After M12: a Dam Good Maps MCP server** (Kyler, 2026-09-25; D141). M12's tools (generate, steer
 with intentions, the forces, edit, validate, export) packaged as an MCP server, so Claude

@@ -149,6 +149,8 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
   }
   const snap = takeSnapshot();
   let viewIsGames = true;
+  // (false only when every launch is known to have never started the game)
+  let gameStarted = true;
   log(`recorded the game's settings, logs and saves (${Object.keys(snap.saves).length} save files)`);
   let restored = false;
   const doRestore = () => {
@@ -186,9 +188,9 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
       const mods = companion ? probeAndCompanionOnly() : probeOnly();
       log(`mods for the run: on ${mods.on.join(', ')}; off ${mods.off.length}`);
     }
-    let launches: { otherMods?: string[] }[];
+    let launches: { otherMods?: string[]; outcome: string }[];
     if (companion) {
-      const done = await runCompanion(plan.runId, companion, { startSeconds: 120, launchSeconds: 420, log });
+      const done = await runCompanion(plan.runId, companion, { startSeconds: 120, launchSeconds: 900, log });
       writeFileSync(join(dir, 'companion-launches.json'), JSON.stringify(done, null, 1));
       launches = done;
     } else {
@@ -199,6 +201,7 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
       writeFileSync(join(dir, 'launches.json'), JSON.stringify(ran, null, 1));
       launches = ran;
     }
+    gameStarted = launches.some((l) => l.outcome !== 'no-start');
     const others = [...new Set(launches.flatMap((l) => l.otherMods ?? []))];
     if (keepMods) log(`run with the installed mods: ${others.join(', ') || `none besides DGM Probe${companion ? ' and the companion' : ''}`}`);
     else if (others.length) {
@@ -216,9 +219,11 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
     for (let i = 0; i < 30 && isGameRunning(); i++) await new Promise((r) => setTimeout(r, 1000));
     // Unity counts every launch in the settings. If this process does not see the count move, it is not
     // looking at the game's settings (a sandbox with its own copy of the registry, as on 2026-09-25): its
-    // mod switches never reached the game, and neither its restore nor its checks can be trusted.
+    // mod switches never reached the game, and neither its restore nor its checks can be trusted. When the game
+    // never started, the count cannot move: the restore then puts back the runner's own changes (on 2026-10-30
+    // a launch that never started left the mod switches changed, because this check stopped the restore).
     const count = prefsValueName('unity.player_session_count');
-    viewIsGames = keepMods || registryValues()[count] !== snap.registryValues[count];
+    viewIsGames = keepMods || !gameStarted || registryValues()[count] !== snap.registryValues[count];
     if (!viewIsGames) {
       writeFileSync(join(dir, 'settings-view-not-the-games.txt'), `The launch count ${count} did not change in this process's view of the registry.\n`);
       log("STOP: this process does not see the game's settings (the launch count did not move), so its mod switches did not reach the game and its restore cannot reach your settings.");
