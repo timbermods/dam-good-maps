@@ -19,7 +19,7 @@ import { CASTER_LAYER, SHADOW_SIZE, SunShadows } from "./shadows";
 
 /** Warm sunlight (#65): the sun ×(1.48, 1.30, 1.10) and the sky ×0.97 of Standard's; with only the
  *  soft shadows on, #38's balance. */
-const SUNLIGHT = { sun: [1.48, 1.3, 1.1], sky: 0.97 } as const;
+export const SUNLIGHT = { sun: [1.48, 1.3, 1.1], sky: 0.97 } as const;
 const SHADOW_BALANCE = { sun: [1.12, 1.06, 0.97], sky: 0.83 } as const;
 
 /** What the High look needs of the renderer. */
