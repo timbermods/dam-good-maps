@@ -75,7 +75,9 @@ export interface BadwaterAsk {
    *  water, seldom the main (#265's sheets: 0 of 20 Delta maps). Its lower reach (`joinReach`, D498). */
   join?: Uint8Array | null;
   /** Water no ditch ends in, nor in water that drains into it (D498): the theme's main water above
-   *  its lower reach, which colonies draw on and whose standing water takes in the whole of any badwater. */
+   *  its lower reach, which colonies draw on and whose standing water takes in the whole of any badwater;
+   *  all of it where the badwater drains on its own, and on Lake Basin and Islands all their standing water
+   *  with the water joined to it. */
   spare?: Uint8Array | null;
 }
 
