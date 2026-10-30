@@ -28,25 +28,32 @@ describe("a force leaves the locked land, and the ground above the layer showing
   // for 0.8.8's map, the Canyon and Highlands height round, D148, its start at (17, 16) on the top bench,
   // facing the other way (its ground (15–17, 14–16)): the area from (17, 10), 29 wide, and the Erupt 9
   // tiles from the start, which carries it to (39, 19); nearer, or in an area 23 wide, the cone leaves
-  // no level ground inside the area and the start has nowhere to go)
-  it("Highlands 64², seed 3: an Erupt (Power 69) at (26, 16) inside a 29 × 12 area from (17, 10) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
+  // no level ground inside the area and the start has nowhere to go; for 0.10.7's map, D502, D148, the start at (9, 20)
+  // facing the other way again: the area from (9, 14), 29 wide, and the Erupt at (14, 23), 5 tiles east and 3 south of
+  // the start, which carries it to (18, 20); the Erupt 3 to 7 tiles east of it on its row leaves the start where it
+  // stands, and the start's ground is then not broken)
+  it("Highlands 64², seed 3: an Erupt (Power 69) at (14, 23) inside a 29 × 12 area from (9, 14) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const area: [number, number, number][] = [];
-    for (let y = 10; y < 22; y++) area.push([y, 17, 45]);
+    for (let y = 14; y < 26; y++) area.push([y, 9, 37]);
     const inside = areaDepth(area, W, W);
     const before = open().built;
     const start = before.entities.find((e) => e.template === "StartingLocation")!;
     // (the start stands across the area's west edge, partly inside it)
-    expect([start.x, start.y]).toEqual([17, 16]);
+    expect([start.x, start.y]).toEqual([9, 20]);
     const locked = before.entities.filter((e) => e.template !== "StartingLocation" && !inside[e.y * W + e.x]);
     expect(locked.length).toBeGreaterThan(100);
 
-    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [26, 16], cut: null, natural: true, area }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [14, 23], cut: null, natural: true, area }).errors).toEqual([]);
     for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
     expect(ed.forceStop().kept).toBe(true);
     const after = open().built;
+    // (the start was carried, to level ground inside the area)
+    const carried = after.entities.find((e) => e.template === "StartingLocation")!;
+    expect([carried.x, carried.y]).not.toEqual([start.x, start.y]);
+    expect(inside[carried.y * W + carried.x]).toBeTruthy();
 
     // the land outside the area is as it was
     for (let i = 0; i < W * W; i++) if (!inside[i]) expect(after.heights[i], `(${i % W}, ${Math.floor(i / W)})`).toBe(before.heights[i]);
