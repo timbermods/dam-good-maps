@@ -1642,7 +1642,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // (waterPalette.ts's waterBody and waterOpacity say the same, for the tests)
         float d = waterSeenDepth(depth, shore);
         // clean water: clear in the shallows (the bed shows through a light teal tint), a deep teal
-        // body a level or so deep, navy where deep; badwater murky and nearly opaque, the game's
+        // body a level or so deep, navy where deep; badwater murky, the game's
         // crimson, lighter on a film and darker deeper by the game's _DepthGradients ramp (D496)
         float absorb = waterAbsorb(d);
         vec3 murky = badwaterBody(depth);
@@ -1650,7 +1650,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
         // WATER_FILM.to deep (waterPalette.ts WATER_FILM; our anti-aliasing): its own depth, not the bank's
         float film = waterFilm(depth);
-        float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(absorb), film);
+        float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);
         float foam = 0.0;
         float glints = 0.0;
         float pale = 0.0;
@@ -1704,8 +1704,12 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             // contaminated pattern, not the ripples' parallel bands
             trough = dark * near * bad;
           #endif
-          // badwater's opacity (nearly opaque but at its shallow edges), by how bad it is
-          alpha = mix(alpha, badwaterAlpha(depth, shore, waterGrazing(V, N)), bad);
+          // badwater's opacity (the water's, as the game's: WATER_SURFACE.seeThrough), by how bad it is
+          alpha = mix(alpha, badwaterAlpha(depth, shore), bad);
+          #if LITE
+            // (the light look follows the game's Low quality: no ground behind the water)
+            alpha = max(alpha, film);
+          #endif
           // foam where the water meets the shore, and along the brink where a fall pours over (the
           // whitewater where a fall lands is the fall's own splash: fallMaterial)
           float lip = 1.0;
@@ -1768,7 +1772,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         c += sunColor * (spec * mix(WATER_SPEC, BADWATER_SPEC, bad) + glints * ${f(WS.glints)} * mix(1.0, BADWATER_GLINTS, bad) * (0.3 + 0.7 * lit));
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
-        if (n.y > 0.5) alpha = mix(alpha, 0.95, max(foam, glints * 0.6));
+        // (foam and glints only ever make the water more opaque: deep water and the light look stay opaque)
+        if (n.y > 0.5) alpha = max(alpha, mix(alpha, 0.95, max(foam, glints * 0.6)));
 ${hook(h, "water")}        #ifdef CAVES
           // under a roof, the light of the air it stands in, as objects and falls there take it: all the sky at a
           // mouth, a cave's least deep in, and the sun the open air's at a mouth, fading to the cave's own going in
@@ -1848,9 +1853,9 @@ ${hook(h, "water")}        #ifdef CAVES
             }
           vec3 uc = mix(WATER_FOAM, BADWATER_FOAM, step(0.01, badSrc));
           c = mix(c, uc, up * 0.55);
-          alpha = mix(alpha, 0.85, up * 0.5);
+          alpha = max(alpha, mix(alpha, 0.85, up * 0.5));
           c = mix(c, WATER_SOURCE_GLOW, hl * 0.45);
-          alpha = mix(alpha, 0.9, hl * 0.4);
+          alpha = max(alpha, mix(alpha, 0.9, hl * 0.4));
         }
         #endif
         // a highlighted source reads under its own water too (D249; Kyler, 2026-10-03: a settled source
@@ -1869,7 +1874,7 @@ ${hook(h, "water")}        #ifdef CAVES
               lit = max(lit, 1.0 - smoothstep(reach - 0.06, reach + 0.04, max(q.x, q.y)));
             }
           c = mix(c, WATER_SOURCE_LIT, lit * 0.9);
-          alpha = mix(alpha, 0.97, lit * 0.9);
+          alpha = max(alpha, mix(alpha, 0.97, lit * 0.9));
         }
         gl_FragColor = vec4(finish(c, vWorld), alpha);
       }
