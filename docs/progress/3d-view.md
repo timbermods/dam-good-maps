@@ -570,12 +570,17 @@ Standard's shadow before a cave (item 8).
 - **The sun turns with the camera** (`fix/game-sun`, after #734): the game's (`Sun.UpdateRotation`: the camera's
   turn + `RotateWithCameraOffset` 40, `SunXAngle` 45). `light.ts` `sunOfYaw`; the baked shadow's sweep takes any sun
   (the row or column it lies nearer, interpolated along the other: the same bytes as before on the old diagonal);
-  the renderer bakes it again in the bake worker once a turn settles (120 ms, or at once when it has run 25° ahead:
-  50–60 ms in the worker at 256², nothing on the page's thread but the upload), and High's depth map and the light
-  take it together. Under roofs the light volume holds air alone and the shader marches the sun through the voxels
-  (`sunMarch`), so a roof needs no relight when the sun turns. The map's picture bakes the sun for its camera at once
-  (`sunNow`), on the map as it is (no quarter turns). Standard's march shows the voxels' steps in a shadow's edge on a
-  roofed wall (High's depth map is smooth).
+  the baked shadows roll: a bake for the sun as it stands starts as soon as the last has landed, in a worker of
+  their own (`sunBaker`, never behind the water's fields), so while the camera turns they trail it by one bake
+  (at 90° a second on Canyon 256², a median 24° behind, from 40° with the old settle-then-bake); Standard's and the
+  light look's light go with them. High's light and depth map take the camera's sun every frame it turns half a
+  degree, as the game's sun turns each frame (`LateUpdate`): 0.7° behind, for one depth pass a frame (the turn's
+  95th-percentile frame 14.7 ms against 9). Under roofs the light volume holds air alone and the shader marches the
+  sun through it (`sunMarch`, mirrored in `caveLight.ts` for the tests), so a roof needs no relight when the sun
+  turns: the volume read filtered (air 1, rock 0, blended between cells' middles) and the least kept, so a shadow's
+  edge is soft over a voxel rather than stepped, from a hashed first step, in enough steps to climb the whole volume
+  (`SUN_MARCH_STEPS`). The map's picture bakes the sun for its camera at once (`sunNow`), on the map as it is (no
+  quarter turns). The forces' worn stones take the scene's sun.
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
 
