@@ -36,6 +36,9 @@ const FROM_EDGE = 4;
 const SCAN = 8;
 /** How much farther from the pointer than the nearest clear spot a spot may be and still be taken, to keep the note's place. */
 const NEAR = 24;
+/** The cover (px², the note's area under a control or off the view) below which a wish counts as clear: half a square
+ *  pixel, nothing anyone sees, so the rounding of a pointer between pixels (about 1e-11) never moves the note. */
+const CLEAR = 0.5;
 
 const area = (a: Box, b: Box) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
 
@@ -84,7 +87,7 @@ export function placeNote(
   let apartWish = Infinity;
   for (const [i, p] of wishes.entries()) {
     const cost = costAt(p);
-    if (cost === 0) {
+    if (cost < CLEAR) {
       if (i === 0) return p;
       const a = held ? Math.hypot(p.x - held.x, p.y - held.y) : 0;
       if (a < apartWish) [clearWish, apartWish] = [p, a];
