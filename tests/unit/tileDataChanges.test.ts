@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { contaminationEdges, contaminationEdgesRect, redoContaminationEdges } from "../../src/render3d/materials";
-import { skyVisibility, tileData, tileDataChanges, tileDataRect } from "../../src/render3d/light";
+import { tileData, tileDataChanges, tileDataRect } from "../../src/render3d/light";
 import { surfaceWater, type SoilView, type SurfaceWater, type WaterView } from "../../src/render3d/model";
 
 let seed = 11;
@@ -70,10 +70,9 @@ describe("tile data kept up to the water and soil by the tiles that changed", ()
       seed = s;
       const { W, H, heights } = generate(makeSpec({ seed: s, theme, size: { x: size, y: size } })).built;
       const N = W * H;
-      const sky = skyVisibility(W, H, heights);
       let soil: SoilView | null = null;
       let sw: SurfaceWater | null = null;
-      const tiles = tileData(W, H, heights, sky, soil, sw);
+      const tiles = tileData(W, H, heights, soil, sw);
       const edges = contaminationEdges(W, H, tiles);
       let touched = 0;
       for (let step = 0; step < 40; step++) {
@@ -82,13 +81,13 @@ describe("tile data kept up to the water and soil by the tiles that changed", ()
         if (kind === 0 || kind === 3) sw = rnd() < 0.1 ? null : surfaceWater(W, H, randomWater(heights, rnd() * 0.5));
         if (kind === 1 || kind === 3) soil = rnd() < 0.1 ? null : randomSoil(N, rnd() * 0.6);
         if (kind === 2 && soil) soil = nudged(soil, 1 + Math.floor(rnd() * 40));
-        const c = tileDataChanges(W, H, heights, sky, soil, sw, tiles);
+        const c = tileDataChanges(W, H, heights, soil, sw, tiles);
         redoContaminationEdges(W, H, tiles, edges, c.edgeRows);
         touched += c.rows.reduce((a, r) => a + r.x1 - r.x0 + 1, 0);
-        expect(Buffer.from(tiles).equals(Buffer.from(tileData(W, H, heights, sky, soil, sw))), `tile data, step ${step}`).toBe(true);
+        expect(Buffer.from(tiles).equals(Buffer.from(tileData(W, H, heights, soil, sw))), `tile data, step ${step}`).toBe(true);
         expect(Buffer.from(edges).equals(Buffer.from(contaminationEdges(W, H, tiles))), `outline, step ${step}`).toBe(true);
         // nothing changed since: nothing to rewrite
-        expect(tileDataChanges(W, H, heights, sky, soil, sw, tiles)).toEqual({ rows: [], edgeRows: [] });
+        expect(tileDataChanges(W, H, heights, soil, sw, tiles)).toEqual({ rows: [], edgeRows: [] });
       }
       expect(touched).toBeGreaterThan(0);
     });
@@ -99,10 +98,9 @@ describe("tile data kept up to the water and soil by the tiles that changed", ()
     // finds those tiles current, so the outline round the box is redone with them, `edgesAround`: one more tile all round)
     seed = 23;
     const { W, H, heights } = generate(makeSpec({ seed: 23, theme: "riverValley", size: { x: 96, y: 96 } })).built;
-    const sky = skyVisibility(W, H, heights);
     let soil: SoilView | null = randomSoil(W * H, 0.4);
     let sw: SurfaceWater | null = surfaceWater(W, H, randomWater(heights, 0.2));
-    const tiles = tileData(W, H, heights, sky, soil, sw);
+    const tiles = tileData(W, H, heights, soil, sw);
     const edges = contaminationEdges(W, H, tiles);
     for (let step = 0; step < 40; step++) {
       sw = surfaceWater(W, H, randomWater(heights, rnd() * 0.5));
@@ -113,12 +111,12 @@ describe("tile data kept up to the water and soil by the tiles that changed", ()
         const y0 = Math.floor(rnd() * H) - 1;
         const x1 = x0 + 1 + Math.floor(rnd() * 17);
         const y1 = y0 + 1 + Math.floor(rnd() * 17);
-        tileDataRect(W, H, heights, sky, soil, sw, tiles, x0, y0, x1, y1);
+        tileDataRect(W, H, heights, soil, sw, tiles, x0, y0, x1, y1);
         contaminationEdgesRect(W, H, tiles, edges, x0 - 1, y0 - 1, x1 + 1, y1 + 1);
       }
-      const c = tileDataChanges(W, H, heights, sky, soil, sw, tiles);
+      const c = tileDataChanges(W, H, heights, soil, sw, tiles);
       redoContaminationEdges(W, H, tiles, edges, c.edgeRows);
-      expect(Buffer.from(tiles).equals(Buffer.from(tileData(W, H, heights, sky, soil, sw))), `tile data, step ${step}`).toBe(true);
+      expect(Buffer.from(tiles).equals(Buffer.from(tileData(W, H, heights, soil, sw))), `tile data, step ${step}`).toBe(true);
       expect(Buffer.from(edges).equals(Buffer.from(contaminationEdges(W, H, tiles))), `outline, step ${step}`).toBe(true);
     }
   });
@@ -126,16 +124,15 @@ describe("tile data kept up to the water and soil by the tiles that changed", ()
   it("a few tiles' water: at most their rows are named, and the bytes still equal a whole bake", () => {
     seed = 5;
     const { W, H, heights } = generate(makeSpec({ seed: 5, theme: "riverValley", size: { x: 96, y: 96 } })).built;
-    const sky = skyVisibility(W, H, heights);
     const base = randomWater(heights, 0.2);
     const sw0 = surfaceWater(W, H, base);
-    const tiles = tileData(W, H, heights, sky, null, sw0);
+    const tiles = tileData(W, H, heights, null, sw0);
     // the same water with the depth of three tiles changed
     const depth = base.depth.slice();
     for (const k of [7, 100, 300]) depth[k] += 0.5;
     const sw1 = surfaceWater(W, H, { ...base, depth });
-    const c = tileDataChanges(W, H, heights, sky, null, sw1, tiles);
+    const c = tileDataChanges(W, H, heights, null, sw1, tiles);
     expect(c.rows.length).toBeLessThanOrEqual(3);
-    expect(Buffer.from(tiles).equals(Buffer.from(tileData(W, H, heights, sky, null, sw1)))).toBe(true);
+    expect(Buffer.from(tiles).equals(Buffer.from(tileData(W, H, heights, null, sw1)))).toBe(true);
   });
 });

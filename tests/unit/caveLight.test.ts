@@ -7,8 +7,8 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { CAVE_FLOOR_BYTE, CAVE_SKY_FLOOR, CaveLight, caveSample, LIGHT_LEVELS, openSky } from "../../src/render3d/caveLight";
-import { castersChangedRects, decodeTop, objectCasters, SHADOW_RES, shadowMap, shadowPairRect, shadowRock, skyVisibility } from "../../src/render3d/light";
+import { CaveLight, caveSample, LIGHT_LEVELS } from "../../src/render3d/caveLight";
+import { castersChangedRects, decodeTop, objectCasters, SHADOW_RES, shadowMap, shadowPairRect, shadowRock } from "../../src/render3d/light";
 import { DEAD, type EntityView } from "../../src/render3d/model";
 import { LIGHT } from "../../src/render3d/palette";
 import { chunkCount, meshChunk, type MeshData, type TerrainSource } from "../../src/render3d/mesh";
@@ -38,10 +38,9 @@ describe("light under roofs on maps without terrain above terrain", () => {
   it.each(maps)("%s %i² seed %i: no volume, and every face keeps the baked light", (theme, size, seed) => {
     const { W, H, heights } = generate(makeSpec({ seed, theme, size: { x: size, y: size } })).built;
     const src: TerrainSource = { W, H, heights, columns: new Map() };
-    const sky = skyVisibility(W, H, heights);
-    expect(CaveLight.build(src, sky), "the renderer builds no volume").toBeNull();
+    expect(CaveLight.build(src), "the renderer builds no volume").toBeNull();
     // and even with one built, the shader's rule hands every point of every face to the baked light
-    const v = CaveLight.build(src, sky, true)!;
+    const v = CaveLight.build(src, true)!;
     const { nx, ny } = chunkCount(W, H);
     let points = 0;
     for (let cy = 0; cy < ny; cy++)
@@ -82,39 +81,28 @@ describe("light under roofs on terrains with roofs", () => {
     if (x >= 8 && x <= 9 && y >= 6 && y <= 7 && z >= 6 && z <= 7) return false;
     return true;
   });
-  const sky = skyVisibility(W, H, src.heights);
-  const v = CaveLight.build(src, sky)!;
+  const v = CaveLight.build(src)!;
 
   it("builds a volume, 2 bytes a cell", () => {
     expect(v).not.toBeNull();
     expect(v.data.length).toBe(W * H * LIGHT_LEVELS * 2);
   });
 
-  it("the tunnel's floor, walls and ceiling take their own light, dimmer deeper in", () => {
+  it("the tunnel's floor, walls and ceiling take the volume all the way in, the same air (D497: no falloff)", () => {
     const floor = (x: number) => caveSample(v, [x + 0.5, 2, -10.5], [0, 1, 0]);
     const ceiling = (x: number) => caveSample(v, [x + 0.5, 5, -10.5], [0, -1, 0]);
     const wall = (x: number) => caveSample(v, [x + 0.5, 3.5, -9], [0, 0, -1]); // the tunnel's south wall, facing north
-    for (const f of [floor, ceiling, wall]) {
-      const mouth = f(19)!;
-      const deep = f(11)!;
-      expect(mouth).not.toBeNull();
-      expect(deep).not.toBeNull();
-      expect(deep[0]).toBeLessThan(mouth[0]);
-    }
-    // the deepest floor dims to the volume's least, which the shader holds too
-    expect(floor(10)![0]).toBeLessThanOrEqual(CAVE_SKY_FLOOR + 1e-9);
+    for (const f of [floor, ceiling, wall])
+      for (let x = 10; x <= 19; x++) {
+        const s = f(x);
+        expect(s, `x ${x}`).not.toBeNull();
+        expect(s![0]).toBe(1);
+      }
   });
 
-  it("a cave's mouth is never brighter than the open ground before it", () => {
-    // the tunnel opens east onto the ground at x = 20: its floor just inside, and at the roof line
-    const open = openSky(sky[10 * W + 20]) / 255;
-    for (const x of [19.7, 19.95]) expect(caveSample(v, [x, 2, -10.5], [0, 1, 0])![0]).toBeLessThanOrEqual(open);
-    expect(caveSample(v, [18.5, 2, -10.5], [0, 1, 0])![0]).toBeLessThan(open);
-  });
-
-  it("a sealed chamber takes the least sky and no sun", () => {
+  it("a sealed chamber is air like any other, with no sun", () => {
     const s = caveSample(v, [8.5, 6, -6.5], [0, 1, 0])!;
-    expect(s[0]).toBeLessThanOrEqual(CAVE_FLOOR_BYTE / 255 + 1e-9);
+    expect(s[0]).toBe(1);
     expect(s[1]).toBe(0);
   });
 
@@ -136,15 +124,14 @@ describe("relighting after an edit", () => {
     const H = 24;
     const hill = (x: number, y: number) => x >= 10 && x < 16 && y >= 8 && y < 12;
     let src = terrain(W, H, (x, y, z) => z < 2 || (hill(x, y) && z < 6 && !(x === 10 && y === 11 && z < 4)));
-    const sky = () => skyVisibility(W, H, src.heights);
-    const v = CaveLight.build(src, sky())!;
+    const v = CaveLight.build(src)!;
     const floor = () => caveSample(v, [10.5, 2, -11.5], [0, 1, 0])!;
     expect(v.highest).toBe(6);
     expect(floor()[1], "the mouth's floor in sun").toBeGreaterThan(0.5);
     const heights = src.heights.slice();
     heights[13 * W + 8] = 20;
     src = { ...src, heights };
-    v.relight(src, sky(), { x0: 8, y0: 13, x1: 8, y1: 13 });
+    v.relight(src, { x0: 8, y0: 13, x1: 8, y1: 13 });
     expect(v.highest).toBe(20);
     expect(floor()[1], "in the new rock's shadow").toBeLessThan(0.5);
   });
@@ -160,7 +147,7 @@ describe("relighting after an edit", () => {
     const solid = (x: number, y: number, z: number, g: Uint8Array) => z < g[y * W + x] && (z < 1 || !holes.some((h) => (x - h.x) ** 2 + (y - h.y) ** 2 + (z - h.z) ** 2 * 3 < h.r * h.r));
     let src = terrain(W, H, (x, y, z) => solid(x, y, z, ground));
     expect(src.columns.size).toBeGreaterThan(50);
-    const v = CaveLight.build(src, skyVisibility(W, H, src.heights))!;
+    const v = CaveLight.build(src)!;
     for (let k = 0; k < 60; k++) {
       // a dab on plain tiles (the brushes leave the columns alone): raise or lower a small square
       const x0 = Math.floor(rnd() * (W - 4));
@@ -175,11 +162,45 @@ describe("relighting after an edit", () => {
           heights[i] = Math.max(1, Math.min(LAYERS - 1, heights[i] + (rnd() < 0.5 ? -3 : 4)));
         }
       src = { ...src, heights };
-      const sky = skyVisibility(W, H, heights);
-      const box = v.relight(src, sky, rect);
+      const box = v.relight(src, rect);
       expect(box.x1 - box.x0).toBeLessThan(W);
-      const full = CaveLight.build(src, sky)!;
+      const full = CaveLight.build(src)!;
       expect(Buffer.from(v.data).equals(Buffer.from(full.data)), `edit ${k}`).toBe(true);
+    }
+  });
+});
+
+describe("relighting after the roofed spaces change shape", () => {
+  it("a block dug or filled in a cave, a mouth opened or closed: the same bytes as building the volume again", () => {
+    let seed = 11;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+    const W = 48;
+    const H = 40;
+    // tunnels joined into one network under a plateau 10 high, opening onto a valley at x 20…23
+    const solid = new Set<number>();
+    const key = (x: number, y: number, z: number) => (z * H + y) * W + x;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        for (let z = 0; z < 10; z++) {
+          const valley = x >= 20 && x <= 23 && z >= 2;
+          const tunnel = (y % 8 < 2 || x % 12 < 2) && z >= 2 && z <= 4;
+          if (!valley && !tunnel) solid.add(key(x, y, z));
+        }
+    const make = () => terrain(W, H, (x, y, z) => z < 10 && solid.has(key(x, y, z)));
+    let src = make();
+    const v = CaveLight.build(src)!;
+    for (let k = 0; k < 40; k++) {
+      // a block in the tunnels' levels toggled, anywhere (a dig, a fill, a mouth opened or closed, a new roof)
+      const x = Math.floor(rnd() * W);
+      const y = Math.floor(rnd() * H);
+      const z = 2 + Math.floor(rnd() * 3);
+      const c = key(x, y, z);
+      if (solid.has(c)) solid.delete(c);
+      else solid.add(c);
+      src = make();
+      v.relight(src, { x0: x, y0: y, x1: x, y1: y });
+      const full = CaveLight.build(src)!;
+      expect(Buffer.from(v.data).equals(Buffer.from(full.data)), `edit ${k} at ${x},${y},${z}`).toBe(true);
     }
   });
 });

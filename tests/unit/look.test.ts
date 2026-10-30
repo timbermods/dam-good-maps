@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { storedSoil } from "../../src/core/format/world";
 import { describeTile, entitiesByTile } from "../../src/editor/features";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
-import { decodeTop, encodeTop, litFraction, objectCasters, shadowMap, shadowTops, SHADOW_RES, skyVisibility, soilNibbles, tileData, waterByte } from "../../src/render3d/light";
+import { decodeTop, encodeTop, litFraction, objectCasters, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
 import { contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
@@ -143,15 +143,6 @@ describe("the baked light", () => {
   const H = 20;
   const flat = new Uint8Array(W * H).fill(3);
 
-  it("sees the whole sky on flat ground and less at the bottom of a pit", () => {
-    expect([...new Set(skyVisibility(W, H, flat))]).toEqual([255]);
-    const pit = flat.slice();
-    pit[10 * W + 10] = 0;
-    const sky = skyVisibility(W, H, pit);
-    expect(sky[10 * W + 10]).toBeLessThan(160);
-    expect(sky[10 * W + 14]).toBe(255);
-  });
-
   it("casts a pillar's shadow away from the sun (south-east), softly, and never toward it", () => {
     const h = flat.slice();
     h[10 * W + 10] = 8; // a pillar 5 levels above the ground
@@ -191,8 +182,6 @@ describe("the baked light", () => {
     const b = shadowMap(W, H, h, objectCasters(W, H, e));
     expect(Buffer.from(a).equals(Buffer.from(b))).toBe(true);
     expect(a.length).toBe(W * SHADOW_RES * H * SHADOW_RES * 4);
-    const sky1 = skyVisibility(W, H, h);
-    expect(Buffer.from(sky1).equals(Buffer.from(skyVisibility(W, H, h)))).toBe(true);
     // the tree shades the ground to its south-east
     const noTree = shadowMap(W, H, h, null);
     expect(Buffer.from(a).equals(Buffer.from(noTree))).toBe(false);
@@ -205,17 +194,17 @@ describe("the baked light", () => {
     expect(litFraction(5, 4.5, 5.5)).toBeCloseTo(0.5);
   });
 
-  it("packs the tile data: height, soil, sky, and water over the top", () => {
+  it("packs the tile data: height, soil and the water over the top (B unused since D497)", () => {
     const heights = new Uint8Array([2, 2, 5, 1]);
     const soil = soilView([0, 3, 12, 0], [0, 0, 0, 0.4]);
     const sw = surfaceWater(4, 1, waterFromDepth(heights, [0, 0, 0, 0.8], [0, 0, 0, 0]));
-    const d = tileData(4, 1, heights, new Uint8Array([255, 200, 100, 50]), soil, sw);
+    const d = tileData(4, 1, heights, soil, sw);
     expect([d[0], d[4], d[8], d[12]]).toEqual([2, 2, 5, 1]);
     expect(d[1]).toBe(0); // dry, clean
     expect(d[5] >> 4).toBe(3); // moist
     expect(d[9] >> 4).toBe(12);
     expect(d[13] & 15).toBeGreaterThan(0); // contaminated
-    expect([d[2], d[6], d[10], d[14]]).toEqual([255, 200, 100, 50]);
+    expect([d[2], d[6], d[10], d[14]]).toEqual([0, 0, 0, 0]);
     expect([d[3], d[7], d[11]]).toEqual([0, 0, 0]);
     expect(d[15]).toBe(waterByte(sw, heights, 3));
     expect(d[15]).toBeGreaterThan(40);

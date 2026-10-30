@@ -1692,7 +1692,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     (`materials.ts` `ShaderHooks`), and only in High's own materials, which the meshes swap to while the look is
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
     hover, ground mode and an eruption's heat). A 2048² sun depth map (redrawn only when the terrain or objects
-    change, at most ten times a second while a brush paints), ambient occlusion made in a small worker
+    change, at most ten times a second while a brush paints), the water's fields made in a small worker
     (`bake.worker.ts`, one for the page, shared by every view), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.
