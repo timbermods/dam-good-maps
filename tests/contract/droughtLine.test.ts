@@ -74,11 +74,13 @@ const wetSet = (w: WaterView, v: Seen) => {
 describe("the drought line (D133, D269)", () => {
   // a lake that keeps water and a pool that dries; a river that leaves pools; the start's own water drying out
   // while other water stays; a river that dries out entirely
+  // (River Valley 15 for 1 since generator 0.10.6, D498, D148: seed 1's river still dries out, but a badwater pool beside it
+  // holds 66 tiles of water through the drought, so its line is not empty; seed 15 has no water left on the last day)
   for (const [theme, seed] of [
     ["lakeBasin", 4],
     ["riverValley", 3],
     ["delta", 1],
-    ["riverValley", 1],
+    ["riverValley", 15],
   ] as const)
     it(`matches the Drought view's last day tile for tile (${theme} ${seed})`, async () => {
       const { day0, last, news, seen } = await drought(seed, theme);
@@ -124,7 +126,7 @@ describe("the drought line (D133, D269)", () => {
           "a pool dries out",
         ).toBe(true);
       }
-      if (theme === "riverValley" && seed === 1) expect(L.line.count, "the river dries out").toBe(0);
+      if (theme === "riverValley" && seed === 15) expect(L.line.count, "the river dries out").toBe(0);
     });
 
   it("marks the start's water: the bodies the start's pumps draw from, and their water on the last day", async () => {
