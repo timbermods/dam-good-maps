@@ -9,7 +9,7 @@ import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
 import { sceneUniforms, skyMaterial, terrainMaterial } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
-import { DESERT, GROUND, legendEntries, objectLegend, SKY, type Rgb } from "../../src/render3d/palette";
+import { BLEND, DESERT, GROUND, legendEntries, objectLegend, SKY, type Rgb } from "../../src/render3d/palette";
 
 type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): { array: ArrayLike<number>; count: number } } };
 
@@ -39,6 +39,18 @@ describe("grass by moisture, as the game's terrain draws it (D135 as amended 202
     const shader = terrainMaterial(u, 0, 1).fragmentShader;
     expect(shader).toContain("float grassOf(float m)");
     expect(shader).toContain("vec4(grassOf(s0.x), s0.x,");
+  });
+
+  it("blends tile to tile as the game's terrain does: four taps a fifth of a tile round the point, its noise and softness", () => {
+    // TerrainMaterialMapSpec: BlendingMargin 0.2, BlendingNoiseMultiplier 0.96, BlendingSoftness 5.8
+    expect(BLEND).toEqual({ margin: 0.2, noise: 0.96, softness: 5.8 });
+    const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
+    const shader = terrainMaterial(u, 0, 1).fragmentShader;
+    expect(shader).toContain("float desertBlend(vec2 g, vec4 desert)");
+    expect(shader).toContain("vec2 q = g + 0.2 *");
+    expect(shader).toMatch(/\+ 0\.96 \* \(n - 0\.5\) - 0\.5\) \* 5\.8 \+ 0\.5/);
+    // a top and a cave's floor both take it (the game's desert map is 3D)
+    expect(shader.match(/= 1\.0 - desertBlend\(g,/g)?.length).toBe(2);
   });
 });
 
