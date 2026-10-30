@@ -24,8 +24,9 @@ describe("Clear sources and the water (item 15)", () => {
     // (seed 1 on M9b's maps, D148: seed 3 has no dry flat spot 9 tiles from any water;
     // seed 8 for 0.8.1's maps, D148: badwater ditches now follow the land and seeds 1 to 7 have no such spot;
     // seed 9 since the start's badwater distance became a rule, Kyler, 2026-10-05, and seed 8's map changed;
-    // seed 11 since River Valley's main river stays clean, #265, and seed 9 has no such spot)
-    await runGenerate(makeSpec({ seed: 11, theme: "riverValley", size: { x: W, y: W } }));
+    // seed 11 since River Valley's main river stays clean, #265, and seed 9 has no such spot;
+    // seed 1 for 0.10.7's maps, D502, D148: seed 11 has none now, and seed 1's is at (53, 24), level 7)
+    await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const b = open().built;
