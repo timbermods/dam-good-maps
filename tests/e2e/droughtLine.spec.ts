@@ -222,7 +222,7 @@ test("a Compare flip while the Drought view is held, to a version whose land cov
       return m.surface.depth[b * m.W + a];
     }, [x, y]);
   // a version with the lake tile raised to land, kept; the open map taken back to the lake, and compared with it
-  await page.evaluate(([a, b]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[b, a, a]], level: 15 } } as never, "Raise a tile"), [x, y]);
+  await page.evaluate(([a, b]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[b, a - 1, a + 1]], level: 15 } } as never, "Raise a tile"), [x, y]);
   await page.evaluate(() => window.dgmEditor!.idle());
   const history = page.getByRole("button", { name: "History", exact: true }).first();
   await history.click();
