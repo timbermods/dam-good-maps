@@ -36,7 +36,7 @@ export interface ShelfSlice {
 
 export function useShelf(ed: Ed): ShelfSlice {
   const {
-    api, info, mirror, renderer, ready, shelf, shelfOptions, turn, setPainted, setIcons, mounted, feel, firstDone,
+    api, info, mirror, renderer, ready, shelf, shelfOptions, setPainted, setIcons, mounted, feel, firstDone,
     setFit, setShapeNote, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef, needs, run, brushToolRef, pickShelf,
     ctx, startHereRef, startHere, pointerAt, notePointer, sourceAtTile, placeSource, startWorkerApi
   } = ed;
@@ -99,13 +99,14 @@ export function useShelf(ed: Ed): ShelfSlice {
   /** The level the pointer aims at on its tile (D491): a cave's floor, the ground under a ledge; undefined on the
    *  tile's top. */
   const levelOf = (hit: TileHit | null) => aimOf(hit, info.W, mirror.current.heights, ed.columnsRef.current);
+  // (not on a turn: R and the window's Turn hover the turned object again at once, and its new check would be cleared)
   useEffect(() => {
     // (a start check still in flight is for what was held before: its answer shows nothing)
     ++shelfStartJob.current;
     fitWant.current = null;
     shownFit.current = null;
     setFit(null);
-  }, [shelf, shelfOptions, turn, info.version]);
+  }, [shelf, shelfOptions, info.version]);
 
   // ------------------------------------------------------------------------------ the shelf
 

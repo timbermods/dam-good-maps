@@ -41,6 +41,20 @@ test("the start: its footprint and what is nearby while it is dragged; on the sh
   const fit = (await page.waitForFunction(() => window.dgmEditor!.fit(), null, { timeout: 10_000 }).then((h) => h.jsonValue()))!;
   expect(fit.problem).toBeNull();
   const door = fit.tiles.at(-1)!;
+  // R with the pointer resting: the footprint turns where it is and its check comes back, never gone until the
+  // pointer moves (four turns: back where it was)
+  let was = door;
+  for (let k = 0; k < 4; k++) {
+    await page.keyboard.press("r");
+    await expect
+      .poll(async () => {
+        const f = await page.evaluate(() => window.dgmEditor!.fit());
+        return f && f.tiles.at(-1) !== was && f.status !== "pending" ? f.status : null;
+      }, { timeout: 10_000, message: `turn ${k + 1}: the footprint and its check` })
+      .toMatch(/^(ok|warn|blocked)$/);
+    was = (await page.evaluate(() => window.dgmEditor!.fit()))!.tiles.at(-1)!;
+  }
+  expect(was).toBe(door);
   await page.mouse.click(p0.x, p0.y);
   await idle(page);
   let i = await info(page);
