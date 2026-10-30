@@ -676,10 +676,13 @@ describe("the Block tool's steps undo, replay and save exactly", () => {
 });
 
 describe("the Block tool on a generated map", () => {
-  const spec = makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } });
+  // (seed 6 since generator 0.10.6, D498, D148: the test builds up 5 tiles east of the spot, so the level, dry ground
+  // must run from 3 tiles west of it to 5 east, at level 7 or more, away from every object; seed 3's River Valley holds
+  // none any more, nor does any other of seeds 1–40 but seed 6, whose spot is at (46, 15), level 14)
+  const spec = makeSpec({ seed: 6, theme: "riverValley", size: { x: 64, y: 64 } });
   const r = generate(spec);
 
-  /** A dry tile with dry neighbours, no object near, on high enough ground. */
+  /** A dry tile with dry neighbours, no object near, on high enough ground, level out to the build-up 5 tiles east. */
   function spot(s: MapSession): { x: number; y: number } {
     const b = s.built;
     const Wg = b.W;
@@ -688,7 +691,7 @@ describe("the Block tool on a generated map", () => {
     for (let y = 8; y < b.H - 8; y++)
       for (let x = 8; x < Wg - 8; x++) {
         let ok = true;
-        for (let dy = -3; dy <= 3 && ok; dy++) for (let dx = -3; dx <= 3 && ok; dx++) {
+        for (let dy = -3; dy <= 3 && ok; dy++) for (let dx = -3; dx <= 5 && ok; dx++) {
           const i = (y + dy) * Wg + x + dx;
           if (b.water[i] > 0 || b.channel[i] || near.has(i) || b.heights[i] < 7 || b.heights[i] !== b.heights[y * Wg + x]) ok = false;
         }

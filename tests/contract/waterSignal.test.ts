@@ -110,9 +110,10 @@ describe("the water-changed signal for the hover readout (D347, D387 (1))", () =
   });
 
   it("every path that changes the water fires on a tile it changed", async () => {
-    // (seed 2 on M9b's maps, D148: seed 3's River Valley has no dry, flat spot 9 tiles clear of the
-    // water for the source the test places)
-    await runGenerate(makeSpec({ seed: 2, theme: "riverValley", size: { x: W, y: W } }));
+    // (seed 9 on 0.10.6's maps, D148: it has no caves, which settle on the stacked engine, far slower with a source, and has a
+    // dry, flat spot 9 tiles clear of the water for the source the test places and a deep clean tile; seeds 1 and 2 now have
+    // caves, seeds 3 and 4 no such spot)
+    await runGenerate(makeSpec({ seed: 9, theme: "riverValley", size: { x: W, y: W } }));
     ed.setAutoWater(false);
     const m = new Mirror();
     m.open(ed.refine().view);
