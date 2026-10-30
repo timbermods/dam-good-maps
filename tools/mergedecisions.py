@@ -17,8 +17,9 @@ lines the other side never touched. Git sees two edits near each other; this too
 For each file it takes theirs' text (dev's) and puts in the decisions that ours (the branch) changed or added.
 It refuses, exit 1 and one line per file, writing nothing, when:
   - both sides changed the same decision (differently);
-  - a decision was added or removed where the tool cannot place it (it must follow a decision that is still there), or a
-    decision moved between places;
+  - a decision was added or removed where the tool cannot place it (it must follow a decision that is still there), or
+    a decision moved between places or reordered on one side while the other changed it too;
+  - the two sides have more than one merge base (a criss-cross merge);
   - the lines that are not decisions (headings, prose, tables) were changed differently by the two sides
     (changed by one side only, that side's are kept);
   - any conflicted file is outside docs/decisions/ (or was added or deleted on one side).
@@ -29,6 +30,7 @@ Python 3, standard library only. Tested by tests/unit/mergedecisions.test.ts.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -70,23 +72,29 @@ def rev(ref: str) -> str:
 
 
 def merge_base(a: str, b: str) -> str:
-    out = git("merge-base", a, b, check=False).decode().strip()
-    if not out:
-        raise SystemExit("no merge base for %s and %s" % (a, b))
-    return out.split()[0]
+    bases = git("merge-base", "--all", a, b, check=False).decode().split()
+    if not bases:
+        raise Refuse("the two sides have no merge base")
+    if len(bases) > 1:
+        raise Refuse("the two sides have %d merge bases (a criss-cross merge), which a decision-wise merge cannot place" % len(bases))
+    return bases[0]
 
 
 def conflicted_files(base: str, ours: str, theirs: str) -> list[str]:
     """The paths git's own merge of ours and theirs leaves conflicted (no files are touched)."""
     r = subprocess.run(
-        ["git", "merge-tree", "--write-tree", "--name-only", "--no-messages", "--merge-base=" + base, ours, theirs],
+        ["git", "merge-tree", "--write-tree", "--name-only", "-z", "--no-messages", "--merge-base=" + base, ours, theirs],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
     if r.returncode not in (0, 1):
         raise SystemExit("git merge-tree: " + r.stderr.decode("utf-8", "replace").strip())
-    lines = r.stdout.decode("utf-8").split("\n")
-    return [l for l in lines[1:] if l]
+    names: list[str] = []
+    for name in r.stdout.decode("utf-8").split("\0")[1:]:  # the tree id, then the paths, then an empty field
+        if not name:
+            break
+        names.append(name)
+    return names
 
 
 # ---------------------------------------------------------------------------------------------------- the merge
@@ -120,6 +128,13 @@ class Version:
         self.others = [l for l, k in zip(self.lines, self.keys) if k is None]
 
 
+def moved(ref: Version, ver: Version) -> set[int]:
+    """The decisions both have that sit among other lines, or in an order, that the other does not."""
+    common = [k for k in ver.order if k in ref.by_key]
+    rank = {k: i for i, k in enumerate(k for k in ref.order if k in ver.by_key)}
+    return {k for i, k in enumerate(common) if ver.pos[k] != ref.pos[k] or rank[k] != i}
+
+
 def merge_text(base: str, ours: str, theirs: str) -> str:
     """Theirs' file, with ours' changed and added decisions put in. Raises Refuse."""
     B, O, T = Version("base", base), Version("ours", ours), Version("theirs", theirs)
@@ -132,14 +147,15 @@ def merge_text(base: str, ours: str, theirs: str) -> str:
     else:
         raise Refuse("lines that are not decisions (headings, prose, tables) were changed differently by both sides")
 
-    # No decision moved between places, or reordered, on the side whose layout is not used.
+    # No decision moved between places, or reordered, on the side whose layout is not used; and none moved on the
+    # side whose layout is used (where the layouts can be compared) that the other side changed.
     ref = B if other.others == B.others else skeleton
-    common = [k for k in other.order if k in ref.by_key]
-    if [k for k in ref.order if k in other.by_key] != common:
-        raise Refuse("decisions were reordered")
-    for k in common:
-        if other.pos[k] != ref.pos[k]:
-            raise Refuse("D%d moved to another place" % k)
+    for k in sorted(moved(ref, other)):
+        raise Refuse("D%d moved to another place" % k)
+    if skeleton.others == B.others:
+        for k in sorted(moved(B, skeleton)):
+            if other.by_key.get(k) != B.by_key.get(k):
+                raise Refuse("D%d was moved on one side and changed on the other" % k)
 
     # Each decision: the same on both sides, or changed (added, amended, removed) by one side only.
     result: dict[int, str | None] = {}
@@ -280,6 +296,17 @@ def run_check(commit: str) -> int:
     return 0
 
 
+def run_texts() -> int:
+    out = []
+    for c in json.load(sys.stdin):
+        try:
+            out.append({"text": merge_text(c["base"], c["ours"], c["theirs"])})
+        except Refuse as e:
+            out.append({"refused": str(e)})
+    json.dump(out, sys.stdout)
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Resolve docs/decisions/*.md merge conflicts decision by decision.")
     ap.add_argument("--base")
@@ -287,12 +314,19 @@ def main() -> int:
     ap.add_argument("--theirs", help="dev")
     ap.add_argument("--write", action="store_true", help="with explicit refs: write the resolved files into the working tree")
     ap.add_argument("--check", metavar="MERGE_COMMIT")
+    ap.add_argument("--texts", action="store_true", help="for the tests: read [{base, ours, theirs}] as JSON on stdin, print [{text}|{refused}]")
     a = ap.parse_args()
+    if a.texts:
+        return run_texts()
     os.chdir(git("rev-parse", "--show-toplevel").decode().strip())
     if a.check:
         if a.base or a.ours or a.theirs or a.write:
             ap.error("--check takes only a merge commit")
-        return run_check(a.check)
+        try:
+            return run_check(a.check)
+        except Refuse as e:
+            print("%s: %s" % (a.check, e))
+            return 1
     given = [x for x in (a.base, a.ours, a.theirs) if x]
     if given and len(given) != 3:
         ap.error("--base, --ours and --theirs go together")
@@ -303,7 +337,12 @@ def main() -> int:
     if not git_ok("rev-parse", "-q", "--verify", "MERGE_HEAD"):
         print("not in a merge: run `git merge origin/dev` first, or pass --base, --ours and --theirs")
         return 2
-    return run_merge(merge_base("HEAD", "MERGE_HEAD"), rev("HEAD"), rev("MERGE_HEAD"), True, True)
+    try:
+        base = merge_base("HEAD", "MERGE_HEAD")
+    except Refuse as e:
+        print(e)
+        return 1
+    return run_merge(base, rev("HEAD"), rev("MERGE_HEAD"), True, True)
 
 
 if __name__ == "__main__":

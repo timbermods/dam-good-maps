@@ -75,8 +75,9 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   tools/mergedecisions.py", and the merge loop runs `python tools/mergedecisions.py --check <merge commit>` on it before
   it counts the earlier approval: it passes only if the merge changed nothing outside `docs/decisions/` and each file
   equals what the tool makes of the merge's parents. Anything the tool refuses (both sides changed one decision, a
-  decision it cannot place, headings or prose changed differently), any conflict in code, and any merge `--check` fails
-  still needs a fresh review line. The loop starts using the check once the PR that added the tool is on dev.
+  decision it cannot place, headings or prose changed differently, a criss-cross merge), any conflict outside
+  `docs/decisions/`, and any merge `--check` fails still needs a fresh review line.
+  The loop starts using the check once the PR that added the tool is on dev.
 - **Labels on your own PRs:** `hold` (never merge). `needs-kyler` holds only design questions and the things only Kyler's
   account can do (listed with their exact clicks in one issue, a workaround meanwhile). `approved` is no longer needed.
 - **Releases:** at the end of each step in the order, from dev to main once the full run and the nightly are green; the
