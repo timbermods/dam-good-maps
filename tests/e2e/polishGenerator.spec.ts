@@ -3,7 +3,7 @@
 // settings' numbers have their units; the shelf's pictures never go blank between maps.
 
 import { expect, test } from "@playwright/test";
-import { openDrawer, openEditor, waitForEditor } from "./open";
+import { holdRandomSeed, openDrawer, openEditor, waitForEditor } from "./open";
 
 const FILE = "tests/fixtures/m9b-river-valley-96-34.timber";
 
@@ -78,6 +78,9 @@ test("every number of the settings has its unit", async ({ page }) => {
 
 test("the shelf's pictures never go blank when a new map is made", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
+  // (Surprise me's seed held: one drawn at random once took more attempts than the wait allows on CI, dev's run
+  // 40988922084, D341)
+  await holdRandomSeed(page);
   await openEditor(page, "s=7&z=96&d=n&t=riverValley");
   const shelf = page.getByRole("navigation", { name: "Place" });
   // (every picture drawn on the first map)
