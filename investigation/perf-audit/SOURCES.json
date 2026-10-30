@@ -1,0 +1,178 @@
+{
+  "captured": "2026-10-01T20:00:05.652Z",
+  "dev": "1416a9b22fb4a529cc4dd65552cd53891b0b7272",
+  "m9b": "e292cefe30469033a922650f0455f87297c051d5",
+  "sources": [
+    {
+      "name": "water-speed",
+      "sha": "ed6fc4fbe48ac2ba083522a06ac32fab848425d7",
+      "path": "investigation/water-speed/REPORT.md",
+      "sha256": "642d88d8c00248223a652498b0b314cee4e4ae13a0a7addfea0529ea0bb317f2",
+      "url": "https://github.com/timbermods/dam-good-maps/blob/ed6fc4fbe48ac2ba083522a06ac32fab848425d7/investigation/water-speed/REPORT.md"
+    },
+    {
+      "name": "parallel-water",
+      "sha": "68d68313c06391aba0c05c2c1ac62b98646a2af3",
+      "path": "investigation/parallel-water/REPORT.md",
+      "sha256": "a6028108b0512ed46fbd0ffc69cc34451320cfa09a9cbfd79c21705d596d20f4",
+      "url": "https://github.com/timbermods/dam-good-maps/blob/68d68313c06391aba0c05c2c1ac62b98646a2af3/investigation/parallel-water/REPORT.md"
+    },
+    {
+      "name": "startup",
+      "sha": "112af1e9693e92cc18cc1cf9cbffc6bc08628039",
+      "path": "investigation/startup/REPORT.md",
+      "sha256": "02451b0fa3a662f29680524d8cfb865a708770803899a3eca8078cc6eb1810e6",
+      "url": "https://github.com/timbermods/dam-good-maps/blob/112af1e9693e92cc18cc1cf9cbffc6bc08628039/investigation/startup/REPORT.md"
+    },
+    {
+      "name": "scaling",
+      "sha": "fb7d78011ad0cffe7921a86320a99e7bf4328733",
+      "path": "investigation/scaling/REPORT.md",
+      "sha256": "092f8ee847bf1385e5d680ce654ede3a3505cf0ddcd2dc749077c3f1c0c9b7be",
+      "url": "https://github.com/timbermods/dam-good-maps/blob/fb7d78011ad0cffe7921a86320a99e7bf4328733/investigation/scaling/REPORT.md"
+    },
+    {
+      "name": "performance",
+      "sha": "7ab82ac1a47af2d7caa1aae1090747ac6489dd6e",
+      "path": "investigation/performance/REPORT.md",
+      "sha256": "391049ea9262c26472073b7de281ca24a37330a40a48f2e879916a813ec8c6e7",
+      "url": "https://github.com/timbermods/dam-good-maps/blob/7ab82ac1a47af2d7caa1aae1090747ac6489dd6e/investigation/performance/REPORT.md"
+    },
+    {
+      "name": "performance",
+      "sha": "7ab82ac1a47af2d7caa1aae1090747ac6489dd6e",
+      "path": "investigation/performance/ROUND2.md",
+      "sha256": "f343f370ad237312ea5ad0f6596eae027b1563281c01d473662eae1e7faf6dad",
+      "url": "https://github.com/timbermods/dam-good-maps/blob/7ab82ac1a47af2d7caa1aae1090747ac6489dd6e/investigation/performance/ROUND2.md"
+    },
+    {
+      "name": "performance",
+      "sha": "7ab82ac1a47af2d7caa1aae1090747ac6489dd6e",
+      "path": "investigation/performance/brush-findings.md",
+      "sha256": "1f7b6a83801058373cb579e190a4b6e8f78bd4c50f12998eef8da3a652a71e99",
+      "url": "https://github.com/timbermods/dam-good-maps/blob/7ab82ac1a47af2d7caa1aae1090747ac6489dd6e/investigation/performance/brush-findings.md"
+    },
+    {
+      "name": "determinism",
+      "sha": "f306fd495c713e19278c507686102b2c603cdef8",
+      "path": "investigation/determinism/REPORT.md",
+      "sha256": "a60658280d705f0c7afc355e5f9250c1cde582b92f9e8bc3f3b50b5db38de9f8",
+      "url": "https://github.com/timbermods/dam-good-maps/blob/f306fd495c713e19278c507686102b2c603cdef8/investigation/determinism/REPORT.md"
+    },
+    {
+      "name": "determinism",
+      "sha": "f306fd495c713e19278c507686102b2c603cdef8",
+      "path": "investigation/determinism/AUDIT.md",
+      "sha256": "d40d4e845d17c881b90c761a414fcd01f13d12925b70943c044b0ec068e2763b",
+      "url": "https://github.com/timbermods/dam-good-maps/blob/f306fd495c713e19278c507686102b2c603cdef8/investigation/determinism/AUDIT.md"
+    },
+    {
+      "name": "rust-water",
+      "checkout": "e292cefe30469033a922650f0455f87297c051d5",
+      "reportAvailable": false,
+      "status": "Local in-progress material; not a published final speed/identity matrix."
+    },
+    {
+      "name": "rust-water",
+      "path": "investigation/rust-water/INTEGRATION.md",
+      "sha256": "0cd9d647d64f0b51b2fda3bf7acda27eaf8691a70a16cc9b2bf4fc85f39aea09",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "rust-water",
+      "path": "investigation/rust-water/PROTOCOL.md",
+      "sha256": "e57c7d35e8e49a3a590c7f6171152c21ae2c44aca3071c43875fe8b27f402d9d",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "rust-water",
+      "path": "investigation/rust-water/water.ts",
+      "sha256": "ca15271fbce97441ee8562b7d7845be4d2dd1db4d7e85dfb4f7272f801edf6da",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "rust-water",
+      "path": "investigation/rust-water/local/browser-smoke.json",
+      "sha256": "f9dab2ca33d0a2e9bc8be3b791675596b60f3a5109863882bda9d5f152dea8be",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "rust-water",
+      "path": "investigation/rust-water/local/curve.json",
+      "sha256": "8b0324efbfdb0fca1f457f6c4bd009f2f2a1f6f199ec9a5932cb3b6c2dcb3205",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "rust-water",
+      "path": "investigation/rust-water/local/shared-provenance.json",
+      "sha256": "f60d806288eb5aaa1c80fe34b52527bf445465ef9f9c2d20df84f47f7e94f34b",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "rust-water",
+      "path": "investigation/rust-water/local/shared-runtime.ts",
+      "sha256": "d597674ad96c1d70bb18c9f3566b870569158e54d53b7e3a8d740916556a15d7",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "rust-water",
+      "path": "investigation/rust-water/local/shared-kernel.rs",
+      "sha256": "c0642a5cf2f81cffb87947baa0bec2afb2182d01ccf04442785deaccc37a35a2",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "gen-speed",
+      "checkout": "e292cefe30469033a922650f0455f87297c051d5",
+      "reportAvailable": false,
+      "status": "Local in-progress material; not a published final speed/identity matrix."
+    },
+    {
+      "name": "gen-speed",
+      "path": "investigation/gen-speed/INTEGRATION.md",
+      "sha256": "9a5c74f5b524c71c318131ffa7d72ee154e19c29b596c13019edcac2c8623e30",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "gen-speed",
+      "path": "investigation/gen-speed/PROPOSALS.md",
+      "sha256": "45ee9fa1dd6e68bea6ab0427ed9e48f6e14b49d209144124f254f8b446f1fbf6",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "gen-speed",
+      "path": "investigation/gen-speed/SHARED-COST.json",
+      "sha256": "c9f388823194d35912be2d4d7a4ea75f7078cea06e10edbfc1261355111d8410",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "gen-speed",
+      "path": "investigation/gen-speed/BASE.json",
+      "sha256": "8c66f98613586cda484dd99660c9720063e084f6240352ba298e3c8cd95fdf2d",
+      "uncommittedLocal": true
+    },
+    {
+      "name": "gen-speed",
+      "path": "investigation/gen-speed/local/riverValley.cpuprofile",
+      "sha256": "1593e1cb15e2a4b76c224967f0e850c90546fda4618a46fa40546bd8eb333345",
+      "theme": "riverValley",
+      "method": "Existing seed-1 V8 leaf sample count / all samples; diagnostic, not repeated latency.",
+      "substepPercent": 50.85266983505731
+    },
+    {
+      "name": "gen-speed",
+      "path": "investigation/gen-speed/local/canyon.cpuprofile",
+      "sha256": "2f326184d906675f5605bf0d65867f2c2b5e705655c6883adacf1d0209e6fb96",
+      "theme": "canyon",
+      "method": "Existing seed-1 V8 leaf sample count / all samples; diagnostic, not repeated latency.",
+      "substepPercent": 23.690691183713675
+    },
+    {
+      "name": "gen-speed",
+      "path": "investigation/gen-speed/local/islands.cpuprofile",
+      "sha256": "d1a9ab46792cea53ced8048026852a239f13e3fce6d6f62d7c0360913e854d7b",
+      "theme": "islands",
+      "method": "Existing seed-1 V8 leaf sample count / all samples; diagnostic, not repeated latency.",
+      "substepPercent": 76.55603655603656
+    }
+  ]
+}
