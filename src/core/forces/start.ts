@@ -7,7 +7,7 @@
 import type { BuildResult } from "../features/build";
 import { componentsOf, type EntitySpec } from "../format/entities";
 import { areaDepth } from "../features/raster/brush";
-import type { TerrainState } from "../features/raster/strokePreview";
+import { integrityCandidate, type TerrainState } from "../features/raster/strokePreview";
 import { integrityAt } from "../features/raster/terrain";
 import { forceMapOf } from "./carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "./carve/run";
@@ -135,10 +135,10 @@ export function buildTouches(state: TerrainState, ground: Uint8Array, owned?: ()
         if (y > y1) y1 = y;
       }
     if (x1 < 0) return;
-    const base = state.base;
-    const locked = state.locked;
-    const candidate = base ? (i: number) => pre[i] !== base[i] : locked ? (i: number) => !locked[i] : () => true;
-    integrityAt(pre, m.heights, W, H, protect, state.channel, candidate, Math.max(0, x0 - 1), Math.max(0, y0 - 1), Math.min(W - 1, x1 + 1), Math.min(H - 1, y1 + 1));
+    // (the tiles it may wear and the highest ground, as the build chooses them: on a generated map only
+    // the ground an edit changed from its field, so a spike the generation grew stays, the ground above
+    // the layer showing included, D207)
+    integrityAt(pre, m.heights, W, H, protect, state.channel, integrityCandidate(state, pre), Math.max(0, x0 - 1), Math.max(0, y0 - 1), Math.min(W - 1, x1 + 1), Math.min(H - 1, y1 + 1), state.top);
     trimRock(m);
   };
 }

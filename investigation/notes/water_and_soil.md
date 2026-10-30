@@ -467,6 +467,11 @@ byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgres
   `_MaxDepth`), d the vertical depth to the ground: about 0.17 at a film's 0.087 deep and at a shore's edge, 0 at
   5 levels; falls 0.1 × (1 − d / 5). The Low variant (`p032`) shows no ground. The contaminated tint, the depth ramp
   and the reflection are the same in both variants. A film is drawn like any water; the game clips hard at the floor.
+  Followed by `WATER_SURFACE.seeThrough` (both looks; the light look as Low).
+- **Badwater's depth-independent share (`BADWATER.floor`):** no in-game capture yet ties badwater's on-screen colour to a
+  known depth: the probe's Badtide shots (`C:\dgm-probe\shots\*\*-badtide2-*-water.jpg`) have the depths in their
+  snapshots but no camera pose, so no pixel can be tied to a tile (searched 2026-10-29). A map with a shallow and a deep
+  badwater pool should join the next probe batch, with its camera recorded, to set it.
 - **Opacity:** none by contamination: `_WaterOpacity` is 1 (0.4 while a tool hides the water).
 - Used by `src/render3d/waterPalette.ts` `WATER_BLEND` (2026-10-29).
 
