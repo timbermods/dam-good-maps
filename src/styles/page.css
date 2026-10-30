@@ -968,11 +968,13 @@
 }
 
 /* (no gap between the rows: each row's box takes half the 2px between its picture and the next as a clear border, so the
-   row is its own 32px hit area and no place the list scrolls to cuts one; what's drawn is the 30px inside the borders) */
+   row is its own 32px hit area and no place the list scrolls to cuts one; what's drawn is the 30px inside the borders. The
+   last row's lower border sits in the list's own padding, so the list is no taller) */
 .objects-menu .shelf-grid {
   display: flex;
   flex-direction: column;
   gap: 0;
+  margin-bottom: -1px;
 }
 
 .objects-menu .shelf-item {
@@ -1015,8 +1017,9 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  /* (the colour alone: the shorthand would put the clip back to the border box, the tint into the clear borders) */
   .objects-menu .shelf-item:hover {
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    background-color: color-mix(in srgb, var(--accent) 18%, transparent);
   }
 }
 
@@ -1051,7 +1054,7 @@
 
 /* picked: its row lit in the mint, as the bar lights a tool */
 .objects-menu .shelf-item[aria-pressed="true"] {
-  background: var(--accent);
+  background-color: var(--accent);
   color: var(--accent-ink);
 }
 
