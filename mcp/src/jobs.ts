@@ -12,7 +12,7 @@ import { generate, type GenerateResult, type GenProgressStage } from "../../src/
 import { JsonFloat } from "../../src/core/format/json";
 import type { MapSpec } from "../../src/core/spec/mapspec";
 import { ColumnTerrain } from "../../src/core/terrain/runs";
-import { openGenerated, Refused, releaseHandle, reserveHandle, specOf, type GenerateInput, type Generated } from "./maps";
+import { openGenerated, Refused, releaseHandle, reserveHandle, specOf, type GenerateInput, type Made } from "./maps";
 
 const WORKER = "dam-good-maps generator";
 
@@ -117,15 +117,22 @@ interface Job {
   started: number;
   /** What the generator does now, in one line. */
   now: string;
-  /** The made map, or the refusal. */
-  done: Promise<Generated>;
+  /** The made map's handle, intentions and time (its session is in the open maps, never here), or the refusal. */
+  done: Promise<Made>;
   finished: boolean;
   listeners: Set<(line: string) => void>;
 }
 
-/** The jobs by handle, the latest few, finished or not (a finished one answers wait again with its map). */
-const MOST_JOBS = 12;
+/** The jobs by handle, the latest few. A finished job holds no map, only its handle (a finished one answers wait again
+ *  while its map is still open). A job still running is never dropped, so its handle in `making` (maps.ts) always has
+ *  its job: the only more than MOST_JOBS jobs are ones still running. */
+let mostJobs = 12;
 const jobs = new Map<string, Job>();
+
+/** Set how many jobs stay (the tests). */
+export function setMostJobs(n: number): void {
+  mostJobs = n;
+}
 
 /** The source runs under tsx, and its worker needs tsx too; the bundle is plain JavaScript. */
 function workerOptions(spec: MapSpec): ConstructorParameters<typeof Worker>[1] {
@@ -138,8 +145,11 @@ export function startGenerate(input: GenerateInput): Job {
   const { spec, seedWord } = specOf(input);
   const handle = reserveHandle();
   const job: Job = { handle, started: performance.now(), now: "Attempt 1: starting the generator.", done: null!, finished: false, listeners: new Set() };
-  job.done = new Promise<Generated>((resolve, reject) => {
+  job.done = new Promise<Made>((resolve, reject) => {
     const worker = new Worker(new URL(import.meta.url), workerOptions(spec));
+    // (an unref'd worker never keeps the server alive: a client that closes stdin ends the process at once, while a
+    // connected client's stdin keeps it running)
+    worker.unref();
     // (stdout carries the protocol alone: what the worker prints goes to stderr, as index.ts does on this thread)
     worker.stdout.pipe(process.stderr);
     worker.on("message", (m: FromWorker) => {
@@ -149,7 +159,8 @@ export function startGenerate(input: GenerateInput): Job {
         return;
       }
       try {
-        resolve(openGenerated(afterCrossing(m.r), m.ms, seedWord, handle));
+        const g = openGenerated(afterCrossing(m.r), m.ms, seedWord, handle);
+        resolve({ handle: g.handle, intentions: g.intentions, ms: g.ms });
       } catch (e) {
         reject(e);
       }
@@ -169,7 +180,10 @@ export function startGenerate(input: GenerateInput): Job {
     () => (job.finished = true),
   );
   jobs.set(handle, job);
-  while (jobs.size > MOST_JOBS) jobs.delete(jobs.keys().next().value!);
+  for (const [h, j] of jobs) {
+    if (jobs.size <= mostJobs) break;
+    if (j.finished) jobs.delete(h);
+  }
   return job;
 }
 
@@ -180,9 +194,9 @@ export function jobOf(handle: string): Job {
   return job;
 }
 
-/** The map, if it is made within WAIT_MS; else null. Each stage meanwhile goes to `progress` (and the stage now, at
+/** The made map's handle, if it is made within WAIT_MS; else null. Each stage meanwhile goes to `progress` (and the stage now, at
  *  once). A refusal of the map is thrown. */
-export async function waitFor(job: Job, progress: ((line: string) => void) | null, signal?: AbortSignal): Promise<Generated | null> {
+export async function waitFor(job: Job, progress: ((line: string) => void) | null, signal?: AbortSignal): Promise<Made | null> {
   if (progress && !job.finished) {
     progress(job.now);
     job.listeners.add(progress);
