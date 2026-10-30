@@ -13,6 +13,7 @@ import { CarvePlay } from "../../src/core/forces/carve/play";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { DepositRun, DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
+import { footprint } from "../../src/core/forces/objects";
 import { ERODE_DEFAULTS } from "../../src/core/forces/erode";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
@@ -174,8 +175,10 @@ describe("objects of several tiles ride their ground whole (D368 (10))", () => {
       }
   });
 
-  it("a Deposit's numbers count the ground as it leaves it, the relics' footprints kept", () => {
+  it("a Deposit's numbers count the ground as it leaves it, the relics' footprints kept and its material too", () => {
     const before = forceMapOfSession(relicMap());
+    const W0 = before.W;
+    const relics = before.entities.map((e) => footprint(before, e)).filter((tiles) => tiles.length > 1);
     let kept = 0;
     for (const [x, y] of [[12, 13], [17, 18], [27, 8]] as [number, number][])
       for (const a of [0, 0.7, 1.6])
@@ -183,19 +186,26 @@ describe("objects of several tiles ride their ground whole (D368 (10))", () => {
           const path = [-8, 0, 8].map((d) => ({ x: Math.max(1, Math.min(38, x + d * Math.cos(a))), y: Math.max(1, Math.min(38, y + d * Math.sin(a))) }));
           const r = new DepositRun(before, { ...DEPOSIT_DEFAULTS, power, size: 10, seed: power }, { path }).finishAll();
           const { stats, raw } = r.plan0;
+          const dz = (i: number) => raw.heights[i] - before.heights[i];
           let changed = 0;
           let eroded = 0;
           let deposited = 0;
           for (let i = 0; i < raw.heights.length; i++) {
-            const dz = raw.heights[i] - before.heights[i];
-            if (dz) changed++;
-            if (dz > 0) deposited += dz;
-            else eroded -= dz;
+            if (dz(i)) changed++;
+            if (dz(i) > 0) deposited += dz(i);
+            else eroded -= dz(i);
           }
-          expect([stats.changed, stats.eroded, stats.deposited, stats.balance], `${x}, ${y}, ${a}, ${power}`).toEqual([changed, eroded, deposited, deposited - eroded]);
-          if (deposited !== eroded) kept++;
+          const at = `${x}, ${y}, ${a}, ${power}`;
+          expect([stats.changed, stats.eroded, stats.deposited, stats.balance], at).toEqual([changed, eroded, deposited, deposited - eroded]);
+          // (what a relic's footprint kept as it was took back is laid or left elsewhere: it keeps its material, D356, #714)
+          expect(deposited, at).toBe(eroded);
+          for (const tiles of relics) {
+            expect(new Set(tiles.map(dz)).size, at).toBe(1);
+            const edge = tiles.flatMap((i) => [i - 1, i + 1, i - W0, i + W0]).filter((j) => j >= 0 && j < raw.heights.length && !tiles.includes(j));
+            if (dz(tiles[0]) === 0 && edge.some((j) => dz(j) !== 0)) kept++;
+          }
         }
-    // (somewhere a relic's footprint kept as it was took back what the Deposit took or laid there)
+    // (somewhere the fan reached a relic and kept its footprint as it was)
     expect(kept).toBeGreaterThan(0);
   });
 
