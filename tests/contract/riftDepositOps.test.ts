@@ -25,3 +25,13 @@ test("Rift and Deposit keep the exact final frame, undo and reopen; Deposit keep
   ed.undo();expect(ed.terrainNow().heights).toEqual(before);
  }
 },120000);
+// (#714: on Highlands 96² seed 21, generator 0.10.6, a Power 100 fan ran out of room and lost 4 of its material)
+test("Deposit keeps its material where its fan runs out of room",async()=>{
+ await runGenerate(makeSpec({seed:21,theme:"highlands",size:{x:96,y:96}}));ed.refine();
+ const before=ed.terrainNow().heights.slice();
+ const request={verb:"deposit",settings:{...DEPOSIT_DEFAULTS,power:100,size:40},path:[{x:55,y:30},{x:78,y:54}],cut:null} as ed.ForceRequest;
+ expect(ed.forceStart(request).errors).toEqual([]);
+ for(let k=0;k<80;k++)if(ed.forceAdvance(2)!.done)break;
+ expect(ed.forceStop().errors).toEqual([]);
+ const after=ed.terrainNow().heights;expect(after).not.toEqual(before);expect(sum(after)).toBe(sum(before));
+},120000);

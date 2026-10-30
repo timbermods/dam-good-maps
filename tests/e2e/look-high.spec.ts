@@ -380,7 +380,22 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
       set(m);
       if (m.verb !== "erupt" || m.phase !== "done" || w.glow) return;
       const s = r.forceShowing?.erupt ?? null;
+      // the lava once all of it has arrived (the shader's arrival, smoothstep(a·1.1, a·1.1 + 0.55) of the eruption's
+      // age, is whole for every tile at 1.65 s), with its cooling as it is now, without the plume's smoke over it (the
+      // poll below sees the plume). The moment it is kept is no fixed age of the eruption: its age then is however long
+      // the browser took, and the count moved with it, through the lava still arriving, the ash settling over it from
+      // 0.5 to 2.4 s and the smoke's puffs (in software drawing, 1,750 lava pixels at 0.8 s, 2,580 at 1.4 s, 1,995 at
+      // 2.5 s; CI drew 1,661 and 1,798, dev's runs 41002468990 and 41009357513). Held at 1.65 s, software drawing counts
+      // 2,361 to 2,363 every time, a GPU about 3,500
+      const fx = (r as unknown as { forceFx: { heat(now: number): { age: number; cooling: number } | null; plume: { group: { visible: boolean } } } }).forceFx;
+      const heat = fx.heat;
+      fx.heat = (now) => {
+        const h = heat.call(fx, now);
+        return h && { age: 1.65, cooling: h.cooling };
+      };
+      fx.plume.group.visible = false;
       const hot = lava();
+      fx.heat = heat;
       // against the same land with its moment gone
       r.clearForce();
       w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look };
@@ -506,7 +521,7 @@ test("every basin source's highlight reads, under its own water too, in High as 
   expect(errors).toEqual([]);
 });
 
-test("High's visible seasons follow the game's timers: no plant dies of dryness in a normal drought's 9 days, a longer one withers them, a badtide kills on poisoned ground; Standard and Day 0 do not (D250)", async ({ page }) => {
+test("High's visible seasons follow the game's timers: no plant dies of dryness in a normal drought's 9 days, a longer one withers them, a badtide kills on poisoned ground; in both looks; Day 0 does not (D250, D242 as amended)", async ({ page }) => {
   test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -539,10 +554,13 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   await goTo(24);
   // (the day comes first and its list follows, the day soil being worked out in a worker: wait for it, or dry24 is day 20's)
   await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(dry20);
-  // Standard stays as it is, and High again draws the same plants withered
+  // Standard draws the same plants withered (as the game does at any quality: D242 as amended 2026-10-29), its own objects
+  // dead, and High again the same
   const dry24 = await withered();
+  const drawnDead = () => page.evaluate(() => (window.dgm3d!.renderer as unknown as { witheredDrawn: number }).witheredDrawn);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
-  expect(await withered()).toBe(0);
+  expect(await withered()).toBe(dry24);
+  await expect.poll(drawnDead, { timeout: 30_000 }).toBe(dry24);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
   expect(await withered()).toBe(dry24);
   // back to day 9 and Day 0: nothing dead yet
