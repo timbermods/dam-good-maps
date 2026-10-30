@@ -244,6 +244,11 @@ button.primary:focus-visible,
   outline-offset: -2px;
 }
 
+/* (2px inside what's drawn, inside the row's clear border) */
+.objects-menu .shelf-item:focus-visible {
+  outline-offset: -3px;
+}
+
 /* Press feedback: a button gives a little under the finger. Movement, so only where motion is welcome; connected cells,
    list rows and the shelf's drag sources stay still. */
 @media (prefers-reduced-motion: no-preference) {

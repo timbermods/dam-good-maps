@@ -967,10 +967,12 @@
   box-shadow: var(--edge-lit), var(--shadow-2);
 }
 
+/* (no gap between the rows: each row's box takes half the 2px between its picture and the next as a clear border, so the
+   row is its own 32px hit area and no place the list scrolls to cuts one; what's drawn is the 30px inside the borders) */
 .objects-menu .shelf-grid {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 
 .objects-menu .shelf-item {
@@ -979,11 +981,14 @@
   gap: 8px;
   position: relative;
   width: 100%;
-  height: 30px;
+  height: 32px;
   padding: 1px 4px 1px 4px;
-  border: 0;
-  border-radius: 6px;
+  border: solid transparent;
+  border-width: 1px 0;
+  /* (6px corners on what's drawn: the vertical radius less the border) */
+  border-radius: 6px / 7px;
   background: transparent;
+  background-clip: padding-box;
   box-shadow: none;
   font-size: max(min(0.85rem, var(--text-floor)), calc(0.85rem / var(--wide-font-full)));
   line-height: 1.2;
@@ -1025,15 +1030,15 @@
   box-sizing: border-box;
   /* (up into the list's own padding, so rows scrolling under it never show above it) */
   height: 36px;
-  margin: -6px 0 2px;
+  margin: -6px 0 1px;
   padding: 6px 0 0 40px;
   font-size: 0.85rem;
   font-weight: 700;
   line-height: 30px;
 }
 
-/* the groups (the water objects, the plants, the landmarks, the core and reserves) divided by a hairline in the gap above
-   each one's first row: no extra height */
+/* the groups (the water objects, the plants, the landmarks, the core and reserves) divided by a hairline in the clear
+   borders above each one's first row: no extra height */
 .objects-menu .shelf-item.shelf-first::before {
   content: "";
   position: absolute;
@@ -4169,8 +4174,9 @@ body:has(.checks-list) .show-key {
     width: 200px;
   }
 
+  /* (34px drawn, in its clear borders) */
   .objects-menu .shelf-item {
-    height: 34px;
+    height: 36px;
     font-size: max(min(0.85rem + 1px, var(--text-floor)), calc((0.85rem + 1px) / var(--wide-font-full)));
   }
 
@@ -4242,9 +4248,9 @@ body:has(.checks-list) .show-key {
    (inset: min(0px, (100% - 32px) / 2) is nothing on a control 32px or more, and half the shortfall outward on a smaller
    one). On a desktop pointer only. Controls that touch their neighbours reach only up and down, where the gaps are; the
    dense places (the sheet's lines, the legend's lines, the settings' Auto pills, which sit between a name and a slider) are left as they are. tests/e2e/layout.spec.ts checks no area reaches
-   a neighbour or is cut by a clip. */
+   a neighbour or is cut by a clip. (The shelf's rows need none: each row's box is 32px, its clear borders around what's drawn.) */
 @media (pointer: fine) {
-  :where(.icon-close, button.linkish.ow-close, .history-panel .ym-act.hist-close, .dock-notes > * > button[aria-label="Dismiss"], .day-stepper .day-step, .history-panel .hist-act, .maps-panel .ym-act, .history-panel .ym-act, .objects-menu .shelf-item) {
+  :where(.icon-close, button.linkish.ow-close, .history-panel .ym-act.hist-close, .dock-notes > * > button[aria-label="Dismiss"], .day-stepper .day-step, .history-panel .hist-act, .maps-panel .ym-act, .history-panel .ym-act) {
     position: relative;
   }
 
@@ -4260,8 +4266,7 @@ body:has(.checks-list) .show-key {
   .day-stepper .day-step::after,
   .history-panel .hist-act::after,
   .maps-panel .ym-act::after,
-  .history-panel .ym-act:not(.hist-close)::after,
-  .objects-menu .shelf-item::after {
+  .history-panel .ym-act:not(.hist-close)::after {
     content: "";
     position: absolute;
     inset: min(0px, calc((100% - 32px) / 2)) 0;
