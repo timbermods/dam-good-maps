@@ -10,10 +10,14 @@ import specSchema from "../../src/core/spec/mapspec.schema.json" with { type: "j
 import { INTENTIONS, INTENTION_TEXT } from "../../src/core/land/intentions";
 import { SIZE_PRESETS, THEMES } from "../../src/core/spec/mapspec";
 import { describeMap, summaryOf } from "./describe";
-import { applyOps, checksOf, generateMap, mapOf, mapsFolder, openMap, Refused, rowOf, saveMap, undoStep } from "./maps";
+import { jobOf, secondsOf, startGenerate, waitFor, WAIT_MS, type Job } from "./jobs";
+import { applyOps, checksOf, mapOf, mapsFolder, openMap, Refused, rowOf, saveMap, undoStep, type Generated } from "./maps";
 import { LAYERS, picture, type Layer, type Region } from "./picture";
 
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "0.2.0";
+
+/** How long a generate or wait call waits for its map, in words. */
+const WAIT_WORDS = `about ${Math.round(WAIT_MS / 1000)} seconds`;
 
 const INSTRUCTIONS = `Dam Good Maps makes and edits maps for the game Timberborn.
 Follow these rules:
@@ -22,7 +26,8 @@ Follow these rules:
 3. To change the shape of the land in one area, use a force (an apply operation "forceResult" with a verb).
 4. Use brushes, sculpts and placements only for precise edits: move the start, widen a river by two tiles, delete a forest, add one source.
 5. Use picture to see the map after edits. Use check before save.
-6. save writes the .timber map and its .damgoodmaps.json project. Timberborn shows the map in its custom maps.`;
+6. save writes the .timber map and its .damgoodmaps.json project. Timberborn shows the map in its custom maps.
+7. A large map can take some minutes to make. If generate says that the map is not ready, call wait with its handle until the map is ready.`;
 
 /** A copy of a JSON value with every "required" list removed (a merge patch gives only what changes). */
 function optional(v: unknown): unknown {
@@ -82,7 +87,8 @@ export const TOOLS: Tool[] = [
       "The tool returns a handle for the map, a summary and a top-down picture.",
       "The summary tells which intentions emerged and which did not. Tell the player honestly what emerged.",
       "The generator refuses a map that does not pass its checks. Then try another seed or other settings.",
-      "A 128 map takes some seconds. A 256 map can take a minute.",
+      "A 128 map takes some seconds. A 256 map can take some minutes.",
+      `If the map is not ready after ${WAIT_WORDS}, the tool returns the map's handle and says that the map is not ready. Then call wait with the handle until the map is ready.`,
     ].join(" "),
     inputSchema: {
       type: "object",
@@ -106,6 +112,15 @@ export const TOOLS: Tool[] = [
         },
       },
     },
+  },
+  {
+    name: "wait",
+    description: [
+      "Wait for a map that generate is still making.",
+      `The tool returns the map as generate returns it: the handle, the summary and a picture. If the map is not ready after ${WAIT_WORDS}, the tool says what the generator is doing. Then call wait again.`,
+      "Tell the player honestly which intentions emerged.",
+    ].join(" "),
+    inputSchema: { type: "object", additionalProperties: false, required: ["map"], properties: { map: { type: "string", description: "The map's handle, from generate." } } },
   },
   {
     name: "describe",
@@ -203,21 +218,46 @@ function around(area: { x0: number; y0: number; x1: number; y1: number }, W: num
   return { x, y, w: Math.min(W, area.x1 + pad + 1) - x, h: Math.min(H, area.y1 + pad + 1) - y };
 }
 
+/** A made map as generate and wait return it: its handle, summary, intentions and picture. */
+function generated(g: Generated): CallToolResult {
+  const s = g.session;
+  const emerged = g.intentions.length
+    ? `Intentions:\n${g.intentions.map((x) => `- ${x.id}: ${x.ok ? "emerged" : "did not emerge"} (${x.note})`).join("\n")}`
+    : "Intentions: none.";
+  const pic = picture(s);
+  return {
+    content: [text(`Map ${g.handle} (generated in ${(g.ms / 1000).toFixed(1)} s).\n${summaryOf(s, checksOf(s))}\n${s.description().text}\n${emerged}\n${pic.legend}`), image(pic.png)],
+  };
+}
+
+/** The map when it is made within a call's wait, or a line that says it is not ready yet. */
+async function waitResult(job: Job, call: CallContext): Promise<CallToolResult> {
+  const g = await waitFor(job, call.progress, call.signal);
+  if (g) return generated(g);
+  return { content: [text(`Map ${job.handle} is not ready yet (${secondsOf(job)} s so far). ${job.now} Call wait with map "${job.handle}" to get it.`)] };
+}
+
+/** What a call can do besides answer: send progress (when the client asked for it), and hear that it was cancelled. */
+export interface CallContext {
+  progress: ((message: string) => void) | null;
+  signal?: AbortSignal;
+}
+
+/** Say what a long step does, before the step holds the thread. */
+async function starting(call: CallContext, message: string): Promise<void> {
+  if (!call.progress) return;
+  call.progress(message);
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
 /** Answer one tool call. */
-export async function callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
+export async function callTool(name: string, args: Record<string, unknown>, call: CallContext = { progress: null }): Promise<CallToolResult> {
   try {
     switch (name) {
-      case "generate": {
-        const g = generateMap(args);
-        const s = g.session;
-        const emerged = g.intentions.length
-          ? `Intentions:\n${g.intentions.map((x) => `- ${x.id}: ${x.ok ? "emerged" : "did not emerge"} (${x.note})`).join("\n")}`
-          : "Intentions: none.";
-        const pic = picture(s);
-        return {
-          content: [text(`Map ${g.handle} (generated in ${(g.ms / 1000).toFixed(1)} s).\n${summaryOf(s, checksOf(s))}\n${s.description().text}\n${emerged}\n${pic.legend}`), image(pic.png)],
-        };
-      }
+      case "generate":
+        return await waitResult(startGenerate(args), call);
+      case "wait":
+        return await waitResult(jobOf(String(args.map)), call);
       case "describe": {
         const s = mapOf(String(args.map));
         const d = describeMap(s, { tiles: args.tiles as [number, number][] | undefined, checks: args.checks === false ? null : checksOf(s) });
@@ -225,7 +265,9 @@ export async function callTool(name: string, args: Record<string, unknown>): Pro
       }
       case "apply": {
         const s = mapOf(String(args.map));
-        const c = applyOps(s, args.ops as unknown[]);
+        const ops = args.ops as unknown[];
+        await starting(call, `Applying ${ops?.length ?? 0} operation${ops?.length === 1 ? "" : "s"} to ${s.size.x} x ${s.size.y} tiles.`);
+        const c = applyOps(s, ops);
         const content: CallToolResult["content"] = [text(JSON.stringify(c))];
         if (args.picture && c.ground.area) {
           const pic = picture(s, { region: around(c.ground.area, s.size.x, s.size.y) });
@@ -243,11 +285,13 @@ export async function callTool(name: string, args: Record<string, unknown>): Pro
         if (!LAYERS.includes(layer)) throw new Refused(`The layer is one of ${LAYERS.join(", ")}`);
         const region = args.region as Region | undefined;
         if (region && (region.x >= s.size.x || region.y >= s.size.y)) throw new Refused("The region is off the map");
+        await starting(call, "Drawing the picture.");
         const pic = picture(s, { layer, ...(region ? { region } : {}) });
         return { content: [text(`${pic.legend} Tiles X ${pic.region.x}–${pic.region.x + pic.region.w - 1}, Y ${pic.region.y}–${pic.region.y + pic.region.h - 1}, ${pic.scale} pixels a tile.`), image(pic.png)] };
       }
       case "check": {
         const s = mapOf(String(args.map));
+        await starting(call, "Running the checks.");
         const c = checksOf(s);
         const out = {
           saves: c.blocking.length === 0,
@@ -262,6 +306,7 @@ export async function callTool(name: string, args: Record<string, unknown>): Pro
       }
       case "save": {
         const s = mapOf(String(args.map));
+        await starting(call, "Running the checks and writing the files.");
         const r = saveMap(s, { folder: args.folder as string | undefined, name: args.name as string | undefined });
         const lines = [`Saved ${r.timber.path} (${Math.round(r.timber.bytes / 1024)} KB) and ${r.project.path}.`];
         if (r.noted.length) lines.push(`The map's description notes ${r.noted.length} warning${r.noted.length > 1 ? "s" : ""}: ${r.noted.join("; ")}.`);
@@ -269,6 +314,7 @@ export async function callTool(name: string, args: Record<string, unknown>): Pro
         return { content: [text(lines.join("\n"))] };
       }
       case "open": {
+        await starting(call, `Opening ${String(args.path)}.`);
         const o = openMap(String(args.path));
         return { content: [text(`Map ${o.handle}.\n${summaryOf(o.session, null)}`)] };
       }
@@ -286,6 +332,15 @@ export async function callTool(name: string, args: Record<string, unknown>): Pro
 export function createServer(): Server {
   const server = new Server({ name: "dam-good-maps", version: SERVER_VERSION }, { capabilities: { tools: {} }, instructions: INSTRUCTIONS });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
-  server.setRequestHandler(CallToolRequestSchema, async (req) => callTool(req.params.name, (req.params.arguments ?? {}) as Record<string, unknown>));
+  server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
+    // progress, when the client asked for it (a progressToken): numbered in order, with a line on what is being done
+    const token = req.params._meta?.progressToken;
+    let n = 0;
+    const progress =
+      token === undefined
+        ? null
+        : (message: string) => void extra.sendNotification({ method: "notifications/progress", params: { progressToken: token, progress: ++n, message } }).catch(() => {});
+    return callTool(req.params.name, (req.params.arguments ?? {}) as Record<string, unknown>, { progress, signal: extra.signal });
+  });
   return server;
 }
