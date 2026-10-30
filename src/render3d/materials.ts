@@ -66,7 +66,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { ALTITUDE_RAMP, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GAME_AMBIENT_LINEAR, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
@@ -801,20 +801,23 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       #if CUTAWAY
       ${OVERLAY_RUN}
       #endif
-      ${CAVE_AIR}      /** The game's light on a face (palette.ts GAME_LIGHT, linear): the Trilight ambient by its normal,
-       *  unoccluded, and the sun by its shadow (\`sun\`, 0–1). */
-      vec3 gameLight(vec3 n, float sun) {
-        vec3 ambient = n.y >= 0.0 ? mix(${glColor(GAME_LIGHT.equator)}, ${glColor(GAME_LIGHT.sky)}, n.y) : mix(${glColor(GAME_LIGHT.equator)}, ${glColor(GAME_LIGHT.ground)}, -n.y);
-        return ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun;
-      }
-      vec3 toLinear(vec3 c) { return mix(c / 12.92, pow(max((c + 0.055) / 1.055, vec3(0.0)), vec3(2.4)), step(vec3(0.04045), c)); }
+      ${CAVE_AIR}      /** The game's light on a face (palette.ts GAME_LIGHT), in display values as the game works in Gamma colour
+       *  space: the Trilight probe by its normal (blended in linear values, turned back to display values), and the sun
+       *  by its shadow (\`sun\`, 0–1), times the diffuse share. A factor on the face's display colour. */
       vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
+      vec3 gameLight(vec3 n, float sun) {
+        vec3 ambient = toDisplay(n.y >= 0.0 ? mix(${glColor(GAME_AMBIENT_LINEAR.equator)}, ${glColor(GAME_AMBIENT_LINEAR.sky)}, n.y) : mix(${glColor(GAME_AMBIENT_LINEAR.equator)}, ${glColor(GAME_AMBIENT_LINEAR.ground)}, -n.y));
+        return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
+      }
       /** The game's altitude ramps (palette.ts ALTITUDE_RAMP, as multipliers: twice the texel), read as its texture is,
        *  32 texels over the ground's height up to the ceiling, filtered between them. */
       const vec3 ALT_GRASS[32] = vec3[32](vec3(0.8784, 0.9804, 1.0431), vec3(0.8941, 0.9882, 1.051), vec3(0.8784, 1.0039, 1.0902), vec3(0.9255, 0.9882, 1.0431), vec3(0.9882, 0.9804, 0.9804), vec3(0.9882, 1.0118, 0.9961), vec3(0.9804, 1.0275, 1.0431), vec3(0.9804, 1.0353, 1.0667), vec3(0.949, 1.0588, 1.0667), vec3(0.9725, 1.0824, 1.051), vec3(0.9882, 1.0824, 1.0667), vec3(1.0118, 1.098, 1.1059), vec3(1.0745, 1.0824, 1.051), vec3(1.1294, 1.0902, 1.0118), vec3(1.1373, 1.1137, 1.0275), vec3(1.1216, 1.1137, 1.0588), vec3(1.1059, 1.1137, 1.098), vec3(1.1137, 1.1137, 1.0824), vec3(1.1765, 1.1216, 1.0039), vec3(1.2078, 1.1294, 0.9804), vec3(1.1686, 1.1373, 1.051), vec3(1.1451, 1.1216, 1.1373), vec3(1.1686, 1.1216, 1.1137), vec3(1.2157, 1.1451, 1.0588), vec3(1.0431, 0.9961, 1.0039), vec3(1.051, 1.0039, 1.0039), vec3(1.0431, 1.0118, 1.0118), vec3(0.9961, 0.9725, 0.9647), vec3(1.0431, 1.0118, 1.0196), vec3(0.9412, 0.9255, 0.949), vec3(0.9333, 0.949, 0.9725), vec3(0.9176, 0.9882, 1.0196));
       const vec3 ALT_DESERT[32] = vec3[32](vec3(0.9647, 1.098, 1.1765), vec3(0.9804, 1.1059, 1.1686), vec3(0.9882, 1.1059, 1.1765), vec3(0.9804, 1.0902, 1.2235), vec3(1.0902, 1.0431, 1.0902), vec3(1.1686, 1.051, 1.0039), vec3(1.1294, 1.0902, 1.0745), vec3(1.0902, 1.0902, 1.1686), vec3(1.051, 1.0745, 1.2235), vec3(1.0667, 1.0824, 1.1922), vec3(1.1765, 1.0824, 1.0275), vec3(1.1922, 1.0902, 0.9725), vec3(1.1137, 1.0902, 1.0824), vec3(1.0353, 1.0588, 1.2392), vec3(1.0588, 1.0745, 1.2), vec3(1.1294, 1.098, 1.0667), vec3(1.1608, 1.0824, 1.0667), vec3(1.1529, 1.0824, 1.0588), vec3(1.1451, 1.098, 1.0667), vec3(1.1451, 1.1059, 1.0667), vec3(1.1451, 1.098, 1.0667), vec3(1.1294, 1.0824, 1.0824), vec3(1.1059, 1.1059, 1.098), vec3(1.0667, 1.1529, 1.2), vec3(1.051, 1.1922, 1.2471), vec3(1.0824, 1.1843, 1.2157), vec3(1.0588, 1.1765, 1.2784), vec3(1.1373, 1.1373, 1.1922), vec3(1.2471, 1.1294, 1.0745), vec3(1.2314, 1.1686, 1.1294), vec3(1.1843, 1.1765, 1.2157), vec3(1.1608, 1.1686, 1.2706));
       vec3 altitudeOf(float y, float grass) {
-        float u = clamp(y / 22.0, 0.0, 1.0) * 32.0 - 0.5;
+        // (mirrored past the ceiling, as the texture wraps)
+        float h = abs(y / ${f(ALTITUDE_RAMP.ceiling)});
+        h = 1.0 - abs(1.0 - mod(h, 2.0));
+        float u = h * 32.0 - 0.5;
         int a = int(clamp(floor(u), 0.0, 31.0));
         int b = int(clamp(floor(u) + 1.0, 0.0, 31.0));
         float t = clamp(u - floor(u), 0.0, 1.0);
@@ -847,8 +850,8 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         }
         return fallback;
       }
-      /** The roof line a face under a roof takes its light from: walked from its cell toward the brightest
-       *  neighbour (the volume's sky rises toward its opening), up to the first cell beside open air.
+      /** The roof line a face under a roof takes its sun from: the open side nearest the face, from its cell (the
+       *  volume holds no light that rises toward an opening since D497, so only a cell beside open air finds one).
        *  xyz the point just outside that line on the open ground (world space; along the line, the
        *  face's own place as far as that cell reaches), w 1 when found. */
       vec4 caveMouth(vec3 world, vec3 n) {
@@ -893,11 +896,10 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         }
         return vec4(world, 0.0);
       }
-      /** The light on a face in air under a roof: the volume's sky with the look's occlusion of the sky,
-       *  deeper in never below a cave's least (caveLight.ts CAVE_SKY_FLOOR) so a cave reads, murky but never
-       *  near-black, and its sun. Both carry on from the open ground at the roof line the air opens by
-       *  (caveMouth): the sun there fades to the cave's own over the first 0.6 of a tile and never exceeds
-       *  it inside, so the light never steps at the line or rises inward. */
+      /** The light on a face in air under a roof, as the game lights it (D497): the same light as open ground's
+       *  (gameLight: the Trilight probe by the face's normal, unoccluded by the roof), and the sun only where it reaches,
+       *  carried on from the open ground at the roof line the air opens by (caveMouth): the sun there fades to the cave's
+       *  own over the first 0.6 of a tile and never exceeds it inside, so the light never steps at the line. */
       vec3 caveLightOf(vec3 n, vec3 cave, float sunHere) {
         float ndl = max(dot(n, sunDir), 0.0);
         vec4 mouth = caveMouth(vWorld, n);
@@ -1037,6 +1039,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           // (no patterns: contamination tints the ground a little, rust on earth, dark red on grass)
           glow = 0.0;
           vec3 lc = s.x > 0.5 ? mix(${glColor(GROUND.moistLow)}, ${glColor(GROUND.moistHigh)}, clamp((s.y - 1.0) / 9.0, 0.0, 1.0)) : ${glColor(GROUND.dry)};
+          lc *= altitudeOf(vWorld.y, step(0.5, s.x));
           if (s.z > 0.5) lc = mix(lc, s.x > 0.5 ? ${glColor(GROUND.contaminatedWet)} : ${glColor(GROUND.contaminated)}, 0.25 + 0.3 * clev);
           return mix(lc, ${glColor(GROUND.underwater)}, step(0.5, s.w) * groundBed);
         #endif
@@ -1086,6 +1089,8 @@ ${hook(h, "groundStart")}        // (the patterns are read through a broad warp,
         float painted = (1.0 - smoothstep(0.04, 0.04 + bladeAA, abs(bf.x + bf.y * 0.25))) * (1.0 - smoothstep(0.18, 0.42, abs(bf.y)));
         float tex = 0.91 + 0.31 * tuft + painted * (0.08 + bladeHash * 0.16) * detail + 0.09 * blade * detail;
         c = mix(c, grass * (0.80 + 0.27 * b1 + 0.14 * (n1 - 0.5)) * tex * (1.0 - 0.19 * blot), moist);${hook(h, "groundVariation")}
+        // the game's altitude ramp, the grass's on grass and the desert's on dry ground, before contamination's veins
+        c *= altitudeOf(vWorld.y, moist);
         float lvl = clamp(clev, 0.0, 1.0);
         // contamination: a layer over the ground, as in the game (palette.ts's CONTAMINATION says
         // the same, for the tests): orange-red veins over either soil, its own colour between them
@@ -1124,8 +1129,6 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
         vec3 c;
         vec3 light;
         float sunHere = 0.0;
-        // (a top's share of grass, for the game's altitude ramps: the grass's on it, the desert's on dry ground)
-        float groundGrass = 0.0;
         if (n.y > 0.5) {
           // the tile and its three neighbours toward this point (the light look: the tile alone)
           vec2 fr = g - tile;
@@ -1189,7 +1192,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             groundBed = underSum > 0.0001 ? dot(under, vec4(waterFilm(waterDepthOf(d0)), waterFilm(waterDepthOf(dx)), waterFilm(waterDepthOf(dy)), waterFilm(waterDepthOf(dd)))) / underSum : 1.0;
           #endif
           vec3 ground = groundColor(soil, g, detail, clev, glow);${hook(h, "groundTop")}
-          groundGrass = soil.x;
+
           // under a film the ground is seen through the water as through a coloured filter (WATER_FILM): its
           // own detail in the water's hue, teal, crimson or between them by the water's badwater share
           float filmOver = smoothstep(0.4, 0.6, soil.w) * (1.0 - groundBed);
@@ -1253,7 +1256,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
                 floorLevel = (q0.y * z00 + q1.y * z10 + q2.y * z01 + q3.y * z11) / 15.0;
               }
               c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(floorSoil, g, detail, floorLevel, none);
-              groundGrass = floorSoil.x;
+
             #else
               c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(vec4(soil.xyz, 0.0), g, detail, clev, none);
             #endif
@@ -1320,12 +1323,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
         // an arch) takes that air's own light, not its tile top's
         vec3 cave = caveAt(vWorld, n);
         if (cave.z > 0.5) light = caveLightOf(n, cave, sunHere);
-        // (the game's light works in linear values: the colour taken there, lit, and brought back; a top's ground, in the
-        // Map look by soil, by the altitude ramp first)
-        light *= ${f(GAME_LIGHT.exposure)};
-        vec3 lin = toLinear(c);
-        if (n.y > 0.5 && groundMode < 0.5) lin *= altitudeOf(vWorld.y, groundGrass);
-        c = toDisplay(lin * light);
+        c *= light;
         // the glowing cracks of contaminated ground shine in shadow too
         c += ${glColor(GROUND.contaminatedGlow)} * glow * ${f(CT.glowAdd)};${hook(h, "lit")}
         // the slice's cut (D207): the tops of columns taller than the layer (with terrain above terrain, only the cap

@@ -498,31 +498,34 @@ Standard's shadow before a cave (item 8).
 
 ## The game's light (D497; `draft/game-ambient`)
 
-- **The rule** (planning, 2026-10-29): draw it as the game draws it; editing aids get their own channel. The game
-  lights every face by Unity's Trilight ambient by its normal, unoccluded (decompiled `Timberborn.SkySystem` `Sun`:
-  `AmbientMode.Trilight`; the day's colours in `Configurations/Sun.blueprint.json`: sky (0.62, 0.63, 0.97) from above,
-  equator (1, 1, 1) from the side, ground (0.28, 0.23, 0.37) from below, the sun 1.1 at full shadow strength; no
-  ambient-occlusion setting in `GraphicsQualitySystem`), and only the sun's shadow darkens a face. Its one height term
-  is the ground's altitude colour ramp (`Timberborn.TerrainSystemRendering` `TerrainMaterialMap`:
-  `_AltitudeMultiplierTex`, `_DesertAltitudeMultiplierTex`, `_AltitudeCeiling` 22 from
-  `Configurations/TerrainMaterialMap.blueprint.json`).
-- **What:** the terrain shader (`materials.ts`, both looks and the light look) lights each face in linear values by
-  `gameLight` (`palette.ts` `GAME_LIGHT`: the ambient by the normal, blended as Trilight blends it, and the sun by its
-  shadow), with `exposure` 0.76 so a level top in full sun comes out as bright as before. Gone: the sky visibility
-  (`light.ts` `skyVisibility`, `skyAt`, the tile data's B), the contact shadow at a wall's foot and a cave floor's, the
-  wall's foot darkening, and High's ambient occlusion (`ambientVisibility`, its field `hlAmbient`, the bake worker's
-  `ambient` and `cover` jobs, `AmbientField`, the "Ambient occlusion" effect and its switch `hlAO`, and the relight that
-  rebuilt them after a brush). The thin dark line along the top of a drop stays (the game's blocks draw their edges).
-  Tops take the game's altitude ramps (`ALTITUDE_RAMP`, read from the game's `resources.assets` by
-  `tools/altitude-ramp.ts`: 32 texels each, RGB24, stored about mid-grey and applied as twice the texel), the grass's on
-  grass and the desert's on dry ground, by the ground's height over 22 levels. Under a roof the same light, the sun only
-  where it reaches: the light volume keeps the sun alone (Part 2), so a roof's relight is local again.
+- **The rule** (planning, 2026-10-29): draw it as the game draws it; editing aids get their own channel.
+- **The game's terrain shader** (TerrainURP's ForwardLit program, disassembled from the game's `resources.assets` by
+  #703's reviewer; its notes are kept with the review): the game renders in Gamma colour space (`globalgamemanagers`
+  PlayerSettings m_ActiveColorSpace 0), so it lights in display values. A face's colour is its albedo × 0.912 (URP's
+  diffuse share, `_Metallic` 0.05) × (the ambient + 1.1 × the sun's colour × max(n·L, 0) × its shadow), with a little
+  specular. The ambient is Unity's Trilight light probe (decompiled `Timberborn.SkySystem` `Sun`: `AmbientMode.Trilight`;
+  the day's colours in `Configurations/Sun.blueprint.json`: sky (0.62, 0.63, 0.97) from above, equator (1, 1, 1) from
+  the side, ground (0.28, 0.23, 0.37) from below), turned back to display values (URP `SampleSH` under Gamma), so at the
+  axes it is the blueprint's colours; no ambient-occlusion setting in `GraphicsQualitySystem`. Its height terms: the
+  ground's altitude ramps, twice the texel at height / 22 (`_AltitudeCeiling`), on grass and dry ground before
+  contamination; and the cliffs' tint from (0.416, 0.431, 0.475) at level 0 to (0.941, 0.925, 0.894) at level 22.
+- **What:** the terrain shader (`materials.ts`, both looks and the light look) lights each face in display values by
+  `gameLight` (`palette.ts` `GAME_LIGHT`: the Trilight colours blended by the normal in linear values and turned back,
+  plus the sun by its shadow, × 0.912). Gone: the sky visibility (`light.ts` `skyVisibility`, `skyAt`, the tile data's
+  B), the contact shadow at a wall's foot and a cave floor's, the wall's foot darkening, and High's ambient occlusion
+  (`ambientVisibility`, its field `hlAmbient`, the bake worker's `ambient` and `cover` jobs, `AmbientField`, the
+  "Ambient occlusion" effect and its switch `hlAO`, and the relight that rebuilt them after a brush). The thin dark line
+  along the top of a drop stays (the game's blocks draw their edges). Grass and dry ground take the game's altitude
+  ramps (`ALTITUDE_RAMP`, read from the game's `resources.assets` by `tools/altitude-ramp.ts`: 32 texels each, RGB24),
+  twice the texel at the ground's height over 22 levels, mirrored past it, before contamination's veins. Under a roof
+  the same light, the sun only where it reaches: the light volume keeps the sun alone (Part 2), so a roof's relight is
+  local again.
 - **Objects, water and falls** keep their own light (their sky colour and sun), less High's ambient occlusion.
-- **Captures and numbers:** in the PR.
-- **Falls short:** our stone and earth colours were tuned against the old light: shaded stone now reads about 1.4 ×
-  the game's measured shaded stone (39–68 of 255 in the probe's shots), and our sun keeps its direction (north-west,
-  50°) where the game's turns with the camera (yaw + 40°, 45° up). The terrain's look is ready for a colour
-  calibration against the game's under its own light.
+- **Captures and numbers:** in the PR (#703).
+- **Next:** the cliffs' gradient with the terrain's albedos from the game's textures (Grass, GrassDetailsAlbedo ×2,
+  Desert, CliffDetail; their means are in #703's thread), the game's post-processing in place of our finish (the URP
+  asset has HDR on and LDR grading, the camera allows HDR: postExposure +0.15 EV, Neutral tonemapping, contrast +14,
+  saturation +3, from the Volume profile), and the sun turning with the camera (yaw + 40°, 45° up).
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
 
