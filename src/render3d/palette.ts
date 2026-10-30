@@ -7,7 +7,7 @@
 // more contaminated, through earth and grass alike), clean water a deep teal body darkening with depth, clear in
 // the shallows (the water's own palette is waterPalette.ts, D177), and ground under water a dark
 // wet bed; a toggle switches the ground to height colours.
-// Walls are olive-grey cobbled stone, every other level a shade darker. Colours are display values (the
+// Walls are cobbled stone, lighter higher up as the game's cliffs. Colours are display values (the
 // renderer outputs them without conversion).
 //
 // Readability follows the game's own (D334): its look and its cues, with no lightness gap or pattern
@@ -42,18 +42,24 @@ export const GROUND = {
    *  and less yellow than it was (the game's L* 50-55 on screen, D324); it reads apart from dry earth
    *  as it does in the game, by hue and its painted strokes, with no lightness gap asked beyond the
    *  game's own (D334 (2); `look-readable.test.ts` reports the colour-blindness simulations as
-   *  information). */
-  dry: [0.463, 0.403, 0.367] as Rgb,
+   *  information).
+   *  Calibrated to the game's textures (D497): the patterns' mean albedo, measured in the page with the light, the
+   *  altitude ramp and the haze off (`tools/albedo-means.ts`), is the mean of the game's texture times its detail
+   *  texture doubled (TerrainURP: base × GrassDetailsAlbedo × 2; GrassDetailsAlbedo's mean 140 makes that × 1.098): dry
+   *  ground the `Desert` texture's 63/52/42 (TerrainMaterialMap.blueprint.json `DesertTexture`), so 69/57/46; grass
+   *  the `Grass` texture's 67/73/25, so 74/80/27 (means of the 64² mips, 0–255, read raw as the game reads them in Gamma
+   *  colour space). Each colour of a kind was scaled by the same factor per channel, so the patterns keep their shapes. */
+  dry: [0.283, 0.234, 0.187] as Rgb,
   /** Dry ground's cooler, greyer patches. */
-  dryCool: [0.444, 0.414, 0.438] as Rgb,
+  dryCool: [0.271, 0.24, 0.223] as Rgb,
   /** Dry ground's warmer, browner patches. */
-  dryWarm: [0.52, 0.438, 0.375] as Rgb,
+  dryWarm: [0.318, 0.255, 0.191] as Rgb,
   /** The cracks in dry ground. */
-  crack: [0.19, 0.14, 0.125] as Rgb,
+  crack: [0.116, 0.082, 0.064] as Rgb,
   /** Moist ground at the edge of the moist area (the least moisture): a muted grass green. */
-  moistLow: [0.445, 0.575, 0.28] as Rgb,
+  moistLow: [0.36, 0.377, 0.135] as Rgb,
   /** Moist ground by the water (the most moisture), a little deeper green. */
-  moistHigh: [0.415, 0.55, 0.265] as Rgb,
+  moistHigh: [0.336, 0.361, 0.128] as Rgb,
   /** Contamination (badwater spoils the soil and plants die) in the light look, which draws no
    *  veins: a rust tint over dry earth... */
   contaminated: [0.4, 0.2, 0.14] as Rgb,
@@ -98,17 +104,17 @@ export const JUICE = {
 /** Height colours (the toggle): the low and high ends of the ramp, as before Map look. */
 export const HEIGHT_RAMP = { low: [0.478, 0.588, 0.329] as Rgb, high: [0.769, 0.698, 0.549] as Rgb } as const;
 
-/** The block walls: olive-grey cobbled stone, as Timberborn's references (D334, amending D324's bluer grey), every other
- *  level a shade darker and a little lighter higher up. With **Markers** on, a pale ledge over a dark
- *  groove between levels, so levels can be counted. */
+/** The block walls: cobbled stone, as the game's cliffs (D497): the stone and mortar calibrated so their pattern's
+ *  mean albedo (`tools/albedo-means.ts`) is the game's `CliffDetail` texture's mean, 68/62/52, and tinted by height as
+ *  the game's Cliff, CliffEdge and SlopeCliff materials tint it: `_SplatGradientMin` at level 0 to `_SplatGradientMax`
+ *  at `ALTITUDE_RAMP.ceiling` (22), unclamped. With **Markers** on, a pale ledge over a dark groove between levels, so
+ *  levels can be counted (an editing aid, untinted). */
 export const WALL = {
-  stone: [0.40, 0.395, 0.29] as Rgb,
-  mortar: [0.13, 0.125, 0.095] as Rgb,
+  stone: [0.334, 0.307, 0.259] as Rgb,
+  mortar: [0.108, 0.097, 0.085] as Rgb,
   ledge: [0.8, 0.78, 0.68] as Rgb,
   groove: [0.08, 0.08, 0.07] as Rgb,
-  alternate: 0.86,
-  low: 0.92,
-  high: 1.12,
+  gradient: { min: [0.4157, 0.4314, 0.4745] as Rgb, max: [0.9412, 0.9255, 0.8941] as Rgb },
 } as const;
 
 /** Contamination as a layer, as in the game (Kyler, 2026-09-25; D334: the game's own look and cues):
@@ -298,6 +304,13 @@ export const GAME_LIGHT = {
   diffuse: 0.96 - 0.96 * 0.05,
 } as const;
 
+/** A colour as a level top in full sun shows it in the game's light (`GAME_LIGHT`: the sky's ambient from above and the
+ *  sun at `LIGHT.sunElevation`), before the altitude ramp: what the screen shows of a ground albedo. */
+export function sunlitTop(c: Rgb): Rgb {
+  const up = Math.sin(LIGHT.sunElevation);
+  return [0, 1, 2].map((k) => c[k] * GAME_LIGHT.diffuse * (GAME_LIGHT.sky[k] + GAME_LIGHT.sun[k] * up)) as unknown as Rgb;
+}
+
 /** The game's Trilight colours in linear values (sRGB decoded), which the probe blends. */
 const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 export const GAME_AMBIENT_LINEAR = {
@@ -347,12 +360,18 @@ export function groundColor(moisture: number, contamination: number, underwater:
   }
 }
 
-/** The wall colour of a level (0 = the lowest the map can have, 22 the highest): the stone,
- *  a little lighter higher up, every other level darker. */
+/** The wall's tint at height y (levels), as the game's cliffs: `WALL.gradient` from level 0 to 22, unclamped. */
+export function cliffTint(y: number): Rgb {
+  const t = y / 22;
+  const { min, max } = WALL.gradient;
+  return [min[0] + (max[0] - min[0]) * t, min[1] + (max[1] - min[1]) * t, min[2] + (max[2] - min[2]) * t];
+}
+
+/** The wall colour of a level (0 = the lowest the map can have, 22 the highest): the stone, tinted by the game's cliff
+ *  gradient at the level's middle. */
 export function wallColor(level: number): Rgb {
-  const t = Math.max(0, Math.min(1, level / 16));
-  const k = (WALL.low + (WALL.high - WALL.low) * t) * (level % 2 ? WALL.alternate : 1);
-  return [WALL.stone[0] * k, WALL.stone[1] * k, WALL.stone[2] * k];
+  const k = cliffTint(level + 0.5);
+  return [WALL.stone[0] * k[0], WALL.stone[1] * k[1], WALL.stone[2] * k[2]];
 }
 
 export function cssColor(c: Rgb): string {
@@ -381,16 +400,18 @@ function icon(body: string, ground = "#00000000"): string {
  *  name on one line, with nothing of what it does in the game (Timberborn players know; Kyler, 2026-10-02). */
 export function legendEntries(mode: GroundMode): LegendEntry[] {
   const c = cssColor;
+  // (the ground and the walls as a sunlit top shows them: their colours are albedos the game's light multiplies, D497)
+  const l = (x: Rgb) => cssColor(sunlitTop(x));
   const cracks = (base: Rgb, line: Rgb, w = 1.5) => `repeating-linear-gradient(60deg, ${c(base)} 0 4px, ${c(line)} 4px ${4 + w}px, ${c(base)} ${4 + w}px 10px)`;
   const ground: LegendEntry[] =
     mode === "moisture"
       ? [
-          { swatch: `linear-gradient(90deg, ${c(GROUND.moistLow)}, ${c(GROUND.moistHigh)})`, label: "Moist ground" },
-          { swatch: cracks(GROUND.dry, GROUND.crack), label: "Dry ground" },
+          { swatch: `linear-gradient(90deg, ${l(GROUND.moistLow)}, ${l(GROUND.moistHigh)})`, label: "Moist ground" },
+          { swatch: cracks(sunlitTop(GROUND.dry), sunlitTop(GROUND.crack)), label: "Dry ground" },
           {
             // orange-red veins over the ground, dry earth and grass alike
             swatch: icon(
-              `<rect width="12" height="16" fill="${c(GROUND.dry)}"/><rect x="12" width="12" height="16" fill="${c(GROUND.moistLow)}"/>` +
+              `<rect width="12" height="16" fill="${l(GROUND.dry)}"/><rect x="12" width="12" height="16" fill="${l(GROUND.moistLow)}"/>` +
                 `<path d="M0 4 L5 6 L4 11 L9 13 M5 6 L11 3" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>` +
                 `<path d="M12 5 L17 7 L16 12 L22 14 M17 7 L23 3" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>`,
             ),
@@ -398,9 +419,9 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
           },
         ]
       : [{ swatch: `linear-gradient(90deg, ${c(HEIGHT_RAMP.low)}, ${c(HEIGHT_RAMP.high)})`, label: "Ground height" }];
-  // walls: two levels of cobbled stone, one a shade darker
-  const cobbles = (y: number) => [2, 9, 16].map((x, k) => `<rect x="${x + (y % 2) * 3}" y="${y + 1 + (k % 2)}" width="5" height="3" rx="1" fill="${c(WALL.mortar)}" opacity="0.5"/>`).join("");
-  const walls = icon(`<rect width="24" height="8" fill="${c(wallColor(11))}"/><rect y="8" width="24" height="8" fill="${c(wallColor(10))}"/>` + cobbles(0) + cobbles(9));
+  // walls: two levels of cobbled stone, the upper lighter (the game's cliff gradient)
+  const cobbles = (y: number) => [2, 9, 16].map((x, k) => `<rect x="${x + (y % 2) * 3}" y="${y + 1 + (k % 2)}" width="5" height="3" rx="1" fill="${l(WALL.mortar)}" opacity="0.5"/>`).join("");
+  const walls = icon(`<rect width="24" height="8" fill="${l(wallColor(14))}"/><rect y="8" width="24" height="8" fill="${l(wallColor(6))}"/>` + cobbles(0) + cobbles(9));
   return [
     ...ground,
     { swatch: `linear-gradient(90deg, ${c(WATER.foam)} 0 2px, ${c(WATER.shallow)} 2px, ${c(WATER.teal)} 45%, ${c(WATER.navy)})`, label: "Water" },
@@ -414,8 +435,8 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
  *  start, slopes, ruins and the other objects, each as its model looks from above. */
 export function objectLegend(): LegendEntry[] {
   const c = cssColor;
-  const grass = c(GROUND.moistLow);
-  const dry = c(GROUND.dry);
+  const grass = c(sunlitTop(GROUND.moistLow));
+  const dry = c(sunlitTop(GROUND.dry));
   return [
     {
       // clean water turning to badwater (teal-grey, warm brown, crimson, darker), with badwater's
@@ -488,7 +509,7 @@ export function objectLegend(): LegendEntry[] {
       markers: true,
     },
     {
-      swatch: icon(`<rect width="24" height="16" fill="${c(wallColor(5))}"/><rect y="5" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="6.6" width="24" height="0.8" fill="${c(WALL.groove)}"/><rect y="12" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="13.6" width="24" height="0.8" fill="${c(WALL.groove)}"/>`),
+      swatch: icon(`<rect width="24" height="16" fill="${c(sunlitTop(wallColor(5)))}"/><rect y="5" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="6.6" width="24" height="0.8" fill="${c(WALL.groove)}"/><rect y="12" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="13.6" width="24" height="0.8" fill="${c(WALL.groove)}"/>`),
       label: "Wall levels",
       markers: true,
     },

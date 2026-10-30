@@ -520,12 +520,26 @@ Standard's shadow before a cave (item 8).
   twice the texel at the ground's height over 22 levels, mirrored past it, before contamination's veins. Under a roof
   the same light, the sun only where it reaches: the light volume keeps the sun alone (Part 2), so a roof's relight is
   local again.
+- **The game's colours** (the calibration, #703's follow-up): the colours the light multiplies are the game's texture
+  means. `tools/albedo-means.ts` draws the terrain in the page with the light, the ramp, the cliff gradient and the
+  haze off (High also without its tone curve, grade and warm sunlight), picks every 4th pixel and averages tops by
+  their tile's soil (a tile's middle, no contamination or water) and walls. Each kind's colours were scaled by one
+  factor per channel so that mean is the game's: dry ground (`GROUND.dry`, `dryCool`, `dryWarm`, `crack`) the
+  `Desert` texture's 63/52/42 × 1.098 (the detail texture `GrassDetailsAlbedo`, mean 140, doubled) = 69/57/46; grass
+  (`moistLow`, `moistHigh`) the `Grass` texture's 67/73/25 × 1.098 = 74/80/27; walls (`WALL.stone`, `mortar`, and
+  High's strata stone) `CliffDetail`'s 68/62/52. Measured after: dry 69/57/46, grass 74/80/28, walls 68/62/52
+  (Standard; High's walls 70/64/53). Walls are tinted by the game's cliff gradient (`WALL.gradient`, `cliffTint`:
+  (0.416, 0.431, 0.475) at level 0 to (0.941, 0.925, 0.894) at 22, unclamped) and lose D334's every-other-level
+  shading, which the game's cliffs don't have. The legend shows ground and walls as a sunlit top shows them
+  (`sunlitTop`).
 - **Objects, water and falls** keep their own light (their sky colour and sun), less High's ambient occlusion.
-- **Captures and numbers:** in the PR (#703).
-- **Next:** the cliffs' gradient with the terrain's albedos from the game's textures (Grass, GrassDetailsAlbedo ×2,
-  Desert, CliffDetail; their means are in #703's thread), the game's post-processing in place of our finish (the URP
-  asset has HDR on and LDR grading, the camera allows HDR: postExposure +0.15 EV, Neutral tonemapping, contrast +14,
-  saturation +3, from the Volume profile), and the sun turning with the camera (yaw + 40°, 45° up).
+- **Captures and numbers:** in the PRs (#703; the calibration's).
+- **Falls short:** sunlit floors read darker than in the game's shots (Canyon's opening camera about 90 of 255 against
+  the game's desert tops 109–113): the game's post chain is still ours, and objects keep their own light and colours,
+  so a mine's pit stands 0.12 under sunlit dry ground where it stood 0.15 under the old colour.
+- **Next:** the game's post-processing in place of our finish (the URP asset has HDR on and LDR grading, the camera
+  allows HDR: postExposure +0.15 EV, Neutral tonemapping, contrast +14, saturation +3, from the Volume profile), and
+  the sun turning with the camera (yaw + 40°, 45° up).
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
 

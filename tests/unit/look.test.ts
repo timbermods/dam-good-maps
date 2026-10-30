@@ -9,7 +9,7 @@ import { describeTile, entitiesByTile } from "../../src/editor/features";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
 import { decodeTop, encodeTop, litFraction, objectCasters, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
-import { contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, wallColor, waterBody } from "../../src/render3d/palette";
+import { cliffTint, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { FALL_STRIDE } from "../../src/render3d/falls";
@@ -123,9 +123,10 @@ describe("the ground's colours", () => {
     // the rendered deep-under-shallow evidence is tests/e2e/look-high.spec.ts)
   });
 
-  it("bands the walls by level: neighbouring levels differ, higher is lighter", () => {
-    for (let lv = 0; lv < 22; lv++) expect(Math.abs(lum(wallColor(lv)) - lum(wallColor(lv + 1)))).toBeGreaterThan(0.03);
-    expect(lum(wallColor(16))).toBeGreaterThan(lum(wallColor(0)));
+  it("tints the walls by height as the game's cliffs (D497): its gradient from level 0 to 22, lighter higher up", () => {
+    expect(cliffTint(0)).toEqual(WALL.gradient.min);
+    for (let k = 0; k < 3; k++) expect(cliffTint(22)[k]).toBeCloseTo(WALL.gradient.max[k], 6);
+    for (let lv = 0; lv < 22; lv++) expect(lum(wallColor(lv + 1))).toBeGreaterThan(lum(wallColor(lv)));
   });
 
   it("the legend names each colour, for soil and for height colours", () => {
@@ -134,7 +135,8 @@ describe("the ground's colours", () => {
     const height = legendEntries("height").map((e) => e.label);
     expect(height[0]).toBe("Ground height");
     expect(height).not.toContain("Moist ground");
-    expect(legendEntries("moisture")[1].swatch).toContain(cssColor(GROUND.dry));
+    // (the ground as a sunlit top shows it: its colour is an albedo the light multiplies, D497)
+    expect(legendEntries("moisture")[1].swatch).toContain(cssColor(sunlitTop(GROUND.dry)));
     expect(legendEntries("moisture").at(-1)!.swatch).toBe(cssColor(DEAD_TREE));
   });
 });

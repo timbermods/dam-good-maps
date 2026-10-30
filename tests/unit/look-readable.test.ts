@@ -30,7 +30,8 @@ describe("the meanings", () => {
   it("keep the game's own cues (D334): green grass, warm earth, teal water, crimson badwater, pale dead trees", () => {
     // grass is green, dry earth warm brown to mauve, clean water teal-blue, badwater crimson: each
     // meaning its own hue, as in the game, with no lightness order asked between them (D334 (2))
-    for (const g of [GROUND.moistLow, GROUND.moistHigh]) expect(hue(g) > 70 && hue(g) < 110, cssColor(g)).toBe(true);
+    // (grass the game's yellow-green: its Grass texture's mean, 67/73/25, is hue 68, D497)
+    for (const g of [GROUND.moistLow, GROUND.moistHigh]) expect(hue(g) > 60 && hue(g) < 110, cssColor(g)).toBe(true);
     for (const d of [GROUND.dry, GROUND.dryWarm]) expect(hue(d)).toBeLessThan(40);
     expect(hue(GROUND.dryCool) > 300 || hue(GROUND.dryCool) < 40).toBe(true);
     for (const d of [0.05, 0.5, 2, 5]) expect(hue(waterBody(d, false)) > 170 && hue(waterBody(d, false)) < 210, `${d} deep`).toBe(true);
@@ -105,10 +106,10 @@ describe("grass and dry earth, in greyscale and every colour-blindness simulatio
   };
 
   it("measure every grass against every patch of dry earth in each simulation, as information, from Kyler's accepted colours", () => {
-    // the accepted inputs (D324's grass, D334's earth as D346 greyed it)
-    expect(GROUND.moistLow).toEqual([0.445, 0.575, 0.28]);
-    expect(GROUND.moistHigh).toEqual([0.415, 0.55, 0.265]);
-    expect([GROUND.dry, GROUND.dryCool, GROUND.dryWarm]).toEqual([[0.463, 0.403, 0.367], [0.444, 0.414, 0.438], [0.52, 0.438, 0.375]]);
+    // the accepted inputs (D324's grass, D334's earth as D346 greyed it), scaled to the game's Grass and Desert textures (D497)
+    expect(GROUND.moistLow).toEqual([0.36, 0.377, 0.135]);
+    expect(GROUND.moistHigh).toEqual([0.336, 0.361, 0.128]);
+    expect([GROUND.dry, GROUND.dryCool, GROUND.dryWarm]).toEqual([[0.283, 0.234, 0.187], [0.271, 0.24, 0.223], [0.318, 0.255, 0.191]]);
     // the matrix (L* gap, Lab distance) for each grass, patch and simulation: finite and within
     // range. D334 (2) asks for the game's own readability, with no gap: these numbers are reported
     // (docs/progress/high-look.md), not held to one; the captures judge the look

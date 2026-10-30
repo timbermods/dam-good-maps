@@ -15,8 +15,8 @@
 //   over either, red-orange veins that grow denser and brighter with it (dry earth's own cracks
 //   glow orange, dark red veins run through grass); a dark bed under water; or by height, with the
 //   toggle. Soil blends between tiles of one height, never over a cliff, and every tile's middle
-//   shows its own soil. Contact shadows darken the ground at the foot of higher neighbours.
-// - Walls are grey-green stone in faint cobbles: every other level a shade darker, and a pale
+//   shows its own soil.
+// - Walls are cobbled stone tinted by height as the game's cliffs (D497), and with Markers a pale
 //   ledge over a dark groove between levels, at least a pixel wide at any zoom, so levels can be
 //   counted; a lip of the top's ground.
 // - Water is light teal where shallow (see-through near the shore) and blue where deep, lighter
@@ -511,7 +511,7 @@ export interface ShaderHooks {
    *  texture, the same texture: a second sampler of it would take High's terrain past the 16 a fragment shader is sure
    *  to have (WebGL 2's least, ANGLE's on Direct3D 11) on a map with terrain above terrain, and it would not link. */
   filmShare?: string;
-  /** In a wall, before its level lines (wc, n, along, y, k, shade). */
+  /** In a wall, before its level lines (wc, n, along, y, k, cliffTint). */
   wall?: string;
   /** How strong the wall's level lines are (an expression; Standard: `markers`). */
   wallLines?: string;
@@ -1264,7 +1264,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             light = gameLight(n, 0.0);
           }
         } else {
-          // a wall: olive-grey cobbled stone (D334), every other level a shade darker; with Markers, a pale ledge
+          // a wall: cobbled stone (D334), tinted by height as the game's cliffs (D497); with Markers, a pale ledge
           // at the top of each level over a dark groove at the foot of the next (each at least a
           // pixel wide, and gone where a level is under three pixels); a lip of the top's ground.
           // A ceiling (a run's underside, only on a map with terrain above terrain) is the same stone laid on the
@@ -1281,13 +1281,14 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           #else
             float k = cobble(vec2(along * 1.5 + (vnoise(vec2(along * 0.7, y)) - 0.5) * 0.35, y * 1.6));
           #endif
-          float shade = mix(${f(WALL.low)}, ${f(WALL.high)}, clamp(level / 16.0, 0.0, 1.0)) * (mod(level, 2.0) > 0.5 ? ${f(WALL.alternate)} : 1.0);
-          vec3 wc = mix(${glColor(WALL.mortar)}, ${glColor(WALL.stone)} * shade * (0.78 + 0.44 * (k - 0.5)), smoothstep(0.1, 0.4, k));
+          // (the game's cliff gradient: its stone tinted from _SplatGradientMin at level 0 to _SplatGradientMax at 22)
+          vec3 cliffTint = mix(${glColor(WALL.gradient.min)}, ${glColor(WALL.gradient.max)}, vWorld.y / ${f(ALTITUDE_RAMP.ceiling)});
+          vec3 wc = mix(${glColor(WALL.mortar)}, ${glColor(WALL.stone)} * (0.78 + 0.44 * (k - 0.5)), smoothstep(0.1, 0.4, k)) * cliffTint;
 ${hook(h, "wall")}          float py = fwidth(y);
           float lines = ceiling ? 0.0 : (1.0 - smoothstep(0.22, 0.34, py)) * ${hook(h, "wallLines", "markers")};
           float lw = max(0.09, 1.2 * py);
           float gw = max(0.035, 0.8 * py);
-          wc = mix(wc, ${glColor(WALL.ledge)} * shade, smoothstep(1.0 - lw - py * 0.5, 1.0 - lw + py * 0.5, fy) * lines);
+          wc = mix(wc, ${glColor(WALL.ledge)}, smoothstep(1.0 - lw - py * 0.5, 1.0 - lw + py * 0.5, fy) * lines);
           wc = mix(wc, ${glColor(WALL.groove)}, (1.0 - smoothstep(gw - py * 0.5, gw + py * 0.5, fy)) * lines);
           float lip = ceiling ? 0.0 : 1.0 - smoothstep(0.07, 0.13, h0 - y);
           vec4 s0 = soilOf(d0);

@@ -15,7 +15,7 @@ import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD
 import { objectMaterial, RUIN_INSIDE_COVER, RUIN_LATTICE_SCALE, RUIN_LATTICE_STRUT, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
 import { entityView, variantIndex, type EntityInput } from "../../src/render3d/model";
-import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, WATER, type Rgb } from "../../src/render3d/palette";
+import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, sunlitTop, WATER, type Rgb } from "../../src/render3d/palette";
 import { variantOf } from "../../src/worker/api";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -142,7 +142,9 @@ describe("mine sites", () => {
   it("read in greyscale from above: a dark pit, darker than badwater, a rusty frame, pale wood, and apart from badwater sources", () => {
     expect(lum(MINE.frame) - lum(MINE.pit)).toBeGreaterThan(0.1);
     expect(lum(MINE.wood) - lum(MINE.frame)).toBeGreaterThan(0.2);
-    expect(lum(MINE.pit)).toBeLessThan(lum(GROUND.dry) - 0.15);
+    // (the pit is a colour on screen, dry ground an albedo since D497: against it as a sunlit top shows it in the game's
+    // light; before the game's post chain lifts the ground, the gap is 0.12, not D324's 0.15 against the old colour)
+    expect(lum(MINE.pit)).toBeLessThan(lum(sunlitTop(GROUND.dry)) - 0.1);
     // a badwater source is a dark round pit with a brown swirl, no pale wood: the mine's corners
     // are far lighter than anything on it
     const badwater = modelOf("BadwaterSource").col;

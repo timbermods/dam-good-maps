@@ -249,10 +249,12 @@ export function terrainHooks(): ShaderHooks {
               glow = mix(glow, groundDryGlow, polluted);
             }
           }`,
-    // rock (#65's strata, D334's stone): olive stones of unequal size and slope, soft mortar between them
+    // rock (#65's strata, D334's stone): stones of unequal size and slope, soft mortar between them, calibrated as
+    // Standard's (D497: their mean albedo the game's CliffDetail texture's, 68/62/52, tools/albedo-means.ts) and tinted
+    // by the game's cliff gradient
     wall: /* glsl */ `          if (hlStrata > 0.5) {
-            vec3 stone = mix(vec3(0.35, 0.355, 0.26), vec3(0.51, 0.47, 0.34), vnoise(vec2(along * 0.32, y * 0.4)));
-            wc = mix(vec3(0.235, 0.23, 0.18) * shade, stone * shade * (0.40 + k * 0.85 + (vnoise(vec2(along * 8.1, y * 9.3)) - 0.5) * 0.13), smoothstep(0.015, 0.35, k));
+            vec3 stone = mix(vec3(0.238, 0.231, 0.197), vec3(0.347, 0.305, 0.258), vnoise(vec2(along * 0.32, y * 0.4)));
+            wc = mix(vec3(0.16, 0.149, 0.137) * cliffTint, stone * cliffTint * (0.40 + k * 0.85 + (vnoise(vec2(along * 8.1, y * 9.3)) - 0.5) * 0.13), smoothstep(0.015, 0.35, k));
           }
 `,
     // the diorama edge (#67 stage 1): the map's four outer faces cut through its rock, the same
