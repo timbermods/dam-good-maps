@@ -507,3 +507,55 @@ export function rideLand(W: number, sw: SurfaceWater, was: ArrayLike<number>, no
     }
   return moved;
 }
+
+/** Wetter than this, a held tile's water is drawn (the 2D preview's threshold, model.ts `WET`). */
+const HELD_WET = 0.001;
+
+/** A held weather day's surface per tile (D133): the level of the water standing on the tile's top, on `heights` or on
+ *  the land before its last change (`before`, water worked out a step behind it), NaN elsewhere (dry, or water under a
+ *  roof, whose floor is not the tile's top). `holdLand` keeps it while the land under it changes. */
+export function heldSurfaceOf(sw: SurfaceWater, heights: ArrayLike<number>, before?: ArrayLike<number> | null): Float32Array {
+  const n = heights.length;
+  const out = new Float32Array(n).fill(NaN);
+  for (let i = 0; i < n; i++) {
+    const f = sw.floor[i];
+    if (sw.depth[i] > HELD_WET && (f === heights[i] || (before && f === before[i]))) out[i] = sw.surface[i];
+  }
+  return out;
+}
+
+/** A held weather day's water on land that changed from `was` to `now` (D133; an edit while a drought or a badtide is
+ *  held, until the edited map's own day comes): nothing simulates it, so it never rides the land as `rideLand` carries
+ *  live water. Each tile's held surface (`held`, `heldSurfaceOf`) stays where the day had it: land raised to it or
+ *  above holds no water, land still under it holds water up to it, and land lowered under it fills to it, depth
+ *  max(0, held − now). A tile the day had dry, or water under a roof, stays as it is, so an edit invents no water
+ *  there; and land put back as it was has the day's water back. Over the tiles of `rect` (all of them when left out);
+ *  true when any changed. */
+export function holdLand(W: number, sw: SurfaceWater, held: ArrayLike<number>, was: ArrayLike<number>, now: ArrayLike<number>, rect?: { x0: number; y0: number; x1: number; y1: number }): boolean {
+  const H = now.length / W;
+  const x0 = Math.max(0, rect?.x0 ?? 0);
+  const y0 = Math.max(0, rect?.y0 ?? 0);
+  const x1 = Math.min(W - 1, rect?.x1 ?? W - 1);
+  const y1 = Math.min(H - 1, rect?.y1 ?? H - 1);
+  let changed = false;
+  for (let y = y0; y <= y1; y++)
+    for (let i = y * W + x0, end = y * W + x1; i <= end; i++) {
+      const s = held[i];
+      const b = now[i];
+      if (was[i] === b || s !== s) continue;
+      const d = s - b;
+      if (d > HELD_WET) {
+        if (sw.floor[i] === b && sw.surface[i] === s) continue;
+        sw.floor[i] = b;
+        sw.depth[i] = d;
+        sw.surface[i] = s;
+      } else {
+        if (sw.surface[i] !== sw.surface[i]) continue;
+        sw.floor[i] = NaN;
+        sw.depth[i] = 0;
+        sw.surface[i] = NaN;
+      }
+      changed = true;
+    }
+  return changed;
+}

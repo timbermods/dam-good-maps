@@ -180,6 +180,13 @@ test("an edit while the Drought view is held: the old map's days say nothing on 
   const v0 = await page.evaluate(() => window.dgmEditor!.info().version);
   await page.evaluate(([a, b]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[b, a - 1, a + 1]], level: 15 } } as never, "Raise a tile"), [x, y]);
   expect(await page.evaluate(() => window.dgmEditor!.info().version)).toBeGreaterThan(v0);
+  // (and the water drawn there is gone with it, the held day's surface below the new land: what the readout says is drawn)
+  const drawnDepth = () =>
+    page.evaluate(([a, b]) => {
+      const m = window.dgm3d!.renderer.mapState()!;
+      return m.surface.depth[b * m.W + a];
+    }, [x, y]);
+  await expect.poll(drawnDepth).toBe(0);
   await hover();
   await expect(readout).toContainText("Height");
   await expect(readout).not.toContainText(/Dry on day|Lasts the drought/);
