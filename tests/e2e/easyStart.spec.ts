@@ -35,6 +35,9 @@ test("Easy start: a toggle beside Size, kept by a theme and remembered; the map 
   await expect.poll(() => new URL(page.url()).hash, { timeout: 30_000 }).toBe(`#${fragment}`);
   expect(shown.passed).toBe(true);
   await expect(page.locator(".editor-title .muted")).toContainText("Easy start");
+  // (made in its first rounds, it met every full target: the label says nothing fell short)
+  await expect(page.locator(".editor-title .muted")).not.toContainText("fell short");
+  expect(await page.evaluate(() => window.dgmEditor!.info().easyShort)).toBeNull();
   // its start holds every target, each a row of the checks it was made by
   expect(decodeSpecFragment(fragment)!.spec.settings.start.easyStart).toBe(true);
   const rows = shown.checks.filter((c) => c.id.startsWith("start.easy_"));
