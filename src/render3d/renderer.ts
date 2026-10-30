@@ -1873,6 +1873,33 @@ export class MapRenderer {
   private readonly entityModels = new EntityGeometryCache();
 
   private setEntitiesInner(e: EntityView): number {
+    const instances = this.drawObjects(e);
+    const m = this.map!;
+    m.entities = e;
+    this.high?.objectsBuilt(this.objects!, e);
+    this.applyWithered();
+    // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
+    const cut = mineCutout(e, m.W, m.H);
+    const old = m.source.cutout ?? new Map<number, number>();
+    const changed = new Set<string>();
+    for (const [i, z] of cut) if (old.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
+    for (const [i, z] of old) if (cut.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
+    m.source = { ...m.source, cutout: cut };
+    for (const key of changed) {
+      const [cx, cy] = key.split(",").map(Number);
+      this.meshTerrain(cx, cy);
+    }
+    if (this.sites) {
+      mineOutline(e, m.W, m.H, this.sites.image.data as Uint8Array);
+      this.sites.needsUpdate = true;
+    }
+    this.markSources();
+    return instances;
+  }
+
+  /** The objects `e` drawn (the plants a held day has withered dead), the batches that would be built as they are drawn
+   *  kept; nothing else of the map. Returns the instances. */
+  private drawObjects(e: EntityView): number {
     // (highlighted objects back in their own colours first: a batch that would be built as it is drawn is kept)
     for (const l of this.lit) {
       (l.mesh.instanceColor!.array as Float32Array).set(l.color, l.i * 3);
@@ -1904,26 +1931,6 @@ export class MapRenderer {
     this.objects = group;
     this.scene.add(group);
     this.showMarkerObjects();
-    const m = this.map!;
-    m.entities = e;
-    this.high?.objectsBuilt(group, e);
-    this.applyWithered();
-    // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
-    const cut = mineCutout(e, m.W, m.H);
-    const old = m.source.cutout ?? new Map<number, number>();
-    const changed = new Set<string>();
-    for (const [i, z] of cut) if (old.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
-    for (const [i, z] of old) if (cut.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
-    m.source = { ...m.source, cutout: cut };
-    for (const key of changed) {
-      const [cx, cy] = key.split(",").map(Number);
-      this.meshTerrain(cx, cy);
-    }
-    if (this.sites) {
-      mineOutline(e, m.W, m.H, this.sites.image.data as Uint8Array);
-      this.sites.needsUpdate = true;
-    }
-    this.markSources();
     return instances;
   }
 
@@ -2342,14 +2349,20 @@ export class MapRenderer {
     const was = this.drawnObjects;
     this.drawnObjects = count ? w.view : null;
     // the Standard and light looks' plants: the objects drawn again where a plant's state changed (the batches that did
-    // not change kept); High's own plants change state in place
+    // not change kept), only while they are the ones shown (High hides them: they are drawn again when the look switches
+    // back, applyLook); High's own plants change state in place
     const from = this.objectsFrom?.flags;
-    let redraw = !!this.objects && !!from && from.length === flags.length;
+    const shown = this.lookNow === "standard" || this.lookNow === "light";
+    let redraw = shown && !!this.objects && !!from && from.length === flags.length;
     if (redraw) {
       redraw = false;
       for (let k = 0; k < flags.length && !redraw; k++) redraw = (from![k] & DEAD) !== (flags[k] & DEAD);
     }
-    if (redraw) this.setEntitiesInner(m.entities);
+    // (only the objects: nothing else of the map changed; the sources' glow put back after)
+    if (redraw) {
+      this.drawObjects(m.entities);
+      this.markSources();
+    }
     const changed = this.high?.setPlantsDead(flags) ?? 0;
     if (!changed && !redraw && !was === !this.drawnObjects) return;
     this.requestRender();
@@ -2669,7 +2682,8 @@ export class MapRenderer {
       for (const c of this.objects.children) {
         const mesh = c as InstancedMesh;
         const own = mesh.userData.objects as Int32Array | undefined;
-        if (!own || !mesh.instanceColor) continue;
+        // (the light look's batches are baked into one instance: nothing to light one by one)
+        if (!own || !mesh.instanceColor || mesh.userData.baked) continue;
         const a = mesh.instanceColor.array as Float32Array;
         for (let i = 0; i < own.length; i++) {
           const k = own[i];
@@ -2853,7 +2867,7 @@ export class MapRenderer {
     for (const c of objects.children) {
       const mesh = c as InstancedMesh;
       const own = mesh.userData.objects as Int32Array | undefined;
-      if (!own) continue;
+      if (!own || mesh.userData.baked) continue;
       const a = mesh.instanceMatrix.array as Float32Array;
       for (let i = 0; i < own.length; i++) {
         const k = own[i];
