@@ -175,9 +175,13 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // any 6 for canyon 5 since the opening shot, 0.10.2, D493, D148: of Canyon's seeds to 20 only 1 and 18
     // hold one now; canyon 3 for canyon 18 since generator 0.10.5, D148: of Canyon's seeds to 20 only 1, 3 and 14
     // hold one now; river valley 9 for any 6 since generator 0.10.6 (D498, badwater's ditches moved), D148: of
-    // Any's seeds 1–8 none holds one, and of River Valley's seeds 1–12 only 8, 9, 10 and 11 do)
+    // Any's seeds 1–8 none holds one, and of River Valley's seeds 1–12 only 8, 9, 10 and 11 do; canyon 19 for
+    // canyon 1 and river valley 11 for river valley 9 since generator 0.10.7 (D502, every start leans toward a
+    // landmark and River Valley grows landmark forms), D148: canyon 1's rise lies in a pocket of land the colony cannot
+    // walk to from its start (as do river valley 5's and 10's), so no flight of stairs reaches it; of Canyon's seeds to 20
+    // only 1, 3 and 19 hold a rise, and of River Valley's seeds 1–16 only 4, 5, 8, 10, 11 and 13)
     let seen = 0;
-    for (const [theme, seed] of [["canyon", 1], ["riverValley", 9], ["riverValley", 8], ["canyon", 3]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["canyon", 19], ["riverValley", 11], ["riverValley", 8], ["canyon", 3]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
