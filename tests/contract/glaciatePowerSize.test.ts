@@ -14,7 +14,7 @@ import { openMap } from "./forceEverywhere";
 
 const W = 128;
 const SEED = 22;
-const SIZE_HEAD: [number, number] = [98, 18];
+const SIZE_HEAD: [number, number] = [66, 18];
 const POWER_HEAD: [number, number] = [74, 18];
 let at: [number, number] = [W >> 1, W >> 1];
 
@@ -37,7 +37,10 @@ beforeAll(async () => {
   // every check of Power). Size's moved again with generator 0.10.5, D148: at (62, 14) Power 20's narrow valley
   // (Size 10) is left on the old floor (a cut of 0) where the wide one (Size 40) cuts it 3, the same level, so
   // "the floor is Power's" had no clean stretch there; of the heads on a grid of 4 from (62, 14) outward,
-  // (98, 18) is the first where every check of Size holds at Power 20, 60 and 100)
+  // (98, 18) is the first where every check of Size holds at Power 20, 60 and 100). And with 0.10.6's map, D498, D148:
+  // at (98, 18) and the 40 heads nearest it Power 20's ice makes no sections, or the floor or its level differs by
+  // two levels between the sizes; of the heads of level 10 or more on a grid of 4, taken by their distance from
+  // (98, 18), (66, 18), level 11, is the first where every check of Size holds at Power 20, 60 and 100)
   at = SIZE_HEAD;
 });
 
