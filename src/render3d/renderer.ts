@@ -69,7 +69,7 @@ import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import { fogOf } from "./high/seasons";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
-import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
+import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
 import { whenIdle } from "./idle";
 import { castersChangedRects, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
@@ -85,7 +85,7 @@ import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
-import { drawnWater, drewChunk, exactWaterChunks, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
+import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
@@ -1398,6 +1398,9 @@ export class MapRenderer {
     this.drawnLand = heights.slice();
     this.landBefore = heights.slice();
     this.pendingLand = null;
+    // (a map opened shows its own water: the page says when a weather day is held on it)
+    this.holding = false;
+    this.heldSurface = null;
     let lo = 255;
     let hi = 0;
     for (let i = 0; i < heights.length; i++) {
@@ -1877,6 +1880,22 @@ export class MapRenderer {
 
   private readonly entityModels = new EntityGeometryCache();
 
+  /** The soil the objects are drawn by (a ruin under a roof reads its run top's soil: a soil without runs keeps the last
+   *  drawn, as the terrain does). */
+  private objectSoil(): SoilView | null {
+    return this.map?.soil && !this.map.soil.runs && this.runsShown ? { ...this.map.soil, runs: this.runsShown } : (this.map?.soil ?? null);
+  }
+
+  /** Each object's overgrown ruin as drawn (`ruinsOvergrown`): a new soil that changes one rebuilds the objects. */
+  private ruinsDrawn: Uint8Array | null = null;
+
+  /** How many ruins are drawn overgrown now (the tests read it). */
+  get overgrownRuins(): number {
+    let n = 0;
+    for (const v of this.ruinsDrawn ?? []) n += v;
+    return n;
+  }
+
   private setEntitiesInner(e: EntityView): number {
     const instances = this.drawObjects(e);
     const m = this.map!;
@@ -1910,14 +1929,14 @@ export class MapRenderer {
       (l.mesh.instanceColor!.array as Float32Array).set(l.color, l.i * 3);
       l.mesh.instanceColor!.needsUpdate = true;
     }
-    // (a ruin under a roof reads its run top's soil: a soil without runs keeps the last drawn, as the terrain does)
-    const soil = this.map?.soil && !this.map.soil.runs && this.runsShown ? { ...this.map.soil, runs: this.runsShown } : (this.map?.soil ?? null);
+    const soil = this.objectSoil();
     const before = this.objects;
     // (the plants a held day has withered drawn dead, in every look, as the game does: D242 as amended; High's own plants
     // follow in applyWithered)
     const drawn = this.witheredView(e).view;
     const { group, instances } = buildEntities(drawn, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels, before && this.objectsFrom ? { group: before, entities: this.objectsFrom } : undefined);
     this.objectsFrom = drawn;
+    this.ruinsDrawn = ruinsOvergrown(e, soil, this.map?.W ?? 0);
     if (before) {
       // (the High look's models leave the old group first: the landmarks of batches kept go with them)
       this.high?.releaseObjects(group);
@@ -1970,7 +1989,7 @@ export class MapRenderer {
     if (rect && this.drawnLand) {
       this.landBefore ??= this.drawnLand.slice();
       for (let i = 0; i < heights.length; i++) if (heights[i] !== this.drawnLand[i]) this.landBefore[i] = this.drawnLand[i];
-      if (rideLand(m.W, m.surface, this.drawnLand, heights, rect)) this.rodeLand(rect);
+      if (this.landUnder(this.drawnLand, heights, rect)) this.rodeLand(rect);
     }
     m.heights = heights;
     this.heightStats = null;
@@ -2030,9 +2049,60 @@ export class MapRenderer {
   private seated(water: WaterView): SurfaceWater {
     const m = this.map!;
     const surface = surfaceWater(m.W, m.H, water);
+    // (a held weather day: its surface stays where the day had it, on the land as drawn, `holdLand`)
+    if (this.holding) return this.heldSeat(water, surface);
     if (this.landBefore) rideLand(m.W, surface, this.landBefore, m.heights);
     return surface;
   }
+
+  /** Water drawn while a weather day is held: a copy of `sw` (the day's own water is never written: it is drawn again
+   *  as it came after a flip of Compare or another day), standing at the surface the day had, kept once per day as it
+   *  came (`heldOf`), on the land drawn. */
+  private heldSeat(water: WaterView, sw: SurfaceWater): SurfaceWater {
+    const m = this.map!;
+    let held = this.heldOf.get(water);
+    if (!held) {
+      held = heldSurfaceOf(water, sw.top, m.heights, this.landBefore);
+      this.heldOf.set(water, held);
+    }
+    this.heldSurface = held;
+    const own = ownSurface(sw);
+    holdLand(m.W, own, held, m.heights);
+    return own;
+  }
+
+  /** The land under the water drawn changed from `was` to `now` over `rect`: live water rides it (`rideLand`), a held
+   *  weather day's keeps its surface (`holdLand`). True when the water there changed. */
+  private landUnder(was: Uint8Array, now: Uint8Array, rect: { x0: number; y0: number; x1: number; y1: number }): boolean {
+    const m = this.map!;
+    return this.holding && this.heldSurface ? holdLand(m.W, m.surface, this.heldSurface, now, rect) : rideLand(m.W, m.surface, was, now, rect);
+  }
+
+  /** Whether the water drawn is a held weather day's (D133: a drought or a badtide held, from its button pressed until
+   *  it is put away). Nothing simulates that water until the edited map's own day comes, so an edit meanwhile never
+   *  carries it on the land as it does live water: land raised to the held surface or above holds none at once, land
+   *  under it holds water up to it (`holdLand`), and the readout, reading the same water, says so. Held, the water
+   *  drawn is a copy (`mapState().surface` is a new object: the page's copy of the map reads it again). */
+  holdWater(on: boolean): void {
+    const m = this.map;
+    if (on === this.holding) return;
+    this.holding = on;
+    this.heldSurface = null;
+    // (the water drawn now is held from here: drawn from a copy, which an edit writes, `heldSeat`)
+    if (on && m) {
+      m.surface = this.heldSeat(m.water, m.surface);
+      this.high?.waterChanged(m.surface);
+      this.flowChanged(m.heights, m.surface);
+    }
+  }
+
+  /** A weather day is held (`holdWater`). */
+  private holding = false;
+  /** While a weather day is held, the surface its water keeps on each tile (NaN where it had none on the tile's top),
+   *  the water drawn's (`heldOf`); null otherwise. */
+  private heldSurface: Float32Array | null = null;
+  /** Each held day's surface, worked out once from its water as it came (`heldSurfaceOf`). */
+  private readonly heldOf = new WeakMap<WaterView, Float32Array>();
 
   /** New water: remesh the chunks whose water changed, in the water mesh workers where they run, drawn a frame or
    *  two on (meshing them here cost the page tens of milliseconds each time water was put in place). `now`: on a
@@ -2273,7 +2343,8 @@ export class MapRenderer {
     this.edgeRows.touch(x0 - 1, y0 - 1, x1 + 1, y1 + 1);
   }
 
-  /** New soil (moisture and contamination follow the water): the ground's colours. */
+  /** New soil (moisture and contamination follow the water): the ground's colours, and the ruins' models, which the
+   *  game turns dry on dry or contaminated soil (a held Drought or Badtide day's too). */
   updateSoil(soil: SoilView): void {
     this.flushTerrain();
     const m = this.map;
@@ -2281,8 +2352,27 @@ export class MapRenderer {
     m.soil = soil;
     this.bakeTiles();
     this.syncRunSoil();
-    // (the plants its dry, wet or poisoned ground starts dying, or stops)
-    this.applyWithered();
+    let redrawn = false;
+    if (this.objects && this.ruinsDrawn) {
+      const now = ruinsOvergrown(m.entities, this.objectSoil(), m.W);
+      const was = this.ruinsDrawn;
+      let changed = now.length !== was.length;
+      for (let k = 0; !changed && k < now.length; k++) changed = now[k] !== was[k];
+      // (the light look draws every ruin as one block without ivy: nothing to draw again there)
+      if (changed && this.software) this.ruinsDrawn = now;
+      else if (changed) {
+        // (the batches that did not change are kept: buildEntities)
+        this.setEntitiesInner(m.entities);
+        redrawn = true;
+        clearTimeout(this.casterTimer);
+        this.casterTimer = window.setTimeout(() => {
+          this.bakeShadows(true);
+          this.requestRender();
+        }, 0);
+      }
+    }
+    // (the plants its dry, wet or poisoned ground starts dying, or stops: with the ruins, setEntitiesInner did it)
+    if (!redrawn) this.applyWithered();
     this.requestRender();
     this.onMapChange?.();
   }
@@ -2491,7 +2581,7 @@ export class MapRenderer {
       for (let i = y * m.W + c.rect.x0, end = y * m.W + c.rect.x1; i <= end; i++) if (heights[i] !== drawn[i]) landBefore[i] = drawn[i];
     // (Erode's frames paint its plain ground here, its hollows under roofs in updateTerrain: both glow)
     if (this.eroding) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
-    if (m.water.count && rideLand(m.W, m.surface, drawn, heights, c.rect)) {
+    if (m.water.count && this.landUnder(drawn, heights, c.rect)) {
       this.rodeLand(c.rect);
       this.flowChanged(heights, m.surface);
     }

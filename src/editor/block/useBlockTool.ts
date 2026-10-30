@@ -75,8 +75,9 @@ export function useBlockTool(ed: Ed): BlockSlice {
   /** The question's identity: the operation. */
   const keyOf = paramsKey;
   /** The preview: the operation asked about last, the question on its way (its operation, and the map's version its face
-   *  was picked on), the next to ask (and that version), the answer (and that version). */
-  const pv = useRef<{ key: string; inFlight: boolean; flight: string; at: number; queued: BlocksParams | null; queuedSeen: number; result: { key: string; f: BlockFalls; version: number } | null; note: string | null; answer: Promise<unknown> | null }>({ key: "", inFlight: false, flight: "", at: -1, queued: null, queuedSeen: -1, result: null, note: null, answer: null });
+   *  was picked on), the next to ask (and that version), the answer (and that version), the words said and the pointer's
+   *  place when they were. */
+  const pv = useRef<{ key: string; inFlight: boolean; flight: string; at: number; queued: BlocksParams | null; queuedSeen: number; result: { key: string; f: BlockFalls; version: number } | null; note: string | null; noteAt: { x: number; y: number }; answer: Promise<unknown> | null }>({ key: "", inFlight: false, flight: "", at: -1, queued: null, queuedSeen: -1, result: null, note: null, noteAt: { x: 0, y: 0 }, answer: null });
   /** The face asked about again a moment after the map changed (its timer, 0: none), and the map's version that was last
    *  looked at for it (the tests' `blockAnswered` waits for both). */
   const repick = useRef(0);
@@ -121,6 +122,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
     const free = c?.parentElement ? freeView(c.parentElement) : null;
     const spot = c ? noteSpot(box, at, { w: c.clientWidth, h: c.clientHeight }, { w: 300, h: 52 }, 10, free?.avoid) : { x: at.x + 16, y: at.y + 16 };
     // (with blocks drawn, the spot is the tool's own, clear of them; the page does not move it to another side it had)
+    pv.current.noteAt = pointer;
     setBlockNote({ text: plain(reason), x: spot.x, y: spot.y, pointer, own: !!box, ok });
   }
 
@@ -142,7 +144,15 @@ export function useBlockTool(ed: Ed): BlockSlice {
       return;
     }
     const key = keyOf(p);
-    if (key === s.key) return;
+    if (key === s.key) {
+      // (the same question with the pointer elsewhere on the screen, the view having moved under it: the words already
+      // said follow the pointer, as they do onto a new face)
+      const r = s.result;
+      const was = s.noteAt;
+      const now = pointerAt.current;
+      if (r && r.key === key && s.note && (was.x !== now.x || was.y !== now.y)) refuse(r.f.reason ?? plantsWords(r.f.plantsRemoved, r.f.plantsRiding), boxOf(r.f), !r.f.reason);
+      return;
+    }
     s.key = key;
     s.result = null;
     s.queued = p;

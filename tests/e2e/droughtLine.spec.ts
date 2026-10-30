@@ -2,7 +2,7 @@
 // worker has it, is put away while a Drought day is held and at the next edit, and comes back for the new map's version.
 
 import { expect, test, type Page } from "@playwright/test";
-import { expectReady, openEditor, topDown } from "./open";
+import { expectReady, openEditor, openYourMaps, topDown } from "./open";
 
 const showing = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.droughtLineShowing);
 
@@ -180,9 +180,81 @@ test("an edit while the Drought view is held: the old map's days say nothing on 
   const v0 = await page.evaluate(() => window.dgmEditor!.info().version);
   await page.evaluate(([a, b]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[b, a - 1, a + 1]], level: 15 } } as never, "Raise a tile"), [x, y]);
   expect(await page.evaluate(() => window.dgmEditor!.info().version)).toBeGreaterThan(v0);
+  // (and the water drawn there is gone with it, the held day's surface below the new land: what the readout says is drawn)
+  const drawnDepth = () =>
+    page.evaluate(([a, b]) => {
+      const m = window.dgm3d!.renderer.mapState()!;
+      return m.surface.depth[b * m.W + a];
+    }, [x, y]);
+  await expect.poll(drawnDepth).toBe(0);
   await hover();
   await expect(readout).toContainText("Height");
   await expect(readout).not.toContainText(/Dry on day|Lasts the drought/);
+  expect(errors).toEqual([]);
+});
+
+test("a Compare flip while the Drought view is held, to a version whose land covers a lake tile and back: the held day's water there is as it was (D133)", async ({ page }) => {
+  test.setTimeout(300_000);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await expectReady(page);
+  await topDown(page);
+  const info = () => page.evaluate(() => window.dgmEditor!.info());
+  const name = (await info()).name;
+  const lake = await page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    const wet = (x: number, y: number) => m.surface.depth[y * m.W + x] > 0.5;
+    for (let y = 4; y < m.H - 4; y++)
+      for (let x = 4; x < m.W - 4; x++) {
+        let all = true;
+        for (let dy = -2; dy <= 2 && all; dy++) for (let dx = -2; dx <= 2; dx++) if (!wet(x + dx, y + dy)) all = false;
+        if (all) return [x, y] as [number, number];
+      }
+    return null;
+  });
+  expect(lake).not.toBeNull();
+  const [x, y] = lake!;
+  const depth = () =>
+    page.evaluate(([a, b]) => {
+      const m = window.dgm3d!.renderer.mapState()!;
+      return m.surface.depth[b * m.W + a];
+    }, [x, y]);
+  // a version with the lake tile raised to land, kept; the open map taken back to the lake, and compared with it
+  await page.evaluate(([a, b]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[b, a - 1, a + 1]], level: 15 } } as never, "Raise a tile"), [x, y]);
+  await page.evaluate(() => window.dgmEditor!.idle());
+  const history = page.getByRole("button", { name: "History", exact: true }).first();
+  await history.click();
+  const first = page.getByRole("complementary", { name: "History" }).locator(".hist-item").nth(1);
+  await first.hover();
+  await first.getByRole("button", { name: "Keep this version" }).click();
+  await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — Raise a tile` })).toBeVisible({ timeout: 60_000 });
+  await history.click();
+  await page.keyboard.press("Control+z");
+  await expect.poll(async () => (await info()).history.filter((h) => h.applied).length).toBe(0);
+  await page.evaluate(() => window.dgmEditor!.idle());
+  const yours = await openYourMaps(page);
+  await yours.locator("li", { hasText: `${name} — Raise a tile` }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Compare with the open map" }).click();
+  await expect(page.locator(".compare-note")).toBeVisible();
+  await page.locator("header.editor-bar").getByRole("button", { name: "Your maps", exact: true }).click();
+  // the Drought view held on its last day: the lake tile's water that day
+  await page.getByRole("button", { name: "Drought", exact: true }).click();
+  await expect(page.locator(".day-words")).toHaveText("Day 9", { timeout: 60_000 });
+  // (the day's water has landed once the hover says the tile's day; this tile still holds water on Day 9)
+  const p = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y]);
+  await page.mouse.move(p.x + 4, p.y);
+  await page.mouse.move(p.x, p.y, { steps: 2 });
+  await expect(page.locator(".readout")).toContainText(/Dry on day [1-9]\d*|Lasts the drought/, { timeout: 60_000 });
+  const held = await depth();
+  expect(held).toBeGreaterThan(0.01);
+  // the other version on show (its land over the tile), then the open map back: the same water, drawn and read
+  await page.keyboard.down("b");
+  await expect(page.locator(".compare-veil")).toHaveCount(1);
+  await page.keyboard.up("b");
+  await expect(page.locator(".compare-veil")).toHaveCount(0);
+  expect(await depth()).toBe(held);
   expect(errors).toEqual([]);
 });
 

@@ -69,6 +69,8 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.force()), { timeout: 10_000 }).not.toBeNull();
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 3_000, intervals: [20, 40, 80] }).toBeGreaterThan(0);
   expect(await page.evaluate(() => window.dgmEditor!.force())).not.toBeNull();
+  // (on a loaded machine it may be kept just before Ctrl+Z comes: undo then takes its tails back, an
+  // impact's boom among them, dev's run 41014631933)
   await page.keyboard.press("Control+z");
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 1_000, intervals: [50, 100] }).toBe(0);
   await idle(page);

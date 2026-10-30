@@ -684,6 +684,15 @@ const common = (h?: ShaderHooks) => /* glsl */ `
 
   float bitOf(float v, float b) { return mod(floor(v / b + 0.001), 2.0); }
 
+  /** How much of a tile's top is grass at moisture level m (its soil nibble, the game's levels), as the game's terrain
+   *  draws it (SoilMoistureSystem \`UpdateDesertIntensity\`; \`DesertMoistureThreshold\` 5, \`MaxDesertIntensity\` 0.7 in
+   *  its blueprint): its desert texture over all of a dry tile (moisture 0), over (1 − m/5) × 0.7 of one at moisture 0
+   *  to 5, none above, so green thins toward the edge of the water's reach, and through a drought. (Before the hooks'
+   *  declarations: High's slope reads it too.) */
+  float grassOf(float m) {
+    return m < 0.5 ? 0.0 : 1.0 - ${f(DESERT.max)} * max(0.0, 1.0 - m / ${f(DESERT.threshold)});
+  }
+
   /** Value noise, one cell per unit of p. */
   float vnoise(vec2 p) {
     return texture2D(patternTex, p * ${f(1 / NOISE_CELLS)}).r;
@@ -712,13 +721,6 @@ const common = (h?: ShaderHooks) => /* glsl */ `
   vec3 lightOf(vec3 n, float sky, float ao, float lit) {
     float ndl = max(dot(n, sunDir), 0.0);
     return skyColor * ${hook(h, "skyLight")}1.0 * (0.7 + 0.3 * n.y) * ao * sky + sunColor * 0.55 * ndl * lit * mix(1.0, ao, 0.35);
-  }
-  /** How much of a tile's top is grass at moisture level m (its soil nibble, the game's levels), as the game's terrain
-   *  draws it (SoilMoistureSystem \`UpdateDesertIntensity\`; \`DesertMoistureThreshold\` 5, \`MaxDesertIntensity\` 0.7 in
-   *  its blueprint): its desert texture over all of a dry tile (moisture 0), over (1 − m/5) × 0.7 of one at moisture 0
-   *  to 5, none above, so green thins toward the edge of the water's reach, and through a drought. */
-  float grassOf(float m) {
-    return m < 0.5 ? 0.0 : 1.0 - ${f(DESERT.max)} * max(0.0, 1.0 - m / ${f(DESERT.threshold)});
   }
   /** A hatched overlay (dam sites) at tile position g: inside, light stripes in the tile's
    *  overlay colour and dark stripes (solid light where a stripe would be under two pixels); just
