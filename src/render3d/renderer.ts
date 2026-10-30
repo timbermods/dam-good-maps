@@ -141,6 +141,7 @@ export type Look = Tier | "light";
 
 /** A highlighted source's tint (Remove's red on a source, Clear sources' glow, D249): its blue made
  *  a clear red. */
+/** A highlighted source's tint, after the grade (an editing aid, D249, D497). */
 const SOURCE_GLOW: [number, number, number] = [3, 0.3, 0.2];
 
 /** The edges of the canvas the page's controls cover, in CSS pixels (framing keeps the map clear of them). */
@@ -524,6 +525,7 @@ export class MapRenderer {
     // placeholder textures until a map arrives; every material shares these uniforms
     const one = () => tileTexture(1, 1, new Uint8Array(4));
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
+    this.uniforms.sourceTint.value.set(...SOURCE_GLOW);
     this.patterns = drawPatterns(this.gl);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
     this.edgeRows = new RowUploads(this.gl, () => this.edges);
@@ -2728,8 +2730,11 @@ export class MapRenderer {
   }
 
   /** Objects on these tiles show in a colour (Remove's red under the pointer, D184); null puts them
-   *  back as they are. */
+   *  back as they are. The tint is an editing aid, put on after the fog and the post chain (D497, its own channel):
+   *  a highlighted instance's colour goes negative, a source's less 10 more (materials.ts objectMaterial), and the
+   *  shader tints it by `aidTint` or `sourceTint`. */
   highlightObjects(tiles: readonly number[] | null, color: [number, number, number] = [1.6, 0.35, 0.3]): void {
+    this.uniforms.aidTint.value.set(...color);
     for (const l of this.lit) {
       const a = l.mesh.instanceColor!.array as Float32Array;
       a.set(l.color, l.i * 3);
@@ -2764,8 +2769,8 @@ export class MapRenderer {
           this.lit.push({ mesh, i, color: [a[i * 3], a[i * 3 + 1], a[i * 3 + 2]] });
           // (a source's blue would only darken: it turns a clear red, D249)
           const t = m.entities.templates[m.entities.template[k]];
-          const c = t === "WaterSource" || t === "BadwaterSource" ? SOURCE_GLOW : color;
-          for (let j = 0; j < 3; j++) a[i * 3 + j] = Math.min(2, a[i * 3 + j] * c[j]);
+          const source = t === "WaterSource" || t === "BadwaterSource";
+          for (let j = 0; j < 3; j++) a[i * 3 + j] = -a[i * 3 + j] - (source ? 10 : 0);
           mesh.instanceColor.needsUpdate = true;
         }
       }

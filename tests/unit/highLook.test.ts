@@ -82,7 +82,8 @@ describe("the High look's shaders", () => {
     // (D497: High's own tone curve, grade and haze gave way to the game's fog and post chain, every look's)
     const all = [terrainHooks(), waterHooks(), objectHooks(), landmarkHooks(), skyHooks()].map((h) => Object.values(h).join("\n")).join("\n");
     expect(all).not.toMatch(/hlTone|hlGrade|hlHaze|hlGradeColour/);
-    expect(terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader).toContain("return gamePost(c);");
+    // (the look fogged and graded, then the editing aids after it: D497)
+    expect(terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader).toContain("c = finishLit(c, emission, vWorld);");
     // the water's highlights are advected in two phases along the current, pink where it is bad (by the game's tint);
     // bubbles rise in badwater; its edge glows red where it meets the rock (the game's cues, not a
     // pattern of our own: no density or contrast is asked of them)
