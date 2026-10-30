@@ -67,10 +67,16 @@ export const FAINT: Rgba = [230, 240, 230, 70];
 /** What a Select action's hover shows it would raise, and lower (D323 item 6). */
 export const RAISES: Rgba = [90, 200, 110, 140];
 export const LOWERS: Rgba = [240, 160, 70, 150];
-export const GOOD: Rgba = [80, 200, 90, 170];
-export const BAD: Rgba = [230, 60, 50, 180];
+/** Where an object fits, can't stand, or fits with a warning (D361): a darker fill of each hue, which a footprint's
+ *  edge (`edge`) draws in a lighter tint of (materials.ts `overlayEdgeColor`): calm, one hue each, never white on
+ *  green (Kyler, 2026-10-29). */
+export const GOOD: Rgba = [52, 150, 66, 170];
+export const BAD: Rgba = [190, 54, 44, 180];
 /** A start that fits but misses some requirement (D361). */
-export const WARN: Rgba = [235, 170, 40, 180];
+export const WARN: Rgba = [200, 140, 30, 180];
+/** A footprint whose fit is still being checked (the start's walks): a faint grey-green fill and a pale grey-green edge
+ *  (its edge, a lighter tint of it, about 0.8: never white), never a colour that claims an answer. */
+export const PENDING: Rgba = [90, 100, 88, 60];
 /** The start's overlay colour by its status (D361). */
 export const STATUS_COLOR: Record<"ok" | "warn" | "blocked", Rgba> = { ok: GOOD, warn: WARN, blocked: BAD };
 /** The start's ghost tint by its status: true green, "warn" amber, false red. */
@@ -90,6 +96,10 @@ export interface OverlayLayer {
   dy?: number;
   /** Tint only the tiles on the edge of the set (a selection's outline). */
   outline?: boolean;
+  /** A footprint (the shelf's object, the start): the terrain draws a line round it in a lighter tint of its colour,
+   *  and no white square on the tile under the pointer. Told to the shader by an odd alpha (every other layer's is
+   *  made even; 255, the markers' own, stays). */
+  edge?: boolean;
 }
 
 /** Paint the overlay texture: tint the tiles of each layer (later layers on top). */
@@ -118,7 +128,7 @@ export function paintOverlay(data: Uint8Array, W: number, H: number, layers: rea
       data[o] = l.color[0];
       data[o + 1] = l.color[1];
       data[o + 2] = l.color[2];
-      data[o + 3] = l.color[3];
+      data[o + 3] = l.color[3] >= 255 ? 255 : l.edge ? l.color[3] | 1 : l.color[3] & ~1;
     }
   }
 }
