@@ -1,0 +1,2128 @@
+{
+  "base": "75cb5d4c4a168eb17113bd0dd19576bb43b3ffc9",
+  "determinism": "f306fd495c713e19278c507686102b2c603cdef8",
+  "round3": "fb7d78011ad0cffe7921a86320a99e7bf4328733",
+  "scope": "2,048 frozen mixed edits per size. Construction memory is one Node GC capacity trace, including fixture/oracle/native metadata; not page/GPU memory. Browser actions repeat three times with contemporaneous whole-machine load. Open-plus-first-edit measures worker hydration and a real core brush, not a rendered editor frame.",
+  "policy": {
+    "formatVersion": 6,
+    "reopenedUndoSteps": 100,
+    "decodedPatchBytes": 67108864,
+    "decodedPatchCount": 100,
+    "compressedPatchBytes": 33554432,
+    "derivedResultBytes": 33554432,
+    "fieldBytes": 33554432,
+    "overflow": "One oversized working patch allowed. Gesture journal, current/native metadata and cold index grow; only retained historical payload is bounded. In-session undo patches are kept on owned disk, not in the project beyond the last 100."
+  },
+  "cases": [
+    {
+      "size": 256,
+      "steps": 2048,
+      "forces": {
+        "craterize": 4,
+        "erupt": 3,
+        "quake": 3,
+        "glaciate": 3,
+        "carve": 3
+      },
+      "finalState": "8f21307f863ba8896974593237a38fe447d6385e7f9c8fc220810e5a4e440349",
+      "exportHash": "b045c1f308ecc8bef5cbfe2571e30349087c9d3801d4ad554c88d67b91558147",
+      "traceDigest": "1869ec7106ea5487d0d4dba1152bbb691bd89597b97e7ec7b1cc090cb3014001",
+      "projectBytes": 7458036,
+      "round3ProjectBytes": 31340016,
+      "earlierProjects": [
+        {
+          "phase": "before",
+          "bytes": 451200
+        },
+        {
+          "phase": "after",
+          "bytes": 250095
+        }
+      ],
+      "memory": [
+        {
+          "step": 0,
+          "heapMiB": 29.146,
+          "arrayBufferMiB": 5.473,
+          "rssMiB": 158.906,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 0,
+            "recentCount": 0,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 0,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 41508
+        },
+        {
+          "step": 64,
+          "heapMiB": 121.378,
+          "arrayBufferMiB": 13.995,
+          "rssMiB": 643.531,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 22288834,
+            "recentCount": 64,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 1161343,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 1202851
+        },
+        {
+          "step": 256,
+          "heapMiB": 268.262,
+          "arrayBufferMiB": 26.753,
+          "rssMiB": 1019.422,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 57233854,
+            "recentCount": 96,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 9105137,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 10037732
+        },
+        {
+          "step": 512,
+          "heapMiB": 274.01,
+          "arrayBufferMiB": 63.749,
+          "rssMiB": 1227.555,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 59504594,
+            "recentCount": 96,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 20227375,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 22162583
+        },
+        {
+          "step": 1024,
+          "heapMiB": 274.871,
+          "arrayBufferMiB": 51.819,
+          "rssMiB": 1355.535,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 57979084,
+            "recentCount": 96,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 43109597,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 46917513
+        },
+        {
+          "step": 1536,
+          "heapMiB": 275.673,
+          "arrayBufferMiB": 22.893,
+          "rssMiB": 1238.809,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 57585398,
+            "recentCount": 96,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 65648707,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 71459276
+        },
+        {
+          "step": 2048,
+          "heapMiB": 279.631,
+          "arrayBufferMiB": 55.265,
+          "rssMiB": 1403.09,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 58464844,
+            "recentCount": 96,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 87829317,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 95611715
+        }
+      ],
+      "maximumRssMiB": 1841.602,
+      "capacityCodec": "Construction trace used the conservative JSON/copy-pair patch representation before final binary/range compaction; same indexed capture, math and 64 MiB cache policy. Final reopening cache checked separately.",
+      "finalCache": {
+        "size": 256,
+        "passed": true,
+        "rows": [
+          {
+            "phase": "open",
+            "memory": {
+              "rss": 398430208,
+              "heapTotal": 297689088,
+              "heapUsed": 121732488,
+              "external": 22938941,
+              "arrayBuffers": 17356993
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 20428200,
+              "recentCount": 1,
+              "failure": null,
+              "compressedBytes": 5031620,
+              "patchBytes": 5031620,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "undo-25",
+            "memory": {
+              "rss": 484007936,
+              "heapTotal": 342036480,
+              "heapUsed": 199596096,
+              "external": 46737010,
+              "arrayBuffers": 38315445
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 40564068,
+              "recentCount": 25,
+              "failure": null,
+              "compressedBytes": 5031620,
+              "patchBytes": 5031620,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "undo-50",
+            "memory": {
+              "rss": 528957440,
+              "heapTotal": 380837888,
+              "heapUsed": 241881224,
+              "external": 46880392,
+              "arrayBuffers": 42569879
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 51510292,
+              "recentCount": 50,
+              "failure": null,
+              "compressedBytes": 5031620,
+              "patchBytes": 5031620,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "undo-75",
+            "memory": {
+              "rss": 588365824,
+              "heapTotal": 452145152,
+              "heapUsed": 312199664,
+              "external": 44994287,
+              "arrayBuffers": 31868951
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 62500868,
+              "recentCount": 75,
+              "failure": null,
+              "compressedBytes": 5031620,
+              "patchBytes": 5031620,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "undo-100",
+            "memory": {
+              "rss": 612470784,
+              "heapTotal": 444514304,
+              "heapUsed": 278907528,
+              "external": 38542192,
+              "arrayBuffers": 32187099
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 53037272,
+              "recentCount": 99,
+              "failure": null,
+              "compressedBytes": 5031620,
+              "patchBytes": 5031620,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "redo-100",
+            "memory": {
+              "rss": 595185664,
+              "heapTotal": 417775616,
+              "heapUsed": 278947640,
+              "external": 27145776,
+              "arrayBuffers": 24731457
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 53037272,
+              "recentCount": 99,
+              "failure": null,
+              "compressedBytes": 5031620,
+              "patchBytes": 5031620,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "redo-75",
+            "memory": {
+              "rss": 606732288,
+              "heapTotal": 417513472,
+              "heapUsed": 279010824,
+              "external": 40384048,
+              "arrayBuffers": 33709889
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 53037272,
+              "recentCount": 99,
+              "failure": null,
+              "compressedBytes": 5031620,
+              "patchBytes": 5031620,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "redo-50",
+            "memory": {
+              "rss": 609140736,
+              "heapTotal": 418299904,
+              "heapUsed": 280330344,
+              "external": 41432624,
+              "arrayBuffers": 33972033
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 53037272,
+              "recentCount": 99,
+              "failure": null,
+              "compressedBytes": 5031620,
+              "patchBytes": 5031620,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "redo-25",
+            "memory": {
+              "rss": 612442112,
+              "heapTotal": 418562048,
+              "heapUsed": 279090840,
+              "external": 43005488,
+              "arrayBuffers": 32923457
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 53037272,
+              "recentCount": 99,
+              "failure": null,
+              "compressedBytes": 5031620,
+              "patchBytes": 5031620,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "head",
+            "memory": {
+              "rss": 621088768,
+              "heapTotal": 461008896,
+              "heapUsed": 285073944,
+              "external": 43316938,
+              "arrayBuffers": 33346203
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 53692562,
+              "recentCount": 84,
+              "failure": null,
+              "compressedBytes": 5031620,
+              "patchBytes": 5031620,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          }
+        ]
+      },
+      "liveUndoProof": {
+        "passed": true,
+        "size": 256,
+        "positions": 2049,
+        "undoTransitions": 2048,
+        "redoTransitions": 2048,
+        "ms": 155830,
+        "cache": {
+          "spacing": 0,
+          "count": 0,
+          "bytes": 0,
+          "recentBytes": 66130090,
+          "recentCount": 96,
+          "failure": null,
+          "compressedBytes": 5981745,
+          "patchBytes": 88863377,
+          "undoFloor": 0
+        },
+        "indexRecoveredFromGzipMembers": true
+      },
+      "round3Fraction": 0.238
+    },
+    {
+      "size": 512,
+      "steps": 2048,
+      "forces": {
+        "craterize": 4,
+        "erupt": 3,
+        "quake": 3,
+        "glaciate": 3,
+        "carve": 3
+      },
+      "finalState": "f0f9a3c4b27c19d80720ab735bc57cee5a4591a7865eb34d22f33d001c53e484",
+      "exportHash": "212cd11e407dc21604970202b8ea37fa4d487ab4de7fd9f2a8110869c764310a",
+      "traceDigest": "10477f669fb26d02be46c958aca76891c2a9dc2d38be4d569bcf798b4502bc69",
+      "projectBytes": 20892887,
+      "round3ProjectBytes": 109330311,
+      "earlierProjects": [
+        {
+          "phase": "before",
+          "bytes": 947698
+        },
+        {
+          "phase": "after",
+          "bytes": 734911
+        }
+      ],
+      "memory": [
+        {
+          "step": 0,
+          "heapMiB": 79.321,
+          "arrayBufferMiB": 20.76,
+          "rssMiB": 286.395,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 0,
+            "recentCount": 0,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 0,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 109699
+        },
+        {
+          "step": 64,
+          "heapMiB": 382.354,
+          "arrayBufferMiB": 33.81,
+          "rssMiB": 1436.5,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 59154298,
+            "recentCount": 32,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 3843930,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 3953629
+        },
+        {
+          "step": 256,
+          "heapMiB": 371.062,
+          "arrayBufferMiB": 53.482,
+          "rssMiB": 1762.18,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 51392648,
+            "recentCount": 2,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 33746672,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 37164274
+        },
+        {
+          "step": 512,
+          "heapMiB": 373.355,
+          "arrayBufferMiB": 55.311,
+          "rssMiB": 1727.855,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 51797454,
+            "recentCount": 4,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 75475352,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 82269600
+        },
+        {
+          "step": 1024,
+          "heapMiB": 435.452,
+          "arrayBufferMiB": 83.767,
+          "rssMiB": 1959.641,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 52681132,
+            "recentCount": 8,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 152995998,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 165594057
+        },
+        {
+          "step": 1536,
+          "heapMiB": 383.617,
+          "arrayBufferMiB": 53.14,
+          "rssMiB": 1761.172,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 53643546,
+            "recentCount": 12,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 226718451,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 244061842
+        },
+        {
+          "step": 2048,
+          "heapMiB": 387.648,
+          "arrayBufferMiB": 53.08,
+          "rssMiB": 1838.555,
+          "retention": {
+            "spacing": 0,
+            "count": 0,
+            "bytes": 0,
+            "recentBytes": 54293484,
+            "recentCount": 16,
+            "failure": null,
+            "compressedBytes": 0,
+            "patchBytes": 296794129,
+            "undoFloor": 0
+          },
+          "coldDiskBytes": 317896536
+        }
+      ],
+      "maximumRssMiB": 2754.559,
+      "capacityCodec": "Construction trace used the conservative JSON/copy-pair patch representation before final binary/range compaction; same indexed capture, math and 64 MiB cache policy. Final reopening cache checked separately.",
+      "finalCache": {
+        "size": 512,
+        "passed": true,
+        "rows": [
+          {
+            "phase": "open",
+            "memory": {
+              "rss": 946823168,
+              "heapTotal": 726499328,
+              "heapUsed": 464278912,
+              "external": 79289544,
+              "arrayBuffers": 61843856
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 89341480,
+              "recentCount": 1,
+              "failure": null,
+              "compressedBytes": 13895585,
+              "patchBytes": 13895585,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "undo-25",
+            "memory": {
+              "rss": 874377216,
+              "heapTotal": 286633984,
+              "heapUsed": 61313768,
+              "external": 122381846,
+              "arrayBuffers": 71038804
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 684690,
+              "recentCount": 8,
+              "failure": null,
+              "compressedBytes": 13895585,
+              "patchBytes": 13895585,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "undo-50",
+            "memory": {
+              "rss": 862228480,
+              "heapTotal": 416059392,
+              "heapUsed": 274487888,
+              "external": 125697288,
+              "arrayBuffers": 87116552
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 50505258,
+              "recentCount": 33,
+              "failure": null,
+              "compressedBytes": 13895585,
+              "patchBytes": 13895585,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "undo-75",
+            "memory": {
+              "rss": 890138624,
+              "heapTotal": 557617152,
+              "heapUsed": 307923552,
+              "external": 109374875,
+              "arrayBuffers": 91295706
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 52442306,
+              "recentCount": 42,
+              "failure": null,
+              "compressedBytes": 13895585,
+              "patchBytes": 13895585,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "undo-100",
+            "memory": {
+              "rss": 860405760,
+              "heapTotal": 456429568,
+              "heapUsed": 303153944,
+              "external": 91010263,
+              "arrayBuffers": 66683204
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 50039842,
+              "recentCount": 35,
+              "failure": null,
+              "compressedBytes": 13895585,
+              "patchBytes": 13895585,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "redo-100",
+            "memory": {
+              "rss": 858075136,
+              "heapTotal": 447778816,
+              "heapUsed": 303323392,
+              "external": 68878871,
+              "arrayBuffers": 66683204
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 50039842,
+              "recentCount": 35,
+              "failure": null,
+              "compressedBytes": 13895585,
+              "patchBytes": 13895585,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "redo-75",
+            "memory": {
+              "rss": 912400384,
+              "heapTotal": 448229376,
+              "heapUsed": 303667448,
+              "external": 121831959,
+              "arrayBuffers": 110723396
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 50039842,
+              "recentCount": 35,
+              "failure": null,
+              "compressedBytes": 13895585,
+              "patchBytes": 13895585,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "redo-50",
+            "memory": {
+              "rss": 890601472,
+              "heapTotal": 555708416,
+              "heapUsed": 301962304,
+              "external": 120610139,
+              "arrayBuffers": 72889898
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 49374296,
+              "recentCount": 19,
+              "failure": null,
+              "compressedBytes": 13895585,
+              "patchBytes": 13895585,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "redo-25",
+            "memory": {
+              "rss": 886960128,
+              "heapTotal": 472682496,
+              "heapUsed": 307688192,
+              "external": 115795498,
+              "arrayBuffers": 66688452
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 51948318,
+              "recentCount": 40,
+              "failure": null,
+              "compressedBytes": 13895585,
+              "patchBytes": 13895585,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          },
+          {
+            "phase": "head",
+            "memory": {
+              "rss": 1076600832,
+              "heapTotal": 745967616,
+              "heapUsed": 439984616,
+              "external": 112220587,
+              "arrayBuffers": 74887226
+            },
+            "cache": {
+              "spacing": 0,
+              "count": 0,
+              "bytes": 0,
+              "recentBytes": 89341480,
+              "recentCount": 1,
+              "failure": null,
+              "compressedBytes": 13895585,
+              "patchBytes": 13895585,
+              "undoFloor": 1948
+            },
+            "results": {
+              "bytes": 0,
+              "entries": 0,
+              "budget": 33554432,
+              "workingBytes": 0,
+              "hits": 0,
+              "misses": 0,
+              "writtenBytes": 0
+            }
+          }
+        ]
+      },
+      "liveUndoProof": {
+        "passed": true,
+        "size": 512,
+        "positions": 2049,
+        "undoTransitions": 2048,
+        "redoTransitions": 2048,
+        "ms": 733931,
+        "cache": {
+          "spacing": 0,
+          "count": 0,
+          "bytes": 0,
+          "recentBytes": 89320286,
+          "recentCount": 1,
+          "failure": null,
+          "compressedBytes": 18365420,
+          "patchBytes": 299031034,
+          "undoFloor": 0
+        },
+        "indexRecoveredFromGzipMembers": true
+      },
+      "round3Fraction": 0.191
+    }
+  ],
+  "browsers": [
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "size": 256,
+      "storage": "worker OPFS",
+      "projectBytes": 7458036,
+      "positions": 101,
+      "proof": {
+        "positions": 101,
+        "checked": "each inverse undo and forward redo within retained 100; floor enforced",
+        "ms": 10805,
+        "undoWorst": 520.5,
+        "redoWorst": 692.1999999880791,
+        "cache": {
+          "spacing": 0,
+          "count": 0,
+          "bytes": 0,
+          "recentBytes": 53692562,
+          "recentCount": 84,
+          "failure": null,
+          "compressedBytes": 5031620,
+          "patchBytes": 5031620,
+          "undoFloor": 1948
+        }
+      },
+      "savedFileRoundTrip": true,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 1201.5,
+          "worstMs": 1257.2,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23142.211
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 1018.8,
+          "worstMs": 1031.2,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23142.211
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 21,
+          "worstMs": 21.5,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22975.984
+        },
+        "seek@2016": {
+          "repeats": 3,
+          "medianMs": 499.9,
+          "worstMs": 509,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22975.984
+        },
+        "seek@1948": {
+          "repeats": 3,
+          "medianMs": 949.5,
+          "worstMs": 999.6,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23415.043
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 651.7,
+          "worstMs": 767.9,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23415.043
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 1735.1,
+          "worstMs": 1811.7,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23311.219
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 1302,
+          "worstMs": 1419.6,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23193.715
+        },
+        "undo@depth1": {
+          "repeats": 3,
+          "medianMs": 31.9,
+          "worstMs": 34.9,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23095.465
+        },
+        "redo@depth1": {
+          "repeats": 3,
+          "medianMs": 13.7,
+          "worstMs": 18.9,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23095.465
+        },
+        "undo@depth32": {
+          "repeats": 3,
+          "medianMs": 0.3,
+          "worstMs": 0.4,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22971.027
+        },
+        "redo@depth32": {
+          "repeats": 3,
+          "medianMs": 0.1,
+          "worstMs": 0.1,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22971.027
+        },
+        "undo@depth100": {
+          "repeats": 3,
+          "medianMs": 0.4,
+          "worstMs": 0.5,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23144.371
+        },
+        "redo@depth100": {
+          "repeats": 3,
+          "medianMs": 0.1,
+          "worstMs": 0.1,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23144.371
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 2205.1,
+          "worstMs": 2232.7,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23142.211
+        },
+        "undo-to-depth@depth1": {
+          "repeats": 3,
+          "medianMs": 21,
+          "worstMs": 21.5,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22975.984
+        },
+        "undo-to-depth@depth32": {
+          "repeats": 3,
+          "medianMs": 521.4,
+          "worstMs": 530,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22975.984
+        },
+        "undo-to-depth@depth100": {
+          "repeats": 3,
+          "medianMs": 1470.9,
+          "worstMs": 1529.6,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23415.043
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 26.5
+    },
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "size": 512,
+      "storage": "worker OPFS",
+      "projectBytes": 20892887,
+      "positions": 101,
+      "proof": {
+        "positions": 101,
+        "checked": "each inverse undo and forward redo within retained 100; floor enforced",
+        "ms": 48861,
+        "undoWorst": 1910.0999999642372,
+        "redoWorst": 2336,
+        "cache": {
+          "spacing": 0,
+          "count": 0,
+          "bytes": 0,
+          "recentBytes": 89341480,
+          "recentCount": 1,
+          "failure": null,
+          "compressedBytes": 13895585,
+          "patchBytes": 13895585,
+          "undoFloor": 1948
+        }
+      },
+      "savedFileRoundTrip": true,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 3877.7,
+          "worstMs": 4499.5,
+          "cpuMedian": 96.5,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24818.285
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 2900.2,
+          "worstMs": 3746.5,
+          "cpuMedian": 90,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24534.371
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 59.9,
+          "worstMs": 81.8,
+          "cpuMedian": 98,
+          "cpuWorst": 99,
+          "minimumAvailableMiB": 25165.387
+        },
+        "seek@2016": {
+          "repeats": 3,
+          "medianMs": 1996.7,
+          "worstMs": 2950.7,
+          "cpuMedian": 86,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24568.203
+        },
+        "seek@1948": {
+          "repeats": 3,
+          "medianMs": 3647.2,
+          "worstMs": 4425.8,
+          "cpuMedian": 93,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 25483.816
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 6287.1,
+          "worstMs": 8090.5,
+          "cpuMedian": 94,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 25566.637
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 4722.3,
+          "worstMs": 4880,
+          "cpuMedian": 97.5,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 26372.484
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 3896.7,
+          "worstMs": 4089.9,
+          "cpuMedian": 97,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 26330.254
+        },
+        "undo@depth1": {
+          "repeats": 3,
+          "medianMs": 78,
+          "worstMs": 91.2,
+          "cpuMedian": 96,
+          "cpuWorst": 97,
+          "minimumAvailableMiB": 26065.535
+        },
+        "redo@depth1": {
+          "repeats": 3,
+          "medianMs": 66,
+          "worstMs": 72.5,
+          "cpuMedian": 92,
+          "cpuWorst": 97,
+          "minimumAvailableMiB": 26065.535
+        },
+        "undo@depth32": {
+          "repeats": 3,
+          "medianMs": 0.9,
+          "worstMs": 1,
+          "cpuMedian": 99,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 26225.645
+        },
+        "redo@depth32": {
+          "repeats": 3,
+          "medianMs": 0.2,
+          "worstMs": 0.3,
+          "cpuMedian": 99,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 26225.645
+        },
+        "undo@depth100": {
+          "repeats": 3,
+          "medianMs": 0.4,
+          "worstMs": 0.4,
+          "cpuMedian": 95,
+          "cpuWorst": 96,
+          "minimumAvailableMiB": 25749.18
+        },
+        "redo@depth100": {
+          "repeats": 3,
+          "medianMs": 0.1,
+          "worstMs": 0.2,
+          "cpuMedian": 92,
+          "cpuWorst": 96,
+          "minimumAvailableMiB": 25749.18
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 6777.9,
+          "worstMs": 8246,
+          "cpuMedian": 93,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24534.371
+        },
+        "undo-to-depth@depth1": {
+          "repeats": 3,
+          "medianMs": 59.9,
+          "worstMs": 81.8,
+          "cpuMedian": 98,
+          "cpuWorst": 99,
+          "minimumAvailableMiB": 25165.387
+        },
+        "undo-to-depth@depth32": {
+          "repeats": 3,
+          "medianMs": 2056.6,
+          "worstMs": 3032.5,
+          "cpuMedian": 86,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24568.203
+        },
+        "undo-to-depth@depth100": {
+          "repeats": 3,
+          "medianMs": 5703.8,
+          "worstMs": 7458.3,
+          "cpuMedian": 87.5,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24568.203
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 29.5
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "size": 256,
+      "storage": "worker OPFS",
+      "projectBytes": 7458036,
+      "positions": 101,
+      "proof": {
+        "positions": 101,
+        "checked": "each inverse undo and forward redo within retained 100; floor enforced",
+        "ms": 6582,
+        "undoWorst": 670,
+        "redoWorst": 936,
+        "cache": {
+          "spacing": 0,
+          "count": 0,
+          "bytes": 0,
+          "recentBytes": 53692562,
+          "recentCount": 84,
+          "failure": null,
+          "compressedBytes": 5031620,
+          "patchBytes": 5031620,
+          "undoFloor": 1948
+        }
+      },
+      "savedFileRoundTrip": true,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 1831,
+          "worstMs": 2239,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23739.547
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 1736,
+          "worstMs": 1847,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23459.445
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 36,
+          "worstMs": 49,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23275.34
+        },
+        "seek@2016": {
+          "repeats": 3,
+          "medianMs": 828,
+          "worstMs": 831,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23275.34
+        },
+        "seek@1948": {
+          "repeats": 3,
+          "medianMs": 1813,
+          "worstMs": 2005,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23294.457
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 1144,
+          "worstMs": 1785,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23120.484
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 2116,
+          "worstMs": 3509,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23058.137
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 2048,
+          "worstMs": 2452,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23496.32
+        },
+        "undo@depth1": {
+          "repeats": 3,
+          "medianMs": 36,
+          "worstMs": 37,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23681.926
+        },
+        "redo@depth1": {
+          "repeats": 3,
+          "medianMs": 26,
+          "worstMs": 34,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23681.926
+        },
+        "undo@depth32": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 2,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23608.582
+        },
+        "redo@depth32": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 1,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23608.582
+        },
+        "undo@depth100": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 2,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23682.91
+        },
+        "redo@depth100": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 1,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23682.91
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 3567,
+          "worstMs": 4086,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23459.445
+        },
+        "undo-to-depth@depth1": {
+          "repeats": 3,
+          "medianMs": 36,
+          "worstMs": 49,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23275.34
+        },
+        "undo-to-depth@depth32": {
+          "repeats": 3,
+          "medianMs": 864,
+          "worstMs": 880,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23275.34
+        },
+        "undo-to-depth@depth100": {
+          "repeats": 3,
+          "medianMs": 2591,
+          "worstMs": 2885,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23294.457
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 74
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "size": 512,
+      "storage": "worker OPFS",
+      "projectBytes": 20892887,
+      "positions": 101,
+      "proof": {
+        "positions": 101,
+        "checked": "each inverse undo and forward redo within retained 100; floor enforced",
+        "ms": 50154,
+        "undoWorst": 2806,
+        "redoWorst": 3586,
+        "cache": {
+          "spacing": 0,
+          "count": 0,
+          "bytes": 0,
+          "recentBytes": 89341480,
+          "recentCount": 1,
+          "failure": null,
+          "compressedBytes": 13895585,
+          "patchBytes": 13895585,
+          "undoFloor": 1948
+        }
+      },
+      "savedFileRoundTrip": true,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 6940,
+          "worstMs": 7264,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24131.473
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 7124,
+          "worstMs": 8297,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23419.184
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 124,
+          "worstMs": 187,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23572.883
+        },
+        "seek@2016": {
+          "repeats": 3,
+          "medianMs": 4174,
+          "worstMs": 4426,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23319.867
+        },
+        "seek@1948": {
+          "repeats": 3,
+          "medianMs": 7708,
+          "worstMs": 9356,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23423.457
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 13267,
+          "worstMs": 15594,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23066.813
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 5669,
+          "worstMs": 7025,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23282.77
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 7496,
+          "worstMs": 7742,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23071.352
+        },
+        "undo@depth1": {
+          "repeats": 3,
+          "medianMs": 109,
+          "worstMs": 123,
+          "cpuMedian": 99,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24625.77
+        },
+        "redo@depth1": {
+          "repeats": 3,
+          "medianMs": 111,
+          "worstMs": 112,
+          "cpuMedian": 99,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 25024.137
+        },
+        "undo@depth32": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 1,
+          "cpuMedian": 96,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 25219.383
+        },
+        "redo@depth32": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 1,
+          "cpuMedian": 96,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 25219.383
+        },
+        "undo@depth100": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 1,
+          "cpuMedian": 96,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24468.266
+        },
+        "redo@depth100": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 0,
+          "cpuMedian": 96,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24468.266
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 14064,
+          "worstMs": 15561,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23419.184
+        },
+        "undo-to-depth@depth1": {
+          "repeats": 3,
+          "medianMs": 124,
+          "worstMs": 187,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23572.883
+        },
+        "undo-to-depth@depth32": {
+          "repeats": 3,
+          "medianMs": 4298,
+          "worstMs": 4613,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23319.867
+        },
+        "undo-to-depth@depth100": {
+          "repeats": 3,
+          "medianMs": 12006,
+          "worstMs": 13969,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23319.867
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 81
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "size": 256,
+      "storage": "test host disk / synchronous worker XHR",
+      "projectBytes": 7458036,
+      "positions": 101,
+      "proof": {
+        "positions": 101,
+        "checked": "each inverse undo and forward redo within retained 100; floor enforced",
+        "ms": 9998,
+        "undoWorst": 1000,
+        "redoWorst": 843,
+        "cache": {
+          "spacing": 0,
+          "count": 0,
+          "bytes": 0,
+          "recentBytes": 53692562,
+          "recentCount": 84,
+          "failure": null,
+          "compressedBytes": 5031620,
+          "patchBytes": 5031620,
+          "undoFloor": 1948
+        }
+      },
+      "savedFileRoundTrip": true,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 3329,
+          "worstMs": 3511,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23507.441
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 2665,
+          "worstMs": 2701,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23475.953
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 73,
+          "worstMs": 84,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23629.301
+        },
+        "seek@2016": {
+          "repeats": 3,
+          "medianMs": 1007,
+          "worstMs": 1041,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23629.301
+        },
+        "seek@1948": {
+          "repeats": 3,
+          "medianMs": 1685,
+          "worstMs": 2461,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22939.668
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 1103,
+          "worstMs": 1517,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22970.809
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 6137,
+          "worstMs": 10407,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22979.859
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 4659,
+          "worstMs": 10658,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22609.754
+        },
+        "undo@depth1": {
+          "repeats": 3,
+          "medianMs": 76,
+          "worstMs": 91,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22003.027
+        },
+        "redo@depth1": {
+          "repeats": 3,
+          "medianMs": 53,
+          "worstMs": 68,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22003.027
+        },
+        "undo@depth32": {
+          "repeats": 3,
+          "medianMs": 1,
+          "worstMs": 1,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 21931.27
+        },
+        "redo@depth32": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 1,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 21931.27
+        },
+        "undo@depth100": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 1,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 20887.242
+        },
+        "redo@depth100": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 9,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 20887.242
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 6030,
+          "worstMs": 6176,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23475.953
+        },
+        "undo-to-depth@depth1": {
+          "repeats": 3,
+          "medianMs": 73,
+          "worstMs": 84,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23629.301
+        },
+        "undo-to-depth@depth32": {
+          "repeats": 3,
+          "medianMs": 1091,
+          "worstMs": 1114,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23629.301
+        },
+        "undo-to-depth@depth100": {
+          "repeats": 3,
+          "medianMs": 2776,
+          "worstMs": 3575,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22939.668
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 187
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "size": 512,
+      "storage": "test host disk / synchronous worker XHR",
+      "projectBytes": 20892887,
+      "positions": 101,
+      "proof": {
+        "positions": 101,
+        "checked": "each inverse undo and forward redo within retained 100; floor enforced",
+        "ms": 36176,
+        "undoWorst": 2013,
+        "redoWorst": 2610,
+        "cache": {
+          "spacing": 0,
+          "count": 0,
+          "bytes": 0,
+          "recentBytes": 89341480,
+          "recentCount": 1,
+          "failure": null,
+          "compressedBytes": 13895585,
+          "patchBytes": 13895585,
+          "undoFloor": 1948
+        }
+      },
+      "savedFileRoundTrip": true,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 5822,
+          "worstMs": 6184,
+          "cpuMedian": 94.5,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 25796.867
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 3534,
+          "worstMs": 4453,
+          "cpuMedian": 93.5,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24260.797
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 111,
+          "worstMs": 130,
+          "cpuMedian": 89,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23677.426
+        },
+        "seek@2016": {
+          "repeats": 3,
+          "medianMs": 2702,
+          "worstMs": 3614,
+          "cpuMedian": 92.5,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23360.219
+        },
+        "seek@1948": {
+          "repeats": 3,
+          "medianMs": 5277,
+          "worstMs": 8435,
+          "cpuMedian": 95,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 21614.723
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 9044,
+          "worstMs": 15407,
+          "cpuMedian": 92,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 21331.684
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 7409,
+          "worstMs": 11097,
+          "cpuMedian": 91,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 22159.285
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 8746,
+          "worstMs": 12610,
+          "cpuMedian": 95.5,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23358.32
+        },
+        "undo@depth1": {
+          "repeats": 3,
+          "medianMs": 103,
+          "worstMs": 111,
+          "cpuMedian": 77,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23336.391
+        },
+        "redo@depth1": {
+          "repeats": 3,
+          "medianMs": 124,
+          "worstMs": 165,
+          "cpuMedian": 77,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23336.391
+        },
+        "undo@depth32": {
+          "repeats": 3,
+          "medianMs": 1,
+          "worstMs": 1,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 21312.117
+        },
+        "redo@depth32": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 2,
+          "cpuMedian": 100,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 21312.117
+        },
+        "undo@depth100": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 1,
+          "cpuMedian": 97,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 21239.734
+        },
+        "redo@depth100": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 0,
+          "cpuMedian": 98,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 21239.734
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 9718,
+          "worstMs": 10275,
+          "cpuMedian": 94.5,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 24260.797
+        },
+        "undo-to-depth@depth1": {
+          "repeats": 3,
+          "medianMs": 111,
+          "worstMs": 130,
+          "cpuMedian": 89,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23677.426
+        },
+        "undo-to-depth@depth32": {
+          "repeats": 3,
+          "medianMs": 2813,
+          "worstMs": 3744,
+          "cpuMedian": 92.5,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 23360.219
+        },
+        "undo-to-depth@depth100": {
+          "repeats": 3,
+          "medianMs": 8090,
+          "worstMs": 12179,
+          "cpuMedian": 94,
+          "cpuWorst": 100,
+          "minimumAvailableMiB": 21614.723
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 595.0000000000073
+    }
+  ],
+  "finalContracts": [
+    {
+      "engine": "chromium",
+      "size": 256,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "undoForceInputReceipts": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    },
+    {
+      "engine": "chromium",
+      "size": 512,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "undoForceInputReceipts": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    },
+    {
+      "engine": "firefox",
+      "size": 256,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "undoForceInputReceipts": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    },
+    {
+      "engine": "firefox",
+      "size": 512,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "undoForceInputReceipts": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    },
+    {
+      "engine": "webkit",
+      "size": 256,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "undoForceInputReceipts": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    },
+    {
+      "engine": "webkit",
+      "size": 512,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "undoForceInputReceipts": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    }
+  ],
+  "contracts": {
+    "passed": true,
+    "allDepths": true,
+    "forceReplacement": true,
+    "format4Golden": true,
+    "format5Compatibility": true,
+    "supersededSeek": true,
+    "corruption": true,
+    "redoAcrossSave": true,
+    "branching": true,
+    "identityAndViewAliases": true,
+    "arbitraryStringCodeUnits": true,
+    "finalizerHashVersion": true,
+    "canonicalWaterBoundaries": true,
+    "inversePatches": true,
+    "overlappingSaveAndBranch": true,
+    "bytes": 503149
+  }
+}

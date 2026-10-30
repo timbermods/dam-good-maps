@@ -1,0 +1,3557 @@
+{
+  "base": "75cb5d4c4a168eb17113bd0dd19576bb43b3ffc9",
+  "determinism": "f306fd495c713e19278c507686102b2c603cdef8",
+  "round2": "40e5d6ca85e9ca973ed603707e4a21d0ab458980",
+  "scope": "2048 accepted mixed edits at both sizes. End actions repeated three times; timings include whole-machine CPU and available RAM. Construction is a single capacity trace. Node GC memory includes fixture/oracle and journal bookkeeping, not page/GPU RAM. Historical replay checks use every cold-seek prefix, amortized once per checkpoint interval.",
+  "revision": "Full-session construction/proofs use the original numeric layout. Final reader/actions and six three-engine modern contracts additionally verify UTF16 code units, distinct equal component instances, full finalizer hash v2, saved-past sequence restart, recent redo bookkeeping and canonical-water boundary markers. These changes preserve successful numeric results.",
+  "policy": {
+    "checkpointEvery": 32,
+    "checkpointCount": 128,
+    "checkpointBytes": 134217728,
+    "recentBytes": 134217728,
+    "recentSteps": 16,
+    "resultBytes": 33554432,
+    "fieldBytes": 33554432,
+    "overflow": "Double spacing; keep zero/current/aligned. Journal and current force-program dependencies are outside the historical checkpoint cap. Cold disposable disk/indexes need owned cleanup/compaction; infinite total-file or heap bound is not claimed."
+  },
+  "cases": [
+    {
+      "size": 256,
+      "steps": 2048,
+      "forces": {
+        "craterize": 4,
+        "erupt": 3,
+        "quake": 3,
+        "glaciate": 3,
+        "carve": 3
+      },
+      "finalState": "8f21307f863ba8896974593237a38fe447d6385e7f9c8fc220810e5a4e440349",
+      "exportHash": "b045c1f308ecc8bef5cbfe2571e30349087c9d3801d4ad554c88d67b91558147",
+      "traceDigest": "1869ec7106ea5487d0d4dba1152bbb691bd89597b97e7ec7b1cc090cb3014001",
+      "previous": [
+        {
+          "phase": "before",
+          "projectBytes": 451200,
+          "timing": {
+            "undo-recent": {
+              "n": 3,
+              "medianMs": 449.6116999999999,
+              "worstMs": 452.4569999999999,
+              "cpuMedianPercent": 100,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 30197243904
+            },
+            "redo-recent": {
+              "n": 3,
+              "medianMs": 0.08820000000014261,
+              "worstMs": 0.10069999999996071,
+              "cpuMedianPercent": 100,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 30197243904
+            },
+            "save-project": {
+              "n": 3,
+              "medianMs": 347.44370000000345,
+              "worstMs": 356.73440000001574,
+              "cpuMedianPercent": 100,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 28159143936
+            },
+            "reopen-project": {
+              "n": 3,
+              "medianMs": 1082.5228999999817,
+              "worstMs": 1216.9800999999861,
+              "cpuMedianPercent": 100,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 28427993088
+            },
+            "undo-depth32": {
+              "n": 3,
+              "medianMs": 0.22479999996721745,
+              "worstMs": 0.23029999999562278,
+              "cpuMedianPercent": 100,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 27960889344
+            },
+            "redo-depth32": {
+              "n": 3,
+              "medianMs": 0.014699999999720603,
+              "worstMs": 0.022800000035203993,
+              "cpuMedianPercent": 100,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 28159143936
+            }
+          }
+        },
+        {
+          "phase": "after",
+          "projectBytes": 250095,
+          "timing": {
+            "undo-recent": {
+              "n": 3,
+              "medianMs": 0.3493000000016764,
+              "worstMs": 0.4479000000283122,
+              "cpuMedianPercent": 74,
+              "cpuWorstPercent": 74,
+              "minimumAvailableBytes": 26376675328
+            },
+            "redo-recent": {
+              "n": 3,
+              "medianMs": 0.1242000000202097,
+              "worstMs": 0.13439999998081475,
+              "cpuMedianPercent": 74,
+              "cpuWorstPercent": 74,
+              "minimumAvailableBytes": 26376675328
+            },
+            "save-project": {
+              "n": 3,
+              "medianMs": 198.61129999998957,
+              "worstMs": 216.3231000000378,
+              "cpuMedianPercent": 98,
+              "cpuWorstPercent": 98,
+              "minimumAvailableBytes": 28515233792
+            },
+            "reopen-project": {
+              "n": 3,
+              "medianMs": 434666.2888999999,
+              "worstMs": 589401.2134,
+              "cpuMedianPercent": 100,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 24181719040
+            },
+            "undo-depth32": {
+              "n": 3,
+              "medianMs": 112.40749999997206,
+              "worstMs": 133.47690000000875,
+              "cpuMedianPercent": 93,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 28778684416
+            },
+            "redo-depth32": {
+              "n": 3,
+              "medianMs": 458.59840000001714,
+              "worstMs": 478.96140000014566,
+              "cpuMedianPercent": 99,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 28576169984
+            }
+          }
+        }
+      ],
+      "projectBytes": 31340016,
+      "constructionProjectBytes": 31330058,
+      "checkpoints": {
+        "spacing": 32,
+        "count": 65,
+        "bytes": 30369840,
+        "recentBytes": 108613002,
+        "recentCount": 16,
+        "failure": null
+      },
+      "memory": [
+        {
+          "step": 0,
+          "heapMiB": 36.922,
+          "arrayBufferMiB": 6.006,
+          "rssMiB": 155.813,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 1,
+            "bytes": 936708,
+            "recentBytes": 11932814,
+            "recentCount": 1,
+            "failure": null
+          },
+          "coldDiskBytes": 978216
+        },
+        {
+          "step": 64,
+          "heapMiB": 119.411,
+          "arrayBufferMiB": 69.618,
+          "rssMiB": 410.973,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 3,
+            "bytes": 1829486,
+            "recentBytes": 69928594,
+            "recentCount": 16,
+            "failure": null
+          },
+          "coldDiskBytes": 1870994
+        },
+        {
+          "step": 256,
+          "heapMiB": 118.639,
+          "arrayBufferMiB": 107.555,
+          "rssMiB": 498.441,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 9,
+            "bytes": 4309013,
+            "recentBytes": 109646546,
+            "recentCount": 16,
+            "failure": null
+          },
+          "coldDiskBytes": 5241608
+        },
+        {
+          "step": 512,
+          "heapMiB": 120.795,
+          "arrayBufferMiB": 114.811,
+          "rssMiB": 519.613,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 17,
+            "bytes": 7450638,
+            "recentBytes": 109996454,
+            "recentCount": 16,
+            "failure": null
+          },
+          "coldDiskBytes": 9385846
+        },
+        {
+          "step": 1024,
+          "heapMiB": 153.845,
+          "arrayBufferMiB": 122.6,
+          "rssMiB": 574.855,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 33,
+            "bytes": 15263888,
+            "recentBytes": 110703384,
+            "recentCount": 16,
+            "failure": null
+          },
+          "coldDiskBytes": 19071804
+        },
+        {
+          "step": 1536,
+          "heapMiB": 158.122,
+          "arrayBufferMiB": 120.17,
+          "rssMiB": 518.887,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 49,
+            "bytes": 22955565,
+            "recentBytes": 111451426,
+            "recentCount": 16,
+            "failure": null
+          },
+          "coldDiskBytes": 28766134
+        },
+        {
+          "step": 2048,
+          "heapMiB": 161.178,
+          "arrayBufferMiB": 104.99,
+          "rssMiB": 527.566,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 65,
+            "bytes": 30242835,
+            "recentBytes": 108088586,
+            "recentCount": 16,
+            "failure": null
+          },
+          "coldDiskBytes": 38025233
+        }
+      ],
+      "finalControllerMemory": [
+        {
+          "stage": "memory-open",
+          "repeat": 1,
+          "heapMiB": 50.77,
+          "arrayBufferMiB": 8.628
+        },
+        {
+          "stage": "memory-closed",
+          "repeat": 1,
+          "heapMiB": 10.316,
+          "arrayBufferMiB": 0.209
+        },
+        {
+          "stage": "memory-open",
+          "repeat": 2,
+          "heapMiB": 52.256,
+          "arrayBufferMiB": 8.628
+        },
+        {
+          "stage": "memory-closed",
+          "repeat": 2,
+          "heapMiB": 10.449,
+          "arrayBufferMiB": 0.209
+        },
+        {
+          "stage": "memory-open",
+          "repeat": 3,
+          "heapMiB": 52.41,
+          "arrayBufferMiB": 8.628
+        },
+        {
+          "stage": "memory-closed",
+          "repeat": 3,
+          "heapMiB": 10.564,
+          "arrayBufferMiB": 0.209
+        }
+      ],
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 752.53,
+          "worstMs": 752.953,
+          "cpuMedian": 52,
+          "cpuWorst": 57,
+          "minimumAvailableMiB": 33713.988
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 340.452,
+          "worstMs": 403.119,
+          "cpuMedian": 52,
+          "cpuWorst": 53,
+          "minimumAvailableMiB": 33713.988
+        },
+        "recent-undo": {
+          "repeats": 3,
+          "medianMs": 0.191,
+          "worstMs": 0.207,
+          "cpuMedian": 53,
+          "cpuWorst": 63,
+          "minimumAvailableMiB": 33217.426
+        },
+        "recent-redo": {
+          "repeats": 3,
+          "medianMs": 0.087,
+          "worstMs": 0.1,
+          "cpuMedian": 53,
+          "cpuWorst": 63,
+          "minimumAvailableMiB": 33217.426
+        },
+        "deep-undo@2047": {
+          "repeats": 3,
+          "medianMs": 8604.508,
+          "worstMs": 8633.291,
+          "cpuMedian": 42,
+          "cpuWorst": 67,
+          "minimumAvailableMiB": 32488.004
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 454.238,
+          "worstMs": 466.744,
+          "cpuMedian": 49,
+          "cpuWorst": 59,
+          "minimumAvailableMiB": 33020.688
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 732.473,
+          "worstMs": 779.228,
+          "cpuMedian": 49,
+          "cpuWorst": 59,
+          "minimumAvailableMiB": 33020.688
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 1092.982,
+          "worstMs": 1156.073,
+          "cpuMedian": 52,
+          "cpuWorst": 57,
+          "minimumAvailableMiB": 33713.988
+        }
+      },
+      "variedDepth": {
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 7036.494,
+          "worstMs": 7092.692,
+          "cpuMedian": 25,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 34686.301
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 3485.309,
+          "worstMs": 3559.513,
+          "cpuMedian": 25,
+          "cpuWorst": 35,
+          "minimumAvailableMiB": 34766.215
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 7263.946,
+          "worstMs": 7382.986,
+          "cpuMedian": 27,
+          "cpuWorst": 48,
+          "minimumAvailableMiB": 34717
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 5944.791,
+          "worstMs": 6151.398,
+          "cpuMedian": 18.5,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 34662.641
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 6930.631,
+          "worstMs": 6969.657,
+          "cpuMedian": 21.5,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 34659.215
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 4309.521,
+          "worstMs": 4312.625,
+          "cpuMedian": 22,
+          "cpuWorst": 39,
+          "minimumAvailableMiB": 34690.805
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 307.345,
+          "worstMs": 313.914,
+          "cpuMedian": 17,
+          "cpuWorst": 19,
+          "minimumAvailableMiB": 34710.559
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 227.135,
+          "worstMs": 256.297,
+          "cpuMedian": 19,
+          "cpuWorst": 20,
+          "minimumAvailableMiB": 34710.559
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 0.021,
+          "worstMs": 0.053,
+          "cpuMedian": 19,
+          "cpuWorst": 20,
+          "minimumAvailableMiB": 34710.559
+        },
+        "worst-varied-depth": {
+          "repeats": 3,
+          "medianMs": 7263.946,
+          "worstMs": 7382.986,
+          "cpuMedian": 27,
+          "cpuWorst": 48,
+          "minimumAvailableMiB": 34717
+        }
+      },
+      "nodeLatencyArchiveBytes": 31340116,
+      "projectScope": "2048 accepted edits/current cursor; final browser writer. Node latency archive additionally retains the verification brush as redo."
+    },
+    {
+      "size": 512,
+      "steps": 2048,
+      "forces": {
+        "craterize": 4,
+        "erupt": 3,
+        "quake": 3,
+        "glaciate": 3,
+        "carve": 3
+      },
+      "finalState": "f0f9a3c4b27c19d80720ab735bc57cee5a4591a7865eb34d22f33d001c53e484",
+      "exportHash": "212cd11e407dc21604970202b8ea37fa4d487ab4de7fd9f2a8110869c764310a",
+      "traceDigest": "10477f669fb26d02be46c958aca76891c2a9dc2d38be4d569bcf798b4502bc69",
+      "previous": [
+        {
+          "phase": "before",
+          "projectBytes": 947698,
+          "timing": {
+            "undo-recent": {
+              "n": 3,
+              "medianMs": 930.9119999999998,
+              "worstMs": 945.5738000000001,
+              "cpuMedianPercent": 99,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 29787467776
+            },
+            "redo-recent": {
+              "n": 3,
+              "medianMs": 0.1010999999998603,
+              "worstMs": 0.2563999999997577,
+              "cpuMedianPercent": 99,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 29787467776
+            },
+            "save-project": {
+              "n": 3,
+              "medianMs": 450.9522000000579,
+              "worstMs": 513.6860999999335,
+              "cpuMedianPercent": 38,
+              "cpuWorstPercent": 44,
+              "minimumAvailableBytes": 31349850112
+            },
+            "reopen-project": {
+              "n": 3,
+              "medianMs": 1373.1060999999754,
+              "worstMs": 1551.6791000000667,
+              "cpuMedianPercent": 48.5,
+              "cpuWorstPercent": 56,
+              "minimumAvailableBytes": 31386030080
+            },
+            "undo-depth32": {
+              "n": 3,
+              "medianMs": 0.10929999989457428,
+              "worstMs": 0.1426000000210479,
+              "cpuMedianPercent": 46,
+              "cpuWorstPercent": 47,
+              "minimumAvailableBytes": 30581485568
+            },
+            "redo-depth32": {
+              "n": 3,
+              "medianMs": 0.018900000024586916,
+              "worstMs": 0.021300000022165477,
+              "cpuMedianPercent": 38,
+              "cpuWorstPercent": 44,
+              "minimumAvailableBytes": 31349850112
+            }
+          }
+        },
+        {
+          "phase": "after",
+          "projectBytes": 734911,
+          "timing": {
+            "undo-recent": {
+              "n": 3,
+              "medianMs": 0.3084999998100102,
+              "worstMs": 0.537599999923259,
+              "cpuMedianPercent": 49,
+              "cpuWorstPercent": 49,
+              "minimumAvailableBytes": 30106460160
+            },
+            "redo-recent": {
+              "n": 3,
+              "medianMs": 0.11199999996460974,
+              "worstMs": 0.20730000012554228,
+              "cpuMedianPercent": 49,
+              "cpuWorstPercent": 49,
+              "minimumAvailableBytes": 30106460160
+            },
+            "save-project": {
+              "n": 3,
+              "medianMs": 510.3536999998614,
+              "worstMs": 525.5984000000171,
+              "cpuMedianPercent": 95,
+              "cpuWorstPercent": 96,
+              "minimumAvailableBytes": 25878052864
+            },
+            "reopen-project": {
+              "n": 3,
+              "medianMs": 1580991.6963000004,
+              "worstMs": 1863675.6925,
+              "cpuMedianPercent": 98,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 20650016768
+            },
+            "undo-depth32": {
+              "n": 3,
+              "medianMs": 193.7387999999337,
+              "worstMs": 218.51380000030622,
+              "cpuMedianPercent": 92,
+              "cpuWorstPercent": 99,
+              "minimumAvailableBytes": 25868566528
+            },
+            "redo-depth32": {
+              "n": 3,
+              "medianMs": 1486.718700000085,
+              "worstMs": 1556.8047000002116,
+              "cpuMedianPercent": 95,
+              "cpuWorstPercent": 100,
+              "minimumAvailableBytes": 25977532416
+            }
+          }
+        }
+      ],
+      "projectBytes": 109330311,
+      "constructionProjectBytes": 109323238,
+      "checkpoints": {
+        "spacing": 32,
+        "count": 65,
+        "bytes": 107627241,
+        "recentBytes": 128143510,
+        "recentCount": 3,
+        "failure": null
+      },
+      "memory": [
+        {
+          "step": 0,
+          "heapMiB": 110.371,
+          "arrayBufferMiB": 26.291,
+          "rssMiB": 343.668,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 1,
+            "bytes": 3369133,
+            "recentBytes": 46444202,
+            "recentCount": 1,
+            "failure": null
+          },
+          "coldDiskBytes": 3478832
+        },
+        {
+          "step": 64,
+          "heapMiB": 254.356,
+          "arrayBufferMiB": 88.948,
+          "rssMiB": 622.652,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 3,
+            "bytes": 7226599,
+            "recentBytes": 131394206,
+            "recentCount": 6,
+            "failure": null
+          },
+          "coldDiskBytes": 7336298
+        },
+        {
+          "step": 256,
+          "heapMiB": 185.313,
+          "arrayBufferMiB": 96.616,
+          "rssMiB": 766.398,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 9,
+            "bytes": 17382145,
+            "recentBytes": 122322910,
+            "recentCount": 3,
+            "failure": null
+          },
+          "coldDiskBytes": 20799747
+        },
+        {
+          "step": 512,
+          "heapMiB": 187.7,
+          "arrayBufferMiB": 96.768,
+          "rssMiB": 790.316,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 17,
+            "bytes": 29585775,
+            "recentBytes": 123966698,
+            "recentCount": 3,
+            "failure": null
+          },
+          "coldDiskBytes": 36380023
+        },
+        {
+          "step": 1024,
+          "heapMiB": 215.794,
+          "arrayBufferMiB": 88.699,
+          "rssMiB": 838.617,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 33,
+            "bytes": 59218546,
+            "recentBytes": 124677864,
+            "recentCount": 3,
+            "failure": null
+          },
+          "coldDiskBytes": 71816605
+        },
+        {
+          "step": 1536,
+          "heapMiB": 219.154,
+          "arrayBufferMiB": 88.626,
+          "rssMiB": 852.734,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 49,
+            "bytes": 84725037,
+            "recentBytes": 125364846,
+            "recentCount": 3,
+            "failure": null
+          },
+          "coldDiskBytes": 102068428
+        },
+        {
+          "step": 2048,
+          "heapMiB": 222.555,
+          "arrayBufferMiB": 88.51,
+          "rssMiB": 859.145,
+          "checkpoints": {
+            "spacing": 32,
+            "count": 65,
+            "bytes": 106274847,
+            "recentBytes": 126046230,
+            "recentCount": 3,
+            "failure": null
+          },
+          "coldDiskBytes": 127377254
+        }
+      ],
+      "finalControllerMemory": [
+        {
+          "stage": "memory-open",
+          "repeat": 1,
+          "heapMiB": 143.495,
+          "arrayBufferMiB": 33.76
+        },
+        {
+          "stage": "memory-closed",
+          "repeat": 1,
+          "heapMiB": 10.561,
+          "arrayBufferMiB": 0.209
+        },
+        {
+          "stage": "memory-open",
+          "repeat": 2,
+          "heapMiB": 143.518,
+          "arrayBufferMiB": 33.76
+        },
+        {
+          "stage": "memory-closed",
+          "repeat": 2,
+          "heapMiB": 10.608,
+          "arrayBufferMiB": 0.209
+        },
+        {
+          "stage": "memory-open",
+          "repeat": 3,
+          "heapMiB": 143.563,
+          "arrayBufferMiB": 33.76
+        },
+        {
+          "stage": "memory-closed",
+          "repeat": 3,
+          "heapMiB": 10.598,
+          "arrayBufferMiB": 0.209
+        }
+      ],
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 2405.35,
+          "worstMs": 2437.978,
+          "cpuMedian": 38,
+          "cpuWorst": 52,
+          "minimumAvailableMiB": 31970.145
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 1626.577,
+          "worstMs": 1634.099,
+          "cpuMedian": 42,
+          "cpuWorst": 46,
+          "minimumAvailableMiB": 32590.363
+        },
+        "recent-undo": {
+          "repeats": 3,
+          "medianMs": 0.214,
+          "worstMs": 0.243,
+          "cpuMedian": 32,
+          "cpuWorst": 48,
+          "minimumAvailableMiB": 32730.715
+        },
+        "recent-redo": {
+          "repeats": 3,
+          "medianMs": 0.15,
+          "worstMs": 0.155,
+          "cpuMedian": 32,
+          "cpuWorst": 48,
+          "minimumAvailableMiB": 32730.715
+        },
+        "deep-undo@2047": {
+          "repeats": 3,
+          "medianMs": 31576.639,
+          "worstMs": 32109.697,
+          "cpuMedian": 39,
+          "cpuWorst": 60,
+          "minimumAvailableMiB": 31500
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 1124.377,
+          "worstMs": 1128.713,
+          "cpuMedian": 41,
+          "cpuWorst": 56,
+          "minimumAvailableMiB": 32486.227
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 2383.924,
+          "worstMs": 2568.548,
+          "cpuMedian": 37.5,
+          "cpuWorst": 45,
+          "minimumAvailableMiB": 31689.32
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 4001.655,
+          "worstMs": 4064.555,
+          "cpuMedian": 39,
+          "cpuWorst": 52,
+          "minimumAvailableMiB": 31970.145
+        }
+      },
+      "variedDepth": {
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 20744.28,
+          "worstMs": 28816.825,
+          "cpuMedian": 15,
+          "cpuWorst": 49,
+          "minimumAvailableMiB": 35486.152
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 10314.895,
+          "worstMs": 14127.572,
+          "cpuMedian": 16,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 35482.16
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 19942.238,
+          "worstMs": 27030.78,
+          "cpuMedian": 17,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 35478.734
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 19016.263,
+          "worstMs": 25429.391,
+          "cpuMedian": 17.5,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 34914.301
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 20959.913,
+          "worstMs": 27904.129,
+          "cpuMedian": 15.5,
+          "cpuWorst": 36,
+          "minimumAvailableMiB": 35216.984
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 19962.297,
+          "worstMs": 25406.07,
+          "cpuMedian": 17,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 34659.801
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 1553.163,
+          "worstMs": 1875.208,
+          "cpuMedian": 21,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 34998.422
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 918.534,
+          "worstMs": 947.576,
+          "cpuMedian": 19.5,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 34998.422
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 1523.74,
+          "worstMs": 1825.648,
+          "cpuMedian": 18,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 34982.859
+        },
+        "worst-varied-depth": {
+          "repeats": 3,
+          "medianMs": 20959.913,
+          "worstMs": 28816.825,
+          "cpuMedian": 15.5,
+          "cpuWorst": 49,
+          "minimumAvailableMiB": 35486.152
+        }
+      },
+      "nodeLatencyArchiveBytes": 109330265,
+      "projectScope": "2048 accepted edits/current cursor; final browser writer. Node latency archive additionally retains the verification brush as redo."
+    }
+  ],
+  "policyPilot": [
+    {
+      "size": 256,
+      "steps": 64,
+      "spacing": 8,
+      "bytes": 3923603,
+      "checkpoints": {
+        "spacing": 8,
+        "count": 9,
+        "bytes": 3641058,
+        "recentBytes": 72550226,
+        "recentCount": 16,
+        "failure": null
+      },
+      "timing": {
+        "seek@63": {
+          "repeats": 3,
+          "medianMs": 1375.255,
+          "worstMs": 1405.453,
+          "cpuMedian": 25.5,
+          "cpuWorst": 40,
+          "minimumAvailableMiB": 37041.566
+        }
+      }
+    },
+    {
+      "size": 256,
+      "steps": 64,
+      "spacing": 32,
+      "bytes": 2391548,
+      "checkpoints": {
+        "spacing": 32,
+        "count": 3,
+        "bytes": 2121463,
+        "recentBytes": 72550226,
+        "recentCount": 16,
+        "failure": null
+      },
+      "timing": {
+        "seek@63": {
+          "repeats": 3,
+          "medianMs": 4629.48,
+          "worstMs": 4663.215,
+          "cpuMedian": 24,
+          "cpuWorst": 38,
+          "minimumAvailableMiB": 37065.031
+        }
+      }
+    },
+    {
+      "size": 256,
+      "steps": 64,
+      "spacing": 128,
+      "bytes": 1942867,
+      "checkpoints": {
+        "spacing": 128,
+        "count": 2,
+        "bytes": 1674808,
+        "recentBytes": 72550226,
+        "recentCount": 16,
+        "failure": null
+      },
+      "timing": {
+        "seek@63": {
+          "repeats": 3,
+          "medianMs": 7093.82,
+          "worstMs": 7172.977,
+          "cpuMedian": 22,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 36995.715
+        }
+      }
+    }
+  ],
+  "browsers": [
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "size": 256,
+      "session": "2048 edits",
+      "storage": "worker OPFS",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 2049,
+      "proofMs": 368022,
+      "exportHash": "b045c1f308ecc8bef5cbfe2571e30349087c9d3801d4ad554c88d67b91558147",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 727.7,
+          "worstMs": 785.8,
+          "cpuMedian": 22,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 38725.375
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 268,
+          "worstMs": 270,
+          "cpuMedian": 29,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 38465.875
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 6207.5,
+          "worstMs": 6231,
+          "cpuMedian": 26,
+          "cpuWorst": 34,
+          "minimumAvailableMiB": 38282.973
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 2685.4,
+          "worstMs": 2743,
+          "cpuMedian": 26.5,
+          "cpuWorst": 39,
+          "minimumAvailableMiB": 38213.762
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 5951,
+          "worstMs": 5954.6,
+          "cpuMedian": 27.5,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 38225.773
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 5625,
+          "worstMs": 5739.4,
+          "cpuMedian": 23,
+          "cpuWorst": 34,
+          "minimumAvailableMiB": 38078.422
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 7221.8,
+          "worstMs": 7305.5,
+          "cpuMedian": 21.5,
+          "cpuWorst": 32,
+          "minimumAvailableMiB": 38054.785
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 3553.3,
+          "worstMs": 3564,
+          "cpuMedian": 20,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 38041.914
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 257.8,
+          "worstMs": 258.1,
+          "cpuMedian": 27,
+          "cpuWorst": 58,
+          "minimumAvailableMiB": 37994.398
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 216.7,
+          "worstMs": 217.4,
+          "cpuMedian": 27,
+          "cpuWorst": 58,
+          "minimumAvailableMiB": 37994.398
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 0.1,
+          "worstMs": 0.1,
+          "cpuMedian": 27,
+          "cpuWorst": 58,
+          "minimumAvailableMiB": 37994.398
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 490.8,
+          "worstMs": 504.6,
+          "cpuMedian": 27,
+          "cpuWorst": 58,
+          "minimumAvailableMiB": 37994.398
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 997.7,
+          "worstMs": 1050.9,
+          "cpuMedian": 29,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 38465.875
+        },
+        "worst-varied-depth": {
+          "repeats": 3,
+          "medianMs": 7221.8,
+          "worstMs": 7305.5,
+          "cpuMedian": 21.5,
+          "cpuWorst": 32,
+          "minimumAvailableMiB": 38054.785
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 7263.699999988079
+    },
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "size": 256,
+      "session": "five newly hashed forces",
+      "storage": "worker OPFS",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 7,
+      "proofMs": 3255,
+      "exportHash": "b408b34e6b4fb46a36a2349575594f371270d689471af7f95b931ac6f9d97780",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 286.4,
+          "worstMs": 287.9,
+          "cpuMedian": 23,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 38927.922
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 184.5,
+          "worstMs": 190.4,
+          "cpuMedian": 21,
+          "cpuWorst": 23,
+          "minimumAvailableMiB": 38927.922
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 340.2,
+          "worstMs": 355.9,
+          "cpuMedian": 21,
+          "cpuWorst": 23,
+          "minimumAvailableMiB": 38927.922
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 159.1,
+          "worstMs": 179.6,
+          "cpuMedian": 21,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 38958.094
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 82.7,
+          "worstMs": 84.5,
+          "cpuMedian": 21,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 38958.094
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 470.9,
+          "worstMs": 478.3,
+          "cpuMedian": 23,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 38927.922
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 146.19999998807907
+    },
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "size": 512,
+      "session": "2048 edits",
+      "storage": "worker OPFS",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 2049,
+      "proofMs": 1156297,
+      "exportHash": "212cd11e407dc21604970202b8ea37fa4d487ab4de7fd9f2a8110869c764310a",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 2002.2,
+          "worstMs": 2038.8,
+          "cpuMedian": 17,
+          "cpuWorst": 22,
+          "minimumAvailableMiB": 38667.148
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 813.4,
+          "worstMs": 815.6,
+          "cpuMedian": 19,
+          "cpuWorst": 20,
+          "minimumAvailableMiB": 38504.645
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 14196.8,
+          "worstMs": 14307.5,
+          "cpuMedian": 16.5,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 38121.496
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 6913.2,
+          "worstMs": 7081.8,
+          "cpuMedian": 17,
+          "cpuWorst": 32,
+          "minimumAvailableMiB": 38334.934
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 13067.9,
+          "worstMs": 13080.8,
+          "cpuMedian": 15,
+          "cpuWorst": 24,
+          "minimumAvailableMiB": 38379.996
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 12873.1,
+          "worstMs": 13520.1,
+          "cpuMedian": 16,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 38398.387
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 14512,
+          "worstMs": 16168.6,
+          "cpuMedian": 16,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 38321.957
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 12807.7,
+          "worstMs": 13056.2,
+          "cpuMedian": 16,
+          "cpuWorst": 32,
+          "minimumAvailableMiB": 38293.598
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 1037.1,
+          "worstMs": 1043.6,
+          "cpuMedian": 15,
+          "cpuWorst": 17,
+          "minimumAvailableMiB": 38525.973
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 628,
+          "worstMs": 653.5,
+          "cpuMedian": 14,
+          "cpuWorst": 15,
+          "minimumAvailableMiB": 38497.301
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 1224,
+          "worstMs": 1235,
+          "cpuMedian": 18,
+          "cpuWorst": 21,
+          "minimumAvailableMiB": 38521.625
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 1193.6,
+          "worstMs": 1215.4,
+          "cpuMedian": 20,
+          "cpuWorst": 26,
+          "minimumAvailableMiB": 38564.441
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 2817.8,
+          "worstMs": 2848.8,
+          "cpuMedian": 18.5,
+          "cpuWorst": 22,
+          "minimumAvailableMiB": 38504.645
+        },
+        "worst-varied-depth": {
+          "repeats": 3,
+          "medianMs": 14512,
+          "worstMs": 16168.6,
+          "cpuMedian": 16,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 38321.957
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 8135.400000035763
+    },
+    {
+      "engine": "chromium",
+      "version": "145.0.7632.6",
+      "size": 512,
+      "session": "five newly hashed forces",
+      "storage": "worker OPFS",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 7,
+      "proofMs": 14854,
+      "exportHash": "8491d2086bb5384b45a19d98909f3563a2b6f092fc50d9cb8af57dbaf62cbd23",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 895,
+          "worstMs": 900.7,
+          "cpuMedian": 29,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 38935
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 688.4,
+          "worstMs": 713.2,
+          "cpuMedian": 26,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 38448.164
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 1802.5,
+          "worstMs": 1807.8,
+          "cpuMedian": 21,
+          "cpuWorst": 24,
+          "minimumAvailableMiB": 38227.832
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 808,
+          "worstMs": 963.3,
+          "cpuMedian": 23,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 38180.484
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 368.4,
+          "worstMs": 378.7,
+          "cpuMedian": 25,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 38541.918
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 1589.1,
+          "worstMs": 1599.4,
+          "cpuMedian": 26.5,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 38448.164
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 3535.400000035763
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "size": 256,
+      "session": "2048 edits",
+      "storage": "worker OPFS",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 2049,
+      "proofMs": 466757,
+      "exportHash": "b045c1f308ecc8bef5cbfe2571e30349087c9d3801d4ad554c88d67b91558147",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 727,
+          "worstMs": 773,
+          "cpuMedian": 22,
+          "cpuWorst": 34,
+          "minimumAvailableMiB": 37835.02
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 324,
+          "worstMs": 327,
+          "cpuMedian": 25,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 37836.086
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 6741,
+          "worstMs": 7223,
+          "cpuMedian": 20.5,
+          "cpuWorst": 35,
+          "minimumAvailableMiB": 37307.422
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 3140,
+          "worstMs": 3272,
+          "cpuMedian": 23,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 37571.367
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 6474,
+          "worstMs": 6629,
+          "cpuMedian": 22,
+          "cpuWorst": 38,
+          "minimumAvailableMiB": 37425.281
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 6084,
+          "worstMs": 6173,
+          "cpuMedian": 21.5,
+          "cpuWorst": 26,
+          "minimumAvailableMiB": 37383.621
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 8455,
+          "worstMs": 8607,
+          "cpuMedian": 22,
+          "cpuWorst": 35,
+          "minimumAvailableMiB": 37449.77
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 4611,
+          "worstMs": 4651,
+          "cpuMedian": 21,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 37477.434
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 479,
+          "worstMs": 489,
+          "cpuMedian": 17,
+          "cpuWorst": 20,
+          "minimumAvailableMiB": 37526.973
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 187,
+          "worstMs": 196,
+          "cpuMedian": 20,
+          "cpuWorst": 21,
+          "minimumAvailableMiB": 37445.762
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 0,
+          "cpuMedian": 20,
+          "cpuWorst": 21,
+          "minimumAvailableMiB": 37445.762
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 292,
+          "worstMs": 295,
+          "cpuMedian": 20,
+          "cpuWorst": 21,
+          "minimumAvailableMiB": 37445.762
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 1054,
+          "worstMs": 1096,
+          "cpuMedian": 25,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 37835.02
+        },
+        "worst-varied-depth": {
+          "repeats": 3,
+          "medianMs": 8455,
+          "worstMs": 8607,
+          "cpuMedian": 22,
+          "cpuWorst": 35,
+          "minimumAvailableMiB": 37449.77
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 33
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "size": 256,
+      "session": "five newly hashed forces",
+      "storage": "worker OPFS",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 7,
+      "proofMs": 4328,
+      "exportHash": "b408b34e6b4fb46a36a2349575594f371270d689471af7f95b931ac6f9d97780",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 345,
+          "worstMs": 351,
+          "cpuMedian": 24,
+          "cpuWorst": 26,
+          "minimumAvailableMiB": 37163.68
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 191,
+          "worstMs": 194,
+          "cpuMedian": 24,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 37163.68
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 431,
+          "worstMs": 432,
+          "cpuMedian": 30,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 37267.023
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 261,
+          "worstMs": 270,
+          "cpuMedian": 30,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 37267.023
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 62,
+          "worstMs": 63,
+          "cpuMedian": 25,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 37216.656
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 536,
+          "worstMs": 545,
+          "cpuMedian": 24,
+          "cpuWorst": 26,
+          "minimumAvailableMiB": 37163.68
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 32
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "size": 512,
+      "session": "2048 edits",
+      "storage": "worker OPFS",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 2049,
+      "proofMs": 1674844,
+      "exportHash": "212cd11e407dc21604970202b8ea37fa4d487ab4de7fd9f2a8110869c764310a",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 2114,
+          "worstMs": 2159,
+          "cpuMedian": 25.5,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 37988.438
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 955,
+          "worstMs": 968,
+          "cpuMedian": 24,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 37858.059
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 23686,
+          "worstMs": 24811,
+          "cpuMedian": 19,
+          "cpuWorst": 43,
+          "minimumAvailableMiB": 36458.063
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 11913,
+          "worstMs": 12950,
+          "cpuMedian": 23,
+          "cpuWorst": 49,
+          "minimumAvailableMiB": 36390.785
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 22719,
+          "worstMs": 23449,
+          "cpuMedian": 20,
+          "cpuWorst": 34,
+          "minimumAvailableMiB": 36326.09
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 20703,
+          "worstMs": 22246,
+          "cpuMedian": 14,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 36601.898
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 23315,
+          "worstMs": 23398,
+          "cpuMedian": 14,
+          "cpuWorst": 31,
+          "minimumAvailableMiB": 36906.414
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 20738,
+          "worstMs": 21931,
+          "cpuMedian": 14,
+          "cpuWorst": 38,
+          "minimumAvailableMiB": 36728.836
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 1572,
+          "worstMs": 1594,
+          "cpuMedian": 20.5,
+          "cpuWorst": 24,
+          "minimumAvailableMiB": 37008.145
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 725,
+          "worstMs": 727,
+          "cpuMedian": 20,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 36689.406
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 1823,
+          "worstMs": 1893,
+          "cpuMedian": 18,
+          "cpuWorst": 25,
+          "minimumAvailableMiB": 36635.164
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 923,
+          "worstMs": 925,
+          "cpuMedian": 21,
+          "cpuWorst": 34,
+          "minimumAvailableMiB": 36985.879
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 3069,
+          "worstMs": 3127,
+          "cpuMedian": 24,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 37858.059
+        },
+        "worst-varied-depth": {
+          "repeats": 3,
+          "medianMs": 23686,
+          "worstMs": 24811,
+          "cpuMedian": 19,
+          "cpuWorst": 43,
+          "minimumAvailableMiB": 36458.063
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 33
+    },
+    {
+      "engine": "firefox",
+      "version": "146.0.1",
+      "size": 512,
+      "session": "five newly hashed forces",
+      "storage": "worker OPFS",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 7,
+      "proofMs": 23600,
+      "exportHash": "8491d2086bb5384b45a19d98909f3563a2b6f092fc50d9cb8af57dbaf62cbd23",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 1130,
+          "worstMs": 1161,
+          "cpuMedian": 22,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 37026.969
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 766,
+          "worstMs": 778,
+          "cpuMedian": 24,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 37009.117
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 4385,
+          "worstMs": 4524,
+          "cpuMedian": 20,
+          "cpuWorst": 26,
+          "minimumAvailableMiB": 36800.75
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 1159,
+          "worstMs": 1176,
+          "cpuMedian": 26,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 36701.008
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 209,
+          "worstMs": 211,
+          "cpuMedian": 27,
+          "cpuWorst": 50,
+          "minimumAvailableMiB": 36738.074
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 1908,
+          "worstMs": 1918,
+          "cpuMedian": 25,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 37009.117
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 33
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "size": 256,
+      "session": "2048 edits",
+      "storage": "test host disk / synchronous worker XHR",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 2049,
+      "proofMs": 485681,
+      "exportHash": "b045c1f308ecc8bef5cbfe2571e30349087c9d3801d4ad554c88d67b91558147",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 1528,
+          "worstMs": 1529,
+          "cpuMedian": 30,
+          "cpuWorst": 32,
+          "minimumAvailableMiB": 37270.156
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 325,
+          "worstMs": 333,
+          "cpuMedian": 36,
+          "cpuWorst": 36,
+          "minimumAvailableMiB": 36759.953
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 8102,
+          "worstMs": 8137,
+          "cpuMedian": 21,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 35344.895
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 3531,
+          "worstMs": 4318,
+          "cpuMedian": 25,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 36150.113
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 7484,
+          "worstMs": 7918,
+          "cpuMedian": 23,
+          "cpuWorst": 32,
+          "minimumAvailableMiB": 35357.691
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 10915,
+          "worstMs": 10936,
+          "cpuMedian": 20,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 34786.648
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 9811,
+          "worstMs": 14076,
+          "cpuMedian": 20,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 34659.801
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 5283,
+          "worstMs": 6574,
+          "cpuMedian": 25.5,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 34914.301
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 427,
+          "worstMs": 2162,
+          "cpuMedian": 30,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 34982.859
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 319,
+          "worstMs": 341,
+          "cpuMedian": 23.5,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 36133.813
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 0,
+          "cpuMedian": 25,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 36133.813
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 1099,
+          "worstMs": 1144,
+          "cpuMedian": 30,
+          "cpuWorst": 40,
+          "minimumAvailableMiB": 37183.469
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 1853,
+          "worstMs": 1862,
+          "cpuMedian": 30,
+          "cpuWorst": 32,
+          "minimumAvailableMiB": 36997.07
+        },
+        "worst-varied-depth": {
+          "repeats": 3,
+          "medianMs": 10936,
+          "worstMs": 14076,
+          "cpuMedian": 20,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 34659.801
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 8205.999999999942
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "size": 256,
+      "session": "five newly hashed forces",
+      "storage": "test host disk / synchronous worker XHR",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 7,
+      "proofMs": 4191,
+      "exportHash": "b408b34e6b4fb46a36a2349575594f371270d689471af7f95b931ac6f9d97780",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 482,
+          "worstMs": 484,
+          "cpuMedian": 23,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 37722.039
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 202,
+          "worstMs": 229,
+          "cpuMedian": 28,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 37652.504
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 487,
+          "worstMs": 507,
+          "cpuMedian": 29,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 37436.359
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 291,
+          "worstMs": 325,
+          "cpuMedian": 30,
+          "cpuWorst": 40,
+          "minimumAvailableMiB": 37436.359
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 166,
+          "worstMs": 171,
+          "cpuMedian": 29,
+          "cpuWorst": 40,
+          "minimumAvailableMiB": 37838.887
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 679,
+          "worstMs": 686,
+          "cpuMedian": 23,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 37722.039
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 33.00000000000091
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "size": 512,
+      "session": "2048 edits",
+      "storage": "test host disk / synchronous worker XHR",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 2049,
+      "proofMs": 1811955,
+      "exportHash": "212cd11e407dc21604970202b8ea37fa4d487ab4de7fd9f2a8110869c764310a",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 3721,
+          "worstMs": 4937,
+          "cpuMedian": 27,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 36992.008
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 1237,
+          "worstMs": 1443,
+          "cpuMedian": 29,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 36391.988
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 20771,
+          "worstMs": 23359,
+          "cpuMedian": 19.5,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 33108.613
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 11035,
+          "worstMs": 14322,
+          "cpuMedian": 21,
+          "cpuWorst": 39,
+          "minimumAvailableMiB": 33396.375
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 20042,
+          "worstMs": 26790,
+          "cpuMedian": 23,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 32018.98
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 20018,
+          "worstMs": 26020,
+          "cpuMedian": 23,
+          "cpuWorst": 35,
+          "minimumAvailableMiB": 30782.793
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 20396,
+          "worstMs": 26615,
+          "cpuMedian": 21.5,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 29063.301
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 18460,
+          "worstMs": 30019,
+          "cpuMedian": 21,
+          "cpuWorst": 39,
+          "minimumAvailableMiB": 29551.137
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 1591,
+          "worstMs": 2229,
+          "cpuMedian": 22,
+          "cpuWorst": 25,
+          "minimumAvailableMiB": 34106.762
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 1156,
+          "worstMs": 1208,
+          "cpuMedian": 23,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 34478.215
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 2738,
+          "worstMs": 3759,
+          "cpuMedian": 21,
+          "cpuWorst": 22,
+          "minimumAvailableMiB": 34476.02
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 1928,
+          "worstMs": 2197,
+          "cpuMedian": 32,
+          "cpuWorst": 46,
+          "minimumAvailableMiB": 35864.168
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 4806,
+          "worstMs": 6380,
+          "cpuMedian": 25,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 36391.988
+        },
+        "worst-varied-depth": {
+          "repeats": 3,
+          "medianMs": 20771,
+          "worstMs": 30019,
+          "cpuMedian": 22,
+          "cpuWorst": 39,
+          "minimumAvailableMiB": 29551.137
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 23189.000000000233
+    },
+    {
+      "engine": "webkit",
+      "version": "26.0",
+      "size": 512,
+      "session": "five newly hashed forces",
+      "storage": "test host disk / synchronous worker XHR",
+      "saveScope": "Encoding with counting sink; actual saved disk readback is reported separately in saveRoundTrips.",
+      "positions": 7,
+      "proofMs": 13372,
+      "exportHash": "8491d2086bb5384b45a19d98909f3563a2b6f092fc50d9cb8af57dbaf62cbd23",
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 1330,
+          "worstMs": 1347,
+          "cpuMedian": 24.5,
+          "cpuWorst": 32,
+          "minimumAvailableMiB": 37335.828
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 630,
+          "worstMs": 661,
+          "cpuMedian": 23,
+          "cpuWorst": 26,
+          "minimumAvailableMiB": 36747.75
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 1959,
+          "worstMs": 2015,
+          "cpuMedian": 20.5,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 36423.52
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 1147,
+          "worstMs": 1189,
+          "cpuMedian": 24,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 36102.59
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 462,
+          "worstMs": 486,
+          "cpuMedian": 27,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 36166.789
+        },
+        "open-plus-first-edit": {
+          "repeats": 3,
+          "medianMs": 1977,
+          "worstMs": 1991,
+          "cpuMedian": 24.5,
+          "cpuWorst": 32,
+          "minimumAvailableMiB": 36747.75
+        }
+      },
+      "maxWrite": 32768,
+      "pageTimerMaxGap": 289.99999999999636
+    }
+  ],
+  "finalContracts": [
+    {
+      "engine": "chromium",
+      "size": 256,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    },
+    {
+      "engine": "chromium",
+      "size": 512,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    },
+    {
+      "engine": "firefox",
+      "size": 256,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    },
+    {
+      "engine": "firefox",
+      "size": 512,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    },
+    {
+      "engine": "webkit",
+      "size": 256,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    },
+    {
+      "engine": "webkit",
+      "size": 512,
+      "savedUndoneCursor": true,
+      "immediateRedo": true,
+      "allFutureRedo": true,
+      "componentIdentity": true,
+      "sharedViewOffsets": true,
+      "stringCodeUnits": true,
+      "canonicalWaterBoundaries": true
+    }
+  ],
+  "contracts": {
+    "passed": true,
+    "allDepths": true,
+    "forceReplacement": true,
+    "format4Golden": true,
+    "corruption": true,
+    "redoAcrossSave": true,
+    "branching": true,
+    "identityAndViewAliases": true,
+    "arbitraryStringCodeUnits": true,
+    "finalizerHashVersion": true,
+    "canonicalWaterBoundaries": true,
+    "checkpointCoarsening": {
+      "spacing": 32,
+      "count": 3,
+      "bytes": 405959,
+      "recentBytes": 3601438,
+      "recentCount": 1,
+      "failure": null
+    },
+    "bytes": 560466
+  },
+  "saveRoundTrips": [
+    {
+      "engine": "chromium",
+      "size": 256,
+      "storage": "worker OPFS",
+      "scope": "Final writer streams into owned worker disk cache; reopening reads those saved chunks into a separate fresh cache. All current-state/export hashes match, three repetitions.",
+      "bytes": 31340016,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 787.7,
+          "worstMs": 829.4,
+          "cpuMedian": 48,
+          "cpuWorst": 52,
+          "minimumAvailableMiB": 32917.309
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 276,
+          "worstMs": 300.8,
+          "cpuMedian": 48,
+          "cpuWorst": 67,
+          "minimumAvailableMiB": 32917.309
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 6720.5,
+          "worstMs": 6738.4,
+          "cpuMedian": 40,
+          "cpuWorst": 59,
+          "minimumAvailableMiB": 32720.922
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 2933.9,
+          "worstMs": 2938,
+          "cpuMedian": 46,
+          "cpuWorst": 58,
+          "minimumAvailableMiB": 32838.875
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 6257.8,
+          "worstMs": 6449.5,
+          "cpuMedian": 43.5,
+          "cpuWorst": 63,
+          "minimumAvailableMiB": 32484.512
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 5961.5,
+          "worstMs": 5991.8,
+          "cpuMedian": 40,
+          "cpuWorst": 53,
+          "minimumAvailableMiB": 32223.121
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 7549.7,
+          "worstMs": 7593,
+          "cpuMedian": 38.5,
+          "cpuWorst": 57,
+          "minimumAvailableMiB": 31740.551
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 3732.3,
+          "worstMs": 3775.6,
+          "cpuMedian": 38,
+          "cpuWorst": 49,
+          "minimumAvailableMiB": 32488.004
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 341.7,
+          "worstMs": 355.5,
+          "cpuMedian": 37,
+          "cpuWorst": 49,
+          "minimumAvailableMiB": 32251.07
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 175.1,
+          "worstMs": 175.4,
+          "cpuMedian": 49,
+          "cpuWorst": 52,
+          "minimumAvailableMiB": 32251.07
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 0.1,
+          "worstMs": 0.1,
+          "cpuMedian": 49,
+          "cpuWorst": 52,
+          "minimumAvailableMiB": 32251.07
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 1075.9,
+          "worstMs": 1160.6,
+          "cpuMedian": 49,
+          "cpuWorst": 52,
+          "minimumAvailableMiB": 32794.984
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 1183.9,
+          "worstMs": 1291.6,
+          "cpuMedian": 38,
+          "cpuWorst": 44,
+          "minimumAvailableMiB": 32301.941
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "size": 512,
+      "storage": "worker OPFS",
+      "scope": "Final writer streams into owned worker disk cache; reopening reads those saved chunks into a separate fresh cache. All current-state/export hashes match, three repetitions.",
+      "bytes": 109330311,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 2147,
+          "worstMs": 2238.4,
+          "cpuMedian": 28,
+          "cpuWorst": 46,
+          "minimumAvailableMiB": 32708.957
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 1009.2,
+          "worstMs": 1203.8,
+          "cpuMedian": 33,
+          "cpuWorst": 34,
+          "minimumAvailableMiB": 32527.855
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 19936.2,
+          "worstMs": 22179.6,
+          "cpuMedian": 29,
+          "cpuWorst": 53,
+          "minimumAvailableMiB": 31598.414
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 10046.1,
+          "worstMs": 10924.8,
+          "cpuMedian": 24,
+          "cpuWorst": 60,
+          "minimumAvailableMiB": 31917.008
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 19181.6,
+          "worstMs": 19843.7,
+          "cpuMedian": 23,
+          "cpuWorst": 46,
+          "minimumAvailableMiB": 31500
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 18254.5,
+          "worstMs": 18757.8,
+          "cpuMedian": 23.5,
+          "cpuWorst": 46,
+          "minimumAvailableMiB": 31876.32
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 20385.1,
+          "worstMs": 20946.2,
+          "cpuMedian": 23,
+          "cpuWorst": 45,
+          "minimumAvailableMiB": 32717.445
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 19067.2,
+          "worstMs": 19439.5,
+          "cpuMedian": 24,
+          "cpuWorst": 42,
+          "minimumAvailableMiB": 32614.836
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 1358.8,
+          "worstMs": 1374,
+          "cpuMedian": 23,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 33423.945
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 843.7,
+          "worstMs": 865.2,
+          "cpuMedian": 23,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 33423.945
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 1566.7,
+          "worstMs": 1648.9,
+          "cpuMedian": 29,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 33697.098
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 2708.4,
+          "worstMs": 2723.8,
+          "cpuMedian": 31,
+          "cpuWorst": 43,
+          "minimumAvailableMiB": 33707.328
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 3337.6,
+          "worstMs": 3486.3,
+          "cpuMedian": 21,
+          "cpuWorst": 50,
+          "minimumAvailableMiB": 33450.273
+        }
+      }
+    },
+    {
+      "engine": "firefox",
+      "size": 256,
+      "storage": "worker OPFS",
+      "scope": "Final writer streams into owned worker disk cache; reopening reads those saved chunks into a separate fresh cache. All current-state/export hashes match, three repetitions.",
+      "bytes": 31340016,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 748,
+          "worstMs": 791,
+          "cpuMedian": 27,
+          "cpuWorst": 58,
+          "minimumAvailableMiB": 34623.648
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 317,
+          "worstMs": 330,
+          "cpuMedian": 27,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 34623.648
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 6813,
+          "worstMs": 6866,
+          "cpuMedian": 24,
+          "cpuWorst": 45,
+          "minimumAvailableMiB": 34139.695
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 3331,
+          "worstMs": 3429,
+          "cpuMedian": 23,
+          "cpuWorst": 34,
+          "minimumAvailableMiB": 34521.68
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 6475,
+          "worstMs": 6568,
+          "cpuMedian": 25.5,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 34207.582
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 6194,
+          "worstMs": 6195,
+          "cpuMedian": 22,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 33852.676
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 8375,
+          "worstMs": 8568,
+          "cpuMedian": 21,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 33453.051
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 4738,
+          "worstMs": 6651,
+          "cpuMedian": 25.5,
+          "cpuWorst": 35,
+          "minimumAvailableMiB": 33431.785
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 487,
+          "worstMs": 513,
+          "cpuMedian": 27,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 34691.234
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 359,
+          "worstMs": 383,
+          "cpuMedian": 25,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 34416.516
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 0,
+          "cpuMedian": 25,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 34416.516
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 508,
+          "worstMs": 543,
+          "cpuMedian": 25,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 34416.516
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 906,
+          "worstMs": 1004,
+          "cpuMedian": 21,
+          "cpuWorst": 23,
+          "minimumAvailableMiB": 34816.32
+        }
+      }
+    },
+    {
+      "engine": "firefox",
+      "size": 512,
+      "storage": "worker OPFS",
+      "scope": "Final writer streams into owned worker disk cache; reopening reads those saved chunks into a separate fresh cache. All current-state/export hashes match, three repetitions.",
+      "bytes": 109330311,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 2233,
+          "worstMs": 2279,
+          "cpuMedian": 24.5,
+          "cpuWorst": 39,
+          "minimumAvailableMiB": 33905.328
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 993,
+          "worstMs": 1060,
+          "cpuMedian": 23,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 33953.699
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 24194,
+          "worstMs": 24995,
+          "cpuMedian": 21.5,
+          "cpuWorst": 34,
+          "minimumAvailableMiB": 32945.586
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 12021,
+          "worstMs": 12506,
+          "cpuMedian": 19,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 32386.473
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 23672,
+          "worstMs": 24262,
+          "cpuMedian": 23,
+          "cpuWorst": 44,
+          "minimumAvailableMiB": 31067.488
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 22174,
+          "worstMs": 22217,
+          "cpuMedian": 21,
+          "cpuWorst": 40,
+          "minimumAvailableMiB": 32965.875
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 24866,
+          "worstMs": 25712,
+          "cpuMedian": 21,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 33156.984
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 20847,
+          "worstMs": 22380,
+          "cpuMedian": 15,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 33282.594
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 1514,
+          "worstMs": 1578,
+          "cpuMedian": 17,
+          "cpuWorst": 22,
+          "minimumAvailableMiB": 34488.043
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 708,
+          "worstMs": 733,
+          "cpuMedian": 21,
+          "cpuWorst": 24,
+          "minimumAvailableMiB": 34057.93
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 1810,
+          "worstMs": 1909,
+          "cpuMedian": 16,
+          "cpuWorst": 22,
+          "minimumAvailableMiB": 33356.305
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 1408,
+          "worstMs": 1675,
+          "cpuMedian": 17,
+          "cpuWorst": 23,
+          "minimumAvailableMiB": 34654.422
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 2553,
+          "worstMs": 2950,
+          "cpuMedian": 19,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 32938.805
+        }
+      }
+    },
+    {
+      "engine": "webkit",
+      "size": 256,
+      "storage": "test host disk / synchronous worker XHR",
+      "scope": "Final writer streams into owned worker disk cache; reopening reads those saved chunks into a separate fresh cache. All current-state/export hashes match, three repetitions.",
+      "bytes": 31340016,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 1488,
+          "worstMs": 1496,
+          "cpuMedian": 26,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 38938.414
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 348,
+          "worstMs": 358,
+          "cpuMedian": 19,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 38648.465
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 6011,
+          "worstMs": 6830,
+          "cpuMedian": 18,
+          "cpuWorst": 50,
+          "minimumAvailableMiB": 36485.777
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 2574,
+          "worstMs": 4399,
+          "cpuMedian": 16,
+          "cpuWorst": 35,
+          "minimumAvailableMiB": 37127.137
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 5750,
+          "worstMs": 7026,
+          "cpuMedian": 14,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 37076.832
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 4971,
+          "worstMs": 6059,
+          "cpuMedian": 13.5,
+          "cpuWorst": 22,
+          "minimumAvailableMiB": 36736.535
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 6266,
+          "worstMs": 7798,
+          "cpuMedian": 15.5,
+          "cpuWorst": 23,
+          "minimumAvailableMiB": 36688.988
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 3795,
+          "worstMs": 4223,
+          "cpuMedian": 12,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 36609.137
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 348,
+          "worstMs": 379,
+          "cpuMedian": 18,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 36609.137
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 303,
+          "worstMs": 319,
+          "cpuMedian": 17,
+          "cpuWorst": 23,
+          "minimumAvailableMiB": 36852.109
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 0,
+          "cpuMedian": 23,
+          "cpuWorst": 25,
+          "minimumAvailableMiB": 38112.934
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 3615,
+          "worstMs": 3666,
+          "cpuMedian": 23,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 38112.934
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 3854,
+          "worstMs": 3908,
+          "cpuMedian": 21,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 37917.379
+        }
+      }
+    },
+    {
+      "engine": "webkit",
+      "size": 512,
+      "storage": "test host disk / synchronous worker XHR",
+      "scope": "Final writer streams into owned worker disk cache; reopening reads those saved chunks into a separate fresh cache. All current-state/export hashes match, three repetitions.",
+      "bytes": 109330311,
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 3477,
+          "worstMs": 3547,
+          "cpuMedian": 17,
+          "cpuWorst": 33,
+          "minimumAvailableMiB": 37932.926
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 1145,
+          "worstMs": 1219,
+          "cpuMedian": 18,
+          "cpuWorst": 27,
+          "minimumAvailableMiB": 37893.039
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 20127,
+          "worstMs": 21409,
+          "cpuMedian": 14,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 34515.668
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 10461,
+          "worstMs": 10708,
+          "cpuMedian": 15,
+          "cpuWorst": 19,
+          "minimumAvailableMiB": 34732.387
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 24691,
+          "worstMs": 26264,
+          "cpuMedian": 14,
+          "cpuWorst": 32,
+          "minimumAvailableMiB": 34271.602
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 19254,
+          "worstMs": 20543,
+          "cpuMedian": 13.5,
+          "cpuWorst": 26,
+          "minimumAvailableMiB": 34811.332
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 19758,
+          "worstMs": 22017,
+          "cpuMedian": 14,
+          "cpuWorst": 24,
+          "minimumAvailableMiB": 33545.68
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 18922,
+          "worstMs": 20657,
+          "cpuMedian": 14,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 30520.328
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 4131,
+          "worstMs": 5275,
+          "cpuMedian": 9.5,
+          "cpuWorst": 18,
+          "minimumAvailableMiB": 34647.68
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 1023,
+          "worstMs": 2853,
+          "cpuMedian": 16,
+          "cpuWorst": 18,
+          "minimumAvailableMiB": 34489.266
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 2008,
+          "worstMs": 2109,
+          "cpuMedian": 14.5,
+          "cpuWorst": 24,
+          "minimumAvailableMiB": 36987.77
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 7924,
+          "worstMs": 7941,
+          "cpuMedian": 24,
+          "cpuWorst": 31,
+          "minimumAvailableMiB": 37263.625
+        },
+        "saved-file-open": {
+          "repeats": 3,
+          "medianMs": 9034,
+          "worstMs": 9523,
+          "cpuMedian": 23.5,
+          "cpuWorst": 30,
+          "minimumAvailableMiB": 36649.43
+        }
+      }
+    }
+  ],
+  "timerDiagnostics": [
+    {
+      "engine": "chromium",
+      "size": 256,
+      "scope": "Separate passive timer/long-task trace; no all-depth proof, not the primary timing comparison.",
+      "runs": [
+        {
+          "repeat": 1,
+          "observer": true,
+          "gaps": [
+            {
+              "at": 1790866313100.5,
+              "ms": 6960.5,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866320379.6,
+              "ms": 3951.399999976158,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866299252.9,
+              "ms": 2212.100000023842,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866311537.6,
+              "ms": 864.3999999761581,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866306049.4,
+              "ms": 708.5999999642372,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866298526.6,
+              "ms": 637.4000000357628,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866296653.4,
+              "ms": 583.6000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866310800.4,
+              "ms": 567.6000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866305471.6,
+              "ms": 520.3999999761581,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866304769.9,
+              "ms": 484.0999999642372,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866312463,
+              "ms": 258,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866320061.2,
+              "ms": 254.80000001192093,
+              "visibility": "visible"
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "repeat": 2,
+          "observer": true,
+          "gaps": [
+            {
+              "at": 1790866349652.6,
+              "ms": 2869.399999976158,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866335511.5,
+              "ms": 2200.5,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866347798.6,
+              "ms": 1116.4000000357628,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866341922.5,
+              "ms": 918.5,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866340789,
+              "ms": 902,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866334979.3,
+              "ms": 400.69999998807907,
+              "visibility": "visible"
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "repeat": 3,
+          "observer": true,
+          "gaps": [
+            {
+              "at": 1790866385918.5,
+              "ms": 1499.5,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866377706.6,
+              "ms": 1314.4000000357628,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866373211.4,
+              "ms": 1298.6000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866370111.1,
+              "ms": 1286.8999999761581,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866364158.9,
+              "ms": 1276.1000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866379369.8,
+              "ms": 1221.199999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866391433.4,
+              "ms": 1122.5999999642372,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866362433.1,
+              "ms": 884.8999999761581,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866376756.3,
+              "ms": 728.6999999880791,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866384437.2,
+              "ms": 581.7999999523163,
+              "visibility": "visible"
+            }
+          ],
+          "longTasks": []
+        }
+      ],
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 739,
+          "worstMs": 739.5,
+          "cpuMedian": 23,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 35062.734
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 275.1,
+          "worstMs": 280.4,
+          "cpuMedian": 25,
+          "cpuWorst": 25,
+          "minimumAvailableMiB": 35221.789
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 6041.8,
+          "worstMs": 6112.3,
+          "cpuMedian": 26,
+          "cpuWorst": 40,
+          "minimumAvailableMiB": 34362.641
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 2770.3,
+          "worstMs": 2799.1,
+          "cpuMedian": 26,
+          "cpuWorst": 42,
+          "minimumAvailableMiB": 34466.246
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 6002.5,
+          "worstMs": 6040.4,
+          "cpuMedian": 29,
+          "cpuWorst": 40,
+          "minimumAvailableMiB": 34492.906
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 5618.9,
+          "worstMs": 5661.3,
+          "cpuMedian": 27,
+          "cpuWorst": 37,
+          "minimumAvailableMiB": 34088.574
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 6589.6,
+          "worstMs": 7116,
+          "cpuMedian": 22,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 34577.051
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 3585.4,
+          "worstMs": 3637.3,
+          "cpuMedian": 22,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 34483.305
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 310.2,
+          "worstMs": 330.3,
+          "cpuMedian": 27,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 34703.383
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 153.1,
+          "worstMs": 170.6,
+          "cpuMedian": 27,
+          "cpuWorst": 28,
+          "minimumAvailableMiB": 34703.383
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 0,
+          "worstMs": 0,
+          "cpuMedian": 27,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 34703.383
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 478,
+          "worstMs": 484,
+          "cpuMedian": 27,
+          "cpuWorst": 29,
+          "minimumAvailableMiB": 34703.383
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "size": 512,
+      "scope": "Separate passive timer/long-task trace; no all-depth proof, not the primary timing comparison.",
+      "runs": [
+        {
+          "repeat": 1,
+          "observer": true,
+          "gaps": [
+            {
+              "at": 1790866480016.8,
+              "ms": 4277.199999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866408133.3,
+              "ms": 2963.699999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866472881.9,
+              "ms": 2677.099999964237,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866401658,
+              "ms": 1937,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866459630.3,
+              "ms": 1811.699999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866452491,
+              "ms": 1468,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866465126.3,
+              "ms": 1381.699999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866428752.4,
+              "ms": 1352.6000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866424371.4,
+              "ms": 1345.6000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866422975.6,
+              "ms": 1334.4000000357628,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866511954.5,
+              "ms": 1265.5,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866444161.5,
+              "ms": 1202.5,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866487923.4,
+              "ms": 1142.5999999642372,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866445553,
+              "ms": 1120,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866490487.7,
+              "ms": 879.3000000119209,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866406830.5,
+              "ms": 861.5,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866503108.9,
+              "ms": 836.1000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866437872.9,
+              "ms": 672.0999999642372,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866451313.1,
+              "ms": 663.8999999761581,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866458426.9,
+              "ms": 638.0999999642372,
+              "visibility": "visible"
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "repeat": 2,
+          "observer": true,
+          "gaps": [
+            {
+              "at": 1790866570378.9,
+              "ms": 7054.100000023842,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866630886.5,
+              "ms": 4807.5,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866562822,
+              "ms": 4797,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866527153.6,
+              "ms": 2877.400000035763,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866547425.2,
+              "ms": 2306.800000011921,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866623309.3,
+              "ms": 1505.7000000476837,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866599224.4,
+              "ms": 1478.6000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866621853.8,
+              "ms": 1455.199999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866600762.3,
+              "ms": 1443.699999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866524433.2,
+              "ms": 1373.7999999523163,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866531847.2,
+              "ms": 1370.800000011921,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866637134.6,
+              "ms": 1315.4000000357628,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866607195,
+              "ms": 1182,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866526004.7,
+              "ms": 1149.300000011921,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866555592.4,
+              "ms": 1146.6000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866561645.9,
+              "ms": 1144.0999999642372,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866540760.5,
+              "ms": 1125.5,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866554404.1,
+              "ms": 1120.8999999761581,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866518165.5,
+              "ms": 1093.5,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866585680.8,
+              "ms": 1060.199999988079,
+              "visibility": "visible"
+            }
+          ],
+          "longTasks": []
+        },
+        {
+          "repeat": 3,
+          "observer": true,
+          "gaps": [
+            {
+              "at": 1790866732098,
+              "ms": 3771,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866702389.9,
+              "ms": 2657.099999964237,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866760599.6,
+              "ms": 2519.400000035763,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866737967.8,
+              "ms": 2363.199999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866659514,
+              "ms": 2176,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866687964.1,
+              "ms": 2162.900000035763,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866674105.8,
+              "ms": 1981.199999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866694298.6,
+              "ms": 1966.4000000357628,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866696425.8,
+              "ms": 1692.199999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866649660.9,
+              "ms": 1378.1000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866716812.4,
+              "ms": 1246.6000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866718525.9,
+              "ms": 1230.1000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866667066.8,
+              "ms": 1219.199999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866680705.3,
+              "ms": 1091.699999988079,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866658337.9,
+              "ms": 1079.0999999642372,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866651714.4,
+              "ms": 1055.6000000238419,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866755708.5,
+              "ms": 907.5,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866664191.1,
+              "ms": 827.8999999761581,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866753799,
+              "ms": 770,
+              "visibility": "visible"
+            },
+            {
+              "at": 1790866754569.2,
+              "ms": 765.8000000119209,
+              "visibility": "visible"
+            }
+          ],
+          "longTasks": []
+        }
+      ],
+      "timing": {
+        "open": {
+          "repeats": 3,
+          "medianMs": 2222.7,
+          "worstMs": 2263.9,
+          "cpuMedian": 44,
+          "cpuWorst": 48,
+          "minimumAvailableMiB": 33530.906
+        },
+        "first-edit": {
+          "repeats": 3,
+          "medianMs": 1153.7,
+          "worstMs": 1191,
+          "cpuMedian": 42,
+          "cpuWorst": 42,
+          "minimumAvailableMiB": 33326.645
+        },
+        "seek@2047": {
+          "repeats": 3,
+          "medianMs": 21241.6,
+          "worstMs": 21711.7,
+          "cpuMedian": 39.5,
+          "cpuWorst": 67,
+          "minimumAvailableMiB": 31500
+        },
+        "seek@2000": {
+          "repeats": 3,
+          "medianMs": 10405.8,
+          "worstMs": 10824.7,
+          "cpuMedian": 30,
+          "cpuWorst": 52,
+          "minimumAvailableMiB": 31876.32
+        },
+        "seek@1535": {
+          "repeats": 3,
+          "medianMs": 19100.9,
+          "worstMs": 20913.6,
+          "cpuMedian": 33,
+          "cpuWorst": 49,
+          "minimumAvailableMiB": 31740.551
+        },
+        "seek@1023": {
+          "repeats": 3,
+          "medianMs": 19210.8,
+          "worstMs": 19729.2,
+          "cpuMedian": 31,
+          "cpuWorst": 58,
+          "minimumAvailableMiB": 32064.145
+        },
+        "seek@511": {
+          "repeats": 3,
+          "medianMs": 20653.3,
+          "worstMs": 22369.4,
+          "cpuMedian": 36,
+          "cpuWorst": 53,
+          "minimumAvailableMiB": 31907.078
+        },
+        "seek@127": {
+          "repeats": 3,
+          "medianMs": 20132.7,
+          "worstMs": 20684.3,
+          "cpuMedian": 34,
+          "cpuWorst": 60,
+          "minimumAvailableMiB": 31598.414
+        },
+        "seek@1": {
+          "repeats": 3,
+          "medianMs": 1372,
+          "worstMs": 1518.8,
+          "cpuMedian": 38,
+          "cpuWorst": 41,
+          "minimumAvailableMiB": 31688.836
+        },
+        "seek@0": {
+          "repeats": 3,
+          "medianMs": 944.8,
+          "worstMs": 960.5,
+          "cpuMedian": 34,
+          "cpuWorst": 52,
+          "minimumAvailableMiB": 32243.664
+        },
+        "seek@2048": {
+          "repeats": 3,
+          "medianMs": 1645.2,
+          "worstMs": 1802.3,
+          "cpuMedian": 49,
+          "cpuWorst": 63,
+          "minimumAvailableMiB": 32437.934
+        },
+        "save": {
+          "repeats": 3,
+          "medianMs": 1572.2,
+          "worstMs": 1584.3,
+          "cpuMedian": 41,
+          "cpuWorst": 52,
+          "minimumAvailableMiB": 32148.141
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {createHash} from 'node:crypto';
+import {FileResults} from '../round2/node-store.mjs';
+const dir=fileURLToPath(new URL('.',import.meta.url)),out=resolve(dir,'../local/round3');mkdirSync(out,{recursive:true});
+const L=await import(pathToFileURL(resolve(dir,'../local/round2/after.mjs')).href),stores=[];
+const cold=()=>{const c=new FileResults(resolve(out,'contract-'+stores.length+'.cache'));stores.push(c);return c;};
+const raw=s=>{const h=createHash('sha256'),b=s.built;for(const v of [b.heights,b.water,b.contamination,b.moisture,b.soilContamination,L.rockOf(s)])if(v)h.update(new Uint8Array(v.buffer,v.byteOffset,v.byteLength));h.update(JSON.stringify(b.entities));h.update(JSON.stringify(s.features));h.update(JSON.stringify([...L.fallenOf(s)]));return h.digest('hex');};
+try{
+ const backing=new Map(),adapter={put:(k,b)=>backing.set(k,b),get:k=>backing.get(k)},store=new L.ResultStore(adapter),bank=new L.StateBank(adapter);
+ const x={v:new Uint8Array(128).fill(7)},y={v:new Uint8Array(128).fill(7)},buffer=new ArrayBuffer(64),a=new Uint16Array(buffer,2,8),b=new Float64Array(buffer,8,2);b[0]=-0;b[1]=NaN;
+ bank.share(x);bank.share(y);const text='\ud800X\udfff\u0000'.repeat(10000),graph={x,y,alias:x,a,b,text,numbers:[-0,NaN,Infinity,-Infinity,undefined]};Object.defineProperty(graph,'__proto__',{value:{polluted:true},enumerable:true});
+ const packed=L.packState(graph,bank),restored=L.unpackState(packed.bytes,store,bank);assert.equal(restored.x,restored.alias);assert.notEqual(restored.x,restored.y);assert.notEqual(restored.x.v,restored.y.v);assert.equal(restored.a.buffer,restored.b.buffer);assert.equal(restored.a.byteOffset,2);assert(Object.is(restored.b[0],-0));assert(Number.isNaN(restored.b[1]));assert.equal(restored.text,text);assert.equal(Object.getPrototypeOf(restored),Object.prototype);assert.equal({}.polluted,undefined);assert.deepEqual(restored.numbers,graph.numbers);
+ const base=L.MapSession.importMap(readFileSync(resolve(dir,'../local/probe/sizes-128x128.timber')),'probe').document;
+ const h=new L.GestureHistory(base,cold(),'r3-contract',0,{checkpointEvery:4,snapshots:8*1024**2,steps:3});const states=[raw(h.session)];
+ const before1=await L.forceInputHash(h.session,1),before2=await L.forceInputHash(h.session,2),execution=L.unpackState(L.packState(h.session.checkpointExecution()).bytes,h.results);execution.cur.cache.terrain.protect[0]^=1;const altered=L.MapSession.restoreExecution(base,execution);assert.equal(await L.forceInputHash(altered,1),before1);assert.notEqual(await L.forceInputHash(altered,2),before2);
+ for(let n=1;n<=20;n++){h.apply([{op:'brush',params:{tool:n%2?'raise':'lower',size:7,strength:1,seed:100+n,level:10,dabs:[200+n,200+n]}}]);states.push(raw(h.session));}
+ const parts=[];await h.save(async b=>parts.push(b));const bytes=Buffer.concat(parts);writeFileSync(resolve(out,'contract.dgm'),bytes);
+ const reopened=await L.GestureHistory.open(parts,cold(),{steps:3,snapshots:8*1024**2});assert.equal(raw(reopened.session),states.at(-1));
+ for(const at of [0,1,3,4,7,11,19,20,2,18,5,20]){await reopened.seek(at);assert.equal(raw(reopened.session),states[at],'seek '+at);assert(reopened.lastSeek.replayed<4);}
+ for(let n=20;n>=0;n--){await reopened.seek(n);assert.equal(raw(reopened.session),states[n]);}for(let n=0;n<=20;n++){await reopened.seek(n);assert.equal(raw(reopened.session),states[n]);}
+ const g={verb:'craterize',settings:{...L.CRATER_DEFAULTS,power:100,size:24,seed:117},where:{origin:[60,60]},cut:null,sourceId:'6e1c2a3b-4d5e-4f60-8a7b-8c9d0e1f2a3b'};
+ const rejectedState=raw(reopened.session),rejectedCount=reopened.count,rejectedSeq=reopened.session.nextOperationSeq;
+ await assert.rejects(reopened.force(g,'user',undefined,undefined,'0'.repeat(64)),/input differs/);assert.equal(raw(reopened.session),rejectedState);assert.equal(reopened.count,rejectedCount);assert.equal(reopened.session.nextOperationSeq,rejectedSeq);
+ await assert.rejects(reopened.select({action:'remove',area:[[0,0,127]],kinds:['trees']},'user',undefined,'0'.repeat(64)),/input differs/);assert.equal(raw(reopened.session),rejectedState);
+ await reopened.force(g);const force=raw(reopened.session);const forceBytes=[];await reopened.save(async b=>forceBytes.push(b));const forceOpened=await L.GestureHistory.open(forceBytes,cold());assert.equal(raw(forceOpened.session),force);
+ const another={...g,settings:{...g.settings,seed:118}},seq=reopened.project.entries.at(-1).forceSeq;await reopened.force(another,'user','Try another',seq);await forceOpened.force(another,'user','Try another',seq);assert.equal(raw(forceOpened.session),raw(reopened.session));
+ const bad=Buffer.from(bytes);bad[Math.floor(bad.length/3)]^=1;await assert.rejects(L.GestureHistory.open([bad],cold()),/checksum/);await assert.rejects(L.GestureHistory.open([bytes.subarray(0,bytes.length-1)],cold()));await assert.rejects(L.GestureHistory.open([Buffer.concat([bytes,Buffer.from([1])])],cold()),/trailing/);
+ // Saving an undone cursor preserves both directions and a branch removes abandoned checkpoints.
+ await reopened.seek(5);const undone=[];await reopened.save(async b=>undone.push(b));const again=await L.GestureHistory.open(undone,cold());assert.equal(again.count,5);for(const at of [6,7,10,20]){await again.seek(at);assert.equal(raw(again.session),states[at]);}await again.seek(5);again.apply([{op:'brush',params:{tool:'raise',size:6,strength:1,seed:300,level:10,dabs:[180,180]}}]);assert.equal(again.project.entries.length,6);assert(!again.redo());
+ const golden=JSON.parse(readFileSync(resolve(dir,'../round2/fixtures/golden.json'),'utf8')),legacy=await L.GestureHistory.open([readFileSync(resolve(dir,'../round2/fixtures/canonical-180.damgoodmaps.json'))],cold(),{checkpointEvery:32});legacy.session.settleCanonical();assert.equal(createHash('sha256').update(legacy.session.exportTimber().bytes).digest('hex'),golden.exportHash);
+ const converted=[];await legacy.save(async b=>converted.push(b));const direct=await L.GestureHistory.open(converted,cold());assert.equal(raw(direct.session),raw(legacy.session));
+ const capped=new L.GestureHistory(base,cold(),'coarsen',0,{checkpointEvery:1,checkpointCount:4,checkpointBytes:4*1024**2,snapshots:1024,steps:1});const cappedStates=[raw(capped.session)];
+ for(let n=1;n<=64;n++){capped.apply([{op:'brush',params:{tool:n%2?'raise':'lower',size:7,strength:1,seed:2100+n,level:10,dabs:[200+n,200+n]}}]);cappedStates.push(raw(capped.session));assert(capped.checkpointStats.count<=4);assert(capped.checkpointStats.bytes<=4*1024**2);}
+ assert(capped.checkpointStats.spacing>1);for(const at of [0,1,17,31,47,63,64]){await capped.seek(at);assert.equal(raw(capped.session),cappedStates[at]);assert(capped.lastSeek.replayed<capped.checkpointStats.spacing);}
+ const waterHistory=new L.GestureHistory(base,cold(),'water-boundary',0,{checkpointEvery:4}),stroke={op:'brush',params:{tool:'raise',size:20,strength:1,seed:401,level:10,dabs:[200,200]}};waterHistory.apply([stroke]);waterHistory.settleCanonical();const wetBoundary=raw(waterHistory.session);waterHistory.apply([{...stroke,params:{...stroke.params,seed:402,dabs:[220,220]}}]);assert(waterHistory.undo());assert.equal(raw(waterHistory.session),wetBoundary);
+ const waterStates=[raw(L.MapSession.open(base))],waterDeep=new L.GestureHistory(base,cold(),'water-deep',0,{checkpointEvery:4,snapshots:0,steps:1});
+ for(let n=1;n<=8;n++){waterDeep.apply([{...stroke,params:{...stroke.params,seed:500+n,dabs:[180+n*8,200]}}]);if(n===1)waterDeep.settleCanonical();if(n===3){const run=waterDeep.session.canonicalRun();let water=run.advance(Infinity);while(!water)water=run.advance(Infinity);assert(waterDeep.adoptWater(run.model,water));}waterStates.push(raw(waterDeep.session));}
+ const waterFile=[];await waterDeep.save(async b=>waterFile.push(b));const waterOpened=await L.GestureHistory.open(waterFile,cold(),{snapshots:0,steps:1});for(const at of [0,1,2,3,4,5,6,7,8,3,8]){await waterOpened.seek(at);assert.equal(raw(waterOpened.session),waterStates[at],'deep canonical water boundary '+at);}
+ writeFileSync(resolve(out,'contracts.json'),JSON.stringify({passed:true,allDepths:true,forceReplacement:true,format4Golden:true,corruption:true,redoAcrossSave:true,branching:true,identityAndViewAliases:true,arbitraryStringCodeUnits:true,finalizerHashVersion:true,canonicalWaterBoundaries:true,checkpointCoarsening:capped.checkpointStats,bytes:bytes.length}));console.log('Round 3 contracts passed',bytes.length);
+}finally{for(const c of stores)c.close();}

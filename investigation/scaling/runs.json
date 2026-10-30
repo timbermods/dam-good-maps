@@ -1,0 +1,27 @@
+{
+  "browser": [
+    "browser-after-1790818146529",
+    "browser-after-1790818615030",
+    "browser-before-1790819745277",
+    "browser-before-1790820591520",
+    "browser-after-1790820772141",
+    "browser-before-1790820931007",
+    "browser-after-1790821081928",
+    "browser-before-1790823107542",
+    "browser-after-1790823271836",
+    "browser-after-1790823469418",
+    "browser-before-1790824157811"
+  ],
+  "excluded": [
+    "browser-after-1790821350298",
+    "browser-after-1790821476407",
+    "browser-after-1790822982813",
+    "browser-before-1790815098539",
+    "browser-before-1790815153808",
+    "browser-before-1790815397380",
+    "browser-before-1790815533790",
+    "browser-before-1790815989709",
+    "browser-before-1790821239480"
+  ],
+  "method": "Three repeats per timing; one separate heap-sampling session per phase and size. Headless generation/settle/save kernels repeat three times with 1,024 valid same-coordinate edits. Dense-history stress probes run once per memory/breakage case and are not timing comparisons. CPU samples include other investigations; no load-based discarding. Excluded runs include preflight, disabled-undo, invalid legacy coordinates, obsolete gesture selectors and profiler graph-walk contamination."
+}

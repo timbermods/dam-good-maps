@@ -1,0 +1,54 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {createHash} from 'node:crypto';
+import {dir} from './overlay.mjs';
+import {FileResults} from './node-store.mjs';
+const L=await import(pathToFileURL(resolve(dir,'../local/round2/after.mjs')).href),stores=[];
+const cold=()=>{const s=new FileResults(resolve(dir,`../local/round2/contracts-${stores.length}.cache`));stores.push(s);return s;};
+const base=L.MapSession.importMap(readFileSync(resolve(dir,'../local/probe/sizes-128x128.timber')),'probe.timber').document;
+const h=new L.GestureHistory(base,cold(),'contract',0,{snapshots:0,results:1,steps:1});
+const hash=s=>{s.settleCanonical();const d=createHash('sha256'),b=s.built;d.update(s.exportTimber().bytes);for(const v of [b.heights,b.water,b.contamination,b.moisture,b.soilContamination,L.rockOf(s)])if(v)d.update(new Uint8Array(v.buffer,v.byteOffset,v.byteLength));d.update(JSON.stringify([...L.fallenOf(s)]));return d.digest('hex');};
+const compare=async()=>{const out=[];await h.save(async b=>out.push(b));const opened=await L.GestureHistory.open(out,cold(),{snapshots:0,results:1,steps:1});assert.equal(hash(opened.session),hash(h.session));return opened;};
+try{
+ const golden=JSON.parse(readFileSync(resolve(dir,'fixtures/golden.json'),'utf8')),frozen=await L.GestureHistory.open([readFileSync(resolve(dir,'fixtures/canonical-180.damgoodmaps.json'))],cold());frozen.session.settleCanonical();assert.equal(createHash('sha256').update(frozen.session.exportTimber().bytes).digest('hex'),golden.exportHash);
+ const goldState=createHash('sha256'),fb=frozen.session.built;for(const v of [fb.heights,fb.water,fb.contamination,fb.moisture,fb.soilContamination])if(v)goldState.update(new Uint8Array(v.buffer,v.byteOffset,v.byteLength));goldState.update(JSON.stringify(fb.entities));goldState.update(JSON.stringify(frozen.session.features));assert.equal(goldState.digest('hex'),golden.state);
+ const flat={op:'sculpt',params:{mode:'flatten',cells:[[60,30,90],[61,30,90]],level:10,exact:true}},initial=hash(h.session);
+ h.apply([flat]);const a=hash(h.session);assert(h.undo());assert.equal(hash(h.session),initial);assert(h.redo());assert.equal(hash(h.session),a);
+ await assert.rejects(async()=>h.apply([flat,{op:'deleteFeature',params:{id:'not-present'}}]));assert.equal(hash(h.session),a);await compare(); // rejected group consumed a sequence; replay must preserve gaps
+ const g={verb:'craterize',settings:{...L.CRATER_DEFAULTS,power:100,size:24,seed:117},where:{origin:[60,60]},cut:null,sourceId:'6e1c2a3b-4d5e-4f60-8a7b-8c9d0e1f2a3b'};
+ await assert.rejects(h.force({...g,area:[[0,-1,4]]}),/outside map/);await assert.rejects(h.force({...g,cut:41}),/invalid resolved/);await assert.rejects(h.force({...g,settings:{...g.settings,power:Infinity}}),/power is/);await assert.rejects(h.force({...g,settings:{...g.settings,seed:-1}}),/seed is/);await assert.rejects(h.select({action:'remove',area:[[128,0,127]],kinds:['trees']}),/outside map/);await assert.rejects(h.select({action:'remove',area:[[0,0,127]],kinds:['unknown']}),/Select kinds/);assert.equal(hash(h.session),a);
+ await h.force(g);const b=hash(h.session),first=h.project.entries.at(-1).forceSeq;
+ await h.force({...g,settings:{...g.settings,seed:118}},'user','Try another',first);const c=hash(h.session);assert.notEqual(b,c);await compare();
+ assert(h.undo());assert.equal(hash(h.session),b);assert(h.redo());assert.equal(hash(h.session),c);await compare();
+ assert(h.undo());h.apply([flat]);assert(!h.redo());await compare();
+ const saved=[];let edited=false;await h.save(async bytes=>{saved.push(bytes);if(!edited){edited=true;h.apply([{...flat,params:{...flat.params,level:11}}]);}});
+ const prior=await L.GestureHistory.open(saved,cold());assert.notEqual(hash(prior.session),hash(h.session));
+ const corrupt=structuredClone(h.project);corrupt.replayVersion='unknown';const parts=[];await L.writeProject(corrupt,async b=>parts.push(b));await assert.rejects(L.GestureHistory.open(parts,cold()),/unsupported replay/);
+ const bad=structuredClone(h.project),entry=bad.entries.find(e=>e.kind==='force');entry.inputHash='0'.repeat(64);const parts2=[];await L.writeProject(bad,async b=>parts2.push(b));await assert.rejects(L.GestureHistory.open(parts2,cold()),/force input/);
+ const qb=new Map(),q=new L.GestureHistory(base,{put:(k,b)=>{if(k>0)throw Error('quota');qb.set(k,b);},get:k=>qb.get(k)},'quota');const qhash=hash(q.session),qseq=q.session.nextOperationSeq;
+ await assert.rejects(q.force(g),/quota/);assert.equal(q.count,0);assert.equal(q.session.nextOperationSeq,qseq);assert.equal(hash(q.session),qhash);
+ let allowWater=true;const waterBlobs=new Map(),waterQuota=new L.GestureHistory(base,{put:(k,b)=>{if(!allowWater)throw Error('water quota');waterBlobs.set(k,b);},get:k=>waterBlobs.get(k)},'water-quota');waterQuota.apply([flat]);allowWater=false;
+ const raw=s=>{const d=createHash('sha256'),b=s.built;for(const v of [b.heights,b.water,b.contamination,b.moisture,b.soilContamination])if(v)d.update(new Uint8Array(v.buffer,v.byteOffset,v.byteLength));d.update(JSON.stringify(b.entities));return d.digest('hex');},waterBefore=raw(waterQuota.session),waterSeq=waterQuota.session.nextOperationSeq;
+ await assert.rejects(waterQuota.force(g),/water quota/);assert.equal(waterQuota.count,1);assert.equal(waterQuota.session.nextOperationSeq,waterSeq);assert.equal(raw(waterQuota.session),waterBefore);
+ const input=structuredClone(g),pending=h.force(input);input.settings.seed=12345;await pending;assert.equal(h.project.entries.at(-1).gesture.settings.seed,117);await compare();
+ const superseded=h.force({...g,settings:{...g.settings,seed:200}});h.apply([flat]);await assert.rejects(superseded,/superseded/);await compare();
+ const stateBefore=hash(h.session),seqBefore=h.session.nextOperationSeq,countBefore=h.count,put=h.results.cold.put.bind(h.results.cold);let allowed=true;
+ h.results.cold.put=(k,b)=>{if(!allowed)throw Error('transient disk failure');return put(k,b);};allowed=false;
+ await assert.rejects(h.force({...g,settings:{...g.settings,seed:201}}),/disk failure/);allowed=true;assert.equal(hash(h.session),stateBefore);assert.equal(h.session.nextOperationSeq,seqBefore);assert.equal(h.count,countBefore);await compare();
+ const oldBytes=h.session.project(),oldDoc=L.decodeProject(oldBytes),oldSession=L.MapSession.open(oldDoc),converted=await L.GestureHistory.open([oldBytes],cold(),{snapshots:0,results:1,steps:1});assert.equal(hash(converted.session),hash(oldSession));
+ assert(converted.project.entries.every(e=>e.kind==='legacy'));assert(converted.undo());assert(oldSession.undo());assert.equal(hash(converted.session),hash(oldSession));assert(converted.redo());assert(oldSession.redo());assert.equal(hash(converted.session),hash(oldSession));
+ await converted.force({...g,settings:{...g.settings,seed:202}});assert.equal(converted.project.entries.at(-1).kind,'force');const upgraded=[];await converted.save(async b=>upgraded.push(b));const upgradedAgain=await L.GestureHistory.open(upgraded,cold(),{snapshots:0,results:1,steps:1});assert.equal(hash(upgradedAgain.session),hash(converted.session));
+ const view={slot:1,mode:'orbit',yaw:.25,pitch:.5,distance:100,target:[1,2,3]};h.session.setViews([view]);const metaBefore=h.project;h.session.setViews([]);assert.deepEqual(metaBefore.base.meta.views,[view]);assert.equal(h.project.base.meta.views,undefined);
+ const metadata=[];await L.writeProject(metaBefore,async b=>metadata.push(b));const withViews=await L.GestureHistory.open(metadata,cold(),{snapshots:0,results:1,steps:1});assert.deepEqual(withViews.session.views,[view]);assert.equal(hash(withViews.session),hash(h.session));
+ const budget=8*2**20,bounded=new L.GestureHistory(base,cold(),'budget',0,{snapshots:budget});for(let n=0;n<30;n++){bounded.apply([{op:'brush',params:{tool:n%2?'raise':'lower',size:20,strength:1,seed:200+n,level:10,dabs:[200+n,200+n]}}]);bounded.session.settleCanonical();const c=bounded.session.historyCacheStats;assert(c.bytes<=budget||c.snapshots===1,'settling exceeded cache budget');}
+ const browser=[];await h.save(async b=>browser.push(b));writeFileSync(resolve(dir,'../local/round2/runs/contracts-browser.damgoodmaps.json'),Buffer.concat(browser));writeFileSync(resolve(dir,'../local/round2/runs/contracts-browser.json'),JSON.stringify({final:{exportHash:createHash('sha256').update(h.session.exportTimber().bytes).digest('hex')}}));
+ const selected=new L.GestureHistory(base,cold(),'selection',0,{snapshots:0,results:1,steps:1}),beforeSelect=hash(selected.session);
+ await selected.select({action:'remove',area:Array.from({length:128},(_,y)=>[y,0,127]),kinds:['trees','bushes','ruins','sources','slopes','objects','start']});
+ const afterSelect=hash(selected.session);assert.notEqual(afterSelect,beforeSelect);assert.equal(selected.project.entries.at(-1).kind,'selection');assert(!JSON.stringify(selected.project.entries).includes('deleteEntities'));
+ assert(selected.undo());assert.equal(hash(selected.session),beforeSelect);assert(selected.redo());assert.equal(hash(selected.session),afterSelect);
+ const selectBytes=[];await selected.save(async b=>selectBytes.push(b));const selectOpened=await L.GestureHistory.open(selectBytes,cold(),{snapshots:0,results:1,steps:1});assert.equal(hash(selectOpened.session),afterSelect);
+ writeFileSync(resolve(dir,'../local/round2/contracts.json'),JSON.stringify({passed:true,format4Golden:true,coldUndoRedo:true,groupedRollbackAndSequenceGaps:true,originalPrefixReplacement:true,branching:true,saveIsolation:true,versionAndHashRejection:true,resultAndWaterQuotaAtomicity:true,supersession:true,legacyConversion:true,selection:true,inputRejection:true,metadataAndCameraBookmarks:true,budgetAfterSettling:true}));
+ console.log('Cold undo/redo, grouped rollback/sequence gaps, Try another, branching, save isolation, version/hash rejection and quota atomicity passed.');
+}finally{for(const s of stores)s.close();}
