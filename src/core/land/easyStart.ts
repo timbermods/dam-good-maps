@@ -61,7 +61,7 @@ const isWater = (depth: ArrayLike<number>, water: ArrayLike<number>, i: number) 
 /** The water tile a start at `p` would have its pond joined to: water 13–24 tiles from its middle whose cut stands
  *  1–3 levels under the start's ground, with room for the pond's floor two levels under it above the beds' floor;
  *  the nearest, a level under the start first (the least cut), off `off` (a river's head, whose sources its water
- *  must not reach, D171; a sea, whose settled level the plan only guesses); −1 when none. */
+ *  must not reach, D171); −1 when none. */
 export function pondWater(h: ArrayLike<number>, W: number, H: number, depth: ArrayLike<number>, water: ArrayLike<number>, p: EasyPlace, off: Uint8Array | null = null): number {
   let best = -1;
   let bestScore = Infinity;

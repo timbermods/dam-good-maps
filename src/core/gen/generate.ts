@@ -2074,12 +2074,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const prepared: StartPick[] = [];
     // (Easy start, D495: the places planned on this water have their water at the pond's distance, room for the
     // clearing and water a pond can be joined to)
-    // (a pond keeps off a river's head, whose sources its water must not reach, D171, and off a sea, whose settled
-    // level the plan only guesses)
+    // (a pond keeps off a river's head, whose sources its water must not reach, D171)
     let pondOff: Uint8Array | null = null;
     if (easyT) {
       pondOff = new Uint8Array(N);
-      if (g.seaLayout) for (let i = 0; i < N; i++) if (hy.water[i] === 2) pondOff[i] = 1;
       for (const r of hy.rivers) {
         const [px, py] = "spring" in r.params.entry ? r.params.entry.spring : r.params.path[0];
         for (let dy = -8; dy <= 8; dy++)
