@@ -29,7 +29,7 @@ import { objectHolds, rasterizeObjects, standProblem, type StandGround } from ".
 import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN, padTile } from "../features/raster/terrain";
-import { ColumnTerrain, isPlainMask, surfaceOfMask, terrainColumns } from "../terrain/runs";
+import { bottomRunTop, ColumnTerrain, isPlainMask, surfaceOfMask, terrainColumns } from "../terrain/runs";
 import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
 import { fallsReason, newFalls, objectRoofHolders, placeOf, rockFloors, stackableTops, unsupportedVoxels } from "../terrain/support";
 import { LAYERS } from "../format/world";
@@ -46,7 +46,7 @@ import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { stackedSimulationSingletons, storedColumnOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
-import type { Feature, MapObjectFeature, StartFeature } from "../features/schema";
+import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import { FOOTPRINTS, worldBlocks, type Orientation, type Placement } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
@@ -1020,34 +1020,75 @@ export class MapSession {
 
   /** Why a block step from ground `t` to `after`, changing the tiles `changed`, would cost an object its
    *  place, in one line, or null (`blockFalls`). Only an object on a tile the step changes can be: the
-   *  game's rule reads its own cells and the ground under them. Plants ride as `blockEffect` says, a
-   *  spring's sources stand on their floor (the build sets them there, or leaves one out of its row:
-   *  `lostSince`), and a slope is the ground's. Every other object keeps its level unless the build sets
-   *  it from the surface (step 9): a map object's at the highest surface under it (`rasterizeObjects`),
-   *  any other's at its own tile's when it stands on its top. A block over part of a map object (the
-   *  cells above an object are free) would lift it off the rest of its ground, and the game would remove
-   *  it; one over its tile would carry an object up onto the block, a change the ghost does not show. So
-   *  a step that moves an object is refused, and one that leaves an object where it stands, inside the
-   *  ground or floating, is refused by the rule of the step's own last guard (`objectLost`). */
+   *  game's rule reads its own cells and the ground under them. Plants ride as `blockEffect` says, and a
+   *  slope is the ground's. Every other object's level after the step is the build's: the start's from
+   *  its middle tile (step 12); a spring's source on its floor, or left out of its row where the game
+   *  would not keep it there (`springsLeft`); an object placed or moved by hand at the level the edit
+   *  names, else its own tile's surface (`applyEntityEdits`); a map object at the highest surface under
+   *  it (`rasterizeObjects`, step 9); any other at its own tile's surface when it stands on its top. A
+   *  block over part of a map object (the cells above an object are free) would lift it off the rest of
+   *  its ground, and the game would remove it; one over the tile an object takes its level from would
+   *  carry it up onto the block, a change the ghost does not show. So a step that moves an object is
+   *  refused, and one that leaves an object where it stands, inside the ground or floating, is refused
+   *  by the rule of the step's own last guard (`objectLost`). */
   private blockLost(t: ColumnTerrain, after: ColumnTerrain, changed: ReadonlySet<number>): string | null {
     const { W, H } = t;
-    const plants = new Set<string>();
-    for (const list of this.groundOf(this.cur.entities).byTile.values()) for (const p of list) plants.add(p.id);
-    const springs = new Set(this.st.features.filter((f) => f.kind === "river" || f.kind === "lake").map((f) => f.id));
-    const on = (e: BuildResult["entities"][number]) => entityTiles(e).some(([x, y]) => x >= 0 && y >= 0 && x < W && y < H && changed.has(y * W + x));
-    const kept = this.cur.entities.filter((e) => !plants.has(e.id) && !springs.has(e.owner) && e.template !== "Slope" && on(e));
-    if (!kept.length) return null;
+    const { byTile, edits } = this.blockObjectsOf(this.cur);
+    const near = new Set<BuildResult["entities"][number]>();
+    for (const i of changed) for (const e of byTile.get(i) ?? []) near.add(e);
+    if (!near.size) return null;
+    const features = new Map(this.st.features.map((f) => [f.id, f]));
     let surface: Uint8Array | null = null;
     const surfaceAfter = () => surface ?? (surface = Uint8Array.from(after.mask, surfaceOfMask));
-    for (const e of kept) {
-      const i = e.y * W + e.x;
-      const f = this.st.features.find((g): g is MapObjectFeature => g.id === e.owner && g.kind === "mapObject");
-      const z = f ? rasterizeObjects(f, W, H, surfaceAfter()).find((g) => g.id === e.id)?.z : e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && e.z === surfaceOfMask(t.mask[i]) ? surfaceOfMask(after.mask[i]) : e.z;
-      if (z === undefined || z === e.z) continue;
-      const name = withArticle(itemName(e.template));
-      return z > e.z ? `${name} stands under it at X ${e.x} · Y ${e.y}` : `it would take the ground from under ${name} at X ${e.x} · Y ${e.y}`;
+    const top = (m: ArrayLike<number>, x: number, y: number) => (x >= 0 && y >= 0 && x < W && y < H ? surfaceOfMask(m[y * W + x]) : undefined);
+    const stay: BuildResult["entities"] = [];
+    for (const e of near) {
+      const f = features.get(e.owner);
+      const edit = edits.get(e.id);
+      let z: number | undefined;
+      if (f?.kind === "start") z = f.params.z ?? top(after.mask, f.params.position[0], f.params.position[1]);
+      else if (!edit && ((f?.kind === "river" && "spring" in f.params.entry) || f?.kind === "lake")) {
+        const m = after.mask[e.y * W + e.x];
+        const floor = isPlainMask(m) ? surfaceOfMask(m) : bottomRunTop(m);
+        const why = standProblem("WaterSource", { x: e.x, y: e.y, z: floor, orientation: "Cw0" }, { W, H, mask: after.mask });
+        if (why) return `it would leave out a spring's water source at X ${e.x} · Y ${e.y}: ${why}`;
+        continue;
+      } else if (edit?.z !== undefined) z = edit.z;
+      else if (edit && !edit.quiet) z = top(after.mask, e.x, e.y);
+      else if (!edit && f?.kind === "mapObject") z = rasterizeObjects(f, W, H, surfaceAfter(), this.keptLayer()?.mask ?? null).find((g) => g.id === e.id)?.z;
+      else z = e.z === top(t.mask, e.x, e.y) ? top(after.mask, e.x, e.y) : e.z;
+      if (z !== undefined && z !== e.z) {
+        const name = withArticle(itemName(e.template));
+        return z > e.z ? `${name} stands under it at X ${e.x} · Y ${e.y}` : `it would take the ground from under ${name} at X ${e.x} · Y ${e.y}`;
+      }
+      stay.push(e);
     }
-    return objectLost(kept, kept, { W, H, mask: t.mask }, { W, H, mask: after.mask });
+    return objectLost(stay, stay, { W, H, mask: t.mask }, { W, H, mask: after.mask });
+  }
+
+  private readonly blockObjects = new WeakMap<BuildResult, { byTile: Map<number, BuildResult["entities"]>; edits: Map<string, { z?: number; quiet: boolean }> }>();
+
+  /** A build's objects as `blockLost` reads them, once per build (the page asks on every pointer tile):
+   *  by every tile they cover, all but the plants and the slopes; and the last placement or move by hand
+   *  of each, with the level it names and whether a force made it. */
+  private blockObjectsOf(b: BuildResult): { byTile: Map<number, BuildResult["entities"]>; edits: Map<string, { z?: number; quiet: boolean }> } {
+    let o = this.blockObjects.get(b);
+    if (o) return o;
+    const { x: W, y: H } = this.size;
+    const plants = new Set<string>();
+    for (const list of this.groundOf(b.entities).byTile.values()) for (const p of list) plants.add(p.id);
+    const byTile = new Map<number, BuildResult["entities"]>();
+    for (const e of b.entities) {
+      if (plants.has(e.id) || e.template === "Slope") continue;
+      for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) byTile.set(y * W + x, [...(byTile.get(y * W + x) ?? []), e]);
+    }
+    const edits = new Map<string, { z?: number; quiet: boolean }>();
+    for (const ed of this.st.entityEdits) {
+      if (ed.op === "placeEntity") edits.set(ed.params.id, { ...(ed.params.z !== undefined ? { z: ed.params.z } : {}), quiet: false });
+      else if (ed.op === "moveEntity") edits.set(ed.params.id, { ...(ed.params.z !== undefined ? { z: ed.params.z } : {}), quiet: !!ed.params.quiet });
+    }
+    this.blockObjects.set(b, (o = { byTile, edits }));
+    return o;
   }
 
   // What a build's objects mean to the Block tool and the support rule, worked out once per build (the

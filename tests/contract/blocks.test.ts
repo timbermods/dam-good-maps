@@ -14,6 +14,8 @@ import { generate } from "../../src/core/gen/generate";
 import { decodeWorld } from "../../src/core/format/world";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { BLOCK_TOP_LAYER } from "../../src/core/terrain/blocks";
+import { entityTiles } from "../../src/core/features/edits";
+import { FOOTPRINTS, worldBlocks } from "../../src/core/format/footprints";
 import { unsupportedVoxels } from "../../src/core/terrain/support";
 import { strFromU8, unzipSync } from "fflate";
 import type { BrushParams } from "../../src/core/features/raster/brush";
@@ -174,6 +176,30 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     const beside = remove("+x", [[29, 36, 4]]);
     expect(blockFalls(s, beside).reason).toBeNull();
     expect(s.apply(op(beside)).errors).toEqual([]);
+  });
+
+  it("a map object moved by hand takes its level from where it was moved to, as the build sets it", () => {
+    const s = caveSession();
+    const fid = "f-aaaaaaaaaaaab";
+    expect(s.apply({ op: "addFeature", params: { feature: { id: fid, kind: "mapObject", origin: "user", locked: false, params: { kind: "mineSite", placement: { x: 25, y: 30, orientation: "Cw0" } } } as never } }).errors).toEqual([]);
+    const site = () => s.built.entities.find((e) => e.owner === fid)!;
+    expect(site()).toMatchObject({ x: 25, y: 30, z: 8 });
+    // moved along the cliff's top, at the same level: a block over its new corner tile would carry it up
+    expect(s.apply({ op: "moveEntity", params: { id: site().id, x: 19, y: 30 } }).errors).toEqual([]);
+    expect(site()).toMatchObject({ x: 19, y: 30, z: 8 });
+    for (const z of [7, 8]) expect(s.apply(op(add("+z", [[18, 30, z]]))).errors).toEqual([]);
+    const corner = add("+x", [[18, 30, 9]]);
+    const q = blockFalls(s, corner);
+    expect(q.reason).toBe("a mine site stands under it at X 19 · Y 30");
+    expect(s.apply(op(corner)).errors).toEqual([q.reason]);
+    // moved down onto the lowland: a block over another of its tiles leaves it where it stands
+    expect(s.apply({ op: "moveEntity", params: { id: site().id, x: 33, y: 30 } }).errors).toEqual([]);
+    expect(site()).toMatchObject({ x: 33, y: 30, z: 2 });
+    for (const z of [1, 2]) expect(s.apply(op(add("+z", [[32, 32, z]]))).errors).toEqual([]);
+    const over = add("+x", [[32, 32, 3]]);
+    expect(blockFalls(s, over).reason).toBeNull();
+    expect(s.apply(op(over)).errors).toEqual([]);
+    expect(site()).toMatchObject({ x: 33, y: 30, z: 2 });
   });
 
   it("ground that would fall is refused with its count, which blockFalls shows first", () => {
@@ -488,6 +514,40 @@ describe("the Block tool on a generated map after strokes", () => {
     const full = s.fullBuild();
     expect(Array.from(full.heights)).toEqual(Array.from(s.built.heights));
     expect([...masksOf(full.cache.terrain)]).toEqual([...masksOf(s.built.cache.terrain)]);
+  });
+
+  it("the start takes its level from its middle tile: a block over it is refused, one over another of its tiles taken", () => {
+    const s = MapSession.fromGenerated(r, r.file);
+    s.setWaterMode("defer");
+    const start = () => s.built.entities.find((e) => e.template === "StartingLocation")!;
+    const { x: cx, y: cy, z: z0 } = start();
+    const Wg = s.built.W;
+    const tiles = entityTiles(start());
+    const xs = [...new Set(tiles.map(([x]) => x))].sort((a, b) => a - b);
+    const ys = [...new Set(tiles.map(([, y]) => y))].sort((a, b) => a - b);
+    const roof = Math.max(...worldBlocks(FOOTPRINTS.StartingLocation, { ...start(), flipped: false }).map((b) => b.z)) + 1;
+    // a pillar of blocks from the ground beside it up to the level over its roof
+    const pillar = (x: number, y: number) => {
+      expect(s.built.heights[y * Wg + x], `X ${x} · Y ${y}`).toBe(z0);
+      expect(s.built.entities.some((e) => entityTiles(e).some(([a, b]) => a === x && b === y))).toBe(false);
+      for (let z = z0 - 1; z < roof; z++) expect(s.apply(op(add("+z", [[x, y, z]]))).errors).toEqual([]);
+    };
+    // over its west middle tile: taken; then over its middle tile, the one it takes its level from: refused
+    pillar(xs[0] - 1, ys[1]);
+    expect(blockFalls(s, add("+x", [[xs[0] - 1, ys[1], roof]])).reason).toBeNull();
+    expect(s.apply(op(add("+x", [[xs[0] - 1, ys[1], roof]]))).errors).toEqual([]);
+    const middle = add("+x", [[xs[0], ys[1], roof]]);
+    const q = blockFalls(s, middle);
+    expect(q.added).toEqual([[xs[1], ys[1], roof]]);
+    expect(q.reason).toMatch(/stands under it at X \d+ · Y \d+$/);
+    expect(s.apply(op(middle)).errors).toEqual([q.reason]);
+    // over its corner tile (where it is written down), taken: it stays where it stands
+    const east = cx === xs[2];
+    pillar(east ? cx + 1 : cx - 1, cy);
+    const corner = add(east ? "-x" : "+x", [[east ? cx + 1 : cx - 1, cy, roof]]);
+    expect(blockFalls(s, corner).reason).toBeNull();
+    expect(s.apply(op(corner)).errors).toEqual([]);
+    expect(start()).toMatchObject({ x: cx, y: cy, z: z0 });
   });
 
   it("the block an object stands on stays: a slope's too", () => {

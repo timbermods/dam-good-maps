@@ -206,9 +206,11 @@ refusals).
 refusal when the operation cannot be taken at all (then the three lists are empty). `apply` runs the same check before it
 logs anything, so the count in the refusal is the length of `falls`. With nothing falling, `reason` also names an object
 the step would move or leave for the game to remove (D491; `session.ts` `blockLost`): a block over the tile an object takes
-its level from, which the build would carry it up onto (`a mine site stands under it at X 25 · Y 30`; a generated map
-object takes the highest surface under it), and a dig deep under a mine site that leaves its ground off the bottom of the
-map, by the same rule as the step's last guard (`objectLost`). So the page never shows a step as fine that `apply` refuses. The slope, like any object, holds its block: removing
+its level from, which the build would carry it up onto (`a mine site stands under it at X 25 · Y 30`), each object read
+the build's way (the start by its middle tile, an object placed or moved by hand by its own tile or the level the edit
+names, a generated map object by the highest surface under it, a spring's source on its floor), and a dig deep under a
+mine site that leaves its ground off the bottom of the map, by the same rule as the step's last guard (`objectLost`). So
+the page never shows a step as fine that `apply` refuses. Measured with it: about 2.4 ms a query at 128² (1,143 objects). The slope, like any object, holds its block: removing
 the block it stands on is refused with the object line. **The page should call `blockFalls` when the pointer's block
 changes, not on every move**: it costs about 7 ms at 256² on a loaded machine once the first call has worked out the
 build's objects (about 30 ms), which are kept per build.
