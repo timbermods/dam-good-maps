@@ -13,7 +13,7 @@ import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { GROUND } from "../../src/render3d/palette";
 import { CHUNK } from "../../src/render3d/mesh";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
-import { BADWATER, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterTint } from "../../src/render3d/waterPalette";
+import { BADWATER, WATER_SURFACE, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
 import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
 
@@ -211,12 +211,14 @@ describe("badwater's colour", () => {
     // #38's check:colour targets at e63a3ff were [110, 52, 49], [94, 46, 43] and [124, 69, 56]; D324
     // (option (a) of D310) darkened badwater about a tenth and the targets were re-measured once
     // on screen (tools/capture-badwater.ts --measure lands on them), and again after #692 let the
-    // ground behind show by the game's share: the view draws the body about as it is at 70°, over the
-    // grey underwater bed (GROUND.underwater) showing through by 1 - badwaterOpacity(0.25)
+    // ground behind show by the game's share, and again once that ground showed as the game shows it: the
+    // view draws the body about as it is at 70°, over the grey underwater bed (GROUND.underwater) overlaid
+    // with the water's colour and desaturated (waterGroundBehind), showing through by 1 - badwaterOpacity(0.25)
     const target = WATER_CALIBRATION.targets.find((t) => t.share === 1)!;
-    expect(target.bands).toEqual({ typical: [98, 55, 50], trough: [85, 50, 46], streak: [108, 67, 56] });
+    expect(target.bands).toEqual({ typical: [91, 47, 43], trough: [79, 42, 39], streak: [101, 59, 49] });
     const behind = 1 - badwaterOpacity(0.25);
-    for (let k = 0; k < 3; k++) expect(Math.abs(WATER.bad[k] + (GROUND.underwater[k] - WATER.bad[k]) * behind - target.bands.typical[k] / 255)).toBeLessThan(0.03);
+    const bed = waterGroundBehind(GROUND.underwater, WATER.bad);
+    for (let k = 0; k < 3; k++) expect(Math.abs(WATER.bad[k] + (bed[k] - WATER.bad[k]) * behind - target.bands.typical[k] / 255)).toBeLessThan(0.03);
     // crimson: red well over green and blue; darker troughs, lighter streaks
     expect(WATER.bad[0]).toBeGreaterThan(2 * WATER.bad[1]);
     expect(WATER.bad[1]).toBeGreaterThan(WATER.bad[2]);
@@ -230,8 +232,11 @@ describe("badwater's colour", () => {
     expect(badwaterOpacity(0.005)).toBeLessThan(badwaterOpacity(0.05));
     // matte: a twelfth of clean water's glints and glint, and a trace of the sky
     expect(BADWATER.glints).toBeLessThan(0.1);
-    expect(BADWATER.spec).toBeLessThan(0.1);
-    expect(BADWATER.reflect).toBeLessThan(0.1);
+    // matte by the game's own smoothness (_Contamination_Smoothness 0.15 against clean water's about 0.25, the soft-lit
+    // gloss map's median): its sky reflection and sun glint from the same lighting, weaker (D148: these were #38's own
+    // reflect 0.03 and spec 0.04)
+    expect(BADWATER.smoothness).toBe(0.15);
+    expect(WATER_SURFACE.smoothness).toBe(0.25);
     expect(badwaterBody(BADWATER.shallow)).toEqual(WATER.bad);
     // darker with depth (option A's depth darkening, now the game's ramp, checked against it below; option A's
     // own "15 L* darker at 4 levels" went with its curve, D148)

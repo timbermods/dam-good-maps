@@ -88,6 +88,8 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D498: Badwater joins the main water's lower reach, never its signature water
+- D495: Easy start: a calm, generous start, guaranteed (amends D211 for this setting)
 - D493: The opening shot: the start turned so the game's first camera frames the landmark
 - D480: The water story's reach counts the main water
 - D476: Badwater joins the main water
@@ -238,6 +240,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [Claude (M12, deferred)](claude.md)
 
+- D501: The MCP server comes ahead of M12
 - D84: M12 compound requests
 - D139: Claude steers the generator
 - D277: All M12 work deferred

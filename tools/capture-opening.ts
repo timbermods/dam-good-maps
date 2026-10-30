@@ -7,6 +7,7 @@
 // reuses a site already built there (to capture two builds, say before and after a change).
 //
 //   npx tsx tools/capture-opening.ts --maps highlands:1,canyon:4 [--size 128] [--zoom vista,opening] [--look standard,high] [--dist .scratch/before] [--dir docs/sheets/opening] [--quality 82]
+//                                    [--set es=1 --tag easy]   (settings in the share link's short keys, and a word in the file names)
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -29,6 +30,8 @@ const ZOOMS = arg("zoom", "vista").split(",");
 const DIR = arg("dir", ".scratch/opening");
 const QUALITY = Number(arg("quality", "82"));
 const LOOKS = arg("look", "").split(",").filter(Boolean);
+const SET = arg("set", "");
+const TAG = arg("tag", "");
 const PORT = 4193;
 const PREBUILT = arg("dist", "");
 const DIST = PREBUILT || ".scratch/capture-opening-dist";
@@ -52,7 +55,7 @@ async function main(): Promise<void> {
         await context.addInitScript("window.__name = (f) => f");
         if (look) await context.addInitScript(`try { localStorage.setItem('dgm.look', '${look}'); } catch {}`);
         const page = await context.newPage();
-        await page.goto(`http://localhost:${PORT}/#s=${m.seed}&z=${SIZE}&d=n&t=${m.theme}${m.variation ? `&vr=${m.variation}` : ""}`);
+        await page.goto(`http://localhost:${PORT}/#s=${m.seed}&z=${SIZE}&d=n&t=${m.theme}${m.variation ? `&vr=${m.variation}` : ""}${SET ? `&${SET}` : ""}`);
         await waitForEditor(page, 300_000);
         await page.evaluate(() => window.dgmEditor!.idle());
         const st = (await page.evaluate(() => {
@@ -92,7 +95,7 @@ async function main(): Promise<void> {
           // the canvas's middle at 16:9 (its height kept: the field of view is vertical)
           const box = (await page.locator("[data-opening-view]").boundingBox())!;
           const w = Math.min(box.width, (box.height * 16) / 9);
-          const file = join(DIR, `${m.theme}-${SIZE}-${m.seed}${m.variation ? `-vr${m.variation}` : ""}-${ZOOM}${look ? `-${look}` : ""}.jpg`);
+          const file = join(DIR, `${m.theme}-${SIZE}-${m.seed}${m.variation ? `-vr${m.variation}` : ""}-${ZOOM}${look ? `-${look}` : ""}${TAG ? `-${TAG}` : ""}.jpg`);
           writeFileSync(file, await page.screenshot({ type: "jpeg", quality: QUALITY, clip: { x: box.x + (box.width - w) / 2, y: box.y, width: w, height: box.height } }));
           console.log(`${file}  start ${mx},${my} z${st.z} ${orientation}`);
         }

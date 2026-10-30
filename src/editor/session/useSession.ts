@@ -556,6 +556,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setMessage({ kind: "info", text: "A force is at work: it is kept when it ends. Skip it to its end or take it back first." });
       return Promise.resolve();
     }
+    // (an undo has taken the kept force's tails back already, on its key)
+    juice.current?.edited();
     const next = queue.current.then(async () => {
       setBusy((b) => b + 1);
       try {
@@ -678,7 +680,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     setWeatherTarget(null);
     mirror.current.daySoil = null;
     renderer.current?.setWithered(null);
-    renderer.current?.setSeason(null, null);
+    renderer.current?.setSeason(null);
     void api.stopWeather().then((v) => {
       player.current?.clear();
       applyView(v);
@@ -729,7 +731,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     if (withered) renderer.current?.setWithered(withered);
     // (the High look's dry ground, heat and sky: the day's soil against the map's own, the page's copy of it)
     // (Day 0 is the map as it is: no dust, no shimmer, no sky)
-    renderer.current?.setSeason(day > 0 ? weatherRef.current : null, mirror.current.soil ?? null);
+    renderer.current?.setSeason(day > 0 ? weatherRef.current : null);
   }
 
   function applyUpdate(u: SessionUpdate): void {

@@ -41,7 +41,7 @@ export const WATER = {
    *  badwater's body by `look-readable.test.ts`'s raw margin (0.3, restored by D310) and
    *  `look-waterfalls.test.ts`'s colour-blind margin (D201, at least 20 L*). D324 (option (a)) darkened
    *  badwater and the mine pit's earth first (see `BAD_BODY`), which let it come down from L* 65.9 to
-   *  58.8; it is as low as the margin allows. Water still reads as water by its shore foam, glints and
+   *  58.8; it is as low as the margin allows. Water still reads as water by its glints and
    *  ripples, not by a wide light-to-dark swing across its own depths. */
   shallow: [0.245, 0.602, 0.654] as Rgb,
   /** The ripples' lit crests, where they catch the sky: the lightest the water gets. */
@@ -87,13 +87,10 @@ export const WATER_UI = {
   sourceLit: [0.9, 0.12, 0.08] as Rgb,
 } as const;
 
-/** Clean water's surface, as the water shader draws it: foam along the shore and broken foam
- *  just off it, glints on the ripples, and shallows clear enough to see the bed through, the more
- *  so toward the banks. */
+/** Clean water's surface, as the water shader draws it: glints on the ripples, and shallows showing a little
+ *  of the bed, the more so toward the banks. No foam along the shore: the game's water shader has none
+ *  (amended 2026-10-29, planning, D496's rule). */
 export const WATER_SURFACE = {
-  /** Foam: the line along the shore, and the broken foam just off it. */
-  shoreFoam: 0.7,
-  brokenFoam: 0.6,
   /** Glints of light on the ripples (up close). */
   glints: 0.6,
   /** How much of the ground behind the water shows through it, as the game draws it (its PhysicalWaterURP's
@@ -104,6 +101,13 @@ export const WATER_SURFACE = {
    *  Low quality, which shows no ground. The water's side at the map's edge. */
   seeThrough: 0.175,
   seeThroughTo: 5,
+  /** The ground that shows behind the water, as the game shows it (`waterGroundBehind`): overlaid with the
+   *  water's own colour by `behindTint` (`_TransparencyBlending`), then desaturated to `behindSaturation`
+   *  (`_TransparencySaturation`, Rec. 709 luma), so it reads as the water's, darker and greyer than the
+   *  ground in the open. On display values, as the game works them: it renders in Gamma colour space
+   *  (`m_ActiveColorSpace` 0), so its shader maths never goes to linear light. */
+  behindTint: 0.8,
+  behindSaturation: 0.3,
   edge: 0.85,
   /** At a bank the water is this share of its depth, deepening over this far from it (tiles). */
   bank: 0.3,
@@ -113,12 +117,31 @@ export const WATER_SURFACE = {
   absorb: 4,
   navyFrom: 0.6,
   navyTo: 2.8,
-  /** How strongly the ripples' crests, the sky's reflection, the pale flow streaks and the sun's
-   *  glint show. */
+  /** How strongly the ripples' crests and the pale flow streaks show. */
   crest: 0.3,
-  reflect: 0.35,
   pale: 0.22,
-  spec: 0.5,
+  /** The sky's reflection and the sun's glint, as the game lights its water (URP, GGX, in Gamma colour space). Its
+   *  smoothness is not the material's `_Smoothness` (0.672, a leftover the BRDF never reads) but the soft-light of
+   *  its `WaterMetalAndGloss` texture's alpha at two panned samples: about `smoothness` (median 0.25; 0.15 to 0.44
+   *  between the 5th and 95th percentiles). We draw our own slow noise with that spread (`smoothnessSpread` × the
+   *  noise's swing round its middle), panned the same way, not the game's texture. Its metallic is 0 (the texture's
+   *  red), so `f0` 0.04. The sky's reflection is added on top (URP's environment term):
+   *  `reflection` × sky × (saturate(smoothness + f0) − f0) × (1 − N·V)^4 / (1 + roughness²) (`waterSkyReflect`; the
+   *  head-on f0 part stays in the calibrated body colour); the game's own `m_ReflectionIntensity` 0.65 and its
+   *  skybox's average colour (in place of `WATER.sky`) wait for the finish: `reflection` is the scale they set. The
+   *  sun's glint is URP's GGX specular term × f0 (`waterSunGlint`), a faint sheen at this roughness. */
+  smoothness: 0.25,
+  smoothnessSpread: 0.6,
+  f0: 0.04,
+  reflection: 1,
+  /** The game's own highlight (its PhysicalWaterURP, p036 791–835): a light tied to the camera, along its forward
+   *  direction turned `horizon` of the way to the horizontal (`_LightHorizonBias`) and down by `tilt`
+   *  (`_LightTilt`), its reflection off the ripples' normals to the eye raised to `exponent`, × (fresnel ^
+   *  `fresnelPower` × 0.5 + 0.5), × the wrapped light (saturate(N·L) + `wrap`) / (1 + `wrap`), × (1 − |N.y|³)
+   *  (only on the ripples' slopes), × `clean` to `bad` by the tint (`waterCameraHighlight`). It lands on slopes
+   *  facing away from the camera. × the sun's colour, the game adds it twice: to the albedo, lit, and to the
+   *  emission, unlit and unshadowed. */
+  highlight: { exponent: 150, fresnelPower: 5, horizon: 0.9, tilt: 0.2, wrap: 0.4, clean: 1.1, bad: 0.4 },
 } as const;
 
 /** The High look's water (Map look 2, D284; #38, investigation/maplook2 water.ts, as Kyler approved it at
@@ -214,12 +237,12 @@ export const BADWATER = {
    *  it does behind clean water); at the map's edge, the water's side. */
   side: 0.95,
   /** Its matte surface (#38's): how far the troughs and the subdued flow streaks turn toward their
-   *  colours, and how little of the sky's reflection, the sun's glint and the glints shows (a
-   *  twelfth of clean water's glints and glint, and a trace of the sky), and its bubbles' glow. */
+   *  colours, how little of the glints shows (a twelfth of clean water's), its bubbles' glow, and its
+   *  smoothness, the game's (`_Contamination_Smoothness` 0.15: the sky and the sun's glint by the same
+   *  lighting as clean water's, `WATER_SURFACE.smoothness`). */
   trough: 1,
   streak: 1,
-  reflect: 0.03,
-  spec: 0.04,
+  smoothness: 0.15,
   glints: 0.028,
   bubbles: 0.55,
 } as const;
@@ -251,7 +274,6 @@ export const WATER_FALL = {
  *  one curve:
  *  - the water's opacity goes from `clean` (clean water) or `bad` (badwater, still murkier than clean
  *    water at the same depth) at no depth to its body's own opacity at `to`;
- *  - its shore foam keeps `foam` of itself on a film (a faint edge, not a pond's foam line);
  *  - the ground under it keeps its own soil, seen as through a coloured filter (`waterFilmGround`):
  *    its own detail (its lightness, and `keep` of its own hue under clean water, none under
  *    badwater) in the water's hue, clean water's shallow teal, badwater's crimson or the blend
@@ -263,7 +285,6 @@ export const WATER_FILM = {
   to: 0.03,
   clean: 0.14,
   bad: 0.62,
-  foam: 0.3,
   keep: 0.4,
   gain: [0.8, 0.45] as readonly [number, number],
   /** The crimson the ground takes under a badwater film: `WATER.bad` a touch cooler, as the ground's
@@ -342,7 +363,8 @@ export const WATER_CALIBRATION = {
    *  clean water's are the Standard look as approved, re-measured after D304 fitted clean water's
    *  shades closer to the game's own, after D310 darkened `teal` and `navy` further and after D324
    *  brought `shallow` down, and all of them after #692 let the ground behind show by the game's share
-   *  (`WATER_SURFACE.seeThrough`: badwater's poisoned bed now shows a sixth through it), 2026-10-29
+   *  (`WATER_SURFACE.seeThrough`: badwater's poisoned bed now shows a sixth through it) and again once that
+   *  ground showed as the game shows it, overlaid with the water's colour and desaturated (`behindTint`), 2026-10-29
    *  (they hold it still, until the next approved change). Measured with the
    *  Standard look held (`dgm.look` forced to `standard` before opening the page): a capable GPU
    *  picks High by itself once it exists, and `tools/capture-badwater.ts --measure` was found
@@ -350,10 +372,10 @@ export const WATER_CALIBRATION = {
    *  difference, not a real change to Standard (found investigating the drift, D304's addition; the
    *  fix is in the tool, not here). */
   targets: [
-    { name: "badwater, a quarter level deep, 70° down (#38)", share: 1, depth: 0.25, pitch: 1.22, bands: { typical: [98, 55, 50], trough: [85, 50, 46], streak: [108, 67, 56] } },
-    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [54, 109, 124] } },
-    { name: "clean water, 1.25 deep, 70° down", share: 0, depth: 1.25, pitch: 1.22, bands: { body: [44, 90, 102] } },
-    { name: "clean water, 4.25 deep, 70° down", share: 0, depth: 4.25, pitch: 1.22, bands: { body: [36, 83, 97] } },
+    { name: "badwater, a quarter level deep, 70° down (#38)", share: 1, depth: 0.25, pitch: 1.22, bands: { typical: [91, 47, 43], trough: [79, 42, 39], streak: [101, 59, 49] } },
+    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [50, 106, 122] } },
+    { name: "clean water, 1.25 deep, 70° down", share: 0, depth: 1.25, pitch: 1.22, bands: { body: [39, 84, 98] } },
+    { name: "clean water, 4.25 deep, 70° down", share: 0, depth: 4.25, pitch: 1.22, bands: { body: [35, 82, 96] } },
   ] as readonly { name: string; share: number; depth: number; pitch: number; bands: Record<string, readonly [number, number, number]> }[],
   /** The ground level under a bed of water this deep (so the camera sees the same scene as #38's). */
   floor(depth: number): number {
@@ -446,6 +468,16 @@ export function waterSeeThrough(depth: number): number {
   return 1 - S.seeThrough * Math.max(0, 1 - depth / S.seeThroughTo);
 }
 
+/** The ground (a display colour) as it shows behind water of this colour, as the game's High quality draws
+ *  it (`WATER_SURFACE.behindTint`, `behindSaturation`): on display values (the game renders in Gamma colour
+ *  space), overlaid with the water's colour, then desaturated. */
+export function waterGroundBehind(ground: Rgb, water: Rgb): Rgb {
+  const S = WATER_SURFACE;
+  const m = ground.map((v, i) => v + ((v <= 0.5 ? 2 * v * water[i] : 1 - 2 * (1 - v) * (1 - water[i])) - v) * S.behindTint);
+  const y = luma(m as unknown as Rgb);
+  return m.map((v) => Math.max(0, Math.min(1, y + (v - y) * S.behindSaturation))) as unknown as Rgb;
+}
+
 /** Badwater's opacity `depth` levels deep, `fromBank` tiles from a bank: the water's, a crimson tint on a
  *  sliver (`WATER_FILM`). */
 export function badwaterOpacity(depth: number, fromBank = 1): number {
@@ -473,7 +505,6 @@ const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000))
 export const WATER_FILM_GLSL = /* glsl */ `
   #define WATER_FILM_CLEAN ${f(WATER_FILM.clean)}
   #define WATER_FILM_BAD ${f(WATER_FILM.bad)}
-  #define WATER_FILM_FOAM ${f(WATER_FILM.foam)}
   /** How far water this deep has built from a film to its body (waterPalette.ts waterFilm). */
   float waterFilm(float depth) {
     return smoothstep(0.0, ${f(WATER_FILM.to)}, depth);
@@ -517,14 +548,45 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define CLEAR_FADE ${f(CLEAR_WATER.fade)}
   #define CLEAR_FALL ${f(CLEAR_WATER.fall)}
   #define WATER_CREST_AMOUNT ${f(WATER_SURFACE.crest)}
-  #define WATER_REFLECT ${f(WATER_SURFACE.reflect)}
   #define WATER_PALE_AMOUNT ${f(WATER_SURFACE.pale)}
-  #define WATER_SPEC ${f(WATER_SURFACE.spec)}
   #define WATER_EDGE ${f(WATER_SURFACE.edge)}
   #define BADWATER_TROUGH_AMOUNT ${f(BADWATER.trough)}
   #define BADWATER_STREAK_AMOUNT ${f(BADWATER.streak)}
-  #define BADWATER_REFLECT ${f(BADWATER.reflect)}
-  #define BADWATER_SPEC ${f(BADWATER.spec)}
+  #define WATER_SMOOTHNESS ${f(WATER_SURFACE.smoothness)}
+  #define WATER_SMOOTHNESS_SPREAD ${f(WATER_SURFACE.smoothnessSpread)}
+  #define BADWATER_SMOOTHNESS ${f(BADWATER.smoothness)}
+  /** The sky's reflection's weight at a smoothness, as the game's URP environment term (waterPalette.ts
+   *  WATER_SURFACE.smoothness): the part that rises toward the grazing angle. */
+  float waterSkyReflect(float NoV, float smoothness) {
+    float pr = 1.0 - smoothness;
+    float r = max(pr * pr, 0.0078125);
+    return ${f(WATER_SURFACE.reflection)} * (clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0) - ${f(WATER_SURFACE.f0)}) * pow(1.0 - clamp(NoV, 0.0, 1.0), 4.0) / (1.0 + r * r);
+  }
+  /** The game's own highlight on the ripples (waterPalette.ts WATER_SURFACE.highlight), at a tint; the caller
+   *  adds it × the sun's colour twice, before the light and after it. */
+  float waterCameraHighlight(vec3 N, vec3 V, float tint) {
+    // (the camera's forward direction: the view matrix's third row is its back axis)
+    vec3 F = -normalize(vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2]));
+    vec3 Fh = normalize(vec3(F.x, 0.0, F.z) + vec3(0.00001, 0.0, 0.0));
+    vec3 Lc = normalize(mix(F, Fh, ${f(WATER_SURFACE.highlight.horizon)}) - vec3(0.0, ${f(WATER_SURFACE.highlight.tilt)}, 0.0));
+    float spec = pow(clamp(dot(reflect(-Lc, N), V), 0.0, 1.0), ${f(WATER_SURFACE.highlight.exponent)});
+    float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), ${f(WATER_SURFACE.highlight.fresnelPower)});
+    float wrap = clamp((clamp(dot(N, Lc), 0.0, 1.0) + ${f(WATER_SURFACE.highlight.wrap)}) / ${f(1 + WATER_SURFACE.highlight.wrap)}, 0.0, 1.0);
+    float slope = max(0.0, 1.0 - pow(abs(N.y), 3.0));
+    return wrap * (fres * 0.5 + 0.5) * spec * slope * mix(${f(WATER_SURFACE.highlight.clean)}, ${f(WATER_SURFACE.highlight.bad)}, tint);
+  }
+  /** The sun's glint at a smoothness, as the game's URP GGX specular term (× f0 and N·L; the caller multiplies
+   *  by the sun's colour and its shadow). */
+  float waterSunGlint(vec3 N, vec3 V, vec3 L, float smoothness) {
+    float pr = 1.0 - smoothness;
+    float r = max(pr * pr, 0.002);
+    float r2 = r * r;
+    vec3 H = normalize(L + V);
+    float NoH = clamp(dot(N, H), 0.0, 1.0);
+    float LoH = clamp(dot(L, H), 0.0, 1.0);
+    float d = NoH * NoH * (r2 - 1.0) + 1.00001;
+    return r2 / (d * d * max(0.1, LoH * LoH) * (4.0 * r + 2.0)) * ${f(WATER_SURFACE.f0)} * max(dot(N, L), 0.0);
+  }
   #define BADWATER_GLINTS ${f(BADWATER.glints)}
   #define BADWATER_BUBBLES ${f(BADWATER.bubbles)}
   #define BADWATER_SIDE ${f(BADWATER.side)}
@@ -572,9 +634,12 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   vec3 badwaterShade(vec3 c, float depth) {
     return c * badwaterBody(depth) / BADWATER_BODY;
   }
-  /** How edge-on the water is seen (1 at a grazing angle), as #38 has it. */
-  float waterGrazing(vec3 V, vec3 N) {
-    return 1.0 - smoothstep(0.18, 0.5, clamp(V.y + (N.x + N.z) * 0.05, 0.0, 1.0));
+  /** The ground as it shows behind water of this colour, as the game's (waterPalette.ts waterGroundBehind):
+   *  on display values (the game renders in Gamma colour space). */
+  vec3 waterGroundBehind(vec3 ground, vec3 water) {
+    vec3 m = mix(ground, mix(2.0 * ground * water, 1.0 - 2.0 * (1.0 - ground) * (1.0 - water), step(0.5, ground)), ${f(WATER_SURFACE.behindTint)});
+    float y = dot(m, vec3(0.2126, 0.7152, 0.0722));
+    return clamp(mix(vec3(y), m, ${f(WATER_SURFACE.behindSaturation)}), 0.0, 1.0);
   }
   /** Badwater's opacity (waterPalette.ts badwaterOpacity): the water's, a crimson tint on a sliver. */
   float badwaterAlpha(float depth, float shore) {

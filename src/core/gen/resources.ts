@@ -51,6 +51,10 @@ export interface ResourceConstraints {
   /** A rescue round (D471, `generate`'s `ease`): the start's own groves may lean to the wood each
    *  species gives where the mix can't give Minimum starting wood. */
   woodLean?: boolean;
+  /** Easy start (D495): the start's berries only on ground that stays moist through a Normal drought (`safe`), at
+   *  least `bushes` of them within `within` tiles' walk, the map's own patches kept out of the start's walk, and a
+   *  small ruin field the colony walks to within `ruins` tiles' walk (scrap at hand). */
+  easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number };
   /** Retired (D253, D270, D336: no locks); always null. Kept only so the frozen investigation
    *  prototypes that still pass it type-check (investigation/generative/proto). */
   lockedMask?: null;
@@ -138,8 +142,50 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   //      with its own mix of heights and a few towers (resources/baseline.ts)
   const ruinRng = stream(seed, "ruins", candidate, attempt);
   const fieldId = (tiles: number[]) => featureId(seed, "ruinField", anchorRole("ruinField", tiles));
+  // (Easy start, D495: a small field of ruins the colony walks to, 15 tiles' walk out to the target's less 2, on
+  // a level of dry ground beyond the start's clearing; its scrap counts toward the map's)
+  const easy = constraints?.easy ?? null;
+  let easyScrap = 0;
+  if (easy && walk && g.start) {
+    const er = stream(seed, "easy-ruins", candidate, attempt);
+    const lo = 15;
+    const hi = Math.max(lo + 1, easy.ruins - 2);
+    const seeds: number[] = [];
+    for (let i = 0; i < N; i++) if (free[i] && !moist[i] && walk[i] >= lo && walk[i] <= hi && startDist[i] >= 12) seeds.push(i);
+    for (let tries = 0; tries < 12 && seeds.length; tries++) {
+      const s0 = seeds[er.int(0, seeds.length)];
+      const want = 6 + er.int(0, 5);
+      const tiles = [s0];
+      const got = new Set(tiles);
+      for (let k = 0; k < tiles.length && tiles.length < want; k++) {
+        const c = tiles[k];
+        const cx = c % W;
+        const cy = (c - cx) / W;
+        for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]] as const) {
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H || tiles.length >= want) continue;
+          const n = ny * W + nx;
+          if (got.has(n) || !free[n] || g.heights[n] !== g.heights[s0] || walk[n] > hi + 2 || startDist[n] < 12) continue;
+          got.add(n);
+          tiles.push(n);
+        }
+      }
+      if (tiles.length < 5) continue;
+      tiles.sort((a, b) => a - b);
+      const role = "ruinField/easyStart";
+      const id = featureId(seed, "ruinField", role);
+      const tallness = 0.3;
+      easyScrap = ruinColumns(tiles, W, stream(seed, id, "heights"), tallness).scrap;
+      out.push({ id, kind: "ruinField", origin: "generated", role, locked: false, params: { area: tilesToRuns(tiles, W), scrapTarget: easyScrap, heightMix: [...RUIN_HEIGHT_SHARES], centerBias: 0, layout: { tallness } } });
+      for (const i of tiles) {
+        const x = i % W;
+        const y = (i - x) / W;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) free[(y + dy) * W + x + dx] = 0;
+      }
+      break;
+    }
+  }
   syncTaken();
-  const ruinPlan = planRuinFields(ground, Math.max(0, budget.scrap - (constraints?.scrapPlaced ?? 0)), {
+  const ruinPlan = planRuinFields(ground, Math.max(0, budget.scrap - (constraints?.scrapPlaced ?? 0) - easyScrap), {
     rng: ruinRng,
     startDist: g.start ? startDist : null,
     minStart: near.ruinsClear,
@@ -177,9 +223,11 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // near the start, patches and groves fill more of their ground (the start requirements count
   // them there), and all of it where the colony's walk holds little moist land
   const nearFill = { bushes: 0.85, trees: 0.7 };
+  // (Easy start, D495: within the start's walk, berries grow only where the soil stays moist through a drought)
+  const bushMoist = easy && nearWalk ? Uint8Array.from(moist, (v, i) => (v && (!nearWalk![i] || easy.safe[i]) ? 1 : 0)) : moist;
   const patch = (seedTile: number, size: number, ripeShare: number, within: Uint8Array | null = null, fill?: number, prefix = "berryPatch"): number => {
     const allowed = new Uint8Array(N);
-    for (let i = 0; i < N; i++) allowed[i] = free[i] && moist[i] && (!within || within[i]) ? 1 : 0;
+    for (let i = 0; i < N; i++) allowed[i] = free[i] && bushMoist[i] && (!within || within[i]) ? 1 : 0;
     if (!allowed[seedTile]) return 0;
     const grown = growPatchAt(ground, vegRng, allowed, seedTile, size, fill);
     if (!grown) return 0;
@@ -223,6 +271,8 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     let room = 0;
     for (let i = 0; i < N; i++) if (nearWalk[i] && free[i] && moist[i]) room++;
     if (room < 1.25 * (near.bushes + near.trees)) walkKeepOut = nearWalk;
+    // (Easy start, D495: the start's own planting has all of its walk, on the ground it reads for it)
+    if (easy) walkKeepOut = nearWalk;
   }
   // the baseline's planners take no tile of `keepOut`
   const keepOutOf = (keepOut: Uint8Array | null) => {
@@ -425,12 +475,35 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
           const dx = x - g.start.x;
           const dy = y - g.start.y;
           const nearHere = within ? within[i] === 1 : dx * dx + dy * dy <= BUSHES.nearStartRadius * BUSHES.nearStartRadius;
-          if (nearHere && free[i] && moist[i]) w[i] = (nearWater(i) ? 2 : 1) * (within && lay ? lay.berries[i] : byWalk(i));
+          if (nearHere && free[i] && bushMoist[i]) w[i] = (nearWater(i) ? 2 : 1) * (within && lay ? lay.berries[i] : byWalk(i));
         }
         for (const s of pickSeeds(lay ? lay.rng : vegRng, w, W, 6, 6)) {
           got += patch(s, Math.min(each, Math.max(4, wantBushes - got)), 1, within, dense ? 1 : nearFill.bushes, "berryPatch/start");
           if (got >= wantBushes) break;
         }
+      }
+    }
+    // (Easy start, D495: its berries within its shorter walk, on ground that stays moist through a drought; what
+    // the planting above left short there is planted now, round the start's water first)
+    if (easy && walk) {
+      const close = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (walk[i] <= easy.within && easy.safe[i] && (!plantWalk || plantWalk[i])) close[i] = 1;
+      let have = 0;
+      for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (close[i] && moist[i]) have++;
+      const er = stream(seed, "easy-berries", candidate, attempt);
+      for (let k = 0; k < 8 && have < easy.bushes; k++) {
+        const w = new Float64Array(N);
+        for (let i = 0; i < N; i++) if (close[i] && free[i] && bushMoist[i]) w[i] = nearWater(i) ? 2 : 1;
+        const seeds = pickSeeds(er, w, W, 3, 3);
+        if (!seeds.length) break;
+        let grew = 0;
+        for (const s of seeds) {
+          if (have >= easy.bushes) break;
+          const n = patch(s, Math.max(4, Math.min(24, easy.bushes - have)), 1, close, 0.9, "berryPatch/start");
+          have += n;
+          grew += n;
+        }
+        if (!grew) break;
       }
     }
 
@@ -551,8 +624,9 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       }
     }
     woodW = speciesW.map((w, k) => (k < 3 ? w * TREE_LOGS[species[k]] : 0));
-    // the rest of the map's bushes and trees: what the start's planting did not use of the budget
-    basePatches(budget.bushes - bushCount);
+    // the rest of the map's bushes and trees: what the start's planting did not use of the budget (Easy start:
+    // none on the start's walk where a drought would dry them, D495)
+    basePatches(budget.bushes - bushCount, easy && nearWalk ? Uint8Array.from(nearWalk, (v, i) => (v && !easy.safe[i] ? 1 : 0)) : null);
     baseGroves(0);
   }
 

@@ -13,7 +13,7 @@
 // Readability follows the game's own (D334): its look and its cues, with no lightness gap or pattern
 // beyond the game's. Grass reads apart from dry earth by its hue and its painted strokes, contamination by
 // its orange-red veins over either soil, badwater by its crimson, its dullness and its bubbles (and in
-// High its pink caustics and red contact at rock). Clean water reads as water by its light shore foam, glints and ripple crests and its see-through shallows, and in
+// High its pink caustics and red contact at rock). Clean water reads as water by its glints and ripple crests and its see-through shallows, and in
 // colour by its blue. Badwater is darker than clean water of the same depth in Standard, darkening with depth as the game's
 // (D496), and dull; water partly
 // bad turns smoothly from one to the other over a few tiles where they meet, greying as it turns as the
@@ -35,6 +35,11 @@ export type GroundMode = "moisture" | "height";
 
 /** A tile's ground, as its colour shows it. */
 export type GroundKind = "moist" | "dry" | "contaminated" | "underwater";
+
+/** How the game's terrain shows soil moisture (SoilMoistureSystem `UpdateDesertIntensity`, its `SoilMoistureSimulatorSpec`
+ *  blueprint): its desert texture over all of a top at moisture 0, over (1 − m / threshold) × max of one at moisture m up to
+ *  the threshold, none above (the shaders' `grassOf`; D135 as amended 2026-10-29). */
+export const DESERT = { threshold: 5, max: 0.7 } as const;
 
 export const GROUND = {
   /** Dry ground: cracked earth in a warm brown, with dark cracks; plants die there. Broad patches
@@ -260,7 +265,7 @@ export const MINE = {
 } as const;
 
 /** The light: a warm sun from the north-west, a cool sky (violet in the shadows of the earth),
- *  and a blue-grey haze over distant ground. */
+ *  and the game's cyan fog as a haze over distant ground. */
 export const LIGHT = {
   /** Toward the sun: west and north (x east, y north), 50° above the horizon. */
   sunAzimuth: [-Math.SQRT1_2, Math.SQRT1_2] as const,
@@ -269,7 +274,9 @@ export const LIGHT = {
   penumbra: (6 * Math.PI) / 180,
   sun: [1.0, 0.95, 0.86] as Rgb,
   sky: [0.63, 0.64, 0.72] as Rgb,
-  haze: [0.68, 0.77, 0.87] as Rgb,
+  /** The haze: the game's temperate daytime fog (`Sun.blueprint` `DayColors.TemperateWeatherFog`; a held hazard's in
+   *  high/seasons.ts `FOG`). */
+  haze: [0.4470589, 0.7607844, 0.8235295] as Rgb,
 } as const;
 
 /** Soil moisture (the game's levels, 0–16) and contamination (0–1) as bytes: 0 stays 0, and any

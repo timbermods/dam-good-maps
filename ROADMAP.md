@@ -58,7 +58,9 @@ only where an implementation looks wrong.
 
 **Wave 3**
 - **Intent-level editing:** describe a change ("a hidden cave with a relic behind the falls") and get it built from the
-  forces and the features (PLAN §20 D187; M12 in `docs/archive/roadmap.md`).
+  forces and the features (PLAN §20 D187; M12 in `docs/archive/roadmap.md`). Its first form is built: the MCP server
+  (D501, `mcp/`), through which a player's own Claude steers the generator and shapes the map with the forces; the
+  page's own chat box waits with M12.
 - **One click from the editor into the game.**
 - **Starting presets** beyond Easy start, and a first map that teaches by playing.
 
@@ -798,19 +800,14 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    of that day, in both looks (the light look tints). Day 0 shows the map's own ground again. `tests/unit/weather-veins.test.ts`
    pins that no poisoned tile is dropped on the way; `tests/e2e/waterFlow.spec.ts` checks the held day's soil. The
    capture is `tools/capture-weather.ts`.
-   **Built: High's visible seasons, plants first.** On a held Drought or Badtide day, in High only, the plants the game
+   **Built: High's visible seasons, plants first.** On a held Drought or Badtide day, in every look (D242 as amended 2026-10-29: the game shows them at any quality), the plants the game
    would surely have killed by then are drawn withered, by the game's timers, not the editor's instant rule
    (`core/sim/withering.ts`, pure, `tests/unit/withering.test.ts`): dry for 1.1 x the species' `DaysToDieDry` in a row
    (pine 13, birch 11, oak 15, blueberry 9; the run resets when moisture returns; succulents exempt) or on contaminated
    soil for two days running (any plant, the game's 0.2 to 0.3 days, reset if it leaves), and dead for good once dead. So a normal
    drought's 9 days kill no pine, birch or oak; a badtide kills on every tile its poison stays on. The worker adds the held day's dead tiles to its held-day event
    (each day's soil is worked out on demand, once, from the last one cached; none yet on a map with caves, whose day soil, per run top, is worked out on the session worker, #404); the renderer moves those plants to the dead batches in place
-   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. **The rest of #67's stage 4** (High only, each its own
-   effect in the Look menu's Finishing touches, `high/seasons.ts`): on a held drought day, pale dusty dry ground with straw
-   where grass stood, read from the day's soil and water and the map's own soil (a tile mask, nearest-sampled), and a heat
-   shimmer over it, the ground's own pattern moved by under half a pixel (no post pass, D334; still for reduced motion and
-   dropped by the lower-cost tier); on a held badtide day, the sky pulled slightly sickly. Contamination stays the veins in
-   every look (D334).
+   (`Forest.setDead`), with one shadow bake once stepping settles; Standard's and the light look's objects are drawn again, the unchanged batches kept. Day 0 shows the map as it is. **The rest of #67's stage 4**, as amended 2026-10-29 (planning: follows the game): a held drought or badtide day turns the haze to the game's fog colour for it, in both looks (`high/seasons.ts` `FOG`, from `Sun.blueprint`); the High-only straw, heat shimmer and sickly sky are gone, the game having none. Contamination stays the veins in every look (D334).
 
    **Built: the Unstable Core's moment (D339).** While a hazard is held, a quiet line under the water row says where each
    core goes off against that cycle's hazard (a core goes off `days` days into its cycle, a hazard starts after the cycle's
@@ -938,7 +935,7 @@ acceptance, is in [docs/archive/roadmap.md](docs/archive/roadmap.md) ("M12. Clau
   provider built (bring-your-own-key).
 - **Also here:** the agent guide (D142); the words moved out of M9 (D277, D278): river courses read from the actual flow, the
   place resolver (flow-relative places, never a compass assumption) and the judgement-word table (D84, D88), left in
-  `investigation/claude/` until M12 resumes; the artifact edition; a Dam Good Maps MCP server after M12 (Later).
+  `investigation/claude/` until M12 resumes; the artifact edition; the Dam Good Maps MCP server, built ahead of M12 (D501).
 
 M12's new interface is built to the design pass's records (D176, D236), with the finish review on the new screens.
 **Effort:** xhigh.
@@ -1138,11 +1135,12 @@ player text). A small mod: the main menu gets "Play latest Dam Good Maps map" (t
 with its name), one click starts it with the last faction and difficulty, and in game a key reloads the map after the app
 saves it again. Its logic is tested headless; its in-game check (`mods/companion/TESTING.md`) is still to run.
 
-**After M12: a Dam Good Maps MCP server** (Kyler, 2026-09-25; D141). M12's tools (generate, steer
-with intentions, the forces, edit, validate, export) packaged as an MCP server, so Claude
-Desktop, claude.ai or other MCP-capable assistants can build Timberborn maps with the same engine,
-tools and steering principle as the app. A thin wrapper over M12's tool layer that inherits the
-same honesty and "steer, don't hand-build" rules.
+**A Dam Good Maps MCP server** (Kyler, 2026-09-25; D141; built ahead of M12 by D501, `mcp/`). Generate, steer
+with intentions, the forces, edit, check and save, as an MCP server, so Claude Desktop and other MCP-capable
+assistants build Timberborn maps with the same engine and steering principle as the app. A thin wrapper over the
+core that inherits the same honesty and "steer, don't hand-build" rules. Each release tag's push attaches its two
+files to the tag's GitHub Release (`release-assets.yml`). What is left: the first release with them, and later the
+tools M12 adds (the place resolver, the judgement words).
 
 Each item below stays behind a feature flag until its own in-game check passes:
 - seeps and an arid theme;

@@ -460,7 +460,8 @@ byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgres
   `_AlbedoAtMaxDepth`, u) × R × 2; the contaminated colour × G, both on display values (the texture sampled raw, in
   Gamma). G relative to a quarter level deep: 1.25 at no depth, 0.80 at half a level, 0.68 at 1, 0.46 at 2, 0.31 at 3,
   0.18 at 4.25 (an earlier reading linearised it: 1.64, 0.61, 0.43, 0.19, 0.08, 0.03; `BADWATER.ramp` follows the raw values). Clean
-  albedo × R × 2 reaches near black by 3 levels; on screen the sky's reflection (smoothness 0.67) holds deep clean water up.
+  albedo × R × 2 reaches near black by 3 levels; on screen the sky's reflection holds deep clean water up (its smoothness is the soft-lit gloss map's, about 0.25,
+  not the material's leftover `_Smoothness` 0.672; `WATER_SURFACE.smoothness`).
   Badwater keeps a reflection too, with no depth in it: its metallic goes to 0 (F0 0.04), about 0.6 of clean water's
   reflection, and its emissive detail (`_Detail_Contamination_Color_*` × t) has no depth term either, so deep badwater
   never goes black on screen. `BADWATER.floor` stands for that share on display values: 0.37 of the display colour
@@ -469,7 +470,7 @@ byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgres
 - **See-through (the High-quality variant, `opaque/p036`; Medium and above set `_HIGH_QUALITY_WATER_ENABLED`):** in play
   every tile uses the opaque material (`WaterMesh.GetWaterMaterial`; the transparent one only while a tool hides the
   water, at a flat 0.4). The High-quality program samples `_CameraOpaqueTexture` behind the water and mixes it in, alpha
-  staying 1: the ground behind, overlaid 80 % with the water's colour (`_TransparencyBlending` 0.8) and desaturated to
+  staying 1, all on display values: the ground behind, overlaid 80 % with the water's colour (`_TransparencyBlending` 0.8) and desaturated to
   30 % (`_TransparencySaturation`), at a share 0.35 × 0.5 × (1 − d / 5) (`_TransparencyDepth`, `_TransparencyDepthModifier`,
   `_MaxDepth`), d the vertical depth to the ground: about 0.17 at a film's 0.087 deep and at a shore's edge, 0 at
   5 levels; falls 0.1 × (1 − d / 5). The Low variant (`p032`) shows no ground. The contaminated tint, the depth ramp

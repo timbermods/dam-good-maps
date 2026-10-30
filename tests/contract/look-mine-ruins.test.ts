@@ -18,7 +18,8 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
- *  0.10.4 makes it (3D forms at the default Verticality, D488: this map looks for a spring cave and drops it, so its
+ *  0.10.6 makes it (badwater joins the main river's lower reach, never a theme's signature water, D498: this map's
+ *  badwater pits and ditches moved, D148); `01c74752…` before it, as generator 0.10.4 made it (3D forms at the default Verticality, D488: this map looks for a spring cave and drops it, so its
  *  land and water are as 0.10.2 made them, only the version, D148); `73bae732…` before it, as generator 0.10.3 made it
  *  (#579, only the version); `efb789ad…` before it, as generator
  *  0.10.2 made it (the opening shot, D493: the start turned so the game's first camera frames the best view, a
@@ -59,7 +60,7 @@ import * as ed from "../../src/worker/session";
  *  map); `a4c34743…` before the game version stamped became 1.1.2.8-ffc2de0-sw (the same map, D148: re-stamped
  *  with 1.1.2.4-52e959e-sw the file is that one byte for byte); `30543f1d…` before generator 0.10.5's version
  *  string (the same map: its first land fails the course check, not the start or the trunk's search). */
-const LIVE_SHA = "01c74752d573f581bad07e20cb66500af8c36ec4fa6a3db2cb58bae86e110b00";
+const LIVE_SHA = "8e2aa58469f18cbef05d3a1b57024f8653a3e7ab1ee01da01933885d6173dafb";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

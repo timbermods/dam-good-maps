@@ -21,6 +21,7 @@ const HEAVY = [
   "tests/contract/collabClaims.heavy.test.ts", // every force's plan and gesture band against the claims' writes (D362)
   "tests/contract/collabSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits, checkpoints and a rejoin
   "tests/contract/collabUndoSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits with undo and redo asked at random
+  "mcp/tests/long.heavy.test.ts", // a 256² map through the MCP server, past the client's time limit (D501)
 ];
 
 export default defineConfig({
@@ -33,7 +34,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "quick",
-          include: ["tests/unit/**/*.test.ts", "tests/contract/**/*.test.ts"],
+          include: ["tests/unit/**/*.test.ts", "tests/contract/**/*.test.ts", "mcp/tests/**/*.test.ts"],
           exclude: [...configDefaults.exclude, ...HEAVY],
           testTimeout: 300_000,
           hookTimeout: 300_000,
