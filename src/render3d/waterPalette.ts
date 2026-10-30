@@ -1,7 +1,7 @@
 // The 3D view's water in one place (PLAN §20 D177): clean water's and badwater's colours, their
 // opacity by depth, how water turns from clean to bad with its badwater share (the contamination
-// blend), and how the colours are calibrated on screen. The Standard look's water shader and its
-// falls' shader (D201) read it through `WATER_GLSL` (generated from these values; the Light look
+// blend), and how the colours are calibrated on screen. The Standard look's water shader (its falls are the
+// water's own vertical faces, D201 amended 2026-10-29) reads it through `WATER_GLSL` (generated from these values; the Light look
 // runs the same shader code), the legend and the tests read the values, and Map look 2's High
 // shader reads it too (`HIGH_WATER`, `HIGH_WATER_GLSL`: #38's own inputs, beside Standard's), so the looks never
 // drift apart. No other module defines a water colour (tests/unit/water-palette.test.ts). The 2D preview and the map file's thumbnail keep their own
@@ -26,11 +26,6 @@ export type Rgb = readonly [number, number, number];
 const BAD_BODY: Rgb = [0.379, 0.18, 0.158];
 
 export const WATER = {
-  /** A fall's streaks: a lighter teal on clean water, orange-red on badwater, little white (D334,
-   *  as Timberborn's references); and badwater's sheet in High. */
-  fallTeal: [0.27, 0.64, 0.71] as Rgb,
-  fallBad: [0.55, 0.15, 0.065] as Rgb,
-  fallBadStreak: [0.87, 0.32, 0.12] as Rgb,
   /** Clean water, closer to the game's own shades (D304, sampled from Kyler's screenshot; `teal` and
    *  `navy` darkened further by D310, toward the game's own reading, while `shallow` and badwater
    *  hold the readability tests at their strictness before D304, never loosened). One consistent
@@ -66,7 +61,7 @@ export const WATER = {
   badStreak: [0.421, 0.234, 0.194] as Rgb,
   /** Badwater's slow glowing bubbles, denser the more of the water is bad. */
   badVein: [0.98, 0.5, 0.16] as Rgb,
-  /** Foam on badwater: along its shores and below its falls. */
+  /** Foam on badwater (a source's welling water; the Flow view's threads). */
   badFoam: [0.66, 0.5, 0.36] as Rgb,
   /** Clear water (`CLEAR_WATER`): clean water's faint blue tint over the bed, and the soft bright
    *  line along its shore. */
@@ -101,6 +96,11 @@ export const WATER_SURFACE = {
    *  Low quality, which shows no ground. The water's side at the map's edge. */
   seeThrough: 0.175,
   seeThroughTo: 5,
+  /** A fall's: the game draws a fall as the water mesh's own vertical face where the water steps down (its
+   *  FindWaterfalls pass), with the same material as the surface, and shows the ground behind it by
+   *  `_TransparencyWaterfallDepth` 0.2 × `_TransparencyDepthModifier` 0.5: `fallSeeThrough` of it, the cliff
+   *  right behind (D201 amended 2026-10-29). */
+  fallSeeThrough: 0.1,
   /** The ground that shows behind the water, as the game shows it (`waterGroundBehind`): overlaid with the
    *  water's own colour by `behindTint` (`_TransparencyBlending`), then desaturated to `behindSaturation`
    *  (`_TransparencySaturation`, Rec. 709 luma), so it reads as the water's, darker and greyer than the
@@ -117,12 +117,31 @@ export const WATER_SURFACE = {
   absorb: 4,
   navyFrom: 0.6,
   navyTo: 2.8,
-  /** How strongly the ripples' crests, the sky's reflection, the pale flow streaks and the sun's
-   *  glint show. */
+  /** How strongly the ripples' crests and the pale flow streaks show. */
   crest: 0.3,
-  reflect: 0.35,
   pale: 0.22,
-  spec: 0.5,
+  /** The sky's reflection and the sun's glint, as the game lights its water (URP, GGX, in Gamma colour space). Its
+   *  smoothness is not the material's `_Smoothness` (0.672, a leftover the BRDF never reads) but the soft-light of
+   *  its `WaterMetalAndGloss` texture's alpha at two panned samples: about `smoothness` (median 0.25; 0.15 to 0.44
+   *  between the 5th and 95th percentiles). We draw our own slow noise with that spread (`smoothnessSpread` × the
+   *  noise's swing round its middle), panned the same way, not the game's texture. Its metallic is 0 (the texture's
+   *  red), so `f0` 0.04. The sky's reflection is added on top (URP's environment term):
+   *  `reflection` × sky × (saturate(smoothness + f0) − f0) × (1 − N·V)^4 / (1 + roughness²) (`waterSkyReflect`; the
+   *  head-on f0 part stays in the calibrated body colour); the game's own `m_ReflectionIntensity` 0.65 and its
+   *  skybox's average colour (in place of `WATER.sky`) wait for the finish: `reflection` is the scale they set. The
+   *  sun's glint is URP's GGX specular term × f0 (`waterSunGlint`), a faint sheen at this roughness. */
+  smoothness: 0.25,
+  smoothnessSpread: 0.6,
+  f0: 0.04,
+  reflection: 1,
+  /** The game's own highlight (its PhysicalWaterURP, p036 791–835): a light tied to the camera, along its forward
+   *  direction turned `horizon` of the way to the horizontal (`_LightHorizonBias`) and down by `tilt`
+   *  (`_LightTilt`), its reflection off the ripples' normals to the eye raised to `exponent`, × (fresnel ^
+   *  `fresnelPower` × 0.5 + 0.5), × the wrapped light (saturate(N·L) + `wrap`) / (1 + `wrap`), × (1 − |N.y|³)
+   *  (only on the ripples' slopes), × `clean` to `bad` by the tint (`waterCameraHighlight`). It lands on slopes
+   *  facing away from the camera. × the sun's colour, the game adds it twice: to the albedo, lit, and to the
+   *  emission, unlit and unshadowed. */
+  highlight: { exponent: 150, fresnelPower: 5, horizon: 0.9, tilt: 0.2, wrap: 0.4, clean: 1.1, bad: 0.4 },
 } as const;
 
 /** The High look's water (Map look 2, D284; #38, investigation/maplook2 water.ts, as Kyler approved it at
@@ -132,7 +151,7 @@ export const WATER_SURFACE = {
  *  level deep, deep), its crests' streaks from above, low down and at a grazing angle; badwater's
  *  body (water partly bad blends to it as the Standard look's does: `WATER_BLEND`, `waterBlend` in
  *  the GLSL); badwater's troughs and streaks as offsets on its body (they may be negative); the glints; foam; the water's side (a step down, the map's edge);
- *  its section at the map's edge (#67 stage 1); mist and splash rings (#67 stage 2). */
+ *  its section at the map's edge (#67 stage 1). */
 export const HIGH_WATER = {
   /** Clean water by depth, from Timberborn's references (D334): a teal shallow, a darker body and a
    *  navy deep, which keeps its depth at a grazing angle too; badwater a deep crimson. Readability
@@ -160,10 +179,6 @@ export const HIGH_WATER = {
   section: [0.18, 0.5, 0.55] as Rgb,
   sectionDeep: [0.075, 0.23, 0.3] as Rgb,
   sectionBad: [0.38, 0.14, 0.095] as Rgb,
-  mist: [0.85, 0.94, 0.95] as Rgb,
-  badMist: [0.67, 0.54, 0.36] as Rgb,
-  ring: [0.8, 0.94, 0.93] as Rgb,
-  badRing: [0.62, 0.45, 0.28] as Rgb,
 } as const;
 
 /** Clear water (D196, D212): the water see-through, so the bed, ledges and sources show; under and
@@ -186,10 +201,6 @@ export const CLEAR_WATER = {
   badOpacity: 0.72,
   /** Round the brush, the clear water fades back to normal over this many tiles. */
   fade: 1.5,
-  /** A clean fall, its splash and its crown keep this share of their opacity (D201): a faint veil of
-   *  streaks and foam, so the cliff behind it and the bed below show; a badwater fall keeps its
-   *  colour, at most `badOpacity` opaque. */
-  fall: 0.3,
 } as const;
 
 /** Badwater's depth, opacity and surface. */
@@ -213,31 +224,14 @@ export const BADWATER = {
    *  it does behind clean water); at the map's edge, the water's side. */
   side: 0.95,
   /** Its matte surface (#38's): how far the troughs and the subdued flow streaks turn toward their
-   *  colours, and how little of the sky's reflection, the sun's glint and the glints shows (a
-   *  twelfth of clean water's glints and glint, and a trace of the sky), and its bubbles' glow. */
+   *  colours, how little of the glints shows (a twelfth of clean water's), its bubbles' glow, and its
+   *  smoothness, the game's (`_Contamination_Smoothness` 0.15: the sky and the sun's glint by the same
+   *  lighting as clean water's, `WATER_SURFACE.smoothness`). */
   trough: 1,
   streak: 1,
-  reflect: 0.03,
-  spec: 0.04,
+  smoothness: 0.15,
   glints: 0.028,
   bubbles: 0.55,
-} as const;
-
-/** Waterfalls (D201): how see-through a fall is between its streaks and on them (clean water),
- *  badwater's (murky), and its foam; the inner face shows `inner` of its opacity,
- *  behind the outer one. A fall's colours are the water's: clean water's light teal shallows with
- *  lighter teal streaks, badwater's crimson body with orange-red ones, little white (D334: the
- *  sheet well opaque, as the game's), and water partly bad between them by the blend (`WATER_BLEND`). */
-export const WATER_FALL = {
-  clear: 0.76,
-  streak: 0.94,
-  bad: 0.9,
-  foam: 0.95,
-  inner: 0.6,
-  /** The whitewater where a fall lands (its crown and splash): how opaque, a share of `foam`, and
-   *  how much of it is white over the water's own teal or crimson (D334: little white). */
-  whitewater: 0.46,
-  whitewaterTint: 0.2,
 } as const;
 
 /** Water of any depth draws as water, as the game draws it: a film is the same water as its body, not a faint
@@ -488,9 +482,6 @@ export const HIGH_WATER_GLSL = Object.entries(HIGH_WATER)
 export const WATER_GLSL = /* glsl */ `
 ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define WATER_CREST ${glColor(WATER.crest)}
-  #define FALL_TEAL ${glColor(WATER.fallTeal)}
-  #define FALL_BAD ${glColor(WATER.fallBad)}
-  #define FALL_BAD_STREAK ${glColor(WATER.fallBadStreak)}
   #define WATER_TEAL ${glColor(WATER.teal)}
   #define WATER_NAVY ${glColor(WATER.navy)}
   #define WATER_FOAM ${glColor(WATER.foam)}
@@ -513,26 +504,50 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define CLEAR_SHORE_WIDTH ${f(CLEAR_WATER.shoreWidth)}
   #define CLEAR_BAD_OPACITY ${f(CLEAR_WATER.badOpacity)}
   #define CLEAR_FADE ${f(CLEAR_WATER.fade)}
-  #define CLEAR_FALL ${f(CLEAR_WATER.fall)}
   #define WATER_CREST_AMOUNT ${f(WATER_SURFACE.crest)}
-  #define WATER_REFLECT ${f(WATER_SURFACE.reflect)}
   #define WATER_PALE_AMOUNT ${f(WATER_SURFACE.pale)}
-  #define WATER_SPEC ${f(WATER_SURFACE.spec)}
   #define WATER_EDGE ${f(WATER_SURFACE.edge)}
   #define BADWATER_TROUGH_AMOUNT ${f(BADWATER.trough)}
   #define BADWATER_STREAK_AMOUNT ${f(BADWATER.streak)}
-  #define BADWATER_REFLECT ${f(BADWATER.reflect)}
-  #define BADWATER_SPEC ${f(BADWATER.spec)}
+  #define WATER_SMOOTHNESS ${f(WATER_SURFACE.smoothness)}
+  #define WATER_SMOOTHNESS_SPREAD ${f(WATER_SURFACE.smoothnessSpread)}
+  #define BADWATER_SMOOTHNESS ${f(BADWATER.smoothness)}
+  /** The sky's reflection's weight at a smoothness, as the game's URP environment term (waterPalette.ts
+   *  WATER_SURFACE.smoothness): the part that rises toward the grazing angle. */
+  float waterSkyReflect(float NoV, float smoothness) {
+    float pr = 1.0 - smoothness;
+    float r = max(pr * pr, 0.0078125);
+    return ${f(WATER_SURFACE.reflection)} * (clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0) - ${f(WATER_SURFACE.f0)}) * pow(1.0 - clamp(NoV, 0.0, 1.0), 4.0) / (1.0 + r * r);
+  }
+  /** The game's own highlight on the ripples (waterPalette.ts WATER_SURFACE.highlight), at a tint; the caller
+   *  adds it × the sun's colour twice, before the light and after it. */
+  float waterCameraHighlight(vec3 N, vec3 V, float tint) {
+    // (the camera's forward direction: the view matrix's third row is its back axis)
+    vec3 F = -normalize(vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2]));
+    vec3 Fh = normalize(vec3(F.x, 0.0, F.z) + vec3(0.00001, 0.0, 0.0));
+    vec3 Lc = normalize(mix(F, Fh, ${f(WATER_SURFACE.highlight.horizon)}) - vec3(0.0, ${f(WATER_SURFACE.highlight.tilt)}, 0.0));
+    float spec = pow(clamp(dot(reflect(-Lc, N), V), 0.0, 1.0), ${f(WATER_SURFACE.highlight.exponent)});
+    float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), ${f(WATER_SURFACE.highlight.fresnelPower)});
+    float wrap = clamp((clamp(dot(N, Lc), 0.0, 1.0) + ${f(WATER_SURFACE.highlight.wrap)}) / ${f(1 + WATER_SURFACE.highlight.wrap)}, 0.0, 1.0);
+    float slope = max(0.0, 1.0 - pow(abs(N.y), 3.0));
+    return wrap * (fres * 0.5 + 0.5) * spec * slope * mix(${f(WATER_SURFACE.highlight.clean)}, ${f(WATER_SURFACE.highlight.bad)}, tint);
+  }
+  /** The sun's glint at a smoothness, as the game's URP GGX specular term (× f0 and N·L; the caller multiplies
+   *  by the sun's colour and its shadow). */
+  float waterSunGlint(vec3 N, vec3 V, vec3 L, float smoothness) {
+    float pr = 1.0 - smoothness;
+    float r = max(pr * pr, 0.002);
+    float r2 = r * r;
+    vec3 H = normalize(L + V);
+    float NoH = clamp(dot(N, H), 0.0, 1.0);
+    float LoH = clamp(dot(L, H), 0.0, 1.0);
+    float d = NoH * NoH * (r2 - 1.0) + 1.00001;
+    return r2 / (d * d * max(0.1, LoH * LoH) * (4.0 * r + 2.0)) * ${f(WATER_SURFACE.f0)} * max(dot(N, L), 0.0);
+  }
   #define BADWATER_GLINTS ${f(BADWATER.glints)}
   #define BADWATER_BUBBLES ${f(BADWATER.bubbles)}
   #define BADWATER_SIDE ${f(BADWATER.side)}
-  #define FALL_CLEAR ${f(WATER_FALL.clear)}
-  #define FALL_STREAK ${f(WATER_FALL.streak)}
-  #define FALL_FOAM ${f(WATER_FALL.foam)}
-  #define FALL_WHITEWATER ${f(WATER_FALL.whitewater)}
-  #define FALL_WHITEWATER_TINT ${f(WATER_FALL.whitewaterTint)}
-  #define FALL_INNER ${f(WATER_FALL.inner)}
-  #define BADWATER_FALL ${f(WATER_FALL.bad)}
+  #define WATER_FALL_SEE_THROUGH ${f(WATER_SURFACE.fallSeeThrough)}
   /** Clean water's depth as its colour and opacity see it, by how far the point is from a shore. */
   float waterSeenDepth(float depth, float shore) {
     return depth * mix(${f(WATER_SURFACE.bank)}, 1.0, smoothstep(0.0, ${f(WATER_SURFACE.bankWidth)}, shore));

@@ -36,6 +36,11 @@ export type GroundMode = "moisture" | "height";
 /** A tile's ground, as its colour shows it. */
 export type GroundKind = "moist" | "dry" | "contaminated" | "underwater";
 
+/** How the game's terrain shows soil moisture (SoilMoistureSystem `UpdateDesertIntensity`, its `SoilMoistureSimulatorSpec`
+ *  blueprint): its desert texture over all of a top at moisture 0, over (1 − m / threshold) × max of one at moisture m up to
+ *  the threshold, none above (the shaders' `grassOf`; D135 as amended 2026-10-29). */
+export const DESERT = { threshold: 5, max: 0.7 } as const;
+
 export const GROUND = {
   /** Dry ground: cracked earth in a warm brown, with dark cracks; plants die there. Broad patches
    *  drift between it, a cooler mauve and a warmer tan (D334, from Timberborn's references: the earth

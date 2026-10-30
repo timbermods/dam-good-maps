@@ -13,7 +13,7 @@ import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { GROUND } from "../../src/render3d/palette";
 import { CHUNK } from "../../src/render3d/mesh";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
-import { BADWATER, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
+import { BADWATER, WATER_SURFACE, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
 import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
 
@@ -161,10 +161,11 @@ describe("badwater meeting clean water", () => {
         if (top) expect(c).toBe(x < 2.5 ? 1 : 0);
       }
     }
-    // (D148: the fall was a curtain; since D201 it pours from the lip, and carries its badwater
-    // share at both corners)
-    expect(m.fallCount).toBe(1);
-    expect([m.falls[12], m.falls[13]]).toEqual([1, 1]);
+    // (D148: the fall was a curtain, then from D201 a ribbon from the lip; since D201's amendment (2026-10-29) a curtain
+    // again, as the game draws it, with the pool's share at every corner)
+    const fall = [...Array(m.quads).keys()].filter((q) => m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 3) < 0.05 && m.flags[q * 4] === 90);
+    expect(fall.length).toBe(1);
+    expect([0, 1, 2, 3].map((v) => m.data[(fall[0] * 4 + v) * 2 + 1])).toEqual([1, 1, 1, 1]);
   });
 
   it("remeshes every chunk the blend reaches when the badwater changes", () => {
@@ -232,8 +233,11 @@ describe("badwater's colour", () => {
     expect(badwaterOpacity(0.005)).toBeLessThan(badwaterOpacity(0.05));
     // matte: a twelfth of clean water's glints and glint, and a trace of the sky
     expect(BADWATER.glints).toBeLessThan(0.1);
-    expect(BADWATER.spec).toBeLessThan(0.1);
-    expect(BADWATER.reflect).toBeLessThan(0.1);
+    // matte by the game's own smoothness (_Contamination_Smoothness 0.15 against clean water's about 0.25, the soft-lit
+    // gloss map's median): its sky reflection and sun glint from the same lighting, weaker (D148: these were #38's own
+    // reflect 0.03 and spec 0.04)
+    expect(BADWATER.smoothness).toBe(0.15);
+    expect(WATER_SURFACE.smoothness).toBe(0.25);
     expect(badwaterBody(BADWATER.shallow)).toEqual(WATER.bad);
     // darker with depth (option A's depth darkening, now the game's ramp, checked against it below; option A's
     // own "15 L* darker at 4 levels" went with its curve, D148)

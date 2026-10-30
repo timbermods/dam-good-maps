@@ -92,6 +92,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
 
   /** Send the worker a stroke, an undo or a redo of one; the page has shown it already. */
   function sendTerrain(fn: () => Promise<SessionUpdate>): Promise<void> {
+    juice.current?.edited();
     pendingTerrain.current++;
     const next = queue.current.then(async () => {
       setBusy((b) => b + 1);
@@ -151,7 +152,11 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     if (ed.forcer.current?.running) return ed.forcer.current.cancel();
     if (painter.current?.painting) return painter.current.cancel();
     const s = localUndo.current.pop();
-    if (!s) return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
+    if (!s) {
+      // (a force just kept: its tails stop at the key, not when the worker answers)
+      juice.current?.takeBack();
+      return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
+    }
     juice.current?.undo();
     showStroke(s, "before");
     localRedo.current.push(s);

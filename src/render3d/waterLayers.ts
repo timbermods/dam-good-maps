@@ -31,8 +31,8 @@ import { LAYERS, type SurfaceWater, type WaterView } from "./model";
 /** The ground a column sees where rock stands at its level: higher than any water. */
 export const WALL = 255;
 
-/** How far round a column (tiles, either way) its mesh reads the water and ground: a fall's lips and their ends,
- *  their pools and outflows (four), and the badwater's blend round them (three more, less what overlaps). */
+/** How far round a column (tiles, either way) its mesh reads the water and ground: a top's corners and curtains
+ *  one, the badwater's blend three more (kept at four, as when a fall read its lips' pools and outflows). */
 export const LAYER_REACH = 4;
 
 export interface WaterLayer {
@@ -364,8 +364,8 @@ function surfaceOn(W: number, H: number, view: WaterView, sw: SurfaceWater, colA
   return { surface, floor, depth, contamination, top, outflow: view.outflow ?? null, lower: [] };
 }
 
-/** The land under water changed and `sw` rode it (waterMesh.ts `rideLand`) over the tiles of `rect`: the layers'
- *  open columns there follow it, as they were made from it. */
+/** The land under water changed and `sw` rode it (waterMesh.ts `rideLand`), or a held day's water was kept on it
+ *  (`holdLand`), over the tiles of `rect`: the layers' open columns there follow it, as they were made from it. */
 export function rideLayers(W: number, layers: readonly WaterLayer[], sw: SurfaceWater, rect: { x0: number; y0: number; x1: number; y1: number }): void {
   const H = sw.surface.length / W;
   for (const l of layers) {
@@ -375,6 +375,7 @@ export function rideLayers(W: number, layers: readonly WaterLayer[], sw: Surface
         const k = l.sw.top[j];
         if (k < 0 || sw.top[j] !== k) continue;
         l.sw.floor[j] = sw.floor[j];
+        l.sw.depth[j] = sw.depth[j];
         l.sw.surface[j] = sw.surface[j];
       }
   }
