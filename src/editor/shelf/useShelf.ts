@@ -100,6 +100,8 @@ export function useShelf(ed: Ed): ShelfSlice {
    *  tile's top. */
   const levelOf = (hit: TileHit | null) => aimOf(hit, info.W, mirror.current.heights, ed.columnsRef.current);
   useEffect(() => {
+    // (a start check still in flight is for what was held before: its answer shows nothing)
+    ++shelfStartJob.current;
     fitWant.current = null;
     shownFit.current = null;
     setFit(null);
@@ -389,6 +391,8 @@ export function useShelf(ed: Ed): ShelfSlice {
         notePointer(ev);
         aimHit.current = hit;
         if (!hit) {
+          // (off the map: a start check still in flight brings nothing back)
+          ++shelfStartJob.current;
           r.setGhost(null);
           r.setForceRing(null);
           dryRing.current = false;
