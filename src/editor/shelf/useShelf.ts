@@ -165,7 +165,8 @@ export function useShelf(ed: Ed): ShelfSlice {
           const here = shelfTile.current;
           if (!mounted.current || shelfRef.current?.id !== "start" || !here || here[0] !== x || here[1] !== y || shelfLevel.current !== level) return;
           shownFit.current = { spot, problem: fit.problem };
-          setFit({ tiles: own, problem: fit.problem, status: fit.problem ? "blocked" : warning ? "warn" : "pending" });
+          // (the core's answer is the whole check on a cave or an overhang: green as its ghost is)
+          setFit({ tiles: own, problem: fit.problem, status: fit.problem ? "blocked" : warning ? "warn" : "ok" });
           shelfWord(fit.problem, warning);
           if (ghostAt.current) renderer.current?.setGhost({ ...ghostAt.current, ok: fit.problem ? false : warning ? "warn" : true });
         });

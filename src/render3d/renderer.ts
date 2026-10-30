@@ -705,8 +705,9 @@ export class MapRenderer {
   }
 
   /** The programs an edit could switch the look drawn to next (every state of the map an edit can bring, the falls'
-   *  and water's while none are drawn, the drought line's), compiled in the background a moment after a map is drawn,
-   *  a few at a time while the page is idle, so a switch finds them ready (programs.ts); then the other look's, in every
+   *  and water's while none are drawn, the drought line's, the edit glow's, the forces' moments'), compiled in the
+   *  background a moment after a map is drawn, a few at a time while the page is idle, so a switch finds them ready
+   *  (programs.ts); then the other look's, in every
    *  state too (in Standard where High can be drawn: High's, so a switch to it and a dig right after are drawn at
    *  once; in High: Standard's). Not where the browser draws in software or can't compile in the background, nor for
    *  the map's picture (it compiles its own, `compileAhead`). */
@@ -725,6 +726,8 @@ export class MapRenderer {
       for (const m of this.lineCopy) list.push([m, { ...(m.defines as Defines) }]);
       // (the edit glow's, drawn when an edit first lands: one program in every look and state, editGlow.ts)
       list.push([this.glowMat, { ...(this.glowMat.defines as Defines) }]);
+      // (the forces' moments', drawn when a force first plays: Erode's dust and stones, forces.ts)
+      for (const m of this.forceFxOf().shaderMaterials()) list.push([m, { ...((m.defines ?? {}) as Defines) }]);
       if (h) list.push(...std);
       else if (this.canHigh) list.push(...this.highCopyList(STATES));
       const sent: Promise<void>[] = [];

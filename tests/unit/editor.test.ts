@@ -8,7 +8,7 @@ import type { Feature } from "../../src/core/features/schema";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { anchorOf, clampMove, describeTile, entitiesByTile, featureName, FeatureIndex, feedingGroups, moveBlocked, movePatch, rectOf, rectOutline, rectRuns, sourceGroups, tabOf } from "../../src/editor/features";
-import { paintOverlay, SELECTED } from "../../src/editor/tools";
+import { GOOD, paintOverlay, SELECTED } from "../../src/editor/tools";
 import { entityView, surfaceWater, waterFromDepth } from "../../src/render3d/model";
 
 const W = 64;
@@ -175,6 +175,19 @@ describe("the drawing tools", () => {
     paintOverlay(data, W, H, [{ tiles: [W + 1], color: SELECTED, dx: 1 }]);
     expect([...data.subarray((W + 2) * 4, (W + 2) * 4 + 4)]).toEqual(SELECTED);
     expect(data[(W + 1) * 4 + 3]).toBe(0);
+  });
+
+  it("tell a footprint's tiles to the shader by an odd alpha, every other layer's even, the markers' 255 kept", () => {
+    const data = new Uint8Array(W * H * 4);
+    paintOverlay(data, W, H, [
+      { tiles: [1], color: GOOD, edge: true },
+      { tiles: [2], color: [10, 20, 30, 171] },
+      { tiles: [3], color: [10, 20, 30, 255], edge: true },
+    ]);
+    expect(data[1 * 4 + 3] % 2).toBe(1);
+    expect(Math.abs(data[1 * 4 + 3] - GOOD[3])).toBeLessThanOrEqual(1);
+    expect(data[2 * 4 + 3]).toBe(170);
+    expect(data[3 * 4 + 3]).toBe(255);
   });
 });
 

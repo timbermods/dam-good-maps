@@ -3,13 +3,13 @@
 
 import { describe, expect, it } from "vitest";
 import { emptyDroughtLine, SIDE_EAST, SIDE_NORTH, SIDE_SOUTH, SIDE_WEST, type DroughtLine } from "../../src/core/sim/droughtLine";
-import { droughtLineGeometry, FACE_INSET, LINE_ALPHA, LINE_WIDTH, TINT_ALPHA, TINT_LIFT, type QuadBuffers } from "../../src/render3d/droughtLineGeometry";
+import { droughtLineGeometry, FACE_INSET, LINE_ALPHA, LINE_WIDTH, TINT_ALPHA, TINT_LIFT, UNDER_WATER, type QuadBuffers } from "../../src/render3d/droughtLineGeometry";
 
 const W = 8;
 const H = 8;
 const heights = new Uint8Array(W * H).fill(3);
 
-function lineOf(entries: { tile: number; sides: number; level: number; start?: number }[], bed: { tile: number; gone: number; start?: number }[] = []): DroughtLine {
+function lineOf(entries: { tile: number; sides: number; level: number; start?: number; under?: number }[], bed: { tile: number; gone: number; start?: number }[] = []): DroughtLine {
   const l = emptyDroughtLine(W, H, 9);
   l.line = {
     count: entries.length,
@@ -17,6 +17,7 @@ function lineOf(entries: { tile: number; sides: number; level: number; start?: n
     sides: Uint8Array.from(entries.map((e) => e.sides)),
     level: Float32Array.from(entries.map((e) => e.level)),
     start: Uint8Array.from(entries.map((e) => e.start ?? 0)),
+    under: Uint8Array.from(entries.map((e) => e.under ?? 0)),
   };
   l.bed = { count: bed.length, tile: Int32Array.from(bed.map((b) => b.tile)), gone: Uint8Array.from(bed.map((b) => b.gone)), start: Uint8Array.from(bed.map((b) => b.start ?? 0)) };
   return l;
@@ -113,6 +114,11 @@ describe("the drought line's geometry", () => {
     const b = quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4 }]), heights).line)[0].a;
     expect(a).toBeCloseTo(LINE_ALPHA.start, 5);
     expect(b).toBeCloseTo(LINE_ALPHA.other, 5);
+    // faint: an editing aid, never as strong as a selection's outline
+    expect(LINE_ALPHA.start).toBeLessThanOrEqual(0.5);
+    // under today's water (the line says so: `under`) it is seen through the water, fainter still
+    expect(quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4, under: 1 }]), heights).line)[0].a).toBeCloseTo(LINE_ALPHA.other * UNDER_WATER, 5);
+    expect(quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4, under: 1, start: 1 }]), heights).line)[0].a).toBeCloseTo(LINE_ALPHA.start * UNDER_WATER, 5);
     expect(a).toBeGreaterThan(b);
     expect(a).toBeLessThan(1);
     // the tint's opacity per look: the start's a little stronger, High's near-opaque water asking for more, all faint
