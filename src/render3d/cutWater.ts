@@ -7,17 +7,17 @@
 // onto the cut, as the terrain's folds the ground, from each vertex's own column (its floor, `WaterMeshData.cut`): the
 // top lies on the cut, shallower by what the cut took away (`cutCornerDepth`), and its sides stop at the cut. A gone
 // column's sides fold flat, so one hanging below its floor (to lower water in front of a cliff) leaves nothing. Nothing
-// is remeshed when the level changes: the cut stays one uniform. A fall whose lip stands over the cut is gone; its
-// landing stays where its pool is below the cut (`fallSheetCut`). The ribbons and the Flow view's streaks follow the
-// same rule (motion.ts). The terrain counts a top as under water exactly where this draws water over it
+// is remeshed when the level changes: the cut stays one uniform. A fall is the water's own side where it steps down
+// (D201 amended 2026-10-29), so it stops at the cut as any side does; the Flow view's streaks follow the same rule
+// (motion.ts). The terrain counts a top as under water exactly where this draws water over it
 // (`bedAtCut`; materials.ts `soilOf` and the run tops' `groundAt`), so a sliced lake's bed reads as a bed.
 //
 // These functions are the shaders' rules in plain code, for the tests (tests/unit/cutWater.test.ts).
 
 import type { SurfaceWater } from "./model";
 
-/** How far over the cut a water surface may stand and still be drawn whole (the water's, the falls' and the ribbons'
- *  shaders, `soilOf`): a film lying on ground at the cut is drawn as it is. */
+/** How far over the cut a water surface may stand and still be drawn whole (the water's shader, `soilOf`): a film
+ *  lying on ground at the cut is drawn as it is. */
 export const CUT_SLACK = 0.05;
 
 /** Where a water column with its floor at `floor` and its surface at `surface` is drawn under a cut at `cut` (null: no
@@ -56,12 +56,4 @@ export function ringLevelAt(heights: ArrayLike<number>, sw: Pick<SurfaceWater, "
   const top = cut === null ? heights[i] : Math.min(heights[i], cut);
   const water = waterLevelAt(sw, i, cut);
   return water === null ? top : Math.max(top, water);
-}
-
-/** What a fall draws under a cut at `cut` (null: no cut), its lip at `lip` (the higher end's) and its pool at `pool`:
- *  "whole" where its lip is within `CUT_SLACK` of the cut or below; "landing" (its splash and crown only) where the
- *  lip stands over the cut and the pool not; "none" where the pool stands over the cut too. */
-export function fallSheetCut(lip: number, pool: number, cut: number | null): "whole" | "landing" | "none" {
-  if (cut === null || lip <= cut + CUT_SLACK) return "whole";
-  return pool <= cut + CUT_SLACK ? "landing" : "none";
 }

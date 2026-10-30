@@ -1,35 +1,29 @@
 // Water surfaces (PLAN §14.2: "water surfaces as translucent quads at depth"), meshed per chunk
-// like the terrain. Each wet tile gets a flat quad at its surface. Where it pours over a side into
-// water at least FALL_MIN lower, a fall leaves the lip and arcs down into it (falls.ts, D201: the
-// chunk's falls are listed with its water); where a neighbour's ground, or its water just below, is
-// lower, a curtain hangs from the surface down to it, the water's side. With terrain above terrain
+// like the terrain. Each wet tile gets a flat quad at its surface. Where a neighbour's ground, or its
+// water, is lower, a curtain hangs from the surface down to it, the water's side; a fall is such a
+// curtain down to water well below, as the game draws its falls (the water mesh's own vertical faces,
+// D201 amended 2026-10-29). With terrain above terrain
 // every water column (a cave's pool, the lake on its roof) is drawn the same way on its own floor,
 // seeing the water and ground at its own level round it (waterLayers.ts). Each vertex carries a depth and badwater share,
 // which the shader turns into colour and opacity (Map look, D86: a top's corners share depth with
 // the tiles round the corner, so the water thins toward the shore; D177: the badwater share is
 // blended over the connected water a few tiles round, then shared at the corners too, so where
 // badwater meets clean water the colour turns in a soft gradient over several tiles, never tile by
-// tile), and flags for the foam: which sides of a top meet the shore, which take a fall from higher
-// water, and which a fall leaves over.
+// tile), and flags: which sides of a top meet the shore.
 
-import { FALL_MIN, FALL_STRIDE, pushFall } from "./falls";
 import { CHUNK } from "./mesh";
-import type { SurfaceWater } from "./model";
+import type { SurfaceWater, WaterView } from "./model";
 import type { WaterLayer } from "./waterLayers";
 
-/** Foam flags of a water top: bits 0–3 the sides (east, west, north, south) where it meets the
- *  shore, bits 4–7 the sides where a fall comes down into it (its whitewater is the fall's splash),
- *  bits 8–11 the sides a fall leaves over (a line of foam along the brink). A curtain's flags are
- *  its drop (`dropFlags`); the map's edge has none. */
+/** Flags of a water top: bits 0–3 the sides (east, west, north, south) where it meets the shore. A curtain's
+ *  flags are its drop (`dropFlags`); the map's edge has none. */
 export const SHORE_BITS = [1, 2, 4, 8] as const;
-export const FALL_IN_BITS = [16, 32, 64, 128] as const;
-export const LIP_BITS = [256, 512, 1024, 2048] as const;
 
 export interface WaterMeshData {
   positions: Float32Array;
   /** depth, contamination per vertex. */
   data: Float32Array;
-  /** Foam flags per vertex (SHORE_BITS, FALL_IN_BITS, LIP_BITS). */
+  /** Flags per vertex (SHORE_BITS, or a curtain's drop). */
   flags: Float32Array;
   /** Per vertex, for a layer cut (cutWater.ts): the floor of its column, and on a top the corner's wet share (the share
    *  of the tiles its depth is shared with that are water, `corner`), 1 on a side. */
@@ -38,9 +32,6 @@ export interface WaterMeshData {
   normals: Int8Array;
   indices: Uint32Array;
   quads: number;
-  /** The chunk's falls, FALL_STRIDE floats each (falls.ts `pushFall`), and how many. */
-  falls: Float32Array;
-  fallCount: number;
   /** Its bounding sphere (x, y, z, radius), when made beside it (the water worker). */
   sphere?: Float64Array;
 }
@@ -52,8 +43,6 @@ class WaterBuffer {
   flg: number[] = [];
   cut: number[] = [];
   quads = 0;
-  /** The falls (falls.ts `pushFall`), FALL_STRIDE floats each. */
-  falls: number[] = [];
   /** A quad of a column on `floor` with its own depth, badwater share and wet share (`WaterMeshData.cut`) at each
    *  corner. */
   quad4(c: number[], depth: readonly number[], cont: readonly number[], floor: number, share: readonly number[], nx: number, ny: number, nz: number, flags = 0): void {
@@ -73,8 +62,7 @@ class WaterBuffer {
       const v = q * 4;
       indices.set([v, v + 1, v + 2, v, v + 2, v + 3], q * 6);
     }
-    const falls = new Float32Array(this.falls);
-    return { positions: new Float32Array(this.pos), data: new Float32Array(this.data), flags: new Float32Array(this.flg), cut: new Float32Array(this.cut), normals: new Int8Array(this.nrm), indices, quads: n, falls, fallCount: falls.length / FALL_STRIDE };
+    return { positions: new Float32Array(this.pos), data: new Float32Array(this.data), flags: new Float32Array(this.flg), cut: new Float32Array(this.cut), normals: new Int8Array(this.nrm), indices, quads: n };
   }
 }
 
@@ -83,8 +71,8 @@ const STEP = 0.02;
 /** Water within this of a tile's surface is the same water: it shares depth and badwater at the
  *  corners, and the badwater blend reaches across it. */
 const SAME_WATER = 0.35;
-/** Higher than this above the surface, a neighbour's water falls into a tile: a fall. */
-const FALL = FALL_MIN;
+/** Higher than this above the surface, a neighbour's water falls into a tile: a fall (the blend never crosses one). */
+export const FALL = 0.3;
 
 /** How the badwater share is blended between tiles (D177): a binomial kernel along rows, then
  *  along columns, from the tile itself out to 3 tiles away. A clean/bad front becomes a gradient
@@ -116,8 +104,8 @@ function blend(W: number, H: number, sw: SurfaceWater): Float32Array {
   return out;
 }
 
-/** Tiles round a chunk whose blend its mesh reads: a top's corner reads one past the chunk, a fall's lips and their
- *  ends two; two more for safety. */
+/** Tiles round a chunk whose blend its mesh reads: a top's corner reads one past the chunk; three more for safety
+ *  (as when a fall's lips read two, before D201's amendment). */
 const BLEND_WINDOW = 4;
 
 /** A map-sized array the row pass of `blendInto` works in (kept: a chunk's mesh asks for a window of the blend
@@ -193,7 +181,7 @@ export function dropFlags(top: number, bottom: number, edge: boolean): number {
   return edge ? EDGE_CURTAIN : Math.min(254, Math.round((top - bottom) * 30));
 }
 
-/** A chunk's water (its tops, curtains and falls), layer by layer (waterLayers.ts): each layer's columns drawn on
+/** A chunk's water (its tops and curtains, falls among them), layer by layer (waterLayers.ts): each layer's columns drawn on
  *  what they see round them. One layer, the open sky's, on a map without terrain above terrain (`plainLayers`). */
 export function meshWaterChunk(W: number, H: number, layers: readonly WaterLayer[], cx: number, cy: number): WaterMeshData {
   const b = new WaterBuffer();
@@ -209,7 +197,7 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
   const y0 = cy * CHUNK;
   const x1 = Math.min(W, x0 + CHUNK);
   const y1 = Math.min(H, y0 + CHUNK);
-  // the blend of the chunk's window only (a corner reads a tile past the chunk, a fall's lips two): the page's thread
+  // the blend of the chunk's window only (a corner reads a tile past the chunk): the page's thread
   // blends no more of a 512x512 map than the chunk it meshes
   if (badScratch.length < W * H) badScratch = new Float32Array(W * H);
   const bad = badScratch;
@@ -253,9 +241,7 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
         const d = sw.depth[i];
         const c = bad[i];
         const f = sw.floor[i];
-        // foam: a side meets the shore where dry ground stands at the surface or above it, takes a
-        // fall where the neighbour's water stands well above it, and pours over a lip where it
-        // stands well below (a fall, falls.ts)
+        // a side meets the shore where dry ground stands at the surface or above it
         let flags = 0;
         for (let k = 0; k < 4; k++) {
           const xx = x + (k === 0 ? 1 : k === 1 ? -1 : 0);
@@ -263,10 +249,7 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
           const j = yy * W + xx;
           const ns = sw.surface[j];
-          if (ns === ns) {
-            if (ns - s >= FALL) flags |= FALL_IN_BITS[k];
-            if (pushFall(b.falls, W, H, heights, sw, bad, x, y, k)) flags |= LIP_BITS[k];
-          } else if (heights[j] >= s - 0.05) flags |= SHORE_BITS[k];
+          if (!(ns === ns) && heights[j] >= s - 0.05) flags |= SHORE_BITS[k];
         }
         const k0 = corner(x, y, s, d, c);
         const k1 = corner(x + 1, y, s, d, c);
@@ -280,8 +263,7 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
         b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], f, [k0[2], k1[2], k2[2], k3[2]], 0, 1, 0, flags);
         // curtains toward lower neighbours: down to the ground (never below the floor), or to the
         // water just below, in front of the cliff where it stands below the floor; each with the
-        // badwater share of the top's edge it hangs from. Where the water falls into water well
-        // below, the fall pours from the lip instead (above)
+        // badwater share of the top's edge it hangs from; down to water well below, a fall
         const dd = [d, d, d, d];
         const side = [1, 1, 1, 1];
         const drop = (xx: number, yy: number): number => {
@@ -289,7 +271,6 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
           if (!(lv < s - STEP)) return NaN;
           const inside = xx >= 0 && yy >= 0 && xx < W && yy < H;
           const wetBelow = inside && sw.surface[yy * W + xx] === sw.surface[yy * W + xx];
-          if (wetBelow && s - lv >= FALL) return NaN;
           return wetBelow ? lv : Math.max(lv, f);
         };
         const O = 0.015; // a curtain to lower water stands just off the cliff's face
@@ -348,7 +329,7 @@ export const MOVED_WATER = { level: 0.005, share: 0.01 };
 
 /** Chunks whose drawn water differs from `sw` by more than `tol` (a tile's surface, depth or badwater
  *  share; wet or dry), with the chunks within six tiles (the badwater's blend reaches three, a top's
- *  corners, curtains and falls three more). */
+ *  corners and curtains three more, kept from when a fall read its pool's room). */
 export function waterMovedChunks(W: number, H: number, drawn: DrawnWater, sw: SurfaceWater, tol: { level: number; share: number }): Set<string> {
   const marks = chunkMarks(W, H);
   for (let y = 0; y < H; y++)
@@ -443,9 +424,8 @@ export function exactWaterChunks(W: number, H: number, drawn: DrawnWater, before
 
 /** Chunks whose water differs between two surface-water states: a tile's surface, depth or
  *  blended badwater share changed (the blend reaches a few tiles past a change of badwater). A
- *  top's corners and curtains read the tiles round it, and a fall the flow of the lips beside it and
- *  round its corners (which reads the tiles round them) and the pool up to three tiles out (its
- *  splash's room), so a chunk is also dirty when a tile up to three away changed. `quick` (a stroke's
+ *  top's corners and curtains (a fall among them) read the tiles round it, so a chunk is also dirty when a
+ *  tile up to three away changed (the reach kept from when a fall read its pool's room, three tiles out). `quick` (a stroke's
  *  water, many times a second): the raw badwater share compared instead of the blend, and every
  *  change reaching three tiles further (as far as the blend reaches), so no blend is made for it:
  *  every chunk the blend's comparison finds, and a few more. */
@@ -506,4 +486,87 @@ export function rideLand(W: number, sw: SurfaceWater, was: ArrayLike<number>, no
       moved = true;
     }
   return moved;
+}
+
+/** Wetter than this, a held tile's water is drawn (the 2D preview's threshold, model.ts `WET`). */
+const HELD_WET = 0.001;
+
+/** A held weather day's surface per tile (D133), from the day's water as it came (`view`, never the surface water drawn,
+ *  which an edit changes): the level of the water standing on the tile's top (`top`, each tile's surface column in the
+ *  view), on `heights` or on the land before its last change (`before`, water worked out a step behind it); NaN
+ *  elsewhere (dry, or water under a roof, whose floor is not the tile's top). `holdLand` keeps it under any land. */
+export function heldSurfaceOf(view: WaterView, top: ArrayLike<number>, heights: ArrayLike<number>, before?: ArrayLike<number> | null): Float32Array {
+  const n = heights.length;
+  const out = new Float32Array(n).fill(NaN);
+  for (let i = 0; i < n; i++) {
+    const k = top[i];
+    if (k < 0) continue;
+    const f = view.floor[k];
+    const d = view.depth[k];
+    if (d > HELD_WET && (f === heights[i] || (before && f === before[i]))) out[i] = f + d;
+  }
+  return out;
+}
+
+/** A held weather day's water on the land `now` (D133; while a drought or a badtide is held, until the edited map's
+ *  own day comes): nothing simulates it, so it never rides the land as `rideLand` carries live water. Each tile's
+ *  water stands at the day's surface (`held`, `heldSurfaceOf`), depth max(0, held − now): land raised to it or above
+ *  holds none, land under it holds water up to it, lowered land fills deeper to it. A tile the day had dry, or water
+ *  under a roof, is left as it is, so the land invents no water there. Worked out from `held` and `now` alone, so the
+ *  same land always gives the same water (land put back, an undo, a flip of Compare and back). Writes `sw`, which must
+ *  be the drawn copy, never the day's own water; over the tiles of `rect` (all of them when left out); true when any
+ *  changed. */
+export function holdLand(W: number, sw: SurfaceWater, held: ArrayLike<number>, now: ArrayLike<number>, rect?: { x0: number; y0: number; x1: number; y1: number }): boolean {
+  const H = now.length / W;
+  const x0 = Math.max(0, rect?.x0 ?? 0);
+  const y0 = Math.max(0, rect?.y0 ?? 0);
+  const x1 = Math.min(W - 1, rect?.x1 ?? W - 1);
+  const y1 = Math.min(H - 1, rect?.y1 ?? H - 1);
+  let changed = false;
+  for (let y = y0; y <= y1; y++)
+    for (let i = y * W + x0, end = y * W + x1; i <= end; i++) {
+      const s = held[i];
+      if (s !== s) continue;
+      const b = now[i];
+      const d = s - b;
+      if (d > HELD_WET) {
+        if (sw.floor[i] === b && sw.surface[i] === s) continue;
+        sw.floor[i] = b;
+        sw.depth[i] = d;
+        sw.surface[i] = s;
+      } else {
+        if (sw.surface[i] !== sw.surface[i]) continue;
+        sw.floor[i] = NaN;
+        sw.depth[i] = 0;
+        sw.surface[i] = NaN;
+      }
+      changed = true;
+    }
+  return changed;
+}
+
+/** The tiles whose water differs between `a` and `b` (wet or dry, its surface or its depth), as the rectangle round
+ *  them, or null where none does. */
+export function waterChangedRect(W: number, a: SurfaceWater, b: SurfaceWater): { x0: number; y0: number; x1: number; y1: number } | null {
+  let x0 = W;
+  let y0 = Infinity;
+  let x1 = -1;
+  let y1 = -1;
+  for (let i = 0; i < a.surface.length; i++) {
+    const sa = a.surface[i];
+    const sb = b.surface[i];
+    if (sa !== sa ? sb !== sb : sa === sb && a.depth[i] === b.depth[i]) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    y1 = y;
+  }
+  return x1 < 0 ? null : { x0, y0, x1, y1 };
+}
+
+/** A copy of surface water whose levels can be written (`holdLand`) without touching the water it was made from. */
+export function ownSurface(sw: SurfaceWater): SurfaceWater {
+  return { ...sw, surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice() };
 }

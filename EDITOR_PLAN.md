@@ -63,7 +63,8 @@ place of its bottom rule.
 - **The header:** **Map Generator** alone at the left edge (a small folded-map icon and its name, tinted in the mint),
   lit while the panel is open. The map's
   name at the window's exact centre, and under it "Seed 4242 · 128×128" (an opened file shows its size; if this
-  browser can't keep the map, that line says so); it never reaches either side: where the room is short the second
+  browser can't keep the map, that line says so; an Easy start map adds "· Easy start", D495, or "· Easy start (fell
+  short)" when a late rescue round made it, its tooltip and a Good to know line in the checks dot naming what fell short); it never reaches either side: where the room is short the second
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
   font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443; the title shows the name and is fitted at once, never waiting for the worker's answer),
   Esc cancels, and a blank name is refused in the core's words, said in the second line. While the name is edited a small card hangs under it with the map's description ("Describe the map" while none is written; Enter saves, Shift+Enter is a line break, Esc cancels; the `setDescription` operation, one undo step, refused in the core's words in the card; empty takes the player's text away; what the file adds after it shows under the field); focus moving between the name and the card saves nothing until it leaves the title. A typed name stops at what
@@ -119,7 +120,9 @@ place of its bottom rule.
   empty, the open map's name in grey in it; what is typed names the map **Generate** makes next, then the field is
   empty again, and the open map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
   settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
-  Custom, its width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
+  Custom, then the **Easy start** toggle at the line's end, D495: "A flat, roomy start with water and food close by";
+  on, the next map's start is calm and generous, PLAN §5.6; a theme, Surprise me and Reset settings keep it, the page
+  remembers it in this browser and the share link carries it, `es=1`; Custom's width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses; Generate on a side under the theme's least (48, Islands 64)
   says so in one line, "Canyon needs at least 48 tiles a side to generate", as a note over the map (no dialog dims it,
   and a map that fails its checks says "No valid map" the same way), and the open map stays). Then two columns (three in the wider shapes: Terrain and Hazards; Water and Difficulty; Resources and "On this map"): Terrain, Water and Hazards; Resources (the species mix one
@@ -486,7 +489,8 @@ place of its bottom rule.
   names with the page's highlight (the legend's: a blue tint, brighter at the edge), an object's whole footprint, until Esc, a
   left press on the map or another Show; a camera move (right or middle drag, the wheel) leaves them (`editor/view/useViewSync.ts`).
 - **No notices strip** (Kyler, 2026-10-03, amending D213): nothing under the map changes the page's size. The quiet
-  dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, and lists an opened
+  dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, what an Easy start map
+  made in a late rescue round left short of its targets (Good to know, uncounted, D495), and lists an opened
   file's import flags with their fixes (counted).
 - **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades.
 
@@ -949,7 +953,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   {x, y, w, h}}` (the selection's bounding rectangle, in tiles) makes the map exactly that rectangle of itself. The
   ground (its runs: caves and overhangs stay), water, soil, objects and sources inside keep their place relative to the
   new origin; everything outside is gone; an object whose footprint crosses the edge is removed, counted in the result
-  (`removedObjects`; `planCrop` answers it before applying). One-line refusals, never clamped: a rectangle off the map; a
+  (`removedObjects`; `planCrop` answers it before applying). So is a slope whose step the edge cuts (its high side or the
+  ground behind its foot past the new edge: it would join no step, `slopes.connect`), and a slope climbing from one so
+  cut; the lip never raises the step a kept slope joins. One-line refusals, never clamped: a rectangle off the map; a
   side under 4 or over 512; the same size as the map ("nothing to crop"); a start the edge would cut or leave outside
   ("The start would be cut off: move it inside the selection first"). The crop is the first operation of the map's next
   generation (`MapDocument.prior` holds the one before it with its operations), so it is one undo step that brings the
@@ -1056,7 +1062,7 @@ Make a valley, drop a source, and there's a river.
   shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
   holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
   **◀ Day N of L ▶** (and ← →; L is the hazard's length for the map's difficulty, a drought of 9 days) steps from Day 0 to past the default length (then it reads "Day 10 past 9", never "of 9"); a double-click takes a typed day. Each
-  hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. **Hovering water in the Drought view says when it dries** (D133): the readout adds "Dry on day 6" to the tile's words, or "Lasts the drought" once the days are worked out to the drought's end (before that, water that has not yet gone says nothing rather than guess); ground that holds no water on Day 0 says nothing. In the Badtide view the readout adds "Turns bad on day 4" the same way (`firstBad`, `BadDays`, `badWords`; the hover's own "badwater" shows only from 95% bad), and says nothing for water that stays clean, water bad from Day 0 or days not yet worked out. The days come from the worker with each day (`firstDry` and `firstBad` per tile, `core/sim/firstDays.ts` `DryDays` and `BadDays`, a drought's also `firstDryWet0`, the run's own Day 0 water; the words `dryWords` and `badWords`, said by `heldWords` only for the map the days were worked out on, so after an edit while the view is held the hover says nothing until the edited map's days come); the page only looks up the tile. **Under the day box, the start's water** (D133): in the Drought view a quiet line "Day 6: your start's water is gone", the first day no water joined to the start's Day 0 water is one a pump on a shore within the start's water rule's walk reaches (clean, 0.3 deep: the water may still lie on the map); in the Badtide view "Day 3: badwater reaches your start's water", the first day badwater stands where such a pump would draw it. It says nothing while the day is not among those worked out yet, for an older map, or when the start has no water a pump reaches on Day 0 (`core/sim/startWaterDay.ts` `StartWaterDays`, fed the run's days by the worker as the first days are; `startWaterWords`). A day the background's days find while an earlier day is held shows at once (the worker's `startWater` event), not with the next day stepped to. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
+  hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. **Hovering water in the Drought view says when it dries** (D133): the readout adds "Dry on day 6" to the tile's words, or "Lasts the drought" once the days are worked out to the drought's end (before that, water that has not yet gone says nothing rather than guess); ground that holds no water on Day 0 says nothing. In the Badtide view the readout adds "Turns bad on day 4" the same way (`firstBad`, `BadDays`, `badWords`; the hover's own "badwater" shows only from 95% bad), and says nothing for water that stays clean, water bad from Day 0 or days not yet worked out. The days come from the worker with each day (`firstDry` and `firstBad` per tile, `core/sim/firstDays.ts` `DryDays` and `BadDays`, a drought's also `firstDryWet0`, the run's own Day 0 water; the words `dryWords` and `badWords`, said by `heldWords` only for the map the days were worked out on, so after an edit while the view is held the hover says nothing until the edited map's days come); the page only looks up the tile. **An edit while a day is held** never carries the day's water on its land as live water rides it: each tile keeps the day's surface (`holdLand`, `render3d/waterMesh.ts`), so land raised to it or above holds no water at once, land under it holds water up to it (lowered land deeper), a tile the day had dry stays dry, and land put back has the day's water back; the drawing and the readout read the same water until the edited map's own day lands, from the press itself (water drawn that had not yet answered an edit's land is drawn again as held at the press). **Under the day box, the start's water** (D133): in the Drought view a quiet line "Day 6: your start's water is gone", the first day no water joined to the start's Day 0 water is one a pump on a shore within the start's water rule's walk reaches (clean, 0.3 deep: the water may still lie on the map); in the Badtide view "Day 3: badwater reaches your start's water", the first day badwater stands where such a pump would draw it. It says nothing while the day is not among those worked out yet, for an older map, or when the start has no water a pump reaches on Day 0 (`core/sim/startWaterDay.ts` `StartWaterDays`, fed the run's days by the worker as the first days are; `startWaterWords`). A day the background's days find while an earlier day is held shows at once (the worker's `startWater` event), not with the next day stepped to. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
   game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
   badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. Each runs from the
@@ -1082,18 +1088,18 @@ Make a valley, drop a source, and there's a river.
 
 Two looks (Map look 2, D147, D242, D250, D284):
 - **Standard**, the clean game-like view (D135): contaminated ground as a layer over the ground (D154), the mine
-  sites and ruins (D178), the approved badwater in one shared water palette (D177); waterfalls leave the lip and arc
-  into the pool as one sheet, with foam at the lip, whitewater and a splash where they land (soft white water, never
-  cells that read as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
+  sites and ruins (D178), the approved badwater in one shared water palette (D177); waterfalls as the game draws them, the
+  water's own face where it steps down, in its own colour and a tenth see-through, with no foam or whitewater, a face at
+  each step of a cascade (D201 amended 2026-10-29).
 - **High**, the same view finished further: water coloured by depth with clear shallows, fine crests and flecks
   moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, ambient
   occlusion, a colour-preserving tone curve, distance haze, sky, rock strata and soil edges (#65); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
-  rock with a soil cap and the water's section, continuous waterfall crowns, irregular landings with froth, mist and
-  splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in High, the
+  rock with a soil cap and the water's section, rough water below falls (#67; its crowns, landings, froth, mist and
+  splash rings removed with D201's amendment, 2026-10-29). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
-  dead (`core/sim/withering.ts`, given to the page with the held day). A held drought or badtide day turns the haze to
+  dead (`core/sim/withering.ts`, given to the page with the held day). A living plant whose cause of death runs on the ground shown is drawn dying, as the game's `#Dying` model is (D242 as amended 2026-10-29), on Day 0 as on any held day: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band (`withering.ts` `dyingCause`, read by the renderer from the soil and water it shows; `render3d/dying.ts` makes the forms). A held drought or badtide day turns the haze to
   the game's fog colour for it, in both looks (`Sun.blueprint`, `high/seasons.ts` `FOG`; the map's own haze is its
   temperate fog), as the game does and nothing more: its ground dries by the day's soil like any dry tile (D250 as
   amended 2026-10-29). Day 0 shows the map as it is.
@@ -1104,7 +1110,8 @@ opaque material, the ground behind showing only as a small tinted share, `invest
 Only a sliver three hundredths of a level deep or less, a shore's very edge, fades in from a faint tint (its ground seen as
 through a coloured filter in the water's hue) to the body, on one smooth curve on the water's own depth: our own
 anti-aliasing, where the game clips hard at the floor. The ground behind the water shows as the game's High quality
-shows it (`WATER_SURFACE.seeThrough`): 0.175 of it at the water's floor, thinning in step with depth to none at 5 levels,
+shows it (`WATER_SURFACE.seeThrough`, `waterGroundBehind`): overlaid with the water's colour and desaturated, 0.175 of it
+at the water's floor, thinning in step with depth to none at 5 levels,
 behind clean water and badwater alike; the light look follows the game's Low quality and shows none; a badwater sliver stays murkier than clean water, and keeps a faint edge, not a foam line.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
@@ -1115,7 +1122,7 @@ its switch, `?flow=on` in the address turns it on.
 
 Both follow Timberborn's references (D334): dry earth a warm brown drifting to mauve, grass a muted green meeting it
 along the tile's edge with a slight painted wobble and a thin darker rim, olive-grey stone, bright orange ruins with
-cream sacks, contamination as the game's sparse orange-red veins, falls teal with lighter streaks. Readability is the
+cream sacks, contamination as the game's sparse orange-red veins, falls in the water's own colour. Readability is the
 game's own: its look and its cues, with no lightness gap or pattern beyond them (D334 (2)).
 
 High is the default where the computer draws it smoothly: it starts in High (or where it settled last time on that
@@ -1669,7 +1676,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     thread (no synthesis, no worklet); one engine for the editor's lifetime, never waited on: a sound asked for
     while the bank loads, while paused or off, or past the limits (72 recordings, 20 sounds, four held beds, ten
     accents a second) is dropped, never played late; a compressor keeps every sample below 0.92 of full scale; a
-    force's phases play under its run's id, so undo stops all of it at once; a sound's distance comes from where
+    force's phases play under its run's id, so undo stops all of it at once, its tails too when the undo comes
+    right after it is kept (an impact's boom, an eruption's hiss); a sound's distance comes from where
     it is in the view. The player's volume (0.54 by default, D313) and off switch are kept as saved (`dgm.sound`).
   - A brush's land is drawn once a frame (`renderer.ts` `flushTerrain`): of the rectangles its updates named, only
     the tiles that really changed and what they touch are drawn again (`terrainChanges.ts`: their chunks, the sky
@@ -1679,7 +1687,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     own: an imported map's stored per column, the stacked settle's per column on a map with caves) to every water
     view it sends, handed over with its other arrays; the renderer works out
     the current from them (`render3d/current.ts`: net across each face, over the depth), never from the
-    surface's slope, and a fall's lip pours the outflow over its side, the map's edge included (`falls.ts`). The renderer's bake worker (`bake.worker.ts`) turns it into the flow
+    surface's slope. The renderer's bake worker (`bake.worker.ts`) turns it into the flow
     texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
     ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
     changing; `motion.ts` hands them to the GPU. Water below its tile's surface water (a cave's under a wet roof)
