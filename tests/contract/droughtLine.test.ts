@@ -172,6 +172,32 @@ describe("the drought line (D133, D269)", () => {
     expect(without.line.start.every((v) => v === 0)).toBe(true);
   });
 
+  it("marks a shore under today's water from the line's own two days, whatever water the view shows", () => {
+    // a 6 × 1 trench: today 2 deep along tiles 1–4, on the last day 0.5 deep on tiles 2–3 only (a falling lake), and
+    // a second trench kept as it is (tiles 7–10 of a second row, the same depth both days)
+    const Wt = 12;
+    const heights = new Uint8Array(Wt * 2).fill(5);
+    const depth = new Float32Array(Wt * 2);
+    const last = new Float32Array(Wt * 2);
+    for (const i of [1, 2, 3, 4]) {
+      heights[i] = 3;
+      depth[i] = 2;
+    }
+    for (const i of [2, 3]) last[i] = 0.5;
+    for (const i of [Wt + 7, Wt + 8, Wt + 9, Wt + 10]) {
+      heights[i] = 3;
+      depth[i] = 1;
+      last[i] = 1;
+    }
+    const L = droughtLine({ W: Wt, H: 2, heights, settled: { depth, contamination: new Float32Array(Wt * 2) }, last, days: 9, startWater: null });
+    const under = new Map<number, number>();
+    for (let k = 0; k < L.line.count; k++) under.set(L.line.tile[k], L.line.under[k]);
+    expect(under.get(2)).toBe(1);
+    expect(under.get(3)).toBe(1);
+    expect(under.get(Wt + 7)).toBe(0);
+    expect(under.get(Wt + 10)).toBe(0);
+  });
+
   it("plain terrain without water has no line", () => {
     const N = 32 * 32;
     const flat = {

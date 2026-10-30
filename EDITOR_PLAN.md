@@ -251,9 +251,11 @@ place of its bottom rule.
     selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
     row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it. The first row
     ends with **Crop** (the map becomes the selection's bounding rectangle, D340; one cell, the size's words take two),
-    **Fill water** (the hollow under the selection's lowest ground filled with standing water up to the Level;
-    hovering says "9 tiles, lasts about 12 days" and marks the hollow, or in a few words why not: "Raise the Level to
-    fill", "It would spill off the map", D394) and **Remove unfed water** (the pools no
+    **Fill water** (the hollow under the selection's lowest ground filled with standing water to the brim, the highest
+    level it holds (the core's `fillLevel`), so the first try holds; to the Level once the player sets it; hovering says
+    "Level 7, lasts 12 days" (with a Level set, "9 tiles, lasts 12 days"; "under a day" below one) and marks the hollow, or in a
+    few words why not: "Raise the Level to fill", "It would spill off the map" (a slope or flat land, which hold none),
+    D394) and **Remove unfed water** (the pools no
     source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo
     step, both the core's (`planFill`, `unfedWater`), greyed with `aria-disabled` while nothing is selected, and the words they
     left in the row go when the selection closes or changes; Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
@@ -888,7 +890,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   trees, bushes and ruin columns stand in a lake that covers them (a tree dead, D404) and are counted as standing;
   a resource feature without the generation's record (an old document's) holds its trees and bushes under the
   water, which stand again when it drains, and those are counted too (`objectsIn`, `core/doc/inArea.ts`); a ruin field only partly inside the selection gives up just the tiles inside it (its
-  `cleared` tiles, D360 b). With no selection, Delete takes what the pointer is on: a source within its targeting
+  `cleared` tiles, D360 b). Under a layer cut (D207) Delete, its menu's counts and Select's actions take the tiles whose
+  ground shows at or under the cut, a cave's floor under a roof that rises past it among them (the column's lowest run's
+  top; `seenUnderCut`, `editor/shelf/aim.ts`): what stands on the floor is counted and taken, and the cave's ground is
+  left as it is (above). What the cut hides stays: the core's `objectsIn` and `planRemove` take the cut and keep only
+  objects at or under it, and resource areas and submerged objects only on tiles whose top is at or under it. With no selection, Delete takes what the pointer is on: a source within its targeting
   range (D249) first, else the objects on the tile, else the ground. **Ctrl+A** or **Whole map** selects the whole
   map. The water the removed sources fed drains as its cause is gone (D260). **Clear everything** in the ⋯ menu
   removes every source, badwater source, tree, bush, ruin, object and the start in one undo step, leaving the
@@ -1023,11 +1029,13 @@ Make a valley, drop a source, and there's a river.
   panel or selection. A river's flow is its sources' strength; clean or bad belongs to each source; water changes
   only through its causes (a source removed, moved or weakened, or the land reshaped). Generated maps' rivers are
   just their sources (edge inflows included) and their land. Hovering water quietly highlights the sources feeding
-  it (D196).
+  it (D196): by the ground seen (a cave's water through its mouth or under the cut), found again from that ground
+  whenever the objects change with the pointer resting there.
 - **Remove unfed water and Fill** (D387 (2) and (3), D394): Remove unfed water takes the water no source feeds (a
   pool the settle left in a hollow, a sealed oxbow lake, a Fill), map-wide or within a selection, and says first
   what it will take ("12 pools, 3,400 tiles of water"); a pool with a tile in the selection goes whole, and fed
-  water is never touched. Fill fills a hollow with standing water to a chosen level, with no source, and says
+  water is never touched. Fill fills a hollow with standing water to a chosen level (by default the highest it holds,
+  `fillLevel`), with no source, and says
   roughly how long it will last; it is refused with a plain reason when the hollow doesn't hold water at that
   level. Each is one undo step. Their engine and questions are in the core; where they sit in the page is agreed
   with the page session (D388).
@@ -1062,7 +1070,7 @@ Make a valley, drop a source, and there's a river.
   It is read from the Drought view's own last day, so the two agree tile for tile (`core/sim/droughtLine.ts`), and
   comes in the background with the drought's days after each edit, never blocking. On a map with caves or
   overhangs both days are read on each tile's column standing on its ground (`surfaceWater`).
-  The core, the worker's channel (`watchDroughtLine`) and the drawing are built (`render3d/droughtLine.ts`: an amber waterline at the last day's level along the shore, flat and upright by the bank, and an amber tint over beds that dry out completely, both a little stronger on the start's water; one mesh made once per line, drawn in both looks, never while a day is held, put away at the next edit until the new map's line comes). The map card says nothing about droughts or badtides (D472).
+  The core, the worker's channel (`watchDroughtLine`) and the drawing are built (`render3d/droughtLine.ts`, an editing aid in its own channel: a faint pale waterline at the last day's level along the shore, flat and upright by the bank, fainter still where today's water stands over it, never a gold line across a lake that reads as a selection, and an amber tint over beds that dry out completely, both a little stronger on the start's water; one mesh made once per line, drawn in both looks, never while a day is held, put away at the next edit until the new map's line comes). The map card says nothing about droughts or badtides (D472).
 - **Optional water sounds,** our own. **What you watch is what you'll play:** the final water always matches the
   game's settled result.
 
@@ -1087,14 +1095,12 @@ Two looks (Map look 2, D147, D242, D250, D284):
   dry ground with straw where grass stood and a faint heat shimmer over it; on a held badtide day, a slightly sickly sky
   (each its own effect, `high/seasons.ts`). Day 0 and Standard show the map as it is.
 
-In both looks (the light look too) thin water reads thin (D154's see-through shallows carried down to a film;
-`WATER_FILM` in `render3d/waterPalette.ts`): a sheet a tenth of a level deep or less (a seep's film, a flood's leading
-edge, the wet ground round a source) is mostly see-through, with its ripples' sheen, and its ground is seen as through
-a coloured filter: the ground's own detail in the water's hue (clean water's lighter teal, badwater's crimson, mixed
-water along D154's blend through the warm midpoint), so the hue stays the water's at any depth. One smooth curve on
-the water's own depth builds it to the body's opacity and the bed's colour by a quarter of a level deep, and water
-that deep or deeper is drawn as before. A badwater film stays murkier than clean water as thin; a film's shore keeps
-a faint edge, not a pond's foam line.
+In both looks (the light look too) water of any depth draws as water, as the game draws it: a film is the same water
+as its body, not a faint tint over its ground (`WATER_FILM` in `render3d/waterPalette.ts`; the game's water in play is its
+opaque material, the ground behind showing only as a small tinted share, `investigation/notes/water_and_soil.md` Q8).
+Only a sliver a fiftieth of a level deep or less, a shore's very edge, fades in from a faint tint (its ground seen as
+through a coloured filter in the water's hue) to the body, on one smooth curve on the water's own depth: our own
+anti-aliasing, where the game clips hard at the floor; a badwater sliver stays murkier than clean water, and keeps a faint edge, not a foam line.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
 threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks

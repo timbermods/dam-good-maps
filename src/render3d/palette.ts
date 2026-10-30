@@ -14,9 +14,11 @@
 // beyond the game's. Grass reads apart from dry earth by its hue and its painted strokes, contamination by
 // its orange-red veins over either soil, badwater by its crimson, its dullness and its bubbles (and in
 // High its pink caustics and red contact at rock). Clean water reads as water by its light shore foam, glints and ripple crests and its see-through shallows, and in
-// colour by its blue. Badwater is darker than clean water of the same depth in Standard, and dull; water partly
-// bad turns smoothly from one to the other over a few tiles where they meet, through a teal-grey and
-// a warm brown to crimson, never in streaks, patches or purple (D177). Living trees are dark, dead trees pale. The walls, in the side light, are darker than the ground above them. The information
+// colour by its blue. Badwater is darker than clean water of the same depth in Standard, darkening with depth as the game's
+// (D496), and dull; water partly
+// bad turns smoothly from one to the other over a few tiles where they meet, greying as it turns as the
+// game's does (a teal-grey, a grey, a dull red-brown, crimson), never in streaks, patches or purple
+// (D177, D496). Living trees are dark, dead trees pale. The walls, in the side light, are darker than the ground above them. The information
 // layer (**Markers**) adds dam sites, hatched light and dark with a dark rim so they show on any
 // ground or water, slope arrows and a pale line at every level.
 //
@@ -26,7 +28,7 @@ import { BADWATER, WATER, waterBody, type Rgb } from "./waterPalette";
 
 // The water's colours, opacity and blend live in waterPalette.ts (D177); they are re-exported here
 // for the pages and tests that read the palette.
-export { BADWATER, blendWater, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_BLEND, WATER_CALIBRATION, WATER_SURFACE, WATER_UI, waterBlend, waterBody, waterOpacity, type Rgb } from "./waterPalette";
+export { BADWATER, blendWater, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_BLEND, WATER_CALIBRATION, WATER_SURFACE, WATER_UI, waterBody, waterOpacity, waterTint, type Rgb } from "./waterPalette";
 
 /** What colours the tops of the ground. */
 export type GroundMode = "moisture" | "height";
@@ -382,8 +384,8 @@ export function objectLegend(): LegendEntry[] {
   const dry = c(GROUND.dry);
   return [
     {
-      // clean water turning to badwater (teal-grey, warm brown, crimson, darker), with badwater's
-      // bubbles at its end
+      // clean water turning to badwater as the game turns it (teal-grey, grey, dull red-brown, crimson;
+      // D496), with badwater's bubbles at its end
       swatch:
         icon(`<circle cx="18" cy="6" r="1.1" fill="${c(WATER.badVein)}"/><circle cx="21.5" cy="11" r="1.1" fill="${c(WATER.badVein)}"/>`) +
         `, linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1].map((share) => c(waterBody(BADWATER.shallow, share))).join(", ")})`,
