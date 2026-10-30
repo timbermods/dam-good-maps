@@ -1,5 +1,5 @@
 // Map look's third round (PLAN §20 D115) and Kyler's clean look: badwater stays clearly darker
-// than clean water, and clean water keeps its shore foam, glints and see-through shallows so it
+// than clean water, and clean water keeps its glints and see-through shallows so it
 // reads apart from ground (it may be as dark as dry ground, as in the game); water partly bad
 // turns smoothly from clean water to badwater, the badwater share blended between tiles (D177,
 // which replaced each top showing its own tile's share); a slope's arrow is level and floats above the slope, pointing uphill, so it reads from

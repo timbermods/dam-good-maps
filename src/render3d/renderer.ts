@@ -2,8 +2,8 @@
 // editor. It draws a map view: terrain in 32×32 chunks (only dirty chunks are remeshed after an
 // edit; one mesher for terrain as runs, caves and overhangs included), translucent water surfaces, and
 // instanced objects. It has an orbit camera and a top-down view (north up until turned), picks tiles against
-// the heightfield, and renders when something changed, and while water moves. Waterfalls (D201) are
-// instances of one small template per chunk (falls.ts), listed when the chunk's water is meshed.
+// the heightfield, and renders when something changed, and while water moves. Waterfalls are the water's own
+// vertical faces where it steps down (waterMesh.ts; D201 amended 2026-10-29: as the game draws them).
 //
 // Map look (D86): the ground is coloured by soil (or by height, `setGroundMode`); the light is
 // baked when the mesh is built (light.ts: sky visibility, soft sun shadows) into two textures the
@@ -31,17 +31,12 @@ import {
   InstancedMesh as InstancedMeshObject,
   DoubleSide,
   MeshDepthMaterial,
-  Points,
-  InstancedBufferGeometry,
-  InstancedInterleavedBuffer,
-  InterleavedBufferAttribute,
   Mesh,
   OrthographicCamera,
   PerspectiveCamera,
   PlaneGeometry,
   Raycaster,
   Scene,
-  Sphere,
   Vector2,
   Vector3,
   Vector4,
@@ -72,9 +67,8 @@ import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withe
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
 import { whenIdle } from "./idle";
 import { castersChangedRects, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
-import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
-import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
@@ -85,13 +79,12 @@ import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
-import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
+import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, waterChangedRect, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, highLookMaterials, roofedOf, runSoilOf, type HighLookMaterials, type HighMaterials } from "./high/highLook";
-import { Mist } from "./high/mist";
 import { Programs, withDefine, type Defines } from "./programs";
 import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
@@ -175,8 +168,6 @@ export interface BuildStats {
   chunks: number;
   terrainQuads: number;
   waterQuads: number;
-  /** Waterfalls (falls.ts): one instance each. */
-  falls: number;
   instances: number;
 }
 
@@ -355,9 +346,6 @@ export class MapRenderer {
   private map: MapState | null = null;
   private terrain = new Map<string, Mesh>();
   private water = new Map<string, Mesh>();
-  /** Each chunk's falls: instances of the fall template (falls.ts). */
-  private falls = new Map<string, Mesh>();
-  private readonly fallShape = fallTemplate();
   private objects: Group | null = null;
   /** The ground the objects stand on as built (the map's last heights from the worker); plants
    *  and ruins follow the ground painted or dragged over theirs (live editing). */
@@ -390,7 +378,6 @@ export class MapRenderer {
   private patterns: WebGLRenderTarget;
   private terrainMat: ShaderMaterial;
   private waterMat: ShaderMaterial;
-  private fallMat: ShaderMaterial;
   private objectMat: ShaderMaterial;
   private skyMat: ShaderMaterial;
   /** The Standard look's materials (the ones above while the look is Standard). */
@@ -422,13 +409,12 @@ export class MapRenderer {
    *  already drawn, and with the look's own when it is left, so a later switch finds its programs; each one's name. */
   private highCopy: HighLookMaterials | null = null;
   private copyOf = new Map<ShaderMaterial, keyof HighLookMaterials>();
-  /** The look's mist (its materials compiled with the copy's) and a copy of the drought line's materials. */
-  private mistCopy: Mist | null = null;
+  /** A copy of the drought line's materials. */
   /** The sun's depth map's material (high/shadows.ts), twice: compiled with the terrain's meshes and with the objects. */
   private depthCopy: [ShaderMaterial, ShaderMaterial] | null = null;
   private lineCopy: ShaderMaterial[] | null = null;
   /** Objects to compile a program with when nothing draws its material (`standIn`). */
-  private standIns: Record<"mesh" | "instanced" | "bare" | "points" | "fall", Object3D> | null = null;
+  private standIns: Record<"mesh" | "instanced" | "bare", Object3D> | null = null;
   /** The tier asked for while the High look's programs compile (the look drawn stays meanwhile), or null. */
   private lookWaiting: Tier | null = null;
   private lookWarming = false;
@@ -550,10 +536,9 @@ export class MapRenderer {
     this.uniforms.patternTex.value = this.patterns.texture;
     this.terrainMat = terrainMaterial(this.uniforms, 0, 1, this.software);
     this.waterMat = waterMaterial(this.uniforms, this.software);
-    this.fallMat = fallMaterial(this.uniforms, this.software);
     this.objectMat = objectMaterial(this.uniforms, this.software);
     this.skyMat = skyMaterial();
-    this.std = { terrain: this.terrainMat, water: this.waterMat, fall: this.fallMat, object: this.objectMat, sky: this.skyMat };
+    this.std = { terrain: this.terrainMat, water: this.waterMat, object: this.objectMat, sky: this.skyMat };
     this.programs = new Programs({
       gl: this.gl,
       scene: this.scene,
@@ -677,13 +662,13 @@ export class MapRenderer {
     for (const mat of [this.std.terrain, this.high?.materials.terrain]) if (mat) this.programs.set(mat, "CUTAWAY", on ? 1 : 0);
   }
 
-  /** Whether objects, falls and water read the light volume (materials.ts `CAVE_POINT`): only on a map with air under a
+  /** Whether objects and water read the light volume (materials.ts `CAVE_POINT`): only on a map with air under a
    *  roof, so every other map draws them with the same program as before (the define is not there at all). */
   private caveBranch = false;
 
   private setCaveBranch(on: boolean): void {
     this.caveBranch = on;
-    for (const mat of [this.std.object, this.std.fall, this.std.water, ...(this.high?.roofedMaterials() ?? [])]) this.programs.set(mat, "CAVES", on ? 1 : null);
+    for (const mat of [this.std.object, this.std.water, ...(this.high?.roofedMaterials() ?? [])]) this.programs.set(mat, "CAVES", on ? 1 : null);
   }
 
   /** Whether the terrain's shaders (and High's slopes standing on a floor) read the run tops' own soil (runSoil.ts):
@@ -707,8 +692,8 @@ export class MapRenderer {
     return [...out];
   }
 
-  /** The programs an edit could switch the look drawn to next (every state of the map an edit can bring, the falls'
-   *  and water's while none are drawn, the drought line's, the edit glow's, the forces' moments'), compiled in the
+  /** The programs an edit could switch the look drawn to next (every state of the map an edit can bring, the
+   *  water's while none is drawn, the drought line's, the edit glow's, the forces' moments'), compiled in the
    *  background a moment after a map is drawn, a few at a time while the page is idle, so a switch finds them ready
    *  (programs.ts); then the other look's, in every
    *  state too (in Standard where High can be drawn: High's, so a switch to it and a dig right after are drawn at
@@ -722,7 +707,7 @@ export class MapRenderer {
     this.warmTimer = window.setTimeout(() => {
       this.warmTimer = 0;
       const h = this.high;
-      const std = this.branchStates([this.std.terrain], [this.std.object, this.std.fall, this.std.water], [this.std.terrain]);
+      const std = this.branchStates([this.std.terrain], [this.std.object, this.std.water], [this.std.terrain]);
       const list = h ? this.branchStates([h.materials.terrain], h.roofedMaterials(), h.runSoilMaterials()) : std;
       // (the drought line's, drawn in both looks once its days are worked out)
       this.lineCopy ??= droughtLineMaterials();
@@ -776,7 +761,6 @@ export class MapRenderer {
     const kinds = new Map<string, Object3D>();
     this.scene.traverse((o) => {
       const m = o as Mesh & { isPoints?: boolean; instanceColor?: unknown };
-      // (a fall's mesh draws its layers with one material, as a list)
       if (!(m.isMesh || m.isPoints) || !(Array.isArray(m.material) ? m.material : [m.material]).some((x) => ms.includes(x as ShaderMaterial))) return;
       const a = m.geometry.attributes;
       const kind = [m.type, !!m.instanceColor, !!a.normal, !!a.uv1, !!a.uv2, !!a.uv3, !!a.tangent, !!m.geometry.morphAttributes.position].join();
@@ -785,9 +769,8 @@ export class MapRenderer {
     return [...kinds.values()];
   }
 
-  /** An object like those a material draws, for compiling its program when nothing draws it (programs.ts): the mist's
-   *  points, its rings and the drought line have no normal, a fall's template has neither a position nor a normal, the
-   *  objects are instanced with their colours, the rest are meshes with a normal. */
+  /** An object like those a material draws, for compiling its program when nothing draws it (programs.ts): the
+   *  drought line has no normal, the objects are instanced with their colours, the rest are meshes with a normal. */
   private standIn(mat: ShaderMaterial): Object3D {
     if (!this.standIns) {
       const geometry = (normal: boolean) => {
@@ -798,15 +781,10 @@ export class MapRenderer {
       };
       const instanced = new InstancedMeshObject(geometry(true), undefined, 1);
       instanced.instanceColor = new InstancedBufferAttribute(new Float32Array(3), 3);
-      const fall = new BufferGeometry();
-      fall.setAttribute("rib", new BufferAttribute(new Float32Array(0), 4));
-      this.standIns = { mesh: new Mesh(geometry(true)), instanced, bare: new Mesh(geometry(false)), points: new Points(geometry(false)), fall: new Mesh(fall) };
+      this.standIns = { mesh: new Mesh(geometry(true)), instanced, bare: new Mesh(geometry(false)) };
     }
-    if ([this.std, this.high?.materials, this.highCopy].some((l) => l?.fall === mat)) return this.standIns.fall;
-    const mist = this.mistCopy?.materials();
-    if (mist && mat === mist.mist) return this.standIns.points;
-    if ((mist && mat === mist.rings) || this.lineCopy?.includes(mat) || mat === this.glowMat) return this.standIns.bare;
-    const plain = mat === this.depthCopy?.[0] || [this.std, this.high?.materials, this.highCopy].some((l) => l && [l.terrain, l.water, l.fall, l.sky].includes(mat));
+    if (this.lineCopy?.includes(mat) || mat === this.glowMat) return this.standIns.bare;
+    const plain = mat === this.depthCopy?.[0] || [this.std, this.high?.materials, this.highCopy].some((l) => l && [l.terrain, l.water, l.sky].includes(mat));
     return plain ? this.standIns.mesh : this.standIns.instanced;
   }
 
@@ -817,14 +795,12 @@ export class MapRenderer {
       for (const name of Object.keys(c) as (keyof HighLookMaterials)[]) this.copyOf.set(c[name], name);
     }
     const c = this.highCopy;
-    this.mistCopy ??= new Mist(this.uniforms.time);
     // (three.js reads a material's defines and nothing of its kind here: the depth material passes as one)
     this.depthCopy ??= [0, 1].map(() => new MeshDepthMaterial({ side: DoubleSide }) as unknown as ShaderMaterial) as [ShaderMaterial, ShaderMaterial];
     const own = (m: ShaderMaterial): [ShaderMaterial, Defines] => [m, { ...(m.defines as Defines) }];
-    const mist = this.mistCopy.materials();
     const now = { cut: this.cutaway, caves: this.caveBranch, soil: this.runSoilBranch };
     const branches = [now, ...states].flatMap((st) => this.branchDefines([c.terrain], roofedOf(c), runSoilOf(c), st));
-    return [...branches, own(c.sky), own(mist.mist), own(mist.rings), ...this.depthCopy.map(own)];
+    return [...branches, own(c.sky), ...this.depthCopy.map(own)];
   }
 
   /** Whether a switch to this tier can be drawn at once. On a map already drawn the High look's programs are compiled
@@ -1135,7 +1111,6 @@ export class MapRenderer {
           uniforms: this.uniforms,
           requestRender: () => this.requestRender(),
           motion: () => !this.reducedMotion,
-          falls: () => this.falls.values(),
           casters: () => this.shadowCasters(),
           groundOffset: (x, y) => this.groundOffset(x, y),
           baker: this.baker,
@@ -1214,14 +1189,11 @@ export class MapRenderer {
     if (this.skirt) terrain(this.skirt);
     const water = swap(this.waterMat, m.water);
     for (const mesh of this.water.values()) water(mesh);
-    const fall = swap(this.fallMat, m.fall);
-    for (const mesh of this.falls.values()) fall(mesh);
     swap(this.skyMat, m.sky)(this.sky);
     const object = swap(this.objectMat, m.object);
     for (const c of this.objects?.children ?? []) object(c as Mesh);
     this.terrainMat = m.terrain;
     this.waterMat = m.water;
-    this.fallMat = m.fall;
     this.objectMat = m.object;
     this.skyMat = m.sky;
   }
@@ -1443,7 +1415,6 @@ export class MapRenderer {
     let terrainQuads = 0;
     for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) terrainQuads += this.meshTerrain(cx, cy);
     const waterQuads = this.meshAllWater();
-    const falls = this.fallCount();
     this.skirt = this.buildSkirt(W, H, lo);
     if (!this.software && !this.still) {
       // (with water per column, the bake gives the water below each tile's surface its own current: caveCurrent.ts)
@@ -1474,7 +1445,7 @@ export class MapRenderer {
       this.retiredMotion = null;
     }
     const ms = performance.now() - t0;
-    this.lastBuild = { ms, meshMs, chunks: nx * ny, terrainQuads, waterQuads, falls, instances };
+    this.lastBuild = { ms, meshMs, chunks: nx * ny, terrainQuads, waterQuads, instances };
     if (!prepare) this.scheduleProbe();
     this.scheduleWarm();
     this.highlight = null;
@@ -1546,10 +1517,8 @@ export class MapRenderer {
     this.skirt = null;
     for (const m of this.terrain.values()) this.dropMesh(m);
     for (const m of this.water.values()) this.dropMesh(m);
-    for (const m of this.falls.values()) this.dropMesh(m);
     this.terrain.clear();
     this.water.clear();
-    this.falls.clear();
     if (this.objects) {
       this.scene.remove(this.objects);
       disposeGroup(this.objects);
@@ -1702,7 +1671,6 @@ export class MapRenderer {
     const m = this.map!;
     const [cx, cy] = key.split(",").map(Number);
     drewChunk(m.W, m.H, this.waterShown, sw, cx, cy);
-    this.meshFalls(key, d.falls, d.fallCount);
     const arrays: ChunkArrays = {
       quads: d.quads,
       attributes: [
@@ -1727,59 +1695,6 @@ export class MapRenderer {
     return d.quads;
   }
 
-  /** A chunk's falls: one instance each of the shared template, its 16 floats in one buffer. */
-  private meshFalls(key: string, data: Float32Array, count: number): void {
-    const old = this.falls.get(key);
-    if (old) this.dropMesh(old);
-    this.falls.delete(key);
-    if (!count) return;
-    const g = new InstancedBufferGeometry();
-    // (the template's arrays are shared; each chunk has its own buffers of them, so dropping one
-    // chunk's falls never frees another's)
-    g.setAttribute("rib", new BufferAttribute(this.fallShape.rib, 4));
-    g.setIndex(new BufferAttribute(this.fallShape.index, 1));
-    const buf = new InstancedInterleavedBuffer(data, FALL_STRIDE);
-    g.setAttribute("fA", new InterleavedBufferAttribute(buf, 4, 0));
-    g.setAttribute("fTop", new InterleavedBufferAttribute(buf, 4, 4));
-    g.setAttribute("fShape", new InterleavedBufferAttribute(buf, 4, 8));
-    g.setAttribute("fMore", new InterleavedBufferAttribute(buf, 4, 12));
-    g.instanceCount = count;
-    // the bounds: every lip's corner, from its landing to its top, and as far out as a fall reaches
-    // (and runs on round a corner, D215)
-    let x0 = Infinity;
-    let x1 = -Infinity;
-    let y0 = Infinity;
-    let y1 = -Infinity;
-    let z0 = Infinity;
-    let z1 = -Infinity;
-    for (let k = 0; k < count; k++) {
-      const o = k * FALL_STRIDE;
-      x0 = Math.min(x0, data[o]);
-      x1 = Math.max(x1, data[o]);
-      z0 = Math.min(z0, data[o + 1]);
-      z1 = Math.max(z1, data[o + 1]);
-      y0 = Math.min(y0, data[o + 6], data[o + 7]);
-      y1 = Math.max(y1, data[o + 4], data[o + 5]);
-    }
-    const pad = 4.5;
-    const c = new Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-    g.boundingSphere = new Sphere(c, Math.hypot((x1 - x0) / 2 + pad, (y1 - y0) / 2 + 0.1, (z1 - z0) / 2 + pad));
-    // a layer at a time for every fall (the splashes, the crowns' backs, the ribbons, the crowns'
-    // fronts and the far sheets), so no fall's whitewater blends over its neighbour's ribbon (D222)
-    for (const [start, n] of this.fallShape.layers) g.addGroup(start, n, 0);
-    const mesh = new Mesh(g, [this.fallMat]);
-    mesh.matrixAutoUpdate = false;
-    // after the water's tops, so a fall draws over the pool it lands in
-    mesh.renderOrder = 3;
-    this.scene.add(mesh);
-    this.falls.set(key, mesh);
-  }
-
-  private fallCount(): number {
-    let n = 0;
-    for (const m of this.falls.values()) n += (m.geometry as InstancedBufferGeometry).instanceCount;
-    return n;
-  }
 
   private meshAllWater(): number {
     const m = this.map!;
@@ -2030,7 +1945,7 @@ export class MapRenderer {
     } else this.bakeShadows();
     this.relightCaves(rect);
     if (m.water.count) {
-      // (a fall reads the ground two tiles round its lip: the chunks a tile further; with terrain above terrain a
+      // (a curtain reads the ground round its tile: the chunks a tile further; with terrain above terrain a
       // column reads what it sees within LAYER_REACH)
       if (this.layered) this.layeredWaterNear(rect);
       else for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 })) this.meshWater(cx, cy);
@@ -2088,12 +2003,33 @@ export class MapRenderer {
     if (on === this.holding) return;
     this.holding = on;
     this.heldSurface = null;
-    // (the water drawn now is held from here: drawn from a copy, which an edit writes, `heldSeat`)
+    // (the water drawn now is held from here: drawn from a copy, which an edit writes, `heldSeat`; where it differs from
+    // the water drawn, as where live water rode land an edit raised over the day's surface before the water answered,
+    // it is drawn again now, so the drawing and the readout agree from the press)
     if (on && m) {
-      m.surface = this.heldSeat(m.water, m.surface);
+      const before = m.surface;
+      m.surface = this.heldSeat(m.water, before);
+      const rect = waterChangedRect(m.W, before, m.surface);
+      if (rect) this.redrawWater(rect);
       this.high?.waterChanged(m.surface);
       this.flowChanged(m.heights, m.surface);
     }
+  }
+
+  /** The water over the tiles of `rect` changed in place: its chunks (and a tile round them, a fall's lip reads its
+   *  neighbours) drawn again, and the ground's tile data under it. */
+  private redrawWater(rect: { x0: number; y0: number; x1: number; y1: number }): void {
+    const m = this.map!;
+    const g = { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 };
+    if (this.tileTex) {
+      tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, g.x0, g.y0, g.x1, g.y1);
+      this.tileRows.touch(g.x0, g.y0, g.x1, g.y1);
+      this.edgesAround(g.x0, g.y0, g.x1, g.y1);
+    }
+    if (this.layered) this.layeredWaterNear(rect);
+    else for (const [cx, cy] of dirtyChunks(m.W, m.H, g)) this.meshWater(cx, cy);
+    this.requestRender();
+    this.onMapChange?.();
   }
 
   /** A weather day is held (`holdWater`). */
@@ -2198,6 +2134,12 @@ export class MapRenderer {
    *  of what is drawn, until moving water comes again. */
   private waterExact = false;
 
+  /** The depth of the water drawn on tile i (0 where none is drawn), as its chunk was last meshed (the tests read it). */
+  drawnDepthAt(i: number): number {
+    const s = this.waterShown.surface[i];
+    return s === s ? this.waterShown.depth[i] : 0;
+  }
+
   /** Every water chunk is drawn on the water the map holds: none waits to be sent or with the workers. */
   get waterDrawn(): boolean {
     return !this.waterQueue.size && !this.waterReady && !this.mesherOwn?.busy;
@@ -2282,8 +2224,6 @@ export class MapRenderer {
         this.drawWater(k, data, r.version, sent);
         this.waterTiles(m, cx, cy);
       }
-      // (water put in place, drawn: the High look's mist and rings follow its falls)
-      if (r.exact) this.high?.fallsChanged();
     }
     if (!this.waterQueue.size) return;
     if (this.mesherOwn?.busy) return;
@@ -4200,9 +4140,9 @@ export class MapRenderer {
   }
 
   /** Triangles and draw calls of the last frame. */
-  info(): { triangles: number; calls: number; chunks: number; waterChunks: number; falls: number } {
+  info(): { triangles: number; calls: number; chunks: number; waterChunks: number } {
     this.flushTerrain();
-    return { triangles: this.gl.info.render.triangles, calls: this.gl.info.render.calls, chunks: this.terrain.size, waterChunks: this.water.size, falls: this.fallCount() };
+    return { triangles: this.gl.info.render.triangles, calls: this.gl.info.render.calls, chunks: this.terrain.size, waterChunks: this.water.size };
   }
 
   dispose(): void {
@@ -4214,7 +4154,6 @@ export class MapRenderer {
     clearTimeout(this.lifeTimer);
     this.programs.dispose();
     if (this.highCopy) for (const m of Object.values(this.highCopy)) m.dispose();
-    this.mistCopy?.dispose();
     for (const m of this.depthCopy ?? []) m.dispose();
     for (const m of this.lineCopy ?? []) m.dispose();
     for (const o of Object.values(this.standIns ?? {})) (o as Mesh).geometry.dispose();
