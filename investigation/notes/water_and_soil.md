@@ -467,6 +467,22 @@ byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgres
   never goes black on screen. `BADWATER.floor` stands for that share on display values: 0.37 of the display colour
   (option A's own `badDeep` / `bad`), a stand-in until an in-game measurement sets it (the game adds its reflection and
   emission with their own colours; they are not a share of the albedo).
+  - **A fit from the probe's Badtide shots (2026-10-30), no clear answer yet.** The 2026-10-02 probe batch's Badtide ends
+    (`C:/dgm-probe/results/20261002-1610-batch/*-badtide2-end.snapshot.json.gz` and `shots/…-badtide2-end-water.jpg`): on
+    five maps with enough pure badwater over a depth range (Chaos 256² s2, Highlands 128² s1, Islands 128² s1 and s2, Lake
+    Basin 128² s1), each interior tile of pure badwater (contamination over 0.95, its eight neighbours the same water, not
+    hidden behind ground from the camera) is sampled (a 7-pixel median of the red channel) and fitted as A × G(depth) + B,
+    G the raw `_DepthGradients` ramp, the worst 15% dropped and refitted; the floor read is B / (A × G(0.25) + B). To
+    cancel what the game folds in (its see-through to a dark bed, shadows, its sky's term), our own render of the same
+    snapshots from the same camera (`setMap`, Standard) is fitted the same way at two floors and the floor found where the
+    two fits meet. With the probe's `standardPoses` water pose as the game's camera, that gives 0.435 (0.38 to 0.49, a
+    paired bootstrap over the maps). **But the game's shots are not at that pose**: fitting each shot's camera to the
+    map's outline against the teal void round it (0.96 to 0.99 of the outline's pixels agreeing, against 0.56 to 0.87 at
+    the pose) puts its field of view at 31° to 37° and its distance 1.0 to 1.35 times the pose's; with those cameras the
+    floor comes out at 0.72 (0.59 to 0.77; per map 0.50 to 0.79), and the samples still land a tile or two off the
+    water's edges (checked on Lake Basin's shot). The two cameras disagree by more than either error bar, so the fit sets
+    no floor: `BADWATER.floor` stays 0.37. What would: the probe writing each shot's camera (its world-to-screen matrix)
+    beside it, or a dedicated shot of a synthetic badwater bed of known depths; both wait for a probe batch.
 - **See-through (the High-quality variant, `opaque/p036`; Medium and above set `_HIGH_QUALITY_WATER_ENABLED`):** in play
   every tile uses the opaque material (`WaterMesh.GetWaterMaterial`; the transparent one only while a tool hides the
   water, at a flat 0.4). The High-quality program samples `_CameraOpaqueTexture` behind the water and mixes it in, alpha
