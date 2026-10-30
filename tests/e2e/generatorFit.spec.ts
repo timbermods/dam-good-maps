@@ -174,11 +174,16 @@ test("Enter anywhere in the panel generates, never Another like this: a Custom s
     await expect(generateButton(page)).toBeEnabled({ timeout: 120_000 });
   };
 
-  // Custom, 144 × 112, tabbed out of the last box: the focus is on Another like this, and Enter makes the typed size
+  // Custom, 144 × 112, tabbed out of the last box past Easy start (D495, the Size line's end): the focus is on Another like
+  // this, and Enter makes the typed size
+  const easy = panel.getByRole("button", { name: "Easy start", exact: true });
+  await expect(easy).toHaveAttribute("aria-pressed", "false");
   await panel.getByRole("group", { name: "Size", exact: true }).getByRole("button", { name: "Custom" }).click();
   await panel.locator("#size-x").fill("144");
   await page.keyboard.press("Tab");
   await panel.locator("#size-y").fill("112");
+  await page.keyboard.press("Tab");
+  await expect(easy).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(panel.getByRole("button", { name: "Another like this" })).toBeFocused();
   let n = await made();
@@ -216,6 +221,18 @@ test("Enter anywhere in the panel generates, never Another like this: a Custom s
   await panel.getByRole("button", { name: "Surprise me" }).focus();
   await page.keyboard.press("Enter");
   await done(n);
+  // Enter on Easy start generates as well and leaves it as it was; Space switches it
+  await easy.focus();
+  await page.keyboard.press("Space");
+  await expect(easy).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Space");
+  await expect(easy).toHaveAttribute("aria-pressed", "false");
+  n = await made();
+  await page.keyboard.press("Enter");
+  await done(n);
+  await expect(easy).toHaveAttribute("aria-pressed", "false");
+  info = await page.evaluate(() => ({ ...window.dgmEditor!.info() }));
+  expect(info.spec?.settings.start.easyStart ?? false, "made as the toggle stood").toBe(false);
   // Esc closes it
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();

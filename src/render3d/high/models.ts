@@ -6,14 +6,23 @@
 // vegetation material's uniforms), never baked, so tuning them rebuilds nothing.
 
 // (ported from investigation/vegetation/models.ts)
+import { DRYING, dryColour, type Rgb } from '../dying';
 import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 
 export const species = ['Pine', 'Birch', 'Oak', 'BlueberryBush'] as const;
 export type Species = typeof species[number];
 export type Detail = 'near' | 'far';
+const living = { pine: '#2b6936', birch: '#a7cc45', oak: '#489a38', bush: '#387632' } as const;
+/** Foliage slots, their species, and their dying slot (dying.ts). */
+const FOLIAGE = { pine: ['Pine', 'pineDry'], birch: ['Birch', 'birchDry'], oak: ['Oak', 'oakDry'], bush: ['BlueberryBush', 'bushDry'] } as const;
+const hex = (c: readonly number[]) => '#' + c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
+const parse = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as unknown as Rgb;
 export const paletteDefaults = {
-  pine: '#2b6936', birch: '#a7cc45', oak: '#489a38', bush: '#387632',
+  ...living,
   bark: '#806044', birchBark: '#f2efdd', dead: '#c1b69a', berry: '#7f9bff', marks: '#494239',
+  // a dying plant's foliage: the game's dry colour at the living green's lightness (dying.ts)
+  pineDry: hex(dryColour('Pine', parse(living.pine))), birchDry: hex(dryColour('Birch', parse(living.birch))),
+  oakDry: hex(dryColour('Oak', parse(living.oak))), bushDry: hex(dryColour('BlueberryBush', parse(living.bush))),
 };
 export type Palette = typeof paletteDefaults;
 export const slots = Object.keys(paletteDefaults) as (keyof Palette)[];
@@ -36,8 +45,15 @@ export function placement(x: number, y: number, growth = 1) {
 /** One combined opaque geometry; material regions are indices, never baked colours. */
 class Shape {
   positions: number[] = []; normals: number[] = []; regions: number[] = []; shades: number[] = [];
+  /** Built dying: foliage in its dying slot, drawn in toward the trunk and sunk as the game's is (dying.ts). */
+  dying = false;
   add(source: BufferGeometry, slot: keyof Palette, shade = 1, translate: V = [0, 0, 0], scale: V = [1, 1, 1], turn = 0) {
     source.scale(...scale).rotateY(turn).translate(...translate);
+    if (this.dying && slot in FOLIAGE) {
+      const [name, dry] = FOLIAGE[slot as keyof typeof FOLIAGE];
+      source.scale(DRYING[name].reach, DRYING[name].height, DRYING[name].reach);
+      slot = dry;
+    }
     const g = source.index ? source.toNonIndexed() : source;
     g.computeVertexNormals();
     const p = g.getAttribute('position'), n = g.getAttribute('normal');
@@ -175,6 +191,9 @@ export const registry: Record<Species, SpeciesDefinition> = {
   } },
 };
 
-export function model(spec: Species, variant = 0, detail: Detail = 'near', dead = false): BufferGeometry {
-  const shape = new Shape(); registry[spec].build(shape, variant, detail, dead); return shape.geometry();
+/** A plant's state: alive, dying (a cause of death runs: its dying form) or dead. */
+export type PlantState = 'alive' | 'dying' | 'dead';
+export function model(spec: Species, variant = 0, detail: Detail = 'near', state: PlantState | boolean = 'alive'): BufferGeometry {
+  const st = state === true ? 'dead' : state === false ? 'alive' : state;
+  const shape = new Shape(); shape.dying = st === 'dying'; registry[spec].build(shape, variant, detail, st === 'dead'); return shape.geometry();
 }

@@ -1,6 +1,6 @@
 // Water under a layer cut (D207; render3d/cutWater.ts): a column standing over the cut with its floor below it is drawn
 // sliced, its top on the cut and shallower by what the cut took off, its sides stopping at the cut; one whose floor is at
-// the cut or above it is gone; a fall whose lip stands over the cut keeps only its landing. What is drawn is worked out
+// the cut or above it is gone; a fall, the water's own side where it steps down, stops at the cut as any side. What is drawn is worked out
 // here as the GPU does it (the water's vertex shader, materials.ts `waterMaterial`, mirrored by `fold`; its fragment
 // shader drops what stands over the cut), on generated maps with rivers, lakes and falls and on a hand-made cave, at
 // every cut through their water. The terrain counts a top as a bed under water exactly where a top is drawn over it
@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { bedAtCut, CUT_SLACK, cutCornerDepth, fallSheetCut, ringLevelAt, surfaceAtCut, waterLevelAt } from "../../src/render3d/cutWater";
+import { bedAtCut, CUT_SLACK, cutCornerDepth, ringLevelAt, surfaceAtCut, waterLevelAt } from "../../src/render3d/cutWater";
 import { WATER_BYTE_FINE, WATER_BYTE_STEPS, waterByte } from "../../src/render3d/light";
 import { chunkCount } from "../../src/render3d/mesh";
 import { LAYERS, surfaceWater, waterFromDepth, type SurfaceWater, type WaterView } from "../../src/render3d/model";
@@ -40,13 +40,6 @@ describe("the rule", () => {
     expect(cutCornerDepth(5, 1, 8, 6)).toBe(3);
     expect(cutCornerDepth(2.5, 0.5, 8, 6), "half the tiles round the corner dry").toBe(1.5);
     expect(cutCornerDepth(0.4, 0.25, 8, 6), "a shore's corner").toBe(0);
-  });
-
-  it("keeps a fall whole under the cut, its landing where only its lip stands over it, and nothing where its pool does too", () => {
-    expect(fallSheetCut(9, 5, null)).toBe("whole");
-    expect(fallSheetCut(6, 4, 7)).toBe("whole");
-    expect(fallSheetCut(9, 5, 7)).toBe("landing");
-    expect(fallSheetCut(9, 7.5, 7)).toBe("none");
   });
 });
 

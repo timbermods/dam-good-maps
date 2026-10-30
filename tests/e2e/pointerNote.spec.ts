@@ -5,7 +5,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { toolInHand } from "./helpers";
-import { openEditor, openLegend } from "./open";
+import { openEditor, openLegend, topDown } from "./open";
 
 type Rect = { left: number; top: number; right: number; bottom: number };
 
@@ -151,6 +151,75 @@ test("the Block tool's refusal beside the Items shelf and above the bar stays in
     const n = await rect(page, ".shape-note.error");
     if (name !== "at the foot of the gap") expect(Math.abs((n.left + n.right) / 2 - at.x) < 400 && n.top < at.y + 80 && n.bottom > at.y - 80, `${name}: still beside the pointer`).toBe(true);
     expect(n.right).toBeLessThanOrEqual(view.right);
+  }
+});
+
+/** The view turned so tile (x, y) at layer `level` shows at (sx, sy), and the pointer moved there, in one task: no frame
+ *  runs between them, as on CI's software drawing, so the page's watch on the camera never sees the view move alone. */
+const bringAndPoint = (page: Page, x: number, y: number, level: number, sx: number, sy: number) =>
+  page.evaluate(
+    ([x, y, level, sx, sy]) => {
+      const r = window.dgm3d!.renderer;
+      const box = r.canvas.getBoundingClientRect();
+      const at = () => {
+        const p = r.project(x + 0.5, level, -(y + 0.5));
+        return [p.x + box.left, p.y + box.top];
+      };
+      for (let k = 0; k < 6; k++) {
+        const [px, py] = at();
+        const want = [sx - px, sy - py];
+        if (Math.hypot(want[0], want[1]) < 2) break;
+        const [tx, ty, tz] = r.getView().target;
+        r.setView({ target: [tx + 1, ty, tz] });
+        const [ax, ay] = at();
+        r.setView({ target: [tx, ty, tz + 1] });
+        const [bx, by] = at();
+        const j = [[ax - px, bx - px], [ay - py, by - py]];
+        const det = j[0][0] * j[1][1] - j[0][1] * j[1][0];
+        r.setView({ target: [tx + ((want[0] * j[1][1] - want[1] * j[0][1]) / det), ty, tz + ((j[0][0] * want[1] - j[1][0] * want[0]) / det)] });
+      }
+      r.canvas.dispatchEvent(new PointerEvent("pointermove", { clientX: sx, clientY: sy, pointerId: 1, pointerType: "mouse", bubbles: true }));
+    },
+    [x, y, level, sx, sy] as const,
+  );
+
+test("the Block tool's refusal follows the pointer when the view moves under it and the pointer comes to the same face again", async ({ page }) => {
+  // (dev's run 41019538572: the pointer came back to the face it had been refused on, at another place on the screen,
+  // and the refusal stayed where the pointer had been. Top-down shows only a tile's top, so every place is that face)
+  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await putHintsAway(page);
+  await topDown(page);
+  const spot = await dryTile(page);
+  const corner = (tx: number, ty: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [tx, ty] as const);
+  const a = await corner(spot.x, spot.y);
+  const b = await corner(spot.x + 2, spot.y + 2);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBe(9);
+  await page.keyboard.press("7");
+  await toolInHand(page);
+  const outside = { x: spot.x + 12, y: spot.y };
+  // (the first place by the mouse itself, the rest as the view and the pointer move together)
+  for (const [k, at] of [
+    { x: 500, y: 400 },
+    { x: 1100, y: 300 },
+    { x: 400, y: 650 },
+  ].entries()) {
+    if (k === 0) {
+      await bringTo(page, outside.x, outside.y, spot.h, at.x, at.y);
+      await page.mouse.move(at.x, at.y);
+    } else await bringAndPoint(page, outside.x, outside.y, spot.h, at.x, at.y);
+    await idle(page);
+    const note = page.locator(".shape-note.error");
+    await expect(note).toContainText("outside the selection");
+    await expectFree(page, ".shape-note.error");
+    // (beside the pointer: its nearest edge within the reach the test above allows, 80 px; each place is farther than that
+    // from the last)
+    const n = await rect(page, ".shape-note.error");
+    const apart = Math.hypot(Math.max(n.left - at.x, 0, at.x - n.right), Math.max(n.top - at.y, 0, at.y - n.bottom));
+    expect(apart, `at ${at.x}, ${at.y}: beside the pointer`).toBeLessThan(80);
   }
 });
 

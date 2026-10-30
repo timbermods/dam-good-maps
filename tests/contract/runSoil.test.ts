@@ -157,10 +157,15 @@ describe("soil per run top (3D view, part 3)", () => {
     expect(objectSoilAt(soil, W, x, y, 8)).toEqual({ moisture: 0, contamination: soil.contamination[i] });
     // the run texture holds the same there, which the High slope's shader reads at its own tile and level
     expect(runSoilAt(RunSoil.build(W, H, runs, view.water), x, y, z)!.soil).toBe(soilNibbles(runs.moisture[r], runs.contamination[r]));
-    // a ruin two storeys high on the floor (under the roof) is overgrown; the same ruin on the roof is bare
-    const ruin = (level: number) => buildEntities(entityView([{ template: "RuinColumnH2", x, y, z: level, orientation: "Cw0", owner: "import" }]), new ShaderMaterial(), soil, W).group.children.map((c) => c.name);
-    expect(ruin(z).filter((n) => /\.ivy$/.test(n)), "the ruin on the moist floor: ivy at its foot").toHaveLength(1);
-    expect(ruin(8).filter((n) => /\.ivy/.test(n)), "the ruin on the dry roof: none").toEqual([]);
+    // a ruin two storeys high on the floor (under the roof) reads the floor's soil, the same ruin on the roof the roof's.
+    // This floor's water is bad, and a ruin on contaminated soil shows its dry model, as the game's does (D178 as
+    // amended, #710): bare here; with the floor's run cleaned (its moisture kept), overgrown, and still bare on the roof
+    const ruin = (level: number, s = soil) => buildEntities(entityView([{ template: "RuinColumnH2", x, y, z: level, orientation: "Cw0", owner: "import" }]), new ShaderMaterial(), s, W).group.children.map((c) => c.name);
+    expect(runs.contamination[r], "the floor's water is contaminated").toBeGreaterThan(0);
+    expect(ruin(z).filter((n) => /\.ivy/.test(n)), "the ruin on the moist, contaminated floor: none").toEqual([]);
+    const clean = { ...soil, runs: { ...runs, contamination: runs.contamination.map((c, k) => (k === r ? 0 : c)) } };
+    expect(ruin(z, clean).filter((n) => /\.ivy$/.test(n)), "the ruin on the moist, clean floor: ivy at its foot").toHaveLength(1);
+    expect(ruin(8, clean).filter((n) => /\.ivy/.test(n)), "the ruin on the dry roof: none").toEqual([]);
     // without the runs (every map without terrain above terrain): the tile's top, as before
     expect(objectSoilAt({ moisture: soil.moisture, contamination: soil.contamination }, W, x, y, z)).toEqual({ moisture: 0, contamination: soil.contamination[i] });
   });
