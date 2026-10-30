@@ -121,7 +121,7 @@ test("the header names the open map: a generated map, then an opened file, the r
   await expect(page.locator(".editor-title .muted")).toHaveText("Seed 4242 · 96×96");
   expect(new URL(page.url()).hash).toMatch(/^#(v=[^&]+&)?s=4242&/);
   // (an edit keeps it in Your maps: an unedited map never is, D330)
-  const edit = () => page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 40]], level: 15 } } as never, "Raise a tile"));
+  const edit = () => page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 40]], level: 15, exact: true } } as never, "Raise a tile"));
   await edit();
 
   await page.getByLabel("Open a map or a project").setInputFiles({ name: "My island.timber", mimeType: "application/zip", buffer: Buffer.from(g.bytes) });
