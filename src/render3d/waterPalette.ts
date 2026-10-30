@@ -113,12 +113,15 @@ export const WATER_SURFACE = {
   absorb: 4,
   navyFrom: 0.6,
   navyTo: 2.8,
-  /** How strongly the ripples' crests, the sky's reflection, the pale flow streaks and the sun's
-   *  glint show. */
+  /** How strongly the ripples' crests and the pale flow streaks show. */
   crest: 0.3,
-  reflect: 0.35,
   pale: 0.22,
-  spec: 0.5,
+  /** The sky's reflection and the sun's glint, as the game lights its water (URP, GGX): `smoothness` (its
+   *  material's `_Smoothness`, 0.672) and a dielectric's `f0` (metallic 0). The sky comes in by
+   *  (saturate(smoothness + f0) − f0) × (1 − N·V)^4 (URP's environment term over the body colour, which holds the
+   *  head-on part), the sun's glint by URP's GGX specular term × f0 (`waterSunGlint`). */
+  smoothness: 0.672,
+  f0: 0.04,
 } as const;
 
 /** The High look's water (Map look 2, D284; #38, investigation/maplook2 water.ts, as Kyler approved it at
@@ -208,12 +211,12 @@ export const BADWATER = {
    *  it does behind clean water); at the map's edge, the water's side. */
   side: 0.95,
   /** Its matte surface (#38's): how far the troughs and the subdued flow streaks turn toward their
-   *  colours, and how little of the sky's reflection, the sun's glint and the glints shows (a
-   *  twelfth of clean water's glints and glint, and a trace of the sky), and its bubbles' glow. */
+   *  colours, how little of the glints shows (a twelfth of clean water's), its bubbles' glow, and its
+   *  smoothness, the game's (`_Contamination_Smoothness` 0.15: the sky and the sun's glint by the same
+   *  lighting as clean water's, `WATER_SURFACE.smoothness`). */
   trough: 1,
   streak: 1,
-  reflect: 0.03,
-  spec: 0.04,
+  smoothness: 0.15,
   glints: 0.028,
   bubbles: 0.55,
 } as const;
@@ -513,14 +516,29 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define CLEAR_FADE ${f(CLEAR_WATER.fade)}
   #define CLEAR_FALL ${f(CLEAR_WATER.fall)}
   #define WATER_CREST_AMOUNT ${f(WATER_SURFACE.crest)}
-  #define WATER_REFLECT ${f(WATER_SURFACE.reflect)}
   #define WATER_PALE_AMOUNT ${f(WATER_SURFACE.pale)}
-  #define WATER_SPEC ${f(WATER_SURFACE.spec)}
   #define WATER_EDGE ${f(WATER_SURFACE.edge)}
   #define BADWATER_TROUGH_AMOUNT ${f(BADWATER.trough)}
   #define BADWATER_STREAK_AMOUNT ${f(BADWATER.streak)}
-  #define BADWATER_REFLECT ${f(BADWATER.reflect)}
-  #define BADWATER_SPEC ${f(BADWATER.spec)}
+  #define WATER_SMOOTHNESS ${f(WATER_SURFACE.smoothness)}
+  #define BADWATER_SMOOTHNESS ${f(BADWATER.smoothness)}
+  /** The sky's reflection's weight at a smoothness, as the game's URP environment term (waterPalette.ts
+   *  WATER_SURFACE.smoothness): the part that rises toward the grazing angle. */
+  float waterSkyReflect(float NoV, float smoothness) {
+    return (clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0) - ${f(WATER_SURFACE.f0)}) * pow(1.0 - clamp(NoV, 0.0, 1.0), 4.0);
+  }
+  /** The sun's glint at a smoothness, as the game's URP GGX specular term (× f0 and N·L; the caller multiplies
+   *  by the sun's colour and its shadow). */
+  float waterSunGlint(vec3 N, vec3 V, vec3 L, float smoothness) {
+    float pr = 1.0 - smoothness;
+    float r = max(pr * pr, 0.002);
+    float r2 = r * r;
+    vec3 H = normalize(L + V);
+    float NoH = clamp(dot(N, H), 0.0, 1.0);
+    float LoH = clamp(dot(L, H), 0.0, 1.0);
+    float d = NoH * NoH * (r2 - 1.0) + 1.00001;
+    return r2 / (d * d * max(0.1, LoH * LoH) * (4.0 * r + 2.0)) * ${f(WATER_SURFACE.f0)} * max(dot(N, L), 0.0);
+  }
   #define BADWATER_GLINTS ${f(BADWATER.glints)}
   #define BADWATER_BUBBLES ${f(BADWATER.bubbles)}
   #define BADWATER_SIDE ${f(BADWATER.side)}
