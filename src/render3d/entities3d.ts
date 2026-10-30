@@ -1496,7 +1496,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
   // (the batches drawn already, by name: one that would be built exactly as it stands moves into the new group as it is,
   // nothing made or sent to the GPU again; placing a source rebuilds the sources' batch, not the forest's)
   const drawn = new Map<string, InstancedMesh>();
-  if (reuse && !lite)
+  if (reuse)
     for (const c of reuse.group.children) {
       const mesh = c as InstancedMesh;
       if (mesh.isInstancedMesh && mesh.userData.objects && !mesh.name.startsWith("high.")) drawn.set(mesh.name, mesh);
@@ -1505,11 +1505,13 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     const n = b.tints.length / 3;
     if (!n) continue;
     const old = drawn.get(key);
-    if (old && old.material === material && sameBatch(old, b, v, reuse!.entities)) {
+    if (old && old.material === material && sameBatch(old, b, v, reuse!.entities, lite)) {
       // (renumbered, and standing where the map has them now: ground a stroke painted may have moved them to these
       // heights already, and settling puts them back to `ty0`, so it is the new build's, as a fresh batch's is)
       old.userData.objects = Int32Array.from(b.objects);
-      if (b.follows.some((k) => k >= 0)) {
+      if (lite) {
+        // (the light look's batch is baked: nothing follows the ground in it)
+      } else if (b.follows.some((k) => k >= 0)) {
         old.userData.follows = Int32Array.from(b.follows);
         old.userData.ty0 = Float32Array.from({ length: n }, (_, i) => b.matrices[i * 16 + 13]);
       } else {
@@ -1527,6 +1529,9 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       mesh.instanceMatrix.array.set([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
       mesh.instanceColor = new InstancedBufferAttribute(new Float32Array([1, 1, 1]), 3);
       mesh.geometry.setAttribute("grow", new InstancedBufferAttribute(new Float32Array([0, 0, 1]), 3));
+      // (what it was baked from, so a build that would bake it the same keeps it: `sameBatch`)
+      mesh.userData.objects = Int32Array.from(b.objects);
+      mesh.userData.baked = { matrices: Float32Array.from(b.matrices), tints: Float32Array.from(b.tints) };
     } else {
       mesh.instanceMatrix.array.set(b.matrices);
       mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(b.tints), 3);
@@ -1548,11 +1553,14 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
 
 /** Whether a batch drawn (`mesh`, of the objects `was`) is exactly what `b` (of the objects `v`) would build: as many
  *  instances, each of the same object's kind, with the same matrix, tint and growth as drawn now (a highlight, a
- *  wiggle or ground followed shows as a difference, and the batch is built anew). */
-function sameBatch(mesh: InstancedMesh, b: Batch, v: EntityView, was: EntityView): boolean {
+ *  wiggle or ground followed shows as a difference, and the batch is built anew). The light look's baked batch is
+ *  compared with the matrices and tints it was baked from. */
+function sameBatch(mesh: InstancedMesh, b: Batch, v: EntityView, was: EntityView, lite = false): boolean {
   const n = b.tints.length / 3;
   const own = mesh.userData.objects as Int32Array;
-  if (mesh.count !== n || own.length !== n || !mesh.instanceColor) return false;
+  const baked = mesh.userData.baked as { matrices: Float32Array; tints: Float32Array } | undefined;
+  if (lite !== !!baked) return false;
+  if ((!lite && mesh.count !== n) || own.length !== n || !mesh.instanceColor) return false;
   for (let i = 0; i < n; i++) {
     const k = own[i];
     const j = b.objects[i];
@@ -1563,6 +1571,7 @@ function sameBatch(mesh: InstancedMesh, b: Batch, v: EntityView, was: EntityView
     for (let i = 0; i < f.length; i++) if (a[i] !== Math.fround(f[i])) return false;
     return true;
   };
+  if (baked) return same(baked.matrices, b.matrices) && same(baked.tints, b.tints);
   const grow = mesh.geometry.getAttribute("grow");
   return !!grow && same(mesh.instanceMatrix.array, b.matrices) && same(mesh.instanceColor.array, b.tints) && same(grow.array, b.grows);
 }
