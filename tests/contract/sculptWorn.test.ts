@@ -39,7 +39,7 @@ describe("a sculpt the land wears away is refused (D342)", () => {
     const before = s.built.heights.slice();
     const lone = s.apply({ op: "sculpt", params: { mode: "flatten", cells: [[y, x, x]], level: h + 6 } });
     expect(lone.ok).toBe(false);
-    expect(lone.errors[0]).toMatch(/^nothing changes: a lone tile set that far from its neighbours is worn back to them/);
+    expect(lone.errors[0]).toMatch(/^nothing changes: a lone tile set apart from its neighbours is worn back to them/);
     expect(Array.from(s.built.heights)).toEqual(Array.from(before));
     // (exact, it stands as set, a one-tile spike included)
     const exact = s.apply({ op: "sculpt", params: { mode: "flatten", cells: [[y, x, x]], level: h + 6, exact: true } });

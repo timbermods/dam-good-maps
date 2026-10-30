@@ -891,7 +891,7 @@ export class MapSession {
     for (const [y, a, b] of p.cells)
       for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) {
         const h = before.heights[y * W + x];
-        if (meant(h) !== h) return "nothing changes: a lone tile set that far from its neighbours is worn back to them; shape two or more tiles, or make it exact";
+        if (meant(h) !== h) return "nothing changes: a lone tile set apart from its neighbours is worn back to them; shape two or more tiles, or make it exact";
       }
     return null;
   }
