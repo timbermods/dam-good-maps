@@ -13,6 +13,7 @@ import { integrityAt, keepShownGround, padTile } from "./terrain";
 import { waterLevels } from "./weather";
 import { ColumnTerrain } from "../../terrain/runs";
 import { newFalls } from "../../terrain/support";
+import { ridingPieces } from "../edits";
 
 /** What the build's step 6 onward starts from, for the page's own copy of the terrain. */
 export interface TerrainState {
@@ -57,6 +58,17 @@ export interface TerrainState {
   water?: Float64Array | null;
   /** The settled water's moisture on every tile (rule 3: moist ground keeps its height). */
   moisture?: Float64Array | null;
+}
+
+/** The tiles the build's integrity pass (step 7) may wear, as it chooses them: on an imported map only
+ *  the tiles an edit changed from its surface, on a generated map those changed from its field (a spike
+ *  the generation grew stays) and not kept under a lock, elsewhere every tile not kept under a lock.
+ *  `pre`: the heights before the pass. The page's strokes and the forces' last touches read the same. */
+export function integrityCandidate(state: Pick<TerrainState, "base" | "field" | "locked">, pre: ArrayLike<number>): (i: number) => boolean {
+  const base = state.base;
+  const locked = state.locked;
+  const field = state.field ?? null;
+  return base ? (i) => pre[i] !== base[i] : field ? (i) => pre[i] !== field[i] && !locked?.[i] : locked ? (i) => !locked[i] : () => true;
 }
 
 /** Every hold a stroke keeps on the terrain `state` (the ground under objects set under a roof, and the ground holding
@@ -131,12 +143,7 @@ export class StrokePreview {
     this.protect = this.precise || settings.sources === "keep" || state.rockHold?.length ? state.protect.slice() : state.protect;
     // (the integrity pass leaves the ground holding up the rock, as the build leaves the held tiles in the stroke's reach)
     for (const [i] of state.rockHold ?? []) if (i >= 0 && i < this.protect.length) this.protect[i] = 1;
-    const pre = this.pre;
-    const base = state.base;
-    const locked = state.locked;
-    const field = state.field ?? null;
-    // (as the build's step 7 chooses them)
-    this.candidate = base ? (i) => pre[i] !== base[i] : field ? (i) => pre[i] !== field[i] && !locked?.[i] : locked ? (i) => !locked[i] : () => true;
+    this.candidate = integrityCandidate(state, this.pre);
     // kept sources' ground stays exactly as it is shown (D322, item 31): the integrity pass leaves it
     // too, as the build's step 6 does
     if (settings.sources === "keep") keepShownGround(settings.keep ?? [], this.pre, W, H, this.protect, state.channel, this.candidate, state.top);
@@ -161,11 +168,12 @@ export class StrokePreview {
     return r ? this.settle(r) : null;
   }
 
-  /** Of the map's pieces that may ride a stroke (`ridingPieces`), the ones this stroke has tilted so
-   *  far: the `rigid` pieces to hand `finish` when it is let go, the same ones the session would add
-   *  to its operation (D249). */
-  rides(pieces: readonly (readonly [number, number, number, number])[]): [number, number, number, number][] {
-    return tiltedPieces(pieces, this.start, this.heights, this.W);
+  /** Of the `objects` that may ride a stroke, the pieces this stroke has tilted so far: the `rigid` pieces to hand
+   *  `finish` when it is let go, the same ones the session would add to its operation (D249; session.ts `rideTilted`).
+   *  One rule for both: `ridingPieces` read from the ground before the stroke, so an object anything roofs stays out
+   *  and the roof's top over it is the stroke's to shape (D491, amended 2026-10-29). */
+  rides(objects: Parameters<typeof ridingPieces>[0]): [number, number, number, number][] {
+    return tiltedPieces(ridingPieces(objects, this.W, this.H, this.start), this.start, this.heights, this.W);
   }
 
   /** The stroke's dabs are all in: the pieces that ride it whole take the level of their middle

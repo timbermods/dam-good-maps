@@ -441,10 +441,14 @@ Read from the game's own files, not run: the water material's saved properties i
 vector-parameter table). The C# (`Timberborn.WaterSystemRendering`) only uploads each column's contamination as a
 byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgress`).
 
+- **Colour space: Gamma.** `globalgamemanagers` PlayerSettings `m_ActiveColorSpace` is 0, and the terrain shader
+  converts its ambient light to sRGB before use (URP's `SampleSH` under `UNITY_COLORSPACE_GAMMA`). So the water's maths
+  below runs on display values: textures are sampled raw (an sRGB flag does nothing), material colours are used as
+  stored, and every lerp, overlay and desaturation happens on display values, as does the framebuffer's blending.
 - **Per pixel:** the tile's contamination, eased toward its neighbours' average near tile edges, then one tint
   `t = min(1, smoothstep(0.01, 1, c) ^ 0.25)` (`_MinContaminationThreshold` 0.01, `_MaxContaminationThreshold` 1,
   `_ContaminationNonlinearity` 0.25). t: 0.26 at 5 %, 0.39 at 10 %, 0.56 at 20 %, 0.84 at 50 %.
-- **Colour:** albedo = lerp(clean, contaminated, t), in linear light. Clean = `_Color` #446C71 toward
+- **Colour:** albedo = lerp(clean, contaminated, t), on display values (Gamma). Clean = `_Color` #446C71 toward
   `_AlbedoAtMaxDepth` #000F48 over `_MaxDepth` 5 levels. Contaminated = a noise pattern between
   `_Base_Contamination_Color_A` (near black, #050505) and `_B` (#801F0B), times 1.75 up to 60 % and easing to 1.0 at
   100 % (`_Base_Contamination_Intensity_Low` / `_High`): partly bad water is a brighter crimson than pure badwater.
@@ -453,20 +457,28 @@ byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgres
   `_B` #E09C65 comes in by t (the pink-orange light).
 - **Depth (`_DepthGradients`, texture slot 7, pathID 763 in `resources.assets`, 32×32 BC7 sRGB):** both pixel programs sample it
   at (depth / `_MaxDepth`, 0.5). Its R runs 245 to 0 and its G 245 to 22 over the 5 levels. Clean albedo = lerp(`_Color`,
-  `_AlbedoAtMaxDepth`, u) × R × 2; the contaminated colour × G. In linear light G relative to a quarter level deep: 1.64 at
-  no depth, 0.61 at half a level, 0.43 at 1, 0.19 at 2, 0.08 at 3, 0.03 at 4.25 (`BADWATER.ramp` fits it within 5% at these depths). Clean
+  `_AlbedoAtMaxDepth`, u) × R × 2; the contaminated colour × G, both on display values (the texture sampled raw, in
+  Gamma). G relative to a quarter level deep: 1.25 at no depth, 0.80 at half a level, 0.68 at 1, 0.46 at 2, 0.31 at 3,
+  0.18 at 4.25 (an earlier reading linearised it: 1.64, 0.61, 0.43, 0.19, 0.08, 0.03; `BADWATER.ramp` follows the raw values). Clean
   albedo × R × 2 reaches near black by 3 levels; on screen the sky's reflection (smoothness 0.67) holds deep clean water up.
   Badwater keeps a reflection too, with no depth in it: its metallic goes to 0 (F0 0.04), about 0.6 of clean water's
   reflection, and its emissive detail (`_Detail_Contamination_Color_*` × t) has no depth term either, so deep badwater
-  never goes black on screen. `BADWATER.floor` (0.17) stands for that share until an in-game measurement sets it.
+  never goes black on screen. `BADWATER.floor` stands for that share on display values: 0.37 of the display colour
+  (option A's own `badDeep` / `bad`), a stand-in until an in-game measurement sets it (the game adds its reflection and
+  emission with their own colours; they are not a share of the albedo).
 - **See-through (the High-quality variant, `opaque/p036`; Medium and above set `_HIGH_QUALITY_WATER_ENABLED`):** in play
   every tile uses the opaque material (`WaterMesh.GetWaterMaterial`; the transparent one only while a tool hides the
   water, at a flat 0.4). The High-quality program samples `_CameraOpaqueTexture` behind the water and mixes it in, alpha
-  staying 1: the ground behind, overlaid 80 % with the water's colour (`_TransparencyBlending` 0.8) and desaturated to
+  staying 1, all on display values: the ground behind, overlaid 80 % with the water's colour (`_TransparencyBlending` 0.8) and desaturated to
   30 % (`_TransparencySaturation`), at a share 0.35 × 0.5 × (1 − d / 5) (`_TransparencyDepth`, `_TransparencyDepthModifier`,
   `_MaxDepth`), d the vertical depth to the ground: about 0.17 at a film's 0.087 deep and at a shore's edge, 0 at
   5 levels; falls 0.1 × (1 − d / 5). The Low variant (`p032`) shows no ground. The contaminated tint, the depth ramp
   and the reflection are the same in both variants. A film is drawn like any water; the game clips hard at the floor.
+  Followed by `WATER_SURFACE.seeThrough` (both looks; the light look as Low).
+- **Badwater's depth-independent share (`BADWATER.floor`):** no in-game capture yet ties badwater's on-screen colour to a
+  known depth: the probe's Badtide shots (`C:\dgm-probe\shots\*\*-badtide2-*-water.jpg`) have the depths in their
+  snapshots but no camera pose, so no pixel can be tied to a tile (searched 2026-10-29). A map with a shallow and a deep
+  badwater pool should join the next probe batch, with its camera recorded, to set it.
 - **Opacity:** none by contamination: `_WaterOpacity` is 1 (0.4 while a tool hides the water).
 - Used by `src/render3d/waterPalette.ts` `WATER_BLEND` (2026-10-29).
 

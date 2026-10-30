@@ -11,7 +11,7 @@ import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" }
 import { MapSession } from "../../src/core/doc/session";
 import { naturalDepth } from "../../src/core/forces/carve/character";
 import { carveForceParams, forceMapOf } from "../../src/core/forces/carve/result";
-import { CarveRun, DEFAULTS as CARVE_DEFAULTS, type CarveSettings } from "../../src/core/forces/carve/run";
+import { cappedRise, CarveRun, cutBound, DEFAULTS as CARVE_DEFAULTS, type CarveSettings } from "../../src/core/forces/carve/run";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { forceSettingsProblems, type ForceResultParams } from "../../src/core/forces/op";
 import { generate } from "../../src/core/gen/generate";
@@ -59,28 +59,63 @@ describe("Power and size are separate in every force (D226)", () => {
     const at = spot(s);
     const power = 95;
     const deep = carve(s, { ...CARVE_DEFAULTS, power, width: 16 }, at);
-    const shallow = carve(s, { ...CARVE_DEFAULTS, power, width: 16, depth: 2 }, at);
+    // (set to two, its course crosses a rise two levels can't cut through: refused, naming the rise and the Depth
+    // that keeps the channel falling there, D500, never a channel that climbs and floods back)
+    let why = "";
+    try {
+      carve(s, { ...CARVE_DEFAULTS, power, width: 16, depth: 2 }, at);
+    } catch (e) {
+      why = (e as Error).message;
+    }
+    const asked = /^The rise at X \d+ · Y \d+ needs Depth (\d+) to keep the channel falling$/.exec(why);
+    expect(asked, why).not.toBeNull();
+    const depth = Number(asked![1]);
+    expect(depth).toBeGreaterThan(2);
+    const shallow = carve(s, { ...CARVE_DEFAULTS, power, width: 16, depth }, at);
     const cut = (r: typeof deep) => {
       let most = 0;
       for (let i = 0; i < r.m.heights.length; i++) most = Math.max(most, r.m.heights[i] - r.run.map.heights[i]);
       return most;
     };
-    // (following Power it cuts deeper than two levels here; set to two, never deeper)
-    expect(cut(deep)).toBeGreaterThan(2);
-    expect(cut(shallow)).toBeLessThanOrEqual(2);
+    // (following Power it cuts deeper here; set to that Depth, never deeper)
+    expect(cut(deep)).toBeGreaterThan(depth);
+    expect(cut(shallow)).toBeLessThanOrEqual(depth);
     expect(cut(shallow)).toBeGreaterThan(0);
     // what Depth reads while it follows Power: the carve's own cut where it starts
     expect(naturalDepth(65)).toBe(5);
     expect(naturalDepth(100, 24)).toBeLessThan(naturalDepth(100));
     // kept, its Depth is in its operation; the project reopens it and replays the same land
-    const params = carveForceParams(shallow.m, shallow.run, { settings: { ...CARVE_DEFAULTS, power, width: 16, depth: 2 }, origin: at, cut: null })!;
-    expect(params.settings).toMatchObject({ width: 16, depth: 2 });
+    const params = carveForceParams(shallow.m, shallow.run, { settings: { ...CARVE_DEFAULTS, power, width: 16, depth }, origin: at, cut: null })!;
+    expect(params.settings).toMatchObject({ width: 16, depth });
     expect(s.apply({ op: "forceResult", params }, "user").errors).toEqual([]);
     const again = MapSession.open(decodeProject(s.project()));
     expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
     // following Power, no Depth is written (as before D226)
     const plain = carveForceParams(deep.m, deep.run, { settings: { ...CARVE_DEFAULTS, power, width: 16 }, origin: at, cut: null })!;
     expect("depth" in plain.settings).toBe(false);
+  });
+
+  it("a Depth that would make the channel climb is refused, naming the rise and the Depth it needs there (D500)", () => {
+    // (a row of ground 10, 10, 10, 15, 15, 9: the course runs along it at bed 6, then over the rise)
+    const ground = [10, 10, 10, 15, 15, 9];
+    const path = ground.map((_, x) => ({ x, y: 0, bed: 6 }));
+    // (a Depth of 2 holds the floor at 8, then at 13 over the rise; a deeper Depth lowers the floors upstream too,
+    // to the bed at 6 from Depth 4, and the rise's floor reaches the bed at Depth 9)
+    expect(cappedRise(ground, 6, path, 2)).toBe("The rise at X 3 · Y 0 needs Depth 9 to keep the channel falling");
+    expect(cappedRise(ground, 6, path, 8)).toBe("The rise at X 3 · Y 0 needs Depth 9 to keep the channel falling");
+    expect(cappedRise(ground, 6, path, 9)).toBeNull();
+    // (land that only falls keeps its channel falling at any Depth)
+    expect(cappedRise([14, 12, 11, 9, 8, 6], 6, path, 1)).toBeNull();
+    // (a rise past Depth's most, 12: let Power set it)
+    expect(cappedRise([1, 1, 1, 15, 15, 1], 6, path.map((st) => ({ ...st, bed: 0 })), 1)).toBe("The rise at X 3 · Y 0 is too tall for a Depth: let Power set it");
+    // (a weak or wide carve cuts less than its Depth, rust/forces `stamp`: there the Depth it names must clear the rise
+    // within that bound, and where none can, the Power and Width are what to change)
+    expect(cappedRise(ground, 6, path, 5, 3)).toBe("The rise at X 3 · Y 0 is too tall for this Power and Width: raise Power or narrow Width");
+    expect(cappedRise([10, 10, 10, 12, 12, 9], 6, path, 2, 6)).toBe("The rise at X 3 · Y 0 needs Depth 6 to keep the channel falling");
+    // (Power 40 at its own Width cuts at most 3; a Width wider than Power's own holds it to the plan's own bound)
+    expect(cutBound({ power: 40, width: null }, null)).toBe(3);
+    expect(cutBound({ power: 95, width: null }, null)).toBe(Infinity);
+    expect(cutBound({ power: 95, width: 24 }, 5)).toBe(5);
   });
 
   it("each size is checked alike by the engine and the schema; operations from before D226 (no Depth, no Size) still fit", () => {

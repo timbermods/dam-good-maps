@@ -9,11 +9,11 @@
 //   specular) and its wind;
 // - #67 (investigation/maplook-finish), stages 1–3: the diorama edge (rock beds, soil cap, water
 //   section), the water's finish (a continuous crown, an irregular landing, bubbly froth, rough
-//   water), the landmarks' fine detail and slopes' natural material; and stage 4's seasons on a held
-//   Drought or Badtide day (D250, D286 (4); render3d/high/seasons.ts): pale dusty dry ground with straw
-//   where grass was, a heat shimmer over it, and a faint sickly sky in a badtide. Its dark stain on
-//   contaminated soil is superseded by D334 (contamination's orange-red veins, the game's own, in every
-//   look: materials.ts `veinsOf`).
+//   water), the landmarks' fine detail and slopes' natural material. Stage 4's seasons (straw, a heat
+//   shimmer, a sickly sky) are superseded by D250's 2026-10-29 amendment: a held day changes the haze
+//   to the game's fog colour in both looks (render3d/high/seasons.ts); its dark stain on contaminated
+//   soil by D334 (contamination's orange-red veins, the game's own, in every look: materials.ts
+//   `veinsOf`).
 // - Timberborn's references (D334, investigation/high-soul, adopted with the High look): exposure
 //   1.00 and a restrained grade, a lower ambient-occlusion floor, olive stone, current-aligned
 //   caustics and rolling light on moving water, pink highlights and red contact at rock on
@@ -104,14 +104,30 @@ const SHADOW_GLSL = /* glsl */ `
   uniform sampler2D hlDepth;
   uniform mat4 hlShadowMatrix;
   uniform float hlTexel;
+  /** The receiver plane's depth gradient across the depth map (its depth's change with the map's u and v), from the
+   *  plane's two screen derivatives; none where the plane is seen edge-on from the sun (its uv derivatives
+   *  degenerate). The divisor is the determinant only where it is not degenerate, else 1 (its quotient then unused):
+   *  HLSL evaluates both sides of a choice, and a division by a determinant that may be 0 there drew D3D's
+   *  "X4008: floating point division by zero" and could make NaN. */
+  vec2 receiverGradient(vec3 dx, vec3 dy) {
+    float determinant = dx.x * dy.y - dx.y * dy.x;
+    bool solvable = abs(determinant) > 1e-10;
+    vec2 gradient = vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / (solvable ? determinant : 1.0);
+    return solvable ? gradient : vec2(0.0);
+  }
   float sunLit(vec2 g, float z) {
     // (the derivatives first, outside any branch or loop; the depth read at its own level)
     vec3 n = normalize(vNormal);
-    vec4 p = hlShadowMatrix * vec4(vWorld + n * 0.045, 1.0);
+    // (pushed off the surface along its normal, more the more it turns from the sun, by the depth map's texels:
+    // a wall the sun grazes is drawn in the map as thin slivers of its own triangles, and with too small a push
+    // it shadowed itself in their pattern, a dotted seam down a close wall; the map's texel in the world from the
+    // matrix's scale, an orthographic one's the same across)
+    float texelWorld = 2.0 * hlTexel / length(vec3(hlShadowMatrix[0][0], hlShadowMatrix[1][0], hlShadowMatrix[2][0]));
+    float grazing = 1.0 - clamp(abs(dot(n, sunDir)), 0.0, 1.0);
+    vec4 p = hlShadowMatrix * vec4(vWorld + n * (0.045 + 1.5 * texelWorld * grazing), 1.0);
     vec3 q = p.xyz / p.w * 0.5 + 0.5;
     vec3 dx = dFdx(q), dy = dFdy(q);
-    float determinant = dx.x * dy.y - dx.y * dy.x;
-    vec2 gradient = abs(determinant) > 1e-10 ? vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / determinant : vec2(0.0);
+    vec2 gradient = receiverGradient(dx, dy);
     gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
     float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
     float lit = 1.0;
@@ -135,8 +151,7 @@ const SHADOW_GLSL = /* glsl */ `
     // (sunLit's receiver-plane bias, for the level plane: its derivatives are the matrix's own columns)
     vec3 dx = (hlShadowMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz * 0.5;
     vec3 dy = (hlShadowMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz * 0.5;
-    float determinant = dx.x * dy.y - dx.y * dy.x;
-    vec2 gradient = abs(determinant) > 1e-10 ? vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / determinant : vec2(0.0);
+    vec2 gradient = receiverGradient(dx, dy);
     gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
     float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
     float light = 0.0;
@@ -169,7 +184,7 @@ const AMBIENT_GLSL = /* glsl */ `
  *  off, the Standard haze. None from straight above (hazeAmount is 0 there). */
 const HAZE = /* glsl */ `if (hlHaze > 0.5 && hazeAmount > 0.0) {
       float farAir = smoothstep(max(64.0, hazeRange.x * 1.5), max(160.0, hazeRange.y * 1.3), d);
-      c = mix(c, vec3(0.78, 0.84, 0.91), farAir * 0.055);
+      c = mix(c, hazeColor, farAir * 0.055);
     } else c = mix(c, hazeColor, hazeAmount * smoothstep(hazeRange.x, hazeRange.y, d));`;
 
 const FINISH_END = /* glsl */ `return (hlTone > 0.5 || hlGrade > 0.5) ? hlGradeColour(c) : clamp(c, 0.0, 1.0);`;
@@ -195,26 +210,7 @@ export function terrainHooks(): ShaderHooks {
     ...lit(["hlAO", "hlStrata", "hlBlend", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], AMBIENT_GLSL + /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
-  uniform sampler2D hlSeasonMask;
-  uniform vec2 hlSeasonSize;
-  uniform float hlDry, hlHeat;
 `),
-    // the seasons (#67 stage 4): the held day's mask (R: dry ground with no water on it, A: grass the map's own soil had),
-    // read at the tile itself, never blended across a moist one. The heat shimmer moves the ground's own pattern by under
-    // half a pixel over dry ground (no pass of its own: D334's crisp map); its waves run in screen space, so they never
-    // alias however many tiles a pixel spans, and the pixel size is taken outside the branch (derivatives need every
-    // pixel of a quad)
-    groundStart: /* glsl */ `
-        vec2 gTile = g;
-        if (hlHeat > 0.5) {
-          float px = max(fwidth(g.x), fwidth(g.y));
-          vec4 shim = texture2D(hlSeasonMask, (floor(g) + 0.5) / hlSeasonSize);
-          if (shim.r > 0.5) {
-            vec2 sp = gl_FragCoord.xy;
-            g += vec2(sin(sp.y * 0.9 + time * 1.1) * sin(sp.x * 0.35 - time * 0.73), sin(sp.x * 0.8 - time * 1.3) * sin(sp.y * 0.4 + time * 0.9)) * px * 0.45;
-          }
-        }
-`,
     skyLight: "ambientVisibility(vWorld, n) * ",
     // under a roof, the soft shadow of the real meshes, the roof included, as on the ground before it
     // (off: the march through the light volume)
@@ -234,21 +230,6 @@ export function terrainHooks(): ShaderHooks {
     bad: "hlBlend > 0.5 ? smoothstep(0.34, 0.66, s.z + edge * 0.6) : smoothstep(0.4, 0.6, s.z + edge * 0.6)",
     // colour variation (#65): two broad world scales on the ground's colour, not its soil
     groundVariation: /* glsl */ `
-        // pale dusty earth over dry ground (the seasons, #67 stage 4), its cracks kept, straw where grass stood: laid on the
-        // ground's own colour, before contamination's veins are, so the veins keep all their strength (D334)
-        if (hlDry > 0.5) {
-          vec4 season = texture2D(hlSeasonMask, (floor(gTile) + 0.5) / hlSeasonSize);
-          // (its patterns read for every pixel, outside the branch on the tile's mask: their mipmaps need every pixel of a quad)
-          float wear = vnoise(gTile * 0.61 + vec2(7.7, 19.3));
-          float splits = cracks(gTile * 1.41 + 29.3).x;
-          float blades = smoothstep(0.69, 0.86, vnoise(gTile * vec2(29.1, 8.7) + vec2(4.7, 9.2)));
-          if (season.r > 0.5) {
-            vec3 earth = mix(vec3(0.48, 0.455, 0.415), vec3(0.61, 0.575, 0.50), wear);
-            earth *= 1.0 - splits * 0.25 * detail;
-            earth = mix(earth, vec3(0.67, 0.62, 0.43), season.a * (0.22 + blades * 0.35));
-            c = mix(c, earth, 0.66 * (1.0 - bad * 0.5));
-          }
-        }
         if (hlVariation > 0.5) {
           float broad = vnoise(g * 0.043 + vec2(12.0, 33.0)) - 0.5;
           float mottling = vnoise(g * 0.317 + vec2(21.0, 8.0)) - 0.5;
@@ -344,12 +325,6 @@ ${HIGH_WATER_GLSL}
     float twinkle = smoothstep(0.1, 0.85, sin(t * (1.1 + speed * 1.2) + fleckHash(cell) * 51.0));
     return spot * step(mix(0.96, 0.82, speed), fleckHash(cell + 91.0)) * twinkle;
   }
-  /** #38's badwater opacity at its own depth (already shallower toward a bank), with the shared
-   *  palette's numbers (BADWATER). */
-  float badwaterOpacity(float depth, float shore, float grazing) {
-    float edge = (1.0 - smoothstep(${g(B.edgeDepth[0])}, ${g(B.edgeDepth[1])}, depth)) * (1.0 - smoothstep(${g(B.edgeShore[0])}, ${g(B.edgeShore[1])}, shore));
-    return max(mix(${g(B.opacity[0])}, ${g(B.opacity[1])}, smoothstep(${g(B.opacityFrom)}, ${g(B.opacityTo)}, depth)) - ${g(B.edge)} * edge, grazing * ${g(B.grazing)});
-  }
   /** How much of the surface's light (its streaks, its light network and its flecks) measuredSurfaceWater drew
    *  at the point, 0-1: on a film, its sheen keeps the opacity it has on the body (WATER_FILM). */
   float hlSheen = 0.0;
@@ -363,7 +338,8 @@ ${HIGH_WATER_GLSL}
     body = mix(body, HW_GRAZING * mix(1.0, 0.72, deep), grazing * 0.65);
     vec3 streakColour = mix(mix(HW_STREAK_ABOVE, HW_STREAK_LOW, low), HW_STREAK_GRAZING, grazing);
     vec3 cleanBody = body;
-    vec3 badBody = HW_BAD * (1.0 - deep * 0.12) + vec3(0.0012, 0.0008, 0.0006) * grazing;
+    // (badwater darkens with depth by the game's _DepthGradients ramp, as the Standard look's: badwaterLight)
+    vec3 badBody = HW_BAD * badwaterLight(depth) + vec3(0.0012, 0.0008, 0.0006) * grazing;
     // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts
     // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the fewer glints,
     // the bubbles, the murk) turned toward badwater's by the same tint
@@ -399,7 +375,11 @@ ${HIGH_WATER_GLSL}
     flowB += vec2(vnoise(p2 * 0.71), vnoise(p2 * 0.83 + 8.1)) * 2.2;
     float network = mix(cracks(flowA).x * smoothstep(0.28, 0.66, vnoise(p * 4.2 + 31.0)), cracks(flowB).x * smoothstep(0.28, 0.66, vnoise(p2 * 4.2 + 31.0)), blend);
     float ribbons = mix(smoothstep(0.49, 0.72, vnoise(flowA * vec2(1.7, 0.7))), smoothstep(0.49, 0.72, vnoise(flowB * vec2(1.7, 0.7))), blend);
-    float broad = mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend);
+    // (its broad swells and rolling packets of light fade to their mean from afar, where the eye no longer
+    // resolves the ripples that make them and they would read as cloud blotches on the water: the game's
+    // distant water is even)
+    float far = 1.0 - smoothstep(0.05, 0.15, pixel);
+    float broad = mix(0.5, mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend), far);
     float rough = texture2D(hlRough, g / hlFlowSize).r * hlRiver;
     #ifdef CAVES
       if (waterOwnFlow.a > 0.5) rough = waterOwnFlow.b * hlRiver;
@@ -407,7 +387,7 @@ ${HIGH_WATER_GLSL}
     float highlights = (network * (0.18 + broad * 0.72) + ribbons * (0.16 + rough * 0.43)) * (0.35 + broad * 0.80);
     float rollA = vnoise(p * 0.70) * 0.50 + vnoise((p + direction * 1.7) * 0.70) * 0.30 + vnoise(p * 1.3 + 47.0) * 0.20;
     float rollB = vnoise(p2 * 0.70) * 0.50 + vnoise((p2 + direction * 1.7) * 0.70) * 0.30 + vnoise(p2 * 1.3 + 47.0) * 0.20;
-    float rolling = mix(smoothstep(0.41, 0.72, rollA), smoothstep(0.41, 0.72, rollB), blend);
+    float rolling = mix(0.35, mix(smoothstep(0.41, 0.72, rollA), smoothstep(0.41, 0.72, rollB), blend), far);
     highlights = mix(highlights, rolling * (0.43 + rough * 0.34), smoothstep(0.10, 0.65, speed));
     colour *= 1.0 - speed * (1.0 - rolling) * 0.14;
     highlights *= mix(1.0, 0.68, deep);
@@ -420,7 +400,7 @@ ${HIGH_WATER_GLSL}
       float signalOpacity = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
       signalOpacity = mix(0.30, signalOpacity, smoothstep(0.0, 0.20, shore));
       signalOpacity = max(signalOpacity, grazing * 0.62);
-      signalOpacity = mix(signalOpacity, badwaterOpacity(depth, shore, grazing), smoothstep(0.25, 1.0, tint));
+      signalOpacity = mix(signalOpacity, cleanWaterAlpha(depth), smoothstep(0.25, 1.0, tint));
       colour += (HW_BAD_TROUGH * trough + HW_BAD_STREAK * streak) * ((tint - 0.25) / 0.75) / signalOpacity;
     }
     vec3 referenceLight = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
@@ -438,14 +418,9 @@ ${HIGH_WATER_GLSL}
       float bubbles = fine * smoothstep(0.83, 0.93, vnoise(g * 5.0 + vec2(bt * 0.05, -bt * 0.08))) * smoothstep(0.55, 0.8, vnoise(g * 1.3 - vec2(0.0, bt * 0.04)));
       colour += vec3(${WATER.badVein.join(", ")}) * bubbles * tint * 0.55;
     }
-    float alpha = mix(mix(0.86, 0.96, bodyDepth), 0.995, deep);
-    alpha = mix(0.76, alpha, smoothstep(0.0, 0.20, shore));
-    alpha = max(alpha, grazing * 0.98);
-    float badAlpha = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
-    badAlpha = mix(0.30, badAlpha, smoothstep(0.0, 0.20, shore));
-    badAlpha = max(badAlpha, grazing * 0.62);
-    alpha = mix(alpha, badAlpha, tint);
-    alpha = mix(alpha, badwaterOpacity(depth, shore, grazing), smoothstep(0.25, 1.0, tint));
+    // the ground behind shows as the game's does, clean water and badwater alike (waterPalette.ts
+    // WATER_SURFACE.seeThrough; the depth here is already shallower toward a bank)
+    float alpha = cleanWaterAlpha(depth);
     return vec4(colour, alpha);
   }
 `;
@@ -498,7 +473,7 @@ export function waterHooks(): ShaderHooks {
             // (its light keeps more of the body's opacity: the film's sheen)
             float hlFilmAlpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
             hlFilmAlpha = mix(hlFilmAlpha, hlSurface.a, hlSheen * (1.0 - hlFilm) * 0.6);
-            alpha = mix(hlFilmAlpha, 0.97, hlFoam);
+            alpha = max(hlFilmAlpha, mix(hlFilmAlpha, 0.97, hlFoam));
           } else {
             // the water's side: streaks where it steps down, the water's body at the map's edge
             float stream = vnoise(vec2(g.x * 1.4 + sin(g.y * 0.8), g.y * 3.8 - hlT * 0.16));
@@ -713,7 +688,7 @@ export function vegetationHooks(slots: number): ShaderHooks {
  *  glow toward the sun instead of a disc; graded like the land. */
 export function skyHooks(): ShaderHooks {
   return {
-    decl: switches(["hlSky", "hlTone", "hlGrade"]) + "\n  uniform float hlSickly;" + GRADE_GLSL,
+    decl: switches(["hlSky", "hlTone", "hlGrade"]) + GRADE_GLSL,
     sky: /* glsl */ `
         if (hlSky > 0.5) {
           float horizon = exp(-abs(d.y) * 5.5);
@@ -727,8 +702,6 @@ export function skyHooks(): ShaderHooks {
           float sun = pow(max(dot(d, normalize(vec3(-0.45, 0.77, -0.45))), 0.0), 24.0);
           c += vec3(0.11, 0.075, 0.028) * sun;
         }
-        // a badtide's sky (#67 stage 4): slightly sickly
-        c = mix(c, vec3(0.66, 0.72, 0.46), hlSickly);
         if (hlTone > 0.5 || hlGrade > 0.5) c = hlGradeColour(c);`,
   };
 }

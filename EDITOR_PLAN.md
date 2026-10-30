@@ -288,7 +288,7 @@ place of its bottom rule.
   bush**; Ruin, Mine site, Relic, Slope, Thorns, Blockage and Geothermal field; Unstable core and the Reserve pile,
   warehouse and tank (five groups, 26 rows), each picture a small render in the map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
-  what it has; the list never moves; no row above the bar then; the object put away, the list returns to its top, or where it was when the row is clicked again): picked in the list, a source's Next source and
+  what it has; the picked row stays under the pointer, or, where the window takes its place (Start, at the list's top), comes into view just under the list's title; no row above the bar then; the object put away, the list returns to its top, or where it was when the row is clicked again): picked in the list, a source's Next source and
   Pointing at, a ruin's Height, a relic's Size, a plant's or Mixed woods' Size and Density (trees, succulents and woods
   also Age), a water object's Strength ("drains 2 water/s" below 0) and Starts (At once or Later, with its Cycle), the
   core's Radius and Goes off in cycle, a reserve's Holds (a menu in the page's own look: the goods every faction has,
@@ -1093,16 +1093,20 @@ Two looks (Map look 2, D147, D242, D250, D284):
   splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in High, the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
-  dead (`core/sim/withering.ts`, given to the page with the held day). On a held drought day, High also draws pale dusty
-  dry ground with straw where grass stood and a faint heat shimmer over it; on a held badtide day, a slightly sickly sky
-  (each its own effect, `high/seasons.ts`). Day 0 and Standard show the map as it is.
+  dead (`core/sim/withering.ts`, given to the page with the held day). A held drought or badtide day turns the haze to
+  the game's fog colour for it, in both looks (`Sun.blueprint`, `high/seasons.ts` `FOG`; the map's own haze is its
+  temperate fog), as the game does and nothing more: its ground dries by the day's soil like any dry tile (D250 as
+  amended 2026-10-29). Day 0 shows the map as it is.
 
 In both looks (the light look too) water of any depth draws as water, as the game draws it: a film is the same water
 as its body, not a faint tint over its ground (`WATER_FILM` in `render3d/waterPalette.ts`; the game's water in play is its
 opaque material, the ground behind showing only as a small tinted share, `investigation/notes/water_and_soil.md` Q8).
-Only a sliver a fiftieth of a level deep or less, a shore's very edge, fades in from a faint tint (its ground seen as
+Only a sliver three hundredths of a level deep or less, a shore's very edge, fades in from a faint tint (its ground seen as
 through a coloured filter in the water's hue) to the body, on one smooth curve on the water's own depth: our own
-anti-aliasing, where the game clips hard at the floor; a badwater sliver stays murkier than clean water, and keeps a faint edge, not a foam line.
+anti-aliasing, where the game clips hard at the floor. The ground behind the water shows as the game's High quality
+shows it (`WATER_SURFACE.seeThrough`, `waterGroundBehind`): overlaid with the water's colour and desaturated, 0.175 of it
+at the water's floor, thinning in step with depth to none at 5 levels,
+behind clean water and badwater alike; the light look follows the game's Low quality and shows none; a badwater sliver stays murkier than clean water, and keeps a faint edge, not a foam line.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
 threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks

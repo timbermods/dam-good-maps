@@ -172,6 +172,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The forces](forces.md)
 
+- D500: A Carve with a Depth keeps its channel falling, or is refused
 - D474: Forces can clear sources
 - D473: Carve's aging setting removed
 - D257: The forces
@@ -238,6 +239,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [Claude (M12, deferred)](claude.md)
 
+- D501: The MCP server comes ahead of M12
 - D84: M12 compound requests
 - D139: Claude steers the generator
 - D277: All M12 work deferred
