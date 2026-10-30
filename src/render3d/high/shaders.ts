@@ -104,14 +104,24 @@ const SHADOW_GLSL = /* glsl */ `
   uniform sampler2D hlDepth;
   uniform mat4 hlShadowMatrix;
   uniform float hlTexel;
+  /** The receiver plane's depth gradient across the depth map (its depth's change with the map's u and v), from the
+   *  plane's two screen derivatives; none where the plane is seen edge-on from the sun (its uv derivatives
+   *  degenerate). The divisor is the determinant only where it is not degenerate, else 1 (its quotient then unused):
+   *  HLSL evaluates both sides of a choice, and a division by a determinant that may be 0 there drew D3D's
+   *  "X4008: floating point division by zero" and could make NaN. */
+  vec2 receiverGradient(vec3 dx, vec3 dy) {
+    float determinant = dx.x * dy.y - dx.y * dy.x;
+    bool solvable = abs(determinant) > 1e-10;
+    vec2 gradient = vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / (solvable ? determinant : 1.0);
+    return solvable ? gradient : vec2(0.0);
+  }
   float sunLit(vec2 g, float z) {
     // (the derivatives first, outside any branch or loop; the depth read at its own level)
     vec3 n = normalize(vNormal);
     vec4 p = hlShadowMatrix * vec4(vWorld + n * 0.045, 1.0);
     vec3 q = p.xyz / p.w * 0.5 + 0.5;
     vec3 dx = dFdx(q), dy = dFdy(q);
-    float determinant = dx.x * dy.y - dx.y * dy.x;
-    vec2 gradient = abs(determinant) > 1e-10 ? vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / determinant : vec2(0.0);
+    vec2 gradient = receiverGradient(dx, dy);
     gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
     float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
     float lit = 1.0;
@@ -135,8 +145,7 @@ const SHADOW_GLSL = /* glsl */ `
     // (sunLit's receiver-plane bias, for the level plane: its derivatives are the matrix's own columns)
     vec3 dx = (hlShadowMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz * 0.5;
     vec3 dy = (hlShadowMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz * 0.5;
-    float determinant = dx.x * dy.y - dx.y * dy.x;
-    vec2 gradient = abs(determinant) > 1e-10 ? vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / determinant : vec2(0.0);
+    vec2 gradient = receiverGradient(dx, dy);
     gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
     float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
     float light = 0.0;
