@@ -8,6 +8,9 @@
 
 import type { RunGround } from "../sim/soil";
 
+/** Why a succulent is refused on moist ground: one wording for a stroke, a click and a move (D342). */
+export const SUCCULENT_MOIST = "succulents die on moist ground: put them on dry ground";
+
 /** The map's ground, tile by tile: the build's `moisture`, `soilContamination` and the settled water's depth; under a
  *  roof, the ground on each run top (`MapSession.runGrounds`). */
 export interface PlantGround {

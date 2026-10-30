@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { applyPaintObjects, paintDying, planPaintObjects } from "../../src/core/doc/paint";
 import type { PaintParams } from "../../src/core/doc/paintParams";
+import { footprintCheck, planEntity, planMoveEntity } from "../../src/core/doc/placing";
 import { diesOnSoil } from "../../src/core/doc/plantSoil";
 import { MapSession } from "../../src/core/doc/session";
 import { generate } from "../../src/core/gen/generate";
@@ -85,5 +86,53 @@ describe("the soil a stroke reads is the map's as edited (D235)", () => {
     expect(planted.length).toBeGreaterThan(0);
     const flagged = new Set(s.validate().report.checks.find((c) => c.id === "plants.survive")!.where?.entities ?? []);
     expect(planted.filter((e) => flagged.has(e.id)).map((e) => `${e.x},${e.y}`)).toEqual([]);
+  });
+});
+
+describe("a click and a move put a succulent only where it survives (D235, D342)", () => {
+  const ID = "00000000-0000-4000-8000-0000000000b1";
+  /** A free dry tile with a free moist one beside it (east): [dry, moist]. */
+  function pair(s: MapSession): { dry: number; moist: number } {
+    const W = s.size.x;
+    const b = s.built;
+    const taken = new Set(b.entities.map((e) => e.y * W + e.x));
+    const ok = (i: number) => !taken.has(i) && !(b.water[i] > 0.05);
+    for (let i = 0; i < W * s.size.y - 1; i++) {
+      if (i % W === W - 1 || !ok(i) || !ok(i + 1)) continue;
+      if (b.moisture[i] === 0 && b.moisture[i + 1] > 0) return { dry: i, moist: i + 1 };
+    }
+    throw new Error("no dry tile beside a moist one");
+  }
+  const at = (W: number, i: number) => ({ x: i % W, y: Math.floor(i / W) });
+
+  it("refuses a click on moist ground with the stroke's own reason, and shows it on the ghost", () => {
+    const s = session();
+    const W = s.size.x;
+    const { moist } = pair(s);
+    const req = { template: "Succulent", ...at(W, moist), orientation: "Cw0" as const };
+    const stroke = planPaintObjects(s, { kind: "succulents", template: "Succulent", area: tilesToRuns([moist], W), density: 1, seed: 1 });
+    expect(stroke.ok).toBe(false);
+    const p = planEntity(s, req, ID);
+    expect(p.ok).toBe(false);
+    if (!p.ok && !stroke.ok) expect(p.errors[0]).toBe(stroke.errors[0]);
+    expect(footprintCheck(s, req).problem).toMatch(/moist ground/);
+    expect(s.apply({ op: "placeEntity", params: { id: ID, ...req } }).errors[0]).toMatch(/moist ground/);
+  });
+
+  it("accepts a click on dry ground, and refuses to move it onto moist ground", () => {
+    const s = session();
+    const W = s.size.x;
+    const { dry, moist } = pair(s);
+    const req = { template: "Succulent", ...at(W, dry), orientation: "Cw0" as const };
+    expect(footprintCheck(s, req).problem).toBeNull();
+    expect(planEntity(s, req, ID).ok).toBe(true);
+    expect(s.apply({ op: "placeEntity", params: { id: ID, ...req } }).errors).toEqual([]);
+    const moved = planMoveEntity(s, ID, 1, 0);
+    expect(moved.ok).toBe(false);
+    if (!moved.ok) expect(moved.errors[0]).toMatch(/moist ground/);
+    expect(s.apply({ op: "moveEntity", params: { id: ID, ...at(W, moist) } }).errors[0]).toMatch(/moist ground/);
+    // (it stays where it was, alive)
+    expect(s.built.entities.find((e) => e.id === ID)).toMatchObject(at(W, dry));
+    expect(s.validate().report.checks.find((c) => c.id === "plants.survive")!.where?.entities ?? []).not.toContain(ID);
   });
 });

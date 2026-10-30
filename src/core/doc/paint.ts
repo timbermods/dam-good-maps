@@ -12,7 +12,7 @@ import type { EditOp, OpOrigin } from "./ops";
 import { paintLabel, paintOps } from "./paintOps";
 import type { PaintLevel, PaintParams } from "./paintParams";
 import { objectCells, waterDepth } from "./placing";
-import { dyingTiles } from "./plantSoil";
+import { dyingTiles, SUCCULENT_MOIST } from "./plantSoil";
 
 /** The templates a plant kind counts as already there: painting over them fills the gaps up to the density. */
 const SAME: Record<string, readonly string[]> = { trees: [], bushes: ["BlueberryBush"], succulents: ["Succulent"], woods: ["Pine", "Birch", "Oak"] };
@@ -164,7 +164,7 @@ export function planPaintObjects(s: MapSession, p: PaintParams, nextSeq: number 
 function nothingReason(p: PaintParams, region: number[], g: PaintGround, existing: number, levels: ReadonlyMap<number, number>, moist: number): string {
   let free = 0;
   for (const i of region) if (g.free[i]) free++;
-  if (!free && moist) return "succulents die on moist ground: paint them on dry ground";
+  if (!free && moist) return SUCCULENT_MOIST;
   if (!free && levels.size) return "there is no free ground at that level under the stroke: it is rock, air or other objects";
   if (!free) return "there is no free ground under the stroke: it is water or other objects";
   if (p.kind === "ruins") return "the ground under the stroke is too small or broken for a ruin field: a field stands on one level";

@@ -14,6 +14,7 @@ import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import type { EditOp } from "./ops";
 import { itemName, placeLabel, plantLabel, withArticle } from "./labels";
 import type { MapSession } from "./session";
+import { diesOnSoil, SUCCULENT_MOIST } from "./plantSoil";
 import { makesRoomForStart, START_OPEN_GROUND, startRoofProblem } from "./startFit";
 
 const fail = (...errors: string[]): { ok: false; errors: string[] } => ({ ok: false, errors });
@@ -50,6 +51,12 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
   const { x: W, y: H } = s.size;
   const b = s.built;
   if (p.x < 0 || p.y < 0 || p.x >= W || p.y >= H) return "it is off the map";
+  if (p.template === "Succulent") {
+    // (a succulent dies on moist ground, `plants.survive`'s rule: as a stroke leaves such tiles empty, a click or a move is refused)
+    const i = p.y * W + p.x;
+    const runs = s.runGrounds();
+    if (diesOnSoil("Succulent", { moisture: b.moisture, contamination: b.soilContamination, depth: waterDepth(s), runs }, i, p.z ?? (runs ? b.heights[i] : undefined))) return SUCCULENT_MOIST;
+  }
   if (underRoof(s, p) && !startTurnsInPlace(s, p, ignore)) return roofProblem(s, p, ignore);
   const z = b.heights[p.y * W + p.x];
   const skip = resourceOwners(s);
