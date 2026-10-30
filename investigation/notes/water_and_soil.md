@@ -493,9 +493,11 @@ byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgres
   and the reflection are the same in both variants. A film is drawn like any water; the game clips hard at the floor.
   Followed by `WATER_SURFACE.seeThrough` (both looks; the light look as Low).
 - **Badwater's depth-independent share (`BADWATER.floor`):** no in-game capture yet ties badwater's on-screen colour to a
-  known depth: the probe's Badtide shots (`C:\dgm-probe\shots\*\*-badtide2-*-water.jpg`) have the depths in their
-  snapshots but no camera pose, so no pixel can be tied to a tile (searched 2026-10-29). A map with a shallow and a deep
-  badwater pool should join the next probe batch, with its camera recorded, to set it.
+  known depth reliably: the probe's Badtide shots (`C:\dgm-probe\shots\*\*-badtide2-*-water.jpg`) have the depths in
+  their snapshots and their pose id, from which the pose is rebuilt (`catalog.ts` `standardPoses`), but the shots are not
+  taken at that camera (fitted to the maps' outlines, 2026-10-30: see the fit under the depth ramp above), so a pixel
+  lands a few tiles off. `investigation/probe/WATER-LOOK-SPEC.md` asks the probe to write each shot's camera beside it
+  and adds a badwater pool in terraces of known depth, to set it.
 - **Opacity:** none by contamination: `_WaterOpacity` is 1 (0.4 while a tool hides the water).
 - Used by `src/render3d/waterPalette.ts` `WATER_BLEND` (2026-10-29).
 
