@@ -1650,6 +1650,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);
         float foam = 0.0;
         float glints = 0.0;
+        // the gloss's slow variation, as the game's two panned samples of its gloss map (WATER_SURFACE.smoothness)
+        float gloss = 0.5;
         float pale = 0.0;
         float bubbles = 0.0;
         float crest = 0.0;
@@ -1694,6 +1696,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
               vec2 qb = p2 * 1.6 + vec2(sin(p2.y * 0.5), sin(p2.x * 0.43)) * 1.5;
               sl = mix(sl, ripple(qb, t * slow) + 0.6 * ripple(qb * 1.9 + 7.0, t * 1.3 * slow), blend);
             }
+            gloss = (vnoise(p1 * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(p1 * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
             // small glints (D154): a few to a tile, each a few pixels across, gathered in the patches of
             // ripples that catch the sun, not a static of specks all over (gone where a glint would be
             // under two pixels)
@@ -1762,15 +1765,18 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         vec3 c = waterBlend(body, murky, cont);
         float lit = sunLit(g, vWorld.y);
         vec3 light = skyColor * 1.2 + sunColor * 0.3 * max(dot(N, sunDir), 0.0) * lit;
+        // the game's own highlight on the ripples, added to the colour before its light
+        c += sunColor * waterCameraHighlight(N, V, bad) * step(0.5, n.y);
         c *= light;
         c = mix(c, WATER_CREST * light, crest * WATER_CREST_AMOUNT);
         c = mix(c, badwaterShade(BADWATER_TROUGH, depth) * light, trough * BADWATER_TROUGH_AMOUNT);
         // the sky's reflection, stronger at low angles; pale ripples; the sun's glint and glints
         // (none on a fall: a sheet seen edge-on would mirror the sky in patches)
-        // (the game's URP lighting at the water's smoothness, clean water's 0.672 to badwater's 0.15)
-        float smoothness = mix(WATER_SMOOTHNESS, BADWATER_SMOOTHNESS, bad);
+        // (the game's URP lighting at the water's smoothness, clean water's about 0.25 to badwater's 0.15: the sky
+        // added on top, as URP's environment term)
+        float smoothness = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, bad);
         float fres = waterSkyReflect(dot(N, V), smoothness) * step(0.5, n.y);
-        c = mix(c, WATER_SKY, fres);
+        c += WATER_SKY * fres;
         // pale streaks where it flows (badwater's brownish, so it reads as a flowing liquid too): each
         // by its own share, so water partly bad never takes a pale pink haze between the two
         c = mix(c, WATER_PALE, pale * WATER_PALE_AMOUNT * (1.0 - bad));
@@ -1811,7 +1817,7 @@ ${hook(h, "water")}        #ifdef CAVES
             float line = 1.0 - smoothstep(0.0, CLEAR_SHORE_WIDTH, shore);
             cc = WATER_CLEAR_TINT * light;
             cc = mix(cc, WATER_CLEAR_SHORE * light, crest * CLEAR_RIPPLE_LIGHT);
-            cc = mix(cc, WATER_SKY, waterSkyReflect(dot(N, V), WATER_SMOOTHNESS));
+            cc += WATER_SKY * waterSkyReflect(dot(N, V), WATER_SMOOTHNESS);
             cc += sunColor * (waterSunGlint(N, V, sunDir, WATER_SMOOTHNESS) * lit + glints * ${f(WS.glints * 0.5)} * (0.3 + 0.7 * lit));
             cc = mix(cc, WATER_FOAM * (0.8 + 0.2 * lit), foam * 0.6);
             cc = mix(cc, WATER_CLEAR_SHORE * (0.85 + 0.15 * lit), line);

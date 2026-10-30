@@ -410,8 +410,8 @@ ${HIGH_WATER_GLSL}
     glint *= mix(1.0, 0.35, tint);
     glint *= mix(1.0, 0.08, smoothstep(0.25, 1.0, tint));
     colour = mix(colour, mix(HW_GLINT, HW_BAD_GLINT, tint), glint);
-    // the sun's glint, as the game lights its water (URP GGX at its smoothness, 0.672 to badwater's 0.15)
-    colour += sunColor * waterSunGlint(N, V, sunDir, mix(WATER_SMOOTHNESS, BADWATER_SMOOTHNESS, tint)) * lit;
+    // the game's own highlight on the ripples (its camera-tied light; WATER_SURFACE.highlight), not a sun hotspot
+    colour += sunColor * waterCameraHighlight(N, V, tint) * lit;
     hlSheen = max(max(streak * 0.45, clamp(highlights, 0.0, 0.82)), glint);
     if (tint > 0.01) {
       float bt = t * mix(1.0, 0.55, tint);

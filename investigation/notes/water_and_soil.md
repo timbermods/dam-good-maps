@@ -455,7 +455,8 @@ byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgres
   at (depth / `_MaxDepth`, 0.5). Its R runs 245 to 0 and its G 245 to 22 over the 5 levels. Clean albedo = lerp(`_Color`,
   `_AlbedoAtMaxDepth`, u) × R × 2; the contaminated colour × G. In linear light G relative to a quarter level deep: 1.64 at
   no depth, 0.61 at half a level, 0.43 at 1, 0.19 at 2, 0.08 at 3, 0.03 at 4.25 (`BADWATER.ramp` fits it within 5% at these depths). Clean
-  albedo × R × 2 reaches near black by 3 levels; on screen the sky's reflection (smoothness 0.67) holds deep clean water up.
+  albedo × R × 2 reaches near black by 3 levels; on screen the sky's reflection holds deep clean water up (its smoothness is the soft-lit gloss map's, about 0.25,
+  not the material's leftover `_Smoothness` 0.672; `WATER_SURFACE.smoothness`).
   Badwater keeps a reflection too, with no depth in it: its metallic goes to 0 (F0 0.04), about 0.6 of clean water's
   reflection, and its emissive detail (`_Detail_Contamination_Color_*` × t) has no depth term either, so deep badwater
   never goes black on screen. `BADWATER.floor` (0.17) stands for that share until an in-game measurement sets it.

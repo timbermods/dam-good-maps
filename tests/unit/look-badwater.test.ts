@@ -230,10 +230,11 @@ describe("badwater's colour", () => {
     expect(badwaterOpacity(0.005)).toBeLessThan(badwaterOpacity(0.05));
     // matte: a twelfth of clean water's glints and glint, and a trace of the sky
     expect(BADWATER.glints).toBeLessThan(0.1);
-    // matte by the game's own smoothness (_Contamination_Smoothness 0.15 against clean water's 0.672): its sky
-    // reflection and sun glint from the same lighting, far weaker (D148: these were #38's own reflect 0.03 and spec 0.04)
+    // matte by the game's own smoothness (_Contamination_Smoothness 0.15 against clean water's about 0.25, the soft-lit
+    // gloss map's median): its sky reflection and sun glint from the same lighting, weaker (D148: these were #38's own
+    // reflect 0.03 and spec 0.04)
     expect(BADWATER.smoothness).toBe(0.15);
-    expect(WATER_SURFACE.smoothness).toBe(0.672);
+    expect(WATER_SURFACE.smoothness).toBe(0.25);
     expect(badwaterBody(BADWATER.shallow)).toEqual(WATER.bad);
     // option A: darker with depth
     for (let d = 0.3; d < 5; d += 0.1) expect(lightness(badwaterBody(d))).toBeLessThan(lightness(badwaterBody(d - 0.1)) + 1e-9);

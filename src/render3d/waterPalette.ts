@@ -116,12 +116,26 @@ export const WATER_SURFACE = {
   /** How strongly the ripples' crests and the pale flow streaks show. */
   crest: 0.3,
   pale: 0.22,
-  /** The sky's reflection and the sun's glint, as the game lights its water (URP, GGX): `smoothness` (its
-   *  material's `_Smoothness`, 0.672) and a dielectric's `f0` (metallic 0). The sky comes in by
-   *  (saturate(smoothness + f0) − f0) × (1 − N·V)^4 (URP's environment term over the body colour, which holds the
-   *  head-on part), the sun's glint by URP's GGX specular term × f0 (`waterSunGlint`). */
-  smoothness: 0.672,
+  /** The sky's reflection and the sun's glint, as the game lights its water (URP, GGX, in Gamma colour space). Its
+   *  smoothness is not the material's `_Smoothness` (0.672, a leftover the BRDF never reads) but the soft-light of
+   *  its `WaterMetalAndGloss` texture's alpha at two panned samples: about `smoothness` (median 0.25; 0.15 to 0.44
+   *  between the 5th and 95th percentiles). We draw our own slow noise with that spread (`smoothnessSpread` × the
+   *  noise's swing round its middle), panned the same way, not the game's texture. Its metallic is 0 (the texture's
+   *  red), so `f0` 0.04. The sky's reflection is added on top (URP's environment term):
+   *  `reflection` × sky × (saturate(smoothness + f0) − f0) × (1 − N·V)^4 / (1 + roughness²) (`waterSkyReflect`; the
+   *  head-on f0 part stays in the calibrated body colour); the game's own `m_ReflectionIntensity` 0.65 and its
+   *  skybox's average colour (in place of `WATER.sky`) wait for the finish: `reflection` is the scale they set. The
+   *  sun's glint is URP's GGX specular term × f0 (`waterSunGlint`), a faint sheen at this roughness. */
+  smoothness: 0.25,
+  smoothnessSpread: 0.6,
   f0: 0.04,
+  reflection: 1,
+  /** The game's own highlight (its PhysicalWaterURP, after the albedo): a light tied to the camera, tilted toward the
+   *  horizon by `downTilt` and down by `lightTilt`, its reflection off the ripples' normals to the eye raised to
+   *  `exponent`, × (fresnel ^ `fresnelPower` × 0.5 + 0.5), × the wrapped light (N·L + `wrap`) / (1 + `wrap`),
+   *  × (1 − |N.y|³) (only on the ripples' slopes), × `clean` to `bad` by the tint, × the sun's colour, added to the
+   *  albedo (`waterCameraHighlight`): its sparkles on the waves. */
+  highlight: { exponent: 150, fresnelPower: 5, downTilt: 0.15, lightTilt: 0.2, wrap: 0.4, clean: 1.1, bad: 0.4 },
 } as const;
 
 /** The High look's water (Map look 2, D284; #38, investigation/maplook2 water.ts, as Kyler approved it at
@@ -521,11 +535,24 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define BADWATER_TROUGH_AMOUNT ${f(BADWATER.trough)}
   #define BADWATER_STREAK_AMOUNT ${f(BADWATER.streak)}
   #define WATER_SMOOTHNESS ${f(WATER_SURFACE.smoothness)}
+  #define WATER_SMOOTHNESS_SPREAD ${f(WATER_SURFACE.smoothnessSpread)}
   #define BADWATER_SMOOTHNESS ${f(BADWATER.smoothness)}
   /** The sky's reflection's weight at a smoothness, as the game's URP environment term (waterPalette.ts
    *  WATER_SURFACE.smoothness): the part that rises toward the grazing angle. */
   float waterSkyReflect(float NoV, float smoothness) {
-    return (clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0) - ${f(WATER_SURFACE.f0)}) * pow(1.0 - clamp(NoV, 0.0, 1.0), 4.0);
+    float pr = 1.0 - smoothness;
+    float r = max(pr * pr, 0.0078125);
+    return ${f(WATER_SURFACE.reflection)} * (clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0) - ${f(WATER_SURFACE.f0)}) * pow(1.0 - clamp(NoV, 0.0, 1.0), 4.0) / (1.0 + r * r);
+  }
+  /** The game's own highlight on the ripples (waterPalette.ts WATER_SURFACE.highlight), at a tint; × the sun's colour. */
+  float waterCameraHighlight(vec3 N, vec3 V, float tint) {
+    vec3 Vh = normalize(vec3(V.x, 0.0, V.z) + vec3(0.00001, 0.0, 0.0));
+    vec3 Lc = normalize(mix(V, Vh, ${f(WATER_SURFACE.highlight.downTilt)}) - vec3(0.0, ${f(WATER_SURFACE.highlight.lightTilt)}, 0.0));
+    float spec = pow(clamp(dot(reflect(-Lc, N), V), 0.0, 1.0), ${f(WATER_SURFACE.highlight.exponent)});
+    float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), ${f(WATER_SURFACE.highlight.fresnelPower)});
+    float wrap = clamp((dot(N, Lc) + ${f(WATER_SURFACE.highlight.wrap)}) / ${f(1 + WATER_SURFACE.highlight.wrap)}, 0.0, 1.0);
+    float slope = max(0.0, 1.0 - pow(abs(N.y), 3.0));
+    return wrap * (fres * 0.5 + 0.5) * spec * slope * mix(${f(WATER_SURFACE.highlight.clean)}, ${f(WATER_SURFACE.highlight.bad)}, tint);
   }
   /** The sun's glint at a smoothness, as the game's URP GGX specular term (× f0 and N·L; the caller multiplies
    *  by the sun's colour and its shadow). */
