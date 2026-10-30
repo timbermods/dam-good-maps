@@ -38,6 +38,8 @@ export interface HighHost {
   baker: Baker;
   /** The moving water's textures (motion.ts): the flow with the smoothed contamination, the rough water. */
   flow(): { flow: unknown; rough: unknown; ready: boolean; ms: number };
+  /** Whether the objects are hidden (`MapRenderer.setObjectsHidden`): their canopies shade no ground then. */
+  objectsHidden(): boolean;
 }
 
 export interface HighMaterials {
@@ -95,7 +97,7 @@ export class HighLook {
   private sky = { value: new Color() };
   private vegTime = { value: 0 };
   private vegSway = { value: 1 };
-  private shadows = new SunShadows();
+  private shadows: SunShadows;
   private ambient: AmbientField | null = null;
   private forest: Forest | null = null;
   private landmarks: Replacement[] = [];
@@ -114,6 +116,7 @@ export class HighLook {
 
   constructor(private host: HighHost) {
     const u = host.uniforms;
+    this.shadows = new SunShadows(u.objectFade);
     const high = {
       ...this.switches,
       sunColor: this.sun,
@@ -218,7 +221,8 @@ export class HighLook {
       this.stats.ambientMs = this.ambient?.ms ?? 0;
       this.host.requestRender();
     });
-    this.ambient.bake(heights, entities);
+    this.entities = entities;
+    this.ambient.bake(heights, this.canopiesOf(entities));
     const flow = this.host.flow();
     const size = this.materials.terrain.uniforms.hlFlowSize.value as Vector2;
     size.set(W, H);
@@ -256,7 +260,8 @@ export class HighLook {
     this.landmarks = buildLandmarks(group, entities, this.landmark, this.slope, kept);
     for (const { fresh } of this.landmarks) group.add(fresh);
     this.showObjects();
-    if (this.map) this.ambient?.objects(this.map.heights, entities);
+    this.entities = entities;
+    if (this.map) this.ambient?.objects(this.map.heights, this.canopiesOf(entities));
     this.stats.landmarks = this.landmarks.length;
     this.shadows.dirty = true;
   }
@@ -345,7 +350,21 @@ export class HighLook {
     this.shadows.dirty = true;
   }
 
-  /** The objects moved with the ground (a brush): the shadows. */
+  /** The objects the map has (for the canopies' shade). */
+  private entities: EntityView | null = null;
+
+  /** The objects whose canopies shade the ground: none while they are hidden. */
+  private canopiesOf(e: EntityView): EntityView {
+    return this.host.objectsHidden() ? { ...e, count: 0 } : e;
+  }
+
+  /** The objects were hidden or shown (`MapRenderer.setObjectsHidden`): their canopies' shade and their shadows. */
+  objectsHiddenChanged(): void {
+    if (this.map && this.entities) this.ambient?.objects(this.map.heights, this.canopiesOf(this.entities));
+    this.shadows.dirty = true;
+  }
+
+  /** The objects moved with the ground (a brush), or the fade round the pointer moved (objectFade.ts): the shadows. */
   castersMoved(): void {
     this.shadows.dirty = true;
   }

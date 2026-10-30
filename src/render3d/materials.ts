@@ -71,6 +71,7 @@ import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_ST
 import { CAVE_SKY_FLOOR, LIGHT_LEVELS, type CaveLight } from "./caveLight";
 import { CUT_SLACK } from "./cutWater";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
+import { DITHER_GLSL, FADE_OFF, OBJECT_FADE_GLSL } from "./objectFade";
 
 const az = LIGHT.sunAzimuth;
 const ce = Math.cos(LIGHT.sunElevation);
@@ -146,6 +147,9 @@ export interface SceneUniforms {
   overlayRuns: { value: DataTexture };
   /** What the rest of such a tile's column takes instead of its overlay (the land outside the selection), 0–1. */
   overlayRest: { value: Vector4 };
+  /** Objects faded round the pointer (objectFade.ts): the region's middle (tiles), its radius, and how it is drawn
+   *  (`FADE_OFF`, `FADE_COVERAGE`, `FADE_DITHER`); read only by the objects' program. */
+  objectFade: { value: Vector4 };
 }
 
 export function sceneUniforms(W: number, H: number, tile: DataTexture, light: DataTexture, overlay: DataTexture, marks: DataTexture, edges: DataTexture = overlayTexture(1, 1), sites: DataTexture = overlayTexture(1, 1)): SceneUniforms {
@@ -184,6 +188,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     caveFlowLevels: { value: new Vector2(0, 0) },
     overlayRuns: { value: overlayTexture(1, 1) },
     overlayRest: { value: new Vector4(0, 0, 0, 0) },
+    objectFade: { value: new Vector4(0, 0, 0, FADE_OFF) },
   };
 }
 
@@ -1993,9 +1998,14 @@ export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHoo
       attribute vec3 pcolor;
       attribute vec3 grow;
       attribute float lod;
+      #if LITE
+        // (the light look's batches are baked into one mesh: each vertex carries its object's place)
+        attribute vec2 origin;
+      #endif
       uniform float viewHeight;
-      uniform float markers;${hook(h, "objectVertexDecl")}
+      uniform float markers;${OBJECT_FADE_GLSL}${hook(h, "objectVertexDecl")}
       varying vec3 vColor;
+      varying float vFade;
       varying vec3 vNormal;
       varying vec3 vWorld;
       varying float vFoot;
@@ -2003,6 +2013,16 @@ export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHoo
       void main() {
         mat4 m = modelMatrix * instanceMatrix;
         vLod = lod;
+        // seeing the land behind objects (objectFade.ts): the whole object by its place, in tiles
+        vFade = 1.0;
+        if (objectFade.w > 0.5) {
+          #if LITE
+            vec3 at = (modelMatrix * vec4(origin.x, 0.0, origin.y, 1.0)).xyz;
+          #else
+            vec3 at = m[3].xyz;
+          #endif
+          vFade = objectFadeAt(vec2(at.x, -at.z));
+        }
 ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objectNormal", "normal")});
         vColor = ${hook(h, "objectColor", "pcolor")};
         #ifdef USE_INSTANCING_COLOR
@@ -2037,10 +2057,14 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
       varying vec3 vWorld;
       varying float vFoot;
       varying float vLod;
-      ${common(h)}${CAVE_POINT}
+      varying float vFade;
+      uniform vec4 objectFade;
+      ${common(h)}${CAVE_POINT}${DITHER_GLSL}
       void main() {
         // the game's layers: what stands above the slice is cut away
         if (vWorld.y > slice + 0.02) discard;
+        // faded round the pointer, where it is drawn by a dither (objectFade.ts)
+        if (vFade < 1.0 && objectFade.w > 1.5 && vFade <= ditherAt(gl_FragCoord.xy)) discard;
         // a ruin's far block's frame (D305): a lattice of open cells so it reads as a framework, not a
         // solid box, from any face (the two world axes across the face, whichever the normal isn't
         // closest to; no extra geometry or UVs), filtered to the pixel: the struts' share of the
@@ -2076,6 +2100,8 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
           // (the sun the open air's at a mouth, fading to the cave's own going in, as the ground's does)
           if (cave.z > 0.5) light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao * max(${f(CAVE_SKY_FLOOR)} * roofedDeep(cave.x), ${hook(h, "skyLight")}roofedSky(cave.x)) + sunColor * 0.5 * ndl * mix(lit, ${hook(h, "roofedSun", "cave.y")}, roofedDeep(cave.x));
         #endif
+        // (faded round the pointer, as coverage: that share of the pixel's samples)
+        if (objectFade.w > 0.5 && objectFade.w < 1.5) coverage *= vFade;
         gl_FragColor = vec4(finish((${hook(h, "objectFinal", "vColor * light")}) * inside, vWorld), coverage);
       }
     `,
