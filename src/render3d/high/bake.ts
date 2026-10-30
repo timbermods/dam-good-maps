@@ -7,6 +7,7 @@ import { caveCurrent, type CaveCurrent } from "../caveCurrent";
 import { currentOf } from "../current";
 import { motionShapes, type MotionShapes } from "../motionShapes";
 import { roughWater, surfaceContamination, type RoughCounts } from "./flow";
+import { shadowMap, withCasterLevels, type ShadowRock, type Sun } from "../light";
 
 /** The water's current as the looks draw it: the settle's current runs up to about 3.3 tiles a second
  *  in a river (current.ts), and the looks' moving surface and rough water were tuned to rivers at 7.5
@@ -59,16 +60,25 @@ let columnsKept: { key: number; map: Map<number, Uint8Array> } | null = null;
 /** A job for the worker, and its answer. */
 export type BakeJob =
   | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null; layered?: LayeredWater }
-  | { id: number; kind: "share"; W: number; H: number; sw: Pick<SurfaceWater, "surface" | "depth" | "contamination"> };
+  | { id: number; kind: "share"; W: number; H: number; sw: Pick<SurfaceWater, "surface" | "depth" | "contamination"> }
+  | { id: number; kind: "shadows"; W: number; H: number; heights: Uint8Array; casters: Float32Array | null; levels: Uint8Array | null; rock: ShadowRock | null; sun: Sun };
 export type BakeResult =
   | { id: number; kind: "flow"; flow: Uint8Array; rough: Uint8Array; counts: RoughCounts; shapes: MotionShapes; cave: CaveCurrent | null; ms: number }
-  | { id: number; kind: "share"; share: Uint8Array; ms: number };
+  | { id: number; kind: "share"; share: Uint8Array; ms: number }
+  | { id: number; kind: "shadows"; bytes: Uint8Array; hi: Float32Array; lo: Float32Array; ms: number };
 /** What the worker sends back: the answer, or why the job failed. */
 export type BakeReply = BakeResult | { id: number; kind: "error"; error: string };
 
 export function runBake(job: BakeJob): BakeResult {
   const t0 = performance.now();
   if (job.kind === "share") return { id: job.id, kind: "share", share: shareBytes(job.W, job.H, job.sw), ms: performance.now() - t0 };
+  // the baked shadows for the sun turned with the camera (light.ts; the renderer's `turnSun`)
+  if (job.kind === "shadows") {
+    const keep = { hi: new Float32Array(0), lo: new Float32Array(0) };
+    const casters = job.casters ? withCasterLevels(job.casters, job.levels ?? undefined) : null;
+    const bytes = shadowMap(job.W, job.H, job.heights, casters, keep, job.rock, job.sun);
+    return { id: job.id, kind: "shadows", bytes, hi: keep.hi, lo: keep.lo, ms: performance.now() - t0 };
+  }
   // the current from the outflows (current.ts), here rather than on the page's thread
   const current = job.out ? currentOf(job.W, job.H, job.out, job.sw.depth) : new Float32Array(job.W * job.H * 2);
   const { flow, rough, counts } = bakeFlow(job.W, job.H, job.heights, job.sw, current);

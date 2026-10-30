@@ -129,7 +129,7 @@ function lit(names: readonly Switch[], more = ""): ShaderHooks {
 
 /** Objects and falls under a roof: the soft shadow of the real meshes, the roof included (off: the light volume's
  *  sun). */
-const ROOFED_SUN = "(hlShadows > 0.5 ? lit : cave.y)";
+const ROOFED_SUN = "(hlShadows > 0.5 ? lit : sunMarchAt(vWorld))";
 
 // ------------------------------------------------------------------------------------ the terrain
 
@@ -141,7 +141,7 @@ export function terrainHooks(): ShaderHooks {
 `),
     // under a roof, the soft shadow of the real meshes, the roof included, as on the ground before it
     // (off: the march through the light volume)
-    caveSun: "hlShadows > 0.5 ? sunHere : caveSunMarch(vWorld, n, cave.y)",
+    caveSun: "hlShadows > 0.5 ? sunHere : caveSunMarch(vWorld, n)",
     // under a roof, the occlusion of the open ground at the roof line its light comes in by, never more
     // than here
     caveSunOpen: "hlShadows > 0.5 ? hlSunAt(mouth.xyz) : sunLit(vec2(mouth.x, -mouth.z), mouth.y)",

@@ -20,6 +20,8 @@ export class SunShadows {
   private camera = new OrthographicCamera();
   private depth = new MeshDepthMaterial({ side: DoubleSide });
   private centre = new Vector3();
+  /** Toward the sun (world space): it turns with the camera (light.ts `sunOfYaw`), set by `setSun`. */
+  private sun = SUN.clone();
   /** Something that casts shadows changed: draw the map again before the next frame. */
   dirty = true;
   /** Times drawn (information). */
@@ -36,7 +38,18 @@ export class SunShadows {
     const extent = Math.max(W, H) * 0.76 + 24;
     Object.assign(this.camera, { left: -extent, right: extent, top: extent, bottom: -extent, near: 1, far: 700 });
     this.centre.set(W / 2, 8, -H / 2);
-    this.camera.position.copy(this.centre).addScaledVector(SUN, 330);
+    this.place();
+  }
+
+  /** The sun turned (with the camera): the depth map is drawn from it, before the next frame. */
+  setSun(sun: Vector3): void {
+    if (this.sun.equals(sun)) return;
+    this.sun.copy(sun);
+    this.place();
+  }
+
+  private place(): void {
+    this.camera.position.copy(this.centre).addScaledVector(this.sun, 330);
     this.camera.lookAt(this.centre);
     this.camera.updateProjectionMatrix();
     this.camera.updateMatrixWorld(true);

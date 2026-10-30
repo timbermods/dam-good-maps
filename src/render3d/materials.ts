@@ -568,7 +568,7 @@ export interface ShaderHooks {
   /** Its final colour before the finish (an expression; Standard: `vColor * light`). */
   objectFinal?: string;
   /** The sun on an object or a fall under a roof (an expression of `cave`, the light volume's sky in x and sun in y,
-   *  and `lit`, the look's own sun shadow there; Standard: the volume's sun). */
+   *  and `lit`, the look's own sun shadow there; Standard: the march toward the sun through the volume, `sunMarchAt`). */
   roofedSun?: string;
   // the sky
   /** At the sky's end (c, d). */
@@ -593,6 +593,27 @@ const CAVE_AIR = /* glsl */ `vec4 tileAt(vec2 t) {
         if (any(lessThan(cell, vec3(0.0))) || any(greaterThanEqual(cell, caveSize))) return false;
         if (cell.z >= heightOf(tileAt(cell.xy))) return false;
         return texelFetch(caveTex, ivec3(cell), 0).r > 0.001;
+      }
+      /** The sun at a point under a roof (tile coordinates: x, y, level): a ray marched toward the sun through the
+       *  voxels (open air and roofed air alike, so it passes under an overhang as the light does), whichever way the sun
+       *  stands as it turns with the camera; rock stops it, and once it is over the map's highest ground (kept as edits
+       *  raise it) the baked shadow there decides (the objects' shadows); a ray still among the land after its run is in
+       *  shade. */
+      float sunMarch(vec3 q) {
+        vec3 dir = vec3(sunDir.x, -sunDir.z, sunDir.y);
+        float clear = min(caveTop, caveSize.z);
+        for (int k = 0; k < 80; k++) {
+          q += dir * 0.3;
+          if (q.x < 0.0 || q.y < 0.0 || q.x >= caveSize.x || q.y >= caveSize.y) return 1.0;
+          if (q.z >= clear) return sunLit(q.xy, q.z);
+          vec3 cell = floor(q);
+          if (cell.z < heightOf(tileAt(cell.xy)) && texelFetch(caveTex, ivec3(cell), 0).r < 0.001) return 0.0;
+        }
+        return 0.0;
+      }
+      /** sunMarch at a world point. */
+      float sunMarchAt(vec3 world) {
+        return sunMarch(vec3(world.x, -world.z, world.y));
       }
 `;
 
@@ -926,22 +947,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         if (!roofedAir(floor(q))) return vec3(1.0, 1.0, 0.0);
         return vec3(textureLod(caveTex, q / caveSize, 0.0).rg, 1.0);
       }
-      /** The sun on a point under a roof: a ray marched toward the sun through the voxels (open air and
-       *  roofed air alike, so it passes under an overhang as the light does); rock stops it, and once it is
-       *  over the map's highest ground (kept as edits raise it) the baked shadow there decides (the objects' shadows); a ray still
-       *  among the land after its run takes the volume's own sun. */
-      float caveSunMarch(vec3 world, vec3 n, float fallback) {
-        vec3 dir = vec3(sunDir.x, -sunDir.z, sunDir.y);
-        vec3 q = vec3(world.x, -world.z, world.y) + vec3(n.x, -n.z, n.y) * 0.02;
-        float clear = min(caveTop, caveSize.z);
-        for (int k = 0; k < 80; k++) {
-          q += dir * 0.3;
-          if (q.x < 0.0 || q.y < 0.0 || q.x >= caveSize.x || q.y >= caveSize.y) return 1.0;
-          if (q.z >= clear) return sunLit(q.xy, q.z);
-          vec3 cell = floor(q);
-          if (cell.z < heightOf(tileAt(cell.xy)) && texelFetch(caveTex, ivec3(cell), 0).r < 0.001) return 0.0;
-        }
-        return fallback;
+      /** The sun on a face under a roof (sunMarch from a hair off the face). */
+      float caveSunMarch(vec3 world, vec3 n) {
+        return sunMarch(vec3(world.x, -world.z, world.y) + vec3(n.x, -n.z, n.y) * 0.02);
       }
       /** The roof line a face under a roof takes its sun from: the open side nearest the face, from its cell (the
        *  volume holds no light that rises toward an opening since D497, so only a cell beside open air finds one).
@@ -998,7 +1006,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         vec4 mouth = caveMouth(vWorld, n);
         float sun = 0.0;
         if (ndl > 0.0) {
-          float inside = ${hook(h, "caveSun", "caveSunMarch(vWorld, n, cave.y)")};
+          float inside = ${hook(h, "caveSun", "caveSunMarch(vWorld, n)")};
           sun = inside;
           if (mouth.w > 0.5) {
             float open = ${hook(h, "caveSunOpen", "sunLit(vec2(mouth.x, -mouth.z), mouth.y)")};
@@ -1827,7 +1835,7 @@ ${hook(h, "water")}        #ifdef CAVES
           if (cave.z > 0.5) {
             float ndlRoofed = max(dot(N, sunDir), 0.0);
             vec3 open = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * lit;
-            vec3 under = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * cave.y;
+            vec3 under = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * sunMarchAt(inWater);
             c *= under / max(open, 0.001);
           }
         #endif
@@ -2129,7 +2137,7 @@ ${hook(h, "fallVertex")}        vNormal = n;
           // a fall under a roof: the light of the air it pours through
           vec3 cave = caveAirAt(vWorld);
           // (the sun the open air's at a mouth, fading to the cave's own going in, as the ground's does)
-          if (cave.z > 0.5) light = skyColor * 1.15 + sunColor * 0.4 * max(dot(N, sunDir), 0.0) * ${hook(h, "roofedSun", "cave.y")};
+          if (cave.z > 0.5) light = skyColor * 1.15 + sunColor * 0.4 * max(dot(N, sunDir), 0.0) * ${hook(h, "roofedSun", "sunMarchAt(vWorld)")};
         #endif
         float strength = clamp(sqrt(flow), 0.25, 1.6);
         float weak = smoothstep(0.05, 0.45, flow);
@@ -2417,7 +2425,7 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
           // under a roof (a tree, a ruin, a source, a slope in a cave or under an overhang): the open air's sky (D497),
           // and the sun only where it reaches
           vec3 cave = caveAirAt(vWorld + n * 0.05);
-          if (cave.z > 0.5) light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao + sunColor * 0.5 * ndl * ${hook(h, "roofedSun", "cave.y")};
+          if (cave.z > 0.5) light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao + sunColor * 0.5 * ndl * ${hook(h, "roofedSun", "sunMarchAt(vWorld)")};
         #endif
         gl_FragColor = vec4(finish((${hook(h, "objectFinal", "vColor * light")}) * inside, vWorld), coverage);
       }

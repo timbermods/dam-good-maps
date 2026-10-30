@@ -6,7 +6,7 @@
 // High and back when it isn't; the Standard materials are never touched, so the Standard look stays
 // exactly as it was. Every effect is a switch (effects.ts).
 
-import { Color, type BufferGeometry, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
+import { Color, type BufferGeometry, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type Vector3, type WebGLRenderer } from "three";
 import { fallMaterial, objectMaterial, skyMaterial, terrainMaterial, waterMaterial, type SceneUniforms } from "../materials";
 import type { EntityView, SurfaceWater } from "../model";
 import { allEffects, effectiveEffects, type HighEffects } from "./effects";
@@ -337,6 +337,12 @@ export class HighLook {
     if (!this.map) return;
     this.map.heights = heights;
     this.shadows.dirty = true;
+  }
+
+  /** The sun turned with the camera (toward it, world space): the depth map is drawn from it. */
+  setSunWay(sun: Vector3): void {
+    this.shadows.setSun(sun);
+    this.host.requestRender();
   }
 
   /** The objects moved with the ground (a brush): the shadows. */

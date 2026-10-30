@@ -70,7 +70,7 @@ import { fogOf } from "./high/seasons";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead } from "./entities3d";
 import { whenIdle } from "./idle";
-import { castersChangedRects, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
+import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
@@ -297,6 +297,17 @@ export function drawnOutline(W: number, H: number, heights: Uint8Array): Float32
 
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
 export { DEFAULT_YAW };
+
+/** How long a turn of the camera rests before the sun follows it (ms), how far ahead it may run before the sun follows
+ *  anyway, and the least difference that counts (radians). */
+const SUN_SETTLE_MS = 120;
+const SUN_LAG = (25 * Math.PI) / 180;
+const SUN_SAME = (0.2 * Math.PI) / 180;
+
+/** The angle between two suns' ways (radians). */
+function sunApart(a: Sun, b: Sun): number {
+  return Math.acos(Math.max(-1, Math.min(1, a.x * b.x + a.y * b.y)));
+}
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
@@ -451,6 +462,17 @@ export class MapRenderer {
   private readonly t0 = performance.now();
   private animTimer = 0;
   private software = false;
+  /** The sun as the shadows are baked for (light.ts `Sun`): it turns with the camera, as the game's does (`followSun`). */
+  private sun: Sun = DEFAULT_SUN;
+  /** The sun the camera asks for, and since when (a turn still under way waits for it to settle). */
+  private sunWant: Sun = DEFAULT_SUN;
+  private sunMovedAt = 0;
+  /** The bake worker is baking the shadows for a turned sun. */
+  private sunBaking = false;
+  private sunTimer = 0;
+  /** Bumped whenever the baked shadows change (an edit, new objects, a new map): a bake for a turned sun made before
+   *  is dropped and asked again. */
+  private shadowEpoch = 0;
   private reducedMotion = false;
   private inView = true;
   private seen: IntersectionObserver | null = null;
@@ -1143,6 +1165,7 @@ export class MapRenderer {
           },
         });
         this.high.shareTerrainUniforms(this.std.terrain);
+        this.high.setSunWay(this.uniforms.sunDir.value);
         this.setCutaway(this.cutaway);
         this.setRunSoilBranch(!!this.runSoil);
         this.setCaveBranch(this.caveBranch);
@@ -1411,7 +1434,10 @@ export class MapRenderer {
     this.tileTex = tileTexture(W, H, tiles);
     this.casters = objectCasters(W, H, v.entities);
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
-    this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns)));
+    this.shadowEpoch++;
+    this.sun = this.sunWant = sunOfYaw(this.view.yaw);
+    this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns), this.sun));
+    this.pointSun();
     this.cave = CaveLight.build(source);
     this.caveTex = this.cave ? caveTexture(this.cave) : null;
     const u = this.uniforms;
@@ -1789,18 +1815,19 @@ export class MapRenderer {
     if (!m || !this.lightTex) return;
     const casters = objectCasters(m.W, m.H, this.drawnObjects ?? m.entities);
     // (round each group of objects that changed, not their one bounding rectangle: plants drowned across a map)
-    const rects = onlyCasters && this.tops && this.casters !== undefined ? castersChangedRects(m.W, m.H, this.casters, casters) : undefined;
+    const rects = onlyCasters && this.tops && this.casters !== undefined ? castersChangedRects(m.W, m.H, this.casters, casters, this.sun) : undefined;
     this.casters = casters;
     if (rects === null) return;
+    this.shadowEpoch++;
     if (rects && this.tops) {
       const rock = this.rock();
       for (const r of rects) {
-        shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, r.x0, r.y0, r.x1, r.y1, rock);
+        shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, r.x0, r.y0, r.x1, r.y1, rock, false, this.sun);
         this.touchShadows(r);
       }
     } else {
       this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
-      (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops, this.rock()));
+      (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops, this.rock(), this.sun));
       this.lightTex.needsUpdate = true;
     }
   }
@@ -2001,7 +2028,8 @@ export class MapRenderer {
       }
     }
     if (this.tops && this.lightTex && this.casters !== undefined) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1, this.rock());
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1, this.rock(), false, this.sun);
+      this.shadowEpoch++;
       this.touchShadows(rect);
     } else this.bakeShadows();
     this.relightCaves(rect);
@@ -2153,7 +2181,7 @@ export class MapRenderer {
 
   /** The shadow map's samples round tiles that changed, to the GPU with the next frame. */
   private touchShadows(rect: { x0: number; y0: number; x1: number; y1: number }): void {
-    const a = shadowPairArea(rect.x0, rect.y0, rect.x1, rect.y1);
+    const a = shadowPairArea(rect.x0, rect.y0, rect.x1, rect.y1, this.sun);
     this.lightRows.touch(a.sx0, a.sy0, a.sx1, a.sy1);
   }
 
@@ -2459,9 +2487,10 @@ export class MapRenderer {
       if (this.layered) this.layeredWaterNear(c.rect);
       else for (const [cx, cy] of c.waterChunks) this.meshWater(cx, cy);
     }
-    // the sun's shadows round what changed (they reach south-east of it)
+    // the sun's shadows round what changed (they reach down-sun of it)
     if (this.tops && this.lightTex && this.casters !== undefined) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, c.rect.x0, c.rect.y0, c.rect.x1, c.rect.y1, this.rock(), true);
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, c.rect.x0, c.rect.y0, c.rect.x1, c.rect.y1, this.rock(), true, this.sun);
+      this.shadowEpoch++;
       this.touchShadows(c.rect);
     } else this.shadowsStale = true;
     this.relightCaves(c.rect);
@@ -3488,6 +3517,92 @@ export class MapRenderer {
     u.fogNear.value = this.persp.near;
   }
 
+  // ------------------------------------------------------------------------------------- the sun
+
+  /** The sun follows the camera's turn, as the game's does (light.ts `sunOfYaw`): once the turn settles, or when it has
+   *  run far ahead, the shadows are baked for the new sun in the bake worker, and the light, High's depth map and the
+   *  baked shadows all take it together. Nothing per frame but this comparison. */
+  private followSun(): void {
+    const want = sunOfYaw(this.view.yaw);
+    const now = performance.now();
+    if (sunApart(want, this.sunWant) > 1e-6) {
+      this.sunWant = want;
+      this.sunMovedAt = now;
+    }
+    if (this.sunBaking || sunApart(want, this.sun) < SUN_SAME) return;
+    if (now - this.sunMovedAt < SUN_SETTLE_MS && sunApart(want, this.sun) < SUN_LAG) {
+      clearTimeout(this.sunTimer);
+      this.sunTimer = window.setTimeout(() => this.requestRender(), SUN_SETTLE_MS);
+      return;
+    }
+    this.turnSun(want);
+  }
+
+  /** Bake the shadows for `sun` (in the bake worker; `now`: here, at once) and take it. */
+  private turnSun(sun: Sun, now = false): void {
+    const m = this.map;
+    if (!m || !this.lightTex) {
+      this.sun = sun;
+      this.pointSun();
+      return;
+    }
+    if (now) {
+      this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
+      (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, this.casters ?? null, this.tops, this.rock(), sun));
+      this.lightTex.needsUpdate = true;
+      this.shadowEpoch++;
+      this.sun = sun;
+      this.pointSun();
+      return;
+    }
+    const epoch = this.shadowEpoch;
+    const casters = this.casters ?? null;
+    const levels = casters ? casterLevelsOf(casters) : undefined;
+    this.sunBaking = true;
+    this.baker
+      .run({ kind: "shadows", W: m.W, H: m.H, heights: m.heights.slice(), casters: casters ? casters.slice() : null, levels: levels ? levels.slice() : null, rock: this.rock(), sun })
+      .then(
+        (r) => {
+          this.sunBaking = false;
+          if (this.disposed) return;
+          // (the shadows changed meanwhile, or another map: asked again with the next frame)
+          if (r.kind !== "shadows" || this.map !== m || epoch !== this.shadowEpoch || !this.lightTex) {
+            this.requestRender();
+            return;
+          }
+          this.tops = { hi: r.hi, lo: r.lo };
+          (this.lightTex.image.data as Uint8Array).set(r.bytes);
+          this.lightTex.needsUpdate = true;
+          this.shadowEpoch++;
+          this.sun = sun;
+          this.pointSun();
+        },
+        () => {
+          this.sunBaking = false;
+        },
+      );
+  }
+
+  /** The light and High's depth map take `this.sun`. */
+  private pointSun(): void {
+    const [x, y, z] = sunVector(this.sun);
+    this.uniforms.sunDir.value.set(x, y, z);
+    this.high?.setSunWay(this.uniforms.sunDir.value);
+    this.requestRender();
+  }
+
+  /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */
+  sunNow(): void {
+    const want = sunOfYaw(this.view.yaw);
+    this.sunWant = want;
+    if (sunApart(want, this.sun) >= SUN_SAME) this.turnSun(want, true);
+  }
+
+  /** The way the sun stands (tests): toward it, horizontally in tile space, and what the camera asks for. */
+  sunWay(): { sun: Sun; want: Sun; baking: boolean } {
+    return { sun: this.sun, want: this.sunWant, baking: this.sunBaking };
+  }
+
   // --------------------------------------------------------------------------------- rendering
 
   requestRender(): void {
@@ -3513,6 +3628,7 @@ export class MapRenderer {
       if (this.waterReady || (this.waterQueue.size && !this.mesherOwn?.busy)) this.requestRender();
     }
     this.placeCamera();
+    this.followSun();
     this.uniforms.time.value = this.clock ?? (performance.now() - this.t0) / 1000;
     const t0 = performance.now();
     // a force's heat on the ground (the camera never shakes, D265)
@@ -4079,6 +4195,7 @@ export class MapRenderer {
   dispose(): void {
     this.disposed = true;
     if (this.frame) cancelAnimationFrame(this.frame);
+    clearTimeout(this.sunTimer);
     clearTimeout(this.animTimer);
     clearTimeout(this.probeTimer);
     clearTimeout(this.warmTimer);

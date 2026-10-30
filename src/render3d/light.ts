@@ -3,10 +3,12 @@
 // deterministic: the same map always bakes the same bytes. The sky's light is the game's Trilight
 // ambient by each face's normal, unoccluded (D497): nothing of it is baked.
 //
-// - Sun shadows: the sun shines from the north-west. A sweep from the sun's side carries the top
-//   of the shadow volume across the map (`shadowTops`): a point is in shadow when it lies below
-//   it. Two sweeps with the sun a little higher and lower give the penumbra, so shadows are soft
-//   and widen with the distance from what casts them. Trees and ruins cast shadows too.
+// - Sun shadows: the sun turns with the camera, as the game's does (`Sun`, `sunOfYaw`), at the game's 45°. A sweep
+//   from the sun's side carries the top of the shadow volume across the map (`shadowTops`): a point is in shadow when
+//   it lies below it. Each sample takes the top of the line of samples one step toward the sun, between the two it
+//   lies between when the sun is not straight along a row or a diagonal. Two sweeps with the sun a little higher and
+//   lower give the penumbra, so shadows are soft and widen with the distance from what casts them. Trees and ruins
+//   cast shadows too.
 // All of this is the light of open air. A face whose air is under a roof (a cave, an overhang, an
 // arch) takes that air's own light instead, from the light volume (caveLight.ts).
 
@@ -31,9 +33,71 @@ export function decodeTop(b: number): number {
 /** How far a tile's data reaches: a tile's bytes depend on that tile alone (its height, soil and water). */
 export const TILE_REACH = 0;
 
+/** The sun's way, horizontally: toward it, a unit vector in tile space (x east, y north). Its height is the game's
+ *  (`LIGHT.sunElevation`). */
+export interface Sun {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** The sun before any camera turns it: toward the north-west (`LIGHT.sunAzimuth`). */
+export const DEFAULT_SUN: Sun = { x: LIGHT.sunAzimuth[0], y: LIGHT.sunAzimuth[1] };
+
+/** The game's sun for a camera turned `yaw` (the renderer's, radians; the game's camera turn is its negative): the
+ *  game sets the sun's turn to the camera's + `RotateWithCameraOffset` (decompiled `Timberborn.SkySystem` `Sun`,
+ *  `GetCameraYAngle`, `UpdateRotation`; `Sun.blueprint.json` 40°), so it shines the way the camera looks, turned 40°
+ *  clockwise: toward the sun is that way's opposite, from behind the camera's left shoulder. */
+export function sunOfYaw(yaw: number): Sun {
+  const toward = -yaw + Math.PI + (LIGHT.sunFollow * Math.PI) / 180;
+  return { x: Math.sin(toward), y: Math.cos(toward) };
+}
+
+/** The sun as the renderer's world vector toward it (X east, Y up, Z south). */
+export function sunVector(sun: Sun): [number, number, number] {
+  const c = Math.cos(LIGHT.sunElevation);
+  const v: [number, number, number] = [sun.x * c, Math.sin(LIGHT.sunElevation), -sun.y * c];
+  const n = Math.hypot(v[0], v[1], v[2]);
+  return [v[0] / n, v[1] / n, v[2] / n];
+}
+
+/** How the sweep steps for a sun: along the row or column the sun lies nearer (`dom` 0: x, 1: y), one sample a step
+ *  toward it (`sx`, `sy`: the signs of its way), and `t` of a sample along the other (0 to 1: 1 on a diagonal); a
+ *  step `len` samples long. */
+interface Sweep {
+  dom: 0 | 1;
+  sx: number;
+  sy: number;
+  t: number;
+  len: number;
+}
+
+function sweepOf(sun: Sun): Sweep {
+  const ax = Math.abs(sun.x);
+  const ay = Math.abs(sun.y);
+  if (ax >= ay) return { dom: 0, sx: Math.sign(sun.x), sy: Math.sign(sun.y), t: ay / ax, len: Math.hypot(1, ay / ax) };
+  return { dom: 1, sx: Math.sign(sun.x), sy: Math.sign(sun.y), t: ax / ay, len: Math.hypot(1, ax / ay) };
+}
+
+/** A sweep's step in samples (x, y) toward the sun. */
+function stepOf(g: Sweep): [number, number] {
+  return g.dom === 0 ? [g.sx, g.sy * g.t] : [g.sx * g.t, g.sy];
+}
+
 /** The level each tile's tallest caster stands on (`objectCasters`' arrays): on a tile with terrain above terrain, the
  *  run whose top it stands on casts it (a tree on a cave's floor casts from the floor, not the roof). */
 const casterLevels = new WeakMap<Float32Array, Uint8Array>();
+
+/** The levels `objectCasters` noted for `casters` (to send them to the bake worker, where `withCasterLevels` notes them
+ *  again). */
+export function casterLevelsOf(casters: Float32Array): Uint8Array | undefined {
+  return casterLevels.get(casters);
+}
+
+/** `casters` with their levels noted (casters and levels sent to the bake worker). */
+export function withCasterLevels(casters: Float32Array, levels: Uint8Array | undefined): Float32Array {
+  if (levels) casterLevels.set(casters, levels);
+  return casters;
+}
 
 /** The run top a tile's caster stands on (null: not known, the column's highest). */
 function casterLevel(casters: Float32Array, i: number): number | null {
@@ -71,23 +135,23 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
 
 /** The top of the shadow volume at each shadow sample (W·R × H·R, row-major from the south-west),
  *  for the sun at `elevation`: a point at height z is lit when z is at or above it. */
-export function shadowTops(W: number, H: number, heights: Uint8Array, casters: Float32Array | null, elevation: number): Float32Array {
+export function shadowTops(W: number, H: number, heights: Uint8Array, casters: Float32Array | null, elevation: number, sun: Sun = DEFAULT_SUN): Float32Array {
   const out = new Float32Array(W * SHADOW_RES * H * SHADOW_RES);
-  shadowTopsInto(out, W, H, heights, casters, elevation, 0, W * SHADOW_RES - 1, 0, H * SHADOW_RES - 1);
+  shadowTopsInto(out, W, H, heights, casters, elevation, 0, W * SHADOW_RES - 1, 0, H * SHADOW_RES - 1, null, sun);
   return out;
 }
 
 /** The shadow tops of the samples sx0…sx1 × sy0…sy1, into `out` (the whole map's tops, the rest
- *  already right). A top depends only on the samples to its north-west, so the tops that change
- *  when some tiles do lie south-east of them, within `shadowReach` samples: live editing redoes
- *  just those, with the same arithmetic as the whole map. With `rock` (terrain above terrain), a tile that is not
- *  one plain run casts here only its run on the map's floor; its runs above air are added by `voxelTop`. */
-export function shadowTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Array, casters: Float32Array | null, elevation: number, sx0: number, sx1: number, sy0: number, sy1: number, rock: ShadowRock | null = null): void {
+ *  already right). A top depends only on the samples toward the sun, so the tops that change when some tiles do lie
+ *  down-sun of them, within `shadowReach` samples: live editing redoes just those, with the same arithmetic as the
+ *  whole map. With `rock` (terrain above terrain), a tile that is not one plain run from z = 0 casts here only its run
+ *  on the map's floor; its runs above air are added by `voxelTops`. */
+export function shadowTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Array, casters: Float32Array | null, elevation: number, sx0: number, sx1: number, sy0: number, sy1: number, rock: ShadowRock | null = null, sun: Sun = DEFAULT_SUN): void {
   const R = SHADOW_RES;
   const SW = W * R;
   const SH = H * R;
-  // the sun is toward (−x, +y): the sample the light comes through is one west and one north
-  const drop = (Math.SQRT2 / R) * Math.tan(elevation);
+  const g = sweepOf(sun);
+  const drop = (g.len / R) * Math.tan(elevation);
   const occ = rock
     ? (sx: number, sy: number): number => {
         const i = Math.floor(sy / R) * W + Math.floor(sx / R);
@@ -99,15 +163,39 @@ export function shadowTopsInto(out: Float32Array, W: number, H: number, heights:
         const i = Math.floor(sy / R) * W + Math.floor(sx / R);
         return heights[i] + (casters ? casters[i] : 0);
       };
-  for (let sx = Math.max(0, sx0); sx <= Math.min(SW - 1, sx1); sx++) {
-    for (let sy = Math.max(0, sy0); sy <= Math.min(SH - 1, sy1); sy++) {
-      if (sx === 0 || sy === SH - 1) {
-        out[sy * SW + sx] = -SHADOW_OFFSET;
+  // the line one step toward the sun is done first: along the row or column the sun lies nearer, from the sun's side
+  const [dLo, dHi, mLo, mHi, D, M] = g.dom === 0 ? [Math.max(0, sx0), Math.min(SW - 1, sx1), Math.max(0, sy0), Math.min(SH - 1, sy1), SW, SH] : [Math.max(0, sy0), Math.min(SH - 1, sy1), Math.max(0, sx0), Math.min(SW - 1, sx1), SH, SW];
+  const dStep = g.dom === 0 ? g.sx : g.sy;
+  const mStep = g.dom === 0 ? g.sy : g.sx;
+  const at = g.dom === 0 ? (d: number, m: number) => m * SW + d : (d: number, m: number) => d * SW + m;
+  const occAt = g.dom === 0 ? (d: number, m: number) => occ(d, m) : (d: number, m: number) => occ(m, d);
+  for (let k = 0; k <= dHi - dLo; k++) {
+    const d = dStep < 0 ? dLo + k : dHi - k;
+    const du = d + dStep;
+    for (let m = mLo; m <= mHi; m++) {
+      const s = at(d, m);
+      if (du < 0 || du >= D) {
+        out[s] = -SHADOW_OFFSET;
         continue;
       }
-      const up = (sy + 1) * SW + sx - 1;
-      const top = Math.max(occ(sx - 1, sy + 1), out[up]) - drop;
-      out[sy * SW + sx] = top;
+      const m1 = m + mStep;
+      let top: number;
+      if (g.t === 1) {
+        // (on a diagonal, the one sample toward the sun)
+        if (m1 < 0 || m1 >= M) {
+          out[s] = -SHADOW_OFFSET;
+          continue;
+        }
+        top = Math.max(occAt(du, m1), out[at(du, m1)]);
+      } else {
+        const v0 = Math.max(occAt(du, m), out[at(du, m)]);
+        if (g.t === 0) top = v0;
+        else {
+          const v1 = m1 < 0 || m1 >= M ? -SHADOW_OFFSET : Math.max(occAt(du, m1), out[at(du, m1)]);
+          top = (1 - g.t) * v0 + g.t * v1;
+        }
+      }
+      out[s] = top - drop;
     }
   }
 }
@@ -207,26 +295,35 @@ function grow(a: Float64Array) {
  *  `out`: the sweep's tops (the rock from the floor up) with the runs above air upstream of the sample, each lowered
  *  as the sweep lowers a height, judged at the sample's own ground `h` (`pieceTop`). `bound`: no run above air (with
  *  its objects) reaches higher. */
-function voxelTops(out: Float64Array, sx: number, sy: number, baseHi: number, baseLo: number, h: number, W: number, SH: number, rock: ShadowRock, casters: Float32Array | null, dropHi: number, dropLo: number, bound: number): void {
+function voxelTops(out: Float64Array, sx: number, sy: number, baseHi: number, baseLo: number, h: number, W: number, SH: number, rock: ShadowRock, casters: Float32Array | null, dropHi: number, dropLo: number, bound: number, step: readonly [number, number]): void {
   out[0] = baseHi;
   out[1] = baseLo;
+  const R = SHADOW_RES;
+  const SW = W * R;
+  const [ux, uy] = step;
   // (most samples' rays cross no tile with terrain above terrain before they clear it: one look at the sums of the
   // tiles the ray's samples lie in; two samples a tile)
-  const J = Math.min(sx, SH - 1 - sy, Math.floor(Math.max((bound - baseHi) / dropHi, (bound - baseLo) / dropLo)));
+  const edgeX = ux < 0 ? sx / -ux : ux > 0 ? (SW - 1 - sx) / ux : Infinity;
+  const edgeY = uy > 0 ? (SH - 1 - sy) / uy : uy < 0 ? sy / -uy : Infinity;
+  const J = Math.min(Math.floor(edgeX), Math.floor(edgeY), Math.floor(Math.max((bound - baseHi) / dropHi, (bound - baseLo) / dropLo)));
   if (J < 1) return;
   const S = rock.sums;
   const W1 = W + 1;
-  const tx0 = (sx - J) >> 1;
-  const tx1 = ((sx - 1) >> 1) + 1;
-  const ty0 = (sy + 1) >> 1;
-  const ty1 = ((sy + J) >> 1) + 1;
+  const ax = Math.floor((sx + ux) / R);
+  const bx = Math.floor((sx + J * ux) / R);
+  const ay = Math.floor((sy + uy) / R);
+  const by = Math.floor((sy + J * uy) / R);
+  const tx0 = Math.min(ax, bx);
+  const tx1 = Math.max(ax, bx) + 1;
+  const ty0 = Math.min(ay, by);
+  const ty1 = Math.max(ay, by) + 1;
   if (S[ty1 * W1 + tx1] - S[ty0 * W1 + tx1] - S[ty1 * W1 + tx0] + S[ty0 * W1 + tx0] === 0) return;
   const { flag, first, count, runs } = rock;
   const levels = casters ? casterLevels.get(casters) : undefined;
   let nHi = 0;
   let nLo = 0;
   for (let j = 1; j <= J; j++) {
-    const i = ((sy + j) >> 1) * W + ((sx - j) >> 1);
+    const i = Math.floor((sy + j * uy) / R) * W + Math.floor((sx + j * ux) / R);
     if (!flag[i]) continue;
     const fallHi = j * dropHi;
     const fallLo = j * dropLo;
@@ -266,12 +363,14 @@ function rockBound(rock: ShadowRock, casters: Float32Array | null): number {
 /** The shadow map's bytes of samples sx0…sx1 × sy0…sy1 from the sweep's tops (with the rock above air when there
  *  is any). `kept`: the sweep's tops before an edit of heights alone (the rock and the objects as they were) and the
  *  tiles it changed: a sample outside them whose tops did not move keeps its bytes (they depend on nothing else). */
-function shadowBytes(tops: { hi: Float32Array; lo: Float32Array }, bytes: Uint8Array, W: number, H: number, heights: Uint8Array, casters: Float32Array | null, rock: ShadowRock | null, sx0: number, sx1: number, sy0: number, sy1: number, kept?: { hi: Float32Array; lo: Float32Array; x0: number; y0: number; x1: number; y1: number }): void {
+function shadowBytes(tops: { hi: Float32Array; lo: Float32Array }, bytes: Uint8Array, W: number, H: number, heights: Uint8Array, casters: Float32Array | null, rock: ShadowRock | null, sx0: number, sx1: number, sy0: number, sy1: number, kept: { hi: Float32Array; lo: Float32Array; x0: number; y0: number; x1: number; y1: number } | undefined, sun: Sun): void {
   const R = SHADOW_RES;
   const SW = W * R;
   const SH = H * R;
-  const dropHi = (Math.SQRT2 / R) * Math.tan(LIGHT.sunElevation + LIGHT.penumbra);
-  const dropLo = (Math.SQRT2 / R) * Math.tan(LIGHT.sunElevation - LIGHT.penumbra);
+  const g = sweepOf(sun);
+  const step = stepOf(g);
+  const dropHi = (g.len / R) * Math.tan(LIGHT.sunElevation + LIGHT.penumbra);
+  const dropLo = (g.len / R) * Math.tan(LIGHT.sunElevation - LIGHT.penumbra);
   const bound = rock ? rockBound(rock, casters) : 0;
   const two = new Float64Array(2);
   for (let sy = Math.max(0, sy0); sy <= Math.min(SH - 1, sy1); sy++)
@@ -285,13 +384,13 @@ function shadowBytes(tops: { hi: Float32Array; lo: Float32Array }, bytes: Uint8A
         const ty = Math.floor(sy / R);
         if (kept.hi[o] === hi && kept.lo[o] === lo && (tx < kept.x0 || tx > kept.x1 || ty < kept.y0 || ty > kept.y1)) continue;
       }
-      if (rock && sx > 0 && sy < SH - 1) {
+      if (rock) {
         // (a tile with terrain above terrain is judged at its lowest floor, the level its cave or overhang opens onto
         // the ground beside it: the shadow map is filtered across the line, so the two agree there; its roof's top,
         // above that floor's piece of shadow or in the sun, comes out lit as before)
         const i = Math.floor(sy / R) * W + Math.floor(sx / R);
         const h = rock.flag[i] ? rock.bottom[i] : heights[i];
-        voxelTops(two, sx, sy, hi, lo, h, W, SH, rock, casters, dropHi, dropLo, bound);
+        voxelTops(two, sx, sy, hi, lo, h, W, SH, rock, casters, dropHi, dropLo, bound, step);
         hi = two[0];
         lo = two[1];
       }
@@ -301,30 +400,36 @@ function shadowBytes(tops: { hi: Float32Array; lo: Float32Array }, bytes: Uint8A
     }
 }
 
-/** How far (in samples) a change of height reaches through the shadows: the tallest step a map
- *  can have (22 levels and an object on it), divided by how fast the lowest sun's shadow falls. */
-export function shadowReach(): number {
-  const drop = (Math.SQRT2 / SHADOW_RES) * Math.tan(LIGHT.sunElevation - LIGHT.penumbra);
+/** How far (in samples, along each way down-sun) a change of height reaches through the shadows: the tallest step a
+ *  map can have (22 levels and an object on it), divided by how fast the lowest sun's shadow falls a step. */
+export function shadowReach(sun: Sun = DEFAULT_SUN): number {
+  const g = sweepOf(sun);
+  const drop = (g.len / SHADOW_RES) * Math.tan(LIGHT.sunElevation - LIGHT.penumbra);
   return Math.ceil(30 / drop) + 2;
 }
 
 /** The two shadow tops (the sun a little higher and lower) of the whole map (with `rock`, the sweep's: the runs above
  *  air are added as the bytes are written). */
-export function shadowTopsPair(W: number, H: number, heights: Uint8Array, casters: Float32Array | null, rock: ShadowRock | null = null): { hi: Float32Array; lo: Float32Array } {
+export function shadowTopsPair(W: number, H: number, heights: Uint8Array, casters: Float32Array | null, rock: ShadowRock | null = null, sun: Sun = DEFAULT_SUN): { hi: Float32Array; lo: Float32Array } {
   const tops = (elevation: number) => {
     const out = new Float32Array(W * SHADOW_RES * H * SHADOW_RES);
-    shadowTopsInto(out, W, H, heights, casters, elevation, 0, W * SHADOW_RES - 1, 0, H * SHADOW_RES - 1, rock);
+    shadowTopsInto(out, W, H, heights, casters, elevation, 0, W * SHADOW_RES - 1, 0, H * SHADOW_RES - 1, rock, sun);
     return out;
   };
   return { hi: tops(LIGHT.sunElevation + LIGHT.penumbra), lo: tops(LIGHT.sunElevation - LIGHT.penumbra) };
 }
 
 /** The shadow map's samples `shadowPairRect` redoes for tiles x0…x1 × y0…y1 (unclipped): the
- *  shadows they cast reach south-east of them. */
-export function shadowPairArea(x0: number, y0: number, x1: number, y1: number): { sx0: number; sy0: number; sx1: number; sy1: number } {
+ *  shadows they cast reach down-sun of them. */
+export function shadowPairArea(x0: number, y0: number, x1: number, y1: number, sun: Sun = DEFAULT_SUN): { sx0: number; sy0: number; sx1: number; sy1: number } {
   const R = SHADOW_RES;
-  const reach = shadowReach();
-  return { sx0: R * x0, sx1: R * (x1 + 1) + reach, sy0: R * y0 - reach, sy1: R * (y1 + 1) };
+  const reach = shadowReach(sun);
+  return {
+    sx0: R * x0 - (sun.x > 0 ? reach : 0),
+    sx1: R * (x1 + 1) + (sun.x < 0 ? reach : 0),
+    sy0: R * y0 - (sun.y > 0 ? reach : 0),
+    sy1: R * (y1 + 1) + (sun.y < 0 ? reach : 0),
+  };
 }
 
 /** The side of the blocks of tiles `castersChangedRects` gathers changed casters by. */
@@ -336,7 +441,7 @@ const CASTER_BLOCK = 8;
  *  change reaches lies in that change's rectangle's area, and each area is redone from the samples north-west of it).
  *  The changed tiles of each block of CASTER_BLOCK² tiles, or their one bounding rectangle where that redoes fewer
  *  samples: plants drowned here and there across a map redo their own shadows, not the map's. Null when none differ. */
-export function castersChangedRects(W: number, H: number, a: Float32Array | null, b: Float32Array | null): { x0: number; y0: number; x1: number; y1: number }[] | null {
+export function castersChangedRects(W: number, H: number, a: Float32Array | null, b: Float32Array | null, sun: Sun = DEFAULT_SUN): { x0: number; y0: number; x1: number; y1: number }[] | null {
   if (!a && !b) return null;
   const B = CASTER_BLOCK;
   const bw = Math.ceil(W / B);
@@ -369,7 +474,7 @@ export function castersChangedRects(W: number, H: number, a: Float32Array | null
   const SW = W * SHADOW_RES;
   const SH = H * SHADOW_RES;
   const cost = (r: { x0: number; y0: number; x1: number; y1: number }) => {
-    const p = shadowPairArea(r.x0, r.y0, r.x1, r.y1);
+    const p = shadowPairArea(r.x0, r.y0, r.x1, r.y1, sun);
     return Math.max(0, Math.min(SW - 1, p.sx1) - Math.max(0, p.sx0) + 1) * Math.max(0, Math.min(SH - 1, p.sy1) - Math.max(0, p.sy0) + 1);
   };
   const rects = [...blocks.values()];
@@ -381,8 +486,8 @@ export function castersChangedRects(W: number, H: number, a: Float32Array | null
 /** Redo the tops of a pair round tiles that changed (x0…x1 × y0…y1), and write their bytes into
  *  the shadow map `bytes` (RGBA per sample). Equal to baking the whole map again. `rock`: the map's
  *  terrain above terrain (`shadowRock`), whose runs above air cast shadows with gaps under them. */
-export function shadowPairRect(tops: { hi: Float32Array; lo: Float32Array }, bytes: Uint8Array, W: number, H: number, heights: Uint8Array, casters: Float32Array | null, x0: number, y0: number, x1: number, y1: number, rock: ShadowRock | null = null, heightsOnly = false): void {
-  const { sx0, sy0, sx1, sy1 } = shadowPairArea(x0, y0, x1, y1);
+export function shadowPairRect(tops: { hi: Float32Array; lo: Float32Array }, bytes: Uint8Array, W: number, H: number, heights: Uint8Array, casters: Float32Array | null, x0: number, y0: number, x1: number, y1: number, rock: ShadowRock | null = null, heightsOnly = false, sun: Sun = DEFAULT_SUN): void {
+  const { sx0, sy0, sx1, sy1 } = shadowPairArea(x0, y0, x1, y1, sun);
   // (with terrain above terrain, after an edit of heights alone (`heightsOnly`: the same rock and objects), the
   // tops before it: the samples whose tops stay keep their bytes)
   let kept: { hi: Float32Array; lo: Float32Array; x0: number; y0: number; x1: number; y1: number } | undefined;
@@ -400,26 +505,26 @@ export function shadowPairRect(tops: { hi: Float32Array; lo: Float32Array }, byt
         kept.lo.set(tops.lo.subarray(sy * SW + ax0, sy * SW + ax1 + 1), (sy - ay0) * w);
       }
     }
-    shadowTopsInto(tops.hi, W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra, sx0, sx1, sy0, sy1, rock);
-    shadowTopsInto(tops.lo, W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra, sx0, sx1, sy0, sy1, rock);
-    if (kept) shadowBytes(tops, bytes, W, H, heights, casters, rock, ax0, ax1, ay0, ay1, kept);
+    shadowTopsInto(tops.hi, W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+    shadowTopsInto(tops.lo, W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+    if (kept) shadowBytes(tops, bytes, W, H, heights, casters, rock, ax0, ax1, ay0, ay1, kept, sun);
     return;
   }
-  shadowTopsInto(tops.hi, W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra, sx0, sx1, sy0, sy1, rock);
-  shadowTopsInto(tops.lo, W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra, sx0, sx1, sy0, sy1, rock);
-  shadowBytes(tops, bytes, W, H, heights, casters, rock, sx0, sx1, sy0, sy1);
+  shadowTopsInto(tops.hi, W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+  shadowTopsInto(tops.lo, W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+  shadowBytes(tops, bytes, W, H, heights, casters, rock, sx0, sx1, sy0, sy1, undefined, sun);
 }
 
 /** The shadow map as RGBA bytes (W·R × H·R): R the shadow top with the sun a little higher, G a
  *  little lower (the penumbra between them). `rock` as for `shadowPairRect`. */
-export function shadowMap(W: number, H: number, heights: Uint8Array, casters: Float32Array | null, keep?: { hi: Float32Array; lo: Float32Array }, rock: ShadowRock | null = null): Uint8Array {
-  const tops = shadowTopsPair(W, H, heights, casters, rock);
+export function shadowMap(W: number, H: number, heights: Uint8Array, casters: Float32Array | null, keep?: { hi: Float32Array; lo: Float32Array }, rock: ShadowRock | null = null, sun: Sun = DEFAULT_SUN): Uint8Array {
+  const tops = shadowTopsPair(W, H, heights, casters, rock, sun);
   if (keep) {
     keep.hi = tops.hi;
     keep.lo = tops.lo;
   }
   const out = new Uint8Array(tops.hi.length * 4);
-  shadowBytes(tops, out, W, H, heights, casters, rock, 0, W * SHADOW_RES - 1, 0, H * SHADOW_RES - 1);
+  shadowBytes(tops, out, W, H, heights, casters, rock, 0, W * SHADOW_RES - 1, 0, H * SHADOW_RES - 1, undefined, sun);
   return out;
 }
 

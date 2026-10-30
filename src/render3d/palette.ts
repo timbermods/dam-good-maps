@@ -273,9 +273,12 @@ export const MINE = {
 /** The light: a warm sun from the north-west, a cool sky (violet in the shadows of the earth),
  *  and the game's cyan fog as a haze over distant ground. */
 export const LIGHT = {
-  /** Toward the sun: west and north (x east, y north), 50° above the horizon. */
+  /** Toward the sun before any camera turns it: west and north (x east, y north). The sun then turns with the
+   *  camera (light.ts `sunOfYaw`), at the game's height: Sun.blueprint.json, the day's `SunXAngle` 45°. */
   sunAzimuth: [-Math.SQRT1_2, Math.SQRT1_2] as const,
-  sunElevation: (50 * Math.PI) / 180,
+  sunElevation: (45 * Math.PI) / 180,
+  /** How far the game's sun turns past the camera (Sun.blueprint.json `RotateWithCameraOffset`, degrees). */
+  sunFollow: 40,
   /** The sun's disc and the sky's scatter soften shadows: two sweeps, this far either side. */
   penumbra: (6 * Math.PI) / 180,
   sun: [1.0, 0.95, 0.86] as Rgb,
