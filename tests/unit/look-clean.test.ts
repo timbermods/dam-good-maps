@@ -9,7 +9,7 @@ import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
 import { sceneUniforms, skyMaterial, terrainMaterial } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
-import { GROUND, legendEntries, objectLegend, SKY, type Rgb } from "../../src/render3d/palette";
+import { DESERT, GROUND, legendEntries, objectLegend, SKY, type Rgb } from "../../src/render3d/palette";
 
 type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): { array: ArrayLike<number>; count: number } } };
 
@@ -27,6 +27,20 @@ function extent(m: Mesh): { height: number; reach: number } {
   }
   return { height, reach };
 }
+
+describe("grass by moisture, as the game's terrain draws it (D135 as amended 2026-10-29)", () => {
+  // SoilMoistureSystem.UpdateDesertIntensity: desert 1 at moisture 0, (1 - m / 5) x 0.7 at 0 < m <= 5, 0 above
+  const desert = (m: number) => (m === 0 ? 1 : m <= DESERT.threshold ? (1 - m / DESERT.threshold) * DESERT.max : 0);
+  const grassOf = (m: number) => (m < 0.5 ? 0 : 1 - DESERT.max * Math.max(0, 1 - m / DESERT.threshold));
+  it("takes the game's threshold and most desert, and the shader's grass is one minus its desert at every level", () => {
+    expect(DESERT).toEqual({ threshold: 5, max: 0.7 });
+    for (let m = 0; m <= 15; m++) expect(grassOf(m), `moisture ${m}`).toBeCloseTo(1 - desert(m), 9);
+    const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
+    const shader = terrainMaterial(u).fragmentShader;
+    expect(shader).toContain("float grassOf(float m)");
+    expect(shader).toContain("vec4(grassOf(s0.x), s0.x,");
+  });
+});
 
 describe("the clean view", () => {
   it("opens with the information layer off", () => {
