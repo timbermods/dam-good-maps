@@ -1099,7 +1099,7 @@ Two looks (Map look 2, D147, D242, D250, D284):
   splash rings removed with D201's amendment, 2026-10-29). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
-  dead (`core/sim/withering.ts`, given to the page with the held day). A held drought or badtide day turns the haze to
+  dead (`core/sim/withering.ts`, given to the page with the held day). A living plant whose cause of death runs on the ground shown is drawn dying, as the game's `#Dying` model is (D242 as amended 2026-10-29), on Day 0 as on any held day: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band (`withering.ts` `dyingCause`, read by the renderer from the soil and water it shows; `render3d/dying.ts` makes the forms). A held drought or badtide day turns the haze to
   the game's fog colour for it, in both looks (`Sun.blueprint`, `high/seasons.ts` `FOG`; the map's own haze is its
   temperate fog), as the game does and nothing more: its ground dries by the day's soil like any dry tile (D250 as
   amended 2026-10-29). Day 0 shows the map as it is.

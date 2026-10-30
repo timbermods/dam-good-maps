@@ -234,10 +234,10 @@ export class HighLook {
    *  landmarks go in beside today's, which hide while they show. */
   objectsBuilt(group: Group, entities: EntityView): void {
     // (the same plants as before: the forest stays, numbered as the new objects number them; only the landmarks follow
-    // the new batches; the renderer then marks the plants a held day withers, `setPlantsDead`)
+    // the new batches; the renderer then marks the plants a held day withers, `setPlantStates`)
     const keep = !!this.forest && this.forest.reindex(entities);
     // (plants that died or came back, as when water drowns them: moved to the other state's batches in place)
-    if (keep) this.forest!.setDead(entities.flags);
+    if (keep) this.forest!.setState(entities.flags);
     const kept = this.keptLandmarks;
     this.keptLandmarks = [];
     this.releaseObjects();
@@ -267,12 +267,12 @@ export class HighLook {
     return [...shapesAhead(entities), ...ahead.map(({ key, model }) => () => landmarkAhead(key, model()))];
   }
 
-  /** Plants change state in place (the Weather view's withering): the plants whose DEAD flag differs move to the other
-   *  state's batches. Returns how many changed. */
-  setPlantsDead(flags: ArrayLike<number>): number {
+  /** Plants change state in place (the Weather view's withering, the ground starting them dying): the plants whose DEAD
+   *  or DYING flag differs move to that state's batches. Returns how many changed. */
+  setPlantStates(flags: ArrayLike<number>): number {
     const forest = this.forest;
     if (!forest) return 0;
-    const changed = forest.setDead(flags);
+    const changed = forest.setState(flags);
     // (a layout shows every batch that has plants: the effect's switch still hides them)
     if (changed && !this.effects.vegetation) for (const m of forest.meshes) m.visible = false;
     return changed;

@@ -14,6 +14,9 @@ export const ORIENTATION_NAMES = ["Cw0", "Cw90", "Cw180", "Cw270"] as const;
 export const DEAD = 1;
 export const FLIPPED = 2;
 export const YOUNG = 4;
+/** A living plant whose cause of death runs now (core/sim/withering.ts `dyingCause`): drawn in its dying form (dying.ts).
+ *  Set by the view only, never by a file. */
+export const DYING = 8;
 
 /** A ruin's variant (its `RuinModels.VariantId`, "A" to "E") as an index, and the value for none:
  *  a file without one, or another object (the game picks one at random; the view picks one from

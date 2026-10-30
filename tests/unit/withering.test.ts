@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { hazardDays } from "../../src/core/sim/weather";
-import { DAYS_TO_DIE_DRY, witheredByDay, type DaySoil, type Plant } from "../../src/core/sim/withering";
+import { DAYS_TO_DIE_DRY, dyingCause, WATER_BAND, waterAboveBase, witheredByDay, type DaySoil, type Plant } from "../../src/core/sim/withering";
 
 /** One tile's soil per day, day 0 first: a letter each: "m" moist, "d" dry, "c" dry and contaminated, "x" moist and contaminated. */
 const series = (pattern: string): DaySoil[] =>
@@ -83,5 +83,39 @@ describe("the plants a held day has surely killed", () => {
       { moisture: [0, 9, 0], contamination: [0, 5, 0] },
     ];
     expect(Array.from(witheredByDay(days, [{ tile: 1, template: "Oak" }, { tile: 0, template: "Oak" }, { tile: 2, template: "Succulent" }]))).toEqual([1, 0, 0]);
+  });
+});
+
+describe("the plants dying now, as the game shows them (its #Dying model)", () => {
+  const ground = (moisture: number, contamination = 0, water = 0) => ({ moisture, contamination, waterAboveBase: water });
+  it("a land plant dies on dry ground, from the moment it is dry, and not on moist ground", () => {
+    for (const t of ["Pine", "Birch", "Oak", "BlueberryBush", "Maple", "ChestnutTree", "Dandelion", "CoffeeBush"]) {
+      expect(dyingCause(t, ground(0)), t).toBe("dry");
+      expect(dyingCause(t, ground(1)), t).toBeNull();
+    }
+  });
+  it("a succulent dies on moist ground instead (AridNaturalResource), and lives on dry", () => {
+    expect(dyingCause("Succulent", ground(3))).toBe("wet");
+    expect(dyingCause("Succulent", ground(0))).toBeNull();
+  });
+  it("contamination above 0 kills any plant, first of the causes", () => {
+    for (const t of Object.keys(WATER_BAND)) expect(dyingCause(t, ground(9, 1)), t).toBe("contaminated");
+  });
+  it("any water on a land plant's ground floods it; the mangrove wants exactly a level of water", () => {
+    expect(dyingCause("Pine", ground(9, 0, 1))).toBe("flooded");
+    expect(dyingCause("Mangrove", ground(9, 0, 1))).toBeNull();
+    expect(dyingCause("Mangrove", ground(9, 0, 0))).toBe("stranded");
+    expect(dyingCause("Mangrove", ground(9, 0, 2))).toBe("flooded");
+    // WaterAboveBase = ceil(floor + depth) − z: a film is a whole level; water on other ground is none
+    expect(waterAboveBase(4, 4, 0.01)).toBe(1);
+    expect(waterAboveBase(4, 4, 1)).toBe(1);
+    expect(waterAboveBase(4, 4, 1.2)).toBe(2);
+    expect(waterAboveBase(4, 4, 0)).toBe(0);
+    expect(waterAboveBase(4, 2, 3)).toBe(0);
+    expect(waterAboveBase(4, NaN, NaN)).toBe(0);
+  });
+  it("a species the game gives no such rule draws as it is", () => {
+    expect(dyingCause("Wheat", ground(0))).toBeNull();
+    expect(dyingCause("RuinColumnH1", ground(0, 5))).toBeNull();
   });
 });
