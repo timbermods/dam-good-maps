@@ -9,11 +9,11 @@
 import { describe, expect, it } from "vitest";
 import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, SLOPE_ARROW_HEIGHT } from "../../src/render3d/entities3d";
-import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
+import { sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 import { entityView, surfaceWater, waterFromDepth } from "../../src/render3d/model";
 import { GROUND, RUIN, WATER_SURFACE, waterBody, waterOpacity } from "../../src/render3d/palette";
 import { blendedBadwater, meshWaterChunk } from "../../src/render3d/waterMesh";
-import { waterFilmGround } from "../../src/render3d/waterPalette";
+import { cleanWaterBody, badwaterBody, waterFilmGround, waterGroundBehind } from "../../src/render3d/waterPalette";
 import { plainLayers } from "../../src/render3d/waterLayers";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -80,6 +80,24 @@ describe("water", () => {
     expect(shader).toContain("float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);");
     expect(shader).toContain("return mix(min(WATER_FILM_BAD, body), body, waterFilm(depth));");
     expect(WATER_SURFACE.seeThrough).toBe(0.175);
+  });
+
+  it("shows the ground behind the water as the game's High quality does: overlaid with the water's colour, desaturated (WATER_SURFACE.behindTint)", () => {
+    const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const y = (c: readonly number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    const sat = (c: readonly number[]) => Math.max(...c) - Math.min(...c);
+    for (const ground of [GROUND.underwater, GROUND.moistLow, GROUND.dry])
+      for (const water of [cleanWaterBody(0.25), cleanWaterBody(1), badwaterBody(0.25)]) {
+        const b = waterGroundBehind(ground, water);
+        // darker than the ground in the open (the overlay of a dark water colour), and greyer
+        expect(y(b)).toBeLessThan(y(ground));
+        expect(sat(b)).toBeLessThan(sat(ground) + 0.02);
+      }
+    // the shader draws it in the terrain under the water past a sliver, never under clear water
+    const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+    const terrain = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1).fragmentShader;
+    expect(terrain).toContain("ground = mix(ground, waterGroundBehind(ground, wc), behind);");
+    expect(terrain).toContain("float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind);");
   });
 
   it("draws the ground under a film in the water's hue (D154): teal, crimson, mixed water through the warm midpoint, never purple or mauve-grey", () => {
