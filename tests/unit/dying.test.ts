@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelOf } from "../../src/render3d/entities3d";
 import { DEAD_FORM, deadLeaves, DRYING, dryColour, isFoliage } from "../../src/render3d/dying";
+import { TREE_COLOURS } from "../../src/render3d/palette";
 import { DEAD, DYING, entityView } from "../../src/render3d/model";
 import { Forest } from "../../src/render3d/high/forest";
 import { model, paletteDefaults, slots, WARM_SUN } from "../../src/render3d/high/models";
@@ -145,10 +146,11 @@ describe("a dead plant's form, by the game's numbers", () => {
       return out;
     };
     // the pine's pole: its bark × the game's dead-wood ratio, lighter than the living crowns
-    expect(colours("Pine.dead").has([0.36 * 1.25, 0.25 * 1.43, 0.16 * 1.6].map((c) => c.toFixed(3)).join(","))).toBe(true);
+    const bark = TREE_COLOURS.pineBark;
+    expect(colours("Pine.dead").has([bark[0] * 1.25, bark[1] * 1.43, bark[2] * 1.6].map((c) => c.toFixed(3)).join(","))).toBe(true);
     const bush = colours("BlueberryBush.dead");
     expect(bush.size).toBe(1);
-    expect([...bush][0]).toBe(deadLeaves("BlueberryBush", [0.14, 0.29, 0.14]).map((c) => c.toFixed(3)).join(","));
+    expect([...bush][0]).toBe(deadLeaves("BlueberryBush", TREE_COLOURS.bush).map((c) => c.toFixed(3)).join(","));
     const regions = new Set(Array.from(model("BlueberryBush", 0, "near", "dead").getAttribute("region").array as Float32Array));
     expect(regions.has(slots.indexOf("berry"))).toBe(false);
     expect(regions.has(slots.indexOf("bushDead"))).toBe(true);

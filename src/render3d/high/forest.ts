@@ -131,8 +131,8 @@ export class Forest {
       const z = view.z[i];
       const state = stateOf(view.flags[i]);
       const dead = state === "dead";
-      const p = placement(x, y, view.flags[i] & YOUNG ? 0.35 : 1);
-      m.makeRotationY(p.turn).scale(new Vector3(p.scale, p.scale, p.scale));
+      const p = placement(x, y, view.flags[i] & YOUNG ? 0.35 : 1, name);
+      m.makeRotationY(p.turn).scale(new Vector3(p.scale, p.scaleY, p.scale));
       m.setPosition(x + 0.5 + p.dx, z, -y - 0.5 + p.dz);
       pending.push({
         index: i,

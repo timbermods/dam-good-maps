@@ -1614,6 +1614,8 @@ export class MapRenderer {
     const m = this.map!;
     const l = this.layers;
     if (l && l.of === m.surface) rideLayers(m.W, l.layers, m.surface, rect);
+    // (a plant the water now floods, or leaves, starts or stops dying: held water kept over land an edit lowered too)
+    this.lifeLater();
   }
 
   /** The columns as the worker last sent them (the water mesh workers' copy), and their version. */

@@ -46,8 +46,8 @@ import * as entities3d from "../src/render3d/entities3d";
 import { waitForEditor } from "./wait-editor";
 
 // (read loosely, so the tool also runs against the code of `m8-done` for the before captures)
-const ent = entities3d as { plantPlacement?: (x: number, y: number, flags: number) => { dx: number; dy: number; scale: number }; SLOPE_ARROW_HEIGHT?: number };
-const plantPlacement = ent.plantPlacement ?? (() => ({ dx: 0, dy: 0, scale: 1 }));
+const ent = entities3d as { plantPlacement?: (x: number, y: number, flags: number, template?: string) => { dx: number; dy: number; scale: number; height?: number }; SLOPE_ARROW_HEIGHT?: number };
+const plantPlacement = ent.plantPlacement ?? (() => ({ dx: 0, dy: 0, scale: 1, height: 1 }));
 const SLOPE_ARROW_HEIGHT = ent.SLOPE_ARROW_HEIGHT ?? 0.5;
 
 const arg = (name: string) => {
@@ -325,8 +325,10 @@ function candidatesOf(v: ViewData, dam: Tile[]): { cands: Record<Meaning, Candid
     if (/^(Pine|Birch|Oak)$/.test(t) && !(e.flags[k] & YOUNG)) {
       // where the view stands it (a little off the tile's middle), at the middle of its crown
       const dead = !!(e.flags[k] & DEAD);
-      const p = plantPlacement(x, y, e.flags[k]);
-      cands[dead ? "dead tree" : "living tree"].push({ tile: [x, y], point: [x + 0.5 + p.dx, z, -(y + 0.5 + p.dy)], grow: dead ? 14 : 0, rise: 0.9 * p.scale, cap: 2.5, note: t });
+      const p = plantPlacement(x, y, e.flags[k], t);
+      // (the middle of the crown: the game's sizes, plantSize.ts)
+      const crown = ({ Pine: 2.1, Birch: 1.42, Oak: 1.65 } as Record<string, number>)[t] ?? 0.9;
+      cands[dead ? "dead tree" : "living tree"].push({ tile: [x, y], point: [x + 0.5 + p.dx, z, -(y + 0.5 + p.dy)], grow: dead ? 14 : 0, rise: (dead ? 0.55 : 1) * crown * (p.height ?? p.scale), cap: 2.5, note: t });
     }
     const ruin = /^RuinColumnH(\d)$/.exec(t);
     if (ruin) cands.ruin.push({ tile: [x, y], point: [x + 0.5, z + Number(ruin[1]) / 2, -(y + 0.5)], grow: 0, rise: 0, note: `${ruin[1]} high` });

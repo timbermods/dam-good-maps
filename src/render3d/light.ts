@@ -88,7 +88,8 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
   const out = new Float32Array(W * H);
   const levels = new Uint8Array(W * H);
   casterLevels.set(out, levels);
-  const tall: Record<string, number> = { Pine: 1.35, Oak: 1.2, Birch: 1.15, Succulent: 0.5, StartingLocation: 2.2 };
+  // (the plants at the game's sizes, plantSize.ts: a little under their full height, the randomizer's middle)
+  const tall: Record<string, number> = { Pine: 2.7, Oak: 2.26, Birch: 1.63, Succulent: 0.5, StartingLocation: 2.2 };
   for (let k = 0; k < e.count; k++) {
     const t = e.templates[e.template[k]];
     const x = e.x[k];
