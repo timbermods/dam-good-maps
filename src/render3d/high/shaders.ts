@@ -338,7 +338,8 @@ ${HIGH_WATER_GLSL}
     body = mix(body, HW_GRAZING * mix(1.0, 0.72, deep), grazing * 0.65);
     vec3 streakColour = mix(mix(HW_STREAK_ABOVE, HW_STREAK_LOW, low), HW_STREAK_GRAZING, grazing);
     vec3 cleanBody = body;
-    vec3 badBody = HW_BAD * (1.0 - deep * 0.12) + vec3(0.0012, 0.0008, 0.0006) * grazing;
+    // (badwater darkens with depth by the game's _DepthGradients ramp, as the Standard look's: badwaterLight)
+    vec3 badBody = HW_BAD * badwaterLight(depth) + vec3(0.0012, 0.0008, 0.0006) * grazing;
     // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts
     // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the fewer glints,
     // the bubbles, the murk) turned toward badwater's by the same tint
@@ -450,10 +451,9 @@ export function waterHooks(): ShaderHooks {
             if (bitOf(vFlags, 128.0) > 0.5) fallIn = min(fallIn, hlFr.y);
             // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
             // WATER_FILM.to deep, as the Standard look's (waterPalette.ts WATER_FILM): its own depth, not the
-            // bank's; a faint edge, not a foam line
+            // bank's; no foam along the shore, as the game draws none, only churning where a fall comes down
             float hlFilm = waterFilm(depth);
-            hlFoam = (1.0 - smoothstep(0.015, 0.16, shore)) * (0.26 + vnoise(g * 4.0 + vec2(hlT * 0.1, -hlT * 0.2)) * 0.38) * mix(WATER_FILM_FOAM, 1.0, hlFilm);
-            hlFoam += (1.0 - smoothstep(0.12, 0.95, fallIn)) * (0.72 + 0.45 * vnoise(g * 6.0 + vec2(hlT * 0.7, -hlT * 1.4)));
+            hlFoam = (1.0 - smoothstep(0.12, 0.95, fallIn)) * (0.72 + 0.45 * vnoise(g * 6.0 + vec2(hlT * 0.7, -hlT * 1.4)));
             // rough water (#67 stage 2): froth only below falls, in rapids and in fast wakes
             if (hlRiver > 0.5) {
               float strength = texture2D(hlRough, g / hlFlowSize).r;
