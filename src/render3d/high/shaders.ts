@@ -51,9 +51,6 @@ export const SWITCHES = [
   "hlGeology",
   "hlSoilCap",
   "hlSection",
-  "hlCrown",
-  "hlLanding",
-  "hlBubbles",
   "hlRiver",
   "hlObjectDetail",
 ] as const;
@@ -341,6 +338,8 @@ ${HIGH_WATER_GLSL}
     vec3 cleanBody = body;
     // (badwater darkens with depth by the game's _DepthGradients ramp, as the Standard look's: badwaterLight)
     vec3 badBody = HW_BAD * badwaterLight(depth) + vec3(0.0012, 0.0008, 0.0006) * grazing;
+    // the game's glow of shallow water partly bad (badwaterGlow), in place of our own red contact at the shore
+    badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);
     // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts
     // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the fewer glints,
     // the bubbles, the murk) turned toward badwater's by the same tint
@@ -395,7 +394,6 @@ ${HIGH_WATER_GLSL}
     vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), tint);
     colour *= 0.80 + broad * 0.40;
     colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));
-    colour += vec3(0.26, 0.035, 0.008) * tint * (1.0 - smoothstep(0.0, 0.32, shore));
     if (tint > 0.25) {
       float trough = (1.0 - smoothstep(0.20, 0.38, waterTexture)) * near;
       float signalOpacity = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
@@ -443,58 +441,39 @@ export function waterHooks(): ShaderHooks {
     water: /* glsl */ `        if (hlWater > 0.5) {
           vec2 hlFr = fract(g);
           float hlT = time * mix(1.0, 0.55, cont);
-          float hlFoam = 0.0;
           if (n.y > 0.5) {
             // (water under a roof: its own badwater share, not the one of the water seen from above there)
             float hlBad = waterRoofed > 0.5 ? cont : texture2D(hlFlow, g / hlFlowSize).b;
             float hlDepth = max(0.0, depth) * mix(0.10, 1.0, smoothstep(0.0, 0.55, shore));
             vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, hlRippleNormal(g, time), V, lit, time);
-            // foam along the shore, and churning where a fall comes down into the water
-            float fallIn = 1.0;
-            if (bitOf(vFlags, 16.0) > 0.5) fallIn = min(fallIn, 1.0 - hlFr.x);
-            if (bitOf(vFlags, 32.0) > 0.5) fallIn = min(fallIn, hlFr.x);
-            if (bitOf(vFlags, 64.0) > 0.5) fallIn = min(fallIn, 1.0 - hlFr.y);
-            if (bitOf(vFlags, 128.0) > 0.5) fallIn = min(fallIn, hlFr.y);
-            // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
-            // WATER_FILM.to deep, as the Standard look's (waterPalette.ts WATER_FILM): its own depth, not the
-            // bank's; no foam along the shore, as the game draws none, only churning where a fall comes down
+            // the same water at any depth: only a sliver at a shore's very edge fades in, over WATER_FILM.to
+            // deep, as the Standard look's (waterPalette.ts WATER_FILM: our anti-aliasing of the edge, where the
+            // game clips hard), by its own depth, not the bank's; no foam, no froth, as the game draws none
             float hlFilm = waterFilm(depth);
-            hlFoam = (1.0 - smoothstep(0.12, 0.95, fallIn)) * (0.72 + 0.45 * vnoise(g * 6.0 + vec2(hlT * 0.7, -hlT * 1.4)));
-            // rough water (#67 stage 2): froth only below falls, in rapids and in fast wakes
-            if (hlRiver > 0.5) {
-              float strength = texture2D(hlRough, g / hlFlowSize).r;
-              vec2 vel = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
-              #ifdef CAVES
-                if (waterOwnFlow.a > 0.5) {
-                  strength = waterOwnFlow.b;
-                  vel = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
-                }
-              #endif
-              if (strength > 0.005) hlFoam = max(hlFoam, strength * 0.68 * smoothstep(0.40, 0.78, detailNoise(g * 1.71 - vel * hlT * 0.23)));
-            }
             float hlTint = waterTint(hlBad);
-            hlFoam = clamp(hlFoam * (1.0 - hlTint * 0.55), 0.0, 1.0) * 0.30;
-            c = mix(hlSurface.rgb, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlTint) * (0.85 + 0.15 * lit), hlFoam);
+            c = hlSurface.rgb;
             // (its light keeps more of the body's opacity: the film's sheen)
             float hlFilmAlpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
-            hlFilmAlpha = mix(hlFilmAlpha, hlSurface.a, hlSheen * (1.0 - hlFilm) * 0.6);
-            alpha = max(hlFilmAlpha, mix(hlFilmAlpha, 0.97, hlFoam));
+            alpha = mix(hlFilmAlpha, hlSurface.a, hlSheen * (1.0 - hlFilm) * 0.6);
           } else {
-            // the water's side: streaks where it steps down, the water's body at the map's edge
-            float stream = vnoise(vec2(g.x * 1.4 + sin(g.y * 0.8), g.y * 3.8 - hlT * 0.16));
-            float hlBad = cont >= 0.95 ? 1.0 : (cont <= 0.05 ? cont : mix(cont * 0.55, 1.0, smoothstep(1.0 - cont - 0.20, 1.0 - cont + 0.20, stream)));
-            float hlAbsorb = 1.0 - exp(-max(0.0, depth) * 0.65);
-            vec3 clean = mix(HW_SIDE_SHALLOW, HW_SIDE_BODY, hlAbsorb);
-            clean = mix(clean, HW_SIDE_DEEP, 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));
-            vec3 murk = mix(HW_SIDE_BAD, HW_SIDE_BAD_DEEP, hlAbsorb);
+            // the water's side, and a fall, as the game draws its falls (D201 amended 2026-10-29): the water's own
+            // colour where it sees the cliff right behind (its shallowest), its texture running down the face,
+            // nearly opaque (WATER_SURFACE.fallSeeThrough), no whitewater; at the map's edge, the water's side
+            float hlBad = cont;
             float hlTint = waterTint(hlBad);
-            c = waterBlend(clean, murk, hlBad) * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
-            bool edge = vFlags > 254.5;
-            float drop = edge ? 0.0 : vFlags / 30.0;
             float along = abs(n.x) > 0.5 ? g.y : g.x;
             float strands = smoothstep(0.30, 0.72, vnoise(vec2(along * 7.0, vWorld.y * 1.4 + hlT * 3.6)));
-            hlFoam = edge ? 0.0 : smoothstep(0.12, 0.6, drop) * (0.42 + strands * 0.60);
-            alpha = edge ? mix(0.78, 0.96, hlTint) : (0.32 + 0.53 * strands) * smoothstep(0.06, 0.25, drop);
+            vec3 clean = mix(HW_SIDE_SHALLOW, HW_SHALLOW, 0.5);
+            vec3 face = waterBlend(clean * (0.92 + 0.16 * strands), HW_BAD * badwaterBody(0.05) / BADWATER_BODY, hlBad);
+            c = face * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
+            bool edge = vFlags > 254.5;
+            float drop = edge ? 0.0 : vFlags / 30.0;
+            if (edge) {
+              float hlAbsorb = 1.0 - exp(-max(0.0, depth) * 0.65);
+              vec3 sideClean = mix(mix(HW_SIDE_SHALLOW, HW_SIDE_BODY, hlAbsorb), HW_SIDE_DEEP, 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));
+              c = waterBlend(sideClean, mix(HW_SIDE_BAD, HW_SIDE_BAD_DEEP, hlAbsorb), hlBad) * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
+            }
+            alpha = edge ? mix(0.78, 0.96, hlTint) : (1.0 - WATER_FALL_SEE_THROUGH) * smoothstep(0.02, 0.06, drop);
             // the water's section at the map's edge (#67 stage 1)
             if (hlSection > 0.5 && edge) {
               vec3 section = mix(HW_SECTION, HW_SECTION_DEEP, 1.0 - exp(-max(depth, 0.0) * 0.65));
@@ -507,89 +486,14 @@ export function waterHooks(): ShaderHooks {
               vec4 joined = measuredSurfaceWater(g, max(0.0, depth), 1.0, cont, vec3(0.0, 1.0, 0.0), V, lit, time);
               c = joined.rgb;
               alpha = joined.a;
-              hlFoam = 0.0;
             }
-            hlFoam = clamp(hlFoam * (1.0 - hlTint * 0.55), 0.0, 1.0) * 0.30;
-            c = mix(c, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlTint) * (0.85 + 0.15 * lit), hlFoam);
-            alpha = mix(alpha, 0.97, hlFoam);
             if (alpha < 0.01) discard;
           }
-          foam = hlFoam;
+          foam = 0.0;
         }
 `,
   };
 }
-
-// ------------------------------------------------------------------------------------------ falls
-
-const BUBBLES_GLSL = /* glsl */ `
-  float hlHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-  float hlBubblePattern(vec2 p, float t) {
-    vec2 q = mat2(0.83, 0.56, -0.56, 0.83) * p * 8.73;
-    vec2 cell = floor(q);
-    vec2 f = fract(q);
-    float bubbles = 0.0;
-    float qa = max(fwidth(q.x), fwidth(q.y));
-    float aa = max(qa, 0.025);
-    for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
-      vec2 o = vec2(float(x), float(y)), id = cell + o;
-      vec2 center = o + vec2(hlHash(id + 13.7), hlHash(id - 48.2)) * 0.82 + 0.09;
-      float radius = 0.08 + 0.19 * hlHash(id + 71.4);
-      float d = length(f - center);
-      float ring = (1.0 - smoothstep(radius - aa, radius + aa, d)) * smoothstep(radius * 0.33 - aa, radius * 0.75 + aa, d);
-      float s = sin(t * 1.8 + hlHash(id) * 19.0);
-      bubbles = max(bubbles, ring * (0.55 + 0.45 * s * s));
-    }
-    return mix(bubbles, 0.30, smoothstep(0.35, 0.95, qa));
-  }
-`;
-
-export function fallHooks(): ShaderHooks {
-  return {
-    ...lit(["hlWater", "hlCrown", "hlLanding", "hlBubbles"], BUBBLES_GLSL + HIGH_WATER_GLSL),
-    roofedSun: ROOFED_SUN,
-    // D324: the fall's tone (teal first, white in streaks and at the landing) is in the shared shader; High
-    // gives the sheet its own water teal
-    fallBody: "(hlWater > 0.5 ? waterBlend(HW_SHALLOW * 1.06, FALL_BAD, cont) : waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont))",
-    // the crown (#67 stage 2): one continuous billow along joined falls, never a row of cylinders
-    fallVertexDecl: "\n      uniform float hlCrown;\n      uniform float time;",
-    fallVertex: /* glsl */ `        if (kind > 4.5 && hlCrown > 0.5) {
-          float billow = 0.84 + 0.10 * sin(p.x * 2.17 + p.z * 1.31 + time * 0.9) + 0.06 * sin(p.z * 4.37 - p.x * 1.73 - time * 1.1);
-          p.y = land + 0.012 + (p.y - land - 0.012) * billow;
-        }
-`,
-    fallNormal: "kind > 4.5 && hlCrown > 0.5 ? vec3(0.0, 1.0, 0.0) : normalize(vNormal)",
-    crownNoise: /* glsl */ `            if (hlCrown > 0.5) {
-              b1 = vnoise(g * 4.17 + vec2(t * 0.4, -t * 0.71) + vWorld.y * 0.37);
-              b2 = vnoise(g * 9.31 + vec2(-t * 0.8, t * 0.93) + vWorld.y * 0.81);
-            }
-`,
-    crownFoam: /* glsl */ `
-          if (hlCrown > 0.5) {
-            float front = smoothstep(0.55, 0.93, swirl);
-            foam *= mix(1.0, smoothstep(0.02, 0.28 + bil * 0.24, up), front);
-          }`,
-    // bubbly froth where it lands (D231's milky froth), and an irregular landing edge (D231's
-    // straight edge)
-    splashFroth: /* glsl */ `
-          if (hlBubbles > 0.5) {
-            float bubble = hlBubblePattern(g - vec2(0.037, -0.083) * t, t);
-            broken = pow(tail, 1.1) * (0.10 + 0.78 * bubble + 0.12 * froth);
-          }`,
-    splashFoam: /* glsl */ `
-          if (hlLanding > 0.5) {
-            float irregular = 0.12 + 0.22 * vnoise(g * 2.73 + vec2(t * 0.11, 17.7));
-            foam *= smoothstep(irregular, irregular + 0.30, vEdge.x);
-          }`,
-    fallEnd: /* glsl */ `        if (hlLanding > 0.5 && kind < 3.5) {
-          float dissolve = 0.06 + 0.22 * vnoise(g * 3.17 + vec2(t * 0.09, 11.7));
-          alpha *= smoothstep(-0.02, dissolve, vRib.z);
-        }
-`,
-  };
-}
-
-// ---------------------------------------------------------------------------------------- objects
 
 export function objectHooks(): ShaderHooks {
   return { ...lit(["hlAO"], AMBIENT_GLSL), skyLight: "ambientVisibility(vWorld, n) * ", roofedSun: ROOFED_SUN };

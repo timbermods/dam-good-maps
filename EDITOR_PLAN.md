@@ -953,7 +953,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   {x, y, w, h}}` (the selection's bounding rectangle, in tiles) makes the map exactly that rectangle of itself. The
   ground (its runs: caves and overhangs stay), water, soil, objects and sources inside keep their place relative to the
   new origin; everything outside is gone; an object whose footprint crosses the edge is removed, counted in the result
-  (`removedObjects`; `planCrop` answers it before applying). One-line refusals, never clamped: a rectangle off the map; a
+  (`removedObjects`; `planCrop` answers it before applying). So is a slope whose step the edge cuts (its high side or the
+  ground behind its foot past the new edge: it would join no step, `slopes.connect`), and a slope climbing from one so
+  cut; the lip never raises the step a kept slope joins. One-line refusals, never clamped: a rectangle off the map; a
   side under 4 or over 512; the same size as the map ("nothing to crop"); a start the edge would cut or leave outside
   ("The start would be cut off: move it inside the selection first"). The crop is the first operation of the map's next
   generation (`MapDocument.prior` holds the one before it with its operations), so it is one undo step that brings the
@@ -1086,15 +1088,15 @@ Make a valley, drop a source, and there's a river.
 
 Two looks (Map look 2, D147, D242, D250, D284):
 - **Standard**, the clean game-like view (D135): contaminated ground as a layer over the ground (D154), the mine
-  sites and ruins (D178), the approved badwater in one shared water palette (D177); waterfalls leave the lip and arc
-  into the pool as one sheet, with foam at the lip, whitewater and a splash where they land (soft white water, never
-  cells that read as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
+  sites and ruins (D178), the approved badwater in one shared water palette (D177); waterfalls as the game draws them, the
+  water's own face where it steps down, in its own colour and a tenth see-through, with no foam or whitewater, a face at
+  each step of a cascade (D201 amended 2026-10-29).
 - **High**, the same view finished further: water coloured by depth with clear shallows, fine crests and flecks
   moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, ambient
   occlusion, a colour-preserving tone curve, distance haze, sky, rock strata and soil edges (#65); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
-  rock with a soil cap and the water's section, continuous waterfall crowns, irregular landings with froth, mist and
-  splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
+  rock with a soil cap and the water's section, rough water below falls (#67; its crowns, landings, froth, mist and
+  splash rings removed with D201's amendment, 2026-10-29). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
   dead (`core/sim/withering.ts`, given to the page with the held day). A living plant whose cause of death runs on the ground shown is drawn dying, as the game's `#Dying` model is (D242 as amended 2026-10-29), on Day 0 as on any held day: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band (`withering.ts` `dyingCause`, read by the renderer from the soil and water it shows; `render3d/dying.ts` makes the forms). A held drought or badtide day turns the haze to
@@ -1120,7 +1122,7 @@ its switch, `?flow=on` in the address turns it on.
 
 Both follow Timberborn's references (D334): dry earth a warm brown drifting to mauve, grass a muted green meeting it
 along the tile's edge with a slight painted wobble and a thin darker rim, olive-grey stone, bright orange ruins with
-cream sacks, contamination as the game's sparse orange-red veins, falls teal with lighter streaks. Readability is the
+cream sacks, contamination as the game's sparse orange-red veins, falls in the water's own colour. Readability is the
 game's own: its look and its cues, with no lightness gap or pattern beyond them (D334 (2)).
 
 High is the default where the computer draws it smoothly: it starts in High (or where it settled last time on that
@@ -1685,7 +1687,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     own: an imported map's stored per column, the stacked settle's per column on a map with caves) to every water
     view it sends, handed over with its other arrays; the renderer works out
     the current from them (`render3d/current.ts`: net across each face, over the depth), never from the
-    surface's slope, and a fall's lip pours the outflow over its side, the map's edge included (`falls.ts`). The renderer's bake worker (`bake.worker.ts`) turns it into the flow
+    surface's slope. The renderer's bake worker (`bake.worker.ts`) turns it into the flow
     texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
     ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
     changing; `motion.ts` hands them to the GPU. Water below its tile's surface water (a cave's under a wet roof)
