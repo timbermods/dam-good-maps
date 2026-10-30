@@ -28,13 +28,24 @@ async function clickTile(page: Page, x: number, y: number) {
 }
 
 /** High dry ground well away from the start, near the middle, where the map (not a bar over it)
- *  takes the click, and 24 tiles either side of it too (Aim's end). */
-async function highGround(page: Page): Promise<[number, number]> {
+ *  takes the click, and 24 tiles either side of it too (Aim's end). `drag`: for a line drawn from 24 tiles
+ *  beside it, bending through its middle: the ground along the whole line holds no cave or overhang and none
+ *  holds one up (a force leaves those as they are and refuses a line with a point on one, D487; the generated
+ *  map's caves move whenever its land does). */
+async function highGround(page: Page, drag = false): Promise<[number, number]> {
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
+  const layers = await page.evaluate(() => window.dgmEditor!.worker.waterLayers());
+  const roofed = Array.from(layers.roofed);
   return page.evaluate(
-    ([s0, s1]) => {
+    ([s0, s1, roofedTiles, line]) => {
       const m = window.dgm3d!.renderer.mapState()!;
+      const roofs = new Set<number>(roofedTiles);
+      // (a tile on a roof, or beside one: the ground holding it up is among those beside it)
+      const clear = (x: number, y: number) => {
+        for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) if (roofs.has((y + dy) * m.W + x + dx)) return false;
+        return true;
+      };
       const onMap = (x: number, y: number) => {
         const p = window.dgmEditor!.tileToClient(x, y);
         return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
@@ -46,6 +57,18 @@ async function highGround(page: Page): Promise<[number, number]> {
           const i = y * m.W + x;
           if (m.surface.depth[i] > 0 || Math.hypot(x - s0, y - s1) < 20) continue;
           if (!onMap(x, y) || !onMap(x - 24, y) || !onMap(x + 24, y)) continue;
+          if (line) {
+            // (the line as the drag test draws it: from beside the spot, through the bend, to the spot)
+            const endX = x > 48 ? x - 24 : x + 24;
+            const bendY = y > 48 ? y - 10 : y + 10;
+            const bend: [number, number] = [Math.round((endX + x) / 2), bendY];
+            let ok = true;
+            for (const [[ax, ay], [bx, by]] of [[[endX, y], bend], [bend, [x, y]]] as [[number, number], [number, number]][]) {
+              const n = Math.ceil(Math.hypot(bx - ax, by - ay) * 2);
+              for (let k = 0; k <= n && ok; k++) ok = clear(Math.round(ax + ((bx - ax) * k) / n), Math.round(ay + ((by - ay) * k) / n));
+            }
+            if (!ok) continue;
+          }
           const s = m.heights[i] * 4 - Math.hypot(x - m.W / 2, y - m.H / 2);
           if (s > score) {
             score = s;
@@ -54,7 +77,7 @@ async function highGround(page: Page): Promise<[number, number]> {
         }
       return best;
     },
-    [start[0], start[1]] as const,
+    [start[0], start[1], roofed, drag] as const,
   );
 }
 
@@ -201,7 +224,7 @@ test("Carve: a drag draws its path, the line showing as it is drawn; on release 
   const row = page.getByRole("group", { name: "Carve options" });
   await expect(row.getByRole("button", { name: "Aim" })).toHaveCount(0);
   await expect(row.getByText("Defy gravity")).toHaveCount(0);
-  const at = await highGround(page);
+  const at = await highGround(page, true);
   const before = await heights(page);
   const n0 = (await labels(page)).length;
   const gesture = () => page.evaluate(() => window.dgmEditor!.gesture());
