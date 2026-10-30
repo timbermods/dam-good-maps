@@ -475,7 +475,7 @@ export function waterHooks(): ShaderHooks {
             vec2 hp2 = g - hlVel * 0.65 * (fract(hlT / 12.0 + 0.5) * 12.0);
             float strands = mix(smoothstep(0.30, 0.72, vnoise(hp1 * 7.0)), smoothstep(0.30, 0.72, vnoise(hp2 * 7.0)), abs(hlPh * 2.0 - 1.0));
             // High's surface colour at its shallowest (measuredSurfaceWater's body with no depth)
-            vec3 face = waterBlend(HW_SHALLOW * (0.92 + 0.16 * strands), HW_BAD * badwaterLight(0.05), hlBad);
+            vec3 face = waterBlend(HW_SHALLOW * (0.92 + 0.16 * strands), badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad), hlBad);
             c = face * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
             if (edge) {
               float hlAbsorb = 1.0 - exp(-max(0.0, depth) * 0.65);
@@ -493,7 +493,7 @@ export function waterHooks(): ShaderHooks {
             // a small step between two waters: the surface going on, its body at its depth as the surface sees it
             // from above (no pattern: a face's place on the map is a line, which would stretch the surface's
             // flecks and lines down it into a bright line), as the game's face shares the surface's material
-            if (!edge && drop < WATER_FALL_FROM) {
+            if (!edge && vFlags < WATER_FALL_FLAGS) {
               vec3 stepBody = mix(mix(HW_SHALLOW, HW_BODY, smoothstep(0.25, 1.25, depth)), HW_DEEP, smoothstep(1.0, 3.5, depth));
               stepBody = waterBlend(stepBody, HW_BAD * badwaterLight(depth), cont);
               vec3 hlRef = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);

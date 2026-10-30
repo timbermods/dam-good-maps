@@ -15,6 +15,7 @@
 // a pixel wide would shimmer as the camera moves).
 
 import { SIDE_EAST, SIDE_NORTH, SIDE_SOUTH, SIDE_WEST, type DroughtLine } from "../core/sim/droughtLine";
+import { WATER_SURFACE } from "./waterPalette";
 
 /** How wide the flat strip is (tiles, inward from the side) and how tall the upright one is: the line up close. */
 export const LINE_WIDTH = 0.07;
@@ -30,10 +31,14 @@ export const TINT_LIFT = 0.03;
  *  Faint: an editing aid drawn on the land, not a readout (D133, D184). */
 export const LINE_COLOR: readonly [number, number, number] = [0.92, 0.88, 0.78];
 export const LINE_ALPHA = { start: 0.45, other: 0.3 };
-/** Where today's water stands over the line (`DroughtLine` `under`: a lake that falls, its last day's shore inside
- *  today's lake), the line is seen through it: this much of its opacity, so it never draws bright lines across the
- *  water. */
-export const UNDER_WATER = 0.4;
+/** Where today's water covers the line (`DroughtLine` `under`: a lake that falls, its last day's shore inside today's
+ *  lake; or `onWater`: today's water going on across it, below a fall), the line is seen through today's water as
+ *  anything under it is (the game's see-through, `WATER_SURFACE.seeThrough` thinning to none `seeThroughTo` deep):
+ *  this share of its opacity, `over` levels under today's surface, so an editing aid never reads as part of the
+ *  water's look (planning, 2026-10-30; it was a flat 0.4, which below a fall still read as a white line). */
+export function underWater(over: number): number {
+  return WATER_SURFACE.seeThrough * Math.max(0, 1 - over / WATER_SURFACE.seeThroughTo);
+}
 /** The dry tint: where a lake or river dries out completely (it lies under today's water, which veils it; High's near-opaque water hides it, so it is stronger there). Its vertices carry 1 on the start's water, else 0 in the alpha: the tint's shader sets the opacity for the look. */
 export const TINT_COLOR: readonly [number, number, number] = [0.95, 0.68, 0.2];
 export const TINT_ALPHA = { standard: { start: 0.3, other: 0.2 }, high: { start: 0.6, other: 0.45 } };
@@ -94,8 +99,13 @@ export function droughtLineGeometry(line: DroughtLine, heights: ArrayLike<number
     const y = (i - x) / W;
     const s = ln.sides[k];
     const L = ln.level[k];
-    // (under today's water as the line itself says, from the map's settled water: never whatever the view shows now)
-    const a = (ln.start[k] ? LINE_ALPHA.start : LINE_ALPHA.other) * (ln.under[k] ? UNDER_WATER : 1);
+    // (under today's water as the line itself says, from the map's settled water: never whatever the view shows now;
+    // and on a side where today's water goes on across the line, as faint: an editing aid never reads as part of the
+    // water's look, planning 2026-10-30)
+    const full = ln.start[k] ? LINE_ALPHA.start : LINE_ALPHA.other;
+    const base = ln.under[k] ? full * underWater(ln.over?.[k] ?? 0) : full;
+    const onWater = ln.onWater?.[k] ?? 0;
+    const side = (bit: number) => (ln.under[k] || !(onWater & bit) ? base : full * underWater(0));
     const west = (s & SIDE_WEST) !== 0;
     const east = (s & SIDE_EAST) !== 0;
     const north = (s & SIDE_NORTH) !== 0;
@@ -108,20 +118,20 @@ export function droughtLineGeometry(line: DroughtLine, heights: ArrayLike<number
     const xHi = x + 1 - (east ? w : 0);
     const h = w / 2;
     if (west) {
-      flat(q, x, x + w, zLo, zHi, L, a, "x");
-      upright(q, x + FACE_INSET, "x", zLo, zHi, L, h, a);
+      flat(q, x, x + w, zLo, zHi, L, side(SIDE_WEST), "x");
+      upright(q, x + FACE_INSET, "x", zLo, zHi, L, h, side(SIDE_WEST));
     }
     if (east) {
-      flat(q, x + 1 - w, x + 1, zLo, zHi, L, a, "x");
-      upright(q, x + 1 - FACE_INSET, "x", zLo, zHi, L, h, a);
+      flat(q, x + 1 - w, x + 1, zLo, zHi, L, side(SIDE_EAST), "x");
+      upright(q, x + 1 - FACE_INSET, "x", zLo, zHi, L, h, side(SIDE_EAST));
     }
     if (north) {
-      flat(q, xLo, xHi, -y - w, -y, L, a, "z");
-      upright(q, -y - FACE_INSET, "z", xLo, xHi, L, h, a);
+      flat(q, xLo, xHi, -y - w, -y, L, side(SIDE_NORTH), "z");
+      upright(q, -y - FACE_INSET, "z", xLo, xHi, L, h, side(SIDE_NORTH));
     }
     if (south) {
-      flat(q, xLo, xHi, -y - 1, -y - 1 + w, L, a, "z");
-      upright(q, -y - 1 + FACE_INSET, "z", xLo, xHi, L, h, a);
+      flat(q, xLo, xHi, -y - 1, -y - 1 + w, L, side(SIDE_SOUTH), "z");
+      upright(q, -y - 1 + FACE_INSET, "z", xLo, xHi, L, h, side(SIDE_SOUTH));
     }
   }
   // the tint: beds that dry out completely, a run of tiles along x with the same strength one quad

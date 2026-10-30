@@ -1584,7 +1584,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // a side hanging below its floor, to lower water in front of a cliff, would leave a sliver under the cut),
         // but for a fall's face, which keeps its part below the cut in front of the cliff, as the game's layers do
         float surface = normal.y > 0.5 ? w.y : wcut.x + wdata.x;
-        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = wflags < 254.5 && wflags >= ${f(FALL * 30)} ? min(w.y, slice) : surface;
+        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = wflags < 254.5 && wflags > ${f(FALL * 30 - 0.5)} ? min(w.y, slice) : surface;
         if (surface > slice + ${f(CUT_SLACK)} && wcut.x < slice) {
           float over = surface - slice;
           w.y = min(w.y, slice);
@@ -1609,8 +1609,9 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       varying vec3 vWorld;
       ${common(h)}
       ${WATER_GLSL}${CAVE_FLOW}
-      // (a step down of this or more is a fall: waterMesh.ts FALL)
-      #define WATER_FALL_FROM ${f(FALL)}
+      // (a curtain whose flags, its drop in thirtieths, pass this is a fall: waterMesh.ts FALL; the vertex shader's
+      // test under a cut is the same)
+      #define WATER_FALL_FLAGS ${f(FALL * 30 - 0.5)}
 ${hook(h, "waterDecl")}${CAVE_POINT}
       #ifdef CAVES
       ${OVERLAY_RUN}
@@ -1781,7 +1782,7 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
             vec2 f2 = g - faceDrift * (fract(t / 12.0 + 0.5) * 12.0);
             float s = mix(vnoise(f1 * 6.0) * 0.6 + vnoise(f1 * 13.0) * 0.4, vnoise(f2 * 6.0) * 0.6 + vnoise(f2 * 13.0) * 0.4, abs(facePhase * 2.0 - 1.0));
           #endif
-          if (!edge && drop < WATER_FALL_FROM) {
+          if (!edge && vFlags < WATER_FALL_FLAGS) {
             // a small step between two waters: the water's own surface going on, as the game's face shares its
             // material, so no light or dark line marks it
             N *= 0.0;
@@ -1792,9 +1793,10 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
             pale = smoothstep(0.45, 0.75, s);
             // the game's face sees the cliff right behind it: the colour of the water at its shallowest
             body = cleanWaterBody(0.05, waterAbsorb(0.05));
-            murky = badwaterBody(0.05);
+            // (partly bad: the game's glow of its shallowest, as the surface's)
+            murky = badwaterGlow(badwaterBody(0.05), BADWATER_BODY, 0.05, cont);
           }
-          alpha = edge ? mix(WATER_EDGE, BADWATER_SIDE, bad) : !(drop < WATER_FALL_FROM) ? (1.0 - WATER_FALL_SEE_THROUGH) : alpha * smoothstep(0.02, 0.06, drop);
+          alpha = edge ? mix(WATER_EDGE, BADWATER_SIDE, bad) : !(vFlags < WATER_FALL_FLAGS) ? (1.0 - WATER_FALL_SEE_THROUGH) : alpha * smoothstep(0.02, 0.06, drop);
           if (alpha < 0.01) discard;
         }
         foam = clamp(foam, 0.0, 1.0);

@@ -5,7 +5,7 @@
 // - the tint is drawn before the water (which does not write depth), so today's water veils it the way it veils the
 //   ground, and the land hides it as it hides anything;
 // - the line is drawn after the water, so it shows through today's water where that stands higher (fainter there,
-//   `UNDER_WATER`: never bright lines across a lake), and the land
+//   as the bed is: `underWater`, the game's see-through at that depth; never bright lines across the water), and the land
 //   hides it where it is behind a bank. Its vertex shader widens it about its middle line to at least `LINE_MIN_PX`
 //   on screen (up close it is its own width), so it never shimmers as dots when the camera pulls out.
 // Only drawn.
