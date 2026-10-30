@@ -66,7 +66,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GAME_AMBIENT_LINEAR, GAME_ENV, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { ALTITUDE_RAMP, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GAME_AMBIENT_SH, GAME_ENV, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
@@ -91,6 +91,9 @@ export interface SceneUniforms {
   /** The game's exponential fog's `unity_FogParams.x` (`GAME_FINISH.fogParam`; 0 looking straight down, where the game
    *  never looks). */
   fogDensity: { value: number };
+  /** How much of the view depth the fog leaves out: past the game's farthest default zoom, the camera's distance beyond
+   *  it (renderer.ts applyFog). */
+  fogShift: { value: number };
   time: { value: number };
   tileTex: { value: DataTexture };
   lightTex: { value: DataTexture };
@@ -159,6 +162,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     skyColor: { value: color(LIGHT.sky) },
     hazeColor: { value: color(LIGHT.haze) },
     fogDensity: { value: GAME_FINISH.fogParam },
+    fogShift: { value: 0 },
     time: { value: 0 },
     tileTex: { value: tile },
     lightTex: { value: light },
@@ -242,6 +246,8 @@ function stillFlow(): DataTexture {
 
 const f = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
 const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000)).join(", ")})`;
+/** A colour or coefficients to six places (the ambient's SH, which can be small or negative). */
+const glColor3 = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1e6) / 1e6)).join(", ")})`;
 
 /** The pattern texture: its size, and the cells of each pattern across it (each tiles). */
 const PATTERN_SIZE = 1024;
@@ -644,6 +650,7 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   uniform vec3 skyColor;
   uniform vec3 hazeColor;
   uniform float fogDensity;
+  uniform float fogShift;
   uniform float time;
   uniform sampler2D tileTex;
   uniform sampler2D lightTex;
@@ -756,7 +763,7 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   /** The game's finish (palette.ts GAME_FINISH): its exponential fog by the view depth (URP's FOG_EXP), then its post
    *  chain. */
   vec3 finish(vec3 c, vec3 world) {
-    float depth = max(-(viewMatrix * vec4(world, 1.0)).z, 0.0);
+    float depth = max(-(viewMatrix * vec4(world, 1.0)).z - fogShift, 0.0);
     c = mix(hazeColor, c, exp2(-fogDensity * depth));
     return gamePost(c);
   }
@@ -847,14 +854,14 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       ${OVERLAY_RUN}
       #endif
       ${CAVE_AIR}      /** The game's light on a face (palette.ts GAME_LIGHT), in display values as the game works in Gamma colour
-       *  space: the Trilight probe by its normal (blended in linear values, turned back to display values), and the sun
+       *  space: Unity's ambient probe by its normal (palette.ts GAME_AMBIENT_SH: irradiance SH, turned back to display values), and the sun
        *  by its shadow (\`sun\`, 0–1), times the diffuse share. A factor on the face's display colour. */
       vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
       /** The sun the last face lit took (gameLight's \`sun\`), for its specular. */
       float gameSunNow = 0.0;
       vec3 gameLight(vec3 n, float sun) {
         gameSunNow = sun;
-        vec3 ambient = toDisplay(n.y >= 0.0 ? mix(${glColor(GAME_AMBIENT_LINEAR.equator)}, ${glColor(GAME_AMBIENT_LINEAR.sky)}, n.y) : mix(${glColor(GAME_AMBIENT_LINEAR.equator)}, ${glColor(GAME_AMBIENT_LINEAR.ground)}, -n.y));
+        vec3 ambient = toDisplay(max(${glColor3(GAME_AMBIENT_SH.c0)} + ${glColor3(GAME_AMBIENT_SH.c1)} * n.y + ${glColor3(GAME_AMBIENT_SH.c2)} * (3.0 * n.y * n.y - 1.0), vec3(0.0)));
         return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
       }
       /** What URP's lit shader adds to the diffuse light (the terrain's materials: _Metallic 0.05, smoothness 0 on the

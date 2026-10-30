@@ -511,13 +511,14 @@ Standard's shadow before a cave (item 8).
   diffuse share, `_Metallic` 0.05) × (the ambient + 1.1 × the sun's colour × max(n·L, 0) × its shadow), with a little
   specular. The ambient is Unity's Trilight light probe (decompiled `Timberborn.SkySystem` `Sun`: `AmbientMode.Trilight`;
   the day's colours in `Configurations/Sun.blueprint.json`: sky (0.62, 0.63, 0.97) from above, equator (1, 1, 1) from
-  the side, ground (0.28, 0.23, 0.37) from below), turned back to display values (URP `SampleSH` under Gamma), so at the
-  axes it is the blueprint's colours; no ambient-occlusion setting in `GraphicsQualitySystem`. Its height terms: the
+  the side, ground (0.28, 0.23, 0.37) from below) as Unity's ambient probe: irradiance SH, the gradient projected to L2
+  with the clamped cosine's convolution (`GAME_AMBIENT_SH`; up 0.78/0.79/0.98, side 0.84/0.83/0.91, down
+  0.65/0.64/0.68), turned back to display values (URP `SampleSH` under Gamma); a frame capture of the game's SH is still
+  to check the engine's projection. No ambient-occlusion setting in `GraphicsQualitySystem`. Its height terms: the
   ground's altitude ramps, twice the texel at height / 22 (`_AltitudeCeiling`), on grass and dry ground before
   contamination; and the cliffs' tint from (0.416, 0.431, 0.475) at level 0 to (0.941, 0.925, 0.894) at level 22.
 - **What:** the terrain shader (`materials.ts`, both looks and the light look) lights each face in display values by
-  `gameLight` (`palette.ts` `GAME_LIGHT`: the Trilight colours blended by the normal in linear values and turned back,
-  plus the sun by its shadow, × 0.912). Gone: the sky visibility (`light.ts` `skyVisibility`, `skyAt`, the tile data's
+  `gameLight` (`palette.ts` `GAME_LIGHT`: the ambient SH by the normal, plus the sun by its shadow, × 0.912). Gone: the sky visibility (`light.ts` `skyVisibility`, `skyAt`, the tile data's
   B), the contact shadow at a wall's foot and a cave floor's, the wall's foot darkening, and High's ambient occlusion
   (`ambientVisibility`, its field `hlAmbient`, the bake worker's `ambient` and `cover` jobs, `AmbientField`, the
   "Ambient occlusion" effect and its switch `hlAO`, and the relight that rebuilt them after a brush). The thin dark line
@@ -538,14 +539,29 @@ Standard's shadow before a cave (item 8).
   (0.416, 0.431, 0.475) at level 0 to (0.941, 0.925, 0.894) at 22, unclamped) and lose D334's every-other-level
   shading, which the game's cliffs don't have. The legend shows ground and walls as a sunlit top shows them
   (`sunlitTop`).
-- **Objects, water and falls** keep their own light (their sky colour and sun), less High's ambient occlusion.
-- **Captures and numbers:** in the PRs (#703; the calibration's).
-- **Falls short:** sunlit floors read darker than in the game's shots (Canyon's opening camera about 90 of 255 against
-  the game's desert tops 109–113): the game's post chain is still ours, and objects keep their own light and colours,
-  so a mine's pit stands 0.13 under sunlit dry ground where it stood 0.15 under the old colour.
-- **Next:** the game's post-processing in place of our finish (the URP asset has HDR on and LDR grading, the camera
-  allows HDR: postExposure +0.15 EV, Neutral tonemapping, contrast +14, saturation +3, from the Volume profile), and
-  the sun turning with the camera (yaw + 40°, 45° up).
+- **The game's finish** (#722's follow-up), every look, in place of our haze, Standard's warm tint and High's tone
+  curve, grade and haze: the game's scene settings (`level2`'s RenderSettings, read raw) and its `Rendering/Volume`
+  profile (`palette.ts` `GAME_FINISH`, `materials.ts` `finish`, `GAME_POST_GLSL`).
+  - The fog: `m_FogMode` 2, exponential, density 0.003, as URP's FOG_EXP programs in TerrainURP draw it
+    (`exp2(-density / √ln 2 × the view depth)`), toward the day's fog colour or a held hazard's (#716). None looking
+    straight down. From farther than the game's farthest default zoom (154 units) it is held at what that zoom shows
+    (`fogShift`), so whole-map views stay readable: an editing view the game doesn't have. High's Fog switch (on by
+    default) turns it off, an editing aid.
+  - The reflection: URP's environment term on the terrain (`gameSpecular`: the probe × `m_ReflectionIntensity` 0.65 /
+    (r² + 1) × the Fresnel blend toward the grazing term) and the sun's GGX highlight. The probe is the game's own
+    Cubemap (`sharedassets1.assets` "TimberbornEnvironmentRelfectionProbe", 128², 8 mips, BC6H), which
+    `tools/reflection-probe.ts` decodes on the GPU; `GAME_ENV` keeps its roughest mip, up, side and down, and `--json`
+    writes every face and mip for the water's sharper reflection.
+  - The post chain: URP's LDR grading under Gamma: to linear, +0.15 EV, Neutral tonemapping, contrast +14 round
+    ACEScc's mid grey in LogC, saturation +3, back to display values; the sky takes it too.
+  - Not drawn: `m_AmbientIntensity` 1.2 (Unity uses it for a skybox's ambient only; the game sets Trilight) and bloom
+    (threshold 1.5: highlights only).
+- **Objects, water and falls** keep their own light (their sky colour and sun), less High's ambient occlusion; they
+  take the fog and the post chain.
+- **Captures and numbers:** in the PRs (#703, #722, and the finish's, which carries the set).
+- **Falls short:** the ambient SH's projection is the engine's and waits for a frame capture; the water's own
+  reflection takes the probe and 0.65 with #723.
+- **Next:** the sun turning with the camera (yaw + 40°, 45° up).
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
 

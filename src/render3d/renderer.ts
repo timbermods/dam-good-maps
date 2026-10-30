@@ -1048,6 +1048,7 @@ export class MapRenderer {
     this.chosenEffects = { ...this.chosenEffects, [key]: on };
     saveOff(HIGH_EFFECTS.filter((e) => !this.chosenEffects[e.key]).map((e) => e.key));
     this.high?.setEffects(this.chosenEffects, this.lookNow === "lower");
+    this.applyFog();
     this.requestRender();
     this.tellLook();
   }
@@ -1193,6 +1194,7 @@ export class MapRenderer {
     }
     this.governor?.hold(performance.now());
     this.applyWithered();
+    this.applyFog();
     this.requestRender();
     if (was !== tier) {
       this.tellLook();
@@ -3420,10 +3422,18 @@ export class MapRenderer {
       this.persp.updateProjectionMatrix();
       this.persp.updateMatrixWorld();
     }
-    // the game's fog (palette.ts GAME_FINISH), none from straight above, where the game never looks
+    this.uniforms.viewHeight.value = h;
+    this.applyFog();
+  }
+
+  /** The game's fog (palette.ts GAME_FINISH), as the game draws it up to its farthest default zoom; from farther out,
+   *  an editing view the game doesn't have, held at what that zoom shows, so a whole map stays readable (D497). None
+   *  looking straight down, where the game never looks (the camera sits at 200), nor with High's Fog switched off. */
+  private applyFog(): void {
     const u = this.uniforms;
-    u.viewHeight.value = h;
-    u.fogDensity.value = v.mode === "top" ? 0 : GAME_FINISH.fogParam;
+    const v = this.view;
+    u.fogDensity.value = v.mode === "top" || (this.high && !this.high.effects.fog) ? 0 : GAME_FINISH.fogParam;
+    u.fogShift.value = Math.max(0, v.distance - GAME_FINISH.fogFarthest);
   }
 
   // --------------------------------------------------------------------------------- rendering

@@ -296,9 +296,8 @@ export const ALTITUDE_RAMP = {
  *  m_ActiveColorSpace 0), so its lighting works on display values. A face's colour is its albedo × `diffuse` × (the
  *  ambient by its normal + the sun × max(n·L, 0) × its shadow), with a little specular left out. The ambient is Unity's
  *  Trilight (decompiled `Timberborn.SkySystem` `Sun`; the day's colours in `Configurations/Sun.blueprint.json`: the sky's
- *  from above, the equator's from the side, the ground's from below) as a light probe: blended in linear values by the
- *  normal's height and turned back to display values (URP's `SampleSH` under Gamma), so at the three axes it is the
- *  blueprint's colours. The sun is its colour × its intensity, 1.1, at full shadow strength. `diffuse` is URP's
+ *  from above, the equator's from the side, the ground's from below) as Unity's ambient probe, irradiance SH
+ *  (`GAME_AMBIENT_SH`), turned back to display values (URP's `SampleSH` under Gamma). The sun is its colour × its intensity, 1.1, at full shadow strength. `diffuse` is URP's
  *  0.96 − 0.96 × `_Metallic` (0.05 on the terrain's materials). */
 export const GAME_LIGHT = {
   sky: [0.6239606, 0.6307573, 0.9734455] as Rgb,
@@ -312,7 +311,8 @@ export const GAME_LIGHT = {
  *  sun at `LIGHT.sunElevation`), before the altitude ramp: what the screen shows of a ground albedo. */
 export function sunlitTop(c: Rgb): Rgb {
   const up = Math.sin(LIGHT.sunElevation);
-  return [0, 1, 2].map((k) => c[k] * GAME_LIGHT.diffuse * (GAME_LIGHT.sky[k] + GAME_LIGHT.sun[k] * up)) as unknown as Rgb;
+  const ambient = gameAmbient(1);
+  return [0, 1, 2].map((k) => c[k] * GAME_LIGHT.diffuse * (ambient[k] + GAME_LIGHT.sun[k] * up)) as unknown as Rgb;
 }
 
 /** The game's finish (D497), after the light: its scene's settings (`level2`'s RenderSettings, read raw) and its
@@ -331,6 +331,9 @@ export function sunlitTop(c: Rgb): Rgb {
 export const GAME_FINISH = {
   fogDensity: 0.003,
   fogParam: 0.003 / Math.sqrt(Math.LN2),
+  /** The game's farthest default zoom's camera distance (core/analysis/opening.ts: 32 × 1.3^6, zoom 6): the fog is the
+   *  game's up to it, and from farther out held at what it shows there (an editing view the game doesn't have). */
+  fogFarthest: 32 * 1.3 ** 6,
   reflectionIntensity: 0.65,
   postExposure: 0.15,
   contrast: 1.14,
@@ -349,11 +352,39 @@ export const GAME_ENV = {
 
 /** The game's Trilight colours in linear values (sRGB decoded), which the probe blends. */
 const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+const toDisplay = (c: number) => (c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055);
 export const GAME_AMBIENT_LINEAR = {
   sky: GAME_LIGHT.sky.map(toLinear) as unknown as Rgb,
   equator: GAME_LIGHT.equator.map(toLinear) as unknown as Rgb,
   ground: GAME_LIGHT.ground.map(toLinear) as unknown as Rgb,
 } as const;
+
+/** The game's ambient as Unity's ambient probe holds it (D497): irradiance SH. Unity renders the Trilight gradient as an
+ *  environment (the equator's colour at the horizon, toward the sky's straight up and the ground's straight down,
+ *  blended in linear values by the direction's height), projects it to L2 spherical harmonics and bakes in the clamped
+ *  cosine's convolution (A0 = π, A1 = 2π/3, A2 = π/4), so URP's SampleSH returns the diffuse light by the normal. The
+ *  gradient depends on the height alone, so only the zonal terms remain: by the normal's height y, in linear values,
+ *  `E(y) = c0 + c1 y + c2 (3y² − 1)` (the integrals of the gradient against P0, P1, P2 over [−1, 1], each times
+ *  (2l + 1) / 2 and its A_l / π). The engine's own projection is not in the game's files; a frame capture of the SH the
+ *  game uploads (unity_SHAr..SHC) is still to check it, fix forward. */
+export const GAME_AMBIENT_SH = (() => {
+  const { sky, equator: eq, ground } = GAME_AMBIENT_LINEAR;
+  const c = (k: number) => {
+    const i0 = 2 * eq[k] + (sky[k] - eq[k]) / 2 + (ground[k] - eq[k]) / 2;
+    const i1 = (sky[k] - ground[k]) / 3;
+    const i2 = (sky[k] + ground[k] - 2 * eq[k]) / 8;
+    return [i0 / 2, i1, (5 / 16) * i2];
+  };
+  const [r, g, b] = [c(0), c(1), c(2)];
+  return { c0: [r[0], g[0], b[0]] as Rgb, c1: [r[1], g[1], b[1]] as Rgb, c2: [r[2], g[2], b[2]] as Rgb };
+})();
+
+/** The game's ambient on a face whose normal has height y, in display values (`GAME_AMBIENT_SH`, as SampleSH returns it
+ *  under Gamma colour space). */
+export function gameAmbient(y: number): Rgb {
+  const { c0, c1, c2 } = GAME_AMBIENT_SH;
+  return [0, 1, 2].map((k) => toDisplay(Math.max(0, c0[k] + c1[k] * y + c2[k] * (3 * y * y - 1)))) as unknown as Rgb;
+}
 
 /** Soil moisture (the game's levels, 0–16) and contamination (0–1) as bytes: 0 stays 0, and any
  *  moisture or contamination at all stays above 0 (moist soil is where living plants grow). */
