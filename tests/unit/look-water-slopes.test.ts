@@ -15,6 +15,7 @@ import { GROUND, RUIN, WATER_SURFACE, waterBody, waterOpacity } from "../../src/
 import { blendedBadwater, meshWaterChunk } from "../../src/render3d/waterMesh";
 import { cleanWaterBody, badwaterBody, waterFilmGround, waterGroundBehind } from "../../src/render3d/waterPalette";
 import { plainLayers } from "../../src/render3d/waterLayers";
+import { waterHooks } from "../../src/render3d/high/shaders";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 /** CIE L* of a display colour (sRGB). */
@@ -27,20 +28,20 @@ const lightness = (c: readonly number[]) => {
 type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): { array: ArrayLike<number>; count: number } } };
 
 describe("water", () => {
-  it("keeps badwater clearly darker than clean water, which has shore foam, glints and see-through shallows", () => {
+  it("keeps badwater clearly darker than clean water, which has glints and see-through shallows, and no shore foam, as the game", () => {
     const depths = Array.from({ length: 100 }, (_, k) => 0.05 + k * 0.05);
     // badwater's body at least 6 L* darker than clean water's at any depth, open or by a bank
     // (7.7 at the least, in deep water; the lit views show about 18)
     for (const d of depths) for (const fromBank of [0, 0.2, 1]) expect(lightness(waterBody(d, false, fromBank)) - lightness(waterBody(d, true)), `${d} deep`).toBeGreaterThan(6);
-    // foam along the shore and just off it, and glints, in the water shader
-    expect(WATER_SURFACE.shoreFoam).toBeGreaterThan(0.3);
-    expect(WATER_SURFACE.brokenFoam).toBeGreaterThan(0.3);
+    // glints in the water shader; no foam along the shore in either look, as the game's water shader has none
+    // (D154 amended 2026-10-29 by planning, D496's rule; D148: this checked a shore foam line until then)
     expect(WATER_SURFACE.glints).toBeGreaterThan(0.3);
+    expect(WATER_SURFACE).not.toHaveProperty("shoreFoam");
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
     const shader = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t())).fragmentShader;
     const num = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
-    expect(shader).toContain(`mix(${num(WATER_SURFACE.shoreFoam)}, 0.45, bad)`);
-    expect(shader).toContain(`* ${num(WATER_SURFACE.brokenFoam)} * (1.0 - bad)`);
+    expect(shader).not.toMatch(/foam \+= \(1\.0 - smoothstep\([^)]*, shore\)\)/);
+    expect(waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false, waterHooks()).fragmentShader).not.toContain("smoothstep(0.015, 0.16, shore)");
     expect(shader).toContain(`glints * ${num(WATER_SURFACE.glints)}`);
     // see-through as the game's High quality draws it (Q8): the ground behind shows by 0.175 at the water's
     // floor, thinning in step with depth to none at 5 levels; clearer toward the banks, and at a bank of water
