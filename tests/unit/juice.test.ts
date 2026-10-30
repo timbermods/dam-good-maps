@@ -148,6 +148,35 @@ describe("the editor's juice", () => {
     expect(log.indexOf("stop force-3-plume")).toBeLessThan(log.indexOf("play erupt:cool"));
   });
 
+  it("undo right after a force is kept takes its tails back at once (an impact's boom, an eruption's hiss); after another action, it leaves them", () => {
+    const { r } = fakeRenderer();
+    const { e, log } = fakeEngine();
+    const j = new Juice(() => r, DEFAULT_SOUND, e);
+    for (const p of ["incoming", "impact", "done"] as const) j.forceMoment(cue("craterize", p));
+    j.forceEnded(true);
+    expect(log.some((l) => l.startsWith("stop"))).toBe(false);
+    log.length = 0;
+    j.takeBack();
+    expect(log).toEqual(["stop force-1", "stop force-1-slide"]);
+    // (once only: the undo's own catch after the worker answers stops nothing more)
+    log.length = 0;
+    j.undo();
+    expect(log).toEqual(["play undo"]);
+    // an eruption kept, its cooling hiss going: undo stops it too
+    j.forceMoment(cue("erupt", "rumble"));
+    j.forceEnded(true, cue("erupt", "done"));
+    log.length = 0;
+    j.undo();
+    expect(log).toEqual(["stop force-2", "stop force-2-slide", "play undo"]);
+    // a tree placed after a kept impact: undo takes the tree back, the impact's tails play on
+    j.forceMoment(cue("craterize", "impact"));
+    j.forceEnded(true);
+    j.play("place", 2, 3);
+    log.length = 0;
+    j.undo();
+    expect(log).toEqual(["play undo"]);
+  });
+
   it("Erode's cues (D281): the grind held under the whole moment, stone landing as rock goes (a tenth of a second apart at most), the heavier fall once as it clears", () => {
     const { r } = fakeRenderer();
     const { e, log } = fakeEngine();

@@ -1674,7 +1674,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     thread (no synthesis, no worklet); one engine for the editor's lifetime, never waited on: a sound asked for
     while the bank loads, while paused or off, or past the limits (72 recordings, 20 sounds, four held beds, ten
     accents a second) is dropped, never played late; a compressor keeps every sample below 0.92 of full scale; a
-    force's phases play under its run's id, so undo stops all of it at once; a sound's distance comes from where
+    force's phases play under its run's id, so undo stops all of it at once, its tails too when the undo comes
+    right after it is kept (an impact's boom, an eruption's hiss); a sound's distance comes from where
     it is in the view. The player's volume (0.54 by default, D313) and off switch are kept as saved (`dgm.sound`).
   - A brush's land is drawn once a frame (`renderer.ts` `flushTerrain`): of the rectangles its updates named, only
     the tiles that really changed and what they touch are drawn again (`terrainChanges.ts`: their chunks, the sky
