@@ -161,10 +161,11 @@ describe("badwater meeting clean water", () => {
         if (top) expect(c).toBe(x < 2.5 ? 1 : 0);
       }
     }
-    // (D148: the fall was a curtain; since D201 it pours from the lip, and carries its badwater
-    // share at both corners)
-    expect(m.fallCount).toBe(1);
-    expect([m.falls[12], m.falls[13]]).toEqual([1, 1]);
+    // (D148: the fall was a curtain, then from D201 a ribbon from the lip; since D201's amendment (2026-10-29) a curtain
+    // again, as the game draws it, with the pool's share at every corner)
+    const fall = [...Array(m.quads).keys()].filter((q) => m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 3) < 0.05 && m.flags[q * 4] === 90);
+    expect(fall.length).toBe(1);
+    expect([0, 1, 2, 3].map((v) => m.data[(fall[0] * 4 + v) * 2 + 1])).toEqual([1, 1, 1, 1]);
   });
 
   it("remeshes every chunk the blend reaches when the badwater changes", () => {

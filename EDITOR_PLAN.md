@@ -1086,15 +1086,15 @@ Make a valley, drop a source, and there's a river.
 
 Two looks (Map look 2, D147, D242, D250, D284):
 - **Standard**, the clean game-like view (D135): contaminated ground as a layer over the ground (D154), the mine
-  sites and ruins (D178), the approved badwater in one shared water palette (D177); waterfalls leave the lip and arc
-  into the pool as one sheet, with foam at the lip, whitewater and a splash where they land (soft white water, never
-  cells that read as cracked tiles), and a small fall at each step of a cascade (D201, D215, D222).
+  sites and ruins (D178), the approved badwater in one shared water palette (D177); waterfalls as the game draws them, the
+  water's own face where it steps down, in its own colour and a tenth see-through, with no foam or whitewater, a face at
+  each step of a cascade (D201 amended 2026-10-29).
 - **High**, the same view finished further: water coloured by depth with clear shallows, fine crests and flecks
   moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, ambient
   occlusion, a colour-preserving tone curve, distance haze, sky, rock strata and soil edges (#65); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
-  rock with a soil cap and the water's section, continuous waterfall crowns, irregular landings with froth, mist and
-  splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
+  rock with a soil cap and the water's section, rough water below falls (#67; its crowns, landings, froth, mist and
+  splash rings removed with D201's amendment, 2026-10-29). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
   dead (`core/sim/withering.ts`, given to the page with the held day). A held drought or badtide day turns the haze to
@@ -1120,7 +1120,7 @@ its switch, `?flow=on` in the address turns it on.
 
 Both follow Timberborn's references (D334): dry earth a warm brown drifting to mauve, grass a muted green meeting it
 along the tile's edge with a slight painted wobble and a thin darker rim, olive-grey stone, bright orange ruins with
-cream sacks, contamination as the game's sparse orange-red veins, falls teal with lighter streaks. Readability is the
+cream sacks, contamination as the game's sparse orange-red veins, falls in the water's own colour. Readability is the
 game's own: its look and its cues, with no lightness gap or pattern beyond them (D334 (2)).
 
 High is the default where the computer draws it smoothly: it starts in High (or where it settled last time on that
@@ -1685,7 +1685,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     own: an imported map's stored per column, the stacked settle's per column on a map with caves) to every water
     view it sends, handed over with its other arrays; the renderer works out
     the current from them (`render3d/current.ts`: net across each face, over the depth), never from the
-    surface's slope, and a fall's lip pours the outflow over its side, the map's edge included (`falls.ts`). The renderer's bake worker (`bake.worker.ts`) turns it into the flow
+    surface's slope. The renderer's bake worker (`bake.worker.ts`) turns it into the flow
     texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
     ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
     changing; `motion.ts` hands them to the GPU. Water below its tile's surface water (a cave's under a wet roof)

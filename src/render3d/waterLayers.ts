@@ -31,8 +31,8 @@ import { LAYERS, type SurfaceWater, type WaterView } from "./model";
 /** The ground a column sees where rock stands at its level: higher than any water. */
 export const WALL = 255;
 
-/** How far round a column (tiles, either way) its mesh reads the water and ground: a fall's lips and their ends,
- *  their pools and outflows (four), and the badwater's blend round them (three more, less what overlaps). */
+/** How far round a column (tiles, either way) its mesh reads the water and ground: a top's corners and curtains
+ *  one, the badwater's blend three more (kept at four, as when a fall read its lips' pools and outflows). */
 export const LAYER_REACH = 4;
 
 export interface WaterLayer {

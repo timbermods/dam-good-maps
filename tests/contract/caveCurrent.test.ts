@@ -2,7 +2,8 @@
 // hill's top that flows the other way. The view's outflows are each column's own (the file's per column for an unedited
 // import, the stacked settle's after an edit: sim/stackWater.ts `columnFlows`), so the tunnel's water moves east by its
 // own outflows in the cave current's volume (caveCurrent.ts) while the trench above it moves west in the flow texture,
-// and the tunnel's fall pours its own column's outflow, not an estimate from its depth.
+// and the tunnel's fall is its own water's face where it steps down, at its own level under the roof (D201 amended
+// 2026-10-29; D148: it was the fall ribbon's pour, its column's outflow, gone with the ribbon).
 
 import { describe, expect, it } from "vitest";
 import { writeTimber, type TimberFile } from "../../src/core/format/timber";
@@ -11,7 +12,6 @@ import { emptySimulationSingletons, GAME_VERSION, LAYERS, voxelsFromHeights } fr
 import { canonicalStackRun } from "../../src/core/sim/stackWater";
 import { caveCurrentCell } from "../../src/render3d/caveCurrent";
 import { outflowGrid } from "../../src/render3d/current";
-import { FALL_STRIDE } from "../../src/render3d/falls";
 import { runBake } from "../../src/render3d/high/bake";
 import { chunkCount } from "../../src/render3d/mesh";
 import { columnMap, surfaceWater, type MapView, type WaterView } from "../../src/render3d/model";
@@ -94,7 +94,7 @@ function bake(v: MapView) {
 }
 
 describe("water under water flows by its own column (3D view, part 4)", () => {
-  it("an unedited import: every column's outflows its own, the tunnel's current east under the trench's west, its fall its own outflow", () => {
+  it("an unedited import: every column's outflows its own, the tunnel's current east under the trench's west, its fall its own face", () => {
     const v = openTimber(file({ east: 0.4, west: 0.3 }), "tunnel.timber").view;
     // the view: each column its own outflows (the file's per column), never its roof's
     for (const y of ROWS)
@@ -118,21 +118,26 @@ describe("water under water flows by its own column (3D view, part 4)", () => {
       const t = caveCurrentCell(W, H, cave, x + 0.5, 5.5, 7.495);
       if (t >= 0) expect(cave.data[t * 4 + 3]).toBe(0);
     }
-    // the tunnel's fall at its step (x 15 → 16) pours its column's own outflow
+    // the tunnel's fall at its step (x 15 → 16): its water's own face, from its surface (4.5) down to the water below
+    // (3.6), under the trench's water
     const sw = surfaceWater(W, H, v.water);
     const layers = waterLayers(W, H, v.heights, columnMap(v.columns), v.water, sw);
     const { nx, ny } = chunkCount(W, H);
-    const flows: number[] = [];
+    const faces: [number, number][] = [];
     for (let cy = 0; cy < ny; cy++)
       for (let cx = 0; cx < nx; cx++) {
         const m = meshWaterChunk(W, H, layers, cx, cy);
-        for (let k = 0; k < m.fallCount; k++) {
-          const f = m.falls.subarray(k * FALL_STRIDE, (k + 1) * FALL_STRIDE);
-          if ((f[2] & 3) === 0 && f[0] === 16) flows.push(f[3], f[15]);
+        for (let q = 0; q < m.quads; q++) {
+          const p = m.positions.subarray(q * 12, q * 12 + 12);
+          if (m.normals[q * 12] !== 127 || Math.abs(p[0] - 16) > 0.05) continue;
+          faces.push([Math.max(p[1], p[4], p[7], p[10]), Math.min(p[1], p[4], p[7], p[10])]);
         }
       }
-    expect(flows.length, "the tunnel's fall").toBeGreaterThan(0);
-    for (const f of flows) expect(f).toBeCloseTo(0.4, 5);
+    expect(faces.length, "the tunnel's fall").toBeGreaterThan(0);
+    for (const [top, bottom] of faces) {
+      expect(top).toBeCloseTo(4.5, 5);
+      expect(bottom).toBeCloseTo(3.6, 5);
+    }
   });
 
   it("an edited map: the stacked settle's outflows on every column, the tunnel's east and the trench's west", () => {
