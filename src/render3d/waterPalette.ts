@@ -88,6 +88,14 @@ export const WATER_UI = {
 export const WATER_SURFACE = {
   /** Glints of light on the ripples (up close). */
   glints: 0.6,
+  /** How steep the ripples' slopes are, as the game's: its normal map (`Water_N`, tiled at `_MainTexTiling` 0.06)
+   *  has slopes of 7.5° at the median, 14° at the 90th percentile and 19° at the 99th, scaled ×4 by its
+   *  `_NormalBoost`: about 28°, 45° and 54°; contaminated water ×2 again by its share (`_Contamination_Normal_Strength`).
+   *  Our own ripple patterns are scaled to that median: `standard` for the Standard look's (28°, 41°, 49°), `high` for
+   *  High's (28°, 40°, 45°), `bad` at pure badwater. The slopes still fade to flat from afar, where a pixel spans a
+   *  ripple, as the game's normal map does in its smaller mips. It was 0.07 (Standard, about 3°: D154's "subtle
+   *  ripples"), which left the game's own highlight (`highlight`) with no slope to land on. */
+  normals: { standard: 0.7, high: 7.4, bad: 2 },
   /** How much of the ground behind the water shows through it, as the game draws it (its PhysicalWaterURP's
    *  High-quality variant; `investigation/notes/water_and_soil.md` Q8): `seeThrough` of it where the water
    *  meets its floor (`_TransparencyDepth` 0.35 × `_TransparencyDepthModifier` 0.5), thinning in step with
@@ -524,6 +532,9 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define BADWATER_TROUGH_AMOUNT ${f(BADWATER.trough)}
   #define BADWATER_STREAK_AMOUNT ${f(BADWATER.streak)}
   #define WATER_SMOOTHNESS ${f(WATER_SURFACE.smoothness)}
+  #define WATER_NORMALS_STANDARD ${f(WATER_SURFACE.normals.standard)}
+  #define WATER_NORMALS_HIGH ${f(WATER_SURFACE.normals.high)}
+  #define WATER_NORMALS_BAD ${f(WATER_SURFACE.normals.bad)}
   #define WATER_SMOOTHNESS_SPREAD ${f(WATER_SURFACE.smoothnessSpread)}
   #define BADWATER_SMOOTHNESS ${f(BADWATER.smoothness)}
   /** The sky's reflection's weight at a smoothness, as the game's URP environment term (waterPalette.ts

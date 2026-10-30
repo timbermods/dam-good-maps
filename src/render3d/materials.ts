@@ -1738,7 +1738,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
             if (blend > 0.0) glints = mix(glints, sparkle * sunPatch * smoothstep(0.84, 0.93, vnoise(p2 * 9.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(p2 * 7.1 - vec2(t * 0.3, t * 0.7)) * 1.6), blend);
             // calmer from afar, where a pixel spans a ripple (no shimmer)
             float near = 1.0 - smoothstep(0.08, 0.25, fwidth(g.x));
-            float calm = 0.07 * near;
+            // (as steep as the game's normal map, WATER_SURFACE.normals; badwater's steeper again)
+            float calm = WATER_NORMALS_STANDARD * near * mix(1.0, WATER_NORMALS_BAD, bad);
             N = normalize(vec3(sl.x * calm, 1.0, -sl.y * calm));
             // the ripples' crests catch the sky: a light teal texture on the dark body (clean water;
             // badwater is dull)

@@ -295,12 +295,14 @@ const WATER_FUNCTIONS = /* glsl */ `
   uniform vec2 hlFlowSize;
   uniform sampler2D hlRough;
 ${HIGH_WATER_GLSL}
-  vec3 hlRippleNormal(vec2 p, float t) {
+  /** The ripples' normal, as steep as the game's normal map (WATER_SURFACE.normals), badwater's steeper by its tint. */
+  vec3 hlRippleNormal(vec2 p, float t, float tint) {
     vec2 slope = vec2(0.0);
     slope += cos(dot(p, vec2(1.1, 0.4)) + t * 1.05) * vec2(1.1, 0.4) * 0.065;
     slope += cos(dot(p, vec2(-0.5, 1.7)) - t * 0.82) * vec2(-0.5, 1.7) * 0.038;
     slope += cos(dot(p, vec2(3.2, 2.1)) + t * 1.4) * vec2(3.2, 2.1) * 0.012;
     float detail = 1.0 - smoothstep(0.1, 0.5, max(fwidth(p.x), fwidth(p.y)));
+    slope *= WATER_NORMALS_HIGH * mix(1.0, WATER_NORMALS_BAD, tint);
     return normalize(vec3(slope.x * detail, 1.0, -slope.y * detail));
   }
   float fleckHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -445,7 +447,7 @@ export function waterHooks(): ShaderHooks {
             // (water under a roof: its own badwater share, not the one of the water seen from above there)
             float hlBad = waterRoofed > 0.5 ? cont : texture2D(hlFlow, g / hlFlowSize).b;
             float hlDepth = max(0.0, depth) * mix(0.10, 1.0, smoothstep(0.0, 0.55, shore));
-            vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, hlRippleNormal(g, time), V, lit, time);
+            vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, hlRippleNormal(g, time, waterTint(hlBad)), V, lit, time);
             // the same water at any depth: only a sliver at a shore's very edge fades in, over WATER_FILM.to
             // deep, as the Standard look's (waterPalette.ts WATER_FILM: our anti-aliasing of the edge, where the
             // game clips hard), by its own depth, not the bank's; no foam, no froth, as the game draws none
