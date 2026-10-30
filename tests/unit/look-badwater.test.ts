@@ -311,8 +311,8 @@ describe("badwater's colour", () => {
         expect(waterBody(d, 0.7, fromBank)[0] - waterBody(d, 0.7, fromBank)[2], `${d} deep, 0.7 bad`).toBeGreaterThan(8.5 / 255);
         expect(h < 45 || h > 355, `${d} deep, 0.6 bad: hue ${Math.round(h)}°`).toBe(true);
       }
-    // on the way, a little bad, water a level or more deep passes near the game's measured mixing zone's
-    // teal-grey (#2E444C, itself deep water's darkness)
+    // on the way, a little bad, it passes near the game's measured mixing zone's teal-grey (#2E444C), its
+    // colour with its lightness taken out
     const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
     const chroma = (c: readonly number[]) => {
       const l = c.map(lin);
@@ -320,7 +320,7 @@ describe("badwater's colour", () => {
       return l.map((v) => v / y);
     };
     const mixingZone = chroma([46 / 255, 68 / 255, 76 / 255]);
-    for (const d of [1, 3]) {
+    for (const d of [0.25, 1, 3]) {
       let closest = Infinity;
       for (let k = 1; k <= 25; k++) {
         const h = chroma(waterBody(d, k / 100));

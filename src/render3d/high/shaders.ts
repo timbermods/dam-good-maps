@@ -372,7 +372,8 @@ ${HIGH_WATER_GLSL}
     body = mix(body, HW_GRAZING * mix(1.0, 0.72, deep), grazing * 0.65);
     vec3 streakColour = mix(mix(HW_STREAK_ABOVE, HW_STREAK_LOW, low), HW_STREAK_GRAZING, grazing);
     vec3 cleanBody = body;
-    vec3 badBody = HW_BAD * (1.0 - deep * 0.12) + vec3(0.0012, 0.0008, 0.0006) * grazing;
+    // (badwater darkens with depth by the game's _DepthGradients ramp, as the Standard look's: badwaterLight)
+    vec3 badBody = HW_BAD * badwaterLight(depth) + vec3(0.0012, 0.0008, 0.0006) * grazing;
     // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts
     // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the fewer glints,
     // the bubbles, the murk) turned toward badwater's by the same tint
