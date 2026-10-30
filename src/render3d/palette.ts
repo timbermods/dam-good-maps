@@ -260,7 +260,7 @@ export const MINE = {
 } as const;
 
 /** The light: a warm sun from the north-west, a cool sky (violet in the shadows of the earth),
- *  and a blue-grey haze over distant ground. */
+ *  and the game's cyan fog as a haze over distant ground. */
 export const LIGHT = {
   /** Toward the sun: west and north (x east, y north), 50° above the horizon. */
   sunAzimuth: [-Math.SQRT1_2, Math.SQRT1_2] as const,
@@ -269,7 +269,9 @@ export const LIGHT = {
   penumbra: (6 * Math.PI) / 180,
   sun: [1.0, 0.95, 0.86] as Rgb,
   sky: [0.63, 0.64, 0.72] as Rgb,
-  haze: [0.68, 0.77, 0.87] as Rgb,
+  /** The haze: the game's temperate daytime fog (`Sun.blueprint` `DayColors.TemperateWeatherFog`; a held hazard's in
+   *  high/seasons.ts `FOG`). */
+  haze: [0.4470589, 0.7607844, 0.8235295] as Rgb,
 } as const;
 
 /** Soil moisture (the game's levels, 0–16) and contamination (0–1) as bytes: 0 stays 0, and any

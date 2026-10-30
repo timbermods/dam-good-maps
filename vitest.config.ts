@@ -33,7 +33,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "quick",
-          include: ["tests/unit/**/*.test.ts", "tests/contract/**/*.test.ts"],
+          include: ["tests/unit/**/*.test.ts", "tests/contract/**/*.test.ts", "mcp/tests/**/*.test.ts"],
           exclude: [...configDefaults.exclude, ...HEAVY],
           testTimeout: 300_000,
           hookTimeout: 300_000,
