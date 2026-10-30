@@ -1,16 +1,15 @@
 // The water mesher as it was before water per column (3D view, part 4), kept to prove that a map without
 // terrain above terrain draws its water exactly as before (tests/unit/waterLayers.test.ts), as
 // heightfieldMesher.ts does for the terrain. Its lower water (columns below a tile's surface water) is left
-// out: such a map has none.
+// out: such a map has none. Since D201's amendment (2026-10-29) it draws a fall as the main mesher does, a curtain down
+// to the water below, with no fall instances or foam flags (D148).
 
-import { FALL_MIN, FALL_STRIDE, pushFall } from "../../src/render3d/falls";
 import { CHUNK } from "../../src/render3d/mesh";
 import type { SurfaceWater } from "../../src/render3d/model";
-import { blendInto, dropFlags, FALL_IN_BITS, LIP_BITS, SHORE_BITS, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { blendInto, dropFlags, SHORE_BITS, type WaterMeshData } from "../../src/render3d/waterMesh";
 
 const STEP = 0.02;
 const SAME_WATER = 0.35;
-const FALL = FALL_MIN;
 const BLEND_WINDOW = 4;
 let badScratch = new Float32Array(0);
 
@@ -20,8 +19,6 @@ class WaterBuffer {
   nrm: number[] = [];
   flg: number[] = [];
   quads = 0;
-  /** The falls (falls.ts `pushFall`), FALL_STRIDE floats each. */
-  falls: number[] = [];
   quad(c: number[], depth: number, cont: number, nx: number, ny: number, nz: number, flags = 0): void {
     this.quad4(c, [depth, depth, depth, depth], [cont, cont, cont, cont], nx, ny, nz, flags);
   }
@@ -42,8 +39,7 @@ class WaterBuffer {
       const v = q * 4;
       indices.set([v, v + 1, v + 2, v, v + 2, v + 3], q * 6);
     }
-    const falls = new Float32Array(this.falls);
-    return { positions: new Float32Array(this.pos), data: new Float32Array(this.data), flags: new Float32Array(this.flg), normals: new Int8Array(this.nrm), indices, quads: n, falls, fallCount: falls.length / FALL_STRIDE };
+    return { positions: new Float32Array(this.pos), data: new Float32Array(this.data), flags: new Float32Array(this.flg), normals: new Int8Array(this.nrm), indices, quads: n };
   }
 }
 
@@ -56,7 +52,7 @@ export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array,
   const y0 = cy * CHUNK;
   const x1 = Math.min(W, x0 + CHUNK);
   const y1 = Math.min(H, y0 + CHUNK);
-  // the blend of the chunk's window only (a corner reads a tile past the chunk, a fall's lips two): the page's thread
+  // the blend of the chunk's window only (a corner reads a tile past the chunk): the page's thread
   // blends no more of a 512x512 map than the chunk it meshes
   if (badScratch.length < W * H) badScratch = new Float32Array(W * H);
   const bad = badScratch;
@@ -99,9 +95,7 @@ export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array,
         const d = sw.depth[i];
         const c = bad[i];
         const f = sw.floor[i];
-        // foam: a side meets the shore where dry ground stands at the surface or above it, takes a
-        // fall where the neighbour's water stands well above it, and pours over a lip where it
-        // stands well below (a fall, falls.ts)
+        // a side meets the shore where dry ground stands at the surface or above it
         let flags = 0;
         for (let k = 0; k < 4; k++) {
           const xx = x + (k === 0 ? 1 : k === 1 ? -1 : 0);
@@ -109,10 +103,7 @@ export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array,
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
           const j = yy * W + xx;
           const ns = sw.surface[j];
-          if (ns === ns) {
-            if (ns - s >= FALL) flags |= FALL_IN_BITS[k];
-            if (pushFall(b.falls, W, H, heights, sw, bad, x, y, k)) flags |= LIP_BITS[k];
-          } else if (heights[j] >= s - 0.05) flags |= SHORE_BITS[k];
+          if (!(ns === ns) && heights[j] >= s - 0.05) flags |= SHORE_BITS[k];
         }
         const k0 = corner(x, y, s, d, c);
         const k1 = corner(x + 1, y, s, d, c);
@@ -126,15 +117,13 @@ export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array,
         b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], 0, 1, 0, flags);
         // curtains toward lower neighbours: down to the ground (never below the floor), or to the
         // water just below, in front of the cliff where it stands below the floor; each with the
-        // badwater share of the top's edge it hangs from. Where the water falls into water well
-        // below, the fall pours from the lip instead (above)
+        // badwater share of the top's edge it hangs from; down to water well below, a fall
         const dd = [d, d, d, d];
         const drop = (xx: number, yy: number): number => {
           const lv = level(xx, yy);
           if (!(lv < s - STEP)) return NaN;
           const inside = xx >= 0 && yy >= 0 && xx < W && yy < H;
           const wetBelow = inside && sw.surface[yy * W + xx] === sw.surface[yy * W + xx];
-          if (wetBelow && s - lv >= FALL) return NaN;
           return wetBelow ? lv : Math.max(lv, f);
         };
         const O = 0.015; // a curtain to lower water stands just off the cliff's face
