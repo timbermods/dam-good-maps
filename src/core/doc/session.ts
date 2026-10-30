@@ -652,6 +652,7 @@ export class MapSession {
     if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
     if (r.description) doc.meta.premise = r.description;
     if (r.says?.length) doc.meta.says = [...r.says];
+    if (r.easyShort) doc.meta.easyShort = r.easyShort;
     return new MapSession(doc, r.built);
   }
 

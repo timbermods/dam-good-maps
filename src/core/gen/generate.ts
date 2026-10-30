@@ -244,6 +244,9 @@ export interface GenerateResult {
   bytes: Uint8Array;
   /** The file `bytes` was written from (for the project file's stored base). */
   file: TimberFile;
+  /** Easy start (D495): on a map a late rescue round made, what it left short of the full targets (one line the
+   *  page shows by the Easy start label); absent when it met them all. */
+  easyShort?: string;
   attempts: number;
   /** Each failed attempt and why (part of the record, the same in every engine: when each ended is
    *  in `timings.failed`). */
@@ -2099,6 +2102,21 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (the water the plan's starts stand by: the planned water as its land holds it, or, where that
     // leaves no start or no second place, with the pre-fill's water too, below)
     let startWater = held;
+    // (Easy start, D495: a place's clearing and pond, shaped as the land is (land/easyStart.ts), off the ground the
+    // places shaped before it took; its pond, cut and mouth kept as water is, so nothing after fills them. Null, the
+    // land as it was, where the place can't have them)
+    let easyTaken: Uint8Array | null = null;
+    const easyShape = easyT
+      ? (p: StartPick): { shape: NonNullable<ReturnType<typeof shapeEasyStart>>; at: StartPick } | null => {
+          const s = shapeEasyStart(h, W, H, p, startWater, hy.water, stream(seed, "easy-start", attempt, p.x, p.y), pondOff, easyTaken);
+          if (!s) return null;
+          if (easyTaken) for (const i of s.area) easyTaken[i] = 1;
+          for (const i of s.pond) keep[i] = 1;
+          for (const i of s.cut) keep[i] = 1;
+          for (const i of s.mouth) keep[i] = 1;
+          return { shape: s, at: { ...p, level: s.level, levelled: false, shore: undefined } };
+        }
+      : null;
     if (!from) {
       // (and a second place, away from the first: a land with one place for a start has nothing to
       // fall back on when the settled water or the objects fail it, and a shown land can't be drawn
@@ -2160,25 +2178,26 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // land is shaped (land/easyStart.ts); a land where neither can is planned again. The pond and its cut are
       // kept as water is, so nothing after fills them)
       if (easyT && guess) {
-        const shapeAt = (p: StartPick) => shapeEasyStart(h, W, H, p, startWater, hy.water, stream(seed, "easy-start", attempt, p.x, p.y), pondOff);
-        const keepShape = (s: NonNullable<ReturnType<typeof shapeEasyStart>>) => {
-          for (const i of [...s.pond, ...s.cut]) keep[i] = 1;
-        };
-        let shaped = shapeAt(guess);
+        easyTaken = new Uint8Array(N);
+        let shaped = easyShape!(guess);
         if (!shaped && second) {
-          shaped = shapeAt(second);
+          shaped = easyShape!(second);
           if (shaped) [guess, second] = [second, guess];
         }
         if (!shaped && !lastAttempt) return fail("easy start (planned)", null, true);
         if (shaped) {
-          keepShape(shaped);
-          info.easy = { pond: shaped.pond.length, cut: shaped.cut.length, clearing: shaped.clearing };
-          guess = { ...guess!, level: shaped.level, levelled: false, shore: undefined };
-          const more = second ? shapeAt(second) : null;
-          if (more) {
-            keepShape(more);
-            second = { ...second!, level: more.level, levelled: false, shore: undefined };
+          info.easy = { pond: shaped.shape.pond.length, cut: shaped.shape.cut.length + shaped.shape.mouth.length, clearing: shaped.shape.clearing };
+          guess = shaped.at;
+          // (and the places to fall back on, each with its own clearing and pond, off the ground the others took; a
+          // place that can't have them is none: a start without them misses its targets, D495)
+          second = second ? (easyShape!(second)?.at ?? null) : null;
+          const shapedMore: StartPick[] = [];
+          for (const q of prepared) {
+            const s = easyShape!(q);
+            if (s) shapedMore.push(s.at);
           }
+          prepared.length = 0;
+          prepared.push(...shapedMore);
         }
       }
       // (a plan's start that needs its ground levelled has it levelled now, as the land is shaped:
@@ -2211,7 +2230,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           const room = roomMap(h, W, H, { wet: startWater, keep: keepP, want, lo, firm: FIRM });
           const off = avoidOf(null);
           for (let i = 0; i < N; i++) if (!room[i]) off[i] = 1;
-          const alt = settlerOn(startWater, zero, moisture(h, startWater, zero, W, H, null), 8, off);
+          const found8 = settlerOn(startWater, zero, moisture(h, startWater, zero, W, H, null), 8, off);
+          // (an Easy start's other place gets its own clearing and pond, or is none, D495)
+          const alt = found8 && easyShape ? (easyShape(found8)?.at ?? null) : found8;
           if (alt) {
             guess = alt;
             pads = padFor(guess);
@@ -3279,6 +3300,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       field: fieldData(fieldOf(), W),
       intentions,
       ...(says.length ? { says } : {}),
+      ...(passed && v.easyShort ? { easyShort: v.easyShort } : {}),
       info,
       timings: { firstLook, firstWater, final: Math.round(performance.now() - t0) },
     },

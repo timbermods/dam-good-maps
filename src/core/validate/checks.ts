@@ -19,7 +19,7 @@ import type { PlayabilityAnalysis } from "./playability";
 import type { CheckResult, Profile, ValidationReport } from "./report";
 import { blocks, severityOf } from "./report";
 import { validateInRust } from "./rust";
-import { easyStartMeasures, easyTargets } from "../analysis/easyStart";
+import { easyShortfall, easyStartMeasures, easyTargets } from "../analysis/easyStart";
 import { surfaceOf } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { seenThroughRoofs } from "../sim/stackWater";
@@ -95,6 +95,9 @@ export interface Validation {
   /** What a steady state leaves out of this map's water (null with loadOnly). When it gives
    *  reasons, the water and start checks are approximate (PLAN §11, D87). */
   mechanics: Mechanics | null;
+  /** Easy start (D495), on a map a late rescue round checked against eased targets: what it left short of the full
+   *  ones, one line for the page (`easyShortfall`); absent when every full target holds. */
+  easyShort?: string;
 }
 
 /** Every check on `file`, and what they measured. Without `water`, the map's water is settled here
@@ -118,10 +121,8 @@ function withEasyStart(file: TimberFile, opts: ValidateOptions, v: Validation): 
   const relax = opts.easyStart?.relax ?? 1;
   const settled = v.water!;
   const water = settled.stack?.stacked ? { ...seenThroughRoofs(settled.stack), stack: settled.stack } : settled;
-  const measures = easyStartMeasures(
-    { W, H, heights: surfaceOf(w), objects: mapObjects(w), water, model: v.model!, moisture: v.analysis!.moisture, soilContamination: v.analysis!.soilContamination, woodNear: v.analysis!.woodNear, badtide: opts.easyStart?.badtide, badtideDay: opts.easyStart?.badtideDay },
-    easyTargets(W, H, relax > 0 ? relax : 0.8),
-  );
+  const input = { W, H, heights: surfaceOf(w), objects: mapObjects(w), water, model: v.model!, moisture: v.analysis!.moisture, soilContamination: v.analysis!.soilContamination, woodNear: v.analysis!.woodNear, badtide: opts.easyStart?.badtide, badtideDay: opts.easyStart?.badtideDay };
+  const measures = easyStartMeasures(input, easyTargets(W, H, relax > 0 ? relax : 0.8));
   const advisory = relax <= 0;
   const rows: CheckResult[] = measures.map((m) => ({
     id: m.id,
@@ -134,7 +135,16 @@ function withEasyStart(file: TimberFile, opts: ValidateOptions, v: Validation): 
     ...(advisory ? { advisory: true } : {}),
     ...(m.where ? { where: m.where } : {}),
   }));
-  return { ...v, report: { ...v.report, checks: [...v.report.checks, ...rows], passed: v.report.passed && !rows.some((r) => blocks(opts.profile, r)) } };
+  const passed = v.report.passed && !rows.some((r) => blocks(opts.profile, r));
+  // (on a map that passes a late rescue round's eased targets: what it leaves short of the full ones, for the page
+  // to say, the badtide's day as its own row read it)
+  let easyShort: string | null = null;
+  if (relax < 1 && passed) {
+    const full = easyStartMeasures({ ...input, badtide: false }, easyTargets(W, H));
+    const badtide = measures.find((m) => m.id === "start.easy_badtide");
+    easyShort = easyShortfall(badtide ? [...full, badtide] : full);
+  }
+  return { ...v, report: { ...v.report, checks: [...v.report.checks, ...rows], passed }, ...(easyShort ? { easyShort } : {}) };
 }
 
 export function validateFile(file: TimberFile, opts: ValidateOptions): ValidationReport {

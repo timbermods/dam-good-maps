@@ -2,7 +2,9 @@
 // holding every target (analysis/easyStart.ts `EASY_START`), each a row of the generate profile's checks.
 
 import { describe, expect, it } from "vitest";
-import { EASY_START, easyStartMeasures, easyTargets } from "../../src/core/analysis/easyStart";
+import { EASY_START, easyShortfall, easyStartMeasures, easyTargets } from "../../src/core/analysis/easyStart";
+import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
+import { MapSession } from "../../src/core/doc/session";
 import { surfaceOf } from "../../src/core/format/world";
 import { generate } from "../../src/core/gen/generate";
 import { showcaseSpec } from "../../src/core/gen/showcase";
@@ -32,6 +34,42 @@ describe("Easy start's link key", () => {
     const spec = makeSpec({ seed: 7, theme: "any" });
     spec.settings.start.easyStart = true;
     for (const k of [0, 1, 2]) expect(showcaseSpec(spec, k).settings.start.easyStart).toBe(true);
+  });
+});
+
+describe("Easy start's targets", () => {
+  it("ask no more room than the disc they are read within holds, at every size", () => {
+    // (the room is read within `roomRadius`; at 128² and up 400 tiles of its 14-tile disc, 65%, the share the clearing
+    // gives once its pond is dug: smaller maps ask that share of their smaller disc, or less)
+    const disc = (r: number) => {
+      let n = 0;
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r) n++;
+      return n;
+    };
+    const share = EASY_START.room / disc(EASY_START.roomRadius);
+    for (let side = 64; side <= 256; side += 4) {
+      const t = easyTargets(side, side);
+      expect(t.room, `${side}²`).toBeLessThanOrEqual(Math.round(share * disc(t.roomRadius)));
+      if (side >= 128) expect(t.room).toBe(EASY_START.room);
+    }
+    expect(easyTargets(96, 96).room).toBeLessThan(disc(easyTargets(96, 96).roomRadius) * 0.7);
+  });
+
+  it("say in one line what a map made in a late rescue round left short of them", () => {
+    const m = (id: string, ok: boolean, value: number, limit: number) => ({ id: `start.easy_${id}`, ok, value, limit, message: id });
+    expect(easyShortfall([m("room", true, 420, 400), m("water", true, 5, 6)])).toBeNull();
+    expect(easyShortfall([m("room", false, 338, 400), m("water", false, 8, 6), m("food", true, 44, 40)])).toBe("Easy start fell short: 338 tiles of level ground (400 asked); water 8 tiles' walk away (6 asked)");
+  });
+
+  it("goes with the map's project, so a reopened map says it too", () => {
+    const r = generate(makeSpec({ seed: 3, size: { x: 64, y: 64 }, theme: "riverValley" }), { maxAttempts: 1 });
+    const short = "Easy start fell short: 338 tiles of level ground (400 asked)";
+    const doc = generatedDocument({ ...r, easyShort: short });
+    const back = decodeProject(encodeProject(doc));
+    expect(back.meta.easyShort).toBe(short);
+    expect(MapSession.open(back).meta.easyShort).toBe(short);
+    // (a map that met them all carries nothing)
+    expect(generatedDocument(r).meta.easyShort).toBeUndefined();
   });
 });
 
@@ -71,12 +109,17 @@ describe("Easy start's ground (land/easyStart.ts)", () => {
     expect(s.level).toBe(cut + 1);
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) expect(h[(p.y + dy) * W + p.x + dx]).toBe(s.level);
     expect(s.clearing).toBeGreaterThan(EASY_START.room);
-    // the pond two levels under the cut, its near shore 5 tiles or more out, and the cut joining it to the river
+    // the pond two levels under the cut, its near shore 5 tiles or more from the start's middle, and the cut
+    // joining it to the river, each tile beside the last
+    expect(s.pond.length).toBeGreaterThanOrEqual(9);
     for (const i of s.pond) {
       expect(h[i]).toBeLessThanOrEqual(cut - 2);
-      expect(Math.max(Math.abs((i % W) - p.x), Math.abs(Math.floor(i / W) - p.y))).toBeGreaterThan(4);
+      expect(Math.hypot((i % W) - p.x, Math.floor(i / W) - p.y)).toBeGreaterThanOrEqual(5);
     }
-    for (const i of s.cut) expect(h[i]).toBeLessThanOrEqual(cut);
+    for (const i of [...s.cut, ...s.mouth]) expect(h[i]).toBeLessThanOrEqual(cut);
+    const near = (a: number, b: number) => Math.abs((a % W) - (b % W)) + Math.abs(Math.floor(a / W) - Math.floor(b / W)) === 1;
+    expect(s.pond.some((i) => near(i, s.cut[0]))).toBe(true);
+    for (let k = 1; k < s.cut.length; k++) expect(near(s.cut[k - 1], s.cut[k])).toBe(true);
     const last = s.cut[s.cut.length - 1];
     const lx = last % W;
     expect(Math.abs(lx - 50)).toBeLessThanOrEqual(2);
@@ -91,6 +134,30 @@ describe("Easy start's ground (land/easyStart.ts)", () => {
     const before = h.slice();
     expect(pondWater(h, W, H, depth, water, p)).toBe(-1);
     expect(shapeEasyStart(h, W, H, p, depth, water, stream(1, "easy-start-test"))).toBeNull();
+    expect(h).toEqual(before);
+  });
+
+  it("leaves the land as it was where the pond has no room, after finding its water", () => {
+    // (shallow puddles, too thin for a pond's water, everywhere between the start and the river: no tile there
+    // stands three from water)
+    const { h, depth, water } = valley();
+    for (let y = 0; y < H; y += 3) for (let x = 36; x < 48; x += 3) depth[y * W + x] = 0.05;
+    const p = { x: 34, y: 30, level: h[30 * W + 34] };
+    expect(pondWater(h, W, H, depth, water, p)).toBeGreaterThanOrEqual(0);
+    const before = h.slice();
+    expect(shapeEasyStart(h, W, H, p, depth, water, stream(1, "easy-start-test"))).toBeNull();
+    expect(h).toEqual(before);
+  });
+
+  it("keeps off the ground another start's shape took, leaving the land as it was", () => {
+    const { h, depth, water } = valley();
+    const p = { x: 34, y: 30, level: h[30 * W + 34] };
+    const s = shapeEasyStart(h, W, H, p, depth, water, stream(1, "easy-start-test"))!;
+    const taken = new Uint8Array(W * H);
+    for (const i of s.area) taken[i] = 1;
+    const before = h.slice();
+    const q = { x: 34, y: 40, level: h[40 * W + 34] };
+    expect(shapeEasyStart(h, W, H, q, depth, water, stream(2, "easy-start-test"), null, taken)).toBeNull();
     expect(h).toEqual(before);
   });
 });

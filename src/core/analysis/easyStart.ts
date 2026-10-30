@@ -6,8 +6,9 @@
 // (`validate/checks.ts`), so it plans again; the generator also steers and shapes for them (gen/generate.ts,
 // gen/settler.ts, gen/resources.ts).
 //
-// The targets, at 128² and up (smaller maps scale the distances by their side ÷ 128, `bandScale`, and below
-// 96² the amounts by their area):
+// The targets, at 128² and up (smaller maps scale the distances by their side ÷ 128, `bandScale`, below 96² the
+// amounts by their area, and the room by the area of the disc it is read within as well, which is less: 65% of
+// it, as at 128², about 244 tiles at 96²):
 // 1. Room to build: 400+ tiles of level dry ground at the start's level within 14 tiles of its middle, joined to
 //    it, the district center well inside (85% of the ground within 6 tiles of its middle on it, water left out).
 // 2. Calm surroundings: within 8 tiles the dry ground stays within 2 levels of the start's (the banks of water
@@ -78,20 +79,31 @@ export const EASY_START = {
 
 export type EasyTargets = { -readonly [K in keyof typeof EASY_START]: number };
 
+/** The tiles within `r` of a tile's middle (the disc `easyRoom` reads). */
+function discTiles(r: number): number {
+  let n = 0;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r) n++;
+  return n;
+}
+
 /** The targets for a map of W × H (`relax` 1 as they are; less in a late rescue round, D471: every setting makes
- *  a map). Distances scale with the side under 128² (`bandScale`), amounts with the area under 96². */
+ *  a map). Distances scale with the side under 128² (`bandScale`), amounts with the area under 96², and the room
+ *  with the area of the disc it is read within too, whichever is less: every target is one the map can meet. */
 export function easyTargets(W: number, H: number, relax = 1): EasyTargets {
   const s = bandScale(W, H);
   const a = Math.min(1, (W * H) / (96 * 96));
   const t = { ...EASY_START } as EasyTargets;
-  t.room = Math.round(EASY_START.room * a * relax);
+  t.roomRadius = Math.round(EASY_START.roomRadius * Math.max(s, 0.75));
+  // (the room is read within its radius, so it shrinks with that disc's area as well as with the map's: the same
+  // share of the disc at every size, never more ground than the disc holds once its pond is dug)
+  const disc = discTiles(t.roomRadius) / discTiles(EASY_START.roomRadius);
+  t.room = Math.round(EASY_START.room * Math.min(a, disc) * relax);
   t.out = Math.round(EASY_START.out * a * relax);
   t.bushes = Math.round(EASY_START.bushes * a * relax);
   t.farmland = Math.round(EASY_START.farmland * a * relax);
   t.wood = Math.round(EASY_START.wood * a * relax);
   t.badwaterSource = Math.round(EASY_START.badwaterSource * s * relax);
   t.hazards = Math.round(EASY_START.hazards * s * relax);
-  t.roomRadius = Math.round(EASY_START.roomRadius * Math.max(s, 0.75));
   // (a relaxed round asks the water a little further)
   if (relax < 1) {
     t.water = EASY_START.water + 2;
@@ -411,6 +423,29 @@ export function easyStartMeasures(m: EasyStartInput, t: EasyTargets = easyTarget
     });
   }
   return only ? out.filter((o) => only.includes(o.id)) : out;
+}
+
+/** What a map made in a late rescue round (D471) left short of the full targets, as one short line for the page
+ *  (the header's Easy start label and the checks' Good to know, D495): the shortfalls in the targets' order, null
+ *  when every target holds. `measures` are read against the full targets (`easyTargets` at relax 1). */
+export function easyShortfall(measures: readonly EasyMeasure[]): string | null {
+  const t = (v: number) => (Number.isFinite(v) ? String(v) : "");
+  const words: Record<string, (m: EasyMeasure) => string> = {
+    room: (m) => (m.value < m.limit ? `${m.value} tiles of level ground (${m.limit} asked)` : "the start near the edge of its level ground"),
+    calm: (m) => (m.value > m.limit ? "a cliff near the start" : "little land to walk out to"),
+    water: (m) => (Number.isFinite(m.value) ? `water ${t(m.value)} tiles' walk away (${m.limit} asked)` : "no water to pump close by"),
+    drought: (m) => (Number.isFinite(m.value) ? `water ${t(m.value)} tiles' walk away after a drought (${m.limit} asked)` : "its water dries in a drought"),
+    badtide: (m) => `a badtide reaches its water on day ${m.value}`,
+    badwater: (m) => `badwater ${t(m.value)} tiles away (${m.limit} asked)`,
+    food: (m) => `${m.value} berry bushes (${m.limit} asked)`,
+    farmland: (m) => `${m.value} tiles of farmland (${m.limit} asked)`,
+    wood: (m) => `${m.value} logs (${m.limit} asked)`,
+    metal: (m) => (Number.isFinite(m.value) ? `ruins ${t(m.value)} tiles' walk away (${m.limit} asked)` : "no ruins in walking reach"),
+    hazards: () => "a hazard near the start",
+    view: () => "its water out of the opening view",
+  };
+  const short = measures.filter((m) => !m.ok).map((m) => words[m.id.replace("start.easy_", "")]?.(m) ?? m.message);
+  return short.length ? `Easy start fell short: ${short.join("; ")}` : null;
 }
 
 /** The targets the land and its settled water decide, before anything is planted: the generator reads them on the

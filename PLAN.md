@@ -334,7 +334,7 @@ one; the map card shows the start's bench (level tiles within 8 of the district 
 **Easy start** (D495; amends D211 for this setting: a guarantee, not a lean). For someone who wants to play at once:
 the start sits in a level clearing beside a small backwater pond off its river or lake, with food, wood and scrap at
 hand and no hazard near. Its targets (`analysis/easyStart.ts` `EASY_START`; distances scale under 128², amounts under
-96²): 400+ tiles of level dry ground at the start's level within 14 tiles of its middle, the district center well
+96², the room with the disc it is read within too, so each is one the map can meet): 400+ tiles of level dry ground at the start's level within 14 tiles of its middle, the district center well
 inside (85% of the ground within 6 on it, water left out); within 8 tiles no dry ground more than 2 levels from the
 start but at water's banks, and 300+ tiles beyond 14 on foot; clean water a pump draws (D153, D302) within 6 tiles'
 walk, still drawn within 10 after a Normal drought (9 days), and no badwater on it through the first badtide (2 days
@@ -342,11 +342,13 @@ and a day after); no badwater source within 40 tiles; 40+ living berry bushes wi
 stays moist through the drought; 150+ moist farmland within 20; 250+ logs within 20; ruins within 25 tiles' walk; no
 thorns, unstable core or badtide drain within 30; the start's water in the game's opening view. The generator plans
 the start where the land gives room and water 13–24 tiles off, then cuts the clearing a level above where a cut from
-that water would stand, digs the pond two below it joined by that cut (`land/easyStart.ts`), plants the start's
+that water would stand, digs the pond two below it joined by that cut (`land/easyStart.ts`; the pond's shore, the
+cut's course and the rim follow the land's levels and a noise field, so nothing reads stamped), plants the start's
 berries on drought-proof ground and a small ruin field on its walk, keeps thorns past 30 tiles and badwater past 40
 (its badwater draining on its own, never steered into the main water),
 and shows the land only once the map passes; each target is a row of the generate profile's checks
-(`start.easy_*`) that blocks a map, so a land that misses one is planned again. Off, nothing changes.
+(`start.easy_*`) that blocks a map, so a land that misses one is planned again. A late rescue round (D471) eases them;
+a map it made says so by its header label, "Easy start (fell short)", naming what fell short. Off, nothing changes.
 
 ### 5.7 The 1.0+ map features
 
