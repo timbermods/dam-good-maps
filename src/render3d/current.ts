@@ -8,8 +8,7 @@
 //   each water update on the page's thread): each face's net flow, averaged over the
 //   tile's two opposite faces and divided by the water's depth. It is the simulation's balanced
 //   momentum, not an exact transport flux, and there is no estimate from the surface's slope: water
-//   without outflows is still;
-// - a fall's lip pours the simulation's own outflow over that side (falls.ts `lipOutflow`).
+//   without outflows is still; a fall's face carries its detail by the current over its lip (materials.ts).
 // Only drawn, never fed back into the water, a map or an operation.
 
 import type { SurfaceWater, WaterView } from "./model";

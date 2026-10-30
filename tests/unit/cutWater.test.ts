@@ -13,7 +13,7 @@ import { bedAtCut, CUT_SLACK, cutCornerDepth, ringLevelAt, surfaceAtCut, waterLe
 import { WATER_BYTE_FINE, WATER_BYTE_STEPS, waterByte } from "../../src/render3d/light";
 import { chunkCount } from "../../src/render3d/mesh";
 import { LAYERS, surfaceWater, waterFromDepth, type SurfaceWater, type WaterView } from "../../src/render3d/model";
-import { meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { FALL, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { plainLayers, waterLayers, type WaterLayer } from "../../src/render3d/waterLayers";
 
 describe("the rule", () => {
@@ -57,8 +57,8 @@ function fold(
 ): { y: number; depth: number; flags: number } {
   const slice = cut ?? 99;
   const surface = ny > 0 ? y : floor + depth;
-  // (a gone column's side folds flat: nothing drawn)
-  if (surface > slice + CUT_SLACK && floor >= slice && ny <= 0) return { y: surface, depth, flags };
+  // (a gone column's side folds flat: nothing drawn; but a fall's face keeps its part below the cut)
+  if (surface > slice + CUT_SLACK && floor >= slice && ny <= 0) return { y: flags < 254.5 && flags >= FALL * 30 ? Math.min(y, slice) : surface, depth, flags };
   if (!(surface > slice + CUT_SLACK && floor < slice)) return { y, depth, flags };
   const over = surface - slice;
   if (ny > 0)
@@ -96,6 +96,8 @@ interface Drawn {
   goneSides: number;
   /** Sides of a column the cut removed hanging below the cut before the fold (the case the fold is for). */
   goneSidesBelow: number;
+  /** Falls' faces of a column the cut removed that keep their part below the cut. */
+  fallsKept: number;
   /** Tops not lying flat. */
   tilted: number;
 }
@@ -109,6 +111,7 @@ function draw(W: number, H: number, layers: readonly WaterLayer[], cut: number |
     sidesOver: 0,
     goneSides: 0,
     goneSidesBelow: 0,
+    fallsKept: 0,
     tilted: 0,
   };
   const { nx, ny } = chunkCount(W, H);
@@ -149,8 +152,14 @@ function draw(W: number, H: number, layers: readonly WaterLayer[], cut: number |
           if (surface > cut + CUT_SLACK && vs[0].floor >= cut) {
             // (drawn: what the fragment shader keeps, under the cut's slack, with some height)
             const ys = vs.map((v) => v.y);
-            if (Math.min(...vs.map((v) => v.s)) < cut + CUT_SLACK) out.goneSidesBelow++;
-            if (Math.min(...ys) < cut + CUT_SLACK && Math.max(...ys) > Math.min(...ys)) out.goneSides++;
+            if (vs[0].flags < 254.5 && vs[0].flags >= FALL * 30) {
+              // a fall's face: its part below the cut, nothing over it
+              out.sidesOver += ys.filter((y) => y > cut).length;
+              if (Math.max(...ys) > Math.min(...ys)) out.fallsKept++;
+            } else {
+              if (Math.min(...vs.map((v) => v.s)) < cut + CUT_SLACK) out.goneSidesBelow++;
+              if (Math.min(...ys) < cut + CUT_SLACK && Math.max(...ys) > Math.min(...ys)) out.goneSides++;
+            }
           }
         }
       }
@@ -292,6 +301,29 @@ describe("a side of water the cut removed", () => {
     expect(d.goneSidesBelow, "the shelf's side reaching under the cut").toBeGreaterThan(0);
     expect(d.goneSides, "drawn: nothing").toBe(0);
     expect([...(d.tops.get(W + 4)?.values() ?? [])], "the pool whole").toEqual([Math.fround(3.95)]);
+  });
+
+  it("keeps a fall's face below the cut when the water it pours from is gone, in front of the cliff, as before its amendment", () => {
+    // 6 × 3: a shelf at 6 (x 0–2) with water 0.5 deep on it, falling 3 levels to a pool on ground at 2 (x 3–5) at 3.5
+    const W = 6;
+    const H = 3;
+    const heights = new Uint8Array(W * H);
+    const depth = new Float32Array(W * H);
+    for (let i = 0; i < W * H; i++) {
+      const shelf = i % W < 3;
+      heights[i] = shelf ? 6 : 2;
+      depth[i] = shelf ? 0.5 : 1.5;
+    }
+    const view = waterFromDepth(heights, depth, new Float32Array(W * H));
+    const sw = surfaceWater(W, H, view);
+    const layers = plainLayers(heights, sw);
+    for (const cut of cuts(view)) check(W, H, heights, sw, view, layers, cut, `cut ${cut}`);
+    // at 5 the shelf's water is gone: its fall keeps its face from the pool (3.5) up to the cut, and nothing over it
+    const d = draw(W, H, layers, 5);
+    expect(d.fallsKept, "the fall's face under the cut").toBe(H);
+    expect(d.sidesOver).toBe(0);
+    // and a cut under the pool's surface takes the fall with it
+    expect(draw(W, H, layers, 3).fallsKept).toBe(0);
   });
 });
 

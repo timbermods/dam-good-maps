@@ -71,7 +71,9 @@ const STEP = 0.02;
 /** Water within this of a tile's surface is the same water: it shares depth and badwater at the
  *  corners, and the badwater blend reaches across it. */
 const SAME_WATER = 0.35;
-/** Higher than this above the surface, a neighbour's water falls into a tile: a fall (the blend never crosses one). */
+/** A curtain down to water this far below or more is a fall (its drop in its flags, `dropFlags`): the shaders draw it
+ *  as the water's own face in front of the cliff, kept below a layer cut; a smaller step between two waters is drawn
+ *  as the surface going on (materials.ts, high/shaders.ts). */
 export const FALL = 0.3;
 
 /** How the badwater share is blended between tiles (D177): a binomial kernel along rows, then
