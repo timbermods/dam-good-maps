@@ -104,6 +104,13 @@ export const WATER_SURFACE = {
    *  Low quality, which shows no ground. The water's side at the map's edge. */
   seeThrough: 0.175,
   seeThroughTo: 5,
+  /** The ground that shows behind the water, as the game shows it (`waterGroundBehind`): overlaid with the
+   *  water's own colour by `behindTint` (`_TransparencyBlending`), then desaturated to `behindSaturation`
+   *  (`_TransparencySaturation`, Rec. 709 luma), so it reads as the water's, darker and greyer than the
+   *  ground in the open. On display values, as the game works them: it renders in Gamma colour space
+   *  (`m_ActiveColorSpace` 0), so its shader maths never goes to linear light. */
+  behindTint: 0.8,
+  behindSaturation: 0.3,
   edge: 0.85,
   /** At a bank the water is this share of its depth, deepening over this far from it (tiles). */
   bank: 0.3,
@@ -337,7 +344,8 @@ export const WATER_CALIBRATION = {
    *  clean water's are the Standard look as approved, re-measured after D304 fitted clean water's
    *  shades closer to the game's own, after D310 darkened `teal` and `navy` further and after D324
    *  brought `shallow` down, and all of them after #692 let the ground behind show by the game's share
-   *  (`WATER_SURFACE.seeThrough`: badwater's poisoned bed now shows a sixth through it), 2026-10-29
+   *  (`WATER_SURFACE.seeThrough`: badwater's poisoned bed now shows a sixth through it) and again once that
+   *  ground showed as the game shows it, overlaid with the water's colour and desaturated (`behindTint`), 2026-10-29
    *  (they hold it still, until the next approved change). Measured with the
    *  Standard look held (`dgm.look` forced to `standard` before opening the page): a capable GPU
    *  picks High by itself once it exists, and `tools/capture-badwater.ts --measure` was found
@@ -345,10 +353,10 @@ export const WATER_CALIBRATION = {
    *  difference, not a real change to Standard (found investigating the drift, D304's addition; the
    *  fix is in the tool, not here). */
   targets: [
-    { name: "badwater, a quarter level deep, 70° down (#38)", share: 1, depth: 0.25, pitch: 1.22, bands: { typical: [98, 55, 50], trough: [85, 50, 46], streak: [108, 67, 56] } },
-    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [54, 109, 124] } },
-    { name: "clean water, 1.25 deep, 70° down", share: 0, depth: 1.25, pitch: 1.22, bands: { body: [44, 90, 102] } },
-    { name: "clean water, 4.25 deep, 70° down", share: 0, depth: 4.25, pitch: 1.22, bands: { body: [36, 83, 97] } },
+    { name: "badwater, a quarter level deep, 70° down (#38)", share: 1, depth: 0.25, pitch: 1.22, bands: { typical: [91, 47, 43], trough: [79, 42, 39], streak: [101, 59, 49] } },
+    { name: "clean water, a quarter level deep, 70° down", share: 0, depth: 0.25, pitch: 1.22, bands: { body: [50, 106, 122] } },
+    { name: "clean water, 1.25 deep, 70° down", share: 0, depth: 1.25, pitch: 1.22, bands: { body: [39, 84, 98] } },
+    { name: "clean water, 4.25 deep, 70° down", share: 0, depth: 4.25, pitch: 1.22, bands: { body: [35, 82, 96] } },
   ] as readonly { name: string; share: number; depth: number; pitch: number; bands: Record<string, readonly [number, number, number]> }[],
   /** The ground level under a bed of water this deep (so the camera sees the same scene as #38's). */
   floor(depth: number): number {
@@ -430,6 +438,16 @@ export function waterBody(depth: number, bad: boolean | number, fromBank = 1): R
 export function waterSeeThrough(depth: number): number {
   const S = WATER_SURFACE;
   return 1 - S.seeThrough * Math.max(0, 1 - depth / S.seeThroughTo);
+}
+
+/** The ground (a display colour) as it shows behind water of this colour, as the game's High quality draws
+ *  it (`WATER_SURFACE.behindTint`, `behindSaturation`): on display values (the game renders in Gamma colour
+ *  space), overlaid with the water's colour, then desaturated. */
+export function waterGroundBehind(ground: Rgb, water: Rgb): Rgb {
+  const S = WATER_SURFACE;
+  const m = ground.map((v, i) => v + ((v <= 0.5 ? 2 * v * water[i] : 1 - 2 * (1 - v) * (1 - water[i])) - v) * S.behindTint);
+  const y = luma(m as unknown as Rgb);
+  return m.map((v) => Math.max(0, Math.min(1, y + (v - y) * S.behindSaturation))) as unknown as Rgb;
 }
 
 /** Badwater's opacity `depth` levels deep, `fromBank` tiles from a bank: the water's, a crimson tint on a
@@ -550,9 +568,12 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   vec3 badwaterShade(vec3 c, float depth) {
     return c * badwaterBody(depth) / BADWATER_BODY;
   }
-  /** How edge-on the water is seen (1 at a grazing angle), as #38 has it. */
-  float waterGrazing(vec3 V, vec3 N) {
-    return 1.0 - smoothstep(0.18, 0.5, clamp(V.y + (N.x + N.z) * 0.05, 0.0, 1.0));
+  /** The ground as it shows behind water of this colour, as the game's (waterPalette.ts waterGroundBehind):
+   *  on display values (the game renders in Gamma colour space). */
+  vec3 waterGroundBehind(vec3 ground, vec3 water) {
+    vec3 m = mix(ground, mix(2.0 * ground * water, 1.0 - 2.0 * (1.0 - ground) * (1.0 - water), step(0.5, ground)), ${f(WATER_SURFACE.behindTint)});
+    float y = dot(m, vec3(0.2126, 0.7152, 0.0722));
+    return clamp(mix(vec3(y), m, ${f(WATER_SURFACE.behindSaturation)}), 0.0, 1.0);
   }
   /** Badwater's opacity (waterPalette.ts badwaterOpacity): the water's, a crimson tint on a sliver. */
   float badwaterAlpha(float depth, float shore) {
