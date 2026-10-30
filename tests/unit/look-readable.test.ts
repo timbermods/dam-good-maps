@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities } from "../../src/render3d/entities3d";
-import { fallMaterial, hatchMarks, sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
+import { hatchMarks, sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
 import { CLEAR_WATER, badwaterBody } from "../../src/render3d/waterPalette";
 import { CONTAMINATION, contaminationVein, contaminationVeins, DEAD_TREE, GROUND, groundColor, LIVING_TREE, cssColor, legendEntries, objectLegend, WATER, waterBody, type Rgb } from "../../src/render3d/palette";
@@ -75,12 +75,12 @@ describe("badwater seen through clear water (D324, feedback item 5: never a hatc
     }
   });
 
-  it("has no stripe on badwater in any water shader (water, fall, and the lower-cost forms), and the palette defines none", () => {
+  it("has no stripe on badwater in any water shader (water, its falls among it, and the lower-cost forms), and the palette defines none", () => {
     expect(Object.keys(CLEAR_WATER)).not.toContain("stripe");
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
     for (const lite of [false, true]) {
       const u = sceneUniforms(1, 1, t(), t(), t(), t());
-      for (const m of [waterMaterial(u, lite), fallMaterial(u, lite)]) expect(m.fragmentShader).not.toMatch(/CLEAR_STRIPE|fract\(\(g\.x - g\.y/);
+      for (const m of [waterMaterial(u, lite)]) expect(m.fragmentShader).not.toMatch(/CLEAR_STRIPE|fract\(\(g\.x - g\.y/);
       // badwater's murk, dull troughs and bubbles are what carry it through clear water
       expect(waterMaterial(u, lite).fragmentShader).toContain("bc += BADWATER_VEIN * bubbles * BADWATER_BUBBLES");
     }

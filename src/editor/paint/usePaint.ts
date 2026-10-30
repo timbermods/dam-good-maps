@@ -92,6 +92,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
 
   /** Send the worker a stroke, an undo or a redo of one; the page has shown it already. */
   function sendTerrain(fn: () => Promise<SessionUpdate>): Promise<void> {
+    juice.current?.edited();
     pendingTerrain.current++;
     const next = queue.current.then(async () => {
       setBusy((b) => b + 1);

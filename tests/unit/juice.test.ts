@@ -175,6 +175,14 @@ describe("the editor's juice", () => {
     log.length = 0;
     j.undo();
     expect(log).toEqual(["play undo"]);
+    // a silent edit after a kept impact (a delete, a move, Fix): undo takes that edit back, the impact's tails play on
+    j.forceMoment(cue("craterize", "impact"));
+    j.forceEnded(true);
+    j.edited();
+    log.length = 0;
+    j.takeBack();
+    j.undo();
+    expect(log).toEqual(["play undo"]);
   });
 
   it("Erode's cues (D281): the grind held under the whole moment, stone landing as rock goes (a tenth of a second apart at most), the heavier fall once as it clears", () => {

@@ -45,7 +45,7 @@ The map document and its edit engine: a generation plus an ordered log of edit o
   it today (the page's fix waits on #92).
 - `droughtLine.ts` `mapDroughtLine`: the open map's drought line (D133; `sim/droughtLine.ts`) from the Drought view's last day.
 - `startWaterDay.ts` `mapStartWaterDays`: the day the open map's start's water goes or turns bad (D133; `sim/startWaterDay.ts`), fed the hazard run's days by the worker.
-- `crop.ts`: Crop map to selection (D340): the rectangle's refusals (`cropRectProblem`), what the edge cuts (`cropObjects`, `planCrop`) and the cropped file (`cropFile`). The session makes the cropped map the document's next generation (`MapDocument.prior` holds the one before): one undo step, the full map back exactly.
+- `crop.ts`: Crop map to selection (D340): the rectangle's refusals (`cropRectProblem`), what the edge cuts (`cropObjects`, `planCrop`: objects it crosses, and slopes whose step it cuts) and the cropped file (`cropFile`). The session makes the cropped map the document's next generation (`MapDocument.prior` holds the one before): one undo step, the full map back exactly.
 - `description.ts`: the map's description, written by the `setDescription` operation: its limit (`MAX_DESCRIPTION`), its refusals (`descriptionProblem`) and a real place's credits (`placeCredits`). `MapSession.description()` answers it; a generated map's own words are `gen/pack.ts` `description` and `gen/names.ts` `mapSays`.
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
 
