@@ -220,6 +220,11 @@ export const BADWATER = {
    *  On display values, as the game's Gamma maths: 0.37, option A's own floor (`badDeep` over `bad`), a stand-in
    *  until an in-game measurement of a shallow and a deep badwater pool sets it. */
   floor: 0.37,
+  /** The glow of shallow water partly bad, as the game's (its PhysicalWaterURP: the contaminated colour goes
+   *  toward itself × `tint` (red × 3, green × 1.5, no blue) by G ^ `power` × saturate(1 − share / `upTo`), G the
+   *  `_DepthGradients` value at the depth, `atShallow` of it `shallow` deep): an orange glow on films and the
+   *  shallowest edges of water partly bad, gone half a level down and in water `upTo` bad or worse. */
+  glow: { tint: [3, 1.5, 0] as readonly [number, number, number], power: 10, upTo: 0.6, atShallow: 197.3 / 255 },
   /** Its opacity is the water's (`WATER_SURFACE.seeThrough`: the game shows the ground behind badwater as
    *  it does behind clean water); at the map's edge, the water's side. */
   side: 0.95,
@@ -394,6 +399,15 @@ export function badwaterBody(depth: number): Rgb {
   return [WATER.bad[0] * k, WATER.bad[1] * k, WATER.bad[2] * k];
 }
 
+/** A badwater colour (`body`, from its base colour `base`) `depth` levels deep with this badwater share, with
+ *  the game's glow of shallow water partly bad (`BADWATER.glow`). */
+export function badwaterGlow(body: Rgb, base: Rgb, depth: number, share: number): Rgb {
+  const G = BADWATER.glow;
+  const w = (G.atShallow * badwaterRamp(depth)) ** G.power * Math.max(0, Math.min(1, 1 - share / G.upTo));
+  if (!(w > 0)) return body;
+  return [0, 1, 2].map((i) => body[i] + (Math.min(1, (base[i] / G.atShallow) * G.tint[i]) - body[i]) * w) as unknown as Rgb;
+}
+
 /** How far water with this badwater share (0–1) has turned toward badwater's look (`WATER_BLEND`): 0 when
  *  clean (and under a hundredth bad), 1 when pure badwater. */
 export function waterTint(share: number): number {
@@ -418,7 +432,7 @@ export function blendWater(clean: Rgb, bad: Rgb, share: number): Rgb {
  *  the ripples, the foam and the glints (as the shader). */
 export function waterBody(depth: number, bad: boolean | number, fromBank = 1): Rgb {
   const share = bad === true ? 1 : bad === false ? 0 : bad;
-  return blendWater(cleanWaterBody(depth, fromBank), badwaterBody(depth), share);
+  return blendWater(cleanWaterBody(depth, fromBank), badwaterGlow(badwaterBody(depth), WATER.bad, seenDepth(depth, fromBank), share), share);
 }
 
 /** The water's opacity where it is `depth` levels deep over its floor (seen depth), as the game draws it
@@ -562,16 +576,24 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   float cleanWaterAlpha(float d) {
     return 1.0 - ${f(WATER_SURFACE.seeThrough)} * max(0.0, 1.0 - d / ${f(WATER_SURFACE.seeThroughTo)});
   }
-  /** Badwater's body at a depth (waterPalette.ts badwaterBody, badwaterRamp): its lightness by the game's
-   *  _DepthGradients ramp. */
   /** How light badwater is at a depth, against its colour BADWATER.shallow deep (waterPalette.ts badwaterBody):
    *  the game's _DepthGradients ramp but for the share with no depth in it, on display values. Both looks. */
   float badwaterLight(float depth) {
     float d = max(depth, 0.0);
     return ${f(BADWATER.floor)} + ${f(1 - BADWATER.floor)} * exp(-${f(BADWATER.ramp.first)} * (min(d, ${f(BADWATER.ramp.knee)}) - ${f(BADWATER.shallow)}) - ${f(BADWATER.ramp.beyond)} * max(0.0, d - ${f(BADWATER.ramp.knee)}));
   }
+  /** Badwater's body at a depth (waterPalette.ts badwaterBody, badwaterRamp): its lightness by the game's
+   *  _DepthGradients ramp. */
   vec3 badwaterBody(float depth) {
     return BADWATER_BODY * badwaterLight(depth);
+  }
+  /** The game's glow of shallow water partly bad (waterPalette.ts badwaterGlow): a badwater colour (body, from its
+   *  base colour) toward base × (3, 1.5, 0) by G ^ 10 × saturate(1 − share / 0.6). */
+  vec3 badwaterGlow(vec3 body, vec3 base, float depth, float s) {
+    float d = max(depth, 0.0);
+    float g = ${f(BADWATER.glow.atShallow)} * exp(-${f(BADWATER.ramp.first)} * (min(d, ${f(BADWATER.ramp.knee)}) - ${f(BADWATER.shallow)}) - ${f(BADWATER.ramp.beyond)} * max(0.0, d - ${f(BADWATER.ramp.knee)}));
+    float w = pow(g, ${f(BADWATER.glow.power)}) * clamp(1.0 - s / ${f(BADWATER.glow.upTo)}, 0.0, 1.0);
+    return mix(body, min(base / ${f(BADWATER.glow.atShallow)} * vec3(${BADWATER.glow.tint.map(f).join(", ")}), 1.0), w);
   }
   /** A badwater colour (its troughs, its streaks) darkened with depth as its body is. */
   vec3 badwaterShade(vec3 c, float depth) {

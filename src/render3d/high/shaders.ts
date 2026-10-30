@@ -338,6 +338,8 @@ ${HIGH_WATER_GLSL}
     vec3 cleanBody = body;
     // (badwater darkens with depth by the game's _DepthGradients ramp, as the Standard look's: badwaterLight)
     vec3 badBody = HW_BAD * badwaterLight(depth) + vec3(0.0012, 0.0008, 0.0006) * grazing;
+    // the game's glow of shallow water partly bad (badwaterGlow), in place of our own red contact at the shore
+    badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);
     // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts
     // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the fewer glints,
     // the bubbles, the murk) turned toward badwater's by the same tint
@@ -392,7 +394,6 @@ ${HIGH_WATER_GLSL}
     vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), tint);
     colour *= 0.80 + broad * 0.40;
     colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));
-    colour += vec3(0.26, 0.035, 0.008) * tint * (1.0 - smoothstep(0.0, 0.32, shore));
     if (tint > 0.25) {
       float trough = (1.0 - smoothstep(0.20, 0.38, waterTexture)) * near;
       float signalOpacity = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
