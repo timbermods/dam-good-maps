@@ -14,7 +14,7 @@
 
 import { FALL_MIN, FALL_STRIDE, pushFall } from "./falls";
 import { CHUNK } from "./mesh";
-import type { SurfaceWater } from "./model";
+import type { SurfaceWater, WaterView } from "./model";
 import type { WaterLayer } from "./waterLayers";
 
 /** Foam flags of a water top: bits 0–3 the sides (east, west, north, south) where it meets the
@@ -506,4 +506,66 @@ export function rideLand(W: number, sw: SurfaceWater, was: ArrayLike<number>, no
       moved = true;
     }
   return moved;
+}
+
+/** Wetter than this, a held tile's water is drawn (the 2D preview's threshold, model.ts `WET`). */
+const HELD_WET = 0.001;
+
+/** A held weather day's surface per tile (D133), from the day's water as it came (`view`, never the surface water drawn,
+ *  which an edit changes): the level of the water standing on the tile's top (`top`, each tile's surface column in the
+ *  view), on `heights` or on the land before its last change (`before`, water worked out a step behind it); NaN
+ *  elsewhere (dry, or water under a roof, whose floor is not the tile's top). `holdLand` keeps it under any land. */
+export function heldSurfaceOf(view: WaterView, top: ArrayLike<number>, heights: ArrayLike<number>, before?: ArrayLike<number> | null): Float32Array {
+  const n = heights.length;
+  const out = new Float32Array(n).fill(NaN);
+  for (let i = 0; i < n; i++) {
+    const k = top[i];
+    if (k < 0) continue;
+    const f = view.floor[k];
+    const d = view.depth[k];
+    if (d > HELD_WET && (f === heights[i] || (before && f === before[i]))) out[i] = f + d;
+  }
+  return out;
+}
+
+/** A held weather day's water on the land `now` (D133; while a drought or a badtide is held, until the edited map's
+ *  own day comes): nothing simulates it, so it never rides the land as `rideLand` carries live water. Each tile's
+ *  water stands at the day's surface (`held`, `heldSurfaceOf`), depth max(0, held − now): land raised to it or above
+ *  holds none, land under it holds water up to it, lowered land fills deeper to it. A tile the day had dry, or water
+ *  under a roof, is left as it is, so the land invents no water there. Worked out from `held` and `now` alone, so the
+ *  same land always gives the same water (land put back, an undo, a flip of Compare and back). Writes `sw`, which must
+ *  be the drawn copy, never the day's own water; over the tiles of `rect` (all of them when left out); true when any
+ *  changed. */
+export function holdLand(W: number, sw: SurfaceWater, held: ArrayLike<number>, now: ArrayLike<number>, rect?: { x0: number; y0: number; x1: number; y1: number }): boolean {
+  const H = now.length / W;
+  const x0 = Math.max(0, rect?.x0 ?? 0);
+  const y0 = Math.max(0, rect?.y0 ?? 0);
+  const x1 = Math.min(W - 1, rect?.x1 ?? W - 1);
+  const y1 = Math.min(H - 1, rect?.y1 ?? H - 1);
+  let changed = false;
+  for (let y = y0; y <= y1; y++)
+    for (let i = y * W + x0, end = y * W + x1; i <= end; i++) {
+      const s = held[i];
+      if (s !== s) continue;
+      const b = now[i];
+      const d = s - b;
+      if (d > HELD_WET) {
+        if (sw.floor[i] === b && sw.surface[i] === s) continue;
+        sw.floor[i] = b;
+        sw.depth[i] = d;
+        sw.surface[i] = s;
+      } else {
+        if (sw.surface[i] !== sw.surface[i]) continue;
+        sw.floor[i] = NaN;
+        sw.depth[i] = 0;
+        sw.surface[i] = NaN;
+      }
+      changed = true;
+    }
+  return changed;
+}
+
+/** A copy of surface water whose levels can be written (`holdLand`) without touching the water it was made from. */
+export function ownSurface(sw: SurfaceWater): SurfaceWater {
+  return { ...sw, surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice() };
 }

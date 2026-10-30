@@ -364,8 +364,8 @@ function surfaceOn(W: number, H: number, view: WaterView, sw: SurfaceWater, colA
   return { surface, floor, depth, contamination, top, outflow: view.outflow ?? null, lower: [] };
 }
 
-/** The land under water changed and `sw` rode it (waterMesh.ts `rideLand`) over the tiles of `rect`: the layers'
- *  open columns there follow it, as they were made from it. */
+/** The land under water changed and `sw` rode it (waterMesh.ts `rideLand`), or a held day's water was kept on it
+ *  (`holdLand`), over the tiles of `rect`: the layers' open columns there follow it, as they were made from it. */
 export function rideLayers(W: number, layers: readonly WaterLayer[], sw: SurfaceWater, rect: { x0: number; y0: number; x1: number; y1: number }): void {
   const H = sw.surface.length / W;
   for (const l of layers) {
@@ -375,6 +375,7 @@ export function rideLayers(W: number, layers: readonly WaterLayer[], sw: Surface
         const k = l.sw.top[j];
         if (k < 0 || sw.top[j] !== k) continue;
         l.sw.floor[j] = sw.floor[j];
+        l.sw.depth[j] = sw.depth[j];
         l.sw.surface[j] = sw.surface[j];
       }
   }
