@@ -49,6 +49,13 @@ interface ShotDef {
   label: string;
   /** The view, or a way of working it out in the page (the opening camera, the picture's framing). */
   view: View | "opening" | "opening-first" | "hero";
+  /** Page code run before the view is placed, after it, and once the frame is taken (a hazard day held, High's Fog off,
+   *  the camera pulled back or turned to look straight down). */
+  before?: string;
+  after?: string;
+  undo?: string;
+  /** Only in these looks (High's own switches). */
+  looks?: string[];
 }
 
 /** Tile (x, y) at level z as the renderer's world point. */
@@ -68,6 +75,12 @@ const SHOTS: ShotDef[] = [
   { id: "opening", label: "the game's opening camera", view: "opening" },
   { id: "opening-first", label: "the game's first frame", view: "opening-first" },
   { id: "hero", label: "the map's picture", view: "hero" },
+  // the finish's other views (D497): a held drought's fog colour, High with its Fog off, pulled back past the game's
+  // farthest default zoom (the fog held at 154), and looking straight down (no fog)
+  { id: "drought-first", label: "the game's first frame on a held drought day", view: "opening-first", before: `window.dgm3d.renderer.setSeason("drought")`, undo: `window.dgm3d.renderer.setSeason(null)` },
+  { id: "fog-off", label: "the game's first frame, High's Fog off", view: "opening-first", looks: ["high"], before: `window.dgm3d.renderer.setHighEffect("fog", false)`, undo: `window.dgm3d.renderer.setHighEffect("fog", true)` },
+  { id: "zoom-far", label: "pulled back to 300, past the game's farthest zoom", view: "opening", after: `window.dgm3d.renderer.setView({ distance: 300 })` },
+  { id: "top-down", label: "straight down", view: "opening", after: `(() => { const r = window.dgm3d.renderer; const v = r.getView(); r.setView({ mode: "top", yaw: 0, pitch: v.pitch, distance: 120, target: v.target }); })()` },
 ];
 
 /** The frame's numbers: kind → [pixels, mean luma, share under 40]. */
@@ -232,7 +245,10 @@ async function capture(tag: string): Promise<void> {
         await page.waitForTimeout(4000);
         for (const s of SHOTS) {
           if (only && !only.some((o) => s.id.startsWith(o))) continue;
+          if (s.looks && !s.looks.includes(look)) continue;
+          if (s.before) await page.evaluate(s.before);
           await placeView(page, s, fov0, viewport);
+          if (s.after) await page.evaluate(s.after);
           await page.waitForTimeout(2500);
           await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
           const loc = page.locator("[data-forms-view]");
@@ -244,6 +260,7 @@ async function capture(tag: string): Promise<void> {
           stats[name] = (await page.evaluate(`(${MEASURE})(${JSON.stringify([png.toString("base64"), 6])})`)) as Stats;
           const jpg = await page.screenshot({ type: "jpeg", quality: 88, clip: { x: box.x + (box.width - w) / 2, y: box.y, width: w, height: box.height } });
           writeFileSync(join(dir, `${name}.jpg`), jpg);
+          if (s.undo) await page.evaluate(s.undo);
           const st = stats[name];
           const show = (k: string) => (st[k] ? `${k} ${st[k][1]} (${st[k][2]}% <40, n ${st[k][0]})` : "");
           console.log(`${name}: ${["all", "roofed floor", "roofed wall", "roofed ceiling", "open floor", "open wall", "sky floor", "sky wall", "sky ceiling"].map(show).filter(Boolean).join(" · ")}`);
