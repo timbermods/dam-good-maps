@@ -22,7 +22,7 @@ const EVERY_TOOL = [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smo
 
 const SIZES: [number, number][] = [[1920, 1080], [2560, 1440]];
 /** The Show toggles: each on, nothing moves. */
-const TOGGLES = ["Heights", "Lines", "Markers", "Flow", "See-through", "Badwater"];
+const TOGGLES = ["Heights", "Lines", "Markers", "Flow", "See-through", "Hide objects", "Badwater"];
 /** The map generator's one width at both sizes (Kyler, 2026-10-04). */
 const PANEL = 640;
 /** The page's margin round the map's edges. */

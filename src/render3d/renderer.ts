@@ -29,8 +29,6 @@ import {
   Color,
   InstancedBufferAttribute,
   InstancedMesh as InstancedMeshObject,
-  DoubleSide,
-  MeshDepthMaterial,
   Mesh,
   OrthographicCamera,
   PerspectiveCamera,
@@ -66,8 +64,9 @@ import type { DroughtLine } from "../core/sim/droughtLine";
 import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
 import { whenIdle } from "./idle";
-import { castersChangedRects, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
+import { castersChangedRects, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
+import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
 import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
@@ -87,6 +86,7 @@ import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, saved
 import { HighLook, highLookMaterials, roofedOf, runSoilOf, type HighLookMaterials, type HighMaterials } from "./high/highLook";
 import { Programs, withDefine, type Defines } from "./programs";
 import { pageBaker, type Baker } from "./high/fields";
+import { fadingDepth } from "./high/shadows";
 import { WaterMotion } from "./motion";
 import { StillFlow } from "./stillFlow";
 import { BoxUploads, RowUploads } from "./rowUploads";
@@ -409,9 +409,9 @@ export class MapRenderer {
    *  already drawn, and with the look's own when it is left, so a later switch finds its programs; each one's name. */
   private highCopy: HighLookMaterials | null = null;
   private copyOf = new Map<ShaderMaterial, keyof HighLookMaterials>();
-  /** A copy of the drought line's materials. */
   /** The sun's depth map's material (high/shadows.ts), twice: compiled with the terrain's meshes and with the objects. */
   private depthCopy: [ShaderMaterial, ShaderMaterial] | null = null;
+  /** A copy of the drought line's materials. */
   private lineCopy: ShaderMaterial[] | null = null;
   /** Objects to compile a program with when nothing draws its material (`standIn`). */
   private standIns: Record<"mesh" | "instanced" | "bare", Object3D> | null = null;
@@ -492,6 +492,8 @@ export class MapRenderer {
   /** The shadow tops of the whole map (redone round each change), and the objects' casters. */
   private tops: { hi: Float32Array; lo: Float32Array } | null = null;
   private casters: Float32Array | null | undefined = undefined;
+  /** Every object's casters, the hidden and faded ones too (`casters` is what casts now: `castersNow`). */
+  private allCasters: Float32Array | null = null;
   /** The tiles of the plants a held weather day has surely killed (the High look's visible seasons, D250), the objects as
    *  drawn with them dead (for the shadows), and how many plants that is; the map's own plants are never changed. */
   private withered: Int32Array | null = null;
@@ -798,7 +800,8 @@ export class MapRenderer {
     }
     const c = this.highCopy;
     // (three.js reads a material's defines and nothing of its kind here: the depth material passes as one)
-    this.depthCopy ??= [0, 1].map(() => new MeshDepthMaterial({ side: DoubleSide }) as unknown as ShaderMaterial) as [ShaderMaterial, ShaderMaterial];
+    // (the sun's depth pass's own, with the objects' fade: shadows.ts `fadingDepth`)
+    this.depthCopy ??= [0, 1].map(() => fadingDepth(this.uniforms) as unknown as ShaderMaterial) as [ShaderMaterial, ShaderMaterial];
     const own = (m: ShaderMaterial): [ShaderMaterial, Defines] => [m, { ...(m.defines as Defines) }];
     const now = { cut: this.cutaway, caves: this.caveBranch, soil: this.runSoilBranch };
     const branches = [now, ...states].flatMap((st) => this.branchDefines([c.terrain], roofedOf(c), runSoilOf(c), st));
@@ -1389,7 +1392,9 @@ export class MapRenderer {
     this.sites = overlayTexture(W, H);
     this.sourceTiles = overlayTexture(W, H);
     this.tileTex = tileTexture(W, H, tiles);
-    this.casters = objectCasters(W, H, v.entities);
+    this.allCasters = objectCasters(W, H, v.entities);
+    this.casterPlaces = casterPlaces(v.entities, W);
+    this.casters = this.castersNow();
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
     this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns)));
     this.cave = CaveLight.build(source);
@@ -1712,9 +1717,56 @@ export class MapRenderer {
   private bakeShadows(onlyCasters = false): void {
     const m = this.map;
     if (!m || !this.lightTex) return;
-    const casters = objectCasters(m.W, m.H, this.drawnObjects ?? m.entities);
-    // (round each group of objects that changed, not their one bounding rectangle: plants drowned across a map)
-    const rects = onlyCasters && this.tops && this.casters !== undefined ? castersChangedRects(m.W, m.H, this.casters, casters) : undefined;
+    this.allCasters = objectCasters(m.W, m.H, this.drawnObjects ?? m.entities);
+    this.casterPlaces = casterPlaces(this.drawnObjects ?? m.entities, m.W);
+    this.castShadows(onlyCasters);
+  }
+
+  /** The casters whose model stands off their tile (objectFade.ts `casterPlaces`: the start). */
+  private casterPlaces = new Map<number, [number, number]>();
+  /** Two arrays the casters with the fade's taken out are written to in turn (`castersNow`): none made as it moves. */
+  private fadeCasters: [Float32Array, Float32Array] | null = null;
+  /** The tiles the casters can have changed in since the baked shadows were last cast round the fade: where its region
+   *  was and is (null: anywhere). */
+  private fadeArea: { x0: number; y0: number; x1: number; y1: number } | null = null;
+
+  /** The tiles a fade's region may drop casters in (the start's caster stands up to two tiles from its model). */
+  private fadeReach(f: FadeRegion | null): { x0: number; y0: number; x1: number; y1: number } | null {
+    if (!f) return null;
+    const r = f.radius + OBJECT_FADE_EDGE + 2;
+    return { x0: Math.floor(f.x - r), y0: Math.floor(f.y - r), x1: Math.floor(f.x + r), y1: Math.floor(f.y + r) };
+  }
+
+  /** What casts the baked shadows now: no object while they are hidden, none faded round the pointer (objectFade.ts;
+   *  the light look draws no shadows: all of them). */
+  private castersNow(): Float32Array | null {
+    const all = this.allCasters;
+    const m = this.map;
+    const f = this.fadeRegion;
+    if (this.objectsHiddenNow) return null;
+    if (!all || !f || !m || this.software) return all;
+    const a = this.fadeReach(f)!;
+    if (this.fadeCasters?.[0].length !== all.length) this.fadeCasters = [new Float32Array(all.length), new Float32Array(all.length)];
+    // (into the one the baked shadows are not cast from now)
+    const out = this.fadeCasters[0] === this.casters ? this.fadeCasters[1] : this.fadeCasters[0];
+    const places = this.casterPlaces;
+    const W = m.W;
+    const drop = (x: number, y: number) => {
+      const p = places.get(y * W + x);
+      return p ? shadowDropped(f, p[0], p[1]) : shadowDropped(f, x + 0.5, y + 0.5);
+    };
+    return withoutCasters(all, m.W, m.H, a.x0, a.y0, a.x1, a.y1, drop, out);
+  }
+
+  /** Bake the sun's shadows of what casts them now (`castersNow`): round the objects that changed when the ground did not
+   *  (`onlyCasters`), else the whole map. */
+  private castShadows(onlyCasters: boolean, area: { x0: number; y0: number; x1: number; y1: number } | null = null): void {
+    const m = this.map;
+    if (!m || !this.lightTex) return;
+    const casters = this.castersNow();
+    // (round each group of objects that changed, not their one bounding rectangle: plants drowned across a map; only
+    // within `area`, where nothing else can have changed)
+    const rects = onlyCasters && this.tops && this.casters !== undefined ? castersChangedRects(m.W, m.H, this.casters, casters, area ?? undefined) : undefined;
     this.casters = casters;
     if (rects === null) return;
     if (rects && this.tops) {
@@ -2595,6 +2647,8 @@ export class MapRenderer {
       const { group } = buildEntities(one, this.objectMat, null, 0, this.software);
       // (the High look's own models, D241: the ghost shows what will be placed)
       const undo = this.high?.decorate(group, one);
+      // (an editing aid: never faded round the pointer or hidden with the objects, objectFade.ts)
+      markEditingAid(group);
       // (its tint an editing aid, put on after the grade: materials.ts AID_TINT)
       const tint = g.ok === null ? null : g.ok === "warn" ? AID_TINT.ghost.warns : g.ok ? AID_TINT.ghost.fits : AID_TINT.ghost.refused;
       if (tint !== null)
@@ -2676,8 +2730,11 @@ export class MapRenderer {
     cam.lookAt(aim);
     const rt = new WebGLRenderTarget(px, px);
     // (the view's own draw counts stay as its last frame left them: a picture is not a frame of the view)
-    const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
+    const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, fade: this.uniforms.objectFade.value.w, hide: this.uniforms.objectHide.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
     this.uniforms.slice.value = 99;
+    // (a picture never shows the fade round the pointer or the objects hidden: objectFade.ts)
+    this.uniforms.objectFade.value.w = FADE_OFF;
+    this.uniforms.objectHide.value = 0;
     this.gl.setRenderTarget(rt);
     this.gl.setClearColor(0x000000, 0);
     const pixels = new Uint8Array(px * px * 4);
@@ -2715,6 +2772,8 @@ export class MapRenderer {
     this.gl.setClearColor(was.color, was.alpha);
     Object.assign(this.gl.info.render, was.counts);
     this.uniforms.slice.value = was.slice;
+    this.uniforms.objectFade.value.w = was.fade;
+    this.uniforms.objectHide.value = was.hide;
     rt.dispose();
     undo?.();
     disposeGroup(group);
@@ -3247,6 +3306,86 @@ export class MapRenderer {
     this.requestRender();
   }
 
+  /** The fade round the pointer now (objectFade.ts), or null. */
+  private fadeRegion: FadeRegion | null = null;
+  /** The fade moved since the baked shadows were cast round it. */
+  private fadeShadowsStale = false;
+  /** Whether the objects are hidden (`setObjectsHidden`). */
+  private objectsHiddenNow = false;
+
+  /** Seeing the land behind objects (objectFade.ts, an editing aid: the look never changes): every object whose place
+   *  is within `radius` tiles of (x, y) (the map's tiles, as the brush cursor's) shows only a quarter of itself and casts
+   *  no shadow, coming back to full a tile past the radius; null puts them all back. A uniform's write, nothing while
+   *  null; the baked shadows are cast again round it at the next frame, the High look's drawn again (at most every
+   *  tenth of a second). Never in a picture. Throws on a region that is not finite or has a negative radius. */
+  setObjectFade(region: { x: number; y: number; radius: number } | null): void {
+    if (!validRegion(region)) throw new RangeError(`an object fade needs a finite place and a radius of 0 or more, not ${JSON.stringify(region)}`);
+    const was = this.fadeRegion;
+    if (was === region || (was && region && was.x === region.x && was.y === region.y && was.radius === region.radius)) return;
+    this.fadeRegion = region ? { x: region.x, y: region.y, radius: region.radius } : null;
+    // (the tiles whose casters may change before the next frame: where it was and where it is, all its moves since the
+    // last frame's)
+    for (const r of [this.fadeReach(was), this.fadeReach(this.fadeRegion)]) {
+      const a = this.fadeArea;
+      if (r) this.fadeArea = a ? { x0: Math.min(a.x0, r.x0), y0: Math.min(a.y0, r.y0), x1: Math.max(a.x1, r.x1), y1: Math.max(a.y1, r.y1) } : r;
+    }
+    const u = this.uniforms.objectFade.value;
+    // (as coverage where the canvas is multisampled, a share of each pixel's samples; else a dither)
+    if (region) u.set(region.x, region.y, region.radius, this.software || this.canvasSamples < 2 ? FADE_DITHER : FADE_COVERAGE);
+    else u.w = FADE_OFF;
+    // (the baked shadows round the region and where it was, at the next frame; High's depth map)
+    if (!this.software) this.fadeShadowsStale = true;
+    this.high?.castersMoved();
+    this.requestRender();
+  }
+
+  /** The fade round the pointer now, or null (tests). */
+  get objectFade(): FadeRegion | null {
+    return this.fadeRegion ? { ...this.fadeRegion } : null;
+  }
+
+  /** Hide every object (while the page's key is held): none drawn (the objects' program discards them), none casting a
+   *  shadow (the baked shadows baked again round the objects, the High look's drawn again), none shading the ground;
+   *  the pits below their feet stay, the land's own shape (objectFade.ts). False shows them again. Never in a
+   *  picture. */
+  setObjectsHidden(on: boolean): void {
+    if (this.objectsHiddenNow === on) return;
+    this.objectsHiddenNow = on;
+    this.uniforms.objectHide.value = on ? 1 : 0;
+    // (every object's casters change: a fade's waiting cast is in this one)
+    this.fadeShadowsStale = false;
+    this.fadeArea = null;
+    this.castShadows(true);
+    this.high?.objectsHiddenChanged();
+    this.requestRender();
+  }
+
+  get objectsHidden(): boolean {
+    return this.objectsHiddenNow;
+  }
+
+  /** Objects faded as coverage wrote its alpha into the canvas, which has an alpha channel: the page would show through
+   *  them where the land should. The canvas's alpha is made whole again (a clear of its alpha alone, while fading). */
+  private opaqueCanvas(): void {
+    const ctx = this.gl.getContext();
+    ctx.colorMask(false, false, false, true);
+    ctx.clearColor(0, 0, 0, 1);
+    ctx.clear(ctx.COLOR_BUFFER_BIT);
+    ctx.colorMask(true, true, true, true);
+    // (three.js's record of the mask and the clear colour forgotten: it sets both again before it next uses them)
+    this.gl.state.buffers.color.reset();
+  }
+
+  /** The default framebuffer's samples (0 or 1: not multisampled), read once. */
+  private get canvasSamples(): number {
+    if (this.samplesRead === null) {
+      const ctx = this.gl.getContext();
+      this.samplesRead = Number(ctx.getParameter(ctx.SAMPLES)) || 0;
+    }
+    return this.samplesRead;
+  }
+  private samplesRead: number | null = null;
+
   /** Remesh every terrain chunk the renderer would touch for the tiles in rect (tests). */
   remeshRect(rect: { x0: number; y0: number; x1: number; y1: number }): number {
     const m = this.map;
@@ -3589,6 +3728,13 @@ export class MapRenderer {
       this.cursor.set(this.brushCursorState, this.cursorHeights(), this.map.W, this.map.H);
     }
     if (this.hollowStale) this.layHollow();
+    // (the baked shadows round the fade, once a frame however often it moved)
+    if (this.fadeShadowsStale) {
+      this.fadeShadowsStale = false;
+      const area = this.fadeArea;
+      this.fadeArea = null;
+      this.castShadows(true, area);
+    }
     // a stroke's water still to draw: a few milliseconds of it a frame (updateWaterSoon)
     if (this.waterQueue.size || this.waterReady) {
       this.drainWater(WATER_MESH_BUDGET_MS);
@@ -3618,6 +3764,7 @@ export class MapRenderer {
     this.runRows.flush();
     this.stillRows.flush();
     this.gl.render(this.scene, cam);
+    if (this.uniforms.objectFade.value.w === FADE_COVERAGE) this.opaqueCanvas();
     this.endCost(cost, t0);
     this.endGpuTimer(q);
     if (this.recording) this.cpuTimes.push(performance.now() - t0);

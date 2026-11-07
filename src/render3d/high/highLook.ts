@@ -94,7 +94,7 @@ export class HighLook {
   private sky = { value: new Color() };
   private vegTime = { value: 0 };
   private vegSway = { value: 1 };
-  private shadows = new SunShadows();
+  private shadows: SunShadows;
   private forest: Forest | null = null;
   private landmarks: Replacement[] = [];
   private objects: Group | null = null;
@@ -112,6 +112,7 @@ export class HighLook {
 
   constructor(private host: HighHost) {
     const u = host.uniforms;
+    this.shadows = new SunShadows(u);
     const high = {
       ...this.switches,
       sunColor: this.sun,
@@ -327,7 +328,13 @@ export class HighLook {
     this.shadows.dirty = true;
   }
 
-  /** The objects moved with the ground (a brush): the shadows. */
+  /** The objects were hidden or shown (`MapRenderer.setObjectsHidden`): their shadows. (No canopies' shade: High's
+   *  ambient occlusion went with D497.) */
+  objectsHiddenChanged(): void {
+    this.shadows.dirty = true;
+  }
+
+  /** The objects moved with the ground (a brush), or the fade round the pointer moved (objectFade.ts): the shadows. */
   castersMoved(): void {
     this.shadows.dirty = true;
   }
