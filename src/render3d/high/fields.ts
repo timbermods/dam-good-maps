@@ -194,8 +194,9 @@ export class AmbientField {
       this.texture.needsUpdate = true;
       this.changed();
     }, () => {
-      // (the bake failed: the ground stays without occlusion, the quiet start's look)
+      // (the bake failed: the ground stays without occlusion, the quiet start's look; told, so a wait on it ends)
       if (id === this.latest) this.done = id;
+      this.changed();
     });
   }
 
@@ -225,9 +226,16 @@ export class AmbientField {
         this.changed();
       },
       () => {
+        // (told, so a wait on it ends)
         if (id === this.coverAsked) this.coverDone = id;
+        this.changed();
       },
     );
+  }
+
+  /** Whether some occlusion round a brush's changes still waits for a frame to redo it (`catchUp`). */
+  get waiting(): boolean {
+    return this.stale !== null;
   }
 
   /** The terrain round a rectangle of changed heights (redone by `catchUp`, before the next frame). */
