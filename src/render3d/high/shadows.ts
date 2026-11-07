@@ -18,6 +18,9 @@ export const CASTER_LAYER = 1;
 
 export class SunShadows {
   readonly target: WebGLRenderTarget;
+  /** The sun's view of the map the depth map was drawn with (the shaders' `hlShadowMatrix`): it moves only when the map
+   *  is drawn, so a frame never reads a depth map through another sun's matrix (the shadows sliding as the camera
+   *  turns, then snapping back). */
   readonly matrix = new Matrix4();
   private camera = new OrthographicCamera();
   private depth: MeshDepthMaterial;
@@ -57,7 +60,6 @@ export class SunShadows {
     this.camera.lookAt(this.centre);
     this.camera.updateProjectionMatrix();
     this.camera.updateMatrixWorld(true);
-    this.matrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
     this.dirty = true;
   }
 
@@ -74,6 +76,7 @@ export class SunShadows {
       gl.setClearColor(0xffffff, 1);
       gl.clear();
       gl.render(scene, this.camera);
+      this.matrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
       this.passes++;
       this.dirty = false;
     } finally {

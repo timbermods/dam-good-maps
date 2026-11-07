@@ -28,7 +28,7 @@
 // caller sets with `setNow(ms)` before it draws each frame with `renderNow()`; `setClock(seconds)` holds the water's.
 // A recording takes no input, as a still view, and keeps every animation. Timings and budgets stay on the wall clock.
 // `whenDrawn()` resolves when everything a frame shows is in: the water chunks with the mesher workers, the programs
-// (and High's own fields, flow and canopy shade), the moving water's flow, the baked shadows.
+// (and High's own: its water's flow, its sun's depth map), the moving water's flow, the shadows baked for the camera's sun.
 
 import {
   BufferGeometry,
@@ -1109,7 +1109,7 @@ export class MapRenderer {
     return this.lookWaiting === null && this.programs.settled;
   }
 
-  /** The page's bake worker (the moving water's fields and shapes, High's occlusion), shared by every
+  /** The page's bake worker (the moving water's fields and shapes; the sun's shadows have their own), shared by every
    *  view. */
   private get baker(): Baker {
     return pageBaker();
@@ -3949,8 +3949,8 @@ export class MapRenderer {
   }
 
   /** Everything a frame shows is in: the water chunks (none waiting or with the mesher workers), the programs (and in
-   *  High the look's own: its fields, its water's flow, the canopies' shade), the moving water's flow, and the baked
-   *  shadows (none waiting on their timer). All on the same check, since a later batch can queue behind an earlier one.
+   *  High the look's own: its water's flow, its sun's depth map), the moving water's flow, and the baked shadows (none
+   *  waiting on their timer, none in flight for the camera's sun). All on the same check, since a later batch can queue behind an earlier one.
    *  The drought layer's background draw (the drought line, Badtide) is not waited on: the recording it is for, the time-lapse
    *  (editor/timelapse/record.ts), never sets a season, so its views never show one. */
   private get drawnAll(): boolean {
@@ -3958,12 +3958,14 @@ export class MapRenderer {
     if (this.disposed || !this.map) return true;
     if (this.pendingLand || !this.waterDrawn || this.casterTimer || this.lifeTimer) return false;
     if (!this.programsSettled || !(this.waterMotion?.ready ?? true)) return false;
+    // (the shadows baked for the camera's sun: none in flight, none still to ask for)
+    if (this.sunBaking || sunApart(sunOfYaw(this.view.yaw), this.sun) >= SUN_SAME) return false;
     return !this.high || (this.high.settled && this.high.caughtUp);
   }
 
   /** Resolves when everything the next frame shows is in (`drawnAll`): checked after each frame and as each timer that
    *  draws nothing goes off, never on a fixed wait (each piece asks for a frame as it lands, and those that move on with
-   *  frames, a stroke's water meshed a few milliseconds a frame and High's occlusion, ask for the next themselves). A
+   *  frames, a stroke's water meshed a few milliseconds a frame and the sun's bake, ask for the next themselves). A
    *  recording waits on it before drawing a frame of a changed map. */
   whenDrawn(): Promise<void> {
     if (this.drawnAll) return Promise.resolve();
