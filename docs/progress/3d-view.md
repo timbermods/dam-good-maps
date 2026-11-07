@@ -1164,6 +1164,60 @@ the game's models in resources.assets (positions, materials and texture means on
   85/66/66 on islands-128-2-end), which clean water doesn't show; the grass, cliff and vein findings above; P6 (the
   detail albedo) comes next.
 
+## The light as the game sets it (D496, D497; `fix/water-light`)
+
+- **The reflection intensity is 1, in both looks:** the game's `Sun.UpdateColors` (decompiled `Timberborn.SkySystem`)
+  sets `RenderSettings.reflectionIntensity` every frame from its day stage's `ReflectionsIntensity`, 1.0 at all four
+  stages in `Sun.blueprint`, so the scene's saved `m_ReflectionIntensity` 0.65, which D497 took, never shows in play
+  (`GAME_FINISH.reflectionIntensity`, `WATER_SURFACE.reflection`; D497 amended).
+- **The land's albedo recalibrated:** `tools/albedo-means.ts` had left the post chain in after the finish moved into
+  `finish()`, so it read our albedo 3–5 % high and the colours were calibrated 3–5 % low; its patches now throw when one
+  finds nothing. Measured again (Standard, Canyon 1 and River Valley 4242, display 0–255): dry ground 66.7/55.1/44.7,
+  all-grass tops 70.1/77.9/27.5, walls 65.4/60.1/50.4 against the game's 69.2/57.1/46.1, 73.6/80.2/27.5 and 68/62/52.
+  Each kind's colours scaled by one factor per channel (`GROUND`, `WALL`, High's strata), they now read 69.1/57.0/46.2,
+  73.7/80.2/27.5 and 67.9/62.0/51.9; High 68.5/56.7/45.9, 68.2/77.9/30.7 and 68.1/62.0/52.0.
+- **The ambient term:** the game's ambient is Unity's Trilight (`RenderSettings.ambientMode = Trilight`, its three
+  colours set every frame), which `RenderSettings.ambientIntensity` (the scene's `m_AmbientIntensity` 1.2) does not
+  scale; so ours stays as it is. (The judge's `--ambient 1.2` would take grass to 15.3 and cliffs to 17.6 on the start
+  shots, but it is not the game's term.)
+- **The land on the judge** (RMS to the game's pixels, display RGB 0–255, with the mean's distance (bias); dev → this
+  branch):
+
+  | shots | material | Standard | High | floor |
+  |---|---|---|---|---|
+  | the six clean-water start shots (day; 4,394 samples) | grass (137) | 17.9 (14.8) → 15.5 (11.6) | 19.0 (15.2) → 16.7 (12.0) | 16.7 |
+  | | dry (3,531) | 9.8 (3.7) → 9.5 (2.5) | 10.1 (4.1) → 9.9 (3.3) | 11.9 |
+  | | cliff (726) | 19.3 (15.3) → 18.1 (13.6) | 19.7 (15.6) → 18.8 (14.4) | 19.6 |
+  | | all | 12.2 (7.5) → 11.6 (6.3) | 12.6 (7.8) → 12.1 (6.9) | 13.6 |
+  | the six badwater frames (sunrise, sunset; 4,001) | dry (3,592) | 8.4 (3.0) → 8.4 (2.9) | 8.6 (4.0) → 8.4 (3.5) | 10.7 |
+  | | cliff (409) | 14.3 (10.7) → 13.6 (9.6) | 15.3 (11.7) → 14.6 (10.6) | 16.0 |
+  | | all | 9.2 (4.4) → 9.1 (4.1) | 9.5 (5.4) → 9.2 (4.8) | 11.4 |
+  | six start shots with badwater in view (day; 3,684) | grass (104) | 14.7 (9.7) → 13.0 (6.3) | 17.6 (13.1) → 15.5 (9.8) | 8.3 |
+  | | dry (2,992) | 9.4 (3.9) → 8.9 (2.1) | 10.0 (4.8) → 9.4 (3.1) | 10.8 |
+  | | cliff (588) | 17.6 (13.7) → 16.4 (12.1) | 18.2 (14.3) → 17.3 (13.1) | 18.7 |
+  | | all | 11.3 (6.7) → 10.6 (5.3) | 12.0 (7.5) → 11.3 (6.2) | 12.4 |
+
+  The reflection alone moved the land by 0.1–0.6 (grass 17.9 → 17.3 in Standard on the start shots); the albedo the
+  rest. Water: clean water on the start shots 15.2 → 15.6 (the ground seen through it, a shade lighter).
+
+- **Badwater against clean water, by day:** the game draws badwater darker. On the six start shots with badwater in
+  view, in the day's light, the game's own pixels read L* 27.5 for pure badwater a level or two deep (73 tiles) against
+  31.7 for clean water (10,063); only toward sunset does the order turn (islands-128-2-end, 55 % of the way to the
+  sunset's light: 33.3 against 28.2), the frame `fix/water-badwater`'s amendment rested on. That amendment is withdrawn
+  (D496 amended again): badwater the darker, by about the game's 4 L*, which `look-water-slopes` holds from half a level
+  to two levels deep and `waterShown`'s order checks hold on the shipped colours.
+- **Badwater's colour by look** (`GAME_BADWATER.use`, split: `BADWATER_FORMULA` for Standard and the light look,
+  `BADWATER_FORMULA_HIGH` for High's water): pure badwater, ours / the formula, at the frames' hours (4,592 tiles)
+  Standard 18.0 / 8.3, High 9.8 / 10.9; by day (104 tiles) Standard 19.3 / 12.9, High 12.5 / 15.8; the mixed front (19,318) Standard 14.7 / 9.7, High 9.4 / 11.2. Standard takes the
+  formula, High keeps our crimson; both keep the day order on screen (Standard 24.7 against 33.2 for clean water, High
+  26.3 against 32.2; dev's Standard drew them alike, 32.9 against 33.0).
+- **The sheet:** `docs/sheets/water-light.jpg` (`tools/capture-water-light.ts`): dev against this branch, Standard and
+  High, a grassy valley, a cliff, a lake, pure badwater and badwater meeting clean water.
+- **Falls short:** grass and cliffs still read darker than the game's (bias 6–14); some near cliff bands read 40
+  darker where the game shows a top's colour (lakeBasin-1, highlands-1), likely the game's bevelled `CliffEdge`
+  geometry rather than the light; High's grass albedo 68/78/31 against the game's 74/80/28 (its soil edges and colour
+  variation); the formula reads 3–4 L* too dark; the veins; the day's badwater evidence is 104 tiles.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

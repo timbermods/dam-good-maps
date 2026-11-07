@@ -245,8 +245,8 @@ export const GAME_BADWATER = {
    *  near sunset, 4,592 tiles) and by day (six start shots with badwater in view, 104 tiles), at the reflection
    *  intensity the game sets (1, 2026-11-07). */
   judged: {
-    atHour: { standard: { ours: 17.9, formula: 8.2 }, high: { ours: 9.8, formula: 10.9 }, tiles: 4592 },
-    day: { standard: { ours: 19.2, formula: 12.8 }, high: { ours: 12.4, formula: 15.8 }, tiles: 104 },
+    atHour: { standard: { ours: 18.0, formula: 8.3 }, high: { ours: 9.8, formula: 10.9 }, tiles: 4592 },
+    day: { standard: { ours: 19.3, formula: 12.9 }, high: { ours: 12.5, formula: 15.8 }, tiles: 104 },
   },
   colorA: [0.02, 0.01993, 0.0196] as Rgb,
   colorB: [0.5, 0.1223, 0.04481] as Rgb,
