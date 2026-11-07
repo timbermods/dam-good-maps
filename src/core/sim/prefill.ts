@@ -196,6 +196,9 @@ export interface CanonicalWater extends SettleResult {
   /** On terrain above terrain (`WaterModel.stacked`): the settle on every water column, slot by
    *  slot. The fields above are then the map from above, each tile's top column. */
   stack?: StackSettle;
+  /** A preview of terrain above terrain (the editor's journey after an edit, sim/stackLive.ts): the last canonical
+   *  settle it warm-started from, whose shortcut (`settledAgain`) the next canonical settle may still take. */
+  canonical?: SettledFrom;
 }
 
 /** A settle to start from: the canonical settle `water` of the water model `model`. */
@@ -227,8 +230,10 @@ function stackedRun(m: WaterModel, from?: SettledFrom | null): { advance(ticks: 
     }
     return { settled: s.settled, ticks: s.ticks, ...(s.steadyTicks !== undefined ? { steadyTicks: s.steadyTicks } : {}), depth, contamination, sat, stack: s };
   };
-  const prev = from && !from.water.preview && from.water.stack ? from.water.stack : null;
-  const again = prev ? settledAgain(prev, from!.model, m) : null;
+  // (a preview's own canonical settle, when it keeps one: the shortcut compares the map with that settle's)
+  const base = from?.water.preview ? from.water.canonical : from;
+  const prev = base && !base.water.preview && base.water.stack ? base.water.stack : null;
+  const again = prev ? settledAgain(prev, base!.model, m) : null;
   if (again) {
     const done = top(again);
     return { advance: () => done, ticks: again.ticks, maxTicks: Math.max(1, again.ticks) };
