@@ -266,7 +266,7 @@ place of its bottom rule.
     left in the row go when the selection closes or changes; Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
     the selection's bounding rectangle (any shape of selection; `useSelect.tsx`, the worker's `cropPlanAt` and `cropTo`).
     Greyed (`aria-disabled`, so the hover still speaks) with nothing selected ("Select an area to crop") and whenever the
-    core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut): hovering or focusing it says
+    core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut; `cropFalls`: ground the edge would leave unheld): hovering or focusing it says
     "Can't crop this" and puts the core's one-line reason, word for word, on the message line; pressing it says the reason
     again, never clamped (with nothing selected the row's words are the one place it says so, and no note repeats it). Enabled, hovering says "32 × 24", adding "; cuts 3 objects" when the edge
     cuts any (the row's words take the three cells beside the shapes, and no words are ever cut off). The map is then
