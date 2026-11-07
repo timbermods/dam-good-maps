@@ -10,6 +10,7 @@ import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { MAX_DABS, strokeParts, type BrushParams } from "../../src/core/features/raster/brush";
+import { groundUnderObjects } from "../../src/core/features/raster/objectGround";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -22,16 +23,16 @@ const session = () => {
   return s;
 };
 
-/** Back and forth along rows 20 to 27 of the map's west half, a dab every quarter tile: `n` dabs. */
-function path(n: number): number[] {
+/** Back and forth along rows 20 to 27 (by default from x = 10 to 30), a dab every quarter tile: `n` dabs. */
+function path(n: number, x0 = 40, x1 = 120): number[] {
   const out: number[] = [];
-  let x = 40;
+  let x = x0;
   let y = 82;
   let dir = 1;
   for (let k = 0; k < n; k++) {
     out.push(x, y);
     x += dir;
-    if (x > 120 || x < 40) {
+    if (x > x1 || x < x0) {
       dir = -dir;
       x += 2 * dir;
       y = y >= 110 ? 82 : y + 4;
@@ -41,13 +42,14 @@ function path(n: number): number[] {
 }
 
 /** The page's preview of the whole stroke on `s` (its dabs a few hundred at a time, as the page sends them): the heights
- *  it shows. */
-function preview(s: MapSession, stroke: BrushParams): Uint8Array {
+ *  it shows, and the stroke as the page then sends it (with what the preview recorded in its settings). */
+function preview(s: MapSession, stroke: BrushParams): { shown: Uint8Array; sent: BrushParams } {
   const { dabs, ...settings } = stroke;
   const shown = s.built.heights.slice();
-  const p = new StrokePreview(settings, s.terrainState(), shown, W, W);
+  // (with the ground under the objects, which a weathering Naturalize leaves, as the page hands it in)
+  const p = new StrokePreview(settings, s.terrainState(), shown, W, W, groundUnderObjects(s.built.entities));
   for (let k = 0; k < dabs.length; k += 512) p.add(dabs.slice(k, k + 512));
-  return shown;
+  return { shown, sent: { ...settings, dabs } };
 }
 
 /** Applies `stroke` past the limit on `s`: the preview's map, in `parts` operations as one step, saved and reopened the
@@ -55,8 +57,8 @@ function preview(s: MapSession, stroke: BrushParams): Uint8Array {
 function expectAsShown(s: MapSession, stroke: BrushParams, parts: number): void {
   const before = s.built.heights.slice();
   const steps = s.history().length;
-  const shown = preview(s, stroke);
-  const res = s.apply({ op: "brush", params: stroke } as EditOp, "user", "Raise");
+  const { shown, sent } = preview(s, stroke);
+  const res = s.apply({ op: "brush", params: sent } as EditOp, "user", "Raise");
   expect(res.errors).toEqual([]);
   expect(res.applied.length).toBe(parts);
   expect(res.applied.slice(1).every((a) => a.op === "brush" && a.params.continues === true)).toBe(true);
@@ -83,6 +85,11 @@ describe("a stroke past MAX_DABS is the stroke the page showed", () => {
 
   it("a soft stroke: its falloff carries on across the parts", () => {
     expectAsShown(session(), { tool: "raise", size: 1, strength: 5, dabs: path(MAX_DABS + 500) }, 2);
+  }, 300_000);
+
+  it("a weathering Naturalize stroke whose parts cover different ground: what it records is the whole stroke's", () => {
+    // (its record, the ring and the ground it leaves, is worked out for the whole stroke, never a part's box)
+    expectAsShown(session(), { tool: "naturalize", size: 3, strength: 5, seed: 7, weathers: true, dabs: [...path(MAX_DABS), ...path(3_000, 80, 200)] }, 2);
   }, 300_000);
 
   it("a stroke past the limit in a group (a Clear sources stroke's, with what it removes) is applied, never refused", () => {

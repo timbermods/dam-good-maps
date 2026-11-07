@@ -243,10 +243,17 @@ export function strokeParts(p: BrushParams): BrushParams[] {
   return out;
 }
 
-/** What a stroke's operations share, the same on each of its parts: everything but its dabs and what goes with them. */
+/** What a stroke's operations share, the same on each of its parts: everything but its dabs and what goes with them
+ *  (worked out once an operation). */
+const settingsKeys = new WeakMap<object, string>();
 function strokeSettings(p: BrushParams): string {
-  const { dabs: _d, pressure: _p, levels: _l, hold: _h, rigid: _r, slopes: _s, continues: _c, ...rest } = p;
-  return JSON.stringify(rest);
+  let k = settingsKeys.get(p);
+  if (k === undefined) {
+    const { dabs: _d, pressure: _p, levels: _l, hold: _h, rigid: _r, slopes: _s, continues: _c, ...rest } = p;
+    k = JSON.stringify(rest);
+    settingsKeys.set(p, k);
+  }
+  return k;
 }
 
 /** Joined strokes, by their last part's operation (a build joins the same ones each time). */
