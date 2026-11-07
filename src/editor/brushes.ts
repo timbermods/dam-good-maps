@@ -209,6 +209,9 @@ export interface PainterHost {
 }
 
 /** Quarter tiles, for a dab's centre on a map `size` tiles across. */
+/** Smart Lower deepens water at least this deep (in levels); thinner water, a source's sheet over flat ground, it
+ *  cuts a new channel from (D263, showcase-craft gap 3). */
+const DEEPENS = 0.5;
 const q = (v: number, size: number) => Math.max(0, Math.min(4 * size - 1, Math.round(v * 4)));
 
 interface StrokeState {
@@ -512,14 +515,15 @@ export class BrushPainter {
     return false;
   }
 
-  /** Smart Lower's start (D263): the tiles wet now, and the bed a new channel starts at: a level
-   *  below the surface of the water round (x, y), never below that water's own bed (the lowest
-   *  ground round the first dab, as the stroke reads it). */
+  /** Smart Lower's start (D263): the tiles of water deep enough to deepen (half a level or more: a source's thin
+   *  sheet over flat ground is no pond, so a stroke from it cuts a new channel, showcase-craft gap 3), and the bed a new
+   *  channel starts at: a level below the surface of the water round (x, y), never below that water's own bed (the
+   *  lowest ground round the first dab, as the stroke reads it). */
   private channelStart(x: number, y: number): { wet: Uint8Array; bed: number } {
     const h = this.host;
     const { W, H } = h;
     const wet = new Uint8Array(W * H);
-    if (h.wet) for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (h.wet(tx, ty)) wet[ty * W + tx] = 1;
+    if (h.wet) for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (h.wet(tx, ty) && (h.depth?.(tx, ty) ?? DEEPENS) >= DEEPENS) wet[ty * W + tx] = 1;
     const pre = h.terrain().pre;
     const shown = h.heights();
     const cx = Math.max(0, Math.min(W - 1, Math.floor(x)));
@@ -530,7 +534,7 @@ export class BrushPainter {
       for (let tx = Math.max(0, cx - 1); tx <= Math.min(W - 1, cx + 1); tx++) {
         const i = ty * W + tx;
         low = Math.min(low, pre[i]);
-        if (wet[i]) surface = Math.max(surface, shown[i] + (h.depth?.(tx, ty) ?? 0));
+        if (h.wet?.(tx, ty)) surface = Math.max(surface, shown[i] + (h.depth?.(tx, ty) ?? 0));
       }
     const bed = surface < 0 ? low : Math.max(low, Math.round(surface) - 1);
     return { wet, bed: Math.max(0, Math.min(BRUSH_MAX_LEVEL, bed)) };

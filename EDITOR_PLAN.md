@@ -1340,7 +1340,8 @@ stroke records the options it used:
 - A Lower stroke that starts in or beside water records `channel` (smart Lower) and how deep it may cut (D263): a
   new channel its `bed` (one level below the surface of the water round its first dab, never below that water's own
   bed) and `dry`; a stroke that never leaves the water it began in is a deepening pass (`deepen`: a level off what
-  the brush's middle passes over, once). The bed never rises along the stroke, so the replay carves the same bed.
+  the brush's middle passes over, once). Only water half a level deep or more is deepened: a source's thin sheet over
+  flat ground is no pond, so a stroke from it is a new channel. The bed never rises along the stroke, so the replay carves the same bed.
   Strokes saved before D263 keep their old start and replay exactly.
 - Also recorded: the brush kit's options (`square`; `shape: "area"`, Timberborn's Terrain on Raise and Lower: a
   rectangle between the stroke's two dabs, every tile to the tool's Level, or a block up or down per tile on Free; one
