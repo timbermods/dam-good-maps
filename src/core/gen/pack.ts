@@ -185,15 +185,23 @@ export function toWorld(spec: MapSpec, built: BuildResult, opts: PackOptions = {
 /** A new map with terrain above terrain (a generated map's 3D forms, D488, or the Block tool's caves on
  *  one): its voxels as the build's runs, and its water on every water column and its soil on every
  *  run (D120), as the game saves such a map (world.ts `stackedSimulationSingletons`), from the build's
- *  stacked settle; with `empty`, no water, as a heightfield's empty copy. */
+ *  stacked settle; with `empty`, no water, as a heightfield's empty copy: every water column and run
+ *  written dry, at the levels the caves need (the game refuses water saved with fewer). */
 export function stackedWorld(world: WorldModel, built: BuildResult, empty: boolean): WorldModel {
   const { W, H } = built;
   const terrain = new ColumnTerrain(W, H, built.waterModel.stacked!.mask);
   const voxels = terrain.voxels(LAYERS);
   const stack = built.settle.stack;
-  if (empty || !stack) return { ...world, voxels };
+  if (!empty && !stack) return { ...world, voxels };
   const objects = built.entities.map(toMapObject);
   const cols = waterColumns(terrain, objects);
+  if (empty || !stack) {
+    const runs = runColumns(terrain);
+    const dry = new Float32Array(cols.L * W * H);
+    const soil = new Float32Array(runs.T * W * H);
+    const singletons = stackedSimulationSingletons(W, H, { cols, depth: dry, overflow: dry, contamination: dry, sat: dry, runs, moisture: soil, soilContamination: soil });
+    return { ...world, voxels, singletons };
+  }
   if (cols.L !== stack.L || cols.count.some((c, i) => c !== stack.count[i])) throw new Error("the settled water does not fit the map's caves: settle the water again");
   const soil = stackedSoil(terrain, cols, stack, objects);
   const singletons = stackedSimulationSingletons(W, H, { cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: soil.moisture, soilContamination: soil.contamination });

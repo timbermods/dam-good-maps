@@ -420,6 +420,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }, [ready]);
   const setWeather = (on: Hazard | null) => {
     weatherRef.current = on;
+    // (the water drawn from here is a held day's, which an edit never carries on its land: it keeps its surface, D133)
+    renderer.current?.holdWater(on !== null);
+    // (held, the water drawn is the renderer's own copy: the readout reads that one)
+    const drawn = comparing.current ? null : renderer.current?.mapState()?.surface;
+    if (drawn) mirror.current.water = drawn;
     if (on !== firstNews.current?.hazard) firstNews.current = null;
     setStartWater((n) => (n && n.hazard === on ? n : null));
     setWeatherState(on);
@@ -556,6 +561,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setMessage({ kind: "info", text: "A force is at work: it is kept when it ends. Skip it to its end or take it back first." });
       return Promise.resolve();
     }
+    // (an undo has taken the kept force's tails back already, on its key)
+    juice.current?.edited();
     const next = queue.current.then(async () => {
       setBusy((b) => b + 1);
       try {

@@ -13,7 +13,7 @@ import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { GROUND } from "../../src/render3d/palette";
 import { CHUNK } from "../../src/render3d/mesh";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
-import { BADWATER, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
+import { BADWATER, WATER_SURFACE, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
 import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
 
@@ -161,10 +161,11 @@ describe("badwater meeting clean water", () => {
         if (top) expect(c).toBe(x < 2.5 ? 1 : 0);
       }
     }
-    // (D148: the fall was a curtain; since D201 it pours from the lip, and carries its badwater
-    // share at both corners)
-    expect(m.fallCount).toBe(1);
-    expect([m.falls[12], m.falls[13]]).toEqual([1, 1]);
+    // (D148: the fall was a curtain, then from D201 a ribbon from the lip; since D201's amendment (2026-10-29) a curtain
+    // again, as the game draws it, with the pool's share at every corner)
+    const fall = [...Array(m.quads).keys()].filter((q) => m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 3) < 0.05 && m.flags[q * 4] === 90);
+    expect(fall.length).toBe(1);
+    expect([0, 1, 2, 3].map((v) => m.data[(fall[0] * 4 + v) * 2 + 1])).toEqual([1, 1, 1, 1]);
   });
 
   it("remeshes every chunk the blend reaches when the badwater changes", () => {
@@ -232,8 +233,11 @@ describe("badwater's colour", () => {
     expect(badwaterOpacity(0.005)).toBeLessThan(badwaterOpacity(0.05));
     // matte: a twelfth of clean water's glints and glint, and a trace of the sky
     expect(BADWATER.glints).toBeLessThan(0.1);
-    expect(BADWATER.spec).toBeLessThan(0.1);
-    expect(BADWATER.reflect).toBeLessThan(0.1);
+    // matte by the game's own smoothness (_Contamination_Smoothness 0.15 against clean water's about 0.25, the soft-lit
+    // gloss map's median): its sky reflection and sun glint from the same lighting, weaker (D148: these were #38's own
+    // reflect 0.03 and spec 0.04)
+    expect(BADWATER.smoothness).toBe(0.15);
+    expect(WATER_SURFACE.smoothness).toBe(0.25);
     expect(badwaterBody(BADWATER.shallow)).toEqual(WATER.bad);
     // darker with depth (option A's depth darkening, now the game's ramp, checked against it below; option A's
     // own "15 L* darker at 4 levels" went with its curve, D148)
@@ -272,7 +276,9 @@ describe("badwater's colour", () => {
         const c = waterBody(d, s);
         const k = waterTint(s);
         // straight between clean water's and badwater's on display values, by the tint (the game's mix, in
-        // Gamma colour space); blue the same or under it where it is kept from leaning purple
+        // Gamma colour space), badwater's with the game's glow of shallow water partly bad (badwaterGlow);
+        // blue the same or under it where it is kept from leaning purple
+        const bad = badwaterGlow(badwaterBody(d), WATER.bad, d, s);
         for (const i of [0, 1]) expect(c[i]).toBeCloseTo(clean[i] + (bad[i] - clean[i]) * k, 9);
         expect(c[2]).toBeLessThanOrEqual(clean[2] + (bad[2] - clean[2]) * k + 1e-9);
         // darker at every step in greyscale too, and no jump in any channel (the game's tint is steep
@@ -283,6 +289,15 @@ describe("badwater's colour", () => {
         prev = c;
       }
     }
+  });
+
+  it("glows orange in the shallowest water partly bad, as the game's (badwaterGlow)", () => {
+    // the game's contaminated colour goes toward itself × (3, 1.5, 0) by G^10 × saturate(1 − share / 0.6)
+    const film = badwaterGlow(badwaterBody(0.05), WATER.bad, 0.05, 0.2);
+    expect(film[0]).toBeGreaterThan(badwaterBody(0.05)[0] + 0.1);
+    expect(film[2]).toBeLessThan(badwaterBody(0.05)[2]);
+    // none half a level down, nor in water three fifths bad or worse
+    for (const [d, s] of [[0.6, 0.2], [0.05, 0.6], [0.05, 1]] as const) for (let k = 0; k < 3; k++) expect(badwaterGlow(badwaterBody(d), WATER.bad, d, s)[k]).toBeCloseTo(badwaterBody(d)[k], 2);
   });
 
   it("never looks purple or magenta, passes the game's teal-grey and reads warm from three fifths bad (Kyler's review of #41)", () => {
@@ -339,7 +354,7 @@ describe("badwater's colour", () => {
       const shader = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite).fragmentShader;
       expect(shader).toContain(WATER_GLSL);
       expect(shader).toContain("float bad = waterTint(cont);");
-      expect(shader).toContain("vec3 murky = badwaterBody(depth);");
+      expect(shader).toContain("vec3 murky = badwaterGlow(badwaterBody(depth), BADWATER_BODY, d, cont);");
       expect(shader).toContain("vec3 c = waterBlend(body, murky, cont);");
       expect(shader).toContain("alpha = mix(alpha, badwaterAlpha(depth, shore), bad);");
       // the old streaks of mixed water are gone; the bubbles grow denser with the share

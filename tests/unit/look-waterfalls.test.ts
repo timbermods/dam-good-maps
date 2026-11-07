@@ -1,21 +1,21 @@
-// Waterfalls with shape and volume (PLAN §20 D201, D215): where water pours over a lip into lower
-// water, it leaves the lip and arcs outward and down into the pool, further for stronger flow; a wide
-// fall is one ribbon, closed only at its free ends, and a lip that turns a corner (an L-shaped lip, a
-// staircase) is one sheet, with no gap where the sides meet; whitewater where it lands stays in its
-// pool; a stepped cascade is a fall at every step, each with its own lip and splash; badwater falls
-// take badwater's colours and stay apart from clean falls in greyscale and with colour blindness;
-// the falls follow every water update. Rendering only: the map's bytes are pinned by
-// tests/contract/look-mine-ruins.test.ts.
+// Waterfalls as the game draws them (PLAN §20 D201, amended 2026-10-29; D148: this file's tests of the arcing ribbon,
+// its lip foam, crown, landing whitewater and template went with them). Timberborn 1.1.2.8 draws a fall as the water
+// mesh's own vertical face where the water steps down (its FindWaterfalls compute pass marks the faces), with the
+// same PhysicalWaterURP material as the surface: the water's own colour, its texture carried down the face by the
+// flow map, the ground behind showing by `_TransparencyWaterfallDepth` 0.2 × `_TransparencyDepthModifier` 0.5, and
+// no whitewater (its `_Waterfall*` properties are unused). So here: where water steps down to lower water, of any
+// height, the mesh hangs a curtain from the surface down to it, carrying its drop, and follows every water update;
+// both looks draw it in the water's colour at its shallowest, a tenth see-through, with no foam; a badwater fall
+// keeps badwater's cues. Rendering only: the map's bytes are pinned by tests/contract/look-mine-ruins.test.ts.
 
 import { describe, expect, it } from "vitest";
 import { DataTexture } from "three";
-import { arcLength, arcPoint, END, FALL_MIN, FALL_SHAPE, FALL_SPLASH, FALL_STRIDE, fallEnds, fallPoint, fallReach, fallSplash, fallTemplate, fallThickness, firstCorner, lipOutflow, tangent } from "../../src/render3d/falls";
-import { fallMaterial, sceneUniforms } from "../../src/render3d/materials";
+import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
+import { waterHooks } from "../../src/render3d/high/shaders";
 import { surfaceWater, waterFromDepth, type SurfaceWater, type WaterView } from "../../src/render3d/model";
-import { changedWaterChunks, FALL_IN_BITS, LIP_BITS, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { changedWaterChunks, dropFlags, EDGE_CURTAIN, meshWaterChunk, SHORE_BITS, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
-import { CLEAR_WATER, WATER, WATER_FALL, WATER_GLSL, type Rgb } from "../../src/render3d/waterPalette";
-import { DT } from "../../src/core/sim/water";
+import { badwaterBody, cleanWaterBody, WATER_GLSL, WATER_SURFACE } from "../../src/render3d/waterPalette";
 
 /** A map of heights (rows from y = 0) with water `depth` deep on every tile where `wet` says. */
 function scene(rows: number[][], wet: (x: number, y: number) => number, bad: (x: number, y: number) => number = () => 0): { W: number; H: number; heights: Uint8Array; view: WaterView; sw: SurfaceWater } {
@@ -40,101 +40,38 @@ function meshAll(s: ReturnType<typeof scene>): WaterMeshData[] {
   return out;
 }
 
-/** A fall instance, decoded. */
-function decode(f: Float32Array) {
-  const { side, ends, room } = fallEnds(f);
-  return { corner: [f[0], -f[1]] as [number, number], side, ends, flow: [f[3], f[15]], top: [f[4], f[5]], land: [f[6], f[7]], reach: [f[8], f[9]], thickness: [f[10], f[11]], bad: [f[12], f[13]], room, raw: f };
+interface Curtain {
+  /** Its outward normal (x, z), its top and bottom, where it stands across and along, its flags and badwater share. */
+  normal: [number, number];
+  top: number;
+  bottom: number;
+  at: number;
+  from: number;
+  flags: number;
+  bad: number;
 }
 
-/** Every fall of a scene, decoded. */
-function falls(s: ReturnType<typeof scene>) {
-  const list = [];
-  for (const m of meshAll(s)) for (let k = 0; k < m.fallCount; k++) list.push(decode(m.falls.subarray(k * FALL_STRIDE, (k + 1) * FALL_STRIDE)));
-  return list;
+/** Every curtain (a quad facing sideways) of a mesh. */
+function curtains(meshes: WaterMeshData[]): Curtain[] {
+  const out: Curtain[] = [];
+  for (const m of meshes)
+    for (let q = 0; q < m.quads; q++) {
+      const v = q * 4;
+      if (m.normals[v * 3 + 1] !== 0) continue;
+      const nx = Math.sign(m.normals[v * 3]);
+      const nz = Math.sign(m.normals[v * 3 + 2]);
+      const ys = [0, 1, 2, 3].map((k) => m.positions[(v + k) * 3 + 1]);
+      const across = [0, 1, 2, 3].map((k) => m.positions[(v + k) * 3 + (nx !== 0 ? 0 : 2)]);
+      const along = [0, 1, 2, 3].map((k) => m.positions[(v + k) * 3 + (nx !== 0 ? 2 : 0)]);
+      out.push({ normal: [nx, nz], top: Math.max(...ys), bottom: Math.min(...ys), at: across[0], from: Math.min(...along), flags: m.flags[v], bad: m.data[v * 2 + 1] });
+    }
+  return out;
 }
 
-describe("a fall's arc", () => {
-  const cases: [number, number, number, number][] = [
-    // reach, top, land, thickness
-    [0.12, 6.5, 3.5, 0.06],
-    [0.5, 14.2, 3.2, 0.24],
-    [1.1, 8.5, 3.3, 0.45],
-    [0.3, 4.2, 3.2, 0.2],
-  ];
-
-  it("leaves the lip level, arcs outward and down, and lands in the pool at its reach", () => {
-    for (const [reach, top, land, th] of cases) {
-      const [o0, u0] = arcPoint(reach, top, land, th, 0);
-      expect(o0).toBeCloseTo(FALL_SHAPE.off, 9);
-      expect(u0).toBeCloseTo(top, 9);
-      // level at the brink: it drops far less than it moves out over the first step
-      const [o1, u1] = arcPoint(reach, top, land, th, 0.01);
-      expect((top - u1) / (o1 - o0)).toBeLessThan(0.1 * (top - land) / reach);
-      // outward and down all the way
-      let prev = arcPoint(reach, top, land, th, 0);
-      for (let k = 1; k <= 50; k++) {
-        const p = arcPoint(reach, top, land, th, k / 50);
-        expect(p[0]).toBeGreaterThan(prev[0]);
-        expect(p[1]).toBeLessThan(prev[1]);
-        prev = p;
-      }
-      // it lands on the pool, a reach out from the lip
-      const [oe, ue] = arcPoint(reach, top, land, th, 1);
-      expect(oe).toBeCloseTo(reach + FALL_SHAPE.off, 9);
-      expect(ue).toBeCloseTo(land, 9);
-      // its length is at least the drop and at most the drop plus the reach
-      const L = arcLength(reach, top, land, 1);
-      expect(L).toBeGreaterThanOrEqual(top - land - 1e-9);
-      expect(L).toBeLessThanOrEqual(top - land + reach + 1e-9);
-    }
-  });
-
-  it("has thickness: the inner face a lip's depth inside the outer, never behind the cliff or below the pool", () => {
-    for (const [reach, top, land, th] of cases) {
-      const [oi, ui] = arcPoint(reach, top, land, th, 0, true);
-      expect(oi).toBeCloseTo(FALL_SHAPE.off, 9);
-      expect(ui).toBeCloseTo(top - th, 9);
-      for (let k = 0; k <= 40; k++) {
-        const w = k / 40;
-        const [o, u] = arcPoint(reach, top, land, th, w, true);
-        const [oo, uo] = arcPoint(reach, top, land, th, w);
-        expect(o).toBeGreaterThanOrEqual(FALL_SHAPE.off);
-        expect(u).toBeGreaterThanOrEqual(land - 1e-9);
-        // inside the outer face: nearer the cliff, or below it
-        expect(o <= oo + 1e-9 && u <= uo + 1e-9).toBe(true);
-        // no thicker than the lip's depth
-        expect(Math.hypot(oo - o, uo - u)).toBeLessThanOrEqual(th + 1e-9);
-      }
-    }
-    // the thickness is the lip's depth, within bounds, and never most of a small drop
-    expect(fallThickness(0.24, 11)).toBeCloseTo(0.24, 9);
-    expect(fallThickness(0.01, 3)).toBe(FALL_SHAPE.thickness[0]);
-    expect(fallThickness(2, 3)).toBe(FALL_SHAPE.thickness[1]);
-    expect(fallThickness(1, 0.4)).toBeCloseTo(FALL_SHAPE.ofDrop * 0.4, 9);
-  });
-
-  it("reaches further for stronger flow and taller falls, and stays in its pool", () => {
-    const flows = [0.02, 0.06, 0.1, 0.3, 0.6, 1, 1.8, 4, 12];
-    for (const room of [1, 2])
-      for (const drop of [0.5, 2, 5, 11]) {
-        const r = flows.map((q) => fallReach(q, drop, room));
-        for (let k = 0; k < r.length; k++) {
-          expect(r[k]).toBeGreaterThanOrEqual(FALL_SHAPE.least);
-          expect(r[k]).toBeLessThan(FALL_SHAPE.limit * room);
-          if (k && r[k - 1] > FALL_SHAPE.least) expect(r[k]).toBeGreaterThan(r[k - 1]);
-        }
-      }
-    for (const q of [0.2, 0.8, 2]) expect(fallReach(q, 8)).toBeGreaterThan(fallReach(q, 2));
-    // a strong wide river's fall leaves the cliff far behind; a trickle hardly leaves it
-    expect(fallReach(1.8, 5, 2)).toBeGreaterThan(4 * fallReach(0.08, 5, 2));
-    expect(fallReach(0.08, 5, 2)).toBeLessThan(0.25);
-  });
-});
-
-describe("falls in the water mesh", () => {
+describe("a fall is the water's own face where it steps down", () => {
   // west to east: a pool at 6 (0.5 deep) pours over its lip into a river at 3, three tiles wide,
   // between dry ground at 9 to the south and north
-  const pool = () =>
+  const pool = (bad = 0) =>
     scene(
       [
         [9, 9, 9, 9, 9],
@@ -144,124 +81,56 @@ describe("falls in the water mesh", () => {
         [9, 9, 9, 9, 9],
       ],
       (x, y) => (y >= 1 && y <= 3 ? 0.5 : 0),
+      () => bad,
     );
 
-  it("pours from the lip with the simulation's flow over it, out of the side it faces", () => {
+  it("hangs from the lip's surface down to the water below, along the whole lip, in front of the cliff, carrying its drop", () => {
     const s = pool();
-    const list = falls(s);
-    expect(list.length).toBe(3);
-    for (const f of list) {
-      expect(f.side).toBe(0);
-      expect(f.top).toEqual([6.5, 6.5]);
-      expect(f.land).toEqual([3.5, 3.5]);
-      // the lip empties over its one lower side each substep: its depth over the substep
-      expect(f.flow[0]).toBeCloseTo(0.5 / DT, 6);
-      expect(f.flow[1]).toBeCloseTo(0.5 / DT, 6);
-      // the river goes on three tiles past the lip: the splash may spread over them all, the arc
-      // over two
-      expect(f.reach[0]).toBeCloseTo(fallReach(0.5 / DT, 3, 2), 6);
-      expect(f.room).toEqual([3, 3]);
-      // the lip edge: x = 2, one tile of it
-      expect(f.corner[0]).toBe(2);
+    const fall = curtains(meshAll(s)).filter((c) => c.normal[0] === 1 && c.top - c.bottom > 1);
+    expect(fall.length).toBe(3);
+    for (const c of fall) {
+      expect(c.top).toBeCloseTo(6.5, 5);
+      expect(c.bottom).toBeCloseTo(3.5, 5);
+      // just off the cliff's face, so the face never fights the rock's
+      expect(c.at).toBeGreaterThan(2);
+      expect(c.at).toBeLessThan(2.05);
+      expect(c.flags).toBe(dropFlags(6.5, 3.5, false));
+      expect(c.flags).toBe(90);
     }
-    // the lip's tops are marked for the brink's foam, the landing's for the fall coming in
-    const m = meshAll(s)[0];
-    for (let q = 0; q < m.quads; q++) {
-      if (m.normals[q * 12 + 1] <= 0) continue;
-      const x = Math.min(m.positions[q * 12], m.positions[q * 12 + 3]);
-      const flags = m.flags[q * 4];
-      expect(!!(flags & LIP_BITS[0])).toBe(x === 1);
-      expect(!!(flags & FALL_IN_BITS[1])).toBe(x === 2);
+    expect(fall.map((c) => -c.from).sort()).toEqual([2, 3, 4]);
+  });
+
+  it("is drawn by the water's own mesh alone: no instances, no foam flags on the tops round it", () => {
+    const shore = SHORE_BITS.reduce((a, b) => a | b, 0);
+    for (const m of meshAll(pool())) {
+      expect(Object.keys(m).sort()).toEqual(["cut", "data", "flags", "indices", "normals", "positions", "quads"]);
+      for (let q = 0; q < m.quads; q++) if (m.normals[q * 12 + 1] > 0) expect(m.flags[q * 4] & ~shore).toBe(0);
     }
   });
 
-  it("shares the flow among the sides a lip pours over, as the simulation does, by their head", () => {
-    // a corner tile at 6 with a drop of 3 to the east and of 1 to the south
-    const s = scene(
-      [
-        [9, 5, 9],
-        [6, 6, 3],
-        [9, 9, 9],
-      ],
-      (x, y) => (y === 1 || (x === 1 && y === 0) ? 0.3 : 0),
-    );
-    const east = lipOutflow(s.W, s.H, s.heights, s.sw, 1, 1, 0);
-    const south = lipOutflow(s.W, s.H, s.heights, s.sw, 1, 1, 3);
-    expect(east + south).toBeCloseTo(0.3 / DT, 6);
-    expect(east / south).toBeCloseTo((6.3 - 3.3) / (6.3 - 5.3), 6);
+  it("is a curtain at every step of a cascade, small steps between two waters too, each with its own drop", () => {
+    // west to east: surfaces at 8.5, 6.5, 5.8 and 3.5, every tile wet
+    const s = scene([[12, 12, 12, 12, 12], [8, 6, 5, 3, 3], [12, 12, 12, 12, 12]], (x, y) => (y !== 1 ? 0 : x === 2 ? 0.8 : 0.5));
+    const east = curtains(meshAll(s)).filter((c) => c.normal[0] === 1 && c.flags !== EDGE_CURTAIN);
+    const drops = east.map((c) => Math.round((c.top - c.bottom) * 100) / 100).sort((a, b) => a - b);
+    expect(drops).toEqual([0.7, 2, 2.3]);
+    for (const c of east) expect(c.flags).toBe(dropFlags(c.top, c.bottom, false));
   });
 
-  it("makes a wide fall one ribbon: lips side by side share their corners, and only its ends are free", () => {
-    const list = falls(pool()).sort((a, b) => a.corner[1] - b.corner[1]);
-    // the side's tangent runs from the first corner to the second, and each fall's second corner
-    // is the next one's first
-    const [tx, ty] = tangent(0);
-    for (let k = 0; k + 1 < list.length; k++) {
-      expect(list[k].corner[0] + tx).toBe(list[k + 1].corner[0]);
-      expect(list[k].corner[1] + ty).toBe(list[k + 1].corner[1]);
-      expect(list[k].reach[1]).toBe(list[k + 1].reach[0]);
-      expect(list[k].thickness[1]).toBe(list[k + 1].thickness[0]);
-      expect(list[k].land[1]).toBe(list[k + 1].land[0]);
-    }
-    expect(list.map((f) => f.ends)).toEqual([
-      [END.free, END.joined],
-      [END.joined, END.joined],
-      [END.joined, END.free],
-    ]);
-    // a single tile's fall is free at both ends
-    const one = falls(scene([[9, 9, 9], [6, 3, 3], [9, 9, 9]], (x, y) => (y === 1 ? 0.3 : 0)));
-    expect(one.length).toBe(1);
-    expect(one[0].ends).toEqual([END.free, END.free]);
-    expect(firstCorner(0, 1, 0)).toEqual([1, 1]);
+  it("keeps the water's side at the map's edge apart from a fall", () => {
+    const edge = curtains(meshAll(scene([[5, 5, 5], [5, 5, 5], [5, 5, 5]], () => 0.5)));
+    expect(edge.length).toBeGreaterThan(0);
+    for (const c of edge) expect(c.flags).toBe(EDGE_CURTAIN);
   });
 
-  it("draws a stepped cascade as a fall at every step, each with its own lip, landing and splash", () => {
-    // a channel stepping down 2 levels every 2 tiles, and one stepping down every tile
-    for (const len of [2, 1]) {
-      const steps = 5;
-      const W = steps * len + 1;
-      const row = Array.from({ length: W }, (_, x) => 2 + 2 * (steps - Math.min(steps, Math.floor(x / len))));
-      const s = scene([row.map(() => 30), row, row.map(() => 30)], (x, y) => (y === 1 ? 0.25 : 0));
-      const list = falls(s).sort((a, b) => a.corner[0] - b.corner[0]);
-      expect(list.length).toBe(steps);
-      list.forEach((f, k) => {
-        // its lip is the end of a step, its landing the next step's water, 2 levels down
-        expect(f.corner[0]).toBe((k + 1) * len);
-        expect(f.top[0] - f.land[0]).toBeCloseTo(2, 5);
-        if (k + 1 < list.length) expect(f.land[0]).toBeCloseTo(list[k + 1].top[0], 5);
-        // its arc and its whitewater stay on its own step, short of the next lip (the last lands
-        // at the map's edge)
-        expect(f.room).toEqual(Array(2).fill(len === 2 && k + 1 < list.length ? 2 : 1));
-        expect(f.reach[0]).toBeLessThan(f.room[0]);
-        const w = fallSplash(f.flow[0], f.top[0] - f.land[0], f.reach[0], f.room[0]);
-        expect(w.out).toBeLessThan(len);
-        expect(f.reach[0] + w.ahead).toBeLessThan(len);
-      });
-      // each step's water is a lip at its end and takes a fall at its start
-      const m = meshAll(s)[0];
-      let lips = 0;
-      let feet = 0;
-      for (let q = 0; q < m.quads; q++) {
-        if (m.normals[q * 12 + 1] <= 0) continue;
-        if (m.flags[q * 4] & LIP_BITS[0]) lips++;
-        if (m.flags[q * 4] & FALL_IN_BITS[1]) feet++;
-      }
-      expect(lips).toBe(steps);
-      expect(feet).toBe(steps);
-    }
+  it("takes the badwater share of the edge it hangs from", () => {
+    for (const c of curtains(meshAll(pool(1))).filter((c) => c.top - c.bottom > 1)) expect(c.bad).toBeCloseTo(1, 5);
+    for (const c of curtains(meshAll(pool(0))).filter((c) => c.top - c.bottom > 1)) expect(c.bad).toBe(0);
   });
 
-  it("leaves a small step between two waters a curtain, and only a drop of FALL_MIN or more a fall", () => {
-    const s = scene([[9, 9, 9], [5, 5, 5], [9, 9, 9]], (x, y) => (y !== 1 ? 0 : x === 0 ? 0.55 : 0.4));
-    expect(s.sw.surface[3] - s.sw.surface[4]).toBeLessThan(FALL_MIN);
-    expect(falls(s).length).toBe(0);
-  });
-
-  it("follows the water: remeshing the changed chunks lists the same falls as meshing everything", () => {
+  it("follows the water: remeshing the changed chunks draws the same faces as meshing everything", () => {
     // a lip 40 tiles wide across the border of two chunks (x = 32), pouring north (+y); the lip's
-    // water sinks on the tile two east of the border (x = 33), so the lip beside it (x = 32) now
-    // also spills sideways, its fall weakens, and so does the corner it shares with the lip west of
-    // the border (x = 31), in the other chunk
+    // water sinks on the tile two east of the border (x = 33)
     const W = 64;
     const H = 6;
     const rows = Array.from({ length: H }, (_, y) => Array.from({ length: W }, (_, x) => (y === 0 || y === 5 || x < 12 || x >= 52 ? 20 : y <= 2 ? 8 : 4)));
@@ -269,338 +138,46 @@ describe("falls in the water mesh", () => {
     const b = scene(rows, (x, y) => (y >= 1 && y <= 4 && x >= 12 && x < 52 ? (x === 33 && y === 2 ? 0.1 : 0.3) : 0));
     const changed = changedWaterChunks(W, H, a.sw, b.sw, 0, 0);
     expect([...changed].sort()).toEqual(["0,0", "1,0"]);
-    const at = (s: ReturnType<typeof scene>, x: number) => falls(s).find((f) => f.corner[0] === x + 1)!;
-    const flow = (f: ReturnType<typeof falls>[number]) => f.flow[0] + f.flow[1];
-    expect(flow(at(b, 32))).toBeLessThan(flow(at(a, 32)));
-    // (along a lip pouring north the tangent runs west: x = 31's first corner is the one it shares
-    // with x = 32)
-    expect(tangent(2)).toEqual([-1, 0]);
-    expect(at(b, 31).reach[0]).toBeLessThan(at(a, 31).reach[0]);
-    expect(at(b, 31).reach[1]).toBe(at(a, 31).reach[1]);
-    const key = (f: ReturnType<typeof falls>[number]) => JSON.stringify([...f.raw]);
-    const fresh = falls(b).map(key).sort();
+    const key = (c: Curtain) => JSON.stringify(c);
+    const fresh = curtains(meshAll(b)).map(key).sort();
     const kept = meshAll(a).map((m, cx) => (changed.has(`${cx},0`) ? meshWaterChunk(W, H, plainLayers(b.heights, b.sw), cx, 0) : m));
-    const remeshed: string[] = [];
-    for (const m of kept) for (let k = 0; k < m.fallCount; k++) remeshed.push(key(decode(m.falls.subarray(k * FALL_STRIDE, (k + 1) * FALL_STRIDE))));
-    expect(remeshed.sort()).toEqual(fresh);
+    expect(curtains(kept).map(key).sort()).toEqual(fresh);
+    const lip = (s: ReturnType<typeof scene>) => curtains(meshAll(s)).filter((c) => c.normal[1] === -1 && c.top - c.bottom > 3).length;
+    expect(lip(a)).toBe(40);
     // a lip gone dry leaves no fall behind
-    const dry = scene(rows, (x, y) => (y >= 1 && y <= 4 && x >= 12 && x < 52 && !(x === 20 && y === 2) ? 0.3 : 0));
-    expect(falls(dry).length).toBe(39);
-    expect(falls(a).length).toBe(40);
+    expect(lip(scene(rows, (x, y) => (y >= 1 && y <= 4 && x >= 12 && x < 52 && !(x === 20 && y === 2) ? 0.3 : 0)))).toBe(39);
   });
 });
 
-describe("a lip that turns a corner is one sheet (D215)", () => {
-  /** A fall's edge at its end u: points down its outer face, then its inner face. */
-  const edge = (f: Float32Array, u: 0 | 1, until = 1) => {
-    const pts: [number, number, number][] = [];
-    for (const inner of [false, true])
-      for (let k = 0; k <= 24; k++) {
-        const w = k / 24;
-        const [out] = arcPoint(f[8 + u], f[4 + u], f[6 + u], f[10 + u], w, inner);
-        if (out <= until) pts.push(fallPoint(f, u, w, inner));
-      }
-    return pts;
-  };
-  const expectSame = (a: [number, number, number][], b: [number, number, number][]) => {
-    expect(a.length).toBeGreaterThan(4);
-    expect(a.length).toBe(b.length);
-    a.forEach((p, i) => p.forEach((v, c) => expect(v).toBeCloseTo(b[i][c], 6)));
-  };
-  /** The corner's values two lips share. */
-  const expectShared = (a: ReturnType<typeof falls>[number], ua: 0 | 1, b: ReturnType<typeof falls>[number], ub: 0 | 1) => {
-    for (const k of ["top", "land", "reach", "thickness", "bad", "flow", "room"] as const) expect(a[k][ua]).toBe(b[k][ub]);
-  };
-
-  it("meets round an outer corner (an L-shaped lip): the two sides' ribbons share the corner and meet on its diagonal, at every height", () => {
-    // a pool at 6 whose corner tile (2, 2) pours south and east into a river at 3 wrapping round it
-    const s = scene(
-      [
-        [3, 3, 3, 3, 3],
-        [3, 3, 3, 3, 3],
-        [6, 6, 6, 3, 3],
-        [6, 6, 6, 9, 9],
-        [9, 9, 9, 9, 9],
-      ],
-      (x, y) => (y <= 1 || (y === 2 && x >= 3) ? 0.5 : y <= 3 && x <= 2 ? 0.4 : 0),
-    );
-    const list = falls(s);
-    expect(list.length).toBe(4);
-    const south = list.find((f) => f.side === 3 && f.corner[0] === 2)!;
-    const east = list.find((f) => f.side === 0)!;
-    expect(east.corner).toEqual([3, 2]);
-    expect(south.ends).toEqual([END.joined, END.outward]);
-    expect(east.ends).toEqual([END.outward, END.free]);
-    expectShared(south, 1, east, 0);
-    // the south ribbon runs on round the corner and the east one back round it: one edge, running
-    // out along the corner's diagonal, so no gap opens between them as they arc out
-    const a = edge(south.raw, 1);
-    expectSame(a, edge(east.raw, 0));
-    for (const [x, , z] of a) expect(x - 3).toBeCloseTo(2 + z, 6);
-    // (as a free end each stood in from the corner, and the two drew apart as they fell: the V)
-  });
-
-  it("meets round an inner corner: the ribbons pouring into the same water stop short on its diagonal, and never cross", () => {
-    // a pool at 6, L-shaped, round a river at 3: tile (0, 1) pours east and tile (1, 2) south into
-    // the same river tile (1, 1)
-    const s = scene(
-      [
-        [3, 3, 3, 9],
-        [6, 3, 3, 9],
-        [6, 6, 6, 9],
-        [9, 9, 9, 9],
-      ],
-      (x, y) => (y === 3 || x === 3 ? 0 : (x === 0 && y >= 1) || y === 2 ? 0.4 : 0.5),
-    );
-    const list = falls(s);
-    const east = list.find((f) => f.side === 0)!;
-    const south = list.find((f) => f.side === 3 && f.corner[0] === 1)!;
-    expect(east.corner).toEqual([1, 1]);
-    expect(south.corner).toEqual([1, 2]);
-    expect(east.ends[1]).toBe(END.inward);
-    expect(south.ends[0]).toBe(END.inward);
-    // (and the east lip's other end turns the outer corner of the same tile)
-    expect(east.ends[0]).toBe(END.outward);
-    expectShared(east, 1, south, 0);
-    // one edge along the corner's diagonal, as far out as a ribbon may stop short
-    const a = edge(east.raw, 1, END.inwardMost);
-    expectSame(a, edge(south.raw, 0, END.inwardMost));
-    for (const [x, , z] of a) expect(x - 1).toBeCloseTo(2 + z, 6);
-  });
-
-  it("makes a staircase lip (water crossing a cliff at a slant) one zigzag sheet, as wide where it lands as at the lip", () => {
-    // a pool at 6 above a staircase edge (every tile with y > x), a river at 3 below it
-    const N = 7;
-    const rows = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (y > x ? 6 : 3)));
-    const s = scene(rows, (x, y) => (y > x ? 0.4 : 0.5));
-    const list = falls(s);
-    // each tile of the staircase pours south and east
-    expect(list.length).toBe(2 * (N - 1));
-    const at = (x: number, side: number) => list.find((f) => f.side === side && (side === 3 ? f.corner[0] === x : f.corner[0] === x + 1))!;
-    for (let x = 0; x < N - 1; x++) {
-      const south = at(x, 3);
-      const east = at(x, 0);
-      // the south side turns out round the tile's corner into its east side
-      expect(south.ends[1]).toBe(END.outward);
-      expect(east.ends[0]).toBe(END.outward);
-      expectSame(edge(south.raw, 1), edge(east.raw, 0));
-      if (x + 1 < N - 1) {
-        // and the east side turns in at the step, into the next tile's south side
-        const next = at(x + 1, 3);
-        expect(east.ends[1]).toBe(END.inward);
-        expect(next.ends[0]).toBe(END.inward);
-        expectSame(edge(east.raw, 1, END.inwardMost), edge(next.raw, 0, END.inwardMost));
-        // one end runs on as far as the other stops short: each side keeps its width, a tile, as
-        // the sheet moves out
-        for (let k = 0; k <= 10; k++) {
-          const w = k / 10;
-          const [out] = arcPoint(east.reach[0], east.top[0], east.land[0], east.thickness[0], w);
-          if (out > END.inwardMost || Math.abs(east.reach[0] - east.reach[1]) > 1e-9) continue;
-          const p0 = fallPoint(east.raw, 0, w);
-          const p1 = fallPoint(east.raw, 1, w);
-          expect(Math.hypot(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])).toBeCloseTo(1, 6);
-        }
-      }
-    }
-  });
-});
-
-describe("whitewater where a fall lands (D215)", () => {
-  it("stays in its pool: the splash out past the impact line but not past its room, the crown on the pool, never behind the cliff nor most of the drop tall", () => {
-    for (const room of [1, 2, 3])
-      for (const drop of [0.35, 1, 2, 5, 11])
-        for (const flow of [0.01, 0.05, 0.2, 0.8, 1.8, 6]) {
-          const reach = fallReach(flow, drop, Math.min(room, 2));
-          const w = fallSplash(flow, drop, reach, room);
-          expect(w.back).toBeGreaterThan(0);
-          expect(w.out).toBeLessThanOrEqual(room - FALL_SPLASH.edge + 1e-9);
-          // (out past the impact line, where the pool has room)
-          expect(w.out).toBeGreaterThanOrEqual(Math.min(reach + 0.1, room - FALL_SPLASH.edge) - 1e-9);
-          expect(reach - w.behind).toBeGreaterThanOrEqual(w.back - 1e-9);
-          // (a fall at the edge of its room: nothing ahead)
-          expect(reach + w.ahead).toBeLessThanOrEqual(Math.max(reach, room - FALL_SPLASH.edge) + 1e-9);
-          expect(w.tall).toBeLessThanOrEqual(FALL_SPLASH.crownOfDrop * drop + 1e-9);
-          expect(w.tall).toBeGreaterThan(0);
-        }
-  });
-
-  it("is more for stronger and taller falls, and more than the first round's (#53 before D215)", () => {
-    for (const drop of [1, 3, 6]) {
-      const flows = [0.02, 0.1, 0.4, 1, 2];
-      const crown = flows.map((q) => fallSplash(q, drop, 0.5, 3).tall);
-      for (let k = 1; k < crown.length; k++) expect(crown[k]).toBeGreaterThanOrEqual(crown[k - 1]);
-    }
-    for (const flow of [0.1, 0.8]) expect(fallSplash(flow, 6, 0.5, 3).spread).toBeGreaterThan(fallSplash(flow, 1, 0.5, 3).spread);
-    for (const room of [1, 2, 3])
-      for (const drop of [1, 3, 8])
-        for (const flow of [0.05, 0.5, 1.8]) {
-          const reach = fallReach(flow, drop, Math.min(room, 2));
-          // the first round: 0.3 + 0.2 √flow + 0.05 · (the drop, to 6) out past the impact line, a
-          // third of that back toward the cliff, within a room of at most 2 tiles
-          const was = 0.3 + 0.2 * Math.sqrt(flow) + 0.05 * Math.min(drop, 6);
-          const wasOut = Math.min(Math.min(room, 2) - 0.06, reach + was);
-          const wasBack = Math.max(0.03, reach - 0.3 * was);
-          const w = fallSplash(flow, drop, reach, room);
-          expect(w.out).toBeGreaterThanOrEqual(wasOut);
-          expect(w.out - w.back).toBeGreaterThan(wasOut - wasBack);
-        }
-  });
-});
-
-describe("soft white water where a fall lands (D222)", () => {
+describe("a fall's look, as the game's", () => {
   const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+  const shaders = () => [
+    { look: "Standard", m: waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false) },
+    { look: "Light", m: waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), true) },
+    { look: "High", m: waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false, waterHooks()) },
+  ];
 
-  it("never draws cells of dark water between patches of foam (they read as cracked tiles): no Voronoi lace, and a froth at least half white wherever the splash lies", () => {
-    for (const lite of [false, true]) {
-      const m = fallMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite);
-      // the lace was the cliff's own crack pattern, drawn on the pool round dark bubbles (the shared
-      // chunk still defines it for the ground)
-      const own = m.fragmentShader.slice(m.fragmentShader.lastIndexOf("void main()"));
-      expect(own).toContain("the splash");
-      expect(own).not.toMatch(/\bcracks\(/);
-      expect(m.fragmentShader).toContain(`smoothstep(${FALL_SPLASH.froth[0]}, ${FALL_SPLASH.froth[1]}, 0.55 * blot + 0.45 * churn)`);
-      expect(m.fragmentShader).toContain(`mix(${FALL_SPLASH.frothFloor}, 1.0, froth)`);
+  it("shows the ground behind by the game's waterfall share, a tenth, from the shared palette", () => {
+    // _TransparencyWaterfallDepth 0.2 × _TransparencyDepthModifier 0.5
+    expect(WATER_SURFACE.fallSeeThrough).toBe(0.1);
+    expect(WATER_GLSL).toContain(`#define WATER_FALL_SEE_THROUGH ${WATER_SURFACE.fallSeeThrough}`);
+    for (const { look, m } of shaders()) expect(m.fragmentShader, look).toContain("(1.0 - WATER_FALL_SEE_THROUGH) * smoothstep(0.02, 0.06, drop)");
+  });
+
+  it("is the water's own colour where it sees the cliff right behind (its shallowest), with no whitewater or foam", () => {
+    const [standard, light, high] = shaders();
+    for (const { m } of [standard, light]) {
+      expect(m.fragmentShader).toContain("body = cleanWaterBody(0.05, waterAbsorb(0.05));");
+      expect(m.fragmentShader).toContain("murky = badwaterBody(0.05);");
     }
-    // soft: the froth eases in over most of the noise's range (D215's blobs switched on over 0.12
-    // of it, with the pool dark between them), and it is never less than half white
-    expect(FALL_SPLASH.froth[1] - FALL_SPLASH.froth[0]).toBeGreaterThanOrEqual(0.5);
-    expect(FALL_SPLASH.frothFloor).toBeGreaterThanOrEqual(0.5);
+    expect(high.m.fragmentShader).toContain("HW_BAD * badwaterBody(0.05) / BADWATER_BODY");
+    for (const { look, m } of shaders()) for (const gone of ["FALL_FOAM", "FALL_WHITEWATER", "FALL_TEAL", "fallIn", "hlCrown", "hlLanding", "hlBubbles", "lip = min("]) expect(m.fragmentShader, `${look}: ${gone}`).not.toContain(gone);
   });
 
-  it("keeps the splash's size and the crown: the same reach out past the impact line as D215's", () => {
-    // D215's sizes, unchanged (fallSplash): 0.7 + 0.6 × the reach + 0.09 × the drop out past it
-    const w = fallSplash(0.8, 4, 1, 3);
-    expect(w.spread).toBeCloseTo(0.7 + 0.6 * 1 + 0.09 * 4, 9);
-    expect(w.tall).toBeGreaterThan(0);
-  });
-});
-
-describe("a fall's colours", () => {
-  const t = () => new DataTexture(new Uint8Array(4), 1, 1);
-
-  it("come from the shared water palette only, in the Standard look and the Light look", () => {
-    for (const lite of [false, true]) {
-      const m = fallMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite);
-      expect(m.fragmentShader).toContain(WATER_GLSL);
-      // no colour of its own: every vec3 with numbers comes from the palette's GLSL
-      const own = m.fragmentShader.replace(WATER_GLSL, "");
-      const body = own.slice(own.indexOf("void main()", own.indexOf("vec3 finish(")));
-      expect(body).not.toMatch(/vec3\(\s*-?\d/);
-      for (const use of ["waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont)", "mix(WATER_FOAM, BADWATER_FOAM, bad)", "mix(FALL_TEAL, FALL_BAD_STREAK, bad)", "waterBlend(WATER_TEAL, BADWATER_BODY, cont)", "float bad = waterTint(cont);", "alpha = mix(alpha, BADWATER_FALL, bad);"]) expect(m.fragmentShader).toContain(use);
-      expect(m.transparent).toBe(true);
-      expect(m.depthWrite).toBe(false);
-    }
-  });
-
-  it("read as teal water first: its streaks a lighter teal (orange-red on badwater), little white, at the brink and at the foot, gentle on a one-level spill, in both looks (D324, feedback items 4 and 2; D334)", () => {
-    for (const lite of [false, true]) {
-      const m = fallMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite);
-      for (const use of ["whiteStreak", "float gentle = 1.0 - smoothstep(1.0, 2.2, h);", "amount *= mix(0.86, 0.5, gentle);", "mix(1.0, 0.55, gentle)"]) expect(m.fragmentShader).toContain(use);
-      // the streaks are the water's own colour, and the foam over them faint
-      expect(m.fragmentShader).toContain("c = mix(body, mix(FALL_TEAL, FALL_BAD_STREAK, bad), whiteStreak * 0.78) * light;");
-      expect(m.fragmentShader).toContain("c = mix(c, foamColour, foam * 0.18);");
-      // the sheet's body stays well opaque, so the cliff behind it does not turn it dark
-      expect(m.fragmentShader).toContain("alpha = mix(FALL_CLEAR, FALL_STREAK, streak);");
-      expect(WATER_GLSL).toContain(`#define FALL_CLEAR ${WATER_FALL.clear}`);
-      // the whitewater where it lands: mostly the water's own colour, a little white
-      expect(m.fragmentShader).toContain("c = mix(waterBlend(WATER_TEAL, BADWATER_BODY, cont), foamColour, FALL_WHITEWATER_TINT);");
-    }
-    expect(WATER_FALL.clear).toBeGreaterThanOrEqual(0.4);
-    expect(WATER_FALL.whitewaterTint).toBeLessThan(0.5);
-    // the streaks: a teal (blue and green over red), and an orange-red
-    expect(Math.min(WATER.fallTeal[1], WATER.fallTeal[2])).toBeGreaterThan(WATER.fallTeal[0] + 0.3);
-    expect(WATER.fallBadStreak[0]).toBeGreaterThan(WATER.fallBadStreak[1] + 0.3);
-  });
-
-  it("turn see-through with clear water (T, or round the brush), and a fall is cut at the slice, as the water is", () => {
-    for (const lite of [false, true]) {
-      const m = fallMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite);
-      for (const use of ["clearWater", "clearAround", "CLEAR_FADE", "CLEAR_FALL", "CLEAR_BAD_OPACITY"]) expect(m.fragmentShader).toContain(use);
-      // never a hatching on badwater, however it is seen (D324, feedback item 5)
-      expect(m.fragmentShader).not.toContain("CLEAR_STRIPE");
-      expect(m.fragmentShader).toMatch(/if \(vWorld\.y > slice \+ 0\.05\) discard;/);
-    }
-    // a clean fall keeps a faint veil, from the shared palette
-    expect(WATER_GLSL).toContain(`#define CLEAR_FALL ${CLEAR_WATER.fall}`);
-    expect(CLEAR_WATER.fall).toBeGreaterThan(0.1);
-    expect(CLEAR_WATER.fall).toBeLessThan(0.5);
-  });
-
-  it("tell a badwater fall from a clean one by the game's cues, crimson and orange-red against teal; their lightness in each colour-blindness simulation is information (D334 (2))", () => {
-    // (the Machado, Oliveira and Fernandes 2009 simulations, severity 1, in linear light, as the
-    // captures use; lightness as CIE L*)
-    const sims: Record<string, number[]> = {
-      none: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-      deuteranopia: [0.367322, 0.860646, -0.227968, 0.280085, 0.672501, 0.047413, -0.01182, 0.04294, 0.968881],
-      protanopia: [0.152286, 1.052583, -0.204868, 0.114503, 0.786281, 0.099216, -0.003882, -0.048116, 1.051998],
-      tritanopia: [1.255528, -0.076749, -0.178779, -0.078411, 0.930809, 0.147602, 0.004733, 0.691367, 0.3039],
-    };
-    const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-    const lstar = (c: Rgb, m: number[]) => {
-      const l = c.map(lin);
-      const s = [0, 1, 2].map((r) => Math.max(0, m[r * 3] * l[0] + m[r * 3 + 1] * l[1] + m[r * 3 + 2] * l[2]));
-      const y = 0.2126 * s[0] + 0.7152 * s[1] + 0.0722 * s[2];
-      return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y;
-    };
-    // the cues: clean water's sheet teal (blue and green over red), badwater's crimson and its
-    // streaks orange-red (red over green over blue)
-    for (const c of [WATER.shallow, WATER.fallTeal]) expect(Math.min(c[1], c[2])).toBeGreaterThan(c[0]);
-    for (const c of [WATER.bad, WATER.fallBad, WATER.fallBadStreak]) expect(c[0] > c[1] && c[1] > c[2]).toBe(true);
-    // the lightness of body and foam in each simulation: reported, not held to a gap (the game's own
-    // readability, D334 (2)); only that each is a number in range
-    for (const m of Object.values(sims))
-      for (const [a, b] of [[WATER.shallow, WATER.bad], [WATER.foam, WATER.badFoam]] as [Rgb, Rgb][]) {
-        const d = lstar(a, m) - lstar(b, m);
-        expect(Number.isFinite(d) && Math.abs(d) <= 100).toBe(true);
-      }
-  });
-});
-
-describe("the fall template", () => {
-  // (D148: since D215 it also holds the crown of whitewater, 16 vertices more: the bound on its
-  // vertices went from 130 to 140)
-  it("is small and shared: a close-up ribbon with thickness and ends, a sheet from afar, a splash and a crown", () => {
-    const { rib, index } = fallTemplate();
-    const kinds = new Map<number, number>();
-    for (let v = 0; v < rib.length / 4; v++) kinds.set(rib[v * 4 + 3], (kinds.get(rib[v * 4 + 3]) ?? 0) + 1);
-    expect([...kinds.keys()].sort()).toEqual([0, 1, 2, 3, 4, 5]);
-    // the inner and outer faces (close up), the far sheet and the crown, each spanning the lip from
-    // the brink (w = 0) to the pool (w = 1), or round the crown from its foot to its foot
-    for (const kind of [0, 3, 5]) {
-      const ws = [];
-      for (let v = 0; v < rib.length / 4; v++) if (rib[v * 4 + 3] === kind) ws.push(rib[v * 4 + 1]);
-      expect(Math.min(...ws)).toBe(0);
-      expect(Math.max(...ws)).toBe(1);
-    }
-    expect(index.length / 3).toBeLessThan(120);
-    expect(rib.length / 4).toBeLessThan(140);
-    for (const i of index) expect(i).toBeLessThan(rib.length / 4);
-  });
-
-  it("draws a layer at a time for all of a chunk's falls: the splashes, the crowns' backs, the ribbons, then the crowns' fronts and the far sheets (D222)", () => {
-    // (one tile's crown drawn over its neighbour's ribbon showed as glassy panes along the foot)
-    const { rib, index, layers } = fallTemplate();
-    expect(layers.length).toBe(4);
-    let at = 0;
-    for (const [start, count] of layers) {
-      expect(start).toBe(at);
-      expect(count % 3).toBe(0);
-      at += count;
-    }
-    expect(at).toBe(index.length);
-    const partsOf = ([start, count]: [number, number]) => {
-      const out = new Set<string>();
-      for (let k = start; k < start + count; k++) {
-        const v = index[k];
-        const kind = rib[v * 4 + 3];
-        out.add(kind === 5 ? (rib[v * 4 + 1] <= 0.5 ? "crown back" : "crown front") : String(kind));
-      }
-      return out;
-    };
-    expect([...partsOf(layers[0])]).toEqual(["4"]);
-    expect([...partsOf(layers[1])]).toEqual(["crown back"]);
-    expect([...partsOf(layers[2])].sort()).toEqual(["0", "1", "2"]);
-    // (the crown's front half meets its back half at the top, w = 0.5)
-    expect([...partsOf(layers[3])].filter((p) => p !== "crown back").sort()).toEqual(["3", "crown front"]);
+  it("tells a badwater fall from a clean one by the game's cues: teal against crimson", () => {
+    const clean = cleanWaterBody(0.05);
+    const bad = badwaterBody(0.05);
+    expect(Math.min(clean[1], clean[2])).toBeGreaterThan(clean[0]);
+    expect(bad[0] > bad[1] && bad[1] > bad[2]).toBe(true);
   });
 });

@@ -1,5 +1,8 @@
 # Waterfalls with shape and volume (D201, D215, D222)
 
+**Superseded 2026-10-29:** falls are now drawn as the game draws them, the water's own face where it steps down, with no
+ribbon, foam or whitewater (D201 amended; `docs/sheets/falls-as-game.jpg`). These captures record the ribbon that was.
+
 The Standard look, the same camera and water time on each side. The gallery is a small map of our
 own, its water settled by the game's water rules; the rest are generated 256² maps. Made with
 `tools/capture-waterfalls.ts`.

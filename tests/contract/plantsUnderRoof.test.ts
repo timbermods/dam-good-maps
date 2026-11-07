@@ -90,9 +90,13 @@ describe("plants under a roof: their run top's soil, for the warning and the che
       expect(caveTiles.filter((i) => !dying.has(i)).length).toBeGreaterThan(caveTiles.length / 2);
       for (const i of caveTiles) expect(dying.has(i), `tile ${i % W},${Math.floor(i / W)}`).toBe(diesOnSoil("BlueberryBush", ground, i, Z));
       expect(new Set(paintDying(s, stroke("bushes", "BlueberryBush")))).toEqual(new Set(caveTiles));
-      // (succulents the other way round: they die on the moist floor, live on the dry roof)
-      expect(paintDying(s, stroke("succulents", undefined, Z)).length).toBe(caveTiles.length - dying.size);
-      expect(paintDying(s, stroke("succulents", undefined))).toEqual([]);
+      // (succulents the other way round: they die on the moist floor, live on the dry roof; a stroke plants them only
+      // where they live, so it warns of nothing and leaves the moist floor empty)
+      expect(paintDying(s, stroke("succulents", "Succulent", Z))).toEqual([]);
+      expect(paintDying(s, stroke("succulents", "Succulent"))).toEqual([]);
+      const floor = planPaintObjects(s, stroke("succulents", "Succulent", Z));
+      const planted = floor.ok ? floor.plan.map((o) => o.tile) : [];
+      expect(planted.every((i) => !diesOnSoil("Succulent", ground, i, Z))).toBe(true);
     });
   }
 

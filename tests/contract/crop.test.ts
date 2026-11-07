@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { cropObjects, planCrop } from "../../src/core/doc/crop";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { footprintTiles } from "../../src/core/format/footprints";
+import { slope } from "../../src/core/format/entities";
+import { footprintTiles, slopeHighSide } from "../../src/core/format/footprints";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { LAYERS } from "../../src/core/format/world";
 import { validateMap } from "../../src/core/validate/checks";
@@ -18,15 +19,17 @@ import { map, sha, session, timber } from "./gateHelpers";
 const W = 64;
 const crop = (x: number, y: number, w: number, h: number) => ({ op: "crop" as const, params: { x, y, w, h } });
 
-/** A rectangle of the 64² map that holds its start whole, and cuts some other object. */
+/** A rectangle of the 64² map that holds its start and a water source whole (so water stands in it after the crop),
+ *  and cuts some other object. */
 function rectAroundStart(s: MapSession): { x: number; y: number; w: number; h: number } {
   const start = s.built.entities.find((e) => e.template === "StartingLocation")!;
+  const sources = s.built.entities.filter((e) => e.template === "WaterSource").map((e) => e.id);
   for (const [w, h] of [[40, 44], [36, 36], [30, 32], [24, 24]]) {
     for (let y = 0; y + h <= W; y += 3)
       for (let x = 0; x + w <= W; x += 3) {
         const r = { x, y, w, h };
         const o = cropObjects(s.built.entities, r);
-        if (!o.cutStart && o.kept.includes(start.id) && o.crossing.length > 0) return r;
+        if (!o.cutStart && o.kept.includes(start.id) && sources.some((id) => o.kept.includes(id)) && o.crossing.length > 0) return r;
       }
   }
   throw new Error("no rectangle around the start that cuts an object");
@@ -185,6 +188,55 @@ describe("Crop map to selection: refusals, one line each, and nothing changes", 
     const r = rectAroundStart(s);
     expect(s.applyAll([crop(r.x, r.y, r.w, r.h)]).ok).toBe(false);
     expect(s.logOps).toHaveLength(0);
+  });
+});
+
+describe("Crop map to selection: a slope whose step the new edge cuts is removed, counted", () => {
+  // A slope joins the step its high side climbs to and the ground behind its low side (`slopes.connect`). On the new
+  // edge row, one of those can be past the edge: the slope would join no step, so the edge cuts it like any object.
+  const s = session();
+  const entities = s.built.entities;
+  /** A slope of the map and a rectangle round the start whose new edge runs through the slope's tile, its high
+   *  side or the ground behind it just past the edge. */
+  function slopeOnTheEdge(): { slope: (typeof entities)[number]; r: { x: number; y: number; w: number; h: number } } {
+    for (const e of entities) {
+      if (e.template !== "Slope") continue;
+      const [dx, dy] = slopeHighSide(e.orientation);
+      for (const [ox, oy] of [[dx, dy], [-dx, -dy]]) {
+        const r = oy < 0 ? { x: 0, y: e.y, w: W, h: W - e.y } : oy > 0 ? { x: 0, y: 0, w: W, h: e.y + 1 } : ox < 0 ? { x: e.x, y: 0, w: W - e.x, h: W } : { x: 0, y: 0, w: e.x + 1, h: W };
+        if (planCrop(entities, W, W, r).ok) return { slope: e, r };
+      }
+    }
+    throw new Error("no slope a crop round the start can put on its new edge");
+  }
+  const { slope: cut, r } = slopeOnTheEdge();
+  const plan = planCrop(entities, W, W, r);
+  s.settleCanonical();
+  const result = s.apply(crop(r.x, r.y, r.w, r.h));
+
+  it("is one of the objects the edge cuts, in the plan and in the crop", () => {
+    expect(cropObjects(entities, r).crossing).toContain(cut.id);
+    expect(plan.ok && plan.removed).toContain(cut.id);
+    expect(result.ok).toBe(true);
+    expect(result.removedObjects).toBe(plan.ok && plan.removedObjects);
+    expect(s.built.entities.find((e) => e.id === cut.id)).toBeUndefined();
+  });
+
+  it("so every slope left joins a step, and the cropped file passes the load checks", () => {
+    const file = readTimber(s.exportTimber().bytes);
+    const checks = validateMap(file, { profile: "import", loadOnly: true }).report.checks.filter((c) => c.class === "load");
+    expect(checks.filter((c) => !c.ok).map((c) => `${c.id}: ${c.message ?? ""}`)).toEqual([]);
+  });
+
+  it("a slope climbing from one the edge cuts goes with it (it stood on that slope's step)", () => {
+    // a staircase up toward −y: B at Y 3 (level 2), A above it at Y 2 (level 3) on B's high side; the crop's edge
+    // takes the ground behind B, so B joins nothing, and A, whose foot is B, joins nothing either
+    const b = slope({ id: "b", owner: "import", x: 5, y: 3, z: 2, orientation: "Cw0" });
+    const a = slope({ id: "a", owner: "import", x: 5, y: 2, z: 3, orientation: "Cw0" });
+    const other = slope({ id: "c", owner: "import", x: 8, y: 2, z: 3, orientation: "Cw0" });
+    const o = cropObjects([a, b, other], { x: 0, y: 0, w: 10, h: 4 });
+    expect(o.crossing.sort()).toEqual(["a", "b"]);
+    expect(o.kept).toEqual(["c"]);
   });
 });
 

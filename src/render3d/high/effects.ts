@@ -27,11 +27,6 @@ export type HighEffectKey =
   | "geology"
   | "soilCap"
   | "section"
-  | "crown"
-  | "landing"
-  | "bubbles"
-  | "mist"
-  | "rings"
   | "roughWater"
   | "landmarks"
   | "objectDetail";
@@ -53,11 +48,6 @@ export const HIGH_EFFECTS: readonly HighEffect[] = [
   { key: "geology", label: "Rock at the map's edge", from: "#67" },
   { key: "soilCap", label: "Soil at the map's edge", from: "#67" },
   { key: "section", label: "Water at the map's edge", from: "#67" },
-  { key: "crown", label: "Waterfall crowns", from: "#67" },
-  { key: "landing", label: "Waterfall landings", from: "#67" },
-  { key: "bubbles", label: "Bubbly froth", from: "#67" },
-  { key: "mist", label: "Mist", from: "#67" },
-  { key: "rings", label: "Splash rings", from: "#67" },
   { key: "roughWater", label: "Rough water", from: "#67" },
   { key: "landmarks", label: "Landmarks", from: "#67" },
   { key: "objectDetail", label: "Fine detail", from: "#67" },
@@ -76,10 +66,10 @@ export function effectsFrom(off: readonly string[]): HighEffects {
   return e;
 }
 
-/** What the lower-cost tier turns off (D250 (2)): the soft shadows (the baked ones stay), mist and
- *  splash rings, the wind, the trees' close-up models (their far silhouettes stay) and the
- *  landmarks' fine detail; and it draws at 85% of the pixels (`LOWER_PIXELS`). */
-export const LOWER_COST_DROPS: readonly HighEffectKey[] = ["shadows", "mist", "rings", "sway", "objectDetail"];
+/** What the lower-cost tier turns off (D250 (2)): the soft shadows (the baked ones stay), the wind, the trees'
+ *  close-up models (their far silhouettes stay) and the landmarks' fine detail (the falls' mist and splash rings
+ *  went with D201's amendment); and it draws at 85% of the pixels (`LOWER_PIXELS`). */
+export const LOWER_COST_DROPS: readonly HighEffectKey[] = ["shadows", "sway", "objectDetail"];
 export const LOWER_PIXELS = 0.85;
 
 /** The effects in force: the player's switches, less what the tier drops. */

@@ -5,6 +5,7 @@
 
 import { entityTiles } from "../features/edits";
 import type { EntitySpec } from "../format/entities";
+import { slopeHighSide } from "../format/footprints";
 import { rawEntity } from "../format/entities";
 import { isObject, num, type JsonObject, type JsonValue } from "../format/json";
 import type { TimberFile } from "../format/timber";
@@ -45,6 +46,15 @@ function tilesOf(e: EntitySpec): [number, number][] | null {
   return [[e.x, e.y]];
 }
 
+/** The ground a slope joins (`slopes.connect`): the tile its high side climbs to and the tile behind its low side.
+ *  An edge that cuts either leaves the slope joining no step, so the edge cuts the slope (D253: a slope that joins
+ *  nothing is dropped); none for any other object. */
+function stepTiles(e: EntitySpec): [number, number][] {
+  if (e.template !== "Slope") return [];
+  const [dx, dy] = slopeHighSide(e.orientation);
+  return [[e.x + dx, e.y + dy], [e.x - dx, e.y - dy]];
+}
+
 export interface CropObjects {
   /** The ids of the objects that stay (all their tiles inside the rectangle), in the order given. */
   kept: string[];
@@ -56,9 +66,15 @@ export interface CropObjects {
   cutStart: string | null;
 }
 
-/** What the rectangle does to the objects: which stay, which the edge cuts and which stand outside. */
-export function cropObjects(entities: readonly EntitySpec[], r: CropParams): CropObjects {
+/** What the rectangle does to the objects: which stay, which the edge cuts and which stand outside. A slope whose
+ *  step the edge cuts (`stepTiles`: its high side or the ground behind it past the new edge) is cut, and so is a
+ *  slope whose foot is a cut slope one level down (a staircase: it joined its step through that slope). `from` is
+ *  the whole map's size: a step past the map's own edge (an imported slope that already joined nothing, D482) is
+ *  not the crop's to cut. */
+export function cropObjects(entities: readonly EntitySpec[], r: CropParams, from?: { W: number; H: number }): CropObjects {
   const out: CropObjects = { kept: [], crossing: [], outside: [], cutStart: null };
+  const within = (x: number, y: number) => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
+  const onMap = (x: number, y: number) => !from || (x >= 0 && y >= 0 && x < from.W && y < from.H);
   for (const e of entities) {
     const tiles = tilesOf(e);
     if (!tiles) {
@@ -66,11 +82,32 @@ export function cropObjects(entities: readonly EntitySpec[], r: CropParams): Cro
       continue;
     }
     let inside = 0;
-    for (const [x, y] of tiles) if (x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h) inside++;
-    if (inside === tiles.length) out.kept.push(e.id);
+    for (const [x, y] of tiles) if (within(x, y)) inside++;
+    if (inside === tiles.length && !stepTiles(e).some(([x, y]) => onMap(x, y) && !within(x, y))) out.kept.push(e.id);
     else {
       (inside ? out.crossing : out.outside).push(e.id);
       if (e.template === "StartingLocation") out.cutStart ??= e.id;
+    }
+  }
+  // (up a staircase: the slope standing on a cut slope's high side, with its foot on that slope, goes too; a column
+  // has no floor at both of two neighbouring levels, so that slope was its only foot)
+  const byId = new Map(entities.map((e) => [e.id, e]));
+  const cutSlopes = new Map<string, number>();
+  for (const id of [...out.crossing, ...out.outside]) {
+    const e = byId.get(id)!;
+    if (e.template === "Slope") cutSlopes.set(`${e.x},${e.y}`, e.z);
+  }
+  for (let more = cutSlopes.size > 0; more; ) {
+    more = false;
+    for (let k = 0; k < out.kept.length; k++) {
+      const e = byId.get(out.kept[k])!;
+      if (e.template !== "Slope") continue;
+      const [bx, by] = stepTiles(e)[1];
+      if (cutSlopes.get(`${bx},${by}`) !== e.z - 1) continue;
+      out.kept.splice(k--, 1);
+      out.crossing.push(e.id);
+      cutSlopes.set(`${e.x},${e.y}`, e.z);
+      more = true;
     }
   }
   return out;
@@ -86,7 +123,7 @@ export type CropPlan = { ok: false; reason: string } | { ok: true; removedObject
 export function planCrop(entities: readonly EntitySpec[], W: number, H: number, r: CropParams): CropPlan {
   const rect = cropRectProblem(r, W, H);
   if (rect) return { ok: false, reason: rect };
-  const o = cropObjects(entities, r);
+  const o = cropObjects(entities, r, { W, H });
   if (o.cutStart) return { ok: false, reason: START_CUT };
   return { ok: true, removedObjects: o.crossing.length, removed: [...o.crossing, ...o.outside], width: r.w, height: r.h };
 }
@@ -171,7 +208,7 @@ export function cropWorld(w: WorldModel, r: CropParams): { world: WorldModel; ob
       voxels.set(w.voxels.subarray(from, from + r.w), z * n + y * r.w);
     }
   const specs = w.entities.map((e) => rawEntity(e, "import"));
-  const objects = cropObjects(specs, r);
+  const objects = cropObjects(specs, r, { W, H });
   const keep = new Set(objects.kept);
   const entities: JsonObject[] = [];
   w.entities.forEach((e, k) => {
@@ -200,7 +237,8 @@ function settledDepth(world: WorldModel, heights: Uint8Array): Float64Array {
  *  source through are raised, each to the level of the water beside it rounded up to a whole level: no more than a
  *  level above the generator's lip (a level above the water) would give, and nothing that reads as a wall. The settle
  *  runs again on the lipped ground (up to three times) until nothing leaves. Never a tile on a side the crop did not
- *  cut, ground under an object, or a column with a cave or an overhang. Changes `world` in place; returns the tiles
+ *  cut, ground under an object or the step a slope joins, or a column with a cave or an overhang. Changes `world` in
+ *  place; returns the tiles
  *  raised. */
 export function lipNewEdges(world: WorldModel, r: CropParams, from: { W: number; H: number }): number {
   const { sizeX: W, sizeY: H, layers, voxels } = world;
@@ -219,8 +257,11 @@ export function lipNewEdges(world: WorldModel, r: CropParams, from: { W: number;
   const sources: number[] = [];
   for (const e of world.entities) {
     const spec = rawEntity(e, "import");
-    const tiles = (tilesOf(spec) ?? []).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
+    const on = ([x, y]: [number, number]) => x >= 0 && y >= 0 && x < W && y < H;
+    const tiles = (tilesOf(spec) ?? []).filter(on).map(([x, y]) => y * W + x);
     for (const i of tiles) keep[i] = 1;
+    // (and the step a slope joins: raised, it would join none)
+    for (const [x, y] of stepTiles(spec).filter(on)) keep[y * W + x] = 1;
     if ((spec.template === "WaterSource" || spec.template === "BadwaterSource") && tiles.some((i) => near(i % W, Math.floor(i / W)))) sources.push(...tiles);
   }
   if (!sources.length) return 0;

@@ -182,6 +182,17 @@ describe("a note beside the pointer", () => {
     const at = placeNote(null, { x: 800, y: 450 }, note, view, [wall]);
     expect(inside(at)).toBe(true);
   });
+  it("keeps its first spot at a pointer between pixels, where rounding leaves a sliver of cover far below a pixel", () => {
+    // (a pointer a spec sets in float64, e.g. 800 + 4 sin i: the note's box minus its overlap with the view comes out at
+    // about 4e-12 px², never 0. A real pointer's place is a float32 and sums exactly; PR #736's review)
+    let moved = 0;
+    for (let i = 0; i < 200; i++) {
+      const pointer = { x: 800 + 4 * Math.sin(i), y: 300 + 3 * Math.cos(i * 0.7) };
+      const at = placeNote(null, pointer, note, view, avoid, { dx: 16, dy: 16 });
+      if (at.x !== pointer.x + 16 || at.y !== pointer.y + 16) moved++;
+    }
+    expect(moved, "moves on which it left the spot below and right of the pointer").toBe(0);
+  });
 });
 
 // The placement was made fast (D453): the scan finds the nearest clear spot without trying every spot. It must answer exactly as
