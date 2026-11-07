@@ -329,6 +329,9 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
     }
   }
   if (held.size > 1.5 * n) return false;
+  // (`seen`: this ramp's own tiles, 1 once settled; `tiles` also holds earlier ramps' and the components left to
+  // stairs, so it can't say which tiles this band holds)
+  const seen = new Uint8Array(W * H);
   const band: number[] = [];
   for (let k = 0; k < n; k++) {
     const i = q[k];
@@ -344,7 +347,8 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
         // the middle line takes its level; the sides only where they would not stand above it
         if (ox === 0 && oy === 0) h[j] = lev[k];
         else if (Math.abs(h[j] - lev[k]) > 1) h[j] = lev[k];
-        if (!tiles[j]) band.push(j);
+        if (!seen[j]) band.push(j);
+        seen[j] = 1;
         tiles[j] = 1;
       }
   }
@@ -353,8 +357,6 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
   // River Valley 128² seed 4). The cut above it is left as the band cut it, a cleft: shoulders over
   // the cut too, and as far as the drop, wore the cliffs and plateau rims round every ramp away
   // (Highlands missed its promise on more lands)
-  const seen = new Uint8Array(W * H);
-  for (const j of band) seen[j] = 1;
   let ring = band;
   for (let r = 0; r < 2 && ring.length; r++) {
     const next: number[] = [];
@@ -367,7 +369,8 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
         const yy = y + dy;
         if (!inside(xx, yy, W, H)) continue;
         const j = yy * W + xx;
-        if (seen[j] || water[j] || keep[j]) continue;
+        // (an earlier ramp's ground is never raised: its slopes would stand on a level)
+        if (seen[j] || water[j] || keep[j] || tiles[j] === 1) continue;
         seen[j] = 2;
         visited.push(j);
         let lo = -Infinity;

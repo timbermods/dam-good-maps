@@ -518,19 +518,27 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       let have = 0;
       for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (close[i] && moist[i]) have++;
       const er = stream(seed, "easy-berries", candidate, attempt);
-      for (let k = 0; k < 8 && have < easy.bushes; k++) {
-        const w = new Float64Array(N);
-        for (let i = 0; i < N; i++) if (close[i] && free[i] && bushMoist[i]) w[i] = nearWater(i) ? 2 : 1;
-        const seeds = pickSeeds(er, w, W, 3, 3);
-        if (!seeds.length) break;
-        let grew = 0;
-        for (const s of seeds) {
-          if (have >= easy.bushes) break;
-          const n = patch(s, Math.max(4, Math.min(24, easy.bushes - have)), 1, close, 0.9, "berryPatch/start");
-          have += n;
-          grew += n;
+      // (first on ground the drought leaves moist, as the patches only grow there; where that leaves Easy's
+      // berries short, on the rest of its drought-proof ground as before the D410 round: its targets hold)
+      for (let pass = 0; pass < 2 && have < easy.bushes; pass++) {
+        if (pass === 1) {
+          if (!dries) break;
+          dries = null;
         }
-        if (!grew) break;
+        for (let k = 0; k < 8 && have < easy.bushes; k++) {
+          const w = new Float64Array(N);
+          for (let i = 0; i < N; i++) if (close[i] && free[i] && bushMoist[i] && !dries?.[i]) w[i] = nearWater(i) ? 2 : 1;
+          const seeds = pickSeeds(er, w, W, 3, 3);
+          if (!seeds.length) break;
+          let grew = 0;
+          for (const s of seeds) {
+            if (have >= easy.bushes) break;
+            const n = patch(s, Math.max(4, Math.min(24, easy.bushes - have)), 1, close, 0.9, "berryPatch/start");
+            have += n;
+            grew += n;
+          }
+          if (!grew) break;
+        }
       }
     }
 

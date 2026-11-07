@@ -90,11 +90,6 @@ export function rimLobe(lobes: readonly RimLobe[] | undefined, u: number): numbe
   return d;
 }
 
-/** How much of a sea's depth a tile takes: 0 on the land at the map's edge (D350: the game drains
- *  every edge tile, so the sea keeps a lip of land; below 0 on a lobe, lifted) to 1 in the sea. The
- *  lip is the two outer rows and the shore `lipKeep` wanders in from them (the D410 shore round), and the mainland
- *  is the broad lobes addSea drew, their coast warped so it bends at every scale. `s` is the sea's
- *  `coast` seed: the field draws the land with it and addSea reads it to place islands. */
 /** How far the lip of land along an edge reaches into the map at the edge point (ex, ey), in tiles,
  *  before the rag of `lipKeep` (the D410 shore round, 2026-10-29). Islands' (`thin`) is 2.2–3.8
  *  tiles, so the sea runs on past the map there, broken by headlands and spits of shore reaching up
@@ -121,7 +116,7 @@ export function lipReachAt(s: number, u: number, W: number, H: number, thin: boo
 /** The lip alone (`rimKeep` without the mainland): 0 on the land at the map's edge, 1 past its fall
  *  to the sea. The two outer rows are always land (D350: the game drains every edge tile, so the sea
  *  keeps a lip of land there); past it the land reaches in as far as `lipReach` says at the nearest point of
- *  each edge, its line ragged by a noise six tiles across, and rounded in the corners. Islands'
+ *  each edge, its line ragged by a noise seven tiles across, and rounded in the corners. Islands'
  *  (`thin`) falls to the sea in a tile or two (round 6), Any's sea maps' over 2–4. */
 export function lipKeep(s: number, x: number, y: number, W: number, H: number, thin = false): number {
   const side = Math.min(W, H);
@@ -142,6 +137,11 @@ export function lipKeep(s: number, x: number, y: number, W: number, H: number, t
   return smoothstep(a / fall);
 }
 
+/** How much of a sea's depth a tile takes: 0 on the land at the map's edge (D350: the game drains
+ *  every edge tile, so the sea keeps a lip of land; below 0 on a lobe, lifted) to 1 in the sea. The
+ *  lip is the two outer rows and the shore `lipKeep` wanders in from them (the D410 shore round), and the mainland
+ *  is the broad lobes addSea drew, their coast warped so it bends at every scale. `s` is the sea's
+ *  `coast` seed: the field draws the land with it and addSea reads it to place islands. */
 export function rimKeep(s: number, x: number, y: number, W: number, H: number, lobes?: readonly RimLobe[], thin = false): number {
   const side = Math.min(W, H);
   const e = Math.min(x, W - 1 - x, y, H - 1 - y);
