@@ -1,14 +1,14 @@
 // The moving water, in both looks (investigation/flow-arrows, D353): the water's current from the
 // settle (current.ts) carried into
 // - the flow texture every water material reads (`flowTex`; High's `hlFlow`): the surface's textures
-//   move with the current, and High's rough water and light follow it;
+//   move with the current;
 // - always-on foam: faint threads along the current's lanes, wakes where a bank opens or narrows in
 //   fast water, seams where two currents join, in each look's own foam colours, stronger in fast
 //   water and gone where it is still;
 // - the Flow view (off by default): a few glowing streaks travelling down the lanes, fast water's
 //   longer and brighter, badwater's dim embers;
 // - on a map with water below a tile's surface water (a cave's under a wet roof), that water's own current
-//   and rough water, a volume by level (caveCurrent.ts; `caveFlowTex`), which the water shader reads there.
+//   and contamination, a volume by level (caveCurrent.ts; `caveFlowTex`), which the water shader reads there.
 // All of it is made in the bake worker a moment after the water changes (at least once a second while
 // it keeps changing), never on the page's thread: the page only hands the arrays to the GPU. Only
 // drawn; nothing here reaches the water, a map or an operation.
@@ -23,7 +23,7 @@ import { outflowGrid } from "./current";
 import { canShare, SharedBlock, sharedCopies } from "./shared";
 import type { Baker } from "./high/fields";
 import type { LayeredWater } from "./high/bake";
-import { surfaceContamination, type RoughCounts } from "./high/flow";
+import { surfaceContamination } from "./high/flow";
 import { HIGH_WATER, WATER } from "./waterPalette";
 
 /** The flow follows the water this long after it changes (and at least this often while it does). */
@@ -196,10 +196,8 @@ export function stillFlowTexture(W: number, H: number, sw: SurfaceWater): DataTe
 }
 
 export class WaterMotion {
-  /** The current as drawn (RG, 128 still) with the smoothed contamination (B); the rough water (R). */
+  /** The current as drawn (RG, 128 still) with the smoothed contamination (B). */
   readonly flow: DataTexture;
-  readonly rough: DataTexture;
-  counts: RoughCounts = { falls: 0, rapids: 0, obstacles: 0, wet: 0 };
   stats = { lanes: 0, wakes: 0, seams: 0, streaks: 0, triangles: 0 };
   /** The last bake's time in the worker (information). */
   ms = 0;
@@ -237,7 +235,6 @@ export class WaterMotion {
     uniforms.caveFlowTex.value = noCaveCurrent();
     uniforms.caveFlowLevels.value.set(0, 0);
     this.flow = texture(W, H, [128, 128, 0, 255]);
-    this.rough = texture(W, H, [0, 0, 0, 255]);
     this.cues = new Mesh(new BufferGeometry(), cueMaterial(uniforms, this.high, this.viewport, this.dpr));
     this.cues.frustumCulled = false;
     this.cues.renderOrder = 7;
@@ -321,11 +318,8 @@ export class WaterMotion {
       if (id !== this.latest || r.kind !== "flow" || this.disposed) return;
       this.done = id;
       (this.flow.image.data as Uint8Array).set(r.flow);
-      (this.rough.image.data as Uint8Array).set(r.rough);
       this.flow.needsUpdate = true;
-      this.rough.needsUpdate = true;
       this.setCave(r.cave);
-      this.counts = r.counts;
       this.ms = r.ms;
       this.baked = true;
       this.setShapes(r.shapes);
@@ -425,7 +419,6 @@ export class WaterMotion {
     (m.uniforms.floors.value as DataTexture | null)?.dispose();
     m.dispose();
     this.flow.dispose();
-    this.rough.dispose();
     this.cave?.dispose();
     this.cave = null;
   }

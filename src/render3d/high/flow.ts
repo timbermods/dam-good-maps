@@ -1,13 +1,11 @@
 // The water's flow and contamination as the looks read them (#38, investigation/maplook2 flow.ts; #67
 // river.ts), from the water the view shows:
-// - the flow: the settle's own current (current.ts, D353), carried with every water view; bake.ts
-//   draws it at FLOW_DISPLAY times its speed. It moves the water's detail, the moving water's foam and
-//   the Flow view, and places the rough water; nothing plays by it. (Until D353 it was estimated from
-//   the water's surface: decisions-pending #111.)
+// - the flow: the settle's own outflows (current.ts, D353), carried with every water view; bake.ts packs
+//   them as the game's flow (`gameFlowOf`). It moves the water's surface and the moving water's foam
+//   and the Flow view; nothing plays by it. (Until D353 it was estimated from the water's surface:
+//   decisions-pending #111.)
 // - the contamination, smoothed through neighbouring water on the same surface only (never across
-//   a fall or dry ground), so a front is soft over a few tiles;
-// - rough water (#67 stage 2): below falls, in rapids (fast for their own river) and in fast wakes
-//   round small obstacles, never over a whole river.
+//   a fall or dry ground), so a front is soft over a few tiles.
 // Plain arrays, no three.js: bake.ts packs them into textures' data, in a worker.
 
 import type { SurfaceWater } from "../model";
@@ -15,11 +13,6 @@ import type { SurfaceWater } from "../model";
 const WET = 0.001;
 /** Neighbours on the same surface: a step larger than this is a fall. */
 const SAME = 0.35;
-
-function ramp(a: number, b: number, x: number): number {
-  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-}
 
 /** The contamination, smoothed twice through adjacent water on the same surface, and carried a
  *  tile into dry ground so filtering never shows a false clean rim along a badwater bank. */
@@ -72,121 +65,4 @@ export function surfaceContamination(W: number, H: number, sw: Pick<SurfaceWater
       if (count) out[i] = sum / count;
     }
   return out;
-}
-
-
-export interface RoughCounts {
-  falls: number;
-  rapids: number;
-  obstacles: number;
-  wet: number;
-}
-
-/** Where the water runs rough (#67 river.ts), 0–1 a tile: trails below falls (a drop of 0.6 or
- *  more), rapids (a river's own median speed ×1.45 to ×2.1) and wakes round small obstacles in fast
- *  water; each river measured against itself, so a big river is not foamed all over. */
-export function roughWater(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, velocity: Float32Array): { field: Float32Array; counts: RoughCounts } {
-  const N = W * H;
-  const speed = new Float32Array(N);
-  for (let i = 0; i < N; i++) speed[i] = Math.hypot(velocity[i * 2], velocity[i * 2 + 1]);
-  const wet = (i: number) => i >= 0 && i < N && sw.depth[i] > 0.015;
-  const neighbours = (i: number) => {
-    const x = i % W;
-    const y = (i - x) / W;
-    return [x ? i - 1 : -1, x < W - 1 ? i + 1 : -1, y ? i - W : -1, y < H - 1 ? i + W : -1];
-  };
-  const component = new Int32Array(N).fill(-1);
-  const normal: number[] = [];
-  const queue = new Int32Array(N);
-  for (let start = 0; start < N; start++) {
-    if (!wet(start) || component[start] >= 0) continue;
-    const id = normal.length;
-    let head = 0;
-    let tail = 0;
-    queue[tail++] = start;
-    component[start] = id;
-    const moving: number[] = [];
-    while (head < tail) {
-      const i = queue[head++];
-      if (speed[i] > 0.05) moving.push(speed[i]);
-      for (const j of neighbours(i))
-        if (wet(j) && component[j] < 0) {
-          component[j] = id;
-          queue[tail++] = j;
-        }
-    }
-    moving.sort((a, b) => a - b);
-    normal.push(moving.length ? moving[Math.floor(moving.length * 0.5)] : Infinity);
-  }
-  const falls = new Float32Array(N);
-  const rapids = new Float32Array(N);
-  const obstacles = new Float32Array(N);
-  const deposit = (field: Float32Array, x: number, y: number, value: number, level: number) => {
-    for (let dy = -1; dy <= 1; dy++)
-      for (let dx = -1; dx <= 1; dx++) {
-        const xx = Math.floor(x) + dx;
-        const yy = Math.floor(y) + dy;
-        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        const i = yy * W + xx;
-        if (!wet(i) || Math.abs(sw.surface[i] - level) > SAME) continue;
-        const weight = Math.max(0, 1 - Math.hypot(xx + 0.5 - x, yy + 0.5 - y) / 1.1);
-        field[i] = Math.max(field[i], value * weight);
-      }
-  };
-  const trail = (field: Float32Array, i: number, value: number, length: number) => {
-    let x = (i % W) + 0.5;
-    let y = Math.floor(i / W) + 0.5;
-    const level = sw.surface[i];
-    for (let d = 0; d <= length; d += 0.45) {
-      const j = Math.floor(y) * W + Math.floor(x);
-      if (x < 0 || x >= W || y < 0 || y >= H || !wet(j) || Math.abs(sw.surface[j] - level) > SAME) break;
-      deposit(field, x, y, value * Math.pow(1 - d / (length + 0.15), 1.45), level);
-      if (speed[j] < 0.05) break;
-      x += (velocity[j * 2] / speed[j]) * 0.45;
-      y += (velocity[j * 2 + 1] / speed[j]) * 0.45;
-    }
-  };
-  for (let i = 0; i < N; i++) {
-    if (!wet(i)) continue;
-    // a fall feeding this pool: the largest drop from a wet neighbour above it
-    let drop = 0;
-    for (const j of neighbours(i)) if (wet(j)) drop = Math.max(drop, sw.surface[j] - sw.surface[i]);
-    if (drop >= 0.6) trail(falls, i, Math.min(0.85, 0.38 + drop * 0.09), 2.8);
-    if (speed[i] <= 0.05) continue;
-    const rapid = ramp(1.45, 2.1, speed[i] / normal[component[i]]);
-    if (rapid > 0) deposit(rapids, (i % W) + 0.5, Math.floor(i / W) + 0.5, rapid * 0.62, sw.surface[i]);
-  }
-  // water on both sides of a small solid obstacle, in the same river
-  const across = (i: number, dx: number, dy: number) => {
-    for (let d = 1; d <= 4; d++) {
-      const x = (i % W) + dx * d;
-      const y = Math.floor(i / W) + dy * d;
-      if (x < 0 || x >= W || y < 0 || y >= H) return -1;
-      const j = y * W + x;
-      if (wet(j)) return j;
-    }
-    return -1;
-  };
-  const surrounds = (a: number, b: number) => a >= 0 && b >= 0 && component[a] === component[b] && Math.abs(sw.surface[a] - sw.surface[b]) < SAME;
-  for (let i = 0; i < N; i++) {
-    if (wet(i)) continue;
-    const ns = neighbours(i);
-    if (!ns.some(wet)) continue;
-    if (!surrounds(across(i, -1, 0), across(i, 1, 0)) && !surrounds(across(i, 0, -1), across(i, 0, 1))) continue;
-    for (const j of ns)
-      if (wet(j) && heights[i] >= sw.surface[j] - 0.15) {
-        const ratio = speed[j] / normal[component[j]];
-        if (speed[j] > 0.5 && ratio > 1.12) trail(obstacles, j, 0.6 * ramp(1.12, 1.85, ratio), 1.4);
-      }
-  }
-  const field = new Float32Array(N);
-  const counts: RoughCounts = { falls: 0, rapids: 0, obstacles: 0, wet: 0 };
-  for (let i = 0; i < N; i++) {
-    field[i] = Math.max(falls[i], rapids[i], obstacles[i]);
-    if (wet(i)) counts.wet++;
-    if (falls[i] > 0.05) counts.falls++;
-    if (rapids[i] > 0.05) counts.rapids++;
-    if (obstacles[i] > 0.05) counts.obstacles++;
-  }
-  return { field, counts };
 }

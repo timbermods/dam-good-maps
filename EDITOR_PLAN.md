@@ -1124,13 +1124,14 @@ Two looks (Map look 2, D147, D242, D250, D284):
   sites and ruins (D178), the approved badwater in one shared water palette (D177); waterfalls as the game draws them, the
   water's own face where it steps down, in its own colour and a tenth see-through, with no foam or whitewater, a face at
   each step of a cascade (D201 amended 2026-10-29).
-- **High**, the same view finished further: water coloured by depth with clear shallows, fine crests and flecks
-  moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, sky, rock
+- **High**, the same view finished further: water coloured by depth with clear shallows, its surface the game's (its
+  albedo and ripples carried by each column's outflow in two phases, as in every look; D334's light network, ribbons,
+  swells and rolling light gone by D496 and D497) and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, sky, rock
   strata and soil edges (#65; its ambient occlusion, tone curve and haze gave way to the game's light, fog and post
   chain in every look, D497); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
-  rock with a soil cap and the water's section, rough water below falls (#67; its crowns, landings, froth, mist and
-  splash rings removed with D201's amendment, 2026-10-29). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
+  rock with a soil cap and the water's section (#67; its crowns, landings, froth, mist and splash rings removed with
+  D201's amendment, 2026-10-29; its rough water below falls with D334's water terms, 2026-11-07). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
   dead (`core/sim/withering.ts`, given to the page with the held day). A living plant whose cause of death runs on the ground shown is drawn dying, as the game's `#Dying` model is (D242 as amended 2026-10-29), on Day 0 as on any held day: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band (`withering.ts` `dyingCause`, read by the renderer from the soil and water it shows; `render3d/dying.ts` makes the forms). A held drought or badtide day turns the haze to

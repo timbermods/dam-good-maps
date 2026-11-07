@@ -173,18 +173,24 @@ describe("a fall's look, as the game's", () => {
 
   it("carries its detail by the current over its lip, in two phases, as the game carries its albedo by the flow", () => {
     const [standard, light, high] = shaders();
-    expect(standard.m.fragmentShader).toContain("vec2 faceDrift = waterCurrent(g - vec2(n.x, -n.z) * 0.5) * 0.65;");
-    expect(standard.m.fragmentShader).not.toContain("vWorld.y * 1.3 + t * 2.4");
-    // (the light look's water is still)
-    expect(light.m.fragmentShader).toContain("float s = 0.5;");
-    expect(high.m.fragmentShader).toContain("texture2D(hlFlow, (g - vec2(n.x, -n.z) * 0.5) / hlFlowSize)");
-    expect(high.m.fragmentShader).not.toContain("vWorld.y * 1.4 + hlT * 3.6");
+    // (one sample for both looks: a face's flow is its water's over the lip, half a tile back; Q9 P5)
+    for (const { m } of [standard, high]) {
+      expect(m.fragmentShader).toContain("vec2 flow = waterFlow(n.y > 0.5 ? g : g - vec2(n.x, -n.z) * 0.5);");
+      expect(m.fragmentShader).toContain("surf = waterSurfaceAt(pa, pb, pw);");
+      expect(m.fragmentShader).not.toContain("vWorld.y * 1.3 + t * 2.4");
+      expect(m.fragmentShader).not.toContain("vWorld.y * 1.4 + hlT * 3.6");
+    }
+    // (the light look's water is still: its surface flat at the textures' mean, as the game's Low quality)
+    expect(light.m.defines.LITE).toBe(1);
+    expect(light.m.fragmentShader).toMatch(/vec4 surf = vec4\([\d.]+, [\d.]+, 0\.50196, 0\.50196\);/);
+    expect(high.m.fragmentShader).toContain("vec3 faceClean = HW_SHALLOW * albedo / WATER_ALBEDO_MEAN;");
   });
 
   it("is lit as the surface is, by URP's sky reflection and sun glint, but takes none of the game's own highlight (its waterfall mask)", () => {
     const [standard, , high] = shaders();
     for (const line of ["float fres = waterSkyReflect(dot(N, V), smoothness);", "float spec = waterSunGlint(N, V, sunDir, smoothness) * lit;", "vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, N.y);"]) expect(standard.m.fragmentShader).toContain(line);
-    expect(high.m.fragmentShader).toContain("c = face * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);");
+    expect(high.m.fragmentShader).toContain("vec3 faceLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit;");
+    expect(high.m.fragmentShader).toContain("c = face * faceLight;");
   });
 
   it("is the water's own colour where it sees the cliff right behind (its shallowest), with no whitewater or foam", () => {
@@ -193,7 +199,7 @@ describe("a fall's look, as the game's", () => {
       expect(m.fragmentShader).toContain("body = cleanWaterBody(0.05, waterAbsorb(0.05));");
     }
     // (High's surface colour at its shallowest)
-    expect(high.m.fragmentShader).toContain("waterBlend(HW_SHALLOW * (0.92 + 0.16 * strands), badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad), hlBad)");
+    expect(high.m.fragmentShader).toContain("waterBlend(faceClean, badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad), hlBad)");
     // (partly bad, the game's glow of its shallowest, as the surface's)
     for (const { m } of [standard, light]) expect(m.fragmentShader).toContain("murky = badwaterGlow(badwaterBody(0.05), BADWATER_BODY, 0.05, cont);");
     for (const { look, m } of shaders()) for (const gone of ["FALL_FOAM", "FALL_WHITEWATER", "FALL_TEAL", "fallIn", "hlCrown", "hlLanding", "hlBubbles", "lip = min("]) expect(m.fragmentShader, `${look}: ${gone}`).not.toContain(gone);

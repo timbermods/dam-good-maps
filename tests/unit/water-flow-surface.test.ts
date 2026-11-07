@@ -1,0 +1,185 @@
+// The surface the water's flow carries, as the game draws it (Q9 P5, P11; D496, D497): our own textures at the
+// statistics measured in the game's (`python tools/game-water-shader.py --textures`, waterTextures.ts
+// GAME_FLOW_TEXTURES), the game's flow (each column's outflows ÷ 14) and its two phases in both looks' shaders, and
+// none of the terms the water had of our own (D334's light network, ribbons, swells, packets, streaks and crests).
+
+import { describe, expect, it } from "vitest";
+import { DataTexture } from "three";
+import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
+import { waterHooks } from "../../src/render3d/high/shaders";
+import { flowByte } from "../../src/render3d/high/bake";
+import { gameFlowOf } from "../../src/render3d/current";
+import { albedoOf, featureTiles, fitAlbedo, GAME_FLOW_TEXTURES as GAME, makeWaterTexture, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
+import { GAME_WATER, gameCleanColour, gameDepthR } from "../../src/render3d/waterPalette";
+
+const N = WATER_TEXTURE_SIZE;
+const data = makeWaterTexture(N);
+
+function stats(f: Float64Array) {
+  const s = Float64Array.from(f).sort();
+  const n = s.length;
+  const mean = s.reduce((a, b) => a + b, 0) / n;
+  const spread = Math.sqrt(s.reduce((a, b) => a + (b - mean) ** 2, 0) / n);
+  const p = (q: number) => s[Math.floor(q * (n - 1))];
+  return { mean, spread, p5: p(0.05), p50: p(0.5), p95: p(0.95) };
+}
+
+describe("the water's textures", () => {
+  const n = N * N;
+  const ch = [new Float64Array(n), new Float64Array(n), new Float64Array(n)];
+  const luma = new Float64Array(n);
+  const sx = new Float64Array(n);
+  const sy = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const a = albedoOf(data[i * 4], data[i * 4 + 1]);
+    for (let k = 0; k < 3; k++) ch[k][i] = a[k] * 255;
+    luma[i] = 0.2126 * ch[0][i] + 0.7152 * ch[1][i] + 0.0722 * ch[2][i];
+    [sx[i], sy[i]] = slopesOf(data[i * 4 + 2], data[i * 4 + 3]);
+  }
+
+  it("make an albedo at the game's statistics: its mean, spread and percentiles per channel, and its feature size", () => {
+    for (let k = 0; k < 3; k++) {
+      const s = stats(ch[k]);
+      const c = "rgb"[k];
+      expect(Math.abs(s.mean - GAME.albedo.mean[k]), `${c} mean`).toBeLessThan(1);
+      expect(Math.abs(s.spread / GAME.albedo.spread[k] - 1), `${c} spread`).toBeLessThan(0.15);
+      expect(Math.abs(s.p5 - GAME.albedo.p5[k]), `${c} p5`).toBeLessThan(5);
+      expect(Math.abs(s.p50 - GAME.albedo.p50[k]), `${c} p50`).toBeLessThan(5);
+      expect(Math.abs(s.p95 - GAME.albedo.p95[k]), `${c} p95`).toBeLessThan(5);
+    }
+    expect(Math.abs(featureTiles(luma, N) / GAME.albedo.feature - 1)).toBeLessThan(0.25);
+  });
+
+  it("make the normal's slopes at the game's spread, percentiles and feature size", () => {
+    for (const f of [sx, sy]) {
+      const s = stats(f);
+      expect(Math.abs(s.mean)).toBeLessThan(0.02);
+      expect(Math.abs(s.spread / GAME.normal.spread - 1)).toBeLessThan(0.15);
+      expect(Math.abs(s.p5 - GAME.normal.p5)).toBeLessThan(0.04);
+      expect(Math.abs(s.p95 - GAME.normal.p95)).toBeLessThan(0.04);
+      expect(Math.abs(featureTiles(f, N) / GAME.normal.feature - 1)).toBeLessThan(0.25);
+    }
+  });
+
+  it("draw the albedo the shaders use from the fit to these bytes, and the placeholder at its mean", () => {
+    const fit = fitAlbedo(data);
+    for (let k = 0; k < 3; k++) {
+      expect(fit.base[k]).toBeCloseTo(WATER_ALBEDO.base[k], 4);
+      expect(fit.network[k]).toBeCloseTo(WATER_ALBEDO.network[k], 4);
+      expect(fit.blobs[k]).toBeCloseTo(WATER_ALBEDO.blobs[k], 4);
+      expect(WATER_ALBEDO.mean[k] * 255).toBeCloseTo(GAME.albedo.mean[k], 6);
+    }
+    let r = 0;
+    let g = 0;
+    for (let i = 0; i < n; i++) {
+      r += data[i * 4];
+      g += data[i * 4 + 1];
+    }
+    expect(r / n).toBeCloseTo(WATER_ALBEDO.flat[0], 1);
+    expect(g / n).toBeCloseTo(WATER_ALBEDO.flat[1], 1);
+    const flat = albedoOf(WATER_ALBEDO.flat[0], WATER_ALBEDO.flat[1]);
+    for (let k = 0; k < 3; k++) expect(flat[k] * 255).toBeCloseTo(GAME.albedo.mean[k], 1);
+  });
+});
+
+describe("the water's flow", () => {
+  it("is each column's outflow ÷ 14, averaged with its wet neighbours, as the game's vertex does", () => {
+    // a 3 × 1 river flowing +x: every column hands 7 to its right (outflows in the order −y, −x, +y, +x)
+    const W = 3;
+    const H = 1;
+    const out = new Float32Array(W * H * 4);
+    for (let i = 0; i < W; i++) out[i * 4 + 3] = 7;
+    const f = gameFlowOf(W, H, out, [1, 1, 1], WATER_FLOW.maxOutflow);
+    for (let i = 0; i < W; i++) {
+      expect(f[i * 2]).toBeCloseTo(0.5, 6);
+      expect(f[i * 2 + 1]).toBe(0);
+    }
+    // a dry neighbour neither takes part nor gets a flow
+    const g = gameFlowOf(W, H, out, [1, 1, 0], WATER_FLOW.maxOutflow);
+    expect(g[4]).toBe(0);
+    // flowing −y (toward the map's first row)
+    const up = new Float32Array(4);
+    up[0] = 14;
+    expect(gameFlowOf(1, 1, up, [1], 14)[1]).toBeCloseTo(-1, 6);
+  });
+
+  it("is stored as a byte that keeps a slow drift's precision, and the shaders square it back", () => {
+    expect(flowByte(0)).toBe(128);
+    expect(flowByte(1)).toBe(255);
+    expect(flowByte(-1)).toBe(1);
+    expect(flowByte(2)).toBe(255);
+    for (const f of [0.01, 0.05, 0.2, -0.3, 0.7]) {
+      const e = (flowByte(f) - 128) / 127;
+      expect(Math.abs(e * Math.abs(e) - f)).toBeLessThan(Math.max(0.01, Math.abs(f) * 0.05));
+    }
+  });
+});
+
+describe("both looks' water shaders", () => {
+  const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+  const looks = [
+    { look: "Standard", s: waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false).fragmentShader },
+    { look: "light", s: waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), true).fragmentShader },
+    { look: "High", s: waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false, waterHooks()).fragmentShader },
+  ];
+
+  it("carry the game's two phases of the flow (Q9 P5): t × 0.4, half a cycle apart, at xz × 0.06 − f × frac × 2", () => {
+    for (const { look, s } of looks) {
+      expect(s, look).toContain("uniform sampler2D waterTex;");
+      expect(s, look).toContain("float ph = t * 0.4;");
+      expect(s, look).toContain("float b = fract(ph + 0.5);");
+      expect(s, look).toContain("pa = g + (fract(floor(ph) * vec2(0.3, 0.42)) - f * a * 2.0) / 0.06;");
+      expect(s, look).toContain("pb = g + (fract(floor(ph + 0.5) * vec2(0.58, 0.73)) - f * b * 2.0) / 0.06;");
+      expect(s, look).toContain("w = abs(2.0 * a - 1.0);");
+      expect(s, look).toContain("waterPhases(g, flow, t, pa, pb, pw);");
+      expect(s, look).toContain("surf = waterSurfaceAt(pa, pb, pw);");
+      // the albedo multiplies the colour; the normal is the surface's, × 4 and × 2 more on badwater (P11)
+      expect(s, look).toContain("vec3 albedo = waterAlbedo(surf);");
+      expect(s, look).toContain("vec2 b = sl * 4.0 * (1.0 + share);");
+      expect(s, look).toContain("N = waterFlowNormal(surf, cont);");
+      expect(s, look).toMatch(/body \*= albedo \/ WATER_ALBEDO_MEAN;/);
+    }
+  });
+
+  it("have none of the water's own terms (D334's, superseded by D496 and D497 for its water)", () => {
+    const gone = [
+      // Standard: its pale streaks, crests' light, slowed badwater ripples and own drift
+      "WATER_PALE",
+      "WATER_CREST",
+      "crest",
+      "float slow",
+      "flowingAt",
+      "waterCurrent",
+      // High: its chop streaks, grazing and streak colours, light network, ribbons, swells, rolling packets, brightness
+      // swing, still-water drift, its own ripples and a film's lifted opacity
+      "chop(",
+      "HW_GRAZING",
+      "HW_STREAK",
+      "cracks(flow",
+      "ribbons",
+      "rolling",
+      "broad",
+      "networkColour",
+      "highlights",
+      "vec2(0.018, -0.012)",
+      "hlRippleNormal",
+      "hlSheen",
+      "hlRiver",
+      "hlRough",
+    ];
+    for (const { look, s } of looks) for (const term of gone) expect(s, `${look}: ${term}`).not.toContain(term);
+  });
+
+  it("can draw clean water by the game's own formula (Q9 P4): lerp(#446C71, #000F48, d/5) × DepthGradients.R × 2", () => {
+    for (const { look, s } of looks) {
+      expect(s, look).toContain(`#define WATER_FORMULA ${GAME_WATER.use ? 1 : 0}`);
+      expect(s, look).toContain("vec3 gameCleanColour(float depth)");
+    }
+    expect(gameDepthR(0)).toBeCloseTo(245 / 255, 6);
+    expect(gameDepthR(5)).toBe(0);
+    expect(gameDepthR(1)).toBeCloseTo(133.7 / 255, 6);
+    const c = gameCleanColour(0);
+    expect(c[0]).toBeCloseTo((0x44 / 255) * (245 / 255) * 2, 6);
+    expect(c[2]).toBeCloseTo((0x71 / 255) * (245 / 255) * 2, 6);
+  });
+});
