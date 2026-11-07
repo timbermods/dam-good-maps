@@ -11,10 +11,11 @@
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../../src/core/format/footprints";
-import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_FAR_FRAME, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
+import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_FAR_FRAME, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinOvergrown, ruinsOvergrown, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
 import { objectMaterial, RUIN_INSIDE_COVER, RUIN_LATTICE_SCALE, RUIN_LATTICE_STRUT, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
-import { entityView, variantIndex, type EntityInput } from "../../src/render3d/model";
+import { LAND_GROW } from "../../src/render3d/objectFade";
+import { entityView, variantIndex, type EntityInput, type EntityView } from "../../src/render3d/model";
 import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, WATER, type Rgb } from "../../src/render3d/palette";
 import { variantOf } from "../../src/worker/api";
 
@@ -205,7 +206,8 @@ describe("mine sites", () => {
     // (a few sites a map: about a thousand triangles each)
     expect(modelTriangles("UndergroundRuins")).toBeLessThanOrEqual(1400);
     const mesh = meshesOf([site("Cw0")]).find((c) => c.name === "UndergroundRuins")!;
-    expect(Array.from(mesh.geometry.getAttribute("grow")!.array)[0]).toBe(0);
+    // (no minimum size on screen: its grow is the land's own shape's mark, negative, never faded or hidden, objectFade.ts)
+    expect(Array.from(mesh.geometry.getAttribute("grow")!.array)[0]).toBe(LAND_GROW[0]);
     // every part is drawn at every distance
     expect(new Set(modelOf("UndergroundRuins").lod)).toEqual(new Set([LOD_ALL]));
   });
@@ -440,6 +442,14 @@ describe("ruins", () => {
     expect(count(/\.ivy\.light$/)).toBe(1);
     expect(count(/^scaffold\./)).toBe(7);
     expect([0, 1, 2, 3].map((lv) => ruinIvy(1, 1, 4, lv))).toEqual([IVY_DENSE, IVY_MEDIUM, IVY_LIGHT, IVY_NONE]);
+    // the game's dry model on contaminated ground too, moist or not (RuinModelUpdater: IsDry || IsContaminated)
+    const poisoned = { moisture, contamination: new Uint8Array(W * 4) };
+    poisoned.contamination[1 * W + 1] = 1;
+    expect(meshesOf([column(1, 1, 4, "C")], poisoned, W).filter((c) => /\.ivy/.test(c.name)).length).toBe(0);
+    expect(ruinOvergrown(soil, W, 1, 1, 0)).toBe(true);
+    expect(ruinOvergrown(poisoned, W, 1, 1, 0)).toBe(false);
+    expect(ruinOvergrown(soil, W, 4, 1, 0)).toBe(false);
+    expect(Array.from(ruinsOvergrown({ count: 2, templates: ["RuinColumnH4", "Pine"], template: Uint16Array.of(0, 1), x: Int16Array.of(1, 1), y: Int16Array.of(1, 1), z: Int16Array.of(0, 0) } as unknown as EntityView, soil, W))).toEqual([1, 0]);
     expect([0, 1].map((lv) => ruinIvy(1, 1, 2, lv))).toEqual([IVY_DENSE, IVY_LIGHT]);
     expect(ruinIvy(1, 1, 1, 0)).toBe(IVY_DENSE);
     // about the lower half, from the foot up, thinning upward, the same every time

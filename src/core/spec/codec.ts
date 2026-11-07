@@ -63,7 +63,13 @@ interface MixKey {
   path: Path;
   kind: "mix";
 }
-type SettingKey = IntKey | EnumKey | MixKey;
+/** A setting that is on or off, absent when off (Easy start, D495): written `1` only when on. */
+interface FlagKey {
+  key: string;
+  path: Path;
+  kind: "flag";
+}
+type SettingKey = IntKey | EnumKey | MixKey | FlagKey;
 
 /** Every setting, in fragment order (PLAN §5). */
 export const SETTING_KEYS: readonly SettingKey[] = [
@@ -94,6 +100,7 @@ export const SETTING_KEYS: readonly SettingKey[] = [
   { key: "gt", path: ["resources", "geothermal"], kind: "enum", codes: { off: "0", some: "s" } },
   { key: "ms", path: ["resources", "mineSites"], kind: "int" },
   { key: "sa", path: ["start", "area"], kind: "enum", codes: { small: "s", normal: "n", large: "l" } },
+  { key: "es", path: ["start", "easyStart"], kind: "flag" },
   { key: "sw", path: ["start", "rules", "waterWithin"], kind: "int" },
   { key: "sl", path: ["start", "rules", "woodWithin20"], kind: "int" },
   { key: "sb", path: ["start", "rules", "bushesWithin20"], kind: "int" },
@@ -155,6 +162,11 @@ export function encodeSpecFragment(spec: MapSpec): string {
   for (const sk of SETTING_KEYS) {
     const v = getAt(spec.settings, sk.path);
     const b = getAt(base, sk.path);
+    // (an on-or-off setting is written only when on: Easy start, D495)
+    if (sk.kind === "flag") {
+      if (v === true) put(sk.key, "1");
+      continue;
+    }
     // (a setting a spec from before it carries none of reads as its default: Sources, D330)
     if (v === undefined || jsonEqual(v, b)) continue;
     if (sk.kind === "int") put(sk.key, String(v));
@@ -234,6 +246,12 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
     const raw = params.get(sk.key);
     if (raw === undefined) continue;
     let v: unknown;
+    if (sk.kind === "flag") {
+      // (on is `1`; `0` is off, which a spec carries as no field at all)
+      if (raw === "1") setAt(spec.settings, sk.path, true);
+      else if (raw !== "0") problems.push(`setting ${sk.key}=${raw} is not valid here, so the preset's value is kept`);
+      continue;
+    }
     if (sk.kind === "int") v = /^-?\d+$/.test(raw) ? Number(raw) : NaN;
     else if (sk.kind === "enum") v = Object.keys(sk.codes).find((n) => sk.codes[n] === raw) ?? (raw in sk.codes ? raw : undefined);
     else {

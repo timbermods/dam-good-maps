@@ -9,15 +9,15 @@
 //   specular) and its wind;
 // - #67 (investigation/maplook-finish), stages 1–3: the diorama edge (rock beds, soil cap, water
 //   section), the water's finish (a continuous crown, an irregular landing, bubbly froth, rough
-//   water), the landmarks' fine detail and slopes' natural material; and stage 4's seasons on a held
-//   Drought or Badtide day (D250, D286 (4); render3d/high/seasons.ts): pale dusty dry ground with straw
-//   where grass was, a heat shimmer over it, and a faint sickly sky in a badtide. Its dark stain on
-//   contaminated soil is superseded by D334 (contamination's orange-red veins, the game's own, in every
-//   look: materials.ts `veinsOf`).
+//   water), the landmarks' fine detail and slopes' natural material. Stage 4's seasons (straw, a heat
+//   shimmer, a sickly sky) are superseded by D250's 2026-10-29 amendment: a held day changes the haze
+//   to the game's fog colour in both looks (render3d/high/seasons.ts); its dark stain on contaminated
+//   soil by D334 (contamination's orange-red veins, the game's own, in every look: materials.ts
+//   `veinsOf`).
 // - Timberborn's references (D334, investigation/high-soul, adopted with the High look): exposure
 //   1.00 and a restrained grade, a lower ambient-occlusion floor, olive stone, current-aligned
-//   caustics and rolling light on moving water, pink highlights and red contact at rock on
-//   badwater, a bluer sky with fewer, larger clouds.
+//   caustics and rolling light on moving water, pink highlights and (the game's own since D496's
+//   amendment) the glow of shallow water partly bad, a bluer sky with fewer, larger clouds.
 // Every effect has a switch (a uniform, 1 on, 0 off), so switching never recompiles a shader. The
 // investigations' colours are display RGB, like the Standard shaders'. Where #65 graded the whole
 // frame in a pass of its own, each High material grades its own colour at the end of `finish()`:
@@ -51,9 +51,6 @@ export const SWITCHES = [
   "hlGeology",
   "hlSoilCap",
   "hlSection",
-  "hlCrown",
-  "hlLanding",
-  "hlBubbles",
   "hlRiver",
   "hlObjectDetail",
 ] as const;
@@ -184,7 +181,7 @@ const AMBIENT_GLSL = /* glsl */ `
  *  off, the Standard haze. None from straight above (hazeAmount is 0 there). */
 const HAZE = /* glsl */ `if (hlHaze > 0.5 && hazeAmount > 0.0) {
       float farAir = smoothstep(max(64.0, hazeRange.x * 1.5), max(160.0, hazeRange.y * 1.3), d);
-      c = mix(c, vec3(0.78, 0.84, 0.91), farAir * 0.055);
+      c = mix(c, hazeColor, farAir * 0.055);
     } else c = mix(c, hazeColor, hazeAmount * smoothstep(hazeRange.x, hazeRange.y, d));`;
 
 const FINISH_END = /* glsl */ `return (hlTone > 0.5 || hlGrade > 0.5) ? hlGradeColour(c) : clamp(c, 0.0, 1.0);`;
@@ -210,26 +207,7 @@ export function terrainHooks(): ShaderHooks {
     ...lit(["hlAO", "hlStrata", "hlBlend", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], AMBIENT_GLSL + /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
-  uniform sampler2D hlSeasonMask;
-  uniform vec2 hlSeasonSize;
-  uniform float hlDry, hlHeat;
 `),
-    // the seasons (#67 stage 4): the held day's mask (R: dry ground with no water on it, A: grass the map's own soil had),
-    // read at the tile itself, never blended across a moist one. The heat shimmer moves the ground's own pattern by under
-    // half a pixel over dry ground (no pass of its own: D334's crisp map); its waves run in screen space, so they never
-    // alias however many tiles a pixel spans, and the pixel size is taken outside the branch (derivatives need every
-    // pixel of a quad)
-    groundStart: /* glsl */ `
-        vec2 gTile = g;
-        if (hlHeat > 0.5) {
-          float px = max(fwidth(g.x), fwidth(g.y));
-          vec4 shim = texture2D(hlSeasonMask, (floor(g) + 0.5) / hlSeasonSize);
-          if (shim.r > 0.5) {
-            vec2 sp = gl_FragCoord.xy;
-            g += vec2(sin(sp.y * 0.9 + time * 1.1) * sin(sp.x * 0.35 - time * 0.73), sin(sp.x * 0.8 - time * 1.3) * sin(sp.y * 0.4 + time * 0.9)) * px * 0.45;
-          }
-        }
-`,
     skyLight: "ambientVisibility(vWorld, n) * ",
     // under a roof, the soft shadow of the real meshes, the roof included, as on the ground before it
     // (off: the march through the light volume)
@@ -245,25 +223,11 @@ export function terrainHooks(): ShaderHooks {
         }`,
     // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
     // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
-    moist: "hlBlend > 0.5 ? smoothstep(0.36, 0.64, s.x + edge) : smoothstep(0.42, 0.58, s.x + edge)",
+    // (where grass meets earth, the game's share per tile, D135 as amended: the soil-edges switch is contamination's alone)
+    moist: "clamp(s.x, 0.0, 1.0)",
     bad: "hlBlend > 0.5 ? smoothstep(0.34, 0.66, s.z + edge * 0.6) : smoothstep(0.4, 0.6, s.z + edge * 0.6)",
     // colour variation (#65): two broad world scales on the ground's colour, not its soil
     groundVariation: /* glsl */ `
-        // pale dusty earth over dry ground (the seasons, #67 stage 4), its cracks kept, straw where grass stood: laid on the
-        // ground's own colour, before contamination's veins are, so the veins keep all their strength (D334)
-        if (hlDry > 0.5) {
-          vec4 season = texture2D(hlSeasonMask, (floor(gTile) + 0.5) / hlSeasonSize);
-          // (its patterns read for every pixel, outside the branch on the tile's mask: their mipmaps need every pixel of a quad)
-          float wear = vnoise(gTile * 0.61 + vec2(7.7, 19.3));
-          float splits = cracks(gTile * 1.41 + 29.3).x;
-          float blades = smoothstep(0.69, 0.86, vnoise(gTile * vec2(29.1, 8.7) + vec2(4.7, 9.2)));
-          if (season.r > 0.5) {
-            vec3 earth = mix(vec3(0.48, 0.455, 0.415), vec3(0.61, 0.575, 0.50), wear);
-            earth *= 1.0 - splits * 0.25 * detail;
-            earth = mix(earth, vec3(0.67, 0.62, 0.43), season.a * (0.22 + blades * 0.35));
-            c = mix(c, earth, 0.66 * (1.0 - bad * 0.5));
-          }
-        }
         if (hlVariation > 0.5) {
           float broad = vnoise(g * 0.043 + vec2(12.0, 33.0)) - 0.5;
           float mottling = vnoise(g * 0.317 + vec2(21.0, 8.0)) - 0.5;
@@ -312,7 +276,7 @@ export function terrainHooks(): ShaderHooks {
             float roots = pow(1.0 - abs(sin(a * 11.3 + y * 2.7 + vnoise(vec2(a, y)) * 4.0)), 14.0);
             earth = mix(earth, vec3(0.29, 0.24, 0.14), roots * smoothstep(0.15, 0.45, depth) * 0.55);
             c = mix(c, earth, cap);
-            float moistTop = step(0.5, soilOf(d0).x);
+            float moistTop = grassOf(soilOf(d0).x);
             c = mix(c, mix(vec3(0.63, 0.53, 0.30), vec3(0.49, 0.61, 0.22), moistTop), 1.0 - smoothstep(0.015, 0.09, depth));
           }
           light = skyColor * 1.1 + sunColor * 0.50 * max(dot(n, sunDir), 0.0);
@@ -372,7 +336,10 @@ ${HIGH_WATER_GLSL}
     body = mix(body, HW_GRAZING * mix(1.0, 0.72, deep), grazing * 0.65);
     vec3 streakColour = mix(mix(HW_STREAK_ABOVE, HW_STREAK_LOW, low), HW_STREAK_GRAZING, grazing);
     vec3 cleanBody = body;
-    vec3 badBody = HW_BAD * (1.0 - deep * 0.12) + vec3(0.0012, 0.0008, 0.0006) * grazing;
+    // (badwater darkens with depth by the game's _DepthGradients ramp, as the Standard look's: badwaterLight)
+    vec3 badBody = HW_BAD * badwaterLight(depth) + vec3(0.0012, 0.0008, 0.0006) * grazing;
+    // the game's glow of shallow water partly bad (badwaterGlow), in place of our own red contact at the shore
+    badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);
     // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts
     // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the fewer glints,
     // the bubbles, the murk) turned toward badwater's by the same tint
@@ -427,7 +394,6 @@ ${HIGH_WATER_GLSL}
     vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), tint);
     colour *= 0.80 + broad * 0.40;
     colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));
-    colour += vec3(0.26, 0.035, 0.008) * tint * (1.0 - smoothstep(0.0, 0.32, shore));
     if (tint > 0.25) {
       float trough = (1.0 - smoothstep(0.20, 0.38, waterTexture)) * near;
       float signalOpacity = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
@@ -438,12 +404,17 @@ ${HIGH_WATER_GLSL}
     }
     vec3 referenceLight = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
     vec3 rippleLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(normalize(mix(vec3(0.0, 1.0, 0.0), N, 0.35)), sunDir), 0.0) * lit;
+    // the game's own highlight on the ripples (its camera-tied light; WATER_SURFACE.highlight), not a sun hotspot:
+    // in the colour before its light, and again after it as the game's emission, unlit and unshadowed
+    vec3 highlight = sunColor * waterCameraHighlight(N, V, tint);
+    colour += highlight;
     colour *= rippleLight / max(referenceLight, vec3(0.01));
     float glint = mix(microFlecks(p, t, speed, pixel), microFlecks(p2, t, speed, pixel), blend);
     glint *= lit * (1.0 - smoothstep(0.08, 0.22, pixel));
     glint *= mix(1.0, 0.35, tint);
     glint *= mix(1.0, 0.08, smoothstep(0.25, 1.0, tint));
     colour = mix(colour, mix(HW_GLINT, HW_BAD_GLINT, tint), glint);
+    colour += highlight;
     hlSheen = max(max(streak * 0.45, clamp(highlights, 0.0, 0.82)), glint);
     if (tint > 0.01) {
       float bt = t * mix(1.0, 0.55, tint);
@@ -470,59 +441,48 @@ export function waterHooks(): ShaderHooks {
     water: /* glsl */ `        if (hlWater > 0.5) {
           vec2 hlFr = fract(g);
           float hlT = time * mix(1.0, 0.55, cont);
-          float hlFoam = 0.0;
           if (n.y > 0.5) {
             // (water under a roof: its own badwater share, not the one of the water seen from above there)
             float hlBad = waterRoofed > 0.5 ? cont : texture2D(hlFlow, g / hlFlowSize).b;
             float hlDepth = max(0.0, depth) * mix(0.10, 1.0, smoothstep(0.0, 0.55, shore));
             vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, hlRippleNormal(g, time), V, lit, time);
-            // foam along the shore, and churning where a fall comes down into the water
-            float fallIn = 1.0;
-            if (bitOf(vFlags, 16.0) > 0.5) fallIn = min(fallIn, 1.0 - hlFr.x);
-            if (bitOf(vFlags, 32.0) > 0.5) fallIn = min(fallIn, hlFr.x);
-            if (bitOf(vFlags, 64.0) > 0.5) fallIn = min(fallIn, 1.0 - hlFr.y);
-            if (bitOf(vFlags, 128.0) > 0.5) fallIn = min(fallIn, hlFr.y);
-            // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
-            // WATER_FILM.to deep, as the Standard look's (waterPalette.ts WATER_FILM): its own depth, not the
-            // bank's; a faint edge, not a foam line
+            // the same water at any depth: only a sliver at a shore's very edge fades in, over WATER_FILM.to
+            // deep, as the Standard look's (waterPalette.ts WATER_FILM: our anti-aliasing of the edge, where the
+            // game clips hard), by its own depth, not the bank's; no foam, no froth, as the game draws none
             float hlFilm = waterFilm(depth);
-            hlFoam = (1.0 - smoothstep(0.015, 0.16, shore)) * (0.26 + vnoise(g * 4.0 + vec2(hlT * 0.1, -hlT * 0.2)) * 0.38) * mix(WATER_FILM_FOAM, 1.0, hlFilm);
-            hlFoam += (1.0 - smoothstep(0.12, 0.95, fallIn)) * (0.72 + 0.45 * vnoise(g * 6.0 + vec2(hlT * 0.7, -hlT * 1.4)));
-            // rough water (#67 stage 2): froth only below falls, in rapids and in fast wakes
-            if (hlRiver > 0.5) {
-              float strength = texture2D(hlRough, g / hlFlowSize).r;
-              vec2 vel = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
-              #ifdef CAVES
-                if (waterOwnFlow.a > 0.5) {
-                  strength = waterOwnFlow.b;
-                  vel = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
-                }
-              #endif
-              if (strength > 0.005) hlFoam = max(hlFoam, strength * 0.68 * smoothstep(0.40, 0.78, detailNoise(g * 1.71 - vel * hlT * 0.23)));
-            }
             float hlTint = waterTint(hlBad);
-            hlFoam = clamp(hlFoam * (1.0 - hlTint * 0.55), 0.0, 1.0) * 0.30;
-            c = mix(hlSurface.rgb, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlTint) * (0.85 + 0.15 * lit), hlFoam);
+            c = hlSurface.rgb;
             // (its light keeps more of the body's opacity: the film's sheen)
             float hlFilmAlpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
-            hlFilmAlpha = mix(hlFilmAlpha, hlSurface.a, hlSheen * (1.0 - hlFilm) * 0.6);
-            alpha = max(hlFilmAlpha, mix(hlFilmAlpha, 0.97, hlFoam));
+            alpha = mix(hlFilmAlpha, hlSurface.a, hlSheen * (1.0 - hlFilm) * 0.6);
           } else {
-            // the water's side: streaks where it steps down, the water's body at the map's edge
-            float stream = vnoise(vec2(g.x * 1.4 + sin(g.y * 0.8), g.y * 3.8 - hlT * 0.16));
-            float hlBad = cont >= 0.95 ? 1.0 : (cont <= 0.05 ? cont : mix(cont * 0.55, 1.0, smoothstep(1.0 - cont - 0.20, 1.0 - cont + 0.20, stream)));
-            float hlAbsorb = 1.0 - exp(-max(0.0, depth) * 0.65);
-            vec3 clean = mix(HW_SIDE_SHALLOW, HW_SIDE_BODY, hlAbsorb);
-            clean = mix(clean, HW_SIDE_DEEP, 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));
-            vec3 murk = mix(HW_SIDE_BAD, HW_SIDE_BAD_DEEP, hlAbsorb);
+            // the water's side, and a fall, as the game draws its falls (D201 amended 2026-10-29): the water's own
+            // colour where it sees the cliff right behind (its shallowest), nearly opaque
+            // (WATER_SURFACE.fallSeeThrough), no whitewater and no highlight (the game's waterfall mask takes it off,
+            // p036 r7.z); at the map's edge, the water's side
+            float hlBad = cont;
             float hlTint = waterTint(hlBad);
-            c = waterBlend(clean, murk, hlBad) * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
             bool edge = vFlags > 254.5;
             float drop = edge ? 0.0 : vFlags / 30.0;
-            float along = abs(n.x) > 0.5 ? g.y : g.x;
-            float strands = smoothstep(0.30, 0.72, vnoise(vec2(along * 7.0, vWorld.y * 1.4 + hlT * 3.6)));
-            hlFoam = edge ? 0.0 : smoothstep(0.12, 0.6, drop) * (0.42 + strands * 0.60);
-            alpha = edge ? mix(0.78, 0.96, hlTint) : (0.32 + 0.53 * strands) * smoothstep(0.06, 0.25, drop);
+            // its detail carried by the current over the lip, as the game carries its albedo by each vertex's flow
+            // (two phases, p036 389-406), sampled at the face's own place: vertical streaks the flow moves
+            vec2 hlVel = (texture2D(hlFlow, (g - vec2(n.x, -n.z) * 0.5) / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
+            #ifdef CAVES
+              if (waterOwnFlow.a > 0.5) hlVel = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
+            #endif
+            float hlPh = fract(hlT / 12.0);
+            vec2 hp1 = g - hlVel * 0.65 * (hlPh * 12.0);
+            vec2 hp2 = g - hlVel * 0.65 * (fract(hlT / 12.0 + 0.5) * 12.0);
+            float strands = mix(smoothstep(0.30, 0.72, vnoise(hp1 * 7.0)), smoothstep(0.30, 0.72, vnoise(hp2 * 7.0)), abs(hlPh * 2.0 - 1.0));
+            // High's surface colour at its shallowest (measuredSurfaceWater's body with no depth)
+            vec3 face = waterBlend(HW_SHALLOW * (0.92 + 0.16 * strands), badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad), hlBad);
+            c = face * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
+            if (edge) {
+              float hlAbsorb = 1.0 - exp(-max(0.0, depth) * 0.65);
+              vec3 sideClean = mix(mix(HW_SIDE_SHALLOW, HW_SIDE_BODY, hlAbsorb), HW_SIDE_DEEP, 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));
+              c = waterBlend(sideClean, mix(HW_SIDE_BAD, HW_SIDE_BAD_DEEP, hlAbsorb), hlBad) * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
+            }
+            alpha = edge ? mix(0.78, 0.96, hlTint) : (1.0 - WATER_FALL_SEE_THROUGH);
             // the water's section at the map's edge (#67 stage 1)
             if (hlSection > 0.5 && edge) {
               vec3 section = mix(HW_SECTION, HW_SECTION_DEEP, 1.0 - exp(-max(depth, 0.0) * 0.65));
@@ -530,94 +490,23 @@ export function waterHooks(): ShaderHooks {
               c = section * (0.94 + vnoise(vec2(g.x + g.y, vWorld.y * 5.7)) * 0.08);
               alpha = mix(0.91, 0.98, waterTint(cont));
             }
-            // tiny steps between two waters take the surface's own colour (#67 stage 2)
-            if (hlRiver > 0.5 && vFlags < 9.0) {
-              vec4 joined = measuredSurfaceWater(g, max(0.0, depth), 1.0, cont, vec3(0.0, 1.0, 0.0), V, lit, time);
-              c = joined.rgb;
-              alpha = joined.a;
-              hlFoam = 0.0;
+            // a small step between two waters: the surface going on, its body at its depth as the surface sees it
+            // from above (no pattern: a face's place on the map is a line, which would stretch the surface's
+            // flecks and lines down it into a bright line), as the game's face shares the surface's material
+            if (!edge && vFlags < WATER_FALL_FLAGS) {
+              vec3 stepBody = mix(mix(HW_SHALLOW, HW_BODY, smoothstep(0.25, 1.25, depth)), HW_DEEP, smoothstep(1.0, 3.5, depth));
+              stepBody = waterBlend(stepBody, HW_BAD * badwaterLight(depth), cont);
+              vec3 hlRef = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
+              c = stepBody * (skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0) * lit) / max(hlRef, vec3(0.01));
+              alpha = cleanWaterAlpha(max(0.0, depth)) * smoothstep(0.02, 0.06, drop);
             }
-            hlFoam = clamp(hlFoam * (1.0 - hlTint * 0.55), 0.0, 1.0) * 0.30;
-            c = mix(c, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlTint) * (0.85 + 0.15 * lit), hlFoam);
-            alpha = mix(alpha, 0.97, hlFoam);
             if (alpha < 0.01) discard;
           }
-          foam = hlFoam;
+          foam = 0.0;
         }
 `,
   };
 }
-
-// ------------------------------------------------------------------------------------------ falls
-
-const BUBBLES_GLSL = /* glsl */ `
-  float hlHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-  float hlBubblePattern(vec2 p, float t) {
-    vec2 q = mat2(0.83, 0.56, -0.56, 0.83) * p * 8.73;
-    vec2 cell = floor(q);
-    vec2 f = fract(q);
-    float bubbles = 0.0;
-    float qa = max(fwidth(q.x), fwidth(q.y));
-    float aa = max(qa, 0.025);
-    for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
-      vec2 o = vec2(float(x), float(y)), id = cell + o;
-      vec2 center = o + vec2(hlHash(id + 13.7), hlHash(id - 48.2)) * 0.82 + 0.09;
-      float radius = 0.08 + 0.19 * hlHash(id + 71.4);
-      float d = length(f - center);
-      float ring = (1.0 - smoothstep(radius - aa, radius + aa, d)) * smoothstep(radius * 0.33 - aa, radius * 0.75 + aa, d);
-      float s = sin(t * 1.8 + hlHash(id) * 19.0);
-      bubbles = max(bubbles, ring * (0.55 + 0.45 * s * s));
-    }
-    return mix(bubbles, 0.30, smoothstep(0.35, 0.95, qa));
-  }
-`;
-
-export function fallHooks(): ShaderHooks {
-  return {
-    ...lit(["hlWater", "hlCrown", "hlLanding", "hlBubbles"], BUBBLES_GLSL + HIGH_WATER_GLSL),
-    roofedSun: ROOFED_SUN,
-    // D324: the fall's tone (teal first, white in streaks and at the landing) is in the shared shader; High
-    // gives the sheet its own water teal
-    fallBody: "(hlWater > 0.5 ? waterBlend(HW_SHALLOW * 1.06, FALL_BAD, cont) : waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont))",
-    // the crown (#67 stage 2): one continuous billow along joined falls, never a row of cylinders
-    fallVertexDecl: "\n      uniform float hlCrown;\n      uniform float time;",
-    fallVertex: /* glsl */ `        if (kind > 4.5 && hlCrown > 0.5) {
-          float billow = 0.84 + 0.10 * sin(p.x * 2.17 + p.z * 1.31 + time * 0.9) + 0.06 * sin(p.z * 4.37 - p.x * 1.73 - time * 1.1);
-          p.y = land + 0.012 + (p.y - land - 0.012) * billow;
-        }
-`,
-    fallNormal: "kind > 4.5 && hlCrown > 0.5 ? vec3(0.0, 1.0, 0.0) : normalize(vNormal)",
-    crownNoise: /* glsl */ `            if (hlCrown > 0.5) {
-              b1 = vnoise(g * 4.17 + vec2(t * 0.4, -t * 0.71) + vWorld.y * 0.37);
-              b2 = vnoise(g * 9.31 + vec2(-t * 0.8, t * 0.93) + vWorld.y * 0.81);
-            }
-`,
-    crownFoam: /* glsl */ `
-          if (hlCrown > 0.5) {
-            float front = smoothstep(0.55, 0.93, swirl);
-            foam *= mix(1.0, smoothstep(0.02, 0.28 + bil * 0.24, up), front);
-          }`,
-    // bubbly froth where it lands (D231's milky froth), and an irregular landing edge (D231's
-    // straight edge)
-    splashFroth: /* glsl */ `
-          if (hlBubbles > 0.5) {
-            float bubble = hlBubblePattern(g - vec2(0.037, -0.083) * t, t);
-            broken = pow(tail, 1.1) * (0.10 + 0.78 * bubble + 0.12 * froth);
-          }`,
-    splashFoam: /* glsl */ `
-          if (hlLanding > 0.5) {
-            float irregular = 0.12 + 0.22 * vnoise(g * 2.73 + vec2(t * 0.11, 17.7));
-            foam *= smoothstep(irregular, irregular + 0.30, vEdge.x);
-          }`,
-    fallEnd: /* glsl */ `        if (hlLanding > 0.5 && kind < 3.5) {
-          float dissolve = 0.06 + 0.22 * vnoise(g * 3.17 + vec2(t * 0.09, 11.7));
-          alpha *= smoothstep(-0.02, dissolve, vRib.z);
-        }
-`,
-  };
-}
-
-// ---------------------------------------------------------------------------------------- objects
 
 export function objectHooks(): ShaderHooks {
   return { ...lit(["hlAO"], AMBIENT_GLSL), skyLight: "ambientVisibility(vWorld, n) * ", roofedSun: ROOFED_SUN };
@@ -671,7 +560,7 @@ export function slopeHooks(): ShaderHooks {
           if (run.y > 0.5) packed = run.x;
         }
       #endif
-      float moist = step(1.0, floor(packed / 16.0));
+      float moist = grassOf(floor(packed / 16.0));
       float grass = smoothstep(0.66, 0.96, hlLocal.z + 0.5 + (grain - 0.5) * 0.15) * moist;
       color = mix(color, mix(vec3(0.5, 0.655, 0.32), vec3(0.48, 0.635, 0.3), earthPatch) * (0.87 + 0.14 * grain), grass);
     }
@@ -721,7 +610,7 @@ export function vegetationHooks(slots: number): ShaderHooks {
  *  glow toward the sun instead of a disc; graded like the land. */
 export function skyHooks(): ShaderHooks {
   return {
-    decl: switches(["hlSky", "hlTone", "hlGrade"]) + "\n  uniform float hlSickly;" + GRADE_GLSL,
+    decl: switches(["hlSky", "hlTone", "hlGrade"]) + GRADE_GLSL,
     sky: /* glsl */ `
         if (hlSky > 0.5) {
           float horizon = exp(-abs(d.y) * 5.5);
@@ -735,8 +624,6 @@ export function skyHooks(): ShaderHooks {
           float sun = pow(max(dot(d, normalize(vec3(-0.45, 0.77, -0.45))), 0.0), 24.0);
           c += vec3(0.11, 0.075, 0.028) * sun;
         }
-        // a badtide's sky (#67 stage 4): slightly sickly
-        c = mix(c, vec3(0.66, 0.72, 0.46), hlSickly);
         if (hlTone > 0.5 || hlGrade > 0.5) c = hlGradeColour(c);`,
   };
 }

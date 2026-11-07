@@ -38,7 +38,7 @@ export function header(ed: Ed, props: EditorProps) {
       canRedo={shared ? collab.canRedo || !!localRedo.current.length : info.canRedo || !!localRedo.current.length}
       onUndo={() => void undo()}
       onRedo={() => void redo()}
-      dot={<ChecksDot check={check} instant={instant} busy={busy > 0} progress={progress} flowing={flowing} flags={ed.flags} badwaterRemoved={info.badwaterRemoved} open={dotOpen} onToggle={setDotOpen} actions={actions} />}
+      dot={<ChecksDot check={check} instant={instant} busy={busy > 0} progress={progress} flowing={flowing} flags={ed.flags} badwaterRemoved={info.badwaterRemoved} easyShort={info.easyShort} open={dotOpen} onToggle={setDotOpen} actions={actions} />}
       canFolder={canSaveToTimberborn()}
       saving={saving}
       onSave={(kind) => void saveMap(kind)}

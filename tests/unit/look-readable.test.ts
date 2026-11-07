@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities } from "../../src/render3d/entities3d";
-import { fallMaterial, hatchMarks, sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
+import { hatchMarks, sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
 import { CLEAR_WATER, badwaterBody } from "../../src/render3d/waterPalette";
 import { CONTAMINATION, contaminationVein, contaminationVeins, DEAD_TREE, GROUND, groundColor, LIVING_TREE, cssColor, legendEntries, objectLegend, WATER, waterBody, type Rgb } from "../../src/render3d/palette";
@@ -27,7 +27,7 @@ describe("the meanings", () => {
     return h < 0 ? h + 360 : h;
   };
 
-  it("keep the game's own cues (D334): green grass, warm earth, teal water, crimson badwater, pale dead trees", () => {
+  it("keep the game's own cues (D334): green grass, warm earth, teal water, crimson badwater, dead trees lighter than living", () => {
     // grass is green, dry earth warm brown to mauve, clean water teal-blue, badwater crimson: each
     // meaning its own hue, as in the game, with no lightness order asked between them (D334 (2))
     for (const g of [GROUND.moistLow, GROUND.moistHigh]) expect(hue(g) > 70 && hue(g) < 110, cssColor(g)).toBe(true);
@@ -35,9 +35,10 @@ describe("the meanings", () => {
     expect(hue(GROUND.dryCool) > 300 || hue(GROUND.dryCool) < 40).toBe(true);
     for (const d of [0.05, 0.5, 2, 5]) expect(hue(waterBody(d, false)) > 170 && hue(waterBody(d, false)) < 210, `${d} deep`).toBe(true);
     for (const d of [0.05, 0.5, 2, 5]) expect(hue(waterBody(d, true)) < 15 || hue(waterBody(d, true)) > 350).toBe(true);
-    // dead trees stand out pale against grass, living trees dark, dead trees nearly white
-    expect(lum(DEAD_TREE)).toBeGreaterThan(lum(GROUND.moistLow) + 0.1);
-    expect(lum(DEAD_TREE) - lum(LIVING_TREE)).toBeGreaterThan(0.55);
+    // dead trees are the game's dead wood, its bark weathered lighter and greyer (D135 as amended 2026-10-29): lighter
+    // than the living crowns, as the game's are (its dead pine's wood 1.8 times its living needles' lightness)
+    expect(lum(DEAD_TREE) - lum(LIVING_TREE)).toBeGreaterThan(0.1);
+    expect(lum(DEAD_TREE) / lum(LIVING_TREE)).toBeGreaterThan(1.5);
   });
 });
 
@@ -74,12 +75,12 @@ describe("badwater seen through clear water (D324, feedback item 5: never a hatc
     }
   });
 
-  it("has no stripe on badwater in any water shader (water, fall, and the lower-cost forms), and the palette defines none", () => {
+  it("has no stripe on badwater in any water shader (water, its falls among it, and the lower-cost forms), and the palette defines none", () => {
     expect(Object.keys(CLEAR_WATER)).not.toContain("stripe");
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
     for (const lite of [false, true]) {
       const u = sceneUniforms(1, 1, t(), t(), t(), t());
-      for (const m of [waterMaterial(u, lite), fallMaterial(u, lite)]) expect(m.fragmentShader).not.toMatch(/CLEAR_STRIPE|fract\(\(g\.x - g\.y/);
+      for (const m of [waterMaterial(u, lite)]) expect(m.fragmentShader).not.toMatch(/CLEAR_STRIPE|fract\(\(g\.x - g\.y/);
       // badwater's murk, dull troughs and bubbles are what carry it through clear water
       expect(waterMaterial(u, lite).fragmentShader).toContain("bc += BADWATER_VEIN * bubbles * BADWATER_BUBBLES");
     }
@@ -227,9 +228,12 @@ describe("objects from afar", () => {
     expect(meshes.get("Slope.mark")!.count).toBe(1);
   });
 
-  it("a dead tree is ashen: pale all over, a body of bare wood and no green", () => {
+  it("a dead tree is bare weathered wood, as the game's: no green, lighter all over than the living tree's crown (D135 as amended 2026-10-29)", () => {
     const col = meshes.get("Pine.dead")!.geometry.getAttribute("pcolor")!.array;
-    for (let k = 0; k < col.length; k += 3) expect(lum([col[k], col[k + 1], col[k + 2]])).toBeGreaterThan(0.6);
+    for (let k = 0; k < col.length; k += 3) {
+      expect(lum([col[k], col[k + 1], col[k + 2]])).toBeGreaterThan(0.28);
+      expect(col[k + 1]).toBeLessThanOrEqual(col[k]);
+    }
     const living = meshes.get("Pine")!.geometry.getAttribute("pcolor")!.array;
     let dark = 0;
     for (let k = 0; k < living.length; k += 3) if (lum([living[k], living[k + 1], living[k + 2]]) < 0.35) dark++;

@@ -196,7 +196,8 @@ npm run gen -- --seeds 1-10 --sizes 96,128,256 --out out/batch
 - `npm run bench:brush` measures painting with a brush at 256² in Chrome: the time from the pointer
   to the frame, the frame times and undo. It runs locally only and writes `out/live/bench-brush.json`.
 - `npm run mcp` runs the MCP server from the source, over stdio. `npm run mcp:build` bundles it into `mcp/dist/`: the
-  Claude Desktop extension (`dam-good-maps.mcpb`) and the package `npx` runs (`dam-good-maps-mcp.tgz`), both for a release.
+  Claude Desktop extension (`dam-good-maps.mcpb`) and the package `npx` runs (`dam-good-maps-mcp.tgz`). Every release tag's GitHub Release carries
+  both (`.github/workflows/release-assets.yml`).
 - `npm run fixtures` rewrites the water golden vectors from the Python reference.
 - `npm run build:spike` builds the Claude artifact test page into `dist-spike/`.
 - `npm run spike:check` runs that page and the Messages API CORS page in Chrome. It writes

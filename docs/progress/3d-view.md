@@ -147,10 +147,10 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   the heightfield mesher saw. The mesher reads per-tile arrays, so the columns are dealt into layers (`waterLayers`):
   the open sky's first (each tile's top and the water on it, the renderer's surface water itself on a map with no
   water under a roof), then each other column into the first layer whose gaps agree with what it sees within
-  `LAYER_REACH` (4 tiles: a fall's lips, their pools and the badwater blend round them; checked against a reach of 12,
-  the same quads and falls on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
-  `plainLayers(heights, sw)` is the one layer of a map without caves. Every column's falls pour its own outflow
-  (part 4b); a view without outflows estimates them from the depth, as a fall without outflows always has (`falls.ts`).
+  `LAYER_REACH` (4 tiles: a top's corners and curtains and the badwater blend round them; checked against a reach of
+  12, the same quads on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
+  `plainLayers(heights, sw)` is the one layer of a map without caves. A fall is a column's own curtain down to the
+  water below (D201 amended 2026-10-29).
 - **Where it runs:** only where a column needs a layer of its own (`needsLayers`: water under a roof, or open water
   beside a roof that sees under it). A map with an arch or an overhang and no such water draws its water as a
   heightfield's, its moving water meshed in the workers as on dev. With layers, a new water view (a journey's frame, a
@@ -475,9 +475,9 @@ Standard's shadow before a cave (item 8).
   the frames until then draw with the program it has.
   - **Compiled ahead:** half a second after a map is drawn, while the page is idle, and at once when a layer cut is set
     (how a hollow is dug), the programs an edit could need: the look's in every state a map can reach (cut and caves,
-    their floors' soil, an overhang alone, plain; the likeliest first), the falls' and water's while none are drawn, the
+    their floors' soil, an overhang alone, plain; the likeliest first), the water's while none is drawn, the
     drought line's; then the other look's in every state too (in Standard the High look's, from a copy of its
-    materials, its mist and the sun's depth map included; in High Standard's). Leaving High keeps its programs in every
+    materials and the sun's depth map included; in High Standard's). Leaving High keeps its programs in every
     state, so a switch back and a dig right after are drawn at once.
   - **A switch's program first:** the browser compiles what it is sent in turn, so the programs compiled ahead are
     sent two at a time (`WARM_IN_FLIGHT`), and none while a switch waits for its own (a dig's branches, or the switch
@@ -800,6 +800,66 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   60° camera looks down on its roof, the shelter under it out of sight, as in the game. Exposure and size hide
   nothing else.
 - **Captures:** `docs/sheets/hero-ruins.jpg` (`tools/capture-hero.ts`, real Chrome on the GPU).
+
+## Seeing the land behind objects (`feature/object-fade`)
+
+Trees go to the game's size, about twice ours, so they hide more of the land being edited. Planning ruled an editing aid
+in its own channel (#236, 2026-10-30; D496/D497's rule: the look itself never changes). This part is the renderer's
+side. The page wires it: the terrain tools' hover and stroke set the fade, and a held key hides all objects.
+
+- **`setObjectFade({ x, y, radius } | null)`** (`src/render3d/objectFade.ts`). The region is in the map's tiles, as the
+  brush cursor's are. Every object whose place is within `radius` shows a quarter of itself (`OBJECT_FADE`). The object
+  goes whole, by its instance's origin, not part by part. Past the radius it comes back to full over a tile
+  (`OBJECT_FADE_EDGE`). The fade is one uniform (`objectFade`), read by the one object program every look draws objects
+  with (`objectMaterial`: Standard's; High's object, vegetation, landmark and slope; the light look's). The light look's
+  baked batches carry each vertex's object place (`origin`). No define and no sampler is added, so no new program
+  variant needs warming, and the cutaway's 16-sampler check holds. The warm-up before a switch to High compiles the
+  sun's depth pass with the fade's own material (`fadingDepth`), so the first High frame compiles nothing.
+- **Never the land's own shape:** a mine site and a seep stand in tiles whose tops the terrain leaves out
+  (`mineCutout`), their models drawing the pit and its rim. Fading or hiding them would show the sky through the hole,
+  so they are never faded or hidden (`LAND`). Their instances carry a negative `grow.x` (`LAND_GROW`), which the
+  objects' program and the depth pass read.
+- **Never an editing aid:** the shelf's placement ghost is drawn with the objects' program, but it is the thing being
+  placed, not one of the map's objects (D496; planning's ruling on #759). So it is never faded or hidden, and its
+  shadow is never dropped. `markEditingAid` makes the last value of its `grow` negative (its size on screen is read as
+  the absolute value, so it keeps its growth in Markers). Any later aid drawn this way is marked the same.
+- **How it is drawn:** on a multisampled canvas (Standard, High) the object's alpha goes to coverage, a quarter of each
+  pixel's samples. It needs no sorting and composites with the water and the cutaway like any opaque object. The
+  canvas has an alpha channel, so while the fade is on, the frame ends with a clear of the alpha alone. Without it the
+  page would show through a faded object. Without multisampling (the light look) a 4 × 4 ordered dither is drawn.
+- **Shadows:** a faded object casts none. High's sun depth map drops it with the same test (`shadows.ts`, a
+  `MeshDepthMaterial` with the test added). The map is drawn again when the region moves, at most every tenth of a
+  second, as for a brush. Standard's baked shadows are cast again round the region and where it was, once a frame
+  (`castersNow`, `light.ts` `withoutCasters`, into two arrays used in turn). Only the tiles round the region are
+  compared, and the shadows are redone only where the dropped tiles changed, so a move within a tile costs no rebake. A
+  caster is dropped by its model's place, as its fade is: the start's caster stands on its corner tile, its model round
+  its footprint's middle (`casterPlaces`). High's canopy shade (the ambient field) stays under a faded tree.
+- **`setObjectsHidden(on)`:** the objects' program discards every object but the land's own shape (`objectHide`). The
+  baked shadows are cast again without the objects, High's depth map is drawn again, and High's canopy shade is worked
+  out again without them. False brings it all back.
+- **Pictures:** the map's picture, sized pictures and Showcase cards are drawn on a renderer of their own (`hero.ts`),
+  so they never see either setting. The shelf's icons are drawn on the view's renderer with the fade put off for the
+  picture (`thumbnail`), with the hiding put off too.
+- **Cost (measured once, real Chrome, GPU, a 256² River Valley, a 76-tree forest; information):** the call itself is
+  a few µs (a uniform write). A frame after a move of a whole tile costs about 0.6 ms more on the page's thread (0.5 ms
+  in Standard): the baked shadows round the region and their upload. A frame with the fade on and still costs the
+  same as with it off. High's
+  depth pass is about 2 ms of GPU, at most ten times a second while the region moves. Hiding or showing is one
+  12 ms step: every object's baked shadow, and High's canopy shade in the bake worker. With the fade off nothing
+  changes; with it on and still, the cost is a branch on a uniform and the alpha's clear.
+- **Tests:** `tests/unit/objectFade.test.ts` checks the region test, its edge, the shadow's halfway mark, the land's own
+  shape, the start's place and the dither. `tests/e2e/objectFade.spec.ts` checks Standard and High on a meadow of trees,
+  bushes and ruins, as coverage and as dither. Objects in the region keep under half of themselves, those outside are
+  drawn unchanged, and the canvas stays opaque. Hidden objects leave the land as with none. A mine site's and two seeps'
+  footprints show no more sky hidden or faded than as drawn, where taking their models away shows it through most of
+  them. The shelf's icon is unchanged, the map's picture is the same with the view's objects faded and hidden, and a
+  warmed switch to High compiles no program in its first frame. The light look is checked where the browser draws in
+  software (CI).
+- **Captures:** `docs/sheets/object-fade.jpg` (High and Standard: as drawn, faded round the pointer at radius 5, and
+  hidden).
+- **Found on the way:** the objects' material said the view's canvas has no alpha (the comment is gone). It has an
+  alpha channel (`premultipliedAlpha`), so a far ruin's lattice cells (`RUIN_INSIDE_COVER` 0.75) let a little of the page
+  through on screen. That is a follow-up for the look, not changed here.
 
 ## The rest of the step (next parts)
 

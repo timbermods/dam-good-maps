@@ -13,6 +13,9 @@ import { entityTiles, placedEntity, ridingPieces } from "../../src/core/features
 import { entityJson } from "../../src/core/format/entities";
 import { startEntranceTile, type Orientation } from "../../src/core/format/footprints";
 import { writeTimber } from "../../src/core/format/timber";
+import type { BrushParams } from "../../src/core/features/raster/brush";
+import { StrokePreview } from "../../src/core/features/raster/strokePreview";
+import { unsupportedVoxels } from "../../src/core/terrain/support";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
@@ -135,6 +138,30 @@ describe("an object under a roof does not ride: the roof's top over it is the st
     expect(u.errors).toEqual([]);
     expect((u.applied[0] as AppliedOp & { op: "brush" }).params.rigid ?? []).toEqual([]);
     expect(s.built.heights[16 * CAVE_W + 16]).toBeGreaterThan(before[16 * CAVE_W + 16]);
+  });
+
+  it("a Lower over a cave's two-thick roof above a badwater source on its floor: the page's stroke is the map built", () => {
+    // (the official Canyon's: a 3 × 3 source on a cave floor under a roof two layers thick, a Lower to one over the
+    // roof's underside across part of it; the page once levelled the roof over the source to its middle tile)
+    const s = withObject("BadwaterSource", 16, 16, 3, "Cw0");
+    const W = CAVE_W;
+    const settings: Omit<BrushParams, "dabs"> = { tool: "lower", size: 1, strength: 5, shape: "area", target: 7 };
+    const dabs = [...tile(17, 15), ...tile(19, 19)];
+    const shown = s.built.heights.slice();
+    const preview = new StrokePreview(settings, s.terrainState(), shown, W, W);
+    preview.add(dabs);
+    const rigid = preview.rides(s.built.entities);
+    expect(rigid).toEqual([]);
+    expect(preview.falls()).toEqual([]);
+    const u = s.apply({ op: "brush", params: { ...settings, dabs } });
+    expect(u.errors).toEqual([]);
+    expect((u.applied[0] as AppliedOp & { op: "brush" }).params.rigid ?? []).toEqual([]);
+    expect(Array.from(shown)).toEqual(Array.from(s.built.heights));
+    // (the roof comes down to one over its underside where the stroke reached, the cave under it as it was)
+    for (const x of [17, 18]) expect(s.terrain.runs(17 * W + x)).toEqual([0, 3, 6, 7]);
+    expect(s.terrain.runs(17 * W + 16)).toEqual([0, 3, 6, 8]);
+    expect(s.built.entities.find((e) => e.template === "BadwaterSource")).toMatchObject({ x: 16, y: 16, z: 3 });
+    expect(unsupportedVoxels(s.terrain).some((v) => v === 1)).toBe(false);
   });
 });
 

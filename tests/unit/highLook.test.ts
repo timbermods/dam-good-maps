@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 import { DataTexture, InstancedBufferAttribute, PerspectiveCamera, ShaderMaterial } from "three";
-import { fallMaterial, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
+import { objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 import { entityView, surfaceWater, waterFromDepth, DEAD } from "../../src/render3d/model";
 import { allEffects, effectiveEffects, effectsFrom, HIGH_EFFECTS, LOWER_COST_DROPS } from "../../src/render3d/high/effects";
 import { LIMITS, LookGovernor, startTier } from "../../src/render3d/high/fallback";
@@ -18,7 +18,7 @@ import { FLOW_DISPLAY } from "../../src/render3d/high/bake";
 import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { Forest, isPlant, replacedBatch } from "../../src/render3d/high/forest";
 import { buildLandmarks, landmarkKind } from "../../src/render3d/high/landmarks";
-import { fallHooks, GRADE_GLSL, landmarkHooks, objectHooks, skyHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
+import { GRADE_GLSL, landmarkHooks, objectHooks, skyHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
 import { buildEntities } from "../../src/render3d/entities3d";
 
 const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
@@ -31,7 +31,6 @@ describe("the Standard look's shaders", () => {
       const u = U();
       expect(source(terrainMaterial(u, 0, 1, lite, {}))).toBe(source(terrainMaterial(u, 0, 1, lite)));
       expect(source(waterMaterial(u, lite, {}))).toBe(source(waterMaterial(u, lite)));
-      expect(source(fallMaterial(u, lite, {}))).toBe(source(fallMaterial(u, lite)));
       expect(source(objectMaterial(u, lite, {}))).toBe(source(objectMaterial(u, lite)));
     }
     expect(source(skyMaterial({}))).toBe(source(skyMaterial()));
@@ -39,7 +38,7 @@ describe("the Standard look's shaders", () => {
 
   it("hold none of the High look's code", () => {
     const u = U();
-    for (const m of [terrainMaterial(u, 0, 1), waterMaterial(u), fallMaterial(u), objectMaterial(u), skyMaterial(), terrainMaterial(u, 0, 1, true)]) {
+    for (const m of [terrainMaterial(u, 0, 1), waterMaterial(u), objectMaterial(u), skyMaterial(), terrainMaterial(u, 0, 1, true)]) {
       const s = source(m);
       expect(s).not.toMatch(/\bhl[A-Z]\w*|bakedSunLit|measuredSurfaceWater|vegPalette|ambientVisibility/);
     }
@@ -52,7 +51,6 @@ describe("the High look's shaders", () => {
     const cases: [ShaderMaterial, ReturnType<typeof terrainHooks>][] = [
       [terrainMaterial(u, 0, 1, false, terrainHooks()), terrainHooks()],
       [waterMaterial(u, false, waterHooks()), waterHooks()],
-      [fallMaterial(u, false, fallHooks()), fallHooks()],
       [objectMaterial(u, false, objectHooks()), objectHooks()],
       [objectMaterial(u, false, vegetationHooks(9)), vegetationHooks(9)],
       [skyMaterial(skyHooks()), skyHooks()],
@@ -94,11 +92,12 @@ describe("the High look's shaders", () => {
     expect(s).toContain("vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), tint);");
     expect(s).toContain("colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));");
     expect(s).toMatch(/float bubbles = fine \* smoothstep\(/);
-    expect(s).toContain("colour += vec3(0.26, 0.035, 0.008) * tint * (1.0 - smoothstep(0.0, 0.32, shore));");
+    // the red at rock is the game's own glow of shallow water partly bad (waterPalette.ts badwaterGlow)
+    expect(s).toContain("badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);");
   });
 
   it("have a switch for each effect that needs one in a shader", () => {
-    const all = [terrainHooks(), waterHooks(), fallHooks(), objectHooks(), landmarkHooks(), skyHooks()].map((h) => Object.values(h).join("\n")).join("\n");
+    const all = [terrainHooks(), waterHooks(), objectHooks(), landmarkHooks(), skyHooks()].map((h) => Object.values(h).join("\n")).join("\n");
     for (const k of SWITCHES) expect(all, k).toContain(k);
   });
 });
@@ -356,7 +355,7 @@ describe("the forest kept when the plants are the same (a source placed among th
     expect(f.reindex(entityView([{ ...plants[0], x: 4 }, plants[1], plants[2]]))).toBe(false);
     expect(f.reindex(entityView([plants[0], plants[1], { ...plants[2], young: false }]))).toBe(false);
     expect(f.reindex(entityView([plants[0], plants[1]]))).toBe(false);
-    // (a plant that died is the same plant: `setDead` moves it)
+    // (a plant that died is the same plant: `setState` moves it)
     expect(f.reindex(entityView([{ ...plants[0], dead: true }, plants[1], plants[2]]))).toBe(true);
   });
 });

@@ -13,18 +13,19 @@
 // Readability follows the game's own (D334): its look and its cues, with no lightness gap or pattern
 // beyond the game's. Grass reads apart from dry earth by its hue and its painted strokes, contamination by
 // its orange-red veins over either soil, badwater by its crimson, its dullness and its bubbles (and in
-// High its pink caustics and red contact at rock). Clean water reads as water by its light shore foam, glints and ripple crests and its see-through shallows, and in
+// High its pink caustics; in both, the game's orange glow of its shallow edges where partly bad). Clean water reads as water by its glints and ripple crests and its see-through shallows, and in
 // colour by its blue. Badwater is darker than clean water of the same depth in Standard, darkening with depth as the game's
 // (D496), and dull; water partly
 // bad turns smoothly from one to the other over a few tiles where they meet, greying as it turns as the
 // game's does (a teal-grey, a grey, a dull red-brown, crimson), never in streaks, patches or purple
-// (D177, D496). Living trees are dark, dead trees pale. The walls, in the side light, are darker than the ground above them. The information
+// (D177, D496). Living trees are dark, dead trees the game's weathered grey-brown wood, lighter. The walls, in the side light, are darker than the ground above them. The information
 // layer (**Markers**) adds dam sites, hatched light and dark with a dark rim so they show on any
 // ground or water, slope arrows and a pale line at every level.
 //
 // Pure TypeScript, no three.js: the unit tests and the page's legend read it too.
 
 import { BADWATER, WATER, waterBody, type Rgb } from "./waterPalette";
+import { deadWood } from "./dying";
 
 // The water's colours, opacity and blend live in waterPalette.ts (D177); they are re-exported here
 // for the pages and tests that read the palette.
@@ -35,6 +36,15 @@ export type GroundMode = "moisture" | "height";
 
 /** A tile's ground, as its colour shows it. */
 export type GroundKind = "moist" | "dry" | "contaminated" | "underwater";
+
+/** How the game's terrain shows soil moisture (SoilMoistureSystem `UpdateDesertIntensity`, its `SoilMoistureSimulatorSpec`
+ *  blueprint): its desert texture over all of a top at moisture 0, over (1 − m / threshold) × max of one at moisture m up to
+ *  the threshold, none above (the shaders' `grassOf`; D135 as amended 2026-10-29). */
+export const DESERT = { threshold: 5, max: 0.7 } as const;
+
+/** How the game's terrain blends its desert map at a point (its TerrainMaterialMapSpec: \`BlendingMargin\`,
+ *  \`BlendingNoiseMultiplier\`, \`BlendingSoftness\`; the shaders' \`desertBlend\`). */
+export const BLEND = { margin: 0.2, noise: 0.96, softness: 5.8 } as const;
 
 export const GROUND = {
   /** Dry ground: cracked earth in a warm brown, with dark cracks; plants die there. Broad patches
@@ -165,9 +175,9 @@ const smooth = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-/** Dead trees: bare, pale wood (no crown), so they read as dead in any colours; the models use a
- *  greyer tone of it, so dead trees sit back in the landscape. */
-export const DEAD_TREE: Rgb = [0.82, 0.78, 0.72];
+/** Dead trees: bare wood (no crown), the game's dead wood: the living bark weathered lighter and greyer, still lighter
+ *  than the living crowns (dying.ts `DEAD_FORM`; the models' dead pine). */
+export const DEAD_TREE: Rgb = deadWood("Pine", [0.36, 0.25, 0.16]);
 
 /** Living trees' crowns (the legend; each species has its own shade in the models). */
 export const LIVING_TREE: Rgb = [0.11, 0.27, 0.15];
@@ -260,7 +270,7 @@ export const MINE = {
 } as const;
 
 /** The light: a warm sun from the north-west, a cool sky (violet in the shadows of the earth),
- *  and a blue-grey haze over distant ground. */
+ *  and the game's cyan fog as a haze over distant ground. */
 export const LIGHT = {
   /** Toward the sun: west and north (x east, y north), 50° above the horizon. */
   sunAzimuth: [-Math.SQRT1_2, Math.SQRT1_2] as const,
@@ -269,7 +279,9 @@ export const LIGHT = {
   penumbra: (6 * Math.PI) / 180,
   sun: [1.0, 0.95, 0.86] as Rgb,
   sky: [0.63, 0.64, 0.72] as Rgb,
-  haze: [0.68, 0.77, 0.87] as Rgb,
+  /** The haze: the game's temperate daytime fog (`Sun.blueprint` `DayColors.TemperateWeatherFog`; a held hazard's in
+   *  high/seasons.ts `FOG`). */
+  haze: [0.4470589, 0.7607844, 0.8235295] as Rgb,
 } as const;
 
 /** Soil moisture (the game's levels, 0–16) and contamination (0–1) as bytes: 0 stays 0, and any

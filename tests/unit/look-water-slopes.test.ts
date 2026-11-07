@@ -1,5 +1,5 @@
 // Map look's third round (PLAN §20 D115) and Kyler's clean look: badwater stays clearly darker
-// than clean water, and clean water keeps its shore foam, glints and see-through shallows so it
+// than clean water, and clean water keeps its glints and see-through shallows so it
 // reads apart from ground (it may be as dark as dry ground, as in the game); water partly bad
 // turns smoothly from clean water to badwater, the badwater share blended between tiles (D177,
 // which replaced each top showing its own tile's share); a slope's arrow is level and floats above the slope, pointing uphill, so it reads from
@@ -9,12 +9,13 @@
 import { describe, expect, it } from "vitest";
 import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, SLOPE_ARROW_HEIGHT } from "../../src/render3d/entities3d";
-import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
+import { sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 import { entityView, surfaceWater, waterFromDepth } from "../../src/render3d/model";
 import { GROUND, RUIN, WATER_SURFACE, waterBody, waterOpacity } from "../../src/render3d/palette";
 import { blendedBadwater, meshWaterChunk } from "../../src/render3d/waterMesh";
-import { waterFilmGround } from "../../src/render3d/waterPalette";
+import { cleanWaterBody, badwaterBody, waterFilmGround, waterGroundBehind } from "../../src/render3d/waterPalette";
 import { plainLayers } from "../../src/render3d/waterLayers";
+import { waterHooks } from "../../src/render3d/high/shaders";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 /** CIE L* of a display colour (sRGB). */
@@ -27,20 +28,20 @@ const lightness = (c: readonly number[]) => {
 type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): { array: ArrayLike<number>; count: number } } };
 
 describe("water", () => {
-  it("keeps badwater clearly darker than clean water, which has shore foam, glints and see-through shallows", () => {
+  it("keeps badwater clearly darker than clean water, which has glints and see-through shallows, and no shore foam, as the game", () => {
     const depths = Array.from({ length: 100 }, (_, k) => 0.05 + k * 0.05);
     // badwater's body at least 6 L* darker than clean water's at any depth, open or by a bank
     // (7.7 at the least, in deep water; the lit views show about 18)
     for (const d of depths) for (const fromBank of [0, 0.2, 1]) expect(lightness(waterBody(d, false, fromBank)) - lightness(waterBody(d, true)), `${d} deep`).toBeGreaterThan(6);
-    // foam along the shore and just off it, and glints, in the water shader
-    expect(WATER_SURFACE.shoreFoam).toBeGreaterThan(0.3);
-    expect(WATER_SURFACE.brokenFoam).toBeGreaterThan(0.3);
+    // glints in the water shader; no foam along the shore in either look, as the game's water shader has none
+    // (D154 amended 2026-10-29 by planning, D496's rule; D148: this checked a shore foam line until then)
     expect(WATER_SURFACE.glints).toBeGreaterThan(0.3);
+    expect(WATER_SURFACE).not.toHaveProperty("shoreFoam");
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
     const shader = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t())).fragmentShader;
     const num = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
-    expect(shader).toContain(`mix(${num(WATER_SURFACE.shoreFoam)}, 0.45, bad)`);
-    expect(shader).toContain(`* ${num(WATER_SURFACE.brokenFoam)} * (1.0 - bad)`);
+    expect(shader).not.toMatch(/foam \+= \(1\.0 - smoothstep\([^)]*, shore\)\)/);
+    expect(waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false, waterHooks()).fragmentShader).not.toContain("smoothstep(0.015, 0.16, shore)");
     expect(shader).toContain(`glints * ${num(WATER_SURFACE.glints)}`);
     // see-through as the game's High quality draws it (Q8): the ground behind shows by 0.175 at the water's
     // floor, thinning in step with depth to none at 5 levels; clearer toward the banks, and at a bank of water
@@ -80,6 +81,24 @@ describe("water", () => {
     expect(shader).toContain("float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);");
     expect(shader).toContain("return mix(min(WATER_FILM_BAD, body), body, waterFilm(depth));");
     expect(WATER_SURFACE.seeThrough).toBe(0.175);
+  });
+
+  it("shows the ground behind the water as the game's High quality does: overlaid with the water's colour, desaturated (WATER_SURFACE.behindTint)", () => {
+    const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const y = (c: readonly number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    const sat = (c: readonly number[]) => Math.max(...c) - Math.min(...c);
+    for (const ground of [GROUND.underwater, GROUND.moistLow, GROUND.dry])
+      for (const water of [cleanWaterBody(0.25), cleanWaterBody(1), badwaterBody(0.25)]) {
+        const b = waterGroundBehind(ground, water);
+        // darker than the ground in the open (the overlay of a dark water colour), and greyer
+        expect(y(b)).toBeLessThan(y(ground));
+        expect(sat(b)).toBeLessThan(sat(ground) + 0.02);
+      }
+    // the shader draws it in the terrain under the water past a sliver, never under clear water
+    const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+    const terrain = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1).fragmentShader;
+    expect(terrain).toContain("ground = mix(ground, waterGroundBehind(ground, wc), behind);");
+    expect(terrain).toContain("float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind);");
   });
 
   it("draws the ground under a film in the water's hue (D154): teal, crimson, mixed water through the warm midpoint, never purple or mauve-grey", () => {

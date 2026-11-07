@@ -116,8 +116,35 @@ function initialSpec(): { spec: MapSpec; fromLink: boolean; note?: string } {
     // every map is made for Normal until the core drops difficulty after M9b's release (Kyler, 2026-10-03)
     return { spec: d.spec.designedFor === "normal" ? d.spec : { ...makeSpec({ seed: d.spec.seed, size: d.spec.size, theme: d.spec.theme }), settings: defaultSettings(d.spec.theme, "normal", d.spec.size) }, fromLink: true, note: d.problems.length ? d.problems.join("; ") : note };
   }
-  // Any (Surprise me) is the default (D209)
-  return { spec: makeSpec({ seed: randomSeed(), theme: "any" }), fromLink: false };
+  // Any (Surprise me) is the default (D209), with Easy start as this browser last set it (D495)
+  const spec = makeSpec({ seed: randomSeed(), theme: "any" });
+  return { spec: { ...spec, settings: withEasy(spec.settings, easyRemembered()) }, fromLink: false };
+}
+
+/** Easy start (D495), remembered in this browser: a theme, Surprise me and Reset settings keep it (it is no theme's
+ *  setting), and a new visit starts with it as it was last set. */
+const EASY_KEY = "dgm.easyStart";
+function easyRemembered(): boolean {
+  try {
+    return localStorage.getItem(EASY_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function rememberEasy(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(EASY_KEY, "1");
+    else localStorage.removeItem(EASY_KEY);
+  } catch {
+    // (the setting still holds for this visit)
+  }
+}
+/** `s` with Easy start on or off (off is no field at all, as a spec without it reads). */
+function withEasy(s: Settings, on: boolean): Settings {
+  const start = { ...s.start };
+  if (on) start.easyStart = true;
+  else delete start.easyStart;
+  return { ...s, start };
 }
 
 function isProjectFile(name: string, bytes: Uint8Array): boolean {
@@ -389,7 +416,7 @@ export function App() {
     setSibling(null);
     setTheme("any");
     setSize(z);
-    setSettings(defaultSettings("any", difficulty, z));
+    setSettings(withEasy(defaultSettings("any", difficulty, z), easyRemembered()));
   }
 
   function showSpec(s: MapSpec) {
@@ -406,7 +433,7 @@ export function App() {
     unblank();
     setSibling(null);
     setTheme(t);
-    setSettings(defaultSettings(t, difficulty, size));
+    setSettings((s) => withEasy(defaultSettings(t, difficulty, size), s.start.easyStart === true));
   }
   function chooseSize(z: { x: number; y: number }) {
     unblank();
@@ -1102,7 +1129,7 @@ export function App() {
     setSeedText(String(seed));
     setSeedPinned(false);
     const t = over?.theme ?? theme;
-    const s = over ? defaultSettings(t, difficulty, size) : settings;
+    const s = over ? withEasy(defaultSettings(t, difficulty, size), settings.start.easyStart === true) : settings;
     if (over) {
       setTheme(t);
       setSettings(s);
@@ -1294,10 +1321,11 @@ export function App() {
     onSettings: (s) => {
       unblank();
       setSettings(s);
+      rememberEasy(s.start.easyStart === true);
     },
     onReset: () => {
       unblank();
-      setSettings(defaultSettings(theme, difficulty, size));
+      setSettings((s) => withEasy(defaultSettings(theme, difficulty, size), s.start.easyStart === true));
     },
     busy,
     changed,

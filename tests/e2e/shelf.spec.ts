@@ -114,6 +114,14 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
   expect(green.problem).toBeNull();
   // R turns it: a turned relic stands across the other way
   await page.keyboard.press("r");
+  // (with the pointer resting: the turned footprint shows where it is, never gone until the pointer moves)
+  const across = [...green.tiles].sort().join();
+  await expect
+    .poll(async () => {
+      const f = await page.evaluate(() => window.dgmEditor!.fit());
+      return f && [...f.tiles].sort().join() !== across ? "turned" : null;
+    }, { timeout: 10_000 })
+    .toBe("turned");
   const turned = await fitAt(page, x, y, W);
   expect(turned.problem).toBeNull();
   await clickTile(page, x, y);

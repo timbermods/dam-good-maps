@@ -2293,6 +2293,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Easy start (D495): a toggle at the Size line's end, its word whole */
+.size-line .easy-start {
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
 /* a side beyond 256 (D357): the box turns the warning colour, its tooltip says why; nothing moves, nothing is refused */
 .size-line .seg-custom .set-num.over {
   color: var(--warn);

@@ -184,8 +184,16 @@ export class JuiceEngine {
     return !!this.bank && this.context?.state === "running" && !this.paused && !this.disposed;
   }
 
-  /** Recordings playing now (tests). */
+  /** Recordings sounding now (tests): a stopped sound's are silent from its stop (its gain at 0 within
+   *  25 ms), though they count against the limit until the audio thread says they ended. */
   get playing(): number {
+    let n = 0;
+    for (const e of this.events.values()) if (!e.stopped) n += e.voices.size;
+    return n;
+  }
+
+  /** Recordings counted against the limit, stopped ones until they end (tests). */
+  get scheduled(): number {
     return this.sources;
   }
 

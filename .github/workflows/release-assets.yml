@@ -1,0 +1,59 @@
+name: release assets
+
+# When a release tag (`<name>-done`, pushed by tools/release.sh step 3) arrives: the GitHub Release for that tag, marked
+# latest, with the MCP server's two installs attached (D501): `dam-good-maps.mcpb` (Claude Desktop) and
+# `dam-good-maps-mcp.tgz` (npx), built by `npm run mcp:build`. mcp/README.md and the main README link them under
+# releases/latest/download/, so the newest release must carry both. The notes are the release PR's body (release/<name>
+# into main), or the tag's message when there is no PR. A re-run is safe: on a release that exists, it replaces the
+# assets (--clobber) and the notes, and marks it latest again.
+on:
+  push:
+    tags: ["*-done"]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release-assets-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run mcp:build
+      - name: Make or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          assets=(mcp/dist/dam-good-maps.mcpb mcp/dist/dam-good-maps-mcp.tgz)
+          ls -l "${assets[@]}"
+          notes="$RUNNER_TEMP/notes.md"
+          # the release PR (open while the tag is pushed, merged after); otherwise the annotated tag's message
+          pr=$(gh pr list -R "$GITHUB_REPOSITORY" --head "release/${TAG%-done}" --base main --state all --limit 1 --json number,body --jq '.[0] // empty')
+          if [ -n "$pr" ] && [ -n "$(jq -r '.body // ""' <<< "$pr")" ]; then
+            jq -r '.body' <<< "$pr" > "$notes"
+            printf '\n\nRelease PR: #%s\n' "$(jq -r .number <<< "$pr")" >> "$notes"
+          else
+            git fetch -q --depth=1 --force origin "refs/tags/$TAG:refs/tags/$TAG"
+            git tag -l --format='%(contents)' "$TAG" > "$notes"
+          fi
+          printf '\nTo make maps with Claude, install dam-good-maps.mcpb (Claude Desktop) or dam-good-maps-mcp.tgz (npx): see mcp/README.md.\n' >> "$notes"
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" -R "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file "$notes" --latest
+            echo "updated the release $TAG"
+          else
+            gh release create "$TAG" "${assets[@]}" -R "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --notes-file "$notes" --latest
+            echo "made the release $TAG"
+          fi

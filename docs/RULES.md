@@ -70,6 +70,14 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   the heavier suites run on dev's tip after the merge, and nightly; a failure there is fixed forward at once by whoever's
   merge broke it, or that merge is reverted. The planning session watches dev's runs and sends each failure to its owner.
   No full run by hand except for a release.
+  **A re-merge of dev keeps its approval when the conflict was only in `docs/decisions/*.md`,** the two sides having changed
+  different decision lines, and `tools/mergedecisions.py` resolved it. That merge commit says "decisions merged by
+  tools/mergedecisions.py", and the merge loop runs `python tools/mergedecisions.py --check <merge commit>` on it before
+  it counts the earlier approval: it passes only if the merge changed nothing outside `docs/decisions/` and each file
+  equals what the tool makes of the merge's parents. Anything the tool refuses (both sides changed one decision, a
+  decision it cannot place, headings or prose changed differently, a criss-cross merge), any conflict outside
+  `docs/decisions/`, and any merge `--check` fails still needs a fresh review line.
+  The loop starts using the check once the PR that added the tool is on dev.
 - **Labels on your own PRs:** `hold` (never merge). `needs-kyler` holds only design questions and the things only Kyler's
   account can do (listed with their exact clicks in one issue, a workaround meanwhile). `approved` is no longer needed.
 - **Releases:** at the end of each step in the order, from dev to main once the full run and the nightly are green; the
@@ -201,6 +209,10 @@ text.
 - Work happens on `dev`. The site is GitHub Pages, deployed from `main`: https://timbermods.github.io/dam-good-maps/
 - A release merges a tag into `main`, never dev's tip, and always as a merge commit. After a milestone is tagged `mN-done`
   and its full check passed, merge that tag into `main` through a PR.
+- Pushing a release tag (`*-done`) runs `.github/workflows/release-assets.yml`: it builds the MCP server
+  (`npm run mcp:build`) and makes the tag's GitHub Release, marked latest, with `dam-good-maps.mcpb` and
+  `dam-good-maps-mcp.tgz` attached and the release PR's body as its notes. The install links in `mcp/README.md` point at
+  the latest release, so check both files are on it after a release. A re-run replaces the files.
 - After every deploy, the live check (`.github/workflows/live-check.yml`) must pass. It runs after each deploy and daily;
   `gh workflow run live-check.yml --ref main` runs it by hand. If it fails, revert the release merge on `main`, confirm the
   old site is back, and report.

@@ -32,6 +32,9 @@ export interface ChecksState {
   flags?: readonly ImportFlag[];
   /** The player removed the map's last badwater spring (D213): "No badwater" under Good to know, not counted. */
   badwaterRemoved?: boolean;
+  /** Easy start (D495): what a map a late rescue round made left short of the full targets, one line under Good to
+   *  know, not counted. */
+  easyShort?: string | null;
 }
 
 /** The dot's tone and words: checking, ready to play, or things to look at. */
@@ -122,12 +125,13 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
             </section>
           ) : null}
           {c && !c.blocking.length && !c.warnings.length && !p.instant.length && !p.flags?.length ? <p class="ok-line">All {c.checks} checks pass.</p> : null}
-          {c?.advisory.length || p.badwaterRemoved ? (
+          {c?.advisory.length || p.badwaterRemoved || p.easyShort ? (
             <section>
               <h3>Good to know</h3>
-              {p.badwaterRemoved ? (
+              {p.badwaterRemoved || p.easyShort ? (
                 <ul>
-                  <li>No badwater</li>
+                  {p.badwaterRemoved ? <li>No badwater</li> : null}
+                  {p.easyShort ? <li class="easy-short">{p.easyShort}</li> : null}
                 </ul>
               ) : null}
               {c?.advisory.length ? <Items items={c.advisory} actions={p.actions} /> : null}
@@ -511,7 +515,25 @@ export function Header(p: HeaderProps) {
       <div class="editor-title">
         <TitleName name={p.name} described={p.info.descriptionWritten ? p.info.description : ""} kept={p.info.descriptionKept} onDescribe={p.onDescribe} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} locked={p.renameLocked} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
-          {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed}${p.info.spec.variation ? ` · ${p.info.spec.variation}` : ""} · ` : ""}${p.info.W}×${p.info.H}`}
+          {problem ||
+            p.saveState || (
+              <>
+                {`${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed}${p.info.spec.variation ? ` · ${p.info.spec.variation}` : ""} · ` : ""}${p.info.W}×${p.info.H}`}
+                {/* (Easy start, D495: said as it is; a map a late rescue round made says what fell short) */}
+                {p.info.kind === "generated" && p.info.spec?.settings.start.easyStart ? (
+                  p.info.easyShort ? (
+                    <>
+                      {" · "}
+                      <span class="easy-short" {...tip(p.info.easyShort)}>
+                        Easy start (fell short)
+                      </span>
+                    </>
+                  ) : (
+                    " · Easy start"
+                  )
+                ) : null}
+              </>
+            )}
         </span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">

@@ -113,6 +113,9 @@ export interface SessionInfo {
   forceRolls: { shown: number; count: number } | null;
   /** The player removed the map's last badwater spring: it is a No badwater map now (D213). */
   badwaterRemoved: boolean;
+  /** Easy start (D495): what a map made in a late rescue round left short of the full targets, one line; null when
+   *  it met them all, or isn't an Easy start map. */
+  easyShort: string | null;
   /** True until the canonical water can be carried in a saved project (D367). */
   waterPending?: boolean;
   /** The map has tiles with caves or overhangs (an import's): the "Caves and overhangs" layer's toggle shows. */
@@ -247,6 +250,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     forceAgain: againVerb(s),
     forceRolls: againVerb(s) ? { shown: series!.rolls.shown + 1, count: series!.rolls.count } : null,
     badwaterRemoved: s.badwaterRemoved(),
+    easyShort: s.meta.easyShort ?? null,
     waterPending: s.waterPending,
     caves: s.roofedTiles.size > 0,
     keepOnlyHere: s.keepOnlyHere,
@@ -3317,8 +3321,10 @@ function followSources(w: NonNullable<typeof forceWater>, objects: readonly Enti
   return moved;
 }
 
-/** The force's water `ticks` on, on the ground shown now, and its depths (Node tests run it
- *  themselves, as they run `settleWater`); null when the force has none. */
+/** The force's water `ticks` on, on the ground shown now, and its depths seen from above, a tile's top column (Node
+ *  tests run it themselves, as they run `settleWater`); null when the force has none. On a map with caves the page
+ *  also draws every column under a roof (`stackView`): compare a kept view's top columns with these, or the frames
+ *  drawn with the kept view. */
 export function flowForceWater(ticks: number): Float64Array | null {
   const ws = forceStack;
   if (ws && force === ws.force) {
