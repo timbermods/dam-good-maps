@@ -19,11 +19,11 @@ import { openHeights, rect, sourceOp } from "./gateWater";
 
 /** Dig, place a source in the pit, settle; delete the source in preview mode: the preview's stopped
  *  water and then the canonical settle's, on the pit's middle tile. */
-function deleteTheSource(s: MapSession, x: number, y: number, strength: number) {
+function deleteTheSource(s: MapSession, x: number, y: number, strength: number, pit = rect(x - 1, y - 1, x + 1, y + 1), probe: [number, number] = [x, y]) {
   const W = s.size.x;
-  const P = y * W + x;
+  const P = probe[1] * W + probe[0];
   s.setPreviewWater(true);
-  expect(s.apply({ op: "sculpt", params: { mode: "lower", cells: rect(x - 1, y - 1, x + 1, y + 1), amount: 2 } }).errors).toEqual([]);
+  expect(s.apply({ op: "sculpt", params: { mode: "lower", cells: pit, amount: 2 } }).errors).toEqual([]);
   s.settleCanonical();
   expect(s.built.water[P], "the dug pit is dry (D385)").toBe(0);
   const src = sourceOp(x, y, strength);
@@ -60,5 +60,23 @@ describe("a pit whose only source is deleted, on flat ground a river's pre-fill 
     const r = deleteTheSource(s, 25, 4, 0.5);
     expect(r.canonical).toBe(0);
     expect(r.live, `the pit's pool in the editor's water once it stops: ${r.live.toFixed(3)} deep (canonical ${r.canonical})`).toBeLessThan(0.01);
+  });
+
+  it("the same plateau, a trench 9 long with its source at one end: the far end, beyond the source's own margin, dries too (#780's review)", () => {
+    const W = 40;
+    const H = 24;
+    const h = new Uint8Array(W * H).fill(4);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const gorge = y >= 9 && y <= 11;
+        if (x < 6) h[y * W + x] = gorge ? 6 : 8;
+        else if (x >= 7 && gorge) h[y * W + x] = 2;
+      }
+    const s = openHeights(W, H, h);
+    expect(s.apply(sourceOp(1, 10, 1.5)).errors).toEqual([]);
+    // (the source at 20,4 and the tile probed at 26,4: four tiles past the warm start's margin round the source)
+    const r = deleteTheSource(s, 20, 4, 0.5, rect(20, 4, 28, 4), [26, 4]);
+    expect(r.canonical).toBe(0);
+    expect(r.live, `the trench's far end in the editor's water once it stops: ${r.live.toFixed(3)} deep (canonical ${r.canonical})`).toBeLessThan(0.01);
   });
 });
