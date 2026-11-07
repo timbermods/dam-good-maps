@@ -42,9 +42,9 @@ function half(h: number): number {
   const s = h & 0x8000 ? -1 : 1;
   const e = (h >> 10) & 0x1f;
   const m = h & 0x3ff;
-  if (e === 0) return s * 2 ** -14 * (m / 1024);
+  if (e === 0) return s * (1 / 16384) * (m / 1024);
   if (e === 31) return m ? NaN : s * Infinity;
-  return s * 2 ** (e - 15) * (1 + m / 1024);
+  return s * ((1 << e) / 32768) * (1 + m / 1024);
 }
 const texel = (x: number, y: number, c: number) => half(texels.readUInt16LE(((y * W + x) * 4 + c) * 2));
 /** The strip filtered at (u, v), clamped to its edges, as the game's bilinear sample. */
