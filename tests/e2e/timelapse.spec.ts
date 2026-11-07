@@ -52,14 +52,30 @@ test("a short history records as a playable WebM of every planned frame", async 
   expect(facts.keyFrames).toBeGreaterThanOrEqual(1);
   expect(facts.durationMs).toBeCloseTo((made.planned * 1000) / 30, 0);
 
-  // the browser plays it: its length read from the file, and its last frame decoded
+  // the browser plays it: its length read from the file, and its first and last frames decoded, each showing the
+  // map (never a black frame: the video opens on the generated map)
   const played = await page.evaluate(async () => {
     const v = document.querySelector<HTMLVideoElement>(".lapse-video")!;
     if (v.readyState < 1) await new Promise((done) => v.addEventListener("loadedmetadata", done, { once: true }));
-    v.currentTime = Math.max(0, v.duration - 0.05);
-    await new Promise((done) => v.addEventListener("seeked", done, { once: true }));
-    return { duration: v.duration, width: v.videoWidth, height: v.videoHeight, paused: v.paused };
+    const lit = async (t: number) => {
+      v.currentTime = t;
+      await new Promise((done) => v.addEventListener("seeked", done, { once: true }));
+      const c = document.createElement("canvas");
+      c.width = 64;
+      c.height = 36;
+      const g = c.getContext("2d")!;
+      g.drawImage(v, 0, 0, c.width, c.height);
+      const px = g.getImageData(0, 0, c.width, c.height).data;
+      let n = 0;
+      for (let i = 0; i < px.length; i += 4) if (px[i] + px[i + 1] + px[i + 2] > 48) n++;
+      return n / (c.width * c.height);
+    };
+    const first = await lit(0.01);
+    const last = await lit(Math.max(0, v.duration - 0.05));
+    return { duration: v.duration, width: v.videoWidth, height: v.videoHeight, paused: v.paused, first, last };
   });
+  expect(played.first).toBeGreaterThan(0.5);
+  expect(played.last).toBeGreaterThan(0.5);
   expect(played.width).toBe(320);
   expect(played.height).toBe(180);
   expect(played.duration).toBeCloseTo(facts.durationMs / 1000, 1);

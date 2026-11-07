@@ -60,7 +60,7 @@ import { clone } from "../spec/mergepatch";
 import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
-import { cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
+import { cropFalls, cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
 import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
@@ -1481,7 +1481,17 @@ export class MapSession {
         return objectCells(this.cur.entities, this.size.x, this.size.y, (e) => e.owner === owner || skip.has(e.owner));
       },
       startObjects,
-      cropObjects: (r) => (cropObjects(this.cur.entities, r).cutStart ? START_CUT : null),
+      cropObjects: (r) => {
+        const o = cropObjects(this.cur.entities, r);
+        if (o.cutStart) return START_CUT;
+        // (ground the new edge would leave unheld, which the game deletes as the cropped map loads, D121: refused, as an
+        // edit that makes ground fall is, D280 (3))
+        if (!this.layered(this.cur)) return null;
+        const { x: W, y: H } = this.size;
+        const keep = new Set(o.kept);
+        const falls = cropFalls(this.terrainOf(this.cur), r, this.topsOf(this.cur.entities), stackableTops(W, H, this.cur.entities.filter((e) => keep.has(e.id))));
+        return falls.length ? fallsReason(falls.length, placeOf(falls[0], W, H)) : null;
+      },
       placement: (p) => {
         const e = p.id ? this.cur.entities.find((g) => g.id === p.id) : undefined;
         const template = p.template ?? e?.template;
