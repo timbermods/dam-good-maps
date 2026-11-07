@@ -4,10 +4,12 @@
 // shadows changed (the terrain, the objects), never for the camera, the water's movement or the
 // wind (the trees' shadows stay still: their sway is a few hundredths of a tile, and a tree's
 // close-up and far models cast nearly the same shadow).
-// Water, falls and the effects cast none.
+// Water, falls and the effects cast none. Objects faded round the pointer (objectFade.ts) cast none while faded: the
+// depth pass drops them by the objects' own test, and is drawn again when the region moves.
 
-import { Color, DepthTexture, DoubleSide, Matrix4, MeshDepthMaterial, NearestFilter, OrthographicCamera, UnsignedIntType, Vector3, WebGLRenderTarget, type Scene, type WebGLRenderer } from "three";
+import { Color, DepthTexture, DoubleSide, Matrix4, MeshDepthMaterial, NearestFilter, OrthographicCamera, UnsignedIntType, Vector3, WebGLRenderTarget, type Scene, type Vector4, type WebGLRenderer } from "three";
 import { SUN } from "../materials";
+import { OBJECT_FADE_GLSL } from "../objectFade";
 
 export const SHADOW_SIZE = 2048;
 /** The layer the depth map draws: what casts a shadow has it (the High look enables it on the
@@ -18,7 +20,7 @@ export class SunShadows {
   readonly target: WebGLRenderTarget;
   readonly matrix = new Matrix4();
   private camera = new OrthographicCamera();
-  private depth = new MeshDepthMaterial({ side: DoubleSide });
+  private depth: MeshDepthMaterial;
   private centre = new Vector3();
   /** Toward the sun (world space): it turns with the camera (light.ts `sunOfYaw`), set by `setSun`. */
   private sun = SUN.clone();
@@ -27,7 +29,9 @@ export class SunShadows {
   /** Times drawn (information). */
   passes = 0;
 
-  constructor() {
+  /** `u`: the scene's uniforms (the objects' fade round the pointer and their hiding, shared). */
+  constructor(u: ObjectFadeUniforms) {
+    this.depth = fadingDepth(u);
     this.camera.layers.set(CASTER_LAYER);
     this.target = new WebGLRenderTarget(SHADOW_SIZE, SHADOW_SIZE, { minFilter: NearestFilter, magFilter: NearestFilter });
     this.target.depthTexture = new DepthTexture(SHADOW_SIZE, SHADOW_SIZE, UnsignedIntType);
@@ -83,4 +87,45 @@ export class SunShadows {
     this.target.dispose();
     this.depth.dispose();
   }
+}
+
+/** The uniforms the depth pass reads of the scene's (materials.ts `SceneUniforms`). */
+export interface ObjectFadeUniforms {
+  objectFade: { value: Vector4 };
+  objectHide: { value: number };
+}
+
+/** The depth pass's material: three.js's own, with the objects (the instanced casters: the terrain is not instanced) a
+ *  fade round the pointer takes, or hidden, dropped (objectFade.ts `shadowDropped`; every instanced caster is an object
+ *  batch, with its `grow`), never the land's own shape. (The renderer warms its programs with one of its own,
+ *  `highCopyList`.) */
+export function fadingDepth(u: ObjectFadeUniforms): MeshDepthMaterial {
+  const m = new MeshDepthMaterial({ side: DoubleSide });
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.objectFade = u.objectFade;
+    shader.uniforms.objectHide = u.objectHide;
+    shader.vertexShader = shader.vertexShader.replace(
+      "void main() {",
+      /* glsl */ `${OBJECT_FADE_GLSL}
+      #ifdef USE_INSTANCING
+        attribute vec3 grow;
+      #endif
+      varying float vDropped;
+      void main() {
+        vDropped = 0.0;
+        #ifdef USE_INSTANCING
+          vec3 at = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+          if (shadowDropped(vec2(at.x, -at.z), grow)) vDropped = 1.0;
+        #endif`,
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "void main() {",
+      /* glsl */ `varying float vDropped;
+      void main() {
+        if (vDropped > 0.5) discard;`,
+    );
+  };
+  // (one program per kind of mesh, as three.js's own depth material has)
+  m.customProgramCacheKey = () => "dgm-fading-depth";
+  return m;
 }

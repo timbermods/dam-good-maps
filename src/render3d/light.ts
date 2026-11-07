@@ -133,6 +133,17 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
   return out;
 }
 
+/** These casters without the ones on the tiles of x0…x1 × y0…y1 that `drop` says (an object faded round the pointer,
+ *  objectFade.ts): a copy into `out` (a new array without it), its standing levels kept. */
+export function withoutCasters(casters: Float32Array, W: number, H: number, x0: number, y0: number, x1: number, y1: number, drop: (x: number, y: number) => boolean, out: Float32Array = new Float32Array(casters.length)): Float32Array {
+  out.set(casters);
+  const levels = casterLevels.get(casters);
+  if (levels) casterLevels.set(out, levels);
+  for (let y = Math.max(0, y0); y <= Math.min(H - 1, y1); y++)
+    for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) if (out[y * W + x] && drop(x, y)) out[y * W + x] = 0;
+  return out;
+}
+
 /** The top of the shadow volume at each shadow sample (W·R × H·R, row-major from the south-west),
  *  for the sun at `elevation`: a point at height z is lit when z is at or above it. */
 export function shadowTops(W: number, H: number, heights: Uint8Array, casters: Float32Array | null, elevation: number, sun: Sun = DEFAULT_SUN): Float32Array {
@@ -441,7 +452,7 @@ const CASTER_BLOCK = 8;
  *  change reaches lies in that change's rectangle's area, and each area is redone from the samples north-west of it).
  *  The changed tiles of each block of CASTER_BLOCK² tiles, or their one bounding rectangle where that redoes fewer
  *  samples: plants drowned here and there across a map redo their own shadows, not the map's. Null when none differ. */
-export function castersChangedRects(W: number, H: number, a: Float32Array | null, b: Float32Array | null, sun: Sun = DEFAULT_SUN): { x0: number; y0: number; x1: number; y1: number }[] | null {
+export function castersChangedRects(W: number, H: number, a: Float32Array | null, b: Float32Array | null, area?: { x0: number; y0: number; x1: number; y1: number }, sun: Sun = DEFAULT_SUN): { x0: number; y0: number; x1: number; y1: number }[] | null {
   if (!a && !b) return null;
   const B = CASTER_BLOCK;
   const bw = Math.ceil(W / B);
@@ -451,24 +462,27 @@ export function castersChangedRects(W: number, H: number, a: Float32Array | null
   // roof is a different shadow)
   const la = a ? casterLevels.get(a) : undefined;
   const lb = b ? casterLevels.get(b) : undefined;
-  for (let i = 0; i < W * H; i++) {
-    const ca = a ? a[i] : 0;
-    if (ca === (b ? b[i] : 0) && (!ca || (la ? la[i] : -1) === (lb ? lb[i] : -1))) continue;
-    const x = i % W;
-    const y = (i - x) / W;
-    const k = Math.floor(y / B) * bw + Math.floor(x / B);
-    const r = blocks.get(k);
-    if (r) {
-      r.x0 = Math.min(r.x0, x);
-      r.x1 = Math.max(r.x1, x);
-      r.y0 = Math.min(r.y0, y);
-      r.y1 = Math.max(r.y1, y);
-    } else blocks.set(k, { x0: x, y0: y, x1: x, y1: y });
-    all.x0 = Math.min(all.x0, x);
-    all.x1 = Math.max(all.x1, x);
-    all.y0 = Math.min(all.y0, y);
-    all.y1 = Math.max(all.y1, y);
-  }
+  // (only `area`'s tiles, where the two can differ: a fade round the pointer moved)
+  const ax0 = Math.max(0, area?.x0 ?? 0);
+  const ax1 = Math.min(W - 1, area?.x1 ?? W - 1);
+  for (let y = Math.max(0, area?.y0 ?? 0); y <= Math.min(H - 1, area?.y1 ?? H - 1); y++)
+    for (let x = ax0; x <= ax1; x++) {
+      const i = y * W + x;
+      const ca = a ? a[i] : 0;
+      if (ca === (b ? b[i] : 0) && (!ca || (la ? la[i] : -1) === (lb ? lb[i] : -1))) continue;
+      const k = Math.floor(y / B) * bw + Math.floor(x / B);
+      const r = blocks.get(k);
+      if (r) {
+        r.x0 = Math.min(r.x0, x);
+        r.x1 = Math.max(r.x1, x);
+        r.y0 = Math.min(r.y0, y);
+        r.y1 = Math.max(r.y1, y);
+      } else blocks.set(k, { x0: x, y0: y, x1: x, y1: y });
+      all.x0 = Math.min(all.x0, x);
+      all.x1 = Math.max(all.x1, x);
+      all.y0 = Math.min(all.y0, y);
+      all.y1 = Math.max(all.y1, y);
+    }
   if (!blocks.size) return null;
   // (the samples a rectangle redoes, on the map)
   const SW = W * SHADOW_RES;

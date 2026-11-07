@@ -418,7 +418,7 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
         const next = casters!.slice();
         next[(y0 + 3) * W + x0] = 5;
         next[2 * W + 30] = 4;
-        const rects = castersChangedRects(W, H, casters, next, sun)!;
+        const rects = castersChangedRects(W, H, casters, next, undefined, sun)!;
         const t2 = { hi: new Float32Array(0), lo: new Float32Array(0) };
         const b2 = shadowMap(W, H, heights, casters, t2, r, sun);
         for (const q of rects) shadowPairRect(t2, b2, W, H, heights, next, q.x0, q.y0, q.x1, q.y1, r, false, sun);

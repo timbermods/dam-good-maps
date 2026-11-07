@@ -14,6 +14,7 @@ import { FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../.
 import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_FAR_FRAME, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinOvergrown, ruinsOvergrown, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
 import { objectMaterial, RUIN_INSIDE_COVER, RUIN_LATTICE_SCALE, RUIN_LATTICE_STRUT, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
+import { LAND_GROW } from "../../src/render3d/objectFade";
 import { entityView, variantIndex, type EntityInput, type EntityView } from "../../src/render3d/model";
 import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, sunlitTop, WATER, type Rgb } from "../../src/render3d/palette";
 import { variantOf } from "../../src/worker/api";
@@ -207,7 +208,8 @@ describe("mine sites", () => {
     // (a few sites a map: about a thousand triangles each)
     expect(modelTriangles("UndergroundRuins")).toBeLessThanOrEqual(1400);
     const mesh = meshesOf([site("Cw0")]).find((c) => c.name === "UndergroundRuins")!;
-    expect(Array.from(mesh.geometry.getAttribute("grow")!.array)[0]).toBe(0);
+    // (no minimum size on screen: its grow is the land's own shape's mark, negative, never faded or hidden, objectFade.ts)
+    expect(Array.from(mesh.geometry.getAttribute("grow")!.array)[0]).toBe(LAND_GROW[0]);
     // every part is drawn at every distance
     expect(new Set(modelOf("UndergroundRuins").lod)).toEqual(new Set([LOD_ALL]));
   });

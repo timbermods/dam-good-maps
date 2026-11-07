@@ -25,7 +25,19 @@ const box = (x0: number, y0: number, x1: number, y1: number) => {
 function edited(): { s: MapSession; exports: string[] } {
   const s = session();
   const exports = [timber(s)];
-  expect(s.apply({ op: "sculpt", params: { mode: "raise", cells: box(4, 4, 9, 8), amount: 2 } }).ok).toBe(true);
+  // (the raised box on dry ground with no object within 3 tiles: a mine site or a ruin there would float, which
+  // the export's checks refuse; the first such spot from the map's corner, since generator 0.10.7, D502, D148)
+  let at: [number, number] | null = null;
+  for (let y = 4; y + 5 < W - 4 && !at; y += 2)
+    for (let x = 4; x + 6 < 36 && !at; x += 2) {
+      const near = s.built.entities.some((e) => e.x >= x - 3 && e.x <= x + 9 && e.y >= y - 3 && e.y <= y + 8);
+      let wet = false;
+      for (let yy = y; yy < y + 5 && !wet; yy++) for (let xx = x; xx < x + 6 && !wet; xx++) if (s.built.water[yy * W + xx] > 0) wet = true;
+      if (!near && !wet) at = [x, y];
+    }
+  expect(at, "a dry spot clear of objects for the raised box").not.toBeNull();
+  const [rx, ry] = at!;
+  expect(s.apply({ op: "sculpt", params: { mode: "raise", cells: box(rx, ry, rx + 5, ry + 4), amount: 2 } }).ok).toBe(true);
   exports.push(timber(s));
   const src = s.built.entities.find((e) => e.template === "WaterSource")!;
   const r = s.applyAll(
