@@ -76,7 +76,7 @@ place of its bottom rule.
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
   button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…,
-  Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Save a picture (§6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. A sibling's variation is shown beside its seed, in the header ("Seed 4242 · 2 · 128×128") and in the panel's Seed line, so a seed copied by hand is known to be only part of its address. **Showcase…** (D488 (2)) sits in
@@ -469,8 +469,9 @@ place of its bottom rule.
   with a volume and an off switch the player keeps (D212); water ambience is off unless turned on. The recordings
   load on the first click or key, never with the page, and nothing waits on them. Micro-animations follow the
   reduced-motion setting. Nothing new stays on screen unless in use.
-- **The hover readout:** a quiet corner line for what's under the cursor ("Height 11, dry soil"); over water, its
-  depth, the bed level and its contamination (D196). **It names every object and plant too**, with its key fact
+- **The hover readout:** a quiet corner line for what's under the cursor ("Height 11, dry soil"); over water, the
+  water's level (bed plus depth, so a lake's level is read in one tile: showcase-craft gap 19), its depth, the bed
+  level and its contamination (D196): "Water at level 4.6, 0.6 deep, bed level 4". **It names every object and plant too**, with its key fact
   where one is useful (D347, B11): "Mine site", "Ruin, 5 levels, 75 scrap metal", "Water source, 1 water/s", "Pine,
   grown", "Relic, medium"; where an object sits on ground the line gives both ("Geothermal field · Height 5, dry
   soil"), up to three objects separated by ";". It works with any tool held. It is one plain core function,
@@ -944,8 +945,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   generator's Verticality and Real places' standard or tall option decide how tall a generated map starts.
 - **Select** (D259): Rectangle, Freehand, **Wand** (D261: a click on land selects the ground joined to it at that
   level; on water, that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at
-  the click; while every selected tile has water, the row's size words add its level, "water at level 5.5", or the
-  levels a river runs between, so a chain of lakes is set without hovering tile by tile: showcase-craft gap 19), **Circle** (drag from the centre) and **Brush** (paint the selection at the brushes' size); Shift adds
+  the click), **Circle** (drag from the centre) and **Brush** (paint the selection at the brushes' size); Shift adds
   and Alt subtracts. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
   under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles. A
   Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
@@ -1178,8 +1178,8 @@ weaker hardware rather than stutter. (The full list is in the archive.)
 
 **File → Record a time-lapse…** ("Save a video of how the map was built") replays the map's history at speed from
 the generated map and saves it as a WebM to share. It adds nothing to the screen until used, and is in the menu only
-where the browser can make a video (WebCodecs and WebGL 2: Chrome and Edge). A map with no edits says "Nothing to
-replay yet". While it records, a dialog says what it is doing ("Replaying the map's history", "Recording the
+where the browser can make a video (WebCodecs and WebGL 2: Chrome and Edge). A map with no edits (or none since its
+crop) says "Nothing to replay yet". While it records, a dialog says what it is doing ("Replaying the map's history", "Recording the
 time-lapse", "Writing the video"), how far along ("4 of 15 seconds"), and Cancel; then the video itself (it never plays
 until the player presses play), its length and size, Close and **Download video** (`<map>-time-lapse.webm`).
 
@@ -1190,9 +1190,14 @@ until the player presses play), its length and size, Close and **Download video*
   from a crater or an eruption, along a brush's stroke; its objects and blocks appear part-way; the water flows on
   between steps as the live editor's water flows (up to 512 game ticks a second of video; on a heavy map, where a
   tick of the water costs more, it flows slower in the video rather than the recording slowing).
-- **The camera is the video's, never the player's** (D505): a renderer of its own, off screen; it
-  opens wide on the generated map, glides to each place (eased, never cut, rising as it crosses the map), holds with a
-  slow push in, turns slowly round, and ends on the finished map's hero view (the game's opening camera, D488).
+- **The camera is the video's, never the player's** (D505): a renderer of its own, off screen, moving as a slow
+  drone, never a turntable. It opens wide on the generated map, glides to each place (eased, never cut, rising as it
+  crosses the map), holds with a slow push in, and ends on the finished map's hero view (the game's opening camera,
+  D488). Nearby edits share one framing, so the camera doesn't move between them. It looks down at one steady pitch
+  until the glide to the hero view, and its heading turns only a little over the whole video (at most 20°, under
+  half a degree a second).
+  Over the closing glide the water still flowing eases into the finished map's own water and the soil greens with it
+  (`timelapse/blend.ts`), so the held view never snaps to them.
 - **Pacing by eye:** a short history plays each step for about a second (a force's longer), the glides between
   places under half that time; a long one is paced so the whole video stays about a minute, nearby edits sharing a
   camera place and very long histories playing several steps to a frame. 1280×720, 30 frames a second, VP9 (VP8 where it must), about 1.6 Mb/s (a minute is about 12 MB).
@@ -1200,6 +1205,10 @@ until the player presses play), its length and size, Close and **Download video*
   encoder, which keeps at most a few frames waiting; recording runs near or faster than real time.
 - The water is drawn still and force effects don't play in the video until the renderer's per-renderer clock lands
   (forces play's hooks, agreed on #236).
+
+**File → Save a picture** ("Save a picture of the map to share"): the map as it stands, from the game's opening view,
+drawn in the High look at 1920×1080 (the saved file's picture, D488, drawn large), saved as `<map>.jpg` with the quiet
+note "Saved <file>." Only where the browser draws in 3D on a GPU, as the saved file's picture is.
 
 ## 7. Controls
 

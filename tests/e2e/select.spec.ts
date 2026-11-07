@@ -202,18 +202,6 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
     return tiles.every((i) => m.surface.surface[i] === m.surface.surface[i]);
   }, sel);
   expect(bankFree).toBe(true);
-  // the row names the water's level, or the levels a river runs between (showcase-craft gap 19)
-  const [lo, hi] = (
-    await page.evaluate((tiles) => {
-      const s = window.dgm3d!.renderer.mapState()!.surface.surface;
-      let lo = Infinity;
-      let hi = -Infinity;
-      for (const i of tiles) (lo = Math.min(lo, s[i])), (hi = Math.max(hi, s[i]));
-      return [lo, hi];
-    }, sel)
-  ).map((v) => (Math.round(v * 10) / 10).toFixed(1));
-  const status = row.getByRole("status");
-  await expect(status).toContainText(lo === hi ? `water at level ${lo}` : `water at levels ${lo} to ${hi}`);
   // on land: the ground at its level joined to it
   const land = await dryAt(page, 3);
   const lp = await client(page, land[0], land[1]);
@@ -223,7 +211,6 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
   const onLand = await selection(page);
   expect(onLand).toContain(land[1] * W + land[0]);
   expect(onLand.every((i) => hl[i] === hl[land[1] * W + land[0]])).toBe(true);
-  await expect(status).not.toContainText("water");
   await page.mouse.click(rp.x, rp.y);
 
   // a Raise across it and its banks: no bank tile changes

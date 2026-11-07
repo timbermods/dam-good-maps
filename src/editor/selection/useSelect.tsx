@@ -299,25 +299,6 @@ export function useSelect(ed: Ed): SelectSlice {
   flattenRef.current = flattenTo;
   const [maxDepth, setMaxDepth] = useState(2);
   /** The deepest water in the selection (Max water depth's top). */
-  /** The water's level when every selected tile has water (the Wand on a lake): "water at level 5.5", or the
-   *  levels it runs between on a river; null when any tile is dry (showcase-craft gap 19: a lake's level read
-   *  only by hovering one tile at a time). */
-  function waterLevelIn(): string | null {
-    const w = mirror.current.water;
-    if (!w) return null;
-    let lo = Infinity;
-    let hi = -Infinity;
-    for (const i of selection.current.tiles()) {
-      const s = w.surface[i];
-      if (!(s === s)) return null;
-      if (s < lo) lo = s;
-      if (s > hi) hi = s;
-    }
-    if (lo > hi) return null;
-    const a = (Math.round(lo * 10) / 10).toFixed(1);
-    const b = (Math.round(hi * 10) / 10).toFixed(1);
-    return a === b ? `water at level ${a}` : `water at levels ${a} to ${b}`;
-  }
   function deepestIn(): number {
     const w = mirror.current.water;
     let d = 0;
@@ -682,7 +663,7 @@ export function useSelect(ed: Ed): SelectSlice {
     });
     const groups: Group[] = [
       { key: "shapes", row: 1, at: 1, span: 7, node: shapes },
-      { key: "size", row: 1, at: 8, span: 3, centre: true, node: <Words status>{waterHint ?? (z ? [sizeWords(z), waterLevelIn()].filter(Boolean).join(", ") : "Drag on the map to select")}</Words> },
+      { key: "size", row: 1, at: 8, span: 3, centre: true, node: <Words status>{waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
       // Crop (D340) ends the second row: the map becomes the selection's rectangle; greyed with its reason when it cannot
       {
         key: "crop",
