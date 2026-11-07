@@ -813,8 +813,8 @@ class Wear {
   /** Its own count, so no two puffs or stones are the same. */
   private seq = 0;
   private dustNext = 0;
-  /** When the last stage's dust came (ms; 0: none yet). */
-  private lastStage = 0;
+  /** When the last stage's dust came (its drawn ms; null: none yet, as a stage at drawn time 0 is a stage). */
+  private lastStage: number | null = null;
   private stoneNext = 0;
   /** Its own time (ms), which every puff and stone is timed by: the frames drawn, each at most a tenth of a second (a
    *  driven clock's whole), as the other forces' tails (`DrawnTail`), so a stalled view never loses the dust. */
@@ -843,7 +843,7 @@ class Wear {
     this.ended = null;
     this.until = now;
     this.seq = (m.x * 7919 + m.y * 104729 + Math.round(now)) % 100000;
-    this.lastStage = 0;
+    this.lastStage = null;
   }
 
   /** A stage's moment: the faint dust of the rumble, then dust and stones from the voxels that went. */
@@ -866,7 +866,7 @@ class Wear {
     if (!e || !e.went.length || !voxels) return;
     const n = wearSamples(e.went, voxels, this.at, wearCount(e.went.length, WEAR_SAMPLES), this.samples);
     // the stage's dust: more where more went, within the stage's share of the pool's turnover
-    const dt = Math.max(40, Math.min(200, this.lastStage ? now - this.lastStage : STAGE_MS));
+    const dt = Math.max(40, Math.min(200, this.lastStage !== null ? now - this.lastStage : STAGE_MS));
     this.lastStage = now;
     const puffs = Math.max(2, Math.min(Math.round(3 + Math.sqrt(e.went.length)), Math.floor((DUST_RATE * dt) / 1000), 2 * n));
     // a few stones a stage, more where more went

@@ -147,7 +147,10 @@ describe("a force clicked quickly after another (D378)", () => {
   it("an erosion's dust and stones start with its rumble and are gone within its two to four seconds once kept (D240)", () => {
     fx.set(moment("erode", "rumble", 10, 10));
     expect(fx.showing().erode).toMatchObject({ x: 10, y: 10 });
-    for (let k = 1; k <= 20; k++) {
+    // (a fresh view's first stage, at its drawn time 0, plays: no frame drawn yet)
+    fx.set(moment("erode", "wear", 10, 10, 0.05));
+    expect(fx.showing().erode!.dust).toBeGreaterThan(0);
+    for (let k = 2; k <= 20; k++) {
       wait(100);
       fx.set(moment("erode", k === 20 ? "done" : "wear", 10, 10, k / 20));
     }
