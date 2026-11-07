@@ -172,6 +172,8 @@ async function paint(r: MapRenderer, view: MapView, pw: number, ph: number, qual
   const scene = heroScene(view);
   r.setMap(scene.view, false, true);
   r.setView({ mode: "orbit", ...scene.camera });
+  // (the game's sun for the picture's camera, baked at once: light.ts `sunOfYaw`)
+  r.sunNow();
   // (its programs compiled first, off the page's thread where the browser can: a picture never freezes on them, D453;
   // and the branches its map asks for, a cave's, switched on before it is drawn: the picture waits for them, never
   // drawn in a wrong look unsaid)

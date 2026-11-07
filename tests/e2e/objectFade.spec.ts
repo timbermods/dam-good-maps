@@ -25,7 +25,8 @@ interface Pass {
   mode: number;
   /** The least alpha in the canvas. */
   alpha: number;
-  /** Each object in the region: the share of itself left showing; each outside it: how far it changed. */
+  /** Each object in the region: the share of itself left showing (against itself drawn whole, without the shadow the
+   *  fade drops); each outside it: how far it changed. */
   inside: number[];
   outside: number[];
 }
@@ -142,8 +143,9 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
     const seen = at.map((_, i) => i).filter((i) => shows[i] > 2000);
     /** Each object's share of itself still showing (against the meadow with no objects), and how far it changed. */
     let alpha = 255;
+    let last = empty;
     const measureNow = () => {
-      const now = frame();
+      const now = (last = frame());
       alpha = 255;
       for (let o = 3; o < now.length; o += 4) if (now[o] < alpha) alpha = now[o];
       return at.map((_, i) => ({ left: diff(now, empty, i) / shows[i], changed: diff(now, base, i) / shows[i] }));
@@ -154,11 +156,31 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
       r.setObjectFade(region);
       await settle();
       const m = measureNow();
+      const now = last;
+      // each object as drawn whole without the shadow the fade drops (a faded object casts none, objectFade.ts): the
+      // fade's mode off for one frame, the shadows cast again round the region kept
+      const mode = internals.uniforms.objectFade.value.w;
+      internals.uniforms.objectFade.value.w = 0;
+      const whole = frame();
+      internals.uniforms.objectFade.value.w = mode;
+      /** The share of an object itself left showing: over its pixels as drawn whole, against the meadow. */
+      const own = (i: number) => {
+        const bx = boxes[i];
+        let s = 0, all = 0;
+        for (let y = Math.max(0, bx.y - bx.r); y <= Math.min(g.drawingBufferHeight - 1, bx.y + bx.r); y++)
+          for (let x = Math.max(0, bx.x - bx.r); x <= Math.min(g.drawingBufferWidth - 1, bx.x + bx.r); x++) {
+            const o = (y * g.drawingBufferWidth + x) * 4;
+            const d = (p: Uint8Array, q: Uint8Array) => Math.abs(p[o] - q[o]) + Math.abs(p[o + 1] - q[o + 1]) + Math.abs(p[o + 2] - q[o + 2]);
+            const w = d(whole, empty);
+            if (w > 40) { s += d(now, empty); all += w; }
+          }
+        return all > 0 ? s / all : 0;
+      };
       out[name] = {
         mode: internals.uniforms.objectFade.value.w,
         // (the canvas has an alpha channel: the page never shows through a faded object)
         alpha,
-        inside: seen.filter((i) => dist[i] <= region.radius).map((i) => m[i].left),
+        inside: seen.filter((i) => dist[i] <= region.radius).map((i) => own(i)),
         outside: seen.filter((i) => dist[i] >= region.radius + 2).map((i) => m[i].changed),
       };
       r.setObjectFade(null);
@@ -223,8 +245,14 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
       const c = [[x + 0.3, y + 0.3], [x + size - 0.3, y + 0.3], [x + 0.3, y + size - 0.3], [x + size - 0.3, y + size - 0.3]].map(([cx, cy]) => r.project(cx, 4, -cy));
       return { x0: Math.round(Math.min(...c.map((q) => q.x)) * k), x1: Math.round(Math.max(...c.map((q) => q.x)) * k), y0: Math.round(g.drawingBufferHeight - 1 - Math.max(...c.map((q) => q.y)) * k), y1: Math.round(g.drawingBufferHeight - 1 - Math.min(...c.map((q) => q.y)) * k) };
     });
-    // (the sky round and under the map is a clear blue: blue well over red and over green; the pits' earth and rock,
-    // the ground and a seep's water are not)
+    // (what shows through a hole, for these checks alone: a magenta background, the sky taken away. The sky's clouds are
+    // near white, and where they fall depends on the GPU's arithmetic: on CI's software drawing a cloud filled both seeps'
+    // holes, and a test of the sky's blue saw none there, run 42360125348)
+    const bg = r as unknown as { sky: { visible: boolean }; gl: { getClearColor(t: object): unknown; setClearColor(c: unknown): void } };
+    let clear: unknown = null;
+    bg.gl.getClearColor({ copy: (c: { clone(): unknown }) => (clear = c.clone()) });
+    bg.sky.visible = false;
+    bg.gl.setClearColor(0xff00ff);
     const skyShare = () => {
       const px = frame();
       return feet.map((b) => {
@@ -234,7 +262,7 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
           for (let x = b.x0; x <= b.x1; x++) {
             const o = (y * g.drawingBufferWidth + x) * 4;
             all++;
-            if (px[o + 2] > px[o] + 40 && px[o + 2] > px[o + 1] + 15) sky++;
+            if (px[o] > 200 && px[o + 1] < 60 && px[o + 2] > 200) sky++;
           }
         return sky / Math.max(1, all);
       });
@@ -254,6 +282,8 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
     objects.visible = false;
     const hole = skyShare();
     objects.visible = true;
+    bg.sky.visible = true;
+    bg.gl.setClearColor(clear);
     out.pits = { drawn, hidden: pitsHidden, faded: pitsFaded, hole };
     // the shelf's icons: the same with the fade over the place they are drawn at and the objects hidden
     if (lk !== "light") {
