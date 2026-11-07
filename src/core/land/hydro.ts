@@ -83,6 +83,53 @@ export interface HydroOptions {
  *  land near water, D480; the courses are lines, their water a little wider). */
 const REACH_WANT = 0.45;
 
+/** Above 128² (D504): the heads for each 128² of a map's area beyond the first, for springs toward the land far from
+ *  water; the soil's reach from the planned courses (`moistCost`, the game's moisture of a river's bank less a little);
+ *  and the share of the map the courses aim to bring within it. */
+const REACH_HEADS = 2;
+const MOIST_REACH = 10;
+const WIDE_WANT = 0.5;
+
+/** How far the soil's moisture has to spread from the water on `wet` tiles to reach each tile, by the game's own rule
+ *  (sim/soil3d.ts: a step costs 1, and 6 for each level the tile stands above the one it spreads from; downhill is
+ *  free of the climb), the water standing a level above its bed; 64 or more read as 64 (D504). */
+export function moistCost(wet: Uint8Array, h: ArrayLike<number>, W: number, H: number): Int32Array {
+  const N = W * H;
+  const CAP = 64;
+  const cost = new Int32Array(N).fill(CAP);
+  const level = new Int32Array(N);
+  const buckets: number[][] = Array.from({ length: CAP }, () => []);
+  for (let i = 0; i < N; i++) {
+    level[i] = h[i];
+    if (wet[i]) {
+      cost[i] = 0;
+      level[i] = h[i] + 1;
+      buckets[0].push(i);
+    }
+  }
+  for (let c = 0; c < CAP; c++) {
+    const b = buckets[c];
+    for (let k = 0; k < b.length; k++) {
+      const i = b[k];
+      if (cost[i] !== c) continue;
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        const nc = c + 1 + 6 * Math.max(0, level[j] - level[i]);
+        if (nc < cost[j] && nc < CAP) {
+          cost[j] = nc;
+          buckets[nc].push(j);
+        }
+      }
+    }
+  }
+  return cost;
+}
+
 const MIN_WIDTH = 2.4;
 const MAX_WIDTH = 8.4;
 
@@ -521,7 +568,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   // A few fed tributaries read better than many shallow fragments at large sizes.
   // Explicit Rivers counts remain player-owned; every other theme keeps its cap.
   const headCap = g.theme === "riverValley" && !g.hydro.exactInflows ? (side >= 256 ? 5 : 4) : Infinity;
-  const maxHeads = natural ? Math.min(headCap, Math.floor(3.5 + 1.5 * portable.pow(areaK, 0.75))) : Infinity;
+  // (D504: above 128² the springs toward the land far from water have heads of their own beyond these, `REACH_HEADS`)
+  let maxHeads = natural ? Math.min(headCap, Math.floor(3.5 + 1.5 * portable.pow(areaK, 0.75))) : Infinity;
+  const wide = Math.max(1, areaK);
   const minTributary = Math.max(12, Math.round(0.18 * side));
   const drainDist = (i: number) => {
     const x = i % W;
@@ -681,22 +730,30 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   // joins them (not where the player asked for Generous buildable land, whose flats they cut, nor
   // set the Rivers count, whose water is the player's)
   if (natural && heads.length > 0 && g.hydro.reachSprings !== false && !g.hydro.exactInflows) {
+    // (D504: above 128², where a 128²'s few heads left three quarters of the land bare, the land is read as the soil's
+    // moisture reaches it from the planned courses, by the game's own spreading (`moistCost`): the courses aim to bring
+    // `WIDE_WANT` of the map within `MOIST_REACH`, and two more heads for each 128² of the map's area beyond the first go
+    // to the land it leaves farthest)
     const R = STORY_REACH * side;
-    let separateOne = false;
-    for (let more = 0; more < 4 && heads.length < maxHeads; more++) {
+    const spread = wide > 1;
+    if (spread) maxHeads += Math.round(REACH_HEADS * (wide - 1));
+    const longWay = 0.35 * (spread ? 128 : side);
+    let separateMore = 0;
+    for (let more = 0; more < 4 * wide && heads.length < maxHeads; more++) {
       const wetP = new Uint8Array(N);
       for (let i = 0; i < N; i++) if (owner[i] >= 0) wetP[i] = 1;
-      const dist = distanceFrom(wetP, W, H);
+      const dist: ArrayLike<number> = spread ? moistCost(wetP, h, W, H) : distanceFrom(wetP, W, H);
+      const reach = spread ? MOIST_REACH : R;
       let near = 0;
-      for (let i = 0; i < N; i++) if (dist[i] <= R) near++;
-      if (near >= REACH_WANT * N) break;
+      for (let i = 0; i < N; i++) if (dist[i] <= reach) near++;
+      if (near >= (spread ? WIDE_WANT : REACH_WANT) * N) break;
       const joinable = reachesOwned();
       const far: [number, number][] = [];
       const apart: [number, number][] = [];
       for (let y = 12; y < H - 12; y++)
         for (let x = 12; x < W - 12; x++) {
           const i = y * W + x;
-          if (dist[i] <= R || downLen[i] < 0.35 * side || owner[i] >= 0) continue;
+          if (dist[i] <= reach || downLen[i] < longWay || owner[i] >= 0) continue;
           if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < 26)) continue;
           if (joinable.reach[i] && joinable.len[i] >= minTributary) far.push([dist[i] + 0.01 * downLen[i], i]);
           else apart.push([dist[i] + 0.01 * downLen[i], i]);
@@ -704,18 +761,26 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       far.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
       apart.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
       let added = false;
-      for (const [, i] of far.slice(0, 40)) if (trace({ cell: i, kind: "spring", flow: 0 })) {
-        added = true;
-        break;
-      }
       // (where no spring there joins them, one river of its own: a story reads with one river that
-      // never joins the main one, D273 (1))
-      if (!added && !separateOne && g.theme !== "riverValley")
+      // never joins the main one, D273 (1); D504: above 128² one for each 128² of the map's area, and
+      // first where the land farthest from the water drains away from it, so the green spreads over
+      // the whole map, not one side)
+      const separateOk = separateMore < Math.floor(wide) && g.theme !== "riverValley";
+      const separate = () => {
         for (const [, i] of apart.slice(0, 40)) if (trace({ cell: i, kind: "spring", flow: 0 }, false, false)) {
           added = true;
-          separateOne = true;
+          separateMore++;
           break;
         }
+      };
+      const apartFirst = wide > 1 && separateOk && apart.length > 0 && (far.length === 0 || apart[0][0] > far[0][0]);
+      if (apartFirst) separate();
+      if (!added)
+        for (const [, i] of far.slice(0, 40)) if (trace({ cell: i, kind: "spring", flow: 0 })) {
+          added = true;
+          break;
+        }
+      if (!added && separateOk && !apartFirst) separate();
       if (!added) break;
     }
   }
