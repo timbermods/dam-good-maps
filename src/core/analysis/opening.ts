@@ -248,7 +248,9 @@ export function bestTurn(land: OpeningLand, x: number, y: number, z: number, tur
   let bestShot = -1;
   let bestWet = Infinity;
   for (const t of turns) {
-    const shot = Math.round(openingShotScore(land, { x, y, z, orientation: t.o }).score * 20);
+    // (with the share of the frame that shows the map, D506: a landmark in view still outweighs it, and of turns whose
+    // shots are near alike the one framing more map than void wins)
+    const shot = Math.round((openingShotScore(land, { x, y, z, orientation: t.o }).score + landInFrame(land.W, land.H, { x, y, z, orientation: t.o })) * 20);
     const wet = dWet[t.door];
     if (shot > bestShot || (shot === bestShot && wet < bestWet)) {
       best = t.o;
@@ -257,6 +259,32 @@ export function bestTurn(land: OpeningLand, x: number, y: number, z: number, tur
     }
   }
   return best;
+}
+
+/** The share of the opening frame pulled back (`VISTA_ZOOM`) that shows the map rather than the game's void past its
+ *  edge: rays through a 32 × 18 grid of the frame, each meeting the start's level inside the map's W × H or not. A
+ *  start in the middle of a 128² map shows the map over about 70% of the frame, one near a corner under 45% (D506's
+ *  eye ranked such frames last). */
+export function landInFrame(W: number, H: number, start: OpeningStart): number {
+  const cam = openingCamera(start, VISTA_ZOOM);
+  const [ex, ey, ez] = cam.eye;
+  const [lx, ly] = cam.look;
+  const [rx, ry] = cam.right;
+  const drop = start.z - ez;
+  let n = 0;
+  for (let py = 0; py < 18; py++) {
+    const v = 1 - ((py + 0.5) * 2) / 18;
+    const dz = -SIN_P + v * TAN_V * COS_P;
+    if (!(dz < 0)) continue;
+    const t = drop / dz;
+    for (let px = 0; px < 32; px++) {
+      const u = ((px + 0.5) * 2) / 32 - 1;
+      const x = ex + t * (lx * COS_P + u * TAN_H * rx + v * TAN_V * lx * SIN_P);
+      const y = ey + t * (ly * COS_P + u * TAN_H * ry + v * TAN_V * ly * SIN_P);
+      if (x >= 0 && y >= 0 && x < W && y < H) n++;
+    }
+  }
+  return n / (32 * 18);
 }
 
 /** How good a shot the opening camera makes for a start (D493): the landmark in view weighs most,

@@ -1,8 +1,9 @@
 # Showcase: judging by looks (D506)
 
 Wave 2, item 5, design A as planning ruled it on 2026-11-07. Showcase ranks each candidate by its arc and by the looks
-of its opening picture. The picture is the game's first camera pulled back, the frame the map's own picture is drawn
-from. This page records how the looks weight was chosen. The rule is D506 (docs/decisions/generator.md).
+of its opening picture. The picture is the game's first camera pulled back, what a player sees as a new game begins
+(D493). The calibration's pictures were the map's own picture as it was drawn then, from that camera; since #809 the
+map picker's picture has the game's thumbnail camera instead, and the looks still judge the opening frame. This page records how the looks weight was chosen. The rule is D506 (docs/decisions/generator.md).
 
 ## The calibration
 

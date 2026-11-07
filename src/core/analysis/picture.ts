@@ -1,7 +1,7 @@
 // The opening picture (Wave 2, judging by looks): what the game's first camera shows of a new game, as a small
 // picture worked out in the core, the same on every machine. The camera is D493's (analysis/opening.ts: the
-// opening camera pulled back to the default zoom's widest, `VISTA_ZOOM`, the frame the start is turned for and the
-// map's own picture is drawn from, render3d/hero.ts). Each of its pixels casts a ray through the map as the game
+// opening camera pulled back to the default zoom's widest, `VISTA_ZOOM`, the frame the start is turned for: what a
+// player sees as a new game begins; the map picker's picture has the game's thumbnail camera, render3d/heroView.ts). Each of its pixels casts a ray through the map as the game
 // builds it, voxel by voxel (its caves, overhangs and arches included), its water on every column and its trees'
 // crowns, and says what the game draws where the ray first meets something, and how far that is:
 //

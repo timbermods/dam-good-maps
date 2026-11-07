@@ -375,7 +375,7 @@ export function arcOf(r: GenerateResult): Arc | null {
 }
 
 /** The looks of a map's opening picture (analysis/picture.ts): the picture from the game's first camera pulled back,
- *  as its own picture is drawn (render3d/hero.ts). Null without a start. */
+ *  what a player sees as a new game begins (D493). Null without a start. */
 export function looksOf(r: GenerateResult): { looks: LooksScore; picture: OpeningPicture } | null {
   const b = r.built;
   if (!b.start) return null;
