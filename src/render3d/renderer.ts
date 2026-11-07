@@ -6,7 +6,7 @@
 // vertical faces where it steps down (waterMesh.ts; D201 amended 2026-10-29: as the game draws them).
 //
 // Map look (D86): the ground is coloured by soil (or by height, `setGroundMode`); the light is
-// baked when the mesh is built (light.ts: sky visibility, soft sun shadows) into two textures the
+// baked when the mesh is built (light.ts: soft sun shadows) into two textures the
 // shaders read with the per-tile overlay; the default camera looks as the game's does, 30° east of
 // north and 70° down. The water's surface moves (at 30 frames a second at most) unless the viewer
 // prefers reduced motion, the browser renders in software, or the view is hidden. A browser that
@@ -28,7 +28,7 @@
 // caller sets with `setNow(ms)` before it draws each frame with `renderNow()`; `setClock(seconds)` holds the water's.
 // A recording takes no input, as a still view, and keeps every animation. Timings and budgets stay on the wall clock.
 // `whenDrawn()` resolves when everything a frame shows is in: the water chunks with the mesher workers, the programs
-// (and High's own fields, flow and canopy shade), the moving water's flow, the baked shadows.
+// (and High's own: its water's flow, its sun's depth map), the moving water's flow, the shadows baked for the camera's sun.
 
 import {
   BufferGeometry,
@@ -73,10 +73,10 @@ import type { DroughtLine } from "../core/sim/droughtLine";
 import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
 import { whenIdle } from "./idle";
-import { castersChangedRects, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
+import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
@@ -85,17 +85,16 @@ import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
-import { LANDMARK, SKY, type GroundMode } from "./palette";
+import { GAME_FINISH, SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, waterChangedRect, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
-import { WATER_UI } from "./waterPalette";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, highLookMaterials, roofedOf, runSoilOf, type HighLookMaterials, type HighMaterials } from "./high/highLook";
 import { Programs, withDefine, type Defines } from "./programs";
-import { pageBaker, type Baker } from "./high/fields";
+import { pageBaker, sunBaker, type Baker } from "./high/fields";
 import { fadingDepth } from "./high/shadows";
 import { WaterMotion } from "./motion";
 import { StillFlow } from "./stillFlow";
@@ -149,15 +148,8 @@ export type ViewMode = "orbit" | "top";
 /** The look drawn: High, High's lower-cost tier, Standard, or the light look (software). */
 export type Look = Tier | "light";
 
-/** A highlighted source's tint (Remove's red on a source, Clear sources' glow, D249): its blue made
- *  a clear red. */
+/** A highlighted source's tint, after the grade (an editing aid, D249, D497): its blue made a clear red. */
 const SOURCE_GLOW: [number, number, number] = [3, 0.3, 0.2];
-
-/** A source the pointer's water comes from (D196): its model takes the glow its water does (the water's colour mixed
- *  0.45 toward `WATER_UI.sourceGlow`, materials.ts), as a tint of its rock's main colour, so a source's rock in the
- *  middle of its glowing water glows with it. */
-const shine = (rock: readonly number[]): [number, number, number] => [0, 1, 2].map((j) => 0.55 + (0.45 * WATER_UI.sourceGlow[j]) / rock[j]) as [number, number, number];
-const SOURCE_SHINE = { WaterSource: shine(LANDMARK.rock), BadwaterSource: shine(LANDMARK.crater) } as const;
 
 /** The edges of the canvas the page's controls cover, in CSS pixels (framing keeps the map clear of them). */
 export interface FrameInsets {
@@ -253,8 +245,7 @@ interface MapState {
   surface: SurfaceWater;
   entities: EntityView;
   soil: SoilView | null;
-  /** Baked: sky visibility per tile, and the terrain shader's tile data. */
-  sky: Uint8Array;
+  /** Baked: the terrain shader's tile data. */
   tiles: Uint8Array;
 }
 
@@ -305,6 +296,16 @@ export function drawnOutline(W: number, H: number, heights: Uint8Array): Float32
 
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
 export { DEFAULT_YAW };
+
+/** The least turn of the sun the baked shadows are baked again for, and the least turn High's light and depth map take
+ *  (radians): High's every frame it turns that far, as the game's sun turns each frame (`LateUpdate`). */
+const SUN_SAME = (0.2 * Math.PI) / 180;
+const SUN_STEP = (0.5 * Math.PI) / 180;
+
+/** The angle between two suns' ways (radians). */
+function sunApart(a: Sun, b: Sun): number {
+  return Math.acos(Math.max(-1, Math.min(1, a.x * b.x + a.y * b.y)));
+}
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
@@ -465,6 +466,16 @@ export class MapRenderer {
   private pops: Pops | null = null;
   private animTimer = 0;
   private software = false;
+  /** The sun as the shadows are baked for (light.ts `Sun`): it turns with the camera, as the game's does (`followSun`). */
+  private sun: Sun = DEFAULT_SUN;
+  /** The sun the camera asks for, and the one the light and High's depth map take now. */
+  private sunWant: Sun = DEFAULT_SUN;
+  private sunPointed: Sun = DEFAULT_SUN;
+  /** The bake worker is baking the shadows for a turned sun. */
+  private sunBaking = false;
+  /** Bumped whenever the baked shadows change (an edit, new objects, a new map): a bake for a turned sun made before
+   *  is dropped and asked again. */
+  private shadowEpoch = 0;
   private reducedMotion = false;
   private inView = true;
   private seen: IntersectionObserver | null = null;
@@ -561,6 +572,7 @@ export class MapRenderer {
     // placeholder textures until a map arrives; every material shares these uniforms
     const one = () => tileTexture(1, 1, new Uint8Array(4));
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
+    this.uniforms.sourceTint.value.set(...SOURCE_GLOW);
     this.patterns = drawPatterns(this.gl);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
     this.edgeRows = new RowUploads(this.gl, () => this.edges);
@@ -1078,6 +1090,7 @@ export class MapRenderer {
     this.chosenEffects = { ...this.chosenEffects, [key]: on };
     saveOff(HIGH_EFFECTS.filter((e) => !this.chosenEffects[e.key]).map((e) => e.key));
     this.high?.setEffects(this.chosenEffects, this.lookNow === "lower");
+    this.applyFog();
     this.requestRender();
     this.tellLook();
   }
@@ -1094,7 +1107,7 @@ export class MapRenderer {
     return this.lookWaiting === null && this.programs.settled;
   }
 
-  /** The page's bake worker (the moving water's fields and shapes, High's occlusion), shared by every
+  /** The page's bake worker (the moving water's fields and shapes; the sun's shadows have their own), shared by every
    *  view. */
   private get baker(): Baker {
     return pageBaker();
@@ -1163,7 +1176,6 @@ export class MapRenderer {
           requestRender: () => this.requestRender(),
           motion: () => !this.reducedMotion,
           casters: () => this.shadowCasters(),
-          objectsHidden: () => this.objectsHiddenNow,
           groundOffset: (x, y) => this.groundOffset(x, y),
           baker: this.baker,
           flow: () => {
@@ -1172,6 +1184,7 @@ export class MapRenderer {
           },
         });
         this.high.shareTerrainUniforms(this.std.terrain);
+        this.high.setSunWay(this.uniforms.sunDir.value);
         this.setCutaway(this.cutaway);
         this.setRunSoilBranch(!!this.runSoil);
         this.setCaveBranch(this.caveBranch);
@@ -1226,6 +1239,9 @@ export class MapRenderer {
     }
     this.governor?.hold(performance.now());
     this.applyWithered();
+    this.applyFog();
+    // (High's light follows the camera's sun itself, the others the baked one's)
+    this.pointSun();
     this.requestRender();
     if (was !== tier) {
       this.tellLook();
@@ -1418,10 +1434,9 @@ export class MapRenderer {
     const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), masks: columnMasks(W * H, v.columns), cutout: mineCutout(v.entities, W, H) };
     this.columnsSent = { tiles: v.columns.tiles, voxels: v.columns.voxels, key: ++this.columnsKey };
     const surface = surfaceWater(W, H, v.water);
-    const sky = skyVisibility(W, H, heights);
     const soil = v.soil ?? null;
-    const tiles = tileData(W, H, heights, sky, soil, surface);
-    this.map = { W, H, heights, source, water: v.water, surface, entities: v.entities, soil, sky, tiles };
+    const tiles = tileData(W, H, heights, soil, surface);
+    this.map = { W, H, heights, source, water: v.water, surface, entities: v.entities, soil, tiles };
     this.heightStats = null;
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
@@ -1447,8 +1462,11 @@ export class MapRenderer {
     this.casterPlaces = casterPlaces(v.entities, W);
     this.casters = this.castersNow();
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
-    this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns)));
-    this.cave = CaveLight.build(source, sky);
+    this.shadowEpoch++;
+    this.sun = this.sunWant = sunOfYaw(this.view.yaw);
+    this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns), this.sun));
+    this.pointSun();
+    this.cave = CaveLight.build(source);
     this.caveTex = this.cave ? caveTexture(this.cave) : null;
     const u = this.uniforms;
     u.caveTex.value = this.caveTex ?? this.noCave;
@@ -1821,18 +1839,19 @@ export class MapRenderer {
     const casters = this.castersNow();
     // (round each group of objects that changed, not their one bounding rectangle: plants drowned across a map; only
     // within `area`, where nothing else can have changed)
-    const rects = onlyCasters && this.tops && this.casters !== undefined ? castersChangedRects(m.W, m.H, this.casters, casters, area ?? undefined) : undefined;
+    const rects = onlyCasters && this.tops && this.casters !== undefined ? castersChangedRects(m.W, m.H, this.casters, casters, area ?? undefined, this.sun) : undefined;
     this.casters = casters;
     if (rects === null) return;
+    this.shadowEpoch++;
     if (rects && this.tops) {
       const rock = this.rock();
       for (const r of rects) {
-        shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, r.x0, r.y0, r.x1, r.y1, rock);
+        shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, r.x0, r.y0, r.x1, r.y1, rock, false, this.sun);
         this.touchShadows(r);
       }
     } else {
       this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
-      (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops, this.rock()));
+      (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops, this.rock(), this.sun));
       this.lightTex.needsUpdate = true;
     }
   }
@@ -1856,7 +1875,7 @@ export class MapRenderer {
     if (want === !!this.cave) return;
     const u = this.uniforms;
     if (want) {
-      this.cave = CaveLight.build(m.source, m.sky);
+      this.cave = CaveLight.build(m.source);
       this.caveTex = this.cave ? caveTexture(this.cave) : null;
       u.caveTex.value = this.caveTex ?? this.noCave;
       if (this.cave) {
@@ -1880,7 +1899,7 @@ export class MapRenderer {
   private relightCaves(rect: { x0: number; y0: number; x1: number; y1: number }): void {
     const m = this.map;
     if (!m || !this.cave) return;
-    const box = this.cave.relight(m.source, m.sky, rect);
+    const box = this.cave.relight(m.source, rect);
     this.caveRows.touch(box.x0, box.y0, box.x1, box.y1);
     // (the land may have risen: the march under roofs runs up to the highest ground)
     this.uniforms.caveTop.value = this.cave.highest;
@@ -1891,7 +1910,7 @@ export class MapRenderer {
   private bakeTiles(): void {
     const m = this.map;
     if (!m || !this.tileTex) return;
-    const c = tileDataChanges(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles);
+    const c = tileDataChanges(m.W, m.H, m.heights, m.soil, m.surface, m.tiles);
     for (const r of c.rows) this.tileRows.touch(r.x0, r.y, r.x1, r.y);
     this.redoEdges(c.edgeRows);
   }
@@ -2036,12 +2055,11 @@ export class MapRenderer {
     if (!rect) return 0;
     const chunks = dirtyChunks(m.W, m.H, rect);
     for (const [cx, cy] of chunks) this.meshTerrain(cx, cy);
-    // the light round what changed: the sky each tile sees, the tile data, the shadows (the same
-    // bytes as baking the whole map); and the water's shores there
-    const r = SKY_REACH;
-    skyVisibilityRect(m.W, m.H, heights, m.sky, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
+    // the light round what changed: the tile data, the shadows (the same bytes as baking the whole map); and the
+    // water's shores there
+    const r = TILE_REACH;
     if (this.tileTex) {
-      tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
+      tileDataRect(m.W, m.H, heights, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       this.tileRows.touch(rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       // (the contamination outline reads the tile data, a tile further)
       if (this.edges) {
@@ -2050,7 +2068,8 @@ export class MapRenderer {
       }
     }
     if (this.tops && this.lightTex && this.casters !== undefined) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1, this.rock());
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1, this.rock(), false, this.sun);
+      this.shadowEpoch++;
       this.touchShadows(rect);
     } else this.bakeShadows();
     this.relightCaves(rect);
@@ -2132,7 +2151,7 @@ export class MapRenderer {
     const m = this.map!;
     const g = { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 };
     if (this.tileTex) {
-      tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, g.x0, g.y0, g.x1, g.y1);
+      tileDataRect(m.W, m.H, m.heights, m.soil, m.surface, m.tiles, g.x0, g.y0, g.x1, g.y1);
       this.tileRows.touch(g.x0, g.y0, g.x1, g.y1);
       this.edgesAround(g.x0, g.y0, g.x1, g.y1);
     }
@@ -2294,7 +2313,7 @@ export class MapRenderer {
 
   /** The shadow map's samples round tiles that changed, to the GPU with the next frame. */
   private touchShadows(rect: { x0: number; y0: number; x1: number; y1: number }): void {
-    const a = shadowPairArea(rect.x0, rect.y0, rect.x1, rect.y1);
+    const a = shadowPairArea(rect.x0, rect.y0, rect.x1, rect.y1, this.sun);
     this.lightRows.touch(a.sx0, a.sy0, a.sx1, a.sy1);
   }
 
@@ -2382,7 +2401,7 @@ export class MapRenderer {
   /** The ground's tile data under a water chunk drawn anew (the water over each top). */
   private waterTiles(m: MapState, cx: number, cy: number): void {
     if (!this.tileTex) return;
-    tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+    tileDataRect(m.W, m.H, m.heights, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.edgesAround(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
   }
@@ -2629,7 +2648,7 @@ export class MapRenderer {
     this.pendingLand = null;
     if (!m || !rect || !this.drawnLand) return false;
     const heights = m.heights;
-    const c = terrainChanges(m.W, m.H, this.drawnLand, heights, rect, SKY_REACH);
+    const c = terrainChanges(m.W, m.H, this.drawnLand, heights, rect, TILE_REACH);
     if (!c) return false;
     this.droughtLayer?.retire();
     // the water on the land that changed rides it in this same frame (its own water follows, worked
@@ -2645,9 +2664,8 @@ export class MapRenderer {
       this.flowChanged(heights, m.surface);
     }
     for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
-    for (const row of c.rows) skyVisibilityRect(m.W, m.H, heights, m.sky, row.x0, row.y, row.x1, row.y);
     if (this.tileTex) {
-      for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
+      for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.tileRows.touch(row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.edgesAround(row.x0, row.y, row.x1, row.y);
     }
@@ -2655,9 +2673,10 @@ export class MapRenderer {
       if (this.layered) this.layeredWaterNear(c.rect);
       else for (const [cx, cy] of c.waterChunks) this.meshWater(cx, cy);
     }
-    // the sun's shadows round what changed (they reach south-east of it)
+    // the sun's shadows round what changed (they reach down-sun of it)
     if (this.tops && this.lightTex && this.casters !== undefined) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, c.rect.x0, c.rect.y0, c.rect.x1, c.rect.y1, this.rock(), true);
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, c.rect.x0, c.rect.y0, c.rect.x1, c.rect.y1, this.rock(), true, this.sun);
+      this.shadowEpoch++;
       this.touchShadows(c.rect);
     } else this.shadowsStale = true;
     this.relightCaves(c.rect);
@@ -2686,7 +2705,6 @@ export class MapRenderer {
   private lit: { mesh: InstancedMesh; i: number; color: [number, number, number] }[] = [];
   /** The tiles highlighted (`highlightObjects`), and in what colour. */
   private litTiles: Set<number> | null = null;
-  private litColor: [number, number, number] = [1, 1, 1];
   /** The middle tiles of the sources highlighted: the water over them turns red too (`markSources`). */
   private sourcesLit = new Set<number>();
 
@@ -2718,13 +2736,14 @@ export class MapRenderer {
       const undo = this.high?.decorate(group, one);
       // (an editing aid: never faded round the pointer or hidden with the objects, objectFade.ts)
       markEditingAid(group);
-      const tint: [number, number, number] | null = g.ok === null ? null : g.ok === "warn" ? [1.4, 1.1, 0.5] : g.ok ? [0.7, 1.3, 0.7] : [1.5, 0.55, 0.5];
-      if (tint)
+      // (its tint an editing aid, put on after the grade: materials.ts AID_TINT)
+      const tint = g.ok === null ? null : g.ok === "warn" ? AID_TINT.ghost.warns : g.ok ? AID_TINT.ghost.fits : AID_TINT.ghost.refused;
+      if (tint !== null)
         for (const c of group.children) {
           const col = (c as InstancedMesh).instanceColor;
           if (!col) continue;
           const a = col.array as Float32Array;
-          for (let k = 0; k < a.length; k++) a[k] = Math.min(2, a[k] * tint[k % 3]);
+          for (let k = 0; k < a.length; k++) a[k] = -a[k] - 10 * tint;
           col.needsUpdate = true;
         }
       group.renderOrder = 2;
@@ -2860,8 +2879,11 @@ export class MapRenderer {
   }
 
   /** Objects on these tiles show in a colour (Remove's red under the pointer, D184); null puts them
-   *  back as they are. */
+   *  back as they are. The tint is an editing aid, put on after the fog and the post chain (D497, its own channel):
+   *  a highlighted instance's colour goes negative, a source's less 10 more (materials.ts objectMaterial), and the
+   *  shader tints it by `aidTint` or `sourceTint`. */
   highlightObjects(tiles: readonly number[] | null, color: [number, number, number] = [1.6, 0.35, 0.3]): void {
+    this.uniforms.aidTint.value.set(...color);
     const m = this.map;
     // the sources among them: the water over each turns red too, under water as above it
     const lit = new Set<number>();
@@ -2877,7 +2899,6 @@ export class MapRenderer {
       this.markSources();
     }
     this.litTiles = tiles?.length ? new Set(tiles) : null;
-    this.litColor = color;
     this.tintObjects();
   }
 
@@ -2914,10 +2935,9 @@ export class MapRenderer {
           const red = !!want?.has(e.y[k] * m.W + e.x[k]);
           if (!red && !(source && glow.size && glow.has(sourceMiddle(e, k, m.W, m.H)))) continue;
           this.lit.push({ mesh, i, color: [a[i * 3], a[i * 3 + 1], a[i * 3 + 2]] });
-          // (a source's blue would only darken: it turns a clear red, D249; its dark rock takes the whole red, to read
-          // as clearly as the red water round it)
-          const tint = red ? (source ? SOURCE_GLOW : this.litColor) : SOURCE_SHINE[t as keyof typeof SOURCE_SHINE];
-          for (let j = 0; j < 3; j++) a[i * 3 + j] = Math.min(source ? 3 : 2, a[i * 3 + j] * tint[j]);
+          // (a source's blue would only darken: it turns a clear red, D249; all after the grade, D497)
+          const aid = red ? (source ? AID_TINT.source : AID_TINT.highlight) : AID_TINT.glow[t as keyof typeof AID_TINT.glow];
+          for (let j = 0; j < 3; j++) a[i * 3 + j] = -a[i * 3 + j] - 10 * aid;
           mesh.instanceColor.needsUpdate = true;
         }
       }
@@ -2985,7 +3005,7 @@ export class MapRenderer {
       if (!m) return 0;
       const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
       return m.heights[i];
-    }, () => this.voxelsShown, this.time));
+    }, () => this.voxelsShown, this.time, this.uniforms.sunDir));
   }
 
   /** The map's voxels as shown, for Erode's stones (one object, read as the map changes). */
@@ -3649,6 +3669,8 @@ export class MapRenderer {
     const yaw = this.view.mode === "top" ? 0 : openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10));
     this.view = { ...this.view, yaw, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
     this.frameMap();
+    // (a jump, not a turn: the shadows are baked for its sun at once, never rolled in after a frame of the last view's)
+    this.sunNow();
     this.requestRender();
   }
 
@@ -3777,11 +3799,101 @@ export class MapRenderer {
       this.persp.updateProjectionMatrix();
       this.persp.updateMatrixWorld();
     }
-    // a light haze beyond the point looked at, none from straight above
+    this.uniforms.viewHeight.value = h;
+    this.applyFog();
+  }
+
+  /** The game's fog (palette.ts GAME_FINISH), as the game draws it up to its farthest default zoom; from farther out,
+   *  an editing view the game doesn't have, held at what that zoom shows, so a whole map stays readable (D497). None
+   *  looking straight down, where the game never looks (the camera sits at 200), nor with High's Fog switched off. */
+  private applyFog(): void {
     const u = this.uniforms;
-    u.viewHeight.value = h;
-    u.hazeAmount.value = v.mode === "top" ? 0 : 0.24;
-    u.hazeRange.value.set(v.distance * 0.85, v.distance * 2.6);
+    const v = this.view;
+    u.fogDensity.value = v.mode === "top" || (this.high && !this.high.effects.fog) ? 0 : GAME_FINISH.fogParam;
+    u.fogShift.value = Math.max(0, v.distance - GAME_FINISH.fogFarthest);
+    u.fogNear.value = this.persp.near;
+  }
+
+  // ------------------------------------------------------------------------------------- the sun
+
+  /** The sun follows the camera's turn, as the game's does (light.ts `sunOfYaw`). The baked shadows roll: a bake for
+   *  the sun as it stands starts in the bake worker as soon as the last has landed, so while the camera turns they trail
+   *  it by one bake (Standard and the light look take its light with them). High draws its shadows from its depth map:
+   *  its light and depth map take the camera's sun every frame it turns past SUN_STEP. Nothing per frame but these
+   *  comparisons. */
+  private followSun(): void {
+    const want = sunOfYaw(this.view.yaw);
+    this.sunWant = want;
+    if (this.high && sunApart(want, this.sunPointed) >= SUN_STEP) this.pointSun();
+    if (this.sunBaking || sunApart(want, this.sun) < SUN_SAME) return;
+    this.turnSun(want);
+  }
+
+  /** Bake the shadows for `sun` (in the bake worker; `now`: here, at once) and take it. */
+  private turnSun(sun: Sun, now = false): void {
+    const m = this.map;
+    if (!m || !this.lightTex) {
+      this.sun = sun;
+      this.pointSun();
+      return;
+    }
+    if (now) {
+      this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
+      (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, this.casters ?? null, this.tops, this.rock(), sun));
+      this.lightTex.needsUpdate = true;
+      this.shadowEpoch++;
+      this.sun = sun;
+      this.pointSun();
+      return;
+    }
+    const epoch = this.shadowEpoch;
+    const casters = this.casters ?? null;
+    const levels = casters ? casterLevelsOf(casters) : undefined;
+    this.sunBaking = true;
+    sunBaker()
+      .run({ kind: "shadows", W: m.W, H: m.H, heights: m.heights.slice(), casters: casters ? casters.slice() : null, levels: levels ? levels.slice() : null, rock: this.rock(), sun })
+      .then(
+        (r) => {
+          this.sunBaking = false;
+          if (this.disposed) return;
+          // (the shadows changed meanwhile, or another map: asked again with the next frame)
+          if (r.kind !== "shadows" || this.map !== m || epoch !== this.shadowEpoch || !this.lightTex) {
+            this.requestRender();
+            return;
+          }
+          this.tops = { hi: r.hi, lo: r.lo };
+          (this.lightTex.image.data as Uint8Array).set(r.bytes);
+          this.lightTex.needsUpdate = true;
+          this.shadowEpoch++;
+          this.sun = sun;
+          this.pointSun();
+        },
+        () => {
+          this.sunBaking = false;
+        },
+      );
+  }
+
+  /** The light and High's depth map take the sun: in High the camera's own (its shadows are its depth map's), elsewhere
+   *  the one the shadows are baked for. */
+  private pointSun(): void {
+    this.sunPointed = this.high ? this.sunWant : this.sun;
+    const [x, y, z] = sunVector(this.sunPointed);
+    this.uniforms.sunDir.value.set(x, y, z);
+    this.high?.setSunWay(this.uniforms.sunDir.value);
+    this.requestRender();
+  }
+
+  /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */
+  sunNow(): void {
+    const want = sunOfYaw(this.view.yaw);
+    this.sunWant = want;
+    if (sunApart(want, this.sun) >= SUN_SAME) this.turnSun(want, true);
+  }
+
+  /** The way the sun stands (tests): toward it, horizontally in tile space, and what the camera asks for. */
+  sunWay(): { sun: Sun; want: Sun; baking: boolean } {
+    return { sun: this.sun, want: this.sunWant, baking: this.sunBaking };
   }
 
   // --------------------------------------------------------------------------------- rendering
@@ -3817,6 +3929,7 @@ export class MapRenderer {
     }
     this.placeCamera();
     if (this.recording) this.advance();
+    this.followSun();
     this.uniforms.time.value = this.clock ?? (this.now() - this.t0) / 1000;
     const t0 = performance.now();
     // a force's heat on the ground (the camera never shakes, D265)
@@ -3860,8 +3973,8 @@ export class MapRenderer {
   }
 
   /** Everything a frame shows is in: the water chunks (none waiting or with the mesher workers), the programs (and in
-   *  High the look's own: its fields, its water's flow, the canopies' shade), the moving water's flow, and the baked
-   *  shadows (none waiting on their timer). All on the same check, since a later batch can queue behind an earlier one.
+   *  High the look's own: its water's flow, its sun's depth map), the moving water's flow, and the baked shadows (none
+   *  waiting on their timer, none in flight for the camera's sun). All on the same check, since a later batch can queue behind an earlier one.
    *  The drought layer's background draw (the drought line, Badtide) is not waited on: the recording it is for, the time-lapse
    *  (editor/timelapse/record.ts), never sets a season, so its views never show one. */
   private get drawnAll(): boolean {
@@ -3869,12 +3982,14 @@ export class MapRenderer {
     if (this.disposed || !this.map) return true;
     if (this.pendingLand || !this.waterDrawn || this.casterTimer || this.lifeTimer) return false;
     if (!this.programsSettled || !(this.waterMotion?.ready ?? true)) return false;
+    // (the shadows baked for the camera's sun: none in flight, none still to ask for)
+    if (this.sunBaking || sunApart(sunOfYaw(this.view.yaw), this.sun) >= SUN_SAME) return false;
     return !this.high || (this.high.settled && this.high.caughtUp);
   }
 
   /** Resolves when everything the next frame shows is in (`drawnAll`): checked after each frame and as each timer that
    *  draws nothing goes off, never on a fixed wait (each piece asks for a frame as it lands, and those that move on with
-   *  frames, a stroke's water meshed a few milliseconds a frame and High's occlusion, ask for the next themselves). A
+   *  frames, a stroke's water meshed a few milliseconds a frame and the sun's bake, ask for the next themselves). A
    *  recording waits on it before drawing a frame of a changed map. */
   whenDrawn(): Promise<void> {
     if (this.drawnAll) return Promise.resolve();

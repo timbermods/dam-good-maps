@@ -11,6 +11,7 @@
 import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, TorusGeometry, Vector3, type Group, type ShaderMaterial } from "three";
 import type { EntityView } from "../model";
 import { whenIdle } from "../idle";
+import { disposeSharedBatch } from "./sharedBatch";
 import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, THORNS, type Rgb } from "../palette";
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
@@ -317,10 +318,8 @@ export function disposeLandmarks(r: readonly Replacement[]): void {
   for (const { old, fresh } of r) {
     old.visible = true;
     fresh.removeFromParent();
-    // (its GPU buffers let go when the page has a moment: each one put away searches all the renderer's state)
-    whenIdle(() => {
-      fresh.geometry.dispose();
-      fresh.dispose();
-    });
+    // (its own GPU buffers, never its model's, sharedBatch.ts, let go when the page has a moment: each one put away
+    // searches all the renderer's state)
+    whenIdle(() => disposeSharedBatch(fresh));
   }
 }
