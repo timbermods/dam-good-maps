@@ -67,6 +67,8 @@ export interface Stack {
   turnPort: number;
   /** The relay, to be taken away and brought back (a network drop). */
   relay: { stop(): void; start(): void };
+  /** What the relay did: its counts and its unusual lines (allocations, permission failures, dropped channel data). */
+  turnReport(): string;
   /** The session page (the real worker, the real client; tests/collab/sessionPage.ts), when asked for with `sessionPage`. */
   sessionUrl: string;
   /** The app itself, built the way the site is (the editor with its Together panel), when asked for with `app`. */
@@ -114,6 +116,8 @@ export interface StackOptions {
   sessionPage?: boolean;
   /** Build and serve the app (the page's own Together panel on the real function and relay); takes a minute to build. */
   app?: boolean;
+  /** An app built already (`buildApp`), served instead of building one. */
+  appDir?: string;
 }
 
 export async function startStack(options: StackOptions = {}): Promise<Stack> {
@@ -149,7 +153,22 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
         return answered.call(this, msg, reply);
       };
     (bind.prototype as { patched?: boolean }).patched = true;
+    // what the relay did, counted, and its unusual lines kept (turnReport, for a join that fails)
+    const turnCounts = new Map<string, number>();
+    const turnLines: string[] = [];
+    const count = (k: string) => turnCounts.set(k, (turnCounts.get(k) ?? 0) + 1);
+    const t0 = Date.now();
+    const turnNote = (s: string) => {
+      turnLines.push(`${((Date.now() - t0) / 1000).toFixed(2)} ${s}`);
+      if (turnLines.length > 200) turnLines.splice(0, 50);
+    };
     const turn = new Turn({
+      debug: (level: string, msg: unknown) => {
+        const text = String(msg);
+        if (text.startsWith("Receiving") || text.startsWith("relaying") || text.startsWith("Sending")) return count(text.split(" ", 1)[0]);
+        count(`${level} ${text.split(" ").slice(0, 2).join(" ")}`);
+        if (!text.startsWith("add permission") && !text.startsWith("updateting")) turnNote(`${level} ${text.slice(0, 300)}`);
+      },
       listeningPort: turnPort,
       listeningIps: ["127.0.0.1"],
       relayIps: ["127.0.0.1"],
@@ -164,6 +183,20 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
     // node-turn's Refresh reads `defaultLifetime` and `maxAllocateTimeout`, which it never sets: the first refresh (about 10 minutes in) would
     // delete the allocation and end every session. The real relay keeps an allocation alive for as long as it is refreshed.
     Object.assign(turn, { defaultLifetime: 600, maxAllocateTimeout: 3600 });
+    // (an allocation made again for a 5-tuple that has one replaces it in node-turn's table)
+    turn.allocations = new Proxy({} as Record<string, Allocation>, {
+      set(target, key, value: Allocation) {
+        count(target[key as string] ? "allocation replaced" : "allocation");
+        turnNote(`${target[key as string] ? "allocation REPLACED" : "allocation"} ${String(key)} relay ${(value as unknown as { relayedTransportAddress?: unknown }).relayedTransportAddress}`);
+        target[key as string] = value;
+        return true;
+      },
+      deleteProperty(target, key) {
+        count("allocation deleted");
+        turnNote(`allocation deleted ${String(key)}`);
+        return delete target[key as string];
+      },
+    });
     turn.start();
     // (a relay that is stopped and started again has new sockets)
     const seen = new WeakSet<object>();
@@ -176,11 +209,18 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
           if (data.length < 4 || (data[0] & 0xc0) !== 0x40) return;
           const allocation = Object.values(turn.allocations).find((a) => a.mappedAddress.address === from.address && a.mappedAddress.port === from.port);
           const peer = allocation?.channelBindings[data.readUInt16BE(0)];
-          if (allocation && peer) allocation.sockets[0].send(data.subarray(4, 4 + data.readUInt16BE(2)), peer.port, peer.address);
+          if (allocation && peer) {
+            count("channel data relayed");
+            allocation.sockets[0].send(data.subarray(4, 4 + data.readUInt16BE(2)), peer.port, peer.address);
+          } else {
+            count(allocation ? "channel data: no binding" : "channel data: no allocation");
+            turnNote(`channel data dropped from ${from.address}:${from.port} channel ${data.readUInt16BE(0)} (${allocation ? "no binding" : "no allocation"})`);
+          }
         });
       }
     };
     relayChannelData();
+    const turnReport = () => [`relay counts: ${JSON.stringify(Object.fromEntries(turnCounts))}`, ...turnLines].join("\n");
     let relayUp = true;
     const relay = {
       stop: () => {
@@ -262,8 +302,8 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
       });
       await buildSessionPage(sessionDir);
     }
-    let appDir: string | null = null;
-    if (options.app) {
+    let appDir: string | null = options.appDir ?? null;
+    if (options.app && !appDir) {
       appDir = mkdtempSync(path.join(tmpdir(), "dgm-collab-app-"));
       const dir = appDir;
       cleanups.push(() => {
@@ -302,7 +342,7 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
         }),
     );
 
-    return { workerUrl: `http://127.0.0.1:${workerPort}`, pageUrl: `http://127.0.0.1:${pagePort}/`, sessionUrl: `http://127.0.0.1:${pagePort}/session/session.html`, appUrl: `http://127.0.0.1:${pagePort}/app/`, turnPort, relay, stop };
+    return { workerUrl: `http://127.0.0.1:${workerPort}`, pageUrl: `http://127.0.0.1:${pagePort}/`, sessionUrl: `http://127.0.0.1:${pagePort}/session/session.html`, appUrl: `http://127.0.0.1:${pagePort}/app/`, turnPort, relay, turnReport, stop };
   } catch (e) {
     await stop();
     throw e;

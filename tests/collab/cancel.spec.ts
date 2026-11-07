@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 import { startStack, workerInstalled } from "./localStack";
+import { recordRtc, rtcReport } from "./rtcLog";
 import type { Stack } from "./localStack";
 import { killPeer, launchPeer } from "./peers";
 import type { Kind, Peer } from "./peers";
@@ -42,6 +43,7 @@ function launch(kind: Kind, fragment: string): Promise<Peer> {
       page.on("console", (m) => (m.type() === "error" || m.type() === "warning") && console.log(`[${kind}] ${m.type()}: ${m.text()}`));
       page.on("pageerror", (e) => console.log(`[${kind}] pageerror: ${e}`));
       await page.setViewportSize({ width: 1440, height: 900 });
+      await recordRtc(page);
       await page.goto(`${stack.appUrl}#${fragment}`);
     },
     "dgmEditor",
@@ -116,6 +118,8 @@ async function connect(names: [string, string]) {
     await expect(together(guest.page)).toHaveAttribute("aria-label", `Together with ${names[0]}`, { timeout: 90_000 });
   } catch (e) {
     console.log("GUEST PANEL:", await panel(guest.page).innerText().catch(() => "(none)"), "| HOST PANEL:", await panel(host.page).innerText().catch(() => "(none)"));
+    // (and what each page's connection and the local relay did: tests/collab/rtcLog.ts)
+    console.log(`HOST RTC:\n${await rtcReport(host.page).catch(() => "(none)")}\nGUEST RTC:\n${await rtcReport(guest.page).catch(() => "(none)")}\n${stack.turnReport()}`);
     throw e;
   }
   await expect(together(host.page)).toHaveAttribute("aria-label", `Together with ${names[1]}`, { timeout: 90_000 });
