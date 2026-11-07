@@ -492,7 +492,7 @@ def fed_tiles(floor: np.ndarray, D: np.ndarray, sources=(), dam=None, seeds=None
             fn = F[n]
             if not fn <= hc:            # level counts: a pre-filled lake stands at its rim
                 continue
-            if lim is not None and lim[n] >= 0 and fn < math.ceil(hc) and hc - fn < lim[n]:
+            if lim is not None and lim[n] >= 0 and fn < math.ceil(hc) and hc < fn + lim[n]:  # a pool exactly at the crest counts (#756)
                 continue
             fed[n] = True
             queue.append(n)

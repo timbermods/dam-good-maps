@@ -97,11 +97,14 @@ export function changedTiles(prev: WaterModel, next: WaterModel): Uint8Array | n
 
 /** Each model's flow (prefill.ts `flowThrough`), kept while the model lives: the next edit's warm
  *  start compares against it. */
-const flows = new WeakMap<WaterModel, Float64Array>();
-function flowOf(m: WaterModel): Float64Array {
-  let q = flows.get(m);
-  if (!q) flows.set(m, (q = flowThrough(m).q));
-  return q;
+const flows = new WeakMap<WaterModel, { q: Float64Array; level: Float64Array }>();
+function flowOf(m: WaterModel): { q: Float64Array; level: Float64Array } {
+  let f = flows.get(m);
+  if (!f) {
+    const { q, level } = flowThrough(m);
+    flows.set(m, (f = { q, level }));
+  }
+  return f;
 }
 
 /** The wet tiles whose water lost its feed on the new ground (D260), as a mask: of the water carried
@@ -109,7 +112,12 @@ function flowOf(m: WaterModel): Float64Array {
  *  tiles the canonical start (`start`, prefill.ts: every running emitter's water walked downhill or
  *  level over the filled surface, and the stored lakes up to their surface) no longer reaches, nor a
  *  tile round them (the water spreads a little further than that walk), and the tiles less water
- *  now flows through than before (a source removed or weakened, a river cut off or turned away).
+ *  now flows through than before where the flow sets the water's height, the open channel (a source
+ *  removed or weakened, a river cut off or turned away): a pool standing at its spill level keeps that
+ *  level while anything feeds it, and when nothing does the canonical start no longer reaches it. The
+ *  flow is the walk's, which spreads over level ground: an edit that cuts a plain far away takes a
+ *  source off a pool its water never fed, as a LargeRelic's levelling 17 tiles from a dam took one off
+ *  the dam's tiles and drained them while the water round them stayed (#756).
  *  They take the canonical start, so their water drains in the edit's own journey as the canonical
  *  settle's does. Only water that lost its feed on the new ground: a tile the old ground's canonical
  *  start didn't reach either (nor a tile round it) holds water the settle itself spread there, a lake
@@ -122,13 +130,13 @@ export function unfedTiles(from: WarmState, next: WaterModel, start: WaterState 
   const N = W * H;
   const d = from.water.depth;
   const reach = start.depth;
-  const was = flowOf(prev);
-  const now = flowOf(next);
+  const was = flowOf(prev).q;
+  const { q: now, level } = flowOf(next);
   const before = reachOf(prev);
   const out = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     if (!(d[i] > 0) || !(prev.floor[i] + d[i] > next.floor[i])) continue;
-    if (now[i] < was[i] * 0.9 - 1e-9) {
+    if (now[i] < was[i] * 0.9 - 1e-9 && !(level[i] > next.floor[i])) {
       out[i] = 1;
       continue;
     }

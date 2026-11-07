@@ -66,7 +66,9 @@ export function fedTiles(m: WaterModel, depth: ArrayLike<number>, seeds?: ArrayL
       if (!(fn <= hc)) continue;
       // a partial obstacle holds the water back until it is overtopped (water.ts damFlow)
       const lim = dam ? dam[n] : -1;
-      if (lim >= 0 && fn < Math.ceil(hc) && hc - fn < lim) continue;
+      // (as for a floor, a pool standing exactly at the crest counts: the pre-fill fills a dam's pool to floor + height, and
+      // its surface less the floor falls a hair short of the height in floating point, #756)
+      if (lim >= 0 && fn < Math.ceil(hc) && hc < fn + lim) continue;
       fed[n] = 1;
       queue[tail++] = n;
     }

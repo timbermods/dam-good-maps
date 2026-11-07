@@ -295,7 +295,8 @@ pub fn fed_tiles(m: &Model, depth: &[f64], seeds: Option<&[u8]>) -> Vec<u8> {
                 Some(dam) => dam[nb],
                 None => -1.0,
             };
-            if lim >= 0.0 && fn_ < hc.ceil() && hc - fn_ < lim {
+            // (a pool exactly at the crest counts, as at a floor: fed.ts, #756)
+            if lim >= 0.0 && fn_ < hc.ceil() && hc < fn_ + lim {
                 continue;
             }
             fed[nb] = 1;
