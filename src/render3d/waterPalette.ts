@@ -29,7 +29,7 @@ export const WATER = {
   /** Clean water, closer to the game's own shades (D304, sampled from Kyler's screenshot; `teal` and
    *  `navy` darkened further by D310, toward the game's own reading, while `shallow` and badwater
    *  hold the readability tests at their strictness before D304, never loosened). One consistent
-   *  teal-blue body, a calmer surface with subtle ripples and glints, still see-through so the bed
+   *  teal-blue body, its ripples as steep as the game's (`WATER_SURFACE.normals`) with glints, still see-through so the bed
    *  shows through. `teal` and `navy` sit close to the game's own reading (D310: within about 3 L*
    *  of the sampled #305965/#264A58 — `navy` almost exactly `#264A58`'s own lightness). `shallow`
    *  stays above that literal reading, by exactly what the readability rules need: it clears

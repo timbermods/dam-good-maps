@@ -188,7 +188,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 - D496: Badwater's colour follows the game (amends D154)
 - D135: The 3D view's look (amended: no mist or splash rings at falls)
-- D154: Contaminated ground layer (amended: falls as the game draws them, D201)
+- D154: Contaminated ground layer (amended: falls as the game draws them, D201; ripples as steep as the game's)
 - D178: Mine sites and ruins models
 - D114: Readability rules
 
