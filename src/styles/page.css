@@ -2740,6 +2740,71 @@
   --lab: 80px;
 }
 
+/* File → Record a time-lapse… (D205): the making card's language while it records (its words, a quiet count, a hairline
+   filling, Cancel), then the video at the dialog's width, 16:9, still until the player presses play (D265) */
+.lapse-dialog {
+  width: 400px;
+  box-sizing: border-box;
+  padding: 20px 16px 16px;
+  text-align: center;
+}
+
+.lapse-dialog.lapse-done {
+  width: min(560px, 100%);
+}
+
+.lapse-dialog p {
+  margin: 0;
+  min-height: 1.45em;
+}
+
+.lapse-words {
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  overflow: clip;
+  text-overflow: ellipsis;
+}
+
+.lapse-words.wrap {
+  white-space: normal;
+}
+
+.lapse-dialog p.lapse-count {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.lapse-bar {
+  position: relative;
+  height: 2px;
+  margin: 12px 28px 0;
+  border-radius: 1px;
+  overflow: clip;
+  background: var(--rule);
+}
+
+.lapse-bar span {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+.lapse-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 10px 0 6px;
+  border-radius: 6px;
+  background: var(--map-bg);
+}
+
+.lapse-dialog footer {
+  margin-top: 12px;
+}
+
 /* the time gone, as a hairline filling (no number a player can't use) */
 .showcase-bar {
   position: relative;

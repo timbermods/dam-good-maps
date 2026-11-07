@@ -1103,6 +1103,18 @@ operation, D158, D342).
 
 ---
 
+## The build time-lapse (in work, D205, D285 (4); EDITOR_PLAN §6b)
+
+Kyler, 2026-09-26, moved out of M13 by D285 (4) and out of Later on 2026-11-07: replay a map's edit history at speed
+from the generated map, with a camera that glides to each edit, and save it as a WebM to share. Blocking: the replay
+matches the map exactly at its end (`tests/contract/timelapse.test.ts`); the page never freezes while recording.
+
+1. **The time-lapse** (File → Record a time-lapse…; `feature/time-lapse`): the replay in `core/doc/timelapse.ts`, the
+   recorder, the plan and the camera in `src/editor/timelapse/`, a WebM writer of its own; the water drawn still.
+2. **Moving water and force moments in the video:** the renderer's clock per renderer and `whenDrawn()` (forces
+   play's hooks, agreed on #236), then the recorder keeps every animation on video time.
+3. **The postcard:** a still of the finished map from its best angle, from `heroPicture` (D488).
+
 ## Later
 
 **A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge. Codex builds a demo on `investigation/rift` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as Erode was; on his yes only Codex's own commits merge as an investigation (as #90 did); adoption onto the forces row after the forces release, scheduled with Kyler (2026-09-30).
@@ -1123,12 +1135,6 @@ pays off) is not part of M9b's five outcomes. It needs a design step of its own,
 **Versioned deploys and mobile layouts** (Kyler, 2026-09-27; D285 (1), moved out of M13): versioned
 deploys at `/v/<version>/`, so an old-version link reproduces its file; and a mobile layout for the
 generator page and the Real places gallery (the editor stays desktop-first, D185).
-
-**The build time-lapse** (Kyler, 2026-09-26; PLAN §20 D205, moved out of M13 by D285 (4)): replay a
-map's edit history at speed from the generated map, with a camera that glides to each edit, and save
-it as a WebM video to share. The history is already a list of operations that replay exactly
-(D158), so this reads it; it adds nothing to the editor's screen until used. Blocking, when built:
-the replay matches the map exactly at its end; the page never freezes while recording.
 
 **A companion mod for one-click play** (Kyler, 2026-09-25; D163; built in `mods/companion/`, its README is the
 player text). A small mod: the main menu gets "Play latest Dam Good Maps map" (the newest `dgm-*` map in the Maps folder,

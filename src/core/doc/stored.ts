@@ -297,17 +297,24 @@ function exactJson(v: unknown): string {
 
 /** Whether two built maps are the same map, byte for byte: the ground, every water and soil
  *  layer and the settle, the objects, the slopes, the sources and the start. Caches, notes and
- *  the dirty region are not the map. */
-export function sameMap(a: BuildResult, b: BuildResult): boolean {
-  if (a.W !== b.W || a.H !== b.H || a.seed !== b.seed || a.waterFromFile !== b.waterFromFile) return false;
-  const arrays: [ArrayBufferView | undefined, ArrayBufferView | undefined][] = [
+ *  the dirty region are not the map. With `water: false`, the water, the soil it wets and the
+ *  settle are left out, and with them whether a plant lives (the time-lapse's quick check: the
+ *  ground, blocks and objects alone). */
+export function sameMap(a: BuildResult, b: BuildResult, opts: { water?: boolean } = {}): boolean {
+  if (a.W !== b.W || a.H !== b.H || a.seed !== b.seed) return false;
+  const water = opts.water ?? true;
+  const ground: [ArrayBufferView | undefined, ArrayBufferView | undefined][] = [
     [a.heights, b.heights],
+    [a.occupied, b.occupied],
+    [a.channel, b.channel],
+  ];
+  for (const [x, y] of ground) if (!sameBytes(x, y)) return false;
+  if (water && a.waterFromFile !== b.waterFromFile) return false;
+  const arrays: [ArrayBufferView | undefined, ArrayBufferView | undefined][] = !water ? [] : [
     [a.water, b.water],
     [a.contamination, b.contamination],
     [a.moisture, b.moisture],
     [a.soilContamination, b.soilContamination],
-    [a.occupied, b.occupied],
-    [a.channel, b.channel],
     [a.settle.depth, b.settle.depth],
     [a.settle.contamination, b.settle.contamination],
     [a.settle.sat, b.settle.sat],
@@ -323,8 +330,10 @@ export function sameMap(a: BuildResult, b: BuildResult): boolean {
   const mb = b.cache.terrain.masks;
   if ((ma?.size ?? 0) !== (mb?.size ?? 0)) return false;
   if (ma && mb) for (const [i, m] of ma) if (mb.get(i) !== m) return false;
-  if (a.settle.ticks !== b.settle.ticks || a.settle.settled !== b.settle.settled || !!a.settle.preview !== !!b.settle.preview) return false;
+  if (water && (a.settle.ticks !== b.settle.ticks || a.settle.settled !== b.settle.settled || !!a.settle.preview !== !!b.settle.preview)) return false;
   if (a.entities.length !== b.entities.length) return false;
-  for (let i = 0; i < a.entities.length; i++) if (exactJson(a.entities[i]) !== exactJson(b.entities[i])) return false;
+  // (without the water, a plant's life too: the soil the settled water wets decides it)
+  const object = (e: BuildResult["entities"][number]) => exactJson(water || !e.components?.LivingNaturalResource ? e : { ...e, components: { ...e.components, LivingNaturalResource: undefined } });
+  for (let i = 0; i < a.entities.length; i++) if (object(a.entities[i]) !== object(b.entities[i])) return false;
   return exactJson([a.slopes, a.sources, a.start ?? null]) === exactJson([b.slopes, b.sources, b.start ?? null]);
 }
