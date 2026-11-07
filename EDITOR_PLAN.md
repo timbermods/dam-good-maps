@@ -658,8 +658,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 
 - **Unleash, on a source** (D239; U): select a placed water or badwater source and a small **Unleash** action with
   a quick **Power** sits beside it; the source's own water carves its course downhill with Carve's engine (where it
-  stands in a pool of half a level or more it breaks out over the lowest point of its rim). A drag from the source
-  draws the course (D321, item 41; the source's own drag still moves it); its width is the width whose Carve source
+  stands in a pool of half a level or more it breaks out over the lowest point of its rim). A drag from the Unleash
+  button onto the map draws the course from the source, as its tooltip says (D321, item 41; the source's own drag still
+  moves it); its width is the width whose Carve source
   would have the source's strength. The source stays the river's origin: the carve is dry and adds no other source;
   a badwater source carves a badwater river. One undo step ("Unleash a source"); Try another re-rolls the course.
   Claude's `carve` step takes a `source` to unleash one.
