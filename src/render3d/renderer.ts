@@ -3595,6 +3595,8 @@ export class MapRenderer {
     const yaw = this.view.mode === "top" ? 0 : openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10));
     this.view = { ...this.view, yaw, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
     this.frameMap();
+    // (a jump, not a turn: the shadows are baked for its sun at once, never rolled in after a frame of the last view's)
+    this.sunNow();
     this.requestRender();
   }
 
