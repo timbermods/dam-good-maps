@@ -332,8 +332,9 @@ export class WaterMotion {
       this.changed();
     }, () => {
       this.out--;
-      // (the bake failed: the water keeps its last flow, or none)
+      // (the bake failed: the water keeps its last flow, or none; told, so a wait on it ends)
       if (id === this.latest) this.done = id;
+      this.changed();
     });
   }
 

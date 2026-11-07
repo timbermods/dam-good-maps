@@ -4,7 +4,7 @@
 // where the browser can't save to a folder); everything else in one small menu. Built from the
 // shared buttons and bars (D176).
 
-import type { ComponentChildren } from "preact";
+import { h, type ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../worker/session";
 import type { ImportFlag } from "../core/format/normalize";
@@ -398,12 +398,18 @@ export interface HeaderProps {
   /** The other player in a live or paused session ("paused" while they are away): File wears their dot, and its Together…
    *  entry is there, where the header is too full for Together's own button (below 1,340px wide); absent without Together. */
   togetherEntry?: { role: Role; name: string; paused: boolean; other: boolean } | null;
+  /** File → Record a time-lapse… (D205, D285 (4)), where this browser can make a video: the map's project and its
+   *  history's steps (src/editor/timelapse). */
+  timelapse?: { project(): Promise<{ bytes: Uint8Array; fileName: string }>; steps: number };
 }
 
 export function Header(p: HeaderProps) {
   const [menu, setMenu] = useState(false);
   const fileMenu = useMenuPresence(menu);
   const [about, setAbout] = useState(false);
+  // (the time-lapse's dialog, loaded the first time it is asked for)
+  const [lapse, setLapse] = useState<typeof import("./timelapse/TimelapseDialog").TimelapseDialog | null>(null);
+  const openLapse = () => void import("./timelapse/TimelapseDialog").then((m) => setLapse(() => m.TimelapseDialog));
   /** The core's refusal of a name, said in the title's second line. */
   const [problem, setProblem] = useState<string | null>(null);
   /** The shown name is cut to its two lines (an ellipsis): its tooltip then says it whole. */
@@ -600,6 +606,13 @@ export function Header(p: HeaderProps) {
                   </button>
                 </li>
               ) : null}
+              {p.timelapse ? (
+                <li role="none">
+                  <button type="button" role="menuitem" {...tip("Save a video of how the map was built")} onClick={pick(openLapse)}>
+                    Record a time-lapse…
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
                 <button type="button" role="menuitem" title="Take away every object; the land stays" onClick={pick(p.onClearEverything)}>
                   Clear everything
@@ -644,6 +657,7 @@ export function Header(p: HeaderProps) {
         </div>
       </div>
       {about ? <About onClose={() => setAbout(false)} /> : null}
+      {lapse && p.timelapse ? h(lapse, { project: p.timelapse.project, steps: p.timelapse.steps, onClose: () => setLapse(null) }) : null}
       <HelpPanels />
     </header>
   );

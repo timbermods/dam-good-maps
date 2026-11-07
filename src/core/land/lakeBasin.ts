@@ -25,7 +25,7 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
   // square map's lake turned along its length, every seed made the same lake in the middle of the strip)
   if (mapShape(W, H).long) {
     longLakes(g, W, H, seed, attempt);
-    leanCatchment(g, s, preset, stream(seed, 'lake-basin-long-tilt', attempt).range(3.8, 4.8));
+    leanCatchment(g, s, preset, stream(seed, 'lake-basin-long-tilt', attempt).range(3.8, 4.8), W * H > 128 * 128);
     return;
   }
   const turn = composition.float();
@@ -60,7 +60,7 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
       extra: side * 0.035, soft: side * 0.025 });
   }
   g.focus = focus;
-  leanCatchment(g, s, preset, rng.range(3.8, 4.8));
+  leanCatchment(g, s, preset, rng.range(3.8, 4.8), W * H > 128 * 128);
   if (side >= 192) {
     const [dx, dy] = DIRS8[g.flowDir];
     g.parts.push({ kind: 'trough', at: [focus[0] + dx * 0.23, focus[1] + dy * 0.23],
@@ -111,7 +111,7 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
 
 /** The catchment every Lake Basin map stands in: a radial slope toward its lake (`g.focus`), calm
  *  noise, one-level shore steps, and water gathered in few, modest rivers. `tilt` is the slope drawn. */
-function leanCatchment(g: Genome, s: Settings, preset: (typeof THEME_PRESETS)['lakeBasin'], tilt: number): void {
+function leanCatchment(g: Genome, s: Settings, preset: (typeof THEME_PRESETS)['lakeBasin'], tilt: number, wide: boolean): void {
   g.tiltKind = 'radial';
   g.tilt = Math.max(g.tilt, tilt) * 1.6;
   g.noise.amp = Math.min(g.noise.amp, 1.5);
@@ -138,7 +138,8 @@ function leanCatchment(g: Genome, s: Settings, preset: (typeof THEME_PRESETS)['l
   g.hydro.delta = 0;
   g.hydro.incise = 0;
   g.hydro.floor = Math.min(g.hydro.floor, 0.5);
-  g.hydro.reachSprings = false;
+  // (D504: above 128², springs toward the land far from the water, whose lakes left most of a 256² map bare)
+  g.hydro.reachSprings = wide;
   if (s.water.lakes === preset.lakes) g.hydro.lakeBudget = 0.36;
   g.hanging = 0;
   g.troughs = Math.min(g.troughs, 0.25);
