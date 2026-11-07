@@ -218,16 +218,17 @@ test("an Unstable Core's moment shows under the water row while a hazard is held
   const cores = notes.filter({ hasText: /^Unstable core/ });
   await expect(notes).toHaveCount(0);
   await bar.getByRole("button", { name: "Badtide" }).click();
-  // (this map's two cores start their countdowns in cycles 6 and 7; a Normal cycle opens with 13 to 17 temperate days,
-  // so the generator's 10.5 days put each 2 to 7 days before the hazard)
+  // (this map's two cores start their countdowns in cycles 9 and 7, since generator 0.10.11, #726, D148, cycles 6 and 7
+  // before; a Normal cycle opens with 13 to 17 temperate days, so the generator's 10.5 days put each 2 to 7 days before
+  // the hazard)
   await expect(cores).toHaveText([
-    "Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide",
+    "Unstable core: goes off 2 to 7 days before cycle 9's drought or badtide",
     "Unstable core: goes off 2 to 7 days before cycle 7's drought or badtide",
   ]);
   // (the row never changes shape for it)
   const box = await bar.boundingBox();
   await bar.getByRole("button", { name: "Drought" }).click();
-  await expect(notes.first()).toHaveText("Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide");
+  await expect(notes.first()).toHaveText("Unstable core: goes off 2 to 7 days before cycle 9's drought or badtide");
   await expect(cores).toHaveCount(2);
   expect(await bar.boundingBox()).toEqual(box);
   await bar.getByRole("button", { name: "Drought" }).click();
