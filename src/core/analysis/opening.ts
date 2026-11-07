@@ -248,8 +248,9 @@ export function bestTurn(land: OpeningLand, x: number, y: number, z: number, tur
   let bestShot = -1;
   let bestWet = Infinity;
   for (const t of turns) {
-    // (with the share of the frame that shows the map, D506: a landmark in view still outweighs it, and of turns whose
-    // shots are near alike the one framing more map than void wins)
+    // (with the share of the frame that shows the map, D507: of turns whose shots are near alike the one framing more map
+    // than void wins; a strong landmark in view outweighs the frame, a weak one at the frame's edge (0.3 of a shot) can
+    // lose to a turn showing much more map)
     const shot = Math.round((openingShotScore(land, { x, y, z, orientation: t.o }).score + landInFrame(land.W, land.H, { x, y, z, orientation: t.o })) * 20);
     const wet = dWet[t.door];
     if (shot > bestShot || (shot === bestShot && wet < bestWet)) {
