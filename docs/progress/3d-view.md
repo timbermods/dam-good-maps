@@ -598,11 +598,14 @@ Standard's shadow before a cave (item 8).
   (at 90° a second on Canyon 256², a median 24° behind, from 40° with the old settle-then-bake); Standard's and the
   light look's light go with them. High's light and depth map take the camera's sun every frame it turns half a
   degree, as the game's sun turns each frame (`LateUpdate`): 0.7° behind, for one depth pass a frame (the turn's
-  95th-percentile frame 14.7 ms against 9). The turn draws it with the next frame (the wait between depth maps is a
-brush's), and its shaders read it through the matrix it was drawn with, never the next sun's (`sunShadows.test`). Under roofs the light volume holds air alone and the shader marches the
-  sun through it (`sunMarch`, mirrored in `caveLight.ts` for the tests), so a roof needs no relight when the sun
-  turns: the volume read filtered (air 1, rock 0, blended between cells' middles) and the least kept, so a shadow's
-  edge is soft over a voxel rather than stepped, from a hashed first step, in enough steps to climb the whole volume
+  95th-percentile frame 14.7 ms against 9). A turned sun's depth map is drawn with the next frame (the wait between
+  depth maps is a brush's), and its shaders read it through the matrix it was drawn with, never the next sun's
+  (`sunShadows.test`); a bake the worker refuses (its job threw, and would again) takes the sun on the shadows already
+  baked, never asked again each frame (`sunRefused.spec`). Under roofs the light volume holds air alone and the shader
+  marches the sun through it (`sunMarch`, mirrored in `caveLight.ts` for the tests), so a roof needs no relight when
+  the sun turns: the volume read filtered (air 1, rock 0, blended between cells' middles) and the least kept, so a
+  shadow's edge is soft over a voxel rather than stepped, from a hashed first step, in enough steps to climb the whole
+  volume
   (`SUN_MARCH_STEPS`). The map's picture bakes the sun for its camera at once (`sunNow`), on the map as it is (no
   quarter turns). The forces' worn stones take the scene's sun.
 

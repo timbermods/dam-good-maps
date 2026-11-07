@@ -335,9 +335,9 @@ export class HighLook {
 
   /** The sun turned with the camera (toward it, world space): the depth map is drawn from it. */
   setSunWay(sun: Vector3): void {
-    this.shadows.setSun(sun);
-    // (drawn with the next frame: the wait between depth maps is for a brush's edits, never for the camera's turn)
-    this.lastShadow = -Infinity;
+    // (a turned sun's depth map is drawn with the next frame: the wait between depth maps is for a brush's edits, never
+    // for the camera's turn)
+    if (this.shadows.setSun(sun)) this.lastShadow = -Infinity;
     this.host.requestRender();
   }
 
