@@ -123,9 +123,10 @@ export const collabApi = {
     pace();
   },
 
-  /** The connection is gone: the session pauses. */
-  detach(reason: string): void {
-    peer?.detach(reason);
+  /** The connection is gone: the session pauses. False when the other player never came into the session on it (a join or
+   *  rejoin that did not complete). */
+  detach(reason: string): boolean {
+    return peer?.detach(reason) ?? true;
   },
 
   /** A message from the other player (the transport's ordered channel). Returns one line when it could not be used. */
