@@ -9,6 +9,8 @@ import type { PictureLand } from "../../src/core/analysis/picture";
 import { sunOfYaw, sunVector } from "../../src/render3d/light";
 import { LIGHT } from "../../src/render3d/palette";
 import { LAYERS, type EntityView, type MapView } from "../../src/render3d/model";
+import { lapseCamera } from "../../src/editor/timelapse/camera";
+import { lapsePlan } from "../../src/editor/timelapse/plan";
 
 /** A W × H map with a slope of heights, a column with a cave, two water columns on one tile, soil, and objects of
  *  several footprints at every orientation. */
@@ -181,5 +183,18 @@ describe("the map's picture: its camera and light (D488)", () => {
     // the soil's moisture bytes (the game's level × 15) back in levels
     expect(land.moisture[15]).toBeCloseTo(15 / 15, 9);
     expect(land.entities.length).toBe(v.entities.count);
+  });
+
+  it("is where the time-lapse ends: its last shot, as its hold begins, is the picture's camera", () => {
+    for (const o of [0, 1, 2, 3]) {
+      const v = sample(40, 24, o);
+      const plan = lapsePlan([{ kind: "land" as const, place: { x0: 2, y0: 2, x1: 9, y1: 9 } }], v.W, v.H);
+      const c = heroScene(v).camera;
+      const at = lapseCamera(plan, v.heights, v.W, v.H, v.entities, v)(plan.outro.hold);
+      expect(at.yaw).toBeCloseTo(c.yaw, 9);
+      expect(at.pitch).toBeCloseTo(c.pitch, 9);
+      expect(at.distance).toBeCloseTo(c.distance, 9);
+      at.target.forEach((t, k) => expect(t).toBeCloseTo(c.target[k], 9));
+    }
   });
 });

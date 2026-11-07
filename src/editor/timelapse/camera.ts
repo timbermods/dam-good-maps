@@ -9,9 +9,9 @@
 // (plan.ts): the same frames every time.
 
 import { OPENING } from "../../core/analysis/opening";
-import { heroCamera } from "../../render3d/heroView";
+import { heroCamera, heroScene } from "../../render3d/heroView";
 import type { LapseBox } from "../../core/doc/timelapse";
-import type { EntityView } from "../../render3d/model";
+import type { EntityView, MapView } from "../../render3d/model";
 import type { LapsePlan } from "./plan";
 
 /** The renderer's orbit camera (`MapRenderer.setView`): world X east, Y up, Z south (−tile y). */
@@ -106,8 +106,14 @@ function framings(plan: LapsePlan, heights: Uint8Array, W: number, wide: Shot): 
 }
 
 /** The finished map's hero view (heroView.ts `heroCamera`, the map's picture's framing, on the map as it is, not turned
- *  under the sun), as a shot and its turn: turned to the start's orientation, north without a start. */
-function heroShot(end: EntityView, heights: Uint8Array, W: number, H: number): { shot: Shot; yaw: number } {
+ *  under the sun), as a shot and its turn: turned to the start's orientation, north without a start. Given the finished
+ *  map itself, exactly the map's picture's camera (`heroScene`: the place its looks score chose along the map). */
+function heroShot(end: EntityView, heights: Uint8Array, W: number, H: number, finished: MapView | null): { shot: Shot; yaw: number } {
+  if (finished) {
+    const c = heroScene(finished).camera;
+    // (a shot's x and y are tile indices: the picture's target is in world coordinates, a tile's middle at its index + 0.5)
+    return { shot: { x: c.target[0] - 0.5, y: -c.target[2] - 0.5, level: c.target[1], distance: c.distance, pitch: c.pitch }, yaw: c.yaw };
+  }
   let o = 0;
   for (let k = 0; k < end.count; k++) if (end.templates[end.template[k]] === "StartingLocation") o = end.orientation[k] & 3;
   const c = heroCamera(W, H, heights, o);
@@ -136,10 +142,11 @@ function mix(a: Shot, b: Shot, t: number): Shot {
 const pushed = (s: Shot, t: number): Shot => ({ ...s, distance: s.distance * (1 - PUSH * Math.max(0, Math.min(1, t))) });
 
 /** The camera of every frame of `plan`: `heights` the generated map's (each scene's level is read from them), `end`
- *  the finished map's objects (its start places the hero view). */
-export function lapseCamera(plan: LapsePlan, heights: Uint8Array, W: number, H: number, end: EntityView): (frame: number) => LapseView {
+ *  the finished map's objects (its start places the hero view), `finished` the finished map itself, when the video ends on
+ *  it, so its last shot is the map's picture's. */
+export function lapseCamera(plan: LapsePlan, heights: Uint8Array, W: number, H: number, end: EntityView, finished: MapView | null = null): (frame: number) => LapseView {
   const wide = wideShot(heights, W, H);
-  const hero = heroShot(end, heights, W, H);
+  const hero = heroShot(end, heights, W, H, finished);
   const groups = framings(plan, heights, W, wide);
   /** Where the camera stands at the end of framing g (pushed in), or the opening's. */
   const after = (g: number): Shot => (g < 0 ? pushed(wide, 1) : pushed(groups[g].shot, 1));
