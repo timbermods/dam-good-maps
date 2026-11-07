@@ -263,8 +263,8 @@ describe("objects that changed here and there redo their own shadows", () => {
 });
 
 describe("live editing: the light is redone round a change only", () => {
-  it("the sky, and the shadows of both suns, redone round changed tiles equal a whole bake", async () => {
-    const { skyVisibility, skyVisibilityRect, shadowMap, shadowPairRect, objectCasters, SKY_REACH } = await import("../../src/render3d/light");
+  it("the shadows of both suns redone round changed tiles equal a whole bake", async () => {
+    const { shadowMap, shadowPairRect, objectCasters } = await import("../../src/render3d/light");
     const W = 60;
     const H = 50;
     const heights = new Uint8Array(W * H);
@@ -273,15 +273,12 @@ describe("live editing: the light is redone round a change only", () => {
     for (let i = 0; i < heights.length; i++) heights[i] = 2 + Math.floor(rand() * 5);
     const tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
     const bytes = shadowMap(W, H, heights, null, tops);
-    const sky = skyVisibility(W, H, heights);
     // a tall mound in the middle, and a pit near the north-west corner
     const changes: [number, number, number, number][] = [[20, 18, 27, 25], [2, 44, 4, 47]];
     for (const [x0, y0, x1, y1] of changes) {
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) heights[y * W + x] = x0 === 2 ? 0 : 16;
-      skyVisibilityRect(W, H, heights, sky, x0 - SKY_REACH, y0 - SKY_REACH, x1 + SKY_REACH, y1 + SKY_REACH);
       shadowPairRect(tops, bytes, W, H, heights, null, x0, y0, x1, y1);
     }
-    expect(Array.from(sky)).toEqual(Array.from(skyVisibility(W, H, heights)));
     expect(Array.from(bytes)).toEqual(Array.from(shadowMap(W, H, heights, null)));
     void objectCasters;
   });

@@ -27,7 +27,7 @@ describe("Try another after a force that carried the start (D257, D220)", () => 
   // north of the start, as it was on dev's map; seed 2 for 0.8.3's maps, D148: on seed 3's the next try breaks the start's ground too,
   // wherever the Slide is clicked; here it is clicked seven tiles north of the start and one east;
   // the start at (35, 19) on 0.8.8's map, the Canyon and Highlands height round, D148, the click the same way from it;
-  // seed 5 for generator 0.10.VV's maps, the D410 round, D148: on seed 2's the Slide seven tiles north and one east of the start
+  // seed 5 for generator 0.10.11's maps, the D410 round, D148: on seed 2's the Slide seven tiles north and one east of the start
   // leaves it, and where a Slide does carry it, Try another's fault crosses its ground; seed 5's start stands at (17, 19))
   it("Highlands 64², seed 5: a Quake Slide clicked at (18, 12) carries the start; Try another leaves the start's ground alone, so the start stays at (17, 19) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
     const W = 64;

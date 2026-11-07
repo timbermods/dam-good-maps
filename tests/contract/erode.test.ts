@@ -293,7 +293,7 @@ describe("on generated maps (D281)", () => {
     let ridges = 0;
     // (Highlands seed 2 since generator 0.10.5, D148: Canyon seed 3's ridge is gone with its map; of Canyon seeds
     // 1–18 and Highlands seeds 1–14, only Highlands 2 has a fin now, as only Canyon 3 had one before; a fin raised on
-    // Highlands 2 since generator 0.10.VV, the D410 round, D148: its fin was a natural ramp's causeway, which ramps no
+    // Highlands 2 since generator 0.10.11, the D410 round, D148: its fin was a natural ramp's causeway, which ramps no
     // longer build, and no Canyon or Highlands map of seeds 1–40 has a fin of its own)
     for (const [theme, m] of [finMap()]) {
       const { W, H, heights: h } = m;

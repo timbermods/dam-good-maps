@@ -243,7 +243,7 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // On D502's narrowed maps (River Valley, Lake Basin and Any grow a landmark form per whole 128², none at 64²; the start
   // leans toward one, so the land moved again, D148) River Valley 3 (2,091 → 2,099) and Lake Basin 3 (2,303 → 2,456) end with
   // more level edges again, as they did before generator 0.10.7: both go back on the list with Lake Basin 4 and River Valley 8,
-  // which still show the gap; River Valley 6 and Lake Basin 1 pass. River Valley 3 passes again on generator 0.10.VV's maps
+  // which still show the gap; River Valley 6 and Lake Basin 1 pass. River Valley 3 passes again on generator 0.10.11's maps
   // (the D410 round's ramps, shores and berries moved the land, D148) and comes off the list; Lake Basin 3 and 4 and River
   // Valley 8 still show the gap.
   // One known gap, one cause (Kyler, 2026-10-07, D479): Naturalize on cliffs whose foot can't rise

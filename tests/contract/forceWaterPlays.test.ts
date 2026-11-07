@@ -3,7 +3,8 @@
 // water easing in as the ice melts back), and kept, the map's water flows on from exactly the water last shown:
 // nothing jumps at the keep; a source the force clears stops feeding it at its step, one that rides runs on
 // (D474). On a map with caves the page draws every column, a fed cave's water under its roof too, and that is kept
-// as drawn (River Valley seed 1 at verticality 70: water in a cave fed by its sources, away from the forces).
+// as drawn (River Valley seed 2 at verticality 70: water under the rock, away from the forces; seed 1 before generator 0.10.10,
+// whose water under a roof was its river under two gorge arches that D503 drops as they read as no arch, D148).
 // (Carve's own rules: carveBornAsItCuts.test.ts, caveForceWater.test.ts, forceClearSources.test.ts.)
 
 import { describe, expect, it } from "vitest";
@@ -23,11 +24,11 @@ import * as ed from "../../src/worker/session";
 const W = 96;
 const N = W * W;
 
-/** The map (River Valley seed 4242; `caves`: seed 1 at verticality 70, with a fed cave), and its river's tile nearest
+/** The map (River Valley seed 4242; `caves`: seed 2 at verticality 70, with water under the rock), and its river's tile nearest
  *  the middle. */
 async function open(caves = false): Promise<{ river: [number, number]; ground: Uint8Array }> {
   ed.forceCancel();
-  const spec = makeSpec({ seed: caves ? 1 : 4242, theme: "riverValley", size: { x: W, y: W } });
+  const spec = makeSpec({ seed: caves ? 2 : 4242, theme: "riverValley", size: { x: W, y: W } });
   if (caves) spec.settings.terrain.verticality = 70;
   await runGenerate(spec);
   ed.refine();

@@ -16,7 +16,7 @@ import { objectMaterial, RUIN_INSIDE_COVER, RUIN_LATTICE_SCALE, RUIN_LATTICE_STR
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
 import { LAND_GROW } from "../../src/render3d/objectFade";
 import { entityView, variantIndex, type EntityInput, type EntityView } from "../../src/render3d/model";
-import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, WATER, type Rgb } from "../../src/render3d/palette";
+import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, sunlitTop, WATER, type Rgb } from "../../src/render3d/palette";
 import { variantOf } from "../../src/worker/api";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -143,7 +143,9 @@ describe("mine sites", () => {
   it("read in greyscale from above: a dark pit, darker than badwater, a rusty frame, pale wood, and apart from badwater sources", () => {
     expect(lum(MINE.frame) - lum(MINE.pit)).toBeGreaterThan(0.1);
     expect(lum(MINE.wood) - lum(MINE.frame)).toBeGreaterThan(0.2);
-    expect(lum(MINE.pit)).toBeLessThan(lum(GROUND.dry) - 0.15);
+    // (the pit is a colour on screen, dry ground an albedo since D497: against it as a sunlit top shows it in the game's
+    // light, D324's 0.15)
+    expect(lum(MINE.pit)).toBeLessThan(lum(sunlitTop(GROUND.dry)) - 0.15);
     // a badwater source is a dark round pit with a brown swirl, no pale wood: the mine's corners
     // are far lighter than anything on it
     const badwater = modelOf("BadwaterSource").col;

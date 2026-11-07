@@ -178,4 +178,43 @@ describe("a force clicked quickly after another (D378)", () => {
     expect(fx.showing().erupt).toBeNull();
     expect(fx.active).toBe(false);
   });
+
+  it("an impact's dust and a fault's crack play out as drawn: a frame held long never skips them", () => {
+    // (struck at the impact's first moment: two moments and the keep after it drawn, 0.66 s)
+    play(fx, "craterize", 10, 10);
+    wait(8000, true);
+    expect(fx.showing().craterize).toMatchObject({ x: 10, y: 10, struck: expect.closeTo(0.76, 3) });
+    wait(1200);
+    expect(fx.showing().craterize).toBeNull();
+    // (ended at its last moment: the keep after it drawn, 0.22 s)
+    play(fx, "quake", 20, 20);
+    wait(8000, true);
+    expect(fx.showing().quake).toMatchObject({ x: 20, y: 20 });
+    wait(1100);
+    expect(fx.showing().quake).not.toBeNull();
+    wait(200);
+    expect(fx.showing().quake).toBeNull();
+  });
+
+  it("the ice melts back as drawn: a frame held long never skips it", () => {
+    play(fx, "glaciate", 30, 30);
+    const kept = fx.showing().glaciate!.seconds!;
+    wait(8000, true);
+    // (a tenth of a second at the showing's pace, from where it was kept)
+    expect(fx.showing().glaciate!.seconds).toEqual(expect.closeTo(kept + 0.1, 3));
+    expect(fx.showing().glaciate).not.toBeNull();
+  });
+
+  it("an erosion's dust and stones play out as drawn: a frame held long never skips them", () => {
+    play(fx, "erode", 10, 10);
+    const before = fx.showing().erode!;
+    wait(8000, true);
+    // (a tenth of a second on: the same dust and stones in the air)
+    const held = fx.showing().erode!;
+    expect(held.age).toEqual(expect.closeTo(before.age + 0.1, 3));
+    expect(held.dust + held.stones).toBeGreaterThan(0);
+    wait(5000);
+    expect(fx.showing().erode).toBeNull();
+    expect(fx.active).toBe(false);
+  });
 });

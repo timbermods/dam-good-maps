@@ -243,7 +243,7 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
       if (!found) continue;
       // (the ring below, 8 tiles out from the site's middle, has to stay on the map: M9b's seed 4 puts the site at the edge, D148)
       if (found.x + 2 < 10 || found.y + 2 < 10 || found.x + 2 > 85 || found.y + 2 > 85) continue;
-      // (and the wall, at most level 16, has to stand at least three levels over the site's ground: generator 0.10.VV's seed 4,
+      // (and the wall, at most level 16, has to stand at least three levels over the site's ground: generator 0.10.11's seed 4,
       // the D410 round, D148, puts the site at level 15, where the wall stands one level over it and the checks still
       // count the site as reached)
       if (found.z + 3 > 16) continue;

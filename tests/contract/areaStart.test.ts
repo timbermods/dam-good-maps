@@ -31,7 +31,7 @@ describe("a force leaves the locked land, and the ground above the layer showing
   // no level ground inside the area and the start has nowhere to go; for 0.10.7's map, D502, D148, the start at (9, 20)
   // facing the other way again: the area from (9, 14), 29 wide, and the Erupt at (14, 23), 5 tiles east and 3 south of
   // the start, which carries it to (18, 20); the Erupt 3 to 7 tiles east of it on its row leaves the start where it
-  // stands, and the start's ground is then not broken; seed 1 for generator 0.10.VV's maps, the D410 round, D148: seed 3's
+  // stands, and the start's ground is then not broken; seed 1 for generator 0.10.11's maps, the D410 round, D148: seed 3's
   // start at (20, 52) is carried by no Erupt near it, at any Power, so its ground is never broken there; seed 1's start
   // stands at (50, 10), across the area's east edge: the area from (22, 4), 29 wide, and the Erupt at (45, 13), 5 tiles
   // west and 3 south of the start, which carries it to (28, 8))

@@ -39,6 +39,7 @@ import {
 } from "three";
 import { JUICE, wallColor } from "./palette";
 import { SUN } from "./materials";
+import { WALL_CLOCK, type Clock } from "./clock";
 import { STONE_REACH, WEAR_STRIDE, wearCount, wearSamples, type Voxels } from "./wear";
 
 /** A force's moment, as its worker sends it (core/forces/runs.ts `ForceCue`). */
@@ -71,6 +72,44 @@ const smooth = (v: number) => {
 /** The ground's height at (x, y) in tiles, as shown. */
 export type Ground = (x: number, y: number) => number;
 
+/** An effect's tail (an impact's dust, a fault's crack, the ice melting back) in seconds as drawn: each frame adds its
+ *  time, a frame of the player's view a tenth of a second at most, so a stall (the keep's work on a slow machine) never
+ *  plays the tail out unseen; a recording's frame counts whole, its time being the video's (as the plume's lava). */
+class DrawnTail {
+  private s = 0;
+  private last = 0;
+  private on = false;
+
+  constructor(private readonly clock: Clock) {}
+
+  start(now: number): void {
+    this.on = true;
+    this.s = 0;
+    this.last = now;
+  }
+
+  stop(): void {
+    this.on = false;
+    this.s = 0;
+  }
+
+  /** At each frame drawn. */
+  frame(now: number): void {
+    if (!this.on) return;
+    const step = Math.max(0, now - this.last);
+    this.s += (this.clock.driven ? step : Math.min(step, 100)) / 1000;
+    this.last = now;
+  }
+
+  get started(): boolean {
+    return this.on;
+  }
+
+  get seconds(): number {
+    return this.s;
+  }
+}
+
 /** Craterize's moment: the impactor falls, then flash, ring, dust and blocks. */
 class Impact {
   readonly group = new Group();
@@ -85,8 +124,11 @@ class Impact {
   private t0 = 0;
   /** When it struck (null: still falling). */
   struck: number | null = null;
+  /** Its seconds since it struck, as drawn. */
+  private tail: DrawnTail;
 
-  constructor() {
+  constructor(clock: Clock) {
+    this.tail = new DrawnTail(clock);
     this.shock.rotation.x = -Math.PI / 2;
     this.dust.frustumCulled = this.chunks.frustumCulled = this.shock.frustumCulled = this.flash.frustumCulled = this.streak.frustumCulled = false;
     this.dust.renderOrder = this.shock.renderOrder = this.flash.renderOrder = 5;
@@ -99,22 +141,26 @@ class Impact {
     this.at = { x: m.x, y: m.y };
     this.t0 = now;
     this.struck = null;
+    this.tail.stop();
   }
 
   strike(now: number): void {
-    this.struck ??= now;
+    if (this.struck !== null) return;
+    this.struck = now;
+    this.tail.start(now);
   }
 
   get active(): boolean {
-    return !!this.a && (this.struck === null || performance.now() - this.struck < 1850);
+    return !!this.a && (this.struck === null || this.tail.seconds < 1.85);
   }
 
-  /** Where it is and how far it has gone (seconds since it struck; null while it falls), or null. */
-  showing(now: number): { x: number; y: number; struck: number | null } | null {
-    return this.active ? { ...this.at, struck: this.struck === null ? null : (now - this.struck) / 1000 } : null;
+  /** Where it is and how far it has gone (seconds since it struck, as drawn; null while it falls), or null. */
+  showing(): { x: number; y: number; struck: number | null } | null {
+    return this.active ? { ...this.at, struck: this.struck === null ? null : this.tail.seconds } : null;
   }
 
   update(now: number): void {
+    this.tail.frame(now);
     const a = this.a;
     this.group.visible = !!a && this.active;
     if (!this.group.visible || !a) return;
@@ -124,7 +170,7 @@ class Impact {
     const ground = a.datum;
     const arrival = 0.24;
     const fall = this.struck === null ? Math.min(0.95, (now - this.t0) / 1000 / arrival) : 1;
-    const age = this.struck === null ? -1 : (now - this.struck) / 1000;
+    const age = this.struck === null ? -1 : this.tail.seconds;
     const dx = Math.cos(a.angle) * a.glance;
     const dy = Math.sin(a.angle) * a.glance;
     this.streak.visible = age < 0;
@@ -194,11 +240,13 @@ class Rupture {
   private crack = new Line(new BufferGeometry(), new LineBasicMaterial({ color: css(JUICE.crack), depthTest: false, transparent: true }));
   private dummy = new Object3D();
   private head: { x: number; y: number; z: number } | null = null;
-  private ended: number | null = null;
+  /** Its seconds since it ended, as drawn. */
+  private tail: DrawnTail;
   private t0 = 0;
   private slide = false;
 
-  constructor() {
+  constructor(clock: Clock) {
+    this.tail = new DrawnTail(clock);
     this.dust.frustumCulled = this.crack.frustumCulled = false;
     this.crack.renderOrder = 8;
     this.group.add(this.crack, this.dust);
@@ -209,7 +257,8 @@ class Rupture {
     const q = m.quake!;
     if (!this.head) this.t0 = now;
     this.head = { x: m.x, y: m.y, z: m.z };
-    this.ended = m.phase === "done" ? (this.ended ?? now) : null;
+    if (m.phase !== "done") this.tail.stop();
+    else if (!this.tail.started) this.tail.start(now);
     this.slide = q.slide;
     const upTo = Math.max(2, Math.ceil(Math.max(m.progress, m.phase === "rumble" ? 0.08 : 0) * q.path.length));
     const pts = q.path.slice(0, upTo).map((p) => new Vector3(p.x + 0.5, ground(p.x, p.y) + 0.16, -p.y - 0.5));
@@ -218,11 +267,11 @@ class Rupture {
   }
 
   finish(now: number): void {
-    this.ended ??= now;
+    if (!this.tail.started) this.tail.start(now);
   }
 
   get active(): boolean {
-    return !!this.head && (this.ended === null || performance.now() - this.ended < 1500);
+    return !!this.head && (!this.tail.started || this.tail.seconds < 1.5);
   }
 
   /** Its head and its seconds since it began, or null. */
@@ -231,10 +280,11 @@ class Rupture {
   }
 
   update(now: number): void {
+    this.tail.frame(now);
     this.group.visible = this.active;
     const h = this.head;
     if (!this.group.visible || !h) return;
-    const fade = this.ended === null ? 1 : 1 - smooth((now - this.ended) / 1500);
+    const fade = this.tail.started ? 1 - smooth(this.tail.seconds / 1.5) : 1;
     (this.crack.material as LineBasicMaterial).opacity = fade;
     const t = (now - this.t0) / 1000;
     const d = this.dummy;
@@ -253,7 +303,7 @@ class Rupture {
 
   clear(): void {
     this.head = null;
-    this.ended = null;
+    this.tail.stop();
     this.group.visible = false;
   }
 
@@ -315,12 +365,13 @@ class Plume {
   t0 = 0;
   /** When it ended (the plume thins and the lava cools from then). */
   ended: number | null = null;
-  /** Its seconds cooled as drawn, and when its last frame was: the lava cools by its frames, a frame counting a
-   *  tenth of a second at most, so a stall (the keep's work on a slow machine) never skips its cooling unseen. */
+  /** Its seconds cooled as drawn, and when its last frame was: the lava cools by its frames, a frame of the player's
+   *  view counting a tenth of a second at most, so a stall (the keep's work on a slow machine) never skips its cooling
+   *  unseen; a recording's frame counts whole, its time being the video's. */
   private cooled = 0;
   private drawn = 0;
 
-  constructor() {
+  constructor(private readonly clock: Clock) {
     this.geometry.setAttribute("puffAlpha", new InstancedBufferAttribute(this.opacity, 1));
     this.geometry.setAttribute("puffSeed", new InstancedBufferAttribute(this.seeds, 1));
     this.smoke.frustumCulled = false;
@@ -379,7 +430,9 @@ class Plume {
 
   update(now: number, ground: Ground): void {
     if (this.ended !== null) {
-      this.cooled += Math.min(Math.max(0, now - this.drawn), 100) / 1000;
+      // (a recording's frame is its video's time and counts whole; the player's view caps a frame at a tenth of a second)
+      const step = Math.max(0, now - this.drawn);
+      this.cooled += (this.clock.driven ? step : Math.min(step, 100)) / 1000;
       this.drawn = now;
     }
     this.group.visible = this.active;
@@ -486,8 +539,11 @@ class Glacier {
   private cue = { s: 0, at: 0, pace: 1 };
   /** Its seconds when it ended (kept, or skipped to its end). */
   private endS = 0;
+  /** Its seconds since it ended, as drawn: it melts back on to its end by its frames. */
+  private tail: DrawnTail;
 
-  constructor() {
+  constructor(private readonly clock: Clock) {
+    this.tail = new DrawnTail(clock);
     this.gather.frustumCulled = this.crystals.frustumCulled = false;
     this.gather.renderOrder = this.crystals.renderOrder = 5;
     this.group.add(this.gather, this.crystals, this.standIn);
@@ -515,7 +571,7 @@ class Glacier {
     const c = this.cue;
     const s = Math.min(c.s + 0.1, c.s + ((now - c.at) / 1000) * c.pace);
     if (this.ended === null) return Math.min(5, s);
-    return Math.min(5, Math.max(s, this.endS + ((now - this.ended) / 1000) * c.pace));
+    return Math.min(5, Math.max(s, this.endS + this.tail.seconds * c.pace));
   }
 
   /** Its tongue from the stations, over the land as it is now; its clock starts. */
@@ -524,6 +580,7 @@ class Glacier {
     this.live = true;
     this.began = now;
     this.ended = null;
+    this.tail.stop();
     const vertices: number[] = [];
     const st: number[] = [];
     const across: number[] = [];
@@ -569,14 +626,14 @@ class Glacier {
     if (!this.live || this.ended !== null) return;
     this.endS = this.seconds(now);
     this.ended = now;
+    this.tail.start(now);
   }
 
   get active(): boolean {
     if (!this.live) return false;
-    const now = performance.now();
     // (still gathering: until it is planned, or a moment after it ended)
-    if (this.began === null) return this.ended === null || now - this.ended < 350;
-    return this.seconds(now) < 5;
+    if (this.began === null) return this.ended === null || this.tail.seconds < 0.35;
+    return this.seconds(this.clock.now()) < 5;
   }
 
   /** Where it gathered and its own seconds (null while it gathers), or null. */
@@ -585,6 +642,7 @@ class Glacier {
   }
 
   update(now: number): void {
+    this.tail.frame(now);
     this.group.visible = this.active;
     if (!this.group.visible) return;
     const growing = this.began === null ? (now - this.t0) / 1000 : Math.max(0, 0.9 - (now - this.began) / 1000 / 0.6);
@@ -629,6 +687,7 @@ class Glacier {
     this.live = false;
     this.began = null;
     this.ended = null;
+    this.tail.stop();
     this.cue = { s: 0, at: 0, pace: 1 };
     this.endS = 0;
     this.group.visible = false;
@@ -757,8 +816,13 @@ class Wear {
   /** When the last stage's dust came (ms; 0: none yet). */
   private lastStage = 0;
   private stoneNext = 0;
+  /** Its own time (ms), which every puff and stone is timed by: the frames drawn, each at most a tenth of a second (a
+   *  driven clock's whole), as the other forces' tails (`DrawnTail`), so a stalled view never loses the dust. */
+  private drawn = 0;
+  /** The wall time of the last frame drawn (ms; null: none yet). */
+  private lastWall: number | null = null;
 
-  constructor() {
+  constructor(private readonly clock: Clock) {
     this.dustGeometry.setAttribute("dustAlpha", new InstancedBufferAttribute(this.dustAlpha, 1));
     this.dustGeometry.setAttribute("dustColor", new InstancedBufferAttribute(this.dustColor, 3));
     this.stoneGeometry.setAttribute("stoneColor", new InstancedBufferAttribute(this.stoneColor, 3));
@@ -770,7 +834,8 @@ class Wear {
     this.empty();
   }
 
-  begin(m: ForceMoment, now: number): void {
+  begin(m: ForceMoment): void {
+    const now = this.drawn;
     this.empty();
     this.live = true;
     this.at = { x: m.x, y: m.y };
@@ -782,7 +847,8 @@ class Wear {
   }
 
   /** A stage's moment: the faint dust of the rumble, then dust and stones from the voxels that went. */
-  cue(m: ForceMoment, now: number, voxels: Voxels | null): void {
+  cue(m: ForceMoment, voxels: Voxels | null): void {
+    const now = this.drawn;
     if (!this.live) return;
     if (m.phase === "rumble") {
       // (a faint stir of dust at the face, before the rock begins to go)
@@ -949,17 +1015,18 @@ class Wear {
     }
   }
 
-  finish(now: number): void {
-    if (this.live) this.ended ??= now;
+  finish(): void {
+    if (this.live) this.ended ??= this.drawn;
   }
 
   get active(): boolean {
-    return this.live && (this.ended === null || performance.now() < this.until);
+    return this.live && (this.ended === null || this.drawn < this.until);
   }
 
   /** Where it acts, its seconds since it began and how many puffs and stones are in the air, or null. */
-  showing(now: number): { x: number; y: number; age: number; dust: number; stones: number } | null {
+  showing(): { x: number; y: number; age: number; dust: number; stones: number } | null {
     if (!this.active) return null;
+    const now = this.drawn;
     let dust = 0;
     let stones = 0;
     for (let k = 0; k < WEAR_DUST; k++) {
@@ -973,7 +1040,12 @@ class Wear {
     return { ...this.at, age: (now - this.t0) / 1000, dust, stones };
   }
 
-  update(now: number): void {
+  /** At each frame drawn (`wall`: the clock's time, ms). */
+  update(wall: number): void {
+    const step = this.lastWall === null ? 0 : Math.max(0, wall - this.lastWall);
+    this.lastWall = wall;
+    this.drawn += this.clock.driven ? step : Math.min(step, 100);
+    const now = this.drawn;
     this.group.visible = this.active;
     if (!this.group.visible) return;
     const d = this.dustState;
@@ -1063,11 +1135,11 @@ class Wear {
 /** The forces' moments together, on the renderer's scene. The renderer asks each frame for the
  *  eruption's heat (the terrain shader's). */
 export class ForceEffects {
-  private impact = new Impact();
-  private rupture = new Rupture();
-  private plume = new Plume();
-  private glacier = new Glacier();
-  private wear = new Wear();
+  private readonly impact: Impact;
+  private readonly rupture: Rupture;
+  private readonly plume: Plume;
+  private readonly glacier: Glacier;
+  private readonly wear: Wear;
   private frame = 0;
   private verb: ForceMoment["verb"] | null = null;
   /** The last force is over (kept or dropped): the next moment is a new force's (D378). */
@@ -1079,7 +1151,14 @@ export class ForceEffects {
     private readonly ground: Ground,
     /** The map's voxels as shown (Erode's stones land on them), or null. */
     private readonly voxels: () => Voxels | null = () => null,
+    /** The renderer's time (clock.ts): the wall clock, or a recording's. */
+    private readonly clock: Clock = WALL_CLOCK,
   ) {
+    this.impact = new Impact(clock);
+    this.rupture = new Rupture(clock);
+    this.plume = new Plume(clock);
+    this.glacier = new Glacier(clock);
+    this.wear = new Wear(clock);
     scene.add(this.impact.group, this.rupture.group, this.plume.group, this.glacier.group, this.wear.group);
   }
 
@@ -1088,7 +1167,7 @@ export class ForceEffects {
    *  new one plays in full, however quickly it came. A carve's moments count too, its surge its own.
    *  True for a new force's first moment. */
   set(m: ForceMoment): boolean {
-    const now = performance.now();
+    const now = this.clock.now();
     const fresh = this.over;
     if (fresh) {
       this.over = false;
@@ -1110,9 +1189,9 @@ export class ForceEffects {
       if (m.glaciate && m.phase !== "gather" && m.phase !== "done") this.glacier.clockTo(m.glaciate.seconds, m.pace ?? 1, now);
       if (m.phase === "done") this.glacier.finish(now);
     } else if (m.verb === "erode") {
-      if (this.verb !== "erode" || !this.wear.active) this.wear.begin(m, now);
-      this.wear.cue(m, now, this.voxels());
-      if (m.phase === "done") this.wear.finish(now);
+      if (this.verb !== "erode" || !this.wear.active) this.wear.begin(m);
+      this.wear.cue(m, this.voxels());
+      if (m.phase === "done") this.wear.finish();
     }
     this.verb = m.verb;
     this.kick();
@@ -1121,11 +1200,11 @@ export class ForceEffects {
 
   /** The force was kept or ended: its tails play out (the dust settles, the lava cools). */
   finish(): void {
-    const now = performance.now();
+    const now = this.clock.now();
     this.rupture.finish(now);
     this.plume.finish(now);
     this.glacier.finish(now);
-    this.wear.finish(now);
+    this.wear.finish();
     this.impact.strike(now);
     this.over = true;
     this.kick();
@@ -1149,8 +1228,8 @@ export class ForceEffects {
   }
 
   /** What plays now (tests): each moment's place and age, or null. */
-  showing(now = performance.now()) {
-    return { craterize: this.impact.showing(now), quake: this.rupture.showing(now), erupt: this.plume.showing(now), glaciate: this.glacier.showing(now), erode: this.wear.showing(now) };
+  showing(now = this.clock.now()) {
+    return { craterize: this.impact.showing(), quake: this.rupture.showing(now), erupt: this.plume.showing(now), glaciate: this.glacier.showing(now), erode: this.wear.showing() };
   }
 
   /** The eruption's heat on the ground now: its age and its cooling (seconds), or null (no eruption
@@ -1182,19 +1261,27 @@ export class ForceEffects {
   }
 
   private kick(): void {
-    if (!this.frame) this.frame = requestAnimationFrame(this.tick);
+    // (a recording draws its own frames, and moves the moments on before each: `advance`)
+    if (this.clock.driven) this.render();
+    else if (!this.frame) this.frame = requestAnimationFrame(this.tick);
   }
 
-  private tick = (): void => {
-    this.frame = 0;
-    const now = performance.now();
+  /** Every moment as it is at the clock's time now; whether any still plays. */
+  advance(): boolean {
+    const now = this.clock.now();
     this.impact.update(now);
     this.rupture.update(now);
     this.plume.update(now, this.ground);
     this.glacier.update(now);
     this.wear.update(now);
+    return this.active;
+  }
+
+  private tick = (): void => {
+    this.frame = 0;
+    const on = this.advance();
     this.render();
-    if (this.active) this.frame = requestAnimationFrame(this.tick);
+    if (on) this.frame = requestAnimationFrame(this.tick);
   };
 
   dispose(): void {

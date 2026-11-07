@@ -36,7 +36,7 @@ const square = (x0: number, y0: number, x1: number, y1: number): [number, number
   return out;
 };
 
-/** One map, a 48 x 48 Highlands (seed 16; since generator 0.10.VV's natural ramps seed 5, the collab floor, leaves
+/** One map, a 48 x 48 Highlands (seed 16; since generator 0.10.11's natural ramps seed 5, the collab floor, leaves
  *  no bare block for two claims, D148) saved as the app saves it
  *  (tests/fixtures/projects: made with `MapSession.fromGenerated(generate(makeSpec({ seed: 16, theme: "highlands",
  *  size: { x: 48, y: 48 } }))).project()`; it opens exactly as saved, so the test does not wait on the

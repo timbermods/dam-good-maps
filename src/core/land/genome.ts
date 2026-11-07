@@ -808,10 +808,11 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   for (const id of g.intentions) nudgeFor(id)(g, rng, W, H);
   // (D502: every map's first look holds a landmark where it can, D493: on a theme whose land seldom stands one of its
   // own, one landmark's form for each whole 128² of the map, so wherever the start stands one may stand in its view;
-  // the landmark intention's own is the first. None on a smaller map, where one form sized for 128² crowded the
-  // rivers: River Valley 64² seeds 2, 3 and 6 dried out in the drought, and a 96² map needed a rescue round. Each
-  // from a stream of its own, so the rest of the genome keeps its draws)
-  if (BACKDROP_THEMES.has(theme) && !tooSmallFor("landmark", W, H)) {
+  // the landmark intention's own is the first. The gate is that count: none on a map of less than a whole 128² (by
+  // area, so a 192×96 map still gets one), where one form sized for 128² crowded the rivers: River Valley 64² seeds
+  // 2, 3 and 6 dried out in the drought, and a 96² map needed a rescue round. Each from a stream of its own, so the
+  // rest of the genome keeps its draws)
+  if (BACKDROP_THEMES.has(theme)) {
     const forms = Math.floor((W * H) / (128 * 128));
     for (let k = g.intentions.includes("landmark") ? 1 : 0; k < forms; k++) nudgeFor("landmark")(g, stream(seed, "backdrop", theme, attempt, k), W, H);
   }

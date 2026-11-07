@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { meshChunk } from "../../src/render3d/mesh";
-import { SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "../../src/render3d/light";
+import { TILE_REACH, tileData, tileDataRect } from "../../src/render3d/light";
 import { terrainChanges } from "../../src/render3d/terrainChanges";
 
 let seed = 3;
@@ -32,13 +32,13 @@ function dab() {
 
 describe("what a change to the land touches (Naturalize's re-meshing)", () => {
   const { W, H, before, after, box } = dab();
-  const c = terrainChanges(W, H, before, after, box, SKY_REACH)!;
+  const c = terrainChanges(W, H, before, after, box, TILE_REACH)!;
 
   it("finds the changed tiles and their bounds, and nothing for no change", () => {
     expect(c.count).toBe(500);
     expect(c.rect.x0).toBeGreaterThanOrEqual(box.x0);
     expect(c.rect.y1).toBeLessThanOrEqual(box.y1);
-    expect(terrainChanges(W, H, before, before, box, SKY_REACH)).toBeNull();
+    expect(terrainChanges(W, H, before, before, box, TILE_REACH)).toBeNull();
   });
 
   it("every chunk it leaves alone meshes exactly as before", () => {
@@ -53,19 +53,15 @@ describe("what a change to the land touches (Naturalize's re-meshing)", () => {
       }
   });
 
-  it("the sky and tile data redone along its rows equal the whole map's", () => {
-    const sky = skyVisibility(W, H, before);
-    const tiles = tileData(W, H, before, sky, null, null);
-    for (const r of c.rows) skyVisibilityRect(W, H, after, sky, r.x0, r.y, r.x1, r.y);
-    for (const r of c.rows) tileDataRect(W, H, after, sky, null, null, tiles, r.x0, r.y, r.x1, r.y);
-    const skyAll = skyVisibility(W, H, after);
-    expect(Buffer.from(sky).equals(Buffer.from(skyAll))).toBe(true);
-    expect(Buffer.from(tiles).equals(Buffer.from(tileData(W, H, after, skyAll, null, null)))).toBe(true);
+  it("the tile data redone along its rows equals the whole map's", () => {
+    const tiles = tileData(W, H, before, null, null);
+    for (const r of c.rows) tileDataRect(W, H, after, null, null, tiles, r.x0, r.y, r.x1, r.y);
+    expect(Buffer.from(tiles).equals(Buffer.from(tileData(W, H, after, null, null)))).toBe(true);
   });
 
   it("redoes far fewer tiles than the box and its reach", () => {
     const rowTiles = c.rows.reduce((s, r) => s + r.x1 - r.x0 + 1, 0);
-    const boxTiles = (95 + 2 * SKY_REACH) ** 2;
+    const boxTiles = (95 + 2 * TILE_REACH) ** 2;
     // (scattered tiles' spans still cover most of their rows: the saving is in the meshing and the rows outside)
     expect(rowTiles).toBeLessThanOrEqual(boxTiles);
   });

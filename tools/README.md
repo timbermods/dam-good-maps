@@ -26,6 +26,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `lib/` holds core measuring code that only tools and tests run, moved out of `src/core/` so the Rust port does not carry it (the coherence review's G3): `metrics.ts` `measure`, `resources.ts` `measureResources`, `startPlanting.ts`, `glaciate.ts` (`measureGlaciate`, `makePlan`), `placeData.ts` (the writer half of a real place's data).
 - `batch.ts`, `batches.ts`: pass rates per theme and size. `settings-suite.ts`, `settings-batch.ts`: each setting's effect on its target.
 - `official-baselines.ts`, `straight-reference.ts`, `edge-walls.ts`, `start-spread.ts`, `start-water-fed.ts`: measure the official maps, real channels and generated starts.
+- `forms-read.ts`: whether generated maps' 3D forms read as what they are (D503): each kept arch's sightlines through it at the game's camera angles, each overhang's roof depth, the forms per theme and each map's generate time (`--themes`, `--seeds 1-4`, `--size`, `--vt`).
 
 **Contact sheets and captures**
 - `sheet.ts`, `contact-sheet.ts` with `contact-sheet.py`, `resources-sheet.ts`, `start-sheet.ts`, `waterfall-gallery.ts`: sheets of generated maps; `badwater-sheet.ts` with `badwater-sheet.py`: badwater before | after against another checkout, water shaded by how contaminated it is, and whether badwater reaches each map's main water (#265, D476).

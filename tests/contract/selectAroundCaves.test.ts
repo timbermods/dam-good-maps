@@ -15,7 +15,7 @@ const W = 96;
 
 describe("Select's actions on a map with a 3D form (D487)", () => {
   // (Highlands 96² seed 4242 grew a spring cave at the default Verticality, at (33–38, 37–41); seed 4245 since generator
-  // 0.10.VV, the D410 round, D148: seed 4242 has no 3D form now, and seed 4245's stands at (20–25, 46–49))
+  // 0.10.11, the D410 round, D148: seed 4242 has no 3D form now, and seed 4245's stands at (20–25, 46–49))
   const r = generate(makeSpec({ seed: 4245, theme: "highlands", size: { x: W, y: W } }));
 
   it("the whole map cut down to level 8: every tile but the cave's and its roof's holders, which stay as they were", () => {
