@@ -15,6 +15,8 @@ import { thumbnailJpeg } from "../render/shade";
 import { LIP_REACH } from "../water/edgeLip";
 import { waterModelFromWorld } from "../sim/model";
 import { canonicalRun } from "../sim/prefill";
+import { isPlainMask } from "../terrain/runs";
+import { unsupportedVoxels, type SupportTerrain } from "../terrain/support";
 
 /** The rectangle to keep, in tiles: its top-left tile and its size. */
 export interface CropParams {
@@ -126,6 +128,45 @@ export function planCrop(entities: readonly EntitySpec[], W: number, H: number, 
   const o = cropObjects(entities, r, { W, H });
   if (o.cutStart) return { ok: false, reason: START_CUT };
   return { ok: true, removedObjects: o.crossing.length, removed: [...o.crossing, ...o.outside], width: r.w, height: r.h };
+}
+
+/** The blocks of ground a crop would leave with nothing to hold them up (D121, D280 (3)): a ledge or a roof held from a
+ *  column the rectangle leaves out, which the game deletes as the cropped map loads. By cell of the map as it stands
+ *  (z·N + tile), ascending. `tops` are the cells of the map's stackable object tops, `keptTops` those of the objects the
+ *  crop keeps (`stackableTops`). Ground the game already deletes from the map is not the crop's. Empty when every
+ *  column the crop keeps is one plain run, nothing worked out. */
+export function cropFalls(t: SupportTerrain, r: CropParams, tops: readonly number[] = [], keptTops: readonly number[] = []): number[] {
+  const { W, H, mask } = t;
+  const N = W * H;
+  const n = r.w * r.h;
+  const kept = new Uint32Array(n);
+  let layered = false;
+  for (let y = 0; y < r.h; y++)
+    for (let x = 0; x < r.w; x++) {
+      const m = mask[(y + r.y) * W + x + r.x];
+      kept[y * r.w + x] = m;
+      if (!layered && !isPlainMask(m)) layered = true;
+    }
+  if (!layered) return [];
+  const inside = (c: number): number => {
+    const i = c % N;
+    const z = (c - i) / N;
+    const x = (i % W) - r.x;
+    const y = Math.floor(i / W) - r.y;
+    return x >= 0 && y >= 0 && x < r.w && y < r.h ? z * n + y * r.w + x : -1;
+  };
+  const now = unsupportedVoxels({ W: r.w, H: r.h, mask: kept }, keptTops.map(inside).filter((c) => c >= 0));
+  const out: number[] = [];
+  let was: Uint8Array | null = null;
+  for (let c = 0; c < now.length; c++) {
+    if (!now[c]) continue;
+    const i = c % n;
+    const z = (c - i) / n;
+    const cell = z * N + (Math.floor(i / r.w) + r.y) * W + (i % r.w) + r.x;
+    was ??= unsupportedVoxels(t, tops);
+    if (!was[cell]) out.push(cell);
+  }
+  return out.sort((a, b) => a - b);
 }
 
 // ---------------------------------------------------------------------------------------- the file

@@ -10,6 +10,7 @@ import { heightsAt } from "../../core/doc/timelapse";
 import { MapRenderer } from "../../render3d/renderer";
 import type { MapView, WaterView } from "../../render3d/model";
 import type { LapseStepShown, TimelapseApi } from "../../worker/timelapse.worker";
+import { blendSoil, blendWater, easeIn } from "./blend";
 import { lapseCamera, LAPSE_FOV } from "./camera";
 import { FPS, lapsePlan, TICKS_PER_SECOND, WATER_EVERY, type LapsePlan } from "./plan";
 import { WebmWriter, type WebmCodec } from "./webm";
@@ -28,6 +29,10 @@ const PROGRAMS_MS = 20_000;
 const SETTLE_MS = 3_000;
 /** Steps asked of the replay ahead of the one playing. */
 const AHEAD = 4;
+/** Where in the closing glide the replay's water begins to ease into the finished map's (a share of the glide), and
+ *  how many times the soil is drawn on the way (each a bake of the ground). */
+const EASE_FROM = 0.35;
+const SOIL_STEPS = 6;
 
 /** Where a recording stands, for its progress line. */
 export interface LapseProgress {
@@ -36,6 +41,15 @@ export interface LapseProgress {
   frame: number;
   frames: number;
   steps: number;
+}
+
+/** The history has no step to replay since the map's land began (a cropped map's edits before its crop are another
+ *  map's): the dialog says there is nothing to replay. */
+export class NothingToReplay extends Error {
+  constructor() {
+    super("Nothing to replay");
+    this.name = "NothingToReplay";
+  }
 }
 
 export interface LapseResult {
@@ -159,6 +173,7 @@ export async function recordTimelapse(o: LapseOptions): Promise<LapseResult> {
     const opened = await api.open(o.project);
     aborted(o.signal);
     const { W, H, steps, start, end } = opened;
+    if (!steps.length) throw new NothingToReplay();
     const plan = lapsePlan(steps, W, H);
     const camera = lapseCamera(plan, start.heights, W, H, end.entities);
     report({ phase: "prepare", frame: 0, frames: plan.frames, steps: steps.length });
@@ -215,6 +230,7 @@ export async function recordTimelapse(o: LapseOptions): Promise<LapseResult> {
     let ended = false;
     let outroWater: WaterView[] = [];
     let outroShown = -1;
+    let soilShown = 0;
     for (let f = 0; f < plan.frames; f++) {
       aborted(o.signal);
       if (state.failed) throw state.failed;
@@ -236,10 +252,19 @@ export async function recordTimelapse(o: LapseOptions): Promise<LapseResult> {
         cur = null;
         if (f < plan.outro.hold) {
           outroWater = endWater ? await endWater : [];
-          const v = Math.min(outroWater.length - 1, Math.floor((f - plan.outro.tail) / WATER_EVERY));
-          if (v >= 0 && v !== outroShown) {
-            outroShown = v;
-            r.updateWater(outroWater[v], true);
+          // (the flowing water eased into the finished map's over the glide's last part, and the soil greening with
+          // it, so the hold never snaps: blend.ts)
+          const e = easeIn(f, plan.outro.tail + (plan.outro.hold - plan.outro.tail) * EASE_FROM, plan.outro.hold);
+          const at = Math.floor((f - plan.outro.tail) / WATER_EVERY);
+          const v = Math.min(outroWater.length - 1, at);
+          if (v >= 0 && at !== outroShown) {
+            outroShown = at;
+            r.updateWater(blendWater(outroWater[v], end.water, e), true);
+          }
+          const s = Math.round(e * SOIL_STEPS);
+          if (start.soil && end.soil && s !== soilShown) {
+            soilShown = s;
+            r.updateSoil(blendSoil(start.soil, end.soil, s / SOIL_STEPS));
           }
         } else {
           // the finished map itself: its land, objects, water and soil as the map holds them

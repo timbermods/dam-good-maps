@@ -7,12 +7,12 @@ import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { Together } from "../collab/Together";
 import { plain } from "../panels";
-import { canRecordTimelapse } from "../timelapse/can";
+import { canDrawPicture, canRecordTimelapse } from "../timelapse/can";
 
 export function header(ed: Ed, props: EditorProps) {
   const {
     api, info, renderer, localUndo, localRedo, undo, redo, check, instant, busy, progress, flowing, dotOpen, setDotOpen,
-    actions, saving, saveMap, exportProject, run, flashNote, showHistory, setShowHistory, together, collab
+    actions, saving, saveMap, exportProject, exportPicture, run, flashNote, showHistory, setShowHistory, together, collab
   } = ed;
   // (in a shared session Undo and Redo take back only this player's own actions: the session says when there is one)
   const shared = !!collab && collab.phase !== "alone";
@@ -46,6 +46,7 @@ export function header(ed: Ed, props: EditorProps) {
       onChooseFolder={() => void ed.chooseFolder()}
       onOpenFile={props.onOpenFile}
       onSaveProject={() => void exportProject()}
+      onSavePicture={canDrawPicture() ? () => void exportPicture() : undefined}
       onClearEverything={() => void run(() => api.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
       historyOpen={showHistory}
       // (one left panel at a time: History opening closes Map Generator, Real places or Your maps)

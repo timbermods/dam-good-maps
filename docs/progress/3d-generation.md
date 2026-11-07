@@ -24,9 +24,10 @@ each form on the finished map; `gen/generate.ts` grows them at the end of an att
   floor, and a notch never opens a window out of the cliff; where the rock would not hold the corners they are left out,
   and where it would not hold the wear the gallery is cut plain. The surface does not change.
 - **An overhang sheltering the start** (`start-overhang`). Where the start's level ground meets a cliff 3 or more above it
-  within 8–12 tiles, a stretch of 3–14 tiles of the face is worn back 1–3 tiles, as soft rock under a harder cap, 2–3 high,
-  its depth wandering along the face; where the rock would not hold that, less deep, down to a tile. Worn, not boxed (a
-  flat face read as a doorway): its ends taper into the face (a tile deep, two beside them), its height wanders 2–3 along
+  within 8–12 tiles, a stretch of 4–14 tiles of the face is worn back 2–3 tiles, as soft rock under a harder cap, 2–3 high,
+  its depth wandering along the face; where the rock would not hold three, two, never one: a roof a tile deep read as a
+  ridge's lip (D503), so three or more of its tiles stand two or more deep (`analysis/seeThrough.ts` `shelters`). Worn,
+  not boxed (a flat face read as a doorway): its ends taper into the face (a tile deep, two beside them), its height wanders 2–3 along
   the face, its roof comes down a level at the back, and here and there its lip hangs a level under the hollow behind. Level ground at the
   start's floor runs on under the rock. The surface does not change. The start itself is never roofed (cave starts are
   for Verticality 70+, later).
@@ -39,7 +40,33 @@ each form on the finished map; `gen/generate.ts` grows them at the end of an att
   (the crown off the spine's by a tile, the underside up to a level higher, so the arch thins toward its faces), their
   decks waisted toward the crown a level or two lower (through, where that leaves nothing) and a level off here and
   there; and its feet flare, a buttress a row out on either face by each rim, now and then, 1–2 under the rims. The
-  surface rises on the arch's tiles only.
+  surface rises on the arch's tiles only. Since D503 it is kept only where the game's camera sees the river beyond under
+  it both ways along the gorge (`readsThrough`, below): a gorge closed at one end made a grotto, not an arch.
+- **An arch worn through rock** (`rock-arch`, D503). Where a ridge, a fin or a headland 1–4 tiles thick (5 from
+  Verticality 50) stands between low ground or water on both sides, open three tiles beyond each, a window 2–3 wide (4
+  from 50) is worn through it at the low ground's level between jambs of the same rock (a window at a ridge's end would
+  be a notch): 3 or more high over dry ground, 2 or more over water, as tall as the rock allows under a roof of two
+  levels (one where it has no more), up to 6 over the floor (more as Verticality rises); its underside a level lower at
+  the jambs, worn a level here and there; its lines follow a ridge that runs aslant. On Islands a sea arch through a
+  headland, by a lake a lakeside arch, in a canyon an arch in a fin: the land decides which. The surface does not change,
+  so it grows at 128² and over (one more for each whole 128² past the first; not below, where D502 found forms drying a
+  small map's water out).
+- **An overhanging cliff** (`cliff-overhang`, D503). Anywhere on the map, where a cliff 4 or more high stands over level dry
+  ground that runs two tiles or more out from its foot, a stretch of its face is worn back as the start's overhang is
+  (2–3 deep); at a shore, where a cliff stands 3 or more over open water (a sea's, a lake's), a notch is worn back at the
+  waterline, its floor just over the water (the level above the water's surface): a sea cave's ledge on Islands, a
+  lakeside overhang. The surface does not change; it grows at 128² and over, as the rock arch does.
+
+**Reading as what they are (D503).** A form is kept only where it reads, measured as the game's camera sees it
+(`analysis/seeThrough.ts`): an arch is open through, its sightlines (rays from the air under its rock, at 30° and 45°
+below the horizon, along the eight compass headings) running back up clear to the sky and on down past the rock to the
+top of ground or water open to the sky two or more tiles beyond, both ways along the arch's axis, on three or more tiles
+at 45° (`readsThrough`); an overhang's roof reaches two or more tiles over its floor on three or more tiles
+(`roofDepths`, `shelters`). The grower tries each place on the terrain with the form, and each form's own check reads it
+again on the built map with its settled water. `tools/forms-read.ts` measures both on generated maps: on 128² seeds 1–4
+of all seven themes at their default Verticality, an arch seen through on 10 of 28 maps (2 on generator 0.10.7) and an
+overhang two or more deep on 17 (none before), on every theme; at 256² (seed 1 of five themes) a rock arch seen through
+on 3 of 5 and overhangs on all 5. The forms close up: `docs/sheets/d503-forms.jpg`.
 
 **How often, and where.** At every Verticality but 0, the theme's default included (`formsFor`, #611, generator 0.10.4).
 The gate that kept them above the default came off once maps with caves had Fill and Remove unfed water (#498) and live
@@ -47,9 +74,11 @@ water while editing (#606, D280's amendment). Rarer the lower the Verticality:
 `formsWanted` draws from the map's own stream (`stream(seed, "forms3d")`, the same on every attempt, nothing else drawn
 differently): Verticality 0 none; a spring cave on 25% + Verticality% of maps (up to 90%), two
 from 50, three from 75; an overhang on 20% + Verticality% (up to 85%); an arch from 35, more in Canyon and Highlands, fewer
-in Lake Basin and Delta, two at 70+ on most maps. A drawn form that finds no place, or that the map cannot keep, is
+in Lake Basin and Delta, two at 70+ on most maps; an arch worn through rock on 75% + Verticality% (up to 95%), two on half
+the maps from 60; an overhanging cliff on 65% + Verticality% (up to 90%), two from 60 (D503; their draws come after the
+others', so those keep theirs). A drawn form that finds no place, or that the map cannot keep, is
 recorded as dropped with why (`GenerateResult.intentions`, outcome "dropped"); one that emerged carries where it is and
-where it is best seen from (`at`, `from`). No arch above 128², and no spring cave on a map made with Sources: None.
+where it is best seen from (`at`, `from`). No arch over a gorge above 128², and no spring cave on a map made with Sources: None.
 
 **What keeps the map right.** Each form is carved against the support rule as it grows (`terrain/support.ts`
 `unsupportedVoxels`: kept only when nothing would fall), and no two touch. Then the map is built again with them and
@@ -149,9 +178,15 @@ big arch from above and straight down): `docs/sheets/3d-generation-1-natural.jpg
 - A stroke or a sculpt over a form holds the ground that holds its rock up and shapes the rest (D280 (3), amended by
   #623: done); a placement whose levelling meets that ground is refused as uneven, and a force leaves a cave or an
   overhang and what holds it as it is (D487). The hover's footprint check does not foresee a held levelling.
-- Overhangs are rare: most starts stand on open ground with no cliff in reach. Steering the settler toward a cliff when
-  the map looks for one would change maps that then find none, so it waits for a round where that is allowed.
-- No arch above 128² (its first look is not held there); a land-stage arch on the planned water would bring them back.
+- The start's overhang is rare: most starts stand on open ground with no cliff in reach. Steering the settler toward a
+  cliff when the map looks for one would change maps that then find none, so it waits for a round where that is allowed.
+  The overhanging cliff (D503) stands where the land has one, anywhere on the map.
+- No arch on Islands or Lake Basin at 128² (D503): their land has no rock thin enough over open ground or water (the
+  generator records "no thin rock between open ground"); their form is the overhanging cliff, on 2 of 4 maps each. A
+  sea stack or a fin raised for an arch would change the land, a step for a later round.
+- No arch over a gorge above 128² (its first look is not held there); a land-stage arch on the planned water would bring
+  them back. Arches worn through rock keep the surface and grow at 128² and over (D503); below 128² neither they nor
+  overhanging cliffs grow (D502's finding on small maps' water).
 - The 3D view shows the forms from outside; seeing into a cave and under an arch is the view's (step 2).
 - The other processes of step 4 (tunnels, sky bridges, cliff paths, underground rivers, collapses), cave starts, and the
   probe batch (T1–T7) come later.
