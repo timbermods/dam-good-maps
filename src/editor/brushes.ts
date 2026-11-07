@@ -208,6 +208,9 @@ export interface PainterHost {
   ring?(at: [number, number] | null, stroke: { settings: Omit<BrushParams, "dabs">; dabs: readonly number[] } | null): void;
 }
 
+/** A smart Lower stroke that starts in water at least this deep (in levels) deepens it; from thinner water, a source's
+ *  sheet over flat ground, it cuts a new channel (D263, showcase-craft gap 3). */
+const DEEPENS = 0.5;
 /** Quarter tiles, for a dab's centre on a map `size` tiles across. */
 const q = (v: number, size: number) => Math.max(0, Math.min(4 * size - 1, Math.round(v * 4)));
 
@@ -244,7 +247,7 @@ interface StrokeState {
   pen: number | null;
   /** Smart Lower (D263): the tiles wet when the stroke began, and the bed a new channel would start
    *  at; the stroke is a deepening pass while its dabs stay in that water. Null otherwise. */
-  channel: { wet: Uint8Array; bed: number } | null;
+  channel: { wet: Uint8Array; deep: Uint8Array; bed: number } | null;
   /** When the land last answered with its juice. */
   feltAt: number;
   /** Keep (D322): the sources' ground as the stroke began. */
@@ -515,14 +518,23 @@ export class BrushPainter {
     return false;
   }
 
-  /** Smart Lower's start (D263): the tiles wet now, and the bed a new channel starts at: a level
-   *  below the surface of the water round (x, y), never below that water's own bed (the lowest
-   *  ground round the first dab, as the stroke reads it). */
-  private channelStart(x: number, y: number): { wet: Uint8Array; bed: number } {
+  /** Smart Lower's start (D263): the tiles wet now (a deepening pass stays one while it stays in them), the tiles deep
+   *  enough to begin one (half a level or more: a source's thin sheet over flat ground is no pond, so a stroke from it
+   *  cuts a new channel, showcase-craft gap 3), and the bed a new channel starts at: a level below the surface of the
+   *  water round (x, y), never below that water's own bed (the lowest ground round the first dab, as the stroke reads
+   *  it). */
+  private channelStart(x: number, y: number): { wet: Uint8Array; deep: Uint8Array; bed: number } {
     const h = this.host;
     const { W, H } = h;
     const wet = new Uint8Array(W * H);
-    if (h.wet) for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (h.wet(tx, ty)) wet[ty * W + tx] = 1;
+    const deep = new Uint8Array(W * H);
+    if (h.wet)
+      for (let ty = 0; ty < H; ty++)
+        for (let tx = 0; tx < W; tx++)
+          if (h.wet(tx, ty)) {
+            wet[ty * W + tx] = 1;
+            if ((h.depth?.(tx, ty) ?? DEEPENS) >= DEEPENS) deep[ty * W + tx] = 1;
+          }
     const pre = h.terrain().pre;
     const shown = h.heights();
     const cx = Math.max(0, Math.min(W - 1, Math.floor(x)));
@@ -536,7 +548,7 @@ export class BrushPainter {
         if (wet[i]) surface = Math.max(surface, shown[i] + (h.depth?.(tx, ty) ?? 0));
       }
     const bed = surface < 0 ? low : Math.max(low, Math.round(surface) - 1);
-    return { wet, bed: Math.max(0, Math.min(BRUSH_MAX_LEVEL, bed)) };
+    return { wet, deep, bed: Math.max(0, Math.min(BRUSH_MAX_LEVEL, bed)) };
   }
 
   /** A mode's tiles (D322, item 2), fixed as the stroke starts from the map's own water: the wet
@@ -677,7 +689,7 @@ export class BrushPainter {
     // (D263: a deepening pass while it stays in the water it starts in; a new channel, from a level
     // below that water's surface, once it leaves it)
     const channel = settings.channel ? this.channelStart(x, y) : null;
-    if (channel) Object.assign(settings, channel.wet[Math.floor(y) * h.W + Math.floor(x)] ? { deepen: true } : { bed: channel.bed, dry: 0 });
+    if (channel) Object.assign(settings, channel.deep[Math.floor(y) * h.W + Math.floor(x)] ? { deepen: true } : { bed: channel.bed, dry: 0 });
     // a Naturalize stroke is weathered in the worker (D422), the land following a frame or two behind
     // the cursor (but for a straight line, drawn again from its start at every move, and Keep)
     const remote = tool === "naturalize" && !!h.weather && !s.straight && !keepSources;
@@ -786,7 +798,7 @@ export class BrushPainter {
     // (smart Lower, D263: the line starts again as it began, a deepening pass from inside the water)
     if (st.channel && st.anchor) {
       const { deepen: _d, bed: _b, dry: _y, ...rest } = st.settings;
-      st.settings = st.channel.wet[Math.floor(st.anchor[1]) * h.W + Math.floor(st.anchor[0])] ? { ...rest, deepen: true } : { ...rest, bed: st.channel.bed, dry: 0 };
+      st.settings = st.channel.deep[Math.floor(st.anchor[1]) * h.W + Math.floor(st.anchor[0])] ? { ...rest, deepen: true } : { ...rest, bed: st.channel.bed, dry: 0 };
     }
     st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
     st.dabs = [];
