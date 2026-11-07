@@ -162,6 +162,8 @@ export class CollabPeer {
   private answered = new Map<number, { seq: number; reason?: string }>();
   /** The host: the guest said hello on this connection already. */
   private helloSeen = false;
+  /** The other player came into the session on the connection attached now (the host had the guest's ready, the guest the map). */
+  private linkJoined = false;
   /** The host: the guest has said its copy is out of step, so a request to send the map again is a fair one. */
   private guestDesynced = false;
 
@@ -281,6 +283,7 @@ export class CollabPeer {
     this.expectProject = null;
     this.presenceCh.reset();
     this.helloSeen = false;
+    this.linkJoined = false;
     if (this.state === "ended") return;
     if (this.role === "host") {
       if (!this.host) this.startHosting();
@@ -290,8 +293,16 @@ export class CollabPeer {
     this.send({ kind: "hello", v: SESSION_VERSION, name: this.name });
   }
 
-  /** The connection is gone (the transport's `dropped`, or the other player left). The session pauses for this player. */
-  detach(reason: string): void {
+  /** The connection is gone (the transport's `dropped`, or the other player left). The session pauses for this player. Returns
+   *  whether the other player had come into the session on that connection: false is a join or rejoin that never completed,
+   *  which the page says plainly instead of waiting for it. */
+  detach(reason: string): boolean {
+    const joined = this.linkJoined || this.state === "ended";
+    this.pause(reason);
+    return joined;
+  }
+
+  private pause(reason: string): void {
     this.link = null;
     this.expectProject = null;
     if (this.state === "ended" || this.state === "paused") return;
@@ -495,6 +506,7 @@ export class CollabPeer {
     const first = !this.everJoined;
     const was = this.state;
     this.everJoined = true;
+    this.linkJoined = true;
     this.setState("live");
     if (first) this.emit({ type: "joined", name: this.otherName });
     else if (was !== "live") this.emit({ type: "resumed", name: this.otherName });
@@ -585,6 +597,7 @@ export class CollabPeer {
     this.port.adopt(s);
     const first = !this.everJoined;
     this.everJoined = true;
+    this.linkJoined = true;
     this.setState("live");
     this.send({ kind: "ready", seq: replica.seq, hash: replica.hash() });
     this.emit(first ? { type: "joined", name: this.otherName } : { type: "resumed", name: this.otherName });

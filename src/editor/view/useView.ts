@@ -106,6 +106,8 @@ export function useView(ed: Ed): ViewSlice {
   /** The source the pointer on tile (x, y) targets (D249): one standing there; else, over water or
    *  bare ground, the nearest within about two tiles (another object standing there wins). */
   const targetAt = (x: number, y: number): SourceSpot | null => {
+    // (objects hidden, H or Hide objects: the pointer finds only the land, as if nothing stood there)
+    if (renderer.current?.objectsHidden) return null;
     const W = infoRef.current.W;
     const e = mirror.current.entities;
     const covered = (ed.coverAt().get(y * W + x) ?? []).some((k) => !isSource(e.templates[e.template[k]]));
@@ -116,6 +118,7 @@ export function useView(ed: Ed): ViewSlice {
    *  stands up out of its tile and its marker floats above: a near miss in tiles is a hit on it, so
    *  Ctrl+scroll changes its strength and a click selects it, never placing a second one. */
   const sourceOnScreen = (hit: TileHit | null, clientX: number, clientY: number): { x: number; y: number; bad: boolean; tiles: [number, number][] } | null => {
+    if (renderer.current?.objectsHidden) return null;
     const exact = hit ? sourceAt(hit.x, hit.y) : null;
     if (exact) return exact;
     const r = renderer.current;

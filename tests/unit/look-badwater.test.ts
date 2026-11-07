@@ -282,9 +282,10 @@ describe("badwater's colour", () => {
         for (const i of [0, 1]) expect(c[i]).toBeCloseTo(clean[i] + (bad[i] - clean[i]) * k, 9);
         expect(c[2]).toBeLessThanOrEqual(clean[2] + (bad[2] - clean[2]) * k + 1e-9);
         // darker at every step in greyscale too, and no jump in any channel (the game's tint is steep
-        // just past a hundredth: 0.06 at the most for 1% more bad)
+        // just past a hundredth: 0.07 at the most for 1% more bad; D148: 0.06 until the glow's target went
+        // unclamped as the game's, which takes a film's red a little further at 2% bad)
         expect(lightness(c), `${d} deep, ${s} bad`).toBeLessThan(prevL);
-        for (let i = 0; i < 3; i++) expect(Math.abs(c[i] - prev[i]), `${d} deep, ${s} bad`).toBeLessThan(0.06);
+        for (let i = 0; i < 3; i++) expect(Math.abs(c[i] - prev[i]), `${d} deep, ${s} bad`).toBeLessThan(0.07);
         prevL = lightness(c);
         prev = c;
       }
@@ -343,8 +344,9 @@ describe("badwater's colour", () => {
         const h = chroma(waterBody(d, k / 100));
         closest = Math.min(closest, Math.max(...h.map((v, i) => Math.abs(v - mixingZone[i]))));
       }
-      // (0.08 when the mix ran in linear light; on display values, as the game, it passes a little further off)
-      expect(closest, `${d} deep`).toBeLessThan(0.12);
+      // (0.08 when the mix ran in linear light; on display values, as the game, it passes a little further off;
+      // D148: 0.12 until the glow's target went unclamped as the game's, 0.123 at a quarter of a level)
+      expect(closest, `${d} deep`).toBeLessThan(0.13);
     }
   });
 

@@ -1,15 +1,16 @@
 // The drought line's geometry (render3d/droughtLineGeometry.ts): which sides get a strip, at which height, where the
-// tint goes, and that the start's water is a little stronger.
+// tint goes, that the start's water is a little stronger, and that the line is faint wherever today's water goes on
+// across it (planning, 2026-10-30: below a fall, a river's last-day shore in the middle of today's river read as foam).
 
 import { describe, expect, it } from "vitest";
-import { emptyDroughtLine, SIDE_EAST, SIDE_NORTH, SIDE_SOUTH, SIDE_WEST, type DroughtLine } from "../../src/core/sim/droughtLine";
-import { droughtLineGeometry, FACE_INSET, LINE_ALPHA, LINE_WIDTH, TINT_ALPHA, TINT_LIFT, UNDER_WATER, type QuadBuffers } from "../../src/render3d/droughtLineGeometry";
+import { droughtLine, emptyDroughtLine, SIDE_EAST, SIDE_NORTH, SIDE_SOUTH, SIDE_WEST, type DroughtLine } from "../../src/core/sim/droughtLine";
+import { droughtLineGeometry, FACE_INSET, LINE_ALPHA, LINE_WIDTH, TINT_ALPHA, TINT_LIFT, underWater, type QuadBuffers } from "../../src/render3d/droughtLineGeometry";
 
 const W = 8;
 const H = 8;
 const heights = new Uint8Array(W * H).fill(3);
 
-function lineOf(entries: { tile: number; sides: number; level: number; start?: number; under?: number }[], bed: { tile: number; gone: number; start?: number }[] = []): DroughtLine {
+function lineOf(entries: { tile: number; sides: number; level: number; start?: number; under?: number; onWater?: number; over?: number }[], bed: { tile: number; gone: number; start?: number }[] = []): DroughtLine {
   const l = emptyDroughtLine(W, H, 9);
   l.line = {
     count: entries.length,
@@ -18,6 +19,8 @@ function lineOf(entries: { tile: number; sides: number; level: number; start?: n
     level: Float32Array.from(entries.map((e) => e.level)),
     start: Uint8Array.from(entries.map((e) => e.start ?? 0)),
     under: Uint8Array.from(entries.map((e) => e.under ?? 0)),
+    onWater: Uint8Array.from(entries.map((e) => e.onWater ?? 0)),
+    over: Float32Array.from(entries.map((e) => e.over ?? 0)),
   };
   l.bed = { count: bed.length, tile: Int32Array.from(bed.map((b) => b.tile)), gone: Uint8Array.from(bed.map((b) => b.gone)), start: Uint8Array.from(bed.map((b) => b.start ?? 0)) };
   return l;
@@ -116,11 +119,24 @@ describe("the drought line's geometry", () => {
     expect(b).toBeCloseTo(LINE_ALPHA.other, 5);
     // faint: an editing aid, never as strong as a selection's outline
     expect(LINE_ALPHA.start).toBeLessThanOrEqual(0.5);
-    // under today's water (the line says so: `under`) it is seen through the water, fainter still
-    expect(quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4, under: 1 }]), heights).line)[0].a).toBeCloseTo(LINE_ALPHA.other * UNDER_WATER, 5);
-    expect(quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4, under: 1, start: 1 }]), heights).line)[0].a).toBeCloseTo(LINE_ALPHA.start * UNDER_WATER, 5);
+    // under today's water (the line says so: `under`) it is seen through the water as the bed is, by the game's
+    // see-through at that depth (D148: a flat 0.4 until the line was drawn on the bed, planning 2026-10-30)
+    expect(quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4, under: 1, over: 1 }]), heights).line)[0].a).toBeCloseTo(LINE_ALPHA.other * underWater(1), 5);
+    expect(quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4, under: 1, start: 1, over: 2 }]), heights).line)[0].a).toBeCloseTo(LINE_ALPHA.start * underWater(2), 5);
+    expect(underWater(0)).toBeCloseTo(0.175, 5);
+    expect(underWater(5)).toBe(0);
     expect(a).toBeGreaterThan(b);
     expect(a).toBeLessThan(1);
+    // where today's water goes on across the line (`onWater`), as faint as under it, side by side: a tile on today's
+    // shore keeps its strength there
+    const both = quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST | SIDE_WEST, level: 4, onWater: SIDE_EAST }]), heights).line);
+    // (tile 10 is x 2: its east side's strips lie past x 2.5)
+    const eastSide = both.filter((q) => Math.min(...q.b.x) > 2.5);
+    expect(both.some((q) => Math.abs(q.a - LINE_ALPHA.other * underWater(0)) < 1e-6)).toBe(true);
+    expect(both.some((q) => Math.abs(q.a - LINE_ALPHA.other) < 1e-6)).toBe(true);
+    expect(eastSide.every((q) => Math.abs(q.a - LINE_ALPHA.other * underWater(0)) < 1e-6)).toBe(true);
+    // (never fainter twice over: under today's water, by its depth alone)
+    expect(quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4, under: 1, onWater: SIDE_EAST, over: 1 }]), heights).line)[0].a).toBeCloseTo(LINE_ALPHA.other * underWater(1), 5);
     // the tint's opacity per look: the start's a little stronger, High's near-opaque water asking for more, all faint
     for (const look of [TINT_ALPHA.standard, TINT_ALPHA.high]) {
       expect(look.start).toBeGreaterThan(look.other);
@@ -154,5 +170,72 @@ describe("the drought line's geometry", () => {
     // (a vertex carries 1 on the start's water, else 0: the tint's shader turns it into the look's opacity)
     expect(qs.find((q) => q.b.z[1] === -4)!.a).toBe(1);
     expect(qs.find((q) => q.b.z[1] === -1)!.a).toBe(0);
+  });
+});
+
+describe("the line over today's water below a fall", () => {
+  it("marks the sides where today's water goes on across the last day's shore, and not today's own shore", () => {
+    // west to east on one row of 8 between dry banks: a pool at 6 falling to a river at 3 (x 2–7), all wet today; on the
+    // drought's last day the river holds water only at x 2–4 (the pool keeps its own): the last day's shore at x 4's
+    // east side lies in the middle of today's river
+    const W8 = 8;
+    const H3 = 3;
+    const N = W8 * H3;
+    const heights = new Uint8Array(N).fill(9);
+    const depth = new Float32Array(N);
+    const last = new Float32Array(N);
+    for (let x = 0; x < W8; x++) {
+      const i = W8 + x;
+      heights[i] = x < 2 ? 6 : 3;
+      depth[i] = 0.5;
+      last[i] = x < 2 || x <= 4 ? 0.4 : 0;
+    }
+    const line = droughtLine({ W: W8, H: H3, heights, settled: { depth, contamination: new Float32Array(N) }, last, days: 9, startWater: null });
+    const at = (x: number) => [...line.line.tile].indexOf(W8 + x);
+    // x 4: its east side faces x 5, dry on the last day but wet today: on today's water
+    expect(at(4)).toBeGreaterThanOrEqual(0);
+    expect(line.line.sides[at(4)] & SIDE_EAST).toBeTruthy();
+    expect(line.line.onWater[at(4)]).toBe(SIDE_EAST);
+    // the sides facing the dry banks are today's own shore: not on today's water
+    for (let k = 0; k < line.line.count; k++) expect(line.line.onWater[k] & (SIDE_NORTH | SIDE_SOUTH)).toBe(0);
+    // drawn: the strip over today's river as faint as under today's water
+    const g = quads(droughtLineGeometry(line, heights).line);
+    const east = g.filter((q) => Math.min(...q.b.x) >= 4.5 && Math.max(...q.b.x) <= 5.01);
+    expect(east.length).toBeGreaterThan(0);
+    for (const q of east) expect(q.a).toBeCloseTo(LINE_ALPHA.other * underWater(0.1), 5);
+  });
+
+  it("holds the line below Canyon 128² seed 3's river fall to the bed's see-through, its shore 1.46 under today's river", () => {
+    // (the case planning ruled on, 2026-10-30: the start's water, today at 10.6 over its last day's 9.14; the line read
+    // as a white zigzag at 0.45 × 0.4; now as the bed reads through 1.46 levels of water)
+    const g = quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST | SIDE_SOUTH, level: 9.14, start: 1, under: 1, onWater: SIDE_SOUTH, over: 1.46 }]), heights).line);
+    for (const q of g) expect(q.a).toBeCloseTo(LINE_ALPHA.start * underWater(1.46), 5);
+    expect(LINE_ALPHA.start * underWater(1.46)).toBeLessThan(0.06);
+  });
+
+  it("keeps its full strength on a dry stretch, where no water stands over it today", () => {
+    // a pond that keeps its level through the drought on one side (its shore today and on the last day alike) and falls
+    // on the other: the kept shore is drawn at full strength, so the aid is never lost where there is no water
+    const W8 = 8;
+    const H3 = 3;
+    const N = W8 * H3;
+    const hts = new Uint8Array(N).fill(9);
+    const depth = new Float32Array(N);
+    const last = new Float32Array(N);
+    for (let x = 1; x < 7; x++) {
+      const i = W8 + x;
+      hts[i] = 4;
+      depth[i] = x < 4 ? 0.5 : 0.8;
+      last[i] = x < 4 ? 0.5 : x < 6 ? 0.3 : 0;
+    }
+    const line = droughtLine({ W: W8, H: H3, heights: hts, settled: { depth, contamination: new Float32Array(N) }, last, days: 9, startWater: null });
+    const at = (x: number) => [...line.line.tile].indexOf(W8 + x);
+    expect(line.line.under[at(1)]).toBe(0);
+    expect(line.line.onWater[at(1)]).toBe(0);
+    const g = quads(droughtLineGeometry(line, hts).line);
+    // x 1's west side: today's shore, dry beyond it, nothing over it
+    const west = g.filter((q) => Math.max(...q.b.x) <= 1.5);
+    expect(west.length).toBeGreaterThan(0);
+    for (const q of west) expect(q.a).toBeCloseTo(LINE_ALPHA.other, 5);
   });
 });
