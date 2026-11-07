@@ -141,10 +141,10 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   the heightfield mesher saw. The mesher reads per-tile arrays, so the columns are dealt into layers (`waterLayers`):
   the open sky's first (each tile's top and the water on it, the renderer's surface water itself on a map with no
   water under a roof), then each other column into the first layer whose gaps agree with what it sees within
-  `LAYER_REACH` (4 tiles: a fall's lips, their pools and the badwater blend round them; checked against a reach of 12,
-  the same quads and falls on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
-  `plainLayers(heights, sw)` is the one layer of a map without caves. Every column's falls pour its own outflow
-  (part 4b); a view without outflows estimates them from the depth, as a fall without outflows always has (`falls.ts`).
+  `LAYER_REACH` (4 tiles: a top's corners and curtains and the badwater blend round them; checked against a reach of
+  12, the same quads on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
+  `plainLayers(heights, sw)` is the one layer of a map without caves. A fall is a column's own curtain down to the
+  water below (D201 amended 2026-10-29).
 - **Where it runs:** only where a column needs a layer of its own (`needsLayers`: water under a roof, or open water
   beside a roof that sees under it). A map with an arch or an overhang and no such water draws its water as a
   heightfield's, its moving water meshed in the workers as on dev. With layers, a new water view (a journey's frame, a
@@ -468,9 +468,9 @@ Standard's shadow before a cave (item 8).
   the frames until then draw with the program it has.
   - **Compiled ahead:** half a second after a map is drawn, while the page is idle, and at once when a layer cut is set
     (how a hollow is dug), the programs an edit could need: the look's in every state a map can reach (cut and caves,
-    their floors' soil, an overhang alone, plain; the likeliest first), the falls' and water's while none are drawn, the
+    their floors' soil, an overhang alone, plain; the likeliest first), the water's while none is drawn, the
     drought line's; then the other look's in every state too (in Standard the High look's, from a copy of its
-    materials, its mist and the sun's depth map included; in High Standard's). Leaving High keeps its programs in every
+    materials and the sun's depth map included; in High Standard's). Leaving High keeps its programs in every
     state, so a switch back and a dig right after are drawn at once.
   - **A switch's program first:** the browser compiles what it is sent in turn, so the programs compiled ahead are
     sent two at a time (`WARM_IN_FLIGHT`), and none while a switch waits for its own (a dig's branches, or the switch
@@ -557,6 +557,15 @@ Standard's shadow before a cave (item 8).
     1280×800, SwiftShader).
   - The post chain: URP's LDR grading under Gamma: to linear, +0.15 EV, Neutral tonemapping, contrast +14 round
     ACEScc's mid grey in LogC, saturation +3, back to display values; the sky takes it too.
+  - Editing aids are drawn after the fog and the post chain, in their own channel, so they keep their full contrast:
+    the selection and footprints, hatching, the Markers' outlines and their ledge and groove on walls, level lines,
+    the hovered tile, clear water's veil (D196, D212), the water's overlays, the sources' wells, the pointer's source's
+    glow and a highlighted source (D196, D249), and a highlighted object or the placement ghost (its instance colour
+    comes negative, less 10 times its tint's index, and the shader tints it after the grade: `AID_TINT`). The slice's
+    cut cap is the cut view's look (D207) and is graded.
+  - An eruption's lava (D206, D378) is its own light, as a URP emission: bright enough (3.2, 0.5, 0.02 at its
+    hottest) to come through the Neutral tonemap the strong orange it was, and fogged with distance as URP fogs
+    emission.
   - Not drawn: `m_AmbientIntensity` 1.2, unsettled (Unity's Lighting window offers it for Skybox ambient only, but the
     game's shade against its sun points to an ambient about 1.2× ours: the frame capture decides), and bloom
     (threshold 1.5: highlights only).

@@ -6,7 +6,9 @@ import { describe, expect, it } from "vitest";
 import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { buildMap, type GeneratedField } from "../../src/core/features/build";
-import { generate } from "../../src/core/gen/generate";
+import { readTimber, writeTimber } from "../../src/core/format/timber";
+import { generate, validateBuilt } from "../../src/core/gen/generate";
+import { toTimberFile } from "../../src/core/gen/pack";
 import { standProblem } from "../../src/core/features/objects";
 import { FORMS, type FormId } from "../../src/core/land/forms3d";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -109,6 +111,28 @@ describe("a generated map's 3D forms (D488)", () => {
     expect(left.map((x) => [x.x, x.y])).toContainEqual([src.x, src.y]);
     expect(left[0].why).toMatch(/relic stands there/i);
     expect(b.entities.some((e) => e.template === "WaterSource" && e.x === src.x && e.y === src.y)).toBe(false);
+  });
+
+  it("its file without pre-filled water is the same map, dry on every level its caves need, and loads", () => {
+    const r = canyon3();
+    const empty = readTimber(writeTimber(toTimberFile(r.spec, r.built, { emptyWater: true })));
+    const full = readTimber(r.bytes).world;
+    const report = validateBuilt(r.spec, r.features, r.built, empty).report;
+    expect(report.checks.find((c) => c.id === "file.arrays")).toMatchObject({ ok: true });
+    expect(report.checks.filter((c) => c.class === "load" && !c.ok).map((c) => c.message)).toEqual([]);
+    expect(report.passed).toBe(true);
+    // the same ground and objects
+    expect(sha(empty.world.voxels)).toBe(sha(full.voxels));
+    expect(empty.world.entities).toEqual(full.entities);
+    // the levels the full file writes, all dry
+    const s = empty.world.singletons as Record<string, { Levels?: number; Size?: number; WaterColumns?: { Array: string }; MoistureLevels?: { Array: string } }>;
+    const f = full.singletons as typeof s;
+    expect(s.WaterMapNew.Levels).toBe(f.WaterMapNew.Levels);
+    expect(s.WaterMapNew.Levels).toBeGreaterThan(1);
+    expect(s.WaterEvaporationMap.Levels).toBe(f.WaterEvaporationMap.Levels);
+    expect(s.SoilMoistureSimulator.Size).toBe(f.SoilMoistureSimulator.Size);
+    expect(s.WaterMapNew.WaterColumns!.Array.split(" ").every((t) => t === "0")).toBe(true);
+    expect(s.SoilMoistureSimulator.MoistureLevels!.Array.split(" ").every((t) => t === "0")).toBe(true);
   });
 
   it("at Verticality 0 the same map grows none", () => {

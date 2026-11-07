@@ -13,6 +13,17 @@
 //
 // Pure: it reads the soil each kept day gives (day 0 the map's own) and says which plants are dead on the last of them. The
 // map, the water and the plants themselves are never touched; the view draws them withered.
+//
+// Which living plants are dying now (`dyingCause`), as the game shows them: each plant has three models, alive, dying and
+// dead (`NaturalResourceLifecycleModel`: `#Dying` while `DyingNaturalResource.IsDying` and not dead), and it is dying
+// while any of its timers runs, each from the moment its cause starts until the cause ends (the timer reset) or the plant
+// dies. So it needs only the ground as it is now, on Day 0 as on any held day:
+// - dry: a watered species (every land plant) on a tile whose moisture is 0 (`WateredNaturalResource`, `DryObject`);
+// - wet: an arid species (the Succulent) on a moist tile (`AridNaturalResource`);
+// - contaminated: soil contamination above 0, any species (`ContaminatedNaturalResource`);
+// - out of its water band: water above the plant's base outside the species' `MinWaterHeight`..`MaxWaterHeight`
+//   (`LivingWaterObject`: `WaterAboveBase = ceil(floor + depth) − z`, so any water at all on a land plant's tile floods
+//   it; the Mangrove wants exactly 1).
 
 /** The game's `DaysToDieDry` per species (blueprints `NaturalResources/*`, water_and_soil.md Q4). The Succulent has none. */
 export const DAYS_TO_DIE_DRY: Readonly<Record<string, number>> = {
@@ -43,6 +54,49 @@ export interface Plant {
 export interface DaySoil {
   moisture: ArrayLike<number>;
   contamination: ArrayLike<number>;
+}
+
+/** Each species' water band (blueprints `FloodableNaturalResourceSpec` `MinWaterHeight`, `MaxWaterHeight`). */
+export const WATER_BAND: Readonly<Record<string, readonly [number, number]>> = {
+  Pine: [0, 0],
+  Birch: [0, 0],
+  Oak: [0, 0],
+  Maple: [0, 0],
+  ChestnutTree: [0, 0],
+  Mangrove: [1, 1],
+  BlueberryBush: [0, 0],
+  Dandelion: [0, 0],
+  CoffeeBush: [0, 0],
+  Succulent: [0, 0],
+};
+
+/** The ground under a plant now: its tile's soil at the plant's level, and the water above its base in whole levels
+ *  (`ceil(floor + depth) − z` of the water standing on that ground, 0 with none). */
+export interface PlantGround {
+  moisture: number;
+  contamination: number;
+  waterAboveBase: number;
+}
+
+export type DyingCause = "contaminated" | "flooded" | "stranded" | "dry" | "wet";
+
+/** Why a living plant of `template` on `ground` is dying now, or null when it is not (or the game has no such rule for
+ *  it). The first cause that holds, in this order, when several do. */
+export function dyingCause(template: string, ground: PlantGround): DyingCause | null {
+  const band = WATER_BAND[template];
+  if (!band) return null;
+  if (ground.contamination > 0) return "contaminated";
+  if (ground.waterAboveBase > band[1]) return "flooded";
+  if (ground.waterAboveBase < band[0]) return "stranded";
+  if (template === "Succulent") return ground.moisture > 0 ? "wet" : null;
+  return ground.moisture > 0 ? null : "dry";
+}
+
+/** The water above a plant's base at level `z` on its tile, from the water standing on that ground (`floor` its bottom,
+ *  `depth` its depth; NaN or a floor at another level: none). */
+export function waterAboveBase(z: number, floor: number, depth: number): number {
+  if (!(depth > 0) || Math.round(floor) !== z) return 0;
+  return Math.ceil(floor + depth) - z;
 }
 
 /** The plants that are dead by the last of `days` (`days[0]` the map's own soil, day 0; `days[k]` the soil of day k):

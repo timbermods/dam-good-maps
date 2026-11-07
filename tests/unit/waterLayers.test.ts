@@ -11,7 +11,6 @@ import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { outflowsOf } from "../../src/render3d/current";
-import { FALL_STRIDE, fallPoint } from "../../src/render3d/falls";
 import { chunkCount } from "../../src/render3d/mesh";
 import { columnMap, LAYERS, surfaceWater, waterFromDepth, type WaterView } from "../../src/render3d/model";
 import { meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
@@ -23,8 +22,7 @@ const bytes = (a: ArrayBufferView) => Buffer.from(a.buffer, a.byteOffset, a.byte
 
 function same(a: HeightfieldWaterMesh, b: WaterMeshData, at: string): void {
   expect(b.quads, `quads, ${at}`).toBe(a.quads);
-  expect(b.fallCount, `falls, ${at}`).toBe(a.fallCount);
-  for (const k of ["positions", "data", "flags", "normals", "indices", "falls"] as const) expect(bytes(b[k]).equals(bytes(a[k])), `${k}, ${at}`).toBe(true);
+  for (const k of ["positions", "data", "flags", "normals", "indices"] as const) expect(bytes(b[k]).equals(bytes(a[k])), `${k}, ${at}`).toBe(true);
 }
 
 describe("water on maps without terrain above terrain", () => {
@@ -55,7 +53,8 @@ describe("water on maps without terrain above terrain", () => {
     for (let cy = 0; cy < ny; cy++)
       for (let cx = 0; cx < nx; cx++) {
         const a = heightfieldWaterChunk(W, H, heights, sw, cx, cy);
-        falls += a.fallCount;
+        // (a fall is a curtain down to lower water, D201 amended 2026-10-29: its drop in its flags)
+        for (let q = 0; q < a.quads; q++) if (a.normals[q * 12 + 1] === 0 && a.flags[q * 4] >= 9 && a.flags[q * 4] < 255) falls++;
         same(a, meshWaterChunk(W, H, plainLayers(heights, sw), cx, cy), `chunk ${cx},${cy}`);
         same(a, meshWaterChunk(W, H, layered, cx, cy), `chunk ${cx},${cy}, per column`);
       }
@@ -107,29 +106,29 @@ function ceilingOf(s: Scene, x: number, y: number, f: number): number {
 /** Whether a world point (X, Y, Z = −y) is in rock. */
 const rockAt = (s: Scene, X: number, Y: number, Z: number) => s.solid(Math.floor(X), Math.floor(-Z), Math.floor(Y));
 
-/** A chunk's quads and falls, each as its numbers, sorted (the layers' order aside). */
+/** A chunk's quads (its tops and curtains, falls among them), each as its numbers, sorted (the layers' order aside). */
 function pieces(m: WaterMeshData): string[] {
   const out: string[] = [];
   for (let q = 0; q < m.quads; q++) out.push([...m.positions.subarray(q * 12, q * 12 + 12), ...m.data.subarray(q * 8, q * 8 + 8), ...m.flags.subarray(q * 4, q * 4 + 4)].join(","));
-  for (let k = 0; k < m.fallCount; k++) out.push("fall " + [...m.falls.subarray(k * FALL_STRIDE, (k + 1) * FALL_STRIDE)].join(","));
   return out.sort();
 }
 
 /** Every chunk of the scene's water, with what was checked: each column's top drawn once at its own surface, under
- *  its ceiling; no quad and no fall through rock (points across each face just off it on both sides, a top's
- *  below it). */
+ *  its ceiling; no quad through rock, a fall's face among them (points across each face just off it on both sides, a
+ *  top's below it). */
 function checkScene(s: Scene) {
   const { W, H } = s;
   const sw = surfaceWater(W, H, s.view);
   const layers = waterLayers(W, H, s.heights, s.columns, s.view, sw);
   // what a column sees beyond LAYER_REACH is never read: dealt with a far wider reach (more layers), every chunk
-  // draws the same quads and falls
+  // draws the same quads
   const wide = waterLayers(W, H, s.heights, s.columns, s.view, sw, 12);
   const { nx, ny } = chunkCount(W, H);
   for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) expect(pieces(meshWaterChunk(W, H, wide, cx, cy)), `chunk ${cx},${cy} with a wider reach`).toEqual(pieces(meshWaterChunk(W, H, layers, cx, cy)));
   const tops = new Map<string, number>();
   let quads = 0;
-  let falls = 0;
+  /** Each curtain's top and bottom (a fall is one down to lower water: D201 amended 2026-10-29). */
+  const sides: [number, number][] = [];
   for (let cy = 0; cy < ny; cy++)
     for (let cx = 0; cx < nx; cx++) {
       const m = meshWaterChunk(W, H, layers, cx, cy);
@@ -138,6 +137,7 @@ function checkScene(s: Scene) {
         const p = m.positions.subarray(q * 12, q * 12 + 12);
         const n = [m.normals[q * 12], m.normals[q * 12 + 1], m.normals[q * 12 + 2]].map((v) => Math.sign(v));
         const top = n[1] > 0;
+        if (!top) sides.push([Math.max(p[1], p[4], p[7], p[10]), Math.min(p[1], p[4], p[7], p[10])]);
         if (top) {
           const key = `${Math.floor(p[0])},${Math.floor(-p[2])},${p[1].toFixed(4)}`;
           tops.set(key, (tops.get(key) ?? 0) + 1);
@@ -152,15 +152,6 @@ function checkScene(s: Scene) {
             }
           }
       }
-      for (let k = 0; k < m.fallCount; k++) {
-        falls++;
-        const f = m.falls.subarray(k * FALL_STRIDE, (k + 1) * FALL_STRIDE);
-        for (const u of [0, 1] as const)
-          for (const w of [0, 0.25, 0.5, 0.75, 1]) {
-            const [X, Y, Z] = fallPoint(f, u, w);
-            expect(rockAt(s, X, Y - 0.004, Z), `fall ${k} at ${[X, Y, Z].map((c) => c.toFixed(2))} in rock`).toBe(false);
-          }
-      }
     }
   // every column's top, once, at its own surface, never above its ceiling
   const { view } = s;
@@ -173,7 +164,7 @@ function checkScene(s: Scene) {
     expect(tops.get(`${x},${y},${surface.toFixed(4)}`), `column ${k} (${x},${y}) drawn once at ${surface}`).toBe(1);
   }
   expect([...tops.values()].reduce((a, b) => a + b, 0), "no other tops").toBe(view.count);
-  return { layers: layers.length, quads, falls };
+  return { layers: layers.length, quads, sides };
 }
 
 describe("water at several levels", () => {
@@ -215,8 +206,8 @@ describe("water at several levels", () => {
   it("each column on its own floor and surface, under its ceiling, and nothing drawn through rock", () => {
     const r = checkScene(s);
     expect(r.layers, "the cave's water in a layer of its own").toBeGreaterThanOrEqual(2);
-    // the ledge's water falls into the pool below it, inside the cave
-    expect(r.falls).toBeGreaterThan(0);
+    // the ledge's water falls into the pool below it, inside the cave: its face from 6.4 down to 5.5
+    expect(r.sides.some(([t, b]) => Math.abs(t - 6.4) < 1e-4 && Math.abs(b - 5.5) < 1e-4)).toBe(true);
   });
 
   it("a change of water remeshes only the chunks within reach of the columns that changed: every other chunk is the same", () => {
@@ -306,7 +297,7 @@ describe("the official maps with caves' water (local only)", () => {
       waterLayers(v.W, v.H, v.heights, columns, v.water, surfaceWater(v.W, v.H, v.water));
       const ms = performance.now() - t0;
       const r = checkScene(s);
-      console.log(`${name}: ${v.water.count} columns, ${r.layers} layers (${ms.toFixed(1)} ms), ${r.quads} quads, ${r.falls} falls`);
+      console.log(`${name}: ${v.water.count} columns, ${r.layers} layers (${ms.toFixed(1)} ms), ${r.quads} quads, ${r.sides.length} curtains`);
     });
   }
 });
