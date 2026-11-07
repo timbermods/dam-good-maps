@@ -1120,8 +1120,9 @@ Two looks (Map look 2, D147, D242, D250, D284):
   water's own face where it steps down, in its own colour and a tenth see-through, with no foam or whitewater, a face at
   each step of a cascade (D201 amended 2026-10-29).
 - **High**, the same view finished further: water coloured by depth with clear shallows, fine crests and flecks
-  moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, ambient
-  occlusion, a colour-preserving tone curve, distance haze, sky, rock strata and soil edges (#65); trees and bushes
+  moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, sky, rock
+  strata and soil edges (#65; its ambient occlusion, tone curve and haze gave way to the game's light, fog and post
+  chain in every look, D497); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
   rock with a soil cap and the water's section, rough water below falls (#67; its crowns, landings, froth, mist and
   splash rings removed with D201's amendment, 2026-10-29). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
@@ -1759,7 +1760,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     (`materials.ts` `ShaderHooks`), and only in High's own materials, which the meshes swap to while the look is
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
     hover, ground mode and an eruption's heat). A 2048² sun depth map (redrawn only when the terrain or objects
-    change, at most ten times a second while a brush paints), ambient occlusion made in a small worker
+    change, at most ten times a second while a brush paints), the water's fields made in a small worker
     (`bake.worker.ts`, one for the page, shared by every view), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.

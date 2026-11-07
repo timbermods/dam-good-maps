@@ -6,7 +6,7 @@
 // vertical faces where it steps down (waterMesh.ts; D201 amended 2026-10-29: as the game draws them).
 //
 // Map look (D86): the ground is coloured by soil (or by height, `setGroundMode`); the light is
-// baked when the mesh is built (light.ts: sky visibility, soft sun shadows) into two textures the
+// baked when the mesh is built (light.ts: soft sun shadows) into two textures the
 // shaders read with the per-tile overlay; the default camera looks as the game's does, 30° east of
 // north and 70° down. The water's surface moves (at 30 frames a second at most) unless the viewer
 // prefers reduced motion, the browser renders in software, or the view is hidden. A browser that
@@ -73,10 +73,10 @@ import type { DroughtLine } from "../core/sim/droughtLine";
 import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
 import { whenIdle } from "./idle";
-import { castersChangedRects, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
+import { castersChangedRects, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
@@ -85,7 +85,7 @@ import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
-import { SKY, type GroundMode } from "./palette";
+import { GAME_FINISH, SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, waterChangedRect, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
@@ -150,6 +150,7 @@ export type Look = Tier | "light";
 
 /** A highlighted source's tint (Remove's red on a source, Clear sources' glow, D249): its blue made
  *  a clear red. */
+/** A highlighted source's tint, after the grade (an editing aid, D249, D497). */
 const SOURCE_GLOW: [number, number, number] = [3, 0.3, 0.2];
 
 /** The edges of the canvas the page's controls cover, in CSS pixels (framing keeps the map clear of them). */
@@ -246,8 +247,7 @@ interface MapState {
   surface: SurfaceWater;
   entities: EntityView;
   soil: SoilView | null;
-  /** Baked: sky visibility per tile, and the terrain shader's tile data. */
-  sky: Uint8Array;
+  /** Baked: the terrain shader's tile data. */
   tiles: Uint8Array;
 }
 
@@ -554,6 +554,7 @@ export class MapRenderer {
     // placeholder textures until a map arrives; every material shares these uniforms
     const one = () => tileTexture(1, 1, new Uint8Array(4));
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
+    this.uniforms.sourceTint.value.set(...SOURCE_GLOW);
     this.patterns = drawPatterns(this.gl);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
     this.edgeRows = new RowUploads(this.gl, () => this.edges);
@@ -1070,6 +1071,7 @@ export class MapRenderer {
     this.chosenEffects = { ...this.chosenEffects, [key]: on };
     saveOff(HIGH_EFFECTS.filter((e) => !this.chosenEffects[e.key]).map((e) => e.key));
     this.high?.setEffects(this.chosenEffects, this.lookNow === "lower");
+    this.applyFog();
     this.requestRender();
     this.tellLook();
   }
@@ -1155,7 +1157,6 @@ export class MapRenderer {
           requestRender: () => this.requestRender(),
           motion: () => !this.reducedMotion,
           casters: () => this.shadowCasters(),
-          objectsHidden: () => this.objectsHiddenNow,
           groundOffset: (x, y) => this.groundOffset(x, y),
           baker: this.baker,
           flow: () => {
@@ -1215,6 +1216,7 @@ export class MapRenderer {
     }
     this.governor?.hold(performance.now());
     this.applyWithered();
+    this.applyFog();
     this.requestRender();
     if (was !== tier) {
       this.tellLook();
@@ -1407,10 +1409,9 @@ export class MapRenderer {
     const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), masks: columnMasks(W * H, v.columns), cutout: mineCutout(v.entities, W, H) };
     this.columnsSent = { tiles: v.columns.tiles, voxels: v.columns.voxels, key: ++this.columnsKey };
     const surface = surfaceWater(W, H, v.water);
-    const sky = skyVisibility(W, H, heights);
     const soil = v.soil ?? null;
-    const tiles = tileData(W, H, heights, sky, soil, surface);
-    this.map = { W, H, heights, source, water: v.water, surface, entities: v.entities, soil, sky, tiles };
+    const tiles = tileData(W, H, heights, soil, surface);
+    this.map = { W, H, heights, source, water: v.water, surface, entities: v.entities, soil, tiles };
     this.heightStats = null;
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
@@ -1437,7 +1438,7 @@ export class MapRenderer {
     this.casters = this.castersNow();
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
     this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns)));
-    this.cave = CaveLight.build(source, sky);
+    this.cave = CaveLight.build(source);
     this.caveTex = this.cave ? caveTexture(this.cave) : null;
     const u = this.uniforms;
     u.caveTex.value = this.caveTex ?? this.noCave;
@@ -1844,7 +1845,7 @@ export class MapRenderer {
     if (want === !!this.cave) return;
     const u = this.uniforms;
     if (want) {
-      this.cave = CaveLight.build(m.source, m.sky);
+      this.cave = CaveLight.build(m.source);
       this.caveTex = this.cave ? caveTexture(this.cave) : null;
       u.caveTex.value = this.caveTex ?? this.noCave;
       if (this.cave) {
@@ -1868,7 +1869,7 @@ export class MapRenderer {
   private relightCaves(rect: { x0: number; y0: number; x1: number; y1: number }): void {
     const m = this.map;
     if (!m || !this.cave) return;
-    const box = this.cave.relight(m.source, m.sky, rect);
+    const box = this.cave.relight(m.source, rect);
     this.caveRows.touch(box.x0, box.y0, box.x1, box.y1);
     // (the land may have risen: the march under roofs runs up to the highest ground)
     this.uniforms.caveTop.value = this.cave.highest;
@@ -1879,7 +1880,7 @@ export class MapRenderer {
   private bakeTiles(): void {
     const m = this.map;
     if (!m || !this.tileTex) return;
-    const c = tileDataChanges(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles);
+    const c = tileDataChanges(m.W, m.H, m.heights, m.soil, m.surface, m.tiles);
     for (const r of c.rows) this.tileRows.touch(r.x0, r.y, r.x1, r.y);
     this.redoEdges(c.edgeRows);
   }
@@ -2024,12 +2025,11 @@ export class MapRenderer {
     if (!rect) return 0;
     const chunks = dirtyChunks(m.W, m.H, rect);
     for (const [cx, cy] of chunks) this.meshTerrain(cx, cy);
-    // the light round what changed: the sky each tile sees, the tile data, the shadows (the same
-    // bytes as baking the whole map); and the water's shores there
-    const r = SKY_REACH;
-    skyVisibilityRect(m.W, m.H, heights, m.sky, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
+    // the light round what changed: the tile data, the shadows (the same bytes as baking the whole map); and the
+    // water's shores there
+    const r = TILE_REACH;
     if (this.tileTex) {
-      tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
+      tileDataRect(m.W, m.H, heights, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       this.tileRows.touch(rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       // (the contamination outline reads the tile data, a tile further)
       if (this.edges) {
@@ -2120,7 +2120,7 @@ export class MapRenderer {
     const m = this.map!;
     const g = { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 };
     if (this.tileTex) {
-      tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, g.x0, g.y0, g.x1, g.y1);
+      tileDataRect(m.W, m.H, m.heights, m.soil, m.surface, m.tiles, g.x0, g.y0, g.x1, g.y1);
       this.tileRows.touch(g.x0, g.y0, g.x1, g.y1);
       this.edgesAround(g.x0, g.y0, g.x1, g.y1);
     }
@@ -2370,7 +2370,7 @@ export class MapRenderer {
   /** The ground's tile data under a water chunk drawn anew (the water over each top). */
   private waterTiles(m: MapState, cx: number, cy: number): void {
     if (!this.tileTex) return;
-    tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+    tileDataRect(m.W, m.H, m.heights, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.edgesAround(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
   }
@@ -2616,7 +2616,7 @@ export class MapRenderer {
     this.pendingLand = null;
     if (!m || !rect || !this.drawnLand) return false;
     const heights = m.heights;
-    const c = terrainChanges(m.W, m.H, this.drawnLand, heights, rect, SKY_REACH);
+    const c = terrainChanges(m.W, m.H, this.drawnLand, heights, rect, TILE_REACH);
     if (!c) return false;
     this.droughtLayer?.retire();
     // the water on the land that changed rides it in this same frame (its own water follows, worked
@@ -2632,9 +2632,8 @@ export class MapRenderer {
       this.flowChanged(heights, m.surface);
     }
     for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
-    for (const row of c.rows) skyVisibilityRect(m.W, m.H, heights, m.sky, row.x0, row.y, row.x1, row.y);
     if (this.tileTex) {
-      for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
+      for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.tileRows.touch(row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.edgesAround(row.x0, row.y, row.x1, row.y);
     }
@@ -2701,13 +2700,14 @@ export class MapRenderer {
       const undo = this.high?.decorate(group, one);
       // (an editing aid: never faded round the pointer or hidden with the objects, objectFade.ts)
       markEditingAid(group);
-      const tint: [number, number, number] | null = g.ok === null ? null : g.ok === "warn" ? [1.4, 1.1, 0.5] : g.ok ? [0.7, 1.3, 0.7] : [1.5, 0.55, 0.5];
-      if (tint)
+      // (its tint an editing aid, put on after the grade: materials.ts AID_TINT)
+      const tint = g.ok === null ? null : g.ok === "warn" ? AID_TINT.ghost.warns : g.ok ? AID_TINT.ghost.fits : AID_TINT.ghost.refused;
+      if (tint !== null)
         for (const c of group.children) {
           const col = (c as InstancedMesh).instanceColor;
           if (!col) continue;
           const a = col.array as Float32Array;
-          for (let k = 0; k < a.length; k++) a[k] = Math.min(2, a[k] * tint[k % 3]);
+          for (let k = 0; k < a.length; k++) a[k] = -a[k] - 10 * tint;
           col.needsUpdate = true;
         }
       group.renderOrder = 2;
@@ -2843,8 +2843,11 @@ export class MapRenderer {
   }
 
   /** Objects on these tiles show in a colour (Remove's red under the pointer, D184); null puts them
-   *  back as they are. */
+   *  back as they are. The tint is an editing aid, put on after the fog and the post chain (D497, its own channel):
+   *  a highlighted instance's colour goes negative, a source's less 10 more (materials.ts objectMaterial), and the
+   *  shader tints it by `aidTint` or `sourceTint`. */
   highlightObjects(tiles: readonly number[] | null, color: [number, number, number] = [1.6, 0.35, 0.3]): void {
+    this.uniforms.aidTint.value.set(...color);
     for (const l of this.lit) {
       const a = l.mesh.instanceColor!.array as Float32Array;
       a.set(l.color, l.i * 3);
@@ -2879,8 +2882,8 @@ export class MapRenderer {
           this.lit.push({ mesh, i, color: [a[i * 3], a[i * 3 + 1], a[i * 3 + 2]] });
           // (a source's blue would only darken: it turns a clear red, D249)
           const t = m.entities.templates[m.entities.template[k]];
-          const c = t === "WaterSource" || t === "BadwaterSource" ? SOURCE_GLOW : color;
-          for (let j = 0; j < 3; j++) a[i * 3 + j] = Math.min(2, a[i * 3 + j] * c[j]);
+          const source = t === "WaterSource" || t === "BadwaterSource";
+          for (let j = 0; j < 3; j++) a[i * 3 + j] = -a[i * 3 + j] - 10 * (source ? AID_TINT.source : AID_TINT.highlight);
           mesh.instanceColor.needsUpdate = true;
         }
       }
@@ -3740,11 +3743,19 @@ export class MapRenderer {
       this.persp.updateProjectionMatrix();
       this.persp.updateMatrixWorld();
     }
-    // a light haze beyond the point looked at, none from straight above
+    this.uniforms.viewHeight.value = h;
+    this.applyFog();
+  }
+
+  /** The game's fog (palette.ts GAME_FINISH), as the game draws it up to its farthest default zoom; from farther out,
+   *  an editing view the game doesn't have, held at what that zoom shows, so a whole map stays readable (D497). None
+   *  looking straight down, where the game never looks (the camera sits at 200), nor with High's Fog switched off. */
+  private applyFog(): void {
     const u = this.uniforms;
-    u.viewHeight.value = h;
-    u.hazeAmount.value = v.mode === "top" ? 0 : 0.24;
-    u.hazeRange.value.set(v.distance * 0.85, v.distance * 2.6);
+    const v = this.view;
+    u.fogDensity.value = v.mode === "top" || (this.high && !this.high.effects.fog) ? 0 : GAME_FINISH.fogParam;
+    u.fogShift.value = Math.max(0, v.distance - GAME_FINISH.fogFarthest);
+    u.fogNear.value = this.persp.near;
   }
 
   // --------------------------------------------------------------------------------- rendering
