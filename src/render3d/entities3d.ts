@@ -23,19 +23,19 @@
 //   scaffolding's orange, a cream panel set in where it has one, and a band of ivy low on the lower
 //   storeys of a column on moist ground.
 // - The start: the game's map-editor marker at its measures (D496, D178 amended), a lantern tower of
-//   pale grey stone 4.37 high on its 3 × 3, its door facing the entrance, and a lit post on the entrance tile.
+//   pale stone 4.37 high on its 3 × 3, its door facing the entrance, and a lit post on the entrance tile.
 // - Slopes: a stone ramp; with Markers, a level pale arrow rimmed dark floating just above it,
 //   pointing uphill (it reads from any camera angle). Water sources: an outcrop of dark rock 1.0 high;
 //   badwater sources: a flat dark crater 2.5 across with low stones round its rim. Mine sites (D178): a rusty
 //   frame round the edge of the 5 × 5 footprint and a square pit 1.35 deep filling the rest (the terrain leaves
 //   the footprint's tops out, as the game hides the terrain under the site), with dark earthen walls and floor,
-//   roots, rubble, cracks; rusty posts down into the pit round its lip, joined by beams, and pale ground in the
-//   pit's corners; no scaffolding, as the game has none. With Markers, an outline
+//   roots, rubble, cracks; rusty posts down into the pit round its lip, joined by beams, and ground in the
+//   pit's corners falling into it as an earthen bank; no scaffolding, as the game has none. With Markers, an outline
 //   round its footprint (the terrain shader). Geothermal fields: dark rock with glowing
 //   vents. Relics: broken stone columns on a plinth. Thorns: dark brambles. Blockages and natural
 //   dams: heaps of stones. Timberborn 1.x objects, each shaped after the game's own render and in its game
 //   footprint: seeps (a stone slab at the ground round a pit, the terrain's tops over its 2 × 2
-//   cut out like a mine site's, heaped with rocks to 0.57, or 0.40 for badwater, the gaps dark teal or
+//   cut out like a mine site's, heaped with rounded rocks to 0.57, or 0.40 for badwater, the gaps dark teal or
 //   rust), the aquifer (a dry, dark rubble cross with a hole), its drill (a tall, narrow
 //   yellow-and-black auger tower on a stone footing, a dark housing and a pipe), the badtide drain (a
 //   rusty grated box, its open end out over the drop), the unstable core (a small dark segmented dome
@@ -556,9 +556,10 @@ function liteSucculent(): Model {
 }
 
 /** A seep (2 × 2), as the game's (WaterSeep.Model, BadwaterSeep.Model; D496): a stone slab over the footprint at the
- *  ground, round a pit heaped with rocks that rise above it, to 0.57 for water and 0.40 for badwater, with dark gaps
- *  between them: teal for water, rust orange for badwater. The pit is a terrain cut-out (`mineCutout`), its walls and
- *  floor in the gaps' colour, 0.5 deep for water and 0.2 for badwater, as the game's are. */
+ *  ground, round a pit heaped with rounded rocks a little over half a tile across that rise above it, to 0.57 for water
+ *  and 0.40 for badwater, with dark gaps between them: teal for water, rust orange for badwater. The pit is a terrain
+ *  cut-out (`mineCutout`), its walls and floor in the gaps' colour, 0.5 deep for water and 0.2 for badwater, as the
+ *  game's are. */
 function seep(bad: boolean): Model {
   const slab = bad ? LANDMARK.badSeepSlab : LANDMARK.seepSlab;
   const rock = bad ? LANDMARK.badSeepRock : LANDMARK.seepRock;
@@ -576,21 +577,30 @@ function seep(bad: boolean): Model {
     });
   m.add(plane(2 * a, 2 * a), gap, { rx: -Math.PI / 2, y: -d });
   const top = bad ? 0.4 : 0.57;
-  // the rocks packed over the pit, four by four, the tallest in the middle; each a column of rock standing on the pit's
-  // floor up to its top, the gaps between them narrow and dark, as the game's
-  const at = [-0.56, -0.19, 0.19, 0.56];
-  let k = 0;
-  for (const [i, x] of at.entries())
-    for (const [j, z] of at.entries()) {
-      const middle = (i === 1 || i === 2) && (j === 1 || j === 2);
-      const t = middle ? (i + j === 3 ? 1 : 0.82) : 0.35 + 0.1 * ((i * 3 + j) % 3);
-      const r = middle ? 0.25 : 0.22;
-      const h = (t * top + d) / 2;
-      const jx = 0.04 * Math.sin(k * 2.1);
-      const jz = 0.04 * Math.cos(k * 1.7);
-      m.add(k % 2 ? oct(r) : ico(r), shade(rock, 0.88 + 0.08 * (k % 3)), { x: x + jx, y: -d + h, z: z + jz, sy: h / r, ry: k });
-      k++;
-    }
+  // the rocks heaped over the pit, rounded and about the game's size: nine low ones over it, their tops a little over the
+  // slab, and three in the middle stacked on them, the tallest to the heap's top; the narrow gaps between them dark. Each
+  // given by where it stands, its radius, how much flatter than round it is and its top over the level (as a share of
+  // the water seep's heap: a badwater seep's is lower).
+  const rocks: [number, number, number, number, number][] = [
+    // x, z, radius, height / width, top
+    [-0.5, -0.5, 0.29, 0.72, 0.19],
+    [0.02, -0.53, 0.3, 0.75, 0.25],
+    [0.52, -0.48, 0.28, 0.7, 0.17],
+    [-0.53, 0.01, 0.3, 0.74, 0.24],
+    [0.0, 0.0, 0.31, 0.8, 0.33],
+    [0.51, 0.04, 0.29, 0.72, 0.22],
+    [-0.48, 0.52, 0.28, 0.7, 0.16],
+    [0.04, 0.51, 0.3, 0.74, 0.23],
+    [0.5, 0.5, 0.29, 0.72, 0.18],
+    [-0.16, -0.12, 0.24, 0.85, 0.47],
+    [0.2, 0.14, 0.23, 0.82, 0.42],
+    [0.02, 0.0, 0.2, 0.9, 0.57],
+  ];
+  // (an icosahedron's top vertex stands 0.851 of its radius over its middle)
+  rocks.forEach(([x, z, r, flat, t], k) => {
+    const y = (t * top) / 0.57 - 0.851 * r * flat;
+    m.add(ico(r), shade(rock, 0.86 + 0.07 * (k % 3)), { x, y, z, sx: 1 + 0.08 * Math.sin(k * 2.3), sy: flat, sz: 1 + 0.08 * Math.cos(k * 1.9), ry: k * 0.9 });
+  });
   return m;
 }
 
@@ -771,8 +781,8 @@ export const MINE_PIT = { half: 2.18, depth: 1.35 } as const;
 
 /** A mine site, centred on its 5 × 5 footprint, as the game's (UndergroundRuins.Model; D178, D496): a rusty frame round
  *  the footprint's edge; inside it the pit, filling most of the footprint, with its dark earthen walls and floor, roots
- *  hanging and running over the floor, rock and cracks; pale ground filling its corners, as the game's round pit
- *  leaves them; rusty posts standing down into the pit round its lip, joined by beams. No scaffolding: the game's has
+ *  hanging and running over the floor, rock and cracks; ground in its corners, as the game's round pit leaves them, a
+ *  ledge falling into the pit as an earthen bank along an arc; rusty posts standing down into the pit round its lip, joined by beams. No scaffolding: the game's has
  *  none. Within ±2.5 of the middle: the footprint. */
 function mineSite(): Model {
   const m = new Model();
@@ -847,13 +857,47 @@ function mineSite(): Model {
     [-0.55, 0.15, 0.12, 1],
   ];
   rubble.forEach(([x, z, r, s], k) => m.add(k % 2 ? oct(r) : ico(r), MINE.rubble[s], { x, y: -d + r * 0.4, z, sy: 0.6, ry: k }));
-  // the pit's corners filled with ground up to the level, pale on top (the game's round pit leaves them)
+  // the pit's corners: the ground the game's round pit leaves in its square, a ledge a little under the level (the game's
+  // is 0.1 under) whose edge is an arc, falling into the pit as a bank of topsoil over earth, as the walls are, and a few
+  // stones on it. Each arc runs between the walls `a` from the corner's middle, round the pit's middle.
   const c = 1.0;
-  for (const sx of [-1, 1])
-    for (const sz of [-1, 1]) {
-      m.add(box(c, d, c), MINE.earth, { x: sx * (p - c / 2), y: -d / 2 - 0.02, z: sz * (p - c / 2) });
-      m.add(box(c, 0.04, c), MINE.wood, { x: sx * (p - c / 2), y: -0.02, z: sz * (p - c / 2) });
-    }
+  const arc = (a: number, y: number, n: number): number[][] => {
+    const r = Math.hypot(a, p);
+    const f0 = Math.atan2(p, a);
+    const f1 = Math.atan2(a, p);
+    return Array.from({ length: n + 1 }, (_, i) => {
+      const f = f0 + ((f1 - f0) * i) / n;
+      return [r * Math.cos(f), y + (i % 2 && i < n ? 0.025 * (i % 4 === 1 ? 1 : -1) : 0), -r * Math.sin(f)];
+    });
+  };
+  /** A triangle facing `toward`. */
+  const tri = (a: number[], b: number[], q: number[], color: Rgb, toward: number[]) => {
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const v = [q[0] - a[0], q[1] - a[1], q[2] - a[2]];
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const out = n[0] * toward[0] + n[1] * toward[1] + n[2] * toward[2] >= 0;
+    m.tris([...a, ...(out ? b : q), ...(out ? q : b)], color);
+  };
+  const N = 6;
+  for (let f = 0; f < 4; f++)
+    onFace(m, f, () => {
+      // (built in the north-east corner, x east, z south)
+      const lip = arc(p - c, -0.1, N);
+      const mid = arc(p - c - 0.3, -0.42, N);
+      const foot = arc(p - c - 0.6, -d, N);
+      const corner = [p, -0.08, -p];
+      for (let i = 0; i < N; i++) {
+        tri(corner, lip[i], lip[i + 1], shade(MINE.ledge, 0.92 + 0.08 * ((i + f) % 2)), [0, 1, 0]);
+        for (const [hi, lo, color] of [[lip, mid, MINE.earthTop], [mid, foot, MINE.earth]] as const) {
+          const into = [-(hi[i][0] + hi[i + 1][0]), 0.4, -(hi[i][2] + hi[i + 1][2])];
+          const k = 0.9 + 0.1 * ((i + f) % 2);
+          tri(hi[i], lo[i], lo[i + 1], shade(color, k), into);
+          tri(hi[i], lo[i + 1], hi[i + 1], shade(color, k), into);
+        }
+      }
+      m.add(ico(0.11), MINE.rubble[f % 3], { x: 1.92, y: -0.07, z: -1.9, sy: 0.55, ry: f });
+      m.add(ico(0.075), MINE.rubble[(f + 1) % 3], { x: 1.58 + 0.06 * (f % 2), y: -0.08, z: -2.02, sy: 0.6, ry: f + 1 });
+    });
   // rusty posts down into the pit round its lip, two a side, joined along each side and across each corner
   const e = p - 0.08;
   const q = p - c + 0.02;
@@ -1014,7 +1058,7 @@ const CENTRED: Record<string, [number, number]> = {
   ReserveTank: [0.5, 0.5],
 };
 
-/** The start, as the game's map editor draws it (StartingLocation.Model, D496): a lantern tower of pale grey stone,
+/** The start, as the game's map editor draws it (StartingLocation.Model, D496): a lantern tower of pale stone,
  *  4.37 high, centred on its 3 × 3 footprint, its door toward +Z (south, a Cw0 start's entrance side). A walled base
  *  under a white cornice, a hipped roof, a tapering shaft, a gallery, a lantern of four posts round a dark light, and a
  *  capped top. The game's measures: base 2.86 across to 1.04, cornice 3.0 to 1.18, roof to 1.8, shaft to 2.8, gallery
@@ -1040,7 +1084,7 @@ function startTower(): Model {
   for (const x of [-0.57, 0.57]) for (const z of [-0.57, 0.57]) m.add(bar(0.055, 0.8), START.trim, { x, y: 3.4, z });
   m.add(box(0.52, 0.66, 0.52), START.dark, { y: 3.36 });
   m.add(box(1.32, 0.1, 1.32), START.trim, { y: 3.85 });
-  m.add(new CylinderGeometry(0.3 * Math.SQRT2, 0.6 * Math.SQRT2, 0.4, 4, 1, false), START.roof, { y: 4.1, ry: Math.PI / 4 });
+  m.add(new CylinderGeometry(0.3 * Math.SQRT2, 0.6 * Math.SQRT2, 0.4, 4, 1, false), START.trim, { y: 4.1, ry: Math.PI / 4 });
   m.add(box(0.2, 0.07, 0.2), START.trim, { y: 4.335 });
   return m;
 }

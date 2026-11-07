@@ -1784,7 +1784,8 @@ export class MapRenderer {
    *  was and is (null: anywhere). */
   private fadeArea: { x0: number; y0: number; x1: number; y1: number } | null = null;
 
-  /** The tiles a fade's region may drop casters in (the start's caster stands up to two tiles from its model). */
+  /** The tiles a fade's region may drop casters in: past its edge, with two tiles to spare (each caster is dropped by
+   *  its model's place, `casterPlaces`, which for the start is the tile it casts from). */
   private fadeReach(f: FadeRegion | null): { x0: number; y0: number; x1: number; y1: number } | null {
     if (!f) return null;
     const r = f.radius + OBJECT_FADE_EDGE + 2;

@@ -9,6 +9,7 @@
 import { Color, type BufferGeometry, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
 import { objectMaterial, skyMaterial, terrainMaterial, waterMaterial, type SceneUniforms } from "../materials";
 import type { EntityView, SurfaceWater } from "../model";
+import { HIGH_SUNLIGHT } from "../palette";
 import { allEffects, effectiveEffects, type HighEffects } from "./effects";
 import { AmbientField, type Baker } from "./fields";
 import { Forest, replacedBatch, shapesAhead } from "./forest";
@@ -19,7 +20,7 @@ import { CASTER_LAYER, SHADOW_SIZE, SunShadows } from "./shadows";
 
 /** Warm sunlight (#65): the sun ×(1.48, 1.30, 1.10) and the sky ×0.97 of Standard's; with only the
  *  soft shadows on, #38's balance. */
-export const SUNLIGHT = { sun: [1.48, 1.3, 1.1], sky: 0.97 } as const;
+export const SUNLIGHT = HIGH_SUNLIGHT;
 const SHADOW_BALANCE = { sun: [1.12, 1.06, 0.97], sky: 0.83 } as const;
 
 /** What the High look needs of the renderer. */

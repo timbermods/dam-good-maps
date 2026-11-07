@@ -209,16 +209,6 @@ export const HATCH = { dark: [0.06, 0.05, 0.04] as Rgb } as const;
  *  ground's tops round it, hatched with lighter diagonal stripes (materials.ts, `capped`). */
 export const CUT_CAP = { base: [0.25, 0.265, 0.3] as Rgb, line: [0.36, 0.375, 0.41] as Rgb } as const;
 
-/** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
- *  texture is a neutral grey, its parts shaded by their vertex colours: walls a little darker than the white trim and
- *  cap, the lantern's inside dark. The game's greys at our lightness pass white, so these keep its order of shades. */
-export const START = {
-  stone: [0.8, 0.79, 0.76] as Rgb,
-  trim: [0.94, 0.93, 0.9] as Rgb,
-  roof: [0.7, 0.7, 0.68] as Rgb,
-  dark: [0.36, 0.36, 0.35] as Rgb,
-} as const;
-
 /** The water sources and seeps as the game colours them (D496): its models' albedo (texture × vertex colour, means over
  *  their area, read from resources.assets), at our lightness. A water source is an outcrop of dark rock; a badwater
  *  source a flat dark crater; a seep a stone slab round a pit heaped with rocks, its gaps dark teal (water) or rust
@@ -305,6 +295,9 @@ export const MINE = {
   rope: [0.22, 0.17, 0.12] as Rgb,
   frame: [0.518, 0.302, 0.184] as Rgb,
   wood: [0.655, 0.557, 0.396] as Rgb,
+  /** The ground the game's round pit leaves in its square's corners: its albedo there (UndergroundRuins.Model, the
+   *  up-facing corners' mean, 0.355, 0.285, 0.195) as ours. */
+  ledge: asOurs([0.355, 0.285, 0.195]),
   /** **Markers**: the outline round the footprint. */
   outline: [1.0, 0.56, 0.18] as Rgb,
   outlineDark: [0.1, 0.05, 0.02] as Rgb,
@@ -323,6 +316,36 @@ export const LIGHT = {
   /** The haze: the game's temperate daytime fog (`Sun.blueprint` `DayColors.TemperateWeatherFog`; a held hazard's in
    *  high/seasons.ts `FOG`). */
   haze: [0.4470589, 0.7607844, 0.8235295] as Rgb,
+} as const;
+
+/** High's warm sunlight (#65, high/highLook.ts `SUNLIGHT`): the sun and the sky as factors on Standard's. */
+export const HIGH_SUNLIGHT = { sun: [1.48, 1.3, 1.1] as Rgb, sky: 0.97 } as const;
+/** How High's warm sunlight changes the light on a sunlit wall from Standard's (`LIGHT`, the objects' light in
+ *  materials.ts: the sky × 0.7 and the sun × 0.55 × its cosine on a wall turned 45° from it), over its green: how a colour
+ *  of the game's reads in High, as Standard draws it. High takes it out again for the models given this way
+ *  (high/landmarks.ts). */
+export const WARM_TINT: Rgb = (() => {
+  const ndl = 0.55 * Math.cos(LIGHT.sunElevation) * Math.SQRT1_2;
+  const lit = (sun: Rgb, sky: number) => [0, 1, 2].map((i) => LIGHT.sky[i] * 0.7 * sky + LIGHT.sun[i] * ndl * sun[i]);
+  const std = lit([1, 1, 1], 1);
+  const high = lit(HIGH_SUNLIGHT.sun, HIGH_SUNLIGHT.sky);
+  const r = [0, 1, 2].map((i) => high[i] / std[i]);
+  return [r[0] / r[1], 1, r[2] / r[1]];
+})();
+
+/** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale stone. Its texture is
+ *  a neutral grey, its parts shaded by their vertex colours, area-weighted means read from the game's model: walls and
+ *  shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at 0.96, the lantern's inside and the openings
+ *  about 0.36. At our lightness they all pass white, so they keep the game's ratios with the roof's sunlit side just
+ *  under white, and they are given as they read under High's warm sun (`WARM_TINT`): a pale warm stone, the same in Standard
+ *  as in High, which takes the tint out for its own sun (high/landmarks.ts). */
+const START_SCALE = 0.86 / (0.963 * WARM_TINT[0]);
+const startGrey = (g: number): Rgb => [g * START_SCALE * WARM_TINT[0], g * START_SCALE, g * START_SCALE * WARM_TINT[2]];
+export const START = {
+  stone: startGrey(0.79),
+  trim: startGrey(0.84),
+  roof: startGrey(0.963),
+  dark: startGrey(0.36),
 } as const;
 
 /** Soil moisture (the game's levels, 0–16) and contamination (0–1) as bytes: 0 stays 0, and any
