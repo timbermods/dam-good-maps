@@ -153,8 +153,10 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     if (painter.current?.painting) return painter.current.cancel();
     const s = localUndo.current.pop();
     if (!s) {
-      // (a force just kept: its tails stop at the key, not when the worker answers)
+      // (a force just kept: its tails stop at the key, not when the worker answers: its sound and its effects, which
+      // would play on over land taken back, renderer.ts clearForce)
       juice.current?.takeBack();
+      renderer.current?.clearForce();
       return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
     }
     juice.current?.undo();
