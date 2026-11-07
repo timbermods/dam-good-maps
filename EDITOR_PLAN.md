@@ -1545,9 +1545,11 @@ checks dot counts; every other row is information under Good to know, worded as 
     `draftStack`). A force's own water flows there too while it plays (D371; `startForceStack`): the engine is
     built again on the land and objects each frame shows (Erode's voxels included), a carve's front walls its course
     until the cut reaches it, and kept, the map's water flows on from it (a Slide's water stays where it stood rather
-    than riding its block). That water is only shown: the map keeps the last settle carried over until the canonical
-    settle, run in the background in slices, on several threads where the page has them (`sim/stackParallel.ts`,
-    the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
+    than riding its block). While it flows the map keeps the last settle carried over; an edit's journey stops by the
+    preview's own rule (the volume within 0.2% and at most 0.05% of the tiles moving more than 0.05 between checks,
+    every 128 ticks), and where it came to stand is then the map's preview water, as a plain map's is (D453;
+    `stackPreview`), until the canonical settle, run in the background in slices, on several threads where the page
+    has them (`sim/stackParallel.ts`, the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
     was settles at once (D453): the changed tiles lie more than five tiles from every column the last settle
     ever wet and from every source, with the same objects and the same pre-fill elsewhere, so the last settle
     is the new one, the same bytes (`settledAgain`); Erode and Export then wait for nothing. The file gets the settle
