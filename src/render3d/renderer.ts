@@ -1466,7 +1466,9 @@ export class MapRenderer {
     this.casters = this.castersNow();
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
     this.shadowEpoch++;
-    this.sun = this.sunWant = sunOfYaw(this.view.yaw);
+    // (baked once, for the sun of the view the map opens in: Reset view's when it is framed, so its own bake finds the
+    // sun already there, D453)
+    this.sun = this.sunWant = sunOfYaw(keepView ? this.view.yaw : this.openingYaw());
     this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns), this.sun));
     this.pointSun();
     this.cave = CaveLight.build(source);
@@ -3668,13 +3670,19 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
-    // (a top-down view is framed north up)
-    const yaw = this.view.mode === "top" ? 0 : openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10));
+    const yaw = this.openingYaw();
     this.view = { ...this.view, yaw, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
     this.frameMap();
     // (a jump, not a turn: the shadows are baked for its sun at once, never rolled in after a frame of the last view's)
     this.sunNow();
     this.requestRender();
+  }
+
+  /** The way Reset view faces the map (a top-down view is framed north up). */
+  private openingYaw(): number {
+    const m = this.map;
+    if (!m || this.view.mode === "top") return 0;
+    return openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10));
   }
 
   /** The map waits to be framed until the canvas has a size. */

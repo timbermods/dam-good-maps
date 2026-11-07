@@ -195,8 +195,9 @@ Every step that changes generated maps commits a contact sheet (CLAUDE.md).
 - **In-game checks are deferred** (PLAN §20, D11). A step marked **in-game check** does not stop or wait: it lists the
   checks it would have needed in [docs/archive/ingame-log.md](docs/archive/ingame-log.md) as *pending*, with the files to play,
   and relies on the automated validation and tests. The one exception is a **DGM Probe batch** (D116, D117): an
-  automated run of maps in the real game, launched only after Claude asks Kyler in chat and Kyler says yes, every time
-  (CLAUDE.md, Standing rules). A step whose gate is a probe batch waits for it.
+  automated run of maps in the real game through the DGM Probe runner. On the dedicated machine a batch runs whenever
+  the plan calls for one, without asking (D218), and plays only what players get (D483); the full rules are in
+  [docs/RULES.md](docs/RULES.md). A step whose gate is a probe batch waits for it.
 - **Effort** is the recommended Claude effort level for building a step: **xhigh** for architecture-setting or
   algorithm-heavy work, **high** for the rest.
 
