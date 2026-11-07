@@ -39,7 +39,7 @@
 
 import type { GhostTile, MapRenderer, PointerTool } from "../render3d";
 import type { TileHit } from "../render3d/pick";
-import { areaRect, BRUSH_MAX_LEVEL, type BrushParams, type BrushTool } from "../core/features/raster/brush";
+import { areaRect, BRUSH_MAX_LEVEL, brushHard, type BrushParams, type BrushTool } from "../core/features/raster/brush";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import { RemotePreview, type WeatherChannel } from "../core/features/raster/remoteStroke";
 import { tilesToRuns } from "../core/math/grid";
@@ -206,6 +206,14 @@ export interface PainterHost {
   /** Where the ring is (null: off the map), and the stroke being painted with its dabs so far
    *  (Clear's red glow, D249). */
   ring?(at: [number, number] | null, stroke: { settings: Omit<BrushParams, "dabs">; dabs: readonly number[] } | null): void;
+}
+
+/** How far apart a stroke's dabs are, in tiles: a fifth of the brush (a quarter tile to two). A stroke with hard edges
+ *  (a target's, D322) dabs every quarter tile, the grid its dabs lie on: a tile at the edge of its reach is pressed only
+ *  by a dab abreast of its middle, and dabs a fifth of a small brush apart passed some of those by, leaving a dotted edge
+ *  of tiles at the old level (Size 1.5, which reaches exactly a tile: showcase-craft gap 4). */
+function dabSpacing(p: Pick<BrushParams, "size" | "target" | "precise" | "shape">): number {
+  return brushHard(p) ? 0.25 : Math.max(0.25, Math.min(2, p.size * 0.2));
 }
 
 /** A smart Lower stroke that starts in water at least this deep (in levels) deepens it; from thinner water, a source's
@@ -758,7 +766,7 @@ export class BrushPainter {
     if (st.pen !== null && ev.pointerType === "pen") st.pen = ev.pressure;
     const events = typeof ev.getCoalescedEvents === "function" ? ev.getCoalescedEvents() : [];
     const list = events.length ? events : [ev];
-    const spacing = Math.max(0.25, Math.min(2, this.host.settings().size * 0.2));
+    const spacing = dabSpacing(st.settings);
     const points: [number, number][] = [];
     let [lx, ly] = st.dabAt;
     for (const e of list) {
@@ -806,7 +814,7 @@ export class BrushPainter {
     const [ax, ay] = st.anchor!;
     const [bx, by] = st.last;
     const len = Math.hypot(bx - ax, by - ay);
-    const spacing = Math.max(0.25, Math.min(2, st.settings.size * 0.2));
+    const spacing = dabSpacing(st.settings);
     const n = Math.max(0, Math.floor(len / spacing));
     const points: [number, number][] = [[ax, ay]];
     for (let k = 1; k <= n; k++) points.push([ax + ((bx - ax) * k) / Math.max(1, n), ay + ((by - ay) * k) / Math.max(1, n)]);
