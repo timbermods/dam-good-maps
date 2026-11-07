@@ -350,8 +350,13 @@ export function useShelf(ed: Ed): ShelfSlice {
    *  wins; `to` null shows nothing (the drag back on its first tile, or over). */
   const stairJob = useRef(0);
   const stairShown = useRef<{ key: string; problem: string | null } | null>(null);
+  /** The drag the latest preview asked about: the pointer moving within a tile asks nothing again (D453). */
+  const stairAsked = useRef<string | null>(null);
   function showStair(from: [number, number], to: [number, number] | null, ev?: PointerEvent) {
     if (ev) notePointer(ev);
+    const key = to ? `${from}|${to}` : null;
+    if (key && key === stairAsked.current) return;
+    stairAsked.current = key;
     const job = ++stairJob.current;
     // (the hover's checks still on their way show nothing over the stair, and its ghost goes)
     fitWant.current = null;
@@ -371,18 +376,19 @@ export function useShelf(ed: Ed): ShelfSlice {
       .then((p) => {
         if (job !== stairJob.current || !mounted.current) return;
         const problem = p.ok ? null : (p.errors[0] ?? null);
-        stairShown.current = { key: `${from}|${to}`, problem };
+        stairShown.current = { key: key!, problem };
         setFit({ tiles: p.ok ? p.steps.map((t) => t.y * W + t.x) : dragLine(from, to, W, info.H), problem });
-        setShapeNote({ text: problem ? problem.charAt(0).toLowerCase() + problem.slice(1) : p.label, ok: true, warn: !!problem, ...pointerAt.current });
+        setShapeNote({ text: problem ? stairWord(problem) : p.label, ok: true, warn: !!problem, ...pointerAt.current });
       })
       .catch(() => undefined);
   }
-  /** The stair's drag let go on `to`: laid, one step, with its pop; refused where its preview said why (the reason is
-   *  beside the pointer already). */
+  /** The stair's drag let go on `to`: laid, one step, with its pop; refused where its preview said why, the reason
+   *  staying beside the pointer for a moment. */
   function layShelfStair(from: [number, number], to: [number, number] | null) {
     const shown = stairShown.current;
     showStair(from, null);
-    if (!to || (shown?.key === `${from}|${to}` && shown.problem)) return;
+    if (!to) return;
+    if (shown?.key === `${from}|${to}` && shown.problem) return flashNote(stairWord(shown.problem));
     void run(
       () => api.layStair(from, to),
       (u) => {
@@ -574,3 +580,6 @@ function dragLine(from: readonly [number, number], to: readonly [number, number]
   }
   return out;
 }
+
+/** A stair's reason as the words beside the pointer: the core's line, lower case. */
+const stairWord = (problem: string) => problem.charAt(0).toLowerCase() + problem.slice(1);

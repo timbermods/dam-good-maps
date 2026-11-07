@@ -92,5 +92,9 @@ describe("a stair of slopes", () => {
     // from deep in the mesa, four steps down end against the mesa itself
     expect(why([15, 30], [31, 30])).toMatch(/^The stair's foot would meet a wall/);
     expect(why([24, 30], [-1, 30])).toBe("The stair runs off the map");
+    // an object on the tile past its foot would wall it off
+    const r = s.applyAll([{ op: "placeEntity", params: { id: newId(), template: "SmallRelic", x: 29, y: 30, orientation: "Cw0" } }], "user", "a relic");
+    expect(r.ok, r.errors.join("; ")).toBe(true);
+    expect(why([24, 30], [31, 30])).toMatch(/stands at the stair's foot$/);
   });
 });

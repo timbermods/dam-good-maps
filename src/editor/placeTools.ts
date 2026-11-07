@@ -31,6 +31,9 @@ export interface ShelfHost {
   stair?(from: [number, number], to: [number, number] | null): void;
 }
 
+/** How far the pointer goes, in pixels, before a press with the Slope becomes a stair's drag. */
+const STAIR_PX = 6;
+
 /** The shelf's pointer tool: hover shows the ghost, a click places, a drag paints (trees, bushes) or lays a stair (the
  *  Slope). It aims at the
  *  ground the player sees (the voxel pick): a cave's floor through its mouth or under the level cut (D491). */
@@ -43,6 +46,8 @@ export function shelfTool(host: ShelfHost): PointerTool {
   let stairs = false;
   let moved = false;
   let stairTo: [number, number] | null = null;
+  /** Where on the screen the press was: a click that jitters a few pixels over a tile's border stays a click. */
+  let pressedAt: [number, number] = [0, 0];
   const paint = (x: number, y: number) => {
     const around = host.paintAround(x + 0.5, y + 0.5);
     if (!around || !painted) return;
@@ -58,6 +63,7 @@ export function shelfTool(host: ShelfHost): PointerTool {
       last = [hit.x, hit.y];
       painted = host.paintAround(hit.x + 0.5, hit.y + 0.5) ? new Set() : null;
       stairs = !painted && !!host.stairs?.();
+      pressedAt = [ev.clientX, ev.clientY];
       moved = false;
       stairTo = null;
       return true;
@@ -66,7 +72,7 @@ export function shelfTool(host: ShelfHost): PointerTool {
       if (down && stairs) {
         // (off its first tile a click becomes a stair; back on it, the stair shows nothing, and letting go there lays none)
         if (hit) stairTo = hit.x === down[0] && hit.y === down[1] ? null : [hit.x, hit.y];
-        if (stairTo) moved = true;
+        if (stairTo && Math.hypot(ev.clientX - pressedAt[0], ev.clientY - pressedAt[1]) >= STAIR_PX) moved = true;
         if (moved) return host.stairing?.(down, stairTo, ev);
       }
       host.hover(hit, ev);

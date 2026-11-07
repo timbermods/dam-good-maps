@@ -64,12 +64,17 @@ export function planStair(s: MapSession, from: readonly [number, number], to: re
   }
   if (h[footTile] !== low) return fail(`The stair's foot would meet ${h[footTile] > low ? "a wall" : "a drop"}: it ends at level ${low}, the ground past it is at ${h[footTile]}`);
   // what stands on its tiles: hand-placed trees and bushes go with it; a generated forest makes room by itself
+  // (a building or another object on the tile past its foot would wall it off: refused too; a plant there is walked past)
   const path = new Set(tiles);
   const skip = resourceOwners(s);
   const gone: string[] = [];
   for (const e of s.built.entities) {
-    if (skip.has(e.owner) || !entityTiles(e).some(([x, y]) => on(x, y) && path.has(y * W + x))) continue;
-    if (!(e.template in PLANT_CLEARANCE)) return fail(`${upper(withArticle(itemName(e.template)))} is in the stair's way`);
+    if (skip.has(e.owner)) continue;
+    const under = entityTiles(e).filter(([x, y]) => on(x, y)).map(([x, y]) => y * W + x);
+    const plant = e.template in PLANT_CLEARANCE;
+    if (!plant && under.includes(footTile)) return fail(`${upper(withArticle(itemName(e.template)))} stands at the stair's foot`);
+    if (!under.some((i) => path.has(i))) continue;
+    if (!plant) return fail(`${upper(withArticle(itemName(e.template)))} is in the stair's way`);
     gone.push(e.id);
   }
   const ops: EditOp[] = [];
@@ -81,7 +86,7 @@ export function planStair(s: MapSession, from: readonly [number, number], to: re
   }
   for (const t of steps) ops.push({ op: "placeEntity", params: { id: newId(), template: "Slope", x: t.x, y: t.y, orientation: t.orientation } });
   const label = `Lay a stair of ${n} slope${n === 1 ? "" : "s"}`;
-  return { ok: true, ops, report: [`${n} slopes from level ${high} down to ${low}`], label, tiles, steps };
+  return { ok: true, ops, report: [`${n} slope${n === 1 ? "" : "s"} from level ${high} down to ${low}`], label, tiles, steps };
 }
 
 const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
