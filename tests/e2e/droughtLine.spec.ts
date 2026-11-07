@@ -30,7 +30,8 @@ test("a river that dries out completely gets the dry tint as well as the line, d
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openEditor(page, "s=1&z=96&d=n&t=islands");
+  // (Islands seed 2 since generator 0.10.11, #726, D148: seed 1's water no longer dries out completely)
+  await openEditor(page, "s=2&z=96&d=n&t=islands");
   const drawn = () => page.evaluate(() => window.dgm3d!.renderer.droughtDrawn);
   await expect.poll(async () => (await drawn()).tint, { timeout: 60_000 }).toBeGreaterThan(0);
   expect((await drawn()).line).toBeGreaterThan(0);
