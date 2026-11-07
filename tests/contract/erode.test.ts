@@ -267,11 +267,35 @@ describe("on generated maps (D281)", () => {
     }
   });
 
+  /** Highlands 2's map with a fin raised on it, as a player raises one: six levels over a dry, level strip three tiles
+   *  thick and nine long, nothing standing on or beside it. */
+  const finMap = () => {
+    const r = generate(makeSpec({ seed: 2, theme: "highlands", size: { x: 128, y: 128 } }));
+    const s = MapSession.fromGenerated(r);
+    const { W, H, heights: h, water } = s.built;
+    const near = new Set<number>();
+    for (const e of s.built.entities) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) near.add((e.y + dy) * W + e.x + dx);
+    for (let y = 12; y < H - 21; y++)
+      for (let x = 12; x < W - 15; x++) {
+        // the strip (x + 2 .. x + 4, y + 2 .. y + 10) and two tiles round it, all at one level, dry and clear
+        let ok = h[y * W + x] <= 12;
+        for (let yy = y; yy <= y + 12 && ok; yy++) for (let xx = x; xx <= x + 6 && ok; xx++) if (h[yy * W + xx] !== h[y * W + x] || water[yy * W + xx] > 0 || near.has(yy * W + xx)) ok = false;
+        if (!ok) continue;
+        const cells: [number, number, number][] = [];
+        for (let yy = y + 2; yy <= y + 10; yy++) cells.push([yy, x + 2, x + 4]);
+        expect(s.apply({ op: "sculpt", params: { mode: "raise", cells, amount: 6, exact: true } }).errors).toEqual([]);
+        return ["highlands", fullForceMapOf(s.built, { rockLayers: geology(s.openedHeights), lava: null, down: new Map(), usedIds: new Set() })] as const;
+      }
+    throw new Error("no dry, level strip for the fin");
+  };
+
   it("a thin ridge, where the map has one, opens into an arch", () => {
     let ridges = 0;
     // (Highlands seed 2 since generator 0.10.5, D148: Canyon seed 3's ridge is gone with its map; of Canyon seeds
-    // 1–18 and Highlands seeds 1–14, only Highlands 2 has a fin now, as only Canyon 3 had one before)
-    for (const [theme, m] of [mapOf("highlands", 2)]) {
+    // 1–18 and Highlands seeds 1–14, only Highlands 2 has a fin now, as only Canyon 3 had one before; a fin raised on
+    // Highlands 2 since generator 0.10.11, the D410 round, D148: its fin was a natural ramp's causeway, which ramps no
+    // longer build, and no Canyon or Highlands map of seeds 1–40 has a fin of its own)
+    for (const [theme, m] of [finMap()]) {
       const { W, H, heights: h } = m;
       // a dry fin two to four tiles thick, at least 5 over the ground on both sides, five tiles long
       const fin = (x: number, y: number, dx: number, dy: number): number => {
@@ -311,7 +335,7 @@ describe("on generated maps (D281)", () => {
             expect(through, `${theme} fin at ${x},${y}`).toBe(true);
           }
     }
-    // (Highlands seed 2 has one; if a generator change takes it away, find another seed)
+    // (the raised fin is found)
     expect(ridges).toBeGreaterThan(0);
   });
 });

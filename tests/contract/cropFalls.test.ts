@@ -2,7 +2,9 @@
 // off would be deleted by the game as the cropped map loads, so the crop is refused in one line, as an edit that makes
 // ground fall is (the Any 128² map, seed 2: a column of six blocks at X 91 · Y 79 held from north of it, which a crop
 // with its north edge on y = 79 leaves unheld; generator 0.10.11 makes 3D forms only at 128² and over, D503, so a 64²
-// map has none to cut). A crop whose edge leaves every block held goes ahead, and its file's ground is all supported.
+// map has none to cut; since generator 0.10.11's maps, #726, D148, the crop is the one with its corner at X 60 · Y 71, which
+// leaves three blocks there unheld: the map's start moved to X 92 · Y 118, so the crop at X 44 · Y 79 would cut it). A crop
+// whose edge leaves every block held goes ahead, and its file's ground is all supported.
 
 import { describe, expect, it } from "vitest";
 import { cropFalls, cropObjects } from "../../src/core/doc/crop";
@@ -22,7 +24,7 @@ describe("a crop never leaves ground floating", () => {
       return s;
     };
     const s = session();
-    const bad = { x: 44, y: 79, w: 48, h: 48 };
+    const bad = { x: 60, y: 71, w: 48, h: 48 };
     expect(cropObjects(s.built.entities, bad).cutStart).toBeNull();
     const falls = cropFalls(s.terrain, bad);
     expect(falls.length).toBeGreaterThan(0);
@@ -34,12 +36,12 @@ describe("a crop never leaves ground floating", () => {
     expect(res.errors).toEqual(why);
     expect(s.size).toEqual({ x: 128, y: 128 });
     expect(Buffer.from(s.built.heights).equals(Buffer.from(before))).toBe(true);
-    // (a crop whose edge is three tiles further north keeps what holds them, and the game keeps all its ground)
-    const ok = { x: 44, y: 76, w: 48, h: 51 };
+    // (a crop whose edge is four tiles further west keeps what holds them, and the game keeps all its ground)
+    const ok = { x: 56, y: 71, w: 52, h: 48 };
     const t = session();
     expect(cropFalls(t.terrain, ok)).toEqual([]);
     expect(t.apply({ op: "crop", params: ok }).errors).toEqual([]);
-    expect(t.size).toEqual({ x: 48, y: 51 });
+    expect(t.size).toEqual({ x: 52, y: 48 });
     expect(supported(t).ok).toBe(true);
   }, 300_000);
 });

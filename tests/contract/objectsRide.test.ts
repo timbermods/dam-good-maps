@@ -25,7 +25,8 @@ describe("objects of several tiles ride a stroke level", () => {
     await runGenerate(makeSpec({ seed: 5, theme: "highlands", size: { x: 48, y: 48 } }));
     ed.refine();
     const W = ed.sessionInfo().W;
-    const mine = () => ed.collabSession()!.built.entities.find((e) => e.template === "UndergroundRuins" && e.x === 33 && e.y === 28);
+    // (the map's mine site at (7, 3) since generator 0.10.11, the D410 round, D148, (33, 28) before; the stroke the same way from it)
+    const mine = () => ed.collabSession()!.built.entities.find((e) => e.template === "UndergroundRuins" && e.x === 7 && e.y === 3);
     expect(mine()).toBeDefined();
     const ground = () => {
       const h = ed.collabSession()!.built.heights;
@@ -34,7 +35,7 @@ describe("objects of several tiles ride a stroke level", () => {
     const was = ground();
     expect(new Set(was).size).toBe(1);
     const project = ed.project().bytes;
-    const u = ed.apply({ op: "brush", params: { tool: "raise", size: 4, strength: 10, dabs: [34 * 4, 30 * 4, 37 * 4, 30 * 4] } });
+    const u = ed.apply({ op: "brush", params: { tool: "raise", size: 4, strength: 10, dabs: [8 * 4, 5 * 4, 11 * 4, 5 * 4] } });
     expect(u.ok).toBe(true);
     // (the stroke reached its corner: the ground under it stays level, at its middle tile's level, and it stands on it)
     const now = ground();
