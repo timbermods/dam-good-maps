@@ -1522,8 +1522,9 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   // (D333 (3): no springs added toward far land where the player asked for Generous buildable land,
   // which keeps its flats, or moved the Drought reserve from the theme's own, which plans the water
   // near the start itself: the added tributaries drew starts to water a Scarce reserve should lack
-  // and away from the water a Plenty one stores)
-  g.hydro.reachSprings = s.terrain.buildableLand !== "generous" && s.water.droughtReserve === p.droughtReserve;
+  // and away from the water a Plenty one stores; D504: above 128² Generous gets them too, its flats bare on four
+  // times the land)
+  g.hydro.reachSprings = (s.terrain.buildableLand !== "generous" || W * H > 128 * 128) && s.water.droughtReserve === p.droughtReserve;
   // rivers entering on the edges (0: springs feed the water)
   // (a count the player set is the count that enters, PLAN §5.3; the preset's leaves the genome's)
   if (s.water.rivers === 0) {
