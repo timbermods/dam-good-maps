@@ -26,7 +26,7 @@ import { aimOf, startRoofed } from "./aim";
 
 export interface ShelfSlice {
   pointerWords: { current: PointerWords | null };
-  flashNote: (text: string, ev?: MouseEvent) => void;
+  flashNote: (text: string, ev?: MouseEvent, ms?: number) => void;
   fitWant: { current: string | null };
   ghostAt: { current: { template: string; x: number; y: number; z: number; orientation: number } | null };
   shelfTile: { current: [number, number] | null };
@@ -48,13 +48,13 @@ export function useShelf(ed: Ed): ShelfSlice {
     (text) => setShapeNote(text ? { text, ok: true, warn: false, ...pointerAt.current } : null),
     () => brushToolRef.current !== null,
   );
-  /** A word beside the pointer for a moment (a strength, a size). */
-  function flashNote(text: string, ev?: MouseEvent) {
+  /** A word beside the pointer for a moment (a strength, a size; `ms`: longer, for a reason to read). */
+  function flashNote(text: string, ev?: MouseEvent, ms?: number) {
     if (ev) {
       const box = renderer.current?.canvas.getBoundingClientRect();
       if (box) pointerAt.current = { x: ev.clientX - box.left, y: ev.clientY - box.top };
     }
-    pointerWords.current!.flash(text);
+    pointerWords.current!.flash(text, ms);
   }
 
   // the footprint under the pointer: one check in flight, then the latest tile

@@ -12,6 +12,7 @@ import { DEFAULTS } from "../../src/core/forces/carve/run";
 import { STEPS_PER_SECOND } from "../../src/core/forces/force";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { WET, type WaterView } from "../../src/render3d/model";
+import { waterFilm } from "../../src/render3d/waterPalette";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
@@ -232,6 +233,20 @@ describe("Carve's river is born as it cuts (D371)", () => {
       }
     // (shown as they are, about one a frame on this map; averaged, about one every six)
     expect(blinks / shown.length, `${blinks} blinks in ${shown.length} frames`).toBeLessThan(0.5);
+    // Thin water, the only depths drawn differently (a film fading in to WATER_FILM.to, `waterFilm`): a tile whose film
+    // swings a tenth of the way and back once is a front arriving and easing back; a tile that does so again and again
+    // flickers. A carve's showing has a few at most (0 to 4 on Highlands 96² seeds 21 to 30), shown as they are 10 to 31
+    // (the review of #816).
+    const flicker = new Map<number, number>();
+    for (let u = 2; u < shown.length; u++)
+      for (let i = 0; i < N; i++) {
+        const a = waterFilm(shown[u - 2][i]);
+        const b = waterFilm(shown[u - 1][i]);
+        const c = waterFilm(shown[u][i]);
+        if ((b - a) * (c - b) < 0 && Math.min(Math.abs(b - a), Math.abs(c - b)) > 0.1) flicker.set(i, (flicker.get(i) ?? 0) + 1);
+      }
+    const again = [...flicker.values()].filter((n) => n > 1).length;
+    expect(again, `${again} tiles' films swing back and forth more than once`).toBeLessThan(8);
     ed.forceStop();
     ed.undo();
     ed.settleWater();

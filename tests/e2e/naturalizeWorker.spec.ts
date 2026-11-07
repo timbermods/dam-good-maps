@@ -71,3 +71,39 @@ test("a Naturalize stroke is weathered in the worker: shown while painted, built
   expect((await info(page)).history.length).toBe(steps);
   expect(errors).toEqual([]);
 });
+
+test("a Naturalize stroke over moist soil changes nothing and says why beside the pointer (showcase-craft gap 23)", async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await openEditor(page, "s=3&z=96&d=n&t=riverValley&tr=100", { timeout: 180_000 });
+  await topDown(page);
+  await settled(page);
+  // moist ground keeps its height (weather.ts, rule 3): a small stroke well inside moist soil, no water on it, on the map
+  const spot = await page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    const r = 4;
+    const onMap = (x: number, y: number) => {
+      const p = window.dgmEditor!.tileToClient(x, y);
+      return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+    };
+    for (let y = r; y < m.H - r; y++)
+      for (let x = r; x < m.W - r; x++) {
+        let ok = onMap(x - 1, y) && onMap(x + 1, y);
+        for (let yy = y - r; yy <= y + r && ok; yy++)
+          for (let xx = x - r; xx <= x + r && ok; xx++) if (!(m.soil!.moisture[yy * m.W + xx] > 0) || m.surface.depth[yy * m.W + xx] > 0) ok = false;
+        if (ok) return [x, y] as [number, number];
+      }
+    return null;
+  });
+  expect(spot, "a patch of moist soil").not.toBeNull();
+  const [x, y] = spot!;
+  await page.keyboard.press("6");
+  for (let k = 0; k < 12; k++) await page.keyboard.press("{");
+  await page.waitForTimeout(1300);
+  const before = await heights(page);
+  const steps = (await info(page)).history.length;
+  await drag(page, [x - 1, y], [x + 1, y]);
+  await expect(page.locator(".shape-note")).toHaveText("Moist ground keeps its height: weather dry land");
+  await settled(page);
+  expect((await info(page)).history.length).toBe(steps);
+  expect(await heights(page)).toEqual(before);
+});

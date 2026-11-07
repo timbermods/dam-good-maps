@@ -802,9 +802,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 ### The brushes and precision tools
 
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a
-  natural slope exactly where the player puts it; dragged from high ground down to low ground it lays a **stair**, one
-  slope a level, each tile set a level below the one before, its tiles green as it is dragged or red with the one
-  reason it can't be laid, the release one step: `core/doc/stair.ts`); Smooth has no walkable option (D247) and Flatten no Ramped edges
+  natural slope exactly where the player puts it; dragged from high ground down to low ground it lays a **stair**
+  shaped as the generator's natural ramps are: a tread of two to four tiles a level, uneven, filling the drag's
+  length, a slope on the first tile of each, the ground three wide and a spur beside a fill; its slopes green as it
+  is dragged or the line red with the one reason it can't be laid, the release one step: `core/doc/stair.ts`, sharing
+  `land/levels.ts`'s `dealTreads` and `shapeRamp`); Smooth has no walkable option (D247) and Flatten no Ramped edges
   (D322). **Naturalize** weathers what the player paints (forces' results, strokes, rivers, set pieces); it leaves
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke
@@ -829,7 +831,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   or below all its neighbours, no neighbouring pair swaps which is higher, nothing one tile wide appears (a
   tread, ledge, wall or slot), nothing newly holds water and no way out for water closes; what would break one
   is mended or taken back. Farmland is never lost: moist ground (the settled water's moisture when the stroke
-  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. It
+  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. A stroke that
+  changes nothing says why beside the pointer for a moment: "Moist ground keeps its height: weather dry land" when
+  most of it pressed on moist soil (an island in a lake is all moist), else "Nothing here to weather" (showcase-craft gap 23). It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
   stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
