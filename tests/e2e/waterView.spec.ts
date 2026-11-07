@@ -58,7 +58,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   // the readout: its depth and its bed
   await page.mouse.move(mp.x + 3, mp.y);
   await page.mouse.move(mp.x, mp.y);
-  await expect(page.locator(".readout")).toHaveText(/^Water [\d.]+ deep, bed level \d+/);
+  await expect(page.locator(".readout")).toHaveText(/^Water at level [\d.]+, [\d.]+ deep, bed level \d+/);
   // the sources it comes from show their marker while the pointer is over it
   await expect(page.locator(".source-marker.feeding")).toHaveCount(1);
   await expect(page.locator(".source-marker.feeding")).toHaveText(/water\/s/);

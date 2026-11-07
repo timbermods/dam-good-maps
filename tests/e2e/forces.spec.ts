@@ -248,6 +248,9 @@ test("clicked quickly (D378): the next force plays in full from its first moment
     await page.keyboard.press("Control+z");
     await page.keyboard.press("Control+z");
     await settled(page);
+    // (undone: no tail plays on over the land taken back)
+    const after = await page.evaluate(() => window.dgm3d!.renderer.forceShowing);
+    for (const v of ["craterize", "erupt", "quake", "glaciate", "erode"]) expect(after?.[v as keyof typeof after] ?? null, `${a} then ${b}, undone: ${v}`).toBeNull();
   }
 });
 

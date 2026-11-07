@@ -19,6 +19,8 @@ with an arc and offers the best three; a probe batch then plays the winner to cy
    each with its own `say` (`params.story` on the ruin field; `gen/ruinStories.ts` `ruinStories`); the project beat
    takes the dam, the mystery the village. A plugged tunnel to buried water waits for caves in generation.
 5. **The probe plays the winner** to cycle 10 on both factions (D218, D483), and its results go into STATUS.
+6. **Judging by looks (D506, wave 2):** each candidate's opening picture is scored (`analysis/picture.ts`), and the
+   rank is the arc + 9.5 × its looks, fitted against a fresh eye's ranking of 28 maps (`showcase-looks.md`).
 
 ## The beats (step 1's measures)
 

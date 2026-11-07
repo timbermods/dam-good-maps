@@ -21,8 +21,10 @@ const arg = (name: string, f?: string) => {
 };
 const MAPS = (arg("maps", "riverValley:4242") as string).split(";").map((m) => {
   const [spec, crop] = m.split("@");
+  // (file=<path>: a project or .timber opened as the page opens one, File → Open)
+  if (spec.startsWith("file=")) return { theme: "file", seed: 0, file: spec.slice(5), crop: crop ? (crop.split(",").map(Number) as [number, number, number, number]) : null };
   const [theme, seed] = spec.split(":");
-  return { theme, seed: Number(seed), crop: crop ? (crop.split(",").map(Number) as [number, number, number, number]) : null };
+  return { theme, seed: Number(seed), file: null as string | null, crop: crop ? (crop.split(",").map(Number) as [number, number, number, number]) : null };
 });
 const SIZE = Number(arg("size", "128"));
 const BEFORE = arg("before");
@@ -38,11 +40,18 @@ async function site(root: string, label: string, port: number): Promise<PreviewS
 }
 
 /** The map's picture, as a save draws it, from the map the view holds (its water as the view has it). */
-async function picture(page: Page, port: number, theme: string, seed: number, chunk: string): Promise<Buffer> {
+async function picture(page: Page, port: number, theme: string, seed: number, chunk: string, file: string | null = null): Promise<Buffer> {
   await page.goto("about:blank");
-  await page.goto(`http://localhost:${port}/#s=${seed}&z=${SIZE}&d=n&t=${theme}`);
+  await page.goto(file ? `http://localhost:${port}/#s=1&z=64&d=n&t=riverValley` : `http://localhost:${port}/#s=${seed}&z=${SIZE}&d=n&t=${theme}`);
   await waitForEditor(page, 600_000);
   await page.evaluate("window.dgmEditor.idle()");
+  if (file) {
+    await page.evaluate("window.heroWas = window.dgm3d.renderer.map");
+    await page.getByLabel("Open a map or a project").setInputFiles(file);
+    await page.waitForFunction("window.dgm3d.renderer.map !== window.heroWas", undefined, { timeout: 600_000 });
+    await waitForEditor(page, 600_000);
+    await page.evaluate("window.dgmEditor.idle()");
+  }
   const b64 = (await page.evaluate(`(async () => {
     const hero = await import(${JSON.stringify(chunk)});
     const r = window.dgm3d.renderer, m = r.map;
@@ -98,11 +107,12 @@ async function main(): Promise<void> {
     const labels: string[] = [];
     for (const m of MAPS) {
       for (const [label, , port] of sites) {
-        const jpeg = await picture(page, port, m.theme, m.seed, findChunk(label));
-        if (WHOLE) writeFileSync(OUT.replace(/\.jpg$/, `-${m.theme}-${m.seed}-${label}.jpg`), jpeg);
+        const jpeg = await picture(page, port, m.theme, m.seed, findChunk(label), m.file);
+        const name = m.file ? (m.file.split(/[\\/]/).pop() ?? "file").replace(/\.[^.]+$/, "") : `${m.theme}-${m.seed}`;
+        if (WHOLE) writeFileSync(OUT.replace(/\.jpg$/, `-${name}-${label}.jpg`), jpeg);
         const tag = sites.length > 1 ? `${label}: ` : "";
         images.push(jpeg.toString("base64"));
-        labels.push(`${tag}${m.theme} ${SIZE}² seed ${m.seed}`);
+        labels.push(m.file ? `${tag}${name}` : `${tag}${m.theme} ${SIZE}² seed ${m.seed}`);
         if (m.crop) {
           const crop = (await page.evaluate(`(${CROP_JS})(${JSON.stringify({ b64: jpeg.toString("base64"), crop: m.crop, w: 960, h: 540 })})`)) as string;
           images.push(crop);

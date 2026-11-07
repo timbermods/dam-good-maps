@@ -469,8 +469,9 @@ place of its bottom rule.
   with a volume and an off switch the player keeps (D212); water ambience is off unless turned on. The recordings
   load on the first click or key, never with the page, and nothing waits on them. Micro-animations follow the
   reduced-motion setting. Nothing new stays on screen unless in use.
-- **The hover readout:** a quiet corner line for what's under the cursor ("Height 11, dry soil"); over water, its
-  depth, the bed level and its contamination (D196). **It names every object and plant too**, with its key fact
+- **The hover readout:** a quiet corner line for what's under the cursor ("Height 11, dry soil"); over water, the
+  water's level (bed plus depth, so a lake's level is read in one tile: showcase-craft gap 19), its depth, the bed
+  level and its contamination (D196): "Water at level 4.6, 0.6 deep, bed level 4". **It names every object and plant too**, with its key fact
   where one is useful (D347, B11): "Mine site", "Ruin, 5 levels, 75 scrap metal", "Water source, 1 water/s", "Pine,
   grown", "Relic, medium"; where an object sits on ground the line gives both ("Geothermal field · Height 5, dry
   soil"), up to three objects separated by ";". It works with any tool held. It is one plain core function,
@@ -557,7 +558,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces), and **the force is over the
   moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
   places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
-  melt-back, the lava cooling; a new force puts any of them away at once; every tail plays by its drawn frames, a
+  melt-back, the lava cooling; a new force, or an undo, puts any of them away at once; every tail plays by its drawn frames, a
   frame of the player's view counting a tenth of a second at most, so a frame held long on a slow machine never skips
   an impact's dust, a fault's crack, the ice's melt-back, the lava's cooling or an erosion's dust and stones). A force's heat is its own: a later force
   never shows an earlier eruption's. The result
@@ -1192,8 +1193,8 @@ until the player presses play), its length and size, Close and **Download video*
   tick of the water costs more, it flows slower in the video rather than the recording slowing).
 - **The camera is the video's, never the player's** (D505): a renderer of its own, off screen, moving as a slow
   drone, never a turntable. It opens wide on the generated map, glides to each place (eased, never cut, rising as it
-  crosses the map), holds with a slow push in, and ends on the finished map's hero view (the game's opening camera,
-  D488). Nearby edits share one framing, so the camera doesn't move between them. It looks down at one steady pitch
+  crosses the map), holds with a slow push in, and ends on the finished map's hero view (the map's picture's
+  framing, D488). Nearby edits share one framing, so the camera doesn't move between them. It looks down at one steady pitch
   until the glide to the hero view, and its heading turns only a little over the whole video (at most 20°, under
   half a degree a second).
   Over the closing glide the water still flowing eases into the finished map's own water and the soil greens with it
@@ -1546,9 +1547,11 @@ checks dot counts; every other row is information under Good to know, worded as 
     `draftStack`). A force's own water flows there too while it plays (D371; `startForceStack`): the engine is
     built again on the land and objects each frame shows (Erode's voxels included), a carve's front walls its course
     until the cut reaches it, and kept, the map's water flows on from it (a Slide's water stays where it stood rather
-    than riding its block). That water is only shown: the map keeps the last settle carried over until the canonical
-    settle, run in the background in slices, on several threads where the page has them (`sim/stackParallel.ts`,
-    the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
+    than riding its block). While it flows the map keeps the last settle carried over; an edit's journey stops by the
+    preview's own rule (the volume within 0.2% and at most 0.05% of the tiles moving more than 0.05 between checks,
+    every 128 ticks), and where it came to stand is then the map's preview water, as a plain map's is (D453;
+    `stackPreview`), until the canonical settle, run in the background in slices, on several threads where the page
+    has them (`sim/stackParallel.ts`, the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
     was settles at once (D453): the changed tiles lie more than five tiles from every column the last settle
     ever wet and from every source, with the same objects and the same pre-fill elsewhere, so the last settle
     is the new one, the same bytes (`settledAgain`); Erode and Export then wait for nothing. The file gets the settle
@@ -1652,10 +1655,11 @@ checks dot counts; every other row is information under Good to know, worded as 
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
     export never depends on the preview's history. Its thumbnail is the map's 3D picture (D488): drawn off screen in
-    the High look, at twice its size and scaled down, from the game's own opening camera (`render3d/heroView.ts`: 60°
-    down, turned to the start's orientation + 35°, the game camera's 35° field of view, at the default zoom's widest,
-    the frame the start is turned for, D493; a map without a start from the game's default thumbnail camera, 40° down
-    looking north), lit as the game lights its thumbnails (its sun turns with the camera, 40° past it: the map is turned
+    the High look, at twice its size and scaled down, from the game's own map thumbnail camera
+    (`ThumbnailCameraDefaultPositionProvider`; `render3d/heroView.ts` `heroCamera`: 40° down, face-on, the game camera's
+    35° field of view, turned to the start's orientation (north without a start), centred on the land and pulled back
+    only as far as the frame's corners still land on the map, so the map fills the picture with no backdrop past its
+    edge; the opening camera, D493, is the looks score's, a different picture), lit as the game lights its thumbnails (its sun turns with the camera, 40° past it: the map is turned
     in quarter turns under the view's fixed sun to the nearest, within 30°), the start hidden as the game's thumbnails
     hide it, with the water the file starts with drawn still (its badwater share, no moving water's foam), then put in
     place of the core's top-down one; the player's view is never touched. A map whose water is settled already is drawn while the checks run. Without a GPU or
