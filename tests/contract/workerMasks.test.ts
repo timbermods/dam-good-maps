@@ -9,7 +9,6 @@
 import { describe, expect, it } from "vitest";
 import { writeTimber } from "../../src/core/format/timber";
 import { CaveLight } from "../../src/render3d/caveLight";
-import { skyVisibility } from "../../src/render3d/light";
 import { columnMask, meshChunk, CHUNK, type TerrainSource } from "../../src/render3d/mesh";
 import { columnMap, columnMasks, LAYERS, type MapView } from "../../src/render3d/model";
 import { pickTerrain, type Ray } from "../../src/render3d/pick";
@@ -92,9 +91,8 @@ describe("the masks from the worker (3D view, item 1)", () => {
           expect(Buffer.from(b.normals.buffer).equals(Buffer.from(a.normals.buffer))).toBe(true);
           expect(Buffer.from(b.indices.buffer).equals(Buffer.from(a.indices.buffer))).toBe(true);
         }
-      const sky = skyVisibility(w, h, m.heights);
-      const la = CaveLight.build(read, sky)!;
-      const lb = CaveLight.build(looked, sky)!;
+      const la = CaveLight.build(read)!;
+      const lb = CaveLight.build(looked)!;
       expect(Buffer.from(lb.data.buffer).equals(Buffer.from(la.data.buffer)), "the light volume").toBe(true);
       let hits = 0;
       for (const ray of rays(w, h, 3000)) {

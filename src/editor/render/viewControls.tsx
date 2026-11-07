@@ -32,7 +32,7 @@ function overlayRow(ed: Ed, k: LayerKind) {
   );
 }
 
-/** The Show row's toggles after Flow: See-through, Hide objects, Badwater and, on a map that has them, Caves and overhangs, right
+/** The Show row's toggles after Flow: See-through, Badwater and, on a map that has them, Caves and overhangs, right
  *  after Badwater at every width (the band's layout moves the water row to a second line when the row needs the room). */
 export function viewButtons(ed: Ed) {
   const { clearWater, setClearWater } = ed;
@@ -41,13 +41,20 @@ export function viewButtons(ed: Ed) {
       <ShowRow on={clearWater} onToggle={() => setClearWater(!clearWater)} tip={tip("See through the water", "T")}>
         See-through
       </ShowRow>
-      {/* (an editing aid: held on H, kept by a click; useHideObjects.ts) */}
-      <ShowRow on={ed.objectsHidden} onToggle={ed.toggleObjectsHidden} tip={tip("See the land behind objects", HIDE_OBJECTS_KEY)}>
-        Hide objects
-      </ShowRow>
       {overlayRow(ed, "badwater")}
       {ed.info.caves ? overlayRow(ed, "roofed") : null}
     </>
+  );
+}
+
+/** Hide objects, beside Legend (the slot D184 (3) gave a toggle there): an editing aid, held on H, kept by a click
+ *  (useHideObjects.ts). Beside Legend it costs the Show row no room, so the water row keeps its place in the band where
+ *  it did; where the water row takes a second line, the two join the Show row as its last toggles (useBandLayout.ts). */
+export function hideObjectsButton(ed: Ed) {
+  return (
+    <ShowRow on={ed.objectsHidden} onToggle={ed.toggleObjectsHidden} tip={tip("See the land behind objects", HIDE_OBJECTS_KEY)}>
+      Hide objects
+    </ShowRow>
   );
 }
 
@@ -103,7 +110,8 @@ export function hoverHandler(ed: Ed) {
     // a source, and the start, can be picked up and moved
     const canvas = renderer.current?.canvas;
     const free = hit && !brushToolRef.current && !shelfRef.current && !toolRef.current && !ed.blockRef.current;
-    const onStart = !!hit && !!startHere && !ed.renderer.current?.objectsHidden && Math.max(Math.abs(hit.x - startHere.x), Math.abs(hit.y - startHere.y)) <= 1;
+    // (on its pad, or on its house standing in front of the ground the pointer's tile is on; hidden objects: neither)
+    const onStart = !!hit && !!startHere && !ed.renderer.current?.objectsHidden && (Math.max(Math.abs(hit.x - startHere.x), Math.abs(hit.y - startHere.y)) <= 1 || ed.startCalls.current.pointerOnHouse());
     // the object it would pick, shown before the click (D360 a)
     const pick = hit && free && !t && !onStart && !selection.current.count ? objectUnder(hit.x, hit.y) : undefined;
     const tilesUnder = pick === undefined ? null : objectTiles(pick);

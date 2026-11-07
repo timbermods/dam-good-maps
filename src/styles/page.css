@@ -611,9 +611,11 @@
   pointer-events: auto;
 }
 
+/* (Hide objects, then Legend, the Show row's toggle gap apart: where the water row takes a second line they join the
+   Show row as its last toggles) */
 .legend-row {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 /* (the toggle look, as in the Show row: the overlay's solid plate) */

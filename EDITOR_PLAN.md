@@ -140,7 +140,8 @@ place of its bottom rule.
   is made** the dialog holds a small stretch of moving water in the view's water colour, and the land's empty square draws
   an island's contour rings one after another (the lowest in the water's colour; 0.5 s apart, 1.8 s each, then they hold
   and fade together on a 6 s cycle); both move only while waiting and not under reduced motion (`FirstLook.tsx`);
-  **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
+  **Cancel (or Esc) while a map is made** brings the open map back as it was and leaves the panel's name and settings as
+  they were picked, for the next try; **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
   open map back as it was; in a Together session, once the new map is built and being put into the session's worker (the last step before it opens), Cancel is off ("The map is opening"), Esc does nothing and the words read "Opening the map…". **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
   the attempt under way and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
   quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
@@ -229,7 +230,8 @@ place of its bottom rule.
 - **Select is always in hand** (Kyler, the v4 verdict): held when a map opens; Esc and X put anything else down and
   return to it; a drag on the land marks an area and a click clears it; a source and the start are pressed and
   dragged as before; a click picks an object and a drag then moves it, while a drag from an object not picked
-  marks an area. The middle button turns the view, the right button pans.
+  marks an area. The middle button turns the view (pressed in the top-down view it leaves it for the angled one,
+  as the toggle does), the right button pans.
 
 - **The bar** at the bottom middle, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, Block
   (D335, key 7), a hairline, then the forces in the order of D352's clusters (`FORCE_GROUPS` in `TopBar.tsx`; today Carve,
@@ -410,10 +412,12 @@ place of its bottom rule.
 - **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in
   Timberborn's settings; the toggle is never lit, a click anywhere on it toggles it): **Heights** (the ground by
   height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources,
-  each water object, core and reserve with a label of its own words, and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), **Hide objects** (every object
-  and its shadow, while H is held or until clicked again; §4, "Seeing the land behind objects"), the overlays **Badwater**
+  each water object, core and reserve with a label of its own words, and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
   and **Caves and overhangs** (where the map has them, right after Badwater; each with its caption under Legend while on);
-  **Legend** stands alone at the top right, just left of Top-down. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
+  **Legend** stands at the top right, just left of Top-down, with **Hide objects** just left of it (every object and its
+  shadow, while H is held or until clicked again; §4, "Seeing the land behind objects"; beside Legend so the Show row
+  keeps its room and the water row its place in the band, and where the water row takes a second line the two join the
+  Show row as its last toggles). All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
 - **The legend,** while Legend is ticked: directly under Legend, centred under it so "Legend" reads as its title (Kyler, 2026-10-04: DESIGN.md), one width,
@@ -493,7 +497,9 @@ place of its bottom rule.
   dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, what an Easy start map
   made in a late rescue round left short of its targets (Good to know, uncounted, D495), and lists an opened
   file's import flags with their fixes (counted).
-- **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades.
+- **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades. Its lodge is
+  pressed as drawn: a press on the roof or walls takes the start, though the ground the pointer sees behind them
+  may be tiles away (`start/startPick.ts`, the lodge about two levels high).
 
 (D184, D212, D219.)
 
@@ -550,8 +556,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces), and **the force is over the
   moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
   places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
-  melt-back, the lava cooling; a new force puts any of them away at once; the lava cools by its drawn frames, so a
-  frame held long on a slow machine never skips it). A force's heat is its own: a later force
+  melt-back, the lava cooling; a new force puts any of them away at once; every tail plays by its drawn frames, a
+  frame of the player's view counting a tenth of a second at most, so a frame held long on a slow machine never skips
+  an impact's dust, a fault's crack, the ice's melt-back or the lava's cooling; an erosion's last puffs still run on the
+  clock). A force's heat is its own: a later force
   never shows an earlier eruption's. The result
   and what is saved never depend on the pace.
 - **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an
@@ -652,8 +660,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 
 - **Unleash, on a source** (D239; U): select a placed water or badwater source and a small **Unleash** action with
   a quick **Power** sits beside it; the source's own water carves its course downhill with Carve's engine (where it
-  stands in a pool of half a level or more it breaks out over the lowest point of its rim). A drag from the source
-  draws the course (D321, item 41; the source's own drag still moves it); its width is the width whose Carve source
+  stands in a pool of half a level or more it breaks out over the lowest point of its rim). A drag from the Unleash
+  button onto the map draws the course from the source, as its tooltip says (D321, item 41; the source's own drag still
+  moves it); its width is the width whose Carve source
   would have the source's strength. The source stays the river's origin: the carve is dry and adds no other source;
   a badwater source carves a badwater river. One undo step ("Unleash a source"); Try another re-rolls the course.
   Claude's `carve` step takes a `source` to unleash one.
@@ -792,7 +801,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 ### The brushes and precision tools
 
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a
-  natural slope exactly where the player puts it); Smooth has no walkable option (D247) and Flatten no Ramped edges
+  natural slope exactly where the player puts it; dragged from high ground down to low ground it lays a **stair**, one
+  slope a level, each tile set a level below the one before, its tiles green as it is dragged or red with the one
+  reason it can't be laid, the release one step: `core/doc/stair.ts`); Smooth has no walkable option (D247) and Flatten no Ramped edges
   (D322). **Naturalize** weathers what the player paints (forces' results, strokes, rivers, set pieces); it leaves
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke
@@ -829,9 +840,12 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **The height brushes work as the game's editor does** (D322, item 37): Raise, Lower and Flatten each have a
   **target level**, shown beside the pointer ("up to 8", "down to 5", "level 7") and as a plane over the ring.
   Raise lifts every tile below the target to it and leaves higher ground; Lower cuts every tile above it down to
-  it; Flatten sets every tile to it, higher or lower. They act exactly, with the brush's footprint and hard edges;
+  it; Flatten sets every tile to it, higher or lower. They act exactly, with the brush's footprint and hard edges
+  (dabbed every quarter tile, so a stroke's edge is as solid as its middle at every size);
   holding adds nothing. Until the player sets it, the target follows the ground under the pointer (a level above
-  for Raise, below for Lower, the same for Flatten) and locks where a stroke starts. **Shift+scroll** changes it
+  for Raise, below for Lower, the same for Flatten) and locks where a stroke starts. A stroke begins on the tile
+  under the pointer, whatever the target; Flatten to a set level then follows the pointer on that level's plane, moved
+  by as much as the ground it began on stands above or below it, so the brush stays under the pointer. **Shift+scroll** changes it
   (0 to the height ceiling), **Ctrl+click** on the land takes its level (on water, the bed's), and the row's
   **Level** list sets it; once set it stays until the tool changes or Esc. Past either end of the range Raise and
   Lower are **Free**: they sculpt softly, building up as the player paints. Smooth and Naturalize stay soft;
@@ -890,7 +904,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   moves tile by tile, and the renderer is told only when the tile or the reach changes (`BrushPainter.fade`, D453). It
   goes with the brush's ring: the pointer off the land, another tool, or Esc putting the brush down. **Hold H** and
   every object goes, its shadow with it, whatever is in hand; let go and they are back, and the window losing focus lets
-  go of it (`view/useHideObjects.ts`). The Show row's **Hide objects** keeps them hidden until it is clicked again.
+  go of it (`view/useHideObjects.ts`). **Hide objects**, beside Legend, keeps them hidden until it is clicked again.
   While they are hidden the pointer finds only the land, as if nothing stood there: the readout names the land alone,
   Select picks no object, source or start, and Delete on the tile pointed at takes the ground's top level (a selection's
   Delete still takes what it marks). The fade alone changes no pick.
@@ -1106,8 +1120,9 @@ Two looks (Map look 2, D147, D242, D250, D284):
   water's own face where it steps down, in its own colour and a tenth see-through, with no foam or whitewater, a face at
   each step of a cascade (D201 amended 2026-10-29).
 - **High**, the same view finished further: water coloured by depth with clear shallows, fine crests and flecks
-  moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, ambient
-  occlusion, a colour-preserving tone curve, distance haze, sky, rock strata and soil edges (#65); trees and bushes
+  moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, sky, rock
+  strata and soil edges (#65; its ambient occlusion, tone curve and haze gave way to the game's light, fog and post
+  chain in every look, D497); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
   rock with a soil cap and the water's section, rough water below falls (#67; its crowns, landings, froth, mist and
   splash rings removed with D201's amendment, 2026-10-29). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
@@ -1372,7 +1387,8 @@ stroke records the options it used:
 - A Lower stroke that starts in or beside water records `channel` (smart Lower) and how deep it may cut (D263): a
   new channel its `bed` (one level below the surface of the water round its first dab, never below that water's own
   bed) and `dry`; a stroke that never leaves the water it began in is a deepening pass (`deepen`: a level off what
-  the brush's middle passes over, once). The bed never rises along the stroke, so the replay carves the same bed.
+  the brush's middle passes over, once). A stroke begins a deepening pass only from water half a level deep or
+  more: a source's thin sheet over flat ground is no pond, so a stroke from it is a new channel. The bed never rises along the stroke, so the replay carves the same bed.
   Strokes saved before D263 keep their old start and replay exactly.
 - Also recorded: the brush kit's options (`square`; `shape: "area"`, Timberborn's Terrain on Raise and Lower: a
   rectangle between the stroke's two dabs, every tile to the tool's Level, or a block up or down per tile on Free; one
@@ -1753,7 +1769,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     (`materials.ts` `ShaderHooks`), and only in High's own materials, which the meshes swap to while the look is
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
     hover, ground mode and an eruption's heat). A 2048² sun depth map (redrawn only when the terrain or objects
-    change, at most ten times a second while a brush paints), ambient occlusion made in a small worker
+    change, at most ten times a second while a brush paints), the water's fields made in a small worker
     (`bake.worker.ts`, one for the page, shared by every view), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.

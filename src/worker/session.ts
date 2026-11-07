@@ -22,6 +22,7 @@ export type { RemoveKind };
 import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
 import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
+import { planStair, type StairStep } from "../core/doc/stair";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
 import { groupChecks, instantChecks, NO_START, NO_START_REFUSAL, type CheckGroups, type CheckItem, type TileRect } from "../core/doc/checkItems";
 export type { CheckItem };
@@ -1811,6 +1812,7 @@ export const planned = {
   strokeClearing: (op: EditOp, label: string, tiles: readonly number[]) => planStrokeClearing(need(), op, label, tiles),
   move: (id: string, dx: number, dy: number, z?: number) => planMoveEntity(need(), id, dx, dy, z),
   start: (x: number, y: number, orientation?: Orientation, z?: number) => planStart(need(), x, y, orientation, () => crypto.randomUUID(), z),
+  stair: (from: [number, number], to: [number, number]) => planStair(need(), from, to, () => crypto.randomUUID()),
   /** Why a new ramped stroke is refused (core/doc/strokes.ts), or null. */
   stroke: (op: EditOp) => newRampedStroke(op),
   /** Remove unfed water and Fill: the one operation each would apply, or why none. */
@@ -2218,6 +2220,26 @@ export function applyTool(req: ToolRequest, id: string): SessionUpdate & { plan:
 }
 
 // --------------------------------------------------------------------- the shelf and Remove
+
+/** The stair a Slope dragged from `from` to `to` would lay (core/doc/stair.ts), for the page's preview: its slopes, or
+ *  why it can't be laid. Nothing is applied. */
+export function stairAt(from: [number, number], to: [number, number]): { ok: boolean; errors: string[]; steps: StairStep[]; label: string } {
+  const p = planStair(need(), from, to, () => "preview");
+  return p.ok ? { ok: true, errors: [], steps: p.steps, label: p.label } : { ok: false, errors: p.errors, steps: [], label: "" };
+}
+
+/** Lay the stair a Slope dragged from `from` to `to` makes: its ground and its slopes, one step. */
+export function layStair(from: [number, number], to: [number, number]): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
+  const p = planStair(s, from, to, () => crypto.randomUUID());
+  if (!p.ok) return changed(s, false, p.errors, t0);
+  const r = s.applyAll(p.ops, "user", p.label);
+  return changed(s, r.ok, r.errors, t0);
+}
+
 
 /** Trees or bushes painted by a drag from the shelf (D184): one `template` on each of `tiles` where
  *  it can stand, as one step (core/doc/placing.ts `planPlant`). The tiles it planted. */
