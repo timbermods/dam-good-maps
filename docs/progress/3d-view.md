@@ -819,6 +819,10 @@ side. The page wires it: the terrain tools' hover and stroke set the fade, and a
   (`mineCutout`), their models drawing the pit and its rim. Fading or hiding them would show the sky through the hole,
   so they are never faded or hidden (`LAND`). Their instances carry a negative `grow.x` (`LAND_GROW`), which the
   objects' program and the depth pass read.
+- **Never an editing aid:** the shelf's placement ghost is drawn with the objects' program, but it is the thing being
+  placed, not one of the map's objects (D496; planning's ruling on #759). So it is never faded or hidden, and its
+  shadow is never dropped. `markEditingAid` makes the last value of its `grow` negative (its size on screen is read as
+  the absolute value, so it keeps its growth in Markers). Any later aid drawn this way is marked the same.
 - **How it is drawn:** on a multisampled canvas (Standard, High) the object's alpha goes to coverage, a quarter of each
   pixel's samples. It needs no sorting and composites with the water and the cutaway like any opaque object. The
   canvas has an alpha channel, so while the fade is on, the frame ends with a clear of the alpha alone. Without it the
@@ -856,8 +860,6 @@ side. The page wires it: the terrain tools' hover and stroke set the fade, and a
 - **Found on the way:** the objects' material said the view's canvas has no alpha (the comment is gone). It has an
   alpha channel (`premultipliedAlpha`), so a far ruin's lattice cells (`RUIN_INSIDE_COVER` 0.75) let a little of the page
   through on screen. That is a follow-up for the look, not changed here.
-- **Falls short:** the shelf's placement ghost is drawn with the objects' program, so holding the hide key while placing
-  hides the ghost too.
 
 ## The rest of the step (next parts)
 

@@ -6,7 +6,8 @@
 // with the fade put off, and the map's picture on a renderer of its own. The light look (software drawing, CI) is
 // checked where the browser draws in software. A mine site and the seeps, the land's own shape (their tiles' tops are
 // left out of the terrain), are never faded or hidden: no sky shows through them. A warmed switch to High compiles
-// nothing in its first frame. (Software drawing on CI is treated as a GPU for Standard and High, as cutaway.spec does.)
+// nothing in its first frame. The shelf's placement ghost, an editing aid, is never faded or hidden. (Software drawing
+// on CI is treated as a GPU for Standard and High, as cutaway.spec does.)
 
 import { readdirSync } from "node:fs";
 import { expect, test } from "@playwright/test";
@@ -42,6 +43,8 @@ interface Measured {
   /** A mine site's and two seeps' footprints: the share of their pixels the sky shows through, as drawn, hidden, faded,
    *  and with their models taken away (the hole the land would have). */
   pits: { drawn: number[]; hidden: number[]; faded: number[]; hole: number[] };
+  /** The shelf's placement ghost on an empty tile: its pixels as drawn, with the objects hidden and faded round it. */
+  ghost: { shown: number; hidden: number; faded: number };
 }
 
 /** Draw a 32² meadow with a grid of trees, bushes and ruins in `look` on a renderer of the test's own, with and without
@@ -174,6 +177,39 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
     r.setObjectsHidden(false);
     await settle();
     out.shownAgain = most(measureNow(), "changed");
+    // the shelf's placement ghost, an editing aid (planning's ruling on #759): never hidden or faded with the objects
+    {
+      const gp = r.project(5.5, 4.8, -6.5);
+      const gb = { x: Math.round(gp.x * k), y: Math.round(g.drawingBufferHeight - 1 - gp.y * k), r: Math.round(14 * k) };
+      /** The ghost's pixels: those in its box more than 40 levels from the same frame without it. */
+      const count = (a: Uint8Array, b: Uint8Array) => {
+        let n = 0;
+        for (let y = Math.max(0, gb.y - gb.r); y <= Math.min(g.drawingBufferHeight - 1, gb.y + gb.r); y++)
+          for (let x = Math.max(0, gb.x - gb.r); x <= Math.min(g.drawingBufferWidth - 1, gb.x + gb.r); x++) {
+            const o = (y * g.drawingBufferWidth + x) * 4;
+            if (Math.abs(a[o] - b[o]) + Math.abs(a[o + 1] - b[o + 1]) + Math.abs(a[o + 2] - b[o + 2]) > 40) n++;
+          }
+        return n;
+      };
+      const ghost = { template: "Pine", x: 5, y: 6, z: 4, orientation: 0, ok: null };
+      const withGhost = async () => {
+        r.setGhost(ghost);
+        await settle();
+        const on = frame();
+        r.setGhost(null);
+        await settle();
+        return count(on, frame());
+      };
+      const shown = await withGhost();
+      r.setObjectsHidden(true);
+      const hidden = await withGhost();
+      r.setObjectsHidden(false);
+      r.setObjectFade({ x: 5.5, y: 6.5, radius: 3 });
+      const faded = await withGhost();
+      r.setObjectFade(null);
+      await settle();
+      out.ghost = { shown, hidden, faded };
+    }
     // the land's own shape: a mine site's pit and two seeps' (tiles whose tops the terrain leaves out) stay drawn, hidden
     // or faded; the sky never shows through them
     const pitKinds = ["UndergroundRuins", "WaterSeep", "BadwaterSeep"];
@@ -276,6 +312,9 @@ for (const look of ["standard", "high"] as const)
     expect(out.shownAgain, "shown again as they were").toBeLessThan(0.02);
     expect(out.icon, "the shelf's icon drawn as without the fade, which stays on in the view").toEqual({ drawn: true, same: true, faded: true, kept: true });
     expectPits(out, look);
+    expect(out.ghost.shown, "the placement ghost is drawn").toBeGreaterThan(50);
+    expect(out.ghost.hidden, "the placement ghost stays drawn with the objects hidden").toBeGreaterThan(0.8 * out.ghost.shown);
+    expect(out.ghost.faded, "the placement ghost is never faded round the pointer").toBeGreaterThan(0.8 * out.ghost.shown);
     expect(errors).toEqual([]);
   });
 

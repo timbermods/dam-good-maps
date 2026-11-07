@@ -3,7 +3,8 @@
 // tile; with no region nothing changes. The dither keeps a quarter of the pixels at a quarter.
 
 import { describe, expect, it } from "vitest";
-import { casterPlaces, DITHER_GLSL, LAND, LAND_GROW, OBJECT_FADE, OBJECT_FADE_EDGE, OBJECT_FADE_GLSL, objectFadeAt, objectShows, shadowDropped, validRegion } from "../../src/render3d/objectFade";
+import { BufferGeometry, Group, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial } from "three";
+import { casterPlaces, DITHER_GLSL, LAND, LAND_GROW, markEditingAid, OBJECT_FADE, OBJECT_FADE_EDGE, OBJECT_FADE_GLSL, objectFadeAt, objectShows, shadowDropped, validRegion } from "../../src/render3d/objectFade";
 import type { EntityView } from "../../src/render3d/model";
 
 describe("the fade round the pointer", () => {
@@ -67,8 +68,20 @@ describe("the fade round the pointer", () => {
     expect(objectShows(region, false, 10.5, 20.5, true)).toBe(1);
     expect([...LAND].sort()).toEqual(["BadwaterSeep", "UndergroundRuins", "WaterSeep"]);
     expect(LAND_GROW[0]).toBeLessThan(0);
-    expect(OBJECT_FADE_GLSL).toContain("if (grow.x < 0.0) return 1.0;");
-    expect(OBJECT_FADE_GLSL).toContain("return grow.x >= 0.0 && (objectHide > 0.5 ||");
+    expect(OBJECT_FADE_GLSL).toContain("if (grow.x < 0.0 || grow.z < 0.0) return 1.0;");
+    expect(OBJECT_FADE_GLSL).toContain("return grow.x >= 0.0 && grow.z >= 0.0 && (objectHide > 0.5 ||");
+  });
+
+  it("never fades or hides an editing aid (the placement ghost), and keeps its growth on screen", () => {
+    const group = new Group();
+    const geometry = new BufferGeometry();
+    geometry.setAttribute("grow", new InstancedBufferAttribute(new Float32Array([0, 0, 1, 6, 0.5, 3]), 3));
+    group.add(new InstancedMesh(geometry, new MeshBasicMaterial(), 2));
+    markEditingAid(group);
+    // (the last value negative marks it; its size stays the absolute value, which the objects' program reads)
+    expect([...(geometry.getAttribute("grow").array as Float32Array)]).toEqual([0, 0, -1, 6, 0.5, -3]);
+    markEditingAid(group);
+    expect([...(geometry.getAttribute("grow").array as Float32Array)]).toEqual([0, 0, -1, 6, 0.5, -3]);
   });
 
   it("drops the start's baked shadow by its model's place, the middle of its footprint, as its fade", () => {

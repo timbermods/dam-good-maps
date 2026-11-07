@@ -40,6 +40,19 @@ export const LAND = new Set(["UndergroundRuins", "WaterSeep", "BadwaterSeep"]);
  *  first value marks the land's own shape to the objects' program and the sun's depth pass. */
 export const LAND_GROW: readonly [number, number, number] = [-1, 0, 1];
 
+/** An editing aid drawn with the objects' program (the shelf's placement ghost): never faded or hidden, and its shadow
+ *  never dropped, since it is the thing being placed, not one of the map's objects (D496; planning's ruling on #759).
+ *  It is marked by a negative last `grow` value, the most the object grows on screen (its size is read as the absolute
+ *  value), so it keeps its growth in Markers. Every mesh with a `grow` attribute in the group is marked. */
+export function markEditingAid(group: { traverse(f: (o: unknown) => void): void }): void {
+  group.traverse((o) => {
+    const g = (o as { geometry?: { getAttribute?(n: string): { array: ArrayLike<number> & { [i: number]: number }; needsUpdate: boolean } | undefined } }).geometry?.getAttribute?.("grow");
+    if (!g) return;
+    for (let i = 2; i < g.array.length; i += 3) g.array[i] = -Math.abs(g.array[i]);
+    g.needsUpdate = true;
+  });
+}
+
 /** How the fade is drawn (`objectFade.w`): off, as coverage (a multisampled canvas), as a dither (otherwise). */
 export const FADE_OFF = 0;
 export const FADE_COVERAGE = 1;
@@ -89,7 +102,7 @@ const f = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
 
 /** The GLSL of the tests, for a vertex shader (the uniform `objectFade`: the region's middle in tiles, its radius, and
  *  FADE_* in w; `objectHide` 1 while the objects are hidden; `at` an object's origin in tiles, `grow` its instance's,
- *  negative first for the land's own shape). `objectShowsAt` is how much of it shows, `shadowDropped` whether it casts
+ *  negative first for the land's own shape, negative last for an editing aid: `markEditingAid`). `objectShowsAt` is how much of it shows, `shadowDropped` whether it casts
  *  no shadow. */
 export const OBJECT_FADE_GLSL = /* glsl */ `
       uniform vec4 objectFade;
@@ -98,12 +111,12 @@ export const OBJECT_FADE_GLSL = /* glsl */ `
         return mix(${f(OBJECT_FADE)}, 1.0, smoothstep(objectFade.z, objectFade.z + ${f(OBJECT_FADE_EDGE)}, distance(at, objectFade.xy)));
       }
       float objectShowsAt(vec2 at, vec3 grow) {
-        if (grow.x < 0.0) return 1.0;
+        if (grow.x < 0.0 || grow.z < 0.0) return 1.0;
         if (objectHide > 0.5) return 0.0;
         return objectFade.w > 0.5 ? objectFadeAt(at) : 1.0;
       }
       bool shadowDropped(vec2 at, vec3 grow) {
-        return grow.x >= 0.0 && (objectHide > 0.5 || (objectFade.w > 0.5 && objectFadeAt(at) < ${f((1 + OBJECT_FADE) / 2)}));
+        return grow.x >= 0.0 && grow.z >= 0.0 && (objectHide > 0.5 || (objectFade.w > 0.5 && objectFadeAt(at) < ${f((1 + OBJECT_FADE) / 2)}));
       }
 `;
 

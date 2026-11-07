@@ -2045,7 +2045,7 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
             return;
           }
           if (grow.x > 0.0 && markers > 0.5) {
-            float k = clamp(grow.x / perUnit, 1.0, grow.z);
+            float k = clamp(grow.x / perUnit, 1.0, abs(grow.z)); // (negative for an editing aid: objectFade.ts)
             p = p * k + vec3(0.0, grow.y * (k - 1.0), 0.0);
           }
         }

@@ -66,7 +66,7 @@ import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, mod
 import { whenIdle } from "./idle";
 import { castersChangedRects, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
-import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
+import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
 import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
@@ -2647,6 +2647,8 @@ export class MapRenderer {
       const { group } = buildEntities(one, this.objectMat, null, 0, this.software);
       // (the High look's own models, D241: the ghost shows what will be placed)
       const undo = this.high?.decorate(group, one);
+      // (an editing aid: never faded round the pointer or hidden with the objects, objectFade.ts)
+      markEditingAid(group);
       const tint: [number, number, number] | null = g.ok === null ? null : g.ok === "warn" ? [1.4, 1.1, 0.5] : g.ok ? [0.7, 1.3, 0.7] : [1.5, 0.55, 0.5];
       if (tint)
         for (const c of group.children) {
