@@ -475,6 +475,8 @@ export class MapRenderer {
   private sunPointed: Sun = DEFAULT_SUN;
   /** The bake worker is baking the shadows for a turned sun. */
   private sunBaking = false;
+  /** The worker the sun's shadows bake in (a field, so a test can give one that refuses). */
+  private bakeSun: () => Pick<Baker, "run"> = sunBaker;
   /** Bumped whenever the baked shadows change (an edit, new objects, a new map): a bake for a turned sun made before
    *  is dropped and asked again. */
   private shadowEpoch = 0;
@@ -3825,7 +3827,7 @@ export class MapRenderer {
     const casters = this.casters ?? null;
     const levels = casters ? casterLevelsOf(casters) : undefined;
     this.sunBaking = true;
-    sunBaker()
+    this.bakeSun()
       .run({ kind: "shadows", W: m.W, H: m.H, heights: m.heights.slice(), casters: casters ? casters.slice() : null, levels: levels ? levels.slice() : null, rock: this.rock(), sun })
       .then(
         (r) => {
@@ -3845,8 +3847,11 @@ export class MapRenderer {
         },
         () => {
           this.sunBaking = false;
-          // (refused: asked again with the next frame, never left waiting for something else to draw one)
-          if (!this.disposed) this.requestRender();
+          // (refused: the job threw, and would again on the same map, so the sun is taken on the shadows already baked,
+          // never asked again every frame nor left waiting)
+          if (this.disposed) return;
+          this.sun = sun;
+          this.pointSun();
         },
       );
   }
