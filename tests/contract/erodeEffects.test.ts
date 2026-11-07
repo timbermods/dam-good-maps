@@ -17,9 +17,12 @@ vi.stubGlobal("requestAnimationFrame", (f: () => void) => frames.push(f));
 vi.stubGlobal("cancelAnimationFrame", () => {});
 afterAll(() => vi.unstubAllGlobals());
 
+/** `ms` of frames drawn, 16 ms each (the effects' time is the frames drawn, forces.ts `DrawnTail`). */
 function wait(ms: number): void {
-  now += ms;
-  for (const f of frames.splice(0)) f();
+  for (let left = ms; left > 0; left -= 16) {
+    now += Math.min(16, left);
+    for (const f of frames.splice(0)) f();
+  }
 }
 
 it("an erosion at a cliff's foot starts its dust and stones from the rock that went, and they end once it is kept", () => {

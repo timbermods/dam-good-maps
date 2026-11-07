@@ -816,6 +816,11 @@ class Wear {
   /** When the last stage's dust came (ms; 0: none yet). */
   private lastStage = 0;
   private stoneNext = 0;
+  /** Its own time (ms), which every puff and stone is timed by: the frames drawn, each at most a tenth of a second (a
+   *  driven clock's whole), as the other forces' tails (`DrawnTail`), so a stalled view never loses the dust. */
+  private drawn = 0;
+  /** The wall time of the last frame drawn (ms; null: none yet). */
+  private lastWall: number | null = null;
 
   constructor(private readonly clock: Clock) {
     this.dustGeometry.setAttribute("dustAlpha", new InstancedBufferAttribute(this.dustAlpha, 1));
@@ -829,7 +834,8 @@ class Wear {
     this.empty();
   }
 
-  begin(m: ForceMoment, now: number): void {
+  begin(m: ForceMoment): void {
+    const now = this.drawn;
     this.empty();
     this.live = true;
     this.at = { x: m.x, y: m.y };
@@ -841,7 +847,8 @@ class Wear {
   }
 
   /** A stage's moment: the faint dust of the rumble, then dust and stones from the voxels that went. */
-  cue(m: ForceMoment, now: number, voxels: Voxels | null): void {
+  cue(m: ForceMoment, voxels: Voxels | null): void {
+    const now = this.drawn;
     if (!this.live) return;
     if (m.phase === "rumble") {
       // (a faint stir of dust at the face, before the rock begins to go)
@@ -1008,17 +1015,18 @@ class Wear {
     }
   }
 
-  finish(now: number): void {
-    if (this.live) this.ended ??= now;
+  finish(): void {
+    if (this.live) this.ended ??= this.drawn;
   }
 
   get active(): boolean {
-    return this.live && (this.ended === null || this.clock.now() < this.until);
+    return this.live && (this.ended === null || this.drawn < this.until);
   }
 
   /** Where it acts, its seconds since it began and how many puffs and stones are in the air, or null. */
-  showing(now: number): { x: number; y: number; age: number; dust: number; stones: number } | null {
+  showing(): { x: number; y: number; age: number; dust: number; stones: number } | null {
     if (!this.active) return null;
+    const now = this.drawn;
     let dust = 0;
     let stones = 0;
     for (let k = 0; k < WEAR_DUST; k++) {
@@ -1032,7 +1040,12 @@ class Wear {
     return { ...this.at, age: (now - this.t0) / 1000, dust, stones };
   }
 
-  update(now: number): void {
+  /** At each frame drawn (`wall`: the clock's time, ms). */
+  update(wall: number): void {
+    const step = this.lastWall === null ? 0 : Math.max(0, wall - this.lastWall);
+    this.lastWall = wall;
+    this.drawn += this.clock.driven ? step : Math.min(step, 100);
+    const now = this.drawn;
     this.group.visible = this.active;
     if (!this.group.visible) return;
     const d = this.dustState;
@@ -1176,9 +1189,9 @@ export class ForceEffects {
       if (m.glaciate && m.phase !== "gather" && m.phase !== "done") this.glacier.clockTo(m.glaciate.seconds, m.pace ?? 1, now);
       if (m.phase === "done") this.glacier.finish(now);
     } else if (m.verb === "erode") {
-      if (this.verb !== "erode" || !this.wear.active) this.wear.begin(m, now);
-      this.wear.cue(m, now, this.voxels());
-      if (m.phase === "done") this.wear.finish(now);
+      if (this.verb !== "erode" || !this.wear.active) this.wear.begin(m);
+      this.wear.cue(m, this.voxels());
+      if (m.phase === "done") this.wear.finish();
     }
     this.verb = m.verb;
     this.kick();
@@ -1191,7 +1204,7 @@ export class ForceEffects {
     this.rupture.finish(now);
     this.plume.finish(now);
     this.glacier.finish(now);
-    this.wear.finish(now);
+    this.wear.finish();
     this.impact.strike(now);
     this.over = true;
     this.kick();
@@ -1216,7 +1229,7 @@ export class ForceEffects {
 
   /** What plays now (tests): each moment's place and age, or null. */
   showing(now = this.clock.now()) {
-    return { craterize: this.impact.showing(), quake: this.rupture.showing(now), erupt: this.plume.showing(now), glaciate: this.glacier.showing(now), erode: this.wear.showing(now) };
+    return { craterize: this.impact.showing(), quake: this.rupture.showing(now), erupt: this.plume.showing(now), glaciate: this.glacier.showing(now), erode: this.wear.showing() };
   }
 
   /** The eruption's heat on the ground now: its age and its cooling (seconds), or null (no eruption
