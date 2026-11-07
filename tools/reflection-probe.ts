@@ -74,7 +74,7 @@ try {
           // (each mip a whole number of 4 × 4 blocks: the ones under 4 texels across take one block)
           const s = Math.max(1, size >> m);
           const padded = Math.max(4, Math.ceil(s / 4) * 4);
-          const n = (padded / 4) ** 2 * 16;
+          const n = (padded / 4) * (padded / 4) * 16;
           const tex = gl.createTexture();
           gl.bindTexture(gl.TEXTURE_2D, tex);
           gl.compressedTexImage2D(gl.TEXTURE_2D, 0, bptc.COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT, padded, padded, 0, bin.subarray(at, at + n));

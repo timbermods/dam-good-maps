@@ -1,6 +1,6 @@
 // Seeing the land behind every object (render3d/objectFade.ts `setObjectsHidden`, an editing aid in its own channel,
 // D496/D497's rule: the look itself never changes). Hold H and every object goes, its shadow with it; let go and they are
-// back. The Show row's "Hide objects" keeps them hidden until it is clicked again. Letting go of the window (Alt+Tab, a
+// back. "Hide objects", beside Legend, keeps them hidden until it is clicked again. Letting go of the window (Alt+Tab, a
 // hidden tab) lets go of the key, so it never sticks. Nothing here changes the map; pictures never show it. While they
 // are hidden the pointer finds only the land (each pick asks `renderer.objectsHidden` where it picks: objectUnder,
 // targetAt, sourceOnScreen, grabStart, the Delete key's deleteHere, the readout's hoverWordsAt).

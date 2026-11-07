@@ -37,6 +37,9 @@ guest.sendPresence(json);                               // dropped if the channe
   rejoin snapshot of about 1 MB is 64 frames. Sending waits while more than 256 KiB is buffered. Messages over 64 MiB, and
   frames out of order, are refused (`protocol` error). A message that arrives while the transport is still checking the
   relay is held and handed over, in order, right after `connected`.
+- Hello: each side says hello when `ops` opens and again every second until the other's first ping (pings start only once
+  that side has a hello), because a hello sent the instant the channel opens can be lost before the other end of the channel
+  is open (seen in Chromium; one side then sat `connecting` until the setup timer ran out). A repeated hello is ignored.
 - Heartbeats: a ping every second; 10 seconds without any traffic is a drop (`timeout`), and a gap between two ticks of more
   than twice the interval (a stalled page) restarts the count. A closed channel or a failed connection is a drop at once;
   `close()` says goodbye so the other side sees `left`.
@@ -117,7 +120,7 @@ guest at once), then, once the new map is open in the editor, `newMap(name)` (or
 | `desync` | this copy (or the other's) differs from the host's (`reason`) | loudly; the guest's page offers `resync()` |
 | `settled` | the water settled for entry `seq` and matched the host's | |
 | `unavailable` | the room-code function or the relay is down | "Collaboration is unavailable right now: ..."; editing alone is unaffected |
-| `failed`, `error` | a connection that could not be made or kept; a message that could not be used (e.g. another version) | the sentence |
+| `failed`, `error` | a connection that could not be made or kept (including one that ended before the other player was in the session on it: a join or rejoin that did not complete is never left waiting); a message that could not be used (e.g. another version) | the sentence |
 
 **Your maps (§8).** `keep.project` is a normal project (`MapSession.project()`): it opens alone later like any map. Your maps keeps
 projects as `YourMapEntry` + bytes through `src/platform/yourMaps.ts` `put(entry, project, expected)`; the page makes the entry

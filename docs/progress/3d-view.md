@@ -934,8 +934,10 @@ side. The page wires it: the terrain tools' hover and stroke set the fade, and a
   shape, the start's place and the dither. `tests/e2e/objectFade.spec.ts` checks Standard and High on a meadow of trees,
   bushes and ruins, as coverage and as dither. Objects in the region keep under half of themselves, those outside are
   drawn unchanged, and the canvas stays opaque. Hidden objects leave the land as with none. A mine site's and two seeps'
-  footprints show no more sky hidden or faded than as drawn, where taking their models away shows it through most of
-  them. The shelf's icon is unchanged, the map's picture is the same with the view's objects faded and hidden, and a
+  footprints show no more of what is behind the map hidden or faded than as drawn, where taking their models away
+  shows it through most of them. For that check the sky is replaced by a magenta background: its clouds are near
+  white and fall where the GPU's arithmetic puts them, so on CI's software drawing a cloud filled both seeps' holes and
+  a test of the sky's blue saw no hole there. The shelf's icon is unchanged, the map's picture is the same with the view's objects faded and hidden, and a
   warmed switch to High compiles no program in its first frame. The light look is checked where the browser draws in
   software (CI).
 - **Captures:** `docs/sheets/object-fade.jpg` (High and Standard: as drawn, faded round the pointer at radius 5, and
