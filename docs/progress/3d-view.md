@@ -874,7 +874,11 @@ the game's models in resources.assets (positions, materials and texture means on
   cap. It replaces the timber lodge with its red roof and banner. The entrance marker stays. Its shadow caster stands
   4.0 high (`light.ts`, was 2.2), and a press takes it as drawn: the walls two levels over the 3 × 3, the tower four
   over the middle tile (`editor/start/startPick.ts`).
-- **A water source:** an outcrop of dark rock 1.0 high, about 1.1 across (the game's is 1.14 × 1.18).
+- **A water source:** an outcrop of dark rock 1.0 high, about 1.1 across (the game's is 1.14 × 1.18). Highlighted (Remove's
+  red, D249), a source's rock takes the whole red, three times its colour rather than twice (`highlightObjects`), so the
+  dark rock reads as clearly as the red water round it; and a source the pointer's water comes from (D196) glows in its
+  model as in its water (`tintObjects`, the water's glow as a tint of the rock), since the rock now stands where the
+  glowing water was seen.
 - **A badwater source:** a flat dark crater 2.5 across over its 3 × 3, darker toward the middle, with low stones round
   its rim. Nothing stands higher than 0.06.
 - **A mine site:** the pit is the game's 1.35 deep (`MINE_PIT.depth`, was 1.6). The scaffold towers, the beams across

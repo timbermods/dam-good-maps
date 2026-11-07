@@ -76,11 +76,12 @@ import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
-import { SKY, type GroundMode } from "./palette";
+import { LANDMARK, SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, waterChangedRect, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
+import { WATER_UI } from "./waterPalette";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, highLookMaterials, roofedOf, runSoilOf, type HighLookMaterials, type HighMaterials } from "./high/highLook";
@@ -142,6 +143,12 @@ export type Look = Tier | "light";
 /** A highlighted source's tint (Remove's red on a source, Clear sources' glow, D249): its blue made
  *  a clear red. */
 const SOURCE_GLOW: [number, number, number] = [3, 0.3, 0.2];
+
+/** A source the pointer's water comes from (D196): its model takes the glow its water does (the water's colour mixed
+ *  0.45 toward `WATER_UI.sourceGlow`, materials.ts), as a tint of its rock's main colour, so a source's rock in the
+ *  middle of its glowing water glows with it. */
+const shine = (rock: readonly number[]): [number, number, number] => [0, 1, 2].map((j) => 0.55 + (0.45 * WATER_UI.sourceGlow[j]) / rock[j]) as [number, number, number];
+const SOURCE_SHINE = { WaterSource: shine(LANDMARK.rock), BadwaterSource: shine(LANDMARK.crater) } as const;
 
 /** The edges of the canvas the page's controls cover, in CSS pixels (framing keeps the map clear of them). */
 export interface FrameInsets {
@@ -912,6 +919,7 @@ export class MapRenderer {
     if (tiles.length === this.sourceGlow.length && tiles.every((t, k) => t === this.sourceGlow[k])) return;
     this.sourceGlow = tiles.slice();
     this.markSources();
+    this.tintObjects();
   }
 
   /** The sources' texture: where each clean or bad source's middle is, and which glow. */
@@ -1918,13 +1926,15 @@ export class MapRenderer {
       for (const c of gone) whenIdle(() => disposeBatch(c as InstancedMesh));
     }
     this.objectsMoved = false;
-    // (a highlight belonged to the objects as they were)
+    // (a highlight belonged to the objects as they were; a source's glow stays with its source)
     this.lit = [];
+    this.litTiles = null;
     this.sourcesLit.clear();
     group.renderOrder = 1;
     this.objects = group;
     this.scene.add(group);
     this.showMarkerObjects();
+    if (this.sourceGlow.length) this.tintObjects();
     return instances;
   }
 
@@ -2619,7 +2629,11 @@ export class MapRenderer {
 
   private ghost: { group: Group; key: string; undo?: () => void } | null = null;
   private thumbs = new Map<string, string>();
+  /** The instances tinted now (a highlight, a source's glow), with their own colours. */
   private lit: { mesh: InstancedMesh; i: number; color: [number, number, number] }[] = [];
+  /** The tiles highlighted (`highlightObjects`), and in what colour. */
+  private litTiles: Set<number> | null = null;
+  private litColor: [number, number, number] = [1, 1, 1];
   /** The middle tiles of the sources highlighted: the water over them turns red too (`markSources`). */
   private sourcesLit = new Set<number>();
 
@@ -2795,12 +2809,6 @@ export class MapRenderer {
   /** Objects on these tiles show in a colour (Remove's red under the pointer, D184); null puts them
    *  back as they are. */
   highlightObjects(tiles: readonly number[] | null, color: [number, number, number] = [1.6, 0.35, 0.3]): void {
-    for (const l of this.lit) {
-      const a = l.mesh.instanceColor!.array as Float32Array;
-      a.set(l.color, l.i * 3);
-      l.mesh.instanceColor!.needsUpdate = true;
-    }
-    this.lit = [];
     const m = this.map;
     // the sources among them: the water over each turns red too, under water as above it
     const lit = new Set<number>();
@@ -2815,8 +2823,25 @@ export class MapRenderer {
       this.sourcesLit = lit;
       this.markSources();
     }
-    if (m && this.objects && tiles?.length) {
-      const want = new Set(tiles);
+    this.litTiles = tiles?.length ? new Set(tiles) : null;
+    this.litColor = color;
+    this.tintObjects();
+  }
+
+  /** The objects in their tints: the highlighted ones in theirs (a source's a clear red, D249), a source the pointer's
+   *  water comes from in its glow (D196); every other one back in its own colour. */
+  private tintObjects(): void {
+    for (const l of this.lit) {
+      const a = l.mesh.instanceColor!.array as Float32Array;
+      a.set(l.color, l.i * 3);
+      l.mesh.instanceColor!.needsUpdate = true;
+    }
+    this.lit = [];
+    const m = this.map;
+    const want = this.litTiles;
+    const glow = new Set(this.sourceGlow);
+    if (m && this.objects && (want || glow.size)) {
+      const e = m.entities;
       for (const c of this.objects.children) {
         const mesh = c as InstancedMesh;
         const own = mesh.userData.objects as Int32Array | undefined;
@@ -2825,12 +2850,16 @@ export class MapRenderer {
         const a = mesh.instanceColor.array as Float32Array;
         for (let i = 0; i < own.length; i++) {
           const k = own[i];
-          if (k < 0 || !want.has(m.entities.y[k] * m.W + m.entities.x[k])) continue;
+          if (k < 0) continue;
+          const t = e.templates[e.template[k]];
+          const source = t === "WaterSource" || t === "BadwaterSource";
+          const red = !!want?.has(e.y[k] * m.W + e.x[k]);
+          if (!red && !(source && glow.size && glow.has(sourceMiddle(e, k, m.W, m.H)))) continue;
           this.lit.push({ mesh, i, color: [a[i * 3], a[i * 3 + 1], a[i * 3 + 2]] });
-          // (a source's blue would only darken: it turns a clear red, D249)
-          const t = m.entities.templates[m.entities.template[k]];
-          const c = t === "WaterSource" || t === "BadwaterSource" ? SOURCE_GLOW : color;
-          for (let j = 0; j < 3; j++) a[i * 3 + j] = Math.min(2, a[i * 3 + j] * c[j]);
+          // (a source's blue would only darken: it turns a clear red, D249; its dark rock takes the whole red, to read
+          // as clearly as the red water round it)
+          const tint = red ? (source ? SOURCE_GLOW : this.litColor) : SOURCE_SHINE[t as keyof typeof SOURCE_SHINE];
+          for (let j = 0; j < 3; j++) a[i * 3 + j] = Math.min(source ? 3 : 2, a[i * 3 + j] * tint[j]);
           mesh.instanceColor.needsUpdate = true;
         }
       }
