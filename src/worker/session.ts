@@ -2154,6 +2154,13 @@ export function project(level = 9): { bytes: Uint8Array; fileName: string; name:
   return { bytes: s.project(level), fileName: documentFileName(s.document), name: s.meta.name, version };
 }
 
+/** File → Save a picture: the open map as it stands, as the page draws its picture (render3d/hero.ts), and the
+ *  picture's file name (the project's, ".jpg" in place of its extension). The open map is untouched. */
+export function pictureView(): { view: MapView; fileName: string } {
+  const s = need();
+  return { view: wholeView(s), fileName: documentFileName(s.document).replace(/\.damgoodmaps\.json$/i, "").replace(/\.timber$/i, "") + ".jpg" };
+}
+
 /** A version of the open map kept or branched at History step `k` (core/doc/session.ts `versionProject`; showcase versions):
  *  its project file, its name and parent, and the land and water the page draws Your maps' picture of it from. Never a
  *  rebuild here: a step with no settled build kept comes without its stored map and without a picture (`stored` false), and
