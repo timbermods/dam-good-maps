@@ -50,12 +50,13 @@ function spot(s: MapSession): [number, number] | null {
 /** The first of a few River Valley maps with such a spot (generator 0.7.0's land, #56; seed 25 first since
  *  the opening shot, 0.10.2, D493, D148: seed 5's start moved nearer the spot it had, and seeds 3–19 hold none; seed 17
  *  first since generator 0.10.6, D498, D148: the spot also needs a level tile west of it for the Keep test, and of seeds
- *  3–19 and 25 only seed 17 holds both, at (14, 71), seed 7's spot at (50, 72) having none). */
+ *  3–19 and 25 only seed 17 holds both, at (14, 71), seed 7's spot at (50, 72) having none; seed 66 first since generator 0.10.10,
+ *  the D410 round, D148: seed 17's spot has a geothermal field beside it now, and of seeds 1–65 none holds one, seed 66 at (20, 72)). */
 let cached: { r: ReturnType<typeof generate>; at: [number, number] } | null = null;
 function session(): { s: MapSession; x: number; y: number } {
   // (the map found is kept, so the search runs once for the file)
   if (!cached)
-    for (const seed of [17, 25, ...Array.from({ length: 17 }, (_, k) => k + 3)]) {
+    for (const seed of [66, 17, 25, ...Array.from({ length: 17 }, (_, k) => k + 3)]) {
       if (cached) break;
       const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
       const probe = MapSession.fromGenerated(r, r.file);

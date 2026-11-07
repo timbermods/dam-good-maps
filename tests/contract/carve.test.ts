@@ -532,13 +532,15 @@ describe("a carve in the document (breakage rule)", () => {
     // M9b's small starts and speed rounds, where seed 2 and Canyon seeds 1–6 seal none; Canyon 96² seed 4 with the carve's seed 5 since 0.8.1's maps, where Highlands 8 and Canyon 11 seal none; of Highlands and Canyon seeds 1–24 only Canyon 4 with seed 5 and Canyon 12 with seed 3 seal a lake that keeps evaporating, the rest settle whole and the quiet dot never shows; this lake is 111 tiles; Canyon 12 with the carve's seed 3 since the start's badwater distance became a rule, Kyler, 2026-10-05, and Canyon 4's map changed, D148; Highlands 96² seed 11 with the carve's seed 5 since badwater joins the main water, D476, D148: of Highlands and Canyon seeds 1–24 with the carve's seeds 3–5 only it seals a lake that keeps evaporating, 129 tiles; Highlands 96² seed 29 with the carve's seed 5 once the courses follow the land, D476, D148: the first found whose sealed lake keeps evaporating and the rest settles within the cap, 91 tiles;
     // Highlands 96² seed 8 again, with the carve's seed 1, since the Canyon and Highlands height round, 0.8.8, D148: seed 29
     // seals none now; of Highlands and Canyon seeds 1–30 with the carve's seeds 1–6, this one (91 tiles), Highlands 23 and 26
-    // and Canyon 4 and 13 seal a lake that keeps evaporating)
+    // and Canyon 4 and 13 seal a lake that keeps evaporating; Highlands 96² seed 23 with the carve's seed 3 since generator 0.10.10,
+    // the D410 round, D148: seed 8 with the carve's seeds 1–6 seals at most 66 tiles now; Highlands 23 with seed 3 seals 92 that
+    // keep evaporating, as do Highlands 26 with seed 3 and Canyon 4 with seed 2, while its 144 with seed 1 settle whole)
     // (without its 3D forms, D488: since they grow at the default Verticality this map has a cave on the
     // carve's way, which a force leaves as it is; the oxbow is the carve's, not the caves')
-    const r = generate(makeSpec({ seed: 8, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
+    const r = generate(makeSpec({ seed: 23, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 1, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 3, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);

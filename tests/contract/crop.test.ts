@@ -24,7 +24,9 @@ const crop = (x: number, y: number, w: number, h: number) => ({ op: "crop" as co
 function rectAroundStart(s: MapSession): { x: number; y: number; w: number; h: number } {
   const start = s.built.entities.find((e) => e.template === "StartingLocation")!;
   const sources = s.built.entities.filter((e) => e.template === "WaterSource").map((e) => e.id);
-  for (const [w, h] of [[40, 44], [36, 36], [30, 32], [24, 24]]) {
+  // (44 × 48 last since generator 0.10.10, the D410 round, D148: the start stands at (7, 29) and the springs at the south edge
+  // and at (48, 49), so no smaller rectangle holds the start and a spring whole)
+  for (const [w, h] of [[40, 44], [36, 36], [30, 32], [24, 24], [44, 48]]) {
     for (let y = 0; y + h <= W; y += 3)
       for (let x = 0; x + w <= W; x += 3) {
         const r = { x, y, w, h };
@@ -422,16 +424,18 @@ describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edge
   // and (22, 22), now cut the start; seed 1's springs at (23, 63) for D502's narrowed maps, D148: the start moved
   // again and a crop to the west at seed 2's head cuts it; seed 1's river head, 23 tiles in from the west edge on the
   // south edge, leaves the start whole and no water beside the new edge, with the lip raising ten tiles of it at 0
-  // behind and nine at 1)
+  // behind and nine at 1; seed 5's spring 23 tiles in from the west edge for generator 0.10.10's maps, the D410 round, D148:
+  // seed 1's start moved west of its head, so a crop to the west at it cuts the start; seed 5's leaves the start whole and
+  // no water beside the new edge, with the lip raising five tiles of it at both distances)
   it.each([0, 1])("a source %i tile(s) behind the new edge does not pour its water off the map", (behind) => {
-    const original = session(1);
+    const original = session(5);
     const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 23);
     expect(spring.length).toBeGreaterThan(0);
     const sy = spring[0].y;
     const rect = { x: 23 - behind, y: 0, w: W - 23 + behind, h: W };
     expect(cropObjects(original.built.entities, rect).cutStart).toBeNull();
     original.settleCanonical();
-    const s = session(1);
+    const s = session(5);
     s.settleCanonical();
     expect(s.apply(crop(rect.x, rect.y, rect.w, rect.h)).errors).toEqual([]);
     const sources = new Set(s.built.entities.filter((e) => /Source/.test(e.template)).map((e) => e.y * rect.w + e.x));

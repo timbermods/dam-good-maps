@@ -20,8 +20,10 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 
 const W = 96;
 
+// (seed 4 since generator 0.10.10, the D410 round, D148: seed 5's carve from its far spot crosses no rise that Depth 2 cannot
+// cut, so nothing is refused; seed 4's crosses one at (10, 87) that needs Depth 5)
 function session() {
-  const r = generate(makeSpec({ seed: 5, theme: "highlands", size: { x: W, y: W } }));
+  const r = generate(makeSpec({ seed: 4, theme: "highlands", size: { x: W, y: W } }));
   const s = MapSession.fromGenerated(r, r.file);
   s.setWaterMode("defer");
   return s;

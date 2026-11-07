@@ -26,10 +26,11 @@ function edited(): { s: MapSession; exports: string[] } {
   const s = session();
   const exports = [timber(s)];
   // (the raised box on dry ground with no object within 3 tiles: a mine site or a ruin there would float, which
-  // the export's checks refuse; the first such spot from the map's corner, since generator 0.10.7, D502, D148)
+  // the export's checks refuse; the first such spot from the map's corner, since generator 0.10.7, D502, D148; west of
+  // the lowered box's column, x 40, since generator 0.10.10, the D410 round, D148: the map's west half has none west of 36)
   let at: [number, number] | null = null;
   for (let y = 4; y + 5 < W - 4 && !at; y += 2)
-    for (let x = 4; x + 6 < 36 && !at; x += 2) {
+    for (let x = 4; x + 6 < 40 && !at; x += 2) {
       const near = s.built.entities.some((e) => e.x >= x - 3 && e.x <= x + 9 && e.y >= y - 3 && e.y <= y + 8);
       let wet = false;
       for (let yy = y; yy < y + 5 && !wet; yy++) for (let xx = x; xx < x + 6 && !wet; xx++) if (s.built.water[yy * W + xx] > 0) wet = true;

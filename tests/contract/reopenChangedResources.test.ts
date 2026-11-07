@@ -11,6 +11,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
+import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { entityJson } from "../../src/core/format/entities";
 import { generate } from "../../src/core/gen/generate";
@@ -26,8 +27,22 @@ describe("a reopened project keeps what the session showed after a changed berry
   const s = MapSession.fromGenerated(r);
   const of = (id: string) => s.built.entities.filter((e) => e.owner === id);
   const dead = (id: string) => of(id).filter((e) => (entityJson(e).Components as { LivingNaturalResource?: { IsDead?: boolean } }).LivingNaturalResource?.IsDead === true);
-  // the map's first berry patch, and a forest that stands dead on dry ground
-  const patch = s.features.find((f) => f.kind === "berryPatch" && of(f.id).length > 0)!;
+  /** A brush raising a berry patch's middle. */
+  const raiseMiddle = (patch: (typeof s.features)[number]): EditOp => {
+    const tiles = runsToTiles((patch.params as { area: [number, number, number][] }).area, W);
+    const cx = Math.round((tiles.reduce((a, i) => a + (i % W), 0) / tiles.length) * 4);
+    const cy = Math.round((tiles.reduce((a, i) => a + Math.floor(i / W), 0) / tiles.length) * 4);
+    return { op: "brush", params: { tool: "raise", size: 6, strength: 10, dabs: [cx, cy, cx, cy] } };
+  };
+  // the map's first berry patch whose middle a raise dries (since generator 0.10.10, the D410 round, D148: the start's
+  // berries grow where the drought's water keeps the soil moist, and of seed 4's patches only one start patch dries
+  // under the raise), and a forest that stands dead on dry ground
+  const patch = s.features.find((f) => {
+    if (f.kind !== "berryPatch" || !of(f.id).length) return false;
+    const t = MapSession.fromGenerated(r);
+    t.apply(raiseMiddle(f));
+    return t.built.entities.some((e) => e.owner === f.id && (entityJson(e).Components as { LivingNaturalResource?: { IsDead?: boolean } }).LivingNaturalResource?.IsDead === true);
+  })!;
   const forest = s.features.find((f) => f.kind === "forest" && of(f.id).length > 0 && dead(f.id).length === of(f.id).length)!;
 
   it("a brush leaves dead bushes standing, then the patch and the forest change: the reopened project exports the same bytes", () => {
@@ -36,10 +51,7 @@ describe("a reopened project keeps what the session showed after a changed berry
     const bushes = of(patch.id).length;
     expect(dead(patch.id)).toEqual([]);
     // raising the patch's middle dries it: its bushes stay, the dried ones dead (D404, D425)
-    const tiles = runsToTiles((patch.params as { area: [number, number, number][] }).area, W);
-    const cx = Math.round((tiles.reduce((a, i) => a + (i % W), 0) / tiles.length) * 4);
-    const cy = Math.round((tiles.reduce((a, i) => a + Math.floor(i / W), 0) / tiles.length) * 4);
-    expect(s.apply({ op: "brush", params: { tool: "raise", size: 6, strength: 10, dabs: [cx, cy, cx, cy] } }).errors).toEqual([]);
+    expect(s.apply(raiseMiddle(patch)).errors).toEqual([]);
     expect(of(patch.id).length).toBe(bushes);
     expect(dead(patch.id).length).toBeGreaterThan(0);
     expect(sha(MapSession.open(decodeProject(s.project())).exportTimber().bytes)).toBe(sha(s.exportTimber().bytes));

@@ -15,7 +15,8 @@ import { canonicalStackRun, REACH_MARGIN, settledAgain, type StackSettle } from 
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { caveSession, dig, hillsides } from "./caveMap";
 
-const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
+// (seed 2 for seed 3 on generator 0.10.10, the D410 round's ramps and shores, D148: seed 3's hillsides all stand within three tiles of an object now)
+const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 64, y: 64 } }));
 
 /** The canonical settle of the map's water from cold. */
 function cold(s: MapSession): CanonicalWater {

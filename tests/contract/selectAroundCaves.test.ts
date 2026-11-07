@@ -14,8 +14,9 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 const W = 96;
 
 describe("Select's actions on a map with a 3D form (D487)", () => {
-  // (Highlands 96² seed 4242 grows a spring cave at the default Verticality, at (33–38, 37–41))
-  const r = generate(makeSpec({ seed: 4242, theme: "highlands", size: { x: W, y: W } }));
+  // (Highlands 96² seed 4242 grew a spring cave at the default Verticality, at (33–38, 37–41); seed 4245 since generator
+  // 0.10.10, the D410 round, D148: seed 4242 has no 3D form now, and seed 4245's stands at (20–25, 46–49))
+  const r = generate(makeSpec({ seed: 4245, theme: "highlands", size: { x: W, y: W } }));
 
   it("the whole map cut down to level 8: every tile but the cave's and its roof's holders, which stay as they were", () => {
     const s = MapSession.fromGenerated(r, r.file);
@@ -42,7 +43,7 @@ describe("Select's actions on a map with a 3D form (D487)", () => {
     const h0 = s.built.heights.slice();
     // (a box round the cave, as the page sends it: an exact lower of one level, useDelete.ts `deleteGround`)
     const box: number[] = [];
-    for (let y = 30; y <= 48; y++) for (let x = 26; x <= 46; x++) if (h0[y * W + x] > 0) box.push(y * W + x);
+    for (let y = 39; y <= 56; y++) for (let x = 13; x <= 33; x++) if (h0[y * W + x] > 0) box.push(y * W + x);
     const inBox = box.filter((i) => held.has(i));
     expect(inBox.length).toBeGreaterThan(0);
     const op: EditOp = { op: "sculpt", params: { mode: "lower", cells: tilesToRuns(box, W), amount: 1, exact: true } };

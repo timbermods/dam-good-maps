@@ -20,22 +20,23 @@ const open = () => MapSession.open(decodeProject(ed.project().bytes));
 
 describe("Select's actions on a one-tile selection change that tile (D259, D264)", () => {
   // ((15, 8) on M9b's map, D148: dev's (18, 3) is not a lone level tile there; (44, 10) since the 96²
-  // round's flow moved the map, investigation/canyon-highlands-96)
-  it("Highlands 64², seed 3: the dry level tile (44, 10), at level 7, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
+  // round's flow moved the map, investigation/canyon-highlands-96; (49, 22) at level 8 since generator 0.10.10, the D410 round,
+  // D148: the map has no lone level tile at level 7 now)
+  it("Highlands 64², seed 3: the dry level tile (49, 22), at level 8, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
-    const t = 10 * W + 44;
+    const t = 22 * W + 49;
     const b = open().built;
-    expect(b.heights[t]).toBe(7);
+    expect(b.heights[t]).toBe(8);
     expect(b.water[t]).toBe(0);
     // (level ground round it, nothing standing there)
-    for (const j of [t - 1, t + 1, t - W, t + W]) expect(b.heights[j]).toBe(7);
+    for (const j of [t - 1, t + 1, t - W, t + W]) expect(b.heights[j]).toBe(8);
     expect(b.entities.filter((e) => e.y * W + e.x === t)).toEqual([]);
 
     const cells = tilesToRuns([t], W);
     const actions: [string, EditOp, number][] = [
-      ["Raise 1 tile", { op: "sculpt", params: { mode: "raise", cells, amount: 1 } }, 8],
-      ["Lower 1 tile", { op: "sculpt", params: { mode: "lower", cells, amount: 1 } }, 6],
+      ["Raise 1 tile", { op: "sculpt", params: { mode: "raise", cells, amount: 1 } }, 9],
+      ["Lower 1 tile", { op: "sculpt", params: { mode: "lower", cells, amount: 1 } }, 7],
       ["Cut 1 tiles down to level 4", { op: "sculpt", params: { mode: "flatten", cells, level: 4 } }, 4],
       ["Fill 1 tiles up to level 10", { op: "sculpt", params: { mode: "flatten", cells, level: 10 } }, 10],
     ];

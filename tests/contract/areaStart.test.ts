@@ -31,22 +31,25 @@ describe("a force leaves the locked land, and the ground above the layer showing
   // no level ground inside the area and the start has nowhere to go; for 0.10.7's map, D502, D148, the start at (9, 20)
   // facing the other way again: the area from (9, 14), 29 wide, and the Erupt at (14, 23), 5 tiles east and 3 south of
   // the start, which carries it to (18, 20); the Erupt 3 to 7 tiles east of it on its row leaves the start where it
-  // stands, and the start's ground is then not broken)
-  it("Highlands 64², seed 3: an Erupt (Power 69) at (14, 23) inside a 29 × 12 area from (9, 14) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
+  // stands, and the start's ground is then not broken; seed 1 for generator 0.10.10's maps, the D410 round, D148: seed 3's
+  // start at (20, 52) is carried by no Erupt near it, at any Power, so its ground is never broken there; seed 1's start
+  // stands at (50, 10), across the area's east edge: the area from (22, 4), 29 wide, and the Erupt at (45, 13), 5 tiles
+  // west and 3 south of the start, which carries it to (28, 8))
+  it("Highlands 64², seed 1: an Erupt (Power 69) at (45, 13) inside a 29 × 12 area from (22, 4) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 1, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const area: [number, number, number][] = [];
-    for (let y = 14; y < 26; y++) area.push([y, 9, 37]);
+    for (let y = 4; y < 16; y++) area.push([y, 22, 50]);
     const inside = areaDepth(area, W, W);
     const before = open().built;
     const start = before.entities.find((e) => e.template === "StartingLocation")!;
-    // (the start stands across the area's west edge, partly inside it)
-    expect([start.x, start.y]).toEqual([9, 20]);
+    // (the start stands across the area's east edge, partly inside it)
+    expect([start.x, start.y]).toEqual([50, 10]);
     const locked = before.entities.filter((e) => e.template !== "StartingLocation" && !inside[e.y * W + e.x]);
     expect(locked.length).toBeGreaterThan(100);
 
-    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [14, 23], cut: null, natural: true, area }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [45, 13], cut: null, natural: true, area }).errors).toEqual([]);
     for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
     expect(ed.forceStop().kept).toBe(true);
     const after = open().built;
