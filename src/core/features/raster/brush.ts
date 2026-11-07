@@ -212,8 +212,29 @@ export const BRUSH_SIZE_MIN = 0.5;
 export const BRUSH_SIZE_MAX = 128;
 /** Pressure for one level. */
 export const LEVEL = 1024;
-/** Most dabs one stroke may hold (a long stroke; the page starts a new one past it). */
+/** Most dabs one stroke's operation holds. A longer stroke (a hard one dabs every quarter tile, so about 10,000 tiles of
+ *  travel) is applied as consecutive operations of at most this many, one step (`strokeParts`, session.ts `apply`). */
 export const MAX_DABS = 40_000;
+
+/** A stroke past `MAX_DABS` as consecutive strokes of at most `MAX_DABS` dabs, in order: each with its own dabs and their
+ *  pressures and levels, and the stroke's settings; a ramped Flatten's slopes go with the last, where its edge is done.
+ *  A hard stroke's map is the same either way (every tile it reaches goes all the way to its target); a soft one starts
+ *  again past the limit, as a new stroke would. A stroke within the limit is itself. */
+export function strokeParts(p: BrushParams): BrushParams[] {
+  const n = p.dabs.length / 2;
+  if (n <= MAX_DABS) return [p];
+  const { slopes, ...rest } = p;
+  const out: BrushParams[] = [];
+  for (let a = 0; a < n; a += MAX_DABS) {
+    const b = Math.min(n, a + MAX_DABS);
+    const part: BrushParams = { ...rest, dabs: p.dabs.slice(2 * a, 2 * b) };
+    if (p.pressure) part.pressure = p.pressure.slice(a, b);
+    if (p.levels) part.levels = p.levels.slice(a, b);
+    if (slopes && b === n) part.slopes = slopes;
+    out.push(part);
+  }
+  return out;
+}
 
 export interface Rect {
   x0: number;
@@ -252,6 +273,23 @@ function falloffTable(r4: number): Uint16Array {
 
 /** A precise brush's reach in quarter tiles: a tile is under it when its middle lies within this
  *  of the dab (size 1: the dab's own tile; size 2: the 3 × 3 round it). */
+/** The tiles of a row a hard dab reaches (d² ≤ reach², in quarter tiles: round, the distance; square, the larger of the
+ *  two), as the span [x0, x1] within `lo`..`hi` (empty when x0 > x1). `cx` is the dab's x and `dy` the row's offset from
+ *  it, both in quarter tiles; a tile's middle is at 4x + 2. Integer arithmetic, exact. */
+export function hardSpan(cx: number, dy: number, reach: number, square: boolean, lo: number, hi: number): [number, number] {
+  const r2 = reach * reach;
+  const left = r2 - dy * dy;
+  if (left < 0) return [1, 0];
+  // the most |dx| may be: reach on a square brush, the integer square root of what is left on a round one
+  let m = square ? reach : Math.floor(Math.sqrt(left));
+  if (!square) {
+    while (m * m > left) m--;
+    while ((m + 1) * (m + 1) <= left) m++;
+  }
+  // 4x + 2 − cx within [−m, m]
+  return [Math.max(lo, Math.ceil((cx - 2 - m) / 4)), Math.min(hi, Math.floor((cx - 2 + m) / 4))];
+}
+
 function preciseReach(size: number): number {
   return Math.max(0, Math.round(size * 4) - 2);
 }
@@ -726,28 +764,32 @@ export class BrushStroke {
       if (x0 > x1 || y0 > y1) continue;
       for (let y = y0; y <= y1; y++) {
         const dy = 4 * y + 2 - cy;
+        if (precise) {
+          // hard edges: the row's tiles within reach, one span (the tiles with d² ≤ reach², worked out exactly)
+          const [sx0, sx1] = hardSpan(cx, dy, reach, square, x0, x1);
+          if (sx0 > sx1) continue;
+          if (this.depth) {
+            // raise, lower, flatten: the tile takes the deepest dab over it (a target's: all the way)
+            const lv = this.exact ? 255 : levels ? Math.max(1, Math.min(BRUSH_MAX_LEVEL, levels[k >> 1] | 0)) : 1;
+            const row = y * W;
+            if (lv === 255) this.depth.fill(255, row + sx0, row + sx1 + 1);
+            else for (let i = row + sx0; i <= row + sx1; i++) if (lv > this.depth[i]) this.depth[i] = lv;
+            continue;
+          }
+          // smooth and naturalize: one step per tile per stroke
+          for (let i = y * W + sx0; i <= y * W + sx1; i++) {
+            if (this.swept[i]) continue;
+            this.swept[i] = 1;
+            this.acc[i] += LEVEL;
+            if (sequential) this.stepTile(i);
+          }
+          continue;
+        }
         for (let x = x0; x <= x1; x++) {
           const dx = 4 * x + 2 - cx;
           // round: the distance; square: the larger of the two, on the tile grid
           const d2 = square ? Math.max(dx * dx, dy * dy) : dx * dx + dy * dy;
           const i = y * W + x;
-          if (precise) {
-            // hard edges, no falloff
-            if (d2 > reach * reach) continue;
-            if (this.depth) {
-              // raise, lower, flatten: the tile takes the deepest dab over it
-              // (a target's: all the way)
-              const lv = this.exact ? 255 : levels ? Math.max(1, Math.min(BRUSH_MAX_LEVEL, levels[k >> 1] | 0)) : 1;
-              if (lv > this.depth[i]) this.depth[i] = lv;
-              continue;
-            }
-            // smooth and naturalize: one step per tile per stroke
-            if (this.swept[i]) continue;
-            this.swept[i] = 1;
-            this.acc[i] += LEVEL;
-            if (sequential) this.stepTile(i);
-            continue;
-          }
           if (d2 >= R2) continue;
           const w = table[d2];
           if (!w) continue;

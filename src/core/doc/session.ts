@@ -26,7 +26,7 @@ import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { objectHolds, rasterizeObjects, standProblem, type StandGround } from "../features/objects";
-import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
+import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, MAX_DABS, strokeParts, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN, padTile } from "../features/raster/terrain";
 import { bottomRunTop, ColumnTerrain, isPlainMask, surfaceOfMask, terrainColumns } from "../terrain/runs";
@@ -1494,6 +1494,8 @@ export class MapSession {
 
   /** Apply one operation. */
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
+    // (a stroke longer than one operation holds: its parts in order, one step, brush.ts `strokeParts`)
+    if (op.op === "brush" && op.params.dabs.length > 2 * MAX_DABS) return this.applyAll(strokeParts(op.params).map((params): EditOp => ({ op: "brush", params })), origin, label);
     op = this.withHold(op);
     const kept = this.heldIn(op);
     const rock = kept.rock;
