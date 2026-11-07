@@ -18,7 +18,7 @@
 //   the water, the objects; the starting location is hidden (`StartingLocationThumbnailRenderingListener`).
 
 import { OPENING } from "../core/analysis/opening";
-import { castPicture, looksScore, type PictureLand } from "../core/analysis/picture";
+import { castPicture, looksScore, PIXEL, type PictureLand } from "../core/analysis/picture";
 import { columnMasks, type EntityView, type MapView } from "./model";
 
 /** The picture's camera, in the renderer's terms (`MapRenderer.setView`; world X east, Y up, Z south), and its
@@ -73,7 +73,8 @@ export const SLIDES = 5;
 const lookedAt = (W: number, H: number, o: number, s: number): [number, number] => (o === 0 ? [W / 2, s] : o === 1 ? [s, H / 2] : o === 2 ? [W / 2, H - s] : [W - s, H / 2]);
 
 /** Of `SLIDES` places along the map from `lo` to `hi` (and its middle), the one whose picture from the camera scores
- *  best by the looks score; ties keep the place nearest the middle. */
+ *  best by the looks score among those that show no more of the backdrop past the map than the middle does; ties keep
+ *  the place nearest the middle. */
 function slide(land: PictureLand, o: number, level: number, d: number, p: number, tanH: number, tanV: number, lo: number, hi: number, middle: number): number {
   if (!(hi - lo > 1)) return middle;
   const a = (o * Math.PI) / 2;
@@ -81,21 +82,28 @@ function slide(land: PictureLand, o: number, level: number, d: number, p: number
   const right: [number, number] = [look[1], -look[0]];
   const sinP = Math.sin(p);
   const cosP = Math.cos(p);
-  const score = (s: number) => {
+  const judge = (s: number) => {
     const [x, y] = lookedAt(land.W, land.H, o, s);
     const eye: [number, number, number] = [x - look[0] * d * cosP, y - look[1] * d * cosP, level + d * sinP];
-    return looksScore(castPicture(land, { eye, look, right, sinP, cosP, tanH, tanV })).score;
+    const pic = castPicture(land, { eye, look, right, sinP, cosP, tanH, tanV });
+    let empty = 0;
+    for (let k = 0; k < pic.kind.length; k++) if (pic.kind[k] === PIXEL.void) empty++;
+    return { score: looksScore(pic).score, empty };
   };
   let best = middle;
-  let most = score(middle);
+  const here = judge(middle);
+  let most = here.score;
   for (let k = 0; k < SLIDES; k++) {
     const s = lo + ((hi - lo) * k) / (SLIDES - 1);
-    // (the middle, one of them where the room is even about it, is scored once)
+    // (the middle, one of them where the room is even about it, is judged once)
     if (Math.abs(s - middle) < 1e-9) continue;
-    const v = score(s);
-    if (v > most + 1e-9 || (Math.abs(v - most) <= 1e-9 && Math.abs(s - middle) < Math.abs(best - middle))) {
+    const v = judge(s);
+    // (never more of the backdrop than the middle shows: the room is worked out at the ground's mean level, so land
+    // lower than that at its end can show a strip of it, which the looks score only weighs over 30%)
+    if (v.empty > here.empty) continue;
+    if (v.score > most + 1e-9 || (Math.abs(v.score - most) <= 1e-9 && Math.abs(s - middle) < Math.abs(best - middle))) {
       best = s;
-      most = v;
+      most = v.score;
     }
   }
   return best;
