@@ -1,5 +1,5 @@
 // Map look's third round (PLAN §20 D115) and Kyler's clean look: badwater stays clearly darker
-// than clean water, and clean water keeps its glints and see-through shallows so it
+// than clean water, and clean water keeps its see-through shallows so it
 // reads apart from ground (it may be as dark as dry ground, as in the game); water partly bad
 // turns smoothly from clean water to badwater, the badwater share blended between tiles (D177,
 // which replaced each top showing its own tile's share); a slope's arrow is level and floats above the slope, pointing uphill, so it reads from
@@ -28,21 +28,25 @@ const lightness = (c: readonly number[]) => {
 type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): { array: ArrayLike<number>; count: number } } };
 
 describe("water", () => {
-  it("keeps badwater clearly darker than clean water, which has glints and see-through shallows, and no shore foam, as the game", () => {
+  it("keeps badwater clearly darker than clean water, which has see-through shallows, and no shore foam and no glints, as the game", () => {
     const depths = Array.from({ length: 100 }, (_, k) => 0.05 + k * 0.05);
     // badwater's body at least 6 L* darker than clean water's at any depth, open or by a bank
     // (7.7 at the least, in deep water; the lit views show about 18)
     for (const d of depths) for (const fromBank of [0, 0.2, 1]) expect(lightness(waterBody(d, false, fromBank)) - lightness(waterBody(d, true)), `${d} deep`).toBeGreaterThan(6);
-    // glints in the water shader; no foam along the shore in either look, as the game's water shader has none
-    // (D154 amended 2026-10-29 by planning, D496's rule; D148: this checked a shore foam line until then)
-    expect(WATER_SURFACE.glints).toBeGreaterThan(0.3);
+    // no foam along the shore in either look, and no glints of our own, as the game's water shader has neither: its
+    // sheen is the sun's specular at its smoothness (D154 amended 2026-10-29 and 2026-11-07 by planning, D496's rule;
+    // D148: this checked a shore foam line, then glints, until then; the glints read as white specks on a wide river)
     expect(WATER_SURFACE).not.toHaveProperty("shoreFoam");
+    expect(WATER_SURFACE).not.toHaveProperty("glints");
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
     const shader = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t())).fragmentShader;
-    const num = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
     expect(shader).not.toMatch(/foam \+= \(1\.0 - smoothstep\([^)]*, shore\)\)/);
     expect(waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false, waterHooks()).fragmentShader).not.toContain("smoothstep(0.015, 0.16, shore)");
-    expect(shader).toContain(`glints * ${num(WATER_SURFACE.glints)}`);
+    expect(shader).not.toContain("glints");
+    // nor High's own twinkling flecks
+    const high = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false, waterHooks()).fragmentShader;
+    expect(high).not.toContain("microFlecks");
+    expect(high).not.toMatch(/HW_(BAD_)?GLINT/);
     // see-through as the game's High quality draws it (Q8): the ground behind shows by 0.175 at the water's
     // floor, thinning in step with depth to none at 5 levels; clearer toward the banks, and at a bank of water
     // a level deep or shallower over a seventh of the bed shows through

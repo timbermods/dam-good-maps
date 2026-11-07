@@ -30,9 +30,9 @@ of maps have loaded on several machines. Probe batches, re-runs and audits of wh
 only where an implementation looks wrong.
 
 **The free week** (Kyler, 2026-11-07, until about 11-14). Kyler is away and has given planning a free hand: rules may
-evolve, and features beyond this plan may be built where they make the maps or the editor better. Kyler's pause on game
-launches still holds, so no session runs Timberborn until he lifts it, and one-click play waits on that. The work, in
-this order:
+evolve, and features beyond this plan may be built where they make the maps or the editor better. Game launches are
+allowed again (Kyler, 2026-11-07), through the DGM Probe runner only and only where a change needs one; the companion
+mod and one-click play are set aside (#709 stays on `hold`). The work, in this order:
 - **Forces play:** dev's red, then the see-behind aid (#759, #761) and the trees (#757). Then the #734 look set with #744
   and #754, Wave 1's look items, and then water with character: falls pour, rivers wind, and badwater looks poisonous
   (PERFECT, Water 3).
