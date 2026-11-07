@@ -164,8 +164,10 @@ describe("a fall's look, as the game's", () => {
     for (const { look, m } of shaders()) {
       expect(m.fragmentShader, look).toContain("(1.0 - WATER_FALL_SEE_THROUGH)");
       // a step of FALL or more is a fall; a smaller one between two waters is the surface going on
-      expect(m.fragmentShader, look).toContain(`#define WATER_FALL_FROM ${FALL}`);
-      expect(m.fragmentShader, look).toContain("drop < WATER_FALL_FROM");
+      // (one threshold on the flags, the drop in thirtieths, in the fragment and the vertex shader alike)
+      expect(m.fragmentShader, look).toContain(`#define WATER_FALL_FLAGS ${FALL * 30 - 0.5}`);
+      expect(m.fragmentShader, look).toContain("vFlags < WATER_FALL_FLAGS");
+      expect(m.vertexShader, look).toContain(`wflags > ${FALL * 30 - 0.5}`);
     }
   });
 
@@ -189,10 +191,11 @@ describe("a fall's look, as the game's", () => {
     const [standard, light, high] = shaders();
     for (const { m } of [standard, light]) {
       expect(m.fragmentShader).toContain("body = cleanWaterBody(0.05, waterAbsorb(0.05));");
-      expect(m.fragmentShader).toContain("murky = badwaterBody(0.05);");
     }
     // (High's surface colour at its shallowest)
-    expect(high.m.fragmentShader).toContain("waterBlend(HW_SHALLOW * (0.92 + 0.16 * strands), HW_BAD * badwaterLight(0.05), hlBad)");
+    expect(high.m.fragmentShader).toContain("waterBlend(HW_SHALLOW * (0.92 + 0.16 * strands), badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad), hlBad)");
+    // (partly bad, the game's glow of its shallowest, as the surface's)
+    for (const { m } of [standard, light]) expect(m.fragmentShader).toContain("murky = badwaterGlow(badwaterBody(0.05), BADWATER_BODY, 0.05, cont);");
     for (const { look, m } of shaders()) for (const gone of ["FALL_FOAM", "FALL_WHITEWATER", "FALL_TEAL", "fallIn", "hlCrown", "hlLanding", "hlBubbles", "lip = min("]) expect(m.fragmentShader, `${look}: ${gone}`).not.toContain(gone);
   });
 
