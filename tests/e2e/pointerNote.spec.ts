@@ -302,11 +302,14 @@ for (const size of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }]
     await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
     await putHintsAway(page);
     const spot = await dryTile(page);
+    // (the pick first, in the view as it opens: the close view below makes each frame three to five times dearer, and on
+    // CI's software drawing a frame there takes seconds, more than toolInHand's five-second wait holds; the 2026-11-07
+    // run's trace shows its one check taking 3.2 s, and the click 3.8 s)
+    await page.getByRole("button", { name: /^Pine/ }).click();
+    await toolInHand(page);
     // (the ground fills the view, so every pointer position is over the map and has its note; a tile is a few dozen
     // pixels wide, as in use: the words follow the tile under the pointer)
     await page.evaluate(([x, y, h]) => window.dgm3d!.renderer.setView({ target: [x + 0.5, h, -(y + 0.5)], distance: 16, yaw: 0.5, pitch: 0.9 }), [spot.x, spot.y, spot.h] as const);
-    await page.getByRole("button", { name: /^Pine/ }).click();
-    await toolInHand(page);
     const shelf = await rect(page, ".objects-dock");
     const toolbar = await rect(page, ".tool-bar");
     const x = Math.min((toolbar.right + shelf.left) / 2, shelf.left - 4);
