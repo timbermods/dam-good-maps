@@ -16,8 +16,8 @@
 //   `veinsOf`).
 // - Timberborn's references (D334, investigation/high-soul, adopted with the High look): exposure
 //   1.00 and a restrained grade, a lower ambient-occlusion floor, olive stone, current-aligned
-//   caustics and rolling light on moving water, pink highlights and red contact at rock on
-//   badwater, a bluer sky with fewer, larger clouds.
+//   caustics and rolling light on moving water, pink highlights and (the game's own since D496's
+//   amendment) the glow of shallow water partly bad, a bluer sky with fewer, larger clouds.
 // Every effect has a switch (a uniform, 1 on, 0 off), so switching never recompiles a shader. The
 // investigations' colours are display RGB, like the Standard shaders'. Where #65 graded the whole
 // frame in a pass of its own, each High material grades its own colour at the end of `finish()`:
@@ -457,23 +457,32 @@ export function waterHooks(): ShaderHooks {
             alpha = mix(hlFilmAlpha, hlSurface.a, hlSheen * (1.0 - hlFilm) * 0.6);
           } else {
             // the water's side, and a fall, as the game draws its falls (D201 amended 2026-10-29): the water's own
-            // colour where it sees the cliff right behind (its shallowest), its texture running down the face,
-            // nearly opaque (WATER_SURFACE.fallSeeThrough), no whitewater; at the map's edge, the water's side
+            // colour where it sees the cliff right behind (its shallowest), nearly opaque
+            // (WATER_SURFACE.fallSeeThrough), no whitewater and no highlight (the game's waterfall mask takes it off,
+            // p036 r7.z); at the map's edge, the water's side
             float hlBad = cont;
             float hlTint = waterTint(hlBad);
-            float along = abs(n.x) > 0.5 ? g.y : g.x;
-            float strands = smoothstep(0.30, 0.72, vnoise(vec2(along * 7.0, vWorld.y * 1.4 + hlT * 3.6)));
-            vec3 clean = mix(HW_SIDE_SHALLOW, HW_SHALLOW, 0.5);
-            vec3 face = waterBlend(clean * (0.92 + 0.16 * strands), HW_BAD * badwaterBody(0.05) / BADWATER_BODY, hlBad);
-            c = face * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
             bool edge = vFlags > 254.5;
             float drop = edge ? 0.0 : vFlags / 30.0;
+            // its detail carried by the current over the lip, as the game carries its albedo by each vertex's flow
+            // (two phases, p036 389-406), sampled at the face's own place: vertical streaks the flow moves
+            vec2 hlVel = (texture2D(hlFlow, (g - vec2(n.x, -n.z) * 0.5) / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
+            #ifdef CAVES
+              if (waterOwnFlow.a > 0.5) hlVel = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
+            #endif
+            float hlPh = fract(hlT / 12.0);
+            vec2 hp1 = g - hlVel * 0.65 * (hlPh * 12.0);
+            vec2 hp2 = g - hlVel * 0.65 * (fract(hlT / 12.0 + 0.5) * 12.0);
+            float strands = mix(smoothstep(0.30, 0.72, vnoise(hp1 * 7.0)), smoothstep(0.30, 0.72, vnoise(hp2 * 7.0)), abs(hlPh * 2.0 - 1.0));
+            // High's surface colour at its shallowest (measuredSurfaceWater's body with no depth)
+            vec3 face = waterBlend(HW_SHALLOW * (0.92 + 0.16 * strands), HW_BAD * badwaterLight(0.05), hlBad);
+            c = face * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
             if (edge) {
               float hlAbsorb = 1.0 - exp(-max(0.0, depth) * 0.65);
               vec3 sideClean = mix(mix(HW_SIDE_SHALLOW, HW_SIDE_BODY, hlAbsorb), HW_SIDE_DEEP, 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));
               c = waterBlend(sideClean, mix(HW_SIDE_BAD, HW_SIDE_BAD_DEEP, hlAbsorb), hlBad) * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
             }
-            alpha = edge ? mix(0.78, 0.96, hlTint) : (1.0 - WATER_FALL_SEE_THROUGH) * smoothstep(0.02, 0.06, drop);
+            alpha = edge ? mix(0.78, 0.96, hlTint) : (1.0 - WATER_FALL_SEE_THROUGH);
             // the water's section at the map's edge (#67 stage 1)
             if (hlSection > 0.5 && edge) {
               vec3 section = mix(HW_SECTION, HW_SECTION_DEEP, 1.0 - exp(-max(depth, 0.0) * 0.65));
@@ -481,11 +490,15 @@ export function waterHooks(): ShaderHooks {
               c = section * (0.94 + vnoise(vec2(g.x + g.y, vWorld.y * 5.7)) * 0.08);
               alpha = mix(0.91, 0.98, waterTint(cont));
             }
-            // tiny steps between two waters take the surface's own colour (#67 stage 2)
-            if (hlRiver > 0.5 && vFlags < 9.0) {
-              vec4 joined = measuredSurfaceWater(g, max(0.0, depth), 1.0, cont, vec3(0.0, 1.0, 0.0), V, lit, time);
-              c = joined.rgb;
-              alpha = joined.a;
+            // a small step between two waters: the surface going on, its body at its depth as the surface sees it
+            // from above (no pattern: a face's place on the map is a line, which would stretch the surface's
+            // flecks and lines down it into a bright line), as the game's face shares the surface's material
+            if (!edge && drop < WATER_FALL_FROM) {
+              vec3 stepBody = mix(mix(HW_SHALLOW, HW_BODY, smoothstep(0.25, 1.25, depth)), HW_DEEP, smoothstep(1.0, 3.5, depth));
+              stepBody = waterBlend(stepBody, HW_BAD * badwaterLight(depth), cont);
+              vec3 hlRef = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
+              c = stepBody * (skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0) * lit) / max(hlRef, vec3(0.01));
+              alpha = cleanWaterAlpha(max(0.0, depth)) * smoothstep(0.02, 0.06, drop);
             }
             if (alpha < 0.01) discard;
           }

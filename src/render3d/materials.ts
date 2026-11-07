@@ -70,6 +70,7 @@ import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { CAVE_SKY_FLOOR, LIGHT_LEVELS, type CaveLight } from "./caveLight";
 import { CUT_SLACK } from "./cutWater";
+import { FALL } from "./waterMesh";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 
 const az = LIGHT.sunAzimuth;
@@ -1580,9 +1581,10 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // the game's layers (D207, cutWater.ts): a column standing over the cut with its floor below it is sliced, its
         // top lying on the cut, shallower by what the cut took off, its sides stopping there; one whose floor is at
         // the cut or above it is gone (the fragment shader drops its top over the cut, and its sides fold flat here:
-        // a side hanging below its floor, to lower water in front of a cliff, would leave a sliver under the cut)
+        // a side hanging below its floor, to lower water in front of a cliff, would leave a sliver under the cut),
+        // but for a fall's face, which keeps its part below the cut in front of the cliff, as the game's layers do
         float surface = normal.y > 0.5 ? w.y : wcut.x + wdata.x;
-        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = surface;
+        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = wflags < 254.5 && wflags >= ${f(FALL * 30)} ? min(w.y, slice) : surface;
         if (surface > slice + ${f(CUT_SLACK)} && wcut.x < slice) {
           float over = surface - slice;
           w.y = min(w.y, slice);
@@ -1606,7 +1608,10 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       varying vec3 vNormal;
       varying vec3 vWorld;
       ${common(h)}
-      ${WATER_GLSL}${CAVE_FLOW}${hook(h, "waterDecl")}${CAVE_POINT}
+      ${WATER_GLSL}${CAVE_FLOW}
+      // (a step down of this or more is a fall: waterMesh.ts FALL)
+      #define WATER_FALL_FROM ${f(FALL)}
+${hook(h, "waterDecl")}${CAVE_POINT}
       #ifdef CAVES
       ${OVERLAY_RUN}
       #endif
@@ -1756,41 +1761,59 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
           // no foam along the shore or over a brink, as the game draws none (its water shader has no foam)
         } else {
           // the water's side, and a fall: where the water steps down, as the game draws its falls, the water mesh's
-          // own vertical face in the water's own colour, its texture running down it (the game's flow map carries
-          // its detail down the face), nearly opaque: the ground behind shows by WATER_SURFACE.fallSeeThrough
-          // (its _TransparencyWaterfallDepth); no whitewater, no foam. At the map's edge, the water's side
-          float along = abs(n.x) > 0.5 ? g.y : g.x;
+          // own vertical face in the water's own colour, nearly opaque: the ground behind shows by
+          // WATER_SURFACE.fallSeeThrough (its _TransparencyWaterfallDepth); no whitewater, no foam. At the map's
+          // edge, the water's side
+          bool edge = vFlags > 254.5;
+          float drop = edge ? 0.0 : vFlags / 30.0;
           #if LITE
             float s = 0.5;
           #else
-            float s = vnoise(vec2(along * 6.0, vWorld.y * 1.3 + t * 2.4)) * 0.6 + vnoise(vec2(along * 13.0, vWorld.y * 2.7 + t * 3.3)) * 0.4;
+            // its detail carried by the current over the lip, as the game carries its albedo by each vertex's flow
+            // (two phases, p036 389-406): sampled at the face's own place, so it runs on from the top's and stands
+            // in vertical streaks that the flow moves
+            vec2 faceDrift = waterCurrent(g - vec2(n.x, -n.z) * 0.5) * 0.65;
+            #ifdef CAVES
+              if (waterOwnFlow.a > 0.5) faceDrift = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5 * 0.65;
+            #endif
+            float facePhase = fract(t / 12.0);
+            vec2 f1 = g - faceDrift * (facePhase * 12.0);
+            vec2 f2 = g - faceDrift * (fract(t / 12.0 + 0.5) * 12.0);
+            float s = mix(vnoise(f1 * 6.0) * 0.6 + vnoise(f1 * 13.0) * 0.4, vnoise(f2 * 6.0) * 0.6 + vnoise(f2 * 13.0) * 0.4, abs(facePhase * 2.0 - 1.0));
           #endif
-          bool edge = vFlags > 254.5;
-          float drop = edge ? 0.0 : vFlags / 30.0;
-          // its detail: the light parts of the running texture, as the pale streaks on the surface
-          pale = smoothstep(0.45, 0.75, s);
-          // the game's face sees the cliff right behind it: the colour of the water at its shallowest
-          body = cleanWaterBody(0.05, waterAbsorb(0.05));
-          murky = badwaterBody(0.05);
-          alpha = edge ? mix(WATER_EDGE, BADWATER_SIDE, bad) : (1.0 - WATER_FALL_SEE_THROUGH) * smoothstep(0.02, 0.06, drop);
+          if (!edge && drop < WATER_FALL_FROM) {
+            // a small step between two waters: the water's own surface going on, as the game's face shares its
+            // material, so no light or dark line marks it
+            N *= 0.0;
+            N.y = 1.0;
+            alpha = mix(alpha, badwaterAlpha(depth, 1.0), bad);
+          } else {
+            // its detail: the light parts of the moving texture, as the pale streaks on the surface
+            pale = smoothstep(0.45, 0.75, s);
+            // the game's face sees the cliff right behind it: the colour of the water at its shallowest
+            body = cleanWaterBody(0.05, waterAbsorb(0.05));
+            murky = badwaterBody(0.05);
+          }
+          alpha = edge ? mix(WATER_EDGE, BADWATER_SIDE, bad) : !(drop < WATER_FALL_FROM) ? (1.0 - WATER_FALL_SEE_THROUGH) : alpha * smoothstep(0.02, 0.06, drop);
           if (alpha < 0.01) discard;
         }
         foam = clamp(foam, 0.0, 1.0);
         vec3 c = waterBlend(body, murky, cont);
         float lit = sunLit(g, vWorld.y);
         vec3 light = skyColor * 1.2 + sunColor * 0.3 * max(dot(N, sunDir), 0.0) * lit;
-        // the game's own highlight on the ripples, added to the colour before its light (and again after it)
-        vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, n.y);
+        // the game's own highlight on the ripples, added to the colour before its light (and again after it); none on
+        // a fall's face (the game's waterfall mask takes it off there, p036 r7.z)
+        vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, N.y);
         c += highlight;
         c *= light;
         c = mix(c, WATER_CREST * light, crest * WATER_CREST_AMOUNT);
         c = mix(c, badwaterShade(BADWATER_TROUGH, depth) * light, trough * BADWATER_TROUGH_AMOUNT);
-        // the sky's reflection, stronger at low angles; pale ripples; the sun's glint and glints
-        // (none on a fall: a sheet seen edge-on would mirror the sky in patches)
+        // the sky's reflection, stronger at low angles; pale ripples; the sun's glint and glints; a fall's face
+        // lit the same way, as the game lights every pixel of its water
         // (the game's URP lighting at the water's smoothness, clean water's about 0.25 to badwater's 0.15: the sky
         // added on top, as URP's environment term)
         float smoothness = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, bad);
-        float fres = waterSkyReflect(dot(N, V), smoothness) * step(0.5, n.y);
+        float fres = waterSkyReflect(dot(N, V), smoothness);
         c += WATER_SKY * fres;
         // (the highlight's emission: unlit, unshadowed)
         c += highlight;
@@ -1798,7 +1821,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // by its own share, so water partly bad never takes a pale pink haze between the two
         c = mix(c, WATER_PALE, pale * WATER_PALE_AMOUNT * (1.0 - bad));
         c = mix(c, badwaterShade(BADWATER_STREAK, depth), pale * BADWATER_STREAK_AMOUNT * bad);
-        float spec = waterSunGlint(N, V, sunDir, smoothness) * lit * step(0.5, n.y);
+        float spec = waterSunGlint(N, V, sunDir, smoothness) * lit;
         // a film keeps at most a faint sheen of glints: they come in with its body (WATER_FILM), so a glint
         // never turns a film's faint tint into a solid fleck
         glints *= film;
