@@ -98,7 +98,8 @@ export function hoverHandler(ed: Ed) {
     // a source, and the start, can be picked up and moved
     const canvas = renderer.current?.canvas;
     const free = hit && !brushToolRef.current && !shelfRef.current && !toolRef.current && !ed.blockRef.current;
-    const onStart = !!hit && !!startHere && Math.max(Math.abs(hit.x - startHere.x), Math.abs(hit.y - startHere.y)) <= 1;
+    // (on its pad, or on its house standing in front of the ground the pointer's tile is on)
+    const onStart = !!hit && !!startHere && (Math.max(Math.abs(hit.x - startHere.x), Math.abs(hit.y - startHere.y)) <= 1 || ed.startCalls.current.pointerOnHouse());
     // the object it would pick, shown before the click (D360 a)
     const pick = hit && free && !t && !onStart && !selection.current.count ? objectUnder(hit.x, hit.y) : undefined;
     const tilesUnder = pick === undefined ? null : objectTiles(pick);

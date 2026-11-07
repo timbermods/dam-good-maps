@@ -1,6 +1,6 @@
 // The start: moving it, its footprint check and the reach it shows.
 
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { cornerFor } from "../../core/doc/tools";
 import { startEntranceTile } from "../../core/format/footprints";
 import type { Point } from "../../core/features/schema";
@@ -12,13 +12,20 @@ import { GHOST_OK } from "../tools";
 import { quietWord } from "../shelfItems";
 import type { Ed } from "../ed";
 import { aimOf, startRoofed } from "../shelf/aim";
+import { houseHit } from "./startPick";
 
 export interface StartSlice {
   startReach: { check: StartCheck; fading: boolean } | null;
   hoverStart: (on: boolean) => void;
   startGrab: { current: { cancel(): void } | null };
   grabObjectRef: { current: (hit: TileHit | null, pick?: boolean) => PointerTool | null };
-  startCalls: { current: { grabStart: (hit: TileHit | null) => PointerTool | null } };
+  startCalls: {
+    current: {
+      grabStart: (hit: TileHit | null, house?: TileHit | null) => PointerTool | null;
+      houseAt: (clientX: number, clientY: number) => TileHit | null;
+      pointerOnHouse: () => boolean;
+    };
+  };
 }
 
 export function useStart(ed: Ed): StartSlice {
@@ -115,11 +122,30 @@ export function useStart(ed: Ed): StartSlice {
    *  the pointer, the drop moves it (one step); Esc puts it back. It aims at the ground seen (a cave's
    *  floor too), where the core's rule answers. */
   const startGrab = useRef<{ cancel(): void } | null>(null);
-  function grabStart(hit: TileHit | null): PointerTool | null {
+  /** The start's house under a point on the screen (null: the pointer sees other ground first, or no start). */
+  function houseAt(clientX: number, clientY: number): TileHit | null {
+    const r = renderer.current;
     const s = startHere;
+    if (!r || !s) return null;
+    return houseHit(r.rayAt(clientX, clientY), info.W, info.H, mirror.current.heights, s, r.slice ?? undefined);
+  }
+  /** Where the pointer last was over the page (read by the hover, which gets only the tile). */
+  const pointerAt = useRef<[number, number] | null>(null);
+  useEffect(() => {
+    // (capture: it runs before the view's own pointermove, whose hover reads it)
+    const at = (ev: PointerEvent) => void (pointerAt.current = [ev.clientX, ev.clientY]);
+    window.addEventListener("pointermove", at, { capture: true });
+    return () => window.removeEventListener("pointermove", at, { capture: true });
+  }, []);
+  const pointerOnHouse = () => !!pointerAt.current && !!houseAt(pointerAt.current[0], pointerAt.current[1]);
+  /** A press on the start: on its pad or its house (`house`, the house's tile the pointer sees, which may stand in
+   *  front of ground tiles away); the drag follows the ground seen under the pointer from where it was pressed. */
+  function grabStart(hit: TileHit | null, house: TileHit | null = null): PointerTool | null {
+    const s = startHere;
+    hit ??= house;
     // (a force picked takes the map's clicks, the start's ground too: D257)
     if (!hit || !s || brushToolRef.current || shelfRef.current || toolRef.current || ed.blockRef.current) return null;
-    if (Math.max(Math.abs(hit.x - s.x), Math.abs(hit.y - s.y)) > 1) return null;
+    if (!house && Math.max(Math.abs(hit.x - s.x), Math.abs(hit.y - s.y)) > 1) return null;
     const from: [number, number] = [hit.x, hit.y];
     let d: [number, number] = [0, 0];
     /** The level aimed at where it goes (a cave's floor; undefined, the tile's top). */
@@ -192,8 +218,8 @@ export function useStart(ed: Ed): StartSlice {
   }
   const grabObjectRef = useRef(grabObject);
   grabObjectRef.current = grabObject;
-  const startCalls = useRef({ grabStart });
-  startCalls.current = { grabStart };
+  const startCalls = useRef({ grabStart, houseAt, pointerOnHouse });
+  startCalls.current = { grabStart, houseAt, pointerOnHouse };
 
   return { startReach, hoverStart, startGrab, grabObjectRef, startCalls };
 }
