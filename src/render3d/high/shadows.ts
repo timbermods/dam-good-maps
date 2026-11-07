@@ -48,8 +48,8 @@ export class SunShadows {
     this.place();
   }
 
-  /** The sun turned (with the camera): the depth map is drawn from it, before the next frame. */
-  /** Whether the sun changed (its depth map is then to be drawn again). */
+  /** The sun turned (with the camera): the depth map is drawn from it, before the next frame. Returns whether it
+   *  changed. */
   setSun(sun: Vector3): boolean {
     if (this.sun.equals(sun)) return false;
     this.sun.copy(sun);
