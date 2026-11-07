@@ -833,7 +833,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **The height brushes work as the game's editor does** (D322, item 37): Raise, Lower and Flatten each have a
   **target level**, shown beside the pointer ("up to 8", "down to 5", "level 7") and as a plane over the ring.
   Raise lifts every tile below the target to it and leaves higher ground; Lower cuts every tile above it down to
-  it; Flatten sets every tile to it, higher or lower. They act exactly, with the brush's footprint and hard edges;
+  it; Flatten sets every tile to it, higher or lower. They act exactly, with the brush's footprint and hard edges
+  (dabbed every quarter tile, so a stroke's edge is as solid as its middle at every size);
   holding adds nothing. Until the player sets it, the target follows the ground under the pointer (a level above
   for Raise, below for Lower, the same for Flatten) and locks where a stroke starts. **Shift+scroll** changes it
   (0 to the height ceiling), **Ctrl+click** on the land takes its level (on water, the bed's), and the row's
