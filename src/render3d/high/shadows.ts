@@ -27,9 +27,9 @@ export class SunShadows {
   /** Times drawn (information). */
   passes = 0;
 
-  /** `fade`: the objects' fade round the pointer (the scene's `objectFade`, shared). */
-  constructor(fade: { value: Vector4 }) {
-    this.depth = fadingDepth(fade);
+  /** `u`: the scene's uniforms (the objects' fade round the pointer and their hiding, shared). */
+  constructor(u: ObjectFadeUniforms) {
+    this.depth = fadingDepth(u);
     this.camera.layers.set(CASTER_LAYER);
     this.target = new WebGLRenderTarget(SHADOW_SIZE, SHADOW_SIZE, { minFilter: NearestFilter, magFilter: NearestFilter });
     this.target.depthTexture = new DepthTexture(SHADOW_SIZE, SHADOW_SIZE, UnsignedIntType);
@@ -76,21 +76,33 @@ export class SunShadows {
   }
 }
 
+/** The uniforms the depth pass reads of the scene's (materials.ts `SceneUniforms`). */
+export interface ObjectFadeUniforms {
+  objectFade: { value: Vector4 };
+  objectHide: { value: number };
+}
+
 /** The depth pass's material: three.js's own, with the objects (the instanced casters: the terrain is not instanced) a
- *  fade round the pointer takes dropped (objectFade.ts `shadowDropped`). */
-function fadingDepth(fade: { value: Vector4 }): MeshDepthMaterial {
+ *  fade round the pointer takes, or hidden, dropped (objectFade.ts `shadowDropped`; every instanced caster is an object
+ *  batch, with its `grow`), never the land's own shape. (The renderer warms its programs with one of its own,
+ *  `highCopyList`.) */
+export function fadingDepth(u: ObjectFadeUniforms): MeshDepthMaterial {
   const m = new MeshDepthMaterial({ side: DoubleSide });
   m.onBeforeCompile = (shader) => {
-    shader.uniforms.objectFade = fade;
+    shader.uniforms.objectFade = u.objectFade;
+    shader.uniforms.objectHide = u.objectHide;
     shader.vertexShader = shader.vertexShader.replace(
       "void main() {",
       /* glsl */ `${OBJECT_FADE_GLSL}
+      #ifdef USE_INSTANCING
+        attribute vec3 grow;
+      #endif
       varying float vDropped;
       void main() {
         vDropped = 0.0;
         #ifdef USE_INSTANCING
           vec3 at = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-          if (shadowDropped(vec2(at.x, -at.z))) vDropped = 1.0;
+          if (shadowDropped(vec2(at.x, -at.z), grow)) vDropped = 1.0;
         #endif`,
     );
     shader.fragmentShader = shader.fragmentShader.replace(

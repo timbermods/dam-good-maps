@@ -4,8 +4,9 @@
 // draws none, and the land looks as it does with no objects at all (their baked shadows baked again, High's drawn again);
 // false brings them back as they were. Pictures never show either: the shelf's icons are drawn on the view's renderer
 // with the fade put off, and the map's picture on a renderer of its own. The light look (software drawing, CI) is
-// checked where the browser draws in software. (Software drawing on CI is treated as a GPU for Standard and High, as
-// cutaway.spec does.)
+// checked where the browser draws in software. A mine site and the seeps, the land's own shape (their tiles' tops are
+// left out of the terrain), are never faded or hidden: no sky shows through them. A warmed switch to High compiles
+// nothing in its first frame. (Software drawing on CI is treated as a GPU for Standard and High, as cutaway.spec does.)
 
 import { readdirSync } from "node:fs";
 import { expect, test } from "@playwright/test";
@@ -38,6 +39,9 @@ interface Measured {
   hidden: { flag: boolean; left: number };
   shownAgain: number;
   icon?: { drawn: boolean; same: boolean; faded: boolean; kept: boolean };
+  /** A mine site's and two seeps' footprints: the share of their pixels the sky shows through, as drawn, hidden, faded,
+   *  and with their models taken away (the hole the land would have). */
+  pits: { drawn: number[]; hidden: number[]; faded: number[]; hole: number[] };
 }
 
 /** Draw a 32² meadow with a grid of trees, bushes and ruins in `look` on a renderer of the test's own, with and without
@@ -170,6 +174,51 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
     r.setObjectsHidden(false);
     await settle();
     out.shownAgain = most(measureNow(), "changed");
+    // the land's own shape: a mine site's pit and two seeps' (tiles whose tops the terrain leaves out) stay drawn, hidden
+    // or faded; the sky never shows through them
+    const pitKinds = ["UndergroundRuins", "WaterSeep", "BadwaterSeep"];
+    const pitAt: [number, number, number][] = [[6, 20, 5], [16, 22, 2], [22, 22, 2]];
+    const n = pitAt.length;
+    const pits = { count: n, templates: pitKinds, owners: [], template: Uint16Array.from([0, 1, 2]), x: Int16Array.from(pitAt, (p) => p[0]), y: Int16Array.from(pitAt, (p) => p[1]), z: new Int16Array(n).fill(4), orientation: new Uint8Array(n), flags: new Uint8Array(n), owner: new Uint16Array(n), variant: new Uint8Array(n), strength: new Float32Array(n), ids: ["mine", "seep", "badSeep"] };
+    r.setMap({ W, H: W, heights, columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, water, entities: pits } as unknown as Parameters<R["setMap"]>[0], true);
+    await settle();
+    // each footprint on screen (its corners at the ground's level), a little inside its edge
+    const feet = pitAt.map(([x, y, size]) => {
+      const c = [[x + 0.3, y + 0.3], [x + size - 0.3, y + 0.3], [x + 0.3, y + size - 0.3], [x + size - 0.3, y + size - 0.3]].map(([cx, cy]) => r.project(cx, 4, -cy));
+      return { x0: Math.round(Math.min(...c.map((q) => q.x)) * k), x1: Math.round(Math.max(...c.map((q) => q.x)) * k), y0: Math.round(g.drawingBufferHeight - 1 - Math.max(...c.map((q) => q.y)) * k), y1: Math.round(g.drawingBufferHeight - 1 - Math.min(...c.map((q) => q.y)) * k) };
+    });
+    // (the sky round and under the map is a clear blue: blue well over red and over green; the pits' earth and rock,
+    // the ground and a seep's water are not)
+    const skyShare = () => {
+      const px = frame();
+      return feet.map((b) => {
+        let sky = 0;
+        let all = 0;
+        for (let y = b.y0; y <= b.y1; y++)
+          for (let x = b.x0; x <= b.x1; x++) {
+            const o = (y * g.drawingBufferWidth + x) * 4;
+            all++;
+            if (px[o + 2] > px[o] + 40 && px[o + 2] > px[o + 1] + 15) sky++;
+          }
+        return sky / Math.max(1, all);
+      });
+    };
+    const drawn = skyShare();
+    r.setObjectsHidden(true);
+    await settle();
+    const pitsHidden = skyShare();
+    r.setObjectsHidden(false);
+    r.setObjectFade({ x: 16, y: 22, radius: 12 });
+    await settle();
+    const pitsFaded = skyShare();
+    r.setObjectFade(null);
+    await settle();
+    // (the check sees a hole: the models taken away, the terrain still without the tops)
+    const objects = (r as unknown as { objects: { visible: boolean } }).objects;
+    objects.visible = false;
+    const hole = skyShare();
+    objects.visible = true;
+    out.pits = { drawn, hidden: pitsHidden, faded: pitsFaded, hole };
     // the shelf's icons: the same with the fade over the place they are drawn at and the objects hidden
     if (lk !== "light") {
       const thumbs = (r as unknown as { thumbs: Map<string, string> }).thumbs;
@@ -186,6 +235,16 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
     host.remove();
     return out;
   }, look);
+}
+
+/** A mine site's pit and the seeps' stay drawn whole, hidden or faded: no more sky through them than as drawn, where
+ *  taking their models away shows it through most of them. */
+function expectPits(out: Measured, look: string): void {
+  out.pits.drawn.forEach((drawn, i) => {
+    expect(out.pits.hole[i], `${look}: pit ${i}: the check sees a hole`).toBeGreaterThan(drawn + 0.3);
+    expect(out.pits.hidden[i], `${look}: pit ${i}: hidden, the land's own shape stays`).toBeLessThan(drawn + 0.02);
+    expect(out.pits.faded[i], `${look}: pit ${i}: faded, the land's own shape stays`).toBeLessThan(drawn + 0.02);
+  });
 }
 
 for (const look of ["standard", "high"] as const)
@@ -216,6 +275,7 @@ for (const look of ["standard", "high"] as const)
     expect(out.hidden.left, "hidden: the land as with no objects, their shadows gone too").toBeLessThan(0.03);
     expect(out.shownAgain, "shown again as they were").toBeLessThan(0.02);
     expect(out.icon, "the shelf's icon drawn as without the fade, which stays on in the view").toEqual({ drawn: true, same: true, faded: true, kept: true });
+    expectPits(out, look);
     expect(errors).toEqual([]);
   });
 
@@ -236,6 +296,7 @@ test("the light look fades and hides its objects too (where the browser draws in
   }
   expect(out.hidden.left).toBeLessThan(0.03);
   expect(out.shownAgain).toBeLessThan(0.02);
+  expectPits(out, "light");
   expect(errors).toEqual([]);
 });
 
@@ -279,4 +340,50 @@ test("the map's picture is the same with the view's objects faded and hidden", a
   }, heroChunk());
   expect(out, "the picture is drawn").not.toBeNull();
   expect(out!, "the same picture, to the JPEG's noise").toBeLessThan(0.5);
+});
+
+test("a switch to High after the programs were warmed compiles nothing for the sun's depth pass, the fade's included", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const out = await page.evaluate(async () => {
+    type R = import("../../src/render3d").MapRenderer;
+    const Make = window.dgm3d!.renderer.constructor as new (c: HTMLCanvasElement) => R;
+    const host = document.createElement("div");
+    host.style.cssText = "position:fixed;left:0;top:0;width:640px;height:480px;opacity:0;pointer-events:none";
+    const c = document.createElement("canvas");
+    c.style.cssText = "width:100%;height:100%;display:block";
+    host.append(c);
+    document.body.append(host);
+    const r = new Make(c);
+    const internals = r as unknown as { drawsInSoftware: boolean; programs: { background: boolean }; gl: { info: { programs: { name: string; cacheKey: string }[] } } };
+    try {
+      if (internals.drawsInSoftware || !internals.programs.background || !r.canHigh) return null;
+      r.setLookChoice("standard", false);
+      const W = 12;
+      const none = { count: 0, tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0) };
+      const entities = { count: 1, templates: ["Pine"], owners: [], template: Uint16Array.from([0]), x: Int16Array.from([2]), y: Int16Array.from([2]), z: Int16Array.from([8]), orientation: new Uint8Array(1), flags: new Uint8Array(1), owner: new Uint16Array(1), variant: new Uint8Array(1), strength: new Float32Array(1), ids: ["pine"] };
+      r.setMap({ W, H: W, heights: new Uint8Array(W * W).fill(8), columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, water: none, entities } as unknown as Parameters<R["setMap"]>[0]);
+      r.renderNow();
+      for (let k = 0; k < 3000 && !r.programsWarm; k++) await new Promise((done) => setTimeout(done, 20));
+      const warm = r.programsWarm;
+      r.setLookChoice("high", false);
+      const look = r.look;
+      const before = internals.gl.info.programs.length;
+      r.setObjectFade({ x: 2.5, y: 2.5, radius: 2 });
+      r.renderNow();
+      const fresh = internals.gl.info.programs.slice(before).map((p) => p.name || p.cacheKey.slice(0, 60));
+      return { warm, look, fresh };
+    } finally {
+      r.dispose();
+      host.remove();
+    }
+  });
+  test.skip(out === null, "the browser draws in software or can't compile in the background: nothing is compiled ahead");
+  expect(out!.warm).toBe(true);
+  expect(out!.look).toBe("high");
+  expect(out!.fresh, "programs the first High frame compiled").toEqual([]);
+  expect(errors).toEqual([]);
 });

@@ -29,8 +29,6 @@ import {
   Color,
   InstancedBufferAttribute,
   InstancedMesh as InstancedMeshObject,
-  DoubleSide,
-  MeshDepthMaterial,
   Mesh,
   OrthographicCamera,
   PerspectiveCamera,
@@ -68,7 +66,7 @@ import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, mod
 import { whenIdle } from "./idle";
 import { castersChangedRects, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
-import { FADE_COVERAGE, FADE_DITHER, FADE_OFF, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
+import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
 import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
@@ -88,6 +86,7 @@ import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, saved
 import { HighLook, highLookMaterials, roofedOf, runSoilOf, type HighLookMaterials, type HighMaterials } from "./high/highLook";
 import { Programs, withDefine, type Defines } from "./programs";
 import { pageBaker, type Baker } from "./high/fields";
+import { fadingDepth } from "./high/shadows";
 import { WaterMotion } from "./motion";
 import { StillFlow } from "./stillFlow";
 import { BoxUploads, RowUploads } from "./rowUploads";
@@ -799,7 +798,8 @@ export class MapRenderer {
     }
     const c = this.highCopy;
     // (three.js reads a material's defines and nothing of its kind here: the depth material passes as one)
-    this.depthCopy ??= [0, 1].map(() => new MeshDepthMaterial({ side: DoubleSide }) as unknown as ShaderMaterial) as [ShaderMaterial, ShaderMaterial];
+    // (the sun's depth pass's own, with the objects' fade: shadows.ts `fadingDepth`)
+    this.depthCopy ??= [0, 1].map(() => fadingDepth(this.uniforms) as unknown as ShaderMaterial) as [ShaderMaterial, ShaderMaterial];
     const own = (m: ShaderMaterial): [ShaderMaterial, Defines] => [m, { ...(m.defines as Defines) }];
     const now = { cut: this.cutaway, caves: this.caveBranch, soil: this.runSoilBranch };
     const branches = [now, ...states].flatMap((st) => this.branchDefines([c.terrain], roofedOf(c), runSoilOf(c), st));
@@ -1391,6 +1391,7 @@ export class MapRenderer {
     this.sourceTiles = overlayTexture(W, H);
     this.tileTex = tileTexture(W, H, tiles);
     this.allCasters = objectCasters(W, H, v.entities);
+    this.casterPlaces = casterPlaces(v.entities, W);
     this.casters = this.castersNow();
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
     this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns)));
@@ -1715,7 +1716,23 @@ export class MapRenderer {
     const m = this.map;
     if (!m || !this.lightTex) return;
     this.allCasters = objectCasters(m.W, m.H, this.drawnObjects ?? m.entities);
+    this.casterPlaces = casterPlaces(this.drawnObjects ?? m.entities, m.W);
     this.castShadows(onlyCasters);
+  }
+
+  /** The casters whose model stands off their tile (objectFade.ts `casterPlaces`: the start). */
+  private casterPlaces = new Map<number, [number, number]>();
+  /** Two arrays the casters with the fade's taken out are written to in turn (`castersNow`): none made as it moves. */
+  private fadeCasters: [Float32Array, Float32Array] | null = null;
+  /** The tiles the casters can have changed in since the baked shadows were last cast round the fade: where its region
+   *  was and is (null: anywhere). */
+  private fadeArea: { x0: number; y0: number; x1: number; y1: number } | null = null;
+
+  /** The tiles a fade's region may drop casters in (the start's caster stands up to two tiles from its model). */
+  private fadeReach(f: FadeRegion | null): { x0: number; y0: number; x1: number; y1: number } | null {
+    if (!f) return null;
+    const r = f.radius + OBJECT_FADE_EDGE + 2;
+    return { x0: Math.floor(f.x - r), y0: Math.floor(f.y - r), x1: Math.floor(f.x + r), y1: Math.floor(f.y + r) };
   }
 
   /** What casts the baked shadows now: no object while they are hidden, none faded round the pointer (objectFade.ts;
@@ -1726,18 +1743,28 @@ export class MapRenderer {
     const f = this.fadeRegion;
     if (this.objectsHiddenNow) return null;
     if (!all || !f || !m || this.software) return all;
-    const reach = f.radius + OBJECT_FADE_EDGE;
-    return withoutCasters(all, m.W, m.H, Math.floor(f.x - reach), Math.floor(f.y - reach), Math.floor(f.x + reach), Math.floor(f.y + reach), (x, y) => shadowDropped(f, x + 0.5, y + 0.5));
+    const a = this.fadeReach(f)!;
+    if (this.fadeCasters?.[0].length !== all.length) this.fadeCasters = [new Float32Array(all.length), new Float32Array(all.length)];
+    // (into the one the baked shadows are not cast from now)
+    const out = this.fadeCasters[0] === this.casters ? this.fadeCasters[1] : this.fadeCasters[0];
+    const places = this.casterPlaces;
+    const W = m.W;
+    const drop = (x: number, y: number) => {
+      const p = places.get(y * W + x);
+      return p ? shadowDropped(f, p[0], p[1]) : shadowDropped(f, x + 0.5, y + 0.5);
+    };
+    return withoutCasters(all, m.W, m.H, a.x0, a.y0, a.x1, a.y1, drop, out);
   }
 
   /** Bake the sun's shadows of what casts them now (`castersNow`): round the objects that changed when the ground did not
    *  (`onlyCasters`), else the whole map. */
-  private castShadows(onlyCasters: boolean): void {
+  private castShadows(onlyCasters: boolean, area: { x0: number; y0: number; x1: number; y1: number } | null = null): void {
     const m = this.map;
     if (!m || !this.lightTex) return;
     const casters = this.castersNow();
-    // (round each group of objects that changed, not their one bounding rectangle: plants drowned across a map)
-    const rects = onlyCasters && this.tops && this.casters !== undefined ? castersChangedRects(m.W, m.H, this.casters, casters) : undefined;
+    // (round each group of objects that changed, not their one bounding rectangle: plants drowned across a map; only
+    // within `area`, where nothing else can have changed)
+    const rects = onlyCasters && this.tops && this.casters !== undefined ? castersChangedRects(m.W, m.H, this.casters, casters, area ?? undefined) : undefined;
     this.casters = casters;
     if (rects === null) return;
     if (rects && this.tops) {
@@ -1893,7 +1920,6 @@ export class MapRenderer {
     this.lit = [];
     this.sourcesLit.clear();
     group.renderOrder = 1;
-    group.visible = !this.objectsHiddenNow;
     this.objects = group;
     this.scene.add(group);
     this.showMarkerObjects();
@@ -2700,10 +2726,11 @@ export class MapRenderer {
     cam.lookAt(aim);
     const rt = new WebGLRenderTarget(px, px);
     // (the view's own draw counts stay as its last frame left them: a picture is not a frame of the view)
-    const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, fade: this.uniforms.objectFade.value.w, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
+    const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, fade: this.uniforms.objectFade.value.w, hide: this.uniforms.objectHide.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
     this.uniforms.slice.value = 99;
-    // (a picture never shows the fade round the pointer: objectFade.ts)
+    // (a picture never shows the fade round the pointer or the objects hidden: objectFade.ts)
     this.uniforms.objectFade.value.w = FADE_OFF;
+    this.uniforms.objectHide.value = 0;
     this.gl.setRenderTarget(rt);
     this.gl.setClearColor(0x000000, 0);
     const pixels = new Uint8Array(px * px * 4);
@@ -2742,6 +2769,7 @@ export class MapRenderer {
     Object.assign(this.gl.info.render, was.counts);
     this.uniforms.slice.value = was.slice;
     this.uniforms.objectFade.value.w = was.fade;
+    this.uniforms.objectHide.value = was.hide;
     rt.dispose();
     undo?.();
     disposeGroup(group);
@@ -3288,6 +3316,12 @@ export class MapRenderer {
     const was = this.fadeRegion;
     if (was === region || (was && region && was.x === region.x && was.y === region.y && was.radius === region.radius)) return;
     this.fadeRegion = region ? { x: region.x, y: region.y, radius: region.radius } : null;
+    // (the tiles whose casters may change before the next frame: where it was and where it is, all its moves since the
+    // last frame's)
+    for (const r of [this.fadeReach(was), this.fadeReach(this.fadeRegion)]) {
+      const a = this.fadeArea;
+      if (r) this.fadeArea = a ? { x0: Math.min(a.x0, r.x0), y0: Math.min(a.y0, r.y0), x1: Math.max(a.x1, r.x1), y1: Math.max(a.y1, r.y1) } : r;
+    }
     const u = this.uniforms.objectFade.value;
     // (as coverage where the canvas is multisampled, a share of each pixel's samples; else a dither)
     if (region) u.set(region.x, region.y, region.radius, this.software || this.canvasSamples < 2 ? FADE_DITHER : FADE_COVERAGE);
@@ -3303,12 +3337,17 @@ export class MapRenderer {
     return this.fadeRegion ? { ...this.fadeRegion } : null;
   }
 
-  /** Hide every object (while the page's key is held): none drawn, none casting a shadow (the baked shadows baked
-   *  again round the objects, the High look's drawn again); false shows them again. Never in a picture. */
+  /** Hide every object (while the page's key is held): none drawn (the objects' program discards them), none casting a
+   *  shadow (the baked shadows baked again round the objects, the High look's drawn again), none shading the ground;
+   *  the pits below their feet stay, the land's own shape (objectFade.ts). False shows them again. Never in a
+   *  picture. */
   setObjectsHidden(on: boolean): void {
     if (this.objectsHiddenNow === on) return;
     this.objectsHiddenNow = on;
-    if (this.objects) this.objects.visible = !on;
+    this.uniforms.objectHide.value = on ? 1 : 0;
+    // (every object's casters change: a fade's waiting cast is in this one)
+    this.fadeShadowsStale = false;
+    this.fadeArea = null;
     this.castShadows(true);
     this.high?.objectsHiddenChanged();
     this.requestRender();
@@ -3322,13 +3361,12 @@ export class MapRenderer {
    *  them where the land should. The canvas's alpha is made whole again (a clear of its alpha alone, while fading). */
   private opaqueCanvas(): void {
     const ctx = this.gl.getContext();
-    const c = ctx.getParameter(ctx.COLOR_CLEAR_VALUE) as Float32Array;
     ctx.colorMask(false, false, false, true);
     ctx.clearColor(0, 0, 0, 1);
     ctx.clear(ctx.COLOR_BUFFER_BIT);
-    // (as three.js left them: it keeps its own record of both)
     ctx.colorMask(true, true, true, true);
-    ctx.clearColor(c[0], c[1], c[2], c[3]);
+    // (three.js's record of the mask and the clear colour forgotten: it sets both again before it next uses them)
+    this.gl.state.buffers.color.reset();
   }
 
   /** The default framebuffer's samples (0 or 1: not multisampled), read once. */
@@ -3678,7 +3716,9 @@ export class MapRenderer {
     // (the baked shadows round the fade, once a frame however often it moved)
     if (this.fadeShadowsStale) {
       this.fadeShadowsStale = false;
-      this.castShadows(true);
+      const area = this.fadeArea;
+      this.fadeArea = null;
+      this.castShadows(true, area);
     }
     // a stroke's water still to draw: a few milliseconds of it a frame (updateWaterSoon)
     if (this.waterQueue.size || this.waterReady) {

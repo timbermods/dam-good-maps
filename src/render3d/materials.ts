@@ -150,6 +150,8 @@ export interface SceneUniforms {
   /** Objects faded round the pointer (objectFade.ts): the region's middle (tiles), its radius, and how it is drawn
    *  (`FADE_OFF`, `FADE_COVERAGE`, `FADE_DITHER`); read only by the objects' program. */
   objectFade: { value: Vector4 };
+  /** 1 while the objects are hidden (objectFade.ts; all but the land's own shape), 0 otherwise. */
+  objectHide: { value: number };
 }
 
 export function sceneUniforms(W: number, H: number, tile: DataTexture, light: DataTexture, overlay: DataTexture, marks: DataTexture, edges: DataTexture = overlayTexture(1, 1), sites: DataTexture = overlayTexture(1, 1)): SceneUniforms {
@@ -189,6 +191,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     overlayRuns: { value: overlayTexture(1, 1) },
     overlayRest: { value: new Vector4(0, 0, 0, 0) },
     objectFade: { value: new Vector4(0, 0, 0, FADE_OFF) },
+    objectHide: { value: 0 },
   };
 }
 
@@ -1988,7 +1991,7 @@ export const RUIN_INSIDE_COVER = 0.75;
  *  cover (box-filtered over the pixel's footprint, as a mipmap would) as alpha to coverage, so a far
  *  ruin never breaks into noise however small its cells are on screen; it settles to an even veil of
  *  its colour (D305, D334; the game's ruins are one textured model whatever the distance, its
- *  textures mipmapped). The view's canvas has no alpha, so the coverage is all alpha does. */
+ *  textures mipmapped). */
 export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks): ShaderMaterial {
   return new ShaderMaterial({
     alphaToCoverage: !lite,
@@ -2013,15 +2016,16 @@ export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHoo
       void main() {
         mat4 m = modelMatrix * instanceMatrix;
         vLod = lod;
-        // seeing the land behind objects (objectFade.ts): the whole object by its place, in tiles
+        // seeing the land behind objects (objectFade.ts): the whole object by its place, in tiles (never the land's own
+        // shape)
         vFade = 1.0;
-        if (objectFade.w > 0.5) {
+        if (objectFade.w > 0.5 || objectHide > 0.5) {
           #if LITE
             vec3 at = (modelMatrix * vec4(origin.x, 0.0, origin.y, 1.0)).xyz;
           #else
             vec3 at = m[3].xyz;
           #endif
-          vFade = objectFadeAt(vec2(at.x, -at.z));
+          vFade = objectShowsAt(vec2(at.x, -at.z), grow);
         }
 ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objectNormal", "normal")});
         vColor = ${hook(h, "objectColor", "pcolor")};
@@ -2063,8 +2067,8 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
       void main() {
         // the game's layers: what stands above the slice is cut away
         if (vWorld.y > slice + 0.02) discard;
-        // faded round the pointer, where it is drawn by a dither (objectFade.ts)
-        if (vFade < 1.0 && objectFade.w > 1.5 && vFade <= ditherAt(gl_FragCoord.xy)) discard;
+        // hidden, or faded round the pointer where it is drawn by a dither (objectFade.ts)
+        if (vFade <= 0.0 || (vFade < 1.0 && objectFade.w > 1.5 && vFade <= ditherAt(gl_FragCoord.xy))) discard;
         // a ruin's far block's frame (D305): a lattice of open cells so it reads as a framework, not a
         // solid box, from any face (the two world axes across the face, whichever the normal isn't
         // closest to; no extra geometry or UVs), filtered to the pixel: the struts' share of the

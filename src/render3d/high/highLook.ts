@@ -116,7 +116,7 @@ export class HighLook {
 
   constructor(private host: HighHost) {
     const u = host.uniforms;
-    this.shadows = new SunShadows(u.objectFade);
+    this.shadows = new SunShadows(u);
     const high = {
       ...this.switches,
       sunColor: this.sun,
