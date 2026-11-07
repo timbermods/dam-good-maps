@@ -65,8 +65,8 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
-import { WATER_GLSL } from "./waterPalette";
+import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { WATER_GLSL, WATER_UI } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
 import { CUT_SLACK } from "./cutWater";
@@ -265,16 +265,25 @@ const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000))
 /** A colour or coefficients to six places (the ambient's SH, which can be small or negative). */
 const glColor3 = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1e6) / 1e6)).join(", ")})`;
 
+/** A source the pointer's water comes from (D196): its model takes the glow its water does (the water's colour mixed
+ *  0.45 toward `WATER_UI.sourceGlow`), as a tint of its rock's main colour, so a source's rock in the middle of its
+ *  glowing water glows with it. */
+const shine = (rock: readonly number[]): Rgb => [0, 1, 2].map((j) => 0.55 + (0.45 * WATER_UI.sourceGlow[j]) / rock[j]) as unknown as Rgb;
+
 /** The tints an editing aid puts on an object after the grade (objectMaterial), by index: 0 the highlight's
  *  (`aidTint`, Remove's red), 1 a source's (`sourceTint`), 2–4 the placement ghost's where it fits, warns or is refused
- *  (D184). renderer.ts writes the object's instance colour as −colour − 10 × index. */
+ *  (D184), 5–6 a water or badwater source's glow when the pointer's water comes from it (D196). renderer.ts writes the
+ *  object's instance colour as −colour − 10 × index. */
 export const AID_TINT = {
   highlight: 0,
   source: 1,
   ghost: { fits: 2, warns: 3, refused: 4 },
+  glow: { WaterSource: 5, BadwaterSource: 6 },
   fits: [0.7, 1.3, 0.7] as Rgb,
   warns: [1.4, 1.1, 0.5] as Rgb,
   refused: [1.5, 0.55, 0.5] as Rgb,
+  waterGlow: shine(LANDMARK.rock),
+  badwaterGlow: shine(LANDMARK.crater),
 } as const;
 
 /** The pattern texture: its size, and the cells of each pattern across it (each tiles). */
@@ -2142,7 +2151,7 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
           if (ic.r < 0.0) {
             float k = floor(-ic.r / 10.0);
             ic = -ic - 10.0 * k;
-            vAid = k < 0.5 ? aidTint : k < 1.5 ? sourceTint : k < 2.5 ? ${glColor(AID_TINT.fits)} : k < 3.5 ? ${glColor(AID_TINT.warns)} : ${glColor(AID_TINT.refused)};
+            vAid = k < 0.5 ? aidTint : k < 1.5 ? sourceTint : k < 2.5 ? ${glColor(AID_TINT.fits)} : k < 3.5 ? ${glColor(AID_TINT.warns)} : k < 4.5 ? ${glColor(AID_TINT.refused)} : k < 5.5 ? ${glColor(AID_TINT.waterGlow)} : ${glColor(AID_TINT.badwaterGlow)};
           }
           vColor *= ic;
         #endif

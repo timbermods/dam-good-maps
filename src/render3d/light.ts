@@ -12,7 +12,8 @@
 // All of this is the light of open air. A face whose air is under a roof (a cave, an overhang, an
 // arch) takes that air's own light instead, from the light volume (caveLight.ts).
 
-import { DEAD, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "./model";
+import { rotate, type Orientation } from "../core/format/footprints";
+import { DEAD, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "./model";
 import { LIGHT } from "./palette";
 
 /** Shadow samples per tile, along each axis. */
@@ -111,12 +112,20 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
   const out = new Float32Array(W * H);
   const levels = new Uint8Array(W * H);
   casterLevels.set(out, levels);
-  // (the plants at the game's sizes, plantSize.ts: a little under their full height, the randomizer's middle)
-  const tall: Record<string, number> = { Pine: 2.7, Oak: 2.26, Birch: 1.63, Succulent: 0.5, StartingLocation: 2.2 };
+  // (the plants at the game's sizes, plantSize.ts: a little under their full height, the randomizer's middle; the start's
+  // tower is 4.37 tall, on its middle tile)
+  const tall: Record<string, number> = { Pine: 2.7, Oak: 2.26, Birch: 1.63, Succulent: 0.5, StartingLocation: 4.0 };
   for (let k = 0; k < e.count; k++) {
     const t = e.templates[e.template[k]];
-    const x = e.x[k];
-    const y = e.y[k];
+    let x = e.x[k];
+    let y = e.y[k];
+    // (the start's tower stands on its footprint's middle tile, not on its Coordinates' corner: objectFade.ts
+    // `casterPlaces`)
+    if (t === "StartingLocation") {
+      const [dx, dy] = rotate(ORIENTATION_NAMES[e.orientation[k]] as Orientation, 1, 1);
+      x += dx;
+      y += dy;
+    }
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
     let add = tall[t] ?? 0;
     const ruin = /^RuinColumnH(\d)$/.exec(t);
