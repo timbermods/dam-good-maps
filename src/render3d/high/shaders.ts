@@ -260,8 +260,8 @@ ${HIGH_WATER_GLSL}
     // the game's glow of shallow water partly bad (badwaterGlow), in place of our own red contact at the shore
     badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);
     // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts
-    // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the fewer glints,
-    // the bubbles, the murk) turned toward badwater's by the same tint
+    // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the bubbles,
+    // the murk) turned toward badwater's by the same tint
     body = waterBlend(body, badBody, contamination);
     float tint = waterTint(contamination);
     vec3 badCrest = mix(vec3(0.035, 0.023, 0.018) + vec3(0.008, 0.006, 0.004) * low, vec3(0.009, 0.007, 0.004) + vec3(0.0008, 0.0006, 0.0004) * low, smoothstep(0.25, 1.0, tint));

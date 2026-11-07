@@ -29,14 +29,14 @@ export const WATER = {
   /** Clean water, closer to the game's own shades (D304, sampled from Kyler's screenshot; `teal` and
    *  `navy` darkened further by D310, toward the game's own reading, while `shallow` and badwater
    *  hold the readability tests at their strictness before D304, never loosened). One consistent
-   *  teal-blue body, a calmer surface with subtle ripples and glints, still see-through so the bed
+   *  teal-blue body, a calmer surface with subtle ripples, still see-through so the bed
    *  shows through. `teal` and `navy` sit close to the game's own reading (D310: within about 3 L*
    *  of the sampled #305965/#264A58 — `navy` almost exactly `#264A58`'s own lightness). `shallow`
    *  stays above that literal reading, by exactly what the readability rules need: it clears
    *  badwater's body by `look-readable.test.ts`'s raw margin (0.3, restored by D310) and
    *  `look-waterfalls.test.ts`'s colour-blind margin (D201, at least 20 L*). D324 (option (a)) darkened
    *  badwater and the mine pit's earth first (see `BAD_BODY`), which let it come down from L* 65.9 to
-   *  58.8; it is as low as the margin allows. Water still reads as water by its glints and
+   *  58.8; it is as low as the margin allows. Water still reads as water by its sheen and
    *  ripples, not by a wide light-to-dark swing across its own depths. */
   shallow: [0.245, 0.602, 0.654] as Rgb,
   /** The ripples' lit crests, where they catch the sky: the lightest the water gets. */
@@ -85,12 +85,11 @@ export const WATER_UI = {
   sourceLit: [0.9, 0.12, 0.08] as Rgb,
 } as const;
 
-/** Clean water's surface, as the water shader draws it: glints on the ripples, and shallows showing a little
- *  of the bed, the more so toward the banks. No foam along the shore: the game's water shader has none
- *  (amended 2026-10-29, planning, D496's rule). */
+/** Clean water's surface, as the water shader draws it: the sun's sheen at the game's smoothness, and shallows
+ *  showing a little of the bed, the more so toward the banks. No foam along the shore and no glints of our own: the
+ *  game's water shader has neither (amended 2026-10-29 and 2026-11-07, planning, D496's rule; the glints read as
+ *  white specks, stars, on a wide river: showcase craft's look gap 4). */
 export const WATER_SURFACE = {
-  /** Glints of light on the ripples (up close). */
-  glints: 0.6,
   /** How much of the ground behind the water shows through it, as the game draws it (its PhysicalWaterURP's
    *  High-quality variant; `investigation/notes/water_and_soil.md` Q8): `seeThrough` of it where the water
    *  meets its floor (`_TransparencyDepth` 0.35 × `_TransparencyDepthModifier` 0.5), thinning in step with
@@ -154,7 +153,7 @@ export const WATER_SURFACE = {
  *  colours are judged from captures beside the references, and its tone curve and grade finish them. Clean water by depth (shallow, a
  *  level deep, deep), its crests' streaks from above, low down and at a grazing angle; badwater's
  *  body (water partly bad blends to it as the Standard look's does: `WATER_BLEND`, `waterBlend` in
- *  the GLSL); badwater's troughs and streaks as offsets on its body (they may be negative); the glints; foam; the water's side (a step down, the map's edge);
+ *  the GLSL); badwater's troughs and streaks as offsets on its body (they may be negative); foam; the water's side (a step down, the map's edge);
  *  its section at the map's edge (#67 stage 1). */
 export const HIGH_WATER = {
   /** Clean water by depth, from Timberborn's references (D334): a teal shallow, a darker body and a
@@ -193,7 +192,7 @@ export const HIGH_WATER = {
  *  never a hatching (D324, feedback item 5): it stays apart from clean water in greyscale and every
  *  colour-blindness by lightness, colour and texture (`look-readable.test.ts`). */
 export const CLEAR_WATER = {
-  /** Clean water's opacity, and how much more its ripples' crests and glints take. */
+  /** Clean water's opacity, and how much more its ripples' crests take. */
   opacity: 0.13,
   ripple: 0.1,
   /** How far the crests turn toward the shore's light. */
@@ -233,13 +232,12 @@ export const BADWATER = {
    *  it does behind clean water); at the map's edge, the water's side. */
   side: 0.95,
   /** Its matte surface (#38's): how far the troughs and the subdued flow streaks turn toward their
-   *  colours, how little of the glints shows (a twelfth of clean water's), its bubbles' glow, and its
+   *  colours, its bubbles' glow, and its
    *  smoothness, the game's (`_Contamination_Smoothness` 0.15: the sky and the sun's glint by the same
    *  lighting as clean water's, `WATER_SURFACE.smoothness`). */
   trough: 1,
   streak: 1,
   smoothness: 0.15,
-  glints: 0.028,
   bubbles: 0.55,
 } as const;
 
@@ -309,7 +307,7 @@ export function waterFilmGround(ground: Rgb, share: number, bad: Rgb = WATER_FIL
  *    over half, a grey; half bad over four fifths, a dull red-brown;
  *  - its opacity (the game's water is opaque at any share; ours keeps clean water see-through and
  *    badwater murky, and turns between them by the tint);
- *  - its dull surface: fewer glints and crests, badwater's troughs, streaks, foam and bubbles.
+ *  - its dull surface: fewer crests, badwater's troughs, streaks, foam and bubbles.
  *  The game's straight mix crosses a grey with a breath of mauve in it; ours never leans purple (D154):
  *  once red rises over green, blue stays under green, by `lean` of the gap (less near badwater, none at
  *  it), so the way from teal-grey to crimson is a muted warm grey-brown. While red is still under green,
@@ -434,7 +432,7 @@ export function blendWater(clean: Rgb, bad: Rgb, share: number): Rgb {
 
 /** The body colour of water `depth` levels deep, `fromBank` tiles from a bank (open water by
  *  default), clean (false), pure badwater (true) or with a badwater share (0–1): before the light,
- *  the ripples, the foam and the glints (as the shader). */
+ *  the ripples and the foam (as the shader). */
 export function waterBody(depth: number, bad: boolean | number, fromBank = 1): Rgb {
   const share = bad === true ? 1 : bad === false ? 0 : bad;
   return blendWater(cleanWaterBody(depth, fromBank), badwaterGlow(badwaterBody(depth), WATER.bad, seenDepth(depth, fromBank), share), share);
@@ -468,7 +466,7 @@ export function badwaterOpacity(depth: number, fromBank = 1): number {
 
 /** The water's opacity `depth` levels deep and `fromBank` tiles from a bank, with a badwater share
  *  (clean by default), as the game's (`waterSeeThrough`), a faint tint on a sliver (`WATER_FILM`;
- *  as the shader, before foam and glints). */
+ *  as the shader, before foam). */
 export function waterOpacity(depth: number, fromBank = 1, share = 0): number {
   const body = waterSeeThrough(seenDepth(depth, fromBank));
   const clean = WATER_FILM.clean + (body - WATER_FILM.clean) * waterFilm(depth);
@@ -563,7 +561,6 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
     float d = NoH * NoH * (r2 - 1.0) + 1.00001;
     return r2 / (d * d * max(0.1, LoH * LoH) * (4.0 * r + 2.0)) * ${f(WATER_SURFACE.f0)} * max(dot(N, L), 0.0);
   }
-  #define BADWATER_GLINTS ${f(BADWATER.glints)}
   #define BADWATER_BUBBLES ${f(BADWATER.bubbles)}
   #define BADWATER_SIDE ${f(BADWATER.side)}
   #define WATER_FALL_SEE_THROUGH ${f(WATER_SURFACE.fallSeeThrough)}
