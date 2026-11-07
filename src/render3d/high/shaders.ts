@@ -1,9 +1,9 @@
 // The High look's shader additions (PLAN §20 D147, D242, D250, D284), put in at the Standard
 // shaders' named points (materials.ts `ShaderHooks`). Ported from the investigations:
-// - #38 (investigation/maplook2): the water shader (colour by depth, clear shallows, fine crests and
-//   flecks advected by the flow, the calibrated crimson badwater, the poisoned bed under it) and
+// - #38 (investigation/maplook2): the water shader (colour by depth, clear shallows, fine crests
+//   advected by the flow, the calibrated crimson badwater, the poisoned bed under it) and
 //   soft shadows from the real meshes (a 2048² sun depth map, 25-tap PCF, receiver-plane bias);
-// - #65 (investigation/maplook3): warm sunlight, the sky, rock strata, soil edges and colour variation (its tone
+// - #65 (investigation/maplook3): warm sunlight, rock strata, soil edges and colour variation (its tone
 //   curve, grade and distance haze gave way to the game's fog and post chain, every look's: D497);
 // - #66 (investigation/vegetation): the vegetation's material (palette regions, wrapped light, matte
 //   specular) and its wind;
@@ -36,7 +36,6 @@ import type { ShaderHooks } from "../materials";
 export const SWITCHES = [
   "hlWater",
   "hlShadows",
-  "hlSky",
   "hlStrata",
   "hlBlend",
   "hlVariation",
@@ -208,7 +207,7 @@ export function terrainHooks(): ShaderHooks {
 
 /** #38's water surface: the calibrated palette (waterPalette.ts HIGH_WATER, display RGB, through the
  *  renderer's light), fine
- *  irregular crests and tiny flecks in one detail field advected by the flow in two phases, the
+ *  irregular crests in one detail field advected by the flow in two phases, the
  *  contamination front as a continuous gradient to crimson, matte badwater with its slow bubbles. */
 const WATER_FUNCTIONS = /* glsl */ `
   uniform sampler2D hlFlow;
@@ -235,15 +234,7 @@ ${HIGH_WATER_GLSL}
     float fine = detailNoise(mat2(0.63, -0.78, 0.78, 0.63) * p * 11.3 + 31.7);
     return coarse * 0.82 + fine * 0.18;
   }
-  float microFlecks(vec2 p, float t, float speed, float pixel) {
-    vec2 cell = floor(p * 7.0);
-    vec2 point = vec2(fleckHash(cell + 13.0), fleckHash(cell + 47.0)) * 0.6 + 0.2;
-    float radius = max(pixel * 7.0 * 0.5, 0.065);
-    float spot = 1.0 - smoothstep(radius * 0.25, radius, length(fract(p * 7.0) - point));
-    float twinkle = smoothstep(0.1, 0.85, sin(t * (1.1 + speed * 1.2) + fleckHash(cell) * 51.0));
-    return spot * step(mix(0.96, 0.82, speed), fleckHash(cell + 91.0)) * twinkle;
-  }
-  /** How much of the surface's light (its streaks, its light network and its flecks) measuredSurfaceWater drew
+  /** How much of the surface's light (its streaks and its light network) measuredSurfaceWater drew
    *  at the point, 0-1: on a film, its sheen keeps the opacity it has on the body (WATER_FILM). */
   float hlSheen = 0.0;
   vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, float t) {
@@ -261,8 +252,8 @@ ${HIGH_WATER_GLSL}
     // the game's glow of shallow water partly bad (badwaterGlow), in place of our own red contact at the shore
     badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);
     // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts
-    // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the fewer glints,
-    // the bubbles, the murk) turned toward badwater's by the same tint
+    // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the bubbles,
+    // the murk) turned toward badwater's by the same tint
     body = waterBlend(body, badBody, contamination);
     float tint = waterTint(contamination);
     vec3 badCrest = mix(vec3(0.035, 0.023, 0.018) + vec3(0.008, 0.006, 0.004) * low, vec3(0.009, 0.007, 0.004) + vec3(0.0008, 0.0006, 0.0004) * low, smoothstep(0.25, 1.0, tint));
@@ -329,13 +320,9 @@ ${HIGH_WATER_GLSL}
     vec3 highlight = sunColor * waterCameraHighlight(N, V, tint);
     colour += highlight;
     colour *= rippleLight / max(referenceLight, vec3(0.01));
-    float glint = mix(microFlecks(p, t, speed, pixel), microFlecks(p2, t, speed, pixel), blend);
-    glint *= lit * (1.0 - smoothstep(0.08, 0.22, pixel));
-    glint *= mix(1.0, 0.35, tint);
-    glint *= mix(1.0, 0.08, smoothstep(0.25, 1.0, tint));
-    colour = mix(colour, mix(HW_GLINT, HW_BAD_GLINT, tint), glint);
+    // (no twinkling flecks of our own: the game's water shader has none, D496's rule)
     colour += highlight;
-    hlSheen = max(max(streak * 0.45, clamp(highlights, 0.0, 0.82)), glint);
+    hlSheen = max(streak * 0.45, clamp(highlights, 0.0, 0.82));
     if (tint > 0.01) {
       float bt = t * mix(1.0, 0.55, tint);
       float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
@@ -523,25 +510,3 @@ export function vegetationHooks(slots: number): ShaderHooks {
   };
 }
 
-// ---------------------------------------------------------------------------------------- the sky
-
-/** #65's sky: a clear blue, the same pale horizon as the haze, soft static clouds above it, a broad
- *  glow toward the sun instead of a disc; graded like the land (materials.ts gamePost). */
-export function skyHooks(): ShaderHooks {
-  return {
-    decl: switches(["hlSky"]),
-    sky: /* glsl */ `
-        if (hlSky > 0.5) {
-          float horizon = exp(-abs(d.y) * 5.5);
-          c = mix(vec3(0.30, 0.49, 0.76), vec3(0.29, 0.52, 0.79), horizon);
-          if (d.y < 0.0) c = mix(vec3(0.19, 0.36, 0.55), c, exp(d.y * 3.0));
-          vec2 hp = d.xz / (0.28 + abs(d.y)) * 4.2;
-          float hn = vn(hp) * 0.52 + vn(hp * 2.07 + 3.7) * 0.30 + vn(hp * 4.31 + 19.1) * 0.18;
-          float cloudBank = smoothstep(0.34, 0.62, vn(hp * 0.29 + 17.1));
-          float hcloud = cloudBank * smoothstep(0.52, 0.73, hn) * (0.65 + 0.35 * smoothstep(0.0, 0.22, abs(d.y)));
-          c = mix(c, vec3(0.97, 0.96, 0.89), hcloud * 0.46);
-          float sun = pow(max(dot(d, normalize(vec3(-0.45, 0.77, -0.45))), 0.0), 24.0);
-          c += vec3(0.11, 0.075, 0.028) * sun;
-        }`,
-  };
-}

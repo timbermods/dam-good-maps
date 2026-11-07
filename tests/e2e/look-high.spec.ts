@@ -170,7 +170,10 @@ test("the Standard look is the same after High as before it", async ({ page }) =
   // twice can differ on the water by a few levels (dev's build too), so each pair is held to that,
   // never to the other pair's noise (a quiet first pair would fail a noisier second one)
   for (const s of [again, after]) expect(s.max, s.key).toBeLessThanOrEqual(NOISE);
-  expect(high.share).toBeGreaterThan(0.2);
+  // (High was drawn between them: its own effects, its shadows, water and models, change the frame. Since the game's
+  // sky is every look's (D497), the sky behind the map, most of the 0.2 this was held to, no longer differs; High's own
+  // effects change about 0.057 of the channel values on this frame, RTX 2070 SUPER)
+  expect(high.share).toBeGreaterThan(0.03);
   expect(errors).toEqual([]);
 });
 
@@ -523,6 +526,67 @@ test("every basin source's highlight reads, under its own water too, in High as 
   }
   // and both go exactly (software drawing on CI may stray a little on a redraw)
   expect(result.back).toBeLessThanOrEqual(8);
+  expect(errors).toEqual([]);
+});
+
+test("a source glowing while the objects are drawn again (a source placed) goes back to its own colour in High when the glow ends, as do the rest (D196)", async ({ page }) => {
+  const errors: string[] = [];
+  await open(page, errors);
+  expect(await look(page)).toBe("high");
+  /** Every High source batch's instance colours, by its source's tile. */
+  const colours = () =>
+    page.evaluate(() => {
+      const r = window.dgm3d!.renderer as unknown as { objects: { children: { name: string; instanceColor?: { array: Float32Array }; userData: { objects?: Int32Array } }[] }; mapState(): { W: number; entities: EntityLike } };
+      type EntityLike = { x: Int32Array; y: Int32Array };
+      const m = r.mapState();
+      const out: Record<string, number[]> = {};
+      for (const c of r.objects.children) {
+        if (c.name !== "high.WaterSource" && c.name !== "high.BadwaterSource") continue;
+        const own = c.userData.objects!;
+        for (let i = 0; i < own.length; i++) if (own[i] >= 0) out[`${c.name} ${m.entities.x[own[i]]},${m.entities.y[own[i]]}`] = Array.from(c.instanceColor!.array.subarray(i * 3, i * 3 + 3), (v) => Math.round(v * 1000) / 1000);
+      }
+      return out;
+    });
+  const before = await colours();
+  expect(Object.keys(before).some((k) => k.startsWith("high.WaterSource"))).toBe(true);
+  // the first water source glows, as when the pointer is over its water
+  const { middle, spot } = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const m = r.mapState()!;
+    const e = m.entities;
+    let middle = -1;
+    for (let k = 0; k < e.count && middle < 0; k++) if (e.templates[e.template[k]] === "WaterSource") middle = e.y[k] * m.W + e.x[k];
+    // a dry, level tile with nothing on it, away from the edge, for a new source
+    const taken = new Set<number>();
+    for (let k = 0; k < e.count; k++) taken.add(e.y[k] * m.W + e.x[k]);
+    let spot: [number, number] | null = null;
+    for (let y = 8; y < m.H - 8 && !spot; y++)
+      for (let x = 8; x < m.W - 8 && !spot; x++) {
+        const i = y * m.W + x;
+        const h = m.heights[i];
+        if (taken.has(i) || (m.surface.depth[i] || 0) > 0) continue;
+        if ([i - 1, i + 1, i - m.W, i + m.W].every((j) => m.heights[j] === h && !taken.has(j) && !(m.surface.depth[j] > 0))) spot = [x, y];
+      }
+    return { middle, spot };
+  });
+  expect(spot).not.toBeNull();
+  await page.evaluate((i) => window.dgm3d!.renderer.setSourceGlow([i]), middle);
+  const glowing = await colours();
+  expect(glowing).not.toEqual(before);
+  // a source placed while it glows: the objects are drawn again, High's batches built anew from them
+  const count = await page.evaluate(() => window.dgm3d!.renderer.mapState()!.entities.count);
+  await page.evaluate(
+    ([x, y]) => window.dgmEditor!.edit({ op: "placeEntity", params: { id: "f0e1d2c3-0000-4000-8000-0000000000aa", template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } } as never, "Place a water source"),
+    spot!,
+  );
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.mapState()!.entities.count), { timeout: 30_000 }).toBe(count + 1);
+  // still glowing, once, on the source the glow is for
+  expect(await colours()).toEqual(expect.objectContaining(Object.fromEntries(Object.entries(glowing))));
+  await page.evaluate(() => window.dgm3d!.renderer.setSourceGlow([]));
+  // every source back in its own colour, the new one in a source's own
+  const after = await colours();
+  expect(after).toEqual(expect.objectContaining(before));
+  expect(after[`high.WaterSource ${spot![0]},${spot![1]}`]).toEqual(Object.values(before)[0]);
   expect(errors).toEqual([]);
 });
 

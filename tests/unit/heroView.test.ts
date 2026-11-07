@@ -1,14 +1,16 @@
-// The map's picture's camera and light (D488, `render3d/heroView.ts`): the game's opening camera on the start, the map
-// as it is, the start hidden; and the sun the game turns with its camera (light.ts `sunOfYaw`, D497), so the picture
+// The map's picture's camera and light (D488, `render3d/heroView.ts`): the game's map thumbnail camera framing the map
+// (40° down, face-on, turned to the start's orientation, the map filling the frame), the map as it is, the start hidden; and the sun the game turns with its camera (light.ts `sunOfYaw`, D497), so the picture
 // is lit as the game's thumbnails are, from behind the camera's left shoulder.
 
 import { describe, expect, it } from "vitest";
-import { openingCamera, OPENING, VISTA_ZOOM } from "../../src/core/analysis/opening";
-import { ORIENTATIONS, startMiddleTile } from "../../src/core/format/footprints";
-import { heroScene } from "../../src/render3d/heroView";
+import { OPENING } from "../../src/core/analysis/opening";
+import { heroCamera, heroScene, pictureLand } from "../../src/render3d/heroView";
+import type { PictureLand } from "../../src/core/analysis/picture";
 import { sunOfYaw, sunVector } from "../../src/render3d/light";
 import { LIGHT } from "../../src/render3d/palette";
 import { LAYERS, type EntityView, type MapView } from "../../src/render3d/model";
+import { lapseCamera } from "../../src/editor/timelapse/camera";
+import { lapsePlan } from "../../src/editor/timelapse/plan";
 
 /** A W × H map with a slope of heights, a column with a cave, two water columns on one tile, soil, and objects of
  *  several footprints at every orientation. */
@@ -77,35 +79,122 @@ describe("the map's picture: its camera and light (D488)", () => {
     }
   });
 
-  it("looks from the game's opening camera on the map as it is, at the default zoom's widest, with the start hidden", () => {
+  it("looks from the game's thumbnail camera, face-on, turned to the start's orientation, on the map as it is, with the start hidden", () => {
     for (let o = 0; o < 4; o++) {
       const v = sample(20, 18, o);
       const { view, camera } = heroScene(v);
       expect([view.W, view.H]).toEqual([v.W, v.H]);
       expect(view.heights).toBe(v.heights);
-      const orientation = ORIENTATIONS[o];
-      const [mx, my] = startMiddleTile({ x: 6, y: 6, orientation });
-      const cam = openingCamera({ x: mx, y: my, z: 4, orientation }, VISTA_ZOOM);
-      expect(camera.pitch).toBeCloseTo((60 * Math.PI) / 180, 12);
-      expect(camera.yaw).toBeCloseTo(-((o * 90 + OPENING.turn) * Math.PI) / 180, 12);
-      expect(camera.fov).toBe(35);
-      expect(camera.distance).toBeCloseTo(32 * 1.3 ** 6, 9);
-      expect(camera.target).toEqual([cam.target[0], cam.target[2], -cam.target[1]]);
+      expect(camera.pitch).toBeCloseTo((40 * Math.PI) / 180, 12);
+      expect(camera.yaw).toBeCloseTo(-(o * 90 * Math.PI) / 180, 12);
+      expect(camera.fov).toBe(OPENING.fov);
+      const c = heroCamera(20, 18, v.heights, o, pictureLand(v));
+      expect(camera.target).toEqual([c.x, c.level, -c.y]);
       expect(view.entities.count).toBe(v.entities.count - 1);
       expect(view.entities.templates.filter((_, k) => Array.from(view.entities.template).includes(k))).not.toContain("StartingLocation");
       expect(view.entities.ids).not.toContain("e0");
     }
   });
 
-  it("looks at a map without a start from the game's default thumbnail camera: 40° down, looking north, the map's width away", () => {
+  it("looks north at a map without a start", () => {
     const v = sample(20, 12, 0);
     const e = v.entities;
     const none: MapView = { ...v, entities: { ...e, count: 1, template: e.template.slice(1, 2), x: e.x.slice(1, 2), y: e.y.slice(1, 2), z: e.z.slice(1, 2), orientation: e.orientation.slice(1, 2), flags: e.flags.slice(1, 2), owner: e.owner.slice(1, 2), variant: e.variant.slice(1, 2), strength: e.strength.slice(1, 2), ids: e.ids.slice(1, 2) } };
     const { view, camera } = heroScene(none);
     expect([view.W, view.H]).toEqual([20, 12]);
-    expect(camera.pitch).toBeCloseTo((40 * Math.PI) / 180, 12);
-    expect(camera.yaw).toBe(0);
-    expect(camera.distance).toBe(20);
-    expect(camera.target).toEqual([10, 0, -6]);
+    expect(camera.yaw).toBe(-0);
+    const c = heroCamera(20, 12, v.heights, 0, pictureLand(none));
+    expect(camera.target).toEqual([c.x, c.level, -c.y]);
+    expect(camera.distance).toBe(c.distance);
+  });
+
+  it("fills the frame with the map: every corner of the frame lands on it at the ground's mean level, and one more step back would not", () => {
+    const p = (40 * Math.PI) / 180;
+    const tanV = Math.tan(((OPENING.fov / 2) * Math.PI) / 180);
+    const tanH = tanV * OPENING.aspect;
+    for (const [W, H] of [[128, 128], [256, 96], [64, 200]]) {
+      const heights = new Uint8Array(W * H).fill(10);
+      for (let o = 0; o < 4; o++) {
+        const c = heroCamera(W, H, heights, o);
+        expect(c.level).toBe(10);
+        // the camera's look and right on the map (tile x, tile y), as the renderer turns it: north (+y) at yaw 0
+        const look = [-Math.sin(c.yaw), Math.cos(c.yaw)];
+        const right = [Math.cos(c.yaw), Math.sin(c.yaw)];
+        const corners = (d: number) =>
+          [-1, 1].flatMap((a) =>
+            [-1, 1].map((b) => {
+              const eye = [c.x - look[0] * d * Math.cos(p), c.y - look[1] * d * Math.cos(p), c.level + d * Math.sin(p)];
+              const dir = [0, 1].map((k) => look[k] * Math.cos(p) + a * tanH * right[k] + b * tanV * look[k] * Math.sin(p));
+              const dz = -Math.sin(p) + b * tanV * Math.cos(p);
+              const t = (c.level - eye[2]) / dz;
+              return [eye[0] + t * dir[0], eye[1] + t * dir[1]];
+            }),
+          );
+        const on = (d: number) => corners(d).every(([x, y]) => x >= -1e-6 && x <= W + 1e-6 && y >= -1e-6 && y <= H + 1e-6);
+        expect(on(c.distance), `${W}×${H} turned ${o}`).toBe(true);
+        expect(on(c.distance * 1.02), `${W}×${H} turned ${o}`).toBe(false);
+        // centred across the map
+        expect(o % 2 === 0 ? c.x : c.y).toBeCloseTo(o % 2 === 0 ? W / 2 : H / 2, 9);
+      }
+    }
+  });
+
+  it("slides along the map, within the room it has, to the place whose picture scores best by the looks score: the middle where all score the same", () => {
+    const W = 128;
+    const H = 128;
+    const N = W * H;
+    const heights = new Uint8Array(N).fill(10);
+    const plain = (moisture: Float32Array, entities: PictureLand["entities"]): PictureLand => ({ W, H, heights, water: new Float32Array(N), contamination: new Float32Array(N), moisture, entities });
+    const mid = heroCamera(W, H, heights, 0);
+    // bare ground everywhere: every place scores the same, so the middle
+    expect(heroCamera(W, H, heights, 0, plain(new Float32Array(N), [])).y).toBe(mid.y);
+    for (const [y0, y1] of [[112, 125], [2, 15]]) {
+      // a wooded, grassy band along the north edge (tile y 112–125), then along the south edge (y 2–15)
+      const moisture = new Float32Array(N);
+      const trees: { template: string; x: number; y: number }[] = [];
+      for (let y = y0; y <= y1; y++)
+        for (let x = 0; x < W; x++) {
+          moisture[y * W + x] = 10;
+          if ((x + y) % 3 === 0) trees.push({ template: "Pine", x, y });
+        }
+      for (let o = 0; o < 4; o++) {
+        const c = heroCamera(W, H, heights, o, plain(moisture, trees));
+        const centred = heroCamera(W, H, heights, o);
+        expect(c.distance).toBe(centred.distance);
+        // looking north (o 0) or south (o 2) the frame slides toward the band (east or west, the band runs along the
+        // look, and the frame stays centred across the map)
+        if (o % 2 === 0) expect(Math.sign(c.y - centred.y), `turned ${o}, band at ${y0}`).toBe(y0 > 64 ? 1 : -1);
+      }
+    }
+  });
+
+  it("reads the view as the looks score does: every tile's voxels as a mask, each water column, the game's moisture levels", () => {
+    const v = sample(20, 18, 0);
+    const land = pictureLand(v);
+    const N = 20 * 18;
+    const cave = 3 * 20 + 4;
+    // the listed column keeps its voxels (rock 0–1 and 5–7, air 2–4); a plain tile is solid to its height
+    expect(land.mask![cave]).toBe(0b11100011);
+    expect(land.mask![0]).toBe((1 << v.heights[0]) - 1);
+    // the cave's two water columns, in order
+    expect(Array.from(land.stack!.count).filter((n) => n > 0)).toEqual([2]);
+    expect([land.stack!.floor[cave], land.stack!.floor[N + cave]]).toEqual([2, 8]);
+    expect([land.stack!.depth[cave], land.stack!.depth[N + cave]]).toEqual([1.5, 0.5]);
+    // the soil's moisture bytes (the game's level × 15) back in levels
+    expect(land.moisture[15]).toBeCloseTo(15 / 15, 9);
+    expect(land.entities.length).toBe(v.entities.count);
+  });
+
+  it("is where the time-lapse ends: its last shot, as its hold begins, is the picture's camera", () => {
+    for (const o of [0, 1, 2, 3]) {
+      const v = sample(40, 24, o);
+      const plan = lapsePlan([{ kind: "land" as const, place: { x0: 2, y0: 2, x1: 9, y1: 9 } }], v.W, v.H);
+      const c = heroScene(v).camera;
+      const at = lapseCamera(plan, v.heights, v.W, v.H, v.entities, v)(plan.outro.hold);
+      expect(at.yaw).toBeCloseTo(c.yaw, 9);
+      expect(at.pitch).toBeCloseTo(c.pitch, 9);
+      expect(at.distance).toBeCloseTo(c.distance, 9);
+      at.target.forEach((t, k) => expect(t).toBeCloseTo(c.target[k], 9));
+    }
   });
 });

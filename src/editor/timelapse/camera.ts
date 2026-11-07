@@ -1,17 +1,17 @@
 // The time-lapse's camera (D505): the video's own, on a renderer of its own, never the player's
 // view. A slow drone, never a turntable: it opens wide on the generated map, glides to each framing (eased, never cut,
 // never shaken, never following anything that moves; across the map rising as it travels), holds there while its
-// steps play with a slow push in, and ends on the finished map's hero view, the game's opening camera
-// (render3d/heroView.ts: 60° down, turned to the start's orientation + 35°, pulled back to the default zoom's widest).
+// steps play with a slow push in, and ends on the finished map's hero view, the map's picture's framing
+// (render3d/heroView.ts: 40° down, face-on, turned to the start's orientation, the map filling the frame).
 // Nearby scenes share one framing, so edits close together never move the camera; it looks down at one steady
 // pitch until the glide to the hero view, and its heading turns only a little over the whole video (at most 20°,
 // under half a degree a second), arriving at the hero view's as the glide to it ends. Plain data from the plan
 // (plan.ts): the same frames every time.
 
-import { openingCamera, OPENING, VISTA_ZOOM } from "../../core/analysis/opening";
-import { ORIENTATIONS, startMiddleTile } from "../../core/format/footprints";
+import { OPENING } from "../../core/analysis/opening";
+import { heroCamera, heroScene } from "../../render3d/heroView";
 import type { LapseBox } from "../../core/doc/timelapse";
-import type { EntityView } from "../../render3d/model";
+import type { EntityView, MapView } from "../../render3d/model";
 import type { LapsePlan } from "./plan";
 
 /** The renderer's orbit camera (`MapRenderer.setView`): world X east, Y up, Z south (−tile y). */
@@ -105,19 +105,20 @@ function framings(plan: LapsePlan, heights: Uint8Array, W: number, wide: Shot): 
   return out.map((g) => ({ lead: g.lead, last: g.last, shot: g.box ? sceneShot(g.box, heights, W, wide) : wide }));
 }
 
-/** The finished map's hero view (heroView.ts `heroScene`'s camera, on the map as it is, not turned under the sun),
- *  as a shot and its turn; without a start, the wide view looking north. */
-function heroShot(end: EntityView, wide: Shot): { shot: Shot; yaw: number } {
-  for (let k = 0; k < end.count; k++) {
-    if (end.templates[end.template[k]] !== "StartingLocation") continue;
-    const o = end.orientation[k] & 3;
-    const orientation = ORIENTATIONS[o];
-    const [mx, my] = startMiddleTile({ x: end.x[k], y: end.y[k], z: end.z[k], orientation });
-    const cam = openingCamera({ x: mx, y: my, z: end.z[k], orientation }, VISTA_ZOOM);
-    // (openingCamera's target is the tile's middle, (x + 0.5, y + 0.5), a level over the ground)
-    return { shot: { x: cam.target[0] - 0.5, y: cam.target[1] - 0.5, level: cam.target[2], distance: cam.distance, pitch: deg(OPENING.pitch) }, yaw: -deg(o * 90 + OPENING.turn) };
+/** The finished map's hero view (heroView.ts `heroCamera`, the map's picture's framing, on the map as it is, not turned
+ *  under the sun), as a shot and its turn: turned to the start's orientation, north without a start. Given the finished
+ *  map itself, exactly the map's picture's camera (`heroScene`: the place its looks score chose along the map). */
+function heroShot(end: EntityView, heights: Uint8Array, W: number, H: number, finished: MapView | null): { shot: Shot; yaw: number } {
+  if (finished) {
+    const c = heroScene(finished).camera;
+    // (a shot's x and y are tile indices: the picture's target is in world coordinates, a tile's middle at its index + 0.5)
+    return { shot: { x: c.target[0] - 0.5, y: -c.target[2] - 0.5, level: c.target[1], distance: c.distance, pitch: c.pitch }, yaw: c.yaw };
   }
-  return { shot: wide, yaw: 0 };
+  let o = 0;
+  for (let k = 0; k < end.count; k++) if (end.templates[end.template[k]] === "StartingLocation") o = end.orientation[k] & 3;
+  const c = heroCamera(W, H, heights, o);
+  // (a shot's x and y are tile indices: heroCamera's are tile coordinates, a tile's middle at its index + 0.5)
+  return { shot: { x: c.x - 0.5, y: c.y - 0.5, level: c.level, distance: c.distance, pitch: c.pitch }, yaw: c.yaw };
 }
 
 const ease = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
@@ -141,10 +142,11 @@ function mix(a: Shot, b: Shot, t: number): Shot {
 const pushed = (s: Shot, t: number): Shot => ({ ...s, distance: s.distance * (1 - PUSH * Math.max(0, Math.min(1, t))) });
 
 /** The camera of every frame of `plan`: `heights` the generated map's (each scene's level is read from them), `end`
- *  the finished map's objects (its start places the hero view). */
-export function lapseCamera(plan: LapsePlan, heights: Uint8Array, W: number, H: number, end: EntityView): (frame: number) => LapseView {
+ *  the finished map's objects (its start places the hero view), `finished` the finished map itself, when the video ends on
+ *  it, so its last shot is the map's picture's. */
+export function lapseCamera(plan: LapsePlan, heights: Uint8Array, W: number, H: number, end: EntityView, finished: MapView | null = null): (frame: number) => LapseView {
   const wide = wideShot(heights, W, H);
-  const hero = heroShot(end, wide);
+  const hero = heroShot(end, heights, W, H, finished);
   const groups = framings(plan, heights, W, wide);
   /** Where the camera stands at the end of framing g (pushed in), or the opening's. */
   const after = (g: number): Shot => (g < 0 ? pushed(wide, 1) : pushed(groups[g].shot, 1));

@@ -61,7 +61,7 @@ import {
 } from "./raster/terrain";
 import { isResource, rasterizeResource, resourceOrder, type KeptTiles, type Placed } from "./raster/resources";
 import { objectTiles, rasterizeObjects, standProblem } from "./objects";
-import { markBrushTiles, type BrushParams } from "./raster/brush";
+import { joinStrokes, markBrushTiles, type BrushParams } from "./raster/brush";
 import type { DistrictPlan } from "./setpieces/secondDistrict";
 import { BuildTarget, clipRect, fullRegion, sharedFields, type FieldCache, type Rect, type TileRegion } from "./target";
 import type { Feature, MapObjectFeature, SetPieceFeature, StartFeature } from "./schema";
@@ -414,6 +414,7 @@ export function buildMap(input: BuildInput, opts: BuildOptions = {}): BuildResul
 /** Build steps 1–7 only: the terrain of a full build, with its protected tiles and river channel
  *  (the planners measure and place on it before anything stands there). */
 export function buildTerrain(input: BuildInput): { heights: Uint8Array; channel: Uint8Array; protect: Uint8Array } {
+  input = joined(input);
   const { terrain } = terrainStage(input, null, new Map());
   return { heights: terrain.heights, channel: terrain.channel, protect: terrain.protect };
 }
@@ -424,6 +425,7 @@ export function buildTerrain(input: BuildInput): { heights: Uint8Array; channel:
  *  `prev` (null: none). The document's caches are left as they are. */
 export function previewTerrain(prev: BuildResult, input: BuildInput): { heights: Uint8Array; rect: Rect | null } {
   if (prev.W !== input.W || prev.H !== input.H) throw new Error("a preview keeps the map's size");
+  input = joined(input);
   // fields made for the shape being dragged stay out of the document's cache
   const fields: FieldCache = new Map(prev.cache.fields);
   const { terrain, region } = terrainStage(input, prev.cache, fields);
@@ -755,7 +757,14 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
 
 // --------------------------------------------------------------------------------------- pipeline
 
+/** `input` with each stroke past `MAX_DABS` as the one stroke its operations make (raster/brush.ts `joinStrokes`). */
+function joined(input: BuildInput): BuildInput {
+  const sculpts = input.sculpts && joinStrokes(input.sculpts);
+  return sculpts === input.sculpts ? input : { ...input, sculpts };
+}
+
 function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptions): BuildResult {
+  input = joined(input);
   const prev = prevResult?.cache ?? null;
   const { W, H, seed } = input;
   const N = W * H;

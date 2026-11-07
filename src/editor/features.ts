@@ -366,10 +366,12 @@ export function describeTile(c: TileContext, x: number, y: number): string {
   const wet = c.water.surface[i] === c.water.surface[i] && d > 0.001;
   const deep = d < 0.1 ? d.toFixed(2) : d.toFixed(1);
   if (c.editor) {
-    // the editor: water, not a river; its depth, its bed, and how much of it is bad
+    // the editor: water, not a river; its level (a lake's, read in one tile: showcase-craft gap 19), its depth, its
+    // bed, and how much of it is bad
     if (wet) {
       const cont = c.water.contamination[i];
-      parts.push(`${cont >= 0.95 ? "badwater" : "water"} ${deep} deep`, `bed level ${c.heights[i]}`);
+      const level = (Math.round((c.heights[i] + d) * 10) / 10).toFixed(1);
+      parts.push(`${cont >= 0.95 ? "badwater" : "water"} at level ${level}`, `${deep} deep`, `bed level ${c.heights[i]}`);
       if (cont > 0.05 && cont < 0.95) parts.push(`${Math.round(cont * 100)}% badwater`);
     } else {
       parts.push(`height ${c.heights[i]}`);

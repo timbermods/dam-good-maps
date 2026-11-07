@@ -175,7 +175,7 @@ export async function recordTimelapse(o: LapseOptions): Promise<LapseResult> {
     const { W, H, steps, start, end } = opened;
     if (!steps.length) throw new NothingToReplay();
     const plan = lapsePlan(steps, W, H);
-    const camera = lapseCamera(plan, start.heights, W, H, end.entities);
+    const camera = lapseCamera(plan, start.heights, W, H, end.entities, end);
     report({ phase: "prepare", frame: 0, frames: plan.frames, steps: steps.length });
 
     // the renderer, its programs compiled first (off the page's thread where the browser can)

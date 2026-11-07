@@ -85,7 +85,7 @@ import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
-import { GAME_FINISH, SKY, type GroundMode } from "./palette";
+import { GAME_FINISH, GAME_SKY, gamePostRgb, type GroundMode, type Rgb } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, waterChangedRect, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
@@ -148,9 +148,7 @@ export type ViewMode = "orbit" | "top";
 /** The look drawn: High, High's lower-cost tier, Standard, or the light look (software). */
 export type Look = Tier | "light";
 
-/** A highlighted source's tint (Remove's red on a source, Clear sources' glow, D249): its blue made
- *  a clear red. */
-/** A highlighted source's tint, after the grade (an editing aid, D249, D497). */
+/** A highlighted source's tint, after the grade (an editing aid, D249, D497): its blue made a clear red. */
 const SOURCE_GLOW: [number, number, number] = [3, 0.3, 0.2];
 
 /** The edges of the canvas the page's controls cover, in CSS pixels (framing keeps the map clear of them). */
@@ -475,6 +473,8 @@ export class MapRenderer {
   private sunPointed: Sun = DEFAULT_SUN;
   /** The bake worker is baking the shadows for a turned sun. */
   private sunBaking = false;
+  /** The worker the sun's shadows bake in (a field, so a test can give one that refuses). */
+  private bakeSun: () => Pick<Baker, "run"> = sunBaker;
   /** Bumped whenever the baked shadows change (an edit, new objects, a new map): a bake for a turned sun made before
    *  is dropped and asked again. */
   private shadowEpoch = 0;
@@ -569,7 +569,8 @@ export class MapRenderer {
     this.gl.outputColorSpace = LinearSRGBColorSpace;
     this.gl.setPixelRatio(this.pixelRatio());
     // the sky round the map (the light look clears to its colour below the horizon instead)
-    this.gl.setClearColor(new Color(...SKY.below));
+    // (behind the map where no sky is drawn, the light look's: the game's sky straight down, graded)
+    this.gl.setClearColor(new Color(...gamePostRgb(GAME_SKY.day[0] as unknown as Rgb)));
     this.scene.background = null;
     // placeholder textures until a map arrives; every material shares these uniforms
     const one = () => tileTexture(1, 1, new Uint8Array(4));
@@ -961,6 +962,7 @@ export class MapRenderer {
     if (tiles.length === this.sourceGlow.length && tiles.every((t, k) => t === this.sourceGlow[k])) return;
     this.sourceGlow = tiles.slice();
     this.markSources();
+    this.tintObjects();
   }
 
   /** The sources' texture: where each clean or bad source's middle is, and which glow. */
@@ -1220,7 +1222,10 @@ export class MapRenderer {
         const m = this.map;
         if (m) {
           high.setMap(m.W, m.H, m.heights, m.surface, m.entities);
+          // (High copies the objects' colours into its own batches: their own, the tints put back after)
+          this.untintObjects();
           if (this.objects) high.objectsBuilt(this.objects, m.entities);
+          this.tintObjects();
           this.applyWithered();
         }
       }
@@ -1461,7 +1466,9 @@ export class MapRenderer {
     this.casters = this.castersNow();
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
     this.shadowEpoch++;
-    this.sun = this.sunWant = sunOfYaw(this.view.yaw);
+    // (baked once, for the sun of the view the map opens in: Reset view's when it is framed, so its own bake finds the
+    // sun already there, D453)
+    this.sun = this.sunWant = sunOfYaw(keepView ? this.view.yaw : this.openingYaw());
     this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns), this.sun));
     this.pointSun();
     this.cave = CaveLight.build(source);
@@ -1800,7 +1807,8 @@ export class MapRenderer {
    *  was and is (null: anywhere). */
   private fadeArea: { x0: number; y0: number; x1: number; y1: number } | null = null;
 
-  /** The tiles a fade's region may drop casters in (the start's caster stands up to two tiles from its model). */
+  /** The tiles a fade's region may drop casters in: past its edge, with two tiles to spare (each caster is dropped by
+   *  its model's place, `casterPlaces`, which for the start is the tile it casts from). */
   private fadeReach(f: FadeRegion | null): { x0: number; y0: number; x1: number; y1: number } | null {
     if (!f) return null;
     const r = f.radius + OBJECT_FADE_EDGE + 2;
@@ -1942,6 +1950,8 @@ export class MapRenderer {
     const m = this.map!;
     m.entities = e;
     this.high?.objectsBuilt(this.objects!, e);
+    // (a source's glow stays with its source, on the objects as they are now)
+    this.tintObjects();
     this.applyWithered();
     // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
     const cut = mineCutout(e, m.W, m.H);
@@ -1966,10 +1976,7 @@ export class MapRenderer {
    *  kept; nothing else of the map. Returns the instances. */
   private drawObjects(e: EntityView): number {
     // (highlighted objects back in their own colours first: a batch that would be built as it is drawn is kept)
-    for (const l of this.lit) {
-      (l.mesh.instanceColor!.array as Float32Array).set(l.color, l.i * 3);
-      l.mesh.instanceColor!.needsUpdate = true;
-    }
+    this.untintObjects();
     const soil = this.objectSoil();
     const before = this.objects;
     // (the plants a held day has withered drawn dead, in every look, as the game does: D242 as amended; High's own plants
@@ -1989,8 +1996,9 @@ export class MapRenderer {
       for (const c of gone) whenIdle(() => disposeBatch(c as InstancedMesh));
     }
     this.objectsMoved = false;
-    // (a highlight belonged to the objects as they were)
-    this.lit = [];
+    // (a highlight belonged to the objects as they were; a source's glow is put back by the caller, once the map's
+    // entities are these: `own` indexes them)
+    this.litTiles = null;
     this.sourcesLit.clear();
     group.renderOrder = 1;
     this.objects = group;
@@ -2564,6 +2572,7 @@ export class MapRenderer {
     if (redraw) {
       this.drawObjects(m.entities);
       this.markSources();
+      this.tintObjects();
     }
     const changed = this.high?.setPlantStates(flags) ?? 0;
     if (!changed && !redraw && !was === !this.drawnObjects) return;
@@ -2697,7 +2706,10 @@ export class MapRenderer {
 
   private ghost: { group: Group; key: string; undo?: () => void } | null = null;
   private thumbs = new Map<string, string>();
+  /** The instances tinted now (a highlight, a source's glow), with their own colours. */
   private lit: { mesh: InstancedMesh; i: number; color: [number, number, number] }[] = [];
+  /** The tiles highlighted (`highlightObjects`), and in what colour. */
+  private litTiles: Set<number> | null = null;
   /** The middle tiles of the sources highlighted: the water over them turns red too (`markSources`). */
   private sourcesLit = new Set<number>();
 
@@ -2877,12 +2889,6 @@ export class MapRenderer {
    *  shader tints it by `aidTint` or `sourceTint`. */
   highlightObjects(tiles: readonly number[] | null, color: [number, number, number] = [1.6, 0.35, 0.3]): void {
     this.uniforms.aidTint.value.set(...color);
-    for (const l of this.lit) {
-      const a = l.mesh.instanceColor!.array as Float32Array;
-      a.set(l.color, l.i * 3);
-      l.mesh.instanceColor!.needsUpdate = true;
-    }
-    this.lit = [];
     const m = this.map;
     // the sources among them: the water over each turns red too, under water as above it
     const lit = new Set<number>();
@@ -2897,8 +2903,29 @@ export class MapRenderer {
       this.sourcesLit = lit;
       this.markSources();
     }
-    if (m && this.objects && tiles?.length) {
-      const want = new Set(tiles);
+    this.litTiles = tiles?.length ? new Set(tiles) : null;
+    this.tintObjects();
+  }
+
+  /** Every tinted object back in its own colour (the tints asked for are kept, for `tintObjects`). */
+  private untintObjects(): void {
+    for (const l of this.lit) {
+      const a = l.mesh.instanceColor!.array as Float32Array;
+      a.set(l.color, l.i * 3);
+      l.mesh.instanceColor!.needsUpdate = true;
+    }
+    this.lit = [];
+  }
+
+  /** The objects in their tints: the highlighted ones in theirs (a source's a clear red, D249), a source the pointer's
+   *  water comes from in its glow (D196); every other one back in its own colour. */
+  private tintObjects(): void {
+    this.untintObjects();
+    const m = this.map;
+    const want = this.litTiles;
+    const glow = new Set(this.sourceGlow);
+    if (m && this.objects && (want || glow.size)) {
+      const e = m.entities;
       for (const c of this.objects.children) {
         const mesh = c as InstancedMesh;
         const own = mesh.userData.objects as Int32Array | undefined;
@@ -2907,12 +2934,15 @@ export class MapRenderer {
         const a = mesh.instanceColor.array as Float32Array;
         for (let i = 0; i < own.length; i++) {
           const k = own[i];
-          if (k < 0 || !want.has(m.entities.y[k] * m.W + m.entities.x[k])) continue;
-          this.lit.push({ mesh, i, color: [a[i * 3], a[i * 3 + 1], a[i * 3 + 2]] });
-          // (a source's blue would only darken: it turns a clear red, D249)
-          const t = m.entities.templates[m.entities.template[k]];
+          if (k < 0) continue;
+          const t = e.templates[e.template[k]];
           const source = t === "WaterSource" || t === "BadwaterSource";
-          for (let j = 0; j < 3; j++) a[i * 3 + j] = -a[i * 3 + j] - 10 * (source ? AID_TINT.source : AID_TINT.highlight);
+          const red = !!want?.has(e.y[k] * m.W + e.x[k]);
+          if (!red && !(source && glow.size && glow.has(sourceMiddle(e, k, m.W, m.H)))) continue;
+          this.lit.push({ mesh, i, color: [a[i * 3], a[i * 3 + 1], a[i * 3 + 2]] });
+          // (a source's blue would only darken: it turns a clear red, D249; all after the grade, D497)
+          const aid = red ? (source ? AID_TINT.source : AID_TINT.highlight) : AID_TINT.glow[t as keyof typeof AID_TINT.glow];
+          for (let j = 0; j < 3; j++) a[i * 3 + j] = -a[i * 3 + j] - 10 * aid;
           mesh.instanceColor.needsUpdate = true;
         }
       }
@@ -3640,13 +3670,19 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
-    // (a top-down view is framed north up)
-    const yaw = this.view.mode === "top" ? 0 : openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10));
+    const yaw = this.openingYaw();
     this.view = { ...this.view, yaw, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
     this.frameMap();
     // (a jump, not a turn: the shadows are baked for its sun at once, never rolled in after a frame of the last view's)
     this.sunNow();
     this.requestRender();
+  }
+
+  /** The way Reset view faces the map (a top-down view is framed north up). */
+  private openingYaw(): number {
+    const m = this.map;
+    if (!m || this.view.mode === "top") return 0;
+    return openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10));
   }
 
   /** The map waits to be framed until the canvas has a size. */
@@ -3825,7 +3861,7 @@ export class MapRenderer {
     const casters = this.casters ?? null;
     const levels = casters ? casterLevelsOf(casters) : undefined;
     this.sunBaking = true;
-    sunBaker()
+    this.bakeSun()
       .run({ kind: "shadows", W: m.W, H: m.H, heights: m.heights.slice(), casters: casters ? casters.slice() : null, levels: levels ? levels.slice() : null, rock: this.rock(), sun })
       .then(
         (r) => {
@@ -3845,6 +3881,11 @@ export class MapRenderer {
         },
         () => {
           this.sunBaking = false;
+          // (refused: the job threw, and would again on the same map, so the sun is taken on the shadows already baked,
+          // never asked again every frame nor left waiting)
+          if (this.disposed) return;
+          this.sun = sun;
+          this.pointSun();
         },
       );
   }

@@ -79,16 +79,16 @@ export function objectShows(region: FadeRegion | null, hidden: boolean, x: numbe
   return hidden ? 0 : objectFadeAt(region, x, y);
 }
 
-/** The places of the baked shadows' casters whose model does not stand on the caster's tile (light.ts `objectCasters`
- *  casts each object from its Coordinates tile): the start, whose 3 × 3 model stands round the middle of its
- *  footprint, by its caster's tile (y·W + x). A caster's shadow is dropped by its model's place, as its fade is. */
+/** The places of the baked shadows' casters whose model does not stand on its Coordinates tile: the start, whose 3 × 3
+ *  model stands round the middle of its footprint, where light.ts `objectCasters` casts its tower from; by that tile
+ *  (y·W + x), at its middle. A caster's shadow is dropped by its model's place, as its fade is. */
 export function casterPlaces(e: EntityView | null, W: number): Map<number, [number, number]> {
   const out = new Map<number, [number, number]>();
   if (!e) return out;
   for (let k = 0; k < e.count; k++) {
     if (e.templates[e.template[k]] !== "StartingLocation") continue;
     const [dx, dy] = rotate(ORIENTATION_NAMES[e.orientation[k]] as Orientation, 1, 1);
-    out.set(e.y[k] * W + e.x[k], [e.x[k] + dx + 0.5, e.y[k] + dy + 0.5]);
+    out.set((e.y[k] + dy) * W + e.x[k] + dx, [e.x[k] + dx + 0.5, e.y[k] + dy + 0.5]);
   }
   return out;
 }
