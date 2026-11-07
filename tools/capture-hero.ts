@@ -108,7 +108,7 @@ async function main(): Promise<void> {
     for (const m of MAPS) {
       for (const [label, , port] of sites) {
         const jpeg = await picture(page, port, m.theme, m.seed, findChunk(label), m.file);
-        const name = m.file ? (m.file.split(/[\/]/).pop() ?? "file").replace(/\.[^.]+$/, "") : `${m.theme}-${m.seed}`;
+        const name = m.file ? (m.file.split(/[\\/]/).pop() ?? "file").replace(/\.[^.]+$/, "") : `${m.theme}-${m.seed}`;
         if (WHOLE) writeFileSync(OUT.replace(/\.jpg$/, `-${name}-${label}.jpg`), jpeg);
         const tag = sites.length > 1 ? `${label}: ` : "";
         images.push(jpeg.toString("base64"));
