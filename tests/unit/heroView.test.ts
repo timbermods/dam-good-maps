@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { OPENING } from "../../src/core/analysis/opening";
-import { heroCamera, heroScene } from "../../src/render3d/heroView";
+import { heroCamera, heroInterest, heroScene } from "../../src/render3d/heroView";
 import { sunOfYaw, sunVector } from "../../src/render3d/light";
 import { LIGHT } from "../../src/render3d/palette";
 import { LAYERS, type EntityView, type MapView } from "../../src/render3d/model";
@@ -85,7 +85,7 @@ describe("the map's picture: its camera and light (D488)", () => {
       expect(camera.pitch).toBeCloseTo((40 * Math.PI) / 180, 12);
       expect(camera.yaw).toBeCloseTo(-(o * 90 * Math.PI) / 180, 12);
       expect(camera.fov).toBe(OPENING.fov);
-      const c = heroCamera(20, 18, v.heights, o);
+      const c = heroCamera(20, 18, v.heights, o, heroInterest(v));
       expect(camera.target).toEqual([c.x, c.level, -c.y]);
       expect(view.entities.count).toBe(v.entities.count - 1);
       expect(view.entities.templates.filter((_, k) => Array.from(view.entities.template).includes(k))).not.toContain("StartingLocation");
@@ -100,7 +100,7 @@ describe("the map's picture: its camera and light (D488)", () => {
     const { view, camera } = heroScene(none);
     expect([view.W, view.H]).toEqual([20, 12]);
     expect(camera.yaw).toBe(-0);
-    const c = heroCamera(20, 12, v.heights, 0);
+    const c = heroCamera(20, 12, v.heights, 0, heroInterest(none));
     expect(camera.target).toEqual([c.x, c.level, -c.y]);
     expect(camera.distance).toBe(c.distance);
   });
@@ -134,5 +134,35 @@ describe("the map's picture: its camera and light (D488)", () => {
         expect(o % 2 === 0 ? c.x : c.y).toBeCloseTo(o % 2 === 0 ? W / 2 : H / 2, 9);
       }
     }
+  });
+
+  it("slides along the map, within the room it has, to the water and its falls: the middle where there is none", () => {
+    const W = 128;
+    const H = 128;
+    const heights = new Uint8Array(W * H).fill(10);
+    const mid = heroCamera(W, H, heights, 0);
+    expect(heroCamera(W, H, heights, 0, new Float32Array(W * H)).y).toBe(mid.y);
+    for (let o = 0; o < 4; o++) {
+      // a river along the map's north edge (tile y 120–125), then along its south edge (y 2–7)
+      for (const [y0, y1] of [[120, 125], [2, 7]]) {
+        const interest = new Float32Array(W * H);
+        for (let y = y0; y <= y1; y++) for (let x = 0; x < W; x++) interest[y * W + x] = 1;
+        const c = heroCamera(W, H, heights, o, interest);
+        const centred = heroCamera(W, H, heights, o);
+        expect(c.distance).toBe(centred.distance);
+        // looking north (o 0) or south (o 2) the frame slides toward the river; east or west it can't (centred across)
+        if (o % 2 === 0) expect(Math.sign(c.y - centred.y), `turned ${o}, river at ${y0}`).toBe(y0 > 64 ? 1 : -1);
+        else expect(c.y).toBeCloseTo(centred.y, 9);
+      }
+    }
+  });
+
+  it("weighs a tile of water 1 and one whose surface steps down a level or more to the next 5", () => {
+    const v = sample(6, 4, 0);
+    const W = 6;
+    // three columns in a row on tiles 7, 8, 9: surfaces 5, 3.5 (a fall from 7), 3.4
+    const water = { count: 3, tile: Int32Array.of(7, 8, 9), floor: Float32Array.of(4, 3, 3), depth: Float32Array.of(1, 0.5, 0.4), contamination: new Float32Array(3) };
+    const w = heroInterest({ ...v, W, H: 4, heights: new Uint8Array(24), water } as MapView);
+    expect(Array.from(w.slice(6, 11))).toEqual([0, 5, 1, 1, 0]);
   });
 });
