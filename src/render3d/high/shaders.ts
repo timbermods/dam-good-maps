@@ -1,7 +1,7 @@
 // The High look's shader additions (PLAN §20 D147, D242, D250, D284), put in at the Standard
 // shaders' named points (materials.ts `ShaderHooks`). Ported from the investigations:
-// - #38 (investigation/maplook2): the water shader (colour by depth, clear shallows, fine crests and
-//   flecks advected by the flow, the calibrated crimson badwater, the poisoned bed under it) and
+// - #38 (investigation/maplook2): the water shader (colour by depth, clear shallows, fine crests
+//   advected by the flow, the calibrated crimson badwater, the poisoned bed under it) and
 //   soft shadows from the real meshes (a 2048² sun depth map, 25-tap PCF, receiver-plane bias);
 // - #65 (investigation/maplook3): warm sunlight, rock strata, soil edges and colour variation (its tone
 //   curve, grade and distance haze gave way to the game's fog and post chain, every look's: D497);
@@ -207,7 +207,7 @@ export function terrainHooks(): ShaderHooks {
 
 /** #38's water surface: the calibrated palette (waterPalette.ts HIGH_WATER, display RGB, through the
  *  renderer's light), fine
- *  irregular crests and tiny flecks in one detail field advected by the flow in two phases, the
+ *  irregular crests in one detail field advected by the flow in two phases, the
  *  contamination front as a continuous gradient to crimson, matte badwater with its slow bubbles. */
 const WATER_FUNCTIONS = /* glsl */ `
   uniform sampler2D hlFlow;
@@ -234,15 +234,7 @@ ${HIGH_WATER_GLSL}
     float fine = detailNoise(mat2(0.63, -0.78, 0.78, 0.63) * p * 11.3 + 31.7);
     return coarse * 0.82 + fine * 0.18;
   }
-  float microFlecks(vec2 p, float t, float speed, float pixel) {
-    vec2 cell = floor(p * 7.0);
-    vec2 point = vec2(fleckHash(cell + 13.0), fleckHash(cell + 47.0)) * 0.6 + 0.2;
-    float radius = max(pixel * 7.0 * 0.5, 0.065);
-    float spot = 1.0 - smoothstep(radius * 0.25, radius, length(fract(p * 7.0) - point));
-    float twinkle = smoothstep(0.1, 0.85, sin(t * (1.1 + speed * 1.2) + fleckHash(cell) * 51.0));
-    return spot * step(mix(0.96, 0.82, speed), fleckHash(cell + 91.0)) * twinkle;
-  }
-  /** How much of the surface's light (its streaks, its light network and its flecks) measuredSurfaceWater drew
+  /** How much of the surface's light (its streaks and its light network) measuredSurfaceWater drew
    *  at the point, 0-1: on a film, its sheen keeps the opacity it has on the body (WATER_FILM). */
   float hlSheen = 0.0;
   vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, float t) {
@@ -328,13 +320,9 @@ ${HIGH_WATER_GLSL}
     vec3 highlight = sunColor * waterCameraHighlight(N, V, tint);
     colour += highlight;
     colour *= rippleLight / max(referenceLight, vec3(0.01));
-    float glint = mix(microFlecks(p, t, speed, pixel), microFlecks(p2, t, speed, pixel), blend);
-    glint *= lit * (1.0 - smoothstep(0.08, 0.22, pixel));
-    glint *= mix(1.0, 0.35, tint);
-    glint *= mix(1.0, 0.08, smoothstep(0.25, 1.0, tint));
-    colour = mix(colour, mix(HW_GLINT, HW_BAD_GLINT, tint), glint);
+    // (no twinkling flecks of our own: the game's water shader has none, D496's rule)
     colour += highlight;
-    hlSheen = max(max(streak * 0.45, clamp(highlights, 0.0, 0.82)), glint);
+    hlSheen = max(streak * 0.45, clamp(highlights, 0.0, 0.82));
     if (tint > 0.01) {
       float bt = t * mix(1.0, 0.55, tint);
       float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));

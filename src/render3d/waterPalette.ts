@@ -170,8 +170,6 @@ export const HIGH_WATER = {
   bad: [0.32, 0.075, 0.062] as Rgb,
   badTrough: [-18.5 / 255, -7 / 255, -6 / 255] as Rgb,
   badStreak: [10.5 / 255, 13 / 255, 4.5 / 255] as Rgb,
-  glint: [0.97, 0.985, 1.0] as Rgb,
-  badGlint: [0.86, 0.58, 0.55] as Rgb,
   foam: [0.9, 0.96, 0.98] as Rgb,
   badFoam: [0.31, 0.17, 0.085] as Rgb,
   sideShallow: [0.13, 0.58, 0.6] as Rgb,

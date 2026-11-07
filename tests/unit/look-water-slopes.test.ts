@@ -1,5 +1,5 @@
 // Map look's third round (PLAN §20 D115) and Kyler's clean look: badwater stays clearly darker
-// than clean water, and clean water keeps its glints and see-through shallows so it
+// than clean water, and clean water keeps its see-through shallows so it
 // reads apart from ground (it may be as dark as dry ground, as in the game); water partly bad
 // turns smoothly from clean water to badwater, the badwater share blended between tiles (D177,
 // which replaced each top showing its own tile's share); a slope's arrow is level and floats above the slope, pointing uphill, so it reads from
@@ -43,6 +43,10 @@ describe("water", () => {
     expect(shader).not.toMatch(/foam \+= \(1\.0 - smoothstep\([^)]*, shore\)\)/);
     expect(waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false, waterHooks()).fragmentShader).not.toContain("smoothstep(0.015, 0.16, shore)");
     expect(shader).not.toContain("glints");
+    // nor High's own twinkling flecks
+    const high = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false, waterHooks()).fragmentShader;
+    expect(high).not.toContain("microFlecks");
+    expect(high).not.toMatch(/HW_(BAD_)?GLINT/);
     // see-through as the game's High quality draws it (Q8): the ground behind shows by 0.175 at the water's
     // floor, thinning in step with depth to none at 5 levels; clearer toward the banks, and at a bank of water
     // a level deep or shallower over a seventh of the bed shows through
