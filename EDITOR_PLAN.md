@@ -412,7 +412,10 @@ place of its bottom rule.
   height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources,
   each water object, core and reserve with a label of its own words, and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
   and **Caves and overhangs** (where the map has them, right after Badwater; each with its caption under Legend while on);
-  **Legend** stands alone at the top right, just left of Top-down. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
+  **Legend** stands at the top right, just left of Top-down, with **Hide objects** just left of it (every object and its
+  shadow, while H is held or until clicked again; §4, "Seeing the land behind objects"; beside Legend so the Show row
+  keeps its room and the water row its place in the band, and where the water row takes a second line the two join the
+  Show row as its last toggles). All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
 - **The legend,** while Legend is ticked: directly under Legend, centred under it so "Legend" reads as its title (Kyler, 2026-10-04: DESIGN.md), one width,
@@ -549,7 +552,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces), and **the force is over the
   moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
   places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
-  melt-back, the lava cooling; a new force puts any of them away at once). A force's heat is its own: a later force
+  melt-back, the lava cooling; a new force puts any of them away at once; the lava cools by its drawn frames, so a
+  frame held long on a slow machine never skips it). A force's heat is its own: a later force
   never shows an earlier eruption's. The result
   and what is saved never depend on the pace.
 - **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an
@@ -881,6 +885,18 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   shows it so when it is let go (D491, amended 2026-10-29; `ridingPieces`). A source Clear takes does not ride it.
 - **Precision when wanted:** the target level, straight lines, level lines, a Select tool for big shaped edits (a
   small button beside the brushes; M and Ctrl+drag still open it, D259), and live dimensions.
+- **Seeing the land behind objects** (planning, 2026-10-30, #236; an editing aid in its own channel, D496/D497's rule:
+  the look never changes; `render3d/objectFade.ts`). Trees at the game's size hide the land being shaped. While a brush
+  is on the land, hovering or painting, every object round the pointer's tile, as far as the brush reaches (its Size; a
+  tile for an area), shows a quarter of itself and casts no shadow, coming back to full a tile further out; the region
+  moves tile by tile, and the renderer is told only when the tile or the reach changes (`BrushPainter.fade`, D453). It
+  goes with the brush's ring: the pointer off the land, another tool, or Esc putting the brush down. **Hold H** and
+  every object goes, its shadow with it, whatever is in hand; let go and they are back, and the window losing focus lets
+  go of it (`view/useHideObjects.ts`). **Hide objects**, beside Legend, keeps them hidden until it is clicked again.
+  While they are hidden the pointer finds only the land, as if nothing stood there: the readout names the land alone,
+  Select picks no object, source or start, and Delete on the tile pointed at takes the ground's top level (a selection's
+  Delete still takes what it marks). The fade alone changes no pick.
+  Pictures (the map's, the Showcase cards', the shelf's icons) never show either.
 - **Flatten** (D204, D322): sets the ground to its target, cutting and filling, so one stroke makes a clean plateau
   with hard edges; a walkable edge is the shelf's Slope. A quiet "the start fits here" hint when the area is big and
   flat enough for the district center, and a stronger one when the start requirements would also hold there;
@@ -1152,8 +1168,8 @@ Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate
 over the sky or off the map, and for + and -, about the screen's centre). The camera never goes into the rock: where
 its place would be in solid ground, it is drawn in toward what it looks at, to the nearest place in the air, and close
 to a point under a roof (in a cave, under an arch) it stays in that point's air (`render3d/cameraClamp.ts`),
-Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
-T toggles clear water. The tools go by their place in the bar (Kyler, 2026-10-06), matched on the key's code so any
+Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞),
+T toggles clear water, and H held hides every object (§4, "Seeing the land behind objects"). The tools go by their place in the bar (Kyler, 2026-10-06), matched on the key's code so any
 keyboard layout works: 1 Select, 2 to 6 Raise, Lower, Flatten, Smooth and Naturalize; Shift+1 to Shift+8 Carve,
 Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on or off. The shelf's items have no keys.
 

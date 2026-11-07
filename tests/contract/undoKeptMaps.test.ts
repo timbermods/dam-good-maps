@@ -10,6 +10,7 @@ import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { applySelection } from "../../src/core/doc/start";
+import { entityTiles } from "../../src/core/features/edits";
 import { CHEAP_KINDS, GUID, mapProject, Stream } from "./collabFixtures";
 import { rng } from "./forceEverywhere";
 
@@ -90,7 +91,12 @@ describe("undo and redo put back each step's map; a followed or spliced log rebu
     const stream = new Stream(21, W);
     // three Pines as one step whose log marks no steps (a placement stroke's, applyBatch)
     const pines: EditOp[] = [];
+    // (a scatter batch refuses a tile an object already covers, which a single placement may share with a generated ruin's column
+    // at another level; the three spots are taken off the free tiles, generator 0.10.7, D502, D148: seed 13's ruin column covers 0,0)
+    const covered = new Set<number>();
+    for (const e of s.built.entities) for (const [x, y] of entityTiles(e)) covered.add(y * W + x);
     for (let i = 0; pines.length < 3 && i < W * W; i += 37) {
+      if (covered.has(i)) continue;
       const op = { op: "placeEntity", params: { id: GUID(900 + pines.length), template: "Pine", x: i % W, y: Math.floor(i / W), orientation: "Cw0" } } as EditOp;
       if (!s.check(op).length && !pines.some((p) => p.op === "placeEntity" && op.op === "placeEntity" && p.params.x === op.params.x && p.params.y === op.params.y)) pines.push(op);
     }
