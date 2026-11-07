@@ -796,7 +796,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 ### The brushes and precision tools
 
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a
-  natural slope exactly where the player puts it); Smooth has no walkable option (D247) and Flatten no Ramped edges
+  natural slope exactly where the player puts it; dragged from high ground down to low ground it lays a **stair**, one
+  slope a level, each tile set a level below the one before, its tiles green as it is dragged or red with the one
+  reason it can't be laid, the release one step: `core/doc/stair.ts`); Smooth has no walkable option (D247) and Flatten no Ramped edges
   (D322). **Naturalize** weathers what the player paints (forces' results, strokes, rivers, set pieces); it leaves
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke
