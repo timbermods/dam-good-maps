@@ -9,6 +9,7 @@
 
 import { BufferGeometry, Color, InstancedBufferAttribute, InstancedMesh, Matrix4, Vector3, type Camera, type Object3D, type ShaderMaterial } from "three";
 import { whenIdle } from "../idle";
+import { disposeSharedBatch } from "./sharedBatch";
 import { DEAD, DYING, YOUNG, type EntityView } from "../model";
 import { model, noise, placement, registry, species, type Detail, type PlantState, type Species } from "./models";
 
@@ -305,13 +306,9 @@ export class Forest {
   dispose(): void {
     for (const mesh of this.meshes) {
       mesh.removeFromParent();
-      // (the models' own attributes are shared with other batches: three.js uploads them again for
-      // a batch still drawn; the GPU buffers let go when the page has a moment, as each one put away searches all of
-      // three.js's state)
-      whenIdle(() => {
-        mesh.geometry.dispose();
-        mesh.dispose();
-      });
+      // (its own buffers only: the model's attributes are shared with other batches, sharedBatch.ts; let go when the
+      // page has a moment, as each one put away searches all of three.js's state)
+      whenIdle(() => disposeSharedBatch(mesh));
     }
     this.meshes.length = 0;
   }

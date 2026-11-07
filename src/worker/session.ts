@@ -2154,6 +2154,13 @@ export function project(level = 9): { bytes: Uint8Array; fileName: string; name:
   return { bytes: s.project(level), fileName: documentFileName(s.document), name: s.meta.name, version };
 }
 
+/** File → Save a picture: the open map as it stands, as the page draws its picture (render3d/hero.ts), and the
+ *  picture's file name (the project's, ".jpg" in place of its extension). The open map is untouched. */
+export function pictureView(): { view: MapView; fileName: string } {
+  const s = need();
+  return { view: wholeView(s), fileName: documentFileName(s.document).replace(/\.damgoodmaps\.json$/i, "").replace(/\.timber$/i, "") + ".jpg" };
+}
+
 /** A version of the open map kept or branched at History step `k` (core/doc/session.ts `versionProject`; showcase versions):
  *  its project file, its name and parent, and the land and water the page draws Your maps' picture of it from. Never a
  *  rebuild here: a step with no settled build kept comes without its stored map and without a picture (`stored` false), and
@@ -2304,11 +2311,14 @@ export function removeUnfedWater(tiles: number[] | null): SessionUpdate {
 }
 
 /** What cropping the map to a rectangle would do: the core's one-line reason it cannot, or how many objects the new edge
- *  would remove (core/doc/crop.ts `planCrop`, D340). Reads the map only. */
+ *  would remove (core/doc/crop.ts `planCrop`, D340; ground the edge would leave unheld, `cropFalls`). Reads the map only. */
 export function cropPlanAt(r: CropParams): { reason: string | null; removedObjects: number } {
   const s = need();
   const p = planCrop(s.built.entities, s.size.x, s.size.y, r);
-  return p.ok ? { reason: null, removedObjects: p.removedObjects } : { reason: p.reason, removedObjects: 0 };
+  if (!p.ok) return { reason: p.reason, removedObjects: 0 };
+  // (and the session's own refusal: ground the new edge would leave unheld)
+  const why = s.check({ op: "crop", params: r })[0];
+  return why ? { reason: why, removedObjects: 0 } : { reason: null, removedObjects: p.removedObjects };
 }
 
 /** Crop the map to a rectangle (D340): the map's next generation, one undo step. The page opens the new map (its size
