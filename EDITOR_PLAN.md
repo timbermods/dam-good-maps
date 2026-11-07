@@ -1166,7 +1166,7 @@ until the player presses play), its length and size, Close and **Download video*
   slow push in, turns slowly round, and ends on the finished map's hero view (the game's opening camera, D488).
 - **Pacing by eye:** a short history plays each step for about a second (a force's longer), the glides between
   places under half that time; a long one is paced so the whole video stays about a minute, nearby edits sharing a
-  camera place and very long histories playing several steps to a frame. 1280×720, 30 frames a second, VP9 (VP8 where it must), about 2.5 Mb/s.
+  camera place and very long histories playing several steps to a frame. 1280×720, 30 frames a second, VP9 (VP8 where it must), about 1.6 Mb/s (a minute is about 12 MB).
 - **The page never freezes:** the replay and the water run in the worker; each frame is drawn and handed to the
   encoder, which keeps at most a few frames waiting; recording runs near or faster than real time.
 - The water is drawn still and force effects don't play in the video until the renderer's per-renderer clock lands

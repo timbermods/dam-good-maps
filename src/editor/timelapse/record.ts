@@ -17,7 +17,7 @@ import { WebmWriter, type WebmCodec } from "./webm";
 /** The video's size: 720p, sharp enough to post and small enough to send (about a megabyte every four seconds). */
 export const LAPSE_W = 1280;
 export const LAPSE_H = 720;
-const BITS_PER_SECOND = 2_500_000;
+const BITS_PER_SECOND = 1_600_000;
 /** A key frame every two seconds: a player seeks at once. */
 const KEY_EVERY = 2 * FPS;
 /** The water and the wind's clock where the video starts (seconds; hero.ts holds its picture at 6). */

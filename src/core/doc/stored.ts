@@ -298,7 +298,7 @@ function exactJson(v: unknown): string {
 /** Whether two built maps are the same map, byte for byte: the ground, every water and soil
  *  layer and the settle, the objects, the slopes, the sources and the start. Caches, notes and
  *  the dirty region are not the map. With `water: false`, the water, the soil it wets and the
- *  settle are left out, and with them whether a plant lives (the time-lapse's quick check: the
+ *  settle are left out, and with them a plant's life and growth (the time-lapse's quick check: the
  *  ground, blocks and objects alone). */
 export function sameMap(a: BuildResult, b: BuildResult, opts: { water?: boolean } = {}): boolean {
   if (a.W !== b.W || a.H !== b.H || a.seed !== b.seed) return false;
@@ -332,8 +332,9 @@ export function sameMap(a: BuildResult, b: BuildResult, opts: { water?: boolean 
   if (ma && mb) for (const [i, m] of ma) if (mb.get(i) !== m) return false;
   if (water && (a.settle.ticks !== b.settle.ticks || a.settle.settled !== b.settle.settled || !!a.settle.preview !== !!b.settle.preview)) return false;
   if (a.entities.length !== b.entities.length) return false;
-  // (without the water, a plant's life too: the soil the settled water wets decides it)
-  const object = (e: BuildResult["entities"][number]) => exactJson(water || !e.components?.LivingNaturalResource ? e : { ...e, components: { ...e.components, LivingNaturalResource: undefined } });
+  // (without the water, a plant's life and growth too: the soil the settled water wets decides them, and a plant that
+  // dies loses its growth)
+  const object = (e: BuildResult["entities"][number]) => exactJson(water || !e.components ? e : { ...e, components: { ...e.components, LivingNaturalResource: undefined, Growable: undefined } });
   for (let i = 0; i < a.entities.length; i++) if (object(a.entities[i]) !== object(b.entities[i])) return false;
   return exactJson([a.slopes, a.sources, a.start ?? null]) === exactJson([b.slopes, b.sources, b.start ?? null]);
 }
