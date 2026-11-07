@@ -23,6 +23,9 @@ import { WaterSim, type WaterModel, type WaterSimOptions, type WaterState } from
  *  tiles by it; a thinner film round them is taken with them. */
 export const WATER = 0.001;
 
+/** How far below a dam's crest a pool still counts as standing at it (floating point's rounding, #756). */
+export const CREST_EPS = 1e-9;
+
 /** Tiles of `depth` a running source's water, or a seed's (a mask), reaches (1), as the simulation
  *  moves it (see the file comment). Emitter tiles and wet seed tiles are fed; other dry tiles never
  *  are. */
@@ -66,9 +69,9 @@ export function fedTiles(m: WaterModel, depth: ArrayLike<number>, seeds?: ArrayL
       if (!(fn <= hc)) continue;
       // a partial obstacle holds the water back until it is overtopped (water.ts damFlow)
       const lim = dam ? dam[n] : -1;
-      // (as for a floor, a pool standing exactly at the crest counts: the pre-fill fills a dam's pool to floor + height, and
-      // its surface less the floor falls a hair short of the height in floating point, #756)
-      if (lim >= 0 && fn < Math.ceil(hc) && hc < fn + lim) continue;
+      // (as for a floor, a pool standing at the crest counts: the pre-fill fills a dam's pool to its floor + height, and in
+      // floating point its surface falls a hair short of that height above another floor, CREST_EPS, #756)
+      if (lim >= 0 && fn < Math.ceil(hc) && hc < fn + lim - CREST_EPS) continue;
       fed[n] = 1;
       queue[tail++] = n;
     }
