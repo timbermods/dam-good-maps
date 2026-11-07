@@ -622,7 +622,6 @@
 .legend-row .show-row {
   background: var(--overlay);
   box-shadow: var(--shadow);
-  font-size: 0.85rem;
 }
 
 .show-item {
@@ -640,6 +639,9 @@
   padding: 0 6px 0 5px;
   text-align: left;
   white-space: nowrap;
+  /* (the band is laid out to Segoe UI's width with no slack: a wider system font, Linux's or macOS's, takes back all of
+     its extra width, src/ui/fontFit.ts, so the water row keeps its place in the band at 1536×864 there too) */
+  font-size: max(min(0.85rem, var(--text-floor)), calc(0.85rem / var(--wide-font-full)));
 }
 
 /* the row is never lit; its box is (Timberborn's settings' checkbox: a 1.5px quiet border, 3px corners; ticked, the
@@ -822,7 +824,8 @@
   border-radius: 6px;
   background: var(--overlay);
   box-shadow: var(--shadow);
-  font-size: 0.85rem;
+  /* (as the Show row's: a wider system font takes back its extra width) */
+  font-size: max(min(0.85rem, var(--text-floor)), calc(0.85rem / var(--wide-font-full)));
 }
 
 .editor-view .water-bar .icon-word {
@@ -3093,7 +3096,7 @@
   border: 0;
   background: none;
   box-shadow: none;
-  font-size: 0.75rem;
+  font-size: max(min(0.75rem, var(--text-floor)), calc(0.75rem / var(--wide-font-full)));
 }
 
 .day-stepper .day-step:disabled {
@@ -3125,7 +3128,7 @@
   padding: 0;
   background: none;
   box-shadow: none;
-  font-size: 0.78rem;
+  font-size: max(min(0.78rem, var(--text-floor)), calc(0.78rem / var(--wide-font-full)));
   pointer-events: none;
 }
 

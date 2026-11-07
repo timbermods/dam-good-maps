@@ -135,12 +135,13 @@ export function useSelect(ed: Ed): SelectSlice {
     // Select is the resting tool. A press on a source or the start is left to the pointer, as before Select was
     // always in hand (a click picks a source, Ctrl+click adds one to a row; their drags move them); a drag that
     // starts on an object marks an area, and a plain click picks the object (a drag then moves it). With a
-    // selection open, Select takes every press, as it always did.
+    // selection open, Select takes every press, as it always did. A press beside a source, not on it, starts a box
+    // (D249's two tiles of reach are for the pointer with nothing in hand; showcase-craft gap 18).
     const down = t.down.bind(t);
     const up = t.up.bind(t);
     let press: { x: number; y: number } | null = null;
     t.down = (hit, ev) => {
-      if (hit && !selection.current.count && (ed.targetAt(hit.x, hit.y) || (ed.startHere && !ed.renderer.current?.objectsHidden && Math.max(Math.abs(hit.x - ed.startHere.x), Math.abs(hit.y - ed.startHere.y)) <= 1))) return false;
+      if (hit && !selection.current.count && (ed.sourceOnScreen(hit, ev.clientX, ev.clientY) || (ed.startHere && !ed.renderer.current?.objectsHidden && Math.max(Math.abs(hit.x - ed.startHere.x), Math.abs(hit.y - ed.startHere.y)) <= 1))) return false;
       press = { x: ev.clientX, y: ev.clientY };
       return down(hit, ev);
     };

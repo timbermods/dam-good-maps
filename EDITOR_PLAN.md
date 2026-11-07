@@ -76,7 +76,7 @@ place of its bottom rule.
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
   button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…,
-  Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Save a picture (§6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. A sibling's variation is shown beside its seed, in the header ("Seed 4242 · 2 · 128×128") and in the panel's Seed line, so a seed copied by hand is known to be only part of its address. **Showcase…** (D488 (2)) sits in
@@ -266,7 +266,7 @@ place of its bottom rule.
     left in the row go when the selection closes or changes; Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
     the selection's bounding rectangle (any shape of selection; `useSelect.tsx`, the worker's `cropPlanAt` and `cropTo`).
     Greyed (`aria-disabled`, so the hover still speaks) with nothing selected ("Select an area to crop") and whenever the
-    core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut): hovering or focusing it says
+    core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut; `cropFalls`: ground the edge would leave unheld): hovering or focusing it says
     "Can't crop this" and puts the core's one-line reason, word for word, on the message line; pressing it says the reason
     again, never clamped (with nothing selected the row's words are the one place it says so, and no note repeats it). Enabled, hovering says "32 × 24", adding "; cuts 3 objects" when the edge
     cuts any (the row's words take the three cells beside the shapes, and no words are ever cut off). The map is then
@@ -1050,7 +1050,7 @@ Make a valley, drop a source, and there's a river.
   worker works them out, `MarkerNote`, and `labelLayout.ts` places them beside the sources' labels; notes too crowded for
   their spots merge into "N objects nearby", and one with no room is not drawn). **Sources are easy to hit** (D249): with any tool
   picked, the pointer over water or bare ground within about two tiles of a source targets it (a direct hit on
-  another object wins; the nearest source wins); Delete or Backspace removes it, one undo step. **A badwater source
+  another object wins; the nearest source wins); Delete or Backspace removes it, one undo step. A press with nothing picked grabs a source within that reach to drag it; with the Select tool open, only a press on the source itself does, so a box begun beside one selects (showcase-craft gap 18). **A badwater source
   cuts its own spring pool** (D290, generalised to every object by D328): it is 3 × 3 and needs level ground, so
   where it is placed, switched from clean or dragged onto uneven ground, its nine tiles are cut down to the lowest
   of them (never filled, so its water isn't dammed) and what stood on them goes, in the same undo step. Every
@@ -1177,8 +1177,8 @@ weaker hardware rather than stutter. (The full list is in the archive.)
 
 **File → Record a time-lapse…** ("Save a video of how the map was built") replays the map's history at speed from
 the generated map and saves it as a WebM to share. It adds nothing to the screen until used, and is in the menu only
-where the browser can make a video (WebCodecs and WebGL 2: Chrome and Edge). A map with no edits says "Nothing to
-replay yet". While it records, a dialog says what it is doing ("Replaying the map's history", "Recording the
+where the browser can make a video (WebCodecs and WebGL 2: Chrome and Edge). A map with no edits (or none since its
+crop) says "Nothing to replay yet". While it records, a dialog says what it is doing ("Replaying the map's history", "Recording the
 time-lapse", "Writing the video"), how far along ("4 of 15 seconds"), and Cancel; then the video itself (it never plays
 until the player presses play), its length and size, Close and **Download video** (`<map>-time-lapse.webm`).
 
@@ -1189,9 +1189,14 @@ until the player presses play), its length and size, Close and **Download video*
   from a crater or an eruption, along a brush's stroke; its objects and blocks appear part-way; the water flows on
   between steps as the live editor's water flows (up to 512 game ticks a second of video; on a heavy map, where a
   tick of the water costs more, it flows slower in the video rather than the recording slowing).
-- **The camera is the video's, never the player's** (D505): a renderer of its own, off screen; it
-  opens wide on the generated map, glides to each place (eased, never cut, rising as it crosses the map), holds with a
-  slow push in, turns slowly round, and ends on the finished map's hero view (the game's opening camera, D488).
+- **The camera is the video's, never the player's** (D505): a renderer of its own, off screen, moving as a slow
+  drone, never a turntable. It opens wide on the generated map, glides to each place (eased, never cut, rising as it
+  crosses the map), holds with a slow push in, and ends on the finished map's hero view (the game's opening camera,
+  D488). Nearby edits share one framing, so the camera doesn't move between them. It looks down at one steady pitch
+  until the glide to the hero view, and its heading turns only a little over the whole video (at most 20°, under
+  half a degree a second).
+  Over the closing glide the water still flowing eases into the finished map's own water and the soil greens with it
+  (`timelapse/blend.ts`), so the held view never snaps to them.
 - **Pacing by eye:** a short history plays each step for about a second (a force's longer), the glides between
   places under half that time; a long one is paced so the whole video stays about a minute, nearby edits sharing a
   camera place and very long histories playing several steps to a frame. 1280×720, 30 frames a second, VP9 (VP8 where it must), about 1.6 Mb/s (a minute is about 12 MB).
@@ -1199,6 +1204,10 @@ until the player presses play), its length and size, Close and **Download video*
   encoder, which keeps at most a few frames waiting; recording runs near or faster than real time.
 - The water is drawn still and force effects don't play in the video until the renderer's per-renderer clock lands
   (forces play's hooks, agreed on #236).
+
+**File → Save a picture** ("Save a picture of the map to share"): the map as it stands, from the game's opening view,
+drawn in the High look at 1920×1080 (the saved file's picture, D488, drawn large), saved as `<map>.jpg` with the quiet
+note "Saved <file>." Only where the browser draws in 3D on a GPU, as the saved file's picture is.
 
 ## 7. Controls
 

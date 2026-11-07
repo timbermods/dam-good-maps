@@ -119,8 +119,10 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     const W = infoRef.current.W;
     const H = infoRef.current.H;
     // with nothing picked, a source within about two tiles is the one pressed (D249); with the
-    // shelf's source, a press on a placed one (a new one can go right beside it)
-    const free = !shelfRef.current && !ed.toolRef.current;
+    // shelf's source, a press on a placed one (a new one can go right beside it); with the Select
+    // tool open, only a press on the source itself, so a box started beside one selects (showcase-craft
+    // gap 18: zoomed out, a box begun two tiles from a source moved it)
+    const free = !shelfRef.current && !ed.toolRef.current && !selectingRef.current;
     const spot = free ? targetAt(hit.x, hit.y) : null;
     const src = spot ? { x: spot.x, y: spot.y, bad: spot.bad, tiles: spot.tiles.map((i): [number, number] => [i % W, Math.floor(i / W)]) } : sourceOnScreen(hit, ev?.clientX ?? -1e6, ev?.clientY ?? -1e6);
     if (!src) return null;
