@@ -1178,6 +1178,8 @@ until the player presses play), its length and size, Close and **Download video*
 - **The camera is the video's, never the player's** (D505): a renderer of its own, off screen; it
   opens wide on the generated map, glides to each place (eased, never cut, rising as it crosses the map), holds with a
   slow push in, turns slowly round, and ends on the finished map's hero view (the game's opening camera, D488).
+  Over the closing glide the water still flowing eases into the finished map's own water and the soil greens with it
+  (`timelapse/blend.ts`), so the held view never snaps to them.
 - **Pacing by eye:** a short history plays each step for about a second (a force's longer), the glides between
   places under half that time; a long one is paced so the whole video stays about a minute, nearby edits sharing a
   camera place and very long histories playing several steps to a frame. 1280×720, 30 frames a second, VP9 (VP8 where it must), about 1.6 Mb/s (a minute is about 12 MB).

@@ -1,13 +1,15 @@
 // The time-lapse's video file and timeline (src/editor/timelapse/): the WebM the writer makes reads back with every
 // frame, its length and its key frames; the plan fits any history in about a minute, its frame count known before
-// the first frame; and the camera glides (never cuts) from the opening to the hero view.
+// the first frame; the camera glides (never cuts) from the opening to the hero view; and the ending eases the
+// replay's water and soil into the finished map's, never snapping.
 
 import { describe, expect, it } from "vitest";
+import { blendSoil, blendWater, easeIn } from "../../src/editor/timelapse/blend";
 import { lapseCamera } from "../../src/editor/timelapse/camera";
 import { FPS, lapsePlan } from "../../src/editor/timelapse/plan";
 import { WebmWriter, webmFacts } from "../../src/editor/timelapse/webm";
 import type { LapseStep } from "../../src/core/doc/timelapse";
-import type { EntityView } from "../../src/render3d/model";
+import type { EntityView, WaterView } from "../../src/render3d/model";
 
 async function bytesOf(b: Blob): Promise<Uint8Array> {
   return new Uint8Array(await b.arrayBuffer());
@@ -105,5 +107,66 @@ describe("the time-lapse's camera", () => {
     const held = cam(p.outro.hold);
     expect(last.yaw).toBeCloseTo(held.yaw, 6);
     expect(last.pitch).toBeCloseTo(held.pitch, 6);
+  });
+});
+
+describe("the ending's ease", () => {
+  const water = (cols: [number, number, number, number][], flows?: number[]): WaterView => ({
+    count: cols.length,
+    tile: Int32Array.from(cols.map((c) => c[0])),
+    floor: Float32Array.from(cols.map((c) => c[1])),
+    depth: Float32Array.from(cols.map((c) => c[2])),
+    contamination: Float32Array.from(cols.map((c) => c[3])),
+    ...(flows ? { outflow: Float32Array.from(flows) } : {}),
+  });
+
+  it("mixes each column's water, grows and dries the columns one side has, and ends as the map's own", () => {
+    // tile 3 in both; tile 5 only filling (a), tile 9 only in the map (b); tile 3 under a cave at floor 2 in b only
+    const a = water([[3, 4, 1, 0], [5, 4, 0.5, 1]], [1, 0, 0, 0, 0, 2, 0, 0]);
+    const b = water([[3, 2, 0.4, 0], [3, 4, 2, 0.5], [9, 6, 1, 0]], [0, 0, 0, 0, 0, 0, 0, 3, 4, 0, 0, 0]);
+    expect(blendWater(a, b, 0)).toBe(a);
+    expect(blendWater(a, b, 1)).toBe(b);
+    const m = blendWater(a, b, 0.25);
+    const at = (t: number, fl: number) => [...m.tile].findIndex((v, k) => v === t && m.floor[k] === fl);
+    expect(m.count).toBe(4);
+    expect([...m.tile]).toEqual([3, 3, 5, 9]);
+    expect(m.depth[at(3, 4)]).toBeCloseTo(1.25, 6);
+    expect(m.contamination[at(3, 4)]).toBeCloseTo((0.5 * 0.25 * 2) / 1.25, 6);
+    expect(m.depth[at(5, 4)]).toBeCloseTo(0.375, 6);
+    expect(m.contamination[at(5, 4)]).toBeCloseTo(1, 6);
+    expect(m.depth[at(9, 6)]).toBeCloseTo(0.25, 6);
+    expect(m.depth[at(3, 2)]).toBeCloseTo(0.1, 6);
+    // (before halfway the filling water's outflows; a column it lacks flows nowhere)
+    expect([...m.outflow!.slice(at(5, 4) * 4, at(5, 4) * 4 + 4)]).toEqual([0, 2, 0, 0]);
+    expect([...m.outflow!.slice(at(9, 6) * 4, at(9, 6) * 4 + 4)]).toEqual([0, 0, 0, 0]);
+    const late = blendWater(a, b, 0.75);
+    const k = [...late.tile].findIndex((v, j) => v === 3 && late.floor[j] === 4);
+    expect([...late.outflow!.slice(k * 4, k * 4 + 4)]).toEqual([0, 0, 0, 3]);
+    // (never a step bigger than the ease's own between two views)
+    let worst = 0;
+    for (let s = 1; s <= 20; s++) {
+      const p = blendWater(a, b, (s - 1) / 20);
+      const q = blendWater(a, b, s / 20);
+      const d = (w: WaterView, t: number, fl: number) => {
+        const j = [...w.tile].findIndex((v, i) => v === t && w.floor[i] === fl);
+        return j < 0 ? 0 : w.depth[j];
+      };
+      for (const [t, fl] of [[3, 4], [5, 4], [9, 6], [3, 2]]) worst = Math.max(worst, Math.abs(d(q, t, fl) - d(p, t, fl)));
+    }
+    expect(worst).toBeLessThanOrEqual(1 / 20 + 1e-6);
+  });
+
+  it("greens the soil tile by tile and eases in smoothly over its frames", () => {
+    const a = { moisture: Uint8Array.from([0, 100, 200]), contamination: Uint8Array.from([0, 0, 50]) };
+    const b = { moisture: Uint8Array.from([200, 100, 0]), contamination: Uint8Array.from([0, 0, 150]) };
+    const m = blendSoil(a, b, 0.5);
+    expect([...m.moisture]).toEqual([100, 100, 100]);
+    expect([...m.contamination]).toEqual([0, 0, 100]);
+    expect(blendSoil(a, b, 1)).toBe(b);
+    expect(blendSoil(a, { moisture: new Uint8Array(4), contamination: new Uint8Array(4) }, 0.3).moisture.length).toBe(4);
+    expect(easeIn(10, 10, 40)).toBe(0);
+    expect(easeIn(40, 10, 40)).toBe(1);
+    expect(easeIn(25, 10, 40)).toBeCloseTo(0.5, 6);
+    for (let f = 10; f < 40; f++) expect(easeIn(f + 1, 10, 40)).toBeGreaterThanOrEqual(easeIn(f, 10, 40));
   });
 });
