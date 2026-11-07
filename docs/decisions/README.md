@@ -189,6 +189,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The look](look.md)
 
+- D497: Terrain is lit as the game lights it (amends D280 (2), D135)
 - D496: Badwater's colour follows the game (amends D154)
 - D135: The 3D view's look (amended: no mist or splash rings at falls)
 - D154: Contaminated ground layer (amended: falls as the game draws them, D201)

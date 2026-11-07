@@ -201,7 +201,20 @@ describe("a force clicked quickly after another (D378)", () => {
     const kept = fx.showing().glaciate!.seconds!;
     wait(8000, true);
     // (a tenth of a second at the showing's pace, from where it was kept)
-    expect(fx.showing().glaciate!.seconds).toBeLessThan(kept + 0.25);
+    expect(fx.showing().glaciate!.seconds).toEqual(expect.closeTo(kept + 0.1, 3));
     expect(fx.showing().glaciate).not.toBeNull();
+  });
+
+  it("an erosion's dust and stones play out as drawn: a frame held long never skips them", () => {
+    play(fx, "erode", 10, 10);
+    const before = fx.showing().erode!;
+    wait(8000, true);
+    // (a tenth of a second on: the same dust and stones in the air)
+    const held = fx.showing().erode!;
+    expect(held.age).toEqual(expect.closeTo(before.age + 0.1, 3));
+    expect(held.dust + held.stones).toBeGreaterThan(0);
+    wait(5000);
+    expect(fx.showing().erode).toBeNull();
+    expect(fx.active).toBe(false);
   });
 });

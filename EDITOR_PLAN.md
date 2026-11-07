@@ -558,8 +558,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
   melt-back, the lava cooling; a new force puts any of them away at once; every tail plays by its drawn frames, a
   frame of the player's view counting a tenth of a second at most, so a frame held long on a slow machine never skips
-  an impact's dust, a fault's crack, the ice's melt-back or the lava's cooling; an erosion's last puffs still run on the
-  clock). A force's heat is its own: a later force
+  an impact's dust, a fault's crack, the ice's melt-back, the lava's cooling or an erosion's dust and stones). A force's heat is its own: a later force
   never shows an earlier eruption's. The result
   and what is saved never depend on the pace.
 - **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an
@@ -840,7 +839,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **The height brushes work as the game's editor does** (D322, item 37): Raise, Lower and Flatten each have a
   **target level**, shown beside the pointer ("up to 8", "down to 5", "level 7") and as a plane over the ring.
   Raise lifts every tile below the target to it and leaves higher ground; Lower cuts every tile above it down to
-  it; Flatten sets every tile to it, higher or lower. They act exactly, with the brush's footprint and hard edges;
+  it; Flatten sets every tile to it, higher or lower. They act exactly, with the brush's footprint and hard edges
+  (dabbed every quarter tile, so a stroke's edge is as solid as its middle at every size);
   holding adds nothing. Until the player sets it, the target follows the ground under the pointer (a level above
   for Raise, below for Lower, the same for Flatten) and locks where a stroke starts. A stroke begins on the tile
   under the pointer, whatever the target; Flatten to a set level then follows the pointer on that level's plane, moved
@@ -1119,8 +1119,9 @@ Two looks (Map look 2, D147, D242, D250, D284):
   water's own face where it steps down, in its own colour and a tenth see-through, with no foam or whitewater, a face at
   each step of a cascade (D201 amended 2026-10-29).
 - **High**, the same view finished further: water coloured by depth with clear shallows, fine crests and flecks
-  moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, ambient
-  occlusion, a colour-preserving tone curve, distance haze, sky, rock strata and soil edges (#65); trees and bushes
+  moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, sky, rock
+  strata and soil edges (#65; its ambient occlusion, tone curve and haze gave way to the game's light, fog and post
+  chain in every look, D497); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
   rock with a soil cap and the water's section, rough water below falls (#67; its crowns, landings, froth, mist and
   splash rings removed with D201's amendment, 2026-10-29). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
@@ -1758,7 +1759,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     (`materials.ts` `ShaderHooks`), and only in High's own materials, which the meshes swap to while the look is
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
     hover, ground mode and an eruption's heat). A 2048² sun depth map (redrawn only when the terrain or objects
-    change, at most ten times a second while a brush paints), ambient occlusion made in a small worker
+    change, at most ten times a second while a brush paints), the water's fields made in a small worker
     (`bake.worker.ts`, one for the page, shared by every view), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.

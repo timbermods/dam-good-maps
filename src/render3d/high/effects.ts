@@ -14,11 +14,8 @@ export type HighEffectKey =
   | "water"
   | "shadows"
   | "sunlight"
-  | "ao"
-  | "tone"
-  | "grade"
-  | "haze"
   | "sky"
+  | "fog"
   | "strata"
   | "soilEdges"
   | "variation"
@@ -35,11 +32,9 @@ export const HIGH_EFFECTS: readonly HighEffect[] = [
   { key: "water", label: "Water", from: "#38" },
   { key: "shadows", label: "Soft shadows", from: "#38" },
   { key: "sunlight", label: "Warm sunlight", from: "#65" },
-  { key: "ao", label: "Ambient occlusion", from: "#65" },
-  { key: "tone", label: "Tone curve", from: "#65" },
-  { key: "grade", label: "Colour grade", from: "#65" },
-  { key: "haze", label: "Distance haze", from: "#65" },
   { key: "sky", label: "Sky", from: "#65" },
+  // (an editing aid, not a look: the game's fog, every look's since D497, off to see far ground plainly)
+  { key: "fog", label: "Fog", from: "#65" },
   { key: "strata", label: "Rock strata", from: "#65" },
   { key: "soilEdges", label: "Soil edges", from: "#65" },
   { key: "variation", label: "Colour variation", from: "#65" },

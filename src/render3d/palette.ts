@@ -7,7 +7,7 @@
 // more contaminated, through earth and grass alike), clean water a deep teal body darkening with depth, clear in
 // the shallows (the water's own palette is waterPalette.ts, D177), and ground under water a dark
 // wet bed; a toggle switches the ground to height colours.
-// Walls are olive-grey cobbled stone, every other level a shade darker. Colours are display values (the
+// Walls are cobbled stone, lighter higher up as the game's cliffs. Colours are display values (the
 // renderer outputs them without conversion).
 //
 // Readability follows the game's own (D334): its look and its cues, with no lightness gap or pattern
@@ -54,18 +54,24 @@ export const GROUND = {
    *  and less yellow than it was (the game's L* 50-55 on screen, D324); it reads apart from dry earth
    *  as it does in the game, by hue and its painted strokes, with no lightness gap asked beyond the
    *  game's own (D334 (2); `look-readable.test.ts` reports the colour-blindness simulations as
-   *  information). */
-  dry: [0.463, 0.403, 0.367] as Rgb,
+   *  information).
+   *  Calibrated to the game's textures (D497): the patterns' mean albedo, measured in the page with the light, the
+   *  altitude ramp and the haze off (`tools/albedo-means.ts`), is the mean of the game's texture times its detail
+   *  texture doubled (TerrainURP: base × GrassDetailsAlbedo × 2; GrassDetailsAlbedo's mean 140 makes that × 1.098): dry
+   *  ground the `Desert` texture's 63/52/42 (TerrainMaterialMap.blueprint.json `DesertTexture`), so 69/57/46; grass
+   *  the `Grass` texture's 67/73/25, so 74/80/27 (means of the 64² mips, 0–255, read raw as the game reads them in Gamma
+   *  colour space). Each colour of a kind was scaled by the same factor per channel, so the patterns keep their shapes. */
+  dry: [0.283, 0.234, 0.187] as Rgb,
   /** Dry ground's cooler, greyer patches. */
-  dryCool: [0.444, 0.414, 0.438] as Rgb,
+  dryCool: [0.271, 0.24, 0.223] as Rgb,
   /** Dry ground's warmer, browner patches. */
-  dryWarm: [0.52, 0.438, 0.375] as Rgb,
+  dryWarm: [0.318, 0.255, 0.191] as Rgb,
   /** The cracks in dry ground. */
-  crack: [0.19, 0.14, 0.125] as Rgb,
+  crack: [0.116, 0.082, 0.064] as Rgb,
   /** Moist ground at the edge of the moist area (the least moisture): a muted grass green. */
-  moistLow: [0.445, 0.575, 0.28] as Rgb,
+  moistLow: [0.36, 0.377, 0.135] as Rgb,
   /** Moist ground by the water (the most moisture), a little deeper green. */
-  moistHigh: [0.415, 0.55, 0.265] as Rgb,
+  moistHigh: [0.336, 0.361, 0.128] as Rgb,
   /** Contamination (badwater spoils the soil and plants die) in the light look, which draws no
    *  veins: a rust tint over dry earth... */
   contaminated: [0.4, 0.2, 0.14] as Rgb,
@@ -129,17 +135,17 @@ export const JUICE = {
 /** Height colours (the toggle): the low and high ends of the ramp, as before Map look. */
 export const HEIGHT_RAMP = { low: [0.478, 0.588, 0.329] as Rgb, high: [0.769, 0.698, 0.549] as Rgb } as const;
 
-/** The block walls: olive-grey cobbled stone, as Timberborn's references (D334, amending D324's bluer grey), every other
- *  level a shade darker and a little lighter higher up. With **Markers** on, a pale ledge over a dark
- *  groove between levels, so levels can be counted. */
+/** The block walls: cobbled stone, as the game's cliffs (D497): the stone and mortar calibrated so their pattern's
+ *  mean albedo (`tools/albedo-means.ts`) is the game's `CliffDetail` texture's mean, 68/62/52, and tinted by height as
+ *  the game's Cliff, CliffEdge and SlopeCliff materials tint it: `_SplatGradientMin` at level 0 to `_SplatGradientMax`
+ *  at `ALTITUDE_RAMP.ceiling` (22), unclamped. With **Markers** on, a pale ledge over a dark groove between levels, so
+ *  levels can be counted (an editing aid, untinted). */
 export const WALL = {
-  stone: [0.40, 0.395, 0.29] as Rgb,
-  mortar: [0.13, 0.125, 0.095] as Rgb,
+  stone: [0.334, 0.307, 0.259] as Rgb,
+  mortar: [0.108, 0.097, 0.085] as Rgb,
   ledge: [0.8, 0.78, 0.68] as Rgb,
   groove: [0.08, 0.08, 0.07] as Rgb,
-  alternate: 0.86,
-  low: 0.92,
-  high: 1.12,
+  gradient: { min: [0.4157, 0.4314, 0.4745] as Rgb, max: [0.9412, 0.9255, 0.8941] as Rgb },
 } as const;
 
 /** Contamination as a layer, as in the game (Kyler, 2026-09-25; D334: the game's own look and cues):
@@ -303,6 +309,112 @@ export const LIGHT = {
   haze: [0.4470589, 0.7607844, 0.8235295] as Rgb,
 } as const;
 
+/** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,
+ *  Timberborn 1.1.2.8): TerrainURP multiplies the ground's colour (grass and dry ground, before contamination is laid
+ *  over it; not fields, not cliffs) by twice the ramp's texel (texel / 255, read raw in Gamma colour space) at the
+ *  ground's height over `ceiling` (Configurations/TerrainMaterialMap.blueprint.json `AltitudeCeiling`), the grass's ramp
+ *  on grass and the desert's on dry ground. Each a 32 × 1 RGB24 texture, filtered, mirrored past the ceiling. */
+export const ALTITUDE_RAMP = {
+  ceiling: 22,
+  grass: [[112, 125, 133], [114, 126, 134], [112, 128, 139], [118, 126, 133], [126, 125, 125], [126, 129, 127], [125, 131, 133], [125, 132, 136], [121, 135, 136], [124, 138, 134], [126, 138, 136], [129, 140, 141], [137, 138, 134], [144, 139, 129], [145, 142, 131], [143, 142, 135], [141, 142, 140], [142, 142, 138], [150, 143, 128], [154, 144, 125], [149, 145, 134], [146, 143, 145], [149, 143, 142], [155, 146, 135], [133, 127, 128], [134, 128, 128], [133, 129, 129], [127, 124, 123], [133, 129, 130], [120, 118, 121], [119, 121, 124], [117, 126, 130]] as readonly (readonly [number, number, number])[],
+  desert: [[123, 140, 150], [125, 141, 149], [126, 141, 150], [125, 139, 156], [139, 133, 139], [149, 134, 128], [144, 139, 137], [139, 139, 149], [134, 137, 156], [136, 138, 152], [150, 138, 131], [152, 139, 124], [142, 139, 138], [132, 135, 158], [135, 137, 153], [144, 140, 136], [148, 138, 136], [147, 138, 135], [146, 140, 136], [146, 141, 136], [146, 140, 136], [144, 138, 138], [141, 141, 140], [136, 147, 153], [134, 152, 159], [138, 151, 155], [135, 150, 163], [145, 145, 152], [159, 144, 137], [157, 149, 144], [151, 150, 155], [148, 149, 162]] as readonly (readonly [number, number, number])[],
+} as const;
+
+/** The game's light (Timberborn 1.1.2.8), as its terrain shader takes it (TerrainURP's ForwardLit program, read from the
+ *  game's `resources.assets`): the game renders in Gamma colour space (`globalgamemanagers` PlayerSettings
+ *  m_ActiveColorSpace 0), so its lighting works on display values. A face's colour is its albedo × `diffuse` × (the
+ *  ambient by its normal + the sun × max(n·L, 0) × its shadow), with a little specular left out. The ambient is Unity's
+ *  Trilight (decompiled `Timberborn.SkySystem` `Sun`; the day's colours in `Configurations/Sun.blueprint.json`: the sky's
+ *  from above, the equator's from the side, the ground's from below) as Unity's ambient probe, irradiance SH
+ *  (`GAME_AMBIENT_SH`), turned back to display values (URP's `SampleSH` under Gamma). The sun is its colour × its intensity, 1.1, at full shadow strength. `diffuse` is URP's
+ *  0.96 − 0.96 × `_Metallic` (0.05 on the terrain's materials). */
+export const GAME_LIGHT = {
+  sky: [0.6239606, 0.6307573, 0.9734455] as Rgb,
+  equator: [1, 1, 1] as Rgb,
+  ground: [0.2831488, 0.2269659, 0.3712378] as Rgb,
+  sun: [1.1, 1.1 * 0.9625, 1.1 * 0.85] as Rgb,
+  diffuse: 0.96 - 0.96 * 0.05,
+} as const;
+
+/** A colour as a level top in full sun shows it in the game's light (`GAME_LIGHT`: the sky's ambient from above and the
+ *  sun at `LIGHT.sunElevation`), before the altitude ramp: what the screen shows of a ground albedo. */
+export function sunlitTop(c: Rgb): Rgb {
+  const up = Math.sin(LIGHT.sunElevation);
+  const ambient = gameAmbient(1);
+  return [0, 1, 2].map((k) => c[k] * GAME_LIGHT.diffuse * (ambient[k] + GAME_LIGHT.sun[k] * up)) as unknown as Rgb;
+}
+
+/** The game's finish (D497), after the light: its scene's settings (`level2`'s RenderSettings, read raw) and its
+ *  post-processing (the `Rendering/Volume` profile; the URP asset grades in LDR). Every look draws it.
+ *  - The fog: Unity's exponential fog (`m_FogMode` 2) as URP draws it (its FOG_EXP programs in TerrainURP:
+ *    `exp2(-unity_FogParams.x × the view depth)`, `unity_FogParams.x` = density / √ln 2, so `exp(-0.83 × density ×
+ *    depth)`), toward the day's fog colour (`Sun.blueprint` `TemperateWeatherFog`, a held hazard's
+ *    `HazardousWeatherFogs`: high/seasons.ts `FOG`). `fogParam` is that `unity_FogParams.x`.
+ *  - The reflection probe's strength (`m_ReflectionIntensity`), on every environment reflection (`GAME_ENV`).
+ *  - The post chain, as URP's uber pass grades in LDR under Gamma colour space: to linear, × 2^`postExposure`
+ *    (ColorAdjustments; the game's Brightness setting at its default adds none), Neutral tonemapping (Tonemapping), then
+ *    the LUT: `contrast` round ACEScc's mid grey in LogC and `saturation` round the luminance (ColorAdjustments
+ *    +14 and +3), back to display values. Bloom (threshold 1.5) only touches highlights and is not drawn.
+ *  `m_AmbientIntensity` (1.2) is not applied: Unity uses it for a skybox's ambient only (its Lighting window offers it
+ *  only there), and the game sets Trilight. */
+export const GAME_FINISH = {
+  fogDensity: 0.003,
+  fogParam: 0.003 / Math.sqrt(Math.LN2),
+  /** The game's farthest default zoom's camera distance (core/analysis/opening.ts: 32 × 1.3^6, zoom 6): the fog is the
+   *  game's up to it, and from farther out held at what it shows there (an editing view the game doesn't have). */
+  fogFarthest: 32 * 1.3 ** 6,
+  reflectionIntensity: 0.65,
+  postExposure: 0.15,
+  contrast: 1.14,
+  saturation: 1.03,
+} as const;
+
+/** The game's reflection probe at its roughest mip (`tools/reflection-probe.ts`: the Cubemap
+ *  "TimberbornEnvironmentRelfectionProbe" in `sharedassets1.assets`, mip 6, what URP samples at perceptual roughness 1),
+ *  straight up, toward the horizon (its four side faces) and straight down; display values, before
+ *  `GAME_FINISH.reflectionIntensity`. */
+export const GAME_ENV = {
+  up: [0.414, 0.504, 0.632] as Rgb,
+  side: [0.397, 0.47, 0.54] as Rgb,
+  down: [0.328, 0.374, 0.368] as Rgb,
+} as const;
+
+/** The game's Trilight colours in linear values (sRGB decoded), which the probe blends. */
+const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+const toDisplay = (c: number) => (c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055);
+export const GAME_AMBIENT_LINEAR = {
+  sky: GAME_LIGHT.sky.map(toLinear) as unknown as Rgb,
+  equator: GAME_LIGHT.equator.map(toLinear) as unknown as Rgb,
+  ground: GAME_LIGHT.ground.map(toLinear) as unknown as Rgb,
+} as const;
+
+/** The game's ambient as Unity's ambient probe holds it (D497): irradiance SH. Unity renders the Trilight gradient as an
+ *  environment (the equator's colour at the horizon, toward the sky's straight up and the ground's straight down,
+ *  blended in linear values by the direction's height), projects it to L2 spherical harmonics and bakes in the clamped
+ *  cosine's convolution (A0 = π, A1 = 2π/3, A2 = π/4), so URP's SampleSH returns the diffuse light by the normal. The
+ *  gradient depends on the height alone, so only the zonal terms remain: by the normal's height y, in linear values,
+ *  `E(y) = c0 + c1 y + c2 (3y² − 1)` (the integrals of the gradient against P0, P1, P2 over [−1, 1], each times
+ *  (2l + 1) / 2 and its A_l / π). The engine's own projection is not in the game's files; a frame capture of the SH the
+ *  game uploads (unity_SHAr..SHC) is still to check it, fix forward. */
+export const GAME_AMBIENT_SH = (() => {
+  const { sky, equator: eq, ground } = GAME_AMBIENT_LINEAR;
+  const c = (k: number) => {
+    const i0 = 2 * eq[k] + (sky[k] - eq[k]) / 2 + (ground[k] - eq[k]) / 2;
+    const i1 = (sky[k] - ground[k]) / 3;
+    const i2 = (sky[k] + ground[k] - 2 * eq[k]) / 8;
+    return [i0 / 2, i1, (5 / 16) * i2];
+  };
+  const [r, g, b] = [c(0), c(1), c(2)];
+  return { c0: [r[0], g[0], b[0]] as Rgb, c1: [r[1], g[1], b[1]] as Rgb, c2: [r[2], g[2], b[2]] as Rgb };
+})();
+
+/** The game's ambient on a face whose normal has height y, in display values (`GAME_AMBIENT_SH`, as SampleSH returns it
+ *  under Gamma colour space). */
+export function gameAmbient(y: number): Rgb {
+  const { c0, c1, c2 } = GAME_AMBIENT_SH;
+  return [0, 1, 2].map((k) => toDisplay(Math.max(0, c0[k] + c1[k] * y + c2[k] * (3 * y * y - 1)))) as unknown as Rgb;
+}
+
 /** Soil moisture (the game's levels, 0–16) and contamination (0–1) as bytes: 0 stays 0, and any
  *  moisture or contamination at all stays above 0 (moist soil is where living plants grow). */
 export function moistureByte(m: number): number {
@@ -344,12 +456,18 @@ export function groundColor(moisture: number, contamination: number, underwater:
   }
 }
 
-/** The wall colour of a level (0 = the lowest the map can have, 22 the highest): the stone,
- *  a little lighter higher up, every other level darker. */
+/** The wall's tint at height y (levels), as the game's cliffs: `WALL.gradient` from level 0 to 22, unclamped. */
+export function cliffTint(y: number): Rgb {
+  const t = y / 22;
+  const { min, max } = WALL.gradient;
+  return [min[0] + (max[0] - min[0]) * t, min[1] + (max[1] - min[1]) * t, min[2] + (max[2] - min[2]) * t];
+}
+
+/** The wall colour of a level (0 = the lowest the map can have, 22 the highest): the stone, tinted by the game's cliff
+ *  gradient at the level's middle. */
 export function wallColor(level: number): Rgb {
-  const t = Math.max(0, Math.min(1, level / 16));
-  const k = (WALL.low + (WALL.high - WALL.low) * t) * (level % 2 ? WALL.alternate : 1);
-  return [WALL.stone[0] * k, WALL.stone[1] * k, WALL.stone[2] * k];
+  const k = cliffTint(level + 0.5);
+  return [WALL.stone[0] * k[0], WALL.stone[1] * k[1], WALL.stone[2] * k[2]];
 }
 
 export function cssColor(c: Rgb): string {
@@ -378,16 +496,18 @@ function icon(body: string, ground = "#00000000"): string {
  *  name on one line, with nothing of what it does in the game (Timberborn players know; Kyler, 2026-10-02). */
 export function legendEntries(mode: GroundMode): LegendEntry[] {
   const c = cssColor;
+  // (the ground and the walls as a sunlit top shows them: their colours are albedos the game's light multiplies, D497)
+  const l = (x: Rgb) => cssColor(sunlitTop(x));
   const cracks = (base: Rgb, line: Rgb, w = 1.5) => `repeating-linear-gradient(60deg, ${c(base)} 0 4px, ${c(line)} 4px ${4 + w}px, ${c(base)} ${4 + w}px 10px)`;
   const ground: LegendEntry[] =
     mode === "moisture"
       ? [
-          { swatch: `linear-gradient(90deg, ${c(GROUND.moistLow)}, ${c(GROUND.moistHigh)})`, label: "Moist ground" },
-          { swatch: cracks(GROUND.dry, GROUND.crack), label: "Dry ground" },
+          { swatch: `linear-gradient(90deg, ${l(GROUND.moistLow)}, ${l(GROUND.moistHigh)})`, label: "Moist ground" },
+          { swatch: cracks(sunlitTop(GROUND.dry), sunlitTop(GROUND.crack)), label: "Dry ground" },
           {
             // orange-red veins over the ground, dry earth and grass alike
             swatch: icon(
-              `<rect width="12" height="16" fill="${c(GROUND.dry)}"/><rect x="12" width="12" height="16" fill="${c(GROUND.moistLow)}"/>` +
+              `<rect width="12" height="16" fill="${l(GROUND.dry)}"/><rect x="12" width="12" height="16" fill="${l(GROUND.moistLow)}"/>` +
                 `<path d="M0 4 L5 6 L4 11 L9 13 M5 6 L11 3" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>` +
                 `<path d="M12 5 L17 7 L16 12 L22 14 M17 7 L23 3" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>`,
             ),
@@ -395,9 +515,9 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
           },
         ]
       : [{ swatch: `linear-gradient(90deg, ${c(HEIGHT_RAMP.low)}, ${c(HEIGHT_RAMP.high)})`, label: "Ground height" }];
-  // walls: two levels of cobbled stone, one a shade darker
-  const cobbles = (y: number) => [2, 9, 16].map((x, k) => `<rect x="${x + (y % 2) * 3}" y="${y + 1 + (k % 2)}" width="5" height="3" rx="1" fill="${c(WALL.mortar)}" opacity="0.5"/>`).join("");
-  const walls = icon(`<rect width="24" height="8" fill="${c(wallColor(11))}"/><rect y="8" width="24" height="8" fill="${c(wallColor(10))}"/>` + cobbles(0) + cobbles(9));
+  // walls: two levels of cobbled stone, the upper lighter (the game's cliff gradient)
+  const cobbles = (y: number) => [2, 9, 16].map((x, k) => `<rect x="${x + (y % 2) * 3}" y="${y + 1 + (k % 2)}" width="5" height="3" rx="1" fill="${l(WALL.mortar)}" opacity="0.5"/>`).join("");
+  const walls = icon(`<rect width="24" height="8" fill="${l(wallColor(14))}"/><rect y="8" width="24" height="8" fill="${l(wallColor(6))}"/>` + cobbles(0) + cobbles(9));
   return [
     ...ground,
     { swatch: `linear-gradient(90deg, ${c(WATER.foam)} 0 2px, ${c(WATER.shallow)} 2px, ${c(WATER.teal)} 45%, ${c(WATER.navy)})`, label: "Water" },
@@ -411,8 +531,8 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
  *  start, slopes, ruins and the other objects, each as its model looks from above. */
 export function objectLegend(): LegendEntry[] {
   const c = cssColor;
-  const grass = c(GROUND.moistLow);
-  const dry = c(GROUND.dry);
+  const grass = c(sunlitTop(GROUND.moistLow));
+  const dry = c(sunlitTop(GROUND.dry));
   return [
     {
       // clean water turning to badwater as the game turns it (teal-grey, grey, dull red-brown, crimson;
@@ -485,7 +605,7 @@ export function objectLegend(): LegendEntry[] {
       markers: true,
     },
     {
-      swatch: icon(`<rect width="24" height="16" fill="${c(wallColor(5))}"/><rect y="5" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="6.6" width="24" height="0.8" fill="${c(WALL.groove)}"/><rect y="12" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="13.6" width="24" height="0.8" fill="${c(WALL.groove)}"/>`),
+      swatch: icon(`<rect width="24" height="16" fill="${c(sunlitTop(wallColor(5)))}"/><rect y="5" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="6.6" width="24" height="0.8" fill="${c(WALL.groove)}"/><rect y="12" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="13.6" width="24" height="0.8" fill="${c(WALL.groove)}"/>`),
       label: "Wall levels",
       markers: true,
     },
