@@ -1191,8 +1191,8 @@ until the player presses play), its length and size, Close and **Download video*
   tick of the water costs more, it flows slower in the video rather than the recording slowing).
 - **The camera is the video's, never the player's** (D505): a renderer of its own, off screen, moving as a slow
   drone, never a turntable. It opens wide on the generated map, glides to each place (eased, never cut, rising as it
-  crosses the map), holds with a slow push in, and ends on the finished map's hero view (the game's opening camera,
-  D488). Nearby edits share one framing, so the camera doesn't move between them. It looks down at one steady pitch
+  crosses the map), holds with a slow push in, and ends on the finished map's hero view (the map's picture's
+  framing, D488). Nearby edits share one framing, so the camera doesn't move between them. It looks down at one steady pitch
   until the glide to the hero view, and its heading turns only a little over the whole video (at most 20°, under
   half a degree a second).
   Over the closing glide the water still flowing eases into the finished map's own water and the soil greens with it
@@ -1651,10 +1651,11 @@ checks dot counts; every other row is information under Good to know, worded as 
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
     export never depends on the preview's history. Its thumbnail is the map's 3D picture (D488): drawn off screen in
-    the High look, at twice its size and scaled down, from the game's own opening camera (`render3d/heroView.ts`: 60°
-    down, turned to the start's orientation + 35°, the game camera's 35° field of view, at the default zoom's widest,
-    the frame the start is turned for, D493; a map without a start from the game's default thumbnail camera, 40° down
-    looking north), lit as the game lights its thumbnails (its sun turns with the camera, 40° past it: the map is turned
+    the High look, at twice its size and scaled down, from the game's own map thumbnail camera
+    (`ThumbnailCameraDefaultPositionProvider`; `render3d/heroView.ts` `heroCamera`: 40° down, face-on, the game camera's
+    35° field of view, turned to the start's orientation (north without a start), centred on the land and pulled back
+    only as far as the frame's corners still land on the map, so the map fills the picture with no backdrop past its
+    edge; the opening camera, D493, is the looks score's, a different picture), lit as the game lights its thumbnails (its sun turns with the camera, 40° past it: the map is turned
     in quarter turns under the view's fixed sun to the nearest, within 30°), the start hidden as the game's thumbnails
     hide it, with the water the file starts with drawn still (its badwater share, no moving water's foam), then put in
     place of the core's top-down one; the player's view is never touched. A map whose water is settled already is drawn while the checks run. Without a GPU or
