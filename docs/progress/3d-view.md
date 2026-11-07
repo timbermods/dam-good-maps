@@ -871,7 +871,9 @@ the game's models in resources.assets (positions, materials and texture means on
 - **The start** (`startTower`): the game's map-editor marker, a lantern tower of pale grey stone, 4.37 high on its
   3 × 3. It has a walled base 2.86 across to 1.04 with a door toward the entrance and windows, a white cornice, a hipped
   roof to 1.8, a tapering shaft to 2.8, a gallery 1.82 across, a lantern of four posts round a dark light to 3.8, and a
-  cap. It replaces the timber lodge with its red roof and banner. The entrance marker stays.
+  cap. It replaces the timber lodge with its red roof and banner. The entrance marker stays. Its shadow caster stands
+  4.0 high (`light.ts`, was 2.2), and a press takes it as drawn: the walls two levels over the 3 × 3, the tower four
+  over the middle tile (`editor/start/startPick.ts`).
 - **A water source:** an outcrop of dark rock 1.0 high, about 1.1 across (the game's is 1.14 × 1.18).
 - **A badwater source:** a flat dark crater 2.5 across over its 3 × 3, darker toward the middle, with low stones round
   its rim. Nothing stands higher than 0.06.
@@ -883,12 +885,13 @@ the game's models in resources.assets (positions, materials and texture means on
   water and 0.40 for badwater, and the gaps between the rocks are dark teal or rust orange. The pit is 0.5 deep for
   water and 0.2 for badwater, as the game's are.
 - **Colours:** the game's albedo at our lightness, by the ratio of our grass to the game's (`palette.ts` `START`,
-  `LANDMARK`). The legend's pictures follow the new shapes.
+  `LANDMARK`, by `asOurs`, as the trees'). The legend's pictures follow the new shapes.
 - **Every look:** Standard's models are the light look's, and High copies them for the start and the sources
   (`landmarks.ts`), so the three looks draw the same shapes. The mine site and the seeps stay the land's own shape for
   the object fade (`LAND`).
 - **Tests:** `tests/unit/landmarksGame.test.ts` pins each to the game's measures. `look-mine-ruins.test.ts`'s pit depth
-  is re-based to the game's 1.35 (D148).
+  is re-based to the game's 1.35, and `startHouse.test.ts`'s ray over the roof passes beside the tower, with a new
+  case for the tower itself (D148).
 - **Captures:** `docs/sheets/landmarks-game.jpg` shows before and after, on a flat meadow (the landmarks' water off) and
   on River Valley, in Standard, High and the light look. The game's own models were rendered beside ours to check
   them; those renders stay local.

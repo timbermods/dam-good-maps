@@ -77,6 +77,25 @@ export const GROUND = {
   underwater: [0.36, 0.38, 0.34] as Rgb,
 } as const;
 
+const luma = (c: Rgb) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+/** The game's grass (its terrain's Grass texture, mean): with ours (`GROUND.moistHigh`) it gives how much lighter our
+ *  albedo is than the game's, so a colour the game gives is drawn at our lightness, in the game's own hue (D135 as
+ *  amended 2026-10-29: models in the game's colour). */
+export const GAME_GRASS: Rgb = [0.263, 0.285, 0.096];
+export const ALBEDO_SCALE = luma(GROUND.moistHigh) / luma(GAME_GRASS);
+/** A colour of the game's albedo as ours. */
+export const asOurs = (c: Rgb): Rgb => [Math.min(1, c[0] * ALBEDO_SCALE), Math.min(1, c[1] * ALBEDO_SCALE), Math.min(1, c[2] * ALBEDO_SCALE)];
+/** Trees and bushes as the game colours them: the grown models' foliage and bark (texture x vertex colour, means over
+ *  their area, read from resources.assets), as ours. Olive and yellow-green, darker than the grass. */
+export const TREE_COLOURS = {
+  pine: asOurs([0.114, 0.181, 0.099]),
+  birch: asOurs([0.174, 0.231, 0.099]),
+  oak: asOurs([0.126, 0.176, 0.083]),
+  bush: asOurs([0.153, 0.175, 0.088]),
+  pineBark: asOurs([0.269, 0.183, 0.117]),
+  oakBark: asOurs([0.21, 0.17, 0.103]),
+} as const;
+
 /** Juice (D205): the dust a lowered stroke puffs up (a light, dry earth), and a source's splash
  *  (the editor's water-blue). A carve at work (D199): the foam surging round its head, the blocks
  *  crumbling at its front (the cut earth), and the muddy water along its last stretch. */
@@ -177,10 +196,10 @@ const smooth = (a: number, b: number, x: number) => {
 
 /** Dead trees: bare wood (no crown), the game's dead wood: the living bark weathered lighter and greyer, still lighter
  *  than the living crowns (dying.ts `DEAD_FORM`; the models' dead pine). */
-export const DEAD_TREE: Rgb = deadWood("Pine", [0.36, 0.25, 0.16]);
+export const DEAD_TREE: Rgb = deadWood("Pine", TREE_COLOURS.pineBark);
 
 /** Living trees' crowns (the legend; each species has its own shade in the models). */
-export const LIVING_TREE: Rgb = [0.11, 0.27, 0.15];
+export const LIVING_TREE: Rgb = TREE_COLOURS.pine;
 
 /** A hatched overlay (alpha 255): light stripes in the overlay's colour, dark stripes, and a
  *  dark rim round the hatched tiles. */
@@ -189,11 +208,6 @@ export const HATCH = { dark: [0.06, 0.05, 0.04] as Rgb } as const;
 /** The layer cut's cap (D207: where solid rock crosses the cut): a section through rock, a cool slate darker than the
  *  ground's tops round it, hatched with lighter diagonal stripes (materials.ts, `capped`). */
 export const CUT_CAP = { base: [0.25, 0.265, 0.3] as Rgb, line: [0.36, 0.375, 0.41] as Rgb } as const;
-
-/** The game's albedo at our lightness: the ratio of our moist grass to the game's grass (its terrain texture's mean,
- *  (0.263, 0.285, 0.096), read from resources.assets), since our light is dimmer than the game's. */
-const GAME_TO_OURS = ((c: Rgb) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2])(GROUND.moistHigh) / (0.299 * 0.263 + 0.587 * 0.285 + 0.114 * 0.096);
-const fromGame = (c: Rgb): Rgb => [Math.min(1, c[0] * GAME_TO_OURS), Math.min(1, c[1] * GAME_TO_OURS), Math.min(1, c[2] * GAME_TO_OURS)];
 
 /** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
  *  texture is a neutral grey, its parts shaded by their vertex colours: walls a little darker than the white trim and
@@ -210,19 +224,19 @@ export const START = {
  *  source a flat dark crater; a seep a stone slab round a pit heaped with rocks, its gaps dark teal (water) or rust
  *  orange (badwater). */
 export const LANDMARK = {
-  rock: fromGame([0.19, 0.19, 0.16]),
-  rockTop: fromGame([0.22, 0.21, 0.178]),
-  rockLow: fromGame([0.161, 0.168, 0.144]),
-  crater: fromGame([0.14, 0.13, 0.11]),
-  craterDeep: fromGame([0.125, 0.112, 0.093]),
-  craterRim: fromGame([0.183, 0.173, 0.154]),
-  seepSlab: fromGame([0.23, 0.217, 0.182]),
-  seepRock: fromGame([0.254, 0.236, 0.196]),
-  seepGap: fromGame([0.116, 0.14, 0.123]),
-  badSeepSlab: fromGame([0.18, 0.151, 0.122]),
-  badSeepRock: fromGame([0.195, 0.165, 0.136]),
+  rock: asOurs([0.19, 0.19, 0.16]),
+  rockTop: asOurs([0.22, 0.21, 0.178]),
+  rockLow: asOurs([0.161, 0.168, 0.144]),
+  crater: asOurs([0.14, 0.13, 0.11]),
+  craterDeep: asOurs([0.125, 0.112, 0.093]),
+  craterRim: asOurs([0.183, 0.173, 0.154]),
+  seepSlab: asOurs([0.23, 0.217, 0.182]),
+  seepRock: asOurs([0.254, 0.236, 0.196]),
+  seepGap: asOurs([0.116, 0.14, 0.123]),
+  badSeepSlab: asOurs([0.18, 0.151, 0.122]),
+  badSeepRock: asOurs([0.195, 0.165, 0.136]),
   /** Badwater's rust between a badwater seep's rocks: its texture's orange, a little brighter than the means. */
-  badSeepGap: fromGame([0.24, 0.13, 0.05]),
+  badSeepGap: asOurs([0.24, 0.13, 0.05]),
 } as const;
 
 /** Ruins (Kyler's rounds, D178; D334: bright orange with cream, near and far, as Timberborn's
@@ -431,7 +445,7 @@ export function objectLegend(): LegendEntry[] {
       label: "Mixed water",
     },
     {
-      swatch: icon(`<circle cx="7" cy="8" r="5" fill="${c(LIVING_TREE)}"/><path d="M16 2 L21 14 H11Z" fill="${c([0.11, 0.28, 0.17])}"/>`, grass),
+      swatch: icon(`<circle cx="7" cy="8" r="5" fill="${c(LIVING_TREE)}"/><path d="M16 2 L21 14 H11Z" fill="${c(TREE_COLOURS.pine)}"/>`, grass),
       label: "Trees and bushes",
     },
     {

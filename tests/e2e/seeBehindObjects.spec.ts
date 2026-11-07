@@ -3,7 +3,7 @@
 // or painting, the objects round the pointer's tile fade as far as the brush reaches: the renderer's region follows the
 // pointer tile by tile, is told only when the tile or the reach changes (D453), and clears when the pointer leaves the
 // land, when another tool is picked and when Esc puts the brush down. Holding H hides every object and letting go brings
-// them back; the window losing focus lets go of it; the Show row's "Hide objects" keeps them hidden until clicked again.
+// them back; the window losing focus lets go of it; "Hide objects", beside Legend, keeps them hidden until clicked again.
 // While they are hidden the pointer finds only the land: the readout, Select and Delete act as if nothing stood there.
 
 import { expect, test, type Page } from "@playwright/test";
@@ -129,13 +129,15 @@ test("a brush fades the objects round the pointer, following it tile by tile, an
   expect(errors).toEqual([]);
 });
 
-test("holding H hides every object until it is let go; the Show row's Hide objects keeps them hidden", async ({ page }) => {
+test("holding H hides every object until it is let go; Hide objects, beside Legend, keeps them hidden", async ({ page }) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1400, height: 900 });
   await openEditor(page, "s=34&z=96&d=n&t=riverValley");
   const toggle = page.getByRole("checkbox", { name: "Hide objects" });
   await expect(toggle).toHaveAttribute("title", "See the land behind objects");
   await expect(toggle).toHaveAttribute("data-keys", "H");
+  // (beside Legend, so the Show row keeps its room: generatorFit.spec's 1536×864)
+  await expect(page.locator(".legend-row").getByRole("checkbox", { name: "Hide objects" })).toBeVisible();
   expect(await hidden(page)).toBe(false);
 
   // held: hidden, and the toggle says so; let go: back
