@@ -55,6 +55,11 @@ export const collabEditApi = {
     return { ...(await edit(plan)), plan };
   },
 
+  /** A stair of slopes (core/doc/stair.ts): the core's plan, ordered as one step. */
+  layStair(from: [number, number], to: [number, number]): Promise<Answer> {
+    return edit(ed.planned.stair(from, to));
+  },
+
   async plantAt(template: string, tiles: number[]): Promise<Answer & { planted: number[] }> {
     const p = ed.planned.plant(template, tiles);
     const a = await edit(p);

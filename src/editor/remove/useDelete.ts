@@ -171,15 +171,21 @@ export function useDelete(ed: Ed): DeleteSlice {
   }
   /** What the Delete key does on these tiles (D323 item 1): what stands there goes, objects and sources
    *  first; only where there is nothing, the ground's top level. Never silent. */
-  function deleteHere(tiles: number[]): boolean {
+  function deleteStanding(tiles: number[]): boolean {
     if (objectsOn(tiles).length) return deleteOn(tiles, true);
     return deleteGround(tiles);
   }
+  /** Delete on the tile pointed at: with the objects hidden (H or Hide objects) the pointer finds only the land, so
+   *  only the ground's top level goes, never an object the player can't see. */
+  function deleteHere(tiles: number[]): boolean {
+    return renderer.current?.objectsHidden ? deleteGround(tiles) : deleteStanding(tiles);
+  }
   /** Select and Delete (D288, D323): everything standing inside the selection (under a cut, on the
-   *  visible land, a cave's floor the cut shows too), or where nothing stands, its ground one level. */
+   *  visible land, a cave's floor the cut shows too), or where nothing stands, its ground one level. The selection
+   *  marks what it takes before it goes, so it takes the hidden objects too. */
   function deleteSelection() {
     const tiles = ed.underCut(selection.current.tiles());
-    if (tiles.length) deleteHere(tiles);
+    if (tiles.length) deleteStanding(tiles);
   }
   const deleteCalls = useRef({ deleteHere, deleteSelection });
   deleteCalls.current = { deleteHere, deleteSelection };

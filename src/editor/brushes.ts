@@ -222,6 +222,9 @@ interface StrokeState {
    *  stroke follows the cursor on. */
   target: number | null;
   plane: number;
+  /** What the pointer's point on `plane` is moved by to stand on the ground the stroke began on: zero but for Flatten
+   *  to a set level, whose plane lies above or below the ground under the pointer (showcase-craft gap 13). */
+  shift: [number, number];
   /** Where the cursor is, where the last dab was, when. */
   last: [number, number];
   dabAt: [number, number];
@@ -346,6 +349,7 @@ export class BrushPainter {
         if (!hit) {
           self.cursorAt = null;
           host.renderer.setBrushCursor(null);
+          self.fade(null);
           host.ring?.(null, null);
           host.note?.(null, null);
           return;
@@ -488,8 +492,10 @@ export class BrushPainter {
     const clear = s.sources[tool] === "clear";
     // an area: a tile's square before it is pressed; its blocks once it is dragged
     const area = this.stroke ? this.stroke.area : s.area && (tool === "raise" || tool === "lower");
+    const radius = area ? 0.5 : s.size;
+    this.fade(at, radius);
     if (this.stroke?.area) this.host.renderer.setBrushCursor(null);
-    else this.host.renderer.setBrushCursor({ x: at[0], y: at[1], radius: area ? 0.5 : s.size, tool, level, water, square: area || (this.stroke ? this.stroke.settings.shape === "square" : s.square), ...(level !== null ? { hard: true } : {}), ...(clear ? { mark: true } : {}) });
+    else this.host.renderer.setBrushCursor({ x: at[0], y: at[1], radius, tool, level, water, square: area || (this.stroke ? this.stroke.settings.shape === "square" : s.square), ...(level !== null ? { hard: true } : {}), ...(clear ? { mark: true } : {}) });
     this.host.ring?.(at, this.stroke ? (this.stroke.area ? areaFootprint(this.stroke.settings, this.stroke.dabs, this.host.W, this.host.H) : { settings: this.stroke.settings, dabs: this.stroke.dabs }) : null);
     if (!this.stroke) this.say(null);
   }
@@ -578,8 +584,25 @@ export class BrushPainter {
   hideCursor(): void {
     this.cursorAt = null;
     this.host.renderer.setBrushCursor(null);
+    this.fade(null);
     this.host.ring?.(null, null);
     this.host.note?.(null, null);
+  }
+
+  /** The tile and reach the objects fade round now ("x,y,radius"), or null: the renderer is told only when they change
+   *  (D453). */
+  private faded: string | null = null;
+
+  /** Seeing the land behind objects (render3d/objectFade.ts, an editing aid: the look never changes): while the brush
+   *  is on the land, hovering or painting, the objects round the pointer's tile, as far as the brush reaches, fade to a
+   *  quarter and cast no shadow; null brings them back (the pointer off the land, the brush put down). */
+  private fade(at: [number, number] | null, radius = 0): void {
+    const x = at ? Math.floor(at[0]) : 0;
+    const y = at ? Math.floor(at[1]) : 0;
+    const key = at ? `${x},${y},${radius}` : null;
+    if (key === this.faded) return;
+    this.faded = key;
+    this.host.renderer.setObjectFade(at ? { x: x + 0.5, y: y + 0.5, radius } : null);
   }
 
   /** Where the brush is under the pointer, and the level plane a stroke from there follows: on a tile's top, where the
@@ -663,11 +686,15 @@ export class BrushPainter {
     // brush stays under the pointer while the ground rises or sinks beneath it
     const aim = this.aimAt(hit, ev);
     let plane = aim.plane;
-    let at = aim.at;
+    const at = aim.at;
+    let shift: [number, number] = [0, 0];
     if (tool === "flatten" && target !== null) {
+      // (Flatten to a set level follows the pointer on that level's plane, steady as the ground goes to it under the
+      // brush; the stroke begins on the ground the pointer is on, and the plane's point is moved by as much: aimed on
+      // the plane alone, the first dab landed tiles behind or in front of the pointer, a level or more away)
       plane = target;
       const p = h.renderer.pickAtLevel(ev.clientX, ev.clientY, plane);
-      at = p ? [p.point[0], -p.point[2]] : [x, y];
+      if (p) shift = [at[0] - p.point[0], at[1] + p.point[2]];
     }
     const pen = ev.pointerType === "pen" && target === null ? ev.pressure : null;
     this.stroke = {
@@ -677,6 +704,7 @@ export class BrushPainter {
       pressure: pen === null ? null : [],
       target,
       plane,
+      shift,
       last: at,
       dabAt: at,
       lastDab: performance.now(),
@@ -724,8 +752,8 @@ export class BrushPainter {
     for (const e of list) {
       const p = this.host.renderer.pickAtLevel(e.clientX, e.clientY, st.plane);
       if (!p) continue;
-      const x = Math.max(0, Math.min(this.host.W - 0.01, p.point[0]));
-      const y = Math.max(0, Math.min(this.host.H - 0.01, -p.point[2]));
+      const x = Math.max(0, Math.min(this.host.W - 0.01, p.point[0] + st.shift[0]));
+      const y = Math.max(0, Math.min(this.host.H - 0.01, -p.point[2] + st.shift[1]));
       st.last = [x, y];
       if (st.anchor) continue;
       const d = Math.hypot(x - lx, y - ly);

@@ -181,6 +181,8 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
   /** The object the plain pointer would pick on tile (x, y) (D360 a): of those standing there that can be
    *  picked, the bigger one wins over a tree or a bush. Its index in the page's objects. */
   function objectUnder(x: number, y: number): number | undefined {
+    // (objects hidden, H or Hide objects: none is under the pointer)
+    if (renderer.current?.objectsHidden) return undefined;
     const e = mirror.current.entities;
     const here = (ed.coverAt().get(y * infoRef.current.W + x) ?? []).filter((j) => isPickable(e.templates[e.template[j]]));
     return here.length ? here[pickWinner(here.map((j) => e.templates[e.template[j]]))] : undefined;

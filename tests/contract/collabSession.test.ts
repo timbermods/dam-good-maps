@@ -568,6 +568,39 @@ describe("the session survives what goes wrong", () => {
     expect(rig.eventsOf("guest", "paused")).toHaveLength(1);
   });
 
+  test("a connection that ends before the other player is in the session on it says so, at a first join and at a rejoin, on both sides", () => {
+    const rig = makeRig(bytes);
+    rig.host.startHosting();
+    // the first join: connected, the guest's hello and the host's map never arrive
+    const silent = { send: () => undefined, sendPresence: () => undefined };
+    rig.host.attach(silent);
+    rig.guest.attach(silent);
+    expect(rig.guest.state).toBe("joining");
+    expect(rig.guest.detach("timeout")).toBe(false);
+    expect(rig.host.detach("timeout")).toBe(false);
+    // (nobody was in a session yet: no pause, nothing kept)
+    expect(rig.eventsOf("guest", "paused")).toHaveLength(0);
+    expect(rig.eventsOf("host", "keep")).toHaveLength(0);
+    // a connection that carried the session: a pause, and a second word of the same drop (the transport's after a goodbye) agrees
+    rig.connect();
+    expect(rig.guest.state).toBe("live");
+    rig.queue.toHost = [];
+    rig.queue.toGuest = [];
+    expect(rig.host.detach("left")).toBe(true);
+    expect(rig.host.detach("left")).toBe(true);
+    expect(rig.guest.detach("timeout")).toBe(true);
+    // a rejoin whose map never arrives: the session stays paused, and the connection is told apart from one that carried it
+    rig.host.attach(silent);
+    rig.guest.attach(silent);
+    expect(rig.guest.detach("channel-closed")).toBe(false);
+    expect(rig.host.detach("channel-closed")).toBe(false);
+    expect([rig.host.state, rig.guest.state]).toEqual(["paused", "paused"]);
+    // and the next one carries on
+    rig.connect();
+    expect([rig.host.state, rig.guest.state]).toEqual(["live", "live"]);
+    expect(rig.eventsOf("guest", "resumed")).toHaveLength(1);
+  });
+
   test("a paused or out-of-step session refuses a direct edit in the core, and says why", async () => {
     const rig = makeRig(bytes);
     expect(rig.host.editBlocked()).toBeNull();

@@ -45,7 +45,8 @@ async function openGround(page: Page, r: number): Promise<[number, number][]> {
 }
 
 test("the start's preview is red over any part of a geothermal field and says so, and is green beside it", async ({ page }) => {
-  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  // (seed 2 since generator 0.10.7, D502, D148: seed 1's map has no level, dry, empty ground 9 wide away from its start)
+  await openEditor(page, "s=2&z=96&d=n&t=riverValley");
   await topDown(page);
   const W = (await info(page)).W;
   const shelf = page.getByRole("navigation", { name: "Place" });
