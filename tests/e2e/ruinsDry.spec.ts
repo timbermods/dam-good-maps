@@ -1,7 +1,8 @@
 // Ruins show the game's dry model on dry or contaminated soil (Timberborn.Ruins `RuinModelUpdater.UpdateModel`:
 // `IsDry || IsContaminated`; D178 as amended 2026-10-29), the held Drought or Badtide day's soil deciding on a held day:
-// River Valley 128 seed 2's twelve overgrown ruins all dry out by a normal drought's last day, and all are poisoned on the
-// badtide's; Day 0 and no day held, the map's own.
+// River Valley 128 seed 1's fourteen overgrown ruins all dry out by a normal drought's last day, and all are poisoned on the
+// badtide's; Day 0 and no day held, the map's own. (Seed 1 since generator 0.10.11, #726, D148: seed 2 has no overgrown
+// ruin left)
 
 import { expect, test } from "@playwright/test";
 import { openEditor } from "./open";
@@ -9,7 +10,7 @@ import { openEditor } from "./open";
 test("a held drought or badtide day bares the ruins whose soil it dries or poisons, in both looks; Day 0 gives them back", async ({ page }) => {
   test.setTimeout(420_000);
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=2&z=128&d=n&t=riverValley");
+  await openEditor(page, "s=1&z=128&d=n&t=riverValley");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 120_000 }).toBe(true);
   const overgrown = () => page.evaluate(() => (window.dgm3d!.renderer as unknown as { overgrownRuins: number }).overgrownRuins);
   const own = await overgrown();
