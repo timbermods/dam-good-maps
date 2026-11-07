@@ -6,23 +6,32 @@
 // vegetation material's uniforms), never baked, so tuning them rebuilds nothing.
 
 // (ported from investigation/vegetation/models.ts)
-import { DRYING, dryColour, type Rgb } from '../dying';
+import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour, type Rgb } from '../dying';
 import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 
 export const species = ['Pine', 'Birch', 'Oak', 'BlueberryBush'] as const;
 export type Species = typeof species[number];
 export type Detail = 'near' | 'far';
+/** High's warm sun (highLook.ts `SUNLIGHT.sun`, pinned equal by a test). */
+export const WARM_SUN = [1.48, 1.3, 1.1] as const;
+/** A colour the game gives (its hue and saturation, as Standard's neutral light shows it) as High's albedo for it: the warm
+ *  sun's tint taken out, so a dying crown reads the same olive-ochre in both looks rather than orange. */
+const underSun = (c: readonly number[]) => [c[0] * (WARM_SUN[1] / WARM_SUN[0]), c[1], c[2] * (WARM_SUN[1] / WARM_SUN[2])];
 const living = { pine: '#2b6936', birch: '#a7cc45', oak: '#489a38', bush: '#387632' } as const;
 /** Foliage slots, their species, and their dying slot (dying.ts). */
 const FOLIAGE = { pine: ['Pine', 'pineDry'], birch: ['Birch', 'birchDry'], oak: ['Oak', 'oakDry'], bush: ['BlueberryBush', 'bushDry'] } as const;
 const hex = (c: readonly number[]) => '#' + c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
 const parse = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as unknown as Rgb;
+const bark = '#806044', birchBark = '#f2efdd';
 export const paletteDefaults = {
   ...living,
-  bark: '#806044', birchBark: '#f2efdd', dead: '#c1b69a', berry: '#7f9bff', marks: '#494239',
-  // a dying plant's foliage: the game's dry colour at the living green's lightness (dying.ts)
-  pineDry: hex(dryColour('Pine', parse(living.pine))), birchDry: hex(dryColour('Birch', parse(living.birch))),
-  oakDry: hex(dryColour('Oak', parse(living.oak))), bushDry: hex(dryColour('BlueberryBush', parse(living.bush))),
+  bark, birchBark, berry: '#7f9bff', marks: '#494239',
+  // a dead tree's bare wood, its own bark weathered as the game's is; a dead bush's leaves gone brown (dying.ts DEAD_FORM)
+  dead: hex(deadWood('Pine', parse(bark))), birchDead: hex(deadWood('Birch', parse(birchBark))),
+  bushDead: hex(underSun(deadLeaves('BlueberryBush', parse(living.bush)))),
+  // a dying plant's foliage: the game's dry colour at the living green's lightness (dying.ts), as it reads under the warm sun
+  pineDry: hex(underSun(dryColour('Pine', parse(living.pine)))), birchDry: hex(underSun(dryColour('Birch', parse(living.birch)))),
+  oakDry: hex(underSun(dryColour('Oak', parse(living.oak)))), bushDry: hex(underSun(dryColour('BlueberryBush', parse(living.bush)))),
 };
 export type Palette = typeof paletteDefaults;
 export const slots = Object.keys(paletteDefaults) as (keyof Palette)[];
@@ -47,8 +56,11 @@ class Shape {
   positions: number[] = []; normals: number[] = []; regions: number[] = []; shades: number[] = [];
   /** Built dying: foliage in its dying slot, drawn in toward the trunk and sunk as the game's is (dying.ts). */
   dying = false;
+  /** Every part scaled upright by this (a dead plant brought to the game's height for it). */
+  upright = 1;
   add(source: BufferGeometry, slot: keyof Palette, shade = 1, translate: V = [0, 0, 0], scale: V = [1, 1, 1], turn = 0) {
     source.scale(...scale).rotateY(turn).translate(...translate);
+    if (this.upright !== 1) source.scale(1, this.upright, 1);
     if (this.dying && slot in FOLIAGE) {
       const [name, dry] = FOLIAGE[slot as keyof typeof FOLIAGE];
       source.scale(DRYING[name].reach, DRYING[name].height, DRYING[name].reach);
@@ -121,7 +133,7 @@ export const registry: Record<Species, SpeciesDefinition> = {
     }
   } },
   Birch: { height: 1.51, wind: 0.049, build(m, v, detail, dead) {
-    const near = detail === 'near', bark = dead ? 'dead' : 'birchBark';
+    const near = detail === 'near', bark = dead ? 'birchDead' : 'birchBark';
     m.branch([0, 0, 0], [0.015, 0.94, 0], 0.046, bark, near ? 6 : 3, 0.5);
     if (!near && !dead) {
       for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'birch', side === 1 ? 1.04 : 0.92, [side * 0.12, side === 1 ? 1.08 : 0.99, 0], [0.21, 0.42, 0.16]);
@@ -170,20 +182,20 @@ export const registry: Record<Species, SpeciesDefinition> = {
   } },
   BlueberryBush: { height: 0.47, wind: 0.008, build(m, v, detail, dead) {
     const near = detail === 'near';
-    if (dead) {
-      for (let i = 0; i < 4; i++) m.branch([0, 0, 0], [Math.cos(i * 2.4) * 0.21, 0.28, Math.sin(i * 2.4) * 0.21], 0.022, 'dead', 3, 0.1);
-      return;
-    }
+    // (dead: the game's keeps its leaves, gone brown, without its berries: its crowns alone, in their dead slot)
+    const leaves = dead ? 'bushDead' : 'bush';
     if (!near) {
-      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'bush', side === 1 ? 1 : 0.96, [side * 0.12, 0.19, 0], [0.23, 0.18, 0.24]);
+      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), leaves, side === 1 ? 1 : 0.96, [side * 0.12, 0.19, 0], [0.23, 0.18, 0.24]);
+      if (dead) return;
       for (let i = 0; i < 3; i++) m.add(new OctahedronGeometry(0.079), 'berry', 1.04, [Math.cos(i * 2.4 + v) * 0.145, 0.35, Math.sin(i * 2.4 + v) * 0.145]);
       m.add(new OctahedronGeometry(0.079), 'berry', 1, [0.24, 0.21, 0.12]);
       return;
     }
     for (let i = 0; i < 5; i++) {
       const a = i * 2.4 + v;
-      m.crown([Math.cos(a) * 0.13, 0.18 + (i % 2) * 0.04, Math.sin(a) * 0.13], [0.205, 0.155, 0.195], 'bush', 0.96 + (i % 3) * 0.06, a);
+      m.crown([Math.cos(a) * 0.13, 0.18 + (i % 2) * 0.04, Math.sin(a) * 0.13], [0.205, 0.155, 0.195], leaves, 0.96 + (i % 3) * 0.06, a);
     }
+    if (dead) return;
     // Big blue fruit sits outside the leaves: a top cluster and a ring readable from any side.
     for (let i = 0; i < 3; i++) { const a = i * 2.4 + v; m.add(new OctahedronGeometry(0.075), 'berry', 1.04, [Math.cos(a) * 0.145, 0.355, Math.sin(a) * 0.145]); }
     m.add(new OctahedronGeometry(0.068), 'berry', 1.10, [0.015, 0.375, 0.015]);
@@ -195,5 +207,14 @@ export const registry: Record<Species, SpeciesDefinition> = {
 export type PlantState = 'alive' | 'dying' | 'dead';
 export function model(spec: Species, variant = 0, detail: Detail = 'near', state: PlantState | boolean = 'alive'): BufferGeometry {
   const st = state === true ? 'dead' : state === false ? 'alive' : state;
-  const shape = new Shape(); shape.dying = st === 'dying'; registry[spec].build(shape, variant, detail, st === 'dead'); return shape.geometry();
+  const shape = new Shape(); shape.dying = st === 'dying';
+  if (st === 'dead') shape.upright = DEAD_FORM[spec].height * heightOf(spec, variant, detail, false) / heightOf(spec, variant, detail, true);
+  registry[spec].build(shape, variant, detail, st === 'dead'); return shape.geometry();
+}
+
+/** A model's height as built (its highest vertex). */
+function heightOf(spec: Species, variant: number, detail: Detail, dead: boolean): number {
+  const shape = new Shape(); registry[spec].build(shape, variant, detail, dead);
+  let h = 0; for (let k = 1; k < shape.positions.length; k += 3) h = Math.max(h, shape.positions[k]);
+  return h;
 }
