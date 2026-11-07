@@ -49,7 +49,7 @@ export const SHELF: readonly ShelfItem[] = [
   { id: "ruin", name: "Ruin", template: "RuinColumnH3", turns: true, hint: "a ruined tower" },
   { id: "UndergroundRuins", name: "Mine site", template: "UndergroundRuins", turns: true, hint: "where a scrap mine goes" },
   { id: "relic", name: "Relic", template: "SmallRelic", turns: true, hint: "a relic to demolish for science" },
-  { id: "Slope", name: "Slope", template: "Slope", turns: true, hint: "a slope up one level" },
+  { id: "Slope", name: "Slope", template: "Slope", turns: true, hint: "a slope up one level, or dragged down a stair" },
   { id: "Thorns", name: "Thorns", template: "Thorns", paint: "thorns", turns: false, hint: "blocks the way until cleared" },
   { id: "Blockage", name: "Blockage", template: "Blockage", turns: true, hint: "closes a channel" },
   { id: "GeothermalField", name: "Geothermal field", template: "GeothermalField", turns: true, hint: "a spot for free power" },
