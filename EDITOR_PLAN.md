@@ -230,7 +230,8 @@ place of its bottom rule.
 - **Select is always in hand** (Kyler, the v4 verdict): held when a map opens; Esc and X put anything else down and
   return to it; a drag on the land marks an area and a click clears it; a source and the start are pressed and
   dragged as before; a click picks an object and a drag then moves it, while a drag from an object not picked
-  marks an area. The middle button turns the view, the right button pans.
+  marks an area. The middle button turns the view (pressed in the top-down view it leaves it for the angled one,
+  as the toggle does), the right button pans.
 
 - **The bar** at the bottom middle, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, Block
   (D335, key 7), a hairline, then the forces in the order of D352's clusters (`FORCE_GROUPS` in `TopBar.tsx`; today Carve,
