@@ -1,7 +1,7 @@
 // The High look's shader additions (PLAN §20 D147, D242, D250, D284), put in at the Standard
 // shaders' named points (materials.ts `ShaderHooks`). Ported from the investigations:
-// - #38 (investigation/maplook2): the water shader (colour by depth, clear shallows, fine crests
-//   advected by the flow, the calibrated crimson badwater, the poisoned bed under it) and
+// - #38 (investigation/maplook2): the water shader (colour by depth, clear shallows, the calibrated crimson
+//   badwater, the poisoned bed under it; its surface the game's flow-carried one since D496 and D497) and
 //   soft shadows from the real meshes (a 2048² sun depth map, 25-tap PCF, receiver-plane bias);
 // - #65 (investigation/maplook3): warm sunlight, rock strata, soil edges and colour variation (its tone
 //   curve, grade and distance haze gave way to the game's fog and post chain, every look's: D497);
@@ -15,8 +15,8 @@
 //   soil by D334 (contamination's orange-red veins, the game's own, in every look: materials.ts
 //   `veinsOf`).
 // - Timberborn's references (D334, investigation/high-soul, adopted with the High look): exposure
-//   1.00 and a restrained grade, a lower ambient-occlusion floor, olive stone, current-aligned
-//   caustics and rolling light on moving water, pink highlights and (the game's own since D496's
+//   1.00 and a restrained grade, a lower ambient-occlusion floor, olive stone (its caustics and rolling light on
+//   the water gone with D334's water terms, 2026-11-07: the game's surface instead), pink highlights and (the game's own since D496's
 //   amendment) the glow of shallow water partly bad, a bluer sky with fewer, larger clouds.
 // Every effect has a switch (a uniform, 1 on, 0 off), so switching never recompiles a shader. The
 // investigations' colours are display RGB, like the Standard shaders'. Where #65 graded the whole

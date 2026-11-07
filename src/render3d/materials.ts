@@ -19,8 +19,9 @@
 // - Walls are cobbled stone tinted by height as the game's cliffs (D497), and with Markers a pale
 //   ledge over a dark groove between levels, at least a pixel wide at any zoom, so levels can be
 //   counted; a lip of the top's ground.
-// - Water is light teal where shallow (a little of the ground behind showing) and blue where deep, lighter
-//   than dry ground at any depth, with pale ripples that move and the sun's sheen, no sparkle, no foam. Falls are the water's own
+// - Clean water is the game's colour by depth (its formula: waterPalette.ts GAME_WATER), its surface the game's
+//   textures carried by the flow (waterTextures.ts) and lit as the game's, with the sun's sheen, no sparkle, no foam.
+//   Falls are the water's own
 //   vertical faces where it steps down, as the game draws them (D201 amended 2026-10-29): the water's
 //   colour with its texture running down, nearly opaque, no whitewater.
 //   Badwater is darker than clean water of the same depth and duller, with the same ripples and
