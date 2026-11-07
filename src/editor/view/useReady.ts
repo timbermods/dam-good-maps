@@ -222,7 +222,9 @@ export function useReady(ed: Ed): ReadySlice {
     // seen ground is the tile's top)
     r.grab = (top, ev) => {
       const hit = r.pickSeen(ev.clientX, ev.clientY) ?? top;
-      return grabSource(hit, ev) ?? ed.startCalls.current.grabStart(hit) ?? ed.grabObjectRef.current(hit);
+      // (the start's house stands in front of the ground seen behind it: a press on it takes the start)
+      const house = ed.startCalls.current.houseAt(ev.clientX, ev.clientY);
+      return (house && ed.startCalls.current.grabStart(hit, house)) || (grabSource(hit, ev) ?? ed.startCalls.current.grabStart(hit) ?? ed.grabObjectRef.current(hit));
     };
     r.onWheel = (ev, hit) => wheelHabit(ev) || wheelSource(ev, hit);
     // a click with no tool out: a water or badwater source is picked, its strength and its water to

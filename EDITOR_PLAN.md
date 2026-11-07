@@ -410,10 +410,12 @@ place of its bottom rule.
 - **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in
   Timberborn's settings; the toggle is never lit, a click anywhere on it toggles it): **Heights** (the ground by
   height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources,
-  each water object, core and reserve with a label of its own words, and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), **Hide objects** (every object
-  and its shadow, while H is held or until clicked again; §4, "Seeing the land behind objects"), the overlays **Badwater**
+  each water object, core and reserve with a label of its own words, and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
   and **Caves and overhangs** (where the map has them, right after Badwater; each with its caption under Legend while on);
-  **Legend** stands alone at the top right, just left of Top-down. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
+  **Legend** stands at the top right, just left of Top-down, with **Hide objects** just left of it (every object and its
+  shadow, while H is held or until clicked again; §4, "Seeing the land behind objects"; beside Legend so the Show row
+  keeps its room and the water row its place in the band, and where the water row takes a second line the two join the
+  Show row as its last toggles). All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
 - **The legend,** while Legend is ticked: directly under Legend, centred under it so "Legend" reads as its title (Kyler, 2026-10-04: DESIGN.md), one width,
@@ -493,7 +495,9 @@ place of its bottom rule.
   dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, what an Easy start map
   made in a late rescue round left short of its targets (Good to know, uncounted, D495), and lists an opened
   file's import flags with their fixes (counted).
-- **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades.
+- **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades. Its lodge is
+  pressed as drawn: a press on the roof or walls takes the start, though the ground the pointer sees behind them
+  may be tiles away (`start/startPick.ts`, the lodge about two levels high).
 
 (D184, D212, D219.)
 
@@ -890,7 +894,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   moves tile by tile, and the renderer is told only when the tile or the reach changes (`BrushPainter.fade`, D453). It
   goes with the brush's ring: the pointer off the land, another tool, or Esc putting the brush down. **Hold H** and
   every object goes, its shadow with it, whatever is in hand; let go and they are back, and the window losing focus lets
-  go of it (`view/useHideObjects.ts`). The Show row's **Hide objects** keeps them hidden until it is clicked again.
+  go of it (`view/useHideObjects.ts`). **Hide objects**, beside Legend, keeps them hidden until it is clicked again.
   While they are hidden the pointer finds only the land, as if nothing stood there: the readout names the land alone,
   Select picks no object, source or start, and Delete on the tile pointed at takes the ground's top level (a selection's
   Delete still takes what it marks). The fade alone changes no pick.
