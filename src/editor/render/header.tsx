@@ -7,6 +7,7 @@ import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { Together } from "../collab/Together";
 import { plain } from "../panels";
+import { canRecordTimelapse } from "../timelapse/can";
 
 export function header(ed: Ed, props: EditorProps) {
   const {
@@ -64,6 +65,20 @@ export function header(ed: Ed, props: EditorProps) {
       onPlaces={() => props.onPlaces(!props.placesOpen)}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
       together={together && collab ? <Together controller={together} state={collab} /> : null}
+      timelapse={
+        canRecordTimelapse()
+          ? {
+              steps: info.history.filter((h) => h.applied).length,
+              // (as Download project's: a force at work kept first, a force's rolls ended, in the edits' queue)
+              project: async () => {
+                await ed.forcer.current?.stop();
+                ed.endRolls?.();
+                const p = await ed.enqueue(() => api.project(1));
+                return { bytes: p.bytes, fileName: p.fileName };
+              },
+            }
+          : undefined
+      }
       togetherEntry={together && collab ? { role: collab.other?.role ?? "guest", name: collab.other?.name ?? "the other player", paused: collab.phase === "paused", other: !!collab.other && collab.phase !== "alone" && collab.phase !== "inviting" && collab.phase !== "joining" } : null}
     />
   );

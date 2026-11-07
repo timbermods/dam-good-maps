@@ -76,7 +76,7 @@ place of its bottom rule.
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
   button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…,
-  Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. A sibling's variation is shown beside its seed, in the header ("Seed 4242 · 2 · 128×128") and in the panel's Seed line, so a seed copied by hand is known to be only part of its address. **Showcase…** (D488 (2)) sits in
@@ -140,7 +140,8 @@ place of its bottom rule.
   is made** the dialog holds a small stretch of moving water in the view's water colour, and the land's empty square draws
   an island's contour rings one after another (the lowest in the water's colour; 0.5 s apart, 1.8 s each, then they hold
   and fade together on a 6 s cycle); both move only while waiting and not under reduced motion (`FirstLook.tsx`);
-  **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
+  **Cancel (or Esc) while a map is made** brings the open map back as it was and leaves the panel's name and settings as
+  they were picked, for the next try; **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
   open map back as it was; in a Together session, once the new map is built and being put into the session's worker (the last step before it opens), Cancel is off ("The map is opening"), Esc does nothing and the words read "Opening the map…". **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
   the attempt under way and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
   quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
@@ -229,7 +230,8 @@ place of its bottom rule.
 - **Select is always in hand** (Kyler, the v4 verdict): held when a map opens; Esc and X put anything else down and
   return to it; a drag on the land marks an area and a click clears it; a source and the start are pressed and
   dragged as before; a click picks an object and a drag then moves it, while a drag from an object not picked
-  marks an area. The middle button turns the view, the right button pans.
+  marks an area. The middle button turns the view (pressed in the top-down view it leaves it for the angled one,
+  as the toggle does), the right button pans.
 
 - **The bar** at the bottom middle, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, Block
   (D335, key 7), a hairline, then the forces in the order of D352's clusters (`FORCE_GROUPS` in `TopBar.tsx`; today Carve,
@@ -796,7 +798,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 ### The brushes and precision tools
 
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a
-  natural slope exactly where the player puts it); Smooth has no walkable option (D247) and Flatten no Ramped edges
+  natural slope exactly where the player puts it; dragged from high ground down to low ground it lays a **stair**, one
+  slope a level, each tile set a level below the one before, its tiles green as it is dragged or red with the one
+  reason it can't be laid, the release one step: `core/doc/stair.ts`); Smooth has no walkable option (D247) and Flatten no Ramped edges
   (D322). **Naturalize** weathers what the player paints (forces' results, strokes, rivers, set pieces); it leaves
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke
@@ -836,7 +840,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   it; Flatten sets every tile to it, higher or lower. They act exactly, with the brush's footprint and hard edges
   (dabbed every quarter tile, so a stroke's edge is as solid as its middle at every size);
   holding adds nothing. Until the player sets it, the target follows the ground under the pointer (a level above
-  for Raise, below for Lower, the same for Flatten) and locks where a stroke starts. **Shift+scroll** changes it
+  for Raise, below for Lower, the same for Flatten) and locks where a stroke starts. A stroke begins on the tile
+  under the pointer, whatever the target; Flatten to a set level then follows the pointer on that level's plane, moved
+  by as much as the ground it began on stands above or below it, so the brush stays under the pointer. **Shift+scroll** changes it
   (0 to the height ceiling), **Ctrl+click** on the land takes its level (on water, the bed's), and the row's
   **Level** list sets it; once set it stays until the tool changes or Esc. Past either end of the range Raise and
   Lower are **Free**: they sculpt softly, building up as the player paints. Smooth and Naturalize stay soft;
@@ -1164,6 +1170,33 @@ shrink, undo plays the change quickly in reverse, Save to Timberborn ends with a
 effects where possible, never per-tile work on the main thread, particles and pops capped, effects scaling down on
 weaker hardware rather than stutter. (The full list is in the archive.)
 
+## 6b. The build time-lapse (D205, D285 (4))
+
+**File → Record a time-lapse…** ("Save a video of how the map was built") replays the map's history at speed from
+the generated map and saves it as a WebM to share. It adds nothing to the screen until used, and is in the menu only
+where the browser can make a video (WebCodecs and WebGL 2: Chrome and Edge). A map with no edits says "Nothing to
+replay yet". While it records, a dialog says what it is doing ("Replaying the map's history", "Recording the
+time-lapse", "Writing the video"), how far along ("4 of 15 seconds"), and Cancel; then the video itself (it never plays
+until the player presses play), its length and size, Close and **Download video** (`<map>-time-lapse.webm`).
+
+- **The replay is the map's** (D342, D455): `core/doc/timelapse.ts` replays the log in a worker of its own from the
+  generated map (the current generation, after any crop), one step at a time, and its last state equals the map
+  byte for byte; the video's last frame is the map itself.
+- **Each step plays its own moment:** its land changes in reveal order, along a carve's or a quake's path, outward
+  from a crater or an eruption, along a brush's stroke; its objects and blocks appear part-way; the water flows on
+  between steps as the live editor's water flows (up to 512 game ticks a second of video; on a heavy map, where a
+  tick of the water costs more, it flows slower in the video rather than the recording slowing).
+- **The camera is the video's, never the player's** (D505): a renderer of its own, off screen; it
+  opens wide on the generated map, glides to each place (eased, never cut, rising as it crosses the map), holds with a
+  slow push in, turns slowly round, and ends on the finished map's hero view (the game's opening camera, D488).
+- **Pacing by eye:** a short history plays each step for about a second (a force's longer), the glides between
+  places under half that time; a long one is paced so the whole video stays about a minute, nearby edits sharing a
+  camera place and very long histories playing several steps to a frame. 1280×720, 30 frames a second, VP9 (VP8 where it must), about 1.6 Mb/s (a minute is about 12 MB).
+- **The page never freezes:** the replay and the water run in the worker; each frame is drawn and handed to the
+  encoder, which keeps at most a few frames waiting; recording runs near or faster than real time.
+- The water is drawn still and force effects don't play in the video until the renderer's per-renderer clock lands
+  (forces play's hooks, agreed on #236).
+
 ## 7. Controls
 
 Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms toward the pointer
@@ -1259,9 +1292,9 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
 
 ## 9. The future
 
-3D carving is Erode (the magic) and the block tool (the precision), not smarter Lower and Raise (D279–D281). A
-time-lapse of how a map was built is in ROADMAP's "Later" (D285 (4)). Every future editing tool is brush-first and
-follows these principles (D179, D182).
+3D carving is Erode (the magic) and the block tool (the precision), not smarter Lower and Raise (D279–D281). The
+time-lapse of how a map was built is §6b. Every future editing tool is brush-first and follows these principles (D179,
+D182).
 
 ## 10. What's gone, and must not come back
 
@@ -1341,7 +1374,8 @@ stroke records the options it used:
 - A Lower stroke that starts in or beside water records `channel` (smart Lower) and how deep it may cut (D263): a
   new channel its `bed` (one level below the surface of the water round its first dab, never below that water's own
   bed) and `dry`; a stroke that never leaves the water it began in is a deepening pass (`deepen`: a level off what
-  the brush's middle passes over, once). The bed never rises along the stroke, so the replay carves the same bed.
+  the brush's middle passes over, once). A stroke begins a deepening pass only from water half a level deep or
+  more: a source's thin sheet over flat ground is no pond, so a stroke from it is a new channel. The bed never rises along the stroke, so the replay carves the same bed.
   Strokes saved before D263 keep their old start and replay exactly.
 - Also recorded: the brush kit's options (`square`; `shape: "area"`, Timberborn's Terrain on Raise and Lower: a
   rectangle between the stroke's two dabs, every tile to the tool's Level, or a block up or down per tile on Free; one

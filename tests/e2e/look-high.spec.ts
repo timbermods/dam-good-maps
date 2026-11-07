@@ -33,6 +33,11 @@ async function open(page: Page, errors: string[]): Promise<void> {
 
 const look = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.look);
 
+/** The page has opened in High: the look is set once High's programs have compiled, in the background after the map
+ *  opens (renderer.ts applyLook, highProgramsReady), so until then it still reads "standard" (D341: a race, never
+ *  read once). */
+const opensHigh = (page: Page) => expect.poll(() => look(page), { timeout: 60_000 }).toBe("high");
+
 /** Draw `n` frames now (each counts toward the automatic choice). */
 const frames = (page: Page, n: number) =>
   page.evaluate(async (k) => {
@@ -45,7 +50,7 @@ const frames = (page: Page, n: number) =>
 test("High is the default where it can be drawn, and the look's menu switches it, remembered", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
-  expect(await look(page)).toBe("high");
+  await opensHigh(page);
   const button = page.getByRole("button", { name: "Look: High" });
   await expect(button).toBeVisible();
   await button.click();
@@ -176,7 +181,7 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   test.setTimeout(300_000);
   const errors: string[] = [];
   await open(page, errors);
-  expect(await look(page)).toBe("high");
+  await opensHigh(page);
   await page.waitForTimeout(500);
   // quick frames: High stays
   await page.evaluate(() => window.dgm3d!.renderer.simulateFrameCost(6));
@@ -335,7 +340,7 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   await page.setViewportSize({ width: 1280, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await topDown(page);
-  expect(await look(page)).toBe("high");
+  await opensHigh(page);
   await page.keyboard.press("Shift+Digit3");
   await page.getByRole("group", { name: "Erupt options" }).getByRole("slider", { name: "Power" }).fill("70");
   // its lava is the test's subject, so Ridges and Flows are set by hand: on Auto the land and the seed draw them
@@ -528,7 +533,7 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   await page.setViewportSize({ width: 1280, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
-  expect(await look(page)).toBe("high");
+  await opensHigh(page);
   const withered = () => page.evaluate(() => window.dgm3d!.renderer.witheredPlants);
   const dying = () => page.evaluate(() => (window.dgm3d!.renderer as unknown as { dyingPlants: number }).dyingPlants);
   const bar = page.getByRole("toolbar", { name: "Water time" });
@@ -597,7 +602,7 @@ test("a held drought or badtide turns the haze to the game's fog colour for it, 
   await page.setViewportSize({ width: 1280, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
-  expect(await look(page)).toBe("high");
+  await opensHigh(page);
   // (the game's daytime fogs, Sun.blueprint: temperate, drought, badtide)
   const TEMPERATE = [0.447, 0.761, 0.824];
   const DROUGHT = [0.706, 0.549, 0.376];

@@ -257,6 +257,8 @@ const api = {
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: routed((template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)), (...a) => collabEditApi.plantAt(...a).then(sendUpdate)),
+  stairAt: (from: [number, number], to: [number, number]) => ed.stairAt(from, to),
+  layStair: routed((from: [number, number], to: [number, number]) => sendUpdate(ed.layStair(from, to)), (...a) => collabEditApi.layStair(...a).then(sendUpdate)),
   paintAt: routed((params: PaintParams, z?: number) => sendUpdate(ed.paintAt(params, z)), (...a) => collabEditApi.paintAt(...a).then(sendUpdate)),
   paintDryAt: (params: PaintParams, z?: number) => ed.paintDryAt(params, z),
   setViews: (views: SavedView[]) => ed.setViews(views),
