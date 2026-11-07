@@ -1,15 +1,16 @@
-// Oblique captures of the generator's 3D forms (D488; docs/progress/3d-generation.md): a spring cave
-// feeding the river, an overhang sheltering the start, an arch over a gorge, each seen in the editor's
+// Oblique captures of the generator's 3D forms (D488, D503; docs/progress/3d-generation.md): a spring cave
+// feeding the river, an overhang sheltering the start, an arch over a gorge, an arch worn through rock,
+// an overhanging cliff, each seen in the editor's
 // 3D view from where it is best seen (the river a cave opens on, the start, the gorge along its river).
 //
 //   npx tsx tools/capture-forms3d.ts --maps canyon:2:80,highlands:1:20 [--out docs/sheets/3d-generation-1-forms.jpg] [--port 4961]
 //     [--views close,high,top] [--only spring-cave,gorge-arch]
 //
-// Each map (theme:seed:Verticality, 128²) is generated here to find its forms (`IntentionResult.at`,
-// `from`), then opened in the page from its share link, which makes the same map, and drawn from a
-// camera placed for each form: `close` from where it is best seen, `high` an oblique from further up,
-// `top` straight down. The frames go side by side into one JPEG (a row a form when more than one view
-// is asked for), each labelled. Our own generated maps only.
+// Each map (theme:seed:Verticality, 128²; theme:seed at the theme's default) is generated here to find
+// its forms (`IntentionResult.at`, `from`), then opened in the page from its share link, which makes the
+// same map, and drawn from a camera placed for each form: `close` from where it is best seen, `high` an
+// oblique from further up, `top` straight down. The frames go side by side into one JPEG (a row a form
+// when more than one view is asked for), each labelled. Our own generated maps only.
 
 import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -28,7 +29,7 @@ const arg = (name: string, fallback: string) => {
 };
 const maps = arg("maps", "canyon:2:80").split(",").map((m) => {
   const [theme, seed, vt] = m.split(":");
-  return { theme: theme as ThemeId, seed: Number(seed), vt: Number(vt) };
+  return { theme: theme as ThemeId, seed: Number(seed), vt: vt ? Number(vt) : undefined };
 });
 const out = arg("out", "docs/sheets/3d-generation-1-forms.jpg");
 const port = Number(arg("port", "4961"));
@@ -45,8 +46,8 @@ interface Shot {
 const shots: Shot[] = [];
 for (const m of maps) {
   const spec = makeSpec({ seed: m.seed, theme: m.theme, size: { x: 128, y: 128 } });
-  spec.settings.terrain.verticality = m.vt;
-  if (m.vt >= 70) spec.settings.terrain.highestTerrain = 22;
+  if (m.vt !== undefined) spec.settings.terrain.verticality = m.vt;
+  if (spec.settings.terrain.verticality >= 70) spec.settings.terrain.highestTerrain = 22;
   const r = generate(spec);
   const t = ColumnTerrain.fromData(r.field!, 128, 128);
   for (const x of r.intentions) {
@@ -57,12 +58,15 @@ for (const m of maps) {
     // its crown; yaw as the 3D view's orbit takes it)
     // (an arch from down the gorge, low over its river, close enough to stay between its walls)
     const yaw = Math.atan2(fx - ax, -(fy - ay));
+    // (an arch worn through rock from the side it is seen through best, at an ordinary tilt of the
+    // game's camera, so the land beyond shows under it, D503)
     const arch = x.id === "gorge-arch";
-    const z = bottomRunTop(t.mask[ay * 128 + ax]) + (arch ? 4 : 1.5);
-    const label = `${x.id} · ${m.theme} ${m.seed} · Verticality ${m.vt}`;
+    const rock = x.id === "rock-arch";
+    const z = bottomRunTop(t.mask[ay * 128 + ax]) + (arch ? 4 : rock ? 2 : 1.5);
+    const label = `${x.id} · ${m.theme} ${m.seed} · Verticality ${spec.settings.terrain.verticality}`;
     const fragment = `#${encodeSpecFragment(r.spec)}`;
     for (const v of views) {
-      if (v === "close") shots.push({ label, fragment, view: { mode: "orbit", yaw, pitch: arch ? 0.12 : 0.3, distance: arch ? 9 : 11, x: ax, y: ay, z } });
+      if (v === "close") shots.push({ label, fragment, view: { mode: "orbit", yaw, pitch: arch ? 0.12 : rock ? 0.5 : 0.3, distance: arch ? 9 : rock ? 15 : 11, x: ax, y: ay, z } });
       if (v === "high") shots.push({ label: `${label} · from above`, fragment, view: { mode: "orbit", yaw, pitch: 0.75, distance: 22, x: ax, y: ay, z } });
       if (v === "top") shots.push({ label: `${label} · top-down`, fragment, view: { mode: "top", yaw: 0, pitch: 0.9, distance: 26, x: ax, y: ay, z } });
     }

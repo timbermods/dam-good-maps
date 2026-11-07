@@ -49,6 +49,8 @@ const TITLES: Record<IntentionId | FormId, string[]> = {
   "spring-cave": ["Spring Cave {land}", "Hidden Spring {land}", "Cave Spring {land}", "Grotto {land}", "Wellspring {land}", "Spring Grotto {land}", "Hollow Spring {land}", "Secret Spring {land}"],
   "start-overhang": ["Overhang {land}", "Under the Ledge {land}", "Rock Shelter {land}", "Sheltering Rock {land}", "Overhang Camp {land}", "Hanging Rock {land}", "Shelter Rock {land}", "Ledge Camp {land}"],
   "gorge-arch": ["Stone Arch {land}", "Natural Bridge {land}", "Arch Gorge {land}", "Bridge Rock {land}", "The Arch", "Span {land}", "Arch Crossing {land}", "Rock Bridge {land}"],
+  "rock-arch": ["Arch Rock {land}", "Window Rock {land}", "Stone Window {land}", "Natural Arch {land}", "The Window", "Keyhole {land}", "Eye of the Rock", "Arch Point {land}"],
+  "cliff-overhang": ["Hanging Cliff {land}", "Undercut {land}", "Brow Rock {land}", "Overhang Cliffs", "Cliff Brow {land}", "Leaning Cliff {land}", "Cliff Eave {land}", "Shelf Rock {land}"],
 };
 
 /** When a map has no standout (the best candidate after the cap): its land. */

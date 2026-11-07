@@ -17,8 +17,7 @@ describe("a held day's contamination reaches the veins", () => {
     const moisture = levels.map(() => 0.7);
     const soil = soilView(moisture, levels);
     const heights = new Uint8Array(levels.length).fill(4);
-    const sky = new Uint8Array(levels.length).fill(255);
-    const data = tileData(levels.length, 1, heights, sky, soil, null);
+    const data = tileData(levels.length, 1, heights, soil, null);
     levels.forEach((c, i) => {
       const nib = contaminationOf(data[i * 4 + 1]);
       if (c > 0) {

@@ -3,8 +3,8 @@
 // - #38 (investigation/maplook2): the water shader (colour by depth, clear shallows, fine crests and
 //   flecks advected by the flow, the calibrated crimson badwater, the poisoned bed under it) and
 //   soft shadows from the real meshes (a 2048² sun depth map, 25-tap PCF, receiver-plane bias);
-// - #65 (investigation/maplook3): warm sunlight, ambient occlusion, the colour-preserving tone
-//   curve and grade, the distance haze, the sky, rock strata, soil edges and colour variation;
+// - #65 (investigation/maplook3): warm sunlight, the sky, rock strata, soil edges and colour variation (its tone
+//   curve, grade and distance haze gave way to the game's fog and post chain, every look's: D497);
 // - #66 (investigation/vegetation): the vegetation's material (palette regions, wrapped light, matte
 //   specular) and its wind;
 // - #67 (investigation/maplook-finish), stages 1–3: the diorama edge (rock beds, soil cap, water
@@ -28,10 +28,6 @@ import { WATER } from "../palette";
 import { BADWATER as B, HIGH_WATER_GLSL } from "../waterPalette";
 import { RUN_LEVELS } from "../runSoil";
 
-/** How much of its colour dry earth keeps under High's grade, the rest a slightly cool grey (D346: the game's
- *  earth, greyer and cooler from above). */
-export const DRY_EARTH_GRADE = 0.65;
-
 /** A number as GLSL writes a float. */
 const g = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
 import type { ShaderHooks } from "../materials";
@@ -40,10 +36,6 @@ import type { ShaderHooks } from "../materials";
 export const SWITCHES = [
   "hlWater",
   "hlShadows",
-  "hlAO",
-  "hlTone",
-  "hlGrade",
-  "hlHaze",
   "hlSky",
   "hlStrata",
   "hlBlend",
@@ -57,43 +49,6 @@ export const SWITCHES = [
 export type Switch = (typeof SWITCHES)[number];
 
 const switches = (names: readonly Switch[]) => `\n  uniform float ${names.join(", ")};`;
-
-/** The tone curve and grade (#65), in linear light, from the display RGB the shaders make: decode,
- *  a little more saturation and a warm highlight balance, chroma restrained a little round its
- *  luminance (the duller colours more), bright yellow-greens nudged toward green, then exposure 1.00
- *  (D334, from 1.22: the game's references) and a shoulder that compresses only peaks above 0.82,
- *  scaling the channels together (no grey lift, no whitening); encoded once. From three.js r186's NeutralToneMapping (MIT) without its toe
- *  or highlight desaturation. */
-export const GRADE_GLSL = /* glsl */ `
-  vec3 hlDecode(vec3 c) { return mix(c / 12.92, pow(max((c + 0.055) / 1.055, vec3(0.0)), vec3(2.4)), step(vec3(0.04045), c)); }
-  vec3 hlEncode(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
-  vec3 hlShoulder(vec3 c) {
-    float peak = max(c.r, max(c.g, c.b));
-    if (peak <= 0.82) return c;
-    float d = 0.18;
-    float newPeak = 1.0 - d * d / (peak + d - 0.82);
-    return c * (newPeak / peak);
-  }
-  vec3 hlGradeColour(vec3 display) {
-    vec3 c = hlDecode(max(display, vec3(0.0)));
-    if (hlGrade > 0.5) {
-      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-      c = max(mix(vec3(l), c, 1.06), vec3(0.0));
-      c *= mix(vec3(1.008, 1.0, 0.995), vec3(1.030, 1.016, 0.960), smoothstep(0.035, 0.55, l));
-      float litLuma = dot(c, vec3(0.2126, 0.7152, 0.0722));
-      float peak = max(c.r, max(c.g, c.b));
-      float chroma = peak - min(c.r, min(c.g, c.b));
-      float vividness = chroma / max(peak, 0.0001);
-      float restraint = mix(0.90, 1.0, smoothstep(0.35, 0.75, vividness));
-      c = mix(vec3(litLuma), c, restraint);
-      float yellowGreen = smoothstep(-0.12, 0.10, (c.g - c.r) / max(chroma, 0.0001)) * smoothstep(0.25, 0.70, (c.r - c.b) / max(chroma, 0.0001));
-      float shift = 0.06 * chroma * yellowGreen * smoothstep(0.14, 0.40, litLuma);
-      c += vec3(-shift, shift * (0.2126 / 0.7152), 0.0);
-    }
-    if (hlTone > 0.5) c = hlShoulder(c);
-    return clamp(hlEncode(max(c, vec3(0.0))), 0.0, 1.0);
-  }
-`;
 
 /** Soft shadows from the real meshes (#38): the sun's depth map, 25 taps, a receiver-plane bias so
  *  sloping surfaces don't stripe; off, the baked shadow. */
@@ -160,67 +115,33 @@ const SHADOW_GLSL = /* glsl */ `
   }
 `;
 
-/** Ambient occlusion (#65): the map's horizons at four radii in eight directions and the trees' and
- *  ruins' soft footprints, one texel a tile; it darkens only the sky's light, fading up a cliff from
- *  its foot. */
-const AMBIENT_GLSL = /* glsl */ `
-  uniform sampler2D hlAmbient;
-  float ambientVisibility(vec3 world, vec3 normal) {
-    if (hlAO < 0.5) return 1.0;
-    vec2 g = vec2(world.x + normal.x * 0.55, -world.z - normal.z * 0.55);
-    vec4 a = texture2D(hlAmbient, clamp(g / mapSize, 0.5 / mapSize, 1.0 - 0.5 / mapSize));
-    float ground = texture2D(tileTex, (clamp(floor(g), vec2(0.0), mapSize - 1.0) + 0.5) / mapSize).r * 255.0;
-    float above = max(0.0, world.y - ground);
-    float terrain = mix(a.r, 1.0, smoothstep(0.1, 3.5, above));
-    float canopy = mix(a.g, 1.0, smoothstep(0.0, 2.4, above));
-    return max(0.40, terrain * canopy);
-  }
-`;
-
-/** The finish's High haze (#65): a clear afternoon, no wash near the camera, at most 5.5% far off;
- *  off, the Standard haze. None from straight above (hazeAmount is 0 there). */
-const HAZE = /* glsl */ `if (hlHaze > 0.5 && hazeAmount > 0.0) {
-      float farAir = smoothstep(max(64.0, hazeRange.x * 1.5), max(160.0, hazeRange.y * 1.3), d);
-      c = mix(c, hazeColor, farAir * 0.055);
-    } else c = mix(c, hazeColor, hazeAmount * smoothstep(hazeRange.x, hazeRange.y, d));`;
-
-const FINISH_END = /* glsl */ `return (hlTone > 0.5 || hlGrade > 0.5) ? hlGradeColour(c) : clamp(c, 0.0, 1.0);`;
-
-/** The hooks every lit High material shares: shadows, the haze and the grade. */
+/** The hooks every lit High material shares: its shadows (the fog and the post chain are every look's, the game's:
+ *  materials.ts finish). */
 function lit(names: readonly Switch[], more = ""): ShaderHooks {
   return {
-    decl: switches(["hlShadows", "hlTone", "hlGrade", "hlHaze", ...names]) + GRADE_GLSL + more,
+    decl: switches(["hlShadows", ...names]) + more,
     sunLit: SHADOW_GLSL,
-    haze: HAZE,
-    finishEnd: FINISH_END,
   };
 }
 
 /** Objects and falls under a roof: the soft shadow of the real meshes, the roof included (off: the light volume's
  *  sun). */
-const ROOFED_SUN = "(hlShadows > 0.5 ? lit : cave.y)";
+const ROOFED_SUN = "(hlShadows > 0.5 ? lit : sunMarchAt(vWorld))";
 
 // ------------------------------------------------------------------------------------ the terrain
 
 export function terrainHooks(): ShaderHooks {
   return {
-    ...lit(["hlAO", "hlStrata", "hlBlend", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], AMBIENT_GLSL + /* glsl */ `
+    ...lit(["hlStrata", "hlBlend", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
 `),
-    skyLight: "ambientVisibility(vWorld, n) * ",
     // under a roof, the soft shadow of the real meshes, the roof included, as on the ground before it
     // (off: the march through the light volume)
-    caveSun: "hlShadows > 0.5 ? sunHere : caveSunMarch(vWorld, n, cave.y)",
+    caveSun: "hlShadows > 0.5 ? sunHere : caveSunMarch(vWorld, n)",
     // under a roof, the occlusion of the open ground at the roof line its light comes in by, never more
     // than here
     caveSunOpen: "hlShadows > 0.5 ? hlSunAt(mouth.xyz) : sunLit(vec2(mouth.x, -mouth.z), mouth.y)",
-    caveSky: /* glsl */ `
-        if (hlAO > 0.5) {
-          float av = ambientVisibility(vWorld, n);
-          if (mouth.w > 0.5) av = min(av, ambientVisibility(mouth.xyz, vec3(0.0, 1.0, 0.0)));
-          sky *= av;
-        }`,
     // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
     // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
     // (where grass meets earth, the game's share per tile, D135 as amended: the soil-edges switch is contamination's alone)
@@ -234,10 +155,7 @@ export function terrainHooks(): ShaderHooks {
           c *= 1.0 + broad * 0.15 + mottling * 0.065;
           c *= vec3(1.0 + broad * 0.055, 1.0 + broad * 0.015, 1.0 - broad * 0.045);
         }
-        // (exposure 1.00, D334: grass needs no hold-down of its own to sit at the game's L* 50-55)
-        // the grade's saturation and warm balance spare dry earth, which the game draws a muted
-        // brown-mauve from above (D346)
-        if (hlGrade > 0.5) c = mix(dot(c, vec3(0.2126, 0.7152, 0.0722)) * vec3(0.97, 1.0, 1.05), c, mix(${g(DRY_EARTH_GRADE)}, 1.0, moist));`,
+`,
     // the poisoned bed (#38): under polluted water, the ground's own contamination shows through. (The ground
     // without its water is groundColor's own groundDry, never a second groundColor here: in this branch, which
     // pixels next to each other may or may not take, its derivatives and its patterns' mipmaps would read
@@ -253,10 +171,12 @@ export function terrainHooks(): ShaderHooks {
               glow = mix(glow, groundDryGlow, polluted);
             }
           }`,
-    // rock (#65's strata, D334's stone): olive stones of unequal size and slope, soft mortar between them
+    // rock (#65's strata, D334's stone): stones of unequal size and slope, soft mortar between them, calibrated as
+    // Standard's (D497: their mean albedo the game's CliffDetail texture's, 68/62/52, tools/albedo-means.ts) and tinted
+    // by the game's cliff gradient
     wall: /* glsl */ `          if (hlStrata > 0.5) {
-            vec3 stone = mix(vec3(0.35, 0.355, 0.26), vec3(0.51, 0.47, 0.34), vnoise(vec2(along * 0.32, y * 0.4)));
-            wc = mix(vec3(0.235, 0.23, 0.18) * shade, stone * shade * (0.40 + k * 0.85 + (vnoise(vec2(along * 8.1, y * 9.3)) - 0.5) * 0.13), smoothstep(0.015, 0.35, k));
+            vec3 stone = mix(vec3(0.238, 0.231, 0.197), vec3(0.347, 0.305, 0.258), vnoise(vec2(along * 0.32, y * 0.4)));
+            wc = mix(vec3(0.16, 0.149, 0.137) * cliffTint, stone * cliffTint * (0.40 + k * 0.85 + (vnoise(vec2(along * 8.1, y * 9.3)) - 0.5) * 0.13), smoothstep(0.015, 0.35, k));
           }
 `,
     // the diorama edge (#67 stage 1): the map's four outer faces cut through its rock, the same
@@ -509,14 +429,13 @@ export function waterHooks(): ShaderHooks {
 }
 
 export function objectHooks(): ShaderHooks {
-  return { ...lit(["hlAO"], AMBIENT_GLSL), skyLight: "ambientVisibility(vWorld, n) * ", roofedSun: ROOFED_SUN };
+  return { ...lit([]), roofedSun: ROOFED_SUN };
 }
 
 /** The landmarks (#67 stage 3): the High object material with a fine grain and patina close up. */
 export function landmarkHooks(): ShaderHooks {
   return {
-    ...lit(["hlAO", "hlObjectDetail"], AMBIENT_GLSL + "\n  varying vec3 hlLocal;"),
-    skyLight: "ambientVisibility(vWorld, n) * ",
+    ...lit(["hlObjectDetail"], "\n  varying vec3 hlLocal;"),
     roofedSun: ROOFED_SUN,
     objectVertexDecl: "\n      varying vec3 hlLocal;",
     objectVertex: "        hlLocal = position;\n",
@@ -607,10 +526,10 @@ export function vegetationHooks(slots: number): ShaderHooks {
 // ---------------------------------------------------------------------------------------- the sky
 
 /** #65's sky: a clear blue, the same pale horizon as the haze, soft static clouds above it, a broad
- *  glow toward the sun instead of a disc; graded like the land. */
+ *  glow toward the sun instead of a disc; graded like the land (materials.ts gamePost). */
 export function skyHooks(): ShaderHooks {
   return {
-    decl: switches(["hlSky", "hlTone", "hlGrade"]) + GRADE_GLSL,
+    decl: switches(["hlSky"]),
     sky: /* glsl */ `
         if (hlSky > 0.5) {
           float horizon = exp(-abs(d.y) * 5.5);
@@ -623,7 +542,6 @@ export function skyHooks(): ShaderHooks {
           c = mix(c, vec3(0.97, 0.96, 0.89), hcloud * 0.46);
           float sun = pow(max(dot(d, normalize(vec3(-0.45, 0.77, -0.45))), 0.0), 24.0);
           c += vec3(0.11, 0.075, 0.028) * sun;
-        }
-        if (hlTone > 0.5 || hlGrade > 0.5) c = hlGradeColour(c);`,
+        }`,
   };
 }

@@ -1128,7 +1128,9 @@ matches the map exactly at its end (`tests/contract/timelapse.test.ts`); the pag
    recorder, the plan and the camera in `src/editor/timelapse/`, a WebM writer of its own; the water drawn still.
 2. **Moving water and force moments in the video:** the renderer's clock per renderer and `whenDrawn()` (forces
    play's hooks, agreed on #236), then the recorder keeps every animation on video time.
-3. **The postcard:** a still of the finished map from its best angle, from `heroPicture` (D488).
+3. **The postcard** (File → Save a picture; `feature/postcard`): the map from the game's opening view at 1920×1080,
+   from `heroPicture` (D488). With it, the ending eases the replay's water and soil into the finished map's
+   (`timelapse/blend.ts`) instead of snapping to them on the held view.
 
 ## Later
 

@@ -1,6 +1,8 @@
 // Labels fit under any system font. The page's font is the system's (system-ui, Segoe UI, Roboto), and Linux's and macOS's
 // are wider than Segoe UI, in which the tight labels were drawn (a bar cell's Naturalize, the settings' Remove unfed water,
-// Cut down and Wander, the shelf's Reserve warehouse): there they spilled out of their boxes. This measures the page's
+// Cut down and Wander, the shelf's Reserve warehouse; the top band, whose Show row, water row and Legend fill it at
+// 1536×864, so the water row took a second line and the panels under it scrolled): there they spilled out of their
+// boxes. This measures the page's
 // font on those words once, against Segoe UI's width of the same words, and sets --wide-font (1 for Segoe UI, so nothing
 // changes there) that the CSS divides those labels' sizes by, taking back the share of the extra width their cells
 // have no slack for.
