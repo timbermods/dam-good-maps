@@ -550,7 +550,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces), and **the force is over the
   moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
   places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
-  melt-back, the lava cooling; a new force puts any of them away at once). A force's heat is its own: a later force
+  melt-back, the lava cooling; a new force puts any of them away at once; the lava cools by its drawn frames, so a
+  frame held long on a slow machine never skips it). A force's heat is its own: a later force
   never shows an earlier eruption's. The result
   and what is saved never depend on the pace.
 - **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an
