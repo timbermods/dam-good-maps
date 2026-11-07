@@ -206,15 +206,13 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   engine's water in flight has none). On a map without terrain above terrain nothing changes: one column a tile, the
   same values. The estimate `waterLayers` made for a cave column's outflows is gone; its falls pour its own.
 - **The current under water** (`src/render3d/caveCurrent.ts`): where a column stands below its tile's surface water,
-  the bake worker deals the water into its layers (`waterLayers`), works out each such layer's current from its own
-  columns' outflows (`currentOf`, each face against the column it meets at its level) and its rough water from its own
-  surface (`roughWater`, over the tiles within 8 of those columns), and writes them into a volume by level (RGBA a cell,
-  only the levels such columns stand in: RG the current as the flow texture packs it, B the rough water, A 255 in their
-  cells; each tile's surface water fills its cells too with the flow texture's own values, so a river reads one current
-  across the line where its roof turns dry). The water shader (both looks, `materials.ts` `ownFlowAt`, under `CAVES`)
+  the bake worker deals the water into its layers (`waterLayers`), works out each such layer's flow from its own
+  columns' outflows (`bake.ts` `bakeFlow`, the flow texture's own, over the tiles within 8 of those columns), and writes
+  it into a volume by level (RGBA a cell, only the levels such columns stand in: RG the flow as the flow texture packs
+  it, B its smoothed contamination, A 255 in their cells; each tile's surface water fills its cells too with the flow
+  texture's own values, so a river reads one current across the line where its roof turns dry). The water shader (both looks, `materials.ts` `ownFlowAt`, under `CAVES`)
   reads the cell it stands in (`texelFetch`), and where A says so takes the volume's current, filtered across tiles at
-  its level, for the flow-carried surface (both looks; B, the rough water, is read by nothing since the surface
-  became the game's, `fix/water-flow-surface`); everywhere else the flow texture,
+  its level, for the flow-carried surface (both looks); everywhere else the flow texture,
   as before. `motion.ts` keeps the texture (`caveFlowTex`, `caveFlowLevels`), rewritten in place; renderer.ts only
   hands it the water per column at a bake.
 - **Equivalence:** a map with no column below its tile's surface water builds no volume (`caveCurrent` null), and the
@@ -1050,13 +1048,24 @@ the game's models in resources.assets (positions, materials and texture means on
   colour × the albedo 38.4, the formula 15.0; High 25.1, 20.8, 14.9.
 - **Gone:** Standard's pale streaks, crests' light, ripple cosines and slowed badwater ripples; High's chop streaks,
   grazing and streak colours, light network, ribbons, broad swells, rolling packets, their brightness swing, still-water
-  drift, its own ripple normal, a film's lifted opacity and the Rough water switch (`hlRiver`).
+  drift, its own ripple normal, a film's lifted opacity, the Rough water switch (`hlRiver`) and the rough water bake
+  (`roughWater`, below falls and in rapids) with its texture.
 - **Kept:** badwater's own light patches, troughs and bubbles (Q9 class (c): its flowing pattern, P9, is still to follow),
-  now carried by the same two phases; the camera highlight, gloss, sky reflection and sun glint; High's `rippleLight`.
+  now carried by the same two phases, by the tile's badwater share or the flow texture's smoothed one where that is more
+  (so a front's patterns are there in High, which reads that one); the camera highlight, gloss, sky reflection and sun glint; High's `rippleLight`.
+- **Badwater against clean water** (the judge's `--water bad|clean`, on the two Islands end shots, where the game shows
+  both): the game draws badwater lighter than clean water of the same depth, as ours does: on islands-128-2-end its own
+  pixels read L* 34.6 for badwater a level or two deep (898 tiles) and 28.7 for clean water (573), 35.7 and 31.1 under
+  half a level (168, 64). D496's 6 L* rule (badwater darker) is amended to the game's order, and the clean water hue
+  window to the formula's (look-water-slopes, look-readable and look tests, on the shipped colours:
+  `tests/unit/waterShown.ts`). islands-128-1-end's fit misses the frame (its "badwater" samples
+  read blue in the game's frame), so it is left out.
 - **Falls short:** deep water (3 levels and more) reads a little darker than the game's and the shallowest band a little
-  lighter; the game's detail albedo (P6), refraction (P2) and shore films moved sideways (V3) are still missing; the
-  bake still makes the rough water texture, which nothing reads now; badwater's own calibration (`WATER_CALIBRATION`)
-  was not re-measured under the stronger normals.
+  lighter; at a film ours keeps clean water lighter than badwater, where the game's frames show badwater the lighter
+  under half a level too; the game's detail albedo (P6), refraction (P2) and shore films moved sideways (V3) are still
+  missing; badwater's own calibration (`WATER_CALIBRATION`) was not re-measured under the stronger normals, and on the
+  low Islands camera (34° down, 133 away) the judge's render of pure badwater reads grey-blue (L* 43, 92/106/112)
+  where the game's reads red-brown (101/75/72), on dev too: badwater's colour (planning's item (c)) is the next step.
 
 ## The rest of the step (next parts)
 

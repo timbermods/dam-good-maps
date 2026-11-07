@@ -314,9 +314,6 @@ export function slopesOf(b: number, a: number): [number, number] {
   return [((b - 128) / 127) * STORE.slope, ((a - 128) / 127) * STORE.slope];
 }
 
-/** The stored scales, for the shaders' GLSL. */
-export const WATER_TEXTURE_STORE = STORE;
-
 /** The autocorrelation's half-width of a tiling field (`size` square), in tiles: the shift at which it first falls
  *  to a half, averaged over the four directions (as tools/game-water-shader.py `feature_scale` measures the game's). */
 export function featureTiles(f: ArrayLike<number>, size: number): number {

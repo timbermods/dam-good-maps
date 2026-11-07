@@ -10,8 +10,10 @@ import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities } from "../../src/render3d/entities3d";
 import { hatchMarks, sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
-import { CLEAR_WATER, badwaterBody } from "../../src/render3d/waterPalette";
-import { CONTAMINATION, contaminationVein, contaminationVeins, DEAD_TREE, GROUND, groundColor, LIVING_TREE, cssColor, legendEntries, objectLegend, WATER, waterBody, type Rgb } from "../../src/render3d/palette";
+import { CLEAR_WATER, GAME_WATER, badwaterBody } from "../../src/render3d/waterPalette";
+import { WATER_ALBEDO } from "../../src/render3d/waterTextures";
+import { cleanWaterShown } from "./waterShown";
+import { CONTAMINATION, contaminationVein, contaminationVeins, DEAD_TREE, GROUND, groundColor, LIVING_TREE, cssColor, legendEntries, objectLegend, sunlitTop, WATER, waterBody, type Rgb } from "../../src/render3d/palette";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 
@@ -34,7 +36,13 @@ describe("the meanings", () => {
     for (const g of [GROUND.moistLow, GROUND.moistHigh]) expect(hue(g) > 60 && hue(g) < 110, cssColor(g)).toBe(true);
     for (const d of [GROUND.dry, GROUND.dryWarm]) expect(hue(d)).toBeLessThan(40);
     expect(hue(GROUND.dryCool) > 300 || hue(GROUND.dryCool) < 40).toBe(true);
-    for (const d of [0.05, 0.5, 2, 5]) expect(hue(waterBody(d, false)) > 170 && hue(waterBody(d, false)) < 210, `${d} deep`).toBe(true);
+    // clean water the game's colour formula (D496 amended 2026-11-07): from its `_Color` #446C71 toward its navy #000F48
+    // at 5 levels, through the albedo and the game's light, so its hue lies between theirs (about 199 to 229) at every
+    // depth; on screen the pixel judge's six start shots read 182–199, the sky's reflection holding deep water up
+    // (D148: this held 170–210, our own teal's, until then)
+    const shown = (c: readonly number[]) => hue(sunlitTop(c.map((v, k) => v * WATER_ALBEDO.mean[k]) as unknown as Rgb));
+    const [from, to] = [shown(GAME_WATER.color), shown(GAME_WATER.atMaxDepth)];
+    for (const d of [0.05, 0.5, 2, 4]) expect(hue(cleanWaterShown(d)) >= from - 1e-9 && hue(cleanWaterShown(d)) <= to + 1e-9, `${d} deep`).toBe(true);
     for (const d of [0.05, 0.5, 2, 5]) expect(hue(waterBody(d, true)) < 15 || hue(waterBody(d, true)) > 350).toBe(true);
     // dead trees are the game's dead wood, its bark weathered lighter and greyer (D135 as amended 2026-10-29): lighter
     // than the living crowns, as the game's are (its dead pine's wood 1.8 times its living needles' lightness)

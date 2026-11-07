@@ -36,8 +36,8 @@ export interface HighHost {
   groundOffset(x: number, y: number): number;
   /** The renderer's bake worker. */
   baker: Baker;
-  /** The moving water's textures (motion.ts): the flow with the smoothed contamination, the rough water. */
-  flow(): { flow: unknown; rough: unknown; ready: boolean; ms: number };
+  /** The moving water's texture (motion.ts): the flow with the smoothed contamination. */
+  flow(): { flow: unknown; ready: boolean; ms: number };
 }
 
 export interface HighMaterials {
@@ -349,7 +349,7 @@ export class HighLook {
     this.shadows.dirty = true;
   }
 
-  /** The water changed: its flow's timing is read a moment later (the flow and rough water: motion.ts). */
+  /** The water changed: its flow's timing is read a moment later (the flow: motion.ts). */
   waterChanged(surface: SurfaceWater): void {
     if (!this.map) return;
     this.map.surface = surface;

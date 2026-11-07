@@ -51,8 +51,9 @@ export const WATER = {
    *  pitch): its side faces' mean blended toward its top face's by 0.87. */
   sky: [0.402, 0.492, 0.617] as Rgb,
   /** Badwater's body a quarter level deep (#38's calibration depth), crimson, matte and murky;
-   *  lighter on a film and darker deeper, as the game's (`BADWATER.ramp`, `badwaterBody`: D496), so it stays
-   *  darker than clean water of the same depth. Unchanged by D310 (see `BAD_BODY`). */
+   *  lighter on a film and darker deeper, as the game's (`BADWATER.ramp`, `badwaterBody`: D496); from half a
+   *  level down lighter than clean water of the same depth, as the game's (D496 amended 2026-11-07). Unchanged by D310
+   *  (see `BAD_BODY`). */
   bad: BAD_BODY,
   /** The dark crimson under a badwater source's basin (not water: the basin's floor). */
   badDeep: [0.14, 0.066, 0.058] as Rgb,

@@ -11,6 +11,7 @@ import { decodeTop, encodeTop, litFraction, objectCasters, shadowMap, shadowTops
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
 import { ALBEDO_SCALE, cliffTint, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
+import { cleanWaterShown } from "./waterShown";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { dropFlags, EDGE_CURTAIN, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
@@ -98,9 +99,11 @@ describe("the ground's colours", () => {
         expect(v[1]).toBeGreaterThan(v[2]);
       }
     }
-    // Standard's water darkens with depth (its body colours, at a fixed look and light)
-    for (let d = 0.1; d < 5; d += 0.1) expect(lum(waterBody(d, false))).toBeLessThanOrEqual(lum(waterBody(d - 0.1, false)) + 1e-9);
-    expect(lum(waterBody(4, false))).toBeLessThan(lum(waterBody(0.1, false)));
+    // the water darkens with depth: the shipped clean water, the game's formula (its `_DepthGradients` R ramp falling and
+    // its colour going to navy), at a fixed light (D496; D148: this checked Standard's own body colours until the formula
+    // shipped)
+    for (let d = 0.1; d < 5; d += 0.1) expect(lum(cleanWaterShown(d))).toBeLessThanOrEqual(lum(cleanWaterShown(d - 0.1)) + 1e-9);
+    expect(lum(cleanWaterShown(4))).toBeLessThan(lum(cleanWaterShown(0.1)));
   });
 
   it("draws High's water darker with depth too (D334's navy pools, re-basing the High-water lightness margins: the order, not a gap)", () => {

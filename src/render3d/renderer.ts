@@ -314,9 +314,16 @@ let waterSurface: Promise<void> | null = null;
 /** The surface the water's flow carries (waterTextures.ts), made once a page in the bake worker (about 160 ms) and
  *  written into the page's shared texture (materials.ts `waterSurfaceTexture`); the water is flat at its mean until then. */
 function waterSurfaceMade(baker: Baker): Promise<void> {
-  return (waterSurface ??= baker.run({ kind: "waterTexture" }).then((r) => {
-    if (r.kind === "waterTexture") fillWaterTexture(r.data);
-  }));
+  // (a failed bake is forgotten, so the next view tries again)
+  return (waterSurface ??= baker.run({ kind: "waterTexture" }).then(
+    (r) => {
+      if (r.kind === "waterTexture") fillWaterTexture(r.data);
+    },
+    (e: unknown) => {
+      waterSurface = null;
+      throw e;
+    },
+  ));
 }
 
 /** Whether the browser draws WebGL in software (no GPU, or one it won't use): asked of a throwaway
@@ -1194,7 +1201,7 @@ export class MapRenderer {
           baker: this.baker,
           flow: () => {
             const m = this.waterMotion;
-            return m ? { flow: m.flow, rough: m.rough, ready: m.ready, ms: m.ms } : { flow: this.uniforms.flowTex.value, rough: null, ready: true, ms: 0 };
+            return m ? { flow: m.flow, ready: m.ready, ms: m.ms } : { flow: this.uniforms.flowTex.value, ready: true, ms: 0 };
           },
         });
         this.high.shareTerrainUniforms(this.std.terrain);

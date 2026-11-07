@@ -24,7 +24,7 @@
 //   Falls are the water's own
 //   vertical faces where it steps down, as the game draws them (D201 amended 2026-10-29): the water's
 //   colour with its texture running down, nearly opaque, no whitewater.
-//   Badwater is darker than clean water of the same depth and duller, with the same ripples and
+//   Badwater is lighter than clean water of the same depth, as the game's, and duller, with the same ripples and
 //   slow glowing bubbles. Water partly bad turns from clean water to badwater with its badwater
 //   share, blended over a few tiles by the water mesh: it darkens in proportion, and its hue turns
 //   early from teal through a teal-grey and a warm brown to crimson, never purple, so where they meet the colour changes in a soft gradient, never in streaks or
@@ -153,7 +153,7 @@ export interface SceneUniforms {
    *  `RUN_SOIL` branch is compiled (a map with terrain above terrain); elsewhere the light volume's
    *  placeholder, never read. */
   runTex: { value: Data3DTexture };
-  /** The current and rough water of the water below each tile's surface water (caveCurrent.ts): RGBA a cell from level
+  /** The flow and contamination of the water below each tile's surface water (caveCurrent.ts): RGBA a cell from level
    *  `caveFlowLevels.x`, `caveFlowLevels.y` levels (0: none, the flow texture everywhere), read only where the water's
    *  `CAVES` branch is compiled. */
   caveFlowTex: { value: Data3DTexture };
@@ -710,9 +710,9 @@ const CAVE_POINT = /* glsl */ `
       #endif`;
 
 /** Water below its tile's surface water (a cave's under a wet roof; only on a map with terrain above terrain, `CAVES`):
- *  its own column's current and rough water from the cave current's volume (caveCurrent.ts), at the level it stands
+ *  its own column's flow and contamination from the cave current's volume (caveCurrent.ts), at the level it stands
  *  in, filtered across tiles at that level. `waterOwnFlow` holds it for the fragment (RG the current as the flow
- *  texture packs it, B the rough water, A 1), A 0 where the flow texture stands (each tile's surface water). */
+ *  texture packs it, B its smoothed contamination, A 1), A 0 where the flow texture stands (each tile's surface water). */
 const CAVE_FLOW = /* glsl */ `
       #ifdef CAVES
       uniform highp sampler3D caveFlowTex;
@@ -1817,12 +1817,16 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
             // (small and sparse, and gone where a pixel covers more than a few of them)
             float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
             gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
-            if (bad > 0.01) {
+            // (the share the patterns follow: the tile's, or the flow texture's smoothed one where that is more, as
+            // High's water reads it, so a front's patterns are there for High too; under a roof the tile's own)
+            float patternBad = bad;
+            if (waterRoofed < 0.5) patternBad = max(bad, waterTint(texture2D(flowTex, g / mapSize).b));
+            if (patternBad > 0.01) {
               // badwater's light patches, troughs and bubbles (its own: Q9 P9's flowing pattern is still to follow),
               // carried by the flow's two phases as the surface is
               float la, da, ba, lb, db, bb;
-              badwaterAt(pa, t, bad, fine, la, da, ba);
-              badwaterAt(pb, t, bad, fine, lb, db, bb);
+              badwaterAt(pa, t, patternBad, fine, la, da, ba);
+              badwaterAt(pb, t, patternBad, fine, lb, db, bb);
               float near = 1.0 - smoothstep(0.08, 0.25, fwidth(g.x));
               streak = mix(la, lb, pw);
               trough = mix(da, db, pw) * near;

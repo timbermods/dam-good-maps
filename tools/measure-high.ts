@@ -45,9 +45,8 @@ const MAPS = [
 
 /** The High effects of each part (render3d/high/effects.ts), for the stages' costs. */
 const STAGE1 = ["geology", "soilCap", "section"];
-const STAGE2 = ["roughWater"];
 const STAGE3 = ["landmarks", "objectDetail"];
-const ALL_FINISH = [...STAGE1, ...STAGE2, ...STAGE3];
+const ALL_FINISH = [...STAGE1, ...STAGE3];
 
 interface Config {
   id: string;
@@ -62,7 +61,6 @@ const CONFIGS: Config[] = [
   { id: "High, lower-cost tier", tier: "lower", off: [] },
   { id: "High foundation (#38, #65, #66)", tier: "high", off: ALL_FINISH },
   { id: "foundation + stage 1 (edge)", tier: "high", off: ALL_FINISH.filter((k) => !STAGE1.includes(k)) },
-  { id: "foundation + stage 2 (water finish)", tier: "high", off: ALL_FINISH.filter((k) => !STAGE2.includes(k)) },
   { id: "foundation + stage 3 (landmarks)", tier: "high", off: ALL_FINISH.filter((k) => !STAGE3.includes(k)) },
 ];
 

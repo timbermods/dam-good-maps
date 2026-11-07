@@ -13,8 +13,7 @@ import { objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, waterMater
 import { entityView, surfaceWater, waterFromDepth, DEAD } from "../../src/render3d/model";
 import { allEffects, effectiveEffects, effectsFrom, HIGH_EFFECTS, LOWER_COST_DROPS } from "../../src/render3d/high/effects";
 import { LIMITS, LookGovernor, startTier } from "../../src/render3d/high/fallback";
-import { roughWater, surfaceContamination } from "../../src/render3d/high/flow";
-import { FLOW_DISPLAY } from "../../src/render3d/high/bake";
+import { surfaceContamination } from "../../src/render3d/high/flow";
 import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { Forest, isPlant, replacedBatch } from "../../src/render3d/high/forest";
 import { buildLandmarks, landmarkKind } from "../../src/render3d/high/landmarks";
@@ -245,23 +244,6 @@ describe("the water's flow (the settle's own current, D353)", () => {
     for (let x = 0; x < W; x++) expect(c[1 * W + x]).toBe(0);
   });
 
-  it("finds no rough water in a gentle river, and some below a fall", () => {
-    const { W, H, heights, sw } = scene();
-    const drawn = (s: ReturnType<typeof surfaceWater>) => surfaceCurrent(W, H, s).map((v) => v * FLOW_DISPLAY);
-    const calm = roughWater(W, H, heights, sw, drawn(sw));
-    expect(calm.counts.falls).toBe(0);
-    // a fall: the channel's east half a level and a half lower
-    const h2 = heights.slice();
-    const d2 = new Float32Array(W * H);
-    for (let x = 0; x < W; x++)
-      for (const y of [1, 2]) {
-        h2[y * W + x] = x < 6 ? 6 : 4;
-        d2[y * W + x] = 0.6;
-      }
-    const sw2 = surfaceWater(W, H, waterFromDepth(h2, d2, new Float32Array(W * H)));
-    const rough = roughWater(W, H, h2, sw2, drawn(sw2));
-    expect(rough.counts.falls).toBeGreaterThan(0);
-  });
 });
 
 describe("the new trees and bushes (#66)", () => {

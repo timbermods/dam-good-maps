@@ -7,6 +7,7 @@
 //   git archive --output=.scratch/judge-dev.tar origin/dev index.html real-places src public vite.config.ts tsconfig.json package.json tools/rust/vite-plugin.mjs
 //   mkdir -p .scratch/judge-dev && tar -xf .scratch/judge-dev.tar -C .scratch/judge-dev
 //   npx tsx tools/water-pixel-judge.ts [--dev .scratch/judge-dev] [--batch 20261002-1610-batch] [--look standard|high|both]
+//     [--water clean|bad] [--shots <id>,<id>]
 //
 // The camera: the probe's water pose (investigation/probe/runner/catalog.ts `standardPoses`) is where the game's camera
 // was asked to look, but its field of view and distance do not carry over exactly (Q8 found 31-37° and 1.0-1.35× the
@@ -14,13 +15,14 @@
 // by Nelder-Mead, scoring how well the snapshot's wet and dry tiles, projected, land on water and on land in the shot
 // (a coarse colour test of the shot's pixels, blurred; only tiles whose 3×3 round them are all wet or all dry).
 //
-// The samples: clean water (badwater share under 0.02, every neighbour wet and clean, the surface level with them),
+// The samples: clean water (badwater share under 0.02, every neighbour wet and clean, the surface level with them), or
+// with `--water bad` pure badwater (share 0.95 or more, its neighbours too),
 // each tile's centre projected, the mean of a 5×5 patch of pixels there in the shot and in each of ours. Per depth
-// band (the game's depth) it prints each side's mean and spread in display RGB, and each of ours' mean distance to
+// band (the game's depth) it prints each side's mean and spread in display RGB with its L*, and each of ours' mean distance to
 // the game's pixel by pixel (the root of the mean squared difference over the three channels, 0-255). Three of ours:
 // dev, this branch with our colour and this branch with the game's formula (the same build, its shaders compiled with
 // WATER_FORMULA 0 or 1, whichever waterPalette.ts GAME_WATER.use ships). Writes .scratch/water-judge/<shot>-<look>.jpg (the
-// shot beside ours, for the eye) and .scratch/water-judge/judge.json.
+// shot beside ours, for the eye) and .scratch/water-judge/judge-<water>.json.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -38,6 +40,9 @@ const DEV = resolve(arg("dev") ?? ".scratch/judge-dev");
 const BATCH = arg("batch") ?? "20261002-1610-batch";
 const LOOKS = (arg("look") ?? "both") === "both" ? (["standard", "high"] as const) : ([arg("look")] as ("standard" | "high")[]);
 const OUT = resolve(".scratch/water-judge");
+/** Which water it samples: clean (the colour's judge) or bad (badwater, share 0.95 and more, to set its order against
+ *  clean water on its own shots: `--water bad --shots islands-128-1-end,islands-128-2-end`). */
+const WATER = arg("water") === "bad" ? "bad" : "clean";
 const PORT = Number(arg("port") ?? 4971);
 const W_PX = 1280;
 const H_PX = 800;
@@ -249,8 +254,15 @@ function fitPoints(s: Shot): { p: V3; wet: number }[] {
   for (let y = 1; y < H - 1; y++)
     for (let x = 1; x < W - 1; x++) {
       let wet = 0;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (depth[(y + dy) * W + x + dx] > 0.05) wet++;
-      if (wet !== 0 && wet !== 9) continue;
+      let bad = false;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const j = (y + dy) * W + x + dx;
+          if (depth[j] > 0.05) wet++;
+          if (depth[j] > 0.05 && s.snap.contamination[j] > 0.05) bad = true;
+        }
+      // (badwater is no dark teal: the shot's test would call it land, so its tiles are left out of the fit)
+      if ((wet !== 0 && wet !== 9) || bad) continue;
       const i = y * W + x;
       out.push({ p: [x + 0.5, s.heights[i] + (wet ? depth[i] : 0), -(y + 0.5)], wet: wet ? 1 : 0 });
     }
@@ -297,13 +309,14 @@ function samplePoints(s: Shot): { p: V3; depth: number }[] {
   for (let y = 1; y < H - 1; y++)
     for (let x = 1; x < W - 1; x++) {
       const i = y * W + x;
-      if (!(depth[i] > 0.05) || contamination[i] > 0.02) continue;
+      const kind = (c: number) => (WATER === "bad" ? c >= 0.95 : c <= 0.02);
+      if (!(depth[i] > 0.05) || !kind(contamination[i])) continue;
       const level = s.heights[i] + depth[i];
       let ok = true;
       for (let dy = -1; dy <= 1 && ok; dy++)
         for (let dx = -1; dx <= 1 && ok; dx++) {
           const j = (y + dy) * W + x + dx;
-          if (!(depth[j] > 0.05) || contamination[j] > 0.02 || Math.abs(s.heights[j] + depth[j] - level) > 0.1) ok = false;
+          if (!(depth[j] > 0.05) || !kind(contamination[j]) || Math.abs(s.heights[j] + depth[j] - level) > 0.1) ok = false;
         }
       if (ok) out.push({ p: [x + 0.5, level, -(y + 0.5)], depth: depth[i] });
     }
@@ -389,6 +402,17 @@ function meanSpread(cs: V3[]): { mean: V3; spread: V3 } {
   return { mean, spread };
 }
 
+/** CIE L* of a display sRGB colour (0-255). */
+function lstar(c: V3): number {
+  const lin = c.map((v) => {
+    const t = v / 255;
+    return t <= 0.04045 ? t / 12.92 : ((t + 0.055) / 1.055) ** 2.4;
+  });
+  const y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  return y > 216 / 24389 ? 116 * Math.cbrt(y) - 16 : (24389 / 27) * y;
+}
+const meanL = (cs: V3[]) => cs.reduce((a, c) => a + lstar(c), 0) / cs.length;
+
 const fmt = (v: V3) => v.map((x) => x.toFixed(0).padStart(3)).join(" ");
 
 async function main() {
@@ -432,12 +456,12 @@ async function main() {
           if (idx.length < 20) continue;
           const g = meanSpread(idx.map((k) => gameAt[k]));
           const b: BandStats = { n: idx.length, game: g, ours: {} };
-          let line = `  ${look}: ${`${lo}-${hi === 9 ? "" : hi}`.padEnd(9)} ${String(idx.length).padStart(5)}   ${fmt(g.mean)} / ${fmt(g.spread)}   `;
+          let line = `  ${look}: ${`${lo}-${hi === 9 ? "" : hi}`.padEnd(9)} ${String(idx.length).padStart(5)}   ${fmt(g.mean)} / ${fmt(g.spread)} L* ${meanL(idx.map((k) => gameAt[k])).toFixed(1)}   `;
           for (const c of cases) {
             const o = meanSpread(idx.map((k) => ours[c.key][k]));
             const distance = Math.sqrt(idx.reduce((a, k) => a + [0, 1, 2].reduce((s2, j) => s2 + (ours[c.key][k][j] - gameAt[k][j]) ** 2, 0) / 3, 0) / idx.length);
             b.ours[c.key] = { ...o, distance };
-            line += `${fmt(o.mean)} / ${fmt(o.spread)} (${distance.toFixed(1)})`.padEnd(34);
+            line += `${fmt(o.mean)} / ${fmt(o.spread)} L* ${meanL(idx.map((k) => ours[c.key][k])).toFixed(1)} (${distance.toFixed(1)})`.padEnd(42);
             if (hi === 9) {
               const t = ((total[look] ??= {})[c.key] ??= { sum: 0, n: 0 });
               t.sum += distance * distance * idx.length;
@@ -447,13 +471,13 @@ async function main() {
           console.log(line);
           bands[`${lo}-${hi}`] = b;
         }
-        results[`${id}-${look}`] = { camera: cam, fit: score, bands };
+        results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, bands };
       }
     }
-    console.log("\nall shots, every clean tile: the distance to the game's pixel (RMS, 0-255)");
+    console.log(`\nall shots, every ${WATER} tile: the distance to the game's pixel (RMS, 0-255)`);
     for (const look of LOOKS) console.log(`  ${look}: ` + Object.entries(total[look] ?? {}).map(([k, t]) => `${k} ${Math.sqrt(t.sum / t.n).toFixed(1)} (${t.n})`).join(", "));
     results.total = Object.fromEntries(Object.entries(total).map(([look, t]) => [look, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { distance: Math.sqrt(v.sum / v.n), n: v.n }]))]));
-    writeFileSync(join(OUT, "judge.json"), JSON.stringify(results, null, 1));
+    writeFileSync(join(OUT, `judge-${WATER}.json`), JSON.stringify(results, null, 1));
   } finally {
     await browser.close();
     for (const s of servers) await new Promise<void>((r) => s.httpServer.close(() => r()));
