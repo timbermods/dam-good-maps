@@ -490,8 +490,11 @@ export const GAME_AMBIENT_LINEAR = {
  *  `E(y) = c0 + c1 y + c2 (3y² − 1)` (the integrals of the gradient against P0, P1, P2 over [−1, 1], each times
  *  (2l + 1) / 2 and its A_l / π). The engine's own projection is not in the game's files; a frame capture of the SH the
  *  game uploads (unity_SHAr..SHC) is still to check it, fix forward. */
-export const GAME_AMBIENT_SH = (() => {
-  const { sky, equator: eq, ground } = GAME_AMBIENT_LINEAR;
+export const GAME_AMBIENT_SH = trilightSH(GAME_AMBIENT_LINEAR.sky, GAME_AMBIENT_LINEAR.equator, GAME_AMBIENT_LINEAR.ground);
+
+/** Any Trilight's irradiance SH (its colours in linear values), as `GAME_AMBIENT_SH` takes the day's; the pixel judge
+ *  takes another time of day's with it (tools/game-day-light.ts). */
+export function trilightSH(sky: Rgb, eq: Rgb, ground: Rgb): { c0: Rgb; c1: Rgb; c2: Rgb } {
   const c = (k: number) => {
     const i0 = 2 * eq[k] + (sky[k] - eq[k]) / 2 + (ground[k] - eq[k]) / 2;
     const i1 = (sky[k] - ground[k]) / 3;
@@ -500,12 +503,12 @@ export const GAME_AMBIENT_SH = (() => {
   };
   const [r, g, b] = [c(0), c(1), c(2)];
   return { c0: [r[0], g[0], b[0]] as Rgb, c1: [r[1], g[1], b[1]] as Rgb, c2: [r[2], g[2], b[2]] as Rgb };
-})();
+}
 
-/** The game's ambient on a face whose normal has height y, in display values (`GAME_AMBIENT_SH`, as SampleSH returns it
- *  under Gamma colour space). */
-export function gameAmbient(y: number): Rgb {
-  const { c0, c1, c2 } = GAME_AMBIENT_SH;
+/** The game's ambient on a face whose normal has height y, in display values (`GAME_AMBIENT_SH`, or another SH, as
+ *  SampleSH returns it under Gamma colour space). */
+export function gameAmbient(y: number, sh: { c0: Rgb; c1: Rgb; c2: Rgb } = GAME_AMBIENT_SH): Rgb {
+  const { c0, c1, c2 } = sh;
   return [0, 1, 2].map((k) => toDisplay(Math.max(0, c0[k] + c1[k] * y + c2[k] * (3 * y * y - 1)))) as unknown as Rgb;
 }
 
