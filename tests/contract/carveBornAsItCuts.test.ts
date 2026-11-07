@@ -47,10 +47,12 @@ async function open(): Promise<{ origin: [number, number]; ground: Uint8Array; w
   return { origin: farFromStart(s), ground: ed.terrainNow().heights.slice(), water: Array.from(s.built.water) };
 }
 
-/** A page's water view as a depth a tile. */
-function depths(v: WaterView): Float64Array {
+/** A page's water view as a depth a tile, on the ground at `heights`: the column on its surface, as `flowForceWater`
+ *  gives them (on a map with caves the view also holds the water under a roof, a cave's pool the carve never touched:
+ *  Highlands 96² seeds 22 and 23, #814). */
+function depths(v: WaterView, heights: Uint8Array): Float64Array {
   const d = new Float64Array(N);
-  for (let k = 0; k < v.count; k++) d[v.tile[k]] += v.depth[k];
+  for (let k = 0; k < v.count; k++) if (v.floor[k] >= heights[v.tile[k]]) d[v.tile[k]] += v.depth[k];
   return d;
 }
 
@@ -99,7 +101,7 @@ describe("Carve's river is born as it cuts (D371)", () => {
     // kept: the map's water flows on from the water shown, not from the water before it
     const kept = ed.forceStop();
     expect(kept.kept).toBe(true);
-    const d = depths(kept.view.water!);
+    const d = depths(kept.view.water!, land);
     let off = 0;
     for (let i = 0; i < N; i++) off = Math.max(off, Math.abs(d[i] - shown(last[i])));
     expect(off).toBeLessThan(1e-4);
@@ -124,14 +126,14 @@ describe("Carve's river is born as it cuts (D371)", () => {
     const back = ed.forceCancel(7001);
     expect(back.taken).toBe("work");
     expect(ed.flowForceWater(1)).toBeNull();
-    const d = depths(back.water!);
+    const d = depths(back.water!, ed.terrainNow().heights);
     for (let i = 0; i < N; i++) expect(d[i]).toBeCloseTo(shown(water[i]), 4);
     // Esc (skipped to its end, kept): the map's water flows on from the water flowing when it came
     const now = partWay(7002);
     const kept = ed.forceStop(7002);
     expect(kept.kept).toBe(true);
     expect(ed.flowForceWater(1)).toBeNull();
-    const k = depths(kept.view.water!);
+    const k = depths(kept.view.water!, ed.terrainNow().heights);
     for (let i = 0; i < N; i++) expect(k[i]).toBeCloseTo(shown(now[i]), 4);
     ed.undo();
     ed.settleWater();
@@ -183,9 +185,19 @@ describe("Carve's river is born as it cuts (D371)", () => {
       shown.push(Float64Array.from(ed.flowForceWater(6)!));
     }
     // (a thin sheet's own waves, crest to crest about twelve ticks, would alternate every frame if shown as they are)
-    const wet = (d: number) => d > 0.05;
+    // A blink swings a hundredth of a level past the line and back: a sheet hovering on it, a few thousandths up and
+    // down at a depth drawn as whole water (WATER_FILM.to), draws the same in every frame (Highlands 96² seeds 22 and
+    // 25, #814).
+    const LINE = 0.05;
+    const SWING = 0.01;
+    const side = (d: number) => (d >= LINE + SWING ? 1 : d <= LINE - SWING ? -1 : 0);
     let blinks = 0;
-    for (let u = 2; u < shown.length; u++) for (let i = 0; i < N; i++) if (wet(shown[u - 2][i]) === wet(shown[u][i]) && wet(shown[u - 1][i]) !== wet(shown[u][i])) blinks++;
+    for (let u = 2; u < shown.length; u++)
+      for (let i = 0; i < N; i++) {
+        const a = side(shown[u - 2][i]);
+        const b = side(shown[u - 1][i]);
+        if (a !== 0 && a === side(shown[u][i]) && b === -a) blinks++;
+      }
     // (shown as they are, about one a frame on this map; averaged, about one every six)
     expect(blinks / shown.length, `${blinks} blinks in ${shown.length} frames`).toBeLessThan(0.5);
     ed.forceStop();
