@@ -144,7 +144,7 @@ export function useStart(ed: Ed): StartSlice {
     const s = startHere;
     hit ??= house;
     // (a force picked takes the map's clicks, the start's ground too: D257)
-    if (!hit || !s || brushToolRef.current || shelfRef.current || toolRef.current || ed.blockRef.current) return null;
+    if (!hit || !s || brushToolRef.current || shelfRef.current || toolRef.current || ed.blockRef.current || ed.renderer.current?.objectsHidden) return null;
     if (!house && Math.max(Math.abs(hit.x - s.x), Math.abs(hit.y - s.y)) > 1) return null;
     const from: [number, number] = [hit.x, hit.y];
     let d: [number, number] = [0, 0];
