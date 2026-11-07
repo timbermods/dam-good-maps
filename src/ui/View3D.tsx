@@ -327,7 +327,8 @@ export function View3D(props: View3DProps) {
   useEffect(() => {
     const press = (ev: PointerEvent) => {
       const r = renderer.current;
-      if (ev.button !== 1 || !r || ev.target !== r.canvas || r.getView().mode !== "top") return;
+      // (Alt+middle picks a tile's layer, D184: a click, not a camera move, read through the view as it is)
+      if (ev.button !== 1 || ev.altKey || !r || ev.target !== r.canvas || r.getView().mode !== "top") return;
       pick("orbit");
     };
     window.addEventListener("pointerdown", press, true);
