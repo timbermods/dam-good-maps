@@ -9,10 +9,16 @@ import type { ImportFlag } from "../../core/format/normalize";
 import type { Ed } from "../ed";
 import { heroPicture } from "./hero";
 
+/** File → Save a picture's size (pixels): full HD, sharp on any screen and small to share. */
+const PICTURE_W = 1920;
+const PICTURE_H = 1080;
+
 const MOVE_IT = `Move the file to ${TIMBERBORN_MAPS_PATH}, then start a new game and pick the map.`;
 
 export interface SaveSlice {
   exportProject: () => Promise<void>;
+  /** File → Save a picture: the map from the game's opening view, drawn large (D488's picture) and saved as a JPEG. */
+  exportPicture: () => Promise<void>;
   saveMap: (kind: "timberborn" | "download") => Promise<void>;
   /** File -> Choose Maps folder…: pick or change the folder Save to Timberborn writes to. */
   chooseFolder: () => Promise<void>;
@@ -34,6 +40,28 @@ export function useSave(ed: Ed): SaveSlice {
     const p = await enqueue(() => api.project());
     saveFile(p.bytes, p.fileName, "application/gzip");
     setMessage({ kind: "info", text: `Saved ${p.fileName}. Open it again from File.` });
+  }
+
+  /** File → Save a picture: the map as it stands, from the game's opening view, in the High look at 1920×1080 (the
+   *  saved file's picture, D488, drawn large), saved as a JPEG to share. */
+  async function exportPicture() {
+    await ed.forcer.current?.stop();
+    ed.endRolls?.();
+    setMessage({ kind: "info", text: "Drawing the picture…" });
+    try {
+      const { view, fileName } = await enqueue(() => api.pictureView());
+      const { heroPicture } = await import("../../render3d/hero");
+      const jpeg = await heroPicture(view, { width: PICTURE_W, height: PICTURE_H, quality: 0.92 });
+      if (!jpeg) {
+        setMessage({ kind: "error", text: "No picture: this browser can't draw the map in 3D" });
+        return;
+      }
+      saveFile(jpeg, fileName, "image/jpeg");
+      setMessage({ kind: "info", text: `Saved ${fileName}.` });
+    } catch (e) {
+      console.warn("The picture could not be drawn.", e);
+      setMessage({ kind: "error", text: "No picture: drawing it failed" });
+    }
   }
 
   /** Save the map for Timberborn (D184): the canonical settle and every check, with progress on the
@@ -102,5 +130,5 @@ export function useSave(ed: Ed): SaveSlice {
 
   const flags = info.importReport?.flags ?? [];
 
-  return { exportProject, saveMap, chooseFolder, flags };
+  return { exportProject, exportPicture, saveMap, chooseFolder, flags };
 }

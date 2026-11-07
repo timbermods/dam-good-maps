@@ -38,6 +38,15 @@ export interface LapseProgress {
   steps: number;
 }
 
+/** The history has no step to replay since the map's land began (a cropped map's edits before its crop are another
+ *  map's): the dialog says there is nothing to replay. */
+export class NothingToReplay extends Error {
+  constructor() {
+    super("Nothing to replay");
+    this.name = "NothingToReplay";
+  }
+}
+
 export interface LapseResult {
   blob: Blob;
   frames: number;
@@ -159,6 +168,7 @@ export async function recordTimelapse(o: LapseOptions): Promise<LapseResult> {
     const opened = await api.open(o.project);
     aborted(o.signal);
     const { W, H, steps, start, end } = opened;
+    if (!steps.length) throw new NothingToReplay();
     const plan = lapsePlan(steps, W, H);
     const camera = lapseCamera(plan, start.heights, W, H, end.entities);
     report({ phase: "prepare", frame: 0, frames: plan.frames, steps: steps.length });
