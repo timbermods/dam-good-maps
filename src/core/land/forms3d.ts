@@ -996,7 +996,7 @@ function arch(c: Ctx, s: Site): FormPlan | null {
     const wetAt = (i: number, z: number) => inp.water[i] > 0.01 && z >= heights[i] && z < heights[i] + inp.water[i];
     let seen: ReturnType<typeof seeThrough> | null = null;
     const reads = () => {
-      seen = seeThrough({ W, H, mask, wet: wetAt }, underRock(mask, N, kept.keys()));
+      seen = seeThrough({ W, H, mask, wet: wetAt }, underRock(mask, N, kept.keys()), true);
       return readsThrough(seen, [along[0] ? 0 : 2]);
     };
     if (!commit(c, kept, reads)) return null;
@@ -1018,7 +1018,7 @@ function arch(c: Ctx, s: Site): FormPlan | null {
   return null;
 }
 
-// ------------------------------------------------------------------------------- arch worn through rock
+/// ------------------------------------------------------------------------------- arch worn through rock
 
 /** The least air under an arch worn through rock over dry ground (over water, `ARCH_CLEAR` over it). */
 const ROCK_OPEN = 3;
@@ -1028,34 +1028,54 @@ const ROCK_TRIES = 24;
 /** How far apart two arches worn through rock stand at least (tiles). */
 const ROCK_APART = 20;
 
-/** A window through a thin wall of rock: from the low tile at (x, y) along `a`, rock `T` thick to the
- *  low tile beyond, `w` lines wide along the wall (`p`). */
+/** One line of a window through a wall of rock, along `a`: from its low mouth `o` tiles along `a` from
+ *  the window's line through (x, y) (a ridge that runs aslant steps sideways from line to line), rock
+ *  `T` thick to the low mouth beyond; the mouths' floors and the water's surfaces at them. */
+interface RockLine {
+  o: number;
+  T: number;
+  fa: number;
+  fb: number;
+  sa: number;
+  sb: number;
+  top: number;
+}
+
+/** A window through a thin wall of rock: its lines, `w` of them side by side along the wall (`p`), the
+ *  first through (x, y). */
 interface RockSite {
   x: number;
   y: number;
   a: readonly [number, number];
   p: readonly [number, number];
   w: number;
-  /** Each line's thickness, its mouths' floors and the water's surface at them (rounded up). */
-  lines: { T: number; fa: number; fb: number }[];
-  /** The opening's floor at its highest, the water's surface over it (0 when dry), the rock's least top. */
+  lines: RockLine[];
+  /** The opening's floor at its highest, the water's surface over it (rounded up, 0 when dry), the
+   *  rock's least top. */
   floor: number;
   water: number;
   rock: number;
   score: number;
 }
 
-/** Arches worn through rock (D503): a ridge, a fin or a headland 1–4 tiles thick between low ground or
- *  water on both sides, open beyond each, worn through at the low ground's level; kept only where the
- *  game's camera sees through it both ways (analysis/seeThrough.ts `readsThrough`). The surface is kept. */
+/** The tile `k` along line `j` of a window (k = 0 its first mouth, T + 1 the other). */
+function rockTile(s: Pick<RockSite, "x" | "y" | "a" | "p">, j: number, o: number, k: number, W: number): number {
+  return (s.y + s.p[1] * j + s.a[1] * (o + k)) * W + s.x + s.p[0] * j + s.a[0] * (o + k);
+}
+
+/** Arches worn through rock (D503): a ridge, a fin or a headland 1–4 tiles thick (5 from Verticality 50)
+ *  between low ground or water on both sides, open beyond each, worn through at the low ground's level
+ *  between jambs of the same rock; kept only where the game's camera sees through it both ways
+ *  (analysis/seeThrough.ts `readsThrough`). The surface is kept. */
 function rockArches(c: Ctx, n: number): { forms: FormPlan[]; why: string } {
   const { inp, mask, used, rng } = c;
   const { W, H, heights, water, keep, plants } = inp;
   const surf = (i: number) => heights[i] + (water[i] > 0.01 ? water[i] : 0);
   const thickest = 4 + (inp.vt >= 50 ? 1 : 0);
+  const widest = 3 + (inp.vt >= 50 ? 1 : 0);
   const free = (i: number) => !keep[i] && !used[i] && mask[i] === plainMask(heights[i]);
   // one line through the wall from the low tile at (x, y) along a: its thickness and its mouths
-  const line = (x: number, y: number, a: readonly [number, number]): { T: number; fa: number; fb: number; sa: number; sb: number; top: number } | null => {
+  const line = (x: number, y: number, a: readonly [number, number], o: number): RockLine | null => {
     if (!inside(W, H, x, y, MARGIN + 3)) return null;
     const A = y * W + x;
     if (used[A] || mask[A] !== plainMask(heights[A])) return null;
@@ -1080,22 +1100,36 @@ function rockArches(c: Ctx, n: number): { forms: FormPlan[]; why: string } {
     const B = (y + a[1] * (T + 1)) * W + x + a[0] * (T + 1);
     const fb = heights[B];
     const sb = surf(B);
-    if (Math.abs(fa - fb) > 2 || top < Math.max(Math.ceil(sb) + ARCH_CLEAR, fb + ROCK_OPEN) + 1) return null;
-    return { T, fa, fb, sa, sb, top };
+    if (Math.abs(fa - fb) > 3 || top < Math.max(Math.ceil(sb) + ARCH_CLEAR, fb + ROCK_OPEN) + 1) return null;
+    return { o, T, fa, fb, sa, sb, top };
   };
-  // a jamb: the wall's rock beside a window's line, standing tall enough to hold its roof
-  const jamb = (x: number, y: number, a: readonly [number, number], T: number) => {
-    const A = y * W + x;
-    if (!inside(W, H, x, y, MARGIN)) return false;
-    for (let k = 1; k <= T; k++) {
-      const i = A + (a[0] + a[1] * W) * k;
-      if (heights[i] < heights[A] + ROCK_OPEN + 2 || mask[i] !== plainMask(heights[i]) || used[i]) return false;
+  // the next line along the wall: its mouth at most two tiles along a from the last one's, its rock
+  // overlapping the last one's, so the roof runs on whole
+  const next = (x: number, y: number, a: readonly [number, number], p: readonly [number, number], j: number, last: RockLine): RockLine | null => {
+    for (const d of [0, -1, 1, -2, 2]) {
+      const o = last.o + d;
+      const l = line(x + p[0] * j + a[0] * o, y + p[1] * j + a[1] * o, a, o);
+      if (l && o + 1 <= last.o + last.T && last.o + 1 <= o + l.T) return l;
     }
-    return true;
+    return null;
   };
-  const widest = 3 + (inp.vt >= 50 ? 1 : 0);
+  // a jamb: the wall's rock beside a window's end line standing tall enough to hold its roof, on at
+  // least half the line's thickness (a window at the wall's end would be a notch, not an arch)
+  const jamb = (x: number, y: number, a: readonly [number, number], l: RockLine, floor: number) => {
+    let n = 0;
+    for (let k = 1; k <= l.T; k++) {
+      const xx = x + a[0] * (l.o + k);
+      const yy = y + a[1] * (l.o + k);
+      if (!inside(W, H, xx, yy, MARGIN)) return false;
+      const i = yy * W + xx;
+      if (heights[i] >= floor + ROCK_OPEN + 2 && mask[i] === plainMask(heights[i]) && !used[i]) n++;
+    }
+    return 2 * n >= l.T;
+  };
   // open beyond a mouth: the next three tiles out no higher than the opening's floor and a level
-  const open = (x: number, y: number, d: readonly [number, number], lim: number) => {
+  const open = (i: number, d: readonly [number, number], lim: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
     for (let k = 1; k <= 3; k++) {
       const xx = x + d[0] * k;
       const yy = y + d[1] * k;
@@ -1109,35 +1143,39 @@ function rockArches(c: Ctx, n: number): { forms: FormPlan[]; why: string } {
     const p: readonly [number, number] = [a[1], a[0]];
     for (let y = MARGIN + 3; y < H - MARGIN - 3; y++)
       for (let x = MARGIN + 3; x < W - MARGIN - 3; x++) {
-        const first = line(x, y, a);
+        const first = line(x, y, a, 0);
         if (!first) continue;
-        // its lines: as many as the window is wide (2–3, 4 at Verticality 50 and above), the rock beside
-        // it standing on both sides as its jambs, which hold its roof
+        // its lines: as many as the window is wide (2–3, 4 from Verticality 50), following the wall
         const lines = [first];
         while (lines.length < widest) {
-          const l = line(x + p[0] * lines.length, y + p[1] * lines.length, a);
+          const l = next(x, y, a, p, lines.length, lines[lines.length - 1]);
           if (!l) break;
           lines.push(l);
         }
-        while (lines.length >= 2 && !(jamb(x - p[0], y - p[1], a, lines[0].T) && jamb(x + p[0] * lines.length, y + p[1] * lines.length, a, lines[lines.length - 1].T))) lines.pop();
+        // (framed: the wall's rock stands beside both its end lines as its jambs)
+        for (; lines.length >= 2; lines.pop()) {
+          const floor = Math.max(...lines.map((l) => Math.max(l.fa, l.fb)));
+          const last = lines[lines.length - 1];
+          if (jamb(x - p[0], y - p[1], a, lines[0], floor) && jamb(x + p[0] * lines.length, y + p[1] * lines.length, a, last, floor)) break;
+        }
         if (lines.length < 2) continue;
         const floor = Math.max(...lines.map((l) => Math.max(l.fa, l.fb)));
         const wet = Math.max(...lines.map((l) => Math.max(l.sa > l.fa ? l.sa : 0, l.sb > l.fb ? l.sb : 0)));
         const rock = Math.min(...lines.map((l) => l.top));
         const lim = Math.max(floor, Math.ceil(wet)) + 1;
-        const mid = lines[Math.floor(lines.length / 2)];
-        const mx = x + p[0] * Math.floor(lines.length / 2);
-        const my = y + p[1] * Math.floor(lines.length / 2);
-        if (!open(mx, my, [-a[0], -a[1]], lim) || !open(mx + a[0] * (mid.T + 1), my + a[1] * (mid.T + 1), a, lim)) continue;
+        const j = Math.floor(lines.length / 2);
+        const mid = lines[j];
+        const site = { x, y, a, p };
+        if (!open(rockTile(site, j, mid.o, 0, W), [-a[0], -a[1]], lim) || !open(rockTile(site, j, mid.o, mid.T + 1, W), a, lim)) continue;
         // (a plant rides on a dry arch's rock; over water under the roof it would read as standing in it)
         const tiles: number[] = [];
-        lines.forEach((l, j) => {
-          for (let k = 1; k <= l.T; k++) tiles.push((y + p[1] * j + a[1] * k) * W + x + p[0] * j + a[0] * k);
+        lines.forEach((l, q) => {
+          for (let k = 1; k <= l.T; k++) tiles.push(rockTile(site, q, l.o, k, W));
         });
         if (wet > 0 && tiles.some((i) => plants[i])) continue;
         const thick = Math.max(...lines.map((l) => l.T));
         // (the tallest and thinnest first: they read best)
-        sites.push({ x, y, a, p, w: lines.length, lines: lines.map((l) => ({ T: l.T, fa: l.fa, fb: l.fb })), floor, water: Math.ceil(wet), rock, score: rock - Math.max(floor, Math.ceil(wet)) - thick });
+        sites.push({ ...site, w: lines.length, lines, floor, water: wet > 0 ? Math.ceil(wet) : 0, rock, score: rock - Math.max(floor, Math.ceil(wet)) - thick });
       }
   }
   if (!sites.length) return { forms: [], why: "no thin rock between open ground" };
@@ -1153,7 +1191,7 @@ function rockArches(c: Ctx, n: number): { forms: FormPlan[]; why: string } {
     if (tried.has(key) || forms.some((f) => Math.max(Math.abs((f.at % W) - s.x), Math.abs(Math.floor(f.at / W) - s.y)) < ROCK_APART)) continue;
     let clash = false;
     s.lines.forEach((l, j) => {
-      for (let k = 0; k <= l.T + 1; k++) if (used[(s.y + s.p[1] * j + s.a[1] * k) * W + s.x + s.p[0] * j + s.a[0] * k]) clash = true;
+      for (let k = 0; k <= l.T + 1; k++) if (used[rockTile(s, j, l.o, k, W)]) clash = true;
     });
     if (clash) continue;
     tried.add(key);
@@ -1165,8 +1203,9 @@ function rockArches(c: Ctx, n: number): { forms: FormPlan[]; why: string } {
 }
 
 /** The window at a site: worn through from mouth to mouth, its underside curved across its width
- *  (high in the middle, low at the jambs) and worn a level here and there, under a roof of two levels
- *  where the rock has them, one where it does not; null when nothing it leaves stands and reads. */
+ *  (high in the middle, a level lower at the jambs) and worn a level here and there, under a roof of
+ *  two levels where the rock has them, one where it does not; null when nothing it leaves stands and
+ *  reads. */
 function rockArch(c: Ctx, s: RockSite): FormPlan | null {
   const { inp, mask, rng } = c;
   const { W, H } = inp;
@@ -1181,12 +1220,9 @@ function rockArch(c: Ctx, s: RockSite): FormPlan | null {
   const cellsOf = (u: number): Map<number, number> => {
     const change = new Map<number, number>();
     s.lines.forEach((l, j) => {
-      // (the underside curved across the width: the jambs a level lower, the middle as tall)
       const edge = s.w >= 3 && (j === 0 || j === s.w - 1);
       for (let k = 1; k <= l.T; k++) {
-        const x = s.x + s.p[0] * j + s.a[0] * k;
-        const y = s.y + s.p[1] * j + s.a[1] * k;
-        const i = y * W + x;
+        const i = rockTile(s, j, l.o, k, W);
         // the floor runs from mouth to mouth between theirs
         const f = Math.round(l.fa + ((l.fb - l.fa) * k) / (l.T + 1));
         let w = wear.get(i);
@@ -1201,34 +1237,29 @@ function rockArch(c: Ctx, s: RockSite): FormPlan | null {
     return change;
   };
   // the water a trial reads under the new roof: up to the mouths' surface, from the window's floor
+  const cellFloor = new Map<number, number>();
   const wetAt = (i: number, z: number): boolean => {
     const h = inp.heights[i];
     const w = inp.water[i];
     if (w > 0.01 && z >= h && z < h + w) return true;
-    if (s.water > 0 && cellTiles.has(i)) return z >= cellFloor.get(i)! && z < s.water - 0.5;
-    return false;
+    const f = cellFloor.get(i);
+    return s.water > 0 && f !== undefined && z >= f && z < s.water - 0.5;
   };
-  const cellTiles = new Set<number>();
-  const cellFloor = new Map<number, number>();
   for (const u of roofs) {
     const change = cellsOf(u);
-    cellTiles.clear();
     cellFloor.clear();
-    for (const [i, m] of change) {
-      cellTiles.add(i);
-      cellFloor.set(i, m & 1 ? bottomTop(m) : 0);
-    }
+    for (const [i, m] of change) cellFloor.set(i, bottomTop(m));
     let seen: ReturnType<typeof seeThrough> | null = null;
     const reads = () => {
-      seen = seeThrough({ W, H, mask, wet: wetAt }, underRock(mask, N, change.keys()));
+      seen = seeThrough({ W, H, mask, wet: wetAt }, underRock(mask, N, change.keys()), true);
       return readsThrough(seen, [s.a[0] ? 0 : 2]);
     };
     if (!commit(c, change, reads)) continue;
     const s2 = seen! as ReturnType<typeof seeThrough>;
     // its heart: the middle line's middle; best seen from the side its sightlines come from most
-    const mid = s.lines[Math.floor(s.w / 2)];
-    const k = Math.max(1, Math.round(mid.T / 2));
-    const at = (s.y + s.p[1] * Math.floor(s.w / 2) + s.a[1] * k) * W + s.x + s.p[0] * Math.floor(s.w / 2) + s.a[0] * k;
+    const j = Math.floor(s.w / 2);
+    const mid = s.lines[j];
+    const at = rockTile(s, j, mid.o, Math.max(1, Math.round(mid.T / 2)), W);
     const [hx, hy] = SEE_HEADINGS[bestHeading(s2)];
     const ax = at % W;
     const ay = (at - ax) / W;

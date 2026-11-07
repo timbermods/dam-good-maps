@@ -515,17 +515,20 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
 /** The 3D forms a map looks for (D488, gen/forms3d.ts `formsWanted`): its own draw, the same on
  *  every attempt, at every Verticality but 0 (rarer the lower it is: the ordinary map at its theme's
  *  default finds a cave or a shelter where its land offers one, an arch worn through rock and an
- *  overhanging cliff (D503), and an arch over a gorge from 35; its edits keep their live water since
+ *  overhanging cliff at 128² and over (D503), and an arch over a gorge from 35; its edits keep their live water since
  *  #606, D280); no arch over a gorge above 128² (its deck changes the land seen from above, and the
  *  first look is not held there, D348), no spring cave on a map made with Sources: None. */
 export function formsFor(spec: MapSpec): FormsWanted {
   const want = formsWanted(spec.theme, spec.settings.terrain.verticality, stream(spec.seed, "forms3d"));
   if (spec.size.x * spec.size.y > SHOW_PROVED_MOST) delete want["gorge-arch"];
-  // (an arch worn through rock and an overhanging cliff keep the surface, so they grow at every size: one
-  // more of each for each whole 128² past the first on a larger map, D503)
-  const more = Math.max(0, Math.floor((spec.size.x * spec.size.y) / (128 * 128)) - 1);
-  if (want["rock-arch"]) want["rock-arch"] += more;
-  if (want["cliff-overhang"]) want["cliff-overhang"] += more;
+  // (an arch worn through rock and an overhanging cliff keep the surface, so they grow at 128² and over,
+  // one more of each for each whole 128² past the first; not below, where D502 found forms drying a
+  // small map's water out in drought and setting off rescue rounds, D503)
+  const wholes = Math.floor((spec.size.x * spec.size.y) / (128 * 128));
+  for (const id of ["rock-arch", "cliff-overhang"] as const) {
+    if (!wholes) delete want[id];
+    else if (want[id]) want[id] += wholes - 1;
+  }
   if (spec.settings.water.sources === "none") delete want["spring-cave"];
   return want;
 }

@@ -62,8 +62,9 @@ export interface SeeThrough {
 }
 
 /** The sightlines through the openings at `cells` (air voxels under rock: tile index and layer, as
- *  `z * W * H + i`). */
-export function seeThrough(t: SeeTerrain, cells: readonly number[]): SeeThrough {
+ *  `z * W * H + i`). `quick`: only what `readsThrough` reads (45°, then 30° only when 45° sees through
+ *  enough; the rest left 0), for a grower trying many places. */
+export function seeThrough(t: SeeTerrain, cells: readonly number[], quick = false): SeeThrough {
   const { W, H, mask } = t;
   const N = W * H;
   const solid = (x: number, y: number, z: number): boolean => {
@@ -71,19 +72,24 @@ export function seeThrough(t: SeeTerrain, cells: readonly number[]): SeeThrough 
     if (z >= TERRAIN_LAYERS || x < 0 || y < 0 || x >= W || y >= H) return false;
     return !!(mask[Math.floor(y) * W + Math.floor(x)] & (1 << Math.floor(z)));
   };
+  // (rock over a point: the tile's top stands above its layer)
+  const tops = new Uint8Array(N);
+  let highest = 0;
+  for (let i = 0; i < N; i++) {
+    tops[i] = mask[i] === 0 ? 0 : 32 - Math.clz32(mask[i]);
+    if (tops[i] > highest) highest = tops[i];
+  }
   const roofed = (x: number, y: number, z: number): boolean => {
     if (x < 0 || y < 0 || x >= W || y >= H) return false;
-    const m = mask[Math.floor(y) * W + Math.floor(x)];
-    for (let k = Math.floor(z) + 1; k < TERRAIN_LAYERS; k++) if (m & (1 << k)) return true;
-    return false;
+    return tops[Math.floor(y) * W + Math.floor(x)] > Math.floor(z) + 1;
   };
-  // (a ray up toward the camera is clear once it stands over the highest rock)
-  let highest = 0;
-  for (let i = 0; i < N; i++) if (mask[i]) highest = Math.max(highest, 32 - Math.clz32(mask[i]));
-  const lines: number[] = [];
-  const beyond: number[] = [];
-  const ways: number[][] = [];
-  for (const [cp, sp] of SEE_PITCHES) {
+  const lines = [0, 0, 0];
+  const beyond = [0, 0, 0];
+  const ways = SEE_PITCHES.map(() => SEE_HEADINGS.map(() => 0));
+  // (45° first: a quick look stops there when too little is seen through)
+  for (const at of [1, 0, 2]) {
+    if (quick && at !== 1 && (at === 2 || beyond[1] < SEE_LEAST)) break;
+    const [cp, sp] = SEE_PITCHES[at];
     let n = 0;
     const landed = new Set<number>();
     const by = SEE_HEADINGS.map(() => new Set<number>());
@@ -149,9 +155,9 @@ export function seeThrough(t: SeeTerrain, cells: readonly number[]): SeeThrough 
         }
       }
     }
-    lines.push(n);
-    beyond.push(landed.size);
-    ways.push(by.map((b) => b.size));
+    lines[at] = n;
+    beyond[at] = landed.size;
+    ways[at] = by.map((b) => b.size);
   }
   return { lines, beyond, ways };
 }

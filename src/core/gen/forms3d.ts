@@ -35,8 +35,8 @@ export function formsWanted(theme: ThemeId, vt: number, rng: Rng): FormsWanted {
   if (vt >= 35 && u[2] < Math.min(0.9, ((vt - 25) / 60) * arch)) out["gorge-arch"] = 1 + (vt >= 70 && u[3] < 0.6 ? 1 : 0);
   // (an arch worn through rock and an overhanging cliff look for their place on most maps from the
   // ordinary Verticality up, D503: the land decides whether one stands)
-  if (u[4] < Math.min(0.9, 0.6 + vt / 100)) out["rock-arch"] = 1 + (vt >= 60 && u[5] < 0.5 ? 1 : 0);
-  if (u[6] < Math.min(0.85, 0.45 + vt / 100)) out["cliff-overhang"] = 1 + (vt >= 60 ? 1 : 0);
+  if (u[4] < Math.min(0.95, 0.75 + vt / 100)) out["rock-arch"] = 1 + (vt >= 60 && u[5] < 0.5 ? 1 : 0);
+  if (u[6] < Math.min(0.9, 0.65 + vt / 100)) out["cliff-overhang"] = 1 + (vt >= 60 ? 1 : 0);
   return out;
 }
 
@@ -185,7 +185,7 @@ export function checkForm(form: FormPlan, built: BuildResult, owner: string | nu
         const low = roofOver(i, surface);
         if (low >= surface) air = Math.min(air, low - surface);
       }
-      const see = seeThrough({ W, H, mask, wet: wetOf(stack, N) }, underRock(mask, N, deck));
+      const see = seeThrough({ W, H, mask, wet: wetOf(stack, N) }, underRock(mask, N, deck), true);
       // (both ways down the gorge: its `from` stands along it)
       const along = Math.abs((form.from % W) - (form.at % W)) >= Math.abs(Math.floor(form.from / W) - Math.floor(form.at / W)) ? 0 : 2;
       const through = readsThrough(see, [along]);
@@ -193,7 +193,7 @@ export function checkForm(form: FormPlan, built: BuildResult, owner: string | nu
       return { ok, note: `${over} of ${deck.length} deck tiles over water, ${air === 99 ? 0 : air} levels of air under it, ${through ? "seen through" : "not seen through"} (${see.beyond[1]} tiles beyond at 45°)`, ...(ok ? { say: `A natural arch spans the gorge, the river running ${air} levels under it.` } : {}) };
     }
     case "rock-arch": {
-      const see = seeThrough({ W, H, mask, wet: wetOf(stack, N) }, underRock(mask, N, form.tiles));
+      const see = seeThrough({ W, H, mask, wet: wetOf(stack, N) }, underRock(mask, N, form.tiles), true);
       const ok = readsThrough(see);
       const say = form.over === "water" ? "A natural arch stands in the water, worn through the rock, the water beyond seen under it." : "A natural arch is worn through a ridge of rock, the land beyond seen under it.";
       return { ok, note: `${ok ? "seen through" : "not seen through"}: ${see.beyond[1]} tiles beyond at 45°, ${see.beyond[0]} at 30°`, ...(ok ? { say } : {}) };

@@ -20,7 +20,7 @@ const [a, b] = arg("seeds", "1-4").split("-").map(Number);
 const size = Number(arg("size", "128"));
 const vt = arg("vt", "");
 
-const rows: { theme: string; seed: number; ms: number; forms: Record<string, number>; arches: number; seen: number; overhangs: number; deep: number; detail: string[] }[] = [];
+const rows: { theme: string; seed: number; ms: number; forms: Record<string, number>; arches: number; seen: number; overhangs: number; deep: number; detail: string[]; dropped: string[] }[] = [];
 for (const theme of themes)
   for (let seed = a; seed <= (b ?? a); seed++) {
     const spec = makeSpec({ seed, theme, size: { x: size, y: size } });
@@ -77,7 +77,9 @@ for (const theme of themes)
         detail.push(`${kind} ${ax},${ay}: roof ${most} deep, ${two} tiles 2+ deep${ok ? "" : " (shallow)"}`);
       } else detail.push(`${kind} ${ax},${ay}`);
     }
-    const row = { theme, seed, ms, forms, arches, seen, overhangs, deep, detail };
+    // (and the forms looked for that did not stand, with why)
+    const dropped = r.intentions.filter((x) => !x.ok && FORMS.includes(x.id as FormId)).map((x) => `${x.id}: ${x.note}`);
+    const row = { theme, seed, ms, forms, arches, seen, overhangs, deep, detail, dropped };
     rows.push(row);
     console.log(JSON.stringify(row));
   }
