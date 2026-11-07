@@ -11,7 +11,7 @@
 import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, TorusGeometry, Vector3, type Group, type ShaderMaterial } from "three";
 import type { EntityView } from "../model";
 import { whenIdle } from "../idle";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, THORNS, WARM_TINT, type Rgb } from "../palette";
+import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, THORNS, type Rgb } from "../palette";
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 const hash = (i: number) => {
@@ -39,8 +39,7 @@ class Parts {
     if (source !== g) g.dispose();
     return this;
   }
-  /** Another geometry's triangles, its colours × `tint`. */
-  copy(g: BufferGeometry, tint: Rgb = [1, 1, 1]): this {
+  copy(g: BufferGeometry): this {
     const src = g.index ? g.toNonIndexed() : g;
     const p = src.getAttribute("position");
     const n = src.getAttribute("normal");
@@ -49,7 +48,7 @@ class Parts {
     for (let i = 0; i < p.count; i++) {
       this.pos.push(p.getX(i), p.getY(i), p.getZ(i));
       this.norm.push(n.getX(i), n.getY(i), n.getZ(i));
-      this.col.push(c.getX(i) * tint[0], c.getY(i) * tint[1], c.getZ(i) * tint[2]);
+      this.col.push(c.getX(i), c.getY(i), c.getZ(i));
       this.lod.push(l ? l.getX(i) : 0);
     }
     if (src !== g) src.dispose();
@@ -197,10 +196,8 @@ function geometryFor(name: string, batch: string, base: BufferGeometry): BufferG
   const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
   let g = models.get(key);
   if (!g) {
-    // (the start and the sources are the game's models, D496: Standard's own, in High's materials and light; the start's
-    // stone is given as it reads under the warm sun, palette.ts `START`, so High takes that tint out for its own sun)
-    if (name === "StartingLocation") g = new Parts().copy(base, [1 / WARM_TINT[0], 1, 1 / WARM_TINT[2]]).geometry();
-    else if (name === "WaterSource" || name === "BadwaterSource") g = new Parts().copy(base).geometry();
+    // (the start and the sources are the game's models, D496: Standard's own, in High's materials and light)
+    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource") g = new Parts().copy(base).geometry();
     else if (name.endsWith("Relic")) g = relic(name);
     else if (name === "Thorns") g = bramble();
     else if (name === "GeothermalField") g = geothermal();

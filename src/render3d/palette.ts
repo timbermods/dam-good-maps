@@ -318,34 +318,15 @@ export const LIGHT = {
   haze: [0.4470589, 0.7607844, 0.8235295] as Rgb,
 } as const;
 
-/** High's warm sunlight (#65, high/highLook.ts `SUNLIGHT`): the sun and the sky as factors on Standard's. */
-export const HIGH_SUNLIGHT = { sun: [1.48, 1.3, 1.1] as Rgb, sky: 0.97 } as const;
-/** How High's warm sunlight changes the light on a sunlit wall from Standard's (`LIGHT`, the objects' light in
- *  materials.ts: the sky × 0.7 and the sun × 0.55 × its cosine on a wall turned 45° from it), over its green: how a colour
- *  of the game's reads in High, as Standard draws it. High takes it out again for the models given this way
- *  (high/landmarks.ts). */
-export const WARM_TINT: Rgb = (() => {
-  const ndl = 0.55 * Math.cos(LIGHT.sunElevation) * Math.SQRT1_2;
-  const lit = (sun: Rgb, sky: number) => [0, 1, 2].map((i) => LIGHT.sky[i] * 0.7 * sky + LIGHT.sun[i] * ndl * sun[i]);
-  const std = lit([1, 1, 1], 1);
-  const high = lit(HIGH_SUNLIGHT.sun, HIGH_SUNLIGHT.sky);
-  const r = [0, 1, 2].map((i) => high[i] / std[i]);
-  return [r[0] / r[1], 1, r[2] / r[1]];
-})();
-
-/** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale stone. Its texture is
- *  a neutral grey, its parts shaded by their vertex colours, area-weighted means read from the game's model: walls and
- *  shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at 0.96, the lantern's inside and the openings
- *  about 0.36. At our lightness they all pass white, so they keep the game's ratios with the roof's sunlit side just
- *  under white, and they are given as they read under High's warm sun (`WARM_TINT`): a pale warm stone, the same in Standard
- *  as in High, which takes the tint out for its own sun (high/landmarks.ts). */
-const START_SCALE = 0.86 / (0.963 * WARM_TINT[0]);
-const startGrey = (g: number): Rgb => [g * START_SCALE * WARM_TINT[0], g * START_SCALE, g * START_SCALE * WARM_TINT[2]];
+/** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
+ *  texture is a neutral grey, its parts shaded by their vertex colours: the game's own greys, area-weighted means read
+ *  from its model (walls and shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at 0.96, the lantern's
+ *  inside and the openings about 0.36), as the trees show the game's own colour in every look. */
 export const START = {
-  stone: startGrey(0.79),
-  trim: startGrey(0.84),
-  roof: startGrey(0.963),
-  dark: startGrey(0.36),
+  stone: [0.79, 0.79, 0.79] as Rgb,
+  trim: [0.84, 0.84, 0.84] as Rgb,
+  roof: [0.963, 0.963, 0.963] as Rgb,
+  dark: [0.36, 0.36, 0.36] as Rgb,
 } as const;
 
 /** Soil moisture (the game's levels, 0–16) and contamination (0–1) as bytes: 0 stays 0, and any

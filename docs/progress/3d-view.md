@@ -868,7 +868,7 @@ side. The page wires it: the terrain tools' hover and stroke set the fade, and a
 Group 2 of the object audit: the landmarks every map has, our own models at the game's measures. They were read from
 the game's models in resources.assets (positions, materials and texture means only; nothing of the game's is kept).
 
-- **The start** (`startTower`): the game's map-editor marker, a lantern tower of pale stone, 4.37 high on its
+- **The start** (`startTower`): the game's map-editor marker, a lantern tower of pale grey stone, 4.37 high on its
   3 × 3. It has a walled base 2.86 across to 1.04 with a door toward the entrance and windows, a white cornice, a hipped
   roof to 1.8, a tapering shaft to 2.8, a gallery 1.82 across, a lantern of four posts round a dark light to 3.8, and a
   cap. It replaces the timber lodge with its red roof and banner. The entrance marker stays. Its shadow caster stands
@@ -895,10 +895,9 @@ the game's models in resources.assets (positions, materials and texture means on
   water and 0.2 for badwater, as the game's are.
 - **Colours:** the game's albedo at our lightness, by the ratio of our grass to the game's (`palette.ts` `LANDMARK`,
   by `asOurs`, as the trees'). The legend's pictures follow the new shapes. The start's greys pass white at our
-  lightness, so `START` keeps the game's ratios (walls and shaft 0.79, cornice and cap 0.84, the roof lightest at 0.96)
-  with the roof's sunlit side just under white, given as they read under High's warm sun (`WARM_TINT`, how High's
-  sunlight changes a sunlit wall's light from Standard's): a pale warm stone. High takes the tint out of its copy
-  (`landmarks.ts`), so both looks show the same stone (it was near pure white in Standard, and its roof the darkest).
+  lightness, so `START` takes the game's own greys by part, as the trees take its own colour in every look: walls and
+  shaft 0.79, cornice and cap 0.84, the roof lightest at 0.96 (it was the darkest, the cornice and lantern the
+  lightest, so the shaft and the white trim read flat).
 - **Every look:** Standard's models are the light look's, and High copies them for the start and the sources
   (`landmarks.ts`), so the three looks draw the same shapes. The mine site and the seeps stay the land's own shape for
   the object fade (`LAND`).
@@ -907,7 +906,7 @@ the game's models in resources.assets (positions, materials and texture means on
   case for the tower itself (D148).
 - **Captures:** `docs/sheets/landmarks-game.jpg` shows before and after, on a flat meadow (the landmarks' water off) and
   on River Valley, in Standard, High and the light look. The game's own models were rendered beside ours to check
-  them; those renders stay local. `docs/sheets/landmarks-polish.jpg` shows the follow-ups (the start's stone, the
+  them; those renders stay local. `docs/sheets/landmarks-polish.jpg` shows the follow-ups (the start's greys, the
   mine's corners, the seeps' rocks) before and after, the same way.
 - **Short:** a water seep's gaps still read dark rather than the teal the game shows (the model's own albedo there is
   dark; the teal likely comes from the game's water or shader), and the mine's pit stays square under its round banks.

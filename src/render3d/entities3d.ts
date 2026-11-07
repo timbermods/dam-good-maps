@@ -23,7 +23,7 @@
 //   scaffolding's orange, a cream panel set in where it has one, and a band of ivy low on the lower
 //   storeys of a column on moist ground.
 // - The start: the game's map-editor marker at its measures (D496, D178 amended), a lantern tower of
-//   pale stone 4.37 high on its 3 × 3, its door facing the entrance, and a lit post on the entrance tile.
+//   pale grey stone 4.37 high on its 3 × 3, its door facing the entrance, and a lit post on the entrance tile.
 // - Slopes: a stone ramp; with Markers, a level pale arrow rimmed dark floating just above it,
 //   pointing uphill (it reads from any camera angle). Water sources: an outcrop of dark rock 1.0 high;
 //   badwater sources: a flat dark crater 2.5 across with low stones round its rim. Mine sites (D178): a rusty
@@ -1058,7 +1058,7 @@ const CENTRED: Record<string, [number, number]> = {
   ReserveTank: [0.5, 0.5],
 };
 
-/** The start, as the game's map editor draws it (StartingLocation.Model, D496): a lantern tower of pale stone,
+/** The start, as the game's map editor draws it (StartingLocation.Model, D496): a lantern tower of pale grey stone,
  *  4.37 high, centred on its 3 × 3 footprint, its door toward +Z (south, a Cw0 start's entrance side). A walled base
  *  under a white cornice, a hipped roof, a tapering shaft, a gallery, a lantern of four posts round a dark light, and a
  *  capped top. The game's measures: base 2.86 across to 1.04, cornice 3.0 to 1.18, roof to 1.8, shaft to 2.8, gallery
