@@ -17,10 +17,14 @@ vi.stubGlobal("requestAnimationFrame", (f: () => void) => frames.push(f));
 vi.stubGlobal("cancelAnimationFrame", () => {});
 afterAll(() => vi.unstubAllGlobals());
 
-/** Time goes on `ms`, the frames due drawn. */
-function wait(ms: number): void {
-  now += ms;
-  for (const f of frames.splice(0)) f();
+/** Time goes on `ms`, a frame drawn every 16 ms (`stall`: in one frame, as when the page's work holds a frame). */
+function wait(ms: number, stall = false): void {
+  for (let left = ms; left > 0; left -= 16) {
+    const step = stall ? left : Math.min(16, left);
+    now += step;
+    for (const f of frames.splice(0)) f();
+    if (stall) break;
+  }
 }
 
 type Verb = Exclude<ForceMoment["verb"], "rift" | "deposit">; // New Rift and Deposit effects belong to the page session.
@@ -162,5 +166,16 @@ describe("a force clicked quickly after another (D378)", () => {
     expect(fx.showing().erupt).toMatchObject({ x: 10, y: 10, cooling: expect.closeTo(3.22, 3) });
     wait(4000);
     expect(fx.showing().erupt).toBeNull();
+  });
+
+  it("the lava cools as it is drawn: a frame held long (the keep's work on a slow machine) never skips its cooling", () => {
+    play(fx, "erupt", 10, 10);
+    wait(8000, true);
+    expect(fx.showing().erupt).toMatchObject({ x: 10, y: 10, cooling: expect.closeTo(0.32, 3) });
+    wait(6000);
+    expect(fx.showing().erupt).toMatchObject({ cooling: expect.closeTo(6.32, 3) });
+    wait(200);
+    expect(fx.showing().erupt).toBeNull();
+    expect(fx.active).toBe(false);
   });
 });
