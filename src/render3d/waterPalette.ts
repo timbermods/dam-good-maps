@@ -232,19 +232,22 @@ export function gameCleanColour(depth: number): Rgb {
  *  `use`: whether the looks draw badwater's colour by it (true) or by their own calibrated crimson × the pattern's
  *  variation (false, `WATER.bad`, `HIGH_WATER.bad` × the ramp, `BADWATER.floor`); the pattern, the emissive detail and
  *  the smoothness follow the game either way. The pixel judge (tools/water-pixel-judge.ts --water all) compares the
- *  two against the game's own badwater frames and the closer ships (`judged`): the formula as read draws pure badwater
- *  a dark crimson (L* 8 a level deep, lit) that reads teal-grey on screen, where the game's frames show a lighter
- *  red-brown, so ours stays. */
+ *  two against the game's own badwater frames, each drawn in the game's light at the frame's hour (its land within the
+ *  spread of the game's own; until 2026-11-07 the judge drew every frame in the day's light, though five of its six
+ *  fell at sunrise and one near sunset), and the formula ships only where it is closer in both looks (`judged`; one
+ *  switch, as one palette feeds both looks, D154). It is closer in Standard and not in High, and on screen it draws pure
+ *  badwater about as light as clean water, where the game's frames show it about 5 L* lighter (D496's order), so ours
+ *  stays. The formula's body is a near-black crimson (L* 3 a level deep, lit) that the sky's reflection, the see-through
+ *  and the fog lift on screen to a dull grey-brown: the game's frames show by day a near-neutral grey (about 72/69/66), at
+ *  sunrise and sunset a red-brown (about 82/62/55). */
 export const GAME_BADWATER = {
   use: false,
-  /** The judge's numbers (RMS distance to the game's pixels, display RGB 0–255) for pure badwater on the two shots
-   *  whose camera it fits (islands-128-2-end, 978 tiles; islands-128-2-badtide2-end, 753), and the game's and our
-   *  shipped colour's mean there (islands-128-2-end, Standard). */
+  /** The judge's numbers (RMS distance to the game's pixels, display RGB 0–255) for pure badwater, ours (our crimson)
+   *  and the formula, by look: at the frames' hours (the six Islands and Badtide end shots, five at sunrise and one
+   *  near sunset, 4,592 tiles) and by day (six start shots with badwater in view, 104 tiles). */
   judged: {
-    standard: { dev: 25.3, ours: 26.5, formula: 27.6 },
-    high: { dev: 20.5, ours: 20.8, formula: 28.0 },
-    game: [101, 76, 72] as Rgb,
-    shipped: [94, 103, 109] as Rgb,
+    atHour: { standard: { ours: 17.0, formula: 8.6 }, high: { ours: 9.7, formula: 11.0 }, tiles: 4592 },
+    day: { standard: { ours: 18.3, formula: 13.2 }, high: { ours: 12.3, formula: 15.9 }, tiles: 104 },
   },
   colorA: [0.02, 0.01993, 0.0196] as Rgb,
   colorB: [0.5, 0.1223, 0.04481] as Rgb,

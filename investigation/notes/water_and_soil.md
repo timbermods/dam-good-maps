@@ -572,7 +572,20 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   Followed since (`fix/water-badwater`): the pattern (our own texture at t9's measured statistics) and the emission in
   both looks; the colour formula is built behind `BADWATER_FORMULA`, but the pixel judge found it farther from the
   game's frames than our calibrated crimson (it draws pure badwater a dark crimson, L* 8 a level deep lit, where the
-  frames show a lighter red-brown), so ours ships until that gap is explained (docs/progress/3d-view.md).
+  frames show a lighter red-brown), so ours ships until that gap is explained (docs/progress/3d-view.md). The gap was
+  the judge's (`fix/water-judge`): those frames fall at sunrise and near sunset, which the judge drew in the day's
+  light. Re-judged in each frame's own light, the formula is closer in Standard (8.6 against ours' 17.0) and not in
+  High (11.0 against 9.7), and draws badwater about as light as clean water on screen where the game's frames show it
+  5 L* lighter; ours still ships.
+
+  **How the judge is validated** (`tools/water-pixel-judge.ts`, 2026-11-07): ours is drawn in the game's light at each
+  shot's hour and weather (`tools/game-day-light.ts`: `Sun.blueprint`'s four stages blended as `DayStageCycle` does,
+  their sun, Trilight SH and fog swapped into the shaders), from the camera fitted on the map's start shot, and its
+  land (level dry tops by soil, and cliff faces, clear of objects ours doesn't draw and of shade) must sit within the
+  floor, two game samples' distance at the game's own spread, before its water rulings count: on the badwater shots
+  9.2 against a floor of 11.4 (34.8 in the day's light), on the clean start shots 12.2 against 13.6. Also found there:
+  the game sets `RenderSettings.reflectionIntensity` to its stage's 1 every frame (`Sun.UpdateColors`), not the
+  scene's 0.65.
 - **P10, selection.** `_HighlightMask` (t17, screen space, `SelectionSystem`) mixes the selection's colour in, up to
   `_HighlightMaskLimit` 0.4 (ps 788-793): the game's own editing aid.
 - **P11, normal.** `Water_N` from P5, xy × (1 + c) × `_NormalBoost` 4, renormalized, into the world by the mesh's
