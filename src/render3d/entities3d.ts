@@ -56,7 +56,7 @@ import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32Buf
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { DEAD_FORM, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, WATER } from "./palette";
+import { GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 import { LAND, LAND_GROW } from "./objectFade";
 
@@ -296,14 +296,6 @@ function rotateTail(m: Model, vertices: number, angle: number, y: number): void 
   }
 }
 
-/** Move the last `vertices` vertices of a model by (x, z). */
-function moveTail(m: Model, vertices: number, x: number, z: number): void {
-  for (let k = m.pos.length - vertices * 3; k < m.pos.length; k += 3) {
-    m.pos[k] += x;
-    m.pos[k + 2] += z;
-  }
-}
-
 const MODELS: Record<string, () => Model> = {
   Pine: () =>
     new Model()
@@ -386,39 +378,34 @@ const MODELS: Record<string, () => Model> = {
     return m;
   },
   WaterSource: () => {
-    // a stone basin with water welling up (D324, feedback item 28; a model of our own, in the game's
-    // style): four blocks round a pool, corner stones, the water domed in the middle over a small
-    // spout, and rings spreading from it
-    const stone: Rgb = [0.5, 0.52, 0.52];
-    const dark: Rgb = [0.34, 0.36, 0.37];
-    const m = new Model().add(box(0.98, 0.1, 0.98), dark, { y: 0.05 });
-    for (const s of [-1, 1]) {
-      m.add(box(0.98, 0.18, 0.2), stone, { y: 0.19, z: s * 0.39 });
-      m.add(box(0.2, 0.18, 0.58), stone, { y: 0.19, x: s * 0.39 });
-      for (const c of [-1, 1]) m.add(box(0.27, 0.27, 0.27), [0.56, 0.58, 0.57], { x: c * 0.36, y: 0.235, z: s * 0.36, ry: 0.15 * c * s });
-    }
-    m.add(box(0.58, 0.04, 0.58), [0.2, 0.5, 0.58], { y: 0.16 });
-    m.add(new CylinderGeometry(0.25, 0.25, 0.012, 12), [0.78, 0.9, 0.92], { y: 0.182 });
-    m.add(new CylinderGeometry(0.2, 0.2, 0.012, 12), [0.24, 0.56, 0.64], { y: 0.19 });
-    m.add(ico(0.17), [0.34, 0.68, 0.75], { y: 0.2, sy: 0.6 });
-    return m.add(new CylinderGeometry(0.04, 0.05, 0.14, 6), [0.8, 0.92, 0.94], { y: 0.27 });
+    // the game's water source (WaterSource.Model, D496): an outcrop of dark rock 1.0 high over its tile, a little
+    // wider than it (1.14 × 1.18), lighter on top; the water wells up round it
+    const m = new Model();
+    const rocks: [number, number, number, number, number, Rgb][] = [
+      // x, y, z, radius, height ÷ radius, colour: a block of rock as full as the game's, to 1.0
+      [0.0, 0.5, 0.0, 0.5, 1.06, LANDMARK.rock],
+      [0.21, 0.33, -0.21, 0.35, 1.02, LANDMARK.rockLow],
+      [-0.21, 0.32, 0.21, 0.35, 1.0, LANDMARK.rockLow],
+      [0.21, 0.33, 0.21, 0.35, 1.02, LANDMARK.rock],
+      [-0.21, 0.32, -0.21, 0.35, 1.0, LANDMARK.rock],
+      [0.15, 0.72, -0.1, 0.27, 1.0, LANDMARK.rockTop],
+      [-0.12, 0.7, 0.13, 0.28, 1.0, LANDMARK.rockTop],
+    ];
+    rocks.forEach(([x, y, z, r, sy, c], k) => m.add(ico(r), c, { x, y, z, sy, ry: k * 1.3 }));
+    return m;
   },
   BadwaterSource: () => {
-    // a stone basin of badwater over its 3 × 3 footprint (centred on it; D324, feedback item 28): a
-    // dark, stained rim of blocks and boulders round a crimson pool, the badwater boiling up in a
-    // low dome with slow orange-brown bubbles, darker and heavier than the clean source beside it
-    const rim: Rgb = [0.25, 0.22, 0.2];
-    const m = new Model().add(box(2.96, 0.1, 2.96), [0.13, 0.11, 0.1], { y: 0.05 });
-    for (const s of [-1, 1]) {
-      m.add(box(2.96, 0.26, 0.42), rim, { y: 0.23, z: s * 1.27 });
-      m.add(box(0.42, 0.26, 2.12), rim, { y: 0.23, x: s * 1.27 });
-      for (const c of [-1, 1]) m.add(ico(0.38), [0.3, 0.26, 0.23], { x: c * 1.28, y: 0.3, z: s * 1.28, sy: 0.75, ry: 0.4 * c * s });
+    // the game's badwater source (BadwaterSource.Model, D496): a flat, dark crater 2.5 across over its 3 × 3 footprint
+    // (centred on it), darker toward its middle, a few low stones round its rim; the badwater wells up over it
+    const m = new Model()
+      .add(new CylinderGeometry(1.27, 1.27, 0.02, 11), LANDMARK.crater, { y: 0.01 })
+      .add(new CylinderGeometry(0.85, 0.85, 0.01, 11), LANDMARK.craterDeep, { y: 0.024, ry: 0.3 })
+      .add(new CylinderGeometry(0.36, 0.36, 0.01, 9), shade(LANDMARK.craterDeep, 0.85), { y: 0.03 });
+    for (let k = 0; k < 9; k++) {
+      const a = (k * 2 * Math.PI) / 9 + 0.2 * (k % 3);
+      const r = 1.08 + 0.1 * ((k * 5) % 3);
+      m.add(ico(0.11 + 0.03 * (k % 2)), LANDMARK.craterRim, { x: Math.cos(a) * r, y: 0.02, z: Math.sin(a) * r, sy: 0.3, ry: k });
     }
-    m.add(box(2.14, 0.05, 2.14), [0.22, 0.085, 0.07], { y: 0.155 });
-    m.add(ico(0.8), [0.31, 0.11, 0.09], { y: 0.17, sy: 0.3 });
-    const bubbles: [number, number, number][] = [[0.3, 0.25, 0.26], [-0.5, -0.1, 0.2], [0.1, -0.55, 0.18], [-0.25, 0.6, 0.22], [0.65, -0.45, 0.16], [-0.75, 0.45, 0.15], [0.6, 0.65, 0.19]];
-    // (orange-brown, and no lighter than the mine test allows: a badwater source stays far darker than a mine's pale wood)
-    for (const [x, z, r] of bubbles) m.add(ico(r), [0.62, 0.3, 0.1], { x, y: 0.25, z, sy: 0.9 });
     return m;
   },
   UndergroundRuins: () => mineSite(),
@@ -556,38 +543,42 @@ function liteSucculent(): Model {
   return m;
 }
 
-/** A seep (2 × 2): the game's square pit, stepped, sunk into the ground (the terrain's tops over the
- *  footprint are cut out, `mineCutout`), with grey rocks heaped on its floor under the water: water-blue
- *  and grey, or, for badwater, rust-crusted rocks in the renderer's badwater reds. */
+/** A seep (2 × 2), as the game's (WaterSeep.Model, BadwaterSeep.Model; D496): a stone slab over the footprint at the
+ *  ground, round a pit heaped with rocks that rise above it, to 0.57 for water and 0.40 for badwater, with dark gaps
+ *  between them: teal for water, rust orange for badwater. The pit is a terrain cut-out (`mineCutout`), its walls and
+ *  floor in the gaps' colour, 0.5 deep for water and 0.2 for badwater, as the game's are. */
 function seep(bad: boolean): Model {
-  const wall: Rgb = bad ? [0.27, 0.13, 0.1] : [0.19, 0.3, 0.33];
-  const ledge: Rgb = bad ? [0.38, 0.2, 0.12] : [0.27, 0.41, 0.44];
-  const floor: Rgb = bad ? WATER.badDeep : [0.14, 0.26, 0.3];
-  const rock: Rgb = bad ? [0.5, 0.3, 0.17] : [0.48, 0.55, 0.57];
-  const d1 = 0.28;
-  const d2 = 0.62;
+  const slab = bad ? LANDMARK.badSeepSlab : LANDMARK.seepSlab;
+  const rock = bad ? LANDMARK.badSeepRock : LANDMARK.seepRock;
+  const gap = bad ? LANDMARK.badSeepGap : LANDMARK.seepGap;
+  const d = bad ? 0.2 : 0.5;
+  const a = 0.78;
   const m = new Model();
   for (let f = 0; f < 4; f++)
     onFace(m, f, () => {
-      m.add(plane(2, d1), wall, { y: -d1 / 2, z: -1 });
-      m.add(plane(2, 0.22), ledge, { rx: -Math.PI / 2, y: -d1, z: -0.89 });
-      m.add(plane(1.56, d2 - d1), shade(wall, 0.8), { y: -d1 - (d2 - d1) / 2, z: -0.78 });
+      // the pit's wall, and the slab's side of the footprint (overlapping at the corners)
+      m.add(plane(2 * a, d), shade(gap, 0.8), { y: -d / 2, z: -a });
+      m.add(box(2, 0.05, 1 - a), slab, { y: 0.025, z: -(1 + a) / 2 });
+      // studs along the slab's edge
+      for (const x of [-0.72, 0.38]) m.add(oct(0.045), shade(slab, 0.85), { x, y: 0.05, z: -0.93 });
     });
-  m.add(plane(1.56, 1.56), floor, { rx: -Math.PI / 2, y: -d2 });
-  const rocks: [number, number, number, number][] = [
-    // x, z, radius, height of the middle over the floor
-    [0, 0, 0.24, 0.3],
-    [0.3, 0.12, 0.19, 0.2],
-    [-0.28, 0.2, 0.2, 0.18],
-    [0.1, -0.3, 0.19, 0.2],
-    [-0.2, -0.28, 0.17, 0.14],
-    [0.5, -0.32, 0.15, 0.1],
-    [-0.5, -0.05, 0.15, 0.1],
-    [0.15, 0.5, 0.15, 0.1],
-    [-0.1, 0.52, 0.14, 0.09],
-  ];
-  rocks.forEach(([x, z, r, h], k) => m.add(ico(r), shade(rock, 0.85 + 0.1 * (k % 3)), { x, y: -d2 + h, z, sy: 0.8, ry: k }));
-  if (bad) for (const [x, z] of [[0.05, 0.05], [0.3, 0.12], [-0.28, 0.2]]) m.add(oct(0.06), [0.78, 0.4, 0.12], { x: x + 0.05, y: -d2 + 0.42, z });
+  m.add(plane(2 * a, 2 * a), gap, { rx: -Math.PI / 2, y: -d });
+  const top = bad ? 0.4 : 0.57;
+  // the rocks packed over the pit, four by four, the tallest in the middle; each a column of rock standing on the pit's
+  // floor up to its top, the gaps between them narrow and dark, as the game's
+  const at = [-0.56, -0.19, 0.19, 0.56];
+  let k = 0;
+  for (const [i, x] of at.entries())
+    for (const [j, z] of at.entries()) {
+      const middle = (i === 1 || i === 2) && (j === 1 || j === 2);
+      const t = middle ? (i + j === 3 ? 1 : 0.82) : 0.35 + 0.1 * ((i * 3 + j) % 3);
+      const r = middle ? 0.25 : 0.22;
+      const h = (t * top + d) / 2;
+      const jx = 0.04 * Math.sin(k * 2.1);
+      const jz = 0.04 * Math.cos(k * 1.7);
+      m.add(k % 2 ? oct(r) : ico(r), shade(rock, 0.88 + 0.08 * (k % 3)), { x: x + jx, y: -d + h, z: z + jz, sy: h / r, ry: k });
+      k++;
+    }
   return m;
 }
 
@@ -764,64 +755,57 @@ function reserveTank(): Model {
 /** A mine site's pit: sunk into its whole 5 × 5 footprint (whose tops the terrain leaves out,
  *  `mineCutout`, as the game hides the terrain under the site), `half` tiles either side of the
  *  footprint's middle, inside the rusty frame round the footprint's edge, and `depth` levels deep. */
-export const MINE_PIT = { half: 2.18, depth: 1.6 } as const;
+export const MINE_PIT = { half: 2.18, depth: 1.35 } as const;
 
-/** A mine site, centred on its 5 × 5 footprint (Kyler's rounds, D178; our own model, true to the
- *  game's footprint): a rusty frame round the footprint's edge; inside it the pit, filling most of
- *  the footprint, with its dark earthen walls and floor, roots hanging and running over the floor,
- *  rubble, cracks, a ladder and a shaft in the middle; scaffold towers on the frame's corners, their
- *  inner legs down in the pit, joined by rails into one structure, with beams across the pit and a
- *  bucket on a rope. Within ±2.5 of the middle: the footprint. */
+/** A mine site, centred on its 5 × 5 footprint, as the game's (UndergroundRuins.Model; D178, D496): a rusty frame round
+ *  the footprint's edge; inside it the pit, filling most of the footprint, with its dark earthen walls and floor, roots
+ *  hanging and running over the floor, rock and cracks; pale ground filling its corners, as the game's round pit
+ *  leaves them; rusty posts standing down into the pit round its lip, joined by beams. No scaffolding: the game's has
+ *  none. Within ±2.5 of the middle: the footprint. */
 function mineSite(): Model {
   const m = new Model();
   const p = MINE_PIT.half;
   const d = MINE_PIT.depth;
   // the pit's walls: a band of browner topsoil under a rusty lip, earth with a pale seam, darker
-  // toward the floor; the floor darker toward its edges, a shaft in its middle
-  const soil = 0.38;
-  const low = 0.34;
+  // toward the floor; the floor darker toward its edges
+  const soil = 0.34;
+  const low = 0.3;
   for (let f = 0; f < 4; f++)
     onFace(m, f, () => {
       m.add(plane(2 * p, soil), MINE.earthTop, { y: -soil / 2, z: -p });
       m.add(plane(2 * p, d - soil - low), MINE.earth, { y: -soil - (d - soil - low) / 2, z: -p });
       m.add(plane(2 * p, low), MINE.earthLow, { y: -d + low / 2, z: -p });
-      m.add(plane(2 * p, 0.05), MINE.seam, { y: -0.78 - 0.06 * (f % 2), z: -p + 0.006 });
+      m.add(plane(2 * p, 0.05), MINE.seam, { y: -0.68 - 0.06 * (f % 2), z: -p + 0.006 });
       m.add(plane(2 * p, 0.2), shade(MINE.frame, 0.8), { y: -0.1, z: -p + 0.012 });
     });
   const floor = (w: number, color: Rgb, y: number) => m.add(plane(w, w), color, { rx: -Math.PI / 2, y: -d + y });
   floor(2 * p, MINE.floorEdge, 0);
   floor(2 * p - 1.1, MINE.floor, 0.004);
-  floor(0.9, MINE.shaft, 0.012);
-  for (let f = 0; f < 4; f++) onFace(m, f, () => m.add(box(1.1, 0.1, 0.1), MINE.ladder, { y: -d + 0.05, z: -0.5 }));
   // cracks down the walls and over the floor: dark zigzags
   const cracks: [number, number, number, number, number][] = [
     // face, x, top, length, lean
-    [0, -1.2, -0.25, 0.9, 0.25],
-    [0, 1.4, -0.5, 0.8, -0.3],
-    [1, -0.4, -0.3, 1.0, 0.2],
-    [1, 1.3, -0.55, 0.7, -0.2],
+    [0, -0.6, -0.25, 0.8, 0.25],
+    [0, 0.7, -0.45, 0.7, -0.3],
+    [1, -0.4, -0.3, 0.8, 0.2],
+    [1, 0.5, -0.5, 0.6, -0.2],
     [2, 0.6, -0.2, 0.7, -0.2],
-    [2, -1.5, -0.45, 0.8, 0.25],
-    [3, -1.3, -0.4, 0.9, 0.3],
-    [3, 0.9, -0.6, 0.7, -0.25],
+    [2, -0.7, -0.4, 0.7, 0.25],
+    [3, -0.5, -0.35, 0.8, 0.3],
+    [3, 0.8, -0.5, 0.6, -0.25],
   ];
   for (const [f, x, top, len, lean] of cracks)
     onFace(m, f, () => {
       m.add(plane(0.05, len * 0.5), MINE.crack, { rz: lean, x, y: top - len * 0.25, z: -p + 0.01 });
       m.add(plane(0.04, len * 0.5), MINE.crack, { rz: -lean, x: x - Math.sin(lean) * len * 0.22, y: top - len * 0.72, z: -p + 0.01 });
     });
-  for (const [x, z, len, turn] of [[-1.1, 0.8, 0.9, 0.6], [0.9, 1.1, 0.7, -0.5], [1.2, -0.9, 0.8, -0.9], [-0.9, -1.2, 0.6, 0.4]] as const) m.add(plane(len, 0.022), MINE.floorCrack, { rx: -Math.PI / 2, ry: turn, x, y: -d + 0.008, z });
-  // roots: hanging from the rim down the walls, dark and pale, and running over the floor toward
-  // the shaft
+  for (const [x, z, len, turn] of [[-0.9, 0.6, 0.8, 0.6], [0.7, 0.9, 0.7, -0.5], [0.9, -0.7, 0.8, -0.9], [-0.7, -0.9, 0.6, 0.4]] as const) m.add(plane(len, 0.022), MINE.floorCrack, { rx: -Math.PI / 2, ry: turn, x, y: -d + 0.008, z });
+  // roots: hanging from the rim down the walls, dark and pale, and running over the floor
   const hanging: [number, number, number][] = [
     // x, length, tilt
-    [-1.75, 0.9, 0.15],
-    [-1.2, 0.55, -0.2],
-    [-0.55, 1.05, 0.1],
-    [0.1, 0.6, -0.15],
-    [0.75, 0.95, 0.2],
-    [1.4, 0.5, -0.1],
-    [1.85, 0.8, 0.12],
+    [-1.0, 0.7, 0.15],
+    [-0.55, 0.9, 0.1],
+    [0.1, 0.55, -0.15],
+    [0.75, 0.85, 0.2],
   ];
   for (let f = 0; f < 4; f++)
     hanging.forEach(([x, len, tilt], k) => {
@@ -830,37 +814,43 @@ function mineSite(): Model {
       onFace(m, f, () => m.add(cone(0.05, l, 3), (k + f) % 3 ? MINE.root : MINE.rootPale, { rx: Math.PI, rz: tilt, x: x * (f % 2 ? -1 : 1), y: -0.05 - l / 2, z: -p + 0.06 }));
     });
   for (let k = 0; k < 8; k++) {
-    // a root over the floor, from a wall toward the shaft
     const a = (k * Math.PI) / 4 + 0.35;
-    const r0 = 0.75;
-    const r1 = p - 0.15;
+    const r0 = 0.6;
+    const r1 = 1.15;
     const len = r1 - r0;
     m.add(cone(0.035, len, 3), k % 2 ? MINE.root : MINE.rootPale, { rz: Math.PI / 2, ry: a, x: Math.cos(a) * (r0 + len / 2), y: -d + 0.03, z: -Math.sin(a) * (r0 + len / 2) });
   }
-  // rubble along the walls and heaps in two corners
+  // rock over the floor, as the game's pit is strewn: a boulder in the middle, rubble round it
+  m.add(ico(0.42), MINE.rubble[1], { x: 0.1, y: -d + 0.16, z: -0.05, sy: 0.55, ry: 0.4 });
   const rubble: [number, number, number, number][] = [
     // x, z, radius, shade
-    [-1.8, -1.75, 0.34, 0],
-    [-1.35, -1.9, 0.24, 1],
-    [-1.9, -1.25, 0.26, 2],
-    [-1.45, -1.4, 0.18, 1],
-    [-0.8, -1.95, 0.15, 2],
-    [1.85, 0.7, 0.26, 0],
-    [1.9, 1.25, 0.2, 2],
-    [1.4, 1.85, 0.17, 1],
-    [0.5, 1.9, 0.22, 1],
-    [-0.6, 1.95, 0.16, 0],
-    [1.5, -1.85, 0.18, 2],
-    [-1.95, 0.4, 0.2, 1],
-    [0.7, -0.75, 0.12, 2],
-    [-0.6, 0.65, 0.1, 0],
+    [-0.95, -0.9, 0.3, 0],
+    [-0.6, -1.15, 0.22, 1],
+    [1.0, 0.55, 0.26, 0],
+    [0.75, 1.05, 0.2, 2],
+    [-1.05, 0.5, 0.2, 1],
+    [0.5, -1.0, 0.18, 2],
+    [-0.4, 0.95, 0.16, 0],
+    [0.65, -0.35, 0.12, 2],
+    [-0.55, 0.15, 0.12, 1],
   ];
   rubble.forEach(([x, z, r, s], k) => m.add(k % 2 ? oct(r) : ico(r), MINE.rubble[s], { x, y: -d + r * 0.4, z, sy: 0.6, ry: k }));
-  // a ladder down the north wall (the far wall from the game's camera)
-  const lx = -0.5;
-  const lz = -p + 0.07;
-  for (const sx of [-0.17, 0.17]) m.add(bar(0.025, d + 0.45), MINE.ladder, { x: lx + sx, y: (0.45 - d) / 2, z: lz });
-  for (let k = 0; k < 6; k++) m.add(box(0.36, 0.035, 0.04), MINE.ladder, { x: lx, y: -d + 0.2 + k * 0.28, z: lz });
+  // the pit's corners filled with ground up to the level, pale on top (the game's round pit leaves them)
+  const c = 1.0;
+  for (const sx of [-1, 1])
+    for (const sz of [-1, 1]) {
+      m.add(box(c, d, c), MINE.earth, { x: sx * (p - c / 2), y: -d / 2 - 0.02, z: sz * (p - c / 2) });
+      m.add(box(c, 0.04, c), MINE.wood, { x: sx * (p - c / 2), y: -0.02, z: sz * (p - c / 2) });
+    }
+  // rusty posts down into the pit round its lip, two a side, joined along each side and across each corner
+  const e = p - 0.08;
+  const q = p - c + 0.02;
+  for (let f = 0; f < 4; f++)
+    onFace(m, f, () => {
+      for (const x of [-q, q]) m.add(bar(0.055, d + 0.2), shade(MINE.frame, 0.9), { x, y: (0.2 - d) / 2, z: -e });
+      m.add(box(2 * q + 0.12, 0.09, 0.09), MINE.frame, { y: 0.1, z: -e });
+      beam(m, [q, 0.1, -e], [e, 0.1, -q], 0.04, shade(MINE.frame, 0.95));
+    });
   // the rusty frame round the footprint's edge: four beams, a lighter strip along each
   const fw = 2.5 - p;
   for (let f = 0; f < 4; f++)
@@ -868,56 +858,7 @@ function mineSite(): Model {
       m.add(box(5, 0.2, fw), MINE.frame, { y: 0.05, z: -p - fw / 2 });
       m.add(box(5 - 0.12, 0.03, 0.06), shade(MINE.frame, 1.12), { y: 0.16, z: -2.5 + 0.06 });
     });
-  // scaffold towers on the frame's corners, joined at the top by rails along the west and east
-  // sides, which carry two beams across the pit: one structure; a crossbar and a bucket on a rope
-  const h = 1.3;
-  for (let k = 0; k < 4; k++) tower(m, k, h);
-  for (const f of [1, 3]) onFace(m, f, () => m.add(box(4.9, 0.07, 0.07), shade(MINE.frame, 0.92), { y: h - 0.04, z: -2.43 }));
-  for (const z of [-0.42, 0.42]) m.add(box(4.9, 0.09, 0.09), MINE.frame, { y: h - 0.02, z });
-  m.add(box(0.12, 0.08, 0.95), shade(MINE.frame, 0.85), { y: h + 0.06 });
-  const drop = h + 0.95;
-  m.add(bar(0.012, drop), MINE.rope, { y: h - drop / 2 });
-  m.add(post(0.12, 0.15, 0.22, 6), shade(MINE.frame, 0.7), { y: h - drop - 0.1 });
-  // planks lying on the frame
-  m.add(box(1.4, 0.05, 0.16), MINE.wood, { x: 0.2, y: 0.18, z: 2.34, ry: 0.03 });
-  m.add(box(1.1, 0.05, 0.15), shade(MINE.wood, 0.9), { x: -2.34, y: 0.18, z: -0.3, ry: Math.PI / 2 + 0.04 });
   return m;
-}
-
-/** A scaffold tower on a corner of a mine site's frame (corner k: 0 north-east, 1 south-east, 2
- *  south-west, 3 north-west), `h` high: four rusty posts, the inner one standing down in the pit;
- *  a platform of pale planks with crates, overhanging the pit's corner; a rail and a brace on its
- *  outer faces. */
-function tower(m: Model, k: number, h: number): void {
-  const sx = k === 0 || k === 1 ? 1 : -1;
-  const sz = k === 1 || k === 2 ? 1 : -1;
-  const c = 2.02;
-  const cx = sx * c;
-  const cz = sz * c;
-  const e = 0.41;
-  const p = MINE_PIT.half;
-  for (const [ax, az] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
-    const x = cx + ax * e;
-    const z = cz + az * e;
-    // on the frame, or down in the pit
-    const foot = Math.abs(x) >= p || Math.abs(z) >= p ? 0.15 : -MINE_PIT.depth;
-    m.add(bar(0.04, h - foot), MINE.frame, { x, y: (h + foot) / 2, z });
-  }
-  m.add(box(0.9, 0.06, 0.9), MINE.wood, { x: cx, y: 0.95, z: cz });
-  m.add(box(0.86, 0.02, 0.1), shade(MINE.wood, 0.8), { x: cx, y: 0.99, z: cz - sz * 0.22 });
-  // a lower rail on the outer faces, and a brace on each
-  m.add(box(2 * e + 0.08, 0.05, 0.05), shade(MINE.frame, 0.9), { x: cx, y: 0.5, z: cz + sz * e });
-  m.add(box(0.05, 0.05, 2 * e + 0.08), shade(MINE.frame, 0.9), { x: cx + sx * e, y: 0.5, z: cz });
-  strut(m, cx - e, 0.18, cx + e, 0.92, cz + sz * e, 0.022, shade(MINE.frame, 0.85));
-  // (the second brace is built across x, then turned to run along z on the tower's outer x side)
-  const before = m.pos.length / 3;
-  strut(m, -e, 0.18, e, 0.92, 0, 0.022, shade(MINE.frame, 0.85));
-  rotateTail(m, m.pos.length / 3 - before, Math.PI / 2, 0);
-  moveTail(m, m.pos.length / 3 - before, cx + sx * e, cz);
-  // crates on the platform, and a plank
-  m.add(box(0.3, 0.28, 0.3), MINE.wood, { x: cx + sx * 0.14, y: 1.12, z: cz + sz * 0.12, ry: 0.2 * k });
-  if (k % 2 === 0) m.add(box(0.22, 0.2, 0.22), shade(MINE.wood, 0.85), { x: cx - sx * 0.16, y: 1.08, z: cz + sz * 0.16, ry: -0.3 });
-  else m.add(box(0.6, 0.04, 0.14), shade(MINE.wood, 0.92), { x: cx - sx * 0.05, y: 1.0, z: cz - sz * 0.05, ry: 0.5 });
 }
 
 /** Where the terrain leaves its tops out for mine sites' and seeps' pits (mesh.ts `cutout`): tile
@@ -1061,35 +1002,34 @@ const CENTRED: Record<string, [number, number]> = {
   ReserveTank: [0.5, 0.5],
 };
 
-/** The district center, its door toward +Z (south, a Cw0 start's entrance side), centred on its
- *  3 × 3 footprint: pale walls under a dark roof on a pale deck, so it stands out on any ground. */
-function districtCenter(): Model {
+/** The start, as the game's map editor draws it (StartingLocation.Model, D496): a lantern tower of pale grey stone,
+ *  4.37 high, centred on its 3 × 3 footprint, its door toward +Z (south, a Cw0 start's entrance side). A walled base
+ *  under a white cornice, a hipped roof, a tapering shaft, a gallery, a lantern of four posts round a dark light, and a
+ *  capped top. The game's measures: base 2.86 across to 1.04, cornice 3.0 to 1.18, roof to 1.8, shaft to 2.8, gallery
+ *  1.82 across, lantern 1.28 across to 3.8, cap 1.32 across, top 4.37. */
+function startTower(): Model {
   const m = new Model();
-  const wood: Rgb = [...START.walls];
-  const roof: Rgb = [...START.roof];
-  m.add(box(2.9, 0.2, 2.9), START.deck, { y: 0.1 });
-  m.add(box(3.0, 0.06, 3.0), [0.22, 0.15, 0.1], { y: 0.03 });
-  m.add(box(1.7, 0.9, 1.3), wood, { y: 0.65 });
-  // log courses: darker bands on the walls
-  for (const y of [0.42, 0.68, 0.94]) m.add(box(1.74, 0.05, 1.34), [0.66, 0.55, 0.4], { y });
-  // an A-frame roof along x, overhanging the walls
-  const x = 1.02;
-  const z = 0.82;
-  const y0 = 1.1;
-  const y1 = 1.92;
-  m.tris([-x, y0, z, x, y0, z, x, y1, 0, -x, y0, z, x, y1, 0, -x, y1, 0], roof);
-  m.tris([x, y0, -z, -x, y0, -z, -x, y1, 0, x, y0, -z, -x, y1, 0, x, y1, 0], [roof[0] * 0.85, roof[1] * 0.85, roof[2] * 0.85]);
-  m.tris([x, y0, z, x, y0, -z, x, y1, 0], wood);
-  m.tris([-x, y0, -z, -x, y0, z, -x, y1, 0], wood);
-  m.tris([-x, y0, z, -x, y0, -z, x, y0, -z, -x, y0, z, x, y0, -z, x, y0, z], [0.3, 0.2, 0.13]);
-  m.add(box(0.22, 0.55, 0.22), [0.52, 0.51, 0.49], { x: 0.5, y: 1.75, z: -0.3 });
-  // the door and its awning, facing the entrance
-  m.add(box(0.38, 0.56, 0.06), [0.22, 0.14, 0.08], { y: 0.48, z: 0.66 });
-  m.add(box(0.64, 0.06, 0.32), roof, { y: 0.84, z: 0.8, rx: 0.25 });
-  // a tall banner at the back corner, seen from afar
-  m.add(cyl(0.05, 0.04, 2.7, 5), [0.22, 0.16, 0.11], { x: -1.15, y: 0.2 + 1.35, z: -1.1 });
-  m.add(box(0.8, 0.5, 0.05), START.banner, { x: -0.73, y: 2.55, z: -1.1 });
-  m.add(box(0.8, 0.1, 0.055), [0.2, 0.08, 0.05], { x: -0.73, y: 2.33, z: -1.1 });
+  // (a square frustum of half-widths a (bottom) and b (top) from y0 to y1: a four-sided cylinder turned an eighth)
+  const frustum = (a: number, b: number, y0: number, y1: number, color: Rgb) => m.add(new CylinderGeometry(b * Math.SQRT2, a * Math.SQRT2, y1 - y0, 4, 1, true), color, { y: (y0 + y1) / 2, ry: Math.PI / 4 });
+  m.add(box(3, 0.12, 3), shade(START.stone, 0.88), { y: 0.06 });
+  m.add(box(2.86, 0.92, 2.86), START.stone, { y: 0.58 });
+  // the door and windows on the front, windows on the other three faces
+  m.add(box(0.62, 0.66, 0.04), START.dark, { y: 0.45, z: 1.44 });
+  for (let f = 0; f < 4; f++)
+    onFace(m, f, () => {
+      for (const x of [-0.92, 0.92]) m.add(box(0.36, 0.32, 0.04), shade(START.dark, 1.2), { x, y: 0.62, z: -1.44 });
+    });
+  m.add(box(3, 0.14, 3), START.trim, { y: 1.11 });
+  frustum(1.42, 0.73, 1.18, 1.8, START.roof);
+  frustum(0.68, 0.5, 1.8, 2.8, START.stone);
+  m.add(box(1.82, 0.12, 1.82), START.trim, { y: 2.86 });
+  m.add(box(1.28, 0.08, 1.28), shade(START.stone, 0.9), { y: 2.96 });
+  // the lantern: four posts round a dark light
+  for (const x of [-0.57, 0.57]) for (const z of [-0.57, 0.57]) m.add(bar(0.055, 0.8), START.trim, { x, y: 3.4, z });
+  m.add(box(0.52, 0.66, 0.52), START.dark, { y: 3.36 });
+  m.add(box(1.32, 0.1, 1.32), START.trim, { y: 3.85 });
+  m.add(new CylinderGeometry(0.3 * Math.SQRT2, 0.6 * Math.SQRT2, 0.4, 4, 1, false), START.roof, { y: 4.1, ry: Math.PI / 4 });
+  m.add(box(0.2, 0.07, 0.2), START.trim, { y: 4.335 });
   return m;
 }
 
@@ -1379,7 +1319,7 @@ export function modelKeyOf(template: string, flags: number): string {
 
 /** Triangles of a model (tests and the benchmark's budget). */
 export function modelTriangles(key: string): number {
-  if (key === "start") return districtCenter().triangles;
+  if (key === "start") return startTower().triangles;
   if (key === "ruin") return storey(0, 0, IVY_DENSE).triangles;
   return MODELS[key] ? MODELS[key]().triangles : 12;
 }
@@ -1401,7 +1341,7 @@ export function ruinTriangles(): { near: number; far: number } {
 /** A model's vertices, colours and view levels (the tests read the models' shapes). */
 export function modelOf(key: string, kind = 0, ivy: number | boolean = IVY_NONE): { pos: readonly number[]; col: readonly number[]; lod: readonly number[] } {
   const level = ivy === true ? IVY_DENSE : ivy === false ? IVY_NONE : ivy;
-  const m = key === "start" ? districtCenter() : /^scaffold\.[A-E]$/.test(key) ? storey(RUIN_VARIANT_IDS.indexOf(key.slice(-1) as "A"), kind, level) : MODELS[key]();
+  const m = key === "start" ? startTower() : /^scaffold\.[A-E]$/.test(key) ? storey(RUIN_VARIANT_IDS.indexOf(key.slice(-1) as "A"), kind, level) : MODELS[key]();
   return { pos: m.pos, col: m.col, lod: m.lod };
 }
 
@@ -1525,7 +1465,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
       // the 3×3 footprint's centre: Coordinates plus the rotated local (1, 1)
       const [dx, dy] = rotate(o, 1, 1);
-      put(batch("start", districtCenter), x + dx + 0.5, z, -(y + dy + 0.5), turn, 1, 1, 1, GROW_START);
+      put(batch("start", startTower), x + dx + 0.5, z, -(y + dy + 0.5), turn, 1, 1, 1, GROW_START);
       const [ex, ey] = startEntranceTile(x, y, o);
       put(batch("start.entrance", entrance), ex + 0.5, z, -(ey + 0.5), turn, 1);
       continue;

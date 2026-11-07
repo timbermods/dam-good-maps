@@ -190,12 +190,39 @@ export const HATCH = { dark: [0.06, 0.05, 0.04] as Rgb } as const;
  *  ground's tops round it, hatched with lighter diagonal stripes (materials.ts, `capped`). */
 export const CUT_CAP = { base: [0.25, 0.265, 0.3] as Rgb, line: [0.36, 0.375, 0.41] as Rgb } as const;
 
-/** The start: a timber lodge with pale walls, a dark roof and a yellow banner on a pale deck. */
+/** The game's albedo at our lightness: the ratio of our moist grass to the game's grass (its terrain texture's mean,
+ *  (0.263, 0.285, 0.096), read from resources.assets), since our light is dimmer than the game's. */
+const GAME_TO_OURS = ((c: Rgb) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2])(GROUND.moistHigh) / (0.299 * 0.263 + 0.587 * 0.285 + 0.114 * 0.096);
+const fromGame = (c: Rgb): Rgb => [Math.min(1, c[0] * GAME_TO_OURS), Math.min(1, c[1] * GAME_TO_OURS), Math.min(1, c[2] * GAME_TO_OURS)];
+
+/** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
+ *  texture is a neutral grey, its parts shaded by their vertex colours: walls a little darker than the white trim and
+ *  cap, the lantern's inside dark. The game's greys at our lightness pass white, so these keep its order of shades. */
 export const START = {
-  walls: [0.86, 0.78, 0.62] as Rgb,
-  roof: [0.42, 0.13, 0.09] as Rgb,
-  deck: [0.74, 0.62, 0.44] as Rgb,
-  banner: [1.0, 0.82, 0.16] as Rgb,
+  stone: [0.8, 0.79, 0.76] as Rgb,
+  trim: [0.94, 0.93, 0.9] as Rgb,
+  roof: [0.7, 0.7, 0.68] as Rgb,
+  dark: [0.36, 0.36, 0.35] as Rgb,
+} as const;
+
+/** The water sources and seeps as the game colours them (D496): its models' albedo (texture × vertex colour, means over
+ *  their area, read from resources.assets), at our lightness. A water source is an outcrop of dark rock; a badwater
+ *  source a flat dark crater; a seep a stone slab round a pit heaped with rocks, its gaps dark teal (water) or rust
+ *  orange (badwater). */
+export const LANDMARK = {
+  rock: fromGame([0.19, 0.19, 0.16]),
+  rockTop: fromGame([0.22, 0.21, 0.178]),
+  rockLow: fromGame([0.161, 0.168, 0.144]),
+  crater: fromGame([0.14, 0.13, 0.11]),
+  craterDeep: fromGame([0.125, 0.112, 0.093]),
+  craterRim: fromGame([0.183, 0.173, 0.154]),
+  seepSlab: fromGame([0.23, 0.217, 0.182]),
+  seepRock: fromGame([0.254, 0.236, 0.196]),
+  seepGap: fromGame([0.116, 0.14, 0.123]),
+  badSeepSlab: fromGame([0.18, 0.151, 0.122]),
+  badSeepRock: fromGame([0.195, 0.165, 0.136]),
+  /** Badwater's rust between a badwater seep's rocks: its texture's orange, a little brighter than the means. */
+  badSeepGap: fromGame([0.24, 0.13, 0.05]),
 } as const;
 
 /** Ruins (Kyler's rounds, D178; D334: bright orange with cream, near and far, as Timberborn's
@@ -409,8 +436,11 @@ export function objectLegend(): LegendEntry[] {
     },
     {
       swatch: icon(
-        `<rect x="3" y="3" width="18" height="12" fill="${c(START.deck)}"/><rect x="6" y="5" width="12" height="8" fill="${c(START.walls)}"/><path d="M5 8 L12 4 L19 8 L19 11 L5 11Z" fill="${c(START.roof)}"/>` +
-          `<rect x="3" y="0" width="1" height="9" fill="#3a2a1c"/><rect x="4" y="0.5" width="6" height="3.5" fill="${c(START.banner)}" stroke="#000" stroke-width="0.5"/>`,
+        // the lantern tower: its walled base, the roof, the shaft, the lantern and the cap
+        `<rect x="5" y="11" width="14" height="5" fill="${c(START.stone)}"/><rect x="4" y="10" width="16" height="1.3" fill="${c(START.trim)}"/>` +
+          `<path d="M4.5 10 L8.5 7.5 L15.5 7.5 L19.5 10Z" fill="${c(START.roof)}"/><path d="M9 7.5 L10 3.6 L14 3.6 L15 7.5Z" fill="${c(START.stone)}"/>` +
+          `<rect x="9" y="3" width="6" height="0.9" fill="${c(START.trim)}"/><rect x="10.6" y="1.4" width="2.8" height="1.6" fill="${c(START.dark)}"/><path d="M9.6 1.4 L12 0 L14.4 1.4Z" fill="${c(START.roof)}"/>` +
+          `<rect x="11" y="13" width="2" height="3" fill="${c(START.dark)}"/>`,
         dry,
       ),
       label: "Start",
@@ -430,22 +460,24 @@ export function objectLegend(): LegendEntry[] {
       label: "Ruins",
     },
     {
-      // the rusty frame round the footprint, the pit filling it, pale platforms on the frame's
-      // corners, beams across
+      // the rusty frame round the footprint, the pit filling it, its corners pale ground, rusty posts round its lip
       swatch: icon(
         `<rect x="4" y="1" width="16" height="14" fill="${c(MINE.frame)}"/><rect x="5.3" y="2.3" width="13.4" height="11.4" fill="${c(MINE.pit)}"/>` +
-          `<rect x="4" y="1" width="3.6" height="3.4" fill="${c(MINE.wood)}"/><rect x="16.4" y="1" width="3.6" height="3.4" fill="${c(MINE.wood)}"/><rect x="4" y="11.6" width="3.6" height="3.4" fill="${c(MINE.wood)}"/><rect x="16.4" y="11.6" width="3.6" height="3.4" fill="${c(MINE.wood)}"/>` +
-          `<rect x="4" y="6.2" width="16" height="0.9" fill="${c(MINE.frame)}"/><rect x="4" y="8.9" width="16" height="0.9" fill="${c(MINE.frame)}"/>`,
+          `<rect x="5.3" y="2.3" width="3" height="3" fill="${c(MINE.wood)}"/><rect x="15.7" y="2.3" width="3" height="3" fill="${c(MINE.wood)}"/><rect x="5.3" y="10.7" width="3" height="3" fill="${c(MINE.wood)}"/><rect x="15.7" y="10.7" width="3" height="3" fill="${c(MINE.wood)}"/>` +
+          `<rect x="8.3" y="2.3" width="7.4" height="0.8" fill="${c(MINE.frame)}"/><rect x="8.3" y="12.9" width="7.4" height="0.8" fill="${c(MINE.frame)}"/><rect x="5.3" y="5.3" width="0.8" height="5.4" fill="${c(MINE.frame)}"/><rect x="17.9" y="5.3" width="0.8" height="5.4" fill="${c(MINE.frame)}"/>`,
         dry,
       ),
       label: "Mine site",
     },
     {
-      swatch: icon(`<circle cx="12" cy="8" r="6" fill="#77746d"/><circle cx="12" cy="8" r="4.2" fill="${c([0.32, 0.62, 0.95])}"/>`, dry) + `, ${dry}`,
+      // the outcrop of dark rock in the water it gives
+      swatch: icon(`<circle cx="12" cy="8" r="7" fill="${c([0.32, 0.62, 0.95])}"/><path d="M8 11 L9 6 L12 3.5 L15.5 5.5 L16.5 10.5 L13 12.5Z" fill="${c(LANDMARK.rock)}"/><path d="M9 6 L12 3.5 L15.5 5.5 L12 7Z" fill="${c(LANDMARK.rockTop)}"/>`, dry) + `, ${dry}`,
       label: "Water source",
     },
     {
-      swatch: icon(`<circle cx="12" cy="8" r="7" fill="#33261f"/><path d="M12 8 m-4 0 a4 4 0 1 1 4 4" stroke="${c([0.5, 0.3, 0.18])}" stroke-width="1.6" fill="none"/>`, dry),
+      // the flat dark crater, darker in its middle, low stones round its rim
+      swatch: icon(`<circle cx="12" cy="8" r="7" fill="${c(LANDMARK.crater)}"/><circle cx="12" cy="8" r="4.5" fill="${c(LANDMARK.craterDeep)}"/><circle cx="12" cy="8" r="2" fill="${c([0.17, 0.155, 0.13])}"/>` +
+        `<circle cx="5.5" cy="6" r="0.9" fill="${c(LANDMARK.craterRim)}"/><circle cx="17.5" cy="11" r="0.9" fill="${c(LANDMARK.craterRim)}"/><circle cx="14" cy="1.6" r="0.8" fill="${c(LANDMARK.craterRim)}"/><circle cx="9" cy="14.3" r="0.8" fill="${c(LANDMARK.craterRim)}"/>`, dry),
       label: "Badwater source",
     },
     {
