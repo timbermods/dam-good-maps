@@ -291,7 +291,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  turns bad ("Dry on day 6", "Lasts the drought", "Turns bad on day 4"). A cave's floor or a ledge under a roof is
    *  not the water seen from above: no words there. */
   const hoverWordsAt = (x: number, y: number, level?: number): string => {
-    const words = tileWords(describeTileFacts(ed.pageTileFacts(), x, y, level));
+    // (objects hidden, H or Hide objects: the readout names only the land, as the pointer finds it)
+    const facts = ed.pageTileFacts();
+    const words = tileWords(describeTileFacts(renderer.current?.objectsHidden ? { ...facts, objects: () => [] } : facts, x, y, level));
     const n = firstNews.current;
     if (!n || x < 0 || y < 0 || x >= infoRef.current.W || y >= infoRef.current.H) return words;
     const i = y * infoRef.current.W + x;

@@ -40,7 +40,7 @@ test("Legend, ticked, shows a panel under it, which lists what is on it with the
   const button = page.getByRole("checkbox", { name: "Legend", exact: true });
   await expect(button).toHaveAttribute("aria-checked", "false");
   const words = (await page.locator(".show-bar").getByRole("checkbox").allTextContents()).map((t) => t.trim());
-  expect(words).toEqual(["Heights", "Lines", "Markers", "Flow", "See-through", "Badwater"]);
+  expect(words).toEqual(["Heights", "Lines", "Markers", "Flow", "See-through", "Hide objects", "Badwater"]);
   await expect(page.locator("aside.legend-panel")).toHaveCount(0);
   const closed = await places(page);
 
