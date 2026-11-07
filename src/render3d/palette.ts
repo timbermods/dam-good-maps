@@ -215,16 +215,6 @@ export const HATCH = { dark: [0.06, 0.05, 0.04] as Rgb } as const;
  *  ground's tops round it, hatched with lighter diagonal stripes (materials.ts, `capped`). */
 export const CUT_CAP = { base: [0.25, 0.265, 0.3] as Rgb, line: [0.36, 0.375, 0.41] as Rgb } as const;
 
-/** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
- *  texture is a neutral grey, its parts shaded by their vertex colours: walls a little darker than the white trim and
- *  cap, the lantern's inside dark. The game's greys at our lightness pass white, so these keep its order of shades. */
-export const START = {
-  stone: [0.8, 0.79, 0.76] as Rgb,
-  trim: [0.94, 0.93, 0.9] as Rgb,
-  roof: [0.7, 0.7, 0.68] as Rgb,
-  dark: [0.36, 0.36, 0.35] as Rgb,
-} as const;
-
 /** The water sources and seeps as the game colours them (D496): its models' albedo (texture × vertex colour, means over
  *  their area, read from resources.assets), at our lightness. A water source is an outcrop of dark rock; a badwater
  *  source a flat dark crater; a seep a stone slab round a pit heaped with rocks, its gaps dark teal (water) or rust
@@ -357,6 +347,9 @@ export const MINE = {
   rope: [0.22, 0.17, 0.12] as Rgb,
   frame: [0.518, 0.302, 0.184] as Rgb,
   wood: [0.655, 0.557, 0.396] as Rgb,
+  /** The ground the game's round pit leaves in its square's corners: its albedo there (UndergroundRuins.Model, the
+   *  up-facing corners' mean, 0.355, 0.285, 0.195) as ours. */
+  ledge: asOurs([0.355, 0.285, 0.195]),
   /** **Markers**: the outline round the footprint. */
   outline: [1.0, 0.56, 0.18] as Rgb,
   outlineDark: [0.1, 0.05, 0.02] as Rgb,
@@ -378,6 +371,17 @@ export const LIGHT = {
   /** The haze: the game's temperate daytime fog (`Sun.blueprint` `DayColors.TemperateWeatherFog`; a held hazard's in
    *  high/seasons.ts `FOG`). */
   haze: [0.4470589, 0.7607844, 0.8235295] as Rgb,
+} as const;
+
+/** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
+ *  texture is a neutral grey, its parts shaded by their vertex colours: the game's own greys, area-weighted means read
+ *  from its model (walls and shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at 0.96, the lantern's
+ *  inside and the openings about 0.36), as the trees show the game's own colour in every look. */
+export const START = {
+  stone: [0.79, 0.79, 0.79] as Rgb,
+  trim: [0.84, 0.84, 0.84] as Rgb,
+  roof: [0.963, 0.963, 0.963] as Rgb,
+  dark: [0.36, 0.36, 0.36] as Rgb,
 } as const;
 
 /** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,
@@ -622,7 +626,7 @@ export function objectLegend(): LegendEntry[] {
         // the lantern tower: its walled base, the roof, the shaft, the lantern and the cap
         `<rect x="5" y="11" width="14" height="5" fill="${c(START.stone)}"/><rect x="4" y="10" width="16" height="1.3" fill="${c(START.trim)}"/>` +
           `<path d="M4.5 10 L8.5 7.5 L15.5 7.5 L19.5 10Z" fill="${c(START.roof)}"/><path d="M9 7.5 L10 3.6 L14 3.6 L15 7.5Z" fill="${c(START.stone)}"/>` +
-          `<rect x="9" y="3" width="6" height="0.9" fill="${c(START.trim)}"/><rect x="10.6" y="1.4" width="2.8" height="1.6" fill="${c(START.dark)}"/><path d="M9.6 1.4 L12 0 L14.4 1.4Z" fill="${c(START.roof)}"/>` +
+          `<rect x="9" y="3" width="6" height="0.9" fill="${c(START.trim)}"/><rect x="10.6" y="1.4" width="2.8" height="1.6" fill="${c(START.dark)}"/><path d="M9.6 1.4 L12 0 L14.4 1.4Z" fill="${c(START.trim)}"/>` +
           `<rect x="11" y="13" width="2" height="3" fill="${c(START.dark)}"/>`,
         dry,
       ),
