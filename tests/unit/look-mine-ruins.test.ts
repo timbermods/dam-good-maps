@@ -1,8 +1,8 @@
 // Kyler's mine site and ruins rounds (PLAN §20 D178): our own models, true to the game's
 // footprints. A mine site is a rusty frame round the edge of its 5 × 5 footprint and a pit with
 // real depth filling the rest (the terrain leaves the footprint's tops out and the model closes the
-// hole), with scaffold towers on the frame's corners and beams across; with Markers on, an outline
-// round the footprint. Ruins are ruined scaffold towers, a storey per level, in the file's five
+// hole), rusty posts down into it round its lip and pale ground in its corners, as the game's (no
+// scaffolding: D178 amended, D496's rule); with Markers on, an outline round the footprint. Ruins are ruined scaffold towers, a storey per level, in the file's five
 // variants, with ivy draped over the lower half of their storeys on moist ground; neighbouring columns
 // never look alike, and from afar each storey is a block in the scaffolding's colour. Kyler's
 // colours hold: the mine sites' measured in the game, the ruins' bright orange with cream sacks from
@@ -88,7 +88,8 @@ describe("mine sites", () => {
     // the model closes the hole: a floor over the whole pit, and four walls facing in, from the
     // ground down to the floor
     const { half: p, depth: d } = MINE_PIT;
-    expect(d).toBeGreaterThanOrEqual(1.5);
+    // (the game's pit reaches 1.35 down, UndergroundRuins.Model; D178 amended to the game by D496's rule, re-based, D148)
+    expect(d).toBeCloseTo(1.35, 2);
     const m = modelOf("UndergroundRuins");
     const tri = (k: number) => [0, 1, 2].map((j) => [m.pos[k * 9 + j * 3], m.pos[k * 9 + j * 3 + 1], m.pos[k * 9 + j * 3 + 2]]);
     let floor = 0;

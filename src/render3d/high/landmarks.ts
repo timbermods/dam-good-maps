@@ -1,17 +1,18 @@
 // Refreshed objects and landmarks for the High look (#67 stage 3, investigation/maplook-finish
 // landmarks.ts; PLAN §20 D250): procedural models of our own, in place of today's, on the same
-// transforms, footprints and tints: the district centre with a shingled roof and banner, relics as
-// plain chipped stumps, a murky seep for a badwater source, rocks and a pool for a water source,
-// geothermal vents, a bramble of thorns, rubble and log debris for blockages and natural dams, and a
-// few steel gussets and bolts on the ruins' scaffolds and the mine's frame. Slopes keep their ramp
-// in natural materials. Each replacement carries the original batch's per-instance bookkeeping, so
-// highlighting, removing and following the ground work as before; off, the originals come back.
+// transforms, footprints and tints: relics as plain chipped stumps, geothermal vents, a bramble of
+// thorns, rubble and log debris for blockages and natural dams, and a few steel gussets and bolts on the
+// ruins' scaffolds and the mine's frame. The start (the game's lantern tower) and the water and badwater
+// sources (its rock outcrop and crater) are Standard's models, the game's shapes (D496), in High's
+// materials. Slopes keep their ramp in natural materials. Each replacement carries the original batch's
+// per-instance bookkeeping, so highlighting, removing and following the ground work as before; off, the
+// originals come back.
 
 import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, TorusGeometry, Vector3, type Group, type ShaderMaterial } from "three";
 import type { EntityView } from "../model";
 import { whenIdle } from "../idle";
 import { disposeSharedBatch } from "./sharedBatch";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, START, THORNS, type Rgb } from "../palette";
+import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, THORNS, type Rgb } from "../palette";
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 const hash = (i: number) => {
@@ -83,49 +84,6 @@ function rock(m: Parts, x: number, y: number, z: number, r: number, c: Rgb, seed
   m.add(g, c, x, y, z, 0, seed, seed * 0.31, lod);
 }
 
-function district(): BufferGeometry {
-  const m = new Parts();
-  const wood = START.walls;
-  const roof = START.roof;
-  m.box(3, 0.1, 3, shade(START.deck, 0.72), 0, 0.05);
-  for (let k = 0; k < 15; k++) m.box(0.18, 0.11, 2.94, shade(START.deck, 0.9 + hash(k) * 0.16), -1.4 + k * 0.2, 0.15);
-  m.box(1.75, 0.96, 1.35, wood, 0, 0.72);
-  for (let y = 0.35; y < 1.18; y += 0.16) for (const z of [-0.7, 0.7]) m.beam([-1, y, z], [1, y, z], 0.073, shade(wood, 0.75 + hash(y) * 0.16));
-  for (const x of [-0.84, 0.84]) for (const z of [-0.65, 0.65]) m.box(0.11, 1.1, 0.11, shade(wood, 0.67), x, 0.74, z);
-  // shingle courses along the A roof; the strong red roof still reads
-  for (const side of [-1, 1])
-    for (let row = 0; row < 5; row++)
-      for (let col = 0; col < 8; col++) {
-        const z = side * (0.09 + row * 0.168);
-        const y = 1.98 - Math.abs(z) * 0.9;
-        m.box(0.27, 0.07, 0.25, shade(roof, 0.82 + hash(row * 31 + col * 7 + side) * 0.36), -0.96 + col * 0.275, y, z, side * 0.73, 0, 0);
-      }
-  m.beam([-1.12, 2.01, 0], [1.12, 2.01, 0], 0.055, shade(roof, 1.18));
-  m.box(0.43, 0.63, 0.055, [0.24, 0.16, 0.095], 0, 0.55, 0.705);
-  m.box(0.55, 0.06, 0.08, shade(wood, 0.68), 0, 0.89, 0.74);
-  for (const x of [-0.6, 0.6]) {
-    m.box(0.32, 0.32, 0.05, [0.2, 0.32, 0.31], x, 0.84, 0.715);
-    for (const dx of [-0.18, 0.18]) m.box(0.035, 0.39, 0.08, START.deck, x + dx, 0.84, 0.74);
-    m.box(0.39, 0.035, 0.08, START.deck, x, 0.65, 0.74);
-    m.box(0.39, 0.035, 0.08, START.deck, x, 1.03, 0.74);
-    m.box(0.028, 0.33, 0.08, START.deck, x, 0.84, 0.74);
-  }
-  m.box(0.73, 0.08, 0.49, roof, 0, 1.02, 0.94, 0.2);
-  for (const x of [-0.9, 0.9]) {
-    m.beam([x, 0.2, 1.15], [x, 0.73, 1.15], 0.06, shade(wood, 0.66));
-    m.beam([x, 0.72, 1.15], [x, 0.72, 1.48], 0.035, START.deck);
-  }
-  m.box(0.31, 0.66, 0.32, [0.49, 0.48, 0.42], 0.57, 1.86, -0.26);
-  m.box(0.39, 0.1, 0.4, [0.3, 0.31, 0.28], 0.57, 2.2, -0.26);
-  m.beam([-1.17, 0.2, -1.1], [-1.17, 2.96, -1.1], 0.045, [0.29, 0.2, 0.12]);
-  m.box(0.85, 0.5, 0.05, START.banner, -0.72, 2.69, -1.1);
-  m.box(0.85, 0.09, 0.057, [0.36, 0.15, 0.075], -0.72, 2.48, -1.1);
-  // a simple crossed-tools emblem of our own
-  m.beam([-0.86, 2.57, -1.064], [-0.61, 2.82, -1.064], 0.025, [0.37, 0.21, 0.095], 1);
-  m.beam([-0.61, 2.57, -1.06], [-0.86, 2.82, -1.06], 0.025, [0.37, 0.21, 0.095], 1);
-  return m.geometry();
-}
-
 function relic(type: string): BufferGeometry {
   const m = new Parts();
   const large = type === "LargeRelic";
@@ -151,35 +109,6 @@ function relic(type: string): BufferGeometry {
   return m.geometry();
 }
 
-function badSource(): BufferGeometry {
-  // a dark stone basin over the whole 3 × 3 footprint, as Standard draws it (D324, feedback item 28 and
-  // its follow-up): a clean rim of blocks and boulders round a crimson pool, the badwater boiling up
-  // in a low dome with orange-brown bubbles you can see; High's materials and lighting do the rest
-  const m = new Parts();
-  const rim: Rgb = [0.25, 0.22, 0.2];
-  m.box(2.96, 0.1, 2.96, [0.13, 0.11, 0.1], 0, 0.05);
-  for (const s of [-1, 1]) {
-    m.box(2.96, 0.26, 0.42, rim, 0, 0.23, s * 1.27);
-    m.box(0.42, 0.26, 2.12, rim, s * 1.27, 0.23, 0);
-    for (const c of [-1, 1]) {
-      const g = new IcosahedronGeometry(0.38, 0);
-      g.scale(1, 0.75, 1);
-      m.add(g, [0.3, 0.26, 0.23], c * 1.28, 0.3, s * 1.28, 0, 0.4 * c * s);
-    }
-  }
-  m.box(2.14, 0.05, 2.14, [0.22, 0.085, 0.07], 0, 0.155);
-  const dome = new IcosahedronGeometry(0.8, 1);
-  dome.scale(1, 0.3, 1);
-  m.add(dome, [0.31, 0.11, 0.09], 0, 0.17);
-  const bubbles: [number, number, number][] = [[0.3, 0.25, 0.26], [-0.5, -0.1, 0.2], [0.1, -0.55, 0.18], [-0.25, 0.6, 0.22], [0.65, -0.45, 0.16], [-0.75, 0.45, 0.15], [0.6, 0.65, 0.19]];
-  for (const [x, z, r] of bubbles) {
-    const b = new IcosahedronGeometry(r, 1);
-    b.scale(1, 0.85, 1);
-    m.add(b, [0.62, 0.3, 0.1], x, 0.25, z);
-  }
-  return m.geometry();
-}
-
 function bramble(): BufferGeometry {
   const m = new Parts();
   for (let k = 0; k < 10; k++) {
@@ -196,29 +125,6 @@ function bramble(): BufferGeometry {
     }
   }
   rock(m, 0, 0.12, 0, 0.22, shade(THORNS, 0.67), 11);
-  return m.geometry();
-}
-
-function source(bad: boolean): BufferGeometry {
-  if (bad) return badSource();
-  // a stone basin with water welling up, as Standard draws it (D324, feedback item 28 and its follow-up):
-  // four clean blocks round a pool, corner stones, the water domed in the middle over a small spout,
-  // rings spreading from it; in High's materials and lighting
-  const m = new Parts();
-  const stone: Rgb = [0.5, 0.52, 0.52];
-  m.box(0.98, 0.1, 0.98, [0.34, 0.36, 0.37], 0, 0.05);
-  for (const s of [-1, 1]) {
-    m.box(0.98, 0.18, 0.2, stone, 0, 0.19, s * 0.39);
-    m.box(0.2, 0.18, 0.58, stone, s * 0.39, 0.19, 0);
-    for (const c of [-1, 1]) m.box(0.27, 0.27, 0.27, [0.56, 0.58, 0.57], c * 0.36, 0.235, s * 0.36, 0, 0.15 * c * s);
-  }
-  m.box(0.58, 0.04, 0.58, [0.2, 0.5, 0.58], 0, 0.16);
-  m.add(new CylinderGeometry(0.25, 0.25, 0.012, 14), [0.78, 0.9, 0.92], 0, 0.182);
-  m.add(new CylinderGeometry(0.2, 0.2, 0.012, 14), [0.24, 0.56, 0.64], 0, 0.19);
-  const dome = new IcosahedronGeometry(0.17, 1);
-  dome.scale(1, 0.6, 1);
-  m.add(dome, [0.34, 0.68, 0.75], 0, 0.2);
-  m.add(new CylinderGeometry(0.04, 0.05, 0.14, 7), [0.8, 0.92, 0.94], 0, 0.27);
   return m.geometry();
 }
 
@@ -246,8 +152,8 @@ function debris(dam: boolean): BufferGeometry {
   return m.geometry();
 }
 
-/** Today's model with a little more: steel gussets and bolts on a ruin's scaffold, a pulley and
- *  bolts on the mine's frame. The approved shapes stay. */
+/** Today's model with a little more: steel gussets and bolts on a ruin's scaffold, bolts and slats on the mine's
+ *  frame. The approved shapes stay. */
 function augment(key: string, base: BufferGeometry): BufferGeometry {
   const m = new Parts().copy(base);
   if (key.startsWith("scaffold.")) {
@@ -257,7 +163,6 @@ function augment(key: string, base: BufferGeometry): BufferGeometry {
         m.add(new CylinderGeometry(0.025, 0.025, 0.012, 6), [0.61, 0.47, 0.31], x, 0.11, z, 0, 0, 0, 1);
       }
   } else if (key === "UndergroundRuins") {
-    m.add(new TorusGeometry(0.18, 0.032, 5, 12), shade(MINE.frame, 0.8), 0, 1.52, 0, 0, Math.PI / 2, 0, 1);
     for (const x of [-2.37, 2.37]) for (const z of [-2.37, 2.37]) m.add(new CylinderGeometry(0.065, 0.065, 0.025, 6), [0.62, 0.52, 0.35], x, 0.185, z, 0, 0, 0, 1);
     for (const z of [-2.25, 2.25]) for (let k = 0; k < 11; k++) m.box(0.026, 0.014, 0.18, shade(MINE.wood, 0.7), -2 + k * 0.4, 0.2, z, 0, 0, 0, 1);
   }
@@ -292,11 +197,11 @@ function geometryFor(name: string, batch: string, base: BufferGeometry): BufferG
   const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
   let g = models.get(key);
   if (!g) {
-    if (name === "StartingLocation") g = district();
+    // (the start and the sources are the game's models, D496: Standard's own, in High's materials and light)
+    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource") g = new Parts().copy(base).geometry();
     else if (name.endsWith("Relic")) g = relic(name);
     else if (name === "Thorns") g = bramble();
     else if (name === "GeothermalField") g = geothermal();
-    else if (name === "WaterSource" || name === "BadwaterSource") g = source(name === "BadwaterSource");
     else if (name === "Blockage" || name === "NaturalDam") g = debris(name === "NaturalDam");
     else g = augment(batch, base);
     models.set(key, g);

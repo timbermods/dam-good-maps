@@ -964,6 +964,45 @@ side. The page wires it: the terrain tools' hover and stroke set the fade, and a
   alpha channel (`premultipliedAlpha`), so a far ruin's lattice cells (`RUIN_INSIDE_COVER` 0.75) let a little of the page
   through on screen. That is a follow-up for the look, not changed here.
 
+## The landmarks as the game draws them (D496, D178 amended; `feature/game-landmarks`)
+
+Group 2 of the object audit: the landmarks every map has, our own models at the game's measures. They were read from
+the game's models in resources.assets (positions, materials and texture means only; nothing of the game's is kept).
+
+- **The start** (`startTower`): the game's map-editor marker, a lantern tower of pale grey stone, 4.37 high on its
+  3 × 3. It has a walled base 2.86 across to 1.04 with a door toward the entrance and windows, a white cornice, a hipped
+  roof to 1.8, a tapering shaft to 2.8, a gallery 1.82 across, a lantern of four posts round a dark light to 3.8, and a
+  cap. It replaces the timber lodge with its red roof and banner. The entrance marker stays. Its shadow caster stands
+  4.0 high on its footprint's middle tile, where the tower is (`light.ts`, was 2.2 on its Coordinates' corner; the
+  fade drops it there, objectFade.ts `casterPlaces`), and a press takes it as drawn: the walls two levels over the 3 × 3, the tower four
+  over the middle tile (`editor/start/startPick.ts`).
+- **A water source:** an outcrop of dark rock 1.0 high, about 1.1 across (the game's is 1.14 × 1.18). Highlighted (Remove's
+  red, D249), a source's rock takes the whole red, three times its colour rather than twice (`highlightObjects`), so the
+  dark rock reads as clearly as the red water round it; and a source the pointer's water comes from (D196) glows in its
+  model as in its water (`tintObjects`, the water's glow as a tint of the rock), since the rock now stands where the
+  glowing water was seen. The tints are put back before High copies the objects' colours and laid again once the
+  map's objects are the ones drawn (a source placed while one glows, a look switched; look-high.spec checks it).
+- **A badwater source:** a flat dark crater 2.5 across over its 3 × 3, darker toward the middle, with low stones round
+  its rim. Nothing stands higher than 0.06.
+- **A mine site:** the pit is the game's 1.35 deep (`MINE_PIT.depth`, was 1.6). The scaffold towers, the beams across
+  the pit, the rope and bucket, the ladder, the crates and the shaft are gone, as the game has none. Rusty posts stand
+  down into the pit round its lip, joined along each side and across each corner, and pale ground fills the pit's corners
+  as the game's round pit leaves them. High's pulley went with the scaffolding.
+- **A seep:** a stone slab at the ground round a pit, heaped with sixteen columns of rock. The heap rises to 0.57 for
+  water and 0.40 for badwater, and the gaps between the rocks are dark teal or rust orange. The pit is 0.5 deep for
+  water and 0.2 for badwater, as the game's are.
+- **Colours:** the game's albedo at our lightness, by the ratio of our grass to the game's (`palette.ts` `START`,
+  `LANDMARK`, by `asOurs`, as the trees'). The legend's pictures follow the new shapes.
+- **Every look:** Standard's models are the light look's, and High copies them for the start and the sources
+  (`landmarks.ts`), so the three looks draw the same shapes. The mine site and the seeps stay the land's own shape for
+  the object fade (`LAND`).
+- **Tests:** `tests/unit/landmarksGame.test.ts` pins each to the game's measures. `look-mine-ruins.test.ts`'s pit depth
+  is re-based to the game's 1.35, and `startHouse.test.ts`'s ray over the roof passes beside the tower, with a new
+  case for the tower itself (D148).
+- **Captures:** `docs/sheets/landmarks-game.jpg` shows before and after, on a flat meadow (the landmarks' water off) and
+  on River Valley, in Standard, High and the light look. The game's own models were rendered beside ours to check
+  them; those renders stay local.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

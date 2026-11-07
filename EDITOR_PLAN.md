@@ -498,9 +498,10 @@ place of its bottom rule.
   dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, what an Easy start map
   made in a late rescue round left short of its targets (Good to know, uncounted, D495), and lists an opened
   file's import flags with their fixes (counted).
-- **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades. Its lodge is
-  pressed as drawn: a press on the roof or walls takes the start, though the ground the pointer sees behind them
-  may be tiles away (`start/startPick.ts`, the lodge about two levels high).
+- **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades. Its tower is
+  pressed as drawn: a press on the roof, walls or lantern takes the start, though the ground the pointer sees behind
+  them may be tiles away (`start/startPick.ts`: the walls about two levels high over the 3 × 3, the tower four over
+  the middle tile).
 
 (D184, D212, D219.)
 
