@@ -380,6 +380,8 @@ export interface HeaderProps {
   onChooseFolder(): void;
   onOpenFile(file: File): void;
   onSaveProject(): void;
+  /** File → Save a picture (the map from the game's opening view, large, as a JPEG), where this browser draws in 3D. */
+  onSavePicture?: () => void;
   /** Remove every source, tree, bush, ruin, object and the start (one undo step, D323 item 44). */
   onClearEverything(): void;
   historyOpen: boolean;
@@ -610,6 +612,13 @@ export function Header(p: HeaderProps) {
                 <li role="none">
                   <button type="button" role="menuitem" {...tip("Save a video of how the map was built")} onClick={pick(openLapse)}>
                     Record a time-lapse…
+                  </button>
+                </li>
+              ) : null}
+              {p.onSavePicture ? (
+                <li role="none">
+                  <button type="button" role="menuitem" {...tip("Save a picture of the map to share")} onClick={pick(p.onSavePicture)}>
+                    Save a picture
                   </button>
                 </li>
               ) : null}

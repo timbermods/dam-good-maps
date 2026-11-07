@@ -332,6 +332,11 @@ const api = {
     const r = replaceThumbnail(timber, jpeg);
     return r.ok ? transfer(r, [r.bytes.buffer as Transferable]) : r;
   },
+  /** File → Save a picture: the open map's view and the picture's file name. */
+  pictureView() {
+    const r = ed.pictureView();
+    return transfer(r, viewBuffers(r.view) as Transferable[]);
+  },
   project(level?: number) {
     const r = ed.project(level);
     return transfer(r, [r.bytes.buffer as Transferable]);
