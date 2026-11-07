@@ -27,7 +27,7 @@ function edited(): { s: MapSession; exports: string[] } {
   const exports = [timber(s)];
   // (the raised box on dry ground with no object within 3 tiles: a mine site or a ruin there would float, which
   // the export's checks refuse; the first such spot from the map's corner, since generator 0.10.7, D502, D148; west of
-  // the lowered box's column, x 40, since generator 0.10.10, the D410 round, D148: the map's west half has none west of 36)
+  // the lowered box's column, x 40, since generator 0.10.VV, the D410 round, D148: the map's west half has none west of 36)
   let at: [number, number] | null = null;
   for (let y = 4; y + 5 < W - 4 && !at; y += 2)
     for (let x = 4; x + 6 < 40 && !at; x += 2) {

@@ -15,7 +15,7 @@ import { PY } from "./caveChecks";
 describe("the Python validator on an imported map with a cave", () => {
   it.skipIf(!PY)("passes --load-only, the single-floor row reported as advisory", () => {
     // a generated map with a hollow dug into a hillside, exported: a cave, and no project file beside it
-    // (seed 2 for seed 3 on generator 0.10.10, the D410 round's ramps and shores, D148: seed 3's hillsides all stand within three tiles of an object now)
+    // (seed 2 for seed 3 on generator 0.10.VV, the D410 round's ramps and shores, D148: seed 3's hillsides all stand within three tiles of an object now)
     const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 64, y: 64 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const { x, y, z } = hillside(s);

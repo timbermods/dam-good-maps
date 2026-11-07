@@ -25,7 +25,7 @@ describe("objects of several tiles ride a stroke level", () => {
     await runGenerate(makeSpec({ seed: 5, theme: "highlands", size: { x: 48, y: 48 } }));
     ed.refine();
     const W = ed.sessionInfo().W;
-    // (the map's mine site at (7, 3) since generator 0.10.10, the D410 round, D148, (33, 28) before; the stroke the same way from it)
+    // (the map's mine site at (7, 3) since generator 0.10.VV, the D410 round, D148, (33, 28) before; the stroke the same way from it)
     const mine = () => ed.collabSession()!.built.entities.find((e) => e.template === "UndergroundRuins" && e.x === 7 && e.y === 3);
     expect(mine()).toBeDefined();
     const ground = () => {

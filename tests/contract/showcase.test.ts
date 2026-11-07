@@ -22,7 +22,7 @@ describe("Showcase mode (D488 (2))", () => {
     expect(seen.every((c) => c.passed && c.arc)).toBe(true);
     const [a, b, c] = seen.map((s) => s.arc!);
     // (generator 0.10.7, D502, D148: the first D502 pass gave these maps a landmark form each; narrowed to one form
-    // for each whole 128² of the map (none at 96²), they are new lands again; generator 0.10.10, the D410 round, D148: the
+    // for each whole 128² of the map (none at 96²), they are new lands again; generator 0.10.VV, the D410 round, D148: the
     // start leans toward ground whose soil the drought leaves moist, so the starts moved; the beats below were read off
     // them by hand)
     // the asked map: an 8-level mesa 36 tiles east in the opening camera pulled back (D493), but too

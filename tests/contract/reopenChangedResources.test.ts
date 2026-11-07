@@ -34,7 +34,7 @@ describe("a reopened project keeps what the session showed after a changed berry
     const cy = Math.round((tiles.reduce((a, i) => a + Math.floor(i / W), 0) / tiles.length) * 4);
     return { op: "brush", params: { tool: "raise", size: 6, strength: 10, dabs: [cx, cy, cx, cy] } };
   };
-  // the map's first berry patch whose middle a raise dries (since generator 0.10.10, the D410 round, D148: the start's
+  // the map's first berry patch whose middle a raise dries (since generator 0.10.VV, the D410 round, D148: the start's
   // berries grow where the drought's water keeps the soil moist, and of seed 4's patches only one start patch dries
   // under the raise), and a forest that stands dead on dry ground
   const patch = s.features.find((f) => {

@@ -20,7 +20,7 @@ const open = () => MapSession.open(decodeProject(ed.project().bytes));
 
 describe("Select's actions on a one-tile selection change that tile (D259, D264)", () => {
   // ((15, 8) on M9b's map, D148: dev's (18, 3) is not a lone level tile there; (44, 10) since the 96²
-  // round's flow moved the map, investigation/canyon-highlands-96; (49, 22) at level 8 since generator 0.10.10, the D410 round,
+  // round's flow moved the map, investigation/canyon-highlands-96; (49, 22) at level 8 since generator 0.10.VV, the D410 round,
   // D148: the map has no lone level tile at level 7 now)
   it("Highlands 64², seed 3: the dry level tile (49, 22), at level 8, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
