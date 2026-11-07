@@ -202,6 +202,12 @@ export class HighLook {
     return !this.waterTimer && (this.ambient?.ready ?? true) && this.host.flow().ready;
   }
 
+  /** Whether nothing waits for a frame to be redone: the occlusion round a brush's changes, the sun's depth map (drawn at
+   *  most every SHADOW_EVERY ms). */
+  get caughtUp(): boolean {
+    return !this.ambient?.waiting && !(this.shadows.dirty && this.effects.shadows);
+  }
+
   /** Whether the look moves on its own (the wind in the trees): the renderer keeps drawing. */
   get animates(): boolean {
     return (this.vegSway.value > 0 && !!this.forest?.meshes.length);

@@ -140,7 +140,8 @@ place of its bottom rule.
   is made** the dialog holds a small stretch of moving water in the view's water colour, and the land's empty square draws
   an island's contour rings one after another (the lowest in the water's colour; 0.5 s apart, 1.8 s each, then they hold
   and fade together on a 6 s cycle); both move only while waiting and not under reduced motion (`FirstLook.tsx`);
-  **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
+  **Cancel (or Esc) while a map is made** brings the open map back as it was and leaves the panel's name and settings as
+  they were picked, for the next try; **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
   open map back as it was; in a Together session, once the new map is built and being put into the session's worker (the last step before it opens), Cancel is off ("The map is opening"), Esc does nothing and the words read "Opening the map…". **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
   the attempt under way and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
   quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
@@ -229,7 +230,8 @@ place of its bottom rule.
 - **Select is always in hand** (Kyler, the v4 verdict): held when a map opens; Esc and X put anything else down and
   return to it; a drag on the land marks an area and a click clears it; a source and the start are pressed and
   dragged as before; a click picks an object and a drag then moves it, while a drag from an object not picked
-  marks an area. The middle button turns the view, the right button pans.
+  marks an area. The middle button turns the view (pressed in the top-down view it leaves it for the angled one,
+  as the toggle does), the right button pans.
 
 - **The bar** at the bottom middle, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, Block
   (D335, key 7), a hairline, then the forces in the order of D352's clusters (`FORCE_GROUPS` in `TopBar.tsx`; today Carve,
@@ -1372,7 +1374,8 @@ stroke records the options it used:
 - A Lower stroke that starts in or beside water records `channel` (smart Lower) and how deep it may cut (D263): a
   new channel its `bed` (one level below the surface of the water round its first dab, never below that water's own
   bed) and `dry`; a stroke that never leaves the water it began in is a deepening pass (`deepen`: a level off what
-  the brush's middle passes over, once). The bed never rises along the stroke, so the replay carves the same bed.
+  the brush's middle passes over, once). A stroke begins a deepening pass only from water half a level deep or
+  more: a source's thin sheet over flat ground is no pond, so a stroke from it is a new channel. The bed never rises along the stroke, so the replay carves the same bed.
   Strokes saved before D263 keep their old start and replay exactly.
 - Also recorded: the brush kit's options (`square`; `shape: "area"`, Timberborn's Terrain on Raise and Lower: a
   rectangle between the stroke's two dabs, every tile to the tool's Level, or a block up or down per tile on Free; one

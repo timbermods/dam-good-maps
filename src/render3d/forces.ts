@@ -39,6 +39,7 @@ import {
 } from "three";
 import { JUICE, wallColor } from "./palette";
 import { SUN } from "./materials";
+import { WALL_CLOCK, type Clock } from "./clock";
 import { STONE_REACH, WEAR_STRIDE, wearCount, wearSamples, type Voxels } from "./wear";
 
 /** A force's moment, as its worker sends it (core/forces/runs.ts `ForceCue`). */
@@ -86,7 +87,7 @@ class Impact {
   /** When it struck (null: still falling). */
   struck: number | null = null;
 
-  constructor() {
+  constructor(private readonly clock: Clock) {
     this.shock.rotation.x = -Math.PI / 2;
     this.dust.frustumCulled = this.chunks.frustumCulled = this.shock.frustumCulled = this.flash.frustumCulled = this.streak.frustumCulled = false;
     this.dust.renderOrder = this.shock.renderOrder = this.flash.renderOrder = 5;
@@ -106,7 +107,7 @@ class Impact {
   }
 
   get active(): boolean {
-    return !!this.a && (this.struck === null || performance.now() - this.struck < 1850);
+    return !!this.a && (this.struck === null || this.clock.now() - this.struck < 1850);
   }
 
   /** Where it is and how far it has gone (seconds since it struck; null while it falls), or null. */
@@ -198,7 +199,7 @@ class Rupture {
   private t0 = 0;
   private slide = false;
 
-  constructor() {
+  constructor(private readonly clock: Clock) {
     this.dust.frustumCulled = this.crack.frustumCulled = false;
     this.crack.renderOrder = 8;
     this.group.add(this.crack, this.dust);
@@ -222,7 +223,7 @@ class Rupture {
   }
 
   get active(): boolean {
-    return !!this.head && (this.ended === null || performance.now() - this.ended < 1500);
+    return !!this.head && (this.ended === null || this.clock.now() - this.ended < 1500);
   }
 
   /** Its head and its seconds since it began, or null. */
@@ -315,12 +316,13 @@ class Plume {
   t0 = 0;
   /** When it ended (the plume thins and the lava cools from then). */
   ended: number | null = null;
-  /** Its seconds cooled as drawn, and when its last frame was: the lava cools by its frames, a frame counting a
-   *  tenth of a second at most, so a stall (the keep's work on a slow machine) never skips its cooling unseen. */
+  /** Its seconds cooled as drawn, and when its last frame was: the lava cools by its frames, a frame of the player's
+   *  view counting a tenth of a second at most, so a stall (the keep's work on a slow machine) never skips its cooling
+   *  unseen; a recording's frame counts whole, its time being the video's. */
   private cooled = 0;
   private drawn = 0;
 
-  constructor() {
+  constructor(private readonly clock: Clock) {
     this.geometry.setAttribute("puffAlpha", new InstancedBufferAttribute(this.opacity, 1));
     this.geometry.setAttribute("puffSeed", new InstancedBufferAttribute(this.seeds, 1));
     this.smoke.frustumCulled = false;
@@ -379,7 +381,9 @@ class Plume {
 
   update(now: number, ground: Ground): void {
     if (this.ended !== null) {
-      this.cooled += Math.min(Math.max(0, now - this.drawn), 100) / 1000;
+      // (a recording's frame is its video's time and counts whole; the player's view caps a frame at a tenth of a second)
+      const step = Math.max(0, now - this.drawn);
+      this.cooled += (this.clock.driven ? step : Math.min(step, 100)) / 1000;
       this.drawn = now;
     }
     this.group.visible = this.active;
@@ -487,7 +491,7 @@ class Glacier {
   /** Its seconds when it ended (kept, or skipped to its end). */
   private endS = 0;
 
-  constructor() {
+  constructor(private readonly clock: Clock) {
     this.gather.frustumCulled = this.crystals.frustumCulled = false;
     this.gather.renderOrder = this.crystals.renderOrder = 5;
     this.group.add(this.gather, this.crystals, this.standIn);
@@ -573,7 +577,7 @@ class Glacier {
 
   get active(): boolean {
     if (!this.live) return false;
-    const now = performance.now();
+    const now = this.clock.now();
     // (still gathering: until it is planned, or a moment after it ended)
     if (this.began === null) return this.ended === null || now - this.ended < 350;
     return this.seconds(now) < 5;
@@ -758,7 +762,7 @@ class Wear {
   private lastStage = 0;
   private stoneNext = 0;
 
-  constructor() {
+  constructor(private readonly clock: Clock) {
     this.dustGeometry.setAttribute("dustAlpha", new InstancedBufferAttribute(this.dustAlpha, 1));
     this.dustGeometry.setAttribute("dustColor", new InstancedBufferAttribute(this.dustColor, 3));
     this.stoneGeometry.setAttribute("stoneColor", new InstancedBufferAttribute(this.stoneColor, 3));
@@ -954,7 +958,7 @@ class Wear {
   }
 
   get active(): boolean {
-    return this.live && (this.ended === null || performance.now() < this.until);
+    return this.live && (this.ended === null || this.clock.now() < this.until);
   }
 
   /** Where it acts, its seconds since it began and how many puffs and stones are in the air, or null. */
@@ -1063,11 +1067,11 @@ class Wear {
 /** The forces' moments together, on the renderer's scene. The renderer asks each frame for the
  *  eruption's heat (the terrain shader's). */
 export class ForceEffects {
-  private impact = new Impact();
-  private rupture = new Rupture();
-  private plume = new Plume();
-  private glacier = new Glacier();
-  private wear = new Wear();
+  private readonly impact: Impact;
+  private readonly rupture: Rupture;
+  private readonly plume: Plume;
+  private readonly glacier: Glacier;
+  private readonly wear: Wear;
   private frame = 0;
   private verb: ForceMoment["verb"] | null = null;
   /** The last force is over (kept or dropped): the next moment is a new force's (D378). */
@@ -1079,7 +1083,14 @@ export class ForceEffects {
     private readonly ground: Ground,
     /** The map's voxels as shown (Erode's stones land on them), or null. */
     private readonly voxels: () => Voxels | null = () => null,
+    /** The renderer's time (clock.ts): the wall clock, or a recording's. */
+    private readonly clock: Clock = WALL_CLOCK,
   ) {
+    this.impact = new Impact(clock);
+    this.rupture = new Rupture(clock);
+    this.plume = new Plume(clock);
+    this.glacier = new Glacier(clock);
+    this.wear = new Wear(clock);
     scene.add(this.impact.group, this.rupture.group, this.plume.group, this.glacier.group, this.wear.group);
   }
 
@@ -1088,7 +1099,7 @@ export class ForceEffects {
    *  new one plays in full, however quickly it came. A carve's moments count too, its surge its own.
    *  True for a new force's first moment. */
   set(m: ForceMoment): boolean {
-    const now = performance.now();
+    const now = this.clock.now();
     const fresh = this.over;
     if (fresh) {
       this.over = false;
@@ -1121,7 +1132,7 @@ export class ForceEffects {
 
   /** The force was kept or ended: its tails play out (the dust settles, the lava cools). */
   finish(): void {
-    const now = performance.now();
+    const now = this.clock.now();
     this.rupture.finish(now);
     this.plume.finish(now);
     this.glacier.finish(now);
@@ -1149,7 +1160,7 @@ export class ForceEffects {
   }
 
   /** What plays now (tests): each moment's place and age, or null. */
-  showing(now = performance.now()) {
+  showing(now = this.clock.now()) {
     return { craterize: this.impact.showing(now), quake: this.rupture.showing(now), erupt: this.plume.showing(now), glaciate: this.glacier.showing(now), erode: this.wear.showing(now) };
   }
 
@@ -1182,19 +1193,27 @@ export class ForceEffects {
   }
 
   private kick(): void {
-    if (!this.frame) this.frame = requestAnimationFrame(this.tick);
+    // (a recording draws its own frames, and moves the moments on before each: `advance`)
+    if (this.clock.driven) this.render();
+    else if (!this.frame) this.frame = requestAnimationFrame(this.tick);
   }
 
-  private tick = (): void => {
-    this.frame = 0;
-    const now = performance.now();
+  /** Every moment as it is at the clock's time now; whether any still plays. */
+  advance(): boolean {
+    const now = this.clock.now();
     this.impact.update(now);
     this.rupture.update(now);
     this.plume.update(now, this.ground);
     this.glacier.update(now);
     this.wear.update(now);
+    return this.active;
+  }
+
+  private tick = (): void => {
+    this.frame = 0;
+    const on = this.advance();
     this.render();
-    if (this.active) this.frame = requestAnimationFrame(this.tick);
+    if (on) this.frame = requestAnimationFrame(this.tick);
   };
 
   dispose(): void {

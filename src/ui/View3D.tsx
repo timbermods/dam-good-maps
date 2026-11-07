@@ -321,6 +321,20 @@ export function View3D(props: View3DProps) {
     renderer.current?.switchMode(m);
   };
 
+  // the middle button turns the view (EDITOR_PLAN §3): pressed in the top-down view it leaves it for the angled one first,
+  // as the toggle does (D492: the spot and the zoom stay), so the drag tilts and turns; before, it panned there, and the
+  // view seemed stuck looking down (showcase-craft gap 15). (On the window, captured: before the renderer reads the mode.)
+  useEffect(() => {
+    const press = (ev: PointerEvent) => {
+      const r = renderer.current;
+      // (Alt+middle picks a tile's layer, D184: a click, not a camera move, read through the view as it is)
+      if (ev.button !== 1 || ev.altKey || !r || ev.target !== r.canvas || r.getView().mode !== "top") return;
+      pick("orbit");
+    };
+    window.addEventListener("pointerdown", press, true);
+    return () => window.removeEventListener("pointerdown", press, true);
+  }, []);
+
   // a tool or layer that needs the markers turns them on; when it is done, the viewer's own choice
   // comes back
   const wanted = !!props.markersWanted;

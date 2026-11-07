@@ -88,6 +88,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D504: Green over the whole 256² map: springs toward the land the soil's moisture leaves bare
 - D502: A landmark in the opening view on the default Generate
 - D498: Badwater joins the main water's lower reach, never its signature water
 - D495: Easy start: a calm, generous start, guaranteed (amends D211 for this setting)
