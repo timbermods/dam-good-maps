@@ -2304,11 +2304,14 @@ export function removeUnfedWater(tiles: number[] | null): SessionUpdate {
 }
 
 /** What cropping the map to a rectangle would do: the core's one-line reason it cannot, or how many objects the new edge
- *  would remove (core/doc/crop.ts `planCrop`, D340). Reads the map only. */
+ *  would remove (core/doc/crop.ts `planCrop`, D340; ground the edge would leave unheld, `cropFalls`). Reads the map only. */
 export function cropPlanAt(r: CropParams): { reason: string | null; removedObjects: number } {
   const s = need();
   const p = planCrop(s.built.entities, s.size.x, s.size.y, r);
-  return p.ok ? { reason: null, removedObjects: p.removedObjects } : { reason: p.reason, removedObjects: 0 };
+  if (!p.ok) return { reason: p.reason, removedObjects: 0 };
+  // (and the session's own refusal: ground the new edge would leave unheld)
+  const why = s.check({ op: "crop", params: r })[0];
+  return why ? { reason: why, removedObjects: 0 } : { reason: null, removedObjects: p.removedObjects };
 }
 
 /** Crop the map to a rectangle (D340): the map's next generation, one undo step. The page opens the new map (its size
