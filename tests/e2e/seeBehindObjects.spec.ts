@@ -4,6 +4,7 @@
 // pointer tile by tile, is told only when the tile or the reach changes (D453), and clears when the pointer leaves the
 // land, when another tool is picked and when Esc puts the brush down. Holding H hides every object and letting go brings
 // them back; the window losing focus lets go of it; the Show row's "Hide objects" keeps them hidden until clicked again.
+// While they are hidden the pointer finds only the land: the readout, Select and Delete act as if nothing stood there.
 
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor, topDown } from "./open";
@@ -171,4 +172,55 @@ test("holding H hides every object until it is let go; the Show row's Hide objec
   await page.waitForTimeout(200);
   expect(await hidden(page), "H typed in a field hides nothing").toBe(false);
   await page.keyboard.up("h");
+});
+
+test("with the objects hidden the pointer finds only the land: no tree is named, picked or deleted, and Delete takes the ground", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await openEditor(page, "s=34&z=96&d=n&t=riverValley");
+  await topDown(page);
+  const { tree } = await treeInView(page);
+  const treesOn = () =>
+    page.evaluate(([x, y]) => {
+      const e = window.dgm3d!.renderer.mapState()!.entities;
+      let n = 0;
+      for (let k = 0; k < e.count; k++) if (e.x[k] === x && e.y[k] === y && /^(Pine|Birch|Oak)$/.test(e.templates[e.template[k]])) n++;
+      return n;
+    }, tree);
+  const heightOn = () => page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x, y), tree);
+  const at = await client(page, tree[0], tree[1]);
+  const readout = page.locator(".readout");
+  const window_ = page.locator(".object-window");
+
+  // shown: the readout names the tree, and a click picks it
+  await page.mouse.move(at.x - 3, at.y - 3);
+  await page.mouse.move(at.x, at.y);
+  await expect(readout).toContainText(/Pine|Birch|Oak/);
+  await page.mouse.click(at.x, at.y);
+  await expect(window_).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(window_).toHaveCount(0);
+
+  // hidden: the readout names the land alone, a click picks nothing, Delete takes the ground's top level, not the tree
+  await page.getByRole("checkbox", { name: "Hide objects" }).click();
+  await expect.poll(() => hidden(page)).toBe(true);
+  await page.mouse.move(at.x - 3, at.y - 3);
+  await page.mouse.move(at.x, at.y);
+  await expect(readout).not.toContainText(/Pine|Birch|Oak/);
+  await expect(readout).toContainText(/Height/);
+  await page.mouse.click(at.x, at.y);
+  await page.waitForTimeout(300);
+  await expect(window_, "a hidden tree is never picked").toHaveCount(0);
+  const before = { trees: await treesOn(), height: await heightOn() };
+  expect(before.trees).toBe(1);
+  await page.keyboard.press("Delete");
+  await expect.poll(heightOn, { message: "Delete takes the ground's top level" }).toBe(before.height - 1);
+  expect(await treesOn(), "the hidden tree stays").toBe(1);
+
+  // shown again: the readout names it again
+  await page.getByRole("checkbox", { name: "Hide objects" }).click();
+  await expect.poll(() => hidden(page)).toBe(false);
+  await page.mouse.move(at.x - 3, at.y - 3);
+  await page.mouse.move(at.x, at.y);
+  await expect(readout).toContainText(/Pine|Birch|Oak/);
 });

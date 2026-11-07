@@ -1,7 +1,9 @@
 // Seeing the land behind every object (render3d/objectFade.ts `setObjectsHidden`, an editing aid in its own channel,
 // D496/D497's rule: the look itself never changes). Hold H and every object goes, its shadow with it; let go and they are
 // back. The Show row's "Hide objects" keeps them hidden until it is clicked again. Letting go of the window (Alt+Tab, a
-// hidden tab) lets go of the key, so it never sticks. Nothing here changes the map; pictures never show it.
+// hidden tab) lets go of the key, so it never sticks. Nothing here changes the map; pictures never show it. While they
+// are hidden the pointer finds only the land (each pick asks `renderer.objectsHidden` where it picks: objectUnder,
+// targetAt, sourceOnScreen, grabStart, the Delete key's deleteHere, the readout's hoverWordsAt).
 
 import { useEffect, useState } from "preact/hooks";
 import type { Ed } from "../ed";
@@ -22,7 +24,18 @@ export function useHideObjects(ed: Ed): HideObjectsSlice {
   const [kept, setKept] = useState(false);
   const hidden = held || kept;
 
-  useEffect(() => renderer.current?.setObjectsHidden(hidden), [hidden, ready]);
+  useEffect(() => {
+    renderer.current?.setObjectsHidden(hidden);
+    // (while hidden the pointer finds only the land, as if nothing stood there: what it was about to pick goes, and the
+    // readout names the land alone; shown again, the next move finds them)
+    if (hidden) {
+      ed.setHoverObject(null);
+      ed.targetSpot.current = null;
+      ed.setTargeted(null);
+      ed.hoverStart(false);
+    }
+    ed.rehover();
+  }, [hidden, ready]);
 
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {

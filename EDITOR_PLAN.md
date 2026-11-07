@@ -890,6 +890,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   goes with the brush's ring: the pointer off the land, another tool, or Esc putting the brush down. **Hold H** and
   every object goes, its shadow with it, whatever is in hand; let go and they are back, and the window losing focus lets
   go of it (`view/useHideObjects.ts`). The Show row's **Hide objects** keeps them hidden until it is clicked again.
+  While they are hidden the pointer finds only the land, as if nothing stood there: the readout names the land alone,
+  Select picks no object, source or start, and Delete on the tile pointed at takes the ground's top level (a selection's
+  Delete still takes what it marks). The fade alone changes no pick.
   Pictures (the map's, the Showcase cards', the shelf's icons) never show either.
 - **Flatten** (D204, D322): sets the ground to its target, cutting and filling, so one stroke makes a clean plateau
   with hard edges; a walkable edge is the shelf's Slope. A quiet "the start fits here" hint when the area is big and
