@@ -50,8 +50,8 @@ export function useSave(ed: Ed): SaveSlice {
     setMessage({ kind: "info", text: "Drawing the picture…" });
     try {
       const { view, fileName } = await enqueue(() => api.pictureView());
-      const { heroPicture } = await import("../../render3d/hero");
-      const jpeg = await heroPicture(view, { width: PICTURE_W, height: PICTURE_H, quality: 0.92 });
+      const { heroPicture: drawLarge } = await import("../../render3d/hero");
+      const jpeg = await drawLarge(view, { width: PICTURE_W, height: PICTURE_H, quality: 0.92 });
       if (!jpeg) {
         setMessage({ kind: "error", text: "No picture: this browser can't draw the map in 3D" });
         return;

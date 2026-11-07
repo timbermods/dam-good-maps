@@ -109,6 +109,22 @@ describe("the time-lapse's camera", () => {
     expect(last.pitch).toBeCloseTo(held.pitch, 6);
   });
 
+  it("never cuts when the history begins with a step that has no place (a rename, the description)", () => {
+    // (the review's case: a placeless first step whose scene lasts no frames, then forces over most of the map)
+    const steps = [{ kind: "other" as const, place: null }, ...Array.from({ length: 10 }, () => ({ kind: "force" as const, place: { x0: 0, y0: 0, x1: 90, y1: 70 } }))];
+    const p = lapsePlan(steps, W, W);
+    const cam = lapseCamera(p, heights, W, W, start);
+    let prev = cam(0);
+    let worst = 0;
+    for (let f = 1; f < p.frames; f++) {
+      const v = cam(f);
+      const move = Math.hypot(v.target[0] - prev.target[0], v.target[1] - prev.target[1], v.target[2] - prev.target[2]) / v.distance;
+      worst = Math.max(worst, move, Math.abs(Math.log(v.distance / prev.distance)));
+      prev = v;
+    }
+    expect(worst).toBeLessThan(0.08);
+  });
+
   it("is a slow drone, never a turntable: one pitch, a little turn, and nearby edits in one framing", () => {
     const p = lapsePlan(history(30, W), W, W);
     const cam = lapseCamera(p, heights, W, W, start);

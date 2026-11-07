@@ -81,25 +81,28 @@ function sceneShot(box: LapseBox, heights: Uint8Array, W: number, wide: Shot): S
   return { x: (box.x0 + box.x1) / 2, y: (box.y0 + box.y1) / 2, level: meanLevel(heights, W, box), distance: d, pitch: PITCH };
 }
 
-/** A framing: the scenes it frames together (first and last), and its shot. */
+/** A framing: the scene whose glide and start it takes (its first with a place), its last scene, and its shot. */
 interface Framing {
-  first: number;
+  lead: number;
   last: number;
   shot: Shot;
 }
 
 /** The scenes in framings: a scene joins the framing before it while their places framed together stand the camera
- *  back at most JOIN times the nearer framing's (a scene without a place always joins). */
+ *  back at most JOIN times the nearer framing's (a scene without a place always joins). Scenes without a place before
+ *  the first with one join that one's framing, which glides and starts with it: the camera holds the opening until
+ *  then, never cutting on a placeless scene's glide (one that may last no frames). */
 function framings(plan: LapsePlan, heights: Uint8Array, W: number, wide: Shot): Framing[] {
-  const out: { first: number; last: number; box: LapseBox | null }[] = [];
+  const out: { lead: number; last: number; box: LapseBox | null }[] = [];
   plan.scenes.forEach((s, k) => {
     const cur = out[out.length - 1];
     if (cur && (!s.box || !cur.box || fitBox(union(cur.box, s.box)) <= JOIN * Math.min(fitBox(cur.box), fitBox(s.box)))) {
       cur.last = k;
+      if (s.box && !cur.box) cur.lead = k;
       if (s.box) cur.box = cur.box ? union(cur.box, s.box) : s.box;
-    } else out.push({ first: k, last: k, box: s.box });
+    } else out.push({ lead: k, last: k, box: s.box });
   });
-  return out.map((g) => ({ first: g.first, last: g.last, shot: g.box ? sceneShot(g.box, heights, W, wide) : wide }));
+  return out.map((g) => ({ lead: g.lead, last: g.last, shot: g.box ? sceneShot(g.box, heights, W, wide) : wide }));
 }
 
 /** The finished map's hero view (heroView.ts `heroScene`'s camera, on the map as it is, not turned under the sun),
@@ -150,8 +153,8 @@ export function lapseCamera(plan: LapsePlan, heights: Uint8Array, W: number, H: 
     if (f >= plan.outro.hold) return pushed(hero.shot, (f - plan.outro.hold) / Math.max(1, plan.frames - plan.outro.hold) / 2);
     if (f >= plan.outro.glide) return mix(after(groups.length - 1), hero.shot, (f - plan.outro.glide) / Math.max(1, plan.outro.hold - plan.outro.glide));
     for (let g = groups.length - 1; g >= 0; g--) {
-      const glide = plan.scenes[groups[g].first].glide;
-      const from = plan.scenes[groups[g].first].from;
+      const glide = plan.scenes[groups[g].lead].glide;
+      const from = plan.scenes[groups[g].lead].from;
       const to = plan.scenes[groups[g].last].to;
       if (f < glide) continue;
       if (f < from) return mix(after(g - 1), groups[g].shot, (f - glide) / Math.max(1, from - glide));
