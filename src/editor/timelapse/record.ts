@@ -184,6 +184,8 @@ export async function recordTimelapse(o: LapseOptions): Promise<LapseResult> {
     r.setClock(CLOCK);
     r.setMap(start, false, true);
     r.setView({ mode: "orbit", ...camera(0) });
+    // (the game's sun for the camera, baked at once, as the hero picture's: light.ts `sunOfYaw`)
+    r.sunNow();
     const p0 = performance.now();
     while (!r.programsSettled && performance.now() - p0 < PROGRAMS_MS) {
       aborted(o.signal);
@@ -273,6 +275,9 @@ export async function recordTimelapse(o: LapseOptions): Promise<LapseResult> {
         }
       }
       r.setView({ mode: "orbit", ...camera(f) });
+      // (each frame under its own camera's sun: baked here whenever the drift has turned it a step, SUN_SAME, so a frame
+      // never records the shadows trailing a bake behind)
+      r.sunNow();
       r.setClock(CLOCK + f / FPS);
       r.renderNow();
       const frame = new VideoFrame(r.canvas, { timestamp: Math.round((f * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
