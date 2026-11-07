@@ -83,13 +83,15 @@ describe("the High look's shaders", () => {
     // (the look fogged and graded, then the editing aids after it: D497)
     expect(terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader).toContain("c = finishLit(c, emission, vWorld);");
     // the surface is the Standard one's sample, carried by the current in the game's two phases (Q9 P5), its normal
-    // the flow's (P11); badwater's troughs, patches and bubbles ride the same phases; its edge glows red where it meets
+    // the flow's (P11); badwater's pattern rides the same phases (Q9 P9: its base colour by the pattern's R, its
+    // emissive detail by its G; D148: these were our own troughs, patches and bubbles); its edge glows red where it meets
     // the rock (the game's cues, not a pattern of our own: no density or contrast is asked of them)
     const s = waterMaterial(U(), false, waterHooks()).fragmentShader;
     expect(s).toContain("waterPhases(g, flow, t, pa, pb, pw);");
-    expect(s).toContain("vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, time, albedo, streak, trough, pa, pb, pw);");
+    expect(s).toContain("vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, albedo, bpat);");
     expect(s).toContain("float tint = waterTint(contamination);");
-    expect(s).toContain("float bubbles = mix(hlBadwaterBubbles(pa, t, fine), hlBadwaterBubbles(pb, t, fine), pw);");
+    expect(s).toContain("colour += gameBadwaterEmission(contamination, bpat.y, g);");
+    expect(s).not.toContain("hlBadwaterBubbles");
     // the red at rock is the game's own glow of shallow water partly bad (waterPalette.ts badwaterGlow)
     expect(s).toContain("badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);");
   });

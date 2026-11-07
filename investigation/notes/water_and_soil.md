@@ -563,10 +563,16 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
 - **P9, contamination.** Q8 confirmed (ps 500-790), with one correction: saturate(1 − c / 0.6) gates the orange glow
   only; the camera highlight goes from `_ClearReflectionIntensity` 1.1 to `_ContaminatedReflectionIntensity` 0.4 by t
   (ps 857-858). Also read here: the contamination is sampled at four points jittered by
-  `WaterContaminationBlendingMarginNoise` (t11), so tile edges blend irregularly; the base colour lerp(A, B, t9.x) is
-  overlaid with the albedo textures, less as c rises (× (1 − c / 2)); the emission is lerp(`_Detail_Contamination_Color_A`,
-  `_B`, noise) × t9's pattern × t × a soft modulation on a 10-tile grid (0.25 to 0.55) × 4.5 easing to 1.2 by c = 0.4
+  `WaterContaminationBlendingMarginNoise` (t11), so tile edges blend irregularly; the base colour lerp(A, B, t9.x) ×
+  the intensity is overlaid with the detail albedo (t5, P6's; not the flow's albedo: ps 690-712), less as c rises
+  (mixed in by (1 − c / 2)), then × `_DepthGradients` G and the glow; the emission is lerp(`_Detail_Contamination_Color_A`,
+  `_B`, `_ContaminationVisualizationNoise`) × t9.y (t9.z on a source's mask) × t × a soft modulation on a 10-tile grid
+  (F1² + 0.1 c held to 0.25–0.55, its nodes unjittered) × 4.5 easing to 1.2 by c = 0.4
   (`_Detail_Contamination_Intensity_*`); badwater's normals are × (1 + c) (`_Contamination_Normal_Strength` 2).
+  Followed since (`fix/water-badwater`): the pattern (our own texture at t9's measured statistics) and the emission in
+  both looks; the colour formula is built behind `BADWATER_FORMULA`, but the pixel judge found it farther from the
+  game's frames than our calibrated crimson (it draws pure badwater a dark crimson, L* 8 a level deep lit, where the
+  frames show a lighter red-brown), so ours ships until that gap is explained (docs/progress/3d-view.md).
 - **P10, selection.** `_HighlightMask` (t17, screen space, `SelectionSystem`) mixes the selection's colour in, up to
   `_HighlightMaskLimit` 0.4 (ps 788-793): the game's own editing aid.
 - **P11, normal.** `Water_N` from P5, xy × (1 + c) × `_NormalBoost` 4, renormalized, into the world by the mesh's
@@ -621,8 +627,8 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Refraction of the ground behind | S, H | (c), missing | P2 (ps 285-313) |
 | Fall faces: see-through 0.1, no highlight, the shallowest colour | S, H | (a) | P1 (ps 883-884); the game's mask is `FindWaterfalls`', ours the face |
 | Badwater's colour, ramp, glow, tint, blend | S, H | (a); `BADWATER.floor` 0.37 ours until measured (Q8); blue kept from purple ours (D154) | P9 |
-| Badwater's troughs and light patches (mottled noise) | S, H | (c) | P9: lerp(A, B, t9's pattern) carried by the flow |
-| Badwater's bubbles (orange dots, `BADWATER_VEIN` × 0.55) | S, H | (c) | P9: its emission is a flowing texture pattern, not dots |
+| Badwater's troughs and light patches (mottled noise) | S, H | (c); followed (`fix/water-badwater`) | P9: lerp(A, B, t9's pattern) carried by the flow |
+| Badwater's bubbles (orange dots, `BADWATER_VEIN` × 0.55) | S, H | (c); followed (`fix/water-badwater`) | P9: its emission is a flowing texture pattern, not dots |
 | A film's fade under 0.03 levels (`waterFilm`); High's sheen lifting a film's opacity | S, H | (b), our anti-aliasing (`WATER_FILM`) | P14: a hard clip |
 | No foam, no shore line | S, H | (a) | none (#715) |
 | Sources welling: rings and bubbles in `WATER_FOAM` × 0.55 | S (both draw it) | (c): ours an editing aid (D196) | P7: the game draws its own in play (ps 356-418) |

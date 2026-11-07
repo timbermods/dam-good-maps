@@ -1766,7 +1766,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
     ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
     changing; `motion.ts` hands them to the GPU. Water below its tile's surface water (a cave's under a wet roof)
-    takes its own column's current and rough water from a volume by level the bake makes on such maps
+    takes its own column's current and smoothed contamination from a volume by level the bake makes on such maps
     (`caveCurrent.ts`). Only drawn: nothing in it reaches the water or a map.
   - The renderer warms while the first map loads (D367, part 1; `render3d/prepared.ts`): the page starts
     `prepareRenderer()` as a map's loading begins, which draws a small map with each kind of thing a map draws

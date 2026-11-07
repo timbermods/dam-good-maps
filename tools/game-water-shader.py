@@ -486,32 +486,41 @@ def fmt(v):
 #: covers (`_MainTexTiling` 0.06: a repeat every 1 / 0.06 tiles).
 FLOW_TEXTURES = ("PhysicalWaterAlbedo", "Water_N")
 REPEAT_TILES = 1 / 0.06
+#: Badwater's (Q9 P9): its pattern, carried by the flow at the albedo's coordinates (x: the base colour's lerp from
+#: `_Base_Contamination_Color_A` to `_B`; y: the emissive detail's pattern; z: the sources' emission pattern), the still
+#: detail albedo it is overlaid with (P6, `_DetailAlbedoTexTiling` 0.015) and the noise that picks the detail colour
+#: between `_Detail_Contamination_Color_A` and `_B` (t10 at (xz + 0.25 T) × 0.2).
+BADWATER_TEXTURES = {"WaterContaminationAlbedoEmissionSource": 1 / 0.06, "PhysicalWaterDetailAlbedo": 1 / 0.015, "PerlinNoise3": 1 / 0.2}
 
 
 def texture_texels(b, data_dir):
-    """A BC7 Texture2D's top mip as an RGBA array (H, W, 4), read raw (the game renders in Gamma colour space, so a
-    texture's stored values are what its shader multiplies): its texels from the stream file beside the assets
-    (`resources.assets.resS`), decoded by Pillow's BCn decoder (format 7)."""
+    """A BC7 (or R8) Texture2D's top mip as an RGBA array (H, W, 4), read raw (the game renders in Gamma colour space,
+    so a texture's stored values are what its shader multiplies): its texels from the stream file beside the assets
+    (`resources.assets.resS`), decoded by Pillow's BCn decoder (format 7); an R8 texture's one channel in all four."""
     import numpy as np
     from PIL import Image
     r = Reader(b)
     name = r.str()
     w, h, size, _, fmt_ = (i32(b, r.p + k) for k in (4, 8, 12, 16, 20))
-    if TEXTURE_FORMATS.get(fmt_) != "BC7":
-        raise ValueError(f"{name}: format {fmt_}, not BC7")
+    kind = TEXTURE_FORMATS.get(fmt_)
+    if kind not in ("BC7", "R8"):
+        raise ValueError(f"{name}: format {fmt_}, not BC7 or R8")
     tag = b"resources.assets.resS"
     at = b.index(tag)
     offset = struct.unpack_from("<Q", b, at - 16)[0]
-    top = max(1, (w + 3) // 4) * max(1, (h + 3) // 4) * 16
+    top = max(1, (w + 3) // 4) * max(1, (h + 3) // 4) * 16 if kind == "BC7" else w * h
     with open(os.path.join(data_dir, "resources.assets.resS"), "rb") as f:
         f.seek(offset)
         raw = f.read(top)
     if len(raw) != top or size < top:
         raise ValueError(f"{name}: {len(raw)} of {top} bytes read")
+    if kind == "R8":
+        v = np.frombuffer(raw, dtype=np.uint8).reshape(h, w).astype(np.float64)
+        return name, np.repeat(v[..., None], 4, axis=2)
     return name, np.asarray(Image.frombytes("RGBA", (w, h), raw, "bcn", 7), dtype=np.float64)
 
 
-def feature_scale(field):
+def feature_scale(field, repeat=REPEAT_TILES):
     """The dominant feature scale of a tiling field (H, W), in tiles: the wavelength at the radially averaged power
     spectrum's centroid (power-weighted mean of the spatial frequency, the mean removed), and the autocorrelation's
     half-width (the shift, averaged over four directions, at which it first falls to a half)."""
@@ -533,10 +542,10 @@ def feature_scale(field):
             if ac[(dy * s) % n, (dx * s) % f.shape[1]] < 0.5:
                 half.append(s * step)
                 break
-    return REPEAT_TILES / centroid, REPEAT_TILES * float(np.mean(half)) / n
+    return repeat / centroid, repeat * float(np.mean(half)) / n
 
 
-def measure_flow_textures(read, objects, data_dir):
+def measure_flow_textures(read, objects, data_dir, preview=None):
     """Prints what `src/render3d/waterTextures.ts` generates its own textures to: each flow texture's mean, spread
     (standard deviation) and 5th/50th/95th percentiles per channel on display values (0-255), and its dominant
     feature scale in tiles; for the normal map the unpacked normal's slopes (x × a, y; × 2 − 1, as the shader unpacks
@@ -551,7 +560,7 @@ def measure_flow_textures(read, objects, data_dir):
             name = Reader(b).str()
         except (ValueError, UnicodeDecodeError, struct.error):
             continue
-        if (name in FLOW_TEXTURES or name == "DepthGradients") and name not in textures:
+        if (name in FLOW_TEXTURES or name in BADWATER_TEXTURES or name == "DepthGradients") and name not in textures:
             textures[name] = b
     # the depth ramp P4 multiplies clean water's colour by (R × 2) and P9 the contaminated colour by (G), sampled at
     # (depth / `_MaxDepth` 5, 0.5) with bilinear filtering: its values at depths in levels, raw (0-255)
@@ -602,6 +611,60 @@ def measure_flow_textures(read, objects, data_dir):
                 print(f"  component {3 - k}: spread {vals[k] ** 0.5:.2f} along ({', '.join(f'{x:+.3f}' for x in e)}), "
                       f"5/50/95% {'/'.join(f'{x:+.1f}' for x in np.percentile(score, (5, 50, 95)))}, "
                       f"spectrum centroid {c:.3f} tiles, autocorrelation half-width {a:.3f} tiles")
+    measure_badwater_textures(textures, data_dir, preview)
+
+
+def measure_badwater_textures(textures, data_dir, preview=None):
+    """Prints what `src/render3d/waterTextures.ts` generates badwater's pattern to (Q9 P9): per channel of the game's
+    `WaterContaminationAlbedoEmissionSource` its mean, spread, percentiles, a ten-bin histogram (the share of texels in
+    each tenth of 0-255), its feature scale in tiles and the channels' correlations; the detail albedo's and the noise's
+    means and spreads (the overlay and the detail colour's lerp take only those). Numbers only; `preview` (a folder,
+    gitignored) also gets a crop of the pattern for the eye, never committed."""
+    import numpy as np
+    q = lambda v, ps=(5, 25, 50, 75, 95): "/".join(f"{x:.1f}" for x in np.percentile(v, ps))
+    for name, repeat in BADWATER_TEXTURES.items():
+        if name not in textures:
+            raise ValueError(f"{name}: not found")
+        _, t = texture_texels(textures[name], data_dir)
+        h, w = t.shape[:2]
+        print(f"\n{name}: {w}x{h}, one repeat {repeat:.2f} tiles ({w / repeat:.0f} texels a tile)")
+        chans = "rgba" if name == "WaterContaminationAlbedoEmissionSource" else ("rgb" if name == "PhysicalWaterDetailAlbedo" else "r")
+        for k, ch in enumerate(chans):
+            v = t[..., k]
+            hist = np.histogram(v, bins=10, range=(0, 256))[0] / v.size
+            c, a = feature_scale(v, repeat)
+            print(f"  {ch}: mean {v.mean():.1f}, spread {v.std():.1f}, 5/25/50/75/95% {q(v)}")
+            print(f"     histogram by tenths {' '.join(f'{x:.3f}' for x in hist)}")
+            print(f"     feature scale: spectrum centroid {c:.3f} tiles, autocorrelation half-width {a:.3f} tiles")
+        if name == "WaterContaminationAlbedoEmissionSource":
+            cc = np.corrcoef(t[..., :4].reshape(-1, 4).T)
+            print(f"  correlations r-g {cc[0, 1]:.3f}, r-b {cc[0, 2]:.3f}, g-b {cc[1, 2]:.3f}, r-a {cc[0, 3]:.3f}")
+            g = t[..., 1]
+            pts = (1, 5, 10, 25, 50, 60, 65, 70, 75, 80, 85, 90, 95, 97, 98, 99)
+            for k, ch in enumerate("rg"):
+                print(f"  {ch} percentiles {'/'.join(map(str, pts))}: {'/'.join(f'{x:.0f}' for x in np.percentile(t[..., k], pts))}")
+            print(f"  g at 0: {(g == 0).mean():.3f} of the texels")
+            for th in (32, 64, 128, 192):
+                print(f"  g over {th}: {(g > th).mean():.3f} of the texels")
+            # the emission's network: the dark cells its bright lines close (g under 32, joined across the wrap) and
+            # their size; and how much of each channel's spread is broad (left after a blur over a quarter of a tile)
+            from scipy import ndimage
+            lab, n = ndimage.label(np.tile(g < 32, (2, 2)))
+            areas = np.bincount(lab.ravel())[1:]
+            # (the plane tiled 2 × 2, so a cell across the wrap is whole once; cells of 0.02 square tiles or more, the
+            # specks inside them left out)
+            cells = areas / (w / repeat) ** 2
+            cells = cells[cells >= 0.02]
+            print(f"  g's dark cells: {len(cells) / 4:.0f} a repeat, mean area {cells.mean():.3f} square tiles "
+                  f"(a {2 * (cells.mean() / np.pi) ** 0.5:.2f}-tile disc), median {np.median(cells):.3f}")
+            for k, ch in enumerate("rg"):
+                broad = ndimage.gaussian_filter(t[..., k], sigma=0.25 * w / repeat, mode="wrap")
+                print(f"  {ch} after a blur over 0.25 tile: spread {broad.std():.1f} ({broad.std() / t[..., k].std():.2f} of it)")
+            if preview:
+                from PIL import Image
+                os.makedirs(preview, exist_ok=True)
+                for k, ch in enumerate("rgb"):
+                    Image.fromarray(t[:512, :512, k].astype(np.uint8)).save(os.path.join(preview, f"badwater-pattern-{ch}-crop.png"))
 
 
 def main():
@@ -609,7 +672,8 @@ def main():
     ap.add_argument("--game", default="C:/Program Files (x86)/Steam/steamapps/common/Timberborn")
     ap.add_argument("--keywords", default=DEFAULT_KEYWORDS)
     ap.add_argument("--out", default=os.path.join(ROOT, "investigation", "water-shader", "local"))
-    ap.add_argument("--textures", action="store_true", help="measure the flow's textures (Q9 P5) and stop")
+    ap.add_argument("--textures", action="store_true", help="measure the flow's and badwater's textures (Q9 P5, P9) and stop")
+    ap.add_argument("--preview", action="store_true", help="with --textures: also write crops of badwater's pattern to --out (gitignored)")
     args = ap.parse_args()
     want = set(k for k in args.keywords.split(",") if k)
     data = os.path.join(args.game, "Timberborn_Data")
@@ -627,7 +691,7 @@ def main():
 
         by_path = {o[0]: o for o in objects}
         if args.textures:
-            measure_flow_textures(read, objects, data)
+            measure_flow_textures(read, objects, data, args.out if args.preview else None)
             return 0
         materials = []
         for o in objects:

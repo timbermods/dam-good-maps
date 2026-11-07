@@ -1050,7 +1050,7 @@ the game's models in resources.assets (positions, materials and texture means on
   grazing and streak colours, light network, ribbons, broad swells, rolling packets, their brightness swing, still-water
   drift, its own ripple normal, a film's lifted opacity, the Rough water switch (`hlRiver`) and the rough water bake
   (`roughWater`, below falls and in rapids) with its texture.
-- **Kept:** badwater's own light patches, troughs and bubbles (Q9 class (c): its flowing pattern, P9, is still to follow),
+- **Kept:** badwater's own light patches, troughs and bubbles (Q9 class (c): its flowing pattern, P9, followed since: below),
   now carried by the same two phases, by the tile's badwater share or the flow texture's smoothed one where that is more
   (so a front's patterns are there in High, which reads that one); the camera highlight, gloss, sky reflection and sun glint; High's `rippleLight`.
 - **Badwater against clean water** (the judge's `--water bad|clean`, on the two Islands end shots, where the game shows
@@ -1066,6 +1066,42 @@ the game's models in resources.assets (positions, materials and texture means on
   missing; badwater's own calibration (`WATER_CALIBRATION`) was not re-measured under the stronger normals, and on the
   low Islands camera (34° down, 133 away) the judge's render of pure badwater reads grey-blue (L* 43, 92/106/112)
   where the game's reads red-brown (101/75/72), on dev too: badwater's colour (planning's item (c)) is the next step.
+
+## Badwater as the game draws it (Q9 P9; D496, D497; `fix/water-badwater`)
+
+- **What:** badwater's surface is the game's: its base colour between `_Base_Contamination_Color_A` and `_B` by a
+  pattern's R, its emissive detail (the pink-orange light, D334's bubbles cue) by the pattern's G, both carried by the
+  flow in #826's two phases (`badwaterPatternAt`), its smoothness toward 0.15 by the tint × the pattern's R; normals
+  × (1 + c) as before. Both looks (materials.ts, high/shaders.ts); the light look draws the pattern flat at its means.
+- **Gone:** our own badwater troughs, streaks, light patches and veins (`badTrough`, `badStreak`, `badVein`, Standard's
+  `BADWATER_TROUGH`/`_STREAK`/`_VEIN`/`_BUBBLES`, High's `hlBadwaterBubbles` and its trough and streak block).
+- **The pattern** (`waterTextures.ts` `makeBadwaterTexture`, 512², made in the bake worker beside the flow texture; flat at
+  its means until then): our own, tuned to the game's `_ContaminationAlbedoEmissionSource` as `python
+  tools/game-water-shader.py --textures` measures it (numbers only, `GAME_BADWATER_TEXTURE`, held by
+  tests/unit/water-flow-surface.test.ts): R mean 121.8 (the game's 122.1), spread 30.2 (29.5), feature 0.039 tile
+  (0.045), broad share 0.35 (0.33); G mean 20.0 (19.6), spread 47.4 (47.0), 63 % black (63 %), feature 0.056 (0.057),
+  broad 0.24 (0.25); both channels' 16 percentiles within 3 codes (ranked onto the game's).
+- **The emissive detail** (`gameBadwaterEmission`): lerp(#D99053, #E09C65, the noise's mean) × the pattern's G × the
+  game's 10-tile grid modulation (d² + 0.1 c, held to 0.25–0.55) × the tint × 4.5 easing to 1.2 by 40 % bad, unlit.
+- **The colour** (`GAME_BADWATER`): the game's formula as read (ps 680–790: the base colour × 1.75 easing to 1 above 60 %,
+  overlaid with the detail albedo by 1 − c/2, × `_DepthGradients` G, the shallow glow) is built in both looks behind
+  `BADWATER_FORMULA`, and the pixel judge (`tools/water-pixel-judge.ts --water all`, now banding clean, mixed and bad
+  water) kept ours: on the two shots whose camera it fits (islands-128-2-end, islands-128-2-badtide2-end; 1,731 pure
+  badwater tiles), RMS to the game's pixels for pure badwater Standard dev 25.3, #826 25.9, this 26.5, the formula 27.6;
+  High 20.5, 21.8, 20.8, 28.0; for the mixed front (10,874 tiles) Standard 29.7, 25.1, 26.3, 23.3; High 22.6, 20.3,
+  20.0, 23.0. Over all six Badtide and Islands shots (four with the probe's pose, the fit failing) pure badwater
+  Standard 24.7, 24.9, 25.7, 27.8; High 23.7, 25.0, 24.1, 29.3. The formula draws pure badwater a dark crimson (L* 8 a
+  level deep, lit) that reads teal-grey on screen; the game's frames show a lighter red-brown (101/76/72 on
+  islands-128-2-end, 113/91/76 on its Badtide end), which neither ours (94/103/109) nor the formula reaches.
+- **Falls short:** pure badwater still reads grey-blue where the game's reads red-brown, in every version: the formula as
+  read does not explain the game's lighter red-brown, so something in the game's light of badwater is not yet
+  modelled (close up and in the editor's own Badtide view ours reads crimson and red-brown; the judge's renders of the
+  probe's far, fitted cameras read grey-blue for every version, its land too, which points at the judge's render
+  conditions as much as the colour); the film case stays (under half a level the game shows badwater about 6 L*
+  lighter than clean water; ours 2.9 L* lighter in Standard, 2.4 darker in High): the game overlays clean water with its detail albedo too (P6, ps 455–475),
+  which darkens its films, and following it changes all clean water, which #826's judge settled, so it waits for P6;
+  `_Contamination_Flow_Distortion` (0.00125 a tile) is not followed; High's falls and side faces keep `HW_BAD` × the
+  ramp. The sheet: `docs/sheets/water-badwater.jpg` (`tools/capture-water-badwater.ts`; `--motion` for six moments).
 
 ## The rest of the step (next parts)
 

@@ -37,12 +37,11 @@ describe("the meanings", () => {
     for (const d of [GROUND.dry, GROUND.dryWarm]) expect(hue(d)).toBeLessThan(40);
     expect(hue(GROUND.dryCool) > 300 || hue(GROUND.dryCool) < 40).toBe(true);
     // clean water the game's colour formula (D496 amended 2026-11-07): from its `_Color` #446C71 toward its navy #000F48
-    // at 5 levels, through the albedo and the game's light, so its hue lies between theirs (about 199 to 229) at every
-    // depth; on screen the pixel judge's six start shots read 182–199, the sky's reflection holding deep water up
-    // (D148: this held 170–210, our own teal's, until then)
-    const shown = (c: readonly number[]) => hue(sunlitTop(c.map((v, k) => v * WATER_ALBEDO.mean[k]) as unknown as Rgb));
-    const [from, to] = [shown(GAME_WATER.color), shown(GAME_WATER.atMaxDepth)];
-    for (const d of [0.05, 0.5, 2, 4]) expect(hue(cleanWaterShown(d)) >= from - 1e-9 && hue(cleanWaterShown(d)) <= to + 1e-9, `${d} deep`).toBe(true);
+    // at 5 levels, through the albedo and the game's light, so its hue lies between theirs at every depth: 198.7 and
+    // 229.0, pinned here as numbers so the window guards the hue whatever the palette holds (#826's review); on screen the
+    // pixel judge's six start shots read 182–199, the sky's reflection holding deep water up (D148: this held 170–210,
+    // our own teal's, until then)
+    for (const d of [0.05, 0.5, 2, 4]) expect(hue(cleanWaterShown(d)) >= 198 && hue(cleanWaterShown(d)) <= 230, `${d} deep`).toBe(true);
     for (const d of [0.05, 0.5, 2, 5]) expect(hue(waterBody(d, true)) < 15 || hue(waterBody(d, true)) > 350).toBe(true);
     // dead trees are the game's dead wood, its bark weathered lighter and greyer (D135 as amended 2026-10-29): lighter
     // than the living crowns, as the game's are (its dead pine's wood 1.8 times its living needles' lightness)
@@ -90,8 +89,9 @@ describe("badwater seen through clear water (D324, feedback item 5: never a hatc
     for (const lite of [false, true]) {
       const u = sceneUniforms(1, 1, t(), t(), t(), t());
       for (const m of [waterMaterial(u, lite)]) expect(m.fragmentShader).not.toMatch(/CLEAR_STRIPE|fract\(\(g\.x - g\.y/);
-      // badwater's murk, dull troughs and bubbles are what carry it through clear water
-      expect(waterMaterial(u, lite).fragmentShader).toContain("bc += BADWATER_VEIN * bubbles * BADWATER_BUBBLES");
+      // badwater's murk, its pattern and its emissive detail are what carry it through clear water (Q9 P9; D148: these
+      // were our own troughs and bubbles)
+      expect(waterMaterial(u, lite).fragmentShader).toMatch(/vec3 bc = murky( \* light)? \+ emission;/);
     }
   });
 });

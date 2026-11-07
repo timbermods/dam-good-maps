@@ -56,6 +56,35 @@ export const GAME_FLOW_TEXTURES = {
   },
 } as const;
 
+/** Badwater's pattern as `tools/game-water-shader.py --textures` measures the game's (`WaterContaminationAlbedoEmissionSource`,
+ *  t9, Q9 P9; Timberborn 1.1.2.8-ffc2de0-sw), 0–255, raw: the flow carries it at the albedo's coordinates. Its R picks
+ *  the base colour between `_Base_Contamination_Color_A` and `_B` (waterPalette.ts `GAME_BADWATER`): a grimy mottle,
+ *  broad dark clouds over a fine grain (`broad`: the share of its spread left after a blur over a quarter of a tile).
+ *  Its G is the emissive detail's pattern: thin bright lines round cells (median 0.13 square tiles; some cells a tile
+ *  or more across), brightest where they meet, small specks inside the cells, black elsewhere (most of it). Its R and G
+ *  are independent (correlation 0.015). `percentiles` at `PATTERN_PERCENTILES`. */
+export const GAME_BADWATER_TEXTURE = {
+  base: {
+    mean: 122.1,
+    spread: 29.5,
+    percentiles: [51, 72, 83, 103, 123, 130, 133, 137, 142, 147, 153, 160, 170, 176, 180, 186],
+    feature: 0.045,
+    broad: 0.33,
+  },
+  glow: {
+    mean: 19.6,
+    spread: 47.0,
+    percentiles: [0, 0, 0, 0, 0, 0, 1, 3, 10, 23, 40, 72, 118, 167, 211, 253],
+    /** The share of texels at 0. */
+    zero: 0.627,
+    feature: 0.057,
+    broad: 0.25,
+  },
+} as const;
+
+/** The percentiles `GAME_BADWATER_TEXTURE` gives (as fractions). */
+export const PATTERN_PERCENTILES = [0.01, 0.05, 0.1, 0.25, 0.5, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.97, 0.98, 0.99] as const;
+
 /** Texels across the texture (one repeat, 1 / 0.06 = 16.7 tiles: 31 texels a tile). */
 export const WATER_TEXTURE_SIZE = 512;
 
@@ -154,6 +183,36 @@ function voronoi(x: number, y: number, p: number, c: Float64Array, out: Float64A
   out[0] = Math.sqrt(f1);
   out[1] = Math.sqrt(f2);
   out[2] = id;
+}
+
+/** As `voronoi`, with the third nearest feature point's distance too (out[3]). */
+function voronoi3(x: number, y: number, p: number, c: Float64Array, out: Float64Array): void {
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
+  let f1 = 81;
+  let f2 = 81;
+  let f3 = 81;
+  for (let j = -1; j <= 1; j++) {
+    const cy = wrap(wrap(iy + j, p), p) * p;
+    for (let i = -1; i <= 1; i++) {
+      const k = (cy + wrap(wrap(ix + i, p), p)) * 3;
+      const dx = ix + i + c[k] - x;
+      const dy = iy + j + c[k + 1] - y;
+      const d = dx * dx + dy * dy;
+      if (d < f1) {
+        f3 = f2;
+        f2 = f1;
+        f1 = d;
+        out[2] = c[k + 2];
+      } else if (d < f2) {
+        f3 = f2;
+        f2 = d;
+      } else if (d < f3) f3 = d;
+    }
+  }
+  out[0] = Math.sqrt(f1);
+  out[1] = Math.sqrt(f2);
+  out[3] = Math.sqrt(f3);
 }
 
 /** The surface's height: octaves of value noise, a little longer along x than y (the game's normal map's ripples
@@ -258,6 +317,138 @@ export function makeWaterTexture(size: number): Uint8Array {
   return data;
 }
 
+/** How badwater's pattern is drawn (tuned so its statistics land on the game's, `GAME_BADWATER_TEXTURE`): the base's
+ *  octaves of value noise (their periods across a repeat and amplitudes) and their warp; the glow's large cells and
+ *  its small ones where they cluster (cells across a repeat), the lines' width (cell units), the specks inside them
+ *  (cells across a repeat, their radius in cell units and how many cells have one) and the soft glow under them. */
+const BAD_PATTERN = {
+  octaves: [[8, 0.17], [16, 0.25], [32, 0.25], [64, 0.3], [128, 0.4], [256, 0.45]] as const,
+  grain: 0.5,
+  warp: 0.5,
+  cells: [24, 50] as const,
+  width: 0.05,
+  junction: 1.5,
+  wobble: 0.35,
+  small: 0.75,
+  specks: { cells: 140, radius: 0.16, share: 0.35, light: 0.5 },
+  haze: 1.6,
+};
+
+/** Values `v` (raw, any scale) remapped by their rank so their distribution is the game's: `percentiles` at
+ *  `PATTERN_PERCENTILES`, `lo` and `hi` at the ends, straight between (in place). */
+function toPercentiles(v: Float64Array, percentiles: readonly number[], lo: number, hi: number): void {
+  const n = v.length;
+  const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => v[a] - v[b]);
+  const ps = [0, ...PATTERN_PERCENTILES, 1];
+  const vs = [lo, ...percentiles, hi];
+  let k = 0;
+  for (let r = 0; r < n; r++) {
+    const p = (r + 0.5) / n;
+    while (k < ps.length - 2 && p > ps[k + 1]) k++;
+    v[order[r]] = vs[k] + ((vs[k + 1] - vs[k]) * (p - ps[k])) / (ps[k + 1] - ps[k]);
+  }
+}
+
+/** Badwater's pattern (RGBA bytes) at `size` texels square, one repeat as the surface's: R the base colour's pattern,
+ *  G the emissive detail's (`GAME_BADWATER_TEXTURE`), B and A unused. */
+export function makeBadwaterTexture(size: number): Uint8Array {
+  const n = size * size;
+  const P = BAD_PATTERN;
+  const base = new Float64Array(n);
+  const glow = new Float64Array(n);
+  const oct = P.octaves.map(([p], k) => lattice(p, 61 + k));
+  const warpX = lattice(10, 71);
+  const warpY = lattice(10, 72);
+  const [C1, C2] = P.cells;
+  const pts1 = cellPoints(C1, 81);
+  const pts2 = cellPoints(C2, 91);
+  const pts3 = cellPoints(P.specks.cells, 101);
+  const lwarpX = lattice(8, 73);
+  const lwarpY = lattice(8, 74);
+  const wobX = lattice(40, 83);
+  const wobY = lattice(40, 84);
+  const widths = lattice(20, 75);
+  const clusters = lattice(7, 76);
+  const brights = lattice(24, 77);
+  const hazes = lattice(30, 78);
+  const v1 = new Float64Array(4);
+  const v2 = new Float64Array(4);
+  const v3 = new Float64Array(3);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const u0 = (x + 0.5) / size;
+      const w0 = (y + 0.5) / size;
+      const i = y * size + x;
+      // the base: octaves of value noise, warped into clouds
+      const u = u0 + ((valueNoise(warpX, u0, w0) - 0.5) * P.warp) / 10;
+      const w = w0 + ((valueNoise(warpY, u0, w0) - 0.5) * P.warp) / 10;
+      let h = 0;
+      for (let k = 0; k < oct.length; k++) h += P.octaves[k][1] * valueNoise(oct[k], u - Math.floor(u), w - Math.floor(w));
+      base[i] = h + P.grain * hash(x, y, 79);
+      // the glow: lines round warped cells, small cells where they cluster, specks inside them, a faint haze
+      // (a broad warp so the cells are irregular, and a fine one so their lines wobble)
+      const wx = valueNoise(lwarpX, u0, w0) - 0.5 + (valueNoise(wobX, u0, w0) - 0.5) * P.wobble;
+      const wy = valueNoise(lwarpY, u0, w0) - 0.5 + (valueNoise(wobY, u0, w0) - 0.5) * P.wobble;
+      const lw = P.width * (0.6 + 0.8 * valueNoise(widths, u0, w0));
+      // a line between two cells, wider and brighter where three meet, so the cells read rounded
+      const lineOf = (v: Float64Array, width: number) => Math.exp(-(((v[1] - v[0]) / width) ** 2)) * (1 + P.junction * Math.exp(-(((v[3] - v[0]) / (width * 3)) ** 2)));
+      voronoi3(u0 * C1 + wx * 0.8, w0 * C1 + wy * 0.8, C1, pts1, v1);
+      let line = lineOf(v1, lw);
+      const cluster = Math.min(1, Math.max(0, (valueNoise(clusters, u0, w0) - 0.4) * 2.5)) * P.small;
+      if (cluster > 0) {
+        voronoi3(u0 * C2 + wx * 1.4, w0 * C2 + wy * 1.4, C2, pts2, v2);
+        line = Math.max(line, lineOf(v2, lw * 1.3) * cluster);
+      }
+      voronoi(u0 * P.specks.cells, w0 * P.specks.cells, P.specks.cells, pts3, v3);
+      const speck = v3[2] < P.specks.share ? Math.exp(-((v3[0] / P.specks.radius) ** 2)) * P.specks.light : 0;
+      const haze = Math.max(0, valueNoise(hazes, u0, w0) - 0.55) * P.haze;
+      glow[i] = Math.max(line * (0.45 + 0.55 * valueNoise(brights, u0, w0)), speck) + haze;
+    }
+  const G = GAME_BADWATER_TEXTURE;
+  toPercentiles(base, G.base.percentiles, 30, 220);
+  toPercentiles(glow, G.glow.percentiles, 0, 255);
+  const data = new Uint8Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    data[i * 4] = Math.round(base[i]);
+    data[i * 4 + 1] = Math.round(glow[i]);
+    data[i * 4 + 3] = 255;
+  }
+  return data;
+}
+
+/** The share of a tiling field's spread (`size` square) left after a Gaussian blur over `sigma` tiles (as
+ *  tools/game-water-shader.py measures the game's "broad" share). */
+export function broadShare(f: ArrayLike<number>, size: number, sigma = 0.25): number {
+  const s = (sigma * size) / (1 / WATER_FLOW.tiling);
+  const r = Math.ceil(s * 3);
+  const k = Array.from({ length: 2 * r + 1 }, (_, j) => Math.exp(-((j - r) ** 2) / (2 * s * s)));
+  const kn = k.reduce((a, b) => a + b, 0);
+  const n = size * size;
+  const a = new Float64Array(n);
+  const b = new Float64Array(n);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      let v = 0;
+      for (let j = -r; j <= r; j++) v += f[y * size + wrap(wrap(x + j, size), size)] * k[j + r];
+      a[y * size + x] = v / kn;
+    }
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      let v = 0;
+      for (let j = -r; j <= r; j++) v += a[wrap(wrap(y + j, size), size) * size + x] * k[j + r];
+      b[y * size + x] = v / kn;
+    }
+  const sd = (g: ArrayLike<number>) => {
+    let m = 0;
+    for (let i = 0; i < n; i++) m += g[i];
+    m /= n;
+    let q = 0;
+    for (let i = 0; i < n; i++) q += (g[i] - m) ** 2;
+    return Math.sqrt(q / n);
+  };
+  return sd(b) / sd(f);
+}
+
 /** The albedo fitted to a texture's bytes (`WATER_ALBEDO`'s numbers). */
 export function fitAlbedo(data: Uint8Array): { base: number[]; network: number[]; blobs: number[] } {
   const n = data.length / 4;
@@ -348,6 +539,7 @@ const v3 = (v: readonly number[]) => `vec3(${v.map(g).join(", ")})`;
  *  texel (high/bake.ts `flowByte`), the two phases' sample, the albedo and the normal. */
 export const WATER_FLOW_GLSL = /* glsl */ `
   uniform sampler2D waterTex;
+  uniform sampler2D badwaterTex;
   /** The flow the textures ride (the game's: each column's outflows ÷ 14) from a flow texel's RG (high/bake.ts
    *  flowByte). */
   vec2 waterFlowOf(vec2 rg) {
@@ -376,6 +568,11 @@ export const WATER_FLOW_GLSL = /* glsl */ `
     return ${v3(WATER_ALBEDO.base)} + ${v3(WATER_ALBEDO.network)} * s.r + ${v3(WATER_ALBEDO.blobs)} * s.g;
   }
   #define WATER_ALBEDO_MEAN ${v3(WATER_ALBEDO.mean)}
+  /** Badwater's pattern the flow carries at the phases' points (makeBadwaterTexture; Q9 P9: the game samples its t9 at
+   *  the albedo's coordinates): R the base colour's, G the emissive detail's, 0–1. */
+  vec2 badwaterPatternAt(vec2 pa, vec2 pb, float w) {
+    return mix(texture2D(badwaterTex, pa * ${g(WATER_FLOW.tiling)}).rg, texture2D(badwaterTex, pb * ${g(WATER_FLOW.tiling)}).rg, w);
+  }
   /** The surface's normal from its slopes, × ${g(WATER_FLOW.boost)} and × (1 + the badwater share) more, as the game's
    *  (Q9 P11). */
   vec3 waterFlowNormal(vec4 s, float share) {

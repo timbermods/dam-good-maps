@@ -5,7 +5,7 @@
 import { columnMap, type MapView, type SurfaceWater, type WaterView } from "../model";
 import { caveCurrent, type CaveCurrent } from "../caveCurrent";
 import { currentOf, gameFlowOf } from "../current";
-import { makeWaterTexture, WATER_FLOW, WATER_TEXTURE_SIZE } from "../waterTextures";
+import { makeBadwaterTexture, makeWaterTexture, WATER_FLOW, WATER_TEXTURE_SIZE } from "../waterTextures";
 import { motionShapes, type MotionShapes } from "../motionShapes";
 import { surfaceContamination } from "./flow";
 import { shadowMap, withCasterLevels, type ShadowRock, type Sun } from "../light";
@@ -62,14 +62,14 @@ export type BakeResult =
   | { id: number; kind: "flow"; flow: Uint8Array; shapes: MotionShapes; cave: CaveCurrent | null; ms: number }
   | { id: number; kind: "share"; share: Uint8Array; ms: number }
   | { id: number; kind: "shadows"; bytes: Uint8Array; hi: Float32Array; lo: Float32Array; ms: number }
-  | { id: number; kind: "waterTexture"; data: Uint8Array; ms: number };
+  | { id: number; kind: "waterTexture"; data: Uint8Array; bad: Uint8Array; ms: number };
 /** What the worker sends back: the answer, or why the job failed. */
 export type BakeReply = BakeResult | { id: number; kind: "error"; error: string };
 
 export function runBake(job: BakeJob): BakeResult {
   const t0 = performance.now();
   // the textures the water's flow carries (waterTextures.ts), made once a page, here rather than on its thread
-  if (job.kind === "waterTexture") return { id: job.id, kind: "waterTexture", data: makeWaterTexture(WATER_TEXTURE_SIZE), ms: performance.now() - t0 };
+  if (job.kind === "waterTexture") return { id: job.id, kind: "waterTexture", data: makeWaterTexture(WATER_TEXTURE_SIZE), bad: makeBadwaterTexture(WATER_TEXTURE_SIZE), ms: performance.now() - t0 };
   if (job.kind === "share") return { id: job.id, kind: "share", share: shareBytes(job.W, job.H, job.sw), ms: performance.now() - t0 };
   // the baked shadows for the sun turned with the camera (light.ts; the renderer's `turnSun`)
   if (job.kind === "shadows") {

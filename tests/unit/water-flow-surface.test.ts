@@ -9,8 +9,9 @@ import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { flowByte } from "../../src/render3d/high/bake";
 import { gameFlowOf } from "../../src/render3d/current";
-import { albedoOf, featureTiles, fitAlbedo, GAME_FLOW_TEXTURES as GAME, makeWaterTexture, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
-import { GAME_WATER, gameCleanColour, gameDepthR } from "../../src/render3d/waterPalette";
+import { albedoOf, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, makeBadwaterTexture, makeWaterTexture, PATTERN_PERCENTILES, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
+import { GAME_BADWATER, GAME_WATER, gameBadwaterColour, gameBadwaterEmission, gameCleanColour, gameDepthG, gameDepthR } from "../../src/render3d/waterPalette";
+import { waterShown } from "../../src/render3d/palette";
 
 const N = WATER_TEXTURE_SIZE;
 const data = makeWaterTexture(N);
@@ -181,5 +182,65 @@ describe("both looks' water shaders", () => {
     const c = gameCleanColour(0);
     expect(c[0]).toBeCloseTo((0x44 / 255) * (245 / 255) * 2, 6);
     expect(c[2]).toBeCloseTo((0x71 / 255) * (245 / 255) * 2, 6);
+  });
+});
+
+describe("badwater as the game draws it (Q9 P9)", () => {
+  const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+  const looks = [
+    { look: "Standard", s: waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false).fragmentShader },
+    { look: "High", s: waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false, waterHooks()).fragmentShader },
+  ];
+  const bad = makeBadwaterTexture(N);
+  const n = N * N;
+  const base = new Float64Array(n);
+  const glow = new Float64Array(n);
+  for (let i = 0; i < n; i++) (base[i] = bad[i * 4]), (glow[i] = bad[i * 4 + 1]);
+  const percentile = (f: Float64Array, q: number) => {
+    const s = Float64Array.from(f).sort();
+    return s[Math.floor(q * (s.length - 1))];
+  };
+
+  it("has a pattern of our own at the game's statistics: R the base colour's mottle, G the emissive detail's lines", () => {
+    for (const [f, G] of [[base, BAD_TEX.base], [glow, BAD_TEX.glow]] as const) {
+      const s = stats(f);
+      expect(Math.abs(s.mean - G.mean)).toBeLessThan(1);
+      expect(Math.abs(s.spread / G.spread - 1)).toBeLessThan(0.05);
+      PATTERN_PERCENTILES.forEach((q, k) => expect(Math.abs(percentile(f, q) - G.percentiles[k]), `${q}`).toBeLessThan(3));
+      expect(Math.abs(featureTiles(f, N) / G.feature - 1)).toBeLessThan(0.2);
+      expect(Math.abs(broadShare(f, N) - G.broad)).toBeLessThan(0.05);
+    }
+    // most of the glow is black, as the game's
+    expect(Math.abs(glow.filter((v) => v === 0).length / n - BAD_TEX.glow.zero)).toBeLessThan(0.05);
+  });
+
+  it("carries the pattern by the flow in both looks, its colour by the judge's choice (GAME_BADWATER.use)", () => {
+    for (const { look, s } of looks) {
+      expect(s, look).toContain(`#define BADWATER_FORMULA ${GAME_BADWATER.use ? 1 : 0}`);
+      expect(s, look).toContain("vec2 badwaterPatternAt(vec2 pa, vec2 pb, float w)");
+      expect(s, look).toContain("gameBadwaterEmission(");
+    }
+    // the game's own colour, as read (ps 680-790): pure badwater a level deep at the pattern's mean
+    const k = GAME_BADWATER.colorA.map((a, i) => (a + (GAME_BADWATER.colorB[i] - a) * GAME_BADWATER.pattern[0]) * GAME_BADWATER.intensity[1]);
+    const over = k.map((v, i) => 2 * v * GAME_BADWATER.detail[i]);
+    const c = gameBadwaterColour(1, 1);
+    for (let i = 0; i < 3; i++) expect(c[i]).toBeCloseTo((k[i] + (over[i] - k[i]) * 0.5) * gameDepthG(1), 6);
+    // its emissive detail, unlit, from the pattern's G and the grid: none on clean water
+    expect(gameBadwaterEmission(0)).toEqual([0, 0, 0]);
+    expect(gameBadwaterEmission(1)[0]).toBeGreaterThan(gameBadwaterEmission(1)[2]);
+  });
+
+  it("ships the colour the pixel judge found closer to the game's frames, red over green over blue as the game's", () => {
+    const J = GAME_BADWATER.judged;
+    // (the formula as read draws pure badwater farther from the game's pixels in both looks: ours stays)
+    expect(GAME_BADWATER.use).toBe(J.standard.formula < J.standard.ours && J.high.formula < J.high.ours);
+    // the shipped colour on screen sits within the judge's measured distance of the game's pixels
+    const rms = (a: readonly number[], b: readonly number[]) => Math.sqrt(a.reduce((s, v, i) => s + (v - b[i]) ** 2, 0) / 3);
+    expect(rms(J.shipped, J.game)).toBeLessThan(30);
+    // and the shipped body (before the light's sky and the finish) is red over green over blue, as the game's pixels
+    const shown = waterShown(1, 1);
+    expect(J.game[0]).toBeGreaterThan(J.game[1]);
+    expect(shown[0]).toBeGreaterThan(shown[1]);
+    expect(shown[1]).toBeGreaterThan(shown[2]);
   });
 });

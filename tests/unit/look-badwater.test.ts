@@ -14,7 +14,8 @@ import { GROUND } from "../../src/render3d/palette";
 import { CHUNK } from "../../src/render3d/mesh";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
 import { GAME_FINISH } from "../../src/render3d/palette";
-import { BADWATER, WATER_SURFACE, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
+import { GAME_BADWATER_TEXTURE, PATTERN_PERCENTILES } from "../../src/render3d/waterTextures";
+import { BADWATER, gameBadwaterColour, WATER_SURFACE, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
 import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
 
@@ -221,11 +222,17 @@ describe("badwater's colour", () => {
     const behind = 1 - badwaterOpacity(0.25);
     const bed = waterGroundBehind(GROUND.underwater, WATER.bad);
     for (let k = 0; k < 3; k++) expect(Math.abs(WATER.bad[k] + (bed[k] - WATER.bad[k]) * behind - target.bands.typical[k] / 255)).toBeLessThan(0.03);
-    // crimson: red well over green and blue; darker troughs, lighter streaks
+    // crimson: red well over green and blue; its troughs and streaks now the game's own pattern (Q9 P9: the base colour
+    // between near black and crimson by the pattern's R, carried by the flow; D148: these were our own trough and streak
+    // colours), darker where the pattern is low and lighter where it is high, its 10th and 90th percentiles a few L* apart
     expect(WATER.bad[0]).toBeGreaterThan(2 * WATER.bad[1]);
     expect(WATER.bad[1]).toBeGreaterThan(WATER.bad[2]);
-    expect(lightness(WATER.badTrough)).toBeLessThan(lightness(WATER.bad) - 2);
-    expect(lightness(WATER.badStreak)).toBeGreaterThan(lightness(WATER.bad) + 2);
+    const base = GAME_BADWATER_TEXTURE.base;
+    const at = (p: number) => lightness(gameBadwaterColour(0.25, 1, p / 255));
+    expect(PATTERN_PERCENTILES[2]).toBe(0.1);
+    expect(PATTERN_PERCENTILES[11]).toBe(0.9);
+    expect(at(base.percentiles[2])).toBeLessThan(at(base.mean) - 2);
+    expect(at(base.percentiles[11])).toBeGreaterThan(at(base.mean) + 2);
     // as see-through as clean water, as the game's High quality draws it (Q8: the ground behind by 0.175 at
     // the floor, none 5 levels deep; #38's murkier badwater gave way to the game's rule), a crimson
     // tint on a sliver
@@ -362,9 +369,12 @@ describe("badwater's colour", () => {
       expect(shader).toContain("vec3 murky = badwaterGlow(badwaterBody(depth), BADWATER_BODY, d, cont);");
       expect(shader).toContain("vec3 c = waterBlend(body, murky, cont);");
       expect(shader).toContain("alpha = mix(alpha, badwaterAlpha(depth, shore), bad);");
-      // the old streaks of mixed water are gone; the bubbles grow denser with the share
+      // the old streaks of mixed water are gone, and our bubbles with them (Q9 P9): the game's emissive detail, the
+      // pattern's G carried by the flow, unlit
       expect(shader).not.toContain("mixed");
-      expect(shader).toContain("smoothstep(0.93 - 0.1 * bad, 1.03 - 0.1 * bad");
+      expect(shader).not.toContain("BADWATER_BUBBLES");
+      expect(shader).toContain("vec3 emission = gameBadwaterEmission(cont, bpat.y, g);");
+      expect(shader).toContain(lite ? "vec2 bpat = BADWATER_PATTERN_FLAT;" : "bpat = badwaterPatternAt(pa, pb, pw);");
     }
   });
 });
