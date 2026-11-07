@@ -294,6 +294,8 @@ export class StackLive {
         }
         this.m.op(STACK_OP.elsewhere, this.since);
         this.since = 0;
+        // (a preview stops at each check, so its rule is tested at every one whatever `ticks` asks, as on one thread)
+        if (this.preview) break;
       }
     }
     const m = this.m;
