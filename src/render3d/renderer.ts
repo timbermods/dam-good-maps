@@ -1663,6 +1663,8 @@ export class MapRenderer {
     const m = this.map!;
     const l = this.layers;
     if (l && l.of === m.surface) rideLayers(m.W, l.layers, m.surface, rect);
+    // (a plant the water now floods, or leaves, starts or stops dying: held water kept over land an edit lowered too)
+    this.lifeLater();
   }
 
   /** The columns as the worker last sent them (the water mesh workers' copy), and their version. */
@@ -3822,9 +3824,12 @@ export class MapRenderer {
 
   /** Everything a frame shows is in: the water chunks (none waiting or with the mesher workers), the programs (and in
    *  High the look's own: its fields, its water's flow, the canopies' shade), the moving water's flow, and the baked
-   *  shadows (none waiting on their timer). All on the same check, since a later batch can queue behind an earlier one. */
+   *  shadows (none waiting on their timer). All on the same check, since a later batch can queue behind an earlier one.
+   *  The drought layer's background draw (the drought line, Badtide) is not waited on: the recording it is for, the time-lapse
+   *  (editor/timelapse/record.ts), never sets a season, so its views never show one. */
   private get drawnAll(): boolean {
-    if (this.disposed) return true;
+    // (a view gone, or with no map yet, has nothing more to draw: a wait on it ends at once, never waits for a map)
+    if (this.disposed || !this.map) return true;
     if (this.pendingLand || !this.waterDrawn || this.casterTimer || this.lifeTimer) return false;
     if (!this.programsSettled || !(this.waterMotion?.ready ?? true)) return false;
     return !this.high || (this.high.settled && this.high.caughtUp);

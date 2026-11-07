@@ -43,7 +43,9 @@ describe("a recording's clock", () => {
     expect(fx.showing().erupt).toMatchObject({ age: expect.closeTo(0.5, 6), cooling: 0 });
     expect(fx.heat(clock.now())).toEqual({ age: expect.closeTo(0.5, 6), cooling: 0 });
     fx.finish();
+    // (its lava cools by the frames drawn: a recording's frame counts its whole video time, however long)
     video = 2500;
+    expect(fx.advance()).toBe(true);
     expect(fx.showing().erupt).toMatchObject({ age: expect.closeTo(2.5, 6), cooling: expect.closeTo(2, 6) });
     // its lava cools for 6.5 s of video, then it is over
     video = 500 + 6400;
@@ -105,6 +107,16 @@ describe("a recording's clock", () => {
     expect(fx.advance()).toBe(false);
     expect(scene.children).toHaveLength(0);
     expect(frames).toHaveLength(0);
+  });
+
+  it("cools the player's view by its frames: one frame held 8 s cools only a tenth of a second", () => {
+    const view: Clock = { now: () => video, driven: false };
+    const fx = new ForceEffects(new Scene(), () => {}, () => 5, () => null, view);
+    fx.set(moment("erupt", "rumble"));
+    fx.finish();
+    video = 8000;
+    for (const f of frames.splice(0)) f();
+    expect(fx.showing().erupt).toMatchObject({ age: expect.closeTo(8, 6), cooling: expect.closeTo(0.1, 6) });
   });
 
   it("leaves the player's view on the wall clock, with its own frames", () => {

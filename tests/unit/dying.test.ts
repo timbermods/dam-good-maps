@@ -5,7 +5,8 @@
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelOf } from "../../src/render3d/entities3d";
-import { DEAD_FORM, deadLeaves, DRYING, dryColour, isFoliage } from "../../src/render3d/dying";
+import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour, isFoliage } from "../../src/render3d/dying";
+import { TREE_COLOURS } from "../../src/render3d/palette";
 import { DEAD, DYING, entityView } from "../../src/render3d/model";
 import { Forest } from "../../src/render3d/high/forest";
 import { model, paletteDefaults, slots, WARM_SUN } from "../../src/render3d/high/models";
@@ -145,12 +146,38 @@ describe("a dead plant's form, by the game's numbers", () => {
       return out;
     };
     // the pine's pole: its bark × the game's dead-wood ratio, lighter than the living crowns
-    expect(colours("Pine.dead").has([0.36 * 1.25, 0.25 * 1.43, 0.16 * 1.6].map((c) => c.toFixed(3)).join(","))).toBe(true);
+    const bark = TREE_COLOURS.pineBark;
+    expect(colours("Pine.dead").has([bark[0] * 1.25, bark[1] * 1.43, bark[2] * 1.6].map((c) => c.toFixed(3)).join(","))).toBe(true);
     const bush = colours("BlueberryBush.dead");
     expect(bush.size).toBe(1);
-    expect([...bush][0]).toBe(deadLeaves("BlueberryBush", [0.14, 0.29, 0.14]).map((c) => c.toFixed(3)).join(","));
+    expect([...bush][0]).toBe(deadLeaves("BlueberryBush", TREE_COLOURS.bush).map((c) => c.toFixed(3)).join(","));
     const regions = new Set(Array.from(model("BlueberryBush", 0, "near", "dead").getAttribute("region").array as Float32Array));
     expect(regions.has(slots.indexOf("berry"))).toBe(false);
     expect(regions.has(slots.indexOf("bushDead"))).toBe(true);
+  });
+  it("High's bark and dead wood are the game's (TREE_COLOURS), as Standard's are: the pine's and the oak's each its own", () => {
+    const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+    // (High's albedo: the colour with the warm sun's tint taken out, models.ts `underSun`)
+    const underSun = (c: readonly number[]) => [c[0] * (WARM_SUN[1] / WARM_SUN[0]), c[1], c[2] * (WARM_SUN[1] / WARM_SUN[2])];
+    const same = (slot: keyof typeof paletteDefaults, want: readonly number[]) => hex(paletteDefaults[slot]).forEach((c, k) => expect(Math.abs(c - underSun(want)[k]), slot).toBeLessThanOrEqual(0.5 / 255 + 1e-9));
+    same("bark", TREE_COLOURS.pineBark);
+    same("oakBark", TREE_COLOURS.oakBark);
+    same("dead", deadWood("Pine", TREE_COLOURS.pineBark));
+    same("oakDead", deadWood("Oak", TREE_COLOURS.oakBark));
+    // each tree draws its own: High's slots, and Standard's colours
+    const regions = (species: "Pine" | "Oak", state: "alive" | "dead") => new Set(Array.from(model(species, 0, "near", state).getAttribute("region").array as Float32Array));
+    for (const [species, alive, dead, other] of [["Pine", "bark", "dead", "oakBark"], ["Oak", "oakBark", "oakDead", "bark"]] as const) {
+      expect(regions(species, "alive").has(slots.indexOf(alive)), species).toBe(true);
+      expect(regions(species, "alive").has(slots.indexOf(other)), species).toBe(false);
+      expect(regions(species, "dead").has(slots.indexOf(dead)), species).toBe(true);
+    }
+    const has = (key: string, c: readonly number[]) => {
+      const { col } = modelOf(key);
+      for (let v = 0; v < col.length; v += 3) if (Math.abs(col[v] - c[0]) + Math.abs(col[v + 1] - c[1]) + Math.abs(col[v + 2] - c[2]) < 1e-6) return true;
+      return false;
+    };
+    expect(has("Pine", TREE_COLOURS.pineBark)).toBe(true);
+    expect(has("Oak", TREE_COLOURS.oakBark)).toBe(true);
+    expect(has("Oak.dead", deadWood("Oak", TREE_COLOURS.oakBark))).toBe(true);
   });
 });

@@ -223,8 +223,14 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
       const c = [[x + 0.3, y + 0.3], [x + size - 0.3, y + 0.3], [x + 0.3, y + size - 0.3], [x + size - 0.3, y + size - 0.3]].map(([cx, cy]) => r.project(cx, 4, -cy));
       return { x0: Math.round(Math.min(...c.map((q) => q.x)) * k), x1: Math.round(Math.max(...c.map((q) => q.x)) * k), y0: Math.round(g.drawingBufferHeight - 1 - Math.max(...c.map((q) => q.y)) * k), y1: Math.round(g.drawingBufferHeight - 1 - Math.min(...c.map((q) => q.y)) * k) };
     });
-    // (the sky round and under the map is a clear blue: blue well over red and over green; the pits' earth and rock,
-    // the ground and a seep's water are not)
+    // (what shows through a hole, for these checks alone: a magenta background, the sky taken away. The sky's clouds are
+    // near white, and where they fall depends on the GPU's arithmetic: on CI's software drawing a cloud filled both seeps'
+    // holes, and a test of the sky's blue saw none there, run 42360125348)
+    const bg = r as unknown as { sky: { visible: boolean }; gl: { getClearColor(t: object): unknown; setClearColor(c: unknown): void } };
+    let clear: unknown = null;
+    bg.gl.getClearColor({ copy: (c: { clone(): unknown }) => (clear = c.clone()) });
+    bg.sky.visible = false;
+    bg.gl.setClearColor(0xff00ff);
     const skyShare = () => {
       const px = frame();
       return feet.map((b) => {
@@ -234,7 +240,7 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
           for (let x = b.x0; x <= b.x1; x++) {
             const o = (y * g.drawingBufferWidth + x) * 4;
             all++;
-            if (px[o + 2] > px[o] + 40 && px[o + 2] > px[o + 1] + 15) sky++;
+            if (px[o] > 200 && px[o + 1] < 60 && px[o + 2] > 200) sky++;
           }
         return sky / Math.max(1, all);
       });
@@ -254,6 +260,8 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
     objects.visible = false;
     const hole = skyShare();
     objects.visible = true;
+    bg.sky.visible = true;
+    bg.gl.setClearColor(clear);
     out.pits = { drawn, hidden: pitsHidden, faded: pitsFaded, hole };
     // the shelf's icons: the same with the fade over the place they are drawn at and the objects hidden
     if (lk !== "light") {

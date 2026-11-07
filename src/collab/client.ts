@@ -150,7 +150,15 @@ export class CollabClient extends Emitter<ClientEvents> {
       if (typeof p === "string") this.presenceCh?.receive(p, false);
     });
     t.on("dropped", ({ reason }: { reason: DropReason }) => {
-      if (this.transport === t) quiet(this.worker.detach(reason));
+      if (this.transport !== t) return;
+      // (a connection that ended before the other player was in the session on it is a join that did not happen: said as plainly
+      // as a connection that could not be made, never waited on)
+      this.worker.detach(reason).then(
+        (joined) => {
+          if (!joined && this.transport === t) this.fire("failed", { message: MESSAGES.connectFailed, kind: "connect-failed" });
+        },
+        () => undefined,
+      );
     });
     t.on("error", (e) => {
       if (this.transport !== t) return;
