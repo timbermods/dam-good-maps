@@ -4,7 +4,8 @@
 
 import { describe, expect, it } from "vitest";
 import { OPENING } from "../../src/core/analysis/opening";
-import { heroCamera, heroScene } from "../../src/render3d/heroView";
+import { heroCamera, heroScene, pictureLand } from "../../src/render3d/heroView";
+import type { PictureLand } from "../../src/core/analysis/picture";
 import { sunOfYaw, sunVector } from "../../src/render3d/light";
 import { LIGHT } from "../../src/render3d/palette";
 import { LAYERS, type EntityView, type MapView } from "../../src/render3d/model";
@@ -85,7 +86,7 @@ describe("the map's picture: its camera and light (D488)", () => {
       expect(camera.pitch).toBeCloseTo((40 * Math.PI) / 180, 12);
       expect(camera.yaw).toBeCloseTo(-(o * 90 * Math.PI) / 180, 12);
       expect(camera.fov).toBe(OPENING.fov);
-      const c = heroCamera(20, 18, v.heights, o);
+      const c = heroCamera(20, 18, v.heights, o, pictureLand(v));
       expect(camera.target).toEqual([c.x, c.level, -c.y]);
       expect(view.entities.count).toBe(v.entities.count - 1);
       expect(view.entities.templates.filter((_, k) => Array.from(view.entities.template).includes(k))).not.toContain("StartingLocation");
@@ -100,7 +101,7 @@ describe("the map's picture: its camera and light (D488)", () => {
     const { view, camera } = heroScene(none);
     expect([view.W, view.H]).toEqual([20, 12]);
     expect(camera.yaw).toBe(-0);
-    const c = heroCamera(20, 12, v.heights, 0);
+    const c = heroCamera(20, 12, v.heights, 0, pictureLand(none));
     expect(camera.target).toEqual([c.x, c.level, -c.y]);
     expect(camera.distance).toBe(c.distance);
   });
@@ -134,5 +135,51 @@ describe("the map's picture: its camera and light (D488)", () => {
         expect(o % 2 === 0 ? c.x : c.y).toBeCloseTo(o % 2 === 0 ? W / 2 : H / 2, 9);
       }
     }
+  });
+
+  it("slides along the map, within the room it has, to the place whose picture scores best by the looks score: the middle where all score the same", () => {
+    const W = 128;
+    const H = 128;
+    const N = W * H;
+    const heights = new Uint8Array(N).fill(10);
+    const plain = (moisture: Float32Array, entities: PictureLand["entities"]): PictureLand => ({ W, H, heights, water: new Float32Array(N), contamination: new Float32Array(N), moisture, entities });
+    const mid = heroCamera(W, H, heights, 0);
+    // bare ground everywhere: every place scores the same, so the middle
+    expect(heroCamera(W, H, heights, 0, plain(new Float32Array(N), [])).y).toBe(mid.y);
+    for (const [y0, y1] of [[112, 125], [2, 15]]) {
+      // a wooded, grassy band along the north edge (tile y 112–125), then along the south edge (y 2–15)
+      const moisture = new Float32Array(N);
+      const trees: { template: string; x: number; y: number }[] = [];
+      for (let y = y0; y <= y1; y++)
+        for (let x = 0; x < W; x++) {
+          moisture[y * W + x] = 10;
+          if ((x + y) % 3 === 0) trees.push({ template: "Pine", x, y });
+        }
+      for (let o = 0; o < 4; o++) {
+        const c = heroCamera(W, H, heights, o, plain(moisture, trees));
+        const centred = heroCamera(W, H, heights, o);
+        expect(c.distance).toBe(centred.distance);
+        // looking north (o 0) or south (o 2) the frame slides toward the band (east or west, the band runs along the
+        // look, and the frame stays centred across the map)
+        if (o % 2 === 0) expect(Math.sign(c.y - centred.y), `turned ${o}, band at ${y0}`).toBe(y0 > 64 ? 1 : -1);
+      }
+    }
+  });
+
+  it("reads the view as the looks score does: every tile's voxels as a mask, each water column, the game's moisture levels", () => {
+    const v = sample(20, 18, 0);
+    const land = pictureLand(v);
+    const N = 20 * 18;
+    const cave = 3 * 20 + 4;
+    // the listed column keeps its voxels (rock 0–1 and 5–7, air 2–4); a plain tile is solid to its height
+    expect(land.mask![cave]).toBe(0b11100011);
+    expect(land.mask![0]).toBe((1 << v.heights[0]) - 1);
+    // the cave's two water columns, in order
+    expect(Array.from(land.stack!.count).filter((n) => n > 0)).toEqual([2]);
+    expect([land.stack!.floor[cave], land.stack!.floor[N + cave]]).toEqual([2, 8]);
+    expect([land.stack!.depth[cave], land.stack!.depth[N + cave]]).toEqual([1.5, 0.5]);
+    // the soil's moisture bytes (the game's level × 15) back in levels
+    expect(land.moisture[15]).toBeCloseTo(15 / 15, 9);
+    expect(land.entities.length).toBe(v.entities.count);
   });
 });
