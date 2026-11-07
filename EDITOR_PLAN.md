@@ -833,7 +833,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Raise lifts every tile below the target to it and leaves higher ground; Lower cuts every tile above it down to
   it; Flatten sets every tile to it, higher or lower. They act exactly, with the brush's footprint and hard edges;
   holding adds nothing. Until the player sets it, the target follows the ground under the pointer (a level above
-  for Raise, below for Lower, the same for Flatten) and locks where a stroke starts. **Shift+scroll** changes it
+  for Raise, below for Lower, the same for Flatten) and locks where a stroke starts. A stroke begins on the tile
+  under the pointer, whatever the target; Flatten to a set level then follows the pointer on that level's plane, moved
+  by as much as the ground it began on stands above or below it, so the brush stays under the pointer. **Shift+scroll** changes it
   (0 to the height ceiling), **Ctrl+click** on the land takes its level (on water, the bed's), and the row's
   **Level** list sets it; once set it stays until the tool changes or Esc. Past either end of the range Raise and
   Lower are **Free**: they sculpt softly, building up as the player paints. Smooth and Naturalize stay soft;
