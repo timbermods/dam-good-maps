@@ -353,9 +353,9 @@ export class TimelapseReplay {
 
   private constructor(doc: MapDocument) {
     this.target = MapSession.open(doc);
-    // (the current generation's land: a cropped map's replay starts from its crop, D340; its water the generation's
-    // own as saved, never settled again)
-    this.map = MapSession.open(documentAt(doc, 0), { deferWater: true });
+    // (the current generation's land: a cropped map's replay starts from its crop, D340, the crop its first edit, which
+    // the document keeps; its water the generation's own as saved, never settled again)
+    this.map = MapSession.open(documentAt(doc, doc.prior ? 1 : 0), { deferWater: true });
     this.map.setWaterMode("defer");
     const shared = this.map.logOps.length;
     this.groups = logSteps(this.target.logOps.slice(shared));

@@ -78,15 +78,14 @@ const wait = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
 /** The encoder took a frame (or a moment passed, where it never says so). */
 const dequeued = (enc: VideoEncoder) =>
   new Promise<void>((done) => {
-    const t = setTimeout(done, 50);
-    enc.addEventListener(
-      "dequeue",
-      () => {
-        clearTimeout(t);
-        done();
-      },
-      { once: true },
-    );
+    // (whichever comes first; the other is taken away, so no listener is left waiting)
+    const took = () => {
+      clearTimeout(t);
+      enc.removeEventListener("dequeue", took);
+      done();
+    };
+    const t = setTimeout(took, 50);
+    enc.addEventListener("dequeue", took);
   });
 
 function aborted(signal: AbortSignal | undefined): void {
@@ -225,8 +224,8 @@ export async function recordTimelapse(o: LapseOptions): Promise<LapseResult> {
         if (cur) finishStep(cur);
         const data = await stepData(next);
         if (!data) throw new Error("The time-lapse lost its place in the history");
-        // (a few steps ahead: a long history plays several steps to a frame)
-        for (let a = next + 1; a < Math.min(plan.steps.length, next + 1 + AHEAD); a++) void stepData(a);
+        // (a few steps ahead: a long history plays several steps to a frame; a failure is met when its step is awaited)
+        for (let a = next + 1; a < Math.min(plan.steps.length, next + 1 + AHEAD); a++) stepData(a).catch(() => undefined);
         if (next + 1 >= plan.steps.length) endWater ??= api.water(Math.ceil((plan.outro.hold - plan.outro.tail) / WATER_EVERY), tickEvery) as Promise<WaterView[]>;
         cur = { k: next, data, switched: false, water: -1 };
         next++;

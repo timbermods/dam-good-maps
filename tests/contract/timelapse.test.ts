@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { applyForce } from "../../src/core/collab";
+import { cropObjects } from "../../src/core/doc/crop";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
@@ -77,5 +78,35 @@ describe("the time-lapse's replay ends as the map itself", () => {
     const b = revealOrder([crater], tiles, W);
     // (tile 2 at x 18 and 3 at x 22 are nearest the strike)
     expect(Math.max(b.start[2], b.start[3])).toBeLessThan(Math.min(b.start[0], b.start[5]));
+  });
+});
+
+describe("a cropped map's time-lapse (D340)", () => {
+  it("starts from the crop and ends as the map itself", () => {
+    const s = MapSession.open(decodeProject(mapProject(11, "riverValley", W)));
+    s.setWaterMode("defer");
+    const before = new Stream(5, W);
+    for (const kind of ["raise", "place"] as Kind[]) {
+      const c = before.command(kind, s);
+      if (c?.kind === "edit") s.applyAll(c.ops as EditOp[], "user", c.label);
+    }
+    s.settleCanonical();
+    // (a rectangle round the start that keeps it whole)
+    const start = s.built.entities.find((e) => e.template === "StartingLocation")!;
+    let rect: { x: number; y: number; w: number; h: number } | null = null;
+    for (let y = 0; !rect && y + 40 <= W; y += 3) for (let x = 0; !rect && x + 40 <= W; x += 3) if (cropObjects(s.built.entities, { x, y, w: 40, h: 40 }).kept.includes(start.id) && !cropObjects(s.built.entities, { x, y, w: 40, h: 40 }).cutStart) rect = { x, y, w: 40, h: 40 };
+    expect(s.apply({ op: "crop", params: rect! } as EditOp).ok).toBe(true);
+    const after = new Stream(6, 40);
+    for (const kind of ["raise", "lower", "place"] as Kind[]) {
+      const c = after.command(kind, s);
+      if (c?.kind === "edit") s.applyAll(c.ops as EditOp[], "user", c.label);
+    }
+    const doc = decodeProject(s.project());
+    expect(doc.prior, "the project holds the map before its crop").toBeTruthy();
+    const r = TimelapseReplay.open(doc);
+    expect([r.W, r.H]).toEqual([40, 40]);
+    expect(r.steps.length, "the edits after the crop").toBe(3);
+    while (r.next());
+    expect(r.finish()).toBe(true);
   });
 });
