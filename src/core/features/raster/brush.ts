@@ -340,7 +340,7 @@ export function limitRuns(l: WaterLimits, box: Rect, W: number): { shore: [numbe
 }
 
 /** Water deeper than this stands on a tile (as weather.ts reads it). */
-const WET_DEPTH = 1e-3;
+export const WET_DEPTH = 1e-3;
 
 /** The tiles beyond the brush's disc a natural weathering reads: the softening of its edges (as far
  *  as `wanderBlur`'s widest, 11) and its ring, never changed. */

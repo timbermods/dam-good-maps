@@ -827,7 +827,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   or below all its neighbours, no neighbouring pair swaps which is higher, nothing one tile wide appears (a
   tread, ledge, wall or slot), nothing newly holds water and no way out for water closes; what would break one
   is mended or taken back. Farmland is never lost: moist ground (the settled water's moisture when the stroke
-  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. It
+  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. A stroke that
+  changes nothing says why beside the pointer for a moment: "Moist ground keeps its height: weather dry land" when
+  most of it pressed on moist soil (an island in a lake is all moist), else "Nothing here to weather" (showcase-craft gap 23). It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
   stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
