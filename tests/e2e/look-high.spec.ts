@@ -170,7 +170,10 @@ test("the Standard look is the same after High as before it", async ({ page }) =
   // twice can differ on the water by a few levels (dev's build too), so each pair is held to that,
   // never to the other pair's noise (a quiet first pair would fail a noisier second one)
   for (const s of [again, after]) expect(s.max, s.key).toBeLessThanOrEqual(NOISE);
-  expect(high.share).toBeGreaterThan(0.2);
+  // (High was drawn between them: its own effects, its shadows, water and models, change the frame. Since the game's
+  // sky is every look's (D497), the sky behind the map, most of the 0.2 this was held to, no longer differs; High's own
+  // effects change about 0.057 of the channel values on this frame, RTX 2070 SUPER)
+  expect(high.share).toBeGreaterThan(0.03);
   expect(errors).toEqual([]);
 });
 

@@ -18,7 +18,7 @@ import { FLOW_DISPLAY } from "../../src/render3d/high/bake";
 import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { Forest, isPlant, replacedBatch } from "../../src/render3d/high/forest";
 import { buildLandmarks, landmarkKind } from "../../src/render3d/high/landmarks";
-import { landmarkHooks, objectHooks, skyHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
+import { landmarkHooks, objectHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
 import { buildEntities } from "../../src/render3d/entities3d";
 
 const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
@@ -53,7 +53,6 @@ describe("the High look's shaders", () => {
       [waterMaterial(u, false, waterHooks()), waterHooks()],
       [objectMaterial(u, false, objectHooks()), objectHooks()],
       [objectMaterial(u, false, vegetationHooks(9)), vegetationHooks(9)],
-      [skyMaterial(skyHooks()), skyHooks()],
     ];
     for (const [m, hooks] of cases) {
       const s = source(m);
@@ -80,7 +79,7 @@ describe("the High look's shaders", () => {
 
   it("follow Timberborn's references (D334): the game's finish, and badwater's own cues, pink highlights moving with the current, slow bubbles and red contact at rock", () => {
     // (D497: High's own tone curve, grade and haze gave way to the game's fog and post chain, every look's)
-    const all = [terrainHooks(), waterHooks(), objectHooks(), landmarkHooks(), skyHooks()].map((h) => Object.values(h).join("\n")).join("\n");
+    const all = [terrainHooks(), waterHooks(), objectHooks(), landmarkHooks()].map((h) => Object.values(h).join("\n")).join("\n");
     expect(all).not.toMatch(/hlTone|hlGrade|hlHaze|hlGradeColour/);
     // (the look fogged and graded, then the editing aids after it: D497)
     expect(terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader).toContain("c = finishLit(c, emission, vWorld);");
@@ -98,7 +97,7 @@ describe("the High look's shaders", () => {
   });
 
   it("have a switch for each effect that needs one in a shader", () => {
-    const all = [terrainHooks(), waterHooks(), objectHooks(), landmarkHooks(), skyHooks()].map((h) => Object.values(h).join("\n")).join("\n");
+    const all = [terrainHooks(), waterHooks(), objectHooks(), landmarkHooks()].map((h) => Object.values(h).join("\n")).join("\n");
     for (const k of SWITCHES) expect(all, k).toContain(k);
   });
 });

@@ -469,8 +469,9 @@ place of its bottom rule.
   with a volume and an off switch the player keeps (D212); water ambience is off unless turned on. The recordings
   load on the first click or key, never with the page, and nothing waits on them. Micro-animations follow the
   reduced-motion setting. Nothing new stays on screen unless in use.
-- **The hover readout:** a quiet corner line for what's under the cursor ("Height 11, dry soil"); over water, its
-  depth, the bed level and its contamination (D196). **It names every object and plant too**, with its key fact
+- **The hover readout:** a quiet corner line for what's under the cursor ("Height 11, dry soil"); over water, the
+  water's level (bed plus depth, so a lake's level is read in one tile: showcase-craft gap 19), its depth, the bed
+  level and its contamination (D196): "Water at level 4.6, 0.6 deep, bed level 4". **It names every object and plant too**, with its key fact
   where one is useful (D347, B11): "Mine site", "Ruin, 5 levels, 75 scrap metal", "Water source, 1 water/s", "Pine,
   grown", "Relic, medium"; where an object sits on ground the line gives both ("Geothermal field · Height 5, dry
   soil"), up to three objects separated by ";". It works with any tool held. It is one plain core function,
@@ -1546,9 +1547,11 @@ checks dot counts; every other row is information under Good to know, worded as 
     `draftStack`). A force's own water flows there too while it plays (D371; `startForceStack`): the engine is
     built again on the land and objects each frame shows (Erode's voxels included), a carve's front walls its course
     until the cut reaches it, and kept, the map's water flows on from it (a Slide's water stays where it stood rather
-    than riding its block). That water is only shown: the map keeps the last settle carried over until the canonical
-    settle, run in the background in slices, on several threads where the page has them (`sim/stackParallel.ts`,
-    the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
+    than riding its block). While it flows the map keeps the last settle carried over; an edit's journey stops by the
+    preview's own rule (the volume within 0.2% and at most 0.05% of the tiles moving more than 0.05 between checks,
+    every 128 ticks), and where it came to stand is then the map's preview water, as a plain map's is (D453;
+    `stackPreview`), until the canonical settle, run in the background in slices, on several threads where the page
+    has them (`sim/stackParallel.ts`, the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
     was settles at once (D453): the changed tiles lie more than five tiles from every column the last settle
     ever wet and from every source, with the same objects and the same pre-fill elsewhere, so the last settle
     is the new one, the same bytes (`settledAgain`); Erode and Export then wait for nothing. The file gets the settle
