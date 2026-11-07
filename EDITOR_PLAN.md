@@ -1050,7 +1050,7 @@ Make a valley, drop a source, and there's a river.
   worker works them out, `MarkerNote`, and `labelLayout.ts` places them beside the sources' labels; notes too crowded for
   their spots merge into "N objects nearby", and one with no room is not drawn). **Sources are easy to hit** (D249): with any tool
   picked, the pointer over water or bare ground within about two tiles of a source targets it (a direct hit on
-  another object wins; the nearest source wins); Delete or Backspace removes it, one undo step. **A badwater source
+  another object wins; the nearest source wins); Delete or Backspace removes it, one undo step. A press with nothing picked grabs a source within that reach to drag it; with the Select tool open, only a press on the source itself does, so a box begun beside one selects (showcase-craft gap 18). **A badwater source
   cuts its own spring pool** (D290, generalised to every object by D328): it is 3 × 3 and needs level ground, so
   where it is placed, switched from clean or dragged onto uneven ground, its nine tiles are cut down to the lowest
   of them (never filled, so its water isn't dammed) and what stood on them goes, in the same undo step. Every
