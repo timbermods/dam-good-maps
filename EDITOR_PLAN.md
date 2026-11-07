@@ -944,7 +944,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   generator's Verticality and Real places' standard or tall option decide how tall a generated map starts.
 - **Select** (D259): Rectangle, Freehand, **Wand** (D261: a click on land selects the ground joined to it at that
   level; on water, that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at
-  the click), **Circle** (drag from the centre) and **Brush** (paint the selection at the brushes' size); Shift adds
+  the click; while every selected tile has water, the row's size words add its level, "water at level 5.5", or the
+  levels a river runs between, so a chain of lakes is set without hovering tile by tile: showcase-craft gap 19), **Circle** (drag from the centre) and **Brush** (paint the selection at the brushes' size); Shift adds
   and Alt subtracts. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
   under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles. A
   Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
