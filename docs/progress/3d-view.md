@@ -608,6 +608,15 @@ Standard's shadow before a cave (item 8).
   volume
   (`SUN_MARCH_STEPS`). The map's picture bakes the sun for its camera at once (`sunNow`), on the map as it is (no
   quarter turns). The forces' worn stones take the scene's sun.
+- **Caves and overhangs in the game's light, measured (dev 7d2a3dbd, 2026-11-07):** `tools/capture-forms-read.ts` now
+  finds each form where the generator put it (its intentions' `at` and `from`) and stands its camera in air: lower first
+  at the whole distance, then nearer. Its fixed cameras had fallen on bare walls once D503 moved the forms. In High,
+  Canyon 128² seed 1's spring cave from inside measures 39 mean luma (roofed walls 31, the floor 56, ceilings 26),
+  against the look audit's 27; in Standard, 50 against 32. Under the overhangs (Canyon 1's cliff overhang and River
+  Valley 1's start and cliff overhangs, High), the roof's underside measures 15–27 and the back wall 23–31, against
+  open walls of 35–64: the lip's darkening the audit missed is the game's light (#734). **Falls short:** an overhang's
+  outside view can still stand under its own roof, as the tool checks only that the eye is in air, not the line of
+  sight to the form.
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
 

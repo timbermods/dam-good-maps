@@ -1,7 +1,7 @@
 // How caves, overhangs and arches read (docs/progress/3d-view.md, "Caves that read in the game's light" and "Overhangs
 // and arches that read"; D488 (3)). Real Chrome, headed, the site from this checkout's dev server: Canyon 128² seed 1
-// (its spring cave, the overhang sheltering its start, the arch over its gorge) from inside the cave, closer to each
-// form, the game's opening camera and the map's picture's framing; Standard and High; 1920×1080 dark and 1280×800 light.
+// (or `--map`), each of its forms found as the generator placed them (its intentions' `at` and `from`, so the views
+// follow the generator) from inside a cave, closer to each form, the game's opening camera and the map's picture's framing; Standard and High; 1920×1080 dark and 1280×800 light.
 // Each frame is measured: every 6th pixel is picked (`pickSeen`), sorted by the face it lands on (a top, a wall, an
 // underside) and whether that face's air is under a roof, and its brightness (Rec. 709 luma of the sRGB bytes, 0–255)
 // summed by kind.
@@ -17,6 +17,11 @@ import { chromium, type Page } from "@playwright/test";
 import { createServer } from "vite";
 import { openingCamera, VISTA_ZOOM } from "../src/core/analysis/opening";
 import { ORIENTATIONS, startMiddleTile } from "../src/core/format/footprints";
+import { generate } from "../src/core/gen/generate";
+import { FORMS, type FormId } from "../src/core/land/forms3d";
+import { encodeSpecFragment } from "../src/core/spec/codec";
+import { makeSpec, type ThemeId } from "../src/core/spec/mapspec";
+import { bottomRunTop, ColumnTerrain } from "../src/core/terrain/runs";
 import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string): string | undefined => {
@@ -28,7 +33,10 @@ const BASE = join(ROOT, ".scratch/forms-read");
 const PORT = Number(arg("port") ?? "4795");
 /** The map (its share link's fragment): `--map riverValley:4242` for another theme and seed at 128². */
 const MAP_ARG = (arg("map") ?? "canyon:1").split(":");
-const MAP = `#s=${MAP_ARG[1]}&z=128&d=n&t=${MAP_ARG[0]}`;
+/** The map generated here too, to find its forms (the generator's intentions, `at` and `from`), and opened in the page
+ *  from its own spec, so the page's map is this one. */
+const GEN = generate(makeSpec({ seed: Number(MAP_ARG[1]), theme: MAP_ARG[0] as ThemeId, size: { x: 128, y: 128 } }));
+const MAP = `#${encodeSpecFragment(GEN.spec)}`;
 const MAP_TAG = MAP_ARG.join("-");
 
 type Size = "1920" | "1280";
@@ -63,15 +71,52 @@ const at = (x: number, y: number, z: number): [number, number, number] => [x + 0
 /** The orbit's yaw that looks from tile (fx, fy) toward (ax, ay) (as tools/capture-forms3d.ts). */
 const yawFrom = (ax: number, ay: number, fx: number, fy: number) => Math.atan2(fx - ax, -(fy - ay));
 
-// Canyon 128² seed 1's forms (the generator's intentions): the spring cave's gallery at (31..34, 73..78), floor 9–11 under
-// 1–2 levels of roof, its mouth facing south onto the river (level 8) at y 79; the start's overhang at (79, 85), seen from (81, 92); the arch at (101, 107) over the
-// gorge (x 101–102, y 106–108, air from 3 under 1–4 levels of rock), seen from across the gorge to the north-east.
+/** Each of the map's forms seen from where the generator says it is best seen (as tools/capture-forms3d.ts): the camera
+ *  stands toward `from`, looking at the form at `at`, `rise` over its floor; pulled in until it stands in air, so a
+ *  view inside a cave is never from inside its rock. */
+function formShots(): ShotDef[] {
+  const W = GEN.spec.size.x;
+  const t = ColumnTerrain.fromData(GEN.field!, W, GEN.spec.size.y);
+  const solid = (x: number, y: number, z: number) => {
+    const i = Math.floor(y) * W + Math.floor(x);
+    return z < 0 || ((t.mask[i] >>> Math.floor(z)) & 1) === 1;
+  };
+  const out: ShotDef[] = [];
+  const shot = (id: string, label: string, p: [number, number], from: [number, number], rise: number, pitch: number, distance: number) => {
+    const floor = bottomRunTop(t.mask[p[1] * W + p[0]]);
+    const yaw = yawFrom(p[0], p[1], from[0], from[1]);
+    // (the eye: back along the yaw from the target, up by the pitch; tile y grows to the south, -Z)
+    const inAir = (pt: number, d: number) => {
+      const ex = p[0] + 0.5 + Math.sin(yaw) * Math.cos(pt) * d;
+      const ey = p[1] + 0.5 - Math.cos(yaw) * Math.cos(pt) * d;
+      const ez = floor + rise + Math.sin(pt) * d;
+      return ex < 0 || ey < 0 || ex >= W || ey >= GEN.spec.size.y || !solid(ex, ey, ez);
+    };
+    // (lower first, at the whole distance: an overhang's own roof stands over the place it is seen from; then nearer)
+    const pt = [pitch, pitch / 2, 0.05].find((q) => inAir(q, distance)) ?? pitch;
+    let d = distance;
+    while (d > 1 && !inAir(pt, d)) d -= 0.25;
+    out.push({ id, label, view: { yaw, pitch: pt, distance: d, target: at(p[0], p[1], floor + rise) } });
+  };
+  for (const x of GEN.intentions) {
+    if (!x.ok || !FORMS.includes(x.id as FormId) || !x.at || !x.from) continue;
+    const a = x.at as [number, number];
+    const f = x.from as [number, number];
+    if (x.id === "spring-cave") {
+      shot("cave-inside", "inside the spring cave", a, f, 1.2, 0.1, 3.6);
+      shot("cave-mouth", "the spring cave's mouth", a, f, 1.5, 0.3, 11);
+    } else if (x.id === "start-overhang" || x.id === "cliff-overhang") {
+      const name = x.id === "start-overhang" ? "the start's overhang" : "the cliff's overhang";
+      shot(x.id === "start-overhang" ? "overhang" : "cliff-overhang", name, a, f, 1.5, 0.3, 11);
+      shot(x.id === "start-overhang" ? "overhang-under" : "cliff-overhang-under", `under ${name}`, a, f, 1.4, 0.05, 3.2);
+    } else if (x.id === "gorge-arch") shot("arch", "the arch over the gorge", a, f, 4, 0.12, 9);
+    else if (x.id === "rock-arch") shot("rock-arch", "the arch worn through rock", a, f, 2, 0.5, 15);
+  }
+  return out;
+}
+
 const SHOTS: ShotDef[] = [
-  { id: "cave-inside", label: "inside the spring cave", view: { yaw: Math.PI, pitch: 0.1, distance: 3.6, target: at(32, 75, 11.2) } },
-  { id: "cave-mouth", label: "the spring cave's mouth", view: { yaw: Math.PI + 0.25, pitch: 0.3, distance: 11, target: at(32, 77, 10.5) } },
-  { id: "overhang", label: "the start's overhang", view: { yaw: yawFrom(79, 85, 81, 92), pitch: 0.3, distance: 11, target: at(79, 85, 10) } },
-  { id: "overhang-under", label: "under the start's overhang", view: { yaw: Math.PI * 0.85, pitch: 0.05, distance: 3.2, target: at(80, 84, 10.4) } },
-  { id: "arch", label: "the arch over the gorge", view: { yaw: yawFrom(101, 107, 110, 116), pitch: 0.35, distance: 14, target: at(101, 107, 6) } },
+  ...formShots(),
   { id: "opening", label: "the game's opening camera", view: "opening" },
   { id: "opening-first", label: "the game's first frame", view: "opening-first" },
   { id: "hero", label: "the map's picture", view: "hero" },
