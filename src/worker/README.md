@@ -26,6 +26,9 @@ says are the core's (D342).
   the instant and background checks, export, the forces' runs.
 - `collab.ts`: collaborative editing's side in the worker (`api.collab`): the core's `CollabPeer` beside the open map, the water's background settle paced between messages, the page told what changed. It reaches the map only through `session.ts` `collabSession`, `collabOpen`, `collabChanged` (no preview water runs beside the peer's own settle) and `collabGate` (a direct edit is refused while the session says the map is read-only). The page's client is `src/collab/client.ts`.
 - `showcase.worker.ts`: Showcase mode's search (`core/gen/showcase.ts`) in a worker of its own; its messages are `showcaseApi.ts`'s, the page starts it with `platform/index.ts` `createShowcase`.
+- `timelapse.worker.ts`: the time-lapse's replay (`core/doc/timelapse.ts` `TimelapseReplay`) in a worker of its own,
+  a step and its water at a time, as the recorder (`src/editor/timelapse/record.ts`) asks; its views are `session.ts`'s
+  `wholeView` and `waterOf`.
 - `checks.worker.ts`: the checks' own worker, a replica of the open map that follows the editor's log (`follow`,
   `replicaCheck`).
 

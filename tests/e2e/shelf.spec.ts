@@ -170,8 +170,9 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
 test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the start too; on bare ground it takes the top level; Select and Delete take everything inside, one step; no Remove tool", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  // (seed 1 since M9a, D148: 0.7.0's 4242 has no level, dry, empty ground 7 and 9 wide away from its start)
-  await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
+  // (seed 2 since generator 0.10.7, D502, D148: seed 1's start, leaning toward a landmark in view, reshapes the map so it has
+  // no level, dry, empty ground 9 wide away from its start; seed 1 since M9a, as 0.7.0's 4242 had none 7 and 9 wide)
+  await openTopDown(page, "s=2&z=96&d=n&t=riverValley");
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const [gx, gy] = (await openGround(page, 4))[0];
   const bar = page.getByRole("toolbar", { name: "Tools" });

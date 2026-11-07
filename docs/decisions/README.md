@@ -88,6 +88,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D504: Green over the whole 256² map: springs toward the land the soil's moisture leaves bare
 - D503: 3D forms that read: arches seen through, overhangs two deep, on most themes
 - D502: A landmark in the opening view on the default Generate
 - D498: Badwater joins the main water's lower reach, never its signature water
@@ -146,6 +147,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The editor and its tools](editor.md)
 
+- D505: The time-lapse's camera is the video's, never the player's
 - D492: Toggling top-down keeps the zoom and the spot being looked at
 - D487: The brushes on caves and overhangs: the top run only, nothing left that would fall (amended: the forces leave the roof-holding ground)
 - D459: Naturalize sound
