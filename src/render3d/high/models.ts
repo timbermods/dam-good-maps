@@ -25,12 +25,15 @@ const parse = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16
 const living = { pine: hex(underSun(TREE_COLOURS.pine)), birch: hex(underSun(TREE_COLOURS.birch)), oak: hex(underSun(TREE_COLOURS.oak)), bush: hex(underSun(TREE_COLOURS.bush)) };
 /** Foliage slots, their species, and their dying slot (dying.ts). */
 const FOLIAGE = { pine: ['Pine', 'pineDry'], birch: ['Birch', 'birchDry'], oak: ['Oak', 'oakDry'], bush: ['BlueberryBush', 'bushDry'] } as const;
-const bark = '#806044', birchBark = '#f2efdd';
+/** The pine's and the oak's bark: the game's (palette.ts `TREE_COLOURS`, as Standard's), as they read under the warm sun.
+ *  The game's oak bark is darker and less red than the pine's, so each has its own slot. */
+const bark = hex(underSun(TREE_COLOURS.pineBark)), oakBark = hex(underSun(TREE_COLOURS.oakBark)), birchBark = '#f2efdd';
 export const paletteDefaults = {
   ...living,
-  bark, birchBark, berry: '#7f9bff', marks: '#494239',
+  bark, oakBark, birchBark, berry: '#7f9bff', marks: '#494239',
   // a dead tree's bare wood, its own bark weathered as the game's is; a dead bush's leaves gone brown (dying.ts DEAD_FORM)
-  dead: hex(deadWood('Pine', parse(bark))), birchDead: hex(deadWood('Birch', parse(birchBark))),
+  dead: hex(underSun(deadWood('Pine', TREE_COLOURS.pineBark))), oakDead: hex(underSun(deadWood('Oak', TREE_COLOURS.oakBark))),
+  birchDead: hex(deadWood('Birch', parse(birchBark))),
   bushDead: hex(underSun(deadLeaves('BlueberryBush', TREE_COLOURS.bush))),
   // a dying plant's foliage: the game's dry colour at the living green's lightness (dying.ts), as it reads under the warm sun
   pineDry: hex(underSun(dryColour('Pine', TREE_COLOURS.pine))), birchDry: hex(underSun(dryColour('Birch', TREE_COLOURS.birch))),
@@ -168,7 +171,7 @@ export const registry: Record<Species, SpeciesDefinition> = {
   } },
   // the game's grown oak: a thick trunk to about 1.2, under one broad, flat-layered crown from 1.13 to 2.26, 1.7 across
   Oak: { height: 2.26, wind: 0.027, build(m, v, detail, dead) {
-    const near = detail === 'near', bark = dead ? 'dead' : 'bark';
+    const near = detail === 'near', bark = dead ? 'oakDead' : 'oakBark';
     m.branch([0, 0, 0], [0.02, dead ? 1.45 : 1.25, 0], dead ? 0.17 : 0.2, bark, near ? 7 : 3, dead ? 0.52 : 0.62);
     if (!near && !dead) {
       m.crown([0, 1.66, 0], [0.98, 0.56, 0.94], 'oak', 1.02);
