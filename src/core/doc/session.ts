@@ -1494,8 +1494,8 @@ export class MapSession {
 
   /** Apply one operation. */
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
-    // (a stroke longer than one operation holds: its parts in order, one step, brush.ts `strokeParts`)
-    if (op.op === "brush" && op.params.dabs.length > 2 * MAX_DABS) return this.applyAll(strokeParts(op.params).map((params): EditOp => ({ op: "brush", params })), origin, label);
+    // (a stroke longer than one operation holds: its parts in order, one step, `applyAll`)
+    if (op.op === "brush" && op.params.dabs.length > 2 * MAX_DABS) return this.applyAll([op], origin, label);
     op = this.withHold(op);
     const kept = this.heldIn(op);
     const rock = kept.rock;
@@ -1565,9 +1565,11 @@ export class MapSession {
     const step = this.stepSince(mark);
     if (!step || !this.takeBack(step)) return null;
     this.seqNext = seq;
-    // (its hold is worked out again with the pieces in its reach)
-    return ops.map((o) => {
-      if (o.op !== "brush") return o;
+    // (its hold is worked out again with the pieces in its reach; the pieces go with the step's last stroke, where a
+    // stroke past MAX_DABS is done, brush.ts `strokeParts`)
+    const lastStroke = ops.map((o) => o.op).lastIndexOf("brush");
+    return ops.map((o, k) => {
+      if (o.op !== "brush" || k !== lastStroke) return o;
       const { hold: _hold, ...params } = o.params;
       return { ...o, params: { ...params, rigid: [...(o.params.rigid ?? []), ...rects] } };
     });
@@ -1586,6 +1588,8 @@ export class MapSession {
   /** Apply several operations as one step (a fix, or an accepted proposal): all or none, and
    *  one undo takes them all back. An empty group is refused: it would be a step that changes nothing. */
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
+    // (a stroke longer than one operation holds: its parts in order, brush.ts `strokeParts`, which the build joins again)
+    if (ops.some((o) => o.op === "brush" && o.params.dabs.length > 2 * MAX_DABS)) ops = ops.flatMap((o): EditOp[] => (o.op === "brush" ? strokeParts(o.params).map((params): EditOp => ({ ...o, params })) : [o]));
     if (!ops.length) return { ok: false, errors: ["nothing to change"], applied: [], dirty: null };
     const before = this.cur;
     const mark = this.mark();

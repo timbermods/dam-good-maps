@@ -83,6 +83,7 @@
         "steps": { "type": "integer", "minimum": 2, "maximum": 8 },
         "walkable": { "type": "boolean" },
         "edges": { "enum": ["ramped"] },
+        "continues": { "const": true },
         "pressure": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 255 } },
         "dabs": { "type": "array", "minItems": 2, "maxItems": 80000, "items": { "type": "integer", "minimum": 0, "maximum": 2047 } }
       }
