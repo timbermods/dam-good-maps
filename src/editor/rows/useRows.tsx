@@ -186,7 +186,7 @@ export function useRows(ed: Ed): RowsSlice {
           key: "act",
           node: (
             <>
-              <button type="button" class="unleash-button" {...tip("Carve a river from it", "U")} onPointerDown={(ev) => unleashDown(ev as unknown as PointerEvent, e)} onClick={() => unleash(e)}>
+              <button type="button" class="unleash-button" {...tip("Carve a river from it, or drag onto the map to draw its course", "U")} onPointerDown={(ev) => unleashDown(ev as unknown as PointerEvent, e)} onClick={() => unleash(e)}>
                 Unleash
               </button>
               <button type="button" {...tip("Remove this source", "Delete")} onClick={() => removeSources(picked!.list)}>
