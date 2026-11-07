@@ -1166,7 +1166,10 @@ export class MapRenderer {
         const m = this.map;
         if (m) {
           high.setMap(m.W, m.H, m.heights, m.surface, m.entities);
+          // (High copies the objects' colours into its own batches: their own, the tints put back after)
+          this.untintObjects();
           if (this.objects) high.objectsBuilt(this.objects, m.entities);
+          this.tintObjects();
           this.applyWithered();
         }
       }
@@ -1879,6 +1882,8 @@ export class MapRenderer {
     const m = this.map!;
     m.entities = e;
     this.high?.objectsBuilt(this.objects!, e);
+    // (a source's glow stays with its source, on the objects as they are now)
+    this.tintObjects();
     this.applyWithered();
     // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
     const cut = mineCutout(e, m.W, m.H);
@@ -1903,10 +1908,7 @@ export class MapRenderer {
    *  kept; nothing else of the map. Returns the instances. */
   private drawObjects(e: EntityView): number {
     // (highlighted objects back in their own colours first: a batch that would be built as it is drawn is kept)
-    for (const l of this.lit) {
-      (l.mesh.instanceColor!.array as Float32Array).set(l.color, l.i * 3);
-      l.mesh.instanceColor!.needsUpdate = true;
-    }
+    this.untintObjects();
     const soil = this.objectSoil();
     const before = this.objects;
     // (the plants a held day has withered drawn dead, in every look, as the game does: D242 as amended; High's own plants
@@ -1926,15 +1928,14 @@ export class MapRenderer {
       for (const c of gone) whenIdle(() => disposeBatch(c as InstancedMesh));
     }
     this.objectsMoved = false;
-    // (a highlight belonged to the objects as they were; a source's glow stays with its source)
-    this.lit = [];
+    // (a highlight belonged to the objects as they were; a source's glow is put back by the caller, once the map's
+    // entities are these: `own` indexes them)
     this.litTiles = null;
     this.sourcesLit.clear();
     group.renderOrder = 1;
     this.objects = group;
     this.scene.add(group);
     this.showMarkerObjects();
-    if (this.sourceGlow.length) this.tintObjects();
     return instances;
   }
 
@@ -2503,6 +2504,7 @@ export class MapRenderer {
     if (redraw) {
       this.drawObjects(m.entities);
       this.markSources();
+      this.tintObjects();
     }
     const changed = this.high?.setPlantStates(flags) ?? 0;
     if (!changed && !redraw && !was === !this.drawnObjects) return;
@@ -2828,15 +2830,20 @@ export class MapRenderer {
     this.tintObjects();
   }
 
-  /** The objects in their tints: the highlighted ones in theirs (a source's a clear red, D249), a source the pointer's
-   *  water comes from in its glow (D196); every other one back in its own colour. */
-  private tintObjects(): void {
+  /** Every tinted object back in its own colour (the tints asked for are kept, for `tintObjects`). */
+  private untintObjects(): void {
     for (const l of this.lit) {
       const a = l.mesh.instanceColor!.array as Float32Array;
       a.set(l.color, l.i * 3);
       l.mesh.instanceColor!.needsUpdate = true;
     }
     this.lit = [];
+  }
+
+  /** The objects in their tints: the highlighted ones in theirs (a source's a clear red, D249), a source the pointer's
+   *  water comes from in its glow (D196); every other one back in its own colour. */
+  private tintObjects(): void {
+    this.untintObjects();
     const m = this.map;
     const want = this.litTiles;
     const glow = new Set(this.sourceGlow);

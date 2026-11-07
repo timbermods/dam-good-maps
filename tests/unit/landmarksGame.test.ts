@@ -7,6 +7,8 @@
 
 import { describe, expect, it } from "vitest";
 import { modelKeyOf, modelOf } from "../../src/render3d/entities3d";
+import { objectCasters } from "../../src/render3d/light";
+import { entityView } from "../../src/render3d/model";
 
 function bounds(key: string): { x: number; z: number; lo: number; hi: number } {
   const p = modelOf(key).pos;
@@ -63,5 +65,18 @@ describe("the landmarks at the game's measures", () => {
     expect(bounds("BadwaterSeep").hi).toBeCloseTo(0.4, 1);
     expect(bounds("WaterSeep").hi).toBeLessThanOrEqual(0.58);
     expect(bounds("BadwaterSeep").hi).toBeLessThanOrEqual(0.41);
+  });
+});
+
+describe("the start's tower casts its shadow", () => {
+  it("from its footprint's middle tile, the tower's height, turned as the start is", () => {
+    const W = 32;
+    const H = 32;
+    for (const [orientation, mx, my] of [["Cw0", 11, 21], ["Cw180", 9, 19]] as const) {
+      const e = entityView([{ template: "StartingLocation", x: 10, y: 20, z: 3, orientation, owner: "s" }]);
+      const casters = objectCasters(W, H, e)!;
+      expect(casters[my * W + mx]).toBeCloseTo(4.0, 5);
+      expect(casters[20 * W + 10]).toBe(0);
+    }
   });
 });
