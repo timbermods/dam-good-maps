@@ -607,7 +607,9 @@ Standard's shadow before a cave (item 8).
   shadow's edge is soft over a voxel rather than stepped, from a hashed first step, in enough steps to climb the whole
   volume
   (`SUN_MARCH_STEPS`). The map's picture bakes the sun for its camera at once (`sunNow`), on the map as it is (no
-  quarter turns). The forces' worn stones take the scene's sun.
+  quarter turns). A map opened is baked once, for the sun of the view Reset view opens it in, so framing it bakes
+  nothing more (`sunOnOpen.spec`; before, a second bake of 30–60 ms at 256²). The forces' worn stones take the
+  scene's sun.
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
 
