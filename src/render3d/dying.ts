@@ -54,3 +54,39 @@ export function dryColour(species: string, c: Rgb): [number, number, number] {
   const k = luma(c) / luma(d.alive);
   return [Math.min(1, d.dry[0] * k), Math.min(1, d.dry[1] * k), Math.min(1, d.dry[2] * k)];
 }
+
+/** A dead plant as the game draws it (its MatureDead models against its Mature ones, read as above): a pine, birch or oak
+ *  is bare wood in its own bark's colour weathered (`wood`: dead wood ÷ living bark, per channel; the pine's and oak's
+ *  lighter and greyer, the birch's a shade darker), a blueberry bush keeps its leaves gone brown (`leaves`: the game's
+ *  dead foliage, taken at our green's lightness as a dying form's is) and loses its berries, a succulent darkens
+ *  (`ratio`); each `height` ÷ the living plant's (PineMatureDead 2.368 of 3.009, BirchMatureDead 1.387 of 1.924,
+ *  OakMatureDead 1.533 of 2.259, BlueberryBushMatureDead 0.30 of 0.422, SucculentMatureDead 0.967 of 1.29). */
+export const DEAD_FORM: Readonly<Record<string, { height: number; wood?: Rgb; leaves?: Rgb; ratio?: Rgb }>> = {
+  Pine: { height: 0.79, wood: [1.25, 1.43, 1.6] },
+  Birch: { height: 0.72, wood: [0.93, 0.93, 0.92] },
+  Oak: { height: 0.68, wood: [1.21, 1.24, 1.41] },
+  BlueberryBush: { height: 0.71, leaves: [0.297, 0.178, 0.092] },
+  Succulent: { height: 0.75, ratio: [0.81, 0.7, 0.74], leaves: [0.248, 0.156, 0.116] },
+};
+
+/** A living bark colour of `species` as its dead wood. */
+export function deadWood(species: string, bark: Rgb): [number, number, number] {
+  const w = DEAD_FORM[species]?.wood ?? [1, 1, 1];
+  return [Math.min(1, bark[0] * w[0]), Math.min(1, bark[1] * w[1]), Math.min(1, bark[2] * w[2])];
+}
+
+/** A living foliage colour of `species` as the dead plant's leaves: the game's dead foliage at the lightness the game's
+ *  dead foliage has against its living (`DRYING`'s alive), as a dying form's colour is taken. */
+export function deadLeaves(species: string, c: Rgb): [number, number, number] {
+  const d = DRYING[species];
+  const leaves = DEAD_FORM[species]?.leaves;
+  if (!d || !leaves) return [c[0], c[1], c[2]];
+  const k = luma(c) / luma(d.alive);
+  return [Math.min(1, leaves[0] * k), Math.min(1, leaves[1] * k), Math.min(1, leaves[2] * k)];
+}
+
+/** Any colour of a dead succulent: the living one's by the game's ratio. */
+export function deadRatio(species: string, c: Rgb): [number, number, number] {
+  const r = DEAD_FORM[species]?.ratio ?? [1, 1, 1];
+  return [c[0] * r[0], c[1] * r[1], c[2] * r[2]];
+}

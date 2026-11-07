@@ -3,7 +3,9 @@
 // tile; with no region nothing changes. The dither keeps a quarter of the pixels at a quarter.
 
 import { describe, expect, it } from "vitest";
-import { DITHER_GLSL, OBJECT_FADE, OBJECT_FADE_EDGE, OBJECT_FADE_GLSL, objectFadeAt, shadowDropped, validRegion } from "../../src/render3d/objectFade";
+import { BufferGeometry, Group, InstancedBufferAttribute, InstancedMesh, MeshBasicMaterial } from "three";
+import { casterPlaces, DITHER_GLSL, LAND, LAND_GROW, markEditingAid, OBJECT_FADE, OBJECT_FADE_EDGE, OBJECT_FADE_GLSL, objectFadeAt, objectShows, shadowDropped, validRegion } from "../../src/render3d/objectFade";
+import type { EntityView } from "../../src/render3d/model";
 
 describe("the fade round the pointer", () => {
   const region = { x: 10.5, y: 20.5, radius: 3 };
@@ -56,6 +58,41 @@ describe("the fade round the pointer", () => {
     expect(validRegion({ x: 0, y: 0, radius: -1 })).toBe(false);
     expect(validRegion({ x: Number.NaN, y: 0, radius: 1 })).toBe(false);
     expect(validRegion({ x: 0, y: Infinity, radius: 1 })).toBe(false);
+  });
+
+  it("hides every object while hidden, but never the land's own shape (a mine site's pit, a seep's)", () => {
+    expect(objectShows(null, true, 10.5, 20.5, false)).toBe(0);
+    expect(objectShows(region, true, 40, 40, false)).toBe(0);
+    expect(objectShows(region, false, 10.5, 20.5, false)).toBeCloseTo(0.25, 9);
+    expect(objectShows(region, true, 10.5, 20.5, true)).toBe(1);
+    expect(objectShows(region, false, 10.5, 20.5, true)).toBe(1);
+    expect([...LAND].sort()).toEqual(["BadwaterSeep", "UndergroundRuins", "WaterSeep"]);
+    expect(LAND_GROW[0]).toBeLessThan(0);
+    expect(OBJECT_FADE_GLSL).toContain("if (grow.x < 0.0 || grow.z < 0.0) return 1.0;");
+    expect(OBJECT_FADE_GLSL).toContain("return grow.x >= 0.0 && grow.z >= 0.0 && (objectHide > 0.5 ||");
+  });
+
+  it("never fades or hides an editing aid (the placement ghost), and keeps its growth on screen", () => {
+    const group = new Group();
+    const geometry = new BufferGeometry();
+    geometry.setAttribute("grow", new InstancedBufferAttribute(new Float32Array([0, 0, 1, 6, 0.5, 3]), 3));
+    group.add(new InstancedMesh(geometry, new MeshBasicMaterial(), 2));
+    markEditingAid(group);
+    // (the last value negative marks it; its size stays the absolute value, which the objects' program reads)
+    expect([...(geometry.getAttribute("grow").array as Float32Array)]).toEqual([0, 0, -1, 6, 0.5, -3]);
+    markEditingAid(group);
+    expect([...(geometry.getAttribute("grow").array as Float32Array)]).toEqual([0, 0, -1, 6, 0.5, -3]);
+  });
+
+  it("drops the start's baked shadow by its model's place, the middle of its footprint, as its fade", () => {
+    const e = { count: 2, templates: ["StartingLocation", "Pine"], template: Uint16Array.from([0, 1]), x: Int16Array.from([10, 3]), y: Int16Array.from([20, 4]), orientation: Uint8Array.from([0, 0]) } as unknown as EntityView;
+    const places = casterPlaces(e, 32);
+    expect([...places.keys()]).toEqual([20 * 32 + 10]);
+    expect(places.get(20 * 32 + 10)).toEqual([11.5, 21.5]);
+    // (turned half round, its middle is the other way from its Coordinates)
+    const turned = casterPlaces({ ...e, orientation: Uint8Array.from([2, 0]) } as unknown as EntityView, 32);
+    expect(turned.get(20 * 32 + 10)).toEqual([9.5, 19.5]);
+    expect(casterPlaces(null, 32).size).toBe(0);
   });
 
   it("is the shaders' own test: the same fade, edge and halfway mark", () => {

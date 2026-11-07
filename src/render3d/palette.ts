@@ -13,18 +13,19 @@
 // Readability follows the game's own (D334): its look and its cues, with no lightness gap or pattern
 // beyond the game's. Grass reads apart from dry earth by its hue and its painted strokes, contamination by
 // its orange-red veins over either soil, badwater by its crimson, its dullness and its bubbles (and in
-// High its pink caustics and red contact at rock). Clean water reads as water by its glints and ripple crests and its see-through shallows, and in
+// High its pink caustics; in both, the game's orange glow of its shallow edges where partly bad). Clean water reads as water by its glints and ripple crests and its see-through shallows, and in
 // colour by its blue. Badwater is darker than clean water of the same depth in Standard, darkening with depth as the game's
 // (D496), and dull; water partly
 // bad turns smoothly from one to the other over a few tiles where they meet, greying as it turns as the
 // game's does (a teal-grey, a grey, a dull red-brown, crimson), never in streaks, patches or purple
-// (D177, D496). Living trees are dark, dead trees pale. The walls, in the side light, are darker than the ground above them. The information
+// (D177, D496). Living trees are dark, dead trees the game's weathered grey-brown wood, lighter. The walls, in the side light, are darker than the ground above them. The information
 // layer (**Markers**) adds dam sites, hatched light and dark with a dark rim so they show on any
 // ground or water, slope arrows and a pale line at every level.
 //
 // Pure TypeScript, no three.js: the unit tests and the page's legend read it too.
 
 import { BADWATER, WATER, waterBody, type Rgb } from "./waterPalette";
+import { deadWood } from "./dying";
 
 // The water's colours, opacity and blend live in waterPalette.ts (D177); they are re-exported here
 // for the pages and tests that read the palette.
@@ -174,9 +175,9 @@ const smooth = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-/** Dead trees: bare, pale wood (no crown), so they read as dead in any colours; the models use a
- *  greyer tone of it, so dead trees sit back in the landscape. */
-export const DEAD_TREE: Rgb = [0.82, 0.78, 0.72];
+/** Dead trees: bare wood (no crown), the game's dead wood: the living bark weathered lighter and greyer, still lighter
+ *  than the living crowns (dying.ts `DEAD_FORM`; the models' dead pine). */
+export const DEAD_TREE: Rgb = deadWood("Pine", [0.36, 0.25, 0.16]);
 
 /** Living trees' crowns (the legend; each species has its own shade in the models). */
 export const LIVING_TREE: Rgb = [0.11, 0.27, 0.15];
