@@ -85,7 +85,7 @@ import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
-import { GAME_FINISH, SKY, type GroundMode } from "./palette";
+import { GAME_FINISH, GAME_SKY, gamePostRgb, type GroundMode, type Rgb } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, waterChangedRect, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
@@ -475,6 +475,8 @@ export class MapRenderer {
   private sunPointed: Sun = DEFAULT_SUN;
   /** The bake worker is baking the shadows for a turned sun. */
   private sunBaking = false;
+  /** The worker the sun's shadows bake in (a field, so a test can give one that refuses). */
+  private bakeSun: () => Pick<Baker, "run"> = sunBaker;
   /** Bumped whenever the baked shadows change (an edit, new objects, a new map): a bake for a turned sun made before
    *  is dropped and asked again. */
   private shadowEpoch = 0;
@@ -569,7 +571,8 @@ export class MapRenderer {
     this.gl.outputColorSpace = LinearSRGBColorSpace;
     this.gl.setPixelRatio(this.pixelRatio());
     // the sky round the map (the light look clears to its colour below the horizon instead)
-    this.gl.setClearColor(new Color(...SKY.below));
+    // (behind the map where no sky is drawn, the light look's: the game's sky straight down, graded)
+    this.gl.setClearColor(new Color(...gamePostRgb(GAME_SKY.day[0] as unknown as Rgb)));
     this.scene.background = null;
     // placeholder textures until a map arrives; every material shares these uniforms
     const one = () => tileTexture(1, 1, new Uint8Array(4));
@@ -3825,7 +3828,7 @@ export class MapRenderer {
     const casters = this.casters ?? null;
     const levels = casters ? casterLevelsOf(casters) : undefined;
     this.sunBaking = true;
-    sunBaker()
+    this.bakeSun()
       .run({ kind: "shadows", W: m.W, H: m.H, heights: m.heights.slice(), casters: casters ? casters.slice() : null, levels: levels ? levels.slice() : null, rock: this.rock(), sun })
       .then(
         (r) => {
@@ -3845,6 +3848,11 @@ export class MapRenderer {
         },
         () => {
           this.sunBaking = false;
+          // (refused: the job threw, and would again on the same map, so the sun is taken on the shadows already baked,
+          // never asked again every frame nor left waiting)
+          if (this.disposed) return;
+          this.sun = sun;
+          this.pointSun();
         },
       );
   }
