@@ -1,5 +1,5 @@
-// Map look's third round (PLAN §20 D115) and Kyler's clean look: badwater stays clearly darker
-// than clean water, and clean water keeps its see-through shallows so it
+// Map look's third round (PLAN §20 D115) and Kyler's clean look: badwater lighter than clean water
+// of the same depth, as the game draws it (D496 amended 2026-11-07), and clean water keeps its see-through shallows so it
 // reads apart from ground (it may be as dark as dry ground, as in the game); water partly bad
 // turns smoothly from clean water to badwater, the badwater share blended between tiles (D177,
 // which replaced each top showing its own tile's share); a slope's arrow is level and floats above the slope, pointing uphill, so it reads from
@@ -13,6 +13,7 @@ import { sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3
 import { entityView, surfaceWater, waterFromDepth } from "../../src/render3d/model";
 import { GROUND, RUIN, WATER_SURFACE, waterBody, waterOpacity } from "../../src/render3d/palette";
 import { blendedBadwater, meshWaterChunk } from "../../src/render3d/waterMesh";
+import { badwaterShown, cleanWaterShown } from "./waterShown";
 import { cleanWaterBody, badwaterBody, waterFilmGround, waterGroundBehind } from "../../src/render3d/waterPalette";
 import { plainLayers } from "../../src/render3d/waterLayers";
 import { waterHooks } from "../../src/render3d/high/shaders";
@@ -28,11 +29,16 @@ const lightness = (c: readonly number[]) => {
 type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): { array: ArrayLike<number>; count: number } } };
 
 describe("water", () => {
-  it("keeps badwater clearly darker than clean water, which has see-through shallows, and no shore foam and no glints, as the game", () => {
+  it("draws badwater lighter than clean water of the same depth, with see-through shallows, and no shore foam and no glints, as the game", () => {
     const depths = Array.from({ length: 100 }, (_, k) => 0.05 + k * 0.05);
-    // badwater's body at least 6 L* darker than clean water's at any depth, open or by a bank
-    // (7.7 at the least, in deep water; the lit views show about 18)
-    for (const d of depths) for (const fromBank of [0, 0.2, 1]) expect(lightness(waterBody(d, false, fromBank)) - lightness(waterBody(d, true)), `${d} deep`).toBeGreaterThan(6);
+    // the game's order (D496 amended 2026-11-07, from its own frames: islands-128-2-end, `tools/water-pixel-judge.ts
+    // --water bad|clean`): badwater a level or two deep reads L* 34.6 to clean water's 28.7 (898 and 573 tiles). The
+    // shipped colours (clean water the game's formula, waterShown.ts): from half a level down badwater is the lighter,
+    // and a level or two deep by about the game's 5.9 (D148: this held badwater 6 L* darker until then)
+    const gap = (d: number) => lightness(badwaterShown(d)) - lightness(cleanWaterShown(d));
+    for (const d of depths) if (d >= 0.5 - 1e-9) expect(gap(d), `${d} deep`).toBeGreaterThan(0);
+    const band = Array.from({ length: 11 }, (_, k) => gap(1 + k * 0.1));
+    expect(Math.abs(band.reduce((a, b) => a + b) / band.length - 5.9)).toBeLessThan(1.5);
     // no foam along the shore in either look, and no glints of our own, as the game's water shader has neither: its
     // sheen is the sun's specular at its smoothness (D154 amended 2026-10-29 and 2026-11-07 by planning, D496's rule;
     // D148: this checked a shore foam line, then glints, until then; the glints read as white specks on a wide river)

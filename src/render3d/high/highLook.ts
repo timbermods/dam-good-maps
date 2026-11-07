@@ -36,8 +36,8 @@ export interface HighHost {
   groundOffset(x: number, y: number): number;
   /** The renderer's bake worker. */
   baker: Baker;
-  /** The moving water's textures (motion.ts): the flow with the smoothed contamination, the rough water. */
-  flow(): { flow: unknown; rough: unknown; ready: boolean; ms: number };
+  /** The moving water's texture (motion.ts): the flow with the smoothed contamination. */
+  flow(): { flow: unknown; ready: boolean; ms: number };
 }
 
 export interface HighMaterials {
@@ -122,7 +122,6 @@ export class HighLook {
       hlTexel: { value: 1 / SHADOW_SIZE },
       hlFlow: { value: null as unknown },
       hlFlowSize: { value: new Vector2(1, 1) },
-      hlRough: { value: null as unknown },
     };
     const own = (m: ShaderMaterial, extra: Record<string, { value: unknown }> = {}) => {
       // the material's own uniforms (the terrain's height range, hover and ground mode) stay the
@@ -174,7 +173,6 @@ export class HighLook {
     set("hlGeology", e.geology);
     set("hlSoilCap", e.soilCap);
     set("hlSection", e.section);
-    set("hlRiver", e.roughWater);
     set("hlObjectDetail", e.objectDetail);
     const u = this.host.uniforms;
     const balance = e.sunlight ? SUNLIGHT : e.shadows ? SHADOW_BALANCE : { sun: [1, 1, 1], sky: 1 };
@@ -216,7 +214,6 @@ export class HighLook {
     size.set(W, H);
     for (const m of this.allMaterials()) {
       m.uniforms.hlFlow.value = flow.flow;
-      m.uniforms.hlRough.value = flow.rough;
     }
     this.updateWater(true);
   }
@@ -352,7 +349,7 @@ export class HighLook {
     this.shadows.dirty = true;
   }
 
-  /** The water changed: its flow's timing is read a moment later (the flow and rough water: motion.ts). */
+  /** The water changed: its flow's timing is read a moment later (the flow: motion.ts). */
   waterChanged(surface: SurfaceWater): void {
     if (!this.map) return;
     this.map.surface = surface;

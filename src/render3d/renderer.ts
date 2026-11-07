@@ -76,7 +76,7 @@ import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
@@ -309,6 +309,22 @@ function sunApart(a: Sun, b: Sun): number {
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
+
+let waterSurface: Promise<void> | null = null;
+/** The surface the water's flow carries (waterTextures.ts), made once a page in the bake worker (about 160 ms) and
+ *  written into the page's shared texture (materials.ts `waterSurfaceTexture`); the water is flat at its mean until then. */
+function waterSurfaceMade(baker: Baker): Promise<void> {
+  // (a failed bake is forgotten, so the next view tries again)
+  return (waterSurface ??= baker.run({ kind: "waterTexture" }).then(
+    (r) => {
+      if (r.kind === "waterTexture") fillWaterTexture(r.data, r.bad);
+    },
+    (e: unknown) => {
+      waterSurface = null;
+      throw e;
+    },
+  ));
+}
 
 /** Whether the browser draws WebGL in software (no GPU, or one it won't use): asked of a throwaway
  *  context before the view's own is made, so the view can be made lighter for it. Asked once a page (a context
@@ -576,6 +592,8 @@ export class MapRenderer {
     const one = () => tileTexture(1, 1, new Uint8Array(4));
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
     this.uniforms.sourceTint.value.set(...SOURCE_GLOW);
+    // (the light look draws the water's surface flat, as the game's Low quality: it never reads it)
+    if (!this.software) void waterSurfaceMade(this.baker).then(() => !this.disposed && this.requestRender(), () => undefined);
     this.patterns = drawPatterns(this.gl);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
     this.edgeRows = new RowUploads(this.gl, () => this.edges);
@@ -1183,7 +1201,7 @@ export class MapRenderer {
           baker: this.baker,
           flow: () => {
             const m = this.waterMotion;
-            return m ? { flow: m.flow, rough: m.rough, ready: m.ready, ms: m.ms } : { flow: this.uniforms.flowTex.value, rough: null, ready: true, ms: 0 };
+            return m ? { flow: m.flow, ready: m.ready, ms: m.ms } : { flow: this.uniforms.flowTex.value, ready: true, ms: 0 };
           },
         });
         this.high.shareTerrainUniforms(this.std.terrain);
@@ -1466,7 +1484,9 @@ export class MapRenderer {
     this.casters = this.castersNow();
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
     this.shadowEpoch++;
-    this.sun = this.sunWant = sunOfYaw(this.view.yaw);
+    // (baked once, for the sun of the view the map opens in: Reset view's when it is framed, so its own bake finds the
+    // sun already there, D453)
+    this.sun = this.sunWant = sunOfYaw(keepView ? this.view.yaw : this.openingYaw());
     this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns), this.sun));
     this.pointSun();
     this.cave = CaveLight.build(source);
@@ -1805,7 +1825,8 @@ export class MapRenderer {
    *  was and is (null: anywhere). */
   private fadeArea: { x0: number; y0: number; x1: number; y1: number } | null = null;
 
-  /** The tiles a fade's region may drop casters in (the start's caster stands up to two tiles from its model). */
+  /** The tiles a fade's region may drop casters in: past its edge, with two tiles to spare (each caster is dropped by
+   *  its model's place, `casterPlaces`, which for the start is the tile it casts from). */
   private fadeReach(f: FadeRegion | null): { x0: number; y0: number; x1: number; y1: number } | null {
     if (!f) return null;
     const r = f.radius + OBJECT_FADE_EDGE + 2;
@@ -3667,13 +3688,19 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
-    // (a top-down view is framed north up)
-    const yaw = this.view.mode === "top" ? 0 : openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10));
+    const yaw = this.openingYaw();
     this.view = { ...this.view, yaw, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
     this.frameMap();
     // (a jump, not a turn: the shadows are baked for its sun at once, never rolled in after a frame of the last view's)
     this.sunNow();
     this.requestRender();
+  }
+
+  /** The way Reset view faces the map (a top-down view is framed north up). */
+  private openingYaw(): number {
+    const m = this.map;
+    if (!m || this.view.mode === "top") return 0;
+    return openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10));
   }
 
   /** The map waits to be framed until the canvas has a size. */

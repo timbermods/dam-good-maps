@@ -13,7 +13,7 @@ import { selectTool } from "../select";
 import { BRUSH_NAMES, BrushPainter, hasTarget, sizeMax, targetWords } from "../brushes";
 import { tilesToRuns } from "../../core/math/grid";
 import { isSource, sourcesPressed } from "../sourceSpots";
-import type { BrushParams } from "../../core/features/raster/brush";
+import { WET_DEPTH, type BrushParams } from "../../core/features/raster/brush";
 import type { Ed } from "../ed";
 
 export interface ReadySlice {
@@ -30,6 +30,20 @@ export function useReady(ed: Ed): ReadySlice {
     grabSource, wheelSource, markerRef, setStartHint, hintRef, hintJob, lookForStartRef, pointerWords, flashNote,
     wheelHabit, pickTile
   } = ed;
+
+  /** Why a Naturalize stroke weathered nothing (showcase-craft gap 23): moist ground keeps its height (weather.ts,
+   *  rule 3: farmland is never lost), so a stroke over moist soil, an island in a lake, changes nothing. */
+  function nothingWeathered(dabs: readonly number[]): string {
+    const W = infoRef.current.W;
+    const moisture = mirror.current.soil?.moisture;
+    const depth = mirror.current.water?.depth;
+    let moist = 0;
+    for (let k = 0; k + 1 < dabs.length; k += 2) {
+      const i = Math.floor(dabs[k + 1] / 4) * W + Math.floor(dabs[k] / 4);
+      if ((moisture?.[i] ?? 0) > 0 && !((depth?.[i] ?? 0) > WET_DEPTH)) moist++;
+    }
+    return dabs.length && moist * 4 >= dabs.length ? "Moist ground keeps its height: weather dry land" : "Nothing here to weather";
+  }
 
   /** Sources: Clear (D249, D322): the sources under the ring glow red before the stroke reaches them,
    *  and those it has passed over stay red until it is let go. */
@@ -120,11 +134,15 @@ export function useReady(ed: Ed): ReadySlice {
         if (stroke.params.tool === "flatten") void done.then(() => lookForStartRef.current(stroke.params));
       },
       // a stroke that changed no ground still takes the sources it pressed with Clear sources on
-      // (item 15: a Flatten at the ground's own level or a Smooth over flat land left them), one step
+      // (item 15: a Flatten at the ground's own level or a Smooth over flat land left them), one step;
+      // a Naturalize stroke that weathered nothing says why beside the pointer (showcase-craft gap 23)
       unchanged: (params) => {
         const clear = clears() ? sourcesPressed(spots(), params, params.dabs, infoRef.current.W).filter((c) => ed.inArea(c.tiles)) : [];
         endClearGlow();
-        if (!clear.length) return;
+        if (!clear.length) {
+          if (params.tool === "naturalize") flashNote(nothingWeathered(params.dabs), undefined, 2500);
+          return;
+        }
         firstDoneRef.current("paint");
         void run(
           () => api.strokeClearing({ op: "brush", params }, BRUSH_NAMES[params.tool], clear.flatMap((c) => c.tiles)),

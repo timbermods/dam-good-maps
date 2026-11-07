@@ -32,8 +32,8 @@ export class PointerWords {
     if (this.flashText === null && this.sizeText === null) this.show(text);
   }
 
-  /** A word for a moment. */
-  flash(text: string): void {
+  /** A word for a moment (`ms`: longer, for a reason to read). */
+  flash(text: string, ms = this.ms): void {
     if (this.timer !== null) this.timers.clear(this.timer);
     this.flashText = text;
     this.show(text);
@@ -41,7 +41,7 @@ export class PointerWords {
       this.timer = null;
       this.flashText = null;
       this.show(this.sizeText ?? (this.brushText && this.active() ? this.brushText : null));
-    }, this.ms);
+    }, ms);
   }
 
   /** F held (D205, D322): the size, or null when it is set. */

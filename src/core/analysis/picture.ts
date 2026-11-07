@@ -62,8 +62,27 @@ export interface OpeningPicture {
 
 const TREES = new Set<string>(MAP_TREES);
 
+/** A camera a picture is cast from (tile x, tile y, height in levels): its place, its look across the ground and the
+ *  frame's right as unit grid directions, its pitch's sine and cosine, and the frame's half-width and half-height as
+ *  tangents. */
+export interface PictureCamera {
+  eye: readonly [number, number, number];
+  look: readonly [number, number];
+  right: readonly [number, number];
+  sinP: number;
+  cosP: number;
+  tanH: number;
+  tanV: number;
+}
+
 /** The opening picture of `land` from `start` (D493's camera at `zoom`, the default zoom's widest by default). */
 export function openingPicture(land: PictureLand, start: OpeningStart, opts: { w?: number; h?: number; zoom?: number } = {}): OpeningPicture {
+  const cam = openingCamera(start, opts.zoom ?? VISTA_ZOOM);
+  return castPicture(land, { eye: cam.eye, look: cam.look, right: cam.right, sinP: SIN_P, cosP: COS_P, tanH: TAN_H, tanV: TAN_V }, opts);
+}
+
+/** The picture of `land` from any camera (the map's own picture's framing, render3d/heroView.ts, as the opening's). */
+export function castPicture(land: PictureLand, camera: PictureCamera, opts: { w?: number; h?: number } = {}): OpeningPicture {
   const w = opts.w ?? PICTURE_W;
   const h = opts.h ?? PICTURE_H;
   const { W, H, heights } = land;
@@ -111,13 +130,13 @@ export function openingPicture(land: PictureLand, start: OpeningStart, opts: { w
   }
   zTop += 1;
   const solid = mask ? (i: number, z: number) => z >= 0 && z < 32 && ((mask[i] >>> z) & 1) === 1 : (i: number, z: number) => z < heights[i];
-  const cam = openingCamera(start, opts.zoom ?? VISTA_ZOOM);
-  const [ex, ey, ez] = cam.eye;
-  const [lx, ly] = cam.look;
-  const [rx, ry] = cam.right;
+  const [ex, ey, ez] = camera.eye;
+  const [lx, ly] = camera.look;
+  const [rx, ry] = camera.right;
+  const { sinP, cosP, tanH: TAN_H, tanV: TAN_V } = camera;
   // the camera's axes: forward (look × cos p, down sin p), up (look × sin p, cos p), right
-  const fwd = [lx * COS_P, ly * COS_P, -SIN_P];
-  const up = [lx * SIN_P, ly * SIN_P, COS_P];
+  const fwd = [lx * cosP, ly * cosP, -sinP];
+  const up = [lx * sinP, ly * sinP, cosP];
   const kind = new Uint8Array(w * h);
   const depth = new Float32Array(w * h);
   const tileOf = new Int32Array(w * h).fill(-1);

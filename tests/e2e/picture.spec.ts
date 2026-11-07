@@ -20,6 +20,10 @@ function jpegSize(b: Uint8Array): { w: number; h: number } | null {
 }
 
 test("Save a picture downloads the map's 1920×1080 picture", async ({ page }) => {
+  // (software drawing is slow at the picture's size: on this machine's SwiftShader the click took 25 s to its download,
+  // of which 12 s are reading back and encoding the 3840×2160 frame and 5 s compiling its programs; CI's runners are 4 to 5
+  // times slower, so 120 s left no margin (dev, 2026-11-07, a pass at 2.1 min and then two timeouts). A GPU takes seconds.)
+  test.slow();
   await page.addInitScript(() => {
     (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true };
   });
@@ -27,7 +31,7 @@ test("Save a picture downloads the map's 1920×1080 picture", async ({ page }) =
   const menu = await openFileMenu(page);
   const item = menu.getByRole("menuitem", { name: "Save a picture" });
   await expect(item).toHaveAttribute("title", "Save a picture of the map to share");
-  const [download] = await Promise.all([page.waitForEvent("download", { timeout: 120_000 }), item.click()]);
+  const [download] = await Promise.all([page.waitForEvent("download", { timeout: 360_000 }), item.click()]);
   const name = download.suggestedFilename();
   expect(name).toMatch(/\.jpg$/);
   const bytes = new Uint8Array(readFileSync(await download.path()));

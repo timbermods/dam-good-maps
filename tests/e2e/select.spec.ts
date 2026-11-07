@@ -175,7 +175,13 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
       const p = window.dgmEditor!.tileToClient(x, y);
       return p.y < dock && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
     };
-    for (let y = 10; y < m.H - 10; y++) for (let x = 10; x < m.W - 10; x++) if (m.surface.depth[y * m.W + x] > 0.3 && onMap(x, y)) return [x, y] as [number, number];
+    // (and no source within three tiles: a press within about two of one is that source's, D249. Since generator 0.10.11,
+    // #726, D148, this map's first deep water is a spring's, its sources taking the press)
+    const e = m.entities;
+    const sources: [number, number][] = [];
+    for (let k = 0; k < e.count; k++) if (/^(Water|Badwater)Source$/.test(e.templates[e.template[k]])) sources.push([e.x[k], e.y[k]]);
+    const nearSource = (x: number, y: number) => sources.some(([sx, sy]) => Math.abs(sx - x) <= 3 && Math.abs(sy - y) <= 3);
+    for (let y = 10; y < m.H - 10; y++) for (let x = 10; x < m.W - 10; x++) if (m.surface.depth[y * m.W + x] > 0.3 && !nearSource(x, y) && onMap(x, y)) return [x, y] as [number, number];
     return null;
   });
   expect(r).not.toBeNull();
@@ -250,7 +256,8 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
 });
 
 test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothing at or below it changed; Fill up raises only the ground below; a cave's ground and what holds its roof left as they are (D487)", async ({ page }) => {
-  await openTopDown(page);
+  // (Highlands seed 7 since generator 0.10.11, #726, D148: seed 4242's spring cave is no longer kept)
+  await openTopDown(page, "s=7&z=96&d=n&t=highlands");
   const row = page.getByRole("group", { name: "Selection" });
   await page.keyboard.press("Control+a");
   await expect(row.getByRole("status")).toHaveText("96 × 96 tiles");

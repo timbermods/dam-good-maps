@@ -30,9 +30,9 @@ of maps have loaded on several machines. Probe batches, re-runs and audits of wh
 only where an implementation looks wrong.
 
 **The free week** (Kyler, 2026-11-07, until about 11-14). Kyler is away and has given planning a free hand: rules may
-evolve, and features beyond this plan may be built where they make the maps or the editor better. Kyler's pause on game
-launches still holds, so no session runs Timberborn until he lifts it, and one-click play waits on that. The work, in
-this order:
+evolve, and features beyond this plan may be built where they make the maps or the editor better. Game launches are
+allowed again (Kyler, 2026-11-07), through the DGM Probe runner only and only where a change needs one; the companion
+mod and one-click play are set aside (#709 stays on `hold`). The work, in this order:
 - **Forces play:** dev's red, then the see-behind aid (#759, #761) and the trees (#757). Then the #734 look set with #744
   and #754, Wave 1's look items, and then water with character: falls pour, rivers wind, and badwater looks poisonous
   (PERFECT, Water 3).
@@ -195,8 +195,9 @@ Every step that changes generated maps commits a contact sheet (CLAUDE.md).
 - **In-game checks are deferred** (PLAN §20, D11). A step marked **in-game check** does not stop or wait: it lists the
   checks it would have needed in [docs/archive/ingame-log.md](docs/archive/ingame-log.md) as *pending*, with the files to play,
   and relies on the automated validation and tests. The one exception is a **DGM Probe batch** (D116, D117): an
-  automated run of maps in the real game, launched only after Claude asks Kyler in chat and Kyler says yes, every time
-  (CLAUDE.md, Standing rules). A step whose gate is a probe batch waits for it.
+  automated run of maps in the real game through the DGM Probe runner. On the dedicated machine a batch runs whenever
+  the plan calls for one, without asking (D218), and plays only what players get (D483); the full rules are in
+  [docs/RULES.md](docs/RULES.md). A step whose gate is a probe batch waits for it.
 - **Effort** is the recommended Claude effort level for building a step: **xhigh** for architecture-setting or
   algorithm-heavy work, **high** for the rest.
 

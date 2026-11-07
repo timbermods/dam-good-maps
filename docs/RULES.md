@@ -78,6 +78,13 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   decision it cannot place, headings or prose changed differently, a criss-cross merge), any conflict outside
   `docs/decisions/`, and any merge `--check` fails still needs a fresh review line.
   The loop starts using the check once the PR that added the tool is on dev.
+  **A clean re-merge of dev keeps its approval too:** if every commit after the approved one is a merge with a parent on
+  dev and its combined diff is empty, the earlier line still counts. A conflict settled by hand needs a fresh line. A
+  rerun of a failed check reuses the old merge commit, so a red that dev has since fixed needs a dev merge, not a rerun.
+- **The generator queue (2026-11-07):** one generator change at a time. A change that bumps the generator version, or
+  re-pins seeds because generation changed, is claimed on #236 first ("To planning: claiming generator 0.10.N for …").
+  Planning answers with the order. Only the head of the queue does its bump and its re-pins; the others may build their
+  logic meanwhile and bump only after the one ahead of them merges, so no seed is re-pinned twice.
 - **Labels on your own PRs:** `hold` (never merge). `needs-kyler` holds only design questions and the things only Kyler's
   account can do (listed with their exact clicks in one issue, a workaround meanwhile). `approved` is no longer needed.
 - **Releases:** at the end of each step in the order, from dev to main once the full run and the nightly are green; the

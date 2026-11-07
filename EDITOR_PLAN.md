@@ -802,9 +802,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 ### The brushes and precision tools
 
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a
-  natural slope exactly where the player puts it; dragged from high ground down to low ground it lays a **stair**, one
-  slope a level, each tile set a level below the one before, its tiles green as it is dragged or red with the one
-  reason it can't be laid, the release one step: `core/doc/stair.ts`); Smooth has no walkable option (D247) and Flatten no Ramped edges
+  natural slope exactly where the player puts it; dragged from high ground down to low ground it lays a **stair**
+  shaped as the generator's natural ramps are: a tread of two to four tiles a level, uneven, filling the drag's
+  length, a slope on the first tile of each, the ground three wide and a spur beside a fill; its slopes green as it
+  is dragged or the line red with the one reason it can't be laid, the release one step: `core/doc/stair.ts`, sharing
+  `land/levels.ts`'s `dealTreads` and `shapeRamp`); Smooth has no walkable option (D247) and Flatten no Ramped edges
   (D322). **Naturalize** weathers what the player paints (forces' results, strokes, rivers, set pieces); it leaves
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke
@@ -829,7 +831,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   or below all its neighbours, no neighbouring pair swaps which is higher, nothing one tile wide appears (a
   tread, ledge, wall or slot), nothing newly holds water and no way out for water closes; what would break one
   is mended or taken back. Farmland is never lost: moist ground (the settled water's moisture when the stroke
-  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. It
+  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. A stroke that
+  changes nothing says why beside the pointer for a moment: "Moist ground keeps its height: weather dry land" when
+  most of it pressed on moist soil (an island in a lake is all moist), else "Nothing here to weather" (showcase-craft gap 23). It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
   stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
@@ -1120,13 +1124,14 @@ Two looks (Map look 2, D147, D242, D250, D284):
   sites and ruins (D178), the approved badwater in one shared water palette (D177); waterfalls as the game draws them, the
   water's own face where it steps down, in its own colour and a tenth see-through, with no foam or whitewater, a face at
   each step of a cascade (D201 amended 2026-10-29).
-- **High**, the same view finished further: water coloured by depth with clear shallows, fine crests and flecks
-  moving with the flow and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, sky, rock
+- **High**, the same view finished further: water coloured by depth with clear shallows, its surface the game's (its
+  albedo and ripples carried by each column's outflow in two phases, as in every look; D334's light network, ribbons,
+  swells and rolling light gone by D496 and D497) and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, sky, rock
   strata and soil edges (#65; its ambient occlusion, tone curve and haze gave way to the game's light, fog and post
   chain in every look, D497); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
-  rock with a soil cap and the water's section, rough water below falls (#67; its crowns, landings, froth, mist and
-  splash rings removed with D201's amendment, 2026-10-29). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
+  rock with a soil cap and the water's section (#67; its crowns, landings, froth, mist and splash rings removed with
+  D201's amendment, 2026-10-29; its rough water below falls with D334's water terms, 2026-11-07). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
   dead (`core/sim/withering.ts`, given to the page with the held day). A living plant whose cause of death runs on the ground shown is drawn dying, as the game's `#Dying` model is (D242 as amended 2026-10-29), on Day 0 as on any held day: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band (`withering.ts` `dyingCause`, read by the renderer from the soil and water it shows; `render3d/dying.ts` makes the forms). A held drought or badtide day turns the haze to
@@ -1761,7 +1766,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
     ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
     changing; `motion.ts` hands them to the GPU. Water below its tile's surface water (a cave's under a wet roof)
-    takes its own column's current and rough water from a volume by level the bake makes on such maps
+    takes its own column's current and smoothed contamination from a volume by level the bake makes on such maps
     (`caveCurrent.ts`). Only drawn: nothing in it reaches the water or a map.
   - The renderer warms while the first map loads (D367, part 1; `render3d/prepared.ts`): the page starts
     `prepareRenderer()` as a map's loading begins, which draws a small map with each kind of thing a map draws

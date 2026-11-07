@@ -307,12 +307,7 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
   // each level's length: two tiles, and the path's spare tiles dealt to levels drawn at random, so
   // the treads run two, three or four tiles and the slopes stand unevenly apart
   const len = new Array<number>(drop + 1).fill(2);
-  for (let spare = n - 2 * (drop + 1), tries = 0; spare > 0 && tries < 64; tries++) {
-    const k = lay.int(0, drop + 1);
-    if (len[k] >= 4 && tries < 48) continue;
-    len[k]++;
-    spare--;
-  }
+  dealTreads(len, 0, drop + 1, n - 2 * (drop + 1), lay);
   const sgn = b > a ? 1 : -1;
   const lev: number[] = [];
   for (let k = 0; k <= drop; k++) for (let t = 0; t < len[k]; t++) lev.push(a + sgn * k);
@@ -329,10 +324,34 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
     }
   }
   if (held.size > 1.5 * n) return false;
+  shapeRamp(h, W, H, (j) => !!(water[j] || keep[j]), q, lev, tiles, steps);
+  return true;
+}
+
+/** Deal `spare` more tiles to the treads `len[from]`…`len[to - 1]`, each drawn from `lay`: a tread takes a fifth tile
+ *  only once 48 draws have tried (`most`, the draw a tread of four is passed over until), so the treads run two, three
+ *  or four tiles and the slopes stand unevenly apart (natural ramps, and the Slope's stair, core/doc/stair.ts). */
+export function dealTreads(len: number[], from: number, to: number, spare: number, lay: Rng, most = 48): void {
+  for (let tries = 0; spare > 0 && tries < 64; tries++) {
+    const k = from + lay.int(0, to - from);
+    if (len[k] >= 4 && tries < most) continue;
+    len[k]++;
+    spare--;
+  }
+}
+
+/** Shape the ground under a ramp: its path `q`, each tile at its level `lev` (a level a tile of the path), the middle
+ *  line at its level and the tiles beside it, three wide, too where they would stand more than a level off it; the
+ *  lower ground beside a fill risen to it a level a tile, two tiles out at most, so the fill is a spur of land, never
+ *  a causeway. `held` tiles are never touched, nor an earlier ramp's ground (`tiles` 1). The tiles shaped are marked 1
+ *  in `tiles`, and each step's (low tile, high tile) pushed to `steps`: a slope on its low tile, facing up the path
+ *  (natural ramps, and the Slope's stair, core/doc/stair.ts). */
+export function shapeRamp(h: Uint8Array, W: number, H: number, held: (j: number) => boolean, q: readonly number[], lev: readonly number[], tiles: Uint8Array, steps: [number, number][]): void {
   // (`seen`: this ramp's own tiles, 1 once settled; `tiles` also holds earlier ramps' and the components left to
   // stairs, so it can't say which tiles this band holds)
   const seen = new Uint8Array(W * H);
   const band: number[] = [];
+  const n = q.length;
   for (let k = 0; k < n; k++) {
     const i = q[k];
     const x = i % W;
@@ -343,7 +362,7 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
         const yy = y + oy;
         if (!inside(xx, yy, W, H)) continue;
         const j = yy * W + xx;
-        if (water[j] || keep[j]) continue;
+        if (held(j)) continue;
         // the middle line takes its level; the sides only where they would not stand above it
         if (ox === 0 && oy === 0) h[j] = lev[k];
         else if (Math.abs(h[j] - lev[k]) > 1) h[j] = lev[k];
@@ -370,7 +389,7 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
         if (!inside(xx, yy, W, H)) continue;
         const j = yy * W + xx;
         // (an earlier ramp's ground is never raised: its slopes would stand on a level)
-        if (seen[j] || water[j] || keep[j] || tiles[j] === 1) continue;
+        if (seen[j] || held(j) || tiles[j] === 1) continue;
         seen[j] = 2;
         visited.push(j);
         let lo = -Infinity;
@@ -402,7 +421,6 @@ function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: U
     const loT = hiT === q[k] ? q[k + 1] : q[k];
     steps.push([loT, hiT]);
   }
-  return true;
 }
 
 /** The land runs on past the map's edge (Kyler, no edge walls): erosion never lowers the border

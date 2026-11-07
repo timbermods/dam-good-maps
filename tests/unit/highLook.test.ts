@@ -13,8 +13,7 @@ import { objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, waterMater
 import { entityView, surfaceWater, waterFromDepth, DEAD } from "../../src/render3d/model";
 import { allEffects, effectiveEffects, effectsFrom, HIGH_EFFECTS, LOWER_COST_DROPS } from "../../src/render3d/high/effects";
 import { LIMITS, LookGovernor, startTier } from "../../src/render3d/high/fallback";
-import { roughWater, surfaceContamination } from "../../src/render3d/high/flow";
-import { FLOW_DISPLAY } from "../../src/render3d/high/bake";
+import { surfaceContamination } from "../../src/render3d/high/flow";
 import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { Forest, isPlant, replacedBatch } from "../../src/render3d/high/forest";
 import { buildLandmarks, landmarkKind } from "../../src/render3d/high/landmarks";
@@ -77,21 +76,22 @@ describe("the High look's shaders", () => {
     expect(s).toContain("if (bad > 0.0) vein = veinsOf(veinQ, veinWidth, lvl) * bad;");
   });
 
-  it("follow Timberborn's references (D334): the game's finish, and badwater's own cues, pink highlights moving with the current, slow bubbles and red contact at rock", () => {
+  it("follow the game (D496, D497): its finish, its surface carried by the current, and badwater's own cues, slow bubbles and red contact at rock", () => {
     // (D497: High's own tone curve, grade and haze gave way to the game's fog and post chain, every look's)
     const all = [terrainHooks(), waterHooks(), objectHooks(), landmarkHooks()].map((h) => Object.values(h).join("\n")).join("\n");
     expect(all).not.toMatch(/hlTone|hlGrade|hlHaze|hlGradeColour/);
     // (the look fogged and graded, then the editing aids after it: D497)
     expect(terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader).toContain("c = finishLit(c, emission, vWorld);");
-    // the water's highlights are advected in two phases along the current, pink where it is bad (by the game's tint);
-    // bubbles rise in badwater; its edge glows red where it meets the rock (the game's cues, not a
-    // pattern of our own: no density or contrast is asked of them)
+    // the surface is the Standard one's sample, carried by the current in the game's two phases (Q9 P5), its normal
+    // the flow's (P11); badwater's pattern rides the same phases (Q9 P9: its base colour by the pattern's R, its
+    // emissive detail by its G; D148: these were our own troughs, patches and bubbles); its edge glows red where it meets
+    // the rock (the game's cues, not a pattern of our own: no density or contrast is asked of them)
     const s = waterMaterial(U(), false, waterHooks()).fragmentShader;
-    expect(s).toContain("vec2 p = g - drift * (phase * 12.0), p2 = g - drift * (second * 12.0) + vec2(19.13, 7.71);");
+    expect(s).toContain("waterPhases(g, flow, t, pa, pb, pw);");
+    expect(s).toContain("vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, albedo, bpat);");
     expect(s).toContain("float tint = waterTint(contamination);");
-    expect(s).toContain("vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), tint);");
-    expect(s).toContain("colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));");
-    expect(s).toMatch(/float bubbles = fine \* smoothstep\(/);
+    expect(s).toContain("colour += gameBadwaterEmission(contamination, bpat.y, g);");
+    expect(s).not.toContain("hlBadwaterBubbles");
     // the red at rock is the game's own glow of shallow water partly bad (waterPalette.ts badwaterGlow)
     expect(s).toContain("badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);");
   });
@@ -246,23 +246,6 @@ describe("the water's flow (the settle's own current, D353)", () => {
     for (let x = 0; x < W; x++) expect(c[1 * W + x]).toBe(0);
   });
 
-  it("finds no rough water in a gentle river, and some below a fall", () => {
-    const { W, H, heights, sw } = scene();
-    const drawn = (s: ReturnType<typeof surfaceWater>) => surfaceCurrent(W, H, s).map((v) => v * FLOW_DISPLAY);
-    const calm = roughWater(W, H, heights, sw, drawn(sw));
-    expect(calm.counts.falls).toBe(0);
-    // a fall: the channel's east half a level and a half lower
-    const h2 = heights.slice();
-    const d2 = new Float32Array(W * H);
-    for (let x = 0; x < W; x++)
-      for (const y of [1, 2]) {
-        h2[y * W + x] = x < 6 ? 6 : 4;
-        d2[y * W + x] = 0.6;
-      }
-    const sw2 = surfaceWater(W, H, waterFromDepth(h2, d2, new Float32Array(W * H)));
-    const rough = roughWater(W, H, h2, sw2, drawn(sw2));
-    expect(rough.counts.falls).toBeGreaterThan(0);
-  });
 });
 
 describe("the new trees and bushes (#66)", () => {

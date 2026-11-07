@@ -14,7 +14,7 @@
 // beyond the game's. Grass reads apart from dry earth by its hue and its painted strokes, contamination by
 // its orange-red veins over either soil, badwater by its crimson, its dullness and its bubbles (and in
 // High its pink caustics; in both, the game's orange glow of its shallow edges where partly bad). Clean water reads as water by its sheen and ripple crests and its see-through shallows, and in
-// colour by its blue. Badwater is darker than clean water of the same depth in Standard, darkening with depth as the game's
+// colour by its blue. Badwater is lighter than clean water of the same depth, as the game's, darkening with depth as the game's
 // (D496), and dull; water partly
 // bad turns smoothly from one to the other over a few tiles where they meet, greying as it turns as the
 // game's does (a teal-grey, a grey, a dull red-brown, crimson), never in streaks, patches or purple
@@ -24,7 +24,8 @@
 //
 // Pure TypeScript, no three.js: the unit tests and the page's legend read it too.
 
-import { BADWATER, WATER, waterBody, type Rgb } from "./waterPalette";
+import { BADWATER, BADWATER_GLOW_COLOUR, badwaterBody, badwaterGlow, blendWater, cleanWaterBody, GAME_BADWATER, GAME_WATER, gameBadwaterColour, gameBadwaterEmission, gameCleanColour, WATER, waterBody, type Rgb } from "./waterPalette";
+import { WATER_ALBEDO } from "./waterTextures";
 import { deadWood } from "./dying";
 
 // The water's colours, opacity and blend live in waterPalette.ts (D177); they are re-exported here
@@ -215,16 +216,6 @@ export const HATCH = { dark: [0.06, 0.05, 0.04] as Rgb } as const;
  *  ground's tops round it, hatched with lighter diagonal stripes (materials.ts, `capped`). */
 export const CUT_CAP = { base: [0.25, 0.265, 0.3] as Rgb, line: [0.36, 0.375, 0.41] as Rgb } as const;
 
-/** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
- *  texture is a neutral grey, its parts shaded by their vertex colours: walls a little darker than the white trim and
- *  cap, the lantern's inside dark. The game's greys at our lightness pass white, so these keep its order of shades. */
-export const START = {
-  stone: [0.8, 0.79, 0.76] as Rgb,
-  trim: [0.94, 0.93, 0.9] as Rgb,
-  roof: [0.7, 0.7, 0.68] as Rgb,
-  dark: [0.36, 0.36, 0.35] as Rgb,
-} as const;
-
 /** The water sources and seeps as the game colours them (D496): its models' albedo (texture × vertex colour, means over
  *  their area, read from resources.assets), at our lightness. A water source is an outcrop of dark rock; a badwater
  *  source a flat dark crater; a seep a stone slab round a pit heaped with rocks, its gaps dark teal (water) or rust
@@ -357,6 +348,9 @@ export const MINE = {
   rope: [0.22, 0.17, 0.12] as Rgb,
   frame: [0.518, 0.302, 0.184] as Rgb,
   wood: [0.655, 0.557, 0.396] as Rgb,
+  /** The ground the game's round pit leaves in its square's corners: its albedo there (UndergroundRuins.Model, the
+   *  up-facing corners' mean, 0.355, 0.285, 0.195) as ours. */
+  ledge: asOurs([0.355, 0.285, 0.195]),
   /** **Markers**: the outline round the footprint. */
   outline: [1.0, 0.56, 0.18] as Rgb,
   outlineDark: [0.1, 0.05, 0.02] as Rgb,
@@ -378,6 +372,17 @@ export const LIGHT = {
   /** The haze: the game's temperate daytime fog (`Sun.blueprint` `DayColors.TemperateWeatherFog`; a held hazard's in
    *  high/seasons.ts `FOG`). */
   haze: [0.4470589, 0.7607844, 0.8235295] as Rgb,
+} as const;
+
+/** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
+ *  texture is a neutral grey, its parts shaded by their vertex colours: the game's own greys, area-weighted means read
+ *  from its model (walls and shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at 0.96, the lantern's
+ *  inside and the openings about 0.36), as the trees show the game's own colour in every look. */
+export const START = {
+  stone: [0.79, 0.79, 0.79] as Rgb,
+  trim: [0.84, 0.84, 0.84] as Rgb,
+  roof: [0.963, 0.963, 0.963] as Rgb,
+  dark: [0.36, 0.36, 0.36] as Rgb,
 } as const;
 
 /** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,
@@ -413,6 +418,24 @@ export function sunlitTop(c: Rgb): Rgb {
   const up = Math.sin(LIGHT.sunElevation);
   const ambient = gameAmbient(1);
   return [0, 1, 2].map((k) => c[k] * GAME_LIGHT.diffuse * (ambient[k] + GAME_LIGHT.sun[k] * up)) as unknown as Rgb;
+}
+
+/** Water `depth` levels deep with a badwater share (0–1) as the shipped shaders show it on open water in full sun, before
+ *  its reflection, glint and the finish (materials.ts `waterMaterial`, both looks): clean water by the game's formula
+ *  × the albedo's mean, badwater by the game's formula at its pattern's mean, in the game's light (`sunlitTop`),
+ *  blended by the game's tint, with badwater's emissive detail at its means on top (unless `glow` is false: the body
+ *  alone, before every term added after the light); or our own calibrated colours in the Standard look's light where
+ *  `GAME_WATER.use` or `GAME_BADWATER.use` is off. The legend and the look tests read it. */
+export function waterShown(depth: number, share = 0, glow = true): Rgb {
+  const up = Math.sin(LIGHT.sunElevation);
+  const ours = (c: Rgb): Rgb => [0, 1, 2].map((k) => c[k] * (LIGHT.sky[k] * 1.2 + LIGHT.sun[k] * 0.3 * up)) as unknown as Rgb;
+  const g = gameCleanColour(depth);
+  const clean = GAME_WATER.use ? sunlitTop([0, 1, 2].map((k) => g[k] * WATER_ALBEDO.mean[k]) as unknown as Rgb) : ours(cleanWaterBody(depth));
+  if (!(share > 0)) return clean;
+  const bad = GAME_BADWATER.use ? sunlitTop(gameBadwaterColour(depth, share)) : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
+  const e = glow ? gameBadwaterEmission(share) : ([0, 0, 0] as unknown as Rgb);
+  const m = blendWater(clean, bad, share);
+  return [0, 1, 2].map((k) => m[k] + e[k]) as unknown as Rgb;
 }
 
 /** The game's finish (D497), after the light: its scene's settings (`level2`'s RenderSettings, read raw) and its
@@ -467,8 +490,11 @@ export const GAME_AMBIENT_LINEAR = {
  *  `E(y) = c0 + c1 y + c2 (3y² − 1)` (the integrals of the gradient against P0, P1, P2 over [−1, 1], each times
  *  (2l + 1) / 2 and its A_l / π). The engine's own projection is not in the game's files; a frame capture of the SH the
  *  game uploads (unity_SHAr..SHC) is still to check it, fix forward. */
-export const GAME_AMBIENT_SH = (() => {
-  const { sky, equator: eq, ground } = GAME_AMBIENT_LINEAR;
+export const GAME_AMBIENT_SH = trilightSH(GAME_AMBIENT_LINEAR.sky, GAME_AMBIENT_LINEAR.equator, GAME_AMBIENT_LINEAR.ground);
+
+/** Any Trilight's irradiance SH (its colours in linear values), as `GAME_AMBIENT_SH` takes the day's; the pixel judge
+ *  takes another time of day's with it (tools/game-day-light.ts). */
+export function trilightSH(sky: Rgb, eq: Rgb, ground: Rgb): { c0: Rgb; c1: Rgb; c2: Rgb } {
   const c = (k: number) => {
     const i0 = 2 * eq[k] + (sky[k] - eq[k]) / 2 + (ground[k] - eq[k]) / 2;
     const i1 = (sky[k] - ground[k]) / 3;
@@ -477,12 +503,12 @@ export const GAME_AMBIENT_SH = (() => {
   };
   const [r, g, b] = [c(0), c(1), c(2)];
   return { c0: [r[0], g[0], b[0]] as Rgb, c1: [r[1], g[1], b[1]] as Rgb, c2: [r[2], g[2], b[2]] as Rgb };
-})();
+}
 
-/** The game's ambient on a face whose normal has height y, in display values (`GAME_AMBIENT_SH`, as SampleSH returns it
- *  under Gamma colour space). */
-export function gameAmbient(y: number): Rgb {
-  const { c0, c1, c2 } = GAME_AMBIENT_SH;
+/** The game's ambient on a face whose normal has height y, in display values (`GAME_AMBIENT_SH`, or another SH, as
+ *  SampleSH returns it under Gamma colour space). */
+export function gameAmbient(y: number, sh: { c0: Rgb; c1: Rgb; c2: Rgb } = GAME_AMBIENT_SH): Rgb {
+  const { c0, c1, c2 } = sh;
   return [0, 1, 2].map((k) => toDisplay(Math.max(0, c0[k] + c1[k] * y + c2[k] * (3 * y * y - 1)))) as unknown as Rgb;
 }
 
@@ -592,7 +618,8 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
   return [
     ...ground,
     { swatch: `linear-gradient(90deg, ${c(WATER.foam)} 0 2px, ${c(WATER.shallow)} 2px, ${c(WATER.teal)} 45%, ${c(WATER.navy)})`, label: "Water" },
-    { swatch: icon(`<path d="M0 7 Q6 4 12 7 T24 7" stroke="${c(WATER.badStreak)}" stroke-width="1.2" fill="none"/><circle cx="17" cy="11" r="1.3" fill="${c(WATER.badVein)}"/>`, c(WATER.bad)), label: "Badwater" },
+    // badwater as it shows a level deep, its glowing lines round its cells (Q9 P9)
+    { swatch: icon(`<path d="M0 9 Q4 5 9 7 T17 4 L24 6 M9 7 L11 15 M17 4 L19 0" stroke="${c(BADWATER_GLOW_COLOUR)}" stroke-width="0.9" fill="none" opacity="0.8"/>`, c(waterShown(1, 1))), label: "Badwater" },
     { swatch: walls, label: "Walls" },
     { swatch: cssColor(DEAD_TREE), label: "Dead trees" },
   ];
@@ -607,10 +634,10 @@ export function objectLegend(): LegendEntry[] {
   return [
     {
       // clean water turning to badwater as the game turns it (teal-grey, grey, dull red-brown, crimson;
-      // D496), with badwater's bubbles at its end
+      // D496), as it shows a level deep, with badwater's glowing lines toward its end
       swatch:
-        icon(`<circle cx="18" cy="6" r="1.1" fill="${c(WATER.badVein)}"/><circle cx="21.5" cy="11" r="1.1" fill="${c(WATER.badVein)}"/>`) +
-        `, linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1].map((share) => c(waterBody(BADWATER.shallow, share))).join(", ")})`,
+        icon(`<path d="M14 9 Q17 6 20 8 T24 7 M20 8 L21 14" stroke="${c(BADWATER_GLOW_COLOUR)}" stroke-width="0.9" fill="none" opacity="0.8"/>`) +
+        `, linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1].map((share) => c(waterShown(1, share))).join(", ")})`,
       label: "Mixed water",
     },
     {
@@ -622,7 +649,7 @@ export function objectLegend(): LegendEntry[] {
         // the lantern tower: its walled base, the roof, the shaft, the lantern and the cap
         `<rect x="5" y="11" width="14" height="5" fill="${c(START.stone)}"/><rect x="4" y="10" width="16" height="1.3" fill="${c(START.trim)}"/>` +
           `<path d="M4.5 10 L8.5 7.5 L15.5 7.5 L19.5 10Z" fill="${c(START.roof)}"/><path d="M9 7.5 L10 3.6 L14 3.6 L15 7.5Z" fill="${c(START.stone)}"/>` +
-          `<rect x="9" y="3" width="6" height="0.9" fill="${c(START.trim)}"/><rect x="10.6" y="1.4" width="2.8" height="1.6" fill="${c(START.dark)}"/><path d="M9.6 1.4 L12 0 L14.4 1.4Z" fill="${c(START.roof)}"/>` +
+          `<rect x="9" y="3" width="6" height="0.9" fill="${c(START.trim)}"/><rect x="10.6" y="1.4" width="2.8" height="1.6" fill="${c(START.dark)}"/><path d="M9.6 1.4 L12 0 L14.4 1.4Z" fill="${c(START.trim)}"/>` +
           `<rect x="11" y="13" width="2" height="3" fill="${c(START.dark)}"/>`,
         dry,
       ),
