@@ -24,12 +24,13 @@
 //   Falls are the water's own
 //   vertical faces where it steps down, as the game draws them (D201 amended 2026-10-29): the water's
 //   colour with its texture running down, nearly opaque, no whitewater.
-//   Badwater is lighter than clean water of the same depth, as the game's, and duller, with the same ripples and
-//   slow glowing bubbles. Water partly bad turns from clean water to badwater with its badwater
-//   share, blended over a few tiles by the water mesh: it darkens in proportion, and its hue turns
+//   Badwater is the game's too (its formula: waterPalette.ts GAME_BADWATER): a red-brown between near black and
+//   crimson by a grimy pattern the flow carries, its glowing lines (an emissive detail) flowing with it, duller and
+//   with its ripples twice as strong. Water partly bad turns from clean water to badwater with its badwater
+//   share, blended over a few tiles by the water mesh, by the game's tint, its hue turning
 //   early from teal through a teal-grey and a warm brown to crimson, never purple, so where they meet the colour changes in a soft gradient, never in streaks or
-//   patches, and a mixed river reads as poisoned; the dull surface and the bubbles come in with
-//   it. Every water colour and the water's opacity come from waterPalette.ts (`WATER_GLSL`, D177).
+//   patches, and a mixed river reads as poisoned; its glowing lines come in with it, brightest at a front, as the
+//   game's. Every water colour and the water's opacity come from waterPalette.ts (`WATER_GLSL`, D177).
 // - A per-tile overlay (selection, previews, layers) and the hovered tile stay on top. An overlay
 //   tile with full alpha is hatched (dam sites): light stripes in its colour and dark stripes,
 //   solid light when too small for stripes, and a dark rim just outside, so it shows on any
@@ -67,7 +68,7 @@ import {
   type WebGLRenderer,
 } from "three";
 import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
-import { WATER_GLSL, WATER_UI } from "./waterPalette";
+import { GAME_BADWATER, WATER_GLSL, WATER_UI } from "./waterPalette";
 import { WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
@@ -142,6 +143,9 @@ export interface SceneUniforms {
   /** The surface the water's flow carries (waterTextures.ts: RG the albedo's fields, BA the slopes), shared by the page
    *  (`waterSurfaceTexture`). */
   waterTex: { value: DataTexture };
+  /** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`: R the base colour's, G the emissive
+   *  detail's), shared by the page (`badwaterPatternTexture`). */
+  badwaterTex: { value: DataTexture };
   /** The light under roofs (caveLight.ts): RG a cell, the sky and the sun, and its size in cells
    *  (0, 0, 0 on a map with no air under a roof: the baked light everywhere). */
   caveTex: { value: Data3DTexture };
@@ -202,6 +206,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     sourceLit: { value: 0 },
     flowTex: { value: stillFlow() },
     waterTex: { value: waterSurfaceTexture() },
+    badwaterTex: { value: badwaterPatternTexture() },
     caveTex: { value: noCave },
     caveSize: { value: new Vector3(0, 0, 0) },
     caveTop: { value: 0 },
@@ -280,11 +285,34 @@ export function waterSurfaceTexture(): DataTexture {
   return (surfaceTex = t);
 }
 
-/** The bake worker's surface (high/bake.ts `waterTexture`) into the page's texture. */
-export function fillWaterTexture(data: Uint8Array): void {
+let badTex: DataTexture | null = null;
+/** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`), one for the page: flat at its mean
+ *  until the bake worker has made it, sampled as the surface's. */
+export function badwaterPatternTexture(): DataTexture {
+  if (badTex) return badTex;
+  const n = WATER_TEXTURE_SIZE;
+  const data = new Uint8Array(n * n * 4);
+  const r = Math.round(GAME_BADWATER.pattern[0] * 255);
+  const g = Math.round(GAME_BADWATER.pattern[1] * 255);
+  for (let i = 0; i < n * n; i++) data.set([r, g, 0, 255], i * 4);
+  const t = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType);
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.anisotropy = 8;
+  t.needsUpdate = true;
+  return (badTex = t);
+}
+
+/** The bake worker's surface and badwater's pattern (high/bake.ts `waterTexture`) into the page's textures. */
+export function fillWaterTexture(data: Uint8Array, bad: Uint8Array): void {
   const t = waterSurfaceTexture();
   (t.image.data as Uint8Array).set(data);
   t.needsUpdate = true;
+  const b = badwaterPatternTexture();
+  (b.image.data as Uint8Array).set(bad);
+  b.needsUpdate = true;
 }
 
 /** A flow texture with no current (until a map's arrives). */
@@ -309,7 +337,7 @@ const GAME_WATER_LIGHT = /* glsl */ `vec3 gameWaterLight(vec3 n, float sun) {
         return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
       }
       vec3 gameWaterFormula(float depth, vec3 albedo, vec3 n, float sun, vec3 light) {
-        return gameCleanColour(depth) * albedo * gameWaterLight(n, sun) / max(light, vec3(0.001));
+        return gameCleanColour(depth) * albedo * gameWaterLight(n, sun) / max(light, 0.001);
       }`;
 
 /** A source the pointer's water comes from (D196): its model takes the glow its water does (the water's colour mixed
@@ -1735,15 +1763,6 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
       #endif
       /** The flow the water's textures ride here (the game's, high/bake.ts flowByte), 0 where still. */
       vec2 waterFlow(vec2 g) { return waterFlowOf(texture2D(flowTex, g / mapSize).rg); }
-      /** Badwater's own pattern at p (tiles; carried by the flow as the surface is): its light patches, its darker
-       *  troughs and its bubbles, each a mottle of patches flowing with the water, never streaks that read as rain. */
-      void badwaterAt(vec2 p, float t, float bad, float fine, out float light, out float dark, out float bubbles) {
-        float l = vnoise(p * 1.4 + vec2(t * 0.05, t * 0.08)) * 0.6 + vnoise(p * 3.3 - vec2(t * 0.04, -t * 0.06)) * 0.4;
-        light = smoothstep(0.6, 0.82, l + 0.06);
-        float mottle = vnoise(p * 1.1 + vec2(t * 0.03, -t * 0.04)) * 0.6 + vnoise(p * 2.7 - vec2(t * 0.05, t * 0.02)) * 0.4;
-        dark = 1.0 - smoothstep(0.3, 0.46, mottle);
-        bubbles = fine * smoothstep(0.93 - 0.1 * bad, 1.03 - 0.1 * bad, vnoise(p * 5.0 + vec2(t * 0.05, -t * 0.08))) * smoothstep(0.55, 0.8, vnoise(p * 1.3 - vec2(0.0, t * 0.04)));
-      }
       void main() {
         vec3 n = normalize(vNormal);
         float depth = vData.x;
@@ -1763,7 +1782,7 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         float t = time;
         // the badwater share, blended between tiles by the mesh: the water turns from clean water to
         // badwater with it, smoothly, never in streaks or patches, by the game's own tint (waterPalette.ts
-        // WATER_BLEND): its colour (waterBlend), its opacity and its dull surface and bubbles
+        // WATER_BLEND): its colour (waterBlend), its opacity and its dull surface
         float bad = waterTint(cont);
         // how far this point is from the tile's shores (1 in open water): the water shallows toward
         // its banks
@@ -1790,9 +1809,9 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         float foam = 0.0;
         // the gloss's slow variation, as the game's two panned samples of its gloss map (WATER_SURFACE.smoothness)
         float gloss = 0.5;
-        float streak = 0.0;
-        float bubbles = 0.0;
-        float trough = 0.0;
+        // badwater's pattern the flow carries (Q9 P9: R its base colour's, G its emissive detail's; the light look, as the
+        // game's Low quality, flat at its mean)
+        vec2 bpat = BADWATER_PATTERN_FLAT;
         vec3 N = n;
         // the surface the flow carries, as the game draws it (Q9 P5, P11; waterTextures.ts): two phases of its textures
         // riding each column's outflow, the albedo multiplying the colour and the ripples the surface's normal; on a
@@ -1809,29 +1828,13 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
           #endif
           waterPhases(g, flow, t, pa, pb, pw);
           surf = waterSurfaceAt(pa, pb, pw);
+          bpat = badwaterPatternAt(pa, pb, pw);
         #endif
         vec3 albedo = waterAlbedo(surf);
         if (n.y > 0.5) {
           #if !LITE
             N = waterFlowNormal(surf, cont);
-            // (small and sparse, and gone where a pixel covers more than a few of them)
-            float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
             gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
-            // (the share the patterns follow: the tile's, or the flow texture's smoothed one where that is more, as
-            // High's water reads it, so a front's patterns are there for High too; under a roof the tile's own)
-            float patternBad = bad;
-            if (waterRoofed < 0.5) patternBad = max(bad, waterTint(texture2D(flowTex, g / mapSize).b));
-            if (patternBad > 0.01) {
-              // badwater's light patches, troughs and bubbles (its own: Q9 P9's flowing pattern is still to follow),
-              // carried by the flow's two phases as the surface is
-              float la, da, ba, lb, db, bb;
-              badwaterAt(pa, t, patternBad, fine, la, da, ba);
-              badwaterAt(pb, t, patternBad, fine, lb, db, bb);
-              float near = 1.0 - smoothstep(0.08, 0.25, fwidth(g.x));
-              streak = mix(la, lb, pw);
-              trough = mix(da, db, pw) * near;
-              bubbles = mix(ba, bb, pw);
-            }
           #endif
           // badwater's opacity (the water's, as the game's: WATER_SURFACE.seeThrough), by how bad it is
           alpha = mix(alpha, badwaterAlpha(depth, shore), bad);
@@ -1876,28 +1879,38 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         #else
           body *= albedo / WATER_ALBEDO_MEAN;
         #endif
+        // badwater the same way (Q9 P9): the game's contaminated colour (its base between near black and crimson by the
+        // pattern's R, × its depth ramp's G, the shallow glow) lit as the game lights it, or our calibrated crimson × the
+        // pattern's variation over its mean, whichever the pixel judge found closer to the game's frames
+        // (waterPalette.ts GAME_BADWATER.use)
+        #if BADWATER_FORMULA
+          murky = gameBadwaterColour(bodyDepth, cont, bpat.x) * gameWaterLight(N, lit) / max(light, 0.001);
+        #else
+          murky *= badwaterPatternShade(bpat.x);
+        #endif
         vec3 c = waterBlend(body, murky, cont);
         // the game's own highlight on the ripples, added to the colour before its light (and again after it); none on
         // a fall's face (the game's waterfall mask takes it off there, p036 r7.z)
         vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, N.y);
         c += highlight;
         c *= light;
-        c = mix(c, badwaterShade(BADWATER_TROUGH, depth) * light, trough * bad * BADWATER_TROUGH_AMOUNT);
         // the sky's reflection, stronger at low angles, and the sun's glint (no sparkle of our own: the game's water
         // shader has none, its sheen is the sun's specular at its smoothness, D496's rule); a fall's face lit the same
         // way, as the game lights every pixel of its water
         // (the game's URP lighting at the water's smoothness, clean water's about 0.25 to badwater's 0.15: the sky
         // added on top, as URP's environment term)
-        float smoothness = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, bad);
+        // (badwater's toward its own by the tint × the pattern's R, as the game's)
+        float smoothness = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, bad * bpat.x);
         float fres = waterSkyReflect(dot(N, V), smoothness);
         c += WATER_SKY * fres;
         // (the highlight's emission: unlit, unshadowed)
         c += highlight;
-        // badwater's lighter patches where it flows (brownish, so it reads as a flowing liquid too), by its own share
-        c = mix(c, badwaterShade(BADWATER_STREAK, depth), streak * BADWATER_STREAK_AMOUNT * bad);
         float spec = waterSunGlint(N, V, sunDir, smoothness) * lit;
         c += sunColor * spec;
-        c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
+        // badwater's emissive detail (Q9 P9): the pattern's G, its glowing lines, unlit, carried by the flow (none on the
+        // light look's flat surface but its mean)
+        vec3 emission = gameBadwaterEmission(cont, bpat.y, g);
+        c += emission;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
         // (foam only ever makes the water more opaque: deep water and the light look stay opaque)
         if (n.y > 0.5) alpha = max(alpha, mix(alpha, 0.95, foam));
@@ -1914,8 +1927,8 @@ ${hook(h, "water")}        #ifdef CAVES
         // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
         // right round the brush while it paints a submerged bed, fading back over a tile or two.
         // Clean water keeps a faint blue tint over the bed, its ripples and a soft bright line along
-        // its shore; badwater keeps its colour, murky and half see-through, with its dull troughs
-        // and slow glowing bubbles (never a hatching: it reads by lightness, colour and texture, D324)
+        // its shore; badwater keeps its colour, murky and half see-through, with its glowing lines
+        // (never a hatching: it reads by lightness, colour and texture, D324)
         // the water as the game draws it, fogged and graded; the editing aids after it, in their own channel (D497):
         // the clear water's veil (D196, D212), the selection, the sources' wells and the pointer's source's glow (D196),
         // a highlighted source (D249)
@@ -1924,8 +1937,11 @@ ${hook(h, "water")}        #ifdef CAVES
         if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
         if (clr > 0.001) {
           float badish = max(bad, smoothstep(0.05, 0.5, cont));
-          vec3 bc = mix(murky, badwaterShade(BADWATER_TROUGH, depth), trough * bad * BADWATER_TROUGH_AMOUNT);
-          bc += BADWATER_VEIN * bubbles * BADWATER_BUBBLES;
+          #if BADWATER_FORMULA
+            vec3 bc = murky * light + emission;
+          #else
+            vec3 bc = murky + emission;
+          #endif
           vec3 cc = c;
           float ca = alpha * mix(0.35, 0.7, badish);
           if (n.y > 0.5) {

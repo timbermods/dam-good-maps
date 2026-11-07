@@ -24,8 +24,7 @@
 // the same curve and grade per pixel, without a second full-screen target (a default the session
 // chose: docs/decisions-pending.md #110).
 
-import { WATER } from "../palette";
-import { BADWATER as B, HIGH_WATER_GLSL } from "../waterPalette";
+import { HIGH_WATER_GLSL } from "../waterPalette";
 import { RUN_LEVELS } from "../runSoil";
 
 /** A number as GLSL writes a float. */
@@ -205,26 +204,23 @@ export function terrainHooks(): ShaderHooks {
 // -------------------------------------------------------------------------------------- the water
 
 /** #38's water surface: the calibrated palette (waterPalette.ts HIGH_WATER, display RGB, through the renderer's light)
- *  × the albedo the flow carries, lit by the flow's normal (both the Standard surface's one sample: materials.ts
- *  `waterMaterial`, Q9 P5 and P11), the contamination front as a continuous gradient to crimson, matte badwater with
- *  its troughs, light patches and bubbles carried by the same flow. Nothing of our own besides (D496, D497). */
+ *  or the game's formulas (GAME_WATER, GAME_BADWATER) × the albedo the flow carries, lit by the flow's normal (both
+ *  the Standard surface's one sample: materials.ts `waterMaterial`, Q9 P5, P9 and P11), the contamination front as a
+ *  continuous gradient to crimson, badwater's pattern and its glowing lines carried by the same flow. Nothing of our
+ *  own besides (D496, D497). */
 const WATER_FUNCTIONS = /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
 ${HIGH_WATER_GLSL}
-  /** Badwater's bubbles at p (tiles, carried by the flow's phases), High's denser ones. */
-  float hlBadwaterBubbles(vec2 p, float t, float fine) {
-    return fine * smoothstep(0.83, 0.93, vnoise(p * 5.0 + vec2(t * 0.05, -t * 0.08))) * smoothstep(0.55, 0.8, vnoise(p * 1.3 - vec2(0.0, t * 0.04)));
-  }
-  /** The surface at g: N the flow's normal, albedo the flow's albedo, streak and trough badwater's light patches and
-   *  troughs, pa, pb and pw the flow's two phases (all the Standard surface's, from its one sample). */
-  vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, float t, vec3 albedo, float streak, float trough, vec2 pa, vec2 pb, float pw) {
+  /** The surface at g: N the flow's normal, albedo the flow's albedo, bpat badwater's pattern (R its base colour's, G
+   *  its emissive detail's; all the Standard surface's, from its one sample). */
+  vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, vec3 albedo, vec2 bpat) {
     float bodyDepth = smoothstep(0.25, 1.25, depth);
     float deep = smoothstep(1.0, 3.5, depth);
     vec3 body = mix(mix(HW_SHALLOW, HW_BODY, bodyDepth), HW_DEEP, deep);
-    // (badwater darkens with depth by the game's _DepthGradients ramp, as the Standard look's: badwaterLight)
+    // (badwater darkens with depth by the game's _DepthGradients ramp, as the Standard look's: badwaterLight; the game's
+    // glow of shallow water partly bad, badwaterGlow, in place of our own red contact at the shore)
     vec3 badBody = HW_BAD * badwaterLight(depth);
-    // the game's glow of shallow water partly bad (badwaterGlow), in place of our own red contact at the shore
     badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);
     vec3 referenceLight = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
     vec3 rippleLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(normalize(mix(vec3(0.0, 1.0, 0.0), N, 0.35)), sunDir), 0.0) * lit;
@@ -236,27 +232,24 @@ ${HIGH_WATER_GLSL}
     #else
       body *= albedo / WATER_ALBEDO_MEAN;
     #endif
-    // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts WATER_BLEND), and its
-    // surface (the pink light, the matte troughs and patches, the bubbles) turned toward badwater's by the same tint
+    // badwater the same way, as the Standard look's (Q9 P9; waterPalette.ts GAME_BADWATER.use): the game's
+    // contaminated colour lit as the game lights it, or our crimson × its pattern's variation over its mean
+    #if BADWATER_FORMULA
+      badBody = gameBadwaterColour(depth, contamination, bpat.x) * gameWaterLight(N, lit) / max(shade, 0.01);
+    #else
+      badBody *= badwaterPatternShade(bpat.x);
+    #endif
+    // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts WATER_BLEND)
     vec3 colour = waterBlend(body, badBody, contamination);
     float tint = waterTint(contamination);
-    if (tint > 0.25) {
-      float signalOpacity = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
-      signalOpacity = mix(0.30, signalOpacity, smoothstep(0.0, 0.20, shore));
-      signalOpacity = mix(signalOpacity, cleanWaterAlpha(depth), smoothstep(0.25, 1.0, tint));
-      colour += (HW_BAD_TROUGH * trough + HW_BAD_STREAK * streak) * ((tint - 0.25) / 0.75) / signalOpacity;
-    }
     // the game's own highlight on the ripples (its camera-tied light; WATER_SURFACE.highlight), not a sun hotspot:
     // in the colour before its light, and again after it as the game's emission, unlit and unshadowed
     vec3 highlight = sunColor * waterCameraHighlight(N, V, tint);
     colour += highlight;
     colour *= shade;
     colour += highlight;
-    if (tint > 0.01) {
-      float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
-      float bubbles = mix(hlBadwaterBubbles(pa, t, fine), hlBadwaterBubbles(pb, t, fine), pw);
-      colour += vec3(${WATER.badVein.join(", ")}) * bubbles * tint * 0.55;
-    }
+    // badwater's emissive detail, unlit (the Standard look's: its glowing lines carried by the flow)
+    colour += gameBadwaterEmission(contamination, bpat.y, g);
     // the ground behind shows as the game's does, clean water and badwater alike (waterPalette.ts
     // WATER_SURFACE.seeThrough; the depth here is already shallower toward a bank)
     float alpha = cleanWaterAlpha(depth);
@@ -276,7 +269,7 @@ export function waterHooks(): ShaderHooks {
             // (water under a roof: its own badwater share, not the one of the water seen from above there)
             float hlBad = waterRoofed > 0.5 ? cont : texture2D(hlFlow, g / hlFlowSize).b;
             float hlDepth = max(0.0, depth) * mix(0.10, 1.0, smoothstep(0.0, 0.55, shore));
-            vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, time, albedo, streak, trough, pa, pb, pw);
+            vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, albedo, bpat);
             // the same water at any depth: only a sliver at a shore's very edge fades in, over WATER_FILM.to
             // deep, as the Standard look's (waterPalette.ts WATER_FILM: our anti-aliasing of the edge, where the
             // game clips hard), by its own depth, not the bank's; no foam, no froth, as the game draws none

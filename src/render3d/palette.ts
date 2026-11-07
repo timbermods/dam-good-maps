@@ -24,7 +24,8 @@
 //
 // Pure TypeScript, no three.js: the unit tests and the page's legend read it too.
 
-import { BADWATER, WATER, waterBody, type Rgb } from "./waterPalette";
+import { BADWATER, BADWATER_GLOW_COLOUR, badwaterBody, badwaterGlow, blendWater, cleanWaterBody, GAME_BADWATER, GAME_WATER, gameBadwaterColour, gameBadwaterEmission, gameCleanColour, WATER, waterBody, type Rgb } from "./waterPalette";
+import { WATER_ALBEDO } from "./waterTextures";
 import { deadWood } from "./dying";
 
 // The water's colours, opacity and blend live in waterPalette.ts (D177); they are re-exported here
@@ -419,6 +420,24 @@ export function sunlitTop(c: Rgb): Rgb {
   return [0, 1, 2].map((k) => c[k] * GAME_LIGHT.diffuse * (ambient[k] + GAME_LIGHT.sun[k] * up)) as unknown as Rgb;
 }
 
+/** Water `depth` levels deep with a badwater share (0–1) as the shipped shaders show it on open water in full sun, before
+ *  its reflection, glint and the finish (materials.ts `waterMaterial`, both looks): clean water by the game's formula
+ *  × the albedo's mean, badwater by the game's formula at its pattern's mean, in the game's light (`sunlitTop`),
+ *  blended by the game's tint, with badwater's emissive detail at its means on top (unless `glow` is false: the body
+ *  alone, before every term added after the light); or our own calibrated colours in the Standard look's light where
+ *  `GAME_WATER.use` or `GAME_BADWATER.use` is off. The legend and the look tests read it. */
+export function waterShown(depth: number, share = 0, glow = true): Rgb {
+  const up = Math.sin(LIGHT.sunElevation);
+  const ours = (c: Rgb): Rgb => [0, 1, 2].map((k) => c[k] * (LIGHT.sky[k] * 1.2 + LIGHT.sun[k] * 0.3 * up)) as unknown as Rgb;
+  const g = gameCleanColour(depth);
+  const clean = GAME_WATER.use ? sunlitTop([0, 1, 2].map((k) => g[k] * WATER_ALBEDO.mean[k]) as unknown as Rgb) : ours(cleanWaterBody(depth));
+  if (!(share > 0)) return clean;
+  const bad = GAME_BADWATER.use ? sunlitTop(gameBadwaterColour(depth, share)) : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
+  const e = glow ? gameBadwaterEmission(share) : ([0, 0, 0] as unknown as Rgb);
+  const m = blendWater(clean, bad, share);
+  return [0, 1, 2].map((k) => m[k] + e[k]) as unknown as Rgb;
+}
+
 /** The game's finish (D497), after the light: its scene's settings (`level2`'s RenderSettings, read raw) and its
  *  post-processing (the `Rendering/Volume` profile; the URP asset grades in LDR). Every look draws it.
  *  - The fog: Unity's exponential fog (`m_FogMode` 2) as URP draws it (its FOG_EXP programs in TerrainURP:
@@ -596,7 +615,8 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
   return [
     ...ground,
     { swatch: `linear-gradient(90deg, ${c(WATER.foam)} 0 2px, ${c(WATER.shallow)} 2px, ${c(WATER.teal)} 45%, ${c(WATER.navy)})`, label: "Water" },
-    { swatch: icon(`<path d="M0 7 Q6 4 12 7 T24 7" stroke="${c(WATER.badStreak)}" stroke-width="1.2" fill="none"/><circle cx="17" cy="11" r="1.3" fill="${c(WATER.badVein)}"/>`, c(WATER.bad)), label: "Badwater" },
+    // badwater as it shows a level deep, its glowing lines round its cells (Q9 P9)
+    { swatch: icon(`<path d="M0 9 Q4 5 9 7 T17 4 L24 6 M9 7 L11 15 M17 4 L19 0" stroke="${c(BADWATER_GLOW_COLOUR)}" stroke-width="0.9" fill="none" opacity="0.8"/>`, c(waterShown(1, 1))), label: "Badwater" },
     { swatch: walls, label: "Walls" },
     { swatch: cssColor(DEAD_TREE), label: "Dead trees" },
   ];
@@ -611,10 +631,10 @@ export function objectLegend(): LegendEntry[] {
   return [
     {
       // clean water turning to badwater as the game turns it (teal-grey, grey, dull red-brown, crimson;
-      // D496), with badwater's bubbles at its end
+      // D496), as it shows a level deep, with badwater's glowing lines toward its end
       swatch:
-        icon(`<circle cx="18" cy="6" r="1.1" fill="${c(WATER.badVein)}"/><circle cx="21.5" cy="11" r="1.1" fill="${c(WATER.badVein)}"/>`) +
-        `, linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1].map((share) => c(waterBody(BADWATER.shallow, share))).join(", ")})`,
+        icon(`<path d="M14 9 Q17 6 20 8 T24 7 M20 8 L21 14" stroke="${c(BADWATER_GLOW_COLOUR)}" stroke-width="0.9" fill="none" opacity="0.8"/>`) +
+        `, linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1].map((share) => c(waterShown(1, share))).join(", ")})`,
       label: "Mixed water",
     },
     {

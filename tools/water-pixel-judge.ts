@@ -1,13 +1,15 @@
-// The pixel judge for the water's colour (Q9 P4, P5; D496, D497): our water against the game's own on the same maps
-// and from the same cameras, by the colour statistics of clean water, band by depth. The game's side is the probe's
+// The pixel judge for the water's colour (Q9 P4, P5, P9; D496, D497): our water against the game's own on the same maps
+// and from the same cameras, by the colour statistics of clean water, badwater and the front between them, band by
+// contamination and depth. The game's side is the probe's
 // in-game water shots (C:\dgm-probe\shots\<batch>\*-water.jpg) and the water the game had at that moment (its
 // snapshot, C:\dgm-probe\results\<batch>\*.snapshot.json.gz); our side is that snapshot drawn by the editor's renderer
 // (`setMap`: the terrain, the game's water and soil; no plants or buildings), on the GPU, from the shot's camera.
 //
 //   git archive --output=.scratch/judge-dev.tar origin/dev index.html real-places src public vite.config.ts tsconfig.json package.json tools/rust/vite-plugin.mjs
 //   mkdir -p .scratch/judge-dev && tar -xf .scratch/judge-dev.tar -C .scratch/judge-dev
-//   npx tsx tools/water-pixel-judge.ts [--dev .scratch/judge-dev] [--batch 20261002-1610-batch] [--look standard|high|both]
-//     [--water clean|bad] [--shots <id>,<id>]
+//   (and the same for a second tree to compare, --base, as .scratch/judge-826 from the commit that merged before)
+//   npx tsx tools/water-pixel-judge.ts [--dev .scratch/judge-dev] [--base .scratch/judge-826] [--batch 20261002-1610-batch]
+//     [--look standard|high|both] [--water clean|bad|mixed|all] [--define WATER_FORMULA|BADWATER_FORMULA] [--shots <id>,<id>]
 //
 // The camera: the probe's water pose (investigation/probe/runner/catalog.ts `standardPoses`) is where the game's camera
 // was asked to look, but its field of view and distance do not carry over exactly (Q8 found 31-37° and 1.0-1.35× the
@@ -15,14 +17,16 @@
 // by Nelder-Mead, scoring how well the snapshot's wet and dry tiles, projected, land on water and on land in the shot
 // (a coarse colour test of the shot's pixels, blurred; only tiles whose 3×3 round them are all wet or all dry).
 //
-// The samples: clean water (badwater share under 0.02, every neighbour wet and clean, the surface level with them), or
-// with `--water bad` pure badwater (share 0.95 or more, its neighbours too),
-// each tile's centre projected, the mean of a 5×5 patch of pixels there in the shot and in each of ours. Per depth
-// band (the game's depth) it prints each side's mean and spread in display RGB with its L*, and each of ours' mean distance to
-// the game's pixel by pixel (the root of the mean squared difference over the three channels, 0-255). Three of ours:
-// dev, this branch with our colour and this branch with the game's formula (the same build, its shaders compiled with
-// WATER_FORMULA 0 or 1, whichever waterPalette.ts GAME_WATER.use ships). Writes .scratch/water-judge/<shot>-<look>.jpg (the
-// shot beside ours, for the eye) and .scratch/water-judge/judge-<water>.json.
+// The samples, by the tile's badwater share (`--water`): clean water (under 0.02, every neighbour wet and clean), pure
+// badwater (0.95 or more, its neighbours too) and the front between (0.05 to 0.95, its neighbours wet), each with its
+// surface level with its neighbours'; each tile's centre projected, the mean of a 5×5 patch of pixels there in the shot
+// and in each of ours. Per band (the share's kind and the game's depth) it prints each side's mean and spread in
+// display RGB with its L*, and each of ours' mean distance to the game's pixel by pixel (the root of the mean squared
+// difference over the three channels, 0-255). Ours: dev, the tree given by --base (if any), and this branch with our
+// colour and with the game's formula (the same build, its shaders compiled with `--define` 0 or 1: WATER_FORMULA for
+// clean water, waterPalette.ts GAME_WATER.use; BADWATER_FORMULA for badwater, GAME_BADWATER.use). Writes
+// .scratch/water-judge/<shot>-<look>-<case>.jpg (the shot beside ours, for the eye) and
+// .scratch/water-judge/judge-<water>.json.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -37,18 +41,28 @@ const arg = (name: string) => {
   return i >= 0 ? process.argv[i + 1] : undefined;
 };
 const DEV = resolve(arg("dev") ?? ".scratch/judge-dev");
+const BASE = arg("base") ? resolve(arg("base") as string) : null;
 const BATCH = arg("batch") ?? "20261002-1610-batch";
 const LOOKS = (arg("look") ?? "both") === "both" ? (["standard", "high"] as const) : ([arg("look")] as ("standard" | "high")[]);
 const OUT = resolve(".scratch/water-judge");
-/** Which water it samples: clean (the colour's judge) or bad (badwater, share 0.95 and more, to set its order against
- *  clean water on its own shots: `--water bad --shots islands-128-1-end,islands-128-2-end`). */
-const WATER = arg("water") === "bad" ? "bad" : "clean";
+/** Which water it samples: clean (the colour's judge), bad (pure badwater), mixed (the front) or all three. */
+const WATER = (["bad", "mixed", "all"] as const).find((w) => w === arg("water")) ?? "clean";
+type Kind = "clean" | "mixed" | "bad";
+const KINDS: readonly Kind[] = WATER === "all" ? ["clean", "mixed", "bad"] : [WATER];
+/** The define the two builds of this branch differ by. */
+const DEFINE = arg("define") ?? (WATER === "clean" ? "WATER_FORMULA" : "BADWATER_FORMULA");
 const PORT = Number(arg("port") ?? 4971);
 const W_PX = 1280;
 const H_PX = 800;
 const CLOCK = 12.5;
-// (the start of each game: its end shots of River Valley fall in a badtide, its fog over the whole picture)
-const SHOTS = (arg("shots") ?? "riverValley-128-1-start,riverValley-128-2-start,lakeBasin-128-1-start,lakeBasin-128-2-start,highlands-128-1-start,highlands-128-2-start").split(",");
+// (the start of each game: its end shots of River Valley fall in a badtide, its fog over the whole picture; for
+// badwater, the Badtide's end on the five maps Q8 fitted, and Islands 2's end, where both waters show)
+const SHOTS = (
+  arg("shots") ??
+  (WATER === "clean"
+    ? "riverValley-128-1-start,riverValley-128-2-start,lakeBasin-128-1-start,lakeBasin-128-2-start,highlands-128-1-start,highlands-128-2-start"
+    : "islands-128-2-end,islands-128-1-badtide2-end,islands-128-2-badtide2-end,highlands-128-1-badtide2-end,lakeBasin-128-1-badtide2-end,chaos-256-2-badtide2-end")
+).split(",");
 const BANDS: [number, number][] = [
   [0.05, 0.5],
   [0.5, 1],
@@ -223,7 +237,7 @@ interface Shot {
 
 function loadShot(id: string): Shot {
   const snap = JSON.parse(gunzipSync(readFileSync(`C:/dgm-probe/results/${BATCH}/m9b-${id}.snapshot.json.gz`)).toString("utf8")) as Snapshot;
-  const mapId = id.replace(/-(start|end)$/, "");
+  const mapId = id.replace(/(-badtide\d+)?-(start|end|day1)$/, "");
   const m = readMapBytes(new Uint8Array(readFileSync(`C:/dgm-probe/maps/${BATCH}/m9b-${mapId}.timber`)));
   // the probe's water pose (catalog.ts standardPoses, which this follows: that module is not loadable here): the wet
   // tile nearest the largest water's centre, 30° east of north, 55° down, at 2.2 × the root of its tiles (35 to 110)
@@ -261,10 +275,12 @@ function fitPoints(s: Shot): { p: V3; wet: number }[] {
           if (depth[j] > 0.05) wet++;
           if (depth[j] > 0.05 && s.snap.contamination[j] > 0.05) bad = true;
         }
-      // (badwater is no dark teal: the shot's test would call it land, so its tiles are left out of the fit)
-      if ((wet !== 0 && wet !== 9) || bad) continue;
+      if (wet !== 0 && wet !== 9) continue;
       const i = y * W + x;
-      out.push({ p: [x + 0.5, s.heights[i] + (wet ? depth[i] : 0), -(y + 0.5)], wet: wet ? 1 : 0 });
+      // (badwater is no dark teal: the shot's test calls it land, so its tiles count as land, at their surface; the
+      // front between, neither, is left out)
+      if (bad && !(Math.min(...[-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => s.snap.contamination[(y + dy) * W + x + dx]))) > 0.5)) continue;
+      out.push({ p: [x + 0.5, s.heights[i] + (wet ? depth[i] : 0), -(y + 0.5)], wet: wet && !bad ? 1 : 0 });
     }
   return out;
 }
@@ -301,24 +317,27 @@ function fitCamera(s: Shot, mask: Float32Array): { cam: Cam; score: number } {
   return { cam: camOf(x), score: -score(x) };
 }
 
-/** The clean interior water tiles to sample: badwater share under 0.02, every neighbour wet, clean and within 0.1 of
- *  its level (no step), with their depth. */
-function samplePoints(s: Shot): { p: V3; depth: number }[] {
+/** The kind of water a badwater share is, or null between kinds. */
+const kindOf = (c: number): Kind | null => (c <= 0.02 ? "clean" : c >= 0.95 ? "bad" : c >= 0.05 ? "mixed" : null);
+
+/** The interior water tiles to sample, of the kinds asked: every neighbour wet, of the same kind (any share for the
+ *  front) and within 0.1 of its level (no step), with their depth and kind. */
+function samplePoints(s: Shot): { p: V3; depth: number; kind: Kind }[] {
   const { width: W, height: H, depth, contamination } = s.snap;
-  const out: { p: V3; depth: number }[] = [];
+  const out: { p: V3; depth: number; kind: Kind }[] = [];
   for (let y = 1; y < H - 1; y++)
     for (let x = 1; x < W - 1; x++) {
       const i = y * W + x;
-      const kind = (c: number) => (WATER === "bad" ? c >= 0.95 : c <= 0.02);
-      if (!(depth[i] > 0.05) || !kind(contamination[i])) continue;
+      const kind = kindOf(contamination[i]);
+      if (!(depth[i] > 0.05) || !kind || !KINDS.includes(kind)) continue;
       const level = s.heights[i] + depth[i];
       let ok = true;
       for (let dy = -1; dy <= 1 && ok; dy++)
         for (let dx = -1; dx <= 1 && ok; dx++) {
           const j = (y + dy) * W + x + dx;
-          if (!(depth[j] > 0.05) || !kind(contamination[j]) || Math.abs(s.heights[j] + depth[j] - level) > 0.1) ok = false;
+          if (!(depth[j] > 0.05) || (kind !== "mixed" && kindOf(contamination[j]) !== kind) || Math.abs(s.heights[j] + depth[j] - level) > 0.1) ok = false;
         }
-      if (ok) out.push({ p: [x + 0.5, level, -(y + 0.5)], depth: depth[i] });
+      if (ok) out.push({ p: [x + 0.5, level, -(y + 0.5)], depth: depth[i], kind });
     }
   return out;
 }
@@ -348,12 +367,12 @@ const SET_MAP_JS = `(g) => {
   return true;
 }`;
 
-/** The shader patch that picks the branch's colour whichever one it ships: its shaders compiled with WATER_FORMULA
- *  0 (our colour) or 1 (the game's formula), the same build. */
+/** The shader patch that picks the branch's colour whichever one it ships: its shaders compiled with `DEFINE` 0 (our
+ *  colour) or 1 (the game's formula), the same build. */
 const formulaInit = (on: boolean) => `(() => {
   for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
     const src = C.prototype.shaderSource;
-    C.prototype.shaderSource = function (s, text) { return src.call(this, s, text.replace(/#define WATER_FORMULA [01]/, "#define WATER_FORMULA ${on ? 1 : 0}")); };
+    C.prototype.shaderSource = function (s, text) { return src.call(this, s, text.replace(/#define ${DEFINE} [01]/, "#define ${DEFINE} ${on ? 1 : 0}")); };
   }
 })();`;
 
@@ -417,13 +436,14 @@ const fmt = (v: V3) => v.map((x) => x.toFixed(0).padStart(3)).join(" ");
 
 async function main() {
   mkdirSync(OUT, { recursive: true });
-  const servers = [await site(DEV, "dev", PORT), await site(resolve("."), "branch", PORT + 1)];
+  const servers = [await site(DEV, "dev", PORT), await site(resolve("."), "branch", PORT + 1), ...(BASE ? [await site(BASE, "base", PORT + 2)] : [])];
   const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"] });
   const results: Record<string, unknown> = {};
   try {
     const tool = await (await browser.newContext()).newPage();
     const cases = [
       { key: "dev", page: await openSite(browser, PORT, null) },
+      ...(BASE ? [{ key: "826", page: await openSite(browser, PORT + 2, null) }] : []),
       { key: "ours", page: await openSite(browser, PORT + 1, false) },
       { key: "formula", page: await openSite(browser, PORT + 1, true) },
     ];
@@ -436,7 +456,7 @@ async function main() {
       console.log(`\n${id}: camera fit ${(score * 100).toFixed(1)}% (yaw ${((cam.yaw * 180) / Math.PI).toFixed(1)}°, pitch ${((cam.pitch * 180) / Math.PI).toFixed(1)}°, distance ${cam.distance.toFixed(1)} (the pose's ${s.pose.distance.toFixed(1)}), fov ${cam.fov.toFixed(1)}°)`);
       const pts = samplePoints(s);
       const pr = projector(cam);
-      const at = pts.map((q) => ({ q, xy: pr(q.p) })).filter((a) => a.xy && a.xy[0] >= 3 && a.xy[1] >= 3 && a.xy[0] < W_PX - 3 && a.xy[1] < H_PX - 3) as { q: { p: V3; depth: number }; xy: [number, number] }[];
+      const at = pts.map((q) => ({ q, xy: pr(q.p) })).filter((a) => a.xy && a.xy[0] >= 3 && a.xy[1] >= 3 && a.xy[0] < W_PX - 3 && a.xy[1] < H_PX - 3) as { q: { p: V3; depth: number; kind: Kind }; xy: [number, number] }[];
       const gameAt = at.map((a) => patch(game, a.xy[0], a.xy[1]));
       for (const look of LOOKS) {
         const ours: Record<string, V3[]> = {};
@@ -451,31 +471,32 @@ async function main() {
         }
         const bands: Record<string, BandStats> = {};
         console.log(`  ${look}: band      n   game mean/spread          ` + cases.map((c) => `${c.key} mean/spread (distance)`.padEnd(34)).join(""));
+        for (const kind of KINDS)
         for (const [lo, hi] of [...BANDS, [0.05, 9] as [number, number]]) {
-          const idx = at.map((a, k) => (a.q.depth >= lo && a.q.depth < hi ? k : -1)).filter((k) => k >= 0);
+          const idx = at.map((a, k) => (a.q.kind === kind && a.q.depth >= lo && a.q.depth < hi ? k : -1)).filter((k) => k >= 0);
           if (idx.length < 20) continue;
           const g = meanSpread(idx.map((k) => gameAt[k]));
           const b: BandStats = { n: idx.length, game: g, ours: {} };
-          let line = `  ${look}: ${`${lo}-${hi === 9 ? "" : hi}`.padEnd(9)} ${String(idx.length).padStart(5)}   ${fmt(g.mean)} / ${fmt(g.spread)} L* ${meanL(idx.map((k) => gameAt[k])).toFixed(1)}   `;
+          let line = `  ${look}: ${`${kind} ${lo}-${hi === 9 ? "" : hi}`.padEnd(15)} ${String(idx.length).padStart(5)}   ${fmt(g.mean)} / ${fmt(g.spread)} L* ${meanL(idx.map((k) => gameAt[k])).toFixed(1)}   `;
           for (const c of cases) {
             const o = meanSpread(idx.map((k) => ours[c.key][k]));
             const distance = Math.sqrt(idx.reduce((a, k) => a + [0, 1, 2].reduce((s2, j) => s2 + (ours[c.key][k][j] - gameAt[k][j]) ** 2, 0) / 3, 0) / idx.length);
             b.ours[c.key] = { ...o, distance };
             line += `${fmt(o.mean)} / ${fmt(o.spread)} L* ${meanL(idx.map((k) => ours[c.key][k])).toFixed(1)} (${distance.toFixed(1)})`.padEnd(42);
             if (hi === 9) {
-              const t = ((total[look] ??= {})[c.key] ??= { sum: 0, n: 0 });
+              const t = ((total[`${look} ${kind}`] ??= {})[c.key] ??= { sum: 0, n: 0 });
               t.sum += distance * distance * idx.length;
               t.n += idx.length;
             }
           }
           console.log(line);
-          bands[`${lo}-${hi}`] = b;
+          bands[`${kind} ${lo}-${hi}`] = b;
         }
         results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, bands };
       }
     }
-    console.log(`\nall shots, every ${WATER} tile: the distance to the game's pixel (RMS, 0-255)`);
-    for (const look of LOOKS) console.log(`  ${look}: ` + Object.entries(total[look] ?? {}).map(([k, t]) => `${k} ${Math.sqrt(t.sum / t.n).toFixed(1)} (${t.n})`).join(", "));
+    console.log(`\nall shots, by kind: the distance to the game's pixel (RMS, 0-255)`);
+    for (const look of LOOKS) for (const kind of KINDS) console.log(`  ${look} ${kind}: ` + Object.entries(total[`${look} ${kind}`] ?? {}).map(([k, t]) => `${k} ${Math.sqrt(t.sum / t.n).toFixed(1)} (${t.n})`).join(", "));
     results.total = Object.fromEntries(Object.entries(total).map(([look, t]) => [look, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { distance: Math.sqrt(v.sum / v.n), n: v.n }]))]));
     writeFileSync(join(OUT, `judge-${WATER}.json`), JSON.stringify(results, null, 1));
   } finally {
