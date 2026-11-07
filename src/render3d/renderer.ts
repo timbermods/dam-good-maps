@@ -3845,6 +3845,8 @@ export class MapRenderer {
         },
         () => {
           this.sunBaking = false;
+          // (refused: asked again with the next frame, never left waiting for something else to draw one)
+          if (!this.disposed) this.requestRender();
         },
       );
   }
