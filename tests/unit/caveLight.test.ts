@@ -7,8 +7,8 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { CaveLight, caveSample, LIGHT_LEVELS } from "../../src/render3d/caveLight";
-import { castersChangedRects, decodeTop, objectCasters, SHADOW_RES, shadowMap, shadowPairRect, shadowRock } from "../../src/render3d/light";
+import { CaveLight, caveSample, LIGHT_LEVELS, sunMarch, SUN_MARCH_STEP, SUN_MARCH_STEPS } from "../../src/render3d/caveLight";
+import { castersChangedRects, decodeTop, objectCasters, SHADOW_RES, shadowMap, shadowPairRect, shadowRock, sunOfYaw } from "../../src/render3d/light";
 import { DEAD, type EntityView } from "../../src/render3d/model";
 import { LIGHT } from "../../src/render3d/palette";
 import { chunkCount, meshChunk, type MeshData, type TerrainSource } from "../../src/render3d/mesh";
@@ -100,10 +100,10 @@ describe("light under roofs on terrains with roofs", () => {
       }
   });
 
-  it("a sealed chamber is air like any other, with no sun", () => {
+  it("a sealed chamber is air like any other; the volume holds air alone (D497: the sun turns with the camera, so the shader marches it)", () => {
     const s = caveSample(v, [8.5, 6, -6.5], [0, 1, 0])!;
     expect(s[0]).toBe(1);
-    expect(s[1]).toBe(0);
+    expect(s[1]).toBe(s[0]);
   });
 
   it("open ground beside the hill, the hill's top and its outer walls keep the baked light", () => {
@@ -116,8 +116,44 @@ describe("light under roofs on terrains with roofs", () => {
   });
 });
 
+describe("the sun's march under a roof (materials.ts sunMarch, mirrored)", () => {
+  // ground 1 high, a slab of rock at levels 4–6 over x 10…18, y 10…14 (on a leg at its west end), and a peak 22 high
+  // far to the south-west, out of the way: the map's highest ground, which the march must climb over
+  const W = 40;
+  const H = 40;
+  const src = terrain(W, H, (x, y, z) => {
+    if (z < 1) return true;
+    if (x === 2 && y === 2) return z < 22;
+    if (x >= 10 && x <= 18 && y >= 10 && y <= 14) return (z >= 4 && z < 7) || (x === 10 && z < 7);
+    return false;
+  });
+  const v = CaveLight.build(src)!;
+  // the sun 45° up toward +x (east)
+  const dir: [number, number, number] = [Math.SQRT1_2, 0, Math.SQRT1_2];
+
+  it("climbs from the lowest level over the highest ground: a deep overhang's floor open to the sun is lit", () => {
+    expect(v.highest).toBe(22);
+    expect(SUN_MARCH_STEPS * SUN_MARCH_STEP * Math.sin(Math.PI / 4)).toBeGreaterThan(LIGHT_LEVELS);
+    // under the slab's east edge: the ray leaves under it and climbs 20 levels of open air
+    for (const jitter of [0, 0.5, 0.99]) expect(sunMarch(v, [18.5, 12.5, 1.5], dir, jitter), `jitter ${jitter}`).toBeGreaterThan(0.95);
+  });
+
+  it("is stopped by the roof: deeper under the slab the ray meets its rock", () => {
+    for (const jitter of [0, 0.5, 0.99]) expect(sunMarch(v, [11.5, 12.5, 1.5], dir, jitter), `jitter ${jitter}`).toBeLessThan(0.05);
+  });
+
+  it("softens a shadow's edge over about a voxel, not a step", () => {
+    // along x under the slab, the sun's share rises from 0 to 1 through partial values
+    const along = Array.from({ length: 41 }, (_, k) => sunMarch(v, [15 + k * 0.1, 12.5, 1.5], dir, 0));
+    expect(along[0]).toBeLessThan(0.05);
+    expect(along[40]).toBeGreaterThan(0.95);
+    expect(along.some((l) => l > 0.2 && l < 0.8)).toBe(true);
+    for (let k = 1; k < along.length; k++) expect(along[k]).toBeGreaterThanOrEqual(along[k - 1] - 1e-9);
+  });
+});
+
 describe("relighting after an edit", () => {
-  it("rock raised above the map's old highest ground on a cave's sun path shades its floor", () => {
+  it("rock raised above the map's old highest ground raises the ceiling the shader's sun march climbs to", () => {
     // ground 2 high, a low hill (6) with an overhang (two levels high) at its north-west corner open to the sun, and a plain
     // tile two tiles up the sun's way to raise
     const W = 24;
@@ -127,13 +163,14 @@ describe("relighting after an edit", () => {
     const v = CaveLight.build(src)!;
     const floor = () => caveSample(v, [10.5, 2, -11.5], [0, 1, 0])!;
     expect(v.highest).toBe(6);
-    expect(floor()[1], "the mouth's floor in sun").toBeGreaterThan(0.5);
+    expect(floor()[0], "the mouth's floor is roofed air").toBe(1);
     const heights = src.heights.slice();
     heights[13 * W + 8] = 20;
     src = { ...src, heights };
     v.relight(src, { x0: 8, y0: 13, x1: 8, y1: 13 });
+    // (the march under roofs runs up to the highest ground: materials.ts sunMarch, caveTop; the volume holds air alone)
     expect(v.highest).toBe(20);
-    expect(floor()[1], "in the new rock's shadow").toBeLessThan(0.5);
+    expect(floor()[0]).toBe(1);
   });
 
   it("redoes only the box round the change, with the same bytes as building the volume again", () => {
@@ -235,8 +272,9 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
         if (casters && on) on[1] += casters[i];
       }
       for (const [lo, hi] of runs) {
+        // (within a rounding step of a run's bottom or top the ray grazes it, inside or not: the bytes decide)
         if (Math.min(Math.abs(h - lo), Math.abs(h - hi)) < 0.15) near = true;
-        if (h >= lo && h < hi) return true;
+        else if (h >= lo && h < hi) return true;
       }
     }
     return near ? null : false;
@@ -323,9 +361,21 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
     const view = { ...entities, count: now.length, template: new Uint16Array(now.length), x: Int16Array.from(now, (t) => t[0]), y: Int16Array.from(now, (t) => t[1]), z: Int16Array.from(now, (t) => t[2]), flags: Uint8Array.from(now, (t) => t[3]) } as unknown as EntityView;
     const next = objectCasters(W, H, view);
     const rects = castersChangedRects(W, H, casters, next)!;
-    expect(rects.length).toBeGreaterThan(1);
     for (const r of rects) shadowPairRect(tops, bytes, W, H, src.heights, next, r.x0, r.y0, r.x1, r.y1, rock);
     expect(Buffer.from(bytes).equals(Buffer.from(shadowMap(W, H, src.heights, next, undefined, rock)))).toBe(true);
+    // (on this small map at the game's 45° sun, one rectangle round them all is cheaper; on a wide one, groups apart
+    // redo their own)
+    const BW = 96;
+    const flat = terrain(BW, BW, (x, y, z) => z < 3);
+    const wide = (list: [number, number][]) => objectCasters(BW, BW, { ...entities, count: list.length, template: new Uint16Array(list.length), x: Int16Array.from(list, (t) => t[0]), y: Int16Array.from(list, (t) => t[1]), z: Int16Array.from(list, () => 3), flags: new Uint8Array(list.length) } as unknown as EntityView);
+    const before = wide([[3, 3], [48, 48]]);
+    const after = wide([[48, 48], [92, 92], [92, 3]]);
+    const wideTops = { hi: new Float32Array(0), lo: new Float32Array(0) };
+    const wideBytes = shadowMap(BW, BW, flat.heights, before, wideTops);
+    const wideRects = castersChangedRects(BW, BW, before, after)!;
+    expect(wideRects.length).toBeGreaterThan(1);
+    for (const r of wideRects) shadowPairRect(wideTops, wideBytes, BW, BW, flat.heights, after, r.x0, r.y0, r.x1, r.y1);
+    expect(Buffer.from(wideBytes).equals(Buffer.from(shadowMap(BW, BW, flat.heights, after)))).toBe(true);
   });
 
   it("an object moved to another level of its tile redoes its shadows: the floor's pine on the roof above, or one of two pines on a tile deleted", () => {
@@ -348,6 +398,32 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
       const whole = shadowMap(W, H, src.heights, b, undefined, rock);
       expect(Buffer.from(whole).equals(Buffer.from(shadowMap(W, H, src.heights, a, undefined, rock)))).toBe(false);
       expect(Buffer.from(bytes).equals(Buffer.from(whole))).toBe(true);
+    }
+  });
+
+  it("for a sun turned with the camera, redoing round an edit or changed objects gives the bytes of baking again", () => {
+    let seed = 5;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+    for (let deg = 0; deg < 360; deg += 23) {
+      const sun = sunOfYaw((deg * Math.PI) / 180);
+      for (const r of [rock, null]) {
+        const tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
+        const bytes = shadowMap(W, H, src.heights, casters, tops, r, sun);
+        const heights = src.heights.slice();
+        const x0 = 4 + Math.floor(rnd() * 30);
+        const y0 = 4 + Math.floor(rnd() * 28);
+        for (let y = y0; y <= y0 + 2; y++) for (let x = x0; x <= x0 + 1; x++) if (!src.columns.has(y * W + x)) heights[y * W + x] = Math.min(20, heights[y * W + x] + 6);
+        shadowPairRect(tops, bytes, W, H, heights, casters, x0, y0, x0 + 1, y0 + 2, r, false, sun);
+        expect(Buffer.from(bytes).equals(Buffer.from(shadowMap(W, H, heights, casters, undefined, r, sun))), `edit, sun ${deg}°, rock ${!!r}`).toBe(true);
+        const next = casters!.slice();
+        next[(y0 + 3) * W + x0] = 5;
+        next[2 * W + 30] = 4;
+        const rects = castersChangedRects(W, H, casters, next, undefined, sun)!;
+        const t2 = { hi: new Float32Array(0), lo: new Float32Array(0) };
+        const b2 = shadowMap(W, H, heights, casters, t2, r, sun);
+        for (const q of rects) shadowPairRect(t2, b2, W, H, heights, next, q.x0, q.y0, q.x1, q.y1, r, false, sun);
+        expect(Buffer.from(b2).equals(Buffer.from(shadowMap(W, H, heights, next, undefined, r, sun))), `objects, sun ${deg}°, rock ${!!r}`).toBe(true);
+      }
     }
   });
 

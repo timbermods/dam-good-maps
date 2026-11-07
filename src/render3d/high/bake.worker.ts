@@ -1,4 +1,5 @@
-// The renderer's per-map fields made off the page's thread (bake.ts): for both looks, the water's flow and the moving water's shapes, and where
+// The renderer's per-map fields made off the page's thread (bake.ts): the baked shadows when the sun turns with the
+// camera, and for both looks, the water's flow and the moving water's shapes, and where
 // nothing moves the water's badwater share alone (stillFlow.ts), so the view never waits on them. A job that throws comes back as its error (fields.ts's Baker), so
 // the worker carries on with the next.
 
@@ -9,7 +10,7 @@ self.onmessage = (e: MessageEvent<BakeJob>) => {
   const post = (r: BakeReply, transfer: ArrayBuffer[] = []) => (self as unknown as Worker).postMessage(r, transfer);
   try {
     const r = runBake(e.data);
-    post(r, r.kind === "share" ? [r.share.buffer as ArrayBuffer] : [r.flow.buffer as ArrayBuffer, r.rough.buffer as ArrayBuffer, ...shapeBuffers(r.shapes), ...(r.cave ? [r.cave.data.buffer as ArrayBuffer] : [])]);
+    post(r, r.kind === "shadows" ? [r.bytes.buffer as ArrayBuffer, r.hi.buffer as ArrayBuffer, r.lo.buffer as ArrayBuffer] : r.kind === "share" ? [r.share.buffer as ArrayBuffer] : [r.flow.buffer as ArrayBuffer, r.rough.buffer as ArrayBuffer, ...shapeBuffers(r.shapes), ...(r.cave ? [r.cave.data.buffer as ArrayBuffer] : [])]);
   } catch (err) {
     post({ id: e.data.id, kind: "error", error: err instanceof Error ? err.message : String(err) });
   }

@@ -576,7 +576,21 @@ Standard's shadow before a cave (item 8).
   of the game's (floors truly in shade 57–62 in the game's shots, our overhang floor 49–50). The game's sky behind
   the map is still ours. The water is graded before it blends over the ground, where the game grades the finished
   frame; grading after would take a full-frame pass (D110's rejected 25–27 MiB target).
-- **Next:** the sun turning with the camera (yaw + 40°, 45° up).
+- **The sun turns with the camera** (`fix/game-sun`, after #734): the game's (`Sun.UpdateRotation`: the camera's
+  turn + `RotateWithCameraOffset` 40, `SunXAngle` 45). `light.ts` `sunOfYaw`; the baked shadow's sweep takes any sun
+  (the row or column it lies nearer, interpolated along the other: the same bytes as before on the old diagonal);
+  the baked shadows roll: a bake for the sun as it stands starts as soon as the last has landed, in a worker of
+  their own (`sunBaker`, never behind the water's fields), so while the camera turns they trail it by one bake
+  (at 90° a second on Canyon 256², a median 24° behind, from 40° with the old settle-then-bake); Standard's and the
+  light look's light go with them. High's light and depth map take the camera's sun every frame it turns half a
+  degree, as the game's sun turns each frame (`LateUpdate`): 0.7° behind, for one depth pass a frame (the turn's
+  95th-percentile frame 14.7 ms against 9). The turn draws it with the next frame (the wait between depth maps is a
+brush's), and its shaders read it through the matrix it was drawn with, never the next sun's (`sunShadows.test`). Under roofs the light volume holds air alone and the shader marches the
+  sun through it (`sunMarch`, mirrored in `caveLight.ts` for the tests), so a roof needs no relight when the sun
+  turns: the volume read filtered (air 1, rock 0, blended between cells' middles) and the least kept, so a shadow's
+  edge is soft over a voxel rather than stepped, from a hashed first step, in enough steps to climb the whole volume
+  (`SUN_MARCH_STEPS`). The map's picture bakes the sun for its camera at once (`sunNow`), on the map as it is (no
+  quarter turns). The forces' worn stones take the scene's sun.
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
 
@@ -861,8 +875,9 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   LOD meshes for `RuinColumn*` in its `resources.assets`), its textures mipmapped: the same averaging.
 - **The picture is what the game shows** (`heroView.ts`, from the decompiled `MapThumbnailCapturing`, `SkySystem`
   and `opening.ts`): the new game's opening camera at the default zoom's widest (the very first zoom holds only the
-  start's 30 × 45 tiles), the sun turning with the camera as the game's does (`RotateWithCameraOffset` 40: the map is
-  turned under the view's fixed sun to the nearest quarter), the start hidden, drawn at twice its size. Before, it
+  start's 30 × 45 tiles), the sun turning with the camera as the game's does (`RotateWithCameraOffset` 40; since
+  `fix/game-sun` the renderer's own sun, no longer the map turned under a fixed one), the start hidden, drawn at
+  twice its size. Before, it
   looked down at 40° at the whole map (the official maps' authored thumbnails do; a new map has none).
 - **The forms in it:** Canyon 128 seed 1 at the default Verticality grows one form, the overhang sheltering the
   start; no spring cave or arch. At the opening camera it stands at the picture's middle, a ledge of a few pixels: a

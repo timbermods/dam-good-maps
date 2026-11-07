@@ -18,10 +18,15 @@ export const CASTER_LAYER = 1;
 
 export class SunShadows {
   readonly target: WebGLRenderTarget;
+  /** The sun's view of the map the depth map was drawn with (the shaders' `hlShadowMatrix`): it moves only when the map
+   *  is drawn, so a frame never reads a depth map through another sun's matrix (the shadows sliding as the camera
+   *  turns, then snapping back). */
   readonly matrix = new Matrix4();
   private camera = new OrthographicCamera();
   private depth: MeshDepthMaterial;
   private centre = new Vector3();
+  /** Toward the sun (world space): it turns with the camera (light.ts `sunOfYaw`), set by `setSun`. */
+  private sun = SUN.clone();
   /** Something that casts shadows changed: draw the map again before the next frame. */
   dirty = true;
   /** Times drawn (information). */
@@ -40,11 +45,21 @@ export class SunShadows {
     const extent = Math.max(W, H) * 0.76 + 24;
     Object.assign(this.camera, { left: -extent, right: extent, top: extent, bottom: -extent, near: 1, far: 700 });
     this.centre.set(W / 2, 8, -H / 2);
-    this.camera.position.copy(this.centre).addScaledVector(SUN, 330);
+    this.place();
+  }
+
+  /** The sun turned (with the camera): the depth map is drawn from it, before the next frame. */
+  setSun(sun: Vector3): void {
+    if (this.sun.equals(sun)) return;
+    this.sun.copy(sun);
+    this.place();
+  }
+
+  private place(): void {
+    this.camera.position.copy(this.centre).addScaledVector(this.sun, 330);
     this.camera.lookAt(this.centre);
     this.camera.updateProjectionMatrix();
     this.camera.updateMatrixWorld(true);
-    this.matrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
     this.dirty = true;
   }
 
@@ -61,6 +76,7 @@ export class SunShadows {
       gl.setClearColor(0xffffff, 1);
       gl.clear();
       gl.render(scene, this.camera);
+      this.matrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
       this.passes++;
       this.dirty = false;
     } finally {
