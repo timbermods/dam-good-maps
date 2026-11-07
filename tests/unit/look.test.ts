@@ -111,13 +111,15 @@ describe("the ground's colours", () => {
     expect(lum(HIGH_WATER.body)).toBeLessThan(lum(HIGH_WATER.shallow));
     expect(lum(HIGH_WATER.deep)).toBeLessThan(lum(HIGH_WATER.body));
     // the surface blends them by depth with weights that only rise, so the body darkens with depth
-    // at any look and light; at a grazing angle it keeps its depth (the grazing colour darker deeper)
+    // at any look and light; no colour of our own at a grazing angle (D496: the game's change with angle is its
+    // reflection), only the albedo the flow carries, over its mean
     const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
     const src = waterMaterial(sceneUniforms(1, 1, tex(), tex(), tex(), tex()), false, waterHooks()).fragmentShader;
     expect(src).toContain("float bodyDepth = smoothstep(0.25, 1.25, depth);");
     expect(src).toContain("float deep = smoothstep(1.0, 3.5, depth);");
     expect(src).toContain("vec3 body = mix(mix(HW_SHALLOW, HW_BODY, bodyDepth), HW_DEEP, deep);");
-    expect(src).toContain("body = mix(body, HW_GRAZING * mix(1.0, 0.72, deep), grazing * 0.65);");
+    expect(src).toContain("body *= albedo / WATER_ALBEDO_MEAN;");
+    expect(src).not.toContain("HW_GRAZING");
     // (clean against bad in High is the game's readability, D334 (2): no order or gap between them;
     // the rendered deep-under-shallow evidence is tests/e2e/look-high.spec.ts)
   });

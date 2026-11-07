@@ -42,7 +42,6 @@ export const SWITCHES = [
   "hlGeology",
   "hlSoilCap",
   "hlSection",
-  "hlRiver",
   "hlObjectDetail",
 ] as const;
 export type Switch = (typeof SWITCHES)[number];
@@ -205,128 +204,57 @@ export function terrainHooks(): ShaderHooks {
 
 // -------------------------------------------------------------------------------------- the water
 
-/** #38's water surface: the calibrated palette (waterPalette.ts HIGH_WATER, display RGB, through the
- *  renderer's light), fine
- *  irregular crests in one detail field advected by the flow in two phases, the
- *  contamination front as a continuous gradient to crimson, matte badwater with its slow bubbles. */
+/** #38's water surface: the calibrated palette (waterPalette.ts HIGH_WATER, display RGB, through the renderer's light)
+ *  × the albedo the flow carries, lit by the flow's normal (both the Standard surface's one sample: materials.ts
+ *  `waterMaterial`, Q9 P5 and P11), the contamination front as a continuous gradient to crimson, matte badwater with
+ *  its troughs, light patches and bubbles carried by the same flow. Nothing of our own besides (D496, D497). */
 const WATER_FUNCTIONS = /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
-  uniform sampler2D hlRough;
 ${HIGH_WATER_GLSL}
-  vec3 hlRippleNormal(vec2 p, float t) {
-    vec2 slope = vec2(0.0);
-    slope += cos(dot(p, vec2(1.1, 0.4)) + t * 1.05) * vec2(1.1, 0.4) * 0.065;
-    slope += cos(dot(p, vec2(-0.5, 1.7)) - t * 0.82) * vec2(-0.5, 1.7) * 0.038;
-    slope += cos(dot(p, vec2(3.2, 2.1)) + t * 1.4) * vec2(3.2, 2.1) * 0.012;
-    float detail = 1.0 - smoothstep(0.1, 0.5, max(fwidth(p.x), fwidth(p.y)));
-    return normalize(vec3(slope.x * detail, 1.0, -slope.y * detail));
+  /** Badwater's bubbles at p (tiles, carried by the flow's phases), High's denser ones. */
+  float hlBadwaterBubbles(vec2 p, float t, float fine) {
+    return fine * smoothstep(0.83, 0.93, vnoise(p * 5.0 + vec2(t * 0.05, -t * 0.08))) * smoothstep(0.55, 0.8, vnoise(p * 1.3 - vec2(0.0, t * 0.04)));
   }
-  float fleckHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-  float detailNoise(vec2 p) {
-    vec2 cell = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
-    return mix(mix(fleckHash(cell), fleckHash(cell + vec2(1.0, 0.0)), u.x), mix(fleckHash(cell + vec2(0.0, 1.0)), fleckHash(cell + 1.0), u.x), u.y);
-  }
-  float chop(vec2 p) {
-    vec2 warp = vec2(detailNoise(p * 1.73 + 8.0), detailNoise(p * 1.91 - 17.0)) - 0.5;
-    vec2 q = mat2(0.91, 0.41, -0.41, 0.91) * (p + warp * 0.19);
-    float coarse = detailNoise(q * vec2(3.3, 7.1));
-    float fine = detailNoise(mat2(0.63, -0.78, 0.78, 0.63) * p * 11.3 + 31.7);
-    return coarse * 0.82 + fine * 0.18;
-  }
-  /** How much of the surface's light (its streaks and its light network) measuredSurfaceWater drew
-   *  at the point, 0-1: on a film, its sheen keeps the opacity it has on the body (WATER_FILM). */
-  float hlSheen = 0.0;
-  vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, float t) {
+  /** The surface at g: N the flow's normal, albedo the flow's albedo, streak and trough badwater's light patches and
+   *  troughs, pa, pb and pw the flow's two phases (all the Standard surface's, from its one sample). */
+  vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, float t, vec3 albedo, float streak, float trough, vec2 pa, vec2 pb, float pw) {
     float bodyDepth = smoothstep(0.25, 1.25, depth);
     float deep = smoothstep(1.0, 3.5, depth);
     vec3 body = mix(mix(HW_SHALLOW, HW_BODY, bodyDepth), HW_DEEP, deep);
-    float facing = clamp(V.y + (N.x + N.z) * 0.05, 0.0, 1.0);
-    float low = 1.0 - smoothstep(0.50, 0.82, facing);
-    float grazing = 1.0 - smoothstep(0.18, 0.50, facing);
-    body = mix(body, HW_GRAZING * mix(1.0, 0.72, deep), grazing * 0.65);
-    vec3 streakColour = mix(mix(HW_STREAK_ABOVE, HW_STREAK_LOW, low), HW_STREAK_GRAZING, grazing);
-    vec3 cleanBody = body;
     // (badwater darkens with depth by the game's _DepthGradients ramp, as the Standard look's: badwaterLight)
-    vec3 badBody = HW_BAD * badwaterLight(depth) + vec3(0.0012, 0.0008, 0.0006) * grazing;
+    vec3 badBody = HW_BAD * badwaterLight(depth);
     // the game's glow of shallow water partly bad (badwaterGlow), in place of our own red contact at the shore
     badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);
-    // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts
-    // WATER_BLEND), and its surface (the pink light, the matte troughs and streaks, the bubbles,
-    // the murk) turned toward badwater's by the same tint
-    body = waterBlend(body, badBody, contamination);
+    vec3 referenceLight = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
+    vec3 rippleLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(normalize(mix(vec3(0.0, 1.0, 0.0), N, 0.35)), sunDir), 0.0) * lit;
+    vec3 shade = rippleLight / max(referenceLight, vec3(0.01));
+    // clean water's colour × the albedo the flow carries, as the Standard look's: ours × the albedo over its mean, or the
+    // game's formula lit as the game lights it (waterPalette.ts GAME_WATER.use)
+    #if WATER_FORMULA
+      body = gameWaterFormula(depth, albedo, N, lit, shade);
+    #else
+      body *= albedo / WATER_ALBEDO_MEAN;
+    #endif
+    // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts WATER_BLEND), and its
+    // surface (the pink light, the matte troughs and patches, the bubbles) turned toward badwater's by the same tint
+    vec3 colour = waterBlend(body, badBody, contamination);
     float tint = waterTint(contamination);
-    vec3 badCrest = mix(vec3(0.035, 0.023, 0.018) + vec3(0.008, 0.006, 0.004) * low, vec3(0.009, 0.007, 0.004) + vec3(0.0008, 0.0006, 0.0004) * low, smoothstep(0.25, 1.0, tint));
-    streakColour = body + mix(streakColour - cleanBody, badCrest, tint);
-    vec2 velocity = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
-    #ifdef CAVES
-      // (water below its tile's surface water: its own column's current, materials.ts ownFlowAt)
-      if (waterOwnFlow.a > 0.5) velocity = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
-    #endif
-    float speed = smoothstep(0.02, 1.2, length(velocity));
-    vec2 drift = velocity * 0.65 + vec2(0.018, -0.012) * (1.0 - speed);
-    float phase = fract(t / 12.0), second = fract(t / 12.0 + 0.5);
-    float blend = abs(phase * 2.0 - 1.0);
-    vec2 p = g - drift * (phase * 12.0), p2 = g - drift * (second * 12.0) + vec2(19.13, 7.71);
-    float pixel = max(fwidth(g.x), fwidth(g.y));
-    float near = 1.0 - smoothstep(0.18, 0.80, pixel);
-    float waterTexture = 0.5 + (mix(chop(p), chop(p2), blend) - 0.5) / sqrt(blend * blend + (1.0 - blend) * (1.0 - blend));
-    float streak = smoothstep(0.51, 0.79, waterTexture) * near;
-    vec3 colour = mix(body, streakColour, streak * 0.45);
-    // the light on the water (D334, Timberborn's references): in still water broken caustics (network)
-    // and ribbons along the current; in moving water broad packets of light rolling with the current
-    // (rolling), faded in above still-water speed. Kyler tunes the channel water's marbled streaks on
-    // real maps here: the rolling packets' scale (the 0.70 and 1.3 in rollA and rollB), their
-    // threshold (0.41 to 0.72) and the speed over which they take over (0.10 to 0.65).
-    vec2 direction = normalize(mix(vec2(0.8, 0.6), normalize(velocity + vec2(0.0001, 0.0002)), speed));
-    vec2 across = vec2(-direction.y, direction.x);
-    vec2 flowA = vec2(dot(p, across) * 2.8, dot(p, direction) * mix(2.1, 0.42, speed));
-    vec2 flowB = vec2(dot(p2, across) * 2.8, dot(p2, direction) * mix(2.1, 0.42, speed));
-    flowA += vec2(vnoise(p * 0.71), vnoise(p * 0.83 + 8.1)) * 2.2;
-    flowB += vec2(vnoise(p2 * 0.71), vnoise(p2 * 0.83 + 8.1)) * 2.2;
-    float network = mix(cracks(flowA).x * smoothstep(0.28, 0.66, vnoise(p * 4.2 + 31.0)), cracks(flowB).x * smoothstep(0.28, 0.66, vnoise(p2 * 4.2 + 31.0)), blend);
-    float ribbons = mix(smoothstep(0.49, 0.72, vnoise(flowA * vec2(1.7, 0.7))), smoothstep(0.49, 0.72, vnoise(flowB * vec2(1.7, 0.7))), blend);
-    // (its broad swells and rolling packets of light fade to their mean from afar, where the eye no longer
-    // resolves the ripples that make them and they would read as cloud blotches on the water: the game's
-    // distant water is even)
-    float far = 1.0 - smoothstep(0.05, 0.15, pixel);
-    float broad = mix(0.5, mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend), far);
-    float rough = texture2D(hlRough, g / hlFlowSize).r * hlRiver;
-    #ifdef CAVES
-      if (waterOwnFlow.a > 0.5) rough = waterOwnFlow.b * hlRiver;
-    #endif
-    float highlights = (network * (0.18 + broad * 0.72) + ribbons * (0.16 + rough * 0.43)) * (0.35 + broad * 0.80);
-    float rollA = vnoise(p * 0.70) * 0.50 + vnoise((p + direction * 1.7) * 0.70) * 0.30 + vnoise(p * 1.3 + 47.0) * 0.20;
-    float rollB = vnoise(p2 * 0.70) * 0.50 + vnoise((p2 + direction * 1.7) * 0.70) * 0.30 + vnoise(p2 * 1.3 + 47.0) * 0.20;
-    float rolling = mix(0.35, mix(smoothstep(0.41, 0.72, rollA), smoothstep(0.41, 0.72, rollB), blend), far);
-    highlights = mix(highlights, rolling * (0.43 + rough * 0.34), smoothstep(0.10, 0.65, speed));
-    colour *= 1.0 - speed * (1.0 - rolling) * 0.14;
-    highlights *= mix(1.0, 0.68, deep);
-    vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), tint);
-    colour *= 0.80 + broad * 0.40;
-    colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));
     if (tint > 0.25) {
-      float trough = (1.0 - smoothstep(0.20, 0.38, waterTexture)) * near;
       float signalOpacity = mix(0.40, 0.94, smoothstep(0.05, 1.80, depth));
       signalOpacity = mix(0.30, signalOpacity, smoothstep(0.0, 0.20, shore));
-      signalOpacity = max(signalOpacity, grazing * 0.62);
       signalOpacity = mix(signalOpacity, cleanWaterAlpha(depth), smoothstep(0.25, 1.0, tint));
       colour += (HW_BAD_TROUGH * trough + HW_BAD_STREAK * streak) * ((tint - 0.25) / 0.75) / signalOpacity;
     }
-    vec3 referenceLight = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
-    vec3 rippleLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(normalize(mix(vec3(0.0, 1.0, 0.0), N, 0.35)), sunDir), 0.0) * lit;
     // the game's own highlight on the ripples (its camera-tied light; WATER_SURFACE.highlight), not a sun hotspot:
     // in the colour before its light, and again after it as the game's emission, unlit and unshadowed
     vec3 highlight = sunColor * waterCameraHighlight(N, V, tint);
     colour += highlight;
-    colour *= rippleLight / max(referenceLight, vec3(0.01));
-    // (no twinkling flecks of our own: the game's water shader has none, D496's rule)
+    colour *= shade;
     colour += highlight;
-    hlSheen = max(streak * 0.45, clamp(highlights, 0.0, 0.82));
     if (tint > 0.01) {
-      float bt = t * mix(1.0, 0.55, tint);
       float fine = 1.0 - smoothstep(0.03, 0.09, fwidth(g.x));
-      float bubbles = fine * smoothstep(0.83, 0.93, vnoise(g * 5.0 + vec2(bt * 0.05, -bt * 0.08))) * smoothstep(0.55, 0.8, vnoise(g * 1.3 - vec2(0.0, bt * 0.04)));
+      float bubbles = mix(hlBadwaterBubbles(pa, t, fine), hlBadwaterBubbles(pb, t, fine), pw);
       colour += vec3(${WATER.badVein.join(", ")}) * bubbles * tint * 0.55;
     }
     // the ground behind shows as the game's does, clean water and badwater alike (waterPalette.ts
@@ -338,30 +266,24 @@ ${HIGH_WATER_GLSL}
 
 export function waterHooks(): ShaderHooks {
   return {
-    ...lit(["hlWater", "hlSection", "hlRiver"]),
+    ...lit(["hlWater", "hlSection"]),
     // (after the shared palette's GLSL: the surface uses its blend)
     waterDecl: WATER_FUNCTIONS,
-    // (High's surface moves with the current itself: the Standard one beneath it stays as it was)
-    waterOwnSurface: "hlWater > 0.5",
     // #38's water in place of the Standard surface, before clear water, the overlays, the layers
     // and the sources' upwelling (those stay as the Standard look has them)
     water: /* glsl */ `        if (hlWater > 0.5) {
-          vec2 hlFr = fract(g);
-          float hlT = time * mix(1.0, 0.55, cont);
           if (n.y > 0.5) {
             // (water under a roof: its own badwater share, not the one of the water seen from above there)
             float hlBad = waterRoofed > 0.5 ? cont : texture2D(hlFlow, g / hlFlowSize).b;
             float hlDepth = max(0.0, depth) * mix(0.10, 1.0, smoothstep(0.0, 0.55, shore));
-            vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, hlRippleNormal(g, time), V, lit, time);
+            vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, time, albedo, streak, trough, pa, pb, pw);
             // the same water at any depth: only a sliver at a shore's very edge fades in, over WATER_FILM.to
             // deep, as the Standard look's (waterPalette.ts WATER_FILM: our anti-aliasing of the edge, where the
             // game clips hard), by its own depth, not the bank's; no foam, no froth, as the game draws none
             float hlFilm = waterFilm(depth);
             float hlTint = waterTint(hlBad);
             c = hlSurface.rgb;
-            // (its light keeps more of the body's opacity: the film's sheen)
-            float hlFilmAlpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
-            alpha = mix(hlFilmAlpha, hlSurface.a, hlSheen * (1.0 - hlFilm) * 0.6);
+            alpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
           } else {
             // the water's side, and a fall, as the game draws its falls (D201 amended 2026-10-29): the water's own
             // colour where it sees the cliff right behind (its shallowest), nearly opaque
@@ -371,23 +293,20 @@ export function waterHooks(): ShaderHooks {
             float hlTint = waterTint(hlBad);
             bool edge = vFlags > 254.5;
             float drop = edge ? 0.0 : vFlags / 30.0;
-            // its detail carried by the current over the lip, as the game carries its albedo by each vertex's flow
-            // (two phases, p036 389-406), sampled at the face's own place: vertical streaks the flow moves
-            vec2 hlVel = (texture2D(hlFlow, (g - vec2(n.x, -n.z) * 0.5) / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
-            #ifdef CAVES
-              if (waterOwnFlow.a > 0.5) hlVel = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
+            // High's surface colour at its shallowest × the albedo the current carries over the lip (the Standard
+            // surface's sample: the game carries its albedo by each vertex's flow, Q9 P5)
+            vec3 faceLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit;
+            #if WATER_FORMULA
+              vec3 faceClean = gameWaterFormula(0.05, albedo, n, lit, faceLight);
+            #else
+              vec3 faceClean = HW_SHALLOW * albedo / WATER_ALBEDO_MEAN;
             #endif
-            float hlPh = fract(hlT / 12.0);
-            vec2 hp1 = g - hlVel * 0.65 * (hlPh * 12.0);
-            vec2 hp2 = g - hlVel * 0.65 * (fract(hlT / 12.0 + 0.5) * 12.0);
-            float strands = mix(smoothstep(0.30, 0.72, vnoise(hp1 * 7.0)), smoothstep(0.30, 0.72, vnoise(hp2 * 7.0)), abs(hlPh * 2.0 - 1.0));
-            // High's surface colour at its shallowest (measuredSurfaceWater's body with no depth)
-            vec3 face = waterBlend(HW_SHALLOW * (0.92 + 0.16 * strands), badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad), hlBad);
-            c = face * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
+            vec3 face = waterBlend(faceClean, badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad), hlBad);
+            c = face * faceLight;
             if (edge) {
               float hlAbsorb = 1.0 - exp(-max(0.0, depth) * 0.65);
               vec3 sideClean = mix(mix(HW_SIDE_SHALLOW, HW_SIDE_BODY, hlAbsorb), HW_SIDE_DEEP, 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));
-              c = waterBlend(sideClean, mix(HW_SIDE_BAD, HW_SIDE_BAD_DEEP, hlAbsorb), hlBad) * (skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit);
+              c = waterBlend(sideClean, mix(HW_SIDE_BAD, HW_SIDE_BAD_DEEP, hlAbsorb), hlBad) * faceLight;
             }
             alpha = edge ? mix(0.78, 0.96, hlTint) : (1.0 - WATER_FALL_SEE_THROUGH);
             // the water's section at the map's edge (#67 stage 1)

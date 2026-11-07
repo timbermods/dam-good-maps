@@ -16,8 +16,9 @@ const LIBRARIES = ["mathjs", "gl-matrix", "numeric", "decimal.js", "@stdlib/math
 /** Files that may use WebAssembly: each an audited binding (keep this short). */
 const WASM_ALLOWED = new Set(["src/core/math/portable.ts", "src/core/sim/rustWater.ts", "src/core/forces/rust/bridge.ts", "src/core/analysis/rust/bridge.ts", "src/core/validate/rust.ts", "tools/rust/build.ts", "tools/rust/check.ts", "tools/rust/guard.mjs"]);
 
-/** Tools that only make pictures or time the renderer (the smoothness gate among them). */
-const PRESENTATION_TOOL = /^tools\/(smooth\/|capture-|bench3d\.ts$|measure-(ceiling|high)\.ts$|gif\.ts$|png\.ts$|sheet\.ts$|contact-sheet|start-sheet|resources-sheet|waterfall-gallery|shader-sources)/;
+/** Tools that only make pictures, time the renderer (the smoothness gate among them) or compare its pictures with the
+ *  game's (the water's pixel judge). */
+const PRESENTATION_TOOL = /^tools\/(smooth\/|capture-|water-pixel-judge\.ts$|bench3d\.ts$|measure-(ceiling|high)\.ts$|gif\.ts$|png\.ts$|sheet\.ts$|contact-sheet|start-sheet|resources-sheet|waterfall-gallery|shader-sources)/;
 
 /** True when a repository path (forward slashes) is in the guard's scope. */
 export function inGuard(file: string): boolean {

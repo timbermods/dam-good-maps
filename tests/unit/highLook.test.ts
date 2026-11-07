@@ -77,21 +77,20 @@ describe("the High look's shaders", () => {
     expect(s).toContain("if (bad > 0.0) vein = veinsOf(veinQ, veinWidth, lvl) * bad;");
   });
 
-  it("follow Timberborn's references (D334): the game's finish, and badwater's own cues, pink highlights moving with the current, slow bubbles and red contact at rock", () => {
+  it("follow the game (D496, D497): its finish, its surface carried by the current, and badwater's own cues, slow bubbles and red contact at rock", () => {
     // (D497: High's own tone curve, grade and haze gave way to the game's fog and post chain, every look's)
     const all = [terrainHooks(), waterHooks(), objectHooks(), landmarkHooks()].map((h) => Object.values(h).join("\n")).join("\n");
     expect(all).not.toMatch(/hlTone|hlGrade|hlHaze|hlGradeColour/);
     // (the look fogged and graded, then the editing aids after it: D497)
     expect(terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader).toContain("c = finishLit(c, emission, vWorld);");
-    // the water's highlights are advected in two phases along the current, pink where it is bad (by the game's tint);
-    // bubbles rise in badwater; its edge glows red where it meets the rock (the game's cues, not a
-    // pattern of our own: no density or contrast is asked of them)
+    // the surface is the Standard one's sample, carried by the current in the game's two phases (Q9 P5), its normal
+    // the flow's (P11); badwater's troughs, patches and bubbles ride the same phases; its edge glows red where it meets
+    // the rock (the game's cues, not a pattern of our own: no density or contrast is asked of them)
     const s = waterMaterial(U(), false, waterHooks()).fragmentShader;
-    expect(s).toContain("vec2 p = g - drift * (phase * 12.0), p2 = g - drift * (second * 12.0) + vec2(19.13, 7.71);");
+    expect(s).toContain("waterPhases(g, flow, t, pa, pb, pw);");
+    expect(s).toContain("vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, time, albedo, streak, trough, pa, pb, pw);");
     expect(s).toContain("float tint = waterTint(contamination);");
-    expect(s).toContain("vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), tint);");
-    expect(s).toContain("colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));");
-    expect(s).toMatch(/float bubbles = fine \* smoothstep\(/);
+    expect(s).toContain("float bubbles = mix(hlBadwaterBubbles(pa, t, fine), hlBadwaterBubbles(pb, t, fine), pw);");
     // the red at rock is the game's own glow of shallow water partly bad (waterPalette.ts badwaterGlow)
     expect(s).toContain("badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);");
   });

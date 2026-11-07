@@ -5,8 +5,9 @@
 // layers (waterLayers.ts, each column seeing the water and ground at its own level), each layer's current is worked
 // out from its own columns' outflows (current.ts `currentOf`: each face's net flow against the column it meets there)
 // and its rough water from its own surface (high/flow.ts `roughWater`), and both are written into a volume by level:
-// RGBA a cell, RG the current as the flow texture draws it, B the rough water, A 255 in the cells of a column below its
-// tile's surface water. The water shader reads the volume where A says so (materials.ts `ownFlowAt`), filtered across
+// RGBA a cell, RG the flow as the flow texture packs it (high/bake.ts `flowByte`, from the layer's own outflows), B the
+// rough water, A 255 in the cells of a column below its tile's surface water. The water shader reads the volume where A
+// says so (materials.ts `ownFlowAt`), filtered across
 // tiles at its own level, as the flow texture is filtered across tiles; everywhere else the flow texture stands. The
 // columns the flow texture already draws (each tile's surface water) fill their cells too (A 0), with the flow
 // texture's own values, so a cave's water reads the same current across the line where its roof turns dry.
@@ -29,9 +30,9 @@ export interface CaveCurrent {
   levels: number;
 }
 
-/** Packs a current (tiles a second, already at the looks' display speed) and a rough water (0–1) as the flow
+/** Packs the flow the textures ride (from the outflows, `out`) and a rough water (0–1) as the flow
  *  texture does (high/bake.ts `bakeFlow`). */
-export type FlowBake = (W: number, H: number, ground: Uint8Array, sw: SurfaceWater, current: Float32Array) => { flow: Uint8Array; rough: Uint8Array };
+export type FlowBake = (W: number, H: number, ground: Uint8Array, sw: SurfaceWater, current: Float32Array, out?: ArrayLike<number> | null) => { flow: Uint8Array; rough: Uint8Array };
 
 /** The volume of `view` (with each column's own outflows, or none: still water) over the terrain (`columns`: tile →
  *  its 23 voxels, for the tiles that are not one plain run from the bottom), `sw` the renderer's surface water (with
@@ -118,7 +119,7 @@ export function caveCurrent(W: number, H: number, heights: Uint8Array, columns: 
       }
     const out = outflowGrid(w, h, part);
     const current = out ? currentOf(w, h, out, part.depth) : new Float32Array(n * 2);
-    const baked = bake(w, h, ground, part, current);
+    const baked = bake(w, h, ground, part, current, out);
     for (let y = 0; y < h; y++)
       for (let x = 0; x < w; x++) {
         const i = (y0 + y) * W + x0 + x;

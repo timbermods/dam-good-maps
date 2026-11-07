@@ -4,7 +4,8 @@
 
 import { columnMap, type MapView, type SurfaceWater, type WaterView } from "../model";
 import { caveCurrent, type CaveCurrent } from "../caveCurrent";
-import { currentOf } from "../current";
+import { currentOf, gameFlowOf } from "../current";
+import { makeWaterTexture, WATER_FLOW, WATER_TEXTURE_SIZE } from "../waterTextures";
 import { motionShapes, type MotionShapes } from "../motionShapes";
 import { roughWater, surfaceContamination, type RoughCounts } from "./flow";
 import { shadowMap, withCasterLevels, type ShadowRock, type Sun } from "../light";
@@ -14,22 +15,27 @@ import { shadowMap, withCasterLevels, type ShadowRock, type Sun } from "../light
  *  (the High look's first flow, estimated from the surface's slope). */
 export const FLOW_DISPLAY = 2.25;
 
-/** The water's textures (RGBA, one texel a tile): the flow (RG, the current as drawn, compressed to at
- *  most 2 tiles a second, 128 still) with the smoothed contamination (B); the rough water (R). */
-export function bakeFlow(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, current: Float32Array): { flow: Uint8Array; rough: Uint8Array; counts: RoughCounts } {
+/** A flow (−1…1, the game's: outflow ÷ 14) as the flow texture's byte: 128 + 127 × sign × √|f|, so a slow drift keeps
+ *  its precision (`flowByte`; the shaders' `waterFlowOf` squares it back). */
+export function flowByte(f: number): number {
+  const c = Math.max(-1, Math.min(1, f));
+  return Math.round(128 + 127 * Math.sign(c) * Math.sqrt(Math.abs(c)));
+}
+
+/** The water's textures (RGBA, one texel a tile): the flow the water's textures ride (RG, the game's: each column's
+ *  outflows ÷ 14, current.ts `gameFlowOf`, as `flowByte`, 128 still) with the smoothed contamination (B); the rough
+ *  water (R). `out`: the outflows, four a tile (none: still). */
+export function bakeFlow(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, current: Float32Array, out?: ArrayLike<number> | null): { flow: Uint8Array; rough: Uint8Array; counts: RoughCounts } {
   const velocity = new Float32Array(W * H * 2);
   for (let k = 0; k < velocity.length; k++) velocity[k] = current[k] * FLOW_DISPLAY;
   const cont = surfaceContamination(W, H, sw);
   const r = roughWater(W, H, heights, sw, velocity);
+  const game = out ? gameFlowOf(W, H, out, sw.depth, WATER_FLOW.maxOutflow) : null;
   const flow = new Uint8Array(W * H * 4);
   const rough = new Uint8Array(W * H * 4);
   for (let i = 0; i < W * H; i++) {
-    const x = velocity[i * 2];
-    const y = velocity[i * 2 + 1];
-    const s = Math.hypot(x, y);
-    const k = s > 0 ? (2 * (1 - Math.exp(-s * 0.3))) / s : 0;
-    flow[i * 4] = Math.round(128 + x * k * 63.5);
-    flow[i * 4 + 1] = Math.round(128 + y * k * 63.5);
+    flow[i * 4] = game ? flowByte(game[i * 2]) : 128;
+    flow[i * 4 + 1] = game ? flowByte(game[i * 2 + 1]) : 128;
     flow[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);
     flow[i * 4 + 3] = 255;
     rough[i * 4] = Math.round(Math.max(0, Math.min(1, r.field[i])) * 255);
@@ -61,16 +67,20 @@ let columnsKept: { key: number; map: Map<number, Uint8Array> } | null = null;
 export type BakeJob =
   | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null; layered?: LayeredWater }
   | { id: number; kind: "share"; W: number; H: number; sw: Pick<SurfaceWater, "surface" | "depth" | "contamination"> }
-  | { id: number; kind: "shadows"; W: number; H: number; heights: Uint8Array; casters: Float32Array | null; levels: Uint8Array | null; rock: ShadowRock | null; sun: Sun };
+  | { id: number; kind: "shadows"; W: number; H: number; heights: Uint8Array; casters: Float32Array | null; levels: Uint8Array | null; rock: ShadowRock | null; sun: Sun }
+  | { id: number; kind: "waterTexture" };
 export type BakeResult =
   | { id: number; kind: "flow"; flow: Uint8Array; rough: Uint8Array; counts: RoughCounts; shapes: MotionShapes; cave: CaveCurrent | null; ms: number }
   | { id: number; kind: "share"; share: Uint8Array; ms: number }
-  | { id: number; kind: "shadows"; bytes: Uint8Array; hi: Float32Array; lo: Float32Array; ms: number };
+  | { id: number; kind: "shadows"; bytes: Uint8Array; hi: Float32Array; lo: Float32Array; ms: number }
+  | { id: number; kind: "waterTexture"; data: Uint8Array; ms: number };
 /** What the worker sends back: the answer, or why the job failed. */
 export type BakeReply = BakeResult | { id: number; kind: "error"; error: string };
 
 export function runBake(job: BakeJob): BakeResult {
   const t0 = performance.now();
+  // the textures the water's flow carries (waterTextures.ts), made once a page, here rather than on its thread
+  if (job.kind === "waterTexture") return { id: job.id, kind: "waterTexture", data: makeWaterTexture(WATER_TEXTURE_SIZE), ms: performance.now() - t0 };
   if (job.kind === "share") return { id: job.id, kind: "share", share: shareBytes(job.W, job.H, job.sw), ms: performance.now() - t0 };
   // the baked shadows for the sun turned with the camera (light.ts; the renderer's `turnSun`)
   if (job.kind === "shadows") {
@@ -81,7 +91,7 @@ export function runBake(job: BakeJob): BakeResult {
   }
   // the current from the outflows (current.ts), here rather than on the page's thread
   const current = job.out ? currentOf(job.W, job.H, job.out, job.sw.depth) : new Float32Array(job.W * job.H * 2);
-  const { flow, rough, counts } = bakeFlow(job.W, job.H, job.heights, job.sw, current);
+  const { flow, rough, counts } = bakeFlow(job.W, job.H, job.heights, job.sw, current, job.out);
   const shapes = motionShapes(job.W, job.H, job.sw, current);
   // the current of water below its tile's surface water, each column its own (caveCurrent.ts)
   let cave: CaveCurrent | null = null;

@@ -23,7 +23,6 @@ export type HighEffectKey =
   | "geology"
   | "soilCap"
   | "section"
-  | "roughWater"
   | "landmarks"
   | "objectDetail";
 
@@ -41,7 +40,6 @@ export const HIGH_EFFECTS: readonly HighEffect[] = [
   { key: "geology", label: "Rock at the map's edge", from: "#67" },
   { key: "soilCap", label: "Soil at the map's edge", from: "#67" },
   { key: "section", label: "Water at the map's edge", from: "#67" },
-  { key: "roughWater", label: "Rough water", from: "#67" },
   { key: "landmarks", label: "Landmarks", from: "#67" },
   { key: "objectDetail", label: "Fine detail", from: "#67" },
 ];

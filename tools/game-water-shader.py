@@ -480,11 +480,136 @@ def fmt(v):
     return "(" + ", ".join(f"{x:.4g}" for x in v) + ")" if len(v) > 1 else f"{v[0]:.4g}"
 
 
+# --- the flow's textures, measured (Q9 P5): numbers only, never the texels -------------------------------------
+
+#: The textures the flow carries that ours stand in for (`src/render3d/waterTextures.ts`), and the tiles one repeat
+#: covers (`_MainTexTiling` 0.06: a repeat every 1 / 0.06 tiles).
+FLOW_TEXTURES = ("PhysicalWaterAlbedo", "Water_N")
+REPEAT_TILES = 1 / 0.06
+
+
+def texture_texels(b, data_dir):
+    """A BC7 Texture2D's top mip as an RGBA array (H, W, 4), read raw (the game renders in Gamma colour space, so a
+    texture's stored values are what its shader multiplies): its texels from the stream file beside the assets
+    (`resources.assets.resS`), decoded by Pillow's BCn decoder (format 7)."""
+    import numpy as np
+    from PIL import Image
+    r = Reader(b)
+    name = r.str()
+    w, h, size, _, fmt_ = (i32(b, r.p + k) for k in (4, 8, 12, 16, 20))
+    if TEXTURE_FORMATS.get(fmt_) != "BC7":
+        raise ValueError(f"{name}: format {fmt_}, not BC7")
+    tag = b"resources.assets.resS"
+    at = b.index(tag)
+    offset = struct.unpack_from("<Q", b, at - 16)[0]
+    top = max(1, (w + 3) // 4) * max(1, (h + 3) // 4) * 16
+    with open(os.path.join(data_dir, "resources.assets.resS"), "rb") as f:
+        f.seek(offset)
+        raw = f.read(top)
+    if len(raw) != top or size < top:
+        raise ValueError(f"{name}: {len(raw)} of {top} bytes read")
+    return name, np.asarray(Image.frombytes("RGBA", (w, h), raw, "bcn", 7), dtype=np.float64)
+
+
+def feature_scale(field):
+    """The dominant feature scale of a tiling field (H, W), in tiles: the wavelength at the radially averaged power
+    spectrum's centroid (power-weighted mean of the spatial frequency, the mean removed), and the autocorrelation's
+    half-width (the shift, averaged over four directions, at which it first falls to a half)."""
+    import numpy as np
+    f = field - field.mean()
+    n = f.shape[0]
+    p = np.abs(np.fft.fft2(f)) ** 2
+    ky = np.fft.fftfreq(n)[:, None] * n
+    kx = np.fft.fftfreq(f.shape[1])[None, :] * f.shape[1]
+    k = np.sqrt(kx * kx + ky * ky)
+    keep = k > 0
+    centroid = (p[keep] * k[keep]).sum() / p[keep].sum()
+    ac = np.real(np.fft.ifft2(p))
+    ac /= ac[0, 0]
+    half = []
+    for dy, dx in ((0, 1), (1, 0), (1, 1), (1, -1)):
+        step = (dy * dy + dx * dx) ** 0.5
+        for s in range(1, n // 2):
+            if ac[(dy * s) % n, (dx * s) % f.shape[1]] < 0.5:
+                half.append(s * step)
+                break
+    return REPEAT_TILES / centroid, REPEAT_TILES * float(np.mean(half)) / n
+
+
+def measure_flow_textures(read, objects, data_dir):
+    """Prints what `src/render3d/waterTextures.ts` generates its own textures to: each flow texture's mean, spread
+    (standard deviation) and 5th/50th/95th percentiles per channel on display values (0-255), and its dominant
+    feature scale in tiles; for the normal map the unpacked normal's slopes (x × a, y; × 2 − 1, as the shader unpacks
+    it, ps 438-446). Numbers only: no texel leaves this function."""
+    import numpy as np
+    textures = {}
+    for o in objects:
+        if o[3] != 28:
+            continue
+        b = read(o)
+        try:
+            name = Reader(b).str()
+        except (ValueError, UnicodeDecodeError, struct.error):
+            continue
+        if (name in FLOW_TEXTURES or name == "DepthGradients") and name not in textures:
+            textures[name] = b
+    # the depth ramp P4 multiplies clean water's colour by (R × 2) and P9 the contaminated colour by (G), sampled at
+    # (depth / `_MaxDepth` 5, 0.5) with bilinear filtering: its values at depths in levels, raw (0-255)
+    _, t = texture_texels(textures["DepthGradients"], data_dir)
+    row = t[t.shape[0] // 2]
+    print("\nDepthGradients at (depth / 5, 0.5), raw:")
+    for d in (0, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5):
+        x = min(max(d / 5 * row.shape[0] - 0.5, 0), row.shape[0] - 1)
+        i = min(int(x), row.shape[0] - 2)
+        v = row[i] + (row[i + 1] - row[i]) * (x - i)
+        print(f"  {d:>4} levels: R {v[0]:6.1f}  G {v[1]:6.1f}")
+    for name in FLOW_TEXTURES:
+        if name not in textures:
+            raise ValueError(f"{name}: not found")
+        _, t = texture_texels(textures[name], data_dir)
+        h, w = t.shape[:2]
+        print(f"\n{name}: {w}x{h} BC7, one repeat {REPEAT_TILES:.2f} tiles ({w / REPEAT_TILES:.0f} texels a tile)")
+        q = lambda v: "/".join(f"{x:.1f}" for x in np.percentile(v, (5, 50, 95)))
+        if name == "Water_N":
+            nx = (t[..., 0] * t[..., 3] / 255) / 255 * 2 - 1
+            ny = t[..., 1] / 255 * 2 - 1
+            for label, v in (("x", nx), ("y", ny)):
+                print(f"  slope {label}: mean {v.mean():+.4f}, spread {v.std():.4f}, 5/50/95% {'/'.join(f'{x:+.3f}' for x in np.percentile(v, (5, 50, 95)))}")
+            s = np.sqrt(nx * nx + ny * ny)
+            print(f"  |xy| mean {s.mean():.4f}, 95% {np.percentile(s, 95):.4f}")
+            for label, v in (("x", nx), ("y", ny)):
+                c, a = feature_scale(v)
+                print(f"  slope {label} feature scale: spectrum centroid {c:.3f} tiles, autocorrelation half-width {a:.3f} tiles")
+            print(f"  channels r/b/a: mean {t[..., 0].mean():.1f}/{t[..., 2].mean():.1f}/{t[..., 3].mean():.1f}")
+        else:
+            for k, ch in enumerate("rgb"):
+                print(f"  {ch}: mean {t[..., k].mean():.1f}, spread {t[..., k].std():.1f}, 5/50/95% {q(t[..., k])}")
+            lum = t[..., :3] @ np.array([0.2126, 0.7152, 0.0722])
+            print(f"  luma: mean {lum.mean():.1f}, spread {lum.std():.1f}, 5/50/95% {q(lum)}; a mean {t[..., 3].mean():.1f}")
+            print(f"  r-g, r-b correlation {np.corrcoef(t[..., 0].ravel(), t[..., 1].ravel())[0, 1]:.3f}, "
+                  f"{np.corrcoef(t[..., 0].ravel(), t[..., 2].ravel())[0, 1]:.3f}")
+            c, a = feature_scale(lum)
+            print(f"  luma feature scale: spectrum centroid {c:.3f} tiles, autocorrelation half-width {a:.3f} tiles")
+            # its colour's principal components: ours draws two fields along the first two
+            rgb = t[..., :3].reshape(-1, 3)
+            cov = np.cov(rgb.T)
+            vals, vecs = np.linalg.eigh(cov)
+            print(f"  covariance: {' '.join(f'{v:.1f}' for v in cov.ravel())}")
+            for k in (2, 1, 0):
+                e = vecs[:, k] * (1 if vecs[:, k].sum() >= 0 else -1)
+                score = (rgb - rgb.mean(0)) @ e
+                c, a = feature_scale(score.reshape(h, w))
+                print(f"  component {3 - k}: spread {vals[k] ** 0.5:.2f} along ({', '.join(f'{x:+.3f}' for x in e)}), "
+                      f"5/50/95% {'/'.join(f'{x:+.1f}' for x in np.percentile(score, (5, 50, 95)))}, "
+                      f"spectrum centroid {c:.3f} tiles, autocorrelation half-width {a:.3f} tiles")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--game", default="C:/Program Files (x86)/Steam/steamapps/common/Timberborn")
     ap.add_argument("--keywords", default=DEFAULT_KEYWORDS)
     ap.add_argument("--out", default=os.path.join(ROOT, "investigation", "water-shader", "local"))
+    ap.add_argument("--textures", action="store_true", help="measure the flow's textures (Q9 P5) and stop")
     args = ap.parse_args()
     want = set(k for k in args.keywords.split(",") if k)
     data = os.path.join(args.game, "Timberborn_Data")
@@ -501,6 +626,9 @@ def main():
             return f.read(o[2])
 
         by_path = {o[0]: o for o in objects}
+        if args.textures:
+            measure_flow_textures(read, objects, data)
+            return 0
         materials = []
         for o in objects:
             if o[3] == 21:

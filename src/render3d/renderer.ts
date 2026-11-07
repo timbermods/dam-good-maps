@@ -76,7 +76,7 @@ import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
@@ -309,6 +309,15 @@ function sunApart(a: Sun, b: Sun): number {
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
+
+let waterSurface: Promise<void> | null = null;
+/** The surface the water's flow carries (waterTextures.ts), made once a page in the bake worker (about 160 ms) and
+ *  written into the page's shared texture (materials.ts `waterSurfaceTexture`); the water is flat at its mean until then. */
+function waterSurfaceMade(baker: Baker): Promise<void> {
+  return (waterSurface ??= baker.run({ kind: "waterTexture" }).then((r) => {
+    if (r.kind === "waterTexture") fillWaterTexture(r.data);
+  }));
+}
 
 /** Whether the browser draws WebGL in software (no GPU, or one it won't use): asked of a throwaway
  *  context before the view's own is made, so the view can be made lighter for it. Asked once a page (a context
@@ -576,6 +585,8 @@ export class MapRenderer {
     const one = () => tileTexture(1, 1, new Uint8Array(4));
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
     this.uniforms.sourceTint.value.set(...SOURCE_GLOW);
+    // (the light look draws the water's surface flat, as the game's Low quality: it never reads it)
+    if (!this.software) void waterSurfaceMade(this.baker).then(() => !this.disposed && this.requestRender(), () => undefined);
     this.patterns = drawPatterns(this.gl);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
     this.edgeRows = new RowUploads(this.gl, () => this.edges);

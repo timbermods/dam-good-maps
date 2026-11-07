@@ -213,7 +213,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   cells; each tile's surface water fills its cells too with the flow texture's own values, so a river reads one current
   across the line where its roof turns dry). The water shader (both looks, `materials.ts` `ownFlowAt`, under `CAVES`)
   reads the cell it stands in (`texelFetch`), and where A says so takes the volume's current, filtered across tiles at
-  its level, for the moving surface and High's light and rough water (`shaders.ts`); everywhere else the flow texture,
+  its level, for the flow-carried surface (both looks; B, the rough water, is read by nothing since the surface
+  became the game's, `fix/water-flow-surface`); everywhere else the flow texture,
   as before. `motion.ts` keeps the texture (`caveFlowTex`, `caveFlowLevels`), rewritten in place; renderer.ts only
   hands it the water per column at a bake.
 - **Equivalence:** a map with no column below its tile's surface water builds no volume (`caveCurrent` null), and the
@@ -844,7 +845,7 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
 - **How it is drawn:** no remesh, the cut stays one uniform (`setSlice`). The water's mesh carries, per vertex, its
   column's floor and, on a top, the corner's wet share (`WaterMeshData.cut`, the `wcut` attribute; 8 bytes a vertex), and
   the water's vertex shader folds a sliced column onto the cut as the terrain's folds the ground (`waterMaterial`, both
-  looks and the light look; High's rough water and every look's moving surface read the current by tile, so they move on
+  looks and the light look; every look's flow-carried surface reads the current by tile, so it moves on
   the sliced surface). The falls' vertex shader drops a sheet whose lip stands over the cut. The ribbons and the Flow
   view's streaks carry the water's floor too (`motionShapes.ts`) and lie on a sliced surface. The water's chunk bounds
   reach down to each column's floor (`boundingSphereOf`), where the cut may fold it. A force's cursor and ring
@@ -1011,6 +1012,40 @@ the game's models in resources.assets (positions, materials and texture means on
   mine's corners, the seeps' rocks) before and after, the same way.
 - **Short:** a water seep's gaps still read dark rather than the teal the game shows (the model's own albedo there is
   dark; the teal likely comes from the game's water or shader), and the mine's pit stays square under its round banks.
+
+## The water's surface as the game draws it (D496, D497; `fix/water-flow-surface`)
+
+- **What:** both looks draw the game's flow-carried surface (Q9 P5, P11, investigation/notes/water_and_soil.md) and
+  clean water by the game's own colour formula (Q9 P4); the water's terms of our own (D334's, and smaller ones) are gone.
+- **The flow:** each column's outflow ÷ 14 (`current.ts` `gameFlowOf`: right − left, top − bottom, averaged with its
+  wet 3×3 as the game's vertex averages its linked neighbours), in the flow texture's RG as `bake.ts` `flowByte`
+  (128 + 127 × sign × √|f|; the shaders' `waterFlowOf` squares it back). The cave volume (`caveCurrent.ts`) packs it the
+  same way.
+- **The surface** (`waterTextures.ts`, `WATER_FLOW_GLSL`): two phases of time × 0.4, half a cycle apart, each sampling
+  at xz × 0.06 − flow × frac × 2 and jumping by (0.3, 0.42) or (0.58, 0.73) each cycle, cross-faded by |2 frac − 1|. One
+  512² texture of our own (made in the bake worker, about 160 ms, once a page; flat at its mean until then): RG an
+  albedo's two fields, BA the normal's slopes. The albedo multiplies the colour; the slopes are the surface's normal,
+  × 4 and × (1 + badwater share), as the game's. A fall's face samples its water over the lip. The light look draws the
+  surface flat (the textures' mean), as the game's Low quality.
+- **The textures' statistics** (`python tools/game-water-shader.py --textures` measures the game's; numbers only, held by
+  tests/unit/water-flow-surface.test.ts): the albedo's mean RGB 68.6/73.8/77.8 and spread 9.0/8.0/8.9 matched exactly
+  (fitted along the game's first two principal components), its percentiles within 4 codes, its feature size 0.079 tile
+  (the game's 0.079); the slopes' spread 0.118 (0.116/0.120) and feature 0.142 tile (0.153).
+- **The colour** (`waterPalette.ts` `GAME_WATER`, `gameCleanColour`; materials.ts `gameWaterFormula`): lerp(#446C71,
+  #000F48, d/5) × the `_DepthGradients` R ramp at d/5 × 2 × the albedo, lit by the game's light (its ambient probe by the
+  normal and its sun, palette.ts `GAME_LIGHT`). Chosen by the pixel judge (`tools/water-pixel-judge.ts`): six probe water
+  shots (River Valley, Lake Basin, Highlands, two seeds each; the snapshot drawn by our renderer from the shot's camera,
+  fitted to it), 8,574 clean tiles, RMS distance to the game's pixels in display RGB: Standard dev 42.5, our calibrated
+  colour × the albedo 38.4, the formula 15.0; High 25.1, 20.8, 14.9.
+- **Gone:** Standard's pale streaks, crests' light, ripple cosines and slowed badwater ripples; High's chop streaks,
+  grazing and streak colours, light network, ribbons, broad swells, rolling packets, their brightness swing, still-water
+  drift, its own ripple normal, a film's lifted opacity and the Rough water switch (`hlRiver`).
+- **Kept:** badwater's own light patches, troughs and bubbles (Q9 class (c): its flowing pattern, P9, is still to follow),
+  now carried by the same two phases; the camera highlight, gloss, sky reflection and sun glint; High's `rippleLight`.
+- **Falls short:** deep water (3 levels and more) reads a little darker than the game's and the shallowest band a little
+  lighter; the game's detail albedo (P6), refraction (P2) and shore films moved sideways (V3) are still missing; the
+  bake still makes the rough water texture, which nothing reads now; badwater's own calibration (`WATER_CALIBRATION`)
+  was not re-measured under the stronger normals.
 
 ## The rest of the step (next parts)
 

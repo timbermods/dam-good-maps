@@ -122,7 +122,6 @@ export class HighLook {
       hlTexel: { value: 1 / SHADOW_SIZE },
       hlFlow: { value: null as unknown },
       hlFlowSize: { value: new Vector2(1, 1) },
-      hlRough: { value: null as unknown },
     };
     const own = (m: ShaderMaterial, extra: Record<string, { value: unknown }> = {}) => {
       // the material's own uniforms (the terrain's height range, hover and ground mode) stay the
@@ -174,7 +173,6 @@ export class HighLook {
     set("hlGeology", e.geology);
     set("hlSoilCap", e.soilCap);
     set("hlSection", e.section);
-    set("hlRiver", e.roughWater);
     set("hlObjectDetail", e.objectDetail);
     const u = this.host.uniforms;
     const balance = e.sunlight ? SUNLIGHT : e.shadows ? SHADOW_BALANCE : { sun: [1, 1, 1], sky: 1 };
@@ -216,7 +214,6 @@ export class HighLook {
     size.set(W, H);
     for (const m of this.allMaterials()) {
       m.uniforms.hlFlow.value = flow.flow;
-      m.uniforms.hlRough.value = flow.rough;
     }
     this.updateWater(true);
   }
