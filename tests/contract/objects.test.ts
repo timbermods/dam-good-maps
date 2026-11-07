@@ -82,8 +82,8 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   // and Highlands height round, 0.8.8, D148: on its seed 3 the two belts planned would cut the start's
   // walkable land from 2,274 tiles to 1,134, so the walk rule leaves both out; seed 3 itself stays below;
   // Islands seed 6 since the opening shot, 0.10.2, D493, D148: its seeds 1–5 leave the thorn belt out; Islands seed 2
-  // since generator 0.10.6 (D498, badwater left the sea alone), D148: its seeds 1 and 6 leave the belt out, seeds 2–5 and 7–11 place it)
-  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 2 : theme === "canyon" ? 1 : 3, thorns = true) => {
+  // since generator 0.10.6 (D498, badwater left the sea alone), D148: its seeds 1 and 6 leave the belt out, seeds 2–5 and 7–11 place it; Islands seed 5 since generator 0.10.11 (#726's shores, ramps and berries), D148: its seeds 2–4 leave the belt out, 5 and 7 place it)
+  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 5 : theme === "canyon" ? 1 : 3, thorns = true) => {
     const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
@@ -181,9 +181,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // canyon 1 and river valley 11 for river valley 9 since generator 0.10.7 (D502, every start leans toward a
     // landmark and River Valley grows landmark forms), D148: canyon 1's rise lies in a pocket of land the colony cannot
     // walk to from its start (as do river valley 5's and 10's), so no flight of stairs reaches it; of Canyon's seeds to 20
-    // only 1, 3 and 19 hold a rise, and of River Valley's seeds 1–16 only 4, 5, 8, 10, 11 and 13)
+    // only 1, 3 and 19 hold a rise, and of River Valley's seeds 1–16 only 4, 5, 8, 10, 11 and 13; river valley 13 for river valley 11 since generator 0.10.11 (#726's shores, ramps and berries), D148: river valley 11, 4 and 9 hold none now)
     let seen = 0;
-    for (const [theme, seed] of [["canyon", 19], ["riverValley", 11], ["riverValley", 8], ["canyon", 3]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["canyon", 19], ["riverValley", 13], ["riverValley", 8], ["canyon", 3]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
