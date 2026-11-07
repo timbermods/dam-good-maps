@@ -58,7 +58,7 @@ test("the drought line shows, goes while a day is held and at an edit, and comes
 
   // an edit makes a new version: the line goes at once and the new map's comes in the background
   const v0 = await page.evaluate(() => window.dgmEditor!.info().version);
-  await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[4, 4, 4]], level: 15 } } as never, "Raise a tile"));
+  await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[4, 4, 4]], level: 15, exact: true } } as never, "Raise a tile"));
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().version)).toBeGreaterThan(v0);
   await expect.poll(() => showing(page), { timeout: 60_000 }).toBe(true);
   expect(errors).toEqual([]);
