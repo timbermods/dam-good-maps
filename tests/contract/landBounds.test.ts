@@ -66,7 +66,8 @@ describe("the shown land's bounds (#236)", () => {
   }, 600000);
 
   it("each stage's progress says how many attempts failed before it and why the last did, in a short plain phrase", () => {
-    const { progress, failures } = traced(spec("riverValley", 64, 1));
+    // (seed 2: it fails six attempts before its map, with several reasons; seed 1 makes its map at the first since generator 0.10.7, D502)
+    const { progress, failures } = traced(spec("riverValley", 64, 2));
     expect(failures.length).toBeGreaterThan(1);
     expect(progress[0].failed).toBeUndefined();
     expect(progress[0].tried).toBe(0);

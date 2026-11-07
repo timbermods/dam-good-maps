@@ -359,7 +359,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   core's top-down thumbnail at 256px (`thumbnailPixels(…, 256)`), scaled to the box; the core never enlarges, so a
   128² map's picture is 128px.
 - **Top left of the map:** the Show toggles as one column of rows, one width, left edges aligned: Heights, Lines,
-  Markers, Flow, See-through, Badwater (Caves and overhangs added when a map has them), then **Legend**, last. Each row has a
+  Markers, Flow, See-through, Hide objects, Badwater (Caves and overhangs added when a map has them), then **Legend**, last. Each row has a
   14px square checkbox
   at the left of its name (a 1.5px quiet border, 3px corners; ticked: the mint fill with a dark tick), as in
   Timberborn's settings; the row itself is never lit, and a click anywhere on it toggles it; several can be on. An
