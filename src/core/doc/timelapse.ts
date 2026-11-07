@@ -17,6 +17,7 @@ import { keptOnStack } from "../sim/stackFed";
 import type { WaterModel } from "../sim/water";
 import type { EntitySpec } from "../format/entities";
 import { sameMap } from "./stored";
+import { hypot } from "../math/portable";
 
 /** What kind of edit a step is, for its pace and its camera. */
 export type LapseKind = "force" | "land" | "objects" | "water" | "other";
@@ -94,7 +95,7 @@ function along(points: readonly (readonly [number, number])[]): { pts: readonly 
   const at = new Float64Array(points.length);
   let total = 0;
   for (let k = 1; k < points.length; k++) {
-    total += Math.hypot(points[k][0] - points[k - 1][0], points[k][1] - points[k - 1][1]);
+    total += hypot(points[k][0] - points[k - 1][0], points[k][1] - points[k - 1][1]);
     at[k] = total;
   }
   if (total > 0) for (let k = 0; k < at.length; k++) at[k] /= total;
@@ -114,7 +115,9 @@ function placeOn(p: { pts: readonly (readonly [number, number])[]; at: Float64Ar
     const dy = by - ay;
     const len2 = dx * dx + dy * dy;
     const t = len2 > 0 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len2)) : 0;
-    const d = (x - ax - t * dx) ** 2 + (y - ay - t * dy) ** 2;
+    const ex = x - ax - t * dx;
+    const ey = y - ay - t * dy;
+    const d = ex * ex + ey * ey;
     if (d < best) {
       best = d;
       place = at[k - 1] + (at[k] - at[k - 1]) * t;
@@ -130,7 +133,7 @@ function radial(tiles: Int32Array, W: number, cx: number, cy: number, spread: nu
   for (let k = 0; k < tiles.length; k++) {
     const x = tiles[k] % W;
     const y = (tiles[k] - x) / W;
-    out[k] = Math.hypot(x - cx, y - cy);
+    out[k] = hypot(x - cx, y - cy);
     if (out[k] > far) far = out[k];
   }
   for (let k = 0; k < out.length; k++) out[k] = far > 0 ? (out[k] / far) * spread : 0;
