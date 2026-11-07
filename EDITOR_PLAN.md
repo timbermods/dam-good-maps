@@ -469,8 +469,9 @@ place of its bottom rule.
   with a volume and an off switch the player keeps (D212); water ambience is off unless turned on. The recordings
   load on the first click or key, never with the page, and nothing waits on them. Micro-animations follow the
   reduced-motion setting. Nothing new stays on screen unless in use.
-- **The hover readout:** a quiet corner line for what's under the cursor ("Height 11, dry soil"); over water, its
-  depth, the bed level and its contamination (D196). **It names every object and plant too**, with its key fact
+- **The hover readout:** a quiet corner line for what's under the cursor ("Height 11, dry soil"); over water, the
+  water's level (bed plus depth, so a lake's level is read in one tile: showcase-craft gap 19), its depth, the bed
+  level and its contamination (D196): "Water at level 4.6, 0.6 deep, bed level 4". **It names every object and plant too**, with its key fact
   where one is useful (D347, B11): "Mine site", "Ruin, 5 levels, 75 scrap metal", "Water source, 1 water/s", "Pine,
   grown", "Relic, medium"; where an object sits on ground the line gives both ("Geothermal field · Height 5, dry
   soil"), up to three objects separated by ";". It works with any tool held. It is one plain core function,
