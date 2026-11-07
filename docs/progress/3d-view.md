@@ -558,11 +558,14 @@ Standard's shadow before a cave (item 8).
   - The post chain: URP's LDR grading under Gamma: to linear, +0.15 EV, Neutral tonemapping, contrast +14 round
     ACEScc's mid grey in LogC, saturation +3, back to display values; the sky takes it too.
   - Editing aids are drawn after the fog and the post chain, in their own channel, so they keep their full contrast:
-    the selection and footprints, hatching, the Markers' outlines, level lines, the hovered tile, the water's
-    overlays, the sources' wells, the pointer's source's glow and a highlighted source (D196, D249), and a highlighted
-    object (its instance colour comes negative and the shader tints it after the grade: `aidTint`, `sourceTint`).
-  - An eruption's lava (D206, D378) is its own light, as a URP emission: never fogged, and bright enough (3.2, 0.5,
-    0.02 at its hottest) to come through the Neutral tonemap the strong orange it was.
+    the selection and footprints, hatching, the Markers' outlines and their ledge and groove on walls, level lines,
+    the hovered tile, clear water's veil (D196, D212), the water's overlays, the sources' wells, the pointer's source's
+    glow and a highlighted source (D196, D249), and a highlighted object or the placement ghost (its instance colour
+    comes negative, less 10 times its tint's index, and the shader tints it after the grade: `AID_TINT`). The slice's
+    cut cap is the cut view's look (D207) and is graded.
+  - An eruption's lava (D206, D378) is its own light, as a URP emission: bright enough (3.2, 0.5, 0.02 at its
+    hottest) to come through the Neutral tonemap the strong orange it was, and fogged with distance as URP fogs
+    emission.
   - Not drawn: `m_AmbientIntensity` 1.2, unsettled (Unity's Lighting window offers it for Skybox ambient only, but the
     game's shade against its sun points to an ambient about 1.2× ours: the frame capture decides), and bloom
     (threshold 1.5: highlights only).

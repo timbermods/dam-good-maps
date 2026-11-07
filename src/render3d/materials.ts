@@ -256,6 +256,18 @@ const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000))
 /** A colour or coefficients to six places (the ambient's SH, which can be small or negative). */
 const glColor3 = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1e6) / 1e6)).join(", ")})`;
 
+/** The tints an editing aid puts on an object after the grade (objectMaterial), by index: 0 the highlight's
+ *  (`aidTint`, Remove's red), 1 a source's (`sourceTint`), 2–4 the placement ghost's where it fits, warns or is refused
+ *  (D184). renderer.ts writes the object's instance colour as −colour − 10 × index. */
+export const AID_TINT = {
+  highlight: 0,
+  source: 1,
+  ghost: { fits: 2, warns: 3, refused: 4 },
+  fits: [0.7, 1.3, 0.7] as Rgb,
+  warns: [1.4, 1.1, 0.5] as Rgb,
+  refused: [1.5, 0.55, 0.5] as Rgb,
+} as const;
+
 /** The pattern texture: its size, and the cells of each pattern across it (each tiles). */
 const PATTERN_SIZE = 1024;
 const NOISE_CELLS = 64;
@@ -785,12 +797,12 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
     return clamp(o.rgb * 1.4 + 0.3, 0.0, 1.0);
   }
   /** The game's finish (palette.ts GAME_FINISH): its exponential fog by the view depth (URP's FOG_EXP), then its post
-   *  chain; with the light a surface gives off itself (an eruption's lava, as URP's emission) added after the fog, which
-   *  never washes it out, before the post chain. Editing aids go on after it all (D497: their own channel). */
+   *  chain; with the light a surface gives off itself (an eruption's lava, as URP's emission) added to its colour
+   *  first, so the fog takes it with distance as it takes everything (URP's MixFog after the emission). Editing aids go
+   *  on after it all (D497: their own channel). */
   vec3 finishLit(vec3 c, vec3 emission, vec3 world) {
     float depth = max(-(viewMatrix * vec4(world, 1.0)).z - fogNear - fogShift, 0.0);
-    c = mix(hazeColor, c, exp2(-fogDensity * depth));
-    return gamePost(c + emission);
+    return gamePost(mix(hazeColor, c + emission, exp2(-fogDensity * depth)));
   }
   vec3 finish(vec3 c, vec3 world) {
     return finishLit(c, vec3(0.0), world);
@@ -1249,6 +1261,9 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
         vec3 c;
         vec3 light;
         float sunHere = 0.0;
+        // (Markers' ledge and groove on a wall, an editing aid: put on after the grade)
+        float ledge = 0.0;
+        float groove = 0.0;
         if (n.y > 0.5) {
           // the tile and its three neighbours toward this point (the light look: the tile alone)
           vec2 fr = g - tile;
@@ -1427,8 +1442,8 @@ ${hook(h, "wall")}          float py = fwidth(y);
           float lines = ceiling ? 0.0 : (1.0 - smoothstep(0.22, 0.34, py)) * ${hook(h, "wallLines", "markers")};
           float lw = max(0.09, 1.2 * py);
           float gw = max(0.035, 0.8 * py);
-          wc = mix(wc, ${glColor(WALL.ledge)}, smoothstep(1.0 - lw - py * 0.5, 1.0 - lw + py * 0.5, fy) * lines);
-          wc = mix(wc, ${glColor(WALL.groove)}, (1.0 - smoothstep(gw - py * 0.5, gw + py * 0.5, fy)) * lines);
+          ledge = smoothstep(1.0 - lw - py * 0.5, 1.0 - lw + py * 0.5, fy) * lines;
+          groove = (1.0 - smoothstep(gw - py * 0.5, gw + py * 0.5, fy)) * lines;
           float lip = ceiling ? 0.0 : 1.0 - smoothstep(0.07, 0.13, h0 - y);
           vec4 s0 = soilOf(d0);
           vec3 top = groundMode > 0.5 ? heightColor(h0) : mix(${glColor(GROUND.dry)} * 0.85, ${glColor(GROUND.moistHigh)}, grassOf(s0.x));
@@ -1496,7 +1511,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
         // crust fades back into the ground; ash dusts the slopes round it
         // (not on the map's outer walls: the mask's edge would stretch down them)
         // (the lava's glow is its own light, as a URP emission: bright enough to come through the post chain's Neutral
-        // tonemap the strong orange it is, and never fogged)
+        // tonemap the strong orange it is, and fogged with distance as everything is)
         vec3 emission = vec3(0.0);
         vec2 eAt = vec2(vWorld.x, -vWorld.z);
         bool eWall = abs(n.y) < 0.5 && (eAt.x < 0.01 || eAt.y < 0.01 || eAt.x > mapSize.x - 0.01 || eAt.y > mapSize.y - 0.01);
@@ -1518,6 +1533,8 @@ ${hook(h, "wall")}          float py = fwidth(y);
         }
         // the look as the game draws it, fogged and graded; the editing aids after it, in their own channel (D497)
         c = finishLit(c, emission, vWorld);
+        c = mix(c, ${glColor(WALL.ledge)}, ledge);
+        c = mix(c, ${glColor(WALL.groove)}, groove);
         vec4 o = texture2D(overlay, (tile + 0.5) / mapSize);
         #if CUTAWAY
           // (a selection taken on a run is drawn on that run, the rest of the column as the land outside it)
@@ -1863,6 +1880,10 @@ ${hook(h, "water")}        #ifdef CAVES
         // Clean water keeps a faint blue tint over the bed, its ripples and a soft bright line along
         // its shore; badwater keeps its colour, murky and half see-through, with its dull troughs
         // and slow glowing bubbles (never a hatching: it reads by lightness, colour and texture, D324)
+        // the water as the game draws it, fogged and graded; the editing aids after it, in their own channel (D497):
+        // the clear water's veil (D196, D212), the selection, the sources' wells and the pointer's source's glow (D196),
+        // a highlighted source (D249)
+        c = finish(c, vWorld);
         float clr = clearWater;
         if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
         if (clr > 0.001) {
@@ -1885,9 +1906,6 @@ ${hook(h, "water")}        #ifdef CAVES
           c = mix(c, mix(cc, bc, badish), clr);
           alpha = mix(alpha, ca, clr);
         }
-        // the water as the game draws it, fogged and graded; the editing aids after it, in their own channel (D497):
-        // the selection, the sources' wells and the pointer's source's glow (D196), a highlighted source (D249)
-        c = finish(c, vWorld);
         if (n.y > 0.5) {
           vec4 o = texture2D(overlay, (floor(g) + 0.5) / mapSize);
           #ifdef CAVES
@@ -2055,15 +2073,13 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         vColor = ${hook(h, "objectColor", "pcolor")};
         vAid = vec3(1.0);
         #ifdef USE_INSTANCING_COLOR
-          // (a highlighted object's colour comes negative, its highlight tinting it after the grade: renderer.ts
-          // highlightObjects; a source's, less 10 more, takes the sources' tint)
+          // (an object an editing aid tints comes negative, less 10 times its tint's index (materials.ts AID_TINT), and
+          // takes that tint after the grade: renderer.ts highlightObjects, setGhost)
           vec3 ic = instanceColor;
-          if (ic.r < -5.0) {
-            ic = -ic - 10.0;
-            vAid = sourceTint;
-          } else if (ic.r < 0.0) {
-            ic = -ic;
-            vAid = aidTint;
+          if (ic.r < 0.0) {
+            float k = floor(-ic.r / 10.0);
+            ic = -ic - 10.0 * k;
+            vAid = k < 0.5 ? aidTint : k < 1.5 ? sourceTint : k < 2.5 ? ${glColor(AID_TINT.fits)} : k < 3.5 ? ${glColor(AID_TINT.warns)} : ${glColor(AID_TINT.refused)};
           }
           vColor *= ic;
         #endif

@@ -68,7 +68,7 @@ import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, mod
 import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
-import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
@@ -2410,7 +2410,8 @@ export class MapRenderer {
       dead = new Uint8Array(m.W * m.H);
       for (const t of tiles) dead[t] = 1;
     }
-    const soil = m.soil;
+    // (the soil the objects are drawn by: a provisional soil without its run tops keeps the last drawn, as the ruins do)
+    const soil = this.objectSoil();
     const sw = m.surface;
     const lower = sw?.lower.length ? lowerWater(m.water, m.W * m.H) : null;
     const rule = e.templates.map((t) => WITHERING_SPECIES.has(t));
@@ -2623,13 +2624,14 @@ export class MapRenderer {
       const { group } = buildEntities(one, this.objectMat, null, 0, this.software);
       // (the High look's own models, D241: the ghost shows what will be placed)
       const undo = this.high?.decorate(group, one);
-      const tint: [number, number, number] | null = g.ok === null ? null : g.ok === "warn" ? [1.4, 1.1, 0.5] : g.ok ? [0.7, 1.3, 0.7] : [1.5, 0.55, 0.5];
-      if (tint)
+      // (its tint an editing aid, put on after the grade: materials.ts AID_TINT)
+      const tint = g.ok === null ? null : g.ok === "warn" ? AID_TINT.ghost.warns : g.ok ? AID_TINT.ghost.fits : AID_TINT.ghost.refused;
+      if (tint !== null)
         for (const c of group.children) {
           const col = (c as InstancedMesh).instanceColor;
           if (!col) continue;
           const a = col.array as Float32Array;
-          for (let k = 0; k < a.length; k++) a[k] = Math.min(2, a[k] * tint[k % 3]);
+          for (let k = 0; k < a.length; k++) a[k] = -a[k] - 10 * tint;
           col.needsUpdate = true;
         }
       group.renderOrder = 2;
@@ -2800,7 +2802,7 @@ export class MapRenderer {
           // (a source's blue would only darken: it turns a clear red, D249)
           const t = m.entities.templates[m.entities.template[k]];
           const source = t === "WaterSource" || t === "BadwaterSource";
-          for (let j = 0; j < 3; j++) a[i * 3 + j] = -a[i * 3 + j] - (source ? 10 : 0);
+          for (let j = 0; j < 3; j++) a[i * 3 + j] = -a[i * 3 + j] - 10 * (source ? AID_TINT.source : AID_TINT.highlight);
           mesh.instanceColor.needsUpdate = true;
         }
       }
