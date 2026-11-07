@@ -11,6 +11,9 @@
 // --opening (D493) also shows the game's opening shot: the frame's upper half within 60 tiles of the
 // start tinted (where a landmark stands in view, analysis/opening.ts), the camera's look a yellow line
 // from the start, and the landmark in view a cyan square.
+// --soil (D504) colours the ground as the game shows its soil: dry ground brown, moist ground green
+// (the game's desert share at each moisture level, render3d/palette.ts `DESERT`), living plants dark
+// green, the light still from the relief.
 //   python tools/contact-sheet.py .scratch/sheet docs/sheets/<step>.png "<title>"
 //
 // M9a's `npm run sheet` replaces both (ROADMAP M9a).
@@ -22,6 +25,7 @@ import { fallsOf } from "../src/core/analysis/vertical";
 import { generate } from "../src/core/gen/generate";
 import { shadeTiles } from "../src/core/render/shade";
 import { AVAILABLE_THEMES, GENERATOR_VERSION, makeSpec } from "../src/core/spec/mapspec";
+import { soilShade } from "./lib/bare";
 import { encodePng } from "./png";
 
 function arg(name: string, fallback: string): string {
@@ -34,6 +38,7 @@ const size = Number(arg("size", "128"));
 const out = arg("out", ".scratch/sheet");
 const showBadwater = process.argv.includes("--badwater");
 const showOpening = process.argv.includes("--opening");
+const showSoil = process.argv.includes("--soil");
 const only = arg("themes", "").split(",").filter(Boolean);
 mkdirSync(out, { recursive: true });
 const index: { theme: string; seed: number; file: string; attempts: number; passed: boolean; landmarkInView?: boolean }[] = [];
@@ -42,6 +47,7 @@ for (const theme of AVAILABLE_THEMES.filter((t) => only.length === 0 || only.inc
     const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
     const { W, H } = r.built;
     const rgb = shadeTiles(r.built.heights, W, H, r.built.water);
+    if (showSoil) soilShade(r.built, rgb);
     // north up: the map's y grows northward, the picture's rows downward
     const img = new Uint8Array(W * H * 3);
     for (let y = 0; y < H; y++) img.set(rgb.subarray(y * W * 3, (y + 1) * W * 3), (H - 1 - y) * W * 3);
