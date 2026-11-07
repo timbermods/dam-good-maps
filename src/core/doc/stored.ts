@@ -298,8 +298,8 @@ function exactJson(v: unknown): string {
 /** Whether two built maps are the same map, byte for byte: the ground, every water and soil
  *  layer and the settle, the objects, the slopes, the sources and the start. Caches, notes and
  *  the dirty region are not the map. With `water: false`, the water, the soil it wets and the
- *  settle are left out, and with them a plant's life and growth (the time-lapse's quick check: the
- *  ground, blocks and objects alone). */
+ *  settle are left out, and each object is only what it is and where it stands (a plant's life is
+ *  the settled water's): the time-lapse's quick check, the ground, blocks and objects alone. */
 export function sameMap(a: BuildResult, b: BuildResult, opts: { water?: boolean } = {}): boolean {
   if (a.W !== b.W || a.H !== b.H || a.seed !== b.seed) return false;
   const water = opts.water ?? true;
@@ -332,9 +332,9 @@ export function sameMap(a: BuildResult, b: BuildResult, opts: { water?: boolean 
   if (ma && mb) for (const [i, m] of ma) if (mb.get(i) !== m) return false;
   if (water && (a.settle.ticks !== b.settle.ticks || a.settle.settled !== b.settle.settled || !!a.settle.preview !== !!b.settle.preview)) return false;
   if (a.entities.length !== b.entities.length) return false;
-  // (without the water, a plant's life and growth too: the soil the settled water wets decides them, and a plant that
-  // dies loses its growth)
-  const object = (e: BuildResult["entities"][number]) => exactJson(water || !e.components ? e : { ...e, components: { ...e.components, LivingNaturalResource: undefined, Growable: undefined } });
+  // (without the water, each object by what it is and where it stands: whether a plant lives, and so what it carries,
+  // is the soil's the settled water wets)
+  const object = (e: BuildResult["entities"][number]) => (water ? exactJson(e) : JSON.stringify([e.id, e.template, e.x, e.y, e.z, e.orientation, e.flipped]));
   for (let i = 0; i < a.entities.length; i++) if (object(a.entities[i]) !== object(b.entities[i])) return false;
   return exactJson([a.slopes, a.sources, a.start ?? null]) === exactJson([b.slopes, b.sources, b.start ?? null]);
 }

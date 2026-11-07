@@ -8,6 +8,7 @@ import { applyForce } from "../../src/core/collab";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
+import { sameMap } from "../../src/core/doc/stored";
 import { heightsAt, logSteps, revealOrder, TimelapseReplay } from "../../src/core/doc/timelapse";
 import { mapProject, Stream, type Kind } from "./collabFixtures";
 
@@ -62,6 +63,8 @@ describe("the time-lapse's replay ends as the map itself", () => {
     let flowed = 0;
     while (r.next()) if (r.flow(48)) flowed++;
     expect(flowed).toBeGreaterThan(0);
+    // (the recorder's quick check, before any settle: the land, blocks and objects are the map's)
+    expect(sameMap(r.map.built, r.target.built, { water: false })).toBe(true);
     expect(r.finish()).toBe(true);
   });
 
