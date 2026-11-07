@@ -18,15 +18,27 @@
 //   arch, its crown 2 or more above the water. Worn, never a plank: one spine row whole at the rims'
 //   level, the rows beside it thinner, waisted and notched, its feet flared.
 //
-// The surface is kept wherever a form can keep it: a cave and an overhang are worn below the top
-// (the land seen from above does not change); only an arch's deck is new ground, over the gorge.
+// - An arch worn through rock (D503): where a thin ridge, fin or headland of rock stands between low
+//   ground or water on both sides, open beyond each side, a window is worn through it at the low
+//   ground's level, 2–4 wide and 3 or more high under a roof of 1–2 levels, its underside curved and
+//   worn; kept only where the game's camera sees through it to the land or water beyond, both ways
+//   (analysis/seeThrough.ts). On Islands a sea arch through a headland, by a lake a lakeside arch, in
+//   a canyon an arch in a fin: the land decides which.
+// - An overhanging cliff (D503): where a cliff 4 or more high stands over level dry ground anywhere on
+//   the map, its foot is worn back 2–3 tiles along a stretch of its face, as the start's overhang is.
+//
+// The surface is kept wherever a form can keep it: a cave, an overhang and an arch worn through rock
+// are worn below the top (the land seen from above does not change); only a gorge arch's deck is new
+// ground, over the gorge. An arch and an overhang are kept only where they read as one (D503): an
+// arch open through, an overhang's roof two or more tiles deep.
 // Exact arithmetic only (num.ts): integers and comparisons.
 
+import { bestHeading, readsThrough, roofDepths, SEE_HEADINGS, seeThrough, shelters, underRock } from "../analysis/seeThrough";
 import type { Rng } from "../math/rng";
 import { plainMask, TERRAIN_LAYERS } from "../terrain/runs";
 import { unsupportedVoxels } from "../terrain/support";
 
-export const FORMS = ["spring-cave", "start-overhang", "gorge-arch"] as const;
+export const FORMS = ["spring-cave", "start-overhang", "gorge-arch", "rock-arch", "cliff-overhang"] as const;
 export type FormId = (typeof FORMS)[number];
 
 /** The outcome in a player's words (D138 (1)). */
@@ -34,6 +46,8 @@ export const FORM_TEXT: Record<FormId, string> = {
   "spring-cave": "A spring rises inside a cave and feeds the river.",
   "start-overhang": "An overhang shelters the start: the cliff beside it hangs over level ground.",
   "gorge-arch": "A natural arch spans a gorge, the river running under it.",
+  "rock-arch": "A natural arch is worn through the rock, the land beyond seen under it.",
+  "cliff-overhang": "A cliff overhangs the ground at its foot, a shelter under the rock.",
 };
 
 export interface FormsInput {
@@ -80,6 +94,8 @@ export interface FormPlan {
   spring?: number;
   course?: number[];
   flow?: number;
+  /** An arch worn through rock: over water or dry ground. */
+  over?: "water" | "land";
   /** Its measures, for the record. */
   note: string;
 }
@@ -114,7 +130,7 @@ export function growForms(inp: FormsInput, want: FormsWanted, rng: Rng): Forms {
     let got = 0;
     let why = "no place";
     if (n > 0) {
-      const grown = id === "spring-cave" ? springCaves(ctx, n) : id === "start-overhang" ? startOverhang(ctx) : gorgeArches(ctx, n);
+      const grown = id === "spring-cave" ? springCaves(ctx, n) : id === "start-overhang" ? startOverhang(ctx) : id === "gorge-arch" ? gorgeArches(ctx, n) : id === "rock-arch" ? rockArches(ctx, n) : cliffOverhangs(ctx, n);
       for (const f of grown.forms) {
         forms.push(f);
         got++;
@@ -148,9 +164,10 @@ function grown(m: Uint8Array, W: number, H: number, r: number): Uint8Array {
 
 const inside = (W: number, H: number, x: number, y: number, m = MARGIN) => x >= m && y >= m && x < W - m && y < H - m;
 
-/** Apply a form's change and keep it only when nothing falls (the support rule); the tiles and a
- *  one-tile ring round them are then taken, so no two forms touch. */
-function commit(c: Ctx, change: Map<number, number>): boolean {
+/** Apply a form's change and keep it only when nothing falls (the support rule) and, when asked,
+ *  when it reads as what it is (`reads`, on the terrain with it); the tiles and a one-tile ring
+ *  round them are then taken, so no two forms touch. */
+function commit(c: Ctx, change: Map<number, number>, reads?: () => boolean): boolean {
   const { W, H } = c.inp;
   const before = new Map<number, number>();
   for (const [i, m] of change) {
@@ -160,7 +177,7 @@ function commit(c: Ctx, change: Map<number, number>): boolean {
   const falls = unsupportedVoxels({ W, H, mask: c.mask });
   let fell = false;
   for (let k = 0; k < falls.length && !fell; k++) if (falls[k]) fell = true;
-  if (fell) {
+  if (fell || (reads && !reads())) {
     for (const [i, m] of before) c.mask[i] = m;
     return false;
   }
@@ -521,25 +538,14 @@ function gallery(c: Ctx, x0: number, y0: number, d: readonly [number, number], z
 // --------------------------------------------------------------------------------- start overhang
 
 function startOverhang(c: Ctx): { forms: FormPlan[]; why: string } {
-  const { inp, mask, used, rng } = c;
-  const { W, H, heights, water, keep } = inp;
+  const { inp } = c;
+  const { W, H, heights, water } = inp;
   const st = inp.start;
   if (!st) return { forms: [], why: "no start" };
   const z = st.z;
   const N = W * H;
   const R = 8 + Math.floor(inp.vt / 25);
   const near = (x: number, y: number) => Math.max(Math.abs(x - st.x), Math.abs(y - st.y)) <= R;
-  const wetBy = (i: number) => {
-    const x = i % W;
-    const y = (i - x) / W;
-    if (water[i] > 0.01) return true;
-    for (const [dx, dy] of D4) {
-      const xx = x + dx;
-      const yy = y + dy;
-      if (xx >= 0 && yy >= 0 && xx < W && yy < H && water[yy * W + xx] > 0.01) return true;
-    }
-    return false;
-  };
   // the start's level ground: dry tiles at its floor joined to its 3×3
   const foot = new Uint8Array(N);
   const q: number[] = [];
@@ -563,7 +569,115 @@ function startOverhang(c: Ctx): { forms: FormPlan[]; why: string } {
       q.push(j);
     }
   }
-  // the cliff's face: tiles beside that ground 3 or more above it (2 high under a layer of rock)
+  const got = wearBack(c, foot, q, z, st.x, st.y, 3, { short: "no cliff beside the start", tooShort: "the cliff beside the start is too short", thin: "the cliff beside the start is too thin", fell: "the overhang would fall" });
+  if (typeof got === "string") return { forms: [], why: got };
+  return { forms: [{ id: "start-overhang", at: got.at, from: st.y * W + st.x, tiles: got.tiles, note: got.note }], why: "" };
+}
+
+/** Overhanging cliffs anywhere on the map (D503): where a cliff 4 or more high stands over level dry
+ *  ground that runs out from its foot, its foot worn back as the start's overhang is; and where a
+ *  shore's cliff stands 3 or more over open water (a sea's, a lake's), a notch worn back at the
+ *  waterline, its floor just over the water: a sea cave's ledge on Islands, a lakeside overhang. */
+function cliffOverhangs(c: Ctx, n: number): { forms: FormPlan[]; why: string } {
+  const { inp, mask, used, rng } = c;
+  const { W, H, heights, water, keep, plants } = inp;
+  const N = W * H;
+  const wet = (i: number) => water[i] > 0.01;
+  // the level an overhang's floor stands at beside tile i: dry ground's own, just over open water's
+  const level = (i: number) => (wet(i) ? Math.ceil(heights[i] + water[i]) : heights[i]);
+  // a tile with level ground or open water running two tiles out from a cliff's foot
+  const sites: number[] = [];
+  for (let y = MARGIN + 2; y < H - MARGIN - 2; y++)
+    for (let x = MARGIN + 2; x < W - MARGIN - 2; x++) {
+      const i = y * W + x;
+      if (keep[i] || used[i]) continue;
+      const z = level(i);
+      const rise = wet(i) ? 3 : 4;
+      for (const [dx, dy] of D4) {
+        const j = i + dx + dy * W;
+        if (wet(j) || heights[j] < z + rise || mask[j] !== plainMask(heights[j]) || keep[j] || plants[j] || used[j]) continue;
+        const b1 = i - dx - dy * W;
+        const b2 = b1 - dx - dy * W;
+        if (wet(b1) !== wet(i) || wet(b2) !== wet(i) || level(b1) !== z || level(b2) !== z) continue;
+        sites.push(i);
+        break;
+      }
+    }
+  if (!sites.length) return { forms: [], why: "no cliff over level ground or water" };
+  const forms: FormPlan[] = [];
+  let why = "no cliff over level ground or water";
+  const tried = new Set<string>();
+  let tries = 0;
+  for (const s of shuffled(sites, rng)) {
+    if (forms.length >= n || tries >= CLIFF_TRIES) break;
+    const sx = s % W;
+    const sy = (s - sx) / W;
+    // (one a stretch of cliff)
+    const key = `${sx >> 3},${sy >> 3}`;
+    if (tried.has(key) || used[s]) continue;
+    tried.add(key);
+    tries++;
+    const z = level(s);
+    const shore = wet(s);
+    // its level ground (or its water): tiles at its level joined to it, within 6
+    const foot = new Uint8Array(N);
+    const q = [s];
+    foot[s] = 1;
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k];
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of D4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (!inside(W, H, xx, yy, 1) || Math.max(Math.abs(xx - sx), Math.abs(yy - sy)) > 6) continue;
+        const j = yy * W + xx;
+        if (foot[j] || wet(j) !== shore || level(j) !== z || keep[j] || used[j]) continue;
+        foot[j] = 1;
+        q.push(j);
+      }
+    }
+    if (q.length < 8) continue;
+    const got = wearBack(c, foot, q, z, sx, sy, shore ? 3 : 4, { short: "no cliff over level ground or water", tooShort: "the cliff is too short", thin: "the cliff is too thin", fell: "the overhang would fall" }, shore);
+    if (typeof got === "string") {
+      why = got;
+      continue;
+    }
+    // (best seen from the level ground or the water in front of it, a few tiles out)
+    const ax = got.at % W;
+    const ay = (got.at - ax) / W;
+    const fx = Math.max(0, Math.min(W - 1, sx + Math.sign(sx - ax) * 8));
+    const fy = Math.max(0, Math.min(H - 1, sy + Math.sign(sy - ay) * 8));
+    forms.push({ id: "cliff-overhang", at: got.at, from: fy * W + fx, tiles: got.tiles, over: shore ? "water" : "land", note: `${got.note}${shore ? ", over the water" : ""}` });
+  }
+  return { forms, why: forms.length ? "no other cliff over level ground or water" : why };
+}
+
+/** How many places an overhanging cliff is tried at, at most. */
+const CLIFF_TRIES = 12;
+
+/** A stretch of the cliff beside level ground `foot` (at floor `z`) worn back 2–3 tiles, from the face
+ *  tile nearest (cx, cy) along its neighbours (the face `rise` or more over the ground); kept only
+ *  where nothing falls and its roof reads as a shelter, two or more tiles deep (D503). At a `shore`,
+ *  `foot` is the water and `z` the level just over it. */
+function wearBack(c: Ctx, foot: Uint8Array, q: readonly number[], z: number, cx: number, cy: number, rise: number, why: { short: string; tooShort: string; thin: string; fell: string }, shore = false): { at: number; tiles: number[]; note: string } | string {
+  const { inp, mask, used, rng } = c;
+  const { W, H, heights, water, keep } = inp;
+  // (no water beside the rock worn, so none runs in under it; at a shore's notch, whose floor stands
+  // over the water, only its own tile dry)
+  const wetBy = (i: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    if (water[i] > 0.01) return true;
+    if (shore) return false;
+    for (const [dx, dy] of D4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx >= 0 && yy >= 0 && xx < W && yy < H && water[yy * W + xx] > 0.01) return true;
+    }
+    return false;
+  };
+  // the cliff's face: tiles beside that ground `rise` or more above it (2 high under a layer of rock)
   const face: { i: number; n: readonly [number, number]; d: number }[] = [];
   for (const f of q) {
     const x = f % W;
@@ -573,13 +687,13 @@ function startOverhang(c: Ctx): { forms: FormPlan[]; why: string } {
       const yy = y + n[1];
       if (!inside(W, H, xx, yy)) continue;
       const i = yy * W + xx;
-      if (foot[i] || keep[i] || inp.plants[i] || used[i] || heights[i] < z + 3 || mask[i] !== plainMask(heights[i]) || wetBy(i)) continue;
+      if (foot[i] || keep[i] || inp.plants[i] || used[i] || heights[i] < z + rise || mask[i] !== plainMask(heights[i]) || wetBy(i)) continue;
       if (face.some((e) => e.i === i)) continue;
-      face.push({ i, n, d: Math.max(Math.abs(xx - st.x), Math.abs(yy - st.y)) });
+      face.push({ i, n, d: Math.max(Math.abs(xx - cx), Math.abs(yy - cy)) });
     }
   }
-  if (face.length < 4) return { forms: [], why: "no cliff beside the start" };
-  // one stretch of the face, from the tile nearest the start along its neighbours
+  if (face.length < 4) return why.short;
+  // one stretch of the face, from the tile nearest (cx, cy) along its neighbours
   face.sort((a, b) => a.d - b.d || a.i - b.i);
   const byTile = new Map(face.map((e) => [e.i, e]));
   const most = 6 + rng.int(0, 5) + Math.floor(inp.vt / 20);
@@ -600,15 +714,17 @@ function startOverhang(c: Ctx): { forms: FormPlan[]; why: string } {
         }
       }
   }
-  if (stretch.length < 3) return { forms: [], why: "the cliff beside the start is too short" };
-  // worn back 1–3 tiles, the depth wandering along the face; 2 or 3 high where the rock allows. Where
-  // the rock would not hold it (a thin cliff), it is worn less deep, down to a tile
+  // (a shelter's middle stands two deep between its tapered ends: four tiles of face at least)
+  if (stretch.length < 4) return why.tooShort;
+  // worn back 2–3 tiles, the depth wandering along the face; 2 or 3 high where the rock allows. Where
+  // the rock would not hold it (a thin cliff), it is worn less deep, down to two: a roof a tile deep
+  // reads as a ridge's lip, not a shelter (D503)
   const deepest = inp.vt >= 30 ? 3 : 2;
   const depths: number[] = [];
   let depth = 1 + rng.int(0, 2);
   for (let k = 0; k < stretch.length; k++) {
     if (rng.float() < 0.45) depth = Math.max(1, Math.min(deepest, depth + (rng.float() < 0.5 ? -1 : 1)));
-    depths.push(depth);
+    depths.push(Math.max(2, depth));
   }
   // worn as rock wears, not cut (a box's flat face reads as a doorway): its ends taper into the face,
   // a tile deep, two beside them; the opening's height wanders along the face (2 or 3); the roof comes
@@ -632,7 +748,8 @@ function startOverhang(c: Ctx): { forms: FormPlan[]; why: string } {
   }
   const lips = stretch.map(() => rng.float() < 0.3);
   const backs = stretch.map(() => rng.float() < 0.5);
-  for (let most = deepest; most >= 1; most--) {
+  let thin = false;
+  for (let most = deepest; most >= 2; most--) {
     const change = new Map<number, number>();
     let floorTiles = 0;
     let high = 0;
@@ -656,12 +773,16 @@ function startOverhang(c: Ctx): { forms: FormPlan[]; why: string } {
         high = Math.max(high, a);
       }
     });
-    if (floorTiles < 4) return { forms: [], why: "the cliff beside the start is too thin" };
-    if (!commit(c, change)) continue;
+    if (floorTiles < 4) {
+      thin = true;
+      continue;
+    }
+    // (kept where nothing falls and its roof reads as a shelter: three or more tiles two deep)
+    if (!commit(c, change, () => shelters(roofDepths(mask, W, H, change.keys())))) continue;
     const tiles = [...change.keys()].sort((a, b) => a - b);
-    return { forms: [{ id: "start-overhang", at: stretch[Math.floor(stretch.length / 2)].i, from: st.y * W + st.x, tiles, note: `${floorTiles} tiles of ground under the rock at level ${z}, up to ${high} high and ${Math.min(most, deepest)} deep, along ${stretch.length} tiles of the cliff` }], why: "" };
+    return { at: stretch[Math.floor(stretch.length / 2)].i, tiles, note: `${floorTiles} tiles of ground under the rock at level ${z}, up to ${high} high and ${Math.min(most, deepest)} deep, along ${stretch.length} tiles of the cliff` };
   }
-  return { forms: [], why: "the overhang would fall" };
+  return thin ? why.thin : why.fell;
 }
 
 // ------------------------------------------------------------------------------------ gorge arch
@@ -870,18 +991,292 @@ function arch(c: Ctx, s: Site): FormPlan | null {
     // the spine closes over the gap at the rims' level
     if (!band.every((e) => e.o !== spine || kept.get(e.i)! & (1 << topLayer))) continue;
     for (const [i, m] of kept) if (m === mask[i]) kept.delete(i);
-    if (!commit(c, kept)) return null;
+    // (kept where nothing falls and the game's camera sees through under it, both ways along the gorge,
+    // to the river beyond: an arch, not a grotto closed at the back, D503)
+    const wetAt = (i: number, z: number) => inp.water[i] > 0.01 && z >= heights[i] && z < heights[i] + inp.water[i];
+    let seen: ReturnType<typeof seeThrough> | null = null;
+    const reads = () => {
+      seen = seeThrough({ W, H, mask, wet: wetAt }, underRock(mask, N, kept.keys()), true);
+      return readsThrough(seen, [along[0] ? 0 : 2]);
+    };
+    if (!commit(c, kept, reads)) return null;
+    const s2 = seen! as ReturnType<typeof seeThrough>;
     // the crown: the spine's middle, and the air under it
     const row = band.filter((e) => e.o === spine);
     const mid = row[Math.floor((row.length - 1) / 2)].i;
     const under = lowestSolidAbove(kept.get(mid)!, heights[mid]);
     const mx = mid % W;
     const my = Math.floor(mid / W);
-    const fx = Math.max(0, Math.min(W - 1, mx + along[0] * 12));
-    const fy = Math.max(0, Math.min(H - 1, my + along[1] * 12));
+    // (best seen from the end of the gorge its sightlines come from most)
+    const fwd = along[0] ? s2.ways[0][0] + s2.ways[1][0] : s2.ways[0][2] + s2.ways[1][2];
+    const back = along[0] ? s2.ways[0][4] + s2.ways[1][4] : s2.ways[0][6] + s2.ways[1][6];
+    const sgn = fwd >= back ? -1 : 1;
+    const fx = Math.max(0, Math.min(W - 1, mx + sgn * along[0] * 12));
+    const fy = Math.max(0, Math.min(H - 1, my + sgn * along[1] * 12));
     return { id: "gorge-arch", at: mid, from: fy * W + fx, tiles: [...kept.keys()].sort((a, b) => a - b), note: `a span ${s.hi - s.lo + 1} across and ${wide} wide at level ${s.rim}, ${under - wet} levels of air over the water at its crown` };
   }
   return null;
+}
+
+/// ------------------------------------------------------------------------------- arch worn through rock
+
+/** The least air under an arch worn through rock over dry ground (over water, `ARCH_CLEAR` over it). */
+const ROCK_OPEN = 3;
+/** How many places an arch worn through rock is tried at, at most (each a support pass and the
+ *  sightlines through it). */
+const ROCK_TRIES = 24;
+/** How far apart two arches worn through rock stand at least (tiles). */
+const ROCK_APART = 20;
+
+/** One line of a window through a wall of rock, along `a`: from its low mouth `o` tiles along `a` from
+ *  the window's line through (x, y) (a ridge that runs aslant steps sideways from line to line), rock
+ *  `T` thick to the low mouth beyond; the mouths' floors and the water's surfaces at them. */
+interface RockLine {
+  o: number;
+  T: number;
+  fa: number;
+  fb: number;
+  sa: number;
+  sb: number;
+  top: number;
+}
+
+/** A window through a thin wall of rock: its lines, `w` of them side by side along the wall (`p`), the
+ *  first through (x, y). */
+interface RockSite {
+  x: number;
+  y: number;
+  a: readonly [number, number];
+  p: readonly [number, number];
+  w: number;
+  lines: RockLine[];
+  /** The opening's floor at its highest, the water's surface over it (rounded up, 0 when dry), the
+   *  rock's least top. */
+  floor: number;
+  water: number;
+  rock: number;
+  score: number;
+}
+
+/** The tile `k` along line `j` of a window (k = 0 its first mouth, T + 1 the other). */
+function rockTile(s: Pick<RockSite, "x" | "y" | "a" | "p">, j: number, o: number, k: number, W: number): number {
+  return (s.y + s.p[1] * j + s.a[1] * (o + k)) * W + s.x + s.p[0] * j + s.a[0] * (o + k);
+}
+
+/** Arches worn through rock (D503): a ridge, a fin or a headland 1–4 tiles thick (5 from Verticality 50)
+ *  between low ground or water on both sides, open beyond each, worn through at the low ground's level
+ *  between jambs of the same rock; kept only where the game's camera sees through it both ways
+ *  (analysis/seeThrough.ts `readsThrough`). The surface is kept. */
+function rockArches(c: Ctx, n: number): { forms: FormPlan[]; why: string } {
+  const { inp, mask, used, rng } = c;
+  const { W, H, heights, water, keep, plants } = inp;
+  const surf = (i: number) => heights[i] + (water[i] > 0.01 ? water[i] : 0);
+  const thickest = 4 + (inp.vt >= 50 ? 1 : 0);
+  const widest = 3 + (inp.vt >= 50 ? 1 : 0);
+  const free = (i: number) => !keep[i] && !used[i] && mask[i] === plainMask(heights[i]);
+  // one line through the wall from the low tile at (x, y) along a: its thickness and its mouths
+  const line = (x: number, y: number, a: readonly [number, number], o: number): RockLine | null => {
+    if (!inside(W, H, x, y, MARGIN + 3)) return null;
+    const A = y * W + x;
+    if (used[A] || mask[A] !== plainMask(heights[A])) return null;
+    const fa = heights[A];
+    const sa = surf(A);
+    let T = 0;
+    let top = 99;
+    for (let k = 1; k <= thickest + 1; k++) {
+      const xx = x + a[0] * k;
+      const yy = y + a[1] * k;
+      if (!inside(W, H, xx, yy, MARGIN + 3)) return null;
+      const i = yy * W + xx;
+      if (heights[i] >= Math.max(Math.ceil(sa) + ARCH_CLEAR, fa + ROCK_OPEN) + 1) {
+        if (!free(i)) return null;
+        T++;
+        top = Math.min(top, heights[i]);
+        continue;
+      }
+      break;
+    }
+    if (T < 1 || T > thickest) return null;
+    const B = (y + a[1] * (T + 1)) * W + x + a[0] * (T + 1);
+    const fb = heights[B];
+    const sb = surf(B);
+    if (Math.abs(fa - fb) > 3 || top < Math.max(Math.ceil(sb) + ARCH_CLEAR, fb + ROCK_OPEN) + 1) return null;
+    return { o, T, fa, fb, sa, sb, top };
+  };
+  // the next line along the wall: its mouth at most two tiles along a from the last one's, its rock
+  // overlapping the last one's, so the roof runs on whole
+  const next = (x: number, y: number, a: readonly [number, number], p: readonly [number, number], j: number, last: RockLine): RockLine | null => {
+    for (const d of [0, -1, 1, -2, 2]) {
+      const o = last.o + d;
+      const l = line(x + p[0] * j + a[0] * o, y + p[1] * j + a[1] * o, a, o);
+      if (l && o + 1 <= last.o + last.T && last.o + 1 <= o + l.T) return l;
+    }
+    return null;
+  };
+  // a jamb: the wall's rock beside a window's end line standing tall enough to hold its roof, on at
+  // least half the line's thickness (a window at the wall's end would be a notch, not an arch)
+  const jamb = (x: number, y: number, a: readonly [number, number], l: RockLine, floor: number) => {
+    let n = 0;
+    for (let k = 1; k <= l.T; k++) {
+      const xx = x + a[0] * (l.o + k);
+      const yy = y + a[1] * (l.o + k);
+      if (!inside(W, H, xx, yy, MARGIN)) return false;
+      const i = yy * W + xx;
+      if (heights[i] >= floor + ROCK_OPEN + 2 && mask[i] === plainMask(heights[i]) && !used[i]) n++;
+    }
+    return 2 * n >= l.T;
+  };
+  // open beyond a mouth: the next three tiles out no higher than the opening's floor and a level
+  const open = (i: number, d: readonly [number, number], lim: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let k = 1; k <= 3; k++) {
+      const xx = x + d[0] * k;
+      const yy = y + d[1] * k;
+      if (!inside(W, H, xx, yy, 1)) return false;
+      if (surf(yy * W + xx) > lim) return false;
+    }
+    return true;
+  };
+  const sites: RockSite[] = [];
+  for (const a of [[1, 0], [0, 1]] as const) {
+    const p: readonly [number, number] = [a[1], a[0]];
+    for (let y = MARGIN + 3; y < H - MARGIN - 3; y++)
+      for (let x = MARGIN + 3; x < W - MARGIN - 3; x++) {
+        const first = line(x, y, a, 0);
+        if (!first) continue;
+        // its lines: as many as the window is wide (2–3, 4 from Verticality 50), following the wall
+        const lines = [first];
+        while (lines.length < widest) {
+          const l = next(x, y, a, p, lines.length, lines[lines.length - 1]);
+          if (!l) break;
+          lines.push(l);
+        }
+        // (framed: the wall's rock stands beside both its end lines as its jambs)
+        for (; lines.length >= 2; lines.pop()) {
+          const floor = Math.max(...lines.map((l) => Math.max(l.fa, l.fb)));
+          const last = lines[lines.length - 1];
+          if (jamb(x - p[0], y - p[1], a, lines[0], floor) && jamb(x + p[0] * lines.length, y + p[1] * lines.length, a, last, floor)) break;
+        }
+        if (lines.length < 2) continue;
+        const floor = Math.max(...lines.map((l) => Math.max(l.fa, l.fb)));
+        const wet = Math.max(...lines.map((l) => Math.max(l.sa > l.fa ? l.sa : 0, l.sb > l.fb ? l.sb : 0)));
+        const rock = Math.min(...lines.map((l) => l.top));
+        const lim = Math.max(floor, Math.ceil(wet)) + 1;
+        const j = Math.floor(lines.length / 2);
+        const mid = lines[j];
+        const site = { x, y, a, p };
+        if (!open(rockTile(site, j, mid.o, 0, W), [-a[0], -a[1]], lim) || !open(rockTile(site, j, mid.o, mid.T + 1, W), a, lim)) continue;
+        // (a plant rides on a dry arch's rock; over water under the roof it would read as standing in it)
+        const tiles: number[] = [];
+        lines.forEach((l, q) => {
+          for (let k = 1; k <= l.T; k++) tiles.push(rockTile(site, q, l.o, k, W));
+        });
+        if (wet > 0 && tiles.some((i) => plants[i])) continue;
+        const thick = Math.max(...lines.map((l) => l.T));
+        // (the tallest and thinnest first: they read best)
+        sites.push({ ...site, w: lines.length, lines, floor, water: wet > 0 ? Math.ceil(wet) : 0, rock, score: rock - Math.max(floor, Math.ceil(wet)) - thick });
+      }
+  }
+  if (!sites.length) return { forms: [], why: "no thin rock between open ground" };
+  const order = shuffled(sites, rng).sort((p, q) => q.score - p.score);
+  const forms: FormPlan[] = [];
+  let why = "no window through the rock reads";
+  const tried = new Set<string>();
+  let tries = 0;
+  for (const s of order) {
+    if (forms.length >= n || tries >= ROCK_TRIES) break;
+    const key = `${s.x >> 2},${s.y >> 2}`;
+    // (arches stand apart: one a stretch of land)
+    if (tried.has(key) || forms.some((f) => Math.max(Math.abs((f.at % W) - s.x), Math.abs(Math.floor(f.at / W) - s.y)) < ROCK_APART)) continue;
+    let clash = false;
+    s.lines.forEach((l, j) => {
+      for (let k = 0; k <= l.T + 1; k++) if (used[rockTile(s, j, l.o, k, W)]) clash = true;
+    });
+    if (clash) continue;
+    tried.add(key);
+    tries++;
+    const plan = rockArch(c, s);
+    if (plan) forms.push(plan);
+  }
+  return { forms, why: forms.length ? "no other window through the rock reads" : why };
+}
+
+/** The window at a site: worn through from mouth to mouth, its underside curved across its width
+ *  (high in the middle, a level lower at the jambs) and worn a level here and there, under a roof of
+ *  two levels where the rock has them, one where it does not; null when nothing it leaves stands and
+ *  reads. */
+function rockArch(c: Ctx, s: RockSite): FormPlan | null {
+  const { inp, mask, rng } = c;
+  const { W, H } = inp;
+  const N = W * H;
+  const base = Math.max(s.floor + ROCK_OPEN, s.water + ARCH_CLEAR);
+  // the opening as tall as the rock allows under two levels of roof (one where it has no more), up to
+  // 6 high, more as Verticality rises
+  const tallest = Math.min(s.rock - 2, Math.max(s.floor, s.water) + 6 + Math.floor(inp.vt / 25));
+  const roofs = tallest >= base ? [tallest, tallest - 1, base].filter((u, k, all) => u >= base && all.indexOf(u) === k) : s.rock - 1 >= base ? [s.rock - 1] : [];
+  if (!roofs.length) return null;
+  const wear = new Map<number, number>();
+  const cellsOf = (u: number): Map<number, number> => {
+    const change = new Map<number, number>();
+    s.lines.forEach((l, j) => {
+      const edge = s.w >= 3 && (j === 0 || j === s.w - 1);
+      for (let k = 1; k <= l.T; k++) {
+        const i = rockTile(s, j, l.o, k, W);
+        // the floor runs from mouth to mouth between theirs
+        const f = Math.round(l.fa + ((l.fb - l.fa) * k) / (l.T + 1));
+        let w = wear.get(i);
+        if (w === undefined) {
+          w = rng.float() < 0.25 ? (rng.float() < 0.5 ? -1 : 1) : 0;
+          wear.set(i, w);
+        }
+        const under = Math.max(f + ROCK_OPEN, s.water + ARCH_CLEAR, Math.min(s.rock - 1, u - (edge ? 1 : 0) + w));
+        change.set(i, mask[i] & ~bits(f, under));
+      }
+    });
+    return change;
+  };
+  // the water a trial reads under the new roof: up to the mouths' surface, from the window's floor
+  const cellFloor = new Map<number, number>();
+  const wetAt = (i: number, z: number): boolean => {
+    const h = inp.heights[i];
+    const w = inp.water[i];
+    if (w > 0.01 && z >= h && z < h + w) return true;
+    const f = cellFloor.get(i);
+    return s.water > 0 && f !== undefined && z >= f && z < s.water - 0.5;
+  };
+  for (const u of roofs) {
+    const change = cellsOf(u);
+    cellFloor.clear();
+    for (const [i, m] of change) cellFloor.set(i, bottomTop(m));
+    let seen: ReturnType<typeof seeThrough> | null = null;
+    const reads = () => {
+      seen = seeThrough({ W, H, mask, wet: wetAt }, underRock(mask, N, change.keys()), true);
+      return readsThrough(seen, [s.a[0] ? 0 : 2]);
+    };
+    if (!commit(c, change, reads)) continue;
+    const s2 = seen! as ReturnType<typeof seeThrough>;
+    // its heart: the middle line's middle; best seen from the side its sightlines come from most
+    const j = Math.floor(s.w / 2);
+    const mid = s.lines[j];
+    const at = rockTile(s, j, mid.o, Math.max(1, Math.round(mid.T / 2)), W);
+    const [hx, hy] = SEE_HEADINGS[bestHeading(s2)];
+    const ax = at % W;
+    const ay = (at - ax) / W;
+    const fx = Math.max(0, Math.min(W - 1, Math.round(ax - hx * 12)));
+    const fy = Math.max(0, Math.min(H - 1, Math.round(ay - hy * 12)));
+    const thick = Math.max(...s.lines.map((l) => l.T));
+    const over = s.water > 0 ? "water" : "land";
+    return { id: "rock-arch", at, from: fy * W + fx, tiles: [...change.keys()].sort((a, b) => a - b), over, note: `a window ${s.w} wide worn through rock ${thick} thick at level ${s.floor}, ${u - Math.max(s.floor, s.water)} high over the ${over === "water" ? "water" : "ground"} under ${s.rock - u} levels of rock; seen through to ${s2.beyond[1]} tiles at 45°` };
+  }
+  return null;
+}
+
+/** The top of a mask's run from z = 0. */
+function bottomTop(m: number): number {
+  let z = 0;
+  while (z < TERRAIN_LAYERS && m & (1 << z)) z++;
+  return z;
 }
 
 /** The first solid layer at or above `from` in a mask (the underside over air). */

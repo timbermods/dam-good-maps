@@ -20,7 +20,7 @@
 //   ledge over a dark groove between levels, at least a pixel wide at any zoom, so levels can be
 //   counted; a lip of the top's ground.
 // - Water is light teal where shallow (a little of the ground behind showing) and blue where deep, lighter
-//   than dry ground at any depth, with glints and pale ripples that move, no foam. Falls are the water's own
+//   than dry ground at any depth, with pale ripples that move and the sun's sheen, no sparkle, no foam. Falls are the water's own
 //   vertical faces where it steps down, as the game draws them (D201 amended 2026-10-29): the water's
 //   colour with its texture running down, nearly opaque, no whitewater.
 //   Badwater is darker than clean water of the same depth and duller, with the same ripples and
@@ -65,8 +65,8 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
-import { WATER_GLSL } from "./waterPalette";
+import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { WATER_GLSL, WATER_UI } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
 import { CUT_SLACK } from "./cutWater";
@@ -265,16 +265,25 @@ const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000))
 /** A colour or coefficients to six places (the ambient's SH, which can be small or negative). */
 const glColor3 = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1e6) / 1e6)).join(", ")})`;
 
+/** A source the pointer's water comes from (D196): its model takes the glow its water does (the water's colour mixed
+ *  0.45 toward `WATER_UI.sourceGlow`), as a tint of its rock's main colour, so a source's rock in the middle of its
+ *  glowing water glows with it. */
+const shine = (rock: readonly number[]): Rgb => [0, 1, 2].map((j) => 0.55 + (0.45 * WATER_UI.sourceGlow[j]) / rock[j]) as unknown as Rgb;
+
 /** The tints an editing aid puts on an object after the grade (objectMaterial), by index: 0 the highlight's
  *  (`aidTint`, Remove's red), 1 a source's (`sourceTint`), 2–4 the placement ghost's where it fits, warns or is refused
- *  (D184). renderer.ts writes the object's instance colour as −colour − 10 × index. */
+ *  (D184), 5–6 a water or badwater source's glow when the pointer's water comes from it (D196). renderer.ts writes the
+ *  object's instance colour as −colour − 10 × index. */
 export const AID_TINT = {
   highlight: 0,
   source: 1,
   ghost: { fits: 2, warns: 3, refused: 4 },
+  glow: { WaterSource: 5, BadwaterSource: 6 },
   fits: [0.7, 1.3, 0.7] as Rgb,
   warns: [1.4, 1.1, 0.5] as Rgb,
   refused: [1.5, 0.55, 0.5] as Rgb,
+  waterGlow: shine(LANDMARK.rock),
+  badwaterGlow: shine(LANDMARK.crater),
 } as const;
 
 /** The pattern texture: its size, and the cells of each pattern across it (each tiles). */
@@ -1689,7 +1698,7 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
       /** The water's current here as drawn (tiles a second; motion.ts), 0 where still. */
       vec2 waterCurrent(vec2 g) { return (texture2D(flowTex, g / mapSize).rg * 255.0 - 128.0) / 63.5; }
       /** The textures the current carries, at p: the broken foam's noise, the pale streaks, badwater's
-       *  mottled light and dark patches and its bubbles (the ripples and glints stay where they are: a few
+       *  mottled light and dark patches and its bubbles (the ripples stay where they are: a few
        *  noise lookups twice over, not the whole surface, which a modest GPU felt). */
       void flowingAt(vec2 p, float t, float bad, float fine, out float fn, out float pale, out float bubbles, out float dark) {
         fn = vnoise(p * 4.0 + vec2(t * 0.3, -t * 0.2));
@@ -1750,7 +1759,6 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         float film = waterFilm(depth);
         float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);
         float foam = 0.0;
-        float glints = 0.0;
         // the gloss's slow variation, as the game's two panned samples of its gloss map (WATER_SURFACE.smoothness)
         float gloss = 0.5;
         float pale = 0.0;
@@ -1790,7 +1798,7 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
               bubbles = mix(bubbles, bubbles2, blend);
               dark = mix(dark, dark2, blend);
             }
-            // the ripples (the surface's normals) and the glints, carried the same way
+            // the ripples (the surface's normals), carried the same way
             vec2 q1 = p1 * 1.6 + vec2(sin(p1.y * 0.5), sin(p1.x * 0.43)) * 1.5;
             vec2 sl = ripple(q1, t * slow) + 0.6 * ripple(q1 * 1.9 + 7.0, t * 1.3 * slow);
             if (blend > 0.0) {
@@ -1798,13 +1806,6 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
               sl = mix(sl, ripple(qb, t * slow) + 0.6 * ripple(qb * 1.9 + 7.0, t * 1.3 * slow), blend);
             }
             gloss = (vnoise(p1 * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(p1 * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
-            // small glints (D154): a few to a tile, each a few pixels across, gathered in the patches of
-            // ripples that catch the sun, not a static of specks all over (gone where a glint would be
-            // under two pixels)
-            float sparkle = 1.0 - smoothstep(0.035, 0.08, fwidth(g.x));
-            float sunPatch = smoothstep(0.4, 0.75, vnoise(g * 0.45 + vec2(t * 0.03, -t * 0.02)));
-            glints = sparkle * sunPatch * smoothstep(0.84, 0.93, vnoise(p1 * 9.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(p1 * 7.1 - vec2(t * 0.3, t * 0.7)) * 1.6);
-            if (blend > 0.0) glints = mix(glints, sparkle * sunPatch * smoothstep(0.84, 0.93, vnoise(p2 * 9.0 + vec2(t * 0.6, -t * 0.4)) * vnoise(p2 * 7.1 - vec2(t * 0.3, t * 0.7)) * 1.6), blend);
             // calmer from afar, where a pixel spans a ripple (no shimmer)
             float near = 1.0 - smoothstep(0.08, 0.25, fwidth(g.x));
             float calm = 0.07 * near;
@@ -1873,7 +1874,8 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         c *= light;
         c = mix(c, WATER_CREST * light, crest * WATER_CREST_AMOUNT);
         c = mix(c, badwaterShade(BADWATER_TROUGH, depth) * light, trough * BADWATER_TROUGH_AMOUNT);
-        // the sky's reflection, stronger at low angles; pale ripples; the sun's glint and glints; a fall's face
+        // the sky's reflection, stronger at low angles; pale ripples; the sun's glint (no sparkle of our own: the game's
+        // water shader has none, its sheen is the sun's specular at its smoothness, D496's rule); a fall's face
         // lit the same way, as the game lights every pixel of its water
         // (the game's URP lighting at the water's smoothness, clean water's about 0.25 to badwater's 0.15: the sky
         // added on top, as URP's environment term)
@@ -1887,14 +1889,11 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         c = mix(c, WATER_PALE, pale * WATER_PALE_AMOUNT * (1.0 - bad));
         c = mix(c, badwaterShade(BADWATER_STREAK, depth), pale * BADWATER_STREAK_AMOUNT * bad);
         float spec = waterSunGlint(N, V, sunDir, smoothness) * lit;
-        // a film keeps at most a faint sheen of glints: they come in with its body (WATER_FILM), so a glint
-        // never turns a film's faint tint into a solid fleck
-        glints *= film;
-        c += sunColor * (spec + glints * ${f(WS.glints)} * mix(1.0, BADWATER_GLINTS, bad) * (0.3 + 0.7 * lit));
+        c += sunColor * spec;
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
-        // (foam and glints only ever make the water more opaque: deep water and the light look stay opaque)
-        if (n.y > 0.5) alpha = max(alpha, mix(alpha, 0.95, max(foam, glints * 0.6)));
+        // (foam only ever makes the water more opaque: deep water and the light look stay opaque)
+        if (n.y > 0.5) alpha = max(alpha, mix(alpha, 0.95, foam));
 ${hook(h, "water")}        #ifdef CAVES
           // under a roof, the light of the air it stands in, as objects and falls there take it: the open air's sky
           // (D497), and the sun only where the volume's ray reaches
@@ -1927,10 +1926,10 @@ ${hook(h, "water")}        #ifdef CAVES
             cc = WATER_CLEAR_TINT * light;
             cc = mix(cc, WATER_CLEAR_SHORE * light, crest * CLEAR_RIPPLE_LIGHT);
             cc += WATER_SKY * waterSkyReflect(dot(N, V), WATER_SMOOTHNESS);
-            cc += sunColor * (waterSunGlint(N, V, sunDir, WATER_SMOOTHNESS) * lit + glints * ${f(WS.glints * 0.5)} * (0.3 + 0.7 * lit));
+            cc += sunColor * waterSunGlint(N, V, sunDir, WATER_SMOOTHNESS) * lit;
             cc = mix(cc, WATER_FOAM * (0.8 + 0.2 * lit), foam * 0.6);
             cc = mix(cc, WATER_CLEAR_SHORE * (0.85 + 0.15 * lit), line);
-            ca = min(0.9, CLEAR_OPACITY + CLEAR_RIPPLE * crest + 0.15 * glints + CLEAR_SHORE_OPACITY * line + 0.3 * foam);
+            ca = min(0.9, CLEAR_OPACITY + CLEAR_RIPPLE * crest + CLEAR_SHORE_OPACITY * line + 0.3 * foam);
             ca = mix(ca, CLEAR_BAD_OPACITY, badish);
           }
           c = mix(c, mix(cc, bc, badish), clr);
@@ -2142,7 +2141,7 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
           if (ic.r < 0.0) {
             float k = floor(-ic.r / 10.0);
             ic = -ic - 10.0 * k;
-            vAid = k < 0.5 ? aidTint : k < 1.5 ? sourceTint : k < 2.5 ? ${glColor(AID_TINT.fits)} : k < 3.5 ? ${glColor(AID_TINT.warns)} : ${glColor(AID_TINT.refused)};
+            vAid = k < 0.5 ? aidTint : k < 1.5 ? sourceTint : k < 2.5 ? ${glColor(AID_TINT.fits)} : k < 3.5 ? ${glColor(AID_TINT.warns)} : k < 4.5 ? ${glColor(AID_TINT.refused)} : k < 5.5 ? ${glColor(AID_TINT.waterGlow)} : ${glColor(AID_TINT.badwaterGlow)};
           }
           vColor *= ic;
         #endif

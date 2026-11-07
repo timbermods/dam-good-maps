@@ -87,11 +87,13 @@ describe("the fade round the pointer", () => {
   it("drops the start's baked shadow by its model's place, the middle of its footprint, as its fade", () => {
     const e = { count: 2, templates: ["StartingLocation", "Pine"], template: Uint16Array.from([0, 1]), x: Int16Array.from([10, 3]), y: Int16Array.from([20, 4]), orientation: Uint8Array.from([0, 0]) } as unknown as EntityView;
     const places = casterPlaces(e, 32);
-    expect([...places.keys()]).toEqual([20 * 32 + 10]);
-    expect(places.get(20 * 32 + 10)).toEqual([11.5, 21.5]);
+    // (by the middle tile, where light.ts casts the start's tower from since it became the game's, D496, D148: it was
+    // its Coordinates' corner tile)
+    expect([...places.keys()]).toEqual([21 * 32 + 11]);
+    expect(places.get(21 * 32 + 11)).toEqual([11.5, 21.5]);
     // (turned half round, its middle is the other way from its Coordinates)
     const turned = casterPlaces({ ...e, orientation: Uint8Array.from([2, 0]) } as unknown as EntityView, 32);
-    expect(turned.get(20 * 32 + 10)).toEqual([9.5, 19.5]);
+    expect(turned.get(19 * 32 + 9)).toEqual([9.5, 19.5]);
     expect(casterPlaces(null, 32).size).toBe(0);
   });
 

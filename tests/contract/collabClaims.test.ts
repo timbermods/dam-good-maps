@@ -36,11 +36,12 @@ const square = (x0: number, y0: number, x1: number, y1: number): [number, number
   return out;
 };
 
-/** One map, a 48 x 48 Highlands (seed 5, the collab floor) saved as the app saves it
- *  (tests/fixtures/projects: made with `MapSession.fromGenerated(generate(makeSpec({ seed: 5, theme: "highlands",
+/** One map, a 48 x 48 Highlands (seed 16; since generator 0.10.11's natural ramps seed 5, the collab floor, leaves
+ *  no bare block for two claims, D148) saved as the app saves it
+ *  (tests/fixtures/projects: made with `MapSession.fromGenerated(generate(makeSpec({ seed: 16, theme: "highlands",
  *  size: { x: 48, y: 48 } }))).project()`; it opens exactly as saved, so the test does not wait on the
  *  generator). Every test opens its own session from it. */
-const bytes = new Uint8Array(readFileSync("tests/fixtures/projects/collab-highlands-48-5.damgoodmaps"));
+const bytes = new Uint8Array(readFileSync("tests/fixtures/projects/collab-highlands-48-16.damgoodmaps"));
 function session(water: "defer" | "canonical" = "defer"): MapSession {
   const s = MapSession.open(decodeProject(bytes));
   s.setWaterMode(water);

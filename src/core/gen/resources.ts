@@ -32,6 +32,9 @@ export interface Ground {
   start?: { x: number; y: number };
   /** The objects built so far: their slopes say where the colony can walk. */
   entities?: readonly EntitySpec[];
+  /** The soil's moisture on the water the rule's drought leaves (`plants.drought`'s): absent where the
+   *  drought is shorter than a berry bush lasts dry. */
+  droughtMoisture?: ArrayLike<number>;
 }
 
 /** How far the colony walks from the start to each tile (slopes allowed, round the objects that
@@ -121,6 +124,14 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       if (walk[i] <= NEAR_WALK) nearWalk[i] = 1;
       if (walk[i] <= LOG_FLOOR_WALK) floorWalk[i] = 1;
     }
+  }
+  // (the D410 round: the tiles within the colony's walk, and a few tiles past it, that dry out in the
+  // rule's drought: berry bushes keep off them while the walk has room on ground that stays moist, so
+  // the start's food lasts the first drought and a map opens without plants.drought's warning)
+  let dries: Uint8Array | null = null;
+  if (walk && g.droughtMoisture) {
+    dries = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (walk[i] <= NEAR_WALK + 3 && !(g.droughtMoisture[i] > 0)) dries[i] = 1;
   }
   const out: Feature[] = [];
   const anchorRole = (prefix: string, tiles: number[]) => `${prefix}/${tiles[0]}`;
@@ -227,7 +238,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   const bushMoist = easy && nearWalk ? Uint8Array.from(moist, (v, i) => (v && (!nearWalk![i] || easy.safe[i]) ? 1 : 0)) : moist;
   const patch = (seedTile: number, size: number, ripeShare: number, within: Uint8Array | null = null, fill?: number, prefix = "berryPatch"): number => {
     const allowed = new Uint8Array(N);
-    for (let i = 0; i < N; i++) allowed[i] = free[i] && bushMoist[i] && (!within || within[i]) ? 1 : 0;
+    for (let i = 0; i < N; i++) allowed[i] = free[i] && bushMoist[i] && (!within || within[i]) && !dries?.[i] ? 1 : 0;
     if (!allowed[seedTile]) return 0;
     const grown = growPatchAt(ground, vegRng, allowed, seedTile, size, fill);
     if (!grown) return 0;
@@ -284,12 +295,14 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   const basePatches = (want: number, keepOut: Uint8Array | null = null) => {
     syncTaken();
     keepOutOf(keepOut);
+    keepOutOf(dries);
     for (const p of planPatches(ground, want, { rng: vegRng, waterDist, centres: patchCentres })) {
       const role = anchorRole("berryPatch", p.tiles);
       out.push({ id: featureId(seed, "berryPatch", role), kind: "berryPatch", origin: "generated", role, locked: false, params: { area: tilesToRuns(p.tiles, W), density: 1, ripeShare: 0.55 } });
       bushCount += p.tiles.length;
     }
     letIn(keepOut);
+    letIn(dries);
     takeFromBaseline();
   };
   // (the start's share is kept back for its own planting below, and what that does not use goes
@@ -462,8 +475,9 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     // canyon floor), at most 6 a pass. They go within the colony's walk first, in two passes (D85
     // counts 20 tiles' walk), on the layout's side and at its distance, beyond the walk only when
     // it holds too little moist land.
-    const wantBushes = nearBushes - gotBushes;
-    if (wantBushes > 0) {
+    const start = g.start;
+    const plantBerries = (wantBushes: number) => {
+      if (wantBushes <= 0) return;
       const each = lay ? Math.max(4, Math.ceil(wantBushes / lay.patches)) : Math.max(4, Math.floor(wantBushes / Math.max(2, Math.ceil(wantBushes / 30))));
       let got = 0;
       for (const within of plantWalk ? [plantWalk, plantWalk, null] : [null]) {
@@ -472,15 +486,28 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
         for (let i = 0; i < N; i++) {
           const x = i % W;
           const y = (i - x) / W;
-          const dx = x - g.start.x;
-          const dy = y - g.start.y;
+          const dx = x - start.x;
+          const dy = y - start.y;
           const nearHere = within ? within[i] === 1 : dx * dx + dy * dy <= BUSHES.nearStartRadius * BUSHES.nearStartRadius;
-          if (nearHere && free[i] && bushMoist[i]) w[i] = (nearWater(i) ? 2 : 1) * (within && lay ? lay.berries[i] : byWalk(i));
+          if (nearHere && free[i] && bushMoist[i] && !dries?.[i]) w[i] = (nearWater(i) ? 2 : 1) * (within && lay ? lay.berries[i] : byWalk(i));
         }
         for (const s of pickSeeds(lay ? lay.rng : vegRng, w, W, 6, 6)) {
           got += patch(s, Math.min(each, Math.max(4, wantBushes - got)), 1, within, dense ? 1 : nearFill.bushes, "berryPatch/start");
           if (got >= wantBushes) break;
         }
+      }
+    };
+    plantBerries(nearBushes - gotBushes);
+    // (where the walk holds too little ground that stays moist through the drought for the start's
+    // food, the rest of it grows on ground that dries, as before the D410 round: Minimum starting
+    // bushes holds, and plants.drought warns)
+    if (dries && nearWalk) {
+      let have = 0;
+      for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (nearWalk[i]) have++;
+      const least = Math.ceil(1.1 * spec.settings.start.rules.bushesWithin20);
+      if (have < least) {
+        dries = null;
+        plantBerries(nearBushes - have);
       }
     }
     // (Easy start, D495: its berries within its shorter walk, on ground that stays moist through a drought; what
@@ -491,19 +518,27 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       let have = 0;
       for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (close[i] && moist[i]) have++;
       const er = stream(seed, "easy-berries", candidate, attempt);
-      for (let k = 0; k < 8 && have < easy.bushes; k++) {
-        const w = new Float64Array(N);
-        for (let i = 0; i < N; i++) if (close[i] && free[i] && bushMoist[i]) w[i] = nearWater(i) ? 2 : 1;
-        const seeds = pickSeeds(er, w, W, 3, 3);
-        if (!seeds.length) break;
-        let grew = 0;
-        for (const s of seeds) {
-          if (have >= easy.bushes) break;
-          const n = patch(s, Math.max(4, Math.min(24, easy.bushes - have)), 1, close, 0.9, "berryPatch/start");
-          have += n;
-          grew += n;
+      // (first on ground the drought leaves moist, as the patches only grow there; where that leaves Easy's
+      // berries short, on the rest of its drought-proof ground as before the D410 round: its targets hold)
+      for (let pass = 0; pass < 2 && have < easy.bushes; pass++) {
+        if (pass === 1) {
+          if (!dries) break;
+          dries = null;
         }
-        if (!grew) break;
+        for (let k = 0; k < 8 && have < easy.bushes; k++) {
+          const w = new Float64Array(N);
+          for (let i = 0; i < N; i++) if (close[i] && free[i] && bushMoist[i] && !dries?.[i]) w[i] = nearWater(i) ? 2 : 1;
+          const seeds = pickSeeds(er, w, W, 3, 3);
+          if (!seeds.length) break;
+          let grew = 0;
+          for (const s of seeds) {
+            if (have >= easy.bushes) break;
+            const n = patch(s, Math.max(4, Math.min(24, easy.bushes - have)), 1, close, 0.9, "berryPatch/start");
+            have += n;
+            grew += n;
+          }
+          if (!grew) break;
+        }
       }
     }
 

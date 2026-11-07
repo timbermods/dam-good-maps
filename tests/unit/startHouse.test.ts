@@ -1,5 +1,5 @@
-// A press on the start's lodge takes the start (showcase-craft gap 5): the ray through the lodge's roof meets the
-// ground tiles behind it, out of the start's reach by the ground alone; `houseHit` sees the lodge first.
+// A press on the start's tower takes the start (showcase-craft gap 5): the ray through the tower's roof meets the
+// ground tiles behind it, out of the start's reach by the ground alone; `houseHit` sees the tower first.
 
 import { describe, expect, it } from "vitest";
 import { houseHit } from "../../src/editor/start/startPick";
@@ -17,8 +17,8 @@ function rayThrough(x: number, y: number, z: number): Ray {
   return { origin: [x + 0.5, z + back / 2, -(y + 0.5 - back)], direction: [0, -0.5, -1] };
 }
 
-describe("the start's lodge under the pointer", () => {
-  it("a ray through the roof meets the lodge, where the ground alone is tiles behind", () => {
+describe("the start's tower under the pointer", () => {
+  it("a ray through the roof meets the tower, where the ground alone is tiles behind", () => {
     const ray = rayThrough(start.x, start.y, 3 + 1.5);
     const ground = pickEditing(ray, W, H, heights)!;
     expect(Math.abs(ground.y - start.y)).toBeGreaterThan(1);
@@ -27,8 +27,16 @@ describe("the start's lodge under the pointer", () => {
     expect(Math.max(Math.abs(hit!.x - start.x), Math.abs(hit!.y - start.y))).toBeLessThanOrEqual(1);
   });
 
-  it("a ray passing over the roof is not on the start", () => {
-    expect(houseHit(rayThrough(start.x, start.y, 3 + 3), W, H, heights, start)).toBeNull();
+  // (re-based to the game's tower, D496, D148: the walls and roof stand two levels over the 3×3, the lantern tower four
+  // over the middle tile; the lodge stood two over all of it)
+  it("a ray passing over the roof beside the tower is not on the start", () => {
+    expect(houseHit(rayThrough(start.x + 1, start.y, 3 + 3), W, H, heights, start)).toBeNull();
+  });
+
+  it("a ray through the lantern tower meets it, and one over its top does not", () => {
+    const hit = houseHit(rayThrough(start.x, start.y, 3 + 3), W, H, heights, start);
+    expect(hit).toEqual(expect.objectContaining({ x: start.x, y: start.y }));
+    expect(houseHit(rayThrough(start.x, start.y, 3 + 5), W, H, heights, start)).toBeNull();
   });
 
   it("a ray meeting other ground first is not on the start", () => {

@@ -30,8 +30,10 @@ describe("High's sun shadows", () => {
     const drawn = s.matrix.clone();
     expect(drawn.equals(new Matrix4())).toBe(false);
     // the camera turns: the map is to be drawn again, and until it is, its matrix is the one it was drawn with
-    s.setSun(new Vector3(0.3, 0.8, 0.52).normalize());
+    const turned0 = new Vector3(0.3, 0.8, 0.52).normalize();
+    expect(s.setSun(turned0), "a new sun changes it").toBe(true);
     expect(s.dirty).toBe(true);
+    expect(s.setSun(turned0.clone()), "the same sun again changes nothing").toBe(false);
     expect(s.matrix.equals(drawn)).toBe(true);
     s.render(gl, scene);
     expect(s.dirty).toBe(false);

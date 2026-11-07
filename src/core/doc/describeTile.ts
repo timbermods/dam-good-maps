@@ -158,7 +158,7 @@ export function describeTile(f: TileFacts, x: number, y: number, level?: number)
 // ------------------------------------------------------------------- the water-changed signal
 
 /** The water-changed signal (D347, D387 (1)): the readout's water words for tile (x, y) exactly as
- *  shown ("Water 0.6 deep, bed level 4"; "Height 5, moist soil" once dry), or null off the map. For the
+ *  shown ("Water at level 4.6, 0.6 deep, bed level 4"; "Height 5, moist soil" once dry), or null off the map. For the
  *  page: keep it with the readout's text; after each water state it shows (a stroke's water, the
  *  journey's frames, the settled water, the weather's days, an edit's, undo's or redo's answer, an
  *  opened map) ask again for the hovered tile and re-describe only when it differs. One tile, about
@@ -173,12 +173,14 @@ export function readoutWaterChanged(before: TileFacts, after: TileFacts, x: numb
   return readoutWater(before, x, y) !== readoutWater(after, x, y);
 }
 
-/** The ground in words: "Height 5, dry soil", "Water 0.6 deep, bed level 4". */
+/** The ground in words: "Height 5, dry soil", "Water at level 4.6, 0.6 deep, bed level 4" (the water's level, bed plus
+ *  depth, so a lake's is read in one tile: showcase-craft gap 19). */
 export function groundWords(g: TileGround): string {
   if (g.water) {
     const d = g.water.depth;
     const deep = d < 0.1 ? d.toFixed(2) : d.toFixed(1);
-    const parts = [`${g.water.badwater ? "badwater" : "water"} ${deep} deep`, `bed level ${g.height}`];
+    const level = (Math.round((g.height + d) * 10) / 10).toFixed(1);
+    const parts = [`${g.water.badwater ? "badwater" : "water"} at level ${level}`, `${deep} deep`, `bed level ${g.height}`];
     if (g.water.percentBad) parts.push(`${g.water.percentBad}% badwater`);
     return capital(parts.join(", "));
   }

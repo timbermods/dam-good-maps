@@ -924,9 +924,10 @@ function kickWater(): void {
 
 /** The live water of a map with caves or overhangs after an edit (core/sim/stackLive.ts `StackLive`): the water as it
  *  stood carried over to the map's new columns, run on by the stacked engine a slice at a time, its frames sent as a
- *  heightfield's journey sends them (`runWater`). Only ever shown: the map keeps the last canonical settle carried over
- *  (`MapSession.waterStale`) until the background check's canonical settle replaces it (`adoptWater`, then
- *  `stopWater`), byte for byte as before, its shortcut (`settledAgain`) included. The run is made in its first slice,
+ *  heightfield's journey sends them (`runWater`), until it stands still by the preview's rule. While it flows the map
+ *  keeps the last settle carried over (`MapSession.waterStale`); where it comes to stand is then the map's preview
+ *  water (`stackPreview`, D453), as a heightfield's journey's end is, until the background check's canonical settle
+ *  replaces it (`adoptWater`, then `stopWater`), byte for byte as before, its shortcut (`settledAgain`) included. The run is made in its first slice,
  *  after the edit's answer has gone (`live` null until then), and never where the water does not flow (the checks'
  *  replica, Node tests: `autoWater`). */
 interface StackJob {
@@ -1018,7 +1019,7 @@ async function runStack(token: number): Promise<void> {
     const j = stackJob;
     if (!j || j.token !== token || session !== j.session) return;
     // (the edit's answer has gone: the run is made now, its first frame at once)
-    if (!j.live) j.live = new StackLive(j.model, j.from, j.flows, PREVIEW_JOB_DAYS, true);
+    if (!j.live) j.live = new StackLive(j.model, j.from, j.flows, PREVIEW_JOB_DAYS, true, true);
     const live = j.live;
     const t0 = performance.now();
     let done = false;
@@ -1036,16 +1037,38 @@ async function runStack(token: number): Promise<void> {
       listener({ kind: "water", version, water: stackView(j.session, f, seen.depth, seen.contamination), done: Math.min(0.99, ticks / TICKS_PER_DAY), ticks });
     }
     if (done) {
-      // where the water came to stand, shown as it is, until the canonical settle replaces it
-      const f = live.frame();
+      // where the water came to stand: the map's water, as a heightfield's preview is, until the canonical settle
+      // replaces it (the background check), and where the next edit's water flows on from
       stackRest = { session: j.session, model: j.model, stack: live.state() };
+      const water = stackPreview(j.session, live.settle());
       stackJob = null;
       live.close();
-      listener?.({ kind: "water", version, water: stackView(j.session, f, f.depth, f.contamination), done: 0.99, ticks: live.ticks });
+      const s = j.session;
+      if (session === s && s.adoptWater(j.model, water)) settledNews(s, viewUpdate(s));
       return;
     }
     await breathe();
   }
+}
+
+/** The journey's water where it came to stand (`StackLive.settle`), as the map's preview water: each tile's top column
+ *  from above, and the last canonical settle it warm-started from, whose shortcut the canonical settle may still take
+ *  (core/sim/prefill.ts `stackedRun`). */
+function stackPreview(s: MapSession, st: StackSettle): CanonicalWater {
+  const N = st.W * st.H;
+  const depth = new Float64Array(N);
+  const contamination = new Float64Array(N);
+  const sat = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (!st.count[i]) continue;
+    const c = (st.count[i] - 1) * N + i;
+    depth[i] = st.depth[c];
+    contamination[i] = st.contamination[c];
+    sat[i] = st.sat[c];
+  }
+  const last = s.lastSettled();
+  const canonical = last && (last.water.preview ? last.water.canonical : last);
+  return { settled: false, ticks: st.ticks, depth, contamination, sat, stack: st, preview: true, ...(canonical ? { canonical } : {}) };
 }
 
 /** A stroke's ground on a map with caves or overhangs (`draftStroke`): each tile's top reshaped to it, the water on
@@ -1640,8 +1663,9 @@ export function stopWeather(): ViewUpdate {
  *  background): the same settle the background runs, in one go. */
 export function settleWater(): ViewUpdate {
   const j = waterJob;
-  // (a map with caves or overhangs: its settle is the canonical one, which ends its live water)
-  if (session?.waterStale && session.built.waterModel.stacked) {
+  // (a map with caves or overhangs: its settle is the canonical one, which ends its live water; its preview, the journey's
+  // water where it came to stand, is replaced as a heightfield's is)
+  if (session?.waterPending && session.built.waterModel.stacked) {
     stopWater();
     session.settleCanonical();
     return viewUpdate(session);
@@ -2154,6 +2178,13 @@ export function project(level = 9): { bytes: Uint8Array; fileName: string; name:
   return { bytes: s.project(level), fileName: documentFileName(s.document), name: s.meta.name, version };
 }
 
+/** File → Save a picture: the open map as it stands, as the page draws its picture (render3d/hero.ts), and the
+ *  picture's file name (the project's, ".jpg" in place of its extension). The open map is untouched. */
+export function pictureView(): { view: MapView; fileName: string } {
+  const s = need();
+  return { view: wholeView(s), fileName: documentFileName(s.document).replace(/\.damgoodmaps\.json$/i, "").replace(/\.timber$/i, "") + ".jpg" };
+}
+
 /** A version of the open map kept or branched at History step `k` (core/doc/session.ts `versionProject`; showcase versions):
  *  its project file, its name and parent, and the land and water the page draws Your maps' picture of it from. Never a
  *  rebuild here: a step with no settled build kept comes without its stored map and without a picture (`stored` false), and
@@ -2304,11 +2335,14 @@ export function removeUnfedWater(tiles: number[] | null): SessionUpdate {
 }
 
 /** What cropping the map to a rectangle would do: the core's one-line reason it cannot, or how many objects the new edge
- *  would remove (core/doc/crop.ts `planCrop`, D340). Reads the map only. */
+ *  would remove (core/doc/crop.ts `planCrop`, D340; ground the edge would leave unheld, `cropFalls`). Reads the map only. */
 export function cropPlanAt(r: CropParams): { reason: string | null; removedObjects: number } {
   const s = need();
   const p = planCrop(s.built.entities, s.size.x, s.size.y, r);
-  return p.ok ? { reason: null, removedObjects: p.removedObjects } : { reason: p.reason, removedObjects: 0 };
+  if (!p.ok) return { reason: p.reason, removedObjects: 0 };
+  // (and the session's own refusal: ground the new edge would leave unheld)
+  const why = s.check({ op: "crop", params: r })[0];
+  return why ? { reason: why, removedObjects: 0 } : { reason: null, removedObjects: p.removedObjects };
 }
 
 /** Crop the map to a rectangle (D340): the map's next generation, one undo step. The page opens the new map (its size

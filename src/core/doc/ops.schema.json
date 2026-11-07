@@ -83,6 +83,7 @@
         "steps": { "type": "integer", "minimum": 2, "maximum": 8 },
         "walkable": { "type": "boolean" },
         "edges": { "enum": ["ramped"] },
+        "continues": { "const": true },
         "pressure": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 255 } },
         "dabs": { "type": "array", "minItems": 2, "maxItems": 80000, "items": { "type": "integer", "minimum": 0, "maximum": 2047 } }
       }
@@ -313,7 +314,7 @@
       "properties": { "text": { "type": "string" } }
     },
     "crop": {
-      "description": "Crop map to selection (D340): the map becomes exactly this rectangle of itself, in tiles (its top-left tile and its size). The engine refuses a rectangle off the map, a side under 4 or over 512, the whole map, and a crop that would cut the start; objects the edge cuts are removed. The operations after it are in the cropped map's tiles.",
+      "description": "Crop map to selection (D340): the map becomes exactly this rectangle of itself, in tiles (its top-left tile and its size). The engine refuses a rectangle off the map, a side under 4 or over 512, the whole map, a crop that would cut the start, and one that would leave ground the game drops (a ledge or roof held from a column outside the rectangle, D121); objects the edge cuts are removed. The operations after it are in the cropped map's tiles.",
       "type": "object",
       "additionalProperties": false,
       "required": ["x", "y", "w", "h"],

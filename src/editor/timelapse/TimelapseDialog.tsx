@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { saveFile } from "../../platform";
 import { tip } from "../../ui/Tooltip";
 import { FPS } from "./plan";
-import { recordTimelapse, type LapseProgress, type LapseResult } from "./record";
+import { NothingToReplay, recordTimelapse, type LapseProgress, type LapseResult } from "./record";
 
 export interface TimelapseProps {
   /** The map's project as Download project writes it, and its file's name. */
@@ -60,6 +60,8 @@ export function TimelapseDialog(p: TimelapseProps) {
         setStage({ kind: "done", result, url, name: videoName(fileName), saved: false });
       } catch (e) {
         if (ctl.signal.aborted || (e instanceof DOMException && e.name === "AbortError")) return;
+        // (a cropped map with no edits since its crop: its history's steps are the map's before)
+        if (e instanceof NothingToReplay) return setStage({ kind: "empty" });
         console.warn("The time-lapse stopped.", e);
         setStage({ kind: "failed", reason: e instanceof Error ? e.message : String(e) });
       }

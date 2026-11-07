@@ -485,7 +485,9 @@ refinements and what the mockups left open:
   row on the map's top and left margins, the toggle look made narrower (7px and 8px padding, 5px before the name,
   names in full); at 1920×1080 it ends at 540px, 34px clear of the water row (574px). **Caves and overhangs** (only on a map
   that has them) follows Badwater in the row at every width; where the row then leaves the water row no room, the
-  water row takes the second line, as in a narrow window.
+  water row takes the second line, as in a narrow window. Where the page's font is wider than Segoe UI (DejaVu Sans on
+  Linux), the band's labels give back its extra width (`--wide-font-full`, never under the text floor), as the header's
+  do, so the band keeps these widths.
 - **Legend on its own at the top right** (Kyler, 2026-10-04), centred in the gap between the water row's right edge
   and Top-down's left at both sizes, its top level with the band, the same toggle look; it never moves, open or
   closed. Ticked, the legend (190px) hangs one gap under it, centred under it so "Legend" reads as its title, clear of
@@ -651,7 +653,7 @@ refinements and what the mockups left open:
   Every Generate names the new map for its theme ("River Valley"; "Dam Good Map" for Any) and replaces the open map
   without asking; the open map is in Your maps already. The only question left is when this browser can't keep
   Your maps and the map has edits.
-- **File** holds exactly Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video), Clear everything and About, then after a hairline
+- **File** holds exactly Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video), Save a picture (on a GPU), Clear everything and About, then after a hairline
   Keyboard shortcuts, Help and Report a problem (M13; the shortcuts and Help are dialogs like About, left-aligned as
   lists, the shortcuts in three balanced columns with their keys as key caps) (Another like this is in
   the Map Generator, History a button of its own: Kyler, 2026-10-06). There is no Copy link: the address is always the open map's share link, so the browser's own address is the link.

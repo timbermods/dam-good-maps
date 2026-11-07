@@ -76,7 +76,7 @@ place of its bottom rule.
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
   button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…,
-  Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Save a picture (§6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. A sibling's variation is shown beside its seed, in the header ("Seed 4242 · 2 · 128×128") and in the panel's Seed line, so a seed copied by hand is known to be only part of its address. **Showcase…** (D488 (2)) sits in
@@ -266,7 +266,7 @@ place of its bottom rule.
     left in the row go when the selection closes or changes; Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
     the selection's bounding rectangle (any shape of selection; `useSelect.tsx`, the worker's `cropPlanAt` and `cropTo`).
     Greyed (`aria-disabled`, so the hover still speaks) with nothing selected ("Select an area to crop") and whenever the
-    core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut): hovering or focusing it says
+    core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut; `cropFalls`: ground the edge would leave unheld): hovering or focusing it says
     "Can't crop this" and puts the core's one-line reason, word for word, on the message line; pressing it says the reason
     again, never clamped (with nothing selected the row's words are the one place it says so, and no note repeats it). Enabled, hovering says "32 × 24", adding "; cuts 3 objects" when the edge
     cuts any (the row's words take the three cells beside the shapes, and no words are ever cut off). The map is then
@@ -469,8 +469,9 @@ place of its bottom rule.
   with a volume and an off switch the player keeps (D212); water ambience is off unless turned on. The recordings
   load on the first click or key, never with the page, and nothing waits on them. Micro-animations follow the
   reduced-motion setting. Nothing new stays on screen unless in use.
-- **The hover readout:** a quiet corner line for what's under the cursor ("Height 11, dry soil"); over water, its
-  depth, the bed level and its contamination (D196). **It names every object and plant too**, with its key fact
+- **The hover readout:** a quiet corner line for what's under the cursor ("Height 11, dry soil"); over water, the
+  water's level (bed plus depth, so a lake's level is read in one tile: showcase-craft gap 19), its depth, the bed
+  level and its contamination (D196): "Water at level 4.6, 0.6 deep, bed level 4". **It names every object and plant too**, with its key fact
   where one is useful (D347, B11): "Mine site", "Ruin, 5 levels, 75 scrap metal", "Water source, 1 water/s", "Pine,
   grown", "Relic, medium"; where an object sits on ground the line gives both ("Geothermal field · Height 5, dry
   soil"), up to three objects separated by ";". It works with any tool held. It is one plain core function,
@@ -497,9 +498,10 @@ place of its bottom rule.
   dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, what an Easy start map
   made in a late rescue round left short of its targets (Good to know, uncounted, D495), and lists an opened
   file's import flags with their fixes (counted).
-- **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades. Its lodge is
-  pressed as drawn: a press on the roof or walls takes the start, though the ground the pointer sees behind them
-  may be tiles away (`start/startPick.ts`, the lodge about two levels high).
+- **The start:** its reach (water, wood, berries) appears when it is hovered or dragged, then fades. Its tower is
+  pressed as drawn: a press on the roof, walls or lantern takes the start, though the ground the pointer sees behind
+  them may be tiles away (`start/startPick.ts`: the walls about two levels high over the 3 × 3, the tower four over
+  the middle tile).
 
 (D184, D212, D219.)
 
@@ -556,8 +558,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces), and **the force is over the
   moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
   places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
-  melt-back, the lava cooling; a new force puts any of them away at once; the lava cools by its drawn frames, so a
-  frame held long on a slow machine never skips it). A force's heat is its own: a later force
+  melt-back, the lava cooling; a new force, or an undo, puts any of them away at once; every tail plays by its drawn frames, a
+  frame of the player's view counting a tenth of a second at most, so a frame held long on a slow machine never skips
+  an impact's dust, a fault's crack, the ice's melt-back, the lava's cooling or an erosion's dust and stones). A force's heat is its own: a later force
   never shows an earlier eruption's. The result
   and what is saved never depend on the pace.
 - **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an
@@ -658,8 +661,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 
 - **Unleash, on a source** (D239; U): select a placed water or badwater source and a small **Unleash** action with
   a quick **Power** sits beside it; the source's own water carves its course downhill with Carve's engine (where it
-  stands in a pool of half a level or more it breaks out over the lowest point of its rim). A drag from the source
-  draws the course (D321, item 41; the source's own drag still moves it); its width is the width whose Carve source
+  stands in a pool of half a level or more it breaks out over the lowest point of its rim). A drag from the Unleash
+  button onto the map draws the course from the source, as its tooltip says (D321, item 41; the source's own drag still
+  moves it); its width is the width whose Carve source
   would have the source's strength. The source stays the river's origin: the carve is dry and adds no other source;
   a badwater source carves a badwater river. One undo step ("Unleash a source"); Try another re-rolls the course.
   Claude's `carve` step takes a `source` to unleash one.
@@ -837,7 +841,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **The height brushes work as the game's editor does** (D322, item 37): Raise, Lower and Flatten each have a
   **target level**, shown beside the pointer ("up to 8", "down to 5", "level 7") and as a plane over the ring.
   Raise lifts every tile below the target to it and leaves higher ground; Lower cuts every tile above it down to
-  it; Flatten sets every tile to it, higher or lower. They act exactly, with the brush's footprint and hard edges;
+  it; Flatten sets every tile to it, higher or lower. They act exactly, with the brush's footprint and hard edges
+  (dabbed every quarter tile, so a stroke's edge is as solid as its middle at every size);
   holding adds nothing. Until the player sets it, the target follows the ground under the pointer (a level above
   for Raise, below for Lower, the same for Flatten) and locks where a stroke starts. A stroke begins on the tile
   under the pointer, whatever the target; Flatten to a set level then follows the pointer on that level's plane, moved
@@ -1047,7 +1052,7 @@ Make a valley, drop a source, and there's a river.
   worker works them out, `MarkerNote`, and `labelLayout.ts` places them beside the sources' labels; notes too crowded for
   their spots merge into "N objects nearby", and one with no room is not drawn). **Sources are easy to hit** (D249): with any tool
   picked, the pointer over water or bare ground within about two tiles of a source targets it (a direct hit on
-  another object wins; the nearest source wins); Delete or Backspace removes it, one undo step. **A badwater source
+  another object wins; the nearest source wins); Delete or Backspace removes it, one undo step. A press with nothing picked grabs a source within that reach to drag it; with the Select tool open, only a press on the source itself does, so a box begun beside one selects (showcase-craft gap 18). **A badwater source
   cuts its own spring pool** (D290, generalised to every object by D328): it is 3 × 3 and needs level ground, so
   where it is placed, switched from clean or dragged onto uneven ground, its nine tiles are cut down to the lowest
   of them (never filled, so its water isn't dammed) and what stood on them goes, in the same undo step. Every
@@ -1174,8 +1179,8 @@ weaker hardware rather than stutter. (The full list is in the archive.)
 
 **File → Record a time-lapse…** ("Save a video of how the map was built") replays the map's history at speed from
 the generated map and saves it as a WebM to share. It adds nothing to the screen until used, and is in the menu only
-where the browser can make a video (WebCodecs and WebGL 2: Chrome and Edge). A map with no edits says "Nothing to
-replay yet". While it records, a dialog says what it is doing ("Replaying the map's history", "Recording the
+where the browser can make a video (WebCodecs and WebGL 2: Chrome and Edge). A map with no edits (or none since its
+crop) says "Nothing to replay yet". While it records, a dialog says what it is doing ("Replaying the map's history", "Recording the
 time-lapse", "Writing the video"), how far along ("4 of 15 seconds"), and Cancel; then the video itself (it never plays
 until the player presses play), its length and size, Close and **Download video** (`<map>-time-lapse.webm`).
 
@@ -1186,9 +1191,14 @@ until the player presses play), its length and size, Close and **Download video*
   from a crater or an eruption, along a brush's stroke; its objects and blocks appear part-way; the water flows on
   between steps as the live editor's water flows (up to 512 game ticks a second of video; on a heavy map, where a
   tick of the water costs more, it flows slower in the video rather than the recording slowing).
-- **The camera is the video's, never the player's** (D505): a renderer of its own, off screen; it
-  opens wide on the generated map, glides to each place (eased, never cut, rising as it crosses the map), holds with a
-  slow push in, turns slowly round, and ends on the finished map's hero view (the game's opening camera, D488).
+- **The camera is the video's, never the player's** (D505): a renderer of its own, off screen, moving as a slow
+  drone, never a turntable. It opens wide on the generated map, glides to each place (eased, never cut, rising as it
+  crosses the map), holds with a slow push in, and ends on the finished map's hero view (the map's picture's
+  framing, D488). Nearby edits share one framing, so the camera doesn't move between them. It looks down at one steady pitch
+  until the glide to the hero view, and its heading turns only a little over the whole video (at most 20°, under
+  half a degree a second).
+  Over the closing glide the water still flowing eases into the finished map's own water and the soil greens with it
+  (`timelapse/blend.ts`), so the held view never snaps to them.
 - **Pacing by eye:** a short history plays each step for about a second (a force's longer), the glides between
   places under half that time; a long one is paced so the whole video stays about a minute, nearby edits sharing a
   camera place and very long histories playing several steps to a frame. 1280×720, 30 frames a second, VP9 (VP8 where it must), about 1.6 Mb/s (a minute is about 12 MB).
@@ -1196,6 +1206,10 @@ until the player presses play), its length and size, Close and **Download video*
   encoder, which keeps at most a few frames waiting; recording runs near or faster than real time.
 - The water is drawn still and force effects don't play in the video until the renderer's per-renderer clock lands
   (forces play's hooks, agreed on #236).
+
+**File → Save a picture** ("Save a picture of the map to share"): the map as it stands, from the game's opening view,
+drawn in the High look at 1920×1080 (the saved file's picture, D488, drawn large), saved as `<map>.jpg` with the quiet
+note "Saved <file>." Only where the browser draws in 3D on a GPU, as the saved file's picture is.
 
 ## 7. Controls
 
@@ -1533,9 +1547,11 @@ checks dot counts; every other row is information under Good to know, worded as 
     `draftStack`). A force's own water flows there too while it plays (D371; `startForceStack`): the engine is
     built again on the land and objects each frame shows (Erode's voxels included), a carve's front walls its course
     until the cut reaches it, and kept, the map's water flows on from it (a Slide's water stays where it stood rather
-    than riding its block). That water is only shown: the map keeps the last settle carried over until the canonical
-    settle, run in the background in slices, on several threads where the page has them (`sim/stackParallel.ts`,
-    the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
+    than riding its block). While it flows the map keeps the last settle carried over; an edit's journey stops by the
+    preview's own rule (the volume within 0.2% and at most 0.05% of the tiles moving more than 0.05 between checks,
+    every 128 ticks), and where it came to stand is then the map's preview water, as a plain map's is (D453;
+    `stackPreview`), until the canonical settle, run in the background in slices, on several threads where the page
+    has them (`sim/stackParallel.ts`, the same bytes as one), the dot saying "Settling…", replaces it. An edit that leaves the water provably as it
     was settles at once (D453): the changed tiles lie more than five tiles from every column the last settle
     ever wet and from every source, with the same objects and the same pre-fill elsewhere, so the last settle
     is the new one, the same bytes (`settledAgain`); Erode and Export then wait for nothing. The file gets the settle
@@ -1639,10 +1655,11 @@ checks dot counts; every other row is information under Good to know, worded as 
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
     export never depends on the preview's history. Its thumbnail is the map's 3D picture (D488): drawn off screen in
-    the High look, at twice its size and scaled down, from the game's own opening camera (`render3d/heroView.ts`: 60°
-    down, turned to the start's orientation + 35°, the game camera's 35° field of view, at the default zoom's widest,
-    the frame the start is turned for, D493; a map without a start from the game's default thumbnail camera, 40° down
-    looking north), lit as the game lights its thumbnails (its sun turns with the camera, 40° past it: the map is turned
+    the High look, at twice its size and scaled down, from the game's own map thumbnail camera
+    (`ThumbnailCameraDefaultPositionProvider`; `render3d/heroView.ts` `heroCamera`: 40° down, face-on, the game camera's
+    35° field of view, turned to the start's orientation (north without a start), centred on the land and pulled back
+    only as far as the frame's corners still land on the map, so the map fills the picture with no backdrop past its
+    edge; the opening camera, D493, is the looks score's, a different picture), lit as the game lights its thumbnails (its sun turns with the camera, 40° past it: the map is turned
     in quarter turns under the view's fixed sun to the nearest, within 30°), the start hidden as the game's thumbnails
     hide it, with the water the file starts with drawn still (its badwater share, no moving water's foam), then put in
     place of the core's top-down one; the player's view is never touched. A map whose water is settled already is drawn while the checks run. Without a GPU or

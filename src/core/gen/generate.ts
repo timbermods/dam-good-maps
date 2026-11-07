@@ -93,6 +93,8 @@ import { mapSays, mapWords, type PlayFacts } from "./names";
 import { nearStartTargets, planResources } from "./resources";
 import { planRuinStories } from "./ruinStories";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
+import { gameSoil } from "../sim/soil";
+import { DAYS_TO_DIE_DRY } from "../sim/withering";
 import { resourceBudget, ruinColumns } from "../resources/baseline";
 import { tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
@@ -101,7 +103,6 @@ import { dryStart, padFloods, pickStart, prepareStart, waterAim, type DroughtPol
 import { failurePhrase } from "./failWords";
 import { EASY_LAND, easyStartMeasures, easyTargets } from "../analysis/easyStart";
 import { pondWater, POND_WATER, shapeEasyStart } from "../land/easyStart";
-import { gameSoil } from "../sim/soil";
 import { DIFFICULTY_RULES } from "../spec/mapspec";
 
 /** Easy start's badwater distance (D495): Easy's (D85), the start's badwater and its soil kept 30 tiles off. */
@@ -514,12 +515,21 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
 
 /** The 3D forms a map looks for (D488, gen/forms3d.ts `formsWanted`): its own draw, the same on
  *  every attempt, at every Verticality but 0 (rarer the lower it is: the ordinary map at its theme's
- *  default finds a cave or a shelter where its land offers one, and an arch from 35; its edits keep their
- *  live water since #606, D280); no arch above 128² (its first look is not held there, D348), no spring
- *  cave on a map made with Sources: None. */
+ *  default finds a cave or a shelter where its land offers one, an arch worn through rock and an
+ *  overhanging cliff at 128² and over (D503), and an arch over a gorge from 35; its edits keep their live water since
+ *  #606, D280); no arch over a gorge above 128² (its deck changes the land seen from above, and the
+ *  first look is not held there, D348), no spring cave on a map made with Sources: None. */
 export function formsFor(spec: MapSpec): FormsWanted {
   const want = formsWanted(spec.theme, spec.settings.terrain.verticality, stream(spec.seed, "forms3d"));
   if (spec.size.x * spec.size.y > SHOW_PROVED_MOST) delete want["gorge-arch"];
+  // (an arch worn through rock and an overhanging cliff keep the surface, so they grow at 128² and over,
+  // one more of each for each whole 128² past the first; not below, where D502 found forms drying a
+  // small map's water out in drought and setting off rescue rounds, D503)
+  const wholes = Math.floor((spec.size.x * spec.size.y) / (128 * 128));
+  for (const id of ["rock-arch", "cliff-overhang"] as const) {
+    if (!wholes) delete want[id];
+    else if (want[id]) want[id] += wholes - 1;
+  }
   if (spec.settings.water.sources === "none") delete want["spring-cave"];
   return want;
 }
@@ -1860,7 +1870,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const kept = droughtStorage(model, D, FIRST_DROUGHT_DAYS);
       const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
       const view = settlerView(h, W, H, hy, D, C, M);
-      const prepared = prepareStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, stageRule, { kept, drought: policy, storage });
+      // (the D410 round: the soil the rule's drought leaves moist, where the start's berries last it)
+      const droughtFood = droughtDays > 0.9 * DAYS_TO_DIE_DRY.BlueberryBush ? gameSoil(W, H, h, storage.kept, new Float64Array(N), []).moisture : null;
+      const prepared = prepareStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, stageRule, { kept, drought: policy, storage, droughtFood });
       data = { kept, storage, view, prepared };
       if (reusePlanned) plannedStart = data;
     }
@@ -3156,6 +3168,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (const i of stories.taken) keepOff[i] = 1;
   }
   opts.onProgress?.({ attempt, stage: "resources" });
+  // (the D410 round: the start's berries on ground that stays moist through the rule's drought, the
+  // soil the drought's water leaves, as plants.drought reads it; a drought shorter than a berry bush
+  // lasts dry asks nothing)
+  const droughtGround = (b: BuildResult): BuildResult & { droughtMoisture?: Float64Array } => {
+    if (droughtDays <= 0.9 * DAYS_TO_DIE_DRY.BlueberryBush) return b;
+    const kept = droughtStorage(b.waterModel, b.water, droughtDays);
+    const cd = new Float64Array(N);
+    for (let i = 0; i < N; i++) cd[i] = kept[i] > 0 ? b.contamination[i] : 0;
+    return { ...b, droughtMoisture: gameSoil(W, H, b.heights, kept, cd, mapObjects({ entities: b.entities.map(entityJson) })).moisture };
+  };
   // (Easy start, D495: the ground that stays moist through a Normal drought, the checks' drought model and the
   // game's soil, where the start's berries go)
   const easyFood = (b: BuildResult): { easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number } } => {
@@ -3166,7 +3188,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const md = gameSoil(W, H, b.heights, kept, cd, mapObjects({ entities: b.entities.map(entityJson) })).moisture;
     return { easy: { safe: Uint8Array.from(md, (v) => (v > 0 ? 1 : 0)), bushes: Math.ceil(1.3 * easyT.bushes), within: easyT.bushesWithin, ruins: easyT.ruins } };
   };
-  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, base, 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...easyFood(base) }, sites)];
+  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(base), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...easyFood(base) }, sites)];
   let features = [...layout, ...resources];
   let built = build(features, null);
   opts.onProgress?.({ attempt, stage: "check" });
@@ -3187,7 +3209,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (d < 60 || d > 120 || !walkableFromStart(b3, st.x, st.y)) return null;
       }
       if (risePlan && !riseStands(b3, risePlan.x, risePlan.y, risePlan.radius, risePlan.top, risePlan.rise)) return null;
-      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, b3, 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...easyFood(b3) }, sites)];
+      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(b3), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...easyFood(b3) }, sites)];
       const f3 = [...lay3, ...r3];
       const bb = build(f3, null);
       const file3 = toTimberFile(spec, bb);
