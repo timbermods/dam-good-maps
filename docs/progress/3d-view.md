@@ -1141,7 +1141,9 @@ the game's models in resources.assets (positions, materials and texture means on
   cliff faces read darker on some shots (bias 11–16; two Highlands bands 40 darker, perhaps a lit face against our
   shaded one); contaminated ground at a badwater shore shows our orange veins brighter than the game's at these
   distances. And the game's `Sun.UpdateColors` sets `RenderSettings.reflectionIntensity` from its stage's
-  `ReflectionsIntensity`, 1 at every stage, every frame, where D497 takes the scene's 0.65 (`--reflection 1` measures it).
+  `ReflectionsIntensity`, 1 at every stage, every frame, where D497 takes the scene's 0.65. The judge can't tell them
+  apart (`--reflection 1`: land 9.1 and 11.9 against 9.2 and 12.2, clean water 15.3 against 15.2 on the start shots,
+  pure badwater in Standard 8.2 against 8.6 for the formula), so D497's number stays for planning to settle.
 - **Clean water re-judged:** #826's choice holds. Its six start shots fall in the day's light, so nothing moved: the
   formula 15.2 against our colour's 38.3 in Standard, 15.2 against 20.7 in High (8,573 tiles). At islands-128-2-end's
   near-sunset hour clean water (862 tiles) reads 4.5 from the game's pixels in Standard, 3.2 in High.
