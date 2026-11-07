@@ -37,10 +37,10 @@ function farFromStart(s: MapSession): [number, number] {
   return best;
 }
 
-async function open(): Promise<{ origin: [number, number]; ground: Uint8Array; water: number[]; roofed: Map<string, number> }> {
+async function open(seed = 21): Promise<{ origin: [number, number]; ground: Uint8Array; water: number[]; roofed: Map<string, number> }> {
   // (a force an earlier test left at work, failing part way, goes first)
   ed.forceCancel();
-  await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
+  await runGenerate(makeSpec({ seed, theme: "highlands", size: { x: W, y: W } }));
   ed.refine();
   ed.settleWater();
   const s = MapSession.open(decodeProject(ed.project().bytes));
@@ -95,8 +95,9 @@ function wetCut(ground: Uint8Array, now: Uint8Array, depth: ArrayLike<number>): 
 }
 
 describe("Carve's river is born as it cuts (D371)", () => {
-  it("the water flows into the channel as it is cut, from the carve's source; kept, the map's water flows on from it", async () => {
-    const { origin, ground, water, roofed } = await open();
+  // (seed 22 has caves: a pool under a roof stays apart from the carve's water, checked on its own; #814)
+  it.each([21, 22])("the water flows into the channel as it is cut, from the carve's source; kept, the map's water flows on from it (seed %i)", async (seed) => {
+    const { origin, ground, water, roofed } = await open(seed);
     const st = ed.forceStart({ verb: "carve", settings: { ...DEFAULTS, power: 70 }, origin, cut: null });
     expect(st.errors).toEqual([]);
     let land: Uint8Array = ground.slice();
@@ -134,8 +135,9 @@ describe("Carve's river is born as it cuts (D371)", () => {
     ed.settleWater();
   });
 
-  it("undo stops it and puts the map's own water back; Esc skips to the end and hands on the water flowing then; a dry canyon flows none", async () => {
-    const { origin, ground, water, roofed } = await open();
+  it.each([21, 22])("undo stops it and puts the map's own water back; Esc skips to the end and hands on the water flowing then; a dry canyon flows none (seed %i)", async (seed) => {
+    const { origin, ground, water, roofed } = await open(seed);
+    if (seed === 22) expect(roofed.size, "seed 22's water under a roof").toBeGreaterThan(0);
     /** A carve part way through its showing, its water flowing. */
     const partWay = (gesture: number) => {
       ed.forceStart({ verb: "carve", settings: { ...DEFAULTS, power: 70 }, origin, cut: null, gesture });
