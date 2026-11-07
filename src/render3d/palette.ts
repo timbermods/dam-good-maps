@@ -13,7 +13,7 @@
 // Readability follows the game's own (D334): its look and its cues, with no lightness gap or pattern
 // beyond the game's. Grass reads apart from dry earth by its hue and its painted strokes, contamination by
 // its orange-red veins over either soil, badwater by its crimson, its dullness and its bubbles (and in
-// High its pink caustics and red contact at rock). Clean water reads as water by its glints and ripple crests and its see-through shallows, and in
+// High its pink caustics; in both, the game's orange glow of its shallow edges where partly bad). Clean water reads as water by its glints and ripple crests and its see-through shallows, and in
 // colour by its blue. Badwater is darker than clean water of the same depth in Standard, darkening with depth as the game's
 // (D496), and dull; water partly
 // bad turns smoothly from one to the other over a few tiles where they meet, greying as it turns as the

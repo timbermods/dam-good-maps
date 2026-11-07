@@ -18,7 +18,8 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
- *  0.10.6 makes it (badwater joins the main river's lower reach, never a theme's signature water, D498: this map's
+ *  0.10.7 makes it (a landmark in the opening view on the default Generate, D502: this River Valley map grows a landmark form,
+ *  so its land, start and water moved, D148); `8e2aa584…` before it, as generator 0.10.6 made it (badwater joins the main river's lower reach, never a theme's signature water, D498: this map's
  *  badwater pits and ditches moved, D148); `01c74752…` before it, as generator 0.10.4 made it (3D forms at the default Verticality, D488: this map looks for a spring cave and drops it, so its
  *  land and water are as 0.10.2 made them, only the version, D148); `73bae732…` before it, as generator 0.10.3 made it
  *  (#579, only the version); `efb789ad…` before it, as generator
@@ -60,12 +61,13 @@ import * as ed from "../../src/worker/session";
  *  map); `a4c34743…` before the game version stamped became 1.1.2.8-ffc2de0-sw (the same map, D148: re-stamped
  *  with 1.1.2.4-52e959e-sw the file is that one byte for byte); `30543f1d…` before generator 0.10.5's version
  *  string (the same map: its first land fails the course check, not the start or the trunk's search). */
-const LIVE_SHA = "8e2aa58469f18cbef05d3a1b57024f8653a3e7ab1ee01da01933885d6173dafb";
+const LIVE_SHA = "a9edd6c3ebb184646eae55b5cf92ff64153ac43fa6d75d2a1d35f2af3b5126ae";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
   it("leave the map's bytes as they were: the live check's download for seed 4242 is unchanged", async () => {
     const r = generate(spec());
+    expect(r.report.passed, "the map still passes its checks").toBe(true);
     expect(createHash("sha256").update(r.bytes).digest("hex")).toBe(LIVE_SHA);
     // the page's download is the same file
     const page = await runGenerate(spec());
