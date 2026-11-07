@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
-import { arcOf, showcaseSearch, type ShowcaseCandidate } from "../../src/core/gen/showcase";
+import { arcOf, arcScore, SHOWCASE_LOOKS, showcaseSearch, type ShowcaseCandidate } from "../../src/core/gen/showcase";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
@@ -57,9 +57,14 @@ describe("Showcase mode (D488 (2))", () => {
     // and its first frame: 12 levels of relief, open water, a 3-level fall and the mesa
     expect(c.vista.met).toBe(true);
     expect(c.vista.say).toBe("The opening view takes in 12 levels of relief, open water, a 3-level fall and the mesa.");
+    // each is ranked by its arc and its opening picture's looks (SHOWCASE_LOOKS, docs/progress/showcase-looks.md)
+    for (const c of seen) expect(c.score).toBeCloseTo(arcScore(c.arc!) + SHOWCASE_LOOKS * c.looks!, 9);
     // the best three, best first: the second sibling (5 beats: the vista, a project, the valley, the
     // landmark and the mystery), the asked map (3 beats: a drought's choice, a project and the landmark), the first
     // (3 beats: a drought's choice, a project and the mystery)
+    // (the asked map's picture holds more green than the first sibling's, its looks 0.06 against −0.10, scores 4.18 to 2.58;
+    // the second sibling's 5.42 leads)
+    expect(seen[0].looks!).toBeGreaterThan(seen[1].looks!);
     expect(res.best.map((p) => p.index)).toEqual([2, 0, 1]);
     expect(res.best[0].note).toMatch(/^5 of 6 beats\. /);
     // a budget spent at once still makes one map, the asked map's own

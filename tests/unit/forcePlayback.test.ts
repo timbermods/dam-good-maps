@@ -147,7 +147,10 @@ describe("a force clicked quickly after another (D378)", () => {
   it("an erosion's dust and stones start with its rumble and are gone within its two to four seconds once kept (D240)", () => {
     fx.set(moment("erode", "rumble", 10, 10));
     expect(fx.showing().erode).toMatchObject({ x: 10, y: 10 });
-    for (let k = 1; k <= 20; k++) {
+    // (a fresh view's first stage, at its drawn time 0, plays: no frame drawn yet)
+    fx.set(moment("erode", "wear", 10, 10, 0.05));
+    expect(fx.showing().erode!.dust).toBeGreaterThan(0);
+    for (let k = 2; k <= 20; k++) {
       wait(100);
       fx.set(moment("erode", k === 20 ? "done" : "wear", 10, 10, k / 20));
     }
@@ -158,6 +161,23 @@ describe("a force clicked quickly after another (D378)", () => {
     wait(2000);
     expect(fx.showing().erode).toBeNull();
     expect(fx.active).toBe(false);
+  });
+
+  it("a fresh view's erosion times its second stage from its first, at drawn time 0: its dust by the time between", () => {
+    // (a wide stage: so much rock went that the time between stages, not the rock, sets how much dust comes)
+    const wide = (progress: number): ForceMoment => {
+      const m = moment("erode", "wear", 20, 20, progress);
+      m.erode!.went = Array.from({ length: 900 }, (_, i) => 4 * SIDE * SIDE + (5 + Math.floor(i / 30)) * SIDE + 5 + (i % 30));
+      return m;
+    };
+    fx.set(moment("erode", "rumble", 20, 20));
+    fx.set(wide(0.1));
+    wait(200);
+    const before = fx.showing().erode!.dust;
+    fx.set(wide(0.2));
+    // (200 ms of drawn frames since the first stage: DUST_RATE's 190 a second, 38, held to twice its 14 samples, 28;
+    // timed as if there were no first stage, 100 ms, it would be 19)
+    expect(fx.showing().erode!.dust - before).toBe(28);
   });
 
   it("the last force's tail plays out when nothing follows it", () => {

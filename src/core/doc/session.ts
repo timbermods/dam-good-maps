@@ -26,7 +26,7 @@ import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { objectHolds, rasterizeObjects, standProblem, type StandGround } from "../features/objects";
-import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
+import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, MAX_DABS, strokeParts, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim, type BrushParams } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN, padTile } from "../features/raster/terrain";
 import { bottomRunTop, ColumnTerrain, isPlainMask, surfaceOfMask, terrainColumns } from "../terrain/runs";
@@ -1504,6 +1504,8 @@ export class MapSession {
 
   /** Apply one operation. */
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
+    // (a stroke longer than one operation holds: its parts in order, one step, `applyAll`)
+    if (op.op === "brush" && op.params.dabs.length > 2 * MAX_DABS) return this.applyAll([op], origin, label);
     op = this.withHold(op);
     const kept = this.heldIn(op);
     const rock = kept.rock;
@@ -1573,9 +1575,11 @@ export class MapSession {
     const step = this.stepSince(mark);
     if (!step || !this.takeBack(step)) return null;
     this.seqNext = seq;
-    // (its hold is worked out again with the pieces in its reach)
-    return ops.map((o) => {
-      if (o.op !== "brush") return o;
+    // (its hold is worked out again with the pieces in its reach; the pieces go with the step's last stroke, where a
+    // stroke past MAX_DABS is done, brush.ts `strokeParts`)
+    const lastStroke = ops.map((o) => o.op).lastIndexOf("brush");
+    return ops.map((o, k) => {
+      if (o.op !== "brush" || k !== lastStroke) return o;
       const { hold: _hold, ...params } = o.params;
       return { ...o, params: { ...params, rigid: [...(o.params.rigid ?? []), ...rects] } };
     });
@@ -1594,6 +1598,19 @@ export class MapSession {
   /** Apply several operations as one step (a fix, or an accepted proposal): all or none, and
    *  one undo takes them all back. An empty group is refused: it would be a step that changes nothing. */
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
+    // (a stroke longer than one operation holds: its parts in order, brush.ts `strokeParts`, which the build joins again;
+    // what the session records in a stroke is worked out once, on the whole stroke and the map before it, so every part
+    // carries the same and they join as the one stroke)
+    const parts = new Set<EditOp>();
+    if (ops.some((o) => o.op === "brush" && o.params.dabs.length > 2 * MAX_DABS))
+      ops = ops.flatMap((o): EditOp[] => {
+        if (o.op !== "brush" || o.params.dabs.length <= 2 * MAX_DABS) return [o];
+        return strokeParts(this.strokeRecord(o.params)).map((params): EditOp => {
+          const part = { ...o, params } as EditOp;
+          parts.add(part);
+          return part;
+        });
+      });
     if (!ops.length) return { ok: false, errors: ["nothing to change"], applied: [], dirty: null };
     const before = this.cur;
     const mark = this.mark();
@@ -1603,6 +1620,7 @@ export class MapSession {
     const under = new Set<number>();
     for (const given of ops) {
       const op = this.withHold(given);
+      const recorded = parts.has(given);
       const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : op.op === "crop" ? ["a crop cannot be part of a group of edits"] : this.check(op);
       if (errors.length) {
         for (const a of done.reverse()) {
@@ -1618,7 +1636,7 @@ export class MapSession {
         held.add(i);
         if (kept.objects.has(i)) under.add(i);
       }
-      done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined));
+      done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined, recorded));
       // later operations of the group may refer to what earlier ones made (a description makes nothing)
       if (op.op !== "setDescription") this.cur = this.rebuilt();
     }
@@ -1751,7 +1769,39 @@ export class MapSession {
   /** `step`: the `seq` of the first operation of the step, when the step holds several (D456). It is
    *  set here, before `applyOp` adds the undo data, so a log entry's keys come in one order live and
    *  after a reopen (which deletes and re-adds `undo`): a project saves byte for byte the same. */
-  private applyChecked(op: EditOp, origin: OpOrigin, label?: string, step?: number): AppliedOp {
+  /** What the session records in a stroke as it applies (`applyChecked`), worked out on the map as it stands. */
+  private strokeRecord(params: BrushParams): BrushParams {
+    const { x: W, y: H } = this.size;
+    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
+    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
+    // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
+    // the whole stroke at once, saved with where water would stand round it, `rim`)
+    // (a rule painted on the page comes with its rule but never its ring: added here)
+    let p = params;
+    if (p.tool === "naturalize" && p.weathers && (p.weathering === undefined || (byDabRule(p.weathering) && p.rim === undefined))) {
+      const pre = this.cur.cache.terrain.pre7;
+      const rim = weatherRim(p, pre, waterLevels(pre, W, H), W, H);
+      p = { ...p, weathering: p.weathering ?? WEATHERING, ...(rim.length ? { rim } : {}) };
+    }
+    // and where the settled water stood round it (rule 3: and the moist ground), unless the page
+    // recorded the water it showed
+    if ((p.weathering === 2 || byDabRule(p.weathering)) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
+      const box = weatherBox(p, W, H);
+      if (box) {
+        if (p.weathering === 2) {
+          const { shore, pools } = shoreOf(box, this.cur.heights, this.cur.water, W);
+          p = { ...p, shore, pools };
+        } else p = { ...p, ...limitRuns(waterLimits(this.cur.heights, this.cur.water, this.cur.moisture, W, H), box, W) };
+      }
+    }
+    // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
+    // runs are recorded in it, so it replays the same whatever moves later (D368 (8), D342)
+    const runs = weatherKeep(p, this.cur.entities, W, H);
+    if (runs.length) p = { ...p, keep: [...(p.keep ?? []), ...runs] };
+    return p;
+  }
+
+  private applyChecked(op: EditOp, origin: OpOrigin, label?: string, step?: number, recorded = false): AppliedOp {
     const text = label ?? (op as { label?: string }).label;
     const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}), ...(step !== undefined ? { step } : {}) } as AppliedOp;
     // a block operation keeps the blocks it changed, as it found them: the build and every replay apply those
@@ -1761,37 +1811,8 @@ export class MapSession {
       const { plants: _asked, stands: _stands, ...rest } = applied.params;
       applied.params = { ...rest, cells: cellPairs(applied.params.mode === "add" ? e.added : e.removed, W * H), ...(e.plants.length ? { plants: e.plants } : {}), ...(e.stands.length ? { stands: e.stands } : {}) };
     }
-    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
-    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
-    // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
-    // the whole stroke at once, saved with where water would stand round it, `rim`)
-    // (a rule painted on the page comes with its rule but never its ring: added here)
-    if (applied.op === "brush" && applied.params.tool === "naturalize" && applied.params.weathers && (applied.params.weathering === undefined || (byDabRule(applied.params.weathering) && applied.params.rim === undefined))) {
-      const pre = this.cur.cache.terrain.pre7;
-      const rim = weatherRim(applied.params, pre, waterLevels(pre, this.size.x, this.size.y), this.size.x, this.size.y);
-      applied.params = { ...applied.params, weathering: applied.params.weathering ?? WEATHERING, ...(rim.length ? { rim } : {}) };
-    }
-    // and where the settled water stood round it (rule 3: and the moist ground), unless the page
-    // recorded the water it showed
-    const p = applied.op === "brush" ? applied.params : null;
-    if (p && (p.weathering === 2 || byDabRule(p.weathering)) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
-      const box = weatherBox(p, this.size.x, this.size.y);
-      if (box) {
-        if (p.weathering === 2) {
-          const { shore, pools } = shoreOf(box, this.cur.heights, this.cur.water, this.size.x);
-          applied.params = { ...p, shore, pools };
-        } else {
-          const runs = limitRuns(waterLimits(this.cur.heights, this.cur.water, this.cur.moisture, this.size.x, this.size.y), box, this.size.x);
-          applied.params = { ...p, ...runs };
-        }
-      }
-    }
-    // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
-    // runs are recorded in it, so it replays the same whatever moves later (D368 (8), D342)
-    if (applied.op === "brush") {
-      const runs = weatherKeep(applied.params, this.cur.entities, this.size.x, this.size.y);
-      if (runs.length) applied.params = { ...applied.params, keep: [...(applied.params.keep ?? []), ...runs] };
-    }
+    // (what the session records in a stroke: a part of a stroke past MAX_DABS has its whole stroke's already, `applyAll`)
+    if (applied.op === "brush" && !recorded) applied.params = this.strokeRecord(applied.params);
     applyOp(this.st, applied);
     if (applied.orphaned) throw new Error(`operation passed its check but did not apply: ${applied.orphaned}`);
     this.log.push(applied);

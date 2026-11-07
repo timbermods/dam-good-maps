@@ -6,7 +6,7 @@
 // High and back when it isn't; the Standard materials are never touched, so the Standard look stays
 // exactly as it was. Every effect is a switch (effects.ts).
 
-import { Color, type BufferGeometry, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
+import { Color, type BufferGeometry, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type Vector3, type WebGLRenderer } from "three";
 import { objectMaterial, skyMaterial, terrainMaterial, waterMaterial, type SceneUniforms } from "../materials";
 import type { EntityView, SurfaceWater } from "../model";
 import { allEffects, effectiveEffects, type HighEffects } from "./effects";
@@ -14,7 +14,7 @@ import type { Baker } from "./fields";
 import { Forest, replacedBatch, shapesAhead } from "./forest";
 import { buildLandmarks, disposeLandmarks, landmarkAhead, type Replacement } from "./landmarks";
 import { paletteDefaults, slots } from "./models";
-import { landmarkHooks, objectHooks, skyHooks, slopeHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks, type Switch } from "./shaders";
+import { landmarkHooks, objectHooks, slopeHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks, type Switch } from "./shaders";
 import { CASTER_LAYER, SHADOW_SIZE, SunShadows } from "./shadows";
 
 /** Warm sunlight (#65): the sun ×(1.48, 1.30, 1.10) and the sky ×0.97 of Standard's; with only the
@@ -58,7 +58,8 @@ export function highLookMaterials(u: SceneUniforms): HighLookMaterials {
     terrain: terrainMaterial(u, 0, 1, false, terrainHooks()),
     water: waterMaterial(u, false, waterHooks()),
     object: objectMaterial(u, false, objectHooks()),
-    sky: skyMaterial(skyHooks()),
+    // (the game's sky, every look's: D497)
+    sky: skyMaterial(),
     vegetation: objectMaterial(u, false, vegetationHooks(slots.length)),
     landmark: objectMaterial(u, false, landmarkHooks()),
     slope: objectMaterial(u, false, slopeHooks()),
@@ -167,7 +168,6 @@ export class HighLook {
     const set = (k: Switch, on: boolean) => (this.switches[k].value = on ? 1 : 0);
     set("hlWater", e.water);
     set("hlShadows", e.shadows);
-    set("hlSky", e.sky);
     set("hlStrata", e.strata);
     set("hlBlend", e.soilEdges);
     set("hlVariation", e.variation);
@@ -331,6 +331,14 @@ export class HighLook {
     if (!this.map) return;
     this.map.heights = heights;
     this.shadows.dirty = true;
+  }
+
+  /** The sun turned with the camera (toward it, world space): the depth map is drawn from it. */
+  setSunWay(sun: Vector3): void {
+    this.shadows.setSun(sun);
+    // (drawn with the next frame: the wait between depth maps is for a brush's edits, never for the camera's turn)
+    this.lastShadow = -Infinity;
+    this.host.requestRender();
   }
 
   /** The objects were hidden or shown (`MapRenderer.setObjectsHidden`): their shadows. (No canopies' shade: High's

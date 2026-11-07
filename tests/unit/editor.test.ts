@@ -84,12 +84,12 @@ describe("hover text", () => {
     expect(describeTile(ctx, 31, 10)).toBe("Height 4, ruin column, 3 high");
     // the editor: water, never a river or a landform (D196), with its bed and its badwater
     const ed = { ...ctx, editor: true };
-    expect(describeTile(ed, 10, 30)).toBe("Water 0.6 deep, bed level 4");
+    expect(describeTile(ed, 10, 30)).toBe("Water at level 4.6, 0.6 deep, bed level 4");
     expect(describeTile(ed, 3, 3)).toBe("Height 9, pine forest");
     const mixed = new Float64Array(W * H);
     mixed[30 * W + 10] = 0.3;
     const bad = { ...ed, water: surfaceWater(W, H, waterFromDepth(heights, depth, mixed)) };
-    expect(describeTile(bad, 10, 30)).toBe("Water 0.6 deep, bed level 4, 30% badwater");
+    expect(describeTile(bad, 10, 30)).toBe("Water at level 4.6, 0.6 deep, bed level 4, 30% badwater");
     // and a click picks no water (D196)
     expect(index.candidatesAt(10, 30).map((f) => f.kind)).not.toContain("river");
     expect(index.allAt(10, 30).map((f) => f.kind)).toContain("river");

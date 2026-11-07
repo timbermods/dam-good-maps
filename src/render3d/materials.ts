@@ -65,10 +65,10 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
-import { LIGHT_LEVELS, type CaveLight } from "./caveLight";
+import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
 import { CUT_SLACK } from "./cutWater";
 import { FALL } from "./waterMesh";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
@@ -575,11 +575,8 @@ export interface ShaderHooks {
   /** Its final colour before the finish (an expression; Standard: `vColor * light`). */
   objectFinal?: string;
   /** The sun on an object or a fall under a roof (an expression of `cave`, the light volume's sky in x and sun in y,
-   *  and `lit`, the look's own sun shadow there; Standard: the volume's sun). */
+   *  and `lit`, the look's own sun shadow there; Standard: the march toward the sun through the volume, `sunMarchAt`). */
   roofedSun?: string;
-  // the sky
-  /** At the sky's end (c, d). */
-  sky?: string;
 }
 
 const hook = (h: ShaderHooks | undefined, k: keyof ShaderHooks, standard = ""): string => h?.[k] ?? standard;
@@ -600,6 +597,31 @@ const CAVE_AIR = /* glsl */ `vec4 tileAt(vec2 t) {
         if (any(lessThan(cell, vec3(0.0))) || any(greaterThanEqual(cell, caveSize))) return false;
         if (cell.z >= heightOf(tileAt(cell.xy))) return false;
         return texelFetch(caveTex, ivec3(cell), 0).r > 0.001;
+      }
+      /** The sun at a point under a roof (tile coordinates: x, y, level; caveLight.ts \`sunMarch\` mirrors it): a ray
+       *  marched toward the sun through the volume (open air and roofed air alike, so it passes under an overhang as the
+       *  light does), whichever way the sun stands as it turns with the camera. The volume is read filtered, its air 1
+       *  and its rock 0 blended between cells' middles, and the ray keeps the least it meets: a shadow's edge is soft
+       *  over about a voxel instead of stepping with them. Its first step is a hashed fraction of the step, so the
+       *  steps' banding becomes a fine grain. Once over the map's highest ground (kept as edits raise it) the baked
+       *  shadow there decides (the objects' shadows); \`SUN_MARCH_STEPS\` reach that from the lowest level. */
+      float sunMarch(vec3 q) {
+        vec3 dir = vec3(sunDir.x, -sunDir.z, sunDir.y);
+        float clear = min(caveTop, caveSize.z);
+        float lit = 1.0;
+        q += dir * ${f(SUN_MARCH_STEP)} * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+        for (int k = 0; k < ${SUN_MARCH_STEPS}; k++) {
+          if (q.x < 0.0 || q.y < 0.0 || q.x >= caveSize.x || q.y >= caveSize.y) return lit;
+          if (q.z >= clear) return lit * sunLit(q.xy, q.z);
+          lit = min(lit, textureLod(caveTex, q / caveSize, 0.0).r);
+          if (lit < 0.004) return 0.0;
+          q += dir * ${f(SUN_MARCH_STEP)};
+        }
+        return lit * sunLit(q.xy, q.z);
+      }
+      /** sunMarch at a point in the air (an object's, the water's): from half a level up, the middle of its cell's air. */
+      float sunMarchAt(vec3 world) {
+        return sunMarch(vec3(world.x, -world.z, world.y + 0.5));
       }
 `;
 
@@ -937,22 +959,10 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         if (!roofedAir(floor(q))) return vec3(1.0, 1.0, 0.0);
         return vec3(textureLod(caveTex, q / caveSize, 0.0).rg, 1.0);
       }
-      /** The sun on a point under a roof: a ray marched toward the sun through the voxels (open air and
-       *  roofed air alike, so it passes under an overhang as the light does); rock stops it, and once it is
-       *  over the map's highest ground (kept as edits raise it) the baked shadow there decides (the objects' shadows); a ray still
-       *  among the land after its run takes the volume's own sun. */
-      float caveSunMarch(vec3 world, vec3 n, float fallback) {
-        vec3 dir = vec3(sunDir.x, -sunDir.z, sunDir.y);
-        vec3 q = vec3(world.x, -world.z, world.y) + vec3(n.x, -n.z, n.y) * 0.02;
-        float clear = min(caveTop, caveSize.z);
-        for (int k = 0; k < 80; k++) {
-          q += dir * 0.3;
-          if (q.x < 0.0 || q.y < 0.0 || q.x >= caveSize.x || q.y >= caveSize.y) return 1.0;
-          if (q.z >= clear) return sunLit(q.xy, q.z);
-          vec3 cell = floor(q);
-          if (cell.z < heightOf(tileAt(cell.xy)) && texelFetch(caveTex, ivec3(cell), 0).r < 0.001) return 0.0;
-        }
-        return fallback;
+      /** The sun on a face under a roof (sunMarch from a hair off the face). */
+      float caveSunMarch(vec3 world, vec3 n) {
+        // (from the middle of the air cell the face looks into: the filtered volume reads a face itself as half rock)
+        return sunMarch(vec3(world.x, -world.z, world.y) + vec3(n.x, -n.z, n.y) * 0.5);
       }
       /** The roof line a face under a roof takes its sun from: the open side nearest the face, from its cell (the
        *  volume holds no light that rises toward an opening since D497, so only a cell beside open air finds one).
@@ -1009,7 +1019,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         vec4 mouth = caveMouth(vWorld, n);
         float sun = 0.0;
         if (ndl > 0.0) {
-          float inside = ${hook(h, "caveSun", "caveSunMarch(vWorld, n, cave.y)")};
+          float inside = ${hook(h, "caveSun", "caveSunMarch(vWorld, n)")};
           sun = inside;
           if (mouth.w > 0.5) {
             float open = ${hook(h, "caveSunOpen", "sunLit(vec2(mouth.x, -mouth.z), mouth.y)")};
@@ -1891,7 +1901,7 @@ ${hook(h, "water")}        #ifdef CAVES
           if (cave.z > 0.5) {
             float ndlRoofed = max(dot(N, sunDir), 0.0);
             vec3 open = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * lit;
-            vec3 under = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * cave.y;
+            vec3 under = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * sunMarchAt(inWater);
             c *= under / max(open, 0.001);
           }
         #endif
@@ -2000,9 +2010,15 @@ ${hook(h, "water")}        #ifdef CAVES
   });
 }
 
-/** The sky round the map, drawn behind everything: blue overhead, paler toward the horizon, a
- *  hazy blue below it, where the map floats, with soft clouds above and below. */
+/** The sky round the map, drawn behind everything, as the game draws its skybox (palette.ts GAME_SKY): the day's colour
+ *  by the view's height, and its clouds in a band round the horizon in the sun's colour; no fog (Unity's skybox takes
+ *  none), and the post chain like the rest of the frame. */
 export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
+  const C = GAME_SKY.clouds;
+  const n = GAME_SKY.day.length;
+  const sw = C.shapeWeights.reduce((a, b) => a + b, 0);
+  const dw = C.detailWeights.reduce((a, b) => a + b, 0);
+  const oct = (o: number, k: number, scale: readonly number[], w: number, sum: number) => `${f(w / sum)} * (0.52 + (vn3(p${scale === C.shapeScale ? "s" : "d"} * ${f(o)} + ${f(k * 17.31 + 0.37)}) - 0.5) * ${f(C.spread)})`;
   return new ShaderMaterial({
     vertexShader: /* glsl */ `
       varying vec3 vDir;
@@ -2014,23 +2030,34 @@ export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
     `,
     fragmentShader: /* glsl */ `
       varying vec3 vDir;${GAME_POST_GLSL}${hook(h, "decl")}
-      float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-      float vn(vec2 p) {
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        f = f * f * (3.0 - 2.0 * f);
-        return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y);
+      const vec3 SKY_DAY[${n}] = vec3[${n}](${GAME_SKY.day.map((c) => glColor(c as unknown as Rgb)).join(", ")});
+      float h3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+      /** Value noise in 3D, one cell per unit of p. */
+      float vn3(vec3 p) {
+        vec3 i = floor(p);
+        vec3 t = fract(p);
+        t = t * t * (3.0 - 2.0 * t);
+        return mix(mix(mix(h3(i), h3(i + vec3(1.0, 0.0, 0.0)), t.x), mix(h3(i + vec3(0.0, 1.0, 0.0)), h3(i + vec3(1.0, 1.0, 0.0)), t.x), t.y),
+                   mix(mix(h3(i + vec3(0.0, 0.0, 1.0)), h3(i + vec3(1.0, 0.0, 1.0)), t.x), mix(h3(i + vec3(0.0, 1.0, 1.0)), h3(i + vec3(1.0, 1.0, 1.0)), t.x), t.y), t.z);
       }
       void main() {
         vec3 d = normalize(vDir);
-        vec3 up = mix(${glColor(SKY.horizon)}, ${glColor(SKY.zenith)}, pow(smoothstep(0.0, 0.5, d.y), 0.7));
-        vec3 down = mix(${glColor(SKY.horizon)}, ${glColor(SKY.below)}, smoothstep(0.0, 0.4, -d.y));
-        vec3 c = d.y > 0.0 ? up : down;
-        // soft clouds on a layer above and one below (the map floats in the sky)
-        vec2 q = d.xz / max(abs(d.y), 0.08) * 1.6;
-        float n = vn(q) * 0.55 + vn(q * 2.3 + 7.1) * 0.3 + vn(q * 5.1 + 3.3) * 0.15;
-        float cloud = smoothstep(0.52, 0.8, n) * smoothstep(0.02, 0.2, abs(d.y));
-        c = mix(c, ${glColor(SKY.cloud)}, cloud * 0.75);${hook(h, "sky")}
+        // the view's height, 0 straight down to 1 straight up, as the game's strip is read
+        float e = asin(clamp(d.y, -1.0, 1.0)) / 3.14159265 + 0.5;
+        float u = e * ${f(n - 1)};
+        int k = int(min(floor(u), ${f(n - 2)}));
+        vec3 c = mix(SKY_DAY[k], SKY_DAY[k + 1], u - float(k));
+        // the clouds: the shape less its erosion by the detail, within the band round the horizon, in the sun's colour
+        float band = smoothstep(${f(C.start[0])}, ${f(C.start[1])}, e) * (1.0 - smoothstep(${f(C.end[0])}, ${f(C.end[1])}, e));
+        if (band > 0.0) {
+          vec3 ps = d * vec3(${C.shapeScale.map(f).join(", ")});
+          vec3 pd = d * vec3(${C.detailScale.map(f).join(", ")});
+          float shape = ${C.shapeOctaves.map((o, k) => oct(o, k, C.shapeScale, C.shapeWeights[k], sw)).join(" + ")};
+          float detail = ${C.detailOctaves.map((o, k) => oct(o, k + 4, C.detailScale, C.detailWeights[k], dw)).join(" + ")};
+          float cloud = clamp(shape + ${f(C.densityOffset)}, 0.0, 1.0) - (1.0 - detail) * pow(1.0 - shape, ${f(C.erosion)});
+          cloud = clamp(pow(max(cloud, 0.0), ${f(C.densityPower)}) * ${f(C.blending)}, 0.0, 1.0) * band;
+          c += cloud * ${glColor(GAME_LIGHT.sun)};
+        }
         // (the game's post chain grades the whole frame, the sky too)
         gl_FragColor = vec4(gamePost(c), 1.0);
       }
@@ -2189,7 +2216,7 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
           // under a roof (a tree, a ruin, a source, a slope in a cave or under an overhang): the open air's sky (D497),
           // and the sun only where it reaches
           vec3 cave = caveAirAt(vWorld + n * 0.05);
-          if (cave.z > 0.5) light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao + sunColor * 0.5 * ndl * ${hook(h, "roofedSun", "cave.y")};
+          if (cave.z > 0.5) light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao + sunColor * 0.5 * ndl * ${hook(h, "roofedSun", "sunMarchAt(vWorld)")};
         #endif
         // (faded round the pointer, as coverage: that share of the pixel's samples)
         if (objectFade.w > 0.5 && objectFade.w < 1.5) coverage *= vFade;
