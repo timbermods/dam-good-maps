@@ -346,6 +346,7 @@ export class BrushPainter {
         if (!hit) {
           self.cursorAt = null;
           host.renderer.setBrushCursor(null);
+          self.fade(null);
           host.ring?.(null, null);
           host.note?.(null, null);
           return;
@@ -488,8 +489,10 @@ export class BrushPainter {
     const clear = s.sources[tool] === "clear";
     // an area: a tile's square before it is pressed; its blocks once it is dragged
     const area = this.stroke ? this.stroke.area : s.area && (tool === "raise" || tool === "lower");
+    const radius = area ? 0.5 : s.size;
+    this.fade(at, radius);
     if (this.stroke?.area) this.host.renderer.setBrushCursor(null);
-    else this.host.renderer.setBrushCursor({ x: at[0], y: at[1], radius: area ? 0.5 : s.size, tool, level, water, square: area || (this.stroke ? this.stroke.settings.shape === "square" : s.square), ...(level !== null ? { hard: true } : {}), ...(clear ? { mark: true } : {}) });
+    else this.host.renderer.setBrushCursor({ x: at[0], y: at[1], radius, tool, level, water, square: area || (this.stroke ? this.stroke.settings.shape === "square" : s.square), ...(level !== null ? { hard: true } : {}), ...(clear ? { mark: true } : {}) });
     this.host.ring?.(at, this.stroke ? (this.stroke.area ? areaFootprint(this.stroke.settings, this.stroke.dabs, this.host.W, this.host.H) : { settings: this.stroke.settings, dabs: this.stroke.dabs }) : null);
     if (!this.stroke) this.say(null);
   }
@@ -578,8 +581,25 @@ export class BrushPainter {
   hideCursor(): void {
     this.cursorAt = null;
     this.host.renderer.setBrushCursor(null);
+    this.fade(null);
     this.host.ring?.(null, null);
     this.host.note?.(null, null);
+  }
+
+  /** The tile and reach the objects fade round now ("x,y,radius"), or null: the renderer is told only when they change
+   *  (D453). */
+  private faded: string | null = null;
+
+  /** Seeing the land behind objects (render3d/objectFade.ts, an editing aid: the look never changes): while the brush
+   *  is on the land, hovering or painting, the objects round the pointer's tile, as far as the brush reaches, fade to a
+   *  quarter and cast no shadow; null brings them back (the pointer off the land, the brush put down). */
+  private fade(at: [number, number] | null, radius = 0): void {
+    const x = at ? Math.floor(at[0]) : 0;
+    const y = at ? Math.floor(at[1]) : 0;
+    const key = at ? `${x},${y},${radius}` : null;
+    if (key === this.faded) return;
+    this.faded = key;
+    this.host.renderer.setObjectFade(at ? { x: x + 0.5, y: y + 0.5, radius } : null);
   }
 
   /** Where the brush is under the pointer, and the level plane a stroke from there follows: on a tile's top, where the

@@ -284,7 +284,8 @@ describe("the models", () => {
     const greenish = (name: string) => {
       const col = byName.get(name)!.geometry.getAttribute("pcolor").array;
       let n = 0;
-      for (let k = 0; k < col.length; k += 3) if (col[k + 1] > col[k] + 0.12 && col[k + 1] > col[k + 2] + 0.12) n++;
+      // (the game's olive greens, D135 as amended 2026-10-29: green over red and blue by a little less than before)
+      for (let k = 0; k < col.length; k += 3) if (col[k + 1] > col[k] + 0.08 && col[k + 1] > col[k + 2] + 0.08) n++;
       return n;
     };
     expect(greenish("Oak")).toBeGreaterThan(0);
