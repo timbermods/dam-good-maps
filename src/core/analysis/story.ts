@@ -48,6 +48,13 @@ export interface WaterStory {
 
 /** Limits a readable story keeps (information; the candidate choice prefers maps within them). */
 export const STORY = { mainShare: 0.72, systems: 3, heads: 7, separate: 1, mainWet: 0.85, riverWet: 0.6, reach: 0.35 } as const;
+/** How many of `STORY`'s counts (heads, other systems, rivers of their own) a readable story keeps on a map of W × H:
+ *  above 128², one 128²'s for each 128² of its area, whole (D504: a 256² map is four 128²s' land, and a 128²'s few
+ *  heads and one system left three quarters of it bare). */
+export function storyScale(W: number, H: number): number {
+  return Math.max(1, Math.floor((W * H) / (128 * 128)));
+}
+
 /** How far from water (clean, or the main water's) land counts as within reach of it, as a share of
  *  the map's side. */
 export const REACH = 0.14;
@@ -260,9 +267,9 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
   const mainVolume = main >= 0 && vol > 0 ? sys.volume[main] / vol : 0;
   const why: string[] = [];
   if (mainShare < STORY.mainShare) why.push(`the main system holds ${Math.round(mainShare * 100)}% of the water`);
-  if (systems > STORY.systems) why.push(`${systems} other water systems`);
-  if (heads > STORY.heads) why.push(`${heads} heads feed the main system`);
-  if (separate > STORY.separate) why.push(`${separate} rivers never join it`);
+  if (systems > STORY.systems * storyScale(W, H)) why.push(`${systems} other water systems`);
+  if (heads > STORY.heads * storyScale(W, H)) why.push(`${heads} heads feed the main system`);
+  if (separate > STORY.separate * storyScale(W, H)) why.push(`${separate} rivers never join it`);
   if (reach < STORY.reach) why.push(`only ${Math.round(reach * 100)}% of the land lies near clean water or the main water`);
   if (mainWet < STORY.mainWet) why.push(`the main river holds water on ${Math.round(mainWet * 100)}% of its course`);
   else if (leastWet < STORY.riverWet) why.push(`a river holds water on ${Math.round(leastWet * 100)}% of its course`);

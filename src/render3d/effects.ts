@@ -9,6 +9,7 @@
 
 import { BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, DoubleSide, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedMesh, Mesh, MeshBasicMaterial, Object3D, Points, PointsMaterial, RingGeometry, type Scene } from "three";
 import { JUICE, type Rgb } from "./palette";
+import { WALL_CLOCK, type Clock } from "./clock";
 
 interface Live {
   obj: Object3D;
@@ -43,6 +44,8 @@ export class Effects {
   constructor(
     private readonly scene: Scene,
     private readonly render: () => void,
+    /** The renderer's time (clock.ts): the wall clock, or a recording's. */
+    private readonly clock: Clock = WALL_CLOCK,
   ) {}
 
   /** A puff of dust at tile (x, y), on the ground at `z`: `size` tiles across. */
@@ -68,7 +71,7 @@ export class Effects {
     pts.renderOrder = 5;
     this.add({
       obj: pts,
-      t0: performance.now(),
+      t0: this.clock.now(),
       ms: 650,
       step: (t) => {
         const e = 1 - (1 - t) ** 3;
@@ -96,7 +99,7 @@ export class Effects {
       ring.visible = false;
       this.add({
         obj: ring,
-        t0: performance.now() + delay,
+        t0: this.clock.now() + delay,
         ms: 800,
         step: (t) => {
           ring.visible = t > 0;
@@ -115,12 +118,14 @@ export class Effects {
   private add(l: Live): void {
     this.scene.add(l.obj);
     this.live.push(l);
-    if (!this.frame) this.frame = requestAnimationFrame(this.tick);
+    // (a recording draws its own frames, and moves the effects on before each: `advance`)
+    if (this.clock.driven) this.render();
+    else if (!this.frame) this.frame = requestAnimationFrame(this.tick);
   }
 
-  private tick = (): void => {
-    this.frame = 0;
-    const now = performance.now();
+  /** Every effect as it is at the clock's time now (the finished ones put away); whether any still plays. */
+  advance(): boolean {
+    const now = this.clock.now();
     this.live = this.live.filter((l) => {
       const t = (now - l.t0) / l.ms;
       if (t >= 1) {
@@ -132,8 +137,14 @@ export class Effects {
       l.step(t);
       return true;
     });
+    return this.live.length > 0;
+  }
+
+  private tick = (): void => {
+    this.frame = 0;
+    const on = this.advance();
     this.render();
-    if (this.live.length) this.frame = requestAnimationFrame(this.tick);
+    if (on) this.frame = requestAnimationFrame(this.tick);
   };
 
   dispose(): void {
@@ -186,12 +197,15 @@ export class Surge {
   private head: SurgeHead | null = null;
   private centers: (SurgeLane & { z: number })[] = [];
   private frame = 0;
-  private readonly t0 = performance.now();
+  private readonly t0: number;
 
   constructor(
     private readonly scene: Scene,
     private readonly render: () => void,
+    /** The renderer's time (clock.ts): the wall clock, or a recording's. */
+    private readonly clock: Clock = WALL_CLOCK,
   ) {
+    this.t0 = clock.now();
     this.foam = new InstancedMesh(new IcosahedronGeometry(1, 0), new MeshBasicMaterial({ color: css(JUICE.foam), transparent: true, opacity: 0.86 }), 96);
     this.debris = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshBasicMaterial({ color: css(JUICE.debris), transparent: true, opacity: 0.75 }), 48);
     this.mud = new Mesh(new BufferGeometry(), new MeshBasicMaterial({ color: css(JUICE.mud), transparent: true, opacity: 0.58, side: DoubleSide, depthWrite: false }));
@@ -230,15 +244,17 @@ export class Surge {
     this.mud.geometry = new BufferGeometry();
     this.mud.geometry.setAttribute("position", new Float32BufferAttribute(pos, 3));
     this.group.visible = !!head;
-    if (head && !this.frame) this.frame = requestAnimationFrame(this.tick);
+    // (a recording draws its own frames, and moves the surge on before each: `advance`)
+    if (head && this.clock.driven) this.render();
+    else if (head && !this.frame) this.frame = requestAnimationFrame(this.tick);
     if (!head) this.render();
   }
 
-  private tick = (): void => {
-    this.frame = 0;
+  /** The beads and debris as they are at the clock's time now; whether it still plays. */
+  advance(): boolean {
     const h = this.head;
-    if (!h || !this.centers.length) return;
-    const t = (performance.now() - this.t0) / 1000;
+    if (!h || !this.centers.length) return false;
+    const t = (this.clock.now() - this.t0) / 1000;
     const d = this.dummy;
     const c0 = this.centers;
     for (let k = 0; k < 96; k++) {
@@ -265,6 +281,12 @@ export class Surge {
       this.debris.setMatrixAt(k, d.matrix);
     }
     this.debris.instanceMatrix.needsUpdate = true;
+    return true;
+  }
+
+  private tick = (): void => {
+    this.frame = 0;
+    if (!this.advance()) return;
     this.render();
     this.frame = requestAnimationFrame(this.tick);
   };

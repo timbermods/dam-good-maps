@@ -14,6 +14,7 @@
 import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, ShaderMaterial, type Scene } from "three";
 import type { Cell } from "./blockGhost";
 import { LAYERS } from "./model";
+import { WALL_CLOCK, type Clock } from "./clock";
 
 /** A map's columns as an edit compares them: the heights, and the listed columns' masks over the whole map (0 on a
  *  plain tile, `model.ts` `columnMasks`; absent when no column is listed). */
@@ -223,12 +224,13 @@ export class EditGlow {
 
   /** `mat`: `editGlowMaterial()`, the renderer's (it compiles it ahead and disposes it); `ready`: whether its program
    *  is compiled (asked again each frame until it is: the glow is drawn, and its clock starts, only then, so a first glow
-   *  never compiles in a frame). */
+   *  never compiles in a frame); `clock`: the renderer's time (clock.ts), the wall clock or a recording's. */
   constructor(
     scene: Scene,
     private readonly render: () => void,
     private readonly mat: ShaderMaterial,
     private readonly ready: () => boolean = () => true,
+    private readonly clock: Clock = WALL_CLOCK,
   ) {
     this.mesh = new Mesh(this.geo, mat);
     this.mesh.frustumCulled = false;
@@ -265,7 +267,8 @@ export class EditGlow {
     this.still = still;
     this.mat.uniforms.fade.value = still ? STILL_FADE : 1;
     cancelAnimationFrame(this.frame);
-    this.frame = requestAnimationFrame(this.tick);
+    // (a recording draws its own frames, and moves the glow on before each: `advance`)
+    this.frame = this.clock.driven ? 0 : requestAnimationFrame(this.tick);
     this.render();
   }
 
@@ -276,39 +279,39 @@ export class EditGlow {
   private age = 0;
   private last = -1;
 
-  private readonly tick = (): void => {
-    this.frame = 0;
+  /** The glow as it is at the clock's time now (put away once it is over); whether it still glows. */
+  advance(): boolean {
+    if (!this.live) return false;
     if (!this.mesh.visible) {
       // (its program still compiling in the background: drawn, and its clock started, once it is ready)
       if (!this.ready()) {
         this.last = -1;
-        this.frame = requestAnimationFrame(this.tick);
-        return;
+        return true;
       }
       this.mesh.visible = true;
     }
     // (its clock runs with the frames drawn, at most a frame's worth a frame: the first cave on a map builds its light
-    // and compiles its shaders first, which can hold the page for seconds, and the glow must not be over unseen)
-    const now = performance.now();
-    if (this.last >= 0) this.age += Math.min(now - this.last, MAX_STEP_MS) / 1000;
+    // and compiles its shaders first, which can hold the page for seconds, and the glow must not be over unseen; a
+    // recording's frames are its video's, each moved on by its own step)
+    const now = this.clock.now();
+    if (this.last >= 0) this.age += (this.clock.driven ? now - this.last : Math.min(now - this.last, MAX_STEP_MS)) / 1000;
     this.last = now;
-    if (this.still) {
-      // (reduced motion: no fade, only gone a moment later; nothing drawn in between)
-      if (this.age * 1000 >= STILL_MS) {
-        this.clear();
-        this.render();
-      } else this.frame = requestAnimationFrame(this.tick);
-      return;
-    }
-    const f = glowFade(this.age);
-    if (f <= 0) {
+    // (reduced motion: no fade, only gone a moment later)
+    const f = this.still ? STILL_FADE : glowFade(this.age);
+    if (this.still ? this.age * 1000 >= STILL_MS : f <= 0) {
       this.clear();
-      this.render();
-      return;
+      return false;
     }
     this.mat.uniforms.fade.value = f;
-    this.render();
-    this.frame = requestAnimationFrame(this.tick);
+    return true;
+  }
+
+  private readonly tick = (): void => {
+    this.frame = 0;
+    const on = this.advance();
+    // (drawn as it fades and once it is gone; with reduced motion nothing is drawn in between, nor while it waits)
+    if (!on || (!this.still && this.mesh.visible)) this.render();
+    if (on) this.frame = requestAnimationFrame(this.tick);
   };
 
   /** Put it away at once (a new map, the layer cut moved). */
