@@ -49,6 +49,44 @@ describe("the shelf's pointer tool", () => {
     expect(drag.down(hit(1, 1), ev(2))).toBe(false);
   });
 
+  it("the Slope dragged off its tile shows a stair and lays it on release; back on its tile it lays none; a click places one", () => {
+    const log: string[] = [];
+    const t = shelfTool({
+      W,
+      H: W,
+      hover: () => undefined,
+      place: (x, y) => log.push(`place ${x},${y}`),
+      paintAround: () => null,
+      painting: () => undefined,
+      plant: () => undefined,
+      stairs: () => true,
+      stairing: (f, to) => log.push(`show ${f} ${to ?? "none"}`),
+      stair: (f, to) => log.push(`lay ${f} ${to ?? "none"}`),
+    });
+    const at = (px: number) => ({ button: 0, clientX: px, clientY: 0 }) as PointerEvent;
+    t.down(hit(3, 4), at(0));
+    t.move(hit(5, 4), at(40));
+    t.move(hit(8, 4), at(100));
+    t.up(hit(8, 4), at(100));
+    expect(log).toEqual(["show 3,4 5,4", "show 3,4 8,4", "lay 3,4 8,4"]);
+    log.length = 0;
+    t.down(hit(3, 4), at(0));
+    t.move(hit(5, 4), at(40));
+    t.move(hit(3, 4), at(0));
+    t.up(hit(3, 4), at(0));
+    expect(log).toEqual(["show 3,4 5,4", "show 3,4 none", "lay 3,4 none"]);
+    log.length = 0;
+    t.down(hit(3, 4), at(0));
+    t.up(hit(3, 4), at(0));
+    expect(log).toEqual(["place 3,4"]);
+    // (a click that jitters a few pixels over a tile's border stays a click)
+    log.length = 0;
+    t.down(hit(3, 4), at(0));
+    t.move(hit(4, 4), at(3));
+    t.up(hit(4, 4), at(3));
+    expect(log).toEqual(["place 4,4"]);
+  });
+
   it("aims at the ground seen (the voxel pick: a cave's floor, D491) and hands the click its hit", () => {
     const placed: (TileHit | null)[] = [];
     const t = shelfTool({ W, H: W, hover: () => undefined, place: (_x, _y, h) => placed.push(h), paintAround: () => null, painting: () => undefined, plant: () => undefined });

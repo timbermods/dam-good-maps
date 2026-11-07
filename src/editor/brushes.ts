@@ -222,6 +222,9 @@ interface StrokeState {
    *  stroke follows the cursor on. */
   target: number | null;
   plane: number;
+  /** What the pointer's point on `plane` is moved by to stand on the ground the stroke began on: zero but for Flatten
+   *  to a set level, whose plane lies above or below the ground under the pointer (showcase-craft gap 13). */
+  shift: [number, number];
   /** Where the cursor is, where the last dab was, when. */
   last: [number, number];
   dabAt: [number, number];
@@ -683,11 +686,15 @@ export class BrushPainter {
     // brush stays under the pointer while the ground rises or sinks beneath it
     const aim = this.aimAt(hit, ev);
     let plane = aim.plane;
-    let at = aim.at;
+    const at = aim.at;
+    let shift: [number, number] = [0, 0];
     if (tool === "flatten" && target !== null) {
+      // (Flatten to a set level follows the pointer on that level's plane, steady as the ground goes to it under the
+      // brush; the stroke begins on the ground the pointer is on, and the plane's point is moved by as much: aimed on
+      // the plane alone, the first dab landed tiles behind or in front of the pointer, a level or more away)
       plane = target;
       const p = h.renderer.pickAtLevel(ev.clientX, ev.clientY, plane);
-      at = p ? [p.point[0], -p.point[2]] : [x, y];
+      if (p) shift = [at[0] - p.point[0], at[1] + p.point[2]];
     }
     const pen = ev.pointerType === "pen" && target === null ? ev.pressure : null;
     this.stroke = {
@@ -697,6 +704,7 @@ export class BrushPainter {
       pressure: pen === null ? null : [],
       target,
       plane,
+      shift,
       last: at,
       dabAt: at,
       lastDab: performance.now(),
@@ -744,8 +752,8 @@ export class BrushPainter {
     for (const e of list) {
       const p = this.host.renderer.pickAtLevel(e.clientX, e.clientY, st.plane);
       if (!p) continue;
-      const x = Math.max(0, Math.min(this.host.W - 0.01, p.point[0]));
-      const y = Math.max(0, Math.min(this.host.H - 0.01, -p.point[2]));
+      const x = Math.max(0, Math.min(this.host.W - 0.01, p.point[0] + st.shift[0]));
+      const y = Math.max(0, Math.min(this.host.H - 0.01, -p.point[2] + st.shift[1]));
       st.last = [x, y];
       if (st.anchor) continue;
       const d = Math.hypot(x - lx, y - ly);

@@ -22,6 +22,7 @@ export type { RemoveKind };
 import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
 import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
+import { planStair, type StairStep } from "../core/doc/stair";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
 import { groupChecks, instantChecks, NO_START, NO_START_REFUSAL, type CheckGroups, type CheckItem, type TileRect } from "../core/doc/checkItems";
 export type { CheckItem };
@@ -299,7 +300,7 @@ function entityInputs(list: readonly EntitySpec[]) {
 /** The water the view shows, with its outflows (the moving water and the falls, current.ts), each column its own: the
  *  live water's, else the settle's, else the stored file's (every column's, a cave's water its own). A view has its
  *  columns' own outflows or none (a weather day under caves: the stacked engine's water in flight has none). */
-function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> | null }, ground: Uint8Array = s.built.heights): WaterView {
+export function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> | null }, ground: Uint8Array = s.built.heights): WaterView {
   // (a build without the outflows, for measuring their own cost: tools/smooth)
   const flows = import.meta.env?.VITE_DGM_CURRENT !== "off";
   const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
@@ -325,7 +326,7 @@ function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> | nu
  *  column on a map with caves or overhangs, null on a heightfield). `weather`: a hazard's day, which an unedited
  *  import shows as the day's water (the file's own is day 0 only); any other live water of an unedited import shows
  *  the file's. */
-interface LiveWater {
+export interface LiveWater {
   depth: ArrayLike<number>;
   contamination: ArrayLike<number>;
   stack?: StackSettle | null;
@@ -467,8 +468,9 @@ export function terrainNow(): { heights: Uint8Array; terrain: TerrainState } {
   return { heights: s.built.heights.slice(), terrain: s.terrainState() };
 }
 
-/** The whole map as it stands, the water its file starts with (nothing marked as sent). */
-function wholeView(s: MapSession): MapView {
+/** The whole map as it stands, the water its file starts with (nothing marked as sent; the
+ *  time-lapse's worker draws its frames from it too). */
+export function wholeView(s: MapSession): MapView {
   const b = s.built;
   return { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s) };
 }
@@ -1810,6 +1812,7 @@ export const planned = {
   strokeClearing: (op: EditOp, label: string, tiles: readonly number[]) => planStrokeClearing(need(), op, label, tiles),
   move: (id: string, dx: number, dy: number, z?: number) => planMoveEntity(need(), id, dx, dy, z),
   start: (x: number, y: number, orientation?: Orientation, z?: number) => planStart(need(), x, y, orientation, () => crypto.randomUUID(), z),
+  stair: (from: [number, number], to: [number, number]) => planStair(need(), from, to, () => crypto.randomUUID()),
   /** Why a new ramped stroke is refused (core/doc/strokes.ts), or null. */
   stroke: (op: EditOp) => newRampedStroke(op),
   /** Remove unfed water and Fill: the one operation each would apply, or why none. */
@@ -2210,6 +2213,26 @@ export function applyTool(req: ToolRequest, id: string): SessionUpdate & { plan:
 }
 
 // --------------------------------------------------------------------- the shelf and Remove
+
+/** The stair a Slope dragged from `from` to `to` would lay (core/doc/stair.ts), for the page's preview: its slopes, or
+ *  why it can't be laid. Nothing is applied. */
+export function stairAt(from: [number, number], to: [number, number]): { ok: boolean; errors: string[]; steps: StairStep[]; label: string } {
+  const p = planStair(need(), from, to, () => "preview");
+  return p.ok ? { ok: true, errors: [], steps: p.steps, label: p.label } : { ok: false, errors: p.errors, steps: [], label: "" };
+}
+
+/** Lay the stair a Slope dragged from `from` to `to` makes: its ground and its slopes, one step. */
+export function layStair(from: [number, number], to: [number, number]): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
+  const p = planStair(s, from, to, () => crypto.randomUUID());
+  if (!p.ok) return changed(s, false, p.errors, t0);
+  const r = s.applyAll(p.ops, "user", p.label);
+  return changed(s, r.ok, r.errors, t0);
+}
+
 
 /** Trees or bushes painted by a drag from the shelf (D184): one `template` on each of `tiles` where
  *  it can stand, as one step (core/doc/placing.ts `planPlant`). The tiles it planted. */
