@@ -522,8 +522,12 @@ export function App() {
     setSession(data.info);
     setOpened((o) => ({ key: (o?.key ?? 0) + 1, data, keepView }));
     const link = data.info.kind === "generated" && data.info.spec ? "#" + encodeSpecFragment(data.info.spec) : place ? `#place=${place}` : "";
-    if (data.info.kind === "generated" && data.info.spec) showSpec(data.info.spec);
-    else settingsOfFile(data.info);
+    // (a cancelled Generate brings the open map back and keeps the settings picked for the next try, as its name:
+    // showcase-craft gap 16)
+    if (!keepView) {
+      if (data.info.kind === "generated" && data.info.spec) showSpec(data.info.spec);
+      else settingsOfFile(data.info);
+    }
     history.replaceState(null, "", link || location.pathname + location.search);
     noteCurrent(e.id, link);
     kept.current = !isNew && origin.kept !== false;
