@@ -453,8 +453,9 @@ byte texture (`_OldContaminations`, `_NewContaminations`, eased by `_TickProgres
   `_Base_Contamination_Color_A` (near black, #050505) and `_B` (#801F0B), times 1.75 up to 60 % and easing to 1.0 at
   100 % (`_Base_Contamination_Intensity_Low` / `_High`): partly bad water is a brighter crimson than pure badwater.
 - **Surface:** smoothness goes to 0.15 by t × pattern (matte), metallic to 0 and normal strength up to ×2 linearly in c,
-  the glow below gated by saturate(1 − c / 0.6) (Q9: it gates the glow only, not the highlights); an emissive detail between `_Detail_Contamination_Color_A` #D99053 and
-  `_B` #E09C65 comes in by t (the pink-orange light).
+  the shallow albedo glow (the contaminated colour toward itself × (3, 1.5, 0) by G ^ 10, `BADWATER.glow`) gated by
+  saturate(1 − c / 0.6) (Q9, ps 708-715: that glow only, not the highlights, nor the emissive detail); an emissive
+  detail between `_Detail_Contamination_Color_A` #D99053 and `_B` #E09C65 comes in by t (the pink-orange light).
 - **Depth (`_DepthGradients`, texture slot 7, pathID 763 in `resources.assets`, 32×32 BC7 sRGB):** both pixel programs sample it
   at (depth / `_MaxDepth`, 0.5). Its R runs 245 to 0 and its G 245 to 22 over the 5 levels. Clean albedo = lerp(`_Color`,
   `_AlbedoAtMaxDepth`, u) × R × 2; the contaminated colour × G, both on display values (the texture sampled raw, in
@@ -519,10 +520,15 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
 
 - **V1, the flow.** The vertex reads `_OldOutflows` and `_NewOutflows` (one RGFloat per column: the simulation's
   outflow ÷ 14, `MaxOutflow`), averages its column's with its linked neighbours' (edge and corner links), eases old to
-  new by `_TickProgress` (vs 116-272) and hands the pixel (f + 1) / 2 (vs 496), interpolated over the triangle. Nothing
-  else reads the flow. The material's `_FlowSpeed`, `_FlowStrength`, `_FlowTiling` are not in cb4: leftovers.
+  new by `_TickProgress` (vs 116-272) and hands the pixel (f + 1) / 2 (vs 496), interpolated over the triangle. The
+  vertex reads it once more (V3). The material's `_FlowSpeed`, `_FlowStrength`, `_FlowTiling` are not in cb4: leftovers.
 - **V2, the surface.** Its height from `_Old/_NewWaterHeights` by `_TickProgress`; water appearing in or leaving a
   column starts up to 0.9 (or 0.54) levels low, × `_TickProgress`^0.25 (vs 301-304). Geometry, not shading.
+- **V3, still films moved sideways at the shore.** A shore vertex (one with a missing link) whose water is a film and still
+  moves sideways (vs 381-395, added at vs 486): by 0.15 tile × saturate(2 − 20 d) × max(0, 1 − 100 |f|) along its
+  corner's direction, d the vertex's depth over its column's floor eased old to new by `_TickProgress`, |f| (capped at 1)
+  the flow above. So it is full at 0.05 deep or less and gone at 0.1, full in still water and gone from |f| 0.01 (an
+  outflow of 0.14). Geometry: the film's outline at a shore shifts by up to 0.15 tile.
 - **P1, falls.** High quality only: four taps of `_OldWaterfalls`/`_NewWaterfalls` (t15, t16, `FindWaterfalls`'
   output, which the game makes only with High-quality water) ±0.075 round the pixel, old to new by `_TickProgress`,
   sharpened (ps 148-276). This mask w takes off the refraction (P2) and the camera highlight (P12), × (1 − w), and
@@ -598,10 +604,11 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Light network (`cracks`), ribbons, broad swells, rolling packets, × (0.8 + 0.4 broad), darker with speed, `hlRough` | H | (b) | none: the only light terms are P12 and P15 |
 | Albedo texture carried by the flow | S, H | (c), missing | P5: `PhysicalWaterAlbedo` × colour (ps 419-437) |
 | Ripple normals: cosines carried by our drift (calm 0.07) | S | (c) | P5, P11: `Water_N` carried by the flow, × 4 (ps 438-446, 794-813) |
-| Ripple normals: three cosines in place, not carried | H | (c) | P11 |
+| Ripple normals: three cosines rippling in place over time (`hlRippleNormal(g, time)`), not carried by the flow | H | (c) | P11 |
 | Drift: the current × 0.65, two 12 s phases | S, H | (a) in form, (c) in rate | P5: 2.5 s phases, about 13 f tiles a second |
 | Still water's drift (0.018, −0.012) | H | (b) | P5: still textures stay put |
-| Badwater's ripples at half speed (`slow`, `hlT`, `bt`) | S, H | (b) | none; the game makes badwater's normals × 2 instead (P9, ps 780) |
+| Badwater's ripples at half speed (`slow`; High's `hlT` slows only its fall strands and `bt` only its bubbles) | S | (b) | none; the game makes badwater's normals × 2 instead (P9, ps 780) |
+| Shore vertices of a still film drawn sideways | S, H | (c), missing: our mesh moves no vertex sideways | V3 (vs 381-395, 486) |
 | Detail albedo | S, H | (c), missing | P6 (ps 462-477) |
 | Gloss: our noise round 0.25, ± 0.6 of its swing, panned | S | (a), approximate | P8 (ps 480-499) |
 | Light: sky × 1.2 + sun × 0.3 × N·L × shadow | S | (a), approximate | P15 |
@@ -630,11 +637,11 @@ Ours only, most visible first:
 1. High's light network, ribbons, swells, rolling packets and their brightness swing: over every water surface (D334 put
    them in from references; removing them amends it).
 2. Standard's pale streaks and crests' light; High's `chop` streaks and grazing colours.
-3. Small: badwater's slowed ripples, High's still-water drift, a film's lifted opacity.
+3. Small: Standard's slowed badwater ripples, High's still-water drift, a film's lifted opacity.
 
 The game's, missing or different:
 1. The flow: an albedo texture and a normal map (× 4) carried by the outflow in two 2.5 s phases (P5, P11), in place of
-   our noise; High's normals do not move at all.
+   our noise; High's normals ripple in place and do not move with the flow.
 2. Clean water's colour by the game's formula on its depth (P3, P4), in both looks.
 3. High's sky reflection and GGX (P15); both looks' simplified light.
 4. Badwater's flowing pattern and emissive detail (P9) in place of mottles and bubbles; its normals × 2.
