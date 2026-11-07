@@ -178,4 +178,30 @@ describe("a force clicked quickly after another (D378)", () => {
     expect(fx.showing().erupt).toBeNull();
     expect(fx.active).toBe(false);
   });
+
+  it("an impact's dust and a fault's crack play out as drawn: a frame held long never skips them", () => {
+    // (struck at the impact's first moment: two moments and the keep after it drawn, 0.66 s)
+    play(fx, "craterize", 10, 10);
+    wait(8000, true);
+    expect(fx.showing().craterize).toMatchObject({ x: 10, y: 10, struck: expect.closeTo(0.76, 3) });
+    wait(1200);
+    expect(fx.showing().craterize).toBeNull();
+    // (ended at its last moment: the keep after it drawn, 0.22 s)
+    play(fx, "quake", 20, 20);
+    wait(8000, true);
+    expect(fx.showing().quake).toMatchObject({ x: 20, y: 20 });
+    wait(1100);
+    expect(fx.showing().quake).not.toBeNull();
+    wait(200);
+    expect(fx.showing().quake).toBeNull();
+  });
+
+  it("the ice melts back as drawn: a frame held long never skips it", () => {
+    play(fx, "glaciate", 30, 30);
+    const kept = fx.showing().glaciate!.seconds!;
+    wait(8000, true);
+    // (a tenth of a second at the showing's pace, from where it was kept)
+    expect(fx.showing().glaciate!.seconds).toBeLessThan(kept + 0.25);
+    expect(fx.showing().glaciate).not.toBeNull();
+  });
 });

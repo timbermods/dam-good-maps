@@ -72,6 +72,44 @@ const smooth = (v: number) => {
 /** The ground's height at (x, y) in tiles, as shown. */
 export type Ground = (x: number, y: number) => number;
 
+/** An effect's tail (an impact's dust, a fault's crack, the ice melting back) in seconds as drawn: each frame adds its
+ *  time, a frame of the player's view a tenth of a second at most, so a stall (the keep's work on a slow machine) never
+ *  plays the tail out unseen; a recording's frame counts whole, its time being the video's (as the plume's lava). */
+class DrawnTail {
+  private s = 0;
+  private last = 0;
+  private on = false;
+
+  constructor(private readonly clock: Clock) {}
+
+  start(now: number): void {
+    this.on = true;
+    this.s = 0;
+    this.last = now;
+  }
+
+  stop(): void {
+    this.on = false;
+    this.s = 0;
+  }
+
+  /** At each frame drawn. */
+  frame(now: number): void {
+    if (!this.on) return;
+    const step = Math.max(0, now - this.last);
+    this.s += (this.clock.driven ? step : Math.min(step, 100)) / 1000;
+    this.last = now;
+  }
+
+  get started(): boolean {
+    return this.on;
+  }
+
+  get seconds(): number {
+    return this.s;
+  }
+}
+
 /** Craterize's moment: the impactor falls, then flash, ring, dust and blocks. */
 class Impact {
   readonly group = new Group();
@@ -86,8 +124,11 @@ class Impact {
   private t0 = 0;
   /** When it struck (null: still falling). */
   struck: number | null = null;
+  /** Its seconds since it struck, as drawn. */
+  private tail: DrawnTail;
 
-  constructor(private readonly clock: Clock) {
+  constructor(clock: Clock) {
+    this.tail = new DrawnTail(clock);
     this.shock.rotation.x = -Math.PI / 2;
     this.dust.frustumCulled = this.chunks.frustumCulled = this.shock.frustumCulled = this.flash.frustumCulled = this.streak.frustumCulled = false;
     this.dust.renderOrder = this.shock.renderOrder = this.flash.renderOrder = 5;
@@ -100,22 +141,26 @@ class Impact {
     this.at = { x: m.x, y: m.y };
     this.t0 = now;
     this.struck = null;
+    this.tail.stop();
   }
 
   strike(now: number): void {
-    this.struck ??= now;
+    if (this.struck !== null) return;
+    this.struck = now;
+    this.tail.start(now);
   }
 
   get active(): boolean {
-    return !!this.a && (this.struck === null || this.clock.now() - this.struck < 1850);
+    return !!this.a && (this.struck === null || this.tail.seconds < 1.85);
   }
 
-  /** Where it is and how far it has gone (seconds since it struck; null while it falls), or null. */
-  showing(now: number): { x: number; y: number; struck: number | null } | null {
-    return this.active ? { ...this.at, struck: this.struck === null ? null : (now - this.struck) / 1000 } : null;
+  /** Where it is and how far it has gone (seconds since it struck, as drawn; null while it falls), or null. */
+  showing(): { x: number; y: number; struck: number | null } | null {
+    return this.active ? { ...this.at, struck: this.struck === null ? null : this.tail.seconds } : null;
   }
 
   update(now: number): void {
+    this.tail.frame(now);
     const a = this.a;
     this.group.visible = !!a && this.active;
     if (!this.group.visible || !a) return;
@@ -125,7 +170,7 @@ class Impact {
     const ground = a.datum;
     const arrival = 0.24;
     const fall = this.struck === null ? Math.min(0.95, (now - this.t0) / 1000 / arrival) : 1;
-    const age = this.struck === null ? -1 : (now - this.struck) / 1000;
+    const age = this.struck === null ? -1 : this.tail.seconds;
     const dx = Math.cos(a.angle) * a.glance;
     const dy = Math.sin(a.angle) * a.glance;
     this.streak.visible = age < 0;
@@ -195,11 +240,13 @@ class Rupture {
   private crack = new Line(new BufferGeometry(), new LineBasicMaterial({ color: css(JUICE.crack), depthTest: false, transparent: true }));
   private dummy = new Object3D();
   private head: { x: number; y: number; z: number } | null = null;
-  private ended: number | null = null;
+  /** Its seconds since it ended, as drawn. */
+  private tail: DrawnTail;
   private t0 = 0;
   private slide = false;
 
-  constructor(private readonly clock: Clock) {
+  constructor(clock: Clock) {
+    this.tail = new DrawnTail(clock);
     this.dust.frustumCulled = this.crack.frustumCulled = false;
     this.crack.renderOrder = 8;
     this.group.add(this.crack, this.dust);
@@ -210,7 +257,8 @@ class Rupture {
     const q = m.quake!;
     if (!this.head) this.t0 = now;
     this.head = { x: m.x, y: m.y, z: m.z };
-    this.ended = m.phase === "done" ? (this.ended ?? now) : null;
+    if (m.phase !== "done") this.tail.stop();
+    else if (!this.tail.started) this.tail.start(now);
     this.slide = q.slide;
     const upTo = Math.max(2, Math.ceil(Math.max(m.progress, m.phase === "rumble" ? 0.08 : 0) * q.path.length));
     const pts = q.path.slice(0, upTo).map((p) => new Vector3(p.x + 0.5, ground(p.x, p.y) + 0.16, -p.y - 0.5));
@@ -219,11 +267,11 @@ class Rupture {
   }
 
   finish(now: number): void {
-    this.ended ??= now;
+    if (!this.tail.started) this.tail.start(now);
   }
 
   get active(): boolean {
-    return !!this.head && (this.ended === null || this.clock.now() - this.ended < 1500);
+    return !!this.head && (!this.tail.started || this.tail.seconds < 1.5);
   }
 
   /** Its head and its seconds since it began, or null. */
@@ -232,10 +280,11 @@ class Rupture {
   }
 
   update(now: number): void {
+    this.tail.frame(now);
     this.group.visible = this.active;
     const h = this.head;
     if (!this.group.visible || !h) return;
-    const fade = this.ended === null ? 1 : 1 - smooth((now - this.ended) / 1500);
+    const fade = this.tail.started ? 1 - smooth(this.tail.seconds / 1.5) : 1;
     (this.crack.material as LineBasicMaterial).opacity = fade;
     const t = (now - this.t0) / 1000;
     const d = this.dummy;
@@ -254,7 +303,7 @@ class Rupture {
 
   clear(): void {
     this.head = null;
-    this.ended = null;
+    this.tail.stop();
     this.group.visible = false;
   }
 
@@ -490,8 +539,11 @@ class Glacier {
   private cue = { s: 0, at: 0, pace: 1 };
   /** Its seconds when it ended (kept, or skipped to its end). */
   private endS = 0;
+  /** Its seconds since it ended, as drawn: it melts back on to its end by its frames. */
+  private tail: DrawnTail;
 
   constructor(private readonly clock: Clock) {
+    this.tail = new DrawnTail(clock);
     this.gather.frustumCulled = this.crystals.frustumCulled = false;
     this.gather.renderOrder = this.crystals.renderOrder = 5;
     this.group.add(this.gather, this.crystals, this.standIn);
@@ -519,7 +571,7 @@ class Glacier {
     const c = this.cue;
     const s = Math.min(c.s + 0.1, c.s + ((now - c.at) / 1000) * c.pace);
     if (this.ended === null) return Math.min(5, s);
-    return Math.min(5, Math.max(s, this.endS + ((now - this.ended) / 1000) * c.pace));
+    return Math.min(5, Math.max(s, this.endS + this.tail.seconds * c.pace));
   }
 
   /** Its tongue from the stations, over the land as it is now; its clock starts. */
@@ -528,6 +580,7 @@ class Glacier {
     this.live = true;
     this.began = now;
     this.ended = null;
+    this.tail.stop();
     const vertices: number[] = [];
     const st: number[] = [];
     const across: number[] = [];
@@ -573,14 +626,14 @@ class Glacier {
     if (!this.live || this.ended !== null) return;
     this.endS = this.seconds(now);
     this.ended = now;
+    this.tail.start(now);
   }
 
   get active(): boolean {
     if (!this.live) return false;
-    const now = this.clock.now();
     // (still gathering: until it is planned, or a moment after it ended)
-    if (this.began === null) return this.ended === null || now - this.ended < 350;
-    return this.seconds(now) < 5;
+    if (this.began === null) return this.ended === null || this.tail.seconds < 0.35;
+    return this.seconds(this.clock.now()) < 5;
   }
 
   /** Where it gathered and its own seconds (null while it gathers), or null. */
@@ -589,6 +642,7 @@ class Glacier {
   }
 
   update(now: number): void {
+    this.tail.frame(now);
     this.group.visible = this.active;
     if (!this.group.visible) return;
     const growing = this.began === null ? (now - this.t0) / 1000 : Math.max(0, 0.9 - (now - this.began) / 1000 / 0.6);
@@ -633,6 +687,7 @@ class Glacier {
     this.live = false;
     this.began = null;
     this.ended = null;
+    this.tail.stop();
     this.cue = { s: 0, at: 0, pace: 1 };
     this.endS = 0;
     this.group.visible = false;
@@ -1161,7 +1216,7 @@ export class ForceEffects {
 
   /** What plays now (tests): each moment's place and age, or null. */
   showing(now = this.clock.now()) {
-    return { craterize: this.impact.showing(now), quake: this.rupture.showing(now), erupt: this.plume.showing(now), glaciate: this.glacier.showing(now), erode: this.wear.showing(now) };
+    return { craterize: this.impact.showing(), quake: this.rupture.showing(now), erupt: this.plume.showing(now), glaciate: this.glacier.showing(now), erode: this.wear.showing(now) };
   }
 
   /** The eruption's heat on the ground now: its age and its cooling (seconds), or null (no eruption
