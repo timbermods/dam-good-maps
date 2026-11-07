@@ -6,7 +6,7 @@
 //
 //   git archive --output=.scratch/judge-dev.tar <dev before #826> index.html real-places src public vite.config.ts tsconfig.json package.json tools/rust/vite-plugin.mjs
 //   mkdir -p .scratch/judge-dev && tar -xf .scratch/judge-dev.tar -C .scratch/judge-dev   (and .scratch/judge-826 the same)
-//   npx tsx tools/capture-water-badwater.ts [--dev .scratch/judge-dev] [--base .scratch/judge-826] [--out docs/sheets/water-badwater.jpg] [--motion]
+//   npx tsx tools/capture-water-badwater.ts [--dev .scratch/judge-dev] [--base .scratch/judge-826|none] [--out docs/sheets/water-badwater.jpg] [--motion]
 //
 // Our own generated maps only; the views are found in this checkout's water (page side) and used for every site.
 
@@ -95,11 +95,12 @@ async function badtide(page: Page): Promise<void> {
   await page.waitForTimeout(2500);
 }
 
+/** `--base none`: before and after only, dev (`--dev`) beside this checkout. */
 const SITES = [
   { key: "dev", label: "dev" },
   { key: "826", label: "#826" },
   { key: "after", label: "this PR" },
-] as const;
+].filter((s) => s.key !== "826" || arg("base") !== "none");
 const SCENES = [
   { key: "pure", label: "Pure badwater close up" },
   { key: "front", label: "Badwater meeting clean water" },
@@ -167,7 +168,7 @@ async function main() {
             images.push(got.get(`${v.key}-${look}-${s.key}`)!);
             labels.push(`${v.label}: ${look === "standard" ? "Standard" : "High"}, ${s.label}`);
           }
-      await grid(tool, images, labels, 3, 0.36, resolve(OUT));
+      await grid(tool, images, labels, SITES.length, SITES.length === 3 ? 0.36 : 0.5, resolve(OUT));
     }
     if (errors.length) console.log(`page errors:\n${errors.join("\n")}`);
   } finally {

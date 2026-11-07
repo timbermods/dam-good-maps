@@ -10,8 +10,9 @@ import { waterHooks } from "../../src/render3d/high/shaders";
 import { flowByte } from "../../src/render3d/high/bake";
 import { gameFlowOf } from "../../src/render3d/current";
 import { albedoOf, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, makeBadwaterTexture, makeWaterTexture, PATTERN_PERCENTILES, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
-import { GAME_BADWATER, GAME_WATER, gameBadwaterColour, gameBadwaterEmission, gameCleanColour, gameDepthG, gameDepthR } from "../../src/render3d/waterPalette";
-import { waterShown } from "../../src/render3d/palette";
+import { badwaterBody, badwaterGlow, GAME_BADWATER, GAME_WATER, gameBadwaterColour, WATER, gameBadwaterEmission, gameCleanColour, gameDepthG, gameDepthR } from "../../src/render3d/waterPalette";
+import { GAME_LIGHT, gameAmbient, LIGHT, sunlitTop, waterShown } from "../../src/render3d/palette";
+import { dayLight } from "../../tools/game-day-light";
 
 const N = WATER_TEXTURE_SIZE;
 const data = makeWaterTexture(N);
@@ -230,17 +231,35 @@ describe("badwater as the game draws it (Q9 P9)", () => {
     expect(gameBadwaterEmission(1)[0]).toBeGreaterThan(gameBadwaterEmission(1)[2]);
   });
 
-  it("ships the colour the pixel judge found closer to the game's frames, red over green over blue as the game's", () => {
+  it("ships the colour the pixel judge found closer to the game's frames in both looks, by one switch", () => {
     const J = GAME_BADWATER.judged;
-    // (the formula as read draws pure badwater farther from the game's pixels in both looks: ours stays)
-    expect(GAME_BADWATER.use).toBe(J.standard.formula < J.standard.ours && J.high.formula < J.high.ours);
-    // the shipped colour on screen sits within the judge's measured distance of the game's pixels
-    const rms = (a: readonly number[], b: readonly number[]) => Math.sqrt(a.reduce((s, v, i) => s + (v - b[i]) ** 2, 0) / 3);
-    expect(rms(J.shipped, J.game)).toBeLessThan(30);
-    // and the shipped body (before the light's sky and the finish) is red over green over blue, as the game's pixels
-    const shown = waterShown(1, 1);
-    expect(J.game[0]).toBeGreaterThan(J.game[1]);
-    expect(shown[0]).toBeGreaterThan(shown[1]);
-    expect(shown[1]).toBeGreaterThan(shown[2]);
+    // (one switch for both looks, D154: the formula ships where its distance to the game's pixels, over every judged
+    // tile, in the game's light at each frame's hour, is the smaller in both looks; it is in Standard, not in High)
+    const over = (look: "standard" | "high", k: "ours" | "formula") => Math.sqrt(([J.atHour, J.day] as const).reduce((s, set) => s + set[look][k] ** 2 * set.tiles, 0) / (J.atHour.tiles + J.day.tiles));
+    expect(GAME_BADWATER.use).toBe(over("standard", "formula") < over("standard", "ours") && over("high", "formula") < over("high", "ours"));
+    // the shipped path (waterShown, which the legend and the look tests read) draws pure badwater by that switch: the
+    // game's formula in the game's light, or our crimson darkened by the game's G ramp in our own; red over green over
+    // blue, darker deeper, either way
+    const up = Math.sin(LIGHT.sunElevation);
+    for (const d of [0.5, 1, 2, 3]) {
+      const shown = waterShown(d, 1, false);
+      const ours = badwaterGlow(badwaterBody(d), WATER.bad, d, 1).map((v, k) => v * (LIGHT.sky[k] * 1.2 + LIGHT.sun[k] * 0.3 * up));
+      const want = GAME_BADWATER.use ? sunlitTop(gameBadwaterColour(d, 1)) : ours;
+      for (let k = 0; k < 3; k++) expect(shown[k]).toBeCloseTo(want[k], 6);
+      expect(shown[0]).toBeGreaterThan(shown[1]);
+      expect(shown[1]).toBeGreaterThanOrEqual(shown[2]);
+      if (d > 0.5) expect(shown[0]).toBeLessThan(waterShown(d / 2, 1, false)[0]);
+    }
+    // the formula is lit by the game's light (both looks' gameWaterLight), so it turns redder at the hours most of the
+    // judged frames fall at (a sunrise: tools/game-day-light.ts), as their red-brown is against the day's near-neutral
+    // grey; our crimson is lit by our own light and stays as it is at any hour
+    const at = (light: ReturnType<typeof dayLight>) => {
+      const body = gameBadwaterColour(1, 1);
+      const amb = gameAmbient(1, light.sh);
+      return body.map((v, k) => v * GAME_LIGHT.diffuse * (amb[k] + light.sun[k] * Math.sin((light.angle * Math.PI) / 180)));
+    };
+    const [day, sunrise] = [at(dayLight(0.5, null)), at(dayLight(13, null))];
+    for (let k = 0; k < 3; k++) expect(day[k]).toBeCloseTo(sunlitTop(gameBadwaterColour(1, 1))[k], 6);
+    expect(sunrise[0] / sunrise[2]).toBeGreaterThan((day[0] / day[2]) * 1.2);
   });
 });

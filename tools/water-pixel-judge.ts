@@ -79,6 +79,8 @@ const LIGHT_MODE = arg("light") === "day" ? "day" : "shot";
 /** The environment reflection's strength to draw with in place of the scene's `m_ReflectionIntensity` 0.65
  *  (`GAME_FINISH.reflectionIntensity`, `WATER_SURFACE.reflection`), on the terrain and the water: `--reflection 1` is
  *  what the game's `Sun.UpdateColors` sets every frame (every stage's `ReflectionsIntensity`), a question for the look. */
+/** `--fit own`: each shot fits its own camera (the judge before 2026-11-07), not its map's start shot's. */
+const FIT_OWN = arg("fit") === "own";
 const REFLECTION = arg("reflection") ? Number(arg("reflection")) : null;
 const W_PX = 1280;
 const H_PX = 800;
@@ -652,12 +654,13 @@ async function main() {
       // on the map's start shot, in the day's light, where its water mask holds (at a sunrise or a sunset, or with the
       // water all badwater, the mask's dark teal test finds no water)
       const mapId = id.replace(/(-badtide\d+|-drought\d+)?-(start|end|day1)$/, "");
+      if (FIT_OWN) fits.delete(mapId);
       if (!fits.has(mapId)) {
-        const start = id === `${mapId}-start` ? s : loadShot(`${mapId}-start`);
+        const start = id === `${mapId}-start` || FIT_OWN ? s : loadShot(`${mapId}-start`);
         fits.set(mapId, fitCamera(start, waterMask(start === s ? game : await decode(tool, start.png, "image/jpeg"))));
       }
       const { cam, score } = fits.get(mapId) as { cam: Cam; score: number };
-      console.log(`\n${id}: the game's light ${s.light.label} (sun ${s.light.angle.toFixed(1)}° up, fog ${s.light.fog.map((v) => v.toFixed(2)).join("/")}); camera fit on ${mapId}-start ${(score * 100).toFixed(1)}% (yaw ${((cam.yaw * 180) / Math.PI).toFixed(1)}°, pitch ${((cam.pitch * 180) / Math.PI).toFixed(1)}°, distance ${cam.distance.toFixed(1)} (the pose's ${s.pose.distance.toFixed(1)}), fov ${cam.fov.toFixed(1)}°)`);
+      console.log(`\n${id}: the game's light ${s.light.label} (sun ${s.light.angle.toFixed(1)}° up, fog ${s.light.fog.map((v) => v.toFixed(2)).join("/")}); camera fit on ${FIT_OWN ? id : `${mapId}-start`} ${(score * 100).toFixed(1)}% (yaw ${((cam.yaw * 180) / Math.PI).toFixed(1)}°, pitch ${((cam.pitch * 180) / Math.PI).toFixed(1)}°, distance ${cam.distance.toFixed(1)} (the pose's ${s.pose.distance.toFixed(1)}), fov ${cam.fov.toFixed(1)}°)`);
       const pts = samplePoints(s);
       const pr = projector(cam);
       const inFrame = (xy: [number, number] | null): xy is [number, number] => !!xy && xy[0] >= 3 && xy[1] >= 3 && xy[0] < W_PX - 3 && xy[1] < H_PX - 3;
@@ -745,7 +748,7 @@ async function main() {
       }
     results.total = Object.fromEntries(Object.entries(total).map(([look, t]) => [look, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { distance: Math.sqrt(v.sum / v.n), n: v.n }]))]));
     results.landTotal = Object.fromEntries(Object.entries(landTotal).map(([key, t]) => [key, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { distance: Math.sqrt(v.sum / v.n), bias: Math.sqrt(v.bias / v.n), floor: Math.sqrt(v.floor / v.n), n: v.n }]))]));
-    writeFileSync(join(OUT, `judge-${WATER}-${LIGHT_MODE}${REFLECTION === null ? "" : `-reflection${REFLECTION}`}.json`), JSON.stringify(results, null, 1));
+    writeFileSync(join(OUT, `judge-${WATER}-${LIGHT_MODE}${FIT_OWN ? "-fitown" : ""}${REFLECTION === null ? "" : `-reflection${REFLECTION}`}.json`), JSON.stringify(results, null, 1));
   } finally {
     await browser.close();
     for (const s of servers) await new Promise<void>((r) => s.httpServer.close(() => r()));
