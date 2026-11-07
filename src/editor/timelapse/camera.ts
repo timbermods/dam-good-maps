@@ -1,4 +1,4 @@
-// The time-lapse's camera (D265's time-lapse rule): the video's own, on a renderer of its own, never the player's
+// The time-lapse's camera (D505): the video's own, on a renderer of its own, never the player's
 // view. It opens wide on the generated map, glides to each scene (eased, never cut, never shaken, never following
 // anything that moves; across the map rising as it travels), holds there while its steps play with a slow push in,
 // and ends on the finished map's hero view, the game's opening camera (render3d/heroView.ts: 60° down, turned to the

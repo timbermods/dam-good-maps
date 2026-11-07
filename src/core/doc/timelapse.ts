@@ -1,4 +1,4 @@
-// The build time-lapse (D205, D285 (4); its camera: D265's time-lapse rule): a map's edit history replayed from
+// The build time-lapse (D205, D285 (4); its camera: D505): a map's edit history replayed from
 // the generated map, step by step, for the page's recorder (src/editor/timelapse). Each step is the history's own
 // operations, applied as the checks' replica follows a log (`MapSession.followLog`: rebuilt from where the map
 // stood, as an edit is), so after the last step the replay is the map itself, byte for byte (D158, D455), and its

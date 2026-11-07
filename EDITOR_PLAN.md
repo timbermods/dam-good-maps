@@ -1175,7 +1175,7 @@ until the player presses play), its length and size, Close and **Download video*
   from a crater or an eruption, along a brush's stroke; its objects and blocks appear part-way; the water flows on
   between steps as the live editor's water flows (up to 512 game ticks a second of video; on a heavy map, where a
   tick of the water costs more, it flows slower in the video rather than the recording slowing).
-- **The camera is the video's, never the player's** (D265's time-lapse rule): a renderer of its own, off screen; it
+- **The camera is the video's, never the player's** (D505): a renderer of its own, off screen; it
   opens wide on the generated map, glides to each place (eased, never cut, rising as it crosses the map), holds with a
   slow push in, turns slowly round, and ends on the finished map's hero view (the game's opening camera, D488).
 - **Pacing by eye:** a short history plays each step for about a second (a force's longer), the glides between

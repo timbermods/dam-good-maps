@@ -1,6 +1,6 @@
 // File → Record a time-lapse… (D205, D285 (4)): a dialog over the editor while the video records (what it is doing,
-// how far along, Cancel), then the video itself to watch (it never plays until the player presses play: D265's
-// time-lapse rule) and Download video. The recording is record.ts's; the player's view never moves.
+// how far along, Cancel), then the video itself to watch (it never plays until the player presses play: D505) and
+// Download video. The recording is record.ts's; the player's view never moves.
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import { saveFile } from "../../platform";
@@ -106,7 +106,7 @@ export function TimelapseDialog(p: TimelapseProps) {
             <p id="lapse-words" class="lapse-words">
               The time-lapse
             </p>
-            {/* (never plays until the player presses play: D265's time-lapse rule) */}
+            {/* (never plays until the player presses play: D505) */}
             <video class="lapse-video" src={stage.url} controls preload="metadata" playsInline title="The map's time-lapse" />
             <p class="lapse-count">
               {seconds(stage.result.frames, stage.result.plan.fps)} seconds · {megabytes(stage.result.blob.size)}

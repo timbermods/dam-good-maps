@@ -1,4 +1,4 @@
-// The time-lapse's recorder (D205, D285 (4); D265's time-lapse rule): the map's history replayed in a worker of its
+// The time-lapse's recorder (D205, D285 (4); D505): the map's history replayed in a worker of its
 // own (worker/timelapse.worker.ts), drawn frame by frame on a renderer of its own, off screen, as the map's picture is
 // (render3d/hero.ts): the player's view, its camera, look and size, is never touched. Each frame goes to the browser's
 // video encoder (WebCodecs, VP9 where it can, else VP8) with its own time, so the video is the same frames whatever
