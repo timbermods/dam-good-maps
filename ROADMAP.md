@@ -29,6 +29,21 @@ below each close the weakest of those steps.
 of maps have loaded on several machines. Probe batches, re-runs and audits of what already works don't run by routine,
 only where an implementation looks wrong.
 
+**The free week** (Kyler, 2026-11-07, until about 11-14). Kyler is away and has given planning a free hand: rules may
+evolve, and features beyond this plan may be built where they make the maps or the editor better. Kyler's pause on game
+launches still holds, so no session runs Timberborn until he lifts it, and one-click play waits on that. The work, in
+this order:
+- **Forces play:** dev's red, then the see-behind aid (#759, #761) and the trees (#757). Then the #734 look set with #744
+  and #754, Wave 1's look items, and then water with character: falls pour, rivers wind, and badwater looks poisonous
+  (PERFECT, Water 3).
+- **Milestone:** Wave 1's maps items, then Wave 2's judging by looks. Then difficulty through terrain as its own design
+  step (PERFECT's Challenge, D276), which planning rules on.
+- **Planning's streams:**
+  - **showcase-craft** makes showcase maps by hand and fixes the gaps they find, logged in
+    `docs/progress/showcase-craft.md`. It sends the core and look gaps to their owners, at the top of Wave 1.
+  - **time-lapse** builds the build time-lapse (D205), taken out of Later.
+- **Releases:** planning releases to `main` once dev is green and the #734 set has landed in one go.
+
 **Wave 1, now**
 - **Maps as the game shows them** (milestone):
   - the theme's signature water no longer mostly badwater (an amendment to D476);

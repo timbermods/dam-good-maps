@@ -150,8 +150,9 @@ const OFFICIAL = process.env.DGM_OFFICIAL ?? "C:/Users/krams/code/DamGoodMaps/.s
 const HOLLOWS = OFFICIAL + "builtin_18_MapMetadataHollowsName.timber";
 
 // seed 7 on 0.10.6's maps (D148): a level patch for the pit, a hillside to hollow, and no caves of its own (seed 3's River Valley
-// has no level patch since badwater joined the lower reach, D498)
-const SEED = 7;
+// has no level patch since badwater joined the lower reach, D498); seed 6 on 0.10.7's maps (D502, D148): of seeds 1 to 16 the
+// only one with a level patch for the pit, and it has a hillside to hollow
+const SEED = 6;
 
 describe("random edits on a map with caves: the settle at once is the settle from cold (D453)", () => {
   it("a generated 64² map, hollowed", () => {

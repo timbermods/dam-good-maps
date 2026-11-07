@@ -315,6 +315,10 @@ class Plume {
   t0 = 0;
   /** When it ended (the plume thins and the lava cools from then). */
   ended: number | null = null;
+  /** Its seconds cooled as drawn, and when its last frame was: the lava cools by its frames, a frame counting a
+   *  tenth of a second at most, so a stall (the keep's work on a slow machine) never skips its cooling unseen. */
+  private cooled = 0;
+  private drawn = 0;
 
   constructor() {
     this.geometry.setAttribute("puffAlpha", new InstancedBufferAttribute(this.opacity, 1));
@@ -329,6 +333,7 @@ class Plume {
     const e = m.erupt!;
     this.t0 = now;
     this.ended = null;
+    this.cooled = 0;
     this.radius = e.radius;
     this.fissure = e.fissure;
     this.datum = m.z;
@@ -352,16 +357,19 @@ class Plume {
 
   finish(now: number): void {
     // (only a plume that began cools: one cleared, or never begun, has no lava to show)
-    if (this.emitters.length) this.ended ??= now;
+    if (!this.emitters.length || this.ended !== null) return;
+    this.ended = now;
+    this.cooled = 0;
+    this.drawn = now;
   }
 
-  /** Seconds since it began, and since it ended (0 while it runs). */
+  /** Seconds since it began, and its seconds cooled as drawn since it ended (0 while it runs). */
   ages(now: number): { age: number; cooling: number } {
-    return { age: (now - this.t0) / 1000, cooling: this.ended === null ? 0 : (now - this.ended) / 1000 };
+    return { age: (now - this.t0) / 1000, cooling: this.ended === null ? 0 : this.cooled };
   }
 
   get active(): boolean {
-    return !!this.emitters.length && (this.ended === null || performance.now() - this.ended < 6500);
+    return !!this.emitters.length && (this.ended === null || this.cooled < 6.5);
   }
 
   /** Its first vent and its ages, or null. */
@@ -370,6 +378,10 @@ class Plume {
   }
 
   update(now: number, ground: Ground): void {
+    if (this.ended !== null) {
+      this.cooled += Math.min(Math.max(0, now - this.drawn), 100) / 1000;
+      this.drawn = now;
+    }
     this.group.visible = this.active;
     if (!this.group.visible) return;
     const { age: t, cooling } = this.ages(now);
@@ -401,6 +413,7 @@ class Plume {
   clear(): void {
     this.emitters = [];
     this.ended = null;
+    this.cooled = 0;
     this.group.visible = false;
   }
 

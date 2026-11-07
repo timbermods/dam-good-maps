@@ -1702,10 +1702,10 @@ export class MapSession {
     if (!ops.length) return fail("there are no objects to place");
     const { x: W, y: H } = this.size;
     const ids = new Set<string>();
+    // (each placement is held against the map's objects by the check, as a single one is: the resources make room
+    // for it, and under a roof the game's rule goes cell by cell, D491; only the batch's own objects are kept apart
+    // here, tile by tile on the ground and cell by cell at a level, #755)
     const taken = new Set<number>();
-    for (const e of this.cur.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) taken.add(y * W + x);
-    // (under a roof, at a level: the check holds it to the game's rule against the map's objects cell by cell, D491; within
-    // the batch its cells are kept apart here)
     const cells = new Set<number>();
     for (const op of ops) {
       if (op.op !== "placeEntity") return fail("a placement batch only takes placeEntity operations");

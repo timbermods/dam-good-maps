@@ -58,6 +58,7 @@ import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, 
 import { DEAD_FORM, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
 import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
+import { LAND, LAND_GROW } from "./objectFade";
 
 type Rgb = readonly [number, number, number];
 
@@ -1543,7 +1544,8 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     if (centre) {
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
       const [dx, dy] = rotate(o, centre[0], centre[1]);
-      put(b, x + dx + 0.5, z, -(y + dy + 0.5), turn, 1);
+      // (a mine site and a seep are the land's own shape: never faded or hidden, objectFade.ts)
+      put(b, x + dx + 0.5, z, -(y + dy + 0.5), turn, 1, 1, 1, LAND.has(template) ? LAND_GROW : NO_GROW);
       continue;
     }
     if (PLANTS.has(template)) {
@@ -1592,7 +1594,8 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     if (lite) {
       mesh.instanceMatrix.array.set([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
       mesh.instanceColor = new InstancedBufferAttribute(new Float32Array([1, 1, 1]), 3);
-      mesh.geometry.setAttribute("grow", new InstancedBufferAttribute(new Float32Array([0, 0, 1]), 3));
+      // (one batch is one kind of object: the land's own shape's mark, objectFade.ts, kept)
+      mesh.geometry.setAttribute("grow", new InstancedBufferAttribute(new Float32Array([0, 0, 1].map((v, i) => (b.grows[0] < 0 ? b.grows[i] : v))), 3));
       // (what it was baked from, so a build that would bake it the same keeps it: `sameBatch`)
       mesh.userData.objects = Int32Array.from(b.objects);
       mesh.userData.baked = { matrices: Float32Array.from(b.matrices), tints: Float32Array.from(b.tints) };
@@ -1656,9 +1659,13 @@ function baked(full: Model, matrices: number[], tints: number[]): BufferGeometry
   const pos = new Float32Array(n * V * 3);
   const nrm = new Float32Array(n * V * 3);
   const col = new Float32Array(n * V * 3);
+  // (each vertex's object's place, x and z: the fade round the pointer takes an object whole, objectFade.ts)
+  const origin = new Float32Array(n * V * 2);
   for (let k = 0; k < n; k++) {
     const e = matrices.slice(k * 16, k * 16 + 16);
     for (let v = 0; v < V; v++) {
+      origin[(k * V + v) * 2] = e[12];
+      origin[(k * V + v) * 2 + 1] = e[14];
       const x = model.pos[v * 3];
       const y = model.pos[v * 3 + 1];
       const z = model.pos[v * 3 + 2];
@@ -1680,6 +1687,7 @@ function baked(full: Model, matrices: number[], tints: number[]): BufferGeometry
   g.setAttribute("normal", new Float32BufferAttribute(nrm, 3));
   g.setAttribute("pcolor", new Float32BufferAttribute(col, 3));
   g.setAttribute("lod", new Float32BufferAttribute(new Float32Array(n * V), 1));
+  g.setAttribute("origin", new Float32BufferAttribute(origin, 2));
   g.computeBoundingSphere();
   return g;
 }
