@@ -585,7 +585,7 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   floor, two game samples' distance at the game's own spread, before its water rulings count: on the badwater shots
   9.2 against a floor of 11.4 (34.8 in the day's light), on the clean start shots 12.2 against 13.6. Also found there:
   the game sets `RenderSettings.reflectionIntensity` to its stage's 1 every frame (`Sun.UpdateColors`), not the
-  scene's 0.65.
+  scene's 0.65; both looks take 1 since `fix/water-light`.
 - **P10, selection.** `_HighlightMask` (t17, screen space, `SelectionSystem`) mixes the selection's colour in, up to
   `_HighlightMaskLimit` 0.4 (ps 788-793): the game's own editing aid.
 - **P11, normal.** `Water_N` from P5, xy × (1 + c) × `_NormalBoost` 4, renormalized, into the world by the mesh's
@@ -632,7 +632,7 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Gloss: our noise round 0.25, ± 0.6 of its swing, panned | S | (a), approximate | P8 (ps 480-499) |
 | Light: sky × 1.2 + sun × 0.3 × N·L × shadow | S | (a), approximate | P15 |
 | Light: `rippleLight` over `referenceLight` | H | (c) | P15 |
-| Sky reflection (`waterSkyReflect`, `WATER.sky`, 0.65) and sun glint (`waterSunGlint`, GGX × F0) | S | (a) | P15 (ps 1149-1192) |
+| Sky reflection (`waterSkyReflect`, `WATER.sky`, × the reflection intensity 1) and sun glint (`waterSunGlint`, GGX × F0) | S | (a) | P15 (ps 1149-1192) |
 | Sky reflection and sun glint | H | (c), missing | P15 |
 | Camera highlight (`waterCameraHighlight`), before and after the light | S, H | (a) | P12 (ps 814-862); ours drops it on faces by their normal, the game by the fall mask |
 | See-through share (`cleanWaterAlpha`, 0.175 × (1 − d/5)) | S, H | (a) | P13 (ps 879-889) |

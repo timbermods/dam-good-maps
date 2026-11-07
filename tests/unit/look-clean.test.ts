@@ -98,10 +98,10 @@ describe("the clean view", () => {
   it("colours dry ground a warm brown drifting to mauve and tan, cracked dark, as Timberborn's references (D334)", () => {
     // Kyler's approved inputs (D334: the earth may be warm brown and mauve; D346: a little greyer from above), scaled
     // together to the game's Desert texture (D497: their pattern's mean albedo is the texture's, tools/albedo-means.ts)
-    expect(GROUND.dry).toEqual([0.283, 0.234, 0.187]);
-    expect(GROUND.dryCool).toEqual([0.271, 0.24, 0.223]);
-    expect(GROUND.dryWarm).toEqual([0.318, 0.255, 0.191]);
-    expect(GROUND.crack).toEqual([0.116, 0.082, 0.064]);
+    expect(GROUND.dry).toEqual([0.293, 0.242, 0.193]);
+    expect(GROUND.dryCool).toEqual([0.281, 0.249, 0.23]);
+    expect(GROUND.dryWarm).toEqual([0.33, 0.264, 0.197]);
+    expect(GROUND.crack).toEqual([0.12, 0.085, 0.066]);
     // three patches that differ, each darker at its cracks
     const patches = [GROUND.dry, GROUND.dryCool, GROUND.dryWarm];
     expect(new Set(patches.map((c) => c.join())).size).toBe(3);

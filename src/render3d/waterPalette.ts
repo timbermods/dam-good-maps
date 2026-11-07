@@ -9,7 +9,7 @@
 //
 // Badwater is the game's (`GAME_BADWATER`, Q9 P9): its formula's red-brown by a grimy pattern the flow carries, and
 // its glowing lines; #38's calibrated crimson (`WATER.bad`, `WATER_CALIBRATION`) stays as the other choice the pixel
-// judge weighs (`GAME_BADWATER.use`) and for the film's and clear water's tints. Colours are display values, before
+// judge weighs (`GAME_BADWATER.use`, by look) and for the film's and clear water's tints. Colours are display values, before
 // the light.
 //
 // Pure TypeScript, no three.js.
@@ -51,9 +51,8 @@ export const WATER = {
    *  pitch): its side faces' mean blended toward its top face's by 0.87. */
   sky: [0.402, 0.492, 0.617] as Rgb,
   /** Badwater's body a quarter level deep (#38's calibration depth), crimson, matte and murky;
-   *  lighter on a film and darker deeper, as the game's (`BADWATER.ramp`, `badwaterBody`: D496); from half a
-   *  level down lighter than clean water of the same depth, as the game's (D496 amended 2026-11-07). Unchanged by D310
-   *  (see `BAD_BODY`). */
+   *  lighter on a film and darker deeper, as the game's (`BADWATER.ramp`, `badwaterBody`: D496); darker than clean
+   *  water of the same depth, as the game's by day (D496 amended 2026-11-07). Unchanged by D310 (see `BAD_BODY`). */
   bad: BAD_BODY,
   /** The dark crimson under a badwater source's basin (not water: the basin's floor). */
   badDeep: [0.14, 0.066, 0.058] as Rgb,
@@ -121,14 +120,13 @@ export const WATER_SURFACE = {
    *  noise's swing round its middle), panned the same way, not the game's texture. Its metallic is 0 (the texture's
    *  red), so `f0` 0.04. The sky's reflection is added on top (URP's environment term):
    *  `reflection` × sky × (saturate(smoothness + f0) − f0) × (1 − N·V)^4 / (1 + roughness²) (`waterSkyReflect`; the
-   *  head-on f0 part stays in the calibrated body colour); `reflection` is the game's `m_ReflectionIntensity` (palette.ts
-   *  `GAME_FINISH.reflectionIntensity`, kept here as a number: palette.ts imports this file) and `WATER.sky` its
-   *  probe. The
-   *  sun's glint is URP's GGX specular term × f0 (`waterSunGlint`), a faint sheen at this roughness. */
+   *  head-on f0 part stays in the calibrated body colour); `reflection` is the game's reflection intensity, 1
+   *  (palette.ts `GAME_FINISH.reflectionIntensity`, kept here as a number: palette.ts imports this file) and `WATER.sky`
+   *  its probe. The sun's glint is URP's GGX specular term × f0 (`waterSunGlint`), a faint sheen at this roughness. */
   smoothness: 0.25,
   smoothnessSpread: 0.6,
   f0: 0.04,
-  reflection: 0.65,
+  reflection: 1,
   /** The game's own highlight (its PhysicalWaterURP, p036 791–835): a light tied to the camera, along its forward
    *  direction turned `horizon` of the way to the horizontal (`_LightHorizonBias`) and down by `tilt`
    *  (`_LightTilt`), its reflection off the ripples' normals to the eye raised to `exponent`, × (fresnel ^
@@ -229,25 +227,26 @@ export function gameCleanColour(depth: number): Rgb {
  *    point's distance to the grid's nearest node in cells) × the tint × `glowIntensity[0]` (`_Detail_Contamination_
  *    Intensity_Low`) easing to `glowIntensity[1]` (`_High`) by `glowIntensityTo` bad;
  *  - its smoothness toward `BADWATER.smoothness` by the tint × the pattern's R; its normals × (1 + c).
- *  `use`: whether the looks draw badwater's colour by it (true) or by their own calibrated crimson × the pattern's
- *  variation (false, `WATER.bad`, `HIGH_WATER.bad` × the ramp, `BADWATER.floor`); the pattern, the emissive detail and
- *  the smoothness follow the game either way. The pixel judge (tools/water-pixel-judge.ts --water all) compares the
- *  two against the game's own badwater frames, each drawn in the game's light at the frame's hour (its land within the
- *  spread of the game's own; until 2026-11-07 the judge drew every frame in the day's light, though five of its six
- *  fell at sunrise and one near sunset), and the formula ships only where it is closer in both looks (`judged`; one
- *  switch, as one palette feeds both looks, D154). It is closer in Standard and not in High, and on screen it draws pure
- *  badwater about as light as clean water, where the game's frames show it about 5 L* lighter (D496's order), so ours
- *  stays. The formula's body is a near-black crimson (L* 3 a level deep, lit) that the sky's reflection, the see-through
- *  and the fog lift on screen to a dull grey-brown: the game's frames show by day a near-neutral grey (about 72/69/66), at
- *  sunrise and sunset a red-brown (about 82/62/55). */
+ *  `use`: whether each look draws badwater's colour by it (true) or by its own calibrated crimson × the pattern's
+ *  variation (false, `WATER.bad` in Standard, `HIGH_WATER.bad` in High, × the ramp, `BADWATER.floor`); the pattern,
+ *  the emissive detail and the smoothness follow the game either way. The pixel judge (tools/water-pixel-judge.ts
+ *  --water all) compares the two against the game's own badwater frames, each drawn in the game's light at the frame's
+ *  hour (its land within the spread of the game's own), and each look takes whichever is closer in that look
+ *  (`judged`; split by look 2026-11-07, planning on #236: one palette still feeds both looks, D154, but the two looks
+ *  light their water apart, so the judge's choice can differ). The formula is closer in Standard and ours in High.
+ *  Both keep the game's order by day, badwater darker than clean water of the same depth (D496 as amended
+ *  2026-11-07). The formula's body is a near-black crimson (L* 3 a level deep, lit) that the sky's reflection, the
+ *  see-through and the fog lift on screen to a dull grey-brown: the game's frames show by day a near-neutral grey
+ *  (about 72/69/66), at sunrise and sunset a red-brown (about 82/62/55). */
 export const GAME_BADWATER = {
-  use: false,
+  use: { standard: true, high: false } as const,
   /** The judge's numbers (RMS distance to the game's pixels, display RGB 0–255) for pure badwater, ours (our crimson)
    *  and the formula, by look: at the frames' hours (the six Islands and Badtide end shots, five at sunrise and one
-   *  near sunset, 4,592 tiles) and by day (six start shots with badwater in view, 104 tiles). */
+   *  near sunset, 4,592 tiles) and by day (six start shots with badwater in view, 104 tiles), at the reflection
+   *  intensity the game sets (1, 2026-11-07). */
   judged: {
-    atHour: { standard: { ours: 17.0, formula: 8.6 }, high: { ours: 9.7, formula: 11.0 }, tiles: 4592 },
-    day: { standard: { ours: 18.3, formula: 13.2 }, high: { ours: 12.3, formula: 15.9 }, tiles: 104 },
+    atHour: { standard: { ours: 17.9, formula: 8.2 }, high: { ours: 9.8, formula: 10.9 }, tiles: 4592 },
+    day: { standard: { ours: 19.2, formula: 12.8 }, high: { ours: 12.4, formula: 15.8 }, tiles: 104 },
   },
   colorA: [0.02, 0.01993, 0.0196] as Rgb,
   colorB: [0.5, 0.1223, 0.04481] as Rgb,
@@ -780,7 +779,8 @@ ${rampGlsl(GAME_WATER.ramp, "r")}
   /** Badwater by the game's formula (waterPalette.ts GAME_BADWATER, gameBadwaterColour, gameBadwaterEmission): its
    *  contaminated colour at a depth, a share c and a pattern R, before the blend and the light; its emissive detail at a
    *  share, a pattern G and a point g (tiles), unlit. */
-  #define BADWATER_FORMULA ${GAME_BADWATER.use ? 1 : 0}
+  #define BADWATER_FORMULA ${GAME_BADWATER.use.standard ? 1 : 0}
+  #define BADWATER_FORMULA_HIGH ${GAME_BADWATER.use.high ? 1 : 0}
   #define BADWATER_DETAIL ${GAME_BADWATER.detailOverlay ? 1 : 0}
   #define BADWATER_PATTERN_FLAT vec2(${GAME_BADWATER.pattern.map((v) => f(Math.round(v * 1e5) / 1e5)).join(", ")})
   float gameDepthG(float depth) {
@@ -800,8 +800,8 @@ ${rampGlsl(GAME_BADWATER.ramp, "g")}
     float w = pow(g, ${f(BADWATER.glow.power)}) * clamp(1.0 - c / ${f(BADWATER.glow.upTo)}, 0.0, 1.0);
     return mix(col * g, col * vec3(${BADWATER.glow.tint.map(f).join(", ")}), w);
   }
-  /** Our crimson's variation by the pattern (GAME_BADWATER.use false): the game's base colour at a pattern R over it at
-   *  the pattern's mean. */
+  /** Our crimson's variation by the pattern (a look whose GAME_BADWATER.use is false): the game's base colour at a
+   *  pattern R over it at the pattern's mean. */
   vec3 badwaterPatternShade(float pattern) {
     return mix(${glColor5(GAME_BADWATER.colorA)}, ${glColor5(GAME_BADWATER.colorB)}, pattern) / mix(${glColor5(GAME_BADWATER.colorA)}, ${glColor5(GAME_BADWATER.colorB)}, BADWATER_PATTERN_FLAT.x);
   }

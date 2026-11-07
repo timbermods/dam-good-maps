@@ -14,7 +14,7 @@
 // beyond the game's. Grass reads apart from dry earth by its hue and its painted strokes, contamination by
 // its orange-red veins over either soil, badwater by its crimson, its dullness and its bubbles (and in
 // High its pink caustics; in both, the game's orange glow of its shallow edges where partly bad). Clean water reads as water by its sheen and ripple crests and its see-through shallows, and in
-// colour by its blue. Badwater is lighter than clean water of the same depth, as the game's, darkening with depth as the game's
+// colour by its blue. Badwater is darker than clean water of the same depth, as the game's by day, darkening with depth as the game's
 // (D496), and dull; water partly
 // bad turns smoothly from one to the other over a few tiles where they meet, greying as it turns as the
 // game's does (a teal-grey, a grey, a dull red-brown, crimson), never in streaks, patches or purple
@@ -61,18 +61,19 @@ export const GROUND = {
    *  texture doubled (TerrainURP: base × GrassDetailsAlbedo × 2; GrassDetailsAlbedo's mean 140 makes that × 1.098): dry
    *  ground the `Desert` texture's 63/52/42 (TerrainMaterialMap.blueprint.json `DesertTexture`), so 69/57/46; grass
    *  the `Grass` texture's 67/73/25, so 74/80/27 (means of the 64² mips, 0–255, read raw as the game reads them in Gamma
-   *  colour space). Each colour of a kind was scaled by the same factor per channel, so the patterns keep their shapes. */
-  dry: [0.283, 0.234, 0.187] as Rgb,
+   *  colour space). Each colour of a kind was scaled by the same factor per channel, so the patterns keep their shapes;
+ *  recalibrated 2026-11-07 (`fix/water-light`), when the tool, which had left the post chain in, read 3–5 % low. */
+  dry: [0.293, 0.242, 0.193] as Rgb,
   /** Dry ground's cooler, greyer patches. */
-  dryCool: [0.271, 0.24, 0.223] as Rgb,
+  dryCool: [0.281, 0.249, 0.23] as Rgb,
   /** Dry ground's warmer, browner patches. */
-  dryWarm: [0.318, 0.255, 0.191] as Rgb,
+  dryWarm: [0.33, 0.264, 0.197] as Rgb,
   /** The cracks in dry ground. */
-  crack: [0.116, 0.082, 0.064] as Rgb,
+  crack: [0.12, 0.085, 0.066] as Rgb,
   /** Moist ground at the edge of the moist area (the least moisture): a muted grass green. */
-  moistLow: [0.36, 0.377, 0.135] as Rgb,
+  moistLow: [0.378, 0.388, 0.135] as Rgb,
   /** Moist ground by the water (the most moisture), a little deeper green. */
-  moistHigh: [0.336, 0.361, 0.128] as Rgb,
+  moistHigh: [0.353, 0.372, 0.128] as Rgb,
   /** Contamination (badwater spoils the soil and plants die) in the light look, which draws no
    *  veins: a rust tint over dry earth... */
   contaminated: [0.4, 0.2, 0.14] as Rgb,
@@ -142,8 +143,8 @@ export const HEIGHT_RAMP = { low: [0.478, 0.588, 0.329] as Rgb, high: [0.769, 0.
  *  at `ALTITUDE_RAMP.ceiling` (22), unclamped. With **Markers** on, a pale ledge over a dark groove between levels, so
  *  levels can be counted (an editing aid, untinted). */
 export const WALL = {
-  stone: [0.334, 0.307, 0.259] as Rgb,
-  mortar: [0.108, 0.097, 0.085] as Rgb,
+  stone: [0.347, 0.317, 0.267] as Rgb,
+  mortar: [0.112, 0.1, 0.088] as Rgb,
   ledge: [0.8, 0.78, 0.68] as Rgb,
   groove: [0.08, 0.08, 0.07] as Rgb,
   gradient: { min: [0.4157, 0.4314, 0.4745] as Rgb, max: [0.9412, 0.9255, 0.8941] as Rgb },
@@ -425,14 +426,15 @@ export function sunlitTop(c: Rgb): Rgb {
  *  × the albedo's mean, badwater by the game's formula at its pattern's mean, in the game's light (`sunlitTop`),
  *  blended by the game's tint, with badwater's emissive detail at its means on top (unless `glow` is false: the body
  *  alone, before every term added after the light); or our own calibrated colours in the Standard look's light where
- *  `GAME_WATER.use` or `GAME_BADWATER.use` is off. The legend and the look tests read it. */
+ *  `GAME_WATER.use` or `GAME_BADWATER.use.standard` is off. It is the Standard look's (High draws badwater by its own
+ *  choice, `GAME_BADWATER.use.high`). The legend and the look tests read it. */
 export function waterShown(depth: number, share = 0, glow = true): Rgb {
   const up = Math.sin(LIGHT.sunElevation);
   const ours = (c: Rgb): Rgb => [0, 1, 2].map((k) => c[k] * (LIGHT.sky[k] * 1.2 + LIGHT.sun[k] * 0.3 * up)) as unknown as Rgb;
   const g = gameCleanColour(depth);
   const clean = GAME_WATER.use ? sunlitTop([0, 1, 2].map((k) => g[k] * WATER_ALBEDO.mean[k]) as unknown as Rgb) : ours(cleanWaterBody(depth));
   if (!(share > 0)) return clean;
-  const bad = GAME_BADWATER.use ? sunlitTop(gameBadwaterColour(depth, share)) : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
+  const bad = GAME_BADWATER.use.standard ? sunlitTop(gameBadwaterColour(depth, share)) : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
   const e = glow ? gameBadwaterEmission(share) : ([0, 0, 0] as unknown as Rgb);
   const m = blendWater(clean, bad, share);
   return [0, 1, 2].map((k) => m[k] + e[k]) as unknown as Rgb;
@@ -444,7 +446,10 @@ export function waterShown(depth: number, share = 0, glow = true): Rgb {
  *    `exp2(-unity_FogParams.x × the view depth)`, `unity_FogParams.x` = density / √ln 2, so `exp(-0.83 × density ×
  *    depth)`), toward the day's fog colour (`Sun.blueprint` `TemperateWeatherFog`, a held hazard's
  *    `HazardousWeatherFogs`: high/seasons.ts `FOG`). `fogParam` is that `unity_FogParams.x`.
- *  - The reflection probe's strength (`m_ReflectionIntensity`), on every environment reflection (`GAME_ENV`).
+ *  - The reflection probe's strength, on every environment reflection (`GAME_ENV`): 1, what the game's
+ *    `Sun.UpdateColors` sets `RenderSettings.reflectionIntensity` to every frame (decompiled `Timberborn.SkySystem`: the
+ *    day stage's `ReflectionsIntensity`, 1.0 at all four stages in `Sun.blueprint`), over the scene's saved
+ *    `m_ReflectionIntensity` 0.65, which never shows in play.
  *  - The post chain, as URP's uber pass grades in LDR under Gamma colour space: to linear, × 2^`postExposure`
  *    (ColorAdjustments; the game's Brightness setting at its default adds none), Neutral tonemapping (Tonemapping), then
  *    the LUT: `contrast` round ACEScc's mid grey in LogC and `saturation` round the luminance (ColorAdjustments
@@ -457,7 +462,7 @@ export const GAME_FINISH = {
   /** The game's farthest default zoom's camera distance (core/analysis/opening.ts: 32 × 1.3^6, zoom 6): the fog is the
    *  game's up to it, and from farther out held at what it shows there (an editing view the game doesn't have). */
   fogFarthest: 32 * 1.3 ** 6,
-  reflectionIntensity: 0.65,
+  reflectionIntensity: 1,
   postExposure: 0.15,
   contrast: 1.14,
   saturation: 1.03,

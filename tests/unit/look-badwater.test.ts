@@ -15,7 +15,7 @@ import { CHUNK } from "../../src/render3d/mesh";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
 import { GAME_FINISH } from "../../src/render3d/palette";
 import { GAME_BADWATER_TEXTURE, PATTERN_PERCENTILES } from "../../src/render3d/waterTextures";
-import { BADWATER, GAME_BADWATER, gameBadwaterColour, type Rgb, WATER_SURFACE, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
+import { BADWATER, GAME_BADWATER, gameBadwaterColour, HIGH_WATER, type Rgb, WATER_SURFACE, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
 import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
 
@@ -227,17 +227,21 @@ describe("badwater's colour", () => {
     // colours), darker where the pattern is low and lighter where it is high, its 10th and 90th percentiles a few L* apart
     expect(WATER.bad[0]).toBeGreaterThan(2 * WATER.bad[1]);
     expect(WATER.bad[1]).toBeGreaterThan(WATER.bad[2]);
-    // (the shipped colour at a pattern R, 0-1: the game's formula where it ships, `GAME_BADWATER.use`; else our crimson
-    // × the pattern's shade, waterPalette.ts `badwaterPatternShade`: the base colour at that R over it at the mean)
+    // (each look's shipped colour at a pattern R, 0-1: the game's formula where that look ships it, `GAME_BADWATER.use`;
+    // else its own crimson × the pattern's shade, waterPalette.ts `badwaterPatternShade`: the base colour at that R over
+    // it at the mean)
     const B = GAME_BADWATER;
     const baseAt = (p: number, i: number) => B.colorA[i] + (B.colorB[i] - B.colorA[i]) * p;
-    const shipped = (p: number): Rgb => (B.use ? gameBadwaterColour(0.25, 1, p) : (WATER.bad.map((v, i) => (v * baseAt(p, i)) / baseAt(B.pattern[0], i)) as unknown as Rgb));
     const base = GAME_BADWATER_TEXTURE.base;
-    const at = (p: number) => lightness(shipped(p / 255));
     expect(PATTERN_PERCENTILES[2]).toBe(0.1);
     expect(PATTERN_PERCENTILES[11]).toBe(0.9);
-    expect(at(base.percentiles[2])).toBeLessThan(at(base.mean) - 2);
-    expect(at(base.percentiles[11])).toBeGreaterThan(at(base.mean) + 2);
+    for (const look of ["standard", "high"] as const) {
+      const crimson = look === "standard" ? WATER.bad : HIGH_WATER.bad;
+      const shipped = (p: number): Rgb => (B.use[look] ? gameBadwaterColour(0.25, 1, p) : (crimson.map((v, i) => (v * baseAt(p, i)) / baseAt(B.pattern[0], i)) as unknown as Rgb));
+      const at = (p: number) => lightness(shipped(p / 255));
+      expect(at(base.percentiles[2]), look).toBeLessThan(at(base.mean) - 2);
+      expect(at(base.percentiles[11]), look).toBeGreaterThan(at(base.mean) + 2);
+    }
     // as see-through as clean water, as the game's High quality draws it (Q8: the ground behind by 0.175 at
     // the floor, none 5 levels deep; #38's murkier badwater gave way to the game's rule), a crimson
     // tint on a sliver

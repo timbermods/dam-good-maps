@@ -1881,8 +1881,8 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         #endif
         // badwater the same way (Q9 P9): the game's contaminated colour (its base between near black and crimson by the
         // pattern's R, × its depth ramp's G, the shallow glow) lit as the game lights it, or our calibrated crimson × the
-        // pattern's variation over its mean, whichever the pixel judge found closer to the game's frames
-        // (waterPalette.ts GAME_BADWATER.use)
+        // pattern's variation over its mean, whichever the pixel judge found closer to the game's frames in this look
+        // (waterPalette.ts GAME_BADWATER.use.standard; High's surface takes its own, .high)
         #if BADWATER_FORMULA
           murky = gameBadwaterColour(bodyDepth, cont, bpat.x) * gameWaterLight(N, lit) / max(light, 0.001);
         #else
