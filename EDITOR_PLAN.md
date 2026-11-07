@@ -1175,9 +1175,12 @@ until the player presses play), its length and size, Close and **Download video*
   from a crater or an eruption, along a brush's stroke; its objects and blocks appear part-way; the water flows on
   between steps as the live editor's water flows (up to 512 game ticks a second of video; on a heavy map, where a
   tick of the water costs more, it flows slower in the video rather than the recording slowing).
-- **The camera is the video's, never the player's** (D505): a renderer of its own, off screen; it
-  opens wide on the generated map, glides to each place (eased, never cut, rising as it crosses the map), holds with a
-  slow push in, turns slowly round, and ends on the finished map's hero view (the game's opening camera, D488).
+- **The camera is the video's, never the player's** (D505): a renderer of its own, off screen, moving as a slow
+  drone, never a turntable. It opens wide on the generated map, glides to each place (eased, never cut, rising as it
+  crosses the map), holds with a slow push in, and ends on the finished map's hero view (the game's opening camera,
+  D488). Nearby edits share one framing, so the camera doesn't move between them. It looks down at one steady pitch
+  until the glide to the hero view, and its heading turns only a little over the whole video (at most 20°, under
+  half a degree a second).
   Over the closing glide the water still flowing eases into the finished map's own water and the soil greens with it
   (`timelapse/blend.ts`), so the held view never snaps to them.
 - **Pacing by eye:** a short history plays each step for about a second (a force's longer), the glides between

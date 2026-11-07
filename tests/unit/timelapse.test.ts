@@ -108,6 +108,29 @@ describe("the time-lapse's camera", () => {
     expect(last.yaw).toBeCloseTo(held.yaw, 6);
     expect(last.pitch).toBeCloseTo(held.pitch, 6);
   });
+
+  it("is a slow drone, never a turntable: one pitch, a little turn, and nearby edits in one framing", () => {
+    const p = lapsePlan(history(30, W), W, W);
+    const cam = lapseCamera(p, heights, W, W, start);
+    // (one pitch until the glide to the hero view; the heading turns at most 20° over the whole video, one way)
+    const yaws: number[] = [];
+    for (let f = 0; f < p.outro.glide; f++) {
+      expect(cam(f).pitch).toBeCloseTo(cam(0).pitch, 9);
+      yaws.push(cam(f).yaw);
+    }
+    expect(Math.abs(cam(p.frames - 1).yaw - cam(0).yaw)).toBeLessThanOrEqual((20 * Math.PI) / 180 + 1e-9);
+    for (let k = 1; k < yaws.length; k++) expect(yaws[k]).toBeGreaterThanOrEqual(yaws[k - 1]);
+    // edits close together (each within a few tiles of the last) never move the camera's target between them
+    const near = Array.from({ length: 12 }, (_, k) => ({ kind: "land" as const, place: box(40 + (k % 3) * 3, 50 + (k % 2) * 3) }));
+    const q = lapsePlan(near, W, W);
+    const c2 = lapseCamera(q, heights, W, W, start);
+    const first = q.scenes[0];
+    const inside = q.scenes.flatMap((s) => [s.glide, s.from, s.to - 1]).filter((f) => f >= first.from && f < q.outro.glide);
+    for (const f of inside) {
+      expect(c2(f).target[0]).toBeCloseTo(c2(first.from).target[0], 6);
+      expect(c2(f).target[2]).toBeCloseTo(c2(first.from).target[2], 6);
+    }
+  });
 });
 
 describe("the ending's ease", () => {
