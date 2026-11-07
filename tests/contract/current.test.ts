@@ -9,11 +9,13 @@ import { decodeSpecFragment } from "../../src/core/spec/codec";
 import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { surfaceWater, waterFromDepth } from "../../src/render3d/model";
 
-// (seed 7: a map whose water is flat columns with the settle's outflows, as the file stores them; a map with terrain
+// (seed 20: a map whose water is flat columns with the settle's outflows, as the file stores them; a map with terrain
 // above terrain has its columns' own, `stack.flows`. Seed 4241 before generator 0.10.10, whose land grows a cliff
 // overhang under D503, as most 128² maps now do, D148; seed 4242's since D502's landmark forms; seed 7 for seed 4 since generator 0.10.11, #726,
-// D148: of River Valley's seeds 1–8 only seed 7's water is flat columns now)
-const r = generate(decodeSpecFragment("s=7&t=riverValley&z=128&d=n")!.spec);
+// D148: of River Valley's seeds 1–8 only seed 7's water was flat columns then; seed 20 for seed 7 since generator 0.10.12,
+// whose starts frame the map (D507): seed 7's map still has flat columns but no film left on its bank, which the third
+// test needs, and of River Valley's seeds 1–30 only seeds 7, 20, 24 and 29 have flat columns now, and of those only seed 20 has films, D148)
+const r = generate(decodeSpecFragment("s=20&t=riverValley&z=128&d=n")!.spec);
 const { W, H } = r.built;
 const S = r.built.settle;
 const view = waterFromDepth(r.built.heights, S.depth, S.contamination);
@@ -23,7 +25,7 @@ const sw0 = surfaceWater(W, H, view);
 const c0 = surfaceCurrent(W, H, sw0);
 const cur = Float32Array.from({ length: view.count * 2 }, (_, n) => c0[view.tile[n >> 1] * 2 + (n & 1)]);
 
-describe("the current of River Valley seed 7 at 128 squared", () => {
+describe("the current of River Valley seed 20 at 128 squared", () => {
   it("the river moves: a quarter of the wet columns are quicker than 0.5, none beyond 10", () => {
     let fast = 0;
     for (let k = 0; k < view.count; k++) {
@@ -68,7 +70,7 @@ describe("the current of River Valley seed 7 at 128 squared", () => {
     const stored = storedOutflows(singletons, W, H)!;
     expect(stored).not.toBeNull();
     // (the reader reads the water deeper than a film, 0.001, as `storedWater` does; a film's outflows are read from its
-    // own token: this map has badwater films on the bank at 62,70)
+    // own token: this map has films on the bank at 71,86 · 70,87 · 70,88)
     const tokens = String(((singletons.WaterMapNew as Record<string, unknown>).ColumnOutflows as { Array: string }).Array).split(" ");
     const out = S.out!;
     let films = 0;

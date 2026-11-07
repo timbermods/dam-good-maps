@@ -220,8 +220,10 @@ function check(
 }
 
 describe("water as drawn under a cut, on generated maps", () => {
+  // (canyon seed 9 for seed 7: generator 0.10.12's starts frame the map (D507), so seed 7's map, whose water had 98
+  // columns sliced by some cut, now has 37 and no longer reaches the 50 this checks for; seed 9's has 130, D148)
   const maps: [ThemeId, number, number][] = [
-    ["canyon", 128, 7],
+    ["canyon", 128, 9],
     ["lakeBasin", 128, 5],
   ];
   it.each(maps)("%s %i² seed %i: at every cut through its water", (theme, size, seed) => {

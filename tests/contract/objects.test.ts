@@ -137,8 +137,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // 1, 5, 9, 12, 13 and 17 have one now; Islands 17 for 10 since generator 0.10.6 (D498, badwater left the sea alone), D148: Islands 10
     // has no site now, and of Islands seeds 17, 21 and 23 (the rest of the earlier list) 17 and 21 have one; canyon 13 and 17 for canyon 5
     // and river valley 4 since generator 0.10.11, the D410 round, D148: neither has a site now, and of Canyon seeds 1, 5, 9, 12, 13 and 17
-    // only 13 and 17 have one that keeps every rule)
-    for (const [theme, seed] of [["islands", 17], ["riverValley", 3], ["canyon", 13], ["canyon", 17]] as [ThemeId, number][]) {
+    // only 13 and 17 have one that keeps every rule; canyon 11 for canyon 13 since generator 0.10.12, whose starts frame the map,
+    // D507, D148: canyon 13 has no site now, and of Canyon seeds 1–20 only 1, 11 and 17 have one, of which 11 and 17 keep every rule)
+    for (const [theme, seed] of [["islands", 17], ["riverValley", 3], ["canyon", 11], ["canyon", 17]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");

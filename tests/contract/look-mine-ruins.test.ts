@@ -18,7 +18,8 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
- *  0.10.11 makes it (the generator audit, #726: shores, not rims, on sea maps, natural ramps that read as ground and
+ *  0.10.12 makes it (the start frames the map, D507: the settler takes a start whose opening frame shows more of the map, so this map's start, land and water moved, D148);
+ *  `c1aa22cd…` before it, as generator 0.10.11 made it (the generator audit, #726: shores, not rims, on sea maps, natural ramps that read as ground and
  *  the start's berries on soil the drought keeps moist, so this map changed, D148); `cb585c69…` before it, as generator
  *  0.10.10 made it (3D forms that read, D503: this map grows no arch or overhang, so its land and water are as 0.10.9 made
  *  them, only the version, D148); `b11f46fd…` before it, as generator 0.10.9 made it (green over the whole 256² map, D504: a 128² map's land and water are as 0.10.7 made them, only the
@@ -65,7 +66,7 @@ import * as ed from "../../src/worker/session";
  *  map); `a4c34743…` before the game version stamped became 1.1.2.8-ffc2de0-sw (the same map, D148: re-stamped
  *  with 1.1.2.4-52e959e-sw the file is that one byte for byte); `30543f1d…` before generator 0.10.5's version
  *  string (the same map: its first land fails the course check, not the start or the trunk's search). */
-const LIVE_SHA = "c1aa22cd65f789c14b79834d39745f52bfb69c4056b4b83baba5f4e4a7d8d343";
+const LIVE_SHA = "1dd8183d5d7fe29ba80c221230dcbdea9e647363df4f7d48f2705077f318b5ac";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
