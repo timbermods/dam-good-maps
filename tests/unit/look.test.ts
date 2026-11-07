@@ -9,7 +9,7 @@ import { describeTile, entitiesByTile } from "../../src/editor/features";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
 import { decodeTop, encodeTop, litFraction, objectCasters, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
-import { cliffTint, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
+import { ALBEDO_SCALE, cliffTint, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { dropFlags, EDGE_CURTAIN, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
@@ -276,9 +276,10 @@ describe("the models", () => {
     const greenish = (name: string) => {
       const col = byName.get(name)!.geometry.getAttribute("pcolor").array;
       let n = 0;
-      // (the game's olive greens, D135 as amended 2026-10-29, at our grass's lightness, which D497 brought to the game's:
-      // green over red and blue by its hue, a fifth more, whatever the lightness)
-      for (let k = 0; k < col.length; k += 3) if (col[k + 1] > col[k] * 1.2 && col[k + 1] > col[k + 2] * 1.2) n++;
+      // (the game's olive greens, D135 as amended 2026-10-29: green over red and blue by 0.043 of the game's albedo,
+      // drawn at our grass's lightness (ALBEDO_SCALE), so the margin scales with it and never loosens)
+      const margin = 0.043 * ALBEDO_SCALE;
+      for (let k = 0; k < col.length; k += 3) if (col[k + 1] > col[k] + margin && col[k + 1] > col[k + 2] + margin) n++;
       return n;
     };
     expect(greenish("Oak")).toBeGreaterThan(0);
