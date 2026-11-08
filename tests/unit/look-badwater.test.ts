@@ -16,6 +16,7 @@ import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/rende
 import { GAME_FINISH } from "../../src/render3d/palette";
 import { GAME_BADWATER_TEXTURE, PATTERN_PERCENTILES } from "../../src/render3d/waterTextures";
 import { BADWATER, GAME_BADWATER, gameBadwaterColour, gameShareAt, WATER_SHARE_BLEND, HIGH_WATER, type Rgb, WATER_SURFACE, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
+import { surfaceContamination } from "../../src/render3d/high/flow";
 import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
 
@@ -127,6 +128,22 @@ describe("badwater meeting clean water", () => {
     const mid = gameShareAt(W, H, blendedBadwater(W, H, sw), 19.5, 5.5);
     expect(mid).toBe(1);
     expect(waterTint(mid)).toBe(1);
+  });
+
+  it("keeps clean water across a one-tile bank from badwater clean, as the game leaves a dry column out (#865's review)", () => {
+    // badwater west of a dry strip one tile wide at x = 8, clean water east of it
+    const W = 16;
+    const H = 6;
+    const { sw } = flat(W, H, (x) => (x < 8 ? 1 : 0), (x) => x !== 8);
+    // the texture: each wet tile's own share, a dry tile the mean of the water round it (for the ground under a film),
+    // and A whether the tile is wet
+    const b = surfaceContamination(W, H, sw);
+    expect(b[3 * W + 8]).toBeCloseTo(0.5, 6);
+    const wet = Array.from(sw.depth, (d) => (d > 0 ? 1 : 0));
+    for (let x = 9; x <= 10; x += 0.05) for (const y of [2.5, 3.0, 3.3]) expect(waterTint(gameShareAt(W, H, b, x, y, WATER_SHARE_BLEND.margin[1], wet)), `${x},${y}`).toBe(0);
+    for (let x = 7; x <= 8; x += 0.05) expect(gameShareAt(W, H, b, x, 3.5, WATER_SHARE_BLEND.margin[1], wet)).toBe(1);
+    // (without leaving the dry tile out its carry would tint the clean bank: the leak the review found)
+    expect(waterTint(gameShareAt(W, H, b, 9.02, 3.5, WATER_SHARE_BLEND.margin[1]))).toBeGreaterThan(0.5);
   });
 
   it("leaves clean water exactly as it was", () => {

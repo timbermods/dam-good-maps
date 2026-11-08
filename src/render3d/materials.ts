@@ -2011,8 +2011,8 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
       /** The flow the water's textures ride here (the game's, high/bake.ts flowByte), 0 where still. */
       vec2 waterFlow(vec2 g) { return waterFlowOf(texture2D(flowTex, g / mapSize).rg); }
       /** The badwater share at g as the game blends it between tiles (waterPalette.ts WATER_SHARE_BLEND, Q9 P9): each
-       *  tile's own in the flow texture's B, about a tile wide across a front, its margin wobbled by our own noise in
-       *  place of the game's margin noise (the light look, its filter alone). */
+       *  tile's own in the flow texture's B, dry tiles left out by its A, about a tile wide across a front, its margin
+       *  wobbled by our own noise in place of the game's margin noise (the light look: the margin's widest). */
       float waterShareAt(vec2 g) {
         #if LITE
           return waterShareFrom(flowTex, mapSize, g, 1.0);
@@ -2041,7 +2041,13 @@ ${WATER_SOURCE_GLSL}
         // the badwater share on the water's top as the game blends it between tiles (WATER_SHARE_BLEND): a front about
         // a tile wide, clean water a tile from badwater clean; a fall's face and the water's side keep the mesh's share
         // of the top's edge they hang from, and water under a roof its own column's
-        if (n.y > 0.5 && waterRoofed < 0.5) cont = waterShareAt(g);
+        // (water below its tile's surface water by its own current too, so it never reads the top water's while the light
+        // volume is not there yet)
+        bool ownShare = waterRoofed > 0.5;
+        #ifdef CAVES
+          ownShare = ownShare || waterOwnFlow.a > 0.5;
+        #endif
+        if (n.y > 0.5 && !ownShare) cont = waterShareAt(g);
         // the game's still detail albedo here (Q9 P6), which clean water's colour × its albedo and badwater's base colour
         // are overlaid with: at xz × 0.015, not carried by the flow, in every look (the game's Low quality draws it too)
         waterDetail = waterDetailAt(g);

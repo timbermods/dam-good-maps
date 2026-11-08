@@ -11,6 +11,7 @@
 import { DataTexture, LinearFilter, RGBAFormat, UnsignedByteType } from "three";
 import type { SurfaceWater } from "./model";
 import { stillBytes } from "./high/bake";
+import { writeShare } from "./high/flow";
 
 /** The least time between two jobs while the water keeps changing (ms). */
 export const STILL_FLOW_WAIT = 250;
@@ -28,6 +29,8 @@ export class StillFlow {
   private busy = false;
   private lastSent = -Infinity;
   private disposed = false;
+  /** The latest water: its share and wetness are in the texture from the moment it came (`writeShare`). */
+  private latest: Water | null = null;
   /** One more each time the share is set here at once: a job sent before it is dropped when it answers. */
   private version = 0;
 
@@ -53,12 +56,17 @@ export class StillFlow {
 
   /** A map's first water, worked out at once. */
   start(sw: Water): void {
+    this.latest = sw;
     this.write(stillBytes(this.W, this.H, sw, this.fall));
   }
 
   /** The water changed: a job soon, on the latest water; `now` (water put in place to show with the land put in with
    *  it, a version flipped to): worked out at once, here, and a job still out on older water dropped. */
   update(sw: Water, now = false): void {
+    // (the share and which tiles are wet at once, so badwater is drawn with the water it came with: only the dry
+    // tiles' carry and the waterfall mask wait for the job)
+    this.latest = sw;
+    this.current();
     if (now) {
       this.version++;
       this.pending = null;
@@ -95,6 +103,15 @@ export class StillFlow {
     }, wait);
   }
 
+  /** The latest water's share and wetness into the texture's bytes (a job's answer on older water leaves them behind),
+   *  the rows that changed sent with the next frame. Whether any changed. */
+  private current(): boolean {
+    if (!this.latest) return false;
+    const r = writeShare(this.W, this.H, this.latest, this.data);
+    if (r) this.touch(0, r.y0, this.W - 1, r.y1);
+    return !!r;
+  }
+
   /** The share and the mask into the texture's bytes, the rows that changed sent with the next frame. Whether any
    *  changed. */
   private write({ share, fall }: { share: Uint8Array; fall: Uint8Array }): boolean {
@@ -111,9 +128,9 @@ export class StillFlow {
         if (y < y0) y0 = y;
         y1 = y;
       }
-    if (y1 < 0) return false;
-    this.touch(0, y0, W - 1, y1);
-    return true;
+    if (y1 >= 0) this.touch(0, y0, W - 1, y1);
+    // (a job on older water: the latest's share and wetness again)
+    return this.current() || y1 >= 0;
   }
 
   /** No job waits, an answer still to come is dropped, and the texture is let go. */

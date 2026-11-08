@@ -1814,12 +1814,15 @@ The water-character audit's gaps 3 and 4 (`docs/progress/water-character-audit.m
   noise at (xz + 0.2 T) × 0.175), weights each sample by |dx| × |dy| from the nearest tile corner, leaves out a column
   not linked to this one, and eases the mean b to b × saturate(2b + 0.5): a straight blend about a tile wide, centred on
   the tiles' edge. Ours, in both looks (`waterPalette.ts` `WATER_SHARE_BLEND`, `waterShareFrom`; `materials.ts`
-  `waterShareAt`): each tile's own share in the flow texture's B (`high/flow.ts` `surfaceContamination`, its two
-  smoothing passes gone; still carried a tile into dry ground), read by its filter between tile centres with the
-  margin's flat middle kept, our own noise for the margin's, then eased. A water top in the open reads it; a fall's face,
-  the water's side and water under a roof keep the mesh's corner share, now each tile's own (`BLEND_KERNEL` [1], was
-  [20, 15, 6, 1]). Clean water's tint 1, 2 and 3 tiles from a straight front: 0, 0, 0 in both looks (Standard was
-  0.72/0.41/0.10, High 0.70/0.30/0), the game's; badwater a tile in is pure (was 0.92).
+  `waterShareAt`): the same four taps, each its tile's own share in the flow texture's B, a dry tile left out by its A,
+  our own noise for the margin's, then eased. B and A follow the water on the page's thread the moment it changes
+  (`high/flow.ts` `writeShare`, from `WaterMotion.waterChanged` and `StillFlow.update`, the rows that changed going up
+  with the next frame; `now` reaches the moving water's bake too), so badwater is drawn with the water it came with;
+  the bake brings the current, the waterfall mask and, for the ground under a film, a dry tile's carry (the mean of the
+  water round it). High's two smoothing passes are gone. A water top in the open reads it; a fall's face, the water's
+  side and water under a roof or below its tile's surface water keep the mesh's corner share, now each tile's own
+  (`BLEND_KERNEL` [1], was [20, 15, 6, 1]). Clean water's tint 1, 2 and 3 tiles from a straight front: 0, 0, 0 in both
+  looks (Standard was 0.72/0.41/0.10, High 0.70/0.30/0), the game's; badwater a tile in is pure (was 0.92).
 - **High's falls and small steps:** a badwater face takes the formula High's surface takes (`GAME_BADWATER.use.high`:
   `gameBadwaterColour` at its shallowest by the pattern carried over the lip, lit by `gameWaterLight`, with its glowing
   lines), as Standard's falls; a small step is High's surface itself facing up (`measuredSurfaceWater` at its depth,
