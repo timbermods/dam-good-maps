@@ -952,7 +952,14 @@ side. The page wires it: the terrain tools' hover and stroke set the fade, and a
   ambient occlusion went with D497). False brings it all back.
 - **Pictures:** the map's picture, sized pictures and Showcase cards are drawn on a renderer of their own (`hero.ts`),
   so they never see either setting. The shelf's icons are drawn on the view's renderer with the fade put off for the
-  picture (`thumbnail`), with the hiding put off too.
+  picture (`thumbnailAsync`), with the hiding put off too.
+- **The shelf's icons never make the page wait for the GPU (`thumbnailAsync`):** each of a picture's three passes is
+  read back through a fence (three's `readRenderTargetPixelsAsync`), and the view's state is put back right after
+  each draw, as the view's own frames run while the read waits. A read that waited (`readRenderTargetPixels`, before)
+  held the page until the GPU had finished the whole frame queued before it: seconds on CI's software drawing, between
+  a stroke's moves (dev's `strokesBackToBack` timeout). The pictures are the same bytes; a picture begun before a change
+  of look is drawn again in the new one. The shelf draws one at a time when the page is idle (`useShelf.ts`), and
+  starts none while a press is held on the map: the next waits for the stroke's end.
 - **Cost (measured once, real Chrome, GPU, a 256² River Valley, a 76-tree forest; information):** the call itself is
   a few µs (a uniform write). A frame after a move of a whole tile costs about 0.6 ms more on the page's thread (0.5 ms
   in Standard): the baked shadows round the region and their upload. A frame with the fade on and still costs the

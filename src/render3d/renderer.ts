@@ -334,6 +334,22 @@ function detailTextureMade(baker: Baker): Promise<void> {
 /** Whether the browser draws WebGL in software (no GPU, or one it won't use): asked of a throwaway
  *  context before the view's own is made, so the view can be made lighter for it. Asked once a page (a context
  *  costs the page's thread tens of milliseconds; the answer never changes while the page is open). */
+/** How long a picture's read waits for a break in the view's frames before it waits for one frame instead. */
+const READ_PATIENCE_MS = 2000;
+
+/** Settles when the GPU has passed `sync`, asked every 4 ms without waiting (WebGL 2 takes only a timeout of 0). */
+function fencePassed(g: WebGL2RenderingContext, sync: WebGLSync): Promise<void> {
+  return new Promise((done, failed) => {
+    const ask = () => {
+      const s = g.clientWaitSync(sync, 0, 0);
+      if (s === g.WAIT_FAILED) failed(new Error("the fence failed"));
+      else if (s === g.TIMEOUT_EXPIRED) setTimeout(ask, 4);
+      else done();
+    };
+    setTimeout(ask, 4);
+  });
+}
+
 export function softwareRendering(): boolean {
   return (softwareAnswer ??= askSoftwareRendering());
 }
@@ -2741,6 +2757,8 @@ export class MapRenderer {
   private thumbsDrawing = new Map<string, Promise<string | null>>();
   /** Counts the changes of look: the pictures are drawn again in each. */
   private thumbsLook = 0;
+  /** Counts the view's frames: a picture's pixels are read when none has been queued since the GPU drew them. */
+  private framesDrawn = 0;
   /** The instances tinted now (a highlight, a source's glow), with their own colours. */
   private lit: { mesh: InstancedMesh; i: number; color: [number, number, number] }[] = [];
   /** The tiles highlighted (`highlightObjects`), and in what colour. */
@@ -2797,9 +2815,9 @@ export class MapRenderer {
 
   /** A small picture of an object in the map's look, as a data URL (the shelf's icons), made once
    *  per object and look; null when there is no view to draw it with. Each pass's pixels are read back once the GPU
-   *  has drawn them (a fence, `readRenderTargetPixelsAsync`), never by waiting for it: a read that waits makes the page
-   *  wait for the whole frame queued before it, seconds on a slow GPU or CI's software one (D453). The view's frames go
-   *  on between the passes; a second ask for the same object waits on the first. */
+   *  has drawn them and nothing queued after them is left (`readBack`), never by waiting for it: a read that waits makes
+   *  the page wait for the whole frame queued before it, seconds on a slow GPU or CI's software one (D453). The view's
+   *  frames go on between the passes; a second ask for the same object waits on the first. */
   thumbnailAsync(template: string, px = 56): Promise<string | null> {
     const had = this.thumbs.get(template);
     if (had) return Promise.resolve(had);
@@ -2929,22 +2947,31 @@ export class MapRenderer {
     return url;
   }
 
-  /** One pass of a picture: drawn into `rt`, its read back begun, and the view's state put back at once (its own
-   *  frames run while the read waits for the GPU). The promise ends when `pixels` holds the picture. */
-  private thumbnailPass(scene: Scene, cam: PerspectiveCamera, rt: WebGLRenderTarget, pixels: Uint8Array): Promise<unknown> {
+  /** One pass of a picture: drawn into `rt`, its pixels copied on the GPU into a buffer of their own, and the view's
+   *  state put back at once (its own frames run while the copy waits for the GPU). The promise ends when `pixels` holds
+   *  the picture. */
+  private thumbnailPass(scene: Scene, cam: PerspectiveCamera, rt: WebGLRenderTarget, pixels: Uint8Array): Promise<void> {
     // (the view's own draw counts stay as its last frame left them: a picture is not a frame of the view)
     const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, fade: this.uniforms.objectFade.value.w, hide: this.uniforms.objectHide.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
     this.uniforms.slice.value = 99;
     // (a picture never shows the fade round the pointer or the objects hidden: objectFade.ts)
     this.uniforms.objectFade.value.w = FADE_OFF;
     this.uniforms.objectHide.value = 0;
+    const g = this.gl.getContext() as WebGL2RenderingContext;
+    const buffer = g.createBuffer();
     try {
       this.gl.setRenderTarget(rt);
       this.gl.setClearColor(0x000000, 0);
       this.gl.clear();
       this.gl.render(scene, cam);
-      // (its pixels copied on the GPU now, into a buffer read once the fence after them has passed)
-      return this.gl.readRenderTargetPixelsAsync(rt, 0, 0, rt.width, rt.height, pixels);
+      // (read from the picture's own framebuffer, still bound, into the buffer on the GPU: nothing waits)
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, buffer);
+      g.bufferData(g.PIXEL_PACK_BUFFER, pixels.byteLength, g.STREAM_READ);
+      g.readPixels(0, 0, rt.width, rt.height, g.RGBA, g.UNSIGNED_BYTE, 0);
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, null);
+    } catch (e) {
+      g.deleteBuffer(buffer);
+      throw e;
     } finally {
       this.gl.setRenderTarget(was.target);
       this.gl.setClearColor(was.color, was.alpha);
@@ -2952,6 +2979,35 @@ export class MapRenderer {
       this.uniforms.slice.value = was.slice;
       this.uniforms.objectFade.value.w = was.fade;
       this.uniforms.objectHide.value = was.hide;
+    }
+    return this.readBack(g, buffer, pixels);
+  }
+
+  /** The buffer's pixels into `pixels`, read once the GPU has drawn them and no frame of the view has been queued
+   *  since: the browser's read waits for everything queued before it, and a frame takes seconds on a slow GPU or CI's
+   *  software one. A frame queued meanwhile is waited for in turn (a fence after it), for up to `READ_PATIENCE_MS`
+   *  (the view drawing without a break, its water moving), after which the read waits for the last one. */
+  private async readBack(g: WebGL2RenderingContext, buffer: WebGLBuffer, pixels: Uint8Array): Promise<void> {
+    const since = performance.now();
+    try {
+      for (;;) {
+        const frames = this.framesDrawn;
+        const sync = g.fenceSync(g.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        if (!sync) throw new Error("no fence");
+        g.flush();
+        try {
+          await fencePassed(g, sync);
+        } finally {
+          g.deleteSync(sync);
+        }
+        if (this.disposed) throw new Error("the view is gone");
+        if (this.framesDrawn === frames || performance.now() - since > READ_PATIENCE_MS) break;
+      }
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, buffer);
+      g.getBufferSubData(g.PIXEL_PACK_BUFFER, 0, pixels);
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, null);
+    } finally {
+      g.deleteBuffer(buffer);
     }
   }
 
@@ -4003,6 +4059,7 @@ export class MapRenderer {
 
   renderNow(): void {
     if (this.disposed) return;
+    this.framesDrawn++;
     this.flushTerrain();
     if (this.cursorStale && this.cursor && this.map) {
       this.cursorStale = false;
