@@ -1637,13 +1637,43 @@ the game's models in resources.assets (positions, materials and texture means on
   (ShotTaker.cs), and its game ran the Medium preset. Fitted in a sphere round the view to that distance, a texel is
   0.16–0.20 of a tile in those frames, so a 7 × 7 tent (about 3.95 texels, 10–90 %) would read 0.84–1.08 on the ground:
   the frames read about 1.4 texels. Either the filter is lower or the texel smaller than that reading; either way the
-  width is texels, the same under any cliff. So the baked edge is now a constant width (`LIGHT.edge`, 0.35 of a tile
-  of ground along the sun's way; `LIGHT.penumbra` 0), the width that reads as the game's through the same measure
-  (0.3 read 0.33 against the game's 0.39 over all the lines, 0.4 read 0.46). Each sample's top is now walked tile by
-  tile toward the sun (`shadowTopsInto`): the sweep that took a top between two samples a step blurred a long shadow
-  sideways, so even at a constant width a ten-level cliff's edge read 1.1 tiles; the walk keeps the game's stepped
-  outlines. In play, at the default preset's 4096 and a shadow distance of 150 at most, the game's texel is about a
-  third of the probe's, so its edge is narrower still; only a probe batch at the default preset would read it.
+  width is texels, the same under any cliff. So the baked edge is now a constant width (`LIGHT.edge`; `LIGHT.penumbra`
+  0), the game's in play, worked out from those frames and the game's settings (no probe batch: the probe's shadow
+  distance is not what players get, D483):
+  1. *The multiple.* Through the same measure our edge reads as the game's at 0.35 of a tile along the sun's way (0.3
+     read 0.33 and 0.4 read 0.46 over all the lines, the game 0.39), 0.35 × sin 45° = 0.247 of a tile across the
+     light. The six shots' texels (2048, the probe's 2.5 × distance, a 16:10 frame) are 0.156–0.199, mean 0.183, so
+     the game's edge is 0.247 / 0.183 = 1.35 texels (1.24–1.59 by shot): about 1.4. The frames' own blur cancels, as
+     ours went through the same pixels.
+  2. *The texel in play.* The default preset High: 4096, one cascade, a shadow distance of at most 150 (the farthest
+     screen corner on y = 0, which a usual play view passes). At the camera's fov 40.3° on a 16:9 screen the sphere
+     round the frustum to 150 has a radius of 116.9, so a texel is 2 × 116.9 / 4096 = 0.057 of a tile (0.054 at
+     16:10). Closer in, the distance and the texel shrink.
+  3. *The edge.* 1.4 × 0.057 = 0.080 of a tile across the light; along the sun's way, / sin 45°, 0.113. `LIGHT.edge` is
+     0.11.
+  4. *What the bake resolves.* North-south cliffs of 1 to 14 levels on flat ground (their shadows' ends at every phase
+     between the samples), read as the shader reads the bytes (bilinear, the 0.11-level step), give a ramp 0.71–1.22 of
+     the width asked and a middle −0.03 to +0.06 of a tile off the true line, alike at every width from 0.05 to 0.35:
+     the samples and the bytes set those, not the width, so the half-tile bake resolves 0.11 as cleanly as 0.35. The
+     screen is the limit: from far out a pixel spans more than 0.11 of a tile, so the shader keeps the ramp at least a
+     pixel wide (`sunPx`, the change across the pixel of the height over the shadow's top), and the edge never steps.
+- **The bake's speed (D453).** The walk is exact per sample (every tile entered toward the sun, none it only touches at
+  a corner), and fast: it walks once (no penumbra), over a window of the map round the samples asked, skipping blocks
+  of 4 and 16 tiles whose highest tile cannot rise over the top so far, and a strip of 16-blocks toward the sun at once;
+  the first 16 tiles' crossings from each of a sample's four positions in its tile are a table. Medians of 15 bakes
+  each, dev and this branch interleaved (Node, the probe's maps; 512² is each map tiled 2 × 2):
+
+  | map | 256² dev | 256² branch | 512² dev | 512² branch |
+  |---|---|---|---|---|
+  | chaos-256-1 | 17.6 | 18.8 | 78.2 | 71.5 |
+  | chaos-256-2 | 20.9 | 21.9 | 81.7 | 81.0 |
+  | slow-lb-16-256 | 19.4 | 15.9 | 87.2 | 69.4 |
+  | gentle-lb-24-256 | 18.4 | 15.0 | 76.2 | 62.4 |
+
+  A brush dab's terrain update (`flushTerrain` after a 5 × 5 raise, 300 dabs at random on a 256² map, in Chrome; ms,
+  median and 90th centile): riverValley Standard dev 1.33–1.44 / 2.5–2.6, branch 0.84–1.19 / 2.0–2.5; mountains dev
+  1.21–1.36 / 2.3, branch 0.86–0.98 / 2.1; riverValley High dev 1.42 / 2.55, branch 1.10 / 2.38. (`npm run
+  bench:brush` waits on a stroke the page no longer paints that way and times out on dev too.)
 - **#853's review notes:** the light look's soil and contamination took the blend noise at 0.5; they now take the mean of
   the blend over the game's noise (its mean 0.473 and spread 0.081, a five-point Gauss–Hermite sum, `noiseMean`), so
   its grass share by moisture is the game's formula's (0.36/0.66/0.88/0.97/0.99 at 1/1.5/2/2.5/3). A cave's mouth had a
@@ -1651,18 +1681,22 @@ the game's models in resources.assets (positions, materials and texture means on
   moisture, so a brown fringe showed on the open side only; both sides now read each other's desert intensity
   (`runDesert`, the run tops' `grassOf`). The `DESERT` and `soilOf` comments say what the tile data carries.
 - **On the judge** (six start shots; `fix/dry-land` → this branch): Standard grass RMS 13.2 → 12.8 (bias 8.7 → 8.4),
-  dry 10.6 → 10.7 (2.7), cliff 18.1 → 18.4 (bias 13.6 → 13.8), edge unchanged; High unchanged (grass 14.6, bias 9.3).
+  dry 10.6 (2.7), cliff 18.1 → 18.4 (bias 13.6 → 13.8), edge unchanged; High unchanged (grass 14.6, bias 9.3).
   Grass over dry, Standard 4.4 → 4.7 (riverValley-128-1 5.0 → 5.4), High 3.8; the game 10.2 (14.0). The 2° edge read
   grass bias 7.8 and grass over dry 5.2: it lit that column by spreading the edge into the shade, not as the game does.
-  Clean water's RMS 14.4 → 14.3 in Standard, 14.1 in High. The badwater frames were not run: nothing on water or
-  contamination changed outside the light look and the shadow's edge.
+  Clean water's RMS 14.4 in Standard, 14.1 in High, as dev. The badwater frames were not run: nothing on water or
+  contamination changed outside the light look and the shadow's edge. At 0.11 the edge reads 0.18–0.26 under cliffs of
+  four levels or more through the probe's measure (the game's probe frames 0.33–0.64 there, at their coarser texel):
+  the edge players get is about a third of the probe's, and the frames' pixels set the rest.
 - **The sheet:** `docs/sheets/grass-light.jpg`: riverValley-128-1, dev (`fix/dry-land`) against this branch, Standard
   and High. Standard's shadows end crisp and stepped as the cliffs are; High is unchanged.
 - **Falls short:** grass on the judge still reads several luma under the game's: about 2.7 of it the game's texture
   where the samples sit, about 1–4 our pattern's placement there, a luma the light. A judge that samples more grass
   across more shots would read it truer; changing either pattern to suit these samples would not be drawing as the game
-  draws. High's edge (its depth map's 25 taps) reads 0.5–0.6, a little wider than the game's 0.4; the bake still keeps
-  two tops a sample (both the same now) and walks both. The edge tiles' greenness (#853's falls-short) is untouched.
+  draws. High's edge (its depth map's 25 taps) reads 0.5–0.6 in the probe's measure, wider than the game's there and
+  wider again than its 0.11 in play. The bake still keeps two tops a sample (the same now, copied). The 1.4 texels rest
+  on the probe's Medium frames and the cascade's sphere fit; a frame at the default preset would check them. The edge
+  tiles' greenness (#853's falls-short) is untouched.
 
 ## The rest of the step (next parts)
 

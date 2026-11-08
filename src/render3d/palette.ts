@@ -454,8 +454,11 @@ export const LIGHT = {
    *  2° for a day; the width is `edge`. */
   penumbra: 0,
   /** The baked shadow's edge: the ground, along the sun's way, over which a shadow turns to sun (tiles), the same at
-   *  any drop: as wide as the game's reads in its probe frames, through the same measure (`tools/shadow-edge-check.py`). */
-  edge: 0.35,
+   *  any drop: the game's in play. Its probe frames read about 1.4 of their shadow map's texels (0.35 here read as theirs
+   *  through the same measure, `tools/shadow-edge-check.py`), and in play the default preset's map (4096) over a
+   *  shadow distance of at most 150 makes a texel 0.057 of a tile, so 1.4 texels / sin 45° = 0.11 along the sun's way
+   *  (docs/progress/3d-view.md, "Grass in the game's light"). The shader keeps it at least a pixel wide. */
+  edge: 0.11,
   sun: [1.0, 0.95, 0.86] as Rgb,
   sky: [0.63, 0.64, 0.72] as Rgb,
   /** The haze: the game's temperate daytime fog (`Sun.blueprint` `DayColors.TemperateWeatherFog`; a held hazard's in
