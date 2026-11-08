@@ -3,6 +3,11 @@
 // long a dab takes. The worker runs the same preview the page would (strokePreview.ts, rule 3, dab by
 // dab), so what the page shows is exactly what the operation builds. This is the page's side: the same
 // surface as `StrokePreview` where the brushes read it, the land arriving through `onLand`.
+//
+// One call is with the worker at a time (#868): the dabs that come while it works wait as one batch, sent
+// whole when its land comes back. A call a batch of dabs, each waiting behind the last, grew a queue the
+// worker never caught up with (the land seconds behind the cursor); the worker presses a batch dab by dab
+// as it pressed them one call each, so the land it sends back is the same.
 
 import type { BrushParams } from "./brush";
 import type { Rect } from "./brush";
@@ -39,6 +44,8 @@ export class RemotePreview {
   private chain: Promise<unknown>;
   private live = true;
   private dabCount = 0;
+  /** The dabs (and their pressures) waiting for the call before them to answer: sent as one call. */
+  private waiting: { dabs: number[]; pressure: number[] | undefined } | null = null;
 
   /** `record` is the page's settings, given the worker's record as it comes (as `StrokePreview` does);
    *  `heights` the shown heights, changed in place as the land arrives. */
@@ -61,12 +68,28 @@ export class RemotePreview {
     this.chain = channel.begin({ ...record }, ground);
   }
 
-  /** More dabs: sent now, their land shown when it comes. Returns null (nothing changed yet). */
+  /** More dabs: sent once the call before them answers (with any that came meanwhile), their land shown
+   *  when it comes. Returns null (nothing changed yet). */
   add(dabs: ArrayLike<number>, pressure?: ArrayLike<number>): Rect | null {
-    const d = Array.from(dabs);
-    const p = pressure ? Array.from(pressure) : undefined;
-    this.dabCount += d.length >> 1;
-    this.chain = this.chain.then(() => this.channel.add(d, p)).then((land) => this.show(land));
+    const n = dabs.length >> 1;
+    if (!n) return null;
+    this.dabCount += n;
+    const w = this.waiting;
+    // (a batch either has a pressure for every dab or none: one without joins one with only as its own call)
+    if (w && !w.pressure === !pressure) {
+      for (let k = 0; k < 2 * n; k++) w.dabs.push(dabs[k]);
+      if (w.pressure && pressure) for (let k = 0; k < n; k++) w.pressure.push(pressure[k]);
+      return null;
+    }
+    const batch = { dabs: Array.from({ length: 2 * n }, (_, k) => dabs[k]), pressure: pressure ? Array.from({ length: n }, (_, k) => pressure[k]) : undefined };
+    this.waiting = batch;
+    this.chain = this.chain
+      .then(() => {
+        // (the batch goes: what comes from now on waits for its answer)
+        if (this.waiting === batch) this.waiting = null;
+        return this.live ? this.channel.add(batch.dabs, batch.pressure) : null;
+      })
+      .then((land) => this.show(land));
     return null;
   }
 
@@ -74,7 +97,9 @@ export class RemotePreview {
    *  comes as `add`'s does. */
   finish(rigid: readonly (readonly [number, number, number, number])[]): Rect | null {
     const r = rigid.map((v) => [v[0], v[1], v[2], v[3]] as [number, number, number, number]);
-    this.chain = this.chain.then(() => this.channel.finish(r)).then((land) => {
+    // (dabs after this go after it)
+    this.waiting = null;
+    this.chain = this.chain.then(() => (this.live ? this.channel.finish(r) : null)).then((land) => {
       if (land) this.finished = grow(this.finished, land.rect);
       this.show(land);
     });
