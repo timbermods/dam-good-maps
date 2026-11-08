@@ -6,49 +6,50 @@
       "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 SUPER (0x00001E84) Direct3D11 vs_5_0 ps_5_0, D3D11)",
       "cpuSlowdown": 1,
       "map": "riverValley 256² seed 1",
-      "stroke": "Raise 1,120 tiles",
+      "stroke": "Raise 874 tiles",
       "brush": null,
       "refreshMs": 7,
       "landFrom": "page preview",
       "inputToFrameMs": {
-        "p50": 11.8,
-        "p95": 1853.7,
-        "max": 2214.2,
-        "samples": 242
-      },
-      "cursorToFrameMs": {
-        "p50": 9.1,
+        "p50": 9.3,
         "p95": 14.1,
+        "max": 32.6,
+        "samples": 286
+      },
+      "movesChangingNothing": 194,
+      "cursorToFrameMs": {
+        "p50": 8.5,
+        "p95": 13.2,
         "samples": 480
       },
       "landShownMs": {
-        "p50": 10.1,
-        "p95": 250.2,
-        "samples": 187
+        "p50": 9.3,
+        "p95": 14.1,
+        "samples": 286
       },
       "landTrailFrames": {
-        "p50": 1.5,
-        "p95": 37,
-        "frameMs": 6.8
+        "p50": 1.4,
+        "p95": 2.1,
+        "frameMs": 6.6
       },
       "frameMs": {
         "p50": 7,
-        "p95": 7.1,
-        "p99": 13.2,
-        "max": 42.1,
-        "overTwoRefreshes": 6,
-        "frames": 2269
+        "p95": 7,
+        "p99": 7.2,
+        "max": 35,
+        "overTwoRefreshes": 4,
+        "frames": 2277
       },
       "remeshMs": {
-        "p50": 1.4,
+        "p50": 1.2,
         "p95": 1.9,
-        "max": 7.5,
-        "samples": 168
+        "max": 20.2,
+        "samples": 287
       },
       "longTasksWhilePainting": [],
       "longTasksAfterRelease": [],
-      "commitAfterReleaseMs": 480,
-      "undoToFrameMs": 29.7,
+      "commitAfterReleaseMs": 484,
+      "undoToFrameMs": 16.9,
       "strokeMismatches": 0
     }
   ]
