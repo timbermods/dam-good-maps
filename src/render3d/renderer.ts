@@ -311,13 +311,14 @@ export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 const WATER_FPS = 30;
 
 let waterSurface: Promise<void> | null = null;
-/** The surface the water's flow carries (waterTextures.ts), made once a page in the bake worker (about 160 ms) and
- *  written into the page's shared texture (materials.ts `waterSurfaceTexture`); the water is flat at its mean until then. */
+/** The surface the water's flow carries (waterTextures.ts) and contaminated ground's pattern (soilTexture.ts), made once
+ *  a page in the bake worker (about 300 ms) and written into the page's shared textures (materials.ts
+ *  `waterSurfaceTexture`, `soilPatternTexture`); each is flat at its mean until then. */
 function waterSurfaceMade(baker: Baker): Promise<void> {
   // (a failed bake is forgotten, so the next view tries again)
   return (waterSurface ??= baker.run({ kind: "waterTexture" }).then(
     (r) => {
-      if (r.kind === "waterTexture") fillWaterTexture(r.data, r.bad);
+      if (r.kind === "waterTexture") fillWaterTexture(r.data, r.bad, r.soil);
     },
     (e: unknown) => {
       waterSurface = null;
@@ -3919,6 +3920,12 @@ export class MapRenderer {
   }
 
   /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */
+  /** Settles once the water's surface, badwater's pattern and contaminated ground's pattern are made (they are flat at
+   *  their means until then; the light look never reads them). For tests and pictures that read the patterns. */
+  patternsMade(): Promise<void> {
+    return this.software ? Promise.resolve() : waterSurfaceMade(this.baker);
+  }
+
   sunNow(): void {
     const want = sunOfYaw(this.view.yaw);
     this.sunWant = want;

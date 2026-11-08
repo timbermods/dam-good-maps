@@ -599,7 +599,10 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
 - **P15, light.** URP Lit (ps 905-1251): ambient from the SH probe, turned to display values; the reflection probe
   `unity_SpecCube0` at URP's mip for the roughness and URP's environment term (F0 0.04 at metallic 0, (1 − N·V)^4); the
   sun with soft cascaded shadows (Lambert diffuse and URP's GGX); additional lights; exponential fog. The emission
-  (P12, P9) is added unlit.
+  (P12, P9) is added unlit. The diffuse share is URP's 0.96 × (1 − metallic): 0.96 on the water (metallic 0), against the terrain's 0.912;
+  the environment term is sky × (F0 + (grazing − F0) × (1 − N·V)^4) / (1 + roughness²), its head-on F0 part included
+  (both missing where our formula draws the colour; measured on fix/ground-veins, 2026-11-07, they lift clean water
+  further from the game's, so they wait: docs/progress/3d-view.md).
 - **The edge where water meets land.** No foam, no shore line, no intersection or depth-fade term: only P3's depth
   (the colour lightens toward the shore) and P13's see-through (17.5 % at most, at the shore). `_Foam*`,
   `_ShorelineThreshold`, `_InvFade`, `_FadeLimit` are not in cb4: leftovers. #715 confirmed.

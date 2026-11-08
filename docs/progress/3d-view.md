@@ -1252,6 +1252,59 @@ the game's models in resources.assets (positions, materials and texture means on
   half a tile over a 4-tile repeat, no glow; weight `saturate((c^0.65 + 0.975 (noise − 0.45) − 0.5) × 18 + 0.5)`
   from four taps 0.2 apart); ours are sparse (about 4 %), redder and glowing; both wait on the next PR.
 
+## The game's contamination veins and the water's own light (D154, D496, D497; `fix/ground-veins`)
+
+- **The veins are the game's (D154 amended):** TerrainURP lays its `SoilContamination` texture (1024², four tiles a
+  repeat) over the ground after the altitude ramp and before the light, by lerp(albedo, its colour, weight × its
+  alpha), with no emission. The weight: the tile's map value (`SoilContaminationMap`: 0.1 at the least, whole from
+  0.2), blended across the tiles by the desert's four taps 0.2 round the point, to the power 0.65, at least 0.2,
+  + 0.975 × (blending noise − 0.45), softness 18 (`palette.ts` `CONTAMINATION`, `contaminationMap`,
+  `contaminationWeight`; materials.ts `tapBlend`, `blendNoise`, `contaminationWeight`). So the same pattern shows at
+  any level over a fifth, and patches of it below. Dev drew sparse red fissures that widened and glowed with the level;
+  they, their glow and High's Soil edges switch are gone.
+- **The pattern is ours, to the game's numbers:** `python tools/game-water-shader.py --soil` measures the game's
+  texture (read raw, numbers only): 19.8 % of texels over half alpha, mean alpha 0.20, 11 % soft edge, crack colour
+  78/33/5 (spread 20/10/4), 48/33/24 between, cracks 0.023/0.039/0.067 tile wide (5th/50th/95th percentile), 4.8
+  tiles of crack a square tile, about 5.4 cells a square tile, one joined network. `render3d/soilTexture.ts` makes
+  ours in the bake worker (512², about 130 ms): a warped Voronoi network with a sparser fine network for branches,
+  widened until its cover is the game's: 19.8 %, mean alpha 0.197, soft 11.3 %, cracks 80/35/8, widths
+  0.016/0.035/0.078, 4.9 tiles a square tile, 7.6 cells. `soil-texture.test.ts` holds it there. The light look,
+  with no patterns, takes the pattern's mean (the soil a fifth of the way to 54/32/19).
+- **Judged on the game's frames:** of the sixteen day-lit start shots, only any-128-1-start shows contaminated
+  ground away from water (19 samples, all over 110 from the camera, where a vein is under a pixel): the game's reads
+  118/120/113; dev's 132/122/112 (bias 8.2, distance 13.4), this branch's 119/118/111 (bias 1.5, distance 8.0;
+  the floor, two game samples, 7.3). High: dev bias 8.7, this branch 1.2. The judge now also counts the pixels a
+  vein's rust tints past a test (red 18 over green, blue under half of red; `veinsAt`, 13 × 13 pixels round each
+  sample) and takes contaminated ground two tiles from water, not five: of those 3,211 pixels the game's show none, dev
+  13.0 % (a glowing orange, 192/112/79), this branch none.
+- **The water's own light (D496, D497), found and held back:** two of the game's terms are missing where the game's
+  formula draws the water's colour. The water's diffuse share is URP's 0.96 (its metallic 0: `WaterMetalAndGloss`
+  red, `_Contamination_Metallic`), not the terrain's 0.912; and URP's environment term has a head-on part, sky × f0 /
+  (1 + roughness²), which our calibrated colours held but the formula does not. Built and judged (`--water all`, the
+  sixteen day-lit starts, each drawn in its shot's light), L* by band, game / dev / with both terms:
+  - Standard badwater: 0.5–1 35.8 / 33.0 / 34.1; 1–2 27.5 / 24.8 / 26.2 (distance 15.3 to 14.3, 172 tiles).
+  - Standard clean water: 0.05–0.5 39.2 / 44.4 / 46.1; 0.5–1 31.9 / 35.3 / 37.0; 1–2 31.4 / 33.1 / 34.7; 2–3
+    27.0 / 27.9 / 29.3 (distance 13.1 to 15.6, 37,853 tiles).
+  - High clean water (the diffuse share only): 43.6 to 44.4, 34.4 to 35.0, 32.2 to 32.6, 27.0 to 27.3 (distance
+    12.2 to 13.1); High's badwater is its crimson, unchanged.
+
+  Both terms are shared, so they lift clean water with badwater: badwater closes about half its gap while clean water,
+  already lighter than the game's, moves 1.4–1.7 L* further away, and the gap between them at 1–2 levels stays 8.5 L*
+  (8.3 on dev) against the game's 3.9. On the look review's finding (the game wins on screen) they are held back, noted
+  where they belong (palette.ts `GAME_LIGHT`, waterPalette.ts `WATER_SURFACE`), for the water PR that finds the
+  rest: badwater's remaining darkness is warm (the game's 69/64/61 against the terms' 62/62/62 at 1–2 levels: red +7,
+  blue −1), the shape of its emission or glow, not the light; clean water's excess is its own (largest in the
+  shallows). The water draws as on dev.
+- **High's step faces:** the clear water's veil over a small step now keeps the step's own badwater at its depth,
+  not the fall's 0.05-deep film (`clearBad`).
+- **The sheet:** `docs/sheets/ground-veins.jpg` (`tools/capture-ground-veins.ts`): dev against this branch, Standard
+  and High: contaminated dry earth and contaminated ground meeting grass close up, a held Badtide wide, and badwater by
+  day.
+- **Falls short:** badwater by day is as dark as on dev (the terms above held back), so the gap's size has no test yet.
+  High's sky reflection and GGX (Q9 P15) wait for their own PR. No day-lit shot has contaminated ground near the camera,
+  so the veins' coverage and colour on screen are judged from afar only; the texture's statistics are the close-up
+  measure.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

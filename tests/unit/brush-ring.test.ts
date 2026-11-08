@@ -3,7 +3,7 @@
 // colour-blindness simulations (Machado, Oliveira and Fernandes 2009, full severity, on linear RGB).
 
 import { describe, expect, it } from "vitest";
-import { GROUND, HEIGHT_RAMP, WATER, WATER_UI, type Rgb } from "../../src/render3d/palette";
+import { CONTAMINATED_GROUND, CONTAMINATION, GROUND, HEIGHT_RAMP, WATER, WATER_UI, type Rgb } from "../../src/render3d/palette";
 
 type M = [number, number, number, number, number, number, number, number, number];
 const VIEWS: [string, M | null][] = [
@@ -33,7 +33,9 @@ const GROUNDS: [string, Rgb][] = [
   ["badwater", WATER.bad],
   ["dry ground", GROUND.dry],
   ["moist ground", GROUND.moistHigh],
-  ["contaminated ground", GROUND.contaminated],
+  ["contaminated ground", CONTAMINATED_GROUND.dry],
+  ["contaminated grass", CONTAMINATED_GROUND.grass],
+  ["contamination's veins", CONTAMINATION.vein],
   ["the bed under water", GROUND.underwater],
   ["high ground (height colours)", HEIGHT_RAMP.high],
 ];

@@ -13,7 +13,7 @@ import { entityView } from "../../src/render3d/model";
 import { CLEAR_WATER, GAME_WATER, badwaterBody } from "../../src/render3d/waterPalette";
 import { WATER_ALBEDO } from "../../src/render3d/waterTextures";
 import { cleanWaterShown } from "./waterShown";
-import { CONTAMINATION, contaminationVein, contaminationVeins, DEAD_TREE, GROUND, groundColor, LIVING_TREE, cssColor, legendEntries, objectLegend, sunlitTop, WATER, waterBody, type Rgb } from "../../src/render3d/palette";
+import { BLEND, CONTAMINATION, contaminationMap, contaminationMean, contaminationVein, contaminationWeight, DEAD_TREE, GROUND, groundColor, LIVING_TREE, cssColor, legendEntries, objectLegend, sunlitTop, WATER, waterBody, type Rgb } from "../../src/render3d/palette";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 
@@ -140,56 +140,71 @@ describe("grass and dry earth, in greyscale and every colour-blindness simulatio
 });
 
 describe("contamination", () => {
-  // Kyler (contamination round): a layer over the ground, as in the game, never a solid rust fill;
-  // D334: the game's own orange-red veins, through dry earth and grass alike
+  // Kyler (contamination round): a layer over the ground, as in the game, never a solid rust fill; D334: the game's own
+  // veins, through dry earth and grass alike; D154 as amended 2026-11-07: the game's pattern, its weight and its colour
+  // (TerrainURP, SoilContamination), no glow
   const levels = [1 / 15, 0.2, 0.4, 0.6, 0.8, 1];
   const soils = [0, 15, 150]; // dry, moist at the edge, moist by the water
 
-  it("is a layer: the ground's own look stays under and between its veins, which are orange-red over either soil and widen and glow more with contamination, and none at zero", () => {
+  it("is a layer: the ground's own look stays under and between its veins, the game's dark rust over either soil, the same at every level, with no glow, and none at zero", () => {
     // the ground's own look stays underneath: moist ground stays grass, dry ground cracked earth,
     // and between the veins it is its own colour (no stain)
     for (const m of soils) for (const c of [1, 120, 255]) expect(groundColor(m, c, false)).toEqual(groundColor(m, 0, false));
-    // none at zero: a vein over any soil is the soil itself; fully in from its onset
-    expect(contaminationVeins(0).onset).toBe(0);
-    for (const l of levels) expect(contaminationVeins(l).onset).toBe(1);
+    // none at zero: the map value 0 and no weight, so a vein over any soil is the soil itself
+    expect(contaminationMap(0)).toBe(0);
+    expect(contaminationWeight(contaminationMap(0))).toBe(0);
     for (const m of soils) expect(contaminationVein(0, groundColor(m, 0, false))).toEqual(groundColor(m, 0, false));
-    // wider and glowing more as contamination rises (the veins half as wide again at the most)
-    for (let k = 1; k < levels.length; k++) {
-      const a = contaminationVeins(levels[k - 1]);
-      const b = contaminationVeins(levels[k]);
-      expect(b.width).toBeGreaterThan(a.width);
-      expect(b.glow).toBeGreaterThan(a.glow);
-    }
-    expect(contaminationVeins(1).width / contaminationVeins(0).width).toBeGreaterThan(1.5);
-    // orange-red over either soil: red well over green, green over blue, a hue from red to orange
+    // the game's map value: a tenth at the least contamination, whole from a fifth (SoilContaminationMap.blueprint)
+    expect(contaminationMap(1e-6)).toBeCloseTo(0.1, 4);
+    expect(contaminationMap(0.2)).toBe(1);
+    // the whole pattern from the first level the tile data holds, the same at every level (no denser or brighter veins)
+    for (const l of levels) expect(contaminationWeight(contaminationMap(l))).toBe(1);
+    // the faintest contamination shows the pattern in patches only, where the blending noise is high
+    expect(contaminationWeight(contaminationMap(1e-6), 0.5)).toBe(0);
+    expect(contaminationWeight(contaminationMap(1e-6), 0.9)).toBeGreaterThan(0.5);
+    // the game's dark rust over either soil: red over green over blue, darker than the soil (no glow lifts it)
     for (const m of soils)
       for (const l of levels) {
-        const v = contaminationVein(l, groundColor(m, 0, false));
-        for (const x of v) expect(x >= 0 && x <= 1).toBe(true);
-        expect(v[0]).toBeGreaterThan(v[1] + 0.3);
+        const soil = groundColor(m, 0, false);
+        const v = contaminationVein(l, soil);
+        for (let k = 0; k < 3; k++) expect(v[k]).toBeCloseTo(CONTAMINATION.vein[k], 12);
+        expect(v[0]).toBeGreaterThan(v[1] + 0.15);
         expect(v[1]).toBeGreaterThan(v[2]);
+        expect(0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]).toBeLessThan(0.2126 * soil[0] + 0.7152 * soil[1] + 0.0722 * soil[2]);
       }
-    expect(cssColor(CONTAMINATION.vein)).toBe("#852109");
+    expect(cssColor(CONTAMINATION.vein)).toBe("#4e2105");
+    // the light look's mean: the soil its mean alpha of the way toward the pattern's mean colour, never a rust fill
+    for (const m of soils) {
+      const soil = groundColor(m, 0, false);
+      const mean = contaminationMean(1, soil);
+      for (let k = 0; k < 3; k++) expect(mean[k]).toBeCloseTo(soil[k] + (CONTAMINATION.mean[k] - soil[k]) * CONTAMINATION.meanAlpha, 9);
+    }
   });
 
-  it("is drawn by the terrain shader from the same numbers, over dry earth and grass alike, in both full looks (the light look tints)", () => {
+  it("is drawn by the terrain shader from the same numbers, over dry earth and grass alike, in every look", () => {
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
-    const gl = (c: Rgb) => `vec3(${c.map((v) => (Number.isInteger(v) ? `${v}.0` : String(Math.round(v * 1000) / 1000))).join(", ")})`;
+    const num = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
+    const gl = (c: Rgb) => `vec3(${c.map((v) => num(Math.round(v * 1000) / 1000)).join(", ")})`;
     const src = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1).fragmentShader;
-    // one vein field for both soils (no grass-only or earth-only veins), gated by the soil's own
-    // contamination, never under water
-    expect(src).toContain("if (bad > 0.0 && wet < 1.0) vein = veinsOf(veinQ, veinWidth, lvl) * bad;");
-    expect(src).toContain("vein *= 1.0 - wet;");
-    // (the field's point and its antialiasing width are worked out before that branch, for every pixel: a derivative
-    // or a mipmapped read inside it would read the neighbours that skipped it, an undefined value, and the veins'
-    // edges would change from frame to frame)
-    expect(src.indexOf("float veinWidth = veinAA(veinQ);")).toBeGreaterThan(-1);
-    expect(src.indexOf("float veinWidth = veinAA(veinQ);")).toBeLessThan(src.indexOf("if (bad > 0.0 && wet < 1.0) vein ="));
-    const veins = src.slice(src.indexOf("vec2 veinsOf("), src.indexOf("vec3 groundDry;"));
-    expect(veins).not.toMatch(/fwidth|dFd|texture|vnoise/);
-    expect(src).toContain(`c = mix(c, ${gl(CONTAMINATION.vein)}, vein.x * ${CONTAMINATION.cover});`);
-    expect(src).toContain(`glow = vein.y * mix(${CONTAMINATION.glow[0]}, ${CONTAMINATION.glow[1]}, lvl);`);
-    expect(src).toContain(`smoothstep(0.0, ${CONTAMINATION.onset}, lvl)`);
+    // the pattern world-anchored at the game's repeat, read before any branch on the soil (a mipmapped read needs every
+    // pixel of its quad: a pixel that skipped it would leave its neighbours an undefined level and the veins would
+    // flicker), over either soil, after the altitude ramp, never under water
+    expect(src).toContain(`vec4 soilPattern = texture2D(soilTex, g / ${num(CONTAMINATION.repeat)});`);
+    expect(src.indexOf("vec4 soilPattern = texture2D(soilTex")).toBeLessThan(src.indexOf("float wet = smoothstep"));
+    expect(src.indexOf("c *= altitudeOf(vWorld.y, moist);")).toBeLessThan(src.indexOf("c = mix(c, soilPattern.rgb, vein * (1.0 - wet));"));
+    expect(src).toContain("groundDry = mix(c, soilPattern.rgb, vein);");
+    // the game's weight: its nonlinearity, its least, its noise and its softness, and its map value, blended across the
+    // tiles the desert's way (the same four taps the same margin round the point)
+    expect(CONTAMINATION.margin).toBe(BLEND.margin);
+    expect(src).toContain(`float v = pow(max(m, 0.0), ${num(CONTAMINATION.nonlinearity)});`);
+    expect(src).toContain(`v = v >= 0.01 ? max(v, ${num(CONTAMINATION.least)}) : v;`);
+    expect(src).toContain(`return clamp((v + ${num(CONTAMINATION.noise)} * (n - ${num(CONTAMINATION.noiseMid)}) - 0.5) * ${num(CONTAMINATION.softness)} + 0.5, 0.0, 1.0);`);
+    expect(src).toContain("contamMap = tapBlend(g, vec4(contaminationMapOf(s0.y / 15.0)");
+    // no glow: nothing of the veins is added after the light
+    expect(src).not.toMatch(/contaminatedGlow|groundDryGlow|vein.y/);
+    // the light look: no patterns, the pattern's mean over the soil by its mean alpha
+    const lite = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1, true).fragmentShader;
+    expect(lite).toContain(`lc = mix(lc, ${gl(CONTAMINATION.mean)}, ${num(Math.round(CONTAMINATION.meanAlpha * 1e4) / 1e4)} * contaminationWeight(contaminationMapOf(clev), 0.5));`);
     // (the rendered sequence, clean to contaminated and back, in Standard and High: tests/e2e/look-high.spec.ts)
   });
 });

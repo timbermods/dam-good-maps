@@ -31,8 +31,10 @@ describe("a crisp map (D324's follow-up: tile edges, no blend across a whole til
     // normal, with no sky visibility blended in (D497)
     expect(src).not.toContain("float sky =");
     expect(src).toContain("float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;");
-    // and the soil edge's own wobble is small, not ragged patches
-    expect(src).toContain("* 0.22;");
+    // and the contamination's edge is the game's blend across the tiles and its blending noise, with no wobble of our own
+    // (D154 as amended 2026-11-07)
+    expect(src).not.toContain("float edge = ((n1");
+    expect(src).toContain("contamMap = tapBlend(g, ");
   });
 
   it("gives the grass-to-earth edge the game's painted shape (D324's note, D334): a slight irregular wobble along the tile's edge, the same from both tiles, and no rim (D135 as amended 2026-10-29: the game blends grass into desert by its share alone)", () => {
@@ -90,12 +92,12 @@ describe("the ground's colours", () => {
         expect(g[k]).toBeLessThanOrEqual(Math.max(GROUND.moistLow[k], GROUND.moistHigh[k]) + 1e-12);
       }
     }
-    // no contamination, no vein; any contamination, orange-red veins through either soil
+    // no contamination, no vein; any contamination, the game's rusty veins through either soil (D154 as amended)
     for (const soil of [GROUND.dry, GROUND.moistLow, GROUND.moistHigh]) {
       expect(contaminationVein(0, soil)).toEqual(soil);
       for (const l of [1 / 15, 0.5, 1]) {
         const v = contaminationVein(l, soil);
-        expect(v[0]).toBeGreaterThan(v[1] + 0.3);
+        expect(v[0]).toBeGreaterThan(v[1] + 0.15);
         expect(v[1]).toBeGreaterThan(v[2]);
       }
     }

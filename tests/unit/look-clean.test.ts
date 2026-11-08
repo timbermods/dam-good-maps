@@ -48,7 +48,7 @@ describe("grass by moisture, as the game's terrain draws it (D135 as amended 202
     const shader = terrainMaterial(u, 0, 1).fragmentShader;
     expect(shader).toContain("float desertBlend(vec2 g, vec4 desert)");
     expect(shader).toContain("vec2 q = g + 0.2 *");
-    expect(shader).toMatch(/\+ 0\.96 \* \(n - 0\.5\) - 0\.5\) \* 5\.8 \+ 0\.5/);
+    expect(shader).toMatch(/\+ 0\.96 \* \(blendNoise\(g\) - 0\.5\) - 0\.5\) \* 5\.8 \+ 0\.5/);
     // a top and a cave's floor both take it (the game's desert map is 3D)
     expect(shader.match(/= 1\.0 - desertBlend\(g,/g)?.length).toBe(2);
   });

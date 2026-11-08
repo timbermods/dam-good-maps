@@ -12,7 +12,7 @@
 //     [--look standard|high|both] [--water clean|bad|mixed|all] [--define WATER_FORMULA|BADWATER_FORMULA] [--shots <id>,<id>]
 //     [--light shot|day] [--reflection <strength>]
 //
-// `--water pit` samples the mine sites' pits (D496: the pit darker than badwater) beside pure badwater, on the same
+// `--water pit` samples the mine sites' pits (D496 as amended 2026-11-07: by day the game's pit the lighter) beside pure badwater, on the same
 // shots: the pit's floor at the middle of each mine site's 5 × 5 (the 3 × 3 round its centre, at its depth,
 // `MINE_PIT`), ours drawn with the map's mine sites (and nothing else of its objects); its shots default to the day-lit
 // starts with badwater and mine sites in view.
@@ -274,6 +274,35 @@ function patch(px: Uint8Array, x: number, y: number): V3 {
   return [c[0] / n, c[1] / n, c[2] / n];
 }
 
+/** Contaminated ground's veins round a pixel (D154 as amended 2026-11-07): of a `2 × VEIN_PATCH + 1` square's pixels,
+ *  how many read as the veins' rust (red well over green, blue under `VEIN_TEST.blue` of red: the dry earth and the
+ *  grass under them are neither), and the sum of their colours and of all the pixels'. */
+const VEIN_PATCH = 6;
+const VEIN_TEST = { redOverGreen: 18, blue: 0.5 };
+interface VeinCount {
+  px: number;
+  vein: number;
+  veinSum: V3;
+  allSum: V3;
+}
+const veinCount = (): VeinCount => ({ px: 0, vein: 0, veinSum: [0, 0, 0], allSum: [0, 0, 0] });
+function veinsAt(px: Uint8Array, x: number, y: number, into: VeinCount): void {
+  for (let dy = -VEIN_PATCH; dy <= VEIN_PATCH; dy++)
+    for (let dx = -VEIN_PATCH; dx <= VEIN_PATCH; dx++) {
+      const xx = Math.round(x) + dx;
+      const yy = Math.round(y) + dy;
+      if (xx < 0 || yy < 0 || xx >= W_PX || yy >= H_PX) continue;
+      const i = (yy * W_PX + xx) * 4;
+      const c: V3 = [px[i], px[i + 1], px[i + 2]];
+      into.px++;
+      for (let k = 0; k < 3; k++) into.allSum[k] += c[k];
+      if (c[0] - c[1] > VEIN_TEST.redOverGreen && c[2] < VEIN_TEST.blue * c[0]) {
+        into.vein++;
+        for (let k = 0; k < 3; k++) into.veinSum[k] += c[k];
+      }
+    }
+}
+
 // -------------------------------------------------------------------------------------------------------- the maps
 
 interface Shot {
@@ -435,7 +464,8 @@ function samplePoints(s: Shot): { p: V3; depth: number; kind: Kind }[] {
 
 /** The land's kinds the judge validates itself on (the water's light, fog and finish are the land's): level tops of grass
  *  (moisture 6 or more, the game's full green), dry ground (no moisture) and contaminated ground (a share over 0.2),
- *  each with its 3×3 all of its kind, and cliff faces two levels or more high. */
+ *  each with its 3×3 all of its kind, and cliff faces two levels or more high. On contaminated ground the judge also
+ *  counts its veins (`veinsAt`): their share of the pixels and their colour, the game's and ours. */
 type LandKind = "grass" | "dry" | "contaminated" | "cliff";
 const LAND_KINDS: readonly LandKind[] = ["grass", "dry", "contaminated", "cliff"];
 /** The camera's distance bands the land is judged by (the fog's share grows with the distance). */
@@ -445,7 +475,7 @@ const LAND_BANDS: [number, number][] = [
   [110, 999],
 ];
 
-/** The land to sample: dry tops level with their 3×3 and five tiles from any water, where no higher tile within four
+/** The land to sample: dry tops level with their 3×3 and five tiles from any water (contaminated ground two), where no higher tile within four
  *  could shade them (any sun over 31°: the game's sun is 30–45° up and turns with the camera), and cliff faces turned
  *  toward the camera (the sun shines from behind its left shoulder); none near anything ours doesn't draw (`covered`),
  *  none hidden from the camera by the land; at a top's centre or a face's middle. */
@@ -486,9 +516,13 @@ function landPoints(s: Shot, cam: Cam): { p: V3; kind: LandKind; distance: numbe
   for (let y = 2; y < H - 2; y++)
     for (let x = 2; x < W - 2; x++) {
       const i = y * W + x;
-      if (s.covered[i] || near(x, y, 5, (j) => depth[j] > 0)) continue;
+      if (s.covered[i]) continue;
       const kind = kindOfTop(i);
+      // (contaminated ground lies mostly by the badwater that poisoned it: two tiles from any water is enough for it)
+      const dry = !near(x, y, 5, (j) => depth[j] > 0);
+      if (!dry && !(kind === "contaminated" && !near(x, y, 2, (j) => depth[j] > 0))) continue;
       if (kind && !near(x, y, 1, (j) => hs[j] !== hs[i] || kindOfTop(j) !== kind) && !shaded(x, y, hs[i])) push([x + 0.5, hs[i], -(y + 0.5)], kind);
+      if (!dry) continue;
       // a cliff face: this top over a neighbour two or more lower, facing the camera
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
         const j = (y + dy) * W + x + dx;
@@ -668,6 +702,9 @@ async function main() {
     ];
     const total: Record<string, Record<string, { sum: number; n: number }>> = {};
     const landTotal: Record<string, Record<string, { sum: number; bias: number; floor: number; n: number }>> = {};
+    // (contaminated ground's veins: by look, the game's and each case's; beyond about 70 from the camera a vein is under
+    // a pixel, so the share there counts the pixels its rust tints past the test, not the veins themselves)
+    const veinTotal: Record<string, Record<string, VeinCount>> = {};
     // (the shots grouped by their light, so each page opens once a light: its shaders are built with it)
     const shots = SHOTS.map(loadShot);
     const fits = new Map<string, { cam: Cam; score: number }>();
@@ -707,6 +744,7 @@ async function main() {
       }
       const land = landPoints(s, cam).map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: { p: V3; kind: LandKind; distance: number }; xy: [number, number] }[];
       const gameLand = land.map((a) => patch(game, a.xy[0], a.xy[1]));
+      const veinLand = land.filter((a) => a.q.kind === "contaminated");
       for (const look of LOOKS) {
         const ours: Record<string, V3[]> = {};
         const oursLand: Record<string, V3[]> = {};
@@ -715,6 +753,9 @@ async function main() {
           const px = await decode(tool, png, "image/png");
           ours[c.key] = at.map((a) => patch(px, a.xy[0], a.xy[1]));
           oursLand[c.key] = land.map((a) => patch(px, a.xy[0], a.xy[1]));
+          const vt = (veinTotal[look] ??= {});
+          for (const a of veinLand) veinsAt(px, a.xy[0], a.xy[1], (vt[c.key] ??= veinCount()));
+          if (c === cases[0]) for (const a of veinLand) veinsAt(game, a.xy[0], a.xy[1], (vt.game ??= veinCount()));
           if (c.key !== "dev") {
             const pair = (await tool.evaluate(`(${PAIR_JS})(${JSON.stringify({ a: { t: "jpeg", b: s.png.toString("base64") }, b: { t: "png", b: png.toString("base64") }, la: `the game: ${id}`, lb: `ours (${c.key}, ${look})` })})`)) as string;
             writeFileSync(join(OUT, `${id}-${look}-${c.key}.jpg`), Buffer.from(pair, "base64"));
@@ -785,6 +826,13 @@ async function main() {
         const first = Object.values(t)[0];
         console.log(`  ${look} ${kind}: ` + Object.entries(t).map(([k, v]) => `${k} ${Math.sqrt(v.sum / v.n).toFixed(1)} (bias ${Math.sqrt(v.bias / v.n).toFixed(1)})`).join(", ") + `; floor ${Math.sqrt(first.floor / first.n).toFixed(1)} (${first.n})`);
       }
+    console.log(`\nall shots, contaminated ground: the share of its pixels its veins' rust tints past the test, their mean colour, and the ground's mean`);
+    const veinLine = (v: VeinCount) => `${((100 * v.vein) / Math.max(1, v.px)).toFixed(1)}% ${fmt(v.veinSum.map((x) => x / Math.max(1, v.vein)) as V3)}, ground ${fmt(v.allSum.map((x) => x / Math.max(1, v.px)) as V3)}`;
+    for (const look of LOOKS) {
+      const vt = veinTotal[look];
+      if (vt?.game) console.log(`  ${look}: game ${veinLine(vt.game)} (${vt.game.px} px); ` + cases.map((c) => `${c.key} ${veinLine(vt[c.key])}`).join("; "));
+    }
+    results.veins = veinTotal;
     results.total = Object.fromEntries(Object.entries(total).map(([look, t]) => [look, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { distance: Math.sqrt(v.sum / v.n), n: v.n }]))]));
     results.landTotal = Object.fromEntries(Object.entries(landTotal).map(([key, t]) => [key, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { distance: Math.sqrt(v.sum / v.n), bias: Math.sqrt(v.bias / v.n), floor: Math.sqrt(v.floor / v.n), n: v.n }]))]));
     writeFileSync(join(OUT, `judge-${WATER}-${LIGHT_MODE}${FIT_OWN ? "-fitown" : ""}${REFLECTION === null ? "" : `-reflection${REFLECTION}`}${AMBIENT === null ? "" : `-ambient${AMBIENT}`}.json`), JSON.stringify(results, null, 1));

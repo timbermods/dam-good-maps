@@ -11,7 +11,7 @@ import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, SLOPE_ARROW_HEIGHT } from "../../src/render3d/entities3d";
 import { sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 import { entityView, surfaceWater, waterFromDepth } from "../../src/render3d/model";
-import { GROUND, RUIN, WATER_SURFACE, waterBody, waterOpacity } from "../../src/render3d/palette";
+import { CONTAMINATED_GROUND, CONTAMINATION, GROUND, RUIN, WATER_SURFACE, waterBody, waterOpacity } from "../../src/render3d/palette";
 import { blendedBadwater, meshWaterChunk } from "../../src/render3d/waterMesh";
 import { badwaterShown, cleanWaterShown } from "./waterShown";
 import { cleanWaterBody, badwaterBody, waterFilmGround, waterGroundBehind } from "../../src/render3d/waterPalette";
@@ -128,7 +128,7 @@ describe("water", () => {
       const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
       return { h: (h * 60 + 360) % 360, s: d };
     };
-    for (const ground of [GROUND.moistLow, GROUND.moistHigh, GROUND.dry, GROUND.contaminated]) {
+    for (const ground of [GROUND.moistLow, GROUND.moistHigh, GROUND.dry, CONTAMINATED_GROUND.dry, CONTAMINATION.vein]) {
       // clean: a teal-green, the grass's hue only partly kept; badwater: crimson whatever the ground
       const clean = hue(waterFilmGround(ground, 0));
       expect(clean.h, `clean over ${ground}`).toBeGreaterThan(130);
@@ -194,15 +194,18 @@ describe("slopes", () => {
 
 describe("ruins", () => {
   // Kyler's ruins (D178): rusty posts and beige panels, his colours; they still stand apart from
-  // rusty contaminated ground in lightness, close up and from afar (each storey a lattice block, D305)
-  it("stand apart from rusty contaminated ground: rusty posts and beige panels far lighter, and the far block too", () => {
-    expect(lum(RUIN.rust)).toBeGreaterThan(lum(GROUND.contaminated) + 0.12);
-    expect(lum(RUIN.panel)).toBeGreaterThan(lum(GROUND.contaminated) + 0.35);
-    // from afar a storey is a lattice block in the near skeleton's own muted rust (D305)
-    expect(lum(RUIN.far)).toBeGreaterThan(lum(GROUND.contaminated) + 0.12);
-    // the panels are beige, not rust: far less red for their lightness
+  // contaminated ground in lightness, close up and from afar (each storey a lattice block, D305): its rusty veins and,
+  // from afar, the pattern's mean over the soil (D154 as amended 2026-11-07: the game's pattern, no rust fill)
+  it("stand apart from contaminated ground: rusty posts and beige panels far lighter, and the far block too", () => {
+    for (const ground of [CONTAMINATED_GROUND.dry, CONTAMINATED_GROUND.grass, CONTAMINATION.vein]) {
+      expect(lum(RUIN.rust)).toBeGreaterThan(lum(ground) + 0.12);
+      expect(lum(RUIN.panel)).toBeGreaterThan(lum(ground) + 0.35);
+      // from afar a storey is a lattice block in the near skeleton's own muted rust (D305)
+      expect(lum(RUIN.far)).toBeGreaterThan(lum(ground) + 0.12);
+    }
+    // the panels are beige, not rust: far less red for their lightness than the veins
     const hue = (c: readonly number[]) => (c[0] - c[2]) / lum(c);
-    expect(hue(RUIN.panel)).toBeLessThan(hue(GROUND.contaminated) - 0.5);
+    expect(hue(RUIN.panel)).toBeLessThan(hue(CONTAMINATION.vein) - 0.5);
   });
 });
 

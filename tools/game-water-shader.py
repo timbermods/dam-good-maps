@@ -672,6 +672,73 @@ def measure_badwater_textures(textures, data_dir, preview=None):
                     Image.fromarray(t[:512, :512, k].astype(np.uint8)).save(os.path.join(preview, f"badwater-pattern-{ch}-crop.png"))
 
 
+#: The ground's contamination pattern (TerrainURP's `_ContaminationTexture`, the `Grass` material's "SoilContamination",
+#: D154, D334): sampled at world xz × `_ProjectionUVScale` (1 / `WorldTiling.HorizontalTileSize` 16) × the material's
+#: `_Contamination_Scale` 4, so one repeat is 4 tiles.
+SOIL_TEXTURE = ("SoilContamination", 4.0)
+
+
+def measure_soil_texture(read, objects, data_dir, preview=None):
+    """Prints what `src/render3d/soilTexture.ts` generates the ground's contamination pattern to: the game's
+    `SoilContamination` texture's alpha (the share of the pattern's colour laid over the ground, TerrainURP:
+    lerp(albedo, rgb × `_Contamination_Color`, weight × a)) by its mean, percentiles and histogram; its colour where the
+    alpha is high and the alpha-weighted mean (what the ground takes on average); the alpha's feature scale; and the
+    network's shape: the share of texels over a half, the width of its strokes (twice the distance to the edge, at the
+    strokes' middle) and the size of the cells they close. Numbers only; `preview` (a folder, gitignored) also gets a
+    crop for the eye, never committed."""
+    import numpy as np
+    from scipy import ndimage
+    name, repeat = SOIL_TEXTURE
+    t = None
+    for o in objects:
+        if o[3] != 28:
+            continue
+        b = read(o)
+        try:
+            if Reader(b).str() == name:
+                _, t = texture_texels(b, data_dir)
+                break
+        except (ValueError, UnicodeDecodeError, struct.error):
+            continue
+    if t is None:
+        raise ValueError(f"{name}: not found")
+    h, w = t.shape[:2]
+    tpt = w / repeat
+    q = lambda v, ps=(5, 25, 50, 75, 95): "/".join(f"{x:.1f}" for x in np.percentile(v, ps))
+    a = t[..., 3]
+    print(f"\n{name}: {w}x{h}, one repeat {repeat:.2f} tiles ({tpt:.0f} texels a tile)")
+    print(f"  a: mean {a.mean():.1f}, spread {a.std():.1f}, 5/25/50/75/95% {q(a)}")
+    pts = (50, 60, 70, 75, 80, 85, 90, 95, 97, 99)
+    print(f"  a percentiles {'/'.join(map(str, pts))}: {'/'.join(f'{x:.0f}' for x in np.percentile(a, pts))}")
+    print(f"     histogram by tenths {' '.join(f'{x:.3f}' for x in np.histogram(a, bins=10, range=(0, 256))[0] / a.size)}")
+    for th in (8, 32, 64, 128, 192, 240):
+        print(f"  a over {th}: {(a > th).mean():.3f} of the texels")
+    wa = a / 255
+    for k, ch in enumerate("rgb"):
+        v = t[..., k]
+        print(f"  {ch}: mean {v.mean():.1f}; alpha-weighted mean {(v * wa).sum() / wa.sum():.1f}; where a > 128 "
+              f"{v[a > 128].mean():.1f} (spread {v[a > 128].std():.1f}); where a < 8 {v[a < 8].mean():.1f}")
+    c, ah = feature_scale(a, repeat)
+    print(f"  a feature scale: spectrum centroid {c:.3f} tiles, autocorrelation half-width {ah:.3f} tiles")
+    m = np.tile(a > 128, (2, 2))
+    dist = ndimage.distance_transform_edt(m)
+    ridge = (dist == ndimage.maximum_filter(dist, size=3)) & m
+    widths = 2 * dist[ridge] / tpt
+    print(f"  strokes (a over 128): width at their middle 5/25/50/75/95% {q(widths)} tiles")
+    lab, n = ndimage.label(~m)
+    cells = np.bincount(lab.ravel())[1:] / tpt ** 2
+    cells = cells[cells >= 0.002]
+    print(f"  cells they close: {len(cells) / 4:.0f} a repeat, mean area {cells.mean():.3f} square tiles, "
+          f"median {np.median(cells):.3f}, 5/95% {np.percentile(cells, 5):.3f}/{np.percentile(cells, 95):.3f}")
+    lab2, n2 = ndimage.label(m)
+    print(f"  strokes' pieces: {n2 / 4:.0f} a repeat (one joined network if 1)")
+    if preview:
+        from PIL import Image
+        os.makedirs(preview, exist_ok=True)
+        Image.fromarray(a.astype(np.uint8)).save(os.path.join(preview, "soil-contamination-a.png"))
+        Image.fromarray(t[..., :3].astype(np.uint8)).save(os.path.join(preview, "soil-contamination-rgb.png"))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--game", default="C:/Program Files (x86)/Steam/steamapps/common/Timberborn")
@@ -679,7 +746,8 @@ def main():
     ap.add_argument("--shader", action="append", help="another Shader Graph to read (its full name), in place of the water's")
     ap.add_argument("--out", default=os.path.join(ROOT, "investigation", "water-shader", "local"))
     ap.add_argument("--textures", action="store_true", help="measure the flow's and badwater's textures (Q9 P5, P9) and stop")
-    ap.add_argument("--preview", action="store_true", help="with --textures: also write crops of badwater's pattern to --out (gitignored)")
+    ap.add_argument("--soil", action="store_true", help="measure the ground's contamination pattern (TerrainURP, D154) and stop")
+    ap.add_argument("--preview", action="store_true", help="with --textures or --soil: also write crops of the pattern to --out (gitignored)")
     args = ap.parse_args()
     want = set(k for k in args.keywords.split(",") if k)
     data = os.path.join(args.game, "Timberborn_Data")
@@ -696,6 +764,9 @@ def main():
             return f.read(o[2])
 
         by_path = {o[0]: o for o in objects}
+        if args.soil:
+            measure_soil_texture(read, objects, data, args.out if args.preview else None)
+            return 0
         if args.textures:
             measure_flow_textures(read, objects, data, args.out if args.preview else None)
             return 0
