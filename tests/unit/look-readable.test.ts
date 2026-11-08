@@ -90,8 +90,10 @@ describe("badwater seen through clear water (D324, feedback item 5: never a hatc
       const u = sceneUniforms(1, 1, t(), t(), t(), t());
       for (const m of [waterMaterial(u, lite)]) expect(m.fragmentShader).not.toMatch(/CLEAR_STRIPE|fract\(\(g\.x - g\.y/);
       // badwater's murk, its pattern and its emissive detail are what carry it through clear water (Q9 P9; D148: these
-      // were our own troughs and bubbles)
-      expect(waterMaterial(u, lite).fragmentShader).toMatch(/vec3 bc = murky( \* light)? \+ emission;/);
+      // were our own troughs and bubbles), lit as the surface is, the look's own badwater (a look that draws its own,
+      // High, sets clearBad in its hook: highLook.test.ts)
+      expect(waterMaterial(u, lite).fragmentShader).toContain("vec3 clearBad = murky * light + emission;");
+      expect(waterMaterial(u, lite).fragmentShader).toContain("vec3 bc = clearBad;");
     }
   });
 });

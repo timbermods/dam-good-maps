@@ -199,7 +199,8 @@ describe("a fall's look, as the game's", () => {
       expect(m.fragmentShader).toContain("body = cleanWaterBody(0.05, waterAbsorb(0.05));");
     }
     // (High's surface colour at its shallowest)
-    expect(high.m.fragmentShader).toContain("waterBlend(faceClean, badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad), hlBad)");
+    expect(high.m.fragmentShader).toContain("vec3 faceBad = badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad);");
+    expect(high.m.fragmentShader).toContain("waterBlend(faceClean, faceBad, hlBad)");
     // (partly bad, the game's glow of its shallowest, as the surface's)
     for (const { m } of [standard, light]) expect(m.fragmentShader).toContain("murky = badwaterGlow(badwaterBody(0.05), BADWATER_BODY, 0.05, cont);");
     for (const { look, m } of shaders()) for (const gone of ["FALL_FOAM", "FALL_WHITEWATER", "FALL_TEAL", "fallIn", "hlCrown", "hlLanding", "hlBubbles", "lip = min("]) expect(m.fragmentShader, `${look}: ${gone}`).not.toContain(gone);

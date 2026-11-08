@@ -12,6 +12,11 @@
 //     [--look standard|high|both] [--water clean|bad|mixed|all] [--define WATER_FORMULA|BADWATER_FORMULA] [--shots <id>,<id>]
 //     [--light shot|day] [--reflection <strength>]
 //
+// `--water pit` samples the mine sites' pits (D496: the pit darker than badwater) beside pure badwater, on the same
+// shots: the pit's floor at the middle of each mine site's 5 × 5 (the 3 × 3 round its centre, at its depth,
+// `MINE_PIT`), ours drawn with the map's mine sites (and nothing else of its objects); its shots default to the day-lit
+// starts with badwater and mine sites in view.
+//
 // The light (`--light shot`, the default since 2026-11-07): the game's light changes through the day, and the probe's
 // shots fall at their moments' hours: a game's start at hour 4 (the day's light), a hazard's end at midnight (the
 // sunrise's), a game's end a little after hour 15.5 (islands-128-2-end at 15.53: 55 % toward the sunset's light, 50 %
@@ -55,6 +60,8 @@ import { readMapBytes, wetAreas } from "../investigation/probe/runner/mapfile";
 import { GAME_AMBIENT_SH, GAME_FINISH, GAME_LIGHT, gameAmbient } from "../src/render3d/palette";
 import { WATER_SURFACE, type Rgb } from "../src/render3d/waterPalette";
 import { dayLight, type DayLight, type Hazard } from "./game-day-light";
+import { rotate, type Orientation } from "../src/core/format/footprints";
+import { MINE_PIT } from "../src/render3d/entities3d";
 import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
@@ -67,10 +74,11 @@ const BASE = arg("base") ? resolve(arg("base") as string) : null;
 const BATCH = arg("batch") ?? "20261002-1610-batch";
 const LOOKS = (arg("look") ?? "both") === "both" ? (["standard", "high"] as const) : ([arg("look")] as ("standard" | "high")[]);
 const OUT = resolve(".scratch/water-judge");
-/** Which water it samples: clean (the colour's judge), bad (pure badwater), mixed (the front) or all three. */
-const WATER = (["bad", "mixed", "all"] as const).find((w) => w === arg("water")) ?? "clean";
-type Kind = "clean" | "mixed" | "bad";
-const KINDS: readonly Kind[] = WATER === "all" ? ["clean", "mixed", "bad"] : [WATER];
+/** Which water it samples: clean (the colour's judge), bad (pure badwater), mixed (the front) or all three; or the mine
+ *  sites' pits beside pure badwater (`pit`). */
+const WATER = (["bad", "mixed", "all", "pit"] as const).find((w) => w === arg("water")) ?? "clean";
+type Kind = "clean" | "mixed" | "bad" | "pit";
+const KINDS: readonly Kind[] = WATER === "all" ? ["clean", "mixed", "bad"] : WATER === "pit" ? ["bad", "pit"] : [WATER];
 /** The define the two builds of this branch differ by, with its High look's own where it has one (badwater's is split
  *  by look: `BADWATER_FORMULA_HIGH`, waterPalette.ts `GAME_BADWATER.use.high`). */
 const DEFINE = arg("define") ?? (WATER === "clean" ? "WATER_FORMULA" : "BADWATER_FORMULA");
@@ -95,7 +103,9 @@ const CLOCK = 12.5;
 // badwater, the Badtide's end on the five maps Q8 fitted, and Islands 2's end, where both waters show)
 const SHOTS = (
   arg("shots") ??
-  (WATER === "clean"
+  (WATER === "pit"
+    ? "any-128-1-start,any-128-2-start,canyon-128-1-start,canyon-128-2-start,chaos-256-1-start,chaos-256-2-start,delta-128-1-start,delta-128-2-start,highlands-128-1-start,highlands-128-2-start,islands-128-1-start,islands-128-2-start,lakeBasin-128-1-start,lakeBasin-128-2-start,riverValley-128-1-start,riverValley-128-2-start"
+    : WATER === "clean"
     ? "riverValley-128-1-start,riverValley-128-2-start,lakeBasin-128-1-start,lakeBasin-128-2-start,highlands-128-1-start,highlands-128-2-start"
     : "islands-128-2-end,islands-128-1-badtide2-end,islands-128-2-badtide2-end,highlands-128-1-badtide2-end,lakeBasin-128-1-badtide2-end,chaos-256-2-badtide2-end")
 ).split(",");
@@ -276,6 +286,8 @@ interface Shot {
   light: DayLight;
   /** Tiles near anything ours doesn't draw (plants, buildings, ruins, slopes, mine sites): the land judge leaves them out. */
   covered: Uint8Array;
+  /** The map's mine sites (`--water pit`): their origin, level and turn, and the tile at their footprint's centre. */
+  mines: { x: number; y: number; z: number; orientation: Orientation; cx: number; cy: number }[];
 }
 
 /** The probe's record of a map (its result's JSON): its shots' hours and its objects. */
@@ -323,6 +335,13 @@ function loadShot(id: string): Shot {
     png: readFileSync(`C:/dgm-probe/shots/${BATCH}/m9b-${id}-water.jpg`),
     light: LIGHT_MODE === "day" ? dayLight(0.5, null) : dayLight(taken.day, hazard),
     covered,
+    mines: m.entities
+      .filter((e) => e.template === "UndergroundRuins")
+      .map((e) => {
+        const o = (["Cw0", "Cw90", "Cw180", "Cw270"].includes(e.orientation) ? e.orientation : "Cw0") as Orientation;
+        const [dx, dy] = rotate(o, 2, 2);
+        return { x: e.x, y: e.y, z: e.z, orientation: o, cx: e.x + dx, cy: e.y + dy };
+      }),
   };
 }
 
@@ -404,6 +423,11 @@ function samplePoints(s: Shot): { p: V3; depth: number; kind: Kind }[] {
         }
       if (ok) out.push({ p: [x + 0.5, level, -(y + 0.5)], depth: depth[i], kind });
     }
+  // the mine sites' pits: their floor at the 3 × 3 round the footprint's centre, at the pit's depth (counted as a level
+  // deep, so they fall in the bands' whole range)
+  if (KINDS.includes("pit"))
+    for (const mine of s.mines)
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) out.push({ p: [mine.cx + dx + 0.5, mine.z - MINE_PIT.depth + 0.02, -(mine.cy + dy + 0.5)], depth: 1, kind: "pit" });
   return out;
 }
 
@@ -494,7 +518,9 @@ const SET_MAP_JS = `(g) => {
   const tile = [], floor = [], depth = [], cont = [];
   for (let i = 0; i < N; i++) if (g.depth[i] > 0.001) { tile.push(i); floor.push(g.heights[i]); depth.push(g.depth[i]); cont.push(g.contamination[i]); }
   const mb = (v) => v <= 0 ? 0 : Math.max(1, Math.min(255, Math.round(v * 15)));
-  const e = { count: 0, templates: [], owners: [], template: new Uint16Array(0), x: new Int16Array(0), y: new Int16Array(0), z: new Int16Array(0), orientation: new Uint8Array(0), flags: new Uint8Array(0), owner: new Uint16Array(0), variant: new Uint8Array(0) };
+  const ms = g.mines ?? [];
+  const n = ms.length;
+  const e = { count: n, templates: n ? ["UndergroundRuins"] : [], owners: n ? ["import"] : [], template: new Uint16Array(n), x: Int16Array.from(ms.map((m) => m.x)), y: Int16Array.from(ms.map((m) => m.y)), z: Int16Array.from(ms.map((m) => m.z)), orientation: Uint8Array.from(ms.map((m) => ["Cw0", "Cw90", "Cw180", "Cw270"].indexOf(m.orientation))), flags: new Uint8Array(n), owner: new Uint16Array(n), variant: new Uint8Array(n).fill(255), strength: new Float32Array(n), ids: ms.map(() => "") };
   r.setMap({ W: g.W, H: g.H, heights: Uint8Array.from(g.heights), columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, entities: e,
     soil: { moisture: Uint8Array.from(g.moisture.map(mb)), contamination: Uint8Array.from(g.soil.map((v) => v <= 0 ? 0 : Math.max(1, Math.min(255, Math.round(v * 255))))) },
     water: { count: tile.length, tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(cont) } }, true);
@@ -567,7 +593,7 @@ async function openSite(browser: Browser, port: number, formula: boolean | null,
 }
 
 async function render(page: Page, s: Shot, cam: Cam, look: "standard" | "high"): Promise<Buffer> {
-  await page.evaluate(`(${SET_MAP_JS})(${JSON.stringify({ W: s.snap.width, H: s.snap.height, heights: s.heights, depth: s.snap.depth, contamination: s.snap.contamination, moisture: s.snap.moisture, soil: s.snap.soilContamination })})`);
+  await page.evaluate(`(${SET_MAP_JS})(${JSON.stringify({ W: s.snap.width, H: s.snap.height, heights: s.heights, depth: s.snap.depth, contamination: s.snap.contamination, moisture: s.snap.moisture, soil: s.snap.soilContamination, mines: WATER === "pit" ? s.mines : [] })})`);
   await page.evaluate(`(() => { const r = window.dgm3d.renderer; if (typeof r.setLookChoice === "function") { for (const k of Object.keys(r.highEffects ?? {})) r.setHighEffect(k, true); r.setLookChoice(${JSON.stringify(look)}, false); } })()`);
   if (look === "high") await page.waitForFunction("window.dgm3d.renderer.highSettled", null, { timeout: 180_000 });
   await page.waitForTimeout(1500);
@@ -674,6 +700,11 @@ async function main() {
       const inFrame = (xy: [number, number] | null): xy is [number, number] => !!xy && xy[0] >= 3 && xy[1] >= 3 && xy[0] < W_PX - 3 && xy[1] < H_PX - 3;
       const at = pts.map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: { p: V3; depth: number; kind: Kind }; xy: [number, number] }[];
       const gameAt = at.map((a) => patch(game, a.xy[0], a.xy[1]));
+      // (where each mine site's pit falls in the frame, to look at: its centre's pixel)
+      for (const mine of WATER === "pit" ? s.mines : []) {
+        const xy = pr([mine.cx + 0.5, mine.z - MINE_PIT.depth, -(mine.cy + 0.5)]);
+        if (inFrame(xy)) console.log(`  the mine site at ${mine.cx},${mine.cy}: its pit's middle at pixel ${xy.map((v) => v.toFixed(0)).join(",")}`);
+      }
       const land = landPoints(s, cam).map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: { p: V3; kind: LandKind; distance: number }; xy: [number, number] }[];
       const gameLand = land.map((a) => patch(game, a.xy[0], a.xy[1]));
       for (const look of LOOKS) {
@@ -694,7 +725,7 @@ async function main() {
         for (const kind of KINDS)
         for (const [lo, hi] of [...BANDS, [0.05, 9] as [number, number]]) {
           const idx = at.map((a, k) => (a.q.kind === kind && a.q.depth >= lo && a.q.depth < hi ? k : -1)).filter((k) => k >= 0);
-          if (idx.length < 20) continue;
+          if (idx.length < (kind === "pit" ? 5 : 20)) continue;
           const g = meanSpread(idx.map((k) => gameAt[k]));
           const b: BandStats = { n: idx.length, game: g, ours: {} };
           let line = `  ${look}: ${`${kind} ${lo}-${hi === 9 ? "" : hi}`.padEnd(15)} ${String(idx.length).padStart(5)}   ${fmt(g.mean)} / ${fmt(g.spread)} L* ${meanL(idx.map((k) => gameAt[k])).toFixed(1)}   `;
