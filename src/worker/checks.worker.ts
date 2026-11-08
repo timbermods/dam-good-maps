@@ -29,13 +29,23 @@ const waterThreads = () =>
       .catch(() => undefined)
     : Promise.resolve());
 
+/** The follows in the order they came, each after the one before: a check waits for every follow sent before it, so it
+ *  checks the map the editor asked about (each request awaits the replica's own load, and those loads can finish in any
+ *  order: a check that ran first found the replica a version behind and answered nothing, and the page's dot stayed at
+ *  "Checking the map", #829). */
+let following: Promise<unknown> = Promise.resolve();
+
 const api = {
-  follow: async (p: import("./session").FollowPayload) => {
+  follow: (p: import("./session").FollowPayload) => {
     void waterThreads();
-    return (await session()).follow(p);
+    const done = following.then(async () => (await session()).follow(p));
+    following = done.catch(() => undefined);
+    return done;
   },
   check: async (version: number, onProgress?: (p: import("./session").CheckProgress) => void) => {
     await waterThreads();
+    // (a follow sent while the threads got ready is waited for too: the check then answers for the newest map)
+    await following;
     return (await session()).replicaCheck(version, onProgress);
   },
 };

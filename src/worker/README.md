@@ -30,7 +30,8 @@ says are the core's (D342).
   a step and its water at a time, as the recorder (`src/editor/timelapse/record.ts`) asks; its views are `session.ts`'s
   `wholeView` and `waterOf`.
 - `checks.worker.ts`: the checks' own worker, a replica of the open map that follows the editor's log (`follow`,
-  `replicaCheck`).
+  `replicaCheck`). A check waits for every follow sent before it, and a second ask for the same map shares the check
+  in progress (#829).
 
 **Tests**: `tests/contract/` drives `session.ts` directly in Node (editor, shelf, parity, live-water, the force
 tests); `tests/e2e/` drives the page's workers. Run `npx vitest run tests/contract/editor.test.ts`.
