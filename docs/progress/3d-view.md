@@ -945,8 +945,8 @@ side. The page wires it: the terrain tools' hover and stroke set the fade, and a
   second, as for a brush. Standard's baked shadows are cast again round the region and where it was, once a frame
   (`castersNow`, `light.ts` `withoutCasters`, into two arrays used in turn). Only the tiles round the region are
   compared, and the shadows are redone only where the dropped tiles changed, so a move within a tile costs no rebake. A
-  caster is dropped by its model's place, as its fade is: the start's caster stands on its corner tile, its model round
-  its footprint's middle (`casterPlaces`).
+  caster is dropped by its model's place, as its fade is: the start's casters stand on the nine tiles of its footprint,
+  its model round the footprint's middle (`casterPlaces`).
 - **`setObjectsHidden(on)`:** the objects' program discards every object but the land's own shape (`objectHide`). The
   baked shadows are cast again without the objects and High's depth map is drawn again (no canopy shade: High's
   ambient occlusion went with D497). False brings it all back.
@@ -995,9 +995,10 @@ the game's models in resources.assets (positions, materials and texture means on
 - **The start** (`startTower`): the game's map-editor marker, a lantern tower of pale grey stone, 4.37 high on its
   3 × 3. It has a walled base 2.86 across to 1.04 with a door toward the entrance and windows, a white cornice, a hipped
   roof to 1.8, a tapering shaft to 2.8, a gallery 1.82 across, a lantern of four posts round a dark light to 3.8, and a
-  cap. It replaces the timber lodge with its red roof and banner. The entrance marker stays. Its shadow caster stands
-  4.0 high on its footprint's middle tile, where the tower is (`light.ts`, was 2.2 on its Coordinates' corner; the
-  fade drops it there, objectFade.ts `casterPlaces`), and a press takes it as drawn: the walls two levels over the 3 × 3, the tower four
+  cap. It replaces the timber lodge with its red roof and banner. The entrance marker stays. Its shadow casters stand
+  4.0 high on its footprint's middle tile, where the tower is, and 1.4 on the eight round it, its walls and roof
+  (`light.ts`, was 2.2 on its Coordinates' corner, then the tower alone; the fade drops them by the model's middle,
+  objectFade.ts `casterPlaces`), and a press takes it as drawn: the walls two levels over the 3 × 3, the tower four
   over the middle tile (`editor/start/startPick.ts`).
 - **A water source:** an outcrop of dark rock 1.0 high, about 1.1 across (the game's is 1.14 × 1.18). Highlighted (Remove's
   red, D249), a source's rock takes the whole red, three times its colour rather than twice (`highlightObjects`), so the
@@ -1823,6 +1824,80 @@ the game's models in resources.assets (positions, materials and texture means on
 - **Falls short:** our links take a neighbour as linked where it is wet, with no barriers (none on our ground) and the
   ceilings as each layer of waterLayers.ts sees them; a slope's seen depth is worked out along the game's pitch, not
   read from a depth buffer.
+
+## Objects' shadows (D497; `fix/high-object-shadows`)
+
+- **What it was.** A look review found High's shadows of trees, bushes and landmarks lighter and smaller than
+  Standard's. Measured (`tools/object-shadows.ts`: each object alone on a flat meadow, drawn from straight above in both
+  looks with its objects and without, at the game's 45° sun), High's are its models' own (the depth map of the real
+  meshes), and both looks shade the core of a shadow fully (its darkest points 1.1–1.2 of the full shadow under a
+  pillar), as the game does (the day's shadow strength 1, `Sun.blueprint`). Standard's were too large: its baked map
+  cast each plant as a whole tile's column from the ground to its top, and read between its samples (two a tile,
+  bilinear), which widens a shadow by 0.2–0.45 of a tile a side. A pine's shadow covered 2.7 times its model's, a
+  birch's 3.2 times, and a blueberry bush cast none.
+- **The game's.** Against the probe's frames (`tools/object-shadow-check.py`, the eight 128² start shots of batch
+  20261002-1610: ours drawn from each shot's pose with the snapshot's land, water and plants, aligned to the game's
+  frame; every flat, dry point in view given to the grown plant up-sun whose shadow's box holds it; the darkening of
+  the visible ground round each species, 1 a full shadow), High's matched the game's and Standard's did not.
+- **What it is now.** Standard casts each plant as its model: a stack of upright discs round its tile's middle (a
+  pine's trunk and whorls, an oak's and a birch's crowns over their trunks, a bush's mound; `light.ts` `PLANT_SHAPES`),
+  each disc cast 0.2 narrower than its radius for the filter's widening (`PLANT_INSET`), its radii fitted so each
+  plant's shadow covers what its model's does in High. Ground the rays reach under a crown is lit, as under the
+  game's trees. A young plant's shape is scaled with its height. A dead plant stands at its dead form's height
+  (`dying.ts` `DEAD_FORM`, 0.68–0.79 of the living one, where it was cast at 0.35): a tree's bare wood a thin post, a
+  bush and a succulent their own shapes, smaller. A ruin column is a post as wide as its square's diagonal
+  (`POST_RADIUS`). The start casts its walls and roof, 1.4 high over its 3 × 3, round the tower's 4.0 (`START_BASE`).
+- **Where the ground drops away.** A shape's shadow falls on past its own level where the ground below it is lower (a
+  bank over a river, a terrace's edge, a cliff's top): each plant's strip is walked out along the sun's way, half a tile
+  a step, until the highest its shadow can be there is under all the ground across the strip (the 3 × 3 round the
+  step), past which a ray to anything passes through the ground and the ground shades it. A piece of shadow wholly
+  under a sample's ground is left out, so how far a strip looked never shows in the bytes; plants are looked for as far
+  up-sun as any shadow falls (`SHADOW_DROP`, 30 levels, as `shadowReach`). The first cut of this PR stopped every
+  shadow where it would end on the plant's own level: a pine at a two-level bank cast 3.5 tiles where its column had
+  cast 5.5, and from three levels down nothing (#864's look review).
+- **Edits.** The shapes are cast after the sweep (`plantTopsInto`), with the same arithmetic in any window, so an edit's
+  bytes are still the whole map's; their kinds are kept after the casters' levels and go to the bake's worker with
+  them. That rests on every disc after the inset staying under the 0.75 of a tile from its tile's middle to the
+  nearest sample outside it (the samples an edit of the tile redoes reach no further round it): `PLANT_WIDEST` (0.66,
+  the oak's crown) is checked as `light.ts` loads, and by `look.test.ts`. `caveLight.test.ts` redoes 60–70 shapes of
+  every kind on roofs, floors and banks, under nine turned suns, with and without the rock, against baking again.
+  High is unchanged.
+- **Measured.** The meadow (area darkened at least half, tiles², outside the object's own footprint; dev → now):
+
+  | | pine | oak | birch | bush | ruin H2 | ruin H4 | start | dead pine |
+  |---|---|---|---|---|---|---|---|---|
+  | Standard | 4.14 → 1.60 | 2.67 → 1.64 | 2.21 → 0.54 | 0 → 0 | 2.13 → 1.46 | 5.08 → 4.00 | 2.54 → 3.91 | 0 → 0.34 |
+  | High | 1.52 | 1.71 | 0.69 | 0.02 | 1.94 | 4.14 | 4.04 | 0.19 |
+
+  (A bush's shadow, 0.4 high, falls within its own footprint seen from above; dead oaks, birches and bushes cast 0.05
+  or less in both looks, `--dead`.) The probe's frames (`object-shadow-check.py`: the mean darkening of the visible
+  ground in each species' shadow boxes on its own level, 1,832 / 2,087 / 3,000 points; and of the water below a step
+  from a plant up-sun, within its shadow's box lengthened by the drop, 3,351 points, mostly river banks):
+
+  | | game | Standard dev | Standard now | High |
+  |---|---|---|---|---|
+  | pine | 0.18 | 0.63 | 0.31 | 0.20 |
+  | oak | 0.16 | 0.19 | 0.08 | 0.13 |
+  | birch | 0.15 | 0.49 | 0.17 | 0.13 |
+  | water below a step | 0.15 | 0.38 | 0.15 | 0.21 |
+
+  A plant at a step's edge (`.scratch` probe, d from its middle down-sun in quarters of a tile, shaded at the ground):
+  a pine two levels up shades to 4.75 tiles off (its column 5.5, the first cut 3.5, the step alone 2.75), three
+  levels up to 5.75; an oak two levels up to 4.25, a four-storey ruin to 5.5. The sheet:
+  `docs/sheets/object-shadows.jpg` (River Valley 4242, 128², round the start near and mid, dev and now, in both looks).
+- **Speed (D453).** Standard's bake (Node, the best of eight interleaved medians, ms, dev → now): River Valley 4242
+  128² (773 plants) the whole map 9.3 → 7.9, a plant taken away 0.39 → 0.40, a 3 × 3 raised 0.32 → 0.52; River Valley
+  256² 74.1 → 62.6, 0.60 → 0.84, 0.20 → 0.29; Delta 256² 40.4 → 43.7, 0.58 → 0.75, 0.25 → 0.30 (the machine was
+  shared: the whole maps vary by a tenth from run to run). The columns no longer enter the sweep, which pays for the
+  shapes on a whole map; each plant's discs are cast only over the strip its shadow can reach, and a plant whose shadow
+  cannot come down to an edit's lowest ground before it gets there is passed over. An edit costs up to a quarter of a
+  millisecond more: the plants round it walk their strips. High's pass and frame are untouched.
+- **Falls short.** Standard's pine still darkens the visible ground round it more than the game's (0.31 against
+  0.18): seen from the game's pose, the part of a shadow beside its tree's own screen box is its side, where the
+  filter's widening stays (the meadow's width 1.3 against High's 1.1). Standard's oak and both looks' oaks read a
+  little light against the game's (0.08 and 0.13 against 0.16), and High's shadows on the water below a bank a little
+  dark (0.21 against 0.15). The sun's turn moves Standard's areas by up to a fifth as a shadow's edge crosses the
+  samples.
 
 ## Caves and overhangs, captured again after #852–#855
 
