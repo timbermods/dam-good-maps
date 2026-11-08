@@ -249,14 +249,15 @@ ${HIGH_WATER_GLSL}
       // the game's light on its water (Q9 P15, waterPalette.ts WATER_LIGHT.game), as the Standard look draws it: the
       // highlight in the game's sun colour, lit by the game's light as the albedo it is added to; the probe by the
       // reflected direction (its head-on part where WATER_LIGHT.held); the sun's GGX glint by its shadow
-      vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(N, V, tint);
+      // (none where a fall lands: the game's waterfall mask, fallMask.ts, Q9 P1)
+      vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(N, V, tint) * (1.0 - waterFall);
       colour *= shade;
       colour += highlight * gameWaterLight(N, lit);
       colour += waterEnvironment(N, V, smoothness, float(WATER_HELD_HIGH));
       colour += highlight;
       colour += GAME_SUN_COLOUR * waterSunGlint(N, V, sunDir, smoothness) * lit;
     #else
-      vec3 highlight = sunColor * waterCameraHighlight(N, V, tint);
+      vec3 highlight = sunColor * waterCameraHighlight(N, V, tint) * (1.0 - waterFall);
       colour += highlight;
       colour *= shade;
       colour += highlight;
@@ -308,7 +309,7 @@ export function waterHooks(): ShaderHooks {
             // the water's side, and a fall, as the game draws its falls (D201 amended 2026-10-29): the water's own
             // colour where it sees the cliff right behind (its shallowest), nearly opaque
             // (WATER_SURFACE.fallSeeThrough), no whitewater and no highlight (the game's waterfall mask takes it off,
-            // p036 r7.z); at the map's edge, the water's side
+            // Q9 P1); at the map's edge, the water's side
             float hlBad = cont;
             float hlTint = waterTint(hlBad);
             bool edge = vFlags > 254.5;
