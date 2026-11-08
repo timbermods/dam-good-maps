@@ -1707,50 +1707,67 @@ the game's models in resources.assets (positions, materials and texture means on
   is 0.11 along the sun's way ("Grass in the game's light", above), as Standard's is since #855.
 - **What it is now.**
   - The map is framed to the map's box (its tiles, from under the floor to the tallest caster, 32 levels) as the sun
-    sees it at each turn: a rectangle in the light's plane. A texel is now 0.06–0.09 of a tile over a 128² map and
-    0.10–0.18 over a 256² one, by the turn.
+    sees it at each turn: a rectangle in the light's plane. The map is 4096², the game's own High preset's (planning,
+    #236, 2026-11-08, by D496). A texel is now 0.03–0.045 of a tile over a 128² map and 0.05–0.09 over a 256² one, by
+    the turn (the game's in play: 0.057).
   - It is read as four bilinear compares (each one the share of its four texels the point is in front of, fetched, so
     no gradient is taken in a branch), spread so that the edge is the game's (`LIGHT.edge` along the sun's way), never
     under half a texel apart (closer, one compare's own texels show as steps) nor under half a pixel (a far view's edge
-    would step). A 2 × 2 of bilinear compares turns over about 0.8 × (a texel + the spread). At 2048 the half-texel floor
-    is what binds: 1.6 texels, 0.13–0.17 of a tile along the sun's way over a 128² map and 0.23–0.31 over a 256² one.
+    would step). A 2 × 2 of bilinear compares turns over about 0.8 × (a texel + the spread): the game's 0.11 along the
+    sun's way over a 128² map, and 0.11–0.15 over a 256² one, where the half-texel floor binds at some turns.
   - The pass writes depth alone (no colour; the colour target a byte a texel).
 - **Measured** (`tools/shadow-edge-check.py` on the judge's six start shots, through the probe's frames' pixels; the
   10–90 % width at right angles, tiles; the game's column is the probe's coarser shadow map, not play's):
 
   | shot | cliff | game (probe) | Standard dev | Standard now | High dev | High now |
   |---|---|---|---|---|---|---|
-  | highlands-128-1 | 2 | 0.38 | 0.74 | 0.23 | 0.51 | 0.21 |
-  | highlands-128-1 | 6+ | 0.64 | ≥ 2 | 0.26 | 0.49 | 0.26 |
-  | highlands-128-2 | 2 | 1.15 | 0.69 | 0.18 | 0.49 | 0.18 |
-  | highlands-128-2 | 4–5 | 0.36 | 1.77 | 0.18 | 0.49 | 0.18 |
+  | highlands-128-1 | 2 | 0.38 | 0.74 | 0.23 | 0.51 | 0.18 |
+  | highlands-128-1 | 6+ | 0.64 | ≥ 2 | 0.26 | 0.49 | 0.23 |
+  | highlands-128-2 | 2 | 1.15 | 0.69 | 0.18 | 0.49 | 0.15 |
+  | highlands-128-2 | 4–5 | 0.36 | 1.77 | 0.18 | 0.49 | 0.13 |
   | lakeBasin-128-2 | 4–5 | 0.62 | 1.90 | 0.46 | 0.67 | 0.28 |
   | lakeBasin-128-2 | 6+ | 0.33 | ≥ 2 | 0.23 | 0.54 | 0.26 |
-  | riverValley-128-1 | 6+ | 0.33 | ≥ 2 | 0.18 | 0.54 | 0.21 |
-  | riverValley-128-2 | 2 | 2.02 | 1.44 | 0.36 | 0.79 | 0.28 |
-  | riverValley-128-2 | 6+ | 0.33 | ≥ 2 | 0.23 | 0.56 | 0.23 |
+  | riverValley-128-1 | 6+ | 0.33 | ≥ 2 | 0.18 | 0.54 | 0.18 |
+  | riverValley-128-2 | 2 | 2.02 | 1.44 | 0.36 | 0.79 | 0.21 |
+  | riverValley-128-2 | 6+ | 0.33 | ≥ 2 | 0.23 | 0.56 | 0.21 |
 
-  ("Standard dev" is the judge's base, before #854.) Both looks now read alike, 0.18–0.28 where the frames' pixels
-  allow. The judge's land is unchanged in High (grass 14.6, bias 9.3 → 9.4; cliff bias 14.3 → 14.2).
+  ("Standard dev" is the judge's base, before #854.) Both looks now read alike, 0.13–0.28 where the frames' pixels
+  allow. The judge's land is unchanged in High (grass 14.6, bias 9.3 → 9.4; cliff bias 14.3 → 14.2). (At 2048, the
+  first take, High read 0.18–0.28: 0.21, 0.26, 0.18, 0.18, 0.28, 0.26, 0.21, 0.28, 0.23.)
 - **No acne, peter-panning or new shimmer.** The close frames of caves and overhangs (`capture-forms-read`) show none.
   As the sun turns a quarter of a degree a step (13 steps, the water held still, Canyon's 128² view at 20 and 45
   tiles), the pixels whose luma goes both up and down by 4 or more were 7.3 % and 3.3 % of the frame on dev, where
-  the 25 nearest taps crawl in broad bands, and are 3.0 % and 1.6 % now, along the edges' own pixels.
+  the 25 nearest taps crawl in broad bands, and are 1.9 % and 0.9 % now (3.0 % and 1.6 % at 2048), along the edges'
+  own pixels.
 - **Speed (D453; Chrome, GPU-synced by a one-pixel read, medians of 100 passes and 200 frames, ms; three runs each,
-  dev and this branch interleaved, riverValley seed 1):**
+  dev and this branch interleaved, riverValley seed 1; this machine's RTX 2070 SUPER):**
 
-  | | 128² dev | 128² now | 256² dev | 256² now |
-  |---|---|---|---|---|
-  | shadow pass | 1.50, 1.54, 1.51 | 1.42, 1.41, 1.98 | 1.04, 1.90, 1.35 | 1.78, 1.72, 1.71 |
-  | frame | 2.01, 2.11, 1.94 | 2.11, 2.06, 1.66 | 2.99, 2.94, 2.75 | 2.91, 2.68, 2.63 |
-  | a turning frame (pass and frame) | 2.15, 2.16, 2.14 | 2.20, 2.14, 2.06 | 3.56, 3.81, 3.72 | 3.63, 3.57, 3.56 |
+  | | 128² dev | 128² 4096 | 128² 2048 | 256² dev | 256² 4096 | 256² 2048 |
+  |---|---|---|---|---|---|---|
+  | shadow pass | 1.43–1.54 | 1.87–2.08 | 1.41–1.98 | 1.04–1.90 | 1.93–2.45 | 1.71–1.78 |
+  | frame | 1.72–2.11 | 1.94–2.19 | 1.66–2.11 | 2.63–3.51 | 2.47–3.07 | 2.63–2.91 |
+  | a turning frame (pass and frame) | 1.92–2.47 | 2.36–3.34 | 2.06–2.20 | 3.38–3.81 | 3.53–3.75 | 3.56–3.63 |
 
-  At 4096 the edge reaches the game's at 128² (0.08–0.11 along the sun's way), but each pass costs about 0.4 ms more
-  (1.9–2.1 at 128², 1.9–2.5 at 256²), most of it the trees' fill; writing depth alone, dropping faded objects in the
-  vertex shader and front faces alone saved none of it. So the map stays 2048 (`SHADOW_SIZE`), and 4096 is planning's
-  call.
-- **Falls short:** at 2048 High's edge is 1.2–1.5 × the game's in play over a 128² map and 2–3 × over a 256² one;
-  only a larger map (or one fitted to the view, redrawn as the camera moves, as the game's is) would close it.
+  The pass at 4096 costs about 0.4 ms more, most of it the trees' fill (writing depth alone, dropping faded objects in
+  the vertex shader and front faces alone saved none of it). Planning took 4096 (the game's High's, D496) on one
+  condition in place of dev's speed: the smoothness gate's slower profile, the integrated GPU with the CPU 4× slower,
+  orbiting at 256², stays inside its budget with no new frames over two refreshes. That profile cannot run on this
+  machine (one GPU), and `npm run smooth` waits on a "checks passed" line the page no longer shows (it timed out on dev
+  too). In its place, the orbit (High, 256², seed 4242, ten seconds, the sun turning with the camera, a depth pass
+  every half degree) timed by animation frames in headed Chrome on the discrete GPU, natively and with the CPU 4×
+  slower, with other sessions busy on the machine:
+
+  | | dev | 4096 |
+  |---|---|---|
+  | native: median / p99 / worst, ms | 7.0 / 7.0–21 / 14–84 | 7.0 / 7.1–230 / 14–517 |
+  | native: frames over 33 ms | 0, 0, 0, 6 | 0, 0, 1, 1, 26, 90 |
+  | CPU 4×: median / p99 / worst, ms | 14 / 28–56 / 42–181 | 7–20.5 / 28–77 / 42–119 |
+  | CPU 4×: frames over 33 ms | 15, 19, 13, 5 | 11, 10, 19, 6, 17, 72 |
+
+  Natively both hold the display's 144 Hz; two of six 4096 runs and one of four dev runs had stalls of a quarter to
+  half a second, which the busy machine makes hard to pin on either. The gate's own profile is still to run.
+- **Falls short:** the gate's slower profile (integrated GPU, CPU 4×) is not run: this machine has no second GPU. If
+  it fails there, `SHADOW_SIZE` goes back to 2048 (High's edge then 0.13–0.17 of a tile at 128², 0.23–0.31 at 256²).
 
 ## Caves and overhangs, captured again after #852–#855
 

@@ -62,7 +62,7 @@ mod and one-click play are set aside (#709 stays on `hold`). The work, in this o
   - dry land that reads dry: in progress (#853);
   - grass in the game's light: #854 (the light holds to a luma; Standard's shadow edge the game's in-play width, #855; the judge's gap is the textures where its samples sit);
   - light in caves, and overhangs and arches that read: done (#820; captured again after #852–#855 on `fix/high-shadow-edge`: the roofed faces hold, cave 41 High / 43 Standard);
-  - High's shadow edge as the game's: `fix/high-shadow-edge` (0.5–0.6 → 0.13–0.17 of a tile at 128²; 4096 for the game's 0.11 is planning's call);
+  - High's shadow edge as the game's: `fix/high-shadow-edge` (0.5–0.6 → the game's 0.11 at 128², a 4096 map as the game's High; the integrated-GPU gate still to run);
   - the hero picture: done (#441, #809, #811);
   - the first Erode's freeze: fixed on dev (the re-judge of the 10-29 audit, 2026-11-07);
   - a calm placement outline: done (#679, merged 2026-10-30);
