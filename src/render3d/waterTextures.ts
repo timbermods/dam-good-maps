@@ -82,6 +82,33 @@ export const GAME_BADWATER_TEXTURE = {
   },
 } as const;
 
+/** The still detail albedo as `tools/game-water-shader.py --textures` measures the game's (`PhysicalWaterDetailAlbedo`,
+ *  t5, Q9 P6; Timberborn 1.1.2.8-ffc2de0-sw), display values 0–255: sampled at xz × `tiling` (one repeat 66.7 tiles),
+ *  still, it is overlaid on clean water's colour × its albedo and on badwater's base colour. Broad clouds several tiles
+ *  across, mostly dim, with sparse bright patches (a long upper tail) whose insides carry a fine swirl. Its colour is
+ *  nearly one field: its first principal component (`first`, a greenish brightness) carries 96 % of its variance; the
+ *  second (`second`, blue against red, 2.72) is uncorrelated with it but follows it (the dim texels lean blue, the
+ *  middle red, the brightest blue again), so a quadratic in the first (`fromFirst`: c2 = k0 + k1 c1 + k2 c1²) carries
+ *  all of it but 0.89; the third is nothing (0.4). The first's `percentiles` at `PATTERN_PERCENTILES`, its `range`
+ *  (min, max), the autocorrelation's half-width (`feature`, tiles), the share of its power by wavelength (`power`,
+ *  tiles: 64–32, 32–16, 16–8, 8–4, 4–2, 2–1, 1–0.5, under 0.5) and of its spread left after a blur over 0.25, 0.5,
+ *  1, 2 and 4 tiles (`broad`). */
+export const GAME_DETAIL_TEXTURE = {
+  tiling: 0.015,
+  mean: [69.7, 88.7, 95.3],
+  spread: [9.9, 8.9, 3.7],
+  first: {
+    axis: [0.73, 0.656, 0.192],
+    spread: 13.58,
+    range: [-19.9, 99.5],
+    percentiles: [-16.0, -12.7, -11.5, -8.9, -3.4, -1.2, 0.1, 2.3, 5.0, 7.8, 10.6, 17.5, 28.1, 35.6, 43.3, 53.5],
+    feature: 1.5,
+    power: [0.023, 0.172, 0.289, 0.225, 0.117, 0.071, 0.041, 0.056],
+    broad: [0.89, 0.82, 0.68, 0.48, 0.26],
+  },
+  second: { axis: [-0.178, -0.089, 0.98], spread: 2.72, fromFirst: [-1.4788, -0.21611, 0.008023], rest: 0.89 },
+} as const;
+
 /** The percentiles `GAME_BADWATER_TEXTURE` gives (as fractions). */
 export const PATTERN_PERCENTILES = [0.01, 0.05, 0.1, 0.25, 0.5, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.97, 0.98, 0.99] as const;
 
@@ -350,7 +377,8 @@ function toPercentiles(v: Float64Array, percentiles: readonly number[], lo: numb
 }
 
 /** Badwater's pattern (RGBA bytes) at `size` texels square, one repeat as the surface's: R the base colour's pattern,
- *  G the emissive detail's (`GAME_BADWATER_TEXTURE`), B and A unused. */
+ *  G the emissive detail's (`GAME_BADWATER_TEXTURE`); B the still detail albedo's (Q9 P6, `makeDetailField`), which
+ *  shares the texture but is sampled at its own tiling, still, in every look; A unused. */
 export function makeBadwaterTexture(size: number): Uint8Array {
   const n = size * size;
   const P = BAD_PATTERN;
@@ -407,13 +435,156 @@ export function makeBadwaterTexture(size: number): Uint8Array {
   const G = GAME_BADWATER_TEXTURE;
   toPercentiles(base, G.base.percentiles, 30, 220);
   toPercentiles(glow, G.glow.percentiles, 0, 255);
+  const detail = makeDetailField(size);
   const data = new Uint8Array(n * 4);
   for (let i = 0; i < n; i++) {
     data[i * 4] = Math.round(base[i]);
     data[i * 4 + 1] = Math.round(glow[i]);
+    data[i * 4 + 2] = Math.round(detail[i]);
     data[i * 4 + 3] = 255;
   }
   return data;
+}
+
+/** How the still detail albedo is drawn (tuned so its statistics land on the game's, `GAME_DETAIL_TEXTURE`): its first
+ *  component a Gaussian field made from a spectrum (`power`: the share of its power in each band of wavelength,
+ *  `DETAIL_BANDS`, before the rank remap, which moves some of it), then remapped by rank to the game's distribution,
+ *  its last hundredth straight from the 99th percentile to `top` (the game's brightest texels are lone specks, so its
+ *  maximum would lift the spread). */
+const DETAIL_PATTERN = {
+  power: [0.023, 0.251, 0.278, 0.234, 0.098, 0.059, 0.033, 0.045],
+  top: 75,
+};
+
+/** The bands of wavelength (tiles) the detail's power is measured and made in: 64–32, 32–16, …, 1–0.5, under 0.5. */
+const DETAIL_BANDS = [64, 32, 16, 8, 4, 2, 1, 0.5, 0] as const;
+
+/** How the detail's first component is stored in badwater's texture's B byte: 255 × (score − lo) / (hi − lo), the
+ *  score its distance from the mean along its axis (`GAME_DETAIL_TEXTURE.first`; its range inside). */
+export const DETAIL_STORE = [-20, 100] as const;
+
+/** The detail albedo (display values, 0–1) the shader draws from a texel's B byte (0–255): the mean, the first
+ *  component's score along its axis, and the second's by the first (`fromFirst`). */
+export function detailOf(b: number): [number, number, number] {
+  const G = GAME_DETAIL_TEXTURE;
+  const s1 = DETAIL_STORE[0] + ((DETAIL_STORE[1] - DETAIL_STORE[0]) * b) / 255;
+  const [k0, k1, k2] = G.second.fromFirst;
+  const s2 = k0 + k1 * s1 + k2 * s1 * s1;
+  return [0, 1, 2].map((k) => (G.mean[k] + G.first.axis[k] * s1 + G.second.axis[k] * s2) / 255) as [number, number, number];
+}
+
+/** The detail's colour as the shader draws it from its stored byte (0–1): `base` + `lin` × b + `quad` × b², display
+ *  values (`detailOf`, multiplied out). */
+export const DETAIL_COLOUR = (() => {
+  const G = GAME_DETAIL_TEXTURE;
+  const [lo, hi] = DETAIL_STORE;
+  const w = hi - lo;
+  const [k0, k1, k2] = G.second.fromFirst;
+  // s1 = lo + w b; s2 = k0 + k1 s1 + k2 s1² = (k0 + k1 lo + k2 lo²) + (k1 w + 2 k2 lo w) b + k2 w² b²
+  const c0 = k0 + k1 * lo + k2 * lo * lo;
+  const c1 = k1 * w + 2 * k2 * lo * w;
+  const c2 = k2 * w * w;
+  const at = (k: number) => [G.mean[k] + G.first.axis[k] * lo + G.second.axis[k] * c0, G.first.axis[k] * w + G.second.axis[k] * c1, G.second.axis[k] * c2].map((v) => v / 255);
+  const rows = [0, 1, 2].map(at);
+  return { base: rows.map((r) => r[0]), lin: rows.map((r) => r[1]), quad: rows.map((r) => r[2]) };
+})();
+
+/** The byte (B) of the detail's mean, 0–255: the texture until it is made. */
+export const DETAIL_FLAT = Math.round((255 * -DETAIL_STORE[0]) / (DETAIL_STORE[1] - DETAIL_STORE[0]));
+
+/** An in-place radix-2 FFT of `n` complex values (`re`, `im`, a power of two long), forward. */
+function fft(re: Float64Array, im: Float64Array): void {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [re[i], re[j]] = [re[j], re[i]];
+      [im[i], im[j]] = [im[j], im[i]];
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -TAU / len;
+    for (let i = 0; i < n; i += len)
+      for (let k = 0; k < len / 2; k++) {
+        const wr = Math.cos(ang * k);
+        const wi = Math.sin(ang * k);
+        const a = i + k;
+        const b = a + len / 2;
+        const xr = re[b] * wr - im[b] * wi;
+        const xi = re[b] * wi + im[b] * wr;
+        re[b] = re[a] - xr;
+        im[b] = im[a] - xi;
+        re[a] += xr;
+        im[a] += xi;
+      }
+  }
+}
+
+/** A tiling Gaussian field `size` square (a power of two) whose power in each band of `DETAIL_BANDS` (one repeat
+ *  `repeat` tiles across) is `power`'s share, spread evenly over the band's frequencies, random phases (seed `s`). */
+function spectralField(size: number, repeat: number, power: readonly number[], s: number): Float64Array {
+  const n = size * size;
+  const band = new Int8Array(n).fill(-1);
+  const count = new Float64Array(power.length);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const ky = y < size / 2 ? y : y - size;
+      const kx = x < size / 2 ? x : x - size;
+      const k = Math.hypot(kx, ky);
+      if (k === 0) continue;
+      const wave = repeat / k;
+      for (let b = 0; b < power.length; b++)
+        if (wave <= DETAIL_BANDS[b] && wave > DETAIL_BANDS[b + 1]) {
+          band[y * size + x] = b;
+          count[b]++;
+          break;
+        }
+    }
+  const re = new Float64Array(n);
+  const im = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const b = band[i];
+    if (b < 0 || !count[b]) continue;
+    // (a complex Gaussian by Box-Muller, × the band's amplitude a frequency)
+    const r = Math.sqrt(-2 * Math.log(1 - hash(i, 0, s))) * Math.sqrt(power[b] / count[b]);
+    const a = TAU * hash(i, 1, s);
+    re[i] = r * Math.cos(a);
+    im[i] = r * Math.sin(a);
+  }
+  const rr = new Float64Array(size);
+  const ri = new Float64Array(size);
+  for (let pass = 0; pass < 2; pass++)
+    for (let j = 0; j < size; j++) {
+      for (let i = 0; i < size; i++) {
+        const at = pass ? i * size + j : j * size + i;
+        rr[i] = re[at];
+        ri[i] = im[at];
+      }
+      fft(rr, ri);
+      for (let i = 0; i < size; i++) {
+        const at = pass ? i * size + j : j * size + i;
+        re[at] = rr[i];
+        im[at] = ri[i];
+      }
+    }
+  return re;
+}
+
+/** The still detail albedo's first component (Q9 P6) as stored bytes (`DETAIL_STORE`), `size` square (a power of
+ *  two), one repeat `1 / GAME_DETAIL_TEXTURE.tiling` tiles across: a Gaussian field with the game's spectrum, remapped by
+ *  rank to the game's distribution (its long bright tail), centred. */
+export function makeDetailField(size: number): Float64Array {
+  const f = spectralField(size, 1 / GAME_DETAIL_TEXTURE.tiling, DETAIL_PATTERN.power, 301);
+  const G = GAME_DETAIL_TEXTURE.first;
+  toPercentiles(f, G.percentiles, G.range[0], DETAIL_PATTERN.top);
+  // (centred: a score is a distance from the mean, so the texture's mean is the game's)
+  let m = 0;
+  for (let i = 0; i < f.length; i++) m += f[i] / f.length;
+  const [lo, hi] = DETAIL_STORE;
+  for (let i = 0; i < f.length; i++) f[i] = (255 * (f[i] - m - lo)) / (hi - lo);
+  return f;
 }
 
 /** The share of a tiling field's spread (`size` square) left after a Gaussian blur over `sigma` tiles (as
@@ -572,6 +743,13 @@ export const WATER_FLOW_GLSL = /* glsl */ `
    *  the albedo's coordinates): R the base colour's, G the emissive detail's, 0–1. */
   vec2 badwaterPatternAt(vec2 pa, vec2 pb, float w) {
     return mix(texture2D(badwaterTex, pa * ${g(WATER_FLOW.tiling)}).rg, texture2D(badwaterTex, pb * ${g(WATER_FLOW.tiling)}).rg, w);
+  }
+  /** The game's still detail albedo at g (tiles; Q9 P6, makeDetailField, detailOf): badwater's texture's B at g ×
+   *  ${g(GAME_DETAIL_TEXTURE.tiling)} (one repeat ${g(Math.round(1 / GAME_DETAIL_TEXTURE.tiling * 10) / 10)} tiles), not carried by the flow, its colour (display values) by the
+   *  first component and the second by it. */
+  vec3 waterDetailAt(vec2 g) {
+    float b = texture2D(badwaterTex, g * ${g(GAME_DETAIL_TEXTURE.tiling)}).b;
+    return ${v3(DETAIL_COLOUR.base)} + ${v3(DETAIL_COLOUR.lin)} * b + ${v3(DETAIL_COLOUR.quad)} * b * b;
   }
   /** The surface's normal from its slopes, × ${g(WATER_FLOW.boost)} and × (1 + the badwater share) more, as the game's
    *  (Q9 P11). */
