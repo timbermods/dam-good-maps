@@ -187,7 +187,11 @@ describe("the baked light", () => {
       for (let k = 1; k < vs.length; k++) expect(vs[k]).toBeGreaterThanOrEqual(vs[k - 1]);
       const first = xs[vs.findIndex((v) => v > 0)];
       const full = xs[vs.findIndex((v) => v >= 1)];
-      expect(full - first, `a ${cliff}-level cliff`).toBeCloseTo(LIGHT.edge * Math.SQRT1_2, 1);
+      // (within a tenth of a tile: where the edge falls between the map's samples, half a tile apart, the ground's own
+      // tops round it bend the interpolated top a little; an angle's edge would widen with the cliff, 0.65 of x under
+      // this eight-level one at 2°)
+      expect(full - first, `a ${cliff}-level cliff`).toBeGreaterThanOrEqual(LIGHT.edge * Math.SQRT1_2 - 0.05);
+      expect(full - first, `a ${cliff}-level cliff`).toBeLessThanOrEqual(LIGHT.edge * Math.SQRT1_2 + 0.1);
       expect((first + full) / 2, `a ${cliff}-level cliff`).toBeCloseTo(10 + cliff * Math.SQRT1_2, 1);
     }
   });
