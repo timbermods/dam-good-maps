@@ -80,7 +80,7 @@ export const GROUND = {
    *  to one 7 % deeper by the water, which the game doesn't, so grass by the water read darker than the game's
    *  (`fix/land-tone`, docs/progress/3d-view.md). Calibrated as the rest (`tools/albedo-means.ts`, 34 and 100 away):
    *  the `Grass` texture's 67.4/72.9/24.8 at the mip the start shots read (64²) × the detail texture's 140.3/141.0/140.8
-   *  doubled, so 74.2/80.6/27.4; measured after, Standard 74.3/80.8/27.5 near and 74.0/80.4/27.5 from afar (High from afar
+   *  doubled, so 74.2/80.6/27.4; measured after, Standard 74.4/80.8/27.5 near and 74.0/80.4/27.5 from afar (High from afar
    *  73.2/79.8/27.3). */
   grass: [0.371, 0.389, 0.133] as Rgb,
   /** Ground under water (seen through it). */

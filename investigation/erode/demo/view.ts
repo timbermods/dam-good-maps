@@ -93,7 +93,7 @@ const TERRAIN_FRAG = /* glsl */ `
       if (roofed) {
         col = mix(${glc(GROUND.dryCool)}, ${glc(WALL.stone)}, 0.55) * (0.85 + 0.25 * fbm(tp.xy * 1.7));
       } else if (moist > 0.5) {
-        col = mix(${glc(GROUND.moistLow)}, ${glc(GROUND.moistHigh)}, smoothstep(0.35, 0.7, patches));
+        col = ${glc(GROUND.grass)} * mix(1.03, 0.96, smoothstep(0.35, 0.7, patches));
         col *= 0.9 + 0.18 * vnoise(tp.xy * 3.1);
       } else {
         col = mix(${glc(GROUND.dryCool)}, ${glc(GROUND.dryWarm)}, smoothstep(0.3, 0.75, patches));
@@ -123,7 +123,7 @@ const TERRAIN_FRAG = /* glsl */ `
       vec3 stone = hard ? vec3(0.5, 0.47, 0.41) : ${glc(WALL.stone)};
       col = mix(${glc(WALL.mortar)}, stone * shade * (0.84 + 0.3 * (k - 0.5)), 0.6 + 0.4 * smoothstep(0.05, 0.3, k));
       float lip = 1.0 - smoothstep(0.07, 0.13, surface - tp.z);
-      vec3 topc = moist > 0.5 ? ${glc(GROUND.moistHigh)} : ${glc(GROUND.dry)} * 0.85;
+      vec3 topc = moist > 0.5 ? ${glc(GROUND.grass)} : ${glc(GROUND.dry)} * 0.85;
       col = mix(col, topc, lip * 0.9);
     }
     // the light (the editor's lightOf): the cool sky, dimmed by the sky each point sees (caves,

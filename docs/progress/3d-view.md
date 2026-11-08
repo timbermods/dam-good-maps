@@ -1496,10 +1496,12 @@ the game's models in resources.assets (positions, materials and texture means on
   anti-aliasing at 34 away (where the colours were calibrated) and faded out from afar, left the grass 3.5 % darker from
   100 away than at 34, while the earth's cracks faded the other way (1.3 % lighter).
 - **The fix:** grass is one colour at every moisture (`GROUND.grass`; only the desert's share moves with moisture, as
-  the game's); the strokes take a box filter of their width, so their area holds, and fade from afar to their own mean
+  the game's); the strokes keep their shape (widened by a pixel's footprint, so they read up close and at a grazing view)
+  and what the widening adds is taken off the grass (`STROKE_WIDEN_K`: their mean grows by `PAINTED_MEAN` × 12.5 aa /
+  (1 + 0.406 aa²), within 1.2 % of `paintedMean` from aa 0.025 to 1.2), and from afar they fade to their own mean
   (`PAINTED_MEAN`, 0.0076); the cracks keep their depth (their texture's mips keep the mean). Grass recalibrated to the
   `Grass` texture's 64² mip × the detail texture doubled, 74.2/80.6/27.4: measured after (`tools/albedo-means.ts`, now
-  with `--distance`) 74.3/80.8/27.5 from 34 away and 74.0/80.4/27.5 from 100 in Standard (dev: 73.7/80.2/27.5 at 34, its
+  with `--distance`) 74.4/80.8/27.5 from 34 away and 74.0/80.4/27.5 from 100 in Standard (dev: 73.7/80.2/27.5 at 34, its
   strokes' share lower from 100). The models keep their colours (`ALBEDO_SCALE` held at the grass they took them from).
 - **On the judge** (`tools/water-pixel-judge.ts`, now with `--samples`; RMS to the game's pixels and bias, dev → this
   branch):
@@ -1515,6 +1517,24 @@ the game's models in resources.assets (positions, materials and texture means on
 
   Water unchanged: clean water on the start shots 14.3 → 14.2 (Standard), 14.1 → 14.0 (High); pure badwater on the
   frames 7.1 → 7.1, 7.5 → 7.5.
+- **Up close** (the look review of the first version): it box-filtered the strokes by the larger of a pixel's two
+  footprints, several times their width at a grazing view, so they read as smudges. At the reviewer's views (orbit 22,
+  pitch 0.38, four yaws over River Valley 4242's field at 64.5, −98.5) the near grass's fine-detail contrast (the high-pass
+  std of luma over the frame's lower third): Standard dev 5.24/6.07/5.22/4.81, that version 4.77/5.49/4.79/3.59, now
+  5.30/6.09/5.27/4.87; High dev 5.57/6.10/5.25/5.02, that version 4.94/5.43/4.81/3.76, now 5.68/6.13/5.32/5.09. The
+  field's centre mean from 20 to 180 away is that version's to 0.3 at every step.
+- **Dryness shows as the game shows it** (planning's check): every look draws it through the game's desert share, never
+  through the darkening this drops. Standard and High blend the share across tiles (`desertBlend`: `tapBlend` and the
+  game's noise; High's ground is Standard's `groundColor`, its `moist` hook the same share); the light look takes each
+  tile's own share (`grassOf`, no blend, D135). The judge's `--samples` now also takes tops at moisture 1 to 5 (`edge`,
+  where the desert covers part of the grass). On the six start shots, how much of grass's green over dry ground the edge
+  shows, at moisture 1/2/3/4: the game 0.65/0.81/1.00/0.93, dev 0.84/0.98/1.04/1.03, this branch 0.83/0.98/1.04/1.03 (the
+  same: the darkening never carried dryness). Grass over dry ground in luma: the game +10.2, dev −0.2, this branch +2.7.
+  Our faintest edge (moisture 1 to 2) reads greener than the game's; the share is the game's formula
+  (`UpdateDesertIntensity`), so the gap is elsewhere (its intensity's easing over time, or the noise's), still to find.
+  `docs/sheets/land-tone-dryness.jpg` (`tools/land-dryness-sheet.ts`, from the judge's `--ours`): riverValley-128-1-start,
+  irrigated and dry side by side, dev against this branch, Standard and High, from the judge's fitted camera; the
+  game's frame of it stays out of git (`C:\dgm-probe\shots\20261002-1610-batch\m9b-riverValley-128-1-start-water.jpg`).
 - **What's left of grass is where our broad patches fall:** the 137 grass samples sit in a few patches of two River
   Valley shots, and our grass's broad light and dark patches (10–20 tiles across) decide their mean. Moving those
   patches (three other offsets, judged the same way) gives grass bias 4.5, 6.9 and 5.2 against 9.9 as shipped. The

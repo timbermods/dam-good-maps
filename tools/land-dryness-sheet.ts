@@ -22,7 +22,7 @@ async function main() {
   const images: Buffer[] = [];
   const labels: string[] = [];
   for (const look of ["standard", "high"] as const)
-    for (const [key, label] of [["dev", "dev"], ["branch", "this PR"]] as const) {
+    for (const [key, label] of [["dev", "dev"], ["formula", "this PR"]] as const) {
       images.push(readFileSync(join(FROM, `${SHOT}-${look}-${key}.png`)));
       labels.push(`${SHOT}, irrigated and dry: ${look === "standard" ? "Standard" : "High"}, ${label}`);
     }

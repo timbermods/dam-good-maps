@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
-import { PAINTED_MEAN, sceneUniforms, skyMaterial, terrainMaterial } from "../../src/render3d/materials";
+import { PAINTED_MEAN, paintedMean, STROKE_WIDEN_K, sceneUniforms, skyMaterial, terrainMaterial } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
 import { BLEND, DESERT, GAME_SKY, gamePostRgb, GROUND, legendEntries, objectLegend, type Rgb } from "../../src/render3d/palette";
 
@@ -129,7 +129,14 @@ describe("the clean view", () => {
     expect(PAINTED_MEAN).toBeGreaterThan(0.005);
     expect(PAINTED_MEAN).toBeLessThan(0.01);
     const src = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1).fragmentShader;
-    expect(src).toContain(`mix(${PAINTED_MEAN}, painted * (0.08 + bladeHash * 0.16), detail)`);
+    expect(src).toContain(`mix(${PAINTED_MEAN}, painted * (0.08 + bladeHash * 0.16) - widened, detail)`);
+    // up close the strokes keep their width plus a pixel's footprint (legible at a grazing view, as dev drew them), and
+    // what that widening adds is taken off: the fit is within 2 % of the strokes' own growth at every footprint
+    expect(src).toContain("1.0 - smoothstep(0.04, 0.04 + bladeAA, abs(bf.x + bf.y * 0.25))");
+    for (const aa of [0.025, 0.1, 0.3, 0.5, 0.8, 1.2]) {
+      const grow = paintedMean(aa) / paintedMean(0) - 1;
+      expect(Math.abs((12.5 * aa) / (1 + STROKE_WIDEN_K * aa * aa) - grow) / grow).toBeLessThan(0.02);
+    }
   });
 
   it("draws the game's sky round the map (D497): blue overhead, paler at the horizon, the game's own colour straight down", () => {

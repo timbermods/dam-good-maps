@@ -426,30 +426,45 @@ export const AID_TINT = {
 
 /** The grass's painted strokes' mean (groundColor's `painted × (0.08 + bladeHash × 0.16)`, one stroke a cell, its
  *  width 0.08 across, fading over 0.18–0.42 along, from a point 0.2–0.8 into its cell, turned by its hash), over the
- *  cell and its hash: what the strokes give the grass on average, which they fade to from afar, so the grass's mean
- *  holds at every distance as a texture's does through its mips (the game's, D497). */
-export const PAINTED_MEAN = (() => {
+ *  cell and its hash, with the stroke widened by `aa` (its edge's smoothstep, a pixel's footprint across it): what the
+ *  strokes give the grass on average. */
+export function paintedMean(aa: number, n = 48): number {
   const smooth = (a: number, b: number, x: number) => {
     const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
     return t * t * (3 - 2 * t);
   };
   const H = 64;
-  const N = 48;
   let sum = 0;
   for (let i = 0; i < H; i++) {
     const h = (i + 0.5) / H;
     const turn = h * 6.28318;
     const [cx, cy] = [0.2 + h * 0.6, 0.2 + ((h * 13.7) % 1) * 0.6];
     const [co, si] = [Math.cos(turn), Math.sin(turn)];
-    for (let y = 0; y < N; y++)
-      for (let x = 0; x < N; x++) {
-        const [dx, dy] = [(x + 0.5) / N - cx, (y + 0.5) / N - cy];
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        const [dx, dy] = [(x + 0.5) / n - cx, (y + 0.5) / n - cy];
         // (GLSL's mat2(a, b, c, d) × v is (a v.x + c v.y, b v.x + d v.y))
         const [bx, by] = [co * dx + si * dy, -si * dx + co * dy];
-        if (Math.abs(bx + by * 0.25) < 0.04) sum += (1 - smooth(0.18, 0.42, Math.abs(by))) * (0.08 + h * 0.16);
+        const u = Math.abs(bx + by * 0.25);
+        const across = aa > 0 ? 1 - smooth(0.04, 0.04 + aa, u) : u < 0.04 ? 1 : 0;
+        sum += across * (1 - smooth(0.18, 0.42, Math.abs(by))) * (0.08 + h * 0.16);
       }
   }
-  return Math.round((sum / (H * N * N)) * 1e5) / 1e5;
+  return sum / (H * n * n);
+}
+
+/** The strokes' mean, drawn sharp: what they fade to from afar, so the grass's mean holds at every distance as a
+ *  texture's does through its mips (the game's, D497). */
+export const PAINTED_MEAN = Math.round(paintedMean(0) * 1e5) / 1e5;
+
+/** Widened by a pixel's footprint `aa` (so a stroke stays legible up close, at a grazing view too), a stroke covers
+ *  more of its cell: its mean grows by PAINTED_MEAN × 12.5 aa / (1 + k aa²) (0.08 + aa across instead of 0.08, less
+ *  where the widened stroke runs out of its cell), which groundColor takes off the grass, so its mean holds. k is
+ *  fitted at aa 0.8 (within 2 % of paintedMean from 0.025 to 1.2, look-clean.test.ts). */
+export const STROKE_WIDEN_K = (() => {
+  const a = 0.8;
+  const grow = paintedMean(a) / paintedMean(0) - 1;
+  return Math.round(((12.5 * a) / grow - 1) / (a * a) * 1e3) / 1e3;
 })();
 
 /** The pattern texture: its size, and the cells of each pattern across it (each tiles). */
@@ -1414,11 +1429,12 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         vec2 bf = fract(bladeUV) - vec2(0.20 + bladeHash * 0.6, 0.20 + fract(bladeHash * 13.7) * 0.6);
         bf = mat2(cos(bladeTurn), -sin(bladeTurn), sin(bladeTurn), cos(bladeTurn)) * bf;
         float bladeAA = max(0.025, max(fwidth(bladeUV.x), fwidth(bladeUV.y)));
-        // (the stroke's width 0.08 seen through a pixel's box: its area, so the grass's mean, the same at every distance;
-        // from afar, where its cells shrink under a pixel, it fades to that mean, PAINTED_MEAN)
-        float bladeU = abs(bf.x + bf.y * 0.25);
-        float painted = max(0.0, min(bladeU + 0.04, 0.5 * bladeAA) - max(bladeU - 0.04, -0.5 * bladeAA)) / bladeAA * (1.0 - smoothstep(0.18, 0.42, abs(bf.y)));
-        float tex = 0.91 + 0.31 * tuft + mix(${f(PAINTED_MEAN)}, painted * (0.08 + bladeHash * 0.16), detail) + 0.09 * blade * detail;
+        // (the stroke widened by a pixel's footprint, so it reads up close and at a grazing view; the area that adds
+        // taken off the whole, so the strokes' mean is PAINTED_MEAN at every footprint, and from afar, where the cells
+        // shrink under a pixel, they fade to it: the grass's mean the same at every distance, STROKE_WIDEN_K)
+        float painted = (1.0 - smoothstep(0.04, 0.04 + bladeAA, abs(bf.x + bf.y * 0.25))) * (1.0 - smoothstep(0.18, 0.42, abs(bf.y)));
+        float widened = ${f(Math.round(PAINTED_MEAN * 12.5 * 1e6) / 1e6)} * bladeAA / (1.0 + ${f(STROKE_WIDEN_K)} * bladeAA * bladeAA);
+        float tex = 0.91 + 0.31 * tuft + mix(${f(PAINTED_MEAN)}, painted * (0.08 + bladeHash * 0.16) - widened, detail) + 0.09 * blade * detail;
         c = mix(c, grass * (0.80 + 0.27 * b1 + 0.14 * (n1 - 0.5)) * tex * (1.0 - 0.19 * blot), moist);${hook(h, "groundVariation")}
         // the game's altitude ramp, the grass's on grass and the desert's on dry ground, before contamination's veins
         c *= altitudeOf(vWorld.y, moist);
