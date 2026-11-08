@@ -1,7 +1,7 @@
 // The shadows objects cast on the ground, in both looks (D497: draw as the game draws; docs/progress/3d-view.md,
 // "Objects' shadows"): each object's shadow measured from straight above on a flat meadow, and a sheet of a real map.
 //
-//   npx tsx tools/object-shadows.ts --label dev|pr [--port 6741] [--built] [--meadow] [--size 48]
+//   npx tsx tools/object-shadows.ts --label dev|pr [--port 6741] [--built] [--meadow] [--size 48] [--dead]
 //   npx tsx tools/object-shadows.ts --label dev|pr --built --game <shot>,<shot> [--distance 45]
 //   npx tsx tools/object-shadows.ts --sheet [--labels dev,pr]
 //
@@ -16,9 +16,9 @@
 //   - mass: the darkening summed over the ground (tiles², a full shadow's area that much);
 //   - area: the ground darkened at least half (tiles²);
 //   - reach, width: how far along and across the ground darkened at least half lies (tiles).
-// It writes .scratch/object-shadows/<label>-meadow<size>.json and, unless --meadow, for the sheet, a real map (River
-// Valley 4242, 128²) round the start near (distance 22) and mid (distance 48), at the game's 55°, in both looks:
-// .scratch/object-shadows/<label>-*.png.
+// --dead draws the meadow's plants dead (their dead forms). It writes .scratch/object-shadows/<label>-meadow<size>
+// [-dead].json and, unless --meadow, for the sheet, a real map (River Valley 4242, 128²) round the start near
+// (distance 22) and mid (distance 48), at the game's 55°, in both looks: .scratch/object-shadows/<label>-*.png.
 // --game draws each probe shot's map (batch 20261002-1610) from its `start` pose in both looks, with the objects and
 // without, for tools/object-shadow-check.py to set beside the game's frames.
 // --sheet composes docs/sheets/object-shadows.jpg from the labels' captures (rows: each label in each look; columns:
@@ -38,11 +38,13 @@ const arg = (name: string) => {
 const PORT = Number(arg("port") ?? 6741);
 const OUT = resolve(".scratch/object-shadows");
 const VIEWPORT = { width: 1280, height: 800 };
+/** `--dead`: the meadow's plants dead. */
+const DEAD_PLANTS = process.argv.includes("--dead");
 /** `--size`: the meadow's map side (48 × 32 at least). */
 const SIZE = Number(arg("size") ?? 48);
 
 /** Page side: the meadow drawn from above in `look`, measured. */
-const MEADOW_JS = `async (look, size) => {
+const MEADOW_JS = `async (look, size, dead) => {
   const Make = window.dgm3d.renderer.constructor;
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;left:0;top:0;width:1280px;height:800px;opacity:0;pointer-events:none";
@@ -67,7 +69,7 @@ const MEADOW_JS = `async (look, size) => {
   const n = objs.length;
   const entities = { count: n, templates: objs.map((o) => o[0]), owners: [], template: Uint16Array.from(objs, (_, k) => k),
     x: Int16Array.from(objs, (o) => o[1] + OX), y: Int16Array.from(objs, (o) => o[2] + OY), z: new Int16Array(n).fill(LEVEL),
-    orientation: new Uint8Array(n), flags: new Uint8Array(n), owner: new Uint16Array(n), variant: new Uint8Array(n),
+    orientation: new Uint8Array(n), flags: Uint8Array.from(objs, (o) => (dead && /^(Pine|Oak|Birch|BlueberryBush)$/.test(o[0]) ? 1 : 0)), owner: new Uint16Array(n), variant: new Uint8Array(n),
     strength: new Float32Array(n), ids: objs.map((_, k) => "o" + k) };
   const water = { count: 0, tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0) };
   const moisture = new Uint8Array(W * H).fill(60);
@@ -181,13 +183,13 @@ async function capture(label: string): Promise<void> {
     await page.goto(`http://localhost:${PORT}/#s=1&z=128&d=n&t=lakeBasin`);
     await waitForEditor(page);
     for (const look of ["standard", "high"] as const) {
-      const m = (await page.evaluate(`(${MEADOW_JS})(${JSON.stringify(look)}, ${SIZE})`)) as { shot: string; look: string };
-      writeFileSync(join(OUT, `${label}-meadow${SIZE}-${look}.png`), Buffer.from(m.shot.split(",")[1], "base64"));
+      const m = (await page.evaluate(`(${MEADOW_JS})(${JSON.stringify(look)}, ${SIZE}, ${DEAD_PLANTS})`)) as { shot: string; look: string };
+      writeFileSync(join(OUT, `${label}-meadow${SIZE}${DEAD_PLANTS ? "-dead" : ""}-${look}.png`), Buffer.from(m.shot.split(",")[1], "base64"));
       delete (m as { shot?: string }).shot;
       result[look] = m;
       console.log(JSON.stringify(m));
     }
-    writeFileSync(join(OUT, `${label}-meadow${SIZE}.json`), JSON.stringify(result, null, 2));
+    writeFileSync(join(OUT, `${label}-meadow${SIZE}${DEAD_PLANTS ? "-dead" : ""}.json`), JSON.stringify(result, null, 2));
     // the real map, near and mid
     if (process.argv.includes("--meadow")) return;
     await page.goto("about:blank");

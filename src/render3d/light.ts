@@ -13,6 +13,7 @@
 // arch) takes that air's own light instead, from the light volume (caveLight.ts).
 
 import { rotate, type Orientation } from "../core/format/footprints";
+import { DEAD_FORM } from "./dying";
 import { DEAD, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "./model";
 import { DESERT, LIGHT } from "./palette";
 
@@ -131,7 +132,7 @@ const PLANT_TOPS = PLANT_SHAPES.map((d) => (d.length ? d[d.length - 1][1] : 0));
 /** The plants' kinds (`PLANT_SHAPES`). */
 const PLANT_KIND: Readonly<Record<string, number>> = { Pine: 1, Oak: 2, Birch: 3, BlueberryBush: 4, Succulent: 5 };
 /** The casters cast as an upright post as tall as the caster, of these radii (tiles, before `PLANT_INSET`): a dead
- *  plant's bare trunk, and a ruin column's square of storeys (entities3d.ts `storey`: corner posts 0.8 apart), as wide
+ *  tree's bare wood (its shadow in High's depth map a thin line, 0.2 of a tile² for a pine, none for the others), and a ruin column's square of storeys (entities3d.ts `storey`: corner posts 0.8 apart), as wide
  *  as its diagonal, the way the sun mostly sees it, fitted as the plants are (a whole tile's column cast them a
  *  quarter too large). */
 const DEAD_KIND = 6;
@@ -143,10 +144,16 @@ const START_BASE = 1.4;
 /** How much narrower each disc is cast than its radius (tiles): the shader reads the shadow map between its samples
  *  (two a tile, bilinear), which widens a shadow narrower than a tile by about this much on each side. */
 const PLANT_INSET = 0.2;
-/** The farthest a disc reaches from its tile's middle (tiles), and the tallest caster cast as discs (a ruin of 9
- *  storeys): the windows `plantTopsInto` looks in. */
+/** The farthest a disc reaches from its tile's middle (tiles): the windows `plantTopsInto` looks in. It must stay under
+ *  the 0.75 of a tile from a tile's middle to the nearest sample outside it (`SHADOW_RES` 2), as the samples an edit of
+ *  a tile redoes (`shadowPairArea`) reach no further round it: `PLANT_WIDEST`, checked as the module loads. */
 const PLANT_REACH = 2;
-const PLANT_TALLEST = 9 * 0.85;
+/** The highest a shadow can fall from: the tallest step a map can have and an object on it (`shadowReach`). */
+const SHADOW_DROP = 30;
+
+/** The widest disc any caster casts (tiles, after the inset; a plant's shape is never scaled up). */
+export const PLANT_WIDEST = Math.max(...PLANT_SHAPES.flat().map((d) => d[2] - PLANT_INSET), ...Object.values(POST_RADIUS).map((r) => r - PLANT_INSET));
+if (PLANT_WIDEST >= 0.5 + 0.5 / SHADOW_RES) throw new Error(`light.ts: a disc ${PLANT_WIDEST} wide reaches samples an edit of its tile does not redo`);
 
 /** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start). A plant's and a
  *  ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles (its tower on
@@ -186,9 +193,12 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
     if (ruin) add = Number(ruin[1]) * 0.85;
     if (!add) continue;
     const f = e.flags[k];
-    if (f & DEAD) add *= t === "StartingLocation" ? 1 : 0.35;
+    // (a dead plant at its dead form's height, dying.ts `DEAD_FORM`: a tree's bare wood a post, a bush's or a
+    // succulent's own shape, smaller)
+    const dead = f & DEAD && DEAD_FORM[t];
+    if (dead) add *= dead.height;
     if (f & YOUNG) add *= 0.5;
-    put(y * W + x, add, e.z[k], ruin ? RUIN_KIND : PLANT_KIND[t] ? (f & DEAD ? DEAD_KIND : PLANT_KIND[t]) : 0);
+    put(y * W + x, add, e.z[k], ruin ? RUIN_KIND : PLANT_KIND[t] ? (dead && dead.wood ? DEAD_KIND : PLANT_KIND[t]) : 0);
   }
   return out;
 }
@@ -417,12 +427,26 @@ function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Ar
   const R = SHADOW_RES;
   const SW = W * R;
   const N = W * H;
-  // (the tiles whose plants can shade the window: up-sun of it as far as the tallest plant's shadow falls)
-  const fall = Math.ceil(PLANT_TALLEST / tanE) + PLANT_REACH;
+  // (the tiles whose plants can shade the window: up-sun of it as far as a shadow can fall, from the tallest caster
+  // on the highest ground to the map's floor, as `shadowReach` reaches)
+  const fall = Math.ceil(SHADOW_DROP / tanE) + PLANT_REACH;
   const tx0 = Math.max(0, Math.floor(sx0 / R) - (ux < 0 ? fall : PLANT_REACH));
   const tx1 = Math.min(W - 1, Math.floor(sx1 / R) + (ux > 0 ? fall : PLANT_REACH));
   const ty0 = Math.max(0, Math.floor(sy0 / R) - (uy < 0 ? fall : PLANT_REACH));
   const ty1 = Math.min(H - 1, Math.floor(sy1 / R) + (uy > 0 ? fall : PLANT_REACH));
+  // (the window's tiles and their lowest ground: a plant whose shadow cannot come down to it there before it gets
+  // there casts nothing on the window)
+  const wx0 = Math.max(0, Math.floor(sx0 / R));
+  const wx1 = Math.min(W - 1, Math.floor(sx1 / R));
+  const wy0 = Math.max(0, Math.floor(sy0 / R));
+  const wy1 = Math.min(H - 1, Math.floor(sy1 / R));
+  let lowest = Infinity;
+  for (let y = wy0; y <= wy1; y++)
+    for (let x = wx0; x <= wx1; x++) {
+      const t = y * W + x;
+      const h = rock && rock.flag[t] ? rock.bottom[t] : heights[t];
+      if (h < lowest) lowest = h;
+    }
   for (let ty = ty0; ty <= ty1; ty++)
     for (let tx = tx0; tx <= tx1; tx++) {
       const i = ty * W + tx;
@@ -449,9 +473,39 @@ function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Ar
       if (!nd) continue;
       const cx = tx + 0.5;
       const cy = ty + 0.5;
+      const top = g + tall;
+      {
+        // (how near the window comes to its middle: a ray to a sample there runs at least that less its width along
+        // the sun's way to it)
+        const ddx = cx < wx0 ? wx0 - cx : cx > wx1 + 1 ? cx - wx1 - 1 : 0;
+        const ddy = cy < wy0 ? wy0 - cy : cy > wy1 + 1 ? cy - wy1 - 1 : 0;
+        if (top - (Math.hypot(ddx, ddy) - 2 * reach) * tanE <= lowest) continue;
+      }
       // (the samples its shadow can reach: a strip from its middle away from the sun as far as its top falls, as wide
       // as its widest disc; on each row, the stretch of it)
-      const len = tall / tanE;
+      // (how far along the sun's way its shadow can fall: on its own level as far as its top's, and on where the ground
+      // drops away below it (a bank, a terrace's edge, a cliff's top), until the highest its shadow can be is under all
+      // the ground across the strip there: a ray to anything past that passes through the ground, which shades it)
+      // (from where its shadow would end on its own level: a strip looked at farther than it falls only costs samples
+      // the pieces under their ground leave alone)
+      let far = Math.max(0.5, Math.floor(2 * (tall / tanE + reach)) / 2);
+      for (; ; far += 0.5) {
+        const ax = cx - ux * far;
+        const ay = cy - uy * far;
+        if (ax < 0 || ay < 0 || ax >= W || ay >= H) break;
+        const at = top - Math.max(0, far - reach) * tanE;
+        const mx = Math.floor(ax);
+        const my = Math.floor(ay);
+        let low = Infinity;
+        for (let y = Math.max(0, my - 1); y <= Math.min(H - 1, my + 1); y++)
+          for (let x = Math.max(0, mx - 1); x <= Math.min(W - 1, mx + 1); x++) {
+            const t = y * W + x;
+            const h = rock && rock.flag[t] ? rock.bottom[t] : heights[t];
+            if (h < low) low = h;
+          }
+        if (at < low) break;
+      }
+      const len = far - reach;
       const by0 = Math.max(sy0, Math.floor((Math.min(cy, cy - uy * len) - reach) * R));
       const by1 = Math.min(sy1, Math.ceil((Math.max(cy, cy - uy * len) + reach) * R));
       for (let sy = by0; sy <= by1; sy++) {
@@ -481,6 +535,7 @@ function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Ar
           const along = dx * ux + dy * uy;
           const across = Math.abs(dx * uy - dy * ux);
           if (across >= reach || along + reach <= 0) continue;
+          let ground = -Infinity;
           let n = 0;
           for (let q = 0; q < nd; q++) {
             const r = plantDiscs[q * 3 + 2];
@@ -489,12 +544,18 @@ function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Ar
             const s2 = along + half;
             if (s2 <= 0) continue;
             const s1 = along - half > 0 ? along - half : 0;
+            // (a piece under the sample's ground shades nothing there: left out, so how far the strip looked never
+            // shows in the bytes)
+            const hi = plantDiscs[q * 3 + 1] - s1 * tanE;
+            if (ground === -Infinity) {
+              const t = Math.floor(sy / R) * W + Math.floor(sx / R);
+              ground = rock && rock.flag[t] ? rock.bottom[t] : heights[t];
+            }
+            if (hi <= ground) continue;
             plantSpans[n++] = plantDiscs[q * 3] - s2 * tanE;
-            plantSpans[n++] = plantDiscs[q * 3 + 1] - s1 * tanE;
+            plantSpans[n++] = hi;
           }
           if (!n) continue;
-          const t = Math.floor(sy / R) * W + Math.floor(sx / R);
-          const ground = rock && rock.flag[t] ? rock.bottom[t] : heights[t];
           const k = sy * SW + sx;
           out[k] = pieceTop(plantSpans, n, out[k], ground);
         }
@@ -709,7 +770,7 @@ function shadowBytes(tops: { hi: Float32Array; lo: Float32Array }, bytes: Uint8A
 export function shadowReach(sun: Sun = DEFAULT_SUN): number {
   const g = sweepOf(sun);
   const drop = (g.len / SHADOW_RES) * Math.tan(LIGHT.sunElevation - LIGHT.penumbra);
-  return Math.ceil(30 / drop) + 2;
+  return Math.ceil(SHADOW_DROP / drop) + 2;
 }
 
 /** The two shadow tops (the sun a little higher and lower) of the whole map (with `rock`, the sweep's: the runs above

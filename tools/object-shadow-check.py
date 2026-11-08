@@ -10,7 +10,9 @@ whose shadow's box (`BOX`: its height along the sun's way, its width across) hol
 luma's fall from the same point drawn without objects, as a share of the full shadow's fall (`FULL`: a full shadow's
 luma over lit ground, the game's light as both looks draw it, D497); the game's lit ground is ours without objects
 scaled to the game's where neither look shades. Points any object covers on screen (its bounding box, projected) and
-points a terrain shadow darkens are skipped. By species: the mean darkening over the points, the share darkened at
+points a terrain shadow darkens are skipped. Ground or water lower than a plant up-sun of it, within its shadow's box
+lengthened by the drop, is scored apart, ground and water surface each (a terrace's foot, a bank's river): its full shadow's fall is taken
+as the ground's. By species: the mean darkening over the points, the share darkened at
 least half and the 90th centile, the game's against each look's.
 
     npx tsx tools/object-shadows.ts --label <label> --game <shot>,<shot>
@@ -34,6 +36,8 @@ FULL = 0.53
 #: Each plant's bounding box (half width, height) at the game's largest randomizer draw (plantSize.ts).
 BOX = {"Pine": (0.72, 3.1), "Oak": (1.0, 2.6), "Birch": (0.6, 2.0), "BlueberryBush": (0.7, 0.5), "Succulent": (0.4, 0.6)}
 PLANTS = ("Pine", "Oak", "Birch", "BlueberryBush")
+#: The ground below a step from a plant (a bank's water, a terrace's foot), all species together.
+BELOW = ("below, ground", "below, water")
 STEP = 0.1
 
 
@@ -115,14 +119,15 @@ def align(game, ours):
 def main():
     label, shots = sys.argv[1], sys.argv[2].split(",")
     looks = ("standard", "high")
-    by = {k: {sp: [] for sp in PLANTS} for k in ("game",) + looks}
+    by = {k: {sp: [] for sp in PLANTS + BELOW} for k in ("game",) + looks}
     for shot in shots:
         rec = json.load(open(f"{OURS}/{label}-game-{shot}.json"))
         cam, objs = rec["cam"], rec["objects"]
         snap = json.load(__import__("gzip").open(f"C:/dgm-probe/results/{BATCH}/m9b-{shot}-start.snapshot.json.gz"))
         W, H = snap["width"], snap["height"]
         hts = np.array(snap["terrain"]).reshape(H, W)
-        wet = np.array(snap["depth"]).reshape(H, W) > 0.001
+        depth = np.array(snap["depth"]).reshape(H, W)
+        wet = depth > 0.001
         game = luma(f"C:/dgm-probe/shots/{BATCH}/m9b-{shot}-start-start.jpg")
         img = {k: luma(f"{OURS}/{label}-game-{shot}-{k}.png") for k in looks}
         bare = {k: luma(f"{OURS}/{label}-game-{shot}-{k}-bare.png") for k in looks}
@@ -169,11 +174,14 @@ def main():
         g = np.arange(0.05, 1.0, STEP)
         fx, fy = np.meshgrid(g, g, indexing="ij")
         fx, fy = fx.ravel(), fy.ravel()
-        P, owner = [], []
+        P, owner, onwater = [], [], []
         for ty in range(1, H - 1):
             for tx in range(1, W - 1):
                 z = hts[ty, tx]
-                if wet[ty, tx] or hts[ty - 1, tx] != z or hts[ty + 1, tx] != z or hts[ty, tx - 1] != z or hts[ty, tx + 1] != z:
+                # (dry and flat, or water: its surface)
+                if wet[ty, tx]:
+                    z = z + depth[ty, tx]
+                elif hts[ty - 1, tx] != z or hts[ty + 1, tx] != z or hts[ty, tx - 1] != z or hts[ty, tx + 1] != z:
                     continue
                 c = proj(np.array([[tx + 0.5, z, -(ty + 0.5)]]))[0]
                 if not (30 < c[0] < w - 30 and 30 < c[1] < h - 30):
@@ -191,12 +199,25 @@ def main():
                             continue
                         hw, ht = BOX[o["template"]]
                         du, dv = (x - q[0] - 0.5) * away[0] + (y - q[1] - 0.5) * away[1], (x - q[0] - 0.5) * across[0] + (y - q[1] - 0.5) * across[1]
-                        if -0.3 <= du <= ht + 0.4 and abs(dv) <= hw + 0.3:
+                        if -0.3 <= du <= ht + 0.4 and abs(dv) <= hw + 0.3 and o["z"] <= z + 0.01:
                             hit = o["template"]
                             break
+                    if hit is None:
+                        # (below a step: a plant up-sun standing higher, its shadow the longer by the drop)
+                        for step in np.arange(0.25, 9, 0.25):
+                            q = (int(math.floor(x - away[0] * step)), int(math.floor(y - away[1] * step)))
+                            o = plant_at.get(q)
+                            if o is None or o["z"] <= z + 0.5:
+                                continue
+                            hw, ht = BOX[o["template"]]
+                            du, dv = (x - q[0] - 0.5) * away[0] + (y - q[1] - 0.5) * away[1], (x - q[0] - 0.5) * across[0] + (y - q[1] - 0.5) * across[1]
+                            if 0.5 <= du <= ht + (o["z"] - z) + 0.4 and abs(dv) <= hw + 0.3:
+                                hit = BELOW[1 if wet[ty, tx] else 0]
+                                break
                     own.append(hit)
                 P.append(np.stack([gx, np.full_like(gx, z), -gy], -1))
                 owner += own
+                onwater += [bool(wet[ty, tx])] * len(own)
         if not P:
             continue
         pts = proj(np.concatenate(P))
@@ -204,16 +225,22 @@ def main():
         keep = ~sample(covered.astype(float), pts).astype(bool)
         print(f"  {len(pts)} ground points, {keep.sum()} uncovered")
         b = sample(bare["standard"], pts)
-        # (out of the terrain's own shadows, as ours draws them: those cancel)
-        keep &= b > 0.8 * np.median(b)
+        onwater = np.array(onwater)
+        # (out of the terrain's own shadows, as ours draws them: those cancel; the ground's and the water's apart)
+        for part in (onwater, ~onwater):
+            if part.any():
+                keep[part] &= b[part] > 0.8 * np.median(b[part])
         t = {lk: (sample(bare[lk], pts) - sample(img[lk], pts)) / (sample(bare[lk], pts) * (1 - FULL)) for lk in looks}
-        # the game's lit ground: ours without objects, scaled to the game's on the ground neither look shades
+        # the game's lit ground (and water): ours without objects, scaled to the game's where neither look shades
         gl = sample(game, to_game(pts))
         quiet = keep & (t["standard"] < 0.1) & (t["high"] < 0.1) & (owner == "")
-        k = np.median(gl[quiet] / b[quiet])
+        k = np.full(len(pts), np.median(gl[quiet & ~onwater] / b[quiet & ~onwater]))
+        if (quiet & onwater).sum() > 50:
+            k[onwater] = np.median(gl[quiet & onwater] / b[quiet & onwater])
+        quiet &= ~onwater
         t["game"] = (k * b - gl) / (k * b * (1 - FULL))
-        print(f"  {keep.sum()} points; the game's ground {k:.3f} of ours; unattributed mean darkening game {t['game'][quiet].mean():+.3f}")
-        for sp in PLANTS:
+        print(f"  {keep.sum()} points; the game's ground {k[~onwater][0]:.3f} of ours; unattributed mean darkening game {t['game'][quiet].mean():+.3f}")
+        for sp in PLANTS + BELOW:
             m = keep & (owner == sp)
             n = int((plant_at and sum(1 for o in plant_at.values() if o['template'] == sp)))
             if m.sum() < 50:
@@ -222,7 +249,7 @@ def main():
                 by[key][sp].append({"mass": float(t[key][m].sum() * STEP * STEP), "points": int(m.sum()), "dark": float((t[key][m] > 0.5).mean()), "core": float(np.percentile(t[key][m], 90))})
     print("\nthe ground in plants' shadow boxes, out of their own boxes on screen: mean darkening (1: full shadow), the share "
           "darkened at least half, and the 90th centile")
-    for sp in PLANTS:
+    for sp in PLANTS + BELOW:
         if not by["game"][sp]:
             continue
         n = sum(x["points"] for x in by["game"][sp])

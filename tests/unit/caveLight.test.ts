@@ -297,16 +297,16 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
   // pines on the overhang's roof and on the arch, and one on the ground under the overhang (the floor's run)
   const trees: [number, number, number, number][] = [[14, 21, 11, 0], [26, 13, 8, DEAD], [16, 22, ground(16, 22), 0]];
   const entities = { count: trees.length, templates: ["Pine"], owners: [], template: new Uint16Array(trees.length), x: Int16Array.from(trees, (t) => t[0]), y: Int16Array.from(trees, (t) => t[1]), z: Int16Array.from(trees, (t) => t[2]), orientation: new Uint8Array(trees.length), flags: Uint8Array.from(trees, (t) => t[3]), owner: new Uint16Array(trees.length), variant: new Uint8Array(trees.length), strength: new Float32Array(trees.length), ids: [] } as unknown as EntityView;
-  // (cast as columns over their tiles, their shapes' kinds left off: what this checks is the walk through the rock,
-  // exactly; the plants' own shapes, D497, are look.test.ts's)
-  const shaped = objectCasters(W, H, entities)!;
-  const casters = withCasterLevels(shaped, casterLevelsOf(shaped)!.slice(0, W * H));
+  // (the plants' shapes, D497; and the same cast as columns over their tiles, their shapes' kinds left off, for the
+  // ray through the voxels to check the walk through the rock exactly)
+  const casters = objectCasters(W, H, entities)!;
+  const columns = withCasterLevels(casters.slice(), casterLevelsOf(casters)!.slice(0, W * H));
   const levels = new Map(trees.map(([x, y, z]) => [y * W + x, z]));
   const rock = shadowRock(W, H, src.columns)!;
 
   it("open ground lies in shadow exactly where the sweep's ray through the voxels meets rock", () => {
-    const bytes = shadowMap(W, H, src.heights, casters, undefined, rock);
-    const plain = shadowMap(W, H, src.heights, casters);
+    const bytes = shadowMap(W, H, src.heights, columns, undefined, rock);
+    const plain = shadowMap(W, H, src.heights, columns);
     let checked = 0;
     let underRoof = 0;
     let differ = 0;
@@ -318,7 +318,7 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
         const k = sy * W * SHADOW_RES + sx;
         if (bytes[k * 4] !== plain[k * 4]) differ++;
         for (const [ch, elevation] of [[0, LIGHT.sunElevation + LIGHT.penumbra], [1, LIGHT.sunElevation - LIGHT.penumbra]] as const) {
-          const shaded = rayShaded(src, casters, levels, sx, sy, z, elevation);
+          const shaded = rayShaded(src, columns, levels, sx, sy, z, elevation);
           if (shaded === null) continue;
           checked++;
           expect(z < decodeTop(bytes[k * 4 + ch]), `sample ${sx},${sy} (${ch ? "low" : "high"} sun)`).toBe(shaded);
@@ -426,6 +426,50 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
         const b2 = shadowMap(W, H, heights, casters, t2, r, sun);
         for (const q of rects) shadowPairRect(t2, b2, W, H, heights, next, q.x0, q.y0, q.x1, q.y1, r, false, sun);
         expect(Buffer.from(b2).equals(Buffer.from(shadowMap(W, H, heights, next, undefined, r, sun))), `objects, sun ${deg}°, rock ${!!r}`).toBe(true);
+      }
+    }
+  });
+
+  it("plants' shapes, on roofs, floors and banks, with the sun turned: redoing round changed objects or ground gives the bytes of baking again", () => {
+    let seed = 17;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+    const kinds = ["Pine", "Oak", "Birch", "BlueberryBush", "Succulent", "RuinColumnH2", "RuinColumnH4"];
+    // (each on the top of its column, or on a cave's floor where the rock has runs above air)
+    const place = (n: number) =>
+      Array.from({ length: n }, () => {
+        const x = 1 + Math.floor(rnd() * (W - 2));
+        const y = 1 + Math.floor(rnd() * (H - 2));
+        const c = src.columns.get(y * W + x);
+        let z = src.heights[y * W + x];
+        if (c && rnd() < 0.5) {
+          z = 0;
+          while (z < c.length && c[z]) z++;
+        }
+        return { template: kinds[Math.floor(rnd() * kinds.length)], x, y, z, flags: rnd() < 0.2 ? DEAD : rnd() < 0.2 ? 4 : 0 };
+      });
+    const view = (list: { template: string; x: number; y: number; z: number; flags: number }[]) =>
+      ({ ...entities, count: list.length, templates: kinds, template: Uint16Array.from(list, (o) => kinds.indexOf(o.template)), x: Int16Array.from(list, (o) => o.x), y: Int16Array.from(list, (o) => o.y), z: Int16Array.from(list, (o) => o.z), orientation: new Uint8Array(list.length), flags: Uint8Array.from(list, (o) => o.flags) }) as unknown as EntityView;
+    for (let deg = 7; deg < 360; deg += 41) {
+      const sun = sunOfYaw((deg * Math.PI) / 180);
+      for (const r of [rock, null]) {
+        const was = place(60);
+        const now = was.filter(() => rnd() < 0.8).concat(place(10));
+        const a = objectCasters(W, H, view(was))!;
+        const b = objectCasters(W, H, view(now))!;
+        const tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
+        const bytes = shadowMap(W, H, src.heights, a, tops, r, sun);
+        for (const q of castersChangedRects(W, H, a, b, undefined, sun)!) shadowPairRect(tops, bytes, W, H, src.heights, b, q.x0, q.y0, q.x1, q.y1, r, false, sun);
+        expect(Buffer.from(bytes).equals(Buffer.from(shadowMap(W, H, src.heights, b, undefined, r, sun))), `objects, sun ${deg}°, rock ${!!r}`).toBe(true);
+        // the ground round the plants lowered and raised (a bank cut under them: their shadows fall farther)
+        let heights = src.heights;
+        for (let k = 0; k < 6; k++) {
+          const x0 = 1 + Math.floor(rnd() * (W - 4));
+          const y0 = 1 + Math.floor(rnd() * (H - 4));
+          heights = heights.slice();
+          for (let y = y0; y <= y0 + 1; y++) for (let x = x0; x <= x0 + 1; x++) if (!src.columns.has(y * W + x)) heights[y * W + x] = Math.max(1, Math.min(18, heights[y * W + x] + (rnd() < 0.6 ? -3 : 3)));
+          shadowPairRect(tops, bytes, W, H, heights, b, x0, y0, x0 + 1, y0 + 1, r, k % 2 === 0, sun);
+          expect(Buffer.from(bytes).equals(Buffer.from(shadowMap(W, H, heights, b, undefined, r, sun))), `ground ${k}, sun ${deg}°, rock ${!!r}`).toBe(true);
+        }
       }
     }
   });
