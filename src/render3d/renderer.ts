@@ -1546,8 +1546,10 @@ export class MapRenderer {
       this.waterMotion.waterChanged(heights, surface, true);
     } else {
       const baker = this.baker;
-      const job = (w: number, h: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">) => baker.run({ kind: "share", W: w, H: h, sw }).then((r) => (r.kind === "share" ? { share: r.share, fall: r.fall } : Promise.reject(new Error("not a share"))));
-      this.stillFlow = new StillFlow(W, H, job, (x0, y0, x1, y1) => this.stillRows.touch(x0, y0, x1, y1), () => this.requestRender());
+      // (the light look, in software, draws no waterfall mask: none is worked out for it, D453)
+      const fall = !this.software;
+      const job = (w: number, h: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">) => baker.run({ kind: "share", W: w, H: h, sw, fall }).then((r) => (r.kind === "share" ? { share: r.share, fall: r.fall } : Promise.reject(new Error("not a share"))));
+      this.stillFlow = new StillFlow(W, H, job, (x0, y0, x1, y1) => this.stillRows.touch(x0, y0, x1, y1), () => this.requestRender(), fall);
       this.stillFlow.start(surface);
       u.flowTex.value = this.stillFlow.texture;
     }

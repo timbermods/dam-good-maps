@@ -53,15 +53,18 @@ export const REFRACTION_GLSL = /* glsl */ `
   /** x: 1 while the copy is this frame's; zw: one over its size (pixels). */
   uniform vec4 refractView;
   vec3 waterRefraction(vec2 g, vec3 world, float alpha, float shore, float film) {
+    // (the derivatives and the mipmapped noise first, in uniform control flow: after a branch a pixel's neighbours may
+    // not have run them, and their values are undefined)
+    float fw = max(fwidth(g.x), fwidth(g.y));
+    float n = clamp((vnoise((g + time * ${f(WATER_REFRACTION.speed)}) * ${f(WATER_REFRACTION.noise.cells)}) - 0.5) * ${f(WATER_REFRACTION.noise.gain)} + ${f(WATER_REFRACTION.noise.mean)}, -1.0, 1.0);
     if (refractView.x < 0.5 || alpha >= 0.999) return vec3(0.0);
     float dist = length(cameraPosition - world);
     float far = clamp((dist - ${f(WATER_REFRACTION.falloff[1])}) / ${f(WATER_REFRACTION.falloff[0] - WATER_REFRACTION.falloff[1])}, 0.0, 1.0);
     float k = far * far * (3.0 - 2.0 * far) * (1.0 - waterFall) * film;
     if (k <= 0.0) return vec3(0.0);
-    float n = clamp((vnoise((g + time * ${f(WATER_REFRACTION.speed)}) * ${f(WATER_REFRACTION.noise.cells)}) - 0.5) * ${f(WATER_REFRACTION.noise.gain)} + ${f(WATER_REFRACTION.noise.mean)}, -1.0, 1.0);
     vec2 shift = k * n * vec2(${f(WATER_REFRACTION.weights[0])}, ${f(WATER_REFRACTION.weights[1])});
     // (in place of the game's depth test: none where the shift could reach past the tile's shore onto the bank)
-    float reach = length(shift / refractView.zw) * max(fwidth(g.x), fwidth(g.y));
+    float reach = length(shift / refractView.zw) * fw;
     shift *= clamp(shore / max(reach, 0.0001) - 1.0, 0.0, 1.0);
     vec2 here = gl_FragCoord.xy * refractView.zw;
     vec2 lim = 1.0 - 0.5 * refractView.zw;
