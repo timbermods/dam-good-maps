@@ -544,6 +544,47 @@ export function waterFilmGround(ground: Rgb, share: number, bad: Rgb = WATER_FIL
  *  blue may sit over green by `room` times the gap, so clean water's own blue is never touched. */
 export const WATER_BLEND = { from: 0.01, to: 1, power: 0.25, lean: 0.5, room: 4 } as const;
 
+/** How the badwater share is blended between tiles, as the game's water shader blends its per-column contamination
+ *  (`PhysicalWaterURP` ps 502-650, Q9 P9; read with tools/game-water-shader.py): it samples the contamination at the
+ *  pixel ± a margin in x and z (`_Min/_MaxContaminationBlendingMargin` 0.45-0.5, picked by its margin noise texture at
+ *  (xz + 0.2 T) × 0.175), each sample the column it falls in, weighted by |dx| × |dy| from the nearest tile corner (a
+ *  column with no water linked to this one weighs nothing), and eases the mean b to b × saturate(2b + 0.5). So a front
+ *  is a straight blend about a tile wide, centred on the tiles' edge: a tile's own share holds over its middle and
+ *  clean water a tile from badwater is clean. Ours the same four taps (`gameShareAt`, `waterShareFrom`), each tile's
+ *  own share in the flow texture's B (high/flow.ts `writeShare`) and a dry tile left out by its A, our own noise in
+ *  place of its texture; not yet the link's levels (across a fall the other water counts). D154 as amended 2026-11-08
+ *  (its "soft gradient over several tiles" gone). */
+export const WATER_SHARE_BLEND = { margin: [0.45, 0.5] as readonly [number, number], noiseScale: 0.175, noiseSpeed: 0.2, ease: [2, 0.5] as readonly [number, number] } as const;
+
+/** The game's ease of a blended share (`WATER_SHARE_BLEND`): b × saturate(2b + 0.5). */
+export function shareEase(b: number): number {
+  const E = WATER_SHARE_BLEND.ease;
+  return Math.min(1, Math.max(0, b * Math.min(1, Math.max(0, b * E[0] + E[1]))));
+}
+
+/** The share at a point (x, y in tiles) as the shaders read it (`waterShareFrom`): the game's four taps at the point ±
+ *  `margin` (0.45 to 0.5), each the tile it falls in (clamped to the map, as the texture is), weighted by |dx| × |dy| from
+ *  the nearest tile corner and left out where the tile is dry (`wet`, the flow texture's A; all wet when not given),
+ *  their mean eased (`shareEase`); a point with every tap dry takes its own tile's. For the tests: the GLSL is the one
+ *  drawn. */
+export function gameShareAt(W: number, H: number, share: ArrayLike<number>, x: number, y: number, margin = WATER_SHARE_BLEND.margin[0], wet?: ArrayLike<number>): number {
+  const at = (px: number, py: number) => Math.min(H - 1, Math.max(0, Math.floor(py))) * W + Math.min(W - 1, Math.max(0, Math.floor(px)));
+  const cx = Math.floor(x + 0.5);
+  const cy = Math.floor(y + 0.5);
+  let sum = 0;
+  let weight = 0;
+  for (const [sx, sy] of [[1, 1], [-1, -1], [-1, 1], [1, -1]]) {
+    const px = x + sx * margin;
+    const py = y + sy * margin;
+    const i = at(px, py);
+    if (wet && !(wet[i] > 0)) continue;
+    const w = Math.abs(px - cx) * Math.abs(py - cy);
+    sum += w * share[i];
+    weight += w;
+  }
+  return shareEase(weight > 0 ? sum / weight : share[at(x, y)]);
+}
+
 /** How the water's colours are measured on screen, as #38's colour check does
  *  (investigation/maplook2/colour-check.mjs), and what they should measure. `npx tsx
  *  tools/capture-badwater.ts --measure` runs it: a bed of water one badwater share and one depth
@@ -912,6 +953,25 @@ ${rampGlsl(GAME_WATER.ramp, "r")}
   /** How far water with this badwater share has turned toward badwater's look (waterPalette.ts waterTint). */
   float waterTint(float s) {
     return s > 0.0 ? min(1.0, pow(smoothstep(${f(WATER_BLEND.from)}, ${f(WATER_BLEND.to)}, s), ${f(WATER_BLEND.power)})) : 0.0;
+  }
+  /** The badwater share at g (tiles) as the game blends it between tiles (waterPalette.ts WATER_SHARE_BLEND,
+   *  gameShareAt): four taps at g ± the margin (by \`noise\`, 0-1), each its tile's own share in \`tex\`'s B (one texel a
+   *  tile) weighted by |dx| × |dy| from the nearest tile corner, a dry tile (A 0) left out, the mean eased. */
+  float waterShareFrom(sampler2D tex, vec2 size, vec2 g, float noise) {
+    float m = mix(${f(WATER_SHARE_BLEND.margin[0])}, ${f(WATER_SHARE_BLEND.margin[1])}, noise);
+    vec2 c = floor(g + 0.5);
+    float sum = 0.0;
+    float weight = 0.0;
+    for (int k = 0; k < 4; k++) {
+      vec2 s = k == 0 ? vec2(1.0, 1.0) : k == 1 ? vec2(-1.0, -1.0) : k == 2 ? vec2(-1.0, 1.0) : vec2(1.0, -1.0);
+      vec2 p = g + s * m;
+      vec4 t = texture2D(tex, (floor(p) + 0.5) / size);
+      float w = abs(p.x - c.x) * abs(p.y - c.y) * step(0.5 / 255.0, t.a);
+      sum += w * t.b;
+      weight += w;
+    }
+    float b = weight > 0.0 ? sum / weight : texture2D(tex, (floor(g) + 0.5) / size).b;
+    return clamp(b * clamp(b * ${f(WATER_SHARE_BLEND.ease[0])} + ${f(WATER_SHARE_BLEND.ease[1])}, 0.0, 1.0), 0.0, 1.0);
   }
   /** Water between clean and bad at a badwater share (waterPalette.ts blendWater): straight, on display values,
    *  by the tint (the game's mix), blue kept from leaning purple. */

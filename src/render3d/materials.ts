@@ -27,7 +27,7 @@
 //   Badwater is the game's too (its formula: waterPalette.ts GAME_BADWATER): a red-brown between near black and
 //   crimson by a grimy pattern the flow carries, its glowing lines (an emissive detail) flowing with it, duller and
 //   with its ripples twice as strong. Water partly bad turns from clean water to badwater with its badwater
-//   share, blended over a few tiles by the water mesh, by the game's tint, its hue turning
+//   share, blended between tiles as the game's (about a tile wide), by the game's tint, its hue turning
 //   early from teal through a teal-grey and a warm brown to crimson, never purple, so where they meet the colour changes in a soft gradient, never in streaks or
 //   patches, and a mixed river reads as poisoned; its glowing lines come in with it, brightest at a front, as the
 //   game's. Every water colour and the water's opacity come from waterPalette.ts (`WATER_GLSL`, D177).
@@ -68,7 +68,7 @@ import {
   type WebGLRenderer,
 } from "three";
 import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_GROUND_MEAN, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, NOISE_NODES, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
-import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_UI } from "./waterPalette";
+import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_SHARE_BLEND, WATER_UI } from "./waterPalette";
 import { DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
 import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./shoreFilm";
@@ -2027,6 +2027,16 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
       #endif
       /** The flow the water's textures ride here (the game's, high/bake.ts flowByte), 0 where still. */
       vec2 waterFlow(vec2 g) { return waterFlowOf(texture2D(flowTex, g / mapSize).rg); }
+      /** The badwater share at g as the game blends it between tiles (waterPalette.ts WATER_SHARE_BLEND, Q9 P9): each
+       *  tile's own in the flow texture's B, dry tiles left out by its A, about a tile wide across a front, its margin
+       *  wobbled by our own noise in place of the game's margin noise (the light look: the margin's widest). */
+      float waterShareAt(vec2 g) {
+        #if LITE
+          return waterShareFrom(flowTex, mapSize, g, 1.0);
+        #else
+          return waterShareFrom(flowTex, mapSize, g, vnoise((g + ${f(WATER_SHARE_BLEND.noiseSpeed)} * time) * ${f(WATER_SHARE_BLEND.noiseScale)}));
+        #endif
+      }
 ${WATER_SOURCE_GLSL}
       void main() {
         ${SUN_PX_GLSL}
@@ -2045,6 +2055,16 @@ ${WATER_SOURCE_GLSL}
           // (water below its tile's surface water: its own column's current, not the water's seen from above)
           waterOwnFlow = ownFlowAt(inWater);
         #endif
+        // the badwater share on the water's top as the game blends it between tiles (WATER_SHARE_BLEND): a front about
+        // a tile wide, clean water a tile from badwater clean; a fall's face and the water's side keep the mesh's share
+        // of the top's edge they hang from, and water under a roof its own column's
+        // (water below its tile's surface water by its own current too, so it never reads the top water's while the light
+        // volume is not there yet)
+        bool ownShare = waterRoofed > 0.5;
+        #ifdef CAVES
+          ownShare = ownShare || waterOwnFlow.a > 0.5;
+        #endif
+        if (n.y > 0.5 && !ownShare) cont = waterShareAt(g);
         // the game's still detail albedo here (Q9 P6), which clean water's colour × its albedo and badwater's base colour
         // are overlaid with: at xz × 0.015, not carried by the flow, in every look (the game's Low quality draws it too)
         waterDetail = waterDetailAt(g);
@@ -2061,7 +2081,7 @@ ${WATER_SOURCE_GLSL}
           #endif
         #endif
         float t = time;
-        // the badwater share, blended between tiles by the mesh: the water turns from clean water to
+        // the badwater share, blended between tiles as the game's (above): the water turns from clean water to
         // badwater with it, smoothly, never in streaks or patches, by the game's own tint (waterPalette.ts
         // WATER_BLEND): its colour (waterBlend), its opacity and its dull surface
         float bad = waterTint(cont);
