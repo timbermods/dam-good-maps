@@ -10,6 +10,7 @@ import { makeSoilTexture, SOIL_TEXTURE_SIZE } from "../soilTexture";
 import { motionShapes, type MotionShapes } from "../motionShapes";
 import { surfaceContamination } from "./flow";
 import { fallBytes } from "../fallMask";
+import { handedWater } from "../fallSlope";
 import { shadowMap, withCasterLevels, type ShadowRock, type Sun } from "../light";
 
 /** A flow (−1…1, the game's: outflow ÷ 14) as the flow texture's byte: 128 + 127 × sign × √|f|, so a slow drift keeps
@@ -24,8 +25,10 @@ export function flowByte(f: number): number {
  *  waterfall mask (A, fallMask.ts `fallBytes`: 0 dry, 1 + 254 × the mask wet). `out`: the outflows, four a tile (none:
  *  still). */
 export function bakeFlow(W: number, H: number, sw: SurfaceWater, out?: ArrayLike<number> | null): { flow: Uint8Array } {
-  const cont = surfaceContamination(W, H, sw);
-  const game = out ? gameFlowOf(W, H, out, sw.depth, WATER_FLOW.maxOutflow) : null;
+  // (the water below a fall takes the fall's badwater share and outflow, as the game's FindBestProperties hands them on:
+  // fallSlope.ts, so a fall's slope is the fall's colour and runs with its current)
+  const cont = surfaceContamination(W, H, handedWater(W, H, sw));
+  const game = out ? gameFlowOf(W, H, out, sw.depth, WATER_FLOW.maxOutflow, sw) : null;
   const fall = fallBytes(W, H, sw);
   const flow = new Uint8Array(W * H * 4);
   for (let i = 0; i < W * H; i++) {
@@ -40,7 +43,7 @@ export function bakeFlow(W: number, H: number, sw: SurfaceWater, out?: ArrayLike
 /** The smoothed contamination alone, a byte a tile (the flow texture's B, as `bakeFlow` packs it): where nothing
  *  moves (stillFlow.ts), with the waterfall mask (its A, `stillBytes`). */
 export function shareBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">): Uint8Array {
-  const cont = surfaceContamination(W, H, sw);
+  const cont = surfaceContamination(W, H, handedWater(W, H, sw));
   const out = new Uint8Array(W * H);
   for (let i = 0; i < W * H; i++) out[i] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);
   return out;

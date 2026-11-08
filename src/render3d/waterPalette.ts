@@ -1,7 +1,7 @@
 // The 3D view's water in one place (PLAN §20 D177): clean water's and badwater's colours, their
 // opacity by depth, how water turns from clean to bad with its badwater share (the contamination
 // blend), and how the colours are calibrated on screen. The Standard look's water shader (its falls are the
-// water's own vertical faces, D201 amended 2026-10-29) reads it through `WATER_GLSL` (generated from these values; the Light look
+// water below's slope, D154 as amended 2026-11-08) reads it through `WATER_GLSL` (generated from these values; the Light look
 // runs the same shader code), the legend and the tests read the values, and Map look 2's High
 // shader reads it too (`HIGH_WATER`, `HIGH_WATER_GLSL`: #38's own inputs, beside Standard's), so the looks never
 // drift apart. No other module defines a water colour (tests/unit/water-palette.test.ts). The 2D preview and the map file's thumbnail keep their own
@@ -90,11 +90,12 @@ export const WATER_SURFACE = {
    *  Low quality, which shows no ground. The water's side at the map's edge. */
   seeThrough: 0.175,
   seeThroughTo: 5,
-  /** A fall's: the game draws a fall as the water mesh's own vertical face where the water steps down, with the same
-   *  material as the surface, and where its waterfall mask lies (its FindWaterfalls pass: the tile a fall lands in,
-   *  fallMask.ts, Q9 P1) shows the ground behind by `_TransparencyWaterfallDepth` 0.2 × `_TransparencyDepthModifier`
-   *  0.5 in place of `seeThrough`'s 0.35: `fallSeeThrough` of it, the cliff right behind a face (D201 amended
-   *  2026-10-29), thinning with depth on the water the fall lands in as `seeThrough` does (`waterSeeThrough`). */
+  /** A fall's: the game draws a fall as the water below the step rising to meet the water above (fallSlope.ts), with
+   *  the same material as the surface, and where its waterfall mask lies (its FindWaterfalls pass: the tile a fall
+   *  lands in, its slope, fallMask.ts, Q9 P1) shows the ground behind by `_TransparencyWaterfallDepth` 0.2 ×
+   *  `_TransparencyDepthModifier` 0.5 in place of `seeThrough`'s 0.35: `fallSeeThrough` of it, also the water's side
+   *  toward lower dry ground (the cliff right behind it), thinning with depth on the water the fall lands in as
+   *  `seeThrough` does (`waterSeeThrough`). */
   fallSeeThrough: 0.1,
   /** The ground that shows behind the water, as the game shows it (`waterGroundBehind`): overlaid with the
    *  water's own colour by `behindTint` (`_TransparencyBlending`), then desaturated to `behindSaturation`

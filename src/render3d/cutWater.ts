@@ -7,9 +7,10 @@
 // onto the cut, as the terrain's folds the ground, from each vertex's own column (its floor, `WaterMeshData.cut`): the
 // top lies on the cut, shallower by what the cut took away (`cutCornerDepth`), and its sides stop at the cut. A gone
 // column's sides fold flat, so one hanging below its floor (to lower water in front of a cliff) leaves nothing. Nothing
-// is remeshed when the level changes: the cut stays one uniform. A fall is the water's own side where it steps down
-// (D201 amended 2026-10-29), so it stops at the cut as any side does; the Flow view's streaks follow the same rule
-// (motion.ts). The terrain counts a top as under water exactly where this draws water over it
+// is remeshed when the level changes: the cut stays one uniform. A fall is the slope of the water below it (D154 as
+// amended 2026-11-08; fallSlope.ts), a top whose vertices stand over their own column's surface: each is sliced onto
+// the cut by its own height and floor, so a fall under the cut lies flat on it, its depth there the water's from its
+// floor up to the cut (`cutSlopeDepth`); the Flow view's streaks follow the same rule (motion.ts). The terrain counts a top as under water exactly where this draws water over it
 // (`bedAtCut`; materials.ts `soilOf` and the run tops' `groundAt`), so a sliced lake's bed reads as a bed.
 //
 // These functions are the shaders' rules in plain code, for the tests (tests/unit/cutWater.test.ts).
@@ -34,6 +35,16 @@ export function surfaceAtCut(floor: number, surface: number, cut: number | null)
  *  corner is the same water, its mean depth below the cut, so neighbouring tops still meet at their corners. */
 export function cutCornerDepth(depth: number, share: number, surface: number, drawn: number): number {
   return Math.max(0, depth - (surface - drawn) * share);
+}
+
+/** The cut share a fall's slope vertex carries (one raised over its own surface, fallSlope.ts) in place of its wet
+ *  share: sliced, it takes `cutSlopeDepth`, not its seen depth less what the cut took off. */
+export const SLOPE_SHARE = -1;
+
+/** The depth a fall's slope vertex (`SLOPE_SHARE`) over a floor at `floor` is drawn with when sliced onto the cut at
+ *  `drawn`: the water from its floor up to the cut, as the sliced water round it. */
+export function cutSlopeDepth(floor: number, drawn: number): number {
+  return Math.max(0, drawn - floor);
 }
 
 /** Whether ground whose top is at `top`, with water standing on it to `surface` (NaN: dry), is drawn as a bed under

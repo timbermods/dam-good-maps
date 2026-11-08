@@ -1,17 +1,21 @@
 // The water mesher as it was before water per column (3D view, part 4), kept to prove that a map without
 // terrain above terrain draws its water exactly as before (tests/unit/waterLayers.test.ts), as
 // heightfieldMesher.ts does for the terrain. Its lower water (columns below a tile's surface water) is left
-// out: such a map has none. Since D201's amendment (2026-10-29) it draws a fall as the main mesher does, a curtain down
-// to the water below, with no fall instances or foam flags (D148).
+// out: such a map has none. Since D201's amendment (2026-10-29) it draws a fall as the main mesher does, with no fall
+// instances or foam flags; since D154's of 2026-11-08, as the lower tile's slope (fallSlope.ts), with no curtain
+// between two waters (D148).
 
 import { CHUNK } from "../../src/render3d/mesh";
 import type { SurfaceWater } from "../../src/render3d/model";
-import { blendInto, dropFlags, SHORE_BITS, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { BLEND_KERNEL, blendInto, dropFlags, SHORE_BITS, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { handOver, SLOPE_MIN, slopeGrid, slopeHeights, tileRise } from "../../src/render3d/fallSlope";
 
 const STEP = 0.02;
 const SAME_WATER = 0.35;
 const BLEND_WINDOW = 4;
 let badScratch = new Float32Array(0);
+let handScratch = new Float32Array(0);
+const grid = slopeGrid();
 
 class WaterBuffer {
   pos: number[] = [];
@@ -56,7 +60,11 @@ export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array,
   // blends no more of a 512x512 map than the chunk it meshes
   if (badScratch.length < W * H) badScratch = new Float32Array(W * H);
   const bad = badScratch;
-  blendInto(bad, W, H, sw, x0 - BLEND_WINDOW, y0 - BLEND_WINDOW, x1 + BLEND_WINDOW - 1, y1 + BLEND_WINDOW - 1);
+  // (the badwater share handed over to the water below a fall first, as the game's FindBestProperties does: fallSlope.ts)
+  if (handScratch.length < W * H) handScratch = new Float32Array(W * H);
+  const reach = BLEND_WINDOW + BLEND_KERNEL.length - 1;
+  handOver(W, H, sw, sw.contamination, handScratch, 1, true, x0 - reach, y0 - reach, x1 + reach - 1, y1 + reach - 1);
+  blendInto(bad, W, H, { ...sw, contamination: handScratch }, x0 - BLEND_WINDOW, y0 - BLEND_WINDOW, x1 + BLEND_WINDOW - 1, y1 + BLEND_WINDOW - 1);
   /** A top's corner (tile-corner coordinates) shares the water of the tiles round it at its own
    *  level: their mean depth, dry ground counting as none (so the water thins toward the shore),
    *  and their mean blended badwater share (so the colour runs on smoothly across the tile). */
@@ -114,38 +122,52 @@ export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array,
         const c1 = k1[1];
         const c2 = k2[1];
         const c3 = k3[1];
-        b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], 0, 1, 0, flags);
-        // curtains toward lower neighbours: down to the ground (never below the floor), or to the
-        // water just below, in front of the cliff where it stands below the floor; each with the
-        // badwater share of the top's edge it hangs from; down to water well below, a fall
+        // a fall's slope (since D154's amendment of 2026-11-08, as the main mesher: fallSlope.ts), else one flat quad
+        const slope = tileRise(W, H, sw, x, y) >= SLOPE_MIN && slopeHeights(W, H, sw, x, y, grid);
+        if (slope) {
+          const at = (q: number, a: readonly number[]) => {
+            const fx = (q & 3) / 3;
+            const fy = (q >> 2) / 3;
+            return (1 - fx) * (1 - fy) * a[0] + fx * (1 - fy) * a[1] + fx * fy * a[2] + (1 - fx) * fy * a[3];
+          };
+          const vd = Array.from({ length: 16 }, (_, q) => (grid.seen[q] === grid.seen[q] ? grid.seen[q] : at(q, [k0[0], k1[0], k2[0], k3[0]])));
+          const vc = Array.from({ length: 16 }, (_, q) => at(q, [c0, c1, c2, c3]));
+          for (let j = 0; j < 3; j++)
+            for (let i = 0; i < 3; i++) {
+              const q = [i + 1 + 4 * j, i + 1 + 4 * (j + 1), i + 4 * (j + 1), i + 4 * j];
+              b.quad4(q.flatMap((v) => [x + (v & 3) / 3, grid.height[v], -(y + (v >> 2) / 3)]), q.map((v) => vd[v]), q.map((v) => vc[v]), 0, 1, 0, flags);
+            }
+        } else b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], 0, 1, 0, flags);
+        // curtains toward lower dry neighbours and the map's edge only (water meets water by the slope), down to the
+        // ground, never below the floor, each with the badwater share of the top's edge it hangs from, its top along
+        // the top's edge
         const dd = [d, d, d, d];
-        const drop = (xx: number, yy: number): number => {
-          const lv = level(xx, yy);
-          if (!(lv < s - STEP)) return NaN;
+        const SIDES = [
+          { ax: 1, ay: 0, bx: 1, by: 1, a: c1, b: c2, grid: [3, 7, 11, 15], nx: 1, nz: 0 },
+          { ax: 0, ay: 1, bx: 0, by: 0, a: c3, b: c0, grid: [12, 8, 4, 0], nx: -1, nz: 0 },
+          { ax: 1, ay: 1, bx: 0, by: 1, a: c2, b: c3, grid: [15, 14, 13, 12], nx: 0, nz: -1 },
+          { ax: 0, ay: 0, bx: 1, by: 0, a: c0, b: c1, grid: [0, 1, 2, 3], nx: 0, nz: 1 },
+        ];
+        for (let k = 0; k < 4; k++) {
+          const xx = x + (k === 0 ? 1 : k === 1 ? -1 : 0);
+          const yy = y + (k === 2 ? 1 : k === 3 ? -1 : 0);
           const inside = xx >= 0 && yy >= 0 && xx < W && yy < H;
-          const wetBelow = inside && sw.surface[yy * W + xx] === sw.surface[yy * W + xx];
-          return wetBelow ? lv : Math.max(lv, f);
-        };
-        const O = 0.015; // a curtain to lower water stands just off the cliff's face
-        const e = drop(x + 1, y);
-        if (e === e) {
-          const X = e < f ? x + 1 + O : x + 1;
-          b.quad4([X, e, -y, X, e, -(y + 1), X, s, -(y + 1), X, s, -y], dd, [c1, c2, c2, c1], 1, 0, 0, dropFlags(s, e, x + 1 >= W));
-        }
-        const wv = drop(x - 1, y);
-        if (wv === wv) {
-          const X = wv < f ? x - O : x;
-          b.quad4([X, wv, -(y + 1), X, wv, -y, X, s, -y, X, s, -(y + 1)], dd, [c3, c0, c0, c3], -1, 0, 0, dropFlags(s, wv, x === 0));
-        }
-        const n = drop(x, y + 1);
-        if (n === n) {
-          const Z = n < f ? -(y + 1) - O : -(y + 1);
-          b.quad4([x + 1, n, Z, x, n, Z, x, s, Z, x + 1, s, Z], dd, [c2, c3, c3, c2], 0, 0, -1, dropFlags(s, n, y + 1 >= H));
-        }
-        const so = drop(x, y - 1);
-        if (so === so) {
-          const Z = so < f ? -y + O : -y;
-          b.quad4([x, so, Z, x + 1, so, Z, x + 1, s, Z, x, s, Z], dd, [c0, c1, c1, c0], 0, 0, 1, dropFlags(s, so, y === 0));
+          if (inside && sw.surface[yy * W + xx] === sw.surface[yy * W + xx]) continue;
+          const lv = level(xx, yy);
+          const e = Math.max(lv, f);
+          const S = SIDES[k];
+          const n = slope ? 3 : 1;
+          for (let q = 0; q < n; q++) {
+            const ta = q / n;
+            const tb = (q + 1) / n;
+            const ha = slope ? grid.height[S.grid[q]] : s;
+            const hb = slope ? grid.height[S.grid[q + 1]] : s;
+            if (!(lv < Math.max(ha, hb) - STEP)) continue;
+            const ca = (1 - ta) * S.a + ta * S.b;
+            const cb = (1 - tb) * S.a + tb * S.b;
+            const [ax, ay, bx, by] = [x + S.ax + (S.bx - S.ax) * ta, y + S.ay + (S.by - S.ay) * ta, x + S.ax + (S.bx - S.ax) * tb, y + S.ay + (S.by - S.ay) * tb];
+            b.quad4([ax, e, -ay, bx, e, -by, bx, hb, -by, ax, ha, -ay], dd, [ca, cb, cb, ca], S.nx, 0, S.nz, dropFlags(Math.max(ha, hb), e, !inside));
+          }
         }
       }
     }

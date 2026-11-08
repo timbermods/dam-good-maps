@@ -1405,7 +1405,7 @@ the game's models in resources.assets (positions, materials and texture means on
   (`WaterQualitySetting.HighQualityWaterEnabled`: the Medium preset and up; it also turns on URP's opaque texture), so
   Standard and High draw them and the light look, as Low, draws neither. **P1:** `FindWaterfalls`, per tile and stacked
   column, keeps smoothstep(0.35, 0.6, how far its highest linked neighbour's surface stands over its own) (its sixteen
-  mesh heights from `CalculateHeights`; a neighbour linked when wet, a corner one only where both tiles between are dry,
+  mesh heights from `CalculateHeights`; a neighbour linked when wet, a corner one only where both tiles between are wet too (read again 2026-11-08: it said dry),
   `BreakCornerLinks`), so the mask lies on the tile a fall lands in, whole from a step of 0.6. The pixel shader reads it
   in four taps ±0.075 round the pixel, weighted by their distance to the nearest tile corner, dry tiles left out, and
   sharpens it, w = saturate(m + smoothstep(0, 0.5, m)); w takes off the refraction and the camera highlight and moves
@@ -1782,6 +1782,35 @@ the game's models in resources.assets (positions, materials and texture means on
 - **Falls short:** High's edge at 2048 is 1.2–1.5 × the game's in play over a 128² map and 2–3 × over a 256² one.
   4096 reaches the game's 0.11 and waits on the igpu-4x gate (integrated GPU, CPU 4× slower, 256², the sun turning),
   run on a machine with an integrated GPU, with `npm run smooth` mended first.
+
+## Falls as the water below's slope (D154 amended 2026-11-08; `fix/falls-as-slopes`)
+
+- **What the game does** (decompiled `Timberborn.WaterSystemRendering` `WaterMesh`, and its compute shader
+  `WaterColumnPostprocessor` disassembled from `resources.assets`; numbers only): every water tile is a grid of four
+  by four vertices (0, ⅓, ⅔, 1), split along the anti-diagonal, and `CalculateHeights` raises each vertex to its linked
+  neighbour's surface across a side it lies on, to that surface less 0.3 a third of a tile in, and to the linked corner
+  neighbour's (less 0.3 unless on both sides), never below its own. So a fall is the lower tile's own surface rising to
+  meet the water above: its edge at the upper surface, 0.3 lower a third in, its own surface from two thirds in; no
+  face of its own. It is lit with the up normal and its flow textures, sampled at the world's xz, stretch and pour
+  down it. `FindBestProperties` hands the slope its highest linked neighbour's outflow (edges) and contamination
+  (edges and corners) by saturate(the rise). A corner is linked only where it and both tiles between are wet
+  (`BreakCornerLinks`); `fallMask.ts` had that turned round (both between dry), so its mask read water across a dry
+  corner and missed the corner of a fall: corrected, and the mask is now smoothstep(0.35, 0.6, `tileRise`).
+- **Ours** (`render3d/fallSlope.ts`): `slopeHeights` makes the sixteen heights for any wet tile with a vertex 0.02 or
+  more over its own surface (`SLOPE_MIN`; under it, the one flat quad as before, so still water meshes byte for byte as
+  dev's), `slopeTop` draws them as nine quads with the up normal in both looks and the Light look (one mesh). A raised
+  vertex's depth is what the game's camera sees through there (its pitch, 60°: the gap to the cliff or the upper
+  water's floor along the view, never more than its height over its own floor), the rest bilinear from the tile's
+  corners. Badwater and the current are handed over before the blend and the flow (`handOver`, `handedWater`;
+  `current.ts` `gameFlowOf`), so a badwater fall keeps its colour and the slope runs with the fall's current. No curtain
+  between two waters any more; the water's side hangs only toward lower dry ground and at the map's edge, in three
+  segments along a slope's edge. The water's data never changes (D342, D497).
+- **The cut:** a slope's vertex carries `SLOPE_SHARE` for its wet share; sliced, it lies on the cut with the water's
+  depth from its floor up to the cut (`cutWater.ts` `cutSlopeDepth`), so a sliced lake has no pale band where a fall
+  came in, and a fall whose upper water the cut took keeps its slope up to the cut (`tests/unit/cutWater.test.ts`).
+- **Re-based (D148):** the curtain tests in `look-waterfalls`, `look`, `render3d`, `look-badwater`, `cutWater`,
+  `waterLayers` and `caveCurrent` (the tunnel's fall is its water's slope under the roof); the corner rule in
+  `water-refraction`; the fixture mesher mirrors the slope.
 
 ## Caves and overhangs, captured again after #852–#855
 
