@@ -64,8 +64,9 @@ import * as ed from "../../src/worker/session";
  *  (the same map, a new description; D382); `7f7c8677…` before generator 0.10.0's version string (D488, the same
  *  map); `a4c34743…` before the game version stamped became 1.1.2.8-ffc2de0-sw (the same map, D148: re-stamped
  *  with 1.1.2.4-52e959e-sw the file is that one byte for byte); `30543f1d…` before generator 0.10.5's version
- *  string (the same map: its first land fails the course check, not the start or the trunk's search). */
-const LIVE_SHA = "c1aa22cd65f789c14b79834d39745f52bfb69c4056b4b83baba5f4e4a7d8d343";
+ *  string (the same map: its first land fails the course check, not the start or the trunk's search); `c1aa22cd…` before
+ *  generator 0.10.12's version string (the same map: its stacked settle takes no unfed water, #814). */
+const LIVE_SHA = "1dd8183d5d7fe29ba80c221230dcbdea9e647363df4f7d48f2705077f318b5ac";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
