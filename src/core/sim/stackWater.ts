@@ -9,8 +9,10 @@
 // operation, since memory may have moved. Every refusal is the engine's own one line (D342).
 //
 // The canonical settle of a model with terrain above terrain runs here (prefill.ts, `WaterModel.stacked`):
-// an imported map with caves or overhangs, once it is edited (features/build.ts). A heightfield never
-// comes here. Its results on the
+// a generated map with 3D forms, an imported map with caves or overhangs (features/build.ts). A heightfield
+// never comes here. As on a heightfield (prefill.ts `canonicalRun`), once the water has settled the water no
+// running source and no kept stored lake reaches is taken, on every column (the pre-fill's water from nowhere,
+// D385, and a removal's), and the water settles on from there (`canonicalStackRun`). Its results on the
 // game-verified fixtures (tests/golden/stacked-water.json) are checked natively and in WebAssembly on
 // every push (tools/rust/stack-identity.ts), and in every browser engine (tools/determinism).
 
@@ -20,7 +22,7 @@ import { ColumnTerrain } from "../terrain/runs";
 import { isDelayed, mapObjects, specifiedStrength, waterModel, type MapObject } from "./model";
 import { rustWater } from "./rustWater";
 import { STACK_CHECK_TICKS, stackThreads, type StackThreads } from "./stackParallel";
-import { drainColumns, heightLimits, keptColumnSeeds, type StackGraph } from "./stackFed";
+import { drainColumns, heightLimits, keptColumnSeeds, withLevelledSeeds, type StackGraph } from "./stackFed";
 import { sameRetained, type RetainedWater, type StackedTerrain, type WaterModel } from "./water";
 
 interface Exports {
@@ -312,7 +314,7 @@ function startOf(m: StackWater): StackStart {
 /** The days a stacked canonical settle may take (#71's, which the probe's test maps were played
  *  with); an open field's is today's 6. */
 export const STACK_SETTLE_DAYS = 4;
-/** The days the water may take to settle on once a removal took the unfed water it drained (prefill.ts
+/** The days the water may take to settle on once the settle took its unfed water (`canonicalStackRun`; prefill.ts
  *  `DRAIN_DAYS`, the heightfield's). */
 export const STACK_DRAIN_DAYS = 4;
 
@@ -353,10 +355,16 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
   // counts the ticks the threads ran since the settle's last check
   let threads: StackThreads | null | undefined;
   let since = 0;
-  // a removal's drained tiles (Remove unfed water, D387 (2)): once the water has settled, the unfed water on them is
-  // taken and the water settles on from there, at most STACK_DRAIN_DAYS (as prefill.ts `canonicalRun` does on a
-  // heightfield); `base` is the tick that second settle began at
-  let drainNext = drained.length > 0;
+  // once the water has settled, the water no running source and no kept stored lake reaches is taken (the pre-fill's
+  // water from nowhere, D385: its walk spreads level over a dry plateau and starts a hollow full; and the unfed water
+  // on a removal's drained tiles, D387 (2)), and the water settles on from there, at most STACK_DRAIN_DAYS, as
+  // prefill.ts `canonicalRun` does on a heightfield; `base` is the tick that second settle began at, `took` whether
+  // any was taken (an open field's own settle took its unfed water already, rust/water/src/settle.rs: only a removal's
+  // is asked of it here, as before)
+  let drainNext = true;
+  let took = false;
+  // (the columns the first settle's end stored levelled, whose water the settle on gives back as it began: still water)
+  let still: Uint8Array | null = null;
   let base = 0;
   try {
     (m.view(STACK_FIELD.masks) as Uint32Array).set(t.mask);
@@ -375,8 +383,7 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
     advance(budget: number): StackSettle | null {
       if (done) return done;
       try {
-        // (a settle that takes a removal's water runs on one thread: it settles on from the whole engine's state,
-        // its flows' momentum and seeps included, which the strips don't hand back)
+        // (a settle with a removal runs on one thread, as before)
         if (threads === undefined) threads = stacked && !drained.length && m.info(STACK_INFO.settle) === 0 && maxTicks % STACK_CHECK_TICKS === 0 ? stackThreads(m, W, H, t.mask, t.objects)?.watch(run) ?? null : null;
         let left = Math.max(0, Math.min(MAX_ADVANCE, Math.floor(budget)));
         while (threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
@@ -412,19 +419,46 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
         // (a basin the end stored levelled at rest has none of the run's momentum: still water shows no current)
         if (stacked) {
           const levelled = m.view(STACK_FIELD.levelled) as Uint8Array;
-          for (let c = 0; c < levelled.length; c++) if (levelled[c]) flows.fill(0, c * 4, c * 4 + 4);
+          for (let c = 0; c < levelled.length; c++) if (levelled[c] || still?.[c]) flows.fill(0, c * 4, c * 4 + 4);
         }
-        threads?.free();
-        threads = null;
         if (drainNext) {
           drainNext = false;
-          if (drainSettled(m, W, H, t, retained, drained)) {
+          let taken = unfedTaken(m, W, H, t, retained, drained, stacked);
+          if (taken && threads) {
+            // the water settles on from the end of a run on several threads, on one: this engine holds the water (the
+            // strips', then its end's, `write`), the strips hand back their flows' momentum (`momentum`), and its other
+            // state follows from the water as the settle on starts (`settleBegin` b = 1: the old depth, the wet columns,
+            // the evaporation's bookkeeping, stack.rs `sync_state`), the same bytes as on one thread. But not a seep's
+            // state, which the strips keep: a map with a seep settles again from the pre-fill on one thread
+            if (seepsIn(t.objects)) {
+              threads.free();
+              threads = null;
+              since = 0;
+              m.op(STACK_OP.settleBegin, STACK_SETTLE_DAYS);
+              ticks = 0;
+              drainNext = true;
+              return null;
+            }
+            threads.momentum(m);
+            taken = unfedTaken(m, W, H, t, retained, drained, stacked);
+          }
+          threads?.free();
+          threads = null;
+          if (taken) {
+            (m.view(STACK_FIELD.depth) as Float64Array).set(taken.depth);
+            (m.view(STACK_FIELD.overflow) as Float64Array).set(taken.overflow);
+            (m.view(STACK_FIELD.contamination) as Float64Array).set(taken.contamination);
+            (m.view(STACK_FIELD.momentum) as Float64Array).set(taken.momentum);
+            if (stacked) still = m.copy(STACK_FIELD.levelled) as Uint8Array;
             m.op(STACK_OP.settleBegin, STACK_DRAIN_DAYS, 1);
+            took = true;
             base = m.info(STACK_INFO.ticks);
             maxTicks = base + Math.max(1, m.info(STACK_INFO.maxTicks));
             return null;
           }
         }
+        threads?.free();
+        threads = null;
         m.op(STACK_OP.saturation);
         const count = m.copy(STACK_FIELD.count) as Uint8Array;
         let L = 1;
@@ -443,8 +477,9 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
           sat: m.copy(STACK_FIELD.saturation) as Uint8Array,
           settled: m.info(STACK_INFO.settle) === 1,
           ticks: m.info(STACK_INFO.ticks),
-          // (a settle that took a removal's water ran on from another start: `settledAgain` never stands for it)
-          ...(reach && start && !drained.length ? { reach, start } : {}),
+          // (a settle that took unfed water ran on from another start, and a removal's never takes the shortcut, D494:
+          // `settledAgain` never stands for either)
+          ...(reach && start && !drained.length && !took ? { reach, start } : {}),
           flows,
         };
         const steady = m.info(STACK_INFO.steadyTicks);
@@ -479,9 +514,12 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
   return run;
 }
 
-/** The settled water in `m` with the unfed water on the drained tiles taken (stackFed.ts `drainColumns`: no running
- *  source and no stored lake kept reaches it), written back for the water to settle on; whether any was taken. */
-function drainSettled(m: StackWater, W: number, H: number, t: StackedTerrain, retained: readonly RetainedWater[], drained: readonly number[]): boolean {
+/** The settled water in `m` with its unfed water taken (stackFed.ts `drainColumns`: no running source and no stored
+ *  lake kept reaches it, its water the settle's end stored levelled included, `withLevelledSeeds`), on every tile when
+ *  `stacked`, else (an open field, whose settle took the rest) on the drained tiles; null when there is none. The caller
+ *  writes it back for the water to settle on. */
+export function unfedTaken(m: StackWater, W: number, H: number, t: StackedTerrain, retained: readonly RetainedWater[], drained: readonly number[], stacked: boolean): { depth: Float64Array; overflow: Float64Array; contamination: Float64Array; momentum: Float64Array } | null {
+  if (!stacked && !drained.length) return null;
   const g = graphOf(m, W, H, t.objects);
   const water = {
     depth: (m.view(STACK_FIELD.depth) as Float64Array).slice(),
@@ -489,12 +527,16 @@ function drainSettled(m: StackWater, W: number, H: number, t: StackedTerrain, re
     contamination: (m.view(STACK_FIELD.contamination) as Float64Array).slice(),
     momentum: (m.view(STACK_FIELD.momentum) as Float64Array).slice(),
   };
-  if (!drainColumns(g, water, drained, keptColumnSeeds(g, retained, drained))) return false;
-  (m.view(STACK_FIELD.depth) as Float64Array).set(water.depth);
-  (m.view(STACK_FIELD.overflow) as Float64Array).set(water.overflow);
-  (m.view(STACK_FIELD.contamination) as Float64Array).set(water.contamination);
-  (m.view(STACK_FIELD.momentum) as Float64Array).set(water.momentum);
-  return true;
+  const kept = keptColumnSeeds(g, retained, drained);
+  const seeds = stacked ? withLevelledSeeds(g, kept, m.view(STACK_FIELD.levelled) as Uint8Array, water.depth, drained) : kept;
+  return drainColumns(g, water, stacked ? null : drained, seeds) ? water : null;
+}
+
+/** Whether the objects' rows (`stackObjectRows`) hold a seep, whose state (on or off, rust/water/src/stack.rs `seep_on`)
+ *  a run on several threads keeps in its strips. */
+function seepsIn(objects: ArrayLike<number>): boolean {
+  for (let k = 0; k < objects.length; k += 8) if (objects[k] === KINDS.WaterSeep || objects[k] === KINDS.BadwaterSeep) return true;
+  return false;
 }
 
 /** Retained water as the engine takes it: (tile, floor, depth, contamination) rows, one a column. */

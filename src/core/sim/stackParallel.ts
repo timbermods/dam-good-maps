@@ -17,9 +17,12 @@
 //
 // The settle's checks every 128 ticks run on the whole map in the coordinating thread: the strips write their
 // own rows back, and the whole map's engine takes them as ticks run elsewhere (stack_memory.rs op 8), with the
-// checks it would have run itself. The pre-fill runs there too, once. If a thread fails, the settle starts
-// again on one thread: the same input gives the same bytes either way. tools/rust/stack-identity.ts --threads
-// checks it byte for byte.
+// checks it would have run itself. The pre-fill runs there too, once. A settle that takes unfed water once it has
+// settled (stackWater.ts `canonicalStackRun`) settles on in the coordinating thread alone, from the strips' end: the
+// whole map's engine holds their water, and the strips hand back their flows' momentum (`StackThreads.momentum`);
+// a seep's state they keep, so a map with a seep settles again on one thread from the pre-fill. If a thread fails,
+// the settle starts again on one thread: the same input gives the same bytes either way.
+// tools/rust/stack-identity.ts --threads checks it byte for byte.
 //
 // Where it runs: where the heightfield's threads run (parallel.ts, a worker with a pool, its policy in
 // parallelPolicy.ts), from smaller maps on (`stackThreadsFor`: a stacked column costs more than a flat tile).
@@ -75,10 +78,12 @@ interface StackJob {
   length: number;
   /** The live water's (stackLive.ts), which runs on from water already flowing: per strip, where the whole map's
    *  block of its rows sits (`exportRows`, its flows' momentum and old depth with its water), which the strip takes
-   *  in once built; and where the strip writes its own rows' block at the end of each run, which the whole map's
-   *  engine takes back (`StackThreads.sync`). None for a settle, which starts from the pre-fill at rest. */
+   *  in once built. None for a settle, which starts from the pre-fill at rest. */
   seeds?: Block[];
-  owns?: Block[];
+  /** Per strip, where it writes its own rows' block at the end of each run, which the whole map's engine takes back:
+   *  the live water's whole (`StackThreads.sync`), a settle's flows' momentum when it settles on from its end on one
+   *  thread (`StackThreads.momentum`, stackWater.ts `canonicalStackRun`). */
+  owns: Block[];
 }
 
 export type StackMessage =
@@ -197,12 +202,10 @@ class StackStrip {
     const N = W * H;
     for (let q = 0; q < 3; q++)
       for (let s = 0; s < levels; s++) this.f.set(v.subarray(3 + (q * levels + s) * k, 3 + (q * levels + s + 1) * k), (q * L + s) * N + y0 * W);
-    // (the live water's: the whole block, its momentum with it, for the whole map's engine to take back)
-    const own = this.job.owns?.[j];
-    if (own) {
-      if (v.length !== own.len) throw new Error("a strip's water columns differ from the map's");
-      this.f.set(v, own.at);
-    }
+    // (the whole block, its momentum with it, for the whole map's engine to take back)
+    const own = this.job.owns[j];
+    if (v.length !== own.len) throw new Error("a strip's water columns differ from the map's");
+    this.f.set(v, own.at);
     // and where its own rows have been wet (exact there, as their water is)
     const reach = this.m.view(STACK_FIELD.reach) as Uint8Array;
     const n = (this.hi - this.lo) * W;
@@ -361,28 +364,28 @@ export function stackThreads(whole: StackWater, W: number, H: number, mask: Uint
   at += L * N;
   const flowsAt = at;
   at += 4 * L * N;
-  // (the live water's: each strip's rows from the whole map's engine, and room for its own rows' block, the length
-  // export_rows gives it: its slots, then four numbers a column and each row's momentum with its count)
+  // (the live water's: each strip's rows from the whole map's engine; and, a settle's too, room for each strip's own
+  // rows' block, the length export_rows gives it: its slots, then four numbers a column and each row's momentum with its
+  // count)
   let seeds: { block: Block; v: Float64Array }[] | undefined;
-  let owns: Block[] | undefined;
-  if (flowing) {
-    seeds = [];
-    owns = [];
-    for (const s0 of strips) {
-      const lo = Math.max(0, s0.y0 - HALO);
-      const hi = Math.min(H, s0.y1 + HALO);
+  const owns: Block[] = [];
+  if (flowing) seeds = [];
+  for (const s0 of strips) {
+    const lo = Math.max(0, s0.y0 - HALO);
+    const hi = Math.min(H, s0.y1 + HALO);
+    if (seeds) {
       whole.op(STACK_OP.exportRows, lo, hi);
       const v = (whole.view(STACK_FIELD.rowsOut) as Float64Array).slice();
       seeds.push({ block: { row: lo, at, len: v.length }, v });
       at += v.length;
-      const ls = levelsOf(lo, hi);
-      let len = 3 + 4 * ls * (s0.y1 - s0.y0) * W + ls * (s0.y1 - s0.y0);
-      for (let s = 0; s < ls; s++) len += start[s * N + s0.y1 * W] - start[s * N + s0.y0 * W];
-      owns.push({ row: s0.y0, at, len });
-      at += len;
     }
+    const ls = levelsOf(lo, hi);
+    let len = 3 + 4 * ls * (s0.y1 - s0.y0) * W + ls * (s0.y1 - s0.y0);
+    for (let s = 0; s < ls; s++) len += start[s * N + s0.y1 * W] - start[s * N + s0.y0 * W];
+    owns.push({ row: s0.y0, at, len });
+    at += len;
   }
-  const job: StackJob = { W, H, L, mask, objects, strips, down, up, reachAt, flowsAt, length: at, ...(seeds ? { seeds: seeds.map((x) => x.block), owns } : {}) };
+  const job: StackJob = { W, H, L, mask, objects, strips, down, up, reachAt, flowsAt, length: at, owns, ...(seeds ? { seeds: seeds.map((x) => x.block) } : {}) };
   const f = new Float64Array(new SharedArrayBuffer(8 * job.length));
   const fields = [STACK_FIELD.depth, STACK_FIELD.overflow, STACK_FIELD.contamination];
   for (let q = 0; q < 3; q++) f.set((whole.view(fields[q]) as Float64Array).subarray(0, L * N), q * L * N);
@@ -457,17 +460,28 @@ export class StackThreads {
    *  edges are the same in a strip as in the whole map). The live water's (`flowing`); the run's bookkeeping is the
    *  caller's (`elsewhere`). */
   sync(whole: StackWater): void {
+    this.handBack(whole, true);
+  }
+
+  /** The flows' momentum after the last run alone, written into `whole`'s engine as `sync` writes it: a settle's, whose
+   *  water the whole map's engine already holds (`write`) and may have changed at its end (a sealed basin stored as it
+   *  began), to settle on from on one thread (stackWater.ts `canonicalStackRun`, once it took unfed water). */
+  momentum(whole: StackWater): void {
+    this.handBack(whole, false);
+  }
+
+  private handBack(whole: StackWater, water: boolean): void {
     const { W, H } = this.job;
     const N = W * H;
     const fields = [STACK_FIELD.depth, STACK_FIELD.overflow, STACK_FIELD.contamination, STACK_FIELD.oldDepth].map((q) => whole.view(q) as Float64Array);
     const momentum = whole.view(STACK_FIELD.momentum) as Float64Array;
     const start = whole.view(STACK_FIELD.graphStart) as Uint32Array;
-    for (const b of this.job.owns ?? []) {
+    for (const b of this.job.owns) {
       const { y0, y1 } = this.job.strips.find((s) => s.y0 === b.row)!;
       const v = this.f.subarray(b.at, b.at + b.len);
       const levels = v[0];
       const k = (y1 - y0) * W;
-      for (let q = 0; q < 4; q++) for (let s = 0; s < levels; s++) fields[q].set(v.subarray(3 + (q * levels + s) * k, 3 + (q * levels + s + 1) * k), s * N + y0 * W);
+      if (water) for (let q = 0; q < 4; q++) for (let s = 0; s < levels; s++) fields[q].set(v.subarray(3 + (q * levels + s) * k, 3 + (q * levels + s + 1) * k), s * N + y0 * W);
       let p = 3 + 4 * levels * k;
       for (let s = 0; s < levels; s++)
         for (let r = y0; r < y1; r++) {
