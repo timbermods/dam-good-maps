@@ -74,6 +74,18 @@ export const GAME_BLOOM_LOOKS = { standard: true, high: true } as const;
 
 export { AID_LAYER } from "./aidLayer";
 
+/** The most the bloom can add to a pixel (linear, before the grade) from a source no brighter than `b` (display, its
+ *  brightest channel): the prefilter's share, max(b − threshold, its soft knee's), clamped, × the intensity. The
+ *  pyramid's blurs and upsamples only average it (their weights sum to one), so no pixel gets more. Nothing below the
+ *  knee, half the threshold (1.269), feeds it at all. */
+export function bloomLift(b: number): number {
+  const t = GAME_BLOOM.threshold;
+  const knee = t / 2;
+  const x = Math.min(b, GAME_BLOOM.clamp);
+  const soft = Math.min(Math.max(x - t + knee, 0), 2 * knee) ** 2 / (4 * knee + 1e-4);
+  return GAME_BLOOM.intensity * Math.max(x - t, soft);
+}
+
 /** The canvas's code (0–255) → the linear colour before the grade that the post chain turns into it, for a grey (the
  *  post chain's saturation, +3 %, left out: `apply` puts on only what the bloom changes). The last code is the least
  *  colour that rounds to it (a linear 1.75, a display value of 1.27), past which the chain changes nothing. */

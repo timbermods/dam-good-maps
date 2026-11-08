@@ -39,6 +39,7 @@ import {
 } from "three";
 import { JUICE, wallColor } from "./palette";
 import { SUN } from "./materials";
+import { onAidLayer } from "./aidLayer";
 import { WALL_CLOCK, type Clock } from "./clock";
 import { STONE_REACH, WEAR_STRIDE, wearCount, wearSamples, type Voxels } from "./wear";
 
@@ -619,7 +620,7 @@ class Glacier {
     this.tongue = new Mesh(g, this.material);
     this.tongue.frustumCulled = false;
     this.tongue.renderOrder = 4;
-    this.group.add(this.tongue);
+    this.group.add(onAidLayer(this.tongue));
   }
 
   finish(now: number): void {
@@ -1166,7 +1167,8 @@ export class ForceEffects {
     this.plume = new Plume(clock);
     this.glacier = new Glacier(clock);
     this.wear = new Wear(clock);
-    scene.add(this.impact.group, this.rupture.group, this.plume.group, this.glacier.group, this.wear.group);
+    // (the moments are the edit's own show, never the bloom's source: aidLayer.ts)
+    scene.add(...[this.impact.group, this.rupture.group, this.plume.group, this.glacier.group, this.wear.group].map((g) => onAidLayer(g)));
     if (sun) this.wear.useSun(sun);
   }
 

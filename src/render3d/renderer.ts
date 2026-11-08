@@ -77,7 +77,7 @@ import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, LAVA_CRUST, contaminationEdges, contaminationEdgesRect, drawPatterns, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { AID_LAYER, onAidLayer } from "./aidLayer";
 import { GameBloom, GAME_BLOOM_LOOKS } from "./bloom";
@@ -4146,11 +4146,16 @@ export class MapRenderer {
   }
 
   /** Whether this frame draws the game's bloom (bloom.ts): Standard and High, as the game's default preset; never the
-   *  light look. */
+   *  light look. And only while something in the frame can pass its knee (D453: by day nothing does, so its passes,
+   *  about 1.4 ms of a GPU's in High, would change no pixel; `tests/unit/bloom.test.ts` holds the day's brightest under
+   *  it, `tests/e2e/look-high.spec.ts` the frame alike with it and without): today an eruption's lava, until its crust
+   *  has put out its light (`LAVA_CRUST`). */
   private blooms(): boolean {
     if (this.software || !this.map) return false;
     const look = this.lookNow;
-    return look !== "light" && GAME_BLOOM_LOOKS[look === "standard" ? "standard" : "high"];
+    if (look === "light" || !GAME_BLOOM_LOOKS[look === "standard" ? "standard" : "high"]) return false;
+    const u = this.terrainMat.uniforms;
+    return !!u.eruptionAge && u.eruptionAge.value >= 0 && u.coolingAge.value < LAVA_CRUST[1];
   }
 
   /** Whether this frame wants the copy of the screen behind the water (refraction.ts): a look that draws the game's

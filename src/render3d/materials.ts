@@ -238,6 +238,10 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
  *  material shares, as a view draws its frames one at a time. */
 export const BLOOM_SOURCE = { value: 0 };
 
+/** An eruption's lava's crust (D206): from its cooling's first second to its last (s), the lava's own light fades to
+ *  none; from the end on it gives none, so nothing of it can feed the bloom (renderer.ts `blooms`). */
+export const LAVA_CRUST = [2.0, 5.8] as const;
+
 let noCaveFlow: Data3DTexture | null = null;
 /** The cave current's placeholder (one still cell), shared: never read while `caveFlowLevels.y` is 0. */
 export function noCaveCurrent(): Data3DTexture {
@@ -1820,7 +1824,7 @@ ${hook(h, "lit")}
           vec4 e = texture2D(eruptionMask, eAt / mapSize);
           float arrival = smoothstep(e.a * 1.1, e.a * 1.1 + 0.55, eruptionAge);
           float cooling = smoothstep(0.0, 3.6, coolingAge);
-          float crust = smoothstep(2.0, 5.8, coolingAge);
+          float crust = smoothstep(${f(LAVA_CRUST[0])}, ${f(LAVA_CRUST[1])}, coolingAge);
           float fade = 1.0 - smoothstep(3.3, 6.4, coolingAge);
           float cracks = pow(1.0 - abs(sin(vWorld.x * 2.8 + sin(vWorld.z * 1.2) * 2.6 + vWorld.z * 1.6)), 12.0);
           float hot = max(e.r * (0.56 + 0.44 * cracks), e.g * cracks);
@@ -2509,6 +2513,8 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         if (vWorld.y > slice + 0.02) discard;
         // hidden, or faded round the pointer where it is drawn by a dither (objectFade.ts)
         if (vFade <= 0.0 || (vFade < 1.0 && objectFade.w > 1.5 && vFade <= ditherAt(gl_FragCoord.xy))) discard;
+        // (the bloom's source has no coverage to fade by: a faded object there by the dither, as much of it as shows)
+        if (bloomSource > 0.5 && vFade < 1.0 && vFade <= ditherAt(gl_FragCoord.xy)) discard;
         // a ruin's far block's frame (D305): a lattice of open cells so it reads as a framework, not a
         // solid box, from any face (the two world axes across the face, whichever the normal isn't
         // closest to; no extra geometry or UVs), filtered to the pixel: the struts' share of the
