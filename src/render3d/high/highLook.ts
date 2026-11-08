@@ -15,7 +15,7 @@ import { Forest, replacedBatch, shapesAhead } from "./forest";
 import { buildLandmarks, disposeLandmarks, landmarkAhead, type Replacement } from "./landmarks";
 import { paletteDefaults, slots } from "./models";
 import { landmarkHooks, objectHooks, slopeHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks, type Switch } from "./shaders";
-import { CASTER_LAYER, SHADOW_SIZE, SunShadows } from "./shadows";
+import { CASTER_LAYER, SunShadows } from "./shadows";
 
 /** Warm sunlight (#65): the sun ×(1.48, 1.30, 1.10) and the sky ×0.97 of Standard's; with only the
  *  soft shadows on, #38's balance. */
@@ -112,14 +112,14 @@ export class HighLook {
 
   constructor(private host: HighHost) {
     const u = host.uniforms;
-    this.shadows = new SunShadows(u);
+    this.shadows = new SunShadows(u, host.gl.capabilities.maxTextureSize);
     const high = {
       ...this.switches,
       sunColor: this.sun,
       skyColor: this.sky,
       hlDepth: { value: this.shadows.target.depthTexture },
       hlShadowMatrix: { value: this.shadows.matrix },
-      hlTexel: { value: 1 / SHADOW_SIZE },
+      hlTexel: { value: 1 / this.shadows.size },
       hlFlow: { value: null as unknown },
       hlFlowSize: { value: new Vector2(1, 1) },
     };
