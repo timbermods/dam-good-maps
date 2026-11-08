@@ -8,9 +8,11 @@
 //
 // - `ProcessColumns` links a tile to a neighbour that has water, with no barrier between them, whose column overlaps
 //   its own and whose surface stands under its ceiling. On our ground (no barriers; each layer of waterLayers.ts sees
-//   the water at its own level) a neighbour is linked where it is wet.
+//   the water at its own level) a neighbour is linked where it is wet and its surface is not over this tile's ceiling
+//   (`SurfaceWater.ceiling`: a tunnel's water never rises to the open water outside it, into its roof).
 // - `BreakCornerLinks` and `BreakCornerLinksReversed` keep a corner (diagonal) link only where both tiles between are
-//   linked to both of the corner's tiles: here, where the corner neighbour and both tiles between are wet.
+//   linked to both of the corner's tiles: here, where the tile links to the corner neighbour and both tiles between,
+//   and they to it.
 // - `CalculateHeights`, per vertex: the vertex sits a third of the way along each axis from its tile's middle toward
 //   one side (an inner vertex, at ⅓ or ⅔) or on that side (an edge vertex, at 0 or 1). Its height is the highest of its
 //   own surface and, across each axis, its linked neighbour's surface there (less 0.3 where it is inner on that axis),
@@ -27,7 +29,7 @@
 // This is drawing only (D342, D497): the map's water never changes. Pure TypeScript, no three.js: the water mesh
 // workers and the bake worker run it too.
 
-import { OPENING } from "../core/analysis/opening";
+import { slopeCutShare, VIEW_TAN } from "./cutWater";
 import type { SurfaceWater } from "./model";
 
 /** `CalculateHeights`' drop at an inner vertex: it takes a linked neighbour's surface less this. */
@@ -41,22 +43,21 @@ export const SLOPE_MIN = 0.02;
  *  edge, × 0.5 inner. */
 const OFFSET = [-1, -0.5, 0.5, 1] as const;
 
-/** The tangent of the game's camera's pitch (its opening's, 60° below the horizon: core/analysis/opening.ts), for a
- *  slope's seen depth (`slopeHeights`). */
-const VIEW_TAN = Math.tan((OPENING.pitch * Math.PI) / 180);
+type Water = Pick<SurfaceWater, "surface" | "depth" | "ceiling">;
 
-type Water = Pick<SurfaceWater, "surface" | "depth">;
-
-const wetAt = (W: number, H: number, sw: Water, x: number, y: number): boolean => {
+/** Whether tile i links to tile (x, y) (`ProcessColumns`): it is on the map and wet, its surface not over i's ceiling. */
+const linkedAt = (W: number, H: number, sw: Water, i: number, x: number, y: number): boolean => {
   if (x < 0 || y < 0 || x >= W || y >= H) return false;
-  const i = y * W + x;
-  return sw.surface[i] === sw.surface[i] && sw.depth[i] > 0;
+  const j = y * W + x;
+  return sw.surface[j] === sw.surface[j] && sw.depth[j] > 0 && !(sw.ceiling && sw.surface[j] > sw.ceiling[i]);
 };
 
-/** Whether the corner neighbour (x + sx, y + sy) is linked to tile (x, y): it and both tiles between wet
- *  (`BreakCornerLinks`); the tile itself is taken to be wet. */
+/** Whether the corner neighbour (x + sx, y + sy) is linked to tile (x, y) (`BreakCornerLinks`): the tile links to it
+ *  and to both tiles between, and they to it; the tile itself is taken to be wet. */
 export function cornerLinked(W: number, H: number, sw: Water, x: number, y: number, sx: number, sy: number): boolean {
-  return wetAt(W, H, sw, x + sx, y + sy) && wetAt(W, H, sw, x + sx, y) && wetAt(W, H, sw, x, y + sy);
+  const i = y * W + x;
+  if (!linkedAt(W, H, sw, i, x + sx, y + sy) || !linkedAt(W, H, sw, i, x + sx, y) || !linkedAt(W, H, sw, i, x, y + sy)) return false;
+  return !sw.ceiling || (linkedAt(W, H, sw, i + sx, x + sx, y + sy) && linkedAt(W, H, sw, i + sy * W, x + sx, y + sy));
 }
 
 /** How far the highest linked neighbour's surface stands over a wet tile's own (0 where none stands over it): the
@@ -67,7 +68,7 @@ export function tileRise(W: number, H: number, sw: Water, x: number, y: number):
   for (let k = 0; k < 4; k++) {
     const dx = k === 0 ? 1 : k === 1 ? -1 : 0;
     const dy = k === 2 ? 1 : k === 3 ? -1 : 0;
-    if (wetAt(W, H, sw, x + dx, y + dy)) top = Math.max(top, sw.surface[(y + dy) * W + x + dx]);
+    if (linkedAt(W, H, sw, y * W + x, x + dx, y + dy)) top = Math.max(top, sw.surface[(y + dy) * W + x + dx]);
   }
   for (let k = 0; k < 4; k++) {
     const sx = k & 1 ? 1 : -1;
@@ -78,16 +79,18 @@ export function tileRise(W: number, H: number, sw: Water, x: number, y: number):
 }
 
 /** A grid tile's sixteen vertices (`slopeHeights`), index i + 4j at (x + i/3, y + j/3): its height, how far from it
- *  along the view the ground behind lies (`seen`, NaN where the vertex is at its own surface), and the badwater share
- *  of the neighbour it rose to (`from`, its tile; −1 where none). */
+ *  along the view the ground behind lies (`seen`, NaN where the vertex is at its own surface), the neighbour it rose to
+ *  (`from`, its tile; −1 where none), and its cut share (`cut`, cutWater.ts `slopeCutShare`: what the seen depth is
+ *  made of, for the water's shader under a layer cut). */
 export interface SlopeGrid {
   height: Float32Array;
   seen: Float32Array;
   from: Int32Array;
+  cut: Float32Array;
 }
 
 export function slopeGrid(): SlopeGrid {
-  return { height: new Float32Array(16), seen: new Float32Array(16), from: new Int32Array(16) };
+  return { height: new Float32Array(16), seen: new Float32Array(16), from: new Int32Array(16), cut: new Float32Array(16) };
 }
 
 /** The sixteen heights of wet tile (x, y), as `CalculateHeights` makes them, into `g`; with each raised vertex's seen
@@ -101,10 +104,10 @@ export function slopeHeights(W: number, H: number, sw: SurfaceWater, x: number, 
   const s = sw.surface[i0];
   const f = sw.floor[i0];
   // (each side's and corner's linked neighbour, its tile or −1: east, west, north (y + 1), south; then the corners)
-  const ex = wetAt(W, H, sw, x + 1, y) ? i0 + 1 : -1;
-  const wx = wetAt(W, H, sw, x - 1, y) ? i0 - 1 : -1;
-  const ny = wetAt(W, H, sw, x, y + 1) ? i0 + W : -1;
-  const sy = wetAt(W, H, sw, x, y - 1) ? i0 - W : -1;
+  const ex = linkedAt(W, H, sw, i0, x + 1, y) ? i0 + 1 : -1;
+  const wx = linkedAt(W, H, sw, i0, x - 1, y) ? i0 - 1 : -1;
+  const ny = linkedAt(W, H, sw, i0, x, y + 1) ? i0 + W : -1;
+  const sy = linkedAt(W, H, sw, i0, x, y - 1) ? i0 - W : -1;
   let raised = false;
   for (let j = 0; j < 4; j++)
     for (let i = 0; i < 4; i++) {
@@ -133,7 +136,7 @@ export function slopeHeights(W: number, H: number, sw: SurfaceWater, x: number, 
           inner = innerY;
         }
       }
-      if (nx >= 0 && nyy >= 0 && wetAt(W, H, sw, x + dx, y + dy)) {
+      if (nx >= 0 && nyy >= 0 && cornerLinked(W, H, sw, x, y, dx, dy)) {
         const d = i0 + dy * W + dx;
         const less = innerX || innerY;
         const v = less ? sw.surface[d] - SLOPE_DROP : sw.surface[d];
@@ -152,7 +155,9 @@ export function slopeHeights(W: number, H: number, sw: SurfaceWater, x: number, 
       }
       if (h - s >= SLOPE_MIN) raised = true;
       const u = inner ? 1 / 3 : 0;
-      g.seen[k] = Math.max(0.05, Math.min(h - f, Math.max(u * VIEW_TAN, h - sw.floor[from])));
+      const back = h - sw.floor[from];
+      g.seen[k] = Math.max(0.05, Math.min(h - f, Math.max(u * VIEW_TAN, back)));
+      g.cut[k] = slopeCutShare(inner, back);
     }
   return raised;
 }
@@ -169,14 +174,14 @@ export function handOver(W: number, H: number, sw: Water, v: ArrayLike<number>, 
     for (let x = xa; x <= xb; x++) {
       const i = y * W + x;
       for (let c = 0; c < n; c++) out[i * n + c] = v[i * n + c];
-      if (!wetAt(W, H, sw, x, y)) continue;
+      if (!(sw.surface[i] === sw.surface[i] && sw.depth[i] > 0)) continue;
       const s = sw.surface[i];
       let best = s;
       let from = -1;
       for (let k = 0; k < 4; k++) {
         const dx = k === 0 ? 1 : k === 1 ? -1 : 0;
         const dy = k === 2 ? 1 : k === 3 ? -1 : 0;
-        if (!wetAt(W, H, sw, x + dx, y + dy)) continue;
+        if (!linkedAt(W, H, sw, i, x + dx, y + dy)) continue;
         const j = (y + dy) * W + x + dx;
         if (sw.surface[j] > best) {
           best = sw.surface[j];

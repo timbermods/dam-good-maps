@@ -7,7 +7,7 @@
 
 import { CHUNK } from "../../src/render3d/mesh";
 import type { SurfaceWater } from "../../src/render3d/model";
-import { BLEND_KERNEL, blendInto, dropFlags, SHORE_BITS, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { BLEND_KERNEL, blendInto, dropFlags, FALL, SHORE_BITS, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { handOver, SLOPE_MIN, slopeGrid, slopeHeights, tileRise } from "../../src/render3d/fallSlope";
 
 const STEP = 0.02;
@@ -16,6 +16,7 @@ const BLEND_WINDOW = 4;
 let badScratch = new Float32Array(0);
 let handScratch = new Float32Array(0);
 const grid = slopeGrid();
+const nearGrid = slopeGrid();
 
 class WaterBuffer {
   pos: number[] = [];
@@ -138,9 +139,10 @@ export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array,
               b.quad4(q.flatMap((v) => [x + (v & 3) / 3, grid.height[v], -(y + (v >> 2) / 3)]), q.map((v) => vd[v]), q.map((v) => vc[v]), 0, 1, 0, flags);
             }
         } else b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], 0, 1, 0, flags);
-        // curtains toward lower dry neighbours and the map's edge only (water meets water by the slope), down to the
-        // ground, never below the floor, each with the badwater share of the top's edge it hangs from, its top along
-        // the top's edge
+        // curtains toward lower dry neighbours and the map's edge, down to the ground, never below the floor, each with
+        // the badwater share of the top's edge it hangs from, its top along the top's edge; toward a wet neighbour a
+        // skirt where this top's edge stands STEP or more over the neighbour's at a vertex, down to it (as the main
+        // mesher: water meets water by the slope, the skirt closing where their edges part)
         const dd = [d, d, d, d];
         const SIDES = [
           { ax: 1, ay: 0, bx: 1, by: 1, a: c1, b: c2, grid: [3, 7, 11, 15], nx: 1, nz: 0 },
@@ -152,21 +154,29 @@ export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array,
           const xx = x + (k === 0 ? 1 : k === 1 ? -1 : 0);
           const yy = y + (k === 2 ? 1 : k === 3 ? -1 : 0);
           const inside = xx >= 0 && yy >= 0 && xx < W && yy < H;
-          if (inside && sw.surface[yy * W + xx] === sw.surface[yy * W + xx]) continue;
-          const lv = level(xx, yy);
-          const e = Math.max(lv, f);
+          const wet = inside && sw.surface[yy * W + xx] === sw.surface[yy * W + xx];
           const S = SIDES[k];
-          const n = slope ? 3 : 1;
+          const sn = wet ? sw.surface[yy * W + xx] : 0;
+          if (wet && !(Math.max(s, ...(slope ? S.grid.map((v) => grid.height[v]) : [])) >= sn + STEP)) continue;
+          const nearSlope = wet && tileRise(W, H, sw, xx, yy) >= SLOPE_MIN && slopeHeights(W, H, sw, xx, yy, nearGrid);
+          // (the neighbour's vertices along the side: its opposite side's, backwards)
+          const O = [...SIDES[k ^ 1].grid].reverse();
+          const lv = wet ? sn : level(xx, yy);
+          const e = Math.max(lv, f);
+          const n = slope || nearSlope ? 3 : 1;
           for (let q = 0; q < n; q++) {
             const ta = q / n;
             const tb = (q + 1) / n;
             const ha = slope ? grid.height[S.grid[q]] : s;
             const hb = slope ? grid.height[S.grid[q + 1]] : s;
-            if (!(lv < Math.max(ha, hb) - STEP)) continue;
+            const ea = wet ? Math.min(ha, Math.max(f, nearSlope ? nearGrid.height[O[q]] : sn)) : e;
+            const eb = wet ? Math.min(hb, Math.max(f, nearSlope ? nearGrid.height[O[q + 1]] : sn)) : e;
+            if (wet ? !(Math.max(ha - ea, hb - eb) >= STEP) : !(lv < Math.max(ha, hb) - STEP)) continue;
             const ca = (1 - ta) * S.a + ta * S.b;
             const cb = (1 - tb) * S.a + tb * S.b;
             const [ax, ay, bx, by] = [x + S.ax + (S.bx - S.ax) * ta, y + S.ay + (S.by - S.ay) * ta, x + S.ax + (S.bx - S.ax) * tb, y + S.ay + (S.by - S.ay) * tb];
-            b.quad4([ax, e, -ay, bx, e, -by, bx, hb, -by, ax, ha, -ay], dd, [ca, cb, cb, ca], S.nx, 0, S.nz, dropFlags(Math.max(ha, hb), e, !inside));
+            const fl = wet ? Math.min(Math.round(FALL * 30) - 1, dropFlags(Math.max(ha, hb), Math.min(ea, eb), false)) : dropFlags(Math.max(ha, hb), e, !inside);
+            b.quad4([ax, ea, -ay, bx, eb, -by, bx, hb, -by, ax, ha, -ay], dd, [ca, cb, cb, ca], S.nx, 0, S.nz, fl);
           }
         }
       }

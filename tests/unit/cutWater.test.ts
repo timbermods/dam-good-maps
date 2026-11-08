@@ -12,7 +12,7 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { bedAtCut, CUT_SLACK, cutCornerDepth, cutSlopeDepth, ringLevelAt, SLOPE_SHARE, surfaceAtCut, waterLevelAt } from "../../src/render3d/cutWater";
+import { bedAtCut, CUT_SLACK, cutCornerDepth, cutSlopeDepth, ringLevelAt, slopeCutShare, surfaceAtCut, VIEW_TAN, waterLevelAt } from "../../src/render3d/cutWater";
 import { WATER_BYTE_FINE, WATER_BYTE_STEPS, waterByte } from "../../src/render3d/light";
 import { chunkCount } from "../../src/render3d/mesh";
 import { LAYERS, surfaceWater, waterFromDepth, type SurfaceWater, type WaterView } from "../../src/render3d/model";
@@ -45,9 +45,22 @@ describe("the rule", () => {
     expect(cutCornerDepth(0.4, 0.25, 8, 6), "a shore's corner").toBe(0);
   });
 
-  it("gives a fall's slope sliced onto the cut the water's depth from its floor up to the cut", () => {
-    expect(cutSlopeDepth(2, 5)).toBe(3);
-    expect(cutSlopeDepth(5, 5), "its floor at the cut").toBe(0);
+  it("gives a fall's slope sliced onto the cut the depth seen behind it from there, as from its own height", () => {
+    // a fall 10 -> 5, the upper water's floor at 8, the pool's at 3: its edge vertex at 10, one a third in at 9.7
+    const edge = slopeCutShare(false, 10 - 8);
+    const inner = slopeCutShare(true, 9.7 - 8);
+    expect(edge).toBeLessThan(-0.5);
+    expect(inner).toBeLessThan(-0.5);
+    // uncut, as slopeHeights sees it
+    expect(cutSlopeDepth(3, 10, edge, 10)).toBeCloseTo(2, 5);
+    expect(cutSlopeDepth(3, 9.7, inner, 9.7)).toBeCloseTo(1.7, 5);
+    // cut at 7, under the upper floor: the view meets the cliff (shallow, never the pool's 4 levels from floor to cut)
+    expect(cutSlopeDepth(3, 10, edge, 7)).toBeCloseTo(0.05, 5);
+    expect(cutSlopeDepth(3, 9.7, inner, 7)).toBeCloseTo(VIEW_TAN / 3, 5);
+    // cut at 9, through the upper water: into it, to its floor
+    expect(cutSlopeDepth(3, 10, edge, 9)).toBeCloseTo(1, 5);
+    // never deeper than the cut over its own floor
+    expect(cutSlopeDepth(8.5, 10, edge, 9)).toBeCloseTo(0.5, 5);
   });
 });
 
@@ -72,7 +85,7 @@ function fold(
   if (ny > 0)
     return {
       y: Math.min(y, slice),
-      depth: share === SLOPE_SHARE ? cutSlopeDepth(floor, slice) : Math.max(0, depth - over * share),
+      depth: share < -0.5 ? cutSlopeDepth(floor, y, share, slice) : Math.max(0, depth - over * share),
       flags: flags % 16,
     };
   return {

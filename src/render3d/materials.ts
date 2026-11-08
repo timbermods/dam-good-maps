@@ -74,7 +74,7 @@ import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
 import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./shoreFilm";
 import { EDGE_BAND, SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
-import { CUT_SLACK } from "./cutWater";
+import { CUT_SLACK, VIEW_TAN } from "./cutWater";
 import { FALL } from "./waterMesh";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 import { DITHER_GLSL, FADE_OFF, OBJECT_FADE_GLSL } from "./objectFade";
@@ -1976,10 +1976,16 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = wflags < 254.5 && wflags > ${f(FALL * 30 - 0.5)} ? min(w.y, slice) : surface;
         if (surface > slice + ${f(CUT_SLACK)} && wcut.x < slice) {
           float over = surface - slice;
+          float h0 = w.y;
           w.y = min(w.y, slice);
           if (normal.y > 0.5) {
-            // (a fall's slope vertex, its share SLOPE_SHARE: the water from its floor up to the cut, cutWater.ts)
-            vData.x = wcut.y < -0.5 ? max(0.0, slice - wcut.x) : max(0.0, wdata.x - over * wcut.y);
+            // (a fall's slope vertex, its cut share under -0.5: the depth seen from the cut, against the cliff or into
+            // the upper water to its floor, cutWater.ts cutSlopeDepth)
+            if (wcut.y < -0.5) {
+              float v = -1.0 - wcut.y;
+              float back = h0 - (mod(v, 64.0) - 0.5);
+              vData.x = max(0.05, min(slice - wcut.x, max(v > 63.75 ? ${f(VIEW_TAN / 3)} : 0.0, slice - back)));
+            } else vData.x = max(0.0, wdata.x - over * wcut.y);
             // (its shores only)
             vFlags = mod(wflags, 16.0);
           } else {

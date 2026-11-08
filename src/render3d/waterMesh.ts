@@ -3,7 +3,7 @@
 // game's grid of sixteen vertices instead, rising to meet that water, so a fall is the lower tile's own slope from the
 // lip, as the game draws its falls (fallSlope.ts, its CalculateHeights; D154 as amended 2026-11-08). Where a
 // neighbour's ground is lower and dry, or at the map's edge, a curtain hangs from the surface down to it, the water's
-// side. With terrain above terrain
+// side; where a wet neighbour's top meets this one's lower along their edge, a skirt down to it. With terrain above terrain
 // every water column (a cave's pool, the lake on its roof) is drawn the same way on its own floor,
 // seeing the water and ground at its own level round it (waterLayers.ts). Each vertex carries a depth and badwater share,
 // which the shader turns into colour and opacity (Map look, D86: a top's corners share depth with
@@ -17,7 +17,6 @@ import type { SurfaceWater, WaterView } from "./model";
 import type { WaterLayer } from "./waterLayers";
 import { cornerShift, filmDepthShare } from "./shoreFilm";
 import { handOver, SLOPE_MIN, slopeGrid, slopeHeights, tileRise, type SlopeGrid } from "./fallSlope";
-import { SLOPE_SHARE } from "./cutWater";
 
 /** Flags of a water top: bits 0–3 the sides (east, west, north, south) where it meets the shore. A curtain's
  *  flags are its drop (`dropFlags`); the map's edge has none. */
@@ -91,14 +90,15 @@ const CURTAIN_SIDES = [
   { ax: 0, ay: 0, bx: 1, by: 0, a: 0, b: 1, grid: [0, 1, 2, 3], nx: 0, nz: 1 },
 ] as const;
 
-/** The grid `slopeHeights` fills, kept (one tile at a time). */
+/** The grid `slopeHeights` fills, kept (one tile at a time), and a neighbour's (its skirts). */
 const grid = slopeGrid();
+const nearGrid = slopeGrid();
 
 /** A slope's top (fallSlope.ts): the game's grid of sixteen vertices as nine quads, each split along the game's
  *  diagonal, from (i + 1, j) to (i, j + 1) in thirds; lit as any top (the up normal). A vertex at its own surface takes
  *  the top's corners' depth, wet share and still film's shift, bilinearly; one raised takes the depth seen there
- *  (`SlopeGrid.seen`) and, for its wet share, `SLOPE_SHARE` (sliced by a layer cut, it takes the water from its floor
- *  up to the cut: cutWater.ts). The badwater share is the corners',
+ *  (`SlopeGrid.seen`) and, for its wet share, its cut share (`SlopeGrid.cut`: sliced by a layer cut, it takes the depth
+ *  seen from the cut, cutWater.ts `cutSlopeDepth`). The badwater share is the corners',
  *  bilinearly: the water below a fall already has the fall's, handed over (`handOver`). */
 function slopeTop(b: WaterBuffer, g: SlopeGrid, x: number, y: number, f: number, flags: number, k0: readonly number[], k1: readonly number[], k2: readonly number[], k3: readonly number[], m: readonly (readonly number[])[] | null): void {
   // (each vertex's weights on the top's four corners, bilinearly: SLOPE_WEIGHTS)
@@ -111,7 +111,7 @@ function slopeTop(b: WaterBuffer, g: SlopeGrid, x: number, y: number, f: number,
     const seen = g.seen[q];
     const up = seen === seen;
     vd[q] = up ? seen : w0 * k0[0] + w1 * k1[0] + w2 * k2[0] + w3 * k3[0];
-    vs[q] = up ? SLOPE_SHARE : w0 * k0[2] + w1 * k1[2] + w2 * k2[2] + w3 * k3[2];
+    vs[q] = up ? g.cut[q] : w0 * k0[2] + w1 * k1[2] + w2 * k2[2] + w3 * k3[2];
     vc[q] = w0 * k0[1] + w1 * k1[1] + w2 * k2[1] + w3 * k3[1];
     if (m) {
       vm[q * 2] = w0 * m[0][0] + w1 * m[1][0] + w2 * m[2][0] + w3 * m[3][0];
@@ -171,8 +171,12 @@ const SAME_WATER = 0.35;
 /** A curtain this tall or more (its drop in its flags, `dropFlags`) is drawn as the water's side in its shallowest
  *  colour, nearly opaque, kept below a layer cut; a shorter one fades out as it shortens (materials.ts,
  *  high/shaders.ts). Since falls are slopes (fallSlope.ts) a curtain hangs only toward lower dry ground and at the
- *  map's edge. */
+ *  map's edge (toward water, a skirt: `SKIRT_FLAGS`). */
 export const FALL = 0.3;
+
+/** A skirt's flags (its drop, as a curtain's): never as tall as a fall, so it is drawn as the water's own surface going
+ *  on (materials.ts), as the game's skirt shares its top's material. */
+const SKIRT_FLAGS = Math.round(FALL * 30) - 1;
 
 /** How the badwater share is blended between tiles (D177): a binomial kernel along rows, then
  *  along columns, from the tile itself out to 3 tiles away. A clean/bad front becomes a gradient
@@ -409,31 +413,62 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
         if (slope) slopeTop(b, grid, x, y, f, flags, k0, k1, k2, k3, moved ? [m0, m1, m2, m3] : null);
         else b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], f, [k0[2], k1[2], k2[2], k3[2]], 0, 1, 0, flags, sh(m0, m1, m2, m3));
         // curtains toward lower dry neighbours and the map's edge: down to the ground, never below the floor, with the
-        // badwater share of the top's edge it hangs from, its top along the top's edge (a slope's too). None toward a
-        // wet neighbour: water meets water by the slope, as the game's linked tiles do (a skirt only where a side sees
-        // several columns, the game's stacked water, which each layer here sees one of)
+        // badwater share of the top's edge it hangs from, its top along the top's edge (a slope's too). Toward a wet
+        // neighbour, a skirt where this top's edge stands over the neighbour's (`STEP` or more) at a vertex they share,
+        // down to the neighbour's there, as the game's water vertex shader drops each tile's side skirt to the
+        // neighbour's height at that vertex: water meets water by the slope, but where their corners' links differ (a
+        // corner neighbour dry on one side only) or a neighbour is not linked, the two tops' edges part, and the skirt
+        // closes the window between them
         const dd = [d, d, d, d];
         const side = [1, 1, 1, 1];
         for (let k = 0; k < 4; k++) {
           const xx = x + (k === 0 ? 1 : k === 1 ? -1 : 0);
           const yy = y + (k === 2 ? 1 : k === 3 ? -1 : 0);
           const inside = xx >= 0 && yy >= 0 && xx < W && yy < H;
-          if (inside && sw.surface[yy * W + xx] === sw.surface[yy * W + xx]) continue;
-          const lv = level(xx, yy);
+          const S = CURTAIN_SIDES[k];
+          const wet = inside && sw.surface[yy * W + xx] === sw.surface[yy * W + xx];
+          // (a skirt: its neighbour's heights along the side, a slope's grid or its surface; none where this top's edge
+          // stands nowhere over the neighbour's surface, the most)
+          let nearSlope = false;
+          let sn = 0;
+          if (wet) {
+            sn = sw.surface[yy * W + xx];
+            let hi = s;
+            if (slope) for (let q = 0; q < 4; q++) hi = Math.max(hi, grid.height[S.grid[q]]);
+            if (!(hi >= sn + STEP)) continue;
+            nearSlope = tileRise(W, H, sw, xx, yy) >= SLOPE_MIN && slopeHeights(W, H, sw, xx, yy, nearGrid);
+          }
+          const lv = wet ? sn : level(xx, yy);
           const e = Math.max(lv, f);
           const edge = !inside;
-          // the side's ends A and B (map axes), the corners there, and its vertices along it in a slope's grid
-          const S = CURTAIN_SIDES[k];
+          // the side's ends A and B (map axes), the corners there, and its vertices along it in a slope's grid (the
+          // neighbour's same vertices: its opposite side's, backwards)
+          const O = CURTAIN_SIDES[k ^ 1].grid;
           const ca = [c0, c1, c2, c3][S.a];
           const cb = [c0, c1, c2, c3][S.b];
           const ma = [m0, m1, m2, m3][S.a];
           const mb = [m0, m1, m2, m3][S.b];
-          const segments = slope ? 3 : 1;
+          const segments = slope || nearSlope ? 3 : 1;
           for (let q = 0; q < segments; q++) {
             const ta = q / segments;
             const tb = (q + 1) / segments;
             const ha = slope ? grid.height[S.grid[q]] : s;
             const hb = slope ? grid.height[S.grid[q + 1]] : s;
+            if (wet) {
+              const ea = Math.min(ha, Math.max(f, nearSlope ? nearGrid.height[O[3 - q]] : sn));
+              const eb = Math.min(hb, Math.max(f, nearSlope ? nearGrid.height[O[2 - q]] : sn));
+              if (!(Math.max(ha - ea, hb - eb) >= STEP)) continue;
+              const ax = x + S.ax + (S.bx - S.ax) * ta;
+              const ay = y + S.ay + (S.by - S.ay) * ta;
+              const bx = x + S.ax + (S.bx - S.ax) * tb;
+              const by = y + S.ay + (S.by - S.ay) * tb;
+              const cqa = (1 - ta) * ca + ta * cb;
+              const cqb = (1 - tb) * ca + tb * cb;
+              const mqa = segments === 1 ? ma : lerp2(ma, mb, ta);
+              const mqb = segments === 1 ? mb : lerp2(ma, mb, tb);
+              b.quad4([ax, ea, -ay, bx, eb, -by, bx, hb, -by, ax, ha, -ay], dd, [cqa, cqb, cqb, cqa], f, side, S.nx, 0, S.nz, Math.min(SKIRT_FLAGS, dropFlags(Math.max(ha, hb), Math.min(ea, eb), false)), sh(mqa, mqb, mqb, mqa));
+              continue;
+            }
             if (!(lv < Math.max(ha, hb) - STEP)) continue;
             const ax = x + S.ax + (S.bx - S.ax) * ta;
             const ay = y + S.ay + (S.by - S.ay) * ta;
