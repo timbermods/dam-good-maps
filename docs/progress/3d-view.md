@@ -593,9 +593,9 @@ Standard's shadow before a cave (item 8).
     glint), the start up close 1.270, and the bloom's result 0 or under a code (the start up close: 4 × 10⁻⁶), the
     canvas the same to the byte. `tests/unit/bloom.test.ts` holds it: every model colour a face can turn to the sun, lit
     as the game lights it, under the knee (the brightest, a mine's pale rubble, 1.262); the ruins' rust skeleton
-    (upright, 1.282 square to the sun), a mine's pale roots and the birch's bark (1.37 on a trunk square to the sun; the
-    game's bark is a warm grey, mean 0.525/0.474/0.392, `tools/game-model-albedo.py BirchMature`, ours near-white: still
-    to follow) held at their bounds; the sky's densest clouds 1.271, which move no code.
+    (upright, 1.282 square to the sun) and a mine's pale roots held at their bounds; the sky's densest clouds 1.271,
+    which move no code. The birch's bark was held there too (1.37 on a trunk square to the sun in Standard, 1.42 in
+    High) until `fix/birch-bark` gave it the game's warm grey (below).
     `tests/e2e/look-high.spec.ts` checks the frame by day is skipped and the same to the byte with the passes and
     without, and that an eruption's lava draws them.
   - **The colours bloom found** (D178, D496's rule: the game's albedo at our lightness; `tools/game-model-albedo.py`
@@ -609,6 +609,18 @@ Standard's shadow before a cave (item 8).
     berries, +62 round the start in High); with them, no day frame of ours reaches the knee but by its foot (below; the start from 11 to 42,
     crowns and bushes close up, two maps, both looks: the brightest 1.26 of a knee at 1.269), as the game's own lift
     at most 0.21 % of a frame by day, median none (the probe's 680 day-lit start shots, an upper bound).
+  - **The birch's bark** (`fix/birch-bark`, after #863; D496's rule): the game's grown birch's bark, its white-vertex
+    part (11.9 % of BirchMature's area), is a warm grey, mean albedo 0.525/0.474/0.392 (`tools/game-model-albedo.py
+    BirchMature`), where ours was a near-white of our own (Standard 0.93/0.91/0.86, High #f2efdd). It takes the game's
+    at our lightness as the pine's and oak's barks do (`TREE_COLOURS.birchBark`, 0.692/0.625/0.517; High #9b9f9c with
+    the warm sun's tint taken out), in every look, the dead birch its weathered wood from it. Lit square to the sun it
+    shows 1.21 (it was 1.63), so it joins the general rule under the knee. Real Chrome on the RTX 2070 SUPER, River
+    Valley 128² seed 1 (219 birches), a grove up close (6 away) and at play distance (36), against dev's site at the
+    same moment: the bark's pixels go from 172/171/170 to 135/125/109 up close in Standard (141/148/137 to 115/117/96
+    at play distance) and from 178/174/164 to 125/125/122 in High (156/160/140 to 116/125/110); with the birches hidden
+    the frames are dev's to within a code; the bloom's passes stay off by day. The game's birch foliage by the same
+    tool, 0.188/0.249/0.108 over its green vertices, is 2.4 L* lighter than ours (0.174/0.231/0.099; the pine's 2.8
+    lighter, the oak's 2.8 darker, the same reading's spread): left as it is. The bark goes 92 to 66 L*.
   - Its cost** (`npx tsx` of a probe, RTX 2070 SUPER, 1280 × 800, River Valley 256² with dense forest and ruins,
     orbiting, the same build with it off and on, two rounds each): by day, skipped, dev's: p50 7.00 ms, p95 7.02, the
     page's time 0.96 ms in Standard and 1.26 in High against 0.96 and 1.38 without it, the GPU's 3.5 and 3.0 against 3.7

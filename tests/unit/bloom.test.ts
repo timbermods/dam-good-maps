@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { bloomLevels, bloomLift, GAME_BLOOM, GAME_BLOOM_LOOKS, inverseTable } from "../../src/render3d/bloom";
-import { BIRCH_BARK } from "../../src/render3d/entities3d";
 import { paletteDefaults } from "../../src/render3d/high/models";
 import { GAME_LIGHT, GAME_SKY, gameAmbient, gamePostRgb, LIGHT, MINE, RUIN, START, TREE_COLOURS } from "../../src/render3d/palette";
 
@@ -82,10 +81,8 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
       ["RUIN.panel", RUIN.panel.map((v) => v * 1.02)],
       ...MINE.rubble.map((c, k) => [`MINE.rubble.${k}`, c] as [string, readonly number[]]),
       ...(["wood", "earthTop", "seam", "ladder", "frame", "earth"] as const).map((k) => [`MINE.${k}`, MINE[k]] as [string, readonly number[]]),
-      // High's models, all but the birch's bark (below) and its marks on it
-      ...Object.entries(paletteDefaults)
-        .filter(([k]) => !["birchBark", "birchDead"].includes(k))
-        .map(([k, h]) => [`high.${k}`, hex(h)] as [string, readonly number[]]),
+      // High's models, the birch's bark and dead wood with them since they took the game's warm grey (2026-11-08)
+      ...Object.entries(paletteDefaults).map(([k, h]) => [`high.${k}`, hex(h)] as [string, readonly number[]]),
     ];
     for (const [name, c] of faces) expect(lit(c), name).toBeLessThan(knee);
     // the brightest: the mine's pale rubble, then the ruins' panels, High's berries and the start's roof
@@ -94,14 +91,12 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
 
   it("holds the colours whose bound passes the knee at what every frame measured shows of them", () => {
     // These pass the knee only on a face square to the sun, which no frame of ~2,900 day views measured shows
-    // (`.scratch` probe, 2026-11-08: ruins 1.20, birches 1.27, mines' roots in their pit): the ruins' rust skeleton
-    // (upright posts, beams and struts, a shade at most 1.05) and a mine's pale roots (hanging cones), lit level; the
-    // birch's bark stands in its crown's shade. Their bounds are held where they are, so none gets brighter unseen; the
-    // birch's bark is the game's to follow (its mean albedo 0.525/0.474/0.392, `tools/game-model-albedo.py BirchMature`).
+    // (`.scratch` probe, 2026-11-08: ruins 1.20, mines' roots in their pit): the ruins' rust skeleton (upright posts,
+    // beams and struts, a shade at most 1.05) and a mine's pale roots (hanging cones), lit level. Their bounds are held
+    // where they are, so none gets brighter unseen. (The birch's bark was held here at 1.369 in Standard and 1.42 in High
+    // until it took the game's warm grey, 2026-11-08: it falls under the knee with the rest, above.)
     expect(lit(RUIN.rust.map((v) => v * 1.05), true)).toBeLessThan(1.283);
     expect(lit(MINE.rootPale, true)).toBeLessThan(knee);
-    expect(lit(BIRCH_BARK, true)).toBeLessThan(1.369);
-    expect(lit(hex(paletteDefaults.birchBark), true)).toBeLessThan(1.42);
   });
 
   it("finds the sky's brightest, its clouds at their densest, at the knee's foot, where it changes no canvas code", () => {

@@ -141,7 +141,9 @@ export const ALBEDO_SCALE = luma([0.353, 0.372, 0.128]) / luma(GAME_GRASS);
 /** A colour of the game's albedo as ours. */
 export const asOurs = (c: Rgb): Rgb => [Math.min(1, c[0] * ALBEDO_SCALE), Math.min(1, c[1] * ALBEDO_SCALE), Math.min(1, c[2] * ALBEDO_SCALE)];
 /** Trees and bushes as the game colours them: the grown models' foliage and bark (texture x vertex colour, means over
- *  their area, read from resources.assets), as ours. Olive and yellow-green, darker than the grass. */
+ *  their area, read from resources.assets), as ours. Olive and yellow-green, darker than the grass. The birch's bark is
+ *  its white-vertex part, a warm grey (`tools/game-model-albedo.py BirchMature`: 11.9 % of its area); until 2026-11-08
+ *  ours was a near-white 0.93/0.91/0.86 of our own, about 1.6 a face square to the sun, past the bloom's knee. */
 export const TREE_COLOURS = {
   pine: asOurs([0.114, 0.181, 0.099]),
   birch: asOurs([0.174, 0.231, 0.099]),
@@ -149,6 +151,7 @@ export const TREE_COLOURS = {
   bush: asOurs([0.153, 0.175, 0.088]),
   pineBark: asOurs([0.269, 0.183, 0.117]),
   oakBark: asOurs([0.21, 0.17, 0.103]),
+  birchBark: asOurs([0.525, 0.474, 0.392]),
 } as const;
 
 /** Juice (D205): the dust a lowered stroke puffs up (a light, dry earth), and a source's splash

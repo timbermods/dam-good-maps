@@ -4,7 +4,7 @@
 // a few draw calls. Every model carries its own colours per vertex; the instance adds a slight tint
 // so a grove is not one flat colour.
 //
-// - Trees by species: pine (tiers of dark cones), birch (a white trunk with dark marks and a light
+// - Trees by species: pine (tiers of dark cones), birch (a warm grey trunk with dark marks and a light
 //   crown), oak (a thick trunk and a broad crown), succulent (a fat brown pinecone-like trunk ringed by round sage paddles on its
 //   upper half, and a young plant beside it). Dead trees are bare: a pale grey-brown trunk and bare branches at the tree's true size, far lighter
 //   than the dark living crowns.
@@ -259,11 +259,11 @@ function onFace(m: Model, f: number, build: () => void): void {
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 
 const BARK: Rgb = TREE_COLOURS.pineBark;
-export const BIRCH_BARK: Rgb = [0.93, 0.91, 0.86];
+export const BIRCH_BARK: Rgb = TREE_COLOURS.birchBark;
 const OAK_BARK: Rgb = TREE_COLOURS.oakBark;
 const BUSH_LEAVES: Rgb = TREE_COLOURS.bush;
 /** Bare dead wood as the game's (dying.ts `DEAD_FORM`): each tree's own bark weathered, the pine's and oak's lighter and
- *  greyer brown, still lighter than the living crowns; a dead birch stays white, a shade darker. Where a limb broke the
+ *  greyer brown, still lighter than the living crowns; a dead birch keeps its warm grey, a shade darker. Where a limb broke the
  *  wood is paler. */
 const DEAD_WOOD: Rgb = deadWood("Pine", BARK);
 const DEAD_DARK: Rgb = shade(DEAD_WOOD, 0.85);
@@ -313,7 +313,7 @@ const MODELS: Record<string, () => Model> = {
     branch(m, 1.02, 3.7, 0.55, 0.1, 0.025, DEAD_DARK);
     return m;
   },
-  // the game's grown birch: a white trunk forking low into two stems, under a round crown from 0.95 to 1.92, 1.0 across
+  // the game's grown birch: a warm grey trunk forking low into two stems, under a round crown from 0.95 to 1.92, 1.0 across
   Birch: () =>
     new Model()
       .add(cyl(0.075, 0.06, 0.45, 5), BIRCH_BARK, { y: 0.225 })
