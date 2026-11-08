@@ -24,7 +24,10 @@
 // nothing in the product changed), gives each move the first dab call that carries a point beyond the
 // previous move's position (the stroke runs left to right, so a point's x says which move it came from),
 // and follows that call's answer to the re-mesh it draws and to the frame after it. (A move's tile x is
-// where the page's own pick puts it on the stroke's level.)
+// where the page's own pick puts it on the stroke's level.) A call answered without land changed nothing,
+// and its moves are counted apart (`movesChangingNothing`), as the page's own are (#868): most of a Size 5
+// stroke's dabs fall on ground already weathered as far as it goes. `workerAnswerMs` is from each move to the
+// answer for its points, land or none, so a queue of calls waiting for the worker shows there.
 //
 // Configurations, as `npm run bench:3d` picks them (PLAN §20 D46): the default GPU; and, on a
 // machine with two, the other GPU (on a desktop, its integrated one) with the page's CPU slowed 4×
@@ -103,13 +106,16 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
           seen.add(this);
           this.addEventListener("message", (e) => {
             const a = e.data && w.__w.byId.get(e.data.id);
-            if (a) a.resp = e.timeStamp;
+            if (a) {
+              a.resp = e.timeStamp;
+              a.land = !!(e.data && e.data.value);
+            }
           });
         }
         if (m && Array.isArray(m.path) && m.path[0] === "weatherAdd") {
           const a0 = m.argumentList && m.argumentList[0];
           const dabs = Array.isArray(a0) ? a0 : a0 && a0.value;
-          const a = { t: performance.now(), xs: [], resp: null };
+          const a = { t: performance.now(), xs: [], resp: null, land: false };
           for (let i = 0; Array.isArray(dabs) && i < dabs.length; i += 2) a.xs.push(dabs[i] / 4);
           w.__w.adds.push(a);
           w.__w.byId.set(m.id, a);
@@ -233,11 +239,17 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
     for (const [k, v] of top) console.log(`  ${v.toFixed(1).padStart(8)}  ${k}`);
   }
   const raw = (await page.evaluate("window.__b")) as { mv: [number, number][]; rend: number[]; raf: number[]; long: [number, number][]; up: number; mesh: number[]; moves: number[]; mx: number[]; meshAt: number[]; idle: number; pressing: number[]; pending: number[] };
-  const worker = (await page.evaluate("window.__w.adds")) as { t: number; xs: number[]; resp: number | null }[];
+  const worker = (await page.evaluate("window.__w.adds")) as { t: number; xs: number[]; resp: number | null; land: boolean }[];
   // the worker's land (D422): each move's land is in the first dab call carrying a point beyond the
   // previous move's tile x (the points a move pressed, or, when it pressed none, the next move's); the
-  // land is drawn by the first re-mesh after that call's answer arrived
+  // land is drawn by the first re-mesh after that call's answer arrived. A call whose answer carries no
+  // land changed nothing (a dab over ground already weathered as far as it goes): its moves are counted
+  // apart, as the page's own are, since following them to a later call's land was a wait no player sees
+  // (#868, as #858 found for Raise)
   const remote = worker.some((a) => a.xs.length);
+  // (and from each move to the worker's answer for its points, land or none: the wait behind earlier calls included)
+  const answered: number[] = [];
+  let unchanged = 0;
   if (remote) {
     raw.mv = [];
     let prev = tiles[0][0];
@@ -245,6 +257,11 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
       const call = worker.find((a) => a.resp !== null && a.resp >= raw.moves[m] && a.xs.some((x) => x > prev + 0.125));
       if (Number.isFinite(raw.mx[m])) prev = raw.mx[m];
       if (!call) continue;
+      answered.push(call.resp! - raw.moves[m]);
+      if (!call.land) {
+        unchanged++;
+        continue;
+      }
       const u = raw.meshAt.find((t) => t >= call.resp!);
       if (u !== undefined) raw.mv.push([raw.moves[m], u]);
     }
@@ -292,8 +309,20 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
     brush: last ? `${last.tool}, Size ${last.size}, Strength ${last.strength}` : null,
     refreshMs: round(refresh),
     landFrom: remote ? `worker (${worker.length} dab calls)` : "page preview",
+    // (the worker's land: from a move to the worker's answer for its points; each dab call's time there and
+    // back, and how many dabs it carried)
+    ...(remote
+      ? {
+          workerAnswerMs: { p50: round(pct(answered, 0.5)), p95: round(pct(answered, 0.95)), max: round(Math.max(0, ...answered)), samples: answered.length },
+          workerCalls: (() => {
+            const rt = worker.filter((a) => a.resp !== null).map((a) => a.resp! - a.t);
+            const n = worker.map((a) => a.xs.length);
+            return { roundTripP50: round(pct(rt, 0.5)), roundTripP95: round(pct(rt, 0.95)), dabs: n.reduce((a, b) => a + b, 0), dabsPerCallP50: pct(n, 0.5), dabsPerCallMax: Math.max(0, ...n), withLand: worker.filter((a) => a.land).length };
+          })(),
+        }
+      : {}),
     inputToFrameMs: { p50: round(pct(lat, 0.5)), p95: round(pct(lat, 0.95)), max: round(Math.max(0, ...lat)), samples: lat.length },
-    movesChangingNothing: remote ? null : raw.idle + raw.pressing.length + raw.pending.length,
+    movesChangingNothing: remote ? unchanged : raw.idle + raw.pressing.length + raw.pending.length,
     cursorToFrameMs: { p50: round(pct(cursor, 0.5)), p95: round(pct(cursor, 0.95)), samples: cursor.length },
     landShownMs: { p50: round(pct(shown, 0.5)), p95: round(pct(shown, 0.95)), samples: shown.length },
     landTrailFrames: { p50: round(pct(shown, 0.5) / vsync), p95: round(pct(shown, 0.95) / vsync), frameMs: round(vsync) },
