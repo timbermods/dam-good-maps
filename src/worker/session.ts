@@ -3885,12 +3885,13 @@ export function weatherFinish(rigid: [number, number, number, number][]): Weathe
   return weathered(w.preview.finish(rigid));
 }
 
-/** The stroke's dabs are all in: its heights before the integrity pass and its protected tiles. */
-export function weatherEnd(): { pre: Uint8Array; protect: Uint8Array } | null {
+/** The stroke's dabs are all in: its heights before the integrity pass, its protected tiles and its
+ *  whole record (a last call that changed no tile grew it with no land to carry it, #873). */
+export function weatherEnd(): { pre: Uint8Array; protect: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null {
   const w = weathering;
   weathering = null;
   if (!w || w.session !== session) return null;
-  return { pre: w.preview.pre.slice(), protect: w.preview.protect.slice() };
+  return { pre: w.preview.pre.slice(), protect: w.preview.protect.slice(), settings: { ...w.settings } };
 }
 
 export function weatherCancel(): void {
