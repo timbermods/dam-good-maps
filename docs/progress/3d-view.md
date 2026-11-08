@@ -1857,6 +1857,28 @@ the game's models in resources.assets (positions, materials and texture means on
   compiles 0 programs, against dev's 1 (the streaks').
 - **Falls short:** the light look has no Flow view drawing at all (as before); its toggle changes nothing there.
 
+## The sources' rings with Markers alone (D497; D249 as amended; `fix/source-rings-markers`)
+
+- **Why.** The game draws its own pattern over a seep (2 × 2) and a running badwater source (3 × 3) only (Q9 P7) and
+  nothing over a plain water source; ours drew rings of `WATER_FOAM` (up to 0.44 mixed in, 0.07 tiles wide, 1.4 tiles
+  out every 2.9 s) and bubbles over every source in Standard and High, always (the water-character audit's gap 6, on
+  `docs/water-character-audit`). D196 made them an editing aid, but without a channel of their own.
+- **What changed.** `materials.ts`: the rings and bubbles, and their mix into the water, sit under a branch on the
+  `markers` uniform, the renderer's one Markers switch (`setMarkers`, as the contamination outline and the wall levels);
+  High's water shares that block (`high/shaders.ts` hooks only the surface before it). With Markers off the water over
+  a source is the plain surface. Unchanged: the game's own pattern over seeps and badwater sources, the glow on the
+  sources feeding the pointer's water while it hovers (its own channel), the light look (it drew none). The Markers
+  tooltip already says "Show sources, slope arrows and wall levels". Pinned by `tests/unit/water-source-pattern.test.ts`.
+- **Measured** (`tools/capture-source-rings.ts`, River Valley 128² seed 2, the clock held, real Chrome on the GPU,
+  dev `e725f16` against this branch, both built from the same file list). Markers on: 0 pixels differ in Standard and
+  High over a plain source and over a badwater source close up; from the game's 55° pitch at 90 units 39 and 38, at most
+  1.3 L*, all outside the rings (two loads of the same build differ there by 47 and 46, at most 2.2). Markers off: over
+  a plain source 9,251 (Standard) and 9,228 (High) pixels, over a badwater source 10,888 and 10,868, all within 1.5 tiles
+  of a source's middle, darker on average by 8.9 and 3.9 L* (24 and 15 at most): the rings and bubbles gone.
+- **Speed (D453).** No new texture read, uniform or program; the branch is on a uniform, so every pixel takes the same
+  way. Markers off skips the rings' noise and smoothsteps for each source tile near a pixel; Markers on draws as before.
+- **Falls short:** nothing shows a source's rings while a source tool is held with Markers off; that needs the page.
+
 ## Objects' shadows (D497; `fix/high-object-shadows`)
 
 - **What it was.** A look review found High's shadows of trees, bushes and landmarks lighter and smaller than

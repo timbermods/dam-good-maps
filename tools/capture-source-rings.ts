@@ -92,6 +92,8 @@ const DIFF_JS = `async ([a, b, rings]) => {
 
 async function setMarkers(p: Page, on: boolean): Promise<void> {
   await p.evaluate(`window.dgm3d.renderer.setMarkers(${on})`);
+  // (every program the view may switch to compiled and taken: a frame drawn meanwhile keeps a material's old program)
+  await p.waitForFunction("window.dgm3d.renderer.programsSettled && window.dgm3d.renderer.programsWarm", null, { timeout: 180_000 });
   await p.waitForTimeout(300);
 }
 
