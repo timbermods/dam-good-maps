@@ -9,7 +9,8 @@
 //   mkdir -p .scratch/judge-dev && tar -xf .scratch/judge-dev.tar -C .scratch/judge-dev
 //   (and the same for a second tree to compare, --base, as .scratch/judge-826 from the commit that merged before)
 //   npx tsx tools/water-pixel-judge.ts [--dev .scratch/judge-dev|none] [--base .scratch/judge-826] [--batch 20261002-1610-batch]
-//     [--look standard|high|both] [--water clean|bad|mixed|all] [--define WATER_FORMULA|BADWATER_FORMULA] [--shots <id>,<id>]
+//     [--look standard|high|both] [--water clean|bad|mixed|all] [--define WATER_FORMULA|BADWATER_FORMULA|WATER_GAME_LIGHT,...]
+//     [--set WATER_GAME_LIGHT=1,...] [--shots <id>,<id>]
 //     [--light shot|day] [--reflection <strength>]
 //
 // `--water pit` samples the mine sites' pits (D496 as amended 2026-11-07: by day the game's pit the lighter) beside pure badwater, on the same
@@ -82,7 +83,22 @@ const KINDS: readonly Kind[] = WATER === "all" ? ["clean", "mixed", "bad"] : WAT
 /** The define the two builds of this branch differ by, with its High look's own where it has one (badwater's is split
  *  by look: `BADWATER_FORMULA_HIGH`, waterPalette.ts `GAME_BADWATER.use.high`). */
 const DEFINE = arg("define") ?? (WATER === "clean" ? "WATER_FORMULA" : "BADWATER_FORMULA");
-const DEFINES = [DEFINE, `${DEFINE}_HIGH`];
+/** (`--define A,B`: several at once, each with its High look's own) */
+const DEFINES = DEFINE.split(",").flatMap((d) => [d, `${d}_HIGH`]);
+/** `--set A=1,B=0`: defines this branch's both cases are built with, whatever the branch ships (each with its High
+ *  look's own), so a choice is judged on top of another not shipped yet (the water's light, Q9 P15, waterPalette.ts
+ *  WATER_LIGHT, under badwater's colour choice). */
+const SETS: [string, string][] = (arg("set") ?? "")
+  .split(",")
+  .filter(Boolean)
+  .flatMap((kv) => {
+    const [d, v] = kv.split("=");
+    return [d, `${d}_HIGH`].flatMap((n): [string, string][] => [
+      [`#define ${n} 0`, `#define ${n} ${v}`],
+      [`#define ${n} 1`, `#define ${n} ${v}`],
+    ]);
+  })
+  .filter(([a, b]) => a !== b);
 const PORT = Number(arg("port") ?? 4971);
 /** The light ours is drawn in: the game's at the shot's own hour and weather (`shot`, tools/game-day-light.ts), or the
  *  day's alone, as the editor draws it (`day`: the judge before 2026-11-07, which drew every shot in the day's light). */
@@ -611,7 +627,7 @@ const shaderInit = (formula: boolean | null, swaps: [string, string][]) => `(() 
 async function openSite(browser: Browser, port: number, formula: boolean | null, light: DayLight): Promise<Page> {
   const context = await browser.newContext({ viewport: { width: W_PX, height: H_PX }, deviceScaleFactor: 1, colorScheme: "light" });
   const page = await context.newPage();
-  const swaps = lightSwaps(light);
+  const swaps = [...lightSwaps(light), ...(formula === null ? [] : SETS)];
   if (formula !== null || swaps.length) await page.addInitScript(shaderInit(formula, swaps));
   await page.goto(`http://localhost:${port}/#s=1&z=128&d=n&t=lakeBasin`);
   await waitForEditor(page, 600_000);

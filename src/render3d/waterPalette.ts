@@ -138,6 +138,48 @@ export const WATER_SURFACE = {
   highlight: { exponent: 150, fresnelPower: 5, horizon: 0.9, tilt: 0.2, wrap: 0.4, clean: 1.1, bad: 0.4 },
 } as const;
 
+/** The game's reflection probe as its water reads it (Q9 P15; `tools/reflection-probe.ts`, read from the game's
+ *  `sharedassets1.assets` "TimberbornEnvironmentRelfectionProbe", the `unity_SpecCube0` its water samples): URP samples
+ *  it by the reflected direction, reflect(−V, N), at mip pr × (1.7 − 0.7 pr) × 6 (pr = 1 − smoothness: 4.4 to 5.6 for
+ *  the water's gloss, 5.6 for badwater's), so its colour turns with the view: the horizon's haze, lighter, at a grazing
+ *  look, the zenith's blue from above, the ground's darker colours where a ripple turns the reflection down. Its mips 4,
+ *  5 and 6 (`colours`, in that order) at each height of the reflected direction (`heights`, straight between; display
+ *  values, as the game works in Gamma colour space), round the whole turn: the probe's own turn round the vertical is
+ *  not the editor's, and its four side faces differ by about a tenth. The probe is baked and the same at every hour:
+ *  the game's day only scales it by `RenderSettings.reflectionIntensity`, its day stage's 1 at every stage. */
+export const WATER_PROBE = {
+  heights: [-1, -0.5, 0, 0.15, 0.35, 0.6, 1],
+  mips: [4, 5, 6],
+  colours: [
+    [[0.192, 0.218, 0.166], [0.363, 0.411, 0.391], [0.488, 0.571, 0.632], [0.496, 0.585, 0.675], [0.467, 0.565, 0.683], [0.413, 0.508, 0.644], [0.337, 0.423, 0.572]],
+    [[0.249, 0.281, 0.235], [0.384, 0.44, 0.445], [0.448, 0.53, 0.585], [0.457, 0.545, 0.615], [0.452, 0.544, 0.637], [0.431, 0.524, 0.645], [0.368, 0.462, 0.609]],
+    [[0.328, 0.374, 0.368], [0.377, 0.44, 0.481], [0.397, 0.47, 0.54], [0.403, 0.48, 0.561], [0.413, 0.495, 0.59], [0.416, 0.5, 0.603], [0.414, 0.504, 0.632]],
+  ] as readonly (readonly Rgb[])[],
+} as const;
+
+/** The game's light on its water (Q9 P15, ps 905-1251: URP Lit at the water's metallic 0, in Gamma colour space), and
+ *  which of its terms each look draws. The game: diffuse = albedo × 0.96 (URP's 0.96 × (1 − metallic)) × (the ambient
+ *  probe's SH by the normal, turned to display values, + the sun's colour × N·L × its shadow); the environment = the
+ *  probe (`WATER_PROBE`) by the reflected direction × the reflection intensity (1) × (f0 + (grazing − f0) ×
+ *  (1 − N·V)^4) / (1 + roughness²), f0 0.04, grazing saturate(smoothness + 0.04), roughness (1 − smoothness)²; the
+ *  sun's GGX: f0 × roughness² / (d² × max(0.1, (L·H)²) × (4 roughness + 2)), d = (N·H)² (roughness² − 1) + 1, × the
+ *  sun's colour × N·L × its shadow; the emission (the camera highlight × the sun's colour, badwater's glowing lines)
+ *  unlit; then the fog. The albedo it lights is the water's colour with the camera highlight in it (× the sun's colour)
+ *  and the ground behind mixed in (P13).
+ *  - `game` (by look): the environment by the reflected direction from the probe, the sun's GGX, and the sun's colour
+ *    the game's on the highlight and the glint (its `_MainLightColor`: palette.ts GAME_LIGHT.sun), the highlight lit by
+ *    the game's light; off, the look's light as before: Standard the sky's reflection from one probe colour toward 60°
+ *    up (`WATER.sky`) and the glint in our own sun's colour, High none.
+ *  - `held` (by look): the two terms #839 held back, the diffuse share at the water's own metallic 0 (`diffuse`, where
+ *    the terrain's 0.912 is at 0.05) and the environment's head-on part (× f0); off, 0.912 and the grazing part alone.
+ *  The pixel judge (tools/water-pixel-judge.ts) compares each against the game's frames, per look, and each look takes
+ *  what reads nearer the game (`judged`). */
+export const WATER_LIGHT = {
+  game: { standard: false, high: false } as const,
+  held: { standard: false, high: false } as const,
+  diffuse: 0.96,
+} as const;
+
 /** The High look's water (Map look 2, D284; #38, investigation/maplook2 water.ts, as Kyler approved it at
  *  e63a3ff, D177; its body colours from Timberborn's references, D334): display values before the light.
  *  `WATER_CALIBRATION` measures the Standard look only; High's colours are judged from captures beside the
@@ -670,6 +712,39 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
     float pr = 1.0 - smoothness;
     float r = max(pr * pr, 0.0078125);
     return ${f(WATER_SURFACE.reflection)} * (clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0) - ${f(WATER_SURFACE.f0)}) * pow(1.0 - clamp(NoV, 0.0, 1.0), 4.0) / (1.0 + r * r);
+  }
+  /** Which of the game's light terms on its water each look draws (waterPalette.ts WATER_LIGHT: \`game\`, \`held\`). */
+  #define WATER_GAME_LIGHT ${WATER_LIGHT.game.standard ? 1 : 0}
+  #define WATER_GAME_LIGHT_HIGH ${WATER_LIGHT.game.high ? 1 : 0}
+  #define WATER_HELD ${WATER_LIGHT.held.standard ? 1 : 0}
+  #define WATER_HELD_HIGH ${WATER_LIGHT.held.high ? 1 : 0}
+  /** The game's reflection probe by a direction, at the mip URP reads for a smoothness (waterPalette.ts WATER_PROBE). */
+  vec3 waterProbeAt(vec3 rd, float smoothness) {
+    float pr = 1.0 - smoothness;
+    float mip = clamp(pr * (1.7 - 0.7 * pr) * 6.0, ${f(WATER_PROBE.mips[0])}, ${f(WATER_PROBE.mips[2])});
+    float y = clamp(rd.y / max(length(rd), 0.0001), -1.0, 1.0);
+    vec3 m4 = ${glColor(WATER_PROBE.colours[0][WATER_PROBE.heights.length - 1])};
+    vec3 m5 = ${glColor(WATER_PROBE.colours[1][WATER_PROBE.heights.length - 1])};
+    vec3 m6 = ${glColor(WATER_PROBE.colours[2][WATER_PROBE.heights.length - 1])};
+${WATER_PROBE.heights
+  .slice(1)
+  .map((h, i) => {
+    const h0 = WATER_PROBE.heights[i];
+    const seg = (m: number) => `mix(${glColor(WATER_PROBE.colours[m][i])}, ${glColor(WATER_PROBE.colours[m][i + 1])}, t)`;
+    return `    ${i ? "else " : ""}if (y <= ${f(h)}) { float t = (y - ${f(h0)}) / ${f(Math.round((h - h0) * 1e5) / 1e5)}; m4 = ${seg(0)}; m5 = ${seg(1)}; m6 = ${seg(2)}; }`;
+  })
+  .join("\n")}
+    return mip < ${f(WATER_PROBE.mips[1])} ? mix(m4, m5, mip - ${f(WATER_PROBE.mips[0])}) : mix(m5, m6, mip - ${f(WATER_PROBE.mips[1])});
+  }
+  /** The game's environment term on its water (waterPalette.ts WATER_LIGHT): the probe by the reflected direction ×
+   *  the reflection intensity × (f0 × \`headOn\` + (grazing − f0) × (1 − N·V)^4) / (1 + roughness²); \`headOn\` 1 the
+   *  game's, 0 its grazing part alone (WATER_LIGHT.held). */
+  vec3 waterEnvironment(vec3 N, vec3 V, float smoothness, float headOn) {
+    float pr = 1.0 - smoothness;
+    float r = max(pr * pr, 0.0078125);
+    float fresnel = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 4.0);
+    float grazing = clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0);
+    return ${f(WATER_SURFACE.reflection)} * waterProbeAt(reflect(-V, N), smoothness) * (${f(WATER_SURFACE.f0)} * headOn + (grazing - ${f(WATER_SURFACE.f0)}) * fresnel) / (1.0 + r * r);
   }
   /** The game's own highlight on the ripples (waterPalette.ts WATER_SURFACE.highlight), at a tint; the caller
    *  adds it × the sun's colour twice, before the light and after it. */
