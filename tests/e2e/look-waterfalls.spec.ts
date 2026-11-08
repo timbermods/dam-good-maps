@@ -83,8 +83,11 @@ test("the 3D view draws a map's falls, and they follow the water", async ({ page
     return r.updateWater({ count: keep.length, tile: Int32Array.from(keep, (k) => w.tile[k]), floor: Float32Array.from(keep, (k) => w.floor[k]), depth: Float32Array.from(keep, (k) => w.depth[k]), contamination: Float32Array.from(keep, (k) => w.contamination[k]) });
   }, lips[0]);
   expect(changed).toBeGreaterThan(0);
-  // (the water's chunks are meshed in the workers and drawn a frame or two on)
-  const waterDrawn = () => page.waitForFunction(() => window.dgm3d!.renderer.waterDrawn);
+  // (the water's chunks are meshed in the workers and drawn a frame or two on; the moving water's cues, counted among
+  // the triangles, come with the flow's bake, on its own timer and worker: whenDrawn waits for both. Waiting on the chunks
+  // alone raced the bake, so under load the count after the water came back still had the cues of the water without
+  // its outflows, none, D341)
+  const waterDrawn = () => page.evaluate(() => window.dgm3d!.renderer.whenDrawn());
   await waterDrawn();
   expect(await triangles()).not.toBe(before);
   expect(await drawn()).toBe(0);

@@ -1811,6 +1811,18 @@ the game's models in resources.assets (positions, materials and texture means on
 - **Re-based (D148):** the curtain tests in `look-waterfalls`, `look`, `render3d`, `look-badwater`, `cutWater`,
   `waterLayers` and `caveCurrent` (the tunnel's fall is its water's slope under the roof); the corner rule in
   `water-refraction`; the fixture mesher mirrors the slope.
+- **Judged** (`tools/water-pixel-judge.ts --water falls --look both`, the six day-lit start shots, dev → this branch,
+  RMS to the game's pixel): a fall's foot (103 tiles) Standard 24.8 → 24.0, High 24.1 → 23.4; clean water (8,573) and
+  the land unchanged (14.4, 14.2; 12.3, 12.6). The sheets: `docs/sheets/falls-slopes-canyon.jpg`,
+  `falls-slopes-riverValley.jpg` (each map's tallest and strongest fall at 60° and 35°, Standard and High) and their
+  `-light` pair (`tools/capture-falls-slopes.ts`).
+- **Speed** (D453): the water meshed whole in Node at 256², min of 20, Highlands 2 26.2 → 25.2 ms, Canyon 3 31.2 →
+  27.3, River Valley 2 25.7 → 25.5, with 25–28 % more water quads (a slope's nine). High at 256² on the GPU
+  (`--bench`, three rounds): frame time p50 7.0 ms on both, the render call the same (1.2–1.5 ms), the GPU's 2.2–3.3 ms
+  on both; the build's median Highlands 561 → 549 ms, Canyon 520 → 586 (rounds of one tree vary by ±90).
+- **Falls short:** our links take a neighbour as linked where it is wet, with no barriers (none on our ground) and the
+  ceilings as each layer of waterLayers.ts sees them; a slope's seen depth is worked out along the game's pitch, not
+  read from a depth buffer.
 
 ## Caves and overhangs, captured again after #852–#855
 
