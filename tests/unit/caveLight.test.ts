@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { CaveLight, caveSample, LIGHT_LEVELS, sunMarch, SUN_MARCH_STEP, SUN_MARCH_STEPS } from "../../src/render3d/caveLight";
-import { castersChangedRects, decodeTop, objectCasters, SHADOW_RES, shadowMap, shadowPairRect, shadowRock, sunOfYaw } from "../../src/render3d/light";
+import { casterLevelsOf, castersChangedRects, decodeTop, objectCasters, SHADOW_RES, shadowMap, shadowPairRect, shadowRock, sunOfYaw, withCasterLevels } from "../../src/render3d/light";
 import { DEAD, type EntityView } from "../../src/render3d/model";
 import { LIGHT } from "../../src/render3d/palette";
 import { chunkCount, meshChunk, type MeshData, type TerrainSource } from "../../src/render3d/mesh";
@@ -297,7 +297,10 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
   // pines on the overhang's roof and on the arch, and one on the ground under the overhang (the floor's run)
   const trees: [number, number, number, number][] = [[14, 21, 11, 0], [26, 13, 8, DEAD], [16, 22, ground(16, 22), 0]];
   const entities = { count: trees.length, templates: ["Pine"], owners: [], template: new Uint16Array(trees.length), x: Int16Array.from(trees, (t) => t[0]), y: Int16Array.from(trees, (t) => t[1]), z: Int16Array.from(trees, (t) => t[2]), orientation: new Uint8Array(trees.length), flags: Uint8Array.from(trees, (t) => t[3]), owner: new Uint16Array(trees.length), variant: new Uint8Array(trees.length), strength: new Float32Array(trees.length), ids: [] } as unknown as EntityView;
-  const casters = objectCasters(W, H, entities);
+  // (cast as columns over their tiles, their shapes' kinds left off: what this checks is the walk through the rock,
+  // exactly; the plants' own shapes, D497, are look.test.ts's)
+  const shaped = objectCasters(W, H, entities)!;
+  const casters = withCasterLevels(shaped, casterLevelsOf(shaped)!.slice(0, W * H));
   const levels = new Map(trees.map(([x, y, z]) => [y * W + x, z]));
   const rock = shadowRock(W, H, src.columns)!;
 

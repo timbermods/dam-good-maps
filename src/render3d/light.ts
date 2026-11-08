@@ -106,15 +106,74 @@ function casterLevel(casters: Float32Array, i: number): number | null {
   return levels ? levels[i] : null;
 }
 
-/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start). */
+/** A plant's shape as its baked shadow casts it, as the game's model casts its own (D497: the game's shadows are its
+ *  models'): a stack of upright discs (bottom, top, radius; levels and tiles) round its tile's middle, at the size
+ *  `objectCasters` gives each kind (plantSize.ts): a pine's whorls of needles over a bare trunk (a whorl, a cone, is
+ *  two discs), an oak's and a birch's round crowns over theirs, a bush's low mound. The radii are fitted so each
+ *  plant's shadow on open ground covers what its model's does in High's depth map (tools/object-shadows.ts;
+ *  docs/progress/3d-view.md, "Objects' shadows"), which the game's frames bear out. Indexed by the kind
+ *  `objectCasters` notes. */
+const PLANT_SHAPES: readonly (readonly (readonly [number, number, number])[])[] = [
+  [],
+  // Pine (2.7): a trunk, three whorls
+  [[0, 1.66, 0.12], [1.1, 1.46, 0.67], [1.46, 1.82, 0.32], [1.66, 1.98, 0.62], [1.98, 2.3, 0.29], [2.16, 2.43, 0.44], [2.43, 2.7, 0.2]],
+  // Oak (2.26): a trunk, one broad crown from 1.16
+  [[0, 1.3, 0.16], [1.16, 1.4, 0.72], [1.4, 1.85, 0.86], [1.85, 2.08, 0.66], [2.08, 2.26, 0.36]],
+  // Birch (1.63): a slim trunk, a round crown from 0.79
+  [[0, 0.8, 0.1], [0.79, 0.96, 0.4], [0.96, 1.46, 0.56], [1.46, 1.63, 0.34]],
+  // BlueberryBush (0.4): a low mound
+  [[0, 0.22, 0.52], [0.22, 0.4, 0.36]],
+  // Succulent (0.5)
+  [[0, 0.5, 0.28]],
+];
+/** Each kind's height (its top disc's top): its caster's height over this scales the shape (a young plant). */
+const PLANT_TOPS = PLANT_SHAPES.map((d) => (d.length ? d[d.length - 1][1] : 0));
+/** The plants' kinds (`PLANT_SHAPES`). */
+const PLANT_KIND: Readonly<Record<string, number>> = { Pine: 1, Oak: 2, Birch: 3, BlueberryBush: 4, Succulent: 5 };
+/** The casters cast as an upright post as tall as the caster, of these radii (tiles, before `PLANT_INSET`): a dead
+ *  plant's bare trunk, and a ruin column's square of storeys (entities3d.ts `storey`: corner posts 0.8 apart), as wide
+ *  as its diagonal, the way the sun mostly sees it, fitted as the plants are (a whole tile's column cast them a
+ *  quarter too large). */
+const DEAD_KIND = 6;
+const RUIN_KIND = 7;
+const POST_RADIUS: Readonly<Record<number, number>> = { [DEAD_KIND]: 0.3, [RUIN_KIND]: 0.75 };
+/** The start's walled base and roof over its 3 × 3 footprint round the tower's tile (entities3d.ts `startTower`: the
+ *  walls 2.86 across to 1.04, the cornice to 1.18, the hipped roof to 1.8), cast as a column over each of the 8. */
+const START_BASE = 1.4;
+/** How much narrower each disc is cast than its radius (tiles): the shader reads the shadow map between its samples
+ *  (two a tile, bilinear), which widens a shadow narrower than a tile by about this much on each side. */
+const PLANT_INSET = 0.2;
+/** The farthest a disc reaches from its tile's middle (tiles), and the tallest caster cast as discs (a ruin of 9
+ *  storeys): the windows `plantTopsInto` looks in. */
+const PLANT_REACH = 2;
+const PLANT_TALLEST = 9 * 0.85;
+
+/** The kind of shape a tile's caster is (`PLANT_KIND`, `DEAD_KIND`, `RUIN_KIND`), noted after its levels; 0: a
+ *  column over the whole tile (the start), or none. */
+function casterKind(casters: Float32Array, i: number): number {
+  const levels = casterLevels.get(casters);
+  return levels && levels.length > casters.length ? levels[casters.length + i] : 0;
+}
+
+/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start). A plant's and a
+ *  ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles (its tower on
+ *  the middle one, its walls on the rest). The levels the objects stand on are noted with them, and after those the
+ *  shapes' kinds. */
 export function objectCasters(W: number, H: number, e: EntityView | null): Float32Array | null {
   if (!e || !e.count) return null;
   const out = new Float32Array(W * H);
-  const levels = new Uint8Array(W * H);
+  const levels = new Uint8Array(2 * W * H);
   casterLevels.set(out, levels);
   // (the plants at the game's sizes, plantSize.ts: a little under their full height, the randomizer's middle; the start's
   // tower is 4.37 tall, on its middle tile)
-  const tall: Record<string, number> = { Pine: 2.7, Oak: 2.26, Birch: 1.63, Succulent: 0.5, StartingLocation: 4.0 };
+  const tall: Record<string, number> = { Pine: 2.7, Oak: 2.26, Birch: 1.63, BlueberryBush: 0.4, Succulent: 0.5, StartingLocation: 4.0 };
+  const put = (i: number, add: number, z: number, kind: number) => {
+    if (add > out[i]) {
+      out[i] = add;
+      levels[i] = Math.max(0, z);
+      levels[W * H + i] = kind;
+    }
+  };
   for (let k = 0; k < e.count; k++) {
     const t = e.templates[e.template[k]];
     let x = e.x[k];
@@ -125,6 +184,8 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
       const [dx, dy] = rotate(ORIENTATION_NAMES[e.orientation[k]] as Orientation, 1, 1);
       x += dx;
       y += dy;
+      for (let by = y - 1; by <= y + 1; by++)
+        for (let bx = x - 1; bx <= x + 1; bx++) if ((bx !== x || by !== y) && bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, START_BASE, e.z[k], 0);
     }
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
     let add = tall[t] ?? 0;
@@ -134,11 +195,7 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
     const f = e.flags[k];
     if (f & DEAD) add *= t === "StartingLocation" ? 1 : 0.35;
     if (f & YOUNG) add *= 0.5;
-    const i = y * W + x;
-    if (add > out[i]) {
-      out[i] = add;
-      levels[i] = Math.max(0, e.z[k]);
-    }
+    put(y * W + x, add, e.z[k], ruin ? RUIN_KIND : PLANT_KIND[t] ? (f & DEAD ? DEAD_KIND : PLANT_KIND[t]) : 0);
   }
   return out;
 }
@@ -195,10 +252,12 @@ export function shadowTopsInto(out: Float32Array, W: number, H: number, heights:
     for (let x = 0; x < ww; x++) {
       const i = (wy0 + y) * W + wx0 + x;
       let v: number;
+      // (a plant casts its shape, after the walk: `plantTopsInto`)
+      const column = casters && casters[i] && !casterKind(casters, i) ? casters[i] : 0;
       if (rock && rock.flag[i]) {
         // (an object on the run from the map's floor casts from it)
-        v = rock.bottom[i] + (casters && casters[i] && casterLevel(casters, i) === rock.bottom[i] ? casters[i] : 0);
-      } else v = heights[i] + (casters ? casters[i] : 0);
+        v = rock.bottom[i] + (column && casterLevel(casters!, i) === rock.bottom[i] ? column : 0);
+      } else v = heights[i] + column;
       cast[y * ww + x] = v;
       if (v > highest) highest = v;
     }
@@ -344,6 +403,77 @@ export function shadowTopsInto(out: Float32Array, W: number, H: number, heights:
       out[sy * SW + sx] = top;
     }
   }
+  if (casters) plantTopsInto(out, W, H, heights, casters, tanE, ax0, ax1, ay0, ay1, rock, ux, uy);
+}
+
+// scratch for one plant's pieces of shadow over a sample (bottom, top pairs)
+const plantSpans = new Float64Array(2 * 8);
+
+/** The plants' shadows (`PLANT_SHAPES`) over the samples sx0…sx1 × sy0…sy1, into the walk's tops `out`: for each
+ *  sample a plant up-sun can shade, its discs' pieces of shadow there (the heights whose ray toward the sun passes
+ *  through a disc), judged at the sample's own ground (`pieceTop`): ground whose rays pass under a crown is lit, as
+ *  under the game's trees. The same arithmetic for a sample in any window, so an edit's bytes are the whole map's. */
+function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Array, casters: Float32Array, tanE: number, sx0: number, sx1: number, sy0: number, sy1: number, rock: ShadowRock | null, ux: number, uy: number): void {
+  const levels = casterLevels.get(casters);
+  if (!levels || levels.length <= casters.length) return;
+  const R = SHADOW_RES;
+  const SW = W * R;
+  const N = W * H;
+  // (the tiles whose plants can shade the window: up-sun of it as far as the tallest plant's shadow falls)
+  const fall = Math.ceil(PLANT_TALLEST / tanE) + PLANT_REACH;
+  const tx0 = Math.max(0, Math.floor(sx0 / R) - (ux < 0 ? fall : PLANT_REACH));
+  const tx1 = Math.min(W - 1, Math.floor(sx1 / R) + (ux > 0 ? fall : PLANT_REACH));
+  const ty0 = Math.max(0, Math.floor(sy0 / R) - (uy < 0 ? fall : PLANT_REACH));
+  const ty1 = Math.min(H - 1, Math.floor(sy1 / R) + (uy > 0 ? fall : PLANT_REACH));
+  for (let ty = ty0; ty <= ty1; ty++)
+    for (let tx = tx0; tx <= tx1; tx++) {
+      const i = ty * W + tx;
+      const kind = levels[N + i];
+      const tall = casters[i];
+      if (!kind || !tall) continue;
+      const post = POST_RADIUS[kind] ?? 0;
+      const shape = post ? null : PLANT_SHAPES[kind];
+      const scale = shape ? tall / PLANT_TOPS[kind] : 1;
+      let reach = post - PLANT_INSET;
+      if (shape) for (const d of shape) reach = Math.max(reach, d[2] * scale - PLANT_INSET);
+      if (reach <= 0) continue;
+      const g = levels[i];
+      const cx = tx + 0.5;
+      const cy = ty + 0.5;
+      // (the samples its shadow can reach: from its middle away from the sun as far as its top falls, and its width)
+      const ex = cx - (ux * tall) / tanE;
+      const ey = cy - (uy * tall) / tanE;
+      const bx0 = Math.max(sx0, Math.floor((Math.min(cx, ex) - reach) * R));
+      const bx1 = Math.min(sx1, Math.ceil((Math.max(cx, ex) + reach) * R));
+      const by0 = Math.max(sy0, Math.floor((Math.min(cy, ey) - reach) * R));
+      const by1 = Math.min(sy1, Math.ceil((Math.max(cy, ey) + reach) * R));
+      const nd = shape ? shape.length : 1;
+      for (let sy = by0; sy <= by1; sy++)
+        for (let sx = bx0; sx <= bx1; sx++) {
+          const dx = cx - (sx + 0.5) / R;
+          const dy = cy - (sy + 0.5) / R;
+          // (along the ray toward the sun to the plant's middle, and across it)
+          const along = dx * ux + dy * uy;
+          const across = Math.abs(dx * uy - dy * ux);
+          if (across >= reach || along + reach <= 0) continue;
+          let n = 0;
+          for (let q = 0; q < nd; q++) {
+            const r = shape ? shape[q][2] * scale - PLANT_INSET : reach;
+            if (r <= across) continue;
+            const half = Math.sqrt(r * r - across * across);
+            const s2 = along + half;
+            if (s2 <= 0) continue;
+            const s1 = along - half > 0 ? along - half : 0;
+            plantSpans[n++] = g + (shape ? shape[q][0] * scale : 0) - s2 * tanE;
+            plantSpans[n++] = g + (shape ? shape[q][1] * scale : tall) - s1 * tanE;
+          }
+          if (!n) continue;
+          const t = Math.floor(sy / R) * W + Math.floor(sx / R);
+          const ground = rock && rock.flag[t] ? rock.bottom[t] : heights[t];
+          const k = sy * SW + sx;
+          out[k] = pieceTop(plantSpans, n, out[k], ground);
+        }
+    }
 }
 
 /** The rock that casts the baked shadows on a map with terrain above terrain (3D view, item 8): for each tile that
@@ -479,7 +609,8 @@ function voxelTops(out: Float64Array, sx: number, sy: number, baseHi: number, ba
       const lo = runs[k];
       // (an object casts from the run it stands on: the one whose top is its level, or, not known, the highest)
       const on = levels ? runs[k + 1] === levels[i] : k === r1 - 2;
-      const hi = runs[k + 1] + (casters !== null && on ? casters[i] : 0);
+      // (a plant on a run above air casts its shape: `plantTopsInto`)
+      const hi = runs[k + 1] + (casters !== null && on && !casterKind(casters, i) ? casters[i] : 0);
       if (hi - fallHi > baseHi) {
         if (nHi + 2 > spansHi.length) spansHi = grow(spansHi);
         spansHi[nHi++] = lo - fallHi;
@@ -607,7 +738,7 @@ export function castersChangedRects(W: number, H: number, a: Float32Array | null
     for (let x = ax0; x <= ax1; x++) {
       const i = y * W + x;
       const ca = a ? a[i] : 0;
-      if (ca === (b ? b[i] : 0) && (!ca || (la ? la[i] : -1) === (lb ? lb[i] : -1))) continue;
+      if (ca === (b ? b[i] : 0) && (!ca || ((la ? la[i] : -1) === (lb ? lb[i] : -1) && (a ? casterKind(a, i) : 0) === (b ? casterKind(b, i) : 0)))) continue;
       const k = Math.floor(y / B) * bw + Math.floor(x / B);
       const r = blocks.get(k);
       if (r) {

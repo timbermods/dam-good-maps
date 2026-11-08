@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { storedSoil } from "../../src/core/format/world";
 import { describeTile, entitiesByTile } from "../../src/editor/features";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
-import { decodeTop, encodeTop, litFraction, objectCasters, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte } from "../../src/render3d/light";
+import { casterLevelsOf, decodeTop, DEFAULT_SUN, encodeTop, litFraction, objectCasters, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte, withCasterLevels } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
 import { ALBEDO_SCALE, cliffTint, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
@@ -215,6 +215,37 @@ describe("the baked light", () => {
     // the tree shades the ground to its south-east
     const noTree = shadowMap(W, H, h, null);
     expect(Buffer.from(a).equals(Buffer.from(noTree))).toBe(false);
+  });
+
+  it("casts a plant's shape, not its tile's column (D497: the game's shadows are its models')", () => {
+    const u = DEFAULT_SUN;
+    // (whether the ground at d tiles from a plant's middle away from the sun, and a across that way, is in shadow)
+    const shaded = (bytes: Uint8Array, x: number, y: number, d: number, a = 0) => {
+      const px = x + 0.5 - u.x * d + u.y * a;
+      const py = y + 0.5 - u.y * d - u.x * a;
+      return decodeTop(bytes[(Math.floor(py * SHADOW_RES) * W * SHADOW_RES + Math.floor(px * SHADOW_RES)) * 4]) > 3;
+    };
+    const one = (template: string) => objectCasters(W, H, entityView([{ template, x: 15, y: 12, z: 3, orientation: "Cw0", owner: "f" }]))!;
+    const oak = one("Oak");
+    const bytes = shadowMap(W, H, flat, oak);
+    // an oak's crown (1.16 to 2.26 over the ground, at the sun's 45°) shades the ground 1 to 2.5 tiles off, not past 3
+    for (const d of [1, 1.7, 2.4]) expect(shaded(bytes, 15, 12, d), `${d} tiles off`).toBe(true);
+    expect(shaded(bytes, 15, 12, 3.4)).toBe(false);
+    // nor a tile to either side of its shadow's middle, which the whole tile's column of its height shaded
+    const column = withCasterLevels(oak, casterLevelsOf(oak)!.slice(0, W * H));
+    const columns = shadowMap(W, H, flat, column);
+    let shapeSamples = 0;
+    let columnSamples = 0;
+    for (let k = 0; k < W * H * SHADOW_RES * SHADOW_RES; k++) {
+      if (decodeTop(bytes[k * 4]) > 3) shapeSamples++;
+      if (decodeTop(columns[k * 4]) > 3) columnSamples++;
+    }
+    expect(shapeSamples).toBeGreaterThan(4);
+    expect(shapeSamples).toBeLessThan(columnSamples);
+    // a blueberry bush casts its low mound, which no column did (it had none)
+    const bush = shadowMap(W, H, flat, one("BlueberryBush"));
+    expect(shaded(bush, 15, 12, 0.5)).toBe(true);
+    expect(shaded(bush, 15, 12, 1.5)).toBe(false);
   });
 
   it("encodes shadow tops within a tenth of a level", () => {
