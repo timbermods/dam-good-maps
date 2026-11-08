@@ -15,7 +15,8 @@ let helper: Worker;
 const jobs = () => new Promise<number>((r) => (helper.once("message", (m: { jobs: number }) => r(m.jobs)), helper.postMessage({ kind: "inspect" })));
 
 beforeEach(async () => {
-  await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 64, y: 64 } }));
+  // (seed 2 on 0.10.6's maps, D148: seed 1 at 64 has caves now, whose water the stacked engine runs, never the helper threads)
+  await runGenerate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 64, y: 64 } }));
   ed.refine();
   const url = new URL("../unit/threads/strip-helper.mjs", import.meta.url);
   installParallelWater({ threads: 2, spawn: () => ((helper = new Worker(url)), { postMessage: (m) => helper.postMessage(m), terminate: () => void helper.terminate() }) });

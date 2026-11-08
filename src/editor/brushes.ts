@@ -39,7 +39,7 @@
 
 import type { GhostTile, MapRenderer, PointerTool } from "../render3d";
 import type { TileHit } from "../render3d/pick";
-import { areaRect, BRUSH_MAX_LEVEL, type BrushParams, type BrushTool } from "../core/features/raster/brush";
+import { areaRect, BRUSH_MAX_LEVEL, brushHard, type BrushParams, type BrushTool } from "../core/features/raster/brush";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import { RemotePreview, type WeatherChannel } from "../core/features/raster/remoteStroke";
 import { tilesToRuns } from "../core/math/grid";
@@ -187,10 +187,11 @@ export interface PainterHost {
   footprints?(): number[][];
   /** Ctrl+drag hands the pointer to the Select tool: the drag's pointer tool from here on. */
   select?(hit: TileHit, ev: PointerEvent): PointerTool | null;
-  /** The pieces that ride a stroke whole and level (D249: a 3 × 3 badwater source), as rectangles
-   *  [x0, y0, x1, y1]; a stroke that changes one of their tiles takes the piece to its middle's
-   *  level. */
-  rides?(): [number, number, number, number][];
+  /** The pieces that ride a stroke whole and level (D249: a 3 × 3 badwater source; D491: a mine site, a
+   *  relic, the start), as rectangles [x0, y0, x1, y1], given the ground as the stroke found it (`start`:
+   *  an object under a roof then is held, not ridden); a stroke that changes one of their tiles takes the
+   *  piece to its middle's level. */
+  rides?(start: ArrayLike<number>): [number, number, number, number][];
   /** The sources' own tiles, as runs [y, x0, x1]: Keep leaves them as they are (D322, item 31). */
   sourceGround?(): [number, number, number][];
   /** The ground under every source and object, as runs [y, x0, x1]: Naturalize leaves it as it is
@@ -207,6 +208,17 @@ export interface PainterHost {
   ring?(at: [number, number] | null, stroke: { settings: Omit<BrushParams, "dabs">; dabs: readonly number[] } | null): void;
 }
 
+/** How far apart a stroke's dabs are, in tiles: a fifth of the brush (a quarter tile to two). A stroke with hard edges
+ *  (a target's, D322) dabs every quarter tile, the grid its dabs lie on: a tile at the edge of its reach is pressed only
+ *  by a dab abreast of its middle, and dabs a fifth of a small brush apart passed some of those by, leaving a dotted edge
+ *  of tiles at the old level (Size 1.5, which reaches exactly a tile: showcase-craft gap 4). */
+function dabSpacing(p: Pick<BrushParams, "size" | "target" | "precise" | "shape">): number {
+  return brushHard(p) ? 0.25 : Math.max(0.25, Math.min(2, p.size * 0.2));
+}
+
+/** A smart Lower stroke that starts in water at least this deep (in levels) deepens it; from thinner water, a source's
+ *  sheet over flat ground, it cuts a new channel (D263, showcase-craft gap 3). */
+const DEEPENS = 0.5;
 /** Quarter tiles, for a dab's centre on a map `size` tiles across. */
 const q = (v: number, size: number) => Math.max(0, Math.min(4 * size - 1, Math.round(v * 4)));
 
@@ -221,6 +233,9 @@ interface StrokeState {
    *  stroke follows the cursor on. */
   target: number | null;
   plane: number;
+  /** What the pointer's point on `plane` is moved by to stand on the ground the stroke began on: zero but for Flatten
+   *  to a set level, whose plane lies above or below the ground under the pointer (showcase-craft gap 13). */
+  shift: [number, number];
   /** Where the cursor is, where the last dab was, when. */
   last: [number, number];
   dabAt: [number, number];
@@ -240,7 +255,7 @@ interface StrokeState {
   pen: number | null;
   /** Smart Lower (D263): the tiles wet when the stroke began, and the bed a new channel would start
    *  at; the stroke is a deepening pass while its dabs stay in that water. Null otherwise. */
-  channel: { wet: Uint8Array; bed: number } | null;
+  channel: { wet: Uint8Array; deep: Uint8Array; bed: number } | null;
   /** When the land last answered with its juice. */
   feltAt: number;
   /** Keep (D322): the sources' ground as the stroke began. */
@@ -345,6 +360,7 @@ export class BrushPainter {
         if (!hit) {
           self.cursorAt = null;
           host.renderer.setBrushCursor(null);
+          self.fade(null);
           host.ring?.(null, null);
           host.note?.(null, null);
           return;
@@ -487,8 +503,10 @@ export class BrushPainter {
     const clear = s.sources[tool] === "clear";
     // an area: a tile's square before it is pressed; its blocks once it is dragged
     const area = this.stroke ? this.stroke.area : s.area && (tool === "raise" || tool === "lower");
+    const radius = area ? 0.5 : s.size;
+    this.fade(at, radius);
     if (this.stroke?.area) this.host.renderer.setBrushCursor(null);
-    else this.host.renderer.setBrushCursor({ x: at[0], y: at[1], radius: area ? 0.5 : s.size, tool, level, water, square: area || (this.stroke ? this.stroke.settings.shape === "square" : s.square), ...(level !== null ? { hard: true } : {}), ...(clear ? { mark: true } : {}) });
+    else this.host.renderer.setBrushCursor({ x: at[0], y: at[1], radius, tool, level, water, square: area || (this.stroke ? this.stroke.settings.shape === "square" : s.square), ...(level !== null ? { hard: true } : {}), ...(clear ? { mark: true } : {}) });
     this.host.ring?.(at, this.stroke ? (this.stroke.area ? areaFootprint(this.stroke.settings, this.stroke.dabs, this.host.W, this.host.H) : { settings: this.stroke.settings, dabs: this.stroke.dabs }) : null);
     if (!this.stroke) this.say(null);
   }
@@ -508,14 +526,23 @@ export class BrushPainter {
     return false;
   }
 
-  /** Smart Lower's start (D263): the tiles wet now, and the bed a new channel starts at: a level
-   *  below the surface of the water round (x, y), never below that water's own bed (the lowest
-   *  ground round the first dab, as the stroke reads it). */
-  private channelStart(x: number, y: number): { wet: Uint8Array; bed: number } {
+  /** Smart Lower's start (D263): the tiles wet now (a deepening pass stays one while it stays in them), the tiles deep
+   *  enough to begin one (half a level or more: a source's thin sheet over flat ground is no pond, so a stroke from it
+   *  cuts a new channel, showcase-craft gap 3), and the bed a new channel starts at: a level below the surface of the
+   *  water round (x, y), never below that water's own bed (the lowest ground round the first dab, as the stroke reads
+   *  it). */
+  private channelStart(x: number, y: number): { wet: Uint8Array; deep: Uint8Array; bed: number } {
     const h = this.host;
     const { W, H } = h;
     const wet = new Uint8Array(W * H);
-    if (h.wet) for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (h.wet(tx, ty)) wet[ty * W + tx] = 1;
+    const deep = new Uint8Array(W * H);
+    if (h.wet)
+      for (let ty = 0; ty < H; ty++)
+        for (let tx = 0; tx < W; tx++)
+          if (h.wet(tx, ty)) {
+            wet[ty * W + tx] = 1;
+            if ((h.depth?.(tx, ty) ?? DEEPENS) >= DEEPENS) deep[ty * W + tx] = 1;
+          }
     const pre = h.terrain().pre;
     const shown = h.heights();
     const cx = Math.max(0, Math.min(W - 1, Math.floor(x)));
@@ -529,7 +556,7 @@ export class BrushPainter {
         if (wet[i]) surface = Math.max(surface, shown[i] + (h.depth?.(tx, ty) ?? 0));
       }
     const bed = surface < 0 ? low : Math.max(low, Math.round(surface) - 1);
-    return { wet, bed: Math.max(0, Math.min(BRUSH_MAX_LEVEL, bed)) };
+    return { wet, deep, bed: Math.max(0, Math.min(BRUSH_MAX_LEVEL, bed)) };
   }
 
   /** A mode's tiles (D322, item 2), fixed as the stroke starts from the map's own water: the wet
@@ -577,8 +604,25 @@ export class BrushPainter {
   hideCursor(): void {
     this.cursorAt = null;
     this.host.renderer.setBrushCursor(null);
+    this.fade(null);
     this.host.ring?.(null, null);
     this.host.note?.(null, null);
+  }
+
+  /** The tile and reach the objects fade round now ("x,y,radius"), or null: the renderer is told only when they change
+   *  (D453). */
+  private faded: string | null = null;
+
+  /** Seeing the land behind objects (render3d/objectFade.ts, an editing aid: the look never changes): while the brush
+   *  is on the land, hovering or painting, the objects round the pointer's tile, as far as the brush reaches, fade to a
+   *  quarter and cast no shadow; null brings them back (the pointer off the land, the brush put down). */
+  private fade(at: [number, number] | null, radius = 0): void {
+    const x = at ? Math.floor(at[0]) : 0;
+    const y = at ? Math.floor(at[1]) : 0;
+    const key = at ? `${x},${y},${radius}` : null;
+    if (key === this.faded) return;
+    this.faded = key;
+    this.host.renderer.setObjectFade(at ? { x: x + 0.5, y: y + 0.5, radius } : null);
   }
 
   /** Where the brush is under the pointer, and the level plane a stroke from there follows: on a tile's top, where the
@@ -653,7 +697,7 @@ export class BrushPainter {
     // (D263: a deepening pass while it stays in the water it starts in; a new channel, from a level
     // below that water's surface, once it leaves it)
     const channel = settings.channel ? this.channelStart(x, y) : null;
-    if (channel) Object.assign(settings, channel.wet[Math.floor(y) * h.W + Math.floor(x)] ? { deepen: true } : { bed: channel.bed, dry: 0 });
+    if (channel) Object.assign(settings, channel.deep[Math.floor(y) * h.W + Math.floor(x)] ? { deepen: true } : { bed: channel.bed, dry: 0 });
     // a Naturalize stroke is weathered in the worker (D422), the land following a frame or two behind
     // the cursor (but for a straight line, drawn again from its start at every move, and Keep)
     const remote = tool === "naturalize" && !!h.weather && !s.straight && !keepSources;
@@ -662,11 +706,15 @@ export class BrushPainter {
     // brush stays under the pointer while the ground rises or sinks beneath it
     const aim = this.aimAt(hit, ev);
     let plane = aim.plane;
-    let at = aim.at;
+    const at = aim.at;
+    let shift: [number, number] = [0, 0];
     if (tool === "flatten" && target !== null) {
+      // (Flatten to a set level follows the pointer on that level's plane, steady as the ground goes to it under the
+      // brush; the stroke begins on the ground the pointer is on, and the plane's point is moved by as much: aimed on
+      // the plane alone, the first dab landed tiles behind or in front of the pointer, a level or more away)
       plane = target;
       const p = h.renderer.pickAtLevel(ev.clientX, ev.clientY, plane);
-      at = p ? [p.point[0], -p.point[2]] : [x, y];
+      if (p) shift = [at[0] - p.point[0], at[1] + p.point[2]];
     }
     const pen = ev.pointerType === "pen" && target === null ? ev.pressure : null;
     this.stroke = {
@@ -676,6 +724,7 @@ export class BrushPainter {
       pressure: pen === null ? null : [],
       target,
       plane,
+      shift,
       last: at,
       dabAt: at,
       lastDab: performance.now(),
@@ -717,14 +766,14 @@ export class BrushPainter {
     if (st.pen !== null && ev.pointerType === "pen") st.pen = ev.pressure;
     const events = typeof ev.getCoalescedEvents === "function" ? ev.getCoalescedEvents() : [];
     const list = events.length ? events : [ev];
-    const spacing = Math.max(0.25, Math.min(2, this.host.settings().size * 0.2));
+    const spacing = dabSpacing(st.settings);
     const points: [number, number][] = [];
     let [lx, ly] = st.dabAt;
     for (const e of list) {
       const p = this.host.renderer.pickAtLevel(e.clientX, e.clientY, st.plane);
       if (!p) continue;
-      const x = Math.max(0, Math.min(this.host.W - 0.01, p.point[0]));
-      const y = Math.max(0, Math.min(this.host.H - 0.01, -p.point[2]));
+      const x = Math.max(0, Math.min(this.host.W - 0.01, p.point[0] + st.shift[0]));
+      const y = Math.max(0, Math.min(this.host.H - 0.01, -p.point[2] + st.shift[1]));
       st.last = [x, y];
       if (st.anchor) continue;
       const d = Math.hypot(x - lx, y - ly);
@@ -757,7 +806,7 @@ export class BrushPainter {
     // (smart Lower, D263: the line starts again as it began, a deepening pass from inside the water)
     if (st.channel && st.anchor) {
       const { deepen: _d, bed: _b, dry: _y, ...rest } = st.settings;
-      st.settings = st.channel.wet[Math.floor(st.anchor[1]) * h.W + Math.floor(st.anchor[0])] ? { ...rest, deepen: true } : { ...rest, bed: st.channel.bed, dry: 0 };
+      st.settings = st.channel.deep[Math.floor(st.anchor[1]) * h.W + Math.floor(st.anchor[0])] ? { ...rest, deepen: true } : { ...rest, bed: st.channel.bed, dry: 0 };
     }
     st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
     st.dabs = [];
@@ -765,7 +814,7 @@ export class BrushPainter {
     const [ax, ay] = st.anchor!;
     const [bx, by] = st.last;
     const len = Math.hypot(bx - ax, by - ay);
-    const spacing = Math.max(0.25, Math.min(2, st.settings.size * 0.2));
+    const spacing = dabSpacing(st.settings);
     const n = Math.max(0, Math.floor(len / spacing));
     const points: [number, number][] = [[ax, ay]];
     for (let k = 1; k <= n; k++) points.push([ax + ((bx - ax) * k) / Math.max(1, n), ay + ((by - ay) * k) / Math.max(1, n)]);
@@ -921,7 +970,7 @@ export class BrushPainter {
     if (!b || !h.rides) return;
     const now = h.heights();
     const was = st.preview.start;
-    const rigid = h.rides().filter(([x0, y0, x1, y1]) => {
+    const rigid = h.rides(was).filter(([x0, y0, x1, y1]) => {
       if (x1 < b.x0 - 1 || x0 > b.x1 + 1 || y1 < b.y0 - 1 || y0 > b.y1 + 1) return false;
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (now[y * h.W + x] !== was[y * h.W + x]) return true;
       return false;

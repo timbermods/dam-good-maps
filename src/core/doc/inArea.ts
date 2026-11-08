@@ -52,9 +52,26 @@ export function submergedIn(s: MapSession, tiles: Iterable<number>): SubmergedOb
   return out;
 }
 
+/** Whether object `e` is one the view's layer cut at `cut` shows (D207): it stands at or under the cut (null: no cut). An
+ *  object on a roof above the cut is hidden, though a cave's floor under it shows. */
+export function underCut(e: { z: number }, cut: number | null | undefined): boolean {
+  return cut === null || cut === undefined || e.z <= cut;
+}
+
+/** Of `tiles`, those whose top is at or under the layer cut (all of them with no cut): where the map's surface, and so a
+ *  resource feature's area and what it holds under water, shows. */
+export function surfaceUnderCut(s: MapSession, tiles: Iterable<number>, cut: number | null | undefined): Set<number> {
+  const h = s.built.heights;
+  const out = new Set<number>();
+  for (const i of tiles) if (cut === null || cut === undefined || h[i] <= cut) out.add(i);
+  return out;
+}
+
 /** What stands in `tiles`: each object once, counted by its template, and the resource features'
- *  submerged objects there (also counted in `counts`, so that "everything" is the sum). */
-export function objectsIn(s: MapSession, tiles: Iterable<number>): { counts: Record<string, number>; submerged: Record<string, number> } {
+ *  submerged objects there (also counted in `counts`, so that "everything" is the sum). Under a layer cut (`cut`), only
+ *  what it shows: the objects at or under it (a cave's floor's, never its roof's), and the submerged ones on tiles whose
+ *  top is at or under it. */
+export function objectsIn(s: MapSession, tiles: Iterable<number>, cut?: number | null): { counts: Record<string, number>; submerged: Record<string, number> } {
   const { x: W, y: H } = s.size;
   const want = new Set<number>();
   for (const i of tiles) if (i >= 0 && i < W * H) want.add(i);
@@ -63,10 +80,11 @@ export function objectsIn(s: MapSession, tiles: Iterable<number>): { counts: Rec
   if (!want.size) return { counts, submerged };
   for (const e of s.built.entities) {
     if (e.raw && !placementOf(e.raw)) continue;
+    if (!underCut(e, cut)) continue;
     if (!entityTiles(e).some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && want.has(ty * W + tx))) continue;
     counts[e.template] = (counts[e.template] ?? 0) + 1;
   }
-  for (const o of submergedIn(s, want)) {
+  for (const o of submergedIn(s, surfaceUnderCut(s, want, cut))) {
     counts[o.template] = (counts[o.template] ?? 0) + 1;
     submerged[o.template] = (submerged[o.template] ?? 0) + 1;
   }

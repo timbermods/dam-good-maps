@@ -45,9 +45,11 @@ const spec = (theme: ThemeId, size: number, seed: number, badwaterDistance?: num
 
 describe("the shown land's bounds (#236)", () => {
   it("above 128², a shown land failing the same way three times in a row ends its round, and is never dropped within it", () => {
-    // (Highlands 136², badwater distance 60, seed 4: its first shown land's start is within 60 tiles of
-    // its badwater on every attempt; dev spent the round's attempts on it)
-    const { steps, passed } = traced(spec("highlands", 136, 4, 60));
+    // (Highlands 136², badwater distance 60, seed 1: a shown land fails the same way three times and its round
+    // ends; seed 4 for generator 0.10.7, whose first shown land's start was within 60 tiles of its badwater on every
+    // attempt, until D504's springs toward the far land changed its land: its shown land now fails once and passes, D148; of
+    // seeds 1–8, 1 and 5 end a round)
+    const { steps, passed } = traced(spec("highlands", 136, 1, 60));
     expect(passed).toBe(true);
     const at = JSON.stringify(steps);
     let ended = 0;
@@ -66,7 +68,8 @@ describe("the shown land's bounds (#236)", () => {
   }, 600000);
 
   it("each stage's progress says how many attempts failed before it and why the last did, in a short plain phrase", () => {
-    const { progress, failures } = traced(spec("riverValley", 64, 1));
+    // (seed 2: it fails six attempts before its map, with several reasons; seed 1 makes its map at the first since generator 0.10.7, D502)
+    const { progress, failures } = traced(spec("riverValley", 64, 2));
     expect(failures.length).toBeGreaterThan(1);
     expect(progress[0].failed).toBeUndefined();
     expect(progress[0].tried).toBe(0);

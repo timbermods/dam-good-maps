@@ -294,7 +294,7 @@ export function applySelection(s: MapSession, ops: EditOp[], label: string, tile
 /** Why a Select action leaves tile i as it is, in one line: a cave's or an overhang's column, or the ground holding up
  *  its roof (as the forces say it, forces/start.ts `caveRefusal`). */
 export function heldWhy(i: number, cave: boolean, W: number): string {
-  const at = `(${i % W}, ${Math.floor(i / W)})`;
+  const at = `X ${i % W} · Y ${Math.floor(i / W)}`;
   return cave ? `${at} has a cave or overhang: shape its top with a brush` : `${at} holds up the roof of a cave or overhang: the Select actions leave it as it is`;
 }
 

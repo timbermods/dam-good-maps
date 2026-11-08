@@ -22,21 +22,21 @@
 //   neighbouring columns never look alike. From afar each storey is a solid block in the
 //   scaffolding's orange, a cream panel set in where it has one, and a band of ivy low on the lower
 //   storeys of a column on moist ground.
-// - The start: a district center of our own, a lodge with pale walls, a dark roof and a yellow
-//   banner on a pale deck, its door facing the entrance, and a lit post on the entrance tile.
+// - The start: the game's map-editor marker at its measures (D496, D178 amended), a lantern tower of
+//   pale grey stone 4.37 high on its 3 × 3, its door facing the entrance, and a lit post on the entrance tile.
 // - Slopes: a stone ramp; with Markers, a level pale arrow rimmed dark floating just above it,
-//   pointing uphill (it reads from any camera angle). Water sources: a stone basin with water welling up;
-//   badwater sources: a dark stone basin, 3 × 3, with badwater boiling up (D324). Mine sites (D178): a rusty frame round the edge
-//   of the 5 × 5 footprint and a square pit filling the rest (the terrain leaves the footprint's
-//   tops out, as the game hides the terrain under the site), with dark earthen walls and floor,
-//   roots, rubble, cracks, a ladder and a shaft; scaffold towers on the frame's corners, joined
-//   into one structure, with beams across the pit and a bucket on a rope. With Markers, an outline
+//   pointing uphill (it reads from any camera angle). Water sources: an outcrop of dark rock 1.0 high;
+//   badwater sources: a flat dark crater 2.5 across with low stones round its rim. Mine sites (D178): a rusty
+//   frame round the edge of the 5 × 5 footprint and a square pit 1.35 deep filling the rest (the terrain leaves
+//   the footprint's tops out, as the game hides the terrain under the site), with dark earthen walls and floor,
+//   roots, rubble, cracks; rusty posts down into the pit round its lip, joined by beams, and ground in the
+//   pit's corners falling into it as an earthen bank; no scaffolding, as the game has none. With Markers, an outline
 //   round its footprint (the terrain shader). Geothermal fields: dark rock with glowing
 //   vents. Relics: broken stone columns on a plinth. Thorns: dark brambles. Blockages and natural
 //   dams: heaps of stones. Timberborn 1.x objects, each shaped after the game's own render and in its game
-//   footprint: seeps (a stepped square pit sunk into the ground, the terrain's tops over its 2 × 2
-//   cut out like a mine site's, with rocks on its floor, grey under blue water or rust-crusted for
-//   badwater), the aquifer (a dry, dark rubble cross with a hole), its drill (a tall, narrow
+//   footprint: seeps (a stone slab at the ground round a pit, the terrain's tops over its 2 × 2
+//   cut out like a mine site's, heaped with rounded rocks to 0.57, or 0.40 for badwater, the gaps dark teal or
+//   rust), the aquifer (a dry, dark rubble cross with a hole), its drill (a tall, narrow
 //   yellow-and-black auger tower on a stone footing, a dark housing and a pipe), the badtide drain (a
 //   rusty grated box, its open end out over the drop), the unstable core (a small dark segmented dome
 //   with a red eye, half sunk on a soft orange scorch mark), and the reserves (a pile: a log pen with a
@@ -54,19 +54,24 @@
 import { EntityGeometryCache } from "./entityGeometry";
 import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
-import { DEAD, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, WATER } from "./palette";
+import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
+import { plantScale, RANDOMIZER } from "./plantSize";
+import { DEAD_FORM, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
+import { GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
+import { LAND, LAND_GROW } from "./objectFade";
 
 type Rgb = readonly [number, number, number];
 
 // ------------------------------------------------------------------------------ model building
 
 /** Which view a model's part is drawn in (the per-vertex `lod` the object shader reads): always,
- *  only close up, or only from afar (materials.ts `RUIN_NEAR_PX` sets where they meet). */
+ *  only close up, or only from afar (materials.ts `RUIN_NEAR_PX` sets where they meet), solid or as
+ *  a lattice (`LOD_FAR_FRAME`, a far ruin block's frame: materials.ts `RUIN_LATTICE_SCALE`). */
 export const LOD_ALL = 0;
 export const LOD_NEAR = 1;
 export const LOD_FAR = 2;
+export const LOD_FAR_FRAME = 3;
 
 /** A model under construction: flat-shaded triangles with a colour per vertex. */
 class Model {
@@ -74,7 +79,7 @@ class Model {
   nrm: number[] = [];
   col: number[] = [];
   lod: number[] = [];
-  /** The view the parts added now belong to (LOD_ALL, LOD_NEAR or LOD_FAR). */
+  /** The view the parts added now belong to (LOD_ALL, LOD_NEAR, LOD_FAR or LOD_FAR_FRAME). */
   level = LOD_ALL;
 
   /** Add a three.js geometry, transformed, in one colour or with a colour for each vertex (a function of
@@ -133,12 +138,61 @@ class Model {
     return this.pos.length / 9;
   }
 
-  /** Triangles drawn in one view: close up (LOD_NEAR) or from afar (LOD_FAR). */
+  /** Triangles drawn in one view: close up (LOD_NEAR) or from afar (LOD_FAR, its frame's included). */
   trianglesIn(view: typeof LOD_NEAR | typeof LOD_FAR): number {
     let n = 0;
-    for (let v = 0; v < this.lod.length; v += 3) if (this.lod[v] === LOD_ALL || this.lod[v] === view) n++;
+    for (let v = 0; v < this.lod.length; v += 3) if (this.lod[v] === LOD_ALL || (view === LOD_FAR ? this.lod[v] >= LOD_FAR : this.lod[v] === view)) n++;
     return n;
   }
+}
+
+/** A plant's dying form (dying.ts): its foliage in the game's dry colour, drawn in toward the trunk and sunk as much as the
+ *  game's is; each triangle's normal made again where it moved. */
+function dyingOf(species: string, m: Model): Model {
+  const d = DRYING[species];
+  const out = new Model();
+  out.lod = m.lod.slice();
+  for (let v = 0; v < m.pos.length; v += 9) {
+    const tri = m.pos.slice(v, v + 9);
+    let moved = false;
+    for (let k = 0; k < 3; k++) {
+      const c: Rgb = [m.col[v + k * 3], m.col[v + k * 3 + 1], m.col[v + k * 3 + 2]];
+      out.col.push(...dryColour(species, c));
+      if (d.mode === "ratio" || isFoliage(c)) {
+        tri[k * 3] *= d.reach;
+        tri[k * 3 + 1] *= d.height;
+        tri[k * 3 + 2] *= d.reach;
+        moved = true;
+      }
+    }
+    out.pos.push(...tri);
+    if (!moved) {
+      out.nrm.push(...m.nrm.slice(v, v + 9));
+      continue;
+    }
+    const n = new Vector3(tri[3] - tri[0], tri[4] - tri[1], tri[5] - tri[2]).cross(new Vector3(tri[6] - tri[0], tri[7] - tri[1], tri[8] - tri[2])).normalize();
+    for (let k = 0; k < 3; k++) out.nrm.push(n.x, n.y, n.z);
+  }
+  return out;
+}
+
+/** A model's height (its highest vertex). */
+function heightOf(m: Model): number {
+  let h = 0;
+  for (let k = 1; k < m.pos.length; k += 3) h = Math.max(h, m.pos[k]);
+  return h;
+}
+
+/** A model scaled upright to height `h` (a dead plant at the game's height for it), its normals made again. */
+function heightTo(m: Model, h: number): Model {
+  const k = h / heightOf(m);
+  for (let v = 1; v < m.pos.length; v += 3) m.pos[v] *= k;
+  for (let v = 0; v < m.pos.length; v += 9) {
+    const p = m.pos;
+    const n = new Vector3(p[v + 3] - p[v], p[v + 4] - p[v + 1], p[v + 5] - p[v + 2]).cross(new Vector3(p[v + 6] - p[v], p[v + 7] - p[v + 1], p[v + 8] - p[v + 2])).normalize();
+    for (let c = 0; c < 3; c++) m.nrm.splice(v + c * 3, 3, n.x, n.y, n.z);
+  }
+  return m;
 }
 
 const cone = (r: number, h: number, sides: number) => new ConeGeometry(r, h, sides, 1, true);
@@ -204,13 +258,18 @@ function onFace(m: Model, f: number, build: () => void): void {
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 
-const BARK: Rgb = [0.36, 0.25, 0.16];
-/** Bare dead wood: a pale grey-brown tan, far lighter than the living crowns; a dead birch stays
- *  white, a dead oak's thick trunk darker. */
-const DEAD_WOOD: Rgb = [0.78, 0.69, 0.56];
-const DEAD_DARK: Rgb = [0.7, 0.62, 0.5];
-const DEAD_BIRCH: Rgb = [0.9, 0.88, 0.84];
-const DEAD_BARK: Rgb = [0.6, 0.54, 0.45];
+const BARK: Rgb = TREE_COLOURS.pineBark;
+const BIRCH_BARK: Rgb = [0.93, 0.91, 0.86];
+const OAK_BARK: Rgb = TREE_COLOURS.oakBark;
+const BUSH_LEAVES: Rgb = TREE_COLOURS.bush;
+/** Bare dead wood as the game's (dying.ts `DEAD_FORM`): each tree's own bark weathered, the pine's and oak's lighter and
+ *  greyer brown, still lighter than the living crowns; a dead birch stays white, a shade darker. Where a limb broke the
+ *  wood is paler. */
+const DEAD_WOOD: Rgb = deadWood("Pine", BARK);
+const DEAD_DARK: Rgb = shade(DEAD_WOOD, 0.85);
+const DEAD_BIRCH: Rgb = deadWood("Birch", BIRCH_BARK);
+const DEAD_BARK: Rgb = deadWood("Oak", OAK_BARK);
+const DEAD_BREAK: Rgb = shade(deadWood("Oak", OAK_BARK), 1.35);
 
 /** A bare branch from the trunk at height y, outward along `angle`, tilted up by `tilt`: a spike
  *  tapering to a point. */
@@ -238,21 +297,15 @@ function rotateTail(m: Model, vertices: number, angle: number, y: number): void 
   }
 }
 
-/** Move the last `vertices` vertices of a model by (x, z). */
-function moveTail(m: Model, vertices: number, x: number, z: number): void {
-  for (let k = m.pos.length - vertices * 3; k < m.pos.length; k += 3) {
-    m.pos[k] += x;
-    m.pos[k + 2] += z;
-  }
-}
-
 const MODELS: Record<string, () => Model> = {
+  // the game's grown pine (plantSize.ts): a bare trunk to 1.25, then three broad whorls of needles to 3.0, each about as
+  // wide as the last, the top one narrower; 1.2 across
   Pine: () =>
     new Model()
-      .add(cyl(0.07, 0.05, 0.45, 4), BARK, { y: 0.225 })
-      .add(cone(0.38, 0.62, 6), [0.11, 0.28, 0.17], { y: 0.3 + 0.31 })
-      .add(cone(0.3, 0.56, 6), [0.13, 0.32, 0.19], { y: 0.62 + 0.28, ry: 0.5 })
-      .add(cone(0.2, 0.5, 6), [0.15, 0.36, 0.21], { y: 0.95 + 0.25, ry: 1.0 }),
+      .add(cyl(0.11, 0.06, 1.75, 5), BARK, { y: 0.875 })
+      .add(cone(0.62, 0.8, 7), shade(TREE_COLOURS.pine, 0.9), { y: 1.22 + 0.4 })
+      .add(cone(0.58, 0.72, 7), TREE_COLOURS.pine, { y: 1.84 + 0.36, ry: 0.45 })
+      .add(cone(0.4, 0.6, 7), shade(TREE_COLOURS.pine, 1.1), { y: 2.4 + 0.3, ry: 0.9 }),
   "Pine.dead": () => {
     // a tall bare pole, its top broken off askew, a few stubs of branches
     const m = new Model().add(post(0.075, 0.05, 1.25, 6), DEAD_WOOD, { y: 0.625 }).add(post(0.05, 0.03, 0.22, 5), DEAD_DARK, { x: 0.03, y: 1.33, rz: -0.35 });
@@ -260,44 +313,49 @@ const MODELS: Record<string, () => Model> = {
     branch(m, 1.02, 3.7, 0.55, 0.1, 0.025, DEAD_DARK);
     return m;
   },
+  // the game's grown birch: a white trunk forking low into two stems, under a round crown from 0.95 to 1.92, 1.0 across
   Birch: () =>
     new Model()
-      .add(cyl(0.05, 0.04, 0.75, 4), [0.93, 0.91, 0.86], { y: 0.375 })
-      .add(cyl(0.052, 0.05, 0.07, 4), [0.18, 0.16, 0.15], { y: 0.36 })
-      .add(ico(0.31), [0.34, 0.52, 0.19], { y: 0.96, sy: 1.4 }),
+      .add(cyl(0.075, 0.06, 0.45, 5), BIRCH_BARK, { y: 0.225 })
+      .add(cyl(0.077, 0.075, 0.06, 5), [0.18, 0.16, 0.15], { y: 0.3 })
+      .add(cyl(0.055, 0.035, 0.75, 4), BIRCH_BARK, { x: -0.07, y: 0.78, rz: 0.2 })
+      .add(cyl(0.05, 0.035, 0.7, 4), BIRCH_BARK, { x: 0.07, y: 0.76, rz: -0.22, ry: 0.4 })
+      .add(ico(0.5), TREE_COLOURS.birch, { y: 1.42, sy: 0.98 })
+      .add(oct(0.3), shade(TREE_COLOURS.birch, 1.08), { x: 0.2, y: 1.58, z: -0.14 }),
   "Birch.dead": () => {
     // a white trunk forking into two bare arms, and a twig
     const m = new Model().add(post(0.06, 0.045, 0.5, 5), DEAD_BIRCH, { y: 0.25 });
     branch(m, 0.46, 0.3, 1.2, 0.55, 0.045, DEAD_BIRCH);
     branch(m, 0.46, 3.4, 1.15, 0.5, 0.04, DEAD_BIRCH);
-    branch(m, 0.62, 1.9, 0.8, 0.2, 0.025, DEAD_WOOD);
+    branch(m, 0.62, 1.9, 0.8, 0.2, 0.025, shade(DEAD_BIRCH, 0.8));
     return m;
   },
+  // the game's grown oak: a thick trunk to 1.2, flared at the root, under one broad, flat-layered crown from 1.13 to 2.26,
+  // 1.7 across
   Oak: () =>
     new Model()
-      .add(cyl(0.11, 0.08, 0.55, 4), [0.34, 0.23, 0.14], { y: 0.275 })
-      .add(ico(0.44), [0.22, 0.42, 0.16], { y: 0.95, sy: 0.85 })
-      .add(ico(0.28), [0.26, 0.47, 0.18], { x: 0.2, y: 0.8, z: 0.12 }),
+      .add(cyl(0.2, 0.13, 1.3, 6), OAK_BARK, { y: 0.65 })
+      .add(ico(0.86), TREE_COLOURS.oak, { y: 1.62, sy: 0.54 })
+      .add(oct(0.42), shade(TREE_COLOURS.oak, 1.08), { x: 0.48, y: 1.42, z: 0.3, sy: 0.6, ry: 0.4 })
+      .add(oct(0.4), shade(TREE_COLOURS.oak, 0.92), { x: -0.45, y: 1.48, z: -0.28, sy: 0.6, ry: 1.1 })
+      .add(oct(0.44), shade(TREE_COLOURS.oak, 1.05), { y: 2.02, sy: 0.55, ry: 0.7 }),
   "Oak.dead": () => {
     // a thick bare trunk, its limbs broken off short, pale where they broke
-    const m = new Model().add(post(0.15, 0.11, 0.62, 6), DEAD_BARK, { y: 0.31 }).add(new CylinderGeometry(0.1, 0.1, 0.02, 6), DEAD_WOOD, { y: 0.62 });
-    for (let k = 0; k < 3; k++) branch(m, 0.56, 0.5 + (k * Math.PI * 2) / 3, 1.05, 0.26, 0.06, DEAD_WOOD);
+    const m = new Model().add(post(0.15, 0.11, 0.62, 6), DEAD_BARK, { y: 0.31 }).add(new CylinderGeometry(0.1, 0.1, 0.02, 6), DEAD_BREAK, { y: 0.62 });
+    for (let k = 0; k < 3; k++) branch(m, 0.56, 0.5 + (k * Math.PI * 2) / 3, 1.05, 0.26, 0.06, DEAD_BARK);
     return m;
   },
   Succulent: () => succulent(false),
   "Succulent.dead": () => succulent(true),
+  // the game's grown blueberry bush: a low, wide mound, 1.1 across and 0.4 tall, its berries on top
   BlueberryBush: () => {
-    const m = new Model().add(ico(0.3), [0.14, 0.29, 0.14], { y: 0.2, sy: 0.72, sx: 1.1 });
-    const flowers: [number, number, number][] = [[0.16, 0.3, 0.12], [-0.08, 0.36, 0.15], [0.05, 0.38, -0.15], [0.22, 0.18, -0.12]];
-    for (const [x, y, z] of flowers) m.add(new OctahedronGeometry(0.065, 0), [0.46, 0.56, 1.0], { x, y, z });
+    const m = new Model().add(ico(0.56), BUSH_LEAVES, { y: 0.13, sy: 0.48 });
+    const flowers: [number, number, number][] = [[0.28, 0.3, 0.2], [-0.16, 0.32, 0.26], [0.08, 0.32, -0.28], [0.4, 0.2, -0.2], [-0.36, 0.24, -0.12]];
+    for (const [x, y, z] of flowers) m.add(new OctahedronGeometry(0.07, 0), [0.46, 0.56, 1.0], { x, y, z });
     return m;
   },
-  "BlueberryBush.dead": () => {
-    // a pale clump of bare twigs
-    const m = new Model();
-    for (let k = 0; k < 5; k++) branch(m, 0.04, (k * Math.PI * 2) / 5, 0.7, 0.36, 0.04, k % 2 ? DEAD_DARK : DEAD_WOOD);
-    return m;
-  },
+  // the game's dead bush keeps its leaves, gone brown, and loses its berries (dying.ts `DEAD_FORM`)
+  "BlueberryBush.dead": () => new Model().add(ico(0.56), deadLeaves("BlueberryBush", BUSH_LEAVES), { y: 0.13, sy: 0.48 }),
   Slope: () => {
     // a ramp over the tile, low on the north (−Z) edge and high on the south (+Z), as a Cw0
     // slope's high side is south (its arrows are "Slope.mark")
@@ -332,39 +390,34 @@ const MODELS: Record<string, () => Model> = {
     return m;
   },
   WaterSource: () => {
-    // a stone basin with water welling up (D324, feedback item 28; a model of our own, in the game's
-    // style): four blocks round a pool, corner stones, the water domed in the middle over a small
-    // spout, and rings spreading from it
-    const stone: Rgb = [0.5, 0.52, 0.52];
-    const dark: Rgb = [0.34, 0.36, 0.37];
-    const m = new Model().add(box(0.98, 0.1, 0.98), dark, { y: 0.05 });
-    for (const s of [-1, 1]) {
-      m.add(box(0.98, 0.18, 0.2), stone, { y: 0.19, z: s * 0.39 });
-      m.add(box(0.2, 0.18, 0.58), stone, { y: 0.19, x: s * 0.39 });
-      for (const c of [-1, 1]) m.add(box(0.27, 0.27, 0.27), [0.56, 0.58, 0.57], { x: c * 0.36, y: 0.235, z: s * 0.36, ry: 0.15 * c * s });
-    }
-    m.add(box(0.58, 0.04, 0.58), [0.2, 0.5, 0.58], { y: 0.16 });
-    m.add(new CylinderGeometry(0.25, 0.25, 0.012, 12), [0.78, 0.9, 0.92], { y: 0.182 });
-    m.add(new CylinderGeometry(0.2, 0.2, 0.012, 12), [0.24, 0.56, 0.64], { y: 0.19 });
-    m.add(ico(0.17), [0.34, 0.68, 0.75], { y: 0.2, sy: 0.6 });
-    return m.add(new CylinderGeometry(0.04, 0.05, 0.14, 6), [0.8, 0.92, 0.94], { y: 0.27 });
+    // the game's water source (WaterSource.Model, D496): an outcrop of dark rock 1.0 high over its tile, a little
+    // wider than it (1.14 × 1.18), lighter on top; the water wells up round it
+    const m = new Model();
+    const rocks: [number, number, number, number, number, Rgb][] = [
+      // x, y, z, radius, height ÷ radius, colour: a block of rock as full as the game's, to 1.0
+      [0.0, 0.5, 0.0, 0.5, 1.06, LANDMARK.rock],
+      [0.21, 0.33, -0.21, 0.35, 1.02, LANDMARK.rockLow],
+      [-0.21, 0.32, 0.21, 0.35, 1.0, LANDMARK.rockLow],
+      [0.21, 0.33, 0.21, 0.35, 1.02, LANDMARK.rock],
+      [-0.21, 0.32, -0.21, 0.35, 1.0, LANDMARK.rock],
+      [0.15, 0.72, -0.1, 0.27, 1.0, LANDMARK.rockTop],
+      [-0.12, 0.7, 0.13, 0.28, 1.0, LANDMARK.rockTop],
+    ];
+    rocks.forEach(([x, y, z, r, sy, c], k) => m.add(ico(r), c, { x, y, z, sy, ry: k * 1.3 }));
+    return m;
   },
   BadwaterSource: () => {
-    // a stone basin of badwater over its 3 × 3 footprint (centred on it; D324, feedback item 28): a
-    // dark, stained rim of blocks and boulders round a crimson pool, the badwater boiling up in a
-    // low dome with slow orange-brown bubbles, darker and heavier than the clean source beside it
-    const rim: Rgb = [0.25, 0.22, 0.2];
-    const m = new Model().add(box(2.96, 0.1, 2.96), [0.13, 0.11, 0.1], { y: 0.05 });
-    for (const s of [-1, 1]) {
-      m.add(box(2.96, 0.26, 0.42), rim, { y: 0.23, z: s * 1.27 });
-      m.add(box(0.42, 0.26, 2.12), rim, { y: 0.23, x: s * 1.27 });
-      for (const c of [-1, 1]) m.add(ico(0.38), [0.3, 0.26, 0.23], { x: c * 1.28, y: 0.3, z: s * 1.28, sy: 0.75, ry: 0.4 * c * s });
+    // the game's badwater source (BadwaterSource.Model, D496): a flat, dark crater 2.5 across over its 3 × 3 footprint
+    // (centred on it), darker toward its middle, a few low stones round its rim; the badwater wells up over it
+    const m = new Model()
+      .add(new CylinderGeometry(1.27, 1.27, 0.02, 11), LANDMARK.crater, { y: 0.01 })
+      .add(new CylinderGeometry(0.85, 0.85, 0.01, 11), LANDMARK.craterDeep, { y: 0.024, ry: 0.3 })
+      .add(new CylinderGeometry(0.36, 0.36, 0.01, 9), shade(LANDMARK.craterDeep, 0.85), { y: 0.03 });
+    for (let k = 0; k < 9; k++) {
+      const a = (k * 2 * Math.PI) / 9 + 0.2 * (k % 3);
+      const r = 1.08 + 0.1 * ((k * 5) % 3);
+      m.add(ico(0.11 + 0.03 * (k % 2)), LANDMARK.craterRim, { x: Math.cos(a) * r, y: 0.02, z: Math.sin(a) * r, sy: 0.3, ry: k });
     }
-    m.add(box(2.14, 0.05, 2.14), [0.22, 0.085, 0.07], { y: 0.155 });
-    m.add(ico(0.8), [0.31, 0.11, 0.09], { y: 0.17, sy: 0.3 });
-    const bubbles: [number, number, number][] = [[0.3, 0.25, 0.26], [-0.5, -0.1, 0.2], [0.1, -0.55, 0.18], [-0.25, 0.6, 0.22], [0.65, -0.45, 0.16], [-0.75, 0.45, 0.15], [0.6, 0.65, 0.19]];
-    // (orange-brown, and no lighter than the mine test allows: a badwater source stays far darker than a mine's pale wood)
-    for (const [x, z, r] of bubbles) m.add(ico(r), [0.62, 0.3, 0.1], { x, y: 0.25, z, sy: 0.9 });
     return m;
   },
   UndergroundRuins: () => mineSite(),
@@ -399,6 +452,12 @@ const MODELS: Record<string, () => Model> = {
   ReserveWarehouse: reserveWarehouse,
   ReserveTank: reserveTank,
 };
+// (each plant's dying form, drawn while it is dying: dying.ts; its dead form at the game's height for it)
+for (const species of Object.keys(DRYING)) MODELS[`${species}.dying`] = () => dyingOf(species, MODELS[species]());
+for (const species of Object.keys(DEAD_FORM)) {
+  const dead = MODELS[`${species}.dead`];
+  if (dead) MODELS[`${species}.dead`] = () => heightTo(dead(), DEAD_FORM[species].height * heightOf(MODELS[species]()));
+}
 
 // ------------------------------------------------------------------------------ the 1.x objects
 
@@ -442,13 +501,14 @@ const PAD_TIP: Rgb = [0.64, 0.47, 0.34];
  *  near level, reaching past the tile like a tree's crown, each blushing pink-red at its outer tip; and a young
  *  plant beside it, a rosette of five pads. Dead: a grey-tan trunk and three limp tan pads. At most 240 triangles. */
 function succulent(dead: boolean): Model {
-  const mid: Rgb = dead ? [0.55, 0.47, 0.36] : [0.5, 0.36, 0.22];
-  const dark: Rgb = dead ? [0.5, 0.43, 0.33] : [0.43, 0.3, 0.18];
+  // (dead: darker by the game's ratio, its pads gone the game's dead red-brown: dying.ts `DEAD_FORM`)
+  const mid: Rgb = dead ? deadRatio("Succulent", [0.5, 0.36, 0.22]) : [0.5, 0.36, 0.22];
+  const dark: Rgb = dead ? deadRatio("Succulent", [0.43, 0.3, 0.18]) : [0.43, 0.3, 0.18];
   const cx = 0;
   const m = new Model();
   const rings: [number, number][] = [[0.1, 0.17], [0.17, 0.19], [0.19, 0.15], [0.15, 0.08]];
   rings.forEach(([r0, r1], k) => m.add(cyl(r0, r1, 0.17, 6), k % 2 ? dark : mid, { x: cx, y: 0.085 + 0.17 * k, ry: 0.3 * k }));
-  const green: Rgb = dead ? [0.62, 0.54, 0.4] : SAGE;
+  const green: Rgb = dead ? deadLeaves("Succulent", SAGE) : SAGE;
   // (a pad as an oval lens, `len` long and `wid` wide: its inner end at (x, y, z), leaning out along `turn` at `tilt` above
   // the horizontal, so the crown's pads fan up and out past the trunk; its outer tip blushes. A dead plant's droop.)
   const pad = (x: number, y: number, z: number, turn: number, tilt: number, len: number, wid: number) => {
@@ -495,38 +555,52 @@ function liteSucculent(): Model {
   return m;
 }
 
-/** A seep (2 × 2): the game's square pit, stepped, sunk into the ground (the terrain's tops over the
- *  footprint are cut out, `mineCutout`), with grey rocks heaped on its floor under the water: water-blue
- *  and grey, or, for badwater, rust-crusted rocks in the renderer's badwater reds. */
+/** A seep (2 × 2), as the game's (WaterSeep.Model, BadwaterSeep.Model; D496): a stone slab over the footprint at the
+ *  ground, round a pit heaped with rounded rocks a little over half a tile across that rise above it, to 0.57 for water
+ *  and 0.40 for badwater, with dark gaps between them: teal for water, rust orange for badwater. The pit is a terrain
+ *  cut-out (`mineCutout`), its walls and floor in the gaps' colour, 0.5 deep for water and 0.2 for badwater, as the
+ *  game's are. */
 function seep(bad: boolean): Model {
-  const wall: Rgb = bad ? [0.27, 0.13, 0.1] : [0.19, 0.3, 0.33];
-  const ledge: Rgb = bad ? [0.38, 0.2, 0.12] : [0.27, 0.41, 0.44];
-  const floor: Rgb = bad ? WATER.badDeep : [0.14, 0.26, 0.3];
-  const rock: Rgb = bad ? [0.5, 0.3, 0.17] : [0.48, 0.55, 0.57];
-  const d1 = 0.28;
-  const d2 = 0.62;
+  const slab = bad ? LANDMARK.badSeepSlab : LANDMARK.seepSlab;
+  const rock = bad ? LANDMARK.badSeepRock : LANDMARK.seepRock;
+  const gap = bad ? LANDMARK.badSeepGap : LANDMARK.seepGap;
+  const d = bad ? 0.2 : 0.5;
+  const a = 0.78;
   const m = new Model();
   for (let f = 0; f < 4; f++)
     onFace(m, f, () => {
-      m.add(plane(2, d1), wall, { y: -d1 / 2, z: -1 });
-      m.add(plane(2, 0.22), ledge, { rx: -Math.PI / 2, y: -d1, z: -0.89 });
-      m.add(plane(1.56, d2 - d1), shade(wall, 0.8), { y: -d1 - (d2 - d1) / 2, z: -0.78 });
+      // the pit's wall, and the slab's side of the footprint (overlapping at the corners)
+      m.add(plane(2 * a, d), shade(gap, 0.8), { y: -d / 2, z: -a });
+      m.add(box(2, 0.05, 1 - a), slab, { y: 0.025, z: -(1 + a) / 2 });
+      // studs along the slab's edge
+      for (const x of [-0.72, 0.38]) m.add(oct(0.045), shade(slab, 0.85), { x, y: 0.05, z: -0.93 });
     });
-  m.add(plane(1.56, 1.56), floor, { rx: -Math.PI / 2, y: -d2 });
-  const rocks: [number, number, number, number][] = [
-    // x, z, radius, height of the middle over the floor
-    [0, 0, 0.24, 0.3],
-    [0.3, 0.12, 0.19, 0.2],
-    [-0.28, 0.2, 0.2, 0.18],
-    [0.1, -0.3, 0.19, 0.2],
-    [-0.2, -0.28, 0.17, 0.14],
-    [0.5, -0.32, 0.15, 0.1],
-    [-0.5, -0.05, 0.15, 0.1],
-    [0.15, 0.5, 0.15, 0.1],
-    [-0.1, 0.52, 0.14, 0.09],
+  m.add(plane(2 * a, 2 * a), gap, { rx: -Math.PI / 2, y: -d });
+  const top = bad ? 0.4 : 0.57;
+  // the rocks heaped over the pit, rounded and about the game's size: nine low ones over it, their tops a little over the
+  // slab, and three in the middle stacked on them, the tallest to the heap's top; the narrow gaps between them dark. Each
+  // given by where it stands, its radius, how much flatter than round it is and its top over the level (as a share of
+  // the water seep's heap: a badwater seep's is lower).
+  const rocks: [number, number, number, number, number][] = [
+    // x, z, radius, height / width, top
+    [-0.5, -0.5, 0.29, 0.72, 0.19],
+    [0.02, -0.53, 0.3, 0.75, 0.25],
+    [0.52, -0.48, 0.28, 0.7, 0.17],
+    [-0.53, 0.01, 0.3, 0.74, 0.24],
+    [0.0, 0.0, 0.31, 0.8, 0.33],
+    [0.51, 0.04, 0.29, 0.72, 0.22],
+    [-0.48, 0.52, 0.28, 0.7, 0.16],
+    [0.04, 0.51, 0.3, 0.74, 0.23],
+    [0.5, 0.5, 0.29, 0.72, 0.18],
+    [-0.16, -0.12, 0.24, 0.85, 0.47],
+    [0.2, 0.14, 0.23, 0.82, 0.42],
+    [0.02, 0.0, 0.2, 0.9, 0.57],
   ];
-  rocks.forEach(([x, z, r, h], k) => m.add(ico(r), shade(rock, 0.85 + 0.1 * (k % 3)), { x, y: -d2 + h, z, sy: 0.8, ry: k }));
-  if (bad) for (const [x, z] of [[0.05, 0.05], [0.3, 0.12], [-0.28, 0.2]]) m.add(oct(0.06), [0.78, 0.4, 0.12], { x: x + 0.05, y: -d2 + 0.42, z });
+  // (an icosahedron's top vertex stands 0.851 of its radius over its middle)
+  rocks.forEach(([x, z, r, flat, t], k) => {
+    const y = (t * top) / 0.57 - 0.851 * r * flat;
+    m.add(ico(r), shade(rock, 0.86 + 0.07 * (k % 3)), { x, y, z, sx: 1 + 0.08 * Math.sin(k * 2.3), sy: flat, sz: 1 + 0.08 * Math.cos(k * 1.9), ry: k * 0.9 });
+  });
   return m;
 }
 
@@ -703,64 +777,57 @@ function reserveTank(): Model {
 /** A mine site's pit: sunk into its whole 5 × 5 footprint (whose tops the terrain leaves out,
  *  `mineCutout`, as the game hides the terrain under the site), `half` tiles either side of the
  *  footprint's middle, inside the rusty frame round the footprint's edge, and `depth` levels deep. */
-export const MINE_PIT = { half: 2.18, depth: 1.6 } as const;
+export const MINE_PIT = { half: 2.18, depth: 1.35 } as const;
 
-/** A mine site, centred on its 5 × 5 footprint (Kyler's rounds, D178; our own model, true to the
- *  game's footprint): a rusty frame round the footprint's edge; inside it the pit, filling most of
- *  the footprint, with its dark earthen walls and floor, roots hanging and running over the floor,
- *  rubble, cracks, a ladder and a shaft in the middle; scaffold towers on the frame's corners, their
- *  inner legs down in the pit, joined by rails into one structure, with beams across the pit and a
- *  bucket on a rope. Within ±2.5 of the middle: the footprint. */
+/** A mine site, centred on its 5 × 5 footprint, as the game's (UndergroundRuins.Model; D178, D496): a rusty frame round
+ *  the footprint's edge; inside it the pit, filling most of the footprint, with its dark earthen walls and floor, roots
+ *  hanging and running over the floor, rock and cracks; ground in its corners, as the game's round pit leaves them, a
+ *  ledge falling into the pit as an earthen bank along an arc; rusty posts standing down into the pit round its lip, joined by beams. No scaffolding: the game's has
+ *  none. Within ±2.5 of the middle: the footprint. */
 function mineSite(): Model {
   const m = new Model();
   const p = MINE_PIT.half;
   const d = MINE_PIT.depth;
   // the pit's walls: a band of browner topsoil under a rusty lip, earth with a pale seam, darker
-  // toward the floor; the floor darker toward its edges, a shaft in its middle
-  const soil = 0.38;
-  const low = 0.34;
+  // toward the floor; the floor darker toward its edges
+  const soil = 0.34;
+  const low = 0.3;
   for (let f = 0; f < 4; f++)
     onFace(m, f, () => {
       m.add(plane(2 * p, soil), MINE.earthTop, { y: -soil / 2, z: -p });
       m.add(plane(2 * p, d - soil - low), MINE.earth, { y: -soil - (d - soil - low) / 2, z: -p });
       m.add(plane(2 * p, low), MINE.earthLow, { y: -d + low / 2, z: -p });
-      m.add(plane(2 * p, 0.05), MINE.seam, { y: -0.78 - 0.06 * (f % 2), z: -p + 0.006 });
+      m.add(plane(2 * p, 0.05), MINE.seam, { y: -0.68 - 0.06 * (f % 2), z: -p + 0.006 });
       m.add(plane(2 * p, 0.2), shade(MINE.frame, 0.8), { y: -0.1, z: -p + 0.012 });
     });
   const floor = (w: number, color: Rgb, y: number) => m.add(plane(w, w), color, { rx: -Math.PI / 2, y: -d + y });
   floor(2 * p, MINE.floorEdge, 0);
   floor(2 * p - 1.1, MINE.floor, 0.004);
-  floor(0.9, MINE.shaft, 0.012);
-  for (let f = 0; f < 4; f++) onFace(m, f, () => m.add(box(1.1, 0.1, 0.1), MINE.ladder, { y: -d + 0.05, z: -0.5 }));
   // cracks down the walls and over the floor: dark zigzags
   const cracks: [number, number, number, number, number][] = [
     // face, x, top, length, lean
-    [0, -1.2, -0.25, 0.9, 0.25],
-    [0, 1.4, -0.5, 0.8, -0.3],
-    [1, -0.4, -0.3, 1.0, 0.2],
-    [1, 1.3, -0.55, 0.7, -0.2],
+    [0, -0.6, -0.25, 0.8, 0.25],
+    [0, 0.7, -0.45, 0.7, -0.3],
+    [1, -0.4, -0.3, 0.8, 0.2],
+    [1, 0.5, -0.5, 0.6, -0.2],
     [2, 0.6, -0.2, 0.7, -0.2],
-    [2, -1.5, -0.45, 0.8, 0.25],
-    [3, -1.3, -0.4, 0.9, 0.3],
-    [3, 0.9, -0.6, 0.7, -0.25],
+    [2, -0.7, -0.4, 0.7, 0.25],
+    [3, -0.5, -0.35, 0.8, 0.3],
+    [3, 0.8, -0.5, 0.6, -0.25],
   ];
   for (const [f, x, top, len, lean] of cracks)
     onFace(m, f, () => {
       m.add(plane(0.05, len * 0.5), MINE.crack, { rz: lean, x, y: top - len * 0.25, z: -p + 0.01 });
       m.add(plane(0.04, len * 0.5), MINE.crack, { rz: -lean, x: x - Math.sin(lean) * len * 0.22, y: top - len * 0.72, z: -p + 0.01 });
     });
-  for (const [x, z, len, turn] of [[-1.1, 0.8, 0.9, 0.6], [0.9, 1.1, 0.7, -0.5], [1.2, -0.9, 0.8, -0.9], [-0.9, -1.2, 0.6, 0.4]] as const) m.add(plane(len, 0.022), MINE.floorCrack, { rx: -Math.PI / 2, ry: turn, x, y: -d + 0.008, z });
-  // roots: hanging from the rim down the walls, dark and pale, and running over the floor toward
-  // the shaft
+  for (const [x, z, len, turn] of [[-0.9, 0.6, 0.8, 0.6], [0.7, 0.9, 0.7, -0.5], [0.9, -0.7, 0.8, -0.9], [-0.7, -0.9, 0.6, 0.4]] as const) m.add(plane(len, 0.022), MINE.floorCrack, { rx: -Math.PI / 2, ry: turn, x, y: -d + 0.008, z });
+  // roots: hanging from the rim down the walls, dark and pale, and running over the floor
   const hanging: [number, number, number][] = [
     // x, length, tilt
-    [-1.75, 0.9, 0.15],
-    [-1.2, 0.55, -0.2],
-    [-0.55, 1.05, 0.1],
-    [0.1, 0.6, -0.15],
-    [0.75, 0.95, 0.2],
-    [1.4, 0.5, -0.1],
-    [1.85, 0.8, 0.12],
+    [-1.0, 0.7, 0.15],
+    [-0.55, 0.9, 0.1],
+    [0.1, 0.55, -0.15],
+    [0.75, 0.85, 0.2],
   ];
   for (let f = 0; f < 4; f++)
     hanging.forEach(([x, len, tilt], k) => {
@@ -769,37 +836,77 @@ function mineSite(): Model {
       onFace(m, f, () => m.add(cone(0.05, l, 3), (k + f) % 3 ? MINE.root : MINE.rootPale, { rx: Math.PI, rz: tilt, x: x * (f % 2 ? -1 : 1), y: -0.05 - l / 2, z: -p + 0.06 }));
     });
   for (let k = 0; k < 8; k++) {
-    // a root over the floor, from a wall toward the shaft
     const a = (k * Math.PI) / 4 + 0.35;
-    const r0 = 0.75;
-    const r1 = p - 0.15;
+    const r0 = 0.6;
+    const r1 = 1.15;
     const len = r1 - r0;
     m.add(cone(0.035, len, 3), k % 2 ? MINE.root : MINE.rootPale, { rz: Math.PI / 2, ry: a, x: Math.cos(a) * (r0 + len / 2), y: -d + 0.03, z: -Math.sin(a) * (r0 + len / 2) });
   }
-  // rubble along the walls and heaps in two corners
+  // rock over the floor, as the game's pit is strewn: a boulder in the middle, rubble round it
+  m.add(ico(0.42), MINE.rubble[1], { x: 0.1, y: -d + 0.16, z: -0.05, sy: 0.55, ry: 0.4 });
   const rubble: [number, number, number, number][] = [
     // x, z, radius, shade
-    [-1.8, -1.75, 0.34, 0],
-    [-1.35, -1.9, 0.24, 1],
-    [-1.9, -1.25, 0.26, 2],
-    [-1.45, -1.4, 0.18, 1],
-    [-0.8, -1.95, 0.15, 2],
-    [1.85, 0.7, 0.26, 0],
-    [1.9, 1.25, 0.2, 2],
-    [1.4, 1.85, 0.17, 1],
-    [0.5, 1.9, 0.22, 1],
-    [-0.6, 1.95, 0.16, 0],
-    [1.5, -1.85, 0.18, 2],
-    [-1.95, 0.4, 0.2, 1],
-    [0.7, -0.75, 0.12, 2],
-    [-0.6, 0.65, 0.1, 0],
+    [-0.95, -0.9, 0.3, 0],
+    [-0.6, -1.15, 0.22, 1],
+    [1.0, 0.55, 0.26, 0],
+    [0.75, 1.05, 0.2, 2],
+    [-1.05, 0.5, 0.2, 1],
+    [0.5, -1.0, 0.18, 2],
+    [-0.4, 0.95, 0.16, 0],
+    [0.65, -0.35, 0.12, 2],
+    [-0.55, 0.15, 0.12, 1],
   ];
   rubble.forEach(([x, z, r, s], k) => m.add(k % 2 ? oct(r) : ico(r), MINE.rubble[s], { x, y: -d + r * 0.4, z, sy: 0.6, ry: k }));
-  // a ladder down the north wall (the far wall from the game's camera)
-  const lx = -0.5;
-  const lz = -p + 0.07;
-  for (const sx of [-0.17, 0.17]) m.add(bar(0.025, d + 0.45), MINE.ladder, { x: lx + sx, y: (0.45 - d) / 2, z: lz });
-  for (let k = 0; k < 6; k++) m.add(box(0.36, 0.035, 0.04), MINE.ladder, { x: lx, y: -d + 0.2 + k * 0.28, z: lz });
+  // the pit's corners: the ground the game's round pit leaves in its square, a ledge a little under the level (the game's
+  // is 0.1 under) whose edge is an arc, falling into the pit as a bank of topsoil over earth, as the walls are, and a few
+  // stones on it. Each arc runs between the walls `a` from the corner's middle, round the pit's middle.
+  const c = 1.0;
+  const arc = (a: number, y: number, n: number): number[][] => {
+    const r = Math.hypot(a, p);
+    const f0 = Math.atan2(p, a);
+    const f1 = Math.atan2(a, p);
+    return Array.from({ length: n + 1 }, (_, i) => {
+      const f = f0 + ((f1 - f0) * i) / n;
+      return [r * Math.cos(f), y + (i % 2 && i < n ? 0.025 * (i % 4 === 1 ? 1 : -1) : 0), -r * Math.sin(f)];
+    });
+  };
+  /** A triangle facing `toward`. */
+  const tri = (a: number[], b: number[], q: number[], color: Rgb, toward: number[]) => {
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const v = [q[0] - a[0], q[1] - a[1], q[2] - a[2]];
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const out = n[0] * toward[0] + n[1] * toward[1] + n[2] * toward[2] >= 0;
+    m.tris([...a, ...(out ? b : q), ...(out ? q : b)], color);
+  };
+  const N = 6;
+  for (let f = 0; f < 4; f++)
+    onFace(m, f, () => {
+      // (built in the north-east corner, x east, z south)
+      const lip = arc(p - c, -0.1, N);
+      const mid = arc(p - c - 0.3, -0.42, N);
+      const foot = arc(p - c - 0.6, -d, N);
+      const corner = [p, -0.08, -p];
+      for (let i = 0; i < N; i++) {
+        tri(corner, lip[i], lip[i + 1], shade(MINE.ledge, 0.92 + 0.08 * ((i + f) % 2)), [0, 1, 0]);
+        for (const [hi, lo, color] of [[lip, mid, MINE.earthTop], [mid, foot, MINE.earth]] as const) {
+          const into = [-(hi[i][0] + hi[i + 1][0]), 0.4, -(hi[i][2] + hi[i + 1][2])];
+          const k = 0.9 + 0.1 * ((i + f) % 2);
+          tri(hi[i], lo[i], lo[i + 1], shade(color, k), into);
+          tri(hi[i], lo[i + 1], hi[i + 1], shade(color, k), into);
+        }
+      }
+      m.add(ico(0.11), MINE.rubble[f % 3], { x: 1.92, y: -0.07, z: -1.9, sy: 0.55, ry: f });
+      m.add(ico(0.075), MINE.rubble[(f + 1) % 3], { x: 1.58 + 0.06 * (f % 2), y: -0.08, z: -2.02, sy: 0.6, ry: f + 1 });
+    });
+  // rusty posts down into the pit round its lip, two a side, joined along each side and across each corner
+  const e = p - 0.08;
+  const q = p - c + 0.02;
+  for (let f = 0; f < 4; f++)
+    onFace(m, f, () => {
+      for (const x of [-q, q]) m.add(bar(0.055, d + 0.2), shade(MINE.frame, 0.9), { x, y: (0.2 - d) / 2, z: -e });
+      m.add(box(2 * q + 0.12, 0.09, 0.09), MINE.frame, { y: 0.1, z: -e });
+      beam(m, [q, 0.1, -e], [e, 0.1, -q], 0.04, shade(MINE.frame, 0.95));
+    });
   // the rusty frame round the footprint's edge: four beams, a lighter strip along each
   const fw = 2.5 - p;
   for (let f = 0; f < 4; f++)
@@ -807,56 +914,7 @@ function mineSite(): Model {
       m.add(box(5, 0.2, fw), MINE.frame, { y: 0.05, z: -p - fw / 2 });
       m.add(box(5 - 0.12, 0.03, 0.06), shade(MINE.frame, 1.12), { y: 0.16, z: -2.5 + 0.06 });
     });
-  // scaffold towers on the frame's corners, joined at the top by rails along the west and east
-  // sides, which carry two beams across the pit: one structure; a crossbar and a bucket on a rope
-  const h = 1.3;
-  for (let k = 0; k < 4; k++) tower(m, k, h);
-  for (const f of [1, 3]) onFace(m, f, () => m.add(box(4.9, 0.07, 0.07), shade(MINE.frame, 0.92), { y: h - 0.04, z: -2.43 }));
-  for (const z of [-0.42, 0.42]) m.add(box(4.9, 0.09, 0.09), MINE.frame, { y: h - 0.02, z });
-  m.add(box(0.12, 0.08, 0.95), shade(MINE.frame, 0.85), { y: h + 0.06 });
-  const drop = h + 0.95;
-  m.add(bar(0.012, drop), MINE.rope, { y: h - drop / 2 });
-  m.add(post(0.12, 0.15, 0.22, 6), shade(MINE.frame, 0.7), { y: h - drop - 0.1 });
-  // planks lying on the frame
-  m.add(box(1.4, 0.05, 0.16), MINE.wood, { x: 0.2, y: 0.18, z: 2.34, ry: 0.03 });
-  m.add(box(1.1, 0.05, 0.15), shade(MINE.wood, 0.9), { x: -2.34, y: 0.18, z: -0.3, ry: Math.PI / 2 + 0.04 });
   return m;
-}
-
-/** A scaffold tower on a corner of a mine site's frame (corner k: 0 north-east, 1 south-east, 2
- *  south-west, 3 north-west), `h` high: four rusty posts, the inner one standing down in the pit;
- *  a platform of pale planks with crates, overhanging the pit's corner; a rail and a brace on its
- *  outer faces. */
-function tower(m: Model, k: number, h: number): void {
-  const sx = k === 0 || k === 1 ? 1 : -1;
-  const sz = k === 1 || k === 2 ? 1 : -1;
-  const c = 2.02;
-  const cx = sx * c;
-  const cz = sz * c;
-  const e = 0.41;
-  const p = MINE_PIT.half;
-  for (const [ax, az] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
-    const x = cx + ax * e;
-    const z = cz + az * e;
-    // on the frame, or down in the pit
-    const foot = Math.abs(x) >= p || Math.abs(z) >= p ? 0.15 : -MINE_PIT.depth;
-    m.add(bar(0.04, h - foot), MINE.frame, { x, y: (h + foot) / 2, z });
-  }
-  m.add(box(0.9, 0.06, 0.9), MINE.wood, { x: cx, y: 0.95, z: cz });
-  m.add(box(0.86, 0.02, 0.1), shade(MINE.wood, 0.8), { x: cx, y: 0.99, z: cz - sz * 0.22 });
-  // a lower rail on the outer faces, and a brace on each
-  m.add(box(2 * e + 0.08, 0.05, 0.05), shade(MINE.frame, 0.9), { x: cx, y: 0.5, z: cz + sz * e });
-  m.add(box(0.05, 0.05, 2 * e + 0.08), shade(MINE.frame, 0.9), { x: cx + sx * e, y: 0.5, z: cz });
-  strut(m, cx - e, 0.18, cx + e, 0.92, cz + sz * e, 0.022, shade(MINE.frame, 0.85));
-  // (the second brace is built across x, then turned to run along z on the tower's outer x side)
-  const before = m.pos.length / 3;
-  strut(m, -e, 0.18, e, 0.92, 0, 0.022, shade(MINE.frame, 0.85));
-  rotateTail(m, m.pos.length / 3 - before, Math.PI / 2, 0);
-  moveTail(m, m.pos.length / 3 - before, cx + sx * e, cz);
-  // crates on the platform, and a plank
-  m.add(box(0.3, 0.28, 0.3), MINE.wood, { x: cx + sx * 0.14, y: 1.12, z: cz + sz * 0.12, ry: 0.2 * k });
-  if (k % 2 === 0) m.add(box(0.22, 0.2, 0.22), shade(MINE.wood, 0.85), { x: cx - sx * 0.16, y: 1.08, z: cz + sz * 0.16, ry: -0.3 });
-  else m.add(box(0.6, 0.04, 0.14), shade(MINE.wood, 0.92), { x: cx - sx * 0.05, y: 1.0, z: cz - sz * 0.05, ry: 0.5 });
 }
 
 /** Where the terrain leaves its tops out for mine sites' and seeps' pits (mesh.ts `cutout`): tile
@@ -949,16 +1007,22 @@ const RUBBLE = new Set(["Blockage", "NaturalDam"]);
 
 /** The light look's models, for browsers that render in software (a few triangles each; D110). */
 const LITE_MODELS: Record<string, () => Model> = {
-  Pine: () => new Model().add(cone(0.36, 1.25, 4), [0.13, 0.32, 0.19], { y: 0.2 + 0.625 }),
-  Birch: () => new Model().add(cone(0.06, 0.8, 3), [0.93, 0.91, 0.86], { y: 0.4 }).add(new OctahedronGeometry(0.32, 0), [0.34, 0.52, 0.19], { y: 0.95, sy: 1.3 }),
-  Oak: () => new Model().add(cone(0.11, 0.7, 3), [0.34, 0.23, 0.14], { y: 0.35 }).add(new OctahedronGeometry(0.44, 0), [0.24, 0.45, 0.17], { y: 0.92, sy: 0.85 }),
+  Pine: () => new Model().add(cone(0.1, 1.4, 3), BARK, { y: 0.7 }).add(cone(0.6, 1.8, 4), TREE_COLOURS.pine, { y: 1.2 + 0.9 }),
+  Birch: () => new Model().add(cone(0.07, 1.1, 3), BIRCH_BARK, { y: 0.55 }).add(new OctahedronGeometry(0.5, 0), TREE_COLOURS.birch, { y: 1.42, sy: 1.0 }),
+  Oak: () => new Model().add(cone(0.18, 1.3, 3), OAK_BARK, { y: 0.65 }).add(new OctahedronGeometry(0.86, 0), TREE_COLOURS.oak, { y: 1.66, sy: 0.6 }),
   // dead trees: a pale trunk and two bare branches (a few triangles each)
   "Pine.dead": () => liteDead(0.08, 1.35, 0.12, DEAD_WOOD),
   "Birch.dead": () => liteDead(0.07, 0.95, 0.4, DEAD_BIRCH),
   "Oak.dead": () => liteDead(0.14, 0.7, 0.26, DEAD_BARK),
+  "BlueberryBush.dead": () => new Model().add(new OctahedronGeometry(0.56, 0), deadLeaves("BlueberryBush", BUSH_LEAVES), { y: 0.13, sy: 0.48 }),
   Succulent: liteSucculent,
-  BlueberryBush: () => new Model().add(new OctahedronGeometry(0.28, 0), [0.14, 0.29, 0.14], { y: 0.2, sy: 0.75 }),
+  BlueberryBush: () => new Model().add(new OctahedronGeometry(0.56, 0), BUSH_LEAVES, { y: 0.13, sy: 0.48 }),
 };
+for (const species of Object.keys(DRYING)) if (LITE_MODELS[species]) LITE_MODELS[`${species}.dying`] = () => dyingOf(species, LITE_MODELS[species]());
+for (const species of Object.keys(DEAD_FORM)) {
+  const dead = LITE_MODELS[`${species}.dead`];
+  if (dead && LITE_MODELS[species]) LITE_MODELS[`${species}.dead`] = () => heightTo(dead(), DEAD_FORM[species].height * heightOf(LITE_MODELS[species]()));
+}
 /** The light look's ruin: a column one block per ruin, as it looks from afar (scaled to its height). */
 const LITE_RUIN = () => {
   const m = new Model();
@@ -994,35 +1058,34 @@ const CENTRED: Record<string, [number, number]> = {
   ReserveTank: [0.5, 0.5],
 };
 
-/** The district center, its door toward +Z (south, a Cw0 start's entrance side), centred on its
- *  3 × 3 footprint: pale walls under a dark roof on a pale deck, so it stands out on any ground. */
-function districtCenter(): Model {
+/** The start, as the game's map editor draws it (StartingLocation.Model, D496): a lantern tower of pale grey stone,
+ *  4.37 high, centred on its 3 × 3 footprint, its door toward +Z (south, a Cw0 start's entrance side). A walled base
+ *  under a white cornice, a hipped roof, a tapering shaft, a gallery, a lantern of four posts round a dark light, and a
+ *  capped top. The game's measures: base 2.86 across to 1.04, cornice 3.0 to 1.18, roof to 1.8, shaft to 2.8, gallery
+ *  1.82 across, lantern 1.28 across to 3.8, cap 1.32 across, top 4.37. */
+function startTower(): Model {
   const m = new Model();
-  const wood: Rgb = [...START.walls];
-  const roof: Rgb = [...START.roof];
-  m.add(box(2.9, 0.2, 2.9), START.deck, { y: 0.1 });
-  m.add(box(3.0, 0.06, 3.0), [0.22, 0.15, 0.1], { y: 0.03 });
-  m.add(box(1.7, 0.9, 1.3), wood, { y: 0.65 });
-  // log courses: darker bands on the walls
-  for (const y of [0.42, 0.68, 0.94]) m.add(box(1.74, 0.05, 1.34), [0.66, 0.55, 0.4], { y });
-  // an A-frame roof along x, overhanging the walls
-  const x = 1.02;
-  const z = 0.82;
-  const y0 = 1.1;
-  const y1 = 1.92;
-  m.tris([-x, y0, z, x, y0, z, x, y1, 0, -x, y0, z, x, y1, 0, -x, y1, 0], roof);
-  m.tris([x, y0, -z, -x, y0, -z, -x, y1, 0, x, y0, -z, -x, y1, 0, x, y1, 0], [roof[0] * 0.85, roof[1] * 0.85, roof[2] * 0.85]);
-  m.tris([x, y0, z, x, y0, -z, x, y1, 0], wood);
-  m.tris([-x, y0, -z, -x, y0, z, -x, y1, 0], wood);
-  m.tris([-x, y0, z, -x, y0, -z, x, y0, -z, -x, y0, z, x, y0, -z, x, y0, z], [0.3, 0.2, 0.13]);
-  m.add(box(0.22, 0.55, 0.22), [0.52, 0.51, 0.49], { x: 0.5, y: 1.75, z: -0.3 });
-  // the door and its awning, facing the entrance
-  m.add(box(0.38, 0.56, 0.06), [0.22, 0.14, 0.08], { y: 0.48, z: 0.66 });
-  m.add(box(0.64, 0.06, 0.32), roof, { y: 0.84, z: 0.8, rx: 0.25 });
-  // a tall banner at the back corner, seen from afar
-  m.add(cyl(0.05, 0.04, 2.7, 5), [0.22, 0.16, 0.11], { x: -1.15, y: 0.2 + 1.35, z: -1.1 });
-  m.add(box(0.8, 0.5, 0.05), START.banner, { x: -0.73, y: 2.55, z: -1.1 });
-  m.add(box(0.8, 0.1, 0.055), [0.2, 0.08, 0.05], { x: -0.73, y: 2.33, z: -1.1 });
+  // (a square frustum of half-widths a (bottom) and b (top) from y0 to y1: a four-sided cylinder turned an eighth)
+  const frustum = (a: number, b: number, y0: number, y1: number, color: Rgb) => m.add(new CylinderGeometry(b * Math.SQRT2, a * Math.SQRT2, y1 - y0, 4, 1, true), color, { y: (y0 + y1) / 2, ry: Math.PI / 4 });
+  m.add(box(3, 0.12, 3), shade(START.stone, 0.88), { y: 0.06 });
+  m.add(box(2.86, 0.92, 2.86), START.stone, { y: 0.58 });
+  // the door and windows on the front, windows on the other three faces
+  m.add(box(0.62, 0.66, 0.04), START.dark, { y: 0.45, z: 1.44 });
+  for (let f = 0; f < 4; f++)
+    onFace(m, f, () => {
+      for (const x of [-0.92, 0.92]) m.add(box(0.36, 0.32, 0.04), shade(START.dark, 1.2), { x, y: 0.62, z: -1.44 });
+    });
+  m.add(box(3, 0.14, 3), START.trim, { y: 1.11 });
+  frustum(1.42, 0.73, 1.18, 1.8, START.roof);
+  frustum(0.68, 0.5, 1.8, 2.8, START.stone);
+  m.add(box(1.82, 0.12, 1.82), START.trim, { y: 2.86 });
+  m.add(box(1.28, 0.08, 1.28), shade(START.stone, 0.9), { y: 2.96 });
+  // the lantern: four posts round a dark light
+  for (const x of [-0.57, 0.57]) for (const z of [-0.57, 0.57]) m.add(bar(0.055, 0.8), START.trim, { x, y: 3.4, z });
+  m.add(box(0.52, 0.66, 0.52), START.dark, { y: 3.36 });
+  m.add(box(1.32, 0.1, 1.32), START.trim, { y: 3.85 });
+  m.add(new CylinderGeometry(0.3 * Math.SQRT2, 0.6 * Math.SQRT2, 0.4, 4, 1, false), START.trim, { y: 4.1, ry: Math.PI / 4 });
+  m.add(box(0.2, 0.07, 0.2), START.trim, { y: 4.335 });
   return m;
 }
 
@@ -1152,9 +1215,9 @@ function storey(variant: number, kind: number, ivy: number): Model {
       if (ivy) drape(m, f, variant, ivy, top);
     });
   }
-  // from afar: a solid block
+  // from afar: a block, its frame a lattice
   m.level = LOD_FAR;
-  farBlock(m, layout, partial ? 0.72 : 1, ivy, variant);
+  farBlock(m, layout, partial ? 0.72 : 1, ivy, variant, LOD_FAR_FRAME);
   m.level = LOD_ALL;
   return m;
 }
@@ -1220,15 +1283,22 @@ function drape(m: Model, f: number, variant: number, ivy: number, top: number): 
 }
 
 /** A storey from afar (D305, D334): a block over its tile in the near skeleton's own orange
- *  (`RUIN.far`, the object shader's lattice pattern tells it apart from a solid box), a cream panel
- *  where each face's sack or boards are, a band of ivy low on the faces (all four at a column's foot,
- *  two above it, none on the highest ivy; `variant` picks the two), and the same colour on top. */
-function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, variant = 0): void {
+ *  (`RUIN.far`, drawn at `frame`: as LOD_FAR_FRAME the object shader's lattice pattern tells it apart
+ *  from a solid box), a cream panel where each face's sack or boards are, a band of ivy low on the
+ *  faces (all four at a column's foot, two above it, none on the highest ivy; `variant` picks the
+ *  two), and the same colour on top. The panels and ivy are solid, at the model's level. */
+function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, variant = 0, frame = m.level): void {
   const w = 0.86;
+  const solid = m.level;
+  const framed = (add: () => void) => {
+    m.level = frame;
+    add();
+    m.level = solid;
+  };
   for (let f = 0; f < 4; f++) {
     const panels = layout.panels.filter(([g]) => g === f).map(([, p]) => p);
     onFace(m, f, () => {
-      m.add(plane(w, height), RUIN.far, { ry: Math.PI, y: height / 2, z: -w / 2 });
+      framed(() => m.add(plane(w, height), RUIN.far, { ry: Math.PI, y: height / 2, z: -w / 2 }));
       if (panels.length) {
         // (where the near sack or boards are: a big sack low, a small one low or high, one askew
         // across the middle, broken boards over most of the face)
@@ -1241,7 +1311,24 @@ function farBlock(m: Model, layout: Layout, height: number, ivy = IVY_NONE, vari
       else if (ivy === IVY_MEDIUM && (f + variant) % 4 >= 2) m.add(plane(0.6, 0.3 * height), RUIN.leaf, { ry: Math.PI, y: 0.15 * height, z: -w / 2 - 0.008 });
     });
   }
-  m.add(plane(w, w), RUIN.far, { rx: -Math.PI / 2, y: height });
+  framed(() => m.add(plane(w, w), RUIN.far, { rx: -Math.PI / 2, y: height }));
+}
+
+/** Whether a ruin at (x, y, level z) shows its overgrown model, as the game's: its wet model on soil that is neither
+ *  dry nor contaminated, its dry model otherwise (Timberborn.Ruins `RuinModelUpdater.UpdateModel`: `IsDry ||
+ *  IsContaminated`, contaminated being any contamination at all). The soil the ground's colour shows (under a roof, its
+ *  own run top's, `objectSoilAt`), so on a held Drought or Badtide day the day's. */
+export function ruinOvergrown(soil: SoilView | null, W: number, x: number, y: number, z: number): boolean {
+  const s = objectSoilAt(soil, W, x, y, z);
+  return !!s && s.moisture > 0 && s.contamination === 0;
+}
+
+/** Each object's `ruinOvergrown` as drawn (1 overgrown, 0 not or not a ruin): what a new soil is compared against. */
+export function ruinsOvergrown(v: EntityView, soil: SoilView | null, W: number): Uint8Array {
+  const out = new Uint8Array(v.count);
+  const ruin = v.templates.map((t) => /^RuinColumnH\d$/.test(t));
+  for (let k = 0; k < v.count; k++) if (ruin[v.template[k]] && ruinOvergrown(soil, W, v.x[k], v.y[k], v.z[k])) out[k] = 1;
+  return out;
 }
 
 /** A column's quarter turns: one more than its west neighbour and two more than its south one, so
@@ -1282,13 +1369,13 @@ export function modelKeyOf(template: string, flags: number): string {
   if (/^RuinColumnH\d$/.test(template)) return "ruin";
   if (template === "StartingLocation") return "start";
   if (!(template in MODELS)) return "block";
-  const dead = !!(flags & DEAD) && `${template}.dead` in MODELS;
-  return dead ? `${template}.dead` : template;
+  if (flags & DEAD) return `${template}.dead` in MODELS ? `${template}.dead` : template;
+  return flags & DYING && `${template}.dying` in MODELS ? `${template}.dying` : template;
 }
 
 /** Triangles of a model (tests and the benchmark's budget). */
 export function modelTriangles(key: string): number {
-  if (key === "start") return districtCenter().triangles;
+  if (key === "start") return startTower().triangles;
   if (key === "ruin") return storey(0, 0, IVY_DENSE).triangles;
   return MODELS[key] ? MODELS[key]().triangles : 12;
 }
@@ -1310,7 +1397,7 @@ export function ruinTriangles(): { near: number; far: number } {
 /** A model's vertices, colours and view levels (the tests read the models' shapes). */
 export function modelOf(key: string, kind = 0, ivy: number | boolean = IVY_NONE): { pos: readonly number[]; col: readonly number[]; lod: readonly number[] } {
   const level = ivy === true ? IVY_DENSE : ivy === false ? IVY_NONE : ivy;
-  const m = key === "start" ? districtCenter() : /^scaffold\.[A-E]$/.test(key) ? storey(RUIN_VARIANT_IDS.indexOf(key.slice(-1) as "A"), kind, level) : MODELS[key]();
+  const m = key === "start" ? startTower() : /^scaffold\.[A-E]$/.test(key) ? storey(RUIN_VARIANT_IDS.indexOf(key.slice(-1) as "A"), kind, level) : MODELS[key]();
   return { pos: m.pos, col: m.col, lod: m.lod };
 }
 
@@ -1335,10 +1422,15 @@ function genericColor(template: string): Rgb {
 }
 
 /** Where a plant stands in its tile and its size (the captures' listing reads it): the offset
- *  from the tile's middle (x east, y north) and the scale. */
-export function plantPlacement(x: number, y: number, flags: number): { dx: number; dy: number; scale: number } {
-  const dead = !!(flags & DEAD);
-  return { dx: (jitter(x, y, 2) - 0.5) * 0.3, dy: -(jitter(x, y, 3) - 0.5) * 0.3, scale: (flags & YOUNG ? 0.5 : 0.85 + 0.3 * jitter(x, y, 1)) * (dead ? 0.95 : 1) };
+ *  from the tile's middle (x east, y north), its width (`scale`) and its height: the game's randomizer's factors for its
+ *  species (plantSize.ts), half for a young plant. */
+export function plantPlacement(x: number, y: number, flags: number, template = ""): { dx: number; dy: number; scale: number; height: number } {
+  const dead = flags & DEAD ? 0.95 : 1;
+  const young = flags & YOUNG ? 0.5 : 0;
+  const g = RANDOMIZER[template] ? plantScale(template, jitter(x, y, 1), jitter(x, y, 6)) : null;
+  const w = young || (g ? g.width : 0.85 + 0.3 * jitter(x, y, 1));
+  const h = young || (g ? g.height : w);
+  return { dx: (jitter(x, y, 2) - 0.5) * 0.3, dy: -(jitter(x, y, 3) - 0.5) * 0.3, scale: w * dead, height: h * dead };
 }
 
 /** A per-tile hash in [0, 1): jitter that stays the same between redraws. */
@@ -1418,11 +1510,10 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       continue;
     }
     if (key === "ruin") {
-      // a storey per level, turned as the column is (`ruinTurn`); where the column stands on moist
-      // ground (the soil the ground's colour shows: under a roof, its own run top's, `objectSoilAt`), ivy
-      // over about half its storeys (`ruinIvy`)
+      // a storey per level, turned as the column is (`ruinTurn`); where the column stands on moist,
+      // uncontaminated ground (`ruinOvergrown`), ivy over about half its storeys (`ruinIvy`)
       const n = Number(template.slice(-1));
-      const moist = (objectSoilAt(soil, W, x, y, z)?.moisture ?? 0) > 0;
+      const moist = ruinOvergrown(soil, W, x, y, z);
       const angle = ruinTurn(x, y) * (Math.PI / 2);
       ruinStoreys(x, y, n, v.variant?.[k] ?? NO_VARIANT).forEach(({ variant, kind }, lv) => {
         const green = moist ? ruinIvy(x, y, n, lv) : IVY_NONE;
@@ -1435,7 +1526,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
       // the 3×3 footprint's centre: Coordinates plus the rotated local (1, 1)
       const [dx, dy] = rotate(o, 1, 1);
-      put(batch("start", districtCenter), x + dx + 0.5, z, -(y + dy + 0.5), turn, 1, 1, 1, GROW_START);
+      put(batch("start", startTower), x + dx + 0.5, z, -(y + dy + 0.5), turn, 1, 1, 1, GROW_START);
       const [ex, ey] = startEntranceTile(x, y, o);
       put(batch("start.entrance", entrance), ex + 0.5, z, -(ey + 0.5), turn, 1);
       continue;
@@ -1454,15 +1545,16 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     if (centre) {
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
       const [dx, dy] = rotate(o, centre[0], centre[1]);
-      put(b, x + dx + 0.5, z, -(y + dy + 0.5), turn, 1);
+      // (a mine site and a seep are the land's own shape: never faded or hidden, objectFade.ts)
+      put(b, x + dx + 0.5, z, -(y + dy + 0.5), turn, 1, 1, 1, LAND.has(template) ? LAND_GROW : NO_GROW);
       continue;
     }
     if (PLANTS.has(template)) {
       // every tree upright on its tile, as in the game (D321, item 7: a knocked-down one is dead)
       const dead = !!(flags & DEAD);
-      const s = (flags & YOUNG ? 0.5 : 0.85 + 0.3 * jitter(x, y, 1)) * (dead ? 0.95 : 1);
+      const p = plantPlacement(x, y, flags, template);
       const tint = dead ? 0.94 + 0.08 * jitter(x, y, 5) : 0.9 + 0.2 * jitter(x, y, 5);
-      put(b, x + 0.5 + (jitter(x, y, 2) - 0.5) * 0.3, z, -(y + 0.5) + (jitter(x, y, 3) - 0.5) * 0.3, jitter(x, y, 4) * Math.PI * 2, s, tint, s, dead && TREES.has(template) ? GROW_DEAD : NO_GROW);
+      put(b, x + 0.5 + p.dx, z, -(y + 0.5) - p.dy, jitter(x, y, 4) * Math.PI * 2, p.scale, tint, p.height, dead && TREES.has(template) ? GROW_DEAD : NO_GROW);
     } else put(b, x + 0.5, z, -(y + 0.5), turn, 1);
     // a slope's arrow, level, just above the slope's top
     if (template === "Slope") put(batch("Slope.mark", MODELS["Slope.mark"]), x + 0.5, z + SLOPE_ARROW_HEIGHT, -(y + 0.5), turn, 1, 1, 1, GROW_SLOPE_MARK);
@@ -1471,7 +1563,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
   // (the batches drawn already, by name: one that would be built exactly as it stands moves into the new group as it is,
   // nothing made or sent to the GPU again; placing a source rebuilds the sources' batch, not the forest's)
   const drawn = new Map<string, InstancedMesh>();
-  if (reuse && !lite)
+  if (reuse)
     for (const c of reuse.group.children) {
       const mesh = c as InstancedMesh;
       if (mesh.isInstancedMesh && mesh.userData.objects && !mesh.name.startsWith("high.")) drawn.set(mesh.name, mesh);
@@ -1480,11 +1572,13 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     const n = b.tints.length / 3;
     if (!n) continue;
     const old = drawn.get(key);
-    if (old && old.material === material && sameBatch(old, b, v, reuse!.entities)) {
+    if (old && old.material === material && sameBatch(old, b, v, reuse!.entities, lite)) {
       // (renumbered, and standing where the map has them now: ground a stroke painted may have moved them to these
       // heights already, and settling puts them back to `ty0`, so it is the new build's, as a fresh batch's is)
       old.userData.objects = Int32Array.from(b.objects);
-      if (b.follows.some((k) => k >= 0)) {
+      if (lite) {
+        // (the light look's batch is baked: nothing follows the ground in it)
+      } else if (b.follows.some((k) => k >= 0)) {
         old.userData.follows = Int32Array.from(b.follows);
         old.userData.ty0 = Float32Array.from({ length: n }, (_, i) => b.matrices[i * 16 + 13]);
       } else {
@@ -1501,7 +1595,11 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     if (lite) {
       mesh.instanceMatrix.array.set([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
       mesh.instanceColor = new InstancedBufferAttribute(new Float32Array([1, 1, 1]), 3);
-      mesh.geometry.setAttribute("grow", new InstancedBufferAttribute(new Float32Array([0, 0, 1]), 3));
+      // (one batch is one kind of object: the land's own shape's mark, objectFade.ts, kept)
+      mesh.geometry.setAttribute("grow", new InstancedBufferAttribute(new Float32Array([0, 0, 1].map((v, i) => (b.grows[0] < 0 ? b.grows[i] : v))), 3));
+      // (what it was baked from, so a build that would bake it the same keeps it: `sameBatch`)
+      mesh.userData.objects = Int32Array.from(b.objects);
+      mesh.userData.baked = { matrices: Float32Array.from(b.matrices), tints: Float32Array.from(b.tints) };
     } else {
       mesh.instanceMatrix.array.set(b.matrices);
       mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(b.tints), 3);
@@ -1523,11 +1621,14 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
 
 /** Whether a batch drawn (`mesh`, of the objects `was`) is exactly what `b` (of the objects `v`) would build: as many
  *  instances, each of the same object's kind, with the same matrix, tint and growth as drawn now (a highlight, a
- *  wiggle or ground followed shows as a difference, and the batch is built anew). */
-function sameBatch(mesh: InstancedMesh, b: Batch, v: EntityView, was: EntityView): boolean {
+ *  wiggle or ground followed shows as a difference, and the batch is built anew). The light look's baked batch is
+ *  compared with the matrices and tints it was baked from. */
+function sameBatch(mesh: InstancedMesh, b: Batch, v: EntityView, was: EntityView, lite = false): boolean {
   const n = b.tints.length / 3;
   const own = mesh.userData.objects as Int32Array;
-  if (mesh.count !== n || own.length !== n || !mesh.instanceColor) return false;
+  const baked = mesh.userData.baked as { matrices: Float32Array; tints: Float32Array } | undefined;
+  if (lite !== !!baked) return false;
+  if ((!lite && mesh.count !== n) || own.length !== n || !mesh.instanceColor) return false;
   for (let i = 0; i < n; i++) {
     const k = own[i];
     const j = b.objects[i];
@@ -1538,6 +1639,7 @@ function sameBatch(mesh: InstancedMesh, b: Batch, v: EntityView, was: EntityView
     for (let i = 0; i < f.length; i++) if (a[i] !== Math.fround(f[i])) return false;
     return true;
   };
+  if (baked) return same(baked.matrices, b.matrices) && same(baked.tints, b.tints);
   const grow = mesh.geometry.getAttribute("grow");
   return !!grow && same(mesh.instanceMatrix.array, b.matrices) && same(mesh.instanceColor.array, b.tints) && same(grow.array, b.grows);
 }
@@ -1548,7 +1650,7 @@ function sameBatch(mesh: InstancedMesh, b: Batch, v: EntityView, was: EntityView
 function baked(full: Model, matrices: number[], tints: number[]): BufferGeometry {
   const model = new Model();
   for (let v = 0; v < full.lod.length; v++) {
-    if (full.lod[v] === LOD_FAR) continue;
+    if (full.lod[v] >= LOD_FAR) continue;
     model.pos.push(full.pos[v * 3], full.pos[v * 3 + 1], full.pos[v * 3 + 2]);
     model.nrm.push(full.nrm[v * 3], full.nrm[v * 3 + 1], full.nrm[v * 3 + 2]);
     model.col.push(full.col[v * 3], full.col[v * 3 + 1], full.col[v * 3 + 2]);
@@ -1558,9 +1660,13 @@ function baked(full: Model, matrices: number[], tints: number[]): BufferGeometry
   const pos = new Float32Array(n * V * 3);
   const nrm = new Float32Array(n * V * 3);
   const col = new Float32Array(n * V * 3);
+  // (each vertex's object's place, x and z: the fade round the pointer takes an object whole, objectFade.ts)
+  const origin = new Float32Array(n * V * 2);
   for (let k = 0; k < n; k++) {
     const e = matrices.slice(k * 16, k * 16 + 16);
     for (let v = 0; v < V; v++) {
+      origin[(k * V + v) * 2] = e[12];
+      origin[(k * V + v) * 2 + 1] = e[14];
       const x = model.pos[v * 3];
       const y = model.pos[v * 3 + 1];
       const z = model.pos[v * 3 + 2];
@@ -1582,12 +1688,14 @@ function baked(full: Model, matrices: number[], tints: number[]): BufferGeometry
   g.setAttribute("normal", new Float32BufferAttribute(nrm, 3));
   g.setAttribute("pcolor", new Float32BufferAttribute(col, 3));
   g.setAttribute("lod", new Float32BufferAttribute(new Float32Array(n * V), 1));
+  g.setAttribute("origin", new Float32BufferAttribute(origin, 2));
   g.computeBoundingSphere();
   return g;
 }
 
 /** The models the map's objects may yet be drawn with as the water and soil change, not made yet: a ruin's storeys
- *  with and without their ivy (moist ground grows it), a plant's dead model (water drowns it). Each as its batch's key
+ *  with and without their ivy (moist ground grows it), a plant's dead and dying models (water drowns it, dry ground starts
+ *  it dying). Each as its batch's key
  *  and how to make it (`EntityGeometryCache.model`), for the page to make ahead when idle: made in the frame that
  *  first drew them, they cost an edit's answer tens of milliseconds. */
 export function modelsAhead(v: EntityView, models: EntityGeometryCache): { key: string; build: () => BufferGeometry }[] {
@@ -1605,7 +1713,10 @@ export function modelsAhead(v: EntityView, models: EntityGeometryCache): { key: 
       ruinStoreys(x, y, n, v.variant?.[k] ?? NO_VARIANT).forEach(({ variant, kind }, lv) => {
         for (const green of [IVY_NONE, ruinIvy(x, y, n, lv)]) want(`scaffold.${RUIN_VARIANT_IDS[variant]}${kind}${["", ".ivy.light", ".ivy.medium", ".ivy"][green]}`, () => storey(variant, kind, green));
       });
-    } else if (PLANTS.has(template) && `${template}.dead` in MODELS) want(`${template}.dead`, MODELS[`${template}.dead`]);
+    } else if (PLANTS.has(template)) {
+      // (its dead and dying forms: drought and water kill it, dry or wet ground and contamination start it dying)
+      for (const form of [`${template}.dead`, `${template}.dying`]) if (form in MODELS) want(form, MODELS[form]);
+    }
   }
   return [...out].map(([key, build]) => ({ key, build }));
 }

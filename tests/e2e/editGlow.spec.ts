@@ -12,6 +12,11 @@ type Glow = { added: number; removed: number; fade: number };
 const glow = (page: Page) => page.evaluate(() => (window.dgm3d!.renderer as unknown as { editGlowDrawn: Glow }).editGlowDrawn);
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const edits = (page: Page) => page.evaluate(() => window.dgmEditor!.info().edits);
+/** How long an edit's answer may take to reach the edit count or the drawn heights: it comes with the frames, and in software drawing (CI's
+ *  SwiftShader) a frame here takes about 200 ms, so a dig's or an undo's answer takes about a second on a 12-thread
+ *  machine and past 5 s on CI's runners, though nothing compiles (the first hollow's compile is longer still, the first
+ *  dig's own wait). */
+const ANSWERED = 30_000;
 /** The most faces glowing in any frame drawn over `ms`. */
 const glowOver = (page: Page, ms: number) =>
   page.evaluate(
@@ -90,16 +95,17 @@ test("a Block dig into a wall glows on the hollow's faces and fades; its undo gl
   // a block of ground 3 × 3, four levels up: a plain edit with no Block tool in hand draws nothing
   await page.evaluate(([x, y, h]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[y, x, x + 2], [y + 1, x, x + 2], [y + 2, x, x + 2]], level: h + 4 } } as never, "Raise"), [x, y, h] as const);
   await idle(page);
-  await expect.poll(() => page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x, y), [x + 1, y + 1] as const)).toBe(h + 4);
+  await expect.poll(() => page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x, y), [x + 1, y + 1] as const), { message: "the raised block is drawn", timeout: ANSWERED }).toBe(h + 4);
   expect(await glow(page)).toEqual({ added: 0, removed: 0, fade: 0 });
 
   // a hole dug into its east face one level up: air under its roof; the hollow's floor, ceiling, back and sides glow
   const before = await edits(page);
   await watchGlow(page);
   await page.evaluate(([x, y, h]) => window.dgmEditor!.edit({ op: "blocks", params: { mode: "remove", side: "+x", at: [[x + 2, y + 1, h + 1]], size: 1 } } as never, "Dig"), [x, y, h] as const);
-  await expect.poll(() => edits(page)).toBe(before + 1);
-  // (the first hollow on a map builds the cave light and compiles the cave shaders, which can hold the page for seconds;
-  // the glow's clock waits for its frames)
+  // (the first hollow on a map builds the cave light and compiles the cave shaders, which hold the page in software drawing,
+  // the dig's answer with them: about 0.3 s on a GPU, 3 to 4 s in SwiftShader on a 12-thread machine and past 5 s on CI's
+  // runners; the glow's clock waits for its frames)
+  await expect.poll(() => edits(page), { message: "the dig is answered", timeout: 60_000 }).toBe(before + 1);
   await expect.poll(async () => (await glowSeen(page)).removed, { message: "the hollow's faces glow", timeout: 60_000 }).toBe(5);
   expect((await glowSeen(page)).added).toBe(0);
   // and fade away (about a second on a GPU; frames are slow in software, the clock moves at most 250 ms a frame)
@@ -109,7 +115,7 @@ test("a Block dig into a wall glows on the hollow's faces and fades; its undo gl
   // the undo puts the block back: its one open face glows
   await watchGlow(page);
   await page.keyboard.press("Control+z");
-  await expect.poll(() => edits(page)).toBe(before);
+  await expect.poll(() => edits(page), { message: "the undo is answered", timeout: ANSWERED }).toBe(before);
   await expect.poll(async () => (await glowSeen(page)).added, { message: "the block put back glows", timeout: 30_000 }).toBe(1);
   await expect.poll(() => glow(page), { timeout: 30_000 }).toEqual({ added: 0, removed: 0, fade: 0 });
 
@@ -151,7 +157,7 @@ test("the Block tool's own click glows on plain ground; a plain edit with it in 
   await holdFor(page, "apply", 5000);
   await page.mouse.down();
   await page.mouse.up();
-  await expect.poll(() => edits(page), { timeout: 30_000 }).toBe(before + 1);
+  await expect.poll(() => edits(page), { message: "the click is answered", timeout: ANSWERED }).toBe(before + 1);
   await holdFor(page, "apply", 0);
   await expect.poll(async () => (await glowSeen(page)).added, { message: "the added block glows", timeout: 30_000 }).toBe(5);
   await expect.poll(() => glow(page), { timeout: 30_000 }).toEqual({ added: 0, removed: 0, fade: 0 });

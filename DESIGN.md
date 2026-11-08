@@ -359,7 +359,8 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   core's top-down thumbnail at 256px (`thumbnailPixels(…, 256)`), scaled to the box; the core never enlarges, so a
   128² map's picture is 128px.
 - **Top left of the map:** the Show toggles as one column of rows, one width, left edges aligned: Heights, Lines,
-  Markers, Flow, See-through, Badwater (Caves and overhangs added when a map has them), then **Legend**, last. Each row has a
+  Markers, Flow, See-through, Badwater (Caves and overhangs added when a map has them), then **Hide objects** and
+  **Legend**, last (the two at the top right while the water row fits in the band, 4px apart). Each row has a
   14px square checkbox
   at the left of its name (a 1.5px quiet border, 3px corners; ticked: the mint fill with a dark tick), as in
   Timberborn's settings; the row itself is never lit, and a click anywhere on it toggles it; several can be on. An
@@ -484,7 +485,9 @@ refinements and what the mockups left open:
   row on the map's top and left margins, the toggle look made narrower (7px and 8px padding, 5px before the name,
   names in full); at 1920×1080 it ends at 540px, 34px clear of the water row (574px). **Caves and overhangs** (only on a map
   that has them) follows Badwater in the row at every width; where the row then leaves the water row no room, the
-  water row takes the second line, as in a narrow window.
+  water row takes the second line, as in a narrow window. Where the page's font is wider than Segoe UI (DejaVu Sans on
+  Linux), the band's labels give back its extra width (`--wide-font-full`, never under the text floor), as the header's
+  do, so the band keeps these widths.
 - **Legend on its own at the top right** (Kyler, 2026-10-04), centred in the gap between the water row's right edge
   and Top-down's left at both sizes, its top level with the band, the same toggle look; it never moves, open or
   closed. Ticked, the legend (190px) hangs one gap under it, centred under it so "Legend" reads as its title, clear of
@@ -650,12 +653,16 @@ refinements and what the mockups left open:
   Every Generate names the new map for its theme ("River Valley"; "Dam Good Map" for Any) and replaces the open map
   without asking; the open map is in Your maps already. The only question left is when this browser can't keep
   Your maps and the map has edits.
-- **File** holds exactly Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything and About, then after a hairline
+- **File** holds exactly Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video), Save a picture (on a GPU), Clear everything and About, then after a hairline
   Keyboard shortcuts, Help and Report a problem (M13; the shortcuts and Help are dialogs like About, left-aligned as
   lists, the shortcuts in three balanced columns with their keys as key caps) (Another like this is in
   the Map Generator, History a button of its own: Kyler, 2026-10-06). There is no Copy link: the address is always the open map's share link, so the browser's own address is the link.
 - **About** is the page's dialog: the generator's version, the licence, the credits, the unofficial line, Source
   and Close.
+- **The time-lapse** (EDITOR_PLAN §6b) is a dialog of words like a map being made while it records: what it is
+  doing, how far along in a quiet line, a hairline bar, Cancel. Done, it widens to hold the video (16:9, the player's
+  controls, never playing by itself), a line with its length and size ("15 seconds · 5.3 MB", then "· Saved <name>"),
+  Close and Download video, the one lit button.
 - **Select always in hand:** held when a map opens, Esc and X return to it, a drag on the land marks an area, a plain
   click clears the selection. A source and the start are pressed and dragged as on dev. An object (a tree, a ruin, a
   mine site) is picked with a click and then moved with a drag; a drag that starts on an object not picked marks an

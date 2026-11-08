@@ -22,6 +22,7 @@ export type { RemoveKind };
 import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
 import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
+import { planStair, type StairStep } from "../core/doc/stair";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
 import { groupChecks, instantChecks, NO_START, NO_START_REFUSAL, type CheckGroups, type CheckItem, type TileRect } from "../core/doc/checkItems";
 export type { CheckItem };
@@ -34,7 +35,7 @@ import { describeTileOf, entitiesAtTile, type EntityInfo, type TileDescription }
 export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
 import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
-import { planFill, unfedWater } from "../core/doc/waterEdits";
+import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -48,7 +49,7 @@ import { witheredByDay, WITHERING_SPECIES, type Plant } from "../core/sim/wither
 import type { Difficulty, MapSpec } from "../core/spec/mapspec";
 import type { Validation } from "../core/validate/checks";
 import { canonicalRun, type CanonicalWater } from "../core/sim/prefill";
-import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
+import { PREVIEW_JOB_DAYS, PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import type { BrushParams, Rect } from "../core/features/raster/brush";
 import type { WeatheredLand } from "../core/features/raster/remoteStroke";
@@ -113,6 +114,9 @@ export interface SessionInfo {
   forceRolls: { shown: number; count: number } | null;
   /** The player removed the map's last badwater spring: it is a No badwater map now (D213). */
   badwaterRemoved: boolean;
+  /** Easy start (D495): what a map made in a late rescue round left short of the full targets, one line; null when
+   *  it met them all, or isn't an Easy start map. */
+  easyShort: string | null;
   /** True until the canonical water can be carried in a saved project (D367). */
   waterPending?: boolean;
   /** The map has tiles with caves or overhangs (an import's): the "Caves and overhangs" layer's toggle shows. */
@@ -247,6 +251,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     forceAgain: againVerb(s),
     forceRolls: againVerb(s) ? { shown: series!.rolls.shown + 1, count: series!.rolls.count } : null,
     badwaterRemoved: s.badwaterRemoved(),
+    easyShort: s.meta.easyShort ?? null,
     waterPending: s.waterPending,
     caves: s.roofedTiles.size > 0,
     keepOnlyHere: s.keepOnlyHere,
@@ -295,7 +300,7 @@ function entityInputs(list: readonly EntitySpec[]) {
 /** The water the view shows, with its outflows (the moving water and the falls, current.ts), each column its own: the
  *  live water's, else the settle's, else the stored file's (every column's, a cave's water its own). A view has its
  *  columns' own outflows or none (a weather day under caves: the stacked engine's water in flight has none). */
-function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> | null }, ground: Uint8Array = s.built.heights): WaterView {
+export function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> | null }, ground: Uint8Array = s.built.heights): WaterView {
   // (a build without the outflows, for measuring their own cost: tools/smooth)
   const flows = import.meta.env?.VITE_DGM_CURRENT !== "off";
   const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
@@ -321,7 +326,7 @@ function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> | nu
  *  column on a map with caves or overhangs, null on a heightfield). `weather`: a hazard's day, which an unedited
  *  import shows as the day's water (the file's own is day 0 only); any other live water of an unedited import shows
  *  the file's. */
-interface LiveWater {
+export interface LiveWater {
   depth: ArrayLike<number>;
   contamination: ArrayLike<number>;
   stack?: StackSettle | null;
@@ -463,8 +468,9 @@ export function terrainNow(): { heights: Uint8Array; terrain: TerrainState } {
   return { heights: s.built.heights.slice(), terrain: s.terrainState() };
 }
 
-/** The whole map as it stands, the water its file starts with (nothing marked as sent). */
-function wholeView(s: MapSession): MapView {
+/** The whole map as it stands, the water its file starts with (nothing marked as sent; the
+ *  time-lapse's worker draws its frames from it too). */
+export function wholeView(s: MapSession): MapView {
   const b = s.built;
   return { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s) };
 }
@@ -671,10 +677,43 @@ export function follow(p: FollowPayload): FollowResult {
   return { instant: instantCheck(need()), ...(stored ? { stored } : {}) };
 }
 
+/** The replica's check in progress: a second ask for the same map shares it (its progress goes to both), where a new
+ *  check would drop the first and leave its asker with no answer (the page's dot at "Checking the map" while the export
+ *  dialog checks, #829). */
+interface ReplicaRun {
+  session: MapSession;
+  version: number;
+  answer: Promise<ReplicaCheck | null>;
+  told: ((p: CheckProgress) => void)[];
+  /** Its latest progress, told at once to an ask that joins it. */
+  last: CheckProgress | null;
+}
+let replicaRun: ReplicaRun | null = null;
+
 /** The background check on the replica, with the canonical water it settled. */
-export async function replicaCheck(v: number, onProgress?: (p: CheckProgress) => void): Promise<ReplicaCheck | null> {
-  if (v !== version) return null;
-  const r = await backgroundCheck(onProgress);
+export function replicaCheck(v: number, onProgress?: (p: CheckProgress) => void): Promise<ReplicaCheck | null> {
+  if (v !== version) return Promise.resolve(null);
+  const s = need();
+  if (replicaRun && replicaRun.session === s && replicaRun.version === v) {
+    if (onProgress) {
+      replicaRun.told.push(onProgress);
+      if (replicaRun.last) onProgress(replicaRun.last);
+    }
+    return replicaRun.answer;
+  }
+  const run: ReplicaRun = { session: s, version: v, answer: Promise.resolve(null), told: onProgress ? [onProgress] : [], last: null };
+  replicaRun = run;
+  run.answer = runReplicaCheck(run).finally(() => {
+    if (replicaRun === run) replicaRun = null;
+  });
+  return run.answer;
+}
+
+async function runReplicaCheck(run: ReplicaRun): Promise<ReplicaCheck | null> {
+  const r = await backgroundCheck((p) => {
+    run.last = p;
+    for (const f of run.told) f(p);
+  });
   if (!r) return null;
   const s = need();
   const water = !s.waterPending && !s.showsStoredWater && !s.built.waterFromFile ? { model: s.built.waterModel, water: s.built.settle } : null;
@@ -696,6 +735,9 @@ export type EditorEvent =
   /** The plants a held day has surely killed, when they could not be worked out with the day (the earlier days' soil is
    *  worked out a day at a time, the worker breathing between): the tiles, for that hazard's held day. */
   | { kind: "withered"; version: number; hazard: Hazard; day: number; tiles: Int32Array }
+  /** The day the start's water goes or turns bad (`StartNews`), found by the background's days while the page holds an
+   *  earlier day: the line under the day box shows now, not with the next day stepped to. */
+  | { kind: "startWater"; version: number; hazard: Hazard; day: number }
   /** The water has settled after an edit: the water, the soil and the plants on it. */
   | ({ kind: "settled"; version: number } & ViewNews)
   /** The instant checks of an edit (with a checks worker, they come a moment after the edit). */
@@ -915,9 +957,10 @@ function kickWater(): void {
 
 /** The live water of a map with caves or overhangs after an edit (core/sim/stackLive.ts `StackLive`): the water as it
  *  stood carried over to the map's new columns, run on by the stacked engine a slice at a time, its frames sent as a
- *  heightfield's journey sends them (`runWater`). Only ever shown: the map keeps the last canonical settle carried over
- *  (`MapSession.waterStale`) until the background check's canonical settle replaces it (`adoptWater`, then
- *  `stopWater`), byte for byte as before, its shortcut (`settledAgain`) included. The run is made in its first slice,
+ *  heightfield's journey sends them (`runWater`), until it stands still by the preview's rule. While it flows the map
+ *  keeps the last settle carried over (`MapSession.waterStale`); where it comes to stand is then the map's preview
+ *  water (`stackPreview`, D453), as a heightfield's journey's end is, until the background check's canonical settle
+ *  replaces it (`adoptWater`, then `stopWater`), byte for byte as before, its shortcut (`settledAgain`) included. The run is made in its first slice,
  *  after the edit's answer has gone (`live` null until then), and never where the water does not flow (the checks'
  *  replica, Node tests: `autoWater`). */
 interface StackJob {
@@ -1009,7 +1052,7 @@ async function runStack(token: number): Promise<void> {
     const j = stackJob;
     if (!j || j.token !== token || session !== j.session) return;
     // (the edit's answer has gone: the run is made now, its first frame at once)
-    if (!j.live) j.live = new StackLive(j.model, j.from, j.flows);
+    if (!j.live) j.live = new StackLive(j.model, j.from, j.flows, PREVIEW_JOB_DAYS, true, true);
     const live = j.live;
     const t0 = performance.now();
     let done = false;
@@ -1027,16 +1070,38 @@ async function runStack(token: number): Promise<void> {
       listener({ kind: "water", version, water: stackView(j.session, f, seen.depth, seen.contamination), done: Math.min(0.99, ticks / TICKS_PER_DAY), ticks });
     }
     if (done) {
-      // where the water came to stand, shown as it is, until the canonical settle replaces it
-      const f = live.frame();
+      // where the water came to stand: the map's water, as a heightfield's preview is, until the canonical settle
+      // replaces it (the background check), and where the next edit's water flows on from
       stackRest = { session: j.session, model: j.model, stack: live.state() };
+      const water = stackPreview(j.session, live.settle());
       stackJob = null;
       live.close();
-      listener?.({ kind: "water", version, water: stackView(j.session, f, f.depth, f.contamination), done: 0.99, ticks: live.ticks });
+      const s = j.session;
+      if (session === s && s.adoptWater(j.model, water)) settledNews(s, viewUpdate(s));
       return;
     }
     await breathe();
   }
+}
+
+/** The journey's water where it came to stand (`StackLive.settle`), as the map's preview water: each tile's top column
+ *  from above, and the last canonical settle it warm-started from, whose shortcut the canonical settle may still take
+ *  (core/sim/prefill.ts `stackedRun`). */
+function stackPreview(s: MapSession, st: StackSettle): CanonicalWater {
+  const N = st.W * st.H;
+  const depth = new Float64Array(N);
+  const contamination = new Float64Array(N);
+  const sat = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (!st.count[i]) continue;
+    const c = (st.count[i] - 1) * N + i;
+    depth[i] = st.depth[c];
+    contamination[i] = st.contamination[c];
+    sat[i] = st.sat[c];
+  }
+  const last = s.lastSettled();
+  const canonical = last && (last.water.preview ? last.water.canonical : last);
+  return { settled: false, ticks: st.ticks, depth, contamination, sat, stack: st, preview: true, ...(canonical ? { canonical } : {}) };
 }
 
 /** A stroke's ground on a map with caves or overhangs (`draftStroke`): each tile's top reshaped to it, the water on
@@ -1539,6 +1604,8 @@ async function driveWeather(run: WeatherRun): Promise<void> {
       const seen = seenWater(run.session, kept);
       run.firsts.see(seen);
       run.startWater.see(seen);
+      // (found while the page holds an earlier day of this map, not waiting for one: a day it waits for carries it)
+      if (run.startWater.day === day && run.show === null && weatherShown === run.session) listener?.({ kind: "startWater", version: run.version, hazard: run.hazard, day });
       if (run.hazard === "drought" && day === run.days) droughtLineFrom(run);
       if (run.show !== null) {
         if (day >= run.show) {
@@ -1629,8 +1696,9 @@ export function stopWeather(): ViewUpdate {
  *  background): the same settle the background runs, in one go. */
 export function settleWater(): ViewUpdate {
   const j = waterJob;
-  // (a map with caves or overhangs: its settle is the canonical one, which ends its live water)
-  if (session?.waterStale && session.built.waterModel.stacked) {
+  // (a map with caves or overhangs: its settle is the canonical one, which ends its live water; its preview, the journey's
+  // water where it came to stand, is replaced as a heightfield's is)
+  if (session?.waterPending && session.built.waterModel.stacked) {
     stopWater();
     session.settleCanonical();
     return viewUpdate(session);
@@ -1796,11 +1864,12 @@ export const planned = {
   all: (ops: EditOp[]): EditOp[] => withSpringPools(need(), ops),
   tool: (req: ToolRequest, id: string): ToolPlan => planTool(req, id),
   plant: (template: string, tiles: readonly number[]) => planPlant(need(), template, tiles, () => crypto.randomUUID()),
-  remove: (tiles: readonly number[], kinds: readonly RemoveKind[], label?: string) => planRemove(need(), tiles, kinds, label),
+  remove: (tiles: readonly number[], kinds: readonly RemoveKind[], label?: string, cut?: number | null) => planRemove(need(), tiles, kinds, label, cut),
   paint: (params: PaintParams, z?: number) => planPaintObjects(need(), withLevels(params, z)),
   strokeClearing: (op: EditOp, label: string, tiles: readonly number[]) => planStrokeClearing(need(), op, label, tiles),
   move: (id: string, dx: number, dy: number, z?: number) => planMoveEntity(need(), id, dx, dy, z),
   start: (x: number, y: number, orientation?: Orientation, z?: number) => planStart(need(), x, y, orientation, () => crypto.randomUUID(), z),
+  stair: (from: [number, number], to: [number, number]) => planStair(need(), from, to, () => crypto.randomUUID()),
   /** Why a new ramped stroke is refused (core/doc/strokes.ts), or null. */
   stroke: (op: EditOp) => newRampedStroke(op),
   /** Remove unfed water and Fill: the one operation each would apply, or why none. */
@@ -1998,6 +2067,9 @@ if (yieldChannel) {
 }
 function breathe(): Promise<void> {
   return new Promise((r) => {
+    // (in Node, the tests' worker, a port's messages all run before the loop's check phase, so a slice loop held
+    // every setImmediate behind it for seconds, draftWaterQuiet.test: there the check phase itself, D341)
+    if (typeof setImmediate === "function") return void setImmediate(r);
     if (!yieldChannel) return void setTimeout(r, 0);
     yielding.push(r);
     yieldChannel.port2.postMessage(0);
@@ -2013,7 +2085,11 @@ async function settleInSlices(model: WaterModel, current: () => boolean, onProgr
     if (w) return w;
     onProgress?.({ stage: "water", done: Math.min(0.99, run.ticks / run.maxTicks) });
     await breathe();
-    if (!current()) return null;
+    if (!current()) {
+      // (its threads back in the budget the page's workers share, at once)
+      run.free?.();
+      return null;
+    }
   }
 }
 
@@ -2135,6 +2211,13 @@ export function project(level = 9): { bytes: Uint8Array; fileName: string; name:
   return { bytes: s.project(level), fileName: documentFileName(s.document), name: s.meta.name, version };
 }
 
+/** File → Save a picture: the open map as it stands, as the page draws its picture (render3d/hero.ts), and the
+ *  picture's file name (the project's, ".jpg" in place of its extension). The open map is untouched. */
+export function pictureView(): { view: MapView; fileName: string } {
+  const s = need();
+  return { view: wholeView(s), fileName: documentFileName(s.document).replace(/\.damgoodmaps\.json$/i, "").replace(/\.timber$/i, "") + ".jpg" };
+}
+
 /** A version of the open map kept or branched at History step `k` (core/doc/session.ts `versionProject`; showcase versions):
  *  its project file, its name and parent, and the land and water the page draws Your maps' picture of it from. Never a
  *  rebuild here: a step with no settled build kept comes without its stored map and without a picture (`stored` false), and
@@ -2195,6 +2278,26 @@ export function applyTool(req: ToolRequest, id: string): SessionUpdate & { plan:
 
 // --------------------------------------------------------------------- the shelf and Remove
 
+/** The stair a Slope dragged from `from` to `to` would lay (core/doc/stair.ts), for the page's preview: its slopes, or
+ *  why it can't be laid. Nothing is applied. */
+export function stairAt(from: [number, number], to: [number, number]): { ok: boolean; errors: string[]; steps: StairStep[]; label: string } {
+  const p = planStair(need(), from, to, () => "preview");
+  return p.ok ? { ok: true, errors: [], steps: p.steps, label: p.label } : { ok: false, errors: p.errors, steps: [], label: "" };
+}
+
+/** Lay the stair a Slope dragged from `from` to `to` makes: its ground and its slopes, one step. */
+export function layStair(from: [number, number], to: [number, number]): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
+  const p = planStair(s, from, to, () => crypto.randomUUID());
+  if (!p.ok) return changed(s, false, p.errors, t0);
+  const r = s.applyAll(p.ops, "user", p.label);
+  return changed(s, r.ok, r.errors, t0);
+}
+
+
 /** Trees or bushes painted by a drag from the shelf (D184): one `template` on each of `tiles` where
  *  it can stand, as one step (core/doc/placing.ts `planPlant`). The tiles it planted. */
 export function plantAt(template: string, tiles: readonly number[]): SessionUpdate & { planted: number[] } {
@@ -2223,13 +2326,14 @@ export function paintAt(params: PaintParams, z?: number): SessionUpdate & { plan
 }
 
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
- *  the ground (core/doc/remove.ts `planRemove`). The tiles the removed objects stood on. */
-export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[], label?: string): SessionUpdate & { removed: number[] } {
+ *  the ground (core/doc/remove.ts `planRemove`); under the view's layer cut (`cut`), only what it shows. The tiles the
+ *  removed objects stood on. */
+export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[], label?: string, cut?: number | null): SessionUpdate & { removed: number[] } {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return { ...changed(s, false, [blocked], t0), removed: [] };
-  const p = planRemove(s, tiles, kinds, label);
+  const p = planRemove(s, tiles, kinds, label, cut);
   if (!p.ok) return { ...changed(s, false, p.errors, t0), removed: [] };
   const r = s.applyAll(p.ops, "user", p.label);
   return { ...changed(s, r.ok, r.errors, t0), removed: r.ok ? p.removed : [] };
@@ -2240,9 +2344,10 @@ export function describeTileAt(x: number, y: number): TileDescription | null {
   return describeTileOf(need(), x, y);
 }
 
-/** What stands in `tiles`, by template, and how much of it is under water (D345, B5): Delete's menu. */
-export function objectsInArea(tiles: readonly number[]): { counts: Record<string, number>; submerged: Record<string, number> } {
-  return objectsIn(need(), tiles);
+/** What stands in `tiles`, by template, and how much of it is under water (D345, B5): Delete's menu; under the view's
+ *  layer cut (`cut`), only what it shows. */
+export function objectsInArea(tiles: readonly number[], cut?: number | null): { counts: Record<string, number>; submerged: Record<string, number> } {
+  return objectsIn(need(), tiles, cut);
 }
 
 /** What Remove unfed water would take within `tiles` (or on the whole map with none): its pools, tiles of water and the
@@ -2263,11 +2368,14 @@ export function removeUnfedWater(tiles: number[] | null): SessionUpdate {
 }
 
 /** What cropping the map to a rectangle would do: the core's one-line reason it cannot, or how many objects the new edge
- *  would remove (core/doc/crop.ts `planCrop`, D340). Reads the map only. */
+ *  would remove (core/doc/crop.ts `planCrop`, D340; ground the edge would leave unheld, `cropFalls`). Reads the map only. */
 export function cropPlanAt(r: CropParams): { reason: string | null; removedObjects: number } {
   const s = need();
   const p = planCrop(s.built.entities, s.size.x, s.size.y, r);
-  return p.ok ? { reason: null, removedObjects: p.removedObjects } : { reason: p.reason, removedObjects: 0 };
+  if (!p.ok) return { reason: p.reason, removedObjects: 0 };
+  // (and the session's own refusal: ground the new edge would leave unheld)
+  const why = s.check({ op: "crop", params: r })[0];
+  return why ? { reason: why, removedObjects: 0 } : { reason: null, removedObjects: p.removedObjects };
 }
 
 /** Crop the map to a rectangle (D340): the map's next generation, one undo step. The page opens the new map (its size
@@ -2286,6 +2394,12 @@ export function cropTo(r: CropParams): SessionUpdate & { removedObjects: number 
 export function fillPlanAt(x: number, y: number, level: number, floor?: number | null): { reason: string | null; tiles: number[]; volume: number; days: number } {
   const p = planFill(need(), x, y, level, floor);
   return { reason: p.reason, tiles: p.op ? [...new Set(p.op.params.lake.tiles)] : [], volume: p.volume, days: p.days };
+}
+
+/** The level a Fill at (x, y) fills to when the player names none: the highest its hollow holds, or null when it holds
+ *  none (core/doc/waterEdits.ts `fillLevel`, D394). Reads the map only. */
+export function fillLevelAt(x: number, y: number, floor?: number | null): number | null {
+  return fillLevel(need(), x, y, floor);
 }
 
 /** Fill the hollow round (x, y) with standing water to `level`, no source: one undo step. */
@@ -3297,8 +3411,10 @@ function followSources(w: NonNullable<typeof forceWater>, objects: readonly Enti
   return moved;
 }
 
-/** The force's water `ticks` on, on the ground shown now, and its depths (Node tests run it
- *  themselves, as they run `settleWater`); null when the force has none. */
+/** The force's water `ticks` on, on the ground shown now, and its depths seen from above, a tile's top column (Node
+ *  tests run it themselves, as they run `settleWater`); null when the force has none. On a map with caves the page
+ *  also draws every column under a roof (`stackView`): compare a kept view's top columns with these, or the frames
+ *  drawn with the kept view. */
 export function flowForceWater(ticks: number): Float64Array | null {
   const ws = forceStack;
   if (ws && force === ws.force) {

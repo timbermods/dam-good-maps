@@ -9,7 +9,7 @@ import type { WaterLayers } from "../../worker/session";
 import { entitiesByTile, startDragStatus, type TileContext } from "../features";
 import { LAYER_COLORS, type LayerKind } from "../panels";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, targetSource, type SourceSpot } from "../sourceSpots";
-import { BAD, STATUS_COLOR, WARN, DRAWING, DRAWING_BAND, GOOD, HELD, HOVERED, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, type OverlayLayer } from "../tools";
+import { BAD, PENDING, STATUS_COLOR, WARN, DRAWING, DRAWING_BAND, GOOD, HELD, HOVERED, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, type OverlayLayer } from "../tools";
 import { type StartHere } from "../start/startHere";
 import type { Ed } from "../ed";
 
@@ -106,6 +106,8 @@ export function useView(ed: Ed): ViewSlice {
   /** The source the pointer on tile (x, y) targets (D249): one standing there; else, over water or
    *  bare ground, the nearest within about two tiles (another object standing there wins). */
   const targetAt = (x: number, y: number): SourceSpot | null => {
+    // (objects hidden, H or Hide objects: the pointer finds only the land, as if nothing stood there)
+    if (renderer.current?.objectsHidden) return null;
     const W = infoRef.current.W;
     const e = mirror.current.entities;
     const covered = (ed.coverAt().get(y * W + x) ?? []).some((k) => !isSource(e.templates[e.template[k]]));
@@ -116,6 +118,7 @@ export function useView(ed: Ed): ViewSlice {
    *  stands up out of its tile and its marker floats above: a near miss in tiles is a hit on it, so
    *  Ctrl+scroll changes its strength and a click selects it, never placing a second one. */
   const sourceOnScreen = (hit: TileHit | null, clientX: number, clientY: number): { x: number; y: number; bad: boolean; tiles: [number, number][] } | null => {
+    if (renderer.current?.objectsHidden) return null;
     const exact = hit ? sourceAt(hit.x, hit.y) : null;
     if (exact) return exact;
     const r = renderer.current;
@@ -180,15 +183,16 @@ export function useView(ed: Ed): ViewSlice {
     if (!r || !data) return;
     const layers: OverlayLayer[] = [];
     if (waterLayers && layer !== "none") layers.push(...layerOverlay(waterLayers, layer));
-    if (painted) layers.push({ tiles: painted, color: GOOD });
+    if (painted) layers.push({ tiles: painted, color: GOOD, edge: true });
     else if (fit) {
       // (the start's colour says what it is: green fits and meets, amber misses, red cannot stand; D361)
-      const color = fit.problem ? BAD : fit.status === "warn" ? WARN : GOOD;
-      if (fit.status !== "pending") layers.push({ tiles: fit.tiles, color });
+      // (while it is still being checked, a faint footprint of its own: never the hover's white square, nor an answer)
+      const color = fit.problem ? BAD : fit.status === "warn" ? WARN : fit.status === "pending" ? PENDING : GOOD;
+      layers.push({ tiles: fit.tiles, color, edge: true });
     }
     if (picked) layers.push({ tiles: [picked.y * info.W + picked.x], color: SELECTED });
     if (pickedObject) layers.push({ tiles: footprintTiles(pickedObject.template, { template: pickedObject.template, x: pickedObject.x, y: pickedObject.y, z: 0, orientation: pickedObject.orientation, flipped: pickedObject.flipped }).filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: SELECTED, outline: true });
-    if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: STATUS_COLOR[startDragStatus(startDrag)] });
+    if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: STATUS_COLOR[startDragStatus(startDrag)], edge: true });
     if (hoverObject && !sourceDrag) layers.push({ tiles: hoverObject, color: HOVERED, outline: true });
     // the source being changed is clearly marked: the one the pointer is on, the one picked (D361, item 6)
     if (targeted !== null && targetSpot.current && !sourceDrag) layers.push({ tiles: targetSpot.current.tiles, color: HOVERED, outline: true });

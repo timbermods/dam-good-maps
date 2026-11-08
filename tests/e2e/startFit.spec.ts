@@ -13,8 +13,12 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 
 async function hoverFit(page: Page, x: number, y: number, W: number): Promise<{ tiles: number[]; problem: string | null }> {
   const p = await client(page, x, y);
-  await page.mouse.move(p.x + 3, p.y);
-  await page.mouse.move(p.x, p.y, { steps: 2 });
+  // (from six tiles off, in one move: the fit still on show from there never holds this tile. A 3 px nudge was the next
+  // tile at this zoom, whose 3×3 holds this one too, so its stale fit could pass for this tile's: River Valley 96 seed 3,
+  // 3 runs in 9, D341)
+  const off = await client(page, x + 6 < W ? x + 6 : x - 6, y);
+  await page.mouse.move(off.x, off.y);
+  await page.mouse.move(p.x, p.y);
   const i = y * W + x;
   await page.waitForFunction((k) => !!window.dgmEditor!.fit()?.tiles.includes(k), i, { timeout: 10_000 });
   return (await page.evaluate(() => window.dgmEditor!.fit()))!;
@@ -45,7 +49,9 @@ async function openGround(page: Page, r: number): Promise<[number, number][]> {
 }
 
 test("the start's preview is red over any part of a geothermal field and says so, and is green beside it", async ({ page }) => {
-  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  // (seed 2 since generator 0.10.7, D502, D148: seed 1's map has no level, dry, empty ground 9 wide away from its start;
+  // seed 3 since 0.10.11, #726, D148: on seed 2's, the ground beside the field is under water)
+  await openEditor(page, "s=3&z=96&d=n&t=riverValley");
   await topDown(page);
   const W = (await info(page)).W;
   const shelf = page.getByRole("navigation", { name: "Place" });

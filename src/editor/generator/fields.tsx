@@ -85,7 +85,21 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
       />
     ),
     seed: <SeedSetting {...p} />,
-    size: <SizeSetting W={W} H={H} preset={preset} onSize={p.onSize} />,
+    size: (
+      <SizeSetting
+        W={W}
+        H={H}
+        preset={preset}
+        onSize={p.onSize}
+        easy={!blank && s.start.easyStart === true}
+        onEasy={(on) =>
+          set((c) => {
+            if (on) c.start.easyStart = true;
+            else delete c.start.easyStart;
+          })
+        }
+      />
+    ),
     relief: num("relief", "Relief", s.terrain.relief, 0, 100, (v) => set((c) => (c.terrain.relief = v)), { bandKey: "relief" }),
     verticality: num("verticality", "Verticality", s.terrain.verticality, 0, 100, (v) => set((c) => setVerticality(c.terrain, v)), { bandKey: "verticality" }),
     variety: num("variety", "Variety", s.terrain.variety, 0, 100, (v) => set((c) => (c.terrain.variety = v)), { bandKey: "variety" }),
@@ -155,20 +169,24 @@ function SeedSetting(p: SettingsProps) {
   );
 }
 
+/** Easy start's tooltip (D495, D351). */
+export const EASY_TIP = "A flat, roomy start with water and food close by";
+
 /** A size box's tooltip beyond 256 a side (D357): the box turns the warning colour and says why; a warning, never a
  *  refusal. */
 export const BIG_SIDE_TIP = "Timberborn's own editor can't open maps over 256 a side";
 
 /** The size: 96, 128, 192, 256 (a square that side) or Custom, five equal options across the line (Kyler,
  *  2026-10-04: the Size choices end where Theme's do); Custom chosen, its option holds the width and height, typed,
- *  in its own place, so nothing moves. */
-function SizeSetting(p: { W: number; H: number; preset: SizePreset | "custom"; onSize(size: { x: number; y: number }): void }) {
+ *  in its own place, so nothing moves. Easy start (D495) is a toggle at the line's end, beside the main choices and
+ *  the panel no taller: on, the next map's start is calm and generous. */
+function SizeSetting(p: { W: number; H: number; preset: SizePreset | "custom"; onSize(size: { x: number; y: number }): void; easy: boolean; onEasy(on: boolean): void }) {
   const { W, H } = p;
   // Custom opens at the map's own size and stays lit by this state, since a square map's size also reads as a preset
   const [custom, setCustom] = useState(false);
   const isCustom = custom || p.preset === "custom";
   return (
-    <div class="set plate line choice size-line" {...tip(HINT.size)}>
+    <div class="set plate line choice has-extra size-line" {...tip(HINT.size)}>
       <span class="set-label">Size</span>
       <div class="set-seg" role="group" aria-label="Size">
         {(Object.keys(SIZE_PRESETS) as SizePreset[]).map((k) => (
@@ -189,6 +207,9 @@ function SizeSetting(p: { W: number; H: number; preset: SizePreset | "custom"; o
           </button>
         )}
       </div>
+      <button type="button" class="set-toggle easy-start" aria-pressed={p.easy} {...tip(EASY_TIP)} onClick={() => p.onEasy(!p.easy)}>
+        Easy start
+      </button>
     </div>
   );
 }

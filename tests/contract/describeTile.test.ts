@@ -74,7 +74,7 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
       expect(mine!.text, template).toMatch(words);
       // the readout gives the object and the ground it sits on
       const text = tileWords(d);
-      expect(text, template).toMatch(/ · (Height \d+|(Water|Badwater) [\d.]+ deep)/);
+      expect(text, template).toMatch(/ · (Height \d+|(Water|Badwater) at level [\d.]+, [\d.]+ deep)/);
       expect(text.startsWith(mine!.text)).toBe(true);
     }
     // a slope, the start and a tile with nothing on it
@@ -110,8 +110,8 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
       soil: () => "moist",
       objects: (i) => (i === 5 ? [{ template: "Slope" }] : i === 9 ? [{ template: "Pine" }, { template: "RuinColumnH2" }] : []),
     };
-    expect(tileWords(describeTile(facts, 1, 1))).toBe("Slope · Water 0.6 deep, bed level 4");
-    expect(tileWords(describeTile(facts, 2, 1))).toBe("Badwater 2.0 deep, bed level 4");
+    expect(tileWords(describeTile(facts, 1, 1))).toBe("Slope · Water at level 4.6, 0.6 deep, bed level 4");
+    expect(tileWords(describeTile(facts, 2, 1))).toBe("Badwater at level 6.0, 2.0 deep, bed level 4");
     expect(tileWords(describeTile(facts, 1, 2))).toBe("Pine, grown; Ruin, 2 levels, 30 scrap metal · Height 4, moist soil");
   });
 
@@ -129,7 +129,7 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
     expect(tileWords(describeTile(facts, 1, 1))).toBe("Height 13, dry soil");
     expect(tileWords(describeTile(facts, 1, 1, 13))).toBe("Height 13, dry soil");
     expect(tileWords(describeTile(facts, 1, 1, 3))).toBe("Height 3, moist soil");
-    expect(tileWords(describeTile(facts, 1, 1, 1))).toBe("Water 0.5 deep, bed level 1");
+    expect(tileWords(describeTile(facts, 1, 1, 1))).toBe("Water at level 1.5, 0.5 deep, bed level 1");
     // a level the map says nothing of (a layer cut, a tile without caves) leaves the tile's top as it was
     expect(tileWords(describeTile(facts, 1, 1, 7))).toBe("Height 13, dry soil");
     expect(tileWords(describeTile({ ...facts, runTop: undefined }, 1, 1, 3))).toBe("Height 13, dry soil");
@@ -158,7 +158,7 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
         expect(d.ground.height, `tile ${x},${y} level ${level}`).toBe(level);
         expect(d.ground.height).not.toBe(top);
         // the soil is the floor's own, as the readout words it
-        expect(groundWords(d.ground)).toMatch(new RegExp(`^(Height ${level}(, (moist|dry|contaminated) soil)?|(Water|Badwater) [\d.]+ deep, bed level ${level}.*)$`));
+        expect(groundWords(d.ground)).toMatch(new RegExp(`^(Height ${level}(, (moist|dry|contaminated) soil)?|(Water|Badwater) at level [\d.]+, [\d.]+ deep, bed level ${level}.*)$`));
         // the tile asked without a level, or at its top, is the roof as before
         expect(describeTileOf(s, x, y)!.ground.height).toBe(top);
         expect(describeTileOf(s, x, y, top)!.ground).toEqual(describeTileOf(s, x, y)!.ground);
@@ -197,7 +197,7 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
       if (depth > 0.001) {
         expect(d.ground.water, "wet in the arrays, wet in the description").not.toBeNull();
         expect(d.ground.water!.depth).toBe(depth);
-        expect(tileWords(d)).toMatch(/(Water|Badwater) [\d.]+ deep, bed level \d+$/);
+        expect(tileWords(d)).toMatch(/(Water|Badwater) at level [\d.]+, [\d.]+ deep, bed level \d+$/);
       } else {
         expect(d.ground.water, "dry in the arrays, dry in the description").toBeNull();
         expect(tileWords(d)).toMatch(/Height \d+/);

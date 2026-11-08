@@ -135,7 +135,9 @@ describe("strokes saved before D322 replay exactly (D158)", () => {
     // two birches and a ruin column they displaced stand again; the heights and every step are as
     // they were, D148, D382)
     expect(entitiesOf(s)).toBe(d.final.entities);
-    // step by step: the saved strokes applied again one at a time, each map as it was
+    // step by step: the saved strokes applied again one at a time, each map as it was; from stroke 15, two Lowers
+    // that tilted the mine site at (3, 18) now take it level as they pass (D491, amended 2026-10-29: the game
+    // drops an object off level ground), so steps 15–18 are the maps they give now (D148); the project keeps its own
     const doc = decodeProject(new Uint8Array(readFileSync(PROJECT)));
     const saved = doc.edits;
     expect(saved).toHaveLength(d.steps.length);

@@ -312,7 +312,7 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   for (let k = 0, made = 0; made < beltsWant && k < beltsWant + 10; k++) {
     // in front of a relic or a field first; then anywhere on dry ground
     const tgt = targets.length && k < beltsWant + 3 ? targets[k % targets.length] : null;
-    const belt = thornBelt(rng, tgt?.tiles ?? null, { W, H, h, sd, blocked, water: b.water });
+    const belt = thornBelt(rng, tgt?.tiles ?? null, { W, H, h, sd, blocked, water: b.water, near: inp.spec.settings.start.easyStart === true ? EASY_THORNS : THORNS_NEAR });
     if (!belt) continue;
     const { id: fid, role } = id("thornBelt", made);
     out.push({ id: fid, kind: "mapObject", origin: "generated", role, locked: false, params: { kind: "thornBelt", placement: { area: tilesToRuns(belt, W) } } });
@@ -322,13 +322,17 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   return out;
 }
 
+/** How near the start's middle a thorn may stand: 22 tiles, and beyond Easy start's 30 for one (D495). */
+const THORNS_NEAR = 22;
+const EASY_THORNS = 31;
+
 /** A blotchy belt of 13–40 thorns (official belts fill 30–70% of their box): a band 2–3 tiles
  *  thick across the line from a target to the start, 5–8 tiles in front of the target; or, with no
  *  target, across a random stretch of dry ground. Every thorn keeps 22 tiles from the start. */
 function thornBelt(
   rng: Rng,
   target: [number, number][] | null,
-  g: { W: number; H: number; h: Uint8Array; sd: Float64Array; blocked: Uint8Array; water: Float64Array },
+  g: { W: number; H: number; h: Uint8Array; sd: Float64Array; blocked: Uint8Array; water: Float64Array; near: number },
 ): number[] | null {
   const { W, H, sd, blocked } = g;
   let cx: number;
@@ -397,7 +401,7 @@ function thornBelt(
       const i = y * W + x;
       if (seen.has(i)) continue;
       seen.add(i);
-      if (blocked[i] || sd[i] < 22 || g.water[i] > 0) continue;
+      if (blocked[i] || sd[i] < g.near || g.water[i] > 0) continue;
       if (rng.float() > keep) continue;
       tiles.push(i);
     }

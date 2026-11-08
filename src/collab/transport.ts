@@ -112,6 +112,9 @@ export class CollabTransport extends Emitter<TransportEvents> {
   private nextMessageId = 1;
   private sendQueue: Promise<void> = Promise.resolve();
   private heartbeat: ReturnType<typeof setInterval> | null = null;
+  /** Says hello again each heartbeat until the peer's first ping shows it has ours (a hello sent the moment the channel opens can
+   *  be lost before the other end of the channel is open). */
+  private helloTimer: ReturnType<typeof setInterval> | null = null;
   private lastRx = 0;
   private lastTick = 0;
   private pingN = 0;
@@ -271,8 +274,10 @@ export class CollabTransport extends Emitter<TransportEvents> {
     this.ops = ch;
     ch.bufferedAmountLowThreshold = LOW_WATER;
     ch.onopen = () => {
+      if (this.helloTimer || this.done) return;
       this.lastRx = Date.now();
-      this.sendControl({ t: "hello", protocol: PROTOCOL, session: this.sessionId, epoch: this.epoch, ...(this.name ? { name: this.name } : {}) });
+      this.sayHello();
+      this.helloTimer = setInterval(() => this.sayHello(), this.opts.heartbeatMs);
     };
     ch.onmessage = (e) => this.onFrame(e.data);
     ch.onclose = () => {
@@ -389,6 +394,8 @@ export class CollabTransport extends Emitter<TransportEvents> {
         void this.onHello(c);
         break;
       case "ping":
+        // (the peer pings only once it is connected, which is once it has our hello)
+        this.stopHello();
         this.sendControl({ t: "pong", n: c.n });
         break;
       case "bye":
@@ -519,6 +526,15 @@ export class CollabTransport extends Emitter<TransportEvents> {
   }
 
   // ---- frames out ----
+
+  private sayHello(): void {
+    this.sendControl({ t: "hello", protocol: PROTOCOL, session: this.sessionId, epoch: this.epoch, ...(this.name ? { name: this.name } : {}) });
+  }
+
+  private stopHello(): void {
+    if (this.helloTimer) clearInterval(this.helloTimer);
+    this.helloTimer = null;
+  }
 
   private sendControl(c: Control): void {
     try {
@@ -670,6 +686,7 @@ export class CollabTransport extends Emitter<TransportEvents> {
     this.refreshTimer = this.expireTimer = this.reportTimer = null;
     if (this.heartbeat) clearInterval(this.heartbeat);
     this.heartbeat = null;
+    this.stopHello();
     this.socket?.close();
     this.socket = null;
     // let a goodbye in flight leave before the connection is closed

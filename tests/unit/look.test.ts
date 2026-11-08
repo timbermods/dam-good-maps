@@ -7,13 +7,13 @@ import { describe, expect, it } from "vitest";
 import { storedSoil } from "../../src/core/format/world";
 import { describeTile, entitiesByTile } from "../../src/editor/features";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
-import { decodeTop, encodeTop, litFraction, objectCasters, shadowMap, shadowTops, SHADOW_RES, skyVisibility, soilNibbles, tileData, waterByte } from "../../src/render3d/light";
+import { decodeTop, encodeTop, litFraction, objectCasters, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
-import { contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, wallColor, waterBody } from "../../src/render3d/palette";
+import { ALBEDO_SCALE, cliffTint, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
+import { cleanWaterShown } from "./waterShown";
 import { waterHooks } from "../../src/render3d/high/shaders";
-import { FALL_STRIDE } from "../../src/render3d/falls";
-import { dropFlags, EDGE_CURTAIN, FALL_IN_BITS, LIP_BITS, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
+import { dropFlags, EDGE_CURTAIN, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
 import { DataTexture, ShaderMaterial } from "three";
 import { sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
@@ -21,29 +21,32 @@ import { sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 
 describe("a crisp map (D324's follow-up: tile edges, no blend across a whole tile)", () => {
-  it("changes the soil at the tile's edge over a narrow band, and keeps the light and the contamination's level smooth", () => {
+  it("changes the soil at the tile's edge over a narrow band, and keeps the contamination's level smooth (no sky term since D497)", () => {
     const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
     const src = terrainMaterial(sceneUniforms(1, 1, tex(), tex(), tex(), tex()), 0, 1).fragmentShader;
     // the soil's weights go through a band about a pixel wide (never under a twenty-fifth of a tile) at the edge
     expect(src).toContain("float bandW = max(0.04, 1.5 * max(fwidth(g.x), fwidth(g.y)));");
     expect(src).toContain("vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;");
-    // the sky's light and the contamination's level (shading) keep the smooth, tile-wide weights
-    expect(src).toContain("float sky = s0.w * w00 + s1.w * w10 + s2.w * w01 + s3.w * w11;");
+    // the contamination's level (shading) keeps the smooth, tile-wide weights; the sky's light is the game's ambient by the
+    // normal, with no sky visibility blended in (D497)
+    expect(src).not.toContain("float sky =");
     expect(src).toContain("float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;");
-    // and the soil edge's own wobble is small, not ragged patches
-    expect(src).toContain("* 0.22;");
+    // and the contamination's edge is the game's blend across the tiles and its blending noise, with no wobble of our own
+    // (D154 as amended 2026-11-07)
+    expect(src).not.toContain("float edge = ((n1");
+    expect(src).toContain("contamMap = tapBlend(g, ");
   });
 
-  it("gives the grass-to-earth edge the game's painted shape (D324's note, D334): a slight irregular wobble along the tile's edge, the same from both tiles, and a thin darker rim", () => {
+  it("gives the grass-to-earth edge the game's painted shape (D324's note, D334): a slight irregular wobble along the tile's edge, the same from both tiles, and no rim (D135 as amended 2026-10-29: the game blends grass into desert by its share alone)", () => {
     const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
     const src = terrainMaterial(sceneUniforms(1, 1, tex(), tex(), tex(), tex()), 0, 1).fragmentShader;
     // the wobble is world-anchored noise, signed by the side of the tile the point lies on, so the
     // two tiles either side of an edge agree on where it runs (smoothstep's symmetry about 0.5), a
     // twentieth of a tile at the most, within the narrow band
     expect(src).toContain("vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w + edgeWave * sd * 0.105);");
-    // a thin darker rim where grass meets earth
-    expect(src).toContain("float rim = 1.0 - smoothstep(0.06, 0.24, abs(soil.x - 0.5));");
-    expect(src).toContain("c = ground * (1.0 - rim * 0.22);");
+    // no darker rim where grass meets earth (re-based from the rim, D148: the share now runs across whole tiles)
+    expect(src).not.toContain("abs(soil.x - 0.5)");
+    expect(src).toContain("c = ground;");
   });
 });
 
@@ -89,18 +92,20 @@ describe("the ground's colours", () => {
         expect(g[k]).toBeLessThanOrEqual(Math.max(GROUND.moistLow[k], GROUND.moistHigh[k]) + 1e-12);
       }
     }
-    // no contamination, no vein; any contamination, orange-red veins through either soil
+    // no contamination, no vein; any contamination, the game's rusty veins through either soil (D154 as amended)
     for (const soil of [GROUND.dry, GROUND.moistLow, GROUND.moistHigh]) {
       expect(contaminationVein(0, soil)).toEqual(soil);
       for (const l of [1 / 15, 0.5, 1]) {
         const v = contaminationVein(l, soil);
-        expect(v[0]).toBeGreaterThan(v[1] + 0.3);
+        expect(v[0]).toBeGreaterThan(v[1] + 0.15);
         expect(v[1]).toBeGreaterThan(v[2]);
       }
     }
-    // Standard's water darkens with depth (its body colours, at a fixed look and light)
-    for (let d = 0.1; d < 5; d += 0.1) expect(lum(waterBody(d, false))).toBeLessThanOrEqual(lum(waterBody(d - 0.1, false)) + 1e-9);
-    expect(lum(waterBody(4, false))).toBeLessThan(lum(waterBody(0.1, false)));
+    // the water darkens with depth: the shipped clean water, the game's formula (its `_DepthGradients` R ramp falling and
+    // its colour going to navy), at a fixed light (D496; D148: this checked Standard's own body colours until the formula
+    // shipped)
+    for (let d = 0.1; d < 5; d += 0.1) expect(lum(cleanWaterShown(d))).toBeLessThanOrEqual(lum(cleanWaterShown(d - 0.1)) + 1e-9);
+    expect(lum(cleanWaterShown(4))).toBeLessThan(lum(cleanWaterShown(0.1)));
   });
 
   it("draws High's water darker with depth too (D334's navy pools, re-basing the High-water lightness margins: the order, not a gap)", () => {
@@ -111,20 +116,23 @@ describe("the ground's colours", () => {
     expect(lum(HIGH_WATER.body)).toBeLessThan(lum(HIGH_WATER.shallow));
     expect(lum(HIGH_WATER.deep)).toBeLessThan(lum(HIGH_WATER.body));
     // the surface blends them by depth with weights that only rise, so the body darkens with depth
-    // at any look and light; at a grazing angle it keeps its depth (the grazing colour darker deeper)
+    // at any look and light; no colour of our own at a grazing angle (D496: the game's change with angle is its
+    // reflection), only the albedo the flow carries, over its mean
     const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
     const src = waterMaterial(sceneUniforms(1, 1, tex(), tex(), tex(), tex()), false, waterHooks()).fragmentShader;
     expect(src).toContain("float bodyDepth = smoothstep(0.25, 1.25, depth);");
     expect(src).toContain("float deep = smoothstep(1.0, 3.5, depth);");
     expect(src).toContain("vec3 body = mix(mix(HW_SHALLOW, HW_BODY, bodyDepth), HW_DEEP, deep);");
-    expect(src).toContain("body = mix(body, HW_GRAZING * mix(1.0, 0.72, deep), grazing * 0.65);");
+    expect(src).toContain("body *= albedo / WATER_ALBEDO_MEAN;");
+    expect(src).not.toContain("HW_GRAZING");
     // (clean against bad in High is the game's readability, D334 (2): no order or gap between them;
     // the rendered deep-under-shallow evidence is tests/e2e/look-high.spec.ts)
   });
 
-  it("bands the walls by level: neighbouring levels differ, higher is lighter", () => {
-    for (let lv = 0; lv < 22; lv++) expect(Math.abs(lum(wallColor(lv)) - lum(wallColor(lv + 1)))).toBeGreaterThan(0.03);
-    expect(lum(wallColor(16))).toBeGreaterThan(lum(wallColor(0)));
+  it("tints the walls by height as the game's cliffs (D497): its gradient from level 0 to 22, lighter higher up", () => {
+    expect(cliffTint(0)).toEqual(WALL.gradient.min);
+    for (let k = 0; k < 3; k++) expect(cliffTint(22)[k]).toBeCloseTo(WALL.gradient.max[k], 6);
+    for (let lv = 0; lv < 22; lv++) expect(lum(wallColor(lv + 1))).toBeGreaterThan(lum(wallColor(lv)));
   });
 
   it("the legend names each colour, for soil and for height colours", () => {
@@ -133,7 +141,8 @@ describe("the ground's colours", () => {
     const height = legendEntries("height").map((e) => e.label);
     expect(height[0]).toBe("Ground height");
     expect(height).not.toContain("Moist ground");
-    expect(legendEntries("moisture")[1].swatch).toContain(cssColor(GROUND.dry));
+    // (the ground as a sunlit top shows it: its colour is an albedo the light multiplies, D497)
+    expect(legendEntries("moisture")[1].swatch).toContain(cssColor(sunlitTop(GROUND.dry)));
     expect(legendEntries("moisture").at(-1)!.swatch).toBe(cssColor(DEAD_TREE));
   });
 });
@@ -142,15 +151,6 @@ describe("the baked light", () => {
   const W = 24;
   const H = 20;
   const flat = new Uint8Array(W * H).fill(3);
-
-  it("sees the whole sky on flat ground and less at the bottom of a pit", () => {
-    expect([...new Set(skyVisibility(W, H, flat))]).toEqual([255]);
-    const pit = flat.slice();
-    pit[10 * W + 10] = 0;
-    const sky = skyVisibility(W, H, pit);
-    expect(sky[10 * W + 10]).toBeLessThan(160);
-    expect(sky[10 * W + 14]).toBe(255);
-  });
 
   it("casts a pillar's shadow away from the sun (south-east), softly, and never toward it", () => {
     const h = flat.slice();
@@ -191,8 +191,6 @@ describe("the baked light", () => {
     const b = shadowMap(W, H, h, objectCasters(W, H, e));
     expect(Buffer.from(a).equals(Buffer.from(b))).toBe(true);
     expect(a.length).toBe(W * SHADOW_RES * H * SHADOW_RES * 4);
-    const sky1 = skyVisibility(W, H, h);
-    expect(Buffer.from(sky1).equals(Buffer.from(skyVisibility(W, H, h)))).toBe(true);
     // the tree shades the ground to its south-east
     const noTree = shadowMap(W, H, h, null);
     expect(Buffer.from(a).equals(Buffer.from(noTree))).toBe(false);
@@ -205,17 +203,17 @@ describe("the baked light", () => {
     expect(litFraction(5, 4.5, 5.5)).toBeCloseTo(0.5);
   });
 
-  it("packs the tile data: height, soil, sky, and water over the top", () => {
+  it("packs the tile data: height, soil and the water over the top (B unused since D497)", () => {
     const heights = new Uint8Array([2, 2, 5, 1]);
     const soil = soilView([0, 3, 12, 0], [0, 0, 0, 0.4]);
     const sw = surfaceWater(4, 1, waterFromDepth(heights, [0, 0, 0, 0.8], [0, 0, 0, 0]));
-    const d = tileData(4, 1, heights, new Uint8Array([255, 200, 100, 50]), soil, sw);
+    const d = tileData(4, 1, heights, soil, sw);
     expect([d[0], d[4], d[8], d[12]]).toEqual([2, 2, 5, 1]);
     expect(d[1]).toBe(0); // dry, clean
     expect(d[5] >> 4).toBe(3); // moist
     expect(d[9] >> 4).toBe(12);
     expect(d[13] & 15).toBeGreaterThan(0); // contaminated
-    expect([d[2], d[6], d[10], d[14]]).toEqual([255, 200, 100, 50]);
+    expect([d[2], d[6], d[10], d[14]]).toEqual([0, 0, 0, 0]);
     expect([d[3], d[7], d[11]]).toEqual([0, 0, 0]);
     expect(d[15]).toBe(waterByte(sw, heights, 3));
     expect(d[15]).toBeGreaterThan(40);
@@ -223,10 +221,11 @@ describe("the baked light", () => {
   });
 });
 
-describe("water foam", () => {
-  // (D148: a fall was a curtain carrying its drop in its flags; since D201 it pours from the lip as
-  // a fall of its own, which carries its lip's and its landing's surfaces, and its brink is marked)
-  it("marks shores, the foot of falls and their brinks, and the drop of each fall", () => {
+describe("water's flags", () => {
+  // (D148: a fall was a curtain carrying its drop in its flags; from D201 it poured from the lip as a fall of its own,
+  // its foot and brink marked for foam; since D201's amendment (2026-10-29) it is a curtain again, as the game draws
+  // it, with no foam)
+  it("marks shores, and the drop of each fall", () => {
     // west to east: a pool at 6 (surface 6.5) falls to a river at 3 (surface 3.5), beside dry
     // ground at 7 on the north side of the pool
     const W = 4;
@@ -242,20 +241,12 @@ describe("water foam", () => {
       if (m.normals[q * 12 + 1] > 0) tops.set(Math.round(x), m.flags[q * 4]);
       else if (m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 2) < 0.1) curtains.push(m.flags[q * 4]);
     }
-    // the pool's tiles meet dry ground to the north; the river's first tile takes the fall, and the
-    // pool's last tile is its brink
+    // the pool's tiles meet dry ground to the north, and no top carries any other mark
     expect(tops.get(0)! & SHORE_BITS[2]).toBeTruthy();
     expect(tops.get(1)! & SHORE_BITS[2]).toBeTruthy();
-    expect(tops.get(2)! & FALL_IN_BITS[1]).toBeTruthy();
-    expect(tops.get(3)! & FALL_IN_BITS[1]).toBeFalsy();
-    expect(tops.get(1)! & LIP_BITS[0]).toBeTruthy();
-    expect(tops.get(0)! & LIP_BITS[0]).toBeFalsy();
-    // the fall pours from the pool's surface down to the river's, 3 levels: no curtain hangs there
-    expect(curtains).toEqual([]);
-    expect(m.fallCount).toBe(1);
-    const f = m.falls.subarray(0, FALL_STRIDE);
-    expect(f[4] - f[6]).toBeCloseTo(3, 5);
-    expect(f[5] - f[7]).toBeCloseTo(3, 5);
+    for (const [, flags] of tops) expect(flags & ~15).toBe(0);
+    // the fall hangs from the pool's surface down to the river's, 3 levels: its drop in its flags
+    expect(curtains).toEqual([90]);
     // a curtain's flags are its drop, and none at the map's edge
     expect(dropFlags(6.5, 3.5, false)).toBe(90);
     expect(dropFlags(3, 0, true)).toBe(EDGE_CURTAIN);
@@ -292,7 +283,10 @@ describe("the models", () => {
     const greenish = (name: string) => {
       const col = byName.get(name)!.geometry.getAttribute("pcolor").array;
       let n = 0;
-      for (let k = 0; k < col.length; k += 3) if (col[k + 1] > col[k] + 0.12 && col[k + 1] > col[k + 2] + 0.12) n++;
+      // (the game's olive greens, D135 as amended 2026-10-29: green over red and blue by 0.043 of the game's albedo,
+      // drawn at our grass's lightness (ALBEDO_SCALE), so the margin scales with it and never loosens)
+      const margin = 0.043 * ALBEDO_SCALE;
+      for (let k = 0; k < col.length; k += 3) if (col[k + 1] > col[k] + margin && col[k + 1] > col[k + 2] + margin) n++;
       return n;
     };
     expect(greenish("Oak")).toBeGreaterThan(0);

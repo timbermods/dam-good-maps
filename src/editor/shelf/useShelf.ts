@@ -26,7 +26,7 @@ import { aimOf, startRoofed } from "./aim";
 
 export interface ShelfSlice {
   pointerWords: { current: PointerWords | null };
-  flashNote: (text: string, ev?: MouseEvent) => void;
+  flashNote: (text: string, ev?: MouseEvent, ms?: number) => void;
   fitWant: { current: string | null };
   ghostAt: { current: { template: string; x: number; y: number; z: number; orientation: number } | null };
   shelfTile: { current: [number, number] | null };
@@ -36,7 +36,7 @@ export interface ShelfSlice {
 
 export function useShelf(ed: Ed): ShelfSlice {
   const {
-    api, info, mirror, renderer, ready, shelf, shelfOptions, turn, setPainted, setIcons, mounted, feel, firstDone,
+    api, info, mirror, renderer, ready, shelf, shelfOptions, setPainted, setIcons, mounted, feel, firstDone,
     setFit, setShapeNote, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef, needs, run, brushToolRef, pickShelf,
     ctx, startHereRef, startHere, pointerAt, notePointer, sourceAtTile, placeSource, startWorkerApi
   } = ed;
@@ -48,13 +48,13 @@ export function useShelf(ed: Ed): ShelfSlice {
     (text) => setShapeNote(text ? { text, ok: true, warn: false, ...pointerAt.current } : null),
     () => brushToolRef.current !== null,
   );
-  /** A word beside the pointer for a moment (a strength, a size). */
-  function flashNote(text: string, ev?: MouseEvent) {
+  /** A word beside the pointer for a moment (a strength, a size; `ms`: longer, for a reason to read). */
+  function flashNote(text: string, ev?: MouseEvent, ms?: number) {
     if (ev) {
       const box = renderer.current?.canvas.getBoundingClientRect();
       if (box) pointerAt.current = { x: ev.clientX - box.left, y: ev.clientY - box.top };
     }
-    pointerWords.current!.flash(text);
+    pointerWords.current!.flash(text, ms);
   }
 
   // the footprint under the pointer: one check in flight, then the latest tile
@@ -99,11 +99,14 @@ export function useShelf(ed: Ed): ShelfSlice {
   /** The level the pointer aims at on its tile (D491): a cave's floor, the ground under a ledge; undefined on the
    *  tile's top. */
   const levelOf = (hit: TileHit | null) => aimOf(hit, info.W, mirror.current.heights, ed.columnsRef.current);
+  // (not on a turn: R and the window's Turn hover the turned object again at once, and its new check would be cleared)
   useEffect(() => {
+    // (a start check still in flight is for what was held before: its answer shows nothing)
+    ++shelfStartJob.current;
     fitWant.current = null;
     shownFit.current = null;
     setFit(null);
-  }, [shelf, shelfOptions, turn, info.version]);
+  }, [shelf, shelfOptions, info.version]);
 
   // ------------------------------------------------------------------------------ the shelf
 
@@ -165,7 +168,8 @@ export function useShelf(ed: Ed): ShelfSlice {
           const here = shelfTile.current;
           if (!mounted.current || shelfRef.current?.id !== "start" || !here || here[0] !== x || here[1] !== y || shelfLevel.current !== level) return;
           shownFit.current = { spot, problem: fit.problem };
-          setFit({ tiles: own, problem: fit.problem, status: fit.problem ? "blocked" : warning ? "warn" : "pending" });
+          // (the core's answer is the whole check on a cave or an overhang: green as its ghost is)
+          setFit({ tiles: own, problem: fit.problem, status: fit.problem ? "blocked" : warning ? "warn" : "ok" });
           shelfWord(fit.problem, warning);
           if (ghostAt.current) renderer.current?.setGhost({ ...ghostAt.current, ok: fit.problem ? false : warning ? "warn" : true });
         });
@@ -341,6 +345,59 @@ export function useShelf(ed: Ed): ShelfSlice {
     );
   }
   const paintSeed = useRef((Math.random() * 0x7fffffff) | 0);
+  /** The Slope dragged from high ground to low (core/doc/stair.ts, showcase-craft gap 6): the stair's slopes green with
+   *  what the release lays beside the pointer, or the drag's line red with the reason it can't be laid. The latest drag
+   *  wins; `to` null shows nothing (the drag back on its first tile, or over). */
+  const stairJob = useRef(0);
+  const stairShown = useRef<{ key: string; problem: string | null } | null>(null);
+  /** The drag the latest preview asked about: the pointer moving within a tile asks nothing again (D453). */
+  const stairAsked = useRef<string | null>(null);
+  function showStair(from: [number, number], to: [number, number] | null, ev?: PointerEvent) {
+    if (ev) notePointer(ev);
+    const key = to ? `${from}|${to}` : null;
+    if (key && key === stairAsked.current) return;
+    stairAsked.current = key;
+    const job = ++stairJob.current;
+    // (the hover's checks still on their way show nothing over the stair, and its ghost goes)
+    fitWant.current = null;
+    shownFit.current = null;
+    ghostAt.current = null;
+    renderer.current?.setGhost(null);
+    renderer.current?.setForceRing(null);
+    stairShown.current = null;
+    if (!to) {
+      setFit(null);
+      setShapeNote(null);
+      return;
+    }
+    const W = info.W;
+    void api
+      .stairAt(from, to)
+      .then((p) => {
+        if (job !== stairJob.current || !mounted.current) return;
+        const problem = p.ok ? null : (p.errors[0] ?? null);
+        stairShown.current = { key: key!, problem };
+        setFit({ tiles: p.ok ? p.steps.map((t) => t.y * W + t.x) : dragLine(from, to, W, info.H), problem });
+        setShapeNote({ text: problem ? stairWord(problem) : p.label, ok: true, warn: !!problem, ...pointerAt.current });
+      })
+      .catch(() => undefined);
+  }
+  /** The stair's drag let go on `to`: laid, one step, with its pop; refused where its preview said why, the reason
+   *  staying beside the pointer for a moment. */
+  function layShelfStair(from: [number, number], to: [number, number] | null) {
+    const shown = stairShown.current;
+    showStair(from, null);
+    if (!to) return;
+    if (shown?.key === `${from}|${to}` && shown.problem) return flashNote(stairWord(shown.problem));
+    void run(
+      () => api.layStair(from, to),
+      (u) => {
+        if (!u.ok) return;
+        feel("place", to[0], to[1], 1, false, "Slope");
+        firstDone("place");
+      },
+    );
+  }
   /** The brush's size as a ring round the pointer (the force ring's, the one calm ring), while a plant is held. */
   function paintRing(x: number, y: number) {
     const item = shelfRef.current;
@@ -372,8 +429,8 @@ export function useShelf(ed: Ed): ShelfSlice {
   }, [shelfOptions]);
   /** The voxel pick's hit the shelf's tool last hovered (a drop from the shelf lands there). */
   const aimHit = useRef<TileHit | null>(null);
-  const shelfCalls = useRef({ shelfHover, placeShelf, plantShelf });
-  shelfCalls.current = { shelfHover, placeShelf, plantShelf };
+  const shelfCalls = useRef({ shelfHover, placeShelf, plantShelf, showStair, layShelfStair });
+  shelfCalls.current = { shelfHover, placeShelf, plantShelf, showStair, layShelfStair };
   // the shelf's object takes the map's left button while it is picked (at once, when the pick is drawn: a click
   // straight after picking must not reach the tool held before)
   useLayoutEffect(() => {
@@ -388,6 +445,8 @@ export function useShelf(ed: Ed): ShelfSlice {
         notePointer(ev);
         aimHit.current = hit;
         if (!hit) {
+          // (off the map: a start check still in flight brings nothing back)
+          ++shelfStartJob.current;
           r.setGhost(null);
           r.setForceRing(null);
           dryRing.current = false;
@@ -410,6 +469,9 @@ export function useShelf(ed: Ed): ShelfSlice {
         if (!tiles) paintSeed.current = (Math.random() * 0x7fffffff) | 0;
       },
       plant: (tiles, hit) => shelfCalls.current.plantShelf(tiles, undefined, hit ? levelOf(hit) : undefined),
+      stairs: () => shelfRef.current?.id === "Slope",
+      stairing: (from, to, ev) => shelfCalls.current.showStair(from, to, ev),
+      stair: (from, to) => shelfCalls.current.layShelfStair(from, to),
     });
     r.tool = t;
     // (the pointer resting on the map: the ghost shows there at once, on the tile's top until the pointer moves)
@@ -502,3 +564,22 @@ export function useShelf(ed: Ed): ShelfSlice {
   }
   return { pointerWords, flashNote, fitWant, ghostAt, shelfTile, shelfHover, dropShelf };
 }
+
+/** The tiles of a drag from `from` toward `to` along its main axis (a stair runs one of four ways), for showing a stair
+ *  that can't be laid. */
+function dragLine(from: readonly [number, number], to: readonly [number, number], W: number, H: number): number[] {
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  const n = Math.max(Math.abs(dx), Math.abs(dy));
+  const [sx, sy] = Math.abs(dx) >= Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
+  const out: number[] = [];
+  for (let k = 0; k <= n; k++) {
+    const x = from[0] + sx * k;
+    const y = from[1] + sy * k;
+    if (x >= 0 && y >= 0 && x < W && y < H) out.push(y * W + x);
+  }
+  return out;
+}
+
+/** A stair's reason as the words beside the pointer: the core's line, lower case. */
+const stairWord = (problem: string) => problem.charAt(0).toLowerCase() + problem.slice(1);

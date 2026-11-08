@@ -74,11 +74,17 @@ const wetSet = (w: WaterView, v: Seen) => {
 describe("the drought line (D133, D269)", () => {
   // a lake that keeps water and a pool that dries; a river that leaves pools; the start's own water drying out
   // while other water stays; a river that dries out entirely
+  // (River Valley 15 for 1 since generator 0.10.6, D498, D148: seed 1's river still dries out, but a badwater pool beside it
+  // holds 66 tiles of water through the drought, so its line is not empty; seed 15 has no water left on the last day;
+  // Lake Basin 5 for 4 and River Valley 4 for 3 since generator 0.10.7, D502, D148: seed 4's pools no longer dry out,
+  // and seed 3's river now dries out entirely, as do River Valley 64² seeds 2 and 6; Lake Basin 1 for 5 and River Valley 6
+  // for 15 on D502's narrowed maps, D148: the start moved again and seed 5's pools no longer dry out (seed 1's do, and its
+  // lake keeps 148 tiles of shore), seed 15 keeps 24 tiles of water on the last day and seed 6's river dries out entirely)
   for (const [theme, seed] of [
-    ["lakeBasin", 4],
-    ["riverValley", 3],
+    ["lakeBasin", 1],
+    ["riverValley", 4],
     ["delta", 1],
-    ["riverValley", 1],
+    ["riverValley", 6],
   ] as const)
     it(`matches the Drought view's last day tile for tile (${theme} ${seed})`, async () => {
       const { day0, last, news, seen } = await drought(seed, theme);
@@ -124,7 +130,7 @@ describe("the drought line (D133, D269)", () => {
           "a pool dries out",
         ).toBe(true);
       }
-      if (theme === "riverValley" && seed === 1) expect(L.line.count, "the river dries out").toBe(0);
+      if (theme === "riverValley" && seed === 6) expect(L.line.count, "the river dries out").toBe(0);
     });
 
   it("marks the start's water: the bodies the start's pumps draw from, and their water on the last day", async () => {
@@ -172,6 +178,32 @@ describe("the drought line (D133, D269)", () => {
     expect(without.line.start.every((v) => v === 0)).toBe(true);
   });
 
+  it("marks a shore under today's water from the line's own two days, whatever water the view shows", () => {
+    // a 6 × 1 trench: today 2 deep along tiles 1–4, on the last day 0.5 deep on tiles 2–3 only (a falling lake), and
+    // a second trench kept as it is (tiles 7–10 of a second row, the same depth both days)
+    const Wt = 12;
+    const heights = new Uint8Array(Wt * 2).fill(5);
+    const depth = new Float32Array(Wt * 2);
+    const last = new Float32Array(Wt * 2);
+    for (const i of [1, 2, 3, 4]) {
+      heights[i] = 3;
+      depth[i] = 2;
+    }
+    for (const i of [2, 3]) last[i] = 0.5;
+    for (const i of [Wt + 7, Wt + 8, Wt + 9, Wt + 10]) {
+      heights[i] = 3;
+      depth[i] = 1;
+      last[i] = 1;
+    }
+    const L = droughtLine({ W: Wt, H: 2, heights, settled: { depth, contamination: new Float32Array(Wt * 2) }, last, days: 9, startWater: null });
+    const under = new Map<number, number>();
+    for (let k = 0; k < L.line.count; k++) under.set(L.line.tile[k], L.line.under[k]);
+    expect(under.get(2)).toBe(1);
+    expect(under.get(3)).toBe(1);
+    expect(under.get(Wt + 7)).toBe(0);
+    expect(under.get(Wt + 10)).toBe(0);
+  });
+
   it("plain terrain without water has no line", () => {
     const N = 32 * 32;
     const flat = {
@@ -192,7 +224,7 @@ describe("the drought line (D133, D269)", () => {
   });
 
   it("is only ever the map's line as it is: none yet when a map opens, none after an edit or once it closes", async () => {
-    await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: W, y: W } }));
     ed.setAutoWater(false);
     const got: ed.DroughtLineNews[] = [];
     ed.watchDroughtLine((n) => got.push(n));

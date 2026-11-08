@@ -12,6 +12,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 **Generate and check**
 - `gen.ts` (`npm run gen`) makes maps from the command line; `try.ts` (`npm run try`) builds and serves the site locally.
 - `first-visit-maps.ts` makes and checks the ready-made 128² maps a first visit opens (`public/first-visit/`, gitignored); the deploy runs it before each build and stops on a failed check (D343).
+- `mcp-build.ts` (`npm run mcp:build`) bundles the MCP server (`mcp/`, D141, D501) into one file and packs it as the Claude Desktop extension and the `npx` package in `mcp/dist/`; a release attaches both.
 - `check-maps.ts` checks a folder of `.timber` files as a probe batch's maps are checked; `probe-tall.ts` and `probe-sizes.ts` make the probe's tall and size test maps by hand (the writers are in `probe-maps/`, built with the generator's own steps, `places/place.ts` `buildFileFromHeights`; the probe's runner calls them itself before a batch and rewrites any map whose bytes changed); `ingame-files.ts` makes the files for the in-game checks.
 - `official-water-match.ts` settles each official map with caves (unedited) and compares it with the map's own saved water and soil (overlaps, ticks, soil match; `[dir] [--only name]`, local only): rerun it after any water change and compare with `docs/progress/3d-foundations.md`.
 - `map-hashes.ts` hashes generated maps' land, water, objects, file and project (every theme and Any, seeds 1–6, 96² and 128² by default): run it on dev and on a branch and diff, to show a change left generated maps alone.
@@ -25,6 +26,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `lib/` holds core measuring code that only tools and tests run, moved out of `src/core/` so the Rust port does not carry it (the coherence review's G3): `metrics.ts` `measure`, `resources.ts` `measureResources`, `startPlanting.ts`, `glaciate.ts` (`measureGlaciate`, `makePlan`), `placeData.ts` (the writer half of a real place's data).
 - `batch.ts`, `batches.ts`: pass rates per theme and size. `settings-suite.ts`, `settings-batch.ts`: each setting's effect on its target.
 - `official-baselines.ts`, `straight-reference.ts`, `edge-walls.ts`, `start-spread.ts`, `start-water-fed.ts`: measure the official maps, real channels and generated starts.
+- `forms-read.ts`: whether generated maps' 3D forms read as what they are (D503): each kept arch's sightlines through it at the game's camera angles, each overhang's roof depth, the forms per theme and each map's generate time (`--themes`, `--seeds 1-4`, `--size`, `--vt`).
 
 **Contact sheets and captures**
 - `sheet.ts`, `contact-sheet.ts` with `contact-sheet.py`, `resources-sheet.ts`, `start-sheet.ts`, `waterfall-gallery.ts`: sheets of generated maps; `badwater-sheet.ts` with `badwater-sheet.py`: badwater before | after against another checkout, water shaded by how contaminated it is, and whether badwater reaches each map's main water (#265, D476).
@@ -35,6 +37,9 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 
 **Benchmarks and timings**
 - `bench.ts`, `bench3d.ts`, `bench-preview.ts`, `bench-brush.ts` (`npm run bench:*`), `timings.ts`, `ci-timings.ts`.
+
+**Merging**
+- `mergedecisions.py` (Python 3; `python tools/mergedecisions.py`) resolves a `git merge origin/dev` whose conflicts are only in `docs/decisions/*.md`, decision by decision, and `--check <merge commit>` verifies such a merge (docs/RULES.md, "Merging"). Tested by `tests/unit/mergedecisions.test.ts`.
 
 **Release and machine**
 - `release.sh` merges a tagged, green `dev` commit into `main` and watches the deploy (docs/RULES.md, "Deploying"); `build-spike.ts`, `spike-check.ts` build and check the delivery spike; `keep-awake.ps1` and `notify.ps1` are for the long sessions on this machine (`docs/HANDOFF.md`).

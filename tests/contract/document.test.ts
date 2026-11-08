@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { gunzipSync, gzipSync, strFromU8, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
-import { baseTerrain, fileFromBase } from "../../src/core/doc/base";
+import { baseTerrain, fileFromBase, splitTerrain } from "../../src/core/doc/base";
 import { decodeProject, encodeProject, ProjectError, generatedDocument } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { toBase64 } from "../../src/core/format/base64";
@@ -35,7 +35,8 @@ describe("project files (PLAN §19.6)", () => {
     expect(encodeWorld(base.world)).toBe(encodeWorld(r.file.world));
     expect(Buffer.from(base.thumbnail!).equals(Buffer.from(r.file.thumbnail!))).toBe(true);
     expect(doc.base.owners).toEqual(r.built.entities.map((e) => e.owner));
-    expect(baseTerrain(doc.base).columns.size).toBe(0); // generated maps are heightfields
+    // (a generated map's columns are its 3D forms', D488: the heightfield's own columns are none)
+    expect([...baseTerrain(doc.base).columns.keys()]).toEqual([...splitTerrain(r.file.world).columns.keys()]);
     expect(MapSession.open(doc).mode).toBe("live");
     expect(sha(MapSession.open(doc).exportTimber().bytes)).toBe(sha(r.bytes));
   });

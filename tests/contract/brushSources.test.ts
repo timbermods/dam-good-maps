@@ -14,7 +14,6 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { brushProblems, type BrushParams } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
-import { ridingPieces } from "../../src/core/features/edits";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -36,26 +35,39 @@ function spot(s: MapSession): [number, number] | null {
       // (and level ground round where the badwater source goes, whose 3 × 3 must stand level: on
       // 0.8.3's maps, D476, the first dry spot found had a step under it)
       for (let yy = y - 3; yy <= y + 3 && dry; yy++) for (let xx = x + 4; xx <= x + 10 && dry; xx++) if (b.heights[yy * W + xx] !== b.heights[y * W + x + 7]) dry = false;
-      if (dry && !b.entities.some((e) => Math.abs(e.x - x - 3) <= 9 && Math.abs(e.y - y) <= 9 && !/^(Pine|Birch|Oak|BlueberryBush)$/.test(e.template))) return [x, y];
+      // (and, west of the water source, a level tile with its four neighbours at its level, for the Keep test's own
+      // source: on 0.10.6's maps, D498, D148, the first spot found had none)
+      let level = false;
+      for (let k = x - 6; k <= x - 2 && dry && !level; k++) {
+        const i = y * W + k;
+        level = b.heights[i - 1] === b.heights[i] && b.heights[i + 1] === b.heights[i] && b.heights[i - W] === b.heights[i] && b.heights[i + W] === b.heights[i];
+      }
+      if (dry && level && !b.entities.some((e) => Math.abs(e.x - x - 3) <= 9 && Math.abs(e.y - y) <= 9 && !/^(Pine|Birch|Oak|BlueberryBush)$/.test(e.template))) return [x, y];
     }
   return null;
 }
 
 /** The first of a few River Valley maps with such a spot (generator 0.7.0's land, #56; seed 25 first since
- *  the opening shot, 0.10.2, D493, D148: seed 5's start moved nearer the spot it had, and seeds 3–19 hold none). */
+ *  the opening shot, 0.10.2, D493, D148: seed 5's start moved nearer the spot it had, and seeds 3–19 hold none; seed 17
+ *  first since generator 0.10.6, D498, D148: the spot also needs a level tile west of it for the Keep test, and of seeds
+ *  3–19 and 25 only seed 17 holds both, at (14, 71), seed 7's spot at (50, 72) having none; seed 66 first since generator 0.10.11,
+ *  the D410 round, D148: seed 17's spot has a geothermal field beside it now, and of seeds 1–65 none holds one, seed 66 at (20, 72)). */
+let cached: { r: ReturnType<typeof generate>; at: [number, number] } | null = null;
 function session(): { s: MapSession; x: number; y: number } {
-  let found: { s: MapSession; at: [number, number] } | null = null;
-  for (const seed of [25, ...Array.from({ length: 17 }, (_, k) => k + 3)]) {
-    if (found) break;
-    const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-    const s = MapSession.fromGenerated(r, r.file);
-    s.setWaterMode("defer");
-    const at = spot(s);
-    if (at) found = { s, at };
-  }
-  if (!found) throw new Error("no spot");
-  const { s } = found;
-  const [x, y] = found.at;
+  // (the map found is kept, so the search runs once for the file)
+  if (!cached)
+    for (const seed of [66, 17, 25, ...Array.from({ length: 17 }, (_, k) => k + 3)]) {
+      if (cached) break;
+      const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
+      const probe = MapSession.fromGenerated(r, r.file);
+      probe.setWaterMode("defer");
+      const at = spot(probe);
+      if (at) cached = { r, at };
+    }
+  if (!cached) throw new Error("no spot");
+  const s = MapSession.fromGenerated(cached.r, cached.r.file);
+  s.setWaterMode("defer");
+  const [x, y] = cached.at;
   const place = (id: string, template: string, px: number, py: number) =>
     s.apply({ op: "placeEntity", params: { id, template, x: px, y: py, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } });
   expect(place(WATER, "WaterSource", x, y).errors).toEqual([]);
@@ -162,9 +174,12 @@ describe("brushes and water sources (D249)", () => {
     expect(x).toBeGreaterThan(0);
     const KEPT = "d2490000-0000-4000-8000-000000000003";
     expect(s.apply({ op: "placeEntity", params: { id: KEPT, template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } }).errors).toEqual([]);
-    // a spike on its tile: raised alone, the integrity pass shows it at its neighbours' level
+    // a spike on its tile: raised with its east neighbour, then the neighbour lowered back, it stands alone a level up,
+    // and the integrity pass shows it at its neighbours' level (a lone tile raised on its own is refused, #739: it
+    // changes nothing the map shows)
     const h0 = s.built.heights[y * W + x];
-    expect(s.apply({ op: "sculpt", params: { mode: "raise", cells: [[y, x, x]], amount: 1 } }).errors).toEqual([]);
+    expect(s.apply({ op: "sculpt", params: { mode: "raise", cells: [[y, x, x + 1]], amount: 1 } }).errors).toEqual([]);
+    expect(s.apply({ op: "sculpt", params: { mode: "lower", cells: [[y, x + 1, x + 1]], amount: 1 } }).errors).toEqual([]);
     expect(s.terrainState().pre[y * W + x]).toBe(h0 + 1);
     expect(s.built.heights[y * W + x]).toBe(h0);
     expect(byId(s, KEPT).z).toBe(h0);
@@ -216,7 +231,7 @@ describe("brushes and water sources (D249)", () => {
     const preview = new StrokePreview(settings, s.terrainState(), shown, W, W);
     for (let j = 0; j < dabs.length; j += 6) preview.add(dabs.slice(j, j + 6));
     // the stroke tilted it: the source rides whole
-    const rigid = preview.rides(ridingPieces(s.built.entities, W, W));
+    const rigid = preview.rides(s.built.entities);
     expect(rigid).toEqual([[x, y, x + 2, y + 2]]);
     preview.finish(rigid);
     const u = s.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Raise");

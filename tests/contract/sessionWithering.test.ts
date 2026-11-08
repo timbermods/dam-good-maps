@@ -40,7 +40,8 @@ const plantTiles = () => {
 beforeEach(async () => {
   caves = false;
   events = [];
-  await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 64, y: 64 } }));
+  // (seed 2 on 0.10.6's maps, D148: seed 1's River Valley now has caves, which the withering leaves out, `stackedMap`)
+  await runGenerate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 64, y: 64 } }));
   ed.refine();
   ed.setSoilRunner(null);
   ed.listen((e) => events.push(e));

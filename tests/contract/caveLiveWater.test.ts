@@ -1,7 +1,8 @@
 // Live water on a map with caves or overhangs (D99, D197; D280's amendment lifted, from #579's review): an edit's
 // water and a stroke's water flow on screen frame by frame, as on a plain map, by the stacked engine
 // (core/sim/stackLive.ts `StackLive`), and the journey ends on the canonical stacked settle, byte for byte: the live
-// water is only shown, never the map's (src/worker/session.ts `kickStack`, `draftStack`).
+// water is the map's only as its preview, where an edit's journey came to stand, never its settle (src/worker/session.ts
+// `kickStack`, `draftStack`, `stackPreview`; D453).
 //
 // The map: ground at level 10, a trench three rows wide (floor 6) running east to the map's edge, its source placed
 // by an edit, and a cave opening south off the trench under a roof two layers thick (air z 6–7), which the river's
@@ -137,10 +138,12 @@ describe("live water on a map with caves (D99, D197)", () => {
     }
     expect(moving).toBeGreaterThanOrEqual(4);
     expect(topOf(journey[0].water)[upstream]).toBeGreaterThan(before[upstream] + 0.5);
-    // the live water was only shown: the map still carries its last settle until the canonical one replaces it
+    // where the live water came to stand is the map's preview, as a heightfield's journey's end is, until the canonical
+    // settle replaces it
     const s = ed.collabSession()!;
     expect(s).toBe(s0);
-    expect(s.waterStale).toBe(true);
+    expect(s.waterStale).toBe(false);
+    expect(s.waterPending).toBe(true);
     const shown = topOf(journey[journey.length - 1].water);
     ed.settleWater();
     expect(s.waterStale).toBe(false);
@@ -180,6 +183,39 @@ describe("live water on a map with caves (D99, D197)", () => {
     const s = ed.collabSession()!;
     const fresh = canonicalSettle(s.built.waterModel);
     expect(Buffer.from(s.built.settle.stack!.depth.buffer).equals(Buffer.from(fresh.stack!.depth.buffer))).toBe(true);
+  });
+
+  it("an edit's journey stops by the preview's rule, before the canonical settle would; it is the map's preview, and an edit far from the water then still settles at once (D453)", async () => {
+    openRiver();
+    ed.setAutoWater(true);
+    const s = ed.collabSession()!;
+    const cells: [number, number, number][] = [];
+    for (let y = TRENCH.y0; y <= TRENCH.y1; y++) cells.push([y, DAM_X, DAM_X]);
+    expect(ed.apply({ op: "sculpt", params: { mode: "flatten", cells, level: DAM } }, "user", "Raise").errors).toEqual([]);
+    await until(() => !ed.waterSettling());
+    // where the journey came to stand is the map's water, as a preview, with the last canonical settle it started from
+    expect(s.waterStale).toBe(false);
+    expect(s.waterPending).toBe(true);
+    const preview = s.built.settle;
+    expect(preview.canonical?.water.preview).toBeFalsy();
+    expect(preview.canonical?.water.stack).toBeDefined();
+    const canon = canonicalSettle(s.built.waterModel);
+    // (never longer than the canonical settle's run; on this small trench both stop at the same check, while on a
+    // River Valley 128² map the journey stops at a third to a half of the canonical settle's ticks)
+    expect(preview.ticks, "the journey's ticks, against the canonical settle's").toBeLessThanOrEqual(canon.ticks);
+    // the canonical settle replaces it, byte for byte
+    ed.settleWater();
+    expect(s.waterPending).toBe(false);
+    expect(Buffer.from(s.built.settle.stack!.depth.buffer).equals(Buffer.from(canon.stack!.depth.buffer))).toBe(true);
+    // an edit far from the water, its journey come to stand: the canonical settle still takes the last canonical
+    // settle's shortcut (`settledAgain`), at once and the same bytes
+    expect(ed.apply({ op: "sculpt", params: { mode: "flatten", cells: [[2, 30, 33], [3, 30, 33]], level: GROUND + 1 } }, "user", "Raise").errors).toEqual([]);
+    await until(() => !ed.waterSettling());
+    expect(s.waterPending).toBe(true);
+    const run = s.canonicalRun();
+    const w = run.advance(0);
+    expect(w, "the shortcut answers without a tick").not.toBeNull();
+    expect(Buffer.from(w!.stack!.depth.buffer).equals(Buffer.from(canonicalSettle(s.built.waterModel).stack!.depth.buffer))).toBe(true);
   });
 
   it("stays as it was where nothing changed: from the settle, rebuilt again and again on the same ground, and after an edit far away (its flows carried, never from rest)", async () => {

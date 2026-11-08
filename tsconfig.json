@@ -18,5 +18,5 @@
     "types": ["node", "vite/client"],
     "noEmit": true
   },
-  "include": ["src", "tests", "tools", "vite.config.ts", "vitest.config.ts", "playwright.config.ts", "playwright.live.config.ts"]
+  "include": ["src", "tests", "tools", "mcp/src", "mcp/tests", "vite.config.ts", "vitest.config.ts", "playwright.config.ts", "playwright.live.config.ts"]
 }

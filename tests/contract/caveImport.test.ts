@@ -106,8 +106,8 @@ describe("an imported map with caves or overhangs", () => {
     const i = 30 * s.size.x + 5;
     expect(cavesOf(s.built.waterModel)).toBe(true);
     expect(unfedWater(s)).toMatchObject({ pools: 0, op: null });
-    expect(planFill(s, 5, 30, 9).reason).toBe("at level 9 the water would spill off the map at (0, 30): the hollow doesn't hold it");
-    expect(s.apply({ op: "fillHollow", params: { at: [5, 30], level: 9, lake: { tiles: [i], floor: [8], depth: [1], contamination: [0] } } }).errors).toEqual(["at level 9 the water would spill off the map at (0, 30): the hollow doesn't hold it"]);
+    expect(planFill(s, 5, 30, 9).reason).toBe("at level 9 the water would spill off the map at X 0 · Y 30: the hollow doesn't hold it");
+    expect(s.apply({ op: "fillHollow", params: { at: [5, 30], level: 9, lake: { tiles: [i], floor: [8], depth: [1], contamination: [0] } } }).errors).toEqual(["at level 9 the water would spill off the map at X 0 · Y 30: the hollow doesn't hold it"]);
     expect(s.apply({ op: "removeUnfedWater", params: { tiles: [i], pools: 1 } }).errors).toEqual(["no unfed water stands there"]);
   });
 

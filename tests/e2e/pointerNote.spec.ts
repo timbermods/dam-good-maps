@@ -5,7 +5,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { toolInHand } from "./helpers";
-import { openEditor, openLegend } from "./open";
+import { openEditor, openLegend, topDown } from "./open";
 
 type Rect = { left: number; top: number; right: number; bottom: number };
 
@@ -154,6 +154,75 @@ test("the Block tool's refusal beside the Items shelf and above the bar stays in
   }
 });
 
+/** The view turned so tile (x, y) at layer `level` shows at (sx, sy), and the pointer moved there, in one task: no frame
+ *  runs between them, as on CI's software drawing, so the page's watch on the camera never sees the view move alone. */
+const bringAndPoint = (page: Page, x: number, y: number, level: number, sx: number, sy: number) =>
+  page.evaluate(
+    ([x, y, level, sx, sy]) => {
+      const r = window.dgm3d!.renderer;
+      const box = r.canvas.getBoundingClientRect();
+      const at = () => {
+        const p = r.project(x + 0.5, level, -(y + 0.5));
+        return [p.x + box.left, p.y + box.top];
+      };
+      for (let k = 0; k < 6; k++) {
+        const [px, py] = at();
+        const want = [sx - px, sy - py];
+        if (Math.hypot(want[0], want[1]) < 2) break;
+        const [tx, ty, tz] = r.getView().target;
+        r.setView({ target: [tx + 1, ty, tz] });
+        const [ax, ay] = at();
+        r.setView({ target: [tx, ty, tz + 1] });
+        const [bx, by] = at();
+        const j = [[ax - px, bx - px], [ay - py, by - py]];
+        const det = j[0][0] * j[1][1] - j[0][1] * j[1][0];
+        r.setView({ target: [tx + ((want[0] * j[1][1] - want[1] * j[0][1]) / det), ty, tz + ((j[0][0] * want[1] - j[1][0] * want[0]) / det)] });
+      }
+      r.canvas.dispatchEvent(new PointerEvent("pointermove", { clientX: sx, clientY: sy, pointerId: 1, pointerType: "mouse", bubbles: true }));
+    },
+    [x, y, level, sx, sy] as const,
+  );
+
+test("the Block tool's refusal follows the pointer when the view moves under it and the pointer comes to the same face again", async ({ page }) => {
+  // (dev's run 41019538572: the pointer came back to the face it had been refused on, at another place on the screen,
+  // and the refusal stayed where the pointer had been. Top-down shows only a tile's top, so every place is that face)
+  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await putHintsAway(page);
+  await topDown(page);
+  const spot = await dryTile(page);
+  const corner = (tx: number, ty: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [tx, ty] as const);
+  const a = await corner(spot.x, spot.y);
+  const b = await corner(spot.x + 2, spot.y + 2);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBe(9);
+  await page.keyboard.press("7");
+  await toolInHand(page);
+  const outside = { x: spot.x + 12, y: spot.y };
+  // (the first place by the mouse itself, the rest as the view and the pointer move together)
+  for (const [k, at] of [
+    { x: 500, y: 400 },
+    { x: 1100, y: 300 },
+    { x: 400, y: 650 },
+  ].entries()) {
+    if (k === 0) {
+      await bringTo(page, outside.x, outside.y, spot.h, at.x, at.y);
+      await page.mouse.move(at.x, at.y);
+    } else await bringAndPoint(page, outside.x, outside.y, spot.h, at.x, at.y);
+    await idle(page);
+    const note = page.locator(".shape-note.error");
+    await expect(note).toContainText("outside the selection");
+    await expectFree(page, ".shape-note.error");
+    // (beside the pointer: its nearest edge within the reach the test above allows, 80 px; each place is farther than that
+    // from the last)
+    const n = await rect(page, ".shape-note.error");
+    const apart = Math.hypot(Math.max(n.left - at.x, 0, at.x - n.right), Math.max(n.top - at.y, 0, at.y - n.bottom));
+    expect(apart, `at ${at.x}, ${at.y}: beside the pointer`).toBeLessThan(80);
+  }
+});
+
 test("a shelf object's \"Place here\" flips from under the shelf and the bar", async ({ page }) => {
   await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
   await putHintsAway(page);
@@ -206,7 +275,7 @@ test("with the Legend open, a note beside the pointer keeps off its panel", asyn
  *  would, and each is read once the page has put it in its place. A sweep is one round trip, not one per step: each step costs seconds on
  *  CI's software drawing, and the whole sweep ran past the test's timeout there. */
 type Placed = { x: number; y: number; w: number; h: number } | null;
-const sweep = (page: Page, points: [number, number][], text = "(46, 35) is outside the selection"): Promise<Placed[]> =>
+const sweep = (page: Page, points: [number, number][], text = "X 46 · Y 35 is outside the selection"): Promise<Placed[]> =>
   page.evaluate(
     async ({ points, text }) => {
       const view = document.querySelector(".editor-view .view3d")!.getBoundingClientRect();
@@ -233,11 +302,14 @@ for (const size of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }]
     await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
     await putHintsAway(page);
     const spot = await dryTile(page);
+    // (the pick first, in the view as it opens: the close view below makes each frame three to five times dearer, and on
+    // CI's software drawing a frame there takes seconds, more than toolInHand's five-second wait holds; the 2026-11-07
+    // run's trace shows its one check taking 3.2 s, and the click 3.8 s)
+    await page.getByRole("button", { name: /^Pine/ }).click();
+    await toolInHand(page);
     // (the ground fills the view, so every pointer position is over the map and has its note; a tile is a few dozen
     // pixels wide, as in use: the words follow the tile under the pointer)
     await page.evaluate(([x, y, h]) => window.dgm3d!.renderer.setView({ target: [x + 0.5, h, -(y + 0.5)], distance: 16, yaw: 0.5, pitch: 0.9 }), [spot.x, spot.y, spot.h] as const);
-    await page.getByRole("button", { name: /^Pine/ }).click();
-    await toolInHand(page);
     const shelf = await rect(page, ".objects-dock");
     const toolbar = await rect(page, ".tool-bar");
     const x = Math.min((toolbar.right + shelf.left) / 2, shelf.left - 4);

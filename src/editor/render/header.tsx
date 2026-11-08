@@ -7,11 +7,12 @@ import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { Together } from "../collab/Together";
 import { plain } from "../panels";
+import { canDrawPicture, canRecordTimelapse } from "../timelapse/can";
 
 export function header(ed: Ed, props: EditorProps) {
   const {
     api, info, renderer, localUndo, localRedo, undo, redo, check, instant, busy, progress, flowing, dotOpen, setDotOpen,
-    actions, saving, saveMap, exportProject, run, flashNote, showHistory, setShowHistory, together, collab
+    actions, saving, saveMap, exportProject, exportPicture, run, flashNote, showHistory, setShowHistory, together, collab
   } = ed;
   // (in a shared session Undo and Redo take back only this player's own actions: the session says when there is one)
   const shared = !!collab && collab.phase !== "alone";
@@ -38,13 +39,14 @@ export function header(ed: Ed, props: EditorProps) {
       canRedo={shared ? collab.canRedo || !!localRedo.current.length : info.canRedo || !!localRedo.current.length}
       onUndo={() => void undo()}
       onRedo={() => void redo()}
-      dot={<ChecksDot check={check} instant={instant} busy={busy > 0} progress={progress} flowing={flowing} flags={ed.flags} badwaterRemoved={info.badwaterRemoved} open={dotOpen} onToggle={setDotOpen} actions={actions} />}
+      dot={<ChecksDot check={check} instant={instant} busy={busy > 0} progress={progress} flowing={flowing} flags={ed.flags} badwaterRemoved={info.badwaterRemoved} easyShort={info.easyShort} open={dotOpen} onToggle={setDotOpen} actions={actions} />}
       canFolder={canSaveToTimberborn()}
       saving={saving}
       onSave={(kind) => void saveMap(kind)}
       onChooseFolder={() => void ed.chooseFolder()}
       onOpenFile={props.onOpenFile}
       onSaveProject={() => void exportProject()}
+      onSavePicture={canDrawPicture() ? () => void exportPicture() : undefined}
       onClearEverything={() => void run(() => api.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
       historyOpen={showHistory}
       // (one left panel at a time: History opening closes Map Generator, Real places or Your maps)
@@ -64,6 +66,20 @@ export function header(ed: Ed, props: EditorProps) {
       onPlaces={() => props.onPlaces(!props.placesOpen)}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
       together={together && collab ? <Together controller={together} state={collab} /> : null}
+      timelapse={
+        canRecordTimelapse()
+          ? {
+              steps: info.history.filter((h) => h.applied).length,
+              // (as Download project's: a force at work kept first, a force's rolls ended, in the edits' queue)
+              project: async () => {
+                await ed.forcer.current?.stop();
+                ed.endRolls?.();
+                const p = await ed.enqueue(() => api.project(1));
+                return { bytes: p.bytes, fileName: p.fileName };
+              },
+            }
+          : undefined
+      }
       togetherEntry={together && collab ? { role: collab.other?.role ?? "guest", name: collab.other?.name ?? "the other player", paused: collab.phase === "paused", other: !!collab.other && collab.phase !== "alone" && collab.phase !== "inviting" && collab.phase !== "joining" } : null}
     />
   );

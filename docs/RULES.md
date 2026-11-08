@@ -70,10 +70,26 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   the heavier suites run on dev's tip after the merge, and nightly; a failure there is fixed forward at once by whoever's
   merge broke it, or that merge is reverted. The planning session watches dev's runs and sends each failure to its owner.
   No full run by hand except for a release.
+  **A re-merge of dev keeps its approval when the conflict was only in `docs/decisions/*.md`,** the two sides having changed
+  different decision lines, and `tools/mergedecisions.py` resolved it. That merge commit says "decisions merged by
+  tools/mergedecisions.py", and the merge loop runs `python tools/mergedecisions.py --check <merge commit>` on it before
+  it counts the earlier approval: it passes only if the merge changed nothing outside `docs/decisions/` and each file
+  equals what the tool makes of the merge's parents. Anything the tool refuses (both sides changed one decision, a
+  decision it cannot place, headings or prose changed differently, a criss-cross merge), any conflict outside
+  `docs/decisions/`, and any merge `--check` fails still needs a fresh review line.
+  The loop starts using the check once the PR that added the tool is on dev.
+  **A clean re-merge of dev keeps its approval too:** if every commit after the approved one is a merge with a parent on
+  dev and its combined diff is empty, the earlier line still counts. A conflict settled by hand needs a fresh line. A
+  rerun of a failed check reuses the old merge commit, so a red that dev has since fixed needs a dev merge, not a rerun.
+- **The generator queue (2026-11-07):** one generator change at a time. A change that bumps the generator version, or
+  re-pins seeds because generation changed, is claimed on #236 first ("To planning: claiming generator 0.10.N for …").
+  Planning answers with the order. Only the head of the queue does its bump and its re-pins; the others may build their
+  logic meanwhile and bump only after the one ahead of them merges, so no seed is re-pinned twice.
 - **Labels on your own PRs:** `hold` (never merge). `needs-kyler` holds only design questions and the things only Kyler's
   account can do (listed with their exact clicks in one issue, a workaround meanwhile). `approved` is no longer needed.
-- **Releases:** at the end of each step in the order, from dev to main once the full run, the nightly and a D483 probe batch
-  are green; the planning session cuts them and posts on #236.
+- **Releases:** at the end of each step in the order, from dev to main once the full run and the nightly are green; the
+  planning session cuts them and posts on #236. No probe batch for a release (Kyler, 2026-10-29: the export is proven; a
+  probe runs only where an implementation looks wrong in the game).
 - **The machine is the sessions' own (D484):** nobody else uses it. Test and probe without asking or holding back, within the
   worker caps under "Going faster", Timberborn whenever it helps, within D483 for what a probe plays. Split the threads with the other session as
   the work needs; say on #236 when a probe batch holds the game.
@@ -200,6 +216,10 @@ text.
 - Work happens on `dev`. The site is GitHub Pages, deployed from `main`: https://timbermods.github.io/dam-good-maps/
 - A release merges a tag into `main`, never dev's tip, and always as a merge commit. After a milestone is tagged `mN-done`
   and its full check passed, merge that tag into `main` through a PR.
+- Pushing a release tag (`*-done`) runs `.github/workflows/release-assets.yml`: it builds the MCP server
+  (`npm run mcp:build`) and makes the tag's GitHub Release, marked latest, with `dam-good-maps.mcpb` and
+  `dam-good-maps-mcp.tgz` attached and the release PR's body as its notes. The install links in `mcp/README.md` point at
+  the latest release, so check both files are on it after a release. A re-run replaces the files.
 - After every deploy, the live check (`.github/workflows/live-check.yml`) must pass. It runs after each deploy and daily;
   `gh workflow run live-check.yml --ref main` runs it by hand. If it fails, revert the release merge on `main`, confirm the
   old site is back, and report.

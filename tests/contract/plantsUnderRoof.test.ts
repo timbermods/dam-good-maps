@@ -90,15 +90,20 @@ describe("plants under a roof: their run top's soil, for the warning and the che
       expect(caveTiles.filter((i) => !dying.has(i)).length).toBeGreaterThan(caveTiles.length / 2);
       for (const i of caveTiles) expect(dying.has(i), `tile ${i % W},${Math.floor(i / W)}`).toBe(diesOnSoil("BlueberryBush", ground, i, Z));
       expect(new Set(paintDying(s, stroke("bushes", "BlueberryBush")))).toEqual(new Set(caveTiles));
-      // (succulents the other way round: they die on the moist floor, live on the dry roof)
-      expect(paintDying(s, stroke("succulents", undefined, Z)).length).toBe(caveTiles.length - dying.size);
-      expect(paintDying(s, stroke("succulents", undefined))).toEqual([]);
+      // (succulents the other way round: they die on the moist floor, live on the dry roof; a stroke plants them only
+      // where they live, so it warns of nothing and leaves the moist floor empty)
+      expect(paintDying(s, stroke("succulents", "Succulent", Z))).toEqual([]);
+      expect(paintDying(s, stroke("succulents", "Succulent"))).toEqual([]);
+      const floor = planPaintObjects(s, stroke("succulents", "Succulent", Z));
+      const planted = floor.ok ? floor.plan.map((o) => o.tile) : [];
+      expect(planted.every((i) => !diesOnSoil("Succulent", ground, i, Z))).toBe(true);
     });
   }
 
   it("the check: a bush in a moist hollow under a dry hillside lives, one on the hillside's top dies, as the warning says", () => {
-    // (the hollows are this test's own: the map without its 3D forms, D488, so none stands where one is dug)
-    const r = generate(makeSpec({ seed: 5, theme: "riverValley", size: { x: 64, y: 64 } }), { forms: false });
+    // (the hollows are this test's own: the map without its 3D forms, D488, so none stands where one is dug; seed 29 for seed 5 on generator 0.10.7's maps, D502: seeds 1 to 9 have fewer than three moist dry feet of a hillside, and seed 29 has six;
+    // seed 2 for seed 29 on generator 0.10.11's maps, the D410 round, D148: seed 29 has none now, and seed 2 has nine)
+    const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 64, y: 64 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const M = s.size.x;
     // hollows dug at the feet of hillsides on moist ground, each a roof over it, the hillside's top dry

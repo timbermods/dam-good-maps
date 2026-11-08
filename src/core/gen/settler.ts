@@ -108,10 +108,18 @@ export interface SettlerOptions {
    *  start should have within 40 tiles (the colony's need times the Drought reserve, PLAN §11.4):
    *  places with more are preferred (#67: information the generator prefers, never a guard). */
   storage?: { kept: ArrayLike<number>; want: number } | null;
+  /** The soil's moisture on the water the rule's drought leaves (`plants.drought`'s), where that
+   *  drought outlasts a berry bush: places with dry land near them that stays moist, where the
+   *  start's berries last the drought, are preferred (the D410 round; never a guard). */
+  droughtFood?: ArrayLike<number> | null;
   /** Where the start was expected (the guess the badwater hollows were planned from): among the
    *  places nearly as good as the best, the one nearest it, so the hollows keep the distance the
    *  settings asked for. Without it, one of them at random. */
   near?: { x: number; y: number } | null;
+  /** Easy start (D495), on the planned water before the land is shown: the walk from the 3×3 to its water in
+   *  `band` (its pond is dug between, land/easyStart.ts), at least `room` tiles 2 levels under to 3 over the start's
+   *  within 12 tiles (its clearing), the more the better, and water a pond can be joined to (`pond`). */
+  easy?: { band: readonly [number, number]; room: number; pond: (x: number, y: number, level: number) => boolean } | null;
 }
 
 /** Shore tiles: dry ground beside clean water 0.3+ deep whose surface a pump on that ground
@@ -340,10 +348,21 @@ export function prepareStart(h: Uint8Array, W: number, H: number,
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) storeSum[(y + 1) * (W + 1) + x + 1] = k[y * W + x] + storeSum[y * (W + 1) + x + 1] + storeSum[(y + 1) * (W + 1) + x] - storeSum[y * (W + 1) + x];
   }
+  // dry land that stays moist through the rule's drought within 14 tiles, from a summed-area table
+  let foodSum: Int32Array | null = null;
+  if (opts.droughtFood) {
+    foodSum = new Int32Array((W + 1) * (H + 1));
+    const f = opts.droughtFood;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        foodSum[(y + 1) * (W + 1) + x + 1] = (f[i] > 0 && !(D[i] > 0) ? 1 : 0) + foodSum[y * (W + 1) + x + 1] + foodSum[(y + 1) * (W + 1) + x] - foodSum[y * (W + 1) + x];
+      }
+  }
   // what the opening camera would show from each place (D493), read once; for the chosen place's turn
   let opening: OpeningLand | null = null;
   const openingLand = (): OpeningLand => (opening ??= prepareOpening(h, W, H, D, fallsOf(h, D, W, H, 1.5)));
-  return { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, openingLand };
+  return { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, foodSum, openingLand };
 }
 
 export type StartPreparation = ReturnType<typeof prepareStart>;
@@ -362,7 +381,7 @@ export function pickStart(
   const avoid = opts.avoid ?? null;
   const N = W * H;
   const D = water.depth;
-  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum, openingLand } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
+  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum, foodSum, openingLand } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
   const margin = opts.margin ?? edgeMargin;
   const storedNear = (x: number, y: number): number => {
     if (!storeSum) return 0;
@@ -381,6 +400,28 @@ export function pickStart(
   const benchWant = opts.bench ?? 113;
   const walkWant = Math.max(2, Math.min(9, 0.45 * (waterRule - 5)));
   const reach = opts.levelReach ?? 1;
+  // (Easy start: dry ground two levels under each level to three over it, as summed-area tables: what a clearing
+  // cut round a place there could take)
+  const easy = opts.easy ?? null;
+  const flatFor = new Map<number, Int32Array>();
+  const flatNear = (L: number, x: number, y: number, r: number): number => {
+    let t = flatFor.get(L);
+    if (!t) {
+      t = new Int32Array((W + 1) * (H + 1));
+      for (let yy = 0; yy < H; yy++)
+        for (let xx = 0; xx < W; xx++) {
+          const i = yy * W + xx;
+          const v = h[i] >= L - 2 && h[i] <= L + 3 && !(D[i] > 0.001) && hydro.water[i] !== 1 && hydro.water[i] !== 2 ? 1 : 0;
+          t[(yy + 1) * (W + 1) + xx + 1] = v + t[yy * (W + 1) + xx + 1] + t[(yy + 1) * (W + 1) + xx] - t[yy * (W + 1) + xx];
+        }
+      flatFor.set(L, t);
+    }
+    const x0 = Math.max(0, x - r);
+    const y0 = Math.max(0, y - r);
+    const x1 = Math.min(W - 1, x + r);
+    const y1 = Math.min(H - 1, y + r);
+    return t[(y1 + 1) * (W + 1) + x1 + 1] - t[y0 * (W + 1) + x1 + 1] - t[(y1 + 1) * (W + 1) + x0] + t[y0 * (W + 1) + x0];
+  };
   const cands: { i: number; score: number; kind: string; walk: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean }[] = [];
   // first pass: level ground as it is; second pass (when the first finds nothing): a 5×5 within a
   // level of the center is levelled, as a player would level a spot for the district center
@@ -415,6 +456,13 @@ export function pickStart(
         const sameLevel = w <= waterAim3(waterRule, opts.waterExact);
         if (!sameLevel && !(wa <= waterAim3(waterRule, opts.waterExact))) continue;
         if (!sameLevel) w = wa;
+        // (Easy start: its water at the pond's distance, and room for its clearing)
+        let flat = 0;
+        if (easy) {
+          if (w < easy.band[0] || w > easy.band[1]) continue;
+          flat = flatNear(L, x, y, 12);
+          if (flat < easy.room) continue;
+        }
         // the ground reached without stairs
         const foot = footAt(opts.foot, i);
         if (opts.foot && opts.minFoot && foot < opts.minFoot) continue;
@@ -429,7 +477,8 @@ export function pickStart(
         // a door onto level ground (the place is turned for the opening shot once chosen, D493)
         if (!levelDoorTurns(h, W, H, x, y, L).length) continue;
         const moistNear = boxSum(L, x - 14, y - 14, x + 14, y + 14);
-        if (moistNear < (pass === 0 ? 160 : 110)) continue;
+        // (an Easy start's pond, dug beside it, waters its land: D495)
+        if (!easy && moistNear < (pass === 0 ? 160 : 110)) continue;
         const room = Math.min(1, regions.size[regions.labels[i]] / roomWant);
         // the land the start's ground joins, against what Buildable land asks for (PLAN §5.2)
         const footFit = opts.foot && opts.footWant ? Math.min(1, foot / opts.footWant) : 1;
@@ -466,13 +515,23 @@ export function pickStart(
         const walkFit = 1 - Math.min(1, Math.abs(w - walkWant) / 5);
         // the stored water the Drought reserve and the difficulty ask for (PLAN §5.3, §11.4)
         const storeFit = storeSum ? Math.min(1, storedNear(x, y) / opts.storage!.want) : 1;
+        // the start's berries' ground that lasts the drought: 60 tiles of it within 14 is room for them
+        let foodFit = 1;
+        if (foodSum) {
+          const x0 = Math.max(0, x - 14);
+          const y0 = Math.max(0, y - 14);
+          const x1 = Math.min(W, x + 15);
+          const y1 = Math.min(H, y + 15);
+          const n = foodSum[y1 * (W + 1) + x1] - foodSum[y0 * (W + 1) + x1] - foodSum[y1 * (W + 1) + x0] + foodSum[y0 * (W + 1) + x0];
+          foodFit = 0.8 + 0.4 * Math.min(1, n / 60);
+        }
         // the player's settings weigh on the intentions' preference too: they are asked for
         const settingsFit = (0.3 + 0.7 * benchFit * benchFit) * (0.3 + 0.7 * walkFit) * (0.4 + 0.6 * storeFit) * (0.5 + 0.5 * footFit);
-        const score = (pref * (0.5 + 0.5 * room) * (0.6 + 0.4 * Math.min(1, moistNear / 500)) * dry + 0.8 * intent) * settingsFit + 0.25 * rng.float();
+        const score = (pref * (0.5 + 0.5 * room) * (0.6 + 0.4 * Math.min(1, moistNear / 500)) * dry * foodFit + 0.8 * intent) * settingsFit * (easy ? Math.min(1, flat / 600) : 1) + 0.25 * rng.float();
         cands.push({ i, score, kind, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
       }
     }
-  if (!cands.length) return opts.level === false ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach));
+  if (!cands.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach));
   cands.sort((a, b) => b.score - a.score || a.i - b.i);
   // the best few, far enough apart that the choice matters
   const top: typeof cands = [];
@@ -482,11 +541,12 @@ export function pickStart(
     const x = c.i % W;
     const y = (c.i - x) / W;
     if (top.some((t) => Math.abs((t.i % W) - x) + Math.abs(Math.floor(t.i / W) - y) < 20)) continue;
-    if (opts.moistWalk || !c.sameLevel) {
+    if (easy && !easy.pond(x, y, h[c.i])) continue;
+    if ((opts.moistWalk && !easy) || !c.sameLevel) {
       if (tested >= 40) break;
       tested++;
       const sw = startWalks(h, W, H, D, c.sameLevel ? null : water.contamination, water.moisture, x, y, waterRule);
-      if (opts.moistWalk && sw.moist < opts.moistWalk.min) continue;
+      if (opts.moistWalk && !easy && sw.moist < opts.moistWalk.min) continue;
       if (!c.sameLevel) {
         if (!(sw.water <= (opts.waterExact && waterRule < 7 ? waterRule : waterAim(waterRule)))) continue;
         c.walk = sw.water;
@@ -494,7 +554,7 @@ export function pickStart(
     }
     top.push(c);
   }
-  if (!top.length) return opts.level === false ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach));
+  if (!top.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach));
   // one of the best few, among those nearly as good as the best (the settings' preferences hold):
   // the one nearest where the start was expected, else one at random
   const good = top.filter((t) => t.score >= 0.7 * top[0].score);

@@ -43,9 +43,9 @@ describe.each([[512, 512], [512, 64], [64, 512]])("a %i×%i map is editable to i
   const py = W < 512 ? y : H;
   const viaSchema = Math.max(px, py) > 511;
   it.each<[string, EditOp, string]>([
-    ["a brush dab", { op: "brush", params: { tool: "raise", size: 3, strength: 5, dabs: [4 * px, 4 * py] } }, `a dab at (${px}, ${py}) is outside the ${W}×${H} map`],
+    ["a brush dab", { op: "brush", params: { tool: "raise", size: 3, strength: 5, dabs: [4 * px, 4 * py] } }, `a dab at X ${px} · Y ${py} is outside the ${W}×${H} map`],
     ["a sculpt run", { op: "sculpt", params: { mode: "flatten", cells: [[py, px - 3, px]], level: 5 } }, `sculpt cells: the run [${py}, ${px - 3}, ${px}] is outside the ${W}×${H} map`],
-    ["a placement", { op: "placeEntity", params: { id: GUID, template: "WaterSource", x: px, y: py, orientation: "Cw0", components: SOURCE } }, `(${px}, ${py}) is outside the map`],
+    ["a placement", { op: "placeEntity", params: { id: GUID, template: "WaterSource", x: px, y: py, orientation: "Cw0", components: SOURCE } }, `X ${px} · Y ${py} is outside the map`],
     ["a forest feature", { op: "addFeature", params: { feature: { id: GUID, kind: "forest", origin: "user", locked: false, params: { area: [[py, px - 3, px]], density: 0.7, speciesMix: { Birch: 1 }, life: "auto", youngShare: 0.2 } } } }, `forest area: the run [${py}, ${px - 3}, ${px}] is outside the ${W}×${H} map`],
     ["a force's line",quake([[x - 6, y], [px, py]], [i], [9]), "a painted line needs 2 to 512 points on the map"],
     ["a force's tile", quake([[x - 6, y], [x, y]], [W * H], [9]), "a force's tiles must be on the map, in order, once each"],

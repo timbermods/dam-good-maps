@@ -1,9 +1,9 @@
-// The light look's flow texture (stillFlow.ts, D453): the badwater share worked out off the page's thread, one
-// job at a time and at most every STILL_FLOW_WAIT ms while the water moves, and exactly the texture built from
-// the final water once it stops, however the jobs and the changes interleave.
+// The light look's flow texture (stillFlow.ts, D453): the badwater share and the waterfall mask worked out off the
+// page's thread, one job at a time and at most every STILL_FLOW_WAIT ms while the water moves, and exactly the texture
+// built from the final water once it stops, however the jobs and the changes interleave.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { shareBytes } from "../../src/render3d/high/bake";
+import { shareBytes, stillBytes } from "../../src/render3d/high/bake";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
 import { stillFlowTexture } from "../../src/render3d/motion";
 import { STILL_FLOW_WAIT, StillFlow, type ShareJob } from "../../src/render3d/stillFlow";
@@ -41,11 +41,13 @@ function change(rand: () => number, depth: Float32Array, cont: Float32Array, who
     }
 }
 const shares = (t: { image: { data: unknown } }) => (t.image.data as Uint8Array).filter((_, k) => k % 4 === 2);
+/** The whole texture: the share (B) and the waterfall mask (A) with the still current (RG). */
+const texels = (t: { image: { data: unknown } }) => Array.from(t.image.data as Uint8Array);
 
 afterEach(() => vi.useRealTimers());
 
 describe("the light look's flow texture", () => {
-  it("works the share out as the moving looks' flow texture packs it", () => {
+  it("works the share and the waterfall mask out as the moving looks' flow texture packs them", () => {
     const rand = random(3);
     const heights = land(rand);
     const depth = new Float32Array(W * H);
@@ -54,8 +56,10 @@ describe("the light look's flow texture", () => {
     const sw = water(heights, depth, cont);
     const flow = new StillFlow(W, H, () => Promise.reject(new Error("no job")));
     flow.start(sw);
-    expect(shares(flow.texture)).toEqual(shares(stillFlowTexture(W, H, sw)));
+    expect(texels(flow.texture)).toEqual(texels(stillFlowTexture(W, H, sw)));
     expect(Array.from(shareBytes(W, H, sw))).toEqual(Array.from(shares(stillFlowTexture(W, H, sw))));
+    // (the land steps a level at x 26: the water there has falls, and their landing tiles a mask)
+    expect((stillFlowTexture(W, H, sw).image.data as Uint8Array).some((v, k) => k % 4 === 3 && v > 1)).toBe(true);
   });
 
   it("sends one job at a time, at most every STILL_FLOW_WAIT ms, and once the water stops is the texture built from the final water", async () => {
@@ -74,7 +78,7 @@ describe("the light look's flow texture", () => {
         out++;
         most = Math.max(most, out);
         sent.push(performance.now());
-        return new Promise((resolve) => setTimeout(() => (out--, resolve(shareBytes(w, h, sw))), latency));
+        return new Promise((resolve) => setTimeout(() => (out--, resolve(stillBytes(w, h, sw))), latency));
       };
       let drawn = 0;
       let rows = 0;
@@ -92,7 +96,7 @@ describe("the light look's flow texture", () => {
       expect(sent.length).toBeLessThanOrEqual(Math.ceil(2000 / STILL_FLOW_WAIT) + 2);
       expect(drawn).toBeGreaterThan(0);
       expect(rows).toBeGreaterThan(0);
-      expect(shares(flow.texture), `answers ${latency} ms late`).toEqual(shares(stillFlowTexture(W, H, water(heights, depth, cont))));
+      expect(texels(flow.texture), `answers ${latency} ms late`).toEqual(texels(stillFlowTexture(W, H, water(heights, depth, cont))));
       flow.dispose();
     }
   });
@@ -105,7 +109,7 @@ describe("the light look's flow texture", () => {
     const cont = new Float32Array(W * H);
     change(rand, depth, cont, true);
     let drawn = 0;
-    const flow = new StillFlow(W, H, (w, h, sw) => new Promise((r) => setTimeout(() => r(shareBytes(w, h, sw)), 100)), undefined, () => drawn++);
+    const flow = new StillFlow(W, H, (w, h, sw) => new Promise((r) => setTimeout(() => r(stillBytes(w, h, sw)), 100)), undefined, () => drawn++);
     flow.start(water(heights, depth, cont));
     change(rand, depth, cont, true);
     flow.update(water(heights, depth, cont));
@@ -123,7 +127,7 @@ describe("the light look's flow texture", () => {
     const cont = new Float32Array(W * H);
     change(rand, depth, cont, true);
     let drawn = 0;
-    const flow = new StillFlow(W, H, (w, h, sw) => new Promise((r) => setTimeout(() => r(shareBytes(w, h, sw)), 100)), undefined, () => drawn++);
+    const flow = new StillFlow(W, H, (w, h, sw) => new Promise((r) => setTimeout(() => r(stillBytes(w, h, sw)), 100)), undefined, () => drawn++);
     flow.start(water(heights, depth, cont));
     // moving water: a job goes out on it
     change(rand, depth, cont, true);
@@ -133,11 +137,11 @@ describe("the light look's flow texture", () => {
     change(rand, depth, cont, true);
     const flipped = water(heights, depth, cont);
     flow.update(flipped, true);
-    expect(shares(flow.texture)).toEqual(shares(stillFlowTexture(W, H, flipped)));
+    expect(texels(flow.texture)).toEqual(texels(stillFlowTexture(W, H, flipped)));
     // the job from before the flip answers late: dropped
     await vi.advanceTimersByTimeAsync(500);
     expect(drawn).toBe(0);
-    expect(shares(flow.texture)).toEqual(shares(stillFlowTexture(W, H, flipped)));
+    expect(texels(flow.texture)).toEqual(texels(stillFlowTexture(W, H, flipped)));
     flow.dispose();
   });
 });

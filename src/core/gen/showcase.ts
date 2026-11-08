@@ -16,9 +16,11 @@
 // to pump near the start through the first drought (`pumpPlaces`).
 
 import { frameAt, landmarkInView, LANDMARK_FAR, LANDMARK_LEAST, LANDMARK_MOST, OPENING, openingFrame, type OpeningCamera, type OpeningStart } from "../analysis/opening";
+import { looksScore, openingPicture, type LooksScore, type OpeningPicture } from "../analysis/picture";
 import { sameLand } from "../analysis/story";
 import { standingForms, type StandingForm } from "../analysis/vertical";
 import { PUMP_CLEAN, PUMP_DEPTH, tileShoreWalk } from "../analysis/walk";
+import { FORMS } from "../land/forms3d";
 import { checkIntention, type FinalCtx } from "../land/intentions";
 import * as portable from "../math/portable";
 import type { MapSpec } from "../spec/mapspec";
@@ -153,13 +155,13 @@ function formInFrame(f: StandingForm, h: ArrayLike<number>, W: number, frame: Fi
 /** The 3D forms the map kept (gen/forms3d.ts, recorded with its intentions): their ids, where each
  *  stands, and their own words. */
 function keptForms(r: GenerateResult): { id: string; at?: [number, number]; say?: string }[] {
-  return r.intentions.filter((x) => x.ok && (x.id === "spring-cave" || x.id === "start-overhang" || x.id === "gorge-arch")).map((x) => ({ id: x.id, ...(x.at ? { at: x.at } : {}), ...(x.say ? { say: x.say } : {}) }));
+  return r.intentions.filter((x) => x.ok && (FORMS as readonly string[]).includes(x.id)).map((x) => ({ id: x.id, ...(x.at ? { at: x.at } : {}), ...(x.say ? { say: x.say } : {}) }));
 }
 
 /** Whether the map's kept arch stands in the game's first frame. A 3D form counts in one beat only: the
  *  vista when it is in that frame, else the mystery (the same rule as a plug lake or debris). */
 function archInFrame(kept: ReturnType<typeof keptForms>, frame: FirstFrame, W: number): boolean {
-  return kept.some((k) => k.id === "gorge-arch" && k.at && frame.mask[k.at[1] * W + k.at[0]] === 1);
+  return kept.some((k) => (k.id === "gorge-arch" || k.id === "rock-arch") && k.at && frame.mask[k.at[1] * W + k.at[0]] === 1);
 }
 
 /** The game's first frame (`FirstFrame`): its relief, its open water, its tallest fall, its most
@@ -313,6 +315,7 @@ function mysteryBeat(c: FinalCtx, r: GenerateResult, plug: Shared, district: Sha
     if (k.id === "spring-cave") best.take(0.9, k.say ?? "A spring rises inside a cave and feeds the river.");
     // (an arch in the game's first frame is the vista's: one beat per form)
     if (k.id === "gorge-arch" && !archInVista) best.take(0.85, k.say ?? "A natural arch spans a gorge, the river running under it.");
+    if (k.id === "rock-arch" && !archInVista) best.take(0.85, k.say ?? "A natural arch is worn through the rock, the land beyond seen under it.");
   }
   // any other cave: columns of the map with air under ground (terrain above terrain). It keeps the
   // 0.9 it had before the kept forms (#588 lowered it to 0.8 without a reason); it only counts when the
@@ -371,6 +374,18 @@ export function arcOf(r: GenerateResult): Arc | null {
   };
 }
 
+/** The looks of a map's opening picture (analysis/picture.ts): the picture from the game's first camera pulled back,
+ *  as its own picture is drawn (render3d/hero.ts). Null without a start. */
+export function looksOf(r: GenerateResult): { looks: LooksScore; picture: OpeningPicture } | null {
+  const b = r.built;
+  if (!b.start) return null;
+  const startObj = b.entities.find((e) => e.template === "StartingLocation");
+  const start: OpeningStart = { x: b.start.x, y: b.start.y, z: b.start.z, orientation: startObj?.orientation ?? "Cw0" };
+  const st = b.settle.stack?.stacked ? b.settle.stack : null;
+  const picture = openingPicture({ W: b.W, H: b.H, heights: b.heights, mask: b.waterModel.stacked?.mask ?? null, water: b.water, contamination: b.contamination, stack: st, moisture: b.moisture, entities: b.entities }, start);
+  return { looks: looksScore(picture), picture };
+}
+
 /** How an arc ranks: each beat met counts one, and the beats' mean strength breaks ties (0–7). */
 export function arcScore(arc: Arc): number {
   let met = 0;
@@ -411,7 +426,10 @@ export interface ShowcaseCandidate {
   /** It passed every absolute (a map that fails one is never offered). */
   passed: boolean;
   arc: Arc | null;
-  /** The rank it is offered by: `arcScore`, less one when the map misses its theme's promise. */
+  /** Its opening picture's looks (`looksOf`, analysis/picture.ts `looksScore`): about −0.2 to 1. */
+  looks: number | null;
+  /** The rank it is offered by: `arcScore` and `SHOWCASE_LOOKS` × its looks, less one when the map misses its theme's
+   *  promise. */
   score: number;
   note: string;
   name?: string;
@@ -456,12 +474,19 @@ function before(a: ShowcaseCandidate, b: ShowcaseCandidate): boolean {
   return a.score > b.score || (a.score === b.score && a.index < b.index);
 }
 
+/** How much a candidate's looks count beside its arc: the weight whose ranking of 14 maps' pictures agreed best with a
+ *  fresh eye's (Spearman 0.88; 0.62 on the 14 held out, where the arc alone gave 0.07; docs/progress/showcase-looks.md).
+ *  A map's looks span about 1.2, so they outweigh a beat or two met: the player chooses by the picture, and the beats
+ *  break ties among maps that look alike. */
+export const SHOWCASE_LOOKS = 9.5;
+
 /** Scores one generated candidate. */
 export function scoreCandidate(r: GenerateResult, index: number, spec: MapSpec): ShowcaseCandidate {
   const arc = r.report.passed ? arcOf(r) : null;
   const promise = r.outcomes?.promise ?? true;
-  const score = arc ? arcScore(arc) - (promise ? 0 : 1) : -Infinity;
-  return { index, variation: spec.variation ?? 0, spec, passed: r.report.passed, arc, score, note: arc ? arcNote(arc) : "It failed a check.", ...(r.name ? { name: r.name } : {}) };
+  const looks = arc ? (looksOf(r)?.looks.score ?? 0) : null;
+  const score = arc ? arcScore(arc) + SHOWCASE_LOOKS * looks! - (promise ? 0 : 1) : -Infinity;
+  return { index, variation: spec.variation ?? 0, spec, passed: r.report.passed, arc, looks, score, note: arc ? arcNote(arc) : "It failed a check.", ...(r.name ? { name: r.name } : {}) };
 }
 
 /**

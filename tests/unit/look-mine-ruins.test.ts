@@ -1,8 +1,8 @@
 // Kyler's mine site and ruins rounds (PLAN §20 D178): our own models, true to the game's
 // footprints. A mine site is a rusty frame round the edge of its 5 × 5 footprint and a pit with
 // real depth filling the rest (the terrain leaves the footprint's tops out and the model closes the
-// hole), with scaffold towers on the frame's corners and beams across; with Markers on, an outline
-// round the footprint. Ruins are ruined scaffold towers, a storey per level, in the file's five
+// hole), rusty posts down into it round its lip and pale ground in its corners, as the game's (no
+// scaffolding: D178 amended, D496's rule); with Markers on, an outline round the footprint. Ruins are ruined scaffold towers, a storey per level, in the file's five
 // variants, with ivy draped over the lower half of their storeys on moist ground; neighbouring columns
 // never look alike, and from afar each storey is a block in the scaffolding's colour. Kyler's
 // colours hold: the mine sites' measured in the game, the ruins' bright orange with cream sacks from
@@ -11,11 +11,13 @@
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../../src/core/format/footprints";
-import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
-import { objectMaterial, RUIN_LATTICE_SCALE, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
+import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_FAR_FRAME, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinOvergrown, ruinsOvergrown, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
+import { objectMaterial, RUIN_INSIDE_COVER, RUIN_LATTICE_SCALE, RUIN_LATTICE_STRUT, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
-import { entityView, variantIndex, type EntityInput } from "../../src/render3d/model";
-import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, WATER, type Rgb } from "../../src/render3d/palette";
+import { LAND_GROW } from "../../src/render3d/objectFade";
+import { entityView, variantIndex, type EntityInput, type EntityView } from "../../src/render3d/model";
+import { CONTAMINATED_GROUND, CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, sunlitTop, type Rgb } from "../../src/render3d/palette";
+import { badwaterLit } from "./waterShown";
 import { variantOf } from "../../src/worker/api";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -87,7 +89,8 @@ describe("mine sites", () => {
     // the model closes the hole: a floor over the whole pit, and four walls facing in, from the
     // ground down to the floor
     const { half: p, depth: d } = MINE_PIT;
-    expect(d).toBeGreaterThanOrEqual(1.5);
+    // (the game's pit reaches 1.35 down, UndergroundRuins.Model; D178 amended to the game by D496's rule, re-based, D148)
+    expect(d).toBeCloseTo(1.35, 2);
     const m = modelOf("UndergroundRuins");
     const tri = (k: number) => [0, 1, 2].map((j) => [m.pos[k * 9 + j * 3], m.pos[k * 9 + j * 3 + 1], m.pos[k * 9 + j * 3 + 2]]);
     let floor = 0;
@@ -139,26 +142,31 @@ describe("mine sites", () => {
     expect(MINE.earthTop[0] - MINE.earthTop[2]).toBeGreaterThan(MINE.earth[0] - MINE.earth[2]);
   });
 
-  it("read in greyscale from above: a dark pit, darker than badwater, a rusty frame, pale wood, and apart from badwater sources", () => {
+  it("read in greyscale from above: a dark pit, lighter than badwater as the game draws it by day, a rusty frame, pale wood, and apart from badwater sources", () => {
     expect(lum(MINE.frame) - lum(MINE.pit)).toBeGreaterThan(0.1);
     expect(lum(MINE.wood) - lum(MINE.frame)).toBeGreaterThan(0.2);
-    expect(lum(MINE.pit)).toBeLessThan(lum(GROUND.dry) - 0.15);
+    // (the pit is a colour on screen, dry ground an albedo since D497: against it as a sunlit top shows it in the game's
+    // light, D324's 0.15)
+    expect(lum(MINE.pit)).toBeLessThan(lum(sunlitTop(GROUND.dry)) - 0.15);
     // a badwater source is a dark round pit with a brown swirl, no pale wood: the mine's corners
     // are far lighter than anything on it
     const badwater = modelOf("BadwaterSource").col;
     let lightest = 0;
     for (let k = 0; k < badwater.length; k += 3) lightest = Math.max(lightest, lum([badwater[k], badwater[k + 1], badwater[k + 2]]));
     expect(lum(MINE.wood)).toBeGreaterThan(lightest + 0.2);
-    // the pit's earth is darker than badwater by about 5 L* or more, as in the game (Kyler's review
-    // of D177 and D178, 2026-09-26: it was lighter than the red-black badwater before). D324 (option
-    // (a) of D310) darkened both, the pit's earth (from #373A34) and badwater's crimson, a little,
-    // so clean water could come down toward the game; the margin is what it was, never loosened
+    // the pit is lighter than badwater, as the game draws it by day (D496 amended 2026-11-07: the pixel judge's
+    // `--water pit` on the probe's sixteen day-lit start shots reads the game's pits at L* 43.4, 114 samples, against
+    // its pure badwater's 32.3, 172 tiles; ours 40.8 against 29.5 in Standard, 48.9 against 30.7 in High). D148: this
+    // held the pit at least 5 L* under #38's crimson (Kyler's review of D177 and D178, 2026-09-26; D324's option (a)),
+    // which the game's own frames do not show; the order is held against each look's badwater as it ships
+    // (waterShown.ts), over the depths a pit's neighbouring badwater has
     const lightness = (c: readonly number[]) => {
       const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
       const y = 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
       return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y;
     };
-    expect(lightness(WATER.bad) - lightness(MINE.pit)).toBeGreaterThanOrEqual(5);
+    for (const look of ["standard", "high"] as const)
+      for (const d of [0.5, 1, 1.35, 2]) expect(lightness(MINE.pit), `${look}, ${d} deep`).toBeGreaterThan(lightness(badwaterLit(d, look)));
   });
 
   it("are outlined with Markers on: an orange line between dark edges round the footprint, a few pixels from any distance", () => {
@@ -205,7 +213,8 @@ describe("mine sites", () => {
     // (a few sites a map: about a thousand triangles each)
     expect(modelTriangles("UndergroundRuins")).toBeLessThanOrEqual(1400);
     const mesh = meshesOf([site("Cw0")]).find((c) => c.name === "UndergroundRuins")!;
-    expect(Array.from(mesh.geometry.getAttribute("grow")!.array)[0]).toBe(0);
+    // (no minimum size on screen: its grow is the land's own shape's mark, negative, never faded or hidden, objectFade.ts)
+    expect(Array.from(mesh.geometry.getAttribute("grow")!.array)[0]).toBe(LAND_GROW[0]);
     // every part is drawn at every distance
     expect(new Set(modelOf("UndergroundRuins").lod)).toEqual(new Set([LOD_ALL]));
   });
@@ -246,7 +255,9 @@ describe("ruins", () => {
         let farArea = 0;
         for (let t = 0; t < m.lod.length / 3; t++) {
           const lod = m.lod[t * 3];
-          expect([LOD_NEAR, LOD_FAR]).toContain(lod);
+          expect([LOD_NEAR, LOD_FAR, LOD_FAR_FRAME]).toContain(lod);
+          // (from afar, the block's orange is its frame, drawn as a lattice; its panels and ivy solid)
+          if (lod !== LOD_NEAR) expect(lod === LOD_FAR_FRAME, `${v}${kind}`).toBe(cssColor([m.col[t * 9], m.col[t * 9 + 1], m.col[t * 9 + 2]]) === cssColor(RUIN.far));
           const c = cssColor([m.col[t * 9], m.col[t * 9 + 1], m.col[t * 9 + 2]]);
           if (lod === LOD_NEAR) near.push(c);
           else {
@@ -282,13 +293,14 @@ describe("ruins", () => {
     expect(modelTriangles("ruin")).toBeLessThanOrEqual(360);
   });
 
-  it("from afar stand apart from contaminated ground (its veins, and the light look's rusty tint), in greyscale too", () => {
-    for (const ground of [GROUND.contaminated, CONTAMINATION.vein]) {
+  it("from afar stand apart from contaminated ground (its veins, and the pattern's mean the light look draws), in greyscale too", () => {
+    for (const ground of [CONTAMINATED_GROUND.dry, CONTAMINATED_GROUND.grass, CONTAMINATION.vein]) {
       for (const c of [RUIN.panel, RUIN.far, RUIN.rust]) expect(lum(c) - lum(ground), cssColor(c)).toBeGreaterThan(0.12);
-      // the scaffold is orange, contaminated ground red-brown or orange-red: more yellow in it
-      expect(RUIN.rust[1] / RUIN.rust[0]).toBeGreaterThan(ground[1] / ground[0] + 0.05);
       expect(lum(RUIN.panel) - lum(ground)).toBeGreaterThan(0.35);
     }
+    // the scaffold is orange, the veins a dark rust: more yellow in it (D154 as amended 2026-11-07: from afar the
+    // contaminated ground is its soil a little toward the rust, no rust fill, so the hue rule is the veins')
+    expect(RUIN.rust[1] / RUIN.rust[0]).toBeGreaterThan(CONTAMINATION.vein[1] / CONTAMINATION.vein[0] + 0.05);
   });
 
   it("hang cream sacks: shallow pouches bulging out of the face with a tied upper edge, as many triangles as the slabs they replace; broken boards stay flat (D334)", () => {
@@ -331,13 +343,20 @@ describe("ruins", () => {
     expect(shader).toContain("attribute float lod");
     expect(shader).toContain(`perUnit >= ${RUIN_NEAR_PX}`);
     expect(RUIN_NEAR_PX).toBeGreaterThanOrEqual(6);
-    // the far ruin block's lattice (D305): a cheap discard pattern in the fragment shader, gated on
-    // the far lod alone (so it never touches any other object), the same in Standard and High since
-    // it lives in the shared shader, not behind a hook
+    // the far ruin block's lattice (D305): a pattern in the fragment shader, gated on the far frame's
+    // lod alone (so it never touches any other object or the block's panels and ivy), the same in
+    // Standard and High since it lives in the shared shader, not behind a hook; filtered to the pixel and
+    // drawn as coverage (alpha to coverage on the multisampled view), so it never breaks into noise
     expect(mat.vertexShader).toContain("vLod = lod;");
-    expect(mat.fragmentShader).toContain("if (vLod > 1.5)");
+    expect(mat.fragmentShader).toContain("if (vLod > 2.5)");
+    expect(mat.fragmentShader).toContain("fwidth(cells)");
     expect(mat.fragmentShader).toContain(`${RUIN_LATTICE_SCALE}`);
     expect(RUIN_LATTICE_SCALE).toBeGreaterThan(1);
+    expect(mat.alphaToCoverage).toBe(true);
+    expect(objectMaterial(u, true).alphaToCoverage).toBe(false);
+    // from afar it lets little through: its struts and the column's inside behind its cells
+    const mean = 1 - (1 - RUIN_LATTICE_STRUT) ** 2;
+    expect(mean + (1 - mean) * RUIN_INSIDE_COVER).toBeGreaterThan(0.75);
     // every model carries the attribute; the light look (software rendering) draws a block per ruin
     for (const m of meshesOf([column(1, 1, 3, "B"), { template: "Pine", x: 3, y: 3, z: 2, orientation: "Cw0", owner: "f" }])) expect(m.geometry.getAttribute("lod")).toBeDefined();
     const lite = meshesOf([column(1, 1, 3, "B")], null, 0, true);
@@ -431,6 +450,14 @@ describe("ruins", () => {
     expect(count(/\.ivy\.light$/)).toBe(1);
     expect(count(/^scaffold\./)).toBe(7);
     expect([0, 1, 2, 3].map((lv) => ruinIvy(1, 1, 4, lv))).toEqual([IVY_DENSE, IVY_MEDIUM, IVY_LIGHT, IVY_NONE]);
+    // the game's dry model on contaminated ground too, moist or not (RuinModelUpdater: IsDry || IsContaminated)
+    const poisoned = { moisture, contamination: new Uint8Array(W * 4) };
+    poisoned.contamination[1 * W + 1] = 1;
+    expect(meshesOf([column(1, 1, 4, "C")], poisoned, W).filter((c) => /\.ivy/.test(c.name)).length).toBe(0);
+    expect(ruinOvergrown(soil, W, 1, 1, 0)).toBe(true);
+    expect(ruinOvergrown(poisoned, W, 1, 1, 0)).toBe(false);
+    expect(ruinOvergrown(soil, W, 4, 1, 0)).toBe(false);
+    expect(Array.from(ruinsOvergrown({ count: 2, templates: ["RuinColumnH4", "Pine"], template: Uint16Array.of(0, 1), x: Int16Array.of(1, 1), y: Int16Array.of(1, 1), z: Int16Array.of(0, 0) } as unknown as EntityView, soil, W))).toEqual([1, 0]);
     expect([0, 1].map((lv) => ruinIvy(1, 1, 2, lv))).toEqual([IVY_DENSE, IVY_LIGHT]);
     expect(ruinIvy(1, 1, 1, 0)).toBe(IVY_DENSE);
     // about the lower half, from the foot up, thinning upward, the same every time
@@ -465,7 +492,7 @@ describe("ruins", () => {
           const w = pts[2].map((q, i) => q - pts[0][i]);
           const a = Math.hypot(u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]) / 2;
           const isIvy = c === cssColor(RUIN.ivy) || c === cssColor(RUIN.leaf);
-          if (md.lod[t * 3] === LOD_FAR) {
+          if (md.lod[t * 3] >= LOD_FAR) {
             farArea += a;
             if (isIvy) farIvy += a;
             if (c === cssColor(RUIN.far)) farRust += a;

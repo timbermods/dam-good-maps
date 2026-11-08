@@ -1,7 +1,9 @@
 """Lay out the pictures tools/contact-sheet.ts wrote as one labelled contact sheet (PLAN §20 D144):
 a block per theme, ten maps a row, each labelled with its theme and seed; a quantized PNG under 1 MB.
 
-    python tools/contact-sheet.py .scratch/sheet docs/sheets/<step>.png "<title>"
+    python tools/contact-sheet.py .scratch/sheet docs/sheets/<step>.png "<title>" [cell]
+
+`cell` is each picture's side in pixels (96 by default); a map's `label` in index.json follows its name.
 """
 import json
 import os
@@ -31,8 +33,9 @@ def main():
     for m in maps:
         if m["theme"] not in themes:
             themes.append(m["theme"])
-    cols, cell, label, head = 10, 96, 14, 22
+    cols, cell, label, head = 10, int(sys.argv[4]) if len(sys.argv) > 4 else 96, 14, 22
     per_theme = max(len([m for m in maps if m["theme"] == t]) for t in themes)
+    cols = min(cols, per_theme)
     rows = (per_theme + cols - 1) // cols
     block = head + rows * (cell + label + 4)
     top = 30 if title else 0
@@ -49,7 +52,7 @@ def main():
             x = 4 + (k % cols) * (cell + 4)
             y = y0 + head + (k // cols) * (cell + label + 4)
             sheet.paste(im, (x, y + label))
-            d.text((x + 1, y), f"{NAMES.get(theme, theme)} {m['seed']}", fill=(60, 60, 60), font=small)
+            d.text((x + 1, y), f"{NAMES.get(theme, theme)} {m['seed']}" + (f"  {m['label']}" if m.get("label") else ""), fill=(60, 60, 60), font=small)
     os.makedirs(os.path.dirname(dst) or ".", exist_ok=True)
     # under 1 MB (D144): fewer colours until it fits (no dithering: its noise costs more than the
     # banding it hides at this size)

@@ -140,7 +140,7 @@ export function objectsOnNewGround(s: MapSession, ops: readonly EditOp[], edited
     if (!hit(tiles)) continue;
     if (tiles.some(([x, y]) => x < 0 || y < 0 || x >= W || y >= H || after.heights[y * W + x] !== before.heights[y * W + x] || body[y * W + x])) {
       const what = e.template === "BadwaterSource" ? "a badwater spring" : "a water source";
-      return { ops: [], report: [], refuse: `it would reshape the ground under ${what} at (${e.x}, ${e.y}): place it farther from it` };
+      return { ops: [], report: [], refuse: `it would reshape the ground under ${what} at X ${e.x} · Y ${e.y}: place it farther from it` };
     }
   }
   // the imported map's own objects and objects placed by hand: the loader keeps them only on

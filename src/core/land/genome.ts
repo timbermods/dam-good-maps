@@ -90,31 +90,58 @@ export function rimLobe(lobes: readonly RimLobe[] | undefined, u: number): numbe
   return d;
 }
 
-/** How much of a sea's depth a tile takes: 0 on the land at the map's edge (D350: the game drains
- *  every edge tile, so the sea keeps a lip of land; below 0 on a lobe, lifted) to 1 in the sea. The
- *  lip is 1–2 tiles at the very edge, falling to the sea in a tile or two (round 6), and the mainland
- *  is the broad lobes addSea drew, their coast warped so it bends at every scale. `s` is the sea's
- *  `coast` seed: the field draws the land with it and addSea reads it to place islands. */
-/** The lip alone (`rimKeep` without the mainland): 0 on the land at the map's edge, 1 past its fall
- *  to the sea. Islands' (`thin`) is 1–2 tiles falling in a tile or two (round 6); Any's sea maps keep
- *  round 5's, 6–10 tiles with rounded corners, falling over 2–4. */
-export function lipKeep(s: number, x: number, y: number, W: number, H: number, thin = false): number {
-  const side = Math.min(W, H);
-  if (thin) {
-    const e = Math.min(x, W - 1 - x, y, H - 1 - y);
-    const base = 1 + 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
-    const fall = 1.5 + 0.5 * (fbm(s + 41, x, y, 0.2 * side, 2) + 1);
-    return smoothstep((e - base) / fall);
-  }
-  const ex = Math.min(x, W - 1 - x);
-  const ey = Math.min(y, H - 1 - y);
-  const rc = 6;
-  const e = ex < rc && ey < rc ? rc - portable.sqrt((rc - ex) * (rc - ex) + (rc - ey) * (rc - ey)) : Math.min(ex, ey);
-  const t = 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
-  const head = Math.max(0, 1 - 2 * Math.abs(fbm(s + 29, x, y, 0.14 * side, 2)) - 0.72) / 0.28;
-  return smoothstep((e - (6 + 2 * t + 2 * head)) / (2 + (fbm(s + 41, x, y, 0.2 * side, 2) + 1)));
+/** How far the lip of land along an edge reaches into the map at the edge point (ex, ey), in tiles,
+ *  before the rag of `lipKeep` (the D410 shore round, 2026-10-29). Islands' (`thin`) is 2.2–3.8
+ *  tiles, so the sea runs on past the map there, broken by headlands and spits of shore reaching up
+ *  to a tenth of the side; Any's sea maps' 5–8, with headlands to an eighth of the side. Read along
+ *  the edge at the scale of bays, so the coast never runs with the edge: round 6's lip, 1–2 tiles on a
+ *  noise a third of the side across, ran ruler-straight for 120 tiles, a bathtub's rim. */
+function lipReach(s: number, ex: number, ey: number, side: number, thin: boolean): number {
+  const n = 0.5 * (fbm(s + 17, ex, ey, 0.1 * side, 2) + 1);
+  const head = (thin ? 0.1 : 0.125) * side * smoothstep((fbm(s + 83, ex, ey, 0.11 * side, 3) + 0.05) / 0.5);
+  return (thin ? 2.2 + 1.6 * n : 5 + 3 * n) + head;
 }
 
+/** `lipReach` at a place on the map's perimeter (0–4, as `rimLobe` reads it). */
+export function lipReachAt(s: number, u: number, W: number, H: number, thin: boolean): number {
+  const j = Math.floor(u) % 4;
+  const f = u - Math.floor(u);
+  const side = Math.min(W, H);
+  if (j === 0) return lipReach(s, f * (W - 1), 0, side, thin);
+  if (j === 1) return lipReach(s, W - 1, f * (H - 1), side, thin);
+  if (j === 2) return lipReach(s, (1 - f) * (W - 1), H - 1, side, thin);
+  return lipReach(s, 0, (1 - f) * (H - 1), side, thin);
+}
+
+/** The lip alone (`rimKeep` without the mainland): 0 on the land at the map's edge, 1 past its fall
+ *  to the sea. The two outer rows are always land (D350: the game drains every edge tile, so the sea
+ *  keeps a lip of land there); past it the land reaches in as far as `lipReach` says at the nearest point of
+ *  each edge, its line ragged by a noise seven tiles across, and rounded in the corners. Islands'
+ *  (`thin`) falls to the sea in a tile or two (round 6), Any's sea maps' over 2–4. */
+export function lipKeep(s: number, x: number, y: number, W: number, H: number, thin = false): number {
+  const side = Math.min(W, H);
+  const dx = Math.min(x, W - 1 - x);
+  const dy = Math.min(y, H - 1 - y);
+  // (the two outer rows: one row let the sea spill at the lowest tile of the edge itself, a level or
+  // more under the two rows' lowest way out, and the sea fell and moved the start's water)
+  if (Math.min(dx, dy) < 2) return 0;
+  // (far from every edge: past the furthest the lip can reach, its rag and its fall)
+  const most = (thin ? 3.8 + 0.1 * side + 2.4 + 2.5 : 8 + 0.125 * side + 3 + 4) + (thin ? 3 : 6);
+  if (dx > most && dy > most) return 1;
+  const rag = (thin ? 2.4 : 3) * fbm(s + 89, x, y, 7, 2);
+  const ax = dx + rag - lipReach(s, x <= W - 1 - x ? 0 : W - 1, y, side, thin);
+  const ay = dy + rag - lipReach(s, x, y <= H - 1 - y ? 0 : H - 1, side, thin);
+  const rc = thin ? 3 : 6;
+  const a = ax < rc && ay < rc ? rc - portable.hypot(rc - ax, rc - ay) : Math.min(ax, ay);
+  const fall = thin ? 1.5 + 0.5 * (fbm(s + 41, x, y, 0.2 * side, 2) + 1) : 2 + (fbm(s + 41, x, y, 0.2 * side, 2) + 1);
+  return smoothstep(a / fall);
+}
+
+/** How much of a sea's depth a tile takes: 0 on the land at the map's edge (D350: the game drains
+ *  every edge tile, so the sea keeps a lip of land; below 0 on a lobe, lifted) to 1 in the sea. The
+ *  lip is the two outer rows and the shore `lipKeep` wanders in from them (the D410 shore round), and the mainland
+ *  is the broad lobes addSea drew, their coast warped so it bends at every scale. `s` is the sea's
+ *  `coast` seed: the field draws the land with it and addSea reads it to place islands. */
 export function rimKeep(s: number, x: number, y: number, W: number, H: number, lobes?: readonly RimLobe[], thin = false): number {
   const side = Math.min(W, H);
   const e = Math.min(x, W - 1 - x, y, H - 1 - y);
@@ -632,6 +659,12 @@ export function tallTop(vt: number): number {
   return EDITOR_TOP + ((GAME_TOP - EDITOR_TOP) * (vt - VT_HIGH)) / (100 - VT_HIGH);
 }
 
+/** The themes whose land seldom stands a landmark of its own (D502): there every map grows the landmark
+ *  intention's form, one for each whole 128² of the map. Canyon, Highlands and Islands stand theirs (13 to 16 maps
+ *  in 16 at 128²), and forms added there only displaced them; on Delta's low fan a form turned the main river, which
+ *  then ran dry over its upper course (Delta 128² seed 4, against D447). */
+const BACKDROP_THEMES = new Set<ThemeId>(["riverValley", "lakeBasin", "any"]);
+
 export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, attempt: number, o: DrawOptions = {}): Genome {
   const variation = o.variation ?? 0;
   // a variation draws from the same stream as the map (so its settings and intentions match) and
@@ -773,6 +806,16 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   // intentions: outcomes the processes are steered toward, never built (D138)
   g.intentions = o.intentions === undefined || o.intentions === null ? drawIntentions(theme, vt, rng, { W, H }, !!g.seaLayout) : o.intentions.filter((id) => !tooSmallFor(id, W, H));
   for (const id of g.intentions) nudgeFor(id)(g, rng, W, H);
+  // (D502: every map's first look holds a landmark where it can, D493: on a theme whose land seldom stands one of its
+  // own, one landmark's form for each whole 128² of the map, so wherever the start stands one may stand in its view;
+  // the landmark intention's own is the first. The gate is that count: none on a map of less than a whole 128² (by
+  // area, so a 192×96 map still gets one), where one form sized for 128² crowded the rivers: River Valley 64² seeds
+  // 2, 3 and 6 dried out in the drought, and a 96² map needed a rescue round. Each from a stream of its own, so the
+  // rest of the genome keeps its draws)
+  if (BACKDROP_THEMES.has(theme)) {
+    const forms = Math.floor((W * H) / (128 * 128));
+    for (let k = g.intentions.includes("landmark") ? 1 : 0; k < forms; k++) nudgeFor("landmark")(g, stream(seed, "backdrop", theme, attempt, k), W, H);
+  }
   // (round 6: on an open island sea, the landforms whose middle lies in the open sea are dropped, the
   // mainland's kept: a mesa or an escarpment there stood as a flat shoal with straight sides under the
   // water, Islands 128² seed 5)
@@ -1003,7 +1046,10 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   // (the margins in tiles shrink with the map under 128², whose sea and islands are smaller and whose
   // room they took: at full size, 96² drew lands without islands enough twice as often)
   const tight = Math.min(1, side / 128);
-  const rimAt = (u: number) => (thin ? 4 : 10) * tight + side * rimLobe(lobes, u) * 1.35 + (rimLobe(lobes, u) > 0 ? 0.12 * side * Math.max(0, ...lobes.map((l) => l[2])) : 0);
+  // (the D410 shore round: and the lip's own reach there, its headlands; the mainland's lobes give way to
+  // the islands (rimClashes) by the lip's old margin, since the lip's headlands never draw back)
+  const rimAt = (u: number, lip = true) =>
+    (lip ? (thin ? 2.5 : 4) * tight + lipReachAt(coast, u, W, H, thin) : (thin ? 4 : 10) * tight) + side * rimLobe(lobes, u) * 1.35 + (rimLobe(lobes, u) > 0 ? 0.12 * side * Math.max(0, ...lobes.map((l) => l[2])) : 0);
   // (an island's centre keeps the land along each edge and its own foot from the map's edges, so it
   // stands in the sea; one rooted in that land was the shore's own, joined to it by high ground)
   const room = (x: number, y: number, r: number) => {
@@ -1270,10 +1316,10 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       if (offshore.includes(grp)) continue;
       const b = boxOf(grp);
       const p = g.parts[grp.from];
-      if (b.y0 < rimAt(p.at[0])) at.push(p.at[0]);
-      if (H - 1 - b.y1 < rimAt(3 - p.at[0])) at.push(3 - p.at[0]);
-      if (b.x0 < rimAt(4 - p.at[1])) at.push((4 - p.at[1]) % 4);
-      if (W - 1 - b.x1 < rimAt(1 + p.at[1])) at.push(1 + p.at[1]);
+      if (b.y0 < rimAt(p.at[0], false)) at.push(p.at[0]);
+      if (H - 1 - b.y1 < rimAt(3 - p.at[0], false)) at.push(3 - p.at[0]);
+      if (b.x0 < rimAt(4 - p.at[1], false)) at.push((4 - p.at[1]) % 4);
+      if (W - 1 - b.x1 < rimAt(1 + p.at[1], false)) at.push(1 + p.at[1]);
     }
     return at;
   };
@@ -1507,8 +1553,9 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   // (D333 (3): no springs added toward far land where the player asked for Generous buildable land,
   // which keeps its flats, or moved the Drought reserve from the theme's own, which plans the water
   // near the start itself: the added tributaries drew starts to water a Scarce reserve should lack
-  // and away from the water a Plenty one stores)
-  g.hydro.reachSprings = s.terrain.buildableLand !== "generous" && s.water.droughtReserve === p.droughtReserve;
+  // and away from the water a Plenty one stores; D504: above 128² Generous gets them too, its flats bare on four
+  // times the land)
+  g.hydro.reachSprings = (s.terrain.buildableLand !== "generous" || W * H > 128 * 128) && s.water.droughtReserve === p.droughtReserve;
   // rivers entering on the edges (0: springs feed the water)
   // (a count the player set is the count that enters, PLAN §5.3; the preset's leaves the genome's)
   if (s.water.rivers === 0) {

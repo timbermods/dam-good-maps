@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DataTexture } from "three";
-import { fallMaterial, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, waterMaterial } from "../src/render3d/materials";
+import { objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, waterMaterial } from "../src/render3d/materials";
 
 const t = () => new DataTexture(new Uint8Array(4), 1, 1);
 const u = sceneUniforms(1, 1, t(), t(), t(), t());
@@ -19,7 +19,7 @@ const dump = process.argv.includes("--dump") ? process.argv[process.argv.indexOf
 if (dump) mkdirSync(dump, { recursive: true });
 const out: Record<string, string> = {};
 for (const lite of [false, true]) {
-  const mats = { terrain: terrainMaterial(u, 0, 1, lite), water: waterMaterial(u, lite), fall: fallMaterial(u, lite), object: objectMaterial(u, lite), ...(lite ? {} : { sky: skyMaterial() }) };
+  const mats = { terrain: terrainMaterial(u, 0, 1, lite), water: waterMaterial(u, lite), object: objectMaterial(u, lite), ...(lite ? {} : { sky: skyMaterial() }) };
   for (const [name, m] of Object.entries(mats)) {
     const key = `${name}${lite ? ".lite" : ""}`;
     const src = `${m.vertexShader}\n----\n${m.fragmentShader}\n----\n${JSON.stringify(m.defines ?? {})}`;

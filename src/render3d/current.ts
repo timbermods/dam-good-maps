@@ -8,8 +8,7 @@
 //   each water update on the page's thread): each face's net flow, averaged over the
 //   tile's two opposite faces and divided by the water's depth. It is the simulation's balanced
 //   momentum, not an exact transport flux, and there is no estimate from the surface's slope: water
-//   without outflows is still;
-// - a fall's lip pours the simulation's own outflow over that side (falls.ts `lipOutflow`).
+//   without outflows is still; a fall's face carries its detail by the current over its lip (materials.ts).
 // Only drawn, never fed back into the water, a map or an operation.
 
 import type { SurfaceWater, WaterView } from "./model";
@@ -55,6 +54,48 @@ export function currentOf(W: number, H: number, out: ArrayLike<number>, depth: A
     }
   }
   return c;
+}
+
+/** The flow the water's textures ride, as the game's water hands it to its shader (Q9 V1, P5): each column's own
+ *  outflows, right less left and down the rows less up them (decompiled `Timberborn.WaterSystem`
+ *  `GetFlowVectorAtTop`), ÷ `maxOutflow` (14, `Timberborn.WaterSystemRendering` `MaxOutflow`), then averaged with
+ *  the wet tiles round it, as the game's vertex averages its column's with its linked neighbours' (the texture's
+ *  filtering then blends it across the tile as the triangles do). Two a tile, x then y; zero where dry. */
+export function gameFlowOf(W: number, H: number, out: ArrayLike<number>, depth: ArrayLike<number>, maxOutflow: number): Float32Array {
+  const own = new Float32Array(W * H * 2);
+  for (let i = 0; i < W * H; i++) {
+    if (!(depth[i] > SHALLOW)) continue;
+    const o = i * 4;
+    const x = (out[o + 3] - out[o + 1]) / maxOutflow;
+    const y = (out[o + 2] - out[o]) / maxOutflow;
+    if (x === x && y === y) {
+      own[i * 2] = x;
+      own[i * 2 + 1] = y;
+    }
+  }
+  const f = new Float32Array(W * H * 2);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (!(depth[i] > SHALLOW)) continue;
+      let sx = 0;
+      let sy = 0;
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const j = yy * W + xx;
+          if (!(depth[j] > SHALLOW)) continue;
+          sx += own[j * 2];
+          sy += own[j * 2 + 1];
+          n++;
+        }
+      f[i * 2] = sx / n;
+      f[i * 2 + 1] = sy / n;
+    }
+  return f;
 }
 
 /** The surface water's outflows as four a tile (zero where dry or where the view has none), for

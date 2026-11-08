@@ -178,6 +178,38 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   expect(await sources(page, sx, sy)).toEqual([]);
   expect(await sources(page, sx + 3, sy)).toEqual([{ template: "WaterSource", x: sx + 3, y: sy }]);
 
+  // with the Select tool open, a box begun two tiles beside the source selects and leaves the source where it
+  // is (D249's reach is for a press with nothing picked; showcase-craft gap 18)
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("1");
+  const steps0 = (await info(page)).history.length;
+  // (close enough that two tiles are well past a source's few pixels of on-screen reach; begun two tiles below the
+  // source on the screen, clear of its strength label above it, on the map itself)
+  const view = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const v = r.getView();
+    r.setView({ distance: v.distance / 4 });
+    return v;
+  });
+  await centreOn(page, sx + 3, sy);
+  const [n1, n2] = [await client(page, sx + 3, sy - 2), await client(page, sx + 3, sy + 2)];
+  const down = n2.y > n1.y ? 1 : -1;
+  const near = down > 0 ? n2 : n1;
+  const corner = await client(page, sx - 3, sy + 5 * down);
+  expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.tagName, [near.x, near.y])).toBe("CANVAS");
+  await page.mouse.move(near.x, near.y);
+  await page.mouse.down();
+  await page.mouse.move(corner.x, corner.y, { steps: 6 });
+  await page.mouse.up();
+  await idle(page);
+  expect((await info(page)).history.length).toBe(steps0);
+  expect(await sources(page, sx + 3, sy)).toEqual([{ template: "WaterSource", x: sx + 3, y: sy }]);
+  expect(await page.evaluate(() => window.dgmEditor!.selection().length)).toBeGreaterThan(0);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.evaluate((v) => window.dgm3d!.renderer.setView(v), view);
+  await page.waitForTimeout(300);
+
   // a bad source: its 3 × 3 round the click
   const bad = await flatDry(page, start, 3, [from, [sx, sy], [sx + 3, sy]]);
   expect(bad).not.toBeNull();

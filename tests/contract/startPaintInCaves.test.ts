@@ -98,7 +98,8 @@ describe("the start under a roof (D491): where the game keeps it, at its level",
   });
 
   it("on a generated map: a start feature at a level has no bench, stands there, saves and reopens to the same bytes", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
+    // (seed 6 for 3 since generator 0.10.6, D498, D148: its badwater pits moved, and of River Valley 64² seeds 1–10 only 1, 6 and 7 hold the level patch the chamber is dug in; seed 1's has an overhang in it)
+    const r = generate(makeSpec({ seed: 6, theme: "riverValley", size: { x: 64, y: 64 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const M = s.size.x;
     const from = startMiddle(s)!;
@@ -203,15 +204,16 @@ describe("painting objects under a roof (D491): a level per tile, the game's rul
   it("a level's tiles lie in the stroke, one level a tile", () => {
     const s = caveSession();
     const p = stroke("bushes", "BlueberryBush", caveTiles, 3);
-    expect(s.check({ op: "paintObjects", params: { ...p, levels: [{ z: 3, area: [[30, 30, 30]] }] } })).toEqual(["(30, 30) has a level but is not in the stroke"]);
-    expect(s.check({ op: "paintObjects", params: { ...p, levels: [...p.levels!, { z: 4, area: [[17, 17, 17]] }] } })).toEqual(["(17, 17) has two levels"]);
+    expect(s.check({ op: "paintObjects", params: { ...p, levels: [{ z: 3, area: [[30, 30, 30]] }] } })).toEqual(["X 30 · Y 30 has a level but is not in the stroke"]);
+    expect(s.check({ op: "paintObjects", params: { ...p, levels: [...p.levels!, { z: 4, area: [[17, 17, 17]] }] } })).toEqual(["X 17 · Y 17 has two levels"]);
     expect(s.check({ op: "paintObjects", params: { ...p, levels: [{ z: 23, area: [[17, 17, 17]] }] } })[0]).toMatch(/levels/);
   });
 });
 
 describe("a start a tunnel is dug under later (D491; #553's review): only a move or a placement checks its ground", () => {
   it("a generated map's start stays lockable and turns in place; moved, it is refused", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
+    // (seed 6 for 3, as above)
+    const r = generate(makeSpec({ seed: 6, theme: "riverValley", size: { x: 64, y: 64 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const M = s.size.x;
     // the start on a plateau's open top, then a chamber dug under it from the plateau's west face, a roof three thick

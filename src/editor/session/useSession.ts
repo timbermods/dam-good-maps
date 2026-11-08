@@ -291,7 +291,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  turns bad ("Dry on day 6", "Lasts the drought", "Turns bad on day 4"). A cave's floor or a ledge under a roof is
    *  not the water seen from above: no words there. */
   const hoverWordsAt = (x: number, y: number, level?: number): string => {
-    const words = tileWords(describeTileFacts(ed.pageTileFacts(), x, y, level));
+    // (objects hidden, H or Hide objects: the readout names only the land, as the pointer finds it)
+    const facts = ed.pageTileFacts();
+    const words = tileWords(describeTileFacts(renderer.current?.objectsHidden ? { ...facts, objects: () => [] } : facts, x, y, level));
     const n = firstNews.current;
     if (!n || x < 0 || y < 0 || x >= infoRef.current.W || y >= infoRef.current.H) return words;
     const i = y * infoRef.current.W + x;
@@ -307,7 +309,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   };
   // A refusal's note goes with the next thing the player does (a press, a key, a tool picked, the layer or the view
   // changed); only a save that failed stays until it is dismissed or the map is saved. An edit's own note
-  // (info) stays until its × or the next kept edit.
+  // (info) stays until its × or the next step kept, undone or redone.
   const dropRefusal = () => setMessage((m) => (m && m.kind === "error" && !m.keep ? null : m));
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -420,6 +422,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }, [ready]);
   const setWeather = (on: Hazard | null) => {
     weatherRef.current = on;
+    // (the water drawn from here is a held day's, which an edit never carries on its land: it keeps its surface, D133)
+    renderer.current?.holdWater(on !== null);
+    // (held, the water drawn is the renderer's own copy: the readout reads that one)
+    const drawn = comparing.current ? null : renderer.current?.mapState()?.surface;
+    if (drawn) mirror.current.water = drawn;
     if (on !== firstNews.current?.hazard) firstNews.current = null;
     setStartWater((n) => (n && n.hazard === on ? n : null));
     setWeatherState(on);
@@ -556,6 +563,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setMessage({ kind: "info", text: "A force is at work: it is kept when it ends. Skip it to its end or take it back first." });
       return Promise.resolve();
     }
+    // (an undo has taken the kept force's tails back already, on its key)
+    juice.current?.edited();
     const next = queue.current.then(async () => {
       setBusy((b) => b + 1);
       try {
@@ -678,7 +687,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     setWeatherTarget(null);
     mirror.current.daySoil = null;
     renderer.current?.setWithered(null);
-    renderer.current?.setSeason(null, null);
+    renderer.current?.setSeason(null);
     void api.stopWeather().then((v) => {
       player.current?.clear();
       applyView(v);
@@ -729,7 +738,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     if (withered) renderer.current?.setWithered(withered);
     // (the High look's dry ground, heat and sky: the day's soil against the map's own, the page's copy of it)
     // (Day 0 is the map as it is: no dust, no shimmer, no sky)
-    renderer.current?.setSeason(day > 0 ? weatherRef.current : null, mirror.current.soil ?? null);
+    renderer.current?.setSeason(day > 0 ? weatherRef.current : null);
   }
 
   function applyUpdate(u: SessionUpdate): void {

@@ -194,7 +194,10 @@ test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it bac
   await expect(forces.getByRole("button", { name: "Craterize (Shift+2)" })).toHaveAttribute("aria-pressed", "false");
 });
 
-test("clicked quickly (D378): the next force plays in full from its first moment, the last one's tail skipped to its end", async ({ page }) => {
+// (one test a pair: each opens its own map, as CI's software drawing takes about 2 s a frame and three pairs in one
+// test ran past its 180 s, never hung: dev run 42392804136)
+for (const [a, b] of [["Shift+Digit2", "Shift+Digit2"], ["Shift+Digit2", "Shift+Digit3"], ["Shift+Digit3", "Shift+Digit3"]] as const)
+test(`clicked quickly (D378): the next force plays in full from its first moment, the last one's tail skipped to its end (${a} then ${b})`, async ({ page }) => {
   // (the effects play where the browser draws in software too, as on a GPU: CI's has none)
   await page.addInitScript(() => {
     (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true };
@@ -229,26 +232,27 @@ test("clicked quickly (D378): the next force plays in full from its first moment
     await clickTile(page, at[0], at[1]);
     await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
   };
-  for (const [a, b] of [["Shift+Digit2", "Shift+Digit2"], ["Shift+Digit2", "Shift+Digit3"], ["Shift+Digit3", "Shift+Digit3"]] as const) {
-    await force(a, "30", far);
-    // (kept: an eruption's lava still cools, however slowly the browser draws; a crater's dust may
-    // already have settled where it keeps slowly, as software drawing on CI does: forcePlayback.test
-    // holds that case on exact time)
-    if (a === "Shift+Digit3") expect((await page.evaluate(() => window.dgm3d!.renderer.forceShowing))!.erupt).not.toBeNull();
-    await force(b, "35", next);
-    const m = await firstMoment();
-    const verb = b === "Shift+Digit2" ? "craterize" : "erupt";
-    expect(m.verb, `${a} then ${b}`).toBe(verb);
-    // its own effect, where it is, from its start
-    expect(m.showing[verb], `${a} then ${b}`).toMatchObject({ x: m.x, y: m.y });
-    if (verb === "craterize" && m.phase === "incoming") expect(m.showing.craterize!.struck).toBeNull();
-    if (verb === "erupt") expect(m.showing.erupt!.cooling).toBe(0);
-    // the last one's gone
-    for (const v of ["craterize", "erupt", "quake", "glaciate"]) if (v !== verb) expect(m.showing[v], `${a} then ${b}: ${v}`).toBeNull();
-    await page.keyboard.press("Control+z");
-    await page.keyboard.press("Control+z");
-    await settled(page);
-  }
+  await force(a, "30", far);
+  // (kept: an eruption's lava still cools, however slowly the browser draws; a crater's dust may
+  // already have settled where it keeps slowly, as software drawing on CI does: forcePlayback.test
+  // holds that case on exact time)
+  if (a === "Shift+Digit3") expect((await page.evaluate(() => window.dgm3d!.renderer.forceShowing))!.erupt).not.toBeNull();
+  await force(b, "35", next);
+  const m = await firstMoment();
+  const verb = b === "Shift+Digit2" ? "craterize" : "erupt";
+  expect(m.verb, `${a} then ${b}`).toBe(verb);
+  // its own effect, where it is, from its start
+  expect(m.showing[verb], `${a} then ${b}`).toMatchObject({ x: m.x, y: m.y });
+  if (verb === "craterize" && m.phase === "incoming") expect(m.showing.craterize!.struck).toBeNull();
+  if (verb === "erupt") expect(m.showing.erupt!.cooling).toBe(0);
+  // the last one's gone
+  for (const v of ["craterize", "erupt", "quake", "glaciate"]) if (v !== verb) expect(m.showing[v], `${a} then ${b}: ${v}`).toBeNull();
+  await page.keyboard.press("Control+z");
+  await page.keyboard.press("Control+z");
+  await settled(page);
+  // (undone: no tail plays on over the land taken back)
+  const after = await page.evaluate(() => window.dgm3d!.renderer.forceShowing);
+  for (const v of ["craterize", "erupt", "quake", "glaciate", "erode"]) expect(after?.[v as keyof typeof after] ?? null, `${a} then ${b}, undone: ${v}`).toBeNull();
 });
 
 test("Try another stays where it was (D488): four clicks at the same point make four more rolls, its place and size never changing; the counter has its own space", async ({ page }) => {

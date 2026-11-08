@@ -88,7 +88,7 @@ test("a map with caves: an edit's water settles in the background and shows when
   // removal where no unfed water stands, each refused with the core's one line (the page shows the reason)
   const i = 30 * 64 + 5;
   await page.evaluate((t) => window.dgmEditor!.edit({ op: "fillHollow", params: { at: [5, 30], level: 9, lake: { tiles: [t], floor: [8], depth: [1], contamination: [0] } } }, "Fill"), i);
-  await expect(page.getByText("at level 9 the water would spill off the map at (0, 30): the hollow doesn't hold it")).toBeVisible();
+  await expect(page.getByText("at level 9 the water would spill off the map at X 0 · Y 30: the hollow doesn't hold it")).toBeVisible();
   await page.evaluate((t) => window.dgmEditor!.edit({ op: "removeUnfedWater", params: { tiles: [t], pools: 1 } }, "Remove unfed water"), i);
   await expect(page.getByText("no unfed water stands there")).toBeVisible();
   // Drought and Badtide run on every column (#391): each shows its last day and holds it; the pit's water drains in the

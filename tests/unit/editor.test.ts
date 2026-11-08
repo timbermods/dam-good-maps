@@ -8,7 +8,7 @@ import type { Feature } from "../../src/core/features/schema";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { anchorOf, clampMove, describeTile, entitiesByTile, featureName, FeatureIndex, feedingGroups, moveBlocked, movePatch, rectOf, rectOutline, rectRuns, sourceGroups, tabOf } from "../../src/editor/features";
-import { paintOverlay, SELECTED } from "../../src/editor/tools";
+import { GOOD, paintOverlay, SELECTED } from "../../src/editor/tools";
 import { entityView, surfaceWater, waterFromDepth } from "../../src/render3d/model";
 
 const W = 64;
@@ -84,12 +84,12 @@ describe("hover text", () => {
     expect(describeTile(ctx, 31, 10)).toBe("Height 4, ruin column, 3 high");
     // the editor: water, never a river or a landform (D196), with its bed and its badwater
     const ed = { ...ctx, editor: true };
-    expect(describeTile(ed, 10, 30)).toBe("Water 0.6 deep, bed level 4");
+    expect(describeTile(ed, 10, 30)).toBe("Water at level 4.6, 0.6 deep, bed level 4");
     expect(describeTile(ed, 3, 3)).toBe("Height 9, pine forest");
     const mixed = new Float64Array(W * H);
     mixed[30 * W + 10] = 0.3;
     const bad = { ...ed, water: surfaceWater(W, H, waterFromDepth(heights, depth, mixed)) };
-    expect(describeTile(bad, 10, 30)).toBe("Water 0.6 deep, bed level 4, 30% badwater");
+    expect(describeTile(bad, 10, 30)).toBe("Water at level 4.6, 0.6 deep, bed level 4, 30% badwater");
     // and a click picks no water (D196)
     expect(index.candidatesAt(10, 30).map((f) => f.kind)).not.toContain("river");
     expect(index.allAt(10, 30).map((f) => f.kind)).toContain("river");
@@ -126,6 +126,12 @@ describe("the sources (D196)", () => {
     expect(feedingGroups(water, groups, W, H, 40, 10)).toEqual([1]);
     // dry ground: none
     expect(feedingGroups(water, groups, W, H, 30, 40)).toBeNull();
+    // a roof over the river (its top above the water's floor, the water in a cave under it): the pointer is on dry
+    // ground, so nothing feeds it; beside the roof the river still finds its sources
+    const roofed = heights.slice();
+    roofed[20 * W + 20] = 12;
+    expect(feedingGroups(water, groups, W, H, 20, 20, undefined, roofed)).toBeNull();
+    expect(feedingGroups(water, groups, W, H, 21, 20, undefined, roofed)).toEqual([0]);
   });
 });
 
@@ -169,6 +175,19 @@ describe("the drawing tools", () => {
     paintOverlay(data, W, H, [{ tiles: [W + 1], color: SELECTED, dx: 1 }]);
     expect([...data.subarray((W + 2) * 4, (W + 2) * 4 + 4)]).toEqual(SELECTED);
     expect(data[(W + 1) * 4 + 3]).toBe(0);
+  });
+
+  it("tell a footprint's tiles to the shader by an odd alpha, every other layer's even, the markers' 255 kept", () => {
+    const data = new Uint8Array(W * H * 4);
+    paintOverlay(data, W, H, [
+      { tiles: [1], color: GOOD, edge: true },
+      { tiles: [2], color: [10, 20, 30, 171] },
+      { tiles: [3], color: [10, 20, 30, 255], edge: true },
+    ]);
+    expect(data[1 * 4 + 3] % 2).toBe(1);
+    expect(Math.abs(data[1 * 4 + 3] - GOOD[3])).toBeLessThanOrEqual(1);
+    expect(data[2 * 4 + 3]).toBe(170);
+    expect(data[3 * 4 + 3]).toBe(255);
   });
 });
 

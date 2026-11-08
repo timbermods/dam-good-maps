@@ -122,9 +122,10 @@ describe("strokes hold a cave's or an overhang's rock (D280 (3), amended)", () =
 });
 
 describe("strokes over a generated map's 3D form (D488)", () => {
-  // (Highlands 96² seed 4242 grows a spring cave at the default Verticality, at (33–38, 37–41))
+  // (Highlands 96² seed 4242 grew a spring cave at the default Verticality, at (33–38, 37–41); seed 4245 since generator
+  // 0.10.11, the D410 round, D148: seed 4242 has no 3D form now, and seed 4245's stands at (20–25, 46–49))
   const G = 96;
-  const r = generate(makeSpec({ seed: 4242, theme: "highlands", size: { x: G, y: G } }));
+  const r = generate(makeSpec({ seed: 4245, theme: "highlands", size: { x: G, y: G } }));
 
   it("a Flatten brush's square across the form's edge holds what holds its rock and flattens the rest", () => {
     const s = MapSession.fromGenerated(r, r.file);

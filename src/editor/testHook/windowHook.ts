@@ -46,7 +46,7 @@ declare global {
       lastStroke(): BrushParams | null;
       /** "The start fits here" after a Flatten stroke (D204), and how long its search took. */
       startHint(): { x: number; y: number; strong: boolean; ms: number } | null;
-      /** The editor's sounds (D226): the recorded bank ready, and recordings playing now. */
+      /** The editor's sounds (D226): the recorded bank ready, and recordings sounding now (a stopped sound's not counted). */
       sound(): { ready: boolean; playing: number } | null;
       /** What the force picked draws (D258): the stroke being painted (its tiles), the cursor's tile,
        *  and Aim's arrow (from a tile to the pointer), each null when not shown; and the side of a

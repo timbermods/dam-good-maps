@@ -341,7 +341,7 @@ const MAX_ADVANCE = 10_000_000;
  *  ticks until the water stands still or the days run out. `advance` runs at most the ticks it is
  *  given and returns the settle once it is done; `ticks` over `maxTicks` is how far it is, for a
  *  caller to show. `retained` is water sealed basins keep (water.ts `RetainedWater`). */
-export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retained: readonly RetainedWater[] = [], drained: readonly number[] = []): { advance(ticks: number): StackSettle | null; readonly ticks: number; readonly maxTicks: number } {
+export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retained: readonly RetainedWater[] = [], drained: readonly number[] = []): { advance(ticks: number): StackSettle | null; free(): void; readonly ticks: number; readonly maxTicks: number } {
   const kept = retainedRows(retained);
   const m = new StackWater(W, H, t.objects.length / 8, kept.length / 4);
   let done: StackSettle | null = null;
@@ -456,6 +456,17 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
         threads?.free();
         m.close();
         throw e;
+      }
+    },
+    /** Gives back the threads it holds (a settle a newer edit replaced, dropped half way); were it advanced again, it
+     *  would start again on one thread. */
+    free(): void {
+      if (!threads) return;
+      threads.free();
+      threads = null;
+      if (!done) {
+        since = 0;
+        m.op(STACK_OP.settleBegin, STACK_SETTLE_DAYS);
       }
     },
     get ticks() {

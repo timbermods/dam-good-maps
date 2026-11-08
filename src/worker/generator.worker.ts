@@ -19,7 +19,8 @@ import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, typ
 import * as ed from "./session";
 import { collabActive, collabApi } from "./collab";
 import { collabEditApi } from "./collabEdit";
-import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
+import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper, shareWaterBudget } from "../core/sim/parallel";
+import { stackParallelStats } from "../core/sim/stackParallel";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
   return [r.heights, r.water, r.contamination, r.moisture, r.soilContamination, r.reach, r.timber, r.project].map((a) => a.buffer) as Transferable[];
@@ -49,7 +50,7 @@ function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
 }
 
 function eventBuffers(e: ed.EditorEvent): Transferable[] {
-  if (e.kind === "instant" || e.kind === "withered") return [];
+  if (e.kind === "instant" || e.kind === "withered" || e.kind === "startWater") return [];
   if (e.kind === "weather") return [...(e.water ? (viewBuffers({ water: e.water }) as Transferable[]) : []), ...[e.firstDry, e.firstDryWet0, e.firstBad].flatMap((a) => (a ? [a.buffer as ArrayBuffer] : []))];
   return viewBuffers(e.kind === "water" ? { water: e.water } : e.view) as Transferable[];
 }
@@ -210,7 +211,9 @@ const api = {
   /** The water's helper threads (src/core/sim/parallel.ts), started by the page (platform/index.ts) so they start
    *  while this worker is busy: its water runs on several threads where that helps. More are started from here
    *  for bigger maps. The page sends them before anything else; the background search's worker gets none. */
-  waterHelpers(ports: MessagePort[]) {
+  waterHelpers(ports: MessagePort[], budget?: SharedArrayBuffer) {
+    // (the budget shared with the checks' worker, platform/index.ts)
+    if (budget) shareWaterBudget(budget);
     installParallelWater({
       helpers: ports.map(portHelper),
       spawn: () => new Worker(new URL("./waterStrip.worker.ts", import.meta.url), { type: "module" }),
@@ -254,17 +257,21 @@ const api = {
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: routed((template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)), (...a) => collabEditApi.plantAt(...a).then(sendUpdate)),
+  stairAt: (from: [number, number], to: [number, number]) => ed.stairAt(from, to),
+  layStair: routed((from: [number, number], to: [number, number]) => sendUpdate(ed.layStair(from, to)), (...a) => collabEditApi.layStair(...a).then(sendUpdate)),
   paintAt: routed((params: PaintParams, z?: number) => sendUpdate(ed.paintAt(params, z)), (...a) => collabEditApi.paintAt(...a).then(sendUpdate)),
   paintDryAt: (params: PaintParams, z?: number) => ed.paintDryAt(params, z),
   setViews: (views: SavedView[]) => ed.setViews(views),
   setName: (name: string) => ed.setName(name),
-  removeAt: routed((tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)), (...a) => collabEditApi.removeAt(...a).then(sendUpdate)),
-  objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
+  removeAt: routed((tiles: number[], kinds: ed.RemoveKind[], cut?: number | null) => sendUpdate(ed.removeAt(tiles, kinds, undefined, cut)), (tiles, kinds, cut) => collabEditApi.removeAt(tiles, kinds, undefined, cut).then(sendUpdate)),
+  objectsInArea: (tiles: number[], cut?: number | null) => ed.objectsInArea(tiles, cut),
   selectionHeld: () => ed.selectionHeldTiles(),
   /** Remove unfed water and Fill (D387, D394): what they would do, then doing it, one undo step. */
   unfedWaterIn: (tiles: number[] | null) => ed.unfedWaterIn(tiles),
   removeUnfedWater: routed((tiles: number[] | null) => sendUpdate(ed.removeUnfedWater(tiles)), (...a) => collabEditApi.removeUnfedWater(...a).then(sendUpdate)),
   fillPlanAt: (x: number, y: number, level: number) => ed.fillPlanAt(x, y, level),
+  /** The level Fill fills to unless one is set: the highest its hollow holds (null: none). */
+  fillLevelAt: (x: number, y: number) => ed.fillLevelAt(x, y),
   /** Crop map to selection (D340): what it would do (or why not), then doing it, one undo step. A crop changes the map's size, which
    *  a shared session cannot carry: refused with a plain line while one is on. */
   cropPlanAt: (r: { x: number; y: number; w: number; h: number }) => ed.cropPlanAt(r),
@@ -325,6 +332,11 @@ const api = {
     const r = replaceThumbnail(timber, jpeg);
     return r.ok ? transfer(r, [r.bytes.buffer as Transferable]) : r;
   },
+  /** File → Save a picture: the open map's view and the picture's file name. */
+  pictureView() {
+    const r = ed.pictureView();
+    return transfer(r, viewBuffers(r.view) as Transferable[]);
+  },
   project(level?: number) {
     const r = ed.project(level);
     return transfer(r, [r.bytes.buffer as Transferable]);
@@ -332,6 +344,6 @@ const api = {
 };
 
 export type GeneratorApi = typeof api;
-// a test hook (tests/e2e/isolation.spec.ts): the water's threads ready, and the ticks they ran
-Object.assign(self, { dgmWater: () => ({ threads: parallelWaterThreads(), ticks: parallelWaterStats.ticks }) });
+// a test hook (tests/e2e/isolation.spec.ts): the water's threads ready, and the ticks they ran (the stacked water's apart)
+Object.assign(self, { dgmWater: () => ({ threads: parallelWaterThreads(), ticks: parallelWaterStats.ticks, stackTicks: stackParallelStats.ticks }) });
 expose(api);

@@ -51,12 +51,12 @@ export const LANDMARK_LEAST = 8;
 export const LANDMARK_MOST = 15;
 
 // sin and cos of 60°, and of 35°; tan of half the vertical and horizontal fields of view
-const SIN_P = 0.8660254037844386;
-const COS_P = 0.5;
+export const SIN_P = 0.8660254037844386;
+export const COS_P = 0.5;
 const S35 = 0.573576436351046;
 const C35 = 0.8191520442889918;
-const TAN_V = 0.3152987888789835; // tan 17.5°
-const TAN_H = (TAN_V * 16) / 9;
+export const TAN_V = 0.3152987888789835; // tan 17.5°
+export const TAN_H = (TAN_V * 16) / 9;
 
 /** The camera's turn as grid directions, per orientation (H = the orientation's angle + 35°): its
  *  look across the ground (sin H, cos H) and the frame's right (cos H, −sin H), in tile x and y

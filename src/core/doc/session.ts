@@ -25,11 +25,11 @@ import { heldOf, type TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
-import { objectHolds, standProblem, type StandGround } from "../features/objects";
-import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
+import { objectHolds, rasterizeObjects, standProblem, type StandGround } from "../features/objects";
+import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, MAX_DABS, strokeParts, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim, type BrushParams } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN, padTile } from "../features/raster/terrain";
-import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
+import { bottomRunTop, ColumnTerrain, isPlainMask, surfaceOfMask, terrainColumns } from "../terrain/runs";
 import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
 import { fallsReason, newFalls, objectRoofHolders, placeOf, rockFloors, stackableTops, unsupportedVoxels } from "../terrain/support";
 import { LAYERS } from "../format/world";
@@ -60,7 +60,7 @@ import { clone } from "../spec/mergepatch";
 import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
-import { cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
+import { cropFalls, cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
 import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
@@ -432,10 +432,11 @@ export class MapSession {
   /** The canonical settle of the current map's water, in slices (`advance`), for `adoptWater`. On a
    *  map with caves an edit that left the water provably as it was settles at once (`lastSettled`,
    *  sim/stackWater.ts `settledAgain`). */
-  canonicalRun(): { model: WaterModel; advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+  canonicalRun(): { model: WaterModel; advance(ticks: number): CanonicalWater | null; free(): void; readonly ticks: number; readonly maxTicks: number } {
     const model = this.cur.waterModel;
     const run = canonicalRun(model, {}, this.lastSettled());
-    return { model, advance: (t) => run.advance(t), get ticks() { return run.ticks; }, get maxTicks() { return run.maxTicks; } };
+    // (`free`: a run dropped half way gives its water threads back at once)
+    return { model, advance: (t) => run.advance(t), free: () => run.free?.(), get ticks() { return run.ticks; }, get maxTicks() { return run.maxTicks; } };
   }
 
   /** Put the canonical settle of `model` in place of the preview's water. False when the map
@@ -651,6 +652,7 @@ export class MapSession {
     if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
     if (r.description) doc.meta.premise = r.description;
     if (r.says?.length) doc.meta.says = [...r.says];
+    if (r.easyShort) doc.meta.easyShort = r.easyShort;
     return new MapSession(doc, r.built);
   }
 
@@ -877,6 +879,23 @@ export class MapSession {
     return "nothing to shape here: this ground holds an object under a roof, which the edit leaves as it is";
   }
 
+  /** Why a sculpt that changes nothing is refused (D342: never a silent clamp): it was to move a tile, and the
+   *  integrity pass wore every one back, a lone tile set far from its neighbours that isn't exact (a one-tile spike
+   *  or pit is the land's to wear, D193); null otherwise, a flatten to the level the ground already has included. */
+  private wornAway(op: EditOp, before: BuildResult): string | null {
+    if (op.op !== "sculpt" || op.params.exact || op.params.hold?.length || !sameBytes(before.heights, this.cur.heights)) return null;
+    const p = op.params;
+    const { x: W } = this.size;
+    const meant = (h: number): number =>
+      p.mode === "raise" ? Math.min(MAX_TERRAIN, h + (p.amount ?? 0)) : p.mode === "lower" ? Math.max(0, h - (p.amount ?? 0)) : p.mode === "flatten" ? (p.level ?? h) : p.mode === "terrace" ? Math.floor(h / (p.step ?? 2)) * (p.step ?? 2) : h;
+    for (const [y, a, b] of p.cells)
+      for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) {
+        const h = before.heights[y * W + x];
+        if (meant(h) !== h) return "nothing changes: a lone tile set apart from its neighbours is worn back to them; shape two or more tiles, or make it exact";
+      }
+    return null;
+  }
+
   /** The tiles of a held stroke or sculpt that hold up a cave's or an overhang's rock (`rockHolds`) and
    *  that hold an object under a roof (`holds`, D491), of the map as it stands, before the operation
    *  applies. */
@@ -942,21 +961,9 @@ export class MapSession {
     if (!this.layered(before) && !this.layered(now)) return null;
     const left = new Set((before.springsLeft ?? []).map((s) => s.id));
     const out = (now.springsLeft ?? []).find((s) => !left.has(s.id));
-    if (out) return `it would leave out a spring's water source at (${out.x}, ${out.y}): ${out.why}`;
+    if (out) return `it would leave out a spring's water source at X ${out.x} · Y ${out.y}: ${out.why}`;
     const { x: W, y: H } = this.size;
-    const t0 = this.terrainOf(before);
-    const g0 = { W, H, mask: t0.mask };
-    const g1 = this.standGround();
-    const was = new Map(before.entities.map((e) => [e.id, e]));
-    for (const e of now.entities) {
-      const b = was.get(e.id);
-      if (!b) continue;
-      const tiles = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
-      if (tiles.every((i) => isPlainMask(g0.mask[i]) && isPlainMask(g1.mask[i]))) continue;
-      if (standProblem(b.template, b, g0) || !standProblem(e.template, e, g1)) continue;
-      return `it would leave ${withArticle(itemName(e.template))} at (${e.x}, ${e.y}) inside the ground or floating, and the game would remove it`;
-    }
-    return null;
+    return objectLost(before.entities, now.entities, { W, H, mask: this.terrainOf(before).mask }, this.standGround());
   }
 
   /** How many blocks of ground an operation just put in the log would make fall, worked out from the
@@ -970,7 +977,10 @@ export class MapSession {
     const { heights } = previewTerrain(this.cur, this.input());
     if (sameBytes(heights, this.cur.heights)) return [];
     // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
-    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, W, H), this.cur.heights, heights, W).length) return [];
+    if (op.op === "brush" && !this.riding) {
+      const kept = new Set((op.params.rigid ?? []).map((r) => r.join(",")));
+      if (tiltedPieces(ridingPieces(this.cur.entities, W, H, this.cur.heights), this.cur.heights, heights, W).some((r) => !kept.has(r.join(",")))) return [];
+    }
     return this.forceFalls(heights);
   }
 
@@ -1000,8 +1010,10 @@ export class MapSession {
    *  ground as it stands, and what the game's support rule would drop because of it, before anything
    *  is applied. `added` and `removed` are the blocks it changes, as [x, y, layer]; `falls` the blocks
    *  of ground that would drop (nothing holding them up), the cells `apply` refuses with
-   *  `fallsReason`. `errors` is the one line why it cannot be taken at all (a cell off the map or the
-   *  layers, on an object, nothing to change); then the three are empty. Plain data, nothing changes. */
+   *  `fallsReason`; with none, `reason` names an object it would move or leave for the game to remove
+   *  (D491, `blockLost`), as `apply` refuses it. `errors` is the one line why it cannot be taken at all (a
+   *  cell off the map or the layers, on an object, nothing to change); then the three are empty. Plain
+   *  data, nothing changes. */
   blockFalls(params: OpParams["blocks"]): BlockFalls {
     const { x: W, y: H } = this.size;
     const none = (errors: string[]): BlockFalls => ({ reason: errors[0], errors, added: [], removed: [], falls: [], plantsRemoved: 0, plantsRiding: 0 });
@@ -1018,7 +1030,82 @@ export class MapSession {
     const fell: number[] = [];
     for (let c = 0; c < now.length; c++) if (now[c] && !was[c]) fell.push(c);
     const falls = cells(fell);
-    return { reason: falls.length ? fallsReason(falls.length) : null, errors: [], added: cells(effect.added), removed: cells(effect.removed), falls, plantsRemoved: effect.plants.length, plantsRiding: effect.riding };
+    // (an object the step would move or leave for the game to remove: refused, as `apply` refuses it)
+    const lost = falls.length ? null : this.blockLost(t, after, new Set([...effect.added, ...effect.removed].map((c) => c % (W * H))));
+    return { reason: falls.length ? fallsReason(falls.length) : lost, errors: [], added: cells(effect.added), removed: cells(effect.removed), falls, plantsRemoved: effect.plants.length, plantsRiding: effect.riding };
+  }
+
+  /** Why a block step from ground `t` to `after`, changing the tiles `changed`, would cost an object its
+   *  place, in one line, or null (`blockFalls`). Only an object on a tile the step changes can be: the
+   *  game's rule reads its own cells and the ground under them. Plants ride as `blockEffect` says, and a
+   *  slope is the ground's. Every other object's level after the step is the build's: the start's from
+   *  its middle tile (step 12); a spring's source on its floor, or left out of its row where the game
+   *  would not keep it there (`springsLeft`); an object placed or moved by hand at the level the edit
+   *  names, else its own tile's surface (`applyEntityEdits`); a map object at the highest surface under
+   *  it (`rasterizeObjects`, step 9); any other at its own tile's surface when it stands on its top. A
+   *  block over part of a map object (the cells above an object are free) would lift it off the rest of
+   *  its ground, and the game would remove it; one over the tile an object takes its level from would
+   *  carry it up onto the block, a change the ghost does not show. So a step that moves an object is
+   *  refused, and one that leaves an object where it stands, inside the ground or floating, is refused
+   *  by the rule of the step's own last guard (`objectLost`). */
+  private blockLost(t: ColumnTerrain, after: ColumnTerrain, changed: ReadonlySet<number>): string | null {
+    const { W, H } = t;
+    const { byTile, edits } = this.blockObjectsOf(this.cur);
+    const near = new Set<BuildResult["entities"][number]>();
+    for (const i of changed) for (const e of byTile.get(i) ?? []) near.add(e);
+    if (!near.size) return null;
+    const features = new Map(this.st.features.map((f) => [f.id, f]));
+    let surface: Uint8Array | null = null;
+    const surfaceAfter = () => surface ?? (surface = Uint8Array.from(after.mask, surfaceOfMask));
+    const top = (m: ArrayLike<number>, x: number, y: number) => (x >= 0 && y >= 0 && x < W && y < H ? surfaceOfMask(m[y * W + x]) : undefined);
+    const stay: BuildResult["entities"] = [];
+    for (const e of near) {
+      const f = features.get(e.owner);
+      const edit = edits.get(e.id);
+      let z: number | undefined;
+      if (f?.kind === "start") z = f.params.z ?? top(after.mask, f.params.position[0], f.params.position[1]);
+      else if (!edit && ((f?.kind === "river" && "spring" in f.params.entry) || f?.kind === "lake")) {
+        const m = after.mask[e.y * W + e.x];
+        const floor = isPlainMask(m) ? surfaceOfMask(m) : bottomRunTop(m);
+        const why = standProblem("WaterSource", { x: e.x, y: e.y, z: floor, orientation: "Cw0" }, { W, H, mask: after.mask });
+        if (why) return `it would leave out a spring's water source at X ${e.x} · Y ${e.y}: ${why}`;
+        continue;
+      } else if (edit?.z !== undefined) z = edit.z;
+      else if (edit && !edit.quiet) z = top(after.mask, e.x, e.y);
+      else if (!edit && f?.kind === "mapObject") z = rasterizeObjects(f, W, H, surfaceAfter(), this.keptLayer()?.mask ?? null).find((g) => g.id === e.id)?.z;
+      else z = e.z === top(t.mask, e.x, e.y) ? top(after.mask, e.x, e.y) : e.z;
+      if (z !== undefined && z !== e.z) {
+        const name = withArticle(itemName(e.template));
+        return z > e.z ? `${name} stands under it at X ${e.x} · Y ${e.y}` : `it would take the ground from under ${name} at X ${e.x} · Y ${e.y}`;
+      }
+      stay.push(e);
+    }
+    return objectLost(stay, stay, { W, H, mask: t.mask }, { W, H, mask: after.mask });
+  }
+
+  private readonly blockObjects = new WeakMap<BuildResult, { byTile: Map<number, BuildResult["entities"]>; edits: Map<string, { z?: number; quiet: boolean }> }>();
+
+  /** A build's objects as `blockLost` reads them, once per build (the page asks on every pointer tile):
+   *  by every tile they cover, all but the plants and the slopes; and the last placement or move by hand
+   *  of each, with the level it names and whether a force made it. */
+  private blockObjectsOf(b: BuildResult): { byTile: Map<number, BuildResult["entities"]>; edits: Map<string, { z?: number; quiet: boolean }> } {
+    let o = this.blockObjects.get(b);
+    if (o) return o;
+    const { x: W, y: H } = this.size;
+    const plants = new Set<string>();
+    for (const list of this.groundOf(b.entities).byTile.values()) for (const p of list) plants.add(p.id);
+    const byTile = new Map<number, BuildResult["entities"]>();
+    for (const e of b.entities) {
+      if (plants.has(e.id) || e.template === "Slope") continue;
+      for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) byTile.set(y * W + x, [...(byTile.get(y * W + x) ?? []), e]);
+    }
+    const edits = new Map<string, { z?: number; quiet: boolean }>();
+    for (const ed of this.st.entityEdits) {
+      if (ed.op === "placeEntity") edits.set(ed.params.id, { ...(ed.params.z !== undefined ? { z: ed.params.z } : {}), quiet: false });
+      else if (ed.op === "moveEntity") edits.set(ed.params.id, { ...(ed.params.z !== undefined ? { z: ed.params.z } : {}), quiet: !!ed.params.quiet });
+    }
+    this.blockObjects.set(b, (o = { byTile, edits }));
+    return o;
   }
 
   // What a build's objects mean to the Block tool and the support rule, worked out once per build (the
@@ -1394,7 +1481,17 @@ export class MapSession {
         return objectCells(this.cur.entities, this.size.x, this.size.y, (e) => e.owner === owner || skip.has(e.owner));
       },
       startObjects,
-      cropObjects: (r) => (cropObjects(this.cur.entities, r).cutStart ? START_CUT : null),
+      cropObjects: (r) => {
+        const o = cropObjects(this.cur.entities, r);
+        if (o.cutStart) return START_CUT;
+        // (ground the new edge would leave unheld, which the game deletes as the cropped map loads, D121: refused, as an
+        // edit that makes ground fall is, D280 (3))
+        if (!this.layered(this.cur)) return null;
+        const { x: W, y: H } = this.size;
+        const keep = new Set(o.kept);
+        const falls = cropFalls(this.terrainOf(this.cur), r, this.topsOf(this.cur.entities), stackableTops(W, H, this.cur.entities.filter((e) => keep.has(e.id))));
+        return falls.length ? fallsReason(falls.length, placeOf(falls[0], W, H)) : null;
+      },
       placement: (p) => {
         const e = p.id ? this.cur.entities.find((g) => g.id === p.id) : undefined;
         const template = p.template ?? e?.template;
@@ -1407,16 +1504,19 @@ export class MapSession {
 
   /** Apply one operation. */
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
+    // (a stroke longer than one operation holds: its parts in order, one step, `applyAll`)
+    if (op.op === "brush" && op.params.dabs.length > 2 * MAX_DABS) return this.applyAll([op], origin, label);
     op = this.withHold(op);
     const kept = this.heldIn(op);
     const rock = kept.rock;
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
     if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
-    // (the Block tool's ground that would fall is refused before anything is built: the query the page shows)
+    // (the Block tool's ground that would fall, or an object it would leave for the game to remove, is
+    // refused before anything is built, with the line of the query the page shows)
     if (op.op === "blocks") {
       const f = this.blockFalls(op.params);
-      if (f.falls.length) return { ok: false, errors: [fallsReason(f.falls.length)], applied: [], dirty: null };
+      if (f.reason) return { ok: false, errors: [f.reason], applied: [], dirty: null };
     }
     if (op.op === "crop") return this.applyCrop(op, origin, label);
     if (op.op === "setDescription") return this.applyDescription(op, origin, label);
@@ -1445,7 +1545,7 @@ export class MapSession {
     }
     // a stroke held whole by the ground under objects in a cliff or a cave (D491), and, as a last guard,
     // an object under a roof or on one that the game would then remove
-    const lost = this.heldOnly(op, before, rock) ?? this.lostSince(before);
+    const lost = this.heldOnly(op, before, rock) ?? this.wornAway(op, before) ?? this.lostSince(before);
     if (lost) {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [lost], applied: [], dirty: null };
@@ -1465,15 +1565,21 @@ export class MapSession {
   private rideTilted(ops: readonly EditOp[], before: BuildResult, mark: HistoryMark, seq: number): EditOp[] | null {
     if (this.riding || !ops.some((o) => o.op === "brush")) return null;
     const { W, H } = this.cur;
-    // (the page's preview asks the same, StrokePreview `rides`)
-    const rects = tiltedPieces(ridingPieces(this.cur.entities, W, H), before.heights, this.cur.heights, W);
+    // (the page's preview asks the same, StrokePreview `rides`; the pieces as they stood, nothing roofing
+    // them, and not those the stroke already keeps level: a replica's copy of a step given again; nor those the
+    // step removed, a source a Clear stroke takes, which the page lists none of)
+    const kept = new Set(ops.flatMap((o) => (o.op === "brush" ? (o.params.rigid ?? []) : [])).map((r) => r.join(",")));
+    const still = new Set(this.cur.entities.map((e) => e.id));
+    const rects = tiltedPieces(ridingPieces(before.entities.filter((e) => still.has(e.id)), W, H, before.heights), before.heights, this.cur.heights, W).filter((r) => !kept.has(r.join(",")));
     if (!rects.length) return null;
     const step = this.stepSince(mark);
     if (!step || !this.takeBack(step)) return null;
     this.seqNext = seq;
-    // (its hold is worked out again with the pieces in its reach)
-    return ops.map((o) => {
-      if (o.op !== "brush") return o;
+    // (its hold is worked out again with the pieces in its reach; the pieces go with the step's last stroke, where a
+    // stroke past MAX_DABS is done, brush.ts `strokeParts`)
+    const lastStroke = ops.map((o) => o.op).lastIndexOf("brush");
+    return ops.map((o, k) => {
+      if (o.op !== "brush" || k !== lastStroke) return o;
       const { hold: _hold, ...params } = o.params;
       return { ...o, params: { ...params, rigid: [...(o.params.rigid ?? []), ...rects] } };
     });
@@ -1492,6 +1598,19 @@ export class MapSession {
   /** Apply several operations as one step (a fix, or an accepted proposal): all or none, and
    *  one undo takes them all back. An empty group is refused: it would be a step that changes nothing. */
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
+    // (a stroke longer than one operation holds: its parts in order, brush.ts `strokeParts`, which the build joins again;
+    // what the session records in a stroke is worked out once, on the whole stroke and the map before it, so every part
+    // carries the same and they join as the one stroke)
+    const parts = new Set<EditOp>();
+    if (ops.some((o) => o.op === "brush" && o.params.dabs.length > 2 * MAX_DABS))
+      ops = ops.flatMap((o): EditOp[] => {
+        if (o.op !== "brush" || o.params.dabs.length <= 2 * MAX_DABS) return [o];
+        return strokeParts(this.strokeRecord(o.params)).map((params): EditOp => {
+          const part = { ...o, params } as EditOp;
+          parts.add(part);
+          return part;
+        });
+      });
     if (!ops.length) return { ok: false, errors: ["nothing to change"], applied: [], dirty: null };
     const before = this.cur;
     const mark = this.mark();
@@ -1501,6 +1620,7 @@ export class MapSession {
     const under = new Set<number>();
     for (const given of ops) {
       const op = this.withHold(given);
+      const recorded = parts.has(given);
       const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : op.op === "crop" ? ["a crop cannot be part of a group of edits"] : this.check(op);
       if (errors.length) {
         for (const a of done.reverse()) {
@@ -1516,7 +1636,7 @@ export class MapSession {
         held.add(i);
         if (kept.objects.has(i)) under.add(i);
       }
-      done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined));
+      done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined, recorded));
       // later operations of the group may refer to what earlier ones made (a description makes nothing)
       if (op.op !== "setDescription") this.cur = this.rebuilt();
     }
@@ -1610,10 +1730,10 @@ export class MapSession {
     if (!ops.length) return fail("there are no objects to place");
     const { x: W, y: H } = this.size;
     const ids = new Set<string>();
+    // (each placement is held against the map's objects by the check, as a single one is: the resources make room
+    // for it, and under a roof the game's rule goes cell by cell, D491; only the batch's own objects are kept apart
+    // here, tile by tile on the ground and cell by cell at a level, #755)
     const taken = new Set<number>();
-    for (const e of this.cur.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) taken.add(y * W + x);
-    // (under a roof, at a level: the check holds it to the game's rule against the map's objects cell by cell, D491; within
-    // the batch its cells are kept apart here)
     const cells = new Set<number>();
     for (const op of ops) {
       if (op.op !== "placeEntity") return fail("a placement batch only takes placeEntity operations");
@@ -1649,7 +1769,39 @@ export class MapSession {
   /** `step`: the `seq` of the first operation of the step, when the step holds several (D456). It is
    *  set here, before `applyOp` adds the undo data, so a log entry's keys come in one order live and
    *  after a reopen (which deletes and re-adds `undo`): a project saves byte for byte the same. */
-  private applyChecked(op: EditOp, origin: OpOrigin, label?: string, step?: number): AppliedOp {
+  /** What the session records in a stroke as it applies (`applyChecked`), worked out on the map as it stands. */
+  private strokeRecord(params: BrushParams): BrushParams {
+    const { x: W, y: H } = this.size;
+    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
+    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
+    // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
+    // the whole stroke at once, saved with where water would stand round it, `rim`)
+    // (a rule painted on the page comes with its rule but never its ring: added here)
+    let p = params;
+    if (p.tool === "naturalize" && p.weathers && (p.weathering === undefined || (byDabRule(p.weathering) && p.rim === undefined))) {
+      const pre = this.cur.cache.terrain.pre7;
+      const rim = weatherRim(p, pre, waterLevels(pre, W, H), W, H);
+      p = { ...p, weathering: p.weathering ?? WEATHERING, ...(rim.length ? { rim } : {}) };
+    }
+    // and where the settled water stood round it (rule 3: and the moist ground), unless the page
+    // recorded the water it showed
+    if ((p.weathering === 2 || byDabRule(p.weathering)) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
+      const box = weatherBox(p, W, H);
+      if (box) {
+        if (p.weathering === 2) {
+          const { shore, pools } = shoreOf(box, this.cur.heights, this.cur.water, W);
+          p = { ...p, shore, pools };
+        } else p = { ...p, ...limitRuns(waterLimits(this.cur.heights, this.cur.water, this.cur.moisture, W, H), box, W) };
+      }
+    }
+    // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
+    // runs are recorded in it, so it replays the same whatever moves later (D368 (8), D342)
+    const runs = weatherKeep(p, this.cur.entities, W, H);
+    if (runs.length) p = { ...p, keep: [...(p.keep ?? []), ...runs] };
+    return p;
+  }
+
+  private applyChecked(op: EditOp, origin: OpOrigin, label?: string, step?: number, recorded = false): AppliedOp {
     const text = label ?? (op as { label?: string }).label;
     const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}), ...(step !== undefined ? { step } : {}) } as AppliedOp;
     // a block operation keeps the blocks it changed, as it found them: the build and every replay apply those
@@ -1659,37 +1811,8 @@ export class MapSession {
       const { plants: _asked, stands: _stands, ...rest } = applied.params;
       applied.params = { ...rest, cells: cellPairs(applied.params.mode === "add" ? e.added : e.removed, W * H), ...(e.plants.length ? { plants: e.plants } : {}), ...(e.stands.length ? { stands: e.stands } : {}) };
     }
-    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
-    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
-    // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
-    // the whole stroke at once, saved with where water would stand round it, `rim`)
-    // (a rule painted on the page comes with its rule but never its ring: added here)
-    if (applied.op === "brush" && applied.params.tool === "naturalize" && applied.params.weathers && (applied.params.weathering === undefined || (byDabRule(applied.params.weathering) && applied.params.rim === undefined))) {
-      const pre = this.cur.cache.terrain.pre7;
-      const rim = weatherRim(applied.params, pre, waterLevels(pre, this.size.x, this.size.y), this.size.x, this.size.y);
-      applied.params = { ...applied.params, weathering: applied.params.weathering ?? WEATHERING, ...(rim.length ? { rim } : {}) };
-    }
-    // and where the settled water stood round it (rule 3: and the moist ground), unless the page
-    // recorded the water it showed
-    const p = applied.op === "brush" ? applied.params : null;
-    if (p && (p.weathering === 2 || byDabRule(p.weathering)) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
-      const box = weatherBox(p, this.size.x, this.size.y);
-      if (box) {
-        if (p.weathering === 2) {
-          const { shore, pools } = shoreOf(box, this.cur.heights, this.cur.water, this.size.x);
-          applied.params = { ...p, shore, pools };
-        } else {
-          const runs = limitRuns(waterLimits(this.cur.heights, this.cur.water, this.cur.moisture, this.size.x, this.size.y), box, this.size.x);
-          applied.params = { ...p, ...runs };
-        }
-      }
-    }
-    // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
-    // runs are recorded in it, so it replays the same whatever moves later (D368 (8), D342)
-    if (applied.op === "brush") {
-      const runs = weatherKeep(applied.params, this.cur.entities, this.size.x, this.size.y);
-      if (runs.length) applied.params = { ...applied.params, keep: [...(applied.params.keep ?? []), ...runs] };
-    }
+    // (what the session records in a stroke: a part of a stroke past MAX_DABS has its whole stroke's already, `applyAll`)
+    if (applied.op === "brush" && !recorded) applied.params = this.strokeRecord(applied.params);
     applyOp(this.st, applied);
     if (applied.orphaned) throw new Error(`operation passed its check but did not apply: ${applied.orphaned}`);
     this.log.push(applied);
@@ -2302,6 +2425,26 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+/** The first object of `now` the game would remove that it kept as it stood in `before`, in one line, or
+ *  null (D491): one on a tile with a cave or an overhang that the game's rule (`standProblem`) held on
+ *  ground `g0` and no longer holds on `g1` (inside the ground or floating: the game removes it on load).
+ *  Nothing wholly on plain ground (its objects ride it). The one rule for a step's last guard
+ *  (`lostSince`) and the Block tool's query (`blockFalls`), so the page never shows a step as fine that
+ *  `apply` then refuses. */
+function objectLost(before: BuildResult["entities"], now: BuildResult["entities"], g0: StandGround, g1: StandGround): string | null {
+  const { W, H } = g1;
+  const was = new Map(before.map((e) => [e.id, e]));
+  for (const e of now) {
+    const b = was.get(e.id);
+    if (!b) continue;
+    const tiles = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
+    if (tiles.every((i) => isPlainMask(g0.mask[i]) && isPlainMask(g1.mask[i]))) continue;
+    if (standProblem(b.template, b, g0) || !standProblem(e.template, e, g1)) continue;
+    return `it would leave ${withArticle(itemName(e.template))} at X ${e.x} · Y ${e.y} inside the ground or floating, and the game would remove it`;
+  }
+  return null;
 }
 
 /** The same tiles with the same masks (the Block tool's ground). */

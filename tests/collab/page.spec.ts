@@ -7,6 +7,7 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 import { startStack, workerInstalled } from "./localStack";
+import { recordRtc, rtcReport } from "./rtcLog";
 import type { Stack } from "./localStack";
 import { killPeer, launchPeer } from "./peers";
 import type { Kind, Peer } from "./peers";
@@ -40,6 +41,7 @@ function launch(kind: Kind, fragment: string): Promise<Peer> {
       page.on("console", (m) => (m.type() === "error" || m.type() === "warning") && console.log(`[${kind}] ${m.type()}: ${m.text()}`));
       page.on("pageerror", (e) => console.log(`[${kind}] pageerror: ${e}`));
       await page.setViewportSize({ width: 1440, height: 900 });
+      await recordRtc(page);
       await page.goto(`${stack.appUrl}#${fragment}`);
     },
     "dgmEditor",
@@ -83,6 +85,9 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 async function stroke(page: Page, a: [number, number], b: [number, number]) {
   const p = await client(page, ...a);
   const q = await client(page, ...b);
+  // (both ends on the map itself, not under a panel: a stroke started on one does nothing)
+  for (const [t, c] of [[a, p], [b, q]] as const)
+    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.tagName, [c.x, c.y] as const), `tile ${t} on screen`).toBe("CANVAS");
   await page.mouse.move(p.x, p.y);
   await page.mouse.down();
   for (let k = 1; k <= 20; k++) {
@@ -117,6 +122,8 @@ async function connect(host: Peer, guest: Peer, names: [string, string]) {
       await expect(together(host.page)).toHaveAttribute("aria-label", `Together with ${names[1]}`, { timeout: 90_000 });
     } catch (e) {
       console.log("GUEST PANEL:", await panel(guest.page).innerText().catch(() => "(none)"), "| HOST PANEL:", await panel(host.page).innerText().catch(() => "(none)"));
+      // (and what each page's connection and the local relay did: tests/collab/rtcLog.ts)
+      console.log(`HOST RTC:\n${await rtcReport(host.page).catch(() => "(none)")}\nGUEST RTC:\n${await rtcReport(guest.page).catch(() => "(none)")}\n${stack.turnReport()}`);
       throw e;
     }
   } };
@@ -239,6 +246,8 @@ test("a refusal shows as the page's usual note, with its reason", async () => {
   expect(claimed).toMatchObject({ ok: true });
   const before = await land(guest.page);
   await pick(guest.page, "2");
+  // (the whole map in view: Go to left the guest's camera close, with the corner under the brush's options)
+  await resetView(guest.page);
   await stroke(guest.page, [8, 8], [14, 8]);
   await expect(message(guest.page)).toContainText("Reaches into Ada's area", { timeout: 20_000 });
   // (nothing changed, and the guest's page took the land back)

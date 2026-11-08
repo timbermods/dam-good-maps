@@ -165,6 +165,9 @@ export interface BrushParams {
    *  rectangles [x0, y0, x1, y1]: once the stroke is applied, each one's tiles take the level of its
    *  middle tile. */
   rigid?: [number, number, number, number][];
+  /** This operation's dabs carry on the stroke of the operation before it (a stroke past `MAX_DABS`, `strokeParts`):
+   *  the build applies the two as the one stroke (`joinStrokes`), so its map is the stroke's, as the page showed it. */
+  continues?: true;
   /** The working area (D254, D259: the Select tool's open selection), as runs [y, x0, x1]: the
    *  stroke changes only its tiles, and by at most as many levels as a tile is steps inside it (its
    *  feathered edge: the land it changes meets the locked land a level a tile, never in a cliff). */
@@ -212,8 +215,108 @@ export const BRUSH_SIZE_MIN = 0.5;
 export const BRUSH_SIZE_MAX = 128;
 /** Pressure for one level. */
 export const LEVEL = 1024;
-/** Most dabs one stroke may hold (a long stroke; the page starts a new one past it). */
+/** Most dabs one stroke's operation holds. A longer stroke (a hard one dabs every quarter tile, so about 10,000 tiles of
+ *  travel) is applied as consecutive operations of at most this many, one step (`strokeParts`, session.ts `apply`). */
 export const MAX_DABS = 40_000;
+
+/** A stroke past `MAX_DABS` as consecutive operations of at most `MAX_DABS` dabs, in order: each with its own dabs and
+ *  their pressures and levels, and the stroke's settings; every one after the first `continues` it, and the pieces that
+ *  ride it and a ramped Flatten's slopes go with the last, where the stroke is done. The build joins them again
+ *  (`joinStrokes`): the map is the one stroke's, whatever its tool. A stroke within the limit is itself. */
+export function strokeParts(p: BrushParams): BrushParams[] {
+  const n = p.dabs.length / 2;
+  if (n <= MAX_DABS) return [p];
+  const { slopes, rigid, continues, ...rest } = p;
+  const out: BrushParams[] = [];
+  for (let a = 0; a < n; a += MAX_DABS) {
+    const b = Math.min(n, a + MAX_DABS);
+    const part: BrushParams = { ...rest, dabs: p.dabs.slice(2 * a, 2 * b) };
+    if (p.pressure) part.pressure = p.pressure.slice(a, b);
+    if (p.levels) part.levels = p.levels.slice(a, b);
+    if (a > 0 || continues) part.continues = true;
+    if (b === n) {
+      if (rigid) part.rigid = rigid;
+      if (slopes) part.slopes = slopes;
+    }
+    out.push(part);
+  }
+  return out;
+}
+
+/** What a stroke's operations share, the same on each of its parts: everything but its dabs and what goes with them
+ *  (worked out once an operation). */
+const settingsKeys = new WeakMap<object, string>();
+function strokeSettings(p: BrushParams): string {
+  let k = settingsKeys.get(p);
+  if (k === undefined) {
+    const { dabs: _d, pressure: _p, levels: _l, hold: _h, rigid: _r, slopes: _s, continues: _c, ...rest } = p;
+    k = JSON.stringify(rest);
+    settingsKeys.set(p, k);
+  }
+  return k;
+}
+
+/** Joined strokes, by their last part's operation (a build joins the same ones each time). */
+const joinedStrokes = new WeakMap<object, { parts: readonly object[]; params: BrushParams }>();
+
+/** The sculpts with each stroke and the operations that continue it (`continues`, `strokeParts`) as the one stroke:
+ *  its dabs, pressures and levels in order, its hold every part's (one entry a tile), and its riding pieces and slopes
+ *  the parts'. A continuation whose operation before it is not a stroke with its settings (its stroke spliced out) is
+ *  a stroke of its own. The same array when nothing continues. */
+export function joinStrokes<S extends { params: object }>(sculpts: readonly S[]): readonly S[] {
+  if (!sculpts.some((s) => (s.params as BrushParams).continues === true)) return sculpts;
+  const out: S[] = [];
+  let run: S[] = [];
+  const flush = () => {
+    if (run.length === 1) out.push(run[0]);
+    else if (run.length > 1) out.push({ ...run[0], params: joinedOf(run.map((s) => s.params as BrushParams)) });
+    run = [];
+  };
+  for (const s of sculpts) {
+    const p = s.params as BrushParams;
+    const stroke = "dabs" in p;
+    if (stroke && p.continues === true && run.length && strokeSettings(run[0].params as BrushParams) === strokeSettings(p)) run.push(s);
+    else {
+      flush();
+      if (stroke) run.push(s);
+      else out.push(s);
+    }
+  }
+  flush();
+  return out;
+}
+
+/** A stroke's parts as the one stroke (`joinStrokes`). */
+function joinedOf(ps: readonly BrushParams[]): BrushParams {
+  const last = ps[ps.length - 1];
+  const was = joinedStrokes.get(last);
+  if (was && was.parts.length === ps.length && was.parts.every((p, k) => p === ps[k])) return was.params;
+  const { continues: _c, pressure: _p, levels: _l, hold: _h, rigid: _r, slopes: _s, ...first } = ps[0];
+  const dabs: number[] = [];
+  const pressured = ps.some((p) => p.pressure);
+  const pressure: number[] = [];
+  const levels: number[] = [];
+  const hold = new Map<number, [number, number, number]>();
+  const rigid: [number, number, number, number][] = [];
+  let slopes: [number, number, number][] | undefined;
+  for (const p of ps) {
+    for (const v of p.dabs) dabs.push(v);
+    // (a part without pressures has its dabs at full pressure)
+    if (pressured) for (let k = 0; k < p.dabs.length / 2; k++) pressure.push(p.pressure ? p.pressure[k] : 255);
+    if (p.levels) for (const v of p.levels) levels.push(v);
+    for (const h of p.hold ?? []) if (!hold.has(h[0])) hold.set(h[0], h);
+    if (p.rigid) rigid.push(...p.rigid);
+    if (p.slopes) slopes = p.slopes;
+  }
+  const params: BrushParams = { ...first, dabs };
+  if (pressured) params.pressure = pressure;
+  if (ps[0].levels) params.levels = levels;
+  if (hold.size) params.hold = [...hold.values()].sort((a, b) => a[0] - b[0]);
+  if (rigid.length) params.rigid = rigid;
+  if (slopes) params.slopes = slopes;
+  joinedStrokes.set(last, { parts: ps, params });
+  return params;
+}
 
 export interface Rect {
   x0: number;
@@ -248,6 +351,23 @@ function falloffTable(r4: number): Uint16Array {
     t[d2] = Math.floor((a * a * 256) / (R2 * R2));
   }
   return t;
+}
+
+/** The tiles of a row a hard dab reaches (d² ≤ reach², in quarter tiles: round, the distance; square, the larger of the
+ *  two), as the span [x0, x1] within `lo`..`hi` (empty when x0 > x1). `cx` is the dab's x and `dy` the row's offset from
+ *  it, both in quarter tiles; a tile's middle is at 4x + 2. Integer arithmetic, exact. */
+export function hardSpan(cx: number, dy: number, reach: number, square: boolean, lo: number, hi: number): [number, number] {
+  const r2 = reach * reach;
+  const left = r2 - dy * dy;
+  if (left < 0) return [1, 0];
+  // the most |dx| may be: reach on a square brush, the integer square root of what is left on a round one
+  let m = square ? reach : Math.floor(portable.sqrt(left));
+  if (!square) {
+    while (m * m > left) m--;
+    while ((m + 1) * (m + 1) <= left) m++;
+  }
+  // 4x + 2 − cx within [−m, m]
+  return [Math.max(lo, Math.ceil((cx - 2 - m) / 4)), Math.min(hi, Math.floor((cx - 2 + m) / 4))];
 }
 
 /** A precise brush's reach in quarter tiles: a tile is under it when its middle lies within this
@@ -340,7 +460,7 @@ export function limitRuns(l: WaterLimits, box: Rect, W: number): { shore: [numbe
 }
 
 /** Water deeper than this stands on a tile (as weather.ts reads it). */
-const WET_DEPTH = 1e-3;
+export const WET_DEPTH = 1e-3;
 
 /** The tiles beyond the brush's disc a natural weathering reads: the softening of its edges (as far
  *  as `wanderBlur`'s widest, 11) and its ring, never changed. */
@@ -726,28 +846,32 @@ export class BrushStroke {
       if (x0 > x1 || y0 > y1) continue;
       for (let y = y0; y <= y1; y++) {
         const dy = 4 * y + 2 - cy;
+        if (precise) {
+          // hard edges: the row's tiles within reach, one span (the tiles with d² ≤ reach², worked out exactly)
+          const [sx0, sx1] = hardSpan(cx, dy, reach, square, x0, x1);
+          if (sx0 > sx1) continue;
+          if (this.depth) {
+            // raise, lower, flatten: the tile takes the deepest dab over it (a target's: all the way)
+            const lv = this.exact ? 255 : levels ? Math.max(1, Math.min(BRUSH_MAX_LEVEL, levels[k >> 1] | 0)) : 1;
+            const row = y * W;
+            if (lv === 255) this.depth.fill(255, row + sx0, row + sx1 + 1);
+            else for (let i = row + sx0; i <= row + sx1; i++) if (lv > this.depth[i]) this.depth[i] = lv;
+            continue;
+          }
+          // smooth and naturalize: one step per tile per stroke
+          for (let i = y * W + sx0; i <= y * W + sx1; i++) {
+            if (this.swept[i]) continue;
+            this.swept[i] = 1;
+            this.acc[i] += LEVEL;
+            if (sequential) this.stepTile(i);
+          }
+          continue;
+        }
         for (let x = x0; x <= x1; x++) {
           const dx = 4 * x + 2 - cx;
           // round: the distance; square: the larger of the two, on the tile grid
           const d2 = square ? Math.max(dx * dx, dy * dy) : dx * dx + dy * dy;
           const i = y * W + x;
-          if (precise) {
-            // hard edges, no falloff
-            if (d2 > reach * reach) continue;
-            if (this.depth) {
-              // raise, lower, flatten: the tile takes the deepest dab over it
-              // (a target's: all the way)
-              const lv = this.exact ? 255 : levels ? Math.max(1, Math.min(BRUSH_MAX_LEVEL, levels[k >> 1] | 0)) : 1;
-              if (lv > this.depth[i]) this.depth[i] = lv;
-              continue;
-            }
-            // smooth and naturalize: one step per tile per stroke
-            if (this.swept[i]) continue;
-            this.swept[i] = 1;
-            this.acc[i] += LEVEL;
-            if (sequential) this.stepTile(i);
-            continue;
-          }
           if (d2 >= R2) continue;
           const w = table[d2];
           if (!w) continue;
@@ -1240,6 +1364,7 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (p.rim !== undefined && (p.weathering !== 2 || !Array.isArray(p.rim) || p.rim.length % 2 || p.rim.length > 8192 || !p.rim.every((v, k) => Number.isInteger(v) && (k % 2 ? v >= 1 && v <= BRUSH_MAX_LEVEL : v >= 0)))) return [`a natural weathering's rim is pairs [tile along the ring, depth 1 to ${BRUSH_MAX_LEVEL}]`];
   if (p.dabs.length < 2 || p.dabs.length % 2) return ["a stroke needs its dabs, as pairs of numbers"];
   if (p.dabs.length > 2 * MAX_DABS) return [`a stroke holds at most ${MAX_DABS} dabs`];
+  if (p.continues !== undefined && p.continues !== true) return ["a stroke's continuation is marked continues: true"];
   if (p.shape !== undefined && p.shape !== "square" && p.shape !== "area") return ["a brush is round, square or an area"];
   if (p.shape === "area" && (!(p.tool === "raise" || p.tool === "lower") || p.dabs.length !== 4)) return ["an area is Raise's or Lower's, its two dabs the rectangle's corners"];
   if (p.shape === "area" && (p.precise || p.pressure !== undefined || p.levels !== undefined || p.channel)) return ["an area has no pressure, precise levels or channel"];
@@ -1262,7 +1387,7 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   for (let k = 0; k < p.dabs.length; k += 2) {
     const x = p.dabs[k];
     const y = p.dabs[k + 1];
-    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= 4 * W || y >= 4 * H) return [`a dab at (${x / 4}, ${y / 4}) is outside the ${W}×${H} map`];
+    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= 4 * W || y >= 4 * H) return [`a dab at X ${x / 4} · Y ${y / 4} is outside the ${W}×${H} map`];
   }
   return [];
 }

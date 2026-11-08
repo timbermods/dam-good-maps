@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { cropObjects, planCrop } from "../../src/core/doc/crop";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { footprintTiles } from "../../src/core/format/footprints";
+import { slope } from "../../src/core/format/entities";
+import { footprintTiles, slopeHighSide } from "../../src/core/format/footprints";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { LAYERS } from "../../src/core/format/world";
 import { validateMap } from "../../src/core/validate/checks";
@@ -18,15 +19,19 @@ import { map, sha, session, timber } from "./gateHelpers";
 const W = 64;
 const crop = (x: number, y: number, w: number, h: number) => ({ op: "crop" as const, params: { x, y, w, h } });
 
-/** A rectangle of the 64² map that holds its start whole, and cuts some other object. */
+/** A rectangle of the 64² map that holds its start and a water source whole (so water stands in it after the crop),
+ *  and cuts some other object. */
 function rectAroundStart(s: MapSession): { x: number; y: number; w: number; h: number } {
   const start = s.built.entities.find((e) => e.template === "StartingLocation")!;
-  for (const [w, h] of [[40, 44], [36, 36], [30, 32], [24, 24]]) {
+  const sources = s.built.entities.filter((e) => e.template === "WaterSource").map((e) => e.id);
+  // (44 × 48 last since generator 0.10.11, the D410 round, D148: the start stands at (7, 29) and the springs at the south edge
+  // and at (48, 49), so no smaller rectangle holds the start and a spring whole)
+  for (const [w, h] of [[40, 44], [36, 36], [30, 32], [24, 24], [44, 48]]) {
     for (let y = 0; y + h <= W; y += 3)
       for (let x = 0; x + w <= W; x += 3) {
         const r = { x, y, w, h };
         const o = cropObjects(s.built.entities, r);
-        if (!o.cutStart && o.kept.includes(start.id) && o.crossing.length > 0) return r;
+        if (!o.cutStart && o.kept.includes(start.id) && sources.some((id) => o.kept.includes(id)) && o.crossing.length > 0) return r;
       }
   }
   throw new Error("no rectangle around the start that cuts an object");
@@ -188,6 +193,55 @@ describe("Crop map to selection: refusals, one line each, and nothing changes", 
   });
 });
 
+describe("Crop map to selection: a slope whose step the new edge cuts is removed, counted", () => {
+  // A slope joins the step its high side climbs to and the ground behind its low side (`slopes.connect`). On the new
+  // edge row, one of those can be past the edge: the slope would join no step, so the edge cuts it like any object.
+  const s = session();
+  const entities = s.built.entities;
+  /** A slope of the map and a rectangle round the start whose new edge runs through the slope's tile, its high
+   *  side or the ground behind it just past the edge. */
+  function slopeOnTheEdge(): { slope: (typeof entities)[number]; r: { x: number; y: number; w: number; h: number } } {
+    for (const e of entities) {
+      if (e.template !== "Slope") continue;
+      const [dx, dy] = slopeHighSide(e.orientation);
+      for (const [ox, oy] of [[dx, dy], [-dx, -dy]]) {
+        const r = oy < 0 ? { x: 0, y: e.y, w: W, h: W - e.y } : oy > 0 ? { x: 0, y: 0, w: W, h: e.y + 1 } : ox < 0 ? { x: e.x, y: 0, w: W - e.x, h: W } : { x: 0, y: 0, w: e.x + 1, h: W };
+        if (planCrop(entities, W, W, r).ok) return { slope: e, r };
+      }
+    }
+    throw new Error("no slope a crop round the start can put on its new edge");
+  }
+  const { slope: cut, r } = slopeOnTheEdge();
+  const plan = planCrop(entities, W, W, r);
+  s.settleCanonical();
+  const result = s.apply(crop(r.x, r.y, r.w, r.h));
+
+  it("is one of the objects the edge cuts, in the plan and in the crop", () => {
+    expect(cropObjects(entities, r).crossing).toContain(cut.id);
+    expect(plan.ok && plan.removed).toContain(cut.id);
+    expect(result.ok).toBe(true);
+    expect(result.removedObjects).toBe(plan.ok && plan.removedObjects);
+    expect(s.built.entities.find((e) => e.id === cut.id)).toBeUndefined();
+  });
+
+  it("so every slope left joins a step, and the cropped file passes the load checks", () => {
+    const file = readTimber(s.exportTimber().bytes);
+    const checks = validateMap(file, { profile: "import", loadOnly: true }).report.checks.filter((c) => c.class === "load");
+    expect(checks.filter((c) => !c.ok).map((c) => `${c.id}: ${c.message ?? ""}`)).toEqual([]);
+  });
+
+  it("a slope climbing from one the edge cuts goes with it (it stood on that slope's step)", () => {
+    // a staircase up toward −y: B at Y 3 (level 2), A above it at Y 2 (level 3) on B's high side; the crop's edge
+    // takes the ground behind B, so B joins nothing, and A, whose foot is B, joins nothing either
+    const b = slope({ id: "b", owner: "import", x: 5, y: 3, z: 2, orientation: "Cw0" });
+    const a = slope({ id: "a", owner: "import", x: 5, y: 2, z: 3, orientation: "Cw0" });
+    const other = slope({ id: "c", owner: "import", x: 8, y: 2, z: 3, orientation: "Cw0" });
+    const o = cropObjects([a, b, other], { x: 0, y: 0, w: 10, h: 4 });
+    expect(o.crossing.sort()).toEqual(["a", "b"]);
+    expect(o.kept).toEqual(["c"]);
+  });
+});
+
 describe("Crop map to selection: an imported map keeps its caves and overhangs", () => {
   /** A generated map's file with a cave under one tile and a ledge, imported. */
   function withCaves(): { s: MapSession; at: { x: number; y: number }[] } {
@@ -222,6 +276,7 @@ describe("Crop map to selection: an imported map keeps its caves and overhangs",
   it("keeps every voxel of its columns, runs included", () => {
     const { s, at } = withCaves();
     expect(s.columns.size).toBeGreaterThanOrEqual(at.length);
+    const columnsBefore = [...s.columns.keys()];
     const before = s.exportFile();
     const start = s.built.entities.find((e) => e.template === "StartingLocation")!;
     const r = { x: Math.max(0, start.x - 20), y: Math.max(0, start.y - 20), w: 44, h: 44 };
@@ -234,7 +289,11 @@ describe("Crop map to selection: an imported map keeps its caves and overhangs",
     expect(voxelsOn(after.world, { x: 0, y: 0, w: r.w, h: r.h }, { rect: r, W, H: W })).toEqual(voxelsOn(before.world, r, { rect: r, W, H: W }));
     const inside = at.filter((p) => p.x >= r.x && p.y >= r.y && p.x < r.x + r.w && p.y < r.y + r.h);
     expect(inside.length).toBeGreaterThan(0);
-    expect([...s.columns.keys()].sort((a, b) => a - b)).toEqual(inside.map((p) => (p.y - r.y) * r.w + p.x - r.x).sort((a, b) => a - b));
+    // (every column that stood inside the rectangle stays, at its new tile: the caves made here and the generated map's
+    // own, since this seed's map has natural caves from generator 0.10.6, D498, D148, 13 columns besides these)
+    const stay = columnsBefore.filter((i) => i % W >= r.x && Math.floor(i / W) >= r.y && i % W < r.x + r.w && Math.floor(i / W) < r.y + r.h).map((i) => (Math.floor(i / W) - r.y) * r.w + (i % W) - r.x);
+    for (const p of inside) expect(stay).toContain((p.y - r.y) * r.w + p.x - r.x);
+    expect([...s.columns.keys()].sort((a, b) => a - b)).toEqual(stay.sort((a, b) => a - b));
     // the cave is still a cave in the exported file
     for (const p of inside) {
       const i = (p.y - r.y) * r.w + p.x - r.x;
@@ -356,23 +415,33 @@ describe("Crop map to selection: the name", () => {
 });
 
 describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edgeLip.ts)", () => {
-  // seed 4's spring at (12, 50) is a river head 12 tiles in from the west edge: cropped to the west at the
-  // source itself (0 tiles behind the new edge) or one tile before it (1 behind), its water poured off the new
-  // edge on the tiles beside it
+  // seed 1's springs at (23, 63), (24, 63) and (25, 63) are a river head 23 tiles in from the west edge, on the south edge:
+  // cropped to the west at the first source itself (0 tiles behind the new edge) or one tile before it (1 behind), its
+  // water poured off the new edge on the tiles beside it (seed 4's spring at (12, 50) before generator 0.10.6, D498,
+  // D148: the badwater joining the river's lower reach moved the land; seed 1's heads leave the start whole and no
+  // water beside the new edge, with the lip raising ten tiles of it, at both distances; seed 2's springs at (12, 63)
+  // and (13, 63) for generator 0.10.7, D502, D148: the start moved, and a crop to the west at seed 1's springs, (21, 22)
+  // and (22, 22), now cut the start; seed 1's springs at (23, 63) for D502's narrowed maps, D148: the start moved
+  // again and a crop to the west at seed 2's head cuts it; seed 1's river head, 23 tiles in from the west edge on the
+  // south edge, leaves the start whole and no water beside the new edge, with the lip raising ten tiles of it at 0
+  // behind and nine at 1; seed 5's spring 23 tiles in from the west edge for generator 0.10.11's maps, the D410 round, D148:
+  // seed 1's start moved west of its head, so a crop to the west at it cuts the start; seed 5's leaves the start whole and
+  // no water beside the new edge, with the lip raising five tiles of it at both distances)
   it.each([0, 1])("a source %i tile(s) behind the new edge does not pour its water off the map", (behind) => {
-    const original = session(4);
-    const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 12);
+    const original = session(5);
+    const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 23);
     expect(spring.length).toBeGreaterThan(0);
-    const rect = { x: 12 - behind, y: 0, w: W - 12 + behind, h: W };
+    const sy = spring[0].y;
+    const rect = { x: 23 - behind, y: 0, w: W - 23 + behind, h: W };
     expect(cropObjects(original.built.entities, rect).cutStart).toBeNull();
     original.settleCanonical();
-    const s = session(4);
+    const s = session(5);
     s.settleCanonical();
     expect(s.apply(crop(rect.x, rect.y, rect.w, rect.h)).errors).toEqual([]);
     const sources = new Set(s.built.entities.filter((e) => /Source/.test(e.template)).map((e) => e.y * rect.w + e.x));
     const wetBeside: number[] = [];
     let raised = 0;
-    for (let y = 40; y < 60; y++) {
+    for (let y = Math.max(0, sy - 10); y < Math.min(W, sy + 10); y++) {
       const i = y * rect.w;
       if (s.built.heights[i] > original.built.heights[y * W + rect.x]) raised++;
       if (!sources.has(i) && s.built.water[i] > 0.02) wetBeside.push(y);

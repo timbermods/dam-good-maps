@@ -11,7 +11,7 @@
 import { bush, entityJson, fluidObject, reserve, ruin, slope, tree, unstableCore, waterSource, type EntitySpec } from "../format/entities";
 import { CORE, defaultStock, FLUIDS, isReserve } from "../data/parity";
 import { F, isObject, JsonFloat, type JsonObject, type JsonValue } from "../format/json";
-import { FOOTPRINTS, footprintTiles, type Orientation } from "../format/footprints";
+import { FOOTPRINTS, footprintTiles, startEntranceTile, type Orientation } from "../format/footprints";
 import { entityId } from "./ids";
 
 export interface PlaceEntityParams {
@@ -190,20 +190,41 @@ export function entityTiles(e: Pick<EntitySpec, "template" | "x" | "y" | "orient
   return footprintTiles(e.template, { template: e.template, x: e.x, y: e.y, z: e.z ?? 0, orientation: e.orientation, flipped: !!e.flipped });
 }
 
-/** The pieces that may ride a brush stroke whole (D249): each source of several tiles (a
- *  BadwaterSource), as its rectangle [x0, y0, x1, y1] on the W × H map. Which of them a stroke
- *  tilted is `tiltedPieces` (raster/brush.ts). */
-export function ridingPieces(entities: readonly EntitySpec[], W: number, H: number): [number, number, number, number][] {
+/** The pieces that may ride a brush stroke whole (D249, D491): each source of several tiles (a
+ *  BadwaterSource) and every other object of several tiles (a mine site, a relic, the start), as its
+ *  rectangle [x0, y0, x1, y1] on the W × H map. The game drops an object whose ground is not level
+ *  under it, so one on open ground rides a stroke level; a natural overhang hangs from a cliff by
+ *  design and does not. With the ground's `heights`, only those nothing roofs (no tile's surface
+ *  above their base): one under a roof in part or whole is held where it stands (`objectHolds`, D491),
+ *  and the roof's top over it is the stroke's to shape. Which of them a stroke tilted is
+ *  `tiltedPieces` (raster/brush.ts). It reads only where each stands (the page passes its mirror's). */
+export function ridingPieces(entities: readonly (Parameters<typeof entityTiles>[0] & { z: number })[], W: number, H: number, heights?: ArrayLike<number>): [number, number, number, number][] {
   const out: [number, number, number, number][] = [];
   for (const e of entities) {
-    if (!FLUIDS[e.template]?.tiles) continue;
-    const cells = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
-    if (cells.length < 2) continue;
-    const xs = cells.map(([x]) => x);
-    const ys = cells.map(([, y]) => y);
-    out.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+    if (e.template.startsWith("NaturalOverhang")) continue;
+    const on = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
+    if (on.length < 2) continue;
+    if (heights && on.some(([x, y]) => heights[y * W + x] > e.z)) continue;
+    const xs = on.map(([x]) => x);
+    const ys = on.map(([, y]) => y);
+    const piece: [number, number, number, number] = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    out.push(e.template === "StartingLocation" ? withDoor(piece, e, W, H, heights) : piece);
   }
   return out;
+}
+
+/** The start's riding piece with the row before its door, whose tile the game needs at the start's level (D491): its
+ *  3 × 3 grown to 3 × 4. As its 3 × 3 when that row leaves the map or a tile of it stands above the start (a roof over
+ *  the door, or higher ground beside it), which levelling the row would cut. */
+function withDoor(piece: [number, number, number, number], e: Parameters<typeof entityTiles>[0] & { z: number }, W: number, H: number, heights?: ArrayLike<number>): [number, number, number, number] {
+  const [dx, dy] = startEntranceTile(e.x, e.y, e.orientation as Orientation);
+  if (dx < 0 || dy < 0 || dx >= W || dy >= H) return piece;
+  const [x0, y0, x1, y1] = piece;
+  const grown: [number, number, number, number] = [Math.min(x0, dx), Math.min(y0, dy), Math.max(x1, dx), Math.max(y1, dy)];
+  if (heights)
+    for (let y = grown[1]; y <= grown[3]; y++)
+      for (let x = grown[0]; x <= grown[2]; x++) if ((x < x0 || x > x1 || y < y0 || y > y1) && heights[y * W + x] > e.z) return piece;
+  return grown;
 }
 
 // ---------------------------------------------------------------------------------- applying
@@ -222,7 +243,7 @@ export function applySlopeEdits(entities: EntitySpec[], edits: readonly SlopeEdi
     const k = list.findIndex((e) => e.template === "Slope" && e.x === x && e.y === y);
     if (ed.op === "removeSlope") {
       if (k < 0) {
-        orphans.push({ seq: ed.seq, reason: `there is no longer a slope at (${x}, ${y})` });
+        orphans.push({ seq: ed.seq, reason: `there is no longer a slope at X ${x} · Y ${y}` });
         continue;
       }
       list = list.filter((_, j) => j !== k);

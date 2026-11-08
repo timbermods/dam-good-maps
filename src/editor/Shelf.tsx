@@ -41,7 +41,8 @@ export function Shelf(p: ShelfProps) {
   latest.current = p;
   const grid = useRef<HTMLDivElement>(null);
   // the picked object's window opens above the list and shortens it: the list scrolls by what it shrank, so the row picked
-  // stays under the pointer (the list never moves, EDITOR_PLAN); a row picked from the keyboard is only kept in view
+  // stays under the pointer (the list never moves, EDITOR_PLAN), or, where the window took its place, just under the list's
+  // title; a row picked from the keyboard is only kept in view
   const rowTop = useRef<{ id: string; top: number } | null>(null);
   useLayoutEffect(() => {
     if (!p.picked) return;
@@ -50,9 +51,18 @@ export function Shelf(p: ShelfProps) {
       const menu = grid.current?.closest<HTMLElement>(".objects-menu");
       if (!row || !menu) return;
       const was = rowTop.current?.id === p.picked ? rowTop.current.top : null;
-      if (was === null) return row.scrollIntoView({ block: "nearest" });
-      const delta = row.getBoundingClientRect().top - was;
-      if (Math.abs(delta) > 0.5) menu.scrollTop += delta;
+      if (was === null) row.scrollIntoView({ block: "nearest" });
+      else {
+        const delta = row.getBoundingClientRect().top - was;
+        if (Math.abs(delta) > 0.5) menu.scrollTop += delta;
+      }
+      // a row the window's opening left no room for where it was (Start, at the list's top) is brought into view, under
+      // the list's title, which stays at its top as the rows scroll under it
+      const r = row.getBoundingClientRect();
+      const top = menu.querySelector(".shelf-title")?.getBoundingClientRect().bottom ?? menu.getBoundingClientRect().top;
+      const bottom = menu.getBoundingClientRect().bottom;
+      if (r.top < top - 0.5) menu.scrollTop -= top - r.top;
+      else if (r.bottom > bottom + 0.5) menu.scrollTop += r.bottom - bottom;
     };
     settle();
     // (the window's own height may settle a frame later)

@@ -193,12 +193,12 @@ describe("Fill (D387 (3), D394)", () => {
     expect(lake.contamination.every((c) => c === 0)).toBe(true);
     // the rim is at 6: a fill to 6 is still the pit; past 6 it would run over the plateau and off the map
     expect((fillLake(m, 8, 23, 6) as { lake: RetainedWater }).lake.tiles).toEqual(pitFar);
-    expect(fillLake(m, 8, 23, 6.5)).toEqual({ reason: "at level 6.5 the water would spill off the map at (0, 23): the hollow doesn't hold it" });
-    expect(fillLake(m, 8, 23, 3)).toEqual({ reason: "level 3 is at or below the ground at (8, 23), which stands at 3" });
-    expect(fillLake(m, 8, 23, 2)).toEqual({ reason: "level 2 is at or below the ground at (8, 23), which stands at 3" });
-    expect(fillLake(m, 40, 2, 5)).toEqual({ reason: "(40, 2) is off the map" });
+    expect(fillLake(m, 8, 23, 6.5)).toEqual({ reason: "at level 6.5 the water would spill off the map at X 0 · Y 23: the hollow doesn't hold it" });
+    expect(fillLake(m, 8, 23, 3)).toEqual({ reason: "level 3 is at or below the ground at X 8 · Y 23, which stands at 3" });
+    expect(fillLake(m, 8, 23, 2)).toEqual({ reason: "level 2 is at or below the ground at X 8 · Y 23, which stands at 3" });
+    expect(fillLake(m, 40, 2, 5)).toEqual({ reason: "X 40 · Y 2 is off the map" });
     // a trench open to the map edge never holds water
-    expect(fillLake(m, 10, 15, 4)).toEqual({ reason: "at level 4 the water would spill off the map at (31, 15): the hollow doesn't hold it" });
+    expect(fillLake(m, 10, 15, 4)).toEqual({ reason: "at level 4 the water would spill off the map at X 31 · Y 15: the hollow doesn't hold it" });
     // water already standing at the level
     const depth = new Float64Array(W * H);
     for (const i of pitFar) depth[i] = 2;

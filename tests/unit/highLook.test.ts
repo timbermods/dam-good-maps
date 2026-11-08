@@ -9,16 +9,15 @@
 
 import { describe, expect, it } from "vitest";
 import { DataTexture, InstancedBufferAttribute, PerspectiveCamera, ShaderMaterial } from "three";
-import { fallMaterial, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
+import { objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 import { entityView, surfaceWater, waterFromDepth, DEAD } from "../../src/render3d/model";
 import { allEffects, effectiveEffects, effectsFrom, HIGH_EFFECTS, LOWER_COST_DROPS } from "../../src/render3d/high/effects";
 import { LIMITS, LookGovernor, startTier } from "../../src/render3d/high/fallback";
-import { roughWater, surfaceContamination } from "../../src/render3d/high/flow";
-import { FLOW_DISPLAY } from "../../src/render3d/high/bake";
+import { surfaceContamination } from "../../src/render3d/high/flow";
 import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { Forest, isPlant, replacedBatch } from "../../src/render3d/high/forest";
 import { buildLandmarks, landmarkKind } from "../../src/render3d/high/landmarks";
-import { fallHooks, GRADE_GLSL, landmarkHooks, objectHooks, skyHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
+import { landmarkHooks, objectHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks } from "../../src/render3d/high/shaders";
 import { buildEntities } from "../../src/render3d/entities3d";
 
 const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
@@ -31,7 +30,6 @@ describe("the Standard look's shaders", () => {
       const u = U();
       expect(source(terrainMaterial(u, 0, 1, lite, {}))).toBe(source(terrainMaterial(u, 0, 1, lite)));
       expect(source(waterMaterial(u, lite, {}))).toBe(source(waterMaterial(u, lite)));
-      expect(source(fallMaterial(u, lite, {}))).toBe(source(fallMaterial(u, lite)));
       expect(source(objectMaterial(u, lite, {}))).toBe(source(objectMaterial(u, lite)));
     }
     expect(source(skyMaterial({}))).toBe(source(skyMaterial()));
@@ -39,7 +37,7 @@ describe("the Standard look's shaders", () => {
 
   it("hold none of the High look's code", () => {
     const u = U();
-    for (const m of [terrainMaterial(u, 0, 1), waterMaterial(u), fallMaterial(u), objectMaterial(u), skyMaterial(), terrainMaterial(u, 0, 1, true)]) {
+    for (const m of [terrainMaterial(u, 0, 1), waterMaterial(u), objectMaterial(u), skyMaterial(), terrainMaterial(u, 0, 1, true)]) {
       const s = source(m);
       expect(s).not.toMatch(/\bhl[A-Z]\w*|bakedSunLit|measuredSurfaceWater|vegPalette|ambientVisibility/);
     }
@@ -52,10 +50,8 @@ describe("the High look's shaders", () => {
     const cases: [ShaderMaterial, ReturnType<typeof terrainHooks>][] = [
       [terrainMaterial(u, 0, 1, false, terrainHooks()), terrainHooks()],
       [waterMaterial(u, false, waterHooks()), waterHooks()],
-      [fallMaterial(u, false, fallHooks()), fallHooks()],
       [objectMaterial(u, false, objectHooks()), objectHooks()],
       [objectMaterial(u, false, vegetationHooks(9)), vegetationHooks(9)],
-      [skyMaterial(skyHooks()), skyHooks()],
     ];
     for (const [m, hooks] of cases) {
       const s = source(m);
@@ -74,30 +70,38 @@ describe("the High look's shaders", () => {
     const top = terrainHooks().groundTop!;
     expect(top).not.toContain("groundColor(");
     expect(top).toContain("ground = mix(ground, groundDry, polluted);");
-    expect(top).toContain("glow = mix(glow, groundDryGlow, polluted);");
     // (High works the veins out under water too, for the bed; Standard, which has no bed, does not)
     const s = terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader;
-    expect(s).toContain("if (bad > 0.0) vein = veinsOf(veinQ, veinWidth, lvl) * bad;");
+    expect(s).toContain("groundDry = mix(c, soilPattern.rgb, vein);");
   });
 
-  it("follow Timberborn's references (D334): exposure 1.00, and badwater's own cues, pink highlights moving with the current, slow bubbles and red contact at rock", () => {
-    // exposure 1.00 (from 1.22), with no grass-only hold-down beside it
-    expect(GRADE_GLSL).toContain("if (hlTone > 0.5) c = hlShoulder(c);");
-    expect(GRADE_GLSL).not.toMatch(/c \* 1\.2/);
-    expect(Object.values(terrainHooks()).join("\n")).not.toMatch(/moist \* hlTone/);
-    // the water's highlights are advected in two phases along the current, pink where it is bad;
-    // bubbles rise in badwater; its edge glows red where it meets the rock (the game's cues, not a
-    // pattern of our own: no density or contrast is asked of them)
+  it("follow the game (D496, D497): its finish, its surface carried by the current, and badwater's own cues, slow bubbles and red contact at rock", () => {
+    // (D497: High's own tone curve, grade and haze gave way to the game's fog and post chain, every look's)
+    const all = [terrainHooks(), waterHooks(), objectHooks(), landmarkHooks()].map((h) => Object.values(h).join("\n")).join("\n");
+    expect(all).not.toMatch(/hlTone|hlGrade|hlHaze|hlGradeColour/);
+    // (the look fogged and graded, then the editing aids after it: D497)
+    expect(terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader).toContain("c = finishLit(c, emission, vWorld);");
+    // the surface is the Standard one's sample, carried by the current in the game's two phases (Q9 P5), its normal
+    // the flow's (P11); badwater's pattern rides the same phases (Q9 P9: its base colour by the pattern's R, its
+    // emissive detail by its G; D148: these were our own troughs, patches and bubbles); its edge glows red where it meets
+    // the rock (the game's cues, not a pattern of our own: no density or contrast is asked of them)
     const s = waterMaterial(U(), false, waterHooks()).fragmentShader;
-    expect(s).toContain("vec2 p = g - drift * (phase * 12.0), p2 = g - drift * (second * 12.0) + vec2(19.13, 7.71);");
-    expect(s).toContain("vec3 networkColour = mix(vec3(0.34, 0.61, 0.73), vec3(0.85, 0.43, 0.43), contamination);");
-    expect(s).toContain("colour = mix(colour, networkColour, clamp(highlights, 0.0, 0.82));");
-    expect(s).toMatch(/float bubbles = fine \* smoothstep\(/);
-    expect(s).toContain("colour += vec3(0.26, 0.035, 0.008) * contamination * (1.0 - smoothstep(0.0, 0.32, shore));");
+    expect(s).toContain("waterPhases(g, flow, t, pa, pb, pw);");
+    expect(s).toContain("vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, albedo, bpat, hlSmooth);");
+    expect(s).toContain("float tint = waterTint(contamination);");
+    expect(s).toContain("vec3 badEmission = gameBadwaterEmission(contamination, bpat.y, g);");
+    expect(s).toContain("colour += badEmission;");
+    // the clear water's veil (T) keeps High's own badwater, lit, with its glowing lines, never Standard's (#832's review)
+    expect(s).toContain("hlBadLit = badBody * shade + badEmission;");
+    expect(s).toContain("clearBad = hlBadLit;");
+    expect(s).toContain("clearBad = faceBad * faceLight;");
+    expect(s).not.toContain("hlBadwaterBubbles");
+    // the red at rock is the game's own glow of shallow water partly bad (waterPalette.ts badwaterGlow)
+    expect(s).toContain("badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);");
   });
 
   it("have a switch for each effect that needs one in a shader", () => {
-    const all = [terrainHooks(), waterHooks(), fallHooks(), objectHooks(), landmarkHooks(), skyHooks()].map((h) => Object.values(h).join("\n")).join("\n");
+    const all = [terrainHooks(), waterHooks(), objectHooks(), landmarkHooks()].map((h) => Object.values(h).join("\n")).join("\n");
     for (const k of SWITCHES) expect(all, k).toContain(k);
   });
 });
@@ -114,10 +118,10 @@ describe("the effects", () => {
   });
 
   it("lose only what the lower-cost tier drops, and keep the player's own switches", () => {
-    const chosen = { ...allEffects(), haze: false };
+    const chosen = { ...allEffects(), strata: false };
     const lower = effectiveEffects(chosen, true);
     for (const k of LOWER_COST_DROPS) expect(lower[k]).toBe(false);
-    expect(lower.haze).toBe(false);
+    expect(lower.strata).toBe(false);
     expect(lower.water).toBe(true);
     expect(effectiveEffects(chosen, false)).toEqual(chosen);
   });
@@ -246,23 +250,6 @@ describe("the water's flow (the settle's own current, D353)", () => {
     for (let x = 0; x < W; x++) expect(c[1 * W + x]).toBe(0);
   });
 
-  it("finds no rough water in a gentle river, and some below a fall", () => {
-    const { W, H, heights, sw } = scene();
-    const drawn = (s: ReturnType<typeof surfaceWater>) => surfaceCurrent(W, H, s).map((v) => v * FLOW_DISPLAY);
-    const calm = roughWater(W, H, heights, sw, drawn(sw));
-    expect(calm.counts.falls).toBe(0);
-    // a fall: the channel's east half a level and a half lower
-    const h2 = heights.slice();
-    const d2 = new Float32Array(W * H);
-    for (let x = 0; x < W; x++)
-      for (const y of [1, 2]) {
-        h2[y * W + x] = x < 6 ? 6 : 4;
-        d2[y * W + x] = 0.6;
-      }
-    const sw2 = surfaceWater(W, H, waterFromDepth(h2, d2, new Float32Array(W * H)));
-    const rough = roughWater(W, H, h2, sw2, drawn(sw2));
-    expect(rough.counts.falls).toBeGreaterThan(0);
-  });
 });
 
 describe("the new trees and bushes (#66)", () => {
@@ -355,7 +342,7 @@ describe("the forest kept when the plants are the same (a source placed among th
     expect(f.reindex(entityView([{ ...plants[0], x: 4 }, plants[1], plants[2]]))).toBe(false);
     expect(f.reindex(entityView([plants[0], plants[1], { ...plants[2], young: false }]))).toBe(false);
     expect(f.reindex(entityView([plants[0], plants[1]]))).toBe(false);
-    // (a plant that died is the same plant: `setDead` moves it)
+    // (a plant that died is the same plant: `setState` moves it)
     expect(f.reindex(entityView([{ ...plants[0], dead: true }, plants[1], plants[2]]))).toBe(true);
   });
 });

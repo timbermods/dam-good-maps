@@ -99,6 +99,9 @@ async function hover(page: Page, p: { x: number; y: number }, words: string): Pr
 }
 
 test("objects go where the pointer aims: on a cave's floor through its mouth and under the layer cut, the start refused under a roof too low for it, a relic dragged along the floor; the water flows from the cave and the file carries them at its level", async ({ page }) => {
+  // (its steps take up to 2.5 minutes on CI's software drawing, and the water then has its own 2 minutes to settle at the
+  // end: the test's time holds both, so the water's wait is never cut short by the test's; D341)
+  test.setTimeout(180_000 + 120_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 860 });

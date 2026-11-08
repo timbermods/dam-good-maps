@@ -55,6 +55,11 @@ export const collabEditApi = {
     return { ...(await edit(plan)), plan };
   },
 
+  /** A stair of slopes (core/doc/stair.ts): the core's plan, ordered as one step. */
+  layStair(from: [number, number], to: [number, number]): Promise<Answer> {
+    return edit(ed.planned.stair(from, to));
+  },
+
   async plantAt(template: string, tiles: number[]): Promise<Answer & { planted: number[] }> {
     const p = ed.planned.plant(template, tiles);
     const a = await edit(p);
@@ -82,8 +87,8 @@ export const collabEditApi = {
     return order({ kind: "edit", ops: [p.op], label: p.op.op });
   },
 
-  async removeAt(tiles: readonly number[], kinds: readonly ed.RemoveKind[], label?: string): Promise<Answer & { removed: number[] }> {
-    const p = ed.planned.remove(tiles, kinds, label);
+  async removeAt(tiles: readonly number[], kinds: readonly ed.RemoveKind[], label?: string, cut?: number | null): Promise<Answer & { removed: number[] }> {
+    const p = ed.planned.remove(tiles, kinds, label, cut);
     const a = await edit(p);
     return { ...a, removed: a.ok && p.ok ? p.removed : [] };
   },

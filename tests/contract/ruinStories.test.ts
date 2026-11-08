@@ -9,7 +9,7 @@ import { generate } from "../../src/core/gen/generate";
 import { ruinStories } from "../../src/core/gen/ruinStories";
 import { runsToTiles } from "../../src/core/math/grid";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { terrainColumns } from "../../src/core/terrain/runs";
+import { ColumnTerrain, terrainColumns } from "../../src/core/terrain/runs";
 
 /** Maps that show each story (tools/ruin-stories.ts finds more). */
 const DAM: [ThemeId, number] = ["riverValley", 4];
@@ -37,7 +37,9 @@ describe("ruins placed with meaning", () => {
     const fd = r.field!;
     const ramps: [number, number][] = [];
     for (let k = 0; k + 1 < (fd.ramps ?? []).length; k += 2) ramps.push([fd.ramps![k], fd.ramps![k + 1]]);
-    const field = (): GeneratedField => ({ heights: terrainColumns(fd, W * H).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}) });
+    // (the field as the generator keeps it, its 3D forms' caves and overhangs too, D488: a map that grew some, as this
+    // one did when badwater joined only the river's lower reach, D498, settles its water on them)
+    const field = (): GeneratedField => ({ heights: terrainColumns(fd, W * H).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), ...(fd.runs.length ? { caves: ColumnTerrain.fromData(fd, W, H) } : {}) });
     const without = buildMap({ W, H, seed: r.spec.seed, features: r.features.filter((f) => !(f.kind === "ruinField" && f.params.story)), field: field() });
     const again = buildMap({ W, H, seed: r.spec.seed, features: r.features, field: field() });
     const bytes = (a: Float64Array) => Buffer.from(a.buffer, a.byteOffset, a.byteLength);

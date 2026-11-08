@@ -14,6 +14,7 @@ import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import type { EditOp } from "./ops";
 import { itemName, placeLabel, plantLabel, withArticle } from "./labels";
 import type { MapSession } from "./session";
+import { diesOnSoil, SUCCULENT_MOIST } from "./plantSoil";
 import { makesRoomForStart, START_OPEN_GROUND, startRoofProblem } from "./startFit";
 
 const fail = (...errors: string[]): { ok: false; errors: string[] } => ({ ok: false, errors });
@@ -50,6 +51,12 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
   const { x: W, y: H } = s.size;
   const b = s.built;
   if (p.x < 0 || p.y < 0 || p.x >= W || p.y >= H) return "it is off the map";
+  if (p.template === "Succulent") {
+    // (a succulent dies on moist ground, `plants.survive`'s rule: as a stroke leaves such tiles empty, a click or a move is refused)
+    const i = p.y * W + p.x;
+    const runs = s.runGrounds();
+    if (diesOnSoil("Succulent", { moisture: b.moisture, contamination: b.soilContamination, depth: waterDepth(s), runs }, i, p.z ?? (runs ? b.heights[i] : undefined))) return SUCCULENT_MOIST;
+  }
   if (underRoof(s, p) && !startTurnsInPlace(s, p, ignore)) return roofProblem(s, p, ignore);
   const z = b.heights[p.y * W + p.x];
   const skip = resourceOwners(s);
@@ -221,7 +228,7 @@ export function planEntity(s: MapSession, req: EntityRequest, id: string): Plann
   const op: EditOp = { op: "placeEntity", params: { id, template: req.template, x: req.x, y: req.y, ...(req.z !== undefined ? { z: req.z } : {}), orientation: req.orientation, ...(req.flipped ? { flipped: true } : {}), ...(req.components ? { components: req.components } : {}) } };
   const pool = levelFootprint(s, req);
   const name = req.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
-  return { ok: true, ops: [...pool, op], report: [`a ${name} at (${req.x}, ${req.y})`], label: placeLabel("Place", req.template), tiles: [...new Set(tiles)] };
+  return { ok: true, ops: [...pool, op], report: [`a ${name} at X ${req.x} · Y ${req.y}`], label: placeLabel("Place", req.template), tiles: [...new Set(tiles)] };
 }
 
 /** Plan an object moved by (dx, dy) tiles (D345, B7): the same rules as placing it there, its ground
@@ -243,7 +250,7 @@ export function planMoveEntity(s: MapSession, id: string, dx: number, dy: number
   const level = levelFootprint(s, req, new Set([id]));
   const name = e.template === "UndergroundRuins" ? "mine site" : e.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
   const op: EditOp = { op: "moveEntity", params: { id, x: req.x, y: req.y, ...(req.z !== undefined ? { z: req.z } : {}) } };
-  return { ok: true, ops: [...level, op], report: [`a ${name} moved to (${req.x}, ${req.y})`], label: placeLabel("Move", e.template), tiles: [...new Set(tiles)] };
+  return { ok: true, ops: [...level, op], report: [`a ${name} moved to X ${req.x} · Y ${req.y}`], label: placeLabel("Move", e.template), tiles: [...new Set(tiles)] };
 }
 
 /** The most distance a placement's natural edge reaches past its footprint, in tiles. */

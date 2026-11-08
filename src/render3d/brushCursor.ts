@@ -4,7 +4,7 @@
 // as the cursor moves (a few thousand quads at most, in buffers made once: past a 24-tile radius the
 // disc is laid a few tiles at a time, D322 item 42's brushes up to half the map).
 
-import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, type Scene } from "three";
+import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, type Material, type Scene } from "three";
 import { WATER_UI } from "./palette";
 
 export interface BrushCursorState {
@@ -79,6 +79,11 @@ export class BrushCursor {
     this.plane.visible = false;
     scene.add(this.mesh);
     scene.add(this.plane);
+  }
+
+  /** Its materials (the renderer compiles their programs ahead: a first stroke never waits on a compile, D453). */
+  materials(): Material[] {
+    return [this.mesh.material as Material, this.plane.material as Material];
   }
 
   /** Show the brush at `s` on the terrain `heights` (W × H), or hide it (null). */
@@ -235,6 +240,11 @@ export class ForceRing {
     this.mesh.renderOrder = 7;
     this.mesh.visible = false;
     scene.add(this.mesh);
+  }
+
+  /** Its material (compiled ahead with the brush's, programs.ts). */
+  materials(): Material[] {
+    return [this.mesh.material as Material];
   }
 
   /** Show the ring round (x, y), `r` tiles across its radius, each dash at `level(tx, ty)` (the water's

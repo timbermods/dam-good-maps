@@ -4,7 +4,7 @@
 // where the browser can't save to a folder); everything else in one small menu. Built from the
 // shared buttons and bars (D176).
 
-import type { ComponentChildren } from "preact";
+import { h, type ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../worker/session";
 import type { ImportFlag } from "../core/format/normalize";
@@ -32,6 +32,9 @@ export interface ChecksState {
   flags?: readonly ImportFlag[];
   /** The player removed the map's last badwater spring (D213): "No badwater" under Good to know, not counted. */
   badwaterRemoved?: boolean;
+  /** Easy start (D495): what a map a late rescue round made left short of the full targets, one line under Good to
+   *  know, not counted. */
+  easyShort?: string | null;
 }
 
 /** The dot's tone and words: checking, ready to play, or things to look at. */
@@ -122,12 +125,13 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
             </section>
           ) : null}
           {c && !c.blocking.length && !c.warnings.length && !p.instant.length && !p.flags?.length ? <p class="ok-line">All {c.checks} checks pass.</p> : null}
-          {c?.advisory.length || p.badwaterRemoved ? (
+          {c?.advisory.length || p.badwaterRemoved || p.easyShort ? (
             <section>
               <h3>Good to know</h3>
-              {p.badwaterRemoved ? (
+              {p.badwaterRemoved || p.easyShort ? (
                 <ul>
-                  <li>No badwater</li>
+                  {p.badwaterRemoved ? <li>No badwater</li> : null}
+                  {p.easyShort ? <li class="easy-short">{p.easyShort}</li> : null}
                 </ul>
               ) : null}
               {c?.advisory.length ? <Items items={c.advisory} actions={p.actions} /> : null}
@@ -376,6 +380,8 @@ export interface HeaderProps {
   onChooseFolder(): void;
   onOpenFile(file: File): void;
   onSaveProject(): void;
+  /** File → Save a picture (the map from the game's opening view, large, as a JPEG), where this browser draws in 3D. */
+  onSavePicture?: () => void;
   /** Remove every source, tree, bush, ruin, object and the start (one undo step, D323 item 44). */
   onClearEverything(): void;
   historyOpen: boolean;
@@ -394,12 +400,18 @@ export interface HeaderProps {
   /** The other player in a live or paused session ("paused" while they are away): File wears their dot, and its Together…
    *  entry is there, where the header is too full for Together's own button (below 1,340px wide); absent without Together. */
   togetherEntry?: { role: Role; name: string; paused: boolean; other: boolean } | null;
+  /** File → Record a time-lapse… (D205, D285 (4)), where this browser can make a video: the map's project and its
+   *  history's steps (src/editor/timelapse). */
+  timelapse?: { project(): Promise<{ bytes: Uint8Array; fileName: string }>; steps: number };
 }
 
 export function Header(p: HeaderProps) {
   const [menu, setMenu] = useState(false);
   const fileMenu = useMenuPresence(menu);
   const [about, setAbout] = useState(false);
+  // (the time-lapse's dialog, loaded the first time it is asked for)
+  const [lapse, setLapse] = useState<typeof import("./timelapse/TimelapseDialog").TimelapseDialog | null>(null);
+  const openLapse = () => void import("./timelapse/TimelapseDialog").then((m) => setLapse(() => m.TimelapseDialog));
   /** The core's refusal of a name, said in the title's second line. */
   const [problem, setProblem] = useState<string | null>(null);
   /** The shown name is cut to its two lines (an ellipsis): its tooltip then says it whole. */
@@ -511,7 +523,25 @@ export function Header(p: HeaderProps) {
       <div class="editor-title">
         <TitleName name={p.name} described={p.info.descriptionWritten ? p.info.description : ""} kept={p.info.descriptionKept} onDescribe={p.onDescribe} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} locked={p.renameLocked} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
-          {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed}${p.info.spec.variation ? ` · ${p.info.spec.variation}` : ""} · ` : ""}${p.info.W}×${p.info.H}`}
+          {problem ||
+            p.saveState || (
+              <>
+                {`${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed}${p.info.spec.variation ? ` · ${p.info.spec.variation}` : ""} · ` : ""}${p.info.W}×${p.info.H}`}
+                {/* (Easy start, D495: said as it is; a map a late rescue round made says what fell short) */}
+                {p.info.kind === "generated" && p.info.spec?.settings.start.easyStart ? (
+                  p.info.easyShort ? (
+                    <>
+                      {" · "}
+                      <span class="easy-short" {...tip(p.info.easyShort)}>
+                        Easy start (fell short)
+                      </span>
+                    </>
+                  ) : (
+                    " · Easy start"
+                  )
+                ) : null}
+              </>
+            )}
         </span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
@@ -578,6 +608,20 @@ export function Header(p: HeaderProps) {
                   </button>
                 </li>
               ) : null}
+              {p.timelapse ? (
+                <li role="none">
+                  <button type="button" role="menuitem" {...tip("Save a video of how the map was built")} onClick={pick(openLapse)}>
+                    Record a time-lapse…
+                  </button>
+                </li>
+              ) : null}
+              {p.onSavePicture ? (
+                <li role="none">
+                  <button type="button" role="menuitem" {...tip("Save a picture of the map to share")} onClick={pick(p.onSavePicture)}>
+                    Save a picture
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
                 <button type="button" role="menuitem" title="Take away every object; the land stays" onClick={pick(p.onClearEverything)}>
                   Clear everything
@@ -622,6 +666,7 @@ export function Header(p: HeaderProps) {
         </div>
       </div>
       {about ? <About onClose={() => setAbout(false)} /> : null}
+      {lapse && p.timelapse ? h(lapse, { project: p.timelapse.project, steps: p.timelapse.steps, onClose: () => setLapse(null) }) : null}
       <HelpPanels />
     </header>
   );

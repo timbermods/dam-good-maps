@@ -4,6 +4,7 @@ import { transfer } from "comlink";
 import { useRef } from "preact/hooks";
 import type { EditOp } from "../../core/doc/ops";
 import type { Orientation } from "../../core/format/footprints";
+import { ridingPieces } from "../../core/features/edits";
 import { groundUnderObjects } from "../../core/features/raster/objectGround";
 import { FLIPPED, ORIENTATION_NAMES, surfaceWater } from "../../render3d/model";
 import type { MapRenderer, ViewState } from "../../render3d";
@@ -11,8 +12,8 @@ import { Juice, type StrokeSound } from "../juice";
 import { selectTool } from "../select";
 import { BRUSH_NAMES, BrushPainter, hasTarget, sizeMax, targetWords } from "../brushes";
 import { tilesToRuns } from "../../core/math/grid";
-import { sourcesPressed } from "../sourceSpots";
-import type { BrushParams } from "../../core/features/raster/brush";
+import { isSource, sourcesPressed } from "../sourceSpots";
+import { WET_DEPTH, type BrushParams } from "../../core/features/raster/brush";
 import type { Ed } from "../ed";
 
 export interface ReadySlice {
@@ -29,6 +30,20 @@ export function useReady(ed: Ed): ReadySlice {
     grabSource, wheelSource, markerRef, setStartHint, hintRef, hintJob, lookForStartRef, pointerWords, flashNote,
     wheelHabit, pickTile
   } = ed;
+
+  /** Why a Naturalize stroke weathered nothing (showcase-craft gap 23): moist ground keeps its height (weather.ts,
+   *  rule 3: farmland is never lost), so a stroke over moist soil, an island in a lake, changes nothing. */
+  function nothingWeathered(dabs: readonly number[]): string {
+    const W = infoRef.current.W;
+    const moisture = mirror.current.soil?.moisture;
+    const depth = mirror.current.water?.depth;
+    let moist = 0;
+    for (let k = 0; k + 1 < dabs.length; k += 2) {
+      const i = Math.floor(dabs[k + 1] / 4) * W + Math.floor(dabs[k] / 4);
+      if ((moisture?.[i] ?? 0) > 0 && !((depth?.[i] ?? 0) > WET_DEPTH)) moist++;
+    }
+    return dabs.length && moist * 4 >= dabs.length ? "Moist ground keeps its height: weather dry land" : "Nothing here to weather";
+  }
 
   /** Sources: Clear (D249, D322): the sources under the ring glow red before the stroke reaches them,
    *  and those it has passed over stay red until it is let go. */
@@ -72,6 +87,14 @@ export function useReady(ed: Ed): ReadySlice {
   }
   /** The brush out clears the sources it passes over (Sources: Clear, D322). */
   const clears = () => !!brushToolRef.current && brushRef.current.sources[brushToolRef.current] === "clear";
+  /** The map's objects as the core reads where they stand (template, tile, level, orientation, flip), from the page's
+   *  mirror. */
+  function objectList() {
+    const e = mirror.current.entities;
+    const list = [];
+    for (let k = 0; k < e.count; k++) list.push({ template: e.templates[e.template[k]], x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 });
+    return list;
+  }
   function endClearGlow() {
     clearing.current = null;
     glowCorners.current = [];
@@ -111,11 +134,15 @@ export function useReady(ed: Ed): ReadySlice {
         if (stroke.params.tool === "flatten") void done.then(() => lookForStartRef.current(stroke.params));
       },
       // a stroke that changed no ground still takes the sources it pressed with Clear sources on
-      // (item 15: a Flatten at the ground's own level or a Smooth over flat land left them), one step
+      // (item 15: a Flatten at the ground's own level or a Smooth over flat land left them), one step;
+      // a Naturalize stroke that weathered nothing says why beside the pointer (showcase-craft gap 23)
       unchanged: (params) => {
         const clear = clears() ? sourcesPressed(spots(), params, params.dabs, infoRef.current.W).filter((c) => ed.inArea(c.tiles)) : [];
         endClearGlow();
-        if (!clear.length) return;
+        if (!clear.length) {
+          if (params.tool === "naturalize") flashNote(nothingWeathered(params.dabs), undefined, 2500);
+          return;
+        }
         firstDoneRef.current("paint");
         void run(
           () => api.strokeClearing({ op: "brush", params }, BRUSH_NAMES[params.tool], clear.flatMap((c) => c.tiles)),
@@ -130,17 +157,20 @@ export function useReady(ed: Ed): ReadySlice {
       },
       footprints: () => ed.objectFootprints(),
       // sources ride a stroke's ground (D249): a 3 × 3 one whole and level (with Keep they stay, with
-      // Clear they go, D322)
-      rides: () => (brushToolRef.current && brushRef.current.sources[brushToolRef.current] === "ride" ? spots().filter((c) => c.tiles.length > 1 && ed.inArea(c.tiles)).map((c) => c.rect) : []),
+      // Clear they go, D322); every other object of several tiles rides it level too, a mine site, a relic, the start
+      // (D491, amended 2026-10-29: the game drops one whose ground is not level), as the session levels it
+      // (`ridingPieces`), so the stroke shows what it makes
+      rides: (start) => {
+        const t = brushToolRef.current;
+        if (!t) return [];
+        const sources = brushRef.current.sources[t] === "ride" ? spots().filter((c) => c.tiles.length > 1 && ed.inArea(c.tiles)).map((c) => c.rect) : [];
+        const { W, H } = infoRef.current;
+        return [...sources, ...ridingPieces(objectList().filter((o) => !isSource(o.template)), W, H, start)];
+      },
       // Keep (D322): every source's own tiles
       sourceGround: () => tilesToRuns([...new Set(spots().flatMap((c) => c.tiles))].sort((a, b) => a - b), infoRef.current.W),
       // Naturalize leaves the ground under every source and object as it is (D368 (8))
-      objectGround: () => {
-        const e = mirror.current.entities;
-        const list = [];
-        for (let k = 0; k < e.count; k++) list.push({ template: e.templates[e.template[k]], x: e.x[k], y: e.y[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 });
-        return groundUnderObjects(list);
-      },
+      objectGround: () => groundUnderObjects(objectList()),
       maxSize: () => sizeMax(infoRef.current.W, infoRef.current.H),
       // a mode's water (D322): the map's own, never a drought's or a badtide's shown now
       water: () => (weatherRef.current ? surfaceWater(infoRef.current.W, infoRef.current.H, mirror.current.mapWater).surface : (mirror.current.water?.surface ?? null)),
@@ -210,7 +240,9 @@ export function useReady(ed: Ed): ReadySlice {
     // seen ground is the tile's top)
     r.grab = (top, ev) => {
       const hit = r.pickSeen(ev.clientX, ev.clientY) ?? top;
-      return grabSource(hit, ev) ?? ed.startCalls.current.grabStart(hit) ?? ed.grabObjectRef.current(hit);
+      // (the start's house stands in front of the ground seen behind it: a press on it takes the start)
+      const house = ed.startCalls.current.houseAt(ev.clientX, ev.clientY);
+      return (house && ed.startCalls.current.grabStart(hit, house)) || (grabSource(hit, ev) ?? ed.startCalls.current.grabStart(hit) ?? ed.grabObjectRef.current(hit));
     };
     r.onWheel = (ev, hit) => wheelHabit(ev) || wheelSource(ev, hit);
     // a click with no tool out: a water or badwater source is picked, its strength and its water to

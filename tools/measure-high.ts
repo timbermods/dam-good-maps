@@ -7,9 +7,9 @@
 //   npx tsx tools/measure-high.ts [--port 4941] [--seconds 5] [--only generated,busy] [--configs 1,2,3]
 //     [--dpr 2] [--tag -dpr2] [--headless] [--season drought|badtide]
 //
-// With --season, the day-by-day view is held on that hazard's last day first (the Weather view, D250's seasons: dry ground and
-// straw, heat shimmer, the badtide's sky, the plants withered) and the configurations are Standard, High with every effect,
-// High's lower-cost tier, and High with the seasons' effects off.
+// With --season, the day-by-day view is held on that hazard's last day first (the Weather view, D250's seasons as amended: the
+// day's ground, the haze's fog colour, the plants withered) and the configurations are Standard, High with every effect and
+// High's lower-cost tier.
 //
 // It opens the installed Chrome headed (real vsync; nothing is played), builds the site from this
 // checkout, and writes .scratch/measure-high.json (gitignored) and a table on stdout. The camera
@@ -45,9 +45,8 @@ const MAPS = [
 
 /** The High effects of each part (render3d/high/effects.ts), for the stages' costs. */
 const STAGE1 = ["geology", "soilCap", "section"];
-const STAGE2 = ["crown", "landing", "bubbles", "mist", "rings", "roughWater"];
 const STAGE3 = ["landmarks", "objectDetail"];
-const ALL_FINISH = [...STAGE1, ...STAGE2, ...STAGE3];
+const ALL_FINISH = [...STAGE1, ...STAGE3];
 
 interface Config {
   id: string;
@@ -62,7 +61,6 @@ const CONFIGS: Config[] = [
   { id: "High, lower-cost tier", tier: "lower", off: [] },
   { id: "High foundation (#38, #65, #66)", tier: "high", off: ALL_FINISH },
   { id: "foundation + stage 1 (edge)", tier: "high", off: ALL_FINISH.filter((k) => !STAGE1.includes(k)) },
-  { id: "foundation + stage 2 (water finish)", tier: "high", off: ALL_FINISH.filter((k) => !STAGE2.includes(k)) },
   { id: "foundation + stage 3 (landmarks)", tier: "high", off: ALL_FINISH.filter((k) => !STAGE3.includes(k)) },
 ];
 
@@ -71,7 +69,6 @@ const SEASON_CONFIGS: Config[] = [
   { id: "Standard", tier: "standard", off: [] },
   { id: "High, every effect (seasons on)", tier: "high", off: [] },
   { id: "High, lower-cost tier", tier: "lower", off: [] },
-  { id: "High, seasons' effects off", tier: "high", off: ["dryGround", "heat", "badtideSky"] },
 ];
 
 const pct = (a: number[], p: number) => (a.length ? [...a].sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor(p * a.length))] : 0);

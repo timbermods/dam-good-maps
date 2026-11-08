@@ -366,10 +366,12 @@ export function describeTile(c: TileContext, x: number, y: number): string {
   const wet = c.water.surface[i] === c.water.surface[i] && d > 0.001;
   const deep = d < 0.1 ? d.toFixed(2) : d.toFixed(1);
   if (c.editor) {
-    // the editor: water, not a river; its depth, its bed, and how much of it is bad
+    // the editor: water, not a river; its level (a lake's, read in one tile: showcase-craft gap 19), its depth, its
+    // bed, and how much of it is bad
     if (wet) {
       const cont = c.water.contamination[i];
-      parts.push(`${cont >= 0.95 ? "badwater" : "water"} ${deep} deep`, `bed level ${c.heights[i]}`);
+      const level = (Math.round((c.heights[i] + d) * 10) / 10).toFixed(1);
+      parts.push(`${cont >= 0.95 ? "badwater" : "water"} at level ${level}`, `${deep} deep`, `bed level ${c.heights[i]}`);
       if (cont > 0.05 && cont < 0.95) parts.push(`${Math.round(cont * 100)}% badwater`);
     } else {
       parts.push(`height ${c.heights[i]}`);
@@ -915,13 +917,20 @@ export function shortStrengthWords(words: string): string {
   return m ? `${m[1]} of ${m[2]} ${m[3]}` : words;
 }
 
+/** Whether tile `i`'s uppermost water stands on the tile's top (`heights`), not in a cave under its roof. */
+export function waterOnTop(water: SurfaceWater, heights: ArrayLike<number>, i: number): boolean {
+  return water.floor[i] >= heights[i] - 0.01;
+}
+
 /** The groups whose water reaches the wet tile (x, y): from it, upstream through the water, over
  *  tiles whose surface is no lower than the one before (a river's upper reach, a whole pool, never
- *  a tributary that joins below). Null when the tile is dry. */
-export function feedingGroups(water: SurfaceWater, groups: readonly SourceGroup[], W: number, H: number, x: number, y: number, limit = 40000): number[] | null {
+ *  a tributary that joins below). Null when the tile is dry, or, given the tiles' tops, when its water lies in a
+ *  cave under the roof pointed at. */
+export function feedingGroups(water: SurfaceWater, groups: readonly SourceGroup[], W: number, H: number, x: number, y: number, limit = 40000, heights?: ArrayLike<number>): number[] | null {
   const start = y * W + x;
   const wet = (i: number) => water.depth[i] > 0.02 && water.surface[i] === water.surface[i];
-  if (!wet(start)) return null;
+  // (a roof over a cave's water is dry ground: its water is under it, not where the pointer is)
+  if (!wet(start) || (heights && !waterOnTop(water, heights, start))) return null;
   const byTile = new Map<number, number>();
   groups.forEach((g, k) => g.tiles.forEach((t) => byTile.set(t, k)));
   const seen = new Uint8Array(W * H);

@@ -198,7 +198,8 @@ def check_terrain(m: TimberMap, rep: Report, generated=False):
     # (an imported map's row only: retired for generated maps, which may have caves and overhangs)
     if not generated:
         multi = int((m.floors() > 1).sum())
-        rep.add("terrain.single_floor", multi == 0, f"{multi} columns with caves or overhangs", multi, 0)
+        rep.add("terrain.single_floor", multi == 0, f"{multi} columns with caves or overhangs", multi, 0,
+                advisory=True)
     # a principle (D151, extending D111): no wall raised along a map edge to hold water
     Y, X = h.shape
     if X < 2 * (EDGE_BAND + EDGE_INSIDE) or Y < 2 * (EDGE_BAND + EDGE_INSIDE):

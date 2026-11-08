@@ -81,7 +81,7 @@ describe("Fill water and Remove unfed water on a cave import", () => {
     const [floor, roof] = CAVE.air;
     // the cave is sealed: water stands in it no higher than its roof, and a level on the ground above is another hollow
     expect(planFill(s, 17, 17, roof + 1, floor).reason).toBe(`the hollow is closed above at level ${roof}: fill it to ${roof} or lower`);
-    expect(planFill(s, 17, 17, roof + 3).reason).toMatch(/^at level 9 the water would spill off the map at \(\d+, \d+\): the hollow doesn't hold it$/);
+    expect(planFill(s, 17, 17, roof + 3).reason).toMatch(/^at level 9 the water would spill off the map at X \d+ · Y \d+: the hollow doesn't hold it$/);
     // filled to its roof, where it would spill: by default from the cave, the tile's highest column below the level
     const p = planFill(s, 17, 17, roof);
     expect(p.reason).toBeNull();
@@ -207,7 +207,9 @@ describe("Fill water and Remove unfed water on a cave import", () => {
 });
 
 describe("Fill water and Remove unfed water on a generated map with a Block dig", () => {
-  const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
+  // (seed 12 since generator 0.10.6, D498, D148: seed 3's River Valley has no level, dry patch for the pit any more
+  // (`levelPatch`), nor seeds 2, 4, 5, 8–10 and 13–14; seed 12's is at (17, 18), level 11; seed 6 for generator 0.10.7, D502, D148: seed 12 has none now, nor has any of seeds 1–5, 7–27, 29–31, 33–37 and 39–40 but 28, 32 and 38; seed 6's is at (33, 20), level 16)
+  const r = generate(makeSpec({ seed: 6, theme: "riverValley", size: { x: 64, y: 64 } }));
 
   it("a pit and the hollow under its edge fill to the pit's rim, the hollow full under pressure; removed, both are dry; undo, redo and reopen are byte-exact", () => {
     const s = MapSession.fromGenerated(r, r.file);

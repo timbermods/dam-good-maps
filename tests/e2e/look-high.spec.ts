@@ -33,6 +33,11 @@ async function open(page: Page, errors: string[]): Promise<void> {
 
 const look = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.look);
 
+/** The page has opened in High: the look is set once High's programs have compiled, in the background after the map
+ *  opens (renderer.ts applyLook, highProgramsReady), so until then it still reads "standard" (D341: a race, never
+ *  read once). */
+const opensHigh = (page: Page) => expect.poll(() => look(page), { timeout: 60_000 }).toBe("high");
+
 /** Draw `n` frames now (each counts toward the automatic choice). */
 const frames = (page: Page, n: number) =>
   page.evaluate(async (k) => {
@@ -45,7 +50,7 @@ const frames = (page: Page, n: number) =>
 test("High is the default where it can be drawn, and the look's menu switches it, remembered", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
-  expect(await look(page)).toBe("high");
+  await opensHigh(page);
   const button = page.getByRole("button", { name: "Look: High" });
   await expect(button).toBeVisible();
   await button.click();
@@ -122,6 +127,9 @@ test("the Standard look is the same after High as before it", async ({ page }) =
       return { key: k, share: n / px.length, max, size: `${g.drawingBufferWidth}x${g.drawingBufferHeight}` };
     }, key);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard"));
+  // (the patterns are made in the bake worker after the view opens, flat at their means until then: made before the
+  // first frame, so none lands between the frames compared)
+  await page.evaluate(() => window.dgm3d!.renderer.patternsMade());
   // (the view settles its size first: the legend beside it lays out after the map. Watched in the page until neither
   // the canvas's box nor its pixels have changed for half a second: on a busy page (CI's software GL) a round trip to
   // the page can take a second or two, and a poll of two reads with a wait between them spent its 5 seconds on one try,
@@ -165,7 +173,10 @@ test("the Standard look is the same after High as before it", async ({ page }) =
   // twice can differ on the water by a few levels (dev's build too), so each pair is held to that,
   // never to the other pair's noise (a quiet first pair would fail a noisier second one)
   for (const s of [again, after]) expect(s.max, s.key).toBeLessThanOrEqual(NOISE);
-  expect(high.share).toBeGreaterThan(0.2);
+  // (High was drawn between them: its own effects, its shadows, water and models, change the frame. Since the game's
+  // sky is every look's (D497), the sky behind the map, most of the 0.2 this was held to, no longer differs; High's own
+  // effects change about 0.057 of the channel values on this frame, RTX 2070 SUPER)
+  expect(high.share).toBeGreaterThan(0.03);
   expect(errors).toEqual([]);
 });
 
@@ -176,7 +187,7 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   test.setTimeout(300_000);
   const errors: string[] = [];
   await open(page, errors);
-  expect(await look(page)).toBe("high");
+  await opensHigh(page);
   await page.waitForTimeout(500);
   // quick frames: High stays
   await page.evaluate(() => window.dgm3d!.renderer.simulateFrameCost(6));
@@ -210,9 +221,11 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   expect(errors).toEqual([]);
 });
 
-test("contamination draws the game's orange-red veins over dry earth and over grass, more with more, and clears exactly, in Standard and High (D334)", async ({ page }) => {
+test("contamination draws the game's rusty veins over dry earth and over grass, the same at any level, and clears exactly, in Standard and High (D334, D154 as amended 2026-11-07)", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
+  // (the pattern is made in the bake worker after the view opens, flat at its mean until then)
+  await page.evaluate(() => window.dgm3d!.renderer.patternsMade());
   for (const choice of ["standard", "high"] as const) {
     const result = await page.evaluate((c) => {
       const r = window.dgm3d!.renderer;
@@ -220,11 +233,18 @@ test("contamination draws the game's orange-red veins over dry earth and over gr
       const s = r.mapState()!;
       const kept = s.soil!;
       const N = s.W * s.H;
+      // close over the map's highest ground (dry land, never under water), where a tile spans many pixels and the
+      // cracks show as cracks: from the opening view they are under a pixel wide and average to the pattern's mean,
+      // as the game's do from afar (D154 as amended 2026-11-07)
+      let top = 0;
+      for (let i = 1; i < N; i++) if (s.heights[i] > s.heights[top]) top = i;
+      const tx = top % s.W, ty = Math.floor(top / s.W);
+      const view = { mode: "orbit" as const, yaw: 0.6, pitch: (60 * Math.PI) / 180, distance: 9, target: [tx + 0.5, s.heights[top], -(ty + 0.5)] as [number, number, number] };
       /** The frame at a held moment with every tile's soil set, read back. */
       const frame = (moisture: number, level: number) => {
         r.updateSoil({ moisture: new Uint8Array(N).fill(moisture), contamination: new Uint8Array(N).fill(level) });
         r.setClock(12.5);
-        r.resetView();
+        r.setView(view);
         r.renderNow();
         const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
         const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
@@ -259,11 +279,12 @@ test("contamination draws the game's orange-red veins over dry earth and over gr
     }, choice);
     for (const [soil, [some, most, cleared, again]] of Object.entries(result)) {
       const at = `${choice}, ${soil}`;
-      // sparse veins, never a tint over the whole soil, more of them the more contaminated
+      // veins, never a fill over the whole soil, and the game's same pattern at any level over a fifth (128 and 255
+      // alike: its weight is whole from the map value's fifth)
       expect(some.share, at).toBeGreaterThan(0.002);
-      expect(most.share, at).toBeGreaterThanOrEqual(some.share);
       expect(most.share, at).toBeLessThan(0.35);
-      // orange-red: where the ground changed, it turned redder
+      expect(Math.abs(most.share - some.share), at).toBeLessThan(0.02);
+      // rust: where the ground changed, it turned redder
       expect(some.redder, at).toBeGreaterThan(10);
       expect(most.redder, at).toBeGreaterThan(10);
       // cleared, the clean ground comes back: no more pixels changed than a redraw of it alone, and
@@ -335,7 +356,7 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   await page.setViewportSize({ width: 1280, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await topDown(page);
-  expect(await look(page)).toBe("high");
+  await opensHigh(page);
   await page.keyboard.press("Shift+Digit3");
   await page.getByRole("group", { name: "Erupt options" }).getByRole("slider", { name: "Power" }).fill("70");
   // its lava is the test's subject, so Ridges and Flows are set by hand: on Auto the land and the seed draw them
@@ -380,7 +401,22 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
       set(m);
       if (m.verb !== "erupt" || m.phase !== "done" || w.glow) return;
       const s = r.forceShowing?.erupt ?? null;
+      // the lava once all of it has arrived (the shader's arrival, smoothstep(a·1.1, a·1.1 + 0.55) of the eruption's
+      // age, is whole for every tile at 1.65 s), with its cooling as it is now, without the plume's smoke over it (the
+      // poll below sees the plume). The moment it is kept is no fixed age of the eruption: its age then is however long
+      // the browser took, and the count moved with it, through the lava still arriving, the ash settling over it from
+      // 0.5 to 2.4 s and the smoke's puffs (in software drawing, 1,750 lava pixels at 0.8 s, 2,580 at 1.4 s, 1,995 at
+      // 2.5 s; CI drew 1,661 and 1,798, dev's runs 41002468990 and 41009357513). Held at 1.65 s, software drawing counts
+      // 2,361 to 2,363 every time, a GPU about 3,500
+      const fx = (r as unknown as { forceFx: { heat(now: number): { age: number; cooling: number } | null; plume: { group: { visible: boolean } } } }).forceFx;
+      const heat = fx.heat;
+      fx.heat = (now) => {
+        const h = heat.call(fx, now);
+        return h && { age: 1.65, cooling: h.cooling };
+      };
+      fx.plume.group.visible = false;
       const hot = lava();
+      fx.heat = heat;
       // against the same land with its moment gone
       r.clearForce();
       w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look };
@@ -506,15 +542,77 @@ test("every basin source's highlight reads, under its own water too, in High as 
   expect(errors).toEqual([]);
 });
 
-test("High's visible seasons follow the game's timers: no plant dies of dryness in a normal drought's 9 days, a longer one withers them, a badtide kills on poisoned ground; Standard and Day 0 do not (D250)", async ({ page }) => {
+test("a source glowing while the objects are drawn again (a source placed) goes back to its own colour in High when the glow ends, as do the rest (D196)", async ({ page }) => {
+  const errors: string[] = [];
+  await open(page, errors);
+  expect(await look(page)).toBe("high");
+  /** Every High source batch's instance colours, by its source's tile. */
+  const colours = () =>
+    page.evaluate(() => {
+      const r = window.dgm3d!.renderer as unknown as { objects: { children: { name: string; instanceColor?: { array: Float32Array }; userData: { objects?: Int32Array } }[] }; mapState(): { W: number; entities: EntityLike } };
+      type EntityLike = { x: Int32Array; y: Int32Array };
+      const m = r.mapState();
+      const out: Record<string, number[]> = {};
+      for (const c of r.objects.children) {
+        if (c.name !== "high.WaterSource" && c.name !== "high.BadwaterSource") continue;
+        const own = c.userData.objects!;
+        for (let i = 0; i < own.length; i++) if (own[i] >= 0) out[`${c.name} ${m.entities.x[own[i]]},${m.entities.y[own[i]]}`] = Array.from(c.instanceColor!.array.subarray(i * 3, i * 3 + 3), (v) => Math.round(v * 1000) / 1000);
+      }
+      return out;
+    });
+  const before = await colours();
+  expect(Object.keys(before).some((k) => k.startsWith("high.WaterSource"))).toBe(true);
+  // the first water source glows, as when the pointer is over its water
+  const { middle, spot } = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const m = r.mapState()!;
+    const e = m.entities;
+    let middle = -1;
+    for (let k = 0; k < e.count && middle < 0; k++) if (e.templates[e.template[k]] === "WaterSource") middle = e.y[k] * m.W + e.x[k];
+    // a dry, level tile with nothing on it, away from the edge, for a new source
+    const taken = new Set<number>();
+    for (let k = 0; k < e.count; k++) taken.add(e.y[k] * m.W + e.x[k]);
+    let spot: [number, number] | null = null;
+    for (let y = 8; y < m.H - 8 && !spot; y++)
+      for (let x = 8; x < m.W - 8 && !spot; x++) {
+        const i = y * m.W + x;
+        const h = m.heights[i];
+        if (taken.has(i) || (m.surface.depth[i] || 0) > 0) continue;
+        if ([i - 1, i + 1, i - m.W, i + m.W].every((j) => m.heights[j] === h && !taken.has(j) && !(m.surface.depth[j] > 0))) spot = [x, y];
+      }
+    return { middle, spot };
+  });
+  expect(spot).not.toBeNull();
+  await page.evaluate((i) => window.dgm3d!.renderer.setSourceGlow([i]), middle);
+  const glowing = await colours();
+  expect(glowing).not.toEqual(before);
+  // a source placed while it glows: the objects are drawn again, High's batches built anew from them
+  const count = await page.evaluate(() => window.dgm3d!.renderer.mapState()!.entities.count);
+  await page.evaluate(
+    ([x, y]) => window.dgmEditor!.edit({ op: "placeEntity", params: { id: "f0e1d2c3-0000-4000-8000-0000000000aa", template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } } as never, "Place a water source"),
+    spot!,
+  );
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.mapState()!.entities.count), { timeout: 30_000 }).toBe(count + 1);
+  // still glowing, once, on the source the glow is for
+  expect(await colours()).toEqual(expect.objectContaining(Object.fromEntries(Object.entries(glowing))));
+  await page.evaluate(() => window.dgm3d!.renderer.setSourceGlow([]));
+  // every source back in its own colour, the new one in a source's own
+  const after = await colours();
+  expect(after).toEqual(expect.objectContaining(before));
+  expect(after[`high.WaterSource ${spot![0]},${spot![1]}`]).toEqual(Object.values(before)[0]);
+  expect(errors).toEqual([]);
+});
+
+test("High's visible seasons follow the game's timers: no plant dies of dryness in a normal drought's 9 days, a longer one withers them, a badtide kills on poisoned ground; in both looks; Day 0 does not; the plants whose ground dried are drawn dying until then (D250, D242 as amended)", async ({ page }) => {
   test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
-  expect(await look(page)).toBe("high");
+  await opensHigh(page);
   const withered = () => page.evaluate(() => window.dgm3d!.renderer.witheredPlants);
+  const dying = () => page.evaluate(() => (window.dgm3d!.renderer as unknown as { dyingPlants: number }).dyingPlants);
   const bar = page.getByRole("toolbar", { name: "Water time" });
   const day = bar.locator(".day-label");
   const goTo = async (n: number) => {
@@ -525,6 +623,8 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
     await expect(day).not.toHaveClass(/counting/, { timeout: 240_000 });
   };
   expect(await withered()).toBe(0);
+  // (this map's living plants all stand on moist, clean ground on Day 0: none dying)
+  expect(await dying()).toBe(0);
 
   // a normal drought's last day (9): the ground is dry, but no pine, birch or oak has been dry 14 days (1.1 x 13, 11, 15)
   await bar.getByRole("button", { name: "Drought" }).click();
@@ -532,6 +632,8 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   await expect(day).toHaveText("Day 9");
   await page.waitForTimeout(1000);
   expect(await withered()).toBe(0);
+  // ...yet every living plant on ground the drought dried is dying, as the game's #Dying model shows it
+  await expect.poll(dying, { timeout: 30_000 }).toBeGreaterThan(20);
   // a longer one: by day 20 the plants that have stood dry for 1.1 x their days are dead, and stay dead going on
   await goTo(20);
   await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(20);
@@ -539,10 +641,13 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   await goTo(24);
   // (the day comes first and its list follows, the day soil being worked out in a worker: wait for it, or dry24 is day 20's)
   await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(dry20);
-  // Standard stays as it is, and High again draws the same plants withered
+  // Standard draws the same plants withered (as the game does at any quality: D242 as amended 2026-10-29), its own objects
+  // dead, and High again the same
   const dry24 = await withered();
+  const drawnDead = () => page.evaluate(() => (window.dgm3d!.renderer as unknown as { witheredDrawn: number }).witheredDrawn);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
-  expect(await withered()).toBe(0);
+  expect(await withered()).toBe(dry24);
+  await expect.poll(drawnDead, { timeout: 30_000 }).toBe(dry24);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
   expect(await withered()).toBe(dry24);
   // back to day 9 and Day 0: nothing dead yet
@@ -550,6 +655,7 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   await expect.poll(withered, { timeout: 30_000 }).toBe(0);
   await goTo(0);
   expect(await withered()).toBe(0);
+  await expect.poll(dying, { timeout: 30_000 }).toBe(0);
   await bar.getByRole("button", { name: "Drought" }).click();
   await expect(bar.getByRole("button", { name: "Drought" })).toHaveAttribute("aria-pressed", "false");
 
@@ -565,7 +671,7 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   expect(errors).toEqual([]);
 });
 
-test("High's seasons: a held drought draws dry ground and the heat shimmer, a badtide the sickly sky; each switches; Standard draws none (D250)", async ({ page }) => {
+test("a held drought or badtide turns the haze to the game's fog colour for it, in both looks; Day 0 and no day the temperate fog (D250 as amended)", async ({ page }) => {
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -573,44 +679,126 @@ test("High's seasons: a held drought draws dry ground and the heat shimmer, a ba
   await page.setViewportSize({ width: 1280, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
-  expect(await look(page)).toBe("high");
-  const now = () => page.evaluate(() => window.dgm3d!.renderer.seasonLook);
+  await opensHigh(page);
+  // (the game's daytime fogs, Sun.blueprint: temperate, drought, badtide)
+  const TEMPERATE = [0.447, 0.761, 0.824];
+  const DROUGHT = [0.706, 0.549, 0.376];
+  const BADTIDE = [0.698, 0.439, 0.349];
+  const haze = async () => (await page.evaluate(() => window.dgm3d!.renderer.hazeNow)).map((v) => Math.round(v * 1000) / 1000);
   const bar = page.getByRole("toolbar", { name: "Water time" });
   const day = bar.locator(".day-label");
-  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  expect(await haze()).toEqual(TEMPERATE);
 
   await bar.getByRole("button", { name: "Drought" }).click();
   await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
-  await expect.poll(now, { timeout: 30_000 }).toEqual({ dry: 1, heat: 1, sickly: 0 });
-  // each effect has its own switch
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("dryGround", false));
-  expect(await now()).toEqual({ dry: 0, heat: 1, sickly: 0 });
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("dryGround", true));
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("heat", false));
-  expect(await now()).toEqual({ dry: 1, heat: 0, sickly: 0 });
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("heat", true));
-  // Standard stays as it is, and High again draws them
+  await expect.poll(haze, { timeout: 30_000 }).toEqual(DROUGHT);
+  // the same in Standard
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
-  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  expect(await haze()).toEqual(DROUGHT);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
-  expect(await now()).toEqual({ dry: 1, heat: 1, sickly: 0 });
-  // Day 0 is the map as it is: nothing is drawn for the season
+  expect(await haze()).toEqual(DROUGHT);
+  // Day 0 is the map as it is
   await day.dblclick();
   await bar.getByRole("textbox", { name: "Day" }).fill("0");
   await bar.getByRole("textbox", { name: "Day" }).press("Enter");
   await expect(day).toHaveText("Day 0");
-  await expect.poll(now, { timeout: 30_000 }).toEqual({ dry: 0, heat: 0, sickly: 0 });
-  // and the badtide has the sky
+  await expect.poll(haze, { timeout: 30_000 }).toEqual(TEMPERATE);
+  // and the badtide has its own
   await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
-  await expect.poll(async () => (await now()).sickly, { timeout: 30_000 }).toBeGreaterThan(0);
-  expect(await now()).toMatchObject({ dry: 0, heat: 0 });
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("badtideSky", false));
-  expect((await now()).sickly).toBe(0);
-  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("badtideSky", true));
+  await expect.poll(haze, { timeout: 30_000 }).toEqual(BADTIDE);
   await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");
-  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  await expect.poll(haze, { timeout: 30_000 }).toEqual(TEMPERATE);
   // (every shader compiled and nothing threw)
+  expect(errors).toEqual([]);
+});
+
+test("clean water and badwater a level and a half deep, by day, as drawn through the shipped shaders: badwater the darker in both looks (D496)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page, "s=5&z=128&d=n&t=lakeBasin");
+  // two pools side by side on the same moist ground, 1.5 levels deep, one clean and one pure badwater (its floor
+  // contaminated, as the game's would be), seen as the probe's start shots see their water (the pixel judge's fitted
+  // cameras: about 53° down, about 100 away) in the day's light, through the shipped shaders, fog and finish
+  const gaps = await page.evaluate(async () => {
+    const r = window.dgm3d!.renderer;
+    const W = 64;
+    const H = 40;
+    const heights = new Uint8Array(W * H).fill(4);
+    const tile: number[] = [];
+    const cont: number[] = [];
+    const soilC = new Uint8Array(W * H);
+    const pool = (x: number, y: number) => (y >= 8 && y < 32 && x >= 6 && x < 30 ? 0 : y >= 8 && y < 32 && x >= 34 && x < 58 ? 1 : -1);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const p = pool(x, y);
+        if (p < 0) continue;
+        const i = y * W + x;
+        heights[i] = 2;
+        tile.push(i);
+        cont.push(p);
+        if (p) soilC[i] = 255;
+      }
+    const e = { count: 0, templates: [], owners: [], template: new Uint16Array(0), x: new Int16Array(0), y: new Int16Array(0), z: new Int16Array(0), orientation: new Uint8Array(0), flags: new Uint8Array(0), owner: new Uint16Array(0), variant: new Uint8Array(0), strength: new Float32Array(0), ids: [] };
+    (r as unknown as { setMap(m: unknown, keep: boolean): void }).setMap(
+      {
+        W,
+        H,
+        heights,
+        columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) },
+        entities: e,
+        soil: { moisture: new Uint8Array(W * H).fill(200), contamination: soilC },
+        water: { count: tile.length, tile: Int32Array.from(tile), floor: new Float32Array(tile.length).fill(2), depth: new Float32Array(tile.length).fill(1.5), contamination: Float32Array.from(cont) },
+      },
+      true,
+    );
+    const out: Record<string, { clean: number; bad: number }> = {};
+    for (const look of ["standard", "high"] as const) {
+      r.setLookChoice(look, false);
+      if (look === "high") for (let k = 0; k < 600 && !r.highSettled; k++) await new Promise((res) => setTimeout(res, 100));
+      r.setClock(12.5);
+      r.setView({ mode: "orbit", yaw: 0, pitch: (53 * Math.PI) / 180, distance: 100, target: [W / 2, 3.5, -H / 2] });
+      for (let k = 0; k < 3; k++) {
+        r.renderNow();
+        await new Promise((res) => requestAnimationFrame(() => res(null)));
+      }
+      r.renderNow();
+      const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+      const GW = g.drawingBufferWidth;
+      const GH = g.drawingBufferHeight;
+      const px = new Uint8Array(GW * GH * 4);
+      g.readPixels(0, 0, GW, GH, g.RGBA, g.UNSIGNED_BYTE, px);
+      const s = GW / r.canvas.clientWidth;
+      const lstar = (o: number) => {
+        const lin = [px[o], px[o + 1], px[o + 2]].map((v) => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4));
+        const Y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+        return Y > 216 / 24389 ? 116 * Math.cbrt(Y) - 16 : (24389 / 27) * Y;
+      };
+      const sums = [0, 0];
+      const ns = [0, 0];
+      // (each pool's tiles three or more from its banks, so no ground shows at a bank)
+      for (let y = 11; y < 29; y++)
+        for (let x = 0; x < W; x++) {
+          const p = pool(x, y);
+          if (p < 0 || pool(x - 3, y) !== p || pool(x + 3, y) !== p) continue;
+          const q = r.project(x + 0.5, 3.5, -(y + 0.5));
+          if (!q.visible) continue;
+          const cx = Math.round(q.x * s);
+          const cy = GH - 1 - Math.round(q.y * s);
+          if (cx < 2 || cy < 2 || cx >= GW - 2 || cy >= GH - 2) continue;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) (sums[p] += lstar(((cy + dy) * GW + cx + dx) * 4)), ns[p]++;
+        }
+      out[look] = { clean: sums[0] / ns[0], bad: sums[1] / ns[1] };
+    }
+    return out;
+  });
+  // the order, in both looks. The size of the gap is judged against the game's own frames, where the game drew the
+  // same water (tools/water-pixel-judge.ts, "the gap by day"; waterPalette.ts WATER_LIGHT.gap): this scene the game
+  // never drew, and its clean water over its moist bed reads darker than the shots' (about 28 against 31 to 33.5)
+  console.log(`the gap by day, as drawn: ${JSON.stringify(gaps)}`);
+  for (const look of ["standard", "high"] as const) expect(gaps[look].clean - gaps[look].bad).toBeGreaterThan(1);
   expect(errors).toEqual([]);
 });

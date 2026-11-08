@@ -9,7 +9,7 @@ import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
 import { sceneUniforms, skyMaterial, terrainMaterial } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
-import { GROUND, legendEntries, objectLegend, SKY, type Rgb } from "../../src/render3d/palette";
+import { BLEND, DESERT, GAME_SKY, gamePostRgb, GROUND, legendEntries, objectLegend, type Rgb } from "../../src/render3d/palette";
 
 type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): { array: ArrayLike<number>; count: number } } };
 
@@ -27,6 +27,32 @@ function extent(m: Mesh): { height: number; reach: number } {
   }
   return { height, reach };
 }
+
+describe("grass by moisture, as the game's terrain draws it (D135 as amended 2026-10-29)", () => {
+  // SoilMoistureSystem.UpdateDesertIntensity: desert 1 at moisture 0, (1 - m / 5) x 0.7 at 0 < m <= 5, 0 above
+  const desert = (m: number) => (m === 0 ? 1 : m <= DESERT.threshold ? (1 - m / DESERT.threshold) * DESERT.max : 0);
+  const grassOf = (m: number) => (m < 0.5 ? 0 : 1 - DESERT.max * Math.max(0, 1 - m / DESERT.threshold));
+  it("takes the game's threshold and most desert, and the shader's grass is one minus its desert at every level", () => {
+    expect(DESERT).toEqual({ threshold: 5, max: 0.7 });
+    for (let m = 0; m <= 15; m++) expect(grassOf(m), `moisture ${m}`).toBeCloseTo(1 - desert(m), 9);
+    const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
+    const shader = terrainMaterial(u, 0, 1).fragmentShader;
+    expect(shader).toContain("float grassOf(float m)");
+    expect(shader).toContain("vec4(grassOf(s0.x), s0.x,");
+  });
+
+  it("blends tile to tile as the game's terrain does: four taps a fifth of a tile round the point, its noise and softness", () => {
+    // TerrainMaterialMapSpec: BlendingMargin 0.2, BlendingNoiseMultiplier 0.96, BlendingSoftness 5.8
+    expect(BLEND).toEqual({ margin: 0.2, noise: 0.96, softness: 5.8 });
+    const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
+    const shader = terrainMaterial(u, 0, 1).fragmentShader;
+    expect(shader).toContain("float desertBlend(vec2 g, vec4 desert)");
+    expect(shader).toContain("vec2 q = g + 0.2 *");
+    expect(shader).toMatch(/\+ 0\.96 \* \(blendNoise\(g\) - 0\.5\) - 0\.5\) \* 5\.8 \+ 0\.5/);
+    // a top and a cave's floor both take it (the game's desert map is 3D)
+    expect(shader.match(/= 1\.0 - desertBlend\(g,/g)?.length).toBe(2);
+  });
+});
 
 describe("the clean view", () => {
   it("opens with the information layer off", () => {
@@ -70,11 +96,12 @@ describe("the clean view", () => {
   });
 
   it("colours dry ground a warm brown drifting to mauve and tan, cracked dark, as Timberborn's references (D334)", () => {
-    // Kyler's approved inputs (D334: the earth may be warm brown and mauve; D346: a little greyer from above)
-    expect(GROUND.dry).toEqual([0.463, 0.403, 0.367]);
-    expect(GROUND.dryCool).toEqual([0.444, 0.414, 0.438]);
-    expect(GROUND.dryWarm).toEqual([0.52, 0.438, 0.375]);
-    expect(GROUND.crack).toEqual([0.19, 0.14, 0.125]);
+    // Kyler's approved inputs (D334: the earth may be warm brown and mauve; D346: a little greyer from above), scaled
+    // together to the game's Desert texture (D497: their pattern's mean albedo is the texture's, tools/albedo-means.ts)
+    expect(GROUND.dry).toEqual([0.293, 0.242, 0.193]);
+    expect(GROUND.dryCool).toEqual([0.281, 0.249, 0.23]);
+    expect(GROUND.dryWarm).toEqual([0.33, 0.264, 0.197]);
+    expect(GROUND.crack).toEqual([0.12, 0.085, 0.066]);
     // three patches that differ, each darker at its cracks
     const patches = [GROUND.dry, GROUND.dryCool, GROUND.dryWarm];
     expect(new Set(patches.map((c) => c.join())).size).toBe(3);
@@ -89,9 +116,15 @@ describe("the clean view", () => {
     expect(src).toContain(`c = mix(c, ${gl(GROUND.crack)}, dry.x * (0.58 + 0.20 * detail));`);
   });
 
-  it("draws a sky round the map: blue overhead, paler at the horizon", () => {
-    expect(SKY.zenith[2]).toBeGreaterThan(SKY.zenith[0] + 0.3);
-    expect(SKY.horizon[0]).toBeGreaterThan(SKY.zenith[0]);
+  it("draws the game's sky round the map (D497): blue overhead, paler at the horizon, the game's own colour straight down", () => {
+    const day = GAME_SKY.day;
+    const zenith = day[day.length - 1];
+    const horizon = day[(day.length - 1) / 2];
+    expect(zenith[2]).toBeGreaterThan(zenith[0] + 0.3);
+    expect(horizon[0]).toBeGreaterThan(zenith[0]);
+    // straight down, graded by the game's post chain, it is the colour behind the map in the game's own shots (47, 90, 133)
+    const below = gamePostRgb(day[0] as unknown as Rgb).map((v) => Math.round(v * 255));
+    for (const [k, game] of [47, 90, 133].entries()) expect(Math.abs(below[k] - game)).toBeLessThanOrEqual(2);
     const sky = skyMaterial();
     expect(sky.depthWrite).toBe(false);
     sky.dispose();

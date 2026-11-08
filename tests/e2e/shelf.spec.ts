@@ -114,6 +114,14 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
   expect(green.problem).toBeNull();
   // R turns it: a turned relic stands across the other way
   await page.keyboard.press("r");
+  // (with the pointer resting: the turned footprint shows where it is, never gone until the pointer moves)
+  const across = [...green.tiles].sort().join();
+  await expect
+    .poll(async () => {
+      const f = await page.evaluate(() => window.dgmEditor!.fit());
+      return f && [...f.tiles].sort().join() !== across ? "turned" : null;
+    }, { timeout: 10_000 })
+    .toBe("turned");
   const turned = await fitAt(page, x, y, W);
   expect(turned.problem).toBeNull();
   await clickTile(page, x, y);
@@ -162,8 +170,9 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
 test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the start too; on bare ground it takes the top level; Select and Delete take everything inside, one step; no Remove tool", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  // (seed 1 since M9a, D148: 0.7.0's 4242 has no level, dry, empty ground 7 and 9 wide away from its start)
-  await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
+  // (seed 2 since generator 0.10.7, D502, D148: seed 1's start, leaning toward a landmark in view, reshapes the map so it has
+  // no level, dry, empty ground 9 wide away from its start; seed 1 since M9a, as 0.7.0's 4242 had none 7 and 9 wide)
+  await openTopDown(page, "s=2&z=96&d=n&t=riverValley");
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const [gx, gy] = (await openGround(page, 4))[0];
   const bar = page.getByRole("toolbar", { name: "Tools" });
@@ -649,7 +658,7 @@ test("every 1.x object is on the shelf and placed with its window's settings: th
   expect(errors).toEqual([]);
 });
 
-test("Select's row: Fill water pours into the hollow under the selection up to the Level and says how long it lasts; Remove unfed water takes the pool, one step each", async ({ page }) => {
+test("Select's row: Fill water pours into the hollow under the selection to the brim, or to the Level once set, and says how long it lasts; Remove unfed water takes the pool, one step each", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
@@ -659,7 +668,8 @@ test("Select's row: Fill water pours into the hollow under the selection up to t
   await expect(row.getByRole("button", { name: "Remove unfed water" })).toHaveAttribute("aria-disabled", "true");
   // a hollow: a 3 × 3 pit dug one level into flat, dry ground with Down 1, the selection kept; Fill pours into it up to the ground's level
   const [x, y] = (await openGround(page, 2))[0];
-  // (hovering Fill water before the Level is set: a few words, no coordinates, and nothing spilling over the cells beside it)
+  // (hovering Fill water on flat ground before the Level is set: no level holds water there, so a few words why, no
+  // coordinates, and nothing spilling over the cells beside it)
   {
     const p0 = await client(page, x - 1, y - 1);
     const p1 = await client(page, x + 1, y + 1);
@@ -668,7 +678,7 @@ test("Select's row: Fill water pours into the hollow under the selection up to t
     await page.mouse.move(p1.x, p1.y, { steps: 4 });
     await page.mouse.up();
     await row.getByRole("button", { name: "Fill water" }).hover();
-    await expect(row.getByRole("status")).toHaveText("Raise the Level to fill");
+    await expect(row.getByRole("status")).toHaveText("It would spill off the map");
     const words = (await row.getByRole("status").boundingBox())!;
     const whole = (await row.getByRole("button", { name: "Whole map" }).boundingBox())!;
     const fill = (await row.getByRole("button", { name: "Fill water" }).boundingBox())!;
@@ -685,10 +695,29 @@ test("Select's row: Fill water pours into the hollow under the selection up to t
   await page.mouse.up();
   await row.getByRole("button", { name: "Down 1" }).click();
   await idle(page);
-  await row.getByRole("slider", { name: "Level", exact: true }).fill(String(level));
+  // with no Level set, the first try fills the pit to the brim (the highest level it holds, its rim), saying that level,
+  // the Level number left at the pit's ground; one step
+  const levelSlider = row.getByRole("slider", { name: "Level", exact: true });
+  await expect(levelSlider).toHaveValue(String(level - 1));
+  await row.getByRole("button", { name: "Fill water" }).hover();
+  const words = row.getByRole("status");
+  await expect(words).toHaveText(new RegExp(`^Level ${level}, lasts (\\d+ days?|under a day)$`));  // (the words fit their cells, nothing cut off)
+  expect(await words.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+  const first = (await labels(page)).length;
+  await row.getByRole("button", { name: "Fill water" }).click();
+  await idle(page);
+  await expect.poll(async () => (await labels(page)).length).toBe(first + 1);
+  expect((await labels(page)).at(-1)).toBe("Fill a hollow");
+  await expect(levelSlider).toHaveValue(String(level - 1));
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(async () => (await labels(page)).length).toBe(first);
+  // a Level set: Fill works to it (the pointer off the button first, so hovering it asks again)
+  await levelSlider.hover();
+  await levelSlider.fill(String(level));
   // hovering says what it will make, in words
   await row.getByRole("button", { name: "Fill water" }).hover();
-  await expect(row.getByRole("status")).toContainText(/tiles, lasts (about|less)/);
+  await expect(row.getByRole("status")).toContainText(/^9 tiles, lasts (\d+ days?|under a day)/);
   const n = (await labels(page)).length;
   await row.getByRole("button", { name: "Fill water" }).click();
   await idle(page);
@@ -703,17 +732,54 @@ test("Select's row: Fill water pours into the hollow under the selection up to t
   expect(errors).toEqual([]);
 });
 
-test("picking an object never moves the list under the pointer: its window opens above, and the picked row stays where it was", async ({ page }) => {
+test("Fill water where nothing holds water says the real reason on the first try, never to raise the Level (Canyon 128², seed 1)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await openTopDown(page, "s=1&z=128&d=n&t=canyon");
+  const row = page.getByRole("group", { name: "Selection" });
+  // (a gully running down to the river, the river's bed its lowest ground: no level holds water there, so no Level
+  // would help)
+  const a = await client(page, 26, 70);
+  const b = await client(page, 38, 80);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBe(13 * 11);
+  await row.getByRole("button", { name: "Fill water" }).hover();
+  await expect(row.getByRole("status")).toHaveText("It would spill off the map");
+  const n = (await labels(page)).length;
+  await row.getByRole("button", { name: "Fill water" }).click();
+  await idle(page);
+  expect((await labels(page)).length).toBe(n);
+  await expect(page.getByText(/the water would spill off the map at X \d+ · Y \d+/)).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("picking an object never moves the list under the pointer: its window opens above, and the picked row stays where it was, or in view under the title where the window takes its place", async ({ page }) => {
   await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
   const shelf = page.getByRole("navigation", { name: "Place" });
   for (const size of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
     await page.setViewportSize(size);
-    for (const name of ["Water seep", "Natural dam", "Succulent", "Relic", "Unstable core", "Reserve pile"]) {
+    for (const name of ["Start", "Water source", "Water seep", "Natural dam", "Succulent", "Relic", "Unstable core", "Reserve pile"]) {
       const row = shelf.getByRole("button", { name, exact: true });
       await row.scrollIntoViewIfNeeded();
       const before = (await row.boundingBox())!.y;
       await row.click();
-      await expect.poll(async () => Math.abs((await row.boundingBox())!.y - before), { message: `${name} at ${size.width}` }).toBeLessThanOrEqual(1);
+      // the row in view, the topmost thing at its middle (not the list's title or the window over it), and where it was
+      // or, where the window took that place (Start, at the list's top), just under the list's title
+      await expect
+        .poll(
+          () =>
+            row.evaluate((b, before) => {
+              const r = b.getBoundingClientRect();
+              const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+              const title = b.closest(".objects-menu")!.querySelector(".shelf-title")!.getBoundingClientRect();
+              return !!at && b.contains(at) && (Math.abs(r.top - before) <= 1 || (before < title.bottom && Math.abs(r.top - title.bottom) <= 3));
+            }, before),
+          { message: `${name} at ${size.width}` },
+        )
+        .toBe(true);
       await page.keyboard.press("Escape");
       // the object put away, the list is back at its top, with Start in sight
       await expect.poll(() => shelf.evaluate((el) => el.scrollTop), { message: `${name} put away at ${size.width}` }).toBe(0);

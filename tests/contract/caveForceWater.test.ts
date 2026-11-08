@@ -40,7 +40,7 @@ function origin(s: MapSession): [number, number] {
 
 async function open(): Promise<{ origin: [number, number]; ground: Uint8Array; water: number[] }> {
   ed.forceCancel();
-  const spec = makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } });
+  const spec = makeSpec({ seed: 22, theme: "highlands", size: { x: W, y: W } });
   spec.settings.terrain.verticality = 70;
   await runGenerate(spec);
   ed.refine();

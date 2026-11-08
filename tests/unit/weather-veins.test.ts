@@ -1,12 +1,12 @@
 // The Badtide view's contamination veins (the Weather view, D133, D334): the held day's soil is what the ground shader
 // reads, so every tile the day's water poisons shows the veins. A held day sends the page its soil
 // (`soilView(moisture, soilContamination)`); the shader reads it through the tile data's contamination nibble and the
-// level's veins (`contaminationVeins`). No poisoned tile may be dropped on the way, and no clean tile may gain veins.
+// level's veins (`contaminationMap`, `contaminationWeight`). No poisoned tile may be dropped on the way, and no clean tile may gain veins.
 
 import { describe, expect, it } from "vitest";
 import { soilNibbles, tileData } from "../../src/render3d/light";
 import { soilView } from "../../src/render3d/model";
-import { contaminationVeins } from "../../src/render3d/palette";
+import { contaminationMap, contaminationWeight } from "../../src/render3d/palette";
 
 const contaminationOf = (nibbles: number) => nibbles & 15;
 
@@ -17,17 +17,16 @@ describe("a held day's contamination reaches the veins", () => {
     const moisture = levels.map(() => 0.7);
     const soil = soilView(moisture, levels);
     const heights = new Uint8Array(levels.length).fill(4);
-    const sky = new Uint8Array(levels.length).fill(255);
-    const data = tileData(levels.length, 1, heights, sky, soil, null);
+    const data = tileData(levels.length, 1, heights, soil, null);
     levels.forEach((c, i) => {
       const nib = contaminationOf(data[i * 4 + 1]);
       if (c > 0) {
         expect(nib, `contamination ${c}`).toBeGreaterThan(0);
         // (the level the shader reads is the nibble over 15: the veins have come in from the second step on)
-        expect(contaminationVeins(nib / 15).onset, `veins at ${c}`).toBeGreaterThan(0.9);
+        expect(contaminationWeight(contaminationMap(nib / 15)), `veins at ${c}`).toBeGreaterThan(0.9);
       } else {
         expect(nib).toBe(0);
-        expect(contaminationVeins(0).onset).toBe(0);
+        expect(contaminationWeight(contaminationMap(0))).toBe(0);
       }
     });
   });

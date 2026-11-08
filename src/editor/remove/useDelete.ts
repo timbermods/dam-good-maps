@@ -8,6 +8,7 @@ import type { TileFacts as PageTileFacts, TileObject } from "../../core/doc/desc
 import { removeTakes, type RemoveKind } from "../../core/features/objects";
 import { tilesToRuns } from "../../core/math/grid";
 import { isSource } from "../sourceSpots";
+import { waterOnTop } from "../features";
 import { ALL_KINDS } from "./kinds";
 import type { Ed } from "../ed";
 import { tileCount } from "../../core/doc/labels";
@@ -49,9 +50,11 @@ export function useDelete(ed: Ed): DeleteSlice {
       W: info.W,
       H: info.H,
       height: (i) => m.heights[i],
+      // (the water standing on the tile's top: a tile's uppermost water may lie in a cave under its roof, which the
+      // roof's readout never names; the cave's floor names it, `runTop` below)
       water: (i) => {
         const w = m.water;
-        return w && w.surface[i] === w.surface[i] && w.depth[i] > 0.001 ? { depth: w.depth[i], contamination: w.contamination[i] } : null;
+        return w && w.surface[i] === w.surface[i] && w.depth[i] > 0.001 && waterOnTop(w, m.heights, i) ? { depth: w.depth[i], contamination: w.contamination[i] } : null;
       },
       // (a held weather day's soil while one is on, Kyler, 2026-10-04: the readout reports the day shown)
       soil: (i) => {
@@ -101,13 +104,15 @@ export function useDelete(ed: Ed): DeleteSlice {
     m.coverAt = out;
     return out;
   };
-  /** The corner tiles of the objects standing on these tiles that `kinds` names (D315, D323). */
+  /** The corner tiles of the objects standing on these tiles that `kinds` names (D315, D323); under the view's layer cut,
+   *  only those it shows (at or under it: a cave's floor's, never the roof's above it, as the core's `planRemove`). */
   function objectsOn(tiles: readonly number[], kinds: RemoveKind[] = ALL_KINDS): number[] {
     const e = mirror.current.entities;
     const at = coverAt();
+    const cut = renderer.current?.slice ?? null;
     const out = new Set<number>();
     for (const i of tiles)
-      for (const k of at.get(i) ?? []) if (removeTakes(kinds, e.templates[e.template[k]])) out.add(e.y[k] * info.W + e.x[k]);
+      for (const k of at.get(i) ?? []) if ((cut === null || e.z[k] <= cut) && removeTakes(kinds, e.templates[e.template[k]])) out.add(e.y[k] * info.W + e.x[k]);
     return [...out];
   }
   /** Delete everything of `kinds` standing on these tiles (every kind, the start too, by default), as
@@ -122,7 +127,7 @@ export function useDelete(ed: Ed): DeleteSlice {
     const W = info.W;
     const at = corners.length ? corners[0] : tiles[0];
     void run(
-      () => api.removeAt(tiles, kinds),
+      () => api.removeAt(tiles, kinds, renderer.current?.slice ?? null),
       (u) => u.ok && feel("remove", at % W, Math.floor(at / W)),
     );
     return true;
@@ -131,8 +136,7 @@ export function useDelete(ed: Ed): DeleteSlice {
    *  water the bed's top block; one undo step. */
   function deleteGround(tiles: number[]): boolean {
     const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const all = tiles.filter((i) => h[i] > 0 && (cut === null || h[i] <= cut));
+    const all = ed.underCut(tiles).filter((i) => h[i] > 0);
     if (!all.length) {
       flashNote("Nothing left to delete there");
       return false;
@@ -167,17 +171,21 @@ export function useDelete(ed: Ed): DeleteSlice {
   }
   /** What the Delete key does on these tiles (D323 item 1): what stands there goes, objects and sources
    *  first; only where there is nothing, the ground's top level. Never silent. */
-  function deleteHere(tiles: number[]): boolean {
+  function deleteStanding(tiles: number[]): boolean {
     if (objectsOn(tiles).length) return deleteOn(tiles, true);
     return deleteGround(tiles);
   }
+  /** Delete on the tile pointed at: with the objects hidden (H or Hide objects) the pointer finds only the land, so
+   *  only the ground's top level goes, never an object the player can't see. */
+  function deleteHere(tiles: number[]): boolean {
+    return renderer.current?.objectsHidden ? deleteGround(tiles) : deleteStanding(tiles);
+  }
   /** Select and Delete (D288, D323): everything standing inside the selection (under a cut, on the
-   *  visible land), or where nothing stands, its ground one level. */
+   *  visible land, a cave's floor the cut shows too), or where nothing stands, its ground one level. The selection
+   *  marks what it takes before it goes, so it takes the hidden objects too. */
   function deleteSelection() {
-    const h = mirror.current.heights;
-    const cut = renderer.current?.slice ?? null;
-    const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
-    if (tiles.length) deleteHere(tiles);
+    const tiles = ed.underCut(selection.current.tiles());
+    if (tiles.length) deleteStanding(tiles);
   }
   const deleteCalls = useRef({ deleteHere, deleteSelection });
   deleteCalls.current = { deleteHere, deleteSelection };

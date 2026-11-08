@@ -60,8 +60,8 @@ export function paintLevelProblems(p: PaintParams, W: number): string[] {
   const seen = new Set<number>();
   for (const l of p.levels) {
     for (const i of runsToTiles(l.area, W)) {
-      if (!area.has(i)) return [`(${i % W}, ${Math.floor(i / W)}) has a level but is not in the stroke`];
-      if (seen.has(i)) return [`(${i % W}, ${Math.floor(i / W)}) has two levels`];
+      if (!area.has(i)) return [`X ${i % W} · Y ${Math.floor(i / W)} has a level but is not in the stroke`];
+      if (seen.has(i)) return [`X ${i % W} · Y ${Math.floor(i / W)} has two levels`];
       seen.add(i);
     }
   }

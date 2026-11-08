@@ -2,17 +2,20 @@
 // water flows on screen, frame by frame, by the game's rules on every water column, as a plain map's does with
 // `PreviewJob` (preview.ts). It is a warm start: the water as it stood (the last settle, or the water still in flight)
 // carried over to the map's new columns, then the stacked engine (stackWater.ts) run on from there, a few ticks at a
-// time, until the canonical settle's own test says it stands still (`settleBegin` on from the state as written) or
-// `PREVIEW_JOB_DAYS` run out. It is only ever shown: the map's water stays the last canonical settle carried over
-// (features/build.ts) until the canonical settle of the map as it stands replaces it, byte for byte as before
-// (prefill.ts, and its shortcut `settledAgain`), so the file and the settle never see this water (§19.7).
+// time, until the canonical settle's own test says it stands still (`settleBegin` on from the state as written), the
+// journey after an edit sooner by the preview's own rule (`preview`, as preview.ts `PreviewRun`), or `PREVIEW_JOB_DAYS`
+// run out. While it flows the map's water stays the last settle carried over (features/build.ts); where an edit's
+// journey comes to stand is the map's preview water (`settle`; src/worker/session.ts `stackPreview`, D453), as a
+// heightfield's is, until the canonical settle of the map as it stands replaces it, byte for byte as before (prefill.ts,
+// and its shortcut `settledAgain`), so the file and the settle never see this water (§19.7).
 //
 // A stroke being painted reshapes the tops of its tiles as it goes (`reshape`, terrain/runs.ts `reshapeTop`, what the
 // brushes do on such a map): the engine is built again on the new terrain and the water carried over to it, as an
 // edit's is.
 
 import type { WaterColumns } from "./columns";
-import { PREVIEW_JOB_DAYS } from "./preview";
+import { PREVIEW_JOB_DAYS, PREVIEW_MOVED, PREVIEW_TOL } from "./preview";
+import { STACK_CHECK_TICKS, stackThreads, type StackThreads } from "./stackParallel";
 import { columnFlows, loadStack, retainedRows, staleStack, STACK_FIELD, STACK_INFO, STACK_OP, StackWater, type StackSettle } from "./stackWater";
 import { sameRetained, type WaterModel } from "./water";
 
@@ -100,6 +103,20 @@ export class StackLive {
   private objects: Float64Array;
   private readonly kept: number[];
   private finished = false;
+  /** On several threads (stackParallel.ts, `flowing`) where this thread has a pool, decided at the first run after each
+   *  load (undefined), null on one; `since`, the ticks the strips ran since the run's last check, when the whole map's
+   *  engine takes their water back with its momentum and checks it (`sync`, `elsewhere`), as the canonical settle's do. */
+  private threads: StackThreads | null | undefined;
+  private since = 0;
+  /** Whether the strips have written their rows back since they last ran (they do only when asked: a check, a frame). */
+  private reported = true;
+  /** Ticks since the run's settle began (at a check when a multiple of STACK_CHECK_TICKS); and whether its threads
+   *  failed (it stays on one thread then). A run on one thread for want of the budget's threads (the checks' settle held
+   *  them) asks again at each check. */
+  private begun = 0;
+  private failed = false;
+  /** The preview's stopping rule (`preview`): every column's water at the last check, to measure the next against. */
+  private checked: Float64Array | null = null;
 
   /** The water of `model` (a map with caves or overhangs) from `from`: water on the same map, on its columns or on
    *  the columns it had before an edit (carried over, `carryStack`), its flows' momentum with it (`LiveStack.edges`);
@@ -112,6 +129,15 @@ export class StackLive {
     flows: StackSettle | null = null,
     /** The most game days the water runs on while it still moves (the preview's, preview.ts). */
     private readonly days: number = PREVIEW_JOB_DAYS,
+    /** The journey after an edit runs on several threads where there is a pool (a stroke's draft, built again as its
+     *  ground changes, stays on one). */
+    private readonly parallel = false,
+    /** The journey after an edit stops by the preview's rule too, as a heightfield's does (preview.ts `PreviewRun`), at
+     *  each of the run's checks (every STACK_CHECK_TICKS, where the strips hand their water back, so the same tick on
+     *  any number of threads): the water's volume changed by under 0.2% since the last check, and at most
+     *  PREVIEW_MOVED of the map's tiles have a column whose depth moved by more than PREVIEW_TOL. Its water is then the
+     *  map's until the canonical settle replaces it (`settle`). */
+    private readonly preview = false,
   ) {
     const t = model.stacked;
     if (!t) throw new Error("The map has no caves or overhangs.");
@@ -151,12 +177,17 @@ export class StackLive {
 
   /** `from` carried over to the engine's columns, written in with its flows' momentum, and the run on from it begun. */
   private load(from: LiveStack, flows: StackSettle | null = null): void {
+    this.threads?.free();
+    this.threads = undefined;
+    this.since = 0;
+    this.begun = 0;
     loadStack(this.m, this, true, carryStack(from, this));
     const out = this.m.view(STACK_FIELD.momentum) as Float64Array;
     if (from.edges) this.carryMomentum(from.edges, out);
     else if (flows?.flows) this.seedMomentum(flows, out);
     this.m.op(STACK_OP.settleBegin, this.days, 1);
     this.finished = false;
+    this.checked = this.preview ? (this.m.copy(STACK_FIELD.depth) as Float64Array) : null;
   }
 
   /** Each edge's momentum from the edge of `e` with the same key (`edgeKey`); none on an edge whose column or target
@@ -238,11 +269,117 @@ export class StackLive {
   /** Run at most `ticks` more; true once the water stands still (the canonical settle's test) or its days ran out. */
   advance(ticks: number): boolean {
     if (this.finished) return true;
-    const before = this.m.info(STACK_INFO.ticks);
-    this.m.op(STACK_OP.advance, Math.max(0, Math.floor(ticks)));
-    this.ticks += this.m.info(STACK_INFO.ticks) - before;
-    if (this.m.info(STACK_INFO.settle) !== 0) this.finished = true;
+    let left = Math.max(0, Math.floor(ticks));
+    const asking = this.parallel && !this.failed;
+    if (this.threads === undefined || (this.threads === null && asking && this.begun % STACK_CHECK_TICKS === 0))
+      this.threads = asking && this.m.info(STACK_INFO.settle) === 0 && this.m.info(STACK_INFO.maxTicks) % STACK_CHECK_TICKS === 0 ? stackThreads(this.m, this.W, this.H, this.mask, this.objects, true)?.watch(this) ?? null : null;
+    while (this.threads && left > 0 && this.m.info(STACK_INFO.settle) === 0) {
+      const n = Math.min(left, STACK_CHECK_TICKS - this.since);
+      const check = this.since + n === STACK_CHECK_TICKS;
+      if (!this.threads.run(n, check)) {
+        this.single();
+        break;
+      }
+      left -= n;
+      this.since += n;
+      this.begun += n;
+      this.ticks += n;
+      this.reported = check;
+      if (check) {
+        try {
+          this.threads.sync(this.m);
+        } catch {
+          this.single();
+          break;
+        }
+        this.m.op(STACK_OP.elsewhere, this.since);
+        this.since = 0;
+        // (a preview stops at each check, so its rule is tested at every one whatever `ticks` asks, as on one thread)
+        if (this.preview) break;
+      }
+    }
+    const m = this.m;
+    if (!this.threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
+      // (on one thread for want of the budget's threads: to the next check, where it asks again)
+      const n = (this.parallel && !this.failed) || this.preview ? Math.min(left, STACK_CHECK_TICKS - (this.begun % STACK_CHECK_TICKS)) : left;
+      const before = m.info(STACK_INFO.ticks);
+      m.op(STACK_OP.advance, n);
+      const ran = m.info(STACK_INFO.ticks) - before;
+      this.ticks += ran;
+      this.begun += ran;
+    }
+    if (m.info(STACK_INFO.settle) !== 0 || this.stillByPreview()) {
+      this.finished = true;
+      this.threads?.free();
+      this.threads = null;
+    }
     return this.finished;
+  }
+
+  /** At a check of a run that stops by the preview's rule (`preview`): whether the water stands still by it. The whole
+   *  map's engine holds the water there (the strips handed it back at the check). */
+  private stillByPreview(): boolean {
+    const was = this.checked;
+    if (!was || this.begun === 0 || this.begun % STACK_CHECK_TICKS !== 0 || (this.threads && this.since !== 0)) return false;
+    const d = this.m.view(STACK_FIELD.depth) as Float64Array;
+    const N = this.N;
+    let before = 0;
+    let now = 0;
+    const moved = new Uint8Array(N);
+    let tiles = 0;
+    for (let c = 0; c < d.length; c++) {
+      before += was[c];
+      now += d[c];
+      const dd = d[c] - was[c];
+      if ((dd > PREVIEW_TOL || dd < -PREVIEW_TOL) && !moved[c % N]) {
+        moved[c % N] = 1;
+        tiles++;
+      }
+    }
+    was.set(d);
+    // (as water.ts `SettleRun` measures it)
+    const dv = Math.abs(now - before) / Math.max(now, 1e-9);
+    return dv < 0.002 && tiles <= PREVIEW_MOVED * N;
+  }
+
+  /** The water as it stands as a settle of the map (the journey's end, `preview`): every column with its saturation and
+   *  its outflows, but no `reach` or `start`, which only a canonical settle has (stackWater.ts `settledAgain`). */
+  settle(): StackSettle {
+    this.gather();
+    this.m.op(STACK_OP.saturation);
+    return { ...this.water(), sat: this.m.copy(STACK_FIELD.saturation) as Uint8Array, flows: columnFlows(this.m, true) };
+  }
+
+  /** The strips' water since the run's last check, into the whole map's engine, its momentum with it: before it is read. */
+  private gather(): void {
+    if (!this.threads || this.since === 0 || !this.report()) return;
+    try {
+      this.threads.sync(this.m);
+    } catch {
+      this.single();
+    }
+  }
+
+  /** The strips' rows written back, if they ran since they last were; false when a thread failed (on one thread then). */
+  private report(): boolean {
+    if (!this.threads || this.reported) return !!this.threads;
+    if (this.threads.run(0, true)) {
+      this.reported = true;
+      return true;
+    }
+    this.single();
+    return false;
+  }
+
+  /** A thread failed (the pool is given up): the run goes on on one thread, from the water as the strips last handed it
+   *  back (a few ticks back), on an engine built again (the old one's settle runs on, and takes no new water). */
+  private single(): void {
+    this.failed = true;
+    this.threads?.free();
+    this.threads = null;
+    this.since = 0;
+    this.reshape(this.mask);
+    this.threads = null;
   }
 
   /** Whether the water stands still (or ran out of days). */
@@ -253,6 +390,7 @@ export class StackLive {
   /** The water as it stands, every column (copies), with its flows' momentum: a `StackSettle` that is not a settle,
    *  never written to a file. */
   state(): LiveStack {
+    this.gather();
     return { ...this.water(), edges: { start: this.start, target: this.target, dir: this.dir, floor: this.floor, out: this.m.copy(STACK_FIELD.momentum) as Float64Array } };
   }
 
@@ -278,6 +416,9 @@ export class StackLive {
 
   /** The water as it stands, to show (`StackFrame`; its stack without the momentum: `state` carries that). */
   frame(): StackFrame {
+    // (between checks on several threads, the strips' water and outflows; their momentum stays theirs till asked for)
+    const strips = this.threads && this.since > 0 && this.report() ? this.threads : null;
+    strips?.write(this.m);
     const stack = this.water();
     const N = this.N;
     const depth = new Float64Array(N);
@@ -289,10 +430,12 @@ export class StackLive {
       depth[i] = stack.depth[c];
       contamination[i] = stack.contamination[c];
     }
-    return { stack, depth, contamination, flows: columnFlows(this.m, true) };
+    return { stack, depth, contamination, flows: strips ? strips.flows() : columnFlows(this.m, true) };
   }
 
   close(): void {
+    this.threads?.free();
+    this.threads = null;
     this.m.close();
   }
 }

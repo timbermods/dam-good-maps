@@ -16,6 +16,16 @@ export async function openEditor(page: Page, fragment: string, opts: { timeout?:
   await waitForEditor(page, opts);
 }
 
+/** Hold the page's random seed (`randomSeed` in App.tsx: one number from `crypto.getRandomValues`) at `n`, for a spec
+ *  that makes a map with no seed of its own (Surprise me, a first visit): a seed drawn at random can take many attempts
+ *  and outlast the wait on CI (D341). Any other use of `getRandomValues` is as ever. Call it before the page loads. */
+export async function holdRandomSeed(page: Page, n = 5): Promise<void> {
+  await page.addInitScript((n) => {
+    const real = crypto.getRandomValues.bind(crypto);
+    crypto.getRandomValues = ((a: Uint32Array<ArrayBuffer>) => (a instanceof Uint32Array && a.length === 1 ? a.fill(n) : real(a))) as typeof crypto.getRandomValues;
+  }, n);
+}
+
 /** Wait until the editor and the 3D view are ready (after opening a file, a place or a map in any way). */
 export async function waitForEditor(page: Page, opts: { timeout?: number } = {}): Promise<void> {
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: opts.timeout ?? 120_000 });

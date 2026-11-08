@@ -634,7 +634,8 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
             if e["Template"] != "BlueberryBush" or "BlockObject" not in e.get("Components", {}) or is_dead(e):
                 continue
             q = placement(e)
-            if 0 <= q.x < X and 0 <= q.y < Y and sd[q.y, q.x] <= NEAR and not Md[q.y, q.x] > 0:
+            # (within 20 tiles' walk, the measure the start's food row counts by, as the TypeScript check does)
+            if 0 <= q.x < X and 0 <= q.y < Y and reach_at(walk, q.y, q.x) <= NEAR and not Md[q.y, q.x] > 0:
                 thirsty += 1
         rep.add("plants.drought", thirsty == 0, f"{thirsty} berry bushes near the start dry out in the drought",
                 thirsty, 0, advisory=True)
@@ -677,7 +678,12 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     if ruins:
         pts = [(placement(e).x, placement(e).y) for e in ruins]
         in_fields = sum(len(c) for c in point_clusters(pts, 1) if len(c) >= 10) / len(ruins)
-        rep.add("ruins.fields", in_fields >= 0.8, f"{in_fields:.0%} of columns in fields of 10+", round(in_fields, 2), 0.8)
+        # (a target for the generator's ruins; a player's own tower or stone circle plays exactly right, D499. A map
+        # with no project beside it is an import, read with no profile, validate.py)
+        if profile in ("export", "import") or (spec is None and features is None):
+            rep.add("ruins.fields", True, "a target for generated ruins", na=True)
+        else:
+            rep.add("ruins.fields", in_fields >= 0.8, f"{in_fields:.0%} of columns in fields of 10+", round(in_fields, 2), 0.8)
         no_access = 0
         for e, (x, y) in zip(ruins, pts):
             z = placement(e).z

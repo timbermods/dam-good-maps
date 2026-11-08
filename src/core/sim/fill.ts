@@ -15,12 +15,12 @@ import { SECONDS_PER_DAY, type RetainedWater, type WaterModel } from "./water";
  *  spill off the map, or (with the map's water, `depth`) water already stands at that level. */
 export function fillLake(m: WaterModel, x: number, y: number, level: number, depth?: ArrayLike<number> | null): { lake: RetainedWater } | { reason: string } {
   const { W, H, floor: F, dam } = m;
-  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= W || y >= H) return { reason: `(${x}, ${y}) is off the map` };
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= W || y >= H) return { reason: `X ${x} · Y ${y} is off the map` };
   if (!Number.isFinite(level)) return { reason: "the level must be a number" };
   const top = (i: number) => F[i] + (dam && dam[i] >= 0 ? dam[i] : 0);
   const at = y * W + x;
   if (!(top(at) < level)) {
-    return { reason: F[at] >= level ? `level ${fmt(level)} is at or below the ground at (${x}, ${y}), which stands at ${fmt(F[at])}` : `a natural dam at (${x}, ${y}) stands above level ${fmt(level)}` };
+    return { reason: F[at] >= level ? `level ${fmt(level)} is at or below the ground at X ${x} · Y ${y}, which stands at ${fmt(F[at])}` : `a natural dam at X ${x} · Y ${y} stands above level ${fmt(level)}` };
   }
   // the edge drains, except beside an emitter's tile (water.ts: the edge beside a source is a wall)
   const emitting = new Uint8Array(W * H);
@@ -36,7 +36,7 @@ export function fillLake(m: WaterModel, x: number, y: number, level: number, dep
     const cx = c % W;
     const cy = (c - cx) / W;
     if ((cx === 0 || cy === 0 || cx === W - 1 || cy === H - 1) && !emitting[c]) {
-      return { reason: `at level ${fmt(level)} the water would spill off the map at (${cx}, ${cy}): the hollow doesn't hold it` };
+      return { reason: `at level ${fmt(level)} the water would spill off the map at X ${cx} · Y ${cy}: the hollow doesn't hold it` };
     }
     for (let k = 0; k < 4; k++) {
       let n: number;

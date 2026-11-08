@@ -130,41 +130,65 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
     // four notches up in quick succession, one down: after each, before the next, the label, the row and
     // the note beside the pointer say the same number at once
     const steps = [1.5, 2, 3, 4, 3];
-    /** The label, the row (its readout and its Strength) and the note, read in one go (one frame). */
-    const sample = () =>
+    type Frame = { label: number; own: number; row: number; select: number; note: number };
+    /** From now on, the page reads the label, the row (its readout and its Strength) and the note at every frame,
+     *  all in one go, and keeps the first frame whose note says `want`. The note lasts only 1.5 s after the notch
+     *  (useSourcePointer's wheelNoteTimer), and the runner's first look can come later than that: on CI, where the
+     *  page draws about two frames a second, the runner's first read after a notch ran 1.8 s after the page took the
+     *  wheel, and found the note gone, though the frames between show it, right, with the label and the row (D341;
+     *  CI run 40992435172). Read on the page, at each frame, nothing between the notch and the look can lose it. */
+    const watch = (want: number) =>
       page.evaluate(
-        ([px, py, many]) => {
+        ([px, py, many, want]) => {
           const num = (t: string | null | undefined, re: RegExp) => Number(re.exec(t ?? "")?.[1] ?? NaN);
-          const labels = Array.from(document.querySelectorAll<HTMLElement>(".source-marker")).filter((e) => (many > 1 ? (e.textContent ?? "").startsWith(`${many} sources`) : /^[\d.]+ water\/s$/.test(e.textContent ?? "")));
-          labels.sort((a, b) => Math.hypot(a.getBoundingClientRect().left - px, a.getBoundingClientRect().top - py) - Math.hypot(b.getBoundingClientRect().left - px, b.getBoundingClientRect().top - py));
-          const group = document.querySelector('[role="group"][aria-label="Water source, selected"]');
-          const words = group?.querySelector('[aria-label="This source"] output')?.textContent;
-          return {
-            label: num(labels[0]?.textContent, many > 1 ? /sources, ([\d.]+)/ : /([\d.]+)/),
-            own: num(words, /([\d.]+)/),
-            row: num(words, many > 1 ? /of ([\d.]+)/ : /([\d.]+)/),
-            select: num(group?.querySelector('input[aria-label="Strength"]')?.getAttribute("aria-valuetext"), /([\d.]+)/),
-            note: num(document.querySelector(".shape-note")?.textContent, /([\d.]+)/),
+          const sample = (): Frame => {
+            const labels = Array.from(document.querySelectorAll<HTMLElement>(".source-marker")).filter((e) => (many > 1 ? (e.textContent ?? "").startsWith(`${many} sources`) : /^[\d.]+ water\/s$/.test(e.textContent ?? "")));
+            labels.sort((a, b) => Math.hypot(a.getBoundingClientRect().left - px, a.getBoundingClientRect().top - py) - Math.hypot(b.getBoundingClientRect().left - px, b.getBoundingClientRect().top - py));
+            const group = document.querySelector('[role="group"][aria-label="Water source, selected"]');
+            const words = group?.querySelector('[aria-label="This source"] output')?.textContent;
+            return {
+              label: num(labels[0]?.textContent, many > 1 ? /sources, ([\d.]+)/ : /([\d.]+)/),
+              own: num(words, /([\d.]+)/),
+              row: num(words, many > 1 ? /of ([\d.]+)/ : /([\d.]+)/),
+              select: num(group?.querySelector('input[aria-label="Strength"]')?.getAttribute("aria-valuetext"), /([\d.]+)/),
+              note: num(document.querySelector(".shape-note")?.textContent, /([\d.]+)/),
+            };
           };
+          const w = window as unknown as { dgmNotch?: { frame: Frame | null; last: Frame | null; stop: boolean } };
+          if (w.dgmNotch) w.dgmNotch.stop = true;
+          const rec: { frame: Frame | null; last: Frame | null; stop: boolean } = (w.dgmNotch = { frame: null, last: null, stop: false });
+          const look = () => {
+            if (rec.stop) return;
+            const s = sample();
+            rec.last = s;
+            if (s.note === want) rec.frame = s;
+            else requestAnimationFrame(look);
+          };
+          requestAnimationFrame(look);
         },
-        [p.x, p.y, n] as [number, number, number],
+        [p.x, p.y, n, want] as [number, number, number, number],
       );
+    /** The frame kept, or the last one read while none has been (for the failure's words). */
+    const kept = () =>
+      page.evaluate(() => {
+        const r = (window as unknown as { dgmNotch?: { frame: Frame | null; last: Frame | null } }).dgmNotch;
+        return r?.frame ?? r?.last ?? null;
+      });
     await page.keyboard.down("Control");
     for (let k = 0; k < steps.length; k++) {
       const own = steps[k];
       const total = n > 1 ? n - 1 + own : own;
+      await watch(own);
       await page.mouse.wheel(0, k < 4 ? -120 : 120);
-      // the note says the new number; in that same frame the label and the row say it too, never a step behind.
-      // The note lasts only 1.5 s after the notch (useSourcePointer's wheelNoteTimer), so the sample that sees
-      // it is the sample that is checked: sampling again after the poll let a stall of the page or the runner
-      // between the two reads find the note gone, the other three numbers right (D341; CI run 37092077947).
-      // The poll looks often, so it sees the note long before it goes.
-      let seen: Awaited<ReturnType<typeof sample>> | undefined;
-      await expect
-        .poll(async () => ((seen = await sample()), seen.note), { intervals: [20, 50, 100], message: `${what}, notch ${k + 1}: the note` })
-        .toBe(own);
+      // the note says the new number; in that same frame the label and the row say it too, never a step behind
+      let seen: Frame | null = null;
+      await expect.poll(async () => ((seen = await kept()), seen?.note ?? NaN), { message: `${what}, notch ${k + 1}: the note` }).toBe(own);
       expect(seen, `${what}, notch ${k + 1}: one number everywhere`).toEqual({ label: total, own, row: total, select: own, note: own });
     }
+    await page.evaluate(() => {
+      const r = (window as unknown as { dgmNotch?: { stop: boolean } }).dgmNotch;
+      if (r) r.stop = true;
+    });
     await page.keyboard.up("Control");
     // the source's real strength is the same number, and so are the label and the row once it is
     await expect.poll(() => real(x, y), { timeout: 20_000, message: `${what}: its real strength` }).toBe(3);

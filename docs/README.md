@@ -23,6 +23,7 @@ how things are and what is next, not how they got there.
 | [EDITOR_PLAN.md](../EDITOR_PLAN.md) | The editor: its vision first, then the technical reference, then what's gone and must not come back. Read it before any editor work. |
 | [FORMAT.md](../FORMAT.md) | The Timberborn map format as the repository verified it. |
 | [README.md](../README.md) | The player-facing text (written by docs/RULES.md's rules for README and website text). |
+| [mcp/README.md](../mcp/README.md) | The MCP server's player text: installing it and what to ask Claude (D141, D501). |
 | [UI-BRIEF.md](UI-BRIEF.md) | Kyler's UI brief for "The page is the editor": what gets built (D330). |
 | [COLLAB-BRIEF.md](COLLAB-BRIEF.md) | Kyler's collaborative editing brief: what gets built at that milestone (D362). |
 | [collab-worker/README.md](../collab-worker/README.md), [src/collab/README.md](../src/collab/README.md) | Collaborative editing's connection: the room-code function and the browser side (D431, D486). |

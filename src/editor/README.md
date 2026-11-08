@@ -36,6 +36,9 @@ features share is a member of it.
 - `keyboard/` the keyboard.
 - `testHook/` `window.dgmEditor` for the browser tests.
 - `save/` export and save.
+- `timelapse/` File → Record a time-lapse… (EDITOR_PLAN §6b): the dialog, the recorder (`record.ts`: an off-screen
+  renderer of its own and the browser's `VideoEncoder`), its timeline (`plan.ts`), its camera (`camera.ts`), its ending's
+  ease into the finished map's water and soil (`blend.ts`) and the WebM file (`webm.ts`). The replay is the core's (`core/doc/timelapse.ts`), run in `worker/timelapse.worker.ts`.
 - `collab/` a shared session (Together): the header's button and panel, the other player's cursor, the map's updates the
   session orders, notes. The session itself is the page's `Together` (`src/collab/together.ts`); the edits are routed in
   the worker (`src/worker/collabEdit.ts`), so no other slice knows a session exists.

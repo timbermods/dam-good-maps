@@ -293,8 +293,11 @@ describe("objects in caves (D491): a stroke holds only the ground in its reach",
     const s = straddled();
     const T = 12 * W + 34;
     expect(s.holds()).toContainEqual([T, 2, 2]);
-    // (one of the field's open tiles sculpted a level down with no hold: the integrity pass fills the pit)
-    expect(s.apply({ op: "sculpt", params: { mode: "lower", cells: [[12, 34, 34]], amount: 1, hold: [] } }).ok).toBe(true);
+    // (one of the field's open tiles sculpted a level down with no hold: the integrity pass fills the pit. Given as a
+    // group, as a step of several gives it: a single step that changes nothing the map shows is refused, #739, and
+    // no step that shows this tile lower is allowed, the field over it would float)
+    const down = s.applyAll([{ op: "sculpt", params: { mode: "lower", cells: [[12, 34, 34]], amount: 1, hold: [] } }]);
+    expect(down.ok, down.errors.join("; ")).toBe(true);
     expect(s.terrainState().pre[T]).toBe(1);
     expect(s.built.heights[T]).toBe(2);
     // a stroke elsewhere carries no hold, and leaves that tile to the integrity pass

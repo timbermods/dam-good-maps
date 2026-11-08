@@ -196,6 +196,9 @@ export interface CanonicalWater extends SettleResult {
   /** On terrain above terrain (`WaterModel.stacked`): the settle on every water column, slot by
    *  slot. The fields above are then the map from above, each tile's top column. */
   stack?: StackSettle;
+  /** A preview of terrain above terrain (the editor's journey after an edit, sim/stackLive.ts): the last canonical
+   *  settle it warm-started from, whose shortcut (`settledAgain`) the next canonical settle may still take. */
+  canonical?: SettledFrom;
 }
 
 /** A settle to start from: the canonical settle `water` of the water model `model`. */
@@ -212,7 +215,7 @@ export interface SettledFrom {
  *  sealed basin only evaporating is stored as it started (D413), and the unfed water a removal drained is
  *  taken once the water has settled, on every column of its tiles (a settle with drained tiles never takes
  *  the shortcut). */
-function stackedRun(m: WaterModel, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+function stackedRun(m: WaterModel, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; free?(): void; readonly ticks: number; readonly maxTicks: number } {
   const top = (s: StackSettle): CanonicalWater => {
     const N = m.W * m.H;
     const depth = new Float64Array(N);
@@ -227,8 +230,10 @@ function stackedRun(m: WaterModel, from?: SettledFrom | null): { advance(ticks: 
     }
     return { settled: s.settled, ticks: s.ticks, ...(s.steadyTicks !== undefined ? { steadyTicks: s.steadyTicks } : {}), depth, contamination, sat, stack: s };
   };
-  const prev = from && !from.water.preview && from.water.stack ? from.water.stack : null;
-  const again = prev ? settledAgain(prev, from!.model, m) : null;
+  // (a preview's own canonical settle, when it keeps one: the shortcut compares the map with that settle's)
+  const base = from?.water.preview ? from.water.canonical : from;
+  const prev = base && !base.water.preview && base.water.stack ? base.water.stack : null;
+  const again = prev ? settledAgain(prev, base!.model, m) : null;
   if (again) {
     const done = top(again);
     return { advance: () => done, ticks: again.ticks, maxTicks: Math.max(1, again.ticks) };
@@ -243,6 +248,7 @@ function stackedRun(m: WaterModel, from?: SettledFrom | null): { advance(ticks: 
       done = top(s);
       return done;
     },
+    free: () => run.free(),
     get ticks() {
       return run.ticks;
     },
@@ -281,7 +287,7 @@ export function setCanonicalBackend(backend: ((m: WaterModel, start: WaterState,
  *  worker runs it between answers to the page, and drops it when a newer edit arrives. The result
  *  equals `canonicalSettle`'s. `from`, the map's last canonical settle, may answer a stacked model at
  *  once (`stackedRun`). */
-export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; free?(): void; readonly ticks: number; readonly maxTicks: number } {
   // terrain above terrain settles in the stacked engine; a heightfield (no `stacked`) below, as ever
   if (m.stacked) return stackedRun(m, from);
   const start = prefill(m);

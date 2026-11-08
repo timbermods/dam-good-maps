@@ -26,8 +26,13 @@ export const SIDE_SOUTH = 8; // towards y + 1
  *   water then (last-day depth over `WATER_BODY`) with at least one 4-neighbour on the map that holds
  *   none: `tile`; `sides`, a bit per side facing such a neighbour (`SIDE_*`; the map's edge is never a
  *   shore); `level`, the height the water's surface stands at that day (ground + depth, as the view
- *   draws it); `start`, 1 when the water is the start's. The faint line runs along those sides at
- *   `level`.
+ *   draws it); `start`, 1 when the water is the start's; `under`, 1 when today's (settled) water stands over that
+ *   level (deeper there than on the last day by more than `UNDER_SLACK`: a lake that falls, its last day's shore
+ *   inside today's lake), so the view draws the line as seen through today's water; `onWater`, a bit per side
+ *   (`SIDE_*`) where today's water goes on across it (the tile and the neighbour beyond that side both hold water now:
+ *   below a fall, a river's last day's shore in the middle of today's river), where the view draws it as faint as under
+ *   today's water too, so an editing aid never reads as part of the water's look (planning, 2026-10-30). The faint
+ *   line runs along those sides at `level`.
  * - `bed`: the ground the drought uncovers. One entry per tile that holds water now (the settled
  *   water, over `WATER_BODY`) and none on the last day: `tile`; `gone`, 1 when its whole body of
  *   water (4-connected, as now) holds none on the last day, the lake or river that dries out (the
@@ -53,6 +58,10 @@ export interface DroughtLine {
     sides: Uint8Array;
     level: Float32Array;
     start: Uint8Array;
+    under: Uint8Array;
+    onWater: Uint8Array;
+    /** How deep today's water stands over the line's level (levels; 0 where it stands no higher). */
+    over: Float32Array;
   };
   bed: { count: number; tile: Int32Array; gone: Uint8Array; start: Uint8Array };
   startWater: number;
@@ -74,6 +83,9 @@ export interface DroughtLineInput {
   startWater: Uint8Array | null;
 }
 
+/** Today's water stands over the last day's shore when it is deeper there by more than this (levels). */
+export const UNDER_SLACK = 0.05;
+
 /** A line with nothing on it, and the reason when there is one. */
 export function emptyDroughtLine(W: number, H: number, days: number, refused: string | null = null): DroughtLine {
   return {
@@ -86,6 +98,9 @@ export function emptyDroughtLine(W: number, H: number, days: number, refused: st
       sides: new Uint8Array(0),
       level: new Float32Array(0),
       start: new Uint8Array(0),
+      under: new Uint8Array(0),
+      onWater: new Uint8Array(0),
+      over: new Float32Array(0),
     },
     bed: {
       count: 0,
@@ -125,6 +140,9 @@ export function droughtLine(p: DroughtLineInput): DroughtLine {
   const ls: number[] = [];
   const ll: number[] = [];
   const lst: number[] = [];
+  const lu: number[] = [];
+  const lw: number[] = [];
+  const lo: number[] = [];
   // the beds it uncovers
   const bt: number[] = [];
   const bg: number[] = [];
@@ -143,6 +161,16 @@ export function droughtLine(p: DroughtLineInput): DroughtLine {
       ls.push(sides);
       ll.push(heights[i] + last[i]);
       lst.push(startThen[then[i]] || (startNow?.[i] ?? 0) ? 1 : 0);
+      lu.push(settled.depth[i] > last[i] + UNDER_SLACK ? 1 : 0);
+      let onWater = 0;
+      if (nowWet[i]) {
+        if (sides & SIDE_WEST && nowWet[i - 1]) onWater |= SIDE_WEST;
+        if (sides & SIDE_EAST && nowWet[i + 1]) onWater |= SIDE_EAST;
+        if (sides & SIDE_NORTH && nowWet[i - W]) onWater |= SIDE_NORTH;
+        if (sides & SIDE_SOUTH && nowWet[i + W]) onWater |= SIDE_SOUTH;
+      }
+      lw.push(onWater);
+      lo.push(Math.max(0, settled.depth[i] - last[i]));
     } else if (nowWet[i]) {
       bt.push(i);
       bg.push(keeps[now[i]] ? 0 : 1);
@@ -159,6 +187,9 @@ export function droughtLine(p: DroughtLineInput): DroughtLine {
       sides: Uint8Array.from(ls),
       level: Float32Array.from(ll),
       start: Uint8Array.from(lst),
+      under: Uint8Array.from(lu),
+      onWater: Uint8Array.from(lw),
+      over: Float32Array.from(lo),
     },
     bed: {
       count: bt.length,
@@ -173,7 +204,8 @@ export function droughtLine(p: DroughtLineInput): DroughtLine {
 
 /** The start's water (see `DroughtLine`): a mask of the settled bodies of water the start's pumps
  *  would draw from, within `within` tiles' walk (the start's water rule, `waterWithin`). All zero
- *  without a start, or with no such water. */
+ *  without a start, or with no such water. `walk`: the walk from the start (`startWalk`), when the caller
+ *  has it already. */
 export function startWaterMask(p: {
   W: number;
   H: number;
@@ -183,13 +215,13 @@ export function startWaterMask(p: {
   objects: readonly WalkObject[];
   start: { x: number; y: number } | null | undefined;
   within: number;
+  walk?: Float64Array;
 }): Uint8Array {
   const { W, H, heights, depth, contamination } = p;
   const N = W * H;
   const mask = new Uint8Array(N);
   if (!p.start) return mask;
-  const { blocked, links } = walkWorld(p.objects, W, H);
-  const walk = walkDistance(heights, W, H, blocked, links, p.start);
+  const walk = p.walk ?? startWalk(p.objects, heights, W, H, p.start);
   const wet = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (depth[i] > WATER_BODY) wet[i] = 1;
   const body = components(wet, W, H).labels;
@@ -200,4 +232,10 @@ export function startWaterMask(p: {
   }
   if (ours.size) for (let i = 0; i < N; i++) if (body[i] >= 0 && ours.has(body[i])) mask[i] = 1;
   return mask;
+}
+
+/** The walk from the start over the map (`walk.ts` `walkDistance`, round its objects), in tiles. */
+export function startWalk(objects: readonly WalkObject[], heights: ArrayLike<number>, W: number, H: number, start: { x: number; y: number }): Float64Array {
+  const { blocked, links } = walkWorld(objects, W, H);
+  return walkDistance(heights, W, H, blocked, links, start);
 }

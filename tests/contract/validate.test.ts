@@ -43,6 +43,21 @@ describe("validation profiles (PLAN §19.5)", () => {
     expect(Array.from(again.water!.depth)).toEqual(Array.from(r.built.water));
   });
 
+  it("ruins.fields is a target for generated ruins: a player's lone ruin is no field to fill, D499", () => {
+    // (one ruin column of the map's, the rest taken away: no field of ten)
+    const f = file();
+    const ruin = (e: (typeof f.world.entities)[number]) => String(e.Template).startsWith("RuinColumn");
+    const ruins = f.world.entities.filter(ruin);
+    expect(ruins.length).toBeGreaterThan(1);
+    f.world.entities = f.world.entities.filter((e) => !ruin(e) || e === ruins[0]);
+    const fields = (profile: "generate" | "export" | "import") => validateMap(f, profile === "import" ? { profile } : { profile, spec: r.spec, features: r.features }).report.checks.find((c) => c.id === "ruins.fields")!;
+    expect(verdict(fields("generate"))).toBe("fail");
+    expect(verdict(fields("export"))).toBe("na");
+    expect(verdict(fields("import"))).toBe("na");
+    // (whether a player's ruins can be scavenged still counts everywhere)
+    expect(verdict(validateMap(f, { profile: "export", spec: r.spec, features: r.features }).report.checks.find((c) => c.id === "ruins.access")!)).not.toBe("na");
+  });
+
   it("a playability failure blocks generate, warns in export, and is only reported on import", () => {
     // take every berry bush away: start.food fails
     const f = file();
@@ -155,12 +170,16 @@ describe("validation profiles (PLAN §19.5)", () => {
   });
 
   it("the file without pre-filled water is the same map and still validates", () => {
-    const empty: TimberFile = toTimberFile(r.spec, r.built, { emptyWater: true });
-    const again = validateBuilt(r.spec, r.features, r.built, empty);
+    // (a map of flat ground: seed 4241's; seed 4242's land has stood terrain above terrain since generator 0.10.7, D502,
+    // D148, and the empty copy of such a map saves its water with one level where the terrain needs two)
+    const flat = generate(makeSpec({ seed: 4241, size: { x: 96, y: 96 } }));
+    expect(flat.built.waterModel.stacked).toBeFalsy();
+    const empty: TimberFile = toTimberFile(flat.spec, flat.built, { emptyWater: true });
+    const again = validateBuilt(flat.spec, flat.features, flat.built, empty);
     expect(again.report.passed).toBe(true);
     const water = String(((empty.world.singletons.WaterMapNew as JsonObject).WaterColumns as JsonObject).Array);
     expect(water.split(" ").every((t) => t === "0")).toBe(true);
-    expect(readTimber(writeTimber(empty)).world.entities.length).toBe(r.built.entities.length);
+    expect(readTimber(writeTimber(empty)).world.entities.length).toBe(flat.built.entities.length);
   });
 });
 

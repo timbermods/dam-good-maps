@@ -92,6 +92,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
 
   /** Send the worker a stroke, an undo or a redo of one; the page has shown it already. */
   function sendTerrain(fn: () => Promise<SessionUpdate>): Promise<void> {
+    juice.current?.edited();
     pendingTerrain.current++;
     const next = queue.current.then(async () => {
       setBusy((b) => b + 1);
@@ -116,7 +117,9 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
         // (a stroke that kept ground holding up a cave's or an overhang's rock, or an object under a roof, says how much in
         // one line, and the map tints it until the next edit: D280 (3), amended by #623; D491)
         setRockHeld(u.held?.length ? { tiles: u.held, version: u.info.version } : null);
-        if (u.held?.length) setMessage({ kind: "info", text: heldWords(u.held.length, u.heldUnder) });
+        // (an edit's own note goes with the next kept step, a stroke, its undo or its redo, as it does with any other
+        // edit's: a held stroke taken back leaves no line about tiles the map no longer holds)
+        setMessage(u.held?.length ? { kind: "info", text: heldWords(u.held.length, u.heldUnder) } : (m) => (m && !m.keep ? null : m));
         // (the other player's terrain came in a shared session while these strokes were on their way, and waited: taken now)
         if (u.ok && pendingTerrain.current === 0 && ed.collabStale.current) {
           ed.collabStale.current = false;
@@ -149,7 +152,13 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     if (ed.forcer.current?.running) return ed.forcer.current.cancel();
     if (painter.current?.painting) return painter.current.cancel();
     const s = localUndo.current.pop();
-    if (!s) return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
+    if (!s) {
+      // (a force just kept: its tails stop at the key, not when the worker answers: its sound and its effects, which
+      // would play on over land taken back, renderer.ts clearForce)
+      juice.current?.takeBack();
+      renderer.current?.clearForce();
+      return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
+    }
     juice.current?.undo();
     showStroke(s, "before");
     localRedo.current.push(s);
@@ -375,6 +384,9 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
         } else if (e.kind === "withered") {
           // the plants the held day has surely killed, worked out after the day was shown (the earlier days' soil)
           if (e.hazard === weatherRef.current && e.day === ed.heldDay.current) ed.showWithered(e.tiles);
+        } else if (e.kind === "startWater") {
+          // the day the start's water goes or turns bad, found after the held day was shown
+          if (e.hazard === weatherRef.current) ed.setStartWater({ hazard: e.hazard, version: e.version, day: e.day });
         } else setInstant(e.instant.items.filter((c) => c.here && c.class === "load"));
       }),
     );

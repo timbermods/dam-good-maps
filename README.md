@@ -122,10 +122,18 @@ Real places:
 - The heights come from public elevation data. The gallery lists its credits, and each map's
   description carries them.
 
+## Make maps with Claude
+
+Claude can make and edit maps with the same engine, in Claude Desktop or any app that speaks MCP. Install the
+extension, then ask Claude for a map: [mcp/README.md](mcp/README.md).
+
+## The repository
+
 | Path | What it is |
 |---|---|
 | [src/](src/) | The website. `src/core/` is the generator and format code: pure TypeScript that runs in the worker, in Node and in tests. |
 | [public/real-places/](public/real-places/) | The Real places gallery's data and card pictures, written by `tools/real-places.ts` from the [landscape survey](investigation/landscapes/README.md). |
+| [mcp/](mcp/README.md) | The MCP server: Claude and other MCP apps make and edit maps with the same core (D141, D501). |
 | [tools/](tools/) | Command-line tools on the same core: batch generation, the Python oracle, the benchmark and the in-game check files. |
 | [PLAN.md](PLAN.md) | The implementation plan for the website: architecture, settings, generation pipeline, validation rules, scoring, tests, and (§19) the foundations shared with the editor. |
 | [EDITOR_PLAN.md](EDITOR_PLAN.md) | The plan for the in-browser map editor and the Claude integration. |
@@ -187,6 +195,9 @@ npm run gen -- --seeds 1-10 --sizes 96,128,256 --out out/batch
   browser windows, so it runs locally only. It writes `out/m4/bench3d.json`.
 - `npm run bench:brush` measures painting with a brush at 256² in Chrome: the time from the pointer
   to the frame, the frame times and undo. It runs locally only and writes `out/live/bench-brush.json`.
+- `npm run mcp` runs the MCP server from the source, over stdio. `npm run mcp:build` bundles it into `mcp/dist/`: the
+  Claude Desktop extension (`dam-good-maps.mcpb`) and the package `npx` runs (`dam-good-maps-mcp.tgz`). Every release tag's GitHub Release carries
+  both (`.github/workflows/release-assets.yml`).
 - `npm run fixtures` rewrites the water golden vectors from the Python reference.
 - `npm run build:spike` builds the Claude artifact test page into `dist-spike/`.
 - `npm run spike:check` runs that page and the Messages API CORS page in Chrome. It writes

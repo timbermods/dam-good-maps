@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, openFileMenu, openYourMaps, waitForEditor, topDown } from "./open";
+import { holdRandomSeed, openEditor, openFileMenu, openYourMaps, waitForEditor, topDown } from "./open";
 import { namedFile } from "../../src/core/gen/pack";
 import { decodePlaceFile, galleryIndex, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 
@@ -221,6 +221,10 @@ test.describe("on a phone", () => {
 });
 
 test("an unknown place says so and opens a generated map instead", async ({ page }) => {
+  // (the map made instead is a first visit's, Any with the page's random seed; one that takes many attempts outlasts the
+  // wait on CI, where Any 128²'s p90 is 27 s headless and a browser is slower (dev's run 40885738448): the page's random
+  // number is held at 5, which passes in 2.5 s with no 3D form, D341)
+  await holdRandomSeed(page, 5);
   await page.goto("./#place=near-nowhere");
   // (the words come at once, with the editor's frame showing, while the map made instead is on its way: the page once
   // set them only after that map was made, which took longer than the wait on a busy machine, D341)
@@ -228,7 +232,9 @@ test("an unknown place says so and opens a generated map instead", async ({ page
   await waitForEditor(page);
   // (and they are still there once the map is)
   await expect(page.getByRole("alert").filter({ hasText: 'there is no real place called "near-nowhere"' })).toBeVisible();
-  expect((await page.evaluate(() => window.dgmEditor!.info())).kind).toBe("generated");
+  const made = await page.evaluate(() => window.dgmEditor!.info());
+  expect(made.kind).toBe("generated");
+  expect(made.spec?.seed).toBe(5);
   expect(entry("near-nowhere")).toBeUndefined();
 });
 

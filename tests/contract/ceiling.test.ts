@@ -67,10 +67,17 @@ describe("one ceiling in the editor (D244)", () => {
     expect(isTall(s0.built.heights)).toBe(false);
     const before = s0.exportTimber().bytes;
     expect(noted(described(before))).toBe(false);
-    // Select's Set level up to the ceiling, on a patch far from the start
+    // Select's Set level up to the ceiling, on a patch far from the start and from every source and other set piece
+    // (the first patch found, scanning from the map's far corner: on 0.10.6's map, D498, the corner patch the
+    // test used stood beside a badwater source, whose ground the raise buried: "Badwater source inside terrain")
     const st = s0.built.start!;
-    const x0 = st.x < W / 2 ? 70 : 14;
-    const y0 = st.y < W / 2 ? 70 : 14;
+    const piece = s0.built.entities.filter((e) => !/^(Pine|Birch|Oak|BlueberryBush|Succulent|Slope)$/.test(e.template));
+    let x0 = -1;
+    let y0 = -1;
+    for (let y = st.y < W / 2 ? W - 12 : 6; y >= 6 && y <= W - 12 && x0 < 0; y += st.y < W / 2 ? -1 : 1)
+      for (let x = st.x < W / 2 ? W - 12 : 6; x >= 6 && x <= W - 12 && x0 < 0; x += st.x < W / 2 ? -1 : 1)
+        if (Math.hypot(x - st.x, y - st.y) >= 40 && piece.every((e) => e.x < x - 6 || e.x > x + 11 || e.y < y - 6 || e.y > y + 11)) [x0, y0] = [x, y];
+    expect(x0, "a free patch").toBeGreaterThanOrEqual(0);
     const cells: [number, number, number][] = [];
     for (let y = y0; y < y0 + 6; y++) cells.push([y, x0, x0 + 5]);
     const u = ed.apply({ op: "sculpt", params: { mode: "flatten", cells, level: CEILING } }, "user", "Set level");

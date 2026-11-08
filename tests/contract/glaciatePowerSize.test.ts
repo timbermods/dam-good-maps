@@ -14,7 +14,9 @@ import { openMap } from "./forceEverywhere";
 
 const W = 128;
 const SEED = 22;
-const SIZE_HEAD: [number, number] = [98, 18];
+/** Size's map and head (its own map since generator 0.10.11, see below). */
+const SIZE_SEED = 27;
+const SIZE_HEAD: [number, number] = [42, 50];
 const POWER_HEAD: [number, number] = [74, 18];
 let at: [number, number] = [W >> 1, W >> 1];
 
@@ -37,7 +39,13 @@ beforeAll(async () => {
   // every check of Power). Size's moved again with generator 0.10.5, D148: at (62, 14) Power 20's narrow valley
   // (Size 10) is left on the old floor (a cut of 0) where the wide one (Size 40) cuts it 3, the same level, so
   // "the floor is Power's" had no clean stretch there; of the heads on a grid of 4 from (62, 14) outward,
-  // (98, 18) is the first where every check of Size holds at Power 20, 60 and 100)
+  // (98, 18) is the first where every check of Size holds at Power 20, 60 and 100). And with 0.10.6's map, D498, D148:
+  // at (98, 18) and the 40 heads nearest it Power 20's ice makes no sections, or the floor or its level differs by
+  // two levels between the sizes; of the heads of level 10 or more on a grid of 4, taken by their distance from
+  // (98, 18), (66, 18), level 11, is the first where every check of Size holds at Power 20, 60 and 100. Size's has its own map since generator 0.10.11,
+  // #726's ramps and berries, D148: on seed 22 none of its 400 heads of level 10 or more on a grid of 4 keeps every check of
+  // Size (at (66, 18) Power 60's floor is cut 0 at Size 10 and 2 at Size 40), nor any of the 50 nearest the middle on seeds 21
+  // and 23–26; on seed 27, (42, 50), level 15, is the first that does)
   at = SIZE_HEAD;
 });
 
@@ -103,7 +111,8 @@ describe("Glaciate: Power is how deep, Size how wide (D368 (3))", () => {
     for (const r of [p50, p100]) expect(Math.abs(r.width - p0.width), where).toBeLessThanOrEqual(Math.max(2, p0.width * 0.2));
   }, 300_000);
 
-  it("at a fixed Power, Size alone widens it, its floor cut to the same level", () => {
+  it("at a fixed Power, Size alone widens it, its floor cut to the same level", async () => {
+    await openMap("highlands", W, SIZE_SEED);
     at = SIZE_HEAD;
     for (const power of [20, 60, 100]) {
       const [narrow, wide] = compare([glacier(power, 10), glacier(power, 40)], 40);

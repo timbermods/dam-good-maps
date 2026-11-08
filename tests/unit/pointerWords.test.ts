@@ -87,4 +87,14 @@ describe("the words beside the pointer (D322)", () => {
     c.tick(1300);
     expect(shown).toBeNull();
   });
+
+  it("a reason flashed for longer stays until its own time is up (showcase-craft gap 23)", () => {
+    const { w, c, shown } = words();
+    w.brush("level 15");
+    w.flash("Moist ground keeps its height: weather dry land", 2500);
+    c.tick(1300);
+    expect(shown()).toBe("Moist ground keeps its height: weather dry land");
+    c.tick(1300);
+    expect(shown()).toBe("level 15");
+  });
 });

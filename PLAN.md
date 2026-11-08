@@ -235,6 +235,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Seed | 0 – 4,294,967,295 | random | Also accepted as text, hashed to a number ("beaver" is a valid seed). |
 | Size | Small 96², Medium 128², Large 192², Max 256², Custom | Medium | Custom width and height are each 4–512 (D357; the game's own dialog allows 4–256, and beyond 256 a side the setting warns that Timberborn's map editor can't open the map; it never refuses). Non-square is allowed, and the generator uses the shape: a map 1.5 times as long as wide or more gets its water down its length and its start at an end or the middle by theme (D357 part 2). Generate refuses a side under the theme's least (48, Islands 64) at once with a one-line reason naming it; a smaller map is still made by hand. |
 | Theme | Any (Surprise me), River Valley, Canyon, Highlands, Lake Basin, Delta, Islands | Any | A theme only leans the generator (§6, §8). |
+| Easy start | Off, On | Off | D495: the start is calm and generous, guaranteed; the rest of the map keeps its variety (§5.6). Link key `es=1`, written only when on; a theme, Surprise me and Reset settings keep it, and the page remembers it per browser. Not the game's difficulty: maps stay Normal. |
 | Designed for | Easy, Normal, Hard | Normal | The in-game difficulty the map is balanced for: it sets the start rules and drought sizing (§5.6). The map works on any difficulty; the card warns if you pick Hard for a map designed for Easy. |
 
 ### 5.2 Terrain
@@ -330,6 +331,25 @@ Walkable land from the start (`start.reach`) follows Buildable land (§5.2) and 
 (D211): the land leans toward a tighter or roomier bench (radius about 5 / 6 / 8) and the start prefers a matching
 one; the map card shows the start's bench (level tiles within 8 of the district center).
 
+**Easy start** (D495; amends D211 for this setting: a guarantee, not a lean). For someone who wants to play at once:
+the start sits in a level clearing beside a small backwater pond off its river or lake, with food, wood and scrap at
+hand and no hazard near. Its targets (`analysis/easyStart.ts` `EASY_START`; distances scale under 128², amounts under
+96², the room with the disc it is read within too, so each is one the map can meet): 400+ tiles of level dry ground at the start's level within 14 tiles of its middle, the district center well
+inside (85% of the ground within 6 on it, water left out); within 8 tiles no dry ground more than 2 levels from the
+start but at water's banks, and 300+ tiles beyond 14 on foot; clean water a pump draws (D153, D302) within 6 tiles'
+walk, still drawn within 10 after a Normal drought (9 days), and no badwater on it through the first badtide (2 days
+and a day after); no badwater source within 40 tiles; 40+ living berry bushes within 15 tiles' walk on soil that
+stays moist through the drought; 150+ moist farmland within 20; 250+ logs within 20; ruins within 25 tiles' walk; no
+thorns, unstable core or badtide drain within 30; the start's water in the game's opening view. The generator plans
+the start where the land gives room and water 13–24 tiles off, then cuts the clearing a level above where a cut from
+that water would stand, digs the pond two below it joined by that cut (`land/easyStart.ts`; the pond's shore, the
+cut's course and the rim follow the land's levels and a noise field, so nothing reads stamped), plants the start's
+berries on drought-proof ground and a small ruin field on its walk, keeps thorns past 30 tiles and badwater past 40
+(its badwater draining on its own, never steered into the main water),
+and shows the land only once the map passes; each target is a row of the generate profile's checks
+(`start.easy_*`) that blocks a map, so a land that misses one is planned again. A late rescue round (D471) eases them;
+a map it made says so by its header label, "Easy start (fell short)", naming what fell short. Off, nothing changes.
+
 ### 5.7 The 1.0+ map features
 
 Slopes are always generated (§7.5). Theme ingredients: NaturalDam, the "pre-built weir" variant of the dam site (a 0.65
@@ -354,8 +374,10 @@ terrain, water and objects, §18 E1, D172); below, maps stay within 16. Vertical
 escarpments with hanging valleys, stepped canyons and deep gorges, towering mesas with summit lakes, cascades of falls
 with plunge pools, cliff-bench terraces) are emergent, never stamped, and used more as it rises. The land stays
 traversable at any value: the start and its first resources stand on reachable land, with natural ramps (slopes)
-between levels where the land needs them (a ramp's route is no longer than it needs, two tiles a level, and never runs
-over higher or lower ground than its ends, D209); heights reachable only by building stairs are allowed, as rewards.
+between levels where the land needs them (a ramp's route is no longer than it needs, two to four tiles a level, its
+treads uneven, and never runs over higher or lower ground than its ends, D209; it climbs at most four levels, runs four
+rows or more in from the map's edges and never between water on both sides, and the lower ground beside a fill rises to it a
+level a tile, a spur, never a causeway); heights reachable only by building stairs are allowed, as rewards.
 Measures (design version 2): relief range, levels used, share of land above 16, tallest fall, cliff share and vertical
 reach, against the official and workshop maps.
 
@@ -504,7 +526,11 @@ Every placement uses the footprints in `footprints.json` and marks occupied cell
 2. **Berries:** patches of blueberry bushes across the map (median 20–40, beside water) up to the density target, the
    start's share kept back; then, where they leave the start short of its target within 20 tiles' walk, 1–3 patches
    on moist soil beside clean water, on the side and at the distance the start's layout draws; what they leave of the
-   start's share goes to the rest of the map. Bushes are ripe (`GatherableYieldGrower 1.0`) near the start and 55%
+   start's share goes to the rest of the map. Where the rule's drought outlasts a berry bush (Normal and Hard), every
+   patch within the colony's walk grows only on soil the water the drought leaves keeps moist (`plants.drought`'s
+   reading), so the start's food lasts its first drought; where the walk holds too little of it for Minimum starting
+   bushes, the rest grows on moist soil as before, and the start itself prefers places with such soil near them (on
+   most River Valley maps the rivers drain whole in a drought, and nothing near them stays moist). Bushes are ripe (`GatherableYieldGrower 1.0`) near the start and 55%
    ripe elsewhere, as in official maps.
 3. **Forests:** groves are single-species blobs grown with a compactness of about 0.8, sized log-normal around the
    grove-size median. The map's groves come first (living groves on moist soil up to about a quarter of it, then dead
@@ -580,8 +606,10 @@ D278); the named premises that became intentions are in design version 2 §6 (`d
 No dam ridge is built anywhere (D111). M9b brings Islands' archipelagos, chains and atolls and the crater and
 waterfall-lake intentions (D209). Islands and Delta are shaped by the same processes as every theme (D408): Islands
 draws one of D209's sea layouts, islands with relief of their own and springs on them. The sea is most of the map
-and runs to the map's edge on two or three sides, held there by a lip a tile or two wide at the very edge, a level over
-a shallow shelf (no edge wall, D151; Any's sea maps keep a lip of 6–10 tiles); a river that meets the sea ends there,
+and runs to the map's edge on two or three sides, held there by the two outer rows of land, a level over the water (no edge
+wall, D151): its shore wanders from them to headlands and spits reaching up to a tenth of the side, ragged at
+every scale, so the sea never sits in a straight rim (Any's sea maps keep 5–8 tiles of land there, with headlands to an
+eighth of the side); a river that meets the sea ends there,
 never crossing the lip. The mainland stands on one side or two, its coast warped into bays and points at every scale;
 an inland sea in a ring of land on about one sea map in eleven (D423, D427). The sea is never cut to fit the lake
 budget (D432). Islands grow with the map and vary: a large one with arms and a long coast, smaller ones down from it in
@@ -697,12 +725,12 @@ where the land's own processes make them. The builder's limits still fix what a 
   spring dropped when its badwater comes nearer the start than the badwater distance.
 - **Validated:** no badwater or contaminated soil within the badwater distance of the start; the start's pumpable
   water stays clean (contamination under 0.05); at least one clean river reach of 40+ tiles; badwater joins rivers and
-  lakes (D469), and on most maps the first basin's ditch joins the theme's main water (D476, `land/hazards.ts`
-  `mainWater`: Lake Basin's main lake, its largest planned lake, or water flowing into it; elsewhere the river named
-  `river/main` with its split arms, its lakes and the rivers joining it, on a delta its trunk and own channel, on
-  Islands the sea it drains), below the start's water where it can, else beyond the badwater distance with the start
-  then found by other clean water (`BadwaterAsk.join`); on about 15 maps in 100 (`OWN_DRAIN`, its own hash), and where
-  no join can be routed, the badwater drains where the land takes it ( `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
+  lakes (D469), and on most maps the first basin's ditch joins the theme's main water's lower reach (D476, D498,
+  `land/hazards.ts` `joinReach`: the last 30% of `river/main`'s course, 16 tiles and more below its last lake, where it
+  leaves by an edge), below the start's water where it can, else beyond the badwater distance with the start then found
+  by other clean water (`BadwaterAsk.join`); no other ditch ends in the main water above that reach (`BadwaterAsk.spare`);
+  Lake Basin and Islands take no join, their lakes, sea and the water joined to them staying clean; on about 15 maps in
+  100 (`OWN_DRAIN`, its own hash), and where no join can be routed, the badwater drains where the land takes it ( `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
   badwater, so only stored water stays clean (the map card says nothing about badtides, D472).
 
 ### 9.6 Plugged spillway, 9.8 Second district site, 9.9 Gorge

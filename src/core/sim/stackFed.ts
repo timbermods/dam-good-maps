@@ -253,20 +253,20 @@ export function placeLake(g: StackGraph, r: RetainedWater, k: number): { c: numb
  *  water already stands at that level. */
 export function stackFillLake(g: StackGraph, x: number, y: number, level: number, floor?: number | null, water?: { depth: ArrayLike<number>; overflow: ArrayLike<number> } | null): { lake: RetainedWater; floor: number } | { reason: string } {
   const { W, H, N } = g;
-  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= W || y >= H) return { reason: `(${x}, ${y}) is off the map` };
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= W || y >= H) return { reason: `X ${x} · Y ${y} is off the map` };
   if (!Number.isFinite(level)) return { reason: "the level must be a number" };
   if (level > OPEN_CEILING) return { reason: `level ${fmt(level)} is above the top of the map (${OPEN_CEILING})` };
   const at = y * W + x;
   let s = -1;
   if (floor !== undefined && floor !== null) {
     for (let q = 0; q < g.count[at] && s < 0; q++) if (g.floor[q * N + at] === floor) s = q * N + at;
-    if (s < 0) return { reason: `there is no ground at level ${fmt(floor)} at (${x}, ${y})` };
+    if (s < 0) return { reason: `there is no ground at level ${fmt(floor)} at X ${x} · Y ${y}` };
   } else {
     for (let q = g.count[at] - 1; q >= 0 && s < 0; q--) if (groundOf(g, q * N + at) < level) s = q * N + at;
     if (s < 0) s = at;
   }
   if (!(groundOf(g, s) < level)) {
-    return { reason: g.floor[s] >= level ? `level ${fmt(level)} is at or below the ground at (${x}, ${y}), which stands at ${fmt(g.floor[s])}` : `a natural dam at (${x}, ${y}) stands above level ${fmt(level)}` };
+    return { reason: g.floor[s] >= level ? `level ${fmt(level)} is at or below the ground at X ${x} · Y ${y}, which stands at ${fmt(g.floor[s])}` : `a natural dam at X ${x} · Y ${y} stands above level ${fmt(level)}` };
   }
   const size = g.L * N;
   const seen = new Uint8Array(size);
@@ -285,7 +285,7 @@ export function stackFillLake(g: StackGraph, x: number, y: number, level: number
       const t = g.target[e];
       if (t < 0) {
         const i = c % N;
-        return { reason: `at level ${fmt(level)} the water would spill off the map at (${i % W}, ${Math.floor(i / W)}): the hollow doesn't hold it` };
+        return { reason: `at level ${fmt(level)} the water would spill off the map at X ${i % W} · Y ${Math.floor(i / W)}: the hollow doesn't hold it` };
       }
       if (seen[t] || !(groundOf(g, t) < level)) continue;
       seen[t] = 1;

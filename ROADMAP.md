@@ -11,50 +11,76 @@ decisions in force, in [docs/decisions/](docs/decisions/README.md).
 
 ## The order of work
 
-Who builds what (D388, D398, D453, D463, D468, D470):
+**Who leads (Kyler, 2026-10-29):** the planning session leads all the work and sets this order, and Kyler talks to it. There is
+no deadline: quality decides, never a date.
 
-- **The milestone session** (Opus 5.5, high; the dedicated machine): everything but the page: the core, the water, the
-  generator, the Codex adoptions and the documents. It merges and releases, and hands out decision numbers.
-- **The page session** (Opus 5.5, high since 2026-10-03, D468; worktree `-page`, branch `feature/page`, PR #163): only
-  "The page is the editor".
-- **The renderer session** (Kyler's PC; its own branches): moving water, the Flow view and the High look; its PRs merge
-  on green CI (D453).
-- **Codex** (investigation branches): builds investigations; the milestone session adopts them.
-- **Other Claude Code sessions Kyler starts**: the theme critique, the Islands rounds, the coherence cleanup.
+- **The milestone session**: the core, the water and the generator; it hands out decision numbers.
+- **The renderer session** ("forces play", worktree `DamGoodMaps-forces-play`): `src/render3d`, the look and the moving water.
+- **The planning session**: this order, the page (`src/editor`, `src/ui`; the page session is stopped), releases and the
+  builders it starts for the pieces it assigns.
 
-Neither the page nor the milestone session touches the other's files: the page session owns the page, the editor's
-interface, `Editor.tsx` and its split. Models and effort: D389. Messages between sessions go on the Coordination issue
-(#236, D470); what waits for Kyler carries the `needs-kyler` label.
+Messages go on the Coordination issue (#236, D470) and directly between sessions; decisions are in `docs/decisions/`.
 
-For the next three weeks (D488): 3D creation first (#370, the Foundations release, the Block tool, Erode, 3D in generation), then generation with intent (Showcase mode, landmarks, ruins with meaning, custom sizes up to 256², the opening shot), with the renderer and the page working alongside; collaborative editing, sizes above 256, the tour, M13's accessibility and Lighthouse passes, Pick a place and Real places 2 are paused.
+**What the editor is for, from first principles:** turning what a player imagines into a world that plays and looks
+magnificent in Timberborn. There are four steps: get a great map at once, understand it, make it yours, play it. The waves
+below each close the weakest of those steps.
 
-**0. In flight now** (2026-10-07; each line is a PR or branch and the session that owns it)
+**Work is what changes what a player gets** (Kyler, 2026-10-29). Verifying is not progress. The export is proven: hundreds
+of maps have loaded on several machines. Probe batches, re-runs and audits of what already works don't run by routine,
+only where an implementation looks wrong.
 
-- **3D, step 1: Foundations** (D481; milestone session's `build` agents, `feature/3d-foundations`, its own worktree):
-  started ahead of the Weather view and custom map sizes, alongside the generator queue (the queue's step
-  keeps first place; the two never edit the same files at once). Its new modules are already on dev (the Rust
-  stacked-column engine and #71's eight game-verified fixtures in CI); what remains is "Terrain above terrain", step 1.
+**The free week** (Kyler, 2026-11-07, until about 11-14). Kyler is away and has given planning a free hand: rules may
+evolve, and features beyond this plan may be built where they make the maps or the editor better. Game launches are
+allowed again (Kyler, 2026-11-07), through the DGM Probe runner only and only where a change needs one; the companion
+mod and one-click play are set aside (#709 stays on `hold`). The work, in this order:
+- **Forces play:** dev's red, then the see-behind aid (#759, #761) and the trees (#757). Then the #734 look set with #744
+  and #754, Wave 1's look items, and then water with character: falls pour, rivers wind, and badwater looks poisonous
+  (PERFECT, Water 3).
+- **Milestone:** Wave 1's maps items, then Wave 2's judging by looks. Then difficulty through terrain as its own design
+  step (PERFECT's Challenge, D276), which planning rules on.
+- **Planning's streams:**
+  - **showcase-craft** makes showcase maps by hand and fixes the gaps they find, logged in
+    `docs/progress/showcase-craft.md`. It sends the core and look gaps to their owners, at the top of Wave 1.
+  - **time-lapse** builds the build time-lapse (D205), taken out of Later.
+- **Releases:** planning releases to `main` once dev is green and the #734 set has landed in one go.
 
-- **The generator queue** (milestone session, one re-pin at a time, each with its sheets for Kyler): Delta arms round 2
-  (#325, 0.8.2), badwater joins the main water (#330, D476, 0.8.3) and Lake Basin round 3 (#339, 0.8.4) are merged;
-  River Valley round 2 (#346, 0.8.5), the story's reach (#351, D480, 0.8.6) and Islands round 6 (#235, 0.8.7) are merged
-  too, and Canyon and Highlands (#261, 0.8.8) and the story keeping a main water that is mostly badwater (D480's
-  extension, 0.8.9). The queue is empty.
-- **The page** (`feature/page`; the page session): "The page is the editor" is on dev (#347, #163's squash).
-- **Forces play** (renderer session, worktree `DamGoodMaps-forces-play`): the lake-jump fix, then #312's worker part once the
-  page part reaches dev with #163.
-- **Codex** (investigation branches; Kyler decides each adoption): TypeScript 7 (`investigation/ts7`), generation speed
-  (`investigation/gen-speed-3`), first load (`investigation/first-load`), the page hunt (#303).
-- **The dam sketch, round 3** (#279, `investigation/dam-sketch-3`): parked; the dam sketch is out of the order (D485).
-- **Merged since:** every force plays smoothly (#311), the forces share rust/water's kernel (#304), the checks in Rust (#321),
-  the badwater line (#265, generator 0.8.1), Craterize clears and rides sources (#322), Naturalize rule 4 (#324), forces end
-  the moment their land is final (#275), a source's highlight under its water (#225), shared object models (#323), #313's
-  and #315's fixes (#319); before them Carve plays smoothly (#297), Carve's river follows its cut (#292) and Your maps keeps
-  every map (#298). Decided today: forces can clear sources (D474), no old-project compatibility until launch (D475), badwater
-  joins the main water (D476).
-- **Held investigations and old drafts:** the theme critique (#211), Islands round 2 (#210), the performance audit (#152),
-  scaling (#132) and the parked drafts (#73, #71, #35); STATUS has each one's state.
-- **Next, after Foundations** (D481): the Weather view, custom map sizes, then 3D's view, Erode and the Block tool (D485).
+**Wave 1, now**
+- **Maps as the game shows them** (milestone):
+  - the theme's signature water no longer mostly badwater (an amendment to D476);
+  - a landmark in view of the start on the default Generate (D493);
+  - 3D forms that are there and read as such;
+  - 256² maps that aren't mostly bare ground.
+- **Planning's builders:**
+  - island seas with a shore, not a rim (`addSea`, D410);
+  - natural ramps without stair causeways (`naturalRamps`);
+  - the start's berries through the first drought;
+  - **Easy start** (D495), an optional setting that gives the start room, calm ground, water and food;
+  - Delete under a layer cut and Fill's first try;
+  - the shelf's picked row in view (#668's fix, redone).
+- **The look** (renderer):
+  - badwater's colour as the game draws it;
+  - light in caves;
+  - overhangs and arches that read;
+  - the hero picture;
+  - the first Erode's freeze;
+  - a calm placement outline;
+  - then the look audit's smaller items.
+- **Showcase maps made by hand** with the editor, to find what the tools can't yet do.
+
+**Wave 2**
+- **Judging by looks:** Showcase mode and the audits rank maps rendered from the game's camera, not by text alone.
+- **Generation's seconds per map** (the parked draft #672; D453).
+
+**Wave 3**
+- **Intent-level editing:** describe a change ("a hidden cave with a relic behind the falls") and get it built from the
+  forces and the features (PLAN §20 D187; M12 in `docs/archive/roadmap.md`). Its first form is built: the MCP server
+  (D501, `mcp/`), through which a player's own Claude steers the generator and shapes the map with the forces; the
+  page's own chat box waits with M12.
+- **One click from the editor into the game.**
+- **Starting presets** beyond Easy start, and a first map that teaches by playing.
+
+**Paused, as D488 set:** collaborative editing after part 6a, sizes above 256, the tour (#399), M13's accessibility and
+Lighthouse passes, Pick a place, and Real places' second round.
 
 **1. Released, and the coherence cleanup**
 
@@ -169,8 +195,9 @@ Every step that changes generated maps commits a contact sheet (CLAUDE.md).
 - **In-game checks are deferred** (PLAN §20, D11). A step marked **in-game check** does not stop or wait: it lists the
   checks it would have needed in [docs/archive/ingame-log.md](docs/archive/ingame-log.md) as *pending*, with the files to play,
   and relies on the automated validation and tests. The one exception is a **DGM Probe batch** (D116, D117): an
-  automated run of maps in the real game, launched only after Claude asks Kyler in chat and Kyler says yes, every time
-  (CLAUDE.md, Standing rules). A step whose gate is a probe batch waits for it.
+  automated run of maps in the real game through the DGM Probe runner. On the dedicated machine a batch runs whenever
+  the plan calls for one, without asking (D218), and plays only what players get (D483); the full rules are in
+  [docs/RULES.md](docs/RULES.md). A step whose gate is a probe batch waits for it.
 - **Effort** is the recommended Claude effort level for building a step: **xhigh** for architecture-setting or
   algorithm-heavy work, **high** for the rest.
 
@@ -789,19 +816,14 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    of that day, in both looks (the light look tints). Day 0 shows the map's own ground again. `tests/unit/weather-veins.test.ts`
    pins that no poisoned tile is dropped on the way; `tests/e2e/waterFlow.spec.ts` checks the held day's soil. The
    capture is `tools/capture-weather.ts`.
-   **Built: High's visible seasons, plants first.** On a held Drought or Badtide day, in High only, the plants the game
+   **Built: High's visible seasons, plants first.** On a held Drought or Badtide day, in every look (D242 as amended 2026-10-29: the game shows them at any quality), the plants the game
    would surely have killed by then are drawn withered, by the game's timers, not the editor's instant rule
    (`core/sim/withering.ts`, pure, `tests/unit/withering.test.ts`): dry for 1.1 x the species' `DaysToDieDry` in a row
    (pine 13, birch 11, oak 15, blueberry 9; the run resets when moisture returns; succulents exempt) or on contaminated
    soil for two days running (any plant, the game's 0.2 to 0.3 days, reset if it leaves), and dead for good once dead. So a normal
    drought's 9 days kill no pine, birch or oak; a badtide kills on every tile its poison stays on. The worker adds the held day's dead tiles to its held-day event
    (each day's soil is worked out on demand, once, from the last one cached; none yet on a map with caves, whose day soil, per run top, is worked out on the session worker, #404); the renderer moves those plants to the dead batches in place
-   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. **The rest of #67's stage 4** (High only, each its own
-   effect in the Look menu's Finishing touches, `high/seasons.ts`): on a held drought day, pale dusty dry ground with straw
-   where grass stood, read from the day's soil and water and the map's own soil (a tile mask, nearest-sampled), and a heat
-   shimmer over it, the ground's own pattern moved by under half a pixel (no post pass, D334; still for reduced motion and
-   dropped by the lower-cost tier); on a held badtide day, the sky pulled slightly sickly. Contamination stays the veins in
-   every look (D334).
+   (`Forest.setState`), with one shadow bake once stepping settles; Standard's and the light look's objects are drawn again, the unchanged batches kept. Day 0 shows the map as it is. **Built: dying plants** (D242 as amended 2026-10-29): between alive and dead, every look draws a plant's dying form, as the game's `#Dying` model, while a cause of death runs on the ground shown: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band. This holds on Day 0 as on any held day (`withering.ts` `dyingCause`, tested). Its foliage turns to the game's dry ochre and draws in as the game's does (`render3d/dying.ts`, numbers read from the game's Mature and MatureDry models). The renderer works it out from the soil and water it already shows; the flag (`DYING`) goes through the same redraw-only-what-changed path as the dead. **The rest of #67's stage 4**, as amended 2026-10-29 (planning: follows the game): a held drought or badtide day turns the haze to the game's fog colour for it, in both looks (`high/seasons.ts` `FOG`, from `Sun.blueprint`); the High-only straw, heat shimmer and sickly sky are gone, the game having none. Contamination stays the veins in every look (D334).
 
    **Built: the Unstable Core's moment (D339).** While a hazard is held, a quiet line under the water row says where each
    core goes off against that cycle's hazard (a core goes off `days` days into its cycle, a hazard starts after the cycle's
@@ -929,7 +951,7 @@ acceptance, is in [docs/archive/roadmap.md](docs/archive/roadmap.md) ("M12. Clau
   provider built (bring-your-own-key).
 - **Also here:** the agent guide (D142); the words moved out of M9 (D277, D278): river courses read from the actual flow, the
   place resolver (flow-relative places, never a compass assumption) and the judgement-word table (D84, D88), left in
-  `investigation/claude/` until M12 resumes; the artifact edition; a Dam Good Maps MCP server after M12 (Later).
+  `investigation/claude/` until M12 resumes; the artifact edition; the Dam Good Maps MCP server, built ahead of M12 (D501).
 
 M12's new interface is built to the design pass's records (D176, D236), with the finish review on the new screens.
 **Effort:** xhigh.
@@ -1097,6 +1119,20 @@ operation, D158, D342).
 
 ---
 
+## The build time-lapse (in work, D205, D285 (4); EDITOR_PLAN §6b)
+
+Kyler, 2026-09-26, moved out of M13 by D285 (4) and out of Later on 2026-11-07: replay a map's edit history at speed
+from the generated map, with a camera that glides to each edit, and save it as a WebM to share. Blocking: the replay
+matches the map exactly at its end (`tests/contract/timelapse.test.ts`); the page never freezes while recording.
+
+1. **The time-lapse** (File → Record a time-lapse…; `feature/time-lapse`): the replay in `core/doc/timelapse.ts`, the
+   recorder, the plan and the camera in `src/editor/timelapse/`, a WebM writer of its own; the water drawn still.
+2. **Moving water and force moments in the video:** the renderer's clock per renderer and `whenDrawn()` (forces
+   play's hooks, agreed on #236), then the recorder keeps every animation on video time.
+3. **The postcard** (File → Save a picture; `feature/postcard`): the map from the game's opening view at 1920×1080,
+   from `heroPicture` (D488). With it, the ending eases the replay's water and soil into the finished map's
+   (`timelapse/blend.ts`) instead of snapping to them on the held view.
+
 ## Later
 
 **A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge. Codex builds a demo on `investigation/rift` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as Erode was; on his yes only Codex's own commits merge as an investigation (as #90 did); adoption onto the forces row after the forces release, scheduled with Kyler (2026-09-30).
@@ -1118,22 +1154,17 @@ pays off) is not part of M9b's five outcomes. It needs a design step of its own,
 deploys at `/v/<version>/`, so an old-version link reproduces its file; and a mobile layout for the
 generator page and the Real places gallery (the editor stays desktop-first, D185).
 
-**The build time-lapse** (Kyler, 2026-09-26; PLAN §20 D205, moved out of M13 by D285 (4)): replay a
-map's edit history at speed from the generated map, with a camera that glides to each edit, and save
-it as a WebM video to share. The history is already a list of operations that replay exactly
-(D158), so this reads it; it adds nothing to the editor's screen until used. Blocking, when built:
-the replay matches the map exactly at its end; the page never freezes while recording.
-
 **A companion mod for one-click play** (Kyler, 2026-09-25; D163; built in `mods/companion/`, its README is the
 player text). A small mod: the main menu gets "Play latest Dam Good Maps map" (the newest `dgm-*` map in the Maps folder,
 with its name), one click starts it with the last faction and difficulty, and in game a key reloads the map after the app
 saves it again. Its logic is tested headless; its in-game check (`mods/companion/TESTING.md`) is still to run.
 
-**After M12: a Dam Good Maps MCP server** (Kyler, 2026-09-25; D141). M12's tools (generate, steer
-with intentions, the forces, edit, validate, export) packaged as an MCP server, so Claude
-Desktop, claude.ai or other MCP-capable assistants can build Timberborn maps with the same engine,
-tools and steering principle as the app. A thin wrapper over M12's tool layer that inherits the
-same honesty and "steer, don't hand-build" rules.
+**A Dam Good Maps MCP server** (Kyler, 2026-09-25; D141; built ahead of M12 by D501, `mcp/`). Generate, steer
+with intentions, the forces, edit, check and save, as an MCP server, so Claude Desktop and other MCP-capable
+assistants build Timberborn maps with the same engine and steering principle as the app. A thin wrapper over the
+core that inherits the same honesty and "steer, don't hand-build" rules. Each release tag's push attaches its two
+files to the tag's GitHub Release (`release-assets.yml`). What is left: the first release with them, and later the
+tools M12 adds (the place resolver, the judgement words).
 
 Each item below stays behind a feature flag until its own in-game check passes:
 - seeps and an arid theme;
