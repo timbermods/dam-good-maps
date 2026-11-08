@@ -634,7 +634,8 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
             if e["Template"] != "BlueberryBush" or "BlockObject" not in e.get("Components", {}) or is_dead(e):
                 continue
             q = placement(e)
-            if 0 <= q.x < X and 0 <= q.y < Y and sd[q.y, q.x] <= NEAR and not Md[q.y, q.x] > 0:
+            # (within 20 tiles' walk, the measure the start's food row counts by, as the TypeScript check does)
+            if 0 <= q.x < X and 0 <= q.y < Y and reach_at(walk, q.y, q.x) <= NEAR and not Md[q.y, q.x] > 0:
                 thirsty += 1
         rep.add("plants.drought", thirsty == 0, f"{thirsty} berry bushes near the start dry out in the drought",
                 thirsty, 0, advisory=True)
