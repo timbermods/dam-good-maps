@@ -14,11 +14,11 @@
 //
 // The light (`--light shot`, the default since 2026-11-07): the game's light changes through the day, and the probe's
 // shots fall at their moments' hours: a game's start at hour 4 (the day's light), a hazard's end at midnight (the
-// sunrise's), a game's end at hour 15.5 (the day's light halfway to the sunset's). So ours is drawn in the game's light at
-// the shot's hour and weather (tools/game-day-light.ts, from Sun.blueprint and the decompiled SkySystem): the sun's
-// colour, intensity and height, the ambient's SH and the fog's colour, swapped into the shaders' constants and
-// uniforms. `--light day` draws every shot in the day's light, as the editor does and the judge did before; the sunrise
-// and sunset shots then read grey-blue, land included.
+// sunrise's), a game's end a little after hour 15.5 (islands-128-2-end at 15.53: 55 % toward the sunset's light, 50 %
+// at 15.5). So ours is drawn in the game's light at the shot's hour and weather (tools/game-day-light.ts, from
+// Sun.blueprint and the decompiled SkySystem): the sun's colour, intensity and height, the ambient's SH and the fog's
+// colour, swapped into the shaders' constants and uniforms. `--light day` draws every shot in the day's light, as the
+// editor does and the judge did before; the sunrise and sunset shots then read grey-blue, land included.
 //
 // The judge validates itself on the land, whose light, fog and finish the water shares: dry tops of grass, dry ground
 // and contaminated ground, and cliff faces, away from water, from anything ours doesn't draw (plants, buildings,
@@ -41,7 +41,8 @@
 // display RGB with its L*, and each of ours' mean distance to the game's pixel by pixel (the root of the mean squared
 // difference over the three channels, 0-255). Ours: dev, the tree given by --base (if any), and this branch with our
 // colour and with the game's formula (the same build, its shaders compiled with `--define` 0 or 1: WATER_FORMULA for
-// clean water, waterPalette.ts GAME_WATER.use; BADWATER_FORMULA for badwater, GAME_BADWATER.use). Writes
+// clean water, waterPalette.ts GAME_WATER.use; BADWATER_FORMULA and BADWATER_FORMULA_HIGH for badwater, GAME_BADWATER.use
+// by look; a define already at the case's value is left). Writes
 // .scratch/water-judge/<shot>-<look>-<case>.jpg (the shot beside ours, for the eye) and
 // .scratch/water-judge/judge-<water>-<light>.json.
 
@@ -52,7 +53,7 @@ import { chromium, type Browser, type Page } from "@playwright/test";
 import { build, preview, type PreviewServer } from "vite";
 import { readMapBytes, wetAreas } from "../investigation/probe/runner/mapfile";
 import { GAME_AMBIENT_SH, GAME_FINISH, GAME_LIGHT, gameAmbient } from "../src/render3d/palette";
-import { WATER_SURFACE } from "../src/render3d/waterPalette";
+import { WATER_SURFACE, type Rgb } from "../src/render3d/waterPalette";
 import { dayLight, type DayLight, type Hazard } from "./game-day-light";
 import { waitForEditor } from "./wait-editor";
 
@@ -70,18 +71,23 @@ const OUT = resolve(".scratch/water-judge");
 const WATER = (["bad", "mixed", "all"] as const).find((w) => w === arg("water")) ?? "clean";
 type Kind = "clean" | "mixed" | "bad";
 const KINDS: readonly Kind[] = WATER === "all" ? ["clean", "mixed", "bad"] : [WATER];
-/** The define the two builds of this branch differ by. */
+/** The define the two builds of this branch differ by, with its High look's own where it has one (badwater's is split
+ *  by look: `BADWATER_FORMULA_HIGH`, waterPalette.ts `GAME_BADWATER.use.high`). */
 const DEFINE = arg("define") ?? (WATER === "clean" ? "WATER_FORMULA" : "BADWATER_FORMULA");
+const DEFINES = [DEFINE, `${DEFINE}_HIGH`];
 const PORT = Number(arg("port") ?? 4971);
 /** The light ours is drawn in: the game's at the shot's own hour and weather (`shot`, tools/game-day-light.ts), or the
  *  day's alone, as the editor draws it (`day`: the judge before 2026-11-07, which drew every shot in the day's light). */
 const LIGHT_MODE = arg("light") === "day" ? "day" : "shot";
-/** The environment reflection's strength to draw with in place of the scene's `m_ReflectionIntensity` 0.65
- *  (`GAME_FINISH.reflectionIntensity`, `WATER_SURFACE.reflection`), on the terrain and the water: `--reflection 1` is
- *  what the game's `Sun.UpdateColors` sets every frame (every stage's `ReflectionsIntensity`), a question for the look. */
 /** `--fit own`: each shot fits its own camera (the judge before 2026-11-07), not its map's start shot's. */
 const FIT_OWN = arg("fit") === "own";
+/** The environment reflection's strength to draw with in place of the shipped one (`GAME_FINISH.reflectionIntensity`,
+ *  `WATER_SURFACE.reflection`: 1, what the game's `Sun.UpdateColors` sets every frame), on the terrain and the water:
+ *  `--reflection 0.65` draws the scene's saved `m_ReflectionIntensity`, which the editor drew before 2026-11-07. */
 const REFLECTION = arg("reflection") ? Number(arg("reflection")) : null;
+/** `--ambient <k>`: the ambient probe's SH × k (linear values, before the shader turns them to display values), a
+ *  question for the look: the scene's `m_AmbientIntensity` 1.2, if the engine applies it to a Trilight. */
+const AMBIENT = arg("ambient") ? Number(arg("ambient")) : null;
 const W_PX = 1280;
 const H_PX = 800;
 const CLOCK = 12.5;
@@ -513,20 +519,22 @@ function lightSwaps(light: DayLight): [string, string][] {
           [`env * ${glNum(GAME_FINISH.reflectionIntensity)} / (r2 + 1.0)`, `env * ${glNum(REFLECTION)} / (r2 + 1.0)`],
           [`return ${glNum(WATER_SURFACE.reflection)} * (clamp(smoothness + `, `return ${glNum(REFLECTION)} * (clamp(smoothness + `],
         ];
-  if (light.label === day.label && light.fog.every((v, k) => v === day.fog[k])) return reflection;
+  if (light.label === day.label && light.fog.every((v, k) => v === day.fog[k]) && AMBIENT === null) return reflection;
+  const times = (c: Rgb): Rgb => c.map((v) => v * (AMBIENT ?? 1)) as unknown as Rgb;
+  const sh = { c0: times(light.sh.c0), c1: times(light.sh.c1), c2: times(light.sh.c2) };
   return [
     ...reflection,
     [glColor(GAME_LIGHT.sun), glColor(light.sun)],
-    ...(["c0", "c1", "c2"] as const).map((k): [string, string] => [glColor3(GAME_AMBIENT_SH[k]), glColor3(light.sh[k])]),
-    ...[1, -1, 0].map((y): [string, string] => [glColor3(gameAmbient(y)), glColor3(gameAmbient(y, light.sh))]),
+    ...(["c0", "c1", "c2"] as const).map((k): [string, string] => [glColor3(GAME_AMBIENT_SH[k]), glColor3(sh[k])]),
+    ...[1, -1, 0].map((y): [string, string] => [glColor3(gameAmbient(y)), glColor3(gameAmbient(y, sh))]),
   ];
 }
 
-/** The shader patch: the branch's colour whichever one it ships (its shaders compiled with `DEFINE` 0, our colour, or 1,
+/** The shader patch: the branch's colour whichever one it ships (its shaders compiled with `DEFINES` 0, our colour, or 1,
  *  the game's formula, the same build; `formula` null leaves it), and the shot's light (`lightSwaps`), in one pass so a
  *  swap's result is never swapped again. Counts what it swapped in `window.__judgeSwaps`. */
 const shaderInit = (formula: boolean | null, swaps: [string, string][]) => `(() => {
-  const swaps = new Map(${JSON.stringify([...(formula === null ? [] : [[`#define ${DEFINE} ${formula ? 0 : 1}`, `#define ${DEFINE} ${formula ? 1 : 0}`]]), ...swaps])});
+  const swaps = new Map(${JSON.stringify([...(formula === null ? [] : DEFINES.map((d) => [`#define ${d} ${formula ? 0 : 1}`, `#define ${d} ${formula ? 1 : 0}`])), ...swaps])});
   const keys = [...swaps.keys()];
   window.__judgeSwaps = {};
   for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
@@ -647,7 +655,7 @@ async function main() {
           c.page = await openSite(browser, c.port, c.formula, s.light);
           c.light = lightKey(s);
           const swapped = (await c.page.evaluate("window.__judgeSwaps ?? {}")) as Record<string, number>;
-          console.log(`${c.key} (${s.light.label}): ${await c.page.evaluate("window.dgm3d.renderer.gpu().renderer")}; swapped ${Object.keys(swapped).length} of ${lightSwaps(s.light).length + (c.formula === null ? 0 : 1)} constants`);
+          console.log(`${c.key} (${s.light.label}): ${await c.page.evaluate("window.dgm3d.renderer.gpu().renderer")}; swapped ${Object.keys(swapped).length} of ${lightSwaps(s.light).length + (c.formula === null ? 0 : DEFINES.length)} constants (a define the build already has is not swapped)`);
         }
       const game = await decode(tool, s.png, "image/jpeg");
       // the camera: the probe places it by the map alone (its largest water), the same at every moment, so it is fitted
@@ -748,7 +756,7 @@ async function main() {
       }
     results.total = Object.fromEntries(Object.entries(total).map(([look, t]) => [look, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { distance: Math.sqrt(v.sum / v.n), n: v.n }]))]));
     results.landTotal = Object.fromEntries(Object.entries(landTotal).map(([key, t]) => [key, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { distance: Math.sqrt(v.sum / v.n), bias: Math.sqrt(v.bias / v.n), floor: Math.sqrt(v.floor / v.n), n: v.n }]))]));
-    writeFileSync(join(OUT, `judge-${WATER}-${LIGHT_MODE}${FIT_OWN ? "-fitown" : ""}${REFLECTION === null ? "" : `-reflection${REFLECTION}`}.json`), JSON.stringify(results, null, 1));
+    writeFileSync(join(OUT, `judge-${WATER}-${LIGHT_MODE}${FIT_OWN ? "-fitown" : ""}${REFLECTION === null ? "" : `-reflection${REFLECTION}`}${AMBIENT === null ? "" : `-ambient${AMBIENT}`}.json`), JSON.stringify(results, null, 1));
   } finally {
     await browser.close();
     for (const s of servers) await new Promise<void>((r) => s.httpServer.close(() => r()));

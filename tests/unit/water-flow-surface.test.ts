@@ -215,12 +215,16 @@ describe("badwater as the game draws it (Q9 P9)", () => {
     expect(Math.abs(glow.filter((v) => v === 0).length / n - BAD_TEX.glow.zero)).toBeLessThan(0.05);
   });
 
-  it("carries the pattern by the flow in both looks, its colour by the judge's choice (GAME_BADWATER.use)", () => {
+  it("carries the pattern by the flow in both looks, its colour by each look's judged choice (GAME_BADWATER.use)", () => {
     for (const { look, s } of looks) {
-      expect(s, look).toContain(`#define BADWATER_FORMULA ${GAME_BADWATER.use ? 1 : 0}`);
+      expect(s, look).toContain(`#define BADWATER_FORMULA ${GAME_BADWATER.use.standard ? 1 : 0}`);
+      expect(s, look).toContain(`#define BADWATER_FORMULA_HIGH ${GAME_BADWATER.use.high ? 1 : 0}`);
       expect(s, look).toContain("vec2 badwaterPatternAt(vec2 pa, vec2 pb, float w)");
       expect(s, look).toContain("gameBadwaterEmission(");
     }
+    // High's surface takes its own switch, Standard's its own
+    expect(waterHooks().waterDecl).toMatch(/#if BADWATER_FORMULA_HIGH\n\s*badBody = gameBadwaterColour\(/);
+    expect(looks[0].s).toMatch(/#if BADWATER_FORMULA\n\s*murky = gameBadwaterColour\(/);
     // the game's own colour, as read (ps 680-790): pure badwater a level deep at the pattern's mean
     const k = GAME_BADWATER.colorA.map((a, i) => (a + (GAME_BADWATER.colorB[i] - a) * GAME_BADWATER.pattern[0]) * GAME_BADWATER.intensity[1]);
     const over = k.map((v, i) => 2 * v * GAME_BADWATER.detail[i]);
@@ -231,23 +235,25 @@ describe("badwater as the game draws it (Q9 P9)", () => {
     expect(gameBadwaterEmission(1)[0]).toBeGreaterThan(gameBadwaterEmission(1)[2]);
   });
 
-  it("ships the colour the pixel judge found closer to the game's frames in both looks, by one switch", () => {
+  it("ships in each look the colour the pixel judge found closer to the game's frames in that look", () => {
     const J = GAME_BADWATER.judged;
-    // (one switch for both looks, D154: the formula ships where its distance to the game's pixels, over every judged
-    // tile, in the game's light at each frame's hour, is the smaller in both looks; it is in Standard, not in High)
+    // (a switch for each look, planning 2026-11-07: the formula ships in a look where its distance to the game's pixels,
+    // over every judged tile, in the game's light at each frame's hour, is the smaller in that look; it is in Standard,
+    // not in High)
     const over = (look: "standard" | "high", k: "ours" | "formula") => Math.sqrt(([J.atHour, J.day] as const).reduce((s, set) => s + set[look][k] ** 2 * set.tiles, 0) / (J.atHour.tiles + J.day.tiles));
-    expect(GAME_BADWATER.use).toBe(over("standard", "formula") < over("standard", "ours") && over("high", "formula") < over("high", "ours"));
-    // the shipped path (waterShown, which the legend and the look tests read) draws pure badwater by that switch: the
-    // game's formula in the game's light, or our crimson darkened by the game's G ramp in our own; red over green over
-    // blue, darker deeper, either way
+    expect(GAME_BADWATER.use.standard).toBe(over("standard", "formula") < over("standard", "ours"));
+    expect(GAME_BADWATER.use.high).toBe(over("high", "formula") < over("high", "ours"));
+    // the shipped path (waterShown, the Standard look's, which the legend and the look tests read) draws pure badwater
+    // by Standard's switch: the game's formula in the game's light, or our crimson darkened by the game's G ramp in our
+    // own; red over green over blue, darker deeper, either way
     const up = Math.sin(LIGHT.sunElevation);
     for (const d of [0.5, 1, 2, 3]) {
       const shown = waterShown(d, 1, false);
       const ours = badwaterGlow(badwaterBody(d), WATER.bad, d, 1).map((v, k) => v * (LIGHT.sky[k] * 1.2 + LIGHT.sun[k] * 0.3 * up));
-      const want = GAME_BADWATER.use ? sunlitTop(gameBadwaterColour(d, 1)) : ours;
+      const want = GAME_BADWATER.use.standard ? sunlitTop(gameBadwaterColour(d, 1)) : ours;
       for (let k = 0; k < 3; k++) expect(shown[k]).toBeCloseTo(want[k], 6);
       expect(shown[0]).toBeGreaterThan(shown[1]);
-      expect(shown[1]).toBeGreaterThanOrEqual(shown[2]);
+      expect(shown[1]).toBeGreaterThan(shown[2]);
       if (d > 0.5) expect(shown[0]).toBeLessThan(waterShown(d / 2, 1, false)[0]);
     }
     // the formula is lit by the game's light (both looks' gameWaterLight), so it turns redder at the hours most of the

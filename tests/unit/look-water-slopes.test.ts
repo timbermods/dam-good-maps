@@ -1,5 +1,5 @@
-// Map look's third round (PLAN §20 D115) and Kyler's clean look: badwater lighter than clean water
-// of the same depth, as the game draws it (D496 amended 2026-11-07), and clean water keeps its see-through shallows so it
+// Map look's third round (PLAN §20 D115) and Kyler's clean look: badwater darker than clean water
+// of the same depth, as the game draws it by day (D496 amended 2026-11-07), and clean water keeps its see-through shallows so it
 // reads apart from ground (it may be as dark as dry ground, as in the game); water partly bad
 // turns smoothly from clean water to badwater, the badwater share blended between tiles (D177,
 // which replaced each top showing its own tile's share); a slope's arrow is level and floats above the slope, pointing uphill, so it reads from
@@ -29,16 +29,17 @@ const lightness = (c: readonly number[]) => {
 type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): { array: ArrayLike<number>; count: number } } };
 
 describe("water", () => {
-  it("draws badwater lighter than clean water of the same depth, with see-through shallows, and no shore foam and no glints, as the game", () => {
+  it("draws badwater darker than clean water of the same depth, with see-through shallows, and no shore foam and no glints, as the game", () => {
     const depths = Array.from({ length: 100 }, (_, k) => 0.05 + k * 0.05);
-    // the game's order (D496 amended 2026-11-07, from its own frames: islands-128-2-end, `tools/water-pixel-judge.ts
-    // --water bad|clean`): badwater a level or two deep reads L* 34.6 to clean water's 28.7 (898 and 573 tiles). The
-    // shipped colours (clean water the game's formula, waterShown.ts): from half a level down badwater is the lighter,
-    // and a level or two deep by about the game's 5.9 (D148: this held badwater 6 L* darker until then)
+    // the game's order by day (D496 amended 2026-11-07, from its own frames in the day's light, the six start shots
+    // with badwater in view, `tools/water-pixel-judge.ts --water all`): badwater a level or two deep reads L* 27.5 to
+    // clean water's 31.7 (73 and 10,063 tiles); only near sunset does it read lighter (islands-128-2-end, 33.3 to 28.2),
+    // and the editor draws the day's light. The shipped colours (waterShown.ts: clean water the game's formula,
+    // badwater Standard's choice) keep that order wherever the game's day frames have badwater, half a level to two
+    // levels down; deeper, both bodies are near black and the sky's reflection decides (D148: this held badwater
+    // lighter, from the near-sunset frame, for part of 2026-11-07, and 6 L* darker before)
     const gap = (d: number) => lightness(badwaterShown(d)) - lightness(cleanWaterShown(d));
-    for (const d of depths) if (d >= 0.5 - 1e-9) expect(gap(d), `${d} deep`).toBeGreaterThan(0);
-    const band = Array.from({ length: 11 }, (_, k) => gap(1 + k * 0.1));
-    expect(Math.abs(band.reduce((a, b) => a + b) / band.length - 5.9)).toBeLessThan(1.5);
+    for (const d of depths) if (d >= 0.5 - 1e-9 && d <= 2 + 1e-9) expect(gap(d), `${d} deep`).toBeLessThan(0);
     // no foam along the shore in either look, and no glints of our own, as the game's water shader has neither: its
     // sheen is the sun's specular at its smoothness (D154 amended 2026-10-29 and 2026-11-07 by planning, D496's rule;
     // D148: this checked a shore foam line, then glints, until then; the glints read as white specks on a wide river)

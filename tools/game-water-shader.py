@@ -14,6 +14,11 @@ shadow and fog keywords change only URP's shadow and fog code, not the water's o
 
     python tools/game-water-shader.py [--game "C:/Program Files (x86)/Steam/steamapps/common/Timberborn"]
         [--keywords _CALCULATE_OUTFLOWS,_HIGH_QUALITY_WATER_ENABLED,...] [--out investigation/water-shader/local]
+        [--shader "Shader Graphs/TerrainURP" --keywords _MAIN_LIGHT_SHADOWS_CASCADE,_SHADOWS_SOFT,FOG_EXP]
+
+`--shader` reads another Shader Graph the same way (the terrain's, D497), its ForwardLit pass for `--keywords` (its
+other keywords off), and prints every material that uses it with its saved values; on a variant that doesn't match it
+lists the keyword sets the pass has.
 
 How a Unity 6 player stores a shader (no type tree in a player build, so the layout is read by structure and every
 step checks itself): the Shader object holds its parsed form (properties, passes, keyword names) and then, per
@@ -671,6 +676,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--game", default="C:/Program Files (x86)/Steam/steamapps/common/Timberborn")
     ap.add_argument("--keywords", default=DEFAULT_KEYWORDS)
+    ap.add_argument("--shader", action="append", help="another Shader Graph to read (its full name), in place of the water's")
     ap.add_argument("--out", default=os.path.join(ROOT, "investigation", "water-shader", "local"))
     ap.add_argument("--textures", action="store_true", help="measure the flow's and badwater's textures (Q9 P5, P9) and stop")
     ap.add_argument("--preview", action="store_true", help="with --textures: also write crops of badwater's pattern to --out (gitignored)")
@@ -700,14 +706,22 @@ def main():
                     materials.append(read_material(read(o)))
                 except (ValueError, UnicodeDecodeError, struct.error):
                     pass
-        for shader_name in SHADERS:
+        for shader_name in args.shader or SHADERS:
             tag = struct.pack("<I", len(shader_name)) + shader_name.encode()
             found = [(o, b) for o in objects if o[3] == 48 for b in [read(o)] if tag in b]
             if len(found) != 1:
                 raise ValueError(f"{shader_name}: {len(found)} shader objects")
             (path_id, _, _, _), b = found[0]
             form_end = b.index(tag)
-            keywords = string_vector_with(b, "_CALCULATE_OUTFLOWS", form_end)
+            keywords = None
+            for anchor in ["_CALCULATE_OUTFLOWS", "_MAIN_LIGHT_SHADOWS_CASCADE", "FOG_EXP", *sorted(want)]:
+                try:
+                    keywords = string_vector_with(b, anchor, form_end)
+                    break
+                except ValueError:
+                    continue
+            if keywords is None:
+                raise ValueError(f"{shader_name}: its keyword names not found")
             platforms, offsets, compressed, decompressed, blob = find_blob_tables(b, form_end)
             k = platforms.index(D3D11)
             segments = [lz4_block(blob[o:o + c], d) for o, c, d in zip(offsets[k], compressed[k], decompressed[k])]
@@ -720,7 +734,7 @@ def main():
                 raise ValueError(f"{shader_name}: {len(forward)} ForwardLit passes")
             start, after_map, names, _ = forward[0]
             stop = min([m[0] for m in maps if m[0] > start] + [form_end])
-            short = shader_name.split("_")[-1].lower()
+            short = shader_name.split("_")[-1].lower() if shader_name in SHADERS else re.sub(r"[^a-z0-9]+", "-", shader_name.split("/")[-1].lower())
             print(f"\n== {shader_name} (pathID {path_id}): {len(entries)} blob entries, "
                   f"{len(keywords)} keywords, ForwardLit's names at {start}")
             p = after_map
@@ -736,7 +750,8 @@ def main():
                 stage = "vs" if variants[0][2] in (15, 16) else "ps"
                 chosen = [v for v in variants if {keywords[x] for x in v[1]} == want & {keywords[x] for v2 in variants for x in v2[1]}]
                 if len(chosen) != 1:
-                    raise ValueError(f"{shader_name} {stage}: {len(chosen)} variants match {sorted(want)}")
+                    sets = sorted({" ".join(sorted(keywords[x] for x in v[1])) for v in variants})
+                    raise ValueError(f"{shader_name} {stage}: {len(chosen)} variants match {sorted(want)}; its sets:\n  " + "\n  ".join(sets))
                 program, kw, gpu, param_entry = chosen[0]
                 params = merge(common_parameters(b, common_at, names), variant_parameters(entry(param_entry)))
                 text = annotate(d3d_disassemble(dxbc(entry(program))), params)
@@ -755,7 +770,11 @@ def main():
                 material = [m for m in materials if m[1] == path_id]
                 values = material[0][5] if material else {}
                 if material and stage == "vs":
-                    print(f"material {material[0][0]}: keywords {material[0][2]}")
+                    for m in material:
+                        print(f"material {m[0]}: keywords {m[2]}")
+                if len(material) > 1 and stage == "ps":
+                    for m in material[1:]:
+                        print(f"material {m[0]}'s values: " + ", ".join(f"{n} {fmt(v)}" for n, v in sorted(m[5].items())))
                 reg = [r for r, n in params["bindings"].items() if n == "UnityPerMaterial"]
                 if reg:
                     size, ps = params["cbs"]["UnityPerMaterial"]
