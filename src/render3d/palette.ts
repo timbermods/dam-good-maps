@@ -24,7 +24,7 @@
 //
 // Pure TypeScript, no three.js: the unit tests and the page's legend read it too.
 
-import { BADWATER, BADWATER_GLOW_COLOUR, badwaterBody, badwaterGlow, badwaterRamp, blendWater, cleanWaterBody, GAME_BADWATER, GAME_WATER, gameBadwaterColour, gameBadwaterEmission, gameCleanColour, HIGH_WATER, WATER, waterBody, type Rgb } from "./waterPalette";
+import { BADWATER, BADWATER_GLOW_COLOUR, badwaterBody, badwaterGlow, badwaterRamp, blendWater, cleanWaterBody, GAME_BADWATER, GAME_WATER, gameBadwaterColour, gameBadwaterEmission, gameCleanColour, HIGH_WATER, WATER, WATER_LIGHT, waterBody, type Rgb } from "./waterPalette";
 import { WATER_ALBEDO } from "./waterTextures";
 import { GAME_SOIL_TEXTURE } from "./soilTexture";
 import { deadWood } from "./dying";
@@ -421,9 +421,9 @@ export const ALTITUDE_RAMP = {
  *  from above, the equator's from the side, the ground's from below) as Unity's ambient probe, irradiance SH
  *  (`GAME_AMBIENT_SH`), turned back to display values (URP's `SampleSH` under Gamma). The sun is its colour × its intensity, 1.1, at full shadow strength. `diffuse` is URP's
  *  0.96 − 0.96 × `_Metallic` (0.05 on the terrain's materials). The water takes it too, though its own metallic is 0
- *  (clean water's `WaterMetalAndGloss` red, badwater's `_Contamination_Metallic`), which gives 0.96: measured, that
- *  lifts clean water, already lighter than the game's, further away, so it waits for clean water's own excess to be
- *  found (docs/progress/3d-view.md, fix/ground-veins). */
+ *  (clean water's `WaterMetalAndGloss` red, badwater's `_Contamination_Metallic`), which gives 0.96: the water draws
+ *  that where its look draws the game's light on it (waterPalette.ts WATER_LIGHT.held; fix/water-sky, with the
+ *  detail overlay that was clean water's excess, docs/progress/3d-view.md). */
 export const GAME_LIGHT = {
   sky: [0.6239606, 0.6307573, 0.9734455] as Rgb,
   equator: [1, 1, 1] as Rgb,
@@ -448,16 +448,23 @@ export function sunlitTop(c: Rgb): Rgb {
  *  `GAME_WATER.use` or `GAME_BADWATER.use.standard` is off. It is the Standard look's unless `look` is "high": High draws
  *  clean water by the same formula and badwater by its own choice (`GAME_BADWATER.use.high`): the formula, or its
  *  crimson (`HIGH_WATER.bad` by the game's ramp, as `measuredSurfaceWater`), a display colour its light leaves as it
- *  is on open water in full sun. The legend and the look tests read it. */
+ *  is on open water in full sun. The game's light as each look draws it (waterPalette.ts WATER_LIGHT: the water's diffuse
+ *  share, clean water's detail overlay) is in it. The legend and the look tests read it. */
 export function waterShown(depth: number, share = 0, glow = true, look: "standard" | "high" = "standard"): Rgb {
   const up = Math.sin(LIGHT.sunElevation);
   const ours = (c: Rgb): Rgb => [0, 1, 2].map((k) => c[k] * (LIGHT.sky[k] * 1.2 + LIGHT.sun[k] * 0.3 * up)) as unknown as Rgb;
   const g = gameCleanColour(depth);
-  const clean = GAME_WATER.use ? sunlitTop([0, 1, 2].map((k) => g[k] * WATER_ALBEDO.mean[k]) as unknown as Rgb) : ours(cleanWaterBody(depth));
+  // (the game's light on the water as the look draws it, WATER_LIGHT: the water's own diffuse share, and clean water's
+  // detail overlay at the detail texture's mean)
+  const lit = (c: Rgb): Rgb => sunlitTop(c).map((v) => (v * (WATER_LIGHT.held[look] ? WATER_LIGHT.diffuse : GAME_LIGHT.diffuse)) / GAME_LIGHT.diffuse) as unknown as Rgb;
+  const overlay = (a: number, d: number) => (a < 0.5 ? 2 * a * d : 1 - 2 * (1 - a) * (1 - d));
+  const albedo = [0, 1, 2].map((k) => g[k] * WATER_ALBEDO.mean[k]);
+  const detailed = (WATER_LIGHT.detail[look] ? albedo.map((a, k) => overlay(a, GAME_BADWATER.detail[k])) : albedo) as unknown as Rgb;
+  const clean = GAME_WATER.use ? lit(detailed) : ours(cleanWaterBody(depth));
   if (!(share > 0)) return clean;
   const k = BADWATER.floor + (1 - BADWATER.floor) * badwaterRamp(depth);
   const highBad = (): Rgb => badwaterGlow(HIGH_WATER.bad.map((v) => v * k) as unknown as Rgb, HIGH_WATER.bad, depth, share);
-  const bad = GAME_BADWATER.use[look] ? sunlitTop(gameBadwaterColour(depth, share)) : look === "high" ? highBad() : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
+  const bad = GAME_BADWATER.use[look] ? lit(gameBadwaterColour(depth, share)) : look === "high" ? highBad() : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
   const e = glow ? gameBadwaterEmission(share) : ([0, 0, 0] as unknown as Rgb);
   const m = blendWater(clean, bad, share);
   return [0, 1, 2].map((k) => m[k] + e[k]) as unknown as Rgb;

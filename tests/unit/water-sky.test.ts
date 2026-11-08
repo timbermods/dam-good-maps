@@ -62,6 +62,10 @@ describe("the game's light on its water (Q9 P15)", () => {
     // (the diffuse share, the water's own at its metallic 0 where held: URP's 0.96 × (1 − metallic))
     expect(WATER_LIGHT.diffuse).toBe(0.96);
     expect(s).toContain("float gameWaterDiffuse = 0.96;");
+    // (P6: clean water's colour × the albedo overlaid with the still detail's mean, as badwater's is, by its switch)
+    expect(s).toContain(`#define WATER_DETAIL ${WATER_LIGHT.detail.standard ? 1 : 0}`);
+    expect(s).toContain("a = mix(a, waterDetailOverlay(a), gameWaterDetail);");
+    expect(s).toContain("return mix(2.0 * a * dt, 1.0 - 2.0 * (1.0 - a) * (1.0 - dt), step(0.5, a));");
   });
 
   it("is drawn in High's water: the probe by the reflected direction, the head-on part by its switch, the sun's GGX glint by its shadow, the highlight in the game's sun colour", () => {
@@ -80,16 +84,42 @@ describe("the game's light on its water (Q9 P15)", () => {
       expect(s).toContain(line);
     // (the diffuse share by High's own switch)
     expect(s).toMatch(/#if WATER_HELD_HIGH\s+gameWaterDiffuse = 0\.96;/);
+    expect(s).toContain(`#define WATER_DETAIL_HIGH ${WATER_LIGHT.detail.high ? 1 : 0}`);
+    expect(s).toContain("gameWaterDetail = float(WATER_DETAIL_HIGH);");
   });
 });
 
 describe("each look's choice of the game's light on its water", () => {
   it("is the one the pixel judge found nearest the game's frames over all the look's water (WATER_LIGHT.judged)", () => {
     const J = WATER_LIGHT.judged;
+    // (fewest terms last: within the judge's 0.1 the more of the game's own terms wins)
+    const order = ["all", "full", "detail", "game", "dev"] as const;
     for (const look of ["standard", "high"] as const) {
-      const all = (k: "dev" | "game" | "full") => Math.sqrt((J[look].clean[k] ** 2 * J.tiles.clean + J[look].bad[k] ** 2 * J.tiles.bad) / (J.tiles.clean + J.tiles.bad));
-      const best = (["dev", "game", "full"] as const).reduce((a, b) => (all(b) < all(a) ? b : a));
-      expect({ game: WATER_LIGHT.game[look], held: WATER_LIGHT.held[look] }, look).toEqual({ game: best !== "dev", held: best === "full" });
+      const over = (k: (typeof order)[number]) => Math.sqrt((J[look].clean[k] ** 2 * J.tiles.clean + J[look].bad[k] ** 2 * J.tiles.bad) / (J.tiles.clean + J.tiles.bad));
+      const best = Math.min(...order.map(over));
+      const pick = order.find((k) => over(k) <= best + 0.1)!;
+      expect(
+        { game: WATER_LIGHT.game[look], held: WATER_LIGHT.held[look], detail: WATER_LIGHT.detail[look] },
+        look,
+      ).toEqual({ game: ["game", "full", "all"].includes(pick), held: ["full", "all"].includes(pick), detail: ["detail", "all"].includes(pick) });
     }
+  });
+});
+
+describe("the gap between clean water and badwater by day (D496)", () => {
+  it("is the game's on screen, a level or two deep, within the spread of the game's own frames, in Standard; High keeps the order", () => {
+    const G = WATER_LIGHT.gap;
+    // (the game's gap on its six day-lit start shots with badwater in view, 4.7 L* (D496's 4.2): its shots' clean
+    // water and badwater bound what the frames allow, 3.1 to 6.5)
+    const low = G.game.cleanShots[0] - G.game.badShots[1];
+    const high = G.game.cleanShots[1] - G.game.badShots[0];
+    expect(G.game.clean - G.game.bad).toBeGreaterThan(low);
+    expect(G.game.clean - G.game.bad).toBeLessThan(high);
+    const std = G.standard.clean - G.standard.bad;
+    expect(std).toBeGreaterThanOrEqual(low - 1e-9);
+    expect(std).toBeLessThanOrEqual(high + 1e-9);
+    // High's formula badwater reads darker by day than the game's (25.1 against 27.5), so its gap (7.3) is wider than
+    // the frames allow: the order holds, the size is still to find (docs/progress/3d-view.md, fix/water-sky)
+    expect(G.high.clean - G.high.bad).toBeGreaterThan(0);
   });
 });

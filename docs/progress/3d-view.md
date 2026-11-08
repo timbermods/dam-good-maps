@@ -1305,6 +1305,47 @@ the game's models in resources.assets (positions, materials and texture means on
   so the veins' coverage and colour on screen are judged from afar only; the texture's statistics are the close-up
   measure.
 
+## The game's light on its water (Q9 P15, P6; D496, D497; `fix/water-sky`)
+
+- **P15 read term by term** (`investigation/notes/water_and_soil.md` Q9): URP Lit at the water's metallic 0, on display
+  values. Diffuse = albedo × 0.96 × (the SH ambient + the sun × N·L × shadow); the environment = the scene's baked
+  reflection probe (`TimberbornEnvironmentRelfectionProbe`, the terrain's too, the same every hour, reflection
+  intensity 1 at every stage) by reflect(−V, N) at mip pr × (1.7 − 0.7 pr) × 6, × (0.04 + (saturate(s + 0.04) − 0.04)
+  × (1 − N·V)^4) / (1 + r²); the sun's GGX, f0 × r² / (d² × max(0.1, (L·H)²) × (4r + 2)) × N·L × shadow; the camera
+  highlight × the sun's colour and badwater's glowing lines unlit; then the fog. #839's two held-back terms (0.96, the
+  head-on f0 part) are this same lighting. The probe is read by the reflected direction's height at mips 4–6
+  (`WATER_PROBE`, `tools/reflection-probe.ts`; numbers only): its horizon haze lighter than its zenith, the ground
+  below darker; its mip 6 is the terrain's `GAME_ENV`. Not read, assumed: the HDR decode the game uploads (1, no RGBM),
+  that `unity_SpecCube0` in play is that probe, its turn against our axes (averaged round the turn) and the SH it
+  uploads.
+- **P6 was clean water's excess:** the game overlays clean water's colour × albedo with its still detail albedo
+  (ps 462-477), which we drew for badwater only. At the texture's mean (69.7/88.7/95.3) it darkens and cools clean
+  water to about 0.55/0.70/0.75 of itself (`waterDetailOverlay`). P15 alone moved clean water further from the game
+  (Standard 13.1 to 15.7, High 12.2 to 15.6); P6 alone brought it nearer (10.0, 10.7); both are nearest.
+- **Built in both looks (D496: the game's quality tiers)** behind `WATER_LIGHT.game`, `.held`, `.detail` by look, all
+  on: `waterEnvironment`, `waterProbeAt`, the GGX glint and highlight in the game's sun colour (`GAME_SUN_COLOUR`), the
+  0.96 share; High's surface and faces draw the same. Badwater's colour in High is now the game's formula
+  (`GAME_BADWATER.use.high`), which the judge finds nearer under this light.
+- **Judged** (`tools/water-pixel-judge.ts`, each frame in its hour's light, RMS distance 0–255, dev → this PR). The
+  sixteen day-lit start shots: clean water Standard 13.1 → 10.0, High 12.2 → 9.9 (37,853 tiles); pure badwater
+  Standard 15.4 → 14.2, High 14.6 → 15.0 (172). The six end shots at their hours (sunrise, near sunset): pure badwater
+  Standard 8.3 → 7.1, High 9.5 → 7.5 (4,592); partly bad Standard 9.7 → 9.0, High 9.3 → 9.0 (19,318); clean 5.1 → 3.5,
+  3.4 → 3.4 (862). L* by band on the start shots, game / dev / PR: Standard clean 0.05–0.5 39.2 / 44.3 / 41.0, 0.5–1
+  31.9 / 35.3 / 33.1, 1–2 31.4 / 33.1 / 31.8, 2–3 26.9 / 27.9 / 27.8, 3– 22.2 / 20.0 / 21.1; High clean on this PR
+  within 0.1 of Standard's, on dev 43.6, 34.4, 32.1, 27.0, 18.8; badwater 1–2 Standard 27.5 / 24.8 / 26.0, High 27.5 / 26.1
+  (crimson) / 25.1 (formula). At their hours High's formula badwater a level or two deep reads 27.0 against the
+  game's 28.6 (the ~5 L* under on screen #826 found is closed to under 2); our crimson read 31.2.
+- **The gap by day (D496), now tested** (`tests/unit/water-sky.test.ts`, `WATER_LIGHT.gap`): on the six start shots
+  with badwater, a level or two deep, the game's clean water 32.2 against badwater 27.5 (4.7; D496's 4.2), its shots'
+  spread allowing 3.1 to 6.5. Standard 32.5 against 26.0, 6.5 (9.1 on dev); High 32.4 against 25.1, 7.3 (6.8 on dev).
+  The order holds in both mirrors half a level to two levels down (`look-water-slopes.test.ts`, High's from one level).
+- **The sheet:** `docs/sheets/water-sky.jpg` (`tools/capture-water-sky.ts`): dev against this PR, Standard and High: a
+  lake from a low grazing camera, a river, the game's opening camera, pure badwater.
+- **Falls short:** High's formula badwater reads 2.4 L* under the game's by day (about 1 under Standard's), so High's
+  gap is wider than the game's frames allow; by day alone its crimson reads a little nearer (14.5 against 15.0). The
+  probe is read by height round the turn, not by direction; P6's detail pattern (67 tiles a repeat) is drawn at its
+  mean only.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

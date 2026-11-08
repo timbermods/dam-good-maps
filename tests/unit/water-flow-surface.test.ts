@@ -10,7 +10,7 @@ import { waterHooks } from "../../src/render3d/high/shaders";
 import { flowByte } from "../../src/render3d/high/bake";
 import { gameFlowOf } from "../../src/render3d/current";
 import { albedoOf, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, makeBadwaterTexture, makeWaterTexture, PATTERN_PERCENTILES, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
-import { badwaterBody, badwaterGlow, GAME_BADWATER, GAME_WATER, gameBadwaterColour, WATER, gameBadwaterEmission, gameCleanColour, gameDepthG, gameDepthR } from "../../src/render3d/waterPalette";
+import { badwaterBody, badwaterGlow, GAME_BADWATER, GAME_WATER, gameBadwaterColour, WATER, gameBadwaterEmission, gameCleanColour, gameDepthG, gameDepthR, WATER_LIGHT } from "../../src/render3d/waterPalette";
 import { GAME_LIGHT, gameAmbient, LIGHT, sunlitTop, waterShown } from "../../src/render3d/palette";
 import { dayLight } from "../../tools/game-day-light";
 
@@ -238,8 +238,8 @@ describe("badwater as the game draws it (Q9 P9)", () => {
   it("ships in each look the colour the pixel judge found closer to the game's frames in that look", () => {
     const J = GAME_BADWATER.judged;
     // (a switch for each look, planning 2026-11-07: the formula ships in a look where its distance to the game's pixels,
-    // over every judged tile, in the game's light at each frame's hour, is the smaller in that look; it is in Standard,
-    // not in High)
+    // over every judged tile, in the game's light at each frame's hour, is the smaller in that look; it is in both since
+    // the game's light on the water, fix/water-sky; High's crimson before)
     const over = (look: "standard" | "high", k: "ours" | "formula") => Math.sqrt(([J.atHour, J.day] as const).reduce((s, set) => s + set[look][k] ** 2 * set.tiles, 0) / (J.atHour.tiles + J.day.tiles));
     expect(GAME_BADWATER.use.standard).toBe(over("standard", "formula") < over("standard", "ours"));
     expect(GAME_BADWATER.use.high).toBe(over("high", "formula") < over("high", "ours"));
@@ -250,7 +250,9 @@ describe("badwater as the game draws it (Q9 P9)", () => {
     for (const d of [0.5, 1, 2, 3]) {
       const shown = waterShown(d, 1, false);
       const ours = badwaterGlow(badwaterBody(d), WATER.bad, d, 1).map((v, k) => v * (LIGHT.sky[k] * 1.2 + LIGHT.sun[k] * 0.3 * up));
-      const want = GAME_BADWATER.use.standard ? sunlitTop(gameBadwaterColour(d, 1)) : ours;
+      // (at the water's own diffuse share where Standard draws it, WATER_LIGHT.held: 0.96 for the terrain's 0.912)
+      const share = WATER_LIGHT.held.standard ? WATER_LIGHT.diffuse / GAME_LIGHT.diffuse : 1;
+      const want = GAME_BADWATER.use.standard ? sunlitTop(gameBadwaterColour(d, 1)).map((v) => v * share) : ours;
       for (let k = 0; k < 3; k++) expect(shown[k]).toBeCloseTo(want[k], 6);
       expect(shown[0]).toBeGreaterThan(shown[1]);
       expect(shown[1]).toBeGreaterThan(shown[2]);

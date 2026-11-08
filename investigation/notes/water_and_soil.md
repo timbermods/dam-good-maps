@@ -616,10 +616,10 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
     exponential fog (ps 1245-1249).
   - So the two terms #839 found (the diffuse share 0.96, the environment's head-on part f0 / (1 + r²)) are this same
     lighting, not separate terms.
-  Ours: both looks' code draws all of it (`WATER_LIGHT`: the probe by direction, its head-on part, the GGX and the
-  game's sun colour on the highlight and glint, the 0.96), behind its switches by look; the judge finds every part of
-  it lifts clean water, already lighter than the game's in the shallows, further away, so each look draws as before
-  (docs/progress/3d-view.md, fix/water-sky). Not read from the game, assumed: the HDR decode values the game uploads
+  Ours: both looks draw all of it (`WATER_LIGHT`: the probe by direction, its head-on part, the GGX and the game's
+  sun colour on the highlight and glint, the 0.96), with P6's detail overlay at its mean: the light alone lifted
+  clean water, already lighter than the game's in the shallows, further away, and P6's missing overlay was that
+  excess; together they read nearer the game than dev in both looks (docs/progress/3d-view.md, fix/water-sky). Not read from the game, assumed: the HDR decode values the game uploads
   (intensity 1, no RGBM: the probe is BC6H); that the water's `unity_SpecCube0` in play is that probe (no reflection
   probe component in the decompiled C#, no frame capture); the probe's turn against the editor's map axes (its side
   faces differ by about a tenth: averaged round the turn); the SH the game uploads (D497's frame capture still to do);
@@ -652,12 +652,12 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Still water's drift (0.018, −0.012) | H | (b) | P5: still textures stay put |
 | Badwater's ripples at half speed (`slow`; High's `hlT` slows only its fall strands and `bt` only its bubbles) | S | (b) | none; the game makes badwater's normals × 2 instead (P9, ps 780) |
 | Shore vertices of a still film drawn sideways | S, H | (c), missing: our mesh moves no vertex sideways | V3 (vs 381-395, 486) |
-| Detail albedo | S, H | (c), missing | P6 (ps 462-477) |
+| Detail albedo | S, H | (a) at its mean (`waterDetailOverlay`, fix/water-sky): the overlay by the texture's mean, not its 67-tile pattern | P6 (ps 462-477) |
 | Gloss: our noise round 0.25, ± 0.6 of its swing, panned | S | (a), approximate | P8 (ps 480-499) |
 | Light: sky × 1.2 + sun × 0.3 × N·L × shadow | S | (a), approximate | P15 |
 | Light: `rippleLight` over `referenceLight` | H | (a) under the formula (its clean and badwater colours are lit by `gameWaterLight`); (c) for our crimson | P15 |
-| Sky reflection (`waterSkyReflect`, `WATER.sky`, × the reflection intensity 1) and sun glint (`waterSunGlint`, GGX × F0) | S | (a), approximate: one probe colour toward 60° up, no head-on part, our sun's colour; the game's (`waterEnvironment`, `WATER_PROBE`) built behind `WATER_LIGHT` | P15 (ps 1146-1193) |
-| Sky reflection and sun glint | H | (c), missing in what ships; built behind `WATER_LIGHT` (fix/water-sky), held by the judge | P15 |
+| Sky reflection and sun glint | S | (a): the game's (`waterEnvironment` by `WATER_PROBE`, `waterSunGlint`, the sun's colour; fix/water-sky); the probe read as heights round the turn, not by direction round the vertical | P15 (ps 1146-1193) |
+| Sky reflection and sun glint | H | (a): as Standard (fix/water-sky) | P15 |
 | Camera highlight (`waterCameraHighlight`), before and after the light | S, H | (a) | P12 (ps 814-862); ours drops it on faces by their normal, the game by the fall mask |
 | See-through share (`cleanWaterAlpha`, 0.175 × (1 − d/5)) | S, H | (a) | P13 (ps 879-889) |
 | Ground behind overlaid and desaturated (`waterGroundBehind`) | S, H | (a); small (c): ours tints with the body before light and lights the ground once | P13: the lit albedo, and the ground lit again |
@@ -686,10 +686,10 @@ The game's, missing or different:
 1. The flow: an albedo texture and a normal map (× 4) carried by the outflow in two 2.5 s phases (P5, P11), in place of
    our noise; High's normals ripple in place and do not move with the flow.
 2. Clean water's colour by the game's formula on its depth (P3, P4), in both looks.
-3. High's sky reflection and GGX (P15); both looks' simplified light. Built behind `WATER_LIGHT` (fix/water-sky); held,
-   as it lifts clean water further from the game's until clean water's own excess is found (P6, below, likely).
+3. High's sky reflection and GGX (P15); both looks' simplified light. Done (fix/water-sky), with P6's mean below: the
+   game's light alone lifted clean water further from the game's, P6's overlay was its excess.
 4. Badwater's flowing pattern and emissive detail (P9) in place of mottles and bubbles; its normals × 2.
-5. The still detail albedo, 67 tiles a repeat (P6).
+5. The still detail albedo, 67 tiles a repeat (P6): its mean is drawn (fix/water-sky); its pattern is not.
 6. The sources' own pattern in play (P7) in place of our rings.
 7. Refraction of the ground behind (P2), and the fall mask by tile from `FindWaterfalls` (P1).
 

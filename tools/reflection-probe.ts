@@ -12,6 +12,7 @@
 
 import { closeSync, openSync, readFileSync, readSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { cos, sin, sqrt } from "../src/core/math/portable";
 import { chromium } from "@playwright/test";
 
 const arg = (name: string): string | undefined => {
@@ -144,11 +145,11 @@ const sampleAt = (mip: number, d: number[]): number[] => {
   return [0, 1, 2].map((c) => (at(x0, y0, c) * (1 - ax) + at(x1, y0, c) * ax) * (1 - ay) + (at(x0, y1, c) * (1 - ax) + at(x1, y1, c) * ax) * ay);
 };
 const ringAt = (mip: number, y: number): number[] => {
-  const r = Math.sqrt(Math.max(0, 1 - y * y));
+  const r = sqrt(Math.max(0, 1 - y * y));
   const acc = [0, 0, 0];
   for (let i = 0; i < 360; i++) {
     const a = (i / 360) * 2 * Math.PI;
-    sampleAt(mip, [r * Math.cos(a), y, r * Math.sin(a)]).forEach((v, k) => (acc[k] += v / 360));
+    sampleAt(mip, [r * cos(a), y, r * sin(a)]).forEach((v, k) => (acc[k] += v / 360));
   }
   return acc;
 };

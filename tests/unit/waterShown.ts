@@ -1,8 +1,9 @@
 // The water's colours as the shipped shaders show them on open water in full sun, before its reflection and glint: a TS
 // mirror of the water fragment's colour for the look tests (materials.ts), from the palette's own mirror (palette.ts
 // `waterShown`, which the legend reads too), so the tests follow whichever colours ship (`GAME_WATER.use`,
-// `GAME_BADWATER.use`, by look). (A colour on through the game's finish, as the pixel judge's cameras see it, waits for
-// the gap test, D496: the gap's size has no test while badwater's warm term is unfound; fix/ground-veins.)
+// `GAME_BADWATER.use`, `WATER_LIGHT`'s diffuse share and detail overlay, by look). The gap's size on screen, which
+// the reflection, see-through and fog this mirror leaves out decide, is held to the pixel judge's record
+// (water-sky.test.ts, waterPalette.ts WATER_LIGHT.gap).
 
 import { waterShown } from "../../src/render3d/palette";
 import type { Rgb } from "../../src/render3d/waterPalette";
