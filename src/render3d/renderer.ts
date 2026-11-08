@@ -438,7 +438,7 @@ export class MapRenderer {
   private std: HighMaterials;
   /** The High look while it is drawn (render3d/high). */
   private high: HighLook | null = null;
-  /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
+  /** The moving water (motion.ts, D353): its flow texture, and the Flow view's foam and streaks. */
   private waterMotion: WaterMotion | null = null;
   /** Where nothing moves (software, or held still): the flow texture kept here, with the badwater share alone. */
   private stillFlow: StillFlow | null = null;
@@ -451,7 +451,7 @@ export class MapRenderer {
   }
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
   private retiredMotion: WaterMotion | null = null;
-  /** The Flow view (off by default): the current's streaks over the water. */
+  /** The Flow view (off by default): the current's foam and streaks over the water (D497: drawn there alone). */
   private flowOn = false;
   private lookNow: Look = "standard";
   /** The copy of the screen behind the water for the game's refraction (refraction.ts), made in each frame of the view. */
@@ -808,6 +808,8 @@ export class MapRenderer {
       for (const m of this.lineCopy) list.push([m, { ...(m.defines as Defines) }]);
       // (the edit glow's, drawn when an edit first lands: one program in every look and state, editGlow.ts)
       list.push([this.glowMat, { ...(this.glowMat.defines as Defines) }]);
+      // (the Flow view's foam and streaks, hidden until it is switched on: motion.ts)
+      for (const m of this.waterMotion?.materials() ?? []) list.push([m, { ...((m.defines ?? {}) as Defines) }]);
       // (the forces' moments', drawn when a force first plays: Erode's dust and stones, Glaciate's ice, forces.ts)
       for (const m of this.forceFxOf().materials()) list.push([m as ShaderMaterial, { ...((m.defines ?? {}) as Defines) }]);
       // (the brush's cursor and a force's ring, made now, hidden until a tool shows them: brushCursor.ts)
@@ -1155,8 +1157,9 @@ export class MapRenderer {
     return pageBaker();
   }
 
-  /** The Flow view: the water's current shown as streaks travelling down its lanes (the moving
-   *  surface and its foam stay either way). */
+  /** The Flow view: the water's current shown as foam threads, wakes and seams with streaks travelling down its
+   *  lanes, an editing aid's own channel (D497; planning's ruling on #236, 2026-11-08): outside it the river is drawn
+   *  as the game draws it, with no foam. The moving surface stays either way. */
   setFlow(on: boolean): void {
     this.flowOn = on;
     this.waterMotion?.setFlow(on);
@@ -1167,7 +1170,7 @@ export class MapRenderer {
     return this.flowOn;
   }
 
-  /** The moving water's numbers (lanes, wakes, streaks; the worker's time), or null. */
+  /** The moving water's numbers (lanes, wakes, streaks: none outside the Flow view; the worker's time), or null. */
   get motionStats(): (WaterMotion["stats"] & { ms: number }) | null {
     return this.waterMotion ? { ...this.waterMotion.stats, ms: this.waterMotion.ms } : null;
   }
