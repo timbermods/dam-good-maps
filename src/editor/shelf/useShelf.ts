@@ -506,8 +506,9 @@ export function useShelf(ed: Ed): ShelfSlice {
       c.removeEventListener("pointerup", onUp);
     };
   }, [ready]);
-  // the shelf's icons: those of the map before are shown at once, and each object is drawn again by the view, when the
-  // page is idle (the pictures never go blank between maps)
+  // the shelf's icons: those of the map before are shown at once, and each object is drawn again by the view, one at a
+  // time when the page is idle (the pictures never go blank between maps). None starts while a press is held on the map
+  // (a stroke, a drag): a stroke is the wrong time for work on the GPU it doesn't need; the next waits for its end.
   useLayoutEffect(() => {
     const kept = shelfIcons();
     if (Object.keys(kept).length) setIcons((m) => ({ ...kept, ...m }));
@@ -517,20 +518,44 @@ export function useShelf(ed: Ed): ShelfSlice {
     if (!r) return;
     let live = true;
     const templates = [...new Set(SHELF.map((it) => it.template))];
-    const draw = (k: number) => {
+    const idle = typeof window.requestIdleCallback === "function" ? (fn: () => void) => window.requestIdleCallback(fn, { timeout: 500 }) : (fn: () => void) => window.setTimeout(fn, 30);
+    const held = new Set<number>();
+    let waiting: (() => void) | null = null;
+    const press = (e: PointerEvent) => held.add(e.pointerId);
+    // (a press let go, or the window left with it held: its up never comes)
+    const release = (e: Event) => {
+      if (e instanceof PointerEvent) held.delete(e.pointerId);
+      else if (e.target === window) held.clear();
+      else return;
+      if (held.size || !waiting) return;
+      const go = waiting;
+      waiting = null;
+      idle(go);
+    };
+    r.canvas.addEventListener("pointerdown", press, true);
+    for (const type of ["pointerup", "pointercancel"]) window.addEventListener(type, release, true);
+    window.addEventListener("blur", release);
+    const draw = async (k: number) => {
       if (!live || k >= templates.length) return;
-      const url = r.thumbnail(templates[k]);
+      if (held.size) {
+        waiting = () => void draw(k);
+        return;
+      }
+      const url = await r.thumbnailAsync(templates[k]);
+      if (!live) return;
       if (url) {
         rememberShelfIcon(templates[k], url);
         setIcons((m) => ({ ...m, [templates[k]]: url }));
       }
       if (k + 1 === templates.length) void composePictures(r);
-      const idle = typeof window.requestIdleCallback === "function" ? (fn: () => void) => window.requestIdleCallback(fn, { timeout: 500 }) : (fn: () => void) => window.setTimeout(fn, 30);
-      idle(() => draw(k + 1));
+      idle(() => void draw(k + 1));
     };
-    draw(0);
+    void draw(0);
     return () => {
       live = false;
+      r.canvas.removeEventListener("pointerdown", press, true);
+      for (const type of ["pointerup", "pointercancel"]) window.removeEventListener(type, release, true);
+      window.removeEventListener("blur", release);
     };
   }, [ready]);
 
@@ -538,7 +563,9 @@ export function useShelf(ed: Ed): ShelfSlice {
   async function composePictures(r: NonNullable<typeof renderer.current>) {
     for (const it of SHELF) {
       if (!it.picture) continue;
-      const urls = it.picture.map((t) => r.thumbnail(t));
+      // (one at a time, as the shelf draws them: theirs are drawn already, and kept)
+      const urls: (string | null)[] = [];
+      for (const t of it.picture) urls.push(await r.thumbnailAsync(t));
       if (urls.some((u) => !u)) continue;
       const imgs = await Promise.all(urls.map((u) => new Promise<HTMLImageElement>((ok, no) => {
         const im = new Image();

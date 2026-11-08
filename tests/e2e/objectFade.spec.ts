@@ -289,12 +289,12 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
     if (lk !== "light") {
       const thumbs = (r as unknown as { thumbs: Map<string, string> }).thumbs;
       thumbs.clear();
-      const icon = r.thumbnail("Pine");
+      const icon = await r.thumbnailAsync("Pine");
       thumbs.clear();
       r.setObjectFade({ x: 0, y: 0, radius: 60 });
       r.setObjectsHidden(true);
       const mode = internals.uniforms.objectFade.value.w;
-      const iconFaded = r.thumbnail("Pine");
+      const iconFaded = await r.thumbnailAsync("Pine");
       out.icon = { drawn: !!icon, same: icon === iconFaded, faded: mode > 0, kept: internals.uniforms.objectFade.value.w === mode };
     }
     r.dispose();

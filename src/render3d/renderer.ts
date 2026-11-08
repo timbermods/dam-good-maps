@@ -334,6 +334,22 @@ function detailTextureMade(baker: Baker): Promise<void> {
 /** Whether the browser draws WebGL in software (no GPU, or one it won't use): asked of a throwaway
  *  context before the view's own is made, so the view can be made lighter for it. Asked once a page (a context
  *  costs the page's thread tens of milliseconds; the answer never changes while the page is open). */
+/** How long a picture's read waits for a break in the view's frames before it waits for one frame instead. */
+const READ_PATIENCE_MS = 2000;
+
+/** Settles when the GPU has passed `sync`, asked every 4 ms without waiting (WebGL 2 takes only a timeout of 0). */
+function fencePassed(g: WebGL2RenderingContext, sync: WebGLSync): Promise<void> {
+  return new Promise((done, failed) => {
+    const ask = () => {
+      const s = g.clientWaitSync(sync, 0, 0);
+      if (s === g.WAIT_FAILED) failed(new Error("the fence failed"));
+      else if (s === g.TIMEOUT_EXPIRED) setTimeout(ask, 4);
+      else done();
+    };
+    setTimeout(ask, 4);
+  });
+}
+
 export function softwareRendering(): boolean {
   return (softwareAnswer ??= askSoftwareRendering());
 }
@@ -1256,6 +1272,7 @@ export class MapRenderer {
     this.gl.setPixelRatio(this.pixelRatio() * (tier === "lower" ? LOWER_PIXELS : 1));
     this.fit();
     this.thumbs.clear();
+    this.thumbsLook++;
     if (this.ghost) {
       // (made again in the new look at the next move)
       this.scene.remove(this.ghost.group);
@@ -2736,6 +2753,12 @@ export class MapRenderer {
 
   private ghost: { group: Group; key: string; undo?: () => void } | null = null;
   private thumbs = new Map<string, string>();
+  /** The pictures being drawn (`thumbnailAsync`), by template. */
+  private thumbsDrawing = new Map<string, Promise<string | null>>();
+  /** Counts the changes of look: the pictures are drawn again in each. */
+  private thumbsLook = 0;
+  /** Counts the view's frames: a picture's pixels are read when none has been queued since the GPU drew them. */
+  private framesDrawn = 0;
   /** The instances tinted now (a highlight, a source's glow), with their own colours. */
   private lit: { mesh: InstancedMesh; i: number; color: [number, number, number] }[] = [];
   /** The tiles highlighted (`highlightObjects`), and in what colour. */
@@ -2791,11 +2814,25 @@ export class MapRenderer {
   }
 
   /** A small picture of an object in the map's look, as a data URL (the shelf's icons), made once
-   *  per object; null when there is no view to draw it with. */
-  thumbnail(template: string, px = 56): string | null {
+   *  per object and look; null when there is no view to draw it with. Each pass's pixels are read back once the GPU
+   *  has drawn them and nothing queued after them is left (`readBack`), never by waiting for it: a read that waits makes
+   *  the page wait for the whole frame queued before it, seconds on a slow GPU or CI's software one (D453). The view's
+   *  frames go on between the passes; a second ask for the same object waits on the first. */
+  thumbnailAsync(template: string, px = 56): Promise<string | null> {
     const had = this.thumbs.get(template);
-    if (had) return had;
+    if (had) return Promise.resolve(had);
+    let drawing = this.thumbsDrawing.get(template);
+    if (!drawing) {
+      drawing = this.drawThumbnail(template, px).finally(() => this.thumbsDrawing.delete(template));
+      this.thumbsDrawing.set(template, drawing);
+    }
+    return drawing;
+  }
+
+  private async drawThumbnail(template: string, px: number): Promise<string | null> {
     if (this.disposed || typeof document === "undefined") return null;
+    // (the look it is drawn in: a picture begun before a change of look is drawn again in the new one)
+    const look = this.thumbsLook;
     const one = oneObject(template, 0);
     const { group } = buildEntities(one, this.objectMat, null, 0, this.software);
     const undo = this.high?.decorate(group, one);
@@ -2851,54 +2888,51 @@ export class MapRenderer {
     cam.position.copy(aim).addScaledVector(dir, far);
     cam.lookAt(aim);
     const rt = new WebGLRenderTarget(px, px);
-    // (the view's own draw counts stay as its last frame left them: a picture is not a frame of the view)
-    const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, fade: this.uniforms.objectFade.value.w, hide: this.uniforms.objectHide.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
-    this.uniforms.slice.value = 99;
-    // (a picture never shows the fade round the pointer or the objects hidden: objectFade.ts)
-    this.uniforms.objectFade.value.w = FADE_OFF;
-    this.uniforms.objectHide.value = 0;
-    this.gl.setRenderTarget(rt);
-    this.gl.setClearColor(0x000000, 0);
     const pixels = new Uint8Array(px * px * 4);
-    // drawn, then drawn again closer where the object itself (what is not see-through) leaves the picture half
-    // empty: a box holds more than what shows (a bush's, a flat field's)
-    for (let pass = 0; pass < 3; pass++) {
-      this.gl.clear();
-      this.gl.render(scene, cam);
-      this.gl.readRenderTargetPixels(rt, 0, 0, px, px, pixels);
-      let x0 = px;
-      let x1 = -1;
-      let y0 = px;
-      let y1 = -1;
-      for (let y = 0; y < px; y++)
-        for (let x = 0; x < px; x++)
-          if (pixels[(y * px + x) * 4 + 3] > 8) {
-            if (x < x0) x0 = x;
-            if (x > x1) x1 = x;
-            if (y < y0) y0 = y;
-            if (y > y1) y1 = y;
-          }
-      if (x1 < 0) break;
-      const span = Math.max(x1 - x0 + 1, y1 - y0 + 1) / px;
-      const offX = (x0 + x1 + 1) / px - 1;
-      const offY = (y0 + y1 + 1) / px - 1;
-      if (pass === 2 || (span > 0.84 && Math.abs(offX) < 0.06 && Math.abs(offY) < 0.06)) break;
-      cam.updateMatrixWorld(true);
-      const half = far * Math.tan((15 * Math.PI) / 180);
-      aim.addScaledVector(new Vector3().setFromMatrixColumn(cam.matrixWorld, 0), offX * half).addScaledVector(new Vector3().setFromMatrixColumn(cam.matrixWorld, 1), offY * half);
-      far = Math.max(r * 0.6, (far * span) / 0.92);
-      cam.position.copy(aim).addScaledVector(dir, far);
-      cam.lookAt(aim);
+    let again = false;
+    try {
+      // drawn, then drawn again closer where the object itself (what is not see-through) leaves the picture half
+      // empty: a box holds more than what shows (a bush's, a flat field's)
+      for (let pass = 0; pass < 3; pass++) {
+        await this.thumbnailPass(scene, cam, rt, pixels);
+        if (this.disposed) return null;
+        if (this.thumbsLook !== look) {
+          again = true;
+          break;
+        }
+        let x0 = px;
+        let x1 = -1;
+        let y0 = px;
+        let y1 = -1;
+        for (let y = 0; y < px; y++)
+          for (let x = 0; x < px; x++)
+            if (pixels[(y * px + x) * 4 + 3] > 8) {
+              if (x < x0) x0 = x;
+              if (x > x1) x1 = x;
+              if (y < y0) y0 = y;
+              if (y > y1) y1 = y;
+            }
+        if (x1 < 0) break;
+        const span = Math.max(x1 - x0 + 1, y1 - y0 + 1) / px;
+        const offX = (x0 + x1 + 1) / px - 1;
+        const offY = (y0 + y1 + 1) / px - 1;
+        if (pass === 2 || (span > 0.84 && Math.abs(offX) < 0.06 && Math.abs(offY) < 0.06)) break;
+        cam.updateMatrixWorld(true);
+        const half = far * Math.tan((15 * Math.PI) / 180);
+        aim.addScaledVector(new Vector3().setFromMatrixColumn(cam.matrixWorld, 0), offX * half).addScaledVector(new Vector3().setFromMatrixColumn(cam.matrixWorld, 1), offY * half);
+        far = Math.max(r * 0.6, (far * span) / 0.92);
+        cam.position.copy(aim).addScaledVector(dir, far);
+        cam.lookAt(aim);
+      }
+    } catch {
+      // (the read failed, the view's context lost: no picture, the shelf keeps the one it has)
+      return null;
+    } finally {
+      rt.dispose();
+      undo?.();
+      disposeGroup(group);
     }
-    this.gl.setRenderTarget(was.target);
-    this.gl.setClearColor(was.color, was.alpha);
-    Object.assign(this.gl.info.render, was.counts);
-    this.uniforms.slice.value = was.slice;
-    this.uniforms.objectFade.value.w = was.fade;
-    this.uniforms.objectHide.value = was.hide;
-    rt.dispose();
-    undo?.();
-    disposeGroup(group);
+    if (again) return this.drawThumbnail(template, px);
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = px;
     const ctx = canvas.getContext("2d");
@@ -2911,6 +2945,70 @@ export class MapRenderer {
     this.thumbs.set(template, url);
     // (drawn off screen: the map on the canvas is as it was, and needs no frame of its own)
     return url;
+  }
+
+  /** One pass of a picture: drawn into `rt`, its pixels copied on the GPU into a buffer of their own, and the view's
+   *  state put back at once (its own frames run while the copy waits for the GPU). The promise ends when `pixels` holds
+   *  the picture. */
+  private thumbnailPass(scene: Scene, cam: PerspectiveCamera, rt: WebGLRenderTarget, pixels: Uint8Array): Promise<void> {
+    // (the view's own draw counts stay as its last frame left them: a picture is not a frame of the view)
+    const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, fade: this.uniforms.objectFade.value.w, hide: this.uniforms.objectHide.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
+    this.uniforms.slice.value = 99;
+    // (a picture never shows the fade round the pointer or the objects hidden: objectFade.ts)
+    this.uniforms.objectFade.value.w = FADE_OFF;
+    this.uniforms.objectHide.value = 0;
+    const g = this.gl.getContext() as WebGL2RenderingContext;
+    const buffer = g.createBuffer();
+    try {
+      this.gl.setRenderTarget(rt);
+      this.gl.setClearColor(0x000000, 0);
+      this.gl.clear();
+      this.gl.render(scene, cam);
+      // (read from the picture's own framebuffer, still bound, into the buffer on the GPU: nothing waits)
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, buffer);
+      g.bufferData(g.PIXEL_PACK_BUFFER, pixels.byteLength, g.STREAM_READ);
+      g.readPixels(0, 0, rt.width, rt.height, g.RGBA, g.UNSIGNED_BYTE, 0);
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, null);
+    } catch (e) {
+      g.deleteBuffer(buffer);
+      throw e;
+    } finally {
+      this.gl.setRenderTarget(was.target);
+      this.gl.setClearColor(was.color, was.alpha);
+      Object.assign(this.gl.info.render, was.counts);
+      this.uniforms.slice.value = was.slice;
+      this.uniforms.objectFade.value.w = was.fade;
+      this.uniforms.objectHide.value = was.hide;
+    }
+    return this.readBack(g, buffer, pixels);
+  }
+
+  /** The buffer's pixels into `pixels`, read once the GPU has drawn them and no frame of the view has been queued
+   *  since: the browser's read waits for everything queued before it, and a frame takes seconds on a slow GPU or CI's
+   *  software one. A frame queued meanwhile is waited for in turn (a fence after it), for up to `READ_PATIENCE_MS`
+   *  (the view drawing without a break, its water moving), after which the read waits for the last one. */
+  private async readBack(g: WebGL2RenderingContext, buffer: WebGLBuffer, pixels: Uint8Array): Promise<void> {
+    const since = performance.now();
+    try {
+      for (;;) {
+        const frames = this.framesDrawn;
+        const sync = g.fenceSync(g.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        if (!sync) throw new Error("no fence");
+        g.flush();
+        try {
+          await fencePassed(g, sync);
+        } finally {
+          g.deleteSync(sync);
+        }
+        if (this.disposed) throw new Error("the view is gone");
+        if (this.framesDrawn === frames || performance.now() - since > READ_PATIENCE_MS) break;
+      }
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, buffer);
+      g.getBufferSubData(g.PIXEL_PACK_BUFFER, 0, pixels);
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, null);
+    } finally {
+      g.deleteBuffer(buffer);
+    }
   }
 
   /** Objects on these tiles show in a colour (Remove's red under the pointer, D184); null puts them
@@ -3961,6 +4059,7 @@ export class MapRenderer {
 
   renderNow(): void {
     if (this.disposed) return;
+    this.framesDrawn++;
     this.flushTerrain();
     if (this.cursorStale && this.cursor && this.map) {
       this.cursorStale = false;
