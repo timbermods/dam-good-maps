@@ -148,13 +148,6 @@ const PLANT_INSET = 0.2;
 const PLANT_REACH = 2;
 const PLANT_TALLEST = 9 * 0.85;
 
-/** The kind of shape a tile's caster is (`PLANT_KIND`, `DEAD_KIND`, `RUIN_KIND`), noted after its levels; 0: a
- *  column over the whole tile (the start), or none. */
-function casterKind(casters: Float32Array, i: number): number {
-  const levels = casterLevels.get(casters);
-  return levels && levels.length > casters.length ? levels[casters.length + i] : 0;
-}
-
 /** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start). A plant's and a
  *  ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles (its tower on
  *  the middle one, its walls on the rest). The levels the objects stand on are noted with them, and after those the
@@ -247,13 +240,16 @@ export function shadowTopsInto(out: Float32Array, W: number, H: number, heights:
   const ww = wx1 - wx0 + 1;
   const wh = wy1 - wy0 + 1;
   const cast = new Float32Array(ww * wh);
+  // (the shapes' kinds, after the levels: a tile with one casts no column)
+  const levels = casters ? casterLevels.get(casters) : undefined;
+  const kinds = levels && casters && levels.length > casters.length ? levels.subarray(casters.length) : null;
   let highest = -SHADOW_OFFSET;
   for (let y = 0; y < wh; y++)
     for (let x = 0; x < ww; x++) {
       const i = (wy0 + y) * W + wx0 + x;
       let v: number;
       // (a plant casts its shape, after the walk: `plantTopsInto`)
-      const column = casters && casters[i] && !casterKind(casters, i) ? casters[i] : 0;
+      const column = casters && casters[i] && !(kinds && kinds[i]) ? casters[i] : 0;
       if (rock && rock.flag[i]) {
         // (an object on the run from the map's floor casts from it)
         v = rock.bottom[i] + (column && casterLevel(casters!, i) === rock.bottom[i] ? column : 0);
@@ -406,8 +402,10 @@ export function shadowTopsInto(out: Float32Array, W: number, H: number, heights:
   if (casters) plantTopsInto(out, W, H, heights, casters, tanE, ax0, ax1, ay0, ay1, rock, ux, uy);
 }
 
-// scratch for one plant's pieces of shadow over a sample (bottom, top pairs)
+// scratch for one plant's pieces of shadow over a sample (bottom, top pairs), and its discs as cast (bottom, top,
+// radius)
 const plantSpans = new Float64Array(2 * 8);
+const plantDiscs = new Float64Array(3 * 8);
 
 /** The plants' shadows (`PLANT_SHAPES`) over the samples sx0…sx1 × sy0…sy1, into the walk's tops `out`: for each
  *  sample a plant up-sun can shade, its discs' pieces of shadow there (the heights whose ray toward the sun passes
@@ -434,38 +432,65 @@ function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Ar
       const post = POST_RADIUS[kind] ?? 0;
       const shape = post ? null : PLANT_SHAPES[kind];
       const scale = shape ? tall / PLANT_TOPS[kind] : 1;
-      let reach = post - PLANT_INSET;
-      if (shape) for (const d of shape) reach = Math.max(reach, d[2] * scale - PLANT_INSET);
-      if (reach <= 0) continue;
       const g = levels[i];
+      // (its discs as cast: bottom, top, radius less the inset; those with none left cast nothing)
+      let nd = 0;
+      let reach = 0;
+      const count = shape ? shape.length : 1;
+      for (let q = 0; q < count; q++) {
+        const r = shape ? shape[q][2] * scale - PLANT_INSET : post - PLANT_INSET;
+        if (r <= 0) continue;
+        plantDiscs[nd * 3] = g + (shape ? shape[q][0] * scale : 0);
+        plantDiscs[nd * 3 + 1] = g + (shape ? shape[q][1] * scale : tall);
+        plantDiscs[nd * 3 + 2] = r;
+        nd++;
+        if (r > reach) reach = r;
+      }
+      if (!nd) continue;
       const cx = tx + 0.5;
       const cy = ty + 0.5;
-      // (the samples its shadow can reach: from its middle away from the sun as far as its top falls, and its width)
-      const ex = cx - (ux * tall) / tanE;
-      const ey = cy - (uy * tall) / tanE;
-      const bx0 = Math.max(sx0, Math.floor((Math.min(cx, ex) - reach) * R));
-      const bx1 = Math.min(sx1, Math.ceil((Math.max(cx, ex) + reach) * R));
-      const by0 = Math.max(sy0, Math.floor((Math.min(cy, ey) - reach) * R));
-      const by1 = Math.min(sy1, Math.ceil((Math.max(cy, ey) + reach) * R));
-      const nd = shape ? shape.length : 1;
-      for (let sy = by0; sy <= by1; sy++)
+      // (the samples its shadow can reach: a strip from its middle away from the sun as far as its top falls, as wide
+      // as its widest disc; on each row, the stretch of it)
+      const len = tall / tanE;
+      const by0 = Math.max(sy0, Math.floor((Math.min(cy, cy - uy * len) - reach) * R));
+      const by1 = Math.min(sy1, Math.ceil((Math.max(cy, cy - uy * len) + reach) * R));
+      for (let sy = by0; sy <= by1; sy++) {
+        const dy = cy - (sy + 0.5) / R;
+        // (dx such that −reach < dx·uy − dy·ux < reach and −reach < dx·ux + dy·uy < len + reach)
+        let lo = -Infinity;
+        let hi = Infinity;
+        if (Math.abs(uy) > 1e-9) {
+          const p = (-reach + dy * ux) / uy;
+          const q = (reach + dy * ux) / uy;
+          lo = p < q ? p : q;
+          hi = p < q ? q : p;
+        } else if (Math.abs(dy * ux) >= reach) continue;
+        if (Math.abs(ux) > 1e-9) {
+          const p = (-reach - dy * uy) / ux;
+          const q = (len + reach - dy * uy) / ux;
+          lo = Math.max(lo, p < q ? p : q);
+          hi = Math.min(hi, p < q ? q : p);
+        } else if (dy * uy <= -reach || dy * uy >= len + reach) continue;
+        if (hi <= lo) continue;
+        // (px = cx − dx, sample sx at px·R − 0.5)
+        const bx0 = Math.max(sx0, Math.floor((cx - hi) * R - 0.5));
+        const bx1 = Math.min(sx1, Math.ceil((cx - lo) * R - 0.5));
         for (let sx = bx0; sx <= bx1; sx++) {
           const dx = cx - (sx + 0.5) / R;
-          const dy = cy - (sy + 0.5) / R;
           // (along the ray toward the sun to the plant's middle, and across it)
           const along = dx * ux + dy * uy;
           const across = Math.abs(dx * uy - dy * ux);
           if (across >= reach || along + reach <= 0) continue;
           let n = 0;
           for (let q = 0; q < nd; q++) {
-            const r = shape ? shape[q][2] * scale - PLANT_INSET : reach;
+            const r = plantDiscs[q * 3 + 2];
             if (r <= across) continue;
             const half = Math.sqrt(r * r - across * across);
             const s2 = along + half;
             if (s2 <= 0) continue;
             const s1 = along - half > 0 ? along - half : 0;
-            plantSpans[n++] = g + (shape ? shape[q][0] * scale : 0) - s2 * tanE;
-            plantSpans[n++] = g + (shape ? shape[q][1] * scale : tall) - s1 * tanE;
+            plantSpans[n++] = plantDiscs[q * 3] - s2 * tanE;
+            plantSpans[n++] = plantDiscs[q * 3 + 1] - s1 * tanE;
           }
           if (!n) continue;
           const t = Math.floor(sy / R) * W + Math.floor(sx / R);
@@ -473,6 +498,7 @@ function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Ar
           const k = sy * SW + sx;
           out[k] = pieceTop(plantSpans, n, out[k], ground);
         }
+      }
     }
 }
 
@@ -610,7 +636,7 @@ function voxelTops(out: Float64Array, sx: number, sy: number, baseHi: number, ba
       // (an object casts from the run it stands on: the one whose top is its level, or, not known, the highest)
       const on = levels ? runs[k + 1] === levels[i] : k === r1 - 2;
       // (a plant on a run above air casts its shape: `plantTopsInto`)
-      const hi = runs[k + 1] + (casters !== null && on && !casterKind(casters, i) ? casters[i] : 0);
+      const hi = runs[k + 1] + (casters !== null && on && !(levels && levels.length > casters.length && levels[casters.length + i]) ? casters[i] : 0);
       if (hi - fallHi > baseHi) {
         if (nHi + 2 > spansHi.length) spansHi = grow(spansHi);
         spansHi[nHi++] = lo - fallHi;
@@ -738,7 +764,7 @@ export function castersChangedRects(W: number, H: number, a: Float32Array | null
     for (let x = ax0; x <= ax1; x++) {
       const i = y * W + x;
       const ca = a ? a[i] : 0;
-      if (ca === (b ? b[i] : 0) && (!ca || ((la ? la[i] : -1) === (lb ? lb[i] : -1) && (a ? casterKind(a, i) : 0) === (b ? casterKind(b, i) : 0)))) continue;
+      if (ca === (b ? b[i] : 0) && (!ca || ((la ? la[i] : -1) === (lb ? lb[i] : -1) && (la && la.length > a!.length ? la[a!.length + i] : 0) === (lb && lb.length > b!.length ? lb[b!.length + i] : 0)))) continue;
       const k = Math.floor(y / B) * bw + Math.floor(x / B);
       const r = blocks.get(k);
       if (r) {
