@@ -146,6 +146,12 @@ async function main() {
       await page.context().close();
       page = await pageFor();
       await open(page, ports[s.key], MAP);
+      // (the map's own scenes first: the seep, once placed, sends its water on and the map's water moves with it)
+      if (!COST)
+        for (const look of ["standard", "high"] as const) {
+          await setLook(page, look);
+          for (const v of SCENES) if (v.key !== "seep") got.set(`${v.key}-${look}-${s.key}`, await shot(page, views[v.key], CLOCK));
+        }
       await placeSeep(page, found.seep!);
       for (const look of ["standard", "high"] as const) {
         await setLook(page, look);
@@ -158,7 +164,7 @@ async function main() {
           }
           continue;
         }
-        for (const v of SCENES) got.set(`${v.key}-${look}-${s.key}`, await shot(page, views[v.key], CLOCK));
+        got.set(`seep-${look}-${s.key}`, await shot(page, views.seep, CLOCK));
       }
     }
     if (!COST) {

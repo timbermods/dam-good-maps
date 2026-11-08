@@ -992,9 +992,8 @@ export class MapRenderer {
   }
 
   /** The sources' texture: where each clean or bad source's middle is (R 255, G 255; a badwater source of no strength
-   *  G 254: its rings stay, the game's own pattern does not), and which glow; and the game's own pattern over a source
-   *  (Q9 P7, waterPalette.ts GAME_WATER_SOURCE), a badwater source's at its middle (G 255), a seep's at its footprint's
-   *  first tile (R `SEEP_MARK`, under the rings' threshold), while it can run (not in a held drought). */
+   *  G 254: its rings stay, the game's own pattern does not), and which glow; and where the game draws its own pattern
+   *  over a source (Q9 P7, sourceMarks.ts `markSourceTiles`), a seep's only while it can run (not in a held drought). */
   private markSources(): void {
     const m = this.map;
     const t = this.sourceTiles;

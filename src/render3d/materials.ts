@@ -1771,34 +1771,32 @@ ${hook(h, "lit")}
   });
 }
 
-/** A seep's mark in the sources' texture (R, at its footprint's first tile; renderer.ts `markSources`): under the
- *  rings' threshold (D196 draws none on a seep), read by the game's own pattern (Q9 P7, `waterSourcePattern`). */
-export const SEEP_MARK = 100;
+/** Where the game's own pattern lies over a source (Q9 P7) in the sources' texture's R (renderer.ts `markSources`,
+ *  sourceMarks.ts), as the game's `_WaterSourceMask` gives each tile its place in its source's footprint: each tile of a
+ *  running badwater source's 3 × 3 `square` + its column + 3 × its row (from the footprint's least x and y, in the
+ *  map's axes), each of a seep's 2 × 2 `seep` + its column + 2 × its row. All under a half, the rings' threshold
+ *  (a water source's own tile is 255). */
+export const SOURCE_FOOTPRINT = { square: 1, seep: 10 } as const;
 
 /** The game's own pattern over the water sources (Q9 P7, waterPalette.ts GAME_WATER_SOURCE), GLSL for the water's
- *  fragment shader: at point g (tiles), 0–1, from the sources' texture round g's tile (a badwater source's middle at G
- *  255, 3 × 3; a seep's first tile at R `SEEP_MARK`, 2 × 2) and the pattern in badwater's texture's A, sampled at its
- *  top mip (the angle's seam would pick the smallest). */
+ *  fragment shader: at point g (tiles), 0–1, from its tile's place in a footprint (`SOURCE_FOOTPRINT`, one read of
+ *  the sources' texture) and the pattern in badwater's texture's A, sampled at its top mip (the angle's seam would pick
+ *  the smallest). */
 const WATER_SOURCE_GLSL = /* glsl */ `
       float waterSourcePattern(vec2 g) {
-        vec2 st = floor(g);
-        float s = 0.0;
-        for (int dy = -1; dy <= 1; dy++)
-          for (int dx = -1; dx <= 1; dx++) {
-            vec2 sq = st + vec2(float(dx), float(dy));
-            vec2 sv = floor(texture2D(sourceTex, (sq + 0.5) / mapSize).rg * 255.0 + 0.5);
-            // (a footprint's half-width and middle: a badwater source's round its middle tile, a seep's from its first)
-            float hw = sv.g > 254.5 ? 1.5 : abs(sv.r - ${f(SEEP_MARK)}) < 0.5 ? 1.0 : 0.0;
-            if (hw < 0.5) continue;
-            vec2 v = (g - (hw > 1.25 ? sq + 0.5 : sq + 1.0)) / (2.0 * hw);
-            if (max(abs(v.x), abs(v.y)) > 0.5) continue;
-            float r = length(v);
-            float k = max(1.0 - 2.0 * r, 0.0);
-            float shape = textureLod(badwaterTex, vec2(2.0 * r - ${f(GAME_WATER_SOURCE.scroll)} * time, atan(v.y, v.x) * ${f(Math.round((1 / (2 * Math.PI)) * 1e6) / 1e6)}), 0.0).a;
-            float k2 = k * k;
-            s = max(s, clamp(8.0 * shape * k2 + min(1.0, 2.5 * k2 * k2 * k2), 0.0, 1.0));
-          }
-        return s;
+        float code = floor(texture2D(sourceTex, (floor(g) + 0.5) / mapSize).r * 255.0 + 0.5) - ${f(SOURCE_FOOTPRINT.square)};
+        if (code < -0.5 || code > ${f(SOURCE_FOOTPRINT.seep + 3 - SOURCE_FOOTPRINT.square)} + 0.5) return 0.0;
+        // (its column and row in the footprint, and the footprint's size)
+        float n = code < ${f(SOURCE_FOOTPRINT.seep - SOURCE_FOOTPRINT.square)} - 0.5 ? 3.0 : 2.0;
+        code -= n > 2.5 ? 0.0 : ${f(SOURCE_FOOTPRINT.seep - SOURCE_FOOTPRINT.square)};
+        vec2 cell = vec2(mod(code, n), floor(code / n + 0.01));
+        vec2 v = (cell + fract(g)) / n - 0.5;
+        float r = length(v);
+        float k = max(1.0 - 2.0 * r, 0.0);
+        if (k <= 0.0) return 0.0;
+        float shape = textureLod(badwaterTex, vec2(2.0 * r - ${f(GAME_WATER_SOURCE.scroll)} * time, atan(v.y, v.x) * ${f(Math.round((1 / (2 * Math.PI)) * 1e6) / 1e6)}), 0.0).a;
+        float k2 = k * k;
+        return clamp(8.0 * shape * k2 + min(1.0, 2.5 * k2 * k2 * k2), 0.0, 1.0);
       }
 `;
 

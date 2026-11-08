@@ -3,28 +3,39 @@
 // source (Q9 P7, materials.ts `waterSourcePattern`).
 
 import { footprintTiles } from "../core/format/footprints";
-import { SEEP_MARK } from "./materials";
+import { SOURCE_FOOTPRINT } from "./materials";
 import type { EntityView } from "./model";
 
 const ORIENTATIONS = ["Cw0", "Cw90", "Cw180", "Cw270"] as const;
 
 /** The sources' texture's R and G (RGBA bytes, W × H; cleared first): a water source's middle R 255, a badwater
- *  source's G 255 (254 of no strength: its rings stay, the game's own pattern does not), a seep's footprint's first
- *  tile R `SEEP_MARK` while it can run (not in a `drought`), for the game's own pattern over it (Q9 P7). */
+ *  source's G 255 (254 of no strength: its rings stay, the game's own pattern does not); and in R each tile's place in
+ *  the footprint of a source the game draws its own pattern over (Q9 P7, `SOURCE_FOOTPRINT`): a running badwater
+ *  source's 3 × 3, a seep's 2 × 2 while it can run (not in a `drought`). */
 export function markSourceTiles(d: Uint8Array, e: EntityView, W: number, H: number, drought: boolean): void {
   d.fill(0);
+  const mark = (x: number, y: number, code: number) => {
+    if (x >= 0 && y >= 0 && x < W && y < H) d[(y * W + x) * 4] = code;
+  };
   for (let k = 0; k < e.count; k++) {
     const name = e.templates[e.template[k]];
     if (name === "WaterSeep" || name === "BadwaterSeep") {
       if (drought) continue;
       const tiles = footprintTiles(name, { template: name, x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATIONS[e.orientation[k]], flipped: false });
-      const x = Math.min(...tiles.map((p) => p[0]));
-      const y = Math.min(...tiles.map((p) => p[1]));
-      if (x >= 0 && y >= 0 && x < W && y < H) d[(y * W + x) * 4] = SEEP_MARK;
+      const x0 = Math.min(...tiles.map((p) => p[0]));
+      const y0 = Math.min(...tiles.map((p) => p[1]));
+      for (const [x, y] of tiles) mark(x, y, SOURCE_FOOTPRINT.seep + (x - x0) + 2 * (y - y0));
       continue;
     }
     const i = sourceMiddle(e, k, W, H);
-    if (i >= 0) d[i * 4 + (name === "WaterSource" ? 0 : 1)] = name === "BadwaterSource" && !(e.strength[k] > 0) ? 254 : 255;
+    if (i < 0) continue;
+    if (name === "WaterSource") {
+      d[i * 4] = 255;
+      continue;
+    }
+    const on = e.strength[k] > 0;
+    d[i * 4 + 1] = on ? 255 : 254;
+    if (on) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) mark((i % W) + dx, Math.floor(i / W) + dy, SOURCE_FOOTPRINT.square + dx + 1 + 3 * (dy + 1));
   }
 }
 

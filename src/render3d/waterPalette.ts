@@ -203,11 +203,11 @@ export const WATER_LIGHT = {
      *  (clean water 31.0 to 33.5 on three, badwater 27.0 and 27.9 on two), which bounds the gap the game's frames allow:
      *  3.1 to 6.5 (D496's 4.2; 4.7 on these frames). The judge prints it for the shipped build against those frames
      *  (tools/water-pixel-judge.ts, "the gap by day"). Standard's 6.3 is within it, near its top (dev's 6.5 sat on it);
-     *  High's 7.1 is not (7.3 on dev): its formula's badwater reads 2.2 L* under the game's by day, about 1 under
-     *  Standard's, which is still to find. Both since fix/water-detail (P6's pattern; the probe from mip 3). */
+     *  High's 6.2 too (fix/water-shore): its 7.1 was its poisoned bed (#38), which darkened the ground its see-through
+     *  shows under badwater; with the one bed every look draws, its badwater reads 26.2 as Standard's (25.3 before). */
     game: { clean: 32.2, bad: 27.5, cleanShots: [31.0, 33.5], badShots: [27.0, 27.9] },
     standard: { clean: 32.5, bad: 26.2 },
-    high: { clean: 32.4, bad: 25.3 },
+    high: { clean: 32.4, bad: 26.2 },
     tiles: { clean: 2336, bad: 73 },
   },
 } as const;
@@ -319,10 +319,10 @@ export const GAME_BADWATER = {
   /** The judge's numbers (RMS distance to the game's pixels, display RGB 0–255) for pure badwater, ours (our crimson)
    *  and the formula, by look: at the frames' hours (the six Islands and Badtide end shots, five at sunrise and one
    *  near sunset, 4,592 tiles) and by day (the sixteen day-lit start shots, six with badwater in view, 172 tiles), in
-   *  the game's light on its water (`WATER_LIGHT`, fix/water-sky). */
+   *  the game's light on its water (`WATER_LIGHT`, fix/water-sky); High's since its poisoned bed went (fix/water-shore). */
   judged: {
-    atHour: { standard: { ours: 19.9, formula: 7.1 }, high: { ours: 11.6, formula: 7.5 }, tiles: 4592 },
-    day: { standard: { ours: 20.7, formula: 14.2 }, high: { ours: 14.5, formula: 15.0 }, tiles: 172 },
+    atHour: { standard: { ours: 19.9, formula: 7.1 }, high: { ours: 12.6, formula: 7.0 }, tiles: 4592 },
+    day: { standard: { ours: 20.7, formula: 14.2 }, high: { ours: 15.0, formula: 14.3 }, tiles: 172 },
   },
   colorA: [0.02, 0.01993, 0.0196] as Rgb,
   colorB: [0.5, 0.1223, 0.04481] as Rgb,
