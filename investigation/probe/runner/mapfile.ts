@@ -102,33 +102,49 @@ export function readMapBytes(bytes: Uint8Array, path = ''): MapInfo {
 /**
  * The water's momentum the file stores (`WaterMapNew.ColumnOutflows`, FORMAT.md §4.3), which the game
  * loads with the water: four values per tile in the file's order Bottom, Left, Top, Right (y − 1,
- * x − 1, y + 1, x + 1), the cycle model's order too. Only for a plain heightfield (one water level),
- * the only map the model plays; null otherwise, or when the array does not fit the map. A part whose
- * target is not that neighbour in the game's padded grid is left at 0 (`skipped` counts them).
+ * x − 1, y + 1, x + 1), the cycle model's order too. The array holds a token per water column
+ * (`slot·W·H + tile`, `Levels` slots, as `WaterColumns` does). The model plays each tile's top wet column
+ * (the water `readMapBytes` keeps), so a tile's outflows are that column's, or slot 0's on a dry tile. A
+ * map with caves or overhangs stores several levels, however little water stands under a roof (generator
+ * 0.10.4's 3D forms at the default Verticality, #611). A part's target is the neighbour's column in the
+ * game's padded grid (`slot·(W+2)(H+2) + (y+1)(W+2) + x+1`, investigation/notes/water_and_soil.md), at
+ * whichever slot it flows into; a part whose target is not that neighbour is left at 0 (`skipped` counts
+ * them). Null when the file has no outflows or its arrays do not fit the map.
  */
 export function storedOutflows(file: TimberFile): { out: Float64Array; flowing: number; skipped: number } | null {
   const w = file.world;
   const W = w.sizeX, H = w.sizeY, N = W * H;
   const wm = w.singletons.WaterMapNew;
-  if (!isObject(wm) || !isObject(wm.ColumnOutflows) || ('Levels' in wm && num(wm.Levels) !== 1)) return null;
+  if (!isObject(wm) || !isObject(wm.ColumnOutflows) || !isObject(wm.WaterColumns)) return null;
+  const levels = 'Levels' in wm ? num(wm.Levels) : 1;
   const tokens = String(wm.ColumnOutflows.Array).split(' ');
-  if (tokens.length !== N) return null;
+  const columns = String(wm.WaterColumns.Array).split(' ');
+  if (!(levels >= 1) || tokens.length !== levels * N || columns.length !== tokens.length) return null;
   const out = new Float64Array(4 * N);
-  const stride = W + 2;
+  const stride = W + 2, vertical = (W + 2) * (H + 2);
   let flowing = 0, skipped = 0;
   for (let i = 0; i < N; i++) {
-    if (tokens[i] === '0') continue;
+    // the top wet column (as `storedWater` keeps them: over 0.001 deep; a higher slot is a higher floor)
+    let k = i;
+    for (let slot = levels - 1; slot > 0; slot--) {
+      const c = slot * N + i;
+      if (columns[c] !== '0' && Number(columns[c].split(':')[0]) > 0.001) {
+        k = c;
+        break;
+      }
+    }
+    if (tokens[k] === '0') continue;
     const x = i % W, y = (i - x) / W;
     const targets = [y * stride + x + 1, (y + 1) * stride + x, (y + 2) * stride + x + 1, (y + 1) * stride + x + 2];
-    tokens[i].split(':').slice(0, 4).forEach((part, k) => {
+    tokens[k].split(':').slice(0, 4).forEach((part, d) => {
       if (part === '0') return;
       const [target, flow] = part.split('|');
-      const f = Number(flow);
-      if (Number(target) !== targets[k] || !(f > 0)) {
+      const t = Number(target), f = Number(flow);
+      if (!(t >= 0) || t % vertical !== targets[d] || !(f > 0)) {
         skipped++;
         return;
       }
-      out[4 * i + k] = f;
+      out[4 * i + d] = f;
       flowing++;
     });
   }
