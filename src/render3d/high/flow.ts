@@ -52,22 +52,30 @@ export function surfaceContamination(W: number, H: number, sw: Pick<SurfaceWater
  *  least 1 (its waterfall mask, the bake's, kept), a dry tile's A 0 (its B, the bake's carry for the ground under a film,
  *  kept). The bake's own bytes for the same water are the same. The rows that changed (y0…y1), or null. */
 export function writeShare(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">, data: Uint8Array): { y0: number; y1: number } | null {
+  const { surface, depth, contamination } = sw;
   let y0 = H;
   let y1 = -1;
-  for (let y = 0; y < H; y++)
-    for (let i = y * W, end = i + W; i < end; i++) {
-      const k = i * 4;
-      if (wet(sw, i)) {
-        const b = shareByte(sw.contamination[i]);
-        if (data[k + 2] === b && data[k + 3] !== 0) continue;
-        data[k + 2] = b;
-        if (data[k + 3] === 0) data[k + 3] = 1;
+  // (one pass a water change on the page's thread, so plain arithmetic: shareByte inlined)
+  for (let y = 0; y < H; y++) {
+    let changed = false;
+    for (let i = y * W, k = i * 4 + 2, end = i + W; i < end; i++, k += 4) {
+      const s = surface[i];
+      if (s === s && depth[i] > 0) {
+        const c = contamination[i];
+        const b = c > 0 ? (c < 1 ? (c * 255 + 0.5) | 0 : 255) : 0;
+        if (data[k] === b && data[k + 1] !== 0) continue;
+        data[k] = b;
+        if (data[k + 1] === 0) data[k + 1] = 1;
       } else {
-        if (data[k + 3] === 0) continue;
-        data[k + 3] = 0;
+        if (data[k + 1] === 0) continue;
+        data[k + 1] = 0;
       }
+      changed = true;
+    }
+    if (changed) {
       if (y < y0) y0 = y;
       y1 = y;
     }
+  }
   return y1 < 0 ? null : { y0, y1 };
 }
