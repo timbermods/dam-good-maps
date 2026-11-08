@@ -58,3 +58,30 @@ export async function settle(page: Page, w: number, h: number) {
   await page.mouse.move(w * 0.55, h * 0.6);
   await page.waitForTimeout(300);
 }
+
+/** Remember the pointer each press on the page goes down with, for `strokeMoves`. Call it once, before the first press. */
+export async function rememberPointer(page: Page) {
+  await page.evaluate(() => window.addEventListener("pointerdown", (e) => ((window as unknown as { strokePointer: number }).strokePointer = e.pointerId), true));
+}
+
+/** A held stroke's moves from p to q in `steps` even steps, sent by the page itself `gap` ms apart to the map, with the
+ *  pointer the press went down with (`rememberPointer`). A move sent from here waits for the page's next frame, and on
+ *  CI's software drawing a frame of a 128² map takes up to 2 s: 144 of them took strokesBackToBack past its three
+ *  minutes (run 40575112650; a CPU profile under SwiftShader puts nine tenths of each stroke in the raster, the page's
+ *  own work a few hundred ms, as on a GPU). The moves are the same, so are the strokes and what is asserted; only the
+ *  frame each one waited for is gone. Playwright's own pointer stays where the press went down: move it to q before
+ *  letting go. */
+export async function strokeMoves(page: Page, p: { x: number; y: number }, q: { x: number; y: number }, steps: number, gap = 8) {
+  await page.evaluate(
+    async ([p, q, steps, gap]) => {
+      const c = window.dgm3d!.renderer.canvas;
+      const id = (window as unknown as { strokePointer: number }).strokePointer;
+      for (let s = 1; s <= steps; s++) {
+        const init = { bubbles: true, cancelable: true, composed: true, pointerId: id, pointerType: "mouse", isPrimary: true, buttons: 1, clientX: p.x + ((q.x - p.x) * s) / steps, clientY: p.y + ((q.y - p.y) * s) / steps };
+        c.dispatchEvent(new PointerEvent("pointermove", init));
+        await new Promise((r) => setTimeout(r, gap));
+      }
+    },
+    [p, q, steps, gap] as const,
+  );
+}

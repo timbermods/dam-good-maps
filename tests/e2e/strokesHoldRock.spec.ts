@@ -5,7 +5,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor, topDown } from "./open";
-import { toolInHand } from "./helpers";
+import { rememberPointer, strokeMoves, toolInHand } from "./helpers";
 
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
 const settled = (page: Page) => page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
@@ -55,12 +55,13 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
   await toolInHand(page);
   const p = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), from);
   const q = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), to);
+  await rememberPointer(page);
   await page.mouse.move(p.x, p.y);
   await page.mouse.down();
-  for (let k = 1; k <= 30; k++) {
-    await page.mouse.move(p.x + ((q.x - p.x) * k) / 30, p.y + ((q.y - p.y) * k) / 30);
-    await page.waitForTimeout(15);
-  }
+  // (the stroke's 30 moves sent by the page 15 ms apart, not each waiting for a frame from here, `strokeMoves`; the
+  // pointer itself to the stroke's end, where the page's last move left it, before it is let go)
+  await strokeMoves(page, p, q, 30, 15);
+  await page.mouse.move(q.x, q.y);
   // (the water the view shows is watched from the release on: the checks below wait on the worker, which may finish the
   // stroke's whole water journey first, and a watch begun after them then saw one depth for 60 s, dev's run 41002468990)
   await page.evaluate(() => {
