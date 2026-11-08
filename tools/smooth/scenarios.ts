@@ -49,14 +49,13 @@ export async function settle(page: Page): Promise<number> {
   await page.evaluate(() =>
     Promise.race([window.dgmEditor!.worker.whenWaterSettles(), new Promise((_, no) => setTimeout(() => no(new Error("water did not settle within 180 s")), 180_000))]),
   );
-  // the drawn water follows the worker's: the renderer's water queue is empty and the header's checks pill (its
+  // the drawn water follows the worker's: every water chunk is drawn (renderer.waterDrawn: none queued, with the mesh workers or waiting for a frame) and the header's checks pill (its
   // aria-label, "Checks: Ready to play", "Checks: Settling…", "Checks: Checking the map"; tests/e2e waits on the same
   // label) is no longer at work. A wait that never ends fails the run: it must not pass for "settled".
   await page.waitForFunction(
     () => {
-      const r = window.dgm3d!.renderer as unknown as { waterQueue?: { size: number } };
       const checking = [...document.querySelectorAll(".checks-dot")].some((e) => /^Checks: (Checking|Settling)/.test(e.getAttribute("aria-label") ?? ""));
-      return !r.waterQueue?.size && !checking;
+      return window.dgm3d!.renderer.waterDrawn && !checking;
     },
     null,
     { timeout: 180_000 },
