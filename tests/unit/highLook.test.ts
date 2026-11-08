@@ -90,7 +90,12 @@ describe("the High look's shaders", () => {
     expect(s).toContain("waterPhases(g, flow, t, pa, pb, pw);");
     expect(s).toContain("vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, albedo, bpat);");
     expect(s).toContain("float tint = waterTint(contamination);");
-    expect(s).toContain("colour += gameBadwaterEmission(contamination, bpat.y, g);");
+    expect(s).toContain("vec3 badEmission = gameBadwaterEmission(contamination, bpat.y, g);");
+    expect(s).toContain("colour += badEmission;");
+    // the clear water's veil (T) keeps High's own badwater, lit, with its glowing lines, never Standard's (#832's review)
+    expect(s).toContain("hlBadLit = badBody * shade + badEmission;");
+    expect(s).toContain("clearBad = hlBadLit;");
+    expect(s).toContain("clearBad = faceBad * faceLight;");
     expect(s).not.toContain("hlBadwaterBubbles");
     // the red at rock is the game's own glow of shallow water partly bad (waterPalette.ts badwaterGlow)
     expect(s).toContain("badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);");

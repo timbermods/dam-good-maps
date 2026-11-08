@@ -212,6 +212,9 @@ const WATER_FUNCTIONS = /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
 ${HIGH_WATER_GLSL}
+  /** The last measuredSurfaceWater's badwater, lit, with its glowing lines: High's own badwater, which the clear
+   *  water's veil keeps (materials.ts clearBad), so the T view shows the badwater of the look it is in. */
+  vec3 hlBadLit;
   /** The surface at g: N the flow's normal, albedo the flow's albedo, bpat badwater's pattern (R its base colour's, G
    *  its emissive detail's; all the Standard surface's, from its one sample). */
   vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, vec3 albedo, vec2 bpat) {
@@ -250,7 +253,9 @@ ${HIGH_WATER_GLSL}
     colour *= shade;
     colour += highlight;
     // badwater's emissive detail, unlit (the Standard look's: its glowing lines carried by the flow)
-    colour += gameBadwaterEmission(contamination, bpat.y, g);
+    vec3 badEmission = gameBadwaterEmission(contamination, bpat.y, g);
+    colour += badEmission;
+    hlBadLit = badBody * shade + badEmission;
     // the ground behind shows as the game's does, clean water and badwater alike (waterPalette.ts
     // WATER_SURFACE.seeThrough; the depth here is already shallower toward a bank)
     float alpha = cleanWaterAlpha(depth);
@@ -277,6 +282,7 @@ export function waterHooks(): ShaderHooks {
             float hlFilm = waterFilm(depth);
             float hlTint = waterTint(hlBad);
             c = hlSurface.rgb;
+            clearBad = hlBadLit;
             alpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
           } else {
             // the water's side, and a fall, as the game draws its falls (D201 amended 2026-10-29): the water's own
@@ -295,8 +301,10 @@ export function waterHooks(): ShaderHooks {
             #else
               vec3 faceClean = HW_SHALLOW * albedo / WATER_ALBEDO_MEAN;
             #endif
-            vec3 face = waterBlend(faceClean, badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad), hlBad);
+            vec3 faceBad = badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad);
+            vec3 face = waterBlend(faceClean, faceBad, hlBad);
             c = face * faceLight;
+            clearBad = faceBad * faceLight;
             if (edge) {
               float hlAbsorb = 1.0 - exp(-max(0.0, depth) * 0.65);
               vec3 sideClean = mix(mix(HW_SIDE_SHALLOW, HW_SIDE_BODY, hlAbsorb), HW_SIDE_DEEP, 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));

@@ -40,6 +40,12 @@ describe("water", () => {
     // lighter, from the near-sunset frame, for part of 2026-11-07, and 6 L* darker before)
     const gap = (d: number) => lightness(badwaterShown(d)) - lightness(cleanWaterShown(d));
     for (const d of depths) if (d >= 0.5 - 1e-9 && d <= 2 + 1e-9) expect(gap(d), `${d} deep`).toBeLessThan(0);
+    // High too (its own crimson, `GAME_BADWATER.use.high` false): on screen the judge reads it a level or two deep at
+    // L* 26.3 against its clean water's 32.3 on the same frames; its body (no see-through, reflection, highlight or
+    // fog, which lift clean water more than badwater) keeps the order from half a level to a level down, deeper its
+    // crimson body passes clean water's near-black navy and the screen's lift decides
+    const highGap = (d: number) => lightness(badwaterShown(d, "high")) - lightness(cleanWaterShown(d, "high"));
+    for (const d of depths) if (d >= 0.5 - 1e-9 && d <= 1 + 1e-9) expect(highGap(d), `High, ${d} deep`).toBeLessThan(0);
     // no foam along the shore in either look, and no glints of our own, as the game's water shader has neither: its
     // sheen is the sun's specular at its smoothness (D154 amended 2026-10-29 and 2026-11-07 by planning, D496's rule;
     // D148: this checked a shore foam line, then glints, until then; the glints read as white specks on a wide river)

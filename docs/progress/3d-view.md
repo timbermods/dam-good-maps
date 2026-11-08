@@ -566,9 +566,10 @@ Standard's shadow before a cave (item 8).
   - An eruption's lava (D206, D378) is its own light, as a URP emission: bright enough (3.2, 0.5, 0.02 at its
     hottest) to come through the Neutral tonemap the strong orange it was, and fogged with distance as URP fogs
     emission.
-  - Not drawn: `m_AmbientIntensity` 1.2, unsettled (Unity's Lighting window offers it for Skybox ambient only, but the
-    game's shade against its sun points to an ambient about 1.2× ours: the frame capture decides), and bloom
-    (threshold 1.5: highlights only).
+  - Not drawn: `m_AmbientIntensity` 1.2, settled (D497 amended 2026-11-07: the decompiled `Sun` sets
+    `RenderSettings.ambientMode` to Trilight when it loads and its three colours every frame, and nothing in the
+    decompiled game sets `RenderSettings.ambientIntensity`; that a Trilight ignores the multiplier is Unity's behaviour,
+    not something the decompile shows), and bloom (threshold 1.5: highlights only).
 - **The game's sky** (`fix/game-sky`, after #734): its camera's skybox, read from its pixel program (shader path
   1816, `D3DDisassemble`). Its colour by the view's height is the strip "DayCycleSkybox_8k_Manual" (16 × 8192,
   RGBAHalf) at `_DayProgress` 0.2, the day (`tools/game-sky.ts` prints the 145 heights `GAME_SKY.day` keeps); its
@@ -586,7 +587,7 @@ Standard's shadow before a cave (item 8).
 - **Objects, water and falls** keep their own light (their sky colour and sun), less High's ambient occlusion; they
   take the fog and the post chain.
 - **Captures and numbers:** in the PRs (#703, #722, and the finish's, which carries the set).
-- **Falls short:** the ambient SH's projection and `m_AmbientIntensity` wait for a frame capture: shade reads about 0.8
+- **Falls short:** the ambient SH's projection waits for a frame capture (`m_AmbientIntensity` is settled: not applied, D497): shade reads about 0.8
   of the game's (floors truly in shade 57–62 in the game's shots, our overhang floor 49–50). The game's sky behind
   the map is still ours. The water is graded before it blends over the ground, where the game grades the finished
   frame; grading after would take a full-frame pass (D110's rejected 25–27 MiB target).
@@ -1176,9 +1177,10 @@ the game's models in resources.assets (positions, materials and texture means on
   all-grass tops 70.1/77.9/27.5, walls 65.4/60.1/50.4 against the game's 69.2/57.1/46.1, 73.6/80.2/27.5 and 68/62/52.
   Each kind's colours scaled by one factor per channel (`GROUND`, `WALL`, High's strata), they now read 69.1/57.0/46.2,
   73.7/80.2/27.5 and 67.9/62.0/51.9; High 68.5/56.7/45.9, 68.2/77.9/30.7 and 68.1/62.0/52.0.
-- **The ambient term:** the game's ambient is Unity's Trilight (`RenderSettings.ambientMode = Trilight`, its three
-  colours set every frame), which `RenderSettings.ambientIntensity` (the scene's `m_AmbientIntensity` 1.2) does not
-  scale; so ours stays as it is. (The judge's `--ambient 1.2` would take grass to 15.3 and cliffs to 17.6 on the start
+- **The ambient term:** the game's ambient is Unity's Trilight (`RenderSettings.ambientMode = Trilight` when `Sun` loads,
+  its three colours set every frame), and nothing in the decompiled game sets `RenderSettings.ambientIntensity`; that
+  the scene's `m_AmbientIntensity` 1.2 does not scale a Trilight is Unity's behaviour, not something the decompile
+  shows (D497 amended 2026-11-07, which says the same); so ours stays as it is. (The judge's `--ambient 1.2` would take grass to 15.3 and cliffs to 17.6 on the start
   shots, but it is not the game's term.)
 - **The land on the judge** (RMS to the game's pixels, display RGB 0–255, with the mean's distance (bias); dev → this
   branch):

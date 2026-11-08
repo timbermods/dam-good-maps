@@ -1914,6 +1914,9 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
         // (foam only ever makes the water more opaque: deep water and the light look stay opaque)
         if (n.y > 0.5) alpha = max(alpha, mix(alpha, 0.95, foam));
+        // badwater as this look draws it, lit, with its glowing lines: what the clear water's veil keeps of it (below);
+        // a look that draws its own badwater (High's hook) sets its own here
+        vec3 clearBad = murky * light + emission;
 ${hook(h, "water")}        #ifdef CAVES
           // under a roof, the light of the air it stands in, as objects and falls there take it: the open air's sky
           // (D497), and the sun only where the volume's ray reaches
@@ -1937,11 +1940,7 @@ ${hook(h, "water")}        #ifdef CAVES
         if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
         if (clr > 0.001) {
           float badish = max(bad, smoothstep(0.05, 0.5, cont));
-          #if BADWATER_FORMULA
-            vec3 bc = murky * light + emission;
-          #else
-            vec3 bc = murky + emission;
-          #endif
+          vec3 bc = clearBad;
           vec3 cc = c;
           float ca = alpha * mix(0.35, 0.7, badish);
           if (n.y > 0.5) {

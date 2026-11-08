@@ -16,7 +16,8 @@ import { objectMaterial, RUIN_INSIDE_COVER, RUIN_LATTICE_SCALE, RUIN_LATTICE_STR
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
 import { LAND_GROW } from "../../src/render3d/objectFade";
 import { entityView, variantIndex, type EntityInput, type EntityView } from "../../src/render3d/model";
-import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, sunlitTop, WATER, type Rgb } from "../../src/render3d/palette";
+import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, sunlitTop, type Rgb } from "../../src/render3d/palette";
+import { badwaterLit } from "./waterShown";
 import { variantOf } from "../../src/worker/api";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -141,7 +142,7 @@ describe("mine sites", () => {
     expect(MINE.earthTop[0] - MINE.earthTop[2]).toBeGreaterThan(MINE.earth[0] - MINE.earth[2]);
   });
 
-  it("read in greyscale from above: a dark pit, darker than badwater, a rusty frame, pale wood, and apart from badwater sources", () => {
+  it("read in greyscale from above: a dark pit, lighter than badwater as the game draws it by day, a rusty frame, pale wood, and apart from badwater sources", () => {
     expect(lum(MINE.frame) - lum(MINE.pit)).toBeGreaterThan(0.1);
     expect(lum(MINE.wood) - lum(MINE.frame)).toBeGreaterThan(0.2);
     // (the pit is a colour on screen, dry ground an albedo since D497: against it as a sunlit top shows it in the game's
@@ -153,16 +154,19 @@ describe("mine sites", () => {
     let lightest = 0;
     for (let k = 0; k < badwater.length; k += 3) lightest = Math.max(lightest, lum([badwater[k], badwater[k + 1], badwater[k + 2]]));
     expect(lum(MINE.wood)).toBeGreaterThan(lightest + 0.2);
-    // the pit's earth is darker than badwater by about 5 L* or more, as in the game (Kyler's review
-    // of D177 and D178, 2026-09-26: it was lighter than the red-black badwater before). D324 (option
-    // (a) of D310) darkened both, the pit's earth (from #373A34) and badwater's crimson, a little,
-    // so clean water could come down toward the game; the margin is what it was, never loosened
+    // the pit is lighter than badwater, as the game draws it by day (D496 amended 2026-11-07: the pixel judge's
+    // `--water pit` on the probe's sixteen day-lit start shots reads the game's pits at L* 43.4, 114 samples, against
+    // its pure badwater's 32.3, 172 tiles; ours 40.8 against 29.5 in Standard, 48.9 against 30.7 in High). D148: this
+    // held the pit at least 5 L* under #38's crimson (Kyler's review of D177 and D178, 2026-09-26; D324's option (a)),
+    // which the game's own frames do not show; the order is held against each look's badwater as it ships
+    // (waterShown.ts), over the depths a pit's neighbouring badwater has
     const lightness = (c: readonly number[]) => {
       const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
       const y = 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
       return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y;
     };
-    expect(lightness(WATER.bad) - lightness(MINE.pit)).toBeGreaterThanOrEqual(5);
+    for (const look of ["standard", "high"] as const)
+      for (const d of [0.5, 1, 1.35, 2]) expect(lightness(MINE.pit), `${look}, ${d} deep`).toBeGreaterThan(lightness(badwaterLit(d, look)));
   });
 
   it("are outlined with Markers on: an orange line between dark edges round the footprint, a few pixels from any distance", () => {

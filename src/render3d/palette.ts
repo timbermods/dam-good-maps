@@ -24,7 +24,7 @@
 //
 // Pure TypeScript, no three.js: the unit tests and the page's legend read it too.
 
-import { BADWATER, BADWATER_GLOW_COLOUR, badwaterBody, badwaterGlow, blendWater, cleanWaterBody, GAME_BADWATER, GAME_WATER, gameBadwaterColour, gameBadwaterEmission, gameCleanColour, WATER, waterBody, type Rgb } from "./waterPalette";
+import { BADWATER, BADWATER_GLOW_COLOUR, badwaterBody, badwaterGlow, badwaterRamp, blendWater, cleanWaterBody, GAME_BADWATER, GAME_WATER, gameBadwaterColour, gameBadwaterEmission, gameCleanColour, HIGH_WATER, WATER, waterBody, type Rgb } from "./waterPalette";
 import { WATER_ALBEDO } from "./waterTextures";
 import { deadWood } from "./dying";
 
@@ -326,8 +326,9 @@ export function gamePostRgb(c: Rgb): Rgb {
  *  frame's corners with pale wooden platforms, crates and planks (#A78E65). With **Markers** on, an
  *  orange line between dark edges outlines the footprint, a few pixels wide from any distance. */
 export const MINE = {
-  /** The pit as it shows in its shade (about #2F312C: Kyler's #373A34 darkened a little by D324, option (a),
-   *  to keep it 5 L* under the darker badwater): the legend's colour. */
+  /** The pit as it shows in its shade (about #2F312C: Kyler's #373A34 darkened a little by D324, option (a), to keep
+   *  it 5 L* under #38's crimson, a margin that went on 2026-11-07, D496: by day the game draws the pit lighter than
+   *  badwater, as this is): the legend's colour. */
   pit: [0.184, 0.193, 0.173] as Rgb,
   /** The pit's earth as the model colours it: lit only by the sky down there, it shows about as
    *  `pit`. The walls' topsoil is browner and lighter, with a pale seam, and the earth darkens
@@ -426,15 +427,19 @@ export function sunlitTop(c: Rgb): Rgb {
  *  × the albedo's mean, badwater by the game's formula at its pattern's mean, in the game's light (`sunlitTop`),
  *  blended by the game's tint, with badwater's emissive detail at its means on top (unless `glow` is false: the body
  *  alone, before every term added after the light); or our own calibrated colours in the Standard look's light where
- *  `GAME_WATER.use` or `GAME_BADWATER.use.standard` is off. It is the Standard look's (High draws badwater by its own
- *  choice, `GAME_BADWATER.use.high`). The legend and the look tests read it. */
-export function waterShown(depth: number, share = 0, glow = true): Rgb {
+ *  `GAME_WATER.use` or `GAME_BADWATER.use.standard` is off. It is the Standard look's unless `look` is "high": High draws
+ *  clean water by the same formula and badwater by its own choice (`GAME_BADWATER.use.high`): the formula, or its
+ *  crimson (`HIGH_WATER.bad` by the game's ramp, as `measuredSurfaceWater`), a display colour its light leaves as it
+ *  is on open water in full sun. The legend and the look tests read it. */
+export function waterShown(depth: number, share = 0, glow = true, look: "standard" | "high" = "standard"): Rgb {
   const up = Math.sin(LIGHT.sunElevation);
   const ours = (c: Rgb): Rgb => [0, 1, 2].map((k) => c[k] * (LIGHT.sky[k] * 1.2 + LIGHT.sun[k] * 0.3 * up)) as unknown as Rgb;
   const g = gameCleanColour(depth);
   const clean = GAME_WATER.use ? sunlitTop([0, 1, 2].map((k) => g[k] * WATER_ALBEDO.mean[k]) as unknown as Rgb) : ours(cleanWaterBody(depth));
   if (!(share > 0)) return clean;
-  const bad = GAME_BADWATER.use.standard ? sunlitTop(gameBadwaterColour(depth, share)) : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
+  const k = BADWATER.floor + (1 - BADWATER.floor) * badwaterRamp(depth);
+  const highBad = (): Rgb => badwaterGlow(HIGH_WATER.bad.map((v) => v * k) as unknown as Rgb, HIGH_WATER.bad, depth, share);
+  const bad = GAME_BADWATER.use[look] ? sunlitTop(gameBadwaterColour(depth, share)) : look === "high" ? highBad() : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
   const e = glow ? gameBadwaterEmission(share) : ([0, 0, 0] as unknown as Rgb);
   const m = blendWater(clean, bad, share);
   return [0, 1, 2].map((k) => m[k] + e[k]) as unknown as Rgb;
@@ -454,8 +459,9 @@ export function waterShown(depth: number, share = 0, glow = true): Rgb {
  *    (ColorAdjustments; the game's Brightness setting at its default adds none), Neutral tonemapping (Tonemapping), then
  *    the LUT: `contrast` round ACEScc's mid grey in LogC and `saturation` round the luminance (ColorAdjustments
  *    +14 and +3), back to display values. Bloom (threshold 1.5) only touches highlights and is not drawn.
- *  `m_AmbientIntensity` (1.2) is not applied: Unity uses it for a skybox's ambient only (its Lighting window offers it
- *  only there), and the game sets Trilight. */
+ *  `m_AmbientIntensity` (1.2) is not applied (D497): the game sets Trilight (decompiled `Sun`: the mode when it loads,
+ *  the three colours every frame) and never sets `RenderSettings.ambientIntensity`; Unity applies the multiplier to a
+ *  skybox's ambient only (its Lighting window offers it only there), which is Unity's behaviour, not the decompile's. */
 export const GAME_FINISH = {
   fogDensity: 0.003,
   fogParam: 0.003 / Math.sqrt(Math.LN2),
