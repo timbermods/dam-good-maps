@@ -558,7 +558,8 @@ export function waterShown(depth: number, share = 0, glow = true, look: "standar
  *  - The post chain, as URP's uber pass grades in LDR under Gamma colour space: to linear, × 2^`postExposure`
  *    (ColorAdjustments; the game's Brightness setting at its default adds none), Neutral tonemapping (Tonemapping), then
  *    the LUT: `contrast` round ACEScc's mid grey in LogC and `saturation` round the luminance (ColorAdjustments
- *    +14 and +3), back to display values. Bloom (threshold 1.5) only touches highlights and is not drawn.
+ *    +14 and +3), back to display values. The game's bloom is not drawn (D497 amended 2026-11-08): by day it lifts
+ *    at most 0.22 % of a frame by 2 luma, round the start's marker; land and water never reach it (`tools/game-bloom.py`).
  *  `m_AmbientIntensity` (1.2) is not applied (D497): the game sets Trilight (decompiled `Sun`: the mode when it loads,
  *  the three colours every frame) and never sets `RenderSettings.ambientIntensity`; Unity applies the multiplier to a
  *  skybox's ambient only (its Lighting window offers it only there), which is Unity's behaviour, not the decompile's. */

@@ -569,7 +569,21 @@ Standard's shadow before a cave (item 8).
   - Not drawn: `m_AmbientIntensity` 1.2, settled (D497 amended 2026-11-07: the decompiled `Sun` sets
     `RenderSettings.ambientMode` to Trilight when it loads and its three colours every frame, and nothing in the
     decompiled game sets `RenderSettings.ambientIntensity`; that a Trilight ignores the multiplier is Unity's behaviour,
-    not something the decompile shows), and bloom (threshold 1.5: highlights only).
+    not something the decompile shows), and bloom, settled (D497 amended 2026-11-08, `fix/game-bloom`).
+  - **Bloom** (`tools/game-bloom.py`): the game's runs in play. Its profile: threshold 1.5 (gamma; 2.54 linear, a soft
+    knee from 1.27, a display value of 1.11 before the grade, 240 of 255 after it), intensity 50, scatter 0.55, clamp
+    2 (where the post chain saturates, 255), high-quality filtering, Gaussian, half resolution, 6 levels, no dirt; on at
+    Medium, High and Ultra (`BloomSetting`); the URP asset's `m_SupportsHDR` 1 (B10G11R11) and the camera's `m_HDR` 1
+    with post-processing on. The game feeds it its lights: EnvironmentURP's `_BLOOM_ENABLED` variant lets a lit
+    building's lighting map reach 2. The tool runs URP's Gaussian bloom at those values on frames as an upper bound (each
+    pixel taken back through the grade, a saturated one at the clamp). On the probe's 260 day-lit start shots it lifts
+    at most 0.22 % of a frame by 2 luma or more (0.12 % by 4; up to +50 at the middle of the start's straw-and-gold
+    marker), round the marker and the sunlit tips of crowns; land and water stay well under the knee. On 32 of our
+    frames (four maps; the start from 42 and 100, a forest, ruins; Standard and High) it would lift up to 3.8 % of a
+    frame by 2 luma, all of it round the start's near-white model (+80 to +113 in High), High's blueberries (+53 at most)
+    and the ruins' lit panels (+13): where our colours outrun the game's, not light the game has. So it is not drawn and
+    no look gains a screen pass; the start's model, the berries and the panels are for the pixel judge. An eruption's
+    lava (ours) would bloom under the game's values and stays without it.
 - **The game's sky** (`fix/game-sky`, after #734): its camera's skybox, read from its pixel program (shader path
   1816, `D3DDisassemble`). Its colour by the view's height is the strip "DayCycleSkybox_8k_Manual" (16 × 8192,
   RGBAHalf) at `_DayProgress` 0.2, the day (`tools/game-sky.ts` prints the 145 heights `GAME_SKY.day` keeps); its
