@@ -8,8 +8,9 @@ import { describe, expect, it } from "vitest";
 import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
 import { PAINTED_MEAN, paintedMean, STROKE_WIDEN_K, sceneUniforms, skyMaterial, terrainMaterial } from "../../src/render3d/materials";
+import { desertByte } from "../../src/render3d/light";
 import { entityView } from "../../src/render3d/model";
-import { BLEND, DESERT, GAME_SKY, gamePostRgb, GROUND, legendEntries, objectLegend, type Rgb } from "../../src/render3d/palette";
+import { BLEND, DESERT, GAME_GROUND_MEAN, GAME_SKY, gamePostRgb, GROUND, legendEntries, NOISE_NODES, noiseMean, objectLegend, type Rgb } from "../../src/render3d/palette";
 
 type Mesh = { name: string; count: number; geometry: { getAttribute(n: string): { array: ArrayLike<number>; count: number } } };
 
@@ -38,12 +39,17 @@ describe("grass by moisture, as the game's terrain draws it (D135 as amended 202
     const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
     const shader = terrainMaterial(u, 0, 1).fragmentShader;
     expect(shader).toContain("float grassOf(float m)");
-    expect(shader).toContain("vec4(grassOf(s0.x), s0.x,");
+    // (a top's share comes from the tile data's desert byte, its moisture unrounded, as the game takes it: light.ts
+    // desertByte; grassOf stays for the run tops' soil, which carries only the whole level)
+    expect(shader).toContain("vec4(grassAt(s0), s0.x,");
+    for (let m = 0; m <= 15; m += 0.2) expect(desertByte(Math.round(m * 15)) / 255, `moisture ${m.toFixed(1)}`).toBeCloseTo(desert(Math.round(m * 15) / 15), 2);
+    expect(desertByte(Math.round(1.4 * 15))).toBe(Math.round(desert(1.4) * 255));
   });
 
   it("blends tile to tile as the game's terrain does: four taps a fifth of a tile round the point, its noise and softness", () => {
-    // TerrainMaterialMapSpec: BlendingMargin 0.2, BlendingNoiseMultiplier 0.96, BlendingSoftness 5.8
-    expect(BLEND).toEqual({ margin: 0.2, noise: 0.96, softness: 5.8 });
+    // TerrainMaterialMapSpec: BlendingMargin 0.2, BlendingNoiseMultiplier 0.96, BlendingSoftness 5.8; its BlendingNoise
+    // texture's mean and spread (2026-11-08)
+    expect(BLEND).toEqual({ margin: 0.2, noise: 0.96, softness: 5.8, noiseMean: 0.473, noiseSpread: 0.081 });
     const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
     const shader = terrainMaterial(u, 0, 1).fragmentShader;
     expect(shader).toContain("float desertBlend(vec2 g, vec4 desert)");
@@ -51,6 +57,45 @@ describe("grass by moisture, as the game's terrain draws it (D135 as amended 202
     expect(shader).toMatch(/\+ 0\.96 \* \(blendNoise\(g\) - 0\.5\) - 0\.5\) \* 5\.8 \+ 0\.5/);
     // a top and a cave's floor both take it (the game's desert map is 3D)
     expect(shader.match(/= 1\.0 - desertBlend\(g,/g)?.length).toBe(2);
+  });
+
+  it("meets a cave's floor at a cave's mouth without a seam: each side reads the other's desert as its own blend does", () => {
+    const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
+    const shader = terrainMaterial(u, 0, 1).fragmentShader;
+    // the floor reads an open top beside it at its level by the top's own desert intensity (its moisture unrounded),
+    // not its whole level
+    expect(shader).toContain("return vec4(m, r.x - m * 16.0, r.y > 1.5 ? 1.0 : 0.0, 1.0 - grassOf(m));");
+    expect(shader).toContain("floorSoil.x = 1.0 - desertBlend(g, vec4(q0.w, rx1 > 0.5 ? q1.w : 1.0, ry1 > 0.5 ? q2.w : 1.0, rd1 > 0.5 ? q3.w : 1.0));");
+    // and the open top reads the floor standing at its level in a taller neighbour, not desert
+    for (const tap of ["desertTaps.y = runDesert(tile + vec2(sd.x, 0.0), h0, 1.0)", "desertTaps.z = runDesert(tile + vec2(0.0, sd.y), h0, 1.0)", "desertTaps.w = runDesert(tile + sd, h0, 1.0)"])
+      expect(shader).toContain(tap);
+    expect(shader).toContain("soil.x = 1.0 - desertBlend(g, desertTaps);");
+  });
+
+  it("draws the light look's share as the game's noisy blend gives it on average", () => {
+    // the full looks' share by moisture, measured in the page (tools/ground-variation.ts, the game's formula with its
+    // noise): 0.36, 0.66, 0.88, 0.97 and 0.99 at moisture 1, 1.5, 2, 2.5 and 3
+    const share = (m: number) => 1 - noiseMean(desert(m), BLEND.noise, 0.5, BLEND.softness);
+    [0.36, 0.66, 0.88, 0.97, 0.99].forEach((want, k) => expect(Math.abs(share(1 + k / 2) - want), `moisture ${1 + k / 2}`).toBeLessThan(0.03));
+    expect(share(0)).toBeCloseTo(0, 9);
+    expect(share(5)).toBeCloseTo(1, 9);
+    // (the nodes weigh to one, so a share held at 0 or 1 stays there)
+    expect(NOISE_NODES.reduce((s, [, w]) => s + w, 0)).toBeCloseTo(1, 5);
+    const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
+    const lite = terrainMaterial(u, 0, 1, true).fragmentShader;
+    expect(lite).toContain("vec4 soil = vec4(1.0 - desertMean(s0.w), s0.x,");
+    expect(lite).toContain("float desertMean(float d) {\n        return noiseMean(d, 0.96, 0.5, 5.8);");
+    expect(lite).toContain(`float a = (v + k * (${BLEND.noiseMean} - mid) - 0.5) * softness + 0.5;`);
+  });
+
+  it("can draw every top at the game's texture means, for the pixel judge alone (off in every look)", () => {
+    // TerrainURP: base × GrassDetailsAlbedo × 2, the 64² mips' means (Grass 67.4/72.9/24.8, Desert 62.5/52.2/41.7,
+    // the detail 140.5)
+    const k = (140.5 / 255) * 2;
+    [67.4, 72.9, 24.8].forEach((v, i) => expect(GAME_GROUND_MEAN.grass[i] * 255).toBeCloseTo(v * k, 0));
+    [62.5, 52.2, 41.7].forEach((v, i) => expect(GAME_GROUND_MEAN.dry[i] * 255).toBeCloseTo(v * k, 0));
+    const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
+    for (const lite of [false, true]) expect(terrainMaterial(u, 0, 1, lite).fragmentShader).toContain("#define GROUND_MEANS 0");
   });
 });
 

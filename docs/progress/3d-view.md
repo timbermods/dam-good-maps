@@ -1552,6 +1552,92 @@ the game's models in resources.assets (positions, materials and texture means on
   as deep from afar as near); High's grass close up reads 69/78/31 from 34 away (its broad variation over the few views),
   73.2/79.8/27.3 from 100.
 
+## Dry land that reads dry (D135, D497; `fix/dry-land`)
+
+- **The finding:** on the game's riverValley-128-1 start shot grass reads +14.0 luma over dry ground, ours +2.7 (+10.2
+  and +2.7 over the six start shots). Dry ground itself was within 1 of the game's (judge bias 0.9 in luma); the gap
+  was grass on that shot, and how the two vary.
+- **The game's numbers, read from its files** (2026-11-08, Timberborn 1.1.2.8; numbers only, nothing of the game's in
+  git): `SoilMoistureMap.blueprint` (`MaxDesertIntensity` 0.7, `DesertMoistureThreshold` 5) and
+  `TerrainMaterialMap.blueprint` (margin 0.2, noise multiplier 0.96, softness 5.8, `BlendingNoiseScale` 0.2) are ours
+  already. Three things were not:
+  - **The blending noise.** The game's `BlendingNoise` texture (read at world × 0.2, so it repeats every five tiles) has
+    mean 0.473 and spread 0.081, and most of its variance lies in features half a tile to two tiles across. Ours had mean
+    0.50, spread 0.095, and features four times as broad (spread over one-tile blocks 0.072 against the game's 0.025).
+    Ours is now two octaves of value noise at 3 and 6 cells a tile, held to the game's mean and spread (`BLEND`,
+    `blendNoise`). Contamination's weight reads the same noise, now at the game's statistics too.
+  - **Moisture unrounded.** The game takes a tile's moisture as it is (1.3, 2.6, …; only 31 of 248 edge samples on the
+    start shots sit on a whole level); ours rounded it to the whole level. The tile data's B, unused since D497, now holds
+    the game's desert intensity from the moisture byte (light.ts `desertByte`, a byte as the game's own RG16 map), and
+    a top's share reads it (`grassAt`). Run tops (caves' floors) keep the whole level, which is all their soil carries.
+  - **How the ground varies.** The game's `Desert` × `GrassDetailsAlbedo` × 2 varies in luma over blocks of ¼, 1, 4 and 8
+    tiles by 9.4, 7.7, 5.3 and 3.4 % of its mean; our dry ground by 6.5, 4.8, 2.9 and 1.9. Its grass by 10.8, 9.1, 5.7 and
+    3.6; ours by 12.5, 10.3, 8.0 and 6.8, and the dark patches of it fell on the shot's grass. Dry ground gets a broad
+    shade of its own (`DRY_BROAD`), grass's broad shade is cut from 0.27 to 0.15 (`GRASS_BROAD`), both means held.
+- **Measured in the page** (`tools/ground-variation.ts`: a flat map of one soil, the shader patched to its albedo, from
+  100 away; Standard, base → this branch): the grass's share at moisture 1/1.5/2/2.5/3 is 0.29/0.78/0.78/0.99/0.99 →
+  0.36/0.67/0.88/0.98/1.00, the game's formula with its own noise 0.36/0.66/0.88/0.97/0.99. Dry ground's spread over
+  ¼/1/4/8 tiles 9.0/7.8/5.6/3.6 %, grass's 11.0/8.4/5.3/4.1 %. Means held: dry 69.3/57.2/46.5 → 69.2/57.2/46.4, grass
+  73.3/79.5/26.1 → 73.8/80.0/26.2. High adds its own broad variation (#65) on top: dry 9.8/8.6/6.6/5.0, grass
+  11.6/9.2/6.5/5.4.
+- **On the judge** (`tools/water-pixel-judge.ts --samples`, the six start shots; base → this branch): grass over dry in
+  luma +2.7 → +4.4 (Standard), +2.2 → +3.8 (High), the game +10.2; on riverValley-128-1, +2.7 → +5.0 and +1.9 → +4.2,
+  the game +14.0. Grass RMS 14.2 → 13.2 (bias 9.9 → 8.7) in Standard, 15.6 → 14.6 (10.4 → 9.3) in High. Dry ground's
+  RMS rises 9.4 → 10.6 (bias 2.5 → 2.7) and 9.8 → 10.8, under its floor of 11.9: its spread is now the game's, and two
+  patterns of the same spread that don't line up sit further apart pixel by pixel than a flat one does. On the
+  badwater frames, contaminated ground 5.9 → 7.2 and 6.9 → 8.1 (100 samples, floor 5.4), dry 8.3 → 9.0 and 8.4 → 9.0
+  (floor 10.7). Water unchanged.
+- **The sheet:** `docs/sheets/dry-land.jpg` (`tools/land-dryness-sheet.ts`, from the judge's `--ours`): riverValley-128-1,
+  base against this branch, Standard and High, from the judge's fitted camera.
+- **Falls short:** grass on riverValley-128-1 still reads 7–9 under the game's. The rest of the gap is grass's light,
+  not dryness: against Q10's model of the game's terms our dry tops sit about 5 over it and our grass about 2 under,
+  while the game's pixels sit 6–7 over it on both. The edge tiles (moisture 1 to 2) still read greener than the game's
+  (0.86 of grass's green against 0.65), though our share by moisture is now the game's formula to 0.01; the snapshot's
+  moisture may be ahead of the frame's at the start, while the band still spreads. Contaminated ground's RMS rose with
+  the dry ground's spread under it.
+
+## Grass in the game's light (D497; `fix/grass-light`)
+
+- **The finding:** after `fix/dry-land`, grass tops on the six start shots still read 7–9 luma under the game's frames
+  (judge bias 8.7 in Standard, 9.3 in High; dry ground 2.7 and 3.3). The light is not why: grass and dry ground take the
+  game's light to about a luma each. The gap is where the samples fall on two textures, the game's and ours, plus one
+  shadow edge.
+- **The game's numbers, read from its files** (2026-11-08, Timberborn 1.1.2.8; numbers only): TerrainURP lights grass
+  and dry ground alike (albedo × 0.912 × (Trilight SH + sun × n·L × shadow), small specular, fog, post chain). The Grass
+  material's other values change nothing between them: emission 0, grayscale 0, normal-map strength 0, smoothness the
+  glossiness × the splat filter (0 on tops), splat gradient 1. Only the albedo differs.
+- **The game's texture at the samples:** the judge's grass samples cluster (160, 108 of them on riverValley-128-1). The
+  game's `Grass` (world xz / 16) × `GrassDetailsAlbedo` (xz / 32) is world-anchored (orientation correlation 0.58 grass,
+  0.56 dry, ≤ 0.23 any other way), and round those 108 samples it is 4.1 % over its mean: +2.7 luma of the gap is the
+  game's own texture there (`tools/land-texture-check.py`, numbers only, nothing of the textures written). Our light on
+  the game's texture means (the judge's `--define GROUND_MEANS`) against the game's pixels with that texture taken out:
+  grass +1.3, dry +1.0 in Standard; +1.6 and +1.0 in High.
+- **Our pattern at the samples:** at the shipped placement our grass pattern reads 3.7 luma under its own mean at those
+  samples (Standard; 4.6 High), dry ground 0.6. Moved by three arbitrary offsets it reads −0.6, +0.6 and −0.3: luck of
+  placement, not the pattern's mean, which `tools/albedo-means.ts` holds at the game's. Grass over dry at the three
+  offsets, Standard pooled: 7.9, 9.5, 8.5 (the game's 10.2; riverValley-128-1: 9.0, 11.9, 7.7 against 14.0).
+- **One real fault, fixed:** Standard's baked shadow edge. A column of grass at riverValley-128-1 (x 14.5, y 104–111)
+  beside a cliff's shadow is lit in the game's frame and in High but read 5–7 luma dark in Standard: its two sweeps at
+  the sun's elevation ± 6° spread the shadow's edge over three tiles. `LIGHT.penumbra` is now 2°, the edge about a tile,
+  as High's depth map and the game draw it.
+- **#853's review notes:** the light look's soil and contamination took the blend noise at 0.5; they now take the mean of
+  the blend over the game's noise (its mean 0.473 and spread 0.081, a five-point Gauss–Hermite sum, `noiseMean`), so
+  its grass share by moisture is the game's formula's (0.36/0.66/0.88/0.97/0.99 at 1/1.5/2/2.5/3). A cave's mouth had a
+  seam: an open top counted the cave column beside it as desert and a cave floor took its open neighbour's rounded
+  moisture, so a brown fringe showed on the open side only; both sides now read each other's desert intensity
+  (`runDesert`, the run tops' `grassOf`). The `DESERT` and `soilOf` comments say what the tile data carries.
+- **On the judge** (six start shots; `fix/dry-land` → this branch): Standard grass RMS 13.2 → 13.0 (bias 8.7 → 7.8),
+  dry 10.6 → 10.7 (2.7), cliff and edge unchanged; High unchanged (14.6, bias 9.3). Grass over dry, Standard 4.4 → 5.2
+  (riverValley-128-1 5.0 → 6.2), High 3.8; on the game's texture means 8.3 and 8.1 (9.9 and 9.5), the game 10.2 (14.0).
+  Clean water's RMS unchanged (14.4 Standard, 14.1 High). The badwater frames were not run: nothing on water or
+  contamination changed outside the light look.
+- **The sheet:** `docs/sheets/grass-light.jpg`: riverValley-128-1, dev (`fix/dry-land`) against this branch, Standard
+  and High. Standard's cliff shadows end crisper; nothing else moves.
+- **Falls short:** grass on the judge still reads several luma under the game's: about 2.7 of it the game's texture
+  where the samples sit, about 1–4 our pattern's placement there, a luma the light. A judge that samples more grass
+  across more shots would read it truer; changing either pattern to suit these samples would not be drawing as the game
+  draws. The edge tiles' greenness (#853's falls-short) is untouched.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

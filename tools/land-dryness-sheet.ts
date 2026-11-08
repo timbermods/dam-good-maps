@@ -4,6 +4,8 @@
 //
 //   npx tsx tools/water-pixel-judge.ts --dev .scratch/judge-dev --samples --ours .scratch/ours
 //   npx tsx tools/land-dryness-sheet.ts [--from .scratch/ours] [--shot riverValley-128-1-start] [--out docs/sheets/land-tone-dryness.jpg]
+//     [--case formula]   (the judge's case that is this checkout: `ours` when its second case is a `--define` of the
+//                         judge's own, as GROUND_MEANS is)
 
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -17,12 +19,13 @@ const arg = (name: string) => {
 const FROM = resolve(arg("from") ?? ".scratch/ours");
 const SHOT = arg("shot") ?? "riverValley-128-1-start";
 const OUT = resolve(arg("out") ?? "docs/sheets/land-tone-dryness.jpg");
+const CASE = arg("case") ?? "formula";
 
 async function main() {
   const images: Buffer[] = [];
   const labels: string[] = [];
   for (const look of ["standard", "high"] as const)
-    for (const [key, label] of [["dev", "dev"], ["formula", "this PR"]] as const) {
+    for (const [key, label] of [["dev", "dev"], [CASE, "this PR"]] as const) {
       images.push(readFileSync(join(FROM, `${SHOT}-${look}-${key}.png`)));
       labels.push(`${SHOT}, irrigated and dry: ${look === "standard" ? "Standard" : "High"}, ${label}`);
     }

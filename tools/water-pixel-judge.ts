@@ -32,6 +32,13 @@
 // its mean's (bias) and the floor, two game samples' distance at the game's own spread (√2 × it). On land within that
 // floor, the judge's colour rulings on the water stand.
 //
+// The land's samples cluster: on the six start shots grass is 160 tiles, 108 of them on riverValley-128-1, so the
+// patterns of both sides (ours, and the game's own textures, world-anchored) move a kind's mean by a few luma at a
+// cluster. `--define GROUND_MEANS` draws this branch's second case with every top at the game's texture means
+// (materials.ts `GROUND_MEANS`, palette.ts GAME_GROUND_MEAN): its land is our light alone, to set against the game's
+// pixels with its texture's own variation at each sample taken out (docs/progress/3d-view.md, "Grass in the game's
+// light"; the game's textures read locally, never kept).
+//
 // The camera: the probe's water pose (investigation/probe/runner/catalog.ts `standardPoses`) is where the game's camera
 // was asked to look, but its field of view and distance do not carry over exactly (Q8 found 31-37° and 1.0-1.35× the
 // distance). So the judge fits ours to the shot first: yaw, pitch, distance, field of view and the target's place,

@@ -14,7 +14,7 @@
 
 import { rotate, type Orientation } from "../core/format/footprints";
 import { DEAD, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "./model";
-import { LIGHT } from "./palette";
+import { DESERT, LIGHT } from "./palette";
 
 /** Shadow samples per tile, along each axis. */
 export const SHADOW_RES = 2;
@@ -589,8 +589,19 @@ export function soilNibbles(moisture: number, contamination: number): number {
   return (m << 4) | c;
 }
 
-/** The terrain shader's per-tile data, RGBA bytes (W × H): R the height, G the soil nibbles,
- *  B unused (0; the sky visibility until D497), A the water over the top. */
+/** The game's desert intensity for a tile's moisture byte (palette.ts `moistureByte`: its level × 15), 0–255: all of a
+ *  dry top (moisture 0), (1 − m / threshold) × max of one up to the threshold, none above, from the level unrounded
+ *  (SoilMoistureSystem `UpdateDesertIntensity`, palette.ts `DESERT`; the game keeps it in a byte too, its
+ *  `_DesertIntensityMap` an RG16 texture). Its share of the top is the shaders' `desertBlend`. */
+export function desertByte(moisture: number): number {
+  const m = moisture / 15;
+  const d = m <= 0 ? 1 : m <= DESERT.threshold ? DESERT.max * (1 - m / DESERT.threshold) : 0;
+  return Math.round(d * 255);
+}
+const DESERT_B = Uint8Array.from({ length: 256 }, (_, v) => desertByte(v));
+
+/** The terrain shader's per-tile data, RGBA bytes (W × H): R the height, G the soil nibbles, B the desert intensity
+ *  (`desertByte`; all desert without soil, as the nibbles' 0 is dry), A the water over the top. */
 export function tileData(W: number, H: number, heights: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, into?: Uint8Array): Uint8Array {
   const N = W * H;
   const out = into ?? new Uint8Array(N * 4);
@@ -598,7 +609,7 @@ export function tileData(W: number, H: number, heights: Uint8Array, soil: SoilVi
     const o = i * 4;
     out[o] = heights[i];
     out[o + 1] = soil ? soilNibbles(soil.moisture[i], soil.contamination[i]) : 0;
-    out[o + 2] = 0;
+    out[o + 2] = soil ? DESERT_B[soil.moisture[i]] : 255;
     out[o + 3] = waterByte(sw, heights, i);
   }
   return out;
@@ -612,7 +623,7 @@ export function tileDataRect(W: number, H: number, heights: Uint8Array, soil: So
       const o = i * 4;
       out[o] = heights[i];
       out[o + 1] = soil ? soilNibbles(soil.moisture[i], soil.contamination[i]) : 0;
-      out[o + 2] = 0;
+      out[o + 2] = soil ? DESERT_B[soil.moisture[i]] : 255;
       out[o + 3] = waterByte(sw, heights, i);
     }
 }
@@ -652,15 +663,16 @@ export function tileDataChanges(W: number, H: number, heights: Uint8Array, soil:
     let ehi = -1;
     for (let x = 0, i = y * W; x < W; x++, i++) {
       const o = i * 4;
-      // (the same values as `soilNibbles` and `waterByte`, the dry tile and the plain soil without a call)
+      // (the same values as `soilNibbles`, `desertByte` and `waterByte`, the dry tile and the plain soil without a call)
       const g = moisture ? NIBBLE_M[moisture[i]] | NIBBLE_C[contamination![i]] : 0;
+      const b = moisture ? DESERT_B[moisture[i]] : 255;
       const a = surface && surface[i] === surface[i] ? waterByte(sw, heights, i) : 0;
       const og = out[o + 1];
       const oa = out[o + 3];
-      if (out[o] === heights[i] && og === g && out[o + 2] === 0 && oa === a) continue;
+      if (out[o] === heights[i] && og === g && out[o + 2] === b && oa === a) continue;
       out[o] = heights[i];
       out[o + 1] = g;
-      out[o + 2] = 0;
+      out[o + 2] = b;
       out[o + 3] = a;
       if (lo < 0) lo = x;
       hi = x;

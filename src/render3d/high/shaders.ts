@@ -182,7 +182,7 @@ export function terrainHooks(): ShaderHooks {
             float roots = pow(1.0 - abs(sin(a * 11.3 + y * 2.7 + vnoise(vec2(a, y)) * 4.0)), 14.0);
             earth = mix(earth, vec3(0.29, 0.24, 0.14), roots * smoothstep(0.15, 0.45, depth) * 0.55);
             c = mix(c, earth, cap);
-            float moistTop = grassOf(soilOf(d0).x);
+            float moistTop = grassAt(soilOf(d0));
             c = mix(c, mix(vec3(0.63, 0.53, 0.30), vec3(0.49, 0.61, 0.22), moistTop), 1.0 - smoothstep(0.015, 0.09, depth));
           }
           light = skyColor * 1.1 + sunColor * 0.50 * max(dot(n, sunDir), 0.0);

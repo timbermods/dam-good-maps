@@ -58,12 +58,13 @@ mod and one-click play are set aside (#709 stays on `hold`). The work, in this o
   - Delete under a layer cut and Fill's first try;
   - the shelf's picked row in view (#668's fix, redone).
 - **The look** (renderer):
-  - badwater's colour as the game draws it;
-  - light in caves;
-  - overhangs and arches that read;
-  - the hero picture;
-  - the first Erode's freeze;
-  - a calm placement outline;
+  - badwater's colour as the game draws it: done (#826, #830, #832, #836, #839, #842, #844, #847, #851, #852);
+  - dry land that reads dry: in progress (#853);
+  - grass in the game's light: #854 (the light holds to a luma; Standard's shadow edge as the game's; the judge's gap is the textures where its samples sit);
+  - light in caves, and overhangs and arches that read: measured readable in #820; to capture again once after #852;
+  - the hero picture: done (#441, #809, #811);
+  - the first Erode's freeze: fixed on dev (the re-judge of the 10-29 audit, 2026-11-07);
+  - a calm placement outline: next;
   - then the look audit's smaller items.
 - **Showcase maps made by hand** with the editor, to find what the tools can't yet do.
 

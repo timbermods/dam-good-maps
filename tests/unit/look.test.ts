@@ -160,12 +160,17 @@ describe("the baked light", () => {
     expect(lit(12, 8)).toBe(0);
     expect(lit(9, 11)).toBe(1);
     expect(lit(2, 2)).toBe(1);
-    // the far end of the shadow is soft: along the diagonal it lightens step by step
-    const along = [1, 2, 3, 4, 5, 6].map((d) => lit(10 + d, 10 - d));
+    // the far end of the shadow is soft over a narrow edge, as the game's shadow map's few texels are (LIGHT.penumbra
+    // 2° since 2026-11-08; 6° spread it most of a tile into the sun): along the diagonal, sample by sample, it lightens
+    // step by step, through a value between, within a tile
+    const along = Array.from({ length: 6 * R * 2 + 1 }, (_, k) => lit(10 + 1 + k / (2 * R), 10 - 1 - k / (2 * R)));
     expect(along[0]).toBe(0);
     expect(along.at(-1)).toBe(1);
     for (let k = 1; k < along.length; k++) expect(along[k]).toBeGreaterThanOrEqual(along[k - 1]);
     expect(along.some((v) => v > 0 && v < 1)).toBe(true);
+    const first = along.findIndex((v) => v > 0);
+    const full = along.findIndex((v) => v >= 1);
+    expect((full - first) / (2 * R)).toBeLessThanOrEqual(1);
   });
 
   it("bakes the same bytes every time, and trees and ruins cast shadows too", () => {
@@ -196,7 +201,7 @@ describe("the baked light", () => {
     expect(litFraction(5, 4.5, 5.5)).toBeCloseTo(0.5);
   });
 
-  it("packs the tile data: height, soil and the water over the top (B unused since D497)", () => {
+  it("packs the tile data: height, soil, the game's desert intensity and the water over the top", () => {
     const heights = new Uint8Array([2, 2, 5, 1]);
     const soil = soilView([0, 3, 12, 0], [0, 0, 0, 0.4]);
     const sw = surfaceWater(4, 1, waterFromDepth(heights, [0, 0, 0, 0.8], [0, 0, 0, 0]));
@@ -206,7 +211,8 @@ describe("the baked light", () => {
     expect(d[5] >> 4).toBe(3); // moist
     expect(d[9] >> 4).toBe(12);
     expect(d[13] & 15).toBeGreaterThan(0); // contaminated
-    expect([d[2], d[6], d[10], d[14]]).toEqual([0, 0, 0, 0]);
+    // B: the desert intensity, all of a dry top, 0.7 × (1 − 3/5) at moisture 3, none from 5 up (palette.ts DESERT)
+    expect([d[2], d[6], d[10], d[14]]).toEqual([255, Math.round(0.28 * 255), 0, 255]);
     expect([d[3], d[7], d[11]]).toEqual([0, 0, 0]);
     expect(d[15]).toBe(waterByte(sw, heights, 3));
     expect(d[15]).toBeGreaterThan(40);
