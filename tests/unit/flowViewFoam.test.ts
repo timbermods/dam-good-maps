@@ -102,4 +102,45 @@ describe("the foam, wakes and seams in the Flow view alone", () => {
     expect(jobs.length).toBe(2);
   });
 
+  it("switched on while a bake waits to start, it bakes at once with the shapes, and the wait's bake never follows", async () => {
+    const g = globalThis as { window?: unknown };
+    const had = "window" in g;
+    const was = g.window;
+    g.window = globalThis;
+    try {
+      const { heights, sw } = river();
+      const { m, jobs, cues } = motion();
+      m.waterChanged(heights, sw, true);
+      await settle();
+      // the water changes again: its bake waits (at least a quarter of a second)
+      m.waterChanged(heights, sw);
+      expect(m.ready).toBe(false);
+      expect(jobs.length).toBe(1);
+      m.setFlow(true);
+      // (sent at once, not after the wait)
+      expect(jobs.map((j) => (j.kind === "flow" ? j.shapes : null))).toEqual([false, true]);
+      await settle();
+      expect(m.ready).toBe(true);
+      expect(cues.visible).toBe(true);
+      // (the wait was cleared: no third bake)
+      await new Promise((r) => setTimeout(r, 400));
+      expect(jobs.length).toBe(2);
+    } finally {
+      if (had) g.window = was;
+      else delete g.window;
+    }
+  });
+
+  it("switched on while a bake without the shapes is out, its answer is dropped for the one with them", async () => {
+    const { heights, sw } = river();
+    const { m, jobs, cues } = motion();
+    // (the first bake sent, its answer not yet back)
+    m.waterChanged(heights, sw, true);
+    m.setFlow(true);
+    expect(jobs.map((j) => (j.kind === "flow" ? j.shapes : null))).toEqual([false, true]);
+    await settle();
+    expect(m.ready).toBe(true);
+    expect(m.stats.triangles).toBeGreaterThan(0);
+    expect(cues.visible).toBe(true);
+  });
 });

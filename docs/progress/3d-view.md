@@ -1793,9 +1793,10 @@ the game's models in resources.assets (positions, materials and texture means on
 - **What changed.** `motion.ts`: the cues mesh is hidden outside the Flow view, as its streaks were; the Flow view shows
   both exactly as before. Outside it the bake makes none of their shapes (`high/bake.ts`: a flow job with `shapes`
   false skips the current and `motionShapes`, and sends `noShapes()`); the flow texture the surface moves by is the
-  same byte for byte (`tests/unit/flowViewFoam.test.ts`). A switch to the Flow view bakes the last water again at once
-  with the shapes. Both programs are compiled ahead with the others (`scheduleWarm`), so the first switch compiles
-  nothing. The light look drew neither the foam nor the streaks before (no moving water in software), and still
+  same byte for byte (`tests/unit/flowViewFoam.test.ts`). A switch to the Flow view bakes the last water again at
+  once with the shapes: a bake waiting to start starts then, and one already sent is dropped (#866's look review found
+  the first switch waiting about half a second for a queued bake). Both programs are compiled ahead with the others
+  (`scheduleWarm`), so the first switch compiles nothing. The light look drew neither the foam nor the streaks before (no moving water in software), and still
   draws neither. The Flow toggle's tooltip is "Show the currents, foam and wakes".
 - **Measured** (`tools/capture-foam-flow.ts`, River Valley 128² seed 2, its fastest narrow river, the game's 55°
   pitch, the clock held, real Chrome on the RTX 2070 SUPER, dev against this branch). Flow off: Standard 4,021 pixels

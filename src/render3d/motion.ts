@@ -277,9 +277,12 @@ export class WaterMotion {
     this.streaks.visible = this.flowOn && this.stats.streaks > 0;
   }
 
-  /** The last water baked again, with the shapes (a bake waiting to start makes them anyway; one sent drops). */
+  /** The last water baked again at once, with the shapes: a bake waiting to start starts now instead, and one sent
+   *  is dropped (its answer no longer the latest), so the foam lands as soon as this bake does. */
   private reshape(): void {
-    if (this.disposed || this.timer || !this.last) return;
+    if (this.disposed || !this.last) return;
+    clearTimeout(this.timer);
+    this.timer = 0;
     this.pending ??= this.last;
     this.bake();
   }
