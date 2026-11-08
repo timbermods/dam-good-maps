@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { SurfaceWater } from "../../src/render3d/model";
 import { meshWaterChunk } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
-import { byteDepth, cornerShift, filmDepthShare, filmFlowShare, SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "../../src/render3d/shoreFilm";
+import { byteDepth, cornerShift, filmDepthShare, filmFlowShare, filmInside, SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "../../src/render3d/shoreFilm";
 import { terrainMaterial, waterMaterial, sceneUniforms } from "../../src/render3d/materials";
 import { terrainHooks, waterHooks } from "../../src/render3d/high/shaders";
 import { DataTexture } from "three";
@@ -113,6 +113,49 @@ describe("a still film drawn back from the shore (Q9 V3)", () => {
       }
     }
     expect(sides).toBe(1);
+  });
+
+  it("the terrain dries only the margin a film draws back from: never along a linked side, centred on the outline, none where it flows", () => {
+    // a film open to the south only (sides east, west, north, south), still, 0.03 deep: its water goes on into its
+    // neighbours west, east and north, so no strip along those edges is dry, close up or from the opening camera
+    const open = [0, 0, 0, 1];
+    const still = [1, 1, 1, 1];
+    for (const px of [0.01, 0.17])
+      for (const fr of [[0.002, 0.6], [0.05, 0.6], [0.998, 0.6], [0.5, 0.998], [0.5, 0.5]] as const) expect(filmInside(0.03, open, still, fr, px), `${fr} at ${px}`).toBe(1);
+    // the open side: dry 0.15 in, half at the outline, wet past it
+    expect(filmInside(0.03, open, still, [0.5, 0.1], 0.01)).toBe(0);
+    expect(filmInside(0.03, open, still, [0.5, SHORE_FILM.shift], 0.01)).toBeCloseTo(0.5, 6);
+    expect(filmInside(0.03, open, still, [0.5, 0.2], 0.01)).toBe(1);
+    // (a lone film's corner along its diagonal; its sides' middles 0.15 in, as the mesh's quad between its corners)
+    const lone = [1, 1, 1, 1];
+    expect(filmInside(0.03, lone, still, [0.15, 0.15], 0.01)).toBe(0);
+    expect(filmInside(0.03, lone, still, [0.5, 0.5], 0.01)).toBe(1);
+    // flowing (the flow's share 0 at every corner) or deep: nothing drawn back, not even half a pixel at its edge
+    expect(filmInside(0.03, lone, [0, 0, 0, 0], [0.5, 0.0], 0.01)).toBe(1);
+    expect(filmInside(0.3, lone, still, [0.5, 0.0], 0.01)).toBe(1);
+    // the GLSL the terrain draws is that twin: each edge of an open side only, where its corners move, centred
+    for (const edge of ["open.w > 0.5 && flow.x + flow.y > 0.0 ? shoreFilmEdge(p0, p1, fr)", "open.x > 0.5 && flow.y + flow.z > 0.0 ? shoreFilmEdge(p1, p2, fr)", "open.z > 0.5 && flow.z + flow.w > 0.0 ? shoreFilmEdge(p2, p3, fr)", "open.y > 0.5 && flow.w + flow.x > 0.0 ? shoreFilmEdge(p3, p0, fr)"])
+      expect(SHORE_FILM_TERRAIN_GLSL).toContain(edge);
+    expect(SHORE_FILM_TERRAIN_GLSL).toContain("return smoothstep(-0.5 * px, 0.5 * px, min(min(dS, dE), min(dN, dW)));");
+    // (a dry tile beside a film keeps its wet blend where the film's water flows: the flow's share at their corner)
+    const u = sceneUniforms(1, 1, tex(), tex(), tex(), tex());
+    expect(terrainMaterial(u, 0, 4).fragmentShader).toContain("soil.w = flags1.w * v10 * shoreFilmKeep(dx, fc) + flags2.w * v01 * shoreFilmKeep(dy, fc) + flags3.w * v11 * shoreFilmKeep(dd, fc);");
+  });
+
+  it("a film links to a neighbour whose water the open sky's layer leaves to a layer under a roof, as the terrain does", () => {
+    // the film at (2, 1), its east neighbour wet on its top but drawn by another layer (under an overhang): the open
+    // sky's layer has no water there, the terrain's water byte has
+    const { heights, sw } = pond(5, 3, (x, y) => (y === 1 && (x === 2 || x === 3) ? 0.03 : 0));
+    const first = { ...sw, surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), top: sw.top.slice() };
+    first.surface[8] = NaN;
+    first.floor[8] = NaN;
+    first.depth[8] = 0;
+    first.top[8] = -1;
+    const mesh = meshWaterChunk(5, 3, [{ sw: first, ground: heights, own: null, chunks: null, wet: sw }], 0, 0);
+    for (const [x, , sx] of topCorners(mesh)) if (x === 3) expect(sx).toBe(0);
+    // (without it, the layer's own water, the east side reads open)
+    const alone = meshWaterChunk(5, 3, [{ sw: first, ground: heights, own: null, chunks: null }], 0, 0);
+    expect(topCorners(alone).some(([x, , sx]) => x === 3 && sx < 0)).toBe(true);
   });
 
   it("both looks' water moves its vertices by the flow's share, and both looks' terrain draws the same outline dry", () => {

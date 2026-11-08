@@ -68,11 +68,45 @@ export const SHORE_FILM_VERTEX_GLSL = /* glsl */ `
   }
 `;
 
+/** A corner of a film's tile moved (tile units, corner `c` 0 or 1 an axis): `shoreFilmCorner`'s twin. */
+function filmCorner(cx: number, cy: number, open: readonly number[], share: number): [number, number] {
+  const sx = cx * 2 - 1;
+  const sy = cy * 2 - 1;
+  const [mx, my] = cornerShift(sx, sy, (cx > 0.5 ? open[0] : open[1]) > 0.5, (cy > 0.5 ? open[2] : open[3]) > 0.5);
+  return [cx + mx * share, cy + my * share];
+}
+
+/** The signed distance of p inside the edge a → b (positive inside a counter-clockwise quad): `shoreFilmEdge`'s twin. */
+function filmEdge(a: readonly number[], b: readonly number[], p: readonly number[]): number {
+  const ex = b[0] - a[0];
+  const ey = b[1] - a[1];
+  return (ex * (p[1] - a[1]) - ey * (p[0] - a[0])) / Math.max(Math.hypot(ex, ey), 1e-5);
+}
+
+/** How much of point `fr` of a film's tile lies under its drawn top: `shoreFilmInside`'s twin (the GLSL below), which
+ *  the tests read. Only an open side's edge bounds it (a linked side's edge stays on the tile's edge, where the water
+ *  goes on into its neighbour's), and only where its corners move (the flow's share over 0); the fade is centred on
+ *  the outline. `open` and `flow` as the GLSL's. */
+export function filmInside(depth: number, open: readonly number[], flow: readonly number[], fr: readonly [number, number], px: number): number {
+  const share = Math.max(0, Math.min(1, SHORE_FILM.depth[0] - SHORE_FILM.depth[1] * depth));
+  if (share <= 0 || open[0] + open[1] + open[2] + open[3] < 0.5) return 1;
+  const p0 = filmCorner(0, 0, open, share * flow[0]);
+  const p1 = filmCorner(1, 0, open, share * flow[1]);
+  const p2 = filmCorner(1, 1, open, share * flow[2]);
+  const p3 = filmCorner(0, 1, open, share * flow[3]);
+  const side = (o: number, fa: number, fb: number, a: readonly number[], b: readonly number[]) => (o > 0.5 && fa + fb > 0 ? filmEdge(a, b, fr) : 1);
+  const d = Math.min(side(open[3], flow[0], flow[1], p0, p1), side(open[0], flow[1], flow[2], p1, p2), side(open[2], flow[2], flow[3], p2, p3), side(open[1], flow[3], flow[0], p3, p0));
+  const t = Math.max(0, Math.min(1, (d + 0.5 * px) / px));
+  return t * t * (3 - 2 * t);
+}
+
 /** The terrain's side (materials.ts, a top's soil): how much of a point of tile `t` lies under its water's drawn top,
  *  1 inside, 0 on the ground a still film draws back from (the same outline the mesh and the vertex shader give it:
- *  its four corners moved, the quad between them). `depth` its water's depth as its byte reads it, `open` its sides
- *  east, west, north, south (x + 1, x − 1, y + 1, y − 1) dry, `flow` the flow's share at its corners (0,0), (1,0), (1,1),
- *  (0,1), `fr` the point in the tile, `px` a pixel's width (tiles), over which the edge softens. GLSL. */
+ *  its four corners moved, the quad between them; bounded by its open sides' edges only, `filmInside`). `depth` its
+ *  water's depth as its byte reads it, `open` its sides east, west, north, south (x + 1, x − 1, y + 1, y − 1) dry,
+ *  `flow` the flow's share at its corners (0,0), (1,0), (1,1), (0,1), `fr` the point in the tile, `px` a pixel's width
+ *  (tiles), the fade centred on the outline. And how far a film's water at a tile corner is drawn back
+ *  (`shoreFilmBack`: its depth's share × the flow's there), which keeps its wet off the dry tile beside it. GLSL. */
 export const SHORE_FILM_TERRAIN_GLSL = /* glsl */ `
   vec2 shoreFilmCorner(vec2 c, vec4 open, float share) {
     vec2 s = c * 2.0 - 1.0;
@@ -92,7 +126,11 @@ export const SHORE_FILM_TERRAIN_GLSL = /* glsl */ `
     vec2 p1 = shoreFilmCorner(vec2(1.0, 0.0), open, share * flow.y);
     vec2 p2 = shoreFilmCorner(vec2(1.0, 1.0), open, share * flow.z);
     vec2 p3 = shoreFilmCorner(vec2(0.0, 1.0), open, share * flow.w);
-    float d = min(min(shoreFilmEdge(p0, p1, fr), shoreFilmEdge(p1, p2, fr)), min(shoreFilmEdge(p2, p3, fr), shoreFilmEdge(p3, p0, fr)));
-    return smoothstep(0.0, px, d);
+    // (an open side's edge only, where its corners move: a linked side's stays on the tile's edge, the water going on)
+    float dS = open.w > 0.5 && flow.x + flow.y > 0.0 ? shoreFilmEdge(p0, p1, fr) : 1.0;
+    float dE = open.x > 0.5 && flow.y + flow.z > 0.0 ? shoreFilmEdge(p1, p2, fr) : 1.0;
+    float dN = open.z > 0.5 && flow.z + flow.w > 0.0 ? shoreFilmEdge(p2, p3, fr) : 1.0;
+    float dW = open.y > 0.5 && flow.w + flow.x > 0.0 ? shoreFilmEdge(p3, p0, fr) : 1.0;
+    return smoothstep(-0.5 * px, 0.5 * px, min(min(dS, dE), min(dN, dW)));
   }
 `;

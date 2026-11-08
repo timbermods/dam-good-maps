@@ -71,7 +71,7 @@ import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUT
 import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_UI } from "./waterPalette";
 import { DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
-import { SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./shoreFilm";
+import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./shoreFilm";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
 import { CUT_SLACK } from "./cutWater";
@@ -1226,6 +1226,12 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         vec2 e = (${hook(h, "shoreFlow", "texture2D(flowTex, P / mapSize).rg")} * 255.0 - 128.0) / 127.0;
         return max(0.0, 1.0 - 100.0 * length(e * abs(e)));
       }
+      /** How much of a film's wet a dry tile beside it keeps (a neighbour's data d, the flow's share fc at the corner
+       *  they share): none where the film is drawn back there, all where its water flows or is deeper. */
+      float shoreFilmKeep(vec4 d, float fc) {
+        float depth = shoreFilmDepth(d);
+        return depth < 0.0 ? 1.0 : 1.0 - clamp(10.0 * clamp(${f(SHORE_FILM.depth[0])} - ${f(SHORE_FILM.depth[1])} * depth, 0.0, 1.0) * fc, 0.0, 1.0);
+      }
       /** How much of the point fr of tile \`tile\` (its data d0) lies under its water's drawn top: 0 on the ground a still
        *  film draws back from, the outline the water's mesh and vertex shader give it; \`px\` a pixel (tiles). */
       float shoreFilmOwn(vec2 tile, vec4 d0, vec2 fr, float px) {
@@ -1475,7 +1481,11 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             // a still film's water drawn back from the shore leaves the ground there dry (shoreFilm.ts, Q9 V3): on its own
             // tile, off the outline its mesh is drawn to; on a dry tile beside it, none of its wet blends over
             if (flags0.w > 0.5) soil.w *= shoreFilmOwn(tile, d0, fr, filmPx);
-            else if (soil.w > 0.0) soil.w = flags1.w * v10 * step(shoreFilmDepth(dx), -0.5) + flags2.w * v01 * step(shoreFilmDepth(dy), -0.5) + flags3.w * v11 * step(shoreFilmDepth(dd), -0.5);
+            else if (soil.w > 0.0) {
+              // (the flow's share at the corner the four tiles share, as the water's vertex shader reads it there)
+              float fc = shoreFilmFlowAt(tile + step(vec2(0.5), fr));
+              soil.w = flags1.w * v10 * shoreFilmKeep(dx, fc) + flags2.w * v01 * shoreFilmKeep(dy, fc) + flags3.w * v11 * shoreFilmKeep(dd, fc);
+            }
             // the grass's share as the game draws it: its desert map's noisy blend (desertBlend)
             soil.x = 1.0 - desertBlend(g, vec4(1.0 - flags0.x, sx > 0.5 ? 1.0 - flags1.x : 1.0, sy > 0.5 ? 1.0 - flags2.x : 1.0, hd == h0 ? 1.0 - flags3.x : 1.0));
             float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;

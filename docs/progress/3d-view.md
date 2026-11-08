@@ -1437,10 +1437,14 @@ the game's models in resources.assets (positions, materials and texture means on
   0.21 a side where both its sides are open, none between two linked sides (a neighbour is linked when wet), × saturate(2
   − 20 d) × max(0, 1 − 100 |f|). **Ours** (`shoreFilm.ts`): the mesh gives each corner of a film's top, and of the
   curtains hanging from it, its shift × the depth's share (`wshore`; the depth as the terrain's water byte reads it); the
-  vertex shader takes the flow's share at the corner from the flow texture, so a flow changing needs no new mesh; the
-  terrain draws the margin as dry ground on the same outline (`shoreFilmOwn`; a dry tile takes no wet from a film
-  beside it), so neither our underwater bed nor the behind-tint shows there. Only the open sky's layer on its tile's top
-  moves. Our four corners a tile against the game's sixteen vertices: a straight shore is the game's; a corner open on
+  vertex shader takes the flow's share at the corner from the flow texture, so a flow changing needs no new mesh. A
+  neighbour links as the terrain's water byte has it, so a tile whose water the open sky's layer leaves to a layer
+  under a roof still links (`WaterLayer.wet`). The terrain draws the margin as dry ground on the same outline
+  (`shoreFilmOwn`, `filmInside` its twin for the tests): only an open side's edge bounds it, and only where the film
+  draws back there, so a side shared with other water never dries; the fade from dry to wet is centred on the outline,
+  a pixel wide. A dry tile beside a film keeps the film's wet blend as far as the film still reaches it
+  (`shoreFilmKeep`: none where it is drawn back, all where it flows). So neither our underwater bed nor the
+  behind-tint shows in the margin. Only the open sky's layer on its tile's top moves. Our four corners a tile against the game's sixteen vertices: a straight shore is the game's; a corner open on
   both sides is cut a little deeper. Picking, the editing aids, the cutaway and the clear veil read the map's water, not
   the drawn outline (`cutaway.spec.ts` and `look-high.spec.ts` pass).
 - **High's bed** (D496 as amended): its poisoned bed (#38) made the ground under badwater its dry contaminated ground,
@@ -1470,7 +1474,11 @@ the game's models in resources.assets (positions, materials and texture means on
   unchanged.
 - **The sheet:** `docs/sheets/water-shore.jpg` (`tools/capture-water-shore.ts`): dev against this PR, Standard and High:
   a still lake's shore close, badwater a level or two deep by day, a badwater source and a water seep placed in a lake.
-- **Falls short:** a corner open on both sides is cut deeper than the game's; t9's B is drawn at its mean (our B carries
+  After the reviews (seams dark along sides shared with other water, now gone), the reviewers' views checked against dev
+  close up: those seams, a corner open on two sides, a partly bad river (unchanged in Standard; High's bed at most
+  6 of 255 apart), a close waterfall (unchanged) and the highlight and brush over shallow water (drawn as before).
+- **Falls short:** a corner open on both sides is cut deeper than the game's, and where two films beside each other
+  draw back by different amounts, the margin has a small notch at their shared corner; t9's B is drawn at its mean (our B carries
   the detail albedo); the game's distortion held back over a source and a seep's activation day are not followed; High's
   badwater is still 1.2 L* under the game's by day, as Standard's.
 

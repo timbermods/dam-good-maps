@@ -201,14 +201,14 @@ export function meshWaterChunk(W: number, H: number, layers: readonly WaterLayer
   // (a still film draws back from the shore only in the open sky's layer, whose water on its tiles' tops the terrain's
   // water byte has: shoreFilm.ts)
   layers.forEach((layer, k) => {
-    if (!layer.chunks || layer.chunks[cy * nx + cx]) meshLayer(b, W, H, layer.ground, layer.sw, layer.own, cx, cy, k === 0);
+    if (!layer.chunks || layer.chunks[cy * nx + cx]) meshLayer(b, W, H, layer.ground, layer.sw, layer.own, cx, cy, k === 0 ? (layer.wet ?? layer.sw) : null);
   });
   return b.finish();
 }
 
 /** One layer's water in a chunk: the tiles it draws (`own`; every wet tile when null), each seeing the water
  *  `sw` and the ground `heights` round it. */
-function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw: SurfaceWater, own: Uint8Array | null, cx: number, cy: number, films: boolean): void {
+function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw: SurfaceWater, own: Uint8Array | null, cx: number, cy: number, films: SurfaceWater | null): void {
   const x0 = cx * CHUNK;
   const y0 = cy * CHUNK;
   const x1 = Math.min(W, x0 + CHUNK);
@@ -249,10 +249,11 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
     const s = sw.surface[i];
     return s === s ? s : heights[i];
   };
-  /** Water standing on a tile's top (the terrain's water byte has it: light.ts `waterByte`). */
-  const onTop = (j: number): boolean => sw.surface[j] === sw.surface[j] && !(sw.floor[j] < heights[j] - 0.01);
-  /** A side of a film's tile with no linked neighbour (shoreFilm.ts): a tile on the map with no water on its top. */
-  const open = (xx: number, yy: number): boolean => xx >= 0 && yy >= 0 && xx < W && yy < H && !onTop(yy * W + xx);
+  /** Water standing on a tile's top in `w` (the terrain's water byte has it: light.ts `waterByte`). */
+  const onTop = (w: SurfaceWater, j: number): boolean => w.surface[j] === w.surface[j] && !(w.floor[j] < heights[j] - 0.01);
+  /** A side of a film's tile with no linked neighbour (shoreFilm.ts): a tile on the map with no water on its top, as
+   *  the terrain's water byte has it (`films`: under a roof too, where this layer drops it). */
+  const open = (xx: number, yy: number): boolean => xx >= 0 && yy >= 0 && xx < W && yy < H && !onTop(films!, yy * W + xx);
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
       const i = y * W + x;
@@ -287,7 +288,7 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
         let m1 = NO_SHIFT2;
         let m2 = NO_SHIFT2;
         let m3 = NO_SHIFT2;
-        const share = films && onTop(i) ? filmDepthShare(d) : 0;
+        const share = films && onTop(sw, i) ? filmDepthShare(d) : 0;
         if (share > 0) {
           const oe = open(x + 1, y);
           const ow = open(x - 1, y);
@@ -304,7 +305,10 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
             m3 = at(-1, 1);
           }
         }
-        b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], f, [k0[2], k1[2], k2[2], k3[2]], 0, 1, 0, flags, [...m0, ...m1, ...m2, ...m3]);
+        // (a quad's shifts: none for the most, with no array made)
+        const moved = m0 !== NO_SHIFT2 || m1 !== NO_SHIFT2 || m2 !== NO_SHIFT2 || m3 !== NO_SHIFT2;
+        const sh = (a: readonly number[], b2: readonly number[], c2: readonly number[], d2: readonly number[]) => (moved ? [...a, ...b2, ...c2, ...d2] : NO_SHIFT);
+        b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], f, [k0[2], k1[2], k2[2], k3[2]], 0, 1, 0, flags, sh(m0, m1, m2, m3));
         // curtains toward lower neighbours: down to the ground (never below the floor), or to the
         // water just below, in front of the cliff where it stands below the floor; each with the
         // badwater share of the top's edge it hangs from; down to water well below, a fall
@@ -321,22 +325,22 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
         const e = drop(x + 1, y);
         if (e === e) {
           const X = e < f ? x + 1 + O : x + 1;
-          b.quad4([X, e, -y, X, e, -(y + 1), X, s, -(y + 1), X, s, -y], dd, [c1, c2, c2, c1], f, side, 1, 0, 0, dropFlags(s, e, x + 1 >= W), [...m1, ...m2, ...m2, ...m1]);
+          b.quad4([X, e, -y, X, e, -(y + 1), X, s, -(y + 1), X, s, -y], dd, [c1, c2, c2, c1], f, side, 1, 0, 0, dropFlags(s, e, x + 1 >= W), sh(m1, m2, m2, m1));
         }
         const wv = drop(x - 1, y);
         if (wv === wv) {
           const X = wv < f ? x - O : x;
-          b.quad4([X, wv, -(y + 1), X, wv, -y, X, s, -y, X, s, -(y + 1)], dd, [c3, c0, c0, c3], f, side, -1, 0, 0, dropFlags(s, wv, x === 0), [...m3, ...m0, ...m0, ...m3]);
+          b.quad4([X, wv, -(y + 1), X, wv, -y, X, s, -y, X, s, -(y + 1)], dd, [c3, c0, c0, c3], f, side, -1, 0, 0, dropFlags(s, wv, x === 0), sh(m3, m0, m0, m3));
         }
         const n = drop(x, y + 1);
         if (n === n) {
           const Z = n < f ? -(y + 1) - O : -(y + 1);
-          b.quad4([x + 1, n, Z, x, n, Z, x, s, Z, x + 1, s, Z], dd, [c2, c3, c3, c2], f, side, 0, 0, -1, dropFlags(s, n, y + 1 >= H), [...m2, ...m3, ...m3, ...m2]);
+          b.quad4([x + 1, n, Z, x, n, Z, x, s, Z, x + 1, s, Z], dd, [c2, c3, c3, c2], f, side, 0, 0, -1, dropFlags(s, n, y + 1 >= H), sh(m2, m3, m3, m2));
         }
         const so = drop(x, y - 1);
         if (so === so) {
           const Z = so < f ? -y + O : -y;
-          b.quad4([x, so, Z, x + 1, so, Z, x + 1, s, Z, x, s, Z], dd, [c0, c1, c1, c0], f, side, 0, 0, 1, dropFlags(s, so, y === 0), [...m0, ...m1, ...m1, ...m0]);
+          b.quad4([x, so, Z, x + 1, so, Z, x + 1, s, Z, x, s, Z], dd, [c0, c1, c1, c0], f, side, 0, 0, 1, dropFlags(s, so, y === 0), sh(m0, m1, m1, m0));
         }
       }
     }

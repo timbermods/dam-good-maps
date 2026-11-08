@@ -15,7 +15,8 @@ const ORIENTATIONS = ["Cw0", "Cw90", "Cw180", "Cw270"] as const;
 export function markSourceTiles(d: Uint8Array, e: EntityView, W: number, H: number, drought: boolean): void {
   d.fill(0);
   const mark = (x: number, y: number, code: number) => {
-    if (x >= 0 && y >= 0 && x < W && y < H) d[(y * W + x) * 4] = code;
+    // (never over a water source's own mark: their buildings block each other, but an imported map may not)
+    if (x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4] !== 255) d[(y * W + x) * 4] = code;
   };
   for (let k = 0; k < e.count; k++) {
     const name = e.templates[e.template[k]];
