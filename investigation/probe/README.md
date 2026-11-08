@@ -162,8 +162,10 @@ game to its interface. The game runs several days during the probe-speed phase, 
 ## What the game is compared with
 
 - The model (`runner/model.ts`: the cycle model of `investigation/cycles`) starts from what the game loads:
-  the file's water and the outflows the file stores, its momentum. A file that stores every outflow as `"0"`
-  starts every river at rest, in the game and in the model.
+  the file's water and the outflows the file stores, its momentum. On a map with caves or overhangs (several
+  water levels) each tile plays its top wet column's water and outflows. A file that stores every outflow as
+  `"0"` starts every river at rest, in the game and in the model: since generator 0.10.4 (#611) that is every
+  generated map with a 3D form (#532 asks whether such a map should store its stacked settle's outflows).
 - The start's water (`drought-start-water`, `m9a-badwater` and the sampled tiles) is the water the project's
   own `start.water` rule counts: clean water a pump reaches from a shore the start walks to within the
   difficulty's walk, and the whole bodies of water it belongs to.
