@@ -172,8 +172,10 @@ export const WATER_PROBE = {
  *  - `held` (by look): the two terms #839 held back, the diffuse share at the water's own metallic 0 (`diffuse`, where
  *    the terrain's 0.912 is at 0.05) and the environment's head-on part (× f0); off, 0.912 and the grazing part alone.
  *  - `detail` (by look): the still detail albedo over clean water's colour (Q9 P6, ps 462-477: the clean colour ×
- *    the albedo, overlaid with the detail texture's mean, `GAME_BADWATER.detail`, as badwater's already is), which
- *    darkens and cools it to about 0.55/0.70/0.75 of itself; off, the colour × the albedo alone.
+ *    the albedo, overlaid with the detail texture, as badwater's base colour is), which darkens and cools it to about
+ *    0.55/0.70/0.75 of itself on average; its pattern since fix/water-detail (waterTextures.ts `makeDetailField`, at
+ *    xz × 0.015, not carried by the flow; the light look draws it too, as the game's Low quality does), its mean
+ *    (`GAME_BADWATER.detail`) before; off, the colour × the albedo alone.
  *  The pixel judge (tools/water-pixel-judge.ts --define WATER_GAME_LIGHT,WATER_HELD,WATER_DETAIL) compares each against
  *  the game's frames, per look, and each look takes what reads nearest the game over all its water (`judged`; a
  *  difference under the judge's 0.1 goes to the more of the game's own terms): all three in both looks. The game's
@@ -196,14 +198,15 @@ export const WATER_LIGHT = {
   },
   gap: {
     /** Clean water against pure badwater a level or two deep by day, on screen (D496): the judge's L* on the six
-     *  day-lit start shots with badwater in view, the game's and each look's (fix/water-sky), and the spread of the
-     *  game's own shots (clean water 31.0 to 33.5 on three, badwater 27.0 and 27.9 on two), which bounds the gap the
-     *  game's frames allow: 3.1 to 6.5 (D496's 4.2; 4.7 on these frames). Standard's 6.5 is within it (9.1 on dev,
-     *  33.9 against 24.8); High's 7.3 is not (6.8 on dev, 32.9 against 26.1, its crimson): its formula's badwater
-     *  reads 2.4 L* under the game's by day, about 1 under Standard's, which is still to find. */
+     *  day-lit start shots with badwater in view, the game's and each look's, and the spread of the game's own shots
+     *  (clean water 31.0 to 33.5 on three, badwater 27.0 and 27.9 on two), which bounds the gap the game's frames allow:
+     *  3.1 to 6.5 (D496's 4.2; 4.7 on these frames). The judge prints it for the shipped build against those frames
+     *  (tools/water-pixel-judge.ts, "the gap by day"). Standard's 6.3 is within it, near its top (dev's 6.5 sat on it);
+     *  High's 7.1 is not (7.3 on dev): its formula's badwater reads 2.2 L* under the game's by day, about 1 under
+     *  Standard's, which is still to find. Both since fix/water-detail (P6's pattern; the probe from mip 3). */
     game: { clean: 32.2, bad: 27.5, cleanShots: [31.0, 33.5], badShots: [27.0, 27.9] },
-    standard: { clean: 32.5, bad: 26.0 },
-    high: { clean: 32.4, bad: 25.1 },
+    standard: { clean: 32.5, bad: 26.2 },
+    high: { clean: 32.4, bad: 25.3 },
     tiles: { clean: 2336, bad: 73 },
   },
 } as const;
@@ -289,8 +292,8 @@ export function gameCleanColour(depth: number): Rgb {
  *  - the contaminated colour: lerp(`colorA` (`_Base_Contamination_Color_A`), `colorB` (`_B`), the pattern's R (the
  *    flow carries it: waterTextures.ts `makeBadwaterTexture`)) × an intensity, `intensity[0]` (`_Base_Contamination_
  *    Intensity_Low`) up to `intensityFrom` bad, easing to `intensity[1]` (`_High`) at pure badwater; overlaid with the
- *    still detail albedo (P6, its mean `detail`, as clean water's P6 is not followed yet: `detailOverlay` says whether
- *    the overlay is drawn) by 1 − c / 2; × the `_DepthGradients` texture's G at the depth (`ramp`); the shallow glow
+ *    still detail albedo (P6: the shaders' `waterDetail`, its pattern, waterTextures.ts `makeDetailField`; `detail` its
+ *    mean, which the mirrors take; `detailOverlay` says whether the overlay is drawn) by 1 − c / 2; × the `_DepthGradients` texture's G at the depth (`ramp`); the shallow glow
  *    toward itself × (3, 1.5, 0) (`BADWATER.glow`);
  *  - mixed into clean water's albedo by the tint (`WATER_BLEND`), and lit as clean water is;
  *  - an emissive detail, unlit: lerp(`glowA` (`_Detail_Contamination_Color_A`), `glowB`, the noise's mean

@@ -587,10 +587,10 @@ export function makeDetailField(size: number): Float64Array {
   return f;
 }
 
-/** The share of a tiling field's spread (`size` square) left after a Gaussian blur over `sigma` tiles (as
- *  tools/game-water-shader.py measures the game's "broad" share). */
-export function broadShare(f: ArrayLike<number>, size: number, sigma = 0.25): number {
-  const s = (sigma * size) / (1 / WATER_FLOW.tiling);
+/** The share of a tiling field's spread (`size` square, one repeat `repeat` tiles across) left after a Gaussian blur
+ *  over `sigma` tiles (as tools/game-water-shader.py measures the game's "broad" share). */
+export function broadShare(f: ArrayLike<number>, size: number, sigma = 0.25, repeat = 1 / WATER_FLOW.tiling): number {
+  const s = (sigma * size) / repeat;
   const r = Math.ceil(s * 3);
   const k = Array.from({ length: 2 * r + 1 }, (_, j) => Math.exp(-((j - r) ** 2) / (2 * s * s)));
   const kn = k.reduce((a, b) => a + b, 0);
@@ -676,9 +676,10 @@ export function slopesOf(b: number, a: number): [number, number] {
   return [((b - 128) / 127) * STORE.slope, ((a - 128) / 127) * STORE.slope];
 }
 
-/** The autocorrelation's half-width of a tiling field (`size` square), in tiles: the shift at which it first falls
- *  to a half, averaged over the four directions (as tools/game-water-shader.py `feature_scale` measures the game's). */
-export function featureTiles(f: ArrayLike<number>, size: number): number {
+/** The autocorrelation's half-width of a tiling field (`size` square, one repeat `repeat` tiles across), in tiles: the
+ *  shift at which it first falls to a half, averaged over the four directions (as tools/game-water-shader.py
+ *  `feature_scale` measures the game's). */
+export function featureTiles(f: ArrayLike<number>, size: number, repeat = 1 / WATER_FLOW.tiling): number {
   const n = size * size;
   let m = 0;
   for (let i = 0; i < n; i++) m += f[i];
@@ -699,7 +700,7 @@ export function featureTiles(f: ArrayLike<number>, size: number): number {
       }
     }
   }
-  return (half.reduce((a, b) => a + b, 0) / half.length) * (1 / WATER_FLOW.tiling / size);
+  return (half.reduce((a, b) => a + b, 0) / half.length) * (repeat / size);
 }
 
 const g = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(Math.round(v * 1e6) / 1e6));

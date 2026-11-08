@@ -710,3 +710,92 @@ test("a held drought or badtide turns the haze to the game's fog colour for it, 
   // (every shader compiled and nothing threw)
   expect(errors).toEqual([]);
 });
+
+test("clean water and badwater a level and a half deep, by day, as drawn through the shipped shaders: badwater the darker in both looks (D496)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page, "s=5&z=128&d=n&t=lakeBasin");
+  // two pools side by side on the same moist ground, 1.5 levels deep, one clean and one pure badwater (its floor
+  // contaminated, as the game's would be), seen as the probe's start shots see their water (the pixel judge's fitted
+  // cameras: about 53° down, about 100 away) in the day's light, through the shipped shaders, fog and finish
+  const gaps = await page.evaluate(async () => {
+    const r = window.dgm3d!.renderer;
+    const W = 64;
+    const H = 40;
+    const heights = new Uint8Array(W * H).fill(4);
+    const tile: number[] = [];
+    const cont: number[] = [];
+    const soilC = new Uint8Array(W * H);
+    const pool = (x: number, y: number) => (y >= 8 && y < 32 && x >= 6 && x < 30 ? 0 : y >= 8 && y < 32 && x >= 34 && x < 58 ? 1 : -1);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const p = pool(x, y);
+        if (p < 0) continue;
+        const i = y * W + x;
+        heights[i] = 2;
+        tile.push(i);
+        cont.push(p);
+        if (p) soilC[i] = 255;
+      }
+    const e = { count: 0, templates: [], owners: [], template: new Uint16Array(0), x: new Int16Array(0), y: new Int16Array(0), z: new Int16Array(0), orientation: new Uint8Array(0), flags: new Uint8Array(0), owner: new Uint16Array(0), variant: new Uint8Array(0), strength: new Float32Array(0), ids: [] };
+    (r as unknown as { setMap(m: unknown, keep: boolean): void }).setMap(
+      {
+        W,
+        H,
+        heights,
+        columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) },
+        entities: e,
+        soil: { moisture: new Uint8Array(W * H).fill(200), contamination: soilC },
+        water: { count: tile.length, tile: Int32Array.from(tile), floor: new Float32Array(tile.length).fill(2), depth: new Float32Array(tile.length).fill(1.5), contamination: Float32Array.from(cont) },
+      },
+      true,
+    );
+    const out: Record<string, { clean: number; bad: number }> = {};
+    for (const look of ["standard", "high"] as const) {
+      r.setLookChoice(look, false);
+      if (look === "high") for (let k = 0; k < 600 && !r.highSettled; k++) await new Promise((res) => setTimeout(res, 100));
+      r.setClock(12.5);
+      r.setView({ mode: "orbit", yaw: 0, pitch: (53 * Math.PI) / 180, distance: 100, target: [W / 2, 3.5, -H / 2] });
+      for (let k = 0; k < 3; k++) {
+        r.renderNow();
+        await new Promise((res) => requestAnimationFrame(() => res(null)));
+      }
+      r.renderNow();
+      const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+      const GW = g.drawingBufferWidth;
+      const GH = g.drawingBufferHeight;
+      const px = new Uint8Array(GW * GH * 4);
+      g.readPixels(0, 0, GW, GH, g.RGBA, g.UNSIGNED_BYTE, px);
+      const s = GW / r.canvas.clientWidth;
+      const lstar = (o: number) => {
+        const lin = [px[o], px[o + 1], px[o + 2]].map((v) => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4));
+        const Y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+        return Y > 216 / 24389 ? 116 * Math.cbrt(Y) - 16 : (24389 / 27) * Y;
+      };
+      const sums = [0, 0];
+      const ns = [0, 0];
+      // (each pool's tiles three or more from its banks, so no ground shows at a bank)
+      for (let y = 11; y < 29; y++)
+        for (let x = 0; x < W; x++) {
+          const p = pool(x, y);
+          if (p < 0 || pool(x - 3, y) !== p || pool(x + 3, y) !== p) continue;
+          const q = r.project(x + 0.5, 3.5, -(y + 0.5));
+          if (!q.visible) continue;
+          const cx = Math.round(q.x * s);
+          const cy = GH - 1 - Math.round(q.y * s);
+          if (cx < 2 || cy < 2 || cx >= GW - 2 || cy >= GH - 2) continue;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) (sums[p] += lstar(((cy + dy) * GW + cx + dx) * 4)), ns[p]++;
+        }
+      out[look] = { clean: sums[0] / ns[0], bad: sums[1] / ns[1] };
+    }
+    return out;
+  });
+  // the order, in both looks. The size of the gap is judged against the game's own frames, where the game drew the
+  // same water (tools/water-pixel-judge.ts, "the gap by day"; waterPalette.ts WATER_LIGHT.gap): this scene the game
+  // never drew, and its clean water over its moist bed reads darker than the shots' (about 28 against 31 to 33.5)
+  console.log(`the gap by day, as drawn: ${JSON.stringify(gaps)}`);
+  for (const look of ["standard", "high"] as const) expect(gaps[look].clean - gaps[look].bad).toBeGreaterThan(1);
+  expect(errors).toEqual([]);
+});

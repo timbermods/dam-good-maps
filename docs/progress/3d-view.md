@@ -1338,13 +1338,51 @@ the game's models in resources.assets (positions, materials and texture means on
 - **The gap by day (D496), now tested** (`tests/unit/water-sky.test.ts`, `WATER_LIGHT.gap`): on the six start shots
   with badwater, a level or two deep, the game's clean water 32.2 against badwater 27.5 (4.7; D496's 4.2), its shots'
   spread allowing 3.1 to 6.5. Standard 32.5 against 26.0, 6.5 (9.1 on dev); High 32.4 against 25.1, 7.3 (6.8 on dev).
-  The order holds in both mirrors half a level to two levels down (`look-water-slopes.test.ts`, High's from one level).
+  The order holds in both mirrors half a level to two levels down (`look-water-slopes.test.ts`, both looks from half a
+  level).
 - **The sheet:** `docs/sheets/water-sky.jpg` (`tools/capture-water-sky.ts`): dev against this PR, Standard and High: a
   lake from a low grazing camera, a river, the game's opening camera, pure badwater.
 - **Falls short:** High's formula badwater reads 2.4 L* under the game's by day (about 1 under Standard's), so High's
   gap is wider than the game's frames allow; by day alone its crimson reads a little nearer (14.5 against 15.0). The
-  probe is read by height round the turn, not by direction; P6's detail pattern (67 tiles a repeat) is drawn at its
-  mean only.
+  probe is read by height round the turn, not by direction; P6's detail pattern (67 tiles a repeat) was drawn at its
+  mean only (drawn since `fix/water-detail`, below).
+
+## The game's still detail on its water (Q9 P6; D496, D497; `fix/water-detail`)
+
+- **P6's role, exactly** (`investigation/notes/water_and_soil.md` Q9): per channel, overlay(a, d) of clean water's
+  colour × its flow albedo with `_DetailAlbedoTex` (`PhysicalWaterDetailAlbedo`) sampled still at xz × 0.015 (ps
+  462-477), with no weight, depth or contamination in it; badwater's base colour takes the same sample, mixed in by
+  (1 − c / 2) × (1 − the source mask). The game's Low quality draws it too (its variant without
+  `_HIGH_QUALITY_WATER_ENABLED`), so the light look draws it as Standard and High do.
+- **The texture, measured** (`tools/game-water-shader.py --textures`; numbers only): 2048² over a 66.7-tile repeat,
+  mean 69.7/88.7/95.3, spread 9.9/8.9/3.7. Nearly all of it lies along one axis (0.73, 0.656, 0.192): spread 13.6,
+  skewed bright (+1.98; −19.9 to +99.5), features about 1.5 tiles across, its power mostly between 4 and 32 tiles. The
+  second axis (spread 2.7) is a quadratic in the first (0.9 left over); the third is nothing.
+- **Ours** (`waterTextures.ts` `GAME_DETAIL_TEXTURE`, `makeDetailField`): a spectral field at the game's band powers,
+  remapped to its percentiles, in badwater's texture's B byte (512² over the same 66.7 tiles); the colour is the
+  quadratic in that byte (`DETAIL_COLOUR`, `waterDetailAt`). Its statistics are the game's within 0.3 in the mean, 2%
+  to 5% in the spread, 3% in the feature size (`tests/unit/water-detail.test.ts`). All three looks set `waterDetail`
+  from it before any shading; mirrors take its mean.
+- **#842's notes:** the probe now has mip 3 (`WATER_PROBE`, the glossiest clean water reads mip 3.7); the glint's
+  roughness floor is URP's 0.0078125; the light look's slopes doc reads "from half a level". The gap is printed by the
+  judge for the shipped build against the game's frames ("the gap by day"); `WATER_LIGHT.gap` records it.
+- **Judged** (`tools/water-pixel-judge.ts`, dev with #842 → this PR). Sixteen day-lit start shots, clean water
+  (37,853 tiles): RMS Standard 10.0 → 10.2, High 9.9 → 10.1 (a pattern not in phase with the game's adds a little per
+  pixel). L* and the tiles' RGB spread by band, game / dev / PR, Standard: 0.05–0.5 39.2 (15.3/13.9/13.4) / 41.1
+  (16.1/13.9/14.2) / 41.1 (16.2/14.2/14.2); 0.5–1 31.9 (11.5/9.8/7.8) / 33.1 (12.8/10.2/6.7) / 33.0 (12.9/10.6/6.8);
+  1–2 31.4 (11.4/10.5/9.2) / 31.8 (12.5/10.1/8.2) / 31.8 (12.5/10.2/8.3); 2–3 27.0 / 27.9 / 27.9; 3– 22.3 / 21.2 /
+  21.2; High within 0.1 L* of Standard's. Badwater by day (172 tiles) 14.2 → 14.2, 15.0 → 14.9; at the six end shots'
+  hours (4,592) 7.1 → 7.1, 7.5 → 7.5, a level or two deep L* 27.8 / 27.0 against the game's 28.6, unchanged. The mean
+  doesn't move (the overlay is linear in the detail) and the tiles' spread grows by under 0.5: at the shots' distance
+  the pattern is as faint as the game's.
+- **The gap by day (D496):** Standard 6.5 (on the frames' top bound, dev) → 6.3, within 3.1 to 6.5; High 7.3 → 7.1,
+  still wider. `look-high.spec.ts` now renders two pools through the shipped shaders and holds the order in both
+  looks; the band itself is judged on the game's frames, since the game never drew that scene.
+- **The sheet:** `docs/sheets/water-detail.jpg` (`tools/capture-water-detail.ts`): dev against this PR, Standard and
+  High: a lake close up, the opening camera, a river, a shallow shore and the farthest zoom, where the 67-tile repeat
+  doesn't show.
+- **Falls short:** High's badwater is still 2.2 L* under the game's by day, so its gap is wider than the frames
+  allow; our pattern is the game's in its statistics, not its texels, so it adds about 0.2 to the per-pixel distance.
 
 ## The rest of the step (next parts)
 

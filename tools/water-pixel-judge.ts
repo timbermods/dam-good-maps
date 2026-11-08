@@ -59,7 +59,7 @@ import { chromium, type Browser, type Page } from "@playwright/test";
 import { build, preview, type PreviewServer } from "vite";
 import { readMapBytes, wetAreas } from "../investigation/probe/runner/mapfile";
 import { GAME_AMBIENT_SH, GAME_FINISH, GAME_LIGHT, gameAmbient } from "../src/render3d/palette";
-import { WATER_SURFACE, type Rgb } from "../src/render3d/waterPalette";
+import { WATER_LIGHT, WATER_SURFACE, type Rgb } from "../src/render3d/waterPalette";
 import { dayLight, type DayLight, type Hazard } from "./game-day-light";
 import { rotate, type Orientation } from "../src/core/format/footprints";
 import { MINE_PIT } from "../src/render3d/entities3d";
@@ -717,6 +717,9 @@ async function main() {
       { key: "formula", port: PORT + 1, formula: true },
     ];
     const total: Record<string, Record<string, { sum: number; n: number }>> = {};
+    // the gap by day (D496): per look, clean water and pure badwater a level or two deep (each tile's L*, summed), on
+    // the shots with badwater in view
+    const gapTotal: Record<string, Record<string, { clean: number; nc: number; bad: number; nb: number }>> = {};
     const landTotal: Record<string, Record<string, { sum: number; bias: number; floor: number; n: number }>> = {};
     // (contaminated ground's veins: by look, the game's and each case's; beyond about 70 from the camera a vein is under
     // a pixel, so the share there counts the pixels its rust tints past the test, not the veins themselves)
@@ -799,6 +802,13 @@ async function main() {
           }
           console.log(line);
           bands[`${kind} ${lo}-${hi}`] = b;
+          if (lo === 1 && hi === 2 && (kind === "clean" || kind === "bad") && at.filter((a) => a.q.kind === "bad" && a.q.depth >= 0.05).length >= 20)
+            for (const [key, cs] of [["game", gameAt], ...cases.map((c) => [c.key, ours[c.key]])] as [string, V3[]][]) {
+              const t = ((gapTotal[look] ??= {})[key] ??= { clean: 0, nc: 0, bad: 0, nb: 0 });
+              const sum = idx.reduce((a, k) => a + lstar(cs[k]), 0);
+              if (kind === "clean") (t.clean += sum), (t.nc += idx.length);
+              else (t.bad += sum), (t.nb += idx.length);
+            }
         }
         // the land: by kind and the camera's distance, each side's mean and spread, ours' distance to the game's pixel
         // (RMS) and its mean's (bias); the floor is two game samples' distance at the same spread, √2 × its spread
@@ -834,6 +844,17 @@ async function main() {
     }
     console.log(`\nall shots, by kind: the distance to the game's pixel (RMS, 0-255)`);
     for (const look of LOOKS) for (const kind of KINDS) console.log(`  ${look} ${kind}: ` + Object.entries(total[`${look} ${kind}`] ?? {}).map(([k, t]) => `${k} ${Math.sqrt(t.sum / t.n).toFixed(1)} (${t.n})`).join(", "));
+    const G = WATER_LIGHT.gap.game;
+    const [low, high] = [G.cleanShots[0] - G.badShots[1], G.cleanShots[1] - G.badShots[0]];
+    console.log(`
+all shots with badwater in view, the gap by day (D496): clean water against pure badwater a level or two deep, L*; the game's frames allow ${low.toFixed(1)} to ${high.toFixed(1)}`);
+    for (const look of LOOKS)
+      for (const [key, t] of Object.entries(gapTotal[look] ?? {})) {
+        if (!t.nc || !t.nb) continue;
+        const gap = t.clean / t.nc - t.bad / t.nb;
+        console.log(`  ${look} ${key}: ${(t.clean / t.nc).toFixed(1)} against ${(t.bad / t.nb).toFixed(1)}, ${gap.toFixed(1)}${key === "game" ? "" : gap < low || gap > high ? " (outside)" : " (within)"} (${t.nc}, ${t.nb} tiles)`);
+      }
+    results.gap = gapTotal;
     console.log(`\nall shots, the land: the distance to the game's pixel (RMS, 0-255), its mean's (bias), and the floor (two game samples)`);
     for (const look of LOOKS)
       for (const kind of [...LAND_KINDS, "all"]) {

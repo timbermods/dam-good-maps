@@ -20,14 +20,17 @@ function probeAt(y: number, mip: number): number[] {
     for (let i = 1; i < h.length; i++) if (y <= h[i]) return [0, 1, 2].map((k) => c[i - 1][k] + ((c[i][k] - c[i - 1][k]) * (y - h[i - 1])) / (h[i] - h[i - 1]));
     return [...c[c.length - 1]];
   };
-  const m = Math.min(6, Math.max(4, mip));
-  const [a, b, t] = m < 5 ? [row(0), row(1), m - 4] : [row(1), row(2), m - 5];
-  return [0, 1, 2].map((k) => a[k] + (b[k] - a[k]) * t);
+  const ms = WATER_PROBE.mips;
+  const m = Math.min(ms[ms.length - 1], Math.max(ms[0], mip));
+  let k = 0;
+  while (k < ms.length - 2 && m >= ms[k + 1]) k++;
+  const [a, b] = [row(k), row(k + 1)];
+  return [0, 1, 2].map((j) => a[j] + (b[j] - a[j]) * (m - ms[k]));
 }
 
 describe("the game's light on its water (Q9 P15)", () => {
   it("reads the game's probe by height, the roughest mip the terrain's own (GAME_ENV, the same probe)", () => {
-    const rough = WATER_PROBE.colours[2];
+    const rough = WATER_PROBE.colours[WATER_PROBE.mips.indexOf(6)];
     const at = (y: number) => rough[(WATER_PROBE.heights as readonly number[]).indexOf(y)];
     for (const [y, want] of [
       [1, GAME_ENV.up],
@@ -48,7 +51,8 @@ describe("the game's light on its water (Q9 P15)", () => {
   it("is URP's environment term in the shared water GLSL: the probe by reflect(−V, N) at URP's mip, × (f0 × head-on + (grazing − f0) × (1 − N·V)^4) / (1 + roughness²)", () => {
     const s = waterMaterial(U(), false).fragmentShader;
     for (const line of [
-      "float mip = clamp(pr * (1.7 - 0.7 * pr) * 6.0, 4.0, 6.0);",
+      // (URP's mip, from 3: the glossiest clean water, smoothness 0.55, reads near 3.7)
+      "float mip = clamp(pr * (1.7 - 0.7 * pr) * 6.0, 3.0, 6.0);",
       "float r = max(pr * pr, 0.0078125);",
       "float fresnel = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 4.0);",
       "float grazing = clamp(smoothness + 0.04, 0.0, 1.0);",
@@ -57,15 +61,21 @@ describe("the game's light on its water (Q9 P15)", () => {
       "return r2 / (d * d * max(0.1, LoH * LoH) * (4.0 * r + 2.0)) * 0.04 * max(dot(N, L), 0.0);",
     ])
       expect(s).toContain(line);
+    // (the roughness floor URP's, 0.0078125, in the environment term, its grazing part alone and the glint alike)
+    expect(s.match(/float r = max\(pr \* pr, 0\.0078125\);/g)?.length).toBe(3);
+    expect(s).not.toContain("max(pr * pr, 0.002)");
+    // (the probe read from mip 3, the glossiest water's, to 6, the roughest)
+    expect([...WATER_PROBE.mips]).toEqual([3, 4, 5, 6]);
     expect(s).toContain(`#define WATER_GAME_LIGHT ${WATER_LIGHT.game.standard ? 1 : 0}`);
     expect(s).toContain(`#define WATER_HELD ${WATER_LIGHT.held.standard ? 1 : 0}`);
     // (the diffuse share, the water's own at its metallic 0 where held: URP's 0.96 × (1 − metallic))
     expect(WATER_LIGHT.diffuse).toBe(0.96);
     expect(s).toContain("float gameWaterDiffuse = 0.96;");
-    // (P6: clean water's colour × the albedo overlaid with the still detail's mean, as badwater's is, by its switch)
+    // (P6: clean water's colour × the albedo overlaid with the still detail, as badwater's is, by its switch; its
+    // pattern: water-detail.test.ts)
     expect(s).toContain(`#define WATER_DETAIL ${WATER_LIGHT.detail.standard ? 1 : 0}`);
     expect(s).toContain("a = mix(a, waterDetailOverlay(a), gameWaterDetail);");
-    expect(s).toContain("return mix(2.0 * a * dt, 1.0 - 2.0 * (1.0 - a) * (1.0 - dt), step(0.5, a));");
+    expect(s).toContain("return mix(2.0 * a * waterDetail, 1.0 - 2.0 * (1.0 - a) * (1.0 - waterDetail), step(0.5, a));");
   });
 
   it("is drawn in High's water: the probe by the reflected direction, the head-on part by its switch, the sun's GGX glint by its shadow, the highlight in the game's sun colour", () => {
@@ -118,8 +128,8 @@ describe("the gap between clean water and badwater by day (D496)", () => {
     const std = G.standard.clean - G.standard.bad;
     expect(std).toBeGreaterThanOrEqual(low - 1e-9);
     expect(std).toBeLessThanOrEqual(high + 1e-9);
-    // High's formula badwater reads darker by day than the game's (25.1 against 27.5), so its gap (7.3) is wider than
-    // the frames allow: the order holds, the size is still to find (docs/progress/3d-view.md, fix/water-sky)
+    // High's formula badwater reads darker by day than the game's (25.3 against 27.5), so its gap (7.1) is wider than
+    // the frames allow: the order holds, the size is still to find (docs/progress/3d-view.md, fix/water-detail)
     expect(G.high.clean - G.high.bad).toBeGreaterThan(0);
   });
 });

@@ -808,7 +808,7 @@ def main():
     ap.add_argument("--keywords", default=DEFAULT_KEYWORDS)
     ap.add_argument("--shader", action="append", help="another Shader Graph to read (its full name), in place of the water's")
     ap.add_argument("--out", default=os.path.join(ROOT, "investigation", "water-shader", "local"))
-    ap.add_argument("--textures", action="store_true", help="measure the flow's and badwater's textures (Q9 P5, P9) and stop")
+    ap.add_argument("--textures", action="store_true", help="measure the flow's and badwater's textures and the still detail albedo (Q9 P5, P9, P6) and stop")
     ap.add_argument("--soil", action="store_true", help="measure the ground's contamination pattern (TerrainURP, D154) and stop")
     ap.add_argument("--preview", action="store_true", help="with --textures or --soil: also write crops of the pattern to --out (gitignored)")
     args = ap.parse_args()
