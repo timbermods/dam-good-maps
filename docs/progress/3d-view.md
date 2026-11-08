@@ -1277,31 +1277,33 @@ the game's models in resources.assets (positions, materials and texture means on
   vein's rust tints past a test (red 18 over green, blue under half of red; `veinsAt`, 13 × 13 pixels round each
   sample) and takes contaminated ground two tiles from water, not five: of those 3,211 pixels the game's show none, dev
   13.0 % (a glowing orange, 192/112/79), this branch none.
-- **The water's own light (D496, D497):** two of the game's terms were missing where the game's formula draws the
-  water's colour. The water's diffuse share is URP's 0.96 (its metallic 0: `WaterMetalAndGloss` red,
-  `_Contamination_Metallic`), not the terrain's 0.912 (`GAME_LIGHT.water`, `gameWaterLight`, `sunlitWater`); and URP's
-  environment term has a head-on part, sky × f0 / (1 + roughness²), which the calibrated colours held but the formula
-  does not (`waterSkyReflect`'s `headOn`, by the tint between `WATER_FORMULA` and `BADWATER_FORMULA`; Standard only,
-  as High draws no sky reflection yet). The judge (`--water all`, the sixteen day-lit starts, each drawn in its
-  shot's light), L* by band, game / dev / this branch:
+- **The water's own light (D496, D497), found and held back:** two of the game's terms are missing where the game's
+  formula draws the water's colour. The water's diffuse share is URP's 0.96 (its metallic 0: `WaterMetalAndGloss`
+  red, `_Contamination_Metallic`), not the terrain's 0.912; and URP's environment term has a head-on part, sky × f0 /
+  (1 + roughness²), which our calibrated colours held but the formula does not. Built and judged (`--water all`, the
+  sixteen day-lit starts, each drawn in its shot's light), L* by band, game / dev / with both terms:
   - Standard badwater: 0.5–1 35.8 / 33.0 / 34.1; 1–2 27.5 / 24.8 / 26.2 (distance 15.3 to 14.3, 172 tiles).
   - Standard clean water: 0.05–0.5 39.2 / 44.4 / 46.1; 0.5–1 31.9 / 35.3 / 37.0; 1–2 31.4 / 33.1 / 34.7; 2–3
     27.0 / 27.9 / 29.3 (distance 13.1 to 15.6, 37,853 tiles).
   - High clean water (the diffuse share only): 43.6 to 44.4, 34.4 to 35.0, 32.2 to 32.6, 27.0 to 27.3 (distance
     12.2 to 13.1); High's badwater is its crimson, unchanged.
+
+  Both terms are shared, so they lift clean water with badwater: badwater closes about half its gap while clean water,
+  already lighter than the game's, moves 1.4–1.7 L* further away, and the gap between them at 1–2 levels stays 8.5 L*
+  (8.3 on dev) against the game's 3.9. On the look review's finding (the game wins on screen) they are held back, noted
+  where they belong (palette.ts `GAME_LIGHT`, waterPalette.ts `WATER_SURFACE`), for the water PR that finds the
+  rest: badwater's remaining darkness is warm (the game's 69/64/61 against the terms' 62/62/62 at 1–2 levels: red +7,
+  blue −1), the shape of its emission or glow, not the light; clean water's excess is its own (largest in the
+  shallows). The water draws as on dev.
 - **High's step faces:** the clear water's veil over a small step now keeps the step's own badwater at its depth,
   not the fall's 0.05-deep film (`clearBad`).
 - **The sheet:** `docs/sheets/ground-veins.jpg` (`tools/capture-ground-veins.ts`): dev against this branch, Standard
   and High: contaminated dry earth and contaminated ground meeting grass close up, a held Badtide wide, and badwater by
   day.
-- **Falls short:** both water terms are shared, so they lift clean water with badwater: badwater closes about half
-  its gap (1.3 L* short at 1–2 levels, 1.7 at 0.5–1) while clean water, already lighter than the game's, moves 1.4–1.7
-  L* further away, and the gap between them at 1–2 levels stays 8.5 L* (8.3 on dev) against the game's 3.9 on these frames. What is left of
-  badwater's darkness is warm (the game's 69/64/61 against our 62/62/62 at 1–2 levels: red +7, blue −1), the shape of
-  its emission or glow, not the light; clean water's excess is a clean-only term (largest in the shallows, +6.9 L*).
-  So the gap's size has no test yet. High's sky reflection and GGX (Q9 P15) wait for their own PR. No day-lit shot
-  has contaminated ground near the camera, so the veins' coverage and colour on screen are judged from afar only; the
-  texture's statistics are the close-up measure.
+- **Falls short:** badwater by day is as dark as on dev (the terms above held back), so the gap's size has no test yet.
+  High's sky reflection and GGX (Q9 P15) wait for their own PR. No day-lit shot has contaminated ground near the camera,
+  so the veins' coverage and colour on screen are judged from afar only; the texture's statistics are the close-up
+  measure.
 
 ## The rest of the step (next parts)
 

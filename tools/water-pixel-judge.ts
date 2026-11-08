@@ -577,7 +577,7 @@ function lightSwaps(light: DayLight): [string, string][] {
       ? []
       : [
           [`env * ${glNum(GAME_FINISH.reflectionIntensity)} / (r2 + 1.0)`, `env * ${glNum(REFLECTION)} / (r2 + 1.0)`],
-          [`return ${glNum(WATER_SURFACE.reflection)} * (headOn * `, `return ${glNum(REFLECTION)} * (headOn * `],
+          [`return ${glNum(WATER_SURFACE.reflection)} * (clamp(smoothness + `, `return ${glNum(REFLECTION)} * (clamp(smoothness + `],
         ];
   if (light.label === day.label && light.fog.every((v, k) => v === day.fog[k]) && AMBIENT === null) return reflection;
   const times = (c: Rgb): Rgb => c.map((v) => v * (AMBIENT ?? 1)) as unknown as Rgb;

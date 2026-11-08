@@ -117,9 +117,11 @@ export const WATER_SURFACE = {
    *  between the 5th and 95th percentiles). We draw our own slow noise with that spread (`smoothnessSpread` × the
    *  noise's swing round its middle), panned the same way, not the game's texture. Its metallic is 0 (the texture's
    *  red), so `f0` 0.04. The sky's reflection is added on top (URP's environment term):
-   *  `reflection` × sky × (f0 + (saturate(smoothness + f0) − f0) × (1 − N·V)^4) / (1 + roughness²) (`waterSkyReflect`;
-   *  the head-on f0 part only where the game's formula draws the body: our calibrated colours hold it already);
-   *  `reflection` is the game's reflection intensity, 1
+   *  `reflection` × sky × (saturate(smoothness + f0) − f0) × (1 − N·V)^4 / (1 + roughness²) (`waterSkyReflect`; the
+   *  head-on f0 part, reflection × sky × f0 / (1 + roughness²), is left out: under the game's formula it is the game's,
+   *  but measured it lifts clean water, already lighter than the game's, further away (docs/progress/3d-view.md,
+   *  fix/ground-veins), so it waits for clean water's own excess to be found); `reflection` is the game's reflection
+   *  intensity, 1
    *  (palette.ts `GAME_FINISH.reflectionIntensity`, kept here as a number: palette.ts imports this file) and `WATER.sky`
    *  its probe. The sun's glint is URP's GGX specular term × f0 (`waterSunGlint`), a faint sheen at this roughness. */
   smoothness: 0.25,
@@ -663,12 +665,11 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define WATER_SMOOTHNESS_SPREAD ${f(WATER_SURFACE.smoothnessSpread)}
   #define BADWATER_SMOOTHNESS ${f(BADWATER.smoothness)}
   /** The sky's reflection's weight at a smoothness, as the game's URP environment term (waterPalette.ts
-   *  WATER_SURFACE.smoothness): the part that rises toward the grazing angle, and headOn (0–1) of its head-on f0
-   *  part (1 where the game's formula draws the body's colour; 0 where our calibrated colour already holds it). */
-  float waterSkyReflect(float NoV, float smoothness, float headOn) {
+   *  WATER_SURFACE.smoothness): the part that rises toward the grazing angle. */
+  float waterSkyReflect(float NoV, float smoothness) {
     float pr = 1.0 - smoothness;
     float r = max(pr * pr, 0.0078125);
-    return ${f(WATER_SURFACE.reflection)} * (headOn * ${f(WATER_SURFACE.f0)} + (clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0) - ${f(WATER_SURFACE.f0)}) * pow(1.0 - clamp(NoV, 0.0, 1.0), 4.0)) / (1.0 + r * r);
+    return ${f(WATER_SURFACE.reflection)} * (clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0) - ${f(WATER_SURFACE.f0)}) * pow(1.0 - clamp(NoV, 0.0, 1.0), 4.0) / (1.0 + r * r);
   }
   /** The game's own highlight on the ripples (waterPalette.ts WATER_SURFACE.highlight), at a tint; the caller
    *  adds it × the sun's colour twice, before the light and after it. */

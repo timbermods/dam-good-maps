@@ -1,8 +1,8 @@
 // Contaminated ground and badwater by day (D154, D334, D496 as amended 2026-11-07; fix/ground-veins): dev against this
 // checkout, Standard and High, the same map from the same cameras: contaminated dry earth close up, where contaminated
 // ground meets grass, a wide view on a held Badtide day, and pure badwater by day. What moved: the veins are the game's
-// pattern (a dense network of thin rusty cracks, no glow) where dev drew sparse glowing red fissures; badwater and
-// clean water take the water's own diffuse share and the reflection's head-on part where the game's formula draws them.
+// pattern (a dense network of thin rusty cracks, no glow) where dev drew sparse glowing red fissures; badwater by
+// day stays as on dev (the water terms found are held back), shown beside them.
 //
 //   git archive --output=.scratch/judge-dev.tar origin/dev index.html real-places src public vite.config.ts tsconfig.json package.json tools/rust/vite-plugin.mjs
 //   mkdir -p .scratch/judge-dev && tar -xf .scratch/judge-dev.tar -C .scratch/judge-dev

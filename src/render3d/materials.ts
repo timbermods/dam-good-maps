@@ -357,14 +357,14 @@ const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000))
 const glColor3 = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1e6) / 1e6)).join(", ")})`;
 
 /** The game's light on its water (palette.ts GAME_LIGHT; Q9 P15) in display values, as the terrain's gameLight: the
- *  ambient probe by the normal, turned back to display values, and the sun by its shadow, times the water's diffuse
- *  share (`GAME_LIGHT.water`: its metallic 0, where the terrain's is 0.05); and
+ *  ambient probe by the normal, turned back to display values, and the sun by its shadow, times the diffuse share (the
+ *  terrain's 0.912; the water's own metallic 0 gives 0.96, held back: `GAME_LIGHT`); and
  *  clean water's colour by the game's formula under it (waterPalette.ts GAME_WATER, `gameCleanColour`) × the albedo,
  *  over the light the caller multiplies by (`light`), so the product is the game's. Both looks' water. */
 const GAME_WATER_LIGHT = /* glsl */ `vec3 gameWaterLight(vec3 n, float sun) {
         vec3 sh = max(${glColor3(GAME_AMBIENT_SH.c0)} + ${glColor3(GAME_AMBIENT_SH.c1)} * n.y + ${glColor3(GAME_AMBIENT_SH.c2)} * (3.0 * n.y * n.y - 1.0), vec3(0.0));
         vec3 ambient = mix(sh * 12.92, 1.055 * pow(sh, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), sh));
-        return ${f(GAME_LIGHT.water)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
+        return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
       }
       vec3 gameWaterFormula(float depth, vec3 albedo, vec3 n, float sun, vec3 light) {
         return gameCleanColour(depth) * albedo * gameWaterLight(n, sun) / max(light, 0.001);
@@ -1902,9 +1902,7 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         // added on top, as URP's environment term)
         // (badwater's toward its own by the tint × the pattern's R, as the game's)
         float smoothness = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, bad * bpat.x);
-        // (with its head-on part where the game's formula draws the colour, clean water or badwater by the tint: the
-        // game's URP environment term in full)
-        float fres = waterSkyReflect(dot(N, V), smoothness, mix(float(WATER_FORMULA), float(BADWATER_FORMULA), bad));
+        float fres = waterSkyReflect(dot(N, V), smoothness);
         c += WATER_SKY * fres;
         // (the highlight's emission: unlit, unshadowed)
         c += highlight;
@@ -1952,7 +1950,7 @@ ${hook(h, "water")}        #ifdef CAVES
             // (its ripples: the flow's light network catching the light, an editing aid's own channel)
             float ripple = smoothstep(0.35, 0.8, surf.r) * (1.0 - bad);
             cc = mix(cc, WATER_CLEAR_SHORE * light, ripple * CLEAR_RIPPLE_LIGHT);
-            cc += WATER_SKY * waterSkyReflect(dot(N, V), WATER_SMOOTHNESS, 0.0);
+            cc += WATER_SKY * waterSkyReflect(dot(N, V), WATER_SMOOTHNESS);
             cc += sunColor * waterSunGlint(N, V, sunDir, WATER_SMOOTHNESS) * lit;
             cc = mix(cc, WATER_FOAM * (0.8 + 0.2 * lit), foam * 0.6);
             cc = mix(cc, WATER_CLEAR_SHORE * (0.85 + 0.15 * lit), line);

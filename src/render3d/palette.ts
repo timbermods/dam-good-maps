@@ -420,15 +420,16 @@ export const ALTITUDE_RAMP = {
  *  Trilight (decompiled `Timberborn.SkySystem` `Sun`; the day's colours in `Configurations/Sun.blueprint.json`: the sky's
  *  from above, the equator's from the side, the ground's from below) as Unity's ambient probe, irradiance SH
  *  (`GAME_AMBIENT_SH`), turned back to display values (URP's `SampleSH` under Gamma). The sun is its colour × its intensity, 1.1, at full shadow strength. `diffuse` is URP's
- *  0.96 − 0.96 × `_Metallic` (0.05 on the terrain's materials); `water` the same on the water's surface, whose
- *  metallic is 0 (clean water's `WaterMetalAndGloss` red, badwater's `_Contamination_Metallic`), so 0.96. */
+ *  0.96 − 0.96 × `_Metallic` (0.05 on the terrain's materials). The water takes it too, though its own metallic is 0
+ *  (clean water's `WaterMetalAndGloss` red, badwater's `_Contamination_Metallic`), which gives 0.96: measured, that
+ *  lifts clean water, already lighter than the game's, further away, so it waits for clean water's own excess to be
+ *  found (docs/progress/3d-view.md, fix/ground-veins). */
 export const GAME_LIGHT = {
   sky: [0.6239606, 0.6307573, 0.9734455] as Rgb,
   equator: [1, 1, 1] as Rgb,
   ground: [0.2831488, 0.2269659, 0.3712378] as Rgb,
   sun: [1.1, 1.1 * 0.9625, 1.1 * 0.85] as Rgb,
   diffuse: 0.96 - 0.96 * 0.05,
-  water: 0.96,
 } as const;
 
 /** A colour as a level top in full sun shows it in the game's light (`GAME_LIGHT`: the sky's ambient from above and the
@@ -439,14 +440,9 @@ export function sunlitTop(c: Rgb): Rgb {
   return [0, 1, 2].map((k) => c[k] * GAME_LIGHT.diffuse * (ambient[k] + GAME_LIGHT.sun[k] * up)) as unknown as Rgb;
 }
 
-/** A colour as open water in full sun shows it in the game's light: `sunlitTop` at the water's diffuse share. */
-export function sunlitWater(c: Rgb): Rgb {
-  return sunlitTop(c).map((v) => (v * GAME_LIGHT.water) / GAME_LIGHT.diffuse) as unknown as Rgb;
-}
-
 /** Water `depth` levels deep with a badwater share (0–1) as the shipped shaders show it on open water in full sun, before
  *  its reflection, glint and the finish (materials.ts `waterMaterial`, both looks): clean water by the game's formula
- *  × the albedo's mean, badwater by the game's formula at its pattern's mean, in the game's light (`sunlitWater`),
+ *  × the albedo's mean, badwater by the game's formula at its pattern's mean, in the game's light (`sunlitTop`),
  *  blended by the game's tint, with badwater's emissive detail at its means on top (unless `glow` is false: the body
  *  alone, before every term added after the light); or our own calibrated colours in the Standard look's light where
  *  `GAME_WATER.use` or `GAME_BADWATER.use.standard` is off. It is the Standard look's unless `look` is "high": High draws
@@ -457,11 +453,11 @@ export function waterShown(depth: number, share = 0, glow = true, look: "standar
   const up = Math.sin(LIGHT.sunElevation);
   const ours = (c: Rgb): Rgb => [0, 1, 2].map((k) => c[k] * (LIGHT.sky[k] * 1.2 + LIGHT.sun[k] * 0.3 * up)) as unknown as Rgb;
   const g = gameCleanColour(depth);
-  const clean = GAME_WATER.use ? sunlitWater([0, 1, 2].map((k) => g[k] * WATER_ALBEDO.mean[k]) as unknown as Rgb) : ours(cleanWaterBody(depth));
+  const clean = GAME_WATER.use ? sunlitTop([0, 1, 2].map((k) => g[k] * WATER_ALBEDO.mean[k]) as unknown as Rgb) : ours(cleanWaterBody(depth));
   if (!(share > 0)) return clean;
   const k = BADWATER.floor + (1 - BADWATER.floor) * badwaterRamp(depth);
   const highBad = (): Rgb => badwaterGlow(HIGH_WATER.bad.map((v) => v * k) as unknown as Rgb, HIGH_WATER.bad, depth, share);
-  const bad = GAME_BADWATER.use[look] ? sunlitWater(gameBadwaterColour(depth, share)) : look === "high" ? highBad() : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
+  const bad = GAME_BADWATER.use[look] ? sunlitTop(gameBadwaterColour(depth, share)) : look === "high" ? highBad() : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
   const e = glow ? gameBadwaterEmission(share) : ([0, 0, 0] as unknown as Rgb);
   const m = blendWater(clean, bad, share);
   return [0, 1, 2].map((k) => m[k] + e[k]) as unknown as Rgb;
