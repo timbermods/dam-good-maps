@@ -160,12 +160,17 @@ describe("the baked light", () => {
     expect(lit(12, 8)).toBe(0);
     expect(lit(9, 11)).toBe(1);
     expect(lit(2, 2)).toBe(1);
-    // the far end of the shadow is soft: along the diagonal it lightens step by step
-    const along = [1, 2, 3, 4, 5, 6].map((d) => lit(10 + d, 10 - d));
+    // the far end of the shadow is soft over a narrow edge, as the game's shadow map's few texels are (LIGHT.penumbra
+    // 2° since 2026-11-08; 6° spread it most of a tile into the sun): along the diagonal, sample by sample, it lightens
+    // step by step, through a value between, within a tile
+    const along = Array.from({ length: 6 * R * 2 + 1 }, (_, k) => lit(10 + 1 + k / (2 * R), 10 - 1 - k / (2 * R)));
     expect(along[0]).toBe(0);
     expect(along.at(-1)).toBe(1);
     for (let k = 1; k < along.length; k++) expect(along[k]).toBeGreaterThanOrEqual(along[k - 1]);
     expect(along.some((v) => v > 0 && v < 1)).toBe(true);
+    const first = along.findIndex((v) => v > 0);
+    const full = along.findIndex((v) => v >= 1);
+    expect((full - first) / (2 * R)).toBeLessThanOrEqual(1);
   });
 
   it("bakes the same bytes every time, and trees and ruins cast shadows too", () => {

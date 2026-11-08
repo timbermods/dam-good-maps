@@ -1596,6 +1596,48 @@ the game's models in resources.assets (positions, materials and texture means on
   moisture may be ahead of the frame's at the start, while the band still spreads. Contaminated ground's RMS rose with
   the dry ground's spread under it.
 
+## Grass in the game's light (D497; `fix/grass-light`)
+
+- **The finding:** after `fix/dry-land`, grass tops on the six start shots still read 7–9 luma under the game's frames
+  (judge bias 8.7 in Standard, 9.3 in High; dry ground 2.7 and 3.3). The light is not why: grass and dry ground take the
+  game's light to about a luma each. The gap is where the samples fall on two textures, the game's and ours, plus one
+  shadow edge.
+- **The game's numbers, read from its files** (2026-11-08, Timberborn 1.1.2.8; numbers only): TerrainURP lights grass
+  and dry ground alike (albedo × 0.912 × (Trilight SH + sun × n·L × shadow), small specular, fog, post chain). The Grass
+  material's other values change nothing between them: emission 0, grayscale 0, normal-map strength 0, smoothness the
+  glossiness × the splat filter (0 on tops), splat gradient 1. Only the albedo differs.
+- **The game's texture at the samples:** the judge's grass samples cluster (160, 108 of them on riverValley-128-1). The
+  game's `Grass` (world xz / 16) × `GrassDetailsAlbedo` (xz / 32) is world-anchored (orientation correlation 0.58 grass,
+  0.56 dry, ≤ 0.23 any other way), and round those 108 samples it is 4.1 % over its mean: +2.7 luma of the gap is the
+  game's own texture there (`tools/land-texture-check.py`, numbers only, nothing of the textures written). Our light on
+  the game's texture means (the judge's `--define GROUND_MEANS`) against the game's pixels with that texture taken out:
+  grass +1.3, dry +1.0 in Standard; +1.6 and +1.0 in High.
+- **Our pattern at the samples:** at the shipped placement our grass pattern reads 3.7 luma under its own mean at those
+  samples (Standard; 4.6 High), dry ground 0.6. Moved by three arbitrary offsets it reads −0.6, +0.6 and −0.3: luck of
+  placement, not the pattern's mean, which `tools/albedo-means.ts` holds at the game's. Grass over dry at the three
+  offsets, Standard pooled: 7.9, 9.5, 8.5 (the game's 10.2; riverValley-128-1: 9.0, 11.9, 7.7 against 14.0).
+- **One real fault, fixed:** Standard's baked shadow edge. A column of grass at riverValley-128-1 (x 14.5, y 104–111)
+  beside a cliff's shadow is lit in the game's frame and in High but read 5–7 luma dark in Standard: its two sweeps at
+  the sun's elevation ± 6° spread the shadow's edge over three tiles. `LIGHT.penumbra` is now 2°, the edge about a tile,
+  as High's depth map and the game draw it.
+- **#853's review notes:** the light look's soil and contamination took the blend noise at 0.5; they now take the mean of
+  the blend over the game's noise (its mean 0.473 and spread 0.081, a five-point Gauss–Hermite sum, `noiseMean`), so
+  its grass share by moisture is the game's formula's (0.36/0.66/0.88/0.97/0.99 at 1/1.5/2/2.5/3). A cave's mouth had a
+  seam: an open top counted the cave column beside it as desert and a cave floor took its open neighbour's rounded
+  moisture, so a brown fringe showed on the open side only; both sides now read each other's desert intensity
+  (`runDesert`, the run tops' `grassOf`). The `DESERT` and `soilOf` comments say what the tile data carries.
+- **On the judge** (six start shots; `fix/dry-land` → this branch): Standard grass RMS 13.2 → 13.0 (bias 8.7 → 7.8),
+  dry 10.6 → 10.7 (2.7), cliff and edge unchanged; High unchanged (14.6, bias 9.3). Grass over dry, Standard 4.4 → 5.2
+  (riverValley-128-1 5.0 → 6.2), High 3.8; on the game's texture means 8.3 and 8.1 (9.9 and 9.5), the game 10.2 (14.0).
+  Clean water's RMS unchanged (14.4 Standard, 14.1 High). The badwater frames were not run: nothing on water or
+  contamination changed outside the light look.
+- **The sheet:** `docs/sheets/grass-light.jpg`: riverValley-128-1, dev (`fix/dry-land`) against this branch, Standard
+  and High. Standard's cliff shadows end crisper; nothing else moves.
+- **Falls short:** grass on the judge still reads several luma under the game's: about 2.7 of it the game's texture
+  where the samples sit, about 1–4 our pattern's placement there, a luma the light. A judge that samples more grass
+  across more shots would read it truer; changing either pattern to suit these samples would not be drawing as the game
+  draws. The edge tiles' greenness (#853's falls-short) is untouched.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

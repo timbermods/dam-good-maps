@@ -42,8 +42,9 @@ export type GroundKind = "moist" | "dry" | "contaminated" | "underwater";
 /** How the game's terrain shows soil moisture (SoilMoistureSystem `UpdateDesertIntensity`, its `SoilMoistureMapSpec`
  *  blueprint: `DesertMoistureThreshold` 5, `MaxDesertIntensity` 0.7): its desert texture over all of a top at moisture 0,
  *  over (1 − m / threshold) × max of one at moisture m up to the threshold, none above (the shaders' `grassOf`; D135 as
- *  amended 2026-10-29). The game takes m unrounded; ours takes the tile's whole level (light.ts `soilNibbles`), which its
- *  moisture mostly is (10 by the water, one less a tile). */
+ *  amended 2026-10-29). The game takes m unrounded, and so does ours: the tile data carries the desert intensity from the
+ *  moisture byte (light.ts `desertByte`, read by the shaders' `grassAt`); only the run tops (caves' floors) take their
+ *  whole level (`grassOf`), which is all their soil carries. */
 export const DESERT = { threshold: 5, max: 0.7 } as const;
 
 /** How the game's terrain blends its desert map at a point (its TerrainMaterialMapSpec: \`BlendingMargin\`,
@@ -53,6 +54,42 @@ export const DESERT = { threshold: 5, max: 0.7 } as const;
  *  lies in features half a tile to two tiles across: 31 % at 0.5–1 cycles a tile, 46 % at 1–2, 13 % at 2–4). Ours
  *  (the shaders' `blendNoise`) is drawn to them: its mean, its spread and its scale. */
 export const BLEND = { margin: 0.2, noise: 0.96, softness: 5.8, noiseMean: 0.473, noiseSpread: 0.081 } as const;
+
+/** Five-point Gauss–Hermite nodes (in spreads from the mean) and weights: the mean of a function over the blending
+ *  noise, for a look that draws no noise (the light look). */
+export const NOISE_NODES: readonly (readonly [number, number])[] = (() => {
+  const r = Math.sqrt(10);
+  const nodes: [number, number][] = [
+    [0, 8 / 15],
+    [-Math.sqrt(5 - r), (7 + 2 * r) / 60],
+    [Math.sqrt(5 - r), (7 + 2 * r) / 60],
+    [-Math.sqrt(5 + r), (7 - 2 * r) / 60],
+    [Math.sqrt(5 + r), (7 - 2 * r) / 60],
+  ];
+  // (rounded as the shaders write them, the weights summing to one, so a share held at 0 or 1 stays there exactly)
+  const round = nodes.map(([x, w]): [number, number] => [Math.round(x * 1e6) / 1e6, Math.round(w * 1e6) / 1e6]);
+  round[0][1] = Math.round((1 - round.slice(1).reduce((s, [, w]) => s + w, 0)) * 1e6) / 1e6;
+  return round;
+})();
+
+/** The mean over the game's blending noise (`BLEND.noiseMean`, `noiseSpread`) of its blend, saturate((v + k × (n −
+ *  mid) − 0.5) × softness + 0.5): the share a look without the noise (the light look) draws for a value v, as the
+ *  game's noisy blend averages over the ground. The desert's share takes k `BLEND.noise`, mid 0.5, softness
+ *  `BLEND.softness`; contamination's weight its own (`CONTAMINATION`). The shaders' `noiseMean` is the same. */
+export function noiseMean(v: number, k: number, mid: number, softness: number): number {
+  const a = (v + k * (BLEND.noiseMean - mid) - 0.5) * softness + 0.5;
+  const b = k * BLEND.noiseSpread * softness;
+  return NOISE_NODES.reduce((sum, [x, w]) => sum + w * Math.max(0, Math.min(1, a + x * b)), 0);
+}
+
+/** The game's ground albedo means (D497): its `Desert` and `Grass` textures' means at the 64² mip (62.5/52.2/41.7 and
+ *  67.4/72.9/24.8, display 0–255, read raw) × its detail texture doubled (`GrassDetailsAlbedo`, mean 140.5: × 1.102).
+ *  What our patterns' means are calibrated to (`GROUND`), and what the pixel judge draws the tops in to judge the light
+ *  alone (materials.ts `GROUND_MEANS`). */
+export const GAME_GROUND_MEAN = {
+  dry: [0.2701, 0.2256, 0.1802] as Rgb,
+  grass: [0.2913, 0.315, 0.1072] as Rgb,
+} as const;
 
 export const GROUND = {
   /** Dry ground: cracked earth in a warm brown, with dark cracks; plants die there. Broad patches
@@ -199,13 +236,25 @@ export function contaminationMap(c: number): number {
   return c > 0 ? (c <= C.mapFull ? 1 - C.mapMax * (1 - c / C.mapFull) : 1) : 0;
 }
 
-/** The pattern's weight at a map value `m` (0–1, blended across tiles) and the blending noise `n` (0–1; its middle by
- *  default), as the game's terrain shader works it (`CONTAMINATION`). */
-export function contaminationWeight(m: number, n = 0.5): number {
+/** The pattern's weight at a map value `m` (0–1, blended across tiles) and the blending noise `n` (0–1; its mean,
+ *  the game's `BLEND.noiseMean`, by default), as the game's terrain shader works it (`CONTAMINATION`). */
+export function contaminationWeight(m: number, n: number = BLEND.noiseMean): number {
   const C = CONTAMINATION;
-  let v = Math.max(0, m) ** C.nonlinearity;
-  if (v >= 0.01) v = Math.max(v, C.least);
-  return Math.max(0, Math.min(1, (v + C.noise * (n - C.noiseMid) - 0.5) * C.softness + 0.5));
+  return Math.max(0, Math.min(1, (contaminationValue(m) + C.noise * (n - C.noiseMid) - 0.5) * C.softness + 0.5));
+}
+
+/** The map value as the weight takes it: raised to the nonlinearity, held at the least once over 0.01. */
+function contaminationValue(m: number): number {
+  const C = CONTAMINATION;
+  const v = Math.max(0, m) ** C.nonlinearity;
+  return v >= 0.01 ? Math.max(v, C.least) : v;
+}
+
+/** The pattern's weight at a map value `m`, averaged over the blending noise (`noiseMean`): the share of the ground
+ *  the pattern takes there, as the light look, which draws no noise, shows it. */
+export function contaminationWeightMean(m: number): number {
+  const C = CONTAMINATION;
+  return noiseMean(contaminationValue(m), C.noise, C.noiseMid, C.softness);
 }
 
 /** With **Markers** on, an outline where contaminated ground ends: a light line between dark
@@ -222,7 +271,7 @@ export function contaminationVein(level: number, soil: Rgb): Rgb {
 /** Contaminated ground at a soil contamination `level` over the soil `soil` as the pattern's mean shows it (its mips,
  *  from afar; the light look): the soil toward the pattern's mean colour by its mean alpha × the weight. */
 export function contaminationMean(level: number, soil: Rgb): Rgb {
-  const k = CONTAMINATION.meanAlpha * contaminationWeight(contaminationMap(level));
+  const k = CONTAMINATION.meanAlpha * contaminationWeightMean(contaminationMap(level));
   return [0, 1, 2].map((i) => soil[i] + (CONTAMINATION.mean[i] - soil[i]) * k) as unknown as Rgb;
 }
 
@@ -398,8 +447,12 @@ export const LIGHT = {
   sunElevation: (45 * Math.PI) / 180,
   /** How far the game's sun turns past the camera (Sun.blueprint.json `RotateWithCameraOffset`, degrees). */
   sunFollow: 40,
-  /** The sun's disc and the sky's scatter soften shadows: two sweeps, this far either side. */
-  penumbra: (6 * Math.PI) / 180,
+  /** The baked shadow's soft edge (Standard's; High's own depth map is soft over a few of its texels, as the game's
+   *  shadow map is): two sweeps, the sun this far higher and lower. 2°, so the edge is a fifth to a quarter of a tile
+   *  either side below a drop of three or four levels, as High's and the game's are: 6° until 2026-11-08 spread it
+   *  most of a tile into the sun, and a column of open grass beside a cliff's shadow on riverValley-128-1, lit in the
+   *  game and in High, read 5–7 darker in luma (docs/progress/3d-view.md, "Grass in the game's light"). */
+  penumbra: (2 * Math.PI) / 180,
   sun: [1.0, 0.95, 0.86] as Rgb,
   sky: [0.63, 0.64, 0.72] as Rgb,
   /** The haze: the game's temperate daytime fog (`Sun.blueprint` `DayColors.TemperateWeatherFog`; a held hazard's in

@@ -67,7 +67,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_GROUND_MEAN, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, NOISE_NODES, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_UI } from "./waterPalette";
 import { DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
@@ -1250,7 +1250,8 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float wb = floor(d.a * 255.0 + 0.5);
         return heightOf(d) + (wb <= ${f(WATER_BYTE_FINE)} ? (wb - 1.0) / ${f(WATER_BYTE_STEPS)} : wb - ${f(WATER_BYTE_FINE - 3)});
       }
-      /** moisture level (0–15), contamination (0–15), under water (0/1), sky (0–1). Under water only where the water's
+      /** moisture level (0–15), contamination (0–15), under water (0/1), the game's desert intensity (0–1, light.ts
+       *  \`desertByte\`, from the moisture unrounded; grassAt). Under water only where the water's
        *  surface is drawn (cutWater.ts bedAtCut): a layer cut takes away the water standing above it, and a top whose water
        *  it took whole (the top at the cut or above it) is then a top like any other, not a bed seen through water; under
        *  a top below the cut the water is drawn up to the cut over it, a bed. */
@@ -1326,19 +1327,26 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           vec2 r = floor(texelFetch(runTex, ivec3(vec3(t, z)), 0).rg * 255.0 + 0.5);
           return r.y > 1.5 && z >= slice ? vec2(r.x, 1.0) : r;
         }
-        /** The soil of the ground at level z of tile t as soilOf gives it (no sky), and in \`here\` whether there is
-         *  ground there to blend toward: a run top below the tile's top, or the tile's own top. */
+        /** The soil of the ground at level z of tile t as soilOf gives it (w its desert intensity: a run top's from its
+         *  whole level, all its soil carries), and in \`here\` whether there is ground there to blend toward: a run top
+         *  below the tile's top, or the tile's own top. */
         vec4 groundAt(vec2 t, float z, out float here) {
           vec2 r = runAt(t, z);
           here = 1.0;
           if (r.y > 0.5) {
             float m = floor(r.x / 16.0);
-            return vec4(m, r.x - m * 16.0, r.y > 1.5 ? 1.0 : 0.0, 0.0);
+            return vec4(m, r.x - m * 16.0, r.y > 1.5 ? 1.0 : 0.0, 1.0 - grassOf(m));
           }
           vec4 d = tileAt(t);
           if (t.x >= 0.0 && t.y >= 0.0 && t.x < mapSize.x && t.y < mapSize.y && heightOf(d) == z) return soilOf(d);
           here = 0.0;
           return vec4(0.0);
+        }
+        /** The desert intensity at level z of tile t where a run top stands there (a cave's floor beside an open top at
+         *  its level: the game's desert map is 3D, so a top's tap across the edge reads that floor), else \`other\`. */
+        float runDesert(vec2 t, float z, float other) {
+          vec2 r = runAt(t, z);
+          return r.y > 0.5 ? 1.0 - grassOf(floor(r.x / 16.0)) : other;
         }
       #endif
       vec3 heightColor(float z) {
@@ -1389,18 +1397,41 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         v = v >= 0.01 ? max(v, ${f(CT.least)}) : v;
         return clamp((v + ${f(CT.noise)} * (n - ${f(CT.noiseMid)}) - 0.5) * ${f(CT.softness)} + 0.5, 0.0, 1.0);
       }
+      /** The mean over the game's blending noise of its blend saturate((v + k (n − mid) − 0.5) × softness + 0.5)
+       *  (palette.ts noiseMean: five Gauss–Hermite nodes at its mean and spread), for the light look, which draws no
+       *  noise: the share of the ground the noisy blend gives v on average. */
+      float noiseMean(float v, float k, float mid, float softness) {
+        float a = (v + k * (${f(BLEND.noiseMean)} - mid) - 0.5) * softness + 0.5;
+        float b = k * ${f(BLEND.noiseSpread)} * softness;
+        return ${NOISE_NODES.map(([x, w]) => `${f(w)} * clamp(a + ${f(x)} * b, 0.0, 1.0)`).join(" + ")};
+      }
+      /** The desert's share of a tile's top at its intensity d, averaged over the noise (the light look). */
+      float desertMean(float d) {
+        return noiseMean(d, ${f(BLEND.noise)}, 0.5, ${f(BLEND.softness)});
+      }
+      /** Contamination's weight at map value m, averaged over the noise (the light look; palette.ts
+       *  contaminationWeightMean). */
+      float contaminationWeightMean(float m) {
+        float v = pow(max(m, 0.0), ${f(CT.nonlinearity)});
+        v = v >= 0.01 ? max(v, ${f(CT.least)}) : v;
+        return noiseMean(v, ${f(CT.noise)}, ${f(CT.noiseMid)}, ${f(CT.softness)});
+      }
       /** Contamination's map value at the point a top's groundColor draws, blended across its tiles (tapBlend) by the
        *  caller; below 0 where the caller has none (groundColor then takes its level's own). */
       float contamMap = -1.0;
+      /** 1: every top drawn at the game's texture means (palette.ts GAME_GROUND_MEAN) in place of our patterns, for
+       *  the pixel judge alone (tools/water-pixel-judge.ts --define GROUND_MEANS): the light judged without the
+       *  patterns' sampling, ours or the game's, at a few clusters of tiles. */
+      #define GROUND_MEANS 0
       /** The ground's colour from its soil (moist, moisture level, contaminated, under water) and
        *  its contamination level (0–1). */
       vec3 groundColor(vec4 s, vec2 g, float detail, float clev) {
         #if LITE
           // (the game's ground: the grass's colour and ramp blended into the desert's by the tile's grass share)
           vec3 lc = mix(${glColor(GROUND.dry)} * altitudeOf(vWorld.y, 0.0), ${glColor(GROUND.grass)} * altitudeOf(vWorld.y, 1.0), s.x);
-          // (no patterns: contamination's pattern at its mean, as the game's mips show it from afar, palette.ts
-          // contaminationMean)
-          lc = mix(lc, ${glColor(CT.mean)}, ${f(Math.round(CT.meanAlpha * 1e4) / 1e4)} * contaminationWeight(contaminationMapOf(clev), 0.5));
+          // (no patterns: contamination's pattern at its mean, as the game's mips show it from afar, at its weight's mean
+          // over the blending noise, palette.ts contaminationMean)
+          lc = mix(lc, ${glColor(CT.mean)}, ${f(Math.round(CT.meanAlpha * 1e4) / 1e4)} * contaminationWeightMean(contaminationMapOf(clev)));
           return mix(lc, ${glColor(GROUND.underwater)}, step(0.5, s.w) * groundBed);
         #endif
         // contamination's pattern, world-anchored as the game's (its repeat \`CT.repeat\` tiles; read before the warp below,
@@ -1457,6 +1488,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float widened = ${f(Math.round(PAINTED_MEAN * 12.5 * 1e6) / 1e6)} * bladeAA / (1.0 + ${f(STROKE_WIDEN_K)} * bladeAA * bladeAA);
         float tex = 0.91 + 0.31 * tuft + mix(${f(PAINTED_MEAN)}, painted * (0.08 + bladeHash * 0.16) - widened, detail) + 0.09 * blade * detail;
         c = mix(c, grass * (${f(0.935 - GRASS_BROAD / 2)} + ${f(GRASS_BROAD)} * b1 + 0.14 * (n1 - 0.5)) * tex * (1.0 - 0.19 * blot), moist);${hook(h, "groundVariation")}
+        #if GROUND_MEANS
+          c = mix(${glColor(GAME_GROUND_MEAN.dry)}, ${glColor(GAME_GROUND_MEAN.grass)}, moist);
+        #endif
         // the game's altitude ramp, the grass's on grass and the desert's on dry ground, before contamination's veins
         c *= altitudeOf(vWorld.y, moist);
         // contamination: a layer over the ground, as the game's terrain shader lays it (palette.ts CONTAMINATION says the
@@ -1526,7 +1560,8 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             // on every pixel)
             vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w);
             vec4 s0 = soilOf(d0);
-            vec4 soil = vec4(grassAt(s0), s0.x, step(0.5, s0.y), s0.z);
+            // (the grass's share the game's noisy blend gives the tile's desert intensity on average: desertMean)
+            vec4 soil = vec4(1.0 - desertMean(s0.w), s0.x, step(0.5, s0.y), s0.z);
             // (a still film's water drawn back from the shore leaves dry ground: shoreFilm.ts)
             if (soil.w > 0.0) soil.w *= shoreFilmOwn(tile, d0, fr, filmPx);
             float clev = s0.y / 15.0;
@@ -1556,7 +1591,15 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
               soil.w = flags1.w * v10 * shoreFilmKeep(dx, fc) + flags2.w * v01 * shoreFilmKeep(dy, fc) + flags3.w * v11 * shoreFilmKeep(dd, fc);
             }
             // the grass's share as the game draws it: its desert map's noisy blend (desertBlend)
-            soil.x = 1.0 - desertBlend(g, vec4(1.0 - flags0.x, sx > 0.5 ? 1.0 - flags1.x : 1.0, sy > 0.5 ? 1.0 - flags2.x : 1.0, hd == h0 ? 1.0 - flags3.x : 1.0));
+            vec4 desertTaps = vec4(1.0 - flags0.x, sx > 0.5 ? 1.0 - flags1.x : 1.0, sy > 0.5 ? 1.0 - flags2.x : 1.0, hd == h0 ? 1.0 - flags3.x : 1.0);
+            #ifdef RUN_SOIL
+              // (a neighbour whose top is at another level counts as desert unless a cave's floor stands at this level in
+              // it, which the tap reads as the floor's own blend reads this top: no seam at a cave's mouth)
+              if (sx < 0.5) desertTaps.y = runDesert(tile + vec2(sd.x, 0.0), h0, 1.0);
+              if (sy < 0.5) desertTaps.z = runDesert(tile + vec2(0.0, sd.y), h0, 1.0);
+              if (hd != h0) desertTaps.w = runDesert(tile + sd, h0, 1.0);
+            #endif
+            soil.x = 1.0 - desertBlend(g, desertTaps);
             float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
             // contamination's map value as the game blends it (a tile at another level holds none at this one)
             contamMap = tapBlend(g, vec4(contaminationMapOf(s0.y / 15.0), sx > 0.5 ? contaminationMapOf(s1.y / 15.0) : 0.0,
@@ -1635,12 +1678,15 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
                 float z01 = (1.0 - w.x) * w.y * ry1;
                 float z11 = w.x * w.y * rd;
                 float z00 = 1.0 - z10 - z01 - z11;
-                floorSoil = vec4(grassOf(q0.x), q0.x, step(0.5, q0.y), q0.z) * u00 + vec4(grassOf(q1.x), q1.x, step(0.5, q1.y), q1.z) * u10
-                  + vec4(grassOf(q2.x), q2.x, step(0.5, q2.y), q2.z) * u01 + vec4(grassOf(q3.x), q3.x, step(0.5, q3.y), q3.z) * u11;
-                #if !LITE
+                // (each its desert intensity, groundAt's w: an open top's from its moisture unrounded, as the top itself
+                // takes it, so the floor and the top meet without a seam)
+                floorSoil = vec4(1.0 - q0.w, q0.x, step(0.5, q0.y), q0.z) * u00 + vec4(1.0 - q1.w, q1.x, step(0.5, q1.y), q1.z) * u10
+                  + vec4(1.0 - q2.w, q2.x, step(0.5, q2.y), q2.z) * u01 + vec4(1.0 - q3.w, q3.x, step(0.5, q3.y), q3.z) * u11;
+                #if LITE
+                  floorSoil.x = 1.0 - desertMean(1.0 - floorSoil.x);
+                #else
                   // the game's desert map is 3D: a cave's floor blends as a top does, at its own level
-                  floorSoil.x = 1.0 - desertBlend(g, vec4(1.0 - grassOf(q0.x), rx1 > 0.5 ? 1.0 - grassOf(q1.x) : 1.0,
-                    ry1 > 0.5 ? 1.0 - grassOf(q2.x) : 1.0, rd1 > 0.5 ? 1.0 - grassOf(q3.x) : 1.0));
+                  floorSoil.x = 1.0 - desertBlend(g, vec4(q0.w, rx1 > 0.5 ? q1.w : 1.0, ry1 > 0.5 ? q2.w : 1.0, rd1 > 0.5 ? q3.w : 1.0));
                 #endif
                 floorLevel = (q0.y * z00 + q1.y * z10 + q2.y * z01 + q3.y * z11) / 15.0;
               }

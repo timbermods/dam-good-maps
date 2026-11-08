@@ -774,6 +774,19 @@ Read the same way as Q9 (`python tools/game-water-shader.py --shader "Shader Gra
   the model on both, its specular and what the model leaves out: so grass and dry ground take the same light, and our
   grass's darkness was ours (dev drew grass 107/135/80 there, dry 120/122/117).
 - Used by `src/render3d/palette.ts` `GROUND.grass` and `materials.ts` `groundColor` (`fix/land-tone`).
+- **The `Grass` material's other values** (read 2026-11-08, `fix/grass-light`), for a term that might set grass apart
+  from dry ground: `_EmissionColor` 0 and `_Grayscale` 0 (the emission the program adds after the light is 0),
+  `_Normalmap_Strength` 0 and no normal texture in the variant (a top's normal is its mesh's), smoothness
+  `_Glossiness` × the splat filter (0 on a top), `_SplatGradientMin`/`Max` 1. Nothing but the albedo differs between
+  grass and dry ground. The variant with `_SHADOWS_SOFT` exists too (URP's 9-tap filter over a few shadow-map texels).
+- **The judge with the game's texture taken out** (`tools/land-texture-check.py`, 2026-11-08): the game's textures are
+  world-anchored (base at world xz / 16, detail at xz / 32; world x, z the tile's x, y, the orientation that correlates
+  with the game's pixels, 0.58 on grass and 0.56 on dry against 0.23 or less for any other), so its pixels at a cluster
+  of samples sit over or under its light by where the cluster falls on the texture. On the six start shots the game's
+  grass texture is 4.1 % over its mean at riverValley-128-1's 108 grass samples (+2.7 luma on screen), 3.3 % under at
+  riverValley-128-2's 36 (−2.1). Taken out, and with ours drawn on the texture means (`GROUND_MEANS`), the game's pixels
+  sit +1.3 luma over ours on grass and +1.0 on dry in Standard (+1.6 and +1.0 in High): grass and dry ground take the
+  game's light in ours to within a luma of each other.
 
 ## Simplified water simulation spec (browser implementation)
 

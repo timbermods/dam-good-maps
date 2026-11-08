@@ -206,7 +206,7 @@ describe("contamination", () => {
     expect(src).not.toMatch(/contaminatedGlow|groundDryGlow|vein.y/);
     // the light look: no patterns, the pattern's mean over the soil by its mean alpha
     const lite = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1, true).fragmentShader;
-    expect(lite).toContain(`lc = mix(lc, ${gl(CONTAMINATION.mean)}, ${num(Math.round(CONTAMINATION.meanAlpha * 1e4) / 1e4)} * contaminationWeight(contaminationMapOf(clev), 0.5));`);
+    expect(lite).toContain(`lc = mix(lc, ${gl(CONTAMINATION.mean)}, ${num(Math.round(CONTAMINATION.meanAlpha * 1e4) / 1e4)} * contaminationWeightMean(contaminationMapOf(clev)));`);
     // (the rendered sequence, clean to contaminated and back, in Standard and High: tests/e2e/look-high.spec.ts)
   });
 });
