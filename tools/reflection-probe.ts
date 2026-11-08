@@ -5,7 +5,7 @@
 // `sharedassets1.assets.resS`. This reads it, read-only, decodes it on the GPU (real Chrome, WebGL 2's
 // EXT_texture_compression_bptc) and prints each face's mean at each mip, and the colours `palette.ts` `GAME_ENV` keeps:
 // the roughest mip (6, 2² a face, what URP samples at perceptual roughness 1) straight up, toward the horizon (the four
-// side faces' mean) and straight down; and the water's (`waterPalette.ts` `WATER_PROBE`): mips 4 to 6, the ones URP
+// side faces' mean) and straight down; and the water's (`waterPalette.ts` `WATER_PROBE`): mips 3 to 6, the ones URP
 // reads for the water's gloss, round the turn at each height of the reflected direction. `--json <path>` writes every face and mip's texels too (display values, RGB).
 //
 //   npx tsx tools/reflection-probe.ts [--game "C:/Program Files (x86)/Steam/steamapps/common/Timberborn"] [--json out.json]
@@ -119,8 +119,8 @@ console.log(`  side: ${r3([0, 1, 2].map((k) => side.reduce((s, c) => s + c[k], 0
 console.log(`  down: ${r3(mean(faces[3][ROUGH]))} as Rgb,`);
 
 // The water's reflection (Q9 P15): URP samples the probe by the reflected direction at mip pr × (1.7 − 0.7 pr) × 6, pr
-// the perceptual roughness 1 − smoothness, so 4.4 to 5.6 for the water's gloss (waterPalette.ts WATER_SURFACE.smoothness
-// and its spread, badwater's 0.15). Each of mips 4, 5 and 6 sampled as the GPU does (bilinear within a face), round the
+// the perceptual roughness 1 − smoothness, so 3.7 to 6 for the water's gloss (waterPalette.ts WATER_SURFACE.smoothness
+// and its spread, 0 to 0.55; badwater's 0.15). Each of mips 3, 4, 5 and 6 sampled as the GPU does (bilinear within a face), round the
 // whole turn at each height of the reflected direction (the probe's turn round the vertical is not the editor's: its
 // side faces differ by about a tenth, which this averages), at `WATER_PROBE.heights`: `waterPalette.ts` WATER_PROBE.
 const HEIGHTS = [-1, -0.5, 0, 0.15, 0.35, 0.6, 1];
@@ -154,6 +154,6 @@ const ringAt = (mip: number, y: number): number[] => {
   return acc;
 };
 console.log(`  // WATER_PROBE: heights ${HEIGHTS.join(", ")}`);
-for (const mip of [4, 5, 6]) console.log(`  mip${mip}: [${HEIGHTS.map((y) => r3(ringAt(mip, y))).join(", ")}],`);
+for (const mip of [3, 4, 5, 6]) console.log(`  mip${mip}: [${HEIGHTS.map((y) => r3(ringAt(mip, y))).join(", ")}],`);
 const json = arg("json");
 if (json) writeFileSync(json, JSON.stringify({ version, name: NAME, faces: FACES, size, mips, texels: faces }));

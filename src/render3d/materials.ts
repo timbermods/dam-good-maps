@@ -69,7 +69,7 @@ import {
 } from "three";
 import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { GAME_BADWATER, WATER_GLSL, WATER_LIGHT, WATER_UI } from "./waterPalette";
-import { WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
+import { DETAIL_FLAT, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
@@ -145,7 +145,7 @@ export interface SceneUniforms {
    *  (`waterSurfaceTexture`). */
   waterTex: { value: DataTexture };
   /** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`: R the base colour's, G the emissive
-   *  detail's), shared by the page (`badwaterPatternTexture`). */
+   *  detail's) and the still detail albedo (B, at its own tiling), shared by the page (`badwaterPatternTexture`). */
   badwaterTex: { value: DataTexture };
   /** Contaminated ground's pattern (soilTexture.ts: RGB its colour, A its cover), shared by the page
    *  (`soilPatternTexture`). */
@@ -291,15 +291,15 @@ export function waterSurfaceTexture(): DataTexture {
 }
 
 let badTex: DataTexture | null = null;
-/** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`), one for the page: flat at its mean
- *  until the bake worker has made it, sampled as the surface's. */
+/** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`), with the still detail albedo in its B,
+ *  one for the page: flat at their means until the bake worker has made it, sampled as the surface's. */
 export function badwaterPatternTexture(): DataTexture {
   if (badTex) return badTex;
   const n = WATER_TEXTURE_SIZE;
   const data = new Uint8Array(n * n * 4);
   const r = Math.round(GAME_BADWATER.pattern[0] * 255);
   const g = Math.round(GAME_BADWATER.pattern[1] * 255);
-  for (let i = 0; i < n * n; i++) data.set([r, g, 0, 255], i * 4);
+  for (let i = 0; i < n * n; i++) data.set([r, g, DETAIL_FLAT, 255], i * 4);
   const t = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType);
   t.wrapS = t.wrapT = RepeatWrapping;
   t.magFilter = LinearFilter;
@@ -332,6 +332,15 @@ export function soilPatternTexture(): DataTexture {
 
 /** The bake worker's surface, badwater's pattern and contaminated ground's (high/bake.ts `waterTexture`) into the
  *  page's textures. */
+/** The light look's one pattern, the still detail albedo (bake.ts "detailTexture"), written into badwater's texture's B
+ *  (its R and G stay at their means: the light look never reads them). */
+export function fillDetailTexture(detail: Uint8Array): void {
+  const b = badwaterPatternTexture();
+  const data = b.image.data as Uint8Array;
+  for (let i = 0; i < detail.length; i++) data[i * 4 + 2] = detail[i];
+  b.needsUpdate = true;
+}
+
 export function fillWaterTexture(data: Uint8Array, bad: Uint8Array, soil: Uint8Array): void {
   const t = waterSurfaceTexture();
   (t.image.data as Uint8Array).set(data);
@@ -361,8 +370,8 @@ const glColor3 = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1e6) / 1e6)).
  *  (`gameWaterDiffuse`: the terrain's 0.912, or the water's own at its metallic 0, 0.96, where the look draws the terms
  *  #839 held back, waterPalette.ts WATER_LIGHT.held; High's hook sets its own); and clean water's colour by the game's
  *  formula under it (waterPalette.ts GAME_WATER, `gameCleanColour`) × the albedo, over the light the caller multiplies
- *  by (`light`), so the product is the game's, overlaid with the game's detail albedo at its mean where the look draws it
- *  (`gameWaterDetail`, WATER_LIGHT.detail). `GAME_SUN_COLOUR` is the game's `_MainLightColor`, on its highlight and
+ *  by (`light`), so the product is the game's, overlaid with the game's still detail albedo where the look draws it
+ *  (`gameWaterDetail`, WATER_LIGHT.detail; `waterDetail`, its texture's colour here). `GAME_SUN_COLOUR` is the game's `_MainLightColor`, on its highlight and
  *  glint where the look draws the game's light (WATER_LIGHT.game). Both looks' water. */
 const GAME_WATER_LIGHT = /* glsl */ `#define GAME_SUN_COLOUR ${glColor(GAME_LIGHT.sun)}
       #if WATER_HELD
@@ -375,8 +384,8 @@ const GAME_WATER_LIGHT = /* glsl */ `#define GAME_SUN_COLOUR ${glColor(GAME_LIGH
         vec3 ambient = mix(sh * 12.92, 1.055 * pow(sh, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), sh));
         return gameWaterDiffuse * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
       }
-      /** Whether clean water's colour × albedo is overlaid with the game's still detail albedo (Q9 P6) at its mean
-       *  (waterPalette.ts WATER_LIGHT.detail, GAME_BADWATER.detail; High's hook sets its own). */
+      /** Whether clean water's colour × albedo is overlaid with the game's still detail albedo (Q9 P6), \`waterDetail\`
+       *  (waterPalette.ts WATER_LIGHT.detail; High's hook sets its own). */
       float gameWaterDetail = float(WATER_DETAIL);
       vec3 gameWaterFormula(float depth, vec3 albedo, vec3 n, float sun, vec3 light) {
         vec3 a = gameCleanColour(depth) * albedo;
@@ -1827,6 +1836,9 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         // badwater's pattern the flow carries (Q9 P9: R its base colour's, G its emissive detail's; the light look, as the
         // game's Low quality, flat at its mean)
         vec2 bpat = BADWATER_PATTERN_FLAT;
+        // the game's still detail albedo here (Q9 P6), which clean water's colour × its albedo and badwater's base colour
+        // are overlaid with: at xz × 0.015, not carried by the flow, in every look (the game's Low quality draws it too)
+        waterDetail = waterDetailAt(g);
         vec3 N = n;
         // the surface the flow carries, as the game draws it (Q9 P5, P11; waterTextures.ts): two phases of its textures
         // riding each column's outflow, the albedo multiplying the colour and the ripples the surface's normal; on a

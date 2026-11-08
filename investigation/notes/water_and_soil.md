@@ -553,7 +553,22 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   Still water's textures stay put, cross-fading between the jumped copies. Nothing else is drawn along the flow: no
   streak term; any streak is the albedo texture stretched by the flow.
 - **P6, detail albedo.** `PhysicalWaterDetailAlbedo` (t5) at xz × 0.015 (67 tiles a repeat), still
-  (`_DetailAlbedoSpeed` 0), overlaid on colour × albedo (ps 462-477).
+  (`_DetailAlbedoSpeed` 0), overlaid on colour × albedo (ps 462-477). Read exactly (fix/water-detail): a = P4's colour
+  × P5's albedo, per channel r, g, b against the detail's r, g, b: 2 a d where a ≤ 0.5, 1 − 2 (1 − a)(1 − d) above (a
+  standard overlay, no weight, no depth or contamination gate; clean water's a is far under a half, so it is × 2d);
+  then P7's source lift. Badwater's base colour takes the same sample the same way, mixed in by (1 − c / 2) × (1 − the
+  source mask) (ps 690-712). The overlay is straight in d, so the pattern leaves the mean where the texture's mean put
+  it. The game's Low quality (no `_HIGH_QUALITY_WATER_ENABLED`; its ps, blob entry 180) samples t5 and overlays it
+  identically (and samples `_MainTex` and `_BumpMap` by the flow's two phases too, so the light look's flat flow
+  textures are ours, not the game's Low quality). The texture (`--textures`; 2048², BC7): mean 69.7/88.7/95.3, spread
+  9.9/8.9/3.7; broad clouds (its first principal component, a greenish brightness along (0.73, 0.66, 0.19), 96 % of
+  the variance, spread 13.6, skew +2.0: mostly dim, sparse bright patches with a fine swirl inside; its power by
+  wavelength 2 % at 32–64 tiles, 17 % 16–32, 29 % 8–16, 23 % 4–8, 12 % 2–4, 7 % 1–2, 10 % under a tile; half-width
+  1.5 tiles), its second (blue against red, spread 2.7) a quadratic of the first but for 0.89, its third nothing.
+  Ours (`waterTextures.ts` `makeDetailField`): a Gaussian field from that spectrum, remapped by rank to its
+  percentiles, in badwater's texture's B (512², 7.7 texels a tile: the game's 31 a tile show only close up; at the
+  opening camera the game's own mips are as coarse), the second component by the quadratic; both looks and the light
+  look draw it.
 - **P7, water sources.** In play `WaterSourceRenderingService` marks each source's footprint in `_WaterSourceMask`
   (t18); the shader draws `WaterSourceShape` (t12) in polar coordinates round its centre, scrolling outward at 0.04 T,
   fading with distance (ps 356-418): it lifts the albedo (half way to max(colour, pattern × detail), ps 477) and tints
@@ -652,7 +667,7 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Still water's drift (0.018, −0.012) | H | (b) | P5: still textures stay put |
 | Badwater's ripples at half speed (`slow`; High's `hlT` slows only its fall strands and `bt` only its bubbles) | S | (b) | none; the game makes badwater's normals × 2 instead (P9, ps 780) |
 | Shore vertices of a still film drawn sideways | S, H | (c), missing: our mesh moves no vertex sideways | V3 (vs 381-395, 486) |
-| Detail albedo | S, H | (a) at its mean (`waterDetailOverlay`, fix/water-sky): the overlay by the texture's mean, not its 67-tile pattern | P6 (ps 462-477) |
+| Detail albedo | S, H, light | (a): its 67-tile pattern, our own texture at the game's statistics (`waterDetailAt`, `waterDetailOverlay`, fix/water-detail) | P6 (ps 462-477) |
 | Gloss: our noise round 0.25, ± 0.6 of its swing, panned | S | (a), approximate | P8 (ps 480-499) |
 | Light: sky × 1.2 + sun × 0.3 × N·L × shadow | S | (a), approximate | P15 |
 | Light: `rippleLight` over `referenceLight` | H | (a) under the formula (its clean and badwater colours are lit by `gameWaterLight`); (c) for our crimson | P15 |
@@ -689,7 +704,7 @@ The game's, missing or different:
 3. High's sky reflection and GGX (P15); both looks' simplified light. Done (fix/water-sky), with P6's mean below: the
    game's light alone lifted clean water further from the game's, P6's overlay was its excess.
 4. Badwater's flowing pattern and emissive detail (P9) in place of mottles and bubbles; its normals × 2.
-5. The still detail albedo, 67 tiles a repeat (P6): its mean is drawn (fix/water-sky); its pattern is not.
+5. The still detail albedo, 67 tiles a repeat (P6): done (fix/water-detail), its pattern in every look.
 6. The sources' own pattern in play (P7) in place of our rings.
 7. Refraction of the ground behind (P2), and the fall mask by tile from `FindWaterfalls` (P1).
 

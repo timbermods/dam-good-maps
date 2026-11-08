@@ -670,6 +670,69 @@ def measure_badwater_textures(textures, data_dir, preview=None):
                 os.makedirs(preview, exist_ok=True)
                 for k, ch in enumerate("rgb"):
                     Image.fromarray(t[:512, :512, k].astype(np.uint8)).save(os.path.join(preview, f"badwater-pattern-{ch}-crop.png"))
+        if name == "PhysicalWaterDetailAlbedo":
+            measure_detail_albedo(t, repeat, preview)
+
+
+#: The percentiles the detail albedo's measure prints (as `waterTextures.ts` `PATTERN_PERCENTILES`).
+DETAIL_PERCENTILES = (1, 5, 10, 25, 50, 60, 65, 70, 75, 80, 85, 90, 95, 97, 98, 99)
+
+
+def measure_detail_albedo(t, repeat, preview=None):
+    """What `src/render3d/waterTextures.ts` generates the still detail albedo to (Q9 P6, t5 at xz × 0.015, overlaid on
+    clean water's colour × its albedo, ps 462-477, and on badwater's base colour, ps 690-712): its colour's covariance
+    and principal components (each with its percentiles and feature scale), each channel's percentiles at
+    `DETAIL_PERCENTILES`, how much of its spread is broad (left after a blur over 0.25 to 4 tiles) and its power by
+    octaves of wavelength. Numbers only; `preview` also gets a crop for the eye (gitignored, never committed)."""
+    import numpy as np
+    from scipy import ndimage
+    h, w = t.shape[:2]
+    tex = w / repeat
+    rgb = t[..., :3].reshape(-1, 3)
+    mean = rgb.mean(0)
+    cov = np.cov(rgb.T)
+    vals, vecs = np.linalg.eigh(cov)
+    print(f"  detail albedo: mean {'/'.join(f'{m:.1f}' for m in mean)}; covariance {' '.join(f'{v:.1f}' for v in cov.ravel())}")
+    for k, ch in enumerate("rgb"):
+        v = t[..., k]
+        skew = ((v - v.mean()) ** 3).mean() / v.std() ** 3
+        print(f"  {ch} percentiles {'/'.join(map(str, DETAIL_PERCENTILES))}: "
+              f"{'/'.join(f'{x:.0f}' for x in np.percentile(v, DETAIL_PERCENTILES))}; skew {skew:+.2f}, min {v.min():.0f}, max {v.max():.0f}")
+    for k in (2, 1, 0):
+        e = vecs[:, k] * (1 if vecs[:, k].sum() >= 0 else -1)
+        score = ((rgb - mean) @ e).reshape(h, w)
+        c, a = feature_scale(score, repeat)
+        print(f"  component {3 - k}: spread {vals[k] ** 0.5:.2f} along ({', '.join(f'{x:+.3f}' for x in e)}), "
+              f"skew {((score - score.mean()) ** 3).mean() / score.std() ** 3:+.2f}, min {score.min():+.1f}, max {score.max():+.1f}, spectrum centroid {c:.3f} tiles, "
+              f"autocorrelation half-width {a:.3f} tiles")
+        print(f"     percentiles {'/'.join(map(str, DETAIL_PERCENTILES))}: "
+              f"{'/'.join(f'{x:+.1f}' for x in np.percentile(score, DETAIL_PERCENTILES))}")
+        broad = [ndimage.gaussian_filter(score, sigma=s * tex, mode="wrap").std() / score.std() for s in (0.25, 0.5, 1, 2, 4)]
+        print(f"     share of its spread left after a blur over 0.25/0.5/1/2/4 tiles: {'/'.join(f'{b:.2f}' for b in broad)}")
+        f = score - score.mean()
+        p = np.abs(np.fft.fft2(f)) ** 2
+        ky = np.fft.fftfreq(h)[:, None] * h
+        kx = np.fft.fftfreq(w)[None, :] * w
+        wave = repeat / np.maximum(np.sqrt(kx * kx + ky * ky), 1e-9)
+        bands = (64, 32, 16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 0)
+        share = [p[(wave <= bands[i]) & (wave > bands[i + 1])].sum() / p.sum() for i in range(len(bands) - 1)]
+        print(f"     power by wavelength (tiles) {'/'.join(f'{bands[i]:g}-{bands[i + 1]:g}' for i in range(len(bands) - 1))}: "
+              f"{'/'.join(f'{s:.3f}' for s in share)}")
+    # the second component as a function of the first: uncorrelated, but not independent (the dim texels lean blue, the
+    # middle red, the brightest blue again), so a quadratic in the first carries most of it
+    e1, e2 = (vecs[:, k] * (1 if vecs[:, k].sum() >= 0 else -1) for k in (2, 1))
+    c1, c2 = (rgb - mean) @ e1, (rgb - mean) @ e2
+    q = np.percentile(c1, np.arange(0, 101, 10))
+    print("  component 2's mean by component 1's tenths: " + "/".join(f"{c2[(c1 >= q[i]) & (c1 <= q[i + 1])].mean():+.2f}" for i in range(10)))
+    coef = np.linalg.lstsq(np.vstack([np.ones_like(c1), c1, c1 * c1]).T, c2, rcond=None)[0]
+    res = c2 - (coef[0] + coef[1] * c1 + coef[2] * c1 * c1)
+    print(f"  component 2 = {coef[0]:+.4f} {coef[1]:+.5f} c1 {coef[2]:+.6f} c1², the rest's spread {res.std():.2f} (of {c2.std():.2f})")
+    if preview:
+        from PIL import Image
+        os.makedirs(preview, exist_ok=True)
+        Image.fromarray(t[..., :3].astype(np.uint8)).resize((512, 512), Image.BILINEAR).save(os.path.join(preview, "detail-albedo-full.png"))
+        lo, hi = np.percentile(t[..., :3], (1, 99))
+        Image.fromarray(np.clip((t[:512, :512, :3] - lo) / (hi - lo) * 255, 0, 255).astype(np.uint8)).save(os.path.join(preview, "detail-albedo-crop-stretch.png"))
 
 
 #: The ground's contamination pattern (TerrainURP's `_ContaminationTexture`, the `Grass` material's "SoilContamination",
@@ -745,7 +808,7 @@ def main():
     ap.add_argument("--keywords", default=DEFAULT_KEYWORDS)
     ap.add_argument("--shader", action="append", help="another Shader Graph to read (its full name), in place of the water's")
     ap.add_argument("--out", default=os.path.join(ROOT, "investigation", "water-shader", "local"))
-    ap.add_argument("--textures", action="store_true", help="measure the flow's and badwater's textures (Q9 P5, P9) and stop")
+    ap.add_argument("--textures", action="store_true", help="measure the flow's and badwater's textures and the still detail albedo (Q9 P5, P9, P6) and stop")
     ap.add_argument("--soil", action="store_true", help="measure the ground's contamination pattern (TerrainURP, D154) and stop")
     ap.add_argument("--preview", action="store_true", help="with --textures or --soil: also write crops of the pattern to --out (gitignored)")
     args = ap.parse_args()

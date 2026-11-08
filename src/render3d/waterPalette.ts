@@ -138,17 +138,18 @@ export const WATER_SURFACE = {
 
 /** The game's reflection probe as its water reads it (Q9 P15; `tools/reflection-probe.ts`, read from the game's
  *  `sharedassets1.assets` "TimberbornEnvironmentRelfectionProbe", the `unity_SpecCube0` its water samples): URP samples
- *  it by the reflected direction, reflect(−V, N), at mip pr × (1.7 − 0.7 pr) × 6 (pr = 1 − smoothness: 4.4 to 5.6 for
- *  the water's gloss, 5.6 for badwater's), so its colour turns with the view: the horizon's haze, lighter, at a grazing
- *  look, the zenith's blue from above, the ground's darker colours where a ripple turns the reflection down. Its mips 4,
- *  5 and 6 (`colours`, in that order) at each height of the reflected direction (`heights`, straight between; display
+ *  it by the reflected direction, reflect(−V, N), at mip pr × (1.7 − 0.7 pr) × 6 (pr = 1 − smoothness: 3.7 to 6 for
+ *  the water's gloss, its smoothness 0 to 0.55, 5.6 for badwater's), so its colour turns with the view: the horizon's haze, lighter, at a grazing
+ *  look, the zenith's blue from above, the ground's darker colours where a ripple turns the reflection down. Its mips 3,
+ *  4, 5 and 6 (`colours`, in that order) at each height of the reflected direction (`heights`, straight between; display
  *  values, as the game works in Gamma colour space), round the whole turn: the probe's own turn round the vertical is
  *  not the editor's, and its four side faces differ by about a tenth. The probe is baked and the same at every hour:
  *  the game's day only scales it by `RenderSettings.reflectionIntensity`, its day stage's 1 at every stage. */
 export const WATER_PROBE = {
   heights: [-1, -0.5, 0, 0.15, 0.35, 0.6, 1],
-  mips: [4, 5, 6],
+  mips: [3, 4, 5, 6],
   colours: [
+    [[0.155, 0.17, 0.13], [0.335, 0.378, 0.323], [0.548, 0.63, 0.685], [0.544, 0.644, 0.746], [0.468, 0.572, 0.711], [0.388, 0.485, 0.635], [0.314, 0.397, 0.548]],
     [[0.192, 0.218, 0.166], [0.363, 0.411, 0.391], [0.488, 0.571, 0.632], [0.496, 0.585, 0.675], [0.467, 0.565, 0.683], [0.413, 0.508, 0.644], [0.337, 0.423, 0.572]],
     [[0.249, 0.281, 0.235], [0.384, 0.44, 0.445], [0.448, 0.53, 0.585], [0.457, 0.545, 0.615], [0.452, 0.544, 0.637], [0.431, 0.524, 0.645], [0.368, 0.462, 0.609]],
     [[0.328, 0.374, 0.368], [0.377, 0.44, 0.481], [0.397, 0.47, 0.54], [0.403, 0.48, 0.561], [0.413, 0.495, 0.59], [0.416, 0.5, 0.603], [0.414, 0.504, 0.632]],
@@ -171,8 +172,10 @@ export const WATER_PROBE = {
  *  - `held` (by look): the two terms #839 held back, the diffuse share at the water's own metallic 0 (`diffuse`, where
  *    the terrain's 0.912 is at 0.05) and the environment's head-on part (× f0); off, 0.912 and the grazing part alone.
  *  - `detail` (by look): the still detail albedo over clean water's colour (Q9 P6, ps 462-477: the clean colour ×
- *    the albedo, overlaid with the detail texture's mean, `GAME_BADWATER.detail`, as badwater's already is), which
- *    darkens and cools it to about 0.55/0.70/0.75 of itself; off, the colour × the albedo alone.
+ *    the albedo, overlaid with the detail texture, as badwater's base colour is), which darkens and cools it to about
+ *    0.55/0.70/0.75 of itself on average; its pattern since fix/water-detail (waterTextures.ts `makeDetailField`, at
+ *    xz × 0.015, not carried by the flow; the light look draws it too, as the game's Low quality does), its mean
+ *    (`GAME_BADWATER.detail`) before; off, the colour × the albedo alone.
  *  The pixel judge (tools/water-pixel-judge.ts --define WATER_GAME_LIGHT,WATER_HELD,WATER_DETAIL) compares each against
  *  the game's frames, per look, and each look takes what reads nearest the game over all its water (`judged`; a
  *  difference under the judge's 0.1 goes to the more of the game's own terms): all three in both looks. The game's
@@ -195,14 +198,15 @@ export const WATER_LIGHT = {
   },
   gap: {
     /** Clean water against pure badwater a level or two deep by day, on screen (D496): the judge's L* on the six
-     *  day-lit start shots with badwater in view, the game's and each look's (fix/water-sky), and the spread of the
-     *  game's own shots (clean water 31.0 to 33.5 on three, badwater 27.0 and 27.9 on two), which bounds the gap the
-     *  game's frames allow: 3.1 to 6.5 (D496's 4.2; 4.7 on these frames). Standard's 6.5 is within it (9.1 on dev,
-     *  33.9 against 24.8); High's 7.3 is not (6.8 on dev, 32.9 against 26.1, its crimson): its formula's badwater
-     *  reads 2.4 L* under the game's by day, about 1 under Standard's, which is still to find. */
+     *  day-lit start shots with badwater in view, the game's and each look's, and the spread of the game's own shots
+     *  (clean water 31.0 to 33.5 on three, badwater 27.0 and 27.9 on two), which bounds the gap the game's frames allow:
+     *  3.1 to 6.5 (D496's 4.2; 4.7 on these frames). The judge prints it for the shipped build against those frames
+     *  (tools/water-pixel-judge.ts, "the gap by day"). Standard's 6.3 is within it, near its top (dev's 6.5 sat on it);
+     *  High's 7.1 is not (7.3 on dev): its formula's badwater reads 2.2 L* under the game's by day, about 1 under
+     *  Standard's, which is still to find. Both since fix/water-detail (P6's pattern; the probe from mip 3). */
     game: { clean: 32.2, bad: 27.5, cleanShots: [31.0, 33.5], badShots: [27.0, 27.9] },
-    standard: { clean: 32.5, bad: 26.0 },
-    high: { clean: 32.4, bad: 25.1 },
+    standard: { clean: 32.5, bad: 26.2 },
+    high: { clean: 32.4, bad: 25.3 },
     tiles: { clean: 2336, bad: 73 },
   },
 } as const;
@@ -288,8 +292,8 @@ export function gameCleanColour(depth: number): Rgb {
  *  - the contaminated colour: lerp(`colorA` (`_Base_Contamination_Color_A`), `colorB` (`_B`), the pattern's R (the
  *    flow carries it: waterTextures.ts `makeBadwaterTexture`)) × an intensity, `intensity[0]` (`_Base_Contamination_
  *    Intensity_Low`) up to `intensityFrom` bad, easing to `intensity[1]` (`_High`) at pure badwater; overlaid with the
- *    still detail albedo (P6, its mean `detail`, as clean water's P6 is not followed yet: `detailOverlay` says whether
- *    the overlay is drawn) by 1 − c / 2; × the `_DepthGradients` texture's G at the depth (`ramp`); the shallow glow
+ *    still detail albedo (P6: the shaders' `waterDetail`, its pattern, waterTextures.ts `makeDetailField`; `detail` its
+ *    mean, which the mirrors take; `detailOverlay` says whether the overlay is drawn) by 1 − c / 2; × the `_DepthGradients` texture's G at the depth (`ramp`); the shallow glow
  *    toward itself × (3, 1.5, 0) (`BADWATER.glow`);
  *  - mixed into clean water's albedo by the tint (`WATER_BLEND`), and lit as clean water is;
  *  - an emissive detail, unlit: lerp(`glowA` (`_Detail_Contamination_Color_A`), `glowB`, the noise's mean
@@ -748,30 +752,34 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define WATER_HELD_HIGH ${WATER_LIGHT.held.high ? 1 : 0}
   #define WATER_DETAIL ${WATER_LIGHT.detail.standard ? 1 : 0}
   #define WATER_DETAIL_HIGH ${WATER_LIGHT.detail.high ? 1 : 0}
-  /** The game's still detail albedo's overlay (Q9 P6, ps 462-477: overlay(colour × albedo, the detail)) at the detail
-   *  texture's mean (GAME_BADWATER.detail, as badwater's own overlay takes it): × 2 × the mean where the colour is
-   *  under a half, a screen above. */
+  /** The game's still detail albedo here (Q9 P6: its \`PhysicalWaterDetailAlbedo\` at xz × 0.015, not carried by the
+   *  flow): the water's shader sets it from its texture (waterTextures.ts \`waterDetailAt\`) before it colours a pixel;
+   *  the texture's mean (GAME_BADWATER.detail) until then, and in any shader that doesn't. */
+  vec3 waterDetail = ${glColor5(GAME_BADWATER.detail)};
+  /** The game's still detail albedo's overlay (Q9 P6, ps 462-477: overlay(colour × albedo, the detail), per channel):
+   *  × 2 × the detail where the colour is under a half, a screen above. */
   vec3 waterDetailOverlay(vec3 a) {
-    vec3 dt = ${glColor5(GAME_BADWATER.detail)};
-    return mix(2.0 * a * dt, 1.0 - 2.0 * (1.0 - a) * (1.0 - dt), step(0.5, a));
+    return mix(2.0 * a * waterDetail, 1.0 - 2.0 * (1.0 - a) * (1.0 - waterDetail), step(0.5, a));
   }
   /** The game's reflection probe by a direction, at the mip URP reads for a smoothness (waterPalette.ts WATER_PROBE). */
   vec3 waterProbeAt(vec3 rd, float smoothness) {
     float pr = 1.0 - smoothness;
-    float mip = clamp(pr * (1.7 - 0.7 * pr) * 6.0, ${f(WATER_PROBE.mips[0])}, ${f(WATER_PROBE.mips[2])});
+    float mip = clamp(pr * (1.7 - 0.7 * pr) * 6.0, ${f(WATER_PROBE.mips[0])}, ${f(WATER_PROBE.mips[WATER_PROBE.mips.length - 1])});
     float y = clamp(rd.y / max(length(rd), 0.0001), -1.0, 1.0);
-    vec3 m4 = ${glColor(WATER_PROBE.colours[0][WATER_PROBE.heights.length - 1])};
-    vec3 m5 = ${glColor(WATER_PROBE.colours[1][WATER_PROBE.heights.length - 1])};
-    vec3 m6 = ${glColor(WATER_PROBE.colours[2][WATER_PROBE.heights.length - 1])};
+${WATER_PROBE.mips.map((m, k) => `    vec3 m${m} = ${glColor(WATER_PROBE.colours[k][WATER_PROBE.heights.length - 1])};`).join("\n")}
 ${WATER_PROBE.heights
   .slice(1)
   .map((h, i) => {
     const h0 = WATER_PROBE.heights[i];
-    const seg = (m: number) => `mix(${glColor(WATER_PROBE.colours[m][i])}, ${glColor(WATER_PROBE.colours[m][i + 1])}, t)`;
-    return `    ${i ? "else " : ""}if (y <= ${f(h)}) { float t = (y - ${f(h0)}) / ${f(Math.round((h - h0) * 1e5) / 1e5)}; m4 = ${seg(0)}; m5 = ${seg(1)}; m6 = ${seg(2)}; }`;
+    const seg = (k: number) => `m${WATER_PROBE.mips[k]} = mix(${glColor(WATER_PROBE.colours[k][i])}, ${glColor(WATER_PROBE.colours[k][i + 1])}, t);`;
+    return `    ${i ? "else " : ""}if (y <= ${f(h)}) { float t = (y - ${f(h0)}) / ${f(Math.round((h - h0) * 1e5) / 1e5)}; ${WATER_PROBE.mips.map((_, k) => seg(k)).join(" ")} }`;
   })
   .join("\n")}
-    return mip < ${f(WATER_PROBE.mips[1])} ? mix(m4, m5, mip - ${f(WATER_PROBE.mips[0])}) : mix(m5, m6, mip - ${f(WATER_PROBE.mips[1])});
+${WATER_PROBE.mips
+  .slice(1, -1)
+  .map((m, k) => `    if (mip < ${f(m)}) return mix(m${WATER_PROBE.mips[k]}, m${m}, mip - ${f(WATER_PROBE.mips[k])});`)
+  .join("\n")}
+    return mix(m${WATER_PROBE.mips[WATER_PROBE.mips.length - 2]}, m${WATER_PROBE.mips[WATER_PROBE.mips.length - 1]}, mip - ${f(WATER_PROBE.mips[WATER_PROBE.mips.length - 2])});
   }
   /** The game's environment term on its water (waterPalette.ts WATER_LIGHT): the probe by the reflected direction ×
    *  the reflection intensity × (f0 × \`headOn\` + (grazing − f0) × (1 − N·V)^4) / (1 + roughness²); \`headOn\` 1 the
@@ -800,7 +808,7 @@ ${WATER_PROBE.heights
    *  by the sun's colour and its shadow). */
   float waterSunGlint(vec3 N, vec3 V, vec3 L, float smoothness) {
     float pr = 1.0 - smoothness;
-    float r = max(pr * pr, 0.002);
+    float r = max(pr * pr, 0.0078125);
     float r2 = r * r;
     vec3 H = normalize(L + V);
     float NoH = clamp(dot(N, H), 0.0, 1.0);
@@ -904,8 +912,7 @@ ${rampGlsl(GAME_BADWATER.ramp, "g")}
   vec3 gameBadwaterColour(float depth, float c, float pattern) {
     float k = mix(${f(GAME_BADWATER.intensity[0])}, ${f(GAME_BADWATER.intensity[1])}, clamp((c - ${f(GAME_BADWATER.intensityFrom)}) / ${f(Math.round((1 - GAME_BADWATER.intensityFrom) * 1e5) / 1e5)}, 0.0, 1.0));
     vec3 col = mix(${glColor5(GAME_BADWATER.colorA)}, ${glColor5(GAME_BADWATER.colorB)}, pattern) * k;
-    vec3 dt = ${glColor5(GAME_BADWATER.detail)};
-    vec3 over = mix(2.0 * col * dt, 1.0 - 2.0 * (1.0 - col) * (1.0 - dt), step(0.5, col));
+    vec3 over = waterDetailOverlay(col);
     #if BADWATER_DETAIL
       col = mix(col, over, 1.0 - c * 0.5);
     #endif
