@@ -97,9 +97,10 @@ test("a Block dig into a wall glows on the hollow's faces and fades; its undo gl
   const before = await edits(page);
   await watchGlow(page);
   await page.evaluate(([x, y, h]) => window.dgmEditor!.edit({ op: "blocks", params: { mode: "remove", side: "+x", at: [[x + 2, y + 1, h + 1]], size: 1 } } as never, "Dig"), [x, y, h] as const);
-  await expect.poll(() => edits(page)).toBe(before + 1);
-  // (the first hollow on a map builds the cave light and compiles the cave shaders, which can hold the page for seconds;
-  // the glow's clock waits for its frames)
+  // (the first hollow on a map builds the cave light and compiles the cave shaders, which hold the page in software drawing,
+  // the dig's answer with them: about 0.3 s on a GPU, 3 to 4 s in SwiftShader on a 12-thread machine and past 5 s on CI's
+  // runners; the glow's clock waits for its frames)
+  await expect.poll(() => edits(page), { message: "the dig is answered", timeout: 60_000 }).toBe(before + 1);
   await expect.poll(async () => (await glowSeen(page)).removed, { message: "the hollow's faces glow", timeout: 60_000 }).toBe(5);
   expect((await glowSeen(page)).added).toBe(0);
   // and fade away (about a second on a GPU; frames are slow in software, the clock moves at most 250 ms a frame)
