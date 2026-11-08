@@ -7,7 +7,7 @@ import { caveCurrent, type CaveCurrent } from "../caveCurrent";
 import { currentOf, gameFlowOf } from "../current";
 import { makeBadwaterTexture, makeDetailField, makeSourceShape, makeWaterTexture, WATER_FLOW, WATER_TEXTURE_SIZE } from "../waterTextures";
 import { makeSoilTexture, SOIL_TEXTURE_SIZE } from "../soilTexture";
-import { motionShapes, type MotionShapes } from "../motionShapes";
+import { motionShapes, noShapes, type MotionShapes } from "../motionShapes";
 import { surfaceContamination } from "./flow";
 import { fallBytes } from "../fallMask";
 import { shadowMap, withCasterLevels, type ShadowRock, type Sun } from "../light";
@@ -49,8 +49,14 @@ export function shareBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface
 /** What a still view's flow texture takes from the water (stillFlow.ts): the share (B, `shareBytes`) and the waterfall
  *  mask (A, fallMask.ts `fallBytes`). */
 export function stillBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">, fall = true): { share: Uint8Array; fall: Uint8Array } {
-  // (the light look draws no waterfall mask: it is not worked out for it, A 0 as a dry tile's)
-  return { share: shareBytes(W, H, sw), fall: fall ? fallBytes(W, H, sw) : new Uint8Array(W * H) };
+  // (the light look draws no waterfall mask: it is not worked out for it, A only whether the tile is wet, 1 or 0, which
+  // the badwater share's blend reads: waterPalette.ts waterShareFrom)
+  if (!fall) {
+    const wet = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) wet[i] = sw.surface[i] === sw.surface[i] && sw.depth[i] > 0 ? 1 : 0;
+    return { share: shareBytes(W, H, sw), fall: wet };
+  }
+  return { share: shareBytes(W, H, sw), fall: fallBytes(W, H, sw) };
 }
 
 /** On a map with water per column (waterLayers.ts): the view (each column's own outflows) and the map's columns, with
@@ -65,7 +71,7 @@ let columnsKept: { key: number; map: Map<number, Uint8Array> } | null = null;
 
 /** A job for the worker, and its answer. */
 export type BakeJob =
-  | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null; layered?: LayeredWater }
+  | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null; layered?: LayeredWater; shapes?: boolean }
   | { id: number; kind: "share"; W: number; H: number; sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">; fall?: boolean }
   | { id: number; kind: "shadows"; W: number; H: number; heights: Uint8Array; casters: Float32Array | null; levels: Uint8Array | null; rock: ShadowRock | null; sun: Sun }
   | { id: number; kind: "waterTexture" }
@@ -94,10 +100,11 @@ export function runBake(job: BakeJob): BakeResult {
     const bytes = shadowMap(job.W, job.H, job.heights, casters, keep, job.rock, job.sun);
     return { id: job.id, kind: "shadows", bytes, hi: keep.hi, lo: keep.lo, ms: performance.now() - t0 };
   }
-  // the current from the outflows (current.ts), here rather than on the page's thread
-  const current = job.out ? currentOf(job.W, job.H, job.out, job.sw.depth) : new Float32Array(job.W * job.H * 2);
   const { flow } = bakeFlow(job.W, job.H, job.sw, job.out);
-  const shapes = motionShapes(job.W, job.H, job.sw, current);
+  // the Flow view's foam and streaks, from the current of the outflows (current.ts), here rather than on the page's
+  // thread; outside the Flow view none, nothing of them being drawn (`shapes` false)
+  const current = job.shapes === false ? null : job.out ? currentOf(job.W, job.H, job.out, job.sw.depth) : new Float32Array(job.W * job.H * 2);
+  const shapes = current ? motionShapes(job.W, job.H, job.sw, current) : noShapes();
   // the current of water below its tile's surface water, each column its own (caveCurrent.ts)
   let cave: CaveCurrent | null = null;
   const l = job.layered;
