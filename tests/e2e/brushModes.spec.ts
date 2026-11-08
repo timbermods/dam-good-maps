@@ -8,6 +8,9 @@ import { openEditor, setLevel, setWaterSpeed, topDown } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const settle = (page: Page) => page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
+// the map's water as it will stay: the edit's journey played and the exact settle in (it changes which tiles are wet
+// after the quick one, so a snapshot taken before it is not the water the next stroke starts from)
+const still = (page: Page) => expect.poll(() => page.evaluate(() => !window.dgmEditor!.info().waterPending && window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 const state = (page: Page) =>
   page.evaluate(() => {
@@ -22,6 +25,7 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
   await openEditor(page, "s=35&z=96&d=n&t=riverValley");
   await topDown(page);
   await setWaterSpeed(page, "instant");
+  await still(page);
 
   // a river tile with dry land two tiles to its north, away from the edges and the bars
   const spot = await page.evaluate(() => {
@@ -54,6 +58,7 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
   await page.mouse.click(p.x, p.y);
   await settle(page);
   await idle(page);
+  await still(page);
   const after = await state(page);
   let cut = 0;
   for (let i = 0; i < W * W; i++) {
