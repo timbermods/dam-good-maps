@@ -3920,6 +3920,12 @@ export class MapRenderer {
   }
 
   /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */
+  /** Settles once the water's surface, badwater's pattern and contaminated ground's pattern are made (they are flat at
+   *  their means until then; the light look never reads them). For tests and pictures that read the patterns. */
+  patternsMade(): Promise<void> {
+    return this.software ? Promise.resolve() : waterSurfaceMade(this.baker);
+  }
+
   sunNow(): void {
     const want = sunOfYaw(this.view.yaw);
     this.sunWant = want;

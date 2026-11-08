@@ -221,6 +221,8 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
 test("contamination draws the game's rusty veins over dry earth and over grass, the same at any level, and clears exactly, in Standard and High (D334, D154 as amended 2026-11-07)", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
+  // (the pattern is made in the bake worker after the view opens, flat at its mean until then)
+  await page.evaluate(() => window.dgm3d!.renderer.patternsMade());
   for (const choice of ["standard", "high"] as const) {
     const result = await page.evaluate((c) => {
       const r = window.dgm3d!.renderer;
@@ -228,11 +230,18 @@ test("contamination draws the game's rusty veins over dry earth and over grass, 
       const s = r.mapState()!;
       const kept = s.soil!;
       const N = s.W * s.H;
+      // close over the map's highest ground (dry land, never under water), where a tile spans many pixels and the
+      // cracks show as cracks: from the opening view they are under a pixel wide and average to the pattern's mean,
+      // as the game's do from afar (D154 as amended 2026-11-07)
+      let top = 0;
+      for (let i = 1; i < N; i++) if (s.heights[i] > s.heights[top]) top = i;
+      const tx = top % s.W, ty = Math.floor(top / s.W);
+      const view = { mode: "orbit" as const, yaw: 0.6, pitch: (60 * Math.PI) / 180, distance: 9, target: [tx + 0.5, s.heights[top], -(ty + 0.5)] as [number, number, number] };
       /** The frame at a held moment with every tile's soil set, read back. */
       const frame = (moisture: number, level: number) => {
         r.updateSoil({ moisture: new Uint8Array(N).fill(moisture), contamination: new Uint8Array(N).fill(level) });
         r.setClock(12.5);
-        r.resetView();
+        r.setView(view);
         r.renderNow();
         const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
         const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
