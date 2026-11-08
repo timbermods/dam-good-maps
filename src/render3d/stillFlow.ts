@@ -39,6 +39,8 @@ export class StillFlow {
     private readonly job: ShareJob,
     private readonly touch: (x0: number, y0: number, x1: number, y1: number) => void = () => {},
     private readonly drawn: () => void = () => {},
+    /** Whether the look draws the waterfall mask (A): the light look doesn't, and none is worked out for it. */
+    private readonly fall = true,
   ) {
     const N = W * H;
     this.data = new Uint8Array(N * 4);
@@ -51,7 +53,7 @@ export class StillFlow {
 
   /** A map's first water, worked out at once. */
   start(sw: Water): void {
-    this.write(stillBytes(this.W, this.H, sw));
+    this.write(stillBytes(this.W, this.H, sw, this.fall));
   }
 
   /** The water changed: a job soon, on the latest water; `now` (water put in place to show with the land put in with
@@ -62,7 +64,7 @@ export class StillFlow {
       this.pending = null;
       if (this.timer !== null) clearTimeout(this.timer);
       this.timer = null;
-      this.write(stillBytes(this.W, this.H, sw));
+      this.write(stillBytes(this.W, this.H, sw, this.fall));
       return;
     }
     this.pending = sw;

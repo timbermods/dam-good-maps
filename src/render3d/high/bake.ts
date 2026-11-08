@@ -48,8 +48,9 @@ export function shareBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface
 
 /** What a still view's flow texture takes from the water (stillFlow.ts): the share (B, `shareBytes`) and the waterfall
  *  mask (A, fallMask.ts `fallBytes`). */
-export function stillBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">): { share: Uint8Array; fall: Uint8Array } {
-  return { share: shareBytes(W, H, sw), fall: fallBytes(W, H, sw) };
+export function stillBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">, fall = true): { share: Uint8Array; fall: Uint8Array } {
+  // (the light look draws no waterfall mask: it is not worked out for it, A 0 as a dry tile's)
+  return { share: shareBytes(W, H, sw), fall: fall ? fallBytes(W, H, sw) : new Uint8Array(W * H) };
 }
 
 /** On a map with water per column (waterLayers.ts): the view (each column's own outflows) and the map's columns, with
@@ -65,7 +66,7 @@ let columnsKept: { key: number; map: Map<number, Uint8Array> } | null = null;
 /** A job for the worker, and its answer. */
 export type BakeJob =
   | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null; layered?: LayeredWater }
-  | { id: number; kind: "share"; W: number; H: number; sw: Pick<SurfaceWater, "surface" | "depth" | "contamination"> }
+  | { id: number; kind: "share"; W: number; H: number; sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">; fall?: boolean }
   | { id: number; kind: "shadows"; W: number; H: number; heights: Uint8Array; casters: Float32Array | null; levels: Uint8Array | null; rock: ShadowRock | null; sun: Sun }
   | { id: number; kind: "waterTexture" }
   | { id: number; kind: "detailTexture" };
@@ -84,7 +85,7 @@ export function runBake(job: BakeJob): BakeResult {
   if (job.kind === "waterTexture") return { id: job.id, kind: "waterTexture", data: makeWaterTexture(WATER_TEXTURE_SIZE), bad: makeBadwaterTexture(WATER_TEXTURE_SIZE), soil: makeSoilTexture(SOIL_TEXTURE_SIZE), ms: performance.now() - t0 };
   // the light look's: the still detail albedo alone (badwater's texture's B), the one pattern it reads (Q9 P6)
   if (job.kind === "detailTexture") return { id: job.id, kind: "detailTexture", detail: makeDetailField(WATER_TEXTURE_SIZE), ms: performance.now() - t0 };
-  if (job.kind === "share") return { id: job.id, kind: "share", ...stillBytes(job.W, job.H, job.sw), ms: performance.now() - t0 };
+  if (job.kind === "share") return { id: job.id, kind: "share", ...stillBytes(job.W, job.H, job.sw, job.fall ?? true), ms: performance.now() - t0 };
   // the baked shadows for the sun turned with the camera (light.ts; the renderer's `turnSun`)
   if (job.kind === "shadows") {
     const keep = { hi: new Float32Array(0), lo: new Float32Array(0) };
