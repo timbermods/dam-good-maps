@@ -447,12 +447,15 @@ export const LIGHT = {
   sunElevation: (45 * Math.PI) / 180,
   /** How far the game's sun turns past the camera (Sun.blueprint.json `RotateWithCameraOffset`, degrees). */
   sunFollow: 40,
-  /** The baked shadow's soft edge (Standard's; High's own depth map is soft over a few of its texels, as the game's
-   *  shadow map is): two sweeps, the sun this far higher and lower. 2°, so the edge is a fifth to a quarter of a tile
-   *  either side below a drop of three or four levels, as High's and the game's are: 6° until 2026-11-08 spread it
-   *  most of a tile into the sun, and a column of open grass beside a cliff's shadow on riverValley-128-1, lit in the
-   *  game and in High, read 5–7 darker in luma (docs/progress/3d-view.md, "Grass in the game's light"). */
-  penumbra: (2 * Math.PI) / 180,
+  /** The baked shadow's sweeps (Standard's) take the sun this far higher and lower: none. The game's shadow edge is a
+   *  shadow map's few texels (one cascade, its soft filter), the same width under a cliff of one level or ten, not an
+   *  angle that widens with the drop; its probe frames read 0.3–0.4 of a tile under cliffs of 2 to 10 levels alike
+   *  (`tools/shadow-edge-check.py`; docs/progress/3d-view.md, "Grass in the game's light"). 6° until 2026-11-08, then
+   *  2° for a day; the width is `edge`. */
+  penumbra: 0,
+  /** The baked shadow's edge: the ground, along the sun's way, over which a shadow turns to sun (tiles), the same at
+   *  any drop: as wide as the game's reads in its probe frames, through the same measure (`tools/shadow-edge-check.py`). */
+  edge: 0.35,
   sun: [1.0, 0.95, 0.86] as Rgb,
   sky: [0.63, 0.64, 0.72] as Rgb,
   /** The haze: the game's temperate daytime fog (`Sun.blueprint` `DayColors.TemperateWeatherFog`; a held hazard's in

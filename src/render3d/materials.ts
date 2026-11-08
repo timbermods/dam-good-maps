@@ -72,7 +72,7 @@ import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_UI } f
 import { DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
 import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./shoreFilm";
-import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
+import { EDGE_BAND, SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
 import { CUT_SLACK } from "./cutWater";
 import { FALL } from "./waterMesh";
@@ -926,7 +926,8 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   float cobble(vec2 p) {
     return texture2D(patternTex, p / vec2(${f(COBBLE_CELLS[0])}, ${f(COBBLE_CELLS[1])})).b;
   }
-  /** How lit a point at height z above tile position g is (the baked sun shadow, soft). */
+  /** How lit a point at height z above tile position g is (the baked sun shadow, soft over a constant width of
+   *  ground, light.ts \`litFraction\`). */
   float ${h?.sunLit ? "bakedSunLit" : "sunLit"}(vec2 g, float z) {
     #if LITE
       return 1.0;
@@ -934,7 +935,7 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
     vec4 s = texture2D(lightTex, g / mapSize);
     float hi = s.r * ${f(255 / SHADOW_SCALE)} - ${f(SHADOW_OFFSET)};
     float lo = s.g * ${f(255 / SHADOW_SCALE)} - ${f(SHADOW_OFFSET)};
-    return clamp((z - hi) / max(0.05, lo - hi), 0.0, 1.0);
+    return clamp((z - 0.5 * (hi + lo)) / ${f(EDGE_BAND)} + 0.5, 0.0, 1.0);
   }${hook(h, "decl")}${hook(h, "sunLit")}
   /** A hatched overlay (dam sites) at tile position g: inside, light stripes in the tile's
    *  overlay colour and dark stripes (solid light where a stripe would be under two pixels); just

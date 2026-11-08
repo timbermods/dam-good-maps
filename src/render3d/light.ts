@@ -3,12 +3,12 @@
 // deterministic: the same map always bakes the same bytes. The sky's light is the game's Trilight
 // ambient by each face's normal, unoccluded (D497): nothing of it is baked.
 //
-// - Sun shadows: the sun turns with the camera, as the game's does (`Sun`, `sunOfYaw`), at the game's 45°. A sweep
-//   from the sun's side carries the top of the shadow volume across the map (`shadowTops`): a point is in shadow when
-//   it lies below it. Each sample takes the top of the line of samples one step toward the sun, between the two it
-//   lies between when the sun is not straight along a row or a diagonal. Two sweeps with the sun a little higher and
-//   lower give the penumbra, so shadows are soft and widen with the distance from what casts them. Trees and ruins
-//   cast shadows too.
+// - Sun shadows: the sun turns with the camera, as the game's does (`Sun`, `sunOfYaw`), at the game's 45°. Each
+//   sample holds the top of the shadow volume over it (`shadowTops`): a point is in shadow when it lies below it. The
+//   top is walked from the sample toward the sun tile by tile, the terrain's own edge, as sharp as the game's shadow
+//   map draws it, however far the shadow falls. The edge is soft over a constant width of
+//   ground (`LIGHT.edge`), as a shadow map's few texels are in the game, at any drop. Trees and ruins cast shadows
+//   too. (The map keeps two tops a sample, the sun `LIGHT.penumbra` higher and lower; that is 0.)
 // All of this is the light of open air. A face whose air is under a roof (a cave, an overhang, an
 // arch) takes that air's own light instead, from the light volume (caveLight.ts).
 
@@ -171,54 +171,59 @@ export function shadowTopsInto(out: Float32Array, W: number, H: number, heights:
   const R = SHADOW_RES;
   const SW = W * R;
   const SH = H * R;
-  const g = sweepOf(sun);
-  const drop = (g.len / R) * Math.tan(elevation);
+  const tanE = Math.tan(elevation);
   const occ = rock
-    ? (sx: number, sy: number): number => {
-        const i = Math.floor(sy / R) * W + Math.floor(sx / R);
+    ? (i: number): number => {
         if (!rock.flag[i]) return heights[i] + (casters ? casters[i] : 0);
         // (an object on the run from the map's floor casts from it)
         return rock.bottom[i] + (casters && casters[i] && casterLevel(casters, i) === rock.bottom[i] ? casters[i] : 0);
       }
-    : (sx: number, sy: number): number => {
-        const i = Math.floor(sy / R) * W + Math.floor(sx / R);
-        return heights[i] + (casters ? casters[i] : 0);
-      };
-  // the line one step toward the sun is done first: along the row or column the sun lies nearer, from the sun's side
-  const [dLo, dHi, mLo, mHi, D, M] = g.dom === 0 ? [Math.max(0, sx0), Math.min(SW - 1, sx1), Math.max(0, sy0), Math.min(SH - 1, sy1), SW, SH] : [Math.max(0, sy0), Math.min(SH - 1, sy1), Math.max(0, sx0), Math.min(SW - 1, sx1), SH, SW];
-  const dStep = g.dom === 0 ? g.sx : g.sy;
-  const mStep = g.dom === 0 ? g.sy : g.sx;
-  const at = g.dom === 0 ? (d: number, m: number) => m * SW + d : (d: number, m: number) => d * SW + m;
-  const occAt = g.dom === 0 ? (d: number, m: number) => occ(d, m) : (d: number, m: number) => occ(m, d);
-  for (let k = 0; k <= dHi - dLo; k++) {
-    const d = dStep < 0 ? dLo + k : dHi - k;
-    const du = d + dStep;
-    for (let m = mLo; m <= mHi; m++) {
-      const s = at(d, m);
-      if (du < 0 || du >= D) {
-        out[s] = -SHADOW_OFFSET;
-        continue;
-      }
-      const m1 = m + mStep;
-      let top: number;
-      if (g.t === 1) {
-        // (on a diagonal, the one sample toward the sun)
-        if (m1 < 0 || m1 >= M) {
-          out[s] = -SHADOW_OFFSET;
-          continue;
+    : (i: number): number => heights[i] + (casters ? casters[i] : 0);
+  let highest = 0;
+  for (let i = 0; i < W * H; i++) highest = Math.max(highest, occ(i));
+  // each sample's ray toward the sun, tile by tile (a grid walk): the top is the highest of each tile it crosses, less
+  // the sun's drop to where the ray enters it, so the edge is the terrain's own, as sharp as a shadow map's, and a
+  // straight cliff's shadow stays straight however far it falls (a sweep that took the top between two samples a step
+  // blurred it sideways, the more the longer the shadow); the sample's own tile casts nothing on it
+  const ux = sun.x;
+  const uy = sun.y;
+  const dX = ux !== 0 ? 1 / Math.abs(ux) : Infinity;
+  const dY = uy !== 0 ? 1 / Math.abs(uy) : Infinity;
+  const stepX = ux > 0 ? 1 : -1;
+  const stepY = uy > 0 ? 1 : -1;
+  for (let sy = Math.max(0, sy0); sy <= Math.min(SH - 1, sy1); sy++)
+    for (let sx = Math.max(0, sx0); sx <= Math.min(SW - 1, sx1); sx++) {
+      const px = (sx + 0.5) / R;
+      const py = (sy + 0.5) / R;
+      let tx = Math.floor(px);
+      let ty = Math.floor(py);
+      let nextX = ux > 0 ? (tx + 1 - px) * dX : ux < 0 ? (px - tx) * dX : Infinity;
+      let nextY = uy > 0 ? (ty + 1 - py) * dY : uy < 0 ? (py - ty) * dY : Infinity;
+      let top = -SHADOW_OFFSET;
+      for (;;) {
+        let d: number;
+        if (Math.abs(nextX - nextY) < 1e-9) {
+          // (through a corner, as on a diagonal: the tiles beside it are only touched)
+          d = nextX;
+          tx += stepX;
+          ty += stepY;
+          nextX += dX;
+          nextY += dY;
+        } else if (nextX < nextY) {
+          d = nextX;
+          tx += stepX;
+          nextX += dX;
+        } else {
+          d = nextY;
+          ty += stepY;
+          nextY += dY;
         }
-        top = Math.max(occAt(du, m1), out[at(du, m1)]);
-      } else {
-        const v0 = Math.max(occAt(du, m), out[at(du, m)]);
-        if (g.t === 0) top = v0;
-        else {
-          const v1 = m1 < 0 || m1 >= M ? -SHADOW_OFFSET : Math.max(occAt(du, m1), out[at(du, m1)]);
-          top = (1 - g.t) * v0 + g.t * v1;
-        }
+        if (tx < 0 || ty < 0 || tx >= W || ty >= H || highest - d * tanE <= top) break;
+        const v = occ(ty * W + tx) - d * tanE;
+        if (v > top) top = v;
       }
-      out[s] = top - drop;
+      out[sy * SW + sx] = top;
     }
-  }
 }
 
 /** The rock that casts the baked shadows on a map with terrain above terrain (3D view, item 8): for each tile that
@@ -539,8 +544,9 @@ export function shadowPairRect(tops: { hi: Float32Array; lo: Float32Array }, byt
   shadowBytes(tops, bytes, W, H, heights, casters, rock, sx0, sx1, sy0, sy1, undefined, sun);
 }
 
-/** The shadow map as RGBA bytes (W·R × H·R): R the shadow top with the sun a little higher, G a
- *  little lower (the penumbra between them). `rock` as for `shadowPairRect`. */
+/** The shadow map as RGBA bytes (W·R × H·R): R the shadow top with the sun `LIGHT.penumbra` higher, G as much
+ *  lower (the same while that is 0; the shader turns to sun over `EDGE_BAND` round them). `rock` as for
+ *  `shadowPairRect`. */
 export function shadowMap(W: number, H: number, heights: Uint8Array, casters: Float32Array | null, keep?: { hi: Float32Array; lo: Float32Array }, rock: ShadowRock | null = null, sun: Sun = DEFAULT_SUN): Uint8Array {
   const tops = shadowTopsPair(W, H, heights, casters, rock, sun);
   if (keep) {
@@ -552,10 +558,13 @@ export function shadowMap(W: number, H: number, heights: Uint8Array, casters: Fl
   return out;
 }
 
-/** How lit a point at height z is, 0–1, from its shadow sample (the shader's rule). */
+/** The height over which the shadow's top turns from shadow to sun: `LIGHT.edge` of ground along the sun's way. */
+export const EDGE_BAND = LIGHT.edge * Math.tan(LIGHT.sunElevation);
+
+/** How lit a point at height z is, 0–1, from its shadow sample (the shader's rule): sun over EDGE_BAND round the top
+ *  (the two tops' middle, the same top while `LIGHT.penumbra` is 0). */
 export function litFraction(z: number, topHigh: number, topLow: number): number {
-  const span = Math.max(0.05, topLow - topHigh);
-  return Math.max(0, Math.min(1, (z - topHigh) / span));
+  return Math.max(0, Math.min(1, (z - (topHigh + topLow) / 2) / EDGE_BAND + 0.5));
 }
 
 /** The water byte's steps a level of depth to three levels deep (`waterByte`; the terrain shader reads the depth back

@@ -145,7 +145,7 @@ describe("the baked light", () => {
   const H = 20;
   const flat = new Uint8Array(W * H).fill(3);
 
-  it("casts a pillar's shadow away from the sun (south-east), softly, and never toward it", () => {
+  it("casts a pillar's shadow away from the sun (south-east), and never toward it", () => {
     const h = flat.slice();
     h[10 * W + 10] = 8; // a pillar 5 levels above the ground
     const hi = shadowTops(W, H, h, null, LIGHT.sunElevation + LIGHT.penumbra);
@@ -160,17 +160,36 @@ describe("the baked light", () => {
     expect(lit(12, 8)).toBe(0);
     expect(lit(9, 11)).toBe(1);
     expect(lit(2, 2)).toBe(1);
-    // the far end of the shadow is soft over a narrow edge, as the game's shadow map's few texels are (LIGHT.penumbra
-    // 2° since 2026-11-08; 6° spread it most of a tile into the sun): along the diagonal, sample by sample, it lightens
-    // step by step, through a value between, within a tile
-    const along = Array.from({ length: 6 * R * 2 + 1 }, (_, k) => lit(10 + 1 + k / (2 * R), 10 - 1 - k / (2 * R)));
-    expect(along[0]).toBe(0);
-    expect(along.at(-1)).toBe(1);
-    for (let k = 1; k < along.length; k++) expect(along[k]).toBeGreaterThanOrEqual(along[k - 1]);
-    expect(along.some((v) => v > 0 && v < 1)).toBe(true);
-    const first = along.findIndex((v) => v > 0);
-    const full = along.findIndex((v) => v >= 1);
-    expect((full - first) / (2 * R)).toBeLessThanOrEqual(1);
+  });
+
+  it("softens a shadow's far end over the same width of ground under a low cliff and a high one, as the game's shadow map does (D497)", () => {
+    // a plateau over x < 10, the ground east of it at 3; the sun from the north-west, 45° up: its shadow's edge runs
+    // north-south, Hc / √2 east of the cliff, and along a row it turns to sun over LIGHT.edge / √2 of x (LIGHT.edge along the
+    // sun's way)
+    const R = SHADOW_RES;
+    for (const cliff of [2, 8]) {
+      const h = flat.slice();
+      for (let y = 0; y < H; y++) for (let x = 0; x < 10; x++) h[y * W + x] = 3 + cliff;
+      const hi = shadowTops(W, H, h, null, LIGHT.sunElevation + LIGHT.penumbra);
+      const lo = shadowTops(W, H, h, null, LIGHT.sunElevation - LIGHT.penumbra);
+      // (the shader's read of the map: bilinear between samples, at a row's sample centres)
+      const y = 8 + 0.25;
+      const lit = (x: number) => {
+        const u = x * R - 0.5;
+        const k0 = Math.floor(u);
+        const t = u - k0;
+        const row = Math.floor(y * R) * W * R;
+        const top = (a: Float32Array) => a[row + k0] * (1 - t) + a[row + k0 + 1] * t;
+        return litFraction(3, top(hi), top(lo));
+      };
+      const xs = Array.from({ length: 401 }, (_, k) => 10 + k / 50);
+      const vs = xs.map(lit);
+      for (let k = 1; k < vs.length; k++) expect(vs[k]).toBeGreaterThanOrEqual(vs[k - 1]);
+      const first = xs[vs.findIndex((v) => v > 0)];
+      const full = xs[vs.findIndex((v) => v >= 1)];
+      expect(full - first, `a ${cliff}-level cliff`).toBeCloseTo(LIGHT.edge * Math.SQRT1_2, 1);
+      expect((first + full) / 2, `a ${cliff}-level cliff`).toBeCloseTo(10 + cliff * Math.SQRT1_2, 1);
+    }
   });
 
   it("bakes the same bytes every time, and trees and ruins cast shadows too", () => {
