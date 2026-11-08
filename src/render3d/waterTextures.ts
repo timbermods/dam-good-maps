@@ -365,14 +365,28 @@ const BAD_PATTERN = {
  *  `PATTERN_PERCENTILES`, `lo` and `hi` at the ends, straight between (in place). */
 function toPercentiles(v: Float64Array, percentiles: readonly number[], lo: number, hi: number): void {
   const n = v.length;
-  const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => v[a] - v[b]);
+  // (each value's rank from a sorted copy by bisection, equal values in index order as a stable sort would have them:
+  // a native typed sort, several times faster than sorting the indices through a comparator)
+  const sorted = Float64Array.from(v).sort();
+  const taken = new Int32Array(n);
   const ps = [0, ...PATTERN_PERCENTILES, 1];
   const vs = [lo, ...percentiles, hi];
-  let k = 0;
-  for (let r = 0; r < n; r++) {
+  const at = new Float64Array(n);
+  for (let r = 0, k = 0; r < n; r++) {
     const p = (r + 0.5) / n;
     while (k < ps.length - 2 && p > ps[k + 1]) k++;
-    v[order[r]] = vs[k] + ((vs[k + 1] - vs[k]) * (p - ps[k])) / (ps[k + 1] - ps[k]);
+    at[r] = vs[k] + ((vs[k + 1] - vs[k]) * (p - ps[k])) / (ps[k + 1] - ps[k]);
+  }
+  for (let i = 0; i < n; i++) {
+    const x = v[i];
+    let a = 0;
+    let b = n - 1;
+    while (a < b) {
+      const m = (a + b) >> 1;
+      if (sorted[m] < x) a = m + 1;
+      else b = m;
+    }
+    v[i] = at[a + taken[a]++];
   }
 }
 
@@ -440,7 +454,7 @@ export function makeBadwaterTexture(size: number): Uint8Array {
   for (let i = 0; i < n; i++) {
     data[i * 4] = Math.round(base[i]);
     data[i * 4 + 1] = Math.round(glow[i]);
-    data[i * 4 + 2] = Math.round(detail[i]);
+    data[i * 4 + 2] = detail[i];
     data[i * 4 + 3] = 255;
   }
   return data;
@@ -451,7 +465,7 @@ export function makeBadwaterTexture(size: number): Uint8Array {
  *  `DETAIL_BANDS`, before the rank remap, which moves some of it), then remapped by rank to the game's distribution,
  *  its last hundredth straight from the 99th percentile to `top` (the game's brightest texels are lone specks, so its
  *  maximum would lift the spread). */
-const DETAIL_PATTERN = {
+export const DETAIL_PATTERN = {
   power: [0.023, 0.251, 0.278, 0.234, 0.098, 0.059, 0.033, 0.045],
   top: 75,
 };
@@ -492,8 +506,20 @@ export const DETAIL_COLOUR = (() => {
 /** The byte (B) of the detail's mean, 0–255: the texture until it is made. */
 export const DETAIL_FLAT = Math.round((255 * -DETAIL_STORE[0]) / (DETAIL_STORE[1] - DETAIL_STORE[0]));
 
-/** An in-place radix-2 FFT of `n` complex values (`re`, `im`, a power of two long), forward. */
-function fft(re: Float64Array, im: Float64Array): void {
+/** The FFT's twiddles for `n` points: cos and sin of −τk/n, k < n/2 (each pass of length `len` reads every n/len-th). */
+function twiddles(n: number): { cos: Float64Array; sin: Float64Array } {
+  const cos = new Float64Array(n / 2);
+  const sin = new Float64Array(n / 2);
+  for (let k = 0; k < n / 2; k++) {
+    cos[k] = Math.cos((-TAU * k) / n);
+    sin[k] = Math.sin((-TAU * k) / n);
+  }
+  return { cos, sin };
+}
+
+/** An in-place radix-2 FFT of `n` complex values (`re`, `im`, a power of two long), forward, with `tw` its twiddles
+ *  (`twiddles(n)`). */
+function fft(re: Float64Array, im: Float64Array, tw: { cos: Float64Array; sin: Float64Array }): void {
   const n = re.length;
   for (let i = 1, j = 0; i < n; i++) {
     let bit = n >> 1;
@@ -505,11 +531,11 @@ function fft(re: Float64Array, im: Float64Array): void {
     }
   }
   for (let len = 2; len <= n; len <<= 1) {
-    const ang = -TAU / len;
+    const step = n / len;
     for (let i = 0; i < n; i += len)
       for (let k = 0; k < len / 2; k++) {
-        const wr = Math.cos(ang * k);
-        const wi = Math.sin(ang * k);
+        const wr = tw.cos[k * step];
+        const wi = tw.sin[k * step];
         const a = i + k;
         const b = a + len / 2;
         const xr = re[b] * wr - im[b] * wi;
@@ -532,7 +558,7 @@ function spectralField(size: number, repeat: number, power: readonly number[], s
     for (let x = 0; x < size; x++) {
       const ky = y < size / 2 ? y : y - size;
       const kx = x < size / 2 ? x : x - size;
-      const k = Math.hypot(kx, ky);
+      const k = Math.sqrt(kx * kx + ky * ky);
       if (k === 0) continue;
       const wave = repeat / k;
       for (let b = 0; b < power.length; b++)
@@ -555,6 +581,7 @@ function spectralField(size: number, repeat: number, power: readonly number[], s
   }
   const rr = new Float64Array(size);
   const ri = new Float64Array(size);
+  const tw = twiddles(size);
   for (let pass = 0; pass < 2; pass++)
     for (let j = 0; j < size; j++) {
       for (let i = 0; i < size; i++) {
@@ -562,7 +589,7 @@ function spectralField(size: number, repeat: number, power: readonly number[], s
         rr[i] = re[at];
         ri[i] = im[at];
       }
-      fft(rr, ri);
+      fft(rr, ri, tw);
       for (let i = 0; i < size; i++) {
         const at = pass ? i * size + j : j * size + i;
         re[at] = rr[i];
@@ -574,8 +601,9 @@ function spectralField(size: number, repeat: number, power: readonly number[], s
 
 /** The still detail albedo's first component (Q9 P6) as stored bytes (`DETAIL_STORE`), `size` square (a power of
  *  two), one repeat `1 / GAME_DETAIL_TEXTURE.tiling` tiles across: a Gaussian field with the game's spectrum, remapped by
- *  rank to the game's distribution (its long bright tail), centred. */
-export function makeDetailField(size: number): Float64Array {
+ *  rank to the game's distribution (its long bright tail), centred, each rounded and held to 0–255 (a texel a hair
+ *  past the store's range is its end, never wrapped round to the other). */
+export function makeDetailField(size: number): Uint8Array {
   const f = spectralField(size, 1 / GAME_DETAIL_TEXTURE.tiling, DETAIL_PATTERN.power, 301);
   const G = GAME_DETAIL_TEXTURE.first;
   toPercentiles(f, G.percentiles, G.range[0], DETAIL_PATTERN.top);
@@ -583,8 +611,9 @@ export function makeDetailField(size: number): Float64Array {
   let m = 0;
   for (let i = 0; i < f.length; i++) m += f[i] / f.length;
   const [lo, hi] = DETAIL_STORE;
-  for (let i = 0; i < f.length; i++) f[i] = (255 * (f[i] - m - lo)) / (hi - lo);
-  return f;
+  const out = new Uint8Array(f.length);
+  for (let i = 0; i < f.length; i++) out[i] = Math.min(255, Math.max(0, Math.round((255 * (f[i] - m - lo)) / (hi - lo))));
+  return out;
 }
 
 /** The share of a tiling field's spread (`size` square, one repeat `repeat` tiles across) left after a Gaussian blur

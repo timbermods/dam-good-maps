@@ -1361,8 +1361,11 @@ the game's models in resources.assets (positions, materials and texture means on
 - **Ours** (`waterTextures.ts` `GAME_DETAIL_TEXTURE`, `makeDetailField`): a spectral field at the game's band powers,
   remapped to its percentiles, in badwater's texture's B byte (512² over the same 66.7 tiles); the colour is the
   quadratic in that byte (`DETAIL_COLOUR`, `waterDetailAt`). Its statistics are the game's within 0.3 in the mean, 2%
-  to 5% in the spread, 3% in the feature size (`tests/unit/water-detail.test.ts`). All three looks set `waterDetail`
-  from it before any shading; mirrors take its mean.
+  to 5% in the spread, 3% in the feature size (`tests/unit/water-detail.test.ts`, on the bytes as stored, each held
+  to 0–255). All three looks set `waterDetail` from it before any shading; mirrors take its mean. It is made in the bake
+  worker: Standard and High with the water's other patterns (the whole bake about 0.9 s off the page's thread, as dev's:
+  the FFT's twiddles made once and the rank remap a typed sort), the light look on its own (`detailTexture`, about
+  0.1 s), since it reads no other pattern.
 - **#842's notes:** the probe now has mip 3 (`WATER_PROBE`, the glossiest clean water reads mip 3.7); the glint's
   roughness floor is URP's 0.0078125; the light look's slopes doc reads "from half a level". The gap is printed by the
   judge for the shipped build against the game's frames ("the gap by day"); `WATER_LIGHT.gap` records it.

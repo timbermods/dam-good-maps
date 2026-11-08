@@ -127,6 +127,9 @@ test("the Standard look is the same after High as before it", async ({ page }) =
       return { key: k, share: n / px.length, max, size: `${g.drawingBufferWidth}x${g.drawingBufferHeight}` };
     }, key);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard"));
+  // (the patterns are made in the bake worker after the view opens, flat at their means until then: made before the
+  // first frame, so none lands between the frames compared)
+  await page.evaluate(() => window.dgm3d!.renderer.patternsMade());
   // (the view settles its size first: the legend beside it lays out after the map. Watched in the page until neither
   // the canvas's box nor its pixels have changed for half a second: on a busy page (CI's software GL) a round trip to
   // the page can take a second or two, and a poll of two reads with a wait between them spent its 5 seconds on one try,

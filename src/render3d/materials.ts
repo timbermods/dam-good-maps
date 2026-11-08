@@ -332,6 +332,15 @@ export function soilPatternTexture(): DataTexture {
 
 /** The bake worker's surface, badwater's pattern and contaminated ground's (high/bake.ts `waterTexture`) into the
  *  page's textures. */
+/** The light look's one pattern, the still detail albedo (bake.ts "detailTexture"), written into badwater's texture's B
+ *  (its R and G stay at their means: the light look never reads them). */
+export function fillDetailTexture(detail: Uint8Array): void {
+  const b = badwaterPatternTexture();
+  const data = b.image.data as Uint8Array;
+  for (let i = 0; i < detail.length; i++) data[i * 4 + 2] = detail[i];
+  b.needsUpdate = true;
+}
+
 export function fillWaterTexture(data: Uint8Array, bad: Uint8Array, soil: Uint8Array): void {
   const t = waterSurfaceTexture();
   (t.image.data as Uint8Array).set(data);

@@ -8,7 +8,7 @@ import { DataTexture } from "three";
 import { badwaterPatternTexture, sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { GAME_BADWATER } from "../../src/render3d/waterPalette";
-import { broadShare, DETAIL_COLOUR, DETAIL_FLAT, DETAIL_STORE, detailOf, featureTiles, GAME_DETAIL_TEXTURE as G, makeBadwaterTexture, makeDetailField, PATTERN_PERCENTILES } from "../../src/render3d/waterTextures";
+import { broadShare, DETAIL_COLOUR, DETAIL_FLAT, DETAIL_PATTERN, DETAIL_STORE, detailOf, featureTiles, GAME_DETAIL_TEXTURE as G, makeBadwaterTexture, makeDetailField, PATTERN_PERCENTILES } from "../../src/render3d/waterTextures";
 
 const N = 512;
 const REPEAT = 1 / G.tiling;
@@ -16,12 +16,20 @@ const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
 const U = () => sceneUniforms(1, 1, tex(), tex(), tex(), tex());
 
 describe("the still detail albedo (Q9 P6)", () => {
-  const bytes = makeDetailField(N).map(Math.round);
+  // (the bytes as stored, badwater's texture's B, which the shaders read)
+  const bytes = makeBadwaterTexture(N).filter((_, i) => i % 4 === 2);
   const [lo, hi] = DETAIL_STORE;
-  const score = bytes.map((b) => lo + ((hi - lo) * b) / 255);
+  const score = Float64Array.from(bytes, (b) => lo + ((hi - lo) * b) / 255);
 
   it("is a pattern of our own at the game's statistics: its first component's distribution, feature scale and breadth", () => {
     const n = score.length;
+    // (stored within its range: its brightest texel the pattern's top, its darkest near the game's darkest, none past an
+    // end wrapped round to the other)
+    let [min, max] = [255, 0];
+    for (const b of bytes) (min = Math.min(min, b)), (max = Math.max(max, b));
+    const byte = (v: number) => (255 * (v - lo)) / (hi - lo);
+    expect(max).toBeLessThanOrEqual(Math.ceil(byte(DETAIL_PATTERN.top + 1)));
+    expect(min).toBeLessThanOrEqual(Math.ceil(byte(G.first.range[0] + 1)));
     const mean = score.reduce((a, v) => a + v, 0) / n;
     const spread = Math.sqrt(score.reduce((a, v) => a + (v - mean) ** 2, 0) / n);
     expect(Math.abs(mean)).toBeLessThan(0.3);
@@ -57,7 +65,7 @@ describe("the still detail albedo (Q9 P6)", () => {
   it("rides in badwater's texture's B, made in the bake worker, flat at its mean until then", () => {
     const bad = makeBadwaterTexture(64);
     const field = makeDetailField(64);
-    for (const i of [0, 100, 2000, 4095]) expect(bad[i * 4 + 2]).toBe(Math.round(field[i]));
+    for (const i of [0, 100, 2000, 4095]) expect(bad[i * 4 + 2]).toBe(field[i]);
     const flat = badwaterPatternTexture().image.data as Uint8Array;
     expect(flat[2]).toBe(DETAIL_FLAT);
   });

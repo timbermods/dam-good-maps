@@ -76,7 +76,7 @@ import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
@@ -312,7 +312,7 @@ const WATER_FPS = 30;
 
 let waterSurface: Promise<void> | null = null;
 /** The surface the water's flow carries (waterTextures.ts) and contaminated ground's pattern (soilTexture.ts), made once
- *  a page in the bake worker (about 300 ms) and written into the page's shared textures (materials.ts
+ *  a page in the bake worker (about 0.9 s) and written into the page's shared textures (materials.ts
  *  `waterSurfaceTexture`, `soilPatternTexture`); each is flat at its mean until then. */
 function waterSurfaceMade(baker: Baker): Promise<void> {
   // (a failed bake is forgotten, so the next view tries again)
@@ -322,6 +322,22 @@ function waterSurfaceMade(baker: Baker): Promise<void> {
     },
     (e: unknown) => {
       waterSurface = null;
+      throw e;
+    },
+  ));
+}
+
+let detailMade: Promise<void> | null = null;
+/** The light look's: the still detail albedo alone (Q9 P6; the game's Low quality draws it), made once a page in the
+ *  bake worker and written into badwater's texture's B (materials.ts `fillDetailTexture`); flat at its mean until then.
+ *  The light look reads none of the other patterns. */
+function detailTextureMade(baker: Baker): Promise<void> {
+  return (detailMade ??= baker.run({ kind: "detailTexture" }).then(
+    (r) => {
+      if (r.kind === "detailTexture") fillDetailTexture(r.detail);
+    },
+    (e: unknown) => {
+      detailMade = null;
       throw e;
     },
   ));
@@ -593,8 +609,8 @@ export class MapRenderer {
     const one = () => tileTexture(1, 1, new Uint8Array(4));
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
     this.uniforms.sourceTint.value.set(...SOURCE_GLOW);
-    // (the light look draws the water's surface flat, as the game's Low quality: it never reads it)
-    if (!this.software) void waterSurfaceMade(this.baker).then(() => !this.disposed && this.requestRender(), () => undefined);
+    // (the light look draws the water's surface flat: it reads only the still detail albedo, as the game's Low quality)
+    void this.patternsMade().then(() => !this.disposed && this.requestRender(), () => undefined);
     this.patterns = drawPatterns(this.gl);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
     this.edgeRows = new RowUploads(this.gl, () => this.edges);
@@ -3920,9 +3936,10 @@ export class MapRenderer {
   }
 
   /** Settles once the water's surface, badwater's pattern and contaminated ground's pattern are made (they are flat at
-   *  their means until then; the light look never reads them). For tests and pictures that read the patterns. */
+   *  their means until then; the light look makes and reads only the still detail albedo). For tests and pictures that
+   *  read the patterns. */
   patternsMade(): Promise<void> {
-    return this.software ? Promise.resolve() : waterSurfaceMade(this.baker);
+    return this.software ? detailTextureMade(this.baker) : waterSurfaceMade(this.baker);
   }
 
   /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */
