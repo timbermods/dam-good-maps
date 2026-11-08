@@ -677,10 +677,43 @@ export function follow(p: FollowPayload): FollowResult {
   return { instant: instantCheck(need()), ...(stored ? { stored } : {}) };
 }
 
+/** The replica's check in progress: a second ask for the same map shares it (its progress goes to both), where a new
+ *  check would drop the first and leave its asker with no answer (the page's dot at "Checking the map" while the export
+ *  dialog checks, #829). */
+interface ReplicaRun {
+  session: MapSession;
+  version: number;
+  answer: Promise<ReplicaCheck | null>;
+  told: ((p: CheckProgress) => void)[];
+  /** Its latest progress, told at once to an ask that joins it. */
+  last: CheckProgress | null;
+}
+let replicaRun: ReplicaRun | null = null;
+
 /** The background check on the replica, with the canonical water it settled. */
-export async function replicaCheck(v: number, onProgress?: (p: CheckProgress) => void): Promise<ReplicaCheck | null> {
-  if (v !== version) return null;
-  const r = await backgroundCheck(onProgress);
+export function replicaCheck(v: number, onProgress?: (p: CheckProgress) => void): Promise<ReplicaCheck | null> {
+  if (v !== version) return Promise.resolve(null);
+  const s = need();
+  if (replicaRun && replicaRun.session === s && replicaRun.version === v) {
+    if (onProgress) {
+      replicaRun.told.push(onProgress);
+      if (replicaRun.last) onProgress(replicaRun.last);
+    }
+    return replicaRun.answer;
+  }
+  const run: ReplicaRun = { session: s, version: v, answer: Promise.resolve(null), told: onProgress ? [onProgress] : [], last: null };
+  replicaRun = run;
+  run.answer = runReplicaCheck(run).finally(() => {
+    if (replicaRun === run) replicaRun = null;
+  });
+  return run.answer;
+}
+
+async function runReplicaCheck(run: ReplicaRun): Promise<ReplicaCheck | null> {
+  const r = await backgroundCheck((p) => {
+    run.last = p;
+    for (const f of run.told) f(p);
+  });
   if (!r) return null;
   const s = need();
   const water = !s.waterPending && !s.showsStoredWater && !s.built.waterFromFile ? { model: s.built.waterModel, water: s.built.settle } : null;
