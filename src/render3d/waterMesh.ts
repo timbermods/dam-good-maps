@@ -7,9 +7,9 @@
 // seeing the water and ground at its own level round it (waterLayers.ts). Each vertex carries a depth and badwater share,
 // which the shader turns into colour and opacity (Map look, D86: a top's corners share depth with
 // the tiles round the corner, so the water thins toward the shore; D177: the badwater share is
-// blended over the connected water a few tiles round, then shared at the corners too, so where
-// badwater meets clean water the colour turns in a soft gradient over several tiles, never tile by
-// tile), and flags: which sides of a top meet the shore.
+// shared at the corners with the connected water round them, which a fall's face and water under a
+// roof are coloured by; a top in the open takes the game's blend in the shader, about a tile wide,
+// D154 as amended 2026-11-08), and flags: which sides of a top meet the shore.
 
 import { CHUNK } from "./mesh";
 import type { SurfaceWater, WaterView } from "./model";
@@ -86,16 +86,17 @@ const SAME_WATER = 0.35;
  *  as the surface going on (materials.ts, high/shaders.ts). */
 export const FALL = 0.3;
 
-/** How the badwater share is blended between tiles (D177): a binomial kernel along rows, then
- *  along columns, from the tile itself out to 3 tiles away. A clean/bad front becomes a gradient
- *  over about six tiles (four for the middle of it), no step between neighbouring tiles above a
- *  third of the way. */
-export const BLEND_KERNEL = [20, 15, 6, 1] as const;
+/** How the badwater share is blended between tiles before the corners share it (D177): a kernel along rows, then
+ *  along columns, from the tile itself out. The tile's own share alone (D154 as amended 2026-11-08): the game blends
+ *  its per-column contamination about a tile wide, centred on the tiles' edge (waterPalette.ts WATER_SHARE_BLEND),
+ *  which a top in the open takes in the shader; the corners' sharing gives a face and water under a roof theirs. Until
+ *  then [20, 15, 6, 1], a front over about four tiles. */
+export const BLEND_KERNEL: readonly number[] = [1];
 
 const blends = new WeakMap<SurfaceWater, Float32Array>();
 
 /** The badwater share of each tile's surface water blended over the connected water round it
- *  (`BLEND_KERNEL`): each tile's share averaged with its neighbours' out to 3 tiles along the row,
+ *  (`BLEND_KERNEL`): each tile's share averaged with its neighbours' out to the kernel's reach along the row,
  *  then along the column, over water at its own level (within `SAME_WATER`) that reaches it without
  *  crossing dry ground or a fall, the kernel's weights shared among the tiles it reaches. Clean
  *  water with no badwater within reach stays exactly 0, and badwater with no clean water within

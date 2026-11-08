@@ -23,7 +23,7 @@ import { outflowGrid } from "./current";
 import { canShare, SharedBlock, sharedCopies } from "./shared";
 import type { Baker } from "./high/fields";
 import type { LayeredWater } from "./high/bake";
-import { surfaceContamination } from "./high/flow";
+import { surfaceContamination, writeShare } from "./high/flow";
 import { fallBytes } from "./fallMask";
 import { HIGH_WATER, WATER } from "./waterPalette";
 
@@ -214,7 +214,8 @@ export class WaterMotion {
   private flowOn = false;
   private latest = 0;
   private done = 0;
-  private baked = false;
+  /** The latest water (`waterChanged`). */
+  private latestWater: SurfaceWater | null = null;
   private since = 0;
   private timer = 0;
   private pending: { heights: Uint8Array; surface: SurfaceWater } | null = null;
@@ -236,6 +237,9 @@ export class WaterMotion {
     /** The water per column at the moment of a bake (the view and the map's columns), null where the map's water is
      *  a heightfield's (waterLayers.ts `needsLayers`). */
     private readonly layered: () => LayeredWater | null = () => null,
+    /** Texels x0…x1 × y0…y1 of `flow` changed on the page's thread, to go up with the next frame (a RowUploads); by
+     *  default the whole texture goes. */
+    private readonly touch: (x0: number, y0: number, x1: number, y1: number) => void = () => void (this.flow.needsUpdate = true),
   ) {
     uniforms.caveFlowTex.value = noCaveCurrent();
     uniforms.caveFlowLevels.value.set(0, 0);
@@ -273,12 +277,10 @@ export class WaterMotion {
   waterChanged(heights: Uint8Array, surface: SurfaceWater, now = false): void {
     if (this.disposed) return;
     this.pending = { heights, surface };
-    if (!this.baked) {
-      // (a new map's contamination shows at once, unsmoothed, until its first bake arrives)
-      const f = this.flow.image.data as Uint8Array;
-      for (let i = 0; i < this.W * this.H; i++) f[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, surface.contamination[i] || 0)) * 255);
-      this.flow.needsUpdate = true;
-    }
+    this.latestWater = surface;
+    // (the share and which tiles are wet at once, so badwater is drawn with the water it came with, never a bake
+    // behind it: only the current, the dry tiles' carry and the waterfall mask wait for the bake)
+    this.current();
     if (now) return this.bake();
     const t = performance.now();
     if (!this.timer) this.since = t;
@@ -288,6 +290,13 @@ export class WaterMotion {
       this.timer = 0;
       this.bake();
     }, wait);
+  }
+
+  /** The latest water's share and wetness into the flow's bytes (high/flow.ts `writeShare`). */
+  private current(): void {
+    if (!this.latestWater) return;
+    const r = writeShare(this.W, this.H, this.latestWater, this.flow.image.data as Uint8Array);
+    if (r) this.touch(0, r.y0, this.W - 1, r.y1);
   }
 
   private bake(): void {
@@ -325,9 +334,10 @@ export class WaterMotion {
       this.done = id;
       (this.flow.image.data as Uint8Array).set(r.flow);
       this.flow.needsUpdate = true;
+      // (a bake of older water than the latest: the latest's share and wetness again)
+      this.current();
       this.setCave(r.cave);
       this.ms = r.ms;
-      this.baked = true;
       this.setShapes(r.shapes);
       this.changed();
     }, () => {
