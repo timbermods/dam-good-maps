@@ -12,7 +12,7 @@ type Glow = { added: number; removed: number; fade: number };
 const glow = (page: Page) => page.evaluate(() => (window.dgm3d!.renderer as unknown as { editGlowDrawn: Glow }).editGlowDrawn);
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const edits = (page: Page) => page.evaluate(() => window.dgmEditor!.info().edits);
-/** How long an edit's answer may take to reach the edit count: it comes with the frames, and in software drawing (CI's
+/** How long an edit's answer may take to reach the edit count or the drawn heights: it comes with the frames, and in software drawing (CI's
  *  SwiftShader) a frame here takes about 200 ms, so a dig's or an undo's answer takes about a second on a 12-thread
  *  machine and past 5 s on CI's runners, though nothing compiles (the first hollow's compile is longer still, the first
  *  dig's own wait). */
@@ -95,7 +95,7 @@ test("a Block dig into a wall glows on the hollow's faces and fades; its undo gl
   // a block of ground 3 × 3, four levels up: a plain edit with no Block tool in hand draws nothing
   await page.evaluate(([x, y, h]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[y, x, x + 2], [y + 1, x, x + 2], [y + 2, x, x + 2]], level: h + 4 } } as never, "Raise"), [x, y, h] as const);
   await idle(page);
-  await expect.poll(() => page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x, y), [x + 1, y + 1] as const)).toBe(h + 4);
+  await expect.poll(() => page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x, y), [x + 1, y + 1] as const), { message: "the raised block is drawn", timeout: ANSWERED }).toBe(h + 4);
   expect(await glow(page)).toEqual({ added: 0, removed: 0, fade: 0 });
 
   // a hole dug into its east face one level up: air under its roof; the hollow's floor, ceiling, back and sides glow
