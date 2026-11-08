@@ -3,12 +3,12 @@
 // deterministic: the same map always bakes the same bytes. The sky's light is the game's Trilight
 // ambient by each face's normal, unoccluded (D497): nothing of it is baked.
 //
-// - Sun shadows: the sun turns with the camera, as the game's does (`Sun`, `sunOfYaw`), at the game's 45°. A sweep
-//   from the sun's side carries the top of the shadow volume across the map (`shadowTops`): a point is in shadow when
-//   it lies below it. Each sample takes the top of the line of samples one step toward the sun, between the two it
-//   lies between when the sun is not straight along a row or a diagonal. Two sweeps with the sun a little higher and
-//   lower give the penumbra, so shadows are soft and widen with the distance from what casts them. Trees and ruins
-//   cast shadows too.
+// - Sun shadows: the sun turns with the camera, as the game's does (`Sun`, `sunOfYaw`), at the game's 45°. Each
+//   sample holds the top of the shadow volume over it (`shadowTops`): a point is in shadow when it lies below it. The
+//   top is walked from the sample toward the sun tile by tile, the terrain's own edge, as sharp as the game's shadow
+//   map draws it, however far the shadow falls. The edge is soft over a constant width of
+//   ground (`LIGHT.edge`), as a shadow map's few texels are in the game, at any drop. Trees and ruins cast shadows
+//   too. (The map keeps two tops a sample, the sun `LIGHT.penumbra` higher and lower; that is 0.)
 // All of this is the light of open air. A face whose air is under a roof (a cave, an overhang, an
 // arch) takes that air's own light instead, from the light volume (caveLight.ts).
 
@@ -171,52 +171,177 @@ export function shadowTopsInto(out: Float32Array, W: number, H: number, heights:
   const R = SHADOW_RES;
   const SW = W * R;
   const SH = H * R;
-  const g = sweepOf(sun);
-  const drop = (g.len / R) * Math.tan(elevation);
-  const occ = rock
-    ? (sx: number, sy: number): number => {
-        const i = Math.floor(sy / R) * W + Math.floor(sx / R);
-        if (!rock.flag[i]) return heights[i] + (casters ? casters[i] : 0);
+  const ax0 = Math.max(0, sx0);
+  const ax1 = Math.min(SW - 1, sx1);
+  const ay0 = Math.max(0, sy0);
+  const ay1 = Math.min(SH - 1, sy1);
+  if (ax1 < ax0 || ay1 < ay0) return;
+  const tanE = Math.tan(elevation);
+  const ux = sun.x;
+  const uy = sun.y;
+  // the tiles a sample's ray can meet a caster on: its own and those toward the sun within the reach of the tallest
+  // caster a map can have (`shadowReach`); the casters and their blocks' highest are taken there alone, so an edit's
+  // few samples cost no more than its own window
+  const reach = Math.ceil(shadowReach(sun) / R) + 1;
+  const wx0 = Math.max(0, Math.floor(ax0 / R) - (ux < 0 ? reach : 0));
+  const wx1 = Math.min(W - 1, Math.floor(ax1 / R) + (ux > 0 ? reach : 0));
+  const wy0 = Math.max(0, Math.floor(ay0 / R) - (uy < 0 ? reach : 0));
+  const wy1 = Math.min(H - 1, Math.floor(ay1 / R) + (uy > 0 ? reach : 0));
+  const ww = wx1 - wx0 + 1;
+  const wh = wy1 - wy0 + 1;
+  const cast = new Float32Array(ww * wh);
+  let highest = -SHADOW_OFFSET;
+  for (let y = 0; y < wh; y++)
+    for (let x = 0; x < ww; x++) {
+      const i = (wy0 + y) * W + wx0 + x;
+      let v: number;
+      if (rock && rock.flag[i]) {
         // (an object on the run from the map's floor casts from it)
-        return rock.bottom[i] + (casters && casters[i] && casterLevel(casters, i) === rock.bottom[i] ? casters[i] : 0);
+        v = rock.bottom[i] + (casters && casters[i] && casterLevel(casters, i) === rock.bottom[i] ? casters[i] : 0);
+      } else v = heights[i] + (casters ? casters[i] : 0);
+      cast[y * ww + x] = v;
+      if (v > highest) highest = v;
+    }
+  // the highest caster of each block of 4 and of 16 tiles of the window
+  const w4 = (ww + 3) >> 2;
+  const w16 = (ww + 15) >> 4;
+  const max4 = new Float32Array(w4 * ((wh + 3) >> 2)).fill(-Infinity);
+  const max16 = new Float32Array(w16 * ((wh + 15) >> 4)).fill(-Infinity);
+  for (let y = 0; y < wh; y++)
+    for (let x = 0; x < ww; x++) {
+      const v = cast[y * ww + x];
+      const k4 = (y >> 2) * w4 + (x >> 2);
+      if (v > max4[k4]) max4[k4] = v;
+      const k16 = (y >> 4) * w16 + (x >> 4);
+      if (v > max16[k16]) max16[k16] = v;
+    }
+  // and, for every block of 16, the highest along its strip toward the sun: every block within one block of the line
+  // from its middle toward the sun (any ray through the block stays inside), so nothing a ray meets after it is higher
+  const h16 = (wh + 15) >> 4;
+  const ahead16 = new Float32Array(w16 * h16);
+  for (let by = 0; by < h16; by++)
+    for (let bx = 0; bx < w16; bx++) {
+      let v = -Infinity;
+      for (let k = 0; ; k++) {
+        const cx = Math.floor((bx * 16 + 8 + k * 8 * ux) / 16);
+        const cy = Math.floor((by * 16 + 8 + k * 8 * uy) / 16);
+        if (cx < -1 || cy < -1 || cx > w16 || cy > h16) break;
+        for (let y = Math.max(0, cy - 1); y <= Math.min(h16 - 1, cy + 1); y++)
+          for (let x = Math.max(0, cx - 1); x <= Math.min(w16 - 1, cx + 1); x++) if (max16[y * w16 + x] > v) v = max16[y * w16 + x];
       }
-    : (sx: number, sy: number): number => {
-        const i = Math.floor(sy / R) * W + Math.floor(sx / R);
-        return heights[i] + (casters ? casters[i] : 0);
-      };
-  // the line one step toward the sun is done first: along the row or column the sun lies nearer, from the sun's side
-  const [dLo, dHi, mLo, mHi, D, M] = g.dom === 0 ? [Math.max(0, sx0), Math.min(SW - 1, sx1), Math.max(0, sy0), Math.min(SH - 1, sy1), SW, SH] : [Math.max(0, sy0), Math.min(SH - 1, sy1), Math.max(0, sx0), Math.min(SW - 1, sx1), SH, SW];
-  const dStep = g.dom === 0 ? g.sx : g.sy;
-  const mStep = g.dom === 0 ? g.sy : g.sx;
-  const at = g.dom === 0 ? (d: number, m: number) => m * SW + d : (d: number, m: number) => d * SW + m;
-  const occAt = g.dom === 0 ? (d: number, m: number) => occ(d, m) : (d: number, m: number) => occ(m, d);
-  for (let k = 0; k <= dHi - dLo; k++) {
-    const d = dStep < 0 ? dLo + k : dHi - k;
-    const du = d + dStep;
-    for (let m = mLo; m <= mHi; m++) {
-      const s = at(d, m);
-      if (du < 0 || du >= D) {
-        out[s] = -SHADOW_OFFSET;
+      ahead16[by * w16 + bx] = v;
+    }
+  // each sample's ray toward the sun, tile by tile (a grid walk): the top is the highest of each tile it crosses, less
+  // the sun's drop to where the ray enters it, so the edge is the terrain's own, as sharp as a shadow map's, and a
+  // straight cliff's shadow stays straight however far it falls (a sweep that took the top between two samples a step
+  // blurred it sideways, the more the longer the shadow); the sample's own tile casts nothing on it. A block of 4 or
+  // 16 tiles whose highest caster, dropped to where the ray now is, cannot rise over the top is passed whole; the
+  // walk ends where nothing in the window can.
+  // (per axis: the block's far side toward the sun is its start, plus its size where the sun lies the positive way;
+  // an axis the sun does not move along never ends a block)
+  const ix = ux !== 0 ? 1 / ux : 1e30;
+  const iy = uy !== 0 ? 1 / uy : 1e30;
+  const fx = ux >= 0 ? 1 : 0;
+  const fy = uy >= 0 ? 1 : 0;
+  const tiny = 1e-7;
+  const invR = 1 / R;
+  // (in the map's tiles, so a sample walks the same arithmetic in any window: an edit's redone bytes are the whole
+  // map's)
+  // (the first NEAR tiles a ray crosses from each of the R × R places in a tile, and where it enters each: the same
+  // for every tile, so a table)
+  const NEAR = 16;
+  const nearX = new Int32Array(R * R * NEAR);
+  const nearY = new Int32Array(R * R * NEAR);
+  const nearD = new Float64Array(R * R * NEAR);
+  for (let j = 0; j < R; j++)
+    for (let i = 0; i < R; i++) {
+      const fx0 = (i + 0.5) * invR;
+      const fy0 = (j + 0.5) * invR;
+      let cx = 0;
+      let cy = 0;
+      for (let k = 0; k < NEAR; k++) {
+        const nx = (cx + fx - fx0) * ix;
+        const ny = (cy + fy - fy0) * iy;
+        const dd = nx < ny ? nx : ny;
+        cx = Math.floor(fx0 + (dd + tiny) * ux);
+        cy = Math.floor(fy0 + (dd + tiny) * uy);
+        const o = (j * R + i) * NEAR + k;
+        nearX[o] = cx;
+        nearY[o] = cy;
+        nearD[o] = dd;
+      }
+    }
+  for (let sy = ay0; sy <= ay1; sy++) {
+    const py = (sy + 0.5) * invR;
+    const ty0 = Math.floor(sy / R);
+    const j = sy - ty0 * R;
+    for (let sx = ax0; sx <= ax1; sx++) {
+      const px = (sx + 0.5) * invR;
+      const tx0 = Math.floor(sx / R);
+      const t0 = (j * R + sx - tx0 * R) * NEAR;
+      let lx = 0;
+      let ly = 0;
+      let d = 0;
+      let top = -SHADOW_OFFSET;
+      let end = (highest - top) / tanE;
+      let done = false;
+      for (let k = 0; k < NEAR; k++) {
+        const dk = nearD[t0 + k];
+        if (dk >= end) {
+          done = true;
+          break;
+        }
+        const qx = tx0 + nearX[t0 + k] - wx0;
+        const qy = ty0 + nearY[t0 + k] - wy0;
+        if (qx < 0 || qy < 0 || qx >= ww || qy >= wh) {
+          done = true;
+          break;
+        }
+        lx = qx;
+        ly = qy;
+        d = dk;
+        const v = cast[ly * ww + lx] - dk * tanE;
+        if (v > top) {
+          top = v;
+          end = (highest - top) / tanE;
+        }
+      }
+      if (done) {
+        out[sy * SW + sx] = top;
         continue;
       }
-      const m1 = m + mStep;
-      let top: number;
-      if (g.t === 1) {
-        // (on a diagonal, the one sample toward the sun)
-        if (m1 < 0 || m1 >= M) {
-          out[s] = -SHADOW_OFFSET;
-          continue;
+      for (;;) {
+        // (the largest block round this tile that nothing in can shade the sample: out of it at once; nothing in its
+        // block of 16 nor along that block's strip toward the sun: done; each test only when the smaller one passed)
+        const fall = d * tanE;
+        let size = 1;
+        if (max4[(ly >> 2) * w4 + (lx >> 2)] - fall <= top) {
+          size = 4;
+          const b16 = (ly >> 4) * w16 + (lx >> 4);
+          if (max16[b16] - fall <= top) {
+            if (ahead16[b16] - fall <= top) break;
+            size = 16;
+          }
         }
-        top = Math.max(occAt(du, m1), out[at(du, m1)]);
-      } else {
-        const v0 = Math.max(occAt(du, m), out[at(du, m)]);
-        if (g.t === 0) top = v0;
-        else {
-          const v1 = m1 < 0 || m1 >= M ? -SHADOW_OFFSET : Math.max(occAt(du, m1), out[at(du, m1)]);
-          top = (1 - g.t) * v0 + g.t * v1;
+        const m = size - 1;
+        const nextX = (wx0 + lx - (lx & m) + fx * size - px) * ix;
+        const nextY = (wy0 + ly - (ly & m) + fy * size - py) * iy;
+        // (the tile the ray is in just past where it leaves: through a corner, as on a diagonal, the one across it,
+        // the tiles beside it only touched)
+        d = nextX < nextY ? nextX : nextY;
+        if (d >= end) break;
+        const qx = px + (d + tiny) * ux - wx0;
+        const qy = py + (d + tiny) * uy - wy0;
+        if (qx < 0 || qy < 0 || qx >= ww || qy >= wh) break;
+        lx = qx | 0;
+        ly = qy | 0;
+        const v = cast[ly * ww + lx] - d * tanE;
+        if (v > top) {
+          top = v;
+          end = (highest - top) / tanE;
         }
       }
-      out[s] = top - drop;
+      out[sy * SW + sx] = top;
     }
   }
 }
@@ -415,8 +540,9 @@ function shadowBytes(tops: { hi: Float32Array; lo: Float32Array }, bytes: Uint8A
         hi = two[0];
         lo = two[1];
       }
-      bytes[k * 4] = encodeTop(hi);
-      bytes[k * 4 + 1] = encodeTop(lo);
+      const b = encodeTop(hi);
+      bytes[k * 4] = b;
+      bytes[k * 4 + 1] = lo === hi ? b : encodeTop(lo);
       bytes[k * 4 + 3] = 255;
     }
 }
@@ -437,7 +563,9 @@ export function shadowTopsPair(W: number, H: number, heights: Uint8Array, caster
     shadowTopsInto(out, W, H, heights, casters, elevation, 0, W * SHADOW_RES - 1, 0, H * SHADOW_RES - 1, rock, sun);
     return out;
   };
-  return { hi: tops(LIGHT.sunElevation + LIGHT.penumbra), lo: tops(LIGHT.sunElevation - LIGHT.penumbra) };
+  const hi = tops(LIGHT.sunElevation + LIGHT.penumbra);
+  // (with no penumbra the two are one walk)
+  return { hi, lo: LIGHT.penumbra === 0 ? hi.slice() : tops(LIGHT.sunElevation - LIGHT.penumbra) };
 }
 
 /** The shadow map's samples `shadowPairRect` redoes for tiles x0…x1 × y0…y1 (unclipped): the
@@ -529,18 +657,30 @@ export function shadowPairRect(tops: { hi: Float32Array; lo: Float32Array }, byt
         kept.lo.set(tops.lo.subarray(sy * SW + ax0, sy * SW + ax1 + 1), (sy - ay0) * w);
       }
     }
-    shadowTopsInto(tops.hi, W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
-    shadowTopsInto(tops.lo, W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+    pairTopsInto(tops, W, H, heights, casters, sx0, sx1, sy0, sy1, rock, sun);
     if (kept) shadowBytes(tops, bytes, W, H, heights, casters, rock, ax0, ax1, ay0, ay1, kept, sun);
     return;
   }
-  shadowTopsInto(tops.hi, W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
-  shadowTopsInto(tops.lo, W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+  pairTopsInto(tops, W, H, heights, casters, sx0, sx1, sy0, sy1, rock, sun);
   shadowBytes(tops, bytes, W, H, heights, casters, rock, sx0, sx1, sy0, sy1, undefined, sun);
 }
 
-/** The shadow map as RGBA bytes (W·R × H·R): R the shadow top with the sun a little higher, G a
- *  little lower (the penumbra between them). `rock` as for `shadowPairRect`. */
+/** Both tops of samples sx0…sx1 × sy0…sy1 (with no penumbra one walk, copied). */
+function pairTopsInto(tops: { hi: Float32Array; lo: Float32Array }, W: number, H: number, heights: Uint8Array, casters: Float32Array | null, sx0: number, sx1: number, sy0: number, sy1: number, rock: ShadowRock | null, sun: Sun): void {
+  shadowTopsInto(tops.hi, W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+  if (LIGHT.penumbra !== 0) {
+    shadowTopsInto(tops.lo, W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+    return;
+  }
+  const SW = W * SHADOW_RES;
+  const ax0 = Math.max(0, sx0);
+  const ax1 = Math.min(SW - 1, sx1);
+  for (let sy = Math.max(0, sy0); sy <= Math.min(H * SHADOW_RES - 1, sy1); sy++) if (ax1 >= ax0) tops.lo.set(tops.hi.subarray(sy * SW + ax0, sy * SW + ax1 + 1), sy * SW + ax0);
+}
+
+/** The shadow map as RGBA bytes (W·R × H·R): R the shadow top with the sun `LIGHT.penumbra` higher, G as much
+ *  lower (the same while that is 0; the shader turns to sun over `EDGE_BAND` round them). `rock` as for
+ *  `shadowPairRect`. */
 export function shadowMap(W: number, H: number, heights: Uint8Array, casters: Float32Array | null, keep?: { hi: Float32Array; lo: Float32Array }, rock: ShadowRock | null = null, sun: Sun = DEFAULT_SUN): Uint8Array {
   const tops = shadowTopsPair(W, H, heights, casters, rock, sun);
   if (keep) {
@@ -552,10 +692,13 @@ export function shadowMap(W: number, H: number, heights: Uint8Array, casters: Fl
   return out;
 }
 
-/** How lit a point at height z is, 0–1, from its shadow sample (the shader's rule). */
+/** The height over which the shadow's top turns from shadow to sun: `LIGHT.edge` of ground along the sun's way. */
+export const EDGE_BAND = LIGHT.edge * Math.tan(LIGHT.sunElevation);
+
+/** How lit a point at height z is, 0–1, from its shadow sample (the shader's rule): sun over EDGE_BAND round the top
+ *  (the two tops' middle, the same top while `LIGHT.penumbra` is 0). */
 export function litFraction(z: number, topHigh: number, topLow: number): number {
-  const span = Math.max(0.05, topLow - topHigh);
-  return Math.max(0, Math.min(1, (z - topHigh) / span));
+  return Math.max(0, Math.min(1, (z - (topHigh + topLow) / 2) / EDGE_BAND + 0.5));
 }
 
 /** The water byte's steps a level of depth to three levels deep (`waterByte`; the terrain shader reads the depth back

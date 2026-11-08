@@ -72,7 +72,7 @@ import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_UI } f
 import { DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
 import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./shoreFilm";
-import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
+import { EDGE_BAND, SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
 import { CUT_SLACK } from "./cutWater";
 import { FALL } from "./waterMesh";
@@ -874,6 +874,10 @@ const CAVE_FLOW = /* glsl */ `
       }
       #endif`;
 
+/** The sun shadow's change across a pixel (`sunPx`), from the world position's: the height's own and, as a shadow's top
+ *  falls tan(elevation) a tile along the sun's way, the ground's. Run at the top of a main, outside any branch. */
+const SUN_PX_GLSL = /* glsl */ `sunPx = fwidth(vWorld.y) + ${f(Math.tan(LIGHT.sunElevation))} * max(fwidth(vWorld.x), fwidth(vWorld.z));`;
+
 /** Shared GLSL: the scene's uniforms, the patterns, the baked shadow, the light and the finish. */
 const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   uniform vec3 sunDir;
@@ -926,7 +930,11 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   float cobble(vec2 p) {
     return texture2D(patternTex, p / vec2(${f(COBBLE_CELLS[0])}, ${f(COBBLE_CELLS[1])})).b;
   }
-  /** How lit a point at height z above tile position g is (the baked sun shadow, soft). */
+  /** How far a point's height above its shadow's top changes across this pixel (levels): set at the top of each main
+   *  that shades the sun (\`SUN_PX_GLSL\`), 0 where none does. */
+  float sunPx = 0.0;
+  /** How lit a point at height z above tile position g is (the baked sun shadow, soft over a constant width of
+   *  ground, light.ts \`litFraction\`; never narrower than a pixel, so a far view's edge does not step). */
   float ${h?.sunLit ? "bakedSunLit" : "sunLit"}(vec2 g, float z) {
     #if LITE
       return 1.0;
@@ -934,7 +942,7 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
     vec4 s = texture2D(lightTex, g / mapSize);
     float hi = s.r * ${f(255 / SHADOW_SCALE)} - ${f(SHADOW_OFFSET)};
     float lo = s.g * ${f(255 / SHADOW_SCALE)} - ${f(SHADOW_OFFSET)};
-    return clamp((z - hi) / max(0.05, lo - hi), 0.0, 1.0);
+    return clamp((z - 0.5 * (hi + lo)) / max(${f(EDGE_BAND)}, sunPx) + 0.5, 0.0, 1.0);
   }${hook(h, "decl")}${hook(h, "sunLit")}
   /** A hatched overlay (dam sites) at tile position g: inside, light stripes in the tile's
    *  overlay colour and dark stripes (solid light where a stripe would be under two pixels); just
@@ -1501,6 +1509,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
 ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.9 + 0.15 * n2), bed);
       }
       void main() {
+        ${SUN_PX_GLSL}
         vec3 n = normalize(vNormal);
         vec3 p = vWorld - n * 0.01;
         vec2 g = vec2(p.x, -p.z);
@@ -2003,6 +2012,7 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
       vec2 waterFlow(vec2 g) { return waterFlowOf(texture2D(flowTex, g / mapSize).rg); }
 ${WATER_SOURCE_GLSL}
       void main() {
+        ${SUN_PX_GLSL}
         vec3 n = normalize(vNormal);
         float depth = vData.x;
         float cont = clamp(vData.y, 0.0, 1.0);
@@ -2479,6 +2489,7 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
       uniform vec4 objectFade;
       ${common(h)}${CAVE_POINT}${DITHER_GLSL}
       void main() {
+        ${SUN_PX_GLSL}
         // the game's layers: what stands above the slice is cut away
         if (vWorld.y > slice + 0.02) discard;
         // hidden, or faded round the pointer where it is drawn by a dither (objectFade.ts)
