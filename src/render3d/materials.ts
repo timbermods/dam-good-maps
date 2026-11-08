@@ -335,8 +335,6 @@ export function soilPatternTexture(): DataTexture {
   return (soilTex = t);
 }
 
-/** The bake worker's surface, badwater's pattern and contaminated ground's (high/bake.ts `waterTexture`) into the
- *  page's textures. */
 /** The light look's one pattern, the still detail albedo (bake.ts "detailTexture"), written into badwater's texture's B
  *  (its R and G stay at their means: the light look never reads them). */
 export function fillDetailTexture(detail: Uint8Array): void {
@@ -346,6 +344,8 @@ export function fillDetailTexture(detail: Uint8Array): void {
   b.needsUpdate = true;
 }
 
+/** The bake worker's surface, badwater's pattern and contaminated ground's (high/bake.ts `waterTexture`) into the
+ *  page's textures. */
 export function fillWaterTexture(data: Uint8Array, bad: Uint8Array, soil: Uint8Array): void {
   const t = waterSurfaceTexture();
   (t.image.data as Uint8Array).set(data);
@@ -1814,6 +1814,9 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
           // (water below its tile's surface water: its own column's current, not the water's seen from above)
           waterOwnFlow = ownFlowAt(inWater);
         #endif
+        // the game's still detail albedo here (Q9 P6), which clean water's colour × its albedo and badwater's base colour
+        // are overlaid with: at xz × 0.015, not carried by the flow, in every look (the game's Low quality draws it too)
+        waterDetail = waterDetailAt(g);
         // the game's waterfall mask here (fallMask.ts, Q9 P1: on the water a fall lands in), which takes off its camera
         // highlight and its refraction and shows less of the ground behind; none in the light look (the game's Low
         // quality makes none) nor on water below its tile's surface water (the mask is the surface water's)
@@ -1856,9 +1859,6 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         // badwater's pattern the flow carries (Q9 P9: R its base colour's, G its emissive detail's; the light look, as the
         // game's Low quality, flat at its mean)
         vec2 bpat = BADWATER_PATTERN_FLAT;
-        // the game's still detail albedo here (Q9 P6), which clean water's colour × its albedo and badwater's base colour
-        // are overlaid with: at xz × 0.015, not carried by the flow, in every look (the game's Low quality draws it too)
-        waterDetail = waterDetailAt(g);
         vec3 N = n;
         // the surface the flow carries, as the game draws it (Q9 P5, P11; waterTextures.ts): two phases of its textures
         // riding each column's outflow, the albedo multiplying the colour and the ripples the surface's normal; on a

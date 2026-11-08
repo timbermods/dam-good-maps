@@ -10,9 +10,9 @@
 // shaders read with the per-tile overlay; the default camera looks as the game's does, 30° east of
 // north and 70° down. The water's surface moves (at 30 frames a second at most) unless the viewer
 // prefers reduced motion, the browser renders in software, or the view is hidden. A browser that
-// renders in software gets a lighter look: no multisampling, no patterns or shadows, soil without
-// blending, and models of a few triangles. A mine site's pit is cut into the terrain's tops (its
-// model draws the pit), again wherever the objects change.
+// renders in software gets a lighter look: no multisampling, no shadows, no patterns but the water's
+// still detail, soil without blending, and models of a few triangles. A mine site's pit is cut into
+// the terrain's tops (its model draws the pit), again wherever the objects change.
 //
 // The look (Map look 2, PLAN §20 D284): Standard, as above; High (render3d/high), the same scene
 // drawn with the High materials, chosen automatically where it runs smoothly and falling back to
