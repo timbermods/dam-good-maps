@@ -61,11 +61,12 @@ mod and one-click play are set aside (#709 stays on `hold`). The work, in this o
   - badwater's colour as the game draws it: done (#826, #830, #832, #836, #839, #842, #844, #847, #851, #852);
   - dry land that reads dry: in progress (#853);
   - grass in the game's light: #854 (the light holds to a luma; Standard's shadow edge the game's in-play width, #855; the judge's gap is the textures where its samples sit);
-  - light in caves, and overhangs and arches that read: measured readable in #820; to capture again once after #852;
+  - light in caves, and overhangs and arches that read: done (#820; captured again after #852–#855 on `fix/high-shadow-edge`: the roofed faces hold, cave 41 High / 43 Standard);
+  - High's shadow edge as the game's: `fix/high-shadow-edge` (0.5–0.6 → 0.13–0.17 of a tile at 128²; 4096 for the game's 0.11 is planning's call);
   - the hero picture: done (#441, #809, #811);
   - the first Erode's freeze: fixed on dev (the re-judge of the 10-29 audit, 2026-11-07);
-  - a calm placement outline: next;
-  - then the look audit's smaller items.
+  - a calm placement outline: done (#679, merged 2026-10-30);
+  - the look audit's smaller items: done (re-judged 2026-11-07).
 - **Showcase maps made by hand** with the editor, to find what the tools can't yet do.
 
 **Wave 2**

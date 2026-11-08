@@ -26,7 +26,7 @@
 // chose: docs/decisions-pending.md #110).
 
 import { HIGH_WATER_GLSL, WATER_LIGHT } from "../waterPalette";
-import { GAME_LIGHT } from "../palette";
+import { GAME_LIGHT, LIGHT } from "../palette";
 import { RUN_LEVELS } from "../runSoil";
 
 /** A number as GLSL writes a float. */
@@ -48,8 +48,10 @@ export type Switch = (typeof SWITCHES)[number];
 
 const switches = (names: readonly Switch[]) => `\n  uniform float ${names.join(", ")};`;
 
-/** Soft shadows from the real meshes (#38): the sun's depth map, 25 taps, a receiver-plane bias so
- *  sloping surfaces don't stripe; off, the baked shadow. */
+/** Soft shadows from the real meshes (#38): the sun's depth map, read as four bilinear compares (each its four
+ *  texels' share the point is in front of), a receiver-plane bias so sloping surfaces don't stripe; off, the baked shadow. The taps spread so the edge
+ *  is the game's in play (`LIGHT.edge` along the sun's way: about 1.4 of the game's texels; docs/progress/3d-view.md,
+ *  "High's shadow edge"), never under half a texel of the map nor half a pixel of the screen. */
 const SHADOW_GLSL = /* glsl */ `
   uniform sampler2D hlDepth;
   uniform mat4 hlShadowMatrix;
@@ -65,32 +67,61 @@ const SHADOW_GLSL = /* glsl */ `
     vec2 gradient = vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / (solvable ? determinant : 1.0);
     return solvable ? gradient : vec2(0.0);
   }
+  /** The depth map's uv per tile of the world, along its u and v (the matrix's rows' scale, halved to uv). */
+  vec2 hlUvPerTile() {
+    return 0.5 * vec2(length(vec3(hlShadowMatrix[0][0], hlShadowMatrix[1][0], hlShadowMatrix[2][0])), length(vec3(hlShadowMatrix[0][1], hlShadowMatrix[1][1], hlShadowMatrix[2][1])));
+  }
+  /** The taps' half spread (uv): a 2 x 2 of bilinear compares turns from shadow to sun over about 0.8 x (a texel + the
+   *  spread), so the spread that makes that the game's width across the light, at least half a texel (finer, a tap's
+   *  own texels show) and half the pixel's footprint \`pixel\` (finer, a far view's edge would step). */
+  vec2 hlSpread(vec2 pixel) {
+    vec2 want = 0.5 * (${g(LIGHT.edge * Math.sin(LIGHT.sunElevation) / 0.8)} * hlUvPerTile() - vec2(hlTexel));
+    return max(max(want, vec2(0.5 * hlTexel)), 0.5 * pixel);
+  }
+  /** The share of the four texels round uv the depth \`ref\` is in front of, weighted as a bilinear read (fetched, so
+   *  no gradient is taken in a branch or a loop). */
+  float hlCompare(vec2 uv, float ref) {
+    float size = 1.0 / hlTexel;
+    vec2 f = uv * size - 0.5;
+    vec2 w = fract(f);
+    ivec2 i = ivec2(floor(f));
+    ivec2 top = ivec2(int(size) - 1);
+    float a = step(ref, texelFetch(hlDepth, clamp(i, ivec2(0), top), 0).r);
+    float b = step(ref, texelFetch(hlDepth, clamp(i + ivec2(1, 0), ivec2(0), top), 0).r);
+    float c = step(ref, texelFetch(hlDepth, clamp(i + ivec2(0, 1), ivec2(0), top), 0).r);
+    float d = step(ref, texelFetch(hlDepth, clamp(i + ivec2(1, 1), ivec2(0), top), 0).r);
+    return mix(mix(a, b, w.x), mix(c, d, w.x), w.y);
+  }
+  /** How lit the depth map has q (uv and depth), through four bilinear compares spread h about it. */
+  float hlTaps(vec3 q, vec2 gradient, float bias, vec2 h) {
+    float light = 0.0;
+    for (int k = 0; k < 4; k++) {
+      vec2 offset = vec2(k == 0 || k == 2 ? -h.x : h.x, k < 2 ? -h.y : h.y);
+      light += hlCompare(q.xy + offset, q.z + dot(gradient, offset) - bias);
+    }
+    return light * 0.25;
+  }
   float sunLit(vec2 g, float z) {
     // (the derivatives first, outside any branch or loop; the depth read at its own level)
     vec3 n = normalize(vNormal);
     // (pushed off the surface along its normal, more the more it turns from the sun, by the depth map's texels:
     // a wall the sun grazes is drawn in the map as thin slivers of its own triangles, and with too small a push
     // it shadowed itself in their pattern, a dotted seam down a close wall; the map's texel in the world from the
-    // matrix's scale, an orthographic one's the same across)
-    float texelWorld = 2.0 * hlTexel / length(vec3(hlShadowMatrix[0][0], hlShadowMatrix[1][0], hlShadowMatrix[2][0]));
+    // matrix's scale, the coarser of its two axes)
+    vec2 uvPerTile = hlUvPerTile();
+    float texelWorld = hlTexel / min(uvPerTile.x, uvPerTile.y);
     float grazing = 1.0 - clamp(abs(dot(n, sunDir)), 0.0, 1.0);
     vec4 p = hlShadowMatrix * vec4(vWorld + n * (0.045 + 1.5 * texelWorld * grazing), 1.0);
     vec3 q = p.xyz / p.w * 0.5 + 0.5;
     vec3 dx = dFdx(q), dy = dFdy(q);
     vec2 gradient = receiverGradient(dx, dy);
     gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
-    float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
+    // (each tap compares its four texels at its own point's depth: up to a texel off the plane)
+    float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel));
+    vec2 h = hlSpread(max(abs(dx.xy), abs(dy.xy)));
     float lit = 1.0;
     if (hlShadows < 0.5) lit = bakedSunLit(g, z);
-    else if (all(greaterThanEqual(q, vec3(0.0))) && all(lessThanEqual(q, vec3(1.0)))) {
-      float light = 0.0;
-      for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++) {
-        vec2 offset = vec2(float(x), float(y)) * hlTexel * 0.8;
-        float d = textureLod(hlDepth, q.xy + offset, 0.0).r;
-        light += step(q.z + dot(gradient, offset) - bias, d);
-      }
-      lit = light / 25.0;
-    }
+    else if (all(greaterThanEqual(q, vec3(0.0))) && all(lessThanEqual(q, vec3(1.0)))) lit = hlTaps(q, gradient, bias, h);
     return lit;
   }
   /** The soft shadow at a point on open ground facing up (a cave's roof line, seen from inside). */
@@ -103,13 +134,8 @@ const SHADOW_GLSL = /* glsl */ `
     vec3 dy = (hlShadowMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz * 0.5;
     vec2 gradient = receiverGradient(dx, dy);
     gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
-    float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
-    float light = 0.0;
-    for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++) {
-      vec2 offset = vec2(float(x), float(y)) * hlTexel * 0.8;
-      light += step(q.z + dot(gradient, offset) - bias, textureLod(hlDepth, q.xy + offset, 0.0).r);
-    }
-    return light / 25.0;
+    float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel));
+    return hlTaps(q, gradient, bias, hlSpread(vec2(0.0)));
   }
 `;
 
