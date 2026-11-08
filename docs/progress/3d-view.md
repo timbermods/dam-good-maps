@@ -1206,8 +1206,9 @@ the game's models in resources.assets (positions, materials and texture means on
   view, in the day's light, the game's own pixels read L* 27.5 for pure badwater a level or two deep (73 tiles) against
   31.7 for clean water (10,063); only toward sunset does the order turn (islands-128-2-end, 55 % of the way to the
   sunset's light: 33.3 against 28.2), the frame `fix/water-badwater`'s amendment rested on. That amendment is withdrawn
-  (D496 amended again): badwater the darker, by about the game's 4 L*, which `look-water-slopes` holds from half a level
-  to two levels deep and `waterShown`'s order checks hold on the shipped colours.
+  (D496 amended again): badwater the darker, which `look-water-slopes` holds from half a level to two levels deep and
+  `waterShown`'s order checks hold on the shipped colours. The game's gap is 4.2 L*; ours is wider (`fix/water-veins`
+  below).
 - **Badwater's colour by look** (`GAME_BADWATER.use`, split: `BADWATER_FORMULA` for Standard and the light look,
   `BADWATER_FORMULA_HIGH` for High's water): pure badwater, ours / the formula, at the frames' hours (4,592 tiles)
   Standard 18.0 / 8.3, High 9.8 / 10.9; by day (104 tiles) Standard 19.3 / 12.9, High 12.5 / 15.8; the mixed front (19,318) Standard 14.7 / 9.7, High 9.4 / 11.2. Standard takes the
@@ -1219,6 +1220,37 @@ the game's models in resources.assets (positions, materials and texture means on
   darker where the game shows a top's colour (lakeBasin-1, highlands-1), likely the game's bevelled `CliffEdge`
   geometry rather than the light; High's grass albedo 68/78/31 against the game's 74/80/28 (its soil edges and colour
   variation); the formula reads 3–4 L* too dark; the veins; the day's badwater evidence is 104 tiles.
+
+## The clear water view, the mine pit and the badwater gap (D496, D497; `fix/water-veins`)
+
+- **The clear water view keeps the look's badwater:** with T on, clean water turns to a veil over the badwater it
+  carries; that badwater came from Standard's formula in both looks, so High's T view showed brown water over its
+  crimson. The water shader now names it `clearBad` (materials.ts) and High's hook sets its own (`hlBadLit`, the
+  crimson lit, with its glowing lines, and on faces the face's badwater), so each look's T view shows its own badwater.
+  `look-readable` and `highLook` hold the wiring.
+- **The mine pit by day is lighter than badwater, in the game and in ours:** the judge's new `--water pit` (the 3 × 3
+  centre of each `UndergroundRuins` pit floor, 0.02 above it) on sixteen day-lit start shots: the game's pits read L*
+  43.4 (114 samples, seven shots) against 32.3 for pure badwater (172 tiles, six shots); on the three shots with both,
+  pit 49.6, 41.6, 38.9 against badwater 27.9, 27.0, 34.2. Ours: Standard 40.8 against 29.5, High 48.9 against 30.7.
+  D496's "a mine pit darker than badwater" and D154's 5 L* margin (#682, D324 (a)) are gone (D496 amended, D154
+  marked); `look-mine-ruins` now holds the pit lighter than each look's badwater by day, from half a level to two
+  levels deep. Standard's pit sits 2.6 L* under the game's.
+- **The badwater gap:** D496 now states the game's measured gap by day, 4.2 L* (27.5 against 31.7), and ours: 8.4 in
+  Standard (24.8 against 33.2), 6.0 in High (26.3 against 32.3). `look-water-slopes` adds that High's badwater body is
+  darker than clean water from half a level to a level.
+- **The ambient term's wording:** D497 and this file say the same: the decompile shows `Sun` setting Trilight and its
+  three colours every frame and never `RenderSettings.ambientIntensity`; Trilight ignoring 1.2 is Unity's behaviour.
+- **The sheet:** `docs/sheets/water-pit-clear.jpg` (`tools/capture-water-pit.ts`): dev against this branch, Standard
+  and High, badwater meeting clean water, pure badwater with T on, the front with T on, a mine pit.
+- **Falls short (the next PR):** the clean water by band is not too dark on the judge (Standard 40.3/35.9/32.2/28.3
+  against the game's 35.6/33.0/30.7/28.0 at 0.05–0.5/0.5–1/1–2/2–3 levels; High 39.4/35.0/31.4/27.4); the 3–4 L* is
+  the badwater formula's (Standard 32.0/24.7/24.9 against the game's 33.5/27.0/27.9 at 0.5–1/1–2/2–3; High's
+  formula 29.8/22.5/22.4). The game's badwater by day is 68/63/59 against the formula's 60/58/57, a warm addition of
+  about 8/5/2, the shape of the glow's colour, so likely the emission; High lacks the sky's reflection and highlight
+  (Q9 (c)); water takes the land's diffuse 0.912 where water's metallic 0 gives 0.96. Not settled here, so the gap's size has no
+  test yet. The veins: the game's are a dense rusty network (texture alpha 20 %, colour 78/33/5, L* 19, cells about
+  half a tile over a 4-tile repeat, no glow; weight `saturate((c^0.65 + 0.975 (noise − 0.45) − 0.5) × 18 + 0.5)`
+  from four taps 0.2 apart); ours are sparse (about 4 %), redder and glowing; both wait on the next PR.
 
 ## The rest of the step (next parts)
 
