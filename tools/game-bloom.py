@@ -17,11 +17,16 @@ target keeps values over 1 for the bloom's prefilter.
 
 With `--frames <glob>` it then runs URP's Gaussian Bloom, at those values, on frames (the probe's in-game shots, or the
 editor's captures), as an upper bound of what it adds: each pixel is taken back through the game's post chain
-(palette.ts GAME_FINISH: Neutral tonemap, contrast, a grey's curve per channel) to its value before the grade, a
-saturated channel at the clamp's ceiling (the chain saturates at 2 in linear values, where the bloom's clamp also
-holds); the prefilter (sRGB to linear under Gamma, the clamp, the soft knee at half the threshold in linear values,
-`Mathf.GammaToLinearSpace(threshold)`), a half-resolution pyramid of `maxIterations` levels blurred by URP's 9-tap
-Gaussian, the upsampling's lerp by the scatter (lerp(0.05, 0.95, scatter)), × the intensity, added before the grade.
+(palette.ts GAME_FINISH: Neutral tonemap, contrast, a grey's curve per channel) to its display value before the grade
+(the game renders in Gamma colour space, so its frame holds display values), a saturated channel at the clamp's
+ceiling, 2 (the chain reaches 255 from a display value of 1.28); then as the game's compiled programs do (its
+`globalgamemanagers.assets` "Hidden/Universal Render Pipeline/Bloom" and "UberPost", read with D3DDisassemble; the
+editor's render3d/bloom.ts draws the same): the prefilter on those display values (the clamp, then the soft knee at half
+the threshold, `Mathf.GammaToLinearSpace(threshold)` 2.537 taken against display values, so only a pixel brighter than
+1.269 feeds it), a half-resolution pyramid of `maxIterations` levels blurred by URP's 9-tap Gaussian, the upsampling's
+lerp by the scatter (lerp(0.05, 0.95, scatter)), × the intensity, added to the frame's colour in linear values before
+the grade (each pass stores its result's square root and squares what it reads, so what is added is the blurred
+prefilter itself; this filters it linearly, a little apart from the game's filtering of the roots).
 It prints, per frame, how many pixels pass the knee and how much of the frame the bloom would lift by 1, 2 and 4 luma
 (0-255) and by how much at most. Nothing from the game is written anywhere.
 
@@ -151,6 +156,11 @@ def _from_logc(x):
     return np.where(x < 5.301883 * 0.011361 + 0.092819, (x - 0.092819) / 5.301883, (10 ** ((x - 0.386036) / 0.244161) - 0.047996) / 5.555556)
 
 
+def _linear(d):
+    """Display values (above 1 too) to linear ones (sRGB's curve)."""
+    return np.where(d <= 0.04045, d / 12.92, ((np.maximum(d, 0) + 0.055) / 1.055) ** 2.4)
+
+
 def _display(c):
     return np.where(c < 0.0031308, c * 12.92, 1.055 * np.maximum(c, 0) ** (1 / 2.4) - 0.055)
 
@@ -166,7 +176,7 @@ def post(lin):
 GAUSS = np.array([0.01621622, 0.05405405, 0.12162162, 0.19459459, 0.22702703, 0.19459459, 0.12162162, 0.05405405, 0.01621622])
 
 
-def bloom_of(lin, s):
+def bloom_of(display, s):
     from scipy import ndimage
 
     def blur(a):
@@ -180,9 +190,9 @@ def bloom_of(lin, s):
     def up(a, shape):
         return ndimage.zoom(a, (shape[0] / a.shape[0], shape[1] / a.shape[1], 1), order=1, mode="nearest")[:shape[0], :shape[1]]
 
-    threshold = s["threshold_linear"]
+    threshold = s["threshold"]
     knee = threshold / 2
-    c = np.minimum(lin, s["clamp"])
+    c = np.minimum(display, s["clamp"])
     bright = c.max(axis=2, keepdims=True)
     soft = np.clip(bright - threshold + knee, 0, 2 * knee)
     soft = soft * soft / (4 * knee + 1e-4)
@@ -193,24 +203,25 @@ def bloom_of(lin, s):
     scatter = 0.05 + 0.9 * s["scatter"]
     for i in range(levels - 2, -1, -1):
         mips[i] = mips[i] + (up(mips[i + 1], mips[i].shape) - mips[i]) * scatter
-    return up(mips[0], lin.shape) * s["intensity"]
+    return up(mips[0], display.shape) * s["intensity"]
 
 
 def measure(paths, s, top):
     from PIL import Image
 
+    # display values before the grade (the game's frame) -> the canvas's codes, and back
     grid = np.linspace(0, s["clamp"], 200001)
-    levels = post(grid) * 255
+    levels = post(_linear(grid)) * 255
     inverse = np.interp(np.arange(256), levels, grid)
     inverse[255] = s["clamp"]
     luma = np.array([0.2126, 0.7152, 0.0722])
     rows = []
     for p in paths:
         a = np.asarray(Image.open(p).convert("RGB"))
-        lin = inverse[a]
-        out = np.clip(np.round(post(lin + bloom_of(lin, s)) * 255), 0, 255)
+        display = inverse[a]
+        out = np.clip(np.round(post(_linear(display) + bloom_of(display, s)) * 255), 0, 255)
         d = out @ luma - a.astype(float) @ luma
-        knee = (lin.max(axis=2) > s["threshold_linear"] / 2).mean()
+        knee = (display.max(axis=2) > s["threshold"] / 2).mean()
         rows.append((d.max(), (d >= 1).mean(), (d >= 2).mean(), (d >= 4).mean(), knee, p))
     rows.sort(key=lambda r: -r[0])
     for r in rows[:top]:
@@ -234,14 +245,15 @@ def main():
     print("Bloom:", ", ".join(f"{k} {round(v, 4) if isinstance(v, float) else v}" for k, v in bloom.items()))
     print("URP asset:", ", ".join(f"{k} {v}" for k, v in urp.items()))
     print("camera:", ", ".join(f"{k} {v}" for k, v in camera.items()))
+    # URP: Mathf.GammaToLinearSpace(threshold), which the prefilter then takes against the frame's display values
     th = ((bloom["threshold"] + 0.055) / 1.055) ** 2.4
-    s = {"threshold_linear": th, "clamp": bloom["clamp"], "intensity": bloom["intensity"], "scatter": bloom["scatter"],
+    s = {"threshold": th, "clamp": bloom["clamp"], "intensity": bloom["intensity"], "scatter": bloom["scatter"],
          "maxIterations": bloom["maxIterations"]}
-    knee_display = 1.055 * (th / 2) ** (1 / 2.4) - 0.055
-    clamp_display = 1.055 * bloom["clamp"] ** (1 / 2.4) - 0.055
-    print(f"so: the threshold {th:.3f} in linear values, its soft knee from {th / 2:.3f} (a display value of"
-          f" {knee_display:.3f} before the grade, {post(np.array(th / 2)) * 255:.0f} of 255 after it); the clamp at"
-          f" {bloom['clamp']} (display {clamp_display:.3f}, {post(np.array(bloom['clamp'])) * 255:.0f} after the grade)")
+    grid = np.linspace(0, 2, 200001)
+    full = grid[np.argmax(post(_linear(grid)) * 255 >= 254.5)]
+    print(f"so: the threshold {th:.3f} against display values before the grade, its soft knee from {th / 2:.3f}"
+          f" ({post(_linear(np.array(th / 2))) * 255:.1f} of 255 after the grade, which reaches 255 from a display value of"
+          f" {full:.3f}); the clamp at {bloom['clamp']}")
     if args.frames:
         paths = sorted(glob.glob(args.frames, recursive=True))
         if not paths:

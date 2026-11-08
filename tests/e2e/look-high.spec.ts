@@ -431,8 +431,11 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   expect(glow.cooling).not.toBeNull();
   expect(glow.cooling!).toBeLessThan(0.5);
   expect(glow.look).toBe("high");
-  // (a few hundred such pixels elsewhere on the map without it; thousands more with its lava)
-  expect(glow.hot - glow.cold, JSON.stringify({ ...glow, at })).toBeGreaterThan(2000);
+  // (a few hundred such pixels elsewhere on the map without it; thousands more with its lava). The lava goes through
+  // the game's bloom like everything else (D497 as amended 2026-11-08), whose glow over its hottest middle adds green
+  // there and turns some of it orange: a GPU counts 1,912 to 2,096 with the bloom, 2,681 without it; software drawing
+  // draws no bloom and counts about 2,360
+  expect(glow.hot - glow.cold, JSON.stringify({ ...glow, at })).toBeGreaterThan(1500);
   expect(glow.hot, JSON.stringify(glow)).toBeGreaterThan(5 * glow.cold);
   expect(errors).toEqual([]);
 });

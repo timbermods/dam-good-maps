@@ -91,6 +91,8 @@ const color = (c: Rgb) => new Color(c[0], c[1], c[2]);
 /** Uniforms every material shares: one object per value, so a change reaches them all. The refraction's (refraction.ts:
  *  the copy of the screen behind the water and its state) are the water's alone. */
 export interface SceneUniforms extends RefractionUniforms {
+  /** 1 while the frame before the grade is drawn for the bloom (bloom.ts, `BLOOM_SOURCE`). */
+  bloomSource: { value: number };
   sunDir: { value: Vector3 };
   sunColor: { value: Color };
   skyColor: { value: Color };
@@ -227,9 +229,14 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     overlayRest: { value: new Vector4(0, 0, 0, 0) },
     objectFade: { value: new Vector4(0, 0, 0, FADE_OFF) },
     objectHide: { value: 0 },
+    bloomSource: BLOOM_SOURCE,
     ...refractionUniforms(),
   };
 }
+
+/** The bloom's source pass (bloom.ts): 1 while the frame before the grade is drawn for it. One uniform every look
+ *  material shares, as a view draws its frames one at a time. */
+export const BLOOM_SOURCE = { value: 0 };
 
 let noCaveFlow: Data3DTexture | null = null;
 /** The cave current's placeholder (one still cell), shared: never read while `caveFlowLevels.y` is 0. */
@@ -1028,11 +1035,17 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
  *  ACEScc's mid grey in LogC (ALEXA LogC, URP's LinearToLogC/LogCToLinear) and saturation round the luminance, back to
  *  display values. */
 export const GAME_POST_GLSL = /* glsl */ `
+  /** 1 while the frame before the grade is drawn for the bloom (bloom.ts): a look material writes gpSource, the
+   *  colour gamePost was last given (the look, fogged, before the post chain and any editing aid), in place of its
+   *  graded colour. */
+  uniform float bloomSource;
+  vec3 gpSource;
   vec3 gpCurve(vec3 x) { return (x * (0.2 * x + 0.24 * 0.29) + 0.272 * 0.02) / (x * (0.2 * x + 0.29) + 0.272 * 0.3) - 0.02 / 0.3; }
   vec3 gpLogC(vec3 x) { return mix(5.301883 * x + 0.092819, 0.244161 * log2(max(5.555556 * x + 0.047996, 1e-6)) * 0.30103 + 0.386036, step(vec3(0.011361), x)); }
   vec3 gpFromLogC(vec3 x) { return mix((x - 0.092819) / 5.301883, (pow(vec3(10.0), (x - 0.386036) / 0.244161) - 0.047996) / 5.555556, step(vec3(5.301883 * 0.011361 + 0.092819), x)); }
   vec3 gamePost(vec3 display) {
     vec3 d = max(display, vec3(0.0));
+    gpSource = d;
     vec3 c = mix(d / 12.92, pow((d + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), d)) * ${f(Math.round(2 ** GAME_FINISH.postExposure * 1e6) / 1e6)};
     float white = 1.0 / gpCurve(vec3(5.3)).x;
     c = clamp(gpCurve(c * white) * white, 0.0, 1.0);
@@ -1896,7 +1909,7 @@ ${hook(h, "lit")}
           float edge = min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y));
           c = mix(c * 1.18, vec3(1.0), (1.0 - smoothstep(0.04, 0.09, edge)) * (n.y > 0.5 ? 0.85 : 0.0));
         }
-        gl_FragColor = vec4(c, 1.0);
+        gl_FragColor = bloomSource > 0.5 ? vec4(gpSource, 1.0) : vec4(c, 1.0);
         #if CUTAWAY
           if (cutGone) discard;
         #endif
@@ -2217,6 +2230,7 @@ ${hook(h, "water")}        #ifdef CAVES
         // the clear water's veil (D196, D212), the selection, the sources' wells and the pointer's source's glow (D196),
         // a highlighted source (D249)
         c = finish(c, vWorld);
+        float lookAlpha = alpha;
         // the game's refraction of the ground behind (refraction.ts, Q9 P2): what showing the screen behind from a
         // shifted place changes, by the share of it that shows (none on a sliver at a shore, our anti-aliasing)
         #if WATER_REFRACTS
@@ -2310,7 +2324,7 @@ ${hook(h, "water")}        #ifdef CAVES
           c = mix(c, WATER_SOURCE_LIT, lit * 0.9);
           alpha = max(alpha, mix(alpha, 0.97, lit * 0.9));
         }
-        gl_FragColor = vec4(c, alpha);
+        gl_FragColor = bloomSource > 0.5 ? vec4(gpSource, lookAlpha) : vec4(c, alpha);
       }
     `,
     transparent: true,
@@ -2368,9 +2382,10 @@ export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
           c += cloud * ${glColor(GAME_LIGHT.sun)};
         }
         // (the game's post chain grades the whole frame, the sky too)
-        gl_FragColor = vec4(gamePost(c), 1.0);
+        gl_FragColor = vec4(bloomSource > 0.5 ? c : gamePost(c), 1.0);
       }
     `,
+    uniforms: { bloomSource: BLOOM_SOURCE },
     depthTest: false,
     depthWrite: false,
   });
@@ -2531,7 +2546,8 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         // (faded round the pointer, as coverage: that share of the pixel's samples)
         if (objectFade.w > 0.5 && objectFade.w < 1.5) coverage *= vFade;
         // (the object as the game draws it, fogged and graded; a highlight, an editing aid, tints it after: D497)
-        gl_FragColor = vec4(min(finish((${hook(h, "objectFinal", "vColor * light")}) * inside, vWorld) * vAid, 1.0), coverage);
+        vec3 graded = finish((${hook(h, "objectFinal", "vColor * light")}) * inside, vWorld);
+        gl_FragColor = bloomSource > 0.5 ? vec4(gpSource, coverage) : vec4(min(graded * vAid, 1.0), coverage);
       }
     `,
   });

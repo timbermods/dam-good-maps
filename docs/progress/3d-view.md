@@ -569,21 +569,38 @@ Standard's shadow before a cave (item 8).
   - Not drawn: `m_AmbientIntensity` 1.2, settled (D497 amended 2026-11-07: the decompiled `Sun` sets
     `RenderSettings.ambientMode` to Trilight when it loads and its three colours every frame, and nothing in the
     decompiled game sets `RenderSettings.ambientIntensity`; that a Trilight ignores the multiplier is Unity's behaviour,
-    not something the decompile shows), and bloom, settled (D497 amended 2026-11-08, `fix/game-bloom`).
-  - **Bloom** (`tools/game-bloom.py`): the game's runs in play. Its profile: threshold 1.5 (gamma; 2.54 linear, a soft
-    knee from 1.27, a display value of 1.11 before the grade, 240 of 255 after it), intensity 50, scatter 0.55, clamp
-    2 (where the post chain saturates, 255), high-quality filtering, Gaussian, half resolution, 6 levels, no dirt; on at
-    Medium, High and Ultra (`BloomSetting`); the URP asset's `m_SupportsHDR` 1 (B10G11R11) and the camera's `m_HDR` 1
-    with post-processing on. The game feeds it its lights: EnvironmentURP's `_BLOOM_ENABLED` variant lets a lit
-    building's lighting map reach 2. The tool runs URP's Gaussian bloom at those values on frames as an upper bound (each
-    pixel taken back through the grade, a saturated one at the clamp). On the probe's 260 day-lit start shots it lifts
-    at most 0.22 % of a frame by 2 luma or more (0.12 % by 4; up to +50 at the middle of the start's straw-and-gold
-    marker), round the marker and the sunlit tips of crowns; land and water stay well under the knee. On 32 of our
-    frames (four maps; the start from 42 and 100, a forest, ruins; Standard and High) it would lift up to 3.8 % of a
-    frame by 2 luma, all of it round the start's near-white model (+80 to +113 in High), High's blueberries (+53 at most)
-    and the ruins' lit panels (+13): where our colours outrun the game's, not light the game has. So it is not drawn and
-    no look gains a screen pass; the start's model, the berries and the panels are for the pixel judge. An eruption's
-    lava (ours) would bloom under the game's values and stays without it.
+    not something the decompile shows).
+  - **Bloom** (D497 amended 2026-11-08, `fix/game-bloom`; `render3d/bloom.ts`, `tools/game-bloom.py`): the game's,
+    in Standard and High, not in the light look. The game's runs in play: its profile has threshold 1.5, intensity 50,
+    scatter 0.55, clamp 2, high-quality filtering, Gaussian, half resolution, 6 levels, no dirt; on at Medium, High and
+    Ultra (`BloomSetting`); the URP asset's `m_SupportsHDR` 1 (B10G11R11) and the camera's `m_HDR` 1 with
+    post-processing on. Its compiled programs (`globalgamemanagers.assets`, URP's Bloom and UberPost, `D3DDisassemble`)
+    say where it sits: the prefilter works on the frame's display values (Gamma colour space) with the threshold as
+    URP converts it, `Mathf.GammaToLinearSpace(1.5)` = 2.537, so only a pixel brighter than 1.269 (its soft knee) feeds
+    it, clamped at 2; the pyramid stores square roots; the uber pass squares the result, × 50, and adds it to the
+    linear colour before the exposure, tonemap and grade. Ours draws the same: the frame before the grade a second time
+    at half resolution into a half-float target (`bloomSource`: every look material writes the colour `gamePost` was
+    given, before any editing aid; the placement ghost and the slopes' arrows on `AID_LAYER` left out), the game's
+    pyramid pass for pass, and the canvas given what it changes, post(before + bloom) − post(before), `before` read back
+    from the canvas's code through the grey's curve (`inverseTable`), so a pixel it leaves alone keeps its every bit,
+    editing aids too. The canvas alone could not carry it: the chain reaches 255 from a display value of 1.28, under the
+    knee's middle. An eruption's lava blooms as everything does.
+  - **The colours bloom found** (D178, D496's rule: the game's albedo at our lightness; `tools/game-model-albedo.py`
+    reads a model's Timbermesh and its material, EnvironmentURP's 2 × detail × vertex colour × `_MainTex` × `_Color`,
+    VegetationURP's vertex colour × `_MainTex`, area-weighted over each triangle): the start's marker
+    (StartingLocationMaterial's `_Color` 0.5 halves its texture's greys: walls 0.395, trim 0.42, roof 0.48, the
+    openings 0.18; ours had taken the texture's 0.79 to 0.96 and stood near-white), High's berries (the blue of the
+    game's blueberry texture, 0.294/0.302/0.414; ours were #7f9bff; the grown model maps almost none of it, 0.1 % of
+    its area) and the ruins' panels (RuinColumnA–E's lightest tenth, 0.507/0.430/0.272; ours were #E3CF96). Before,
+    the bloom at the game's values would have lifted up to 1.39 % of our frames by 2 luma (+90 luma at most on High's
+    berries, +62 round the start in High); with them, no day frame of ours reaches the knee (the start from 11 to 42,
+    crowns and bushes close up, two maps, both looks: the brightest 1.26 of a knee at 1.269), as the game's own lift
+    at most 0.21 % of a frame by day, median none (the probe's 680 day-lit start shots, an upper bound).
+  - **Its cost** (`npx tsx` of a probe, RTX 2070 SUPER, 1280 × 800, River Valley 256² with dense forest and ruins,
+    orbiting, the same build with it off and on, two rounds each): the frame holds dev's in both looks, p50 7.00 ms and
+    p95 7.03 at the display's 144 Hz either way; the page's time a frame +0.6 ms in Standard (0.95 → 1.54) and +0.7 in
+    High (1.13 → 1.85); the GPU's timer +1.4 ms in High (3.1 → 4.5) and no higher in Standard (4.1 → 3.2, inside its
+    spread). Standard keeps it (D453).
 - **The game's sky** (`fix/game-sky`, after #734): its camera's skybox, read from its pixel program (shader path
   1816, `D3DDisassemble`). Its colour by the view's height is the strip "DayCycleSkybox_8k_Manual" (16 × 8192,
   RGBAHalf) at `_DayProgress` 0.2, the day (`tools/game-sky.ts` prints the 145 heights `GAME_SKY.day` keeps); its
