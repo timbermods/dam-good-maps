@@ -6,7 +6,10 @@
 //
 //   git archive --output=.scratch/judge-dev.tar origin/dev index.html real-places src public vite.config.ts tsconfig.json package.json tools/rust/vite-plugin.mjs
 //   mkdir -p .scratch/judge-dev && tar -xf .scratch/judge-dev.tar -C .scratch/judge-dev
-//   npx tsx tools/capture-water-sky.ts [--dev .scratch/judge-dev] [--out docs/sheets/water-sky.jpg]
+//   npx tsx tools/capture-water-sky.ts [--dev .scratch/judge-dev] [--out docs/sheets/water-sky.jpg] [--set WATER_GAME_LIGHT=1,...]
+//
+// `--set` draws this checkout with those shader switches (each with its High look's own) whatever it ships: the light
+// held behind its constants (waterPalette.ts WATER_LIGHT), shown beside dev.
 //
 // Our own generated map only; the views are found in this checkout's map (page side) and used for both sites.
 
@@ -25,6 +28,29 @@ const PORT = Number(arg("port") ?? 4997);
 const CLOCK = 12.5;
 const YAW = -Math.PI / 6;
 const MAP = "#s=4242&z=256&d=n&t=riverValley";
+/** `--set A=1,B=1`: the switches this checkout's shots are drawn with (as the pixel judge's `--set`). */
+const SETS: [string, string][] = (arg("set") ?? "")
+  .split(",")
+  .filter(Boolean)
+  .flatMap((kv) => {
+    const [d, v] = kv.split("=");
+    return [d, `${d}_HIGH`].flatMap((n): [string, string][] => [
+      [`#define ${n} 0`, `#define ${n} ${v}`],
+      [`#define ${n} 1`, `#define ${n} ${v}`],
+    ]);
+  })
+  .filter(([a, b]) => a !== b);
+/** Page side: each set switch swapped in every shader's source before it compiles. */
+const SET_JS = `(() => {
+  const swaps = ${JSON.stringify(SETS)};
+  for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
+    const src = C.prototype.shaderSource;
+    C.prototype.shaderSource = function (s, text) {
+      for (const [a, b] of swaps) text = text.split(a).join(b);
+      return src.call(this, s, text);
+    };
+  }
+})();`;
 
 /** Page side: the views. The lake: the most clean water round a point, seen from low (pitch 0.2, the editor's lowest
  *  is 0.18) across it; the river: the most clean water in a channel (a quarter to a half of its 11 × 11 wet) round a
@@ -90,19 +116,26 @@ async function main() {
   }
   const browser = await chromium.launch({ channel: "chrome", headless: true, args: GPU_ARGS });
   try {
-    const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
-    const page = await context.newPage();
     const errors: string[] = [];
-    page.on("pageerror", (e) => errors.push(String(e)));
-    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    const pageFor = async (set: boolean) => {
+      const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
+      if (set && SETS.length) await context.addInitScript(SET_JS);
+      const p = await context.newPage();
+      p.on("pageerror", (e) => errors.push(String(e)));
+      p.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+      return p;
+    };
     const tool = await browser.newPage();
     // the views, found in this checkout's site and used for both
+    let page = await pageFor(true);
     await open(page, ports.after, MAP);
     const views = (await page.evaluate(`(${FIND_JS})(${JSON.stringify([YAW])})`)) as Record<string, View>;
     for (const s of SCENES) if (!views[s.key]) throw new Error(`no view found for ${s.key}`);
     console.log(JSON.stringify(views));
     const got = new Map<string, Buffer>();
     for (const s of SITES) {
+      await page.context().close();
+      page = await pageFor(s.key === "after");
       await open(page, ports[s.key], MAP);
       for (const look of ["standard", "high"] as const) {
         await setLook(page, look);

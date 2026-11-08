@@ -28,7 +28,7 @@ function probeAt(y: number, mip: number): number[] {
 describe("the game's light on its water (Q9 P15)", () => {
   it("reads the game's probe by height, the roughest mip the terrain's own (GAME_ENV, the same probe)", () => {
     const rough = WATER_PROBE.colours[2];
-    const at = (y: number) => rough[WATER_PROBE.heights.indexOf(y)];
+    const at = (y: number) => rough[(WATER_PROBE.heights as readonly number[]).indexOf(y)];
     for (const [y, want] of [
       [1, GAME_ENV.up],
       [0, GAME_ENV.side],
