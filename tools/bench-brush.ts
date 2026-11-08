@@ -45,8 +45,8 @@ const TOOL = arg("tool") ?? "raise";
 const BRUSH = arg("brush") ? Number(arg("brush")) : null;
 const STRENGTH = arg("strength") ? Number(arg("strength")) : null;
 const TERRACING = arg("terracing");
-/** The tool keys (the toolbar's order). */
-const TOOL_KEY: Record<string, string> = { raise: "1", lower: "2", flatten: "3", smooth: "4", naturalize: "5" };
+/** The tool keys (the toolbar's order; 1 is Select, the brushes follow: BRUSHES in src/editor/brushes.ts). */
+const TOOL_KEY: Record<string, string> = { raise: "2", lower: "3", flatten: "4", smooth: "5", naturalize: "6" };
 const OUT = ".scratch/bench-brush-dist";
 
 interface Gpu {
