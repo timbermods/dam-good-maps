@@ -11,7 +11,7 @@ import { flowByte } from "../../src/render3d/high/bake";
 import { gameFlowOf } from "../../src/render3d/current";
 import { albedoOf, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, makeBadwaterTexture, makeWaterTexture, PATTERN_PERCENTILES, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
 import { badwaterBody, badwaterGlow, GAME_BADWATER, GAME_WATER, gameBadwaterColour, WATER, gameBadwaterEmission, gameCleanColour, gameDepthG, gameDepthR } from "../../src/render3d/waterPalette";
-import { GAME_LIGHT, gameAmbient, LIGHT, sunlitTop, waterShown } from "../../src/render3d/palette";
+import { GAME_LIGHT, gameAmbient, LIGHT, sunlitWater, waterShown } from "../../src/render3d/palette";
 import { dayLight } from "../../tools/game-day-light";
 
 const N = WATER_TEXTURE_SIZE;
@@ -250,7 +250,7 @@ describe("badwater as the game draws it (Q9 P9)", () => {
     for (const d of [0.5, 1, 2, 3]) {
       const shown = waterShown(d, 1, false);
       const ours = badwaterGlow(badwaterBody(d), WATER.bad, d, 1).map((v, k) => v * (LIGHT.sky[k] * 1.2 + LIGHT.sun[k] * 0.3 * up));
-      const want = GAME_BADWATER.use.standard ? sunlitTop(gameBadwaterColour(d, 1)) : ours;
+      const want = GAME_BADWATER.use.standard ? sunlitWater(gameBadwaterColour(d, 1)) : ours;
       for (let k = 0; k < 3; k++) expect(shown[k]).toBeCloseTo(want[k], 6);
       expect(shown[0]).toBeGreaterThan(shown[1]);
       expect(shown[1]).toBeGreaterThan(shown[2]);
@@ -262,10 +262,10 @@ describe("badwater as the game draws it (Q9 P9)", () => {
     const at = (light: ReturnType<typeof dayLight>) => {
       const body = gameBadwaterColour(1, 1);
       const amb = gameAmbient(1, light.sh);
-      return body.map((v, k) => v * GAME_LIGHT.diffuse * (amb[k] + light.sun[k] * Math.sin((light.angle * Math.PI) / 180)));
+      return body.map((v, k) => v * GAME_LIGHT.water * (amb[k] + light.sun[k] * Math.sin((light.angle * Math.PI) / 180)));
     };
     const [day, sunrise] = [at(dayLight(0.5, null)), at(dayLight(13, null))];
-    for (let k = 0; k < 3; k++) expect(day[k]).toBeCloseTo(sunlitTop(gameBadwaterColour(1, 1))[k], 6);
+    for (let k = 0; k < 3; k++) expect(day[k]).toBeCloseTo(sunlitWater(gameBadwaterColour(1, 1))[k], 6);
     expect(sunrise[0] / sunrise[2]).toBeGreaterThan((day[0] / day[2]) * 1.2);
   });
 });

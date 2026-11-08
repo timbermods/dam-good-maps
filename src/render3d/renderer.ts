@@ -311,13 +311,14 @@ export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 const WATER_FPS = 30;
 
 let waterSurface: Promise<void> | null = null;
-/** The surface the water's flow carries (waterTextures.ts), made once a page in the bake worker (about 160 ms) and
- *  written into the page's shared texture (materials.ts `waterSurfaceTexture`); the water is flat at its mean until then. */
+/** The surface the water's flow carries (waterTextures.ts) and contaminated ground's pattern (soilTexture.ts), made once
+ *  a page in the bake worker (about 300 ms) and written into the page's shared textures (materials.ts
+ *  `waterSurfaceTexture`, `soilPatternTexture`); each is flat at its mean until then. */
 function waterSurfaceMade(baker: Baker): Promise<void> {
   // (a failed bake is forgotten, so the next view tries again)
   return (waterSurface ??= baker.run({ kind: "waterTexture" }).then(
     (r) => {
-      if (r.kind === "waterTexture") fillWaterTexture(r.data, r.bad);
+      if (r.kind === "waterTexture") fillWaterTexture(r.data, r.bad, r.soil);
     },
     (e: unknown) => {
       waterSurface = null;

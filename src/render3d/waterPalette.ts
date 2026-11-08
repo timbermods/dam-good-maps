@@ -16,13 +16,11 @@
 
 export type Rgb = readonly [number, number, number];
 
-/** Badwater's crimson body (calibrated to #38's targets, then darkened a little by D324). D310 found
- *  that darkening it erased the mine pit's margin under it (`look-mine-ruins.test.ts`, Kyler's review
- *  of D177/D178, 2026-09-26: the pit stays at least 5 L* darker than badwater; they cleared it by
- *  0.4 L*), so it held. Kyler chose option (a) (D324): the pit's earth darkened first (from #373A34), then
- *  badwater (L* 29.3 to 25.6, about a tenth darker, nearer the game's own murky reading), then clean
- *  shallows brought down toward the game, every readability rule at its old strictness. Its
- *  `WATER_CALIBRATION` targets were re-measured once for it. */
+/** Badwater's crimson body (calibrated to #38's targets, then darkened a little by D324: L* 29.3 to 25.6, nearer the
+ *  game's own murky reading; its `WATER_CALIBRATION` targets were re-measured once for it). The mine pit's margin
+ *  under it that held it then (D178, D324's option (a)) is gone: by day the game draws the pit the lighter (D496 as
+ *  amended 2026-11-07, `look-mine-ruins.test.ts`). High's surface draws it (`GAME_BADWATER.use.high`); Standard
+ *  takes the game's formula. */
 const BAD_BODY: Rgb = [0.379, 0.18, 0.158];
 
 export const WATER = {
@@ -119,8 +117,9 @@ export const WATER_SURFACE = {
    *  between the 5th and 95th percentiles). We draw our own slow noise with that spread (`smoothnessSpread` × the
    *  noise's swing round its middle), panned the same way, not the game's texture. Its metallic is 0 (the texture's
    *  red), so `f0` 0.04. The sky's reflection is added on top (URP's environment term):
-   *  `reflection` × sky × (saturate(smoothness + f0) − f0) × (1 − N·V)^4 / (1 + roughness²) (`waterSkyReflect`; the
-   *  head-on f0 part stays in the calibrated body colour); `reflection` is the game's reflection intensity, 1
+   *  `reflection` × sky × (f0 + (saturate(smoothness + f0) − f0) × (1 − N·V)^4) / (1 + roughness²) (`waterSkyReflect`;
+   *  the head-on f0 part only where the game's formula draws the body: our calibrated colours hold it already);
+   *  `reflection` is the game's reflection intensity, 1
    *  (palette.ts `GAME_FINISH.reflectionIntensity`, kept here as a number: palette.ts imports this file) and `WATER.sky`
    *  its probe. The sun's glint is URP's GGX specular term × f0 (`waterSunGlint`), a faint sheen at this roughness. */
   smoothness: 0.25,
@@ -664,11 +663,12 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define WATER_SMOOTHNESS_SPREAD ${f(WATER_SURFACE.smoothnessSpread)}
   #define BADWATER_SMOOTHNESS ${f(BADWATER.smoothness)}
   /** The sky's reflection's weight at a smoothness, as the game's URP environment term (waterPalette.ts
-   *  WATER_SURFACE.smoothness): the part that rises toward the grazing angle. */
-  float waterSkyReflect(float NoV, float smoothness) {
+   *  WATER_SURFACE.smoothness): the part that rises toward the grazing angle, and headOn (0–1) of its head-on f0
+   *  part (1 where the game's formula draws the body's colour; 0 where our calibrated colour already holds it). */
+  float waterSkyReflect(float NoV, float smoothness, float headOn) {
     float pr = 1.0 - smoothness;
     float r = max(pr * pr, 0.0078125);
-    return ${f(WATER_SURFACE.reflection)} * (clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0) - ${f(WATER_SURFACE.f0)}) * pow(1.0 - clamp(NoV, 0.0, 1.0), 4.0) / (1.0 + r * r);
+    return ${f(WATER_SURFACE.reflection)} * (headOn * ${f(WATER_SURFACE.f0)} + (clamp(smoothness + ${f(WATER_SURFACE.f0)}, 0.0, 1.0) - ${f(WATER_SURFACE.f0)}) * pow(1.0 - clamp(NoV, 0.0, 1.0), 4.0)) / (1.0 + r * r);
   }
   /** The game's own highlight on the ripples (waterPalette.ts WATER_SURFACE.highlight), at a tint; the caller
    *  adds it × the sun's colour twice, before the light and after it. */

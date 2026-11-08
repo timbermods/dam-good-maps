@@ -218,7 +218,7 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   expect(errors).toEqual([]);
 });
 
-test("contamination draws the game's orange-red veins over dry earth and over grass, more with more, and clears exactly, in Standard and High (D334)", async ({ page }) => {
+test("contamination draws the game's rusty veins over dry earth and over grass, the same at any level, and clears exactly, in Standard and High (D334, D154 as amended 2026-11-07)", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
   for (const choice of ["standard", "high"] as const) {
@@ -267,11 +267,12 @@ test("contamination draws the game's orange-red veins over dry earth and over gr
     }, choice);
     for (const [soil, [some, most, cleared, again]] of Object.entries(result)) {
       const at = `${choice}, ${soil}`;
-      // sparse veins, never a tint over the whole soil, more of them the more contaminated
+      // veins, never a fill over the whole soil, and the game's same pattern at any level over a fifth (128 and 255
+      // alike: its weight is whole from the map value's fifth)
       expect(some.share, at).toBeGreaterThan(0.002);
-      expect(most.share, at).toBeGreaterThanOrEqual(some.share);
       expect(most.share, at).toBeLessThan(0.35);
-      // orange-red: where the ground changed, it turned redder
+      expect(Math.abs(most.share - some.share), at).toBeLessThan(0.02);
+      // rust: where the ground changed, it turned redder
       expect(some.redder, at).toBeGreaterThan(10);
       expect(most.redder, at).toBeGreaterThan(10);
       // cleared, the clean ground comes back: no more pixels changed than a redraw of it alone, and

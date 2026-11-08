@@ -12,8 +12,8 @@
 //   water), the landmarks' fine detail and slopes' natural material. Stage 4's seasons (straw, a heat
 //   shimmer, a sickly sky) are superseded by D250's 2026-10-29 amendment: a held day changes the haze
 //   to the game's fog colour in both looks (render3d/high/seasons.ts); its dark stain on contaminated
-//   soil by D334 (contamination's orange-red veins, the game's own, in every look: materials.ts
-//   `veinsOf`).
+//   soil by D334 (contamination's veins, the game's own pattern, in every look: materials.ts
+//   `contaminationWeight`, soilTexture.ts).
 // - Timberborn's references (D334, investigation/high-soul, adopted with the High look): exposure
 //   1.00 and a restrained grade, a lower ambient-occlusion floor, olive stone (its caustics and rolling light on
 //   the water gone with D334's water terms, 2026-11-07: the game's surface instead), pink highlights and (the game's own since D496's
@@ -36,7 +36,6 @@ export const SWITCHES = [
   "hlWater",
   "hlShadows",
   "hlStrata",
-  "hlBlend",
   "hlVariation",
   "hlGeology",
   "hlSoilCap",
@@ -129,7 +128,7 @@ const ROOFED_SUN = "(hlShadows > 0.5 ? lit : sunMarchAt(vWorld))";
 
 export function terrainHooks(): ShaderHooks {
   return {
-    ...lit(["hlStrata", "hlBlend", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], /* glsl */ `
+    ...lit(["hlStrata", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
 `),
@@ -139,11 +138,9 @@ export function terrainHooks(): ShaderHooks {
     // under a roof, the occlusion of the open ground at the roof line its light comes in by, never more
     // than here
     caveSunOpen: "hlShadows > 0.5 ? hlSunAt(mouth.xyz) : sunLit(vec2(mouth.x, -mouth.z), mouth.y)",
-    // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
-    // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
-    // (where grass meets earth, the game's share per tile, D135 as amended: the soil-edges switch is contamination's alone)
+    // (where grass meets earth, the game's share per tile, D135 as amended; where contamination ends, the game's blend
+    // too, D154 as amended 2026-11-07, so #65's soil-edges switch, which widened it, is gone)
     moist: "clamp(s.x, 0.0, 1.0)",
-    bad: "hlBlend > 0.5 ? smoothstep(0.34, 0.66, s.z + edge * 0.6) : smoothstep(0.4, 0.6, s.z + edge * 0.6)",
     // colour variation (#65): two broad world scales on the ground's colour, not its soil
     groundVariation: /* glsl */ `
         if (hlVariation > 0.5) {
@@ -165,7 +162,6 @@ export function terrainHooks(): ShaderHooks {
             float polluted = texture2D(hlFlow, g / hlFlowSize).b * soil.w;
             if (polluted > 0.0) {
               ground = mix(ground, groundDry, polluted);
-              glow = mix(glow, groundDryGlow, polluted);
             }
           }`,
     // rock (#65's strata, D334's stone): stones of unequal size and slope, soft mortar between them, calibrated as
@@ -323,9 +319,13 @@ export function waterHooks(): ShaderHooks {
             // flecks and lines down it into a bright line), as the game's face shares the surface's material
             if (!edge && vFlags < WATER_FALL_FLAGS) {
               vec3 stepBody = mix(mix(HW_SHALLOW, HW_BODY, smoothstep(0.25, 1.25, depth)), HW_DEEP, smoothstep(1.0, 3.5, depth));
-              stepBody = waterBlend(stepBody, HW_BAD * badwaterLight(depth), cont);
+              vec3 stepBad = HW_BAD * badwaterLight(depth);
+              stepBody = waterBlend(stepBody, stepBad, cont);
               vec3 hlRef = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
-              c = stepBody * (skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0) * lit) / max(hlRef, vec3(0.01));
+              vec3 stepLight = (skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0) * lit) / max(hlRef, vec3(0.01));
+              c = stepBody * stepLight;
+              // (what the clear water's veil keeps of its badwater: the step's own, at its depth, not the fall's film)
+              clearBad = stepBad * stepLight;
               alpha = cleanWaterAlpha(max(0.0, depth)) * smoothstep(0.02, 0.06, drop);
             }
             if (alpha < 0.01) discard;

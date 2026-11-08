@@ -105,7 +105,7 @@ const NET = {
 
 const TAU = Math.PI * 2;
 
-function hash(x: number, y: number, s: number): number {
+export function hash(x: number, y: number, s: number): number {
   let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(s | 0, 1442695041);
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   h ^= h >>> 16;
@@ -116,14 +116,14 @@ function hash(x: number, y: number, s: number): number {
 const wrap = (i: number, p: number) => (i < 0 ? i + p : i >= p ? i - p : i);
 
 /** A tiling value noise's lattice (period `p` cells across, `q` down; `q` = `p` by default): a random a cell. */
-function lattice(p: number, s: number, q = p): { p: number; q: number; v: Float64Array } {
+export function lattice(p: number, s: number, q = p): { p: number; q: number; v: Float64Array } {
   const v = new Float64Array(p * q);
   for (let y = 0; y < q; y++) for (let x = 0; x < p; x++) v[y * p + x] = hash(x, y, s);
   return { p, q, v };
 }
 
 /** Tiling value noise at (u, v), 0–1 across the repeat (its lattice's periods across it). */
-function valueNoise(l: { p: number; q: number; v: Float64Array }, u: number, v: number): number {
+export function valueNoise(l: { p: number; q: number; v: Float64Array }, u: number, v: number): number {
   const p = l.p;
   const q = l.q;
   const x = u * p;
@@ -146,7 +146,7 @@ function valueNoise(l: { p: number; q: number; v: Float64Array }, u: number, v: 
 }
 
 /** A tiling Voronoi's feature points (period `p` cells, one a cell, jittered) and each cell's random. */
-function cellPoints(p: number, s: number): Float64Array {
+export function cellPoints(p: number, s: number): Float64Array {
   const c = new Float64Array(p * p * 3);
   for (let y = 0; y < p; y++)
     for (let x = 0; x < p; x++) {
@@ -160,7 +160,7 @@ function cellPoints(p: number, s: number): Float64Array {
 
 /** Tiling Voronoi (period `p` cells, its points `c`) at (x, y) in cells: the nearest two feature points' distances
  *  and the nearest cell's random. */
-function voronoi(x: number, y: number, p: number, c: Float64Array, out: Float64Array): void {
+export function voronoi(x: number, y: number, p: number, c: Float64Array, out: Float64Array): void {
   const ix = Math.floor(x);
   const iy = Math.floor(y);
   let f1 = 81;

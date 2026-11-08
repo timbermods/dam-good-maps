@@ -3,8 +3,8 @@
 // always says what the scene shows. The clean view is as close to the game as we can make it with
 // our own shaders (Kyler's reference screenshots, D334: follow Timberborn's references): moist ground
 // a muted grass green (living plants grow), dry ground cracked earth in a warm brown drifting to mauve,
-// contamination a layer over either (sparse orange-red fissures, wider and glowing a little more the
-// more contaminated, through earth and grass alike), clean water a deep teal body darkening with depth, clear in
+// contamination a layer over either (the game's dense network of thin rusty cracks, through earth and grass alike,
+// with no glow), clean water a deep teal body darkening with depth, clear in
 // the shallows (the water's own palette is waterPalette.ts, D177), and ground under water a dark
 // wet bed; a toggle switches the ground to height colours.
 // Walls are cobbled stone, lighter higher up as the game's cliffs. Colours are display values (the
@@ -12,7 +12,7 @@
 //
 // Readability follows the game's own (D334): its look and its cues, with no lightness gap or pattern
 // beyond the game's. Grass reads apart from dry earth by its hue and its painted strokes, contamination by
-// its orange-red veins over either soil, badwater by its crimson, its dullness and its bubbles (and in
+// its rusty veins over either soil, badwater by its crimson, its dullness and its bubbles (and in
 // High its pink caustics; in both, the game's orange glow of its shallow edges where partly bad). Clean water reads as water by its sheen and ripple crests and its see-through shallows, and in
 // colour by its blue. Badwater is darker than clean water of the same depth, as the game's by day, darkening with depth as the game's
 // (D496), and dull; water partly
@@ -26,6 +26,7 @@
 
 import { BADWATER, BADWATER_GLOW_COLOUR, badwaterBody, badwaterGlow, badwaterRamp, blendWater, cleanWaterBody, GAME_BADWATER, GAME_WATER, gameBadwaterColour, gameBadwaterEmission, gameCleanColour, HIGH_WATER, WATER, waterBody, type Rgb } from "./waterPalette";
 import { WATER_ALBEDO } from "./waterTextures";
+import { GAME_SOIL_TEXTURE } from "./soilTexture";
 import { deadWood } from "./dying";
 
 // The water's colours, opacity and blend live in waterPalette.ts (D177); they are re-exported here
@@ -74,13 +75,6 @@ export const GROUND = {
   moistLow: [0.378, 0.388, 0.135] as Rgb,
   /** Moist ground by the water (the most moisture), a little deeper green. */
   moistHigh: [0.353, 0.372, 0.128] as Rgb,
-  /** Contamination (badwater spoils the soil and plants die) in the light look, which draws no
-   *  veins: a rust tint over dry earth... */
-  contaminated: [0.4, 0.2, 0.14] as Rgb,
-  /** ...and a dark red one over grass. */
-  contaminatedWet: [0.34, 0.09, 0.06] as Rgb,
-  /** The glow of the veins' cores (`CONTAMINATION`), added after the light. */
-  contaminatedGlow: [0.96, 0.52, 0.2] as Rgb,
   /** Ground under water (seen through it). */
   underwater: [0.36, 0.38, 0.34] as Rgb,
 } as const;
@@ -150,57 +144,78 @@ export const WALL = {
   gradient: { min: [0.4157, 0.4314, 0.4745] as Rgb, max: [0.9412, 0.9255, 0.8941] as Rgb },
 } as const;
 
-/** Contamination as a layer, as in the game (Kyler, 2026-09-25; D334: the game's own look and cues):
- *  sparse, irregular orange-red fissures over the ground's own colour, through dry earth and grass
- *  alike, thick main cracks with thinner branches meeting at the same junctions, wider and glowing a
- *  little more the more contaminated; the ground between them keeps its own colour. The terrain
- *  shader reads these (`veinsOf`, the full looks; the light look tints instead, `GROUND.contaminated`). */
+/** Contamination as a layer, as the game draws it (Kyler, 2026-09-25; D154 and D334 as amended 2026-11-07: the game's
+ *  own look and cues). Its terrain shader (TerrainURP's ForwardLit, read from `resources.assets`; the `Grass` material's
+ *  values) lays its `SoilContamination` texture over the ground's albedo, grass and dry earth alike, after the altitude
+ *  ramp and before the light: lerp(albedo, the texture's colour × `_Contamination_Color` (1), weight × its alpha), with
+ *  no emission. The texture (ours: soilTexture.ts, at its measured statistics) repeats every `repeat` tiles (world ×
+ *  `_ProjectionUVScale` 1/16 × `_Contamination_Scale` 4): a dense network of thin cracks in a dark rust (`vein`,
+ *  78/33/5) covering a fifth of the ground (`cover`). The weight: each tile's map value (decompiled
+ *  `SoilContaminationSystem.GetMapSoilContamination`: 0 clean, else 1 − `mapMax` × (1 − c / `mapFull`) up to `mapFull`
+ *  contaminated and 1 beyond; `SoilContaminationMap.blueprint`), blended across tiles by four taps `margin` round the
+ *  point as the desert's share is (`_ContaminationBlendingMargin`), raised to `nonlinearity`, held at `least` once over
+ *  0.01, then saturate((v + `noise` × (n − `noiseMid`) − 0.5) × `softness` + 0.5), n the ground's blending noise (the
+ *  desert's own sample). So any contaminated ground over a fifth takes the whole pattern, the same at any level; the
+ *  faintest shows it in patches; it ends in a noisy blend a fifth of a tile wide. The terrain shader reads these
+ *  (`contaminationWeight` in GLSL, the full looks); the light look, which draws no patterns, takes its mean
+ *  (`contaminationMean`). */
 export const CONTAMINATION = {
-  /** The veins' colour, over either soil. */
-  vein: [0.52, 0.13, 0.035] as Rgb,
-  /** How much of the soil under a vein its colour covers. */
-  cover: 0.92,
-  /** A vein's half-width, a share of the vein network's cell (about a tile and a half): its thinnest
-   *  branch and its thickest main crack... */
-  width: [0.007, 0.039] as const,
-  /** ...times this, from the least to the most contamination. */
-  widthByLevel: [0.65, 1] as const,
-  /** The glow of a vein's core, at the least and the most contamination, and how strongly the glow
-   *  shines (added after the light, so it shows in shade too). */
-  glow: [0.16, 0.3] as const,
-  glowAdd: 0.85,
-  /** The contamination (0–1) by which the veins have come in fully (none at zero). */
-  onset: 0.06,
+  /** The pattern's colour in a crack and its mean over the texture (the game's, `GAME_SOIL_TEXTURE`), 0–1. */
+  vein: GAME_SOIL_TEXTURE.vein.map((v) => v / 255) as unknown as Rgb,
+  mean: GAME_SOIL_TEXTURE.mean.map((v) => v / 255) as unknown as Rgb,
+  /** The share of the ground the cracks cover, and the pattern's mean alpha. */
+  cover: GAME_SOIL_TEXTURE.cover,
+  meanAlpha: GAME_SOIL_TEXTURE.meanAlpha,
+  repeat: 4,
+  mapMax: 0.9,
+  mapFull: 0.2,
+  margin: 0.2,
+  nonlinearity: 0.65,
+  least: 0.2,
+  noise: 0.975,
+  noiseMid: 0.45,
+  softness: 18,
 } as const;
+
+/** The game's map value for a tile's soil contamination `c` (0–1; `CONTAMINATION`). */
+export function contaminationMap(c: number): number {
+  const C = CONTAMINATION;
+  return c > 0 ? (c <= C.mapFull ? 1 - C.mapMax * (1 - c / C.mapFull) : 1) : 0;
+}
+
+/** The pattern's weight at a map value `m` (0–1, blended across tiles) and the blending noise `n` (0–1; its middle by
+ *  default), as the game's terrain shader works it (`CONTAMINATION`). */
+export function contaminationWeight(m: number, n = 0.5): number {
+  const C = CONTAMINATION;
+  let v = Math.max(0, m) ** C.nonlinearity;
+  if (v >= 0.01) v = Math.max(v, C.least);
+  return Math.max(0, Math.min(1, (v + C.noise * (n - C.noiseMid) - 0.5) * C.softness + 0.5));
+}
 
 /** With **Markers** on, an outline where contaminated ground ends: a light line between dark
  *  edges, so it shows on grass, earth and at the water's edge, in any colours. */
 export const CONTAMINATION_OUTLINE = { light: [1, 0.86, 0.6] as Rgb, dark: [0.1, 0.03, 0.02] as Rgb } as const;
 
-/** The contamination layer at a contamination level (0–1), as the terrain shader draws it: how
- *  much of it has come in (0 at zero contamination), its veins' width as a share of their widest,
- *  and the glow of their cores. */
-export function contaminationVeins(level: number): { onset: number; width: number; glow: number } {
-  const C = CONTAMINATION;
-  const l = Math.max(0, Math.min(1, level));
-  const lerp = (r: readonly [number, number]) => r[0] + (r[1] - r[0]) * l;
-  return { onset: smooth(0, C.onset, l), width: lerp(C.widthByLevel), glow: lerp(C.glow) };
-}
-
-/** A vein's core as drawn in full light over the soil `soil` (a ground colour), at a contamination
- *  level (0–1): the vein's orange-red over the soil, with its glow; the soil itself at zero. */
+/** A crack's middle over the soil `soil` (an albedo) at a soil contamination `level` (0–1) and the blending noise's
+ *  middle: the game's rust over the soil by the pattern's weight; the soil itself at zero. */
 export function contaminationVein(level: number, soil: Rgb): Rgb {
-  const v = contaminationVeins(level);
-  const k = CONTAMINATION.cover * v.onset;
-  const glow = CONTAMINATION.glowAdd * v.glow * v.onset;
-  const at = (i: number) => Math.min(1, soil[i] + (CONTAMINATION.vein[i] - soil[i]) * k + glow * GROUND.contaminatedGlow[i]);
-  return [at(0), at(1), at(2)];
+  const w = contaminationWeight(contaminationMap(level));
+  return [0, 1, 2].map((i) => soil[i] + (CONTAMINATION.vein[i] - soil[i]) * w) as unknown as Rgb;
 }
 
-const smooth = (a: number, b: number, x: number) => {
-  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-};
+/** Contaminated ground at a soil contamination `level` over the soil `soil` as the pattern's mean shows it (its mips,
+ *  from afar; the light look): the soil toward the pattern's mean colour by its mean alpha × the weight. */
+export function contaminationMean(level: number, soil: Rgb): Rgb {
+  const k = CONTAMINATION.meanAlpha * contaminationWeight(contaminationMap(level));
+  return [0, 1, 2].map((i) => soil[i] + (CONTAMINATION.mean[i] - soil[i]) * k) as unknown as Rgb;
+}
+
+/** Contaminated ground as the light look draws it (no patterns: the pattern's mean, `contaminationMean`), over dry
+ *  earth and over grass. */
+export const CONTAMINATED_GROUND = {
+  dry: contaminationMean(1, GROUND.dry),
+  grass: contaminationMean(1, GROUND.moistHigh),
+} as const;
 
 /** Dead trees: bare wood (no crown), the game's dead wood: the living bark weathered lighter and greyer, still lighter
  *  than the living crowns (dying.ts `DEAD_FORM`; the models' dead pine). */
@@ -405,13 +420,15 @@ export const ALTITUDE_RAMP = {
  *  Trilight (decompiled `Timberborn.SkySystem` `Sun`; the day's colours in `Configurations/Sun.blueprint.json`: the sky's
  *  from above, the equator's from the side, the ground's from below) as Unity's ambient probe, irradiance SH
  *  (`GAME_AMBIENT_SH`), turned back to display values (URP's `SampleSH` under Gamma). The sun is its colour × its intensity, 1.1, at full shadow strength. `diffuse` is URP's
- *  0.96 − 0.96 × `_Metallic` (0.05 on the terrain's materials). */
+ *  0.96 − 0.96 × `_Metallic` (0.05 on the terrain's materials); `water` the same on the water's surface, whose
+ *  metallic is 0 (clean water's `WaterMetalAndGloss` red, badwater's `_Contamination_Metallic`), so 0.96. */
 export const GAME_LIGHT = {
   sky: [0.6239606, 0.6307573, 0.9734455] as Rgb,
   equator: [1, 1, 1] as Rgb,
   ground: [0.2831488, 0.2269659, 0.3712378] as Rgb,
   sun: [1.1, 1.1 * 0.9625, 1.1 * 0.85] as Rgb,
   diffuse: 0.96 - 0.96 * 0.05,
+  water: 0.96,
 } as const;
 
 /** A colour as a level top in full sun shows it in the game's light (`GAME_LIGHT`: the sky's ambient from above and the
@@ -422,9 +439,14 @@ export function sunlitTop(c: Rgb): Rgb {
   return [0, 1, 2].map((k) => c[k] * GAME_LIGHT.diffuse * (ambient[k] + GAME_LIGHT.sun[k] * up)) as unknown as Rgb;
 }
 
+/** A colour as open water in full sun shows it in the game's light: `sunlitTop` at the water's diffuse share. */
+export function sunlitWater(c: Rgb): Rgb {
+  return sunlitTop(c).map((v) => (v * GAME_LIGHT.water) / GAME_LIGHT.diffuse) as unknown as Rgb;
+}
+
 /** Water `depth` levels deep with a badwater share (0–1) as the shipped shaders show it on open water in full sun, before
  *  its reflection, glint and the finish (materials.ts `waterMaterial`, both looks): clean water by the game's formula
- *  × the albedo's mean, badwater by the game's formula at its pattern's mean, in the game's light (`sunlitTop`),
+ *  × the albedo's mean, badwater by the game's formula at its pattern's mean, in the game's light (`sunlitWater`),
  *  blended by the game's tint, with badwater's emissive detail at its means on top (unless `glow` is false: the body
  *  alone, before every term added after the light); or our own calibrated colours in the Standard look's light where
  *  `GAME_WATER.use` or `GAME_BADWATER.use.standard` is off. It is the Standard look's unless `look` is "high": High draws
@@ -435,11 +457,11 @@ export function waterShown(depth: number, share = 0, glow = true, look: "standar
   const up = Math.sin(LIGHT.sunElevation);
   const ours = (c: Rgb): Rgb => [0, 1, 2].map((k) => c[k] * (LIGHT.sky[k] * 1.2 + LIGHT.sun[k] * 0.3 * up)) as unknown as Rgb;
   const g = gameCleanColour(depth);
-  const clean = GAME_WATER.use ? sunlitTop([0, 1, 2].map((k) => g[k] * WATER_ALBEDO.mean[k]) as unknown as Rgb) : ours(cleanWaterBody(depth));
+  const clean = GAME_WATER.use ? sunlitWater([0, 1, 2].map((k) => g[k] * WATER_ALBEDO.mean[k]) as unknown as Rgb) : ours(cleanWaterBody(depth));
   if (!(share > 0)) return clean;
   const k = BADWATER.floor + (1 - BADWATER.floor) * badwaterRamp(depth);
   const highBad = (): Rgb => badwaterGlow(HIGH_WATER.bad.map((v) => v * k) as unknown as Rgb, HIGH_WATER.bad, depth, share);
-  const bad = GAME_BADWATER.use[look] ? sunlitTop(gameBadwaterColour(depth, share)) : look === "high" ? highBad() : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
+  const bad = GAME_BADWATER.use[look] ? sunlitWater(gameBadwaterColour(depth, share)) : look === "high" ? highBad() : ours(badwaterGlow(badwaterBody(depth), WATER.bad, depth, share));
   const e = glow ? gameBadwaterEmission(share) : ([0, 0, 0] as unknown as Rgb);
   const m = blendWater(clean, bad, share);
   return [0, 1, 2].map((k) => m[k] + e[k]) as unknown as Rgb;
@@ -549,7 +571,7 @@ function mixRgb(a: Rgb, b: Rgb, t: number): Rgb {
 
 /** The ground's base colour (before light and texture) for soil bytes, in moisture mode; the
  *  shader's `groundColor` does the same per pixel. Contamination is a layer drawn over it (its
- *  veins, `contaminationVeins`): the ground under and between them keeps its own colour. */
+ *  veins, `contaminationWeight` × the pattern's alpha): the ground under and between them keeps its own colour. */
 export function groundColor(moisture: number, contamination: number, underwater: boolean): Rgb {
   switch (groundKind(moisture, contamination, underwater)) {
     case "underwater":
@@ -613,11 +635,11 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
           { swatch: `linear-gradient(90deg, ${l(GROUND.moistLow)}, ${l(GROUND.moistHigh)})`, label: "Moist ground" },
           { swatch: cracks(sunlitTop(GROUND.dry), sunlitTop(GROUND.crack)), label: "Dry ground" },
           {
-            // orange-red veins over the ground, dry earth and grass alike
+            // the game's rusty veins over the ground, dry earth and grass alike, as a sunlit top shows them
             swatch: icon(
               `<rect width="12" height="16" fill="${l(GROUND.dry)}"/><rect x="12" width="12" height="16" fill="${l(GROUND.moistLow)}"/>` +
-                `<path d="M0 4 L5 6 L4 11 L9 13 M5 6 L11 3" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>` +
-                `<path d="M12 5 L17 7 L16 12 L22 14 M17 7 L23 3" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>`,
+                `<path d="M0 4 L5 6 L4 11 L9 13 M5 6 L11 3" stroke="${l(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>` +
+                `<path d="M12 5 L17 7 L16 12 L22 14 M17 7 L23 3" stroke="${l(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>`,
             ),
             label: "Contaminated ground",
           },

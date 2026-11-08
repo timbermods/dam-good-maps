@@ -70,10 +70,9 @@ describe("the High look's shaders", () => {
     const top = terrainHooks().groundTop!;
     expect(top).not.toContain("groundColor(");
     expect(top).toContain("ground = mix(ground, groundDry, polluted);");
-    expect(top).toContain("glow = mix(glow, groundDryGlow, polluted);");
     // (High works the veins out under water too, for the bed; Standard, which has no bed, does not)
     const s = terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader;
-    expect(s).toContain("if (bad > 0.0) vein = veinsOf(veinQ, veinWidth, lvl) * bad;");
+    expect(s).toContain("groundDry = mix(c, soilPattern.rgb, vein);");
   });
 
   it("follow the game (D496, D497): its finish, its surface carried by the current, and badwater's own cues, slow bubbles and red contact at rock", () => {

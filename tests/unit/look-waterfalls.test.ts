@@ -188,7 +188,7 @@ describe("a fall's look, as the game's", () => {
 
   it("is lit as the surface is, by URP's sky reflection and sun glint, but takes none of the game's own highlight (its waterfall mask)", () => {
     const [standard, , high] = shaders();
-    for (const line of ["float fres = waterSkyReflect(dot(N, V), smoothness);", "float spec = waterSunGlint(N, V, sunDir, smoothness) * lit;", "vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, N.y);"]) expect(standard.m.fragmentShader).toContain(line);
+    for (const line of ["float fres = waterSkyReflect(dot(N, V), smoothness, mix(float(WATER_FORMULA), float(BADWATER_FORMULA), bad));", "float spec = waterSunGlint(N, V, sunDir, smoothness) * lit;", "vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, N.y);"]) expect(standard.m.fragmentShader).toContain(line);
     expect(high.m.fragmentShader).toContain("vec3 faceLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit;");
     expect(high.m.fragmentShader).toContain("c = face * faceLight;");
   });

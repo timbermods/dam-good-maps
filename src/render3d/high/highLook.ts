@@ -168,7 +168,6 @@ export class HighLook {
     set("hlWater", e.water);
     set("hlShadows", e.shadows);
     set("hlStrata", e.strata);
-    set("hlBlend", e.soilEdges);
     set("hlVariation", e.variation);
     set("hlGeology", e.geology);
     set("hlSoilCap", e.soilCap);

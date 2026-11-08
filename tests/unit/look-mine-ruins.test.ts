@@ -16,7 +16,7 @@ import { objectMaterial, RUIN_INSIDE_COVER, RUIN_LATTICE_SCALE, RUIN_LATTICE_STR
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
 import { LAND_GROW } from "../../src/render3d/objectFade";
 import { entityView, variantIndex, type EntityInput, type EntityView } from "../../src/render3d/model";
-import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, sunlitTop, type Rgb } from "../../src/render3d/palette";
+import { CONTAMINATED_GROUND, CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, sunlitTop, type Rgb } from "../../src/render3d/palette";
 import { badwaterLit } from "./waterShown";
 import { variantOf } from "../../src/worker/api";
 
@@ -293,13 +293,14 @@ describe("ruins", () => {
     expect(modelTriangles("ruin")).toBeLessThanOrEqual(360);
   });
 
-  it("from afar stand apart from contaminated ground (its veins, and the light look's rusty tint), in greyscale too", () => {
-    for (const ground of [GROUND.contaminated, CONTAMINATION.vein]) {
+  it("from afar stand apart from contaminated ground (its veins, and the pattern's mean the light look draws), in greyscale too", () => {
+    for (const ground of [CONTAMINATED_GROUND.dry, CONTAMINATED_GROUND.grass, CONTAMINATION.vein]) {
       for (const c of [RUIN.panel, RUIN.far, RUIN.rust]) expect(lum(c) - lum(ground), cssColor(c)).toBeGreaterThan(0.12);
-      // the scaffold is orange, contaminated ground red-brown or orange-red: more yellow in it
-      expect(RUIN.rust[1] / RUIN.rust[0]).toBeGreaterThan(ground[1] / ground[0] + 0.05);
       expect(lum(RUIN.panel) - lum(ground)).toBeGreaterThan(0.35);
     }
+    // the scaffold is orange, the veins a dark rust: more yellow in it (D154 as amended 2026-11-07: from afar the
+    // contaminated ground is its soil a little toward the rust, no rust fill, so the hue rule is the veins')
+    expect(RUIN.rust[1] / RUIN.rust[0]).toBeGreaterThan(CONTAMINATION.vein[1] / CONTAMINATION.vein[0] + 0.05);
   });
 
   it("hang cream sacks: shallow pouches bulging out of the face with a tied upper edge, as many triangles as the slabs they replace; broken boards stay flat (D334)", () => {
