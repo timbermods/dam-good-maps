@@ -103,7 +103,8 @@ describe("a fall is the water's own face where it steps down", () => {
   it("is drawn by the water's own mesh alone: no instances, no foam flags on the tops round it", () => {
     const shore = SHORE_BITS.reduce((a, b) => a | b, 0);
     for (const m of meshAll(pool())) {
-      expect(Object.keys(m).sort()).toEqual(["cut", "data", "flags", "indices", "normals", "positions", "quads"]);
+      // (and a still film's shift back from the shore, Q9 V3: shoreFilm.ts)
+      expect(Object.keys(m).sort()).toEqual(["cut", "data", "flags", "indices", "normals", "positions", "quads", "shore"]);
       for (let q = 0; q < m.quads; q++) if (m.normals[q * 12 + 1] > 0) expect(m.flags[q * 4] & ~shore).toBe(0);
     }
   });

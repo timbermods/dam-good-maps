@@ -392,7 +392,8 @@ function toPercentiles(v: Float64Array, percentiles: readonly number[], lo: numb
 
 /** Badwater's pattern (RGBA bytes) at `size` texels square, one repeat as the surface's: R the base colour's pattern,
  *  G the emissive detail's (`GAME_BADWATER_TEXTURE`); B the still detail albedo's (Q9 P6, `makeDetailField`), which
- *  shares the texture but is sampled at its own tiling, still, in every look; A unused. */
+ *  shares the texture but is sampled at its own tiling, still, in every look; A the water sources' own pattern (Q9 P7,
+ *  `makeSourceShape`), sampled round each source in every look. */
 export function makeBadwaterTexture(size: number): Uint8Array {
   const n = size * size;
   const P = BAD_PATTERN;
@@ -450,12 +451,13 @@ export function makeBadwaterTexture(size: number): Uint8Array {
   toPercentiles(base, G.base.percentiles, 30, 220);
   toPercentiles(glow, G.glow.percentiles, 0, 255);
   const detail = makeDetailField(size);
+  const shape = makeSourceShape(size);
   const data = new Uint8Array(n * 4);
   for (let i = 0; i < n; i++) {
     data[i * 4] = Math.round(base[i]);
     data[i * 4 + 1] = Math.round(glow[i]);
     data[i * 4 + 2] = detail[i];
-    data[i * 4 + 3] = 255;
+    data[i * 4 + 3] = shape[i];
   }
   return data;
 }
@@ -614,6 +616,37 @@ export function makeDetailField(size: number): Uint8Array {
   const out = new Uint8Array(f.length);
   for (let i = 0; i < f.length; i++) out[i] = Math.min(255, Math.max(0, Math.round((255 * (f[i] - m - lo)) / (hi - lo))));
   return out;
+}
+
+/** The water sources' own pattern as `tools/game-water-shader.py --textures` measures the game's (`WaterSourceShape`,
+ *  Q9 P7; Timberborn 1.1.2.8-ffc2de0-sw), 0–255, grey: the game draws it round a seep and a badwater source in polar
+ *  coordinates (its u the distance from the source's middle, its v the angle), so its blobs stream out in rings. Soft
+ *  blobs over black (a quarter of it under 6), `percentiles` at `PATTERN_PERCENTILES`; the share of its power by
+ *  cycles a repeat (`power`: 1–2, 2–4, 4–8, 8–16, 16–32, 32–64, 64–128, 128 and more), most at 4–16; the
+ *  autocorrelation's half-width (`feature`, a repeat's share: 27 texels of 1024), alike in every direction. */
+export const GAME_SOURCE_SHAPE = {
+  mean: 62.9,
+  spread: 61.8,
+  percentiles: [0, 0, 0, 6, 47, 66, 76, 88, 102, 118, 136, 158, 187, 202, 212, 227],
+  power: [0.107, 0.079, 0.311, 0.332, 0.122, 0.023, 0.004, 0.022],
+  feature: 27 / 1024,
+} as const;
+
+/** How the sources' pattern is drawn (tuned so its statistics land on the game's, `GAME_SOURCE_SHAPE`): a Gaussian field
+ *  made from a spectrum (`power`, by the same bands, before the rank remap), remapped by rank to the game's distribution. */
+export const SOURCE_PATTERN = {
+  // (the first band's eight frequencies carry three times the game's share in: the rank remap, which lifts the black
+  // floor's edges, moves it up the bands)
+  power: [0.31, 0.055, 0.28, 0.31, 0.09, 0.014, 0.003, 0.017],
+};
+
+/** The water sources' pattern (Q9 P7) as bytes, `size` square (a power of two), one repeat: a Gaussian field with the
+ *  game's spectrum, remapped by rank to the game's distribution. It rides in badwater's texture's A. */
+export function makeSourceShape(size: number): Uint8Array {
+  // (the bands are made in wavelengths of a 64-tile repeat: 64–32 is 1–2 cycles a repeat)
+  const f = spectralField(size, 64, SOURCE_PATTERN.power, 401);
+  toPercentiles(f, GAME_SOURCE_SHAPE.percentiles, 0, 255);
+  return Uint8Array.from(f, (v) => Math.min(255, Math.max(0, Math.round(v))));
 }
 
 /** The share of a tiling field's spread (`size` square, one repeat `repeat` tiles across) left after a Gaussian blur

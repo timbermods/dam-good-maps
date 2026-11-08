@@ -203,11 +203,11 @@ export const WATER_LIGHT = {
      *  (clean water 31.0 to 33.5 on three, badwater 27.0 and 27.9 on two), which bounds the gap the game's frames allow:
      *  3.1 to 6.5 (D496's 4.2; 4.7 on these frames). The judge prints it for the shipped build against those frames
      *  (tools/water-pixel-judge.ts, "the gap by day"). Standard's 6.3 is within it, near its top (dev's 6.5 sat on it);
-     *  High's 7.1 is not (7.3 on dev): its formula's badwater reads 2.2 L* under the game's by day, about 1 under
-     *  Standard's, which is still to find. Both since fix/water-detail (P6's pattern; the probe from mip 3). */
+     *  High's 6.2 too (fix/water-shore): its 7.1 was its poisoned bed (#38), which darkened the ground its see-through
+     *  shows under badwater; with the one bed every look draws, its badwater reads 26.2 as Standard's (25.3 before). */
     game: { clean: 32.2, bad: 27.5, cleanShots: [31.0, 33.5], badShots: [27.0, 27.9] },
     standard: { clean: 32.5, bad: 26.2 },
-    high: { clean: 32.4, bad: 25.3 },
+    high: { clean: 32.4, bad: 26.2 },
     tiles: { clean: 2336, bad: 73 },
   },
 } as const;
@@ -319,10 +319,10 @@ export const GAME_BADWATER = {
   /** The judge's numbers (RMS distance to the game's pixels, display RGB 0–255) for pure badwater, ours (our crimson)
    *  and the formula, by look: at the frames' hours (the six Islands and Badtide end shots, five at sunrise and one
    *  near sunset, 4,592 tiles) and by day (the sixteen day-lit start shots, six with badwater in view, 172 tiles), in
-   *  the game's light on its water (`WATER_LIGHT`, fix/water-sky). */
+   *  the game's light on its water (`WATER_LIGHT`, fix/water-sky); High's since its poisoned bed went (fix/water-shore). */
   judged: {
-    atHour: { standard: { ours: 19.9, formula: 7.1 }, high: { ours: 11.6, formula: 7.5 }, tiles: 4592 },
-    day: { standard: { ours: 20.7, formula: 14.2 }, high: { ours: 14.5, formula: 15.0 }, tiles: 172 },
+    atHour: { standard: { ours: 19.9, formula: 7.1 }, high: { ours: 12.6, formula: 7.0 }, tiles: 4592 },
+    day: { standard: { ours: 20.7, formula: 14.2 }, high: { ours: 15.0, formula: 14.3 }, tiles: 172 },
   },
   colorA: [0.02, 0.01993, 0.0196] as Rgb,
   colorB: [0.5, 0.1223, 0.04481] as Rgb,
@@ -358,6 +358,30 @@ export const GAME_BADWATER = {
     [4.5, 29.5],
     [5, 22.0],
   ] as readonly (readonly [number, number])[],
+} as const;
+
+/** The game's own pattern on its water sources' water (Q9 P7; Timberborn 1.1.2.8, `WaterSourceRenderingService` and
+ *  its water's ps 356-418, 477, 700-720; its Low quality draws it too). Only a source with a `WaterSourceRendererSpec`
+ *  shows it: a seep (2 × 2) while it can run (not in a drought), a badwater source (3 × 3) while its strength is over 0;
+ *  the plain water source has none. Over its footprint, at v the point from its middle in footprints (each axis −0.5 to
+ *  0.5) and r = |v|, the pattern s = saturate(8 × shape × k² + min(1, 2.5 k⁶)), k = max(0, 1 − 2r), `shape`
+ *  `WaterSourceShape` (waterTextures.ts `GAME_SOURCE_SHAPE`; ours `makeSourceShape`) at (2r − `scroll` × T, the angle /
+ *  2π): blobs streaming out from a bright middle, gone at the footprint's inscribed circle. Clean water's colour × albedo
+ *  moves `lift` of the way to max(itself, s × the still detail albedo); badwater's emissive pattern goes from t9's G to
+ *  its B (`emission`, its mean: ours keeps the still detail albedo in B) by s and is × (1 + s × (`colour` × `strength`
+ *  − 1)), and its base colour takes the detail albedo's overlay × (1 − s). Ours keeps its rings and bubbles (D196) over
+ *  it: an editing aid, drawn after it. */
+export const GAME_WATER_SOURCE = {
+  /** `_Water_Source_Color` (display). */
+  colour: [0.6706, 0.651, 0.6275] as Rgb,
+  /** `_Water_Source_Strength`. */
+  strength: 0.8,
+  /** t9's B, the emission's pattern over a source: its mean (0–1; spread 39.2 / 255). */
+  emission: 188.9 / 255,
+  /** How fast the pattern streams out (a share of its texture a second, `_NonlinearTime` × −0.04). */
+  scroll: 0.04,
+  /** How far clean water's colour moves toward its lift. */
+  lift: 0.5,
 } as const;
 
 /** Badwater's glowing lines' colour, its emissive detail's (`_Detail_Contamination_Color_A` toward `_B` by its noise's
@@ -758,6 +782,14 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
    *  flow): the water's shader sets it from its texture (waterTextures.ts \`waterDetailAt\`) before it colours a pixel;
    *  the texture's mean (GAME_BADWATER.detail) until then, and in any shader that doesn't. */
   vec3 waterDetail = ${glColor5(GAME_BADWATER.detail)};
+  /** The game's pattern over a water source here (Q9 P7, GAME_WATER_SOURCE), 0–1: the water's shader sets it on its
+   *  tops before it colours a pixel (materials.ts \`waterSourcePattern\`); 0 elsewhere and in any shader that doesn't. */
+  float waterSource = 0.0;
+  /** Clean water's colour × albedo lifted over a source (Q9 P7, ps 477): part way to max(itself, the pattern × the
+   *  detail albedo). */
+  vec3 waterSourceLift(vec3 a) {
+    return a + (max(a, waterSource * waterDetail) - a) * ${f(GAME_WATER_SOURCE.lift)};
+  }
   /** The game's still detail albedo's overlay (Q9 P6, ps 462-477: overlay(colour × albedo, the detail), per channel):
    *  × 2 × the detail where the colour is under a half, a screen above. */
   vec3 waterDetailOverlay(vec3 a) {
@@ -920,7 +952,7 @@ ${rampGlsl(GAME_BADWATER.ramp, "g")}
     vec3 col = mix(${glColor5(GAME_BADWATER.colorA)}, ${glColor5(GAME_BADWATER.colorB)}, pattern) * k;
     vec3 over = waterDetailOverlay(col);
     #if BADWATER_DETAIL
-      col = mix(col, over, 1.0 - c * 0.5);
+      col = mix(col, over, (1.0 - c * 0.5) * (1.0 - waterSource));
     #endif
     float g = gameDepthG(depth);
     float w = pow(g, ${f(BADWATER.glow.power)}) * clamp(1.0 - c / ${f(BADWATER.glow.upTo)}, 0.0, 1.0);
@@ -936,6 +968,9 @@ ${rampGlsl(GAME_BADWATER.ramp, "g")}
     vec2 e = min(q, 1.0 - q);
     float grid = clamp(dot(e, e) + c * 0.1, ${f(GAME_BADWATER.grid[0])}, ${f(GAME_BADWATER.grid[1])});
     float k = mix(${f(GAME_BADWATER.glowIntensity[0])}, ${f(GAME_BADWATER.glowIntensity[1])}, clamp(c / ${f(GAME_BADWATER.glowIntensityTo)}, 0.0, 1.0));
-    return ${glColor5(GAME_BADWATER.glowA.map((a, i) => a + (GAME_BADWATER.glowB[i] - a) * GAME_BADWATER.glowNoise) as unknown as Rgb)} * pattern * grid * waterTint(c) * k;
+    // (over a source, its own pattern and colour: GAME_WATER_SOURCE)
+    pattern = mix(pattern, ${f(Math.round(GAME_WATER_SOURCE.emission * 1e5) / 1e5)}, waterSource);
+    vec3 src = mix(vec3(1.0), ${glColor5(GAME_WATER_SOURCE.colour.map((v) => v * GAME_WATER_SOURCE.strength) as unknown as Rgb)}, waterSource);
+    return src * ${glColor5(GAME_BADWATER.glowA.map((a, i) => a + (GAME_BADWATER.glowB[i] - a) * GAME_BADWATER.glowNoise) as unknown as Rgb)} * pattern * grid * waterTint(c) * k;
   }
 `;

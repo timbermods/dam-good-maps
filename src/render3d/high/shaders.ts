@@ -1,7 +1,8 @@
 // The High look's shader additions (PLAN §20 D147, D242, D250, D284), put in at the Standard
 // shaders' named points (materials.ts `ShaderHooks`). Ported from the investigations:
 // - #38 (investigation/maplook2): the water shader (colour by depth, clear shallows, the calibrated crimson
-//   badwater, the poisoned bed under it; its surface the game's flow-carried one since D496 and D497) and
+//   badwater; its surface the game's flow-carried one since D496 and D497; its poisoned bed under badwater gave way
+//   to the bed every look draws, D496 as amended 2026-11-07) and
 //   soft shadows from the real meshes (a 2048² sun depth map, 25-tap PCF, receiver-plane bias);
 // - #65 (investigation/maplook3): warm sunlight, rock strata, soil edges and colour variation (its tone
 //   curve, grade and distance haze gave way to the game's fog and post chain, every look's: D497);
@@ -151,20 +152,11 @@ export function terrainHooks(): ShaderHooks {
           c *= vec3(1.0 + broad * 0.055, 1.0 + broad * 0.015, 1.0 - broad * 0.045);
         }
 `,
-    // the poisoned bed (#38): under polluted water, the ground's own contamination shows through. (The ground
-    // without its water is groundColor's own groundDry, never a second groundColor here: in this branch, which
-    // pixels next to each other may or may not take, its derivatives and its patterns' mipmaps would read
-    // undefined values, and the bed's veins changed from one frame to the next)
     filmBad: "(hlWater > 0.5 ? WATER_FILM_HIGH_BAD_TINT : WATER_FILM_BAD_TINT)",
     // (the scene's flow texture is High's own, hlFlow: read through it, one sampler fewer, materials.ts filmShare)
     filmShare: "texture2D(hlFlow, g / hlFlowSize).b",
-    groundTop: /* glsl */ `
-          if (hlWater > 0.5 && d0.a > 0.002 && soil.w > 0.0 && clev > 0.0) {
-            float polluted = texture2D(hlFlow, g / hlFlowSize).b * soil.w;
-            if (polluted > 0.0) {
-              ground = mix(ground, groundDry, polluted);
-            }
-          }`,
+    // (a still film's flow at a tile corner, as the water's vertex shader reads it: shoreFilm.ts)
+    shoreFlow: "texture2D(hlFlow, P / hlFlowSize).rg",
     // rock (#65's strata, D334's stone): stones of unequal size and slope, soft mortar between them, calibrated as
     // Standard's (D497: their mean albedo the game's CliffDetail texture's, 68/62/52, tools/albedo-means.ts) and tinted
     // by the game's cliff gradient

@@ -528,7 +528,13 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   moves sideways (vs 381-395, added at vs 486): by 0.15 tile × saturate(2 − 20 d) × max(0, 1 − 100 |f|) along its
   corner's direction, d the vertex's depth over its column's floor eased old to new by `_TickProgress`, |f| (capped at 1)
   the flow above. So it is full at 0.05 deep or less and gone at 0.1, full in still water and gone from |f| 0.01 (an
-  outflow of 0.14). Geometry: the film's outline at a shore shifts by up to 0.15 tile.
+  outflow of 0.14). Geometry: the film's outline at a shore shifts by up to 0.15 tile. Read exactly (fix/water-shore):
+  the vertex moves toward its own tile's middle, an edge's middle vertex straight across its open side by 0.15, a corner
+  across its one open side by 0.15 or, both its sides open, along its diagonal by −2n × 0.15 (0.21 a side), a corner
+  between two linked sides not at all; a neighbour is linked when it has water; the Low quality's program is the same.
+  Followed (`shoreFilm.ts`): our mesh's four corners a tile take the shift × the depth's share, the vertex shader the
+  flow's share, and the terrain draws the margin the film leaves as dry ground on the same outline; a corner with both
+  sides open is cut a little deeper than the game's sixteen vertices cut it, and the map's edge counts as linked.
 - **P1, falls.** High quality only: four taps of `_OldWaterfalls`/`_NewWaterfalls` (t15, t16, `FindWaterfalls`'
   output, which the game makes only with High-quality water) ±0.075 round the pixel, old to new by `_TickProgress`,
   sharpened (ps 148-276). This mask w takes off the refraction (P2) and the camera highlight (P12), × (1 − w), and
@@ -583,7 +589,17 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
 - **P7, water sources.** In play `WaterSourceRenderingService` marks each source's footprint in `_WaterSourceMask`
   (t18); the shader draws `WaterSourceShape` (t12) in polar coordinates round its centre, scrolling outward at 0.04 T,
   fading with distance (ps 356-418): it lifts the albedo (half way to max(colour, pattern × detail), ps 477) and tints
-  badwater's emission by `_Water_Source_Color` × `_Water_Source_Strength` 0.8.
+  badwater's emission by `_Water_Source_Color` × `_Water_Source_Strength` 0.8. Read exactly (fix/water-shore; the
+  decompiled `Timberborn.WaterSourceRendering`): only the seeps (2 × 2) and the badwater source (3 × 3) carry a
+  `WaterSourceRendererSpec`, the plain water source none; a seep shows it while it can run (not in a drought, past its
+  activation), a badwater source while its strength is over 0. Over the footprint, v the point from its middle in
+  footprints and r = |v|, k = max(0, 1 − 2r): s = saturate(8 × shape × k² + min(1, 2.5 k⁶)), the shape's R at (2r −
+  0.04 T, atan / 2π), its top mip. Badwater's emission pattern goes from t9's G to its B by s, × (1 + s × (colour ×
+  strength − 1)); its detail overlay × (1 − s), its distortion × max(1 − s, 0.1). The shape (1024², grey): mean 62.9,
+  spread 61.8, a quarter under 6, its power mostly at 4–16 cycles a repeat, half-width 27 texels; t9's B mean 188.9.
+  Followed (`GAME_WATER_SOURCE`, `makeSourceShape`, `waterSourcePattern`): in every look, under our rings; t9's B at
+  its mean (ours carries the detail albedo there); not yet its distortion held back over the source, nor a seep's
+  activation day.
 - **P8, smoothness and metallic.** `WaterMetalAndGloss` (t7) twice at xz × 0.01, panned by T × (−0.008, −0.002) and
   (0.01, 0.004): metallic R1 + R2, smoothness soft-light(A1, A2) (ps 480-499; `WATER_SURFACE.smoothness`).
 - **P9, contamination.** Q8 confirmed (ps 500-790), with one correction: saturate(1 − c / 0.6) gates the orange glow
@@ -677,7 +693,7 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Drift: the current × 0.65, two 12 s phases | S, H | (a) in form, (c) in rate | P5: 2.5 s phases, about 13 f tiles a second |
 | Still water's drift (0.018, −0.012) | H | (b) | P5: still textures stay put |
 | Badwater's ripples at half speed (`slow`; High's `hlT` slows only its fall strands and `bt` only its bubbles) | S | (b) | none; the game makes badwater's normals × 2 instead (P9, ps 780) |
-| Shore vertices of a still film drawn sideways | S, H | (c), missing: our mesh moves no vertex sideways | V3 (vs 381-395, 486) |
+| Shore vertices of a still film drawn sideways | S, H, light | (a): drawn back toward their tile's middle, the ground left dry (`shoreFilm.ts`, fix/water-shore); a corner open on both sides a little deeper than the game's | V3 (vs 381-395, 486) |
 | Detail albedo | S, H, light | (a): its 67-tile pattern, our own texture at the game's statistics (`waterDetailAt`, `waterDetailOverlay`, fix/water-detail) | P6 (ps 462-477) |
 | Gloss: our noise round 0.25, ± 0.6 of its swing, panned | S | (a), approximate | P8 (ps 480-499) |
 | Light: sky × 1.2 + sun × 0.3 × N·L × shadow | S | (a), approximate | P15 |
@@ -695,7 +711,9 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Badwater's bubbles (orange dots, `BADWATER_VEIN` × 0.55) | S, H | (c); followed (`fix/water-badwater`) | P9: its emission is a flowing texture pattern, not dots |
 | A film's fade under 0.03 levels (`waterFilm`); High's sheen lifting a film's opacity | S, H | (b), our anti-aliasing (`WATER_FILM`) | P14: a hard clip |
 | No foam, no shore line | S, H | (a) | none (#715) |
-| Sources welling: rings and bubbles in `WATER_FOAM` × 0.55 | S (both draw it) | (c): ours an editing aid (D196) | P7: the game draws its own in play (ps 356-418) |
+| Sources welling: rings and bubbles in `WATER_FOAM` × 0.55 | S (both draw it) | editing aid (D196), drawn over the game's own pattern | P7: the game draws its own in play (ps 356-418) |
+| The sources' own pattern over seeps and badwater sources | S, H, light | (a): our shape at the game's statistics, its lift, emission tint and overlay held back (`waterSourcePattern`, fix/water-shore); t9's B at its mean | P7 (ps 356-418, 477, 700-720) |
+| High's poisoned bed (the ground's own contamination under badwater, #38) | H | (b); gone (fix/water-shore, D496 as amended): the bed every look draws | none: the game's terrain shader has no underwater input |
 | Source glow, highlighted source, clear water, overlays, hatches | S, H | editing aids (D497) | P10 is the game's own |
 | The side and section at the map's edge | S, H | ours by need (no cut edge in the game) | none |
 
@@ -717,7 +735,8 @@ The game's, missing or different:
    game's light alone lifted clean water further from the game's, P6's overlay was its excess.
 4. Badwater's flowing pattern and emissive detail (P9) in place of mottles and bubbles; its normals × 2.
 5. The still detail albedo, 67 tiles a repeat (P6): done (fix/water-detail), its pattern in every look.
-6. The sources' own pattern in play (P7) in place of our rings.
+6. The sources' own pattern in play (P7), under our rings: done (fix/water-shore), with V3's still films drawn back from
+   the shore.
 7. Refraction of the ground behind (P2), and the fall mask by tile from `FindWaterfalls` (P1): done
    (fix/water-refraction), in Standard and High.
 

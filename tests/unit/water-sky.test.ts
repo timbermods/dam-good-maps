@@ -118,7 +118,7 @@ describe("each look's choice of the game's light on its water", () => {
 });
 
 describe("the gap between clean water and badwater by day (D496)", () => {
-  it("is the game's on screen, a level or two deep, within the spread of the game's own frames, in Standard; High keeps the order", () => {
+  it("is the game's on screen, a level or two deep, within the spread of the game's own frames, in both looks", () => {
     const G = WATER_LIGHT.gap;
     // (the game's gap on its six day-lit start shots with badwater in view, 4.7 L* (D496's 4.2): its shots' clean
     // water and badwater bound what the frames allow, 3.1 to 6.5)
@@ -126,11 +126,11 @@ describe("the gap between clean water and badwater by day (D496)", () => {
     const high = G.game.cleanShots[1] - G.game.badShots[0];
     expect(G.game.clean - G.game.bad).toBeGreaterThan(low);
     expect(G.game.clean - G.game.bad).toBeLessThan(high);
-    const std = G.standard.clean - G.standard.bad;
-    expect(std).toBeGreaterThanOrEqual(low - 1e-9);
-    expect(std).toBeLessThanOrEqual(high + 1e-9);
-    // High's formula badwater reads darker by day than the game's (25.3 against 27.5), so its gap (7.1) is wider than
-    // the frames allow: the order holds, the size is still to find (docs/progress/3d-view.md, fix/water-detail)
-    expect(G.high.clean - G.high.bad).toBeGreaterThan(0);
+    // (High too since its poisoned bed went, fix/water-shore: its gap was 7.1, its badwater over a darker bed)
+    for (const look of ["standard", "high"] as const) {
+      const gap = G[look].clean - G[look].bad;
+      expect(gap, look).toBeGreaterThanOrEqual(low - 1e-9);
+      expect(gap, look).toBeLessThanOrEqual(high + 1e-9);
+    }
   });
 });
