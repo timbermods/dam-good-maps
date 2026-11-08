@@ -39,14 +39,20 @@ export type GroundMode = "moisture" | "height";
 /** A tile's ground, as its colour shows it. */
 export type GroundKind = "moist" | "dry" | "contaminated" | "underwater";
 
-/** How the game's terrain shows soil moisture (SoilMoistureSystem `UpdateDesertIntensity`, its `SoilMoistureSimulatorSpec`
- *  blueprint): its desert texture over all of a top at moisture 0, over (1 − m / threshold) × max of one at moisture m up to
- *  the threshold, none above (the shaders' `grassOf`; D135 as amended 2026-10-29). */
+/** How the game's terrain shows soil moisture (SoilMoistureSystem `UpdateDesertIntensity`, its `SoilMoistureMapSpec`
+ *  blueprint: `DesertMoistureThreshold` 5, `MaxDesertIntensity` 0.7): its desert texture over all of a top at moisture 0,
+ *  over (1 − m / threshold) × max of one at moisture m up to the threshold, none above (the shaders' `grassOf`; D135 as
+ *  amended 2026-10-29). The game takes m unrounded; ours takes the tile's whole level (light.ts `soilNibbles`), which its
+ *  moisture mostly is (10 by the water, one less a tile). */
 export const DESERT = { threshold: 5, max: 0.7 } as const;
 
 /** How the game's terrain blends its desert map at a point (its TerrainMaterialMapSpec: \`BlendingMargin\`,
- *  \`BlendingNoiseMultiplier\`, \`BlendingSoftness\`; the shaders' \`desertBlend\`). */
-export const BLEND = { margin: 0.2, noise: 0.96, softness: 5.8 } as const;
+ *  \`BlendingNoiseMultiplier\`, \`BlendingSoftness\`; the shaders' \`desertBlend\`), and its blending noise's statistics
+ *  (`noiseMean`, `noiseSpread`: the `BlendingNoise` texture's texels, read raw from the game's `resources.assets`,
+ *  2026-11-08; it is read at world × `BlendingNoiseScale` 0.2, so it repeats every five tiles, and most of its variance
+ *  lies in features half a tile to two tiles across: 31 % at 0.5–1 cycles a tile, 46 % at 1–2, 13 % at 2–4). Ours
+ *  (the shaders' `blendNoise`) is drawn to them: its mean, its spread and its scale. */
+export const BLEND = { margin: 0.2, noise: 0.96, softness: 5.8, noiseMean: 0.473, noiseSpread: 0.081 } as const;
 
 export const GROUND = {
   /** Dry ground: cracked earth in a warm brown, with dark cracks; plants die there. Broad patches

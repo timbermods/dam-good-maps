@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
 import { PAINTED_MEAN, paintedMean, STROKE_WIDEN_K, sceneUniforms, skyMaterial, terrainMaterial } from "../../src/render3d/materials";
+import { desertByte } from "../../src/render3d/light";
 import { entityView } from "../../src/render3d/model";
 import { BLEND, DESERT, GAME_SKY, gamePostRgb, GROUND, legendEntries, objectLegend, type Rgb } from "../../src/render3d/palette";
 
@@ -38,12 +39,17 @@ describe("grass by moisture, as the game's terrain draws it (D135 as amended 202
     const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
     const shader = terrainMaterial(u, 0, 1).fragmentShader;
     expect(shader).toContain("float grassOf(float m)");
-    expect(shader).toContain("vec4(grassOf(s0.x), s0.x,");
+    // (a top's share comes from the tile data's desert byte, its moisture unrounded, as the game takes it: light.ts
+    // desertByte; grassOf stays for the run tops' soil, which carries only the whole level)
+    expect(shader).toContain("vec4(grassAt(s0), s0.x,");
+    for (let m = 0; m <= 15; m += 0.2) expect(desertByte(Math.round(m * 15)) / 255, `moisture ${m.toFixed(1)}`).toBeCloseTo(desert(Math.round(m * 15) / 15), 2);
+    expect(desertByte(Math.round(1.4 * 15))).toBe(Math.round(desert(1.4) * 255));
   });
 
   it("blends tile to tile as the game's terrain does: four taps a fifth of a tile round the point, its noise and softness", () => {
-    // TerrainMaterialMapSpec: BlendingMargin 0.2, BlendingNoiseMultiplier 0.96, BlendingSoftness 5.8
-    expect(BLEND).toEqual({ margin: 0.2, noise: 0.96, softness: 5.8 });
+    // TerrainMaterialMapSpec: BlendingMargin 0.2, BlendingNoiseMultiplier 0.96, BlendingSoftness 5.8; its BlendingNoise
+    // texture's mean and spread (2026-11-08)
+    expect(BLEND).toEqual({ margin: 0.2, noise: 0.96, softness: 5.8, noiseMean: 0.473, noiseSpread: 0.081 });
     const u = sceneUniforms(1, 1, new DataTexture(), new DataTexture(), new DataTexture(), new DataTexture());
     const shader = terrainMaterial(u, 0, 1).fragmentShader;
     expect(shader).toContain("float desertBlend(vec2 g, vec4 desert)");

@@ -467,6 +467,18 @@ export const STROKE_WIDEN_K = (() => {
   return Math.round(((12.5 * a) / grow - 1) / (a * a) * 1e3) / 1e3;
 })();
 
+/** The blending noise's gain (`blendNoise`): the game's spread over our two octaves' own (0.7 and 0.3 of value noise at
+ *  3 and 6 cells a tile, whose spread is 0.163), so ours spreads as the game's `BlendingNoise` does (palette.ts BLEND). */
+const BLEND_NOISE_GAIN = Math.round((BLEND.noiseSpread / 0.163) * 1e3) / 1e3;
+/** Dry ground's own broad shade (`groundColor`): a value noise a few tiles across scaling its lightness by up to this
+ *  much either way, so its patches vary over 2 to 8 tiles as the game's `Desert` texture × its detail texture do (the
+ *  luma's spread over blocks of ¼, 1, 4 and 8 tiles: 9.4, 7.7, 5.3 and 3.4 % of its mean; tools/ground-variation.ts). */
+const DRY_BROAD = 0.29;
+/** Grass's broad shade: its lightness by this much either way over a dozen tiles, its mean held (the game's `Grass`
+ *  texture × its detail texture vary over 1, 4 and 8 tiles by 9.1, 5.7 and 3.6 % of their mean; ours by 10.3, 8.0 and
+ *  6.8 % until 2026-11-08, when this was 0.27, and dark patches of it read as the grass's own colour on the start shots). */
+const GRASS_BROAD = 0.15;
+
 /** The pattern texture: its size, and the cells of each pattern across it (each tiles). */
 const PATTERN_SIZE = 1024;
 const NOISE_CELLS = 64;
@@ -1248,6 +1260,12 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         bool drawn = waterSurfaceOf(d) <= slice + ${f(CUT_SLACK)} || heightOf(d) < slice;
         return vec4(m, g - m * 16.0, d.a > 0.002 && drawn ? 1.0 : 0.0, d.b);
       }
+      /** How much of a tile's top is grass, from its soilOf: one less the game's desert intensity, which the tile data
+       *  carries from the moisture unrounded (light.ts \`desertByte\`; \`grassOf\` takes the whole level, for the run
+       *  tops' soil, which has only that). */
+      float grassAt(vec4 s) {
+        return 1.0 - s.w;
+      }
       ${WATER_GLSL}
       /** The depth of the water drawn over a tile's top (light.ts waterByte; three levels for any deeper): under a layer
        *  cut through it, to the cut (cutWater.ts surfaceAtCut). */
@@ -1346,10 +1364,11 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         }
         return sum / max(weight, 1e-4);
       }
-      /** The ground's blending noise (the game's \`_BlendingNoise\`, a texture at world × 0.2; here our own), 0–1: the
+      /** The ground's blending noise (the game's \`_BlendingNoise\`, a texture at world × 0.2; here our own at its
+       *  statistics, palette.ts BLEND: its mean, its spread and features half a tile to two tiles across), 0–1: the
        *  desert's share and contamination's weight read the same sample. */
       float blendNoise(vec2 g) {
-        return 0.5 + 0.6 * (0.62 * vnoise(g * 0.8 + vec2(3.1, 11.7)) + 0.38 * vnoise(g * 2.1 + vec2(17.3, 5.9)) - 0.5);
+        return ${f(BLEND.noiseMean)} + ${f(BLEND_NOISE_GAIN)} * (0.7 * vnoise(g * 3.0 + vec2(3.1, 11.7)) + 0.3 * vnoise(g * 6.0 + vec2(17.3, 5.9)) - 0.5);
       }
       /** How much of the ground at tile point g is the game's desert: the tiles' desert (\`desert\`, as tapBlend takes
        *  them; a tile whose top is at another level counts as desert, as the game's map holds 1 there) blended by
@@ -1409,7 +1428,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         // tan and in lightness (D334); each plate its own shade, the cracks a fine, dark network
         vec3 c = mix(${glColor(GROUND.dryCool)}, ${glColor(GROUND.dry)}, smoothstep(0.28, 0.68, b1));
         c = mix(c, ${glColor(GROUND.dryWarm)}, smoothstep(0.32, 0.72, b2) * 0.85);
-        c *= (0.97 + 0.16 * (b3 - 0.5) + 0.08 * (n1 - 0.5)) * (0.96 + 0.22 * (dry.y - 0.5) + detail * 0.20 * n3);
+        // (and its broad shade, over a few tiles, as the game's desert texture varies: DRY_BROAD)
+        float b4 = vnoise(g * 0.23 + 131.0);
+        c *= (0.97 + 0.16 * (b3 - 0.5) + 0.08 * (n1 - 0.5) + ${f(DRY_BROAD)} * (b4 - 0.5)) * (0.96 + 0.22 * (dry.y - 0.5) + detail * 0.20 * n3);
         // (the cracks as deep from afar as near: their texture's mips keep their mean, as the game's textures do)
         c = mix(c, ${glColor(GROUND.crack)}, dry.x * 0.78);
         // moist: grass, a muted green the same at every moisture (the game's), in lighter and deeper patches and
@@ -1435,7 +1456,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float painted = (1.0 - smoothstep(0.04, 0.04 + bladeAA, abs(bf.x + bf.y * 0.25))) * (1.0 - smoothstep(0.18, 0.42, abs(bf.y)));
         float widened = ${f(Math.round(PAINTED_MEAN * 12.5 * 1e6) / 1e6)} * bladeAA / (1.0 + ${f(STROKE_WIDEN_K)} * bladeAA * bladeAA);
         float tex = 0.91 + 0.31 * tuft + mix(${f(PAINTED_MEAN)}, painted * (0.08 + bladeHash * 0.16) - widened, detail) + 0.09 * blade * detail;
-        c = mix(c, grass * (0.80 + 0.27 * b1 + 0.14 * (n1 - 0.5)) * tex * (1.0 - 0.19 * blot), moist);${hook(h, "groundVariation")}
+        c = mix(c, grass * (${f(0.935 - GRASS_BROAD / 2)} + ${f(GRASS_BROAD)} * b1 + 0.14 * (n1 - 0.5)) * tex * (1.0 - 0.19 * blot), moist);${hook(h, "groundVariation")}
         // the game's altitude ramp, the grass's on grass and the desert's on dry ground, before contamination's veins
         c *= altitudeOf(vWorld.y, moist);
         // contamination: a layer over the ground, as the game's terrain shader lays it (palette.ts CONTAMINATION says the
@@ -1505,7 +1526,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             // on every pixel)
             vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w);
             vec4 s0 = soilOf(d0);
-            vec4 soil = vec4(grassOf(s0.x), s0.x, step(0.5, s0.y), s0.z);
+            vec4 soil = vec4(grassAt(s0), s0.x, step(0.5, s0.y), s0.z);
             // (a still film's water drawn back from the shore leaves dry ground: shoreFilm.ts)
             if (soil.w > 0.0) soil.w *= shoreFilmOwn(tile, d0, fr, filmPx);
             float clev = s0.y / 15.0;
@@ -1521,10 +1542,10 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             vec4 s1 = soilOf(dx);
             vec4 s2 = soilOf(dy);
             vec4 s3 = soilOf(dd);
-            vec4 flags0 = vec4(grassOf(s0.x), s0.x, step(0.5, s0.y), s0.z);
-            vec4 flags1 = vec4(grassOf(s1.x), s1.x, step(0.5, s1.y), s1.z);
-            vec4 flags2 = vec4(grassOf(s2.x), s2.x, step(0.5, s2.y), s2.z);
-            vec4 flags3 = vec4(grassOf(s3.x), s3.x, step(0.5, s3.y), s3.z);
+            vec4 flags0 = vec4(grassAt(s0), s0.x, step(0.5, s0.y), s0.z);
+            vec4 flags1 = vec4(grassAt(s1), s1.x, step(0.5, s1.y), s1.z);
+            vec4 flags2 = vec4(grassAt(s2), s2.x, step(0.5, s2.y), s2.z);
+            vec4 flags3 = vec4(grassAt(s3), s3.x, step(0.5, s3.y), s3.z);
             vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;
             // a still film's water drawn back from the shore leaves the ground there dry (shoreFilm.ts, Q9 V3): on its own
             // tile, off the outline its mesh is drawn to; on a dry tile beside it, none of its wet blends over
@@ -1659,7 +1680,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
           groove = (1.0 - smoothstep(gw - py * 0.5, gw + py * 0.5, fy)) * lines;
           float lip = ceiling ? 0.0 : 1.0 - smoothstep(0.07, 0.13, h0 - y);
           vec4 s0 = soilOf(d0);
-          vec3 top = groundMode > 0.5 ? heightColor(h0) : mix(${glColor(GROUND.dry)} * 0.85, ${glColor(GROUND.grass)}, grassOf(s0.x));
+          vec3 top = groundMode > 0.5 ? heightColor(h0) : mix(${glColor(GROUND.dry)} * 0.85, ${glColor(GROUND.grass)}, grassAt(s0));
           // (an eruption's fresh rock: its cliffs dark basalt, its lip ash)
           float freshWall = freshRock(tile, vWorld.y);
           wc = mix(wc, ${glColor(JUICE.ashDark)} * (0.62 + 0.5 * k), freshWall * 0.7);

@@ -196,7 +196,7 @@ describe("the baked light", () => {
     expect(litFraction(5, 4.5, 5.5)).toBeCloseTo(0.5);
   });
 
-  it("packs the tile data: height, soil and the water over the top (B unused since D497)", () => {
+  it("packs the tile data: height, soil, the game's desert intensity and the water over the top", () => {
     const heights = new Uint8Array([2, 2, 5, 1]);
     const soil = soilView([0, 3, 12, 0], [0, 0, 0, 0.4]);
     const sw = surfaceWater(4, 1, waterFromDepth(heights, [0, 0, 0, 0.8], [0, 0, 0, 0]));
@@ -206,7 +206,8 @@ describe("the baked light", () => {
     expect(d[5] >> 4).toBe(3); // moist
     expect(d[9] >> 4).toBe(12);
     expect(d[13] & 15).toBeGreaterThan(0); // contaminated
-    expect([d[2], d[6], d[10], d[14]]).toEqual([0, 0, 0, 0]);
+    // B: the desert intensity, all of a dry top, 0.7 × (1 − 3/5) at moisture 3, none from 5 up (palette.ts DESERT)
+    expect([d[2], d[6], d[10], d[14]]).toEqual([255, Math.round(0.28 * 255), 0, 255]);
     expect([d[3], d[7], d[11]]).toEqual([0, 0, 0]);
     expect(d[15]).toBe(waterByte(sw, heights, 3));
     expect(d[15]).toBeGreaterThan(40);
