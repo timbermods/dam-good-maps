@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { DataTexture, ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
-import { sceneUniforms, skyMaterial, terrainMaterial } from "../../src/render3d/materials";
+import { PAINTED_MEAN, paintedMean, STROKE_WIDEN_K, sceneUniforms, skyMaterial, terrainMaterial } from "../../src/render3d/materials";
 import { entityView } from "../../src/render3d/model";
 import { BLEND, DESERT, GAME_SKY, gamePostRgb, GROUND, legendEntries, objectLegend, type Rgb } from "../../src/render3d/palette";
 
@@ -113,7 +113,30 @@ describe("the clean view", () => {
     const gl = (c: Rgb) => `vec3(${c.map((v) => (Number.isInteger(v) ? `${v}.0` : String(Math.round(v * 1000) / 1000))).join(", ")})`;
     for (const c of [...patches, GROUND.crack]) expect(src).toContain(gl(c));
     expect(src).toContain("vec2 dry = cracks(g * 3.1);");
-    expect(src).toContain(`c = mix(c, ${gl(GROUND.crack)}, dry.x * (0.58 + 0.20 * detail));`);
+    // (as deep from afar as near: the cracks' mean holds at every distance, as the game's textures' does, fix/land-tone)
+    expect(src).toContain(`c = mix(c, ${gl(GROUND.crack)}, dry.x * 0.78);`);
+  });
+
+  it("draws grass as the game's terrain shader does (D497, fix/land-tone): one colour at every moisture, its mean the same at every distance", () => {
+    const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+    for (const lite of [false, true]) {
+      const src = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1, lite).fragmentShader;
+      // (the game has no moisture term: moisture only sets the desert's share)
+      expect(src).not.toContain("(s.y - 1.0) / 9.0");
+      expect(src).toContain(`vec3(${GROUND.grass.join(", ")})`);
+    }
+    // the painted strokes fade from afar to their own mean, never to nothing (a texture's mips keep its mean)
+    expect(PAINTED_MEAN).toBeGreaterThan(0.005);
+    expect(PAINTED_MEAN).toBeLessThan(0.01);
+    const src = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1).fragmentShader;
+    expect(src).toContain(`mix(${PAINTED_MEAN}, painted * (0.08 + bladeHash * 0.16) - widened, detail)`);
+    // up close the strokes keep their width plus a pixel's footprint (legible at a grazing view, as dev drew them), and
+    // what that widening adds is taken off: the fit is within 2 % of the strokes' own growth at every footprint
+    expect(src).toContain("1.0 - smoothstep(0.04, 0.04 + bladeAA, abs(bf.x + bf.y * 0.25))");
+    for (const aa of [0.025, 0.1, 0.3, 0.5, 0.8, 1.2]) {
+      const grow = paintedMean(aa) / paintedMean(0) - 1;
+      expect(Math.abs((12.5 * aa) / (1 + STROKE_WIDEN_K * aa * aa) - grow) / grow).toBeLessThan(0.02);
+    }
   });
 
   it("draws the game's sky round the map (D497): blue overhead, paler at the horizon, the game's own colour straight down", () => {

@@ -102,7 +102,7 @@ describe("water", () => {
     const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
     const y = (c: readonly number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
     const sat = (c: readonly number[]) => Math.max(...c) - Math.min(...c);
-    for (const ground of [GROUND.underwater, GROUND.moistLow, GROUND.dry])
+    for (const ground of [GROUND.underwater, GROUND.grass, GROUND.dry])
       for (const water of [cleanWaterBody(0.25), cleanWaterBody(1), badwaterBody(0.25)]) {
         const b = waterGroundBehind(ground, water);
         // darker than the ground in the open (the overlay of a dark water colour), and greyer
@@ -126,7 +126,7 @@ describe("water", () => {
       const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
       return { h: (h * 60 + 360) % 360, s: d };
     };
-    for (const ground of [GROUND.moistLow, GROUND.moistHigh, GROUND.dry, CONTAMINATED_GROUND.dry, CONTAMINATION.vein]) {
+    for (const ground of [GROUND.grass, GROUND.dry, CONTAMINATED_GROUND.dry, CONTAMINATION.vein]) {
       // clean: a teal-green, the grass's hue only partly kept; badwater: crimson whatever the ground
       const clean = hue(waterFilmGround(ground, 0));
       expect(clean.h, `clean over ${ground}`).toBeGreaterThan(130);
