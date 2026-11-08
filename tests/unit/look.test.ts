@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { storedSoil } from "../../src/core/format/world";
 import { describeTile, entitiesByTile } from "../../src/editor/features";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
-import { decodeTop, encodeTop, litFraction, objectCasters, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte } from "../../src/render3d/light";
+import { casterLevelsOf, decodeTop, DEFAULT_SUN, encodeTop, litFraction, objectCasters, PLANT_WIDEST, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte, withCasterLevels } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
 import { ALBEDO_SCALE, cliffTint, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
@@ -215,6 +215,82 @@ describe("the baked light", () => {
     // the tree shades the ground to its south-east
     const noTree = shadowMap(W, H, h, null);
     expect(Buffer.from(a).equals(Buffer.from(noTree))).toBe(false);
+  });
+
+  it("casts a plant's shape, not its tile's column (D497: the game's shadows are its models')", () => {
+    const u = DEFAULT_SUN;
+    // (whether the ground at d tiles from a plant's middle away from the sun, and a across that way, is in shadow)
+    const shaded = (bytes: Uint8Array, x: number, y: number, d: number, a = 0) => {
+      const px = x + 0.5 - u.x * d + u.y * a;
+      const py = y + 0.5 - u.y * d - u.x * a;
+      return decodeTop(bytes[(Math.floor(py * SHADOW_RES) * W * SHADOW_RES + Math.floor(px * SHADOW_RES)) * 4]) > 3;
+    };
+    const one = (template: string) => objectCasters(W, H, entityView([{ template, x: 15, y: 12, z: 3, orientation: "Cw0", owner: "f" }]))!;
+    const oak = one("Oak");
+    const bytes = shadowMap(W, H, flat, oak);
+    // an oak's crown (1.16 to 2.26 over the ground, at the sun's 45°) shades the ground 1 to 2.5 tiles off, not past 3
+    for (const d of [1, 1.7, 2.4]) expect(shaded(bytes, 15, 12, d), `${d} tiles off`).toBe(true);
+    expect(shaded(bytes, 15, 12, 3.4)).toBe(false);
+    // nor a tile to either side of its shadow's middle, which the whole tile's column of its height shaded
+    const column = withCasterLevels(oak.slice(), casterLevelsOf(oak)!.slice(0, W * H));
+    const columns = shadowMap(W, H, flat, column);
+    let shapeSamples = 0;
+    let columnSamples = 0;
+    for (let k = 0; k < W * H * SHADOW_RES * SHADOW_RES; k++) {
+      if (decodeTop(bytes[k * 4]) > 3) shapeSamples++;
+      if (decodeTop(columns[k * 4]) > 3) columnSamples++;
+    }
+    expect(shapeSamples).toBeGreaterThan(4);
+    expect(shapeSamples).toBeLessThan(columnSamples);
+    // a blueberry bush casts its low mound, which no column did (it had none)
+    const bush = shadowMap(W, H, flat, one("BlueberryBush"));
+    expect(shaded(bush, 15, 12, 0.5)).toBe(true);
+    expect(shaded(bush, 15, 12, 1.5)).toBe(false);
+  });
+
+  it("casts a plant's shape on past where the ground drops away below it: off a bank's step, onto water", () => {
+    const u = DEFAULT_SUN;
+    // (ground 5 high up to just past the plant's middle along the sun's way, then `step` lower)
+    const stepped = (step: number) => {
+      const h = new Uint8Array(W * H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) h[y * W + x] = (15 - x) * u.x + (12 - y) * u.y > 0.6 ? 5 - step : 5;
+      return h;
+    };
+    // (the shadow's top at d tiles from the plant's middle away from the sun)
+    const topAt = (bytes: Uint8Array, d: number) => {
+      const px = 15.5 - u.x * d;
+      const py = 12.5 - u.y * d;
+      return decodeTop(bytes[(Math.floor(py * SHADOW_RES) * W * SHADOW_RES + Math.floor(px * SHADOW_RES)) * 4]);
+    };
+    const pine = objectCasters(W, H, entityView([{ template: "Pine", x: 15, y: 12, z: 5, orientation: "Cw0", owner: "f" }]))!;
+    // two levels down: the bank's own shadow ends 2.7 tiles off; the pine's whorls (1.1 to 2.7 over its level, 3.1 to
+    // 4.7 over the ground below) shade it on to about 5, as its column did
+    const low = stepped(2);
+    const bytes = shadowMap(W, H, low, pine);
+    const bank = shadowMap(W, H, low, null);
+    for (const d of [3.5, 4, 4.5]) {
+      expect(topAt(bank, d), `the bank alone, ${d} off`).toBeLessThan(3);
+      expect(topAt(bytes, d), `${d} off`).toBeGreaterThan(3);
+    }
+    expect(topAt(bytes, 6)).toBeLessThan(3);
+    // three levels down, the same past the bank's longer shadow
+    const lower = shadowMap(W, H, stepped(3), pine);
+    for (const d of [4.5, 5.25]) expect(topAt(lower, d), `${d} off, three levels down`).toBeGreaterThan(2);
+    // onto water a level under the bank (its surface at 4 over ground 3): the whorls shade its surface 2.1 to 3.7 off
+    for (const d of [2.5, 3, 3.5]) expect(topAt(bytes, d), `the water's surface, ${d} off`).toBeGreaterThan(4);
+    expect(topAt(bytes, 5.5)).toBeLessThan(4);
+  });
+
+  it("casts a dead plant at its dead form's height (dying.ts DEAD_FORM), not a third of its living one", () => {
+    const dead = objectCasters(W, H, entityView([{ template: "Pine", x: 15, y: 12, z: 3, orientation: "Cw0", owner: "f", dead: true }]))!;
+    const alive = objectCasters(W, H, entityView([{ template: "Pine", x: 15, y: 12, z: 3, orientation: "Cw0", owner: "f" }]))!;
+    expect(dead[12 * W + 15] / alive[12 * W + 15]).toBeCloseTo(0.79, 5);
+  });
+
+  it("casts no disc wide enough to reach samples an edit of its tile does not redo", () => {
+    // (from a tile's middle to the nearest sample outside it: half a tile and half a sample)
+    expect(PLANT_WIDEST).toBeLessThan(0.5 + 0.5 / SHADOW_RES);
+    expect(PLANT_WIDEST).toBeGreaterThan(0.5);
   });
 
   it("encodes shadow tops within a tenth of a level", () => {

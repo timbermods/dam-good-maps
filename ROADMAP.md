@@ -59,7 +59,7 @@ mod and one-click play are set aside (#709 stays on `hold`). The work, in this o
   - the shelf's picked row in view (#668's fix, redone).
 - **The look** (renderer):
   - badwater's colour as the game draws it: done (#826, #830, #832, #836, #839, #842, #844, #847, #851, #852);
-  - dry land that reads dry: in progress (#853);
+  - dry land that reads dry: done (#853);
   - grass in the game's light: #854 (the light holds to a luma; Standard's shadow edge the game's in-play width, #855; the judge's gap is the textures where its samples sit);
   - light in caves, and overhangs and arches that read: done (#820; captured again after #852–#855 on `fix/high-shadow-edge`: the roofed faces hold, cave 41 High / 43 Standard);
   - High's shadow edge as the game's: `fix/high-shadow-edge` (0.5–0.6 → 0.13–0.17 of a tile at 128² with a 2048 map; the game's 4096 reaches its 0.11 and waits on the igpu-4x gate);

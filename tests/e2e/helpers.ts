@@ -58,3 +58,73 @@ export async function settle(page: Page, w: number, h: number) {
   await page.mouse.move(w * 0.55, h * 0.6);
   await page.waitForTimeout(300);
 }
+
+/** Remember the pointer each press on the page goes down with, for `strokeMoves`. Call it once, before the first press. */
+export async function rememberPointer(page: Page) {
+  await page.evaluate(() => window.addEventListener("pointerdown", (e) => ((window as unknown as { strokePointer: number }).strokePointer = e.pointerId), true));
+}
+
+/** A held stroke's moves from p to q in `steps` even steps, sent by the page itself `gap` ms apart to the map, with the
+ *  pointer the press went down with (`rememberPointer`). A move sent from here waits for the page's next frame, and on
+ *  CI's software drawing a frame of a 128² map takes up to 2 s: 144 of them took strokesBackToBack past its three
+ *  minutes (run 40575112650; a CPU profile under SwiftShader puts nine tenths of each stroke in the raster, the page's
+ *  own work a few hundred ms, as on a GPU). The moves are the same, so are the strokes and what is asserted; only the
+ *  frame each one waited for is gone. Playwright's own pointer stays where the press went down: move it to q before
+ *  letting go. */
+export async function strokeMoves(page: Page, p: { x: number; y: number }, q: { x: number; y: number }, steps: number, gap = 8) {
+  await page.evaluate(
+    async ([p, q, steps, gap]) => {
+      const c = window.dgm3d!.renderer.canvas;
+      const id = (window as unknown as { strokePointer: number }).strokePointer;
+      for (let s = 1; s <= steps; s++) {
+        const init = { bubbles: true, cancelable: true, composed: true, pointerId: id, pointerType: "mouse", isPrimary: true, buttons: 1, clientX: p.x + ((q.x - p.x) * s) / steps, clientY: p.y + ((q.y - p.y) * s) / steps };
+        c.dispatchEvent(new PointerEvent("pointermove", init));
+        await new Promise((r) => setTimeout(r, gap));
+      }
+    },
+    [p, q, steps, gap] as const,
+  );
+}
+
+/** Note the moments of the editor's open, for `phases` (CI's log says where a slow spec's time went): the map handed to
+ *  the 3D view (generated, `window.dgm3d`), its first frame drawn after that, and the editor's hook set, each from the
+ *  page's navigation. Call it before `openEditor`. Reads only; changes nothing the page does. */
+export async function watchOpen(page: Page) {
+  await page.addInitScript(() => {
+    const t: Record<string, number> = {};
+    (window as unknown as { dgmOpenTimes: Record<string, number> }).dgmOpenTimes = t;
+    let frames = -1;
+    const iv = setInterval(() => {
+      const r = window.dgm3d?.renderer as unknown as { framesDrawn?: number } | undefined;
+      const now = Math.round(performance.now());
+      if (r && t.view === undefined) {
+        t.view = now;
+        frames = r.framesDrawn ?? 0;
+      }
+      if (r && t.frame === undefined && (r.framesDrawn ?? 0) > frames) t.frame = now;
+      if (window.dgmEditor && t.editor === undefined) t.editor = now;
+      if (t.view !== undefined && t.frame !== undefined && t.editor !== undefined) clearInterval(iv);
+    }, 50);
+  });
+}
+
+/** A spec's phase log: each call prints one line with the time since the last (`[phases] <spec>: <phase> <ms> ms`), which
+ *  CI's list reporter shows under the test. `open` adds `watchOpen`'s moments. */
+export function phases(spec: string) {
+  let last = Date.now();
+  const lap = (phase: string, detail = "") => {
+    const now = Date.now();
+    console.log(`[phases] ${spec}: ${phase} ${now - last} ms${detail}`);
+    last = now;
+  };
+  return {
+    lap,
+    open: async (page: Page) => {
+      const t: { boot: number; view?: number; frame?: number; editor?: number } = await page.evaluate(() => {
+        const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+        return { boot: Math.round(nav?.domContentLoadedEventEnd ?? -1), ...(window as unknown as { dgmOpenTimes?: Record<string, number> }).dgmOpenTimes };
+      });
+      lap("open", ` (from navigation: page loaded ${t.boot} ms, map in the view ${t.view ?? "?"} ms, its first frame ${t.frame ?? "?"} ms, editor ready ${t.editor ?? "?"} ms)`);
+    },
+  };
+}
