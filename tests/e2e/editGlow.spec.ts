@@ -13,9 +13,9 @@ const glow = (page: Page) => page.evaluate(() => (window.dgm3d!.renderer as unkn
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const edits = (page: Page) => page.evaluate(() => window.dgmEditor!.info().edits);
 /** How long an edit's answer may take to reach the edit count: it comes with the frames, and in software drawing (CI's
- *  SwiftShader, where this spec draws the GPU look) a frame here takes about 200 ms, so a dig's or an undo's answer takes
- *  about a second on a 12-thread machine and past 5 s on CI's runners, though nothing compiles (the first hollow's
- *  compile is longer still, the first dig's own wait). */
+ *  SwiftShader) a frame here takes about 200 ms, so a dig's or an undo's answer takes about a second on a 12-thread
+ *  machine and past 5 s on CI's runners, though nothing compiles (the first hollow's compile is longer still, the first
+ *  dig's own wait). */
 const ANSWERED = 30_000;
 /** The most faces glowing in any frame drawn over `ms`. */
 const glowOver = (page: Page, ms: number) =>
