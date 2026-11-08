@@ -3,7 +3,7 @@
 // drawn in polar coordinates round the footprint's middle, streaming out, gone at its inscribed circle; it lifts clean
 // water's colour toward the detail albedo and tints badwater's emission. Ours is made in code at the game's statistics
 // (waterTextures.ts `makeSourceShape`; tools/game-water-shader.py --textures measures the game's: numbers only), and every
-// look draws it, under our rings and bubbles (D196, an editing aid).
+// look draws it, under our rings and bubbles (D249, an editing aid shown only with Markers on, D497).
 
 import { describe, expect, it } from "vitest";
 import { DataTexture } from "three";
@@ -85,7 +85,7 @@ describe("the water sources' own pattern (Q9 P7)", () => {
       expect(f).toContain(`2.0 * r - ${GAME_WATER_SOURCE.scroll} * time`);
       expect(f).toContain("return clamp(8.0 * shape * k2 + min(1.0, 2.5 * k2 * k2 * k2), 0.0, 1.0);");
       expect(f).toContain("a = waterSourceLift(a);");
-      // (our rings, D196, after it: an editing aid over the game's own)
+      // (our rings, D249, after it: an editing aid over the game's own, with Markers on)
       expect(f.indexOf("every source wells up")).toBeGreaterThan(f.indexOf("waterSource = n.y"));
     }
     expect(WATER_GLSL).toContain(`(max(a, waterSource * waterDetail) - a) * ${GAME_WATER_SOURCE.lift}`);
@@ -93,5 +93,47 @@ describe("the water sources' own pattern (Q9 P7)", () => {
     expect(WATER_GLSL).toMatch(/pattern = mix\(pattern, 0\.74\d*, waterSource\);/);
     const tint = GAME_WATER_SOURCE.colour.map((v) => v * GAME_WATER_SOURCE.strength);
     tint.forEach((v) => expect(v).toBeGreaterThan(0.5));
+  });
+
+  it("leaves our rings and bubbles to Markers (D249, D497): off, they mix in nothing; on, they show as before", () => {
+    /** Whether the place `at` in `src` lies inside a branch taken only with Markers on. */
+    const underMarkers = (src: string, at: number) => {
+      const open = "if (markers > 0.5) {";
+      for (let k = src.indexOf(open); k >= 0 && k < at; k = src.indexOf(open, k + 1)) {
+        let depth = 0;
+        let end = k + open.length - 1;
+        for (; end < src.length; end++) {
+          depth += src[end] === "{" ? 1 : src[end] === "}" ? -1 : 0;
+          if (depth === 0) break;
+        }
+        if (at < end) return true;
+      }
+      return false;
+    };
+    const u = U();
+    for (const m of [waterMaterial(u), waterMaterial(u, false, waterHooks())]) {
+      // (the renderer's one Markers switch reaches the water in Standard and High: the scene's own uniform, off when a
+      // map opens)
+      expect(m.uniforms.markers).toBe(u.markers);
+      expect(u.markers.value).toBe(0);
+      const f = m.fragmentShader;
+      const start = f.indexOf("every source wells up with Markers on");
+      expect(start).toBeGreaterThan(0);
+      const block = f.slice(start, f.indexOf("#endif", start));
+      // off: every term the rings and bubbles add sits under the switch (up, its badwater colour, its mix into the
+      // water), and nothing else writes them, so the water over a plain source is the plain surface
+      for (const term of ["up = max(up, here);", "badSrc = max(badSrc, sv.g * here);", "c = mix(c, uc, up * 0.55);", "alpha = max(alpha, mix(alpha, 0.85, up * 0.5));"]) {
+        expect(block.indexOf(term), term).toBeGreaterThan(0);
+        expect(underMarkers(block, block.indexOf(term)), term).toBe(true);
+      }
+      expect(block.match(/(?<!float )\b(up|badSrc) = /g)).toEqual(["up = ", "badSrc = "]);
+      // on: the rings as they were, 0.07 tiles wide, 1.4 tiles out every 1 / 0.35 s, mixed in by up to 0.8 × 0.55
+      expect(block).toContain("float ph = fract(time * 0.35 + (sq.x * 0.37 + sq.y * 0.61));");
+      expect(block).toContain("(1.0 - smoothstep(0.0, 0.07, abs(d - ph * 1.4))) * (1.0 - ph)");
+      expect(block).toContain("float here = max(ring * 0.8, bub) * (1.0 - smoothstep(1.1, 1.5, d));");
+      // (the hover's glow on the sources feeding the pointer's water is its own channel, with or without Markers)
+      expect(underMarkers(block, block.indexOf("hl = max(hl, sv.b"))).toBe(false);
+      expect(underMarkers(block, block.indexOf("c = mix(c, WATER_SOURCE_GLOW, hl * 0.45);"))).toBe(false);
+    }
   });
 });

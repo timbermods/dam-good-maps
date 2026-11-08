@@ -1473,7 +1473,7 @@ the game's models in resources.assets (positions, materials and texture means on
   (1 − s). **Ours** (`GAME_WATER_SOURCE`, `makeSourceShape`, `waterSourcePattern`, `sourceMarks.ts`): the shape our own,
   a spectral field remapped to the game's percentiles (mean 63.5 against 62.9, spread 61.5 against 61.8, its power by
   band within 0.004, half-width 7 % under the game's), in badwater's texture's A, made in the bake worker (the light
-  look's job too); every look draws it, under our rings and bubbles (D196). As the game's mask does, the sources'
+  look's job too); every look draws it, under our rings and bubbles (D249, with Markers on). As the game's mask does, the sources'
   texture gives each tile of a footprint its place in it (`SOURCE_FOOTPRINT`), so a pixel reads one texel. A seep in a
   held drought shows none.
 - **Cost** (`capture-water-shore.ts --cost`, 120 frames, median): close over the seep Standard 3.23 → 2.98 ms, High

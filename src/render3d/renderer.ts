@@ -413,7 +413,7 @@ export class MapRenderer {
   private edges: DataTexture | null = null;
   /** Where the outline round mine sites runs (**Markers**): `mineOutline` of the objects. */
   private sites: DataTexture | null = null;
-  /** Where the sources are, for their upwelling (D196). */
+  /** Where the sources are, for their upwelling with Markers on (D249) and the game's own pattern (Q9 P7). */
   private sourceTiles: DataTexture | null = null;
   /** The sources whose water the pointer is over (tile indices of their middles). */
   private sourceGlow: readonly number[] = [];
