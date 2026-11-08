@@ -44,6 +44,10 @@ export interface WaterLayer {
   own: Uint8Array | null;
   /** Chunks this layer draws water in (`cy · ⌈W / CHUNK⌉ + cx`, 1); null: every chunk. */
   chunks: Uint8Array | null;
+  /** The open sky's layer of a map in layers: the renderer's surface water, whose water on each tile's top the
+   *  terrain's water byte has (where `sw` drops a tile whose highest water is under a roof). A still film links to a
+   *  neighbour by it, as the terrain does (shoreFilm.ts); `sw` where absent. */
+  wet?: SurfaceWater;
 }
 
 /** A map without terrain above terrain: one layer, its surface water on its heights. */
@@ -321,7 +325,7 @@ export function waterLayers(W: number, H: number, heights: Uint8Array, columns: 
     first.depth[i] = 0;
     first.contamination[i] = 0;
   }
-  layers.push({ sw: first, ground: heights, own: moved ? own0 : null, chunks: null });
+  layers.push({ sw: first, ground: heights, own: moved ? own0 : null, chunks: null, wet: sw });
   for (let L = 0; L < keys.length; L++) {
     const key = keys[L];
     const box = boxes[L];

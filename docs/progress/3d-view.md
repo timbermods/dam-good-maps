@@ -1430,6 +1430,58 @@ the game's models in resources.assets (positions, materials and texture means on
   few pixels; the noise is ours at the game's statistics, not its texels; the mask follows our surface water only (a
   cave's water under a surface takes none), and the game eases it from the last tick's to this one's.
 
+## Still films at the shore, High's bed, the sources' own pattern (Q9 V3, P7; D496, D497; `fix/water-shore`)
+
+- **V3, read exactly** (the game's water vertex shader, vs 381-395, 486; its Low quality's program is the same): a shore
+  vertex of a still film moves toward its own tile's middle, 0.15 tile across its open side, or along its diagonal by
+  0.21 a side where both its sides are open, none between two linked sides (a neighbour is linked when wet), × saturate(2
+  − 20 d) × max(0, 1 − 100 |f|). **Ours** (`shoreFilm.ts`): the mesh gives each corner of a film's top, and of the
+  curtains hanging from it, its shift × the depth's share (`wshore`; the depth as the terrain's water byte reads it); the
+  vertex shader takes the flow's share at the corner from the flow texture, so a flow changing needs no new mesh. A
+  neighbour links as the terrain's water byte has it, so a tile whose water the open sky's layer leaves to a layer
+  under a roof still links (`WaterLayer.wet`). The terrain draws the margin as dry ground on the same outline
+  (`shoreFilmOwn`, `filmInside` its twin for the tests): only an open side's edge bounds it, and only where the film
+  draws back there, so a side shared with other water never dries; the fade from dry to wet is centred on the outline,
+  a pixel wide. A dry tile beside a film keeps the film's wet blend as far as the film still reaches it
+  (`shoreFilmKeep`: none where it is drawn back, all where it flows). So neither our underwater bed nor the
+  behind-tint shows in the margin. Only the open sky's layer on its tile's top moves. Our four corners a tile against the game's sixteen vertices: a straight shore is the game's; a corner open on
+  both sides is cut a little deeper. Picking, the editing aids, the cutaway and the clear veil read the map's water, not
+  the drawn outline (`cutaway.spec.ts` and `look-high.spec.ts` pass).
+- **High's bed** (D496 as amended): its poisoned bed (#38) made the ground under badwater its dry contaminated ground,
+  darker, and the 17.5 % see-through showed it. Gone: both looks draw the one bed. Judged on the sixteen day-lit start
+  shots: High's pure badwater a level or two deep L* 25.3 → 26.2 (Standard's 26.2, the game's 27.4), its RMS by day
+  14.9 → 14.3, its gap by day 7.1 → 6.2, inside 3.1 to 6.5; the gap test (`water-sky.test.ts`) covers both looks. The
+  bed drawn as the dry ground in both looks (the game's terrain has no underwater input) read darker, 25.4 in both, and
+  Standard's RMS 14.2 → 14.7, so the underwater bed stays.
+- **P7, read exactly** (ps 356-418, 477, 700-720; the decompiled `Timberborn.WaterSourceRendering`): only the seeps and
+  the badwater source carry the pattern, a seep while it can run, a badwater source while its strength is over 0; the
+  shape in polar coordinates round the footprint's middle, streaming out at 0.04 a second, s = saturate(8 × shape × k² +
+  min(1, 2.5 k⁶)), k = max(0, 1 − 2r); clean water's colour × albedo half way to max(itself, s × the detail albedo);
+  badwater's emission pattern toward t9's B and × (1 + s × (`_Water_Source_Color` × 0.8 − 1)), its detail overlay ×
+  (1 − s). **Ours** (`GAME_WATER_SOURCE`, `makeSourceShape`, `waterSourcePattern`, `sourceMarks.ts`): the shape our own,
+  a spectral field remapped to the game's percentiles (mean 63.5 against 62.9, spread 61.5 against 61.8, its power by
+  band within 0.004, half-width 7 % under the game's), in badwater's texture's A, made in the bake worker (the light
+  look's job too); every look draws it, under our rings and bubbles (D196). As the game's mask does, the sources'
+  texture gives each tile of a footprint its place in it (`SOURCE_FOOTPRINT`), so a pixel reads one texel. A seep in a
+  held drought shows none.
+- **Cost** (`capture-water-shore.ts --cost`, 120 frames, median): close over the seep Standard 3.23 → 2.98 ms, High
+  3.56 → 3.47; from the opening camera 2.67 → 2.53, 3.01 → 2.93: within the runs' noise (a first version reading the
+  nine tiles round each pixel cost 0.3 to 0.55 ms close up).
+- **Judged** (`tools/water-pixel-judge.ts`, dev → this PR, sixteen day-lit start shots): clean water (37,853 tiles)
+  RMS Standard 10.2 → 10.2, High 10.1 → 10.1 (the shift is a few pixels at the shots' distance); badwater (172) 14.2 →
+  14.2, 14.9 → 14.3; the gap by day Standard 6.3 → 6.3, High 7.1 → 6.2; the land unchanged. At the six end shots'
+  hours: badwater (4,592) Standard 7.1 → 7.1, High 7.5 → 7.0; partly bad (19,318) 9.1 → 9.1, 9.1 → 8.8; clean 3.6, 3.5
+  unchanged.
+- **The sheet:** `docs/sheets/water-shore.jpg` (`tools/capture-water-shore.ts`): dev against this PR, Standard and High:
+  a still lake's shore close, badwater a level or two deep by day, a badwater source and a water seep placed in a lake.
+  After the reviews (seams dark along sides shared with other water, now gone), the reviewers' views checked against dev
+  close up: those seams, a corner open on two sides, a partly bad river (unchanged in Standard; High's bed at most
+  6 of 255 apart), a close waterfall (unchanged) and the highlight and brush over shallow water (drawn as before).
+- **Falls short:** a corner open on both sides is cut deeper than the game's, and where two films beside each other
+  draw back by different amounts, the margin has a small notch at their shared corner; t9's B is drawn at its mean (our B carries
+  the detail albedo); the game's distortion held back over a source and a seep's activation day are not followed; High's
+  badwater is still 1.2 L* under the game's by day, as Standard's.
+
 ## The land's tone (D497; `fix/land-tone`)
 
 - **The finding** (`fix/water-light` above): grass read about 12 % darker than the game's on the start shots (bias
