@@ -53,8 +53,8 @@ const SET_JS = `(() => {
 })();`;
 
 /** Page side: the views. The lake: the most clean water round a point, seen from low (pitch 0.2, the editor's lowest
- *  is 0.18) across it; the river: the most clean water in a channel (a quarter to a half of its 11 × 11 wet) round a
- *  point; the opening camera, as the map opens; pure badwater (the deepest tile whose 7×7 is all wet and nearly all
+ *  is 0.18) across it, turned so the line of sight runs over water; the river: the most clean water in a channel (a
+ *  quarter to a half of its 11 × 11 wet) round a point; the game's opening camera (60° down) over water; pure badwater (the deepest tile whose 7×7 is all wet and nearly all
  *  bad). */
 const FIND_JS = `([yaw]) => {
   const r = window.dgm3d.renderer;
@@ -62,7 +62,7 @@ const FIND_JS = `([yaw]) => {
   const wet = (i) => s.surface[i] === s.surface[i] && s.depth[i] > 0.05;
   const top = (i) => (wet(i) ? s.surface[i] : m.heights[i]);
   const at = (i) => [i % W + 0.5, top(i), -(Math.floor(i / W) + 0.5)];
-  const views = { opening: r.getView() };
+  const views = {};
   const bestOf = (score, r0) => {
     let best = -1, bs = 0;
     for (let y = r0; y < H - r0; y += 2) for (let x = r0; x < W - r0; x += 2) {
@@ -74,7 +74,29 @@ const FIND_JS = `([yaw]) => {
   };
   const clean = (j) => (wet(j) && s.contamination[j] < 0.02 ? 1 : 0);
   let i = bestOf(clean, 10);
-  if (i >= 0) views.lake = { mode: "orbit", yaw, pitch: 0.2, distance: 34, target: at(i) };
+  if (i >= 0) {
+    // (the turn whose low line of sight, from the eye down to the lake's middle, runs over the most clean water and
+    // no ground above it: a grazing look across the lake)
+    const pitch = 0.2, distance = 28, ix = i % W, iy = Math.floor(i / W);
+    let bestYaw = yaw, bestOver = -1;
+    for (let k = 0; k < 32; k++) {
+      const a = (k / 32) * 2 * Math.PI;
+      let over = 0;
+      for (let t = 0.05; t <= 1; t += 0.05) {
+        const x = Math.round(ix + Math.sin(a) * Math.cos(pitch) * distance * t), y = Math.round(iy - Math.cos(a) * Math.cos(pitch) * distance * t);
+        if (x < 0 || y < 0 || x >= W || y >= H) break;
+        const j = y * W + x;
+        if (top(j) > top(i) + Math.sin(pitch) * distance * t) { over = -1; break; }
+        over += clean(j);
+      }
+      if (over > bestOver) { bestOver = over; bestYaw = a; }
+    }
+    views.lake = { mode: "orbit", yaw: bestYaw, pitch, distance, target: at(i) };
+  }
+  // the opening camera, as the game's (core/analysis/opening.ts OPENING): 60° down, 32 × 1.3^4 away (zoom 4, between
+  // the start's and the widest default), over the most clean water in a 33 × 33 round a point
+  i = bestOf(clean, 16);
+  if (i >= 0) views.opening = { mode: "orbit", yaw, pitch: Math.PI / 3, distance: 32 * 1.3 ** 4, target: at(i) };
   const share = new Float32Array(W * H);
   for (let y = 5; y < H - 5; y++) for (let x = 5; x < W - 5; x++) {
     let n = 0;
@@ -97,12 +119,12 @@ const FIND_JS = `([yaw]) => {
 
 const SITES = [
   { key: "dev", label: "dev" },
-  { key: "after", label: SETS.length ? `this PR with ${(arg("set") ?? "").replace(/=1/g, "").replace(/,/g, " + ")}` : "this PR" },
+  { key: "after", label: SETS.length ? "P15 (held)" : "this PR" },
 ] as const;
 const SCENES = [
   { key: "lake", label: "A lake, grazing" },
   { key: "river", label: "A river" },
-  { key: "opening", label: "The opening camera" },
+  { key: "opening", label: "The game's opening camera" },
   { key: "pure", label: "Pure badwater" },
 ] as const;
 

@@ -280,13 +280,14 @@ export function waterHooks(): ShaderHooks {
     // #38's water in place of the Standard surface, before clear water, the overlays, the layers
     // and the sources' upwelling (those stay as the Standard look has them)
     water: /* glsl */ `        if (hlWater > 0.5) {
-          // (the water's diffuse share as this look draws it: waterPalette.ts WATER_LIGHT.held, materials.ts
-          // gameWaterLight)
+          // (the water's diffuse share and clean water's detail overlay as this look draws them: waterPalette.ts
+          // WATER_LIGHT.held and .detail, materials.ts gameWaterLight, gameWaterFormula)
           #if WATER_HELD_HIGH
             gameWaterDiffuse = ${g(WATER_LIGHT.diffuse)};
           #else
             gameWaterDiffuse = ${g(GAME_LIGHT.diffuse)};
           #endif
+          gameWaterDetail = float(WATER_DETAIL_HIGH);
           if (n.y > 0.5) {
             // (water under a roof: its own badwater share, not the one of the water seen from above there)
             float hlBad = waterRoofed > 0.5 ? cont : texture2D(hlFlow, g / hlFlowSize).b;

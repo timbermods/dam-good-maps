@@ -361,7 +361,8 @@ const glColor3 = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1e6) / 1e6)).
  *  (`gameWaterDiffuse`: the terrain's 0.912, or the water's own at its metallic 0, 0.96, where the look draws the terms
  *  #839 held back, waterPalette.ts WATER_LIGHT.held; High's hook sets its own); and clean water's colour by the game's
  *  formula under it (waterPalette.ts GAME_WATER, `gameCleanColour`) × the albedo, over the light the caller multiplies
- *  by (`light`), so the product is the game's. `GAME_SUN_COLOUR` is the game's `_MainLightColor`, on its highlight and
+ *  by (`light`), so the product is the game's, overlaid with the game's detail albedo at its mean where the look draws it
+ *  (`gameWaterDetail`, WATER_LIGHT.detail). `GAME_SUN_COLOUR` is the game's `_MainLightColor`, on its highlight and
  *  glint where the look draws the game's light (WATER_LIGHT.game). Both looks' water. */
 const GAME_WATER_LIGHT = /* glsl */ `#define GAME_SUN_COLOUR ${glColor(GAME_LIGHT.sun)}
       #if WATER_HELD
@@ -374,8 +375,13 @@ const GAME_WATER_LIGHT = /* glsl */ `#define GAME_SUN_COLOUR ${glColor(GAME_LIGH
         vec3 ambient = mix(sh * 12.92, 1.055 * pow(sh, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), sh));
         return gameWaterDiffuse * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
       }
+      /** Whether clean water's colour × albedo is overlaid with the game's still detail albedo (Q9 P6) at its mean
+       *  (waterPalette.ts WATER_LIGHT.detail, GAME_BADWATER.detail; High's hook sets its own). */
+      float gameWaterDetail = float(WATER_DETAIL);
       vec3 gameWaterFormula(float depth, vec3 albedo, vec3 n, float sun, vec3 light) {
-        return gameCleanColour(depth) * albedo * gameWaterLight(n, sun) / max(light, 0.001);
+        vec3 a = gameCleanColour(depth) * albedo;
+        a = mix(a, waterDetailOverlay(a), gameWaterDetail);
+        return a * gameWaterLight(n, sun) / max(light, 0.001);
       }`;
 
 /** A source the pointer's water comes from (D196): its model takes the glow its water does (the water's colour mixed

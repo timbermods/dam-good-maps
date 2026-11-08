@@ -179,6 +179,7 @@ export const WATER_PROBE = {
 export const WATER_LIGHT = {
   game: { standard: false, high: false } as const,
   held: { standard: false, high: false } as const,
+  detail: { standard: false, high: false } as const,
   diffuse: 0.96,
   /** The judge's numbers (fix/water-sky; RMS distance to the game's pixels, display RGB 0–255; the sixteen day-lit start
    *  shots, each in its shot's light, `--water all`): clean water (37,853 tiles) and pure badwater (172), by look, for
@@ -730,6 +731,15 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   #define WATER_GAME_LIGHT_HIGH ${WATER_LIGHT.game.high ? 1 : 0}
   #define WATER_HELD ${WATER_LIGHT.held.standard ? 1 : 0}
   #define WATER_HELD_HIGH ${WATER_LIGHT.held.high ? 1 : 0}
+  #define WATER_DETAIL ${WATER_LIGHT.detail.standard ? 1 : 0}
+  #define WATER_DETAIL_HIGH ${WATER_LIGHT.detail.high ? 1 : 0}
+  /** The game's still detail albedo's overlay (Q9 P6, ps 459-473: overlay(colour × albedo, the detail)) at the detail
+   *  texture's mean (GAME_BADWATER.detail, as badwater's own overlay takes it): × 2 × the mean where the colour is
+   *  under a half, a screen above. */
+  vec3 waterDetailOverlay(vec3 a) {
+    vec3 dt = ${glColor5(GAME_BADWATER.detail)};
+    return mix(2.0 * a * dt, 1.0 - 2.0 * (1.0 - a) * (1.0 - dt), step(0.5, a));
+  }
   /** The game's reflection probe by a direction, at the mip URP reads for a smoothness (waterPalette.ts WATER_PROBE). */
   vec3 waterProbeAt(vec3 rd, float smoothness) {
     float pr = 1.0 - smoothness;
