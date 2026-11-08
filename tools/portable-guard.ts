@@ -18,7 +18,7 @@ const WASM_ALLOWED = new Set(["src/core/math/portable.ts", "src/core/sim/rustWat
 
 /** Tools that only make pictures, time the renderer (the smoothness gate among them) or compare its pictures with the
  *  game's (the water's pixel judge and the game's light it draws in), or measure its ground's albedo. */
-const PRESENTATION_TOOL = /^tools\/(smooth\/|capture-|water-pixel-judge\.ts$|ground-variation\.ts$|game-day-light\.ts$|bench3d\.ts$|measure-(ceiling|high)\.ts$|gif\.ts$|png\.ts$|sheet\.ts$|contact-sheet|start-sheet|resources-sheet|waterfall-gallery|shader-sources)/;
+const PRESENTATION_TOOL = /^tools\/(smooth\/|capture-|water-pixel-judge\.ts$|ground-variation\.ts$|object-shadows\.ts$|game-day-light\.ts$|bench3d\.ts$|measure-(ceiling|high)\.ts$|gif\.ts$|png\.ts$|sheet\.ts$|contact-sheet|start-sheet|resources-sheet|waterfall-gallery|shader-sources)/;
 
 /** True when a repository path (forward slashes) is in the guard's scope. */
 export function inGuard(file: string): boolean {
