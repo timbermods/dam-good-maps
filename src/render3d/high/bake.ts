@@ -49,8 +49,14 @@ export function shareBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface
 /** What a still view's flow texture takes from the water (stillFlow.ts): the share (B, `shareBytes`) and the waterfall
  *  mask (A, fallMask.ts `fallBytes`). */
 export function stillBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">, fall = true): { share: Uint8Array; fall: Uint8Array } {
-  // (the light look draws no waterfall mask: it is not worked out for it, A 0 as a dry tile's)
-  return { share: shareBytes(W, H, sw), fall: fall ? fallBytes(W, H, sw) : new Uint8Array(W * H) };
+  // (the light look draws no waterfall mask: it is not worked out for it, A only whether the tile is wet, 1 or 0, which
+  // the badwater share's blend reads: waterPalette.ts waterShareFrom)
+  if (!fall) {
+    const wet = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) wet[i] = sw.surface[i] === sw.surface[i] && sw.depth[i] > 0 ? 1 : 0;
+    return { share: shareBytes(W, H, sw), fall: wet };
+  }
+  return { share: shareBytes(W, H, sw), fall: fallBytes(W, H, sw) };
 }
 
 /** On a map with water per column (waterLayers.ts): the view (each column's own outflows) and the map's columns, with

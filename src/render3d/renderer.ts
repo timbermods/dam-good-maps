@@ -625,6 +625,7 @@ export class MapRenderer {
     this.caveRows = new BoxUploads(this.gl, () => this.caveTex);
     this.runRows = new BoxUploads(this.gl, () => this.runTex);
     this.stillRows = new RowUploads(this.gl, () => this.stillFlow?.texture ?? null);
+    this.motionRows = new RowUploads(this.gl, () => this.waterMotion?.flow ?? null);
     this.noCave = this.uniforms.caveTex.value;
     this.uniforms.patternTex.value = this.patterns.texture;
     this.terrainMat = terrainMaterial(this.uniforms, 0, 1, this.software);
@@ -1543,7 +1544,7 @@ export class MapRenderer {
     this.skirt = this.buildSkirt(W, H, lo);
     if (!this.software && !this.still) {
       // (with water per column, the bake gives the water below each tile's surface its own current: caveCurrent.ts)
-      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender(), () => (this.map && this.layered ? { view: this.map.water, columns: this.columnsSent } : null));
+      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender(), () => (this.map && this.layered ? { view: this.map.water, columns: this.columnsSent } : null), (x0, y0, x1, y1) => this.motionRows.touch(x0, y0, x1, y1));
       this.waterMotion.setHigh(this.lookNow !== "standard");
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
@@ -1585,7 +1586,7 @@ export class MapRenderer {
    *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
    *  WATER_FILM); `now`: water that shows with the next frame (a version flipped to), its share with it. */
   private flowChanged(heights: Uint8Array, surface: SurfaceWater, now = false): void {
-    if (this.waterMotion) this.waterMotion.waterChanged(heights, surface);
+    if (this.waterMotion) this.waterMotion.waterChanged(heights, surface, now);
     else this.stillFlow?.update(surface, now);
   }
 
@@ -1671,6 +1672,7 @@ export class MapRenderer {
     this.stillFlow?.dispose();
     this.stillFlow = null;
     this.stillRows.clear();
+    this.motionRows.clear();
     this.dropRunSoil();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
@@ -2297,6 +2299,8 @@ export class MapRenderer {
   private readonly caveRows: BoxUploads;
   private readonly runRows: BoxUploads;
   private readonly stillRows: RowUploads;
+  /** The moving water's flow texture's rows its share changed in (motion.ts `waterChanged`), to go up with the next frame. */
+  private readonly motionRows: RowUploads;
 
   /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
   private readonly waterQueue = new Set<string>();
@@ -4106,6 +4110,7 @@ export class MapRenderer {
     this.caveRows.flush();
     this.runRows.flush();
     this.stillRows.flush();
+    this.motionRows.flush();
     this.refraction.begin(this.refracts(cam));
     this.gl.render(this.scene, cam);
     this.refraction.end();

@@ -1116,7 +1116,7 @@ the game's models in resources.assets (positions, materials and texture means on
   lighter than clean water; ours 2.9 L* lighter in Standard, 2.4 darker in High): the game overlays clean water with its detail albedo too (P6, ps 455–475),
   which darkens its films, and following it changes all clean water, which #826's judge settled, so it waits for P6;
   `_Contamination_Flow_Distortion` (0.00125 a tile) is not followed; High's falls and side faces keep `HW_BAD` × the
-  ramp. The sheet: `docs/sheets/water-badwater.jpg` (`tools/capture-water-badwater.ts`; `--motion` for six moments).
+  ramp (followed since: "Badwater's front and High's falls" below). The sheet: `docs/sheets/water-badwater.jpg` (`tools/capture-water-badwater.ts`; `--motion` for six moments).
 
 ## The pixel judge validated on the land (D496, D497; `fix/water-judge`)
 
@@ -1906,6 +1906,39 @@ this branch. Standard's cave view lost 5.6 on dev since #820 (the ground's tone,
 here: its open walls (45.4 → 42.7) and floor at the mouth, where #855's narrow edge leaves the overhang's shadow on
 the outside wall fully dark instead of half lit, as the game's is. No regression to fix; the frames read as #820's
 did. (#820's open walls 35–64 also took River Valley seed 1's overhangs, not captured here.)
+
+## Badwater's front and High's falls (Q9 P9; D154 as amended, D496; `fix/badwater-fronts`)
+
+The water-character audit's gaps 3 and 4 (`docs/progress/water-character-audit.md`).
+
+- **The front, as the game blends it:** the game's water shader (`PhysicalWaterURP` ps 502–650, read again with
+  `tools/game-water-shader.py`) samples a column's contamination at the pixel ± a margin of 0.45–0.5 tiles (its margin
+  noise at (xz + 0.2 T) × 0.175), weights each sample by |dx| × |dy| from the nearest tile corner, leaves out a column
+  not linked to this one, and eases the mean b to b × saturate(2b + 0.5): a straight blend about a tile wide, centred on
+  the tiles' edge. Ours, in both looks (`waterPalette.ts` `WATER_SHARE_BLEND`, `waterShareFrom`; `materials.ts`
+  `waterShareAt`): the same four taps, each its tile's own share in the flow texture's B, a dry tile left out by its A,
+  our own noise for the margin's, then eased. B and A follow the water on the page's thread the moment it changes
+  (`high/flow.ts` `writeShare`, from `WaterMotion.waterChanged` and `StillFlow.update`, the rows that changed going up
+  with the next frame; `now` reaches the moving water's bake too), so badwater is drawn with the water it came with;
+  the bake brings the current, the waterfall mask and, for the ground under a film, a dry tile's carry (the mean of the
+  water round it). High's two smoothing passes are gone. A water top in the open reads it; a fall's face, the water's
+  side and water under a roof or below its tile's surface water keep the mesh's corner share, now each tile's own
+  (`BLEND_KERNEL` [1], was [20, 15, 6, 1]). Clean water's tint 1, 2 and 3 tiles from a straight front: 0, 0, 0 in both
+  looks (Standard was 0.72/0.41/0.10, High 0.70/0.30/0), the game's; badwater a tile in is pure (was 0.92).
+- **High's falls and small steps:** a badwater face takes the formula High's surface takes (`GAME_BADWATER.use.high`:
+  `gameBadwaterColour` at its shallowest by the pattern carried over the lip, lit by `gameWaterLight`, with its glowing
+  lines), as Standard's falls; a small step is High's surface itself facing up (`measuredSurfaceWater` at its depth,
+  its patterns at their means). The gallery's badwater fall (`docs/sheets/badwater-fall-high.jpg`; the front: `docs/sheets/badwater-front.jpg`, River Valley 256² seed 4242): High's face 60/11/10, L*
+  10.8, flat (pixel gradient 0.19) on dev; 45/13/5, L* 7.6, gradient 1.87 here; Standard's 44/12/4, L* 7.1, 1.85.
+- **The judge** (`tools/water-pixel-judge.ts --water all`, the six Badtide and Islands ends, at their hours), RMS to the
+  game's pixels, dev → this branch: Standard clean 3.54 → 3.38, mixed 9.08 → 9.10, bad 7.08 → 7.09; High clean 3.50 →
+  3.34, mixed 8.80 → 8.82, bad 6.99 → 6.99. The mixed band samples tile centres from about 110 units, where both
+  blends give nearly the tile's own share, so the front's width barely moves it (0.02 further); clean water by
+  badwater gains in both looks. The land is unchanged (the judge's own check).
+- **Falls short:** the game leaves out a neighbour on another surface (its column not linked); our texture's filter
+  doesn't know the levels, so across a fall between waters of different shares the half tile at the lip and at the
+  foot blends with the other water (as High's did before, then over more tiles); Standard's tops kept to their own
+  level until now. A link-aware share (the surface levels beside the share) would close it.
 
 ## The rest of the step (next parts)
 
