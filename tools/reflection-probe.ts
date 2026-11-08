@@ -1,16 +1,18 @@
 // The game's reflection probe (D497): Timberborn's terrain and water shaders add the environment reflection URP takes
 // from `unity_SpecCube0`, the scene's probe, scaled by `RenderSettings.m_ReflectionIntensity` (0.65 in the game scene,
-// `level2`). The probe is a Cubemap in the game's `sharedassets1.assets`, "TimberbornEnvironmentRelfectionProbe" (sic):
+// `level2`; the game sets `RenderSettings.reflectionIntensity` to its day stage's 1 every frame). The probe is a Cubemap in the game's `sharedassets1.assets`, "TimberbornEnvironmentRelfectionProbe" (sic):
 // 128² a face, 8 mips (each mip the probe convolved for a rougher surface), BC6H, its texels in
 // `sharedassets1.assets.resS`. This reads it, read-only, decodes it on the GPU (real Chrome, WebGL 2's
 // EXT_texture_compression_bptc) and prints each face's mean at each mip, and the colours `palette.ts` `GAME_ENV` keeps:
 // the roughest mip (6, 2² a face, what URP samples at perceptual roughness 1) straight up, toward the horizon (the four
-// side faces' mean) and straight down. `--json <path>` writes every face and mip's texels too (display values, RGB).
+// side faces' mean) and straight down; and the water's (`waterPalette.ts` `WATER_PROBE`): mips 4 to 6, the ones URP
+// reads for the water's gloss, round the turn at each height of the reflected direction. `--json <path>` writes every face and mip's texels too (display values, RGB).
 //
 //   npx tsx tools/reflection-probe.ts [--game "C:/Program Files (x86)/Steam/steamapps/common/Timberborn"] [--json out.json]
 
 import { closeSync, openSync, readFileSync, readSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { cos, sin, sqrt } from "../src/core/math/portable";
 import { chromium } from "@playwright/test";
 
 const arg = (name: string): string | undefined => {
@@ -115,5 +117,43 @@ const side = [0, 1, 4, 5].map((f) => mean(faces[f][ROUGH]));
 console.log(`  up: ${r3(mean(faces[2][ROUGH]))} as Rgb,`);
 console.log(`  side: ${r3([0, 1, 2].map((k) => side.reduce((s, c) => s + c[k], 0) / 4))} as Rgb,`);
 console.log(`  down: ${r3(mean(faces[3][ROUGH]))} as Rgb,`);
+
+// The water's reflection (Q9 P15): URP samples the probe by the reflected direction at mip pr × (1.7 − 0.7 pr) × 6, pr
+// the perceptual roughness 1 − smoothness, so 4.4 to 5.6 for the water's gloss (waterPalette.ts WATER_SURFACE.smoothness
+// and its spread, badwater's 0.15). Each of mips 4, 5 and 6 sampled as the GPU does (bilinear within a face), round the
+// whole turn at each height of the reflected direction (the probe's turn round the vertical is not the editor's: its
+// side faces differ by about a tenth, which this averages), at `WATER_PROBE.heights`: `waterPalette.ts` WATER_PROBE.
+const HEIGHTS = [-1, -0.5, 0, 0.15, 0.35, 0.6, 1];
+const faceOf = (d: number[]): [number, number, number] => {
+  const [x, y, z] = d;
+  const [ax, ay, az] = [Math.abs(x), Math.abs(y), Math.abs(z)];
+  // (GL's cube map faces and their s, t, as the texels were read: row 0 the face's top)
+  if (ax >= ay && ax >= az) return x > 0 ? [0, (-z / ax + 1) / 2, (-y / ax + 1) / 2] : [1, (z / ax + 1) / 2, (-y / ax + 1) / 2];
+  if (ay >= az) return y > 0 ? [2, (x / ay + 1) / 2, (z / ay + 1) / 2] : [3, (x / ay + 1) / 2, (-z / ay + 1) / 2];
+  return z > 0 ? [4, (x / az + 1) / 2, (-y / az + 1) / 2] : [5, (-x / az + 1) / 2, (-y / az + 1) / 2];
+};
+const sampleAt = (mip: number, d: number[]): number[] => {
+  const s = Math.max(1, size >> mip);
+  const [f, u, v] = faceOf(d);
+  const t = faces[f][mip];
+  const fx = Math.min(Math.max(u * s - 0.5, 0), s - 1);
+  const fy = Math.min(Math.max(v * s - 0.5, 0), s - 1);
+  const [x0, y0] = [Math.floor(fx), Math.floor(fy)];
+  const [x1, y1] = [Math.min(x0 + 1, s - 1), Math.min(y0 + 1, s - 1)];
+  const [ax, ay] = [fx - x0, fy - y0];
+  const at = (x: number, y: number, c: number) => t[(y * s + x) * 3 + c];
+  return [0, 1, 2].map((c) => (at(x0, y0, c) * (1 - ax) + at(x1, y0, c) * ax) * (1 - ay) + (at(x0, y1, c) * (1 - ax) + at(x1, y1, c) * ax) * ay);
+};
+const ringAt = (mip: number, y: number): number[] => {
+  const r = sqrt(Math.max(0, 1 - y * y));
+  const acc = [0, 0, 0];
+  for (let i = 0; i < 360; i++) {
+    const a = (i / 360) * 2 * Math.PI;
+    sampleAt(mip, [r * cos(a), y, r * sin(a)]).forEach((v, k) => (acc[k] += v / 360));
+  }
+  return acc;
+};
+console.log(`  // WATER_PROBE: heights ${HEIGHTS.join(", ")}`);
+for (const mip of [4, 5, 6]) console.log(`  mip${mip}: [${HEIGHTS.map((y) => r3(ringAt(mip, y))).join(", ")}],`);
 const json = arg("json");
 if (json) writeFileSync(json, JSON.stringify({ version, name: NAME, faces: FACES, size, mips, texels: faces }));

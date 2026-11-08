@@ -596,13 +596,34 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   (with its highlight) by 0.8, desaturated to 0.3, at lerp(0.35, 0.2, w) × (1 − u) × 0.5. It replaces part of the
   albedo, so the ground behind is lit a second time by the water's light.
 - **P14, floor clip.** A pixel below its column's floor is discarded (ps 891-904).
-- **P15, light.** URP Lit (ps 905-1251): ambient from the SH probe, turned to display values; the reflection probe
-  `unity_SpecCube0` at URP's mip for the roughness and URP's environment term (F0 0.04 at metallic 0, (1 − N·V)^4); the
-  sun with soft cascaded shadows (Lambert diffuse and URP's GGX); additional lights; exponential fog. The emission
-  (P12, P9) is added unlit. The diffuse share is URP's 0.96 × (1 − metallic): 0.96 on the water (metallic 0), against the terrain's 0.912;
-  the environment term is sky × (F0 + (grazing − F0) × (1 − N·V)^4) / (1 + roughness²), its head-on F0 part included
-  (both missing where our formula draws the colour; measured on fix/ground-veins, 2026-11-07, they lift clean water
-  further from the game's, so they wait: docs/progress/3d-view.md).
+- **P15, light.** URP Lit (ps 905-1251), read term by term (fix/water-sky, 2026-11-07). The albedo it lights is P4's
+  colour × P5's albedo (overlaid with P6's detail), the highlight × `_MainLightColor` in it (P12, ps 862) and the ground
+  behind mixed in (P13, ps 866-889); metallic m (0 on the water: `WaterMetalAndGloss` red, `_Contamination_Metallic`), smoothness s
+  (P8), perceptual roughness pr = 1 − s, roughness r = max(pr², 0.0078125).
+  - Diffuse: albedo × 0.96 (1 − m) (ps 954), × (the SH probe by the normal, `unity_SHAr`..`SHC`, turned to display
+    values, ps 935-953) for the ambient, × (`_MainLightColor` × N·L × the soft cascaded shadow × `unity_LightData.z`,
+    ps 1132-1177) for the sun; additional lights the same in a loop (ps 1198-1241; none by day).
+  - Environment (ps 1146-1173): `unity_SpecCube0` sampled at reflect(−V, N), mip pr × (1.7 − 0.7 pr) × 6, decoded by
+    `unity_SpecCube0_HDR` (x the intensity), × (f0 + (grazing − f0) × (1 − N·V)^4) / (r² + 1), f0 = lerp(0.04,
+    albedo, m) = 0.04, grazing = saturate(s + 1 − 0.96 (1 − m)) = saturate(s + 0.04); added to the ambient's diffuse
+    (ps 1173). No occlusion. The probe is the scene's baked one (`sharedassets1.assets`
+    "TimberbornEnvironmentRelfectionProbe", the terrain's too), the same at every hour: the day only sets
+    `RenderSettings.reflectionIntensity` (1 at every stage). By the reflected direction's height at the water's mips
+    (4.4 to 5.6) it is lighter toward the horizon (its haze: 0.46/0.55/0.62 at mip 5, 0.15 up) than straight up
+    (0.37/0.46/0.61) and darker below (the ground); `waterPalette.ts` `WATER_PROBE`, `tools/reflection-probe.ts`.
+  - The sun's GGX (ps 1178-1193): f0 × r² / (d² × max(0.1, (L·H)²) × (4r + 2)), d = (N·H)² (r² − 1) + 1.00001, × the
+    sun's radiance above; the highlight and badwater's glowing lines are the emission (ps 863, 890), added unlit; then the
+    exponential fog (ps 1245-1249).
+  - So the two terms #839 found (the diffuse share 0.96, the environment's head-on part f0 / (1 + r²)) are this same
+    lighting, not separate terms.
+  Ours: both looks draw all of it (`WATER_LIGHT`: the probe by direction, its head-on part, the GGX and the game's
+  sun colour on the highlight and glint, the 0.96), with P6's detail overlay at its mean: the light alone lifted
+  clean water, already lighter than the game's in the shallows, further away, and P6's missing overlay was that
+  excess; together they read nearer the game than dev in both looks (docs/progress/3d-view.md, fix/water-sky). Not read from the game, assumed: the HDR decode values the game uploads
+  (intensity 1, no RGBM: the probe is BC6H); that the water's `unity_SpecCube0` in play is that probe (no reflection
+  probe component in the decompiled C#, no frame capture); the probe's turn against the editor's map axes (its side
+  faces differ by about a tenth: averaged round the turn); the SH the game uploads (D497's frame capture still to do);
+  the cube's seamless filtering across faces (sampled within a face).
 - **The edge where water meets land.** No foam, no shore line, no intersection or depth-fade term: only P3's depth
   (the colour lightens toward the shore) and P13's see-through (17.5 % at most, at the shore). `_Foam*`,
   `_ShorelineThreshold`, `_InvFade`, `_FadeLimit` are not in cb4: leftovers. #715 confirmed.
@@ -631,12 +652,12 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Still water's drift (0.018, −0.012) | H | (b) | P5: still textures stay put |
 | Badwater's ripples at half speed (`slow`; High's `hlT` slows only its fall strands and `bt` only its bubbles) | S | (b) | none; the game makes badwater's normals × 2 instead (P9, ps 780) |
 | Shore vertices of a still film drawn sideways | S, H | (c), missing: our mesh moves no vertex sideways | V3 (vs 381-395, 486) |
-| Detail albedo | S, H | (c), missing | P6 (ps 462-477) |
+| Detail albedo | S, H | (a) at its mean (`waterDetailOverlay`, fix/water-sky): the overlay by the texture's mean, not its 67-tile pattern | P6 (ps 462-477) |
 | Gloss: our noise round 0.25, ± 0.6 of its swing, panned | S | (a), approximate | P8 (ps 480-499) |
 | Light: sky × 1.2 + sun × 0.3 × N·L × shadow | S | (a), approximate | P15 |
-| Light: `rippleLight` over `referenceLight` | H | (c) | P15 |
-| Sky reflection (`waterSkyReflect`, `WATER.sky`, × the reflection intensity 1) and sun glint (`waterSunGlint`, GGX × F0) | S | (a) | P15 (ps 1149-1192) |
-| Sky reflection and sun glint | H | (c), missing | P15 |
+| Light: `rippleLight` over `referenceLight` | H | (a) under the formula (its clean and badwater colours are lit by `gameWaterLight`); (c) for our crimson | P15 |
+| Sky reflection and sun glint | S | (a): the game's (`waterEnvironment` by `WATER_PROBE`, `waterSunGlint`, the sun's colour; fix/water-sky); the probe read as heights round the turn, not by direction round the vertical | P15 (ps 1146-1193) |
+| Sky reflection and sun glint | H | (a): as Standard (fix/water-sky) | P15 |
 | Camera highlight (`waterCameraHighlight`), before and after the light | S, H | (a) | P12 (ps 814-862); ours drops it on faces by their normal, the game by the fall mask |
 | See-through share (`cleanWaterAlpha`, 0.175 × (1 − d/5)) | S, H | (a) | P13 (ps 879-889) |
 | Ground behind overlaid and desaturated (`waterGroundBehind`) | S, H | (a); small (c): ours tints with the body before light and lights the ground once | P13: the lit albedo, and the ground lit again |
@@ -665,9 +686,10 @@ The game's, missing or different:
 1. The flow: an albedo texture and a normal map (× 4) carried by the outflow in two 2.5 s phases (P5, P11), in place of
    our noise; High's normals ripple in place and do not move with the flow.
 2. Clean water's colour by the game's formula on its depth (P3, P4), in both looks.
-3. High's sky reflection and GGX (P15); both looks' simplified light.
+3. High's sky reflection and GGX (P15); both looks' simplified light. Done (fix/water-sky), with P6's mean below: the
+   game's light alone lifted clean water further from the game's, P6's overlay was its excess.
 4. Badwater's flowing pattern and emissive detail (P9) in place of mottles and bubbles; its normals × 2.
-5. The still detail albedo, 67 tiles a repeat (P6).
+5. The still detail albedo, 67 tiles a repeat (P6): its mean is drawn (fix/water-sky); its pattern is not.
 6. The sources' own pattern in play (P7) in place of our rings.
 7. Refraction of the ground behind (P2), and the fall mask by tile from `FindWaterfalls` (P1).
 

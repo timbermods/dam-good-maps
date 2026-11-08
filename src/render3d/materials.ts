@@ -68,7 +68,7 @@ import {
   type WebGLRenderer,
 } from "three";
 import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
-import { GAME_BADWATER, WATER_GLSL, WATER_UI } from "./waterPalette";
+import { GAME_BADWATER, WATER_GLSL, WATER_LIGHT, WATER_UI } from "./waterPalette";
 import { WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
@@ -357,17 +357,31 @@ const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000))
 const glColor3 = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1e6) / 1e6)).join(", ")})`;
 
 /** The game's light on its water (palette.ts GAME_LIGHT; Q9 P15) in display values, as the terrain's gameLight: the
- *  ambient probe by the normal, turned back to display values, and the sun by its shadow, times the diffuse share (the
- *  terrain's 0.912; the water's own metallic 0 gives 0.96, held back: `GAME_LIGHT`); and
- *  clean water's colour by the game's formula under it (waterPalette.ts GAME_WATER, `gameCleanColour`) × the albedo,
- *  over the light the caller multiplies by (`light`), so the product is the game's. Both looks' water. */
-const GAME_WATER_LIGHT = /* glsl */ `vec3 gameWaterLight(vec3 n, float sun) {
+ *  ambient probe by the normal, turned back to display values, and the sun by its shadow, times the diffuse share
+ *  (`gameWaterDiffuse`: the terrain's 0.912, or the water's own at its metallic 0, 0.96, where the look draws the terms
+ *  #839 held back, waterPalette.ts WATER_LIGHT.held; High's hook sets its own); and clean water's colour by the game's
+ *  formula under it (waterPalette.ts GAME_WATER, `gameCleanColour`) × the albedo, over the light the caller multiplies
+ *  by (`light`), so the product is the game's, overlaid with the game's detail albedo at its mean where the look draws it
+ *  (`gameWaterDetail`, WATER_LIGHT.detail). `GAME_SUN_COLOUR` is the game's `_MainLightColor`, on its highlight and
+ *  glint where the look draws the game's light (WATER_LIGHT.game). Both looks' water. */
+const GAME_WATER_LIGHT = /* glsl */ `#define GAME_SUN_COLOUR ${glColor(GAME_LIGHT.sun)}
+      #if WATER_HELD
+        float gameWaterDiffuse = ${f(WATER_LIGHT.diffuse)};
+      #else
+        float gameWaterDiffuse = ${f(GAME_LIGHT.diffuse)};
+      #endif
+      vec3 gameWaterLight(vec3 n, float sun) {
         vec3 sh = max(${glColor3(GAME_AMBIENT_SH.c0)} + ${glColor3(GAME_AMBIENT_SH.c1)} * n.y + ${glColor3(GAME_AMBIENT_SH.c2)} * (3.0 * n.y * n.y - 1.0), vec3(0.0));
         vec3 ambient = mix(sh * 12.92, 1.055 * pow(sh, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), sh));
-        return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
+        return gameWaterDiffuse * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
       }
+      /** Whether clean water's colour × albedo is overlaid with the game's still detail albedo (Q9 P6) at its mean
+       *  (waterPalette.ts WATER_LIGHT.detail, GAME_BADWATER.detail; High's hook sets its own). */
+      float gameWaterDetail = float(WATER_DETAIL);
       vec3 gameWaterFormula(float depth, vec3 albedo, vec3 n, float sun, vec3 light) {
-        return gameCleanColour(depth) * albedo * gameWaterLight(n, sun) / max(light, 0.001);
+        vec3 a = gameCleanColour(depth) * albedo;
+        a = mix(a, waterDetailOverlay(a), gameWaterDetail);
+        return a * gameWaterLight(n, sun) / max(light, 0.001);
       }`;
 
 /** A source the pointer's water comes from (D196): its model takes the glow its water does (the water's colour mixed
@@ -1891,10 +1905,17 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         #endif
         vec3 c = waterBlend(body, murky, cont);
         // the game's own highlight on the ripples, added to the colour before its light (and again after it); none on
-        // a fall's face (the game's waterfall mask takes it off there, p036 r7.z)
-        vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, N.y);
-        c += highlight;
-        c *= light;
+        // a fall's face (the game's waterfall mask takes it off there, p036 r7.z). Where the look draws the game's light
+        // (waterPalette.ts WATER_LIGHT.game), in the game's sun colour and lit by the game's light, as its albedo is
+        #if WATER_GAME_LIGHT
+          vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(N, V, bad) * step(0.5, N.y);
+          c *= light;
+          c += highlight * gameWaterLight(N, lit);
+        #else
+          vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, N.y);
+          c += highlight;
+          c *= light;
+        #endif
         // the sky's reflection, stronger at low angles, and the sun's glint (no sparkle of our own: the game's water
         // shader has none, its sheen is the sun's specular at its smoothness, D496's rule); a fall's face lit the same
         // way, as the game lights every pixel of its water
@@ -1902,12 +1923,21 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         // added on top, as URP's environment term)
         // (badwater's toward its own by the tint × the pattern's R, as the game's)
         float smoothness = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, bad * bpat.x);
-        float fres = waterSkyReflect(dot(N, V), smoothness);
-        c += WATER_SKY * fres;
+        // (the game's, WATER_LIGHT.game: its probe by the reflected direction, the head-on part where WATER_LIGHT.held,
+        // and the glint in its sun's colour)
+        #if WATER_GAME_LIGHT
+          c += waterEnvironment(N, V, smoothness, float(WATER_HELD));
+        #else
+          c += WATER_SKY * waterSkyReflect(dot(N, V), smoothness);
+        #endif
         // (the highlight's emission: unlit, unshadowed)
         c += highlight;
         float spec = waterSunGlint(N, V, sunDir, smoothness) * lit;
-        c += sunColor * spec;
+        #if WATER_GAME_LIGHT
+          c += GAME_SUN_COLOUR * spec;
+        #else
+          c += sunColor * spec;
+        #endif
         // badwater's emissive detail (Q9 P9): the pattern's G, its glowing lines, unlit, carried by the flow (none on the
         // light look's flat surface but its mean)
         vec3 emission = gameBadwaterEmission(cont, bpat.y, g);
