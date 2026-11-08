@@ -1784,6 +1784,33 @@ the game's models in resources.assets (positions, materials and texture means on
   4096 reaches the game's 0.11 and waits on the igpu-4x gate (integrated GPU, CPU 4× slower, 256², the sun turning),
   run on a machine with an integrated GPU, with `npm run smooth` mended first.
 
+## The foam in the Flow view alone (D497; `fix/foam-to-flow`)
+
+- **Why.** The game's water has no foam term (`docs/progress/water-character-audit.md` on
+  `docs/water-character-audit`, gap 2), but ours drew foam threads, wakes and seams on every fast river in both looks,
+  always on (D353, D446, D154). Planning's ruling on #236 (2026-11-08, under D497): they move to the Flow view, the
+  editing aid's own channel, and the river itself is drawn as the game draws it.
+- **What changed.** `motion.ts`: the cues mesh is hidden outside the Flow view, as its streaks were; the Flow view shows
+  both exactly as before. Outside it the bake makes none of their shapes (`high/bake.ts`: a flow job with `shapes`
+  false skips the current and `motionShapes`, and sends `noShapes()`); the flow texture the surface moves by is the
+  same byte for byte (`tests/unit/flowViewFoam.test.ts`). A switch to the Flow view bakes the last water again at
+  once with the shapes: a bake waiting to start starts then, and one already sent is dropped (#866's look review found
+  the first switch waiting about half a second for a queued bake). Both programs are compiled ahead with the others
+  (`scheduleWarm`), so the first switch compiles nothing. The light look drew neither the foam nor the streaks before (no moving water in software), and still
+  draws neither. The Flow toggle's tooltip is "Show the currents, foam and wakes".
+- **Measured** (`tools/capture-foam-flow.ts`, River Valley 128² seed 2, its fastest narrow river, the game's 55°
+  pitch, the clock held, real Chrome on the RTX 2070 SUPER, dev against this branch). Flow off: Standard 4,021 pixels
+  (0.39% of the frame) close up and 7,380 (0.72%) at 35 units, darker by 8.2 and 8.4 L* on average, 32 and 44 at
+  most; High 4,019 and 7,340, 8.3 and 8.5, 33 and 45. Flow on: 0 pixels in both looks. The light look: 0 either way.
+  Sheet: `docs/sheets/foam-flow.jpg`.
+- **The probe frames** (`tools/water-pixel-judge.ts --water all`): unchanged, as the snapshots carry no outflows, so
+  neither build draws any foam there. RMS to the game, dev and this branch: Standard clean 3.5, mixed 9.1, bad 7.1;
+  High 3.5, 8.8, 7.0; the land the same.
+- **Speed.** One bake on that map in the worker: dev 52 ms, this branch 21 ms with the Flow view off (the current and
+  shapes skipped, and no cue arrays sent or uploaded) and 77 ms on (single samples). A first switch to the Flow view
+  compiles 0 programs, against dev's 1 (the streaks').
+- **Falls short:** the light look has no Flow view drawing at all (as before); its toggle changes nothing there.
+
 ## Objects' shadows (D497; `fix/high-object-shadows`)
 
 - **What it was.** A look review found High's shadows of trees, bushes and landmarks lighter and smaller than
