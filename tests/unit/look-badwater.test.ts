@@ -15,7 +15,7 @@ import { CHUNK } from "../../src/render3d/mesh";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
 import { GAME_FINISH } from "../../src/render3d/palette";
 import { GAME_BADWATER_TEXTURE, PATTERN_PERCENTILES } from "../../src/render3d/waterTextures";
-import { BADWATER, GAME_BADWATER, gameBadwaterColour, HIGH_WATER, type Rgb, WATER_SURFACE, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
+import { BADWATER, GAME_BADWATER, gameBadwaterColour, gameShareAt, WATER_SHARE_BLEND, HIGH_WATER, type Rgb, WATER_SURFACE, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
 import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
 
@@ -71,56 +71,62 @@ function meshAll(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, vi
 }
 
 describe("badwater meeting clean water", () => {
-  it("turns in a soft gradient over several tiles, with no big step between neighbouring tiles", () => {
-    // badwater west of x = 16, clean water east of it, 32 × 9 tiles of one water
+  it("turns over about a tile, as the game blends it, with no step within it", () => {
+    // badwater west of x = 16, clean water east of it, 32 × 9 tiles of one water. The game blends its per-column
+    // contamination about a tile wide, centred on the tiles' edge (waterPalette.ts WATER_SHARE_BLEND, its water shader
+    // ps 502-650, Q9 P9); D154 as amended 2026-11-08 (D148: re-based from "a soft gradient over several tiles", the
+    // four-tile blend the water-character audit's gap 3 found: clean water 1, 2 and 3 tiles out tinted 0.72, 0.41, 0.10)
     const W = 32;
     const H = 9;
     const { heights, view, sw } = flat(W, H, (x) => (x < 16 ? 1 : 0));
-    const shares = cornerShares(meshAll(W, H, heights, sw, view));
-    for (let y = 0; y <= H; y++) {
-      const row = Array.from({ length: W + 1 }, (_, x) => shares.get(`${x},${y}`)!);
-      // far from the front: pure badwater and clean water, exactly
-      for (let x = 0; x <= 12; x++) expect(row[x]).toBe(1);
-      for (let x = 20; x <= W; x++) expect(row[x]).toBe(0);
-      // across it: always turning one way, never a step between neighbouring corners above 0.3
-      for (let x = 1; x <= W; x++) {
-        expect(row[x]).toBeLessThanOrEqual(row[x - 1]);
-        expect(row[x - 1] - row[x]).toBeLessThan(0.3);
-      }
-      // the gradient spans several tiles: between 5% and 95% bad over at least 4
-      expect(row.filter((c) => c > 0.05 && c < 0.95).length).toBeGreaterThanOrEqual(4);
-      // the colour follows the same way, a level deep: no step above 6 L* between corners. D304
-      // raised clean water's own lightness well above badwater's and this bound was loosened to 12;
-      // D310 darkened clean water and badwater's floor together, closing the range back down, and
-      // restored this to its strictness before D304 (never loosened)
-      for (let x = 1; x <= W; x++) expect(Math.abs(lightness(waterBody(1, row[x])) - lightness(waterBody(1, row[x - 1])))).toBeLessThan(6);
-    }
-    // the tiles' blended shares: the same (a front along a column blends along the rows)
+    // the mesh: each tile's own share, shared at its corners (a fall's face and water under a roof take it)
     const b = blendedBadwater(W, H, sw);
-    for (let x = 1; x < W; x++) expect(b[4 * W + x - 1] - b[4 * W + x]).toBeLessThan(0.33);
+    expect(Array.from(b)).toEqual(Array.from(sw.contamination));
+    const shares = cornerShares(meshAll(W, H, heights, sw, view));
+    for (let y = 0; y <= H; y++) for (let x = 0; x <= W; x++) expect(shares.get(`${x},${y}`)).toBe(x < 16 ? 1 : x > 16 ? 0 : 0.5);
+    // the top, as the shader reads it: along a row, at a twentieth of a tile, always turning one way, never a step
+    // above a tenth, and the colour a level deep with no step above 6 L* (D304, D310: never loosened)
+    for (const margin of WATER_SHARE_BLEND.margin) {
+      const row = Array.from({ length: 20 * 6 + 1 }, (_, k) => gameShareAt(W, H, b, 13 + k / 20, 4.5, margin));
+      for (let k = 1; k < row.length; k++) {
+        expect(row[k]).toBeLessThanOrEqual(row[k - 1]);
+        expect(row[k - 1] - row[k]).toBeLessThan(0.1);
+        expect(Math.abs(lightness(waterBody(1, row[k])) - lightness(waterBody(1, row[k - 1])))).toBeLessThan(6);
+      }
+      // between 5% and 95% bad over about a tile, centred on the edge: half bad there
+      const across = row.filter((c) => c > 0.05 && c < 0.95).length / 20;
+      expect(across).toBeGreaterThan(0.7);
+      expect(across).toBeLessThanOrEqual(1);
+      expect(gameShareAt(W, H, b, 16, 4.5, margin)).toBeCloseTo(0.5, 6);
+      // a tile's own share over its middle: clean water a tile from badwater is clean, as the game's, and badwater a
+      // tile in pure
+      for (const k of [1, 2, 3]) {
+        expect(waterTint(gameShareAt(W, H, b, 15.5 + k, 4.5, margin))).toBe(0);
+        expect(gameShareAt(W, H, b, 16.5 - k, 4.5, margin)).toBe(1);
+      }
+    }
   });
 
   it("blends a diagonal front and a narrow tongue of badwater too, without steps", () => {
     const W = 40;
     const H = 40;
-    // a diagonal front, and a tongue of badwater 3 tiles wide running into clean water
+    // a diagonal front, and a tongue of badwater 3 tiles wide running into clean water, as the shader reads them at a
+    // twentieth of a tile (the game's blend: bilinear between tile centres, eased)
     for (const share of [(x: number, y: number) => (x + y < 40 ? 1 : 0), (x: number, y: number) => (y < 20 && x >= 18 && x < 21 ? 1 : 0)]) {
-      const { heights, view, sw } = flat(W, H, share);
-      const shares = cornerShares(meshAll(W, H, heights, sw, view));
-      for (let y = 0; y <= H; y++)
-        for (let x = 0; x <= W; x++) {
-          const c = shares.get(`${x},${y}`)!;
-          if (x > 0) expect(Math.abs(c - shares.get(`${x - 1},${y}`)!)).toBeLessThan(0.3);
-          if (y > 0) expect(Math.abs(c - shares.get(`${x},${y - 1}`)!)).toBeLessThan(0.3);
+      const { sw } = flat(W, H, share);
+      const b = blendedBadwater(W, H, sw);
+      for (let y = 14; y <= 26; y += 0.05)
+        for (let x = 14; x <= 26; x += 0.05) {
+          const c = gameShareAt(W, H, b, x, y);
+          expect(Math.abs(c - gameShareAt(W, H, b, x - 0.05, y))).toBeLessThan(0.1);
+          expect(Math.abs(c - gameShareAt(W, H, b, x, y - 0.05))).toBeLessThan(0.1);
         }
     }
-    // the tongue still reads as badwater along its middle, well away from its tip: over half of it
-    // bad, so over four fifths of the way to badwater's look
-    const { heights, view, sw } = flat(W, H, (x, y) => (y < 20 && x >= 18 && x < 21 ? 1 : 0));
-    const shares = cornerShares(meshAll(W, H, heights, sw, view));
-    const mid = (shares.get("19,5")! + shares.get("20,5")!) / 2;
-    expect(mid).toBeGreaterThan(0.5);
-    expect(waterTint(mid)).toBeGreaterThan(0.8);
+    // the tongue reads as badwater along its middle, well away from its tip: pure there
+    const { sw } = flat(W, H, (x, y) => (y < 20 && x >= 18 && x < 21 ? 1 : 0));
+    const mid = gameShareAt(W, H, blendedBadwater(W, H, sw), 19.5, 5.5);
+    expect(mid).toBe(1);
+    expect(waterTint(mid)).toBe(1);
   });
 
   it("leaves clean water exactly as it was", () => {

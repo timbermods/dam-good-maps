@@ -15,7 +15,7 @@ import { waterHooks } from "../../src/render3d/high/shaders";
 import { surfaceWater, waterFromDepth, type SurfaceWater, type WaterView } from "../../src/render3d/model";
 import { changedWaterChunks, dropFlags, EDGE_CURTAIN, FALL, meshWaterChunk, SHORE_BITS, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
-import { badwaterBody, cleanWaterBody, WATER_GLSL, WATER_SURFACE } from "../../src/render3d/waterPalette";
+import { badwaterBody, cleanWaterBody, GAME_BADWATER, WATER_GLSL, WATER_SURFACE } from "../../src/render3d/waterPalette";
 
 /** A map of heights (rows from y = 0) with water `depth` deep on every tile where `wet` says. */
 function scene(rows: number[][], wet: (x: number, y: number) => number, bad: (x: number, y: number) => number = () => 0): { W: number; H: number; heights: Uint8Array; view: WaterView; sw: SurfaceWater } {
@@ -202,9 +202,15 @@ describe("a fall's look, as the game's", () => {
     for (const { m } of [standard, light]) {
       expect(m.fragmentShader).toContain("body = cleanWaterBody(0.05, waterAbsorb(0.05));");
     }
-    // (High's surface colour at its shallowest)
-    expect(high.m.fragmentShader).toContain("vec3 faceBad = badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad);");
+    // (High's surface colour at its shallowest: badwater by the formula High's surface takes, GAME_BADWATER.use.high, with
+    // its pattern and glowing lines, as the Standard look's falls; D148: re-based from #38's crimson, HW_BAD ×
+    // badwaterLight, flat and unlit by its lines, the water-character audit's gap 4)
+    expect(GAME_BADWATER.use.high).toBe(true);
+    expect(high.m.fragmentShader).toContain("vec3 faceBad = gameBadwaterColour(0.05, hlBad, bpat.x) * gameWaterLight(n, lit) / max(faceLight, vec3(0.01));");
     expect(high.m.fragmentShader).toContain("waterBlend(faceClean, faceBad, hlBad)");
+    expect(high.m.fragmentShader).toContain("c += faceEmission;");
+    // (a small step: High's surface itself going on, facing up, never #38's palette)
+    expect(high.m.fragmentShader).toContain("vec4 stepSurface = measuredSurfaceWater(g, max(0.0, depth), 1.0, cont, up, V, lit, WATER_ALBEDO_MEAN, BADWATER_PATTERN_FLAT, stepSmooth);");
     // (partly bad, the game's glow of its shallowest, as the surface's)
     for (const { m } of [standard, light]) expect(m.fragmentShader).toContain("murky = badwaterGlow(badwaterBody(0.05), BADWATER_BODY, 0.05, cont);");
     for (const { look, m } of shaders()) for (const gone of ["FALL_FOAM", "FALL_WHITEWATER", "FALL_TEAL", "fallIn", "hlCrown", "hlLanding", "hlBubbles", "lip = min("]) expect(m.fragmentShader, `${look}: ${gone}`).not.toContain(gone);

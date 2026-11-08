@@ -160,15 +160,18 @@ describe("water", () => {
       for (let v = 0; v < 4; v++) expect(m.data[(q * 4 + v) * 2 + 1]).toBeCloseTo(at(Math.round(m.positions[(q * 4 + v) * 3])), 5);
     }
     expect(tops).toBe(4);
-    // the blend keeps the order and softens the steps: from the badwater end to the clean end,
-    // no corner step above a third
+    // the corners keep the order and soften the steps: from the badwater end to the clean end, no corner step above the
+    // largest between two tiles; each tile's blend is its own share (BLEND_KERNEL, D154 as amended 2026-11-08: a
+    // top in the open takes the game's blend, about a tile wide, in the shader, look-badwater.test.ts), so the clean end
+    // stays clean (D148: re-based from the four-tile blend, whose corners reached the clean end)
+    expect(Array.from(blended)).toEqual(Array.from(sw.contamination));
     const corners = [0, 1, 2, 3, 4].map(at);
     for (let k = 1; k < corners.length; k++) {
       expect(corners[k]).toBeLessThanOrEqual(corners[k - 1]);
-      expect(corners[k - 1] - corners[k]).toBeLessThan(0.34);
+      expect(corners[k - 1] - corners[k]).toBeLessThanOrEqual(1 - 0.33 + 1e-6);
     }
-    expect(corners[0]).toBeGreaterThan(0.5);
-    expect(corners[4]).toBeGreaterThan(0);
+    expect(corners[0]).toBe(1);
+    expect(corners[4]).toBe(0);
   });
 });
 
