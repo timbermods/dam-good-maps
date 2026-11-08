@@ -12,6 +12,11 @@ type Glow = { added: number; removed: number; fade: number };
 const glow = (page: Page) => page.evaluate(() => (window.dgm3d!.renderer as unknown as { editGlowDrawn: Glow }).editGlowDrawn);
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const edits = (page: Page) => page.evaluate(() => window.dgmEditor!.info().edits);
+/** How long an edit's answer may take to reach the edit count: it comes with the frames, and in software drawing (CI's
+ *  SwiftShader) a frame here takes about 200 ms, so a dig's or an undo's answer takes about a second on a 12-thread
+ *  machine and past 5 s on CI's runners, though nothing compiles (the first hollow's compile is longer still, the first
+ *  dig's own wait). */
+const ANSWERED = 30_000;
 /** The most faces glowing in any frame drawn over `ms`. */
 const glowOver = (page: Page, ms: number) =>
   page.evaluate(
@@ -110,7 +115,7 @@ test("a Block dig into a wall glows on the hollow's faces and fades; its undo gl
   // the undo puts the block back: its one open face glows
   await watchGlow(page);
   await page.keyboard.press("Control+z");
-  await expect.poll(() => edits(page)).toBe(before);
+  await expect.poll(() => edits(page), { message: "the undo is answered", timeout: ANSWERED }).toBe(before);
   await expect.poll(async () => (await glowSeen(page)).added, { message: "the block put back glows", timeout: 30_000 }).toBe(1);
   await expect.poll(() => glow(page), { timeout: 30_000 }).toEqual({ added: 0, removed: 0, fade: 0 });
 
@@ -152,7 +157,7 @@ test("the Block tool's own click glows on plain ground; a plain edit with it in 
   await holdFor(page, "apply", 5000);
   await page.mouse.down();
   await page.mouse.up();
-  await expect.poll(() => edits(page), { timeout: 30_000 }).toBe(before + 1);
+  await expect.poll(() => edits(page), { message: "the click is answered", timeout: ANSWERED }).toBe(before + 1);
   await holdFor(page, "apply", 0);
   await expect.poll(async () => (await glowSeen(page)).added, { message: "the added block glows", timeout: 30_000 }).toBe(5);
   await expect.poll(() => glow(page), { timeout: 30_000 }).toEqual({ added: 0, removed: 0, fade: 0 });
