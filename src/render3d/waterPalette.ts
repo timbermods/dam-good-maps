@@ -360,6 +360,30 @@ export const GAME_BADWATER = {
   ] as readonly (readonly [number, number])[],
 } as const;
 
+/** The game's own pattern on its water sources' water (Q9 P7; Timberborn 1.1.2.8, `WaterSourceRenderingService` and
+ *  its water's ps 356-418, 477, 700-720; its Low quality draws it too). Only a source with a `WaterSourceRendererSpec`
+ *  shows it: a seep (2 × 2) while it can run (not in a drought), a badwater source (3 × 3) while its strength is over 0;
+ *  the plain water source has none. Over its footprint, at v the point from its middle in footprints (each axis −0.5 to
+ *  0.5) and r = |v|, the pattern s = saturate(8 × shape × k² + min(1, 2.5 k⁶)), k = max(0, 1 − 2r), `shape`
+ *  `WaterSourceShape` (waterTextures.ts `GAME_SOURCE_SHAPE`; ours `makeSourceShape`) at (2r − `scroll` × T, the angle /
+ *  2π): blobs streaming out from a bright middle, gone at the footprint's inscribed circle. Clean water's colour × albedo
+ *  moves `lift` of the way to max(itself, s × the still detail albedo); badwater's emissive pattern goes from t9's G to
+ *  its B (`emission`, its mean: ours keeps the still detail albedo in B) by s and is × (1 + s × (`colour` × `strength`
+ *  − 1)), and its base colour takes the detail albedo's overlay × (1 − s). Ours keeps its rings and bubbles (D196) over
+ *  it: an editing aid, drawn after it. */
+export const GAME_WATER_SOURCE = {
+  /** `_Water_Source_Color` (display). */
+  colour: [0.6706, 0.651, 0.6275] as Rgb,
+  /** `_Water_Source_Strength`. */
+  strength: 0.8,
+  /** t9's B, the emission's pattern over a source: its mean (0–1; spread 39.2 / 255). */
+  emission: 188.9 / 255,
+  /** How fast the pattern streams out (a share of its texture a second, `_NonlinearTime` × −0.04). */
+  scroll: 0.04,
+  /** How far clean water's colour moves toward its lift. */
+  lift: 0.5,
+} as const;
+
 /** Badwater's glowing lines' colour, its emissive detail's (`_Detail_Contamination_Color_A` toward `_B` by its noise's
  *  mean), for the legend. */
 export const BADWATER_GLOW_COLOUR = GAME_BADWATER.glowA.map((a, i) => a + (GAME_BADWATER.glowB[i] - a) * GAME_BADWATER.glowNoise) as unknown as Rgb;
@@ -758,6 +782,14 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
    *  flow): the water's shader sets it from its texture (waterTextures.ts \`waterDetailAt\`) before it colours a pixel;
    *  the texture's mean (GAME_BADWATER.detail) until then, and in any shader that doesn't. */
   vec3 waterDetail = ${glColor5(GAME_BADWATER.detail)};
+  /** The game's pattern over a water source here (Q9 P7, GAME_WATER_SOURCE), 0–1: the water's shader sets it on its
+   *  tops before it colours a pixel (materials.ts \`waterSourcePattern\`); 0 elsewhere and in any shader that doesn't. */
+  float waterSource = 0.0;
+  /** Clean water's colour × albedo lifted over a source (Q9 P7, ps 477): part way to max(itself, the pattern × the
+   *  detail albedo). */
+  vec3 waterSourceLift(vec3 a) {
+    return a + (max(a, waterSource * waterDetail) - a) * ${f(GAME_WATER_SOURCE.lift)};
+  }
   /** The game's still detail albedo's overlay (Q9 P6, ps 462-477: overlay(colour × albedo, the detail), per channel):
    *  × 2 × the detail where the colour is under a half, a screen above. */
   vec3 waterDetailOverlay(vec3 a) {
@@ -920,7 +952,7 @@ ${rampGlsl(GAME_BADWATER.ramp, "g")}
     vec3 col = mix(${glColor5(GAME_BADWATER.colorA)}, ${glColor5(GAME_BADWATER.colorB)}, pattern) * k;
     vec3 over = waterDetailOverlay(col);
     #if BADWATER_DETAIL
-      col = mix(col, over, 1.0 - c * 0.5);
+      col = mix(col, over, (1.0 - c * 0.5) * (1.0 - waterSource));
     #endif
     float g = gameDepthG(depth);
     float w = pow(g, ${f(BADWATER.glow.power)}) * clamp(1.0 - c / ${f(BADWATER.glow.upTo)}, 0.0, 1.0);
@@ -936,6 +968,9 @@ ${rampGlsl(GAME_BADWATER.ramp, "g")}
     vec2 e = min(q, 1.0 - q);
     float grid = clamp(dot(e, e) + c * 0.1, ${f(GAME_BADWATER.grid[0])}, ${f(GAME_BADWATER.grid[1])});
     float k = mix(${f(GAME_BADWATER.glowIntensity[0])}, ${f(GAME_BADWATER.glowIntensity[1])}, clamp(c / ${f(GAME_BADWATER.glowIntensityTo)}, 0.0, 1.0));
-    return ${glColor5(GAME_BADWATER.glowA.map((a, i) => a + (GAME_BADWATER.glowB[i] - a) * GAME_BADWATER.glowNoise) as unknown as Rgb)} * pattern * grid * waterTint(c) * k;
+    // (over a source, its own pattern and colour: GAME_WATER_SOURCE)
+    pattern = mix(pattern, ${f(Math.round(GAME_WATER_SOURCE.emission * 1e5) / 1e5)}, waterSource);
+    vec3 src = mix(vec3(1.0), ${glColor5(GAME_WATER_SOURCE.colour.map((v) => v * GAME_WATER_SOURCE.strength) as unknown as Rgb)}, waterSource);
+    return src * ${glColor5(GAME_BADWATER.glowA.map((a, i) => a + (GAME_BADWATER.glowB[i] - a) * GAME_BADWATER.glowNoise) as unknown as Rgb)} * pattern * grid * waterTint(c) * k;
   }
 `;

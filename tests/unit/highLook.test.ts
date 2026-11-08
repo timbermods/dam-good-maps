@@ -66,13 +66,15 @@ describe("the High look's shaders", () => {
     expect(s).toMatch(/if \(hlShadows < 0\.5\) lit = bakedSunLit\(g, z\)/);
   });
 
-  it("draw the poisoned bed from the ground groundColor already worked out, never a second groundColor inside its branch (derivatives and mipmaps there are undefined, and the bed's veins flickered)", () => {
-    const top = terrainHooks().groundTop!;
-    expect(top).not.toContain("groundColor(");
-    expect(top).toContain("ground = mix(ground, groundDry, polluted);");
-    // (High works the veins out under water too, for the bed; Standard, which has no bed, does not)
-    const s = terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader;
-    expect(s).toContain("groundDry = mix(c, soilPattern.rgb, vein);");
+  it("draw the bed under badwater as the Standard look does, no poisoned bed of their own (D496 as amended 2026-11-07: the game draws none, and the pixel judge put High's badwater by day nearer the game's without it, inside the gap's band)", () => {
+    expect(Object.keys(terrainHooks())).not.toContain("groundTop");
+    const high = terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader;
+    const standard = terrainMaterial(U(), 0, 1).fragmentShader;
+    // (the one bed under every water: the ground's own colour under a film, the underwater bed deeper, in both looks)
+    const bed = (s: string) => s.match(/return mix\(c, (vec3\([^)]*\)) \* \(0\.9 \+ 0\.15 \* n2\), bed\);/)?.[1];
+    for (const s of [high, standard]) expect(s).not.toMatch(/groundDry|polluted/);
+    expect(bed(standard)).toBeDefined();
+    expect(bed(high)).toBe(bed(standard));
   });
 
   it("follow the game (D496, D497): its finish, its surface carried by the current, and badwater's own cues, slow bubbles and red contact at rock", () => {

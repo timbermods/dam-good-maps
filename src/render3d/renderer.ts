@@ -71,6 +71,7 @@ import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import { fogOf } from "./high/seasons";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
+import { markSourceTiles, sourceMiddle } from "./sourceMarks";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
 import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
@@ -254,20 +255,6 @@ const PITCH_MIN = 0.18;
 /** How long a frame may spend meshing a stroke's water (updateWaterSoon). */
 const WATER_MESH_BUDGET_MS = 2;
 const PITCH_MAX = 1.5;
-/** A source's middle tile (a badwater source's: one tile in from its corner, turned with it), or -1 for
- *  anything else or off the map. */
-function sourceMiddle(e: EntityView, k: number, W: number, H: number): number {
-  const name = e.templates[e.template[k]];
-  if (name !== "WaterSource" && name !== "BadwaterSource") return -1;
-  let x = e.x[k];
-  let y = e.y[k];
-  if (name === "BadwaterSource") {
-    const o = e.orientation[k];
-    x += o === 0 || o === 1 ? 1 : -1;
-    y += o === 0 || o === 3 ? 1 : -1;
-  }
-  return x < 0 || y < 0 || x >= W || y >= H ? -1 : y * W + x;
-}
 
 /** The even margin a framed map keeps inside the part of the view the page leaves it (CSS pixels). */
 export const FRAME_MARGIN = 12;
@@ -330,12 +317,12 @@ function waterSurfaceMade(baker: Baker): Promise<void> {
 
 let detailMade: Promise<void> | null = null;
 /** The light look's: the still detail albedo alone (Q9 P6; the game's Low quality draws it), made once a page in the
- *  bake worker and written into badwater's texture's B (materials.ts `fillDetailTexture`); flat at its mean until then.
- *  The light look reads none of the other patterns. */
+ *  bake worker and written into badwater's texture's B (materials.ts `fillDetailTexture`), with the water sources'
+ *  pattern (Q9 P7) in its A; flat at their means until then. The light look reads none of the other patterns. */
 function detailTextureMade(baker: Baker): Promise<void> {
   return (detailMade ??= baker.run({ kind: "detailTexture" }).then(
     (r) => {
-      if (r.kind === "detailTexture") fillDetailTexture(r.detail);
+      if (r.kind === "detailTexture") fillDetailTexture(r.detail, r.shape);
     },
     (e: unknown) => {
       detailMade = null;
@@ -1004,18 +991,16 @@ export class MapRenderer {
     this.tintObjects();
   }
 
-  /** The sources' texture: where each clean or bad source's middle is, and which glow. */
+  /** The sources' texture: where each clean or bad source's middle is (R 255, G 255; a badwater source of no strength
+   *  G 254: its rings stay, the game's own pattern does not), and which glow; and the game's own pattern over a source
+   *  (Q9 P7, waterPalette.ts GAME_WATER_SOURCE), a badwater source's at its middle (G 255), a seep's at its footprint's
+   *  first tile (R `SEEP_MARK`, under the rings' threshold), while it can run (not in a held drought). */
   private markSources(): void {
     const m = this.map;
     const t = this.sourceTiles;
     if (!m || !t) return;
     const d = t.image.data as Uint8Array;
-    d.fill(0);
-    const e = m.entities;
-    for (let k = 0; k < e.count; k++) {
-      const i = sourceMiddle(e, k, m.W, m.H);
-      if (i >= 0) d[i * 4 + (e.templates[e.template[k]] === "WaterSource" ? 0 : 1)] = 255;
-    }
+    markSourceTiles(d, m.entities, m.W, m.H, this.season === "drought");
     for (const i of this.sourceGlow) if (i >= 0 && i < m.W * m.H) d[i * 4 + 2] = 255;
     for (const i of this.sourcesLit) if (i >= 0 && i < m.W * m.H) d[i * 4 + 3] = 255;
     this.uniforms.sourceLit.value = this.sourcesLit.size ? 1 : 0;
@@ -1805,6 +1790,7 @@ export class MapRenderer {
         { name: "wdata", array: d.data, itemSize: 2 },
         { name: "wflags", array: d.flags, itemSize: 1 },
         { name: "wcut", array: d.cut, itemSize: 2 },
+        { name: "wshore", array: d.shore, itemSize: 2 },
       ],
       // (down to each column's floor, where a layer cut may fold its water: cutWater.ts)
       sphere: d.sphere ?? boundingSphereOf(d.positions, d.cut),
@@ -2500,6 +2486,8 @@ export class MapRenderer {
   setSeason(hazard: "drought" | "badtide" | null): void {
     this.season = hazard;
     this.applySeason();
+    // (a seep shows the game's own pattern only while it can run: none in a drought, Q9 P7)
+    this.markSources();
   }
 
   /** The haze's colour now (the tests read it). */
@@ -3944,7 +3932,7 @@ export class MapRenderer {
   }
 
   /** Settles once the water's surface, badwater's pattern and contaminated ground's pattern are made (they are flat at
-   *  their means until then; the light look makes and reads only the still detail albedo). For tests and pictures that
+   *  their means until then; the light look makes and reads only the still detail albedo and the sources' pattern). For tests and pictures that
    *  read the patterns. */
   patternsMade(): Promise<void> {
     return this.software ? detailTextureMade(this.baker) : waterSurfaceMade(this.baker);
