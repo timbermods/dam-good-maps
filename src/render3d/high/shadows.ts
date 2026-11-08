@@ -1,5 +1,5 @@
 // Soft shadows from the real meshes for the High look (#38, investigation/maplook2 effects.ts; PLAN
-// §20 D147): the terrain, the trees and the ruins drawn from the sun into a depth map (4096², fitted to the map as
+// §20 D147): the terrain, the trees and the ruins drawn from the sun into a depth map (2048², fitted to the map as
 // the sun sees it), which the High shaders read as four bilinear compares, spread as wide as the game's edge in play
 // (shaders.ts). It is redrawn only when what casts
 // shadows changed (the terrain, the objects), never for the camera, the water's movement or the
@@ -12,10 +12,10 @@ import { DepthTexture, DoubleSide, Matrix4, MeshDepthMaterial, NearestFilter, Or
 import { SUN } from "../materials";
 import { OBJECT_FADE_GLSL } from "../objectFade";
 
-/** The depth map's side (texels): the game's own High preset's, 4096 (D496; less where the GPU's textures are smaller).
- *  Fitted to the map as the sun sees it, a texel is 0.03–0.045 of a tile over a 128² map and 0.05–0.09 over a 256² one,
- *  against the game's 0.057 in play (docs/progress/3d-view.md, "High's shadow edge"). */
-export const SHADOW_SIZE = 4096;
+/** The depth map's side (texels). Fitted to the map as the sun sees it, a texel is 0.06–0.09 of a tile over a 128² map
+ *  and 0.10–0.18 over a 256² one, against the game's 0.057 in play. The game's own High preset's 4096 reaches its edge,
+ *  but waits on the smoothness gate's integrated-GPU profile (docs/progress/3d-view.md, "High's shadow edge"). */
+export const SHADOW_SIZE = 2048;
 /** The highest a caster reaches (levels): the tallest terrain, 22, and an object on it (light.ts `shadowReach`'s 30),
  *  and a little under the map's floor. */
 const CASTER_TOP = 32;
