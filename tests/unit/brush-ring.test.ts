@@ -32,7 +32,7 @@ const GROUNDS: [string, Rgb][] = [
   ["foam", WATER.foam],
   ["badwater", WATER.bad],
   ["dry ground", GROUND.dry],
-  ["moist ground", GROUND.moistHigh],
+  ["moist ground", GROUND.grass],
   ["contaminated ground", CONTAMINATED_GROUND.dry],
   ["contaminated grass", CONTAMINATED_GROUND.grass],
   ["contamination's veins", CONTAMINATION.vein],

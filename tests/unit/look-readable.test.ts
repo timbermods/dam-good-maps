@@ -33,7 +33,7 @@ describe("the meanings", () => {
     // grass is green, dry earth warm brown to mauve, clean water teal-blue, badwater crimson: each
     // meaning its own hue, as in the game, with no lightness order asked between them (D334 (2))
     // (grass the game's yellow-green: its Grass texture's mean, 67/73/25, is hue 68, D497)
-    for (const g of [GROUND.moistLow, GROUND.moistHigh]) expect(hue(g) > 60 && hue(g) < 110, cssColor(g)).toBe(true);
+    for (const g of [GROUND.grass]) expect(hue(g) > 60 && hue(g) < 110, cssColor(g)).toBe(true);
     for (const d of [GROUND.dry, GROUND.dryWarm]) expect(hue(d)).toBeLessThan(40);
     expect(hue(GROUND.dryCool) > 300 || hue(GROUND.dryCool) < 40).toBe(true);
     // clean water the game's colour formula (D496 amended 2026-11-07): from its `_Color` #446C71 toward its navy #000F48
@@ -72,7 +72,7 @@ describe("badwater seen through clear water (D324, feedback item 5: never a hatc
   const over = (bed: readonly number[], c: readonly number[], a: number) => bed.map((v, k) => v + (c[k] - v) * a);
 
   it("reads as badwater by its murk: darker than clean clear water over any bed (colour-blind lightness is information, D334 (2))", () => {
-    for (const bed of [GROUND.underwater, GROUND.dry, GROUND.moistLow]) {
+    for (const bed of [GROUND.underwater, GROUND.dry, GROUND.grass]) {
       const clean = over(bed, WATER.clearTint, CLEAR_WATER.opacity + CLEAR_WATER.ripple);
       const bad = over(bed, badwaterBody(0.25), CLEAR_WATER.badOpacity);
       // murkier than clean water in plain sight; in each simulation the difference is reported, not
@@ -118,14 +118,14 @@ describe("grass and dry earth, in greyscale and every colour-blindness simulatio
 
   it("measure every grass against every patch of dry earth in each simulation, as information, from Kyler's accepted colours", () => {
     // the accepted inputs (D324's grass, D334's earth as D346 greyed it), scaled to the game's Grass and Desert textures (D497)
-    expect(GROUND.moistLow).toEqual([0.378, 0.388, 0.135]);
-    expect(GROUND.moistHigh).toEqual([0.353, 0.372, 0.128]);
+    // (one grass at every moisture, as the game's, fix/land-tone)
+    expect(GROUND.grass).toEqual([0.371, 0.389, 0.133]);
     expect([GROUND.dry, GROUND.dryCool, GROUND.dryWarm]).toEqual([[0.293, 0.242, 0.193], [0.281, 0.249, 0.23], [0.33, 0.264, 0.197]]);
     // the matrix (L* gap, Lab distance) for each grass, patch and simulation: finite and within
     // range. D334 (2) asks for the game's own readability, with no gap: these numbers are reported
     // (docs/progress/high-look.md), not held to one; the captures judge the look
     const matrix: { gap: number; distance: number }[] = [];
-    for (const grass of [GROUND.moistLow, GROUND.moistHigh])
+    for (const grass of [GROUND.grass])
       for (const dry of [GROUND.dry, GROUND.dryCool, GROUND.dryWarm])
         for (const m of Object.values(sims)) {
           const g = lab(grass, m);
@@ -135,7 +135,7 @@ describe("grass and dry earth, in greyscale and every colour-blindness simulatio
           expect(g[0]).toBeLessThanOrEqual(100);
           matrix.push({ gap: g[0] - d[0], distance: Math.hypot(g[0] - d[0], g[1] - d[1], g[2] - d[2]) });
         }
-    expect(matrix).toHaveLength(2 * 3 * 4);
+    expect(matrix).toHaveLength(1 * 3 * 4);
   });
 });
 

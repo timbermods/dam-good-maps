@@ -419,6 +419,34 @@ export const AID_TINT = {
   badwaterGlow: shine(LANDMARK.crater),
 } as const;
 
+/** The grass's painted strokes' mean (groundColor's `painted × (0.08 + bladeHash × 0.16)`, one stroke a cell, its
+ *  width 0.08 across, fading over 0.18–0.42 along, from a point 0.2–0.8 into its cell, turned by its hash), over the
+ *  cell and its hash: what the strokes give the grass on average, which they fade to from afar, so the grass's mean
+ *  holds at every distance as a texture's does through its mips (the game's, D497). */
+export const PAINTED_MEAN = (() => {
+  const smooth = (a: number, b: number, x: number) => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+  const H = 64;
+  const N = 48;
+  let sum = 0;
+  for (let i = 0; i < H; i++) {
+    const h = (i + 0.5) / H;
+    const turn = h * 6.28318;
+    const [cx, cy] = [0.2 + h * 0.6, 0.2 + ((h * 13.7) % 1) * 0.6];
+    const [co, si] = [Math.cos(turn), Math.sin(turn)];
+    for (let y = 0; y < N; y++)
+      for (let x = 0; x < N; x++) {
+        const [dx, dy] = [(x + 0.5) / N - cx, (y + 0.5) / N - cy];
+        // (GLSL's mat2(a, b, c, d) × v is (a v.x + c v.y, b v.x + d v.y))
+        const [bx, by] = [co * dx + si * dy, -si * dx + co * dy];
+        if (Math.abs(bx + by * 0.25) < 0.04) sum += (1 - smooth(0.18, 0.42, Math.abs(by))) * (0.08 + h * 0.16);
+      }
+  }
+  return Math.round((sum / (H * N * N)) * 1e5) / 1e5;
+})();
+
 /** The pattern texture: its size, and the cells of each pattern across it (each tiles). */
 const PATTERN_SIZE = 1024;
 const NOISE_CELLS = 64;
@@ -1296,7 +1324,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       vec3 groundColor(vec4 s, vec2 g, float detail, float clev) {
         #if LITE
           // (the game's ground: the grass's colour and ramp blended into the desert's by the tile's grass share)
-          vec3 lc = mix(${glColor(GROUND.dry)} * altitudeOf(vWorld.y, 0.0), mix(${glColor(GROUND.moistLow)}, ${glColor(GROUND.moistHigh)}, clamp((s.y - 1.0) / 9.0, 0.0, 1.0)) * altitudeOf(vWorld.y, 1.0), s.x);
+          vec3 lc = mix(${glColor(GROUND.dry)} * altitudeOf(vWorld.y, 0.0), ${glColor(GROUND.grass)} * altitudeOf(vWorld.y, 1.0), s.x);
           // (no patterns: contamination's pattern at its mean, as the game's mips show it from afar, palette.ts
           // contaminationMean)
           lc = mix(lc, ${glColor(CT.mean)}, ${f(Math.round(CT.meanAlpha * 1e4) / 1e4)} * contaminationWeight(contaminationMapOf(clev), 0.5));
@@ -1328,11 +1356,12 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         vec3 c = mix(${glColor(GROUND.dryCool)}, ${glColor(GROUND.dry)}, smoothstep(0.28, 0.68, b1));
         c = mix(c, ${glColor(GROUND.dryWarm)}, smoothstep(0.32, 0.72, b2) * 0.85);
         c *= (0.97 + 0.16 * (b3 - 0.5) + 0.08 * (n1 - 0.5)) * (0.96 + 0.22 * (dry.y - 0.5) + detail * 0.20 * n3);
-        c = mix(c, ${glColor(GROUND.crack)}, dry.x * (0.58 + 0.20 * detail));
-        // moist: grass, a muted green, deeper by the water, in lighter and deeper patches and darker
-        // blotches; up close, clumps a few to a tile and painted strokes, jittered and turned, so the
-        // pattern never repeats in rows
-        vec3 grass = mix(${glColor(GROUND.moistLow)}, ${glColor(GROUND.moistHigh)}, clamp((s.y - 1.0) / 9.0, 0.0, 1.0));
+        // (the cracks as deep from afar as near: their texture's mips keep their mean, as the game's textures do)
+        c = mix(c, ${glColor(GROUND.crack)}, dry.x * 0.78);
+        // moist: grass, a muted green the same at every moisture (the game's), in lighter and deeper patches and
+        // darker blotches; up close, clumps a few to a tile and painted strokes, jittered and turned, so the pattern
+        // never repeats in rows
+        vec3 grass = ${glColor(GROUND.grass)};
         grass = mix(grass, grass * vec3(0.86, 0.94, 0.86), smoothstep(0.45, 0.75, b2));
         float blot = smoothstep(0.62, 0.82, vnoise(g * 0.7 + 5.3));
         float tuft = vnoise(g * 3.3 + 21.0) - 0.5;
@@ -1346,8 +1375,11 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         vec2 bf = fract(bladeUV) - vec2(0.20 + bladeHash * 0.6, 0.20 + fract(bladeHash * 13.7) * 0.6);
         bf = mat2(cos(bladeTurn), -sin(bladeTurn), sin(bladeTurn), cos(bladeTurn)) * bf;
         float bladeAA = max(0.025, max(fwidth(bladeUV.x), fwidth(bladeUV.y)));
-        float painted = (1.0 - smoothstep(0.04, 0.04 + bladeAA, abs(bf.x + bf.y * 0.25))) * (1.0 - smoothstep(0.18, 0.42, abs(bf.y)));
-        float tex = 0.91 + 0.31 * tuft + painted * (0.08 + bladeHash * 0.16) * detail + 0.09 * blade * detail;
+        // (the stroke's width 0.08 seen through a pixel's box: its area, so the grass's mean, the same at every distance;
+        // from afar, where its cells shrink under a pixel, it fades to that mean, PAINTED_MEAN)
+        float bladeU = abs(bf.x + bf.y * 0.25);
+        float painted = max(0.0, min(bladeU + 0.04, 0.5 * bladeAA) - max(bladeU - 0.04, -0.5 * bladeAA)) / bladeAA * (1.0 - smoothstep(0.18, 0.42, abs(bf.y)));
+        float tex = 0.91 + 0.31 * tuft + mix(${f(PAINTED_MEAN)}, painted * (0.08 + bladeHash * 0.16), detail) + 0.09 * blade * detail;
         c = mix(c, grass * (0.80 + 0.27 * b1 + 0.14 * (n1 - 0.5)) * tex * (1.0 - 0.19 * blot), moist);${hook(h, "groundVariation")}
         // the game's altitude ramp, the grass's on grass and the desert's on dry ground, before contamination's veins
         c *= altitudeOf(vWorld.y, moist);
@@ -1563,7 +1595,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
           groove = (1.0 - smoothstep(gw - py * 0.5, gw + py * 0.5, fy)) * lines;
           float lip = ceiling ? 0.0 : 1.0 - smoothstep(0.07, 0.13, h0 - y);
           vec4 s0 = soilOf(d0);
-          vec3 top = groundMode > 0.5 ? heightColor(h0) : mix(${glColor(GROUND.dry)} * 0.85, ${glColor(GROUND.moistHigh)}, grassOf(s0.x));
+          vec3 top = groundMode > 0.5 ? heightColor(h0) : mix(${glColor(GROUND.dry)} * 0.85, ${glColor(GROUND.grass)}, grassOf(s0.x));
           // (an eruption's fresh rock: its cliffs dark basalt, its lip ash)
           float freshWall = freshRock(tile, vWorld.y);
           wc = mix(wc, ${glColor(JUICE.ashDark)} * (0.62 + 0.5 * k), freshWall * 0.7);

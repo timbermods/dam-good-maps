@@ -11,7 +11,7 @@
 //   npx tsx tools/water-pixel-judge.ts [--dev .scratch/judge-dev|none] [--base .scratch/judge-826] [--batch 20261002-1610-batch]
 //     [--look standard|high|both] [--water clean|bad|mixed|all|pit|falls] [--define WATER_FORMULA|BADWATER_FORMULA|WATER_GAME_LIGHT,...]
 //     [--set WATER_GAME_LIGHT=1,...] [--shots <id>,<id>]
-//     [--light shot|day] [--reflection <strength>]
+//     [--light shot|day] [--reflection <strength>] [--samples]
 //
 // `--water pit` samples the mine sites' pits (D496 as amended 2026-11-07: by day the game's pit the lighter) beside pure badwater, on the same
 // shots: the pit's floor at the middle of each mine site's 5 × 5 (the 3 × 3 round its centre, at its depth,
@@ -114,6 +114,9 @@ const REFLECTION = arg("reflection") ? Number(arg("reflection")) : null;
 /** `--ambient <k>`: the ambient probe's SH × k (linear values, before the shader turns them to display values), a
  *  question for the look: the scene's `m_AmbientIntensity` 1.2, if the engine applies it to a Trilight. */
 const AMBIENT = arg("ambient") ? Number(arg("ambient")) : null;
+/** `--samples`: the land's samples one by one in the JSON (`landSamples`: each its kind, point, the camera's distance and
+ *  view depth, the game's pixel and each case's), to model the game's terms on them offline. */
+const SAMPLES = process.argv.includes("--samples");
 const W_PX = 1280;
 const H_PX = 800;
 const CLOCK = 12.5;
@@ -860,7 +863,11 @@ async function main() {
             console.log(line);
             landBands[`${kind} ${lo}-${hi}`] = { n: idx.length, game: g, floor, ours: per };
           }
-        results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, light: s.light, bands, land: landBands };
+        const cp = Math.cos(cam.pitch);
+        const eye: V3 = [cam.target[0] + Math.sin(cam.yaw) * cp * cam.distance, cam.target[1] + Math.sin(cam.pitch) * cam.distance, cam.target[2] + Math.cos(cam.yaw) * cp * cam.distance];
+        const forward = norm(sub(cam.target, eye));
+        const landSamples = SAMPLES ? land.map((a, k) => ({ kind: a.q.kind, p: a.q.p, distance: a.q.distance, viewDepth: dot(sub(a.q.p, eye), forward), game: gameLand[k], ours: Object.fromEntries(cases.map((c) => [c.key, oursLand[c.key][k]])) })) : undefined;
+        results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, light: s.light, bands, land: landBands, landSamples };
       }
     }
     console.log(`\nall shots, by kind: the distance to the game's pixel (RMS, 0-255)`);

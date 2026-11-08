@@ -1430,6 +1430,56 @@ the game's models in resources.assets (positions, materials and texture means on
   few pixels; the noise is ours at the game's statistics, not its texels; the mask follows our surface water only (a
   cave's water under a surface takes none), and the game eases it from the last tick's to this one's.
 
+## The land's tone (D497; `fix/land-tone`)
+
+- **The finding** (`fix/water-light` above): grass read about 12 % darker than the game's on the start shots (bias
+  11.6 in Standard), cliff faces darker on some shots (bias 13.6), dry ground within 2.5.
+- **The cause, by the game's shader** (TerrainURP read again, investigation/notes/water_and_soil.md Q10): grass and dry
+  ground take the same light and differ only in albedo, and the game's grass has no moisture term. The game's texture
+  means × its ramps × its light, through its fog and post chain, put the start shots' dry tops at 113/116/111 and grass
+  at 113/140/80; the game's pixels sit 6–7 over that on both (120/122/115, 119/146/84), so its light is the same for both,
+  and ours alone was off on grass: dev drew dry ground 7 over the model and grass 6 under it. Two terms of ours, neither
+  the game's: grass ran from a lighter green at the moist area's edge to a deeper one by the water (`moistLow` →
+  `moistHigh`, 7 % darker), and the patterns faded with distance: the grass's painted strokes, widened by their
+  anti-aliasing at 34 away (where the colours were calibrated) and faded out from afar, left the grass 3.5 % darker from
+  100 away than at 34, while the earth's cracks faded the other way (1.3 % lighter).
+- **The fix:** grass is one colour at every moisture (`GROUND.grass`; only the desert's share moves with moisture, as
+  the game's); the strokes take a box filter of their width, so their area holds, and fade from afar to their own mean
+  (`PAINTED_MEAN`, 0.0076); the cracks keep their depth (their texture's mips keep the mean). Grass recalibrated to the
+  `Grass` texture's 64² mip × the detail texture doubled, 74.2/80.6/27.4: measured after (`tools/albedo-means.ts`, now
+  with `--distance`) 74.3/80.8/27.5 from 34 away and 74.0/80.4/27.5 from 100 in Standard (dev: 73.7/80.2/27.5 at 34, its
+  strokes' share lower from 100). The models keep their colours (`ALBEDO_SCALE` held at the grass they took them from).
+- **On the judge** (`tools/water-pixel-judge.ts`, now with `--samples`; RMS to the game's pixels and bias, dev → this
+  branch):
+
+  | shots | material | Standard | High | floor |
+  |---|---|---|---|---|
+  | the six clean-water start shots (day) | grass (137) | 15.5 (11.6) → 14.3 (9.9) | 16.7 (12.0) → 15.6 (10.4) | 16.7 |
+  | | dry (3,531) | 9.5 (2.5) → 9.4 (2.5) | 9.9 (3.3) → 9.8 (3.2) | 11.9 |
+  | | cliff (726) | 18.1 (13.6) → 18.1 (13.6) | 18.8 (14.4) → 18.8 (14.4) | 19.6 |
+  | the six badwater frames (sunrise, sunset) | dry (3,592) | 8.4 (2.9) → 8.3 (2.7) | 8.4 (3.5) → 8.4 (3.5) | 10.7 |
+  | | contaminated (100) | 5.7 (3.2) → 5.9 (3.7) | 6.6 (4.4) → 6.9 (5.0) | 5.4 |
+  | | cliff (409) | 13.6 (9.6) → 13.6 (9.6) | 14.6 (10.6) → 14.6 (10.7) | 16.0 |
+
+  Water unchanged: clean water on the start shots 14.3 → 14.2 (Standard), 14.1 → 14.0 (High); pure badwater on the
+  frames 7.1 → 7.1, 7.5 → 7.5.
+- **What's left of grass is where our broad patches fall:** the 137 grass samples sit in a few patches of two River
+  Valley shots, and our grass's broad light and dark patches (10–20 tiles across) decide their mean. Moving those
+  patches (three other offsets, judged the same way) gives grass bias 4.5, 6.9 and 5.2 against 9.9 as shipped. The
+  offsets are not changed to suit the judge.
+- **Cliffs are the samples, not the light:** where the game's pixel and ours both show a face, ours reads 2–4 darker
+  (the start shots: 65/83/82 against 63/80/80, 81/99/96 against 77/97/95, and so on). The bias comes from 17 % of the
+  samples (124 of 726; 65 on highlands-128-1, fitted at 85 %), where the game's pixel shows a top's colour
+  (114–122/116–120/96–112) while ours shows the face: the fitted camera puts the 5 × 5 patch a few pixels off a face
+  12 pixels tall. The game's cliff albedo is `CliffDetail` × the gradient (ours matches it, 67.9/62.0/51.9), with no
+  detail texture; nothing in its light differs from a top's but the normal.
+- **The sheet:** `docs/sheets/land-tone.jpg` (`tools/capture-land-tone.ts`): dev against this branch, Standard and High,
+  grass by the water, a grassy valley from 100 away, a cliff, dry ground, and the light look (software) from the valley.
+- **Falls short:** the residual 2–4 on cliff faces (perhaps the game's normal map on the triplanar cliff, or the SH's
+  side term, which a frame capture would settle); contaminated ground on the badwater frames 0.5 darker (the cracks now
+  as deep from afar as near); High's grass close up reads 69/78/31 from 34 away (its broad variation over the few views),
+  73.2/79.8/27.3 from 100.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

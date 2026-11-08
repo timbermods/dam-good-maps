@@ -8,7 +8,7 @@
 // game's texture means.
 //
 //   npx tsx tools/albedo-means.ts                     (Canyon 128² seed 1 and River Valley 128² seed 4242, their opening views)
-//   options: --maps canyon:1,riverValley:4242  --looks standard,high  --port 4796
+//   options: --maps canyon:1,riverValley:4242  --looks standard,high  --port 4796  --distance 34
 //   --lit: the terrain as drawn (nothing patched): what the screen shows of each kind, the dry ground's also by its
 //   height (levels 0–7, 8–13, 14 and up), to set against the game's own screenshots
 
@@ -26,6 +26,9 @@ const PORT = Number(arg("port") ?? "4796");
 const MAPS = (arg("maps") ?? "canyon:1,riverValley:4242").split(",").map((m) => m.split(":"));
 const LOOKS = (arg("looks") ?? "standard,high").split(",");
 const LIT = process.argv.includes("--lit");
+/** The views' distance (34: close enough that the patterns resolve; `--distance 100` reads them as the game's start
+ *  shots do, 70–110 away, where a pattern's fine detail has faded: a texture's mean holds at every distance). */
+const DISTANCE = Number(arg("distance") ?? "34");
 
 /** Views over each map: high and close enough that the patterns resolve, looking down. */
 const VIEWS = [0.15, 0.35, 0.55, 0.75].flatMap((u) => [0.25, 0.5, 0.75].map((v) => ({ u, v })));
@@ -143,12 +146,12 @@ try {
     }
     const acc: Record<string, [number, number, number, number]> = {};
     for (const { u, v } of VIEWS) {
-      await page.evaluate(([u, v]) => {
+      await page.evaluate(([u, v, d]) => {
         const r = window.dgm3d!.renderer as unknown as { map: { W: number; H: number; heights: Uint8Array }; setView(v: unknown): void };
         const { W, H, heights } = r.map;
         const x = Math.floor(u * W), y = Math.floor(v * H);
-        r.setView({ mode: "orbit", yaw: 0.6, pitch: 1.2, distance: 34, target: [x + 0.5, heights[y * W + x], -(y + 0.5)] });
-      }, [u, v] as const);
+        r.setView({ mode: "orbit", yaw: 0.6, pitch: 1.2, distance: d, target: [x + 0.5, heights[y * W + x], -(y + 0.5)] });
+      }, [u, v, DISTANCE] as const);
       await page.waitForTimeout(1200);
       await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
       const box = (await page.locator("[data-albedo-view]").boundingBox())!;

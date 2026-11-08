@@ -721,6 +721,41 @@ The game's, missing or different:
 7. Refraction of the ground behind (P2), and the fall mask by tile from `FindWaterfalls` (P1): done
    (fix/water-refraction), in Standard and High.
 
+## Q10. The terrain shader's albedo (Timberborn 1.1.2.8-ffc2de0-sw)
+
+Read the same way as Q9 (`python tools/game-water-shader.py --shader "Shader Graphs/TerrainURP" --keywords ...`,
+2026-11-08; the disassembly stays in a gitignored folder). The terrain's five materials pick their variants by keyword:
+`Grass` (every top) `_USELAYERTOOL`; `Cliff` `_SAMPLE_SPLATMAP _USELAYERTOOL _USE_TRIPLANAR_SPLATMAP`; `CliffEdge`
+`_SAMPLE_SPLATMAP _USELAYERTOOL`; `SlopeCliff` `_SAMPLE_SPLATMAP _USE_TRIPLANAR_SPLATMAP`; `SlopeCliffEdge`
+`_SAMPLE_SPLATMAP`; URP's `FOG_EXP _ADDITIONAL_LIGHTS _MAIN_LIGHT_SHADOWS_CASCADE` on all.
+
+- **A top's albedo** (the `Grass` variant's pixel program): grass = `_BaseAlbedoTex` ("Grass") at world xz ×
+  `_ProjectionUVScale` × the grass altitude ramp at y / `_AltitudeCeiling` × 2; desert = `_DesertTex` × its ramp × 2;
+  blended by the desert intensity (the 2D-array map's slice at the top's level, four taps `_BlendingMargin` round the
+  point, eased by `_TickProgress`, + `_BlendingNoiseMultiplier` × (noise − 0.5), then (v − 0.5) × `_BlendingSoftness` +
+  0.5, saturated); the field textures by the field map the same way; then × `_DetailAlbedoTex` ("GrassDetailsAlbedo",
+  at the same uv × `_DetailScale` 0.5) × 2; then contamination's pattern laid over (D154). **No moisture term**: soil
+  moisture reaches the shader only through the desert intensity, so grass with none of the desert in it is the same at
+  every moisture (ours ran deeper by the water until `fix/land-tone`).
+- **A wall's albedo** (the `Cliff` variant): the top's albedo as above, then lerped toward `_SplatAlbedoTex`
+  ("CliffDetail", triplanar at world × `_Albedo_Triplanar_Tile` 0.45, weights |n| / Σ|n|) × `_SplatAlbedoColor` (1) ×
+  lerp(`_SplatGradientMin`, `_SplatGradientMax`, y / `_AltitudeCeiling`) by `_SplatFilterTex` (the mesh's uv); the
+  normal from `Cliff_N`, triplanar at × 0.125. No detail texture on the cliff's own colour.
+- **The light** (both variants): URP's Lit under Gamma, as D497 has it: albedo × (0.96 − 0.96 × `_Metallic` 0.05) ×
+  (SampleSH(n), turned to sRGB + `_MainLightColor` × the shadow × saturate(n·L)) + the environment's and the sun's
+  specular (smoothness `_Glossiness` 0.05 × the splat filter), then `unity_FogParams.x` fog by exp2. Nothing in it
+  differs between grass and dry ground but the albedo.
+- **The textures' means by mip** (BC7, read raw, display 0–255; the start shots, 70–110 away, read about the 64²–128²
+  mips): `Grass` 67.0/72.5/24.4 at 4096², 67.4/72.9/24.8 at 64²; `Desert` 61.2/51.3/40.9 and 62.5/52.2/41.7;
+  `GrassDetailsAlbedo` 140.1/140.8/140.6 and 140.3/141.0/140.8; `CliffDetail` 67.3/61.8/51.7 (2048²) and 67.5/62.0/51.9.
+  Every mip within 2 % of the top's, so a texture's mean holds at every distance.
+- **On the probe's start shots** (`tools/water-pixel-judge.ts --samples`, the six clean-water start shots, Standard),
+  these terms with no specular, through the game's fog and post chain, against the game's pixels: dry tops 113/116/111
+  modelled, 120/122/115 in the game; grass 113/140/80 modelled, 119/146/84 in the game. The game sits the same 6–7 over
+  the model on both, its specular and what the model leaves out: so grass and dry ground take the same light, and our
+  grass's darkness was ours (dev drew grass 107/135/80 there, dry 120/122/117).
+- Used by `src/render3d/palette.ts` `GROUND.grass` and `materials.ts` `groundColor` (`fix/land-tone`).
+
 ## Simplified water simulation spec (browser implementation)
 
 This spec is for heightfield terrain (one water column per cell). It is exact for maps without caves or overhang objects, as validated against the 1.1 save.

@@ -71,29 +71,22 @@ describe("the ground's colours", () => {
     expect(groundKind(0, 9, false)).toBe("contaminated");
     expect(groundKind(200, 0, true)).toBe("underwater");
     expect(groundColor(0, 0, false)).toEqual(GROUND.dry);
-    expect(groundColor(1, 0, false)).toEqual(GROUND.moistLow);
-    expect(groundColor(150, 0, false)).toEqual(GROUND.moistHigh);
+    expect(groundColor(1, 0, false)).toEqual(GROUND.grass);
+    expect(groundColor(150, 0, false)).toEqual(GROUND.grass);
     // contamination is a layer over the ground (Kyler's contamination round): the colour under it
     // is the soil's own
     expect(groundColor(40, 5, false)).toEqual(groundColor(40, 0, false));
     expect(groundColor(0, 5, false)).toEqual(GROUND.dry);
   });
 
-  it("keeps each meaning its own look (D334, re-basing the greyscale gaps): cracked earth, two grass inputs, orange-red veins only where there is contamination, water darker with depth", () => {
+  it("keeps each meaning its own look (D334, re-basing the greyscale gaps): cracked earth, one grass at every moisture, orange-red veins only where there is contamination, water darker with depth", () => {
     // dry earth stays cracked earth: its cracks darker than it
     expect(lum(GROUND.crack)).toBeLessThan(lum(GROUND.dry));
-    // moist ground is the two grass inputs and the steps between them, by the game's moisture levels
-    expect(groundColor(15, 0, false)).toEqual(GROUND.moistLow);
-    expect(groundColor(150, 0, false)).toEqual(GROUND.moistHigh);
-    for (let m = 15; m <= 150; m += 15) {
-      const g = groundColor(m, 0, false);
-      for (let k = 0; k < 3; k++) {
-        expect(g[k]).toBeGreaterThanOrEqual(Math.min(GROUND.moistLow[k], GROUND.moistHigh[k]) - 1e-12);
-        expect(g[k]).toBeLessThanOrEqual(Math.max(GROUND.moistLow[k], GROUND.moistHigh[k]) + 1e-12);
-      }
-    }
+    // moist ground is the game's grass, the same at every moisture level (its terrain shader has no moisture term:
+    // only the desert's share changes with it, D135 as amended)
+    for (let m = 15; m <= 150; m += 15) expect(groundColor(m, 0, false)).toEqual(GROUND.grass);
     // no contamination, no vein; any contamination, the game's rusty veins through either soil (D154 as amended)
-    for (const soil of [GROUND.dry, GROUND.moistLow, GROUND.moistHigh]) {
+    for (const soil of [GROUND.dry, GROUND.grass]) {
       expect(contaminationVein(0, soil)).toEqual(soil);
       for (const l of [1 / 15, 0.5, 1]) {
         const v = contaminationVein(l, soil);
