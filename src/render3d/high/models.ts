@@ -30,15 +30,19 @@ const FOLIAGE = { pine: ['Pine', 'pineDry'], birch: ['Birch', 'birchDry'], oak: 
  *  berries were #7f9bff, half again brighter and the bloom's brightest on a forest.) */
 const berry = hex(underSun(asOurs([0.294, 0.302, 0.414])));
 /** The pine's, the oak's and the birch's bark: the game's (palette.ts `TREE_COLOURS`, as Standard's), as they read under
- *  the warm sun. The game's oak bark is darker and less red than the pine's and the birch's a warm grey (until 2026-11-08
- *  ours was a near-white #f2efdd), so each has its own slot. */
-const bark = hex(underSun(TREE_COLOURS.pineBark)), oakBark = hex(underSun(TREE_COLOURS.oakBark)), birchBark = hex(underSun(TREE_COLOURS.birchBark));
+ *  the warm sun. The game's oak bark is darker and less red than the pine's and the birch's a light warm grey (until
+ *  2026-11-08 ours was a near-white #f2efdd), so each has its own slot. The pine's and oak's browns keep their hue
+ *  through `underSun` (lit, High's within 3 % of Standard's r/b and g/b), but the birch's near-grey would come out
+ *  neutral, so it takes `BIRCH_SUN` of the correction: the share at which its lit bark's hue is Standard's. */
+export const BIRCH_SUN = 0.5;
+const partSun = (c: readonly number[], k: number) => [c[0] * (1 + k * (WARM_SUN[1] / WARM_SUN[0] - 1)), c[1], c[2] * (1 + k * (WARM_SUN[1] / WARM_SUN[2] - 1))];
+const bark = hex(underSun(TREE_COLOURS.pineBark)), oakBark = hex(underSun(TREE_COLOURS.oakBark)), birchBark = hex(partSun(TREE_COLOURS.birchBark, BIRCH_SUN));
 export const paletteDefaults = {
   ...living,
   bark, oakBark, birchBark, berry, marks: '#494239',
   // a dead tree's bare wood, its own bark weathered as the game's is; a dead bush's leaves gone brown (dying.ts DEAD_FORM)
   dead: hex(underSun(deadWood('Pine', TREE_COLOURS.pineBark))), oakDead: hex(underSun(deadWood('Oak', TREE_COLOURS.oakBark))),
-  birchDead: hex(underSun(deadWood('Birch', TREE_COLOURS.birchBark))),
+  birchDead: hex(partSun(deadWood('Birch', TREE_COLOURS.birchBark), BIRCH_SUN)),
   bushDead: hex(underSun(deadLeaves('BlueberryBush', TREE_COLOURS.bush))),
   // a dying plant's foliage: the game's dry colour at the living green's lightness (dying.ts), as it reads under the warm sun
   pineDry: hex(underSun(dryColour('Pine', TREE_COLOURS.pine))), birchDry: hex(underSun(dryColour('Birch', TREE_COLOURS.birch))),

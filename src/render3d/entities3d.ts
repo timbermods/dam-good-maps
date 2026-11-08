@@ -263,7 +263,7 @@ export const BIRCH_BARK: Rgb = TREE_COLOURS.birchBark;
 const OAK_BARK: Rgb = TREE_COLOURS.oakBark;
 const BUSH_LEAVES: Rgb = TREE_COLOURS.bush;
 /** Bare dead wood as the game's (dying.ts `DEAD_FORM`): each tree's own bark weathered, the pine's and oak's lighter and
- *  greyer brown, still lighter than the living crowns; a dead birch keeps its warm grey, a shade darker. Where a limb broke the
+ *  greyer brown, still lighter than the living crowns; a dead birch keeps its warm grey, a fifth darker. Where a limb broke the
  *  wood is paler. */
 const DEAD_WOOD: Rgb = deadWood("Pine", BARK);
 const DEAD_DARK: Rgb = shade(DEAD_WOOD, 0.85);
