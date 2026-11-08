@@ -52,7 +52,7 @@ const FIND_JS = `([yaw]) => {
   const views = {};
   let i = bestOf((j) => (wet(j) && s.depth[j] < 0.05 && s.contamination[j] < 0.02 && dryBeside(j) ? 1 : 0), 2);
   if (i >= 0) views.shore = { mode: "orbit", yaw, pitch: 0.95, distance: 6, target: at(i) };
-  i = bestOf((j) => (wet(j) && s.contamination[j] > 0.98 && s.depth[j] > 1 && s.depth[j] < 2 ? 1 : 0), 4);
+  i = bestOf((j) => (wet(j) && s.contamination[j] > 0.9 && s.depth[j] > 0.8 && s.depth[j] < 2.5 ? 1 : 0), 4);
   if (i >= 0) views.bad = { mode: "orbit", yaw, pitch: 0.8, distance: 22, target: at(i) };
   const e = m.entities;
   for (let k = 0; k < e.count; k++) {
@@ -69,7 +69,10 @@ const FIND_JS = `([yaw]) => {
     if (js.every(lake) && js.every((j) => m.heights[j] === m.heights[js[0]]) && e.x.every((ex, k) => Math.abs(ex - x) > 4 || Math.abs(e.y[k] - y) > 4)) seep = [x, y];
   }
   if (seep) views.seep = { mode: "orbit", yaw, pitch: 1.0, distance: 7, target: [seep[0] + 1, top(seep[1] * W + seep[0]), -(seep[1] + 1)] };
-  return { views, seep };
+  let bad = 0, sources = 0;
+  for (let j = 0; j < W * H; j++) if (wet(j) && s.contamination[j] > 0.5) bad++;
+  for (let k = 0; k < e.count; k++) if (/Badwater|Seep/.test(e.templates[e.template[k]])) sources++;
+  return { views, seep, bad, sources };
 }`;
 
 const SITES = [
@@ -106,7 +109,7 @@ const COST_JS = `async ([n]) => {
 /** Place the seep (the same edit on both sites) and wait for the editor to settle. */
 async function placeSeep(page: Page, at: [number, number]): Promise<void> {
   await page.evaluate(
-    ([x, y]) => window.dgmEditor!.edit({ op: "placeEntity", params: { id: "capture-seep", template: "WaterSeep", x, y, orientation: "Cw0" } } as never, "Place a seep"),
+    ([x, y]) => window.dgmEditor!.edit({ op: "placeEntity", params: { id: crypto.randomUUID(), template: "WaterSeep", x, y, orientation: "Cw0" } } as never, "Place a seep"),
     at,
   );
   await page.evaluate("window.dgmEditor.idle()");
@@ -136,8 +139,8 @@ async function main() {
     await open(page, ports.after, MAP);
     const found = (await page.evaluate(`(${FIND_JS})(${JSON.stringify([YAW])})`)) as { views: Record<string, View>; seep: [number, number] | null };
     const views = found.views;
-    for (const s of SCENES) if (!views[s.key]) throw new Error(`no view found for ${s.key}`);
     console.log(JSON.stringify(found));
+    for (const s of SCENES) if (!views[s.key]) throw new Error(`no view found for ${s.key}`);
     const got = new Map<string, Buffer>();
     for (const s of SITES) {
       await page.context().close();
