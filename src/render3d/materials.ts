@@ -1972,8 +1972,10 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // but for a side as tall as a fall (toward lower dry ground), which keeps its part below the cut in front of the
         // cliff, as the game's layers do. A fall itself is the slope of the water below it, a top (fallSlope.ts): each
         // vertex sliced by its own height and floor
-        float surface = normal.y > 0.5 ? w.y : wcut.x + wdata.x;
-        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = wflags < 254.5 && wflags > ${f(FALL * 30 - 0.5)} ? min(w.y, slice) : surface;
+        // (a side's vertex by its own height where that stands over its column's surface: a slope's edge, a skirt)
+        float colTop = wcut.x + wdata.x;
+        float surface = normal.y > 0.5 ? w.y : max(colTop, w.y);
+        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = wflags < 254.5 && wflags > ${f(FALL * 30 - 0.5)} ? min(w.y, slice) : colTop;
         if (surface > slice + ${f(CUT_SLACK)} && wcut.x < slice) {
           float over = surface - slice;
           float h0 = w.y;

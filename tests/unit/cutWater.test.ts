@@ -77,9 +77,10 @@ function fold(
   cut: number | null,
 ): { y: number; depth: number; flags: number } {
   const slice = cut ?? 99;
-  const surface = ny > 0 ? y : floor + depth;
+  // (a side's vertex by its own height where that stands over its column's surface: a slope's edge, a skirt)
+  const surface = ny > 0 ? y : Math.max(floor + depth, y);
   // (a gone column's side folds flat: nothing drawn; but a fall's face keeps its part below the cut)
-  if (surface > slice + CUT_SLACK && floor >= slice && ny <= 0) return { y: flags < 254.5 && flags >= FALL * 30 ? Math.min(y, slice) : surface, depth, flags };
+  if (surface > slice + CUT_SLACK && floor >= slice && ny <= 0) return { y: flags < 254.5 && flags >= FALL * 30 ? Math.min(y, slice) : floor + depth, depth, flags };
   if (!(surface > slice + CUT_SLACK && floor < slice)) return { y, depth, flags };
   const over = surface - slice;
   if (ny > 0)
@@ -190,7 +191,9 @@ function draw(W: number, H: number, layers: readonly WaterLayer[], cut: number |
           }
         } else if (cut !== null) {
           const surface = vs[0].floor + m.data[q * 4 * 2];
-          if (surface > cut + CUT_SLACK && vs[0].floor < cut) out.sidesOver += vs.filter((v) => v.y > cut).length;
+          // (a sliced column's sides stop at the cut; a side of a column under it, at its surface, but where it rises
+          // over that (a slope's edge, a skirt): it too stops at the cut)
+          if (vs[0].floor < cut) out.sidesOver += vs.filter((v) => v.y > (surface > cut + CUT_SLACK ? cut : cut + CUT_SLACK)).length;
           if (surface > cut + CUT_SLACK && vs[0].floor >= cut) {
             // (drawn: what the fragment shader keeps, under the cut's slack, with some height)
             const ys = vs.map((v) => v.y);

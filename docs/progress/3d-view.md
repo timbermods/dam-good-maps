@@ -1823,8 +1823,9 @@ the game's models in resources.assets (positions, materials and texture means on
   depth seen behind it from there as from its own height (`cutWater.ts` `cutSlopeDepth`): against the cliff where the
   cut is under the upper water's floor (0.05 at the lip, 0.58 a third in), else into the upper water to its floor.
   The first reading took the water's depth from its floor up to the cut, several levels: a dark navy patch at a
-  sliced fall where dev drew teal. A fall whose upper water the cut took keeps its slope up to the cut
-  (`tests/unit/cutWater.test.ts`).
+  sliced fall where dev drew teal. A side's vertex standing over its column's surface (a slope's edge, a skirt) is
+  sliced by its own height, so it stops at the cut too (it stood over it). A fall whose upper water the cut took keeps
+  its slope up to the cut (`tests/unit/cutWater.test.ts`).
 - **Re-based (D148):** the curtain tests in `look-waterfalls`, `look`, `render3d`, `look-badwater`, `cutWater`,
   `waterLayers` and `caveCurrent` (the tunnel's fall is its water's slope under the roof); the corner rule in
   `water-refraction`; the fixture mesher mirrors the slope.
