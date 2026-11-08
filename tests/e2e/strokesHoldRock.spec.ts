@@ -5,7 +5,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor, topDown } from "./open";
-import { rememberPointer, strokeMoves, toolInHand } from "./helpers";
+import { phases, rememberPointer, strokeMoves, toolInHand, watchOpen } from "./helpers";
 
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
 const settled = (page: Page) => page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
@@ -14,8 +14,11 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
+  const log = phases("strokesHoldRock");
   await page.setViewportSize({ width: 1600, height: 1000 });
+  await watchOpen(page);
   await openEditor(page, "s=1&z=128&d=n&t=highlands");
+  await log.open(page);
   // (the first-run hints put away by their ×: their first button is Help since #599)
   await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
   await topDown(page);
@@ -50,6 +53,7 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
   }
   expect(path, "a holder with low open ground beside it").not.toBeNull();
   const { from, to, level } = path!;
+  log.lap("hints, top-down, the form and the path");
 
   await page.keyboard.press("4");
   await toolInHand(page);
@@ -74,8 +78,10 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
     look();
     setInterval(look, 10);
   });
+  log.lap("the stroke");
   await page.mouse.up();
   await settled(page);
+  log.lap("release and settled");
 
   // taken, one step, the one line naming the held tiles; the page painted what the worker built
   const info = await page.evaluate(() => window.dgmEditor!.info());
@@ -102,6 +108,7 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
   // the form stands: every cave or overhang tile still has its cave
   const after = await page.evaluate(() => window.dgmEditor!.worker.terrainNow());
   expect(Array.from(after.terrain.columns)).toEqual(columns);
+  log.lap("the checks");
 
   // the live water plays after it: new frames reach the view, then it settles (waited on by the water's own progress,
   // not a few seconds: CI's software renderer draws a frame every 1.5 to 2.3 s, room for two depths in 4 s)
@@ -115,11 +122,13 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
     return seen.size;
   });
   expect(frames).toBeGreaterThan(1);
+  log.lap("the water plays and settles");
 
   // the stroke taken back: its line goes with it, so nothing says tiles were held that the map no longer shows
   await page.keyboard.press("Control+z");
   await settled(page);
   expect(await heights(page)).toEqual(h0);
   await expect(page.getByText(/\d+ tiles? left high enough to hold up a cave or overhang/)).toBeHidden();
+  log.lap("undo and its checks");
   expect(errors).toEqual([]);
 });

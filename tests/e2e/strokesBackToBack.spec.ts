@@ -5,15 +5,19 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor, topDown } from "./open";
-import { rememberPointer, strokeMoves } from "./helpers";
+import { phases, rememberPointer, strokeMoves, watchOpen } from "./helpers";
 
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as const);
 
 test("strokes painted back to back end with the page's land the worker's, byte for byte (#410)", async ({ page }) => {
+  const log = phases("strokesBackToBack");
   await page.setViewportSize({ width: 1400, height: 900 });
+  await watchOpen(page);
   await openEditor(page, "s=4242&z=128&d=n&t=riverValley");
+  await log.open(page);
   await topDown(page);
+  log.lap("top-down");
   // (the pointer each press goes down with, for the moves the page sends)
   await rememberPointer(page);
   // Raise, then Lower, Flatten and Smooth, each stroke pressed the moment the last is let go
@@ -29,11 +33,14 @@ test("strokes painted back to back end with the page's land the worker's, byte f
     // (the pointer itself to the stroke's end, where the page's last move left it, and let go)
     await page.mouse.move(q.x, q.y);
     await page.mouse.up();
+    log.lap(`stroke ${k + 1}`);
   }
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 60_000 });
+  log.lap("pendingTerrain");
   await page.evaluate(() => window.dgmEditor!.idle());
   expect((await page.evaluate(() => window.dgmEditor!.info())).history.filter((h) => h.applied).length).toBe(keys.length);
   expect(await page.evaluate(() => window.dgmEditor!.strokeMismatches())).toBe(0);
   const built = await page.evaluate(async () => Array.from((await window.dgmEditor!.worker.terrainNow()).heights));
   expect(await heights(page)).toEqual(built);
+  log.lap("idle and checks");
 });
