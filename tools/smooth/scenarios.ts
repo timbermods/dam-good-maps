@@ -32,9 +32,9 @@ const tile = (page: Page, p: [number, number]) => page.evaluate(([x, y]) => wind
 /** Open the generated map in the editor and wait until it is idle. */
 export async function openMap(page: Page, url: string, size: number, topDown: boolean): Promise<void> {
   await page.goto(`${url}/#s=${SEED}&z=${size}&d=n&t=${THEME}`);
-  await page.getByText(/All \d+ checks passed/).waitFor({ timeout: 300_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 180_000 });
+  // the page opens a generated map straight into the editor: the hooks the e2e specs wait on (tests/e2e/open.ts) are
+  // the signal, not any text on the page
+  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 300_000 });
   await page.bringToFront();
   await page.getByRole("button", { name: "Top-down", exact: true }).waitFor();
   if (topDown) await page.getByRole("button", { name: "Top-down", exact: true }).click();
@@ -139,7 +139,7 @@ const orbitFor = (page: Page, ms: number) =>
   );
 
 async function chooseBrush(page: Page): Promise<void> {
-  await page.keyboard.press("1");
+  await page.keyboard.press("2"); // Raise (1 is Select)
   const row = page.getByRole("group", { name: "Raise options", exact: true });
   await row.waitFor();
   // Size at its largest at this map size (128 where the map allows)
@@ -153,7 +153,7 @@ async function chooseBrush(page: Page): Promise<void> {
 async function chooseCraterize(page: Page): Promise<void> {
   const slow = page.getByRole("button", { name: /^Slow forces/ });
   if ((await slow.count()) && (await slow.first().getAttribute("aria-pressed")) === "true") await slow.first().click(); // Fast
-  const button = page.getByRole("group", { name: "Forces", exact: true }).getByRole("button", { name: "Craterize (8)", exact: true });
+  const button = page.getByRole("group", { name: "Forces", exact: true }).getByRole("button", { name: "Craterize (Shift+2)", exact: true });
   if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
   const row = page.getByRole("group", { name: "Craterize options", exact: true });
   await row.waitFor();
