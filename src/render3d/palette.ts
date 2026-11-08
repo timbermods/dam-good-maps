@@ -16,7 +16,7 @@
 // High its pink caustics; in both, the game's orange glow of its shallow edges where partly bad). Clean water reads as water by its sheen and ripple crests and its see-through shallows, and in
 // colour by its blue. Badwater is darker than clean water of the same depth, as the game's by day, darkening with depth as the game's
 // (D496), and dull; water partly
-// bad turns smoothly from one to the other over a few tiles where they meet, greying as it turns as the
+// bad turns smoothly from one to the other over about a tile where they meet, greying as it turns as the
 // game's does (a teal-grey, a grey, a dull red-brown, crimson), never in streaks, patches or purple
 // (D177, D496). Living trees are dark, dead trees the game's weathered grey-brown wood, lighter. The walls, in the side light, are darker than the ground above them. The information
 // layer (**Markers**) adds dam sites, hatched light and dark with a dark rim so they show on any
@@ -325,7 +325,10 @@ export const LANDMARK = {
  *  read from afar), a cream panel set in where it has one. Both stand apart from contaminated ground. */
 export const RUIN = {
   rust: [0.83, 0.47, 0.12] as Rgb,
-  panel: [0.89, 0.81, 0.59] as Rgb,
+  /** The cream sacks and slab panels: the game's ruins' lightest colour, at our lightness (D496; the brightest tenth of
+   *  RuinColumnA..E's area, weighted clusters of `tools/game-model-albedo.py`'s samples: 0.507/0.430/0.272). Until
+   *  2026-11-08 #E3CF96, half again the game's, its lit faces over the bloom's knee. */
+  panel: asOurs([0.507, 0.43, 0.272]),
   ivy: [0.251, 0.337, 0.204] as Rgb,
   /** The ivy's brighter leaves, on its clusters' edges. */
   leaf: [0.36, 0.5, 0.24] as Rgb,
@@ -467,14 +470,17 @@ export const LIGHT = {
 } as const;
 
 /** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
- *  texture is a neutral grey, its parts shaded by their vertex colours: the game's own greys, area-weighted means read
- *  from its model (walls and shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at 0.96, the lantern's
- *  inside and the openings about 0.36), as the trees show the game's own colour in every look. */
+ *  texture is a neutral grey that shades its parts, and its material (EnvironmentURP, `StartingLocationMaterial`)
+ *  multiplies it by `_Color` 0.5, so the game's albedo is half the texture's grey: area-weighted means read from its model
+ *  (`tools/game-model-albedo.py`: the texture walls and shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at
+ *  0.96, the lantern's inside and the openings about 0.36; the whole model 0.265), drawn at our lightness (`asOurs`, D178,
+ *  D496), as the trees take the game's own colour in every look. (Until 2026-11-08 the texture's greys stood in for the
+ *  albedo, twice the game's: a near-white tower that outshone everything round it.) */
 export const START = {
-  stone: [0.79, 0.79, 0.79] as Rgb,
-  trim: [0.84, 0.84, 0.84] as Rgb,
-  roof: [0.963, 0.963, 0.963] as Rgb,
-  dark: [0.36, 0.36, 0.36] as Rgb,
+  stone: asOurs([0.395, 0.395, 0.395]),
+  trim: asOurs([0.42, 0.42, 0.42]),
+  roof: asOurs([0.4815, 0.4815, 0.4815]),
+  dark: asOurs([0.18, 0.18, 0.18]),
 } as const;
 
 /** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,
@@ -558,7 +564,8 @@ export function waterShown(depth: number, share = 0, glow = true, look: "standar
  *  - The post chain, as URP's uber pass grades in LDR under Gamma colour space: to linear, × 2^`postExposure`
  *    (ColorAdjustments; the game's Brightness setting at its default adds none), Neutral tonemapping (Tonemapping), then
  *    the LUT: `contrast` round ACEScc's mid grey in LogC and `saturation` round the luminance (ColorAdjustments
- *    +14 and +3), back to display values. Bloom (threshold 1.5) only touches highlights and is not drawn.
+ *    +14 and +3), back to display values. The game's bloom is added before the exposure (D497 amended 2026-11-08,
+ *    render3d/bloom.ts `GAME_BLOOM`, `tools/game-bloom.py`), in Standard and High.
  *  `m_AmbientIntensity` (1.2) is not applied (D497): the game sets Trilight (decompiled `Sun`: the mode when it loads,
  *  the three colours every frame) and never sets `RenderSettings.ambientIntensity`; Unity applies the multiplier to a
  *  skybox's ambient only (its Lighting window offers it only there), which is Unity's behaviour, not the decompile's. */

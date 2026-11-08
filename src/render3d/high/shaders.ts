@@ -308,8 +308,9 @@ export function waterHooks(): ShaderHooks {
           #endif
           gameWaterDetail = float(WATER_DETAIL_HIGH);
           if (n.y > 0.5) {
-            // (water under a roof: its own badwater share, not the one of the water seen from above there)
-            float hlBad = waterRoofed > 0.5 ? cont : texture2D(hlFlow, g / hlFlowSize).b;
+            // (the share as the game blends it between tiles, the Standard surface's: materials.ts waterShareAt; under a
+            // roof, its own column's, not the one of the water seen from above there)
+            float hlBad = cont;
             float hlDepth = max(0.0, depth) * mix(0.10, 1.0, smoothstep(0.0, 0.55, shore));
             // (its smoothness as the Standard surface's, by this look's badwater share: the gloss's slow variation, toward
             // badwater's by the tint × the pattern's R)
@@ -340,14 +341,23 @@ export function waterHooks(): ShaderHooks {
             #else
               vec3 faceClean = HW_SHALLOW * albedo / WATER_ALBEDO_MEAN;
             #endif
-            vec3 faceBad = badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad);
+            // badwater as High's surface draws it (GAME_BADWATER.use.high, the Standard look's falls too: Q9 P9, the
+            // face the same surface with the same formula as the pool): the game's contaminated colour at its shallowest
+            // by the pattern the current carries over the lip, lit as the game lights it, with its glowing lines
+            #if BADWATER_FORMULA_HIGH
+              vec3 faceBad = gameBadwaterColour(0.05, hlBad, bpat.x) * gameWaterLight(n, lit) / max(faceLight, vec3(0.01));
+            #else
+              vec3 faceBad = badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad) * badwaterPatternShade(bpat.x);
+            #endif
             vec3 face = waterBlend(faceClean, faceBad, hlBad);
+            vec3 faceEmission = gameBadwaterEmission(hlBad, bpat.y, g);
             c = face * faceLight;
             #if WATER_GAME_LIGHT_HIGH
               // (lit as the game lights every pixel of its water, the Standard look's falls too: its probe and the glint)
               c += waterEnvironment(n, V, WATER_SMOOTHNESS, float(WATER_HELD_HIGH)) + GAME_SUN_COLOUR * waterSunGlint(n, V, sunDir, WATER_SMOOTHNESS) * lit;
             #endif
-            clearBad = faceBad * faceLight;
+            c += faceEmission;
+            clearBad = faceBad * faceLight + faceEmission;
             if (edge) {
               float hlAbsorb = 1.0 - exp(-max(0.0, depth) * 0.65);
               vec3 sideClean = mix(mix(HW_SIDE_SHALLOW, HW_SIDE_BODY, hlAbsorb), HW_SIDE_DEEP, 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));
@@ -361,19 +371,19 @@ export function waterHooks(): ShaderHooks {
               c = section * (0.94 + vnoise(vec2(g.x + g.y, vWorld.y * 5.7)) * 0.08);
               alpha = mix(0.91, 0.98, waterTint(cont));
             }
-            // a small step between two waters: the surface going on, its body at its depth as the surface sees it
-            // from above (no pattern: a face's place on the map is a line, which would stretch the surface's
-            // flecks and lines down it into a bright line), as the game's face shares the surface's material
+            // a small step between two waters: the surface going on, as the game's face shares the surface's material,
+            // High's surface itself (its formulas, light, highlight and glowing lines: measuredSurfaceWater) at its depth
+            // as the surface sees it from above, facing up as the Standard look's step does; its patterns at their means
+            // (a face's place on the map is a line, which would stretch the surface's flecks and lines down it into a
+            // bright line)
             if (!edge && vFlags < WATER_FALL_FLAGS) {
-              vec3 stepBody = mix(mix(HW_SHALLOW, HW_BODY, smoothstep(0.25, 1.25, depth)), HW_DEEP, smoothstep(1.0, 3.5, depth));
-              vec3 stepBad = HW_BAD * badwaterLight(depth);
-              stepBody = waterBlend(stepBody, stepBad, cont);
-              vec3 hlRef = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
-              vec3 stepLight = (skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0) * lit) / max(hlRef, vec3(0.01));
-              c = stepBody * stepLight;
+              vec3 up = vec3(0.0, 1.0, 0.0);
+              float stepSmooth = mix(WATER_SMOOTHNESS, BADWATER_SMOOTHNESS, waterTint(cont) * BADWATER_PATTERN_FLAT.x);
+              vec4 stepSurface = measuredSurfaceWater(g, max(0.0, depth), 1.0, cont, up, V, lit, WATER_ALBEDO_MEAN, BADWATER_PATTERN_FLAT, stepSmooth);
+              c = stepSurface.rgb;
               // (what the clear water's veil keeps of its badwater: the step's own, at its depth, not the fall's film)
-              clearBad = stepBad * stepLight;
-              alpha = cleanWaterAlpha(max(0.0, depth)) * smoothstep(0.02, 0.06, drop);
+              clearBad = hlBadLit;
+              alpha = stepSurface.a * smoothstep(0.02, 0.06, drop);
             }
             if (alpha < 0.01) discard;
           }

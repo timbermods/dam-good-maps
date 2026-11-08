@@ -569,7 +569,53 @@ Standard's shadow before a cave (item 8).
   - Not drawn: `m_AmbientIntensity` 1.2, settled (D497 amended 2026-11-07: the decompiled `Sun` sets
     `RenderSettings.ambientMode` to Trilight when it loads and its three colours every frame, and nothing in the
     decompiled game sets `RenderSettings.ambientIntensity`; that a Trilight ignores the multiplier is Unity's behaviour,
-    not something the decompile shows), and bloom (threshold 1.5: highlights only).
+    not something the decompile shows).
+  - **Bloom** (D497 amended 2026-11-08, `fix/game-bloom`; `render3d/bloom.ts`, `tools/game-bloom.py`): the game's,
+    in Standard and High, not in the light look. The game's runs in play: its profile has threshold 1.5, intensity 50,
+    scatter 0.55, clamp 2, high-quality filtering, Gaussian, half resolution, 6 levels, no dirt; on at Medium, High and
+    Ultra (`BloomSetting`); the URP asset's `m_SupportsHDR` 1 (B10G11R11) and the camera's `m_HDR` 1 with
+    post-processing on. Its compiled programs (`globalgamemanagers.assets`, URP's Bloom and UberPost, `D3DDisassemble`)
+    say where it sits: the prefilter works on the frame's display values (Gamma colour space) with the threshold as
+    URP converts it, `Mathf.GammaToLinearSpace(1.5)` = 2.537, so only a pixel brighter than 1.269 (its soft knee) feeds
+    it, clamped at 2; the pyramid stores square roots; the uber pass squares the result, × 50, and adds it to the
+    linear colour before the exposure, tonemap and grade. Ours draws the same: the frame before the grade a second time
+    at half resolution into a half-float target (`bloomSource`: every look material writes the colour `gamePost` was
+    given, before any editing aid; the placement ghost and the slopes' arrows on `AID_LAYER` left out), the game's
+    pyramid pass for pass, and the canvas given what it changes, post(before + bloom) − post(before), `before` read back
+    from the canvas's code through the grey's curve (`inverseTable`), so a pixel it leaves alone keeps its every bit,
+    editing aids too (the forces' moments are on `AID_LAYER` too, and an object faded round the pointer goes into the
+    source by the dither, as it has no coverage there). The canvas alone could not carry it: the chain reaches 255 from a
+    display value of 1.28, under the knee's middle. An eruption's lava blooms as everything does.
+  - **Drawn only when something can pass the knee** (D453): by day nothing does, so the passes would change no pixel and
+    are skipped; `renderer.ts` `blooms` draws them only while an eruption's lava gives off light (its age set, its
+    cooling short of `LAVA_CRUST`'s end). Measured with the passes forced on, about 2,900 day views (the start, ruins,
+    mines, every tree, clean water and its sources, a Badtide's water, both looks): the brightest source 1.28 (a water
+    glint), the start up close 1.270, and the bloom's result 0 or under a code (the start up close: 4 × 10⁻⁶), the
+    canvas the same to the byte. `tests/unit/bloom.test.ts` holds it: every model colour a face can turn to the sun, lit
+    as the game lights it, under the knee (the brightest, a mine's pale rubble, 1.262); the ruins' rust skeleton
+    (upright, 1.282 square to the sun), a mine's pale roots and the birch's bark (1.37 on a trunk square to the sun; the
+    game's bark is a warm grey, mean 0.525/0.474/0.392, `tools/game-model-albedo.py BirchMature`, ours near-white: still
+    to follow) held at their bounds; the sky's densest clouds 1.271, which move no code.
+    `tests/e2e/look-high.spec.ts` checks the frame by day is skipped and the same to the byte with the passes and
+    without, and that an eruption's lava draws them.
+  - **The colours bloom found** (D178, D496's rule: the game's albedo at our lightness; `tools/game-model-albedo.py`
+    reads a model's Timbermesh and its material, EnvironmentURP's 2 × detail × vertex colour × `_MainTex` × `_Color`,
+    VegetationURP's vertex colour × `_MainTex`, area-weighted over each triangle): the start's marker
+    (StartingLocationMaterial's `_Color` 0.5 halves its texture's greys: walls 0.395, trim 0.42, roof 0.48, the
+    openings 0.18; ours had taken the texture's 0.79 to 0.96 and stood near-white), High's berries (the blue of the
+    game's blueberry texture, 0.294/0.302/0.414; ours were #7f9bff; the grown model maps almost none of it, 0.1 % of
+    its area) and the ruins' panels (RuinColumnA–E's lightest tenth, 0.507/0.430/0.272; ours were #E3CF96). Before,
+    the bloom at the game's values would have lifted up to 1.39 % of our frames by 2 luma (+90 luma at most on High's
+    berries, +62 round the start in High); with them, no day frame of ours reaches the knee but by its foot (below; the start from 11 to 42,
+    crowns and bushes close up, two maps, both looks: the brightest 1.26 of a knee at 1.269), as the game's own lift
+    at most 0.21 % of a frame by day, median none (the probe's 680 day-lit start shots, an upper bound).
+  - Its cost** (`npx tsx` of a probe, RTX 2070 SUPER, 1280 × 800, River Valley 256² with dense forest and ruins,
+    orbiting, the same build with it off and on, two rounds each): by day, skipped, dev's: p50 7.00 ms, p95 7.02, the
+    page's time 0.96 ms in Standard and 1.26 in High against 0.96 and 1.38 without it, the GPU's 3.5 and 3.0 against 3.7
+    and 3.1. While lava glows (its passes forced on, as they cost the same whatever they find): the frame holds dev's in
+    both looks, p50 7.00 ms and p95 7.03 at the display's 144 Hz either way; the page's time a frame +0.6 ms in Standard
+    (0.95 → 1.54) and +0.7 in High (1.13 → 1.85); the GPU's timer +1.4 ms in High (3.1 → 4.5) and no higher in Standard
+    (4.1 → 3.2, inside its spread). Standard keeps it (D453).
 - **The game's sky** (`fix/game-sky`, after #734): its camera's skybox, read from its pixel program (shader path
   1816, `D3DDisassemble`). Its colour by the view's height is the strip "DayCycleSkybox_8k_Manual" (16 × 8192,
   RGBAHalf) at `_DayProgress` 0.2, the day (`tools/game-sky.ts` prints the 145 heights `GAME_SKY.day` keeps); its
@@ -1116,7 +1162,7 @@ the game's models in resources.assets (positions, materials and texture means on
   lighter than clean water; ours 2.9 L* lighter in Standard, 2.4 darker in High): the game overlays clean water with its detail albedo too (P6, ps 455–475),
   which darkens its films, and following it changes all clean water, which #826's judge settled, so it waits for P6;
   `_Contamination_Flow_Distortion` (0.00125 a tile) is not followed; High's falls and side faces keep `HW_BAD` × the
-  ramp. The sheet: `docs/sheets/water-badwater.jpg` (`tools/capture-water-badwater.ts`; `--motion` for six moments).
+  ramp (followed since: "Badwater's front and High's falls" below). The sheet: `docs/sheets/water-badwater.jpg` (`tools/capture-water-badwater.ts`; `--motion` for six moments).
 
 ## The pixel judge validated on the land (D496, D497; `fix/water-judge`)
 
@@ -1842,6 +1888,33 @@ the game's models in resources.assets (positions, materials and texture means on
   our ground) and the ceilings as each layer of waterLayers.ts sees them; a slope's seen depth is worked out along the game's pitch, not
   read from a depth buffer.
 
+## The foam in the Flow view alone (D497; `fix/foam-to-flow`)
+
+- **Why.** The game's water has no foam term (`docs/progress/water-character-audit.md` on
+  `docs/water-character-audit`, gap 2), but ours drew foam threads, wakes and seams on every fast river in both looks,
+  always on (D353, D446, D154). Planning's ruling on #236 (2026-11-08, under D497): they move to the Flow view, the
+  editing aid's own channel, and the river itself is drawn as the game draws it.
+- **What changed.** `motion.ts`: the cues mesh is hidden outside the Flow view, as its streaks were; the Flow view shows
+  both exactly as before. Outside it the bake makes none of their shapes (`high/bake.ts`: a flow job with `shapes`
+  false skips the current and `motionShapes`, and sends `noShapes()`); the flow texture the surface moves by is the
+  same byte for byte (`tests/unit/flowViewFoam.test.ts`). A switch to the Flow view bakes the last water again at
+  once with the shapes: a bake waiting to start starts then, and one already sent is dropped (#866's look review found
+  the first switch waiting about half a second for a queued bake). Both programs are compiled ahead with the others
+  (`scheduleWarm`), so the first switch compiles nothing. The light look drew neither the foam nor the streaks before (no moving water in software), and still
+  draws neither. The Flow toggle's tooltip is "Show the currents, foam and wakes".
+- **Measured** (`tools/capture-foam-flow.ts`, River Valley 128² seed 2, its fastest narrow river, the game's 55°
+  pitch, the clock held, real Chrome on the RTX 2070 SUPER, dev against this branch). Flow off: Standard 4,021 pixels
+  (0.39% of the frame) close up and 7,380 (0.72%) at 35 units, darker by 8.2 and 8.4 L* on average, 32 and 44 at
+  most; High 4,019 and 7,340, 8.3 and 8.5, 33 and 45. Flow on: 0 pixels in both looks. The light look: 0 either way.
+  Sheet: `docs/sheets/foam-flow.jpg`.
+- **The probe frames** (`tools/water-pixel-judge.ts --water all`): unchanged, as the snapshots carry no outflows, so
+  neither build draws any foam there. RMS to the game, dev and this branch: Standard clean 3.5, mixed 9.1, bad 7.1;
+  High 3.5, 8.8, 7.0; the land the same.
+- **Speed.** One bake on that map in the worker: dev 52 ms, this branch 21 ms with the Flow view off (the current and
+  shapes skipped, and no cue arrays sent or uploaded) and 77 ms on (single samples). A first switch to the Flow view
+  compiles 0 programs, against dev's 1 (the streaks').
+- **Falls short:** the light look has no Flow view drawing at all (as before); its toggle changes nothing there.
+
 ## Objects' shadows (D497; `fix/high-object-shadows`)
 
 - **What it was.** A look review found High's shadows of trees, bushes and landmarks lighter and smaller than
@@ -1937,6 +2010,39 @@ this branch. Standard's cave view lost 5.6 on dev since #820 (the ground's tone,
 here: its open walls (45.4 → 42.7) and floor at the mouth, where #855's narrow edge leaves the overhang's shadow on
 the outside wall fully dark instead of half lit, as the game's is. No regression to fix; the frames read as #820's
 did. (#820's open walls 35–64 also took River Valley seed 1's overhangs, not captured here.)
+
+## Badwater's front and High's falls (Q9 P9; D154 as amended, D496; `fix/badwater-fronts`)
+
+The water-character audit's gaps 3 and 4 (`docs/progress/water-character-audit.md`).
+
+- **The front, as the game blends it:** the game's water shader (`PhysicalWaterURP` ps 502–650, read again with
+  `tools/game-water-shader.py`) samples a column's contamination at the pixel ± a margin of 0.45–0.5 tiles (its margin
+  noise at (xz + 0.2 T) × 0.175), weights each sample by |dx| × |dy| from the nearest tile corner, leaves out a column
+  not linked to this one, and eases the mean b to b × saturate(2b + 0.5): a straight blend about a tile wide, centred on
+  the tiles' edge. Ours, in both looks (`waterPalette.ts` `WATER_SHARE_BLEND`, `waterShareFrom`; `materials.ts`
+  `waterShareAt`): the same four taps, each its tile's own share in the flow texture's B, a dry tile left out by its A,
+  our own noise for the margin's, then eased. B and A follow the water on the page's thread the moment it changes
+  (`high/flow.ts` `writeShare`, from `WaterMotion.waterChanged` and `StillFlow.update`, the rows that changed going up
+  with the next frame; `now` reaches the moving water's bake too), so badwater is drawn with the water it came with;
+  the bake brings the current, the waterfall mask and, for the ground under a film, a dry tile's carry (the mean of the
+  water round it). High's two smoothing passes are gone. A water top in the open reads it; a fall's face, the water's
+  side and water under a roof or below its tile's surface water keep the mesh's corner share, now each tile's own
+  (`BLEND_KERNEL` [1], was [20, 15, 6, 1]). Clean water's tint 1, 2 and 3 tiles from a straight front: 0, 0, 0 in both
+  looks (Standard was 0.72/0.41/0.10, High 0.70/0.30/0), the game's; badwater a tile in is pure (was 0.92).
+- **High's falls and small steps:** a badwater face takes the formula High's surface takes (`GAME_BADWATER.use.high`:
+  `gameBadwaterColour` at its shallowest by the pattern carried over the lip, lit by `gameWaterLight`, with its glowing
+  lines), as Standard's falls; a small step is High's surface itself facing up (`measuredSurfaceWater` at its depth,
+  its patterns at their means). The gallery's badwater fall (`docs/sheets/badwater-fall-high.jpg`; the front: `docs/sheets/badwater-front.jpg`, River Valley 256² seed 4242): High's face 60/11/10, L*
+  10.8, flat (pixel gradient 0.19) on dev; 45/13/5, L* 7.6, gradient 1.87 here; Standard's 44/12/4, L* 7.1, 1.85.
+- **The judge** (`tools/water-pixel-judge.ts --water all`, the six Badtide and Islands ends, at their hours), RMS to the
+  game's pixels, dev → this branch: Standard clean 3.54 → 3.38, mixed 9.08 → 9.10, bad 7.08 → 7.09; High clean 3.50 →
+  3.34, mixed 8.80 → 8.82, bad 6.99 → 6.99. The mixed band samples tile centres from about 110 units, where both
+  blends give nearly the tile's own share, so the front's width barely moves it (0.02 further); clean water by
+  badwater gains in both looks. The land is unchanged (the judge's own check).
+- **Falls short:** the game leaves out a neighbour on another surface (its column not linked); our texture's filter
+  doesn't know the levels, so across a fall between waters of different shares the half tile at the lip and at the
+  foot blends with the other water (as High's did before, then over more tiles); Standard's tops kept to their own
+  level until now. A link-aware share (the surface levels beside the share) would close it.
 
 ## The rest of the step (next parts)
 

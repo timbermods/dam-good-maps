@@ -144,7 +144,7 @@ earlier one where they meet):
 - **The toolbar:** the current editor's rows, buttons, padding and gaps; the forces keep their icon discs at the
   current spacing; the options row as current with "More ⌄" at its right end, never wrapping; selected and lit states
   in the current mint; **Flow** among the view layers (the renderer session's toggle, D353: beside Markers, off by
-  default, stored like Markers, tooltip "Show the water's currents", calls `renderer.setFlow(on)`).
+  default, stored like Markers, tooltip "Show the currents, foam and wakes" (since 2026-11-08, D497: the foam is the Flow view's alone), calls `renderer.setFlow(on)`).
 - **The right column (v8):** one exact right edge for the level row, Slow forces and Sound, Legend, the legend panel
   and the water bar; the column's left edge is Slow forces'. Row 1: the level control (▾ ∞ ▴) is exactly Slow
   forces' width and the compass exactly Sound's width (round, centred in it), the same gap between them as between
@@ -419,8 +419,8 @@ checkpoint.
 ## Asked of the page session
 
 - **The Flow toggle** (renderer session, D353): a view toggle beside Markers, in both looks and not in High's effects
-  list; off by default, a preference stored like Markers; it shows or hides only the Flow view's lanes; tooltip
-  "Show the water's currents"; it calls `renderer.setFlow(on)`, which arrives with the renderer's PR (`?flow=on`
+  list; off by default, a preference stored like Markers; it shows or hides only the Flow view's lanes (and since 2026-11-08 its foam, wakes and seams, D497); tooltip
+  "Show the currents, foam and wakes"; it calls `renderer.setFlow(on)`, which arrives with the renderer's PR (`?flow=on`
   until then). Placed at checkpoint 1.
 - `src/editor/waterPlayer.ts` and `waterJourney.ts` stay where they are, exports unchanged, until the renderer's PR
   has merged.

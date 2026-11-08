@@ -27,7 +27,7 @@
 //   Badwater is the game's too (its formula: waterPalette.ts GAME_BADWATER): a red-brown between near black and
 //   crimson by a grimy pattern the flow carries, its glowing lines (an emissive detail) flowing with it, duller and
 //   with its ripples twice as strong. Water partly bad turns from clean water to badwater with its badwater
-//   share, blended over a few tiles by the water mesh, by the game's tint, its hue turning
+//   share, blended between tiles as the game's (about a tile wide), by the game's tint, its hue turning
 //   early from teal through a teal-grey and a warm brown to crimson, never purple, so where they meet the colour changes in a soft gradient, never in streaks or
 //   patches, and a mixed river reads as poisoned; its glowing lines come in with it, brightest at a front, as the
 //   game's. Every water colour and the water's opacity come from waterPalette.ts (`WATER_GLSL`, D177).
@@ -68,7 +68,7 @@ import {
   type WebGLRenderer,
 } from "three";
 import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_GROUND_MEAN, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, NOISE_NODES, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
-import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_UI } from "./waterPalette";
+import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_SHARE_BLEND, WATER_UI } from "./waterPalette";
 import { DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
 import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./shoreFilm";
@@ -91,6 +91,8 @@ const color = (c: Rgb) => new Color(c[0], c[1], c[2]);
 /** Uniforms every material shares: one object per value, so a change reaches them all. The refraction's (refraction.ts:
  *  the copy of the screen behind the water and its state) are the water's alone. */
 export interface SceneUniforms extends RefractionUniforms {
+  /** 1 while the frame before the grade is drawn for the bloom (bloom.ts, `BLOOM_SOURCE`). */
+  bloomSource: { value: number };
   sunDir: { value: Vector3 };
   sunColor: { value: Color };
   skyColor: { value: Color };
@@ -227,9 +229,18 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     overlayRest: { value: new Vector4(0, 0, 0, 0) },
     objectFade: { value: new Vector4(0, 0, 0, FADE_OFF) },
     objectHide: { value: 0 },
+    bloomSource: BLOOM_SOURCE,
     ...refractionUniforms(),
   };
 }
+
+/** The bloom's source pass (bloom.ts): 1 while the frame before the grade is drawn for it. One uniform every look
+ *  material shares, as a view draws its frames one at a time. */
+export const BLOOM_SOURCE = { value: 0 };
+
+/** An eruption's lava's crust (D206): from its cooling's first second to its last (s), the lava's own light fades to
+ *  none; from the end on it gives none, so nothing of it can feed the bloom (renderer.ts `blooms`). */
+export const LAVA_CRUST = [2.0, 5.8] as const;
 
 let noCaveFlow: Data3DTexture | null = null;
 /** The cave current's placeholder (one still cell), shared: never read while `caveFlowLevels.y` is 0. */
@@ -1028,11 +1039,17 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
  *  ACEScc's mid grey in LogC (ALEXA LogC, URP's LinearToLogC/LogCToLinear) and saturation round the luminance, back to
  *  display values. */
 export const GAME_POST_GLSL = /* glsl */ `
+  /** 1 while the frame before the grade is drawn for the bloom (bloom.ts): a look material writes gpSource, the
+   *  colour gamePost was last given (the look, fogged, before the post chain and any editing aid), in place of its
+   *  graded colour. */
+  uniform float bloomSource;
+  vec3 gpSource;
   vec3 gpCurve(vec3 x) { return (x * (0.2 * x + 0.24 * 0.29) + 0.272 * 0.02) / (x * (0.2 * x + 0.29) + 0.272 * 0.3) - 0.02 / 0.3; }
   vec3 gpLogC(vec3 x) { return mix(5.301883 * x + 0.092819, 0.244161 * log2(max(5.555556 * x + 0.047996, 1e-6)) * 0.30103 + 0.386036, step(vec3(0.011361), x)); }
   vec3 gpFromLogC(vec3 x) { return mix((x - 0.092819) / 5.301883, (pow(vec3(10.0), (x - 0.386036) / 0.244161) - 0.047996) / 5.555556, step(vec3(5.301883 * 0.011361 + 0.092819), x)); }
   vec3 gamePost(vec3 display) {
     vec3 d = max(display, vec3(0.0));
+    gpSource = d;
     vec3 c = mix(d / 12.92, pow((d + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), d)) * ${f(Math.round(2 ** GAME_FINISH.postExposure * 1e6) / 1e6)};
     float white = 1.0 / gpCurve(vec3(5.3)).x;
     c = clamp(gpCurve(c * white) * white, 0.0, 1.0);
@@ -1807,7 +1824,7 @@ ${hook(h, "lit")}
           vec4 e = texture2D(eruptionMask, eAt / mapSize);
           float arrival = smoothstep(e.a * 1.1, e.a * 1.1 + 0.55, eruptionAge);
           float cooling = smoothstep(0.0, 3.6, coolingAge);
-          float crust = smoothstep(2.0, 5.8, coolingAge);
+          float crust = smoothstep(${f(LAVA_CRUST[0])}, ${f(LAVA_CRUST[1])}, coolingAge);
           float fade = 1.0 - smoothstep(3.3, 6.4, coolingAge);
           float cracks = pow(1.0 - abs(sin(vWorld.x * 2.8 + sin(vWorld.z * 1.2) * 2.6 + vWorld.z * 1.6)), 12.0);
           float hot = max(e.r * (0.56 + 0.44 * cracks), e.g * cracks);
@@ -1896,7 +1913,7 @@ ${hook(h, "lit")}
           float edge = min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y));
           c = mix(c * 1.18, vec3(1.0), (1.0 - smoothstep(0.04, 0.09, edge)) * (n.y > 0.5 ? 0.85 : 0.0));
         }
-        gl_FragColor = vec4(c, 1.0);
+        gl_FragColor = bloomSource > 0.5 ? vec4(gpSource, 1.0) : vec4(c, 1.0);
         #if CUTAWAY
           if (cutGone) discard;
         #endif
@@ -2021,6 +2038,16 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
       #endif
       /** The flow the water's textures ride here (the game's, high/bake.ts flowByte), 0 where still. */
       vec2 waterFlow(vec2 g) { return waterFlowOf(texture2D(flowTex, g / mapSize).rg); }
+      /** The badwater share at g as the game blends it between tiles (waterPalette.ts WATER_SHARE_BLEND, Q9 P9): each
+       *  tile's own in the flow texture's B, dry tiles left out by its A, about a tile wide across a front, its margin
+       *  wobbled by our own noise in place of the game's margin noise (the light look: the margin's widest). */
+      float waterShareAt(vec2 g) {
+        #if LITE
+          return waterShareFrom(flowTex, mapSize, g, 1.0);
+        #else
+          return waterShareFrom(flowTex, mapSize, g, vnoise((g + ${f(WATER_SHARE_BLEND.noiseSpeed)} * time) * ${f(WATER_SHARE_BLEND.noiseScale)}));
+        #endif
+      }
 ${WATER_SOURCE_GLSL}
       void main() {
         ${SUN_PX_GLSL}
@@ -2039,6 +2066,16 @@ ${WATER_SOURCE_GLSL}
           // (water below its tile's surface water: its own column's current, not the water's seen from above)
           waterOwnFlow = ownFlowAt(inWater);
         #endif
+        // the badwater share on the water's top as the game blends it between tiles (WATER_SHARE_BLEND): a front about
+        // a tile wide, clean water a tile from badwater clean; a fall's face and the water's side keep the mesh's share
+        // of the top's edge they hang from, and water under a roof its own column's
+        // (water below its tile's surface water by its own current too, so it never reads the top water's while the light
+        // volume is not there yet)
+        bool ownShare = waterRoofed > 0.5;
+        #ifdef CAVES
+          ownShare = ownShare || waterOwnFlow.a > 0.5;
+        #endif
+        if (n.y > 0.5 && !ownShare) cont = waterShareAt(g);
         // the game's still detail albedo here (Q9 P6), which clean water's colour × its albedo and badwater's base colour
         // are overlaid with: at xz × 0.015, not carried by the flow, in every look (the game's Low quality draws it too)
         waterDetail = waterDetailAt(g);
@@ -2055,7 +2092,7 @@ ${WATER_SOURCE_GLSL}
           #endif
         #endif
         float t = time;
-        // the badwater share, blended between tiles by the mesh: the water turns from clean water to
+        // the badwater share, blended between tiles as the game's (above): the water turns from clean water to
         // badwater with it, smoothly, never in streaks or patches, by the game's own tint (waterPalette.ts
         // WATER_BLEND): its colour (waterBlend), its opacity and its dull surface
         float bad = waterTint(cont);
@@ -2229,6 +2266,7 @@ ${hook(h, "water")}        #ifdef CAVES
         // the clear water's veil (D196, D212), the selection, the sources' wells and the pointer's source's glow (D196),
         // a highlighted source (D249)
         c = finish(c, vWorld);
+        float lookAlpha = alpha;
         // the game's refraction of the ground behind (refraction.ts, Q9 P2): what showing the screen behind from a
         // shifted place changes, by the share of it that shows (none on a sliver at a shore, our anti-aliasing)
         #if WATER_REFRACTS
@@ -2322,7 +2360,7 @@ ${hook(h, "water")}        #ifdef CAVES
           c = mix(c, WATER_SOURCE_LIT, lit * 0.9);
           alpha = max(alpha, mix(alpha, 0.97, lit * 0.9));
         }
-        gl_FragColor = vec4(c, alpha);
+        gl_FragColor = bloomSource > 0.5 ? vec4(gpSource, lookAlpha) : vec4(c, alpha);
       }
     `,
     transparent: true,
@@ -2380,9 +2418,10 @@ export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
           c += cloud * ${glColor(GAME_LIGHT.sun)};
         }
         // (the game's post chain grades the whole frame, the sky too)
-        gl_FragColor = vec4(gamePost(c), 1.0);
+        gl_FragColor = vec4(bloomSource > 0.5 ? c : gamePost(c), 1.0);
       }
     `,
+    uniforms: { bloomSource: BLOOM_SOURCE },
     depthTest: false,
     depthWrite: false,
   });
@@ -2506,6 +2545,8 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         if (vWorld.y > slice + 0.02) discard;
         // hidden, or faded round the pointer where it is drawn by a dither (objectFade.ts)
         if (vFade <= 0.0 || (vFade < 1.0 && objectFade.w > 1.5 && vFade <= ditherAt(gl_FragCoord.xy))) discard;
+        // (the bloom's source has no coverage to fade by: a faded object there by the dither, as much of it as shows)
+        if (bloomSource > 0.5 && vFade < 1.0 && vFade <= ditherAt(gl_FragCoord.xy)) discard;
         // a ruin's far block's frame (D305): a lattice of open cells so it reads as a framework, not a
         // solid box, from any face (the two world axes across the face, whichever the normal isn't
         // closest to; no extra geometry or UVs), filtered to the pixel: the struts' share of the
@@ -2543,7 +2584,8 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         // (faded round the pointer, as coverage: that share of the pixel's samples)
         if (objectFade.w > 0.5 && objectFade.w < 1.5) coverage *= vFade;
         // (the object as the game draws it, fogged and graded; a highlight, an editing aid, tints it after: D497)
-        gl_FragColor = vec4(min(finish((${hook(h, "objectFinal", "vColor * light")}) * inside, vWorld) * vAid, 1.0), coverage);
+        vec3 graded = finish((${hook(h, "objectFinal", "vColor * light")}) * inside, vWorld);
+        gl_FragColor = bloomSource > 0.5 ? vec4(gpSource, coverage) : vec4(min(graded * vAid, 1.0), coverage);
       }
     `,
   });

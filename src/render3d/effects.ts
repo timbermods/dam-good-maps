@@ -10,6 +10,7 @@
 import { BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, DoubleSide, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedMesh, Mesh, MeshBasicMaterial, Object3D, Points, PointsMaterial, RingGeometry, type Scene } from "three";
 import { JUICE, type Rgb } from "./palette";
 import { WALL_CLOCK, type Clock } from "./clock";
+import { onAidLayer } from "./aidLayer";
 
 interface Live {
   obj: Object3D;
@@ -116,7 +117,7 @@ export class Effects {
   }
 
   private add(l: Live): void {
-    this.scene.add(l.obj);
+    this.scene.add(onAidLayer(l.obj));
     this.live.push(l);
     // (a recording draws its own frames, and moves the effects on before each: `advance`)
     if (this.clock.driven) this.render();
@@ -214,7 +215,7 @@ export class Surge {
     this.foam.renderOrder = 5;
     this.group.add(this.mud, this.foam, this.debris);
     this.group.visible = false;
-    scene.add(this.group);
+    scene.add(onAidLayer(this.group));
   }
 
   /** The head where it is now, its last stretch, and the ground under them (null: put it away). */

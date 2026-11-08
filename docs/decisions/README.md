@@ -40,7 +40,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D398: Renderer session for moving water
 - D415: Renderer PR merges on Kyler's yes
 - D436: Merge of #165
-- D446: Moving water and Flow view adopted
+- D446: Moving water and Flow view adopted (amended: the foam in the Flow view alone, D497)
 - D342: Editor architecture for M12
 - D443: Renaming a map is not an operation
 - D351: A tooltip on every control
