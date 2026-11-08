@@ -323,7 +323,7 @@ const MODELS: Record<string, () => Model> = {
       .add(ico(0.5), TREE_COLOURS.birch, { y: 1.42, sy: 0.98 })
       .add(oct(0.3), shade(TREE_COLOURS.birch, 1.08), { x: 0.2, y: 1.58, z: -0.14 }),
   "Birch.dead": () => {
-    // a white trunk forking into two bare arms, and a twig
+    // a warm grey trunk forking into two bare arms, and a twig
     const m = new Model().add(post(0.06, 0.045, 0.5, 5), DEAD_BIRCH, { y: 0.25 });
     branch(m, 0.46, 0.3, 1.2, 0.55, 0.045, DEAD_BIRCH);
     branch(m, 0.46, 3.4, 1.15, 0.5, 0.04, DEAD_BIRCH);
