@@ -8,7 +8,7 @@
 // (ported from investigation/vegetation/models.ts)
 import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour, type Rgb } from '../dying';
 import { plantScale, RANDOMIZER } from '../plantSize';
-import { TREE_COLOURS } from '../palette';
+import { TREE_COLOURS, asOurs } from '../palette';
 import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 
 export const species = ['Pine', 'Birch', 'Oak', 'BlueberryBush'] as const;
@@ -25,12 +25,17 @@ const parse = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16
 const living = { pine: hex(underSun(TREE_COLOURS.pine)), birch: hex(underSun(TREE_COLOURS.birch)), oak: hex(underSun(TREE_COLOURS.oak)), bush: hex(underSun(TREE_COLOURS.bush)) };
 /** Foliage slots, their species, and their dying slot (dying.ts). */
 const FOLIAGE = { pine: ['Pine', 'pineDry'], birch: ['Birch', 'birchDry'], oak: ['Oak', 'oakDry'], bush: ['BlueberryBush', 'bushDry'] } as const;
+/** The berries: the blue of the game's blueberry texture (its texels bluer than both green and red by 0.08, 9 % of it:
+ *  0.294/0.302/0.414, `tools/game-model-albedo.py`) at our lightness (`asOurs`, D496), as they read under the warm sun.
+ *  (The game's grown model maps almost none of them, 0.1 % of its area under its leaves' green; until 2026-11-08 our
+ *  berries were #7f9bff, half again brighter and the bloom's brightest on a forest.) */
+const berry = hex(underSun(asOurs([0.294, 0.302, 0.414])));
 /** The pine's and the oak's bark: the game's (palette.ts `TREE_COLOURS`, as Standard's), as they read under the warm sun.
  *  The game's oak bark is darker and less red than the pine's, so each has its own slot. */
 const bark = hex(underSun(TREE_COLOURS.pineBark)), oakBark = hex(underSun(TREE_COLOURS.oakBark)), birchBark = '#f2efdd';
 export const paletteDefaults = {
   ...living,
-  bark, oakBark, birchBark, berry: '#7f9bff', marks: '#494239',
+  bark, oakBark, birchBark, berry, marks: '#494239',
   // a dead tree's bare wood, its own bark weathered as the game's is; a dead bush's leaves gone brown (dying.ts DEAD_FORM)
   dead: hex(underSun(deadWood('Pine', TREE_COLOURS.pineBark))), oakDead: hex(underSun(deadWood('Oak', TREE_COLOURS.oakBark))),
   birchDead: hex(deadWood('Birch', parse(birchBark))),

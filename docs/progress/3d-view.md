@@ -569,7 +569,53 @@ Standard's shadow before a cave (item 8).
   - Not drawn: `m_AmbientIntensity` 1.2, settled (D497 amended 2026-11-07: the decompiled `Sun` sets
     `RenderSettings.ambientMode` to Trilight when it loads and its three colours every frame, and nothing in the
     decompiled game sets `RenderSettings.ambientIntensity`; that a Trilight ignores the multiplier is Unity's behaviour,
-    not something the decompile shows), and bloom (threshold 1.5: highlights only).
+    not something the decompile shows).
+  - **Bloom** (D497 amended 2026-11-08, `fix/game-bloom`; `render3d/bloom.ts`, `tools/game-bloom.py`): the game's,
+    in Standard and High, not in the light look. The game's runs in play: its profile has threshold 1.5, intensity 50,
+    scatter 0.55, clamp 2, high-quality filtering, Gaussian, half resolution, 6 levels, no dirt; on at Medium, High and
+    Ultra (`BloomSetting`); the URP asset's `m_SupportsHDR` 1 (B10G11R11) and the camera's `m_HDR` 1 with
+    post-processing on. Its compiled programs (`globalgamemanagers.assets`, URP's Bloom and UberPost, `D3DDisassemble`)
+    say where it sits: the prefilter works on the frame's display values (Gamma colour space) with the threshold as
+    URP converts it, `Mathf.GammaToLinearSpace(1.5)` = 2.537, so only a pixel brighter than 1.269 (its soft knee) feeds
+    it, clamped at 2; the pyramid stores square roots; the uber pass squares the result, × 50, and adds it to the
+    linear colour before the exposure, tonemap and grade. Ours draws the same: the frame before the grade a second time
+    at half resolution into a half-float target (`bloomSource`: every look material writes the colour `gamePost` was
+    given, before any editing aid; the placement ghost and the slopes' arrows on `AID_LAYER` left out), the game's
+    pyramid pass for pass, and the canvas given what it changes, post(before + bloom) − post(before), `before` read back
+    from the canvas's code through the grey's curve (`inverseTable`), so a pixel it leaves alone keeps its every bit,
+    editing aids too (the forces' moments are on `AID_LAYER` too, and an object faded round the pointer goes into the
+    source by the dither, as it has no coverage there). The canvas alone could not carry it: the chain reaches 255 from a
+    display value of 1.28, under the knee's middle. An eruption's lava blooms as everything does.
+  - **Drawn only when something can pass the knee** (D453): by day nothing does, so the passes would change no pixel and
+    are skipped; `renderer.ts` `blooms` draws them only while an eruption's lava gives off light (its age set, its
+    cooling short of `LAVA_CRUST`'s end). Measured with the passes forced on, about 2,900 day views (the start, ruins,
+    mines, every tree, clean water and its sources, a Badtide's water, both looks): the brightest source 1.28 (a water
+    glint), the start up close 1.270, and the bloom's result 0 or under a code (the start up close: 4 × 10⁻⁶), the
+    canvas the same to the byte. `tests/unit/bloom.test.ts` holds it: every model colour a face can turn to the sun, lit
+    as the game lights it, under the knee (the brightest, a mine's pale rubble, 1.262); the ruins' rust skeleton
+    (upright, 1.282 square to the sun), a mine's pale roots and the birch's bark (1.37 on a trunk square to the sun; the
+    game's bark is a warm grey, mean 0.525/0.474/0.392, `tools/game-model-albedo.py BirchMature`, ours near-white: still
+    to follow) held at their bounds; the sky's densest clouds 1.271, which move no code.
+    `tests/e2e/look-high.spec.ts` checks the frame by day is skipped and the same to the byte with the passes and
+    without, and that an eruption's lava draws them.
+  - **The colours bloom found** (D178, D496's rule: the game's albedo at our lightness; `tools/game-model-albedo.py`
+    reads a model's Timbermesh and its material, EnvironmentURP's 2 × detail × vertex colour × `_MainTex` × `_Color`,
+    VegetationURP's vertex colour × `_MainTex`, area-weighted over each triangle): the start's marker
+    (StartingLocationMaterial's `_Color` 0.5 halves its texture's greys: walls 0.395, trim 0.42, roof 0.48, the
+    openings 0.18; ours had taken the texture's 0.79 to 0.96 and stood near-white), High's berries (the blue of the
+    game's blueberry texture, 0.294/0.302/0.414; ours were #7f9bff; the grown model maps almost none of it, 0.1 % of
+    its area) and the ruins' panels (RuinColumnA–E's lightest tenth, 0.507/0.430/0.272; ours were #E3CF96). Before,
+    the bloom at the game's values would have lifted up to 1.39 % of our frames by 2 luma (+90 luma at most on High's
+    berries, +62 round the start in High); with them, no day frame of ours reaches the knee but by its foot (below; the start from 11 to 42,
+    crowns and bushes close up, two maps, both looks: the brightest 1.26 of a knee at 1.269), as the game's own lift
+    at most 0.21 % of a frame by day, median none (the probe's 680 day-lit start shots, an upper bound).
+  - Its cost** (`npx tsx` of a probe, RTX 2070 SUPER, 1280 × 800, River Valley 256² with dense forest and ruins,
+    orbiting, the same build with it off and on, two rounds each): by day, skipped, dev's: p50 7.00 ms, p95 7.02, the
+    page's time 0.96 ms in Standard and 1.26 in High against 0.96 and 1.38 without it, the GPU's 3.5 and 3.0 against 3.7
+    and 3.1. While lava glows (its passes forced on, as they cost the same whatever they find): the frame holds dev's in
+    both looks, p50 7.00 ms and p95 7.03 at the display's 144 Hz either way; the page's time a frame +0.6 ms in Standard
+    (0.95 → 1.54) and +0.7 in High (1.13 → 1.85); the GPU's timer +1.4 ms in High (3.1 → 4.5) and no higher in Standard
+    (4.1 → 3.2, inside its spread). Standard keeps it (D453).
 - **The game's sky** (`fix/game-sky`, after #734): its camera's skybox, read from its pixel program (shader path
   1816, `D3DDisassemble`). Its colour by the view's height is the strip "DayCycleSkybox_8k_Manual" (16 × 8192,
   RGBAHalf) at `_DayProgress` 0.2, the day (`tools/game-sky.ts` prints the 145 heights `GAME_SKY.day` keeps); its
