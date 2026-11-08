@@ -90,10 +90,11 @@ export const WATER_SURFACE = {
    *  Low quality, which shows no ground. The water's side at the map's edge. */
   seeThrough: 0.175,
   seeThroughTo: 5,
-  /** A fall's: the game draws a fall as the water mesh's own vertical face where the water steps down (its
-   *  FindWaterfalls pass), with the same material as the surface, and shows the ground behind it by
-   *  `_TransparencyWaterfallDepth` 0.2 × `_TransparencyDepthModifier` 0.5: `fallSeeThrough` of it, the cliff
-   *  right behind (D201 amended 2026-10-29). */
+  /** A fall's: the game draws a fall as the water mesh's own vertical face where the water steps down, with the same
+   *  material as the surface, and where its waterfall mask lies (its FindWaterfalls pass: the tile a fall lands in,
+   *  fallMask.ts, Q9 P1) shows the ground behind by `_TransparencyWaterfallDepth` 0.2 × `_TransparencyDepthModifier`
+   *  0.5 in place of `seeThrough`'s 0.35: `fallSeeThrough` of it, the cliff right behind a face (D201 amended
+   *  2026-10-29), thinning with depth on the water the fall lands in as `seeThrough` does (`waterSeeThrough`). */
   fallSeeThrough: 0.1,
   /** The ground that shows behind the water, as the game shows it (`waterGroundBehind`): overlaid with the
    *  water's own colour by `behindTint` (`_TransparencyBlending`), then desaturated to `behindSaturation`
@@ -645,10 +646,11 @@ export function waterBody(depth: number, bad: boolean | number, fromBank = 1): R
 
 /** The water's opacity where it is `depth` levels deep over its floor (seen depth), as the game draws it
  *  (`WATER_SURFACE.seeThrough`): the ground behind shows by `seeThrough` at the floor, none
- *  `seeThroughTo` deep. */
-export function waterSeeThrough(depth: number): number {
+ *  `seeThroughTo` deep; by `fallSeeThrough` where the game's waterfall mask `fall` is whole (fallMask.ts, Q9 P1:
+ *  lerp(0.35, 0.2, w) × 0.5). */
+export function waterSeeThrough(depth: number, fall = 0): number {
   const S = WATER_SURFACE;
-  return 1 - S.seeThrough * Math.max(0, 1 - depth / S.seeThroughTo);
+  return 1 - (S.seeThrough + (S.fallSeeThrough - S.seeThrough) * fall) * Math.max(0, 1 - depth / S.seeThroughTo);
 }
 
 /** The ground (a display colour) as it shows behind water of this colour, as the game's High quality draws
@@ -836,9 +838,13 @@ ${rampGlsl(GAME_WATER.ramp, "r")}
   vec3 cleanWaterBody(float d, float absorb) {
     return mix(mix(WATER_SHALLOW, WATER_TEAL, absorb), WATER_NAVY, smoothstep(${f(WATER_SURFACE.navyFrom)}, ${f(WATER_SURFACE.navyTo)}, d));
   }
-  /** The water's opacity this deep over its floor, as the game's (waterPalette.ts waterSeeThrough). */
+  /** The game's waterfall mask here (fallMask.ts, Q9 P1): the water's shader sets it before it colours a pixel of a
+   *  look that follows the game's high-quality water; 0 in any shader that doesn't. */
+  float waterFall = 0.0;
+  /** The water's opacity this deep over its floor, as the game's (waterPalette.ts waterSeeThrough), by the waterfall
+   *  mask (\`waterFall\`). */
   float cleanWaterAlpha(float d) {
-    return 1.0 - ${f(WATER_SURFACE.seeThrough)} * max(0.0, 1.0 - d / ${f(WATER_SURFACE.seeThroughTo)});
+    return 1.0 - mix(${f(WATER_SURFACE.seeThrough)}, ${f(WATER_SURFACE.fallSeeThrough)}, waterFall) * max(0.0, 1.0 - d / ${f(WATER_SURFACE.seeThroughTo)});
   }
   /** How light badwater is at a depth, against its colour BADWATER.shallow deep (waterPalette.ts badwaterBody):
    *  the game's _DepthGradients ramp but for the share with no depth in it, on display values. Both looks. */

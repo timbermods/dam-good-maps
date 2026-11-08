@@ -1,7 +1,8 @@
 // The flow texture where nothing moves (the light look in software, a view held still): no current, only the
 // water's badwater share (high/flow.ts `surfaceContamination`), which the ground under a film reads for its
-// tint (waterPalette.ts WATER_FILM). One texture for the map, kept without costing the page's thread a frame
-// (D453): the share is worked out in the bake worker (high/bake.ts `shareBytes`), one job at a time and at most
+// tint (waterPalette.ts WATER_FILM), and the game's waterfall mask (A, fallMask.ts). One texture for the map, kept
+// without costing the page's thread a frame (D453): both are worked out in the bake worker (high/bake.ts
+// `stillBytes`), one job at a time and at most
 // every `STILL_FLOW_WAIT` ms while the water moves, always on the latest water, and only the rows whose share
 // changed go to the GPU; so once the water stops the texture is exactly the one built from it whole
 // (motion.ts `stillFlowTexture`). Only a map's first water is worked out at once, here (a still view's picture
@@ -9,14 +10,15 @@
 
 import { DataTexture, LinearFilter, RGBAFormat, UnsignedByteType } from "three";
 import type { SurfaceWater } from "./model";
-import { shareBytes } from "./high/bake";
+import { stillBytes } from "./high/bake";
 
 /** The least time between two jobs while the water keeps changing (ms). */
 export const STILL_FLOW_WAIT = 250;
 
 type Water = Pick<SurfaceWater, "surface" | "depth" | "contamination">;
-/** The share of some water, a byte a tile, worked out elsewhere (the bake worker; its arrays are its own). */
-export type ShareJob = (W: number, H: number, sw: Water) => Promise<Uint8Array>;
+/** The share and the waterfall mask of some water, a byte a tile each, worked out elsewhere (the bake worker; its arrays
+ *  are its own). */
+export type ShareJob = (W: number, H: number, sw: Water) => Promise<{ share: Uint8Array; fall: Uint8Array }>;
 
 export class StillFlow {
   readonly texture: DataTexture;
@@ -40,7 +42,8 @@ export class StillFlow {
   ) {
     const N = W * H;
     this.data = new Uint8Array(N * 4);
-    for (let i = 0; i < N; i++) this.data.set([128, 128, 0, 255], i * 4);
+    // (no water yet: no fall, A 0 as a dry tile's)
+    for (let i = 0; i < N; i++) this.data.set([128, 128, 0, 0], i * 4);
     this.texture = new DataTexture(this.data, W, H, RGBAFormat, UnsignedByteType);
     this.texture.minFilter = this.texture.magFilter = LinearFilter;
     this.texture.needsUpdate = true;
@@ -48,7 +51,7 @@ export class StillFlow {
 
   /** A map's first water, worked out at once. */
   start(sw: Water): void {
-    this.write(shareBytes(this.W, this.H, sw));
+    this.write(stillBytes(this.W, this.H, sw));
   }
 
   /** The water changed: a job soon, on the latest water; `now` (water put in place to show with the land put in with
@@ -59,7 +62,7 @@ export class StillFlow {
       this.pending = null;
       if (this.timer !== null) clearTimeout(this.timer);
       this.timer = null;
-      this.write(shareBytes(this.W, this.H, sw));
+      this.write(stillBytes(this.W, this.H, sw));
       return;
     }
     this.pending = sw;
@@ -83,23 +86,26 @@ export class StillFlow {
         this.kick();
       };
       // (copies: the map's water may change in place before the job is done)
-      this.job(this.W, this.H, { surface: sw.surface.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice() }).then((share) => {
-        if (!this.disposed && version === this.version && this.write(share)) this.drawn();
+      this.job(this.W, this.H, { surface: sw.surface.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice() }).then((bytes) => {
+        if (!this.disposed && version === this.version && this.write(bytes)) this.drawn();
         done();
       }, done);
     }, wait);
   }
 
-  /** The share into the texture's bytes, the rows that changed sent with the next frame. Whether any changed. */
-  private write(share: Uint8Array): boolean {
+  /** The share and the mask into the texture's bytes, the rows that changed sent with the next frame. Whether any
+   *  changed. */
+  private write({ share, fall }: { share: Uint8Array; fall: Uint8Array }): boolean {
     const { W, H, data } = this;
     let y0 = H;
     let y1 = -1;
     for (let y = 0; y < H; y++)
       for (let i = y * W, end = i + W; i < end; i++) {
         const v = share[i];
-        if (data[i * 4 + 2] === v) continue;
+        const a = fall[i];
+        if (data[i * 4 + 2] === v && data[i * 4 + 3] === a) continue;
         data[i * 4 + 2] = v;
+        data[i * 4 + 3] = a;
         if (y < y0) y0 = y;
         y1 = y;
       }

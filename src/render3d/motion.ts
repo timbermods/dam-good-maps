@@ -24,6 +24,7 @@ import { canShare, SharedBlock, sharedCopies } from "./shared";
 import type { Baker } from "./high/fields";
 import type { LayeredWater } from "./high/bake";
 import { surfaceContamination } from "./high/flow";
+import { fallBytes } from "./fallMask";
 import { HIGH_WATER, WATER } from "./waterPalette";
 
 /** The flow follows the water this long after it changes (and at least this often while it does). */
@@ -184,19 +185,23 @@ function streakMaterial(u: SceneUniforms, viewport: { value: Vector2 }, dpr: { v
   });
 }
 
-/** A still view's flow texture built whole from one water: no current (RG 128), and the contamination
- *  smoothed as the bake smooths it (B). The renderer keeps its own where nothing moves (stillFlow.ts), which
- *  equals this one once the water stops; this is its reference. */
+/** A still view's flow texture built whole from one water: no current (RG 128), the contamination smoothed as the
+ *  bake smooths it (B) and the game's waterfall mask (A, fallMask.ts `fallBytes`). The renderer keeps its own where
+ *  nothing moves (stillFlow.ts), which equals this one once the water stops; this is its reference. */
 export function stillFlowTexture(W: number, H: number, sw: SurfaceWater): DataTexture {
-  const t = texture(W, H, [128, 128, 0, 255]);
+  const t = texture(W, H, [128, 128, 0, 0]);
   const f = t.image.data as Uint8Array;
   const cont = surfaceContamination(W, H, sw);
-  for (let i = 0; i < W * H; i++) f[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);
+  const fall = fallBytes(W, H, sw);
+  for (let i = 0; i < W * H; i++) {
+    f[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);
+    f[i * 4 + 3] = fall[i];
+  }
   return t;
 }
 
 export class WaterMotion {
-  /** The current as drawn (RG, 128 still) with the smoothed contamination (B). */
+  /** The current as drawn (RG, 128 still) with the smoothed contamination (B) and the waterfall mask (A, fallMask.ts). */
   readonly flow: DataTexture;
   stats = { lanes: 0, wakes: 0, seams: 0, streaks: 0, triangles: 0 };
   /** The last bake's time in the worker (information). */
@@ -234,7 +239,8 @@ export class WaterMotion {
   ) {
     uniforms.caveFlowTex.value = noCaveCurrent();
     uniforms.caveFlowLevels.value.set(0, 0);
-    this.flow = texture(W, H, [128, 128, 0, 255]);
+    // (no water baked yet: no fall, A 0 as a dry tile's)
+    this.flow = texture(W, H, [128, 128, 0, 0]);
     this.cues = new Mesh(new BufferGeometry(), cueMaterial(uniforms, this.high, this.viewport, this.dpr));
     this.cues.frustumCulled = false;
     this.cues.renderOrder = 7;

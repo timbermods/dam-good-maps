@@ -10,9 +10,9 @@
 // shaders read with the per-tile overlay; the default camera looks as the game's does, 30° east of
 // north and 70° down. The water's surface moves (at 30 frames a second at most) unless the viewer
 // prefers reduced motion, the browser renders in software, or the view is hidden. A browser that
-// renders in software gets a lighter look: no multisampling, no patterns or shadows, soil without
-// blending, and models of a few triangles. A mine site's pit is cut into the terrain's tops (its
-// model draws the pit), again wherever the objects change.
+// renders in software gets a lighter look: no multisampling, no shadows, no patterns but the water's
+// still detail, soil without blending, and models of a few triangles. A mine site's pit is cut into
+// the terrain's tops (its model draws the pit), again wherever the objects change.
 //
 // The look (Map look 2, PLAN §20 D284): Standard, as above; High (render3d/high), the same scene
 // drawn with the High materials, chosen automatically where it runs smoothly and falling back to
@@ -78,6 +78,7 @@ import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
 import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
+import { Refraction, WATER_REFRACTION } from "./refraction";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
@@ -450,6 +451,8 @@ export class MapRenderer {
   /** The Flow view (off by default): the current's streaks over the water. */
   private flowOn = false;
   private lookNow: Look = "standard";
+  /** The copy of the screen behind the water for the game's refraction (refraction.ts), made in each frame of the view. */
+  private refraction!: Refraction;
   /** The shader programs compiled before a frame needs them (programs.ts). */
   private programs: Programs;
   private warmTimer = 0;
@@ -609,6 +612,7 @@ export class MapRenderer {
     const one = () => tileTexture(1, 1, new Uint8Array(4));
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
     this.uniforms.sourceTint.value.set(...SOURCE_GLOW);
+    this.refraction = new Refraction(this.uniforms);
     // (the light look draws the water's surface flat: it reads only the still detail albedo, as the game's Low quality)
     void this.patternsMade().then(() => !this.disposed && this.requestRender(), () => undefined);
     this.patterns = drawPatterns(this.gl);
@@ -1542,7 +1546,7 @@ export class MapRenderer {
       this.waterMotion.waterChanged(heights, surface, true);
     } else {
       const baker = this.baker;
-      const job = (w: number, h: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">) => baker.run({ kind: "share", W: w, H: h, sw }).then((r) => (r.kind === "share" ? r.share : Promise.reject(new Error("not a share"))));
+      const job = (w: number, h: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">) => baker.run({ kind: "share", W: w, H: h, sw }).then((r) => (r.kind === "share" ? { share: r.share, fall: r.fall } : Promise.reject(new Error("not a share"))));
       this.stillFlow = new StillFlow(W, H, job, (x0, y0, x1, y1) => this.stillRows.touch(x0, y0, x1, y1), () => this.requestRender());
       this.stillFlow.start(surface);
       u.flowTex.value = this.stillFlow.texture;
@@ -1810,6 +1814,8 @@ export class MapRenderer {
     const mesh = new Mesh(chunkGeometry(arrays), this.waterMat);
     mesh.matrixAutoUpdate = false;
     mesh.renderOrder = 2;
+    // (the first water drawn in a frame takes the copy of the screen behind it, for the refraction)
+    mesh.onBeforeRender = this.refraction.before;
     this.scene.add(mesh);
     this.water.set(key, mesh);
     return d.quads;
@@ -4009,7 +4015,9 @@ export class MapRenderer {
     this.caveRows.flush();
     this.runRows.flush();
     this.stillRows.flush();
+    this.refraction.begin(this.refracts(cam));
     this.gl.render(this.scene, cam);
+    this.refraction.end();
     if (this.uniforms.objectFade.value.w === FADE_COVERAGE) this.opaqueCanvas();
     this.endCost(cost, t0);
     this.endGpuTimer(q);
@@ -4028,6 +4036,17 @@ export class MapRenderer {
       }, 1000 / WATER_FPS);
     }
     this.checkDrawn();
+  }
+
+  /** Whether this frame wants the copy of the screen behind the water (refraction.ts): a look that draws the game's
+   *  refraction, with water on the map, and the camera within its reach of the map's highest ground (the game's shift
+   *  is none past `WATER_REFRACTION.falloff[1]` from the camera). */
+  private refracts(cam: { position: Vector3 }): boolean {
+    const look = this.lookNow;
+    if (look === "light" || this.software || !this.map || !this.water.size) return false;
+    if (!WATER_REFRACTION.looks[look === "standard" ? "standard" : "high"]) return false;
+    const top = (this.terrainMat.uniforms.heightRange.value as Vector2).y;
+    return cam.position.y - top - 2 <= WATER_REFRACTION.falloff[1];
   }
 
   /** Everything a frame shows is in: the water chunks (none waiting or with the mesher workers), the programs (and in
@@ -4599,6 +4618,7 @@ export class MapRenderer {
     clearTimeout(this.warmTimer);
     clearTimeout(this.lifeTimer);
     this.programs.dispose();
+    this.refraction.dispose();
     if (this.highCopy) for (const m of Object.values(this.highCopy)) m.dispose();
     for (const m of this.depthCopy ?? []) m.dispose();
     for (const m of this.lineCopy ?? []) m.dispose();

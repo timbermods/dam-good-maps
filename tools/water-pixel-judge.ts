@@ -9,7 +9,7 @@
 //   mkdir -p .scratch/judge-dev && tar -xf .scratch/judge-dev.tar -C .scratch/judge-dev
 //   (and the same for a second tree to compare, --base, as .scratch/judge-826 from the commit that merged before)
 //   npx tsx tools/water-pixel-judge.ts [--dev .scratch/judge-dev|none] [--base .scratch/judge-826] [--batch 20261002-1610-batch]
-//     [--look standard|high|both] [--water clean|bad|mixed|all] [--define WATER_FORMULA|BADWATER_FORMULA|WATER_GAME_LIGHT,...]
+//     [--look standard|high|both] [--water clean|bad|mixed|all|pit|falls] [--define WATER_FORMULA|BADWATER_FORMULA|WATER_GAME_LIGHT,...]
 //     [--set WATER_GAME_LIGHT=1,...] [--shots <id>,<id>]
 //     [--light shot|day] [--reflection <strength>]
 //
@@ -49,10 +49,11 @@
 // colour and with the game's formula (the same build, its shaders compiled with `--define` 0 or 1: WATER_FORMULA for
 // clean water, waterPalette.ts GAME_WATER.use; BADWATER_FORMULA and BADWATER_FORMULA_HIGH for badwater, GAME_BADWATER.use
 // by look; a define already at the case's value is left). Writes
-// .scratch/water-judge/<shot>-<look>-<case>.jpg (the shot beside ours, for the eye) and
+// .scratch/water-judge/<shot>-<look>-<case>.jpg (the shot beside ours, for the eye, labelled with the shot its camera was
+// fitted on; a run clears the pairs of the runs before it) and
 // .scratch/water-judge/judge-<water>-<light>.json.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { chromium, type Browser, type Page } from "@playwright/test";
@@ -75,14 +76,15 @@ const BASE = arg("base") ? resolve(arg("base") as string) : null;
 const BATCH = arg("batch") ?? "20261002-1610-batch";
 const LOOKS = (arg("look") ?? "both") === "both" ? (["standard", "high"] as const) : ([arg("look")] as ("standard" | "high")[]);
 const OUT = resolve(".scratch/water-judge");
-/** Which water it samples: clean (the colour's judge), bad (pure badwater), mixed (the front) or all three; or the mine
- *  sites' pits beside pure badwater (`pit`). */
-const WATER = (["bad", "mixed", "all", "pit"] as const).find((w) => w === arg("water")) ?? "clean";
-type Kind = "clean" | "mixed" | "bad" | "pit";
-const KINDS: readonly Kind[] = WATER === "all" ? ["clean", "mixed", "bad"] : WATER === "pit" ? ["bad", "pit"] : [WATER];
+/** Which water it samples: clean (the colour's judge), bad (pure badwater), mixed (the front) or all three; the mine
+ *  sites' pits beside pure badwater (`pit`); or clean water and the clean water at a fall's foot beside it (`falls`:
+ *  a tile a neighbour's surface stands 0.6 or more over, where the game's waterfall mask is whole, Q9 P1). */
+const WATER = (["bad", "mixed", "all", "pit", "falls"] as const).find((w) => w === arg("water")) ?? "clean";
+type Kind = "clean" | "mixed" | "bad" | "pit" | "falls";
+const KINDS: readonly Kind[] = WATER === "all" ? ["clean", "mixed", "bad"] : WATER === "pit" ? ["bad", "pit"] : WATER === "falls" ? ["clean", "falls"] : [WATER];
 /** The define the two builds of this branch differ by, with its High look's own where it has one (badwater's is split
  *  by look: `BADWATER_FORMULA_HIGH`, waterPalette.ts `GAME_BADWATER.use.high`). */
-const DEFINE = arg("define") ?? (WATER === "clean" ? "WATER_FORMULA" : "BADWATER_FORMULA");
+const DEFINE = arg("define") ?? (WATER === "clean" || WATER === "falls" ? "WATER_FORMULA" : "BADWATER_FORMULA");
 /** (`--define A,B`: several at once, each with its High look's own) */
 const DEFINES = DEFINE.split(",").flatMap((d) => [d, `${d}_HIGH`]);
 /** `--set A=1,B=0`: defines this branch's both cases are built with, whatever the branch ships (each with its High
@@ -121,7 +123,7 @@ const SHOTS = (
   arg("shots") ??
   (WATER === "pit"
     ? "any-128-1-start,any-128-2-start,canyon-128-1-start,canyon-128-2-start,chaos-256-1-start,chaos-256-2-start,delta-128-1-start,delta-128-2-start,highlands-128-1-start,highlands-128-2-start,islands-128-1-start,islands-128-2-start,lakeBasin-128-1-start,lakeBasin-128-2-start,riverValley-128-1-start,riverValley-128-2-start"
-    : WATER === "clean"
+    : WATER === "clean" || WATER === "falls"
     ? "riverValley-128-1-start,riverValley-128-2-start,lakeBasin-128-1-start,lakeBasin-128-2-start,highlands-128-1-start,highlands-128-2-start"
     : "islands-128-2-end,islands-128-1-badtide2-end,islands-128-2-badtide2-end,highlands-128-1-badtide2-end,lakeBasin-128-1-badtide2-end,chaos-256-2-badtide2-end")
 ).split(",");
@@ -414,10 +416,16 @@ function fitPoints(s: Shot): { p: V3; wet: number }[] {
   return out;
 }
 
+/** The field of view a camera fit may take (degrees): round Q8's 31-37°. */
+const FIT_FOV = [28, 46] as const;
+
 function fitCamera(s: Shot, mask: Float32Array): { cam: Cam; score: number } {
   const pts = fitPoints(s);
   const camOf = (x: number[]): Cam => ({ yaw: x[0], pitch: x[1], distance: Math.exp(x[2]), fov: x[3], target: [s.pose.target[0] + x[4], s.pose.target[1], s.pose.target[2] + x[5]] });
   const score = (x: number[]) => {
+    // (the game's field of view is 31-37° (Q8): a fit outside FIT_FOV is the score trading the field of view against
+    // the distance, as islands-128-1-badtide2-start's own fit did, 12° from 120 away, framed on the island alone)
+    if (x[3] < FIT_FOV[0] || x[3] > FIT_FOV[1]) return 2;
     const pr = projector(camOf(x));
     let wetHit = 0;
     let wetN = 0;
@@ -467,6 +475,16 @@ function samplePoints(s: Shot): { p: V3; depth: number; kind: Kind }[] {
           if (!(depth[j] > 0.05) || (kind !== "mixed" && kindOf(contamination[j]) !== kind) || Math.abs(s.heights[j] + depth[j] - level) > 0.1) ok = false;
         }
       if (ok) out.push({ p: [x + 0.5, level, -(y + 0.5)], depth: depth[i], kind });
+      // (a fall's foot: clean, its four neighbours wet and clean, one of them 0.6 or more higher)
+      else if (KINDS.includes("falls") && kind === "clean") {
+        let rise = -Infinity;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const j = (y + dy) * W + x + dx;
+          rise = depth[j] > 0.05 && kindOf(contamination[j]) === "clean" ? Math.max(rise, s.heights[j] + depth[j] - level) : NaN;
+          if (Number.isNaN(rise)) break;
+        }
+        if (rise >= 0.6) out.push({ p: [x + 0.5, level, -(y + 0.5)], depth: depth[i], kind: "falls" });
+      }
     }
   // the mine sites' pits: their floor at the 3 × 3 round the footprint's centre, at the pit's depth (counted as a level
   // deep, so they fall in the bands' whole range)
@@ -705,6 +723,9 @@ async function main() {
     await browser.close();
     return;
   }
+  // (a run's pairs only: a pair left from an earlier run, of a case or a shot this one does not draw, would read as
+  // this run's)
+  for (const f of readdirSync(OUT)) if (f.endsWith(".jpg")) rmSync(join(OUT, f));
   const servers = [...(DEV ? [await site(DEV, "dev", PORT)] : []), await site(resolve("."), "branch", PORT + 1), ...(BASE ? [await site(BASE, "base", PORT + 2)] : [])];
   const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"] });
   const results: Record<string, unknown> = {};
@@ -776,7 +797,7 @@ async function main() {
           for (const a of veinLand) veinsAt(px, a.xy[0], a.xy[1], (vt[c.key] ??= veinCount()));
           if (c === cases[0]) for (const a of veinLand) veinsAt(game, a.xy[0], a.xy[1], (vt.game ??= veinCount()));
           if (c.key !== "dev") {
-            const pair = (await tool.evaluate(`(${PAIR_JS})(${JSON.stringify({ a: { t: "jpeg", b: s.png.toString("base64") }, b: { t: "png", b: png.toString("base64") }, la: `the game: ${id}`, lb: `ours (${c.key}, ${look})` })})`)) as string;
+            const pair = (await tool.evaluate(`(${PAIR_JS})(${JSON.stringify({ a: { t: "jpeg", b: s.png.toString("base64") }, b: { t: "png", b: png.toString("base64") }, la: `the game: ${id}`, lb: `ours (${c.key}, ${look}; the camera fitted on ${FIT_OWN ? id : `${mapId}-start`}, ${(score * 100).toFixed(0)}%)` })})`)) as string;
             writeFileSync(join(OUT, `${id}-${look}-${c.key}.jpg`), Buffer.from(pair, "base64"));
           }
         }
@@ -785,7 +806,7 @@ async function main() {
         for (const kind of KINDS)
         for (const [lo, hi] of [...BANDS, [0.05, 9] as [number, number]]) {
           const idx = at.map((a, k) => (a.q.kind === kind && a.q.depth >= lo && a.q.depth < hi ? k : -1)).filter((k) => k >= 0);
-          if (idx.length < (kind === "pit" ? 5 : 20)) continue;
+          if (idx.length < (kind === "pit" || kind === "falls" ? 5 : 20)) continue;
           const g = meanSpread(idx.map((k) => gameAt[k]));
           const b: BandStats = { n: idx.length, game: g, ours: {} };
           let line = `  ${look}: ${`${kind} ${lo}-${hi === 9 ? "" : hi}`.padEnd(15)} ${String(idx.length).padStart(5)}   ${fmt(g.mean)} / ${fmt(g.spread)} L* ${meanL(idx.map((k) => gameAt[k])).toFixed(1)}   `;

@@ -9,6 +9,7 @@ import { makeBadwaterTexture, makeDetailField, makeWaterTexture, WATER_FLOW, WAT
 import { makeSoilTexture, SOIL_TEXTURE_SIZE } from "../soilTexture";
 import { motionShapes, type MotionShapes } from "../motionShapes";
 import { surfaceContamination } from "./flow";
+import { fallBytes } from "../fallMask";
 import { shadowMap, withCasterLevels, type ShadowRock, type Sun } from "../light";
 
 /** A flow (−1…1, the game's: outflow ÷ 14) as the flow texture's byte: 128 + 127 × sign × √|f|, so a slow drift keeps
@@ -19,28 +20,36 @@ export function flowByte(f: number): number {
 }
 
 /** The water's texture (RGBA, one texel a tile): the flow the water's textures ride (RG, the game's: each column's
- *  outflows ÷ 14, current.ts `gameFlowOf`, as `flowByte`, 128 still) with the smoothed contamination (B). `out`: the
- *  outflows, four a tile (none: still). */
+ *  outflows ÷ 14, current.ts `gameFlowOf`, as `flowByte`, 128 still) with the smoothed contamination (B) and the game's
+ *  waterfall mask (A, fallMask.ts `fallBytes`: 0 dry, 1 + 254 × the mask wet). `out`: the outflows, four a tile (none:
+ *  still). */
 export function bakeFlow(W: number, H: number, sw: SurfaceWater, out?: ArrayLike<number> | null): { flow: Uint8Array } {
   const cont = surfaceContamination(W, H, sw);
   const game = out ? gameFlowOf(W, H, out, sw.depth, WATER_FLOW.maxOutflow) : null;
+  const fall = fallBytes(W, H, sw);
   const flow = new Uint8Array(W * H * 4);
   for (let i = 0; i < W * H; i++) {
     flow[i * 4] = game ? flowByte(game[i * 2]) : 128;
     flow[i * 4 + 1] = game ? flowByte(game[i * 2 + 1]) : 128;
     flow[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);
-    flow[i * 4 + 3] = 255;
+    flow[i * 4 + 3] = fall[i];
   }
   return { flow };
 }
 
 /** The smoothed contamination alone, a byte a tile (the flow texture's B, as `bakeFlow` packs it): where nothing
- *  moves (stillFlow.ts). */
+ *  moves (stillFlow.ts), with the waterfall mask (its A, `stillBytes`). */
 export function shareBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">): Uint8Array {
   const cont = surfaceContamination(W, H, sw);
   const out = new Uint8Array(W * H);
   for (let i = 0; i < W * H; i++) out[i] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);
   return out;
+}
+
+/** What a still view's flow texture takes from the water (stillFlow.ts): the share (B, `shareBytes`) and the waterfall
+ *  mask (A, fallMask.ts `fallBytes`). */
+export function stillBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">): { share: Uint8Array; fall: Uint8Array } {
+  return { share: shareBytes(W, H, sw), fall: fallBytes(W, H, sw) };
 }
 
 /** On a map with water per column (waterLayers.ts): the view (each column's own outflows) and the map's columns, with
@@ -62,7 +71,7 @@ export type BakeJob =
   | { id: number; kind: "detailTexture" };
 export type BakeResult =
   | { id: number; kind: "flow"; flow: Uint8Array; shapes: MotionShapes; cave: CaveCurrent | null; ms: number }
-  | { id: number; kind: "share"; share: Uint8Array; ms: number }
+  | { id: number; kind: "share"; share: Uint8Array; fall: Uint8Array; ms: number }
   | { id: number; kind: "shadows"; bytes: Uint8Array; hi: Float32Array; lo: Float32Array; ms: number }
   | { id: number; kind: "waterTexture"; data: Uint8Array; bad: Uint8Array; soil: Uint8Array; ms: number }
   | { id: number; kind: "detailTexture"; detail: Uint8Array; ms: number };
@@ -75,7 +84,7 @@ export function runBake(job: BakeJob): BakeResult {
   if (job.kind === "waterTexture") return { id: job.id, kind: "waterTexture", data: makeWaterTexture(WATER_TEXTURE_SIZE), bad: makeBadwaterTexture(WATER_TEXTURE_SIZE), soil: makeSoilTexture(SOIL_TEXTURE_SIZE), ms: performance.now() - t0 };
   // the light look's: the still detail albedo alone (badwater's texture's B), the one pattern it reads (Q9 P6)
   if (job.kind === "detailTexture") return { id: job.id, kind: "detailTexture", detail: makeDetailField(WATER_TEXTURE_SIZE), ms: performance.now() - t0 };
-  if (job.kind === "share") return { id: job.id, kind: "share", share: shareBytes(job.W, job.H, job.sw), ms: performance.now() - t0 };
+  if (job.kind === "share") return { id: job.id, kind: "share", ...stillBytes(job.W, job.H, job.sw), ms: performance.now() - t0 };
   // the baked shadows for the sun turned with the camera (light.ts; the renderer's `turnSun`)
   if (job.kind === "shadows") {
     const keep = { hi: new Float32Array(0), lo: new Float32Array(0) };

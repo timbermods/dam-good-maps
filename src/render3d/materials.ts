@@ -77,6 +77,8 @@ import { CUT_SLACK } from "./cutWater";
 import { FALL } from "./waterMesh";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 import { DITHER_GLSL, FADE_OFF, OBJECT_FADE_GLSL } from "./objectFade";
+import { FALL_MASK_GLSL } from "./fallMask";
+import { REFRACTION_GLSL, WATER_REFRACTION, refractionUniforms, type RefractionUniforms } from "./refraction";
 
 const az = LIGHT.sunAzimuth;
 const ce = Math.cos(LIGHT.sunElevation);
@@ -85,8 +87,9 @@ export const SUN = new Vector3(az[0] * ce, Math.sin(LIGHT.sunElevation), -az[1] 
 
 const color = (c: Rgb) => new Color(c[0], c[1], c[2]);
 
-/** Uniforms every material shares: one object per value, so a change reaches them all. */
-export interface SceneUniforms {
+/** Uniforms every material shares: one object per value, so a change reaches them all. The refraction's (refraction.ts:
+ *  the copy of the screen behind the water and its state) are the water's alone. */
+export interface SceneUniforms extends RefractionUniforms {
   sunDir: { value: Vector3 };
   sunColor: { value: Color };
   skyColor: { value: Color };
@@ -139,7 +142,8 @@ export interface SceneUniforms {
   /** 1 while a source is highlighted: the water over it turns its clear red (under water too). */
   sourceLit: { value: number };
   /** The water's current and smoothed contamination, one texel a tile (motion.ts, D353): RG the
-   *  current as drawn (128 still), B the badwater share; the moving water reads it in both looks. */
+   *  current as drawn (128 still), B the badwater share, A the game's waterfall mask (fallMask.ts: 0 dry, 1 + 254 × the
+   *  mask wet); the moving water reads it in both looks. */
   flowTex: { value: DataTexture };
   /** The surface the water's flow carries (waterTextures.ts: RG the albedo's fields, BA the slopes), shared by the page
    *  (`waterSurfaceTexture`). */
@@ -222,6 +226,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     overlayRest: { value: new Vector4(0, 0, 0, 0) },
     objectFade: { value: new Vector4(0, 0, 0, FADE_OFF) },
     objectHide: { value: 0 },
+    ...refractionUniforms(),
   };
 }
 
@@ -330,8 +335,6 @@ export function soilPatternTexture(): DataTexture {
   return (soilTex = t);
 }
 
-/** The bake worker's surface, badwater's pattern and contaminated ground's (high/bake.ts `waterTexture`) into the
- *  page's textures. */
 /** The light look's one pattern, the still detail albedo (bake.ts "detailTexture"), written into badwater's texture's B
  *  (its R and G stay at their means: the light look never reads them). */
 export function fillDetailTexture(detail: Uint8Array): void {
@@ -341,6 +344,8 @@ export function fillDetailTexture(detail: Uint8Array): void {
   b.needsUpdate = true;
 }
 
+/** The bake worker's surface, badwater's pattern and contaminated ground's (high/bake.ts `waterTexture`) into the
+ *  page's textures. */
 export function fillWaterTexture(data: Uint8Array, bad: Uint8Array, soil: Uint8Array): void {
   const t = waterSurfaceTexture();
   (t.image.data as Uint8Array).set(data);
@@ -355,7 +360,7 @@ export function fillWaterTexture(data: Uint8Array, bad: Uint8Array, soil: Uint8A
 
 /** A flow texture with no current (until a map's arrives). */
 function stillFlow(): DataTexture {
-  const t = new DataTexture(new Uint8Array([128, 128, 0, 255]), 1, 1, RGBAFormat, UnsignedByteType);
+  const t = new DataTexture(new Uint8Array([128, 128, 0, 0]), 1, 1, RGBAFormat, UnsignedByteType);
   t.needsUpdate = true;
   return t;
 }
@@ -1730,7 +1735,9 @@ ${hook(h, "lit")}
 
 export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks): ShaderMaterial {
   return new ShaderMaterial({
-    defines: { LITE: lite ? 1 : 0 },
+    // (the game's refraction where this look follows its high-quality water: refraction.ts WATER_REFRACTION.looks; the
+    // High look's material is the one with hooks)
+    defines: { LITE: lite ? 1 : 0, WATER_REFRACTS: !lite && WATER_REFRACTION.looks[h ? "high" : "standard"] ? 1 : 0 },
     uniforms: scene as unknown as Record<string, { value: unknown }>,
     vertexShader: /* glsl */ `
       attribute vec2 wdata;
@@ -1778,6 +1785,10 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       ${common(h)}
       ${WATER_GLSL}${WATER_FLOW_GLSL}${CAVE_FLOW}
       ${GAME_WATER_LIGHT}
+      ${FALL_MASK_GLSL}
+      #if WATER_REFRACTS
+      ${REFRACTION_GLSL}
+      #endif
       // (a curtain whose flags, its drop in thirtieths, pass this is a fall: waterMesh.ts FALL; the vertex shader's
       // test under a cut is the same)
       #define WATER_FALL_FLAGS ${f(FALL * 30 - 0.5)}
@@ -1802,6 +1813,18 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
           waterRoofed = cave.z;
           // (water below its tile's surface water: its own column's current, not the water's seen from above)
           waterOwnFlow = ownFlowAt(inWater);
+        #endif
+        // the game's still detail albedo here (Q9 P6), which clean water's colour × its albedo and badwater's base colour
+        // are overlaid with: at xz × 0.015, not carried by the flow, in every look (the game's Low quality draws it too)
+        waterDetail = waterDetailAt(g);
+        // the game's waterfall mask here (fallMask.ts, Q9 P1: on the water a fall lands in), which takes off its camera
+        // highlight and its refraction and shows less of the ground behind; none in the light look (the game's Low
+        // quality makes none) nor on water below its tile's surface water (the mask is the surface water's)
+        #if !LITE
+          waterFall = waterFallMask(g);
+          #ifdef CAVES
+            if (waterOwnFlow.a > 0.5) waterFall = 0.0;
+          #endif
         #endif
         float t = time;
         // the badwater share, blended between tiles by the mesh: the water turns from clean water to
@@ -1836,9 +1859,6 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         // badwater's pattern the flow carries (Q9 P9: R its base colour's, G its emissive detail's; the light look, as the
         // game's Low quality, flat at its mean)
         vec2 bpat = BADWATER_PATTERN_FLAT;
-        // the game's still detail albedo here (Q9 P6), which clean water's colour × its albedo and badwater's base colour
-        // are overlaid with: at xz × 0.015, not carried by the flow, in every look (the game's Low quality draws it too)
-        waterDetail = waterDetailAt(g);
         vec3 N = n;
         // the surface the flow carries, as the game draws it (Q9 P5, P11; waterTextures.ts): two phases of its textures
         // riding each column's outflow, the albedo multiplying the colour and the ripples the surface's normal; on a
@@ -1917,14 +1937,15 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         #endif
         vec3 c = waterBlend(body, murky, cont);
         // the game's own highlight on the ripples, added to the colour before its light (and again after it); none on
-        // a fall's face (the game's waterfall mask takes it off there, p036 r7.z). Where the look draws the game's light
-        // (waterPalette.ts WATER_LIGHT.game), in the game's sun colour and lit by the game's light, as its albedo is
+        // a fall's face nor where a fall lands (the game's waterfall mask takes it off, Q9 P1 and P12, ps 814-862). Where
+        // the look draws the game's light (waterPalette.ts WATER_LIGHT.game), in the game's sun colour and lit by the
+        // game's light, as its albedo is
         #if WATER_GAME_LIGHT
-          vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(N, V, bad) * step(0.5, N.y);
+          vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(N, V, bad) * step(0.5, N.y) * (1.0 - waterFall);
           c *= light;
           c += highlight * gameWaterLight(N, lit);
         #else
-          vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, N.y);
+          vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, N.y) * (1.0 - waterFall);
           c += highlight;
           c *= light;
         #endif
@@ -1979,6 +2000,11 @@ ${hook(h, "water")}        #ifdef CAVES
         // the clear water's veil (D196, D212), the selection, the sources' wells and the pointer's source's glow (D196),
         // a highlighted source (D249)
         c = finish(c, vWorld);
+        // the game's refraction of the ground behind (refraction.ts, Q9 P2): what showing the screen behind from a
+        // shifted place changes, by the share of it that shows (none on a sliver at a shore, our anti-aliasing)
+        #if WATER_REFRACTS
+          c += waterRefraction(g, vWorld, alpha, shore, film);
+        #endif
         float clr = clearWater;
         if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
         if (clr > 0.001) {

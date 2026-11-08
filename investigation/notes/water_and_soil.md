@@ -534,12 +534,23 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   sharpened (ps 148-276). This mask w takes off the refraction (P2) and the camera highlight (P12), × (1 − w), and
   moves the see-through from `_TransparencyDepth` 0.35 to `_TransparencyWaterfallDepth` 0.2 (ps 883-884). The other
   `_Waterfall*` values (speed, strength, noise, colour, jagged edge, thresholds) are not in cb4: #740 holds for those,
-  not for `FindWaterfalls`, whose textures are read. No whitewater, no foam. (Which pixels the mask covers, the face
-  or the whole tile, is the compute shader's, not read here.)
+  not for `FindWaterfalls`, whose textures are read. No whitewater, no foam. The compute shader
+  (`WaterColumnPostprocessor`, read for fix/water-refraction): `CalculateHeights` gives each tile's water mesh sixteen
+  heights (four by four: an edge vertex takes a linked neighbour's surface, an inner one max(its own, a linked
+  neighbour's − 0.3), none under its own); `FindWaterfalls` keeps smoothstep(0.35, 0.6, max(highest − lowest,
+  highest − its own surface)) per tile and column, so the highest linked neighbour's rise over its own surface. A
+  neighbour is linked when their columns overlap, no barrier stands between, it has water and its surface is under the
+  tile's ceiling (`ProcessColumns`); a corner link breaks where a tile between is unlinked or wet (`BreakCornerLinks`).
+  So the mask covers the whole tile a fall lands in, whole from a step of 0.6; the pixel's four taps weigh |dx| × |dz|
+  from the nearest tile corner and leave out a tile without that column. Not read: which column a tap takes on a tile
+  with several (ours: the surface water), the barriers (no building stands in our water).
 - **P2, refraction.** The screen position behind is offset by `PerlinNoise3` (t10) at (xz + T × `_DistortionSpeed`
   0.075) × `_DistortionScale` 1.1, × `_DistortionWeights` (0.003, 0.004) of the screen; full within 40 units of the
   camera, none past 60 (`_DistortionDistanceFalloff`), × (1 − w); kept only where it lands behind the water (ps
-  285-313).
+  285-313). The offset is one scalar, (2n − 1) of the noise's R, along (0.003, 0.004): not a normal. The test compares
+  the opaque scene's depth at the moved and the pixel's own position (the water is not in it). PerlinNoise3 (2048²,
+  R = G = B): 10 % of its texels 0 and 7 % 255, its autocorrelation's half-width 78 texels; (2n − 1) a mean of −0.064
+  and a spread of 0.607.
 - **P3, depth.** From the camera's depth texture: the gap between the water and what is behind it, × the view's sine,
   a vertical depth d; u = saturate(d / `_MaxDepth` 5) (ps 315-347). It goes to 0 at every shore and against a
   submerged wall.
@@ -676,8 +687,9 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Camera highlight (`waterCameraHighlight`), before and after the light | S, H | (a) | P12 (ps 814-862); ours drops it on faces by their normal, the game by the fall mask |
 | See-through share (`cleanWaterAlpha`, 0.175 × (1 − d/5)) | S, H | (a) | P13 (ps 879-889) |
 | Ground behind overlaid and desaturated (`waterGroundBehind`) | S, H | (a); small (c): ours tints with the body before light and lights the ground once | P13: the lit albedo, and the ground lit again |
-| Refraction of the ground behind | S, H | (c), missing | P2 (ps 285-313) |
-| Fall faces: see-through 0.1, no highlight, the shallowest colour | S, H | (a) | P1 (ps 883-884); the game's mask is `FindWaterfalls`', ours the face |
+| Refraction of the ground behind (`waterRefraction`, refraction.ts) | S, H | (a): the game's weights, drift, scale and falloff; our noise at its statistics; a shore test in place of its depth test (fix/water-refraction) | P2 (ps 285-313) |
+| The fall mask (`waterFallMask`, fallMask.ts): see-through 0.35 to 0.2, no highlight, no refraction on the tile a fall lands in | S, H | (a) (fix/water-refraction) | P1 (ps 148-276, 883-884), `FindWaterfalls` |
+| Fall faces: see-through 0.1, no highlight, the shallowest colour | S, H, light | (a), approximate: ours by the face | P1 (ps 883-884): the game's mesh slopes over the step, masked on the tile below |
 | Badwater's colour, ramp, glow, tint, blend | S, H | (a); `BADWATER.floor` 0.37 ours until measured (Q8); blue kept from purple ours (D154) | P9 |
 | Badwater's troughs and light patches (mottled noise) | S, H | (c); followed (`fix/water-badwater`) | P9: lerp(A, B, t9's pattern) carried by the flow |
 | Badwater's bubbles (orange dots, `BADWATER_VEIN` × 0.55) | S, H | (c); followed (`fix/water-badwater`) | P9: its emission is a flowing texture pattern, not dots |
@@ -706,7 +718,8 @@ The game's, missing or different:
 4. Badwater's flowing pattern and emissive detail (P9) in place of mottles and bubbles; its normals × 2.
 5. The still detail albedo, 67 tiles a repeat (P6): done (fix/water-detail), its pattern in every look.
 6. The sources' own pattern in play (P7) in place of our rings.
-7. Refraction of the ground behind (P2), and the fall mask by tile from `FindWaterfalls` (P1).
+7. Refraction of the ground behind (P2), and the fall mask by tile from `FindWaterfalls` (P1): done
+   (fix/water-refraction), in Standard and High.
 
 ## Simplified water simulation spec (browser implementation)
 

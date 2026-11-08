@@ -1387,6 +1387,49 @@ the game's models in resources.assets (positions, materials and texture means on
 - **Falls short:** High's badwater is still 2.2 L* under the game's by day, so its gap is wider than the frames
   allow; our pattern is the game's in its statistics, not its texels, so it adds about 0.2 to the per-pixel distance.
 
+## The game's refraction and waterfall mask (Q9 P2, P1; D496, D497; `fix/water-refraction`)
+
+- **Read, exactly** (`investigation/notes/water_and_soil.md` Q9; the game's compute shader `WaterColumnPostprocessor`
+  and its water's pixel shader, disassembled, numbers only). The game makes both only with high-quality water
+  (`WaterQualitySetting.HighQualityWaterEnabled`: the Medium preset and up; it also turns on URP's opaque texture), so
+  Standard and High draw them and the light look, as Low, draws neither. **P1:** `FindWaterfalls`, per tile and stacked
+  column, keeps smoothstep(0.35, 0.6, how far its highest linked neighbour's surface stands over its own) (its sixteen
+  mesh heights from `CalculateHeights`; a neighbour linked when wet, a corner one only where both tiles between are dry,
+  `BreakCornerLinks`), so the mask lies on the tile a fall lands in, whole from a step of 0.6. The pixel shader reads it
+  in four taps ±0.075 round the pixel, weighted by their distance to the nearest tile corner, dry tiles left out, and
+  sharpens it, w = saturate(m + smoothstep(0, 0.5, m)); w takes off the refraction and the camera highlight and moves
+  the see-through from 0.35 to 0.2 (× 0.5). **P2:** the screen position behind moved by `PerlinNoise3` at (xz + T ×
+  0.075) × 1.1, (2n − 1) × (0.003, 0.004) of the screen (one scalar along a fixed direction, not a normal), full within
+  40 units of the camera and none past 60, × (1 − w), and kept only where the opaque scene there lies behind the pixel;
+  the see-through and the depth are read at the moved position.
+- **Ours:** the mask is worked out from our water as the game's (`fallMask.ts`, in the bake worker and the still flow)
+  and rides the flow texture's A (0 dry, 1 + 254 × the mask), read by `waterFallMask` as the game's pixel shader; the
+  fall faces keep their own see-through by the face, in every look. The refraction (`refraction.ts`): the screen as
+  drawn before the water is copied once a frame, just before the first water (a `FramebufferTexture`, the water meshes'
+  `onBeforeRender`), and the shader adds (copy(moved) − copy(here)) × (1 − α) / α, so the blend gives the game's
+  composite. Its noise is the pattern texture's value noise at PerlinNoise3's measured statistics (half-width 0.0345
+  tiles, mean −0.064, spread 0.607 against our 0.600; `tests/unit/water-refraction.test.ts`). No copy while no water can
+  be within 60 of the camera (the opening camera and farther).
+- **Cost** (`tools/capture-water-refraction.ts --cost`; a 256² Highlands map, 1280 × 800 on the GPU, a frame drawn and
+  finished, median of 120, dev → this PR): Standard close 3.12 → 3.17 ms, High close 4.12 → 4.31 ms; from the opening
+  camera, where no copy is made, 4.15 → 4.18 and 6.03 → 5.95. Within High's budget (22 ms) by far.
+- **Judged** (`tools/water-pixel-judge.ts --water falls`, the six day-lit start shots, dev → this PR): clean water
+  unchanged, RMS Standard 14.3 → 14.3, High 14.1 → 14.1 (8,573 tiles); a fall's foot (103 tiles) 25.5 → 25.4 and
+  24.6 → 24.4, its L* 40.3 → 39.7 and 39.9 → 39.2 against the game's 40.0. The probe's frames are 85 or more from their
+  water, past the game's falloff, so neither side refracts there: the refraction is judged by its terms and by eye. On
+  its own it moves 0.2 % to 0.4 % of a close view's pixels by more than 3 levels (at most 10 to 19): the ground behind
+  shimmers, as the game's, by up to about five pixels under 17.5 % of the water.
+- **The judge's framing:** a camera fit may take only a field of view of 28° to 46° (round Q8's 31-37°), so `--fit own`
+  no longer frames islands-128-1-badtide2-start at 12° from 120 away, on the island alone; each run clears the pairs of
+  the runs before it (the 13:15 pairs of the own-fit era had stayed beside new ones), and each pair names the shot its
+  camera was fitted on. The shipped default fits each map's start shot, which frames that shot as the game's.
+- **The sheet:** `docs/sheets/water-refraction.jpg`: dev against this PR, Standard and High: a shallow stream close, a
+  lake's edge, a waterfall close and the falls from the opening camera.
+- **Falls short:** in place of the game's depth test (we keep no depth of the opaque scene), the shift is taken off
+  where a tile's shore is within its reach, so an object standing in front of the water close by can lend its edge a
+  few pixels; the noise is ours at the game's statistics, not its texels; the mask follows our surface water only (a
+  cave's water under a surface takes none), and the game eases it from the last tick's to this one's.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
