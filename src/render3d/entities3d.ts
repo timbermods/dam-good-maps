@@ -259,7 +259,7 @@ function onFace(m: Model, f: number, build: () => void): void {
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 
 const BARK: Rgb = TREE_COLOURS.pineBark;
-const BIRCH_BARK: Rgb = [0.93, 0.91, 0.86];
+export const BIRCH_BARK: Rgb = [0.93, 0.91, 0.86];
 const OAK_BARK: Rgb = TREE_COLOURS.oakBark;
 const BUSH_LEAVES: Rgb = TREE_COLOURS.bush;
 /** Bare dead wood as the game's (dying.ts `DEAD_FORM`): each tree's own bark weathered, the pine's and oak's lighter and

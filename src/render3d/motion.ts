@@ -27,6 +27,7 @@ import type { LayeredWater } from "./high/bake";
 import { surfaceContamination, writeShare } from "./high/flow";
 import { fallBytes } from "./fallMask";
 import { HIGH_WATER, WATER } from "./waterPalette";
+import { onAidLayer } from "./aidLayer";
 
 /** The flow follows the water this long after it changes (and at least this often while it does). */
 const WATER_WAIT = 250;
@@ -260,7 +261,7 @@ export class WaterMotion {
     this.streaks.renderOrder = 8;
     this.streaks.name = "water.flow";
     this.streaks.visible = false;
-    scene.add(this.cues, this.streaks);
+    scene.add(onAidLayer(this.cues), onAidLayer(this.streaks));
   }
 
   /** Whether the last water asked for is drawn. */

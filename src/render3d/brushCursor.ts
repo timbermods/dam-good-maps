@@ -6,6 +6,7 @@
 
 import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, type Material, type Scene } from "three";
 import { WATER_UI } from "./palette";
+import { onAidLayer } from "./aidLayer";
 
 export interface BrushCursorState {
   /** Middle of the brush, in tiles (x east, y north). */
@@ -77,8 +78,8 @@ export class BrushCursor {
     this.plane.frustumCulled = false;
     this.plane.renderOrder = 6;
     this.plane.visible = false;
-    scene.add(this.mesh);
-    scene.add(this.plane);
+    scene.add(onAidLayer(this.mesh));
+    scene.add(onAidLayer(this.plane));
   }
 
   /** Its materials (the renderer compiles their programs ahead: a first stroke never waits on a compile, D453). */
@@ -239,7 +240,7 @@ export class ForceRing {
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 7;
     this.mesh.visible = false;
-    scene.add(this.mesh);
+    scene.add(onAidLayer(this.mesh));
   }
 
   /** Its material (compiled ahead with the brush's, programs.ts). */

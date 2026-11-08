@@ -77,8 +77,10 @@ import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, LAVA_CRUST, contaminationEdges, contaminationEdgesRect, drawPatterns, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
+import { AID_LAYER, onAidLayer } from "./aidLayer";
+import { GameBloom, GAME_BLOOM_LOOKS } from "./bloom";
 import { Refraction, WATER_REFRACTION } from "./refraction";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
@@ -456,6 +458,8 @@ export class MapRenderer {
   private lookNow: Look = "standard";
   /** The copy of the screen behind the water for the game's refraction (refraction.ts), made in each frame of the view. */
   private refraction!: Refraction;
+  /** The game's bloom (bloom.ts), made with the first frame that draws it. */
+  private bloom: GameBloom | null = null;
   /** The shader programs compiled before a frame needs them (programs.ts). */
   private programs: Programs;
   private warmTimer = 0;
@@ -616,6 +620,9 @@ export class MapRenderer {
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
     this.uniforms.sourceTint.value.set(...SOURCE_GLOW);
     this.refraction = new Refraction(this.uniforms);
+    // (the editing aids drawn with a look's program are drawn in the view, and left out of the bloom's source: bloom.ts)
+    this.persp.layers.enable(AID_LAYER);
+    this.ortho.layers.enable(AID_LAYER);
     // (the light look draws the water's surface flat: it reads only the still detail albedo, as the game's Low quality)
     void this.patternsMade().then(() => !this.disposed && this.requestRender(), () => undefined);
     this.patterns = drawPatterns(this.gl);
@@ -2051,6 +2058,8 @@ export class MapRenderer {
     this.litTiles = null;
     this.sourcesLit.clear();
     group.renderOrder = 1;
+    // (the slopes' arrows, Markers' editing aid, left out of the bloom's source: bloom.ts)
+    for (const c of group.children) if (c.name.startsWith("Slope.mark")) onAidLayer(c);
     this.objects = group;
     this.scene.add(group);
     this.showMarkerObjects();
@@ -2799,8 +2808,9 @@ export class MapRenderer {
       const { group } = buildEntities(one, this.objectMat, null, 0, this.software);
       // (the High look's own models, D241: the ghost shows what will be placed)
       const undo = this.high?.decorate(group, one);
-      // (an editing aid: never faded round the pointer or hidden with the objects, objectFade.ts)
+      // (an editing aid: never faded round the pointer or hidden with the objects, objectFade.ts; nor in the bloom's source)
       markEditingAid(group);
+      onAidLayer(group);
       // (its tint an editing aid, put on after the grade: materials.ts AID_TINT)
       const tint = g.ok === null ? null : g.ok === "warn" ? AID_TINT.ghost.warns : g.ok ? AID_TINT.ghost.fits : AID_TINT.ghost.refused;
       if (tint !== null)
@@ -4111,9 +4121,18 @@ export class MapRenderer {
     this.runRows.flush();
     this.stillRows.flush();
     this.motionRows.flush();
+    // the game's bloom: the frame before the grade drawn for it first, then the view, then the bloom put on it (bloom.ts)
+    const bloom = this.blooms() ? (this.bloom ??= new GameBloom()) : null;
+    bloom?.drawSource(this.gl, this.scene, cam);
     this.refraction.begin(this.refracts(cam));
     this.gl.render(this.scene, cam);
     this.refraction.end();
+    if (bloom) {
+      // (the view's draw counts, not the bloom's passes': `stats`)
+      const counts = { ...this.gl.info.render };
+      bloom.apply(this.gl);
+      Object.assign(this.gl.info.render, counts);
+    }
     if (this.uniforms.objectFade.value.w === FADE_COVERAGE) this.opaqueCanvas();
     this.endCost(cost, t0);
     this.endGpuTimer(q);
@@ -4132,6 +4151,19 @@ export class MapRenderer {
       }, 1000 / WATER_FPS);
     }
     this.checkDrawn();
+  }
+
+  /** Whether this frame draws the game's bloom (bloom.ts): Standard and High, as the game's default preset; never the
+   *  light look. And only while something in the frame can pass its knee (D453: by day nothing does, so its passes,
+   *  about 1.4 ms of a GPU's in High, would change no pixel; `tests/unit/bloom.test.ts` holds the day's brightest under
+   *  it, `tests/e2e/look-high.spec.ts` the frame alike with it and without): today an eruption's lava, until its crust
+   *  has put out its light (`LAVA_CRUST`). */
+  private blooms(): boolean {
+    if (this.software || !this.map) return false;
+    const look = this.lookNow;
+    if (look === "light" || !GAME_BLOOM_LOOKS[look === "standard" ? "standard" : "high"]) return false;
+    const u = this.terrainMat.uniforms;
+    return !!u.eruptionAge && u.eruptionAge.value >= 0 && u.coolingAge.value < LAVA_CRUST[1];
   }
 
   /** Whether this frame wants the copy of the screen behind the water (refraction.ts): a look that draws the game's
@@ -4715,6 +4747,8 @@ export class MapRenderer {
     clearTimeout(this.lifeTimer);
     this.programs.dispose();
     this.refraction.dispose();
+    this.bloom?.dispose();
+    this.bloom = null;
     if (this.highCopy) for (const m of Object.values(this.highCopy)) m.dispose();
     for (const m of this.depthCopy ?? []) m.dispose();
     for (const m of this.lineCopy ?? []) m.dispose();

@@ -200,7 +200,10 @@ describe("ruins", () => {
   it("stand apart from contaminated ground: rusty posts and beige panels far lighter, and the far block too", () => {
     for (const ground of [CONTAMINATED_GROUND.dry, CONTAMINATED_GROUND.grass, CONTAMINATION.vein]) {
       expect(lum(RUIN.rust)).toBeGreaterThan(lum(ground) + 0.12);
-      expect(lum(RUIN.panel)).toBeGreaterThan(lum(ground) + 0.35);
+      // the panels the lightest of a ruin, as the game's are (since 2026-11-08 the game's colour, D496's rule, whose
+      // readability D135 as amended accepts: the gap of 0.35 over the ground #e3cf96 kept is no longer ours to add)
+      expect(lum(RUIN.panel)).toBeGreaterThan(lum(ground) + 0.2);
+      expect(lum(RUIN.panel)).toBeGreaterThan(Math.max(lum(RUIN.rust), lum(RUIN.far)));
       // from afar a storey is a lattice block in the near skeleton's own muted rust (D305)
       expect(lum(RUIN.far)).toBeGreaterThan(lum(ground) + 0.12);
     }

@@ -217,7 +217,81 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   await page.getByRole("button", { name: "Look: Standard" }).click();
   await page.getByRole("group", { name: "Look" }).getByRole("button", { name: /^Standard/ }).click();
   await page.getByRole("group", { name: "Look" }).getByRole("button", { name: /^Automatic/ }).click();
-  expect(await look(page)).toBe("high");
+  // (High comes once its programs have compiled in the background: 0.08 to 8.9 s here, so polled, D341)
+  await opensHigh(page);
+  expect(errors).toEqual([]);
+});
+
+test("the game's bloom is drawn only when something can pass its knee, and skipping it by day changes no pixel (D497 as amended 2026-11-08, D453)", async ({ page }) => {
+  const errors: string[] = [];
+  await open(page, errors);
+  await opensHigh(page);
+  for (const choice of ["high", "standard"] as const) {
+    await page.evaluate((c) => window.dgm3d!.renderer.setLookChoice(c), choice);
+    const day = await page.evaluate(() => {
+      type Bloom = { up: { texture: unknown; width: number; height: number }[]; down: { width: number; height: number }[]; apply(gl: unknown): void };
+      const r = window.dgm3d!.renderer as unknown as {
+        blooms(): boolean;
+        bloom: Bloom | null;
+        gl: { getContext(): WebGL2RenderingContext; setRenderTarget(t: unknown): void };
+        map: { entities: { count: number; templates: string[]; template: ArrayLike<number>; x: ArrayLike<number>; y: ArrayLike<number>; z: ArrayLike<number> } };
+        setView(v: unknown): void;
+        setClock(h: number): void;
+        renderNow(): void;
+      };
+      const g = r.gl.getContext();
+      const read = () => {
+        const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
+        g.readPixels(0, 0, g.drawingBufferWidth, g.drawingBufferHeight, g.RGBA, g.UNSIGNED_BYTE, px);
+        return px;
+      };
+      const canvas = () => {
+        r.renderNow();
+        return read();
+      };
+      const e = r.map.entities;
+      let at: number[] = [48, 2, -48];
+      for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "StartingLocation") at = [e.x[k] + 0.5, e.z[k], -(e.y[k] + 0.5)];
+      // the start up close by day, its marker the brightest model there is
+      r.setClock(12.5);
+      r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.6, distance: 11, target: at });
+      const skipped = r.blooms();
+      // drawn anyway: what the game's passes make of it, and the canvas just before them and just after, in one frame
+      // (two redraws of a still frame can differ by a level here and there, the bloom aside)
+      const own = Object.getOwnPropertyDescriptor(r, "blooms");
+      r.blooms = () => true;
+      canvas();
+      const b = r.bloom!;
+      const apply = b.apply.bind(b);
+      let without = new Uint8Array(0);
+      let withIt = new Uint8Array(0);
+      b.apply = (gl: unknown) => {
+        without = read();
+        apply(gl);
+        withIt = read();
+      };
+      canvas();
+      delete (b as { apply?: unknown }).apply;
+      const top = (b.up.length > 1 ? b.up[0] : b.down[0]) as unknown as { width: number; height: number };
+      r.gl.setRenderTarget(top);
+      const lift = new Float32Array(top.width * top.height * 4);
+      g.readPixels(0, 0, top.width, top.height, g.RGBA, g.FLOAT, lift);
+      r.gl.setRenderTarget(null);
+      if (own) Object.defineProperty(r, "blooms", own);
+      else delete (r as { blooms?: unknown }).blooms;
+      let differ = 0;
+      for (let i = 0; i < without.length; i++) if (without[i] !== withIt[i]) differ++;
+      let most = 0;
+      for (let i = 0; i < lift.length; i += 4) most = Math.max(most, lift[i], lift[i + 1], lift[i + 2]);
+      return { skipped, differ, most, read: without.length > 0 && withIt.length === without.length };
+    });
+    // by day nothing passes the knee: the passes are skipped, they would have made nothing, and the frame is the same
+    // to the byte with them or without
+    expect(day.skipped, choice).toBe(false);
+    expect(day.read, choice).toBe(true);
+    expect(day.most, choice).toBe(0);
+    expect(day.differ, JSON.stringify({ choice, ...day })).toBe(0);
+  }
   expect(errors).toEqual([]);
 });
 
@@ -384,7 +458,8 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   // browser draws: software drawing on CI takes seconds to keep it, and the lava cools meanwhile)
   await page.evaluate(() => {
     const r = window.dgm3d!.renderer;
-    const w = window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string } };
+    const w = window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string; bloomed: boolean } };
+    let bloomed = false;
     /** How many pixels of the frame drawn now are lava's colour: a strong orange-red, which High's
      *  ground never is by itself. */
     const lava = () => {
@@ -415,11 +490,18 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
         return h && { age: 1.65, cooling: h.cooling };
       };
       fx.plume.group.visible = false;
+      // (its lava passes the bloom's knee, so the bloom is drawn while it glows; the lava's own colour is counted
+      // before it, as the bloom's glow over its hottest middle adds green there and turns some of it orange: a GPU
+      // counts 1,435 to 2,096 with the bloom, about 2,680 without it. The bloom's own drawing: the test above)
+      const gate = r as unknown as { blooms(): boolean };
+      bloomed = gate.blooms();
+      gate.blooms = () => false;
       const hot = lava();
+      delete (gate as { blooms?: unknown }).blooms;
       fx.heat = heat;
       // against the same land with its moment gone
       r.clearForce();
-      w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look };
+      w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look, bloomed };
     };
   });
   await page.mouse.click(at!.x, at!.y);
@@ -427,7 +509,9 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.forceShowing?.erupt ?? null), { timeout: 15_000 }).not.toBeNull();
   expect(await look(page)).toBe("high");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.force()), { timeout: 30_000 }).toBeNull();
-  const glow = (await page.evaluate(() => (window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string } }).glow))!;
+  const glow = (await page.evaluate(() => (window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string; bloomed: boolean } }).glow))!;
+  // (its lava passes the bloom's knee: the bloom is drawn while it glows, D497 as amended 2026-11-08)
+  expect(glow.bloomed).toBe(true);
   expect(glow.cooling).not.toBeNull();
   expect(glow.cooling!).toBeLessThan(0.5);
   expect(glow.look).toBe("high");

@@ -240,7 +240,8 @@ describe("ruins", () => {
 
   it("are an orange skeleton with cream sacks close up, and from afar a lattice block in the skeleton's own orange (D334, amending D305's muted rust)", () => {
     expect(cssColor(RUIN.rust)).toBe("#d4781f");
-    expect(cssColor(RUIN.panel)).toBe("#e3cf96");
+    // (the sacks and panels: the game's ruins' lightest colour at our lightness, D496's rule, 2026-11-08; #e3cf96 before)
+    expect(cssColor(RUIN.panel)).toBe("#aa905b");
     expect(cssColor(RUIN.far)).toBe("#b86e30");
     expect(cssColor(RUIN.ivy)).toBe("#405634");
     // the sacks and boards, shaded a little one from another (entities3d.ts storey)
@@ -296,7 +297,10 @@ describe("ruins", () => {
   it("from afar stand apart from contaminated ground (its veins, and the pattern's mean the light look draws), in greyscale too", () => {
     for (const ground of [CONTAMINATED_GROUND.dry, CONTAMINATED_GROUND.grass, CONTAMINATION.vein]) {
       for (const c of [RUIN.panel, RUIN.far, RUIN.rust]) expect(lum(c) - lum(ground), cssColor(c)).toBeGreaterThan(0.12);
-      expect(lum(RUIN.panel) - lum(ground)).toBeGreaterThan(0.35);
+      // the panels the lightest of a ruin, as the game's are (since 2026-11-08 the game's colour, D496's rule, whose
+      // readability D135 as amended accepts: the gap of 0.35 over the ground #e3cf96 kept is no longer ours to add)
+      expect(lum(RUIN.panel) - lum(ground)).toBeGreaterThan(0.2);
+      expect(lum(RUIN.panel)).toBeGreaterThan(Math.max(lum(RUIN.rust), lum(RUIN.far)));
     }
     // the scaffold is orange, the veins a dark rust: more yellow in it (D154 as amended 2026-11-07: from afar the
     // contaminated ground is its soil a little toward the rust, no rust fill, so the hue rule is the veins')
