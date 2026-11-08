@@ -102,7 +102,7 @@ export function runModel(bytes: Uint8Array, name: string, cycles: Cycle[], endDa
   const sDays = [...sampleDays].sort((a, b) => a - b);
   const mDays = [...mapDays].sort((a, b) => a - b);
   const momentum = !flows
-    ? 'at rest (the file stores no outflows the model can play: more than one water level, or none)'
+    ? 'at rest (the file stores no outflows that fit the map)'
     : flows.flowing
       ? `the file's outflows (${flows.flowing} flowing${flows.skipped ? `, ${flows.skipped} with an unexpected target left at 0` : ''})`
       : 'at rest (the file stores every outflow as 0)';
