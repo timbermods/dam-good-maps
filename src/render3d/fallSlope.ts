@@ -12,7 +12,7 @@
 //   (`SurfaceWater.ceiling`: a tunnel's water never rises to the open water outside it, into its roof).
 // - `BreakCornerLinks` and `BreakCornerLinksReversed` keep a corner (diagonal) link only where both tiles between are
 //   linked to both of the corner's tiles: here, where the tile links to the corner neighbour and both tiles between,
-//   and they to it.
+//   and the corner neighbour to both tiles between.
 // - `CalculateHeights`, per vertex: the vertex sits a third of the way along each axis from its tile's middle toward
 //   one side (an inner vertex, at ⅓ or ⅔) or on that side (an edge vertex, at 0 or 1). Its height is the highest of its
 //   own surface and, across each axis, its linked neighbour's surface there (less 0.3 where it is inner on that axis),
@@ -52,12 +52,14 @@ const linkedAt = (W: number, H: number, sw: Water, i: number, x: number, y: numb
   return sw.surface[j] === sw.surface[j] && sw.depth[j] > 0 && !(sw.ceiling && sw.surface[j] > sw.ceiling[i]);
 };
 
-/** Whether the corner neighbour (x + sx, y + sy) is linked to tile (x, y) (`BreakCornerLinks`): the tile links to it
- *  and to both tiles between, and they to it; the tile itself is taken to be wet. */
+/** Whether the corner neighbour (x + sx, y + sy) is linked to tile (x, y) (`BreakCornerLinks`, which reads the corner
+ *  tile's own links toward the tiles between): the tile links to it and to both tiles between, and it to both tiles
+ *  between; the tile itself is taken to be wet. */
 export function cornerLinked(W: number, H: number, sw: Water, x: number, y: number, sx: number, sy: number): boolean {
   const i = y * W + x;
   if (!linkedAt(W, H, sw, i, x + sx, y + sy) || !linkedAt(W, H, sw, i, x + sx, y) || !linkedAt(W, H, sw, i, x, y + sy)) return false;
-  return !sw.ceiling || (linkedAt(W, H, sw, i + sx, x + sx, y + sy) && linkedAt(W, H, sw, i + sy * W, x + sx, y + sy));
+  const d = i + sy * W + sx;
+  return !sw.ceiling || (linkedAt(W, H, sw, d, x + sx, y) && linkedAt(W, H, sw, d, x, y + sy));
 }
 
 /** How far the highest linked neighbour's surface stands over a wet tile's own (0 where none stands over it): the

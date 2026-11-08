@@ -11,6 +11,7 @@
 import { describe, expect, it } from "vitest";
 import { LAYERS, surfaceWater, waterFromDepth, type WaterView } from "../../src/render3d/model";
 import { plainLayers, waterLayers } from "../../src/render3d/waterLayers";
+import { cornerLinked, slopeGrid, slopeHeights } from "../../src/render3d/fallSlope";
 import { meshed, openEdgesOn, openWaterEdges } from "../fixtures/openWaterEdges";
 
 describe("no window between two waters", () => {
@@ -82,5 +83,31 @@ describe("the ceiling rule", () => {
     let top = -Infinity;
     for (let v = 0; v < m.quads * 4; v++) if (m.normals[v * 3 + 1] > 0 && m.positions[v * 3] <= 4 + 1e-6) top = Math.max(top, m.positions[v * 3 + 1]);
     expect(top, "the tunnel's top, flat at its water under its roof").toBeCloseTo(4, 5);
+  });
+
+  it("a corner links as the game's BreakCornerLinks reads it, by the corner tile's links toward the tiles between", () => {
+    // 2 × 2 at a cave's mouth: tile (0, 0) open at 3; (1, 0) under the mouth's roof at 5, its water at 4; (0, 1) open at
+    // 3.5; the corner (1, 1) open water at 6. The corner links both tiles between (their surfaces under its open sky),
+    // so tile (0, 0)'s corner vertex rises to it, though (1, 0)'s roof is under the corner's surface
+    const W = 2;
+    const H = 2;
+    const water = (ceiling: number[], surface: number[]) => ({
+      surface: Float32Array.from(surface),
+      floor: new Float32Array(4).fill(2),
+      depth: Float32Array.from(surface.map((s) => s - 2)),
+      contamination: new Float32Array(4),
+      top: Int32Array.from([0, 1, 2, 3]),
+      outflow: null,
+      lower: [],
+      ceiling: Float32Array.from(ceiling),
+    });
+    const mouth = water([Infinity, 5, Infinity, Infinity], [3, 4, 3.5, 6]);
+    expect(cornerLinked(W, H, mouth, 0, 0, 1, 1)).toBe(true);
+    const g = slopeGrid();
+    expect(slopeHeights(W, H, mouth, 0, 0, g)).toBe(true);
+    expect(g.height[15], "the corner vertex, at the corner's water").toBeCloseTo(6, 5);
+    // the other way round: the corner under a roof at 5, a tile between over it (open water at 5.5): no corner link
+    const under = water([Infinity, Infinity, Infinity, 5], [3, 5.5, 3.5, 4.5]);
+    expect(cornerLinked(W, H, under, 0, 0, 1, 1)).toBe(false);
   });
 });

@@ -1863,7 +1863,14 @@ the game's models in resources.assets (positions, materials and texture means on
   its 256² maps in `waterSkirts.heavy.test.ts`).
 - **The ceiling rule:** each layer's water keeps its tiles' ceilings (`SurfaceWater.ceiling`, waterLayers.ts), and a
   tile links a neighbour only where the neighbour's surface is not over its ceiling, so a tunnel's slope never rises
-  into its roof toward higher open water outside. `LAYER_REACH` 4 → 5: the hand-over reads a tile further.
+  into its roof toward higher open water outside. `LAYER_REACH` 4 → 5: the hand-over reads a tile further. A corner
+  links as `BreakCornerLinks` reads it: the corner tile's own links toward the tiles between (a cave's mouth, where
+  their ceilings differ: `waterSkirts.test.ts`).
+- **The share at once:** since #865 the tops read their badwater share from the flow texture's B, which `writeShare`
+  (high/flow.ts) fills on every water change; it hands the share over itself, as the bake does (the same bytes on the
+  three 256² maps), so a fall's slope carries the fall's share from the frame the water comes, no bake behind it
+  (`stillFlow.test.ts`). Rows with no badwater within a row of them skip the search: at 256² in Node, the least of 300
+  runs, 0.18–0.25 ms → 0.28–0.36.
 - **The cut:** a slope's vertex carries a cut share under −0.5 in place of its wet share (`slopeCutShare`: whether it
   is a third in, and how far it stands over the floor of the water it rose to); sliced, it lies on the cut with the
   depth seen behind it from there as from its own height (`cutWater.ts` `cutSlopeDepth`): against the cliff where the
