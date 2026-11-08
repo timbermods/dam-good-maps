@@ -97,7 +97,7 @@ const FIND_JS = `([yaw]) => {
 
 const SITES = [
   { key: "dev", label: "dev" },
-  { key: "after", label: "this PR" },
+  { key: "after", label: SETS.length ? `this PR with ${(arg("set") ?? "").replace(/=1/g, "").replace(/,/g, " + ")}` : "this PR" },
 ] as const;
 const SCENES = [
   { key: "lake", label: "A lake, grazing" },

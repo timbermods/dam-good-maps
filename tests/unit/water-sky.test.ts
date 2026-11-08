@@ -82,3 +82,14 @@ describe("the game's light on its water (Q9 P15)", () => {
     expect(s).toMatch(/#if WATER_HELD_HIGH\s+gameWaterDiffuse = 0\.96;/);
   });
 });
+
+describe("each look's choice of the game's light on its water", () => {
+  it("is the one the pixel judge found nearest the game's frames over all the look's water (WATER_LIGHT.judged)", () => {
+    const J = WATER_LIGHT.judged;
+    for (const look of ["standard", "high"] as const) {
+      const all = (k: "dev" | "game" | "full") => Math.sqrt((J[look].clean[k] ** 2 * J.tiles.clean + J[look].bad[k] ** 2 * J.tiles.bad) / (J.tiles.clean + J.tiles.bad));
+      const best = (["dev", "game", "full"] as const).reduce((a, b) => (all(b) < all(a) ? b : a));
+      expect({ game: WATER_LIGHT.game[look], held: WATER_LIGHT.held[look] }, look).toEqual({ game: best !== "dev", held: best === "full" });
+    }
+  });
+});

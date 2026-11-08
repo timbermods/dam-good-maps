@@ -172,12 +172,24 @@ export const WATER_PROBE = {
  *    up (`WATER.sky`) and the glint in our own sun's colour, High none.
  *  - `held` (by look): the two terms #839 held back, the diffuse share at the water's own metallic 0 (`diffuse`, where
  *    the terrain's 0.912 is at 0.05) and the environment's head-on part (× f0); off, 0.912 and the grazing part alone.
- *  The pixel judge (tools/water-pixel-judge.ts) compares each against the game's frames, per look, and each look takes
- *  what reads nearer the game (`judged`). */
+ *  The pixel judge (tools/water-pixel-judge.ts --define WATER_GAME_LIGHT,WATER_HELD) compares each against the game's
+ *  frames, per look, and each look takes what reads nearer the game over all its water (`judged`): the light as on
+ *  dev, in both looks, so far (planning's condition 2: the game's terms wait behind these switches, built and tested,
+ *  until clean water's own excess is found). */
 export const WATER_LIGHT = {
   game: { standard: false, high: false } as const,
   held: { standard: false, high: false } as const,
   diffuse: 0.96,
+  /** The judge's numbers (fix/water-sky; RMS distance to the game's pixels, display RGB 0–255; the sixteen day-lit start
+   *  shots, each in its shot's light, `--water all`): clean water (37,853 tiles) and pure badwater (172), by look, for
+   *  the light as on dev (`dev`: both switches off), the game's terms without the two #839 held (`game`) and with them
+   *  (`full`). Clean water, already lighter than the game's in the shallows, moves further away with each, so neither
+   *  look draws them yet; badwater moves nearer. */
+  judged: {
+    standard: { clean: { dev: 13.1, game: 13.1, full: 15.7 }, bad: { dev: 15.4, game: 15.5, full: 14.2 } },
+    high: { clean: { dev: 12.2, game: 13.0, full: 15.6 }, bad: { dev: 14.6, game: 14.2, full: 14.5 } },
+    tiles: { clean: 37853, bad: 172 },
+  },
 } as const;
 
 /** The High look's water (Map look 2, D284; #38, investigation/maplook2 water.ts, as Kyler approved it at
