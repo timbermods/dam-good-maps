@@ -262,7 +262,7 @@ ${HIGH_WATER_GLSL}
     vec3 colour = waterBlend(body, badBody, contamination);
     // (the game's albedo here and its diffuse light, which P13 puts on what shows behind the water: refraction.ts)
     behindLight = gameWaterLight(N, lit);
-    behindAlbedo = colour * shade / max(behindLight, vec3(0.001));
+    behindAlbedo = colour * shade / max(behindLight, 0.001);
     float tint = waterTint(contamination);
     // the game's own highlight on the ripples (its camera-tied light; WATER_SURFACE.highlight), not a sun hotspot:
     // in the colour before its light, and again after it as the game's emission, unlit and unshadowed

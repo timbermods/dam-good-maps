@@ -2268,7 +2268,7 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
         vec3 c = waterBlend(body, murky, cont);
         // (the game's albedo here and its diffuse light, which P13 puts on what shows behind the water: refraction.ts)
         behindLight = gameWaterLight(N, lit);
-        behindAlbedo = c * light / max(behindLight, vec3(0.001));
+        behindAlbedo = c * light / max(behindLight, 0.001);
         // the game's own highlight on the ripples, added to the colour before its light (and again after it); none on
         // the water's side nor on a fall's slope and where it lands (the game's waterfall mask takes it off, Q9 P1 and P12, ps 814-862). Where
         // the look draws the game's light (waterPalette.ts WATER_LIGHT.game), in the game's sun colour and lit by the

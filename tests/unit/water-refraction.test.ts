@@ -217,12 +217,13 @@ describe("the looks that draw them: Standard and High, as the game's high-qualit
   it("puts P13 on what shows behind the water in the water's shader: ungraded, overlaid and desaturated, lit again, fogged and graded", () => {
     for (const look of ["standard", "high"] as const) {
       const m = looks[look];
-      expect(m.fragmentShader, look).toContain("behind = finish(behindLight * waterGroundBehind(gamePostInverse(behind), behindAlbedo), world);");
+      expect(m.fragmentShader, look).toContain("behind = mix(behind, finish(behindLight * waterGroundBehind(gamePostInverse(behind), behindAlbedo), world), film);");
+      // (the terrain's film tint keeps the sliver at a shore, P13 the rest: each pixel tinted once, as the terrain split it)
       // (the game's albedo, the colour before its light, and its diffuse light by the normal)
       expect(m.fragmentShader, look).toContain("behindLight = gameWaterLight(N, lit);");
     }
     // High's surface sets its own, from its own colour
-    expect(looks.high.fragmentShader).toContain("behindAlbedo = colour * shade / max(behindLight, vec3(0.001));");
+    expect(looks.high.fragmentShader).toContain("behindAlbedo = colour * shade / max(behindLight, 0.001);");
     // the terrain leaves it to the water while the frame makes the copy: never twice under water
     const terrain = terrainMaterial(U(), 0, 1).fragmentShader;
     expect(terrain).toContain("float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind) * (1.0 - refractView.y);");

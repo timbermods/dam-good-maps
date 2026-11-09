@@ -114,8 +114,9 @@ export const REFRACTION_GLSL = /* glsl */ `
     }
     vec3 behind = texture2D(refractHalf, clamp(here + shift, 0.0, 1.0)).rgb;
     // (P13: as the opaque texture holds it, overlaid with the water's albedo and desaturated, lit by the water's light,
-    // fogged and graded with the water)
-    behind = finish(behindLight * waterGroundBehind(gamePostInverse(behind), behindAlbedo), world);
+    // fogged and graded with the water; by the film curve, as the terrain splits it: on a sliver at a shore, our
+    // anti-aliasing of the game's hard edge, the terrain's film tint stands for the water and P13 takes the rest)
+    behind = mix(behind, finish(behindLight * waterGroundBehind(gamePostInverse(behind), behindAlbedo), world), film);
     vec3 drawn = texture2D(refractTex, here).rgb;
     return (behind - drawn) * (1.0 - alpha) / max(alpha, 0.05);
   }
