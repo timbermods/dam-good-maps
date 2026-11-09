@@ -2157,6 +2157,53 @@ The water-character audit's gaps 3 and 4 (`docs/progress/water-character-audit.m
   foot blends with the other water (as High's did before, then over more tiles); Standard's tops kept to their own
   level until now. A link-aware share (the surface levels beside the share) would close it.
 
+## The water's depth along the view (Q9 P3; D154 as amended 2026-11-09, D496; `fix/shore-band-view`)
+
+The water-character audit's gap 7 (`docs/progress/water-character-audit.md`): our light rim on every bank.
+
+- **The game:** its water's pixel shader reads the depth from the camera's depth buffer: the gap along the view to what
+  lies behind the water, × the view's sine, saturating at `_MaxDepth` 5 (`PhysicalWaterURP` ps 315-347; its Low
+  quality's program, read again with `tools/game-water-shader.py` without `_HIGH_QUALITY_WATER_ENABLED`, reads
+  `_CameraDepthTexture` the same way). P4's colour ramp and P13's see-through both take it. So the depth falls to none
+  at the foot of a bank facing the camera (the far bank), over about depth ÷ tan(pitch), 0.7 tile a level at 55°; the
+  near bank's water is at full depth to its edge; the band swaps sides as the camera turns.
+- **Ours, before:** every shore side shallowed the depth (Standard 0.3 at the bank, whole by 0.45 tile:
+  `WATER_SURFACE.bank`, `bankWidth`, `waterSeenDepth`; High 0.1 by 0.55), so both banks of every river had a rim.
+- **Ours, now** (`render3d/viewDepth.ts`): the water's top walks the view's ray down from its surface through the
+  tiles' tops (the tile texture's heights; its own tile's floor from the mesh, `wcut.x`) to the ground it meets: a
+  wall where it enters a tile below that tile's top, else the top; with terrain above terrain, roofed air is no ground.
+  At most `VIEW_DEPTH.steps` 16 tiles, stopping at 5 levels; the depth is the drop. (The game's eye-space gap × sine is
+  the drop × the ray's share along the camera's forward axis; ours leaves the share out, as our 40° field is wider
+  than the game's 31-37° and the judge read clean water lighter with it: RMS 3.4 → 4.3 with it, 3.6 without.) Standard, High and the light look read it (the light look as the
+  game's Low: coloured by it, no ground through it); the see-through, badwater's depth ramp and its glow take it. A
+  wall under the water (a bank's foot, a step in the bed) now shows through tinted by the water at the depth the view
+  sees there, as the bed under it does. The bank shallowing is gone; `waterBody`, `waterOpacity` and
+  `badwaterOpacity` take the seen depth as given. `tests/unit/viewDepth.test.ts` holds the walk: the far bank 0 at its
+  foot and u × tan 55° across the band, 0.70 tile a level; the near bank whole to its edge; the band swapping sides.
+- **Size** (the game's P4 colour at a bank's edge against open water, display luma; ours now take the same depth, so
+  the same): a level deep, far bank 2.20, near bank 1.00; Standard before 1.61 on both, High 1.83-2.11 on both.
+  On screen (`.scratch` measure, not kept: River Valley 128² seed 2, its 0.7-deep river 5 wide and a 0.48-deep
+  lake's straight shore, objects hidden, the clock held, the game's 55° from 12 units, four headings; each bank's
+  display luma against open water in the same frame, a row's mean), dev → this branch. The far bank, 0.05 tile in:
+  river Standard 1.10 → 1.15, High 1.32 → 1.31; lake Standard 0.96 → 1.16, High 1.15 → 1.14. The near bank, just
+  past where the bank hides the water (0.35 tile on the river, 0.5 on the lake): river Standard 1.02 → 0.87, High 1.14
+  → 0.89; lake Standard 1.11 → 1.06, High 1.09 → 0.90. So the rim stays on the far bank and leaves the near one; on
+  screen the sky's reflection, added on top, flattens P4's ratios, and the near bank's own shadow darkens its edge a
+  little in both builds.
+- **The probe frames** (`tools/water-pixel-judge.ts --water all`, the six Badtide and Islands ends, at their
+  hours), RMS to the game's pixels, dev → this branch, as drawn (the game's formulas): Standard clean 3.4 → 3.6, mixed
+  9.1 → 9.0, bad 7.1 → 7.0; High 3.3 → 3.6, 8.8 → 8.7, 7.0 → 6.9; the land unchanged. The samples are tile middles
+  with every neighbour wet, about 110 units off, so they see few banks; clean water's 0.2-0.3 is the walk's true beds
+  in place of the mesh's corner-averaged depth.
+- **Speed** (River Valley 256² seed 2, the camera orbiting at 55°, real Chrome on the RTX 2070 SUPER, a frame with the
+  GPU waited for, median of 150; over a lake, from 60 and 25 units), dev → this branch: Standard 5.70 → 5.63 and
+  4.92 → 5.06 ms, High 8.41 → 7.94 and 7.27 → 7.07 ms: within the runs' noise. The light look in software (SwiftShader,
+  close over the river): 375 → 390 ms a frame, single samples.
+- **Falls short:** objects standing in the water (a source's rock) are in the game's depth buffer and not in our walk,
+  so the water round them keeps its depth; the walk reads the drawn terrain's tile tops, so a stroke's land shows the
+  band once its rows reach the tile texture, as everything else does. A fall's slope keeps its baked seen depth for
+  its film only; its colour now comes from the walk.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

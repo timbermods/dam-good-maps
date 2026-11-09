@@ -285,7 +285,7 @@ ${HIGH_WATER_GLSL}
     colour += badEmission;
     hlBadLit = badBody * shade + badEmission;
     // the ground behind shows as the game's does, clean water and badwater alike (waterPalette.ts
-    // WATER_SURFACE.seeThrough; the depth here is already shallower toward a bank)
+    // WATER_SURFACE.seeThrough; the depth here is the one seen along the view, viewDepth.ts)
     float alpha = cleanWaterAlpha(depth);
     return vec4(colour, alpha);
   }
@@ -311,14 +311,15 @@ export function waterHooks(): ShaderHooks {
             // (the share as the game blends it between tiles, the Standard surface's: materials.ts waterShareAt; under a
             // roof, its own column's, not the one of the water seen from above there)
             float hlBad = cont;
-            float hlDepth = max(0.0, depth) * mix(0.10, 1.0, smoothstep(0.0, 0.55, shore));
+            // (the depth as the game reads it, the Standard surface's: along the view to the ground behind, viewDepth.ts)
+            float hlDepth = max(0.0, d);
             // (its smoothness as the Standard surface's, by this look's badwater share: the gloss's slow variation, toward
             // badwater's by the tint × the pattern's R)
             float hlSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(hlBad) * bpat.x);
             vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, albedo, bpat, hlSmooth);
             // the same water at any depth: only a sliver at a shore's very edge fades in, over WATER_FILM.to
             // deep, as the Standard look's (waterPalette.ts WATER_FILM: our anti-aliasing of the edge, where the
-            // game clips hard), by its own depth, not the bank's; no foam, no froth, as the game draws none
+            // game clips hard), by its own depth, not the one seen along the view; no foam, no froth, as the game draws none
             float hlFilm = waterFilm(depth);
             float hlTint = waterTint(hlBad);
             c = hlSurface.rgb;
