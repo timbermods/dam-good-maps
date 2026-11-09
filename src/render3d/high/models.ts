@@ -8,45 +8,38 @@
 // (ported from investigation/vegetation/models.ts)
 import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour } from '../dying';
 import { plantScale, RANDOMIZER } from '../plantSize';
-import { TREE_COLOURS, asOurs } from '../palette';
+import { ownAlbedo, TREE_COLOURS } from '../palette';
 import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 
 export const species = ['Pine', 'Birch', 'Oak', 'BlueberryBush'] as const;
 export type Species = typeof species[number];
 export type Detail = 'near' | 'far';
-/** High's warm sun (highLook.ts `SUNLIGHT.sun`, pinned equal by a test). */
-export const WARM_SUN = [1.48, 1.3, 1.1] as const;
-/** A colour the game gives (its hue and saturation, as Standard's neutral light shows it) as High's albedo for it: the warm
- *  sun's tint taken out, so a dying crown reads the same olive-ochre in both looks rather than orange. */
-const underSun = (c: readonly number[]) => [c[0] * (WARM_SUN[1] / WARM_SUN[0]), c[1], c[2] * (WARM_SUN[1] / WARM_SUN[2])];
 const hex = (c: readonly number[]) => '#' + c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
-/** The trees' and bushes' foliage: the game's colours as ours (palette.ts `TREE_COLOURS`), as they read under the warm sun. */
-const living = { pine: hex(underSun(TREE_COLOURS.pine)), birch: hex(underSun(TREE_COLOURS.birch)), oak: hex(underSun(TREE_COLOURS.oak)), bush: hex(underSun(TREE_COLOURS.bush)) };
+/** The trees' and bushes' foliage: the game's colours straight (palette.ts `TREE_COLOURS`), in the game's light as every
+ *  object is (D135 as amended 2026-11-09). Until then High lit its trees by its own warm sun and took its tint out of
+ *  their colours (`underSun`); they now see the game's sun, as Standard's do, so they take the same albedo. */
+const living = { pine: hex(TREE_COLOURS.pine), birch: hex(TREE_COLOURS.birch), oak: hex(TREE_COLOURS.oak), bush: hex(TREE_COLOURS.bush) };
 /** Foliage slots, their species, and their dying slot (dying.ts). */
 const FOLIAGE = { pine: ['Pine', 'pineDry'], birch: ['Birch', 'birchDry'], oak: ['Oak', 'oakDry'], bush: ['BlueberryBush', 'bushDry'] } as const;
 /** The berries: the blue of the game's blueberry texture (its texels bluer than both green and red by 0.08, 9 % of it:
- *  0.294/0.302/0.414, `tools/game-model-albedo.py`) at our lightness (`asOurs`, D496), as they read under the warm sun.
- *  (The game's grown model maps almost none of them, 0.1 % of its area under its leaves' green; until 2026-11-08 our
- *  berries were #7f9bff, half again brighter and the bloom's brightest on a forest.) */
-const berry = hex(underSun(asOurs([0.294, 0.302, 0.414])));
-/** The pine's, the oak's and the birch's bark: the game's (palette.ts `TREE_COLOURS`, as Standard's), as they read under
- *  the warm sun. The game's oak bark is darker and less red than the pine's and the birch's a light warm grey (until
- *  2026-11-08 ours was a near-white #f2efdd), so each has its own slot. The pine's and oak's browns keep their hue
- *  through `underSun` (lit, High's within 3 % of Standard's r/b and g/b), but the birch's near-grey would come out
- *  neutral, so it takes `BIRCH_SUN` of the correction: the share at which its lit bark's hue is Standard's. */
-export const BIRCH_SUN = 0.5;
-const partSun = (c: readonly number[], k: number) => [c[0] * (1 + k * (WARM_SUN[1] / WARM_SUN[0] - 1)), c[1], c[2] * (1 + k * (WARM_SUN[1] / WARM_SUN[2] - 1))];
-const bark = hex(underSun(TREE_COLOURS.pineBark)), oakBark = hex(underSun(TREE_COLOURS.oakBark)), birchBark = hex(partSun(TREE_COLOURS.birchBark, BIRCH_SUN));
+ *  0.294/0.302/0.414, `tools/game-model-albedo.py`). (The game's grown model maps almost none of them, 0.1 % of its area
+ *  under its leaves' green; until 2026-11-08 our berries were #7f9bff, half again brighter and the bloom's brightest on a
+ *  forest.) */
+const berry = hex([0.294, 0.302, 0.414]);
+/** The pine's, the oak's and the birch's bark: the game's (palette.ts `TREE_COLOURS`, as Standard's). The game's oak bark
+ *  is darker and less red than the pine's and the birch's a light warm grey (until 2026-11-08 ours was a near-white
+ *  #f2efdd), so each has its own slot. The birch's marks are a colour of our own (palette.ts `ownAlbedo`). */
+const bark = hex(TREE_COLOURS.pineBark), oakBark = hex(TREE_COLOURS.oakBark), birchBark = hex(TREE_COLOURS.birchBark);
 export const paletteDefaults = {
   ...living,
-  bark, oakBark, birchBark, berry, marks: '#494239',
+  bark, oakBark, birchBark, berry, marks: hex(ownAlbedo([0x49 / 255, 0x42 / 255, 0x39 / 255])),
   // a dead tree's bare wood, its own bark weathered as the game's is; a dead bush's leaves gone brown (dying.ts DEAD_FORM)
-  dead: hex(underSun(deadWood('Pine', TREE_COLOURS.pineBark))), oakDead: hex(underSun(deadWood('Oak', TREE_COLOURS.oakBark))),
-  birchDead: hex(partSun(deadWood('Birch', TREE_COLOURS.birchBark), BIRCH_SUN)),
-  bushDead: hex(underSun(deadLeaves('BlueberryBush', TREE_COLOURS.bush))),
-  // a dying plant's foliage: the game's dry colour at the living green's lightness (dying.ts), as it reads under the warm sun
-  pineDry: hex(underSun(dryColour('Pine', TREE_COLOURS.pine))), birchDry: hex(underSun(dryColour('Birch', TREE_COLOURS.birch))),
-  oakDry: hex(underSun(dryColour('Oak', TREE_COLOURS.oak))), bushDry: hex(underSun(dryColour('BlueberryBush', TREE_COLOURS.bush))),
+  dead: hex(deadWood('Pine', TREE_COLOURS.pineBark)), oakDead: hex(deadWood('Oak', TREE_COLOURS.oakBark)),
+  birchDead: hex(deadWood('Birch', TREE_COLOURS.birchBark)),
+  bushDead: hex(deadLeaves('BlueberryBush', TREE_COLOURS.bush)),
+  // a dying plant's foliage: the game's dry colour at the living green's lightness (dying.ts)
+  pineDry: hex(dryColour('Pine', TREE_COLOURS.pine)), birchDry: hex(dryColour('Birch', TREE_COLOURS.birch)),
+  oakDry: hex(dryColour('Oak', TREE_COLOURS.oak)), bushDry: hex(dryColour('BlueberryBush', TREE_COLOURS.bush)),
 };
 export type Palette = typeof paletteDefaults;
 export const slots = Object.keys(paletteDefaults) as (keyof Palette)[];

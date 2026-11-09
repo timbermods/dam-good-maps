@@ -68,7 +68,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_GROUND_MEAN, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, NOISE_NODES, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_GROUND_MEAN, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, NOISE_NODES, GAME_SKY, ownAlbedo, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_SHARE_BLEND, WATER_UI } from "./waterPalette";
 import { BADWATER_TEXTURE_SIZE, DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
@@ -490,8 +490,8 @@ const GAME_WATER_LIGHT = /* glsl */ `#define GAME_SUN_COLOUR ${glColor(GAME_LIGH
 
 /** A source the pointer's water comes from (D196): its model takes the glow its water does (the water's colour mixed
  *  0.45 toward `WATER_UI.sourceGlow`), as a tint of its rock's main colour, so a source's rock in the middle of its
- *  glowing water glows with it. */
-const shine = (rock: readonly number[]): Rgb => [0, 1, 2].map((j) => 0.55 + (0.45 * WATER_UI.sourceGlow[j]) / rock[j]) as unknown as Rgb;
+ *  glowing water glows with it. The glow is a colour of our own on the game's rock, so it is its albedo at `ownAlbedo`. */
+const shine = (rock: readonly number[]): Rgb => [0, 1, 2].map((j) => 0.55 + (0.45 * ownAlbedo(WATER_UI.sourceGlow)[j]) / rock[j]) as unknown as Rgb;
 
 /** The tints an editing aid puts on an object after the grade (objectMaterial), by index: 0 the highlight's
  *  (`aidTint`, Remove's red), 1 a source's (`sourceTint`), 2–4 the placement ghost's where it fits, warns or is refused
@@ -852,8 +852,6 @@ export interface ShaderHooks {
   objectColor?: string;
   /** Before `vec3 p = position;` */
   objectVertex?: string;
-  /** The wrapped sun light (an expression; Standard: `dot(n, sunDir) * 0.75 + 0.25`). */
-  objectSun?: string;
   /** Its final colour before the finish (an expression; Standard: `vColor * light`). */
   objectFinal?: string;
   /** The sun on an object or a fall under a roof (an expression of `cave`, the light volume's sky in x and sun in y,
@@ -862,6 +860,67 @@ export interface ShaderHooks {
 }
 
 const hook = (h: ShaderHooks | undefined, k: keyof ShaderHooks, standard = ""): string => h?.[k] ?? standard;
+
+/** The game's light (D497; D135 as amended 2026-11-09: the objects' too), shared by the terrain's program and the
+ *  objects': in display values, as the game works in Gamma colour space. Uses \`sunDir\`, \`cameraPosition\` and the
+ *  program's \`vWorld\`. */
+const GAME_LIT = /* glsl */ `      /** The game's light on a face (palette.ts GAME_LIGHT), in display values as the game works in Gamma colour
+       *  space: Unity's ambient probe by its normal (palette.ts GAME_AMBIENT_SH: the engine's, captured, turned to display values), and the sun
+       *  by its shadow (\`sun\`, 0–1), times the diffuse share. A factor on the face's display colour. */
+      vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
+      /** The sun the last face lit took (gameLight's \`sun\`), for its specular. */
+      float gameSunNow = 0.0;
+      vec3 gameLight(vec3 n, float sun) {
+        gameSunNow = sun;
+        // (the terrain's faces face up, down or sideways: there the SH's display values are constants; any other normal
+        // works them out)
+        vec3 ambient = n.y > 0.999 ? ${glColor3(gameAmbient(1))} : n.y < -0.999 ? ${glColor3(gameAmbient(-1))} : abs(n.y) < 0.001 ? ${glColor3(gameAmbient(0))}
+          : toDisplay(max(${glColor3(GAME_AMBIENT_SH.c0)} + ${glColor3(GAME_AMBIENT_SH.c1)} * n.y + ${glColor3(GAME_AMBIENT_SH.c2)} * (3.0 * n.y * n.y - 1.0), vec3(0.0)));
+        return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
+      }
+      /** What URP's lit shader adds to the diffuse light (the terrain's materials: _Metallic 0.05, smoothness 0 on the
+       *  ground and 0.05 on its cliffs): the environment's reflection (the game's probe at its roughest mip,
+       *  palette.ts GAME_ENV, by the reflected direction, × m_ReflectionIntensity, × 1 / (roughness² + 1) × the
+       *  Fresnel blend toward the grazing term) and the sun's GGX highlight by its shadow. */
+      vec3 gameSpecular(vec3 n, vec3 albedo, float smoothness) {
+        vec3 v = normalize(cameraPosition - vWorld);
+        float pr = 1.0 - smoothness;
+        float r = max(pr * pr, 0.0078125);
+        float r2 = max(r * r, 6.103515625e-5);
+        vec3 f0 = mix(vec3(0.04), albedo, 0.05);
+        float grazing = clamp(smoothness + ${f(Math.round((1 - GAME_LIGHT.diffuse) * 1e6) / 1e6)}, 0.0, 1.0);
+        float fresnel = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 4.0);
+        vec3 rd = reflect(-v, n);
+        vec3 env = rd.y >= 0.0 ? mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.up)}, rd.y) : mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.down)}, -rd.y);
+        vec3 c = env * ${f(GAME_FINISH.reflectionIntensity)} / (r2 + 1.0) * mix(f0, vec3(grazing), fresnel);
+        vec3 hv = normalize(sunDir + v);
+        float nh = clamp(dot(n, hv), 0.0, 1.0);
+        float lh = clamp(dot(sunDir, hv), 0.0, 1.0);
+        float d = nh * nh * (r2 - 1.0) + 1.00001;
+        float spec = r2 / (d * d * max(0.1, lh * lh) * (r * 4.0 + 2.0));
+        return c + f0 * spec * ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * gameSunNow;
+      }
+      /** The game's light on an object (D135 as amended 2026-11-09): the terrain's ambient by the normal and sun by its
+       *  shadow, at the objects' diffuse share (palette.ts GAME_LIGHT \`objectDiffuse\`: VegetationURP's and
+       *  EnvironmentURP's lit model at metallic 0, their maps unset or black; no occlusion term on the trees, bushes,
+       *  ruins, start or sources). */
+      vec3 gameObjectLight(vec3 n, float sun) {
+        return gameLight(n, sun) * ${f(Math.round((GAME_LIGHT.objectDiffuse / GAME_LIGHT.diffuse) * 1e6) / 1e6)};
+      }
+      /** URP's specular on an object: metallic 0 and smoothness 0 (palette.ts GAME_LIGHT \`objectDiffuse\`): the
+       *  environment's reflection at its roughest, f0 0.04 and the grazing term 0.04, and the sun's GGX highlight at
+       *  roughness 1, by the shadow \`gameObjectLight\` was last given. A few hundredths of the light. */
+      vec3 gameObjectSpecular(vec3 n) {
+        vec3 v = normalize(cameraPosition - vWorld);
+        vec3 rd = reflect(-v, n);
+        vec3 env = rd.y >= 0.0 ? mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.up)}, rd.y) : mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.down)}, -rd.y);
+        vec3 c = env * ${f(GAME_FINISH.reflectionIntensity)} * 0.5 * 0.04;
+        vec3 hv = normalize(sunDir + v);
+        float lh = clamp(dot(sunDir, hv), 0.0, 1.0);
+        float spec = 1.0 / (1.00001 * 1.00001 * max(0.1, lh * lh) * 6.0);
+        return c + 0.04 * spec * ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * gameSunNow;
+      }
+`;
 
 /** Shared GLSL: a tile's data, and the light volume's roofed air (caveLight.ts): the terrain's, and the objects'
  *  and the water's on a map with terrain above terrain (`CAVES`). */
@@ -1214,43 +1273,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       #if CUTAWAY
       ${OVERLAY_RUN}
       #endif
-      ${CAVE_AIR}      /** The game's light on a face (palette.ts GAME_LIGHT), in display values as the game works in Gamma colour
-       *  space: Unity's ambient probe by its normal (palette.ts GAME_AMBIENT_SH: the engine's, captured, turned to display values), and the sun
-       *  by its shadow (\`sun\`, 0–1), times the diffuse share. A factor on the face's display colour. */
-      vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
-      /** The sun the last face lit took (gameLight's \`sun\`), for its specular. */
-      float gameSunNow = 0.0;
-      vec3 gameLight(vec3 n, float sun) {
-        gameSunNow = sun;
-        // (the terrain's faces face up, down or sideways: there the SH's display values are constants; any other normal
-        // works them out)
-        vec3 ambient = n.y > 0.999 ? ${glColor3(gameAmbient(1))} : n.y < -0.999 ? ${glColor3(gameAmbient(-1))} : abs(n.y) < 0.001 ? ${glColor3(gameAmbient(0))}
-          : toDisplay(max(${glColor3(GAME_AMBIENT_SH.c0)} + ${glColor3(GAME_AMBIENT_SH.c1)} * n.y + ${glColor3(GAME_AMBIENT_SH.c2)} * (3.0 * n.y * n.y - 1.0), vec3(0.0)));
-        return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
-      }
-      /** What URP's lit shader adds to the diffuse light (the terrain's materials: _Metallic 0.05, smoothness 0 on the
-       *  ground and 0.05 on its cliffs): the environment's reflection (the game's probe at its roughest mip,
-       *  palette.ts GAME_ENV, by the reflected direction, × m_ReflectionIntensity, × 1 / (roughness² + 1) × the
-       *  Fresnel blend toward the grazing term) and the sun's GGX highlight by its shadow. */
-      vec3 gameSpecular(vec3 n, vec3 albedo, float smoothness) {
-        vec3 v = normalize(cameraPosition - vWorld);
-        float pr = 1.0 - smoothness;
-        float r = max(pr * pr, 0.0078125);
-        float r2 = max(r * r, 6.103515625e-5);
-        vec3 f0 = mix(vec3(0.04), albedo, 0.05);
-        float grazing = clamp(smoothness + ${f(Math.round((1 - GAME_LIGHT.diffuse) * 1e6) / 1e6)}, 0.0, 1.0);
-        float fresnel = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 4.0);
-        vec3 rd = reflect(-v, n);
-        vec3 env = rd.y >= 0.0 ? mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.up)}, rd.y) : mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.down)}, -rd.y);
-        vec3 c = env * ${f(GAME_FINISH.reflectionIntensity)} / (r2 + 1.0) * mix(f0, vec3(grazing), fresnel);
-        vec3 hv = normalize(sunDir + v);
-        float nh = clamp(dot(n, hv), 0.0, 1.0);
-        float lh = clamp(dot(sunDir, hv), 0.0, 1.0);
-        float d = nh * nh * (r2 - 1.0) + 1.00001;
-        float spec = r2 / (d * d * max(0.1, lh * lh) * (r * 4.0 + 2.0));
-        return c + f0 * spec * ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * gameSunNow;
-      }
-      /** The game's altitude ramps (palette.ts ALTITUDE_RAMP, as multipliers: twice the texel), read as its texture is,
+      ${CAVE_AIR}${GAME_LIT}      /** The game's altitude ramps (palette.ts ALTITUDE_RAMP, as multipliers: twice the texel), read as its texture is,
        *  32 texels over the ground's height up to the ceiling, filtered between them. */
       const vec3 ALT_GRASS[32] = vec3[32](vec3(0.8784, 0.9804, 1.0431), vec3(0.8941, 0.9882, 1.051), vec3(0.8784, 1.0039, 1.0902), vec3(0.9255, 0.9882, 1.0431), vec3(0.9882, 0.9804, 0.9804), vec3(0.9882, 1.0118, 0.9961), vec3(0.9804, 1.0275, 1.0431), vec3(0.9804, 1.0353, 1.0667), vec3(0.949, 1.0588, 1.0667), vec3(0.9725, 1.0824, 1.051), vec3(0.9882, 1.0824, 1.0667), vec3(1.0118, 1.098, 1.1059), vec3(1.0745, 1.0824, 1.051), vec3(1.1294, 1.0902, 1.0118), vec3(1.1373, 1.1137, 1.0275), vec3(1.1216, 1.1137, 1.0588), vec3(1.1059, 1.1137, 1.098), vec3(1.1137, 1.1137, 1.0824), vec3(1.1765, 1.1216, 1.0039), vec3(1.2078, 1.1294, 0.9804), vec3(1.1686, 1.1373, 1.051), vec3(1.1451, 1.1216, 1.1373), vec3(1.1686, 1.1216, 1.1137), vec3(1.2157, 1.1451, 1.0588), vec3(1.0431, 0.9961, 1.0039), vec3(1.051, 1.0039, 1.0039), vec3(1.0431, 1.0118, 1.0118), vec3(0.9961, 0.9725, 0.9647), vec3(1.0431, 1.0118, 1.0196), vec3(0.9412, 0.9255, 0.949), vec3(0.9333, 0.949, 0.9725), vec3(0.9176, 0.9882, 1.0196));
       const vec3 ALT_DESERT[32] = vec3[32](vec3(0.9647, 1.098, 1.1765), vec3(0.9804, 1.1059, 1.1686), vec3(0.9882, 1.1059, 1.1765), vec3(0.9804, 1.0902, 1.2235), vec3(1.0902, 1.0431, 1.0902), vec3(1.1686, 1.051, 1.0039), vec3(1.1294, 1.0902, 1.0745), vec3(1.0902, 1.0902, 1.1686), vec3(1.051, 1.0745, 1.2235), vec3(1.0667, 1.0824, 1.1922), vec3(1.1765, 1.0824, 1.0275), vec3(1.1922, 1.0902, 0.9725), vec3(1.1137, 1.0902, 1.0824), vec3(1.0353, 1.0588, 1.2392), vec3(1.0588, 1.0745, 1.2), vec3(1.1294, 1.098, 1.0667), vec3(1.1608, 1.0824, 1.0667), vec3(1.1529, 1.0824, 1.0588), vec3(1.1451, 1.098, 1.0667), vec3(1.1451, 1.1059, 1.0667), vec3(1.1451, 1.098, 1.0667), vec3(1.1294, 1.0824, 1.0824), vec3(1.1059, 1.1059, 1.098), vec3(1.0667, 1.1529, 1.2), vec3(1.051, 1.1922, 1.2471), vec3(1.0824, 1.1843, 1.2157), vec3(1.0588, 1.1765, 1.2784), vec3(1.1373, 1.1373, 1.1922), vec3(1.2471, 1.1294, 1.0745), vec3(1.2314, 1.1686, 1.1294), vec3(1.1843, 1.1765, 1.2157), vec3(1.1608, 1.1686, 1.2706));
@@ -2586,8 +2609,8 @@ export const RUIN_LATTICE_STRUT = 0.28;
 export const RUIN_INSIDE_SHADE = 0.68;
 export const RUIN_INSIDE_COVER = 0.75;
 
-/** Instanced objects: each vertex's own colour times the instance's tint, lit like the terrain,
- *  darker toward the model's foot, and in the terrain's shadow where it stands in one. An
+/** Instanced objects: each vertex's own colour (its albedo) times the instance's tint, lit as the game lights them
+ *  (the terrain's light, `GAME_LIT`'s `gameObjectLight`), in the terrain's shadow where it stands in one. An
  *  instance with a minimum size (`grow`: pixels a unit of the model must take at least, how far
  *  it rises for each time it grows, and the most it grows) is drawn larger when it would be
  *  smaller. A vertex's `lod` says which view its part belongs to: 0 any, 1 close up (a unit of the
@@ -2620,7 +2643,6 @@ export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHoo
       varying float vFade;
       varying vec3 vNormal;
       varying vec3 vWorld;
-      varying float vFoot;
       varying float vLod;
       void main() {
         mat4 m = modelMatrix * instanceMatrix;
@@ -2650,7 +2672,6 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
           }
           vColor *= ic;
         #endif
-        vFoot = position.y;
         vec3 p = ${hook(h, "objectPosition", "position")};
         #if !LITE
         if (lod > 0.5 || (grow.x > 0.0 && markers > 0.5)) {
@@ -2678,11 +2699,10 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
       varying vec3 vAid;
       varying vec3 vNormal;
       varying vec3 vWorld;
-      varying float vFoot;
       varying float vLod;
       varying float vFade;
       uniform vec4 objectFade;
-      ${common(h)}${CAVE_POINT}${DITHER_GLSL}
+      ${common(h)}${CAVE_POINT}${DITHER_GLSL}${GAME_LIT}
       void main() {
         ${SUN_PX_GLSL}
         // the game's layers: what stands above the slice is cut away
@@ -2714,21 +2734,21 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         }
         #endif
         vec3 n = normalize(vNormal);
-        float ao = mix(0.72, 1.0, smoothstep(0.0, 0.45, vFoot));
         float lit = sunLit(vec2(vWorld.x, -vWorld.z), vWorld.y);
-        // soft (wrapped) sun light, kinder to leaves
-        float ndl = clamp(${hook(h, "objectSun", "dot(n, sunDir) * 0.75 + 0.25")}, 0.0, 1.0);
-        vec3 light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao + sunColor * 0.5 * ndl * lit;
+        // the game's light, as the terrain's (D135 as amended 2026-11-09): the ambient probe by the normal, unoccluded,
+        // and the sun by n·L and its shadow; the game's plants and landmarks have no wrapped light and no darkening
+        // toward their foot
+        vec3 light = gameObjectLight(n, lit);
         #ifdef CAVES
-          // under a roof (a tree, a ruin, a source, a slope in a cave or under an overhang): the open air's sky (D497),
+          // under a roof (a tree, a ruin, a source, a slope in a cave or under an overhang): the open air's ambient (D497),
           // and the sun only where it reaches
           vec3 cave = caveAirAt(vWorld + n * 0.05);
-          if (cave.z > 0.5) light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao + sunColor * 0.5 * ndl * ${hook(h, "roofedSun", "sunMarchAt(vWorld)")};
+          if (cave.z > 0.5) light = gameObjectLight(n, ${hook(h, "roofedSun", "sunMarchAt(vWorld)")});
         #endif
         // (faded round the pointer, as coverage: that share of the pixel's samples)
         if (objectFade.w > 0.5 && objectFade.w < 1.5) coverage *= vFade;
         // (the object as the game draws it, fogged and graded; a highlight, an editing aid, tints it after: D497)
-        vec3 graded = finish((${hook(h, "objectFinal", "vColor * light")}) * inside, vWorld);
+        vec3 graded = finish((${hook(h, "objectFinal", "vColor * light")} + gameObjectSpecular(n)) * inside, vWorld);
         gl_FragColor = bloomSource > 0.5 ? vec4(gpSource, coverage) : vec4(min(graded * vAid, 1.0), coverage);
       }
     `,

@@ -277,12 +277,17 @@ describe("objects from afar", () => {
   });
 
   it("a dead tree is bare weathered wood, as the game's: no green, lighter all over than the living tree's crown (D135 as amended 2026-10-29)", () => {
+    // (the game's colours straight since 2026-11-09, D135 as amended: lighter than every colour of the living crown,
+    // rather than than 0.28, which held the old colours at our lightness)
+    const living = meshes.get("Pine")!.geometry.getAttribute("pcolor")!.array;
+    let crown = 0;
+    for (let k = 0; k < living.length; k += 3) if (living[k + 1] > living[k] && living[k + 1] > living[k + 2]) crown = Math.max(crown, lum([living[k], living[k + 1], living[k + 2]]));
+    expect(crown).toBeGreaterThan(0);
     const col = meshes.get("Pine.dead")!.geometry.getAttribute("pcolor")!.array;
     for (let k = 0; k < col.length; k += 3) {
-      expect(lum([col[k], col[k + 1], col[k + 2]])).toBeGreaterThan(0.28);
+      expect(lum([col[k], col[k + 1], col[k + 2]])).toBeGreaterThan(crown + 0.03);
       expect(col[k + 1]).toBeLessThanOrEqual(col[k]);
     }
-    const living = meshes.get("Pine")!.geometry.getAttribute("pcolor")!.array;
     let dark = 0;
     for (let k = 0; k < living.length; k += 3) if (lum([living[k], living[k + 1], living[k + 2]]) < 0.35) dark++;
     expect(dark / (living.length / 3)).toBeGreaterThan(0.6);
