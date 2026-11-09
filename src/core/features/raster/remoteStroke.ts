@@ -20,6 +20,12 @@
 // with each answer's land and again at the end (#873): dabs that reach over water but change no tile grow
 // the worker's record with no land to carry it, and an operation keeping a shorter record weathered
 // those tiles differently from the land the page showed.
+//
+// A worker that never answers (it died, or hangs) would hold the stroke's landing forever, and with it the undo,
+// redo, History jump and new stroke that wait for it (#884). Once let go, the stroke waits for each call only as
+// long as the call can take (`answerBound`): then it is taken back, as Esc takes one back, and the worker is
+// started again for the next stroke (`WeatherChannel.restart`). The bound only arms a timer: a stroke that
+// answers in time costs nothing more.
 
 import type { BrushParams } from "./brush";
 import type { Rect } from "./brush";
@@ -43,7 +49,25 @@ export interface WeatherChannel {
    *  preview recorded them, once its dabs are in. */
   end(): Promise<{ pre: Uint8Array; protect: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null>;
   cancel(): void;
+  /** The worker never answered (#884): a fresh one for the next stroke. */
+  restart?(): void;
 }
+
+/** What the page says when the worker never answered a stroke in time (#884), as Esc took it back. */
+export const WEATHER_SILENT = "Naturalize stopped answering, so the stroke was taken back. Paint it again.";
+
+/** How long the page waits for one call to the worker (ms, #884): a few seconds, plus the most a dab of this size
+ *  can take for each dab the call carries. Measured warm in Node on canyon at Strength 10 (#884): at 256² a dab takes
+ *  p50 3 / 12 / 25 / 74 ms at Size 5 / 32 / 64 / 128 (the slowest 327 ms, at 128) and a batch of 30 dabs at Size 128
+ *  2.2 s (73 ms a dab); at 512², Size 128, p50 71 ms, the slowest 308 ms, a 30-dab batch 2.87 s (96 ms a dab); a
+ *  stroke's start 4–23 ms and its end under a millisecond. A long press sends calls of over 100 dabs (the page adds
+ *  30 a second while a call is out). The allowance per dab, 0.4 ms + Size² × 80 µs (1.3 s at Size 128), is 13.7 times
+ *  a 512² batch's dab and 18 times a 256² one's, and 4 times the slowest single dab, so a CPU four times slower
+ *  (D46) still lands. */
+export function answerBound(dabs: number, size: number): number {
+  return ANSWER_WAIT_MS + dabs * (0.4 + size * size * 0.08);
+}
+export const ANSWER_WAIT_MS = 4000;
 
 export class RemotePreview {
   readonly W: number;
@@ -60,6 +84,14 @@ export class RemotePreview {
   private live = true;
   /** Taken back (`restore`): `done` builds nothing. */
   private dropped = false;
+  /** Taken back because the worker never answered in time (#884). */
+  silent = false;
+  /** When the call with the worker now must have answered by (`Date.now()` ms), or null when none is out. */
+  private due: number | null = null;
+  /** While `done` waits: sets its timer again when a call goes out or answers. */
+  private alarm: (() => void) | null = null;
+  /** While `done` waits: ends it, the stroke taken back. */
+  private quit: (() => void) | null = null;
   private dabCount = 0;
   /** The dabs (and their pressures) waiting for the call before them to answer: sent as one call. */
   private waiting: { dabs: number[]; pressure: number[] | undefined } | null = null;
@@ -82,7 +114,21 @@ export class RemotePreview {
     this.start = heights.slice();
     this.pre = pre;
     this.protect = protect;
-    this.chain = channel.begin({ ...record }, ground);
+    this.chain = this.call(0, () => channel.begin({ ...record }, ground));
+  }
+
+  /** A call to the worker, with how long it may take (`answerBound`) while it is out. */
+  private call<T>(dabs: number, send: () => Promise<T>): Promise<T> {
+    this.due = Date.now() + answerBound(dabs, this.record.size);
+    this.alarm?.();
+    const answer = send();
+    // (beside the chain, not in it: the answer reaches the stroke as soon as it did before)
+    const answered = () => {
+      this.due = null;
+      this.alarm?.();
+    };
+    answer.then(answered, answered);
+    return answer;
   }
 
   /** More dabs: sent once the call before them answers (with any that came meanwhile), their land shown
@@ -104,7 +150,7 @@ export class RemotePreview {
       .then(() => {
         // (the batch goes: what comes from now on waits for its answer)
         if (this.waiting === batch) this.waiting = null;
-        return this.live ? this.channel.add(batch.dabs, batch.pressure) : null;
+        return this.live ? this.call(batch.dabs.length >> 1, () => this.channel.add(batch.dabs, batch.pressure)) : null;
       })
       .then((land) => this.show(land));
     return null;
@@ -116,7 +162,7 @@ export class RemotePreview {
     const r = rigid.map((v) => [v[0], v[1], v[2], v[3]] as [number, number, number, number]);
     // (dabs after this go after it)
     this.waiting = null;
-    this.chain = this.chain.then(() => (this.live ? this.channel.finish(r) : null)).then((land) => {
+    this.chain = this.chain.then(() => (this.live ? this.call(r.length, () => this.channel.finish(r)) : null)).then((land) => {
       if (land) this.finished = grow(this.finished, land.rect);
       this.show(land);
     });
@@ -129,13 +175,45 @@ export class RemotePreview {
   }
 
   /** The stroke is done: its heights before the integrity pass and its protected tiles (in `pre` and
-   *  `protect`), and the worker's whole record, once every dab is shown. False when it was taken back
-   *  (`restore`) before it ended (an editor that closed while its last land was coming, #880): it builds
-   *  no operation, and the worker is never asked for its end. */
-  async done(): Promise<boolean> {
+   *  `protect`), and the worker's whole record, once every dab is shown; `beforeEnd` runs once they are (the
+   *  pieces that ride the stroke whole go then, `finish`). False when it was taken back (`restore`) before it
+   *  ended (an editor that closed while its last land was coming, #880), or when the worker never answered a call
+   *  in time (`answerBound`; `silent`, #884: taken back as Esc takes a stroke back, and the worker started again):
+   *  it builds no operation, and the worker is never asked for its end. */
+  async done(beforeEnd?: () => void): Promise<boolean> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // (taken back meanwhile, by the timer or by Esc or the editor closing: done at once, whether or not the worker
+    // ever answers)
+    const takenBack = new Promise<false>((resolve) => (this.quit = () => resolve(false)));
+    this.alarm = () => {
+      clearTimeout(timer);
+      if (this.due === null || this.dropped) return;
+      timer = setTimeout(() => {
+        if (this.dropped) return;
+        this.silent = true;
+        this.restore();
+        this.channel.restart?.();
+      }, Math.max(0, this.due - Date.now()));
+    };
+    this.alarm();
+    try {
+      return this.dropped ? false : await Promise.race([this.land(beforeEnd), takenBack]);
+    } finally {
+      clearTimeout(timer);
+      this.alarm = null;
+      this.quit = null;
+    }
+  }
+
+  private async land(beforeEnd?: () => void): Promise<boolean> {
     await this.settled();
     if (this.dropped) return false;
-    const r = await this.channel.end();
+    if (beforeEnd) {
+      beforeEnd();
+      await this.settled();
+      if (this.dropped) return false;
+    }
+    const r = await this.call(0, () => this.channel.end());
     this.live = false;
     if (this.dropped) return false;
     if (r) {
@@ -152,6 +230,7 @@ export class RemotePreview {
     this.live = false;
     this.dropped = true;
     this.channel.cancel();
+    this.quit?.();
     const b = this.bounds;
     if (!b) return null;
     for (let y = b.y0; y <= b.y1; y++)

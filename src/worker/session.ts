@@ -9,7 +9,7 @@
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView, type VersionParent } from "../core/doc/document";
-import { MapSession, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
+import { MapSession, STEP_GONE, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
 import type { BlocksParams } from "../core/doc/blockTool";
 import { masksOf } from "../core/features/build";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
@@ -1962,12 +1962,19 @@ export function redo(): SessionUpdate {
   return changed(s, s.redo(), [], t0);
 }
 
-/** Step back or forward to history entry `index` (the state after it; −1: before the first). */
-export function jump(index: number): SessionUpdate {
+/** Step back or forward to history entry `index` (the state after it; −1: before the first), or to the step whose
+ *  first operation is `step` wherever it stands now (a History row clicked while a stroke was on its way, #884),
+ *  refused when that step is gone. */
+export function jump(index: number, step?: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return changed(s, false, [blocked], t0);
+  if (step !== undefined) {
+    const at = s.stepIndex(step);
+    if (at === null) return changed(s, false, [STEP_GONE], t0);
+    index = at;
+  }
   let applied = s.history().filter((h) => h.applied).length - 1;
   let moved = false;
   while (applied > index && s.undo()) {

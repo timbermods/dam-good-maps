@@ -842,7 +842,14 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Let
   go, a stroke goes on the history once its last land is in: an undo, a redo or a History jump pressed meanwhile waits
   for it, then acts, so Z takes that stroke back as it takes any other brush's; the editor closing (a new or opened
-  map) forgets a stroke still on its way, as Esc does, so nothing of it reaches the next map (#880). A new
+  map) forgets a stroke still on its way, as Esc does, so nothing of it reaches the next map (#880). A History row
+  clicked meanwhile goes to the step it shows wherever that step stands once the stroke lands, refused with "That
+  step is gone: a newer edit replaced it." when the stroke replaced it (an undone step). The page waits for each call
+  only as long as it can take (`answerBound`: 4 s, plus 0.4 ms + Size² × 80 µs a dab it carries, 1.3 s at Size 128,
+  #884; on canyon at Size 128, Strength 10, that is 13.7 times a dab of a 30-dab batch at 512², 96 ms, and 18 times one
+  at 256², 73 ms, and 4 times the slowest single dab, 308 ms at 512² and 327 ms at 256²): a worker that never answers in time has its stroke taken back as Esc takes one back (no
+  land, water or operation), the page says "Naturalize stopped answering, so the stroke was taken back. Paint it
+  again.", what waited for the stroke goes ahead, and the worker is started again for the next stroke. A new
   stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
   whatever its foot took, pulling back above water too), rule 3 (dab by dab, some
   cliffs' scree slopes lost, so a repeated stroke kept cutting those cliffs back), with D399's first rule
