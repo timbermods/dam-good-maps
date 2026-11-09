@@ -69,9 +69,9 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   blocks only for real bugs and anything that breaks what players get; polish goes in a follow-up. The browser specs and
   the heavier suites run on dev's tip after the merge, and nightly; a failure there is fixed forward at once by whoever's
   merge broke it, or that merge is reverted. The planning session watches dev's runs and sends each failure to its owner.
-  No full run by hand except for a release. A browser spec that draws the High look for minutes runs alone on its runner
-  (playwright.config.ts's `alone` project, CI's `browser (alone)` job): any spec on the runner's second worker makes its
-  software-drawn frames about three times as slow (run 42592717654). The eight shards run the `shared` project.
+  No full run by hand except for a release. The browser shards run one worker each (fifteen shards since 2026-11-09): a
+  second worker beside a spec that draws in software made it two to three times slower and red (runs 42592717654,
+  42599783087). A shard that outgrows its 30 minutes gets more shards, never a second worker or a longer limit.
   **A re-merge of dev keeps its approval when the conflict was only in `docs/decisions/*.md`,** the two sides having changed
   different decision lines, and `tools/mergedecisions.py` resolved it. That merge commit says "decisions merged by
   tools/mergedecisions.py", and the merge loop runs `python tools/mergedecisions.py --check <merge commit>` on it before

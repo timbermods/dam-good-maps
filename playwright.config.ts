@@ -19,19 +19,17 @@ const checkoutPort = () => {
   return p;
 };
 const port = Number(process.env.DGM_E2E_PORT ?? (process.env.CI ? 4173 : checkoutPort()));
-// The specs that need a runner's cores to themselves (project "alone"; the rest are "shared"): look-high draws the High
-// look for minutes, and in CI's software drawing its frames cost about three times as much with any other spec on the
-// runner's second worker (dev's run 42592717654: each test 2.5 to 3.5 times its time alone, :77 past its 180 s). CI runs
-// them in a job of their own on one worker (ci.yml's `browser-alone`) and the eight shards run the rest, so no shard
-// layout can put a neighbour beside them.
-const ALONE = /[\\/]look-high\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 180_000,
   fullyParallel: false,
-  // off CI, two workers at most (DGM_E2E_WORKERS overrides): the machine is shared by several sessions' agents
-  workers: process.env.CI ? undefined : Number(process.env.DGM_E2E_WORKERS ?? 2),
+  // On CI, one worker per runner: each spec draws in software (SwiftShader) on the runner's four cores, and a second
+  // worker beside it made whichever spec lost the cores two to three times slower and red (dev's runs 42592717654,
+  // look-high.spec.ts:77 past its 180 s; 42599783087, editGlow.spec.ts:236 past a 5 s wait beside the forces specs).
+  // More shards carry the time instead (ci.yml). Off CI, two workers at most (DGM_E2E_WORKERS overrides): the machine
+  // is shared by several sessions' agents.
+  workers: process.env.CI ? 1 : Number(process.env.DGM_E2E_WORKERS ?? 2),
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
     trace: "retain-on-failure",
@@ -55,10 +53,6 @@ export default defineConfig({
       ],
     },
   },
-  projects: [
-    { name: "shared", testIgnore: ALONE },
-    { name: "alone", testMatch: ALONE, workers: 1 },
-  ],
   webServer: {
     command: `npx vite build --mode e2e && npx vite build --base /dam-good-maps/public-build/ --outDir dist/public-build && npx vite preview --port ${port} --strictPort`,
     url: `http://localhost:${port}/dam-good-maps/`,
