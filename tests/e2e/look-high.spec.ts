@@ -127,7 +127,7 @@ test("the Standard look is the same after High as before it", async ({ page }) =
       return { key: k, share: n / px.length, max, size: `${g.drawingBufferWidth}x${g.drawingBufferHeight}` };
     }, key);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard"));
-  // (the patterns are made in the bake worker after the view opens, flat at their means until then: made before the
+  // (the patterns are made in a worker of their own after the view opens, flat at their means until then: made before the
   // first frame, so none lands between the frames compared)
   await page.evaluate(() => window.dgm3d!.renderer.patternsMade());
   // (the view settles its size first: the legend beside it lays out after the map. Watched in the page until neither
@@ -298,7 +298,7 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
 test("contamination draws the game's rusty veins over dry earth and over grass, the same at any level, and clears exactly, in Standard and High (D334, D154 as amended 2026-11-07)", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
-  // (the pattern is made in the bake worker after the view opens, flat at its mean until then)
+  // (the pattern is made in a worker of its own after the view opens, flat at its mean until then)
   await page.evaluate(() => window.dgm3d!.renderer.patternsMade());
   for (const choice of ["standard", "high"] as const) {
     const result = await page.evaluate((c) => {

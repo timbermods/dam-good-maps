@@ -2562,6 +2562,25 @@ section's falls short (2), the albedo section's (1)). Its stored water is 0.01-0
   behind its water). The water's mesh is four corners a tile, so a corner open on both sides is still cut deeper than
   the game's (V3).
 
+## The water's textures off the moving water's path (D453; `perf/water-texture-bake`)
+
+#901 made the once-a-page texture job (the water's surface, badwater's pattern, contaminated ground's) slower, and it
+ran in the page's bake worker, so on a first visit the opening map's first moving-water jobs queued behind it.
+
+- **Its own worker** (`high/fields.ts` `textureBake`, closed once the textures are made): the first map's flow jobs no
+  longer wait. Chrome on the dev server, the opening map (`s=4242`, 128², riverValley), from the map opening to its
+  first moving water: 2.5–4.2 s before (five runs, 2.1–3.8 s of it queued behind the textures); 0.76–1.4 s after (ten
+  runs, most near 0.8; the machine was busy). The rest is the bake worker and the page's thread while the map opens,
+  not the textures.
+- **Cheaper to make, the same bytes:** the rank remap sorts the indices by a radix sort (it had a typed sort and a
+  bisection a texel); the noises at the texels' middles are worked out a row at a time (`noiseRows`); a band with no
+  power skips its random numbers; the FFT swaps without arrays; the ground's cover takes one order statistic
+  (`nthSmallest`) instead of a sort. Chrome, each alone, before → after: the water's 380–460 → 310–335 ms, badwater's
+  790–850 → 545–605 ms, the ground's 150–165 → 115–145 ms; the whole job while the first map opens 2.7–4.6 → 1.3–2.1 s.
+  SHA-256 checksums of the water's, badwater's and the ground's bytes hold them as they were.
+- **Falls short:** the water's own texture is still about 300 ms in Chrome (its Voronoi network and the patches'
+  field), above the 210 ms it took before #901.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
