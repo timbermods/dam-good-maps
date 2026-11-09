@@ -616,7 +616,43 @@ def measure_flow_textures(read, objects, data_dir, preview=None):
                 print(f"  component {3 - k}: spread {vals[k] ** 0.5:.2f} along ({', '.join(f'{x:+.3f}' for x in e)}), "
                       f"5/50/95% {'/'.join(f'{x:+.1f}' for x in np.percentile(score, (5, 50, 95)))}, "
                       f"spectrum centroid {c:.3f} tiles, autocorrelation half-width {a:.3f} tiles")
+                if k == 2:
+                    print(f"     percentiles {'/'.join(map(str, DETAIL_PERCENTILES))}: "
+                          f"{'/'.join(f'{x:+.1f}' for x in np.percentile(score, DETAIL_PERCENTILES))}; min {score.min():+.1f}, max {score.max():+.1f}")
+                if k > 0:
+                    scales(score.reshape(h, w), REPEAT_TILES)
     measure_badwater_textures(textures, data_dir, preview)
+
+
+#: The bands of wavelength (tiles) `scales` measures a field's power in (`waterTextures.ts` `GAME_FLOW_TEXTURES.albedo.first.power`).
+SCALE_BANDS = (16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 0)
+
+
+def scales(field, repeat):
+    """How a tiling field's spread is split across scales: its power by wavelength (`SCALE_BANDS`, tiles; one repeat
+    `repeat` tiles across), the share of its spread left after a Gaussian blur over 0.125 to 2 tiles (the broad
+    mottle a camera far off still sees) and how patchy its fine part is. Numbers only."""
+    import numpy as np
+    from scipy import ndimage
+    h, w = field.shape
+    f = field - field.mean()
+    p = np.abs(np.fft.fft2(f)) ** 2
+    ky = np.fft.fftfreq(h)[:, None] * h
+    kx = np.fft.fftfreq(w)[None, :] * w
+    wave = repeat / np.maximum(np.sqrt(kx * kx + ky * ky), 1e-9)
+    b = SCALE_BANDS
+    share = [p[(wave <= b[i]) & (wave > b[i + 1])].sum() / p.sum() for i in range(len(b) - 1)]
+    print(f"     power by wavelength (tiles) {'/'.join(f'{b[i]:g}-{b[i + 1]:g}' for i in range(len(b) - 1))}: "
+          f"{'/'.join(f'{s:.3f}' for s in share)}")
+    tex = w / repeat
+    broad = [ndimage.gaussian_filter(f, sigma=s * tex, mode="wrap").std() / f.std() for s in (0.125, 0.25, 0.5, 1, 2)]
+    print(f"     share of its spread left after a blur over 0.125/0.25/0.5/1/2 tiles: {'/'.join(f'{x:.3f}' for x in broad)}")
+    # how patchy its fine part is: the spread left in each 0.25-tile neighbourhood (what a blur over 0.25 tile takes
+    # off, its root mean square over the same blur) and how it follows the neighbourhood's mean
+    mean = ndimage.gaussian_filter(f, sigma=0.25 * tex, mode="wrap")
+    local = ndimage.gaussian_filter((f - mean) ** 2, sigma=0.25 * tex, mode="wrap") ** 0.5
+    print(f"     its spread within 0.25 tile, 10/50/90%: {'/'.join(f'{x:.1f}' for x in np.percentile(local, (10, 50, 90)))}; "
+          f"correlation with the mean there {np.corrcoef(mean.ravel(), local.ravel())[0, 1]:+.2f}")
 
 
 def measure_badwater_textures(textures, data_dir, preview=None):

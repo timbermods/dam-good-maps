@@ -568,7 +568,15 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   Three ride these coordinates: `PhysicalWaterAlbedo` (t4, `_MainTex`, 2048² BC7) multiplies the colour, `Water_N`
   (t6, `_BumpMap`, 4096² BC7) is the normal, `WaterContaminationAlbedoEmissionSource` (t9) is badwater's pattern.
   Still water's textures stay put, cross-fading between the jumped copies. Nothing else is drawn along the flow: no
-  streak term; any streak is the albedo texture stretched by the flow.
+  streak term; any streak is the albedo texture stretched by the flow. The albedo by scale (`--textures`, its first
+  principal component, a near-neutral brightness, spread 13.7, skew +3.0): its power by wavelength 0.2 % at 8–16
+  tiles, 2 % 4–8, 6 % 2–4, 13 % 1–2, 20 % 0.5–1, 25 % 0.25–0.5, 21 % 0.125–0.25, 13 % under; a blur over 0.125, 0.25,
+  0.5, 1 and 2 tiles leaves 0.47, 0.32, 0.19, 0.09, 0.04 of its spread. Its bright lines are dense and bright in
+  patches and sparse between them: the spread left in each 0.25-tile neighbourhood runs 6.4 / 10.9 / 17.2 (10th /
+  50th / 90th percentile) and follows the neighbourhood's mean (correlation 0.87). Ours since fix/water-albedo-mottle
+  (`waterTextures.ts` `makeWaterTexture`): the network × a broad Gaussian field's exponential, remapped by rank to
+  that distribution (0.49, 0.32, 0.18, 0.09, 0.03; 6.0 / 10.1 / 17.7, 0.92); before it, crisp lines evenly bright
+  (0.34, 0.22, 0.15, 0.10, 0.04; 9.4 / 12.8 / 16.1, 0.68), 5 % of its power at 1–4 tiles against the game's 19 %.
 - **P6, detail albedo.** `PhysicalWaterDetailAlbedo` (t5) at xz × 0.015 (67 tiles a repeat), still
   (`_DetailAlbedoSpeed` 0), overlaid on colour × albedo (ps 462-477). Read exactly (fix/water-detail): a = P4's colour
   × P5's albedo, per channel r, g, b against the detail's r, g, b: 2 a d where a ≤ 0.5, 1 − 2 (1 − a)(1 − d) above (a
@@ -689,7 +697,7 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Crests' light teal (`WATER_CREST` × 0.3 by the ripples' slope) | S | (b) | none |
 | `chop` streaks in the streak colours (× 0.45) | H | (b) | none |
 | Light network (`cracks`), ribbons, broad swells, rolling packets, × (0.8 + 0.4 broad), darker with speed, `hlRough` | H | (b) | none: the only light terms are P12 and P15 |
-| Albedo texture carried by the flow | S, H | (c), missing | P5: `PhysicalWaterAlbedo` × colour (ps 419-437) |
+| Albedo texture carried by the flow | S, H | (a): our own texture at the game's statistics, its brightness's distribution and its split across scales (`makeWaterTexture`, fix/water-albedo-mottle) | P5: `PhysicalWaterAlbedo` × colour (ps 419-437) |
 | Ripple normals: cosines carried by our drift (calm 0.07) | S | (c) | P5, P11: `Water_N` carried by the flow, lit as it is, × 4 for the highlight alone (ps 438-446, 782-813, 904-910) |
 | Ripple normals: three cosines rippling in place over time (`hlRippleNormal(g, time)`), not carried by the flow | H | (c) | P11 |
 | Drift: the current × 0.65, two 12 s phases | S, H | (a) in form, (c) in rate | P5: 2.5 s phases, about 13 f tiles a second |
