@@ -299,6 +299,10 @@ function sunApart(a: Sun, b: Sun): number {
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
+/** Frames this long, this many in a row, are slow (`requestRender`): a GPU's frame takes a few milliseconds of the main
+ *  thread, software drawing's hundreds. */
+const SLOW_FRAME_MS = 100;
+const SLOW_FRAMES = 3;
 
 let waterSurface: Promise<void> | null = null;
 /** The surface the water's flow carries (waterTextures.ts) and contaminated ground's pattern (soilTexture.ts), made once
@@ -526,6 +530,10 @@ export class MapRenderer {
   private seen: IntersectionObserver | null = null;
   private lastViewKey = "";
   private frame = 0;
+  /** The pause before the next frame where the last few were all slow (`requestRender`), and their times (ms). */
+  private breath = 0;
+  private frameMs: number[] = [];
+  private frameEnd = 0;
   private resize: ResizeObserver;
   private disposed = false;
   private drag: { kind: "orbit" | "pan" | "tool"; x: number; y: number; id: number; moved: number; button: number } | null = null;
@@ -4075,10 +4083,27 @@ export class MapRenderer {
   // --------------------------------------------------------------------------------- rendering
 
   requestRender(): void {
-    if (this.frame || this.disposed) return;
+    if (this.frame || this.breath || this.disposed) return;
+    // (a browser drawing slowly, frame after frame (software drawing: about 0.4 s a frame, 2 s on two cores), gets a
+    // breath as long as its frame before the next: else frames run back to back and every turn of the page's own work,
+    // a force's next steps, its keep, a click, waits a whole frame, so a force that plays in 2 s takes 24 s (D453); a
+    // single slow frame (the land rebuilt) never waits, nor a GPU's frames, a few milliseconds of the main thread's)
+    const slow = this.frameMs.length === SLOW_FRAMES ? Math.min(...this.frameMs) : 0;
+    const wait = slow > SLOW_FRAME_MS ? slow - (performance.now() - this.frameEnd) : 0;
+    if (wait > 0) {
+      this.breath = window.setTimeout(() => {
+        this.breath = 0;
+        this.requestRender();
+      }, wait);
+      return;
+    }
     this.frame = requestAnimationFrame(() => {
       this.frame = 0;
+      const t = performance.now();
       this.renderNow();
+      this.frameEnd = performance.now();
+      this.frameMs.push(this.frameEnd - t);
+      if (this.frameMs.length > SLOW_FRAMES) this.frameMs.shift();
     });
   }
 
@@ -4756,6 +4781,7 @@ export class MapRenderer {
     // (a wait on `whenDrawn` ends with the view)
     this.checkDrawn();
     if (this.frame) cancelAnimationFrame(this.frame);
+    clearTimeout(this.breath);
     clearTimeout(this.animTimer);
     clearTimeout(this.probeTimer);
     clearTimeout(this.warmTimer);

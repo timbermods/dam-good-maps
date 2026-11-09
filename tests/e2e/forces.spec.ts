@@ -241,7 +241,8 @@ test(`clicked quickly (D378): the next force plays in full from its first moment
     await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
     const drawn = await page.evaluate(() => {
       const r = (window as unknown as { dgm3d: { renderer: { framesDrawn?: number; bloomFrames?: number } } }).dgm3d.renderer;
-      return `${r.framesDrawn ?? "?"} frames drawn, ${r.bloomFrames ?? "?"} with the bloom`;
+      const t = window.dgmEditor!.forceTiming();
+      return `${r.framesDrawn ?? "?"} frames drawn, ${r.bloomFrames ?? "?"} with the bloom; worked out ${t?.worked ?? "?"} ms, shown ${t?.show ?? "?"}, land final ${t?.final ?? "?"}, kept ${t?.kept ?? "?"}`;
     });
     log.lap(`${key} played`, ` (${drawn})`);
   };
