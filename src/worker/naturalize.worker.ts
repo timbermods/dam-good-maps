@@ -36,3 +36,33 @@ const api = {
 export type NaturalizeApi = typeof api;
 
 expose(api);
+
+/** The weathering's code made ready before the first stroke: a few strokes over a small hill beside a pond, thrown
+ *  away. Cold, a 256² stroke's first dab came back in 33 ms instead of 1 to 3, and its land was the stroke's slowest
+ *  (#868). */
+function warm(): void {
+  const N = 48;
+  const pre = new Uint8Array(N * N);
+  const water = new Float64Array(N * N);
+  const moisture = new Float64Array(N * N);
+  for (let y = 0; y < N; y++)
+    for (let x = 0; x < N; x++) {
+      const i = y * N + x;
+      pre[i] = 3 + Math.max(0, 9 - Math.round(Math.hypot(x - 16, y - 20) / 2)) + ((x * 7 + y * 13) % 3 === 0 ? 1 : 0);
+      if (Math.hypot(x - 34, y - 22) < 5) {
+        pre[i] = 2;
+        water[i] = 1.5;
+      }
+      moisture[i] = Math.max(0, 1 - Math.hypot(x - 34, y - 22) / 12);
+    }
+  const state: TerrainState = { pre, protect: new Uint8Array(N * N), channel: new Uint8Array(N * N), base: null, locked: null, columns: new Int32Array(0), water, moisture, top: 16 };
+  for (let k = 0; k < 4; k++) {
+    const w = new WeatherStroke({ tool: "naturalize", size: 5, strength: 5 + k, seed: 17 + k, weathers: true }, state, pre.slice(), N, N, []);
+    for (let d = 0; d < 24; d++) w.add([Math.round((6 + d * 1.2) * 4), Math.round((18 + 4 * Math.sin(d / 3)) * 4)]);
+    w.finish([[14, 18, 16, 20]]);
+    w.end();
+  }
+}
+
+// (after the first messages are taken: a stroke that comes meanwhile waits for it)
+setTimeout(warm, 0);
