@@ -73,7 +73,7 @@ describe("water", () => {
   it("draws water of any depth as water, as the game does: no film, clean or bad, in every look (D154 as amended 2026-11-09)", () => {
     // the game marks every column deeper than 0 as water and draws it with its one opaque material, its see-through by
     // the depth seen behind it: a film a hundredth of a level deep is the same water as its body, not a faint tint over
-    // its ground; its terrain shader has no input from the water, and its water clips hard at its floor (Q9 P8, P14).
+    // its ground; its terrain shader has no input from the water, and its water clips hard at its floor (Q8; Q9 P14).
     // (D148: from #571 this held a film fading in by its own depth, under three hundredths of a level from 2026-10-29,
     // and the ground under it in the water's hue; the probe's ceiling frames showed the game's pond 0.01-0.03 deep at
     // L* 37.5, full water, where our film drew 45.8)

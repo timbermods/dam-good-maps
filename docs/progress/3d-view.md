@@ -2430,6 +2430,64 @@ The streaks down a fall's sheet were about twice as contrasted as the game's (th
   The highlight, which holds the boost, is unchanged, so the rest of open water's contrast is missing somewhere this
   step did not look. (3) The falls section's (3) stands.
 
+## Thin water drawn as water (Q9 P14; D154 as amended 2026-11-09, D496; `fix/thin-water-drawn`)
+
+On the probe's `ceiling` pose the pond is lighter and greener than the game's, L* 45.8 against 37.5 (the composite
+section's falls short (2)). Its stored water is 0.01-0.03 deep.
+
+- **The game:** it marks every column deeper than 0 as water (`UpdateWaterTexturesTask.Run`: `waterDepth > 0f`) and
+  draws it with its one opaque material, coloured and seen through by the depth behind it (Q8, P3, P13). A film a
+  hundredth of a level deep is the same water as shallows. Its terrain shader has no input from the water, and the
+  water clips hard at its floor (P14). It has no film and skips no column under a threshold. Its only rule for thin
+  water is V3: a still film's shore vertices are drawn back toward the tile's middle by up to 0.15 tile (`shoreFilm.ts`,
+  kept). Ours draws above `WET`, 0.001 (model.ts); no settled column lies between 0 and that.
+- **The cause:** our film (`WATER_FILM`, #571's "thin water reads thin", called our anti-aliasing of a shore's hard
+  edge from 2026-10-29) was driven by depth alone, never by the shore. The water's opacity was smoothstep(0, 0.03, the
+  vertex's own depth) of the way from a faint tint (0.14 clean, 0.62 bad) to the body's. The terrain under it took the
+  ground's own soil in the water's hue (`waterFilmGround`) in place of the bed, by the tiles' film curve. A top's corner
+  depth is the mean of the tiles round it, a bank counting as none, so it never falls under a quarter of the tile's
+  own. Water a tenth of a level deep or more therefore had no sliver at any shore. A whole pool or sheet under about a
+  tenth was film, a tint over wet ground.
+- **Ours now:** the film is gone in every look. The water's opacity is its see-through's by the depth seen
+  (`waterOpacity`, `cleanWaterAlpha(d)`), clean or bad, and the light look is opaque. The composite is whole wherever
+  the frame makes the copy (`waterComposite` lost its film share). The ground under water is the bed at any depth.
+  The terrain's tint of what shows behind the water, where no copy is made, keeps its share hook (`behindShare`, was
+  `filmShare`); `filmBad`, the two crimson film tints and `WATER_FILM_GLSL` are gone. The water's edge at a shore is
+  its mesh's edge, multisampled as every edge is (the canvas is antialiased; the light look, in software, has none, as
+  the game's Low). V3's drawn-back margin keeps its pixel-wide fade on the terrain.
+- **Judged** on the probe's `ceiling-waterfall` frames (C:\dgm-probe\shots\ceiling-20260927, day light, ours from the
+  same poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept),
+  dev → this branch:
+  - The pond at `ceiling` (45°, 50): its mean, game 49/94/109 L* 37.5; Standard 73/116/120 L* 45.8 → 53/97/116 L*
+    38.8, High 74/117/120 L* 46.3 → 53/97/116 L* 38.9. Its high-passed spread, game 6.10, Standard 4.85 → 6.69, High
+    4.87 → 6.71. (With the water's film alone forced whole, the terrain's tint still under it, Standard read L* 37.3:
+    the 1.5 left is our bed, which the judge kept over the bare ground on 2026-11-07.)
+  - `ceiling-close` (30°, 22), whose pool is deeper: unchanged (L* 31.7, spread 8.85).
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots: clean water RMS Standard 13.8 → 13.8,
+    High 13.6 → 13.6 (8,573 tiles); a fall's foot 23.9 → 23.9 and 23.2 → 23.2 (103); the land unchanged (Standard
+    12.3, High 12.6). Its bands start at 0.05 deep, so no film is sampled.
+  - Close looks (`.scratch` captures, dev → this branch, both looks): the pond's shores at 9 and 12 away read as water
+    to their edge, the same as the deeper water beside them, where dev drew the thin water a paler, greyer teal with a line where it
+    met the deeper water. The edge is
+    as clean as a deep pool's, with no new stair-steps and no seam. From 120 and 300 away, over water 0.002-0.03 deep
+    on a level-2 floor, the water shows no fighting with the ground under it. River Valley 4242 256²'s badwater source
+    pool and its fall: the pool's thin rim takes the body's own colour, the rest unchanged.
+- **Cost:** measured on the `ceiling-waterfall` map, 1280 × 800, real Chrome on the RTX 2070 SUPER, the GPU's time a
+  frame by timer queries while orbiting (`benchOrbit`, the median over 6 s), four runs each in two sittings in
+  opposite orders, dev → this branch: Standard close over the fall 2.89, 2.83, 2.86, 2.31 → 2.40, 2.86, 2.79, 2.83 ms;
+  Standard from 50 away 1.74, 1.97, 2.52, 2.33 → 1.93, 2.49, 2.47, 1.90; High close 2.78, 2.84, 2.78, 2.58 → 2.63,
+  2.73, 2.77, 2.79; High from 50 away 2.67, 2.77, 2.78, 2.77 → 2.18, 2.68, 2.55, 2.66. Within the runs' noise. The
+  shaders do less: the terrain no longer works out four tiles' film curve nor the film's tint, and a film's pixel no
+  longer finishes twice.
+- **Tests (D148):** the film's tests become the decision: water of any depth at its see-through's opacity, clean or
+  bad, and no film in the water's or the terrain's shaders (`look-water-slopes`, `look-badwater`, `look-waterfalls`,
+  `water-palette`, `water-refraction`); the film-hue test goes with the tint. The carve's strobe test
+  (`carveBornAsItCuts`) counted a film's swing; the one change a frame can show at a tile now is its water coming and
+  going, so it counts that, under the same bound.
+- **Falls short:** the pond is still 1.3 L* lighter than the game's (our underwater bed against the game's bare ground
+  behind its water). The water's mesh is four corners a tile, so a corner open on both sides is still cut deeper than
+  the game's (V3).
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
