@@ -89,7 +89,7 @@ describe("the High look's shaders", () => {
     // the rock (the game's cues, not a pattern of our own: no density or contrast is asked of them)
     const s = waterMaterial(U(), false, waterHooks()).fragmentShader;
     expect(s).toContain("waterPhases(g, flow, t, pa, pb, pw);");
-    expect(s).toContain("vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, albedo, bpat, hlSmooth);");
+    expect(s).toContain("vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, Nh, V, lit, albedo, bpat, hlSmooth);");
     expect(s).toContain("float tint = waterTint(contamination);");
     expect(s).toContain("vec3 badEmission = gameBadwaterEmission(contamination, bpat.y, g);");
     expect(s).toContain("colour += badEmission;");

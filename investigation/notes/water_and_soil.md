@@ -630,8 +630,10 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   scene's 0.65; both looks take 1 since `fix/water-light`.
 - **P10, selection.** `_HighlightMask` (t17, screen space, `SelectionSystem`) mixes the selection's colour in, up to
   `_HighlightMaskLimit` 0.4 (ps 788-793): the game's own editing aid.
-- **P11, normal.** `Water_N` from P5, xy × (1 + c) × `_NormalBoost` 4, renormalized, into the world by the mesh's
-  tangent frame (ps 794-813).
+- **P11, normal.** `Water_N` from P5, xy × (1 + c), renormalized, into the world by the mesh's tangent frame: the
+  normal URP's light takes, the ambient, the sun, its GGX and the reflection (ps 782-785, 904-910). × `_NormalBoost` 4
+  more only for P12's camera highlight (ps 794-813). (*Corrected 2026-11-09, `fix/fall-streaks`: this read the boost
+  as the light's too, and both looks lit the boosted normal, the fall's sheet's streaks about twice the game's.*)
 - **P12, camera highlight.** As `WATER_SURFACE.highlight` says (ps 814-862), × (1 − w), × the sun's colour, into the
   albedo and the emission. Our port matches it term for term.
 - **P13, see-through.** Q8 confirmed (ps 866-889): `_CameraOpaqueTexture` at P2's position, overlaid with the albedo
@@ -688,7 +690,7 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | `chop` streaks in the streak colours (× 0.45) | H | (b) | none |
 | Light network (`cracks`), ribbons, broad swells, rolling packets, × (0.8 + 0.4 broad), darker with speed, `hlRough` | H | (b) | none: the only light terms are P12 and P15 |
 | Albedo texture carried by the flow | S, H | (c), missing | P5: `PhysicalWaterAlbedo` × colour (ps 419-437) |
-| Ripple normals: cosines carried by our drift (calm 0.07) | S | (c) | P5, P11: `Water_N` carried by the flow, × 4 (ps 438-446, 794-813) |
+| Ripple normals: cosines carried by our drift (calm 0.07) | S | (c) | P5, P11: `Water_N` carried by the flow, lit as it is, × 4 for the highlight alone (ps 438-446, 782-813, 904-910) |
 | Ripple normals: three cosines rippling in place over time (`hlRippleNormal(g, time)`), not carried by the flow | H | (c) | P11 |
 | Drift: the current × 0.65, two 12 s phases | S, H | (a) in form, (c) in rate | P5: 2.5 s phases, about 13 f tiles a second |
 | Still water's drift (0.018, −0.012) | H | (b) | P5: still textures stay put |
@@ -729,7 +731,7 @@ Ours only, most visible first:
 3. Small: Standard's slowed badwater ripples, High's still-water drift, a film's lifted opacity.
 
 The game's, missing or different:
-1. The flow: an albedo texture and a normal map (× 4) carried by the outflow in two 2.5 s phases (P5, P11), in place of
+1. The flow: an albedo texture and a normal map (× 4 for the highlight) carried by the outflow in two 2.5 s phases (P5, P11), in place of
    our noise; High's normals ripple in place and do not move with the flow.
 2. Clean water's colour by the game's formula on its depth (P3, P4), in both looks.
 3. High's sky reflection and GGX (P15); both looks' simplified light. Done (fix/water-sky), with P6's mean below: the

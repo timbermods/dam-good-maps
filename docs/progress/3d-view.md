@@ -2243,7 +2243,8 @@ The water-character audit's gap 7 (`docs/progress/water-character-audit.md`): ou
   gap is P13's overlay, built after it: "What shows behind the water, tinted in the water's own pass"). (2) The streaks down the face are more contrasted than the game's: the
   high-passed spread of the face's columns 5.1-5.8 against 2.0-2.4, where the game's face is as contrasted as its pool
   and ours 1.9 times; the cause is not found (the normal, the tangent frame, the phases and the sampling match the
-  game's programs). (3) The game's frames show no fall moving; its speed is the formula's.
+  game's programs). (*Found: the light took the boosted normal, the game's only its highlight. See "The water lit by
+  its texture's own normal".*) (3) The game's frames show no fall moving; its speed is the formula's.
 
 ## The ground behind the water at the game's downsampling (Q9 P13, P2; D154, D496; `fix/opaque-downsample`)
 
@@ -2379,6 +2380,55 @@ The water-character audit's gap 7 (`docs/progress/water-character-audit.md`): ou
   than the game's, most at a distance: the pond's brightest pixels over its median are half the game's at the
   `ceiling` pose, and the pond itself is lighter and greener than the game's (L* 45 against 37.5) before and after, its cause not found here (the
   depth our editor settles it to, or the shallows' colour). (3) The film's sliver remains our anti-aliasing, a blend over the screen.
+
+## The water lit by its texture's own normal (Q9 P11, P12, P15; D154, D496; `fix/fall-streaks`)
+
+The streaks down a fall's sheet were about twice as contrasted as the game's (the falls section's (2)).
+
+- **The cause:** the game's water lights the normal map as it is. `PhysicalWaterURP_Opaque` scales `Water_N`'s xy by
+  (1 + c) and renormalizes it (ps 782-785); URP's light, the ambient probe, the sun's N·L, its GGX and the reflection,
+  takes that normal through the tangent frame (ps 904-910). `_NormalBoost` 4 multiplies a copy of it, and only P12's
+  camera highlight reads the copy (ps 794-862). Q9 P11 had read the boost as the light's too, so both looks lit a
+  normal four times as steep as the game's. On open water the camera highlight hid this. On a fall's sheet the mask
+  takes the highlight off (P1), and the texture stretches down the face (P5), so the sun's N·L across the boosted
+  normal drew broad light and dark bands.
+- **Ours now** (`waterTextures.ts` `waterFlowNormal(s, share, boost)`): the Standard surface and High's
+  `measuredSurfaceWater` light N, the surface's normal × (1 + c), and pass Nh, × `WATER_NORMAL_BOOST` more, to
+  `waterCameraHighlight` alone. The highlight is unchanged.
+- **Judged** on the probe's `ceiling-waterfall` frames (C:\dgm-probe\shots\ceiling-20260927, day light, ours from the
+  same poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept).
+  Each term was switched alone first. With the boost off, the sheet fell from 5.00 to 3.79. Flattening the albedo gave
+  4.33, the normal 3.23, the detail 3.83 (mostly a darker mean), the sun's N·L 3.35. The environment (5.08) and the
+  ambient (4.91) did little, and the clock's phase moved it 4.1-5.3. Before → after:
+  - `ceiling-close` (30°, 22), the sheet's upper / lower half: |dx| across it, game 1.50 / 1.26, Standard 2.78 / 2.81
+    → 1.92 / 1.76, High 2.76 / 2.82 → 1.91 / 1.76. Its columns' high-passed spread, game 1.94 / 1.52, Standard 5.00 /
+    4.36 → 3.79 / 2.97, High 4.99 / 4.37 → 3.78 / 2.98. Its mean luma, game 65.9 / 49.9, Standard 69.5 / 50.7 →
+    66.5 / 50.1. The pool over the lip: the brightest 1 % over its median, game 52.9, Standard 49.6 → 50.2 and High
+    48.9 → 49.5. Its high-passed spread, game 9.73, Standard 10.18 → 8.85 and High 10.05 → 8.67.
+  - `ceiling` (45°, 50), whose regions take in the sheet's side, upper / lower: |dx|, game 1.55 / 1.54, Standard 3.93
+    / 5.23 → 3.71 / 3.92 (High the same within 0.05). Its columns' spread, game 1.61 / 1.43, 3.84 / 7.00 → 3.97 /
+    6.84. The pond's high-passed spread, game 6.10, 5.99 → 4.85.
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots, pooled by tile: clean water RMS Standard
+    13.9 → 13.8, High 13.7 → 13.6 (7,120 tiles); a fall's foot 24.0 → 23.9 and 23.3 → 23.2 (103); the land unchanged
+    (Standard 12.3, High 12.6).
+- **Cost:** measured on the `ceiling-waterfall` map, 1280 × 800, real Chrome on the RTX 2070 SUPER. The figure is
+  the GPU's time per frame by timer queries while orbiting (`benchOrbit`, the median over 6 s). There were four runs
+  each, in two sittings in opposite orders, before → after:
+  - Standard close over the fall: 2.84, 2.84, 2.24, 2.75 → 2.79, 2.05, 2.94, 2.97 ms.
+  - Standard from 50 away: 2.30, 2.33, 2.42, 2.39 → 1.99, 1.85, 2.39, 1.96.
+  - High close: 2.75, 2.36, 2.76, 2.74 → 2.41, 2.80, 2.84, 2.65.
+  - High from 50 away: 1.86, 2.37, 2.60, 2.63 → 2.63, 2.63, 2.65, 2.62.
+
+  All of this is within the runs' noise, which shows the same two modes as in the sections before. The shader does
+  one more normalize a pixel.
+- **Falls short:** (1) The sheet's columns are still about twice the game's at `ceiling-close`. With the albedo also
+  flat they read 2.07, the game's, so the rest is the albedo carried down the face and our still detail. Both are made
+  to the game's statistics, not its texels, and the detail is lighter than its mean at this spot. In the 16-32 px band
+  across the lower sheet, ours now reads 100 to the game's 117. In the upper sheet it reads 191 to the game's 66. The
+  game's streaks also run less straight down: its column mean keeps 0.67-0.78 of its two-dimensional spread, ours
+  0.89. (2) Open water's ripples lose some spread under the game's term: the pool 9 % under the game's, the pond 20 %.
+  The highlight, which holds the boost, is unchanged, so the rest of open water's contrast is missing somewhere this
+  step did not look. (3) The falls section's (3) stands.
 
 ## The rest of the step (next parts)
 

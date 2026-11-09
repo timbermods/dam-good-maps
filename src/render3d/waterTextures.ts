@@ -1,6 +1,6 @@
 // The textures the water's flow carries, ours (Q9 P5, investigation/notes/water_and_soil.md): the game draws its
 // water's surface with two textures that ride the outflow, `PhysicalWaterAlbedo` (it multiplies the colour) and
-// `Water_N` (the surface's normal, × `_NormalBoost` 4). Theirs cannot ship; these are made here, in code, to the
+// `Water_N` (the surface's normal: lit as it is, × `_NormalBoost` 4 for the camera highlight alone). Theirs cannot ship; these are made here, in code, to the
 // statistics `python tools/game-water-shader.py --textures` measures in theirs (`GAME_FLOW_TEXTURES`; numbers only:
 // no texel of the game's is read here or stored in git), and tests/unit/water-flow-surface.test.ts holds them there.
 //
@@ -8,7 +8,8 @@
 // - R the light network: thin bright lines round irregular cells, as caustics (the albedo's first principal
 //   component, a near-neutral brightness);
 // - G the blue blobs inside the cells (its second, red against blue);
-// - B, A the normal's slopes x and y (before the boost), the slopes of a warped value-noise height.
+// - B, A the normal's slopes x and y (the normal the game lights; × `boost` for its camera highlight), the slopes of a
+//   warped value-noise height.
 // The albedo is `albedoOf(r, g)` (`WATER_ALBEDO`), display values (0–1), fitted so its mean and covariance are the
 // game's. Pure TypeScript, no three.js: made once a page in the renderer's bake worker (a few hundred milliseconds),
 // the texture flat at its mean until then (renderer.ts).
@@ -16,8 +17,9 @@
 /** The flow's numbers, the game's (its `PhysicalWater_Opaque` material, Q9 P5, P11; ps 419-446, 794-813): two phases
  *  of the time × `speed` (2.5 s each), half a cycle apart, mixed by |2 frac − 1|; each samples at xz × `tiling` −
  *  flow × frac × `strength`, and jumps by `jumpA` or `jumpB` each cycle; the flow is each column's outflow (right −
- *  left, top − bottom) ÷ `maxOutflow` (`Timberborn.WaterSystemRendering` `MaxOutflow`); the normal's slopes × `boost`,
- *  × (1 + badwater share) more (`_Contamination_Normal_Strength` 2). */
+ *  left, top − bottom) ÷ `maxOutflow` (`Timberborn.WaterSystemRendering` `MaxOutflow`); the normal's slopes × (1 +
+ *  badwater share) (`_Contamination_Normal_Strength` 2), and × `boost` more for the camera highlight alone (its URP
+ *  light takes the normal unboosted: ps 904-910). */
 export const WATER_FLOW = {
   speed: 0.4,
   tiling: 0.06,
@@ -814,12 +816,14 @@ export const WATER_FLOW_GLSL = /* glsl */ `
     float b = texture2D(badwaterTex, g * ${g(GAME_DETAIL_TEXTURE.tiling)}).b;
     return ${v3(DETAIL_COLOUR.base)} + ${v3(DETAIL_COLOUR.lin)} * b + ${v3(DETAIL_COLOUR.quad)} * b * b;
   }
-  /** The surface's normal from its slopes, × ${g(WATER_FLOW.boost)} and × (1 + the badwater share) more, as the game's
-   *  (Q9 P11). */
-  vec3 waterFlowNormal(vec4 s, float share) {
+  /** The surface's normal from its slopes, × (1 + the badwater share), as the game lights it (Q9 P11, ps 782-785 and
+   *  904-910: its URP light, the ambient, the sun, its glint and the reflection, takes the texture's normal unboosted),
+   *  or × ${g(WATER_FLOW.boost)} more for its camera highlight alone (\`boost\`, ps 794-799: \`_NormalBoost\`). */
+  vec3 waterFlowNormal(vec4 s, float share, float boost) {
     vec2 sl = (s.ba * 255.0 - 128.0) / 127.0 * ${g(STORE.slope)};
     float z = sqrt(max(0.0, 1.0 - dot(sl, sl)));
-    vec2 b = sl * ${g(WATER_FLOW.boost)} * (1.0 + share);
+    vec2 b = sl * boost * (1.0 + share);
     return normalize(vec3(b.x, z, -b.y));
   }
+  #define WATER_NORMAL_BOOST ${g(WATER_FLOW.boost)}
 `;

@@ -85,7 +85,7 @@ describe("the game's light on its water (Q9 P15)", () => {
     for (const line of [
       "#if WATER_GAME_LIGHT_HIGH",
       // (× 1 − the game's waterfall mask, Q9 P1)
-      "vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(N, V, tint) * (1.0 - waterFall);",
+      "vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(Nh, V, tint) * (1.0 - waterFall);",
       "colour += highlight * gameWaterLight(N, lit);",
       "colour += waterEnvironment(N, V, smoothness, float(WATER_HELD_HIGH));",
       "colour += GAME_SUN_COLOUR * waterSunGlint(N, V, sunDir, smoothness) * lit;",

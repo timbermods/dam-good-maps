@@ -2183,6 +2183,9 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
         // game's Low quality, flat at its mean)
         vec2 bpat = BADWATER_PATTERN_FLAT;
         vec3 N = n;
+        // (the normal the game's camera highlight takes: the surface's × its _NormalBoost, where N is the one its light
+        // takes, unboosted: waterTextures.ts waterFlowNormal)
+        vec3 Nh = n;
         // the surface the flow carries, as the game draws it (Q9 P5, P11; waterTextures.ts): two phases of its textures
         // riding each column's outflow, the albedo multiplying the colour and the ripples the surface's normal (on a
         // fall's slope, a top, sampled at the world's xz, so they stretch down it, as the game's); on the water's
@@ -2204,7 +2207,8 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
         vec3 albedo = waterAlbedo(surf);
         if (n.y > 0.5) {
           #if !LITE
-            N = waterFlowNormal(surf, cont);
+            N = waterFlowNormal(surf, cont, 1.0);
+            Nh = waterFlowNormal(surf, cont, WATER_NORMAL_BOOST);
             gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
           #endif
           // badwater's opacity (the water's, as the game's: WATER_SURFACE.seeThrough), by how bad it is
@@ -2225,8 +2229,10 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
           if (!edge) {
             N *= 0.0;
             N.y = 1.0;
+            Nh = N;
             #if !LITE
-              N = waterFlowNormal(surf, cont);
+              N = waterFlowNormal(surf, cont, 1.0);
+              Nh = waterFlowNormal(surf, cont, WATER_NORMAL_BOOST);
               gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
             #endif
             alpha = mix(alpha, badwaterAlpha(depth, d), bad);
@@ -2274,11 +2280,11 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
         // the look draws the game's light (waterPalette.ts WATER_LIGHT.game), in the game's sun colour and lit by the
         // game's light, as its albedo is
         #if WATER_GAME_LIGHT
-          vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(N, V, bad) * step(0.5, N.y) * (1.0 - waterFall);
+          vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(Nh, V, bad) * step(0.5, Nh.y) * (1.0 - waterFall);
           c *= light;
           c += highlight * gameWaterLight(N, lit);
         #else
-          vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, N.y) * (1.0 - waterFall);
+          vec3 highlight = sunColor * waterCameraHighlight(Nh, V, bad) * step(0.5, Nh.y) * (1.0 - waterFall);
           c += highlight;
           c *= light;
         #endif
