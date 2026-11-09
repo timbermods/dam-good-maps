@@ -2634,6 +2634,63 @@ close up.
   `ceiling`'s side regions stay over the game's: our fall stands still (#901's (2)). (3) Ours is the game's in its
   statistics, not its texels, so a spot can read lighter or darker than the game's (the pool here 2.3 L* lighter).
 
+## Open water's normal and the ground under it, the game's (Q9 P11, P12, P14; D154 as amended 2026-11-09, D496; `fix/open-water-gap`)
+
+#904's falls short (1) and (3): the close pool's spread 9 % under the game's and 2.3 L* lighter; the ceiling pond
+1.5 L* lighter.
+
+- **The causes, from the pixels:** (1) our underwater bed (`GROUND.underwater`, its veins held back) lifted the
+  see-through: drawn without it, the pool reads L* 31.9 and the pond 36.9, the pond's colour 49/92/108 against the
+  game's 49/94/109. The game has no bed: its terrain draws the ground under water as it draws it dry (Q9 P14). (2) The
+  glints are the P12 camera highlight on `Water_N` boosted × 4 (dropping the highlight leaves 1.2 % of them; the sun's
+  GGX, the gloss and the bloom move none: the game's bloom, threshold 2.54 and knee 1.27, sits far over them, and
+  forced on it changes 0 pixels), so their spread and coverage are the normal's. Ours was value-noise octaves in the
+  surface texture's B and A at 512² over the 16.7-tile repeat: nothing finer than 0.125 tile, about twice the game's
+  power at 0.25–0.5, and no mean tilt.
+- **The game's `Water_N`, measured** (read by `tools/game-water-shader.py`'s loader, measured in `.scratch`, not
+  kept; numbers only): 4096², 246 texels a tile;
+  its slopes' power by wavelength from 16 tiles to 0.0625 and under, 0.0015/0.0165/0.065/0.294/0.273/0.1395/0.1055/
+  0.0645/0.04; Gaussian, spread 0.114 / 0.117 (x / y) at the 61-texels-a-tile mip, which holds all but 2 % of it; its
+  mean +0.0102 / +0.0119 as unpacked. Its stored mips are box averages, sampled trilinear at a slant of 16, no bias.
+  The water mesh sets no tangents, so the tangent frame is the object's x and ±cross(up, x); the pixels at both poses
+  read +y (map y): with −y the ceiling's glints read 35.9 against the game's 43.5.
+- **Ours now** (`waterTextures.ts` `makeWaterNormal`, `NORMAL_TEXTURE_SIZE`, `NORMAL_BANDS`;
+  `materials.ts` `normalTex`, `WATER_BED`): the slopes in a texture of their own, 1024² (61 texels a tile), two bytes
+  a texel, RG, mipmapped and filtered at a slant; each axis is the derivative of one real field in the game's ten
+  bands (`realSpectralField` with an axis: i·k/|k| a frequency), scaled to the game's spread and shifted by its mean.
+  It reads the game's bands within 0.01 and its spread within 2 %. The surface texture keeps its R and G as the same
+  bytes; its B and A are unused. The ground under water is drawn as the tile's own, with its veins (`WATER_BED` 0;
+  1 brings our bed back, for the pixel judge alone).
+- **Judged** on the probe's `ceiling-waterfall` frames (as in the section above; `.scratch` measures, not kept),
+  before (dev with #904) → after, Standard (High):
+  - `ceiling-close` (30°, 22), the pool over the lip: its high-passed spread, game 9.73, 8.87 → 9.28 (9.05); its L*,
+    game 32.1, 34.4 → 32.0 (32.4), its colour 44/80/90 against the game's 45/81/90; the glints (the top 1 %'s L* over
+    the median), game 52.9, 50.5 → 50.6 (50.8), their cover 7.3 → 8.5 % against 9.3 %. The sheet's columns, game
+    1.94 / 1.52, 1.89 / 2.13 → 1.34 / 1.82.
+  - `ceiling` (45°, 50), the pond: the glints, game 43.5, 43.5 → 42.0 (41.8); its L*, game 37.5, 39.0 → 36.7 (37.1);
+    its spread, game 6.10, 6.73 → 6.42 (6.38). The side regions' lower columns 5.80 → 6.45 (game 1.43): our fall stands
+    still.
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots pooled by tile: clean water RMS Standard
+    13.7 → 13.4, High 13.5 → 13.2 (8,573 tiles); a fall's foot 23.8 → 23.8 and 23.1 → 23.0 (103); the land unchanged
+    (12.3, 12.6). With `--define WATER_BED` alone, clean 13.4 against 13.7 with the bed. `--water bad`: badwater
+    7.4 → 7.8 in both looks (4,592 tiles); the bed had been lifting badwater, whose own colour reads 2–3 L* under the
+    game's.
+- **Cost:** `benchOrbit` on the `ceiling-waterfall` map, 1280 × 800, the GPU's time a frame (the median over 6 s),
+  three runs each in two sittings in opposite orders, before → after: Standard close over the fall 2.70, 2.85, 2.81 →
+  2.44, 2.81, 2.72 ms; Standard from 50 away 2.46, 1.72, 2.56 → 2.07, 2.44, 1.43; High close 2.72, 2.82, 2.51 → 2.63,
+  2.80, 2.60; High from 50 away 2.61, 2.67, 2.63 → 2.65, 2.64, 2.82. Within the runs' noise: the shader samples a
+  second two-byte texture and drops the B and A it read. The texture job, Chrome, four runs: the surface 217–297 →
+  191–234 ms without its slopes, and the normal 144–205 ms, so about 130 ms more in the textures' worker, off the
+  moving water's path (#903). Memory: 2 MB on the page and about 2.7 MB on the GPU with its mips.
+- **Tests (D148):** the surface's and the normal's checksums re-pinned; the normal's test now holds the game's mean,
+  spread, percentiles and feature size, and a new one its power by band; the bed's assertions (`look-water-slopes`,
+  `look-readable`) follow `WATER_BED`.
+- **Falls short:** (1) The close pool's spread stays 5 % under the game's and the glints' cover 8.5 % against 9.3 %;
+  the body's finest band reads 2.9 against 3.8 there, where the game's albedo is 2048² and ours 512² (the game's frame
+  is also a JPEG). (2) Our normal is 1024², the game's 4096²; the difference shows only closer than about 50 px a tile.
+  (3) Badwater's RMS is 0.4 worse without the bed, until its own colour is the game's. (4) The tilt's y sign is read
+  from the pixels, not from the game's mesh.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

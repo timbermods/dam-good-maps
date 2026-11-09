@@ -641,7 +641,15 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
 - **P11, normal.** `Water_N` from P5, xy × (1 + c), renormalized, into the world by the mesh's tangent frame: the
   normal URP's light takes, the ambient, the sun, its GGX and the reflection (ps 782-785, 904-910). × `_NormalBoost` 4
   more only for P12's camera highlight (ps 794-813). (*Corrected 2026-11-09, `fix/fall-streaks`: this read the boost
-  as the light's too, and both looks lit the boosted normal, the fall's sheet's streaks about twice the game's.*)
+  as the light's too, and both looks lit the boosted normal, the fall's sheet's streaks about twice the game's.*) The
+  frame (ps 118-130): the normal's x along the object's x, its y along ± cross(up, x) by the vertex's tangent sign (the
+  water mesh sets no tangents); the probe's frames read it as the map's +y. `Water_N` measured further
+  (fix/open-water-gap, `--textures` and its stored mips; numbers only): 4096², 246 texels a tile; its slopes' power by
+  wavelength 16–8, 8–4, 4–2, 2–1, 1–0.5, 0.5–0.25, 0.25–0.125, 0.125–0.0625, under: 0.002/0.017/0.065/0.294/0.273/
+  0.140/0.106/0.065/0.040 (x and y within 0.013); a tenth of it finer than 0.125 tiles; Gaussian (|s| 95 % 0.286, 99 %
+  0.345 at a spread of 0.118); its mean +0.0102/+0.0119 as the shader unpacks it (a tilt of 0.9°, × 4 in the
+  highlight); its stored mips are the box mean of the top (61 texels a tile: spread 0.114/0.117); trilinear, aniso 16,
+  no mip bias. Ours since (`makeWaterNormal`, 1024²): the gradient of a Gaussian height at those bands, spread and mean.
 - **P12, camera highlight.** As `WATER_SURFACE.highlight` says (ps 814-862), × (1 − w), × the sun's colour, into the
   albedo and the emission. Our port matches it term for term.
 - **P13, see-through.** Q8 confirmed (ps 866-889): `_CameraOpaqueTexture` at P2's position, overlaid with the albedo
@@ -698,8 +706,7 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | `chop` streaks in the streak colours (× 0.45) | H | (b) | none |
 | Light network (`cracks`), ribbons, broad swells, rolling packets, × (0.8 + 0.4 broad), darker with speed, `hlRough` | H | (b) | none: the only light terms are P12 and P15 |
 | Albedo texture carried by the flow | S, H | (a): our own texture at the game's statistics, its brightness's distribution and its split across scales (`makeWaterTexture`, fix/water-albedo-mottle) | P5: `PhysicalWaterAlbedo` × colour (ps 419-437) |
-| Ripple normals: cosines carried by our drift (calm 0.07) | S | (c) | P5, P11: `Water_N` carried by the flow, lit as it is, × 4 for the highlight alone (ps 438-446, 782-813, 904-910) |
-| Ripple normals: three cosines rippling in place over time (`hlRippleNormal(g, time)`), not carried by the flow | H | (c) | P11 |
+| Ripple normals: the texture the flow carries, its own 1024² at the game's slopes' power by wavelength, spread and mean (`makeWaterNormal`, fix/open-water-gap; before it, octaves of value noise in the surface's B and A, 512², nothing finer than 0.125 tile and twice the game's power at 0.25–0.5) | S, H | (a) | P5, P11: `Water_N` carried by the flow, lit as it is, × 4 for the highlight alone (ps 438-446, 782-813, 904-910) |
 | Drift: the current × 0.65, two 12 s phases | S, H | (a) in form, (c) in rate | P5: 2.5 s phases, about 13 f tiles a second |
 | Still water's drift (0.018, −0.012) | H | (b) | P5: still textures stay put |
 | Badwater's ripples at half speed (`slow`; High's `hlT` slows only its fall strands and `bt` only its bubbles) | S | (b) | none; the game makes badwater's normals × 2 instead (P9, ps 780) |
@@ -725,6 +732,7 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Sources welling: rings and bubbles in `WATER_FOAM` × 0.55 | S (both draw it) | editing aid (D196), drawn over the game's own pattern | P7: the game draws its own in play (ps 356-418) |
 | The sources' own pattern over seeps and badwater sources | S, H, light | (a): our shape at the game's statistics, its lift, emission tint and overlay held back (`waterSourcePattern`, fix/water-shore); t9's B at its mean | P7 (ps 356-418, 477, 700-720) |
 | High's poisoned bed (the ground's own contamination under badwater, #38) | H | (b); gone (fix/water-shore, D496 as amended): the bed every look draws | none: the game's terrain shader has no underwater input |
+| The underwater bed (`GROUND.underwater`, its veins held back) | S, H, light | (b); gone (fix/open-water-gap, D154 as amended 2026-11-09): the ground under water is the terrain as it is dry (`WATER_BED` 0) | P14: the game's terrain shader has no input from the water |
 | Source glow, highlighted source, clear water, overlays, hatches | S, H | editing aids (D497) | P10 is the game's own |
 | The side and section at the map's edge | S, H | ours by need (no cut edge in the game) | none |
 

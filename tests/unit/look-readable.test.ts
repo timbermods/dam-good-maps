@@ -191,9 +191,10 @@ describe("contamination", () => {
     // flicker), over either soil, after the altitude ramp, never under water
     expect(src).toContain(`vec4 soilPattern = texture2D(soilTex, g / ${num(CONTAMINATION.repeat)});`);
     expect(src.indexOf("vec4 soilPattern = texture2D(soilTex")).toBeLessThan(src.indexOf("float wet = smoothstep"));
-    expect(src.indexOf("c *= altitudeOf(vWorld.y, moist);")).toBeLessThan(src.indexOf("c = mix(c, soilPattern.rgb, vein * (1.0 - wet));"));
+    // (the veins under water too, as the game's terrain draws them with no input from the water: no bed, WATER_BED 0)
+    expect(src.indexOf("c *= altitudeOf(vWorld.y, moist);")).toBeLessThan(src.indexOf("c = mix(c, soilPattern.rgb, vein * (1.0 - bed));"));
     // (and no second ground without its water: High's poisoned bed went, D496 as amended 2026-11-07, so every look draws
-    // the one bed under badwater)
+    // the one ground under badwater)
     expect(src).not.toContain("groundDry");
     // the game's weight: its nonlinearity, its least, its noise and its softness, and its map value, blended across the
     // tiles the desert's way (the same four taps the same margin round the point)

@@ -126,7 +126,8 @@ export const GROUND = {
    *  doubled, so 74.2/80.6/27.4; measured after, Standard 74.4/80.8/27.5 near and 74.0/80.4/27.5 from afar (High from afar
    *  73.2/79.8/27.3). */
   grass: [0.371, 0.389, 0.133] as Rgb,
-  /** Ground under water (seen through it). */
+  /** Our old bed under water, drawn only with `materials.ts` `WATER_BED` 1 for the pixel judge: the game draws the
+   *  ground under its water as it draws it dry (Q9 P14). */
   underwater: [0.36, 0.38, 0.34] as Rgb,
 } as const;
 

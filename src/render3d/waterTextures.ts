@@ -9,8 +9,10 @@
 //   two across and faint between them (the albedo's first principal component, a near-neutral brightness, at the
 //   game's distribution and its power by scale);
 // - G the blue blobs inside the cells (its second, red against blue);
-// - B, A the normal's slopes x and y (the normal the game lights; × `boost` for its camera highlight), the slopes of a
-//   warped value-noise height.
+// - B, A unused (128).
+// The normal's slopes x and y (the normal the game lights; × `boost` for its camera highlight) have their own RG
+// texture, `NORMAL_TEXTURE_SIZE` square over the same repeat (`makeWaterNormal`): the gradient of a Gaussian height at
+// the game's power by wavelength.
 // The albedo is `albedoOf(r, g)` (`WATER_ALBEDO`), display values (0–1), fitted so its mean and covariance are the
 // game's. Pure TypeScript, no three.js: made once a page in a worker of its own (about 0.3 s in Chrome),
 // the texture flat at its mean until then (renderer.ts).
@@ -67,6 +69,17 @@ export const GAME_FLOW_TEXTURES = {
     p5: -0.184,
     p95: 0.204,
     feature: 0.153,
+    /** The share of the slopes' power by wavelength (`NORMAL_BANDS`, tiles: 16–8, …, 0.125–0.0625, under 0.0625), x
+     *  and y averaged (each within 0.013 of it): a tenth of it under 0.125 tiles, the fine ripples that make the
+     *  camera highlight's specks close up. The texture is 4096² (246 texels a tile). */
+    power: [0.0015, 0.0165, 0.065, 0.294, 0.273, 0.1395, 0.1055, 0.0645, 0.04],
+    /** Its slopes' spread (x, y) in its mip of 61 texels a tile (the 4 × 4 texels' mean), the most our 1024² holds. */
+    spread61: [0.114, 0.117],
+    /** Its slopes' mean (x, y) as the shader unpacks them: the surface tilted 0.9° on average, toward +x and +y of the
+     *  texture, which its frame puts along the map's x and y: the normal's x along the object's x, its y along
+     *  ± cross(up, x) by its mesh's tangent sign (ps 118-130; the water mesh sets no tangents), read as the map's +y
+     *  because the probe's frames at both poses agree with it and not with −y. The camera highlight takes it × 4. */
+    mean: [0.0102, 0.0119],
   },
 } as const;
 
@@ -128,6 +141,15 @@ export const PATTERN_PERCENTILES = [0.01, 0.05, 0.1, 0.25, 0.5, 0.6, 0.65, 0.7, 
 
 /** Texels across the texture (one repeat, 1 / 0.06 = 16.7 tiles: 31 texels a tile). */
 export const WATER_TEXTURE_SIZE = 512;
+
+/** Texels across the normal's texture (one repeat, 16.7 tiles: 61 texels a tile), its own (`materials.ts`
+ *  `waterNormalTexture`, two bytes a texel): the game's `Water_N` is 4096² (246 a tile), and its mip of 61 a tile
+ *  holds all but 2 % of its slopes' spread; at 512² (31 a tile) ours held nothing finer than 0.125 tile, where the
+ *  game's has a tenth of its power. */
+export const NORMAL_TEXTURE_SIZE = 1024;
+
+/** The bands of wavelength (tiles) the normal's slopes are made in (`GAME_FLOW_TEXTURES.normal.power`). */
+export const NORMAL_BANDS = [16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 0.0625, 0] as const;
 
 /** How the network and blobs are drawn (tuned so the albedo's statistics land on the game's). */
 const NET = {
@@ -299,14 +321,10 @@ function voronoi3(x: number, y: number, p: number, c: Float64Array, out: Float64
   out[3] = Math.sqrt(f3);
 }
 
-/** The surface's height: octaves of value noise, a little longer along x than y (the game's normal map's ripples
- *  run that way), warped so no lattice shows: their periods across a repeat (x, y) and amplitudes. */
-const RIPPLES = { octaves: [[16, 16, 1], [32, 32, 0.5], [64, 64, 0.3], [128, 128, 0.16]] as const, warp: 0.6 };
-
 /** How the fields are stored: the network's byte is 255 × its score's place in the game's range
- *  (`GAME_FLOW_TEXTURES.albedo.first.range`), the blobs' 255 × field / `blob` (none reach it), the slopes' 128 + 127 ×
- *  slope / `slope` (slopes the game's spread, by `slopeGain` on the waves). */
-const STORE = { blob: 0.55, slope: 0.5, slopeGain: 0.008493 };
+ *  (`GAME_FLOW_TEXTURES.albedo.first.range`), the blobs' 255 × field / `blob` (none reach it), the normal's slopes
+ *  128 + 127 × slope / `slope` (`makeWaterNormal`). */
+const STORE = { blob: 0.55, slope: 0.5 };
 
 /** The albedo the shaders draw from the texture's R (network) and G (blobs) bytes, display values 0–1:
  *  base + network × R / 255 + blobs × G / 255. Fitted to the texture (`fitAlbedo`, held by a test): the two fields
@@ -380,32 +398,6 @@ export function makeWaterTexture(size: number): Uint8Array {
       blob[y * size + x] = (0.35 + 0.65 * v1[2]) * inside * patch;
     }
   }
-  // the normal: the slopes of the height, by central differences (it tiles, so they wrap)
-  const height = new Float64Array(n);
-  const oct = RIPPLES.octaves.map(([px, py], k) => lattice(px, 41 + k, py));
-  const hwX = noiseRows(lattice(6, 51), size);
-  const hwY = noiseRows(lattice(6, 52), size);
-  for (let y = 0; y < size; y++) {
-    const hwXs = hwX(y);
-    const hwYs = hwY(y);
-    for (let x = 0; x < size; x++) {
-      const u0 = (x + 0.5) / size;
-      const v0 = (y + 0.5) / size;
-      const u = u0 + (hwXs[x] - 0.5) * RIPPLES.warp / 6;
-      const v = v0 + (hwYs[x] - 0.5) * RIPPLES.warp / 6;
-      let h = 0;
-      for (let k = 0; k < oct.length; k++) h += RIPPLES.octaves[k][2] * valueNoise(oct[k], u - Math.floor(u), v - Math.floor(v));
-      height[y * size + x] = h;
-    }
-  }
-  const sx = new Float64Array(n);
-  const sy = new Float64Array(n);
-  for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++) {
-      const i = y * size + x;
-      sx[i] = -(height[y * size + wrap(x + 1, size)] - height[y * size + wrap(x - 1, size)]) * 0.5 * size;
-      sy[i] = -(height[wrap(y + 1, size) * size + x] - height[wrap(y - 1, size) * size + x]) * 0.5 * size;
-    }
   // (the network remapped by rank to the game's albedo's first component, its long bright tail)
   const F = GAME_FLOW_TEXTURES.albedo.first;
   toPercentiles(net, F.percentiles, F.range[0], F.range[1]);
@@ -414,8 +406,9 @@ export function makeWaterTexture(size: number): Uint8Array {
   for (let i = 0; i < n; i++) {
     data[i * 4] = byte(((net[i] - F.range[0]) / (F.range[1] - F.range[0])) * 255);
     data[i * 4 + 1] = byte((blob[i] / STORE.blob) * 255);
-    data[i * 4 + 2] = byte(128 + (127 * sx[i] * STORE.slopeGain) / STORE.slope);
-    data[i * 4 + 3] = byte(128 + (127 * sy[i] * STORE.slopeGain) / STORE.slope);
+    // (B and A unused: the normal has its own texture, makeWaterNormal)
+    data[i * 4 + 2] = 128;
+    data[i * 4 + 3] = 128;
   }
   return data;
 }
@@ -736,8 +729,10 @@ const PHASES = 4096;
  *  tiles, one repeat `repeat` tiles across) is `power`'s share, spread evenly over the band's frequencies (each the
  *  band's amplitude), random phases (seed `s`), as `spectralField` but made from half the spectrum (the other half its mirror, conjugated, so
  *  the field is real): half the random numbers and half the transforms, the columns each a contiguous run and the
- *  rows two at a time (one the real part of a transform, the other its imaginary). Row-major. */
-function realSpectralField(size: number, repeat: number, bands: readonly number[], power: readonly number[], s: number): Float64Array {
+ *  rows two at a time (one the real part of a transform, the other its imaginary). Row-major. With `axis` (0 x, 1 y),
+ *  that field's slope along the axis instead: the gradient of a height whose slopes carry `power` by band, the two axes
+ *  of one seed the two slopes of one surface. */
+function realSpectralField(size: number, repeat: number, bands: readonly number[], power: readonly number[], s: number, axis?: 0 | 1): Float64Array {
   const N = size;
   const half = N / 2;
   // (each band by the squared frequency, cycles a repeat: a table of every k² the plane holds)
@@ -778,10 +773,21 @@ function realSpectralField(size: number, repeat: number, bands: readonly number[
       if (b < 0) continue;
       const i = kx * N + y;
       const ph = (hash(i, 0, s) * PHASES) | 0;
-      re[i] = amp[b] * cos[ph];
+      let ar = amp[b] * cos[ph];
+      let ai = amp[b] * sin[ph];
+      if (axis !== undefined) {
+        // (a slope: × i k_axis / |k|, so the band's power is the gradient's; none at the Nyquist, whose sign is
+        // ambiguous)
+        if (kx === half || ky === half) continue;
+        const w = (axis === 0 ? kx : ky) / Math.sqrt(kx * kx + ky * ky);
+        const r0 = ar;
+        ar = -ai * w;
+        ai = r0 * w;
+      }
+      re[i] = ar;
       // (real where it is its own mirror)
       if (edge && (ky === 0 || ky === half)) continue;
-      im[i] = amp[b] * sin[ph];
+      im[i] = ai;
       if (edge) {
         re[kx * N + (N - y)] = re[i];
         im[kx * N + (N - y)] = -im[i];
@@ -924,6 +930,24 @@ export function makeDetailField(size: number): Uint8Array {
   for (let k = 0; k < ps.length - 1; k++) m += ((ps[k + 1] - ps[k]) * (vs[k] + vs[k + 1])) / 2;
   const [lo, hi] = DETAIL_STORE;
   return bytesByRank(f, (r) => Math.min(255, Math.max(0, Math.round((255 * (valueAt(r) - m - lo)) / (hi - lo)))));
+}
+
+/** The normal the flow carries (Q9 P5, P11; the game's `Water_N`), two bytes a texel (its slopes x and y, 128 + 127 ×
+ *  slope / 0.5), `size` square (a power of two), one repeat 16.7 tiles: the gradient of a Gaussian height whose slopes
+ *  carry the game's power by wavelength (`GAME_FLOW_TEXTURES.normal.power`, `NORMAL_BANDS`; Gaussian as the game's
+ *  are, its 5th and 95th percentiles ±1.6 spreads), at its spread in its mip of 61 texels a tile (`spread61`), round
+ *  its mean (`mean`). */
+export function makeWaterNormal(size: number): Uint8Array {
+  const G = GAME_FLOW_TEXTURES.normal;
+  const out = new Uint8Array(size * size * 2);
+  for (const axis of [0, 1] as const) {
+    const f = realSpectralField(size, 1 / WATER_FLOW.tiling, NORMAL_BANDS, G.power, 501, axis);
+    let q = 0;
+    for (let i = 0; i < f.length; i++) q += f[i] * f[i];
+    const k = G.spread61[axis] / Math.sqrt(q / f.length);
+    for (let i = 0; i < f.length; i++) out[i * 2 + axis] = Math.max(0, Math.min(255, Math.round(128 + (127 * (f[i] * k + G.mean[axis])) / STORE.slope)));
+  }
+  return out;
 }
 
 /** The share of a tiling field's power (`size` square, a power of two, one repeat `repeat` tiles across) in each band
@@ -1116,6 +1140,7 @@ const v3 = (v: readonly number[]) => `vec3(${v.map(g).join(", ")})`;
  *  texel (high/bake.ts `flowByte`), the two phases' sample, the albedo and the normal. */
 export const WATER_FLOW_GLSL = /* glsl */ `
   uniform sampler2D waterTex;
+  uniform sampler2D normalTex;
   uniform sampler2D badwaterTex;
   uniform sampler2D detailTex;
   /** The flow the textures ride (the game's: each column's outflows ÷ 14) from a flow texel's RG (high/bake.ts
@@ -1136,9 +1161,12 @@ export const WATER_FLOW_GLSL = /* glsl */ `
     pb = g + (fract(floor(ph + 0.5) * ${v2(WATER_FLOW.jumpB)}) - f * b * ${g(WATER_FLOW.strength)}) / ${g(WATER_FLOW.tiling)};
     w = abs(2.0 * a - 1.0);
   }
-  /** The surface the flow carries at the phases' points: RG the albedo's fields, BA the slopes. */
+  /** The surface the flow carries at the phases' points: RG the albedo's fields, BA the slopes (their own texture,
+   *  ${NORMAL_TEXTURE_SIZE}², over the same repeat). */
   vec4 waterSurfaceAt(vec2 pa, vec2 pb, float w) {
-    return mix(texture2D(waterTex, pa * ${g(WATER_FLOW.tiling)}), texture2D(waterTex, pb * ${g(WATER_FLOW.tiling)}), w);
+    vec2 ua = pa * ${g(WATER_FLOW.tiling)};
+    vec2 ub = pb * ${g(WATER_FLOW.tiling)};
+    return mix(vec4(texture2D(waterTex, ua).rg, texture2D(normalTex, ua).rg), vec4(texture2D(waterTex, ub).rg, texture2D(normalTex, ub).rg), w);
   }
   /** The albedo the surface carries (waterTextures.ts WATER_ALBEDO), display values: about ${v3(WATER_ALBEDO.mean.map((m) => Math.round(m * 1000) / 1000))} on
    *  average, as the game's. */

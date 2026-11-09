@@ -150,9 +150,12 @@ export interface SceneUniforms extends RefractionUniforms {
    *  current as drawn (128 still), B the badwater share, A the game's waterfall mask (fallMask.ts: 0 dry, 1 + 254 × the
    *  mask wet); the moving water reads it in both looks. */
   flowTex: { value: DataTexture };
-  /** The surface the water's flow carries (waterTextures.ts: RG the albedo's fields, BA the slopes), shared by the page
+  /** The surface the water's flow carries (waterTextures.ts: RG the albedo's fields), shared by the page
    *  (`waterSurfaceTexture`). */
   waterTex: { value: DataTexture };
+  /** The normal the flow carries (waterTextures.ts `makeWaterNormal`: RG its slopes, 1024²), shared by the page
+   *  (`waterNormalTexture`). */
+  normalTex: { value: DataTexture };
   /** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`: R the base colour's, G the emissive
    *  detail's; A the water sources' pattern), shared by the page (`badwaterPatternTexture`). */
   badwaterTex: { value: DataTexture };
@@ -222,6 +225,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     sourceLit: { value: 0 },
     flowTex: { value: stillFlow() },
     waterTex: { value: waterSurfaceTexture() },
+    normalTex: { value: waterNormalTexture() },
     badwaterTex: { value: badwaterPatternTexture() },
     detailTex: { value: detailTexture() },
     soilTex: { value: soilPatternTexture() },
@@ -323,6 +327,23 @@ export function waterSurfaceTexture(): DataTexture {
   return (surfaceTex = t);
 }
 
+let normalTex: DataTexture | null = null;
+/** The normal the flow carries (waterTextures.ts `makeWaterNormal`, Q9 P5, P11), one for the page, two bytes a texel:
+ *  a single flat texel until the textures' worker has made it (`fillWaterTexture`), then `NORMAL_TEXTURE_SIZE` square,
+ *  61 texels a tile. Repeating, mipmapped and filtered at a slant, as the game samples its own. */
+export function waterNormalTexture(): DataTexture {
+  if (normalTex) return normalTex;
+  const t = new DataTexture(new Uint8Array([128, 128]), 1, 1, RGFormat, UnsignedByteType);
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.anisotropy = 8;
+  t.unpackAlignment = 2;
+  t.needsUpdate = true;
+  return (normalTex = t);
+}
+
 let badTex: DataTexture | null = null;
 /** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`), with the water sources' pattern in its
  *  A (its B unused), one for the page: flat at their means until the textures' worker has made it, sampled as the
@@ -399,12 +420,19 @@ export function fillDetailTexture(detail: Uint8Array, size: number, shape?: Uint
   b.needsUpdate = true;
 }
 
-/** The bake worker's surface, badwater's pattern and contaminated ground's (high/bake.ts `waterTexture`) into the
- *  page's textures. */
-export function fillWaterTexture(data: Uint8Array, bad: Uint8Array, soil: Uint8Array): void {
+/** The bake worker's surface, its normal (`normalSize` square), badwater's pattern and contaminated ground's
+ *  (high/bake.ts `waterTexture`) into the page's textures; the normal's grows from its one flat texel to it (its GPU
+ *  copy made again). */
+export function fillWaterTexture(data: Uint8Array, normal: Uint8Array, normalSize: number, bad: Uint8Array, soil: Uint8Array): void {
   const t = waterSurfaceTexture();
   (t.image.data as Uint8Array).set(data);
   t.needsUpdate = true;
+  const nt = waterNormalTexture();
+  if (nt.image.width !== normalSize) {
+    nt.image = { data: normal, width: normalSize, height: normalSize };
+    nt.dispose();
+  } else (nt.image.data as Uint8Array).set(normal);
+  nt.needsUpdate = true;
   const b = badwaterPatternTexture();
   (b.image.data as Uint8Array).set(bad);
   b.needsUpdate = true;
@@ -1500,6 +1528,11 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
        *  the pixel judge alone (tools/water-pixel-judge.ts --define GROUND_MEANS): the light judged without the
        *  patterns' sampling, ours or the game's, at a few clusters of tiles. */
       #define GROUND_MEANS 0
+      /** 0: the ground under water drawn as the game's terrain draws it, with no input from the water (Q9 P14), so the
+       *  see-through shows the grass, earth and veins the tile has; 1: our underwater bed (palette.ts GROUND.underwater),
+       *  its veins held back, as before 2026-11-09, for the pixel judge alone (tools/water-pixel-judge.ts --define
+       *  WATER_BED: clean water's RMS 13.4 without it against 13.7, docs/progress/3d-view.md). */
+      #define WATER_BED 0
       /** The ground's colour from its soil (moist, moisture level, contaminated, under water) and
        *  its contamination level (0–1). */
       vec3 groundColor(vec4 s, vec2 g, float detail, float clev) {
@@ -1509,7 +1542,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           // (no patterns: contamination's pattern at its mean, as the game's mips show it from afar, at its weight's mean
           // over the blending noise, palette.ts contaminationMean)
           lc = mix(lc, ${glColor(CT.mean)}, ${f(Math.round(CT.meanAlpha * 1e4) / 1e4)} * contaminationWeightMean(contaminationMapOf(clev)));
-          return mix(lc, ${glColor(GROUND.underwater)}, step(0.5, s.w));
+          return mix(lc, ${glColor(GROUND.underwater)}, step(0.5, s.w) * float(WATER_BED));
         #endif
         // contamination's pattern, world-anchored as the game's (its repeat \`CT.repeat\` tiles; read before the warp below,
         // and before any branch, as a mipmapped read needs every pixel of its quad)
@@ -1530,8 +1563,8 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         // (the grass's share of the point: s.x, the game's per tile, blended across the narrow band at the tile's edge)
         float moist = ${hook(h, "moist", "clamp(s.x, 0.0, 1.0)")};
         float wet = smoothstep(0.4, 0.6, s.w + (n1 - 0.5) * 0.2);
-        // (the bed under water of any depth, as the game's terrain draws its ground with no input from the water)
-        float bed = wet;
+        // (no bed: the game's terrain draws its ground with no input from the water, WATER_BED)
+        float bed = wet * float(WATER_BED);
         // dry: cracked earth, warm brown, drifting in broad patches to a cooler mauve and a warmer
         // tan and in lightness (D334); each plate its own shade, the cracks a fine, dark network
         vec3 c = mix(${glColor(GROUND.dryCool)}, ${glColor(GROUND.dry)}, smoothstep(0.28, 0.68, b1));
@@ -1574,7 +1607,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         // same, for the tests): its pattern's rust over either soil by the pattern's alpha × the weight its map value (the
         // caller's blend across the tiles, or this level's own) and the blending noise give, with no glow
         float vein = contaminationWeight(contamMap >= 0.0 ? contamMap : contaminationMapOf(clamp(clev, 0.0, 1.0)), soilNoise) * soilPattern.a;
-        c = mix(c, soilPattern.rgb, vein * (1.0 - wet));
+        c = mix(c, soilPattern.rgb, vein * (1.0 - bed));
 ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.9 + 0.15 * n2), bed);
       }
       void main() {
