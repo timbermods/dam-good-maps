@@ -7,6 +7,7 @@
 
 import { expose, transfer } from "comlink";
 import type { BrushParams } from "../core/features/raster/brush";
+import { hypot, sin } from "../core/math/portable";
 import { WeatherStroke, type WeatheredLand } from "../core/features/raster/remoteStroke";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 
@@ -48,17 +49,17 @@ function warm(): void {
   for (let y = 0; y < N; y++)
     for (let x = 0; x < N; x++) {
       const i = y * N + x;
-      pre[i] = 3 + Math.max(0, 9 - Math.round(Math.hypot(x - 16, y - 20) / 2)) + ((x * 7 + y * 13) % 3 === 0 ? 1 : 0);
-      if (Math.hypot(x - 34, y - 22) < 5) {
+      pre[i] = 3 + Math.max(0, 9 - Math.round(hypot(x - 16, y - 20) / 2)) + ((x * 7 + y * 13) % 3 === 0 ? 1 : 0);
+      if (hypot(x - 34, y - 22) < 5) {
         pre[i] = 2;
         water[i] = 1.5;
       }
-      moisture[i] = Math.max(0, 1 - Math.hypot(x - 34, y - 22) / 12);
+      moisture[i] = Math.max(0, 1 - hypot(x - 34, y - 22) / 12);
     }
   const state: TerrainState = { pre, protect: new Uint8Array(N * N), channel: new Uint8Array(N * N), base: null, locked: null, columns: new Int32Array(0), water, moisture, top: 16 };
   for (let k = 0; k < 4; k++) {
     const w = new WeatherStroke({ tool: "naturalize", size: 5, strength: 5 + k, seed: 17 + k, weathers: true }, state, pre.slice(), N, N, []);
-    for (let d = 0; d < 24; d++) w.add([Math.round((6 + d * 1.2) * 4), Math.round((18 + 4 * Math.sin(d / 3)) * 4)]);
+    for (let d = 0; d < 24; d++) w.add([Math.round((6 + d * 1.2) * 4), Math.round((18 + 4 * sin(d / 3)) * 4)]);
     w.finish([[14, 18, 16, 20]]);
     w.end();
   }
