@@ -10,13 +10,15 @@ import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { flowByte } from "../../src/render3d/high/bake";
 import { gameFlowOf } from "../../src/render3d/current";
-import { albedoOf, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, makeBadwaterTexture, makeWaterTexture, PATTERN_PERCENTILES, rankOrder, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
+import { albedoOf, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, makeBadwaterTexture, makeWaterNormal, makeWaterTexture, NORMAL_BANDS, NORMAL_TEXTURE_SIZE, PATTERN_PERCENTILES, powerByBand, rankOrder, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
 import { badwaterBody, badwaterGlow, GAME_BADWATER, GAME_WATER, gameBadwaterColour, WATER, gameBadwaterEmission, gameCleanColour, gameDepthG, gameDepthR, WATER_LIGHT } from "../../src/render3d/waterPalette";
 import { GAME_LIGHT, gameAmbient, LIGHT, sunlitTop, waterShown } from "../../src/render3d/palette";
 import { dayLight } from "../../tools/game-day-light";
 
 const N = WATER_TEXTURE_SIZE;
 const data = makeWaterTexture(N);
+const NN = NORMAL_TEXTURE_SIZE;
+const normal = makeWaterNormal(NN);
 const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 function stats(f: Float64Array) {
@@ -32,13 +34,13 @@ describe("the water's textures", () => {
   const n = N * N;
   const ch = [new Float64Array(n), new Float64Array(n), new Float64Array(n)];
   const luma = new Float64Array(n);
-  const sx = new Float64Array(n);
-  const sy = new Float64Array(n);
+  const sx = new Float64Array(NN * NN);
+  const sy = new Float64Array(NN * NN);
+  for (let i = 0; i < NN * NN; i++) [sx[i], sy[i]] = slopesOf(normal[i * 2], normal[i * 2 + 1]);
   for (let i = 0; i < n; i++) {
     const a = albedoOf(data[i * 4], data[i * 4 + 1]);
     for (let k = 0; k < 3; k++) ch[k][i] = a[k] * 255;
     luma[i] = 0.2126 * ch[0][i] + 0.7152 * ch[1][i] + 0.0722 * ch[2][i];
-    [sx[i], sy[i]] = slopesOf(data[i * 4 + 2], data[i * 4 + 3]);
   }
 
   it("make an albedo at the game's statistics: its mean, spread and percentiles per channel, and its feature size", () => {
@@ -67,14 +69,21 @@ describe("the water's textures", () => {
     [0.125, 0.25, 0.5, 1, 2].forEach((s, j) => expect(Math.abs(broadShare(score, N, s) - F.broad[j]), `${s} tiles`).toBeLessThan(0.04));
   });
 
-  it("make the normal's slopes at the game's spread, percentiles and feature size", () => {
-    for (const f of [sx, sy]) {
+  it("make the normal's slopes at the game's spread, mean, percentiles and feature size", () => {
+    [sx, sy].forEach((f, k) => {
       const s = stats(f);
-      expect(Math.abs(s.mean)).toBeLessThan(0.02);
-      expect(Math.abs(s.spread / GAME.normal.spread - 1)).toBeLessThan(0.15);
-      expect(Math.abs(s.p5 - GAME.normal.p5)).toBeLessThan(0.04);
-      expect(Math.abs(s.p95 - GAME.normal.p95)).toBeLessThan(0.04);
-      expect(Math.abs(featureTiles(f, N) / GAME.normal.feature - 1)).toBeLessThan(0.25);
+      expect(Math.abs(s.mean - GAME.normal.mean[k])).toBeLessThan(0.002);
+      expect(Math.abs(s.spread / GAME.normal.spread61[k] - 1)).toBeLessThan(0.02);
+      expect(Math.abs(s.p5 - GAME.normal.p5)).toBeLessThan(0.02);
+      expect(Math.abs(s.p95 - GAME.normal.p95)).toBeLessThan(0.02);
+      expect(Math.abs(featureTiles(f, NN) / GAME.normal.feature - 1)).toBeLessThan(0.15);
+    });
+  });
+
+  it("make the normal's slopes at the game's power by wavelength, a tenth of it under 0.125 tiles (the highlight's specks close up)", () => {
+    for (const f of [sx, sy]) {
+      const p = powerByBand(f, NN, 1 / WATER_FLOW.tiling, NORMAL_BANDS);
+      GAME.normal.power.forEach((g, b) => expect(Math.abs(p[b] - g), `band ${NORMAL_BANDS[b]}`).toBeLessThan(0.01));
     }
   });
 
@@ -99,7 +108,8 @@ describe("the water's textures", () => {
   });
 
   it("are the bytes they were made as when the look was judged (a speed-up of their making never changes them)", () => {
-    expect(sha256(data)).toBe("f7d014e31b9f544bbcf4f51ef4e3586fe2c4c4fb8ce5d4713a4eb1bc173fd96e");
+    expect(sha256(data)).toBe("076ab49fcccfb501e7c969a618e50b420fadc0de1a862af02280af7a793c7c97");
+    expect(sha256(normal)).toBe("abaa517142432e7342409e5efd0a540d6173ca26fbbc17e3a0119259012a2e48");
   });
 
   it("rank a field by a stable sort: ascending, equal values (−0 and 0 among them) in index order", () => {

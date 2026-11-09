@@ -79,8 +79,8 @@ describe("water", () => {
     // L* 37.5, full water, where our film drew 45.8)
     for (const d of [0, 0.001, 0.005, 0.01, 0.03, 0.05, 0.1, 0.25, 0.5, 1, 3]) expect(waterOpacity(d), `${d} deep`).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
     // the shaders draw no film: the water's opacity is its see-through's by the depth seen, clean or bad; the light
-    // look's opaque (the game's Low quality); the ground under water is the bed at any depth, tinted only as what
-    // shows behind the water
+    // look's opaque (the game's Low quality); the ground under water is the game's terrain, with no input from the
+    // water (Q9 P14: no bed), tinted only as what shows behind the water
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
     const U = () => sceneUniforms(1, 1, t(), t(), t(), t());
     const water = [waterMaterial(U()).fragmentShader, waterMaterial(U(), true).fragmentShader, waterMaterial(U(), false, waterHooks()).fragmentShader];
@@ -92,7 +92,8 @@ describe("water", () => {
     expect(water[2]).toContain("alpha = hlSurface.a;");
     for (const terrain of [terrainMaterial(U(), 0, 1).fragmentShader, terrainMaterial(U(), 0, 1, true).fragmentShader]) {
       expect(terrain).not.toMatch(/waterFilm|WATER_FILM|groundBed/);
-      expect(terrain).toContain("float bed = wet;");
+      expect(terrain).toContain("#define WATER_BED 0");
+      expect(terrain).toContain("float bed = wet * float(WATER_BED);");
     }
     expect(WATER_SURFACE.seeThrough).toBe(0.175);
   });
