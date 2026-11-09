@@ -157,6 +157,8 @@ export class JuiceEngine {
   private pending = new Map<Id, Params>();
   private distance = 0;
   private nextId = 0;
+  /** Accents begun (tests, `started`). */
+  private begun = 0;
   private sources = 0;
   private frame = 0;
   private disposed = false;
@@ -190,6 +192,11 @@ export class JuiceEngine {
     let n = 0;
     for (const e of this.events.values()) if (!e.stopped) n += e.voices.size;
     return n;
+  }
+
+  /** Accents begun since the engine was made (tests). */
+  get started(): number {
+    return this.begun;
   }
 
   /** Recordings counted against the limit, stopped ones until they end (tests). */
@@ -330,6 +337,7 @@ export class JuiceEngine {
     }
     this.tokens--;
     if (!this.add(event, layers)) return null;
+    this.begun++;
     return id;
   }
 

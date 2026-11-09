@@ -49,8 +49,11 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Pine", exact: true }).click();
   const q = await client(page, at[0] + 4, at[1] + 4);
   await page.mouse.move(q.x + 3, q.y);
+  // (begun, not sounding now: a tree's accent is a tenth of a second or so, and where the browser draws slowly (CI's
+  // software drawing, about 2 s a frame) a read waits on the page past its end)
+  const before = (await sound(page))!.started;
   await page.mouse.click(q.x, q.y);
-  await expect.poll(async () => (await sound(page))!.playing, { timeout: 2_000, intervals: [20, 40, 80] }).toBeGreaterThan(0);
+  await expect.poll(async () => (await sound(page))!.started, { timeout: 2_000, intervals: [20, 40, 80] }).toBeGreaterThan(before);
   // (the placement is an edit like the others: it is in the history once the queue has it, and what is counted below counts it)
   await idle(page);
   expect((await info(page)).history.filter((h) => h.applied).at(-1)!.label).toMatch(/pine/i);
