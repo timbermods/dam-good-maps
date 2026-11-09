@@ -225,6 +225,30 @@ describe("a force clicked quickly after another (D378)", () => {
     expect(fx.showing().craterize).toMatchObject({ x: 10, y: 10, struck: expect.closeTo(1, 3) });
   });
 
+  it("a hitch among the page's first forces' frames counts a tenth of a second: the frames before it are known only once there are three", () => {
+    fx.set(moment("craterize", "incoming", 10, 10));
+    wait(16);
+    fx.set(moment("craterize", "impact", 10, 10, 0.5));
+    fx.finish();
+    // (the loop's second frame, held 5 s: one gap known before it, 16 ms)
+    wait(5000, true);
+    expect(fx.showing().craterize).toMatchObject({ x: 10, y: 10, struck: expect.closeTo(0.1, 3) });
+  });
+
+  it("an erosion after the forces' loop has rested counts from its own start, never the time at rest (a slow view, a second and a half a frame)", () => {
+    fx.set(moment("craterize", "incoming", 10, 10));
+    wait(4500, false, 1500);
+    fx.set(moment("craterize", "impact", 10, 10, 0.5));
+    fx.finish();
+    wait(6000, false, 1500);
+    expect(fx.active).toBe(false);
+    // (ten seconds with nothing playing: no frames asked for)
+    now += 10_000;
+    fx.set(moment("erode", "rumble", 20, 20));
+    wait(1500, false, 1500);
+    expect(fx.showing().erode).toMatchObject({ x: 20, y: 20, age: expect.closeTo(1.5, 3) });
+  });
+
   it("an impact's dust and a fault's crack play out as drawn: a frame held long never skips them", () => {
     // (struck at the impact's first moment: two moments and the keep after it drawn, 0.66 s)
     play(fx, "craterize", 10, 10);

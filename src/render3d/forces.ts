@@ -75,7 +75,7 @@ export type Ground = (x: number, y: number) => number;
 
 /** A frame held this long or less counts whole toward a tail (ms). */
 const STALL_MS = 100;
-/** A frame counts whole up to this many times the frames before it (their median). */
+/** A frame counts whole up to this many times the frames before it (their median, once three are known). */
 const HELD = 2;
 
 /** The pace the player's view draws the forces' frames at, for their tails (D266: a force keeps its own pace): a frame
@@ -106,8 +106,9 @@ export class FramePace {
   /** How much of a frame `step` ms long counts (ms). */
   count(step: number): number {
     if (this.clock.driven) return step;
+    // (the frames before it known only once there are three: one or two gaps may be a hitch themselves)
     const g = [...this.gaps].sort((a, b) => a - b);
-    const usual = g.length ? g[g.length >> 1] : 0;
+    const usual = g.length >= 3 ? g[g.length >> 1] : 0;
     return Math.min(step, Math.max(STALL_MS, HELD * usual));
   }
 }
@@ -877,7 +878,9 @@ class Wear {
     this.empty();
   }
 
-  begin(m: ForceMoment): void {
+  /** It begins (`wall`: the clock's time): after the forces' loop has rested, its first frame counts from now. */
+  begin(m: ForceMoment, wall: number): void {
+    if (this.lastWall === null) this.lastWall = wall;
     const now = this.drawn;
     this.empty();
     this.live = true;
@@ -1083,6 +1086,12 @@ class Wear {
     return { ...this.at, age: (now - this.t0) / 1000, dust, stones };
   }
 
+  /** The forces' loop stopped: the time till its next frame is no frame's (its next start counts from its moment, as
+   *  the other tails do). */
+  rest(): void {
+    this.lastWall = null;
+  }
+
   /** At each frame drawn (`wall`: the clock's time, ms). */
   update(wall: number): void {
     const step = this.lastWall === null ? 0 : Math.max(0, wall - this.lastWall);
@@ -1244,7 +1253,7 @@ export class ForceEffects {
       if (m.glaciate && m.phase !== "gather" && m.phase !== "done") this.glacier.clockTo(m.glaciate.seconds, m.pace ?? 1, now);
       if (m.phase === "done") this.glacier.finish(now);
     } else if (m.verb === "erode") {
-      if (this.verb !== "erode" || !this.wear.active) this.wear.begin(m);
+      if (this.verb !== "erode" || !this.wear.active) this.wear.begin(m, now);
       this.wear.cue(m, this.voxels());
       if (m.phase === "done") this.wear.finish();
     }
@@ -1338,7 +1347,10 @@ export class ForceEffects {
     const on = this.advance();
     this.render();
     if (on) this.frame = requestAnimationFrame(this.tick);
-    else this.pace.rest();
+    else {
+      this.pace.rest();
+      this.wear.rest();
+    }
   };
 
   dispose(): void {
