@@ -13,6 +13,7 @@
 //     [--set WATER_GAME_LIGHT=1,...] [--shots <id>,<id>]
 //     [--light shot|day] [--reflection <strength>] [--samples] [--ours <dir>]
 //     [--prefix m9b-|none] [--bands thin] [--tag <name>] [--sources [--only-sources] | --no-sources]
+//     [--objects [--pose start|water]]
 //
 // `--water pit` samples the mine sites' pits (D496 as amended 2026-11-07: by day the game's pit the lighter) beside pure badwater, on the same
 // shots: the pit's floor at the middle of each mine site's 5 × 5 (the 3 × 3 round its centre, at its depth,

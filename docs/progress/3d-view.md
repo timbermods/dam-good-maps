@@ -2899,6 +2899,63 @@ cosine's convolution); its "falls short" waited on a capture of the probe the ga
   at 19.00), as the colours are set once a frame and a frame there spans hours; the colours and the probe of each
   record agree, which is what the rule needs, and the shots are taken paused.
 
+## Objects in the game's light (D135 as amended 2026-11-09, D178, D496, D497; `fix/objects-game-light`)
+
+The terrain took the game's light (D497) and its captured ambient probe (above); the trees, bushes, ruins, sources and
+the start kept a light of our own (the sky's colour × 1.15 × (0.8 + 0.2 n.y), darker toward the foot, a wrapped sun at
+half strength), and the game's albedo drawn at our lightness, 1.318 times it (our grass over the game's).
+
+- **The game's lit model, read** (the compiled VegetationURP and EnvironmentURP programs, disassembled locally;
+  `tools/game-model-albedo.py` now reports each model's occlusion, metallic and smoothness): both are URP's lit
+  model as the terrain's is, in display values: albedo × 0.96 × (1 − metallic) × (the ambient probe by the normal + the
+  sun × max(n·L, 0) × its shadow), with the environment's reflection and the sun's GGX highlight. No wrapped light.
+  VegetationURP has no occlusion term and its metallic map defaults to black (metallic 0, smoothness 0); EnvironmentURP
+  multiplies the ambient by `_AmbientOcclusion`, but RuinColumnA–E, StartingLocation and WaterSource have no map and
+  metallic 0 (Thorns: occlusion 0.88, metallic 0.16).
+- **What changed:** `materials.ts` `GAME_LIT` holds the terrain's light functions (its text unchanged) and adds
+  `gameObjectLight` (the terrain's `gameLight` at the objects' diffuse share, `GAME_LIGHT.objectDiffuse` 0.96) and
+  `gameObjectSpecular`; the object shader takes them in every look, with the foot's darkening, the wrapped sun and
+  High's vegetation sheen gone. The game's colours are drawn straight (`palette.ts` `TREE_COLOURS`, `LANDMARK`, `START`),
+  and the ruins take the game's own: RuinColumnA–E's albedo falls in five clusters (pale cream 10 %, tan 11 %, rust
+  20 %, mid brown 37 %, dark brown 23 %), so the posts and beams are its rust 0.424/0.209/0.099, the panels its cream
+  0.507/0.430/0.272, the far block its mean 0.332/0.225/0.129 and the ivy the game's Ivy_Wet 0.157/0.158/0.087 (ours
+  were #D4781F, #B86E30 and #405634). Standard's berries take the game's blue. High's trees lose `underSun`, which took
+  its own warm sun's tint out of their albedo: they see the game's sun now, so they take Standard's colours. Colours of
+  our own (the mines, thorns, relics, geothermal fields, slopes, the 1.x objects, the succulent, the generic blocks,
+  the birch's marks, the start's entrance) were chosen by eye at the old lightness, so they are drawn at `ownAlbedo`
+  (÷ 1.318, `palette.ts` `OWN_LIGHTNESS`; entities3d.ts `Model.own`, high/landmarks.ts `Parts.own`, High's slope
+  hook) and keep their place among the game's. The legend shows each object as its top shows in the game's light
+  (`objectTop`).
+- **Judged** (`tools/water-pixel-judge.ts --objects`, new: the probe's 16 day start shots, River Valley, Lake Basin,
+  Highlands, Canyon, Any, Delta, Islands 128² and Chaos 256², seeds 1 and 2, each camera fit on its own frame, 0.8 at
+  least; a 3 × 3 patch at each object's part as the camera sees it, nothing within seven tiles of the start, where the
+  game has put its district centre; mean Rec. 709 luma, ours over the game's, before → after):
+  - Standard: pine crown 0.822 → 0.986 (462 samples), oak 0.760 → 0.843 (842), birch 0.802 → 0.925 (585), bush
+    0.714 → 0.794 (679), birch bark 0.911 → 1.005 (587), ruin 1.036 → 0.964 (61), water source 1.137 → 1.236 (3).
+  - High: pine 0.913 → 1.012, oak 0.885 → 0.938, birch 0.804 → 0.870, bush 0.739 → 0.804, birch bark 1.046 → 1.128,
+    ruin 1.094 → 1.009, water source 1.217 → 1.228.
+  - The crowns' sides across the sun's way, over their middles: the game's 1.00–1.01 for every species; ours, Standard
+    0.88–0.98 → 0.81–0.97, High 0.85–1.00 → 0.79–0.99.
+  - Unchanged: the land's RMS on these shots (Standard all 15.7, grass 14.4, dry 15.1, cliff 23.9; High all 15.9,
+    dry 15.3 → 15.2), the water's (clean 13.2 Standard, 13.3 High).
+- **The bloom:** nothing an object draws passes the knee in the game's light now: the brightest, the birch's bark at its
+  brightest normal, reads 1.21 of 1.269 (1.03 upright), the mine's pale rubble 1.04 (`bloom.test.ts` holds them
+  there; the old rust, the pale rubble and the birch's bark had passed it, held at 1.346, 1.304 and 1.291). So by day
+  the bloom stays skipped and lifts nothing, as the game's frames lift at most 0.21 % of a frame by 2 luma (median
+  none); no flare.
+- **Cost:** none by construction (the same work a fragment, a few terms fewer). `benchOrbit`, River Valley 256²
+  seed 4242 (`tools/capture-objects.ts --bench`), 1280 × 800, the GPU's time a frame (the median over 6 s), two
+  rounds, #909's head → this branch: Standard whole map 5.85, 6.18 → 6.00, 5.93 ms, ruin field 6.36, 6.18 → 6.47,
+  6.31; High whole map 4.37, 4.33 → 4.28, 4.34, ruin field 4.34, 4.11 → 4.30, 4.09. Every frame 7.0 ms at the
+  display's 144 Hz.
+- **Falls short:** (1) The crowns still read under the game's, most the bush (0.79–0.80) and the oak (0.84 in
+  Standard): the light is the game's now, so the rest is our crowns' shape and colour mix (the game's leaves' texture
+  lighter at their tips, its crowns more open), not the light. (2) Our crowns' sides across the sun read 3–19 % under (High 1–21 %)
+  their middles, where the game's read the same: the game's foliage normals are rounded out from the crown, ours are a
+  few faceted cones and blobs. (3) High's birch bark reads 13 % over the game's (Standard's 0.5 % over), the same albedo on
+  High's own trunk model; not yet traced. (4) The water source's three samples read 23 % over, too few to act on.
+  (5) The start can't be judged: the game's start shot shows its district centre there.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
