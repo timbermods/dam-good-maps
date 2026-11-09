@@ -2174,7 +2174,7 @@ The water-character audit's gap 7 (`docs/progress/water-character-audit.md`): ou
   wall where it enters a tile below that tile's top, else the top; with terrain above terrain, roofed air is no ground.
   At most `VIEW_DEPTH.steps` 16 tiles, stopping at 5 levels; the depth is the drop. (The game's eye-space gap × sine is
   the drop × the ray's share along the camera's forward axis; ours leaves the share out, as our 40° field is wider
-  than the game's 31-37° and the judge read clean water lighter with it: RMS 3.4 → 4.3 with it, JUDGE_NOFWD without.) Standard, High and the light look read it (the light look as the
+  than the game's 31-37° and the judge read clean water lighter with it: RMS 3.4 → 4.3 with it, 3.6 without.) Standard, High and the light look read it (the light look as the
   game's Low: coloured by it, no ground through it); the see-through, badwater's depth ramp and its glow take it. A
   wall under the water (a bank's foot, a step in the bed) now shows through tinted by the water at the depth the view
   sees there, as the bed under it does. The bank shallowing is gone; `waterBody`, `waterOpacity` and
@@ -2190,7 +2190,11 @@ The water-character audit's gap 7 (`docs/progress/water-character-audit.md`): ou
   → 0.89; lake Standard 1.11 → 1.06, High 1.09 → 0.90. So the rim stays on the far bank and leaves the near one; on
   screen the sky's reflection, added on top, flattens P4's ratios, and the near bank's own shadow darkens its edge a
   little in both builds.
-- **The probe frames** (`tools/water-pixel-judge.ts --water all`): JUDGE_NUMBERS
+- **The probe frames** (`tools/water-pixel-judge.ts --water all`, the six Badtide and Islands ends, at their
+  hours), RMS to the game's pixels, dev → this branch, as drawn (the game's formulas): Standard clean 3.4 → 3.6, mixed
+  9.1 → 9.0, bad 7.1 → 7.0; High 3.3 → 3.6, 8.8 → 8.7, 7.0 → 6.9; the land unchanged. The samples are tile middles
+  with every neighbour wet, about 110 units off, so they see few banks; clean water's 0.2-0.3 is the walk's true beds
+  in place of the mesh's corner-averaged depth.
 - **Speed** (River Valley 256² seed 2, the camera orbiting at 55°, real Chrome on the RTX 2070 SUPER, a frame with the
   GPU waited for, median of 150; over a lake, from 60 and 25 units), dev → this branch: Standard 5.70 → 5.63 and
   4.92 → 5.06 ms, High 8.41 → 7.94 and 7.27 → 7.07 ms: within the runs' noise. The light look in software (SwiftShader,
