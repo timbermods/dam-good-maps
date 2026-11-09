@@ -246,4 +246,28 @@ export interface MapResult {
   loadSeconds?: number;
   workingSetAtLoadMb?: number;
   perf?: PerfResult;
+  /** The game's light every game hour and at each moment, read only (mod 0.3.3, `mod/src/LightReader.cs`): the ambient's
+   *  mode and colours, `RenderSettings.ambientProbe` (per channel its 9 coefficients) and the probe evaluated by
+   *  direction (x, y, z, r, g, b), the shader globals URP sets, and the sun. */
+  lights?: LightRecord[];
+}
+
+export interface LightRecord {
+  momentId: string | null;
+  day: GameDay;
+  hour: number;
+  weather: string;
+  colorSpace: string;
+  ambientMode: string;
+  ambientIntensity: number;
+  ambientLight: number[];
+  ambientSky: number[];
+  ambientEquator: number[];
+  ambientGround: number[];
+  reflectionIntensity: number;
+  defaultReflectionMode: string;
+  ambientProbe: number[][];
+  evaluated: number[][];
+  shaderGlobals: Record<string, number[]>;
+  sun: { name: string; fromRenderSettings: boolean; color: number[]; intensity: number; shadowStrength: number; shadows: string; euler: number[]; forward: number[] } | null;
 }
