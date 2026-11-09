@@ -323,14 +323,15 @@ function waterSurfaceMade(): Promise<void> {
 }
 
 let detailMade: Promise<void> | null = null;
-/** The light look's: the still detail albedo alone (Q9 P6; the game's Low quality draws it), made once a page in the
- *  textures' own worker (`textureBake`) and written into badwater's texture's B (materials.ts `fillDetailTexture`), with
- *  the water sources' pattern (Q9 P7) in its A; flat at their means until then. The light look reads none of the other
- *  patterns. */
-function detailTextureMade(): Promise<void> {
-  return (detailMade ??= textureBake({ kind: "detailTexture" }).then(
+/** The still detail albedo (Q9 P6; every look, the game's Low quality too), its own texture at the game's 2048², made
+ *  once a page in the textures' own worker (`textureBake`), after the surface's job when both are asked for, and
+ *  written into the page's texture (materials.ts `fillDetailTexture`), flat at its mean until then. With `shape` (the
+ *  light look, which makes none of the other patterns; a page draws in software or not for its whole life) the water
+ *  sources' pattern (Q9 P7) comes with it, into badwater's texture's A. */
+function detailTextureMade(shape: boolean): Promise<void> {
+  return (detailMade ??= textureBake({ kind: "detailTexture", shape }).then(
     (r) => {
-      if (r.kind === "detailTexture") fillDetailTexture(r.detail, r.shape);
+      if (r.kind === "detailTexture") fillDetailTexture(r.detail, r.size, r.shape ?? undefined);
     },
     (e: unknown) => {
       detailMade = null;
@@ -4064,11 +4065,14 @@ export class MapRenderer {
     this.requestRender();
   }
 
-  /** Settles once the water's surface, badwater's pattern and contaminated ground's pattern are made (they are flat at
-   *  their means until then; the light look makes and reads only the still detail albedo and the sources' pattern). For tests and pictures that
-   *  read the patterns. */
+  /** Settles once the water's surface, badwater's pattern, contaminated ground's pattern and the still detail albedo
+   *  are made (they are flat at their means until then; the light look makes and reads only the still detail albedo
+   *  and the sources' pattern). For tests and pictures that read the patterns. */
   patternsMade(): Promise<void> {
-    return this.software ? detailTextureMade() : waterSurfaceMade();
+    if (this.software) return detailTextureMade(true);
+    // (the surface's job first: the water's own patterns land as soon as before, the detail after them)
+    const surface = waterSurfaceMade();
+    return Promise.all([surface, detailTextureMade(false)]).then(() => undefined);
   }
 
   /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */

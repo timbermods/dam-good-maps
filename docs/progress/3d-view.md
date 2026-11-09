@@ -2581,6 +2581,59 @@ ran in the page's bake worker, so on a first visit the opening map's first movin
 - **Falls short:** the water's own texture is still about 300 ms in Chrome (its Voronoi network and the patches'
   field), above the 210 ms it took before #901.
 
+## The still detail at the game's resolution (Q9 P6; D154, D496; `fix/water-detail-resolution`)
+
+#901's falls short (4): our still detail held 7.7 texels a tile, against the game's 31, so its fine swirl was missing
+close up.
+
+- **Ours before:** the detail's first component rode in badwater's texture's B, 512² over the 66.7-tile repeat. Its
+  statistics were the game's down to half a tile. Under that it could hold nothing finer than 0.26 tiles: it put
+  4.4 % of its power at 0.5–0.25 tiles and 1.1 % at 0.25–0.125, where the game's 2048² has 2.5 %, 1.8 % and 1.3 % down
+  to 0.065 tiles. Magnified 6.5 px a texel at the `ceiling-close` pose, its bilinear facets stood in for the swirl.
+- **The game's, measured further** (`tools/game-water-shader.py --textures`, which now also prints where the fine
+  part lies; numbers only): its power by octave from 64 to 0.125 tiles and under,
+  0.023/0.172/0.289/0.225/0.117/0.071/0.041/0.025/0.018/0.013. The swirl lies in the bright patches: the spread left
+  within 0.125 tile runs 0.95 / 2.16 / 5.62 (10th / 50th / 90th percentile) and follows the mean there (0.92).
+- **Ours now** (`waterTextures.ts` `makeDetailField`, `DETAIL_TEXTURE_SIZE`): a texture of its own, 2048², one byte a
+  texel (`materials.ts` `detailTexture`, RedFormat, mipmapped and filtered at a slant), made to the game's ten bands
+  (`DETAIL_FINE_BANDS`) and remapped to its distribution as before. It reads 0.023/0.173/0.290/0.226/0.118/0.072/0.041/
+  0.025/0.018/0.013, within 0.125 tile 0.95 / 2.07 / 5.98 (0.88), its broad shares 0.89/0.80/0.66/0.46/0.25 (game
+  0.89/0.82/0.68/0.48/0.26) and its half-width 1.38 tiles (1.50). Badwater's B is now unused, its R, G and A the same
+  bytes (its checksum re-pinned for the B alone). A test holds the bands, the distribution and the bytes.
+- **Made quicker:** the field is made from half its spectrum (the other half its mirror, so it is real), each
+  frequency at its band's amplitude with a phase from a table, the rows two to a transform; the rank remap finds the
+  ranks where each byte begins by a histogram and sorts only the values in those bins, with no sort of the whole.
+  Chrome, each alone: the 2048² detail 380–440 ms (the old recipe at 2048² took 2.2 s in Node); badwater's 445–510
+  → 360–395 ms without the 512² detail it carried (80–110 ms). It is its own job in the textures' worker, after the
+  surface's, so the water's patterns land about 90 ms sooner than before and the detail about 0.3 s after them, flat
+  at its mean until then; the first map's moving water never waits on that worker (#903). The light look makes it
+  with the sources' pattern. Memory: 4 MB on the page and about 5.6 MB on the GPU with its mips; about 75 MB in the
+  worker while it is made, freed when the worker closes.
+- **Judged** on the probe's `ceiling-waterfall` frames (C:\dgm-probe\shots\ceiling-20260927, day light, ours from the
+  same poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept),
+  before → after, both on dev before #902 (Standard; High within 0.25 of it):
+  - `ceiling-close` (30°, 22): the sheet's upper / lower half, its columns' high-passed spread, game 1.94 / 1.52,
+    2.58 / 2.21 → 1.89 / 2.13; |dx| across it, game 1.50 / 1.26, 1.39 / 1.24 → 1.16 / 1.26. The pool over the lip: its
+    high-passed spread, game 9.73, 8.56 → 8.87 (High 8.36 → 8.63); its L*, game 32.1, 31.6 → 34.4.
+  - `ceiling` (45°, 50), the regions taking in the sheet's side: columns, game 1.61 / 1.43, 4.14 / 6.89 → 3.19 / 5.80;
+    |dx|, game 1.55 / 1.54, 3.29 / 3.43 → 2.62 / 2.93. The pond's spread, game 6.10, 4.90 → 4.94.
+  - These small regions see a few tiles of a 67-tile pattern, so they move with its phase as much as with its
+    statistics: the same texture made from another seed (302, not kept) reads columns 1.57 / 1.76, |dx| 0.89 / 1.04,
+    the pool's spread 8.56 and L* 31.5. The mid-band excess the 512² carried (0.5–0.25 tiles, 1.8 times the game's) was
+    part of the sheet's |dx| and columns; the pool's spread is not the detail's.
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots, pooled by tile: clean water RMS Standard
+    13.8 → 13.8, High 13.6 → 13.6 (7,120 tiles); a fall's foot 24.0 → 23.8 and 23.3 → 23.1 (103); the land unchanged
+    (Standard 12.3, High 12.6).
+- **Cost:** `benchOrbit` on the `ceiling-waterfall` map, 1280 × 800, the GPU's time a frame (the median over 6 s),
+  four runs each in two sittings in opposite orders, before → after: Standard close over the fall 2.77, 2.82, 2.86,
+  2.82 → 2.84, 3.05, 2.81, 2.85 ms; Standard from 50 away 1.96, 2.42, 1.50, 2.42 → 1.68, 2.41, 2.06, 2.30; High close
+  2.82, 2.55, 2.74, 2.66 → 2.79, 1.84, 2.75, 1.60; High from 50 away 2.73, 2.87, 2.69, 2.84 → 2.59, 2.57, 2.66, 2.64.
+  Within the runs' noise; the shader samples a one-byte texture where it sampled one of four bytes.
+- **Falls short:** (1) The close pool's spread stays 9–12 % under the game's on both seeds, so it lies in the flow's
+  albedo, its normal or its depth, not the detail. (2) The sheet's columns at `ceiling-close`'s lower half and both of
+  `ceiling`'s side regions stay over the game's: our fall stands still (#901's (2)). (3) Ours is the game's in its
+  statistics, not its texels, so a spot can read lighter or darker than the game's (the pool here 2.3 L* lighter).
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
