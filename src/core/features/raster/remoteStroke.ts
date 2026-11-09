@@ -8,6 +8,11 @@
 // whole when its land comes back. A call a batch of dabs, each waiting behind the last, grew a queue the
 // worker never caught up with (the land seconds behind the cursor); the worker presses a batch dab by dab
 // as it pressed them one call each, so the land it sends back is the same.
+//
+// The stroke's record (its rule, where the water stood over its working rectangle) is the worker's, taken
+// with each answer's land and again at the end (#873): dabs that reach over water but change no tile grow
+// the worker's record with no land to carry it, and an operation keeping a shorter record weathered
+// those tiles differently from the land the page showed.
 
 import type { BrushParams } from "./brush";
 import type { Rect } from "./brush";
@@ -25,8 +30,9 @@ export interface WeatherChannel {
   begin(settings: Omit<BrushParams, "dabs">, ground: readonly (readonly [number, number, number])[]): Promise<void>;
   add(dabs: number[], pressure?: number[]): Promise<WeatheredLand | null>;
   finish(rigid: [number, number, number, number][]): Promise<WeatheredLand | null>;
-  /** The stroke's heights before the integrity pass and its protected tiles, once its dabs are in. */
-  end(): Promise<{ pre: Uint8Array; protect: Uint8Array } | null>;
+  /** The stroke's heights before the integrity pass, its protected tiles and its settings as the worker's
+   *  preview recorded them, once its dabs are in. */
+  end(): Promise<{ pre: Uint8Array; protect: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null>;
   cancel(): void;
 }
 
@@ -112,7 +118,7 @@ export class RemotePreview {
   }
 
   /** The stroke is done: its heights before the integrity pass and its protected tiles (in `pre` and
-   *  `protect`), once every dab is shown. */
+   *  `protect`), and the worker's whole record, once every dab is shown. */
   async done(): Promise<void> {
     await this.settled();
     const r = await this.channel.end();
@@ -120,6 +126,7 @@ export class RemotePreview {
     if (r) {
       this.pre = r.pre;
       this.protect = r.protect;
+      this.take(r.settings);
     }
   }
 
@@ -162,10 +169,13 @@ export class RemotePreview {
     for (let y = rect.y0; y <= rect.y1; y++)
       for (let x = rect.x0; x <= rect.x1; x++) this.heights[y * this.W + x] = heights[(y - rect.y0) * bw + (x - rect.x0)];
     this.bounds = grow(this.bounds, rect);
-    // (the worker's record: the rule and where the water stood, as the operation keeps them)
-    const s = land.settings;
-    Object.assign(this.record, { weathering: s.weathering, ...(s.shore ? { shore: s.shore } : {}), ...(s.pools ? { pools: s.pools } : {}), ...(s.moist ? { moist: s.moist } : {}) });
+    this.take(land.settings);
     this.onLand(rect);
+  }
+
+  /** The worker's record: the rule and where the water stood, as the operation keeps them. */
+  private take(s: Omit<BrushParams, "dabs">): void {
+    Object.assign(this.record, { weathering: s.weathering, ...(s.shore ? { shore: s.shore } : {}), ...(s.pools ? { pools: s.pools } : {}), ...(s.moist ? { moist: s.moist } : {}) });
   }
 }
 

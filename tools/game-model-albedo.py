@@ -10,9 +10,11 @@ triangles, and gives the albedo its shader multiplies the light by, per material
   - VegetationURP (plants, `_EnableDetail` 0): saturate(vertex colour) × `_MainTex`.
 The texture is sampled at 36 points spread over each triangle (its top mip, raw: the game renders in Gamma colour space). Each
 material's albedo is printed whole and split by vertex colour, and by its texels' hue where they are bluer than they
-are green (a bush's berries), with each part's share of the area.
+are green (a bush's berries), with each part's share of the area. `--above 0.3,0.5` also gives each vertex-colour part's
+albedo over only its texels lighter than each luminance (Rec. 709, of the texel): a bark's light part without the dark
+marks a model of ours draws as geometry of its own (the birch's).
 
-    python tools/game-model-albedo.py StartingLocation.Model BlueberryBushMature RuinColumnH3 [--game ...]
+    python tools/game-model-albedo.py StartingLocation.Model BlueberryBushMature RuinColumnH3 [--above 0.3] [--game ...]
 """
 import argparse
 import os
@@ -236,7 +238,7 @@ def albedo(assets, model):
     return out
 
 
-def report(model, parts):
+def report(model, parts, above=()):
     print(f"\n{model}")
     for mat, chunks in parts.items():
         area = np.concatenate([c[0] for c in chunks])
@@ -254,6 +256,12 @@ def report(model, parts):
         for k, ids in sorted(groups.items(), key=lambda kv: -area[kv[1]].sum())[:8]:
             a = area[ids]
             print(f"    vertex colour {fmt(k)}: {a.sum() / tot * 100:5.1f} % of the area, albedo {fmt((alb[ids] * a[:, None]).sum(0) / a.sum())}")
+            lum = tex[ids] @ np.array([0.2126, 0.7152, 0.0722])
+            for t in above:
+                light = np.array(ids)[lum > t]
+                if len(light):
+                    b = area[light]
+                    print(f"      texels above {t}: {b.sum() / a.sum() * 100:5.1f} % of it, albedo {fmt((alb[light] * b[:, None]).sum(0) / b.sum())}")
         blue = tex[:, 2] > tex[:, 1] + 0.04
         if blue.any():
             a = area[blue]
@@ -267,11 +275,12 @@ def fmt(v):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("models", nargs="+", help="the models' GameObject names")
+    ap.add_argument("--above", default="", help="luminances: each part's albedo over its texels lighter than each")
     ap.add_argument("--game", default="C:/Program Files (x86)/Steam/steamapps/common/Timberborn")
     args = ap.parse_args()
     assets = Assets(args.game)
     for m in args.models:
-        report(m, albedo(assets, m))
+        report(m, albedo(assets, m), [float(t) for t in args.above.split(",") if t])
 
 
 if __name__ == "__main__":

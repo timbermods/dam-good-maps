@@ -254,13 +254,17 @@ export class HighLook {
   }
 
   /** Plants change state in place (the Weather view's withering, the ground starting them dying): the plants whose DEAD
-   *  or DYING flag differs move to that state's batches. Returns how many changed. */
+   *  or DYING flag differs move to that state's batches, and the depth map is drawn again from them, so a plant casts
+   *  only the form it is drawn in, as the game's dead tree casts its own dead model (a withered birch had kept its
+   *  living crown's shadow until something else redrew the map). Returns how many changed. */
   setPlantStates(flags: ArrayLike<number>): number {
     const forest = this.forest;
     if (!forest) return 0;
     const changed = forest.setState(flags);
+    if (!changed) return 0;
     // (a layout shows every batch that has plants: the effect's switch still hides them)
-    if (changed && !this.effects.vegetation) for (const m of forest.meshes) m.visible = false;
+    if (!this.effects.vegetation) for (const m of forest.meshes) m.visible = false;
+    this.shadows.dirty = true;
     return changed;
   }
 
