@@ -94,9 +94,8 @@ export const WATER_SURFACE = {
   /** A fall's: the game draws a fall as the water below the step rising to meet the water above (fallSlope.ts), with
    *  the same material as the surface, and where its waterfall mask lies (its FindWaterfalls pass: the tile a fall
    *  lands in, its slope, fallMask.ts, Q9 P1) shows the ground behind by `_TransparencyWaterfallDepth` 0.2 ×
-   *  `_TransparencyDepthModifier` 0.5 in place of `seeThrough`'s 0.35: `fallSeeThrough` of it, also the water's side
-   *  toward lower dry ground (the cliff right behind it), thinning with depth on the water the fall lands in as
-   *  `seeThrough` does (`waterSeeThrough`). */
+   *  `_TransparencyDepthModifier` 0.5 in place of `seeThrough`'s 0.35: `fallSeeThrough` of it, thinning with depth
+   *  as `seeThrough` does (`waterSeeThrough`), on the slope, the water it lands in and their sides alike. */
   fallSeeThrough: 0.1,
   /** The ground that shows behind the water, as the game shows it (`waterGroundBehind`): overlaid with the
    *  water's own colour by `behindTint` (`_TransparencyBlending`), then desaturated to `behindSaturation`
@@ -886,7 +885,6 @@ ${WATER_PROBE.mips
     return r2 / (d * d * max(0.1, LoH * LoH) * (4.0 * r + 2.0)) * ${f(WATER_SURFACE.f0)} * max(dot(N, L), 0.0);
   }
   #define BADWATER_SIDE ${f(BADWATER.side)}
-  #define WATER_FALL_SEE_THROUGH ${f(WATER_SURFACE.fallSeeThrough)}
   /** Clean water's colour by the game's formula (waterPalette.ts GAME_WATER, gameCleanColour), before its albedo and
    *  light. */
   #define WATER_FORMULA ${GAME_WATER.use ? 1 : 0}
