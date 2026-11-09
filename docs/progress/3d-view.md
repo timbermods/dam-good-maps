@@ -1863,6 +1863,29 @@ the game's models in resources.assets (positions, materials and texture means on
   4096 reaches the game's 0.11 and waits on the igpu-4x gate (integrated GPU, CPU 4× slower, 256², the sun turning),
   run on a machine with an integrated GPU, with `npm run smooth` mended first.
 
+## Trees cast the model they are drawn with (D497; `fix/lod-shadows`)
+
+- **What it was.** High's depth map was kept through the camera's moves on the grounds that a tree's close-up and far
+  models cast nearly the same shadow. They don't: a birch's far crown is two octahedra, so after a zoom in from afar
+  the close-up birches cast diamonds (the look review of #876, River Valley 128² seed 1 on Day 0). Zoomed in on its
+  birches, 1920 × 1080, time held still, the frame differed from one with the map drawn again in 177,685 pixels at 18
+  tiles and 357,259 at 10 (luma by more than 4).
+- **What it is now.** Once the camera's changes between the models have settled (none for 250 ms, `LOD_SETTLE` in
+  `highLook.ts`), the map is drawn again, once, if the trees' layout changed since it was last drawn. Those differences
+  are 0. Drawing it at every change (at most one every 100 ms, `SHADOW_EVERY`) was measured first and dropped frames
+  in a zoom, so it waits for the zoom to end. `tests/unit/lodShadows.test.ts` holds it.
+- **Measured.** River Valley 256² seed 1 (1,472 plants), 1920 × 1080, RTX 2070 SUPER, a 4-second zoom from 260 tiles
+  to 14 and an orbit at 30, three runs each:
+
+  | | depth passes in the zoom / after it | zoom frame p95 (ms) | zoom GPU p95 (ms) | orbit p95 (ms) |
+  |---|---|---|---|---|
+  | dev | 0 / 0 | 7.03–7.06 | 6.62–7.68 | 14.01 |
+  | drawn at every change | 22 / 1 | 14.00–14.01 | 6.88–7.38 | 14.01–14.03 |
+  | drawn once settled (now) | 0 / 1 | 7.02–7.04 | 6.93–7.00 | 14.01–14.03 |
+
+  An orbit already draws the map every frame on dev, as the sun turns with the camera, so the trees' models are current
+  through it.
+
 ## Falls as the water below's slope (D154 amended 2026-11-08; `fix/falls-as-slopes`)
 
 - **What the game does** (decompiled `Timberborn.WaterSystemRendering` `WaterMesh`, and its compute shader
