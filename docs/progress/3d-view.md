@@ -2763,14 +2763,85 @@ shore line, so the aid no longer showed clearly what was wet.
   grass beside it (b* 20 → 10); at play distance the river reads as one blue-green body with a bright edge, and each
   cave pool under the cut as its own outlined pool.
 - **Off unchanged:** frames with Clear water off on dev and on this branch, same poses, same moment of the water, read
-  back from the GPU and compared byte for byte: Standard's four and High's badwater close-up identical, the others
-  within the GPU's own frame-to-frame jitter (1 to 18 pixels off by one, as two frames of dev differ from each other,
-  up to 17); the light look's hashes match. `look-readable.test.ts` now also holds clean water's deep tint lighter
+  back from the GPU and compared byte for byte: Standard's four and High's badwater close-up identical, High's others
+  1 to 25 pixels off by one. Those differences repeat on every capture, so they are rounding in the recompiled
+  shader, not frame-to-frame noise (review of #907). The light look's hashes match. `look-readable.test.ts` now also holds clean water's deep tint lighter
   than badwater's murk, the tint never past half, and the shader's tint by depth and waterline.
 - **Cost:** none with Clear water off (the branch is skipped; one derivative is taken before it, as GLSL needs); with it
   on, a few more operations a water pixel. Not timed (D453: nothing here runs on the path players see by default).
 - **Falls short:** the waterline follows tile edges, so a diagonal shore shows small steps, as the water's own edge
   does; under a roof the tint takes the open air's light, as the clear water did before.
+
+## The flow's albedo at the game's resolution (Q9 P5, P11; D154, D496, D453; `fix/water-texture-resolution`)
+
+#905's falls short (1) and (2): the close pool's spread 5 % under the game's and its glints' cover 8.5 % against 9.3 %,
+with our albedo 512² against the game's 2048²; our normal 1024² against the game's 4096².
+
+- **What the game's extra texels hold** (`tools/game-water-shader.py --textures`, which now prints each size's share:
+  the power by octave from 0.125 tile through each smaller size's texel pair, and the spread finer than each pair in the
+  top and in each box mip; numbers only). The albedo's brightness: 8.9 % of its power from 0.125 tile to 512²'s pair
+  (0.065), 2.75 % to 1024²'s (0.033), 1.2 % under, in its crisp cell edges and a grain in its bright gaps. Its part
+  finer than 512²'s pair has a spread of 2.74 in its top (123 texels a tile) and 2.08 in its first mip (61), the mip a
+  camera at about 50 pixels a tile draws (`ceiling-close`), against 13.7 in all. Its red-against-blue component likewise
+  1.30 / 0.95. `Water_N`'s slopes finer than 1024²'s pair: 0.016 / 0.018 (x / y) in its top (246 a tile), 0.011 / 0.012
+  in its first mip (123) and nothing past the corners in its second (61), against 0.116 / 0.120 in all.
+- **The albedo now** (`waterTextures.ts` `makeWaterTexture`, `WATER_TEXTURE_SIZE`): 2048², the game's, two bytes a texel
+  (RG; its B and A had been unused). Made to the game's spectrum as #901's: the lines flat-topped, their edge two or
+  three texels wide (`NET.edge`, a profile e^(−t⁸) where it was a Gaussian, which holds nothing finer than a sixteenth
+  of a tile), a grain a texel in the bright gaps (`NET.grain`), cells of 0.56 tile where they were 0.66, then remapped
+  by rank to the game's distribution. By octave from 16 tiles, the game's 0.0025/0.021/0.059/0.129/0.196/0.252/
+  0.211/0.089/0.0275/0.0122; ours 0.0013/0.025/0.061/0.120/0.215/0.210/0.231/0.094/0.0275/0.0131 (the 512²'s
+  0.0008/0.025/0.067/0.133/0.232/0.196/0.222/0.117/0.007 (its corners)/0). Its part finer than 512²'s pair 2.77 in the
+  top and 2.08 in the first mip (game 2.74, 2.08). Its broad shares 0.47/0.31/0.19/0.094/0.035 (game 0.47/0.32/0.19/
+  0.090/0.035). `WATER_ALBEDO` refitted, so its mean and covariance stay the game's. Badwater's pattern stays 512²
+  (`BADWATER_TEXTURE_SIZE`). A test holds the bands, the fine part in the top and first mip, and the bytes.
+- **The normal stays 1024²**, on the numbers: a camera under about 61 pixels a tile (the opening camera, play distance,
+  `ceiling-close`) samples the game's mips no finer than ours, so 4096² adds nothing there. Nearer, up to 123 pixels a
+  tile, the game's first mip holds 0.9 % more of the slopes' variance; 2048² would carry it for 8 MB more on the GPU,
+  4096² its top's 1.9 % for 40 MB more (43 MB with its mips). The glints' cover closes without it (below).
+- **Judged** on the probe's `ceiling-waterfall` frames (C:\dgm-probe\shots\ceiling-20260927, day light, ours from the
+  same poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept), dev →
+  this branch, Standard (High):
+  - `ceiling-close` (30°, 22), the pool over the lip: its high-passed spread, game 9.73, 9.28 → 9.49 (9.10 → 9.35); the
+    glints' cover, game 9.3 %, 8.5 → 9.0 % (8.6 → 9.1); the top 1 % over the median, game 52.9, 50.6 → 52.9 (50.8 →
+    52.8); its L*, game 32.1, 32.0 → 32.2 (32.4 → 32.7). With the water settled by an edit, so the fall pours as in the
+    game's frame: the pool 9.29 → 9.49, the cover 8.8 → 9.3 % (8.7 → 9.3); the sheet's |dx| upper / lower, game 1.50 /
+    1.26, 1.14 / 1.03 → 1.51 / 1.40; its columns, game 1.94 / 1.52, 1.22 / 1.00 → 2.15 / 1.67. As opened, the map's
+    stored outflows all zero, our fall stands still and its texture is stretched down the face: the crisp edges then
+    draw as streaks, |dx| 1.09 / 1.15 → 2.30 / 1.60 and columns 1.34 / 1.82 → 5.47 / 3.24.
+  - `ceiling` (45°, 50), the pond: its spread, game 6.10, 6.42 → 6.37; the top 1 % over the median, game 43.5, 42.0 →
+    45.0 (41.8 → 44.7); its L* unchanged (36.7). The regions taking in the sheet's side stay over the game's, as before
+    (settled: |dx| 3.20 / 2.88 → 3.52 / 3.88, game 1.55 / 1.54).
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots pooled by tile: clean water RMS Standard
+    13.3 → 13.3, High 13.1 → 13.1 (7,120 tiles); a fall's foot 23.8 → 23.8 and 23.0 → 23.1 (103); the land unchanged
+    (12.3, 12.6). Those cameras sit about 100 away, where the albedo's mips are the same as before.
+  - A slow orbit, 24 frames 0.25° apart with the water held, at play distance (60 away, 50°) and nearer (30, 35°): the
+    change from frame to frame over the water, high-passed under 2 pixels, Standard 1.19 → 1.19 and 1.28 → 1.27, High
+    1.23 → 1.22 and 1.31 → 1.30; its spread within a frame 2.98 → 2.99 and 3.16 → 3.17. No new shimmer: the box mips
+    take the edges and the grain off before a texel is smaller than a pixel.
+- **Cost:** the albedo is its own job, the textures' worker's last (`albedoTexture`; renderer.ts `albedoTextureMade`),
+  drawn at its mean until it lands. Its maker reads the bright patches' field at 512² between its texels, finds the
+  Voronoi's points with no wrapping and takes no exponential where it can't count; its bytes by #904's histogram rank.
+  About 1.2 s in Node and 1.3–1.6 s in Chrome's worker (the 512²'s 150 ms). Chrome, the built site, the opening map
+  (`s=4242`, 128², riverValley), from navigation, five runs each after a cold one, dev → this branch: the first moving
+  water 640–750 → 630–730 ms; the normal's, badwater's and the ground's textures 1,720–1,960 → 1,470–1,680 ms; the
+  detail 2,150–2,440 → 1,940–2,240 ms; the albedo with the first (dev) → 3,300–3,800 ms. Memory: the albedo 8 MB on the
+  page (1 MB before; one texel until it lands) and about 11 MB on the GPU with its mips (1.3 MB before), about 60 MB in
+  the worker while it is made, freed when the worker closes. `benchOrbit` on `ceiling-waterfall`, 1280 × 800, the GPU's
+  time a frame (the median over 6 s), four runs each in two sittings in opposite orders, dev → this branch: Standard
+  close over the fall 2.77, 2.75, 2.88, 2.75 → 2.99, 2.88, 2.81, 2.81 ms; Standard from 50 away 2.44, 1.94, 1.65, 2.18 →
+  2.52, 1.55, 2.46, 1.60; High close 2.64, 2.65, 2.32, 2.68 → 2.75, 2.80, 2.76, 2.83; High from 50 away 2.71, 2.57,
+  2.74, 2.69 → 2.58, 2.16, 2.76, 2.78. Close up, about 0.1 ms more (the medians 2.76 → 2.85 and 2.65 → 2.79: the pool
+  samples the albedo's top mips where it magnified the 512²); from 50 away within the runs' noise. On an integrated GPU
+  the 9 MB more is the albedo alone; the normal's 4096² (40 MB more) was not taken.
+- **The judge's totals before #906:** #906's reviewer found that `water-pixel-judge.ts`'s "all shots" total counted the
+  deep samples twice (an old `hi === 9` test also matched the 3–9 band). The totals in the sections before #906 carry
+  that double count; their bands' own lines do not.
+- **Falls short:** (1) A fall opened from a file stands still (its stored outflows are zero) until an edit settles it,
+  and on it the crisp edges draw as streaks about three times the game's columns; poured, they read the game's. (2) The
+  albedo's red-against-blue component holds 4.6 % of its power under 0.25 tile against the game's 26 % (nearly no luma:
+  the judge's spreads don't see it). (3) The pool's spread stays 2–3 % under the game's. (4) The albedo lands 1.3–1.6 s
+  after the rest of the water's textures on a first visit.
 
 ## The rest of the step (next parts)
 

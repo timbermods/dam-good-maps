@@ -594,6 +594,8 @@ def measure_flow_textures(read, objects, data_dir, preview=None):
             for label, v in (("x", nx), ("y", ny)):
                 c, a = feature_scale(v)
                 print(f"  slope {label} feature scale: spectrum centroid {c:.3f} tiles, autocorrelation half-width {a:.3f} tiles")
+                print(f"  slope {label}, what each size holds:")
+                resolution(v, REPEAT_TILES, (1024, 2048), 4)
             print(f"  channels r/b/a: mean {t[..., 0].mean():.1f}/{t[..., 2].mean():.1f}/{t[..., 3].mean():.1f}")
         else:
             for k, ch in enumerate("rgb"):
@@ -621,6 +623,7 @@ def measure_flow_textures(read, objects, data_dir, preview=None):
                           f"{'/'.join(f'{x:+.1f}' for x in np.percentile(score, DETAIL_PERCENTILES))}; min {score.min():+.1f}, max {score.max():+.1f}")
                 if k > 0:
                     scales(score.reshape(h, w), REPEAT_TILES)
+                    resolution(score.reshape(h, w), REPEAT_TILES, (512, 1024))
     measure_badwater_textures(textures, data_dir, preview)
 
 
@@ -653,6 +656,38 @@ def scales(field, repeat):
     local = ndimage.gaussian_filter((f - mean) ** 2, sigma=0.25 * tex, mode="wrap") ** 0.5
     print(f"     its spread within 0.25 tile, 10/50/90%: {'/'.join(f'{x:.1f}' for x in np.percentile(local, (10, 50, 90)))}; "
           f"correlation with the mean there {np.corrcoef(mean.ravel(), local.ravel())[0, 1]:+.2f}")
+
+
+def resolution(field, repeat, sizes, places=2):
+    """What a texture's top holds that smaller ones can't (the game's at its own size against ours at `sizes`): its
+    power by octave from 0.125 tile through each size's texel pair (its Nyquist wavelength, 2 / its texels a tile) to its
+    own, and the spread of its part finer than each size's pair in its top and in each of its box mips (the mean of 2 ×
+    2 texels, as its stored mips), the mip a camera draws at about its texels a tile in pixels a tile. Numbers only."""
+    import numpy as np
+    h = field.shape[0]
+
+    def fine(f, wave_under):
+        n = f.shape[0]
+        F = np.fft.fft2(f - f.mean())
+        k = np.sqrt((np.fft.fftfreq(n)[:, None] * n) ** 2 + (np.fft.fftfreq(n)[None, :] * n) ** 2)
+        F[repeat / np.maximum(k, 1e-9) >= wave_under] = 0
+        return np.real(np.fft.ifft2(F)).std()
+
+    pairs = [2 * repeat / s for s in sizes]
+    edges = [0.125, *pairs, 0]
+    f = field - field.mean()
+    p = np.abs(np.fft.fft2(f)) ** 2
+    k = np.sqrt((np.fft.fftfreq(h)[:, None] * h) ** 2 + (np.fft.fftfreq(h)[None, :] * h) ** 2)
+    wave = repeat / np.maximum(k, 1e-9)
+    p[0, 0] = 0
+    share = [p[(wave <= edges[i]) & (wave > edges[i + 1])].sum() / p.sum() for i in range(len(edges) - 1)]
+    print(f"     power by wavelength (tiles) {'/'.join(f'{e:.4g}' for e in edges)}: {'/'.join(f'{x:.4f}' for x in share)}")
+    m, level = field, 0
+    while m.shape[0] >= min(sizes):
+        print(f"     mip {level} ({m.shape[0]}², {m.shape[0] / repeat:.0f} texels a tile): spread {m.std():.{places}f}, "
+              + ", ".join(f"finer than {s}²'s pair {fine(m, w):.{places}f}" for s, w in zip(sizes, pairs)))
+        m = 0.25 * (m[0::2, 0::2] + m[1::2, 0::2] + m[0::2, 1::2] + m[1::2, 1::2])
+        level += 1
 
 
 def measure_badwater_textures(textures, data_dir, preview=None):

@@ -10,7 +10,7 @@ import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { flowByte } from "../../src/render3d/high/bake";
 import { gameFlowOf } from "../../src/render3d/current";
-import { albedoOf, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, makeBadwaterTexture, makeWaterNormal, makeWaterTexture, NORMAL_BANDS, NORMAL_TEXTURE_SIZE, PATTERN_PERCENTILES, powerByBand, rankOrder, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
+import { ALBEDO_BANDS, albedoOf, BADWATER_TEXTURE_SIZE, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, makeBadwaterTexture, makeWaterNormal, makeWaterTexture, NORMAL_BANDS, NORMAL_TEXTURE_SIZE, PATTERN_PERCENTILES, powerByBand, rankOrder, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
 import { badwaterBody, badwaterGlow, GAME_BADWATER, GAME_WATER, gameBadwaterColour, WATER, gameBadwaterEmission, gameCleanColour, gameDepthG, gameDepthR, WATER_LIGHT } from "../../src/render3d/waterPalette";
 import { GAME_LIGHT, gameAmbient, LIGHT, sunlitTop, waterShown } from "../../src/render3d/palette";
 import { dayLight } from "../../tools/game-day-light";
@@ -20,6 +20,18 @@ const data = makeWaterTexture(N);
 const NN = NORMAL_TEXTURE_SIZE;
 const normal = makeWaterNormal(NN);
 const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
+
+/** A square field's next mip: the 2 × 2 texels' mean. */
+function box(f: Float64Array, size: number): Float64Array {
+  const m = size / 2;
+  const out = new Float64Array(m * m);
+  for (let y = 0; y < m; y++)
+    for (let x = 0; x < m; x++) {
+      const i = 2 * y * size + 2 * x;
+      out[y * m + x] = (f[i] + f[i + 1] + f[i + size] + f[i + size + 1]) / 4;
+    }
+  return out;
+}
 
 function stats(f: Float64Array) {
   const s = Float64Array.from(f).sort();
@@ -38,7 +50,7 @@ describe("the water's textures", () => {
   const sy = new Float64Array(NN * NN);
   for (let i = 0; i < NN * NN; i++) [sx[i], sy[i]] = slopesOf(normal[i * 2], normal[i * 2 + 1]);
   for (let i = 0; i < n; i++) {
-    const a = albedoOf(data[i * 4], data[i * 4 + 1]);
+    const a = albedoOf(data[i * 2], data[i * 2 + 1]);
     for (let k = 0; k < 3; k++) ch[k][i] = a[k] * 255;
     luma[i] = 0.2126 * ch[0][i] + 0.7152 * ch[1][i] + 0.0722 * ch[2][i];
   }
@@ -66,7 +78,28 @@ describe("the water's textures", () => {
     for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) score[i] += (ch[k][i] - means[k]) * axis[k];
     const sorted = Float64Array.from(score).sort();
     PATTERN_PERCENTILES.forEach((p, j) => expect(Math.abs(sorted[Math.floor(p * (n - 1))] - F.percentiles[j]), `${p}`).toBeLessThan(6));
-    [0.125, 0.25, 0.5, 1, 2].forEach((s, j) => expect(Math.abs(broadShare(score, N, s) - F.broad[j]), `${s} tiles`).toBeLessThan(0.04));
+    // (the blurs over its 512² mip, the 4 × 4 texels' mean, which a blur of an eighth of a tile or more doesn't see)
+    const mip2 = box(box(score, N), N / 2);
+    [0.125, 0.25, 0.5, 1, 2].forEach((s, j) => expect(Math.abs(broadShare(mip2, N / 4, s) - F.broad[j]), `${s} tiles`).toBeLessThan(0.04));
+  });
+
+  it("make the albedo's brightness at the game's resolution: its power by wavelength down to its texel, and the fine part a near camera draws in its top and first mip", () => {
+    // (the game's PhysicalWaterAlbedo is 2048²: 4 % of its power lies under 512²'s texel pair, in its crisp edges and
+    // the grain of its bright gaps)
+    expect(N).toBe(2048);
+    const F = GAME.albedo.first;
+    const axis = GAME.albedo.components[0].axis;
+    const score = new Float64Array(n);
+    for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) score[i] += ch[k][i] * axis[k];
+    const p = powerByBand(score, N, 1 / WATER_FLOW.tiling, ALBEDO_BANDS);
+    F.power.forEach((g, b) => expect(Math.abs(p[b] - g), `band ${ALBEDO_BANDS[b]}`).toBeLessThan(b >= 7 ? 0.01 : 0.05));
+    // the spread under 512²'s texel pair in the top and in the first mip (the 2 × 2 texels' mean)
+    const fine = (f: Float64Array, size: number) => {
+      const q = powerByBand(f, size, 1 / WATER_FLOW.tiling, [Infinity, ALBEDO_BANDS[8], 0]);
+      return Math.sqrt(q[1]) * stats(f).spread;
+    };
+    expect(Math.abs(fine(score, N) - F.fine[0]), "top").toBeLessThan(0.25);
+    expect(Math.abs(fine(box(score, N), N / 2) - F.fine[1]), "first mip").toBeLessThan(0.25);
   });
 
   it("make the normal's slopes at the game's spread, mean, percentiles and feature size", () => {
@@ -98,8 +131,8 @@ describe("the water's textures", () => {
     let r = 0;
     let g = 0;
     for (let i = 0; i < n; i++) {
-      r += data[i * 4];
-      g += data[i * 4 + 1];
+      r += data[i * 2];
+      g += data[i * 2 + 1];
     }
     expect(r / n).toBeCloseTo(WATER_ALBEDO.flat[0], 1);
     expect(g / n).toBeCloseTo(WATER_ALBEDO.flat[1], 1);
@@ -108,7 +141,7 @@ describe("the water's textures", () => {
   });
 
   it("are the bytes they were made as when the look was judged (a speed-up of their making never changes them)", () => {
-    expect(sha256(data)).toBe("076ab49fcccfb501e7c969a618e50b420fadc0de1a862af02280af7a793c7c97");
+    expect(sha256(data)).toBe("9b8cc30b715870e7016e285f6c82543552b1882637e5f70535b204d1faafc736");
     expect(sha256(normal)).toBe("abaa517142432e7342409e5efd0a540d6173ca26fbbc17e3a0119259012a2e48");
   });
 
@@ -231,6 +264,7 @@ describe("badwater as the game draws it (Q9 P9)", () => {
     { look: "Standard", s: waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false).fragmentShader },
     { look: "High", s: waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), false, waterHooks()).fragmentShader },
   ];
+  const N = BADWATER_TEXTURE_SIZE;
   const bad = makeBadwaterTexture(N);
   const n = N * N;
   const base = new Float64Array(n);
