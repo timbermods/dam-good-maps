@@ -1790,9 +1790,14 @@ export class MapRenderer {
       // a batch's chunks are drawn only over older ones)
       this.waterVersion++;
       for (const [cx, cy] of keys) this.waterQueue.add(`${cx},${cy}`);
-      this.requestRender();
+      // (the frame drawing this land drains the queue itself, and asks for the next only while some is left to
+      // mesh here; a batch out asks for the frame it comes back in: another now would draw the same picture again)
+      if (!this.landInFrame) this.requestRender();
     }
   }
+
+  /** renderNow is drawing the land a brush changed (`flushTerrain`), before it drains the water queue. */
+  private landInFrame = false;
 
   /** Every water chunk of the map. */
   private allWaterChunks(): Set<string> {
@@ -3490,12 +3495,13 @@ export class MapRenderer {
     const maskAt = (i: number) => columnMask(src, i) & keep;
     const tiles = reach ? hollowFootprint(m.W, m.H, listed, maskAt, reach) : null;
     if (!tiles?.length && !this.hollow) return;
+    // (laid by renderNow before it draws, so this frame shows it: another frame asked for here would draw the same
+    // picture again, one for every frame of a stroke)
     (this.hollow ??= new HollowMarks(this.scene)).set(tiles, reach, (x, y) => {
       if (x < 0 || y < 0 || x >= m.W || y >= m.H) return false;
       const i = y * m.W + x;
       return listed(i) && roofOf(maskAt(i)) !== null;
     });
-    this.requestRender();
   }
 
   /** The hollow drawn under the cursor now (tests): the tiles filled and the outline's pieces. */
@@ -4079,7 +4085,13 @@ export class MapRenderer {
   renderNow(): void {
     if (this.disposed) return;
     this.framesDrawn++;
-    this.flushTerrain();
+    // (the water chunks the land queues are drained below, in this frame: `layeredWaterNear`)
+    this.landInFrame = true;
+    try {
+      this.flushTerrain();
+    } finally {
+      this.landInFrame = false;
+    }
     if (this.cursorStale && this.cursor && this.map) {
       this.cursorStale = false;
       this.cursor.set(this.brushCursorState, this.cursorHeights(), this.map.W, this.map.H);
