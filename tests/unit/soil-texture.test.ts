@@ -2,6 +2,7 @@
 // game's own `SoilContamination` texture has (src/render3d/soilTexture.ts `GAME_SOIL_TEXTURE`, measured by
 // `python tools/game-water-shader.py --soil`): its cover, its mean alpha, its soft edge, its crack and between colours.
 
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { GAME_SOIL_TEXTURE, makeSoilTexture } from "../../src/render3d/soilTexture";
 import { CONTAMINATION } from "../../src/render3d/palette";
@@ -10,6 +11,10 @@ describe("the contamination pattern", () => {
   const size = 256;
   const data = makeSoilTexture(size);
   const n = size * size;
+
+  it("is the bytes it was made as when the look was judged (a speed-up of its making never changes them)", () => {
+    expect(createHash("sha256").update(data).digest("hex")).toBe("87b413a0a0c40237630f994716dde9091a165927dc2826e029009bfeed70efc1");
+  });
 
   it("covers the ground as the game's does: a fifth in its cracks, the same mean alpha, a soft edge as narrow", () => {
     let over = 0;
