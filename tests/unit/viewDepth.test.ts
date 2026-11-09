@@ -75,12 +75,23 @@ describe("the water's depth along the view (viewDepth.ts)", () => {
     expect(viewDepth(W, H, h, [6.2, 8.5], 3, 2, ray(-1, 0))).toBeCloseTo(2, 9);
   });
 
+  it("reads a fall's side from just inside its column as the face beside it reads the cliff (the game's skirt, the same program)", () => {
+    // a cliff at x 6 (level 9) over a landing at 2: the slope's face at x 5.5 and its side at the tile's edge y 8, just
+    // inside, both see the cliff along the view at the same drop
+    const h = channel(0, 6, 2, 9);
+    const view = ray(1, 0.6);
+    const face = viewDepth(W, H, h, [5.5, 8.5], 6, 2, view);
+    expect(viewDepth(W, H, h, [5.5, 8 + 0.002], 6, 2, view)).toBeCloseTo(face, 9);
+    expect(face).toBeGreaterThan(0.2);
+  });
+
   it("is what the water's shader reads on its top, in every look (the light look as the game's Low quality)", () => {
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
     for (const lite of [false, true]) {
       const shader = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite).fragmentShader;
       expect(shader).toContain(VIEW_DEPTH_GLSL);
-      expect(shader).toContain("float d = n.y > 0.5 ? waterViewDepth(g, vWorld.y, vFloor) : depth;");
+      // (and on a side of the water, from just inside its column; the section at the map's edge its own depth)
+      expect(shader).toContain("float d = n.y < 0.5 && vFlags > 254.5 ? depth : waterViewDepth(n.y > 0.5 ? g : g - vec2(n.x, -n.z) * 0.002, vWorld.y, vFloor);");
       // no shallowing toward every bank of our own (D148: WATER_SURFACE.bank, bankWidth until gap 7)
       expect(shader).not.toContain("waterSeenDepth");
     }

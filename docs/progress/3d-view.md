@@ -2204,6 +2204,46 @@ The water-character audit's gap 7 (`docs/progress/water-character-audit.md`): ou
   band once its rows reach the tile texture, as everything else does. A fall's slope keeps its baked seen depth for
   its film only; its colour now comes from the walk.
 
+## Falls against the game's own close frames; a fall's sides as its skirts (PERFECT Water 3; D154 as amended 2026-11-09, D496; `fix/falls-pour`)
+
+- **Judged on:** the probe's only close frames of a fall in the game, `ceiling-waterfall` (C:\dgm-probe\shots\ceiling-20260927:
+  a Highlands 128² tall map, a spring in a notch at 21 pouring 14 levels onto a step and on into the river), its
+  `ceiling-close` (30°, 22 units) and `ceiling` (45°, 50) poses at the game's start (day light), drawn by ours from the
+  same poses with the map opened from its file (the probe's pose lands on the game's framing to a pixel or two), real
+  Chrome on the RTX 2070 SUPER, Standard and High. `.scratch` measures, not kept; numbers only leave the machine.
+- **What matches:** the sheet's shape (flat to a third of a tile out, steep to two thirds, its foot on the water
+  below), its colour (the pool over the lip, game 45/80/90 L* 31.7, ours 44/80/97 L* 31.9; the face's upper half
+  39/73/83 L* 28.8 against 41/78/83 L* 30.6, its lower half 29/54/64 L* 21.1 against 29/58/64 L* 22.3), its streaks'
+  width (an autocorrelation half-width of 2 to 3 px on both), and no whitewater or foam at the foot (the game's draws
+  none); the motion is the game's formula (below).
+- **Gap fixed: a fall's sides.** Where a slope's edge stands over the water or ground beside it, the side hanging from
+  it (a skirt, `SKIRT_FLAGS`, or a side over lower dry ground) was drawn in the water's shallowest colour (its own
+  depth, or 0.05) and 0.9 opaque: a light cyan strip down each side of a fall seen at an angle, L* 34.1 (Standard; High
+  33.7) against the game's 20.6 at the `ceiling` pose. The game's skirt is its top's mesh dropped and drawn by the same
+  program, with the up normal (the vertex shader never reads the mesh's normal) and the depth read from the depth
+  buffer behind it. Now every side but the section at the map's edge is the surface going on in both looks: the depth
+  the view sees behind it (`waterViewDepth` from just inside its column, `viewDepth.ts`), the surface's normal and
+  gloss, its see-through by that depth (the waterfall mask's tenth where a fall lands, `cleanWaterAlpha`), and in
+  High its surface (`measuredSurfaceWater`) with the Standard side's normal, albedo and patterns. The strip: L* 24.5
+  (High 24.4); the whole sheet there 27.3 → 23.3 L* (game 22.7), its spread 6.9 → 5.1 (4.6). A badwater fall's sides
+  (the same map in its Badtide) lose their bright orange strip the same way. `WATER_FALL_SEE_THROUGH` and the
+  fragment's `WATER_FALL_FLAGS` are gone (the vertex shader's cut rule keeps the threshold).
+- **The motion:** the same formula as the game's (P5): the texture rides the column's outflow ÷ 14, 0.8 UV (13.3
+  tiles) a second at a flow of 1, stretched down the face by its steepness, the fall's outflow handed to the slope.
+  River Valley 2 128²'s tallest fall (3 levels, 0.06 deep) carries a flow of 0.009: its face moves about a pixel in a
+  quarter second at 35°, 12 units off. The ceiling map opened from its file shows its stored outflows, which are all
+  zero, so its water stands still until an edit settles it again.
+- **Speed:** the walk now also runs on the sides' pixels, a sliver of a frame beside the tops' (every top pixel walks
+  already); not measured on its own.
+- **Falls short:** (1) the cliff shows through the sheet more than in the game: on the face the pixel gradient down the
+  sheet is 0.84 / 0.71 (upper / lower half) against the game's 0.44 / 0.22, and 0.32 / 0.12 with no see-through. The
+  game's see-through reads URP's opaque texture, which its pipeline asset downsamples 2× bilinear
+  (`m_OpaqueDownsampling` 1, `globalgamemanagers.assets`), ours the full frame; a half-resolution copy for the ground
+  behind would follow it (not built). (2) The streaks down the face are more contrasted than the game's: the
+  high-passed spread of the face's columns 5.1-5.8 against 2.0-2.4, where the game's face is as contrasted as its pool
+  and ours 1.9 times; the cause is not found (the normal, the tangent frame, the phases and the sampling match the
+  game's programs). (3) The game's frames show no fall moving; its speed is the formula's.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

@@ -2062,9 +2062,6 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       #if WATER_REFRACTS
       ${REFRACTION_GLSL}
       #endif
-      // (a curtain whose flags, its drop in thirtieths, pass this is as tall as a fall: waterMesh.ts FALL; the vertex
-      // shader's test under a cut is the same)
-      #define WATER_FALL_FLAGS ${f(FALL * 30 - 0.5)}
 ${hook(h, "waterDecl")}${CAVE_POINT}
       #ifdef CAVES
       ${OVERLAY_RUN}
@@ -2140,9 +2137,12 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
         if (n.y < 0.5) shore = 1.0;
         // the depth the water is coloured and seen through by, as the game reads it (viewDepth.ts, Q9 P3): on its top,
         // what the view sees under the surface down to the ground, so it falls to none at the foot of a bank facing the
-        // camera, over about 0.7 tile a level at the game's 55°, and stays whole to a bank the view passes over; the
-        // water's side its own (waterPalette.ts's waterBody and waterOpacity take it as given, for the tests)
-        float d = n.y > 0.5 ? waterViewDepth(g, vWorld.y, vFloor) : depth;
+        // camera, over about 0.7 tile a level at the game's 55°, and stays whole to a bank the view passes over. A side
+        // of the water (a skirt between two tops, a fall's slope's side) reads it the same way from just inside its
+        // column, as the game's skirt, drawn by the same program, reads the depth buffer behind it: a fall's side as dark
+        // as its face. The section at the map's edge keeps its own (waterPalette.ts's waterBody and waterOpacity take it
+        // as given, for the tests).
+        float d = n.y < 0.5 && vFlags > 254.5 ? depth : waterViewDepth(n.y > 0.5 ? g : g - vec2(n.x, -n.z) * 0.002, vWorld.y, vFloor);
         // clean water: clear in the shallows (the bed shows through a light teal tint), a deep teal
         // body a level or so deep, navy where deep; badwater murky, the game's
         // crimson, lighter on a film and darker deeper by the game's _DepthGradients ramp (D496)
@@ -2193,27 +2193,33 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
           #endif
           // no foam along the shore or over a brink, as the game draws none (its water shader has no foam)
         } else {
-          // the water's side, toward lower dry ground (a fall's look before D154's amendment of 2026-11-08: a fall
-          // is now the slope of the water below it, drawn as a top, fallSlope.ts): the water mesh's own vertical face
-          // in the water's own colour, nearly opaque: the ground behind shows by WATER_SURFACE.fallSeeThrough (its
-          // _TransparencyWaterfallDepth); no whitewater, no foam. At the map's edge, the water's side
+          // the water's side: a skirt between two tops, or a fall's slope's side over lower dry ground (a fall is the
+          // slope of the water below it, drawn as a top, fallSlope.ts). The game's skirt is its top's mesh dropped,
+          // drawn by the same program with the same up normal, so it is the surface going on: coloured and seen
+          // through by the depth seen behind it (d, above), the waterfall mask's see-through where a fall lands; no
+          // light or dark line marks it, no whitewater, no foam. At the map's edge, the water's section
           bool edge = vFlags > 254.5;
           float drop = edge ? 0.0 : vFlags / 30.0;
-          if (!edge && vFlags < WATER_FALL_FLAGS) {
-            // a small step between two waters: the water's own surface going on, as the game's face shares its
-            // material, so no light or dark line marks it
+          if (!edge) {
             N *= 0.0;
             N.y = 1.0;
-            alpha = mix(alpha, badwaterAlpha(depth, depth), bad);
+            #if !LITE
+              N = waterFlowNormal(surf, cont);
+              gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
+            #endif
+            alpha = mix(alpha, badwaterAlpha(depth, d), bad);
+            #if LITE
+              // (the light look follows the game's Low quality: no ground behind the water)
+              alpha = max(alpha, film);
+            #endif
           } else {
-            // the game's face sees the cliff right behind it: the colour of the water at its shallowest, its detail the
-            // albedo the flow carries over the lip
+            // the section: the colour of the water at its shallowest, its detail the albedo the flow carries over its lip
             body = cleanWaterBody(0.05, waterAbsorb(0.05));
             bodyDepth = 0.05;
             // (partly bad: the game's glow of its shallowest, as the surface's)
             murky = badwaterGlow(badwaterBody(0.05), BADWATER_BODY, 0.05, cont);
           }
-          alpha = edge ? mix(WATER_EDGE, BADWATER_SIDE, bad) : !(vFlags < WATER_FALL_FLAGS) ? (1.0 - WATER_FALL_SEE_THROUGH) : alpha * smoothstep(0.02, 0.06, drop);
+          alpha = edge ? mix(WATER_EDGE, BADWATER_SIDE, bad) : alpha * smoothstep(0.02, 0.06, drop);
           if (alpha < 0.01) discard;
         }
         foam = clamp(foam, 0.0, 1.0);
