@@ -298,7 +298,9 @@ export function gameCleanColour(depth: number): Rgb {
  *  - mixed into clean water's albedo by the tint (`WATER_BLEND`), and lit as clean water is;
  *  - an emissive detail, unlit: lerp(`glowA` (`_Detail_Contamination_Color_A`), `glowB`, the noise's mean
  *    `glowNoise`) × the pattern's G × a modulation on a `gridTiles`-tile grid (d² + c × 0.1, held between `grid`, d a
- *    point's distance to the grid's nearest node in cells) × the tint × `glowIntensity[0]` (`_Detail_Contamination_
+ *    point's distance to the grid's nearest node in cells; ps 717-761: each cell's node drifts round it, at (0.5 + 0.5
+ *    sin(hx × `gridDrift` T), 0.5 + 0.5 cos(hy × `gridDrift` T)) of the cell, hx and hy its own hash in 0–1, the
+ *    literal `0x33800001` (2⁻²⁴) the 6-decimal disassembly printed as 0, read as "unjittered" until 2026-11-09) × the tint × `glowIntensity[0]` (`_Detail_Contamination_
  *    Intensity_Low`) easing to `glowIntensity[1]` (`_High`) by `glowIntensityTo` bad;
  *  - its smoothness toward `BADWATER.smoothness` by the tint × the pattern's R; its normals × (1 + c).
  *  `use`: whether each look draws badwater's colour by it (true) or by its own calibrated crimson × the pattern's
@@ -338,8 +340,11 @@ export const GAME_BADWATER = {
   grid: [0.25, 0.55] as readonly [number, number],
   /** The pattern's means (R, G; waterTextures.ts `GAME_BADWATER_TEXTURE`), the flat surface's (the light look's). */
   pattern: [122.1 / 255, 19.6 / 255] as readonly [number, number],
-  /** The grid's modulation's mean over a cell at pure badwater (d² + 0.1, held to `grid`). */
-  gridMean: 0.302,
+  /** How fast the grid's nodes drift (radians a second at a hash of 1: `_NonlinearTime` × 0.3, ps 408). */
+  gridDrift: 0.3,
+  /** The grid's modulation's mean at pure badwater (d² + 0.1, held to `grid`), over a cell and the nodes' drift
+   *  (water-flow-surface.test.ts; 0.302 with the nodes held still, as read until 2026-11-09). */
+  gridMean: 0.349,
   /** `_DepthGradients` G (0–255) at depths in levels (`tools/game-water-shader.py --textures`), straight between. */
   ramp: [
     [0, 245],
@@ -941,14 +946,43 @@ ${rampGlsl(GAME_BADWATER.ramp, "g")}
   vec3 badwaterPatternShade(float pattern) {
     return mix(${glColor5(GAME_BADWATER.colorA)}, ${glColor5(GAME_BADWATER.colorB)}, pattern) / mix(${glColor5(GAME_BADWATER.colorA)}, ${glColor5(GAME_BADWATER.colorB)}, BADWATER_PATTERN_FLAT.x);
   }
+  /** The game's modulation of badwater's glow (ps 717-761): the distance to the nearest of its \`gridTiles\`-tile grid's
+   *  nodes, each drifting round its cell by its own hash (GAME_BADWATER.gridDrift), squared, + c / 10, held to \`grid\`;
+   *  the light look, as its flat patterns, at its mean. */
+  float gameBadwaterGrid(vec2 g, float c) {
+    #if LITE
+      return ${f(GAME_BADWATER.gridMean)} + (c - 1.0) * 0.1;
+    #else
+      vec2 p = g / ${f(GAME_BADWATER.gridTiles)};
+      vec2 cell = floor(p);
+      vec2 f = p - cell;
+      float m = 8.0;
+      float spin = time * ${f(GAME_BADWATER.gridDrift)} * 5.9604652e-8;
+      for (int j = -1; j <= 1; j++)
+        for (int i = -1; i <= 1; i++) {
+          ivec2 k = ivec2(cell) + ivec2(i, j);
+          uint y = uint(k.y) ^ 0x41c64e6du;
+          uint h = y * (y + uint(k.x));
+          h ^= h >> 5u;
+          uint hy = h * 0x27d4eb2du;
+          uint hx = y ^ (hy << 3u);
+          vec2 a = vec2(float(hx >> 8u), float(hy >> 8u)) * spin;
+          vec2 node = vec2(float(i), float(j)) + 0.5 + 0.5 * vec2(sin(a.x), cos(a.y));
+          m = min(m, length(node - f));
+        }
+      return clamp(m * m + c * 0.1, ${f(GAME_BADWATER.grid[0])}, ${f(GAME_BADWATER.grid[1])});
+    #endif
+  }
   vec3 gameBadwaterEmission(float c, float pattern, vec2 g) {
-    vec2 q = fract(g / ${f(GAME_BADWATER.gridTiles)} + vec2(0.5, 0.0));
-    vec2 e = min(q, 1.0 - q);
-    float grid = clamp(dot(e, e) + c * 0.1, ${f(GAME_BADWATER.grid[0])}, ${f(GAME_BADWATER.grid[1])});
-    float k = mix(${f(GAME_BADWATER.glowIntensity[0])}, ${f(GAME_BADWATER.glowIntensity[1])}, clamp(c / ${f(GAME_BADWATER.glowIntensityTo)}, 0.0, 1.0));
+    // (none on clean water, as the game's × the tint: the grid's search skipped there)
+    float tint = waterTint(c);
+    if (tint <= 0.0) return vec3(0.0);
+    // (over a source, the game's max(its pattern, …) on the grid and on the share the intensity eases by, ps 762, 771)
+    float grid = max(waterSource, gameBadwaterGrid(g, c));
+    float k = mix(${f(GAME_BADWATER.glowIntensity[0])}, ${f(GAME_BADWATER.glowIntensity[1])}, clamp(max(waterSource, c) / ${f(GAME_BADWATER.glowIntensityTo)}, 0.0, 1.0));
     // (over a source, its own pattern and colour: GAME_WATER_SOURCE)
     pattern = mix(pattern, ${f(Math.round(GAME_WATER_SOURCE.emission * 1e5) / 1e5)}, waterSource);
     vec3 src = mix(vec3(1.0), ${glColor5(GAME_WATER_SOURCE.colour.map((v) => v * GAME_WATER_SOURCE.strength) as unknown as Rgb)}, waterSource);
-    return src * ${glColor5(GAME_BADWATER.glowA.map((a, i) => a + (GAME_BADWATER.glowB[i] - a) * GAME_BADWATER.glowNoise) as unknown as Rgb)} * pattern * grid * waterTint(c) * k;
+    return src * ${glColor5(GAME_BADWATER.glowA.map((a, i) => a + (GAME_BADWATER.glowB[i] - a) * GAME_BADWATER.glowNoise) as unknown as Rgb)} * pattern * grid * tint * k;
   }
 `;
