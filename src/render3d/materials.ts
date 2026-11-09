@@ -2394,6 +2394,8 @@ ${hook(h, "water")}        #ifdef CAVES
         #endif
         float clr = clearWater;
         if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
+        // (a pixel's footprint in tiles, for the waterline's width: taken here, outside the branch, as a derivative must be)
+        float clearPx = max(max(fwidth(g.x), fwidth(g.y)), 0.0001);
         if (clr > 0.001) {
           float badish = max(bad, smoothstep(0.05, 0.5, cont));
           vec3 bc = clearBad;
@@ -2401,17 +2403,27 @@ ${hook(h, "water")}        #ifdef CAVES
           // (by the water's own opacity, not the composite's)
           float ca = lookAlpha * mix(0.35, 0.7, badish);
           if (n.y > 0.5) {
-            float line = 1.0 - smoothstep(0.0, CLEAR_SHORE_WIDTH, shore);
-            cc = WATER_CLEAR_TINT * light;
+            // the ground under the water is drawn as it is dry, as the game's (Q9 P14), so the water carries its own sign:
+            // clean water a light blue over the bed at its shallowest, deeper blue and a little denser to CLEAR_DEEP_AT
+            // levels down, so wet reads as wet and its depth reads at a glance while the bed still shows
+            float deep = clamp(max(depth, 0.0) / CLEAR_DEEP_AT, 0.0, 1.0);
+            cc = mix(WATER_CLEAR_TINT, WATER_CLEAR_DEEP, deep) * light;
             // (its ripples: the flow's light network catching the light, an editing aid's own channel)
             float ripple = smoothstep(0.35, 0.8, surf.r) * (1.0 - bad);
             cc = mix(cc, WATER_CLEAR_SHORE * light, ripple * CLEAR_RIPPLE_LIGHT);
             cc += WATER_SKY * waterSkyReflect(dot(N, V), WATER_SMOOTHNESS);
             cc += sunColor * waterSunGlint(N, V, sunDir, WATER_SMOOTHNESS) * lit;
             cc = mix(cc, WATER_FOAM * (0.8 + 0.2 * lit), foam * 0.6);
-            cc = mix(cc, WATER_CLEAR_SHORE * (0.85 + 0.15 * lit), line);
-            ca = min(0.9, CLEAR_OPACITY + CLEAR_RIPPLE * ripple + CLEAR_SHORE_OPACITY * line + 0.3 * foam);
+            ca = min(0.9, mix(CLEAR_OPACITY, CLEAR_OPACITY_DEEP, deep) + CLEAR_RIPPLE * ripple + 0.3 * foam);
             ca = mix(ca, CLEAR_BAD_OPACITY, badish);
+            // the waterline, on clean water and badwater alike: a crisp bright line along the shore, at least
+            // CLEAR_SHORE_PIXELS wide on screen so it holds at play distance, with a soft fade inward
+            float core = max(CLEAR_SHORE_CORE, CLEAR_SHORE_PIXELS * clearPx);
+            float line = max(1.0 - smoothstep(core, core + clearPx, shore), 0.35 * (1.0 - smoothstep(core, core + max(CLEAR_SHORE_WIDTH, 2.0 * clearPx), shore)));
+            vec3 waterline = WATER_CLEAR_SHORE * (0.85 + 0.15 * lit);
+            cc = mix(cc, waterline, line * CLEAR_SHORE_OPACITY);
+            bc = mix(bc, waterline, line * CLEAR_SHORE_OPACITY);
+            ca = mix(ca, 1.0, line * CLEAR_SHORE_OPACITY);
           }
           c = mix(c, mix(cc, bc, badish), clr);
           alpha = mix(alpha, ca, clr);

@@ -56,9 +56,10 @@ export const WATER = {
   badDeep: [0.14, 0.066, 0.058] as Rgb,
   /** Foam on badwater (a source's welling water; the Flow view's threads). */
   badFoam: [0.66, 0.5, 0.36] as Rgb,
-  /** Clear water (`CLEAR_WATER`): clean water's faint blue tint over the bed, and the soft bright
-   *  line along its shore. */
+  /** Clear water (`CLEAR_WATER`): clean water's light blue tint over the bed at its shallowest, the deeper
+   *  blue it takes `CLEAR_WATER.deepAt` levels down, and the bright line along its shore. */
   clearTint: [0.22, 0.53, 0.9] as Rgb,
+  clearDeep: [0.14, 0.38, 0.8] as Rgb,
   clearShore: [0.85, 0.94, 1.0] as Rgb,
 } as const;
 
@@ -423,20 +424,30 @@ export function gameBadwaterEmission(c: number, pattern: number = GAME_BADWATER.
 }
 
 /** Clear water (D196, D212): the water see-through, so the bed, ledges and sources show; under and
- *  right round the brush while it paints a submerged bed, or the whole map with T. Clean water
- *  still reads as water: a faint blue tint (`WATER.clearTint`), its ripples catching the light and
- *  a soft bright line along its shore (`WATER.clearShore`), never pale grey glass. Badwater keeps
+ *  right round the brush while it paints a submerged bed, or the whole map with T. The ground under the water is
+ *  drawn as it is dry (the game's, Q9 P14), so the water carries its own sign, an editing aid's own channel (D497):
+ *  clean water a light blue tint by its depth (`WATER.clearTint` to `WATER.clearDeep`), its ripples catching the
+ *  light, and a crisp bright waterline along its shore (`WATER.clearShore`) on clean water and badwater alike, never
+ *  pale grey glass. Badwater keeps
  *  its own colour, murky and darker than the bed, and its glowing lines;
  *  never a hatching (D324, feedback item 5): it stays apart from clean water in greyscale and every
  *  colour-blindness by lightness, colour and texture (`look-readable.test.ts`). */
 export const CLEAR_WATER = {
-  /** Clean water's opacity, and how much more its ripples' crests take. */
-  opacity: 0.13,
-  ripple: 0.1,
+  /** Clean water's tint by its depth (the aid's own sign of where the water is and how deep, since the ground under
+   *  water is drawn as the game draws it, as it is dry, Q9 P14): its opacity at the shallowest, and `opacityDeep`
+   *  `deepAt` levels down and deeper, its colour going from `WATER.clearTint` to `WATER.clearDeep` with it; how much
+   *  more its ripples' crests take. */
+  opacity: 0.2,
+  opacityDeep: 0.42,
+  deepAt: 3,
+  ripple: 0.08,
   /** How far the crests turn toward the shore's light. */
   rippleLight: 0.3,
-  /** The line along the shore: its opacity, and its width (a share of a tile). */
-  shoreOpacity: 0.6,
+  /** The waterline along the shore, on clean water and badwater: its opacity at its core, the core's width (a share of
+   *  a tile, and at least `shorePixels` pixels, so it holds at play distance), and the width it fades out over. */
+  shoreOpacity: 0.85,
+  shoreCore: 0.05,
+  shorePixels: 1.25,
   shoreWidth: 0.2,
   /** Badwater's opacity: murky enough to stay darker than the bed it lies on. */
   badOpacity: 0.72,
@@ -723,7 +734,12 @@ export const WATER_GLSL = /* glsl */ `
   #define WATER_SOURCE_LIT ${glColor(WATER_UI.sourceLit)}
   #define WATER_CLEAR_TINT ${glColor(WATER.clearTint)}
   #define WATER_CLEAR_SHORE ${glColor(WATER.clearShore)}
+  #define WATER_CLEAR_DEEP ${glColor(WATER.clearDeep)}
   #define CLEAR_OPACITY ${f(CLEAR_WATER.opacity)}
+  #define CLEAR_OPACITY_DEEP ${f(CLEAR_WATER.opacityDeep)}
+  #define CLEAR_DEEP_AT ${f(CLEAR_WATER.deepAt)}
+  #define CLEAR_SHORE_CORE ${f(CLEAR_WATER.shoreCore)}
+  #define CLEAR_SHORE_PIXELS ${f(CLEAR_WATER.shorePixels)}
   #define CLEAR_RIPPLE ${f(CLEAR_WATER.ripple)}
   #define CLEAR_RIPPLE_LIGHT ${f(CLEAR_WATER.rippleLight)}
   #define CLEAR_SHORE_OPACITY ${f(CLEAR_WATER.shoreOpacity)}

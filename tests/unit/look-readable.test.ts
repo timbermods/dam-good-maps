@@ -73,13 +73,32 @@ describe("badwater seen through clear water (D324, feedback item 5: never a hatc
 
   it("reads as badwater by its murk: darker than clean clear water over any bed (colour-blind lightness is information, D334 (2))", () => {
     for (const bed of [GROUND.underwater, GROUND.dry, GROUND.grass]) {
-      const clean = over(bed, WATER.clearTint, CLEAR_WATER.opacity + CLEAR_WATER.ripple);
-      const bad = over(bed, badwaterBody(0.25), CLEAR_WATER.badOpacity);
-      // murkier than clean water in plain sight; in each simulation the difference is reported, not
-      // held to a margin (the game guarantees none; badwater's troughs and bubbles, checked below,
-      // carry it as the game's do)
-      expect(lstar(clean, sims.none)).toBeGreaterThan(lstar(bad, sims.none));
-      for (const m of Object.values(sims)) expect(Number.isFinite(lstar(clean, m) - lstar(bad, m))).toBe(true);
+      // (clean water at its shallowest and at its deepest tint, CLEAR_WATER.deepAt levels down)
+      for (const clean of [over(bed, WATER.clearTint, CLEAR_WATER.opacity + CLEAR_WATER.ripple), over(bed, WATER.clearDeep, CLEAR_WATER.opacityDeep + CLEAR_WATER.ripple)]) {
+        const bad = over(bed, badwaterBody(0.25), CLEAR_WATER.badOpacity);
+        // murkier than clean water in plain sight; in each simulation the difference is reported, not
+        // held to a margin (the game guarantees none; badwater's troughs and bubbles, checked below,
+        // carry it as the game's do)
+        expect(lstar(clean, sims.none)).toBeGreaterThan(lstar(bad, sims.none));
+        for (const m of Object.values(sims)) expect(Number.isFinite(lstar(clean, m) - lstar(bad, m))).toBe(true);
+      }
+    }
+  });
+
+  it("clean water carries its own sign over the bed drawn as it is dry (Q9 P14): a tint by depth that still shows the bed, and a waterline", () => {
+    // denser deeper, so depth reads at a glance, and never past half, so the bed shows at any depth
+    expect(CLEAR_WATER.opacityDeep).toBeGreaterThan(CLEAR_WATER.opacity);
+    expect(CLEAR_WATER.opacityDeep + CLEAR_WATER.ripple).toBeLessThanOrEqual(0.5);
+    // the wet tint moves grass, the bed most water lies on, toward blue: wet reads apart from the meadow round it
+    for (const [tint, a] of [[WATER.clearTint, CLEAR_WATER.opacity], [WATER.clearDeep, CLEAR_WATER.opacityDeep]] as const) {
+      const wet = over(GROUND.grass, tint, a);
+      expect(wet[2] - GROUND.grass[2]).toBeGreaterThan(0.1);
+    }
+    const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+    for (const lite of [false, true]) {
+      const s = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite).fragmentShader;
+      expect(s).toContain("mix(WATER_CLEAR_TINT, WATER_CLEAR_DEEP, deep)");
+      expect(s).toContain("bc = mix(bc, waterline, line * CLEAR_SHORE_OPACITY);");
     }
   });
 
