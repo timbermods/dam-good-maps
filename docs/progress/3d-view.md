@@ -2675,7 +2675,13 @@ close up.
     (12.3, 12.6). With `--define WATER_BED` alone, clean 13.4 against 13.7 with the bed. `--water bad`: badwater
     7.4 → 7.8 in both looks (4,592 tiles); the bed had been lifting badwater, whose own colour reads 2–3 L* under the
     game's.
-- **Cost:** COST
+- **Cost:** `benchOrbit` on the `ceiling-waterfall` map, 1280 × 800, the GPU's time a frame (the median over 6 s),
+  three runs each in two sittings in opposite orders, before → after: Standard close over the fall 2.70, 2.85, 2.81 →
+  2.44, 2.81, 2.72 ms; Standard from 50 away 2.46, 1.72, 2.56 → 2.07, 2.44, 1.43; High close 2.72, 2.82, 2.51 → 2.63,
+  2.80, 2.60; High from 50 away 2.61, 2.67, 2.63 → 2.65, 2.64, 2.82. Within the runs' noise: the shader samples a
+  second two-byte texture and drops the B and A it read. The texture job, Chrome, four runs: the surface 217–297 →
+  191–234 ms without its slopes, and the normal 144–205 ms, so about 130 ms more in the textures' worker, off the
+  moving water's path (#903). Memory: 2 MB on the page and about 2.7 MB on the GPU with its mips.
 - **Tests (D148):** the surface's and the normal's checksums re-pinned; the normal's test now holds the game's mean,
   spread, percentiles and feature size, and a new one its power by band; the bed's assertions (`look-water-slopes`,
   `look-readable`) follow `WATER_BED`.
