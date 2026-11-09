@@ -2691,6 +2691,57 @@ close up.
   (3) Badwater's RMS is 0.4 worse without the bed, until its own colour is the game's. (4) The tilt's y sign is read
   from the pixels, not from the game's mesh.
 
+## Badwater's own colour against the game's (Q9 P9; D154, D496; `fix/badwater-colour`)
+
+With the underwater bed gone (`fix/open-water-gap`), badwater's own colour shows: 2–3 L* under the game's a level or
+more deep, the shortfall warm (about −5 to −10 R, in the shape of the glow's colour), largest in low light.
+
+- **The causes, from the disassembly re-read with hex literals:** (1) the glow's 10-tile grid drifts. Its nodes were
+  read as held still, because the literal `0x33800001` (2⁻²⁴, which scales each cell's 24-bit hash to 0–1) prints as
+  0.000000 among six decimals; each node wanders round its cell at 0.3 radians a second × its own hash (Q9 P9, as
+  corrected). The modulation's mean at pure badwater is 0.349, not 0.302: the glow 16 % stronger on average. The
+  game's pixels agree: against our still grid's phases they show no correlation. (2) Over a source the game takes
+  max(the source's pattern s, the grid) and eases the glow's intensity by max(s, c) (ps 762, 771); ours took neither,
+  so a running badwater source's middle glowed at a third of the game's. No other literal hides under the six
+  decimals.
+- **Ours now** (`waterPalette.ts` `gameBadwaterGrid`, `gameBadwaterEmission`, `GAME_BADWATER.gridDrift`,
+  `gridMean`): the nearest of the 3 × 3 cells' drifting nodes, by the game's hash, in both looks (the light look at the
+  new mean); the two max terms; no glow work on clean water (it was × 0 there).
+- **Each candidate switched alone** (`tools/water-pixel-judge.ts --water bad`, the probe's 24 badwater shots, each in
+  its own light, the sources' 3 × 3 left out, 4,668 tiles; Standard, High within 0.1): the see-through off, RMS 7.7 →
+  8.4, so it stays; the detail overlay off (P6's, (1 − c / 2)(1 − s)), the sunset's deep water 87 → 95 R (the game's
+  96) but by day 63 → 72 (66) and the sunrise's films 107 → 116 (107), so the overlay is right and the low light's
+  shortfall is not in it; the old bed back, 7.7 → 7.3, but the game draws none (Q9 P14); the albedo and P4's colour
+  are the game's palette term by term. Over the sources' 3 × 3 (52 samples, `--sources --only-sources`): the game
+  L* 34.1, ours without the max terms 34.1, with them 36.5; not drawn at all 32.1.
+- **Judged before → after** (the same 24 shots with their sources drawn, `--sources`, 4,811 tiles; Standard, High in
+  brackets where it differs; L* (RMS)):
+  - by day (sun 45° up): 0.1–1 level (79 tiles), the game 36.1: 34.6 (15.1) → 35.4 (17.1) [35.5 (17.0)]; a level
+    or more (88), the game 31.3: 30.9 (15.2) → 32.0 (16.9) [(16.7)]; all, the game 33.6: 32.7 → 33.6. No day-lit
+    film in these shots; the 10-15 batch's edited maps have them but their snapshots don't match their frames (the
+    camera fits 77 %), so they count for nothing.
+  - 55 % toward sunset: 0.1–1 (55), the game 33.6: 32.2 (5.4) → 32.1 (5.1); a level or more (326), the game 33.3:
+    30.2 (8.6) → 30.6 (8.0).
+  - at sunrise: under 0.1 (109), the game 34.5: 34.6 (12.9) → 35.3 (15.0) [33.8 (12.1) → 34.6 (14.3)]; 0.1–1 (452),
+    the game 31.0: 30.1 (8.0) → 30.3 (7.9); a level or more (3,717), the game 27.8: 25.9 (7.6) → 26.3 (7.6).
+  - all badwater 8.1 → 8.3 in Standard, 8.1 → 8.2 in High: the means move to the game's, the RMS a little up, as the
+    stronger glow's pattern runs at a phase the frame's time doesn't share.
+  - unchanged (`--water falls`, same shots): clean water 8.8 in both looks (48,633 tiles), a fall's foot 25.8 and
+    24.3 (100), the land (grass 10.1, dry 11.3, contaminated 7.2, cliff 15.3).
+- **Cost:** `benchOrbit`, 1280 × 800, the GPU's time a frame (the median over 6 s), two runs each, before → after.
+  Over the lake basin's badwater channel and its source (`m9b-lakeBasin-128-1`, 18 away): Standard 2.38, 2.27 →
+  2.33, 2.23 ms; High 2.07, 2.23 → 2.13, 2.26; from 50 away, Standard 2.09, 1.21 → 2.04, 1.31, High 2.10, 2.18 →
+  2.17, 2.38. On `ceiling-waterfall` (as above): Standard close 2.77, 2.51 → 2.71, 2.58 and far 2.32, 2.39 → 2.11,
+  1.98; High close 2.74, 2.80 → 2.74, 2.56 and far 2.68, 2.70 → 2.64, 2.66. Within the runs' noise: the nine-cell
+  search runs only on badwater's pixels, and clean water now skips the glow altogether.
+- **Tests:** `water-flow-surface.test.ts` holds the drift (the shaders' hash, the max terms) and the mean by a seeded
+  Monte Carlo over a cell and the nodes' phases.
+- **Falls short:** (1) Over a source the game's terms read 2.4 L* over the game's (52 samples); our stand-ins for the
+  source's shape texture and t9's B (its mean) are the likely place, not yet found. (2) The low light's deep water
+  stays 2.7 L* under the game's at 55 % toward sunset and 1.5 at sunrise, the shortfall still warm; nothing switched
+  here explains it. (3) The glow's phase can't match a frame's, so the RMS by day rises 1.7–2.1 while the means
+  close. (4) The judge's land under contamination reads 7.2 against a floor of 5.4, untouched here.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

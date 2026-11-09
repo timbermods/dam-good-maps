@@ -278,6 +278,33 @@ describe("badwater as the game draws it (Q9 P9)", () => {
     expect(gameBadwaterEmission(1)[0]).toBeGreaterThan(gameBadwaterEmission(1)[2]);
   });
 
+  it("modulates the glow by the game's drifting grid: each node wandering round its cell, its mean the drift's (ps 717-761)", () => {
+    // (the literal 0x33800001, 2⁻²⁴, scales each node's 24-bit hash to 0–1, × _NonlinearTime × 0.3: the nodes move)
+    expect(GAME_BADWATER.gridDrift).toBe(0.3);
+    for (const { look, s } of looks) {
+      expect(s, look).toContain("float gameBadwaterGrid(vec2 g, float c)");
+      expect(s, look).toContain("0x41c64e6du");
+      expect(s, look).toContain("0x27d4eb2du");
+      // (over a source, the game's max(its pattern s, …) on the grid and on the share the intensity eases by, ps 762, 771)
+      expect(s, look).toContain("float grid = max(waterSource, gameBadwaterGrid(g, c));");
+      expect(s, look).toMatch(/clamp\(max\(waterSource, c\) \/ [\d.]+, 0\.0, 1\.0\)/);
+    }
+    // its mean at pure badwater over a cell and the nodes' phases (seeded, so the same every run)
+    let seed = 12345;
+    const rnd = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
+    let sum = 0;
+    const M = 60000;
+    for (let k = 0; k < M; k++) {
+      const fx = rnd();
+      const fy = rnd();
+      let m = 8;
+      for (let oy = -1; oy <= 1; oy++)
+        for (let ox = -1; ox <= 1; ox++) m = Math.min(m, Math.hypot(ox + 0.5 + 0.5 * Math.sin(rnd() * 2 * Math.PI) - fx, oy + 0.5 + 0.5 * Math.cos(rnd() * 2 * Math.PI) - fy));
+      sum += Math.min(GAME_BADWATER.grid[1], Math.max(GAME_BADWATER.grid[0], m * m + 0.1));
+    }
+    expect(Math.abs(sum / M - GAME_BADWATER.gridMean)).toBeLessThan(0.003);
+  });
+
   it("ships in each look the colour the pixel judge found closer to the game's frames in that look", () => {
     const J = GAME_BADWATER.judged;
     // (a switch for each look, planning 2026-11-07: the formula ships in a look where its distance to the game's pixels,
