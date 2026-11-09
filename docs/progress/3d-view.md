@@ -2611,7 +2611,7 @@ close up.
   worker while it is made, freed when the worker closes.
 - **Judged** on the probe's `ceiling-waterfall` frames (C:\dgm-probe\shots\ceiling-20260927, day light, ours from the
   same poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept),
-  before → after (Standard; High within 0.25 of it):
+  before → after, both on dev before #902 (Standard; High within 0.25 of it):
   - `ceiling-close` (30°, 22): the sheet's upper / lower half, its columns' high-passed spread, game 1.94 / 1.52,
     2.58 / 2.21 → 1.89 / 2.13; |dx| across it, game 1.50 / 1.26, 1.39 / 1.24 → 1.16 / 1.26. The pool over the lip: its
     high-passed spread, game 9.73, 8.56 → 8.87 (High 8.36 → 8.63); its L*, game 32.1, 31.6 → 34.4.
