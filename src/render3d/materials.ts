@@ -754,14 +754,12 @@ export interface ShaderHooks {
   groundVariation?: string;
   /** Before groundColor returns (c: its colour with contamination). */
   groundEnd?: string;
-  /** The crimson the ground takes under a badwater film (a vec3; waterPalette.ts WATER_FILM). */
-  filmBad?: string;
   /** The badwater share of the water over ground point g (a float; the flow texture's blue). High reads its own flow
    *  texture, the same texture: a second sampler of it would take High's terrain past the 16 a fragment shader is sure
    *  to have (WebGL 2's least, ANGLE's on Direct3D 11) on a map with terrain above terrain, and it would not link. */
-  filmShare?: string;
+  behindShare?: string;
   /** The flow texture's RG at a tile corner P (tiles; a vec2), for a still film's outline (shoreFilm.ts): High reads its
-   *  own flow texture, the same texture, for the same reason as `filmShare`. */
+   *  own flow texture, the same texture, for the same reason as `behindShare`. */
   shoreFlow?: string;
   /** In a wall, before its level lines (wc, n, along, y, k, cliffTint). */
   wall?: string;
@@ -1365,11 +1363,6 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         #endif
         return shoreFilmInside(depth, open, flow, fr, px);
       }
-      /** How much of the bed's own colour the ground under water takes (groundColor): 1 under water past
-       *  a sliver's depth, less under a sliver at a shore's edge, whose ground keeps its own soil, seen through
-       *  the water's coloured filter (waterPalette.ts WATER_FILM, waterFilmGround). Set round a top's
-       *  groundColor; 1 everywhere else. */
-      float groundBed = 1.0;
       #ifdef RUN_SOIL
         // the soil of the run tops below each tile's top (runSoil.ts; only on a map with terrain above terrain)
         uniform highp sampler3D runTex;
@@ -1486,7 +1479,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           // (no patterns: contamination's pattern at its mean, as the game's mips show it from afar, at its weight's mean
           // over the blending noise, palette.ts contaminationMean)
           lc = mix(lc, ${glColor(CT.mean)}, ${f(Math.round(CT.meanAlpha * 1e4) / 1e4)} * contaminationWeightMean(contaminationMapOf(clev)));
-          return mix(lc, ${glColor(GROUND.underwater)}, step(0.5, s.w) * groundBed);
+          return mix(lc, ${glColor(GROUND.underwater)}, step(0.5, s.w));
         #endif
         // contamination's pattern, world-anchored as the game's (its repeat \`CT.repeat\` tiles; read before the warp below,
         // and before any branch, as a mipmapped read needs every pixel of its quad)
@@ -1507,8 +1500,8 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         // (the grass's share of the point: s.x, the game's per tile, blended across the narrow band at the tile's edge)
         float moist = ${hook(h, "moist", "clamp(s.x, 0.0, 1.0)")};
         float wet = smoothstep(0.4, 0.6, s.w + (n1 - 0.5) * 0.2);
-        // (under a film the ground keeps its own soil, seen through the film's filter in main: WATER_FILM)
-        float bed = wet * groundBed;
+        // (the bed under water of any depth, as the game's terrain draws its ground with no input from the water)
+        float bed = wet;
         // dry: cracked earth, warm brown, drifting in broad patches to a cooler mauve and a warmer
         // tan and in lightness (D334); each plate its own shade, the cracks a fine, dark network
         vec3 c = mix(${glColor(GROUND.dryCool)}, ${glColor(GROUND.dry)}, smoothstep(0.28, 0.68, b1));
@@ -1610,7 +1603,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           // light and the contamination's level (shading) keep the smooth weights above
           float bandW = max(0.04, 1.5 * max(fwidth(g.x), fwidth(g.y)));
           #if LITE
-            // (the light look: the tile alone, so the blend below comes to the tile's own soil, level and film;
+            // (the light look: the tile alone, so the blend below comes to the tile's own soil and level;
             // worked out once, without the edge's wobble (D135: no soil blending), which software would pay for
             // on every pixel)
             vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w);
@@ -1620,7 +1613,6 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             // (a still film's water drawn back from the shore leaves dry ground: shoreFilm.ts)
             if (soil.w > 0.0) soil.w *= shoreFilmOwn(tile, d0, fr, filmPx);
             float clev = s0.y / 15.0;
-            groundBed = s0.z > 0.0 ? waterFilm(waterDepthOf(d0)) : 1.0;
           #else
             vec2 edgeWave = vec2(vnoise(g * 6.7 + 17.0), vnoise(g * 5.3 + 47.0)) - 0.5;
             vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w + edgeWave * sd * 0.105);
@@ -1659,36 +1651,23 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             // contamination's map value as the game blends it (a tile at another level holds none at this one)
             contamMap = tapBlend(g, vec4(contaminationMapOf(s0.y / 15.0), sx > 0.5 ? contaminationMapOf(s1.y / 15.0) : 0.0,
               sy > 0.5 ? contaminationMapOf(s2.y / 15.0) : 0.0, hd == h0 ? contaminationMapOf(s3.y / 15.0) : 0.0));
-            // the bed under thin water (WATER_FILM): its depth's film curve, blended over the wet tiles round
-            // the point only (a pond's bed holds to its shore)
-            vec4 under = vec4(s0.z * w00, s1.z * w10, s2.z * w01, s3.z * w11);
-            float underSum = under.x + under.y + under.z + under.w;
-            groundBed = underSum > 0.0001 ? dot(under, vec4(waterFilm(waterDepthOf(d0)), waterFilm(waterDepthOf(dx)), waterFilm(waterDepthOf(dy)), waterFilm(waterDepthOf(dd)))) / underSum : 1.0;
           #endif
           vec3 ground = groundColor(soil, g, detail, clev);
-
-          // under a film the ground is seen through the water as through a coloured filter (WATER_FILM): its
-          // own detail in the water's hue, teal, crimson or between them by the water's badwater share
-          float filmOver = smoothstep(0.4, 0.6, soil.w) * (1.0 - groundBed);
-          if (filmOver > 0.0) {
-            ground = mix(ground, waterFilmGround(ground, ${hook(h, "filmShare", "texture2D(flowTex, g / mapSize).b")}, ${hook(h, "filmBad", "WATER_FILM_BAD_TINT")}), filmOver);
-          }
           #if !LITE
-            // the ground behind the water past a sliver shows as the game's High quality shows it: overlaid with
+            // the ground behind the water shows as the game's High quality shows it: overlaid with
             // the water's own colour there and desaturated (WATER_SURFACE.behindTint); the water's opacity sets how
             // much of it shows. Clear water (an editing aid) shows the bed as it is. Only where the frame's water
             // doesn't do it itself, as the game's does, from its copy of the screen (refraction.ts: a browser drawing
             // in software, a picture), so it is never put on twice
             float clrBehind = clearWater;
             if (clearAround.w > 0.5) clrBehind = max(clrBehind, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
-            float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind) * (1.0 - refractView.y);
+            float behind = smoothstep(0.4, 0.6, soil.w) * (1.0 - clrBehind) * (1.0 - refractView.y);
             if (behind > 0.0) {
               float bd = waterDepthOf(d0);
-              vec3 wc = waterBlend(cleanWaterBody(bd, waterAbsorb(bd)), badwaterBody(bd), ${hook(h, "filmShare", "texture2D(flowTex, g / mapSize).b")});
+              vec3 wc = waterBlend(cleanWaterBody(bd, waterAbsorb(bd)), badwaterBody(bd), ${hook(h, "behindShare", "texture2D(flowTex, g / mapSize).b")});
               ground = mix(ground, waterGroundBehind(ground, wc), behind);
             }
           #endif
-          groundBed = 1.0;
           // an eruption's fresh rock reads as rock, never the grass or earth it rose from (#367)
           float fresh = freshRock(tile, h0);
           ground = mix(ground, ashOf(g), fresh);
@@ -1820,7 +1799,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
               if (clearAround.w > 0.5) clrWall = max(clrWall, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
               if (wd > 0.0 && bd > 0.0 && clrWall < 0.999) {
                 vec2 g = wt + 0.5;
-                vec3 ww = waterBlend(cleanWaterBody(bd, waterAbsorb(bd)), badwaterBody(bd), ${hook(h, "filmShare", "texture2D(flowTex, g / mapSize).b")});
+                vec3 ww = waterBlend(cleanWaterBody(bd, waterAbsorb(bd)), badwaterBody(bd), ${hook(h, "behindShare", "texture2D(flowTex, g / mapSize).b")});
                 c = mix(c, waterGroundBehind(c, ww), 1.0 - clrWall);
               }
             }
@@ -2172,10 +2151,9 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
         vec3 murky = badwaterGlow(badwaterBody(d), BADWATER_BODY, d, cont);
         vec3 body = cleanWaterBody(d, absorb);
         float bodyDepth = d;
-        // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
-        // WATER_FILM.to deep (waterPalette.ts WATER_FILM; our anti-aliasing): its own depth, not the one seen along the view
-        float film = waterFilm(depth);
-        float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);
+        // water of any depth is water, clean or bad, as the game's: its see-through by the depth seen (waterPalette.ts
+        // waterOpacity; no film, D154 as amended 2026-11-09)
+        float alpha = cleanWaterAlpha(d);
         float foam = 0.0;
         // the gloss's slow variation, as the game's two panned samples of its gloss map (WATER_SURFACE.smoothness)
         float gloss = 0.5;
@@ -2211,11 +2189,9 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
             Nh = waterFlowNormal(surf, cont, WATER_NORMAL_BOOST);
             gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
           #endif
-          // badwater's opacity (the water's, as the game's: WATER_SURFACE.seeThrough), by how bad it is
-          alpha = mix(alpha, badwaterAlpha(depth, d), bad);
           #if LITE
             // (the light look follows the game's Low quality: no ground behind the water)
-            alpha = max(alpha, film);
+            alpha = 1.0;
           #endif
           // no foam along the shore or over a brink, as the game draws none (its water shader has no foam)
         } else {
@@ -2235,10 +2211,9 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
               Nh = waterFlowNormal(surf, cont, WATER_NORMAL_BOOST);
               gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
             #endif
-            alpha = mix(alpha, badwaterAlpha(depth, d), bad);
             #if LITE
               // (the light look follows the game's Low quality: no ground behind the water)
-              alpha = max(alpha, film);
+              alpha = 1.0;
             #endif
           } else {
             // the section: the colour of the water at its shallowest, its detail the albedo the flow carries over its lip
@@ -2346,10 +2321,9 @@ ${hook(h, "water")}        #ifdef CAVES
         float lookAlpha = alpha;
         // where the frame makes the copy of what is behind the water (refraction.ts, Q9 P13, P2), the game's composite,
         // opaque: the lit albedo with P13's share of the ground behind in place of its own, the reflection, the glint and
-        // the emission on top, fogged and graded once (a sliver at a shore, our anti-aliasing, still a blend); else the
-        // water alone, blended over the screen
+        // the emission on top, fogged and graded once; else the water alone, blended over the screen
         #if WATER_REFRACTS
-          vec4 composite = waterComposite(c, g, vWorld, alpha, shore, film);
+          vec4 composite = waterComposite(c, g, vWorld, alpha, shore);
           c = composite.rgb;
           alpha = composite.a;
         #else

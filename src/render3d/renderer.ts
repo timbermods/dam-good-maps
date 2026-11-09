@@ -1601,8 +1601,8 @@ export class MapRenderer {
   }
 
   /** The water changed: its current and badwater share in the flow texture (motion.ts); where nothing moves (the
-   *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
-   *  WATER_FILM); `now`: water that shows with the next frame (a version flipped to), its share with it. */
+   *  light look, or held still), the share alone, which the ground under water reads too (materials.ts
+   *  behindShare); `now`: water that shows with the next frame (a version flipped to), its share with it. */
   private flowChanged(heights: Uint8Array, surface: SurfaceWater, now = false): void {
     if (this.waterMotion) this.waterMotion.waterChanged(heights, surface, now);
     else this.stillFlow?.update(surface, now);
@@ -1734,9 +1734,9 @@ export class MapRenderer {
     return d.quads;
   }
 
-  private meshWater(cx: number, cy: number): number {
+  private meshWater(cx: number, cy: number, tiles = true): number {
     const m = this.map!;
-    return this.drawWater(`${cx},${cy}`, meshWaterChunk(m.W, m.H, this.waterLayers(), cx, cy), this.waterVersion, m.surface);
+    return this.drawWater(`${cx},${cy}`, meshWaterChunk(m.W, m.H, this.waterLayers(), cx, cy), this.waterVersion, m.surface, tiles);
   }
 
   /** The water dealt into layers for the mesher (waterLayers.ts): every column on its own floor, seeing the water
@@ -1819,13 +1819,18 @@ export class MapRenderer {
     return out;
   }
 
-  /** A water chunk's mesh on the scene, made on the water of `version` (`sw`). */
-  private drawWater(key: string, d: WaterMeshData, version: number, sw: SurfaceWater): number {
+  /** A water chunk's mesh on the scene, made on the water of `version` (`sw`), and the ground's tile data under it from
+   *  the same water (`tiles`, unless the caller made it from that water already): the terrain draws a tile's bed as
+   *  under water only where water is drawn over it. Written from the newest water instead, the bed showed bare and
+   *  grey ahead of spreading water for the frames its mesh was still with the workers (half a second on the GPU,
+   *  seconds in the light look). */
+  private drawWater(key: string, d: WaterMeshData, version: number, sw: SurfaceWater, tiles = true): number {
     const old = this.water.get(key);
     this.drawnWater.set(key, version);
     const m = this.map!;
     const [cx, cy] = key.split(",").map(Number);
     drewChunk(m.W, m.H, this.waterShown, sw, cx, cy);
+    if (tiles) this.waterTiles(m, cx, cy);
     const arrays: ChunkArrays = {
       quads: d.quads,
       attributes: [
@@ -1858,7 +1863,8 @@ export class MapRenderer {
     const m = this.map!;
     const { nx, ny } = chunkCount(m.W, m.H);
     let quads = 0;
-    for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) quads += this.meshWater(cx, cy);
+    // (the map's tile data was made from this same water: `setMap`)
+    for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) quads += this.meshWater(cx, cy, false);
     return quads;
   }
 
@@ -1983,12 +1989,13 @@ export class MapRenderer {
     this.uniforms.caveTop.value = this.cave.highest;
   }
 
-  /** The terrain shader's tile data up to the water and soil the map has now (heights, soil, sky, water): only the tiles whose
-   *  bytes differ are rewritten and sent to the GPU, the same bytes as baking the whole map (`tileData`). */
+  /** The terrain shader's tile data up to the land and soil the map has now and the water drawn (heights, soil, sky,
+   *  water: water still with the mesh workers comes with its mesh, `drawWater`): only the tiles whose bytes differ are
+   *  rewritten and sent to the GPU, the same bytes as baking the whole map (`tileData`). */
   private bakeTiles(): void {
     const m = this.map;
     if (!m || !this.tileTex) return;
-    const c = tileDataChanges(m.W, m.H, m.heights, m.soil, m.surface, m.tiles);
+    const c = tileDataChanges(m.W, m.H, m.heights, m.soil, this.waterShown, m.tiles);
     for (const r of c.rows) this.tileRows.touch(r.x0, r.y, r.x1, r.y);
     this.redoEdges(c.edgeRows);
   }
@@ -2139,7 +2146,7 @@ export class MapRenderer {
     // water's shores there
     const r = TILE_REACH;
     if (this.tileTex) {
-      tileDataRect(m.W, m.H, heights, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
+      tileDataRect(m.W, m.H, heights, m.soil, this.waterShown, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       this.tileRows.touch(rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       // (the contamination outline reads the tile data, a tile further)
       if (this.edges) {
@@ -2230,11 +2237,7 @@ export class MapRenderer {
   private redrawWater(rect: { x0: number; y0: number; x1: number; y1: number }): void {
     const m = this.map!;
     const g = { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 };
-    if (this.tileTex) {
-      tileDataRect(m.W, m.H, m.heights, m.soil, m.surface, m.tiles, g.x0, g.y0, g.x1, g.y1);
-      this.tileRows.touch(g.x0, g.y0, g.x1, g.y1);
-      this.edgesAround(g.x0, g.y0, g.x1, g.y1);
-    }
+    // (the ground's tile data under each chunk follows its water as it is drawn: `drawWater`)
     if (this.layered) this.layeredWaterNear(rect);
     else for (const [cx, cy] of dirtyChunks(m.W, m.H, g)) this.meshWater(cx, cy);
     this.requestRender();
@@ -2435,9 +2438,7 @@ export class MapRenderer {
     if (r && sent) {
       for (const [k, data] of r.chunks) {
         if (r.version <= (this.drawnWater.get(k) ?? -1)) continue;
-        const [cx, cy] = k.split(",").map(Number);
         this.drawWater(k, data, r.version, sent);
-        this.waterTiles(m, cx, cy);
       }
     }
     if (!this.waterQueue.size) return;
@@ -2475,15 +2476,14 @@ export class MapRenderer {
       if (done && performance.now() - t0 > budget) break;
       this.waterQueue.delete(k);
       this.meshWater(cx, cy);
-      this.waterTiles(m, cx, cy);
       done = true;
     }
   }
 
-  /** The ground's tile data under a water chunk drawn anew (the water over each top). */
+  /** The ground's tile data under a water chunk drawn anew (the water drawn over each top). */
   private waterTiles(m: MapState, cx: number, cy: number): void {
     if (!this.tileTex) return;
-    tileDataRect(m.W, m.H, m.heights, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+    tileDataRect(m.W, m.H, m.heights, m.soil, this.waterShown, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.edgesAround(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
   }
@@ -2749,7 +2749,7 @@ export class MapRenderer {
     }
     for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
     if (this.tileTex) {
-      for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
+      for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.soil, this.waterShown, m.tiles, row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.tileRows.touch(row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.edgesAround(row.x0, row.y, row.x1, row.y);
     }

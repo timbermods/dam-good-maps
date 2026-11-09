@@ -70,7 +70,7 @@ describe("the High look's shaders", () => {
     expect(Object.keys(terrainHooks())).not.toContain("groundTop");
     const high = terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader;
     const standard = terrainMaterial(U(), 0, 1).fragmentShader;
-    // (the one bed under every water: the ground's own colour under a film, the underwater bed deeper, in both looks)
+    // (the one bed under water of any depth, in both looks)
     const bed = (s: string) => s.match(/return mix\(c, (vec3\([^)]*\)) \* \(0\.9 \+ 0\.15 \* n2\), bed\);/)?.[1];
     for (const s of [high, standard]) expect(s).not.toMatch(/groundDry|polluted/);
     expect(bed(standard)).toBeDefined();

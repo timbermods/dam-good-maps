@@ -720,7 +720,7 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Badwater's colour, ramp, glow, tint, blend | S, H | (a); `BADWATER.floor` 0.37 ours until measured (Q8); blue kept from purple ours (D154) | P9 |
 | Badwater's troughs and light patches (mottled noise) | S, H | (c); followed (`fix/water-badwater`) | P9: lerp(A, B, t9's pattern) carried by the flow |
 | Badwater's bubbles (orange dots, `BADWATER_VEIN` × 0.55) | S, H | (c); followed (`fix/water-badwater`) | P9: its emission is a flowing texture pattern, not dots |
-| A film's fade under 0.03 levels (`waterFilm`); High's sheen lifting a film's opacity | S, H | (b), our anti-aliasing (`WATER_FILM`) | P14: a hard clip |
+| A film's fade under 0.03 levels (`waterFilm`); High's sheen lifting a film's opacity | S, H | (b); gone (fix/thin-water-drawn, D154 as amended 2026-11-09): water of any depth draws as water, its edge the mesh's, multisampled | P14: a hard clip |
 | No foam, no shore line | S, H | (a) | none (#715) |
 | Sources welling: rings and bubbles in `WATER_FOAM` × 0.55 | S (both draw it) | editing aid (D196), drawn over the game's own pattern | P7: the game draws its own in play (ps 356-418) |
 | The sources' own pattern over seeps and badwater sources | S, H, light | (a): our shape at the game's statistics, its lift, emission tint and overlay held back (`waterSourcePattern`, fix/water-shore); t9's B at its mean | P7 (ps 356-418, 477, 700-720) |

@@ -925,11 +925,15 @@ export const WATER_BYTE_STEPS = 60;
 /** The water byte's last value in steps (three levels deep); above it, a byte is whole levels (`waterByte`). */
 export const WATER_BYTE_FINE = 1 + 3 * WATER_BYTE_STEPS;
 
+/** The water the tile data's bytes are made from: a map's surface water, or the water as drawn (waterMesh.ts
+ *  `DrawnWater`, what the renderer writes the tile data from). */
+export type WaterBytes = Pick<SurfaceWater, "surface" | "floor" | "depth">;
+
 /** Water over a tile's top as a byte: 0 dry; to three levels deep 1 + depth × 60 rounded up; deeper (a dammed reservoir, an
  *  imported map's) 178 + K, its surface at most K + 0.05 over the top and more than K − 0.95 (K from 4 to 77). So the
  *  terrain shader knows exactly whether a layer cut takes the water's surface away (the water's shader cuts it at the
  *  cut's 0.05), however deep the water: `soilOf`. */
-export function waterByte(sw: SurfaceWater | null, heights: Uint8Array, i: number): number {
+export function waterByte(sw: WaterBytes | null, heights: Uint8Array, i: number): number {
   if (!sw) return 0;
   const s = sw.surface[i];
   if (!(s === s)) return 0;
@@ -963,7 +967,7 @@ const DESERT_B = Uint8Array.from({ length: 256 }, (_, v) => desertByte(v));
 
 /** The terrain shader's per-tile data, RGBA bytes (W × H): R the height, G the soil nibbles, B the desert intensity
  *  (`desertByte`; all desert without soil, as the nibbles' 0 is dry), A the water over the top. */
-export function tileData(W: number, H: number, heights: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, into?: Uint8Array): Uint8Array {
+export function tileData(W: number, H: number, heights: Uint8Array, soil: SoilView | null, sw: WaterBytes | null, into?: Uint8Array): Uint8Array {
   const N = W * H;
   const out = into ?? new Uint8Array(N * 4);
   for (let i = 0; i < N; i++) {
@@ -977,7 +981,7 @@ export function tileData(W: number, H: number, heights: Uint8Array, soil: SoilVi
 }
 
 /** The tile data of a rectangle's tiles only, into `out` (live editing). */
-export function tileDataRect(W: number, H: number, heights: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, out: Uint8Array, x0: number, y0: number, x1: number, y1: number): void {
+export function tileDataRect(W: number, H: number, heights: Uint8Array, soil: SoilView | null, sw: WaterBytes | null, out: Uint8Array, x0: number, y0: number, x1: number, y1: number): void {
   for (let y = Math.max(0, y0); y <= Math.min(H - 1, y1); y++)
     for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) {
       const i = y * W + x;
@@ -1011,7 +1015,7 @@ export interface TileChanges {
  *  gives (so `out` ends exactly as a whole `tileData`), and says where. A tile's bytes depend on that tile alone, so the
  *  changed ones are found by comparing, whatever came before: a water update, new soil, or both. The cheap path for the
  *  frequent update (moving water changes a few tiles; the whole map's bytes are neither rewritten nor uploaded). */
-export function tileDataChanges(W: number, H: number, heights: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, out: Uint8Array): TileChanges {
+export function tileDataChanges(W: number, H: number, heights: Uint8Array, soil: SoilView | null, sw: WaterBytes | null, out: Uint8Array): TileChanges {
   const rows: TileSpan[] = [];
   const edgeRows: TileSpan[] = [];
   const moisture = soil?.moisture;
