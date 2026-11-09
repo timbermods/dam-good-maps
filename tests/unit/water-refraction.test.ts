@@ -122,11 +122,26 @@ describe("the refraction (Q9 P2)", () => {
     const u = refractionUniforms();
     const r = new Refraction(u);
     const copy = vi.fn();
+    const blit = vi.fn();
     let target: unknown = null;
+    const ctx = {
+      READ_FRAMEBUFFER: 1,
+      DRAW_FRAMEBUFFER: 2,
+      COLOR_BUFFER_BIT: 4,
+      LINEAR: 5,
+      createFramebuffer: () => ({}),
+      deleteFramebuffer: vi.fn(),
+      framebufferTexture2D: vi.fn(),
+      blitFramebuffer: blit,
+    };
     const gl = {
       getRenderTarget: () => target,
-      getDrawingBufferSize: (v: Vector2) => v.set(320, 200),
+      getDrawingBufferSize: (v: Vector2) => v.set(321, 200),
       copyFramebufferToTexture: copy,
+      initRenderTarget: vi.fn(),
+      getContext: () => ctx,
+      properties: { get: () => ({ __webglTexture: {}, __webglFramebuffer: {} }) },
+      state: { bindFramebuffer: vi.fn() },
     } as unknown as WebGLRenderer;
     const refracts = { defines: { WATER_REFRACTS: 1 } } as never;
     const light = { defines: { WATER_REFRACTS: 0 } } as never;
@@ -140,8 +155,15 @@ describe("the refraction (Q9 P2)", () => {
     r.before(gl, null, null as never, null, refracts);
     r.before(gl, null, null as never, null, refracts);
     expect(copy).toHaveBeenCalledTimes(1);
-    expect(u.refractView.value.toArray()).toEqual([1, 0, 1 / 320, 1 / 200]);
-    expect(u.refractTex.value?.image.width).toBe(320);
+    expect(u.refractView.value.toArray()).toEqual([1, 0, 1 / 321, 1 / 200]);
+    expect(u.refractTex.value?.image.width).toBe(321);
+    // (URP's opaque texture at the game's m_OpaqueDownsampling 1, _2xBilinear: half the size, by integer division, the
+    // screen's copy blitted to it with a linear filter)
+    expect(WATER_REFRACTION.downsampling).toBe(2);
+    expect(u.refractHalf.value?.image.width).toBe(160);
+    expect(u.refractHalf.value?.image.height).toBe(100);
+    expect(blit).toHaveBeenCalledTimes(1);
+    expect(blit).toHaveBeenCalledWith(0, 0, 321, 200, 0, 0, 160, 100, 4, 5);
     r.end();
     expect(u.refractView.value.x).toBe(0);
     // (a frame drawn into a render target, a picture: none)
@@ -153,6 +175,8 @@ describe("the refraction (Q9 P2)", () => {
     r.end();
     r.dispose();
     expect(u.refractTex.value).toBe(null);
+    expect(u.refractHalf.value).toBe(null);
+    expect(ctx.deleteFramebuffer).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -178,6 +202,9 @@ describe("the looks that draw them: Standard and High, as the game's high-qualit
       expect(m.fragmentShader, look).toContain("(1.0 - waterFall) * film");
       expect(m.fragmentShader, look).toMatch(/waterCameraHighlight\([^;]*\* \(1\.0 - waterFall\);/);
       expect(m.uniforms.refractTex, look).toBeDefined();
+      expect(m.uniforms.refractHalf, look).toBeDefined();
+      // (the ground behind shows from the half-size copy, at the moved position; the blend's own from the full one)
+      expect(m.fragmentShader, look).toContain("texture2D(refractHalf, clamp(here + shift, 0.0, 1.0))");
     }
   });
 
