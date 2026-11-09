@@ -510,10 +510,10 @@ Standard's shadow before a cave (item 8).
   diffuse share, `_Metallic` 0.05) × (the ambient + 1.1 × the sun's colour × max(n·L, 0) × its shadow), with a little
   specular. The ambient is Unity's Trilight light probe (decompiled `Timberborn.SkySystem` `Sun`: `AmbientMode.Trilight`;
   the day's colours in `Configurations/Sun.blueprint.json`: sky (0.62, 0.63, 0.97) from above, equator (1, 1, 1) from
-  the side, ground (0.28, 0.23, 0.37) from below) as Unity's ambient probe: irradiance SH, the gradient projected to L2
-  with the clamped cosine's convolution (`GAME_AMBIENT_SH`; up 0.78/0.79/0.98, side 0.84/0.83/0.91, down
-  0.65/0.64/0.68), turned back to display values (URP `SampleSH` under Gamma); a frame capture of the game's SH is still
-  to check the engine's projection. No ambient-occlusion setting in `GraphicsQualitySystem`. Its height terms: the
+  the side, ground (0.28, 0.23, 0.37) from below) as Unity's ambient probe, captured from the running game (below, "The
+  game's ambient probe, captured": `GAME_AMBIENT_SH`; up 0.825/0.827/0.986, side 0.915/0.915/0.951, down
+  0.731/0.723/0.748), turned to display values (URP `SampleSH` under Gamma). No ambient-occlusion setting in
+  `GraphicsQualitySystem`. Its height terms: the
   ground's altitude ramps, twice the texel at height / 22 (`_AltitudeCeiling`), on grass and dry ground before
   contamination; and the cliffs' tint from (0.416, 0.431, 0.475) at level 0 to (0.941, 0.925, 0.894) at level 22.
 - **What:** the terrain shader (`materials.ts`, both looks and the light look) lights each face in display values by
@@ -666,8 +666,7 @@ Standard's shadow before a cave (item 8).
 - **Objects, water and falls** keep their own light (their sky colour and sun), less High's ambient occlusion; they
   take the fog and the post chain.
 - **Captures and numbers:** in the PRs (#703, #722, and the finish's, which carries the set).
-- **Falls short:** the ambient SH's projection waits for a frame capture (`m_AmbientIntensity` is settled: not applied, D497): shade reads about 0.8
-  of the game's (floors truly in shade 57–62 in the game's shots, our overhang floor 49–50). The game's sky behind
+- **Falls short:** the shade's gap is measured against the captured probe below ("The game's ambient probe, captured"). The game's sky behind
   the map is still ours. The water is graded before it blends over the ground, where the game grades the finished
   frame; grading after would take a full-frame pass (D110's rejected 25–27 MiB target).
 - **The sun turns with the camera** (`fix/game-sun`, after #734): the game's (`Sun.UpdateRotation`: the camera's

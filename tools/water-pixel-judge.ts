@@ -72,6 +72,7 @@ import { WATER_LIGHT, WATER_SURFACE, type Rgb } from "../src/render3d/waterPalet
 import { dayLight, type DayLight, type Hazard } from "./game-day-light";
 import { rotate, type Orientation } from "../src/core/format/footprints";
 import { MINE_PIT } from "../src/render3d/entities3d";
+import { sunOfYaw } from "../src/render3d/light";
 import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
@@ -554,8 +555,14 @@ function samplePoints(s: Shot): { p: V3; depth: number; kind: Kind }[] {
  *  (moisture 6 or more, the game's full green), dry ground (no moisture) and contaminated ground (a share over 0.2),
  *  each with its 3×3 all of its kind, and cliff faces two levels or more high. On contaminated ground the judge also
  *  counts its veins (`veinsAt`): their share of the pixels and their colour, the game's and ours. */
-type LandKind = "grass" | "dry" | "contaminated" | "cliff" | "edge";
-const LAND_KINDS: readonly LandKind[] = SAMPLES ? ["grass", "dry", "contaminated", "cliff", "edge"] : ["grass", "dry", "contaminated", "cliff"];
+type LandKind = "grass" | "dry" | "contaminated" | "cliff" | "edge" | "shade-grass" | "shade-dry" | "shade-cliff";
+/** `--shade`: the land in shade too, lit by the ambient alone (the game's ambient probe; docs/progress/3d-view.md, "The
+ *  game's ambient probe, captured"): grass and dry tops level with their 3 × 3 whose middle (±0.4 of a tile) lies in a
+ *  higher tile's shadow, by the shot's sun and our baked shadows' 45° alike (`shade-grass`, `shade-dry`), and cliff faces
+ *  toward the camera turned from the sun (`shade-cliff`; the game's sun stands behind the camera's left shoulder, so these
+ *  are seen edge-on at the view's side, if at all). */
+const SHADE = process.argv.includes("--shade");
+const LAND_KINDS: readonly LandKind[] = [...(SAMPLES ? ["grass", "dry", "contaminated", "cliff", "edge"] : ["grass", "dry", "contaminated", "cliff"]), ...(SHADE ? ["shade-grass", "shade-dry", "shade-cliff"] : [])] as LandKind[];
 /** The camera's distance bands the land is judged by (the fog's share grows with the distance). */
 const LAND_BANDS: [number, number][] = [
   [0, 70],
@@ -596,6 +603,23 @@ function landPoints(s: Shot, cam: Cam): { p: V3; kind: LandKind; distance: numbe
       }
     return false;
   };
+  // (the sun turns with the camera, as the game's, renderer.ts sunOfYaw: its way over the map, x east and y north)
+  const sun = sunOfYaw(cam.yaw);
+  const inShadow = (px: number, py: number, top: number) =>
+    [s.light.angle, 45].every((deg) => {
+      const rise = Math.tan((deg * Math.PI) / 180);
+      for (let t = 0.25; t < 24; t += 0.25) {
+        const tx = Math.floor(px + sun.x * t);
+        const ty = Math.floor(py + sun.y * t);
+        if (tx < 0 || ty < 0 || tx >= W || ty >= H) return false;
+        if (hs[ty * W + tx] > top + rise * t + 0.1) return true;
+      }
+      return false;
+    });
+  const deepShade = (x: number, y: number, top: number) => {
+    for (const oy of [-0.4, 0, 0.4]) for (const ox of [-0.4, 0, 0.4]) if (!inShadow(x + 0.5 + ox, y + 0.5 + oy, top)) return false;
+    return true;
+  };
   const kindOfTop = (j: number): LandKind | null => (soil[j] > 0.2 ? "contaminated" : soil[j] > 0 ? null : moisture[j] >= 6 ? "grass" : moisture[j] <= 0 ? "dry" : SAMPLES ? "edge" : null);
   const out: { p: V3; kind: LandKind; distance: number }[] = [];
   const push = (p: V3, kind: LandKind) => {
@@ -610,6 +634,8 @@ function landPoints(s: Shot, cam: Cam): { p: V3; kind: LandKind; distance: numbe
       const dry = !near(x, y, 5, (j) => depth[j] > 0);
       if (!dry && !(kind === "contaminated" && !near(x, y, 2, (j) => depth[j] > 0))) continue;
       if (kind && !near(x, y, 1, (j) => hs[j] !== hs[i] || kindOfTop(j) !== kind) && !shaded(x, y, hs[i])) push([x + 0.5, hs[i], -(y + 0.5)], kind);
+      if (SHADE && dry && (kind === "grass" || kind === "dry") && !near(x, y, 1, (j) => hs[j] !== hs[i] || kindOfTop(j) !== kind || s.covered[j] > 0) && deepShade(x, y, hs[i]))
+        push([x + 0.5, hs[i], -(y + 0.5)], kind === "grass" ? "shade-grass" : "shade-dry");
       if (!dry) continue;
       // a cliff face: this top over a neighbour two or more lower, facing the camera
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
@@ -618,6 +644,7 @@ function landPoints(s: Shot, cam: Cam): { p: V3; kind: LandKind; distance: numbe
         const p: V3 = [x + 0.5 + dx * 0.5, (hs[i] + hs[j]) / 2, -(y + 0.5 + dy * 0.5)];
         const n: V3 = [dx, 0, -dy];
         if (dot(n, sub(eye, p)) > 0) push([p[0] + n[0] * 0.01, p[1], p[2] + n[2] * 0.01], "cliff");
+        if (SHADE && dot(n, sub(eye, p)) > 0 && dx * sun.x + dy * sun.y < -0.2) push([p[0] + n[0] * 0.01, p[1], p[2] + n[2] * 0.01], "shade-cliff");
       }
     }
   return out;
