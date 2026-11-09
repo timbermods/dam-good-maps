@@ -844,8 +844,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   map) forgets a stroke still on its way, as Esc does, so nothing of it reaches the next map (#880). A History row
   clicked meanwhile goes to the step it shows wherever that step stands once the stroke lands, refused with "That
   step is gone: a newer edit replaced it." when the stroke replaced it (an undone step). The page waits for each call
-  only as long as it can take (`answerBound`: 4 s, plus 0.4 ms + Size² × 20 µs a dab it carries, over four times the
-  slowest measured, #884): a worker that never answers in time has its stroke taken back as Esc takes one back (no
+  only as long as it can take (`answerBound`: 4 s, plus 0.4 ms + Size² × 80 µs a dab it carries, 1.3 s at Size 128,
+  #884; on canyon at Size 128, Strength 10, that is 13.7 times a dab of a 30-dab batch at 512², 96 ms, and 18 times one
+  at 256², 73 ms, and 4 times the slowest single dab, 308 ms at 512² and 327 ms at 256²): a worker that never answers in time has its stroke taken back as Esc takes one back (no
   land, water or operation), the page says "Naturalize stopped answering, so the stroke was taken back. Paint it
   again.", what waited for the stroke goes ahead, and the worker is started again for the next stroke. A new
   stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back

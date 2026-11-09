@@ -490,7 +490,7 @@ describe("a worker that never answers (#884)", () => {
 
   it("a slow worker that answers within the bound is waited for: a 30-dab batch at Size 128, 12 s a call", async () => {
     vi.useFakeTimers();
-    // (measured, #884: such a batch took 2.2 s)
+    // (measured, #884: such a batch took 2.2 s at 256², 2.87 s at 512²)
     expect(answerBound(30, 128)).toBeGreaterThan(12000);
     const { channel, sent, restarts } = silentChannel({ add: 12000, finish: 0, end: 50 });
     const p = new RemotePreview({ ...settings(), size: 128 }, new Uint8Array(W * W), W, W, [], channel, () => {}, new Uint8Array(W * W), new Uint8Array(W * W));

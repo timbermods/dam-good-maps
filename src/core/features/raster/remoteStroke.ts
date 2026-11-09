@@ -57,12 +57,15 @@ export interface WeatherChannel {
 export const WEATHER_SILENT = "Naturalize stopped answering, so the stroke was taken back. Paint it again.";
 
 /** How long the page waits for one call to the worker (ms, #884): a few seconds, plus the most a dab of this size
- *  can take for each dab the call carries. Measured warm in Node on 256² canyon at Strength 10 (#884): a dab takes
- *  p50 3 / 12 / 25 / 74 ms at Size 5 / 32 / 64 / 128 (the slowest 327 ms, at 128), a batch of 30 dabs at Size 128
- *  2.2 s, a stroke's start 4–23 ms and its end under a millisecond; the allowance per dab, 0.4 ms + Size² × 20 µs,
- *  is 4.5 times the measured cost at Size 128 and more below it. */
+ *  can take for each dab the call carries. Measured warm in Node on canyon at Strength 10 (#884): at 256² a dab takes
+ *  p50 3 / 12 / 25 / 74 ms at Size 5 / 32 / 64 / 128 (the slowest 327 ms, at 128) and a batch of 30 dabs at Size 128
+ *  2.2 s (73 ms a dab); at 512², Size 128, p50 71 ms, the slowest 308 ms, a 30-dab batch 2.87 s (96 ms a dab); a
+ *  stroke's start 4–23 ms and its end under a millisecond. A long press sends calls of over 100 dabs (the page adds
+ *  30 a second while a call is out). The allowance per dab, 0.4 ms + Size² × 80 µs (1.3 s at Size 128), is 13.7 times
+ *  a 512² batch's dab and 18 times a 256² one's, and 4 times the slowest single dab, so a CPU four times slower
+ *  (D46) still lands. */
 export function answerBound(dabs: number, size: number): number {
-  return ANSWER_WAIT_MS + dabs * (0.4 + size * size * 0.02);
+  return ANSWER_WAIT_MS + dabs * (0.4 + size * size * 0.08);
 }
 export const ANSWER_WAIT_MS = 4000;
 
