@@ -617,8 +617,14 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   the intensity is overlaid with the detail albedo (t5, P6's; not the flow's albedo: ps 690-712), less as c rises
   (mixed in by (1 − c / 2)), then × `_DepthGradients` G and the glow; the emission is lerp(`_Detail_Contamination_Color_A`,
   `_B`, `_ContaminationVisualizationNoise`) × t9.y (t9.z on a source's mask) × t × a soft modulation on a 10-tile grid
-  (F1² + 0.1 c held to 0.25–0.55, its nodes unjittered) × 4.5 easing to 1.2 by c = 0.4
-  (`_Detail_Contamination_Intensity_*`); badwater's normals are × (1 + c) (`_Contamination_Normal_Strength` 2).
+  (F1² + 0.1 c held to 0.25–0.55) × 4.5 easing to 1.2 by c = 0.4 (`_Detail_Contamination_Intensity_*`); badwater's
+  normals are × (1 + c) (`_Contamination_Normal_Strength` 2). *Corrected 2026-11-09 (`fix/badwater-colour`): the grid's
+  nodes drift. The literal `0x33800001` (2⁻²⁴) prints as 0.000000 in the six-decimal disassembly, which read as nodes
+  held still; re-read with hex literals, each cell's node sits at 0.5 + 0.5 (sin(hx × 0.3 T), cos(hy × 0.3 T)), hx and
+  hy the cell's own 24-bit hash (y' = cell.y ^ 0x41c64e6d, h = y' (y' + cell.x), h ^= h >> 5, hy = h × 0x27d4eb2d,
+  hx = y' ^ (hy << 3), each >> 8) × 2⁻²⁴, T `_NonlinearTime`. The modulation's mean at pure badwater rises from 0.302
+  to 0.349. Over a source the grid and the share the intensity eases by are each max(the source's pattern s, itself)
+  (ps 762, 771). No other literal hides under the six decimals.*
   Followed since (`fix/water-badwater`): the pattern (our own texture at t9's measured statistics) and the emission in
   both looks; the colour formula is built behind `BADWATER_FORMULA`, but the pixel judge found it farther from the
   game's frames than our calibrated crimson (it draws pure badwater a dark crimson, L* 8 a level deep lit, where the
