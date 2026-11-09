@@ -163,8 +163,10 @@ describe("the refraction (Q9 P2)", () => {
     // (URP's opaque texture at the game's m_OpaqueDownsampling 1, _2xBilinear: half the size, by integer division, the
     // screen's copy blitted to it with a linear filter)
     expect(WATER_REFRACTION.downsampling).toBe(2);
-    expect(u.refractHalf.value?.image.width).toBe(160);
-    expect(u.refractHalf.value?.image.height).toBe(100);
+    // (a render target's texture: three types its image unknown)
+    const half = u.refractHalf.value?.image as { width: number; height: number } | undefined;
+    expect(half?.width).toBe(160);
+    expect(half?.height).toBe(100);
     expect(blit).toHaveBeenCalledTimes(1);
     expect(blit).toHaveBeenCalledWith(0, 0, 321, 200, 0, 0, 160, 100, 4, 5);
     r.end();
