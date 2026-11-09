@@ -1500,7 +1500,8 @@ the game's models in resources.assets (positions, materials and texture means on
   `onBeforeRender`), and the shader adds (copy(moved) − copy(here)) × (1 − α) / α, so the blend gives the game's
   composite. Its noise is the pattern texture's value noise at PerlinNoise3's measured statistics (half-width 0.0345
   tiles, mean −0.064, spread 0.607 against our 0.600; `tests/unit/water-refraction.test.ts`). No copy while no water can
-  be within 60 of the camera (the opening camera and farther).
+  be within 60 of the camera (the opening camera and farther) (*until `fix/opaque-downsample`: the ground behind now
+  shows from a half-size copy, made every frame; "The ground behind the water at the game's downsampling", below*).
 - **Cost** (`tools/capture-water-refraction.ts --cost`; a 256² Highlands map, 1280 × 800 on the GPU, a frame drawn and
   finished, median of 120, dev → this PR): Standard close 3.12 → 3.17 ms, High close 4.12 → 4.31 ms; from the opening
   camera, where no copy is made, 4.15 → 4.18 and 6.03 → 5.95. Within High's budget (22 ms) by far.
@@ -2238,11 +2239,45 @@ The water-character audit's gap 7 (`docs/progress/water-character-audit.md`): ou
 - **Falls short:** (1) the cliff shows through the sheet more than in the game: on the face the pixel gradient down the
   sheet is 0.84 / 0.71 (upper / lower half) against the game's 0.44 / 0.22, and 0.32 / 0.12 with no see-through. The
   game's see-through reads URP's opaque texture, which its pipeline asset downsamples 2× bilinear
-  (`m_OpaqueDownsampling` 1, `globalgamemanagers.assets`), ours the full frame; a half-resolution copy for the ground
-  behind would follow it (not built). (2) The streaks down the face are more contrasted than the game's: the
+  (`m_OpaqueDownsampling` 1, `globalgamemanagers.assets`), ours the full frame (built: the next section; part of the
+  gap is P13's overlay, not built). (2) The streaks down the face are more contrasted than the game's: the
   high-passed spread of the face's columns 5.1-5.8 against 2.0-2.4, where the game's face is as contrasted as its pool
   and ours 1.9 times; the cause is not found (the normal, the tangent frame, the phases and the sampling match the
   game's programs). (3) The game's frames show no fall moving; its speed is the formula's.
+
+## The ground behind the water at the game's downsampling (Q9 P13, P2; D154, D496; `fix/opaque-downsample`)
+
+- **Read:** the game's water is drawn opaque and takes everything it shows through from `_CameraOpaqueTexture` (Q8,
+  Q9 P13). Its URP asset (`globalgamemanagers.assets`, version 13, read as `tools/game-bloom.py` reads it; numbers only)
+  sets `m_OpaqueDownsampling` 1, URP's `_2xBilinear`: the opaque scene copied to half the screen's width and height
+  (URP's integer halves), each texel the screen sampled bilinearly at its centre, a 2 × 2 box, and read bilinearly.
+  So the ground behind the water shows at half the screen's resolution in Medium and up, at any distance.
+- **Ours** (`refraction.ts`): the copy of the screen made just before the first water (as before; the canvas is
+  multisampled, so it is the resolve) is blitted with a linear filter to a half-size target (`WATER_REFRACTION.downsampling`
+  2), and the water's shader reads the ground behind from it at the moved position, (half(moved) − copy(here)) ×
+  (1 − α) / α added to its colour, so the blend over the screen gives α × the water + (1 − α) × half(moved), the
+  game's composite. Standard and High, every frame with water on the map (the copy was made only within the
+  refraction's 60 of the camera); the light look, as the game's Low, shows no ground and makes no copy.
+- **Judged** on the probe's `ceiling-waterfall` `ceiling-close` frame (the pixel gradient |dy| down the sheet, upper /
+  lower half; the previous section's measure): game 0.44 / 0.22; Standard dev 0.84 / 0.71 → 0.67 / 0.48; High dev
+  0.69 / 0.61 → 0.60 / 0.44; with no see-through 0.32 / 0.12. `tools/water-pixel-judge.ts --water falls`, the six
+  day-lit start shots: clean water RMS Standard 13.5 → 13.5, High 13.3 → 13.3 (8,573 tiles); a fall's foot 24.0 → 24.0
+  and 23.3 → 23.3 (103): those frames are 85 or more from their water, and the judge's 5 × 5 patch means do not see a
+  2 × 2 softening.
+- **The rest of the falls' gap, found:** the game overlays whatever shows behind its water with the water's colour
+  (`_TransparencyBlending` 0.8), desaturates it (0.3) and lights it again (P13, ps 866-889); ours does that in the
+  terrain's shader, to ground under water only (`waterGroundBehind`), so the dry cliff behind a fall's sheet shows
+  plain. The game's overlay put on the half-size copy in the water's shader (a trial, not shipped: the terrain's would
+  be applied twice under water) reads 0.53 / 0.31 in Standard and 0.50 / 0.31 in High; what is left is near our
+  sheet's own streaks (0.32 / 0.12 alone, more contrasted than the game's: the previous section's (2)). Moving P13 into
+  the water's shader, read from the copy, with the terrain's version kept only where no copy is made (software), is
+  the next step for it.
+- **Cost** (a 256² Highlands map, 1280 × 800, real Chrome on the RTX 2070 SUPER, the GPU's time a frame by timer
+  queries while orbiting, `benchOrbit`, the median of about 360 frames, two runs each, dev → this branch): Standard
+  close over water 2.80, 2.81 → 2.77, 2.83 ms; High close 3.05, 3.06 → 3.08, 2.94; from the opening camera, where
+  dev made no copy, Standard 2.80, 3.26 → 2.39, 3.74 and High 2.79, 2.75 → 2.82, 2.72. The same within the runs'
+  noise, not less: the multisampled canvas must be resolved at full size for the copy either way, and the blend needs
+  it; the half-size blit is a quarter of a screen.
 
 ## The rest of the step (next parts)
 

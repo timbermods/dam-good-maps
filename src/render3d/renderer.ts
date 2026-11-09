@@ -460,7 +460,8 @@ export class MapRenderer {
   /** The Flow view (off by default): the current's foam and streaks over the water (D497: drawn there alone). */
   private flowOn = false;
   private lookNow: Look = "standard";
-  /** The copy of the screen behind the water for the game's refraction (refraction.ts), made in each frame of the view. */
+  /** The copies of the screen behind the water for its see-through and the game's refraction (refraction.ts), made in
+   *  each frame of the view. */
   private refraction!: Refraction;
   /** The game's bloom (bloom.ts), made with the first frame that draws it. */
   private bloom: GameBloom | null = null;
@@ -4163,7 +4164,7 @@ export class MapRenderer {
     // the game's bloom: the frame before the grade drawn for it first, then the view, then the bloom put on it (bloom.ts)
     const bloom = this.blooms() ? (this.bloom ??= new GameBloom()) : null;
     bloom?.drawSource(this.gl, this.scene, cam);
-    this.refraction.begin(this.refracts(cam));
+    this.refraction.begin(this.refracts());
     this.gl.render(this.scene, cam);
     this.refraction.end();
     if (bloom) {
@@ -4206,15 +4207,13 @@ export class MapRenderer {
     return !!u.eruptionAge && u.eruptionAge.value >= 0 && u.coolingAge.value < LAVA_BLOOM_ENDS;
   }
 
-  /** Whether this frame wants the copy of the screen behind the water (refraction.ts): a look that draws the game's
-   *  refraction, with water on the map, and the camera within its reach of the map's highest ground (the game's shift
-   *  is none past `WATER_REFRACTION.falloff[1]` from the camera). */
-  private refracts(cam: { position: Vector3 }): boolean {
+  /** Whether this frame wants the copies of the screen behind the water (refraction.ts): a look that draws the game's
+   *  high-quality water, with water on the map. From any distance: the ground behind the game's water always shows
+   *  from URP's half-size opaque texture, though its shift is none past `WATER_REFRACTION.falloff[1]`. */
+  private refracts(): boolean {
     const look = this.lookNow;
     if (look === "light" || this.software || !this.map || !this.water.size) return false;
-    if (!WATER_REFRACTION.looks[look === "standard" ? "standard" : "high"]) return false;
-    const top = (this.terrainMat.uniforms.heightRange.value as Vector2).y;
-    return cam.position.y - top - 2 <= WATER_REFRACTION.falloff[1];
+    return WATER_REFRACTION.looks[look === "standard" ? "standard" : "high"];
   }
 
   /** Everything a frame shows is in: the water chunks (none waiting or with the mesher workers), the programs (and in
