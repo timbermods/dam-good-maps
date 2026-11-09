@@ -45,6 +45,39 @@ describe("no window between two waters", () => {
     expect(skirt, "the pool's skirt toward the lower water, from 10 down to 5 at (3, 3)").toBe(true);
   });
 
+  it("a fall's slope's skirts and sides carry the slope's own badwater share, the fall's handed over, both ways", () => {
+    // the fall 10 → 5 above: a clean fall into a badwater pool with lower badwater beside it, then the mirror (#867's
+    // look review: the skirts took the corners' blend with the badwater beside them, red-brown beside a clean slope)
+    const W = 6;
+    const H = 6;
+    for (const fall of [0, 1]) {
+      const heights = new Uint8Array(W * H);
+      const depth = new Float32Array(W * H);
+      const cont = new Float32Array(W * H);
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          const i = y * W + x;
+          if (y < 3) [heights[i], depth[i]] = x < 3 ? [8, 2] : [3, 2];
+          else [heights[i], depth[i]] = x < 3 ? [11, 0] : [1, 1];
+          cont[i] = x < 3 && y < 3 ? fall : 1 - fall;
+        }
+      const sw = surfaceWater(W, H, waterFromDepth(heights, depth, cont));
+      const m = meshed(W, H, plainLayers(heights, sw))[0].meshes[0];
+      // every side vertex along the pool's corner tile (3, 2)'s sides above the pool's surface (its skirt toward the
+      // lower water, from its raised edge): the fall's share
+      let seen = 0;
+      for (let v = 0; v < m.quads * 4; v++) {
+        if (m.normals[v * 3 + 1] !== 0) continue;
+        const [x, h, y] = [m.positions[v * 3], m.positions[v * 3 + 1], -m.positions[v * 3 + 2]];
+        const onSide = (Math.abs(y - 3) < 1e-6 && x >= 3 - 1e-6 && x <= 4 + 1e-6) || (Math.abs(x - 3) < 1e-6 && y >= 2 - 1e-6 && y <= 3 + 1e-6);
+        if (!onSide || h < 5 + 1e-3) continue;
+        seen++;
+        expect(m.data[v * 2 + 1], `a side vertex at (${x}, ${y}) ${h}`).toBeCloseTo(fall, 5);
+      }
+      expect(seen, "the slope's skirt toward the lower water").toBeGreaterThan(0);
+    }
+  });
+
   // (the review's other maps, at 256² and Canyon 2 at 128², in waterSkirts.heavy.test.ts)
   it("canyon 128² seed 1: no open edge", () => expect(openEdgesOn("canyon", 128, 1)).toEqual([]));
 });

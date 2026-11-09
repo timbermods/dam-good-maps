@@ -445,8 +445,11 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
           // the side's ends A and B (map axes), the corners there, and its vertices along it in a slope's grid (the
           // neighbour's same vertices: its opposite side's, backwards)
           const O = CURTAIN_SIDES[k ^ 1].grid;
-          const ca = [c0, c1, c2, c3][S.a];
-          const cb = [c0, c1, c2, c3][S.b];
+          // (a fall's slope's sides and any skirt take the tile's own badwater share, the fall's handed over, as the
+          // game's skirt takes its own tile's properties: never the corners' blend with the water beside it)
+          const own = slope || wet;
+          const ca = own ? c : [c0, c1, c2, c3][S.a];
+          const cb = own ? c : [c0, c1, c2, c3][S.b];
           const ma = [m0, m1, m2, m3][S.a];
           const mb = [m0, m1, m2, m3][S.b];
           const segments = slope || nearSlope ? 3 : 1;

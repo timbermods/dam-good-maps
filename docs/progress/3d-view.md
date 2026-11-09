@@ -1856,7 +1856,9 @@ the game's models in resources.assets (positions, materials and texture means on
 - **Skirts** (#867's review): where two wet tiles' tops part along their edge (a corner neighbour linked to one and
   not the other, or a neighbour not linked), the higher hangs a skirt down to the lower one's height at each vertex
   (its grid's, where it is a slope), as the game's water vertex shader drops each tile's side skirt; drawn as the
-  surface going on (`SKIRT_FLAGS`). Open edges (`tests/fixtures/openWaterEdges.ts`: a gap of 0.025 or more between the
+  surface going on (`SKIRT_FLAGS`). A skirt, and any side of a fall's slope, takes the tile's own badwater share (the
+  fall's, handed over), as the game's skirt takes its own tile's properties: before, the corners' blend with the water
+  beside it drew a clean fall's skirts red-brown over a badwater pool (#867's look review). Open edges (`tests/fixtures/openWaterEdges.ts`: a gap of 0.025 or more between the
   two tops with no water side or ground across it), before → after: Canyon 3 at 256² 27 → 0, Highlands 2 25 → 0,
   Canyon 2 28 → 0, Canyon 1 at 128² 8 → 0, Canyon 2 at 128² 12 → 0 (among them the look review's pale sliver along
   its narrow badwater fall, tile 31,119: the canyon's ground through the window at x = 31) (`waterSkirts.test.ts`,
