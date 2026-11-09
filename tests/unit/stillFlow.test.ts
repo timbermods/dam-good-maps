@@ -11,6 +11,7 @@ import { DataTexture, Scene } from "three";
 import { sceneUniforms } from "../../src/render3d/materials";
 import { WaterMotion } from "../../src/render3d/motion";
 import { shareByte } from "../../src/render3d/high/flow";
+import { handedWater } from "../../src/render3d/fallSlope";
 
 const W = 40;
 const H = 30;
@@ -179,18 +180,51 @@ describe("the light look's flow texture", () => {
   });
 });
 
-/** Every wet tile's share in B and a wet A, every dry tile's A 0. */
+/** Every wet tile's share in B (handed over down a fall, as the bake hands it: fallSlope.ts `handedWater`; D148,
+ *  falls as slopes) and a wet A, every dry tile's A 0. */
 function expectCurrent(data: Uint8Array, sw: SurfaceWater): void {
+  const handed = handedWater(W, H, sw).contamination;
   for (let i = 0; i < W * H; i++) {
     const wet = sw.surface[i] === sw.surface[i] && sw.depth[i] > 0;
     if (wet) {
-      expect(data[i * 4 + 2], `tile ${i}`).toBe(shareByte(sw.contamination[i]));
+      expect(data[i * 4 + 2], `tile ${i}`).toBe(shareByte(handed[i]));
       expect(data[i * 4 + 3], `tile ${i}`).toBeGreaterThan(0);
     } else expect(data[i * 4 + 3], `tile ${i}`).toBe(0);
   }
 }
 
 describe("the moving water's flow texture (motion.ts)", () => {
+  it("carries a fall's badwater share down its slope the moment the water comes, with no bake (#867's review)", () => {
+    vi.stubGlobal("window", globalThis);
+    try {
+      // 4 × 1: pure badwater on a shelf (x 0–1, surface 6) falling to a clean pool (x 2–3, surface 3.5); then the same
+      // fall clean over a badwater pool; a baker that never answers
+      const Wf = 4;
+      const Hf = 1;
+      const heights = Uint8Array.from([5, 5, 3, 3]);
+      const depth = Float32Array.from([1, 1, 0.5, 0.5]);
+      const cont = Float32Array.from([1, 1, 0, 0]);
+      const sw = surfaceWater(Wf, Hf, waterFromDepth(heights, depth, cont));
+      const baker = { run: () => new Promise(() => {}) };
+      const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+      const motion = new WaterMotion(Wf, Hf, baker as never, new Scene(), sceneUniforms(Wf, Hf, t(), t(), t(), t()), () => {}, () => null, () => {});
+      (motion as unknown as { setShapes: () => void }).setShapes = () => {};
+      motion.waterChanged(heights, sw, true);
+      const data = motion.flow.image.data as Uint8Array;
+      // the pool's tile under the lip rises 2.5 to the shelf's water: the fall's whole share, as the game hands it
+      expect(data[2 * 4 + 2], "the slope under the lip").toBe(255);
+      expect(data[3 * 4 + 2], "the pool beyond it, nothing over it but its own water").toBe(0);
+      expect(data[0 * 4 + 2]).toBe(255);
+      // and a clean fall into badwater: the slope takes the fall's clean share
+      const swClean = surfaceWater(Wf, Hf, waterFromDepth(heights, depth, Float32Array.from([0, 0, 1, 1])));
+      motion.waterChanged(heights, swClean);
+      expect(data[2 * 4 + 2], "a clean fall's slope over badwater").toBe(0);
+      expect(data[3 * 4 + 2]).toBe(255);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("draws the latest water's badwater share on the frame after it comes, never a bake behind it (#865's review)", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", globalThis);

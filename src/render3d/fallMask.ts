@@ -8,10 +8,11 @@
 // reads the sixteen heights of the tile's water mesh (four by four: its edge vertices take a linked neighbour's surface,
 // its inner ones the higher of its own and a linked neighbour's less 0.3, none under its own) and keeps
 // smoothstep(0.35, 0.6, max(highest − lowest, highest − its own surface)). Every vertex is at least its own surface, so
-// that is how far the highest linked neighbour's surface stands over its own: the mask lies on the tile a fall lands
-// in, the water below the step, whole from a step of 0.6. A neighbour is linked when it has water (and their columns
-// overlap, which on our ground they always do); a corner neighbour only where both tiles between are dry
-// (`BreakCornerLinks`). The pixel shader (ps 148-276) reads it in four taps round the pixel, ±0.075 tile, each weighted
+// that is how far the highest linked neighbour's surface stands over its own (fallSlope.ts `tileRise`): the mask lies
+// on the tile a fall lands in, the water below the step, whose slope the fall is, whole from a step of 0.6. A
+// neighbour is linked when it has water (and their columns overlap, which on our ground they always do); a corner
+// neighbour only where both tiles between are linked to both (`BreakCornerLinks`, `BreakCornerLinksReversed`: read
+// again 2026-11-08, they keep a corner link only where the corner's tile has links to both tiles between). The pixel shader (ps 148-276) reads it in four taps round the pixel, ±0.075 tile, each weighted
 // by its distance to the nearest tile corner and left out where its tile has no water, and sharpens it,
 // w = saturate(m + smoothstep(0, 0.5, m)). w takes off the refraction (P2) and the camera highlight (P12) and moves the
 // see-through from `_TransparencyDepth` 0.35 to `_TransparencyWaterfallDepth` 0.2 (ps 883-884).
@@ -20,6 +21,7 @@
 // wet one, so a tap knows a dry tile as the game's does.
 
 import type { SurfaceWater } from "./model";
+import { tileRise } from "./fallSlope";
 
 export const FALL_MASK = {
   /** The step over which the mask rises from none to whole (levels): FindWaterfalls' smoothstep. */
@@ -39,18 +41,10 @@ const smooth = (a: number, b: number, x: number) => {
 export function fallMask(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth">): Float32Array {
   const { surface, depth } = sw;
   const out = new Float32Array(W * H);
-  const wet = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && surface[y * W + x] === surface[y * W + x] && depth[y * W + x] > 0;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      if (!wet(x, y)) continue;
-      const s = surface[i];
-      let rise = 0;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (wet(x + dx, y + dy)) rise = Math.max(rise, surface[i + dy * W + dx] - s);
-      // (a corner neighbour is linked only where both tiles between are dry)
-      for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]])
-        if (wet(x + dx, y + dy) && !wet(x + dx, y) && !wet(x, y + dy)) rise = Math.max(rise, surface[i + dy * W + dx] - s);
-      out[i] = smooth(FALL_MASK.from, FALL_MASK.to, rise);
+      if (surface[i] === surface[i] && depth[i] > 0) out[i] = smooth(FALL_MASK.from, FALL_MASK.to, tileRise(W, H, sw, x, y));
     }
   return out;
 }

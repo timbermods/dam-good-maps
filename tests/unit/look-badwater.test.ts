@@ -18,6 +18,7 @@ import { GAME_BADWATER_TEXTURE, PATTERN_PERCENTILES } from "../../src/render3d/w
 import { BADWATER, GAME_BADWATER, gameBadwaterColour, gameShareAt, WATER_SHARE_BLEND, HIGH_WATER, type Rgb, WATER_SURFACE, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
 import { surfaceContamination } from "../../src/render3d/high/flow";
 import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { handedWater } from "../../src/render3d/fallSlope";
 import { plainLayers } from "../../src/render3d/waterLayers";
 
 /** CIE L* of a display colour (sRGB). */
@@ -161,7 +162,7 @@ describe("badwater meeting clean water", () => {
     for (let y = 0; y < H; y++) for (let x = 7; x < W; x++) expect(b[y * W + x]).toBe(0);
   });
 
-  it("keeps a pool of pure badwater pure, and never blends across dry ground or a fall", () => {
+  it("keeps a pool of pure badwater pure, never blends across dry ground, and across a fall only by the game's hand-over", () => {
     // a pond of badwater (x < 5) and one of clean water (x > 5), a dry tile between them
     const W = 11;
     const H = 5;
@@ -171,26 +172,30 @@ describe("badwater meeting clean water", () => {
       for (let x = 0; x < 5; x++) expect(b[y * W + x]).toBe(1);
       for (let x = 6; x < W; x++) expect(b[y * W + x]).toBe(0);
     }
-    // a pool of badwater at 6 falls into a clean river at 3: neither blends into the other, and the
-    // fall has the pool's share
+    // a pool of badwater at 6 falls into a clean river at 3: the blend never crosses the fall, the pool stays pure, and
+    // the water below the fall takes the pool's share as the game's FindBestProperties hands it on (a rise of 1 or
+    // more: all of it), so the fall's slope there is the pool's colour; the river past it only by the blend
     const heights = new Uint8Array([6, 6, 6, 3, 3, 3]);
     const view = waterFromDepth(heights, [0.5, 0.5, 0.5, 0.5, 0.5, 0.5], [1, 1, 1, 0, 0, 0]);
     const sw = surfaceWater(6, 1, view);
     expect([...blendedBadwater(6, 1, sw)]).toEqual([1, 1, 1, 0, 0, 0]);
+    expect([...handedWater(6, 1, sw).contamination]).toEqual([1, 1, 1, 1, 0, 0]);
+    const handed = blendedBadwater(6, 1, handedWater(6, 1, sw));
     const m = meshWaterChunk(6, 1, plainLayers(heights, sw), 0, 0);
     for (let q = 0; q < m.quads; q++) {
       const top = m.normals[q * 12 + 1] > 0;
       const x = Math.min(m.positions[q * 12], m.positions[q * 12 + 3], m.positions[q * 12 + 6]);
       for (let v = 0; v < 4; v++) {
         const c = m.data[(q * 4 + v) * 2 + 1];
-        if (top) expect(c).toBe(x < 2.5 ? 1 : 0);
+        if (top && x < 2.5) expect(c).toBe(1);
+        // (the slope's tile and on: the blend of the handed-over share, never more than the slope's tile's)
+        if (top && x > 2.5) expect(c).toBeLessThanOrEqual(handed[3] + 1e-6);
+        if (top && x > 2.5 && x < 3.5) expect(c).toBeGreaterThan(0.3);
       }
     }
-    // (D148: the fall was a curtain, then from D201 a ribbon from the lip; since D201's amendment (2026-10-29) a curtain
-    // again, as the game draws it, with the pool's share at every corner)
-    const fall = [...Array(m.quads).keys()].filter((q) => m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 3) < 0.05 && m.flags[q * 4] === 90);
-    expect(fall.length).toBe(1);
-    expect([0, 1, 2, 3].map((v) => m.data[(fall[0] * 4 + v) * 2 + 1])).toEqual([1, 1, 1, 1]);
+    // (D148: the fall was a curtain, then from D201 a ribbon from the lip, from D201's amendment (2026-10-29) a curtain
+    // again; since D154's of 2026-11-08 the slope of the water below it, as the game draws it: no curtain)
+    expect([...Array(m.quads).keys()].filter((q) => m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 3) < 0.05).length).toBe(0);
   });
 
   it("remeshes every chunk the blend reaches when the badwater changes", () => {

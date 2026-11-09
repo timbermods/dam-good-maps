@@ -325,7 +325,7 @@ export function waterHooks(): ShaderHooks {
             clearBad = hlBadLit;
             alpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
           } else {
-            // the water's side, and a fall, as the game draws its falls (D201 amended 2026-10-29): the water's own
+            // the water's side toward lower dry ground (a fall is the water below's slope, a top: fallSlope.ts): its own
             // colour where it sees the cliff right behind (its shallowest), nearly opaque
             // (WATER_SURFACE.fallSeeThrough), no whitewater and no highlight (the game's waterfall mask takes it off,
             // Q9 P1); at the map's edge, the water's side

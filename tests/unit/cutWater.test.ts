@@ -1,6 +1,9 @@
 // Water under a layer cut (D207; render3d/cutWater.ts): a column standing over the cut with its floor below it is drawn
 // sliced, its top on the cut and shallower by what the cut took off, its sides stopping at the cut; one whose floor is at
-// the cut or above it is gone; a fall, the water's own side where it steps down, stops at the cut as any side. What is drawn is worked out
+// the cut or above it is gone; a fall, the slope of the water below it (D154 as amended 2026-11-08, fallSlope.ts; D148:
+// it was the water's own side where it steps down), is sliced onto the cut vertex by vertex, flat on it, its depth the
+// water's from its floor up to the cut; a side as tall as a fall (toward lower dry ground) keeps its part below the cut
+// when its column is gone. What is drawn is worked out
 // here as the GPU does it (the water's vertex shader, materials.ts `waterMaterial`, mirrored by `fold`; its fragment
 // shader drops what stands over the cut), on generated maps with rivers, lakes and falls and on a hand-made cave, at
 // every cut through their water. The terrain counts a top as a bed under water exactly where a top is drawn over it
@@ -9,7 +12,7 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { bedAtCut, CUT_SLACK, cutCornerDepth, ringLevelAt, surfaceAtCut, waterLevelAt } from "../../src/render3d/cutWater";
+import { bedAtCut, CUT_SLACK, cutCornerDepth, cutSlopeDepth, ringLevelAt, slopeCutShare, surfaceAtCut, VIEW_TAN, waterLevelAt } from "../../src/render3d/cutWater";
 import { WATER_BYTE_FINE, WATER_BYTE_STEPS, waterByte } from "../../src/render3d/light";
 import { chunkCount } from "../../src/render3d/mesh";
 import { LAYERS, surfaceWater, waterFromDepth, type SurfaceWater, type WaterView } from "../../src/render3d/model";
@@ -41,6 +44,24 @@ describe("the rule", () => {
     expect(cutCornerDepth(2.5, 0.5, 8, 6), "half the tiles round the corner dry").toBe(1.5);
     expect(cutCornerDepth(0.4, 0.25, 8, 6), "a shore's corner").toBe(0);
   });
+
+  it("gives a fall's slope sliced onto the cut the depth seen behind it from there, as from its own height", () => {
+    // a fall 10 -> 5, the upper water's floor at 8, the pool's at 3: its edge vertex at 10, one a third in at 9.7
+    const edge = slopeCutShare(false, 10 - 8);
+    const inner = slopeCutShare(true, 9.7 - 8);
+    expect(edge).toBeLessThan(-0.5);
+    expect(inner).toBeLessThan(-0.5);
+    // uncut, as slopeHeights sees it
+    expect(cutSlopeDepth(3, 10, edge, 10)).toBeCloseTo(2, 5);
+    expect(cutSlopeDepth(3, 9.7, inner, 9.7)).toBeCloseTo(1.7, 5);
+    // cut at 7, under the upper floor: the view meets the cliff (shallow, never the pool's 4 levels from floor to cut)
+    expect(cutSlopeDepth(3, 10, edge, 7)).toBeCloseTo(0.05, 5);
+    expect(cutSlopeDepth(3, 9.7, inner, 7)).toBeCloseTo(VIEW_TAN / 3, 5);
+    // cut at 9, through the upper water: into it, to its floor
+    expect(cutSlopeDepth(3, 10, edge, 9)).toBeCloseTo(1, 5);
+    // never deeper than the cut over its own floor
+    expect(cutSlopeDepth(8.5, 10, edge, 9)).toBeCloseTo(0.5, 5);
+  });
 });
 
 // ---- as the GPU draws it ----
@@ -56,15 +77,16 @@ function fold(
   cut: number | null,
 ): { y: number; depth: number; flags: number } {
   const slice = cut ?? 99;
-  const surface = ny > 0 ? y : floor + depth;
+  // (a side's vertex by its own height where that stands over its column's surface: a slope's edge, a skirt)
+  const surface = ny > 0 ? y : Math.max(floor + depth, y);
   // (a gone column's side folds flat: nothing drawn; but a fall's face keeps its part below the cut)
-  if (surface > slice + CUT_SLACK && floor >= slice && ny <= 0) return { y: flags < 254.5 && flags >= FALL * 30 ? Math.min(y, slice) : surface, depth, flags };
+  if (surface > slice + CUT_SLACK && floor >= slice && ny <= 0) return { y: flags < 254.5 && flags >= FALL * 30 ? Math.min(y, slice) : floor + depth, depth, flags };
   if (!(surface > slice + CUT_SLACK && floor < slice)) return { y, depth, flags };
   const over = surface - slice;
   if (ny > 0)
     return {
       y: Math.min(y, slice),
-      depth: Math.max(0, depth - over * share),
+      depth: share < -0.5 ? cutSlopeDepth(floor, y, share, slice) : Math.max(0, depth - over * share),
       flags: flags % 16,
     };
   return {
@@ -84,10 +106,15 @@ function soilUnderWater(byte: number, height: number, cut: number | null): boole
 }
 
 interface Drawn {
-  /** Each tile's tops drawn, by the surface they were meshed at: the height drawn. */
+  /** Each tile's tops drawn, by the surface they were meshed at: the height drawn (of its vertices at that surface; a
+   *  fall's slope's raised over it are not counted). */
   tops: Map<number, Map<number, number>>;
-  /** Corner points of drawn tops of one surface: their depths. */
+  /** Corner points of drawn tops of one surface, at that surface: their depths. */
   corners: Map<string, number[]>;
+  /** Tiles by surface ("tile,surface") whose tops have no vertex at their own surface (every one raised to a fall). */
+  allRaised: Set<string>;
+  /** Tiles whose drawn tops do not lie flat (a fall's slope shown). */
+  sloped: Set<number>;
   /** Vertices that moved with no cut. */
   movedUncut: number;
   /** Side vertices of a sliced column over the cut. */
@@ -98,15 +125,23 @@ interface Drawn {
   goneSidesBelow: number;
   /** Falls' faces of a column the cut removed that keep their part below the cut. */
   fallsKept: number;
-  /** Tops not lying flat. */
+  /** Tops with a vertex below their column's surface, or not lying flat with none raised over it. */
   tilted: number;
 }
 
 /** What the water's mesh draws under `cut`, every chunk of `layers`. */
 function draw(W: number, H: number, layers: readonly WaterLayer[], cut: number | null): Drawn {
+  // (each column's surface by its tile and floor: a slope's vertices stand over it)
+  const surfaceOf = new Map<string, number>();
+  for (const l of layers)
+    for (let i = 0; i < W * H; i++) if (l.sw.depth[i] > 0) surfaceOf.set(`${i},${l.sw.floor[i]}`, l.sw.surface[i]);
+  const own = new Set<string>();
+  const topped = new Set<string>();
   const out: Drawn = {
     tops: new Map(),
     corners: new Map(),
+    allRaised: new Set(),
+    sloped: new Set(),
     movedUncut: 0,
     sidesOver: 0,
     goneSides: 0,
@@ -134,21 +169,31 @@ function draw(W: number, H: number, layers: readonly WaterLayer[], cut: number |
           };
         });
         if (ny > 0) {
-          // (a top: flat, all four corners alike; drawn where the fragment shader keeps it)
-          const { y, s } = vs[0];
-          if (!vs.every((v) => v.y === y)) out.tilted++;
-          if (cut !== null && y > cut + CUT_SLACK) continue;
-          const tile = -Math.max(...vs.map((v) => v.z)) * W + Math.min(...vs.map((v) => v.x));
-          const t = out.tops.get(tile) ?? new Map<number, number>();
-          t.set(s, y);
-          out.tops.set(tile, t);
-          for (const v of vs) {
-            const key = `${v.x},${v.z},${s}`;
-            out.corners.set(key, [...(out.corners.get(key) ?? []), v.depth]);
+          // (a top: flat at its column's surface, all four corners alike, or a fall's slope, its vertices over it;
+          // drawn where the fragment shader keeps it)
+          const tile = Math.floor(-Math.max(...vs.map((v) => v.z))) * W + Math.floor(Math.min(...vs.map((v) => v.x)));
+          const s = surfaceOf.get(`${tile},${vs[0].floor}`)!;
+          expect(s, `a top over a column at tile ${tile}`).toBeDefined();
+          const key = `${tile},${s}`;
+          topped.add(key);
+          const at = vs.filter((v) => v.s === s);
+          if (at.length) own.add(key);
+          if (vs.some((v) => v.s < s) || (at.length === 4 && !vs.every((v) => v.y === vs[0].y))) out.tilted++;
+          const kept = vs.filter((v) => cut === null || v.y <= cut + CUT_SLACK);
+          if (kept.length && Math.max(...kept.map((v) => v.y)) > Math.min(...kept.map((v) => v.y)) + 1e-6) out.sloped.add(tile);
+          for (const v of at) {
+            if (cut !== null && v.y > cut + CUT_SLACK) continue;
+            const t = out.tops.get(tile) ?? new Map<number, number>();
+            t.set(s, v.y);
+            out.tops.set(tile, t);
+            const ck = `${v.x},${v.z},${s}`;
+            out.corners.set(ck, [...(out.corners.get(ck) ?? []), v.depth]);
           }
         } else if (cut !== null) {
           const surface = vs[0].floor + m.data[q * 4 * 2];
-          if (surface > cut + CUT_SLACK && vs[0].floor < cut) out.sidesOver += vs.filter((v) => v.y > cut).length;
+          // (a sliced column's sides stop at the cut; a side of a column under it, at its surface, but where it rises
+          // over that (a slope's edge, a skirt): it too stops at the cut)
+          if (vs[0].floor < cut) out.sidesOver += vs.filter((v) => v.y > (surface > cut + CUT_SLACK ? cut : cut + CUT_SLACK)).length;
           if (surface > cut + CUT_SLACK && vs[0].floor >= cut) {
             // (drawn: what the fragment shader keeps, under the cut's slack, with some height)
             const ys = vs.map((v) => v.y);
@@ -164,6 +209,7 @@ function draw(W: number, H: number, layers: readonly WaterLayer[], cut: number |
         }
       }
     }
+  for (const key of topped) if (!own.has(key)) out.allRaised.add(key);
   return out;
 }
 
@@ -196,13 +242,14 @@ function check(
   if (cut === null) expect(d.movedUncut, `${at}: nothing moves with no cut`).toBe(0);
   expect(d.sidesOver, `${at}: a sliced column's sides stop at the cut`).toBe(0);
   expect(d.goneSides, `${at}: a removed column's sides draw nothing`).toBe(0);
-  expect(d.tilted, `${at}: every top flat`).toBe(0);
+  expect(d.tilted, `${at}: every top flat at its surface, or a fall's slope over it`).toBe(0);
   // every column drawn where the rule says, once
   for (let k = 0; k < view.count; k++) {
     if (!(view.depth[k] > 0)) continue;
     const i = view.tile[k];
     // (the surface it was meshed at, as the mesh holds it)
     const s = Math.fround(view.floor[k] + view.depth[k]);
+    if (d.allRaised.has(`${i},${s}`)) continue;
     const want = surfaceAtCut(view.floor[k], s, cut);
     const got = d.tops.get(i)?.get(s);
     if (want === null) expect(got, `${at}: column ${k} at (${i % W}, ${Math.floor(i / W)}) gone`).toBeUndefined();
@@ -214,6 +261,7 @@ function check(
   for (let i = 0; i < W * H; i++) {
     const byte = waterByte(sw, heights, i);
     if (!byte) continue;
+    if (d.allRaised.has(`${i},${sw.surface[i]}`)) continue;
     const drawn = d.tops.get(i)?.has(sw.surface[i]) === true;
     expect(soilUnderWater(byte, heights[i], cut), `${at}: the bed at (${i % W}, ${Math.floor(i / W)})`).toBe(drawn);
   }
@@ -280,9 +328,10 @@ describe("water as drawn under a cut, in a cave", () => {
 });
 
 describe("a side of water the cut removed", () => {
-  it("a shallow step down to lower water in front of a cliff draws nothing under the cut, where it was clipped to a sliver", () => {
+  it("a shallow step down to lower water in front of a cliff: no side of water hangs there, the water below's slope sliced onto the cut", () => {
     // 6 × 3: a shelf at 4 (x 0–2) with water 0.2 deep on it, stepping down 0.25 to a pool on ground at 2 (x 3–5) standing
-    // at 3.95: less than a fall, so the shelf's water has a side hanging in front of the cliff, below its own floor
+    // at 3.95; the pool's first tile rises to the shelf's water (D148: before D154's amendment of 2026-11-08 the shelf's
+    // water had a side hanging in front of the cliff, below its own floor, folded flat under the cut)
     const W = 6;
     const H = 3;
     const heights = new Uint8Array(W * H);
@@ -296,14 +345,14 @@ describe("a side of water the cut removed", () => {
     const sw = surfaceWater(W, H, view);
     const layers = plainLayers(heights, sw);
     for (const cut of cuts(view)) check(W, H, heights, sw, view, layers, cut, `cut ${cut}`);
-    // at 4 the shelf's water is gone and its side hung from 4.2 to 3.95: the fragment shader alone kept 3.95–4.05
+    expect([...draw(W, H, layers, null).sloped].sort((p, q) => p - q), "the pool's slope").toEqual([3, W + 3, 2 * W + 3]);
+    // at 4 the shelf's water is gone, and the pool's slope (up to 4.2) lies on the cut
     const d = draw(W, H, layers, 4);
-    expect(d.goneSidesBelow, "the shelf's side reaching under the cut").toBeGreaterThan(0);
     expect(d.goneSides, "drawn: nothing").toBe(0);
     expect([...(d.tops.get(W + 4)?.values() ?? [])], "the pool whole").toEqual([Math.fround(3.95)]);
   });
 
-  it("keeps a fall's face below the cut when the water it pours from is gone, in front of the cliff, as before its amendment", () => {
+  it("keeps a fall's slope below the cut when the water it pours from is gone, in front of the cliff", () => {
     // 6 × 3: a shelf at 6 (x 0–2) with water 0.5 deep on it, falling 3 levels to a pool on ground at 2 (x 3–5) at 3.5
     const W = 6;
     const H = 3;
@@ -318,12 +367,13 @@ describe("a side of water the cut removed", () => {
     const sw = surfaceWater(W, H, view);
     const layers = plainLayers(heights, sw);
     for (const cut of cuts(view)) check(W, H, heights, sw, view, layers, cut, `cut ${cut}`);
-    // at 5 the shelf's water is gone: its fall keeps its face from the pool (3.5) up to the cut, and nothing over it
+    // at 5 the shelf's water is gone: its fall's slope rises from the pool (3.5) to the cut, flat on it to the cliff
     const d = draw(W, H, layers, 5);
-    expect(d.fallsKept, "the fall's face under the cut").toBe(H);
+    expect(d.sloped.size, "the fall's slope under the cut").toBe(H);
     expect(d.sidesOver).toBe(0);
-    // and a cut under the pool's surface takes the fall with it
-    expect(draw(W, H, layers, 3).fallsKept).toBe(0);
+    expect(d.fallsKept, "no face of its own").toBe(0);
+    // and a cut under the pool's surface lays the fall flat with it
+    expect(draw(W, H, layers, 3).sloped.size).toBe(0);
   });
 });
 

@@ -323,7 +323,7 @@ describe("water's flags", () => {
   // (D148: a fall was a curtain carrying its drop in its flags; from D201 it poured from the lip as a fall of its own,
   // its foot and brink marked for foam; since D201's amendment (2026-10-29) it is a curtain again, as the game draws
   // it, with no foam)
-  it("marks shores, and the drop of each fall", () => {
+  it("marks shores, a curtain's drop, and no curtain at a fall (the water below rises to it: fallSlope.ts)", () => {
     // west to east: a pool at 6 (surface 6.5) falls to a river at 3 (surface 3.5), beside dry
     // ground at 7 on the north side of the pool
     const W = 4;
@@ -334,17 +334,21 @@ describe("water's flags", () => {
     const m = meshWaterChunk(W, H, plainLayers(heights, sw), 0, 0);
     const tops = new Map<number, number>();
     const curtains: number[] = [];
+    let lip = -Infinity;
     for (let q = 0; q < m.quads; q++) {
       const x = Math.min(m.positions[q * 12], m.positions[q * 12 + 3], m.positions[q * 12 + 6]);
-      if (m.normals[q * 12 + 1] > 0) tops.set(Math.round(x), m.flags[q * 4]);
-      else if (m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 2) < 0.1) curtains.push(m.flags[q * 4]);
+      if (m.normals[q * 12 + 1] > 0) {
+        tops.set(Math.floor(x + 1e-6), m.flags[q * 4]);
+        for (let v = 0; v < 4; v++) if (Math.abs(m.positions[(q * 4 + v) * 3] - 2) < 1e-6 && x >= 2 - 1e-6) lip = Math.max(lip, m.positions[(q * 4 + v) * 3 + 1]);
+      } else if (m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 2) < 0.1) curtains.push(m.flags[q * 4]);
     }
     // the pool's tiles meet dry ground to the north, and no top carries any other mark
     expect(tops.get(0)! & SHORE_BITS[2]).toBeTruthy();
     expect(tops.get(1)! & SHORE_BITS[2]).toBeTruthy();
     for (const [, flags] of tops) expect(flags & ~15).toBe(0);
-    // the fall hangs from the pool's surface down to the river's, 3 levels: its drop in its flags
-    expect(curtains).toEqual([90]);
+    // the fall is the river's tile rising to the pool's surface at the lip (D154 as amended 2026-11-08): no curtain
+    expect(curtains).toEqual([]);
+    expect(lip).toBeCloseTo(6.5, 5);
     // a curtain's flags are its drop, and none at the map's edge
     expect(dropFlags(6.5, 3.5, false)).toBe(90);
     expect(dropFlags(3, 0, true)).toBe(EDGE_CURTAIN);

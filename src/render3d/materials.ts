@@ -74,7 +74,7 @@ import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
 import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./shoreFilm";
 import { EDGE_BAND, SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
-import { CUT_SLACK } from "./cutWater";
+import { CUT_SLACK, VIEW_TAN } from "./cutWater";
 import { FALL } from "./waterMesh";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 import { DITHER_GLSL, FADE_OFF, OBJECT_FADE_GLSL } from "./objectFade";
@@ -238,9 +238,19 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
  *  material shares, as a view draws its frames one at a time. */
 export const BLOOM_SOURCE = { value: 0 };
 
-/** An eruption's lava's crust (D206): from its cooling's first second to its last (s), the lava's own light fades to
- *  none; from the end on it gives none, so nothing of it can feed the bloom (renderer.ts `blooms`). */
-export const LAVA_CRUST = [2.0, 5.8] as const;
+/** An eruption's lava as the terrain shader draws it (D206), by its cooling's age (s): its own light (an emission, `hot`
+ *  turning to `cooled` over `cooling`), at most `most` of a pixel's colour, the ground under it darkening to a crust
+ *  (× `crustTint`, over `crust`) that puts its light out, and the whole fading back into the ground (over `fade`). The
+ *  bloom reads it too (bloom.ts `lavaSourceMax`, `LAVA_BLOOM_ENDS`), so the shader and the bloom's gate can't drift. */
+export const LAVA = {
+  hot: [3.2, 0.5, 0.02] as Rgb,
+  cooled: [0.38, 0.028, 0.013] as Rgb,
+  cooling: 3.6,
+  crust: [2.0, 5.8] as readonly [number, number],
+  crustTint: [0.49, 0.46, 0.43] as Rgb,
+  fade: [3.3, 6.4] as readonly [number, number],
+  most: 0.9,
+} as const;
 
 let noCaveFlow: Data3DTexture | null = null;
 /** The cave current's placeholder (one still cell), shared: never read while `caveFlowLevels.y` is 0. */
@@ -1823,15 +1833,15 @@ ${hook(h, "lit")}
         if (eruptionAge >= 0.0 && !eWall) {
           vec4 e = texture2D(eruptionMask, eAt / mapSize);
           float arrival = smoothstep(e.a * 1.1, e.a * 1.1 + 0.55, eruptionAge);
-          float cooling = smoothstep(0.0, 3.6, coolingAge);
-          float crust = smoothstep(${f(LAVA_CRUST[0])}, ${f(LAVA_CRUST[1])}, coolingAge);
-          float fade = 1.0 - smoothstep(3.3, 6.4, coolingAge);
+          float cooling = smoothstep(0.0, ${f(LAVA.cooling)}, coolingAge);
+          float crust = smoothstep(${f(LAVA.crust[0])}, ${f(LAVA.crust[1])}, coolingAge);
+          float fade = 1.0 - smoothstep(${f(LAVA.fade[0])}, ${f(LAVA.fade[1])}, coolingAge);
           float cracks = pow(1.0 - abs(sin(vWorld.x * 2.8 + sin(vWorld.z * 1.2) * 2.6 + vWorld.z * 1.6)), 12.0);
           float hot = max(e.r * (0.56 + 0.44 * cracks), e.g * cracks);
-          float k = hot * arrival * fade * 0.9;
+          float k = hot * arrival * fade * ${f(LAVA.most)};
           // (the crust is the ground darkened; the rest of the lava is its own light)
-          c *= 1.0 - k + k * crust * vec3(0.49, 0.46, 0.43);
-          emission = mix(vec3(3.2, 0.5, 0.02), vec3(0.38, 0.028, 0.013), cooling) * k * (1.0 - crust);
+          c *= 1.0 - k + k * crust * ${glColor3(LAVA.crustTint)};
+          emission = mix(${glColor3(LAVA.hot)}, ${glColor3(LAVA.cooled)}, cooling) * k * (1.0 - crust);
           float ash = e.b * smoothstep(0.5, 2.4, eruptionAge) * (1.0 - smoothstep(0.5, 6.0, coolingAge)) * 0.24 * max(0.0, n.y);
           c = mix(c, vec3(0.52, 0.49, 0.45), ash);
           emission *= 1.0 - ash;
@@ -1986,14 +1996,25 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         // top lying on the cut, shallower by what the cut took off, its sides stopping there; one whose floor is at
         // the cut or above it is gone (the fragment shader drops its top over the cut, and its sides fold flat here:
         // a side hanging below its floor, to lower water in front of a cliff, would leave a sliver under the cut),
-        // but for a fall's face, which keeps its part below the cut in front of the cliff, as the game's layers do
-        float surface = normal.y > 0.5 ? w.y : wcut.x + wdata.x;
-        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = wflags < 254.5 && wflags > ${f(FALL * 30 - 0.5)} ? min(w.y, slice) : surface;
+        // but for a side as tall as a fall (toward lower dry ground), which keeps its part below the cut in front of the
+        // cliff, as the game's layers do. A fall itself is the slope of the water below it, a top (fallSlope.ts): each
+        // vertex sliced by its own height and floor
+        // (a side's vertex by its own height where that stands over its column's surface: a slope's edge, a skirt)
+        float colTop = wcut.x + wdata.x;
+        float surface = normal.y > 0.5 ? w.y : max(colTop, w.y);
+        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = wflags < 254.5 && wflags > ${f(FALL * 30 - 0.5)} ? min(w.y, slice) : colTop;
         if (surface > slice + ${f(CUT_SLACK)} && wcut.x < slice) {
           float over = surface - slice;
+          float h0 = w.y;
           w.y = min(w.y, slice);
           if (normal.y > 0.5) {
-            vData.x = max(0.0, wdata.x - over * wcut.y);
+            // (a fall's slope vertex, its cut share under -0.5: the depth seen from the cut, against the cliff or into
+            // the upper water to its floor, cutWater.ts cutSlopeDepth)
+            if (wcut.y < -0.5) {
+              float v = -1.0 - wcut.y;
+              float back = h0 - (mod(v, 64.0) - 0.5);
+              vData.x = max(0.05, min(slice - wcut.x, max(v > 63.75 ? ${f(VIEW_TAN / 3)} : 0.0, slice - back)));
+            } else vData.x = max(0.0, wdata.x - over * wcut.y);
             // (its shores only)
             vFlags = mod(wflags, 16.0);
           } else {
@@ -2018,8 +2039,8 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       #if WATER_REFRACTS
       ${REFRACTION_GLSL}
       #endif
-      // (a curtain whose flags, its drop in thirtieths, pass this is a fall: waterMesh.ts FALL; the vertex shader's
-      // test under a cut is the same)
+      // (a curtain whose flags, its drop in thirtieths, pass this is as tall as a fall: waterMesh.ts FALL; the vertex
+      // shader's test under a cut is the same)
       #define WATER_FALL_FLAGS ${f(FALL * 30 - 0.5)}
 ${hook(h, "waterDecl")}${CAVE_POINT}
       #ifdef CAVES
@@ -2115,8 +2136,9 @@ ${WATER_SOURCE_GLSL}
         vec2 bpat = BADWATER_PATTERN_FLAT;
         vec3 N = n;
         // the surface the flow carries, as the game draws it (Q9 P5, P11; waterTextures.ts): two phases of its textures
-        // riding each column's outflow, the albedo multiplying the colour and the ripples the surface's normal; on a
-        // fall's face, the water's over its lip (half a tile back), so its detail runs on from the top's. Both looks draw
+        // riding each column's outflow, the albedo multiplying the colour and the ripples the surface's normal (on a
+        // fall's slope, a top, sampled at the world's xz, so they stretch down it, as the game's); on the water's
+        // side, the water's over its lip (half a tile back), so its detail runs on from the top's. Both looks draw
         // from this one sample. (The light look, as the game's Low quality, draws them flat: their mean.)
         vec4 surf = vec4(${f(Math.round((WATER_ALBEDO.flat[0] / 255) * 1e5) / 1e5)}, ${f(Math.round((WATER_ALBEDO.flat[1] / 255) * 1e5) / 1e5)}, 0.50196, 0.50196);
         vec2 pa = g;
@@ -2145,10 +2167,10 @@ ${WATER_SOURCE_GLSL}
           #endif
           // no foam along the shore or over a brink, as the game draws none (its water shader has no foam)
         } else {
-          // the water's side, and a fall: where the water steps down, as the game draws its falls, the water mesh's
-          // own vertical face in the water's own colour, nearly opaque: the ground behind shows by
-          // WATER_SURFACE.fallSeeThrough (its _TransparencyWaterfallDepth); no whitewater, no foam. At the map's
-          // edge, the water's side
+          // the water's side, toward lower dry ground (a fall's look before D154's amendment of 2026-11-08: a fall
+          // is now the slope of the water below it, drawn as a top, fallSlope.ts): the water mesh's own vertical face
+          // in the water's own colour, nearly opaque: the ground behind shows by WATER_SURFACE.fallSeeThrough (its
+          // _TransparencyWaterfallDepth); no whitewater, no foam. At the map's edge, the water's side
           bool edge = vFlags > 254.5;
           float drop = edge ? 0.0 : vFlags / 30.0;
           if (!edge && vFlags < WATER_FALL_FLAGS) {
@@ -2191,7 +2213,7 @@ ${WATER_SOURCE_GLSL}
         #endif
         vec3 c = waterBlend(body, murky, cont);
         // the game's own highlight on the ripples, added to the colour before its light (and again after it); none on
-        // a fall's face nor where a fall lands (the game's waterfall mask takes it off, Q9 P1 and P12, ps 814-862). Where
+        // the water's side nor on a fall's slope and where it lands (the game's waterfall mask takes it off, Q9 P1 and P12, ps 814-862). Where
         // the look draws the game's light (waterPalette.ts WATER_LIGHT.game), in the game's sun colour and lit by the
         // game's light, as its albedo is
         #if WATER_GAME_LIGHT
@@ -2204,8 +2226,8 @@ ${WATER_SOURCE_GLSL}
           c *= light;
         #endif
         // the sky's reflection, stronger at low angles, and the sun's glint (no sparkle of our own: the game's water
-        // shader has none, its sheen is the sun's specular at its smoothness, D496's rule); a fall's face lit the same
-        // way, as the game lights every pixel of its water
+        // shader has none, its sheen is the sun's specular at its smoothness, D496's rule); the water's side lit the
+        // same way, as the game lights every pixel of its water
         // (the game's URP lighting at the water's smoothness, clean water's about 0.25 to badwater's 0.15: the sky
         // added on top, as URP's environment term)
         // (badwater's toward its own by the tint × the pattern's R, as the game's)
