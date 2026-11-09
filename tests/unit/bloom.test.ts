@@ -83,7 +83,8 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
         .map(([k, c]) => [`TREE_COLOURS.${k}`, c] as [string, readonly number[]]),
       // (a panel's shade at most 1.02: entities3d.ts storey)
       ["RUIN.panel", RUIN.panel.map((v) => v * 1.02)],
-      ...MINE.rubble.map((c, k) => [`MINE.rubble.${k}`, c] as [string, readonly number[]]),
+      // (the pale rubble, MINE.rubble[2], is held below: it passes the knee square to the sun)
+      ...MINE.rubble.filter((_, k) => k !== 2).map((c, k) => [`MINE.rubble.${k < 2 ? k : k + 1}`, c] as [string, readonly number[]]),
       ...(["wood", "earthTop", "seam", "ladder", "frame", "earth"] as const).map((k) => [`MINE.${k}`, MINE[k]] as [string, readonly number[]]),
       // High's models, all but the birch's bark (below); its dead wood, a fifth darker, is under the knee with the rest
       ...Object.entries(paletteDefaults)
@@ -91,26 +92,30 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
         .map(([k, h]) => [`high.${k}`, hex(h)] as [string, readonly number[]]),
     ];
     for (const [name, c] of faces) expect(lit(c), name).toBeLessThan(knee);
-    // the brightest: the mine's pale rubble, then the ruins' panels, High's berries and the start's roof
-    expect(Math.max(...faces.map(([, c]) => lit(c)))).toBeLessThan(1.263);
+    // the brightest: the ruins' panels, then the mine's wood, High's dead birch and the start's roof
+    expect(Math.max(...faces.map(([, c]) => lit(c)))).toBeLessThan(1.234);
   });
 
   it("holds the colours whose bound passes the knee at what every frame measured shows of them", () => {
     // These pass the knee only on a face square to the sun, which no frame of ~2,900 day views measured shows
     // (`.scratch` probe, 2026-11-08: ruins 1.20, mines' roots in their pit): the ruins' rust skeleton (upright posts,
     // beams and struts, a shade at most 1.05) and a mine's pale roots (hanging cones), lit level. Their bounds are held
-    // where they are, so none gets brighter unseen.
-    expect(lit(RUIN.rust.map((v) => v * 1.05), true)).toBeLessThan(1.283);
+    // where they are, so none gets brighter unseen. The game's ambient probe, captured (2026-11-09, palette.ts
+    // GAME_AMBIENT_SH), is brighter than the projection these bounds were first set by (the rust 1.282 then, the pale
+    // rubble 1.262), and the pale rubble (MINE.rubble[2]) now passes the knee at its brightest normal too. Our objects
+    // are drawn in their own light (materials.ts objectMaterial), not this one, so the frames measured stand.
+    expect(lit(RUIN.rust.map((v) => v * 1.05), true)).toBeLessThan(1.346);
+    expect(lit(MINE.rubble[2])).toBeLessThan(1.304);
     expect(lit(MINE.rootPale, true)).toBeLessThan(knee);
     // The birch's bark, the game's light warm grey (its texels without the marks, palette.ts `TREE_COLOURS.birchBark`):
-    // an upright trunk square to the sun stays under the knee (1.229 in Standard, 1.154 in High), but its stems lean up
-    // to a quarter radian (1.36 and 1.28 square to the sun) and High's twigs up close more (1.38). No frame shows it
-    // there: a grove up close, at the start camera and at play distance from 8 sides, both looks (`.scratch` probe,
+    // an upright trunk square to the sun reads 1.290 in Standard and 1.211 in High in the game's light as captured
+    // (1.229 and 1.154 by the projection before), and its stems lean up to a quarter radian and High's twigs up close
+    // more. No frame shows it there: a grove up close, at the start camera and at play distance from 8 sides, both looks (`.scratch` probe,
     // 2026-11-08), its brightest pixel code 219 in Standard and 230 in High, 0.86 and 1.05 before the grade (the knee is
     // code 240), as it stands in its crown's shade. Held tight at its upright bound, so it gets no brighter unseen.
     // (Before, near-white, it was held at 1.369 and 1.42.)
-    expect(lit(TREE_COLOURS.birchBark, true)).toBeLessThan(1.23);
-    expect(lit(hex(paletteDefaults.birchBark), true)).toBeLessThan(1.155);
+    expect(lit(TREE_COLOURS.birchBark, true)).toBeLessThan(1.291);
+    expect(lit(hex(paletteDefaults.birchBark), true)).toBeLessThan(1.212);
   });
 
   it("finds the sky's brightest, its clouds at their densest, at the knee's foot, where it changes no canvas code", () => {

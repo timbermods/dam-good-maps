@@ -1215,7 +1215,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       ${OVERLAY_RUN}
       #endif
       ${CAVE_AIR}      /** The game's light on a face (palette.ts GAME_LIGHT), in display values as the game works in Gamma colour
-       *  space: Unity's ambient probe by its normal (palette.ts GAME_AMBIENT_SH: irradiance SH, turned back to display values), and the sun
+       *  space: Unity's ambient probe by its normal (palette.ts GAME_AMBIENT_SH: the engine's, captured, turned to display values), and the sun
        *  by its shadow (\`sun\`, 0–1), times the diffuse share. A factor on the face's display colour. */
       vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
       /** The sun the last face lit took (gameLight's \`sun\`), for its specular. */

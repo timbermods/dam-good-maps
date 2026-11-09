@@ -533,8 +533,8 @@ export const ALTITUDE_RAMP = {
  *  m_ActiveColorSpace 0), so its lighting works on display values. A face's colour is its albedo × `diffuse` × (the
  *  ambient by its normal + the sun × max(n·L, 0) × its shadow), with a little specular left out. The ambient is Unity's
  *  Trilight (decompiled `Timberborn.SkySystem` `Sun`; the day's colours in `Configurations/Sun.blueprint.json`: the sky's
- *  from above, the equator's from the side, the ground's from below) as Unity's ambient probe, irradiance SH
- *  (`GAME_AMBIENT_SH`), turned back to display values (URP's `SampleSH` under Gamma). The sun is its colour × its intensity, 1.1, at full shadow strength. `diffuse` is URP's
+ *  from above, the equator's from the side, the ground's from below) as the ambient probe the engine makes of it
+ *  (`GAME_AMBIENT_SH`, captured from the running game), turned to display values (URP's `SampleSH` under Gamma). The sun is its colour × its intensity, 1.1, at full shadow strength. `diffuse` is URP's
  *  0.96 − 0.96 × `_Metallic` (0.05 on the terrain's materials). The water takes it too, though its own metallic is 0
  *  (clean water's `WaterMetalAndGloss` red, badwater's `_Contamination_Metallic`), which gives 0.96: the water draws
  *  that where its look draws the game's light on it (waterPalette.ts WATER_LIGHT.held; fix/water-sky, with the
@@ -634,25 +634,20 @@ export const GAME_AMBIENT_LINEAR = {
   ground: GAME_LIGHT.ground.map(toLinear) as unknown as Rgb,
 } as const;
 
-/** The game's ambient as Unity's ambient probe holds it (D497): irradiance SH. Unity renders the Trilight gradient as an
- *  environment (the equator's colour at the horizon, toward the sky's straight up and the ground's straight down,
- *  blended in linear values by the direction's height), projects it to L2 spherical harmonics and bakes in the clamped
- *  cosine's convolution (A0 = π, A1 = 2π/3, A2 = π/4), so URP's SampleSH returns the diffuse light by the normal. The
- *  gradient depends on the height alone, so only the zonal terms remain: by the normal's height y, in linear values,
- *  `E(y) = c0 + c1 y + c2 (3y² − 1)` (the integrals of the gradient against P0, P1, P2 over [−1, 1], each times
- *  (2l + 1) / 2 and its A_l / π). The engine's own projection is not in the game's files; a frame capture of the SH the
- *  game uploads (unity_SHAr..SHC) is still to check it, fix forward. */
+/** The game's ambient as Unity's ambient probe holds it (D497), captured from the running game (DGM Probe 0.3.3,
+ *  `RenderSettings.ambientProbe`, run 20261109-2110-smoke; investigation/notes/game-ambient-probe.md). The engine makes
+ *  the probe of a Trilight from its three colours in linear values (sRGB decoded), and the probe it holds is the light
+ *  itself: `SphericalHarmonicsL2.Evaluate` and URP's SampleSH return its polynomial by the normal, which URP turns to
+ *  display values under Gamma. A Trilight's depends on the normal's height y alone:
+ *  `E(y) = c0 + c1 y + c2 (3y² − 1)`, with c0 = (4 equator + sky + ground) / 6, c1 = √6/9 (sky − ground) and
+ *  c2 = 5/96 (sky + ground − 2 equator), exact to 1e-7 on the day's, the sunset's and the night's colours alike. (It is
+ *  not the gradient's projection we had worked out, which lit shade about a tenth darker.) */
 export const GAME_AMBIENT_SH = trilightSH(GAME_AMBIENT_LINEAR.sky, GAME_AMBIENT_LINEAR.equator, GAME_AMBIENT_LINEAR.ground);
 
-/** Any Trilight's irradiance SH (its colours in linear values), as `GAME_AMBIENT_SH` takes the day's; the pixel judge
- *  takes another time of day's with it (tools/game-day-light.ts). */
+/** Any Trilight's ambient probe as the engine makes it (its colours in linear values), as `GAME_AMBIENT_SH` takes the
+ *  day's; the pixel judge takes another time of day's with it (tools/game-day-light.ts). */
 export function trilightSH(sky: Rgb, eq: Rgb, ground: Rgb): { c0: Rgb; c1: Rgb; c2: Rgb } {
-  const c = (k: number) => {
-    const i0 = 2 * eq[k] + (sky[k] - eq[k]) / 2 + (ground[k] - eq[k]) / 2;
-    const i1 = (sky[k] - ground[k]) / 3;
-    const i2 = (sky[k] + ground[k] - 2 * eq[k]) / 8;
-    return [i0 / 2, i1, (5 / 16) * i2];
-  };
+  const c = (k: number) => [(4 * eq[k] + sky[k] + ground[k]) / 6, (Math.sqrt(6) / 9) * (sky[k] - ground[k]), (5 / 96) * (sky[k] + ground[k] - 2 * eq[k])];
   const [r, g, b] = [c(0), c(1), c(2)];
   return { c0: [r[0], g[0], b[0]] as Rgb, c1: [r[1], g[1], b[1]] as Rgb, c2: [r[2], g[2], b[2]] as Rgb };
 }
