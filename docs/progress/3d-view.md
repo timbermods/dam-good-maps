@@ -2327,7 +2327,58 @@ The water-character audit's gap 7 (`docs/progress/water-character-audit.md`): ou
   (about 1.5 in full sun) lifts the cliff's pattern behind with the water, so the sheet's contrast across it rises a
   little (|dx| 2.61 → 2.77, the game's 1.50). Our water is still blended over the graded screen, where the game grades
   the composite: the grade of a blend against the blend of two graded colours, and the sky's reflection and the glint
-  in our water's colour are taken by its opacity, where the game's add on top (both from before this change).
+  in our water's colour are taken by its opacity, where the game's add on top (both from before this change; *built: the
+  next section*).
+
+## The water as the game's one composite (Q9 P13, P15; D154, D496; `fix/water-composite`)
+
+- **The game:** its water is drawn opaque. URP's Lit lights an albedo that already holds P13's share of the ground
+  behind (lerp(0.35, 0.2, w) × (1 − u) × 0.5 of the albedo with its highlight, replaced by the opaque texture overlaid
+  and desaturated), adds the environment's reflection, the sun's GGX and the emission (the highlight, badwater's lines)
+  on top, unscaled, and `MixFog` and the post chain take the whole once (Q9 P15).
+- **Ours before:** the water was blended over the graded screen at its opacity α (1 − the see-through share), with
+  `waterRefraction` adding (half(moved) − copy(here)) × (1 − α) / α so the blend gave α × water + (1 − α) × P13. Two
+  errors: the reflection, the glint and the emission were taken by α (up to 17.5 % weaker in the shallows), and the water
+  and the ground behind were each graded and then blended, where the game grades the blend.
+- **Ours now** (`refraction.ts` `waterComposite`): where the frame makes the copy (`refractView.x`), the water's shader
+  builds the composite itself and writes it at an opacity of 1: its colour before the fog and the grade, with (1 − α)
+  of the lit albedo with its highlight (`behindBase`, set where the light is applied: the Standard surface, High's
+  `measuredSurfaceWater`, High's section) replaced by P13's lit ground behind, then `finish` once. The (1 − α) / α
+  division and the full-size copy's read are gone (the full copy stays as the half-size one's source). A film's sliver
+  at a shore stays a blend: the composite by the film curve, the water alone at α over the screen (the terrain's film
+  tint under it) the rest, written at mix(α, 1, film), so each pixel is tinted once as the terrain splits it. Frames
+  that make no copy (software, pictures, the bloom's source) and the light look keep the water alone blended. The clear
+  water's veil keeps the water's own opacity. As the game's opaque texture holds no water, water drawn after the copy
+  no longer shows through water in front of it.
+- **Judged** on the probe's `ceiling-waterfall` frames (C:\dgm-probe\shots\ceiling-20260927, day light, ours from the
+  same poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept),
+  dev → this branch:
+  - `ceiling-close` (30°, 22): the pixel gradient |dy| down the sheet, upper / lower half, game 0.44 / 0.22; Standard
+    0.57 / 0.34 → 0.52 / 0.26, High 0.53 / 0.33 → 0.46 / 0.23. |dx| across it, upper half, game 1.50: Standard 2.77 →
+    2.78, High 2.75 → 2.76. The sheet's mean, upper half, game 39/72/83 L* 28.7: 38/77/83 L* 30.1 → 39/77/83 L* 30.4;
+    lower half game 29/55/65 L* 21.4: 26/56/63 L* 21.6 → 27/56/64 L* 21.9 (High within 0.1 L* of Standard).
+  - `ceiling` (45°, 50): |dy| upper / lower half, game 0.15 / 0.28; Standard 0.42 / 0.53 → 0.24 / 0.37, High 0.44 /
+    0.56 → 0.22 / 0.38. |dx|, game 1.55 / 1.54: Standard 3.86 / 5.17 → 3.93 / 5.23 (High the same within 0.1).
+  - Open water's highlights: the pool over the lip in `ceiling-close`, the luma of its brightest 1 % over its median,
+    game 52.9: Standard 45.5 → 49.6, High 44.5 → 48.9; its 99th percentile game 119.4, 107.4 → 112.4 (High 107.2 →
+    112.2); its mean game L* 32.1, 30.3 → 31.1. The pond at the `ceiling` pose, the same measure, game 43.5: 19.5 →
+    21.6 in both looks.
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots: clean water RMS Standard 13.7 → 13.8, High
+    13.5 → 13.6 (8,573 tiles; the shallows 0.05-0.5 deep 0.3-0.6 L* lighter, where they were lighter than the game's
+    already); a fall's foot 24.0 → 24.0 and 23.3 → 23.3 (103); the land unchanged (Standard 12.3, High 12.6).
+- **Cost** (a 256² Highlands map, 1280 × 800, real Chrome on the RTX 2070 SUPER, the GPU's time a frame by timer
+  queries while orbiting, `benchOrbit`, the median of about 360 frames, four runs each in two sittings, dev → this
+  branch): Standard close over water 2.16, 2.07, 2.82, 2.79 → 2.68, 2.75, 2.68, 2.62 ms (dev's two modes are the
+  runs' noise, as in the sections before); High close 3.08, 2.94, 2.89, 2.82 → 2.93, 2.88, 2.92, 2.89; from the opening
+  camera Standard 3.49, 3.69, 3.51, 3.75 → 3.58, 3.66, 3.61, 2.30 and High 2.66, 2.72, 2.59, 2.67 → 2.82, 3.01, 2.90,
+  2.76. Within the noise close up; from the opening camera High reads about 0.2 ms more on all four runs, inside the
+  spread earlier sittings measured for it (2.86-3.01, the sections above). The shader does less than before: one
+  finish where it did two (a second only on a film's sliver), and no read of the full copy.
+- **Falls short:** (1) the sheet's |dx| is its own streaks, not the composite: with no see-through at all it reads
+  2.82 / 2.89 at `ceiling-close`, so the falls section's (2) stands. (2) Open water's highlights are still weaker
+  than the game's, most at a distance: the pond's brightest pixels over its median are half the game's at the
+  `ceiling` pose, and the pond itself is lighter and greener than the game's (L* 45 against 37.5) before and after, its cause not found here (the
+  depth our editor settles it to, or the shallows' colour). (3) The film's sliver remains our anti-aliasing, a blend over the screen.
 
 ## The rest of the step (next parts)
 
