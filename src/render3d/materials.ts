@@ -2282,6 +2282,9 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
           c += highlight;
           c *= light;
         #endif
+        // (the lit albedo with its highlight: what the game's see-through takes its share of, P13; the reflection, the
+        // glint and the emission below go on top of the whole, unscaled: refraction.ts)
+        behindBase = c;
         // the sky's reflection, stronger at low angles, and the sun's glint (no sparkle of our own: the game's water
         // shader has none, its sheen is the sun's specular at its smoothness, D496's rule); the water's side lit the
         // same way, as the game lights every pixel of its water
@@ -2323,6 +2326,7 @@ ${hook(h, "water")}        #ifdef CAVES
             vec3 under = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * sunMarchAt(inWater);
             c *= under / max(open, 0.001);
             behindLight *= under / max(open, 0.001);
+            behindBase *= under / max(open, 0.001);
           }
         #endif
         // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
@@ -2333,12 +2337,17 @@ ${hook(h, "water")}        #ifdef CAVES
         // the water as the game draws it, fogged and graded; the editing aids after it, in their own channel (D497):
         // the clear water's veil (D196, D212), the selection, the sources' wells and the pointer's source's glow (D196),
         // a highlighted source (D249)
-        c = finish(c, vWorld);
         float lookAlpha = alpha;
-        // the game's refraction of the ground behind (refraction.ts, Q9 P2): what showing the screen behind from a
-        // shifted place changes, by the share of it that shows (none on a sliver at a shore, our anti-aliasing)
+        // where the frame makes the copy of what is behind the water (refraction.ts, Q9 P13, P2), the game's composite,
+        // opaque: the lit albedo with P13's share of the ground behind in place of its own, the reflection, the glint and
+        // the emission on top, fogged and graded once (a sliver at a shore, our anti-aliasing, still a blend); else the
+        // water alone, blended over the screen
         #if WATER_REFRACTS
-          c += waterRefraction(g, vWorld, alpha, shore, film);
+          vec4 composite = waterComposite(c, g, vWorld, alpha, shore, film);
+          c = composite.rgb;
+          alpha = composite.a;
+        #else
+          c = finish(c, vWorld);
         #endif
         float clr = clearWater;
         if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
@@ -2346,7 +2355,8 @@ ${hook(h, "water")}        #ifdef CAVES
           float badish = max(bad, smoothstep(0.05, 0.5, cont));
           vec3 bc = clearBad;
           vec3 cc = c;
-          float ca = alpha * mix(0.35, 0.7, badish);
+          // (by the water's own opacity, not the composite's)
+          float ca = lookAlpha * mix(0.35, 0.7, badish);
           if (n.y > 0.5) {
             float line = 1.0 - smoothstep(0.0, CLEAR_SHORE_WIDTH, shore);
             cc = WATER_CLEAR_TINT * light;

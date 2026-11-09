@@ -274,6 +274,8 @@ ${HIGH_WATER_GLSL}
       vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(N, V, tint) * (1.0 - waterFall);
       colour *= shade;
       colour += highlight * gameWaterLight(N, lit);
+      // (the lit albedo with its highlight, which the game's see-through takes its share of; the rest on top: refraction.ts)
+      behindBase = colour;
       colour += waterEnvironment(N, V, smoothness, float(WATER_HELD_HIGH));
       colour += highlight;
       colour += GAME_SUN_COLOUR * waterSunGlint(N, V, sunDir, smoothness) * lit;
@@ -281,6 +283,7 @@ ${HIGH_WATER_GLSL}
       vec3 highlight = sunColor * waterCameraHighlight(N, V, tint) * (1.0 - waterFall);
       colour += highlight;
       colour *= shade;
+      behindBase = colour;
       colour += highlight;
     #endif
     // badwater's emissive detail, unlit (the Standard look's: its glowing lines carried by the flow)
@@ -355,6 +358,8 @@ export function waterHooks(): ShaderHooks {
                 c = section * (0.94 + vnoise(vec2(g.x + g.y, vWorld.y * 5.7)) * 0.08);
                 alpha = mix(0.91, 0.98, waterTint(cont));
               }
+              // (all of it the lit colour the see-through takes its share of: refraction.ts)
+              behindBase = c;
             } else {
               // any other side (a skirt between two tops, a fall's slope's side over lower dry ground): the surface going
               // on, as the game's skirt is its top's mesh dropped and drawn by the same program, High's surface itself
