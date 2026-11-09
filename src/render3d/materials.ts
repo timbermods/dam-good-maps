@@ -2098,7 +2098,7 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
         #endif
         // the badwater share on the water's top as the game blends it between tiles (WATER_SHARE_BLEND): a front about
         // a tile wide, clean water a tile from badwater clean; a fall's face and the water's side keep the mesh's share
-        // of the top's edge they hang from, and water under a roof its own column's
+        // (a side its own tile's, D154), and water under a roof its own column's
         // (water below its tile's surface water by its own current too, so it never reads the top water's while the light
         // volume is not there yet)
         bool ownShare = waterRoofed > 0.5;

@@ -140,7 +140,7 @@ export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array,
             }
         } else b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], 0, 1, 0, flags);
         // curtains toward lower dry neighbours and the map's edge, down to the ground, never below the floor, each with
-        // the badwater share of the top's edge it hangs from, its top along the top's edge; toward a wet neighbour a
+        // the tile's own badwater share, its top along the top's edge; toward a wet neighbour a
         // skirt where this top's edge stands STEP or more over the neighbour's at a vertex, down to it (as the main
         // mesher: water meets water by the slope, the skirt closing where their edges part)
         const dd = [d, d, d, d];
