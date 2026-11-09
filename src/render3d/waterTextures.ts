@@ -4,18 +4,18 @@
 // statistics `python tools/game-water-shader.py --textures` measures in theirs (`GAME_FLOW_TEXTURES`; numbers only:
 // no texel of the game's is read here or stored in git), and tests/unit/water-flow-surface.test.ts holds them there.
 //
-// One RGBA texture, `WATER_TEXTURE_SIZE` square, one repeat `1 / WATER_FLOW.tiling` tiles across (as the game's):
-// - R the light network: thin bright lines round irregular cells, as caustics, dense and bright in patches a tile or
-//   two across and faint between them (the albedo's first principal component, a near-neutral brightness, at the
-//   game's distribution and its power by scale);
-// - G the blue blobs inside the cells (its second, red against blue);
-// - B, A unused (128).
+// One RG texture, `WATER_TEXTURE_SIZE` square (2048², as the game's), one repeat `1 / WATER_FLOW.tiling` tiles across
+// (as the game's):
+// - R the light network: bright gaps with crisp edges round irregular cells, as caustics, dense and bright in patches a
+//   tile or two across and faint between them (the albedo's first principal component, a near-neutral brightness, at
+//   the game's distribution and its power by scale down to its texel);
+// - G the blue blobs inside the cells (its second, red against blue).
 // The normal's slopes x and y (the normal the game lights; × `boost` for its camera highlight) have their own RG
 // texture, `NORMAL_TEXTURE_SIZE` square over the same repeat (`makeWaterNormal`): the gradient of a Gaussian height at
 // the game's power by wavelength.
 // The albedo is `albedoOf(r, g)` (`WATER_ALBEDO`), display values (0–1), fitted so its mean and covariance are the
-// game's. Pure TypeScript, no three.js: made once a page in a worker of its own (about 0.3 s in Chrome),
-// the texture flat at its mean until then (renderer.ts).
+// game's. Pure TypeScript, no three.js: made once a page in a worker of its own (high/fields.ts `textureBake`), the
+// texture a single texel at its mean until then (renderer.ts, materials.ts `waterSurfaceTexture`).
 
 /** The flow's numbers, the game's (its `PhysicalWater_Opaque` material, Q9 P5, P11; ps 419-446, 794-813): two phases
  *  of the time × `speed` (2.5 s each), half a cycle apart, mixed by |2 frac − 1|; each samples at xz × `tiling` −
@@ -47,14 +47,17 @@ export const GAME_FLOW_TEXTURES = {
     /** Its luma's autocorrelation half-width. */
     feature: 0.079,
     /** Its first principal component's score (the distance from the mean along `components[0]`): `percentiles` at
-     *  `PATTERN_PERCENTILES`, its `range` (min, max), its power by wavelength (`power`, tiles: 16–8, 8–4, 4–2, 2–1,
-     *  1–0.5, 0.5–0.25, 0.25–0.125, under 0.125) and the share of its spread left after a blur over 0.125, 0.25, 0.5, 1
-     *  and 2 tiles (`broad`). Mostly dim, with bright lines dense in patches a tile or two across and sparse between
-     *  them: the broad mottle open water shows from afar. */
+     *  `PATTERN_PERCENTILES`, its `range` (min, max), its power by wavelength (`power`, `ALBEDO_BANDS`, tiles: 16–8,
+     *  …, 0.25–0.125, 0.125 to 512²'s texel pair, to 1024²'s, to its own) and the share of its spread left after a blur
+     *  over 0.125, 0.25, 0.5, 1 and 2 tiles (`broad`). Mostly dim, with bright lines dense in patches a tile or two
+     *  across and sparse between them: the broad mottle open water shows from afar. `fine`: the spread of its part
+     *  finer than 512²'s texel pair (0.065 tile) in its top (123 texels a tile) and its first mip (61): what a camera
+     *  nearer than 31 pixels a tile draws that a 512² texture cannot. */
     first: {
       percentiles: [-11.2, -9.4, -8.3, -7.6, -5.3, -3.6, -1.9, -0.7, 1.6, 3.9, 7.9, 14.4, 27.6, 39.7, 50.1, 62.8],
       range: [-16.3, 119.3],
-      power: [0.002, 0.021, 0.059, 0.128, 0.196, 0.252, 0.211, 0.129],
+      power: [0.0025, 0.021, 0.0588, 0.1285, 0.1962, 0.2524, 0.211, 0.0892, 0.0275, 0.0122],
+      fine: [2.74, 2.08],
       broad: [0.474, 0.317, 0.187, 0.09, 0.035],
     },
     /** Its colour's first two principal components: a near-neutral brightness, and red against blue. */
@@ -139,24 +142,44 @@ export const GAME_DETAIL_TEXTURE = {
 /** The percentiles `GAME_BADWATER_TEXTURE` gives (as fractions). */
 export const PATTERN_PERCENTILES = [0.01, 0.05, 0.1, 0.25, 0.5, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.97, 0.98, 0.99] as const;
 
-/** Texels across the texture (one repeat, 1 / 0.06 = 16.7 tiles: 31 texels a tile). */
-export const WATER_TEXTURE_SIZE = 512;
+/** Texels across the albedo's texture (one repeat, 1 / 0.06 = 16.7 tiles: 123 texels a tile), the game's
+ *  `PhysicalWaterAlbedo`'s size: 4 % of the game's power lies under 512²'s texel pair (0.065 tile), the fine part a
+ *  camera nearer than about 31 pixels a tile draws (`materials.ts` `waterSurfaceTexture`, two bytes a texel). */
+export const WATER_TEXTURE_SIZE = 2048;
+
+/** Texels across badwater's pattern and the water sources' (`makeBadwaterTexture`, `makeSourceShape`), over the
+ *  albedo's repeat (31 texels a tile; the game's is 2048²). */
+export const BADWATER_TEXTURE_SIZE = 512;
 
 /** Texels across the normal's texture (one repeat, 16.7 tiles: 61 texels a tile), its own (`materials.ts`
  *  `waterNormalTexture`, two bytes a texel): the game's `Water_N` is 4096² (246 a tile), and its mip of 61 a tile
  *  holds all but 2 % of its slopes' spread; at 512² (31 a tile) ours held nothing finer than 0.125 tile, where the
- *  game's has a tenth of its power. */
+ *  game's has a tenth of its power. Kept at 1024² (fix/water-texture-resolution): a camera under 61 pixels a tile
+ *  samples the game's mips no finer than this, and nearer, up to 123 pixels a tile, the game's next mip holds 0.9 %
+ *  more of its slopes' variance (2048², 8 MB more on the GPU); 4096²'s top, 1.9 % (43 MB). */
 export const NORMAL_TEXTURE_SIZE = 1024;
+
+/** The bands of wavelength (tiles) the albedo's power is measured in (`GAME_FLOW_TEXTURES.albedo.first.power`): 16–8,
+ *  …, 0.25–0.125, then 0.125 to the texel pair of 512², of 1024² and under. */
+export const ALBEDO_BANDS = [16, 8, 4, 2, 1, 0.5, 0.25, 0.125, (2 / 512) / WATER_FLOW.tiling, (2 / 1024) / WATER_FLOW.tiling, 0] as const;
 
 /** The bands of wavelength (tiles) the normal's slopes are made in (`GAME_FLOW_TEXTURES.normal.power`). */
 export const NORMAL_BANDS = [16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 0.0625, 0] as const;
 
-/** How the network and blobs are drawn (tuned so the albedo's statistics land on the game's). */
+/** How the network and blobs are drawn (tuned so the albedo's statistics land on the game's, its power by wavelength
+ *  down to its own texel among them). */
 const NET = {
-  /** Cells across a repeat (0.66 tiles a cell), and the small cells' (0.4 tiles) where they cluster. */
-  cells: [25, 42] as const,
+  /** Cells across a repeat (0.56 tiles a cell), and the small cells' (0.33 tiles) where they cluster. */
+  cells: [30, 50] as const,
   /** The lines' width (cell units). */
-  width: 0.075,
+  width: 0.11,
+  /** The lines' edge: their profile e^(−t^(2 `edge`)), t the distance across over the width, flat-topped with a crisp
+   *  edge two or three texels wide, as the game's bright gaps between its dark cells (a Gaussian's soft edge holds
+   *  nothing finer than a sixteenth of a tile). */
+  edge: 4,
+  /** A grain a texel (the network × 1 + `grain` × a random in ±0.5): the game's bright gaps are speckled, its finest
+   *  octave's power. */
+  grain: 0.25,
   /** The small cells' share where they cluster. */
   small: 0.6,
   /** The background's brightness variation under the lines. */
@@ -331,21 +354,21 @@ const STORE = { blob: 0.55, slope: 0.5 };
  *  along the game's first two principal components at their spreads (the blobs made independent of the network
  *  first), round the game's mean, so the albedo's mean and covariance are the game's. */
 export const WATER_ALBEDO = {
-  base: [0.25227, 0.25348, 0.25523] as readonly [number, number, number],
-  network: [0.24486, 0.28711, 0.31175] as readonly [number, number, number],
-  blobs: [-0.12948, 0.00965, 0.1179] as readonly [number, number, number],
+  base: [0.25293, 0.25343, 0.25463] as readonly [number, number, number],
+  network: [0.2405, 0.28744, 0.31572] as readonly [number, number, number],
+  blobs: [-0.12968, 0.00966, 0.11809] as readonly [number, number, number],
   /** The game's mean (`GAME_FLOW_TEXTURES.albedo.mean` / 255): the Standard look's own colour is multiplied by the
    *  albedo over it, the texture's variation alone, so its calibration to the game's screen holds. */
   mean: [68.6 / 255, 73.8 / 255, 77.8 / 255] as readonly [number, number, number],
   /** The texture's mean R and G bytes: a texel of them draws the mean albedo (the texture until it is made). */
-  flat: [31.05, 25.74] as readonly [number, number],
+  flat: [31.05, 25.96] as readonly [number, number],
 };
 
-/** The texture (RGBA bytes) at `size` texels square. */
+/** The texture (RG bytes, two a texel: R the network, G the blobs) at `size` texels square (a power of two). */
 export function makeWaterTexture(size: number): Uint8Array {
   const n = size * size;
   const net = new Float64Array(n);
-  const blob = new Float64Array(n);
+  const data = new Uint8Array(n * 2);
   const v1 = new Float64Array(3);
   const v2 = new Float64Array(3);
   const [P1, P2] = NET.cells;
@@ -360,57 +383,102 @@ export function makeWaterTexture(size: number): Uint8Array {
   const grounds = noiseRows(lattice(40, 16), size);
   const patches = noiseRows(lattice(30, 17), size);
   const fines = noiseRows(lattice(64, 18), size);
-  // (the bright patches' field, at a spread of one)
-  const bright = spectralField(size, 1 / WATER_FLOW.tiling, NET.patches, 19);
-  {
-    let q = 0;
-    for (let i = 0; i < n; i++) q += bright[i] * bright[i];
-    q = Math.sqrt(q / n);
-    for (let i = 0; i < n; i++) bright[i] = Math.exp((NET.patchy * bright[i]) / q);
-  }
+  // (the bright patches' field, at a spread of one, made at `PATCH_SIZE` (it holds nothing finer than half a tile)
+  // and read between its texels)
+  const bright = patchRows(size);
+  // (the lines' profile by their distance across over their width, squared)
+  const profile = (t2: number) => {
+    let q = t2;
+    for (let j = 1; j < NET.edge; j++) q *= t2;
+    return Math.exp(-q);
+  };
   for (let y = 0; y < size; y++) {
-    const [warpXs, warpYs, widthsAt, clustersAt, brightsAt, groundsAt, patchesAt, finesAt] = [warpX(y), warpY(y), widths(y), clusters(y), brights(y), grounds(y), patches(y), fines(y)];
+    const [warpXs, warpYs, widthsAt, clustersAt, brightsAt, groundsAt, patchesAt, finesAt, brightAt] = [warpX(y), warpY(y), widths(y), clusters(y), brights(y), grounds(y), patches(y), fines(y), bright(y)];
+    const v = (y + 0.5) / size;
     for (let x = 0; x < size; x++) {
       const u = (x + 0.5) / size;
-      const v = (y + 0.5) / size;
       // a gentle warp so the cells are irregular, as caustics are
       const wx = warpXs[x] - 0.5;
       const wy = warpYs[x] - 0.5;
       voronoi(u * P1 + wx * 0.9, v * P1 + wy * 0.9, P1, pts1, v1);
       const w = NET.width * (0.6 + 0.8 * widthsAt[x]);
       const e1 = v1[1] - v1[0];
-      const line1 = Math.exp(-((e1 / w) ** 2));
+      const line1 = profile((e1 / w) ** 2);
       // the small cells in clusters, by a broad noise
       const cluster = Math.min(1, Math.max(0, (clustersAt[x] - 0.45) * 2.5)) * NET.small;
       let line2 = 0;
       if (cluster > 0) {
         voronoi(u * P2 + wx * 1.4, v * P2 + wy * 1.4, P2, pts2, v2);
-        line2 = Math.exp(-(((v2[1] - v2[0]) / (w * 1.2)) ** 2)) * cluster;
+        line2 = profile(((v2[1] - v2[0]) / (w * 1.2)) ** 2) * cluster;
       }
       // the lines brighter in some places than others, all of it bright in patches a tile or two across and faint
       // between them
       const i = y * size + x;
-      const ground = NET.ground * groundsAt[x];
-      net[i] = (Math.max(line1, line2) * (0.35 + 0.65 * brightsAt[x]) + ground) * bright[i];
+      net[i] = (Math.max(line1, line2) * (0.35 + 0.65 * brightsAt[x]) + NET.ground * groundsAt[x]) * brightAt[x] * (1 + NET.grain * (hash(x, y, 23) - 0.5));
       // blue blobs inside the large cells: soft toward the cell's edge, broken by noise, some cells more than others
       const inside = 1 - Math.exp(-((e1 / NET.inside) ** 2));
       const patch = Math.max(0, patchesAt[x] * 0.75 + finesAt[x] * 0.25 - NET.blob);
-      blob[y * size + x] = (0.35 + 0.65 * v1[2]) * inside * patch;
+      data[i * 2 + 1] = Math.min(255, Math.round(((0.35 + 0.65 * v1[2]) * inside * patch * 255) / STORE.blob));
     }
   }
-  // (the network remapped by rank to the game's albedo's first component, its long bright tail)
+  // (the network as bytes by its rank, so its distribution is the game's albedo's first component, its long bright
+  // tail, stored over the game's range)
   const F = GAME_FLOW_TEXTURES.albedo.first;
-  toPercentiles(net, F.percentiles, F.range[0], F.range[1]);
-  const data = new Uint8Array(n * 4);
-  const byte = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
-  for (let i = 0; i < n; i++) {
-    data[i * 4] = byte(((net[i] - F.range[0]) / (F.range[1] - F.range[0])) * 255);
-    data[i * 4 + 1] = byte((blob[i] / STORE.blob) * 255);
-    // (B and A unused: the normal has its own texture, makeWaterNormal)
-    data[i * 4 + 2] = 128;
-    data[i * 4 + 3] = 128;
-  }
+  const at = percentileValue(F.percentiles, F.range[0], F.range[1], n);
+  const R = bytesByRank(net, (r) => Math.max(0, Math.min(255, Math.round(((at(r) - F.range[0]) / (F.range[1] - F.range[0])) * 255))));
+  for (let i = 0; i < n; i++) data[i * 2] = R[i];
   return data;
+}
+
+/** Texels across the bright patches' field (`NET.patches`: nothing finer than half a tile, 16 texels a wavelength). */
+const PATCH_SIZE = 512;
+
+/** The bright patches' field (`NET`), e^(`patchy` × a Gaussian field of unit spread), at the texels' middles of a
+ *  `size`-square grid, a row at a time (its own buffer, refilled each call): made at `PATCH_SIZE` (or `size`, if
+ *  smaller) and read between its texels, bilinearly, wrapping. */
+function patchRows(size: number): (y: number) => Float64Array {
+  const m = Math.min(size, PATCH_SIZE);
+  const f = realSpectralField(m, 1 / WATER_FLOW.tiling, DETAIL_BANDS, NET.patches, 19);
+  let q = 0;
+  for (let i = 0; i < f.length; i++) q += f[i] * f[i];
+  q = Math.sqrt(q / f.length);
+  for (let i = 0; i < f.length; i++) f[i] = Math.exp((NET.patchy * f[i]) / q);
+  // (texel i of `size` at m's coordinate (i + 0.5) m / size − 0.5: its two texels and the weight of the second)
+  const x0 = new Int32Array(size);
+  const x1 = new Int32Array(size);
+  const fx = new Float64Array(size);
+  for (let i = 0; i < size; i++) {
+    const c = ((i + 0.5) * m) / size - 0.5;
+    const k = Math.floor(c);
+    fx[i] = c - k;
+    x0[i] = wrap(k, m);
+    x1[i] = wrap(k + 1, m);
+  }
+  const out = new Float64Array(size);
+  return (j) => {
+    const a = x0[j] * m;
+    const b = x1[j] * m;
+    const t = fx[j];
+    for (let i = 0; i < size; i++) {
+      const top = f[a + x0[i]] + (f[a + x1[i]] - f[a + x0[i]]) * fx[i];
+      const bot = f[b + x0[i]] + (f[b + x1[i]] - f[b + x0[i]]) * fx[i];
+      out[i] = top + (bot - top) * t;
+    }
+    return out;
+  };
+}
+
+/** A distribution given by its `percentiles` at `PATTERN_PERCENTILES` and its ends `lo` and `hi`: the value at rank r
+ *  of `n` (its share (r + 0.5) / n), straight between. */
+function percentileValue(percentiles: readonly number[], lo: number, hi: number, n: number): (r: number) => number {
+  const ps = [0, ...PATTERN_PERCENTILES, 1];
+  const vs = [lo, ...percentiles, hi];
+  return (r) => {
+    const p = (r + 0.5) / n;
+    let k = 0;
+    while (k < ps.length - 2 && p > ps[k + 1]) k++;
+    return vs[k] + ((vs[k + 1] - vs[k]) * (p - ps[k])) / (ps[k + 1] - ps[k]);
+  };
 }
 
 /** How badwater's pattern is drawn (tuned so its statistics land on the game's, `GAME_BADWATER_TEXTURE`): the base's
@@ -1051,12 +1119,12 @@ export function broadShare(f: ArrayLike<number>, size: number, sigma = 0.25, rep
 
 /** The albedo fitted to a texture's bytes (`WATER_ALBEDO`'s numbers). */
 export function fitAlbedo(data: Uint8Array): { base: number[]; network: number[]; blobs: number[] } {
-  const n = data.length / 4;
+  const n = data.length / 2;
   let mr = 0;
   let mg = 0;
   for (let i = 0; i < n; i++) {
-    mr += data[i * 4];
-    mg += data[i * 4 + 1];
+    mr += data[i * 2];
+    mg += data[i * 2 + 1];
   }
   mr /= n;
   mg /= n;
@@ -1064,8 +1132,8 @@ export function fitAlbedo(data: Uint8Array): { base: number[]; network: number[]
   let vg = 0;
   let c = 0;
   for (let i = 0; i < n; i++) {
-    const r = data[i * 4] - mr;
-    const g = data[i * 4 + 1] - mg;
+    const r = data[i * 2] - mr;
+    const g = data[i * 2 + 1] - mg;
     vr += r * r;
     vg += g * g;
     c += r * g;

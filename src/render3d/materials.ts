@@ -70,7 +70,7 @@ import {
 } from "three";
 import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_GROUND_MEAN, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, NOISE_NODES, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_SHARE_BLEND, WATER_UI } from "./waterPalette";
-import { DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
+import { BADWATER_TEXTURE_SIZE, DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
 import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./shoreFilm";
 import { EDGE_BAND, SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
@@ -307,22 +307,19 @@ export function caveTexture(v: CaveLight | null): Data3DTexture {
 }
 
 let surfaceTex: DataTexture | null = null;
-/** The surface the water's flow carries (waterTextures.ts), one for the page: flat at its mean (no ripples) until the
- *  bake worker has made it (`fillWaterTexture`). Repeating, mipmapped and filtered at a slant, as the game samples its
- *  own. */
+/** The surface the water's flow carries (waterTextures.ts `makeWaterTexture`: RG the albedo's fields), one for the
+ *  page, two bytes a texel: a single texel at its mean (no ripples) until the textures' worker has made it
+ *  (`fillWaterTexture`), then `WATER_TEXTURE_SIZE` square (2048², as the game's: 8 MB, about 11 MB on the GPU with its
+ *  mips). Repeating, mipmapped and filtered at a slant, as the game samples its own. */
 export function waterSurfaceTexture(): DataTexture {
   if (surfaceTex) return surfaceTex;
-  const n = WATER_TEXTURE_SIZE;
-  const data = new Uint8Array(n * n * 4);
-  const r = Math.round(WATER_ALBEDO.flat[0]);
-  const g = Math.round(WATER_ALBEDO.flat[1]);
-  for (let i = 0; i < n * n; i++) data.set([r, g, 128, 128], i * 4);
-  const t = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType);
+  const t = new DataTexture(new Uint8Array([Math.round(WATER_ALBEDO.flat[0]), Math.round(WATER_ALBEDO.flat[1])]), 1, 1, RGFormat, UnsignedByteType);
   t.wrapS = t.wrapT = RepeatWrapping;
   t.magFilter = LinearFilter;
   t.minFilter = LinearMipmapLinearFilter;
   t.generateMipmaps = true;
   t.anisotropy = 8;
+  t.unpackAlignment = 2;
   t.needsUpdate = true;
   return (surfaceTex = t);
 }
@@ -350,7 +347,7 @@ let badTex: DataTexture | null = null;
  *  surface's. */
 export function badwaterPatternTexture(): DataTexture {
   if (badTex) return badTex;
-  const n = WATER_TEXTURE_SIZE;
+  const n = BADWATER_TEXTURE_SIZE;
   const data = new Uint8Array(n * n * 4);
   const r = Math.round(GAME_BADWATER.pattern[0] * 255);
   const g = Math.round(GAME_BADWATER.pattern[1] * 255);
@@ -421,11 +418,14 @@ export function fillDetailTexture(detail: Uint8Array, size: number, shape?: Uint
 }
 
 /** The bake worker's surface, its normal (`normalSize` square), badwater's pattern and contaminated ground's
- *  (high/bake.ts `waterTexture`) into the page's textures; the normal's grows from its one flat texel to it (its GPU
- *  copy made again). */
+ *  (high/bake.ts `waterTexture`) into the page's textures; the surface's and the normal's grow from their one flat
+ *  texel to them (their GPU copies made again). */
 export function fillWaterTexture(data: Uint8Array, normal: Uint8Array, normalSize: number, bad: Uint8Array, soil: Uint8Array): void {
   const t = waterSurfaceTexture();
-  (t.image.data as Uint8Array).set(data);
+  if (t.image.width !== WATER_TEXTURE_SIZE) {
+    t.image = { data, width: WATER_TEXTURE_SIZE, height: WATER_TEXTURE_SIZE };
+    t.dispose();
+  } else (t.image.data as Uint8Array).set(data);
   t.needsUpdate = true;
   const nt = waterNormalTexture();
   if (nt.image.width !== normalSize) {

@@ -576,7 +576,13 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   50th / 90th percentile) and follows the neighbourhood's mean (correlation 0.87). Ours since fix/water-albedo-mottle
   (`waterTextures.ts` `makeWaterTexture`): the network × a broad Gaussian field's exponential, remapped by rank to
   that distribution (0.49, 0.32, 0.18, 0.09, 0.03; 6.0 / 10.1 / 17.7, 0.92); before it, crisp lines evenly bright
-  (0.34, 0.22, 0.15, 0.10, 0.04; 9.4 / 12.8 / 16.1, 0.68), 5 % of its power at 1–4 tiles against the game's 19 %.
+  (0.34, 0.22, 0.15, 0.10, 0.04; 9.4 / 12.8 / 16.1, 0.68), 5 % of its power at 1–4 tiles against the game's 19 %. Under 0.125 tile
+  (fix/water-texture-resolution, `--textures`' resolution lines): 8.9 % to 512²'s texel pair (0.065 tile), 2.75 % to
+  1024²'s (0.033), 1.2 % under: its crisp cell edges and a grain in its bright gaps. The spread of its part finer than
+  512²'s pair is 2.74 in its top and 2.08 in its first mip (61 texels a tile), the mip a camera at about 50 pixels a tile
+  draws. Ours since: 2048², two bytes a texel, the lines flat-topped with edges two or three texels wide and a grain a
+  texel, at 0.094 / 0.0275 / 0.013 and 2.77 / 2.08; its second component (red against blue, nearly no luma) still holds
+  far less than the game's under 0.25 tile (4.6 % to its 26 %).
 - **P6, detail albedo.** `PhysicalWaterDetailAlbedo` (t5) at xz × 0.015 (67 tiles a repeat), still
   (`_DetailAlbedoSpeed` 0), overlaid on colour × albedo (ps 462-477). Read exactly (fix/water-detail): a = P4's colour
   × P5's albedo, per channel r, g, b against the detail's r, g, b: 2 a d where a ≤ 0.5, 1 − 2 (1 − a)(1 − d) above (a
@@ -655,7 +661,11 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   0.140/0.106/0.065/0.040 (x and y within 0.013); a tenth of it finer than 0.125 tiles; Gaussian (|s| 95 % 0.286, 99 %
   0.345 at a spread of 0.118); its mean +0.0102/+0.0119 as the shader unpacks it (a tilt of 0.9°, × 4 in the
   highlight); its stored mips are the box mean of the top (61 texels a tile: spread 0.114/0.117); trilinear, aniso 16,
-  no mip bias. Ours since (`makeWaterNormal`, 1024²): the gradient of a Gaussian height at those bands, spread and mean.
+  no mip bias. Ours since (`makeWaterNormal`, 1024²): the gradient of a Gaussian height at those bands, spread and mean. What
+  its size holds over 1024² (fix/water-texture-resolution): the spread of its slopes finer than 1024²'s texel pair is
+  0.016 / 0.018 (x / y) in its top, 0.011 / 0.012 in its first mip (123 texels a tile) and 0.004 in its second (61, the
+  pair's corners), so a camera under about 61 pixels a tile draws nothing from it that 1024² lacks, and up to 123 a
+  tile 0.9 % of its slopes' variance; ours stays 1024².
 - **P12, camera highlight.** As `WATER_SURFACE.highlight` says (ps 814-862), × (1 − w), × the sun's colour, into the
   albedo and the emission. Our port matches it term for term.
 - **P13, see-through.** Q8 confirmed (ps 866-889): `_CameraOpaqueTexture` at P2's position, overlaid with the albedo

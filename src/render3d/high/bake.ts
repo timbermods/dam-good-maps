@@ -5,7 +5,7 @@
 import { columnMap, type MapView, type SurfaceWater, type WaterView } from "../model";
 import { caveCurrent, type CaveCurrent } from "../caveCurrent";
 import { currentOf, gameFlowOf } from "../current";
-import { DETAIL_TEXTURE_SIZE, makeBadwaterTexture, makeDetailField, makeSourceShape, makeWaterNormal, makeWaterTexture, NORMAL_TEXTURE_SIZE, WATER_FLOW, WATER_TEXTURE_SIZE } from "../waterTextures";
+import { BADWATER_TEXTURE_SIZE, DETAIL_TEXTURE_SIZE, makeBadwaterTexture, makeDetailField, makeSourceShape, makeWaterNormal, makeWaterTexture, NORMAL_TEXTURE_SIZE, WATER_FLOW, WATER_TEXTURE_SIZE } from "../waterTextures";
 import { makeSoilTexture, SOIL_TEXTURE_SIZE } from "../soilTexture";
 import { motionShapes, noShapes, type MotionShapes } from "../motionShapes";
 import { surfaceContamination } from "./flow";
@@ -91,10 +91,10 @@ export type BakeReply = BakeResult | { id: number; kind: "error"; error: string 
 export function runBake(job: BakeJob): BakeResult {
   const t0 = performance.now();
   // the textures the water's flow carries (waterTextures.ts), made once a page, here rather than on its thread
-  if (job.kind === "waterTexture") return { id: job.id, kind: "waterTexture", data: makeWaterTexture(WATER_TEXTURE_SIZE), normal: makeWaterNormal(NORMAL_TEXTURE_SIZE), normalSize: NORMAL_TEXTURE_SIZE, bad: makeBadwaterTexture(WATER_TEXTURE_SIZE), soil: makeSoilTexture(SOIL_TEXTURE_SIZE), ms: performance.now() - t0 };
+  if (job.kind === "waterTexture") return { id: job.id, kind: "waterTexture", data: makeWaterTexture(WATER_TEXTURE_SIZE), normal: makeWaterNormal(NORMAL_TEXTURE_SIZE), normalSize: NORMAL_TEXTURE_SIZE, bad: makeBadwaterTexture(BADWATER_TEXTURE_SIZE), soil: makeSoilTexture(SOIL_TEXTURE_SIZE), ms: performance.now() - t0 };
   // the still detail albedo (Q9 P6), its own texture at the game's size, every look's; with the water sources' pattern
   // (badwater's texture's A, Q9 P7) for the light look, which makes none of the others
-  if (job.kind === "detailTexture") return { id: job.id, kind: "detailTexture", detail: makeDetailField(DETAIL_TEXTURE_SIZE), size: DETAIL_TEXTURE_SIZE, shape: job.shape ? makeSourceShape(WATER_TEXTURE_SIZE) : null, ms: performance.now() - t0 };
+  if (job.kind === "detailTexture") return { id: job.id, kind: "detailTexture", detail: makeDetailField(DETAIL_TEXTURE_SIZE), size: DETAIL_TEXTURE_SIZE, shape: job.shape ? makeSourceShape(BADWATER_TEXTURE_SIZE) : null, ms: performance.now() - t0 };
   if (job.kind === "share") return { id: job.id, kind: "share", ...stillBytes(job.W, job.H, job.sw, job.fall ?? true), ms: performance.now() - t0 };
   // the baked shadows for the sun turned with the camera (light.ts; the renderer's `turnSun`)
   if (job.kind === "shadows") {
