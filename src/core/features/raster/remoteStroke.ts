@@ -58,6 +58,8 @@ export class RemotePreview {
   protect: Uint8Array;
   private chain: Promise<unknown>;
   private live = true;
+  /** Taken back (`restore`): `done` builds nothing. */
+  private dropped = false;
   private dabCount = 0;
   /** The dabs (and their pressures) waiting for the call before them to answer: sent as one call. */
   private waiting: { dabs: number[]; pressure: number[] | undefined } | null = null;
@@ -127,21 +129,28 @@ export class RemotePreview {
   }
 
   /** The stroke is done: its heights before the integrity pass and its protected tiles (in `pre` and
-   *  `protect`), and the worker's whole record, once every dab is shown. */
-  async done(): Promise<void> {
+   *  `protect`), and the worker's whole record, once every dab is shown. False when it was taken back
+   *  (`restore`) before it ended (an editor that closed while its last land was coming, #880): it builds
+   *  no operation, and the worker is never asked for its end. */
+  async done(): Promise<boolean> {
     await this.settled();
+    if (this.dropped) return false;
     const r = await this.channel.end();
     this.live = false;
+    if (this.dropped) return false;
     if (r) {
       this.pre = r.pre;
       this.protect = r.protect;
       this.take(r.settings);
     }
+    return true;
   }
 
-  /** The shown heights before the stroke, inside what changed (Esc): the worker forgets the stroke. */
+  /** The shown heights before the stroke, inside what changed (Esc, or the editor closing, #880): the
+   *  worker forgets the stroke, and no land or end of it comes after. */
   restore(): Rect | null {
     this.live = false;
+    this.dropped = true;
     this.channel.cancel();
     const b = this.bounds;
     if (!b) return null;

@@ -838,7 +838,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. It is
   weathered off the page in a worker of its own (D422, #868: `worker/naturalize.worker.ts`, `raster/remoteStroke.ts`),
   on the terrain and land the page shows, one call out at a time and the dabs meanwhile as one batch, the land a frame
-  or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. A new
+  or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Let
+  go, a stroke goes on the history once its last land is in: an undo, a redo or a History jump pressed meanwhile waits
+  for it, then acts, so Z takes that stroke back as it takes any other brush's; the editor closing (a new or opened
+  map) forgets a stroke still on its way, as Esc does, so nothing of it reaches the next map (#880). A new
   stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
   whatever its foot took, pulling back above water too), rule 3 (dab by dab, some
   cliffs' scree slopes lost, so a repeated stroke kept cutting those cliffs back), with D399's first rule

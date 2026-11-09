@@ -3,7 +3,7 @@
 // seconds behind the cursor; and the worker, pressing a batch dab by dab, builds exactly the land (and
 // the record) it built from one call a batch, so what the page shows is what the operation builds.
 
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RemotePreview, WeatherStroke, type WeatherChannel, type WeatheredLand } from "../../src/core/features/raster/remoteStroke";
 import { integrityCandidate, StrokePreview, type TerrainState } from "../../src/core/features/raster/strokePreview";
 import { integrityAt } from "../../src/core/features/raster/terrain";
@@ -329,5 +329,121 @@ describe("a stroke with riding pieces keeps the worker's whole record (#875's re
       globalThis.requestAnimationFrame = raf;
       globalThis.cancelAnimationFrame = caf;
     }
+  });
+});
+
+describe("a stroke on its way to the history (#880)", () => {
+  it("taken back while its last land is coming, it builds nothing and the worker is never asked for its end", async () => {
+    const { channel, sent, answer, waiting } = heldChannel();
+    let landed = 0;
+    const p = new RemotePreview(settings(), new Uint8Array(W * W), W, W, [], channel, () => landed++, new Uint8Array(W * W), new Uint8Array(W * W));
+    p.add([1, 1]);
+    p.finish([]);
+    const done = p.done();
+    await answer(); // begin; the dabs go
+    p.restore();
+    while (waiting()) await answer();
+    expect(await done).toBe(false);
+    expect(sent.map((s) => s.kind)).toEqual(["begin", "add", "cancel"]);
+    expect(landed).toBe(0);
+  });
+
+  const frames = (n: number) => new Promise((r) => setTimeout(r, n * 4));
+  /** A Naturalize stroke painted on the hill and let go (the painter's host records what reaches the page); the
+   *  worker answers a turn later, as naturalize.worker.ts does. */
+  async function letGo() {
+    const { state, heights, N } = land();
+    const shown = heights.slice();
+    const log: string[] = [];
+    // (naturalize.worker.ts's side: its one stroke, each call answered a turn later)
+    let stroke: WeatherStroke | null = null;
+    const turn = <T>(f: () => T) => new Promise<T>((resolve) => setTimeout(() => resolve(f()), 0));
+    const weather: WeatherChannel = {
+      begin: (s, ground) => turn(() => void (stroke = new WeatherStroke(s, { ...state, pre: state.pre.slice() }, heights.slice(), N, N, ground.map((r) => [r[0], r[1], r[2]])))),
+      add: (d, pr) => (log.push("add"), turn(() => stroke?.add(d, pr) ?? null)),
+      finish: (rigid) => (log.push("finish"), turn(() => stroke?.finish(rigid) ?? null)),
+      end: () =>
+        (log.push("end"),
+        turn(() => {
+          const r = stroke?.end() ?? null;
+          stroke = null;
+          return r;
+        })),
+      cancel: () => {
+        log.push("cancel");
+        stroke = null;
+      },
+    };
+    const renderer = new Proxy({ heightAt: (x: number, y: number) => shown[y * N + x], pickAtLevel: (x: number, y: number, level: number) => ({ x: Math.floor(x), y: Math.floor(y), point: [x, level, -y] }), slice: null } as Record<string, unknown>, {
+      get: (t, k) => (k in t ? t[k as string] : () => {}),
+    }) as unknown as MapRenderer;
+    const painter = new BrushPainter({
+      renderer,
+      W: N,
+      H: N,
+      heights: () => shown,
+      terrain: () => state,
+      settings: () => ({ ...DEFAULT_BRUSH, tool: "naturalize", strength: 10 }),
+      commit: () => void log.push("commit"),
+      picked: () => {},
+      strength: () => {},
+      painting: () => {},
+      draft: () => void log.push("draft"),
+      objectGround: () => [],
+      weather,
+    });
+    const ev = (x: number, y: number) => ({ button: 0, clientX: x, clientY: y, pointerType: "mouse", shiftKey: false, ctrlKey: false, metaKey: false }) as unknown as PointerEvent;
+    const hit = (x: number, y: number): TileHit => ({ x: Math.floor(x), y: Math.floor(y), point: [x, shown[Math.floor(y) * N + Math.floor(x)], -y], face: "top", t: 0 });
+    painter.tool.down(hit(8.5, 16.5), ev(8.5, 16.5));
+    for (let x = 9.5; x <= 20.5; x += 1) {
+      painter.tool.move(hit(x, 16.5), ev(x, 16.5));
+      await frames(2);
+    }
+    painter.tool.up(hit(20.5, 16.5), ev(20.5, 16.5));
+    return { painter, log };
+  }
+  const raf = globalThis.requestAnimationFrame;
+  const caf = globalThis.cancelAnimationFrame;
+  beforeEach(() => {
+    globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => setTimeout(() => cb(performance.now()), 0) as unknown as number) as typeof requestAnimationFrame;
+    globalThis.cancelAnimationFrame = ((h: number) => clearTimeout(h)) as typeof cancelAnimationFrame;
+  });
+  afterEach(() => {
+    globalThis.requestAnimationFrame = raf;
+    globalThis.cancelAnimationFrame = caf;
+  });
+
+  it("an undo and a redo pressed before it lands wait for it, then act in the order pressed", async () => {
+    const { painter, log } = await letGo();
+    // (let go: its last land and its end are still coming from the worker)
+    expect(painter.busy).toBe(true);
+    expect(log).not.toContain("commit");
+    const undo = painter.afterLanding(() => void log.push("undo"));
+    const redo = painter.afterLanding(() => void log.push("redo"));
+    expect(log.filter((s) => s === "undo" || s === "redo")).toEqual([]);
+    await undo;
+    await redo;
+    const at = (s: string) => log.indexOf(s);
+    expect(at("end")).toBeGreaterThan(-1);
+    expect(at("commit")).toBeGreaterThan(at("end"));
+    expect(at("undo")).toBeGreaterThan(at("commit"));
+    expect(at("redo")).toBeGreaterThan(at("undo"));
+    // (with nothing on its way: at once)
+    expect(painter.busy).toBe(false);
+    let now = false;
+    void painter.afterLanding(() => void (now = true));
+    expect(now).toBe(true);
+  });
+
+  it("the editor closing forgets it, as Esc does: no land, draft, end, operation or waiting undo reaches the next", async () => {
+    const { painter, log } = await letGo();
+    expect(painter.busy).toBe(true);
+    const undo = painter.afterLanding(() => void log.push("undo"));
+    const before = log.length;
+    painter.drop();
+    await undo;
+    for (let k = 0; k < 20; k++) await frames(2);
+    expect(log.slice(before)).toEqual(["cancel"]);
+    expect(painter.busy).toBe(false);
   });
 });
