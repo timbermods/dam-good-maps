@@ -12,7 +12,7 @@
 // - B, A the normal's slopes x and y (the normal the game lights; × `boost` for its camera highlight), the slopes of a
 //   warped value-noise height.
 // The albedo is `albedoOf(r, g)` (`WATER_ALBEDO`), display values (0–1), fitted so its mean and covariance are the
-// game's. Pure TypeScript, no three.js: made once a page in the renderer's bake worker (a few hundred milliseconds),
+// game's. Pure TypeScript, no three.js: made once a page in a worker of its own (about 0.3 s in Chrome),
 // the texture flat at its mean until then (renderer.ts).
 
 /** The flow's numbers, the game's (its `PhysicalWater_Opaque` material, Q9 P5, P11; ps 419-446, 794-813): two phases
@@ -191,6 +191,44 @@ export function valueNoise(l: { p: number; q: number; v: Float64Array }, u: numb
   return a + (b - a) * fx + (c - a + (d - c - b + a) * fx) * fy;
 }
 
+/** `valueNoise(l, (x + 0.5) / size, (y + 0.5) / size)` at every texel's middle of a row of a `size`-square grid: the
+ *  same values, each column's cells and weights worked out once. The row's values for row `y` (its own buffer,
+ *  refilled each call). */
+export function noiseRows(l: { p: number; q: number; v: Float64Array }, size: number): (y: number) => Float64Array {
+  const p = l.p;
+  const q = l.q;
+  const lv = l.v;
+  const x0 = new Int32Array(size);
+  const x1 = new Int32Array(size);
+  const fxs = new Float64Array(size);
+  for (let i = 0; i < size; i++) {
+    const x = ((i + 0.5) / size) * p;
+    const ix = Math.floor(x);
+    const fx = x - ix;
+    fxs[i] = fx * fx * (3 - 2 * fx);
+    x0[i] = wrap(ix, p);
+    x1[i] = wrap(ix + 1, p);
+  }
+  const out = new Float64Array(size);
+  return (j) => {
+    const y = ((j + 0.5) / size) * q;
+    const iy = Math.floor(y);
+    let fy = y - iy;
+    fy = fy * fy * (3 - 2 * fy);
+    const y0 = wrap(iy, q) * p;
+    const y1 = wrap(iy + 1, q) * p;
+    for (let i = 0; i < size; i++) {
+      const fx = fxs[i];
+      const a = lv[y0 + x0[i]];
+      const b = lv[y0 + x1[i]];
+      const c = lv[y1 + x0[i]];
+      const d = lv[y1 + x1[i]];
+      out[i] = a + (b - a) * fx + (c - a + (d - c - b + a) * fx) * fy;
+    }
+    return out;
+  };
+}
+
 /** A tiling Voronoi's feature points (period `p` cells, one a cell, jittered) and each cell's random. */
 export function cellPoints(p: number, s: number): Float64Array {
   const c = new Float64Array(p * p * 3);
@@ -295,14 +333,15 @@ export function makeWaterTexture(size: number): Uint8Array {
   const [P1, P2] = NET.cells;
   const pts1 = cellPoints(P1, 21);
   const pts2 = cellPoints(P2, 31);
-  const warpX = lattice(8, 11);
-  const warpY = lattice(8, 12);
-  const widths = lattice(16, 13);
-  const clusters = lattice(6, 14);
-  const brights = lattice(10, 15);
-  const grounds = lattice(40, 16);
-  const patches = lattice(30, 17);
-  const fines = lattice(64, 18);
+  // (each noise at the texels' middles, a row at a time)
+  const warpX = noiseRows(lattice(8, 11), size);
+  const warpY = noiseRows(lattice(8, 12), size);
+  const widths = noiseRows(lattice(16, 13), size);
+  const clusters = noiseRows(lattice(6, 14), size);
+  const brights = noiseRows(lattice(10, 15), size);
+  const grounds = noiseRows(lattice(40, 16), size);
+  const patches = noiseRows(lattice(30, 17), size);
+  const fines = noiseRows(lattice(64, 18), size);
   // (the bright patches' field, at a spread of one)
   const bright = spectralField(size, 1 / WATER_FLOW.tiling, NET.patches, 19);
   {
@@ -311,19 +350,20 @@ export function makeWaterTexture(size: number): Uint8Array {
     q = Math.sqrt(q / n);
     for (let i = 0; i < n; i++) bright[i] = Math.exp((NET.patchy * bright[i]) / q);
   }
-  for (let y = 0; y < size; y++)
+  for (let y = 0; y < size; y++) {
+    const [warpXs, warpYs, widthsAt, clustersAt, brightsAt, groundsAt, patchesAt, finesAt] = [warpX(y), warpY(y), widths(y), clusters(y), brights(y), grounds(y), patches(y), fines(y)];
     for (let x = 0; x < size; x++) {
       const u = (x + 0.5) / size;
       const v = (y + 0.5) / size;
       // a gentle warp so the cells are irregular, as caustics are
-      const wx = valueNoise(warpX, u, v) - 0.5;
-      const wy = valueNoise(warpY, u, v) - 0.5;
+      const wx = warpXs[x] - 0.5;
+      const wy = warpYs[x] - 0.5;
       voronoi(u * P1 + wx * 0.9, v * P1 + wy * 0.9, P1, pts1, v1);
-      const w = NET.width * (0.6 + 0.8 * valueNoise(widths, u, v));
+      const w = NET.width * (0.6 + 0.8 * widthsAt[x]);
       const e1 = v1[1] - v1[0];
       const line1 = Math.exp(-((e1 / w) ** 2));
       // the small cells in clusters, by a broad noise
-      const cluster = Math.min(1, Math.max(0, (valueNoise(clusters, u, v) - 0.45) * 2.5)) * NET.small;
+      const cluster = Math.min(1, Math.max(0, (clustersAt[x] - 0.45) * 2.5)) * NET.small;
       let line2 = 0;
       if (cluster > 0) {
         voronoi(u * P2 + wx * 1.4, v * P2 + wy * 1.4, P2, pts2, v2);
@@ -332,28 +372,32 @@ export function makeWaterTexture(size: number): Uint8Array {
       // the lines brighter in some places than others, all of it bright in patches a tile or two across and faint
       // between them
       const i = y * size + x;
-      const ground = NET.ground * valueNoise(grounds, u, v);
-      net[i] = (Math.max(line1, line2) * (0.35 + 0.65 * valueNoise(brights, u, v)) + ground) * bright[i];
+      const ground = NET.ground * groundsAt[x];
+      net[i] = (Math.max(line1, line2) * (0.35 + 0.65 * brightsAt[x]) + ground) * bright[i];
       // blue blobs inside the large cells: soft toward the cell's edge, broken by noise, some cells more than others
       const inside = 1 - Math.exp(-((e1 / NET.inside) ** 2));
-      const patch = Math.max(0, valueNoise(patches, u, v) * 0.75 + valueNoise(fines, u, v) * 0.25 - NET.blob);
+      const patch = Math.max(0, patchesAt[x] * 0.75 + finesAt[x] * 0.25 - NET.blob);
       blob[y * size + x] = (0.35 + 0.65 * v1[2]) * inside * patch;
     }
+  }
   // the normal: the slopes of the height, by central differences (it tiles, so they wrap)
   const height = new Float64Array(n);
   const oct = RIPPLES.octaves.map(([px, py], k) => lattice(px, 41 + k, py));
-  const hwX = lattice(6, 51);
-  const hwY = lattice(6, 52);
-  for (let y = 0; y < size; y++)
+  const hwX = noiseRows(lattice(6, 51), size);
+  const hwY = noiseRows(lattice(6, 52), size);
+  for (let y = 0; y < size; y++) {
+    const hwXs = hwX(y);
+    const hwYs = hwY(y);
     for (let x = 0; x < size; x++) {
       const u0 = (x + 0.5) / size;
       const v0 = (y + 0.5) / size;
-      const u = u0 + (valueNoise(hwX, u0, v0) - 0.5) * RIPPLES.warp / 6;
-      const v = v0 + (valueNoise(hwY, u0, v0) - 0.5) * RIPPLES.warp / 6;
+      const u = u0 + (hwXs[x] - 0.5) * RIPPLES.warp / 6;
+      const v = v0 + (hwYs[x] - 0.5) * RIPPLES.warp / 6;
       let h = 0;
       for (let k = 0; k < oct.length; k++) h += RIPPLES.octaves[k][2] * valueNoise(oct[k], u - Math.floor(u), v - Math.floor(v));
       height[y * size + x] = h;
     }
+  }
   const sx = new Float64Array(n);
   const sy = new Float64Array(n);
   for (let y = 0; y < size; y++)
@@ -397,29 +441,66 @@ const BAD_PATTERN = {
  *  `PATTERN_PERCENTILES`, `lo` and `hi` at the ends, straight between (in place). */
 function toPercentiles(v: Float64Array, percentiles: readonly number[], lo: number, hi: number): void {
   const n = v.length;
-  // (each value's rank from a sorted copy by bisection, equal values in index order as a stable sort would have them:
-  // a native typed sort, several times faster than sorting the indices through a comparator)
-  const sorted = Float64Array.from(v).sort();
-  const taken = new Int32Array(n);
   const ps = [0, ...PATTERN_PERCENTILES, 1];
   const vs = [lo, ...percentiles, hi];
-  const at = new Float64Array(n);
+  // (each value's rank by a stable sort of the indices, so equal values take their ranks in index order)
+  const order = rankOrder(v);
   for (let r = 0, k = 0; r < n; r++) {
     const p = (r + 0.5) / n;
     while (k < ps.length - 2 && p > ps[k + 1]) k++;
-    at[r] = vs[k] + ((vs[k + 1] - vs[k]) * (p - ps[k])) / (ps[k + 1] - ps[k]);
+    v[order[r]] = vs[k] + ((vs[k + 1] - vs[k]) * (p - ps[k])) / (ps[k + 1] - ps[k]);
   }
+}
+
+/** The indices of `v` (finite values) in ascending order of their values, equal values (−0 and 0 among them) in index
+ *  order: a stable sort, by four passes of a radix sort on the doubles' bits (each made to order as unsigned: a
+ *  positive's sign bit set, a negative's every bit flipped), several times faster than a comparison sort. */
+export function rankOrder(v: Float64Array): Uint32Array {
+  const n = v.length;
+  // (the bits, as two 32-bit halves, little-endian as every browser's)
+  const f = new Float64Array(n);
+  for (let i = 0; i < n; i++) f[i] = v[i] === 0 ? 0 : v[i];
+  const bits = new Uint32Array(f.buffer);
+  const key = new Uint16Array(n * 4);
+  const count = new Uint32Array(4 * 65536);
   for (let i = 0; i < n; i++) {
-    const x = v[i];
-    let a = 0;
-    let b = n - 1;
-    while (a < b) {
-      const m = (a + b) >> 1;
-      if (sorted[m] < x) a = m + 1;
-      else b = m;
-    }
-    v[i] = at[a + taken[a]++];
+    let lo = bits[i * 2];
+    let hi = bits[i * 2 + 1];
+    if (hi & 0x80000000) {
+      lo = ~lo;
+      hi = ~hi;
+    } else hi |= 0x80000000;
+    const k = i * 4;
+    key[k] = lo & 0xffff;
+    key[k + 1] = lo >>> 16;
+    key[k + 2] = hi & 0xffff;
+    key[k + 3] = hi >>> 16;
+    count[key[k]]++;
+    count[65536 + key[k + 1]]++;
+    count[131072 + key[k + 2]]++;
+    count[196608 + key[k + 3]]++;
   }
+  let a = new Uint32Array(n);
+  let b = new Uint32Array(n);
+  for (let i = 0; i < n; i++) a[i] = i;
+  for (let pass = 0; pass < 4; pass++) {
+    const c = pass * 65536;
+    // (a pass whose digit is the same for every value leaves the order as it is)
+    if (count[c + key[pass]] === n) continue;
+    for (let d = 0, sum = 0; d < 65536; d++) {
+      const t = count[c + d];
+      count[c + d] = sum;
+      sum += t;
+    }
+    for (let r = 0; r < n; r++) {
+      const i = a[r];
+      b[count[c + key[i * 4 + pass]]++] = i;
+    }
+    const t = a;
+    a = b;
+    b = t;
+  }
+  return a;
 }
 
 /** Badwater's pattern (RGBA bytes) at `size` texels square, one repeat as the surface's: R the base colour's pattern,
@@ -432,53 +513,56 @@ export function makeBadwaterTexture(size: number): Uint8Array {
   const base = new Float64Array(n);
   const glow = new Float64Array(n);
   const oct = P.octaves.map(([p], k) => lattice(p, 61 + k));
-  const warpX = lattice(10, 71);
-  const warpY = lattice(10, 72);
+  // (the noises at the texels' middles, a row at a time)
+  const warpX = noiseRows(lattice(10, 71), size);
+  const warpY = noiseRows(lattice(10, 72), size);
   const [C1, C2] = P.cells;
   const pts1 = cellPoints(C1, 81);
   const pts2 = cellPoints(C2, 91);
   const pts3 = cellPoints(P.specks.cells, 101);
-  const lwarpX = lattice(8, 73);
-  const lwarpY = lattice(8, 74);
-  const wobX = lattice(40, 83);
-  const wobY = lattice(40, 84);
-  const widths = lattice(20, 75);
-  const clusters = lattice(7, 76);
-  const brights = lattice(24, 77);
-  const hazes = lattice(30, 78);
+  const lwarpX = noiseRows(lattice(8, 73), size);
+  const lwarpY = noiseRows(lattice(8, 74), size);
+  const wobX = noiseRows(lattice(40, 83), size);
+  const wobY = noiseRows(lattice(40, 84), size);
+  const widths = noiseRows(lattice(20, 75), size);
+  const clusters = noiseRows(lattice(7, 76), size);
+  const brights = noiseRows(lattice(24, 77), size);
+  const hazes = noiseRows(lattice(30, 78), size);
   const v1 = new Float64Array(4);
   const v2 = new Float64Array(4);
   const v3 = new Float64Array(3);
-  for (let y = 0; y < size; y++)
+  // a line between two cells, wider and brighter where three meet, so the cells read rounded
+  const lineOf = (v: Float64Array, width: number) => Math.exp(-(((v[1] - v[0]) / width) ** 2)) * (1 + P.junction * Math.exp(-(((v[3] - v[0]) / (width * 3)) ** 2)));
+  for (let y = 0; y < size; y++) {
+    const [warpXs, warpYs, lwarpXs, lwarpYs, wobXs, wobYs, widthsAt, clustersAt, brightsAt, hazesAt] = [warpX(y), warpY(y), lwarpX(y), lwarpY(y), wobX(y), wobY(y), widths(y), clusters(y), brights(y), hazes(y)];
     for (let x = 0; x < size; x++) {
       const u0 = (x + 0.5) / size;
       const w0 = (y + 0.5) / size;
       const i = y * size + x;
       // the base: octaves of value noise, warped into clouds
-      const u = u0 + ((valueNoise(warpX, u0, w0) - 0.5) * P.warp) / 10;
-      const w = w0 + ((valueNoise(warpY, u0, w0) - 0.5) * P.warp) / 10;
+      const u = u0 + ((warpXs[x] - 0.5) * P.warp) / 10;
+      const w = w0 + ((warpYs[x] - 0.5) * P.warp) / 10;
       let h = 0;
       for (let k = 0; k < oct.length; k++) h += P.octaves[k][1] * valueNoise(oct[k], u - Math.floor(u), w - Math.floor(w));
       base[i] = h + P.grain * hash(x, y, 79);
       // the glow: lines round warped cells, small cells where they cluster, specks inside them, a faint haze
       // (a broad warp so the cells are irregular, and a fine one so their lines wobble)
-      const wx = valueNoise(lwarpX, u0, w0) - 0.5 + (valueNoise(wobX, u0, w0) - 0.5) * P.wobble;
-      const wy = valueNoise(lwarpY, u0, w0) - 0.5 + (valueNoise(wobY, u0, w0) - 0.5) * P.wobble;
-      const lw = P.width * (0.6 + 0.8 * valueNoise(widths, u0, w0));
-      // a line between two cells, wider and brighter where three meet, so the cells read rounded
-      const lineOf = (v: Float64Array, width: number) => Math.exp(-(((v[1] - v[0]) / width) ** 2)) * (1 + P.junction * Math.exp(-(((v[3] - v[0]) / (width * 3)) ** 2)));
+      const wx = lwarpXs[x] - 0.5 + (wobXs[x] - 0.5) * P.wobble;
+      const wy = lwarpYs[x] - 0.5 + (wobYs[x] - 0.5) * P.wobble;
+      const lw = P.width * (0.6 + 0.8 * widthsAt[x]);
       voronoi3(u0 * C1 + wx * 0.8, w0 * C1 + wy * 0.8, C1, pts1, v1);
       let line = lineOf(v1, lw);
-      const cluster = Math.min(1, Math.max(0, (valueNoise(clusters, u0, w0) - 0.4) * 2.5)) * P.small;
+      const cluster = Math.min(1, Math.max(0, (clustersAt[x] - 0.4) * 2.5)) * P.small;
       if (cluster > 0) {
         voronoi3(u0 * C2 + wx * 1.4, w0 * C2 + wy * 1.4, C2, pts2, v2);
         line = Math.max(line, lineOf(v2, lw * 1.3) * cluster);
       }
       voronoi(u0 * P.specks.cells, w0 * P.specks.cells, P.specks.cells, pts3, v3);
       const speck = v3[2] < P.specks.share ? Math.exp(-((v3[0] / P.specks.radius) ** 2)) * P.specks.light : 0;
-      const haze = Math.max(0, valueNoise(hazes, u0, w0) - 0.55) * P.haze;
-      glow[i] = Math.max(line * (0.45 + 0.55 * valueNoise(brights, u0, w0)), speck) + haze;
+      const haze = Math.max(0, hazesAt[x] - 0.55) * P.haze;
+      glow[i] = Math.max(line * (0.45 + 0.55 * brightsAt[x]), speck) + haze;
     }
+  }
   const G = GAME_BADWATER_TEXTURE;
   toPercentiles(base, G.base.percentiles, 30, 220);
   toPercentiles(glow, G.glow.percentiles, 0, 255);
@@ -560,8 +644,12 @@ function fft(re: Float64Array, im: Float64Array, tw: { cos: Float64Array; sin: F
     for (; j & bit; bit >>= 1) j ^= bit;
     j ^= bit;
     if (i < j) {
-      [re[i], re[j]] = [re[j], re[i]];
-      [im[i], im[j]] = [im[j], im[i]];
+      const r = re[i];
+      re[i] = re[j];
+      re[j] = r;
+      const m = im[i];
+      im[i] = im[j];
+      im[j] = m;
     }
   }
   for (let len = 2; len <= n; len <<= 1) {
@@ -606,7 +694,8 @@ function spectralField(size: number, repeat: number, power: readonly number[], s
   const im = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     const b = band[i];
-    if (b < 0 || !count[b]) continue;
+    // (a band with no power is left at 0)
+    if (b < 0 || !power[b]) continue;
     // (a complex Gaussian by Box-Muller, × the band's amplitude a frequency)
     const r = Math.sqrt(-2 * Math.log(1 - hash(i, 0, s))) * Math.sqrt(power[b] / count[b]);
     const a = TAU * hash(i, 1, s);

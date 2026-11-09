@@ -3,19 +3,21 @@
 // GAME_FLOW_TEXTURES), the game's flow (each column's outflows ÷ 14) and its two phases in both looks' shaders, and
 // none of the terms the water had of our own (D334's light network, ribbons, swells, packets, streaks and crests).
 
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { DataTexture } from "three";
 import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { flowByte } from "../../src/render3d/high/bake";
 import { gameFlowOf } from "../../src/render3d/current";
-import { albedoOf, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, makeBadwaterTexture, makeWaterTexture, PATTERN_PERCENTILES, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
+import { albedoOf, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, makeBadwaterTexture, makeWaterTexture, PATTERN_PERCENTILES, rankOrder, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
 import { badwaterBody, badwaterGlow, GAME_BADWATER, GAME_WATER, gameBadwaterColour, WATER, gameBadwaterEmission, gameCleanColour, gameDepthG, gameDepthR, WATER_LIGHT } from "../../src/render3d/waterPalette";
 import { GAME_LIGHT, gameAmbient, LIGHT, sunlitTop, waterShown } from "../../src/render3d/palette";
 import { dayLight } from "../../tools/game-day-light";
 
 const N = WATER_TEXTURE_SIZE;
 const data = makeWaterTexture(N);
+const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 function stats(f: Float64Array) {
   const s = Float64Array.from(f).sort();
@@ -94,6 +96,15 @@ describe("the water's textures", () => {
     expect(g / n).toBeCloseTo(WATER_ALBEDO.flat[1], 1);
     const flat = albedoOf(WATER_ALBEDO.flat[0], WATER_ALBEDO.flat[1]);
     for (let k = 0; k < 3; k++) expect(flat[k] * 255).toBeCloseTo(GAME.albedo.mean[k], 1);
+  });
+
+  it("are the bytes they were made as when the look was judged (a speed-up of their making never changes them)", () => {
+    expect(sha256(data)).toBe("f7d014e31b9f544bbcf4f51ef4e3586fe2c4c4fb8ce5d4713a4eb1bc173fd96e");
+  });
+
+  it("rank a field by a stable sort: ascending, equal values (−0 and 0 among them) in index order", () => {
+    const v = Float64Array.from([3, -1, 0, 2.5, -0, -1, 1e-300, -1e300, 3, 0]);
+    expect([...rankOrder(v)]).toEqual([7, 1, 5, 2, 4, 9, 6, 3, 0, 8]);
   });
 });
 
@@ -219,6 +230,10 @@ describe("badwater as the game draws it (Q9 P9)", () => {
     const s = Float64Array.from(f).sort();
     return s[Math.floor(q * (s.length - 1))];
   };
+
+  it("is the bytes it was made as when the look was judged (a speed-up of its making never changes them)", () => {
+    expect(sha256(bad)).toBe("565b927abe4d017f7201d426381dd1acd156c986ee13a39a48c6394c66eb6f0c");
+  });
 
   it("has a pattern of our own at the game's statistics: R the base colour's mottle, G the emissive detail's lines", () => {
     for (const [f, G] of [[base, BAD_TEX.base], [glow, BAD_TEX.glow]] as const) {

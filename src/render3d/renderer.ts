@@ -98,7 +98,7 @@ import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighE
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, highLookMaterials, roofedOf, runSoilOf, type HighLookMaterials, type HighMaterials } from "./high/highLook";
 import { Programs, withDefine, type Defines } from "./programs";
-import { pageBaker, sunBaker, type Baker } from "./high/fields";
+import { pageBaker, sunBaker, textureBake, type Baker } from "./high/fields";
 import { fadingDepth } from "./high/shadows";
 import { WaterMotion } from "./motion";
 import { StillFlow } from "./stillFlow";
@@ -306,11 +306,12 @@ const SLOW_FRAMES = 3;
 
 let waterSurface: Promise<void> | null = null;
 /** The surface the water's flow carries (waterTextures.ts) and contaminated ground's pattern (soilTexture.ts), made once
- *  a page in the bake worker (about 0.9 s) and written into the page's shared textures (materials.ts
- *  `waterSurfaceTexture`, `soilPatternTexture`); each is flat at its mean until then. */
-function waterSurfaceMade(baker: Baker): Promise<void> {
+ *  a page in a worker of their own (high/fields.ts `textureBake`; about 1 s in Chrome, up to 2 while the first map
+ *  opens beside them), so the first map's moving water never waits behind them, and written into the page's shared
+ *  textures (materials.ts `waterSurfaceTexture`, `soilPatternTexture`); each is flat at its mean until then. */
+function waterSurfaceMade(): Promise<void> {
   // (a failed bake is forgotten, so the next view tries again)
-  return (waterSurface ??= baker.run({ kind: "waterTexture" }).then(
+  return (waterSurface ??= textureBake({ kind: "waterTexture" }).then(
     (r) => {
       if (r.kind === "waterTexture") fillWaterTexture(r.data, r.bad, r.soil);
     },
@@ -323,10 +324,11 @@ function waterSurfaceMade(baker: Baker): Promise<void> {
 
 let detailMade: Promise<void> | null = null;
 /** The light look's: the still detail albedo alone (Q9 P6; the game's Low quality draws it), made once a page in the
- *  bake worker and written into badwater's texture's B (materials.ts `fillDetailTexture`), with the water sources'
- *  pattern (Q9 P7) in its A; flat at their means until then. The light look reads none of the other patterns. */
-function detailTextureMade(baker: Baker): Promise<void> {
-  return (detailMade ??= baker.run({ kind: "detailTexture" }).then(
+ *  textures' own worker (`textureBake`) and written into badwater's texture's B (materials.ts `fillDetailTexture`), with
+ *  the water sources' pattern (Q9 P7) in its A; flat at their means until then. The light look reads none of the other
+ *  patterns. */
+function detailTextureMade(): Promise<void> {
+  return (detailMade ??= textureBake({ kind: "detailTexture" }).then(
     (r) => {
       if (r.kind === "detailTexture") fillDetailTexture(r.detail, r.shape);
     },
@@ -4066,7 +4068,7 @@ export class MapRenderer {
    *  their means until then; the light look makes and reads only the still detail albedo and the sources' pattern). For tests and pictures that
    *  read the patterns. */
   patternsMade(): Promise<void> {
-    return this.software ? detailTextureMade(this.baker) : waterSurfaceMade(this.baker);
+    return this.software ? detailTextureMade() : waterSurfaceMade();
   }
 
   /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */
