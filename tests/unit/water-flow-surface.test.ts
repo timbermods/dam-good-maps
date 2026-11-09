@@ -135,10 +135,15 @@ describe("both looks' water shaders", () => {
       expect(s, look).toContain("w = abs(2.0 * a - 1.0);");
       expect(s, look).toContain("waterPhases(g, flow, t, pa, pb, pw);");
       expect(s, look).toContain("surf = waterSurfaceAt(pa, pb, pw);");
-      // the albedo multiplies the colour; the normal is the surface's, × 4 and × 2 more on badwater (P11)
+      // the albedo multiplies the colour; the normal is the surface's, × 2 more on badwater, lit unboosted, and × 4 for
+      // the camera highlight alone (P11, ps 782-799 and 904-910)
       expect(s, look).toContain("vec3 albedo = waterAlbedo(surf);");
-      expect(s, look).toContain("vec2 b = sl * 4.0 * (1.0 + share);");
-      expect(s, look).toContain("N = waterFlowNormal(surf, cont);");
+      expect(s, look).toContain("vec2 b = sl * boost * (1.0 + share);");
+      expect(s, look).toContain("#define WATER_NORMAL_BOOST 4");
+      expect(s, look).toContain("N = waterFlowNormal(surf, cont, 1.0);");
+      expect(s, look).toContain("Nh = waterFlowNormal(surf, cont, WATER_NORMAL_BOOST);");
+      expect(s, look).toMatch(/waterCameraHighlight\(Nh, V, (bad|tint)\)/);
+      expect(s, look).not.toMatch(/waterCameraHighlight\(N, V/);
       expect(s, look).toMatch(/body \*= albedo \/ WATER_ALBEDO_MEAN;/);
     }
   });

@@ -230,9 +230,10 @@ ${HIGH_WATER_GLSL}
   /** The last measuredSurfaceWater's badwater, lit, with its glowing lines: High's own badwater, which the clear
    *  water's veil keeps (materials.ts clearBad), so the T view shows the badwater of the look it is in. */
   vec3 hlBadLit;
-  /** The surface at g: N the flow's normal, albedo the flow's albedo, bpat badwater's pattern (R its base colour's, G
+  /** The surface at g: N the flow's normal (as the game lights it; Nh its camera highlight's, boosted: waterTextures.ts
+   *  waterFlowNormal), albedo the flow's albedo, bpat badwater's pattern (R its base colour's, G
    *  its emissive detail's; all the Standard surface's, from its one sample). */
-  vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, vec3 albedo, vec2 bpat, float smoothness) {
+  vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 Nh, vec3 V, float lit, vec3 albedo, vec2 bpat, float smoothness) {
     float bodyDepth = smoothstep(0.25, 1.25, depth);
     float deep = smoothstep(1.0, 3.5, depth);
     vec3 body = mix(mix(HW_SHALLOW, HW_BODY, bodyDepth), HW_DEEP, deep);
@@ -271,7 +272,7 @@ ${HIGH_WATER_GLSL}
       // highlight in the game's sun colour, lit by the game's light as the albedo it is added to; the probe by the
       // reflected direction (its head-on part where WATER_LIGHT.held); the sun's GGX glint by its shadow
       // (none where a fall lands: the game's waterfall mask, fallMask.ts, Q9 P1)
-      vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(N, V, tint) * (1.0 - waterFall);
+      vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(Nh, V, tint) * (1.0 - waterFall);
       colour *= shade;
       colour += highlight * gameWaterLight(N, lit);
       // (the lit albedo with its highlight, which the game's see-through takes its share of; the rest on top: refraction.ts)
@@ -280,7 +281,7 @@ ${HIGH_WATER_GLSL}
       colour += highlight;
       colour += GAME_SUN_COLOUR * waterSunGlint(N, V, sunDir, smoothness) * lit;
     #else
-      vec3 highlight = sunColor * waterCameraHighlight(N, V, tint) * (1.0 - waterFall);
+      vec3 highlight = sunColor * waterCameraHighlight(Nh, V, tint) * (1.0 - waterFall);
       colour += highlight;
       colour *= shade;
       behindBase = colour;
@@ -322,7 +323,7 @@ export function waterHooks(): ShaderHooks {
             // (its smoothness as the Standard surface's, by this look's badwater share: the gloss's slow variation, toward
             // badwater's by the tint × the pattern's R)
             float hlSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(hlBad) * bpat.x);
-            vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, albedo, bpat, hlSmooth);
+            vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, Nh, V, lit, albedo, bpat, hlSmooth);
             // the same water at any depth: only a sliver at a shore's very edge fades in, over WATER_FILM.to
             // deep, as the Standard look's (waterPalette.ts WATER_FILM: our anti-aliasing of the edge, where the
             // game clips hard), by its own depth, not the one seen along the view; no foam, no froth, as the game draws none
@@ -368,7 +369,7 @@ export function waterHooks(): ShaderHooks {
               // and patterns (the surface's, facing up, carried by its current: stretched down it as on the fall's slope
               // beside it, as the game's are)
               float stepSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(cont) * bpat.x);
-              vec4 stepSurface = measuredSurfaceWater(g, max(0.0, d), 1.0, cont, N, V, lit, albedo, bpat, stepSmooth);
+              vec4 stepSurface = measuredSurfaceWater(g, max(0.0, d), 1.0, cont, N, Nh, V, lit, albedo, bpat, stepSmooth);
               c = stepSurface.rgb;
               // (what the clear water's veil keeps of its badwater: the side's own, at its depth)
               clearBad = hlBadLit;
