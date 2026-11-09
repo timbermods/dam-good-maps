@@ -721,7 +721,7 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Crests' light teal (`WATER_CREST` × 0.3 by the ripples' slope) | S | (b) | none |
 | `chop` streaks in the streak colours (× 0.45) | H | (b) | none |
 | Light network (`cracks`), ribbons, broad swells, rolling packets, × (0.8 + 0.4 broad), darker with speed, `hlRough` | H | (b) | none: the only light terms are P12 and P15 |
-| Albedo texture carried by the flow | S, H | (a): our own texture at the game's statistics, its brightness's distribution and its split across scales (`makeWaterTexture`, fix/water-albedo-mottle) | P5: `PhysicalWaterAlbedo` × colour (ps 419-437) |
+| Albedo texture carried by the flow | S, H | (a): our own texture at the game's statistics, its brightness's distribution and its split across scales (`makeWaterTexture`, fix/water-albedo-mottle), at the game's 2048² and its power down to its texel (fix/water-texture-resolution) | P5: `PhysicalWaterAlbedo` × colour (ps 419-437) |
 | Ripple normals: the texture the flow carries, its own 1024² at the game's slopes' power by wavelength, spread and mean (`makeWaterNormal`, fix/open-water-gap; before it, octaves of value noise in the surface's B and A, 512², nothing finer than 0.125 tile and twice the game's power at 0.25–0.5) | S, H | (a) | P5, P11: `Water_N` carried by the flow, lit as it is, × 4 for the highlight alone (ps 438-446, 782-813, 904-910) |
 | Drift: the current × 0.65, two 12 s phases | S, H | (a) in form, (c) in rate | P5: 2.5 s phases, about 13 f tiles a second |
 | Still water's drift (0.018, −0.012) | H | (b) | P5: still textures stay put |
