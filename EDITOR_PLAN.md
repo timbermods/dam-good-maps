@@ -559,8 +559,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
   places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
   melt-back, the lava cooling; a new force, or an undo, puts any of them away at once; every tail plays by its drawn frames, a
-  frame of the player's view counting a tenth of a second at most, so a frame held long on a slow machine never skips
-  an impact's dust, a fault's crack, the ice's melt-back, the lava's cooling or an erosion's dust and stones). A force's heat is its own: a later force
+  frame of the player's view counting whole unless it was held past a tenth of a second and twice the frames before
+  it, so a frame held long on a slow machine never skips an impact's dust, a fault's crack, the ice's melt-back, the
+  lava's cooling or an erosion's dust and stones, and a view that draws slowly throughout plays them by the clock). A force's heat is its own: a later force
   never shows an earlier eruption's. The result
   and what is saved never depend on the pace.
 - **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an

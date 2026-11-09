@@ -73,15 +73,54 @@ const smooth = (v: number) => {
 /** The ground's height at (x, y) in tiles, as shown. */
 export type Ground = (x: number, y: number) => number;
 
+/** A frame held this long or less counts whole toward a tail (ms). */
+const STALL_MS = 100;
+/** A frame counts whole up to this many times the frames before it (their median). */
+const HELD = 2;
+
+/** The pace the player's view draws the forces' frames at, for their tails (D266: a force keeps its own pace): a frame
+ *  counts its time whole unless it was held, a tenth of a second at most or twice the frames before it, whichever is
+ *  longer. A stall (the keep's work) never plays a tail out unseen, and a view that draws slowly throughout (a slow
+ *  machine, a software renderer: a second a frame) plays them by the clock, never ten times as long; a recording's
+ *  frame counts whole, its time being the video's. */
+export class FramePace {
+  private gaps: number[] = [];
+  private last: number | null = null;
+
+  constructor(private readonly clock: Clock) {}
+
+  /** At each frame of the forces' own loop. */
+  frame(now: number): void {
+    if (this.last !== null) {
+      this.gaps.push(Math.max(0, now - this.last));
+      if (this.gaps.length > 5) this.gaps.shift();
+    }
+    this.last = now;
+  }
+
+  /** The loop stopped: the time till it starts again is no frame's. */
+  rest(): void {
+    this.last = null;
+  }
+
+  /** How much of a frame `step` ms long counts (ms). */
+  count(step: number): number {
+    if (this.clock.driven) return step;
+    const g = [...this.gaps].sort((a, b) => a - b);
+    const usual = g.length ? g[g.length >> 1] : 0;
+    return Math.min(step, Math.max(STALL_MS, HELD * usual));
+  }
+}
+
 /** An effect's tail (an impact's dust, a fault's crack, the ice melting back) in seconds as drawn: each frame adds its
- *  time, a frame of the player's view a tenth of a second at most, so a stall (the keep's work on a slow machine) never
- *  plays the tail out unseen; a recording's frame counts whole, its time being the video's (as the plume's lava). */
+ *  time as `FramePace` counts it, so a stall (the keep's work on a slow machine) never plays the tail out unseen (as the
+ *  plume's lava). */
 class DrawnTail {
   private s = 0;
   private last = 0;
   private on = false;
 
-  constructor(private readonly clock: Clock) {}
+  constructor(private readonly pace: FramePace) {}
 
   start(now: number): void {
     this.on = true;
@@ -98,7 +137,7 @@ class DrawnTail {
   frame(now: number): void {
     if (!this.on) return;
     const step = Math.max(0, now - this.last);
-    this.s += (this.clock.driven ? step : Math.min(step, 100)) / 1000;
+    this.s += this.pace.count(step) / 1000;
     this.last = now;
   }
 
@@ -128,8 +167,8 @@ class Impact {
   /** Its seconds since it struck, as drawn. */
   private tail: DrawnTail;
 
-  constructor(clock: Clock) {
-    this.tail = new DrawnTail(clock);
+  constructor(pace: FramePace) {
+    this.tail = new DrawnTail(pace);
     this.shock.rotation.x = -Math.PI / 2;
     this.dust.frustumCulled = this.chunks.frustumCulled = this.shock.frustumCulled = this.flash.frustumCulled = this.streak.frustumCulled = false;
     this.dust.renderOrder = this.shock.renderOrder = this.flash.renderOrder = 5;
@@ -246,8 +285,8 @@ class Rupture {
   private t0 = 0;
   private slide = false;
 
-  constructor(clock: Clock) {
-    this.tail = new DrawnTail(clock);
+  constructor(pace: FramePace) {
+    this.tail = new DrawnTail(pace);
     this.dust.frustumCulled = this.crack.frustumCulled = false;
     this.crack.renderOrder = 8;
     this.group.add(this.crack, this.dust);
@@ -366,13 +405,13 @@ class Plume {
   t0 = 0;
   /** When it ended (the plume thins and the lava cools from then). */
   ended: number | null = null;
-  /** Its seconds cooled as drawn, and when its last frame was: the lava cools by its frames, a frame of the player's
-   *  view counting a tenth of a second at most, so a stall (the keep's work on a slow machine) never skips its cooling
-   *  unseen; a recording's frame counts whole, its time being the video's. */
+  /** Its seconds cooled as drawn, and when its last frame was: the lava cools by its frames as `FramePace` counts them,
+   *  so a stall (the keep's work on a slow machine) never skips its cooling unseen, and a view that draws slowly
+   *  throughout cools it by the clock (its bloom ends on time); a recording's frame counts whole. */
   private cooled = 0;
   private drawn = 0;
 
-  constructor(private readonly clock: Clock) {
+  constructor(private readonly pace: FramePace) {
     this.geometry.setAttribute("puffAlpha", new InstancedBufferAttribute(this.opacity, 1));
     this.geometry.setAttribute("puffSeed", new InstancedBufferAttribute(this.seeds, 1));
     this.smoke.frustumCulled = false;
@@ -431,9 +470,9 @@ class Plume {
 
   update(now: number, ground: Ground): void {
     if (this.ended !== null) {
-      // (a recording's frame is its video's time and counts whole; the player's view caps a frame at a tenth of a second)
+      // (a recording's frame is its video's time and counts whole; the player's view caps a held frame)
       const step = Math.max(0, now - this.drawn);
-      this.cooled += (this.clock.driven ? step : Math.min(step, 100)) / 1000;
+      this.cooled += this.pace.count(step) / 1000;
       this.drawn = now;
     }
     this.group.visible = this.active;
@@ -543,8 +582,11 @@ class Glacier {
   /** Its seconds since it ended, as drawn: it melts back on to its end by its frames. */
   private tail: DrawnTail;
 
-  constructor(private readonly clock: Clock) {
-    this.tail = new DrawnTail(clock);
+  constructor(
+    private readonly clock: Clock,
+    pace: FramePace,
+  ) {
+    this.tail = new DrawnTail(pace);
     this.gather.frustumCulled = this.crystals.frustumCulled = false;
     this.gather.renderOrder = this.crystals.renderOrder = 5;
     this.group.add(this.gather, this.crystals, this.standIn);
@@ -817,13 +859,13 @@ class Wear {
   /** When the last stage's dust came (its drawn ms; null: none yet, as a stage at drawn time 0 is a stage). */
   private lastStage: number | null = null;
   private stoneNext = 0;
-  /** Its own time (ms), which every puff and stone is timed by: the frames drawn, each at most a tenth of a second (a
-   *  driven clock's whole), as the other forces' tails (`DrawnTail`), so a stalled view never loses the dust. */
+  /** Its own time (ms), which every puff and stone is timed by: the frames drawn, as `FramePace` counts them, as the
+   *  other forces' tails (`DrawnTail`), so a stalled view never loses the dust. */
   private drawn = 0;
   /** The wall time of the last frame drawn (ms; null: none yet). */
   private lastWall: number | null = null;
 
-  constructor(private readonly clock: Clock) {
+  constructor(private readonly pace: FramePace) {
     this.dustGeometry.setAttribute("dustAlpha", new InstancedBufferAttribute(this.dustAlpha, 1));
     this.dustGeometry.setAttribute("dustColor", new InstancedBufferAttribute(this.dustColor, 3));
     this.stoneGeometry.setAttribute("stoneColor", new InstancedBufferAttribute(this.stoneColor, 3));
@@ -1045,7 +1087,7 @@ class Wear {
   update(wall: number): void {
     const step = this.lastWall === null ? 0 : Math.max(0, wall - this.lastWall);
     this.lastWall = wall;
-    this.drawn += this.clock.driven ? step : Math.min(step, 100);
+    this.drawn += this.pace.count(step);
     const now = this.drawn;
     this.group.visible = this.active;
     if (!this.group.visible) return;
@@ -1146,6 +1188,8 @@ export class ForceEffects {
   private readonly plume: Plume;
   private readonly glacier: Glacier;
   private readonly wear: Wear;
+  /** The pace its frames are drawn at, which the tails play by. */
+  private readonly pace: FramePace;
   private frame = 0;
   private verb: ForceMoment["verb"] | null = null;
   /** The last force is over (kept or dropped): the next moment is a new force's (D378). */
@@ -1162,11 +1206,12 @@ export class ForceEffects {
     /** The scene's sun (its uniform), which the worn stones take. */
     sun?: { value: Vector3 },
   ) {
-    this.impact = new Impact(clock);
-    this.rupture = new Rupture(clock);
-    this.plume = new Plume(clock);
-    this.glacier = new Glacier(clock);
-    this.wear = new Wear(clock);
+    this.pace = new FramePace(clock);
+    this.impact = new Impact(this.pace);
+    this.rupture = new Rupture(this.pace);
+    this.plume = new Plume(this.pace);
+    this.glacier = new Glacier(clock, this.pace);
+    this.wear = new Wear(this.pace);
     // (the moments are the edit's own show, never the bloom's source: aidLayer.ts)
     scene.add(...[this.impact.group, this.rupture.group, this.plume.group, this.glacier.group, this.wear.group].map((g) => onAidLayer(g)));
     if (sun) this.wear.useSun(sun);
@@ -1289,9 +1334,11 @@ export class ForceEffects {
 
   private tick = (): void => {
     this.frame = 0;
+    this.pace.frame(this.clock.now());
     const on = this.advance();
     this.render();
     if (on) this.frame = requestAnimationFrame(this.tick);
+    else this.pace.rest();
   };
 
   dispose(): void {
