@@ -247,13 +247,29 @@ test(`clicked quickly (D378): the next force plays in full from its first moment
     log.lap(`${key} played`, ` (${drawn})`);
   };
   log.lap("set up");
+  // what shows the moment the force is kept, read by the page itself at its first turn after: the test's own reads
+  // come seconds later where the browser draws slowly (CI's software drawing, about 2 s a frame on two cores), and the
+  // lava cools by the clock (#881)
+  await page.evaluate(() => {
+    const w = window as unknown as { atKeep?: unknown };
+    w.atKeep = undefined;
+    let began = false;
+    const id = setInterval(() => {
+      const on = window.dgmEditor!.force() !== null;
+      if (began && !on) {
+        w.atKeep = window.dgm3d!.renderer.forceShowing;
+        clearInterval(id);
+      }
+      began ||= on;
+    }, 10);
+  });
   await force(a, "30", far);
   // (kept: an eruption's lava still cools, however slowly the browser draws; a crater's dust may
   // already have settled where it keeps slowly, as software drawing on CI does: forcePlayback.test
   // holds that case on exact time)
   if (a === "Shift+Digit3") {
-    const lava = (await page.evaluate(() => window.dgm3d!.renderer.forceShowing))!.erupt;
-    log.lap("its lava read", ` (cooled ${lava ? lava.cooling.toFixed(2) + " s" : "out"})`);
+    const lava = (await page.evaluate(() => (window as unknown as { atKeep?: Record<string, { cooling: number } | null> | null }).atKeep))?.erupt ?? null;
+    log.lap("its lava read", ` (cooled ${lava ? lava.cooling.toFixed(2) + " s" : "out"} at the keep)`);
     expect(lava).not.toBeNull();
   }
   await force(b, "35", next);
