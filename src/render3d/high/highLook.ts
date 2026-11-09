@@ -111,7 +111,7 @@ export class HighLook {
   /** The trees' layout the depth map was last drawn with (Forest `revision`), and the wait for their models to settle
    *  after the camera changed them (`LOD_SETTLE`). */
   private drawnLayout = -1;
-  private lodTimer = 0;
+  private lodTimer: ReturnType<typeof setTimeout> | undefined;
   private waterSince = 0;
   private waterTimer = 0;
   private disposed = false;
@@ -391,9 +391,9 @@ export class HighLook {
     // depth map kept when drawn from afar. Once the camera's changes to the models have settled the map is drawn
     // again, once, never through a zoom or a turn: `LOD_SETTLE`)
     if (this.forest && this.effects.vegetation && this.forest.update(camera, pixels, !this.lower)) {
-      window.clearTimeout(this.lodTimer);
-      this.lodTimer = window.setTimeout(() => {
-        this.lodTimer = 0;
+      if (this.lodTimer) clearTimeout(this.lodTimer);
+      this.lodTimer = setTimeout(() => {
+        this.lodTimer = undefined;
         if (this.disposed || !this.forest || this.forest.revision === this.drawnLayout) return;
         this.shadows.dirty = true;
         this.host.requestRender();

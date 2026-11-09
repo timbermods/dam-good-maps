@@ -27,13 +27,11 @@ function fakeRenderer(): WebGLRenderer {
 
 afterEach(() => {
   vi.useRealTimers();
-  vi.unstubAllGlobals();
 });
 
 describe("High's depth map and the trees' models", () => {
   it("is drawn again with the close-up models once a zoom in has settled, and not through the zoom", () => {
     vi.useFakeTimers();
-    vi.stubGlobal("window", globalThis);
     const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
     let asked = 0;
     const host: HighHost = {
