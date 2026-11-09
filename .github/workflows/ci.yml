@@ -30,7 +30,7 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' && github.base_ref == 'dev' }}
 
-# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in eight shards, the
+# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in fifteen shards, the
 # Python oracle, generation, and the cross-engine determinism check with the Rust build. They fail only on
 # breakage. The heaviest checks run nightly (nightly.yml): the long property runs, the full oracle and the
 # 100-seed batches.
@@ -132,22 +132,28 @@ jobs:
         run: npm run build
 
   # The browser specs run as parallel shards, each on its own runner with its own build (Playwright builds
-  # the app itself, twice, in its web server). Every spec runs in exactly one shard (`--shard=i/N`); the
-  # split is by test count in file order (a file in parallel mode splits by test), so the same workflow suits any
-  # branch. Raising the shard count is the fix if a branch's specs outgrow the 30 minutes a job gets, never a longer
-  # limit; the slowest specs (layout, look-high, textClipping) run in parallel mode so no shard holds them all on one
-  # worker. (Seven since 2026-10-27: with six, the shard holding layout and look-high ran past its 30 minutes twice.)
+  # the app itself, twice, in its web server), one worker to a runner (playwright.config.ts). Every spec runs in exactly
+  # one shard (`--shard=i/N`); the split is by test count in file order (a file in parallel mode, as layout and
+  # textClipping are, splits by test), so the same workflow suits any branch. Raising the shard count is the fix if a
+  # branch's specs outgrow the 30 minutes a job gets, never a longer limit or a second worker.
+  # One worker since 2026-11-09: with two, each spec drawing in software on the runner's four cores, whichever spec lost
+  # the cores ran two to three times slower and went red (dev's runs 42592717654, look-high.spec.ts:77 at 3.1 min past
+  # its 180 s beside naturalizeWorker; 42599783087, editGlow.spec.ts:236 past a 5 s wait beside forces and forceKeys).
+  # Fifteen shards, measured on those two runs: each test's smaller time of the two, which is no less than its time on a
+  # runner to itself, summed by `--list --shard=i/N`, gives the slowest shard 27 minutes of tests at fifteen (31 at
+  # twelve to fourteen, past the 30 with the build). Alone, look-high took 0.44 of its time beside a neighbour; at 0.6
+  # the slowest shard is about 16 minutes of tests, 18 to 20 a job. (Seven shards from 2026-10-27, eight from 2026-11-09, #893, each with two workers.)
   browser:
     needs: changes
     # (not on a pull request into dev: the browser specs run on dev's tip once it merges)
     if: needs.changes.outputs.heavy == 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'dev')
-    name: browser (${{ matrix.shard }}/8)
+    name: browser (${{ matrix.shard }}/15)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -158,8 +164,8 @@ jobs:
       - uses: ./.github/actions/playwright
         with:
           browsers: chromium
-      - name: Browser tests, shard ${{ matrix.shard }} of 8 (Node and Chromium produce the same bytes)
-        run: npx playwright test --shard=${{ matrix.shard }}/8
+      - name: Browser tests, shard ${{ matrix.shard }} of 15 (Node and Chromium produce the same bytes)
+        run: npx playwright test --shard=${{ matrix.shard }}/15
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
