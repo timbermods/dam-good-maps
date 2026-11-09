@@ -835,7 +835,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   changes nothing says why beside the pointer for a moment: "Moist ground keeps its height: weather dry land" when
   most of it pressed on moist soil (an island in a lake is all moist), else "Nothing here to weather" (showcase-craft gap 23). It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
-  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
+  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. It is
+  weathered off the page in a worker of its own (D422, #868: `worker/naturalize.worker.ts`, `raster/remoteStroke.ts`),
+  on the terrain and land the page shows, one call out at a time and the dabs meanwhile as one batch, the land a frame
+  or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. A new
   stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
   whatever its foot took, pulling back above water too), rule 3 (dab by dab, some
   cliffs' scree slopes lost, so a repeated stroke kept cutting those cliffs back), with D399's first rule

@@ -752,10 +752,19 @@ export class BrushPainter {
     return new RemotePreview(settings, h.heights(), h.W, h.H, this.ground, h.weather!, (r) => this.landed(r), t.pre.slice(), t.protect);
   }
 
-  /** The worker's land for a stroke arrived (D422): drawn now (its water flows there already). */
+  /** The worker's land for a stroke arrived (D422): drawn now, and to the map's worker for its water (D197), as
+   *  the other brushes' land goes: with the next frame's draft while the stroke is painted, at once after it. */
   private landed(r: Rect): void {
-    this.host.renderer.updateTerrainRect(this.host.heights(), r);
-    if (this.stroke) this.feel();
+    const h = this.host;
+    h.renderer.updateTerrainRect(h.heights(), r);
+    const st = this.stroke;
+    if (!st || !(st.preview instanceof RemotePreview)) {
+      h.draft?.(r, cut(h.heights(), r, h.W));
+      return;
+    }
+    const d = st.drafted;
+    st.drafted = d ? { x0: Math.min(d.x0, r.x0), y0: Math.min(d.y0, r.y0), x1: Math.max(d.x1, r.x1), y1: Math.max(d.y1, r.y1) } : { ...r };
+    this.feel();
   }
 
   /** The pointer moved while painting: dabs along the way, a fifth of the brush apart (or the whole
@@ -976,7 +985,9 @@ export class BrushPainter {
       return false;
     });
     if (!rigid.length) return;
-    st.settings = { ...st.settings, rigid };
+    // (on the settings themselves: they are the record the preview writes where the water stood into, and a
+    // worker's stroke takes its whole record into them after this, #875's review)
+    st.settings.rigid = rigid;
     const r = st.preview.finish(rigid);
     if (r) h.renderer.updateTerrainRect(now, r);
   }
@@ -1006,6 +1017,8 @@ export class BrushPainter {
     if (st.queued.length) this.dab(st.queued.splice(0));
     // (the worker's stroke: once its land is all in)
     if (st.preview instanceof RemotePreview) {
+      // (the land drawn since the last frame's draft goes to the water now; what comes after goes as it comes)
+      this.sendDraft(true);
       this.stroke = null;
       const preview = st.preview;
       this.committing = preview

@@ -5,6 +5,7 @@
 import "./isolation";
 import { transfer, wrap, type Remote } from "comlink";
 import type { GeneratorApi } from "../worker/generator.worker";
+import type { NaturalizeApi } from "../worker/naturalize.worker";
 import type { ShowcaseMessage, ShowcaseRequest } from "../worker/showcaseApi";
 import type { MapSpec } from "../core/spec/mapspec";
 import { machineThreads, newWaterBudget, parallelWaterSupported, threadsFor, waterThreadBudget } from "../core/sim/parallelPolicy";
@@ -69,6 +70,13 @@ function waterHelpers(): { worker: Worker; port: MessagePort }[] {
     return []; // helper creation is optional: keep the one-thread generator working
   }
   return helpers;
+}
+
+/** Naturalize's weathering (D422, #868): one worker for the page, never the map's, so a stroke's dabs never wait
+ *  behind the map's water; made on the first call (the editor asks as it opens, so it is ready by the first stroke). */
+let naturalize: Remote<NaturalizeApi> | null = null;
+export function naturalizer(): Remote<NaturalizeApi> {
+  return (naturalize ??= wrap<NaturalizeApi>(new Worker(new URL("../worker/naturalize.worker.ts", import.meta.url), { type: "module", name: "naturalize" })));
 }
 
 /** D329's background search: a generator worker of its own (no checks worker), so the editor's
