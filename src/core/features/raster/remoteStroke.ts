@@ -1,8 +1,15 @@
-// A Naturalize stroke weathered in the worker (PLAN §20 D422): the page sends its dabs as they come and
+// A Naturalize stroke weathered in a worker (PLAN §20 D422): the page sends its dabs as they come and
 // shows the land the worker sends back, a frame or two behind the cursor, so painting stays smooth however
-// long a dab takes. The worker runs the same preview the page would (strokePreview.ts, rule 3, dab by
-// dab), so what the page shows is exactly what the operation builds. This is the page's side: the same
-// surface as `StrokePreview` where the brushes read it, the land arriving through `onLand`.
+// long a dab takes. The worker runs the same preview the page would (strokePreview.ts, dab by dab) on the
+// land the page sends with the stroke's start, the page's own terrain and shown heights as its other
+// brushes read them, so what the page shows is exactly what the operation builds. `RemotePreview` is the
+// page's side: the same surface as `StrokePreview` where the brushes read it, the land arriving through
+// `onLand`. `WeatherStroke` is the worker's.
+//
+// The worker is the weathering's own (worker/naturalize.worker.ts, #868), never the map's: on a map with
+// caves the stroke's water (the stacked engine's draft, a quarter of a second to build, the whole map's
+// engine rebuilt after every land change) ran on the map's worker, and each dab's answer waited behind it.
+// The page sends the stroke's land to the map's worker for its water, as it does for the other brushes.
 //
 // One call is with the worker at a time (#868): the dabs that come while it works wait as one batch, sent
 // whole when its land comes back. A call a batch of dabs, each waiting behind the last, grew a queue the
@@ -16,6 +23,8 @@
 
 import type { BrushParams } from "./brush";
 import type { Rect } from "./brush";
+import type { Runs } from "../../math/grid";
+import { StrokePreview, type TerrainState } from "./strokePreview";
 
 /** What the worker sends back for dabs: the rectangle of shown heights that changed, those heights, and
  *  the stroke's settings as the worker's preview recorded them (its rule, where the water stood). */
@@ -176,6 +185,51 @@ export class RemotePreview {
   /** The worker's record: the rule and where the water stood, as the operation keeps them. */
   private take(s: Omit<BrushParams, "dabs">): void {
     Object.assign(this.record, { weathering: s.weathering, ...(s.shore ? { shore: s.shore } : {}), ...(s.pools ? { pools: s.pools } : {}), ...(s.moist ? { moist: s.moist } : {}) });
+  }
+}
+
+/** The worker's side (D422, #868): the stroke's preview on the land the page sent with its start (`state`, the
+ *  page's terrain; `heights`, its shown heights, kept and changed here), each call answered with the shown
+ *  heights it changed and the record so far. */
+export class WeatherStroke {
+  private readonly preview: StrokePreview;
+  /** The stroke's settings as the preview records them (its rule, where the water stood). */
+  private readonly settings: Omit<BrushParams, "dabs">;
+
+  constructor(
+    settings: Omit<BrushParams, "dabs">,
+    state: TerrainState,
+    private readonly shown: Uint8Array,
+    private readonly W: number,
+    H: number,
+    ground: Runs,
+  ) {
+    this.settings = { ...settings };
+    this.preview = new StrokePreview(this.settings, state, shown, W, H, ground);
+  }
+
+  add(dabs: ArrayLike<number>, pressure?: ArrayLike<number>): WeatheredLand | null {
+    return this.land(this.preview.add(dabs, pressure));
+  }
+
+  finish(rigid: readonly (readonly [number, number, number, number])[]): WeatheredLand | null {
+    return this.land(this.preview.finish(rigid));
+  }
+
+  /** The stroke's dabs are all in: its heights before the integrity pass, its protected tiles and its whole
+   *  record (a last call that changed no tile grew it with no land to carry it, #873). */
+  end(): { pre: Uint8Array; protect: Uint8Array; settings: Omit<BrushParams, "dabs"> } {
+    return { pre: this.preview.pre.slice(), protect: this.preview.protect.slice(), settings: { ...this.settings } };
+  }
+
+  /** What a call changed: the shown heights in the rectangle, and the settings as recorded so far. */
+  private land(r: Rect | null): WeatheredLand | null {
+    if (!r) return null;
+    const W = this.W;
+    const bw = r.x1 - r.x0 + 1;
+    const heights = new Uint8Array(bw * (r.y1 - r.y0 + 1));
+    for (let y = r.y0; y <= r.y1; y++) heights.set(this.shown.subarray(y * W + r.x0, y * W + r.x1 + 1), (y - r.y0) * bw);
+    return { rect: r, heights, settings: { ...this.settings } };
   }
 }
 
