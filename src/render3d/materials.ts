@@ -417,16 +417,21 @@ export function fillDetailTexture(detail: Uint8Array, size: number, shape?: Uint
   b.needsUpdate = true;
 }
 
-/** The bake worker's surface, its normal (`normalSize` square), badwater's pattern and contaminated ground's
- *  (high/bake.ts `waterTexture`) into the page's textures; the surface's and the normal's grow from their one flat
- *  texel to them (their GPU copies made again). */
-export function fillWaterTexture(data: Uint8Array, normal: Uint8Array, normalSize: number, bad: Uint8Array, soil: Uint8Array): void {
+/** The flow's albedo (high/bake.ts `albedoTexture`, `size` square) into the page's texture, which grows from its one
+ *  flat texel to it (its GPU copy made again). */
+export function fillAlbedoTexture(data: Uint8Array, size: number): void {
   const t = waterSurfaceTexture();
-  if (t.image.width !== WATER_TEXTURE_SIZE) {
-    t.image = { data, width: WATER_TEXTURE_SIZE, height: WATER_TEXTURE_SIZE };
+  if (t.image.width !== size) {
+    t.image = { data, width: size, height: size };
     t.dispose();
   } else (t.image.data as Uint8Array).set(data);
   t.needsUpdate = true;
+}
+
+/** The bake worker's normal (`normalSize` square), badwater's pattern and contaminated ground's (high/bake.ts
+ *  `waterTexture`) into the page's textures; the normal's grows from its one flat texel to it (its GPU copy made
+ *  again). */
+export function fillWaterTexture(normal: Uint8Array, normalSize: number, bad: Uint8Array, soil: Uint8Array): void {
   const nt = waterNormalTexture();
   if (nt.image.width !== normalSize) {
     nt.image = { data: normal, width: normalSize, height: normalSize };
@@ -2375,8 +2380,8 @@ ${hook(h, "water")}        #ifdef CAVES
         #endif
         // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
         // right round the brush while it paints a submerged bed, fading back over a tile or two.
-        // Clean water keeps a faint blue tint over the bed, its ripples and a soft bright line along
-        // its shore; badwater keeps its colour, murky and half see-through, with its glowing lines
+        // Clean water takes a blue tint over the bed by its depth, never past half, with its ripples kept faintly and a
+        // crisp waterline along its shore; badwater keeps its colour, murky and half see-through, with its glowing lines
         // (never a hatching: it reads by lightness, colour and texture, D324)
         // the water as the game draws it, fogged and graded; the editing aids after it, in their own channel (D497):
         // the clear water's veil (D196, D212), the selection, the sources' wells and the pointer's source's glow (D196),

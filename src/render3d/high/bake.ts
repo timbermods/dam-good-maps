@@ -78,12 +78,14 @@ export type BakeJob =
   | { id: number; kind: "share"; W: number; H: number; sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">; fall?: boolean }
   | { id: number; kind: "shadows"; W: number; H: number; heights: Uint8Array; casters: Float32Array | null; levels: Uint8Array | null; rock: ShadowRock | null; sun: Sun }
   | { id: number; kind: "waterTexture" }
-  | { id: number; kind: "detailTexture"; shape: boolean };
+  | { id: number; kind: "detailTexture"; shape: boolean }
+  | { id: number; kind: "albedoTexture" };
 export type BakeResult =
   | { id: number; kind: "flow"; flow: Uint8Array; shapes: MotionShapes; cave: CaveCurrent | null; ms: number }
   | { id: number; kind: "share"; share: Uint8Array; fall: Uint8Array; ms: number }
   | { id: number; kind: "shadows"; bytes: Uint8Array; hi: Float32Array; lo: Float32Array; ms: number }
-  | { id: number; kind: "waterTexture"; data: Uint8Array; normal: Uint8Array; normalSize: number; bad: Uint8Array; soil: Uint8Array; ms: number }
+  | { id: number; kind: "waterTexture"; normal: Uint8Array; normalSize: number; bad: Uint8Array; soil: Uint8Array; ms: number }
+  | { id: number; kind: "albedoTexture"; data: Uint8Array; size: number; ms: number }
   | { id: number; kind: "detailTexture"; detail: Uint8Array; size: number; shape: Uint8Array | null; ms: number };
 /** What the worker sends back: the answer, or why the job failed. */
 export type BakeReply = BakeResult | { id: number; kind: "error"; error: string };
@@ -91,7 +93,10 @@ export type BakeReply = BakeResult | { id: number; kind: "error"; error: string 
 export function runBake(job: BakeJob): BakeResult {
   const t0 = performance.now();
   // the textures the water's flow carries (waterTextures.ts), made once a page, here rather than on its thread
-  if (job.kind === "waterTexture") return { id: job.id, kind: "waterTexture", data: makeWaterTexture(WATER_TEXTURE_SIZE), normal: makeWaterNormal(NORMAL_TEXTURE_SIZE), normalSize: NORMAL_TEXTURE_SIZE, bad: makeBadwaterTexture(BADWATER_TEXTURE_SIZE), soil: makeSoilTexture(SOIL_TEXTURE_SIZE), ms: performance.now() - t0 };
+  if (job.kind === "waterTexture") return { id: job.id, kind: "waterTexture", normal: makeWaterNormal(NORMAL_TEXTURE_SIZE), normalSize: NORMAL_TEXTURE_SIZE, bad: makeBadwaterTexture(BADWATER_TEXTURE_SIZE), soil: makeSoilTexture(SOIL_TEXTURE_SIZE), ms: performance.now() - t0 };
+  // the flow's albedo at the game's 2048² (Q9 P5), its own job, the textures' worker's last: about 1.3 s, its mean drawn
+  // until then
+  if (job.kind === "albedoTexture") return { id: job.id, kind: "albedoTexture", data: makeWaterTexture(WATER_TEXTURE_SIZE), size: WATER_TEXTURE_SIZE, ms: performance.now() - t0 };
   // the still detail albedo (Q9 P6), its own texture at the game's size, every look's; with the water sources' pattern
   // (badwater's texture's A, Q9 P7) for the light look, which makes none of the others
   if (job.kind === "detailTexture") return { id: job.id, kind: "detailTexture", detail: makeDetailField(DETAIL_TEXTURE_SIZE), size: DETAIL_TEXTURE_SIZE, shape: job.shape ? makeSourceShape(BADWATER_TEXTURE_SIZE) : null, ms: performance.now() - t0 };

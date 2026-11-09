@@ -314,6 +314,49 @@ export function voronoi(x: number, y: number, p: number, c: Float64Array, out: F
   out[2] = id;
 }
 
+/** A tiling Voronoi's points (`cellPoints`, period `p`) laid out over cells −`PAD` … p − 1 + `PAD`, each its place in
+ *  cells (the cell's index plus its jitter) and its random: `voronoiPadded` reads them with no wrapping. */
+const PAD = 2;
+function paddedPoints(p: number, c: Float64Array): Float64Array {
+  const q = p + 2 * PAD;
+  const out = new Float64Array(q * q * 3);
+  for (let y = 0; y < q; y++)
+    for (let x = 0; x < q; x++) {
+      const k = (wrap(wrap(y - PAD, p), p) * p + wrap(wrap(x - PAD, p), p)) * 3;
+      const o = (y * q + x) * 3;
+      out[o] = x - PAD + c[k];
+      out[o + 1] = y - PAD + c[k + 1];
+      out[o + 2] = c[k + 2];
+    }
+  return out;
+}
+
+/** `voronoi` at (x, y) in cells, x and y within −1 … p + 1, from `paddedPoints`: the same distances and random. */
+function voronoiPadded(x: number, y: number, p: number, c: Float64Array, out: Float64Array): void {
+  const q = p + 2 * PAD;
+  const ix = Math.floor(x) + PAD;
+  const iy = Math.floor(y) + PAD;
+  let f1 = 81;
+  let f2 = 81;
+  let id = 0;
+  for (let j = -1; j <= 1; j++) {
+    let k = ((iy + j) * q + ix - 1) * 3;
+    for (let i = -1; i <= 1; i++, k += 3) {
+      const dx = c[k] - x;
+      const dy = c[k + 1] - y;
+      const d = dx * dx + dy * dy;
+      if (d < f1) {
+        f2 = f1;
+        f1 = d;
+        id = c[k + 2];
+      } else if (d < f2) f2 = d;
+    }
+  }
+  out[0] = Math.sqrt(f1);
+  out[1] = Math.sqrt(f2);
+  out[2] = id;
+}
+
 /** As `voronoi`, with the third nearest feature point's distance too (out[3]). */
 function voronoi3(x: number, y: number, p: number, c: Float64Array, out: Float64Array): void {
   const ix = Math.floor(x);
@@ -372,8 +415,8 @@ export function makeWaterTexture(size: number): Uint8Array {
   const v1 = new Float64Array(3);
   const v2 = new Float64Array(3);
   const [P1, P2] = NET.cells;
-  const pts1 = cellPoints(P1, 21);
-  const pts2 = cellPoints(P2, 31);
+  const pts1 = paddedPoints(P1, cellPoints(P1, 21));
+  const pts2 = paddedPoints(P2, cellPoints(P2, 31));
   // (each noise at the texels' middles, a row at a time)
   const warpX = noiseRows(lattice(8, 11), size);
   const warpY = noiseRows(lattice(8, 12), size);
@@ -387,7 +430,9 @@ export function makeWaterTexture(size: number): Uint8Array {
   // and read between its texels)
   const bright = patchRows(size);
   // (the lines' profile by their distance across over their width, squared)
+  // (0 past three times its width squared, where it is under e^−81)
   const profile = (t2: number) => {
+    if (t2 > 3) return 0;
     let q = t2;
     for (let j = 1; j < NET.edge; j++) q *= t2;
     return Math.exp(-q);
@@ -400,7 +445,7 @@ export function makeWaterTexture(size: number): Uint8Array {
       // a gentle warp so the cells are irregular, as caustics are
       const wx = warpXs[x] - 0.5;
       const wy = warpYs[x] - 0.5;
-      voronoi(u * P1 + wx * 0.9, v * P1 + wy * 0.9, P1, pts1, v1);
+      voronoiPadded(u * P1 + wx * 0.9, v * P1 + wy * 0.9, P1, pts1, v1);
       const w = NET.width * (0.6 + 0.8 * widthsAt[x]);
       const e1 = v1[1] - v1[0];
       const line1 = profile((e1 / w) ** 2);
@@ -408,7 +453,7 @@ export function makeWaterTexture(size: number): Uint8Array {
       const cluster = Math.min(1, Math.max(0, (clustersAt[x] - 0.45) * 2.5)) * NET.small;
       let line2 = 0;
       if (cluster > 0) {
-        voronoi(u * P2 + wx * 1.4, v * P2 + wy * 1.4, P2, pts2, v2);
+        voronoiPadded(u * P2 + wx * 1.4, v * P2 + wy * 1.4, P2, pts2, v2);
         line2 = profile(((v2[1] - v2[0]) / (w * 1.2)) ** 2) * cluster;
       }
       // the lines brighter in some places than others, all of it bright in patches a tile or two across and faint
@@ -416,9 +461,11 @@ export function makeWaterTexture(size: number): Uint8Array {
       const i = y * size + x;
       net[i] = (Math.max(line1, line2) * (0.35 + 0.65 * brightsAt[x]) + NET.ground * groundsAt[x]) * brightAt[x] * (1 + NET.grain * (hash(x, y, 23) - 0.5));
       // blue blobs inside the large cells: soft toward the cell's edge, broken by noise, some cells more than others
-      const inside = 1 - Math.exp(-((e1 / NET.inside) ** 2));
-      const patch = Math.max(0, patchesAt[x] * 0.75 + finesAt[x] * 0.25 - NET.blob);
-      data[i * 2 + 1] = Math.min(255, Math.round(((0.35 + 0.65 * v1[2]) * inside * patch * 255) / STORE.blob));
+      const patch = patchesAt[x] * 0.75 + finesAt[x] * 0.25 - NET.blob;
+      if (patch > 0) {
+        const inside = 1 - Math.exp(-((e1 / NET.inside) ** 2));
+        data[i * 2 + 1] = Math.min(255, Math.round(((0.35 + 0.65 * v1[2]) * inside * patch * 255) / STORE.blob));
+      }
     }
   }
   // (the network as bytes by its rank, so its distribution is the game's albedo's first component, its long bright
