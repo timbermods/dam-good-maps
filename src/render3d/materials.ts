@@ -238,9 +238,19 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
  *  material shares, as a view draws its frames one at a time. */
 export const BLOOM_SOURCE = { value: 0 };
 
-/** An eruption's lava's crust (D206): from its cooling's first second to its last (s), the lava's own light fades to
- *  none; from the end on it gives none, so nothing of it can feed the bloom (renderer.ts `blooms`). */
-export const LAVA_CRUST = [2.0, 5.8] as const;
+/** An eruption's lava as the terrain shader draws it (D206), by its cooling's age (s): its own light (an emission, `hot`
+ *  turning to `cooled` over `cooling`), at most `most` of a pixel's colour, the ground under it darkening to a crust
+ *  (× `crustTint`, over `crust`) that puts its light out, and the whole fading back into the ground (over `fade`). The
+ *  bloom reads it too (bloom.ts `lavaSourceMax`, `LAVA_BLOOM_ENDS`), so the shader and the bloom's gate can't drift. */
+export const LAVA = {
+  hot: [3.2, 0.5, 0.02] as Rgb,
+  cooled: [0.38, 0.028, 0.013] as Rgb,
+  cooling: 3.6,
+  crust: [2.0, 5.8] as readonly [number, number],
+  crustTint: [0.49, 0.46, 0.43] as Rgb,
+  fade: [3.3, 6.4] as readonly [number, number],
+  most: 0.9,
+} as const;
 
 let noCaveFlow: Data3DTexture | null = null;
 /** The cave current's placeholder (one still cell), shared: never read while `caveFlowLevels.y` is 0. */
@@ -1823,15 +1833,15 @@ ${hook(h, "lit")}
         if (eruptionAge >= 0.0 && !eWall) {
           vec4 e = texture2D(eruptionMask, eAt / mapSize);
           float arrival = smoothstep(e.a * 1.1, e.a * 1.1 + 0.55, eruptionAge);
-          float cooling = smoothstep(0.0, 3.6, coolingAge);
-          float crust = smoothstep(${f(LAVA_CRUST[0])}, ${f(LAVA_CRUST[1])}, coolingAge);
-          float fade = 1.0 - smoothstep(3.3, 6.4, coolingAge);
+          float cooling = smoothstep(0.0, ${f(LAVA.cooling)}, coolingAge);
+          float crust = smoothstep(${f(LAVA.crust[0])}, ${f(LAVA.crust[1])}, coolingAge);
+          float fade = 1.0 - smoothstep(${f(LAVA.fade[0])}, ${f(LAVA.fade[1])}, coolingAge);
           float cracks = pow(1.0 - abs(sin(vWorld.x * 2.8 + sin(vWorld.z * 1.2) * 2.6 + vWorld.z * 1.6)), 12.0);
           float hot = max(e.r * (0.56 + 0.44 * cracks), e.g * cracks);
-          float k = hot * arrival * fade * 0.9;
+          float k = hot * arrival * fade * ${f(LAVA.most)};
           // (the crust is the ground darkened; the rest of the lava is its own light)
-          c *= 1.0 - k + k * crust * vec3(0.49, 0.46, 0.43);
-          emission = mix(vec3(3.2, 0.5, 0.02), vec3(0.38, 0.028, 0.013), cooling) * k * (1.0 - crust);
+          c *= 1.0 - k + k * crust * ${glColor3(LAVA.crustTint)};
+          emission = mix(${glColor3(LAVA.hot)}, ${glColor3(LAVA.cooled)}, cooling) * k * (1.0 - crust);
           float ash = e.b * smoothstep(0.5, 2.4, eruptionAge) * (1.0 - smoothstep(0.5, 6.0, coolingAge)) * 0.24 * max(0.0, n.y);
           c = mix(c, vec3(0.52, 0.49, 0.45), ash);
           emission *= 1.0 - ash;

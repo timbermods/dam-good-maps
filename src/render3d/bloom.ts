@@ -54,7 +54,7 @@ import {
   type WebGLRenderer,
 } from "three";
 import { AID_LAYER } from "./aidLayer";
-import { BLOOM_SOURCE, GAME_POST_GLSL } from "./materials";
+import { BLOOM_SOURCE, GAME_POST_GLSL, LAVA } from "./materials";
 import { gamePostRgb } from "./palette";
 
 /** The game's bloom (`Rendering/Volume` Bloom, Timberborn 1.1.2.8; `tools/game-bloom.py`). */
@@ -85,6 +85,37 @@ export function bloomLift(b: number): number {
   const soft = Math.min(Math.max(x - t + knee, 0), 2 * knee) ** 2 / (4 * knee + 1e-4);
   return GAME_BLOOM.intensity * Math.max(x - t, soft);
 }
+
+const smooth = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/** The brightest an eruption's lava can make a pixel of the bloom's source at its cooling's age `t` (s), on ground no
+ *  brighter than `ground` (display, by day at most the knee: tests/unit/bloom.test.ts), as the terrain shader draws it
+ *  (materials.ts `LAVA`): the ground × (1 − k + k × crust × its tint) + the lava's light × k × (1 − crust), the lava's
+ *  share k at most `LAVA.most` × its fade. It is straight in k, so its most is at k = 0 (the ground) or at k's most;
+ *  ash and fog only take it toward colours under the knee. */
+export function lavaSourceMax(t: number, ground = GAME_BLOOM.threshold / 2): number {
+  const cooling = smooth(0, LAVA.cooling, t);
+  const crust = smooth(LAVA.crust[0], LAVA.crust[1], t);
+  const k = LAVA.most * (1 - smooth(LAVA.fade[0], LAVA.fade[1], t));
+  let most = ground;
+  for (let c = 0; c < 3; c++) {
+    const light = LAVA.hot[c] + (LAVA.cooled[c] - LAVA.hot[c]) * cooling;
+    most = Math.max(most, ground * (1 - k + k * crust * LAVA.crustTint[c]) + light * k * (1 - crust));
+  }
+  return most;
+}
+
+/** The cooling's age (s) from which no lava pixel can pass the bloom's knee, so its passes would add nothing: the first
+ *  hundredth of a second past which `lavaSourceMax` stays at the knee or under (renderer.ts `blooms`). */
+export const LAVA_BLOOM_ENDS = (() => {
+  const knee = GAME_BLOOM.threshold / 2;
+  let last = 0;
+  for (let t = 0; t <= LAVA.fade[1]; t += 0.001) if (lavaSourceMax(t) > knee) last = t;
+  return Math.ceil((last + 0.001) * 100) / 100;
+})();
 
 /** The canvas's code (0–255) → the linear colour before the grade that the post chain turns into it, for a grey (the
  *  post chain's saturation, +3 %, left out: `apply` puts on only what the bloom changes). The last code is the least
