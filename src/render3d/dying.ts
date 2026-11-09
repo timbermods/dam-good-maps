@@ -57,13 +57,16 @@ export function dryColour(species: string, c: Rgb): [number, number, number] {
 
 /** A dead plant as the game draws it (its MatureDead models against its Mature ones, read as above): a pine, birch or oak
  *  is bare wood in its own bark's colour weathered (`wood`: dead wood ÷ living bark, per channel; the pine's and oak's
- *  lighter and greyer, the birch's a shade darker), a blueberry bush keeps its leaves gone brown (`leaves`: the game's
+ *  lighter and greyer, the birch's a fifth darker), a blueberry bush keeps its leaves gone brown (`leaves`: the game's
  *  dead foliage, taken at our green's lightness as a dying form's is) and loses its berries, a succulent darkens
  *  (`ratio`); each `height` ÷ the living plant's (PineMatureDead 2.368 of 3.009, BirchMatureDead 1.387 of 1.924,
- *  OakMatureDead 1.533 of 2.259, BlueberryBushMatureDead 0.30 of 0.422, SucculentMatureDead 0.967 of 1.29). */
+ *  OakMatureDead 1.533 of 2.259, BlueberryBushMatureDead 0.30 of 0.422, SucculentMatureDead 0.967 of 1.29). The birch's
+ *  wood is its bark's light part, as its living bark (palette.ts `TREE_COLOURS.birchBark`): BirchMatureDead's texels
+ *  lighter than 0.3, 0.517/0.466/0.388, over BirchMature's, 0.634/0.579/0.490 (`tools/game-model-albedo.py --above 0.3`;
+ *  until 2026-11-08 0.93/0.93/0.92). */
 export const DEAD_FORM: Readonly<Record<string, { height: number; wood?: Rgb; leaves?: Rgb; ratio?: Rgb }>> = {
   Pine: { height: 0.79, wood: [1.25, 1.43, 1.6] },
-  Birch: { height: 0.72, wood: [0.93, 0.93, 0.92] },
+  Birch: { height: 0.72, wood: [0.815, 0.805, 0.792] },
   Oak: { height: 0.68, wood: [1.21, 1.24, 1.41] },
   BlueberryBush: { height: 0.71, leaves: [0.297, 0.178, 0.092] },
   Succulent: { height: 0.75, ratio: [0.81, 0.7, 0.74], leaves: [0.248, 0.156, 0.116] },

@@ -10,6 +10,7 @@
 // force away; with reduced motion the land is exactly the same.
 
 import { expect, test, type Page } from "@playwright/test";
+import { phases, watchOpen } from "./helpers";
 import { openEditor, setWaterSpeed, topDown } from "./open";
 import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
@@ -202,7 +203,11 @@ test(`clicked quickly (D378): the next force plays in full from its first moment
   await page.addInitScript(() => {
     (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true };
   });
+  // (where its time goes, in CI's log: software drawing takes about 2 s a frame)
+  const log = phases(`forces clicked quickly ${a} then ${b}`);
+  await watchOpen(page);
   await openTopDown(page);
+  await log.open(page);
   const { far } = await places(page);
   const onMap = (x: number, y: number) =>
     page.evaluate(([a, b]) => {
@@ -231,7 +236,13 @@ test(`clicked quickly (D378): the next force plays in full from its first moment
     await page.evaluate(() => ((window as unknown as { moments: unknown[] }).moments = []));
     await clickTile(page, at[0], at[1]);
     await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
+    const drawn = await page.evaluate(() => {
+      const r = (window as unknown as { dgm3d: { renderer: { framesDrawn?: number; bloomFrames?: number } } }).dgm3d.renderer;
+      return `${r.framesDrawn ?? "?"} frames drawn, ${r.bloomFrames ?? "?"} with the bloom`;
+    });
+    log.lap(`${key} played`, ` (${drawn})`);
   };
+  log.lap("set up");
   await force(a, "30", far);
   // (kept: an eruption's lava still cools, however slowly the browser draws; a crater's dust may
   // already have settled where it keeps slowly, as software drawing on CI does: forcePlayback.test
@@ -250,6 +261,7 @@ test(`clicked quickly (D378): the next force plays in full from its first moment
   await page.keyboard.press("Control+z");
   await page.keyboard.press("Control+z");
   await settled(page);
+  log.lap("undone");
   // (undone: no tail plays on over the land taken back)
   const after = await page.evaluate(() => window.dgm3d!.renderer.forceShowing);
   for (const v of ["craterize", "erupt", "quake", "glaciate", "erode"]) expect(after?.[v as keyof typeof after] ?? null, `${a} then ${b}, undone: ${v}`).toBeNull();

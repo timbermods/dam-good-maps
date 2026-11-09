@@ -2,8 +2,8 @@
 // editor. It draws a map view: terrain in 32×32 chunks (only dirty chunks are remeshed after an
 // edit; one mesher for terrain as runs, caves and overhangs included), translucent water surfaces, and
 // instanced objects. It has an orbit camera and a top-down view (north up until turned), picks tiles against
-// the heightfield, and renders when something changed, and while water moves. Waterfalls are the water's own
-// vertical faces where it steps down (waterMesh.ts; D201 amended 2026-10-29: as the game draws them).
+// the heightfield, and renders when something changed, and while water moves. Waterfalls are the water below a
+// step rising to meet the water above (fallSlope.ts, waterMesh.ts; D154 as amended 2026-11-08: as the game draws them).
 //
 // Map look (D86): the ground is coloured by soil (or by height, `setGroundMode`); the light is
 // baked when the mesh is built (light.ts: soft sun shadows) into two textures the
@@ -77,10 +77,10 @@ import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { AID_TINT, caveTexture, LAVA_CRUST, contaminationEdges, contaminationEdgesRect, drawPatterns, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { AID_LAYER, onAidLayer } from "./aidLayer";
-import { GameBloom, GAME_BLOOM_LOOKS } from "./bloom";
+import { GameBloom, GAME_BLOOM_LOOKS, LAVA_BLOOM_ENDS } from "./bloom";
 import { Refraction, WATER_REFRACTION } from "./refraction";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
@@ -2775,6 +2775,8 @@ export class MapRenderer {
   private thumbsLook = 0;
   /** Counts the view's frames: a picture's pixels are read when none has been queued since the GPU drew them. */
   private framesDrawn = 0;
+  /** Frames drawn with the game's bloom (`blooms`): what a spec's phase log counts (forces.spec.ts). */
+  private bloomFrames = 0;
   /** The instances tinted now (a highlight, a source's glow), with their own colours. */
   private lit: { mesh: InstancedMesh; i: number; color: [number, number, number] }[] = [];
   /** The tiles highlighted (`highlightObjects`), and in what colour. */
@@ -4128,6 +4130,7 @@ export class MapRenderer {
     this.gl.render(this.scene, cam);
     this.refraction.end();
     if (bloom) {
+      this.bloomFrames++;
       // (the view's draw counts, not the bloom's passes': `stats`)
       const counts = { ...this.gl.info.render };
       bloom.apply(this.gl);
@@ -4157,13 +4160,13 @@ export class MapRenderer {
    *  light look. And only while something in the frame can pass its knee (D453: by day nothing does, so its passes,
    *  about 1.4 ms of a GPU's in High, would change no pixel; `tests/unit/bloom.test.ts` holds the day's brightest under
    *  it, `tests/e2e/look-high.spec.ts` the frame alike with it and without): today an eruption's lava, until its crust
-   *  has put out its light (`LAVA_CRUST`). */
+   *  has put out its light (`LAVA_BLOOM_ENDS`). */
   private blooms(): boolean {
     if (this.software || !this.map) return false;
     const look = this.lookNow;
     if (look === "light" || !GAME_BLOOM_LOOKS[look === "standard" ? "standard" : "high"]) return false;
     const u = this.terrainMat.uniforms;
-    return !!u.eruptionAge && u.eruptionAge.value >= 0 && u.coolingAge.value < LAVA_CRUST[1];
+    return !!u.eruptionAge && u.eruptionAge.value >= 0 && u.coolingAge.value < LAVA_BLOOM_ENDS;
   }
 
   /** Whether this frame wants the copy of the screen behind the water (refraction.ts): a look that draws the game's

@@ -141,8 +141,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   the heightfield mesher saw. The mesher reads per-tile arrays, so the columns are dealt into layers (`waterLayers`):
   the open sky's first (each tile's top and the water on it, the renderer's surface water itself on a map with no
   water under a roof), then each other column into the first layer whose gaps agree with what it sees within
-  `LAYER_REACH` (4 tiles: a top's corners and curtains and the badwater blend round them; checked against a reach of
-  12, the same quads on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
+  `LAYER_REACH` (5 tiles: a top's corners and curtains, the badwater blend round them and a fall's hand-over; checked
+  against a reach of 12, the same quads on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
   `plainLayers(heights, sw)` is the one layer of a map without caves. A fall is a column's own curtain down to the
   water below (D201 amended 2026-10-29).
 - **Where it runs:** only where a column needs a layer of its own (`needsLayers`: water under a roof, or open water
@@ -587,15 +587,17 @@ Standard's shadow before a cave (item 8).
     source by the dither, as it has no coverage there). The canvas alone could not carry it: the chain reaches 255 from a
     display value of 1.28, under the knee's middle. An eruption's lava blooms as everything does.
   - **Drawn only when something can pass the knee** (D453): by day nothing does, so the passes would change no pixel and
-    are skipped; `renderer.ts` `blooms` draws them only while an eruption's lava gives off light (its age set, its
-    cooling short of `LAVA_CRUST`'s end). Measured with the passes forced on, about 2,900 day views (the start, ruins,
-    mines, every tree, clean water and its sources, a Badtide's water, both looks): the brightest source 1.28 (a water
-    glint), the start up close 1.270, and the bloom's result 0 or under a code (the start up close: 4 × 10⁻⁶), the
-    canvas the same to the byte. `tests/unit/bloom.test.ts` holds it: every model colour a face can turn to the sun, lit
-    as the game lights it, under the knee (the brightest, a mine's pale rubble, 1.262); the ruins' rust skeleton
-    (upright, 1.282 square to the sun), a mine's pale roots and the birch's bark (1.37 on a trunk square to the sun; the
-    game's bark is a warm grey, mean 0.525/0.474/0.392, `tools/game-model-albedo.py BirchMature`, ours near-white: still
-    to follow) held at their bounds; the sky's densest clouds 1.271, which move no code.
+    are skipped; `renderer.ts` `blooms` draws them only while an eruption's lava can pass the knee: its age set and its
+    cooling short of 2.25 s (`bloom.ts` `LAVA_BLOOM_ENDS`), past which its light at its most share of a pixel, on ground
+    at the knee, stays under it (`lavaSourceMax`, from `LAVA` in materials.ts, the constants the terrain shader draws
+    the lava by, so the two can't drift; its crust ends at 5.8 s). Measured with the passes forced on, about 2,900 day
+    views (the start, ruins, mines, every tree, clean water and its sources, a Badtide's water, both looks): the
+    brightest source 1.28 (a water glint), the start up close 1.270, and the bloom's result 0 or under a code (the start
+    up close: 4 × 10⁻⁶), the canvas the same to the byte. `tests/unit/bloom.test.ts` holds it: every model colour a face
+    can turn to the sun, lit as the game lights it, under the knee (the brightest, a mine's pale rubble, 1.262); the
+    ruins' rust skeleton (upright, 1.282 square to the sun) and a mine's pale roots held at their bounds; the sky's
+    densest clouds 1.271, which move no code. The birch's bark is held there too, at its upright bound (near-white, 1.37
+    on a trunk square to the sun in Standard and 1.42 in High; in the game's warm grey 1.23 and 1.155, below).
     `tests/e2e/look-high.spec.ts` checks the frame by day is skipped and the same to the byte with the passes and
     without, and that an eruption's lava draws them.
   - **The colours bloom found** (D178, D496's rule: the game's albedo at our lightness; `tools/game-model-albedo.py`
@@ -606,16 +608,47 @@ Standard's shadow before a cave (item 8).
     game's blueberry texture, 0.294/0.302/0.414; ours were #7f9bff; the grown model maps almost none of it, 0.1 % of
     its area) and the ruins' panels (RuinColumnA–E's lightest tenth, 0.507/0.430/0.272; ours were #E3CF96). Before,
     the bloom at the game's values would have lifted up to 1.39 % of our frames by 2 luma (+90 luma at most on High's
-    berries, +62 round the start in High); with them, no day frame of ours reaches the knee but by its foot (below; the start from 11 to 42,
+    berries, +62 round the start in High); with them, no day frame of ours reaches the knee but by its foot (above; the start from 11 to 42,
     crowns and bushes close up, two maps, both looks: the brightest 1.26 of a knee at 1.269), as the game's own lift
     at most 0.21 % of a frame by day, median none (the probe's 680 day-lit start shots, an upper bound).
-  - Its cost** (`npx tsx` of a probe, RTX 2070 SUPER, 1280 × 800, River Valley 256² with dense forest and ruins,
+  - **The birch's bark** (`fix/birch-bark`, after #863; D496's rule): the game's grown birch's bark, its white-vertex
+    part (11.9 % of BirchMature's area), is a light warm grey with dark marks: its texture parts in two, the marks
+    under 0.2 and the bark over 0.4, with 3 % of it between (`tools/game-model-albedo.py BirchMature --above
+    0.1,0.2,0.3,0.4,0.5`: 94, 81, 76, 73 and 67 % of it over each). Our models draw the marks as geometry of their own
+    (Standard a dark ring on the trunk, High five bands up close), so the bark is the texels over 0.3,
+    0.634/0.579/0.490, not the whole texture's 0.525/0.474/0.392, which would count the marks twice (a first take on
+    this branch did, and its trunks read 15–20 % darker than the game's). At our lightness, as the pine's and oak's barks
+    (`TREE_COLOURS.birchBark`, 0.835/0.763/0.646), where ours was a near-white, neutral 0.93/0.91/0.86 (High #f2efdd).
+    The dead birch's wood is the same part of BirchMatureDead, 0.517/0.466/0.388, so 0.815/0.805/0.792 of the living
+    bark (`DEAD_FORM`; it was 0.93/0.93/0.92). High: `underSun` keeps the pine's and oak's browns' hue (lit, High's r/b
+    and g/b within 3 % of Standard's), but the birch's near-grey came out neutral (r/b 1.04 against Standard's 1.19), so
+    it takes half the correction (`BIRCH_SUN`, #c8c3b4), measured by recolouring the bark alone in a real frame (River
+    Valley 128² seed 1's grove, the brightest quarter of its bark's pixels): Standard r/b 1.19, 1.17 and 1.14 and g/b
+    1.11, 1.10 and 1.10 up close, at the start camera and at play distance; High at half 1.17, 1.16 and 1.13 and 1.09
+    throughout (the whole correction 1.04, 1.04, 1.02; none 1.31, 1.31, 1.27). Its pixels at the start camera (18 away,
+    55°): p90 192/181/165 in Standard and 197/185/170 in High, against the game's frames' 203/205/169 scaled to our
+    grass (their green held up by the leaves round a thin trunk in a JPEG). The bloom: an upright trunk square to the
+    sun shows 1.229 in Standard and 1.154 in High, under the knee, but the stems lean up to a quarter radian (1.36 and
+    1.28) and High's twigs up close more (1.38); no frame shows it there, its brightest pixel over a grove up close, at
+    the start camera and at play distance from 8 sides being code 219 in Standard and 230 in High (0.86 and 1.05 before
+    the grade; the knee is code 240), so `bloom.test.ts` holds it at its upright bound. The game's birch foliage by the
+    same tool, 0.188/0.249/0.108 over its green vertices, is 2.4 L* lighter than ours (0.174/0.231/0.099; the pine's 2.8
+    lighter, the oak's 2.8 darker, the same reading's spread): left as it is.
+  - **Its cost** (`npx tsx` of a probe, RTX 2070 SUPER, 1280 × 800, River Valley 256² with dense forest and ruins,
     orbiting, the same build with it off and on, two rounds each): by day, skipped, dev's: p50 7.00 ms, p95 7.02, the
     page's time 0.96 ms in Standard and 1.26 in High against 0.96 and 1.38 without it, the GPU's 3.5 and 3.0 against 3.7
     and 3.1. While lava glows (its passes forced on, as they cost the same whatever they find): the frame holds dev's in
     both looks, p50 7.00 ms and p95 7.03 at the display's 144 Hz either way; the page's time a frame +0.6 ms in Standard
     (0.95 → 1.54) and +0.7 in High (1.13 → 1.85); the GPU's timer +1.4 ms in High (3.1 → 4.5) and no higher in Standard
     (4.1 → 3.2, inside its spread). Standard keeps it (D453).
+  - **Its cost in software drawing** (`fix/bloom-eruption-cost`, after dev's run 42533061501 timed out the eruption pair
+    of forces.spec.ts's "clicked quickly" at 180 s on CI's software drawing): under SwiftShader (1280 × 653, Standard)
+    a frame takes 165 ms without the passes and 300 with them: the source 53, the composite 55 (33 of it its full-size
+    bicubic read), the pyramid about 25, its deepest levels under 1 ms each, so fewer levels would save nothing
+    measurable. So the cut is in how many frames draw it: an eruption's lava passed the gate to its crust's end
+    (5.8 s), and now to 2.25 s. The eruption pair locally, two rounds each: 37 and 29 frames with the bloom before,
+    17 and 15 after; its two eruptions played in 16.7 and 18.2 s before, 7.0 and 6.0 s after. The spec's phase log
+    (`[phases] forces clicked quickly ...`) prints each force's time and its frames with the bloom.
 - **The game's sky** (`fix/game-sky`, after #734): its camera's skybox, read from its pixel program (shader path
   1816, `D3DDisassemble`). Its colour by the view's height is the strip "DayCycleSkybox_8k_Manual" (16 × 8192,
   RGBAHalf) at `_DayProgress` 0.2, the day (`tools/game-sky.ts` prints the 145 heights `GAME_SKY.day` keeps); its
@@ -1452,7 +1485,7 @@ the game's models in resources.assets (positions, materials and texture means on
   (`WaterQualitySetting.HighQualityWaterEnabled`: the Medium preset and up; it also turns on URP's opaque texture), so
   Standard and High draw them and the light look, as Low, draws neither. **P1:** `FindWaterfalls`, per tile and stacked
   column, keeps smoothstep(0.35, 0.6, how far its highest linked neighbour's surface stands over its own) (its sixteen
-  mesh heights from `CalculateHeights`; a neighbour linked when wet, a corner one only where both tiles between are dry,
+  mesh heights from `CalculateHeights`; a neighbour linked when wet, a corner one only where both tiles between are wet too (read again 2026-11-08: it said dry),
   `BreakCornerLinks`), so the mask lies on the tile a fall lands in, whole from a step of 0.6. The pixel shader reads it
   in four taps ±0.075 round the pixel, weighted by their distance to the nearest tile corner, dry tiles left out, and
   sharpens it, w = saturate(m + smoothstep(0, 0.5, m)); w takes off the refraction and the camera highlight and moves
@@ -1830,6 +1863,96 @@ the game's models in resources.assets (positions, materials and texture means on
   4096 reaches the game's 0.11 and waits on the igpu-4x gate (integrated GPU, CPU 4× slower, 256², the sun turning),
   run on a machine with an integrated GPU, with `npm run smooth` mended first.
 
+## Trees cast the model they are drawn with (D497; `fix/lod-shadows`)
+
+- **What it was.** High's depth map was kept through the camera's moves on the grounds that a tree's close-up and far
+  models cast nearly the same shadow. They don't: a birch's far crown is two octahedra, so after a zoom in from afar
+  the close-up birches cast diamonds (the look review of #876, River Valley 128² seed 1 on Day 0). Zoomed in on its
+  birches, 1920 × 1080, time held still, the frame differed from one with the map drawn again in 177,685 pixels at 18
+  tiles and 357,259 at 10 (luma by more than 4).
+- **What it is now.** Once the camera's changes between the models have settled (none for 250 ms, `LOD_SETTLE` in
+  `highLook.ts`), the map is drawn again, once, if the trees' layout changed since it was last drawn. Those differences
+  are 0. Drawing it at every change (at most one every 100 ms, `SHADOW_EVERY`) was measured first and dropped frames
+  in a zoom, so it waits for the zoom to end. `tests/unit/lodShadows.test.ts` holds it.
+- **Measured.** River Valley 256² seed 1 (1,472 plants), 1920 × 1080, RTX 2070 SUPER, a 4-second zoom from 260 tiles
+  to 14 and an orbit at 30, three runs each:
+
+  | | depth passes in the zoom / after it | zoom frame p95 (ms) | zoom GPU p95 (ms) | orbit p95 (ms) |
+  |---|---|---|---|---|
+  | dev | 0 / 0 | 7.03–7.06 | 6.62–7.68 | 14.01 |
+  | drawn at every change | 22 / 1 | 14.00–14.01 | 6.88–7.38 | 14.01–14.03 |
+  | drawn once settled (now) | 0 / 1 | 7.02–7.04 | 6.93–7.00 | 14.01–14.03 |
+
+  An orbit already draws the map every frame on dev, as the sun turns with the camera, so the trees' models are current
+  through it.
+
+## Falls as the water below's slope (D154 amended 2026-11-08; `fix/falls-as-slopes`)
+
+- **What the game does** (decompiled `Timberborn.WaterSystemRendering` `WaterMesh`, and its compute shader
+  `WaterColumnPostprocessor` disassembled from `resources.assets`; numbers only): every water tile is a grid of four
+  by four vertices (0, ⅓, ⅔, 1), split along the anti-diagonal, and `CalculateHeights` raises each vertex to its linked
+  neighbour's surface across a side it lies on, to that surface less 0.3 a third of a tile in, and to the linked corner
+  neighbour's (less 0.3 unless on both sides), never below its own. So a fall is the lower tile's own surface rising to
+  meet the water above: its edge at the upper surface, 0.3 lower a third in, its own surface from two thirds in; no
+  face of its own. It is lit with the up normal and its flow textures, sampled at the world's xz, stretch and pour
+  down it. `FindBestProperties` hands the slope its highest linked neighbour's outflow (edges) and contamination
+  (edges and corners) by saturate(the rise). A neighbour is linked only where its surface stands under the tile's
+  ceiling (`ProcessColumns`). A corner is linked only where it and both tiles between are wet
+  (`BreakCornerLinks`); `fallMask.ts` had that turned round (both between dry), so its mask read water across a dry
+  corner and missed the corner of a fall: corrected, and the mask is now smoothstep(0.35, 0.6, `tileRise`).
+- **Ours** (`render3d/fallSlope.ts`): `slopeHeights` makes the sixteen heights for any wet tile with a vertex 0.02 or
+  more over its own surface (`SLOPE_MIN`; under it, the one flat quad as before, so still water meshes byte for byte as
+  dev's), `slopeTop` draws them as nine quads with the up normal in both looks and the Light look (one mesh). A raised
+  vertex's depth is what the game's camera sees through there (its pitch, 60°: the gap to the cliff or the upper
+  water's floor along the view, never more than its height over its own floor), the rest bilinear from the tile's
+  corners. Badwater and the current are handed over before the blend and the flow (`handOver`, `handedWater`;
+  `current.ts` `gameFlowOf`), so a badwater fall keeps its colour and the slope runs with the fall's current. No curtain
+  between two waters any more; the water's side hangs toward lower dry ground and at the map's edge, in three segments
+  along a slope's edge. The water's data never changes (D342, D497).
+- **Skirts** (#867's review): where two wet tiles' tops part along their edge (a corner neighbour linked to one and
+  not the other, or a neighbour not linked), the higher hangs a skirt down to the lower one's height at each vertex
+  (its grid's, where it is a slope), as the game's water vertex shader drops each tile's side skirt; drawn as the
+  surface going on (`SKIRT_FLAGS`). A skirt, and any side of a fall's slope, takes the tile's own badwater share (the
+  fall's, handed over), as the game's skirt takes its own tile's properties: before, the corners' blend with the water
+  beside it drew a clean fall's skirts red-brown over a badwater pool (#867's look review). Open edges (`tests/fixtures/openWaterEdges.ts`: a gap of 0.025 or more between the
+  two tops with no water side or ground across it), before → after: Canyon 3 at 256² 27 → 0, Highlands 2 25 → 0,
+  Canyon 2 28 → 0, Canyon 1 at 128² 8 → 0, Canyon 2 at 128² 12 → 0 (among them the look review's pale sliver along
+  its narrow badwater fall, tile 31,119: the canyon's ground through the window at x = 31) (`waterSkirts.test.ts`,
+  its 256² maps in `waterSkirts.heavy.test.ts`).
+- **The ceiling rule:** each layer's water keeps its tiles' ceilings (`SurfaceWater.ceiling`, waterLayers.ts), and a
+  tile links a neighbour only where the neighbour's surface is not over its ceiling, so a tunnel's slope never rises
+  into its roof toward higher open water outside. `LAYER_REACH` 4 → 5: the hand-over reads a tile further. A corner
+  links as `BreakCornerLinks` reads it: the corner tile's own links toward the tiles between (a cave's mouth, where
+  their ceilings differ: `waterSkirts.test.ts`).
+- **The share at once:** since #865 the tops read their badwater share from the flow texture's B, which `writeShare`
+  (high/flow.ts) fills on every water change; it hands the share over itself, as the bake does (the same bytes on the
+  three 256² maps), so a fall's slope carries the fall's share from the frame the water comes, no bake behind it
+  (`stillFlow.test.ts`). Rows with no badwater within a row of them skip the search: at 256² in Node, the least of 300
+  runs, 0.18–0.25 ms → 0.28–0.36.
+- **The cut:** a slope's vertex carries a cut share under −0.5 in place of its wet share (`slopeCutShare`: whether it
+  is a third in, and how far it stands over the floor of the water it rose to); sliced, it lies on the cut with the
+  depth seen behind it from there as from its own height (`cutWater.ts` `cutSlopeDepth`): against the cliff where the
+  cut is under the upper water's floor (0.05 at the lip, 0.58 a third in), else into the upper water to its floor.
+  The first reading took the water's depth from its floor up to the cut, several levels: a dark navy patch at a
+  sliced fall where dev drew teal. A side's vertex standing over its column's surface (a slope's edge, a skirt) is
+  sliced by its own height, so it stops at the cut too (it stood over it). A fall whose upper water the cut took keeps
+  its slope up to the cut (`tests/unit/cutWater.test.ts`).
+- **Re-based (D148):** the curtain tests in `look-waterfalls`, `look`, `render3d`, `look-badwater`, `cutWater`,
+  `waterLayers` and `caveCurrent` (the tunnel's fall is its water's slope under the roof); the corner rule in
+  `water-refraction`; the fixture mesher mirrors the slope.
+- **Judged** (`tools/water-pixel-judge.ts --water falls --look both`, the six day-lit start shots, dev → this branch,
+  RMS to the game's pixel): a fall's foot (103 tiles) Standard 24.8 → 24.0, High 24.1 → 23.4; clean water (8,573) and
+  the land unchanged (14.4, 14.2; 12.3, 12.6). The sheets: `docs/sheets/falls-slopes-canyon.jpg`,
+  `falls-slopes-riverValley.jpg` (each map's tallest and strongest fall at 60° and 35°, Standard and High) and their
+  `-light` pair (`tools/capture-falls-slopes.ts`).
+- **Speed** (D453): the water meshed whole in Node at 256², min of 20, Highlands 2 26.2 → 25.2 ms, Canyon 3 31.2 →
+  27.3, River Valley 2 25.7 → 25.5, with 25–28 % more water quads (a slope's nine). High at 256² on the GPU
+  (`--bench`, three rounds): frame time p50 7.0 ms on both, the render call the same (1.2–1.5 ms), the GPU's 2.2–3.3 ms
+  on both; the build's median Highlands 561 → 549 ms, Canyon 520 → 586 (rounds of one tree vary by ±90).
+- **Falls short:** our links take a neighbour as linked where it is wet and under the ceiling, with no barriers (none on
+  our ground) and the ceilings as each layer of waterLayers.ts sees them; a slope's seen depth is worked out along the game's pitch, not
+  read from a depth buffer.
+
 ## The foam in the Flow view alone (D497; `fix/foam-to-flow`)
 
 - **Why.** The game's water has no foam term (`docs/progress/water-character-audit.md` on
@@ -1952,6 +2075,32 @@ the game's models in resources.assets (positions, materials and texture means on
   little light against the game's (0.08 and 0.13 against 0.16), and High's shadows on the water below a bank a little
   dark (0.21 against 0.15). The sun's turn moves Standard's areas by up to a fifth as a shadow's edge crosses the
   samples.
+
+## A dead plant casts its dead form (D497, D135; `fix/dead-shadows`)
+
+- **What it was.** A look review of River Valley 128² seed 1 found dead birches casting diamond-shaped shadows of a
+  crown they don't have, in High. Its cause: a plant that dies or starts dying in place (a held drought or badtide's
+  withering, the ground starting it dying, `HighLook.setPlantStates`) moved to its new form's batch, but High's depth
+  map was kept, so the plant went on casting the form the map was drawn with: for a birch seen from afar, its living
+  far model's two octahedra, the diamonds. It held until something else redrew the map (an edit, the sun's turn, the
+  objects hidden). Every species and both changes did the same: a dead pine cast its whorls, a dying oak its full
+  crown. Standard was right: its baked shadows are cast again from the objects as drawn (`bakeShadows`, a dead tree's
+  bare wood a post, `light.ts` `DEAD_KIND`).
+- **What it is now.** A change of state marks the depth map to be drawn again, as an edit does: one depth pass for
+  each change (at most one every 100 ms, `SHADOW_EVERY`), nothing a frame. So a dead tree casts its bare wood, as the
+  game's dead tree casts its own dead model. `tests/unit/sunShadows.test.ts` holds it.
+- **Measured.** A grove of 36 plants on a flat meadow, drawn still at 1280 × 800 on the GPU (Chrome with ANGLE on
+  D3D11, the RTX 2070 SUPER), from 16 and 45 tiles at the game's 55°, then each plant dead or dying in place; the
+  pixels whose luma differs by more than 4 from the frame with the depth map drawn again (dev → now):
+
+  | High | dead, 16 | dead, 45 | dying, 16 | dying, 45 |
+  |---|---|---|---|---|
+  | birch | 105,519 → 0 | 13,886 → 0 | 87,781 → 0 | 11,448 → 0 |
+  | pine | 251,032 → 0 | 32,994 → 0 | 120,067 → 0 | 14,618 → 0 |
+  | oak | 392,831 → 0 | 50,569 → 0 | 102,061 → 0 | 12,750 → 0 |
+  | blueberry bush | 49,577 → 0 | 6,623 → 0 | 43,594 → 0 | 5,854 → 0 |
+
+  Standard: 0 before and after, dead. The frame drawn twice without a change differs by 0.
 
 ## Caves and overhangs, captured again after #852–#855
 

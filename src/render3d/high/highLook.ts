@@ -80,6 +80,10 @@ export function runSoilOf(m: HighLookMaterials): ShaderMaterial[] {
 
 /** The time between redraws of the sun's depth map while the land keeps changing (a brush). */
 const SHADOW_EVERY = 100;
+/** The sun's depth map is drawn again this long after the trees last changed between their close-up and far models (a
+ *  zoom or a turn has settled): drawn at once, a zoom drew one every SHADOW_EVERY and dropped frames
+ *  (docs/progress/3d-view.md, "Trees cast the model they are drawn with"). */
+const LOD_SETTLE = 250;
 /** The water's flow is read again this long after it changes (and at least this often). */
 const WATER_WAIT = 250;
 const WATER_MOST = 1000;
@@ -104,6 +108,10 @@ export class HighLook {
   effects: HighEffects = allEffects();
   private map: { W: number; H: number; heights: Uint8Array; surface: SurfaceWater } | null = null;
   private lastShadow = 0;
+  /** The trees' layout the depth map was last drawn with (Forest `revision`), and the wait for their models to settle
+   *  after the camera changed them (`LOD_SETTLE`). */
+  private drawnLayout = -1;
+  private lodTimer: ReturnType<typeof setTimeout> | undefined;
   private waterSince = 0;
   private waterTimer = 0;
   private disposed = false;
@@ -254,13 +262,17 @@ export class HighLook {
   }
 
   /** Plants change state in place (the Weather view's withering, the ground starting them dying): the plants whose DEAD
-   *  or DYING flag differs move to that state's batches. Returns how many changed. */
+   *  or DYING flag differs move to that state's batches, and the depth map is drawn again from them, so a plant casts
+   *  only the form it is drawn in, as the game's dead tree casts its own dead model (a withered birch had kept its
+   *  living crown's shadow until something else redrew the map). Returns how many changed. */
   setPlantStates(flags: ArrayLike<number>): number {
     const forest = this.forest;
     if (!forest) return 0;
     const changed = forest.setState(flags);
+    if (!changed) return 0;
     // (a layout shows every batch that has plants: the effect's switch still hides them)
-    if (changed && !this.effects.vegetation) for (const m of forest.meshes) m.visible = false;
+    if (!this.effects.vegetation) for (const m of forest.meshes) m.visible = false;
+    this.shadows.dirty = true;
     return changed;
   }
 
@@ -375,9 +387,18 @@ export class HighLook {
    *  wind's clock, the sun's depth map. */
   beforeRender(camera: Camera, pixels: number, time: number): void {
     this.vegTime.value = time;
-    // (a tree's close-up or far model casts nearly the same shadow: the depth map keeps the one it
-    // was drawn with, and isn't drawn again for the camera's moves)
-    if (this.forest && this.effects.vegetation) this.forest.update(camera, pixels, !this.lower);
+    // (a tree casts the model it is drawn with: a birch's far model is two octahedra, whose diamonds a close view's
+    // depth map kept when drawn from afar. Once the camera's changes to the models have settled the map is drawn
+    // again, once, never through a zoom or a turn: `LOD_SETTLE`)
+    if (this.forest && this.effects.vegetation && this.forest.update(camera, pixels, !this.lower)) {
+      if (this.lodTimer) clearTimeout(this.lodTimer);
+      this.lodTimer = setTimeout(() => {
+        this.lodTimer = undefined;
+        if (this.disposed || !this.forest || this.forest.revision === this.drawnLayout) return;
+        this.shadows.dirty = true;
+        this.host.requestRender();
+      }, LOD_SETTLE);
+    }
     if (this.forest) this.stats.forest = { ...this.forest.stats };
     if (this.shadows.dirty && this.effects.shadows) {
       const now = performance.now();
@@ -385,6 +406,7 @@ export class HighLook {
         this.lastShadow = now;
         for (const o of this.host.casters()) o.layers.enable(CASTER_LAYER);
         this.shadows.render(this.host.gl, this.host.scene);
+        this.drawnLayout = this.forest?.revision ?? -1;
         this.stats.shadowPasses = this.shadows.passes;
       } else window.setTimeout(() => this.host.requestRender(), SHADOW_EVERY);
     }
@@ -412,6 +434,7 @@ export class HighLook {
   dispose(): void {
     this.disposed = true;
     clearTimeout(this.waterTimer);
+    clearTimeout(this.lodTimer);
     this.clearObjects();
     this.shadows.dispose();
     for (const m of this.allMaterials()) m.dispose();

@@ -1,12 +1,12 @@
 // The High look's trees and bushes (#66, investigation/vegetation models.ts; PLAN §20 D241): our own
 // procedural geometry, no textures or game assets. Distinct pine (a dark pointed cone of scalloped
-// tiers), birch (light broken clusters on a white, marked trunk), oak (one broad round crown on
+// tiers), birch (light broken clusters on a warm grey, marked trunk), oak (one broad round crown on
 // heavy limbs) and blueberry bushes (low, with big blue fruit outside the leaves), each with bare dead
 // forms; three silhouettes a species close up and one far off. Colours are palette regions (the
 // vegetation material's uniforms), never baked, so tuning them rebuilds nothing.
 
 // (ported from investigation/vegetation/models.ts)
-import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour, type Rgb } from '../dying';
+import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour } from '../dying';
 import { plantScale, RANDOMIZER } from '../plantSize';
 import { TREE_COLOURS, asOurs } from '../palette';
 import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
@@ -20,7 +20,6 @@ export const WARM_SUN = [1.48, 1.3, 1.1] as const;
  *  sun's tint taken out, so a dying crown reads the same olive-ochre in both looks rather than orange. */
 const underSun = (c: readonly number[]) => [c[0] * (WARM_SUN[1] / WARM_SUN[0]), c[1], c[2] * (WARM_SUN[1] / WARM_SUN[2])];
 const hex = (c: readonly number[]) => '#' + c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
-const parse = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as unknown as Rgb;
 /** The trees' and bushes' foliage: the game's colours as ours (palette.ts `TREE_COLOURS`), as they read under the warm sun. */
 const living = { pine: hex(underSun(TREE_COLOURS.pine)), birch: hex(underSun(TREE_COLOURS.birch)), oak: hex(underSun(TREE_COLOURS.oak)), bush: hex(underSun(TREE_COLOURS.bush)) };
 /** Foliage slots, their species, and their dying slot (dying.ts). */
@@ -30,15 +29,20 @@ const FOLIAGE = { pine: ['Pine', 'pineDry'], birch: ['Birch', 'birchDry'], oak: 
  *  (The game's grown model maps almost none of them, 0.1 % of its area under its leaves' green; until 2026-11-08 our
  *  berries were #7f9bff, half again brighter and the bloom's brightest on a forest.) */
 const berry = hex(underSun(asOurs([0.294, 0.302, 0.414])));
-/** The pine's and the oak's bark: the game's (palette.ts `TREE_COLOURS`, as Standard's), as they read under the warm sun.
- *  The game's oak bark is darker and less red than the pine's, so each has its own slot. */
-const bark = hex(underSun(TREE_COLOURS.pineBark)), oakBark = hex(underSun(TREE_COLOURS.oakBark)), birchBark = '#f2efdd';
+/** The pine's, the oak's and the birch's bark: the game's (palette.ts `TREE_COLOURS`, as Standard's), as they read under
+ *  the warm sun. The game's oak bark is darker and less red than the pine's and the birch's a light warm grey (until
+ *  2026-11-08 ours was a near-white #f2efdd), so each has its own slot. The pine's and oak's browns keep their hue
+ *  through `underSun` (lit, High's within 3 % of Standard's r/b and g/b), but the birch's near-grey would come out
+ *  neutral, so it takes `BIRCH_SUN` of the correction: the share at which its lit bark's hue is Standard's. */
+export const BIRCH_SUN = 0.5;
+const partSun = (c: readonly number[], k: number) => [c[0] * (1 + k * (WARM_SUN[1] / WARM_SUN[0] - 1)), c[1], c[2] * (1 + k * (WARM_SUN[1] / WARM_SUN[2] - 1))];
+const bark = hex(underSun(TREE_COLOURS.pineBark)), oakBark = hex(underSun(TREE_COLOURS.oakBark)), birchBark = hex(partSun(TREE_COLOURS.birchBark, BIRCH_SUN));
 export const paletteDefaults = {
   ...living,
   bark, oakBark, birchBark, berry, marks: '#494239',
   // a dead tree's bare wood, its own bark weathered as the game's is; a dead bush's leaves gone brown (dying.ts DEAD_FORM)
   dead: hex(underSun(deadWood('Pine', TREE_COLOURS.pineBark))), oakDead: hex(underSun(deadWood('Oak', TREE_COLOURS.oakBark))),
-  birchDead: hex(deadWood('Birch', parse(birchBark))),
+  birchDead: hex(partSun(deadWood('Birch', TREE_COLOURS.birchBark), BIRCH_SUN)),
   bushDead: hex(underSun(deadLeaves('BlueberryBush', TREE_COLOURS.bush))),
   // a dying plant's foliage: the game's dry colour at the living green's lightness (dying.ts), as it reads under the warm sun
   pineDry: hex(underSun(dryColour('Pine', TREE_COLOURS.pine))), birchDry: hex(underSun(dryColour('Birch', TREE_COLOURS.birch))),
@@ -149,7 +153,7 @@ export const registry: Record<Species, SpeciesDefinition> = {
       if (near) tier(m, 0.18, h - 0.5, 0.5, v + 19, true);
     }
   } },
-  // the game's grown birch: a white trunk forking low into two stems, a round crown from 0.95 to 1.92, 1.0 across
+  // the game's grown birch: a warm grey trunk forking low into two stems, a round crown from 0.95 to 1.92, 1.0 across
   Birch: { height: 1.92, wind: 0.049, build(m, v, detail, dead) {
     const near = detail === 'near', bark = dead ? 'birchDead' : 'birchBark';
     m.branch([0, 0, 0], [0.015, 0.94, 0], 0.07, bark, near ? 6 : 3, 0.5);
