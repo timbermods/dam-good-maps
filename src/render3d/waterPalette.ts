@@ -369,8 +369,8 @@ export const GAME_BADWATER = {
  *  2π): blobs streaming out from a bright middle, gone at the footprint's inscribed circle. Clean water's colour × albedo
  *  moves `lift` of the way to max(itself, s × the still detail albedo); badwater's emissive pattern goes from t9's G to
  *  its B (`emission`, its mean: ours keeps the still detail albedo in B) by s and is × (1 + s × (`colour` × `strength`
- *  − 1)), and its base colour takes the detail albedo's overlay × (1 − s). Ours keeps its rings and bubbles (D196) over
- *  it: an editing aid, drawn after it. */
+ *  − 1)), and its base colour takes the detail albedo's overlay × (1 − s). Ours draws its rings and bubbles (D249) over
+ *  it with Markers on: an editing aid, drawn after it. */
 export const GAME_WATER_SOURCE = {
   /** `_Water_Source_Color` (display). */
   colour: [0.6706, 0.651, 0.6275] as Rgb,

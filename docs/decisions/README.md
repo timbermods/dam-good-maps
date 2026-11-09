@@ -165,7 +165,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D184: Controls
 - D265: Camera moves only when moved
 - D347: Hover readout
-- D249: Sources
+- D249: Sources (amended: the upwelling with Markers only, D497)
 - D337: Parity with game's fluid tools
 - D259: Select and the working area
 - D340: Crop map to selection

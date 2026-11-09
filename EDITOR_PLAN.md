@@ -1050,7 +1050,7 @@ Make a valley, drop a source, and there's a river.
   a placed source selects it and shows its strength, its water (clean or bad) and Remove; Delete (or Remove) makes
   its water recede live. A source is drawn as the game draws one (D324): a stone basin with water welling up, a
   badwater source a darker stone basin with badwater boiling up, at its true 3×3 size. A source is always findable,
-  even underwater (a subtle upwelling shows through the water); with a source picked or hovering near one, a clear
+  even underwater (with Markers on, a subtle upwelling shows through the water; D497: off, the water is the plain surface); with a source picked or hovering near one, a clear
   marker with its strength; Markers shows every source (D196), and the seeps, aquifers, drains, cores and reserves with the
   core's `markerNotes` (D337: "Aquifer · 1 water/s · no water until a powered drill stands on it" drawn as a warning; the
   worker works them out, `MarkerNote`, and `labelLayout.ts` places them beside the sources' labels; notes too crowded for
@@ -1740,7 +1740,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     landing on the cut), stepped as the game's `LevelVisibilityService` does; under a cut the brushes and Select's
     actions leave the ground above it as it is. Clear water (D196, D212) is one uniform for all the water (T) and
     another for the water round the brush or the shelf's ghost (`clearNear`; the shared palette's `CLEAR_WATER`, D324);
-    each source's upwelling (D196) is a texture of the sources' middle tiles, read by the water shader.
+    each source's upwelling (D196, with Markers on: D249) is a texture of the sources' middle tiles, read by the water shader.
 
   - Juice (D205): a puff of dust and a source's rings are a few particles and two rings, alive for under a second;
     a placed object's pop and wiggle scales its own instance; a force's moment (`forces.ts`) plays on its own clock

@@ -1,5 +1,5 @@
 // The sources' texture (renderer.ts `markSources`, the water's shader's `sourceTex`): where each source's middle is,
-// for our rings and bubbles (D196) and a highlighted source (D249), and where the game draws its own pattern over a
+// for our rings and bubbles (D249, with Markers on) and a highlighted source (D249), and where the game draws its own pattern over a
 // source (Q9 P7, materials.ts `waterSourcePattern`).
 
 import { footprintTiles } from "../core/format/footprints";
