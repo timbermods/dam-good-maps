@@ -2541,6 +2541,18 @@ section's falls short (2), the albedo section's (1)). Its stored water is 0.01-0
   2.73, 2.77, 2.79; High from 50 away 2.67, 2.77, 2.78, 2.77 → 2.18, 2.68, 2.55, 2.66. Within the runs' noise. The
   shaders do less: the terrain no longer works out four tiles' film curve nor the film's tint, and a film's pixel no
   longer finishes twice.
+- **The bed comes with its water (review of #902):** the terrain's tile data, whose water byte makes a tile's ground
+  the bed under water, was written from the newest water while each chunk's mesh was the batch the mesh workers last
+  drew. Ahead of spreading water the bed came a batch before the water over it: a bare grey band. Dev hid it under its
+  tinted film. The tile data now reads the water as drawn (waterMesh.ts `DrawnWater`, which keeps each tile's floor
+  too). `drawWater` writes a chunk's tile data with its mesh. `bakeTiles` and the land's rows and rectangles read the same
+  drawn water. A source of strength 3 on flat ground on River Valley 1, every frame for 8 s (GPU) and 14 s (the light
+  look, SwiftShader), counting tiles wet in the tile data with no water drawn over them, before → after: GPU 14 frames
+  (99 ms), at most 96 tiles → none; the light look 9 frames (1.6-1.7 s, two sittings), at most 932 tiles → none. The
+  water's own lag is unchanged: on the GPU, the frames to draw 100, 1,000 and 2,500 more wet tiles were 121, 326 and
+  2,867 ms before and 111, 320 and 2,848 ms after. The frames per second were the same (1,158 → 1,154 frames in 8 s).
+  The meshing and the bytes written per chunk are the same work as before; `benchOrbit` draws still water, so it
+  cannot see the change. `water-tiles-drawn.test.ts` holds this headless.
 - **Tests (D148):** the film's tests become the decision: water of any depth at its see-through's opacity, clean or
   bad, and no film in the water's or the terrain's shaders (`look-water-slopes`, `look-badwater`, `look-waterfalls`,
   `water-palette`, `water-refraction`); the film-hue test goes with the tint. The carve's strobe test
