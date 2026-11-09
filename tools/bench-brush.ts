@@ -18,16 +18,20 @@
 //
 // Where the land is drawn from decides how a move is followed. The page's own preview (every brush but
 // Naturalize without the D422 patch) presses its dabs in the page, so the re-mesh after a move is the move's.
-// A Naturalize stroke weathered in the worker (D422) draws land that comes back later, and that land is
+// A Naturalize stroke weathered in its worker (D422, #868) draws land that comes back later, and that land is
 // from the dabs the worker was sent, not from the moves that arrived since. The tool then watches the page's
 // messages to the worker (weatherAdd's dabs and the moment each answer arrives, hooked from the page side,
-// nothing in the product changed), gives each move the first dab call that carries a point beyond the
-// previous move's position (the stroke runs left to right, so a point's x says which move it came from),
-// and follows that call's answer to the re-mesh it draws and to the frame after it. (A move's tile x is
-// where the page's own pick puts it on the stroke's level.) A call answered without land changed nothing,
-// and its moves are counted apart (`movesChangingNothing`), as the page's own are (#868): most of a Size 5
-// stroke's dabs fall on ground already weathered as far as it goes. `workerAnswerMs` is from each move to the
-// answer for its points, land or none, so a queue of calls waiting for the worker shows there.
+// nothing in the product changed), gives each move the first dab call sent after it that carries one of its
+// own points (between the previous move's position and its own: the stroke runs left to right, so a point's x
+// says which move it came from), and follows that call's answer to the re-mesh it draws and to the frame
+// after it. (A move's tile x is where the page's own pick puts it on the stroke's level.) A move with no point
+// of its own, shorter than a dab's spacing, is counted apart (`movesChangingNothing`), as the page's own are;
+// so are the moves of a call answered without land (#868): most of a Size 5 stroke's dabs fall on ground
+// already weathered as far as it goes. `workerAnswerMs` is from each move to the answer for its points, land or
+// none, so a queue of calls waiting for the worker shows there. `landShownNextDabMs` follows each move to the
+// first call carrying a point beyond the previous move's position instead, as the tool did before: it also
+// waits for the pointer to travel to the next dab, a dab's spacing on (a Size 5 dab every tile, about seven
+// moves here), which the page's brushes are never charged.
 //
 // Configurations, as `npm run bench:3d` picks them (PLAN §20 D46): the default GPU; and, on a
 // machine with two, the other GPU (on a desktop, its integrated one) with the page's CPU slowed 4×
@@ -240,23 +244,35 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   }
   const raw = (await page.evaluate("window.__b")) as { mv: [number, number][]; rend: number[]; raf: number[]; long: [number, number][]; up: number; mesh: number[]; moves: number[]; mx: number[]; meshAt: number[]; idle: number; pressing: number[]; pending: number[] };
   const worker = (await page.evaluate("window.__w.adds")) as { t: number; xs: number[]; resp: number | null; land: boolean }[];
-  // the worker's land (D422): each move's land is in the first dab call carrying a point beyond the
-  // previous move's tile x (the points a move pressed, or, when it pressed none, the next move's); the
-  // land is drawn by the first re-mesh after that call's answer arrived. A call whose answer carries no
-  // land changed nothing (a dab over ground already weathered as far as it goes): its moves are counted
-  // apart, as the page's own are, since following them to a later call's land was a wait no player sees
-  // (#868, as #858 found for Raise)
+  // the worker's land (D422): each move's land is in the first dab call sent after it that carries one of its
+  // own points: a dab between the previous move's tile x and its own, give or take the eighth of a tile a
+  // quarter-tile dab is rounded by. The land is drawn by the first re-mesh after that call's answer arrived. A
+  // move with no point of its own (shorter than a dab's spacing, a fifth of the brush) presses nothing and is
+  // counted apart, as the page's own are (#858); so is a move whose call is answered without land (a dab over
+  // ground already weathered as far as it goes, #868). Following those moves to a later dab's land was the
+  // pointer's travel to the next dab, a wait no player sees: that measure, each move followed to the first call
+  // carrying a point beyond the previous move's x, stays as `landShownNextDabMs`.
   const remote = worker.some((a) => a.xs.length);
   // (and from each move to the worker's answer for its points, land or none: the wait behind earlier calls included)
   const answered: number[] = [];
   let unchanged = 0;
+  const nextDab: [number, number][] = [];
   if (remote) {
     raw.mv = [];
     let prev = tiles[0][0];
     for (let m = 0; m < raw.moves.length; m++) {
-      const call = worker.find((a) => a.resp !== null && a.resp >= raw.moves[m] && a.xs.some((x) => x > prev + 0.125));
-      if (Number.isFinite(raw.mx[m])) prev = raw.mx[m];
-      if (!call) continue;
+      const here = Number.isFinite(raw.mx[m]) ? raw.mx[m] : prev;
+      const next = worker.find((a) => a.resp !== null && a.resp >= raw.moves[m] && a.xs.some((x) => x > prev + 0.125));
+      if (next?.land) {
+        const u = raw.meshAt.find((t) => t >= next.resp!);
+        if (u !== undefined) nextDab.push([raw.moves[m], u]);
+      }
+      const call = worker.find((a) => a.resp !== null && a.t >= raw.moves[m] && a.xs.some((x) => x > prev - 0.125 && x <= here + 0.125));
+      prev = here;
+      if (!call) {
+        unchanged++;
+        continue;
+      }
       answered.push(call.resp! - raw.moves[m]);
       if (!call.land) {
         unchanged++;
@@ -266,6 +282,12 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
       if (u !== undefined) raw.mv.push([raw.moves[m], u]);
     }
   }
+  // (each move to the frame drawn after its land's re-mesh)
+  const toFrame = (mv: [number, number][]) => mv.flatMap(([e, u]) => {
+    const f = raw.rend.find((x) => x >= u);
+    return f !== undefined && u - e < 500 ? [f - e] : [];
+  });
+  const nextDabShown = toFrame(nextDab);
   const lat: number[] = [];
   // (and only the moves whose land is drawn within half a second: the worker's land, followed by the dab
   // call that carries it, may come later)
@@ -325,6 +347,7 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
     movesChangingNothing: remote ? unchanged : raw.idle + raw.pressing.length + raw.pending.length,
     cursorToFrameMs: { p50: round(pct(cursor, 0.5)), p95: round(pct(cursor, 0.95)), samples: cursor.length },
     landShownMs: { p50: round(pct(shown, 0.5)), p95: round(pct(shown, 0.95)), samples: shown.length },
+    ...(remote ? { landShownNextDabMs: { p50: round(pct(nextDabShown, 0.5)), p95: round(pct(nextDabShown, 0.95)), samples: nextDabShown.length } } : {}),
     landTrailFrames: { p50: round(pct(shown, 0.5) / vsync), p95: round(pct(shown, 0.95) / vsync), frameMs: round(vsync) },
     frameMs: { p50: round(pct(frames, 0.5)), p95: round(pct(frames, 0.95)), p99: round(pct(frames, 0.99)), max: round(Math.max(0, ...frames)), overTwoRefreshes: frames.filter((d) => d > 2 * refresh + 1).length, frames: frames.length },
     remeshMs: { p50: round(pct(raw.mesh, 0.5)), p95: round(pct(raw.mesh, 0.95)), max: round(Math.max(0, ...raw.mesh)), samples: raw.mesh.length },
