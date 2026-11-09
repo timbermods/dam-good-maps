@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { storedSoil } from "../../src/core/format/world";
 import { describeTile, entitiesByTile } from "../../src/editor/features";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
-import { decodeTop, encodeTop, litFraction, objectCasters, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte } from "../../src/render3d/light";
+import { casterLevelsOf, decodeTop, DEFAULT_SUN, encodeTop, litFraction, objectCasters, PLANT_WIDEST, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte, withCasterLevels } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
 import { ALBEDO_SCALE, cliffTint, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
@@ -71,29 +71,22 @@ describe("the ground's colours", () => {
     expect(groundKind(0, 9, false)).toBe("contaminated");
     expect(groundKind(200, 0, true)).toBe("underwater");
     expect(groundColor(0, 0, false)).toEqual(GROUND.dry);
-    expect(groundColor(1, 0, false)).toEqual(GROUND.moistLow);
-    expect(groundColor(150, 0, false)).toEqual(GROUND.moistHigh);
+    expect(groundColor(1, 0, false)).toEqual(GROUND.grass);
+    expect(groundColor(150, 0, false)).toEqual(GROUND.grass);
     // contamination is a layer over the ground (Kyler's contamination round): the colour under it
     // is the soil's own
     expect(groundColor(40, 5, false)).toEqual(groundColor(40, 0, false));
     expect(groundColor(0, 5, false)).toEqual(GROUND.dry);
   });
 
-  it("keeps each meaning its own look (D334, re-basing the greyscale gaps): cracked earth, two grass inputs, orange-red veins only where there is contamination, water darker with depth", () => {
+  it("keeps each meaning its own look (D334, re-basing the greyscale gaps): cracked earth, one grass at every moisture, orange-red veins only where there is contamination, water darker with depth", () => {
     // dry earth stays cracked earth: its cracks darker than it
     expect(lum(GROUND.crack)).toBeLessThan(lum(GROUND.dry));
-    // moist ground is the two grass inputs and the steps between them, by the game's moisture levels
-    expect(groundColor(15, 0, false)).toEqual(GROUND.moistLow);
-    expect(groundColor(150, 0, false)).toEqual(GROUND.moistHigh);
-    for (let m = 15; m <= 150; m += 15) {
-      const g = groundColor(m, 0, false);
-      for (let k = 0; k < 3; k++) {
-        expect(g[k]).toBeGreaterThanOrEqual(Math.min(GROUND.moistLow[k], GROUND.moistHigh[k]) - 1e-12);
-        expect(g[k]).toBeLessThanOrEqual(Math.max(GROUND.moistLow[k], GROUND.moistHigh[k]) + 1e-12);
-      }
-    }
+    // moist ground is the game's grass, the same at every moisture level (its terrain shader has no moisture term:
+    // only the desert's share changes with it, D135 as amended)
+    for (let m = 15; m <= 150; m += 15) expect(groundColor(m, 0, false)).toEqual(GROUND.grass);
     // no contamination, no vein; any contamination, the game's rusty veins through either soil (D154 as amended)
-    for (const soil of [GROUND.dry, GROUND.moistLow, GROUND.moistHigh]) {
+    for (const soil of [GROUND.dry, GROUND.grass]) {
       expect(contaminationVein(0, soil)).toEqual(soil);
       for (const l of [1 / 15, 0.5, 1]) {
         const v = contaminationVein(l, soil);
@@ -152,7 +145,7 @@ describe("the baked light", () => {
   const H = 20;
   const flat = new Uint8Array(W * H).fill(3);
 
-  it("casts a pillar's shadow away from the sun (south-east), softly, and never toward it", () => {
+  it("casts a pillar's shadow away from the sun (south-east), and never toward it", () => {
     const h = flat.slice();
     h[10 * W + 10] = 8; // a pillar 5 levels above the ground
     const hi = shadowTops(W, H, h, null, LIGHT.sunElevation + LIGHT.penumbra);
@@ -167,12 +160,40 @@ describe("the baked light", () => {
     expect(lit(12, 8)).toBe(0);
     expect(lit(9, 11)).toBe(1);
     expect(lit(2, 2)).toBe(1);
-    // the far end of the shadow is soft: along the diagonal it lightens step by step
-    const along = [1, 2, 3, 4, 5, 6].map((d) => lit(10 + d, 10 - d));
-    expect(along[0]).toBe(0);
-    expect(along.at(-1)).toBe(1);
-    for (let k = 1; k < along.length; k++) expect(along[k]).toBeGreaterThanOrEqual(along[k - 1]);
-    expect(along.some((v) => v > 0 && v < 1)).toBe(true);
+  });
+
+  it("softens a shadow's far end over the same width of ground under a low cliff and a high one, as the game's shadow map does (D497)", () => {
+    // a plateau over x < 10, the ground east of it at 3; the sun from the north-west, 45° up: its shadow's edge runs
+    // north-south, Hc / √2 east of the cliff, and along a row it turns to sun over LIGHT.edge / √2 of x (LIGHT.edge along the
+    // sun's way)
+    const R = SHADOW_RES;
+    for (const cliff of [2, 8]) {
+      const h = flat.slice();
+      for (let y = 0; y < H; y++) for (let x = 0; x < 10; x++) h[y * W + x] = 3 + cliff;
+      const hi = shadowTops(W, H, h, null, LIGHT.sunElevation + LIGHT.penumbra);
+      const lo = shadowTops(W, H, h, null, LIGHT.sunElevation - LIGHT.penumbra);
+      // (the shader's read of the map: bilinear between samples, at a row's sample centres)
+      const y = 8 + 0.25;
+      const lit = (x: number) => {
+        const u = x * R - 0.5;
+        const k0 = Math.floor(u);
+        const t = u - k0;
+        const row = Math.floor(y * R) * W * R;
+        const top = (a: Float32Array) => a[row + k0] * (1 - t) + a[row + k0 + 1] * t;
+        return litFraction(3, top(hi), top(lo));
+      };
+      const xs = Array.from({ length: 401 }, (_, k) => 10 + k / 50);
+      const vs = xs.map(lit);
+      for (let k = 1; k < vs.length; k++) expect(vs[k]).toBeGreaterThanOrEqual(vs[k - 1]);
+      const first = xs[vs.findIndex((v) => v > 0)];
+      const full = xs[vs.findIndex((v) => v >= 1)];
+      // (within a tenth of a tile: where the edge falls between the map's samples, half a tile apart, the ground's own
+      // tops round it bend the interpolated top a little; an angle's edge would widen with the cliff, 0.65 of x under
+      // this eight-level one at 2°)
+      expect(full - first, `a ${cliff}-level cliff`).toBeGreaterThanOrEqual(LIGHT.edge * Math.SQRT1_2 - 0.05);
+      expect(full - first, `a ${cliff}-level cliff`).toBeLessThanOrEqual(LIGHT.edge * Math.SQRT1_2 + 0.1);
+      expect((first + full) / 2, `a ${cliff}-level cliff`).toBeCloseTo(10 + cliff * Math.SQRT1_2, 1);
+    }
   });
 
   it("bakes the same bytes every time, and trees and ruins cast shadows too", () => {
@@ -196,6 +217,82 @@ describe("the baked light", () => {
     expect(Buffer.from(a).equals(Buffer.from(noTree))).toBe(false);
   });
 
+  it("casts a plant's shape, not its tile's column (D497: the game's shadows are its models')", () => {
+    const u = DEFAULT_SUN;
+    // (whether the ground at d tiles from a plant's middle away from the sun, and a across that way, is in shadow)
+    const shaded = (bytes: Uint8Array, x: number, y: number, d: number, a = 0) => {
+      const px = x + 0.5 - u.x * d + u.y * a;
+      const py = y + 0.5 - u.y * d - u.x * a;
+      return decodeTop(bytes[(Math.floor(py * SHADOW_RES) * W * SHADOW_RES + Math.floor(px * SHADOW_RES)) * 4]) > 3;
+    };
+    const one = (template: string) => objectCasters(W, H, entityView([{ template, x: 15, y: 12, z: 3, orientation: "Cw0", owner: "f" }]))!;
+    const oak = one("Oak");
+    const bytes = shadowMap(W, H, flat, oak);
+    // an oak's crown (1.16 to 2.26 over the ground, at the sun's 45°) shades the ground 1 to 2.5 tiles off, not past 3
+    for (const d of [1, 1.7, 2.4]) expect(shaded(bytes, 15, 12, d), `${d} tiles off`).toBe(true);
+    expect(shaded(bytes, 15, 12, 3.4)).toBe(false);
+    // nor a tile to either side of its shadow's middle, which the whole tile's column of its height shaded
+    const column = withCasterLevels(oak.slice(), casterLevelsOf(oak)!.slice(0, W * H));
+    const columns = shadowMap(W, H, flat, column);
+    let shapeSamples = 0;
+    let columnSamples = 0;
+    for (let k = 0; k < W * H * SHADOW_RES * SHADOW_RES; k++) {
+      if (decodeTop(bytes[k * 4]) > 3) shapeSamples++;
+      if (decodeTop(columns[k * 4]) > 3) columnSamples++;
+    }
+    expect(shapeSamples).toBeGreaterThan(4);
+    expect(shapeSamples).toBeLessThan(columnSamples);
+    // a blueberry bush casts its low mound, which no column did (it had none)
+    const bush = shadowMap(W, H, flat, one("BlueberryBush"));
+    expect(shaded(bush, 15, 12, 0.5)).toBe(true);
+    expect(shaded(bush, 15, 12, 1.5)).toBe(false);
+  });
+
+  it("casts a plant's shape on past where the ground drops away below it: off a bank's step, onto water", () => {
+    const u = DEFAULT_SUN;
+    // (ground 5 high up to just past the plant's middle along the sun's way, then `step` lower)
+    const stepped = (step: number) => {
+      const h = new Uint8Array(W * H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) h[y * W + x] = (15 - x) * u.x + (12 - y) * u.y > 0.6 ? 5 - step : 5;
+      return h;
+    };
+    // (the shadow's top at d tiles from the plant's middle away from the sun)
+    const topAt = (bytes: Uint8Array, d: number) => {
+      const px = 15.5 - u.x * d;
+      const py = 12.5 - u.y * d;
+      return decodeTop(bytes[(Math.floor(py * SHADOW_RES) * W * SHADOW_RES + Math.floor(px * SHADOW_RES)) * 4]);
+    };
+    const pine = objectCasters(W, H, entityView([{ template: "Pine", x: 15, y: 12, z: 5, orientation: "Cw0", owner: "f" }]))!;
+    // two levels down: the bank's own shadow ends 2.7 tiles off; the pine's whorls (1.1 to 2.7 over its level, 3.1 to
+    // 4.7 over the ground below) shade it on to about 5, as its column did
+    const low = stepped(2);
+    const bytes = shadowMap(W, H, low, pine);
+    const bank = shadowMap(W, H, low, null);
+    for (const d of [3.5, 4, 4.5]) {
+      expect(topAt(bank, d), `the bank alone, ${d} off`).toBeLessThan(3);
+      expect(topAt(bytes, d), `${d} off`).toBeGreaterThan(3);
+    }
+    expect(topAt(bytes, 6)).toBeLessThan(3);
+    // three levels down, the same past the bank's longer shadow
+    const lower = shadowMap(W, H, stepped(3), pine);
+    for (const d of [4.5, 5.25]) expect(topAt(lower, d), `${d} off, three levels down`).toBeGreaterThan(2);
+    // onto water a level under the bank (its surface at 4 over ground 3): the whorls shade its surface 2.1 to 3.7 off
+    for (const d of [2.5, 3, 3.5]) expect(topAt(bytes, d), `the water's surface, ${d} off`).toBeGreaterThan(4);
+    expect(topAt(bytes, 5.5)).toBeLessThan(4);
+  });
+
+  it("casts a dead plant at its dead form's height (dying.ts DEAD_FORM), not a third of its living one", () => {
+    const dead = objectCasters(W, H, entityView([{ template: "Pine", x: 15, y: 12, z: 3, orientation: "Cw0", owner: "f", dead: true }]))!;
+    const alive = objectCasters(W, H, entityView([{ template: "Pine", x: 15, y: 12, z: 3, orientation: "Cw0", owner: "f" }]))!;
+    expect(dead[12 * W + 15] / alive[12 * W + 15]).toBeCloseTo(0.79, 5);
+  });
+
+  it("casts no disc wide enough to reach samples an edit of its tile does not redo", () => {
+    // (from a tile's middle to the nearest sample outside it: half a tile and half a sample)
+    expect(PLANT_WIDEST).toBeLessThan(0.5 + 0.5 / SHADOW_RES);
+    expect(PLANT_WIDEST).toBeGreaterThan(0.5);
+  });
+
   it("encodes shadow tops within a tenth of a level", () => {
     for (const t of [-1.5, 0, 3.3, 12.8, 24]) expect(Math.abs(decodeTop(encodeTop(t)) - t)).toBeLessThan(0.06);
     expect(litFraction(5, 4, 4.5)).toBe(1);
@@ -203,7 +300,7 @@ describe("the baked light", () => {
     expect(litFraction(5, 4.5, 5.5)).toBeCloseTo(0.5);
   });
 
-  it("packs the tile data: height, soil and the water over the top (B unused since D497)", () => {
+  it("packs the tile data: height, soil, the game's desert intensity and the water over the top", () => {
     const heights = new Uint8Array([2, 2, 5, 1]);
     const soil = soilView([0, 3, 12, 0], [0, 0, 0, 0.4]);
     const sw = surfaceWater(4, 1, waterFromDepth(heights, [0, 0, 0, 0.8], [0, 0, 0, 0]));
@@ -213,7 +310,8 @@ describe("the baked light", () => {
     expect(d[5] >> 4).toBe(3); // moist
     expect(d[9] >> 4).toBe(12);
     expect(d[13] & 15).toBeGreaterThan(0); // contaminated
-    expect([d[2], d[6], d[10], d[14]]).toEqual([0, 0, 0, 0]);
+    // B: the desert intensity, all of a dry top, 0.7 × (1 − 3/5) at moisture 3, none from 5 up (palette.ts DESERT)
+    expect([d[2], d[6], d[10], d[14]]).toEqual([255, Math.round(0.28 * 255), 0, 255]);
     expect([d[3], d[7], d[11]]).toEqual([0, 0, 0]);
     expect(d[15]).toBe(waterByte(sw, heights, 3));
     expect(d[15]).toBeGreaterThan(40);
@@ -225,7 +323,7 @@ describe("water's flags", () => {
   // (D148: a fall was a curtain carrying its drop in its flags; from D201 it poured from the lip as a fall of its own,
   // its foot and brink marked for foam; since D201's amendment (2026-10-29) it is a curtain again, as the game draws
   // it, with no foam)
-  it("marks shores, and the drop of each fall", () => {
+  it("marks shores, a curtain's drop, and no curtain at a fall (the water below rises to it: fallSlope.ts)", () => {
     // west to east: a pool at 6 (surface 6.5) falls to a river at 3 (surface 3.5), beside dry
     // ground at 7 on the north side of the pool
     const W = 4;
@@ -236,17 +334,21 @@ describe("water's flags", () => {
     const m = meshWaterChunk(W, H, plainLayers(heights, sw), 0, 0);
     const tops = new Map<number, number>();
     const curtains: number[] = [];
+    let lip = -Infinity;
     for (let q = 0; q < m.quads; q++) {
       const x = Math.min(m.positions[q * 12], m.positions[q * 12 + 3], m.positions[q * 12 + 6]);
-      if (m.normals[q * 12 + 1] > 0) tops.set(Math.round(x), m.flags[q * 4]);
-      else if (m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 2) < 0.1) curtains.push(m.flags[q * 4]);
+      if (m.normals[q * 12 + 1] > 0) {
+        tops.set(Math.floor(x + 1e-6), m.flags[q * 4]);
+        for (let v = 0; v < 4; v++) if (Math.abs(m.positions[(q * 4 + v) * 3] - 2) < 1e-6 && x >= 2 - 1e-6) lip = Math.max(lip, m.positions[(q * 4 + v) * 3 + 1]);
+      } else if (m.normals[q * 12] > 0 && Math.abs(m.positions[q * 12] - 2) < 0.1) curtains.push(m.flags[q * 4]);
     }
     // the pool's tiles meet dry ground to the north, and no top carries any other mark
     expect(tops.get(0)! & SHORE_BITS[2]).toBeTruthy();
     expect(tops.get(1)! & SHORE_BITS[2]).toBeTruthy();
     for (const [, flags] of tops) expect(flags & ~15).toBe(0);
-    // the fall hangs from the pool's surface down to the river's, 3 levels: its drop in its flags
-    expect(curtains).toEqual([90]);
+    // the fall is the river's tile rising to the pool's surface at the lip (D154 as amended 2026-11-08): no curtain
+    expect(curtains).toEqual([]);
+    expect(lip).toBeCloseTo(6.5, 5);
     // a curtain's flags are its drop, and none at the map's edge
     expect(dropFlags(6.5, 3.5, false)).toBe(90);
     expect(dropFlags(3, 0, true)).toBe(EDGE_CURTAIN);

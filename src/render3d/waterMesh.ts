@@ -1,19 +1,22 @@
 // Water surfaces (PLAN §14.2: "water surfaces as translucent quads at depth"), meshed per chunk
-// like the terrain. Each wet tile gets a flat quad at its surface. Where a neighbour's ground, or its
-// water, is lower, a curtain hangs from the surface down to it, the water's side; a fall is such a
-// curtain down to water well below, as the game draws its falls (the water mesh's own vertical faces,
-// D201 amended 2026-10-29). With terrain above terrain
+// like the terrain. Each wet tile gets a flat quad at its surface; where a neighbour's water stands over it, the
+// game's grid of sixteen vertices instead, rising to meet that water, so a fall is the lower tile's own slope from the
+// lip, as the game draws its falls (fallSlope.ts, its CalculateHeights; D154 as amended 2026-11-08). Where a
+// neighbour's ground is lower and dry, or at the map's edge, a curtain hangs from the surface down to it, the water's
+// side; where a wet neighbour's top meets this one's lower along their edge, a skirt down to it. With terrain above terrain
 // every water column (a cave's pool, the lake on its roof) is drawn the same way on its own floor,
 // seeing the water and ground at its own level round it (waterLayers.ts). Each vertex carries a depth and badwater share,
 // which the shader turns into colour and opacity (Map look, D86: a top's corners share depth with
 // the tiles round the corner, so the water thins toward the shore; D177: the badwater share is
-// blended over the connected water a few tiles round, then shared at the corners too, so where
-// badwater meets clean water the colour turns in a soft gradient over several tiles, never tile by
-// tile), and flags: which sides of a top meet the shore.
+// shared at the corners with the connected water round them, which a fall's face and water under a
+// roof are coloured by; a top in the open takes the game's blend in the shader, about a tile wide,
+// D154 as amended 2026-11-08), and flags: which sides of a top meet the shore.
 
 import { CHUNK } from "./mesh";
 import type { SurfaceWater, WaterView } from "./model";
 import type { WaterLayer } from "./waterLayers";
+import { cornerShift, filmDepthShare } from "./shoreFilm";
+import { handOver, SLOPE_MIN, slopeGrid, slopeHeights, tileRise, type SlopeGrid } from "./fallSlope";
 
 /** Flags of a water top: bits 0–3 the sides (east, west, north, south) where it meets the shore. A curtain's
  *  flags are its drop (`dropFlags`); the map's edge has none. */
@@ -28,6 +31,9 @@ export interface WaterMeshData {
   /** Per vertex, for a layer cut (cutWater.ts): the floor of its column, and on a top the corner's wet share (the share
    *  of the tiles its depth is shared with that are water, `corner`), 1 on a side. */
   cut: Float32Array;
+  /** Per vertex, a still film's corner drawn back from the shore (shoreFilm.ts, Q9 V3): its shift (map axes x, y; tiles)
+   *  × its depth's share, which the vertex shader takes × the flow's share there; 0 elsewhere. */
+  shore: Float32Array;
   /** Axis normal per vertex. */
   normals: Int8Array;
   indices: Uint32Array;
@@ -42,11 +48,13 @@ class WaterBuffer {
   nrm: number[] = [];
   flg: number[] = [];
   cut: number[] = [];
+  shore: number[] = [];
   quads = 0;
   /** A quad of a column on `floor` with its own depth, badwater share and wet share (`WaterMeshData.cut`) at each
    *  corner. */
-  quad4(c: number[], depth: readonly number[], cont: readonly number[], floor: number, share: readonly number[], nx: number, ny: number, nz: number, flags = 0): void {
+  quad4(c: number[], depth: readonly number[], cont: readonly number[], floor: number, share: readonly number[], nx: number, ny: number, nz: number, flags = 0, shore: readonly number[] = NO_SHIFT): void {
     for (let k = 0; k < 12; k++) this.pos.push(c[k]);
+    for (let k = 0; k < 8; k++) this.shore.push(shore[k]);
     for (let v = 0; v < 4; v++) {
       this.data.push(depth[v], cont[v]);
       this.cut.push(floor, share[v]);
@@ -62,30 +70,125 @@ class WaterBuffer {
       const v = q * 4;
       indices.set([v, v + 1, v + 2, v, v + 2, v + 3], q * 6);
     }
-    return { positions: new Float32Array(this.pos), data: new Float32Array(this.data), flags: new Float32Array(this.flg), cut: new Float32Array(this.cut), normals: new Int8Array(this.nrm), indices, quads: n };
+    return { positions: new Float32Array(this.pos), data: new Float32Array(this.data), flags: new Float32Array(this.flg), cut: new Float32Array(this.cut), shore: new Float32Array(this.shore), normals: new Int8Array(this.nrm), indices, quads: n };
   }
 }
 
-/** Lower than this below the surface, a neighbour gets a curtain. */
+/** A quad none of whose corners moves (`WaterMeshData.shore`). */
+const NO_SHIFT: readonly number[] = [0, 0, 0, 0, 0, 0, 0, 0];
+const NO_SHIFT2: readonly [number, number] = [0, 0];
+
+const lerp2 = (a: readonly number[], b: readonly number[], t: number): readonly number[] => [(1 - t) * a[0] + t * b[0], (1 - t) * a[1] + t * b[1]];
+
+/** A top's sides, east, west, north (y + 1) and south (y − 1), as its curtains hang from them: the side's ends A and B
+ *  (map axes, from the tile's corner x, y), the top's corners there (0 at x, y; 1 at x + 1, y; 2 at x + 1, y + 1; 3 at
+ *  x, y + 1), a slope's grid vertices from A to B (fallSlope.ts, i + 4j), and its outward normal (world x, z). */
+const CURTAIN_SIDES = [
+  { ax: 1, ay: 0, bx: 1, by: 1, a: 1, b: 2, grid: [3, 7, 11, 15], nx: 1, nz: 0 },
+  { ax: 0, ay: 1, bx: 0, by: 0, a: 3, b: 0, grid: [12, 8, 4, 0], nx: -1, nz: 0 },
+  { ax: 1, ay: 1, bx: 0, by: 1, a: 2, b: 3, grid: [15, 14, 13, 12], nx: 0, nz: -1 },
+  { ax: 0, ay: 0, bx: 1, by: 0, a: 0, b: 1, grid: [0, 1, 2, 3], nx: 0, nz: 1 },
+] as const;
+
+/** The grid `slopeHeights` fills, kept (one tile at a time), and a neighbour's (its skirts). */
+const grid = slopeGrid();
+const nearGrid = slopeGrid();
+
+/** A slope's top (fallSlope.ts): the game's grid of sixteen vertices as nine quads, each split along the game's
+ *  diagonal, from (i + 1, j) to (i, j + 1) in thirds; lit as any top (the up normal). A vertex at its own surface takes
+ *  the top's corners' depth, wet share and still film's shift, bilinearly; one raised takes the depth seen there
+ *  (`SlopeGrid.seen`) and, for its wet share, its cut share (`SlopeGrid.cut`: sliced by a layer cut, it takes the depth
+ *  seen from the cut, cutWater.ts `cutSlopeDepth`). The badwater share is the corners',
+ *  bilinearly: the water below a fall already has the fall's, handed over (`handOver`). */
+function slopeTop(b: WaterBuffer, g: SlopeGrid, x: number, y: number, f: number, flags: number, k0: readonly number[], k1: readonly number[], k2: readonly number[], k3: readonly number[], m: readonly (readonly number[])[] | null): void {
+  // (each vertex's weights on the top's four corners, bilinearly: SLOPE_WEIGHTS)
+  const { vd, vc, vs, vm, pos, qd, qc, qs, qm } = SLOPE_SCRATCH;
+  for (let q = 0; q < 16; q++) {
+    const w0 = SLOPE_WEIGHTS[q * 4];
+    const w1 = SLOPE_WEIGHTS[q * 4 + 1];
+    const w2 = SLOPE_WEIGHTS[q * 4 + 2];
+    const w3 = SLOPE_WEIGHTS[q * 4 + 3];
+    const seen = g.seen[q];
+    const up = seen === seen;
+    vd[q] = up ? seen : w0 * k0[0] + w1 * k1[0] + w2 * k2[0] + w3 * k3[0];
+    vs[q] = up ? g.cut[q] : w0 * k0[2] + w1 * k1[2] + w2 * k2[2] + w3 * k3[2];
+    vc[q] = w0 * k0[1] + w1 * k1[1] + w2 * k2[1] + w3 * k3[1];
+    if (m) {
+      vm[q * 2] = w0 * m[0][0] + w1 * m[1][0] + w2 * m[2][0] + w3 * m[3][0];
+      vm[q * 2 + 1] = w0 * m[0][1] + w1 * m[1][1] + w2 * m[2][1] + w3 * m[3][1];
+    }
+  }
+  const h = g.height;
+  for (let j = 0; j < 3; j++)
+    for (let i = 0; i < 3; i++) {
+      // (its corners from (i + 1, j) round to (i, j): the first and third on the game's diagonal)
+      for (let c = 0; c < 4; c++) {
+        const v = c === 0 ? i + 1 + 4 * j : c === 1 ? i + 1 + 4 * (j + 1) : c === 2 ? i + 4 * (j + 1) : i + 4 * j;
+        pos[c * 3] = x + (v & 3) / 3;
+        pos[c * 3 + 1] = h[v];
+        pos[c * 3 + 2] = -(y + (v >> 2) / 3);
+        qd[c] = vd[v];
+        qc[c] = vc[v];
+        qs[c] = vs[v];
+        qm[c * 2] = vm[v * 2];
+        qm[c * 2 + 1] = vm[v * 2 + 1];
+      }
+      // (quad4 copies what it is given, so the scratch is reused)
+      b.quad4(pos, qd, qc, f, qs, 0, 1, 0, flags, m ? qm : NO_SHIFT);
+    }
+}
+
+/** A slope's vertex q (i + 4j, at (i/3, j/3) across its tile)'s bilinear weights on the top's corners (0 at x, y; 1 at
+ *  x + 1, y; 2 at x + 1, y + 1; 3 at x, y + 1), four a vertex. */
+const SLOPE_WEIGHTS = (() => {
+  const out = new Float64Array(64);
+  for (let q = 0; q < 16; q++) {
+    const fx = (q & 3) / 3;
+    const fy = (q >> 2) / 3;
+    out.set([(1 - fx) * (1 - fy), fx * (1 - fy), fx * fy, (1 - fx) * fy], q * 4);
+  }
+  return out;
+})();
+
+/** `slopeTop`'s working arrays (one tile at a time). */
+const SLOPE_SCRATCH = {
+  vd: new Array<number>(16).fill(0),
+  vc: new Array<number>(16).fill(0),
+  vs: new Array<number>(16).fill(0),
+  vm: new Array<number>(32).fill(0),
+  pos: new Array<number>(12).fill(0),
+  qd: new Array<number>(4).fill(0),
+  qc: new Array<number>(4).fill(0),
+  qs: new Array<number>(4).fill(0),
+  qm: new Array<number>(8).fill(0),
+};
+
+/** Lower than this below the surface, a dry neighbour gets a curtain. */
 const STEP = 0.02;
 /** Water within this of a tile's surface is the same water: it shares depth and badwater at the
  *  corners, and the badwater blend reaches across it. */
 const SAME_WATER = 0.35;
-/** A curtain down to water this far below or more is a fall (its drop in its flags, `dropFlags`): the shaders draw it
- *  as the water's own face in front of the cliff, kept below a layer cut; a smaller step between two waters is drawn
- *  as the surface going on (materials.ts, high/shaders.ts). */
+/** A curtain this tall or more (its drop in its flags, `dropFlags`) is kept below a layer cut; a shorter one fades out
+ *  as it shortens. Every curtain but the map's edge section is drawn as the water's surface going on, as the game's
+ *  skirt (materials.ts, high/shaders.ts). Since falls are slopes (fallSlope.ts) a curtain hangs only toward lower dry
+ *  ground and at the map's edge (toward water, a skirt: `SKIRT_FLAGS`). */
 export const FALL = 0.3;
 
-/** How the badwater share is blended between tiles (D177): a binomial kernel along rows, then
- *  along columns, from the tile itself out to 3 tiles away. A clean/bad front becomes a gradient
- *  over about six tiles (four for the middle of it), no step between neighbouring tiles above a
- *  third of the way. */
-export const BLEND_KERNEL = [20, 15, 6, 1] as const;
+/** A skirt's flags (its drop, as a curtain's): never as tall as a fall, so it is drawn as the water's own surface going
+ *  on (materials.ts), as the game's skirt shares its top's material. */
+const SKIRT_FLAGS = Math.round(FALL * 30) - 1;
+
+/** How the badwater share is blended between tiles before the corners share it (D177): a kernel along rows, then
+ *  along columns, from the tile itself out. The tile's own share alone (D154 as amended 2026-11-08): the game blends
+ *  its per-column contamination about a tile wide, centred on the tiles' edge (waterPalette.ts WATER_SHARE_BLEND),
+ *  which a top in the open takes in the shader; the corners' sharing gives a face and water under a roof theirs. Until
+ *  then [20, 15, 6, 1], a front over about four tiles. */
+export const BLEND_KERNEL: readonly number[] = [1];
 
 const blends = new WeakMap<SurfaceWater, Float32Array>();
 
 /** The badwater share of each tile's surface water blended over the connected water round it
- *  (`BLEND_KERNEL`): each tile's share averaged with its neighbours' out to 3 tiles along the row,
+ *  (`BLEND_KERNEL`): each tile's share averaged with its neighbours' out to the kernel's reach along the row,
  *  then along the column, over water at its own level (within `SAME_WATER`) that reaches it without
  *  crossing dry ground or a fall, the kernel's weights shared among the tiles it reaches. Clean
  *  water with no badwater within reach stays exactly 0, and badwater with no clean water within
@@ -116,6 +219,8 @@ let rowsScratch = new Float32Array(0);
 
 /** What `blendInto` leaves for a chunk's mesh: kept between chunks (only the window of the chunk being meshed is read). */
 let badScratch = new Float32Array(0);
+/** The badwater share handed over (fallSlope.ts `handOver`) that the blend reads for a chunk's mesh: kept likewise. */
+let handScratch = new Float32Array(0);
 
 /** The blend (`blendedBadwater`) of the tiles x0..x1 by y0..y1 (clipped to the map) into `out`, a map-sized array whose
  *  other tiles are left as they were: the same arithmetic tile by tile as the whole map's, so any window holds the
@@ -183,18 +288,22 @@ export function dropFlags(top: number, bottom: number, edge: boolean): number {
   return edge ? EDGE_CURTAIN : Math.min(254, Math.round((top - bottom) * 30));
 }
 
-/** A chunk's water (its tops and curtains, falls among them), layer by layer (waterLayers.ts): each layer's columns drawn on
+/** A chunk's water (its tops, falls' slopes among them, and its curtains), layer by layer (waterLayers.ts): each layer's columns drawn on
  *  what they see round them. One layer, the open sky's, on a map without terrain above terrain (`plainLayers`). */
 export function meshWaterChunk(W: number, H: number, layers: readonly WaterLayer[], cx: number, cy: number): WaterMeshData {
   const b = new WaterBuffer();
   const nx = Math.ceil(W / CHUNK);
-  for (const layer of layers) if (!layer.chunks || layer.chunks[cy * nx + cx]) meshLayer(b, W, H, layer.ground, layer.sw, layer.own, cx, cy);
+  // (a still film draws back from the shore only in the open sky's layer, whose water on its tiles' tops the terrain's
+  // water byte has: shoreFilm.ts)
+  layers.forEach((layer, k) => {
+    if (!layer.chunks || layer.chunks[cy * nx + cx]) meshLayer(b, W, H, layer.ground, layer.sw, layer.own, cx, cy, k === 0 ? (layer.wet ?? layer.sw) : null);
+  });
   return b.finish();
 }
 
 /** One layer's water in a chunk: the tiles it draws (`own`; every wet tile when null), each seeing the water
  *  `sw` and the ground `heights` round it. */
-function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw: SurfaceWater, own: Uint8Array | null, cx: number, cy: number): void {
+function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw: SurfaceWater, own: Uint8Array | null, cx: number, cy: number, films: SurfaceWater | null): void {
   const x0 = cx * CHUNK;
   const y0 = cy * CHUNK;
   const x1 = Math.min(W, x0 + CHUNK);
@@ -203,7 +312,12 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
   // blends no more of a 512x512 map than the chunk it meshes
   if (badScratch.length < W * H) badScratch = new Float32Array(W * H);
   const bad = badScratch;
-  blendInto(bad, W, H, sw, x0 - BLEND_WINDOW, y0 - BLEND_WINDOW, x1 + BLEND_WINDOW - 1, y1 + BLEND_WINDOW - 1);
+  // (blended from the badwater share as the game's FindBestProperties hands it to the water below a fall, fallSlope.ts
+  // `handOver`, over the tiles the blend reads)
+  if (handScratch.length < W * H) handScratch = new Float32Array(W * H);
+  const reach = BLEND_WINDOW + BLEND_KERNEL.length - 1;
+  handOver(W, H, sw, sw.contamination, handScratch, 1, true, x0 - reach, y0 - reach, x1 + reach - 1, y1 + reach - 1);
+  blendInto(bad, W, H, { ...sw, contamination: handScratch }, x0 - BLEND_WINDOW, y0 - BLEND_WINDOW, x1 + BLEND_WINDOW - 1, y1 + BLEND_WINDOW - 1);
   /** A top's corner (tile-corner coordinates) shares the water of the tiles round it at its own
    *  level: their mean depth, dry ground counting as none (so the water thins toward the shore),
    *  and their mean blended badwater share (so the colour runs on smoothly across the tile); and the
@@ -235,6 +349,11 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
     const s = sw.surface[i];
     return s === s ? s : heights[i];
   };
+  /** Water standing on a tile's top in `w` (the terrain's water byte has it: light.ts `waterByte`). */
+  const onTop = (w: SurfaceWater, j: number): boolean => w.surface[j] === w.surface[j] && !(w.floor[j] < heights[j] - 0.01);
+  /** A side of a film's tile with no linked neighbour (shoreFilm.ts): a tile on the map with no water on its top, as
+   *  the terrain's water byte has it (`films`: under a roof too, where this layer drops it). */
+  const open = (xx: number, yy: number): boolean => xx >= 0 && yy >= 0 && xx < W && yy < H && !onTop(films!, yy * W + xx);
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
       const i = y * W + x;
@@ -262,39 +381,108 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
         const c1 = k1[1];
         const c2 = k2[1];
         const c3 = k3[1];
-        b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], f, [k0[2], k1[2], k2[2], k3[2]], 0, 1, 0, flags);
-        // curtains toward lower neighbours: down to the ground (never below the floor), or to the
-        // water just below, in front of the cliff where it stands below the floor; each with the
-        // badwater share of the top's edge it hangs from; down to water well below, a fall
+        // a still film's corners drawn back from its open sides (shoreFilm.ts, Q9 V3): each corner's shift × the depth's
+        // share, the corners k0 (x, y), k1 (x + 1, y), k2 (x + 1, y + 1), k3 (x, y + 1); the curtains hanging from its
+        // edges move with them
+        let m0 = NO_SHIFT2;
+        let m1 = NO_SHIFT2;
+        let m2 = NO_SHIFT2;
+        let m3 = NO_SHIFT2;
+        const share = films && onTop(sw, i) ? filmDepthShare(d) : 0;
+        if (share > 0) {
+          const oe = open(x + 1, y);
+          const ow = open(x - 1, y);
+          const on = open(x, y + 1);
+          const os = open(x, y - 1);
+          if (oe || ow || on || os) {
+            const at = (sx: number, sy: number) => {
+              const [mx, my] = cornerShift(sx, sy, sx > 0 ? oe : ow, sy > 0 ? on : os);
+              return [mx * share, my * share] as const;
+            };
+            m0 = at(-1, -1);
+            m1 = at(1, -1);
+            m2 = at(1, 1);
+            m3 = at(-1, 1);
+          }
+        }
+        // (a quad's shifts: none for the most, with no array made)
+        const moved = m0 !== NO_SHIFT2 || m1 !== NO_SHIFT2 || m2 !== NO_SHIFT2 || m3 !== NO_SHIFT2;
+        const sh = (a: readonly number[], b2: readonly number[], c2: readonly number[], d2: readonly number[]) => (moved ? [...a, ...b2, ...c2, ...d2] : NO_SHIFT);
+        // a fall's slope (fallSlope.ts, D154 as amended 2026-11-08): where a linked neighbour's surface stands over this
+        // one's, the game's grid of sixteen vertices rising to meet it; elsewhere one flat quad
+        const slope = tileRise(W, H, sw, x, y) >= SLOPE_MIN && slopeHeights(W, H, sw, x, y, grid);
+        if (slope) slopeTop(b, grid, x, y, f, flags, k0, k1, k2, k3, moved ? [m0, m1, m2, m3] : null);
+        else b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], f, [k0[2], k1[2], k2[2], k3[2]], 0, 1, 0, flags, sh(m0, m1, m2, m3));
+        // curtains toward lower dry neighbours and the map's edge: down to the ground, never below the floor, with the
+        // tile's own badwater share, its top along the top's edge (a slope's too). Toward a wet
+        // neighbour, a skirt where this top's edge stands over the neighbour's (`STEP` or more) at a vertex they share,
+        // down to the neighbour's there, as the game's water vertex shader drops each tile's side skirt to the
+        // neighbour's height at that vertex: water meets water by the slope, but where their corners' links differ (a
+        // corner neighbour dry on one side only) or a neighbour is not linked, the two tops' edges part, and the skirt
+        // closes the window between them
         const dd = [d, d, d, d];
         const side = [1, 1, 1, 1];
-        const drop = (xx: number, yy: number): number => {
-          const lv = level(xx, yy);
-          if (!(lv < s - STEP)) return NaN;
+        for (let k = 0; k < 4; k++) {
+          const xx = x + (k === 0 ? 1 : k === 1 ? -1 : 0);
+          const yy = y + (k === 2 ? 1 : k === 3 ? -1 : 0);
           const inside = xx >= 0 && yy >= 0 && xx < W && yy < H;
-          const wetBelow = inside && sw.surface[yy * W + xx] === sw.surface[yy * W + xx];
-          return wetBelow ? lv : Math.max(lv, f);
-        };
-        const O = 0.015; // a curtain to lower water stands just off the cliff's face
-        const e = drop(x + 1, y);
-        if (e === e) {
-          const X = e < f ? x + 1 + O : x + 1;
-          b.quad4([X, e, -y, X, e, -(y + 1), X, s, -(y + 1), X, s, -y], dd, [c1, c2, c2, c1], f, side, 1, 0, 0, dropFlags(s, e, x + 1 >= W));
-        }
-        const wv = drop(x - 1, y);
-        if (wv === wv) {
-          const X = wv < f ? x - O : x;
-          b.quad4([X, wv, -(y + 1), X, wv, -y, X, s, -y, X, s, -(y + 1)], dd, [c3, c0, c0, c3], f, side, -1, 0, 0, dropFlags(s, wv, x === 0));
-        }
-        const n = drop(x, y + 1);
-        if (n === n) {
-          const Z = n < f ? -(y + 1) - O : -(y + 1);
-          b.quad4([x + 1, n, Z, x, n, Z, x, s, Z, x + 1, s, Z], dd, [c2, c3, c3, c2], f, side, 0, 0, -1, dropFlags(s, n, y + 1 >= H));
-        }
-        const so = drop(x, y - 1);
-        if (so === so) {
-          const Z = so < f ? -y + O : -y;
-          b.quad4([x, so, Z, x + 1, so, Z, x + 1, s, Z, x, s, Z], dd, [c0, c1, c1, c0], f, side, 0, 0, 1, dropFlags(s, so, y === 0));
+          const S = CURTAIN_SIDES[k];
+          const wet = inside && sw.surface[yy * W + xx] === sw.surface[yy * W + xx];
+          // (a skirt: its neighbour's heights along the side, a slope's grid or its surface; none where this top's edge
+          // stands nowhere over the neighbour's surface, the most)
+          let nearSlope = false;
+          let sn = 0;
+          if (wet) {
+            sn = sw.surface[yy * W + xx];
+            let hi = s;
+            if (slope) for (let q = 0; q < 4; q++) hi = Math.max(hi, grid.height[S.grid[q]]);
+            if (!(hi >= sn + STEP)) continue;
+            nearSlope = tileRise(W, H, sw, xx, yy) >= SLOPE_MIN && slopeHeights(W, H, sw, xx, yy, nearGrid);
+          }
+          const lv = wet ? sn : level(xx, yy);
+          const e = Math.max(lv, f);
+          const edge = !inside;
+          // the side's ends A and B (map axes), the corners there, and its vertices along it in a slope's grid (the
+          // neighbour's same vertices: its opposite side's, backwards)
+          const O = CURTAIN_SIDES[k ^ 1].grid;
+          // (every side takes the tile's own badwater share, a fall's handed over, as the game's skirt takes its own
+          // tile's properties: never the corners' blend with the water beside it, D154)
+          const ca = c;
+          const cb = c;
+          const ma = [m0, m1, m2, m3][S.a];
+          const mb = [m0, m1, m2, m3][S.b];
+          const segments = slope || nearSlope ? 3 : 1;
+          for (let q = 0; q < segments; q++) {
+            const ta = q / segments;
+            const tb = (q + 1) / segments;
+            const ha = slope ? grid.height[S.grid[q]] : s;
+            const hb = slope ? grid.height[S.grid[q + 1]] : s;
+            if (wet) {
+              const ea = Math.min(ha, Math.max(f, nearSlope ? nearGrid.height[O[3 - q]] : sn));
+              const eb = Math.min(hb, Math.max(f, nearSlope ? nearGrid.height[O[2 - q]] : sn));
+              if (!(Math.max(ha - ea, hb - eb) >= STEP)) continue;
+              const ax = x + S.ax + (S.bx - S.ax) * ta;
+              const ay = y + S.ay + (S.by - S.ay) * ta;
+              const bx = x + S.ax + (S.bx - S.ax) * tb;
+              const by = y + S.ay + (S.by - S.ay) * tb;
+              const cqa = (1 - ta) * ca + ta * cb;
+              const cqb = (1 - tb) * ca + tb * cb;
+              const mqa = segments === 1 ? ma : lerp2(ma, mb, ta);
+              const mqb = segments === 1 ? mb : lerp2(ma, mb, tb);
+              b.quad4([ax, ea, -ay, bx, eb, -by, bx, hb, -by, ax, ha, -ay], dd, [cqa, cqb, cqb, cqa], f, side, S.nx, 0, S.nz, Math.min(SKIRT_FLAGS, dropFlags(Math.max(ha, hb), Math.min(ea, eb), false)), sh(mqa, mqb, mqb, mqa));
+              continue;
+            }
+            if (!(lv < Math.max(ha, hb) - STEP)) continue;
+            const ax = x + S.ax + (S.bx - S.ax) * ta;
+            const ay = y + S.ay + (S.by - S.ay) * ta;
+            const bx = x + S.ax + (S.bx - S.ax) * tb;
+            const by = y + S.ay + (S.by - S.ay) * tb;
+            const cqa = (1 - ta) * ca + ta * cb;
+            const cqb = (1 - tb) * ca + tb * cb;
+            const mqa = segments === 1 ? ma : lerp2(ma, mb, ta);
+            const mqb = segments === 1 ? mb : lerp2(ma, mb, tb);
+            b.quad4([ax, e, -ay, bx, e, -by, bx, hb, -by, ax, ha, -ay], dd, [cqa, cqb, cqb, cqa], f, side, S.nx, 0, S.nz, dropFlags(Math.max(ha, hb), e, edge), sh(mqa, mqb, mqb, mqa));
+          }
         }
       }
     }

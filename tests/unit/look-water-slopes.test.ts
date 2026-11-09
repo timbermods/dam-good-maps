@@ -59,13 +59,14 @@ describe("water", () => {
     expect(high).not.toContain("microFlecks");
     expect(high).not.toMatch(/HW_(BAD_)?GLINT/);
     // see-through as the game's High quality draws it (Q8): the ground behind shows by 0.175 at the water's
-    // floor, thinning in step with depth to none at 5 levels; clearer toward the banks, and at a bank of water
-    // a level deep or shallower over a seventh of the bed shows through
+    // floor, thinning in step with depth to none at 5 levels, by the depth the view sees under the surface (viewDepth.ts,
+    // Q9 P3): clearer where it sees less, and at the foot of a bank facing the camera, where it sees none, over a
+    // seventh of the ground behind shows through (D148: by each bank's shallowing, 0.3 of the depth at a bank, before)
     for (const d of depths) {
-      expect(waterOpacity(d, 0)).toBeLessThan(1);
-      expect(waterOpacity(d, 0)).toBeLessThanOrEqual(waterOpacity(d, 1));
+      expect(waterOpacity(d, 0, 0)).toBeLessThan(1);
+      expect(waterOpacity(d, 0, 0)).toBeLessThanOrEqual(waterOpacity(d, 0, d));
     }
-    for (const d of [0.1, 0.25, 0.5, 1]) expect(waterOpacity(d, 0)).toBeLessThan(0.86);
+    for (const d of [0.1, 0.25, 0.5, 1]) expect(waterOpacity(d, 0, 0)).toBeLessThan(0.86);
     for (const d of [0.25, 1, 2.5, 5, 6]) expect(waterOpacity(d)).toBeCloseTo(1 - 0.175 * Math.max(0, 1 - d / 5), 9);
   });
 
@@ -76,7 +77,7 @@ describe("water", () => {
       expect(waterOpacity(d), `${d} deep`).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
       // the game shows the ground behind badwater as it does behind clean water (Q8; #38's murkier badwater
       // gave way to the game's see-through rule)
-      expect(waterOpacity(d, 1, 1)).toBeCloseTo(waterOpacity(d), 9);
+      expect(waterOpacity(d, 1)).toBeCloseTo(waterOpacity(d), 9);
     }
     // a sliver fades in (our anti-aliasing of a shore's edge): under the body's opacity, rising with depth to
     // it in one smooth curve, no step between neighbouring depths
@@ -102,7 +103,7 @@ describe("water", () => {
     const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
     const y = (c: readonly number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
     const sat = (c: readonly number[]) => Math.max(...c) - Math.min(...c);
-    for (const ground of [GROUND.underwater, GROUND.moistLow, GROUND.dry])
+    for (const ground of [GROUND.underwater, GROUND.grass, GROUND.dry])
       for (const water of [cleanWaterBody(0.25), cleanWaterBody(1), badwaterBody(0.25)]) {
         const b = waterGroundBehind(ground, water);
         // darker than the ground in the open (the overlay of a dark water colour), and greyer
@@ -126,7 +127,7 @@ describe("water", () => {
       const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
       return { h: (h * 60 + 360) % 360, s: d };
     };
-    for (const ground of [GROUND.moistLow, GROUND.moistHigh, GROUND.dry, CONTAMINATED_GROUND.dry, CONTAMINATION.vein]) {
+    for (const ground of [GROUND.grass, GROUND.dry, CONTAMINATED_GROUND.dry, CONTAMINATION.vein]) {
       // clean: a teal-green, the grass's hue only partly kept; badwater: crimson whatever the ground
       const clean = hue(waterFilmGround(ground, 0));
       expect(clean.h, `clean over ${ground}`).toBeGreaterThan(130);
@@ -160,15 +161,18 @@ describe("water", () => {
       for (let v = 0; v < 4; v++) expect(m.data[(q * 4 + v) * 2 + 1]).toBeCloseTo(at(Math.round(m.positions[(q * 4 + v) * 3])), 5);
     }
     expect(tops).toBe(4);
-    // the blend keeps the order and softens the steps: from the badwater end to the clean end,
-    // no corner step above a third
+    // the corners keep the order and soften the steps: from the badwater end to the clean end, no corner step above the
+    // largest between two tiles; each tile's blend is its own share (BLEND_KERNEL, D154 as amended 2026-11-08: a
+    // top in the open takes the game's blend, about a tile wide, in the shader, look-badwater.test.ts), so the clean end
+    // stays clean (D148: re-based from the four-tile blend, whose corners reached the clean end)
+    expect(Array.from(blended)).toEqual(Array.from(sw.contamination));
     const corners = [0, 1, 2, 3, 4].map(at);
     for (let k = 1; k < corners.length; k++) {
       expect(corners[k]).toBeLessThanOrEqual(corners[k - 1]);
-      expect(corners[k - 1] - corners[k]).toBeLessThan(0.34);
+      expect(corners[k - 1] - corners[k]).toBeLessThanOrEqual(1 - 0.33 + 1e-6);
     }
-    expect(corners[0]).toBeGreaterThan(0.5);
-    expect(corners[4]).toBeGreaterThan(0);
+    expect(corners[0]).toBe(1);
+    expect(corners[4]).toBe(0);
   });
 });
 
@@ -197,7 +201,10 @@ describe("ruins", () => {
   it("stand apart from contaminated ground: rusty posts and beige panels far lighter, and the far block too", () => {
     for (const ground of [CONTAMINATED_GROUND.dry, CONTAMINATED_GROUND.grass, CONTAMINATION.vein]) {
       expect(lum(RUIN.rust)).toBeGreaterThan(lum(ground) + 0.12);
-      expect(lum(RUIN.panel)).toBeGreaterThan(lum(ground) + 0.35);
+      // the panels the lightest of a ruin, as the game's are (since 2026-11-08 the game's colour, D496's rule, whose
+      // readability D135 as amended accepts: the gap of 0.35 over the ground #e3cf96 kept is no longer ours to add)
+      expect(lum(RUIN.panel)).toBeGreaterThan(lum(ground) + 0.2);
+      expect(lum(RUIN.panel)).toBeGreaterThan(Math.max(lum(RUIN.rust), lum(RUIN.far)));
       // from afar a storey is a lattice block in the near skeleton's own muted rust (D305)
       expect(lum(RUIN.far)).toBeGreaterThan(lum(ground) + 0.12);
     }

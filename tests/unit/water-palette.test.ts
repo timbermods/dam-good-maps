@@ -77,7 +77,7 @@ describe("the shared water palette", () => {
     for (const lite of [false, true]) {
       const shader = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite).fragmentShader;
       expect(shader).toContain(WATER_GLSL);
-      for (const fn of ["cleanWaterBody(d, absorb)", "badwaterBody(depth)", "cleanWaterAlpha(d)", "badwaterAlpha(depth, shore)", "gameBadwaterEmission(cont, bpat.y, g)", "waterBlend(body, murky, cont)", "waterTint(cont)"]) expect(shader).toContain(fn);
+      for (const fn of ["cleanWaterBody(d, absorb)", "badwaterBody(d)", "cleanWaterAlpha(d)", "badwaterAlpha(depth, d)", "gameBadwaterEmission(cont, bpat.y, g)", "waterBlend(body, murky, cont)", "waterTint(cont)"]) expect(shader).toContain(fn);
     }
     // the GLSL is made from the exported values
     const gl = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));

@@ -7,6 +7,11 @@ import { shareBytes, stillBytes } from "../../src/render3d/high/bake";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
 import { stillFlowTexture } from "../../src/render3d/motion";
 import { STILL_FLOW_WAIT, StillFlow, type ShareJob } from "../../src/render3d/stillFlow";
+import { DataTexture, Scene } from "three";
+import { sceneUniforms } from "../../src/render3d/materials";
+import { WaterMotion } from "../../src/render3d/motion";
+import { shareByte } from "../../src/render3d/high/flow";
+import { handedWater } from "../../src/render3d/fallSlope";
 
 const W = 40;
 const H = 30;
@@ -144,4 +149,112 @@ describe("the light look's flow texture", () => {
     expect(texels(flow.texture)).toEqual(texels(stillFlowTexture(W, H, flipped)));
     flow.dispose();
   });
+
+  it("draws the latest water's badwater share on the frame after it comes, before any job answers (#865's review)", async () => {
+    vi.useFakeTimers();
+    const rand = random(19);
+    const heights = land(rand);
+    const depth = new Float32Array(W * H);
+    const cont = new Float32Array(W * H);
+    change(rand, depth, cont, true);
+    const touched: number[][] = [];
+    const flow = new StillFlow(W, H, (w, h, sw) => new Promise((r) => setTimeout(() => r(stillBytes(w, h, sw)), 400)), (...r) => touched.push(r));
+    flow.start(water(heights, depth, cont));
+    for (let k = 0; k < 4; k++) {
+      // badwater poured onto dry ground and a front moving: each tile's share and wetness in the texture at once, its
+      // rows sent with the next frame, while the job on it (or an older one) is still out
+      change(rand, depth, cont);
+      const sw = water(heights, depth, cont);
+      touched.length = 0;
+      flow.update(sw);
+      expect(touched.length).toBeGreaterThan(0);
+      expectCurrent(flow.texture.image.data as Uint8Array, sw);
+      await vi.advanceTimersByTimeAsync(120);
+      expectCurrent(flow.texture.image.data as Uint8Array, sw);
+    }
+    // once the water stops, the texture built from it whole
+    await vi.advanceTimersByTimeAsync(2000);
+    const last = water(heights, depth, cont);
+    expect(texels(flow.texture)).toEqual(texels(stillFlowTexture(W, H, last)));
+    flow.dispose();
+  });
 });
+
+/** Every wet tile's share in B (handed over down a fall, as the bake hands it: fallSlope.ts `handedWater`; D148,
+ *  falls as slopes) and a wet A, every dry tile's A 0. */
+function expectCurrent(data: Uint8Array, sw: SurfaceWater): void {
+  const handed = handedWater(W, H, sw).contamination;
+  for (let i = 0; i < W * H; i++) {
+    const wet = sw.surface[i] === sw.surface[i] && sw.depth[i] > 0;
+    if (wet) {
+      expect(data[i * 4 + 2], `tile ${i}`).toBe(shareByte(handed[i]));
+      expect(data[i * 4 + 3], `tile ${i}`).toBeGreaterThan(0);
+    } else expect(data[i * 4 + 3], `tile ${i}`).toBe(0);
+  }
+}
+
+describe("the moving water's flow texture (motion.ts)", () => {
+  it("carries a fall's badwater share down its slope the moment the water comes, with no bake (#867's review)", () => {
+    vi.stubGlobal("window", globalThis);
+    try {
+      // 4 × 1: pure badwater on a shelf (x 0–1, surface 6) falling to a clean pool (x 2–3, surface 3.5); then the same
+      // fall clean over a badwater pool; a baker that never answers
+      const Wf = 4;
+      const Hf = 1;
+      const heights = Uint8Array.from([5, 5, 3, 3]);
+      const depth = Float32Array.from([1, 1, 0.5, 0.5]);
+      const cont = Float32Array.from([1, 1, 0, 0]);
+      const sw = surfaceWater(Wf, Hf, waterFromDepth(heights, depth, cont));
+      const baker = { run: () => new Promise(() => {}) };
+      const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+      const motion = new WaterMotion(Wf, Hf, baker as never, new Scene(), sceneUniforms(Wf, Hf, t(), t(), t(), t()), () => {}, () => null, () => {});
+      (motion as unknown as { setShapes: () => void }).setShapes = () => {};
+      motion.waterChanged(heights, sw, true);
+      const data = motion.flow.image.data as Uint8Array;
+      // the pool's tile under the lip rises 2.5 to the shelf's water: the fall's whole share, as the game hands it
+      expect(data[2 * 4 + 2], "the slope under the lip").toBe(255);
+      expect(data[3 * 4 + 2], "the pool beyond it, nothing over it but its own water").toBe(0);
+      expect(data[0 * 4 + 2]).toBe(255);
+      // and a clean fall into badwater: the slope takes the fall's clean share
+      const swClean = surfaceWater(Wf, Hf, waterFromDepth(heights, depth, Float32Array.from([0, 0, 1, 1])));
+      motion.waterChanged(heights, swClean);
+      expect(data[2 * 4 + 2], "a clean fall's slope over badwater").toBe(0);
+      expect(data[3 * 4 + 2]).toBe(255);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("draws the latest water's badwater share on the frame after it comes, never a bake behind it (#865's review)", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", globalThis);
+    try {
+      const rand = random(23);
+      const heights = land(rand);
+      const depth = new Float32Array(W * H);
+      const cont = new Float32Array(W * H);
+      change(rand, depth, cont, true);
+      // a worker that answers each bake 1.5 s late, with the flow texture's bytes for the water it was sent
+      const baker = { run: (job: { W: number; H: number; sw: SurfaceWater }) => new Promise((r) => setTimeout(() => r({ kind: "flow", flow: stillFlowTexture(job.W, job.H, job.sw).image.data, shapes: null, cave: null, ms: 0 }), 1500)) };
+      const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+      const touched: number[][] = [];
+      const motion = new WaterMotion(W, H, baker as never, new Scene(), sceneUniforms(W, H, t(), t(), t(), t()), () => {}, () => null, (...r) => touched.push(r));
+      (motion as unknown as { setShapes: () => void }).setShapes = () => {};
+      motion.waterChanged(heights, water(heights, depth, cont), true);
+      for (let k = 0; k < 4; k++) {
+        change(rand, depth, cont);
+        const sw = water(heights, depth, cont);
+        touched.length = 0;
+        motion.waterChanged(heights, sw);
+        expect(touched.length).toBeGreaterThan(0);
+        expectCurrent(motion.flow.image.data as Uint8Array, sw);
+        // (a bake of older water answering meanwhile leaves the latest's share in place)
+        await vi.advanceTimersByTimeAsync(700);
+        expectCurrent(motion.flow.image.data as Uint8Array, sw);
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+

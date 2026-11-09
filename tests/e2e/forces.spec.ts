@@ -10,6 +10,7 @@
 // force away; with reduced motion the land is exactly the same.
 
 import { expect, test, type Page } from "@playwright/test";
+import { phases, watchOpen } from "./helpers";
 import { openEditor, setWaterSpeed, topDown } from "./open";
 import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
@@ -202,7 +203,14 @@ test(`clicked quickly (D378): the next force plays in full from its first moment
   await page.addInitScript(() => {
     (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true };
   });
+  // (where its time goes, in CI's log: software drawing takes about 2 s a frame)
+  const log = phases(`forces clicked quickly ${a} then ${b}`);
+  await watchOpen(page);
   await openTopDown(page);
+  await log.open(page);
+  // (the ambient water held still: under CI's software drawing its moving frames, which players there never get, starve
+  // the force's worker, and the lava's cooling keeps the clock; the effects still play)
+  await page.evaluate(() => window.dgm3d!.renderer.setClock(12.5));
   const { far } = await places(page);
   const onMap = (x: number, y: number) =>
     page.evaluate(([a, b]) => {
@@ -231,12 +239,39 @@ test(`clicked quickly (D378): the next force plays in full from its first moment
     await page.evaluate(() => ((window as unknown as { moments: unknown[] }).moments = []));
     await clickTile(page, at[0], at[1]);
     await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
+    const drawn = await page.evaluate(() => {
+      const r = (window as unknown as { dgm3d: { renderer: { framesDrawn?: number; bloomFrames?: number } } }).dgm3d.renderer;
+      const t = window.dgmEditor!.forceTiming();
+      return `${r.framesDrawn ?? "?"} frames drawn, ${r.bloomFrames ?? "?"} with the bloom; worked out ${t?.worked ?? "?"} ms, shown ${t?.show ?? "?"}, land final ${t?.final ?? "?"}, kept ${t?.kept ?? "?"}`;
+    });
+    log.lap(`${key} played`, ` (${drawn})`);
   };
+  log.lap("set up");
+  // what shows the moment the force is kept, read by the page itself at its first turn after: the test's own reads
+  // come seconds later where the browser draws slowly (CI's software drawing, about 2 s a frame on two cores), and the
+  // lava cools by the clock (#881)
+  await page.evaluate(() => {
+    const w = window as unknown as { atKeep?: unknown };
+    w.atKeep = undefined;
+    let began = false;
+    const id = setInterval(() => {
+      const on = window.dgmEditor!.force() !== null;
+      if (began && !on) {
+        w.atKeep = window.dgm3d!.renderer.forceShowing;
+        clearInterval(id);
+      }
+      began ||= on;
+    }, 10);
+  });
   await force(a, "30", far);
   // (kept: an eruption's lava still cools, however slowly the browser draws; a crater's dust may
   // already have settled where it keeps slowly, as software drawing on CI does: forcePlayback.test
   // holds that case on exact time)
-  if (a === "Shift+Digit3") expect((await page.evaluate(() => window.dgm3d!.renderer.forceShowing))!.erupt).not.toBeNull();
+  if (a === "Shift+Digit3") {
+    const lava = (await page.evaluate(() => (window as unknown as { atKeep?: Record<string, { cooling: number } | null> | null }).atKeep))?.erupt ?? null;
+    log.lap("its lava read", ` (cooled ${lava ? lava.cooling.toFixed(2) + " s" : "out"} at the keep)`);
+    expect(lava).not.toBeNull();
+  }
   await force(b, "35", next);
   const m = await firstMoment();
   const verb = b === "Shift+Digit2" ? "craterize" : "erupt";
@@ -250,6 +285,7 @@ test(`clicked quickly (D378): the next force plays in full from its first moment
   await page.keyboard.press("Control+z");
   await page.keyboard.press("Control+z");
   await settled(page);
+  log.lap("undone");
   // (undone: no tail plays on over the land taken back)
   const after = await page.evaluate(() => window.dgm3d!.renderer.forceShowing);
   for (const v of ["craterize", "erupt", "quake", "glaciate", "erode"]) expect(after?.[v as keyof typeof after] ?? null, `${a} then ${b}, undone: ${v}`).toBeNull();

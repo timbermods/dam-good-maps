@@ -29,6 +29,11 @@ says are the core's (D342).
 - `timelapse.worker.ts`: the time-lapse's replay (`core/doc/timelapse.ts` `TimelapseReplay`) in a worker of its own,
   a step and its water at a time, as the recorder (`src/editor/timelapse/record.ts`) asks; its views are `session.ts`'s
   `wholeView` and `waterOf`.
+- `naturalize.worker.ts`: Naturalize's weathering (D422, #868) in a worker of its own, never the map's, so a stroke's
+  dabs never wait behind the map's water: the page sends a stroke's start with its own terrain and shown heights, then
+  its dabs; the preview is the core's (`core/features/raster/remoteStroke.ts` `WeatherStroke`), the page's side
+  `RemotePreview`. The page starts it with `platform/index.ts` `naturalizer`, and `restartNaturalizer` starts it again
+  when it never answered a stroke in time (#884).
 - `checks.worker.ts`: the checks' own worker, a replica of the open map that follows the editor's log (`follow`,
   `replicaCheck`). A check waits for every follow sent before it, and a second ask for the same map shares the check
   in progress (#829).

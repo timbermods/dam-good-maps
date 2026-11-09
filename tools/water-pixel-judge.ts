@@ -11,7 +11,7 @@
 //   npx tsx tools/water-pixel-judge.ts [--dev .scratch/judge-dev|none] [--base .scratch/judge-826] [--batch 20261002-1610-batch]
 //     [--look standard|high|both] [--water clean|bad|mixed|all|pit|falls] [--define WATER_FORMULA|BADWATER_FORMULA|WATER_GAME_LIGHT,...]
 //     [--set WATER_GAME_LIGHT=1,...] [--shots <id>,<id>]
-//     [--light shot|day] [--reflection <strength>]
+//     [--light shot|day] [--reflection <strength>] [--samples] [--ours <dir>]
 //
 // `--water pit` samples the mine sites' pits (D496 as amended 2026-11-07: by day the game's pit the lighter) beside pure badwater, on the same
 // shots: the pit's floor at the middle of each mine site's 5 × 5 (the 3 × 3 round its centre, at its depth,
@@ -31,6 +31,13 @@
 // ruins, slopes) and from what a higher tile could shade, by the camera's distance; ours' distance to the game's pixel,
 // its mean's (bias) and the floor, two game samples' distance at the game's own spread (√2 × it). On land within that
 // floor, the judge's colour rulings on the water stand.
+//
+// The land's samples cluster: on the six start shots grass is 160 tiles, 108 of them on riverValley-128-1, so the
+// patterns of both sides (ours, and the game's own textures, world-anchored) move a kind's mean by a few luma at a
+// cluster. `--define GROUND_MEANS` draws this branch's second case with every top at the game's texture means
+// (materials.ts `GROUND_MEANS`, palette.ts GAME_GROUND_MEAN): its land is our light alone, to set against the game's
+// pixels with its texture's own variation at each sample taken out (docs/progress/3d-view.md, "Grass in the game's
+// light"; the game's textures read locally, never kept).
 //
 // The camera: the probe's water pose (investigation/probe/runner/catalog.ts `standardPoses`) is where the game's camera
 // was asked to look, but its field of view and distance do not carry over exactly (Q8 found 31-37° and 1.0-1.35× the
@@ -114,6 +121,12 @@ const REFLECTION = arg("reflection") ? Number(arg("reflection")) : null;
 /** `--ambient <k>`: the ambient probe's SH × k (linear values, before the shader turns them to display values), a
  *  question for the look: the scene's `m_AmbientIntensity` 1.2, if the engine applies it to a Trilight. */
 const AMBIENT = arg("ambient") ? Number(arg("ambient")) : null;
+/** `--samples`: the land's samples one by one in the JSON (`landSamples`: each its kind, point, moisture, the camera's
+ *  distance and view depth, the game's pixel and each case's), to model the game's terms on them offline; with them a
+ *  fifth kind, `edge` (moisture 1 to 5: the game's desert over part of the grass), for how dryness shows. */
+const SAMPLES = process.argv.includes("--samples");
+/** `--ours <dir>`: each of our renders kept there as it was drawn (`<shot>-<look>-<case>.png`), for a sheet of ours alone. */
+const OURS = arg("ours") ? resolve(arg("ours") as string) : null;
 const W_PX = 1280;
 const H_PX = 800;
 const CLOCK = 12.5;
@@ -500,8 +513,8 @@ function samplePoints(s: Shot): { p: V3; depth: number; kind: Kind }[] {
  *  (moisture 6 or more, the game's full green), dry ground (no moisture) and contaminated ground (a share over 0.2),
  *  each with its 3×3 all of its kind, and cliff faces two levels or more high. On contaminated ground the judge also
  *  counts its veins (`veinsAt`): their share of the pixels and their colour, the game's and ours. */
-type LandKind = "grass" | "dry" | "contaminated" | "cliff";
-const LAND_KINDS: readonly LandKind[] = ["grass", "dry", "contaminated", "cliff"];
+type LandKind = "grass" | "dry" | "contaminated" | "cliff" | "edge";
+const LAND_KINDS: readonly LandKind[] = SAMPLES ? ["grass", "dry", "contaminated", "cliff", "edge"] : ["grass", "dry", "contaminated", "cliff"];
 /** The camera's distance bands the land is judged by (the fog's share grows with the distance). */
 const LAND_BANDS: [number, number][] = [
   [0, 70],
@@ -542,7 +555,7 @@ function landPoints(s: Shot, cam: Cam): { p: V3; kind: LandKind; distance: numbe
       }
     return false;
   };
-  const kindOfTop = (j: number): LandKind | null => (soil[j] > 0.2 ? "contaminated" : soil[j] > 0 ? null : moisture[j] >= 6 ? "grass" : moisture[j] <= 0 ? "dry" : null);
+  const kindOfTop = (j: number): LandKind | null => (soil[j] > 0.2 ? "contaminated" : soil[j] > 0 ? null : moisture[j] >= 6 ? "grass" : moisture[j] <= 0 ? "dry" : SAMPLES ? "edge" : null);
   const out: { p: V3; kind: LandKind; distance: number }[] = [];
   const push = (p: V3, kind: LandKind) => {
     if (seen(p)) out.push({ p, kind, distance: Math.hypot(...sub(eye, p)) });
@@ -791,6 +804,7 @@ async function main() {
         for (const c of cases) {
           const png = await render(c.page as Page, s, cam, look);
           const px = await decode(tool, png, "image/png");
+          if (OURS) mkdirSync(OURS, { recursive: true }), writeFileSync(join(OURS, `${id}-${look}-${c.key}.png`), png);
           ours[c.key] = at.map((a) => patch(px, a.xy[0], a.xy[1]));
           oursLand[c.key] = land.map((a) => patch(px, a.xy[0], a.xy[1]));
           const vt = (veinTotal[look] ??= {});
@@ -860,7 +874,11 @@ async function main() {
             console.log(line);
             landBands[`${kind} ${lo}-${hi}`] = { n: idx.length, game: g, floor, ours: per };
           }
-        results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, light: s.light, bands, land: landBands };
+        const cp = Math.cos(cam.pitch);
+        const eye: V3 = [cam.target[0] + Math.sin(cam.yaw) * cp * cam.distance, cam.target[1] + Math.sin(cam.pitch) * cam.distance, cam.target[2] + Math.cos(cam.yaw) * cp * cam.distance];
+        const forward = norm(sub(cam.target, eye));
+        const landSamples = SAMPLES ? land.map((a, k) => ({ kind: a.q.kind, p: a.q.p, moisture: s.snap.moisture[Math.floor(-a.q.p[2]) * s.snap.width + Math.floor(a.q.p[0])], distance: a.q.distance, viewDepth: dot(sub(a.q.p, eye), forward), game: gameLand[k], ours: Object.fromEntries(cases.map((c) => [c.key, oursLand[c.key][k]])) })) : undefined;
+        results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, light: s.light, bands, land: landBands, landSamples };
       }
     }
     console.log(`\nall shots, by kind: the distance to the game's pixel (RMS, 0-255)`);

@@ -3,18 +3,19 @@
 // deterministic: the same map always bakes the same bytes. The sky's light is the game's Trilight
 // ambient by each face's normal, unoccluded (D497): nothing of it is baked.
 //
-// - Sun shadows: the sun turns with the camera, as the game's does (`Sun`, `sunOfYaw`), at the game's 45°. A sweep
-//   from the sun's side carries the top of the shadow volume across the map (`shadowTops`): a point is in shadow when
-//   it lies below it. Each sample takes the top of the line of samples one step toward the sun, between the two it
-//   lies between when the sun is not straight along a row or a diagonal. Two sweeps with the sun a little higher and
-//   lower give the penumbra, so shadows are soft and widen with the distance from what casts them. Trees and ruins
-//   cast shadows too.
+// - Sun shadows: the sun turns with the camera, as the game's does (`Sun`, `sunOfYaw`), at the game's 45°. Each
+//   sample holds the top of the shadow volume over it (`shadowTops`): a point is in shadow when it lies below it. The
+//   top is walked from the sample toward the sun tile by tile, the terrain's own edge, as sharp as the game's shadow
+//   map draws it, however far the shadow falls. The edge is soft over a constant width of
+//   ground (`LIGHT.edge`), as a shadow map's few texels are in the game, at any drop. Trees and ruins cast shadows
+//   too. (The map keeps two tops a sample, the sun `LIGHT.penumbra` higher and lower; that is 0.)
 // All of this is the light of open air. A face whose air is under a roof (a cave, an overhang, an
 // arch) takes that air's own light instead, from the light volume (caveLight.ts).
 
 import { rotate, type Orientation } from "../core/format/footprints";
+import { DEAD_FORM } from "./dying";
 import { DEAD, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "./model";
-import { LIGHT } from "./palette";
+import { DESERT, LIGHT } from "./palette";
 
 /** Shadow samples per tile, along each axis. */
 export const SHADOW_RES = 2;
@@ -106,15 +107,73 @@ function casterLevel(casters: Float32Array, i: number): number | null {
   return levels ? levels[i] : null;
 }
 
-/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start). */
+/** A plant's shape as its baked shadow casts it, as the game's model casts its own (D497: the game's shadows are its
+ *  models'): a stack of upright discs (bottom, top, radius; levels and tiles) round its tile's middle, at the size
+ *  `objectCasters` gives each kind (plantSize.ts): a pine's whorls of needles over a bare trunk (a whorl, a cone, is
+ *  two discs), an oak's and a birch's round crowns over theirs, a bush's low mound. The radii are fitted so each
+ *  plant's shadow on open ground covers what its model's does in High's depth map (tools/object-shadows.ts;
+ *  docs/progress/3d-view.md, "Objects' shadows"), which the game's frames bear out. Indexed by the kind
+ *  `objectCasters` notes. */
+const PLANT_SHAPES: readonly (readonly (readonly [number, number, number])[])[] = [
+  [],
+  // Pine (2.7): a trunk, three whorls
+  [[0, 1.66, 0.12], [1.1, 1.46, 0.67], [1.46, 1.82, 0.32], [1.66, 1.98, 0.62], [1.98, 2.3, 0.29], [2.16, 2.43, 0.44], [2.43, 2.7, 0.2]],
+  // Oak (2.26): a trunk, one broad crown from 1.16
+  [[0, 1.3, 0.16], [1.16, 1.4, 0.72], [1.4, 1.85, 0.86], [1.85, 2.08, 0.66], [2.08, 2.26, 0.36]],
+  // Birch (1.63): a slim trunk, a round crown from 0.79
+  [[0, 0.8, 0.1], [0.79, 0.96, 0.4], [0.96, 1.46, 0.56], [1.46, 1.63, 0.34]],
+  // BlueberryBush (0.4): a low mound
+  [[0, 0.22, 0.52], [0.22, 0.4, 0.36]],
+  // Succulent (0.5)
+  [[0, 0.5, 0.28]],
+];
+/** Each kind's height (its top disc's top): its caster's height over this scales the shape (a young plant). */
+const PLANT_TOPS = PLANT_SHAPES.map((d) => (d.length ? d[d.length - 1][1] : 0));
+/** The plants' kinds (`PLANT_SHAPES`). */
+const PLANT_KIND: Readonly<Record<string, number>> = { Pine: 1, Oak: 2, Birch: 3, BlueberryBush: 4, Succulent: 5 };
+/** The casters cast as an upright post as tall as the caster, of these radii (tiles, before `PLANT_INSET`): a dead
+ *  tree's bare wood (its shadow in High's depth map a thin line, 0.2 of a tile² for a pine, none for the others), and a ruin column's square of storeys (entities3d.ts `storey`: corner posts 0.8 apart), as wide
+ *  as its diagonal, the way the sun mostly sees it, fitted as the plants are (a whole tile's column cast them a
+ *  quarter too large). */
+const DEAD_KIND = 6;
+const RUIN_KIND = 7;
+const POST_RADIUS: Readonly<Record<number, number>> = { [DEAD_KIND]: 0.3, [RUIN_KIND]: 0.75 };
+/** The start's walled base and roof over its 3 × 3 footprint round the tower's tile (entities3d.ts `startTower`: the
+ *  walls 2.86 across to 1.04, the cornice to 1.18, the hipped roof to 1.8), cast as a column over each of the 8. */
+const START_BASE = 1.4;
+/** How much narrower each disc is cast than its radius (tiles): the shader reads the shadow map between its samples
+ *  (two a tile, bilinear), which widens a shadow narrower than a tile by about this much on each side. */
+const PLANT_INSET = 0.2;
+/** The farthest a disc reaches from its tile's middle (tiles): the windows `plantTopsInto` looks in. It must stay under
+ *  the 0.75 of a tile from a tile's middle to the nearest sample outside it (`SHADOW_RES` 2), as the samples an edit of
+ *  a tile redoes (`shadowPairArea`) reach no further round it: `PLANT_WIDEST`, checked as the module loads. */
+const PLANT_REACH = 2;
+/** The highest a shadow can fall from: the tallest step a map can have and an object on it (`shadowReach`). */
+const SHADOW_DROP = 30;
+
+/** The widest disc any caster casts (tiles, after the inset; a plant's shape is never scaled up). */
+export const PLANT_WIDEST = Math.max(...PLANT_SHAPES.flat().map((d) => d[2] - PLANT_INSET), ...Object.values(POST_RADIUS).map((r) => r - PLANT_INSET));
+if (PLANT_WIDEST >= 0.5 + 0.5 / SHADOW_RES) throw new Error(`light.ts: a disc ${PLANT_WIDEST} wide reaches samples an edit of its tile does not redo`);
+
+/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start). A plant's and a
+ *  ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles (its tower on
+ *  the middle one, its walls on the rest). The levels the objects stand on are noted with them, and after those the
+ *  shapes' kinds. */
 export function objectCasters(W: number, H: number, e: EntityView | null): Float32Array | null {
   if (!e || !e.count) return null;
   const out = new Float32Array(W * H);
-  const levels = new Uint8Array(W * H);
+  const levels = new Uint8Array(2 * W * H);
   casterLevels.set(out, levels);
   // (the plants at the game's sizes, plantSize.ts: a little under their full height, the randomizer's middle; the start's
   // tower is 4.37 tall, on its middle tile)
-  const tall: Record<string, number> = { Pine: 2.7, Oak: 2.26, Birch: 1.63, Succulent: 0.5, StartingLocation: 4.0 };
+  const tall: Record<string, number> = { Pine: 2.7, Oak: 2.26, Birch: 1.63, BlueberryBush: 0.4, Succulent: 0.5, StartingLocation: 4.0 };
+  const put = (i: number, add: number, z: number, kind: number) => {
+    if (add > out[i]) {
+      out[i] = add;
+      levels[i] = Math.max(0, z);
+      levels[W * H + i] = kind;
+    }
+  };
   for (let k = 0; k < e.count; k++) {
     const t = e.templates[e.template[k]];
     let x = e.x[k];
@@ -125,6 +184,8 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
       const [dx, dy] = rotate(ORIENTATION_NAMES[e.orientation[k]] as Orientation, 1, 1);
       x += dx;
       y += dy;
+      for (let by = y - 1; by <= y + 1; by++)
+        for (let bx = x - 1; bx <= x + 1; bx++) if ((bx !== x || by !== y) && bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, START_BASE, e.z[k], 0);
     }
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
     let add = tall[t] ?? 0;
@@ -132,13 +193,12 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
     if (ruin) add = Number(ruin[1]) * 0.85;
     if (!add) continue;
     const f = e.flags[k];
-    if (f & DEAD) add *= t === "StartingLocation" ? 1 : 0.35;
+    // (a dead plant at its dead form's height, dying.ts `DEAD_FORM`: a tree's bare wood a post, a bush's or a
+    // succulent's own shape, smaller)
+    const dead = f & DEAD && DEAD_FORM[t];
+    if (dead) add *= dead.height;
     if (f & YOUNG) add *= 0.5;
-    const i = y * W + x;
-    if (add > out[i]) {
-      out[i] = add;
-      levels[i] = Math.max(0, e.z[k]);
-    }
+    put(y * W + x, add, e.z[k], ruin ? RUIN_KIND : PLANT_KIND[t] ? (dead && dead.wood ? DEAD_KIND : PLANT_KIND[t]) : 0);
   }
   return out;
 }
@@ -171,54 +231,336 @@ export function shadowTopsInto(out: Float32Array, W: number, H: number, heights:
   const R = SHADOW_RES;
   const SW = W * R;
   const SH = H * R;
-  const g = sweepOf(sun);
-  const drop = (g.len / R) * Math.tan(elevation);
-  const occ = rock
-    ? (sx: number, sy: number): number => {
-        const i = Math.floor(sy / R) * W + Math.floor(sx / R);
-        if (!rock.flag[i]) return heights[i] + (casters ? casters[i] : 0);
+  const ax0 = Math.max(0, sx0);
+  const ax1 = Math.min(SW - 1, sx1);
+  const ay0 = Math.max(0, sy0);
+  const ay1 = Math.min(SH - 1, sy1);
+  if (ax1 < ax0 || ay1 < ay0) return;
+  const tanE = Math.tan(elevation);
+  const ux = sun.x;
+  const uy = sun.y;
+  // the tiles a sample's ray can meet a caster on: its own and those toward the sun within the reach of the tallest
+  // caster a map can have (`shadowReach`); the casters and their blocks' highest are taken there alone, so an edit's
+  // few samples cost no more than its own window
+  const reach = Math.ceil(shadowReach(sun) / R) + 1;
+  const wx0 = Math.max(0, Math.floor(ax0 / R) - (ux < 0 ? reach : 0));
+  const wx1 = Math.min(W - 1, Math.floor(ax1 / R) + (ux > 0 ? reach : 0));
+  const wy0 = Math.max(0, Math.floor(ay0 / R) - (uy < 0 ? reach : 0));
+  const wy1 = Math.min(H - 1, Math.floor(ay1 / R) + (uy > 0 ? reach : 0));
+  const ww = wx1 - wx0 + 1;
+  const wh = wy1 - wy0 + 1;
+  const cast = new Float32Array(ww * wh);
+  // (the shapes' kinds, after the levels: a tile with one casts no column)
+  const levels = casters ? casterLevels.get(casters) : undefined;
+  const kinds = levels && casters && levels.length > casters.length ? levels.subarray(casters.length) : null;
+  let highest = -SHADOW_OFFSET;
+  for (let y = 0; y < wh; y++)
+    for (let x = 0; x < ww; x++) {
+      const i = (wy0 + y) * W + wx0 + x;
+      let v: number;
+      // (a plant casts its shape, after the walk: `plantTopsInto`)
+      const column = casters && casters[i] && !(kinds && kinds[i]) ? casters[i] : 0;
+      if (rock && rock.flag[i]) {
         // (an object on the run from the map's floor casts from it)
-        return rock.bottom[i] + (casters && casters[i] && casterLevel(casters, i) === rock.bottom[i] ? casters[i] : 0);
+        v = rock.bottom[i] + (column && casterLevel(casters!, i) === rock.bottom[i] ? column : 0);
+      } else v = heights[i] + column;
+      cast[y * ww + x] = v;
+      if (v > highest) highest = v;
+    }
+  // the highest caster of each block of 4 and of 16 tiles of the window
+  const w4 = (ww + 3) >> 2;
+  const w16 = (ww + 15) >> 4;
+  const max4 = new Float32Array(w4 * ((wh + 3) >> 2)).fill(-Infinity);
+  const max16 = new Float32Array(w16 * ((wh + 15) >> 4)).fill(-Infinity);
+  for (let y = 0; y < wh; y++)
+    for (let x = 0; x < ww; x++) {
+      const v = cast[y * ww + x];
+      const k4 = (y >> 2) * w4 + (x >> 2);
+      if (v > max4[k4]) max4[k4] = v;
+      const k16 = (y >> 4) * w16 + (x >> 4);
+      if (v > max16[k16]) max16[k16] = v;
+    }
+  // and, for every block of 16, the highest along its strip toward the sun: every block within one block of the line
+  // from its middle toward the sun (any ray through the block stays inside), so nothing a ray meets after it is higher
+  const h16 = (wh + 15) >> 4;
+  const ahead16 = new Float32Array(w16 * h16);
+  for (let by = 0; by < h16; by++)
+    for (let bx = 0; bx < w16; bx++) {
+      let v = -Infinity;
+      for (let k = 0; ; k++) {
+        const cx = Math.floor((bx * 16 + 8 + k * 8 * ux) / 16);
+        const cy = Math.floor((by * 16 + 8 + k * 8 * uy) / 16);
+        if (cx < -1 || cy < -1 || cx > w16 || cy > h16) break;
+        for (let y = Math.max(0, cy - 1); y <= Math.min(h16 - 1, cy + 1); y++)
+          for (let x = Math.max(0, cx - 1); x <= Math.min(w16 - 1, cx + 1); x++) if (max16[y * w16 + x] > v) v = max16[y * w16 + x];
       }
-    : (sx: number, sy: number): number => {
-        const i = Math.floor(sy / R) * W + Math.floor(sx / R);
-        return heights[i] + (casters ? casters[i] : 0);
-      };
-  // the line one step toward the sun is done first: along the row or column the sun lies nearer, from the sun's side
-  const [dLo, dHi, mLo, mHi, D, M] = g.dom === 0 ? [Math.max(0, sx0), Math.min(SW - 1, sx1), Math.max(0, sy0), Math.min(SH - 1, sy1), SW, SH] : [Math.max(0, sy0), Math.min(SH - 1, sy1), Math.max(0, sx0), Math.min(SW - 1, sx1), SH, SW];
-  const dStep = g.dom === 0 ? g.sx : g.sy;
-  const mStep = g.dom === 0 ? g.sy : g.sx;
-  const at = g.dom === 0 ? (d: number, m: number) => m * SW + d : (d: number, m: number) => d * SW + m;
-  const occAt = g.dom === 0 ? (d: number, m: number) => occ(d, m) : (d: number, m: number) => occ(m, d);
-  for (let k = 0; k <= dHi - dLo; k++) {
-    const d = dStep < 0 ? dLo + k : dHi - k;
-    const du = d + dStep;
-    for (let m = mLo; m <= mHi; m++) {
-      const s = at(d, m);
-      if (du < 0 || du >= D) {
-        out[s] = -SHADOW_OFFSET;
+      ahead16[by * w16 + bx] = v;
+    }
+  // each sample's ray toward the sun, tile by tile (a grid walk): the top is the highest of each tile it crosses, less
+  // the sun's drop to where the ray enters it, so the edge is the terrain's own, as sharp as a shadow map's, and a
+  // straight cliff's shadow stays straight however far it falls (a sweep that took the top between two samples a step
+  // blurred it sideways, the more the longer the shadow); the sample's own tile casts nothing on it. A block of 4 or
+  // 16 tiles whose highest caster, dropped to where the ray now is, cannot rise over the top is passed whole; the
+  // walk ends where nothing in the window can.
+  // (per axis: the block's far side toward the sun is its start, plus its size where the sun lies the positive way;
+  // an axis the sun does not move along never ends a block)
+  const ix = ux !== 0 ? 1 / ux : 1e30;
+  const iy = uy !== 0 ? 1 / uy : 1e30;
+  const fx = ux >= 0 ? 1 : 0;
+  const fy = uy >= 0 ? 1 : 0;
+  const tiny = 1e-7;
+  const invR = 1 / R;
+  // (in the map's tiles, so a sample walks the same arithmetic in any window: an edit's redone bytes are the whole
+  // map's)
+  // (the first NEAR tiles a ray crosses from each of the R × R places in a tile, and where it enters each: the same
+  // for every tile, so a table)
+  const NEAR = 16;
+  const nearX = new Int32Array(R * R * NEAR);
+  const nearY = new Int32Array(R * R * NEAR);
+  const nearD = new Float64Array(R * R * NEAR);
+  for (let j = 0; j < R; j++)
+    for (let i = 0; i < R; i++) {
+      const fx0 = (i + 0.5) * invR;
+      const fy0 = (j + 0.5) * invR;
+      let cx = 0;
+      let cy = 0;
+      for (let k = 0; k < NEAR; k++) {
+        const nx = (cx + fx - fx0) * ix;
+        const ny = (cy + fy - fy0) * iy;
+        const dd = nx < ny ? nx : ny;
+        cx = Math.floor(fx0 + (dd + tiny) * ux);
+        cy = Math.floor(fy0 + (dd + tiny) * uy);
+        const o = (j * R + i) * NEAR + k;
+        nearX[o] = cx;
+        nearY[o] = cy;
+        nearD[o] = dd;
+      }
+    }
+  for (let sy = ay0; sy <= ay1; sy++) {
+    const py = (sy + 0.5) * invR;
+    const ty0 = Math.floor(sy / R);
+    const j = sy - ty0 * R;
+    for (let sx = ax0; sx <= ax1; sx++) {
+      const px = (sx + 0.5) * invR;
+      const tx0 = Math.floor(sx / R);
+      const t0 = (j * R + sx - tx0 * R) * NEAR;
+      let lx = 0;
+      let ly = 0;
+      let d = 0;
+      let top = -SHADOW_OFFSET;
+      let end = (highest - top) / tanE;
+      let done = false;
+      for (let k = 0; k < NEAR; k++) {
+        const dk = nearD[t0 + k];
+        if (dk >= end) {
+          done = true;
+          break;
+        }
+        const qx = tx0 + nearX[t0 + k] - wx0;
+        const qy = ty0 + nearY[t0 + k] - wy0;
+        if (qx < 0 || qy < 0 || qx >= ww || qy >= wh) {
+          done = true;
+          break;
+        }
+        lx = qx;
+        ly = qy;
+        d = dk;
+        const v = cast[ly * ww + lx] - dk * tanE;
+        if (v > top) {
+          top = v;
+          end = (highest - top) / tanE;
+        }
+      }
+      if (done) {
+        out[sy * SW + sx] = top;
         continue;
       }
-      const m1 = m + mStep;
-      let top: number;
-      if (g.t === 1) {
-        // (on a diagonal, the one sample toward the sun)
-        if (m1 < 0 || m1 >= M) {
-          out[s] = -SHADOW_OFFSET;
-          continue;
+      for (;;) {
+        // (the largest block round this tile that nothing in can shade the sample: out of it at once; nothing in its
+        // block of 16 nor along that block's strip toward the sun: done; each test only when the smaller one passed)
+        const fall = d * tanE;
+        let size = 1;
+        if (max4[(ly >> 2) * w4 + (lx >> 2)] - fall <= top) {
+          size = 4;
+          const b16 = (ly >> 4) * w16 + (lx >> 4);
+          if (max16[b16] - fall <= top) {
+            if (ahead16[b16] - fall <= top) break;
+            size = 16;
+          }
         }
-        top = Math.max(occAt(du, m1), out[at(du, m1)]);
-      } else {
-        const v0 = Math.max(occAt(du, m), out[at(du, m)]);
-        if (g.t === 0) top = v0;
-        else {
-          const v1 = m1 < 0 || m1 >= M ? -SHADOW_OFFSET : Math.max(occAt(du, m1), out[at(du, m1)]);
-          top = (1 - g.t) * v0 + g.t * v1;
+        const m = size - 1;
+        const nextX = (wx0 + lx - (lx & m) + fx * size - px) * ix;
+        const nextY = (wy0 + ly - (ly & m) + fy * size - py) * iy;
+        // (the tile the ray is in just past where it leaves: through a corner, as on a diagonal, the one across it,
+        // the tiles beside it only touched)
+        d = nextX < nextY ? nextX : nextY;
+        if (d >= end) break;
+        const qx = px + (d + tiny) * ux - wx0;
+        const qy = py + (d + tiny) * uy - wy0;
+        if (qx < 0 || qy < 0 || qx >= ww || qy >= wh) break;
+        lx = qx | 0;
+        ly = qy | 0;
+        const v = cast[ly * ww + lx] - d * tanE;
+        if (v > top) {
+          top = v;
+          end = (highest - top) / tanE;
         }
       }
-      out[s] = top - drop;
+      out[sy * SW + sx] = top;
     }
   }
+  if (casters) plantTopsInto(out, W, H, heights, casters, tanE, ax0, ax1, ay0, ay1, rock, ux, uy);
+}
+
+// scratch for one plant's pieces of shadow over a sample (bottom, top pairs), and its discs as cast (bottom, top,
+// radius)
+const plantSpans = new Float64Array(2 * 8);
+const plantDiscs = new Float64Array(3 * 8);
+
+/** The plants' shadows (`PLANT_SHAPES`) over the samples sx0…sx1 × sy0…sy1, into the walk's tops `out`: for each
+ *  sample a plant up-sun can shade, its discs' pieces of shadow there (the heights whose ray toward the sun passes
+ *  through a disc), judged at the sample's own ground (`pieceTop`): ground whose rays pass under a crown is lit, as
+ *  under the game's trees. The same arithmetic for a sample in any window, so an edit's bytes are the whole map's. */
+function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Array, casters: Float32Array, tanE: number, sx0: number, sx1: number, sy0: number, sy1: number, rock: ShadowRock | null, ux: number, uy: number): void {
+  const levels = casterLevels.get(casters);
+  if (!levels || levels.length <= casters.length) return;
+  const R = SHADOW_RES;
+  const SW = W * R;
+  const N = W * H;
+  // (the tiles whose plants can shade the window: up-sun of it as far as a shadow can fall, from the tallest caster
+  // on the highest ground to the map's floor, as `shadowReach` reaches)
+  const fall = Math.ceil(SHADOW_DROP / tanE) + PLANT_REACH;
+  const tx0 = Math.max(0, Math.floor(sx0 / R) - (ux < 0 ? fall : PLANT_REACH));
+  const tx1 = Math.min(W - 1, Math.floor(sx1 / R) + (ux > 0 ? fall : PLANT_REACH));
+  const ty0 = Math.max(0, Math.floor(sy0 / R) - (uy < 0 ? fall : PLANT_REACH));
+  const ty1 = Math.min(H - 1, Math.floor(sy1 / R) + (uy > 0 ? fall : PLANT_REACH));
+  // (the window's tiles and their lowest ground: a plant whose shadow cannot come down to it there before it gets
+  // there casts nothing on the window)
+  const wx0 = Math.max(0, Math.floor(sx0 / R));
+  const wx1 = Math.min(W - 1, Math.floor(sx1 / R));
+  const wy0 = Math.max(0, Math.floor(sy0 / R));
+  const wy1 = Math.min(H - 1, Math.floor(sy1 / R));
+  let lowest = Infinity;
+  for (let y = wy0; y <= wy1; y++)
+    for (let x = wx0; x <= wx1; x++) {
+      const t = y * W + x;
+      const h = rock && rock.flag[t] ? rock.bottom[t] : heights[t];
+      if (h < lowest) lowest = h;
+    }
+  for (let ty = ty0; ty <= ty1; ty++)
+    for (let tx = tx0; tx <= tx1; tx++) {
+      const i = ty * W + tx;
+      const kind = levels[N + i];
+      const tall = casters[i];
+      if (!kind || !tall) continue;
+      const post = POST_RADIUS[kind] ?? 0;
+      const shape = post ? null : PLANT_SHAPES[kind];
+      const scale = shape ? tall / PLANT_TOPS[kind] : 1;
+      const g = levels[i];
+      // (its discs as cast: bottom, top, radius less the inset; those with none left cast nothing)
+      let nd = 0;
+      let reach = 0;
+      const count = shape ? shape.length : 1;
+      for (let q = 0; q < count; q++) {
+        const r = shape ? shape[q][2] * scale - PLANT_INSET : post - PLANT_INSET;
+        if (r <= 0) continue;
+        plantDiscs[nd * 3] = g + (shape ? shape[q][0] * scale : 0);
+        plantDiscs[nd * 3 + 1] = g + (shape ? shape[q][1] * scale : tall);
+        plantDiscs[nd * 3 + 2] = r;
+        nd++;
+        if (r > reach) reach = r;
+      }
+      if (!nd) continue;
+      const cx = tx + 0.5;
+      const cy = ty + 0.5;
+      const top = g + tall;
+      {
+        // (how near the window comes to its middle: a ray to a sample there runs at least that less its width along
+        // the sun's way to it)
+        const ddx = cx < wx0 ? wx0 - cx : cx > wx1 + 1 ? cx - wx1 - 1 : 0;
+        const ddy = cy < wy0 ? wy0 - cy : cy > wy1 + 1 ? cy - wy1 - 1 : 0;
+        if (top - (Math.hypot(ddx, ddy) - 2 * reach) * tanE <= lowest) continue;
+      }
+      // (the samples its shadow can reach: a strip from its middle away from the sun as far as its top falls, as wide
+      // as its widest disc; on each row, the stretch of it)
+      // (how far along the sun's way its shadow can fall: on its own level as far as its top's, and on where the ground
+      // drops away below it (a bank, a terrace's edge, a cliff's top), until the highest its shadow can be is under all
+      // the ground across the strip there: a ray to anything past that passes through the ground, which shades it)
+      // (from where its shadow would end on its own level: a strip looked at farther than it falls only costs samples
+      // the pieces under their ground leave alone)
+      let far = Math.max(0.5, Math.floor(2 * (tall / tanE + reach)) / 2);
+      for (; ; far += 0.5) {
+        const ax = cx - ux * far;
+        const ay = cy - uy * far;
+        if (ax < 0 || ay < 0 || ax >= W || ay >= H) break;
+        const at = top - Math.max(0, far - reach) * tanE;
+        const mx = Math.floor(ax);
+        const my = Math.floor(ay);
+        let low = Infinity;
+        for (let y = Math.max(0, my - 1); y <= Math.min(H - 1, my + 1); y++)
+          for (let x = Math.max(0, mx - 1); x <= Math.min(W - 1, mx + 1); x++) {
+            const t = y * W + x;
+            const h = rock && rock.flag[t] ? rock.bottom[t] : heights[t];
+            if (h < low) low = h;
+          }
+        if (at < low) break;
+      }
+      const len = far - reach;
+      const by0 = Math.max(sy0, Math.floor((Math.min(cy, cy - uy * len) - reach) * R));
+      const by1 = Math.min(sy1, Math.ceil((Math.max(cy, cy - uy * len) + reach) * R));
+      for (let sy = by0; sy <= by1; sy++) {
+        const dy = cy - (sy + 0.5) / R;
+        // (dx such that −reach < dx·uy − dy·ux < reach and −reach < dx·ux + dy·uy < len + reach)
+        let lo = -Infinity;
+        let hi = Infinity;
+        if (Math.abs(uy) > 1e-9) {
+          const p = (-reach + dy * ux) / uy;
+          const q = (reach + dy * ux) / uy;
+          lo = p < q ? p : q;
+          hi = p < q ? q : p;
+        } else if (Math.abs(dy * ux) >= reach) continue;
+        if (Math.abs(ux) > 1e-9) {
+          const p = (-reach - dy * uy) / ux;
+          const q = (len + reach - dy * uy) / ux;
+          lo = Math.max(lo, p < q ? p : q);
+          hi = Math.min(hi, p < q ? q : p);
+        } else if (dy * uy <= -reach || dy * uy >= len + reach) continue;
+        if (hi <= lo) continue;
+        // (px = cx − dx, sample sx at px·R − 0.5)
+        const bx0 = Math.max(sx0, Math.floor((cx - hi) * R - 0.5));
+        const bx1 = Math.min(sx1, Math.ceil((cx - lo) * R - 0.5));
+        for (let sx = bx0; sx <= bx1; sx++) {
+          const dx = cx - (sx + 0.5) / R;
+          // (along the ray toward the sun to the plant's middle, and across it)
+          const along = dx * ux + dy * uy;
+          const across = Math.abs(dx * uy - dy * ux);
+          if (across >= reach || along + reach <= 0) continue;
+          let ground = -Infinity;
+          let n = 0;
+          for (let q = 0; q < nd; q++) {
+            const r = plantDiscs[q * 3 + 2];
+            if (r <= across) continue;
+            const half = Math.sqrt(r * r - across * across);
+            const s2 = along + half;
+            if (s2 <= 0) continue;
+            const s1 = along - half > 0 ? along - half : 0;
+            // (a piece under the sample's ground shades nothing there: left out, so how far the strip looked never
+            // shows in the bytes)
+            const hi = plantDiscs[q * 3 + 1] - s1 * tanE;
+            if (ground === -Infinity) {
+              const t = Math.floor(sy / R) * W + Math.floor(sx / R);
+              ground = rock && rock.flag[t] ? rock.bottom[t] : heights[t];
+            }
+            if (hi <= ground) continue;
+            plantSpans[n++] = plantDiscs[q * 3] - s2 * tanE;
+            plantSpans[n++] = hi;
+          }
+          if (!n) continue;
+          const k = sy * SW + sx;
+          out[k] = pieceTop(plantSpans, n, out[k], ground);
+        }
+      }
+    }
 }
 
 /** The rock that casts the baked shadows on a map with terrain above terrain (3D view, item 8): for each tile that
@@ -354,7 +696,8 @@ function voxelTops(out: Float64Array, sx: number, sy: number, baseHi: number, ba
       const lo = runs[k];
       // (an object casts from the run it stands on: the one whose top is its level, or, not known, the highest)
       const on = levels ? runs[k + 1] === levels[i] : k === r1 - 2;
-      const hi = runs[k + 1] + (casters !== null && on ? casters[i] : 0);
+      // (a plant on a run above air casts its shape: `plantTopsInto`)
+      const hi = runs[k + 1] + (casters !== null && on && !(levels && levels.length > casters.length && levels[casters.length + i]) ? casters[i] : 0);
       if (hi - fallHi > baseHi) {
         if (nHi + 2 > spansHi.length) spansHi = grow(spansHi);
         spansHi[nHi++] = lo - fallHi;
@@ -415,8 +758,9 @@ function shadowBytes(tops: { hi: Float32Array; lo: Float32Array }, bytes: Uint8A
         hi = two[0];
         lo = two[1];
       }
-      bytes[k * 4] = encodeTop(hi);
-      bytes[k * 4 + 1] = encodeTop(lo);
+      const b = encodeTop(hi);
+      bytes[k * 4] = b;
+      bytes[k * 4 + 1] = lo === hi ? b : encodeTop(lo);
       bytes[k * 4 + 3] = 255;
     }
 }
@@ -426,7 +770,7 @@ function shadowBytes(tops: { hi: Float32Array; lo: Float32Array }, bytes: Uint8A
 export function shadowReach(sun: Sun = DEFAULT_SUN): number {
   const g = sweepOf(sun);
   const drop = (g.len / SHADOW_RES) * Math.tan(LIGHT.sunElevation - LIGHT.penumbra);
-  return Math.ceil(30 / drop) + 2;
+  return Math.ceil(SHADOW_DROP / drop) + 2;
 }
 
 /** The two shadow tops (the sun a little higher and lower) of the whole map (with `rock`, the sweep's: the runs above
@@ -437,7 +781,9 @@ export function shadowTopsPair(W: number, H: number, heights: Uint8Array, caster
     shadowTopsInto(out, W, H, heights, casters, elevation, 0, W * SHADOW_RES - 1, 0, H * SHADOW_RES - 1, rock, sun);
     return out;
   };
-  return { hi: tops(LIGHT.sunElevation + LIGHT.penumbra), lo: tops(LIGHT.sunElevation - LIGHT.penumbra) };
+  const hi = tops(LIGHT.sunElevation + LIGHT.penumbra);
+  // (with no penumbra the two are one walk)
+  return { hi, lo: LIGHT.penumbra === 0 ? hi.slice() : tops(LIGHT.sunElevation - LIGHT.penumbra) };
 }
 
 /** The shadow map's samples `shadowPairRect` redoes for tiles x0…x1 × y0…y1 (unclipped): the
@@ -479,7 +825,7 @@ export function castersChangedRects(W: number, H: number, a: Float32Array | null
     for (let x = ax0; x <= ax1; x++) {
       const i = y * W + x;
       const ca = a ? a[i] : 0;
-      if (ca === (b ? b[i] : 0) && (!ca || (la ? la[i] : -1) === (lb ? lb[i] : -1))) continue;
+      if (ca === (b ? b[i] : 0) && (!ca || ((la ? la[i] : -1) === (lb ? lb[i] : -1) && (la && la.length > a!.length ? la[a!.length + i] : 0) === (lb && lb.length > b!.length ? lb[b!.length + i] : 0)))) continue;
       const k = Math.floor(y / B) * bw + Math.floor(x / B);
       const r = blocks.get(k);
       if (r) {
@@ -529,18 +875,30 @@ export function shadowPairRect(tops: { hi: Float32Array; lo: Float32Array }, byt
         kept.lo.set(tops.lo.subarray(sy * SW + ax0, sy * SW + ax1 + 1), (sy - ay0) * w);
       }
     }
-    shadowTopsInto(tops.hi, W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
-    shadowTopsInto(tops.lo, W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+    pairTopsInto(tops, W, H, heights, casters, sx0, sx1, sy0, sy1, rock, sun);
     if (kept) shadowBytes(tops, bytes, W, H, heights, casters, rock, ax0, ax1, ay0, ay1, kept, sun);
     return;
   }
-  shadowTopsInto(tops.hi, W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
-  shadowTopsInto(tops.lo, W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+  pairTopsInto(tops, W, H, heights, casters, sx0, sx1, sy0, sy1, rock, sun);
   shadowBytes(tops, bytes, W, H, heights, casters, rock, sx0, sx1, sy0, sy1, undefined, sun);
 }
 
-/** The shadow map as RGBA bytes (W·R × H·R): R the shadow top with the sun a little higher, G a
- *  little lower (the penumbra between them). `rock` as for `shadowPairRect`. */
+/** Both tops of samples sx0…sx1 × sy0…sy1 (with no penumbra one walk, copied). */
+function pairTopsInto(tops: { hi: Float32Array; lo: Float32Array }, W: number, H: number, heights: Uint8Array, casters: Float32Array | null, sx0: number, sx1: number, sy0: number, sy1: number, rock: ShadowRock | null, sun: Sun): void {
+  shadowTopsInto(tops.hi, W, H, heights, casters, LIGHT.sunElevation + LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+  if (LIGHT.penumbra !== 0) {
+    shadowTopsInto(tops.lo, W, H, heights, casters, LIGHT.sunElevation - LIGHT.penumbra, sx0, sx1, sy0, sy1, rock, sun);
+    return;
+  }
+  const SW = W * SHADOW_RES;
+  const ax0 = Math.max(0, sx0);
+  const ax1 = Math.min(SW - 1, sx1);
+  for (let sy = Math.max(0, sy0); sy <= Math.min(H * SHADOW_RES - 1, sy1); sy++) if (ax1 >= ax0) tops.lo.set(tops.hi.subarray(sy * SW + ax0, sy * SW + ax1 + 1), sy * SW + ax0);
+}
+
+/** The shadow map as RGBA bytes (W·R × H·R): R the shadow top with the sun `LIGHT.penumbra` higher, G as much
+ *  lower (the same while that is 0; the shader turns to sun over `EDGE_BAND` round them). `rock` as for
+ *  `shadowPairRect`. */
 export function shadowMap(W: number, H: number, heights: Uint8Array, casters: Float32Array | null, keep?: { hi: Float32Array; lo: Float32Array }, rock: ShadowRock | null = null, sun: Sun = DEFAULT_SUN): Uint8Array {
   const tops = shadowTopsPair(W, H, heights, casters, rock, sun);
   if (keep) {
@@ -552,10 +910,13 @@ export function shadowMap(W: number, H: number, heights: Uint8Array, casters: Fl
   return out;
 }
 
-/** How lit a point at height z is, 0–1, from its shadow sample (the shader's rule). */
+/** The height over which the shadow's top turns from shadow to sun: `LIGHT.edge` of ground along the sun's way. */
+export const EDGE_BAND = LIGHT.edge * Math.tan(LIGHT.sunElevation);
+
+/** How lit a point at height z is, 0–1, from its shadow sample (the shader's rule): sun over EDGE_BAND round the top
+ *  (the two tops' middle, the same top while `LIGHT.penumbra` is 0). */
 export function litFraction(z: number, topHigh: number, topLow: number): number {
-  const span = Math.max(0.05, topLow - topHigh);
-  return Math.max(0, Math.min(1, (z - topHigh) / span));
+  return Math.max(0, Math.min(1, (z - (topHigh + topLow) / 2) / EDGE_BAND + 0.5));
 }
 
 /** The water byte's steps a level of depth to three levels deep (`waterByte`; the terrain shader reads the depth back
@@ -589,8 +950,19 @@ export function soilNibbles(moisture: number, contamination: number): number {
   return (m << 4) | c;
 }
 
-/** The terrain shader's per-tile data, RGBA bytes (W × H): R the height, G the soil nibbles,
- *  B unused (0; the sky visibility until D497), A the water over the top. */
+/** The game's desert intensity for a tile's moisture byte (palette.ts `moistureByte`: its level × 15), 0–255: all of a
+ *  dry top (moisture 0), (1 − m / threshold) × max of one up to the threshold, none above, from the level unrounded
+ *  (SoilMoistureSystem `UpdateDesertIntensity`, palette.ts `DESERT`; the game keeps it in a byte too, its
+ *  `_DesertIntensityMap` an RG16 texture). Its share of the top is the shaders' `desertBlend`. */
+export function desertByte(moisture: number): number {
+  const m = moisture / 15;
+  const d = m <= 0 ? 1 : m <= DESERT.threshold ? DESERT.max * (1 - m / DESERT.threshold) : 0;
+  return Math.round(d * 255);
+}
+const DESERT_B = Uint8Array.from({ length: 256 }, (_, v) => desertByte(v));
+
+/** The terrain shader's per-tile data, RGBA bytes (W × H): R the height, G the soil nibbles, B the desert intensity
+ *  (`desertByte`; all desert without soil, as the nibbles' 0 is dry), A the water over the top. */
 export function tileData(W: number, H: number, heights: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, into?: Uint8Array): Uint8Array {
   const N = W * H;
   const out = into ?? new Uint8Array(N * 4);
@@ -598,7 +970,7 @@ export function tileData(W: number, H: number, heights: Uint8Array, soil: SoilVi
     const o = i * 4;
     out[o] = heights[i];
     out[o + 1] = soil ? soilNibbles(soil.moisture[i], soil.contamination[i]) : 0;
-    out[o + 2] = 0;
+    out[o + 2] = soil ? DESERT_B[soil.moisture[i]] : 255;
     out[o + 3] = waterByte(sw, heights, i);
   }
   return out;
@@ -612,7 +984,7 @@ export function tileDataRect(W: number, H: number, heights: Uint8Array, soil: So
       const o = i * 4;
       out[o] = heights[i];
       out[o + 1] = soil ? soilNibbles(soil.moisture[i], soil.contamination[i]) : 0;
-      out[o + 2] = 0;
+      out[o + 2] = soil ? DESERT_B[soil.moisture[i]] : 255;
       out[o + 3] = waterByte(sw, heights, i);
     }
 }
@@ -652,15 +1024,16 @@ export function tileDataChanges(W: number, H: number, heights: Uint8Array, soil:
     let ehi = -1;
     for (let x = 0, i = y * W; x < W; x++, i++) {
       const o = i * 4;
-      // (the same values as `soilNibbles` and `waterByte`, the dry tile and the plain soil without a call)
+      // (the same values as `soilNibbles`, `desertByte` and `waterByte`, the dry tile and the plain soil without a call)
       const g = moisture ? NIBBLE_M[moisture[i]] | NIBBLE_C[contamination![i]] : 0;
+      const b = moisture ? DESERT_B[moisture[i]] : 255;
       const a = surface && surface[i] === surface[i] ? waterByte(sw, heights, i) : 0;
       const og = out[o + 1];
       const oa = out[o + 3];
-      if (out[o] === heights[i] && og === g && out[o + 2] === 0 && oa === a) continue;
+      if (out[o] === heights[i] && og === g && out[o + 2] === b && oa === a) continue;
       out[o] = heights[i];
       out[o + 1] = g;
-      out[o + 2] = 0;
+      out[o + 2] = b;
       out[o + 3] = a;
       if (lo < 0) lo = x;
       hi = x;

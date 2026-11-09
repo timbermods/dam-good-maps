@@ -17,10 +17,10 @@ vi.stubGlobal("requestAnimationFrame", (f: () => void) => frames.push(f));
 vi.stubGlobal("cancelAnimationFrame", () => {});
 afterAll(() => vi.unstubAllGlobals());
 
-/** Time goes on `ms`, a frame drawn every 16 ms (`stall`: in one frame, as when the page's work holds a frame). */
-function wait(ms: number, stall = false): void {
-  for (let left = ms; left > 0; left -= 16) {
-    const step = stall ? left : Math.min(16, left);
+/** Time goes on `ms`, a frame drawn every `frame` ms (`stall`: in one frame, as when the page's work holds a frame). */
+function wait(ms: number, stall = false, frame = 16): void {
+  for (let left = ms; left > 0; left -= frame) {
+    const step = stall ? left : Math.min(frame, left);
     now += step;
     for (const f of frames.splice(0)) f();
     if (stall) break;
@@ -197,6 +197,56 @@ describe("a force clicked quickly after another (D378)", () => {
     wait(200);
     expect(fx.showing().erupt).toBeNull();
     expect(fx.active).toBe(false);
+  });
+
+  it("a view drawing slowly throughout (a second a frame, as software drawing) cools the lava by the clock (D266): its bloom ends on time, never ten times as long", () => {
+    // (the eruption shown a frame a second, as CI's SwiftShader draws it: dev run 42543242384)
+    for (const [k, phase] of ["rumble", "rise", "rise", "rise", "done"].entries()) {
+      fx.set(moment("erupt", phase, 10, 10, k / 4));
+      wait(1000, false, 1000);
+    }
+    fx.finish();
+    // (its last moment a frame ago: a second cooled, not a tenth)
+    expect(fx.showing().erupt).toMatchObject({ x: 10, y: 10, cooling: expect.closeTo(1, 3) });
+    wait(2000, false, 1000);
+    // (past the bloom's end, LAVA_BLOOM_ENDS's 2.25 s, two frames later)
+    expect(fx.heat(now)).toMatchObject({ cooling: expect.closeTo(3, 3) });
+    wait(4000, false, 1000);
+    expect(fx.showing().erupt).toBeNull();
+    expect(fx.active).toBe(false);
+  });
+
+  it("a slow view's frame held long still counts twice its frames at most: a crater's dust is never played out unseen", () => {
+    fx.set(moment("craterize", "incoming", 10, 10));
+    wait(3000, false, 500);
+    fx.set(moment("craterize", "impact", 10, 10, 0.5));
+    fx.finish();
+    wait(8000, true);
+    expect(fx.showing().craterize).toMatchObject({ x: 10, y: 10, struck: expect.closeTo(1, 3) });
+  });
+
+  it("a hitch among the page's first forces' frames counts a tenth of a second: the frames before it are known only once there are three", () => {
+    fx.set(moment("craterize", "incoming", 10, 10));
+    wait(16);
+    fx.set(moment("craterize", "impact", 10, 10, 0.5));
+    fx.finish();
+    // (the loop's second frame, held 5 s: one gap known before it, 16 ms)
+    wait(5000, true);
+    expect(fx.showing().craterize).toMatchObject({ x: 10, y: 10, struck: expect.closeTo(0.1, 3) });
+  });
+
+  it("an erosion after the forces' loop has rested counts from its own start, never the time at rest (a slow view, a second and a half a frame)", () => {
+    fx.set(moment("craterize", "incoming", 10, 10));
+    wait(4500, false, 1500);
+    fx.set(moment("craterize", "impact", 10, 10, 0.5));
+    fx.finish();
+    wait(6000, false, 1500);
+    expect(fx.active).toBe(false);
+    // (ten seconds with nothing playing: no frames asked for)
+    now += 10_000;
+    fx.set(moment("erode", "rumble", 20, 20));
+    wait(1500, false, 1500);
+    expect(fx.showing().erode).toMatchObject({ x: 20, y: 20, age: expect.closeTo(1.5, 3) });
   });
 
   it("an impact's dust and a fault's crack play out as drawn: a frame held long never skips them", () => {

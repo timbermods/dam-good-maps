@@ -154,7 +154,10 @@ export class StrokePreview {
     const depth = fresh && state.water ? state.water : undefined;
     const shown = this.start;
     // (a roof's top no lower than one above its underside, as build step 6 shapes it, D280 (3))
-    this.stroke = new BrushStroke(hold?.length && !settings.hold ? { ...settings, hold } : settings, this.pre, W, H, (i) => !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
+    // (the stroke reads its own copy of the settings: the record the preview writes into the page's grows with
+    // the stroke, as the session reads it, whatever the dabs' calls; read through the record itself, a stroke
+    // with no ground to keep stopped recording after its first call, #868)
+    this.stroke = new BrushStroke(hold?.length && !settings.hold ? { ...settings, hold } : { ...settings }, this.pre, W, H, (i) => !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
       water,
       floor: state.floor ?? null,
       ...(depth ? { depth, shown, moisture: state.moisture ?? null, record: (shore, pools, moist) => Object.assign(record, { shore, pools, ...(moist ? { moist } : {}) }) } : {}),

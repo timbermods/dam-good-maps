@@ -16,7 +16,7 @@
 // High its pink caustics; in both, the game's orange glow of its shallow edges where partly bad). Clean water reads as water by its sheen and ripple crests and its see-through shallows, and in
 // colour by its blue. Badwater is darker than clean water of the same depth, as the game's by day, darkening with depth as the game's
 // (D496), and dull; water partly
-// bad turns smoothly from one to the other over a few tiles where they meet, greying as it turns as the
+// bad turns smoothly from one to the other over about a tile where they meet, greying as it turns as the
 // game's does (a teal-grey, a grey, a dull red-brown, crimson), never in streaks, patches or purple
 // (D177, D496). Living trees are dark, dead trees the game's weathered grey-brown wood, lighter. The walls, in the side light, are darker than the ground above them. The information
 // layer (**Markers**) adds dam sites, hatched light and dark with a dark rim so they show on any
@@ -39,14 +39,57 @@ export type GroundMode = "moisture" | "height";
 /** A tile's ground, as its colour shows it. */
 export type GroundKind = "moist" | "dry" | "contaminated" | "underwater";
 
-/** How the game's terrain shows soil moisture (SoilMoistureSystem `UpdateDesertIntensity`, its `SoilMoistureSimulatorSpec`
- *  blueprint): its desert texture over all of a top at moisture 0, over (1 − m / threshold) × max of one at moisture m up to
- *  the threshold, none above (the shaders' `grassOf`; D135 as amended 2026-10-29). */
+/** How the game's terrain shows soil moisture (SoilMoistureSystem `UpdateDesertIntensity`, its `SoilMoistureMapSpec`
+ *  blueprint: `DesertMoistureThreshold` 5, `MaxDesertIntensity` 0.7): its desert texture over all of a top at moisture 0,
+ *  over (1 − m / threshold) × max of one at moisture m up to the threshold, none above (the shaders' `grassOf`; D135 as
+ *  amended 2026-10-29). The game takes m unrounded, and so does ours: the tile data carries the desert intensity from the
+ *  moisture byte (light.ts `desertByte`, read by the shaders' `grassAt`); only the run tops (caves' floors) take their
+ *  whole level (`grassOf`), which is all their soil carries. */
 export const DESERT = { threshold: 5, max: 0.7 } as const;
 
 /** How the game's terrain blends its desert map at a point (its TerrainMaterialMapSpec: \`BlendingMargin\`,
- *  \`BlendingNoiseMultiplier\`, \`BlendingSoftness\`; the shaders' \`desertBlend\`). */
-export const BLEND = { margin: 0.2, noise: 0.96, softness: 5.8 } as const;
+ *  \`BlendingNoiseMultiplier\`, \`BlendingSoftness\`; the shaders' \`desertBlend\`), and its blending noise's statistics
+ *  (`noiseMean`, `noiseSpread`: the `BlendingNoise` texture's texels, read raw from the game's `resources.assets`,
+ *  2026-11-08; it is read at world × `BlendingNoiseScale` 0.2, so it repeats every five tiles, and most of its variance
+ *  lies in features half a tile to two tiles across: 31 % at 0.5–1 cycles a tile, 46 % at 1–2, 13 % at 2–4). Ours
+ *  (the shaders' `blendNoise`) is drawn to them: its mean, its spread and its scale. */
+export const BLEND = { margin: 0.2, noise: 0.96, softness: 5.8, noiseMean: 0.473, noiseSpread: 0.081 } as const;
+
+/** Five-point Gauss–Hermite nodes (in spreads from the mean) and weights: the mean of a function over the blending
+ *  noise, for a look that draws no noise (the light look). */
+export const NOISE_NODES: readonly (readonly [number, number])[] = (() => {
+  const r = Math.sqrt(10);
+  const nodes: [number, number][] = [
+    [0, 8 / 15],
+    [-Math.sqrt(5 - r), (7 + 2 * r) / 60],
+    [Math.sqrt(5 - r), (7 + 2 * r) / 60],
+    [-Math.sqrt(5 + r), (7 - 2 * r) / 60],
+    [Math.sqrt(5 + r), (7 - 2 * r) / 60],
+  ];
+  // (rounded as the shaders write them, the weights summing to one, so a share held at 0 or 1 stays there exactly)
+  const round = nodes.map(([x, w]): [number, number] => [Math.round(x * 1e6) / 1e6, Math.round(w * 1e6) / 1e6]);
+  round[0][1] = Math.round((1 - round.slice(1).reduce((s, [, w]) => s + w, 0)) * 1e6) / 1e6;
+  return round;
+})();
+
+/** The mean over the game's blending noise (`BLEND.noiseMean`, `noiseSpread`) of its blend, saturate((v + k × (n −
+ *  mid) − 0.5) × softness + 0.5): the share a look without the noise (the light look) draws for a value v, as the
+ *  game's noisy blend averages over the ground. The desert's share takes k `BLEND.noise`, mid 0.5, softness
+ *  `BLEND.softness`; contamination's weight its own (`CONTAMINATION`). The shaders' `noiseMean` is the same. */
+export function noiseMean(v: number, k: number, mid: number, softness: number): number {
+  const a = (v + k * (BLEND.noiseMean - mid) - 0.5) * softness + 0.5;
+  const b = k * BLEND.noiseSpread * softness;
+  return NOISE_NODES.reduce((sum, [x, w]) => sum + w * Math.max(0, Math.min(1, a + x * b)), 0);
+}
+
+/** The game's ground albedo means (D497): its `Desert` and `Grass` textures' means at the 64² mip (62.5/52.2/41.7 and
+ *  67.4/72.9/24.8, display 0–255, read raw) × its detail texture doubled (`GrassDetailsAlbedo`, mean 140.5: × 1.102).
+ *  What our patterns' means are calibrated to (`GROUND`), and what the pixel judge draws the tops in to judge the light
+ *  alone (materials.ts `GROUND_MEANS`). */
+export const GAME_GROUND_MEAN = {
+  dry: [0.2701, 0.2256, 0.1802] as Rgb,
+  grass: [0.2913, 0.315, 0.1072] as Rgb,
+} as const;
 
 export const GROUND = {
   /** Dry ground: cracked earth in a warm brown, with dark cracks; plants die there. Broad patches
@@ -62,7 +105,10 @@ export const GROUND = {
    *  texture doubled (TerrainURP: base × GrassDetailsAlbedo × 2; GrassDetailsAlbedo's mean 140 makes that × 1.098): dry
    *  ground the `Desert` texture's 63/52/42 (TerrainMaterialMap.blueprint.json `DesertTexture`), so 69/57/46; grass
    *  the `Grass` texture's 67/73/25, so 74/80/27 (means of the 64² mips, 0–255, read raw as the game reads them in Gamma
-   *  colour space). Each colour of a kind was scaled by the same factor per channel, so the patterns keep their shapes;
+   *  colour space; every mip's mean is within 2 % of the top's). The patterns keep their mean at every distance, as a
+   *  texture does through its mips (2026-11-08: the grass's strokes and the cracks had faded with distance, the
+   *  grass 3.5 % darker and the earth 1.3 % lighter from the start shots' 70–110 away than at the 34 they were
+   *  calibrated at). Each colour of a kind was scaled by the same factor per channel, so the patterns keep their shapes;
  *  recalibrated 2026-11-07 (`fix/water-light`), when the tool, which had left the post chain in, read 3–5 % low. */
   dry: [0.293, 0.242, 0.193] as Rgb,
   /** Dry ground's cooler, greyer patches. */
@@ -71,24 +117,36 @@ export const GROUND = {
   dryWarm: [0.33, 0.264, 0.197] as Rgb,
   /** The cracks in dry ground. */
   crack: [0.12, 0.085, 0.066] as Rgb,
-  /** Moist ground at the edge of the moist area (the least moisture): a muted grass green. */
-  moistLow: [0.378, 0.388, 0.135] as Rgb,
-  /** Moist ground by the water (the most moisture), a little deeper green. */
-  moistHigh: [0.353, 0.372, 0.128] as Rgb,
+  /** Grass: a muted green, the same at every moisture, as the game's terrain shader draws it (TerrainURP: the `Grass`
+   *  texture × its altitude ramp × the detail texture, with no moisture term; only the desert's share, by the game's
+   *  desert intensity, changes with moisture). Until 2026-11-08 ours ran from a lighter green at the moist area's edge
+   *  to one 7 % deeper by the water, which the game doesn't, so grass by the water read darker than the game's
+   *  (`fix/land-tone`, docs/progress/3d-view.md). Calibrated as the rest (`tools/albedo-means.ts`, 34 and 100 away):
+   *  the `Grass` texture's 67.4/72.9/24.8 at the mip the start shots read (64²) × the detail texture's 140.3/141.0/140.8
+   *  doubled, so 74.2/80.6/27.4; measured after, Standard 74.4/80.8/27.5 near and 74.0/80.4/27.5 from afar (High from afar
+   *  73.2/79.8/27.3). */
+  grass: [0.371, 0.389, 0.133] as Rgb,
   /** Ground under water (seen through it). */
   underwater: [0.36, 0.38, 0.34] as Rgb,
 } as const;
 
 const luma = (c: Rgb) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
-/** The game's grass (its terrain's Grass texture, mean): with ours (`GROUND.moistHigh`) it gives how much lighter our
- *  albedo is than the game's, so a colour the game gives is drawn at our lightness, in the game's own hue (D135 as
- *  amended 2026-10-29: models in the game's colour). */
+/** The game's grass (its terrain's Grass texture, mean): with ours as it was when the models took their colours (the
+ *  grass by the water, 0.353/0.372/0.128, before `fix/land-tone` drew grass alike at every moisture) it gives how much
+ *  lighter our albedo is than the game's, so a colour the game gives is drawn at our lightness, in the game's own hue
+ *  (D135 as amended 2026-10-29: models in the game's colour). Held at that, so the ground's calibration never moves the
+ *  models. */
 export const GAME_GRASS: Rgb = [0.263, 0.285, 0.096];
-export const ALBEDO_SCALE = luma(GROUND.moistHigh) / luma(GAME_GRASS);
+export const ALBEDO_SCALE = luma([0.353, 0.372, 0.128]) / luma(GAME_GRASS);
 /** A colour of the game's albedo as ours. */
 export const asOurs = (c: Rgb): Rgb => [Math.min(1, c[0] * ALBEDO_SCALE), Math.min(1, c[1] * ALBEDO_SCALE), Math.min(1, c[2] * ALBEDO_SCALE)];
 /** Trees and bushes as the game colours them: the grown models' foliage and bark (texture x vertex colour, means over
- *  their area, read from resources.assets), as ours. Olive and yellow-green, darker than the grass. */
+ *  their area, read from resources.assets), as ours. Olive and yellow-green, darker than the grass. The birch's bark is
+ *  its white-vertex part (11.9 % of its area) without its dark marks, which our models draw as geometry of their own:
+ *  its texels lighter than 0.3 (`tools/game-model-albedo.py BirchMature --above 0.3`: 76 % of the bark, where its
+ *  texture parts, the marks below 0.2 and the light bark above 0.4 with only 3 % between), a light warm grey; the whole
+ *  texture's mean, 0.525/0.474/0.392, would count the marks twice. Until 2026-11-08 ours was a near-white
+ *  0.93/0.91/0.86 of our own, neutral where the game's is warm. */
 export const TREE_COLOURS = {
   pine: asOurs([0.114, 0.181, 0.099]),
   birch: asOurs([0.174, 0.231, 0.099]),
@@ -96,6 +154,7 @@ export const TREE_COLOURS = {
   bush: asOurs([0.153, 0.175, 0.088]),
   pineBark: asOurs([0.269, 0.183, 0.117]),
   oakBark: asOurs([0.21, 0.17, 0.103]),
+  birchBark: asOurs([0.634, 0.579, 0.49]),
 } as const;
 
 /** Juice (D205): the dust a lowered stroke puffs up (a light, dry earth), and a source's splash
@@ -183,13 +242,25 @@ export function contaminationMap(c: number): number {
   return c > 0 ? (c <= C.mapFull ? 1 - C.mapMax * (1 - c / C.mapFull) : 1) : 0;
 }
 
-/** The pattern's weight at a map value `m` (0–1, blended across tiles) and the blending noise `n` (0–1; its middle by
- *  default), as the game's terrain shader works it (`CONTAMINATION`). */
-export function contaminationWeight(m: number, n = 0.5): number {
+/** The pattern's weight at a map value `m` (0–1, blended across tiles) and the blending noise `n` (0–1; its mean,
+ *  the game's `BLEND.noiseMean`, by default), as the game's terrain shader works it (`CONTAMINATION`). */
+export function contaminationWeight(m: number, n: number = BLEND.noiseMean): number {
   const C = CONTAMINATION;
-  let v = Math.max(0, m) ** C.nonlinearity;
-  if (v >= 0.01) v = Math.max(v, C.least);
-  return Math.max(0, Math.min(1, (v + C.noise * (n - C.noiseMid) - 0.5) * C.softness + 0.5));
+  return Math.max(0, Math.min(1, (contaminationValue(m) + C.noise * (n - C.noiseMid) - 0.5) * C.softness + 0.5));
+}
+
+/** The map value as the weight takes it: raised to the nonlinearity, held at the least once over 0.01. */
+function contaminationValue(m: number): number {
+  const C = CONTAMINATION;
+  const v = Math.max(0, m) ** C.nonlinearity;
+  return v >= 0.01 ? Math.max(v, C.least) : v;
+}
+
+/** The pattern's weight at a map value `m`, averaged over the blending noise (`noiseMean`): the share of the ground
+ *  the pattern takes there, as the light look, which draws no noise, shows it. */
+export function contaminationWeightMean(m: number): number {
+  const C = CONTAMINATION;
+  return noiseMean(contaminationValue(m), C.noise, C.noiseMid, C.softness);
 }
 
 /** With **Markers** on, an outline where contaminated ground ends: a light line between dark
@@ -206,7 +277,7 @@ export function contaminationVein(level: number, soil: Rgb): Rgb {
 /** Contaminated ground at a soil contamination `level` over the soil `soil` as the pattern's mean shows it (its mips,
  *  from afar; the light look): the soil toward the pattern's mean colour by its mean alpha × the weight. */
 export function contaminationMean(level: number, soil: Rgb): Rgb {
-  const k = CONTAMINATION.meanAlpha * contaminationWeight(contaminationMap(level));
+  const k = CONTAMINATION.meanAlpha * contaminationWeightMean(contaminationMap(level));
   return [0, 1, 2].map((i) => soil[i] + (CONTAMINATION.mean[i] - soil[i]) * k) as unknown as Rgb;
 }
 
@@ -214,7 +285,7 @@ export function contaminationMean(level: number, soil: Rgb): Rgb {
  *  earth and over grass. */
 export const CONTAMINATED_GROUND = {
   dry: contaminationMean(1, GROUND.dry),
-  grass: contaminationMean(1, GROUND.moistHigh),
+  grass: contaminationMean(1, GROUND.grass),
 } as const;
 
 /** Dead trees: bare wood (no crown), the game's dead wood: the living bark weathered lighter and greyer, still lighter
@@ -260,7 +331,10 @@ export const LANDMARK = {
  *  read from afar), a cream panel set in where it has one. Both stand apart from contaminated ground. */
 export const RUIN = {
   rust: [0.83, 0.47, 0.12] as Rgb,
-  panel: [0.89, 0.81, 0.59] as Rgb,
+  /** The cream sacks and slab panels: the game's ruins' lightest colour, at our lightness (D496; the brightest tenth of
+   *  RuinColumnA..E's area, weighted clusters of `tools/game-model-albedo.py`'s samples: 0.507/0.430/0.272). Until
+   *  2026-11-08 #E3CF96, half again the game's, its lit faces over the bloom's knee. */
+  panel: asOurs([0.507, 0.43, 0.272]),
   ivy: [0.251, 0.337, 0.204] as Rgb,
   /** The ivy's brighter leaves, on its clusters' edges. */
   leaf: [0.36, 0.5, 0.24] as Rgb,
@@ -382,8 +456,18 @@ export const LIGHT = {
   sunElevation: (45 * Math.PI) / 180,
   /** How far the game's sun turns past the camera (Sun.blueprint.json `RotateWithCameraOffset`, degrees). */
   sunFollow: 40,
-  /** The sun's disc and the sky's scatter soften shadows: two sweeps, this far either side. */
-  penumbra: (6 * Math.PI) / 180,
+  /** The baked shadow's sweeps (Standard's) take the sun this far higher and lower: none. The game's shadow edge is a
+   *  shadow map's few texels (one cascade, its soft filter), the same width under a cliff of one level or ten, not an
+   *  angle that widens with the drop; its probe frames read 0.3–0.4 of a tile under cliffs of 2 to 10 levels alike
+   *  (`tools/shadow-edge-check.py`; docs/progress/3d-view.md, "Grass in the game's light"). 6° until 2026-11-08, then
+   *  2° for a day; the width is `edge`. */
+  penumbra: 0,
+  /** The baked shadow's edge: the ground, along the sun's way, over which a shadow turns to sun (tiles), the same at
+   *  any drop: the game's in play. Its probe frames read about 1.4 of their shadow map's texels (0.35 here read as theirs
+   *  through the same measure, `tools/shadow-edge-check.py`), and in play the default preset's map (4096) over a
+   *  shadow distance of at most 150 makes a texel 0.057 of a tile, so 1.4 texels / sin 45° = 0.11 along the sun's way
+   *  (docs/progress/3d-view.md, "Grass in the game's light"). The shader keeps it at least a pixel wide. */
+  edge: 0.11,
   sun: [1.0, 0.95, 0.86] as Rgb,
   sky: [0.63, 0.64, 0.72] as Rgb,
   /** The haze: the game's temperate daytime fog (`Sun.blueprint` `DayColors.TemperateWeatherFog`; a held hazard's in
@@ -392,14 +476,17 @@ export const LIGHT = {
 } as const;
 
 /** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
- *  texture is a neutral grey, its parts shaded by their vertex colours: the game's own greys, area-weighted means read
- *  from its model (walls and shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at 0.96, the lantern's
- *  inside and the openings about 0.36), as the trees show the game's own colour in every look. */
+ *  texture is a neutral grey that shades its parts, and its material (EnvironmentURP, `StartingLocationMaterial`)
+ *  multiplies it by `_Color` 0.5, so the game's albedo is half the texture's grey: area-weighted means read from its model
+ *  (`tools/game-model-albedo.py`: the texture walls and shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at
+ *  0.96, the lantern's inside and the openings about 0.36; the whole model 0.265), drawn at our lightness (`asOurs`, D178,
+ *  D496), as the trees take the game's own colour in every look. (Until 2026-11-08 the texture's greys stood in for the
+ *  albedo, twice the game's: a near-white tower that outshone everything round it.) */
 export const START = {
-  stone: [0.79, 0.79, 0.79] as Rgb,
-  trim: [0.84, 0.84, 0.84] as Rgb,
-  roof: [0.963, 0.963, 0.963] as Rgb,
-  dark: [0.36, 0.36, 0.36] as Rgb,
+  stone: asOurs([0.395, 0.395, 0.395]),
+  trim: asOurs([0.42, 0.42, 0.42]),
+  roof: asOurs([0.4815, 0.4815, 0.4815]),
+  dark: asOurs([0.18, 0.18, 0.18]),
 } as const;
 
 /** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,
@@ -483,7 +570,8 @@ export function waterShown(depth: number, share = 0, glow = true, look: "standar
  *  - The post chain, as URP's uber pass grades in LDR under Gamma colour space: to linear, × 2^`postExposure`
  *    (ColorAdjustments; the game's Brightness setting at its default adds none), Neutral tonemapping (Tonemapping), then
  *    the LUT: `contrast` round ACEScc's mid grey in LogC and `saturation` round the luminance (ColorAdjustments
- *    +14 and +3), back to display values. Bloom (threshold 1.5) only touches highlights and is not drawn.
+ *    +14 and +3), back to display values. The game's bloom is added before the exposure (D497 amended 2026-11-08,
+ *    render3d/bloom.ts `GAME_BLOOM`, `tools/game-bloom.py`), in Standard and High.
  *  `m_AmbientIntensity` (1.2) is not applied (D497): the game sets Trilight (decompiled `Sun`: the mode when it loads,
  *  the three colours every frame) and never sets `RenderSettings.ambientIntensity`; Unity applies the multiplier to a
  *  skybox's ambient only (its Lighting window offers it only there), which is Unity's behaviour, not the decompile's. */
@@ -568,10 +656,6 @@ export function groundKind(moisture: number, contamination: number, underwater: 
   return moisture > 0 ? "moist" : "dry";
 }
 
-function mixRgb(a: Rgb, b: Rgb, t: number): Rgb {
-  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-}
-
 /** The ground's base colour (before light and texture) for soil bytes, in moisture mode; the
  *  shader's `groundColor` does the same per pixel. Contamination is a layer drawn over it (its
  *  veins, `contaminationWeight` × the pattern's alpha): the ground under and between them keeps its own colour. */
@@ -582,8 +666,8 @@ export function groundColor(moisture: number, contamination: number, underwater:
     case "contaminated":
       return groundColor(moisture, 0, false);
     case "moist":
-      // the game's moisture levels: 1 at the moist area's edge, 10 and up by the water
-      return mixRgb(GROUND.moistLow, GROUND.moistHigh, Math.max(0, Math.min(1, (Math.round(moisture / 15) - 1) / 9)));
+      // (the game's grass, the same at every moisture: GROUND.grass)
+      return GROUND.grass;
     default:
       return GROUND.dry;
   }
@@ -635,12 +719,12 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
   const ground: LegendEntry[] =
     mode === "moisture"
       ? [
-          { swatch: `linear-gradient(90deg, ${l(GROUND.moistLow)}, ${l(GROUND.moistHigh)})`, label: "Moist ground" },
+          { swatch: l(GROUND.grass), label: "Moist ground" },
           { swatch: cracks(sunlitTop(GROUND.dry), sunlitTop(GROUND.crack)), label: "Dry ground" },
           {
             // the game's rusty veins over the ground, dry earth and grass alike, as a sunlit top shows them
             swatch: icon(
-              `<rect width="12" height="16" fill="${l(GROUND.dry)}"/><rect x="12" width="12" height="16" fill="${l(GROUND.moistLow)}"/>` +
+              `<rect width="12" height="16" fill="${l(GROUND.dry)}"/><rect x="12" width="12" height="16" fill="${l(GROUND.grass)}"/>` +
                 `<path d="M0 4 L5 6 L4 11 L9 13 M5 6 L11 3" stroke="${l(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>` +
                 `<path d="M12 5 L17 7 L16 12 L22 14 M17 7 L23 3" stroke="${l(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>`,
             ),
@@ -665,7 +749,7 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
  *  start, slopes, ruins and the other objects, each as its model looks from above. */
 export function objectLegend(): LegendEntry[] {
   const c = cssColor;
-  const grass = c(sunlitTop(GROUND.moistLow));
+  const grass = c(sunlitTop(GROUND.grass));
   const dry = c(sunlitTop(GROUND.dry));
   return [
     {
@@ -750,7 +834,7 @@ export function objectLegend(): LegendEntry[] {
     },
     {
       swatch: icon(
-        `<rect width="12" height="16" fill="${c(GROUND.dry)}"/><rect x="12" width="12" height="16" fill="${c(GROUND.moistLow)}"/>` +
+        `<rect width="12" height="16" fill="${c(GROUND.dry)}"/><rect x="12" width="12" height="16" fill="${c(GROUND.grass)}"/>` +
           `<path d="M2 4 L8 6 L7 11" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.1" fill="none"/>` +
           `<rect x="10" width="4" height="16" fill="${c(CONTAMINATION_OUTLINE.dark)}"/><rect x="11" width="2" height="16" fill="${c(CONTAMINATION_OUTLINE.light)}"/>`,
       ),

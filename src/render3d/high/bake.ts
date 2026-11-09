@@ -5,11 +5,12 @@
 import { columnMap, type MapView, type SurfaceWater, type WaterView } from "../model";
 import { caveCurrent, type CaveCurrent } from "../caveCurrent";
 import { currentOf, gameFlowOf } from "../current";
-import { makeBadwaterTexture, makeDetailField, makeWaterTexture, WATER_FLOW, WATER_TEXTURE_SIZE } from "../waterTextures";
+import { makeBadwaterTexture, makeDetailField, makeSourceShape, makeWaterTexture, WATER_FLOW, WATER_TEXTURE_SIZE } from "../waterTextures";
 import { makeSoilTexture, SOIL_TEXTURE_SIZE } from "../soilTexture";
-import { motionShapes, type MotionShapes } from "../motionShapes";
+import { motionShapes, noShapes, type MotionShapes } from "../motionShapes";
 import { surfaceContamination } from "./flow";
 import { fallBytes } from "../fallMask";
+import { handedWater } from "../fallSlope";
 import { shadowMap, withCasterLevels, type ShadowRock, type Sun } from "../light";
 
 /** A flow (−1…1, the game's: outflow ÷ 14) as the flow texture's byte: 128 + 127 × sign × √|f|, so a slow drift keeps
@@ -24,8 +25,10 @@ export function flowByte(f: number): number {
  *  waterfall mask (A, fallMask.ts `fallBytes`: 0 dry, 1 + 254 × the mask wet). `out`: the outflows, four a tile (none:
  *  still). */
 export function bakeFlow(W: number, H: number, sw: SurfaceWater, out?: ArrayLike<number> | null): { flow: Uint8Array } {
-  const cont = surfaceContamination(W, H, sw);
-  const game = out ? gameFlowOf(W, H, out, sw.depth, WATER_FLOW.maxOutflow) : null;
+  // (the water below a fall takes the fall's badwater share and outflow, as the game's FindBestProperties hands them on:
+  // fallSlope.ts, so a fall's slope is the fall's colour and runs with its current)
+  const cont = surfaceContamination(W, H, handedWater(W, H, sw));
+  const game = out ? gameFlowOf(W, H, out, sw.depth, WATER_FLOW.maxOutflow, sw) : null;
   const fall = fallBytes(W, H, sw);
   const flow = new Uint8Array(W * H * 4);
   for (let i = 0; i < W * H; i++) {
@@ -40,7 +43,7 @@ export function bakeFlow(W: number, H: number, sw: SurfaceWater, out?: ArrayLike
 /** The smoothed contamination alone, a byte a tile (the flow texture's B, as `bakeFlow` packs it): where nothing
  *  moves (stillFlow.ts), with the waterfall mask (its A, `stillBytes`). */
 export function shareBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">): Uint8Array {
-  const cont = surfaceContamination(W, H, sw);
+  const cont = surfaceContamination(W, H, handedWater(W, H, sw));
   const out = new Uint8Array(W * H);
   for (let i = 0; i < W * H; i++) out[i] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);
   return out;
@@ -48,7 +51,14 @@ export function shareBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface
 
 /** What a still view's flow texture takes from the water (stillFlow.ts): the share (B, `shareBytes`) and the waterfall
  *  mask (A, fallMask.ts `fallBytes`). */
-export function stillBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">): { share: Uint8Array; fall: Uint8Array } {
+export function stillBytes(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">, fall = true): { share: Uint8Array; fall: Uint8Array } {
+  // (the light look draws no waterfall mask: it is not worked out for it, A only whether the tile is wet, 1 or 0, which
+  // the badwater share's blend reads: waterPalette.ts waterShareFrom)
+  if (!fall) {
+    const wet = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) wet[i] = sw.surface[i] === sw.surface[i] && sw.depth[i] > 0 ? 1 : 0;
+    return { share: shareBytes(W, H, sw), fall: wet };
+  }
   return { share: shareBytes(W, H, sw), fall: fallBytes(W, H, sw) };
 }
 
@@ -64,8 +74,8 @@ let columnsKept: { key: number; map: Map<number, Uint8Array> } | null = null;
 
 /** A job for the worker, and its answer. */
 export type BakeJob =
-  | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null; layered?: LayeredWater }
-  | { id: number; kind: "share"; W: number; H: number; sw: Pick<SurfaceWater, "surface" | "depth" | "contamination"> }
+  | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null; layered?: LayeredWater; shapes?: boolean }
+  | { id: number; kind: "share"; W: number; H: number; sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">; fall?: boolean }
   | { id: number; kind: "shadows"; W: number; H: number; heights: Uint8Array; casters: Float32Array | null; levels: Uint8Array | null; rock: ShadowRock | null; sun: Sun }
   | { id: number; kind: "waterTexture" }
   | { id: number; kind: "detailTexture" };
@@ -74,7 +84,7 @@ export type BakeResult =
   | { id: number; kind: "share"; share: Uint8Array; fall: Uint8Array; ms: number }
   | { id: number; kind: "shadows"; bytes: Uint8Array; hi: Float32Array; lo: Float32Array; ms: number }
   | { id: number; kind: "waterTexture"; data: Uint8Array; bad: Uint8Array; soil: Uint8Array; ms: number }
-  | { id: number; kind: "detailTexture"; detail: Uint8Array; ms: number };
+  | { id: number; kind: "detailTexture"; detail: Uint8Array; shape: Uint8Array; ms: number };
 /** What the worker sends back: the answer, or why the job failed. */
 export type BakeReply = BakeResult | { id: number; kind: "error"; error: string };
 
@@ -82,9 +92,10 @@ export function runBake(job: BakeJob): BakeResult {
   const t0 = performance.now();
   // the textures the water's flow carries (waterTextures.ts), made once a page, here rather than on its thread
   if (job.kind === "waterTexture") return { id: job.id, kind: "waterTexture", data: makeWaterTexture(WATER_TEXTURE_SIZE), bad: makeBadwaterTexture(WATER_TEXTURE_SIZE), soil: makeSoilTexture(SOIL_TEXTURE_SIZE), ms: performance.now() - t0 };
-  // the light look's: the still detail albedo alone (badwater's texture's B), the one pattern it reads (Q9 P6)
-  if (job.kind === "detailTexture") return { id: job.id, kind: "detailTexture", detail: makeDetailField(WATER_TEXTURE_SIZE), ms: performance.now() - t0 };
-  if (job.kind === "share") return { id: job.id, kind: "share", ...stillBytes(job.W, job.H, job.sw), ms: performance.now() - t0 };
+  // the light look's: the still detail albedo (badwater's texture's B, Q9 P6) and the water sources' pattern (its A,
+  // Q9 P7), the patterns it reads
+  if (job.kind === "detailTexture") return { id: job.id, kind: "detailTexture", detail: makeDetailField(WATER_TEXTURE_SIZE), shape: makeSourceShape(WATER_TEXTURE_SIZE), ms: performance.now() - t0 };
+  if (job.kind === "share") return { id: job.id, kind: "share", ...stillBytes(job.W, job.H, job.sw, job.fall ?? true), ms: performance.now() - t0 };
   // the baked shadows for the sun turned with the camera (light.ts; the renderer's `turnSun`)
   if (job.kind === "shadows") {
     const keep = { hi: new Float32Array(0), lo: new Float32Array(0) };
@@ -92,10 +103,11 @@ export function runBake(job: BakeJob): BakeResult {
     const bytes = shadowMap(job.W, job.H, job.heights, casters, keep, job.rock, job.sun);
     return { id: job.id, kind: "shadows", bytes, hi: keep.hi, lo: keep.lo, ms: performance.now() - t0 };
   }
-  // the current from the outflows (current.ts), here rather than on the page's thread
-  const current = job.out ? currentOf(job.W, job.H, job.out, job.sw.depth) : new Float32Array(job.W * job.H * 2);
   const { flow } = bakeFlow(job.W, job.H, job.sw, job.out);
-  const shapes = motionShapes(job.W, job.H, job.sw, current);
+  // the Flow view's foam and streaks, from the current of the outflows (current.ts), here rather than on the page's
+  // thread; outside the Flow view none, nothing of them being drawn (`shapes` false)
+  const current = job.shapes === false ? null : job.out ? currentOf(job.W, job.H, job.out, job.sw.depth) : new Float32Array(job.W * job.H * 2);
+  const shapes = current ? motionShapes(job.W, job.H, job.sw, current) : noShapes();
   // the current of water below its tile's surface water, each column its own (caveCurrent.ts)
   let cave: CaveCurrent | null = null;
   const l = job.layered;

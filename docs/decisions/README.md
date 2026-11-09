@@ -40,7 +40,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D398: Renderer session for moving water
 - D415: Renderer PR merges on Kyler's yes
 - D436: Merge of #165
-- D446: Moving water and Flow view adopted
+- D446: Moving water and Flow view adopted (amended: the foam in the Flow view alone, D497)
 - D342: Editor architecture for M12
 - D443: Renaming a map is not an operation
 - D351: A tooltip on every control
@@ -165,7 +165,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D184: Controls
 - D265: Camera moves only when moved
 - D347: Hover readout
-- D249: Sources
+- D249: Sources (amended: the upwelling with Markers only, D497)
 - D337: Parity with game's fluid tools
 - D259: Select and the working area
 - D340: Crop map to selection
@@ -194,7 +194,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D497: Terrain is lit as the game lights it (amends D280 (2), D135)
 - D496: Badwater's colour follows the game (amends D154)
 - D135: The 3D view's look (amended: no mist or splash rings at falls)
-- D154: Contaminated ground layer (amended: falls as the game draws them, D201)
+- D154: Contaminated ground layer (amended: falls as the game draws them, D201; as the water below's slope, 2026-11-08; the water's depth along the view, 2026-11-09)
 - D178: Mine sites and ruins models
 - D114: Readability rules
 

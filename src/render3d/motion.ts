@@ -2,11 +2,12 @@
 // settle (current.ts) carried into
 // - the flow texture every water material reads (`flowTex`; High's `hlFlow`): the surface's textures
 //   move with the current;
-// - always-on foam: faint threads along the current's lanes, wakes where a bank opens or narrows in
-//   fast water, seams where two currents join, in each look's own foam colours, stronger in fast
-//   water and gone where it is still;
-// - the Flow view (off by default): a few glowing streaks travelling down the lanes, fast water's
-//   longer and brighter, badwater's dim embers;
+// - the Flow view (off by default), an editing aid in its own channel (D497): faint foam threads along the
+//   current's lanes, wakes where a bank opens or narrows in fast water, seams where two currents join, in each
+//   look's own foam colours, stronger in fast water and gone where it is still; and a few glowing streaks
+//   travelling down the lanes, fast water's longer and brighter, badwater's dim embers. Outside it the river is
+//   drawn as the game draws it, with no foam (its water has no foam term; planning's ruling on #236, 2026-11-08),
+//   and the bake makes none of their shapes;
 // - on a map with water below a tile's surface water (a cave's under a wet roof), that water's own current
 //   and contamination, a volume by level (caveCurrent.ts; `caveFlowTex`), which the water shader reads there.
 // All of it is made in the bake worker a moment after the water changes (at least once a second while
@@ -23,9 +24,11 @@ import { outflowGrid } from "./current";
 import { canShare, SharedBlock, sharedCopies } from "./shared";
 import type { Baker } from "./high/fields";
 import type { LayeredWater } from "./high/bake";
-import { surfaceContamination } from "./high/flow";
+import { surfaceContamination, writeShare } from "./high/flow";
 import { fallBytes } from "./fallMask";
+import { handedWater } from "./fallSlope";
 import { HIGH_WATER, WATER } from "./waterPalette";
+import { onAidLayer } from "./aidLayer";
 
 /** The flow follows the water this long after it changes (and at least this often while it does). */
 const WATER_WAIT = 250;
@@ -42,7 +45,7 @@ function texture(W: number, H: number, fill: [number, number, number, number]): 
   return t;
 }
 
-/** The foam ribbons: widened on screen to a pixel or two, a pulse running down each thread. */
+/** The Flow view's foam ribbons: widened on screen to a pixel or two, a pulse running down each thread. */
 function cueMaterial(u: SceneUniforms, high: { value: number }, viewport: { value: Vector2 }, dpr: { value: number }): ShaderMaterial {
   return new ShaderMaterial({
     transparent: true,
@@ -191,7 +194,7 @@ function streakMaterial(u: SceneUniforms, viewport: { value: Vector2 }, dpr: { v
 export function stillFlowTexture(W: number, H: number, sw: SurfaceWater): DataTexture {
   const t = texture(W, H, [128, 128, 0, 0]);
   const f = t.image.data as Uint8Array;
-  const cont = surfaceContamination(W, H, sw);
+  const cont = surfaceContamination(W, H, handedWater(W, H, sw));
   const fall = fallBytes(W, H, sw);
   for (let i = 0; i < W * H; i++) {
     f[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);
@@ -214,10 +217,15 @@ export class WaterMotion {
   private flowOn = false;
   private latest = 0;
   private done = 0;
-  private baked = false;
+  /** The latest water (`waterChanged`). */
+  private latestWater: SurfaceWater | null = null;
   private since = 0;
   private timer = 0;
   private pending: { heights: Uint8Array; surface: SurfaceWater } | null = null;
+  /** The last water asked for, for the shapes a switch to the Flow view needs. */
+  private last: { heights: Uint8Array; surface: SurfaceWater } | null = null;
+  /** Whether the last bake asked for makes the shapes (one in the Flow view): outside it a bake makes none. */
+  private shaped = false;
   /** Bakes out with the worker: the shared block and the outflow grid are reused only when none is. */
   private out = 0;
   private readonly block = new SharedBlock();
@@ -236,6 +244,9 @@ export class WaterMotion {
     /** The water per column at the moment of a bake (the view and the map's columns), null where the map's water is
      *  a heightfield's (waterLayers.ts `needsLayers`). */
     private readonly layered: () => LayeredWater | null = () => null,
+    /** Texels x0…x1 × y0…y1 of `flow` changed on the page's thread, to go up with the next frame (a RowUploads); by
+     *  default the whole texture goes. */
+    private readonly touch: (x0: number, y0: number, x1: number, y1: number) => void = () => void (this.flow.needsUpdate = true),
   ) {
     uniforms.caveFlowTex.value = noCaveCurrent();
     uniforms.caveFlowLevels.value.set(0, 0);
@@ -245,12 +256,13 @@ export class WaterMotion {
     this.cues.frustumCulled = false;
     this.cues.renderOrder = 7;
     this.cues.name = "water.cues";
+    this.cues.visible = false;
     this.streaks = new Points(new BufferGeometry(), streakMaterial(uniforms, this.viewport, this.dpr));
     this.streaks.frustumCulled = false;
     this.streaks.renderOrder = 8;
     this.streaks.name = "water.flow";
     this.streaks.visible = false;
-    scene.add(this.cues, this.streaks);
+    scene.add(onAidLayer(this.cues), onAidLayer(this.streaks));
   }
 
   /** Whether the last water asked for is drawn. */
@@ -258,10 +270,32 @@ export class WaterMotion {
     return !this.timer && this.done === this.latest;
   }
 
-  /** The Flow view's streaks on or off (the foam stays either way). */
+  /** The Flow view on or off: its foam and streaks, made by a bake at once where the last one made none. */
   setFlow(on: boolean): void {
     this.flowOn = on;
-    this.streaks.visible = on && this.stats.streaks > 0;
+    this.show();
+    if (on && !this.shaped) this.reshape();
+  }
+
+  /** The cues and streaks shown in the Flow view alone, where there are some. */
+  private show(): void {
+    this.cues.visible = this.flowOn && this.stats.triangles > 0;
+    this.streaks.visible = this.flowOn && this.stats.streaks > 0;
+  }
+
+  /** The last water baked again at once, with the shapes: a bake waiting to start starts now instead, and one sent
+   *  is dropped (its answer no longer the latest), so the foam lands as soon as this bake does. */
+  private reshape(): void {
+    if (this.disposed || !this.last) return;
+    clearTimeout(this.timer);
+    this.timer = 0;
+    this.pending ??= this.last;
+    this.bake();
+  }
+
+  /** The materials the Flow view draws with, for compiling their programs before it is first switched on. */
+  materials(): ShaderMaterial[] {
+    return [this.cues.material as ShaderMaterial, this.streaks.material as ShaderMaterial];
   }
 
   /** Each look's own foam colours. */
@@ -272,13 +306,11 @@ export class WaterMotion {
   /** The water changed: its flow and shapes follow a moment later (`now`: at once, a new map). */
   waterChanged(heights: Uint8Array, surface: SurfaceWater, now = false): void {
     if (this.disposed) return;
-    this.pending = { heights, surface };
-    if (!this.baked) {
-      // (a new map's contamination shows at once, unsmoothed, until its first bake arrives)
-      const f = this.flow.image.data as Uint8Array;
-      for (let i = 0; i < this.W * this.H; i++) f[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, surface.contamination[i] || 0)) * 255);
-      this.flow.needsUpdate = true;
-    }
+    this.pending = this.last = { heights, surface };
+    this.latestWater = surface;
+    // (the share and which tiles are wet at once, so badwater is drawn with the water it came with, never a bake
+    // behind it: only the current, the dry tiles' carry and the waterfall mask wait for the bake)
+    this.current();
     if (now) return this.bake();
     const t = performance.now();
     if (!this.timer) this.since = t;
@@ -288,6 +320,13 @@ export class WaterMotion {
       this.timer = 0;
       this.bake();
     }, wait);
+  }
+
+  /** The latest water's share and wetness into the flow's bytes (high/flow.ts `writeShare`). */
+  private current(): void {
+    if (!this.latestWater) return;
+    const r = writeShare(this.W, this.H, this.latestWater, this.flow.image.data as Uint8Array);
+    if (r) this.touch(0, r.y0, this.W - 1, r.y1);
   }
 
   private bake(): void {
@@ -319,15 +358,18 @@ export class WaterMotion {
       heights = p.heights.slice();
     }
     this.out++;
-    void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights, sw: copy, out, ...(layered ? { layered } : {}) }).then((r) => {
+    // (the foam's and streaks' shapes in the Flow view alone, D497)
+    const shapes = (this.shaped = this.flowOn);
+    void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights, sw: copy, out, shapes, ...(layered ? { layered } : {}) }).then((r) => {
       this.out--;
       if (id !== this.latest || r.kind !== "flow" || this.disposed) return;
       this.done = id;
       (this.flow.image.data as Uint8Array).set(r.flow);
       this.flow.needsUpdate = true;
+      // (a bake of older water than the latest: the latest's share and wetness again)
+      this.current();
       this.setCave(r.cave);
       this.ms = r.ms;
-      this.baked = true;
       this.setShapes(r.shapes);
       this.changed();
     }, () => {
@@ -388,7 +430,7 @@ export class WaterMotion {
     m.uniforms.floors.value = floors;
     m.uniforms.rows.value = s.streaks.rows;
     this.stats = s.stats;
-    this.streaks.visible = this.flowOn && s.stats.streaks > 0;
+    this.show();
   }
 
   /** Before each frame: the view's size in pixels (the ribbons and streaks keep a size on screen). */
@@ -399,7 +441,7 @@ export class WaterMotion {
 
   /** Whether anything of it is on screen that moves (the renderer keeps drawing). */
   get animates(): boolean {
-    return this.stats.triangles > 0 || this.streaks.visible;
+    return this.cues.visible || this.streaks.visible;
   }
 
   /** Off the scene, its work stopped, its materials kept (a new map's own compile to the same programs

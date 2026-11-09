@@ -9,7 +9,7 @@
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView, type VersionParent } from "../core/doc/document";
-import { MapSession, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
+import { MapSession, STEP_GONE, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
 import type { BlocksParams } from "../core/doc/blockTool";
 import { masksOf } from "../core/features/build";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
@@ -26,7 +26,6 @@ import { planStair, type StairStep } from "../core/doc/stair";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
 import { groupChecks, instantChecks, NO_START, NO_START_REFUSAL, type CheckGroups, type CheckItem, type TileRect } from "../core/doc/checkItems";
 export type { CheckItem };
-import type { Runs } from "../core/math/grid";
 import { hash32 } from "../core/math/hash";
 import { componentsOf, placementOf, type EntitySpec } from "../core/format/entities";
 import { plainJson } from "../core/format/json";
@@ -50,9 +49,7 @@ import type { Difficulty, MapSpec } from "../core/spec/mapspec";
 import type { Validation } from "../core/validate/checks";
 import { canonicalRun, type CanonicalWater } from "../core/sim/prefill";
 import { PREVIEW_JOB_DAYS, PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
-import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
-import type { BrushParams, Rect } from "../core/features/raster/brush";
-import type { WeatheredLand } from "../core/features/raster/remoteStroke";
+import type { TerrainState } from "../core/features/raster/strokePreview";
 import { EMITTERS, objectTile } from "../core/sim/model";
 import { cavesOf, stackGraph, stackObjectRows, surfaceWater, worldWaterModel, type StackSettle } from "../core/sim/stackWater";
 import { keptOnStack } from "../core/sim/stackFed";
@@ -1965,12 +1962,19 @@ export function redo(): SessionUpdate {
   return changed(s, s.redo(), [], t0);
 }
 
-/** Step back or forward to history entry `index` (the state after it; −1: before the first). */
-export function jump(index: number): SessionUpdate {
+/** Step back or forward to history entry `index` (the state after it; −1: before the first), or to the step whose
+ *  first operation is `step` wherever it stands now (a History row clicked while a stroke was on its way, #884),
+ *  refused when that step is gone. */
+export function jump(index: number, step?: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return changed(s, false, [blocked], t0);
+  if (step !== undefined) {
+    const at = s.stepIndex(step);
+    if (at === null) return changed(s, false, [STEP_GONE], t0);
+    index = at;
+  }
   let applied = s.history().filter((h) => h.applied).length - 1;
   let moved = false;
   while (applied > index && s.undo()) {
@@ -3844,55 +3848,3 @@ export function forcing(): boolean {
 }
 
 export const carving = forcing;
-
-// ------------------------------------------------- Naturalize, weathered here (PLAN §20 D422)
-
-/** A Naturalize stroke weathered in the worker (D422): the page sends its dabs as they come and shows
- *  the land that comes back (core/features/raster/remoteStroke.ts); the worker runs the preview the
- *  page would, on the same land, so what is shown is what the operation builds. */
-let weathering: { session: MapSession; preview: StrokePreview; shown: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null = null;
-
-/** A stroke begins, with the page's settings and the ground under sources and objects it leaves. */
-export function weatherBegin(settings: Omit<BrushParams, "dabs">, ground: Runs): void {
-  const s = need();
-  const shown = s.built.heights.slice();
-  const own = { ...settings };
-  weathering = { session: s, preview: new StrokePreview(own, s.terrainState(), shown, s.size.x, s.size.y, ground), shown, settings: own };
-}
-
-/** What a stroke's dabs (or its riding pieces) changed: the shown heights in the rectangle, and its
- *  settings as recorded so far; the water answers it at once (D197). */
-function weathered(r: Rect | null): WeatheredLand | null {
-  const w = weathering;
-  if (!r || !w) return null;
-  const W = w.session.size.x;
-  const bw = r.x1 - r.x0 + 1;
-  const heights = new Uint8Array(bw * (r.y1 - r.y0 + 1));
-  for (let y = r.y0; y <= r.y1; y++) heights.set(w.shown.subarray(y * W + r.x0, y * W + r.x1 + 1), (y - r.y0) * bw);
-  draftStroke(r, heights);
-  return { rect: r, heights, settings: { ...w.settings } };
-}
-
-export function weatherAdd(dabs: number[], pressure?: number[]): WeatheredLand | null {
-  const w = weathering;
-  if (!w || w.session !== session) return null;
-  return weathered(w.preview.add(dabs, pressure));
-}
-
-export function weatherFinish(rigid: [number, number, number, number][]): WeatheredLand | null {
-  const w = weathering;
-  if (!w || w.session !== session) return null;
-  return weathered(w.preview.finish(rigid));
-}
-
-/** The stroke's dabs are all in: its heights before the integrity pass and its protected tiles. */
-export function weatherEnd(): { pre: Uint8Array; protect: Uint8Array } | null {
-  const w = weathering;
-  weathering = null;
-  if (!w || w.session !== session) return null;
-  return { pre: w.preview.pre.slice(), protect: w.preview.protect.slice() };
-}
-
-export function weatherCancel(): void {
-  weathering = null;
-}

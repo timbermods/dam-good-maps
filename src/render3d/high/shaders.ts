@@ -1,7 +1,8 @@
 // The High look's shader additions (PLAN §20 D147, D242, D250, D284), put in at the Standard
 // shaders' named points (materials.ts `ShaderHooks`). Ported from the investigations:
 // - #38 (investigation/maplook2): the water shader (colour by depth, clear shallows, the calibrated crimson
-//   badwater, the poisoned bed under it; its surface the game's flow-carried one since D496 and D497) and
+//   badwater; its surface the game's flow-carried one since D496 and D497; its poisoned bed under badwater gave way
+//   to the bed every look draws, D496 as amended 2026-11-07) and
 //   soft shadows from the real meshes (a 2048² sun depth map, 25-tap PCF, receiver-plane bias);
 // - #65 (investigation/maplook3): warm sunlight, rock strata, soil edges and colour variation (its tone
 //   curve, grade and distance haze gave way to the game's fog and post chain, every look's: D497);
@@ -25,7 +26,7 @@
 // chose: docs/decisions-pending.md #110).
 
 import { HIGH_WATER_GLSL, WATER_LIGHT } from "../waterPalette";
-import { GAME_LIGHT } from "../palette";
+import { GAME_LIGHT, LIGHT } from "../palette";
 import { RUN_LEVELS } from "../runSoil";
 
 /** A number as GLSL writes a float. */
@@ -47,8 +48,10 @@ export type Switch = (typeof SWITCHES)[number];
 
 const switches = (names: readonly Switch[]) => `\n  uniform float ${names.join(", ")};`;
 
-/** Soft shadows from the real meshes (#38): the sun's depth map, 25 taps, a receiver-plane bias so
- *  sloping surfaces don't stripe; off, the baked shadow. */
+/** Soft shadows from the real meshes (#38): the sun's depth map, read as four bilinear compares (each its four
+ *  texels' share the point is in front of), a receiver-plane bias so sloping surfaces don't stripe; off, the baked shadow. The taps spread so the edge
+ *  is the game's in play (`LIGHT.edge` along the sun's way: about 1.4 of the game's texels; docs/progress/3d-view.md,
+ *  "High's shadow edge"), never under half a texel of the map nor half a pixel of the screen. */
 const SHADOW_GLSL = /* glsl */ `
   uniform sampler2D hlDepth;
   uniform mat4 hlShadowMatrix;
@@ -64,32 +67,61 @@ const SHADOW_GLSL = /* glsl */ `
     vec2 gradient = vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / (solvable ? determinant : 1.0);
     return solvable ? gradient : vec2(0.0);
   }
+  /** The depth map's uv per tile of the world, along its u and v (the matrix's rows' scale, halved to uv). */
+  vec2 hlUvPerTile() {
+    return 0.5 * vec2(length(vec3(hlShadowMatrix[0][0], hlShadowMatrix[1][0], hlShadowMatrix[2][0])), length(vec3(hlShadowMatrix[0][1], hlShadowMatrix[1][1], hlShadowMatrix[2][1])));
+  }
+  /** The taps' half spread (uv): a 2 x 2 of bilinear compares turns from shadow to sun over about 0.8 x (a texel + the
+   *  spread), so the spread that makes that the game's width across the light, at least half a texel (finer, a tap's
+   *  own texels show) and half the pixel's footprint \`pixel\` (finer, a far view's edge would step). */
+  vec2 hlSpread(vec2 pixel) {
+    vec2 want = 0.5 * (${g(LIGHT.edge * Math.sin(LIGHT.sunElevation) / 0.8)} * hlUvPerTile() - vec2(hlTexel));
+    return max(max(want, vec2(0.5 * hlTexel)), 0.5 * pixel);
+  }
+  /** The share of the four texels round uv the depth \`ref\` is in front of, weighted as a bilinear read (fetched, so
+   *  no gradient is taken in a branch or a loop). */
+  float hlCompare(vec2 uv, float ref) {
+    float size = 1.0 / hlTexel;
+    vec2 f = uv * size - 0.5;
+    vec2 w = fract(f);
+    ivec2 i = ivec2(floor(f));
+    ivec2 top = ivec2(int(size) - 1);
+    float a = step(ref, texelFetch(hlDepth, clamp(i, ivec2(0), top), 0).r);
+    float b = step(ref, texelFetch(hlDepth, clamp(i + ivec2(1, 0), ivec2(0), top), 0).r);
+    float c = step(ref, texelFetch(hlDepth, clamp(i + ivec2(0, 1), ivec2(0), top), 0).r);
+    float d = step(ref, texelFetch(hlDepth, clamp(i + ivec2(1, 1), ivec2(0), top), 0).r);
+    return mix(mix(a, b, w.x), mix(c, d, w.x), w.y);
+  }
+  /** How lit the depth map has q (uv and depth), through four bilinear compares spread h about it. */
+  float hlTaps(vec3 q, vec2 gradient, float bias, vec2 h) {
+    float light = 0.0;
+    for (int k = 0; k < 4; k++) {
+      vec2 offset = vec2(k == 0 || k == 2 ? -h.x : h.x, k < 2 ? -h.y : h.y);
+      light += hlCompare(q.xy + offset, q.z + dot(gradient, offset) - bias);
+    }
+    return light * 0.25;
+  }
   float sunLit(vec2 g, float z) {
     // (the derivatives first, outside any branch or loop; the depth read at its own level)
     vec3 n = normalize(vNormal);
     // (pushed off the surface along its normal, more the more it turns from the sun, by the depth map's texels:
     // a wall the sun grazes is drawn in the map as thin slivers of its own triangles, and with too small a push
     // it shadowed itself in their pattern, a dotted seam down a close wall; the map's texel in the world from the
-    // matrix's scale, an orthographic one's the same across)
-    float texelWorld = 2.0 * hlTexel / length(vec3(hlShadowMatrix[0][0], hlShadowMatrix[1][0], hlShadowMatrix[2][0]));
+    // matrix's scale, the coarser of its two axes)
+    vec2 uvPerTile = hlUvPerTile();
+    float texelWorld = hlTexel / min(uvPerTile.x, uvPerTile.y);
     float grazing = 1.0 - clamp(abs(dot(n, sunDir)), 0.0, 1.0);
     vec4 p = hlShadowMatrix * vec4(vWorld + n * (0.045 + 1.5 * texelWorld * grazing), 1.0);
     vec3 q = p.xyz / p.w * 0.5 + 0.5;
     vec3 dx = dFdx(q), dy = dFdy(q);
     vec2 gradient = receiverGradient(dx, dy);
     gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
-    float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
+    // (each tap compares its four texels at its own point's depth: up to a texel off the plane)
+    float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel));
+    vec2 h = hlSpread(max(abs(dx.xy), abs(dy.xy)));
     float lit = 1.0;
     if (hlShadows < 0.5) lit = bakedSunLit(g, z);
-    else if (all(greaterThanEqual(q, vec3(0.0))) && all(lessThanEqual(q, vec3(1.0)))) {
-      float light = 0.0;
-      for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++) {
-        vec2 offset = vec2(float(x), float(y)) * hlTexel * 0.8;
-        float d = textureLod(hlDepth, q.xy + offset, 0.0).r;
-        light += step(q.z + dot(gradient, offset) - bias, d);
-      }
-      lit = light / 25.0;
-    }
+    else if (all(greaterThanEqual(q, vec3(0.0))) && all(lessThanEqual(q, vec3(1.0)))) lit = hlTaps(q, gradient, bias, h);
     return lit;
   }
   /** The soft shadow at a point on open ground facing up (a cave's roof line, seen from inside). */
@@ -102,13 +134,8 @@ const SHADOW_GLSL = /* glsl */ `
     vec3 dy = (hlShadowMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz * 0.5;
     vec2 gradient = receiverGradient(dx, dy);
     gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
-    float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
-    float light = 0.0;
-    for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++) {
-      vec2 offset = vec2(float(x), float(y)) * hlTexel * 0.8;
-      light += step(q.z + dot(gradient, offset) - bias, textureLod(hlDepth, q.xy + offset, 0.0).r);
-    }
-    return light / 25.0;
+    float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel));
+    return hlTaps(q, gradient, bias, hlSpread(vec2(0.0)));
   }
 `;
 
@@ -151,20 +178,11 @@ export function terrainHooks(): ShaderHooks {
           c *= vec3(1.0 + broad * 0.055, 1.0 + broad * 0.015, 1.0 - broad * 0.045);
         }
 `,
-    // the poisoned bed (#38): under polluted water, the ground's own contamination shows through. (The ground
-    // without its water is groundColor's own groundDry, never a second groundColor here: in this branch, which
-    // pixels next to each other may or may not take, its derivatives and its patterns' mipmaps would read
-    // undefined values, and the bed's veins changed from one frame to the next)
     filmBad: "(hlWater > 0.5 ? WATER_FILM_HIGH_BAD_TINT : WATER_FILM_BAD_TINT)",
     // (the scene's flow texture is High's own, hlFlow: read through it, one sampler fewer, materials.ts filmShare)
     filmShare: "texture2D(hlFlow, g / hlFlowSize).b",
-    groundTop: /* glsl */ `
-          if (hlWater > 0.5 && d0.a > 0.002 && soil.w > 0.0 && clev > 0.0) {
-            float polluted = texture2D(hlFlow, g / hlFlowSize).b * soil.w;
-            if (polluted > 0.0) {
-              ground = mix(ground, groundDry, polluted);
-            }
-          }`,
+    // (a still film's flow at a tile corner, as the water's vertex shader reads it: shoreFilm.ts)
+    shoreFlow: "texture2D(hlFlow, P / hlFlowSize).rg",
     // rock (#65's strata, D334's stone): stones of unequal size and slope, soft mortar between them, calibrated as
     // Standard's (D497: their mean albedo the game's CliffDetail texture's, 68/62/52, tools/albedo-means.ts) and tinted
     // by the game's cliff gradient
@@ -190,7 +208,7 @@ export function terrainHooks(): ShaderHooks {
             float roots = pow(1.0 - abs(sin(a * 11.3 + y * 2.7 + vnoise(vec2(a, y)) * 4.0)), 14.0);
             earth = mix(earth, vec3(0.29, 0.24, 0.14), roots * smoothstep(0.15, 0.45, depth) * 0.55);
             c = mix(c, earth, cap);
-            float moistTop = grassOf(soilOf(d0).x);
+            float moistTop = grassAt(soilOf(d0));
             c = mix(c, mix(vec3(0.63, 0.53, 0.30), vec3(0.49, 0.61, 0.22), moistTop), 1.0 - smoothstep(0.015, 0.09, depth));
           }
           light = skyColor * 1.1 + sunColor * 0.50 * max(dot(n, sunDir), 0.0);
@@ -267,7 +285,7 @@ ${HIGH_WATER_GLSL}
     colour += badEmission;
     hlBadLit = badBody * shade + badEmission;
     // the ground behind shows as the game's does, clean water and badwater alike (waterPalette.ts
-    // WATER_SURFACE.seeThrough; the depth here is already shallower toward a bank)
+    // WATER_SURFACE.seeThrough; the depth here is the one seen along the view, viewDepth.ts)
     float alpha = cleanWaterAlpha(depth);
     return vec4(colour, alpha);
   }
@@ -279,7 +297,7 @@ export function waterHooks(): ShaderHooks {
     // (after the shared palette's GLSL: the surface uses its blend)
     waterDecl: WATER_FUNCTIONS,
     // #38's water in place of the Standard surface, before clear water, the overlays, the layers
-    // and the sources' upwelling (those stay as the Standard look has them)
+    // and the sources' upwelling with Markers on (those stay as the Standard look has them)
     water: /* glsl */ `        if (hlWater > 0.5) {
           // (the water's diffuse share and clean water's detail overlay as this look draws them: waterPalette.ts
           // WATER_LIGHT.held and .detail, materials.ts gameWaterLight, gameWaterFormula)
@@ -290,72 +308,63 @@ export function waterHooks(): ShaderHooks {
           #endif
           gameWaterDetail = float(WATER_DETAIL_HIGH);
           if (n.y > 0.5) {
-            // (water under a roof: its own badwater share, not the one of the water seen from above there)
-            float hlBad = waterRoofed > 0.5 ? cont : texture2D(hlFlow, g / hlFlowSize).b;
-            float hlDepth = max(0.0, depth) * mix(0.10, 1.0, smoothstep(0.0, 0.55, shore));
+            // (the share as the game blends it between tiles, the Standard surface's: materials.ts waterShareAt; under a
+            // roof, its own column's, not the one of the water seen from above there)
+            float hlBad = cont;
+            // (the depth as the game reads it, the Standard surface's: along the view to the ground behind, viewDepth.ts)
+            float hlDepth = max(0.0, d);
             // (its smoothness as the Standard surface's, by this look's badwater share: the gloss's slow variation, toward
             // badwater's by the tint × the pattern's R)
             float hlSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(hlBad) * bpat.x);
             vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, albedo, bpat, hlSmooth);
             // the same water at any depth: only a sliver at a shore's very edge fades in, over WATER_FILM.to
             // deep, as the Standard look's (waterPalette.ts WATER_FILM: our anti-aliasing of the edge, where the
-            // game clips hard), by its own depth, not the bank's; no foam, no froth, as the game draws none
+            // game clips hard), by its own depth, not the one seen along the view; no foam, no froth, as the game draws none
             float hlFilm = waterFilm(depth);
             float hlTint = waterTint(hlBad);
             c = hlSurface.rgb;
             clearBad = hlBadLit;
             alpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
           } else {
-            // the water's side, and a fall, as the game draws its falls (D201 amended 2026-10-29): the water's own
-            // colour where it sees the cliff right behind (its shallowest), nearly opaque
-            // (WATER_SURFACE.fallSeeThrough), no whitewater and no highlight (the game's waterfall mask takes it off,
-            // Q9 P1); at the map's edge, the water's side
-            float hlBad = cont;
-            float hlTint = waterTint(hlBad);
+            // the water's side: at the map's edge its section (below), any other side the surface going on (below);
+            // no whitewater, no foam
             bool edge = vFlags > 254.5;
-            float drop = edge ? 0.0 : vFlags / 30.0;
-            // High's surface colour at its shallowest × the albedo the current carries over the lip (the Standard
-            // surface's sample: the game carries its albedo by each vertex's flow, Q9 P5)
-            vec3 faceLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit;
-            #if WATER_FORMULA
-              vec3 faceClean = gameWaterFormula(0.05, albedo, n, lit, faceLight);
-            #else
-              vec3 faceClean = HW_SHALLOW * albedo / WATER_ALBEDO_MEAN;
-            #endif
-            vec3 faceBad = badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad);
-            vec3 face = waterBlend(faceClean, faceBad, hlBad);
-            c = face * faceLight;
-            #if WATER_GAME_LIGHT_HIGH
-              // (lit as the game lights every pixel of its water, the Standard look's falls too: its probe and the glint)
-              c += waterEnvironment(n, V, WATER_SMOOTHNESS, float(WATER_HELD_HIGH)) + GAME_SUN_COLOUR * waterSunGlint(n, V, sunDir, WATER_SMOOTHNESS) * lit;
-            #endif
-            clearBad = faceBad * faceLight;
             if (edge) {
+              float hlBad = cont;
+              float hlTint = waterTint(hlBad);
+              vec3 faceLight = skyColor * 1.05 + sunColor * 0.42 * max(dot(n, sunDir), 0.0) * lit;
+              // (what the clear water's veil keeps of its badwater: High's surface's at its shallowest by the pattern the
+              // current carries over the lip, GAME_BADWATER.use.high, with its glowing lines)
+              #if BADWATER_FORMULA_HIGH
+                vec3 faceBad = gameBadwaterColour(0.05, hlBad, bpat.x) * gameWaterLight(n, lit) / max(faceLight, vec3(0.01));
+              #else
+                vec3 faceBad = badwaterGlow(HW_BAD * badwaterLight(0.05), HW_BAD, 0.05, hlBad) * badwaterPatternShade(bpat.x);
+              #endif
+              clearBad = faceBad * faceLight + gameBadwaterEmission(hlBad, bpat.y, g);
               float hlAbsorb = 1.0 - exp(-max(0.0, depth) * 0.65);
               vec3 sideClean = mix(mix(HW_SIDE_SHALLOW, HW_SIDE_BODY, hlAbsorb), HW_SIDE_DEEP, 1.0 - exp(-max(depth - 2.0, 0.0) * 0.32));
               c = waterBlend(sideClean, mix(HW_SIDE_BAD, HW_SIDE_BAD_DEEP, hlAbsorb), hlBad) * faceLight;
-            }
-            alpha = edge ? mix(0.78, 0.96, hlTint) : (1.0 - WATER_FALL_SEE_THROUGH);
-            // the water's section at the map's edge (#67 stage 1)
-            if (hlSection > 0.5 && edge) {
-              vec3 section = mix(HW_SECTION, HW_SECTION_DEEP, 1.0 - exp(-max(depth, 0.0) * 0.65));
-              section = waterBlend(section, HW_SECTION_BAD, cont);
-              c = section * (0.94 + vnoise(vec2(g.x + g.y, vWorld.y * 5.7)) * 0.08);
-              alpha = mix(0.91, 0.98, waterTint(cont));
-            }
-            // a small step between two waters: the surface going on, its body at its depth as the surface sees it
-            // from above (no pattern: a face's place on the map is a line, which would stretch the surface's
-            // flecks and lines down it into a bright line), as the game's face shares the surface's material
-            if (!edge && vFlags < WATER_FALL_FLAGS) {
-              vec3 stepBody = mix(mix(HW_SHALLOW, HW_BODY, smoothstep(0.25, 1.25, depth)), HW_DEEP, smoothstep(1.0, 3.5, depth));
-              vec3 stepBad = HW_BAD * badwaterLight(depth);
-              stepBody = waterBlend(stepBody, stepBad, cont);
-              vec3 hlRef = skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0);
-              vec3 stepLight = (skyColor * 1.05 + sunColor * 0.42 * max(sunDir.y, 0.0) * lit) / max(hlRef, vec3(0.01));
-              c = stepBody * stepLight;
-              // (what the clear water's veil keeps of its badwater: the step's own, at its depth, not the fall's film)
-              clearBad = stepBad * stepLight;
-              alpha = cleanWaterAlpha(max(0.0, depth)) * smoothstep(0.02, 0.06, drop);
+              alpha = mix(0.78, 0.96, hlTint);
+              // the water's section at the map's edge (#67 stage 1)
+              if (hlSection > 0.5) {
+                vec3 section = mix(HW_SECTION, HW_SECTION_DEEP, 1.0 - exp(-max(depth, 0.0) * 0.65));
+                section = waterBlend(section, HW_SECTION_BAD, cont);
+                c = section * (0.94 + vnoise(vec2(g.x + g.y, vWorld.y * 5.7)) * 0.08);
+                alpha = mix(0.91, 0.98, waterTint(cont));
+              }
+            } else {
+              // any other side (a skirt between two tops, a fall's slope's side over lower dry ground): the surface going
+              // on, as the game's skirt is its top's mesh dropped and drawn by the same program, High's surface itself
+              // (its formulas, light, highlight and glowing lines: measuredSurfaceWater) at the depth seen behind it (d,
+              // the Standard surface's: viewDepth.ts from just inside its column), with the Standard side's normal, albedo
+              // and patterns (the surface's, facing up, carried by its current: stretched down it as on the fall's slope
+              // beside it, as the game's are)
+              float stepSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(cont) * bpat.x);
+              vec4 stepSurface = measuredSurfaceWater(g, max(0.0, d), 1.0, cont, N, V, lit, albedo, bpat, stepSmooth);
+              c = stepSurface.rgb;
+              // (what the clear water's veil keeps of its badwater: the side's own, at its depth)
+              clearBad = hlBadLit;
+              alpha = stepSurface.a * smoothstep(0.02, 0.06, vFlags / 30.0);
             }
             if (alpha < 0.01) discard;
           }

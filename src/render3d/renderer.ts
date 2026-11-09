@@ -2,8 +2,8 @@
 // editor. It draws a map view: terrain in 32×32 chunks (only dirty chunks are remeshed after an
 // edit; one mesher for terrain as runs, caves and overhangs included), translucent water surfaces, and
 // instanced objects. It has an orbit camera and a top-down view (north up until turned), picks tiles against
-// the heightfield, and renders when something changed, and while water moves. Waterfalls are the water's own
-// vertical faces where it steps down (waterMesh.ts; D201 amended 2026-10-29: as the game draws them).
+// the heightfield, and renders when something changed, and while water moves. Waterfalls are the water below a
+// step rising to meet the water above (fallSlope.ts, waterMesh.ts; D154 as amended 2026-11-08: as the game draws them).
 //
 // Map look (D86): the ground is coloured by soil (or by height, `setGroundMode`); the light is
 // baked when the mesh is built (light.ts: soft sun shadows) into two textures the
@@ -71,6 +71,7 @@ import { DroughtLineLayer, droughtLineMaterials } from "./droughtLine";
 import { fogOf } from "./high/seasons";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
+import { markSourceTiles, sourceMiddle } from "./sourceMarks";
 import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
 import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
@@ -78,6 +79,8 @@ import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
 import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
+import { AID_LAYER, onAidLayer } from "./aidLayer";
+import { GameBloom, GAME_BLOOM_LOOKS, LAVA_BLOOM_ENDS } from "./bloom";
 import { Refraction, WATER_REFRACTION } from "./refraction";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
@@ -254,20 +257,6 @@ const PITCH_MIN = 0.18;
 /** How long a frame may spend meshing a stroke's water (updateWaterSoon). */
 const WATER_MESH_BUDGET_MS = 2;
 const PITCH_MAX = 1.5;
-/** A source's middle tile (a badwater source's: one tile in from its corner, turned with it), or -1 for
- *  anything else or off the map. */
-function sourceMiddle(e: EntityView, k: number, W: number, H: number): number {
-  const name = e.templates[e.template[k]];
-  if (name !== "WaterSource" && name !== "BadwaterSource") return -1;
-  let x = e.x[k];
-  let y = e.y[k];
-  if (name === "BadwaterSource") {
-    const o = e.orientation[k];
-    x += o === 0 || o === 1 ? 1 : -1;
-    y += o === 0 || o === 3 ? 1 : -1;
-  }
-  return x < 0 || y < 0 || x >= W || y >= H ? -1 : y * W + x;
-}
 
 /** The even margin a framed map keeps inside the part of the view the page leaves it (CSS pixels). */
 export const FRAME_MARGIN = 12;
@@ -310,6 +299,10 @@ function sunApart(a: Sun, b: Sun): number {
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
+/** Frames this long, this many in a row, are slow (`requestRender`): a GPU's frame takes a few milliseconds of the main
+ *  thread, software drawing's hundreds. */
+const SLOW_FRAME_MS = 100;
+const SLOW_FRAMES = 3;
 
 let waterSurface: Promise<void> | null = null;
 /** The surface the water's flow carries (waterTextures.ts) and contaminated ground's pattern (soilTexture.ts), made once
@@ -330,12 +323,12 @@ function waterSurfaceMade(baker: Baker): Promise<void> {
 
 let detailMade: Promise<void> | null = null;
 /** The light look's: the still detail albedo alone (Q9 P6; the game's Low quality draws it), made once a page in the
- *  bake worker and written into badwater's texture's B (materials.ts `fillDetailTexture`); flat at its mean until then.
- *  The light look reads none of the other patterns. */
+ *  bake worker and written into badwater's texture's B (materials.ts `fillDetailTexture`), with the water sources'
+ *  pattern (Q9 P7) in its A; flat at their means until then. The light look reads none of the other patterns. */
 function detailTextureMade(baker: Baker): Promise<void> {
   return (detailMade ??= baker.run({ kind: "detailTexture" }).then(
     (r) => {
-      if (r.kind === "detailTexture") fillDetailTexture(r.detail);
+      if (r.kind === "detailTexture") fillDetailTexture(r.detail, r.shape);
     },
     (e: unknown) => {
       detailMade = null;
@@ -347,6 +340,22 @@ function detailTextureMade(baker: Baker): Promise<void> {
 /** Whether the browser draws WebGL in software (no GPU, or one it won't use): asked of a throwaway
  *  context before the view's own is made, so the view can be made lighter for it. Asked once a page (a context
  *  costs the page's thread tens of milliseconds; the answer never changes while the page is open). */
+/** How long a picture's read waits for a break in the view's frames before it waits for one frame instead. */
+const READ_PATIENCE_MS = 2000;
+
+/** Settles when the GPU has passed `sync`, asked every 4 ms without waiting (WebGL 2 takes only a timeout of 0). */
+function fencePassed(g: WebGL2RenderingContext, sync: WebGLSync): Promise<void> {
+  return new Promise((done, failed) => {
+    const ask = () => {
+      const s = g.clientWaitSync(sync, 0, 0);
+      if (s === g.WAIT_FAILED) failed(new Error("the fence failed"));
+      else if (s === g.TIMEOUT_EXPIRED) setTimeout(ask, 4);
+      else done();
+    };
+    setTimeout(ask, 4);
+  });
+}
+
 export function softwareRendering(): boolean {
   return (softwareAnswer ??= askSoftwareRendering());
 }
@@ -410,7 +419,7 @@ export class MapRenderer {
   private edges: DataTexture | null = null;
   /** Where the outline round mine sites runs (**Markers**): `mineOutline` of the objects. */
   private sites: DataTexture | null = null;
-  /** Where the sources are, for their upwelling (D196). */
+  /** Where the sources are, for their upwelling with Markers on (D249) and the game's own pattern (Q9 P7). */
   private sourceTiles: DataTexture | null = null;
   /** The sources whose water the pointer is over (tile indices of their middles). */
   private sourceGlow: readonly number[] = [];
@@ -435,7 +444,7 @@ export class MapRenderer {
   private std: HighMaterials;
   /** The High look while it is drawn (render3d/high). */
   private high: HighLook | null = null;
-  /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
+  /** The moving water (motion.ts, D353): its flow texture, and the Flow view's foam and streaks. */
   private waterMotion: WaterMotion | null = null;
   /** Where nothing moves (software, or held still): the flow texture kept here, with the badwater share alone. */
   private stillFlow: StillFlow | null = null;
@@ -448,11 +457,13 @@ export class MapRenderer {
   }
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
   private retiredMotion: WaterMotion | null = null;
-  /** The Flow view (off by default): the current's streaks over the water. */
+  /** The Flow view (off by default): the current's foam and streaks over the water (D497: drawn there alone). */
   private flowOn = false;
   private lookNow: Look = "standard";
   /** The copy of the screen behind the water for the game's refraction (refraction.ts), made in each frame of the view. */
   private refraction!: Refraction;
+  /** The game's bloom (bloom.ts), made with the first frame that draws it. */
+  private bloom: GameBloom | null = null;
   /** The shader programs compiled before a frame needs them (programs.ts). */
   private programs: Programs;
   private warmTimer = 0;
@@ -519,6 +530,10 @@ export class MapRenderer {
   private seen: IntersectionObserver | null = null;
   private lastViewKey = "";
   private frame = 0;
+  /** The pause before the next frame where the last few were all slow (`requestRender`), and their times (ms). */
+  private breath = 0;
+  private frameMs: number[] = [];
+  private frameEnd = 0;
   private resize: ResizeObserver;
   private disposed = false;
   private drag: { kind: "orbit" | "pan" | "tool"; x: number; y: number; id: number; moved: number; button: number } | null = null;
@@ -613,6 +628,9 @@ export class MapRenderer {
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
     this.uniforms.sourceTint.value.set(...SOURCE_GLOW);
     this.refraction = new Refraction(this.uniforms);
+    // (the editing aids drawn with a look's program are drawn in the view, and left out of the bloom's source: bloom.ts)
+    this.persp.layers.enable(AID_LAYER);
+    this.ortho.layers.enable(AID_LAYER);
     // (the light look draws the water's surface flat: it reads only the still detail albedo, as the game's Low quality)
     void this.patternsMade().then(() => !this.disposed && this.requestRender(), () => undefined);
     this.patterns = drawPatterns(this.gl);
@@ -622,6 +640,7 @@ export class MapRenderer {
     this.caveRows = new BoxUploads(this.gl, () => this.caveTex);
     this.runRows = new BoxUploads(this.gl, () => this.runTex);
     this.stillRows = new RowUploads(this.gl, () => this.stillFlow?.texture ?? null);
+    this.motionRows = new RowUploads(this.gl, () => this.waterMotion?.flow ?? null);
     this.noCave = this.uniforms.caveTex.value;
     this.uniforms.patternTex.value = this.patterns.texture;
     this.terrainMat = terrainMaterial(this.uniforms, 0, 1, this.software);
@@ -805,6 +824,8 @@ export class MapRenderer {
       for (const m of this.lineCopy) list.push([m, { ...(m.defines as Defines) }]);
       // (the edit glow's, drawn when an edit first lands: one program in every look and state, editGlow.ts)
       list.push([this.glowMat, { ...(this.glowMat.defines as Defines) }]);
+      // (the Flow view's foam and streaks, hidden until it is switched on: motion.ts)
+      for (const m of this.waterMotion?.materials() ?? []) list.push([m, { ...((m.defines ?? {}) as Defines) }]);
       // (the forces' moments', drawn when a force first plays: Erode's dust and stones, Glaciate's ice, forces.ts)
       for (const m of this.forceFxOf().materials()) list.push([m as ShaderMaterial, { ...((m.defines ?? {}) as Defines) }]);
       // (the brush's cursor and a force's ring, made now, hidden until a tool shows them: brushCursor.ts)
@@ -1004,18 +1025,15 @@ export class MapRenderer {
     this.tintObjects();
   }
 
-  /** The sources' texture: where each clean or bad source's middle is, and which glow. */
+  /** The sources' texture: where each clean or bad source's middle is (R 255, G 255; a badwater source of no strength
+   *  G 254: its rings stay, the game's own pattern does not), and which glow; and where the game draws its own pattern
+   *  over a source (Q9 P7, sourceMarks.ts `markSourceTiles`), a seep's only while it can run (not in a held drought). */
   private markSources(): void {
     const m = this.map;
     const t = this.sourceTiles;
     if (!m || !t) return;
     const d = t.image.data as Uint8Array;
-    d.fill(0);
-    const e = m.entities;
-    for (let k = 0; k < e.count; k++) {
-      const i = sourceMiddle(e, k, m.W, m.H);
-      if (i >= 0) d[i * 4 + (e.templates[e.template[k]] === "WaterSource" ? 0 : 1)] = 255;
-    }
+    markSourceTiles(d, m.entities, m.W, m.H, this.season === "drought");
     for (const i of this.sourceGlow) if (i >= 0 && i < m.W * m.H) d[i * 4 + 2] = 255;
     for (const i of this.sourcesLit) if (i >= 0 && i < m.W * m.H) d[i * 4 + 3] = 255;
     this.uniforms.sourceLit.value = this.sourcesLit.size ? 1 : 0;
@@ -1155,8 +1173,9 @@ export class MapRenderer {
     return pageBaker();
   }
 
-  /** The Flow view: the water's current shown as streaks travelling down its lanes (the moving
-   *  surface and its foam stay either way). */
+  /** The Flow view: the water's current shown as foam threads, wakes and seams with streaks travelling down its
+   *  lanes, an editing aid's own channel (D497; planning's ruling on #236, 2026-11-08): outside it the river is drawn
+   *  as the game draws it, with no foam. The moving surface stays either way. */
   setFlow(on: boolean): void {
     this.flowOn = on;
     this.waterMotion?.setFlow(on);
@@ -1167,7 +1186,7 @@ export class MapRenderer {
     return this.flowOn;
   }
 
-  /** The moving water's numbers (lanes, wakes, streaks; the worker's time), or null. */
+  /** The moving water's numbers (lanes, wakes, streaks: none outside the Flow view; the worker's time), or null. */
   get motionStats(): (WaterMotion["stats"] & { ms: number }) | null {
     return this.waterMotion ? { ...this.waterMotion.stats, ms: this.waterMotion.ms } : null;
   }
@@ -1272,6 +1291,7 @@ export class MapRenderer {
     this.gl.setPixelRatio(this.pixelRatio() * (tier === "lower" ? LOWER_PIXELS : 1));
     this.fit();
     this.thumbs.clear();
+    this.thumbsLook++;
     if (this.ghost) {
       // (made again in the new look at the next move)
       this.scene.remove(this.ghost.group);
@@ -1539,15 +1559,17 @@ export class MapRenderer {
     this.skirt = this.buildSkirt(W, H, lo);
     if (!this.software && !this.still) {
       // (with water per column, the bake gives the water below each tile's surface its own current: caveCurrent.ts)
-      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender(), () => (this.map && this.layered ? { view: this.map.water, columns: this.columnsSent } : null));
+      this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender(), () => (this.map && this.layered ? { view: this.map.water, columns: this.columnsSent } : null), (x0, y0, x1, y1) => this.motionRows.touch(x0, y0, x1, y1));
       this.waterMotion.setHigh(this.lookNow !== "standard");
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
       this.waterMotion.waterChanged(heights, surface, true);
     } else {
       const baker = this.baker;
-      const job = (w: number, h: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">) => baker.run({ kind: "share", W: w, H: h, sw }).then((r) => (r.kind === "share" ? { share: r.share, fall: r.fall } : Promise.reject(new Error("not a share"))));
-      this.stillFlow = new StillFlow(W, H, job, (x0, y0, x1, y1) => this.stillRows.touch(x0, y0, x1, y1), () => this.requestRender());
+      // (the light look, in software, draws no waterfall mask: none is worked out for it, D453)
+      const fall = !this.software;
+      const job = (w: number, h: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">) => baker.run({ kind: "share", W: w, H: h, sw, fall }).then((r) => (r.kind === "share" ? { share: r.share, fall: r.fall } : Promise.reject(new Error("not a share"))));
+      this.stillFlow = new StillFlow(W, H, job, (x0, y0, x1, y1) => this.stillRows.touch(x0, y0, x1, y1), () => this.requestRender(), fall);
       this.stillFlow.start(surface);
       u.flowTex.value = this.stillFlow.texture;
     }
@@ -1579,7 +1601,7 @@ export class MapRenderer {
    *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
    *  WATER_FILM); `now`: water that shows with the next frame (a version flipped to), its share with it. */
   private flowChanged(heights: Uint8Array, surface: SurfaceWater, now = false): void {
-    if (this.waterMotion) this.waterMotion.waterChanged(heights, surface);
+    if (this.waterMotion) this.waterMotion.waterChanged(heights, surface, now);
     else this.stillFlow?.update(surface, now);
   }
 
@@ -1665,6 +1687,7 @@ export class MapRenderer {
     this.stillFlow?.dispose();
     this.stillFlow = null;
     this.stillRows.clear();
+    this.motionRows.clear();
     this.dropRunSoil();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
@@ -1775,9 +1798,14 @@ export class MapRenderer {
       // a batch's chunks are drawn only over older ones)
       this.waterVersion++;
       for (const [cx, cy] of keys) this.waterQueue.add(`${cx},${cy}`);
-      this.requestRender();
+      // (the frame drawing this land drains the queue itself, and asks for the next only while some is left to
+      // mesh here; a batch out asks for the frame it comes back in: another now would draw the same picture again)
+      if (!this.landInFrame) this.requestRender();
     }
   }
+
+  /** renderNow is drawing the land a brush changed (`flushTerrain`), before it drains the water queue. */
+  private landInFrame = false;
 
   /** Every water chunk of the map. */
   private allWaterChunks(): Set<string> {
@@ -1803,6 +1831,7 @@ export class MapRenderer {
         { name: "wdata", array: d.data, itemSize: 2 },
         { name: "wflags", array: d.flags, itemSize: 1 },
         { name: "wcut", array: d.cut, itemSize: 2 },
+        { name: "wshore", array: d.shore, itemSize: 2 },
       ],
       // (down to each column's floor, where a layer cut may fold its water: cutWater.ts)
       sphere: d.sphere ?? boundingSphereOf(d.positions, d.cut),
@@ -2042,6 +2071,8 @@ export class MapRenderer {
     this.litTiles = null;
     this.sourcesLit.clear();
     group.renderOrder = 1;
+    // (the slopes' arrows, Markers' editing aid, left out of the bloom's source: bloom.ts)
+    for (const c of group.children) if (c.name.startsWith("Slope.mark")) onAidLayer(c);
     this.objects = group;
     this.scene.add(group);
     this.showMarkerObjects();
@@ -2290,6 +2321,8 @@ export class MapRenderer {
   private readonly caveRows: BoxUploads;
   private readonly runRows: BoxUploads;
   private readonly stillRows: RowUploads;
+  /** The moving water's flow texture's rows its share changed in (motion.ts `waterChanged`), to go up with the next frame. */
+  private readonly motionRows: RowUploads;
 
   /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
   private readonly waterQueue = new Set<string>();
@@ -2498,6 +2531,8 @@ export class MapRenderer {
   setSeason(hazard: "drought" | "badtide" | null): void {
     this.season = hazard;
     this.applySeason();
+    // (a seep shows the game's own pattern only while it can run: none in a drought, Q9 P7)
+    this.markSources();
   }
 
   /** The haze's colour now (the tests read it). */
@@ -2747,6 +2782,14 @@ export class MapRenderer {
 
   private ghost: { group: Group; key: string; undo?: () => void } | null = null;
   private thumbs = new Map<string, string>();
+  /** The pictures being drawn (`thumbnailAsync`), by template. */
+  private thumbsDrawing = new Map<string, Promise<string | null>>();
+  /** Counts the changes of look: the pictures are drawn again in each. */
+  private thumbsLook = 0;
+  /** Counts the view's frames: a picture's pixels are read when none has been queued since the GPU drew them. */
+  private framesDrawn = 0;
+  /** Frames drawn with the game's bloom (`blooms`): what a spec's phase log counts (forces.spec.ts). */
+  private bloomFrames = 0;
   /** The instances tinted now (a highlight, a source's glow), with their own colours. */
   private lit: { mesh: InstancedMesh; i: number; color: [number, number, number] }[] = [];
   /** The tiles highlighted (`highlightObjects`), and in what colour. */
@@ -2780,8 +2823,9 @@ export class MapRenderer {
       const { group } = buildEntities(one, this.objectMat, null, 0, this.software);
       // (the High look's own models, D241: the ghost shows what will be placed)
       const undo = this.high?.decorate(group, one);
-      // (an editing aid: never faded round the pointer or hidden with the objects, objectFade.ts)
+      // (an editing aid: never faded round the pointer or hidden with the objects, objectFade.ts; nor in the bloom's source)
       markEditingAid(group);
+      onAidLayer(group);
       // (its tint an editing aid, put on after the grade: materials.ts AID_TINT)
       const tint = g.ok === null ? null : g.ok === "warn" ? AID_TINT.ghost.warns : g.ok ? AID_TINT.ghost.fits : AID_TINT.ghost.refused;
       if (tint !== null)
@@ -2802,11 +2846,25 @@ export class MapRenderer {
   }
 
   /** A small picture of an object in the map's look, as a data URL (the shelf's icons), made once
-   *  per object; null when there is no view to draw it with. */
-  thumbnail(template: string, px = 56): string | null {
+   *  per object and look; null when there is no view to draw it with. Each pass's pixels are read back once the GPU
+   *  has drawn them and nothing queued after them is left (`readBack`), never by waiting for it: a read that waits makes
+   *  the page wait for the whole frame queued before it, seconds on a slow GPU or CI's software one (D453). The view's
+   *  frames go on between the passes; a second ask for the same object waits on the first. */
+  thumbnailAsync(template: string, px = 56): Promise<string | null> {
     const had = this.thumbs.get(template);
-    if (had) return had;
+    if (had) return Promise.resolve(had);
+    let drawing = this.thumbsDrawing.get(template);
+    if (!drawing) {
+      drawing = this.drawThumbnail(template, px).finally(() => this.thumbsDrawing.delete(template));
+      this.thumbsDrawing.set(template, drawing);
+    }
+    return drawing;
+  }
+
+  private async drawThumbnail(template: string, px: number): Promise<string | null> {
     if (this.disposed || typeof document === "undefined") return null;
+    // (the look it is drawn in: a picture begun before a change of look is drawn again in the new one)
+    const look = this.thumbsLook;
     const one = oneObject(template, 0);
     const { group } = buildEntities(one, this.objectMat, null, 0, this.software);
     const undo = this.high?.decorate(group, one);
@@ -2862,54 +2920,51 @@ export class MapRenderer {
     cam.position.copy(aim).addScaledVector(dir, far);
     cam.lookAt(aim);
     const rt = new WebGLRenderTarget(px, px);
-    // (the view's own draw counts stay as its last frame left them: a picture is not a frame of the view)
-    const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, fade: this.uniforms.objectFade.value.w, hide: this.uniforms.objectHide.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
-    this.uniforms.slice.value = 99;
-    // (a picture never shows the fade round the pointer or the objects hidden: objectFade.ts)
-    this.uniforms.objectFade.value.w = FADE_OFF;
-    this.uniforms.objectHide.value = 0;
-    this.gl.setRenderTarget(rt);
-    this.gl.setClearColor(0x000000, 0);
     const pixels = new Uint8Array(px * px * 4);
-    // drawn, then drawn again closer where the object itself (what is not see-through) leaves the picture half
-    // empty: a box holds more than what shows (a bush's, a flat field's)
-    for (let pass = 0; pass < 3; pass++) {
-      this.gl.clear();
-      this.gl.render(scene, cam);
-      this.gl.readRenderTargetPixels(rt, 0, 0, px, px, pixels);
-      let x0 = px;
-      let x1 = -1;
-      let y0 = px;
-      let y1 = -1;
-      for (let y = 0; y < px; y++)
-        for (let x = 0; x < px; x++)
-          if (pixels[(y * px + x) * 4 + 3] > 8) {
-            if (x < x0) x0 = x;
-            if (x > x1) x1 = x;
-            if (y < y0) y0 = y;
-            if (y > y1) y1 = y;
-          }
-      if (x1 < 0) break;
-      const span = Math.max(x1 - x0 + 1, y1 - y0 + 1) / px;
-      const offX = (x0 + x1 + 1) / px - 1;
-      const offY = (y0 + y1 + 1) / px - 1;
-      if (pass === 2 || (span > 0.84 && Math.abs(offX) < 0.06 && Math.abs(offY) < 0.06)) break;
-      cam.updateMatrixWorld(true);
-      const half = far * Math.tan((15 * Math.PI) / 180);
-      aim.addScaledVector(new Vector3().setFromMatrixColumn(cam.matrixWorld, 0), offX * half).addScaledVector(new Vector3().setFromMatrixColumn(cam.matrixWorld, 1), offY * half);
-      far = Math.max(r * 0.6, (far * span) / 0.92);
-      cam.position.copy(aim).addScaledVector(dir, far);
-      cam.lookAt(aim);
+    let again = false;
+    try {
+      // drawn, then drawn again closer where the object itself (what is not see-through) leaves the picture half
+      // empty: a box holds more than what shows (a bush's, a flat field's)
+      for (let pass = 0; pass < 3; pass++) {
+        await this.thumbnailPass(scene, cam, rt, pixels);
+        if (this.disposed) return null;
+        if (this.thumbsLook !== look) {
+          again = true;
+          break;
+        }
+        let x0 = px;
+        let x1 = -1;
+        let y0 = px;
+        let y1 = -1;
+        for (let y = 0; y < px; y++)
+          for (let x = 0; x < px; x++)
+            if (pixels[(y * px + x) * 4 + 3] > 8) {
+              if (x < x0) x0 = x;
+              if (x > x1) x1 = x;
+              if (y < y0) y0 = y;
+              if (y > y1) y1 = y;
+            }
+        if (x1 < 0) break;
+        const span = Math.max(x1 - x0 + 1, y1 - y0 + 1) / px;
+        const offX = (x0 + x1 + 1) / px - 1;
+        const offY = (y0 + y1 + 1) / px - 1;
+        if (pass === 2 || (span > 0.84 && Math.abs(offX) < 0.06 && Math.abs(offY) < 0.06)) break;
+        cam.updateMatrixWorld(true);
+        const half = far * Math.tan((15 * Math.PI) / 180);
+        aim.addScaledVector(new Vector3().setFromMatrixColumn(cam.matrixWorld, 0), offX * half).addScaledVector(new Vector3().setFromMatrixColumn(cam.matrixWorld, 1), offY * half);
+        far = Math.max(r * 0.6, (far * span) / 0.92);
+        cam.position.copy(aim).addScaledVector(dir, far);
+        cam.lookAt(aim);
+      }
+    } catch {
+      // (the read failed, the view's context lost: no picture, the shelf keeps the one it has)
+      return null;
+    } finally {
+      rt.dispose();
+      undo?.();
+      disposeGroup(group);
     }
-    this.gl.setRenderTarget(was.target);
-    this.gl.setClearColor(was.color, was.alpha);
-    Object.assign(this.gl.info.render, was.counts);
-    this.uniforms.slice.value = was.slice;
-    this.uniforms.objectFade.value.w = was.fade;
-    this.uniforms.objectHide.value = was.hide;
-    rt.dispose();
-    undo?.();
-    disposeGroup(group);
+    if (again) return this.drawThumbnail(template, px);
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = px;
     const ctx = canvas.getContext("2d");
@@ -2922,6 +2977,70 @@ export class MapRenderer {
     this.thumbs.set(template, url);
     // (drawn off screen: the map on the canvas is as it was, and needs no frame of its own)
     return url;
+  }
+
+  /** One pass of a picture: drawn into `rt`, its pixels copied on the GPU into a buffer of their own, and the view's
+   *  state put back at once (its own frames run while the copy waits for the GPU). The promise ends when `pixels` holds
+   *  the picture. */
+  private thumbnailPass(scene: Scene, cam: PerspectiveCamera, rt: WebGLRenderTarget, pixels: Uint8Array): Promise<void> {
+    // (the view's own draw counts stay as its last frame left them: a picture is not a frame of the view)
+    const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, fade: this.uniforms.objectFade.value.w, hide: this.uniforms.objectHide.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
+    this.uniforms.slice.value = 99;
+    // (a picture never shows the fade round the pointer or the objects hidden: objectFade.ts)
+    this.uniforms.objectFade.value.w = FADE_OFF;
+    this.uniforms.objectHide.value = 0;
+    const g = this.gl.getContext() as WebGL2RenderingContext;
+    const buffer = g.createBuffer();
+    try {
+      this.gl.setRenderTarget(rt);
+      this.gl.setClearColor(0x000000, 0);
+      this.gl.clear();
+      this.gl.render(scene, cam);
+      // (read from the picture's own framebuffer, still bound, into the buffer on the GPU: nothing waits)
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, buffer);
+      g.bufferData(g.PIXEL_PACK_BUFFER, pixels.byteLength, g.STREAM_READ);
+      g.readPixels(0, 0, rt.width, rt.height, g.RGBA, g.UNSIGNED_BYTE, 0);
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, null);
+    } catch (e) {
+      g.deleteBuffer(buffer);
+      throw e;
+    } finally {
+      this.gl.setRenderTarget(was.target);
+      this.gl.setClearColor(was.color, was.alpha);
+      Object.assign(this.gl.info.render, was.counts);
+      this.uniforms.slice.value = was.slice;
+      this.uniforms.objectFade.value.w = was.fade;
+      this.uniforms.objectHide.value = was.hide;
+    }
+    return this.readBack(g, buffer, pixels);
+  }
+
+  /** The buffer's pixels into `pixels`, read once the GPU has drawn them and no frame of the view has been queued
+   *  since: the browser's read waits for everything queued before it, and a frame takes seconds on a slow GPU or CI's
+   *  software one. A frame queued meanwhile is waited for in turn (a fence after it), for up to `READ_PATIENCE_MS`
+   *  (the view drawing without a break, its water moving), after which the read waits for the last one. */
+  private async readBack(g: WebGL2RenderingContext, buffer: WebGLBuffer, pixels: Uint8Array): Promise<void> {
+    const since = performance.now();
+    try {
+      for (;;) {
+        const frames = this.framesDrawn;
+        const sync = g.fenceSync(g.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        if (!sync) throw new Error("no fence");
+        g.flush();
+        try {
+          await fencePassed(g, sync);
+        } finally {
+          g.deleteSync(sync);
+        }
+        if (this.disposed) throw new Error("the view is gone");
+        if (this.framesDrawn === frames || performance.now() - since > READ_PATIENCE_MS) break;
+      }
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, buffer);
+      g.getBufferSubData(g.PIXEL_PACK_BUFFER, 0, pixels);
+      g.bindBuffer(g.PIXEL_PACK_BUFFER, null);
+    } finally {
+      g.deleteBuffer(buffer);
+    }
   }
 
   /** Objects on these tiles show in a colour (Remove's red under the pointer, D184); null puts them
@@ -3384,12 +3503,13 @@ export class MapRenderer {
     const maskAt = (i: number) => columnMask(src, i) & keep;
     const tiles = reach ? hollowFootprint(m.W, m.H, listed, maskAt, reach) : null;
     if (!tiles?.length && !this.hollow) return;
+    // (laid by renderNow before it draws, so this frame shows it: another frame asked for here would draw the same
+    // picture again, one for every frame of a stroke)
     (this.hollow ??= new HollowMarks(this.scene)).set(tiles, reach, (x, y) => {
       if (x < 0 || y < 0 || x >= m.W || y >= m.H) return false;
       const i = y * m.W + x;
       return listed(i) && roofOf(maskAt(i)) !== null;
     });
-    this.requestRender();
   }
 
   /** The hollow drawn under the cursor now (tests): the tiles filled and the outline's pieces. */
@@ -3942,7 +4062,7 @@ export class MapRenderer {
   }
 
   /** Settles once the water's surface, badwater's pattern and contaminated ground's pattern are made (they are flat at
-   *  their means until then; the light look makes and reads only the still detail albedo). For tests and pictures that
+   *  their means until then; the light look makes and reads only the still detail albedo and the sources' pattern). For tests and pictures that
    *  read the patterns. */
   patternsMade(): Promise<void> {
     return this.software ? detailTextureMade(this.baker) : waterSurfaceMade(this.baker);
@@ -3963,16 +4083,40 @@ export class MapRenderer {
   // --------------------------------------------------------------------------------- rendering
 
   requestRender(): void {
-    if (this.frame || this.disposed) return;
+    if (this.frame || this.breath || this.disposed) return;
+    // (a browser drawing slowly, frame after frame (software drawing: about 0.4 s a frame, 2 s on two cores), gets a
+    // breath as long as its frame before the next: else frames run back to back and every turn of the page's own work,
+    // a force's next steps, its keep, a click, waits a whole frame, so a force that plays in 2 s takes 24 s (D453); a
+    // single slow frame (the land rebuilt) never waits, nor a GPU's frames, a few milliseconds of the main thread's)
+    const slow = this.frameMs.length === SLOW_FRAMES ? Math.min(...this.frameMs) : 0;
+    const wait = slow > SLOW_FRAME_MS ? slow - (performance.now() - this.frameEnd) : 0;
+    if (wait > 0) {
+      this.breath = window.setTimeout(() => {
+        this.breath = 0;
+        this.requestRender();
+      }, wait);
+      return;
+    }
     this.frame = requestAnimationFrame(() => {
       this.frame = 0;
+      const t = performance.now();
       this.renderNow();
+      this.frameEnd = performance.now();
+      this.frameMs.push(this.frameEnd - t);
+      if (this.frameMs.length > SLOW_FRAMES) this.frameMs.shift();
     });
   }
 
   renderNow(): void {
     if (this.disposed) return;
-    this.flushTerrain();
+    this.framesDrawn++;
+    // (the water chunks the land queues are drained below, in this frame: `layeredWaterNear`)
+    this.landInFrame = true;
+    try {
+      this.flushTerrain();
+    } finally {
+      this.landInFrame = false;
+    }
     if (this.cursorStale && this.cursor && this.map) {
       this.cursorStale = false;
       this.cursor.set(this.brushCursorState, this.cursorHeights(), this.map.W, this.map.H);
@@ -4015,9 +4159,20 @@ export class MapRenderer {
     this.caveRows.flush();
     this.runRows.flush();
     this.stillRows.flush();
+    this.motionRows.flush();
+    // the game's bloom: the frame before the grade drawn for it first, then the view, then the bloom put on it (bloom.ts)
+    const bloom = this.blooms() ? (this.bloom ??= new GameBloom()) : null;
+    bloom?.drawSource(this.gl, this.scene, cam);
     this.refraction.begin(this.refracts(cam));
     this.gl.render(this.scene, cam);
     this.refraction.end();
+    if (bloom) {
+      this.bloomFrames++;
+      // (the view's draw counts, not the bloom's passes': `stats`)
+      const counts = { ...this.gl.info.render };
+      bloom.apply(this.gl);
+      Object.assign(this.gl.info.render, counts);
+    }
     if (this.uniforms.objectFade.value.w === FADE_COVERAGE) this.opaqueCanvas();
     this.endCost(cost, t0);
     this.endGpuTimer(q);
@@ -4036,6 +4191,19 @@ export class MapRenderer {
       }, 1000 / WATER_FPS);
     }
     this.checkDrawn();
+  }
+
+  /** Whether this frame draws the game's bloom (bloom.ts): Standard and High, as the game's default preset; never the
+   *  light look. And only while something in the frame can pass its knee (D453: by day nothing does, so its passes,
+   *  about 1.4 ms of a GPU's in High, would change no pixel; `tests/unit/bloom.test.ts` holds the day's brightest under
+   *  it, `tests/e2e/look-high.spec.ts` the frame alike with it and without): today an eruption's lava, until its crust
+   *  has put out its light (`LAVA_BLOOM_ENDS`). */
+  private blooms(): boolean {
+    if (this.software || !this.map) return false;
+    const look = this.lookNow;
+    if (look === "light" || !GAME_BLOOM_LOOKS[look === "standard" ? "standard" : "high"]) return false;
+    const u = this.terrainMat.uniforms;
+    return !!u.eruptionAge && u.eruptionAge.value >= 0 && u.coolingAge.value < LAVA_BLOOM_ENDS;
   }
 
   /** Whether this frame wants the copy of the screen behind the water (refraction.ts): a look that draws the game's
@@ -4613,12 +4781,15 @@ export class MapRenderer {
     // (a wait on `whenDrawn` ends with the view)
     this.checkDrawn();
     if (this.frame) cancelAnimationFrame(this.frame);
+    clearTimeout(this.breath);
     clearTimeout(this.animTimer);
     clearTimeout(this.probeTimer);
     clearTimeout(this.warmTimer);
     clearTimeout(this.lifeTimer);
     this.programs.dispose();
     this.refraction.dispose();
+    this.bloom?.dispose();
+    this.bloom = null;
     if (this.highCopy) for (const m of Object.values(this.highCopy)) m.dispose();
     for (const m of this.depthCopy ?? []) m.dispose();
     for (const m of this.lineCopy ?? []) m.dispose();

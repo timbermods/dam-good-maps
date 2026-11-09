@@ -66,13 +66,15 @@ describe("the High look's shaders", () => {
     expect(s).toMatch(/if \(hlShadows < 0\.5\) lit = bakedSunLit\(g, z\)/);
   });
 
-  it("draw the poisoned bed from the ground groundColor already worked out, never a second groundColor inside its branch (derivatives and mipmaps there are undefined, and the bed's veins flickered)", () => {
-    const top = terrainHooks().groundTop!;
-    expect(top).not.toContain("groundColor(");
-    expect(top).toContain("ground = mix(ground, groundDry, polluted);");
-    // (High works the veins out under water too, for the bed; Standard, which has no bed, does not)
-    const s = terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader;
-    expect(s).toContain("groundDry = mix(c, soilPattern.rgb, vein);");
+  it("draw the bed under badwater as the Standard look does, no poisoned bed of their own (D496 as amended 2026-11-07: the game draws none, and the pixel judge put High's badwater by day nearer the game's without it, inside the gap's band)", () => {
+    expect(Object.keys(terrainHooks())).not.toContain("groundTop");
+    const high = terrainMaterial(U(), 0, 1, false, terrainHooks()).fragmentShader;
+    const standard = terrainMaterial(U(), 0, 1).fragmentShader;
+    // (the one bed under every water: the ground's own colour under a film, the underwater bed deeper, in both looks)
+    const bed = (s: string) => s.match(/return mix\(c, (vec3\([^)]*\)) \* \(0\.9 \+ 0\.15 \* n2\), bed\);/)?.[1];
+    for (const s of [high, standard]) expect(s).not.toMatch(/groundDry|polluted/);
+    expect(bed(standard)).toBeDefined();
+    expect(bed(high)).toBe(bed(standard));
   });
 
   it("follow the game (D496, D497): its finish, its surface carried by the current, and badwater's own cues, slow bubbles and red contact at rock", () => {
@@ -94,7 +96,7 @@ describe("the High look's shaders", () => {
     // the clear water's veil (T) keeps High's own badwater, lit, with its glowing lines, never Standard's (#832's review)
     expect(s).toContain("hlBadLit = badBody * shade + badEmission;");
     expect(s).toContain("clearBad = hlBadLit;");
-    expect(s).toContain("clearBad = faceBad * faceLight;");
+    expect(s).toContain("clearBad = faceBad * faceLight + gameBadwaterEmission(hlBad, bpat.y, g);");
     expect(s).not.toContain("hlBadwaterBubbles");
     // the red at rock is the game's own glow of shallow water partly bad (waterPalette.ts badwaterGlow)
     expect(s).toContain("badBody = badwaterGlow(badBody, HW_BAD, depth, contamination);");
@@ -236,14 +238,13 @@ describe("the water's flow (the settle's own current, D353)", () => {
     expect(surfaceCurrent(W, H, surfaceWater(W, H, plain)).every((v) => v === 0)).toBe(true);
   });
 
-  it("smooths contamination into a soft front, through water on the same surface only", () => {
+  it("keeps each tile's own contamination, for the shaders to blend as the game does, and the clean channel clean", () => {
     const { W, H, sw } = scene();
     const c = surfaceContamination(W, H, sw);
-    // the front in the lake is soft: between clean and bad over a few tiles
-    expect(c[4 * W + 5]).toBeGreaterThan(0.5);
-    expect(c[4 * W + 5]).toBeLessThan(1);
-    expect(c[4 * W + 6]).toBeGreaterThan(0);
-    expect(c[4 * W + 6]).toBeLessThan(0.5);
+    // the front in the lake is each tile's own share: the shaders blend it between tiles as the game's water shader
+    // does, about a tile wide (waterPalette.ts WATER_SHARE_BLEND; D154 as amended 2026-11-08; D148: re-based from the
+    // two smoothing passes, a front over a few tiles)
+    for (let x = 0; x < W; x++) if (sw.depth[4 * W + x] > 0.001) expect(c[4 * W + x]).toBeCloseTo(sw.contamination[4 * W + x], 6);
     // pure water stays pure, and the clean channel above takes none of it
     expect(c[4 * W + 0]).toBeCloseTo(1, 5);
     expect(c[4 * W + 11]).toBeCloseTo(0, 5);
