@@ -4,10 +4,13 @@
 // the record) it built from one call a batch, so what the page shows is what the operation builds.
 
 import { describe, expect, it } from "vitest";
-import { RemotePreview, type WeatherChannel, type WeatheredLand } from "../../src/core/features/raster/remoteStroke";
+import { RemotePreview, WeatherStroke, type WeatherChannel, type WeatheredLand } from "../../src/core/features/raster/remoteStroke";
 import { integrityCandidate, StrokePreview, type TerrainState } from "../../src/core/features/raster/strokePreview";
 import { integrityAt } from "../../src/core/features/raster/terrain";
 import type { BrushParams, Rect } from "../../src/core/features/raster/brush";
+import { BrushPainter, DEFAULT_BRUSH, type Stroke } from "../../src/editor/brushes";
+import type { MapRenderer } from "../../src/render3d";
+import type { TileHit } from "../../src/render3d/pick";
 
 /** A worker whose calls answer only when the test says: what was sent, in order. */
 function heldChannel() {
@@ -236,5 +239,95 @@ describe("the page's record is the worker's, whatever its last call changed (#87
     await p.done();
     expect(Buffer.from(shown).equals(Buffer.from(shownWorker))).toBe(true);
     expect(JSON.stringify(record)).toBe(JSON.stringify(recordWorker));
+  });
+});
+
+describe("a stroke with riding pieces keeps the worker's whole record (#875's review)", () => {
+  it("the record the worker hands over at the end goes into the operation", async () => {
+    // (the hill and its knobs, then flat ground out to the pond: nothing there weathers)
+    const { state, N } = land(96, 80, 20);
+    for (let y = 0; y < N; y++) for (let x = 34; x < N; x++) if (!state.water![y * N + x]) state.pre[y * N + x] = 3;
+    const heights = state.pre.slice();
+    integrityAt(state.pre, heights, N, N, state.protect, state.channel, integrityCandidate(state, state.pre), 0, 0, N - 1, N - 1, 16);
+    const shown = heights.slice();
+    // the worker (naturalize.worker.ts's core): what its last land carried, and the record it ends with
+    let stroke: WeatherStroke | null = null;
+    let lastLand: string | null = null;
+    let ended: string | null = null;
+    const turn = <T>(f: () => T) => new Promise<T>((resolve) => setTimeout(() => resolve(f()), 0));
+    const weather: WeatherChannel = {
+      begin: (s, ground) => turn(() => void (stroke = new WeatherStroke(s, { ...state, pre: state.pre.slice() }, heights.slice(), N, N, ground.map((r) => [r[0], r[1], r[2]])))),
+      add: (d, p) =>
+        turn(() => {
+          const r = stroke!.add(d, p);
+          if (r) lastLand = JSON.stringify(r.settings);
+          return r;
+        }),
+      finish: (rigid) => turn(() => stroke!.finish(rigid)),
+      end: () =>
+        turn(() => {
+          const r = stroke!.end();
+          ended = JSON.stringify(r.settings);
+          return r;
+        }),
+      cancel: () => void (stroke = null),
+    };
+    // the page: a painter whose renderer picks the tile under a pointer at (x, y) and draws nothing
+    const renderer = new Proxy({ heightAt: (x: number, y: number) => shown[y * N + x], pickAtLevel: (x: number, y: number, level: number) => ({ x: Math.floor(x), y: Math.floor(y), point: [x, level, -y] }), slice: null } as Record<string, unknown>, {
+      get: (t, k) => (k in t ? t[k as string] : () => {}),
+    }) as unknown as MapRenderer;
+    // (a 3 × 3 piece every few tiles along the hill: those the stroke changes ride it whole)
+    const pieces: [number, number, number, number][] = [];
+    for (let x = 8; x <= 28; x += 4) pieces.push([x, 15, x + 2, 17]);
+    let sent: Stroke | null = null;
+    const painter = new BrushPainter({
+      renderer,
+      W: N,
+      H: N,
+      heights: () => shown,
+      terrain: () => state,
+      settings: () => ({ ...DEFAULT_BRUSH, tool: "naturalize", strength: 10 }),
+      commit: (s) => void (sent = s),
+      picked: () => {},
+      strength: () => {},
+      painting: () => {},
+      rides: () => pieces,
+      objectGround: () => [],
+      weather,
+    });
+    const raf = globalThis.requestAnimationFrame;
+    const caf = globalThis.cancelAnimationFrame;
+    globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => setTimeout(() => cb(performance.now()), 0) as unknown as number) as typeof requestAnimationFrame;
+    globalThis.cancelAnimationFrame = ((h: number) => clearTimeout(h)) as typeof cancelAnimationFrame;
+    try {
+      const ev = (x: number, y: number) => ({ button: 0, clientX: x, clientY: y, pointerType: "mouse", shiftKey: false, ctrlKey: false, metaKey: false }) as unknown as PointerEvent;
+      const hit = (x: number, y: number): TileHit => ({ x: Math.floor(x), y: Math.floor(y), point: [x, shown[Math.floor(y) * N + Math.floor(x)], -y], face: "top", t: 0 });
+      const frames = (n: number) => new Promise((r) => setTimeout(r, n * 4));
+      // across the hill, then out over the pond's flat floor, where nothing weathers but the record grows
+      painter.tool.down(hit(8.5, 16.5), ev(8.5, 16.5));
+      for (let x = 9.5; x <= 30.5; x += 1) {
+        painter.tool.move(hit(x, 16.5), ev(x, 16.5));
+        await frames(2);
+      }
+      for (const x of [40.5, 46.5]) {
+        painter.tool.move(hit(x, 16.5), ev(x, 16.5));
+        await frames(10);
+      }
+      const overLand = lastLand;
+      painter.tool.move(hit(80.5, 20.5), ev(80.5, 20.5));
+      await frames(10);
+      painter.tool.up(hit(80.5, 20.5), ev(80.5, 20.5));
+      for (let k = 0; k < 50 && !sent; k++) await frames(2);
+      // (the dabs over the pond changed no land and grew the worker's record: what only the end hands over)
+      expect(lastLand).toBe(overLand);
+      expect(ended).not.toBe(lastLand);
+      const params = sent!.params;
+      expect(params.rigid?.length).toBeGreaterThan(0);
+      const record = JSON.parse(ended!) as Record<string, unknown>;
+      for (const key of ["weathering", "shore", "pools", "moist"]) expect(JSON.stringify((params as unknown as Record<string, unknown>)[key])).toBe(JSON.stringify(record[key]));
+    } finally {
+      globalThis.requestAnimationFrame = raf;
+      globalThis.cancelAnimationFrame = caf;
+    }
   });
 });
