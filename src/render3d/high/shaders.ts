@@ -178,9 +178,8 @@ export function terrainHooks(): ShaderHooks {
           c *= vec3(1.0 + broad * 0.055, 1.0 + broad * 0.015, 1.0 - broad * 0.045);
         }
 `,
-    filmBad: "(hlWater > 0.5 ? WATER_FILM_HIGH_BAD_TINT : WATER_FILM_BAD_TINT)",
-    // (the scene's flow texture is High's own, hlFlow: read through it, one sampler fewer, materials.ts filmShare)
-    filmShare: "texture2D(hlFlow, g / hlFlowSize).b",
+    // (the scene's flow texture is High's own, hlFlow: read through it, one sampler fewer, materials.ts behindShare)
+    behindShare: "texture2D(hlFlow, g / hlFlowSize).b",
     // (a still film's flow at a tile corner, as the water's vertex shader reads it: shoreFilm.ts)
     shoreFlow: "texture2D(hlFlow, P / hlFlowSize).rg",
     // rock (#65's strata, D334's stone): stones of unequal size and slope, soft mortar between them, calibrated as
@@ -324,14 +323,11 @@ export function waterHooks(): ShaderHooks {
             // badwater's by the tint × the pattern's R)
             float hlSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(hlBad) * bpat.x);
             vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, Nh, V, lit, albedo, bpat, hlSmooth);
-            // the same water at any depth: only a sliver at a shore's very edge fades in, over WATER_FILM.to
-            // deep, as the Standard look's (waterPalette.ts WATER_FILM: our anti-aliasing of the edge, where the
-            // game clips hard), by its own depth, not the one seen along the view; no foam, no froth, as the game draws none
-            float hlFilm = waterFilm(depth);
-            float hlTint = waterTint(hlBad);
+            // the same water at any depth, as the game's and the Standard look's (waterPalette.ts waterOpacity: no film,
+            // D154 as amended 2026-11-09); no foam, no froth, as the game draws none
             c = hlSurface.rgb;
             clearBad = hlBadLit;
-            alpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
+            alpha = hlSurface.a;
           } else {
             // the water's side: at the map's edge its section (below), any other side the surface going on (below);
             // no whitewater, no foam

@@ -12,7 +12,6 @@ import { DEFAULTS } from "../../src/core/forces/carve/run";
 import { STEPS_PER_SECOND } from "../../src/core/forces/force";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { WET, type WaterView } from "../../src/render3d/model";
-import { waterFilm } from "../../src/render3d/waterPalette";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
@@ -219,7 +218,7 @@ describe("Carve's river is born as it cuts (D371)", () => {
     }
     // (a thin sheet's own waves, crest to crest about twelve ticks, would alternate every frame if shown as they are)
     // A blink swings a hundredth of a level past the line and back: a sheet hovering on it, a few thousandths up and
-    // down at a depth drawn as whole water (WATER_FILM.to), draws the same in every frame (Highlands 96² seeds 22 and
+    // down at a depth drawn as water like any other, draws the same in every frame (Highlands 96² seeds 22 and
     // 25, #814).
     const LINE = 0.05;
     const SWING = 0.01;
@@ -233,20 +232,22 @@ describe("Carve's river is born as it cuts (D371)", () => {
       }
     // (shown as they are, about one a frame on this map; averaged, about one every six)
     expect(blinks / shown.length, `${blinks} blinks in ${shown.length} frames`).toBeLessThan(0.5);
-    // Thin water, the only depths drawn differently (a film fading in to WATER_FILM.to, `waterFilm`): a tile whose film
-    // swings a tenth of the way and back once is a front arriving and easing back; a tile that does so again and again
-    // flickers. A carve's showing has a few at most (0 to 4 on Highlands 96² seeds 21 to 30), shown as they are 10 to 31
-    // (the review of #816).
+    // Thin water is drawn as water at any depth, as the game draws it (no film, D154 as amended 2026-11-09), so the one
+    // change a frame can show at a tile is its water coming or going (the view's WET): a tile that goes wet and dry
+    // once is a front arriving and easing back; a tile that does so again and again flickers. (D148: until 2026-11-09
+    // this counted a film fading in by its depth under three hundredths of a level swinging a tenth of the way and back,
+    // a few at most, 0 to 4 on Highlands 96² seeds 21 to 30, shown as they are 10 to 31, the review of #816.)
+    const drawn = (d: number) => (d > WET ? 1 : 0);
     const flicker = new Map<number, number>();
     for (let u = 2; u < shown.length; u++)
       for (let i = 0; i < N; i++) {
-        const a = waterFilm(shown[u - 2][i]);
-        const b = waterFilm(shown[u - 1][i]);
-        const c = waterFilm(shown[u][i]);
+        const a = drawn(shown[u - 2][i]);
+        const b = drawn(shown[u - 1][i]);
+        const c = drawn(shown[u][i]);
         if ((b - a) * (c - b) < 0 && Math.min(Math.abs(b - a), Math.abs(c - b)) > 0.1) flicker.set(i, (flicker.get(i) ?? 0) + 1);
       }
     const again = [...flicker.values()].filter((n) => n > 1).length;
-    expect(again, `${again} tiles' films swing back and forth more than once`).toBeLessThan(8);
+    expect(again, `${again} tiles' water comes and goes more than once`).toBeLessThan(8);
     ed.forceStop();
     ed.undo();
     ed.settleWater();

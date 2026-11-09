@@ -32,16 +32,15 @@
 // desaturated (waterPalette.ts `waterGroundBehind`), × the water's diffuse light, in place of the see-through's share
 // (1 − alpha) of the lit albedo with its highlight (`behindBase`), the reflection, the glint and the emission kept on
 // top whole, then fogged and graded once (`finish`). The water's shader sets the albedo, the light and the lit albedo
-// (`behindAlbedo`, `behindLight`, `behindBase`; High's surface its own) before it asks. A sliver at a shore stays a
-// blend: our film (`WATER_FILM`) is our anti-aliasing of the game's hard edge (P14), so the composite takes the film
-// curve's share and the water alone, blended over the screen (the terrain's film tint under it), the rest. Where no
+// (`behindAlbedo`, `behindLight`, `behindBase`; High's surface its own) before it asks, for water of any depth, as the
+// game has no film (D154 as amended 2026-11-09; its edge at a shore is the mesh's, multisampled). Where no
 // copy is made (a browser drawing in software, a picture, the bloom's source), the water alone is blended over the
 // screen as before, and the terrain's shader puts the same overlay on the ground under water itself (`refractView.y`
 // says which), so it is never put on twice; the light look, as the game's Low, shows no ground behind. As the game's
 // opaque texture holds no water, water drawn after the copy (another body's farther side) does not show through water
 // in front of it. Not the game's, ours by need: the noise is our own (the pattern texture's value noise at the game's statistics: `WATER_REFRACTION.noise`, held by
 // tests/unit/water-refraction.test.ts); we have no depth of the opaque scene, so in place of the game's depth test the
-// shift is taken off where a tile's shore is within its reach (and on a film's sliver, our anti-aliasing), which keeps
+// shift is taken off where a tile's shore is within its reach, which keeps
 // the dry bank from smearing into the water; an object standing in front of the water close by can still lend its
 // edge a few pixels of itself.
 
@@ -93,11 +92,11 @@ export const REFRACTION_INPUTS_GLSL = /* glsl */ `
 
 /** The see-through, the refraction and the game's composite in GLSL, for the water's shader (after the scene's
  *  uniforms, `vnoise`, `time`, `finish`, `gamePostInverse` and `waterGroundBehind`): `waterComposite(c, g, world, alpha,
- *  shore, film)`, the colour to write and its opacity for a pixel of water whose colour before the fog and the grade is
+ *  shore)`, the colour to write and its opacity for a pixel of water whose colour before the fog and the grade is
  *  `c` (the lit albedo with its highlight, `behindBase`, and the reflection, the glint and the emission on top) and whose
- *  opacity is `alpha`, `shore` tiles (as the shader measures it) from its tile's shore, `film` its film curve (1 past a
- *  sliver); `behindAlbedo` (the game's albedo of the water there, display values before its light), `behindLight` (its
- *  diffuse light by its normal) and `behindBase` set first (`REFRACTION_INPUTS_GLSL`). Where the frame makes no copy,
+ *  opacity is `alpha`, `shore` tiles (as the shader measures it) from its tile's shore; `behindAlbedo` (the game's
+ *  albedo of the water there, display values before its light), `behindLight` (its diffuse light by its normal) and
+ *  `behindBase` set first (`REFRACTION_INPUTS_GLSL`). Where the frame makes no copy,
  *  the water alone, fogged and graded, at `alpha`. */
 export const REFRACTION_GLSL = /* glsl */ `
   /** The screen as drawn before the water at half its size (URP's opaque texture, 2× bilinear): what shows through the
@@ -106,7 +105,7 @@ export const REFRACTION_GLSL = /* glsl */ `
   /** x: 1 while the copies are this frame's; y: 1 while the frame makes them (the water, not the terrain, overlays
    *  what is behind it); zw: one over the screen's size (pixels). */
   uniform vec4 refractView;
-  vec4 waterComposite(vec3 c, vec2 g, vec3 world, float alpha, float shore, float film) {
+  vec4 waterComposite(vec3 c, vec2 g, vec3 world, float alpha, float shore) {
     // (the derivatives and the mipmapped noise first, in uniform control flow: after a branch a pixel's neighbours may
     // not have run them, and their values are undefined)
     float fw = max(fwidth(g.x), fwidth(g.y));
@@ -115,7 +114,7 @@ export const REFRACTION_GLSL = /* glsl */ `
     vec2 here = gl_FragCoord.xy * refractView.zw;
     float dist = length(cameraPosition - world);
     float far = clamp((dist - ${f(WATER_REFRACTION.falloff[1])}) / ${f(WATER_REFRACTION.falloff[0] - WATER_REFRACTION.falloff[1])}, 0.0, 1.0);
-    float k = far * far * (3.0 - 2.0 * far) * (1.0 - waterFall) * film;
+    float k = far * far * (3.0 - 2.0 * far) * (1.0 - waterFall);
     vec2 shift = vec2(0.0);
     if (k > 0.0) {
       shift = k * n * vec2(${f(WATER_REFRACTION.weights[0])}, ${f(WATER_REFRACTION.weights[1])});
@@ -129,11 +128,7 @@ export const REFRACTION_GLSL = /* glsl */ `
     // the fog and the grade once, on the whole)
     vec3 shown = behindLight * waterGroundBehind(gamePostInverse(behind), behindAlbedo);
     vec3 whole = finish(c + (1.0 - alpha) * (shown - behindBase), world);
-    if (film >= 0.999) return vec4(whole, 1.0);
-    // (on a sliver at a shore, our anti-aliasing of the game's hard edge: the composite by the film curve, the water
-    // alone blended over the screen, the terrain's film tint under it, the rest; as the terrain splits it)
-    float a = mix(alpha, 1.0, film);
-    return vec4((film * whole + (1.0 - film) * alpha * finish(c, world)) / a, a);
+    return vec4(whole, 1.0);
   }
 `;
 

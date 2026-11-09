@@ -201,12 +201,12 @@ describe("the looks that draw them: Standard and High, as the game's high-qualit
       expect(m.defines.WATER_REFRACTS, look).toBe(1);
       expect(m.defines.LITE, look).toBe(0);
       // (D148: the see-through is now the game's composite, written opaque, not a term added to a blend: refraction.ts)
-      expect(m.fragmentShader, look).toContain("vec4 waterComposite(vec3 c, vec2 g, vec3 world, float alpha, float shore, float film)");
-      expect(m.fragmentShader, look).toContain("vec4 composite = waterComposite(c, g, vWorld, alpha, shore, film);");
+      expect(m.fragmentShader, look).toContain("vec4 waterComposite(vec3 c, vec2 g, vec3 world, float alpha, float shore)");
+      expect(m.fragmentShader, look).toContain("vec4 composite = waterComposite(c, g, vWorld, alpha, shore);");
       expect(m.fragmentShader, look).toContain("float waterFallMask(vec2 g)");
       expect(m.fragmentShader, look).toContain("waterFall = waterFallMask(g);");
       // (the refraction and the camera highlight both × (1 − the mask))
-      expect(m.fragmentShader, look).toContain("(1.0 - waterFall) * film");
+      expect(m.fragmentShader, look).toContain("float k = far * far * (3.0 - 2.0 * far) * (1.0 - waterFall);");
       expect(m.fragmentShader, look).toMatch(/waterCameraHighlight\([^;]*\* \(1\.0 - waterFall\);/);
       expect(m.uniforms.refractTex, look).toBeDefined();
       expect(m.uniforms.refractHalf, look).toBeDefined();
@@ -228,7 +228,7 @@ describe("the looks that draw them: Standard and High, as the game's high-qualit
     expect(looks.high.fragmentShader).toContain("behindAlbedo = colour * shade / max(behindLight, 0.001);");
     // the terrain leaves it to the water while the frame makes the copy: never twice under water
     const terrain = terrainMaterial(U(), 0, 1).fragmentShader;
-    expect(terrain).toContain("float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind) * (1.0 - refractView.y);");
+    expect(terrain).toContain("float behind = smoothstep(0.4, 0.6, soil.w) * (1.0 - clrBehind) * (1.0 - refractView.y);");
     expect(terrain).toContain("if (!ceiling && refractView.y < 0.5) {");
   });
 
@@ -237,11 +237,10 @@ describe("the looks that draw them: Standard and High, as the game's high-qualit
       const f = looks[look].fragmentShader;
       // (one finish on the whole: not the water and the ground behind each graded and then blended)
       expect(f, look).toContain("vec3 whole = finish(c + (1.0 - alpha) * (shown - behindBase), world);");
-      expect(f, look).toContain("if (film >= 0.999) return vec4(whole, 1.0);");
-      // (on a sliver at a shore, our anti-aliasing: the composite by the film curve, the water alone blended over the
-      // screen the rest, the terrain's film tint under it; each pixel tinted once, as the terrain splits it)
-      expect(f, look).toContain("float a = mix(alpha, 1.0, film);");
-      expect(f, look).toContain("return vec4((film * whole + (1.0 - film) * alpha * finish(c, world)) / a, a);");
+      // (at any depth, the game has no film: D154 as amended 2026-11-09; D148: a sliver under three hundredths of a level
+      // was a blend of the composite and the water alone over the screen before)
+      expect(f, look).toContain("return vec4(whole, 1.0);");
+      expect(f, look).not.toContain("float film");
       // (where no copy is made, the water alone at its opacity, as before)
       expect(f, look).toContain("if (refractView.x < 0.5 || alpha >= 0.999) return vec4(finish(c, world), alpha);");
       // (the lit albedo with its highlight is set before the reflection is added)
