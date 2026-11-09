@@ -54,6 +54,7 @@ import {
   NearestFilter,
   OrthographicCamera,
   PlaneGeometry,
+  RedFormat,
   RepeatWrapping,
   RGBAFormat,
   RGFormat,
@@ -153,8 +154,11 @@ export interface SceneUniforms extends RefractionUniforms {
    *  (`waterSurfaceTexture`). */
   waterTex: { value: DataTexture };
   /** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`: R the base colour's, G the emissive
-   *  detail's) and the still detail albedo (B, at its own tiling), shared by the page (`badwaterPatternTexture`). */
+   *  detail's; A the water sources' pattern), shared by the page (`badwaterPatternTexture`). */
   badwaterTex: { value: DataTexture };
+  /** The still detail albedo (waterTextures.ts `makeDetailField`, Q9 P6: its first component, one byte a texel, 2048²
+   *  as the game's), shared by the page (`detailTexture`). */
+  detailTex: { value: DataTexture };
   /** Contaminated ground's pattern (soilTexture.ts: RGB its colour, A its cover), shared by the page
    *  (`soilPatternTexture`). */
   soilTex: { value: DataTexture };
@@ -219,6 +223,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     flowTex: { value: stillFlow() },
     waterTex: { value: waterSurfaceTexture() },
     badwaterTex: { value: badwaterPatternTexture() },
+    detailTex: { value: detailTexture() },
     soilTex: { value: soilPatternTexture() },
     caveTex: { value: noCave },
     caveSize: { value: new Vector3(0, 0, 0) },
@@ -319,9 +324,9 @@ export function waterSurfaceTexture(): DataTexture {
 }
 
 let badTex: DataTexture | null = null;
-/** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`), with the still detail albedo in its B
- *  and the water sources' pattern in its A, one for the page: flat at their means until the bake worker has made it,
- *  sampled as the surface's. */
+/** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`), with the water sources' pattern in its
+ *  A (its B unused), one for the page: flat at their means until the textures' worker has made it, sampled as the
+ *  surface's. */
 export function badwaterPatternTexture(): DataTexture {
   if (badTex) return badTex;
   const n = WATER_TEXTURE_SIZE;
@@ -329,7 +334,7 @@ export function badwaterPatternTexture(): DataTexture {
   const r = Math.round(GAME_BADWATER.pattern[0] * 255);
   const g = Math.round(GAME_BADWATER.pattern[1] * 255);
   const a = Math.round(GAME_SOURCE_SHAPE.mean);
-  for (let i = 0; i < n * n; i++) data.set([r, g, DETAIL_FLAT, a], i * 4);
+  for (let i = 0; i < n * n; i++) data.set([r, g, 0, a], i * 4);
   const t = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType);
   t.wrapS = t.wrapT = RepeatWrapping;
   t.magFilter = LinearFilter;
@@ -360,12 +365,37 @@ export function soilPatternTexture(): DataTexture {
   return (soilTex = t);
 }
 
-/** The light look's patterns, the still detail albedo and the water sources' (bake.ts "detailTexture"), written into
- *  badwater's texture's B and A (its R and G stay at their means: the light look never reads them). */
-export function fillDetailTexture(detail: Uint8Array, shape: Uint8Array): void {
+let detailTex: DataTexture | null = null;
+/** The still detail albedo (waterTextures.ts `makeDetailField`, Q9 P6), one for the page, one byte a texel: a single
+ *  texel at its mean until the textures' worker has made it (`fillDetailTexture`), then `DETAIL_TEXTURE_SIZE` square,
+ *  31 texels a tile as the game's. Repeating, mipmapped and filtered at a slant, as the game samples its own. */
+export function detailTexture(): DataTexture {
+  if (detailTex) return detailTex;
+  const t = new DataTexture(new Uint8Array([DETAIL_FLAT]), 1, 1, RedFormat, UnsignedByteType);
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.anisotropy = 8;
+  t.unpackAlignment = 1;
+  t.needsUpdate = true;
+  return (detailTex = t);
+}
+
+/** The still detail albedo (bake.ts "detailTexture", `size` square) into the page's texture, which grows from its one
+ *  flat texel to it (its GPU copy made again); and the light look's water sources' pattern (`shape`, when it is made
+ *  with it) into badwater's texture's A (its R and G stay at their means: the light look never reads them). */
+export function fillDetailTexture(detail: Uint8Array, size: number, shape?: Uint8Array): void {
+  const t = detailTexture();
+  if (t.image.width !== size) {
+    t.image = { data: detail, width: size, height: size };
+    t.dispose();
+  } else (t.image.data as Uint8Array).set(detail);
+  t.needsUpdate = true;
+  if (!shape) return;
   const b = badwaterPatternTexture();
   const data = b.image.data as Uint8Array;
-  for (let i = 0; i < detail.length; i++) (data[i * 4 + 2] = detail[i]), (data[i * 4 + 3] = shape[i]);
+  for (let i = 0; i < shape.length; i++) data[i * 4 + 3] = shape[i];
   b.needsUpdate = true;
 }
 

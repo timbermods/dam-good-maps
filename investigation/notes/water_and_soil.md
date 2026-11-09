@@ -704,7 +704,7 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Still water's drift (0.018, −0.012) | H | (b) | P5: still textures stay put |
 | Badwater's ripples at half speed (`slow`; High's `hlT` slows only its fall strands and `bt` only its bubbles) | S | (b) | none; the game makes badwater's normals × 2 instead (P9, ps 780) |
 | Shore vertices of a still film drawn sideways | S, H, light | (a): drawn back toward their tile's middle, the ground left dry (`shoreFilm.ts`, fix/water-shore); a corner open on both sides a little deeper than the game's | V3 (vs 381-395, 486) |
-| Detail albedo | S, H, light | (a): its 67-tile pattern, our own texture at the game's statistics (`waterDetailAt`, `waterDetailOverlay`, fix/water-detail) | P6 (ps 462-477) |
+| Detail albedo | S, H, light | (a): its 67-tile pattern, our own texture at the game's statistics and size, 2048², 31 texels a tile (`waterDetailAt`, `waterDetailOverlay`, fix/water-detail, fix/water-detail-resolution) | P6 (ps 462-477) |
 | Gloss: our noise round 0.25, ± 0.6 of its swing, panned | S | (a), approximate | P8 (ps 480-499) |
 | Light: sky × 1.2 + sun × 0.3 × N·L × shadow | S | (a), approximate | P15 |
 | Light: `rippleLight` over `referenceLight` | H | (a) under the formula (its clean and badwater colours are lit by `gameWaterLight`); (c) for our crimson | P15 |

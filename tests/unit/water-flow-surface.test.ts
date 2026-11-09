@@ -232,7 +232,7 @@ describe("badwater as the game draws it (Q9 P9)", () => {
   };
 
   it("is the bytes it was made as when the look was judged (a speed-up of its making never changes them)", () => {
-    expect(sha256(bad)).toBe("565b927abe4d017f7201d426381dd1acd156c986ee13a39a48c6394c66eb6f0c");
+    expect(sha256(bad)).toBe("cfa8278f91382e9d33357bedc98e5d427d35815dfbeb25e00b1cd7944eb316d4");
   });
 
   it("has a pattern of our own at the game's statistics: R the base colour's mottle, G the emissive detail's lines", () => {

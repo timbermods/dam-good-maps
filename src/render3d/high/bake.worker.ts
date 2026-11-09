@@ -11,7 +11,7 @@ self.onmessage = (e: MessageEvent<BakeJob>) => {
   const post = (r: BakeReply, transfer: ArrayBuffer[] = []) => (self as unknown as Worker).postMessage(r, transfer);
   try {
     const r = runBake(e.data);
-    post(r, r.kind === "shadows" ? [r.bytes.buffer as ArrayBuffer, r.hi.buffer as ArrayBuffer, r.lo.buffer as ArrayBuffer] : r.kind === "share" ? [r.share.buffer as ArrayBuffer] : r.kind === "waterTexture" ? [r.data.buffer as ArrayBuffer, r.bad.buffer as ArrayBuffer, r.soil.buffer as ArrayBuffer] : r.kind === "detailTexture" ? [r.detail.buffer as ArrayBuffer, r.shape.buffer as ArrayBuffer] : [r.flow.buffer as ArrayBuffer, ...shapeBuffers(r.shapes), ...(r.cave ? [r.cave.data.buffer as ArrayBuffer] : [])]);
+    post(r, r.kind === "shadows" ? [r.bytes.buffer as ArrayBuffer, r.hi.buffer as ArrayBuffer, r.lo.buffer as ArrayBuffer] : r.kind === "share" ? [r.share.buffer as ArrayBuffer] : r.kind === "waterTexture" ? [r.data.buffer as ArrayBuffer, r.bad.buffer as ArrayBuffer, r.soil.buffer as ArrayBuffer] : r.kind === "detailTexture" ? [r.detail.buffer as ArrayBuffer, ...(r.shape ? [r.shape.buffer as ArrayBuffer] : [])] : [r.flow.buffer as ArrayBuffer, ...shapeBuffers(r.shapes), ...(r.cave ? [r.cave.data.buffer as ArrayBuffer] : [])]);
   } catch (err) {
     post({ id: e.data.id, kind: "error", error: err instanceof Error ? err.message : String(err) });
   }

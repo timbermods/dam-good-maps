@@ -754,6 +754,13 @@ def measure_detail_albedo(t, repeat, preview=None):
         share = [p[(wave <= bands[i]) & (wave > bands[i + 1])].sum() / p.sum() for i in range(len(bands) - 1)]
         print(f"     power by wavelength (tiles) {'/'.join(f'{bands[i]:g}-{bands[i + 1]:g}' for i in range(len(bands) - 1))}: "
               f"{'/'.join(f'{s:.3f}' for s in share)}")
+        # where its fine swirl lies: the spread a blur over 0.125 and 0.25 tile takes off, its root mean square over the
+        # same blur (10/50/90 %), and how it follows the mean there (inside the bright patches, or even everywhere)
+        for s in (0.125, 0.25):
+            m = ndimage.gaussian_filter(f, sigma=s * tex, mode="wrap")
+            local = ndimage.gaussian_filter((f - m) ** 2, sigma=s * tex, mode="wrap") ** 0.5
+            print(f"     its spread within {s:g} tile, 10/50/90%: {'/'.join(f'{x:.2f}' for x in np.percentile(local, (10, 50, 90)))}; "
+                  f"correlation with the mean there {np.corrcoef(m.ravel(), local.ravel())[0, 1]:+.2f}")
     # the second component as a function of the first: uncorrelated, but not independent (the dim texels lean blue, the
     # middle red, the brightest blue again), so a quadratic in the first carries most of it
     e1, e2 = (vecs[:, k] * (1 if vecs[:, k].sum() >= 0 else -1) for k in (2, 1))
