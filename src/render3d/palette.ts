@@ -408,6 +408,33 @@ export function gamePostRgb(c: Rgb): Rgb {
   return l.map((v) => disp(clamp(y + GAME_FINISH.saturation * (v - y)))) as unknown as Rgb;
 }
 
+/** The post chain undone (materials.ts `gamePostInverse`): the display colour a graded one came from, where no step
+ *  clipped it. The water reads the screen behind it graded, where the game's opaque texture holds it before the grade
+ *  (refraction.ts). Saturation round the luminance keeps the luminance, the contrast is linear in LogC, and the
+ *  Neutral curve is a ratio of quadratics, so each step is solved exactly. */
+export function gamePostInverseRgb(c: Rgb): Rgb {
+  const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const disp = (v: number) => (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
+  const curve = (x: number) => (x * (0.2 * x + 0.24 * 0.29) + 0.272 * 0.02) / (x * (0.2 * x + 0.29) + 0.272 * 0.3) - 0.02 / 0.3;
+  const white = 1 / curve(5.3);
+  const logC = (x: number) => (x > 0.011361 ? 0.244161 * Math.log10(5.555556 * x + 0.047996) + 0.386036 : 5.301883 * x + 0.092819);
+  const fromLogC = (x: number) => (x > 5.301883 * 0.011361 + 0.092819 ? (10 ** ((x - 0.386036) / 0.244161) - 0.047996) / 5.555556 : (x - 0.092819) / 5.301883);
+  // (the Neutral curve's x for y: y' × (0.2x² + 0.29x + 0.0816) = 0.2x² + 0.0696x + 0.00544, its positive root)
+  const uncurve = (y: number) => {
+    const t = Math.min(y, 0.93) + 0.02 / 0.3;
+    const a = 0.2 * t - 0.2;
+    const b = 0.29 * t - 0.24 * 0.29;
+    const k = 0.272 * 0.3 * t - 0.272 * 0.02;
+    return Math.max(0, (b + Math.sqrt(Math.max(0, b * b - 4 * a * k))) / (-2 * a));
+  };
+  const s = c.map((v) => lin(Math.min(1, Math.max(0, v))));
+  const y = 0.2126729 * s[0] + 0.7151522 * s[1] + 0.072175 * s[2];
+  return s
+    .map((v) => Math.max(0, y + (v - y) / GAME_FINISH.saturation))
+    .map((v) => Math.max(0, fromLogC((logC(v) - 0.4135884) / GAME_FINISH.contrast + 0.4135884)))
+    .map((v) => disp(uncurve(v / white) / white / 2 ** GAME_FINISH.postExposure)) as unknown as Rgb;
+}
+
 /** Mine sites (Kyler's rounds, D178; his colours, measured in the game; the pit's earth a little darker
  *  since D324): a rusty frame in a dull
  *  brown-orange (#844D2F) round the edge of the 5 × 5 footprint, and a pit with real depth filling

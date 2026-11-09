@@ -4164,7 +4164,9 @@ export class MapRenderer {
     // the game's bloom: the frame before the grade drawn for it first, then the view, then the bloom put on it (bloom.ts)
     const bloom = this.blooms() ? (this.bloom ??= new GameBloom()) : null;
     bloom?.drawSource(this.gl, this.scene, cam);
-    this.refraction.begin(this.refracts());
+    // (the copies only where the view's frame draws to the screen: the terrain overlays the ground under water itself
+    // otherwise, refraction.ts)
+    this.refraction.begin(this.refracts() && this.gl.getRenderTarget() === null);
     this.gl.render(this.scene, cam);
     this.refraction.end();
     if (bloom) {

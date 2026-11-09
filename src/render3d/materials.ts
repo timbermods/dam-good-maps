@@ -79,7 +79,7 @@ import { FALL } from "./waterMesh";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 import { DITHER_GLSL, FADE_OFF, OBJECT_FADE_GLSL } from "./objectFade";
 import { FALL_MASK_GLSL } from "./fallMask";
-import { REFRACTION_GLSL, WATER_REFRACTION, refractionUniforms, type RefractionUniforms } from "./refraction";
+import { REFRACTION_GLSL, REFRACTION_INPUTS_GLSL, WATER_REFRACTION, refractionUniforms, type RefractionUniforms } from "./refraction";
 import { VIEW_DEPTH_GLSL } from "./viewDepth";
 
 const az = LIGHT.sunAzimuth;
@@ -1069,6 +1069,22 @@ export const GAME_POST_GLSL = /* glsl */ `
     c = clamp(vec3(l) + ${f(GAME_FINISH.saturation)} * (c - vec3(l)), 0.0, 1.0);
     return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
   }
+  /** The post chain undone (palette.ts gamePostInverseRgb): the display colour a graded one came from, each step solved
+   *  exactly (the Neutral curve by its positive root). */
+  vec3 gamePostInverse(vec3 graded) {
+    vec3 g = clamp(graded, 0.0, 1.0);
+    vec3 c = mix(g / 12.92, pow((g + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), g));
+    float l = dot(c, vec3(0.2126729, 0.7151522, 0.072175));
+    c = max(vec3(l) + (c - vec3(l)) / ${f(GAME_FINISH.saturation)}, 0.0);
+    c = max(gpFromLogC((gpLogC(c) - 0.4135884) / ${f(GAME_FINISH.contrast)} + 0.4135884), 0.0);
+    float white = 1.0 / gpCurve(vec3(5.3)).x;
+    vec3 t = min(c / white, 0.93) + 0.02 / 0.3;
+    vec3 a = 0.2 * t - 0.2;
+    vec3 b = 0.29 * t - 0.24 * 0.29;
+    vec3 k = 0.272 * 0.3 * t - 0.272 * 0.02;
+    c = max((b + sqrt(max(b * b - 4.0 * a * k, 0.0))) / (-2.0 * a), 0.0) / white / ${f(Math.round(2 ** GAME_FINISH.postExposure * 1e6) / 1e6)};
+    return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
+  }
 `;
 
 export interface TerrainUniforms {
@@ -1129,6 +1145,8 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       uniform sampler2D eruptionBase;
       uniform float eruptionAge;
       uniform float coolingAge;
+      /** y: 1 while the frame's water overlays what shows behind it itself, from its copy of the screen (refraction.ts). */
+      uniform vec4 refractView;
       centroid varying vec3 vWorld;
       varying vec3 vNormal;
       ${common(h)}
@@ -1658,10 +1676,12 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           #if !LITE
             // the ground behind the water past a sliver shows as the game's High quality shows it: overlaid with
             // the water's own colour there and desaturated (WATER_SURFACE.behindTint); the water's opacity sets how
-            // much of it shows. Clear water (an editing aid) shows the bed as it is.
+            // much of it shows. Clear water (an editing aid) shows the bed as it is. Only where the frame's water
+            // doesn't do it itself, as the game's does, from its copy of the screen (refraction.ts: a browser drawing
+            // in software, a picture), so it is never put on twice
             float clrBehind = clearWater;
             if (clearAround.w > 0.5) clrBehind = max(clrBehind, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
-            float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind);
+            float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind) * (1.0 - refractView.y);
             if (behind > 0.0) {
               float bd = waterDepthOf(d0);
               vec3 wc = waterBlend(cleanWaterBody(bd, waterAbsorb(bd)), badwaterBody(bd), ${hook(h, "filmShare", "texture2D(flowTex, g / mapSize).b")});
@@ -1790,7 +1810,8 @@ ${hook(h, "wall")}          float py = fwidth(y);
             // ground behind does, as the game's High quality shows whatever lies behind (P13): overlaid with the water's
             // own colour at the depth the view sees there, its surface over this point (viewDepth.ts: at the foot of a
             // bank facing the camera, the band's), and desaturated. Clear water (an editing aid) shows it as it is.
-            if (!ceiling) {
+            // Only where the frame's water doesn't do it itself (refraction.ts), as for the ground under it
+            if (!ceiling && refractView.y < 0.5) {
               vec2 wt = tile + out2;
               vec4 dw = tileAt(wt);
               float wd = waterDepthOf(dw);
@@ -2059,6 +2080,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       ${WATER_GLSL}${WATER_FLOW_GLSL}${CAVE_FLOW}
       ${GAME_WATER_LIGHT}
       ${FALL_MASK_GLSL}
+      ${REFRACTION_INPUTS_GLSL}
       #if WATER_REFRACTS
       ${REFRACTION_GLSL}
       #endif
@@ -2244,6 +2266,9 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
           murky *= badwaterPatternShade(bpat.x);
         #endif
         vec3 c = waterBlend(body, murky, cont);
+        // (the game's albedo here and its diffuse light, which P13 puts on what shows behind the water: refraction.ts)
+        behindLight = gameWaterLight(N, lit);
+        behindAlbedo = c * light / max(behindLight, vec3(0.001));
         // the game's own highlight on the ripples, added to the colour before its light (and again after it); none on
         // the water's side nor on a fall's slope and where it lands (the game's waterfall mask takes it off, Q9 P1 and P12, ps 814-862). Where
         // the look draws the game's light (waterPalette.ts WATER_LIGHT.game), in the game's sun colour and lit by the
@@ -2297,6 +2322,7 @@ ${hook(h, "water")}        #ifdef CAVES
             vec3 open = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * lit;
             vec3 under = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * sunMarchAt(inWater);
             c *= under / max(open, 0.001);
+            behindLight *= under / max(open, 0.001);
           }
         #endif
         // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and

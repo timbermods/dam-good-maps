@@ -110,11 +110,12 @@ describe("water", () => {
         expect(y(b)).toBeLessThan(y(ground));
         expect(sat(b)).toBeLessThan(sat(ground) + 0.02);
       }
-    // the shader draws it in the terrain under the water past a sliver, never under clear water
+    // the shader draws it in the terrain under the water past a sliver, never under clear water, where the frame's
+    // water doesn't put it on itself (refraction.ts)
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
     const terrain = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1).fragmentShader;
     expect(terrain).toContain("ground = mix(ground, waterGroundBehind(ground, wc), behind);");
-    expect(terrain).toContain("float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind);");
+    expect(terrain).toContain("float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind) * (1.0 - refractView.y);");
   });
 
   it("draws the ground under a film in the water's hue (D154): teal, crimson, mixed water through the warm midpoint, never purple or mauve-grey", () => {

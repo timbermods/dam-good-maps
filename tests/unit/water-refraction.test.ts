@@ -7,10 +7,11 @@ import { describe, expect, it, vi } from "vitest";
 import { DataTexture, Vector2, type WebGLRenderer } from "three";
 import { FALL_MASK, FALL_MASK_GLSL, fallBytes, fallMask, fallMaskAt } from "../../src/render3d/fallMask";
 import { Refraction, WATER_REFRACTION, refractionUniforms } from "../../src/render3d/refraction";
-import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
+import { sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
+import { gamePostInverseRgb, gamePostRgb } from "../../src/render3d/palette";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { bakeFlow } from "../../src/render3d/high/bake";
-import { WATER_SURFACE, waterSeeThrough, WATER_GLSL } from "../../src/render3d/waterPalette";
+import { type Rgb, WATER_SURFACE, waterSeeThrough, WATER_GLSL } from "../../src/render3d/waterPalette";
 import { featureTiles, lattice, valueNoise } from "../../src/render3d/waterTextures";
 
 const smooth = (a: number, b: number, x: number) => {
@@ -150,12 +151,14 @@ describe("the refraction (Q9 P2)", () => {
     expect(copy).not.toHaveBeenCalled();
     // (the light look's water never asks for it)
     r.begin(true);
+    // (the terrain leaves the ground under water to the water from here: refractView.y)
+    expect(u.refractView.value.y).toBe(1);
     r.before(gl, null, null as never, null, light);
     expect(copy).not.toHaveBeenCalled();
     r.before(gl, null, null as never, null, refracts);
     r.before(gl, null, null as never, null, refracts);
     expect(copy).toHaveBeenCalledTimes(1);
-    expect(u.refractView.value.toArray()).toEqual([1, 0, 1 / 321, 1 / 200]);
+    expect(u.refractView.value.toArray()).toEqual([1, 1, 1 / 321, 1 / 200]);
     expect(u.refractTex.value?.image.width).toBe(321);
     // (URP's opaque texture at the game's m_OpaqueDownsampling 1, _2xBilinear: half the size, by integer division, the
     // screen's copy blitted to it with a linear filter)
@@ -166,6 +169,7 @@ describe("the refraction (Q9 P2)", () => {
     expect(blit).toHaveBeenCalledWith(0, 0, 321, 200, 0, 0, 160, 100, 4, 5);
     r.end();
     expect(u.refractView.value.x).toBe(0);
+    expect(u.refractView.value.y).toBe(0);
     // (a frame drawn into a render target, a picture: none)
     target = {};
     r.begin(true);
@@ -205,6 +209,28 @@ describe("the looks that draw them: Standard and High, as the game's high-qualit
       expect(m.uniforms.refractHalf, look).toBeDefined();
       // (the ground behind shows from the half-size copy, at the moved position; the blend's own from the full one)
       expect(m.fragmentShader, look).toContain("texture2D(refractHalf, clamp(here + shift, 0.0, 1.0))");
+    }
+  });
+
+  it("puts P13 on what shows behind the water in the water's shader: ungraded, overlaid and desaturated, lit again, fogged and graded", () => {
+    for (const look of ["standard", "high"] as const) {
+      const m = looks[look];
+      expect(m.fragmentShader, look).toContain("behind = finish(behindLight * waterGroundBehind(gamePostInverse(behind), behindAlbedo), world);");
+      // (the game's albedo, the colour before its light, and its diffuse light by the normal)
+      expect(m.fragmentShader, look).toContain("behindLight = gameWaterLight(N, lit);");
+    }
+    // High's surface sets its own, from its own colour
+    expect(looks.high.fragmentShader).toContain("behindAlbedo = colour * shade / max(behindLight, vec3(0.001));");
+    // the terrain leaves it to the water while the frame makes the copy: never twice under water
+    const terrain = terrainMaterial(U(), 0, 1).fragmentShader;
+    expect(terrain).toContain("float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind) * (1.0 - refractView.y);");
+    expect(terrain).toContain("if (!ceiling && refractView.y < 0.5) {");
+  });
+
+  it("undoes the grade exactly where nothing clipped, so the copy reads as URP's opaque texture holds it", () => {
+    for (const c of [[0.12, 0.14, 0.13], [0.3, 0.28, 0.22], [0.45, 0.42, 0.38], [0.6, 0.7, 0.75], [0.8, 0.75, 0.7]] as Rgb[]) {
+      const back = gamePostInverseRgb(gamePostRgb(c));
+      for (let k = 0; k < 3; k++) expect(Math.abs(back[k] - c[k]) * 255, `${c}`).toBeLessThan(0.05);
     }
   });
 

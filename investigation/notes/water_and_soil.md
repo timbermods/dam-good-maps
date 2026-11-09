@@ -702,7 +702,7 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Sky reflection and sun glint | H | (a): as Standard (fix/water-sky) | P15 |
 | Camera highlight (`waterCameraHighlight`), before and after the light | S, H | (a) | P12 (ps 814-862); ours drops it on faces by their normal, the game by the fall mask |
 | See-through share (`cleanWaterAlpha`, 0.175 × (1 − d/5)) | S, H | (a) | P13 (ps 879-889) |
-| Ground behind overlaid and desaturated (`waterGroundBehind`) | S, H | (a); small (c): ours tints with the body before light and lights the ground once | P13: the lit albedo, and the ground lit again |
+| Ground behind overlaid and desaturated (`waterGroundBehind`) | S, H | (a) (fix/water-tints-behind): in the water's shader, on the half-size copy with its grade undone, overlaid with the water's albedo, × its diffuse light, fogged and graded with it, on whatever lies behind (a fall's dry cliff too); the terrain's own only where no copy is made (software, pictures) | P13: the lit albedo, and the ground lit again |
 | Refraction of the ground behind (`waterRefraction`, refraction.ts) | S, H | (a): the game's weights, drift, scale and falloff; our noise at its statistics; a shore test in place of its depth test (fix/water-refraction) | P2 (ps 285-313) |
 | The fall mask (`waterFallMask`, fallMask.ts): see-through 0.35 to 0.2, no highlight, no refraction on the tile a fall lands in | S, H | (a) (fix/water-refraction) | P1 (ps 148-276, 883-884), `FindWaterfalls` |
 | Fall faces: see-through 0.1, no highlight, the shallowest colour | S, H, light | (a), approximate: ours by the face | P1 (ps 883-884): the game's mesh slopes over the step, masked on the tile below |
