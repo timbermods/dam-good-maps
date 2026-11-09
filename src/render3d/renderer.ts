@@ -77,7 +77,7 @@ import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillAlbedoTexture, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { AID_LAYER, onAidLayer } from "./aidLayer";
 import { GameBloom, GAME_BLOOM_LOOKS, LAVA_BLOOM_ENDS } from "./bloom";
@@ -305,18 +305,35 @@ const SLOW_FRAME_MS = 100;
 const SLOW_FRAMES = 3;
 
 let waterSurface: Promise<void> | null = null;
-/** The surface the water's flow carries (waterTextures.ts) and contaminated ground's pattern (soilTexture.ts), made once
- *  a page in a worker of their own (high/fields.ts `textureBake`; about 1 s in Chrome, up to 2 while the first map
- *  opens beside them), so the first map's moving water never waits behind them, and written into the page's shared
- *  textures (materials.ts `waterSurfaceTexture`, `soilPatternTexture`); each is flat at its mean until then. */
+/** The normal the water's flow carries, badwater's pattern (waterTextures.ts) and contaminated ground's (soilTexture.ts),
+ *  made once a page in a worker of their own (high/fields.ts `textureBake`; about 0.6 s in Chrome, more while the first
+ *  map opens beside them), so the first map's moving water never waits behind them, and written into the page's shared
+ *  textures (materials.ts `waterNormalTexture`, `soilPatternTexture`); each is flat at its mean until then. The flow's
+ *  albedo is its own job (`albedoTextureMade`). */
 function waterSurfaceMade(): Promise<void> {
   // (a failed bake is forgotten, so the next view tries again)
   return (waterSurface ??= textureBake({ kind: "waterTexture" }).then(
     (r) => {
-      if (r.kind === "waterTexture") fillWaterTexture(r.data, r.normal, r.normalSize, r.bad, r.soil);
+      if (r.kind === "waterTexture") fillWaterTexture(r.normal, r.normalSize, r.bad, r.soil);
     },
     (e: unknown) => {
       waterSurface = null;
+      throw e;
+    },
+  ));
+}
+
+let albedoMade: Promise<void> | null = null;
+/** The flow's albedo at the game's 2048² (waterTextures.ts `makeWaterTexture`, about 1.3 s), made once a page in the
+ *  textures' own worker, its last job (after the normal's, the patterns' and the detail's, which land as soon as
+ *  before), and written into the page's texture (materials.ts `fillAlbedoTexture`), a texel at its mean until then. */
+function albedoTextureMade(): Promise<void> {
+  return (albedoMade ??= textureBake({ kind: "albedoTexture" }).then(
+    (r) => {
+      if (r.kind === "albedoTexture") fillAlbedoTexture(r.data, r.size);
+    },
+    (e: unknown) => {
+      albedoMade = null;
       throw e;
     },
   ));
@@ -4072,7 +4089,8 @@ export class MapRenderer {
     if (this.software) return detailTextureMade(true);
     // (the surface's job first: the water's own patterns land as soon as before, the detail after them)
     const surface = waterSurfaceMade();
-    return Promise.all([surface, detailTextureMade(false)]).then(() => undefined);
+    const detail = detailTextureMade(false);
+    return Promise.all([surface, detail, albedoTextureMade()]).then(() => undefined);
   }
 
   /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */
