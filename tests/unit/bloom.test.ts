@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bloomLevels, bloomLift, GAME_BLOOM, GAME_BLOOM_LOOKS, inverseTable } from "../../src/render3d/bloom";
+import { bloomLevels, bloomLift, GAME_BLOOM, GAME_BLOOM_LOOKS, inverseTable, LAVA_BLOOM_ENDS, lavaSourceMax } from "../../src/render3d/bloom";
+import { LAVA } from "../../src/render3d/materials";
 import { BIRCH_BARK } from "../../src/render3d/entities3d";
 import { paletteDefaults } from "../../src/render3d/high/models";
 import { GAME_LIGHT, GAME_SKY, gameAmbient, gamePostRgb, LIGHT, MINE, RUIN, START, TREE_COLOURS } from "../../src/render3d/palette";
@@ -120,5 +121,18 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
     expect(sky).toBeLessThan(knee + 0.003);
     // what that feeds the bloom moves no code of the canvas, however dark the pixel it lands on
     expect(codeChange(bloomLift(sky))).toBeLessThan(0.5);
+  });
+
+  it("draws an eruption's bloom only while its lava can pass the knee: to its cooling's 2.25 s, not its crust's end", () => {
+    // (renderer.ts `blooms` gates on this, from materials.ts `LAVA`, the constants the terrain shader draws the lava by)
+    expect(LAVA_BLOOM_ENDS).toBeCloseTo(2.25, 2);
+    expect(LAVA_BLOOM_ENDS).toBeLessThan(LAVA.crust[1]);
+    // past it nothing of the lava feeds the bloom, on any ground under the knee, however much of a pixel is lava
+    for (let t = LAVA_BLOOM_ENDS; t <= LAVA.fade[1] + 1; t += 0.01) expect(bloomLift(lavaSourceMax(t)), `${t}`).toBe(0);
+    // just before it, some does; while it erupts (its cooling not begun) its middle feeds the bloom its most
+    expect(bloomLift(lavaSourceMax(LAVA_BLOOM_ENDS - 0.06))).toBeGreaterThan(0);
+    expect(lavaSourceMax(0)).toBeGreaterThan(GAME_BLOOM.clamp);
+    // the bound is the shader's own sum: the lava at its most share at the hottest, red channel
+    expect(lavaSourceMax(0, 0)).toBeCloseTo(LAVA.hot[0] * LAVA.most, 6);
   });
 });

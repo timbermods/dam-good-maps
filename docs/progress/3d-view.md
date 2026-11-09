@@ -587,35 +587,45 @@ Standard's shadow before a cave (item 8).
     source by the dither, as it has no coverage there). The canvas alone could not carry it: the chain reaches 255 from a
     display value of 1.28, under the knee's middle. An eruption's lava blooms as everything does.
   - **Drawn only when something can pass the knee** (D453): by day nothing does, so the passes would change no pixel and
-    are skipped; `renderer.ts` `blooms` draws them only while an eruption's lava gives off light (its age set, its
-    cooling short of `LAVA_CRUST`'s end). Measured with the passes forced on, about 2,900 day views (the start, ruins,
-    mines, every tree, clean water and its sources, a Badtide's water, both looks): the brightest source 1.28 (a water
-    glint), the start up close 1.270, and the bloom's result 0 or under a code (the start up close: 4 × 10⁻⁶), the
-    canvas the same to the byte. `tests/unit/bloom.test.ts` holds it: every model colour a face can turn to the sun, lit
-    as the game lights it, under the knee (the brightest, a mine's pale rubble, 1.262); the ruins' rust skeleton
-    (upright, 1.282 square to the sun), a mine's pale roots and the birch's bark (1.37 on a trunk square to the sun; the
-    game's bark is a warm grey, mean 0.525/0.474/0.392, `tools/game-model-albedo.py BirchMature`, ours near-white: still
-    to follow) held at their bounds; the sky's densest clouds 1.271, which move no code.
+    are skipped; `renderer.ts` `blooms` draws them only while an eruption's lava can pass the knee: its age set and its
+    cooling short of 2.25 s (`bloom.ts` `LAVA_BLOOM_ENDS`), past which its light at its most share of a pixel, on ground
+    at the knee, stays under it (`lavaSourceMax`, from `LAVA` in materials.ts, the constants the terrain shader draws
+    the lava by, so the two can't drift; its crust ends at 5.8 s). Measured with the passes forced on, about 2,900 day
+    views (the start, ruins, mines, every tree, clean water and its sources, a Badtide's water, both looks): the
+    brightest source 1.28 (a water glint), the start up close 1.270, and the bloom's result 0 or under a code (the start
+    up close: 4 × 10⁻⁶), the canvas the same to the byte. `tests/unit/bloom.test.ts` holds it: every model colour a face
+    can turn to the sun, lit as the game lights it, under the knee (the brightest, a mine's pale rubble, 1.262); the
+    ruins' rust skeleton (upright, 1.282 square to the sun), a mine's pale roots and the birch's bark (1.37 on a trunk
+    square to the sun; the game's bark is a warm grey, mean 0.525/0.474/0.392, `tools/game-model-albedo.py BirchMature`,
+    ours near-white: still to follow) held at their bounds; the sky's densest clouds 1.271, which move no code.
     `tests/e2e/look-high.spec.ts` checks the frame by day is skipped and the same to the byte with the passes and
     without, and that an eruption's lava draws them.
   - **The colours bloom found** (D178, D496's rule: the game's albedo at our lightness; `tools/game-model-albedo.py`
     reads a model's Timbermesh and its material, EnvironmentURP's 2 × detail × vertex colour × `_MainTex` × `_Color`,
     VegetationURP's vertex colour × `_MainTex`, area-weighted over each triangle): the start's marker
-    (StartingLocationMaterial's `_Color` 0.5 halves its texture's greys: walls 0.395, trim 0.42, roof 0.48, the
-    openings 0.18; ours had taken the texture's 0.79 to 0.96 and stood near-white), High's berries (the blue of the
-    game's blueberry texture, 0.294/0.302/0.414; ours were #7f9bff; the grown model maps almost none of it, 0.1 % of
-    its area) and the ruins' panels (RuinColumnA–E's lightest tenth, 0.507/0.430/0.272; ours were #E3CF96). Before,
-    the bloom at the game's values would have lifted up to 1.39 % of our frames by 2 luma (+90 luma at most on High's
-    berries, +62 round the start in High); with them, no day frame of ours reaches the knee but by its foot (below; the start from 11 to 42,
-    crowns and bushes close up, two maps, both looks: the brightest 1.26 of a knee at 1.269), as the game's own lift
-    at most 0.21 % of a frame by day, median none (the probe's 680 day-lit start shots, an upper bound).
-  - Its cost** (`npx tsx` of a probe, RTX 2070 SUPER, 1280 × 800, River Valley 256² with dense forest and ruins,
+    (StartingLocationMaterial's `_Color` 0.5 halves its texture's greys: walls 0.395, trim 0.42, roof 0.48, the openings
+    0.18; ours had taken the texture's 0.79 to 0.96 and stood near-white), High's berries (the blue of the game's
+    blueberry texture, 0.294/0.302/0.414; ours were #7f9bff; the grown model maps almost none of it, 0.1 % of its area)
+    and the ruins' panels (RuinColumnA–E's lightest tenth, 0.507/0.430/0.272; ours were #E3CF96). Before, the bloom at
+    the game's values would have lifted up to 1.39 % of our frames by 2 luma (+90 luma at most on High's berries, +62
+    round the start in High); with them, no day frame of ours reaches the knee but by its foot (above; the start from 11
+    to 42, crowns and bushes close up, two maps, both looks: the brightest 1.26 of a knee at 1.269), as the game's own
+    lift at most 0.21 % of a frame by day, median none (the probe's 680 day-lit start shots, an upper bound).
+  - **Its cost** (`npx tsx` of a probe, RTX 2070 SUPER, 1280 × 800, River Valley 256² with dense forest and ruins,
     orbiting, the same build with it off and on, two rounds each): by day, skipped, dev's: p50 7.00 ms, p95 7.02, the
     page's time 0.96 ms in Standard and 1.26 in High against 0.96 and 1.38 without it, the GPU's 3.5 and 3.0 against 3.7
     and 3.1. While lava glows (its passes forced on, as they cost the same whatever they find): the frame holds dev's in
     both looks, p50 7.00 ms and p95 7.03 at the display's 144 Hz either way; the page's time a frame +0.6 ms in Standard
     (0.95 → 1.54) and +0.7 in High (1.13 → 1.85); the GPU's timer +1.4 ms in High (3.1 → 4.5) and no higher in Standard
     (4.1 → 3.2, inside its spread). Standard keeps it (D453).
+  - **Its cost in software drawing** (`fix/bloom-eruption-cost`, after dev's run 42533061501 timed out the eruption pair
+    of forces.spec.ts's "clicked quickly" at 180 s on CI's software drawing): under SwiftShader (1280 × 653, Standard)
+    a frame takes 165 ms without the passes and 300 with them: the source 53, the composite 55 (33 of it its full-size
+    bicubic read), the pyramid about 25, its deepest levels under 1 ms each, so fewer levels would save nothing
+    measurable. So the cut is in how many frames draw it: an eruption's lava passed the gate to its crust's end
+    (5.8 s), and now to 2.25 s. The eruption pair locally, two rounds each: 37 and 29 frames with the bloom before,
+    17 and 15 after; its two eruptions played in 16.7 and 18.2 s before, 7.0 and 6.0 s after. The spec's phase log
+    (`[phases] forces clicked quickly ...`) prints each force's time and its frames with the bloom.
 - **The game's sky** (`fix/game-sky`, after #734): its camera's skybox, read from its pixel program (shader path
   1816, `D3DDisassemble`). Its colour by the view's height is the strip "DayCycleSkybox_8k_Manual" (16 × 8192,
   RGBAHalf) at `_DayProgress` 0.2, the day (`tools/game-sky.ts` prints the 145 heights `GAME_SKY.day` keeps); its
