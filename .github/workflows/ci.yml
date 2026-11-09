@@ -30,7 +30,7 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' && github.base_ref == 'dev' }}
 
-# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in seven shards, the
+# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in eight shards, the
 # Python oracle, generation, and the cross-engine determinism check with the Rust build. They fail only on
 # breakage. The heaviest checks run nightly (nightly.yml): the long property runs, the full oracle and the
 # 100-seed batches.
@@ -141,13 +141,13 @@ jobs:
     needs: changes
     # (not on a pull request into dev: the browser specs run on dev's tip once it merges)
     if: needs.changes.outputs.heavy == 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'dev')
-    name: browser (${{ matrix.shard }}/7)
+    name: browser (${{ matrix.shard }}/8)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -158,8 +158,8 @@ jobs:
       - uses: ./.github/actions/playwright
         with:
           browsers: chromium
-      - name: Browser tests, shard ${{ matrix.shard }} of 7 (Node and Chromium produce the same bytes)
-        run: npx playwright test --shard=${{ matrix.shard }}/7
+      - name: Browser tests, shard ${{ matrix.shard }} of 8 (Node and Chromium produce the same bytes)
+        run: npx playwright test --shard=${{ matrix.shard }}/8
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
