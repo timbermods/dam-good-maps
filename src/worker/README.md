@@ -32,7 +32,8 @@ says are the core's (D342).
 - `naturalize.worker.ts`: Naturalize's weathering (D422, #868) in a worker of its own, never the map's, so a stroke's
   dabs never wait behind the map's water: the page sends a stroke's start with its own terrain and shown heights, then
   its dabs; the preview is the core's (`core/features/raster/remoteStroke.ts` `WeatherStroke`), the page's side
-  `RemotePreview`. The page starts it with `platform/index.ts` `naturalizer`.
+  `RemotePreview`. The page starts it with `platform/index.ts` `naturalizer`, and `restartNaturalizer` starts it again
+  when it never answered a stroke in time (#884).
 - `checks.worker.ts`: the checks' own worker, a replica of the open map that follows the editor's log (`follow`,
   `replicaCheck`). A check waits for every follow sent before it, and a second ask for the same map shares the check
   in progress (#829).

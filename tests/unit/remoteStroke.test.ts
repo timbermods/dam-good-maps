@@ -3,8 +3,8 @@
 // seconds behind the cursor; and the worker, pressing a batch dab by dab, builds exactly the land (and
 // the record) it built from one call a batch, so what the page shows is what the operation builds.
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { RemotePreview, WeatherStroke, type WeatherChannel, type WeatheredLand } from "../../src/core/features/raster/remoteStroke";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ANSWER_WAIT_MS, answerBound, RemotePreview, WEATHER_SILENT, WeatherStroke, type WeatherChannel, type WeatheredLand } from "../../src/core/features/raster/remoteStroke";
 import { integrityCandidate, StrokePreview, type TerrainState } from "../../src/core/features/raster/strokePreview";
 import { integrityAt } from "../../src/core/features/raster/terrain";
 import type { BrushParams, Rect } from "../../src/core/features/raster/brush";
@@ -445,5 +445,154 @@ describe("a stroke on its way to the history (#880)", () => {
     for (let k = 0; k < 20; k++) await frames(2);
     expect(log.slice(before)).toEqual(["cancel"]);
     expect(painter.busy).toBe(false);
+  });
+});
+
+describe("a worker that never answers (#884)", () => {
+  /** A worker that takes the stroke's start, then answers nothing (it died, or hangs), or answers each kind of call
+   *  the given ms after it is sent: what was sent, in order, and how often it was started again. */
+  function silentChannel(late: { add: number; finish: number; end: number } | null = null) {
+    const sent: string[] = [];
+    let restarts = 0;
+    const answer = <T,>(kind: "add" | "finish" | "end", v: T) => (sent.push(kind), late === null ? new Promise<T>(() => {}) : new Promise<T>((resolve) => setTimeout(() => resolve(v), late[kind])));
+    const channel: WeatherChannel = {
+      begin: () => (sent.push("begin"), Promise.resolve()),
+      add: () => answer("add", null),
+      finish: () => answer("finish", null),
+      end: () => answer("end", null),
+      cancel: () => void sent.push("cancel"),
+      restart: () => void restarts++,
+    };
+    return { channel, sent, restarts: () => restarts };
+  }
+  afterEach(() => vi.useRealTimers());
+
+  it("let go, it waits for a call only as long as the call can take, then is taken back and the worker started again", async () => {
+    vi.useFakeTimers();
+    const { channel, sent, restarts } = silentChannel();
+    const heights = new Uint8Array(W * W).fill(3);
+    let landed = 0;
+    const p = new RemotePreview(settings(), heights, W, W, [], channel, () => landed++, new Uint8Array(W * W), new Uint8Array(W * W));
+    p.add([4, 4]);
+    p.finish([]);
+    let result: boolean | null = null;
+    void p.done().then((r) => (result = r));
+    await vi.advanceTimersByTimeAsync(answerBound(1, 5) - 5);
+    expect(result).toBe(null);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(result).toBe(false);
+    expect(p.silent).toBe(true);
+    expect(sent).toEqual(["begin", "add", "cancel"]);
+    expect(restarts()).toBe(1);
+    expect(landed).toBe(0);
+    expect(heights.every((v) => v === 3)).toBe(true);
+  });
+
+  it("a slow worker that answers within the bound is waited for: a 30-dab batch at Size 128, 12 s a call", async () => {
+    vi.useFakeTimers();
+    // (measured, #884: such a batch took 2.2 s)
+    expect(answerBound(30, 128)).toBeGreaterThan(12000);
+    const { channel, sent, restarts } = silentChannel({ add: 12000, finish: 0, end: 50 });
+    const p = new RemotePreview({ ...settings(), size: 128 }, new Uint8Array(W * W), W, W, [], channel, () => {}, new Uint8Array(W * W), new Uint8Array(W * W));
+    p.add(Array.from({ length: 60 }, (_, k) => k % 8));
+    let result: boolean | null = null;
+    void p.done().then((r) => (result = r));
+    await vi.advanceTimersByTimeAsync(12000 + 100);
+    expect(result).toBe(true);
+    expect(p.silent).toBe(false);
+    expect(sent).toEqual(["begin", "add", "end"]);
+    expect(restarts()).toBe(0);
+  });
+
+  it("its end, which costs nothing, waits only a call's few seconds", async () => {
+    vi.useFakeTimers();
+    const { channel, sent, restarts } = silentChannel({ add: 0, finish: 0, end: ANSWER_WAIT_MS + 1000 });
+    const p = remote(channel);
+    p.add([4, 4]);
+    let result: boolean | null = null;
+    void p.done().then((r) => (result = r));
+    await vi.advanceTimersByTimeAsync(ANSWER_WAIT_MS - 100);
+    expect(result).toBe(null);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(result).toBe(false);
+    expect(sent).toEqual(["begin", "add", "end", "cancel"]);
+    expect(restarts()).toBe(1);
+  });
+
+  /** The page's painter with that worker: a Naturalize stroke painted on the hill and let go. */
+  async function letGoSilent() {
+    const { state, heights, N } = land();
+    const shown = heights.slice();
+    const log: string[] = [];
+    const { channel, sent, restarts } = silentChannel();
+    const renderer = new Proxy({ heightAt: (x: number, y: number) => shown[y * N + x], pickAtLevel: (x: number, y: number, level: number) => ({ x: Math.floor(x), y: Math.floor(y), point: [x, level, -y] }), slice: null } as Record<string, unknown>, {
+      get: (t, k) => (k in t ? t[k as string] : () => {}),
+    }) as unknown as MapRenderer;
+    const painter = new BrushPainter({
+      renderer,
+      W: N,
+      H: N,
+      heights: () => shown,
+      terrain: () => state,
+      settings: () => ({ ...DEFAULT_BRUSH, tool: "naturalize", strength: 10 }),
+      commit: () => void log.push("commit"),
+      picked: () => {},
+      strength: () => {},
+      painting: (on) => void log.push(on ? "painting" : "painted"),
+      draft: () => void log.push("draft"),
+      cancelDraft: () => void log.push("cancelDraft"),
+      refuse: (text) => void log.push(`refuse: ${text}`),
+      objectGround: () => [],
+      weather: channel,
+    });
+    const ev = (x: number, y: number) => ({ button: 0, clientX: x, clientY: y, pointerType: "mouse", shiftKey: false, ctrlKey: false, metaKey: false }) as unknown as PointerEvent;
+    const hit = (x: number, y: number): TileHit => ({ x: Math.floor(x), y: Math.floor(y), point: [x, shown[Math.floor(y) * N + Math.floor(x)], -y], face: "top", t: 0 });
+    const stroke = async () => {
+      painter.tool.down(hit(8.5, 16.5), ev(8.5, 16.5));
+      for (let x = 9.5; x <= 20.5; x += 1) {
+        painter.tool.move(hit(x, 16.5), ev(x, 16.5));
+        await vi.advanceTimersByTimeAsync(8);
+      }
+      painter.tool.up(hit(20.5, 16.5), ev(20.5, 16.5));
+    };
+    await stroke();
+    return { painter, log, sent, restarts, shown, heights, stroke };
+  }
+  const raf = globalThis.requestAnimationFrame;
+  const caf = globalThis.cancelAnimationFrame;
+  beforeEach(() => {
+    globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => setTimeout(() => cb(performance.now()), 0) as unknown as number) as typeof requestAnimationFrame;
+    globalThis.cancelAnimationFrame = ((h: number) => clearTimeout(h)) as typeof cancelAnimationFrame;
+  });
+  afterEach(() => {
+    globalThis.requestAnimationFrame = raf;
+    globalThis.cancelAnimationFrame = caf;
+  });
+
+  it("the undo waiting for it goes ahead once it is taken back with one line, and the next stroke paints", async () => {
+    vi.useFakeTimers();
+    const { painter, log, sent, restarts, shown, heights, stroke } = await letGoSilent();
+    expect(painter.busy).toBe(true);
+    void painter.afterLanding(() => void log.push("undo"));
+    // (a few seconds on: still waiting, and a new stroke waits too)
+    await vi.advanceTimersByTimeAsync(ANSWER_WAIT_MS - 1000);
+    expect(log).not.toContain("undo");
+    const begun = sent.filter((s) => s === "begin").length;
+    await stroke();
+    expect(sent.filter((s) => s === "begin").length).toBe(begun);
+    // (past the bound: taken back as Esc takes one back, the one line said, then the undo)
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(log).toContain("undo");
+    expect(log).not.toContain("commit");
+    expect(log.filter((s) => s.startsWith("refuse"))).toEqual([`refuse: ${WEATHER_SILENT}`]);
+    expect(log).toContain("cancelDraft");
+    expect(log.indexOf("undo")).toBeGreaterThan(log.indexOf(`refuse: ${WEATHER_SILENT}`));
+    expect(sent.at(-1)).toBe("cancel");
+    expect(restarts()).toBe(1);
+    expect(Buffer.from(shown).equals(Buffer.from(heights))).toBe(true);
+    expect(painter.busy).toBe(false);
+    // the next stroke starts on the worker started again
+    await stroke();
+    expect(sent.filter((s) => s === "begin").length).toBe(begun + 1);
   });
 });

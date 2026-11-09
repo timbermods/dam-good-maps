@@ -211,7 +211,7 @@ const api = {
   applyAll: routed((ops: EditOp[], label: string, origin?: OpOrigin) => sendUpdate(ed.applyAll(ops, label, origin)), (...a) => collabEditApi.applyAll(...a).then(sendUpdate)),
   undo: routed(() => sendUpdate(ed.undo()), () => collabEditApi.undo().then(sendUpdate)),
   redo: routed(() => sendUpdate(ed.redo()), () => collabEditApi.redo().then(sendUpdate)),
-  jump: routed((index: number) => sendUpdate(ed.jump(index)), (...a) => sendUpdate(collabEditApi.jump(...a))),
+  jump: routed((index: number, step?: number) => sendUpdate(ed.jump(index, step)), (...a) => sendUpdate(collabEditApi.jump(...a))),
   /** A version of the open map at History step `k`, for Your maps (Keep this version, Branch from here). */
   keepVersion(k: number, parentId?: string) {
     const v = ed.keepVersion(k, parentId);

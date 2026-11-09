@@ -157,7 +157,7 @@ export function StartIndicators({ check, rules }: { check: StartCheck; rules: { 
 /** Why a step cannot be kept on a map whose replay differed (D455). */
 const NO_KEEP = "Only the step the map is at can be kept here";
 
-export function HistoryPanel({ info, onJump, onKeep, onClose }: { info: SessionInfo; onJump(index: number): void; onKeep?(step: number, branch: boolean): void; onClose(): void }) {
+export function HistoryPanel({ info, onJump, onKeep, onClose }: { info: SessionInfo; onJump(index: number, step?: number): void; onKeep?(step: number, branch: boolean): void; onClose(): void }) {
   const current = info.history.filter((h) => h.applied).length - 1;
   // opening on a long list: the step the map is at is in view, not the top of the list
   const panel = useRef<HTMLElement>(null);
@@ -167,13 +167,14 @@ export function HistoryPanel({ info, onJump, onKeep, onClose }: { info: SessionI
   const orphanNotes = info.orphans.filter((o) => !info.history.some((h) => h.seq === o.seq && h.orphaned));
   /** A step as a row: the one the map is at is selected (the panel's own look for the thing you are on). Beside it, Keep
    *  and Branch take the map as it stood at that step into Your maps (a copy; the open map stays where it is), and
-   *  Branch opens the copy; they show on the row pointed at, focused, or the map is at. */
-  const row = (label: string, at: number, title: string, undone = false) => {
+   *  Branch opens the copy; they show on the row pointed at, focused, or the map is at. A row's jump carries its step
+   *  (`step`, the step's first operation), found again when the jump runs (#884). */
+  const row = (label: string, at: number, title: string, undone = false, step?: number) => {
     // (a map whose replay differed keeps only the step it stands at, D455)
     const cannot = !!info.keepOnlyHere && at !== current;
     return (
     <div class="hist-item">
-      <button type="button" class={`hist-row${undone ? " undone" : ""}`} aria-current={current === at ? "true" : undefined} {...tip(title)} onClick={() => onJump(at)}>
+      <button type="button" class={`hist-row${undone ? " undone" : ""}`} aria-current={current === at ? "true" : undefined} {...tip(title)} onClick={() => onJump(at, step)}>
         {label}
       </button>
       {onKeep ? (
@@ -201,7 +202,7 @@ export function HistoryPanel({ info, onJump, onKeep, onClose }: { info: SessionI
         <li>{row(info.kind === "import" ? "Opened the map" : "The generated map", -1, "Go back to before any edit")}</li>
         {info.history.map((h, k) => (
           <li key={k}>
-            {row(h.label, k, h.applied ? "Go back to this step" : "Go forward to this step", !h.applied)}
+            {row(h.label, k, h.applied ? "Go back to this step" : "Go forward to this step", !h.applied, h.seq)}
             {h.orphaned ? <p class="orphan">No effect now: {h.orphaned}.</p> : null}
           </li>
         ))}

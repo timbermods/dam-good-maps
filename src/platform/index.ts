@@ -74,9 +74,21 @@ function waterHelpers(): { worker: Worker; port: MessagePort }[] {
 
 /** Naturalize's weathering (D422, #868): one worker for the page, never the map's, so a stroke's dabs never wait
  *  behind the map's water; made on the first call (the editor asks as it opens, so it is ready by the first stroke). */
-let naturalize: Remote<NaturalizeApi> | null = null;
+let naturalize: { worker: Worker; api: Remote<NaturalizeApi> } | null = null;
 export function naturalizer(): Remote<NaturalizeApi> {
-  return (naturalize ??= wrap<NaturalizeApi>(new Worker(new URL("../worker/naturalize.worker.ts", import.meta.url), { type: "module", name: "naturalize" })));
+  if (!naturalize) {
+    const worker = new Worker(new URL("../worker/naturalize.worker.ts", import.meta.url), { type: "module", name: "naturalize" });
+    naturalize = { worker, api: wrap<NaturalizeApi>(worker) };
+  }
+  return naturalize.api;
+}
+
+/** Naturalize's worker never answered a stroke in time (#884: it died or hangs): it ends, and a fresh one starts, warming
+ *  itself for the next stroke. */
+export function restartNaturalizer(): void {
+  naturalize?.worker.terminate();
+  naturalize = null;
+  naturalizer();
 }
 
 /** D329's background search: a generator worker of its own (no checks worker), so the editor's
