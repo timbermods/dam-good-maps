@@ -59,13 +59,14 @@ describe("water", () => {
     expect(high).not.toContain("microFlecks");
     expect(high).not.toMatch(/HW_(BAD_)?GLINT/);
     // see-through as the game's High quality draws it (Q8): the ground behind shows by 0.175 at the water's
-    // floor, thinning in step with depth to none at 5 levels; clearer toward the banks, and at a bank of water
-    // a level deep or shallower over a seventh of the bed shows through
+    // floor, thinning in step with depth to none at 5 levels, by the depth the view sees under the surface (viewDepth.ts,
+    // Q9 P3): clearer where it sees less, and at the foot of a bank facing the camera, where it sees none, over a
+    // seventh of the ground behind shows through (D148: by each bank's shallowing, 0.3 of the depth at a bank, before)
     for (const d of depths) {
-      expect(waterOpacity(d, 0)).toBeLessThan(1);
-      expect(waterOpacity(d, 0)).toBeLessThanOrEqual(waterOpacity(d, 1));
+      expect(waterOpacity(d, 0, 0)).toBeLessThan(1);
+      expect(waterOpacity(d, 0, 0)).toBeLessThanOrEqual(waterOpacity(d, 0, d));
     }
-    for (const d of [0.1, 0.25, 0.5, 1]) expect(waterOpacity(d, 0)).toBeLessThan(0.86);
+    for (const d of [0.1, 0.25, 0.5, 1]) expect(waterOpacity(d, 0, 0)).toBeLessThan(0.86);
     for (const d of [0.25, 1, 2.5, 5, 6]) expect(waterOpacity(d)).toBeCloseTo(1 - 0.175 * Math.max(0, 1 - d / 5), 9);
   });
 
@@ -76,7 +77,7 @@ describe("water", () => {
       expect(waterOpacity(d), `${d} deep`).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
       // the game shows the ground behind badwater as it does behind clean water (Q8; #38's murkier badwater
       // gave way to the game's see-through rule)
-      expect(waterOpacity(d, 1, 1)).toBeCloseTo(waterOpacity(d), 9);
+      expect(waterOpacity(d, 1)).toBeCloseTo(waterOpacity(d), 9);
     }
     // a sliver fades in (our anti-aliasing of a shore's edge): under the body's opacity, rising with depth to
     // it in one smooth curve, no step between neighbouring depths

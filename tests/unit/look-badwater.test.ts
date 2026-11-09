@@ -155,7 +155,7 @@ describe("badwater meeting clean water", () => {
     for (const m of meshAll(W, H, heights, sw, view)) for (let k = 0; k < m.quads * 4; k++) expect(m.data[k * 2 + 1]).toBe(0);
     // (as the game: under a hundredth bad, water is clean)
     for (const s of [0, 0.005, 0.01]) expect(waterTint(s)).toBe(0);
-    for (const d of [0.05, 0.25, 1, 3]) for (const fromBank of [0, 1]) expect(waterBody(d, 0, fromBank)).toEqual(waterBody(d, false, fromBank));
+    for (const d of [0.015, 0.05, 0.25, 1, 3]) expect(waterBody(d, 0)).toEqual(waterBody(d, false));
     // clean water far from badwater is 0 too, exactly
     const front = flat(W, H, (x) => (x < 3 ? 1 : 0));
     const b = blendedBadwater(W, H, front.sw);
@@ -274,7 +274,8 @@ describe("badwater's colour", () => {
     // the floor, none 5 levels deep; #38's murkier badwater gave way to the game's rule), a crimson
     // tint on a sliver
     for (const d of [0.25, 0.5, 1, 3]) expect(badwaterOpacity(d)).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
-    expect(badwaterOpacity(0.1, 0)).toBeLessThan(badwaterOpacity(0.1, 1));
+    // (more of the ground where the view sees less of it under the surface, viewDepth.ts; D148: toward a bank before)
+    expect(badwaterOpacity(1, 0.1)).toBeLessThan(badwaterOpacity(1));
     expect(badwaterOpacity(0.005)).toBeLessThan(badwaterOpacity(0.05));
     // matte: no glints (neither water has any, as the game's), a weaker sun glint and a trace of the sky
     expect(BADWATER).not.toHaveProperty("glints");
@@ -357,23 +358,24 @@ describe("badwater's colour", () => {
       if (d > 0) h = max === c[0] ? 60 * (((c[1] - c[2]) / d) % 6) : max === c[1] ? 60 * ((c[2] - c[0]) / d + 2) : 60 * ((c[0] - c[1]) / d + 4);
       return { h: h < 0 ? h + 360 : h, s: max > 0 ? d / max : 0 };
     };
-    for (const d of [0.05, 0.1, 0.25, 0.5, 0.8, 1, 1.25, 2, 3, 4.25])
-      for (const fromBank of [0, 0.2, 1]) {
+    // (at every depth the view sees under the surface, down to the foot of a bank facing the camera, viewDepth.ts; D148:
+    // the depths × each bank's shallowing, 0.3 at a bank, before the depth was the one seen along the view)
+    for (const d of [0.015, 0.03, 0.05, 0.075, 0.1, 0.15, 0.25, 0.5, 0.8, 1, 1.25, 2, 3, 4.25]) {
         for (let k = 0; k <= 200; k++) {
-          const c = waterBody(d, k / 200, fromBank);
+          const c = waterBody(d, k / 200);
           const { h, s } = hsv(c);
           // no hue from violet to magenta (250°–350°) with any visible colour in it (the game's own
           // straight mix crosses a faint mauve-grey; ours keeps blue under green once red is over it)
-          if (s > 0.03) expect(h > 250 && h < 350, `${d} deep, ${fromBank} from a bank, ${k / 200} bad: hue ${Math.round(h)}°`).toBe(false);
+          if (s > 0.03) expect(h > 250 && h < 350, `${d} deep, ${k / 200} bad: hue ${Math.round(h)}°`).toBe(false);
         }
         // three fifths bad reads warm: red above blue, an orange-red hue (red above blue by 8.5 codes
         // or more from seven tenths). D154 asked for a tenth to a quarter; the game greys first: at a tenth
         // its water is a darker teal-grey, its measured mixing zone, and it warms past a quarter, later
         // in our lighter shallows and darker deeps.
-        const c = waterBody(d, 0.6, fromBank);
+        const c = waterBody(d, 0.6);
         const { h } = hsv(c);
         expect(c[0] - c[2], `${d} deep, 0.6 bad`).toBeGreaterThan(3 / 255);
-        expect(waterBody(d, 0.7, fromBank)[0] - waterBody(d, 0.7, fromBank)[2], `${d} deep, 0.7 bad`).toBeGreaterThan(8.5 / 255);
+        expect(waterBody(d, 0.7)[0] - waterBody(d, 0.7)[2], `${d} deep, 0.7 bad`).toBeGreaterThan(8.5 / 255);
         expect(h < 45 || h > 355, `${d} deep, 0.6 bad: hue ${Math.round(h)}°`).toBe(true);
       }
     // on the way, a little bad, it passes near the game's measured mixing zone's teal-grey (#2E444C), its
@@ -403,9 +405,11 @@ describe("badwater's colour", () => {
       const shader = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite).fragmentShader;
       expect(shader).toContain(WATER_GLSL);
       expect(shader).toContain("float bad = waterTint(cont);");
-      expect(shader).toContain("vec3 murky = badwaterGlow(badwaterBody(depth), BADWATER_BODY, d, cont);");
+      // (badwater's body by the depth seen along the view, as the game's _DepthGradients ramp reads P3's depth; D148: by
+      // the column's before, with only its glow by the bank's shallowing)
+      expect(shader).toContain("vec3 murky = badwaterGlow(badwaterBody(d), BADWATER_BODY, d, cont);");
       expect(shader).toContain("vec3 c = waterBlend(body, murky, cont);");
-      expect(shader).toContain("alpha = mix(alpha, badwaterAlpha(depth, shore), bad);");
+      expect(shader).toContain("alpha = mix(alpha, badwaterAlpha(depth, d), bad);");
       // the old streaks of mixed water are gone, and our bubbles with them (Q9 P9): the game's emissive detail, the
       // pattern's G carried by the flow, unlit
       expect(shader).not.toContain("mixed");

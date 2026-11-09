@@ -80,6 +80,7 @@ import { RUN_LEVELS, type RunSoil } from "./runSoil";
 import { DITHER_GLSL, FADE_OFF, OBJECT_FADE_GLSL } from "./objectFade";
 import { FALL_MASK_GLSL } from "./fallMask";
 import { REFRACTION_GLSL, WATER_REFRACTION, refractionUniforms, type RefractionUniforms } from "./refraction";
+import { VIEW_DEPTH_GLSL } from "./viewDepth";
 
 const az = LIGHT.sunAzimuth;
 const ce = Math.cos(LIGHT.sunElevation);
@@ -1784,6 +1785,25 @@ ${hook(h, "wall")}          float py = fwidth(y);
           #endif
           wc *= (1.0 - 0.18 * seam) * (1.0 - 0.10 * vertical);
           c = mix(wc, top * 0.58, lip * 0.55);
+          #if !LITE
+            // a wall under the water in front of it (a bank's foot, a step in the bed) shows through the water as the
+            // ground behind does, as the game's High quality shows whatever lies behind (P13): overlaid with the water's
+            // own colour at the depth the view sees there, its surface over this point (viewDepth.ts: at the foot of a
+            // bank facing the camera, the band's), and desaturated. Clear water (an editing aid) shows it as it is.
+            if (!ceiling) {
+              vec2 wt = tile + out2;
+              vec4 dw = tileAt(wt);
+              float wd = waterDepthOf(dw);
+              float bd = heightOf(dw) + wd - vWorld.y;
+              float clrWall = clearWater;
+              if (clearAround.w > 0.5) clrWall = max(clrWall, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
+              if (wd > 0.0 && bd > 0.0 && clrWall < 0.999) {
+                vec2 g = wt + 0.5;
+                vec3 ww = waterBlend(cleanWaterBody(bd, waterAbsorb(bd)), badwaterBody(bd), ${hook(h, "filmShare", "texture2D(flowTex, g / mapSize).b")});
+                c = mix(c, waterGroundBehind(c, ww), 1.0 - clrWall);
+              }
+            }
+          #endif
           if (ceiling) light = gameLight(n, 0.0);
           else {
             sunHere = sunLit(g + out2 * 0.26, y);
@@ -1979,10 +1999,12 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       varying float vFlags;
       varying vec3 vNormal;
       varying vec3 vWorld;
+      varying float vFloor;
       ${SHORE_FILM_VERTEX_GLSL}
       void main() {
         vData = wdata;
         vFlags = wflags;
+        vFloor = wcut.x;
         vNormal = normal;
         vec4 w = modelMatrix * vec4(position, 1.0);
         // a still film drawn back from the shore, as the game's vertex shader moves it (shoreFilm.ts, Q9 V3): the mesh's
@@ -2032,6 +2054,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       varying float vFlags;
       varying vec3 vNormal;
       varying vec3 vWorld;
+      varying float vFloor;
       ${common(h)}
       ${WATER_GLSL}${WATER_FLOW_GLSL}${CAVE_FLOW}
       ${GAME_WATER_LIGHT}
@@ -2058,7 +2081,7 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
           return waterShareFrom(flowTex, mapSize, g, vnoise((g + ${f(WATER_SHARE_BLEND.noiseSpeed)} * time) * ${f(WATER_SHARE_BLEND.noiseScale)}));
         #endif
       }
-${WATER_SOURCE_GLSL}
+${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
       void main() {
         ${SUN_PX_GLSL}
         vec3 n = normalize(vNormal);
@@ -2106,8 +2129,8 @@ ${WATER_SOURCE_GLSL}
         // badwater with it, smoothly, never in streaks or patches, by the game's own tint (waterPalette.ts
         // WATER_BLEND): its colour (waterBlend), its opacity and its dull surface
         float bad = waterTint(cont);
-        // how far this point is from the tile's shores (1 in open water): the water shallows toward
-        // its banks
+        // how far this point is from the tile's shores (1 in open water): the refraction's reach and the clear water's
+        // line along its shore (an editing aid)
         vec2 fr = fract(g);
         float shore = 1.0;
         if (bitOf(vFlags, 1.0) > 0.5) shore = min(shore, 1.0 - fr.x);
@@ -2115,17 +2138,20 @@ ${WATER_SOURCE_GLSL}
         if (bitOf(vFlags, 4.0) > 0.5) shore = min(shore, 1.0 - fr.y);
         if (bitOf(vFlags, 8.0) > 0.5) shore = min(shore, fr.y);
         if (n.y < 0.5) shore = 1.0;
-        // (waterPalette.ts's waterBody and waterOpacity say the same, for the tests)
-        float d = waterSeenDepth(depth, shore);
+        // the depth the water is coloured and seen through by, as the game reads it (viewDepth.ts, Q9 P3): on its top,
+        // what the view sees under the surface down to the ground, so it falls to none at the foot of a bank facing the
+        // camera, over about 0.7 tile a level at the game's 55°, and stays whole to a bank the view passes over; the
+        // water's side its own (waterPalette.ts's waterBody and waterOpacity take it as given, for the tests)
+        float d = n.y > 0.5 ? waterViewDepth(g, vWorld.y, vFloor) : depth;
         // clean water: clear in the shallows (the bed shows through a light teal tint), a deep teal
         // body a level or so deep, navy where deep; badwater murky, the game's
         // crimson, lighter on a film and darker deeper by the game's _DepthGradients ramp (D496)
         float absorb = waterAbsorb(d);
-        vec3 murky = badwaterGlow(badwaterBody(depth), BADWATER_BODY, d, cont);
+        vec3 murky = badwaterGlow(badwaterBody(d), BADWATER_BODY, d, cont);
         vec3 body = cleanWaterBody(d, absorb);
         float bodyDepth = d;
         // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
-        // WATER_FILM.to deep (waterPalette.ts WATER_FILM; our anti-aliasing): its own depth, not the bank's
+        // WATER_FILM.to deep (waterPalette.ts WATER_FILM; our anti-aliasing): its own depth, not the one seen along the view
         float film = waterFilm(depth);
         float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);
         float foam = 0.0;
@@ -2160,7 +2186,7 @@ ${WATER_SOURCE_GLSL}
             gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
           #endif
           // badwater's opacity (the water's, as the game's: WATER_SURFACE.seeThrough), by how bad it is
-          alpha = mix(alpha, badwaterAlpha(depth, shore), bad);
+          alpha = mix(alpha, badwaterAlpha(depth, d), bad);
           #if LITE
             // (the light look follows the game's Low quality: no ground behind the water)
             alpha = max(alpha, film);
@@ -2178,7 +2204,7 @@ ${WATER_SOURCE_GLSL}
             // material, so no light or dark line marks it
             N *= 0.0;
             N.y = 1.0;
-            alpha = mix(alpha, badwaterAlpha(depth, 1.0), bad);
+            alpha = mix(alpha, badwaterAlpha(depth, depth), bad);
           } else {
             // the game's face sees the cliff right behind it: the colour of the water at its shallowest, its detail the
             // albedo the flow carries over the lip
