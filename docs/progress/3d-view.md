@@ -2843,6 +2843,62 @@ with our albedo 512² against the game's 2048²; our normal 1024² against the g
   the judge's spreads don't see it). (3) The pool's spread stays 2–3 % under the game's. (4) The albedo lands 1.3–1.6 s
   after the rest of the water's textures on a first visit.
 
+## The game's ambient probe, captured (D497 as amended 2026-11-09; `fix/game-ambient-sh`)
+
+Our light took the ambient as a projection we had worked out (the Trilight's gradient projected to L2 with the clamped
+cosine's convolution); its "falls short" waited on a capture of the probe the game itself holds.
+
+- **The capture** (DGM Probe 0.3.3, `investigation/probe/mod/src/LightReader.cs`, read only; run `20261109-2110-smoke`,
+  the M8 preview for one game day): every game hour and at each moment, `RenderSettings.ambientProbe`'s 27
+  coefficients, the probe evaluated by direction, the ambient's mode, intensity and colours, URP's globals and the sun.
+  The numbers are in investigation/notes/game-ambient-probe.md. Colour space Gamma, mode Trilight, three colour sets
+  through the day (day, sunset, night), one probe each.
+- **The engine's rule**, exact to 1e-7 on all three: the colours decoded to linear values, the probe by the normal's
+  height is E(y) = c0 + c1 y + c2 (3y² − 1) with c0 = (4 equator + sky + ground) / 6, c1 = √6/9 (sky − ground),
+  c2 = 5/96 (sky + ground − 2 equator); the stored probe is that polynomial (basis constants and convolution in it),
+  URP shows sRGB(E). `ambientIntensity` 1.2 is not in it (D497's "not applied" holds). The sun is as we had it
+  (colour × intensity, 1.1, 1.05875, 0.935 by day).
+- **What changed:** `palette.ts` `trilightSH` is the engine's rule, so `GAME_AMBIENT_SH` (the terrain's `gameLight` and
+  the water's `gameWaterLight`, every look: Standard, High and the light look) and the judge's other hours
+  (`tools/game-day-light.ts`) take it. By day, in display values, a top takes 0.825/0.827/0.986 (0.78/0.79/0.98
+  before), a wall 0.915/0.915/0.951 (0.84/0.83/0.91), an underside 0.731/0.723/0.748 (0.65/0.64/0.68). Objects keep
+  their own light, so `bloom.test.ts`'s bounds, which model them in the game's light, follow it: the pale rubble
+  (`MINE.rubble[2]`) passes the knee at its brightest normal in the game's light (1.303) and is held there with the
+  ruins' rust and the birch's bark, each at its value now; our frames, drawn in the objects' own light, are unchanged.
+- **Judged** (`tools/water-pixel-judge.ts --shade`, new: tops in a higher tile's shadow by the shot's sun and our
+  baked 45° alike, and walls toward the camera turned from the sun; batch `20261002-1610-batch`, the probe's water
+  pose; mean Rec. 709 luma of the samples, pooled, ours over the game's; bands whose registration fails, more than 25
+  luma off before, left out):
+  - by day (eight start shots: Canyon, Highlands, River Valley, Lake Basin, seeds 1 and 2), Standard / High:
+    cliffs (817 samples, mostly lit from the side) 0.925 → 0.953 / 0.911 → 0.938; walls turned from the sun (74)
+    0.966 → 0.996 / 0.958 → 0.987; dry tops in sun (4,912) 1.002 → 1.018 / 1.004 → 1.019; grass (137) 0.936 → 0.952 /
+    0.932 → 0.947. The game's camera looks with its sun, so these frames show almost no floor in shade (13 samples, all
+    registration failures).
+  - at sunrise (the hazards' ends, four shots), Standard / High: floors in shade (54) 0.976 → 1.019 / 0.967 → 1.009;
+    cliffs (661 / 608) 0.947 → 0.968 / 0.945 → 0.966; walls from the sun (54) 0.911 → 0.941 / 0.892 → 0.921; dry
+    tops in sun (4,611) 1.016 → 1.046 / 1.009 → 1.039.
+  - toward sunset (the games' ends, four shots, 45–55 % sunset), Standard / High: floors in shade (13) 0.959 → 0.986
+    / 0.941 → 0.966; cliffs (412) 0.965 → 0.984 / 0.948 → 0.967; walls from the sun (38) 0.994 → 1.021 / 0.972 →
+    0.997; grass 0.921 → 0.939 / 0.905 → 0.923; dry tops 1.026 → 1.044 / 1.022 → 1.040.
+  - the judge's land RMS by day: Standard grass 12.8 → 11.9, dry 12.6 → 12.8, cliff 20.9 → 19.7; High 14.6 → 13.7,
+    12.8 → 13.0, 21.4 → 20.2 (floors 16.7, 14.8, 21.8).
+  - caves and overhangs (`tools/capture-forms-read.ts`, Canyon 128² seed 1, 1920 × 1080, mean luma, before → after,
+    Standard / High): the floor under the cliff's overhang 52.5 → 55.5 / 51.3 → 54.3, and from under it 58.4 → 61.7
+    / 56.9 → 60.2, where the game's floors truly in shade read 57–62; the overhang's roofed walls 30.0 → 33.6 / 33.2 → 37.3, its ceiling 30.1 → 34.2 / 31.9 → 36.1; inside the
+    spring cave, all 41.5 → 44.6 / 39.9 → 43.1, its roofed floor 36.9 → 39.0 / 34.1 → 36.2.
+- **Cost:** none by construction (the shaders' constants change, not their work). `benchOrbit` on Canyon 128² seed 1,
+  1280 × 800, the GPU's time a frame (the median over 6 s), two rounds in opposite orders, dev (06a06b17) → this branch:
+  Standard 30 away 2.24, 2.10 → 2.37, 2.33 ms, 90 away 2.44, 2.52 → 2.20, 2.52; High 30 away 1.90, 1.92 → 1.83, 1.78,
+  90 away 2.36, 2.23 → 2.13, 2.22. Within the runs' noise; every frame 7.00 ms at the display's 144 Hz.
+- **Falls short:** (1) Dry tops in sun now read 2 % over the game's by day and 4 % at sunrise and toward sunset (1–3 %
+  before): the probe is the game's, so the rest lies in the sun's term or the ground's albedo, not the ambient. (2)
+  Cliffs still read 3–6 % under the game's and grass 5–8 %, the same shortfall in sun and in shade, so it is not the
+  ambient either. (3) The game's camera looks with its sun, so the day frames show almost no floor in shade; floors in
+  shade are judged on the sunrise frames (54 samples) and the overhang. (4) The capture's hourly records, taken at speed 99,
+  show some hours a stage late against the decompiled day stages (night still at 0.03 and 1.03, sunset still
+  at 19.00), as the colours are set once a frame and a frame there spans hours; the colours and the probe of each
+  record agree, which is what the rule needs, and the shots are taken paused.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
