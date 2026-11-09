@@ -642,7 +642,7 @@ export class BrushPainter {
 
   private begin(hit: TileHit, ev: PointerEvent): void {
     // (the last Naturalize stroke is still going to the worker, D422: a moment, then press again)
-    if (this.committing) return;
+    if (this.committing || this.dropped) return;
     const x = hit.x + 0.5;
     const y = hit.y + 0.5;
     const h = this.host;
@@ -1021,14 +1021,20 @@ export class BrushPainter {
       this.sendDraft(true);
       this.stroke = null;
       const preview = st.preview;
-      this.committing = preview
+      const landed = preview
         .settled()
         .then(() => {
+          if (this.dropped) return false;
           this.rideWhole(st);
           return preview.done();
         })
-        .then(() => this.finishEnd(st))
-        .finally(() => (this.committing = null));
+        .then((ok) => {
+          if (ok && !this.dropped) this.finishEnd(st);
+        })
+        .finally(() => {
+          if (this.committing?.preview === preview) this.committing = null;
+        });
+      this.committing = { preview, landed };
       return;
     }
     this.stroke = null;
@@ -1044,8 +1050,35 @@ export class BrushPainter {
     this.finishEnd(st);
   }
 
-  /** A Naturalize stroke still going to the worker (D422): a new stroke waits for it. */
-  private committing: Promise<void> | null = null;
+  /** A Naturalize stroke still going to the worker (D422): a new stroke waits for it, and so do an undo and a redo
+   *  (`afterLanding`, #880). `landed` resolves once it is on the history (or built nothing). */
+  private committing: { preview: RemotePreview; landed: Promise<void> } | null = null;
+  /** The editor closed (a new or opened map, #880): nothing it painted goes on to the next. */
+  private dropped = false;
+
+  /** `fn` (an undo or a redo) once the Naturalize stroke on its way has landed on the history, so it acts after the
+   *  stroke, as it does after every other brush's (#880), or now when none is on its way; never once the editor has
+   *  closed. */
+  afterLanding(fn: () => void | Promise<void>): void | Promise<void> {
+    const c = this.committing;
+    if (!c) return fn();
+    const go = () => (this.dropped ? undefined : fn());
+    return c.landed.then(go, go);
+  }
+
+  /** The editor closed (a new or opened map, #880): the stroke being painted and the one still on its way are
+   *  forgotten, as Esc forgets a stroke, so no land, draft or operation of theirs reaches the next map. Nothing is
+   *  drawn back: the page they were painted on is gone. */
+  drop(): void {
+    this.dropped = true;
+    const st = this.stroke;
+    this.stroke = null;
+    if (st) {
+      cancelAnimationFrame(st.raf);
+      if (st.preview instanceof RemotePreview) st.preview.restore();
+    }
+    this.committing?.preview.restore();
+  }
 
   /** The stroke's dabs are all in: it becomes one operation. */
   private finishEnd(st: StrokeState): void {
