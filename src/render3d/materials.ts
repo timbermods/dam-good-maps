@@ -2079,7 +2079,7 @@ ${WATER_SOURCE_GLSL}
         // are overlaid with: at xz × 0.015, not carried by the flow, in every look (the game's Low quality draws it too)
         waterDetail = waterDetailAt(g);
         // the game's own pattern over a seep or a badwater source (Q9 P7), on the water's top over it, in every look (the
-        // game's Low quality draws it too); under our rings and bubbles (D196), an editing aid drawn after it
+        // game's Low quality draws it too); under our rings and bubbles (D249, with Markers on), an editing aid drawn after it
         waterSource = n.y > 0.5 ? waterSourcePattern(g) : 0.0;
         // the game's waterfall mask here (fallMask.ts, Q9 P1: on the water a fall lands in), which takes off its camera
         // highlight and its refraction and shows less of the ground behind; none in the light look (the game's Low
@@ -2310,8 +2310,10 @@ ${hook(h, "water")}        #ifdef CAVES
         }
         // the game's layers: water above the slice is cut away (a column sliced by it lies on it: the vertex shader)
         if (vWorld.y > slice + ${f(CUT_SLACK)}) discard;
-        // every source wells up (D196): rings spreading from it and a few bubbles, on the water over
-        // it, so it is found even deep under water; brighter while the pointer's water comes from it
+        // every source wells up with Markers on (D249, D497: an editing aid in the information layer, never the
+        // look; the game draws nothing over a plain source): rings spreading from it and a few bubbles, on the water
+        // over it, so it is found even deep under water; with Markers off the water over it is the plain surface;
+        // brighter while the pointer's water comes from it (the hover's own channel, with or without Markers)
         #if !LITE
         if (n.y > 0.5) {
           vec2 st = floor(g);
@@ -2324,18 +2326,22 @@ ${hook(h, "water")}        #ifdef CAVES
               vec4 sv = texture2D(sourceTex, (sq + 0.5) / mapSize);
               if (sv.r + sv.g < 0.5) continue;
               float d = length(g - sq - 0.5);
-              float ph = fract(time * 0.35 + (sq.x * 0.37 + sq.y * 0.61));
-              float ph2 = fract(ph + 0.5);
-              float ring = (1.0 - smoothstep(0.0, 0.07, abs(d - ph * 1.4))) * (1.0 - ph) + (1.0 - smoothstep(0.0, 0.07, abs(d - ph2 * 1.4))) * (1.0 - ph2);
-              float bub = step(0.9, vnoise((g - sq) * 9.0 + vec2(0.0, -time * 1.6))) * (1.0 - smoothstep(0.08, 0.4, d));
-              float here = max(ring * 0.8, bub) * (1.0 - smoothstep(1.1, 1.5, d));
-              up = max(up, here);
-              badSrc = max(badSrc, sv.g * here);
+              if (markers > 0.5) {
+                float ph = fract(time * 0.35 + (sq.x * 0.37 + sq.y * 0.61));
+                float ph2 = fract(ph + 0.5);
+                float ring = (1.0 - smoothstep(0.0, 0.07, abs(d - ph * 1.4))) * (1.0 - ph) + (1.0 - smoothstep(0.0, 0.07, abs(d - ph2 * 1.4))) * (1.0 - ph2);
+                float bub = step(0.9, vnoise((g - sq) * 9.0 + vec2(0.0, -time * 1.6))) * (1.0 - smoothstep(0.08, 0.4, d));
+                float here = max(ring * 0.8, bub) * (1.0 - smoothstep(1.1, 1.5, d));
+                up = max(up, here);
+                badSrc = max(badSrc, sv.g * here);
+              }
               hl = max(hl, sv.b * (1.0 - smoothstep(0.25, 1.2, d)) * (0.55 + 0.45 * sin(time * 3.0)));
             }
-          vec3 uc = mix(WATER_FOAM, BADWATER_FOAM, step(0.01, badSrc));
-          c = mix(c, uc, up * 0.55);
-          alpha = max(alpha, mix(alpha, 0.85, up * 0.5));
+          if (markers > 0.5) {
+            vec3 uc = mix(WATER_FOAM, BADWATER_FOAM, step(0.01, badSrc));
+            c = mix(c, uc, up * 0.55);
+            alpha = max(alpha, mix(alpha, 0.85, up * 0.5));
+          }
           c = mix(c, WATER_SOURCE_GLOW, hl * 0.45);
           alpha = max(alpha, mix(alpha, 0.9, hl * 0.4));
         }

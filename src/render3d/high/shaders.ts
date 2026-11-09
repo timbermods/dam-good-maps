@@ -297,7 +297,7 @@ export function waterHooks(): ShaderHooks {
     // (after the shared palette's GLSL: the surface uses its blend)
     waterDecl: WATER_FUNCTIONS,
     // #38's water in place of the Standard surface, before clear water, the overlays, the layers
-    // and the sources' upwelling (those stay as the Standard look has them)
+    // and the sources' upwelling with Markers on (those stay as the Standard look has them)
     water: /* glsl */ `        if (hlWater > 0.5) {
           // (the water's diffuse share and clean water's detail overlay as this look draws them: waterPalette.ts
           // WATER_LIGHT.held and .detail, materials.ts gameWaterLight, gameWaterFormula)

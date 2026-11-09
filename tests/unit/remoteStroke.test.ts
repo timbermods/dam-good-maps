@@ -107,8 +107,7 @@ describe("the worker's stroke sends one call at a time (#868)", () => {
 
 /** A small map: a hill beside a pond, the water where it stands, shown as the build shows it (its
  *  integrity pass over the whole map). */
-function land(): { state: TerrainState; heights: Uint8Array; N: number } {
-  const N = 40;
+function land(N = 40, px = 28, py = 20): { state: TerrainState; heights: Uint8Array; N: number } {
   const pre = new Uint8Array(N * N);
   const water = new Float64Array(N * N);
   const moisture = new Float64Array(N * N);
@@ -117,11 +116,11 @@ function land(): { state: TerrainState; heights: Uint8Array; N: number } {
       const i = y * N + x;
       const hill = Math.max(0, 9 - Math.round(Math.hypot(x - 14, y - 18) / 2));
       pre[i] = 3 + hill + ((x * 7 + y * 13) % 3 === 0 ? 1 : 0);
-      if (Math.hypot(x - 28, y - 20) < 5) {
+      if (Math.hypot(x - px, y - py) < 5) {
         pre[i] = 2;
         water[i] = 1.5;
       }
-      moisture[i] = Math.max(0, 1 - Math.hypot(x - 28, y - 20) / 12);
+      moisture[i] = Math.max(0, 1 - Math.hypot(x - px, y - py) / 12);
     }
   const state: TerrainState = { pre, protect: new Uint8Array(N * N), channel: new Uint8Array(N * N), base: null, locked: null, columns: new Int32Array(0), water, moisture, top: 16 };
   const heights = pre.slice();
@@ -157,7 +156,7 @@ function workerChannel(state: TerrainState, heights: Uint8Array, N: number): Wea
       }),
     add: (dabs, pressure) => turn(() => land(w!.preview.add(dabs, pressure))),
     finish: (rigid) => turn(() => land(w!.preview.finish(rigid))),
-    end: () => turn(() => ({ pre: w!.preview.pre.slice(), protect: w!.preview.protect.slice() })),
+    end: () => turn(() => ({ pre: w!.preview.pre.slice(), protect: w!.preview.protect.slice(), settings: { ...w!.settings } })),
     cancel: () => (w = null),
   };
 }
@@ -203,5 +202,39 @@ describe("a batch builds the land one call a batch built (D422, #868)", () => {
     expect(JSON.stringify(record)).toBe(JSON.stringify(one));
     // (and the stroke did change the land)
     expect(p.changed()).toBeGreaterThan(0);
+  });
+});
+
+describe("the page's record is the worker's, whatever its last call changed (#873)", () => {
+  it("a last batch over the water that changes no tile still grows the record the operation keeps", async () => {
+    const { state, heights, N } = land(64, 52, 20);
+    // the stroke across the hill, then dabs out over the pond's flat floor, where nothing weathers
+    const dabs = strokeDabs();
+    const over: number[] = [];
+    for (let y = 18; y <= 22; y++) over.push(52 * 4 + 2, y * 4 + 2);
+    // the worker's record (and land), as one preview of every dab builds it
+    const recordWorker = settings();
+    const shownWorker = heights.slice();
+    const worker = new StrokePreview(recordWorker, { ...state, pre: state.pre.slice() }, shownWorker, N, N, []);
+    worker.add(dabs);
+    const recordBeforeOver = JSON.stringify(recordWorker);
+    expect(worker.add(over)).toBe(null);
+    // (those dabs grew the record and changed nothing: the case the page missed)
+    expect(JSON.stringify(recordWorker)).not.toBe(recordBeforeOver);
+    // the page: the stroke, its answer in, then the batch over the water as its own last call
+    const shown = heights.slice();
+    const record = settings();
+    const rects: Rect[] = [];
+    const p = new RemotePreview(record, shown, N, N, [], workerChannel(state, heights, N), (r) => rects.push(r), state.pre.slice(), state.protect);
+    p.add(dabs);
+    await p.settled();
+    const landed = rects.length;
+    p.add(over);
+    await p.settled();
+    expect(rects.length).toBe(landed);
+    p.finish([]);
+    await p.done();
+    expect(Buffer.from(shown).equals(Buffer.from(shownWorker))).toBe(true);
+    expect(JSON.stringify(record)).toBe(JSON.stringify(recordWorker));
   });
 });
