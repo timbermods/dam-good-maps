@@ -168,10 +168,10 @@ const STEP = 0.02;
 /** Water within this of a tile's surface is the same water: it shares depth and badwater at the
  *  corners, and the badwater blend reaches across it. */
 const SAME_WATER = 0.35;
-/** A curtain this tall or more (its drop in its flags, `dropFlags`) is drawn as the water's side in its shallowest
- *  colour, nearly opaque, kept below a layer cut; a shorter one fades out as it shortens (materials.ts,
- *  high/shaders.ts). Since falls are slopes (fallSlope.ts) a curtain hangs only toward lower dry ground and at the
- *  map's edge (toward water, a skirt: `SKIRT_FLAGS`). */
+/** A curtain this tall or more (its drop in its flags, `dropFlags`) is kept below a layer cut; a shorter one fades out
+ *  as it shortens. Every curtain but the map's edge section is drawn as the water's surface going on, as the game's
+ *  skirt (materials.ts, high/shaders.ts). Since falls are slopes (fallSlope.ts) a curtain hangs only toward lower dry
+ *  ground and at the map's edge (toward water, a skirt: `SKIRT_FLAGS`). */
 export const FALL = 0.3;
 
 /** A skirt's flags (its drop, as a curtain's): never as tall as a fall, so it is drawn as the water's own surface going
@@ -414,7 +414,7 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
         if (slope) slopeTop(b, grid, x, y, f, flags, k0, k1, k2, k3, moved ? [m0, m1, m2, m3] : null);
         else b.quad4([x, s, -y, x + 1, s, -y, x + 1, s, -(y + 1), x, s, -(y + 1)], [k0[0], k1[0], k2[0], k3[0]], [c0, c1, c2, c3], f, [k0[2], k1[2], k2[2], k3[2]], 0, 1, 0, flags, sh(m0, m1, m2, m3));
         // curtains toward lower dry neighbours and the map's edge: down to the ground, never below the floor, with the
-        // badwater share of the top's edge it hangs from, its top along the top's edge (a slope's too). Toward a wet
+        // tile's own badwater share, its top along the top's edge (a slope's too). Toward a wet
         // neighbour, a skirt where this top's edge stands over the neighbour's (`STEP` or more) at a vertex they share,
         // down to the neighbour's there, as the game's water vertex shader drops each tile's side skirt to the
         // neighbour's height at that vertex: water meets water by the slope, but where their corners' links differ (a
@@ -445,11 +445,10 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
           // the side's ends A and B (map axes), the corners there, and its vertices along it in a slope's grid (the
           // neighbour's same vertices: its opposite side's, backwards)
           const O = CURTAIN_SIDES[k ^ 1].grid;
-          // (a fall's slope's sides and any skirt take the tile's own badwater share, the fall's handed over, as the
-          // game's skirt takes its own tile's properties: never the corners' blend with the water beside it)
-          const own = slope || wet;
-          const ca = own ? c : [c0, c1, c2, c3][S.a];
-          const cb = own ? c : [c0, c1, c2, c3][S.b];
+          // (every side takes the tile's own badwater share, a fall's handed over, as the game's skirt takes its own
+          // tile's properties: never the corners' blend with the water beside it, D154)
+          const ca = c;
+          const cb = c;
           const ma = [m0, m1, m2, m3][S.a];
           const mb = [m0, m1, m2, m3][S.b];
           const segments = slope || nearSlope ? 3 : 1;

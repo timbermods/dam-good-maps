@@ -2245,7 +2245,7 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
         #endif
         vec3 c = waterBlend(body, murky, cont);
         // the game's own highlight on the ripples, added to the colour before its light (and again after it); none on
-        // the water's side nor on a fall's slope and where it lands (the game's waterfall mask takes it off, Q9 P1 and P12, ps 814-862). Where
+        // the map edge's section nor on a fall's slope and where it lands (the game's waterfall mask takes it off, Q9 P1 and P12, ps 814-862). Where
         // the look draws the game's light (waterPalette.ts WATER_LIGHT.game), in the game's sun colour and lit by the
         // game's light, as its albedo is
         #if WATER_GAME_LIGHT

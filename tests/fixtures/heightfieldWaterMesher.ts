@@ -3,7 +3,7 @@
 // heightfieldMesher.ts does for the terrain. Its lower water (columns below a tile's surface water) is left
 // out: such a map has none. Since D201's amendment (2026-10-29) it draws a fall as the main mesher does, with no fall
 // instances or foam flags; since D154's of 2026-11-08, as the lower tile's slope (fallSlope.ts), with no curtain
-// between two waters (D148).
+// between two waters, and every side with the tile's own badwater share (D148).
 
 import { CHUNK } from "../../src/render3d/mesh";
 import type { SurfaceWater } from "../../src/render3d/model";
@@ -172,9 +172,9 @@ export function heightfieldWaterChunk(W: number, H: number, heights: Uint8Array,
             const ea = wet ? Math.min(ha, Math.max(f, nearSlope ? nearGrid.height[O[q]] : sn)) : e;
             const eb = wet ? Math.min(hb, Math.max(f, nearSlope ? nearGrid.height[O[q + 1]] : sn)) : e;
             if (wet ? !(Math.max(ha - ea, hb - eb) >= STEP) : !(lv < Math.max(ha, hb) - STEP)) continue;
-            // (a slope's sides and any skirt: the tile's own share, the fall's handed over)
-            const ca = slope || wet ? c : (1 - ta) * S.a + ta * S.b;
-            const cb = slope || wet ? c : (1 - tb) * S.a + tb * S.b;
+            // (every side: the tile's own share, a fall's handed over)
+            const ca = c;
+            const cb = c;
             const [ax, ay, bx, by] = [x + S.ax + (S.bx - S.ax) * ta, y + S.ay + (S.by - S.ay) * ta, x + S.ax + (S.bx - S.ax) * tb, y + S.ay + (S.by - S.ay) * tb];
             const fl = wet ? Math.min(Math.round(FALL * 30) - 1, dropFlags(Math.max(ha, hb), Math.min(ea, eb), false)) : dropFlags(Math.max(ha, hb), e, !inside);
             b.quad4([ax, ea, -ay, bx, eb, -by, bx, hb, -by, ax, ha, -ay], dd, [ca, cb, cb, ca], S.nx, 0, S.nz, fl);
