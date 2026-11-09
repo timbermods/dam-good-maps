@@ -30,7 +30,8 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' && github.base_ref == 'dev' }}
 
-# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in eight shards, the
+# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in eight shards and one job for
+# the specs that run alone, the
 # Python oracle, generation, and the cross-engine determinism check with the Rust build. They fail only on
 # breakage. The heaviest checks run nightly (nightly.yml): the long property runs, the full oracle and the
 # 100-seed batches.
@@ -135,8 +136,10 @@ jobs:
   # the app itself, twice, in its web server). Every spec runs in exactly one shard (`--shard=i/N`); the
   # split is by test count in file order (a file in parallel mode splits by test), so the same workflow suits any
   # branch. Raising the shard count is the fix if a branch's specs outgrow the 30 minutes a job gets, never a longer
-  # limit; the slowest specs (layout, look-high, textClipping) run in parallel mode so no shard holds them all on one
-  # worker. (Seven since 2026-10-27: with six, the shard holding layout and look-high ran past its 30 minutes twice.)
+  # limit; the slowest specs (layout, textClipping) run in parallel mode so no shard holds them all on one worker.
+  # (Seven since 2026-10-27: with six, the shard holding layout and look-high ran past its 30 minutes twice; eight since
+  # 2026-11-09, #893.) The shards run playwright.config.ts's "shared" project; its "alone" project (look-high) runs in
+  # `browser-alone` below.
   browser:
     needs: changes
     # (not on a pull request into dev: the browser specs run on dev's tip once it merges)
@@ -159,11 +162,42 @@ jobs:
         with:
           browsers: chromium
       - name: Browser tests, shard ${{ matrix.shard }} of 8 (Node and Chromium produce the same bytes)
-        run: npx playwright test --shard=${{ matrix.shard }}/8
+        run: npx playwright test --project=shared --shard=${{ matrix.shard }}/8
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report-${{ matrix.shard }}
+          path: playwright-report/
+          retention-days: 7
+
+  # The specs that need a runner's cores to themselves (playwright.config.ts's "alone" project: look-high), on one
+  # worker with nothing beside them. High drawn in software costs about three times as much with another spec on the
+  # runner's second worker, whatever that spec is: in dev's run 42592717654 (shard 4/8) look-high's tests took 2.5 to
+  # 3.5 times their time alone (:50 55.6 s → 2.4 min, :77 51 s → 3.1 min, past its 180 s; :183 1.4 → 4.4 min) beside
+  # naturalizeWorker, objectFade and objectWindow, where in shard 3/7 they had run last, alone. A job of their own keeps
+  # that true under any shard layout. About ten minutes of tests.
+  browser-alone:
+    needs: changes
+    if: needs.changes.outputs.heavy == 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'dev')
+    name: browser (alone)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/playwright
+        with:
+          browsers: chromium
+      - name: Browser tests that run alone (one worker)
+        run: npx playwright test --project=alone --workers=1
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-alone
           path: playwright-report/
           retention-days: 7
 

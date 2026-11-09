@@ -15,8 +15,8 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 // (its tests run one after another on one worker, never two at once: each draws High, which on CI's software drawing
 // costs 2 to 3 s a frame, and two of them side by side on the runner's four cores took the slow-frames test past its
-// budget, run 40601987187. With the clipping net in its own file the shards stay balanced: about 17 minutes of tests at
-// most, as with this file in parallel.)
+// budget, run 40601987187. Any other spec beside it does the same (run 42592717654), so on CI this file has a runner to
+// itself: playwright.config.ts's "alone" project, ci.yml's `browser-alone` job.)
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
