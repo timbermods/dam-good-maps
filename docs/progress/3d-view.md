@@ -1999,6 +1999,32 @@ the game's models in resources.assets (positions, materials and texture means on
   dark (0.21 against 0.15). The sun's turn moves Standard's areas by up to a fifth as a shadow's edge crosses the
   samples.
 
+## A dead plant casts its dead form (D497, D135; `fix/dead-shadows`)
+
+- **What it was.** A look review of River Valley 128² seed 1 found dead birches casting diamond-shaped shadows of a
+  crown they don't have, in High. Its cause: a plant that dies or starts dying in place (a held drought or badtide's
+  withering, the ground starting it dying, `HighLook.setPlantStates`) moved to its new form's batch, but High's depth
+  map was kept, so the plant went on casting the form the map was drawn with: for a birch seen from afar, its living
+  far model's two octahedra, the diamonds. It held until something else redrew the map (an edit, the sun's turn, the
+  objects hidden). Every species and both changes did the same: a dead pine cast its whorls, a dying oak its full
+  crown. Standard was right: its baked shadows are cast again from the objects as drawn (`bakeShadows`, a dead tree's
+  bare wood a post, `light.ts` `DEAD_KIND`).
+- **What it is now.** A change of state marks the depth map to be drawn again, as an edit does: one depth pass for
+  each change (at most one every 100 ms, `SHADOW_EVERY`), nothing a frame. So a dead tree casts its bare wood, as the
+  game's dead tree casts its own dead model. `tests/unit/sunShadows.test.ts` holds it.
+- **Measured.** A grove of 36 plants on a flat meadow, drawn still at 1280 × 800 on the GPU (Chrome with ANGLE on
+  D3D11, the RTX 2070 SUPER), from 16 and 45 tiles at the game's 55°, then each plant dead or dying in place; the
+  pixels whose luma differs by more than 4 from the frame with the depth map drawn again (dev → now):
+
+  | High | dead, 16 | dead, 45 | dying, 16 | dying, 45 |
+  |---|---|---|---|---|
+  | birch | 105,519 → 0 | 13,886 → 0 | 87,781 → 0 | 11,448 → 0 |
+  | pine | 251,032 → 0 | 32,994 → 0 | 120,067 → 0 | 14,618 → 0 |
+  | oak | 392,831 → 0 | 50,569 → 0 | 102,061 → 0 | 12,750 → 0 |
+  | blueberry bush | 49,577 → 0 | 6,623 → 0 | 43,594 → 0 | 5,854 → 0 |
+
+  Standard: 0 before and after, dead. The frame drawn twice without a change differs by 0.
+
 ## Caves and overhangs, captured again after #852–#855
 
 `tools/capture-forms-read.ts` (as #820 ran it) on Canyon 128² seed 1, dev (`ba8fc1ef`, before #855) and this branch
