@@ -208,6 +208,9 @@ test(`clicked quickly (D378): the next force plays in full from its first moment
   await watchOpen(page);
   await openTopDown(page);
   await log.open(page);
+  // (the ambient water held still: under CI's software drawing its moving frames, which players there never get, starve
+  // the force's worker, and the lava's cooling keeps the clock; the effects still play)
+  await page.evaluate(() => window.dgm3d!.renderer.setClock(12.5));
   const { far } = await places(page);
   const onMap = (x: number, y: number) =>
     page.evaluate(([a, b]) => {
@@ -247,7 +250,11 @@ test(`clicked quickly (D378): the next force plays in full from its first moment
   // (kept: an eruption's lava still cools, however slowly the browser draws; a crater's dust may
   // already have settled where it keeps slowly, as software drawing on CI does: forcePlayback.test
   // holds that case on exact time)
-  if (a === "Shift+Digit3") expect((await page.evaluate(() => window.dgm3d!.renderer.forceShowing))!.erupt).not.toBeNull();
+  if (a === "Shift+Digit3") {
+    const lava = (await page.evaluate(() => window.dgm3d!.renderer.forceShowing))!.erupt;
+    log.lap("its lava read", ` (cooled ${lava ? lava.cooling.toFixed(2) + " s" : "out"})`);
+    expect(lava).not.toBeNull();
+  }
   await force(b, "35", next);
   const m = await firstMoment();
   const verb = b === "Shift+Digit2" ? "craterize" : "erupt";
