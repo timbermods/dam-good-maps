@@ -2240,7 +2240,7 @@ The water-character audit's gap 7 (`docs/progress/water-character-audit.md`): ou
   sheet is 0.84 / 0.71 (upper / lower half) against the game's 0.44 / 0.22, and 0.32 / 0.12 with no see-through. The
   game's see-through reads URP's opaque texture, which its pipeline asset downsamples 2× bilinear
   (`m_OpaqueDownsampling` 1, `globalgamemanagers.assets`), ours the full frame (built: the next section; part of the
-  gap is P13's overlay, not built). (2) The streaks down the face are more contrasted than the game's: the
+  gap is P13's overlay, built after it: "What shows behind the water, tinted in the water's own pass"). (2) The streaks down the face are more contrasted than the game's: the
   high-passed spread of the face's columns 5.1-5.8 against 2.0-2.4, where the game's face is as contrasted as its pool
   and ours 1.9 times; the cause is not found (the normal, the tangent frame, the phases and the sampling match the
   game's programs). (3) The game's frames show no fall moving; its speed is the formula's.
@@ -2271,13 +2271,63 @@ The water-character audit's gap 7 (`docs/progress/water-character-audit.md`): ou
   be applied twice under water) reads 0.53 / 0.31 in Standard and 0.50 / 0.31 in High; what is left is near our
   sheet's own streaks (0.32 / 0.12 alone, more contrasted than the game's: the previous section's (2)). Moving P13 into
   the water's shader, read from the copy, with the terrain's version kept only where no copy is made (software), is
-  the next step for it.
+  the next step for it (*built: the next section*).
 - **Cost** (a 256² Highlands map, 1280 × 800, real Chrome on the RTX 2070 SUPER, the GPU's time a frame by timer
   queries while orbiting, `benchOrbit`, the median of about 360 frames, two runs each, dev → this branch): Standard
   close over water 2.80, 2.81 → 2.77, 2.83 ms; High close 3.05, 3.06 → 3.08, 2.94; from the opening camera, where
   dev made no copy, Standard 2.80, 3.26 → 2.39, 3.74 and High 2.79, 2.75 → 2.82, 2.72. The same within the runs'
   noise, not less: the multisampled canvas must be resolved at full size for the copy either way, and the blend needs
   it; the half-size blit is a quarter of a screen.
+
+## What shows behind the water, tinted in the water's own pass (Q9 P13; D154, D496; `fix/water-tints-behind`)
+
+- **The game** (`PhysicalWaterURP_Opaque` ps 866-889, `tools/game-water-shader.py`): its water reads
+  `_CameraOpaqueTexture` (the previous section) and overlays it with the water's albedo (P4 × P5 with P6's detail,
+  before the highlight) by `_TransparencyBlending` 0.8, desaturates it to `_TransparencySaturation` 0.3 (Rec. 709
+  luma), and puts it in place of lerp(0.35, 0.2, w) × (1 − u) × 0.5 of the albedo (with its highlight), which URP's Lit
+  then lights: the ground behind is lit a second time, by the water's diffuse (0.96 × (the ambient SH by the normal +
+  the sun × N·L × its shadow)); `MixFog` and the post chain take the whole. Whatever the opaque texture holds behind the
+  water takes it: the ground under the water, objects in it, and the dry cliff behind a fall's sheet.
+- **Ours before:** the terrain's shader overlaid and desaturated the ground under water only (`waterGroundBehind`,
+  before the ground's own light, so lit once), so the cliff behind a fall's sheet showed plain.
+- **Ours now** (`refraction.ts`): the water's shader does it to what it reads from the half-size copy: the copy is
+  graded, so the post chain is undone first (`gamePostInverse`, materials.ts; `gamePostInverseRgb`, palette.ts: each
+  step solved exactly, the Neutral curve by its positive root, exact wherever the grade didn't clip), then
+  `waterGroundBehind` with the water's albedo there (`behindAlbedo`: the colour before its light, High's surface its
+  own), × the water's diffuse light (`behindLight`, `gameWaterLight` by its normal and the sun's shadow, under a roof the
+  cave's), fogged and graded with the water (`finish`). Standard and High. The terrain's version runs only where the
+  frame makes no copy (`refractView.y`: a browser drawing in software in Standard, a picture, the bloom's source), so
+  ground under water is tinted once; the light look, as the game's Low, shows no ground behind. On a sliver at a
+  shore the split is the terrain's as before: the game has no film (its water clips hard at its floor, P14, and its
+  terrain shader has no input from the water), so our film (`WATER_FILM`, our anti-aliasing of that edge) keeps the
+  terrain's film tint by 1 − the film curve and P13 takes the film curve's share (`mix(behind, P13, film)` in
+  `waterRefraction`). Without that a film got both, and the composite's (1 − α) / α, about 6 at a film's opacity,
+  clipped the water's colour per channel: purple and olive blotches in shallows (the first review).
+- **Judged** on the probe's `ceiling-waterfall` `ceiling-close` frame (the pixel gradient |dy| down the sheet, upper /
+  lower half): game 0.44 / 0.22; Standard `fix/opaque-downsample` 0.67 / 0.48 → 0.57 / 0.34; High 0.60 / 0.44 →
+  0.53 / 0.33. The sheet's mean, upper half: game 39/72/83, before 41/78/83, now 38/77/83; lower half 29/55/65,
+  29/58/64, 26/56/63. `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots, `fix/opaque-downsample` → this
+  branch: clean water RMS Standard 13.5 → 13.7, High 13.3 → 13.5 (8,573 tiles); a fall's foot 24.0 → 24.0 and 23.3 →
+  23.3 (103); the land unchanged. The shallows (0.05-0.5 deep, where most shows through) move under a level, toward the
+  game on some maps and from it on others (L* 37.9 → 38.2 against the game's 36.7 on one, 44.4 → 44.3 against 39.2 on
+  another); their spread rises a little with the relight. The game's terms, not fitted.
+- **Cost** (a 256² Highlands map, 1280 × 800, real Chrome on the RTX 2070 SUPER, the GPU's time a frame by timer
+  queries while orbiting, `benchOrbit`, the median of about 360 frames, two runs each, `fix/opaque-downsample` → this
+  branch): Standard close over water 2.85, 2.93 → 2.10, 2.98 ms; High close 2.99, 3.11 → 2.83, 3.02; from the opening
+  camera Standard 3.84, 3.49 → 3.75, 3.51 and High 2.96, 2.88 → 3.01, 2.86. Within the runs' noise: the undone grade
+  and the second finish are a few instructions on the water's pixels.
+- **Close shallows** (River Valley 5 128², 55° from 28 units, the clock held, Standard; High the same within 0.1):
+  water 0.01-0.09 deep, display mean and L* of 395 tile points, `fix/opaque-downsample` 67/97/105 L* 39.4; with both
+  tints on a film (the first push) 59/85/92 L* 34.6, blotched; now 61/90/96 L* 36.4, no blotches. Past the film
+  (0.03-0.3 deep) the change is P13's own, the same in both pushes: 3-5 levels darker in G and B. The game overlays with its
+  water's albedo before light (`gameCleanColour` × the flow's albedo with P6's detail, about half our calibrated body
+  colour, which the terrain's overlay used) and relights by the water's diffuse. The map's picture: its light shallow
+  water 78/121/128 → 74/116/120 (the first push 80/114/115 → 74/103/107 by the review's mask).
+- **Falls short:** what is left of the sheet's gradient is near its own streaks (the falls section's (2)); the relight
+  (about 1.5 in full sun) lifts the cliff's pattern behind with the water, so the sheet's contrast across it rises a
+  little (|dx| 2.61 → 2.77, the game's 1.50). Our water is still blended over the graded screen, where the game grades
+  the composite: the grade of a blend against the blend of two graded colours, and the sky's reflection and the glint
+  in our water's colour are taken by its opacity, where the game's add on top (both from before this change).
 
 ## The rest of the step (next parts)
 

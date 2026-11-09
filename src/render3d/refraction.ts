@@ -14,14 +14,23 @@
 // (`_DistortionDistanceFalloff`, a smoothstep), × (1 − the waterfall mask) (fallMask.ts), and kept only where the
 // camera's depth there is not nearer than at the pixel (it lands behind the water); its see-through (P13) and its depth
 // (P3) are read at that position. So the ground that shows through the water (at most 17.5 % of it,
-// `WATER_SURFACE.seeThrough`) shimmers by up to about five pixels, close up.
+// `WATER_SURFACE.seeThrough`) shimmers by up to about five pixels, close up. What it reads there is overlaid with the
+// water's albedo by `_TransparencyBlending` 0.8, desaturated to `_TransparencySaturation` 0.3 (P13, ps 866-889) and put
+// in place of that share of the albedo, so the water's light lights it again; the fog and the grade then take it with
+// the water. Whatever lies behind the water takes it: the ground under it, and the dry cliff behind a fall's sheet.
 //
 // Ours: the screen as drawn before the water (the ground, the objects, the sky) is copied once a frame just before the
 // first water is drawn (`Refraction.before`, the water meshes' `onBeforeRender`), at its own size (the canvas is
 // multisampled, and the copy resolves it), and that copy is blitted with a linear filter to one of half its size, URP's
 // opaque texture. Our water is blended over the screen, so its shader adds what reading the ground from the half-size
 // copy at the moved position changes, (half(moved) − copy(here)) × (1 − alpha) / alpha, and the blend over the ground
-// gives alpha × the water + (1 − alpha) × half(moved), the game's composite. Not the game's, ours by need: the noise is
+// gives alpha × the water + (1 − alpha) × half(moved), the game's composite. half(moved) is P13's: the copy is graded,
+// so the grade is undone first (materials.ts `gamePostInverse`, the values URP's opaque texture holds), then overlaid
+// with the water's albedo and desaturated (waterPalette.ts `waterGroundBehind`), × the water's diffuse light, then
+// fogged and graded as the water is (`finish`). The water's shader sets the albedo and the light (`behindAlbedo`,
+// `behindLight`) before it asks. Where no copy is made (a browser drawing in software, a picture, the bloom's source),
+// the terrain's shader puts the same overlay on the ground under water itself (`refractView.y` says which), so it is
+// never put on twice; the light look, as the game's Low, shows no ground behind. Not the game's, ours by need: the noise is
 // our own (the pattern texture's value noise at the game's statistics: `WATER_REFRACTION.noise`, held by
 // tests/unit/water-refraction.test.ts); we have no depth of the opaque scene, so in place of the game's depth test the
 // shift is taken off where a tile's shore is within its reach (and on a film's sliver, our anti-aliasing), which keeps
@@ -64,16 +73,27 @@ export const WATER_REFRACTION = {
   downsampling: 2,
 } as const;
 
-/** The see-through and the refraction in GLSL, for the water's shader (after the scene's uniforms, `vnoise` and
- *  `time`): `waterRefraction(g, world, alpha, shore, film)`, what reading the ground behind from the half-size copy at
- *  the moved position adds to a pixel of water whose opacity is `alpha`, `shore` tiles (as the shader measures it) from
- *  its tile's shore, `film` its film curve (1 past a sliver). */
+/** What the water's shader sets before it asks for the ground behind (`REFRACTION_GLSL`), in every look's water (High's
+ *  surface sets its own): the game's albedo of the water at the pixel (display values, before its light and highlight)
+ *  and its diffuse light there (by its normal and the sun's shadow). */
+export const REFRACTION_INPUTS_GLSL = /* glsl */ `
+  vec3 behindAlbedo = vec3(0.0);
+  vec3 behindLight = vec3(1.0);
+`;
+
+/** The see-through and the refraction in GLSL, for the water's shader (after the scene's uniforms, `vnoise`, `time`,
+ *  `finish`, `gamePostInverse` and `waterGroundBehind`): `waterRefraction(g, world, alpha, shore, film)`, what reading
+ *  the ground behind from the half-size copy at the moved position, as P13 shows it, adds to a pixel of water whose
+ *  opacity is `alpha`, `shore` tiles (as the shader measures it) from its tile's shore, `film` its film curve (1 past a
+ *  sliver); `behindAlbedo` (the game's albedo of the water there, display values before its light) and `behindLight`
+ *  (its diffuse light by its normal) set first (`REFRACTION_INPUTS_GLSL`). */
 export const REFRACTION_GLSL = /* glsl */ `
   /** The screen as drawn before the water, at its own size. */
   uniform sampler2D refractTex;
   /** The same at half its size (URP's opaque texture, 2× bilinear): what shows through the water. */
   uniform sampler2D refractHalf;
-  /** x: 1 while the copies are this frame's; zw: one over the screen's size (pixels). */
+  /** x: 1 while the copies are this frame's; y: 1 while the frame makes them (the water, not the terrain, overlays
+   *  what is behind it); zw: one over the screen's size (pixels). */
   uniform vec4 refractView;
   vec3 waterRefraction(vec2 g, vec3 world, float alpha, float shore, float film) {
     // (the derivatives and the mipmapped noise first, in uniform control flow: after a branch a pixel's neighbours may
@@ -93,6 +113,10 @@ export const REFRACTION_GLSL = /* glsl */ `
       shift *= clamp(shore / max(reach, 0.0001) - 1.0, 0.0, 1.0);
     }
     vec3 behind = texture2D(refractHalf, clamp(here + shift, 0.0, 1.0)).rgb;
+    // (P13: as the opaque texture holds it, overlaid with the water's albedo and desaturated, lit by the water's light,
+    // fogged and graded with the water; by the film curve, as the terrain splits it: on a sliver at a shore, our
+    // anti-aliasing of the game's hard edge, the terrain's film tint stands for the water and P13 takes the rest)
+    behind = mix(behind, finish(behindLight * waterGroundBehind(gamePostInverse(behind), behindAlbedo), world), film);
     vec3 drawn = texture2D(refractTex, here).rgb;
     return (behind - drawn) * (1.0 - alpha) / max(alpha, 0.05);
   }
@@ -132,12 +156,14 @@ export class Refraction {
   begin(wanted: boolean): void {
     this.pending = wanted;
     this.uniforms.refractView.value.x = 0;
+    this.uniforms.refractView.value.y = wanted ? 1 : 0;
   }
 
   /** The view's frame is drawn. */
   end(): void {
     this.pending = false;
     this.uniforms.refractView.value.x = 0;
+    this.uniforms.refractView.value.y = 0;
   }
 
   /** A water mesh's `onBeforeRender`: on the first water drawn in the view's frame, the copies of what is drawn so far. */
@@ -164,7 +190,7 @@ export class Refraction {
     }
     gl.copyFramebufferToTexture(this.texture);
     this.downsample(gl, w, h, this.half);
-    this.uniforms.refractView.value.set(1, 0, 1 / w, 1 / h);
+    this.uniforms.refractView.value.set(1, 1, 1 / w, 1 / h);
   };
 
   /** URP's `_2xBilinear` copy: the full copy blitted to half its size with a linear filter, each texel the bilinear
