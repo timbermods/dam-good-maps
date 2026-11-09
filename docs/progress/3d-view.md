@@ -2742,6 +2742,37 @@ more deep, the shortfall warm (about −5 to −10 R, in the shape of the glow's
   here explains it. (3) The glow's phase can't match a frame's, so the RMS by day rises 1.7–2.1 while the means
   close. (4) The judge's land under contamination reads 7.2 against a floor of 5.4, untouched here.
 
+## Clear water shows where the water is again (D184 as amended 2026-11-09, D196, D212, D497; `fix/clear-water-reads`)
+
+#905 took away our underwater bed: the ground under water is drawn as it is dry, as the game's (Q9 P14). Under Clear
+water (T, or round a brush over water) the riverbed then read as the meadow it is, with a 13 % blue film and a soft
+shore line, so the aid no longer showed clearly what was wet.
+
+- **Now** (`materials.ts`, the clear water's block; `waterPalette.ts` `CLEAR_WATER`, `WATER.clearDeep`): clean water a
+  light blue tint over the bed by its depth, 20 % at the shallowest to 42 % (and a deeper blue) `deepAt` 3 levels down
+  and deeper, so wet reads as wet and depth reads at a glance while the bed always shows through at least half; its
+  ripples kept faintly (8 %); and a crisp bright waterline along every shore, 0.05 tile and at least 1.25 pixels wide
+  so it holds at play distance, with a soft fade a fifth of a tile inward, on clean water and badwater alike (badwater
+  keeps its own murk, D324). All of it lives inside the clear water's branch: with Clear water off nothing changes.
+- **Weighed and left:** depth contours (the bed stands in whole levels, so a contour lies on each step of the bed,
+  which the walls and Level lines already show); the surface's glints kept stronger (they flicker with the flow and
+  read as the look, not the aid).
+- **Judged** in Chrome on the GPU (the browser pane, 1280 × 800, the clock held), seed 8's river (`s=8&z=96&d=n&
+  t=riverValley`) at play distance (40 away, 55°) and close up (15 away, 43°), its badwater pit at both, Standard and
+  High; T3's caves (`tools/terrain3d-maps.ts` `t3CaveWater`) under a layer cut at 5, at both distances; the light look
+  in Chrome drawing in software. Close up in High, the wet bed's mean colour moves from ΔE 22.6 to 32.8 away from the
+  grass beside it (b* 20 → 10); at play distance the river reads as one blue-green body with a bright edge, and each
+  cave pool under the cut as its own outlined pool.
+- **Off unchanged:** frames with Clear water off on dev and on this branch, same poses, same moment of the water, read
+  back from the GPU and compared byte for byte: Standard's four and High's badwater close-up identical, the others
+  within the GPU's own frame-to-frame jitter (1 to 18 pixels off by one, as two frames of dev differ from each other,
+  up to 17); the light look's hashes match. `look-readable.test.ts` now also holds clean water's deep tint lighter
+  than badwater's murk, the tint never past half, and the shader's tint by depth and waterline.
+- **Cost:** none with Clear water off (the branch is skipped; one derivative is taken before it, as GLSL needs); with it
+  on, a few more operations a water pixel. Not timed (D453: nothing here runs on the path players see by default).
+- **Falls short:** the waterline follows tile edges, so a diagonal shore shows small steps, as the water's own edge
+  does; under a roof the tint takes the open air's light, as the clear water did before.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

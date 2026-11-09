@@ -1096,9 +1096,12 @@ Make a valley, drop a source, and there's a river.
   with the page session (D388).
 - **Seeing underwater** (D196, D212): while a brush is over water already there, the water under and right round it
   turns clear, so the bed, ledges and sources show; working on dry land leaves the water as it is. T (the game's
-  key) or **Clear water** makes all of it clear. Clear water still reads as water (a faint blue tint, ripples, a
-  soft bright shoreline); badwater stays clearly distinct when clear (its own darker crimson, dull troughs and slow
-  bubbles; never a hatching, D324), for colour-blind players too, by lightness. Sources can go anywhere in the
+  key) or **Clear water** makes all of it clear. The ground under water is drawn as it is dry, as the game draws it
+  (Q9 P14), so clear water carries its own sign of where the water is: a light blue tint over the bed that turns
+  deeper and a little denser with depth (never past half, so the bed shows), its ripples faintly, and a crisp bright
+  waterline along the shore, on badwater too; nothing of it is drawn with clear water off (D497's rule). Badwater
+  stays clearly distinct when clear (its own darker crimson, dull troughs and slow bubbles; never a hatching, D324),
+  for colour-blind players too, by lightness. Sources can go anywhere in the
   editor; the "only where water begins" rule (D171) is for generated maps.
 - **Lakes, waterfalls, joins and branches emerge from the land.**
 - **Water flows visibly,** and the land greens along new water. It reacts at once: water near an edit starts moving
