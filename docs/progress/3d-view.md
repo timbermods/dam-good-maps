@@ -2494,7 +2494,7 @@ poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.sc
 ## Thin water drawn as water (Q9 P14; D154 as amended 2026-11-09, D496; `fix/thin-water-drawn`)
 
 On the probe's `ceiling` pose the pond is lighter and greener than the game's, L* 45.8 against 37.5 (the composite
-section's falls short (2)). Its stored water is 0.01-0.03 deep.
+section's falls short (2), the albedo section's (1)). Its stored water is 0.01-0.03 deep.
 
 - **The game:** it marks every column deeper than 0 as water (`UpdateWaterTexturesTask.Run`: `waterDepth > 0f`) and
   draws it with its one opaque material, coloured and seen through by the depth behind it (Q8, P3, P13). A film a
@@ -2521,7 +2521,8 @@ section's falls short (2)). Its stored water is 0.01-0.03 deep.
   dev → this branch:
   - The pond at `ceiling` (45°, 50): its mean, game 49/94/109 L* 37.5; Standard 73/116/120 L* 45.8 → 53/97/116 L*
     38.8, High 74/117/120 L* 46.3 → 53/97/116 L* 38.9. Its high-passed spread, game 6.10, Standard 4.85 → 6.69, High
-    4.87 → 6.71. (With the water's film alone forced whole, the terrain's tint still under it, Standard read L* 37.3:
+    4.87 → 6.71. Merged with #901's albedo (its own figures 45.8, 4.90): Standard L* 38.8, spread 6.65; High
+    38.9, 6.64. (With the water's film alone forced whole, the terrain's tint still under it, Standard read L* 37.3:
     the 1.5 left is our bed, which the judge kept over the bare ground on 2026-11-07.)
   - `ceiling-close` (30°, 22), whose pool is deeper: unchanged (L* 31.7, spread 8.85).
   - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots: clean water RMS Standard 13.8 → 13.8,
