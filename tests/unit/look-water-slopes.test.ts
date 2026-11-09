@@ -14,7 +14,7 @@ import { entityView, surfaceWater, waterFromDepth } from "../../src/render3d/mod
 import { CONTAMINATED_GROUND, CONTAMINATION, GROUND, RUIN, WATER_SURFACE, waterBody, waterOpacity } from "../../src/render3d/palette";
 import { blendedBadwater, meshWaterChunk } from "../../src/render3d/waterMesh";
 import { badwaterShown, cleanWaterShown } from "./waterShown";
-import { cleanWaterBody, badwaterBody, waterFilmGround, waterGroundBehind } from "../../src/render3d/waterPalette";
+import { cleanWaterBody, badwaterBody, waterGroundBehind } from "../../src/render3d/waterPalette";
 import { plainLayers } from "../../src/render3d/waterLayers";
 import { waterHooks } from "../../src/render3d/high/shaders";
 
@@ -63,39 +63,37 @@ describe("water", () => {
     // Q9 P3): clearer where it sees less, and at the foot of a bank facing the camera, where it sees none, over a
     // seventh of the ground behind shows through (D148: by each bank's shallowing, 0.3 of the depth at a bank, before)
     for (const d of depths) {
-      expect(waterOpacity(d, 0, 0)).toBeLessThan(1);
-      expect(waterOpacity(d, 0, 0)).toBeLessThanOrEqual(waterOpacity(d, 0, d));
+      expect(waterOpacity(0)).toBeLessThan(1);
+      expect(waterOpacity(0)).toBeLessThanOrEqual(waterOpacity(d));
     }
-    for (const d of [0.1, 0.25, 0.5, 1]) expect(waterOpacity(d, 0, 0)).toBeLessThan(0.86);
+    expect(waterOpacity(0)).toBeLessThan(0.86);
     for (const d of [0.25, 1, 2.5, 5, 6]) expect(waterOpacity(d)).toBeCloseTo(1 - 0.175 * Math.max(0, 1 - d / 5), 9);
   });
 
-  it("draws water of any depth as water, as the game does (WATER_FILM): only a sliver fades in, smoothly; badwater as see-through as clean water", () => {
-    // the game draws a film a tenth of a level deep as the same water as its body, not a faint tint over its
-    // ground (Q8: its opaque material in play): from three hundredths of a level the body's own opacity
-    for (const d of [0.03, 0.05, 0.1]) {
-      expect(waterOpacity(d), `${d} deep`).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
-      // the game shows the ground behind badwater as it does behind clean water (Q8; #38's murkier badwater
-      // gave way to the game's see-through rule)
-      expect(waterOpacity(d, 1)).toBeCloseTo(waterOpacity(d), 9);
-    }
-    // a sliver fades in (our anti-aliasing of a shore's edge): under the body's opacity, rising with depth to
-    // it in one smooth curve, no step between neighbouring depths
-    expect(waterOpacity(0.005)).toBeLessThan(waterOpacity(0.03));
-    let last = waterOpacity(0);
-    for (let d = 0.001; d <= 0.6; d += 0.001) {
-      const a = waterOpacity(d);
-      expect(a).toBeGreaterThanOrEqual(last);
-      expect(a - last).toBeLessThan(0.04);
-      last = a;
-    }
-    // a quarter of a level deep and deeper: the body's own opacity, as before
-    for (const d of [0.25, 0.5, 1, 3]) expect(waterOpacity(d)).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
-    // the shader reads the same curve
+  it("draws water of any depth as water, as the game does: no film, clean or bad, in every look (D154 as amended 2026-11-09)", () => {
+    // the game marks every column deeper than 0 as water and draws it with its one opaque material, its see-through by
+    // the depth seen behind it: a film a hundredth of a level deep is the same water as its body, not a faint tint over
+    // its ground; its terrain shader has no input from the water, and its water clips hard at its floor (Q9 P8, P14).
+    // (D148: from #571 this held a film fading in by its own depth, under three hundredths of a level from 2026-10-29,
+    // and the ground under it in the water's hue; the probe's ceiling frames showed the game's pond 0.01-0.03 deep at
+    // L* 37.5, full water, where our film drew 45.8)
+    for (const d of [0, 0.001, 0.005, 0.01, 0.03, 0.05, 0.1, 0.25, 0.5, 1, 3]) expect(waterOpacity(d), `${d} deep`).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
+    // the shaders draw no film: the water's opacity is its see-through's by the depth seen, clean or bad; the light
+    // look's opaque (the game's Low quality); the ground under water is the bed at any depth, tinted only as what
+    // shows behind the water
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
-    const shader = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t())).fragmentShader;
-    expect(shader).toContain("float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);");
-    expect(shader).toContain("return mix(min(WATER_FILM_BAD, body), body, waterFilm(depth));");
+    const U = () => sceneUniforms(1, 1, t(), t(), t(), t());
+    const water = [waterMaterial(U()).fragmentShader, waterMaterial(U(), true).fragmentShader, waterMaterial(U(), false, waterHooks()).fragmentShader];
+    for (const f of water) {
+      expect(f).toContain("float alpha = cleanWaterAlpha(d);");
+      expect(f).not.toMatch(/waterFilm|WATER_FILM|badwaterAlpha/);
+    }
+    expect(water[1]).toContain("alpha = 1.0;");
+    expect(water[2]).toContain("alpha = hlSurface.a;");
+    for (const terrain of [terrainMaterial(U(), 0, 1).fragmentShader, terrainMaterial(U(), 0, 1, true).fragmentShader]) {
+      expect(terrain).not.toMatch(/waterFilm|WATER_FILM|groundBed/);
+      expect(terrain).toContain("float bed = wet;");
+    }
     expect(WATER_SURFACE.seeThrough).toBe(0.175);
   });
 
@@ -110,37 +108,12 @@ describe("water", () => {
         expect(y(b)).toBeLessThan(y(ground));
         expect(sat(b)).toBeLessThan(sat(ground) + 0.02);
       }
-    // the shader draws it in the terrain under the water past a sliver, never under clear water, where the frame's
+    // the shader draws it in the terrain under the water, never under clear water, where the frame's
     // water doesn't put it on itself (refraction.ts)
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
     const terrain = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1).fragmentShader;
     expect(terrain).toContain("ground = mix(ground, waterGroundBehind(ground, wc), behind);");
-    expect(terrain).toContain("float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind) * (1.0 - refractView.y);");
-  });
-
-  it("draws the ground under a film in the water's hue (D154): teal, crimson, mixed water through the warm midpoint, never purple or mauve-grey", () => {
-    /** Hue in degrees (0 red, 120 green, 240 blue) and saturation (max - min) of a display colour. */
-    const hue = (c: readonly number[]) => {
-      const [r, g, b] = c;
-      const mx = Math.max(r, g, b);
-      const d = mx - Math.min(r, g, b);
-      if (d < 1e-6) return { h: 0, s: 0 };
-      const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
-      return { h: (h * 60 + 360) % 360, s: d };
-    };
-    for (const ground of [GROUND.grass, GROUND.dry, CONTAMINATED_GROUND.dry, CONTAMINATION.vein]) {
-      // clean: a teal-green, the grass's hue only partly kept; badwater: crimson whatever the ground
-      const clean = hue(waterFilmGround(ground, 0));
-      expect(clean.h, `clean over ${ground}`).toBeGreaterThan(130);
-      expect(clean.h).toBeLessThan(200);
-      const bad = hue(waterFilmGround(ground, 1));
-      expect(bad.h < 20 || bad.h > 350, `badwater over ${ground}: ${bad.h}`).toBe(true);
-      // mixed water: never purple or mauve (hues 250-345 with any colour to them)
-      for (let s = 0.05; s < 1; s += 0.05) {
-        const m = hue(waterFilmGround(ground, s));
-        if (m.s > 0.02) expect(m.h > 250 && m.h < 345, `share ${s.toFixed(2)} over ${ground}: ${m.h}`).toBe(false);
-      }
-    }
+    expect(terrain).toContain("float behind = smoothstep(0.4, 0.6, soil.w) * (1.0 - clrBehind) * (1.0 - refractView.y);");
   });
 
   it("blends the badwater share between tiles on the tops, so water partly bad turns smoothly (D177)", () => {

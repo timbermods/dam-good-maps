@@ -1599,8 +1599,8 @@ export class MapRenderer {
   }
 
   /** The water changed: its current and badwater share in the flow texture (motion.ts); where nothing moves (the
-   *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
-   *  WATER_FILM); `now`: water that shows with the next frame (a version flipped to), its share with it. */
+   *  light look, or held still), the share alone, which the ground under water reads too (materials.ts
+   *  behindShare); `now`: water that shows with the next frame (a version flipped to), its share with it. */
   private flowChanged(heights: Uint8Array, surface: SurfaceWater, now = false): void {
     if (this.waterMotion) this.waterMotion.waterChanged(heights, surface, now);
     else this.stillFlow?.update(surface, now);

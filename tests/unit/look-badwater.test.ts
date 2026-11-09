@@ -15,7 +15,7 @@ import { CHUNK } from "../../src/render3d/mesh";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
 import { GAME_FINISH } from "../../src/render3d/palette";
 import { GAME_BADWATER_TEXTURE, PATTERN_PERCENTILES } from "../../src/render3d/waterTextures";
-import { BADWATER, GAME_BADWATER, gameBadwaterColour, gameShareAt, WATER_SHARE_BLEND, HIGH_WATER, type Rgb, WATER_SURFACE, badwaterBody, badwaterGlow, badwaterOpacity, cleanWaterBody, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
+import { BADWATER, GAME_BADWATER, gameBadwaterColour, gameShareAt, WATER_SHARE_BLEND, HIGH_WATER, type Rgb, WATER_SURFACE, badwaterBody, badwaterGlow, cleanWaterBody, waterOpacity, WATER, WATER_CALIBRATION, WATER_GLSL, waterBody, waterGroundBehind, waterTint } from "../../src/render3d/waterPalette";
 import { surfaceContamination } from "../../src/render3d/high/flow";
 import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
 import { handedWater } from "../../src/render3d/fallSlope";
@@ -244,10 +244,10 @@ describe("badwater's colour", () => {
     // on screen (tools/capture-badwater.ts --measure lands on them), and again after #692 let the
     // ground behind show by the game's share, and again once that ground showed as the game shows it: the
     // view draws the body about as it is at 70°, over the grey underwater bed (GROUND.underwater) overlaid
-    // with the water's colour and desaturated (waterGroundBehind), showing through by 1 - badwaterOpacity(0.25)
+    // with the water's colour and desaturated (waterGroundBehind), showing through by 1 - waterOpacity(0.25)
     const target = WATER_CALIBRATION.targets.find((t) => t.share === 1)!;
     expect(target.bands).toEqual({ typical: [91, 47, 43], trough: [79, 42, 39], streak: [101, 59, 49] });
-    const behind = 1 - badwaterOpacity(0.25);
+    const behind = 1 - waterOpacity(0.25);
     const bed = waterGroundBehind(GROUND.underwater, WATER.bad);
     for (let k = 0; k < 3; k++) expect(Math.abs(WATER.bad[k] + (bed[k] - WATER.bad[k]) * behind - target.bands.typical[k] / 255)).toBeLessThan(0.03);
     // crimson: red well over green and blue; its troughs and streaks now the game's own pattern (Q9 P9: the base colour
@@ -271,12 +271,11 @@ describe("badwater's colour", () => {
       expect(at(base.percentiles[11]), look).toBeGreaterThan(at(base.mean) + 2);
     }
     // as see-through as clean water, as the game's High quality draws it (Q8: the ground behind by 0.175 at
-    // the floor, none 5 levels deep; #38's murkier badwater gave way to the game's rule), a crimson
-    // tint on a sliver
-    for (const d of [0.25, 0.5, 1, 3]) expect(badwaterOpacity(d)).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
-    // (more of the ground where the view sees less of it under the surface, viewDepth.ts; D148: toward a bank before)
-    expect(badwaterOpacity(1, 0.1)).toBeLessThan(badwaterOpacity(1));
-    expect(badwaterOpacity(0.005)).toBeLessThan(badwaterOpacity(0.05));
+    // the floor, none 5 levels deep; #38's murkier badwater gave way to the game's rule), at any depth: no crimson tint
+    // on a film (D154 as amended 2026-11-09; D148: a sliver under three hundredths of a level was a tint before), one
+    // opacity for both waters by the depth seen under the surface (viewDepth.ts: more of the ground where it sees less)
+    for (const d of [0.005, 0.05, 0.25, 0.5, 1, 3]) expect(waterOpacity(d)).toBeCloseTo(1 - 0.175 * (1 - d / 5), 9);
+    expect(waterOpacity(0.1)).toBeLessThan(waterOpacity(1));
     // matte: no glints (neither water has any, as the game's), a weaker sun glint and a trace of the sky
     expect(BADWATER).not.toHaveProperty("glints");
     // matte by the game's own smoothness (_Contamination_Smoothness 0.15 against clean water's about 0.25, the soft-lit
@@ -409,7 +408,8 @@ describe("badwater's colour", () => {
       // the column's before, with only its glow by the bank's shallowing)
       expect(shader).toContain("vec3 murky = badwaterGlow(badwaterBody(d), BADWATER_BODY, d, cont);");
       expect(shader).toContain("vec3 c = waterBlend(body, murky, cont);");
-      expect(shader).toContain("alpha = mix(alpha, badwaterAlpha(depth, d), bad);");
+      expect(shader).toContain("float alpha = cleanWaterAlpha(d);");
+      expect(shader).not.toContain("badwaterAlpha");
       // the old streaks of mixed water are gone, and our bubbles with them (Q9 P9): the game's emissive detail, the
       // pattern's G carried by the flow, unlit
       expect(shader).not.toContain("mixed");

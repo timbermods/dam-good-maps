@@ -299,7 +299,9 @@ describe("the water's side (a skirt between two tops, a fall's slope's side over
     expect(WATER_GLSL).not.toContain("WATER_FALL_SEE_THROUGH");
     for (const { look, m } of shaders()) {
       expect(m.fragmentShader, look).toContain("float d = n.y < 0.5 && vFlags > 254.5 ? depth : waterViewDepth(n.y > 0.5 ? g : g - vec2(n.x, -n.z) * 0.002, vWorld.y, vFloor);");
-      expect(m.fragmentShader, look).toContain("alpha = mix(alpha, badwaterAlpha(depth, d), bad);");
+      // (clean or bad, its see-through by that depth, as the top's: no film, D154 as amended 2026-11-09; D148: badwater's
+      // opacity was mixed in by the badwater share, a tint on a film)
+      expect(m.fragmentShader, look).toContain("float alpha = cleanWaterAlpha(d);");
       expect(m.fragmentShader, look).toContain("alpha = edge ? mix(WATER_EDGE, BADWATER_SIDE, bad) : alpha * smoothstep(0.02, 0.06, drop);");
       expect(m.fragmentShader, look).not.toContain("WATER_FALL_SEE_THROUGH");
       expect(m.fragmentShader, look).not.toContain("WATER_FALL_FLAGS");
