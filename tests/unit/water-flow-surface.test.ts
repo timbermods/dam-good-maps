@@ -52,6 +52,19 @@ describe("the water's textures", () => {
     expect(Math.abs(featureTiles(luma, N) / GAME.albedo.feature - 1)).toBeLessThan(0.25);
   });
 
+  it("make the albedo's brightness at the game's distribution and split across scales as the game's: bright patches a tile or two across, not crisp lines alone", () => {
+    // its first principal component's score: the long bright tail, and the share of its spread a blur over 0.125-2
+    // tiles leaves (the broad mottle a camera far off still sees; the game's lines are dense and bright in patches)
+    const F = GAME.albedo.first;
+    const axis = GAME.albedo.components[0].axis;
+    const means = [0, 1, 2].map((k) => ch[k].reduce((a, b) => a + b, 0) / n);
+    const score = new Float64Array(n);
+    for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) score[i] += (ch[k][i] - means[k]) * axis[k];
+    const sorted = Float64Array.from(score).sort();
+    PATTERN_PERCENTILES.forEach((p, j) => expect(Math.abs(sorted[Math.floor(p * (n - 1))] - F.percentiles[j]), `${p}`).toBeLessThan(6));
+    [0.125, 0.25, 0.5, 1, 2].forEach((s, j) => expect(Math.abs(broadShare(score, N, s) - F.broad[j]), `${s} tiles`).toBeLessThan(0.04));
+  });
+
   it("make the normal's slopes at the game's spread, percentiles and feature size", () => {
     for (const f of [sx, sy]) {
       const s = stats(f);

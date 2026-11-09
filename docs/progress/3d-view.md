@@ -2428,7 +2428,68 @@ The streaks down a fall's sheet were about twice as contrasted as the game's (th
   game's streaks also run less straight down: its column mean keeps 0.67-0.78 of its two-dimensional spread, ours
   0.89. (2) Open water's ripples lose some spread under the game's term: the pool 9 % under the game's, the pond 20 %.
   The highlight, which holds the boost, is unchanged, so the rest of open water's contrast is missing somewhere this
-  step did not look. (3) The falls section's (3) stands.
+  step did not look. (*Found: the pond is a film in ours, and our albedo was split across scales unlike the game's. See
+  "The flow's albedo split across scales as the game's".*) (3) The falls section's (3) stands.
+
+## The flow's albedo split across scales as the game's (Q9 P5, P6; D154, D496; `fix/water-albedo-mottle`)
+
+The previous section left open water with less contrast than the game's and a fall's sheet with columns about twice
+the game's. Each term was measured against the game's own textures (`tools/game-water-shader.py --textures`, which
+now prints a field's power by wavelength and the share of its spread a blur leaves; numbers only) and switched alone
+in our frames (the probe's `ceiling-waterfall` set, C:\dgm-probe\shots\ceiling-20260927, day light, ours from the same
+poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept).
+
+- **The pond is a film in ours.** Its stored water is 0.01 to 0.03 deep. Ours draws water under `WATER_FILM.to` (0.03)
+  as a faint tint over its own ground, our anti-aliasing of a shore's sliver. The game has no film: it draws every wet
+  column with the full shader, at its depth seen along the view (Q9 P3, P14). With the film forced whole, the pond
+  reads L* 37.3 and 49/93/111 against the game's 37.5 and 49/94/109, and its high-passed spread 6.67 against 6.10.
+  Flattening the albedo, the detail, the see-through, the reflection or the glint moved its L* by at most 1, and 0.25
+  more depth by 2.5. So the pond's lightness, its green and its weak spread all come from the film, not the albedo's
+  mean or P4's colour. Not changed here: the film is D154's shore treatment, and keying it on a sliver rather than on
+  the column's depth is its own step.
+- **The albedo's split across scales.** The game's `PhysicalWaterAlbedo` (its first principal component, a
+  near-neutral brightness, spread 13.7, skew +3.0) has bright lines dense and bright in patches and sparse between
+  them. The spread left in each 0.25-tile neighbourhood runs 6.4 / 10.9 / 17.2 (10th / 50th / 90th percentile) and
+  follows the neighbourhood's mean (correlation 0.87). Ours had crisp lines evenly bright: 9.4 / 12.8 / 16.1, 0.68,
+  skew +1.8. By wavelength, the game's has 19 % of its power at 1-4 tiles, ours had 5 %; under 0.25 tiles the game's
+  has 34 %, ours had 48 %. A blur over 0.125, 0.25, 0.5, 1 and 2 tiles leaves the game's 0.47, 0.32, 0.19, 0.09, 0.04,
+  ours 0.34, 0.22, 0.15, 0.10, 0.04.
+- **Ours now** (`waterTextures.ts` `makeWaterTexture`): the network × e^(0.7 × a Gaussian field of unit spread, its
+  power at 0.25-4 tiles), remapped by rank to the game's distribution, stored over the game's range
+  (`GAME_FLOW_TEXTURES.albedo.first`). It reads 0.49, 0.32, 0.18, 0.09, 0.03; 6.0 / 10.1 / 17.7, 0.92; 23 % of its
+  power at 1-4 tiles and 34 % under 0.25. `WATER_ALBEDO` is refitted, so the albedo's mean and covariance stay the
+  game's. A test holds its distribution and its blur shares to the game's.
+- **How the game samples them** (Q9 P5, P6): the albedo at xz × 0.06 (16.7 tiles a repeat), carried by the flow; the
+  detail at xz × 0.015 (67 tiles), still (`_DetailAlbedoSpeed` 0). Both by the world's xz, so on a fall's face they
+  stretch down it, as ours do. Ours samples the same way; only the texels differ.
+- **What the face carries:** drawn down a face at the `ceiling-close` scale (50 px a tile; each column the texture
+  along a line 0.078 tile long, high-passed), the game's albedo makes 3.95 % column spread, ours 4.62 % before and
+  3.68 % now. The game's detail makes 1.04 %, ours 0.67 % (our 512² texture, 7.7 texels a tile). So the textures'
+  statistics now account for the albedo's share. The rest is flow: the map's stored outflows are all zero, so our fall
+  stands still, where the game's frame shows it pouring, its texture carried along a longer path down the face. With
+  the water settled by an edit (before this change), the face's columns fell from 3.79 / 2.97 to 2.89 / 2.34.
+- **Judged**, before → after (Standard; High within 0.1 of it unless given):
+  - `ceiling-close` (30°, 22), the sheet's upper / lower half: |dx| across it, game 1.50 / 1.26, 1.92 / 1.76 → 1.39 /
+    1.24 (High 1.91 / 1.76 → 1.37 / 1.23). Its columns' high-passed spread, game 1.94 / 1.52, 3.79 / 2.97 → 2.58 /
+    2.21 (High 3.78 / 2.98 → 2.56 / 2.21). The pool over the lip, its high-passed spread, game 9.73, 8.85 → 8.56
+    (High 8.67 → 8.36); its L* game 32.1, 31.7 → 31.6.
+  - `ceiling` (45°, 50), the regions taking in the sheet's side, upper / lower: |dx|, game 1.55 / 1.54, 3.71 / 3.92 →
+    3.29 / 3.43. Its columns, game 1.61 / 1.43, 3.97 / 6.84 → 4.14 / 6.89. The pond, game 6.10 and L* 37.5: 4.85 and
+    45.8 → 4.90 and 45.8 (High 4.87 and 46.3 → 4.89 and 46.2); with the film forced whole, 6.67 and 37.3 → 6.62 and 37.2.
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots, pooled by tile: clean water RMS Standard
+    13.8 → 13.8, High 13.7 → 13.7; a fall's foot 23.9 → 24.0 and 23.2 → 23.3 (103 tiles); the land unchanged (12.3).
+- **Cost:** the shaders are unchanged; only the texture's bytes and `WATER_ALBEDO`'s numbers differ. Making the
+  texture takes about 400 ms where it took 210 (the patches' field and the rank remap), once a page in the bake worker,
+  the water drawn at its flat mean until then. `benchOrbit` on the `ceiling-waterfall` map, 1280 × 800, the GPU's time a
+  frame (the median over 6 s), four runs each in two sittings in opposite orders, before → after: Standard close over
+  the fall 2.83, 2.91, 2.72, 2.80 → 2.83, 2.79, 2.79, 1.30 ms; Standard from 50 away 1.75, 2.09, 2.49, 2.36 → 2.54,
+  2.10, 2.45, 1.99; High close 2.78, 1.61, 2.76, 2.79 → 1.55, 2.76, 2.84, 2.57; High from 50 away 2.70, 2.40, 2.69,
+  2.71 → 2.76, 2.64, 2.81, 2.77. All within the runs' noise and their two modes.
+- **Falls short:** (1) The pond stays a film, L* 45.8 against the game's 37.5, until the film keys on a shore's sliver
+  rather than a column's depth. (2) The sheet's columns are still 1.3-1.5 times the game's at `ceiling-close`: our
+  fall stands still, and the comparison needs the game's flow on the face; the `ceiling` pose's side regions are
+  unchanged. (3) The close pool's spread is 12 % under the game's. (4) Our detail texture holds 7.7 texels a tile to
+  the game's 31, so its fine swirl is missing close up.
 
 ## Thin water drawn as water (Q9 P14; D154 as amended 2026-11-09, D496; `fix/thin-water-drawn`)
 
