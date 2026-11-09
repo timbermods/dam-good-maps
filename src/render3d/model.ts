@@ -183,6 +183,9 @@ export interface SurfaceWater {
   outflow: Float32Array | null;
   /** Columns below the surface one (water in caves), as indices into the view. */
   lower: number[];
+  /** Each tile's ceiling over its water (a water layer's under a roof, waterLayers.ts; Infinity under the sky): a
+   *  fall's slope links a neighbour only where that stands under it (fallSlope.ts). Absent: the sky over every tile. */
+  ceiling?: Float32Array;
 }
 
 const surfaces = new WeakMap<WaterView, SurfaceWater>();

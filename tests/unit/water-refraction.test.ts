@@ -45,11 +45,14 @@ describe("the waterfall mask (Q9 P1)", () => {
     expect([FALL_MASK.from, FALL_MASK.to, FALL_MASK.tap]).toEqual([0.35, 0.6, 0.075]);
   });
 
-  it("links a corner neighbour only where both tiles between are dry (BreakCornerLinks), and none to a dry tile", () => {
-    // (a high tile at the corner of a low one; the tiles between dry, then one of them wet at the low level)
-    const corner = (between: number) => fallMask(2, 2, water(2, 2, (x, y) => (x === 0 && y === 0 ? 6 : x === 1 && y === 1 ? 5 : x === 1 ? between : NaN)));
-    expect(corner(NaN)[3]).toBe(1);
-    expect(corner(5)[3]).toBe(0);
+  it("links a corner neighbour only where both tiles between are linked to both (BreakCornerLinks, read again 2026-11-08), and none to a dry tile", () => {
+    // (a high tile at the corner of a low one; the tiles between dry, one of them wet at the low level, then both: the
+    // game's BreakCornerLinks keeps a corner link only where the corner's tile is linked to both tiles between, and
+    // BreakCornerLinksReversed breaks it both ways; D148: this test had the rule backwards, "only where both are dry")
+    const corner = (a: number, b: number) => fallMask(2, 2, water(2, 2, (x, y) => (x === 0 && y === 0 ? 6 : x === 1 && y === 1 ? 5 : x === 1 ? a : b)));
+    expect(corner(NaN, NaN)[3]).toBe(0);
+    expect(corner(5, NaN)[3]).toBe(0);
+    expect(corner(5, 5)[3]).toBe(1);
     // (a dry tile is no neighbour, whatever its ground)
     expect(fallMask(2, 1, water(2, 1, (x) => (x === 0 ? NaN : 5)))[1]).toBe(0);
   });

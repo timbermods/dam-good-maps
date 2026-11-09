@@ -141,8 +141,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   the heightfield mesher saw. The mesher reads per-tile arrays, so the columns are dealt into layers (`waterLayers`):
   the open sky's first (each tile's top and the water on it, the renderer's surface water itself on a map with no
   water under a roof), then each other column into the first layer whose gaps agree with what it sees within
-  `LAYER_REACH` (4 tiles: a top's corners and curtains and the badwater blend round them; checked against a reach of
-  12, the same quads on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
+  `LAYER_REACH` (5 tiles: a top's corners and curtains, the badwater blend round them and a fall's hand-over; checked
+  against a reach of 12, the same quads on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
   `plainLayers(heights, sw)` is the one layer of a map without caves. A fall is a column's own curtain down to the
   water below (D201 amended 2026-10-29).
 - **Where it runs:** only where a column needs a layer of its own (`needsLayers`: water under a roof, or open water
@@ -1475,7 +1475,7 @@ the game's models in resources.assets (positions, materials and texture means on
   (`WaterQualitySetting.HighQualityWaterEnabled`: the Medium preset and up; it also turns on URP's opaque texture), so
   Standard and High draw them and the light look, as Low, draws neither. **P1:** `FindWaterfalls`, per tile and stacked
   column, keeps smoothstep(0.35, 0.6, how far its highest linked neighbour's surface stands over its own) (its sixteen
-  mesh heights from `CalculateHeights`; a neighbour linked when wet, a corner one only where both tiles between are dry,
+  mesh heights from `CalculateHeights`; a neighbour linked when wet, a corner one only where both tiles between are wet too (read again 2026-11-08: it said dry),
   `BreakCornerLinks`), so the mask lies on the tile a fall lands in, whole from a step of 0.6. The pixel shader reads it
   in four taps ±0.075 round the pixel, weighted by their distance to the nearest tile corner, dry tiles left out, and
   sharpens it, w = saturate(m + smoothstep(0, 0.5, m)); w takes off the refraction and the camera highlight and moves
@@ -1852,6 +1852,73 @@ the game's models in resources.assets (positions, materials and texture means on
 - **Falls short:** High's edge at 2048 is 1.2–1.5 × the game's in play over a 128² map and 2–3 × over a 256² one.
   4096 reaches the game's 0.11 and waits on the igpu-4x gate (integrated GPU, CPU 4× slower, 256², the sun turning),
   run on a machine with an integrated GPU, with `npm run smooth` mended first.
+
+## Falls as the water below's slope (D154 amended 2026-11-08; `fix/falls-as-slopes`)
+
+- **What the game does** (decompiled `Timberborn.WaterSystemRendering` `WaterMesh`, and its compute shader
+  `WaterColumnPostprocessor` disassembled from `resources.assets`; numbers only): every water tile is a grid of four
+  by four vertices (0, ⅓, ⅔, 1), split along the anti-diagonal, and `CalculateHeights` raises each vertex to its linked
+  neighbour's surface across a side it lies on, to that surface less 0.3 a third of a tile in, and to the linked corner
+  neighbour's (less 0.3 unless on both sides), never below its own. So a fall is the lower tile's own surface rising to
+  meet the water above: its edge at the upper surface, 0.3 lower a third in, its own surface from two thirds in; no
+  face of its own. It is lit with the up normal and its flow textures, sampled at the world's xz, stretch and pour
+  down it. `FindBestProperties` hands the slope its highest linked neighbour's outflow (edges) and contamination
+  (edges and corners) by saturate(the rise). A neighbour is linked only where its surface stands under the tile's
+  ceiling (`ProcessColumns`). A corner is linked only where it and both tiles between are wet
+  (`BreakCornerLinks`); `fallMask.ts` had that turned round (both between dry), so its mask read water across a dry
+  corner and missed the corner of a fall: corrected, and the mask is now smoothstep(0.35, 0.6, `tileRise`).
+- **Ours** (`render3d/fallSlope.ts`): `slopeHeights` makes the sixteen heights for any wet tile with a vertex 0.02 or
+  more over its own surface (`SLOPE_MIN`; under it, the one flat quad as before, so still water meshes byte for byte as
+  dev's), `slopeTop` draws them as nine quads with the up normal in both looks and the Light look (one mesh). A raised
+  vertex's depth is what the game's camera sees through there (its pitch, 60°: the gap to the cliff or the upper
+  water's floor along the view, never more than its height over its own floor), the rest bilinear from the tile's
+  corners. Badwater and the current are handed over before the blend and the flow (`handOver`, `handedWater`;
+  `current.ts` `gameFlowOf`), so a badwater fall keeps its colour and the slope runs with the fall's current. No curtain
+  between two waters any more; the water's side hangs toward lower dry ground and at the map's edge, in three segments
+  along a slope's edge. The water's data never changes (D342, D497).
+- **Skirts** (#867's review): where two wet tiles' tops part along their edge (a corner neighbour linked to one and
+  not the other, or a neighbour not linked), the higher hangs a skirt down to the lower one's height at each vertex
+  (its grid's, where it is a slope), as the game's water vertex shader drops each tile's side skirt; drawn as the
+  surface going on (`SKIRT_FLAGS`). A skirt, and any side of a fall's slope, takes the tile's own badwater share (the
+  fall's, handed over), as the game's skirt takes its own tile's properties: before, the corners' blend with the water
+  beside it drew a clean fall's skirts red-brown over a badwater pool (#867's look review). Open edges (`tests/fixtures/openWaterEdges.ts`: a gap of 0.025 or more between the
+  two tops with no water side or ground across it), before → after: Canyon 3 at 256² 27 → 0, Highlands 2 25 → 0,
+  Canyon 2 28 → 0, Canyon 1 at 128² 8 → 0, Canyon 2 at 128² 12 → 0 (among them the look review's pale sliver along
+  its narrow badwater fall, tile 31,119: the canyon's ground through the window at x = 31) (`waterSkirts.test.ts`,
+  its 256² maps in `waterSkirts.heavy.test.ts`).
+- **The ceiling rule:** each layer's water keeps its tiles' ceilings (`SurfaceWater.ceiling`, waterLayers.ts), and a
+  tile links a neighbour only where the neighbour's surface is not over its ceiling, so a tunnel's slope never rises
+  into its roof toward higher open water outside. `LAYER_REACH` 4 → 5: the hand-over reads a tile further. A corner
+  links as `BreakCornerLinks` reads it: the corner tile's own links toward the tiles between (a cave's mouth, where
+  their ceilings differ: `waterSkirts.test.ts`).
+- **The share at once:** since #865 the tops read their badwater share from the flow texture's B, which `writeShare`
+  (high/flow.ts) fills on every water change; it hands the share over itself, as the bake does (the same bytes on the
+  three 256² maps), so a fall's slope carries the fall's share from the frame the water comes, no bake behind it
+  (`stillFlow.test.ts`). Rows with no badwater within a row of them skip the search: at 256² in Node, the least of 300
+  runs, 0.18–0.25 ms → 0.28–0.36.
+- **The cut:** a slope's vertex carries a cut share under −0.5 in place of its wet share (`slopeCutShare`: whether it
+  is a third in, and how far it stands over the floor of the water it rose to); sliced, it lies on the cut with the
+  depth seen behind it from there as from its own height (`cutWater.ts` `cutSlopeDepth`): against the cliff where the
+  cut is under the upper water's floor (0.05 at the lip, 0.58 a third in), else into the upper water to its floor.
+  The first reading took the water's depth from its floor up to the cut, several levels: a dark navy patch at a
+  sliced fall where dev drew teal. A side's vertex standing over its column's surface (a slope's edge, a skirt) is
+  sliced by its own height, so it stops at the cut too (it stood over it). A fall whose upper water the cut took keeps
+  its slope up to the cut (`tests/unit/cutWater.test.ts`).
+- **Re-based (D148):** the curtain tests in `look-waterfalls`, `look`, `render3d`, `look-badwater`, `cutWater`,
+  `waterLayers` and `caveCurrent` (the tunnel's fall is its water's slope under the roof); the corner rule in
+  `water-refraction`; the fixture mesher mirrors the slope.
+- **Judged** (`tools/water-pixel-judge.ts --water falls --look both`, the six day-lit start shots, dev → this branch,
+  RMS to the game's pixel): a fall's foot (103 tiles) Standard 24.8 → 24.0, High 24.1 → 23.4; clean water (8,573) and
+  the land unchanged (14.4, 14.2; 12.3, 12.6). The sheets: `docs/sheets/falls-slopes-canyon.jpg`,
+  `falls-slopes-riverValley.jpg` (each map's tallest and strongest fall at 60° and 35°, Standard and High) and their
+  `-light` pair (`tools/capture-falls-slopes.ts`).
+- **Speed** (D453): the water meshed whole in Node at 256², min of 20, Highlands 2 26.2 → 25.2 ms, Canyon 3 31.2 →
+  27.3, River Valley 2 25.7 → 25.5, with 25–28 % more water quads (a slope's nine). High at 256² on the GPU
+  (`--bench`, three rounds): frame time p50 7.0 ms on both, the render call the same (1.2–1.5 ms), the GPU's 2.2–3.3 ms
+  on both; the build's median Highlands 561 → 549 ms, Canyon 520 → 586 (rounds of one tree vary by ±90).
+- **Falls short:** our links take a neighbour as linked where it is wet and under the ceiling, with no barriers (none on
+  our ground) and the ceilings as each layer of waterLayers.ts sees them; a slope's seen depth is worked out along the game's pitch, not
+  read from a depth buffer.
 
 ## The foam in the Flow view alone (D497; `fix/foam-to-flow`)
 

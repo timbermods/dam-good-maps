@@ -2,8 +2,8 @@
 // editor. It draws a map view: terrain in 32×32 chunks (only dirty chunks are remeshed after an
 // edit; one mesher for terrain as runs, caves and overhangs included), translucent water surfaces, and
 // instanced objects. It has an orbit camera and a top-down view (north up until turned), picks tiles against
-// the heightfield, and renders when something changed, and while water moves. Waterfalls are the water's own
-// vertical faces where it steps down (waterMesh.ts; D201 amended 2026-10-29: as the game draws them).
+// the heightfield, and renders when something changed, and while water moves. Waterfalls are the water below a
+// step rising to meet the water above (fallSlope.ts, waterMesh.ts; D154 as amended 2026-11-08: as the game draws them).
 //
 // Map look (D86): the ground is coloured by soil (or by height, `setGroundMode`); the light is
 // baked when the mesh is built (light.ts: soft sun shadows) into two textures the

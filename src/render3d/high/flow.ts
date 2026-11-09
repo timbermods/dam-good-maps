@@ -48,20 +48,110 @@ export function surfaceContamination(W: number, H: number, sw: Pick<SurfaceWater
 }
 
 /** The water's share and wetness into a flow texture's bytes (RGBA, a texel a tile) at once, on the page's thread, so
- *  badwater is drawn with the water it came with, never a bake behind it: a wet tile's B its own share and its A at
+ *  badwater is drawn with the water it came with, never a bake behind it: a wet tile's B its own share (handed over
+ *  down a fall, fallSlope.ts `handOver`) and its A at
  *  least 1 (its waterfall mask, the bake's, kept), a dry tile's A 0 (its B, the bake's carry for the ground under a film,
  *  kept). The bake's own bytes for the same water are the same. The rows that changed (y0…y1), or null. */
 export function writeShare(W: number, H: number, sw: Pick<SurfaceWater, "surface" | "depth" | "contamination">, data: Uint8Array): { y0: number; y1: number } | null {
   const { surface, depth, contamination } = sw;
   let y0 = H;
   let y1 = -1;
-  // (one pass a water change on the page's thread, so plain arithmetic: shareByte inlined)
+  // (one pass a water change on the page's thread, so plain arithmetic: shareByte inlined. The hand-over changes a
+  // share only where some water within a row has badwater, so the rows with none round them take their own shares as
+  // they are; elsewhere the surfaces round each tile are carried along the row, three read a tile, NaN where dry or off
+  // the map, which fails every comparison)
+  const bad = (y: number): boolean => {
+    if (y >= H) return false;
+    for (let i = y * W, end = i + W; i < end; i++) if (contamination[i] > 0) return true;
+    return false;
+  };
+  let badBelow = false;
+  let badHere = bad(0);
   for (let y = 0; y < H; y++) {
     let changed = false;
-    for (let i = y * W, k = i * 4 + 2, end = i + W; i < end; i++, k += 4) {
-      const s = surface[i];
+    const badAbove = bad(y + 1);
+    const plain = !badBelow && !badHere && !badAbove;
+    badBelow = badHere;
+    badHere = badAbove;
+    if (plain) {
+      for (let i = y * W, k = i * 4 + 2, end = i + W; i < end; i++, k += 4) {
+        const s = surface[i];
+        if (s === s && depth[i] > 0) {
+          const c = contamination[i];
+          const b = c > 0 ? (c < 1 ? (c * 255 + 0.5) | 0 : 255) : 0;
+          if (data[k] === b && data[k + 1] !== 0) continue;
+          data[k] = b;
+          if (data[k + 1] === 0) data[k + 1] = 1;
+        } else {
+          if (data[k + 1] === 0) continue;
+          data[k + 1] = 0;
+        }
+        changed = true;
+      }
+      if (changed) {
+        if (y < y0) y0 = y;
+        y1 = y;
+      }
+      continue;
+    }
+    const up = y + 1 < H;
+    const down = y > 0;
+    const r = y * W;
+    let sW = NaN;
+    let sC = surface[r];
+    let sNW = NaN;
+    let sN = up ? surface[r + W] : NaN;
+    let sSW = NaN;
+    let sS = down ? surface[r - W] : NaN;
+    let sE = NaN;
+    let sNE = NaN;
+    let sSE = NaN;
+    for (let i = r, k = i * 4 + 2, end = i + W; i < end; i++, k += 4, sW = sC, sC = sE, sNW = sN, sN = sNE, sSW = sS, sS = sSE) {
+      const last = i + 1 === end;
+      sE = last ? NaN : surface[i + 1];
+      sNE = up && !last ? surface[i + W + 1] : NaN;
+      sSE = down && !last ? surface[i - W + 1] : NaN;
+      const s = sC;
       if (s === s && depth[i] > 0) {
-        const c = contamination[i];
+        let c = contamination[i];
+        // a fall's slope and the water below it take the share of their highest linked neighbour over them, by
+        // saturate(the rise), as the game's FindBestProperties hands it (fallSlope.ts `handOver`, the same order and
+        // ties, rounded as its Float32Array is): edges, then the corners linked across two wet tiles
+        let best = s;
+        let from = -1;
+        if (sE > best && depth[i + 1] > 0) {
+          best = sE;
+          from = i + 1;
+        }
+        if (sW > best && depth[i - 1] > 0) {
+          best = sW;
+          from = i - 1;
+        }
+        if (sN > best && depth[i + W] > 0) {
+          best = sN;
+          from = i + W;
+        }
+        if (sS > best && depth[i - W] > 0) {
+          best = sS;
+          from = i - W;
+        }
+        if (sSW > best && depth[i - W - 1] > 0 && sW === sW && depth[i - 1] > 0 && sS === sS && depth[i - W] > 0) {
+          best = sSW;
+          from = i - W - 1;
+        }
+        if (sSE > best && depth[i - W + 1] > 0 && sE === sE && depth[i + 1] > 0 && sS === sS && depth[i - W] > 0) {
+          best = sSE;
+          from = i - W + 1;
+        }
+        if (sNW > best && depth[i + W - 1] > 0 && sW === sW && depth[i - 1] > 0 && sN === sN && depth[i + W] > 0) {
+          best = sNW;
+          from = i + W - 1;
+        }
+        if (sNE > best && depth[i + W + 1] > 0 && sE === sE && depth[i + 1] > 0 && sN === sN && depth[i + W] > 0) {
+          best = sNE;
+          from = i + W + 1;
+        }
+        if (from >= 0) c = Math.fround(c + Math.min(1, best - s) * (contamination[from] - c));
         const b = c > 0 ? (c < 1 ? (c * 255 + 0.5) | 0 : 255) : 0;
         if (data[k] === b && data[k + 1] !== 0) continue;
         data[k] = b;

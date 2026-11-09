@@ -26,6 +26,7 @@ import type { Baker } from "./high/fields";
 import type { LayeredWater } from "./high/bake";
 import { surfaceContamination, writeShare } from "./high/flow";
 import { fallBytes } from "./fallMask";
+import { handedWater } from "./fallSlope";
 import { HIGH_WATER, WATER } from "./waterPalette";
 import { onAidLayer } from "./aidLayer";
 
@@ -193,7 +194,7 @@ function streakMaterial(u: SceneUniforms, viewport: { value: Vector2 }, dpr: { v
 export function stillFlowTexture(W: number, H: number, sw: SurfaceWater): DataTexture {
   const t = texture(W, H, [128, 128, 0, 0]);
   const f = t.image.data as Uint8Array;
-  const cont = surfaceContamination(W, H, sw);
+  const cont = surfaceContamination(W, H, handedWater(W, H, sw));
   const fall = fallBytes(W, H, sw);
   for (let i = 0; i < W * H; i++) {
     f[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);

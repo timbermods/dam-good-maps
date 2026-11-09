@@ -144,7 +144,7 @@ describe("terrain meshing (32×32 chunks)", () => {
 
 describe("water meshing", () => {
   // (D148: the fall from tile 1 to tile 2 was a curtain; since D201 it pours from the lip as a fall)
-  it("puts one quad per wet tile at its surface, with curtains toward lower neighbours and a fall into lower water", () => {
+  it("puts one quad per wet tile at its surface, a fall's slope on the water below it, and curtains toward lower dry ground", () => {
     const W = 6;
     const H = 1;
     const heights = new Uint8Array([5, 5, 3, 3, 3, 3]);
@@ -158,11 +158,13 @@ describe("water meshing", () => {
     let tops = 0;
     let curtains = 0;
     for (let q = 0; q < m.quads; q++) (m.normals[q * 12 + 1] > 0 ? tops++ : curtains++);
-    expect(tops).toBe(4);
-    // tile 1 falls to tile 2 (5.5 → 3.4): a fall, a curtain carrying its drop (D201 amended 2026-10-29); tile 3 meets
-    // dry ground at 3; every tile at the map's south and north edges and the west end has the outside below it
-    expect([...Array(m.quads).keys()].filter((q) => m.normals[q * 12 + 1] === 0 && m.flags[q * 4] === 63).length).toBe(1);
-    expect(curtains).toBeGreaterThanOrEqual(1 + 1 + 4 * 2 + 1);
+    // tile 1 falls to tile 2 (5.5 → 3.4): tile 2 is the fall's slope, the game's nine quads (D154 as amended
+    // 2026-11-08: fallSlope.ts), with no curtain between them; the others one quad each
+    expect(tops).toBe(3 + 9);
+    expect([...Array(m.quads).keys()].filter((q) => m.normals[q * 12 + 1] === 0 && m.flags[q * 4] === 63).length).toBe(0);
+    // tile 3 meets dry ground at 3; every tile at the map's south and north edges and the west end has the outside below
+    // it (the slope's sides in three pieces)
+    expect(curtains).toBeGreaterThanOrEqual(1 + 3 * 2 + 3 * 2 + 1);
     // a change of one tile's water dirties its chunk only
     const view2 = waterFromDepth(heights, [0.5, 0.5, 0.4, 0.45, 0, 0], [0, 0, 0, 0.5, 0, 0]);
     expect([...changedWaterChunks(W, H, sw, surfaceWater(W, H, view2), 0, 0)]).toEqual(["0,0"]);

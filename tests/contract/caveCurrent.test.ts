@@ -2,8 +2,8 @@
 // hill's top that flows the other way. The view's outflows are each column's own (the file's per column for an unedited
 // import, the stacked settle's after an edit: sim/stackWater.ts `columnFlows`), so the tunnel's water moves east by its
 // own outflows in the cave current's volume (caveCurrent.ts) while the trench above it moves west in the flow texture,
-// and the tunnel's fall is its own water's face where it steps down, at its own level under the roof (D201 amended
-// 2026-10-29; D148: it was the fall ribbon's pour, its column's outflow, gone with the ribbon).
+// and the tunnel's fall is the slope of its water below the step, at its own level under the roof (D154 as amended
+// 2026-11-08; D148: it was the fall ribbon's pour, then its water's own face).
 
 import { describe, expect, it } from "vitest";
 import { writeTimber, type TimberFile } from "../../src/core/format/timber";
@@ -94,7 +94,7 @@ function bake(v: MapView) {
 }
 
 describe("water under water flows by its own column (3D view, part 4)", () => {
-  it("an unedited import: every column's outflows its own, the tunnel's current east under the trench's west, its fall its own face", () => {
+  it("an unedited import: every column's outflows its own, the tunnel's current east under the trench's west, its fall the slope of the water below", () => {
     const v = openTimber(file({ east: 0.4, west: 0.3 }), "tunnel.timber").view;
     // the view: each column its own outflows (the file's per column), never its roof's
     for (const y of ROWS)
@@ -118,26 +118,35 @@ describe("water under water flows by its own column (3D view, part 4)", () => {
       const t = caveCurrentCell(W, H, cave, x + 0.5, 5.5, 7.495);
       if (t >= 0) expect(cave.data[t * 4 + 3]).toBe(0);
     }
-    // the tunnel's fall at its step (x 15 → 16): its water's own face, from its surface (4.5) down to the water below
-    // (3.6), under the trench's water
+    // the tunnel's fall at its step (x 15 → 16): the slope of the water below, as the game's CalculateHeights (D154 as
+    // amended 2026-11-08; D148: it was its water's own face), rising from its own surface (3.6) to the tunnel's above
+    // it (4.5) at x = 16, at its own level under the trench's water; no face of its own
     const sw = surfaceWater(W, H, v.water);
     const layers = waterLayers(W, H, v.heights, columnMap(v.columns), v.water, sw);
     const { nx, ny } = chunkCount(W, H);
-    const faces: [number, number][] = [];
+    const faces: number[] = [];
+    const top = new Map<number, number>();
     for (let cy = 0; cy < ny; cy++)
       for (let cx = 0; cx < nx; cx++) {
         const m = meshWaterChunk(W, H, layers, cx, cy);
         for (let q = 0; q < m.quads; q++) {
           const p = m.positions.subarray(q * 12, q * 12 + 12);
-          if (m.normals[q * 12] !== 127 || Math.abs(p[0] - 16) > 0.05) continue;
-          faces.push([Math.max(p[1], p[4], p[7], p[10]), Math.min(p[1], p[4], p[7], p[10])]);
+          if (m.normals[q * 12] === 127 && Math.abs(p[0] - 16) < 0.05) faces.push(q);
+          if (m.normals[q * 12 + 1] !== 127) continue;
+          for (let k = 0; k < 4; k++) {
+            const x = p[k * 3];
+            const y = p[k * 3 + 1];
+            const z = p[k * 3 + 2];
+            if (y > 6 || -z < 5 || -z > 7 || x < 15.9 || x > 17.1) continue;
+            const key = Math.round(x * 3);
+            top.set(key, Math.max(top.get(key) ?? -Infinity, y));
+          }
         }
       }
-    expect(faces.length, "the tunnel's fall").toBeGreaterThan(0);
-    for (const [top, bottom] of faces) {
-      expect(top).toBeCloseTo(4.5, 5);
-      expect(bottom).toBeCloseTo(3.6, 5);
-    }
+    expect(faces, "no face of its own").toEqual([]);
+    expect(top.get(48), "the slope's edge: the tunnel's surface above it").toBeCloseTo(4.5, 5);
+    expect(top.get(49), "a third in: 0.3 under it").toBeCloseTo(4.2, 5);
+    expect(top.get(50), "two thirds in: its own surface").toBeCloseTo(3.6, 5);
   });
 
   it("an edited map: the stacked settle's outflows on every column, the tunnel's east and the trench's west", () => {

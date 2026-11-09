@@ -8,10 +8,12 @@
 //   each water update on the page's thread): each face's net flow, averaged over the
 //   tile's two opposite faces and divided by the water's depth. It is the simulation's balanced
 //   momentum, not an exact transport flux, and there is no estimate from the surface's slope: water
-//   without outflows is still; a fall's face carries its detail by the current over its lip (materials.ts).
+//   without outflows is still; a fall's slope takes the current over its lip, as the game's FindBestProperties hands it
+//   (fallSlope.ts `handOver`, `gameFlowOf`).
 // Only drawn, never fed back into the water, a map or an operation.
 
 import type { SurfaceWater, WaterView } from "./model";
+import { handOver } from "./fallSlope";
 
 /** Below this depth a column has no current (a film of water). */
 const SHALLOW = 0.001;
@@ -60,9 +62,10 @@ export function currentOf(W: number, H: number, out: ArrayLike<number>, depth: A
  *  outflows, right less left and down the rows less up them (decompiled `Timberborn.WaterSystem`
  *  `GetFlowVectorAtTop`), ÷ `maxOutflow` (14, `Timberborn.WaterSystemRendering` `MaxOutflow`), then averaged with
  *  the wet tiles round it, as the game's vertex averages its column's with its linked neighbours' (the texture's
- *  filtering then blends it across the tile as the triangles do). Two a tile, x then y; zero where dry. */
-export function gameFlowOf(W: number, H: number, out: ArrayLike<number>, depth: ArrayLike<number>, maxOutflow: number): Float32Array {
-  const own = new Float32Array(W * H * 2);
+ *  filtering then blends it across the tile as the triangles do). With `falls` (the water's surfaces), a fall's slope
+ *  first takes the fall's outflow, as the game's FindBestProperties hands it on. Two a tile, x then y; zero where dry. */
+export function gameFlowOf(W: number, H: number, out: ArrayLike<number>, depth: ArrayLike<number>, maxOutflow: number, falls?: Pick<SurfaceWater, "surface" | "depth">): Float32Array {
+  let own = new Float32Array(W * H * 2);
   for (let i = 0; i < W * H; i++) {
     if (!(depth[i] > SHALLOW)) continue;
     const o = i * 4;
@@ -72,6 +75,14 @@ export function gameFlowOf(W: number, H: number, out: ArrayLike<number>, depth: 
       own[i * 2] = x;
       own[i * 2 + 1] = y;
     }
+  }
+  // (with `falls`, the water's surfaces: the water below a step takes the outflow of its highest neighbour over it by
+  // saturate(the rise), as the game's FindBestProperties hands it on, so a fall's slope runs with the fall's current,
+  // fallSlope.ts `handOver`)
+  if (falls) {
+    const handed = new Float32Array(W * H * 2);
+    handOver(W, H, falls, own, handed, 2, false);
+    own = handed;
   }
   const f = new Float32Array(W * H * 2);
   for (let y = 0; y < H; y++)
